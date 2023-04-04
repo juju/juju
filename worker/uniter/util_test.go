@@ -6,7 +6,6 @@ package uniter_test
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -17,7 +16,7 @@ import (
 	"time"
 
 	pebbleclient "github.com/canonical/pebble/client"
-	corecharm "github.com/juju/charm/v8"
+	corecharm "github.com/juju/charm/v9"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -32,6 +31,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/agent/secretsmanager"
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/core/instance"
@@ -41,8 +41,12 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/juju/testing"
+	jujusecrets "github.com/juju/juju/secrets"
+	_ "github.com/juju/juju/secrets/provider/all"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
@@ -90,12 +94,12 @@ func assertAssignUnit(c *gc.C, st *state.State, u *state.Unit) {
 func assertAssignUnitLXDContainer(c *gc.C, st *state.State, u *state.Unit) {
 	machine, err := st.AddMachineInsideNewMachine(
 		state.MachineTemplate{
-			Series: "quantal",
-			Jobs:   []state.MachineJob{state.JobHostUnits},
+			Base: state.UbuntuBase("12.10"),
+			Jobs: []state.MachineJob{state.JobHostUnits},
 		},
 		state.MachineTemplate{ // parent
-			Series: "quantal",
-			Jobs:   []state.MachineJob{state.JobHostUnits},
+			Base: state.UbuntuBase("12.10"),
+			Jobs: []state.MachineJob{state.JobHostUnits},
 		},
 		instance.LXD,
 	)
@@ -127,13 +131,18 @@ type testContext struct {
 	application            *state.Application
 	unit                   *state.Unit
 	uniter                 *uniter.Uniter
-	relatedSvc             *state.Application
+	relatedApplication     *state.Application
 	relation               *state.Relation
 	relationUnits          map[string]*state.RelationUnit
 	subordinate            *state.Unit
+	createdSecretURI       *secrets.URI
 	updateStatusHookTicker *manualTicker
 	containerNames         []string
 	pebbleClients          map[string]*fakePebbleClient
+	secretsRotateCh        chan []string
+	secretsExpireCh        chan []string
+	secretsClient          *secretsmanager.Client
+	secretsStore           jujusecrets.Backend
 	err                    string
 
 	mu             sync.Mutex
@@ -210,6 +219,9 @@ func (ctx *testContext) apiLogin(c *gc.C) {
 	ctx.apiConn = apiConn
 	ctx.leaderTracker = newMockLeaderTracker(ctx)
 	ctx.leaderTracker.setLeader(c, true)
+	ctx.secretsClient = secretsmanager.NewClient(apiConn)
+	ctx.secretsStore, err = jujusecrets.NewClient(ctx.secretsClient)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (ctx *testContext) matchHooks(c *gc.C) (match, cannotMatch, overshoot bool) {
@@ -581,6 +593,20 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 			}
 			return client, nil
 		},
+		SecretRotateWatcherFunc: func(u names.UnitTag, isLeader bool, secretsChanged chan []string) (worker.Worker, error) {
+			c.Assert(u.String(), gc.Equals, s.unitTag)
+			ctx.secretsRotateCh = secretsChanged
+			return watchertest.NewMockStringsWatcher(ctx.secretsRotateCh), nil
+		},
+		SecretExpiryWatcherFunc: func(u names.UnitTag, isLeader bool, secretsChanged chan []string) (worker.Worker, error) {
+			c.Assert(u.String(), gc.Equals, s.unitTag)
+			ctx.secretsExpireCh = secretsChanged
+			return watchertest.NewMockStringsWatcher(ctx.secretsExpireCh), nil
+		},
+		SecretsClient: ctx.secretsClient,
+		SecretsBackendGetter: func() (jujusecrets.Backend, error) {
+			return ctx.secretsStore, nil
+		},
 	}
 	ctx.uniter, err = uniter.NewUniter(&uniterParams)
 	c.Assert(err, jc.ErrorIsNil)
@@ -625,7 +651,6 @@ func (s waitUniterDead) waitDead(c *gc.C, ctx *testContext) error {
 		wait <- u.Wait()
 	}()
 
-	ctx.s.BackingState.StartSync()
 	select {
 	case err := <-wait:
 		return err
@@ -785,7 +810,7 @@ func (s waitUnitAgent) step(c *gc.C, ctx *testContext) {
 	}
 	timeout := time.After(worstCase)
 	for {
-		ctx.s.BackingState.StartSync()
+
 		select {
 		case <-time.After(coretesting.ShortWait):
 			err := ctx.unit.Refresh()
@@ -855,7 +880,7 @@ type waitHooks []string
 func (s waitHooks) step(c *gc.C, ctx *testContext) {
 	if len(s) == 0 {
 		// Give unwanted hooks a moment to run...
-		ctx.s.BackingState.StartSync()
+
 		time.Sleep(coretesting.ShortWait)
 	}
 	ctx.hooks = append(ctx.hooks, s...)
@@ -894,7 +919,6 @@ func (s waitHooks) step(c *gc.C, ctx *testContext) {
 	}
 	timeout := time.After(worstCase)
 	for {
-		ctx.s.BackingState.StartSync()
 		select {
 		case <-time.After(coretesting.ShortWait):
 			if match, cannotMatch, _ = ctx.matchHooks(c); match {
@@ -991,7 +1015,7 @@ func (s addAction) step(c *gc.C, ctx *testContext) {
 	c.Assert(err, jc.ErrorIsNil)
 	operationID, err := m.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = m.EnqueueAction(operationID, ctx.unit.Tag(), s.name, s.params, nil)
+	_, err = m.EnqueueAction(operationID, ctx.unit.Tag(), s.name, s.params, false, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1023,7 +1047,7 @@ type verifyCharm struct {
 func (s verifyCharm) step(c *gc.C, ctx *testContext) {
 	s.checkFiles.Check(c, filepath.Join(ctx.path, "charm"))
 	path := filepath.Join(ctx.path, "charm", "revision")
-	content, err := ioutil.ReadFile(path)
+	content, err := os.ReadFile(path)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, strconv.Itoa(s.revision))
 	checkRevision := s.revision
@@ -1144,8 +1168,8 @@ func (s addRelation) step(c *gc.C, ctx *testContext) {
 	if ctx.relation != nil {
 		panic("don't add two relations!")
 	}
-	if ctx.relatedSvc == nil {
-		ctx.relatedSvc = ctx.s.AddTestingApplication(c, "mysql", ctx.s.AddTestingCharm(c, "mysql"))
+	if ctx.relatedApplication == nil {
+		ctx.relatedApplication = ctx.s.AddTestingApplication(c, "mysql", ctx.s.AddTestingCharm(c, "mysql"))
 	}
 	eps, err := ctx.st.InferEndpoints(ctx.application.Name(), "mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1179,7 +1203,7 @@ func (s addRelation) step(c *gc.C, ctx *testContext) {
 type addRelationUnit struct{}
 
 func (s addRelationUnit) step(c *gc.C, ctx *testContext) {
-	u, err := ctx.relatedSvc.AddUnit(state.AddUnitParams{})
+	u, err := ctx.relatedApplication.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := ctx.relation.Unit(u)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1268,7 +1292,7 @@ type waitSubordinateExists struct {
 func (s waitSubordinateExists) step(c *gc.C, ctx *testContext) {
 	timeout := time.After(worstCase)
 	for {
-		ctx.s.BackingState.StartSync()
+
 		select {
 		case <-timeout:
 			c.Fatalf("subordinate was not created")
@@ -1289,7 +1313,7 @@ type waitSubordinateDying struct{}
 func (waitSubordinateDying) step(c *gc.C, ctx *testContext) {
 	timeout := time.After(worstCase)
 	for {
-		ctx.s.BackingState.StartSync()
+
 		select {
 		case <-timeout:
 			c.Fatalf("subordinate was not made Dying")
@@ -1324,7 +1348,7 @@ func (s writeFile) step(c *gc.C, ctx *testContext) {
 	dir := filepath.Dir(path)
 	err := os.MkdirAll(dir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(path, nil, s.mode)
+	err = os.WriteFile(path, nil, s.mode)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1545,12 +1569,11 @@ func (s setLeaderSettings) step(c *gc.C, ctx *testContext) {
 	// about getting an API conn for whatever unit's meant to be leader.
 	err := ctx.application.UpdateLeaderSettings(successToken{}, s)
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.s.BackingState.StartSync()
 }
 
 type successToken struct{}
 
-func (successToken) Check(int, interface{}) error {
+func (successToken) Check() error {
 	return nil
 }
 
@@ -1620,6 +1643,87 @@ func (s verifyStorageDetached) step(c *gc.C, ctx *testContext) {
 	storageAttachments, err := sb.UnitStorageAttachments(ctx.unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 0)
+}
+
+func ptr[T any](v T) *T {
+	return &v
+}
+
+type createSecret struct {
+	applicationName string
+}
+
+func (s createSecret) step(c *gc.C, ctx *testContext) {
+	if s.applicationName == "" {
+		s.applicationName = "u"
+	}
+
+	uri := secrets.NewURI()
+	store := state.NewSecrets(ctx.st)
+	_, err := store.CreateSecret(uri, state.CreateSecretParams{
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(time.Now().Add(time.Hour)),
+			Data:           map[string]string{"foo": "bar"},
+		},
+		Owner: names.NewApplicationTag(s.applicationName),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	appTag := names.NewApplicationTag(s.applicationName)
+	err = ctx.st.GrantSecretAccess(uri, state.SecretAccessParams{
+		LeaderToken: &fakeToken{},
+		Scope:       appTag,
+		Subject:     appTag,
+		Role:        secrets.RoleManage,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	ctx.createdSecretURI = uri
+}
+
+type fakeToken struct{}
+
+func (t *fakeToken) Check() error {
+	return nil
+}
+
+type changeSecret struct{}
+
+func (s changeSecret) step(c *gc.C, ctx *testContext) {
+	store := state.NewSecrets(ctx.st)
+	_, err := store.UpdateSecret(ctx.createdSecretURI, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "bar2"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type getSecret struct{}
+
+func (s getSecret) step(c *gc.C, ctx *testContext) {
+	val, err := ctx.secretsStore.GetContent(ctx.createdSecretURI, "foorbar", false, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar"})
+}
+
+type rotateSecret struct{}
+
+func (s rotateSecret) step(c *gc.C, ctx *testContext) {
+	select {
+	case ctx.secretsRotateCh <- []string{ctx.createdSecretURI.String()}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("sending rotate secret change for %q", ctx.createdSecretURI)
+	}
+}
+
+type expireSecret struct{}
+
+func (s expireSecret) step(c *gc.C, ctx *testContext) {
+	select {
+	case ctx.secretsExpireCh <- []string{ctx.createdSecretURI.String() + "/1"}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf(`sending expire secret change for "%s/1"`, ctx.createdSecretURI)
+	}
 }
 
 type expectError struct {

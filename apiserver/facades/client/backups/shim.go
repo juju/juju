@@ -5,11 +5,12 @@ package backups
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 )
@@ -26,13 +27,14 @@ type stateShim struct {
 	*state.Model
 }
 
-// MachineSeries implements backups.Backend
-func (s *stateShim) MachineSeries(id string) (string, error) {
+// MachineBase implements backups.Backend
+func (s *stateShim) MachineBase(id string) (series.Base, error) {
 	m, err := s.State.Machine(id)
 	if err != nil {
-		return "", errors.Trace(err)
+		return series.Base{}, errors.Trace(err)
 	}
-	return m.Series(), nil
+	mBase := m.Base()
+	return series.ParseBase(mBase.OS, mBase.Channel)
 }
 
 // ControllerTag disambiguates the ControllerTag method pending further
@@ -89,8 +91,8 @@ type Machine interface {
 	// Tag has machine's tag.
 	Tag() names.Tag
 
-	// Series has machine's series.
-	Series() string
+	// Base has machine's base.
+	Base() state.Base
 }
 
 type sessionShim struct {

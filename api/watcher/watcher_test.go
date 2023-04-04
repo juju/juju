@@ -19,12 +19,14 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/agent/migrationminion"
+	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/controller/crossmodelrelations"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -89,7 +91,7 @@ func (s *watcherSuite) TestWatchMachine(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 
 	w := watcher.NewNotifyWatcher(s.stateAPI, result)
-	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
 	wc.AssertOneChange()
 }
@@ -105,7 +107,7 @@ func (s *watcherSuite) TestNotifyWatcherStopsWithPendingSend(c *gc.C) {
 
 	// params.NotifyWatcher conforms to the watcher.NotifyWatcher interface
 	w := watcher.NewNotifyWatcher(s.stateAPI, result)
-	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	wc.AssertStops()
 }
 
@@ -141,7 +143,7 @@ func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
 
 	// Start a StringsWatcher and check the initial event.
 	w := watcher.NewStringsWatcher(s.stateAPI, result)
-	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
 	wc.AssertChange("mysql/0", "logging/0")
@@ -173,7 +175,7 @@ func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
 
 	// Start a StringsWatcher and check the initial event.
 	w := watcher.NewStringsWatcher(s.stateAPI, result)
-	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Create an application, deploy a unit of it on the machine.
@@ -225,7 +227,6 @@ func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 		}
 
 		// ...and that its channel hasn't been closed.
-		s.BackingState.StartSync()
 		select {
 		case change, ok := <-w.Changes():
 			c.Fatalf("watcher sent unexpected change: (%#v, %v)", change, ok)
@@ -235,7 +236,6 @@ func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 	}()
 
 	// Check initial event;
-	s.BackingState.StartSync()
 	select {
 	case changes, ok := <-w.Changes():
 		c.Assert(ok, jc.IsTrue)
@@ -248,7 +248,6 @@ func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 	}
 
 	// check no subsequent event.
-	s.BackingState.StartSync()
 	select {
 	case <-w.Changes():
 		c.Fatalf("received unexpected change")
@@ -456,7 +455,6 @@ func (s *watcherSuite) setupOfferStatusWatch(
 	}
 
 	assertNoChange := func() {
-		s.BackingState.StartSync()
 		select {
 		case _, ok := <-w.Changes():
 			c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
@@ -465,7 +463,6 @@ func (s *watcherSuite) setupOfferStatusWatch(
 	}
 
 	assertChange := func(status status.Status, message string) {
-		s.BackingState.StartSync()
 		select {
 		case changes, ok := <-w.Changes():
 			c.Check(ok, jc.IsTrue)
@@ -510,18 +507,223 @@ func (s *watcherSuite) TestOfferStatusWatcher(c *gc.C) {
 	assertNoChange()
 }
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
+func (s *watcherSuite) setupSecretRotationWatcher(
+	c *gc.C,
+) (*secrets.URI, func(corewatcher.SecretTriggerChange), func(), func()) {
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "mysql"})
+	unit, password := s.Factory.MakeUnitReturningPassword(c, &factory.UnitParams{
+		Application: app,
+	})
+	store := state.NewSecrets(s.State)
+	uri := secrets.NewURI()
+	nexRotateTime := time.Now().Add(time.Hour)
+	_, err := store.CreateSecret(uri, state.CreateSecretParams{
+		Owner: unit.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(nexRotateTime),
+			Data:           map[string]string{"foo": "bar"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+
+	apiInfo := s.APIInfo(c)
+	apiInfo.Tag = unit.Tag()
+	apiInfo.Password = password
+	apiInfo.ModelTag = s.Model.ModelTag()
+
+	apiConn, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	client := secretsmanager.NewClient(apiConn)
+	w, err := client.WatchSecretsRotationChanges(unit.Tag())
+	if !c.Check(err, jc.ErrorIsNil) {
+		_ = apiConn.Close()
+		c.FailNow()
+	}
+	stop := func() {
+		workertest.CleanKill(c, w)
+		_ = apiConn.Close()
+	}
+
+	assertNoChange := func() {
+		select {
+		case _, ok := <-w.Changes():
+			c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
+		case <-time.After(coretesting.ShortWait):
+		}
+	}
+
+	assertChange := func(change corewatcher.SecretTriggerChange) {
+		select {
+		case changes, ok := <-w.Changes():
+			c.Check(ok, jc.IsTrue)
+			c.Assert(changes, gc.HasLen, 1)
+			c.Assert(changes[0], jc.DeepEquals, change)
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("watcher didn't emit an event")
+		}
+	}
+
+	// Initial event.
+	assertChange(corewatcher.SecretTriggerChange{
+		URI:             uri,
+		NextTriggerTime: nexRotateTime.Round(time.Second).UTC(),
+	})
+	return uri, assertChange, assertNoChange, stop
+}
+
+type fakeToken struct{}
+
+func (t *fakeToken) Check() error {
+	return nil
+}
+
+func (s *watcherSuite) TestSecretsRotationWatcher(c *gc.C) {
+	uri, assertChange, assertNoChange, stop := s.setupSecretRotationWatcher(c)
+	defer stop()
+
+	store := state.NewSecrets(s.State)
+
+	nexRotateTime := time.Now().Add(24 * time.Hour).Round(time.Second)
+	_, err := store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken:    &fakeToken{},
+		NextRotateTime: ptr(nexRotateTime),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertChange(corewatcher.SecretTriggerChange{
+		URI:             uri,
+		NextTriggerTime: nexRotateTime,
+	})
+	assertNoChange()
+
+	_, err = store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken:  &fakeToken{},
+		RotatePolicy: ptr(secrets.RotateNever),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertChange(corewatcher.SecretTriggerChange{
+		URI:             uri,
+		NextTriggerTime: time.Time{},
+	})
+	assertNoChange()
+}
+
+func (s *watcherSuite) setupSecretExpiryWatcher(
+	c *gc.C,
+) (*secrets.URI, func(corewatcher.SecretTriggerChange), func(), func()) {
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "mysql"})
+	unit, password := s.Factory.MakeUnitReturningPassword(c, &factory.UnitParams{
+		Application: app,
+	})
+	store := state.NewSecrets(s.State)
+	uri := secrets.NewURI()
+	nexRotateTime := time.Now().Add(time.Hour)
+	_, err := store.CreateSecret(uri, state.CreateSecretParams{
+		Owner: unit.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(nexRotateTime),
+			Data:           map[string]string{"foo": "bar"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+
+	apiInfo := s.APIInfo(c)
+	apiInfo.Tag = unit.Tag()
+	apiInfo.Password = password
+	apiInfo.ModelTag = s.Model.ModelTag()
+
+	apiConn, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	client := secretsmanager.NewClient(apiConn)
+	w, err := client.WatchSecretsRotationChanges(unit.Tag())
+	if !c.Check(err, jc.ErrorIsNil) {
+		_ = apiConn.Close()
+		c.FailNow()
+	}
+	stop := func() {
+		workertest.CleanKill(c, w)
+		_ = apiConn.Close()
+	}
+
+	assertNoChange := func() {
+		select {
+		case _, ok := <-w.Changes():
+			c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
+		case <-time.After(coretesting.ShortWait):
+		}
+	}
+
+	assertChange := func(change corewatcher.SecretTriggerChange) {
+		select {
+		case changes, ok := <-w.Changes():
+			c.Check(ok, jc.IsTrue)
+			c.Assert(changes, gc.HasLen, 1)
+			c.Assert(changes[0], jc.DeepEquals, change)
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("watcher didn't emit an event")
+		}
+	}
+
+	// Initial event.
+	assertChange(corewatcher.SecretTriggerChange{
+		URI:             uri,
+		NextTriggerTime: nexRotateTime.Round(time.Second).UTC(),
+	})
+	return uri, assertChange, assertNoChange, stop
+}
+
+func (s *watcherSuite) TestSecretsExpiryWatcher(c *gc.C) {
+	uri, assertChange, assertNoChange, stop := s.setupSecretExpiryWatcher(c)
+	defer stop()
+
+	store := state.NewSecrets(s.State)
+
+	nexRotateTime := time.Now().Add(24 * time.Hour).Round(time.Second)
+	_, err := store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken:    &fakeToken{},
+		NextRotateTime: ptr(nexRotateTime),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertChange(corewatcher.SecretTriggerChange{
+		URI:             uri,
+		NextTriggerTime: nexRotateTime,
+	})
+	assertNoChange()
+
+	_, err = store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken:  &fakeToken{},
+		RotatePolicy: ptr(secrets.RotateNever),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertChange(corewatcher.SecretTriggerChange{
+		URI:             uri,
+		NextTriggerTime: time.Time{},
+	})
+	assertNoChange()
+}
+
 type migrationSuite struct {
 	testing.JujuConnSuite
 }
 
 var _ = gc.Suite(&migrationSuite{})
-
-func (s *migrationSuite) startSync(c *gc.C, st *state.State) {
-	backingSt, err := s.StatePool.Get(st.ModelUUID())
-	c.Assert(err, jc.ErrorIsNil)
-	backingSt.StartSync()
-	backingSt.Release()
-}
 
 func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 	const nonce = "noncey"
@@ -560,7 +762,6 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 	}()
 
 	assertNoChange := func() {
-		s.startSync(c, hostedState)
 		select {
 		case _, ok := <-w.Changes():
 			c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
@@ -569,7 +770,6 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 	}
 
 	assertChange := func(id string, phase migration.Phase) {
-		s.startSync(c, hostedState)
 		select {
 		case status, ok := <-w.Changes():
 			c.Assert(ok, jc.IsTrue)

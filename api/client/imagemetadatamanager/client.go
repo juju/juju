@@ -41,7 +41,6 @@ func (c *Client) List(
 	}
 	in := params.ImageMetadataFilter{
 		Region:          region,
-		Series:          series,
 		Versions:        versions,
 		Arches:          arches,
 		Stream:          stream,

@@ -19,52 +19,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Charms", 2, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV2(ctx)
-	}, reflect.TypeOf((*APIv2)(nil)))
-	registry.MustRegister("Charms", 3, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV3(ctx)
-	}, reflect.TypeOf((*APIv3)(nil)))
-	registry.MustRegister("Charms", 4, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV4(ctx)
-	}, reflect.TypeOf((*APIv4)(nil)))
 	registry.MustRegister("Charms", 5, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV5(ctx)
+		return newFacade(ctx)
 	}, reflect.TypeOf((*API)(nil)))
 }
 
-// newFacadeV2 provides the signature required for facade V2 registration.
-// It is unknown where V1 is.
-func newFacadeV2(ctx facade.Context) (*APIv2, error) {
-	v3, err := newFacadeV3(ctx)
-	if err != nil {
-		return nil, nil
-	}
-	return &APIv2{
-		APIv3: v3,
-	}, nil
-}
-
-// newFacadeV3 provides the signature required for facade V3 registration.
-func newFacadeV3(ctx facade.Context) (*APIv3, error) {
-	api, err := newFacadeV4(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv3{APIv4: api}, nil
-}
-
-// newFacadeV4 provides the signature required for facade V4 registration.
-func newFacadeV4(ctx facade.Context) (*APIv4, error) {
-	api, err := newFacadeV5(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv4{API: api}, nil
-}
-
-// newFacadeV5 provides the signature required for facade V5 registration.
-func newFacadeV5(ctx facade.Context) (*API, error) {
+// newFacade provides the signature required for facade registration.
+func newFacade(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -83,10 +44,11 @@ func newFacadeV5(ctx facade.Context) (*API, error) {
 	}
 
 	return &API{
-		charmInfoAPI: charmInfoAPI,
-		authorizer:   authorizer,
-		backendState: newStateShim(st),
-		backendModel: m,
+		charmInfoAPI:       charmInfoAPI,
+		authorizer:         authorizer,
+		backendState:       newStateShim(st),
+		backendModel:       m,
+		charmhubHTTPClient: ctx.HTTPClient(facade.CharmhubHTTPClient),
 		newStorage: func(modelUUID string) services.Storage {
 			return storage.NewStorage(modelUUID, st.MongoSession())
 		},

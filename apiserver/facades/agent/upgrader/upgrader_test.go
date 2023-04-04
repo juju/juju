@@ -46,10 +46,10 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	var err error
 	// The first machine created is the only one allowed to
 	// JobManageModel
-	s.apiMachine, err = s.State.AddMachine("quantal", state.JobHostUnits,
+	s.apiMachine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits,
 		state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	s.rawMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	s.rawMachine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The default auth is as the machine agent
@@ -89,7 +89,7 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	c.Check(resource, gc.NotNil)
 
 	w := resource.(state.NotifyWatcher)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertNoChange()
 
 	err = statetesting.SetAgentVersion(s.State, version.MustParse("3.4.567.8"))
@@ -120,7 +120,7 @@ func (s *upgraderSuite) TestWatchAPIVersionApplication(c *gc.C) {
 	c.Check(resource, gc.NotNil)
 
 	w := resource.(state.NotifyWatcher)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertNoChange()
 
 	err = statetesting.SetAgentVersion(s.State, version.MustParse("3.4.567.8"))
@@ -154,7 +154,7 @@ func (s *upgraderSuite) TestWatchAPIVersionUnit(c *gc.C) {
 	c.Check(resource, gc.NotNil)
 
 	w := resource.(state.NotifyWatcher)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertNoChange()
 
 	err = statetesting.SetAgentVersion(s.State, version.MustParse("3.4.567.8"))
@@ -187,7 +187,7 @@ func (s *upgraderSuite) TestWatchAPIVersionControllerAgent(c *gc.C) {
 	c.Check(resource, gc.NotNil)
 
 	w := resource.(state.NotifyWatcher)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertNoChange()
 
 	err = statetesting.SetAgentVersion(s.State, version.MustParse("3.4.567.8"))

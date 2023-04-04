@@ -109,7 +109,7 @@ def deploy_dummy_stack(client, charm_series, use_charmstore=False):
             platform=platform)
     client.deploy(dummy_source, series=charm_series)
     client.deploy(dummy_sink, series=charm_series)
-    client.juju('add-relation', ('dummy-source', 'dummy-sink'))
+    client.juju('integrate', ('dummy-source', 'dummy-sink'))
     client.juju('expose', ('dummy-sink',))
     if client.env.kvm or client.env.maas:
         # A single virtual machine may need up to 30 minutes before
@@ -445,18 +445,19 @@ def copy_remote_logs(remote, directory):
                 logging.warning(repr(e))
 
 
-def assess_juju_run(client):
-    responses = client.run(('uname',),
-                           applications=['dummy-source', 'dummy-sink'])
-    for machine in responses:
-        if machine.get('ReturnCode', 0) != 0:
-            raise ValueError('juju run on machine %s returned %d: %s' % (
-                machine.get('MachineId'),
-                machine.get('ReturnCode'),
-                machine.get('Stderr')))
+# NOTE: Since juju 3, "juju run" has been renamed to "juju exec"
+def assess_juju_exec(client):
+    responses = client.exec_cmds(('uname',),
+                                 applications=['dummy-source', 'dummy-sink'])
+    for response in responses.values():
+        if response.get('results').get('return-code'):
+            raise ValueError('juju exec on unit %s returned %d: %s' % (
+                response.get('unit'),
+                response.get('return-code'),
+                response.get('results').get('stderr')))
     logging.info(
-        "juju run succeeded on machines: %r",
-        [str(machine.get("MachineId")) for machine in responses])
+        "juju exec succeeded on units: %r",
+        [str(response.get("unit")) for response in responses.values()])
     return responses
 
 
@@ -638,10 +639,14 @@ class CreateController:
 
     def tear_down(self, has_controller):
         """Tear down via client.tear_down."""
-        if has_controller:
-            self.tear_down_client.tear_down()
-        else:
-            self.tear_down_client.kill_controller(check=True)
+        try:
+            if has_controller:
+                self.tear_down_client.tear_down()
+            else:
+                self.tear_down_client.kill_controller(check=True)
+        except:
+            safe_print_status(self.client)
+            pass
 
 
 class ExistingController:
@@ -1310,16 +1315,16 @@ def _deploy_job(args, charm_series, series):
             deploy_dummy_stack(client, charm_series, args.use_charmstore)
         assess_juju_relations(client)
         is_win_or_mac = sys.platform in ("win32", "darwin")
-        skip_juju_run = ((client.version < "2" and is_win_or_mac)
+        skip_juju_exec = ((client.version < "2" and is_win_or_mac)
                          or charm_series.startswith(("centos", "win")))
-        if not skip_juju_run:
-            assess_juju_run(client)
+        if not skip_juju_exec:
+            assess_juju_exec(client)
         if args.upgrade:
             client.show_status()
             assess_upgrade(client, args.juju_bin)
             assess_juju_relations(client)
-            if not skip_juju_run:
-                assess_juju_run(client)
+            if not skip_juju_exec:
+                assess_juju_exec(client)
 
 
 def safe_print_status(client):

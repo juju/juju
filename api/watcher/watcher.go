@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc"
@@ -877,5 +878,101 @@ func (w *migrationStatusWatcher) loop() error {
 // Changes returns a channel that reports the latest status of the
 // migration of a model.
 func (w *migrationStatusWatcher) Changes() <-chan watcher.MigrationStatus {
+	return w.out
+}
+
+// secretsTriggerWatcher will send notifications of changes to secret trigger times.
+type secretsTriggerWatcher struct {
+	commonWatcher
+	caller    base.APICaller
+	apiFacade string
+	watcherId string
+	out       chan []watcher.SecretTriggerChange
+}
+
+// NewSecretsTriggerWatcher returns a new secrets trigger watcher.
+func NewSecretsTriggerWatcher(
+	caller base.APICaller, result params.SecretTriggerWatchResult,
+) watcher.SecretTriggerWatcher {
+	w := &secretsTriggerWatcher{
+		caller:    caller,
+		apiFacade: "SecretsTriggerWatcher",
+		watcherId: result.WatcherId,
+		out:       make(chan []watcher.SecretTriggerChange),
+	}
+	w.newResult = func() interface{} { return new(params.SecretTriggerWatchResult) }
+	w.tomb.Go(func() error {
+		return w.loop(result.Changes)
+	})
+	return w
+}
+
+// mergeChanges combines the changes in current and newChanges, such that we end up with
+// only one change per trigger change in the result; the most recent change wins.
+func (w *secretsTriggerWatcher) mergeChanges(current, newChanges []watcher.SecretTriggerChange) []watcher.SecretTriggerChange {
+	chMap := make(map[string]watcher.SecretTriggerChange)
+	for _, c := range current {
+		chMap[c.URI.String()] = c
+	}
+	for _, c := range newChanges {
+		chMap[c.URI.String()] = c
+	}
+	result := make([]watcher.SecretTriggerChange, len(chMap))
+	i := 0
+	for _, c := range chMap {
+		result[i] = c
+		i++
+	}
+	return result
+}
+
+func (w *secretsTriggerWatcher) loop(initialChanges []params.SecretTriggerChange) error {
+	w.call = makeWatcherAPICaller(w.caller, w.apiFacade, w.watcherId)
+	w.commonWatcher.init()
+	go w.commonLoop()
+
+	copyChanges := func(changes []params.SecretTriggerChange) []watcher.SecretTriggerChange {
+		result := make([]watcher.SecretTriggerChange, len(changes))
+		for i, ch := range changes {
+			uri, err := secrets.ParseURI(ch.URI)
+			if err != nil {
+				logger.Errorf("ignoring invalid secret URI: %q", ch.URI)
+				continue
+			}
+			result[i] = watcher.SecretTriggerChange{
+				URI:             uri,
+				Revision:        ch.Revision,
+				NextTriggerTime: ch.NextTriggerTime,
+			}
+		}
+		return result
+	}
+	out := w.out
+	changes := copyChanges(initialChanges)
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		// Read the next change.
+		case data, ok := <-w.in:
+			if !ok {
+				// The tomb is already killed with the correct error
+				// at this point, so just return.
+				return nil
+			}
+			newChanges := copyChanges(data.(*params.SecretTriggerWatchResult).Changes)
+			changes = w.mergeChanges(changes, newChanges)
+			out = w.out
+		case out <- changes:
+			out = nil
+			changes = nil
+		}
+	}
+}
+
+// Changes returns a channel that will receive the changes to
+// a secret trigger. The first event reflects the current
+// values of these attributes.
+func (w *secretsTriggerWatcher) Changes() watcher.SecretTriggerChannel {
 	return w.out
 }

@@ -121,6 +121,7 @@ type Spec struct {
 	NoCancel bool
 	Worker   string
 	Comment  string
+	Group    string
 }
 
 // Validate ensures that a Cancel channel and a Worker name are defined.
@@ -157,9 +158,12 @@ func (c *lock) Acquire(spec Spec) (func(), error) {
 
 	mSpec := c.spec
 	mSpec.Cancel = spec.Cancel
+	if spec.Group != "" {
+		mSpec.Name = fmt.Sprintf("%s-%s", mSpec.Name, spec.Group)
+	}
 
 	c.mu.Unlock()
-	c.logger.Debugf("acquire machine lock for %s (%s)", spec.Worker, spec.Comment)
+	c.logger.Debugf("acquire machine lock %q for %s (%s)", mSpec.Name, spec.Worker, spec.Comment)
 	releaser, err := c.acquire(mSpec)
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -169,7 +173,7 @@ func (c *lock) Acquire(spec Spec) (func(), error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	c.logger.Debugf("machine lock acquired for %s (%s)", spec.Worker, spec.Comment)
+	c.logger.Debugf("machine lock %q acquired for %s (%s)", mSpec.Name, spec.Worker, spec.Comment)
 	c.holder = current
 	current.acquired = c.clock.Now()
 	return func() {
@@ -183,7 +187,7 @@ func (c *lock) Acquire(spec Spec) (func(), error) {
 		// log file.
 		current.released = c.clock.Now()
 		c.writeLogEntry()
-		c.logger.Debugf("machine lock released for %s (%s)", spec.Worker, spec.Comment)
+		c.logger.Debugf("machine lock %q released for %s (%s)", mSpec.Name, spec.Worker, spec.Comment)
 		releaser.Release()
 		c.history.PushFront(current)
 		c.holder = nil

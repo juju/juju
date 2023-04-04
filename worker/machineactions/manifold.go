@@ -13,12 +13,14 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
+	"github.com/juju/juju/core/machinelock"
 )
 
 // ManifoldConfig describes the dependencies of a machine action runner.
 type ManifoldConfig struct {
 	AgentName     string
 	APICallerName string
+	MachineLock   machinelock.Lock
 
 	NewFacade func(base.APICaller) Facade
 	NewWorker func(WorkerConfig) (worker.Worker, error)
@@ -34,6 +36,7 @@ func (config ManifoldConfig) start(a agent.Agent, apiCaller base.APICaller) (wor
 	return config.NewWorker(WorkerConfig{
 		Facade:       machineActionsFacade,
 		MachineTag:   machineTag,
+		MachineLock:  config.MachineLock,
 		HandleAction: HandleAction,
 	})
 }

@@ -6,7 +6,6 @@ package caasoperator
 import (
 	"crypto/tls"
 	"encoding/pem"
-	"io/ioutil"
 	"os"
 	"path"
 	"time"
@@ -21,6 +20,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	apileadership "github.com/juju/juju/api/agent/leadership"
+	"github.com/juju/juju/api/agent/secretsmanager"
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
@@ -30,8 +30,11 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/leadership"
+	"github.com/juju/juju/worker/secretexpire"
+	"github.com/juju/juju/worker/secretrotate"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -197,6 +200,38 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					return c
 				}
 			}
+			jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
+			secretsBackendGetter := func() (secrets.Backend, error) {
+				return secrets.NewClient(jujuSecretsAPI)
+			}
+			secretRotateWatcherFunc := func(unitTag names.UnitTag, isLeader bool, rotateSecrets chan []string) (worker.Worker, error) {
+				owners := []names.Tag{unitTag}
+				if isLeader {
+					appName, _ := names.UnitApplication(unitTag.Id())
+					owners = append(owners, names.NewApplicationTag(appName))
+				}
+				return secretrotate.New(secretrotate.Config{
+					SecretManagerFacade: jujuSecretsAPI,
+					Clock:               clock,
+					Logger:              config.Logger.Child("secretsrotate"),
+					SecretOwners:        owners,
+					RotateSecrets:       rotateSecrets,
+				})
+			}
+			secretExpiryWatcherFunc := func(unitTag names.UnitTag, isLeader bool, expireRevisions chan []string) (worker.Worker, error) {
+				owners := []names.Tag{unitTag}
+				if isLeader {
+					appName, _ := names.UnitApplication(unitTag.Id())
+					owners = append(owners, names.NewApplicationTag(appName))
+				}
+				return secretexpire.New(secretexpire.Config{
+					SecretManagerFacade: jujuSecretsAPI,
+					Clock:               clock,
+					Logger:              config.Logger.Child("secretsexpire"),
+					SecretOwners:        owners,
+					ExpireRevisions:     expireRevisions,
+				})
+			}
 
 			wCfg := Config{
 				Logger:                config.Logger,
@@ -235,17 +270,21 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			wCfg.OperatorInfo = *operatorInfo
 			wCfg.UniterParams = &uniter.UniterParams{
-				NewOperationExecutor: operation.NewExecutor,
-				NewDeployer:          charm.NewDeployer,
-				NewProcessRunner:     runner.NewRunner,
-				DataDir:              agentConfig.DataDir(),
-				Clock:                clock,
-				MachineLock:          config.MachineLock,
-				CharmDirGuard:        charmDirGuard,
-				UpdateStatusSignal:   uniter.NewUpdateStatusTimer(),
-				HookRetryStrategy:    hookRetryStrategy,
-				TranslateResolverErr: config.TranslateResolverErr,
-				Logger:               wCfg.Logger.Child("uniter"),
+				NewOperationExecutor:    operation.NewExecutor,
+				NewDeployer:             charm.NewDeployer,
+				NewProcessRunner:        runner.NewRunner,
+				DataDir:                 agentConfig.DataDir(),
+				Clock:                   clock,
+				MachineLock:             config.MachineLock,
+				CharmDirGuard:           charmDirGuard,
+				UpdateStatusSignal:      uniter.NewUpdateStatusTimer(),
+				HookRetryStrategy:       hookRetryStrategy,
+				TranslateResolverErr:    config.TranslateResolverErr,
+				SecretsClient:           jujuSecretsAPI,
+				SecretsBackendGetter:    secretsBackendGetter,
+				SecretRotateWatcherFunc: secretRotateWatcherFunc,
+				SecretExpiryWatcherFunc: secretExpiryWatcherFunc,
+				Logger:                  wCfg.Logger.Child("uniter"),
 			}
 			wCfg.UniterParams.SocketConfig, err = socketConfig(operatorInfo)
 			if err != nil {
@@ -293,7 +332,7 @@ func socketConfig(info *caas.OperatorInfo) (*uniter.SocketConfig, error) {
 // LoadOperatorInfo loads the operator info file from the state dir.
 func LoadOperatorInfo(paths Paths) (*caas.OperatorInfo, error) {
 	filepath := path.Join(paths.State.BaseDir, caas.OperatorInfoFile)
-	data, err := ioutil.ReadFile(filepath)
+	data, err := os.ReadFile(filepath)
 	if err != nil {
 		return nil, errors.Annotatef(err, "reading operator info file %s", filepath)
 	}

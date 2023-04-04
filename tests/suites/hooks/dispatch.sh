@@ -15,12 +15,7 @@ run_hook_dispatching_script() {
 
 	juju debug-log --include unit-ubuntu-plus-0 | grep -q "via hook dispatching script: dispatch" || true
 
-	# run an action and retrieve the id for use in show-action-status.
-	# awk, change the separator to " and get the 2nd value.
-	# e.g Action queued with id: "2"
-	# yields: 2
-	action_id=$(juju run-action ubuntu-plus/0 no-dispatch filename=test-dispatch | awk 'BEGIN{FS="\""} {print $2}')
-	juju show-action-status "${action_id}" | grep -q completed || true
+	juju run ubuntu-plus/0 no-dispatch filename=test-dispatch
 
 	# wait for update-status
 	wait_for "Hello from update-status" "$(workload_status ubuntu-plus 0).message"

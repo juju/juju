@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	description "github.com/juju/description/v3"
+	description "github.com/juju/description/v4"
 	controller "github.com/juju/juju/controller"
 	network "github.com/juju/juju/core/network"
 	state "github.com/juju/juju/state"
@@ -100,18 +100,18 @@ func (mr *MockBackendMockRecorder) ControllerConfig() *gomock.Call {
 }
 
 // Export mocks base method.
-func (m *MockBackend) Export() (description.Model, error) {
+func (m *MockBackend) Export(arg0 map[string]string) (description.Model, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Export")
+	ret := m.ctrl.Call(m, "Export", arg0)
 	ret0, _ := ret[0].(description.Model)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Export indicates an expected call of Export.
-func (mr *MockBackendMockRecorder) Export() *gomock.Call {
+func (mr *MockBackendMockRecorder) Export(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Export", reflect.TypeOf((*MockBackend)(nil).Export))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Export", reflect.TypeOf((*MockBackend)(nil).Export), arg0)
 }
 
 // LatestMigration mocks base method.

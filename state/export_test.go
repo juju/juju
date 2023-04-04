@@ -5,33 +5,35 @@ package state
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strconv"
 	"time" // Only used for time types.
 
-	"github.com/juju/charm/v8"
-	charmrepotesting "github.com/juju/charmrepo/v6/testing"
+	"github.com/juju/charm/v9"
+	charmrepotesting "github.com/juju/charmrepo/v7/testing"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/description/v3"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	jujutxn "github.com/juju/txn/v2"
-	txntesting "github.com/juju/txn/v2/testing"
+	jujutxn "github.com/juju/txn/v3"
+	txntesting "github.com/juju/txn/v3/testing"
 	jutils "github.com/juju/utils/v3"
 	"github.com/juju/worker/v3"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/description/v4"
+
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/secrets"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
@@ -52,7 +54,6 @@ const (
 	UsersC            = usersC
 	BlockDevicesC     = blockDevicesC
 	StorageInstancesC = storageInstancesC
-	GUISettingsC      = guisettingsC
 	GlobalSettingsC   = globalSettingsC
 	SettingsC         = settingsC
 	UnitsC            = unitsC
@@ -60,7 +61,6 @@ const (
 
 var (
 	BinarystorageNew              = &binarystorageNew
-	ImageStorageNewStorage        = &imageStorageNewStorage
 	MachineIdLessThan             = machineIdLessThan
 	CombineMeterStatus            = combineMeterStatus
 	ApplicationGlobalKey          = applicationGlobalKey
@@ -131,15 +131,35 @@ func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.Transacti
 	return txntesting.SetRetryHooks(c, newRunnerForHooks(st), block, check)
 }
 
+func SetMaxTxnAttempts(c *gc.C, st *State, n int) {
+	st.maxTxnAttempts = n
+	db := st.database.(*database)
+	db.maxTxnAttempts = n
+	runner := jujutxn.NewRunner(jujutxn.RunnerParams{
+		Database:                  db.raw,
+		Clock:                     st.stateClock,
+		TransactionCollectionName: "txns",
+		ChangeLogName:             "-",
+		ServerSideTransactions:    true,
+		MaxRetryAttempts:          db.maxTxnAttempts,
+	})
+	db.runner = runner
+	return
+}
+
 func newRunnerForHooks(st *State) jujutxn.Runner {
 	db := st.database.(*database)
 	runner := jujutxn.NewRunner(jujutxn.RunnerParams{
-		Database: db.raw,
-		Clock:    st.stateClock,
+		Database:                  db.raw,
+		Clock:                     st.stateClock,
+		TransactionCollectionName: "txns",
+		ChangeLogName:             "-",
+		ServerSideTransactions:    true,
 		RunTransactionObserver: func(t jujutxn.Transaction) {
 			txnLogger.Tracef("ran transaction in %.3fs (retries: %d) %# v\nerr: %v",
 				t.Duration.Seconds(), t.Attempt, pretty.Formatter(t.Ops), t.Error)
 		},
+		MaxRetryAttempts: db.maxTxnAttempts,
 	})
 	db.runner = runner
 	return runner
@@ -185,8 +205,22 @@ func ControllerRefCount(st *State, controllerUUID string) (int, error) {
 	return nsRefcounts.read(refcounts, key)
 }
 
+func IncSecretConsumerRefCount(st *State, uri *secrets.URI, inc int) error {
+	refCountCollection, ccloser := st.db().GetCollection(refcountsC)
+	defer ccloser()
+	incOp, err := nsRefcounts.CreateOrIncRefOp(refCountCollection, uri.ID, inc)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return st.db().RunTransaction([]txn.Op{incOp})
+}
+
 func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 	return addCharm(c, st, "quantal", testcharms.Repo.CharmDir(name))
+}
+
+func AddTestingCharmWithSeries(c *gc.C, st *State, name string, series string) *Charm {
+	return addCharm(c, st, series, testcharms.Repo.CharmDir(name))
 }
 
 func getCharmRepo(series string) *charmrepotesting.Repo {
@@ -241,12 +275,15 @@ func AddTestingApplication(c *gc.C, st *State, name string, ch *Charm) *Applicat
 	})
 }
 
-func AddTestingApplicationForSeries(c *gc.C, st *State, series, name string, ch *Charm) *Application {
+func AddTestingApplicationForBase(c *gc.C, st *State, base Base, name string, ch *Charm) *Application {
 	return addTestingApplication(c, addTestingApplicationParams{
-		st:     st,
-		series: series,
-		name:   name,
-		ch:     ch,
+		st: st,
+		origin: &CharmOrigin{Platform: &Platform{
+			OS:      base.OS,
+			Channel: base.Channel,
+		}},
+		name: name,
+		ch:   ch,
 	})
 }
 
@@ -260,10 +297,33 @@ func AddTestingApplicationWithNumUnits(c *gc.C, st *State, numUnits int, name st
 }
 
 func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
+	series := ch.URL().Series
+	if series == "kubernetes" {
+		series = "focal"
+	}
+	base, err := coreseries.GetBaseFromSeries(series)
+	c.Assert(err, jc.ErrorIsNil)
+	var source string
+	switch ch.URL().Schema {
+	case "local":
+		source = "local"
+	case "ch":
+		source = "charm-hub"
+	case "cs":
+		source = "charm-store"
+	}
+	origin := &CharmOrigin{
+		Source: source,
+		Platform: &Platform{
+			OS:      base.OS,
+			Channel: base.Channel.String(),
+		},
+	}
 	return addTestingApplication(c, addTestingApplicationParams{
 		st:      st,
 		name:    name,
 		ch:      ch,
+		origin:  origin,
 		storage: storage,
 	})
 }
@@ -287,39 +347,41 @@ func AddTestingApplicationWithBindings(c *gc.C, st *State, name string, ch *Char
 }
 
 type addTestingApplicationParams struct {
-	st           *State
-	series, name string
-	ch           *Charm
-	origin       *CharmOrigin
-	bindings     map[string]string
-	storage      map[string]StorageConstraints
-	devices      map[string]DeviceConstraints
-	numUnits     int
+	st       *State
+	name     string
+	ch       *Charm
+	origin   *CharmOrigin
+	bindings map[string]string
+	storage  map[string]StorageConstraints
+	devices  map[string]DeviceConstraints
+	numUnits int
 }
 
 func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Application {
 	c.Assert(params.ch, gc.NotNil)
-
-	series := params.series
-	if params.series == "" {
-		series = params.ch.URL().Series
-	}
-
 	origin := params.origin
-	if params.origin == nil {
-		base, err := coreseries.GetBaseFromSeries(series)
+	if origin == nil {
+		base, err := coreseries.GetBaseFromSeries(params.ch.URL().Series)
 		c.Assert(err, jc.ErrorIsNil)
-
-		origin = &CharmOrigin{Platform: &Platform{
-			Architecture: params.ch.URL().Architecture,
-			OS:           base.Name,
-			Series:       series,
-		}}
+		var source string
+		switch params.ch.URL().Schema {
+		case "local":
+			source = "local"
+		case "ch":
+			source = "charm-hub"
+		case "cs":
+			source = "charm-store"
+		}
+		origin = &CharmOrigin{
+			Source: source,
+			Platform: &Platform{
+				OS:      base.OS,
+				Channel: base.Channel.String(),
+			},
+		}
 	}
-
 	app, err := params.st.AddApplication(AddApplicationArgs{
 		Name:             params.name,
-		Series:           series,
 		Charm:            params.ch,
 		CharmOrigin:      origin,
 		EndpointBindings: params.bindings,
@@ -341,11 +403,11 @@ bases:
   channel: "18.04"
 `
 			manifestYAML := filepath.Join(path, "manifest.yaml")
-			err := ioutil.WriteFile(manifestYAML, []byte(manifestContent), 0644)
+			err := os.WriteFile(manifestYAML, []byte(manifestContent), 0644)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		config := filepath.Join(path, filename)
-		err := ioutil.WriteFile(config, []byte(content), 0644)
+		err := os.WriteFile(config, []byte(content), 0644)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	ch, err := charm.ReadCharmDir(path)
@@ -390,10 +452,6 @@ func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
 	sch, err := st.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 	return sch
-}
-
-func init() {
-	txnLogSize = txnLogSizeTests
 }
 
 // TxnRevno returns the txn-revno field of the document
@@ -744,7 +802,7 @@ func RemoveUnitRelations(c *gc.C, rel *Relation) {
 // PrimeUnitStatusHistory will add count history elements, advancing the test clock by
 // one second for each entry.
 func PrimeUnitStatusHistory(
-	c *gc.C, clock *testclock.Clock,
+	c *gc.C, clock testclock.AdvanceableClock,
 	unit *Unit, statusVal status.Status,
 	count, batchSize int,
 	nextData func(int) map[string]interface{},
@@ -1043,6 +1101,7 @@ func GetCloudContainerStatusHistory(st *State, name string, filter status.Status
 		db:        st.db(),
 		globalKey: globalCloudContainerKey(name),
 		filter:    filter,
+		clock:     st.clock(),
 	}
 	return statusHistory(args)
 }
@@ -1066,6 +1125,16 @@ func ApplicationBranches(m *Model, appName string) ([]*Generation, error) {
 func MachinePortOps(st *State, m description.Machine) ([]txn.Op, error) {
 	resolver := &importer{st: st}
 	return []txn.Op{resolver.machinePortsOp(m)}, nil
+}
+
+func GetSecretNextRotateTime(c *gc.C, st *State, id string) time.Time {
+	secretRotateCollection, closer := st.db().GetCollection(secretRotateC)
+	defer closer()
+
+	var doc secretRotationDoc
+	err := secretRotateCollection.FindId(id).One(&doc)
+	c.Assert(err, jc.ErrorIsNil)
+	return doc.NextRotateTime.UTC()
 }
 
 // ModelBackendShim is required to live here in the export_test.go file because
@@ -1137,7 +1206,7 @@ func (st *State) SetClockForTesting(clock clock.Clock) error {
 	if db, ok := st.database.(*database); ok {
 		db.clock = clock
 	}
-	err = st.start(st.controllerTag, hub)
+	err = st.startWorkers(hub)
 	if err != nil {
 		return errors.Trace(err)
 	}

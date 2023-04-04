@@ -7,15 +7,14 @@ import (
 	"archive/zip"
 	"bytes"
 	"io"
-	"io/ioutil"
 	"os"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/charm/v8"
-	"github.com/juju/charmrepo/v6/testing"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charmrepo/v7/testing"
 
 	jtesting "github.com/juju/juju/testing"
 )
@@ -124,5 +123,5 @@ func InjectFilesToCharmArchive(pathToArchive string, fileContents map[string]str
 
 	// Overwrite original archive with the patched version
 	_, _ = zr.Close(), zw.Close()
-	return ioutil.WriteFile(pathToArchive, buf.Bytes(), 0644)
+	return os.WriteFile(pathToArchive, buf.Bytes(), 0644)
 }

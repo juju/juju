@@ -5,7 +5,7 @@ package apiserver_test
 
 import (
 	"github.com/juju/collections/set"
-	mgotesting "github.com/juju/mgo/v2/testing"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
@@ -89,9 +89,6 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 	c.Assert(config.UpgradeComplete, gc.NotNil)
 	config.UpgradeComplete = nil
 
-	c.Assert(config.RestoreStatus, gc.NotNil)
-	config.RestoreStatus = nil
-
 	c.Assert(config.NewObserver, gc.NotNil)
 	config.NewObserver = nil
 
@@ -123,5 +120,6 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		MetricsCollector:    s.metricsCollector,
 		RaftOpQueue:         s.queue,
 		SysLogger:           s.sysLogger,
+		CharmhubHTTPClient:  s.charmhubHTTPClient,
 	})
 }

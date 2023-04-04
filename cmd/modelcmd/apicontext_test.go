@@ -5,7 +5,7 @@ package modelcmd_test
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 
@@ -92,7 +92,7 @@ func assertClientGet(c *gc.C, client *httpbakery.Client, url string, expectBody 
 	c.Assert(err, jc.ErrorIsNil)
 	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
-	data, _ := ioutil.ReadAll(resp.Body)
+	data, _ := io.ReadAll(resp.Body)
 	c.Assert(string(data), gc.Equals, expectBody)
 }
 

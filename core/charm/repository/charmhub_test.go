@@ -9,7 +9,7 @@ import (
 	"net/url"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -75,6 +75,12 @@ func (s *charmHubRepositorySuite) testResolve(c *gc.C, id string) {
 		},
 		Channel: &channel,
 	}
+	if id != "" {
+		origin.InstanceKey = "instance-key"
+	}
+	if id != "" {
+		origin.InstanceKey = "instance-key"
+	}
 
 	repo := NewCharmHubRepository(s.logger, s.client)
 	obtainedCurl, obtainedOrigin, obtainedSeries, err := repo.ResolveWithPreferredChannel(curl, origin, nil)
@@ -136,33 +142,7 @@ func (s *charmHubRepositorySuite) TestResolveWithChannel(c *gc.C) {
 	c.Assert(obtainedSeries, jc.SameContents, []string{"focal"})
 }
 
-func (s *charmHubRepositorySuite) TestResolveWithSeriesNoOS(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectCharmRefreshInstallOneFromChannel(c)
-
-	curl := charm.MustParseURL("ch:wordpress")
-	origin := corecharm.Origin{
-		Source: "charm-hub",
-		Platform: corecharm.Platform{
-			Architecture: arch.DefaultArchitecture,
-			Channel:      "20.04",
-		},
-	}
-
-	repo := NewCharmHubRepository(s.logger, s.client)
-	obtainedCurl, obtainedOrigin, obtainedSeries, err := repo.ResolveWithPreferredChannel(curl, origin, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	curl.Revision = 16
-	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture, "focal")
-
-	c.Assert(obtainedCurl, jc.DeepEquals, expected)
-	c.Assert(obtainedOrigin.Platform.Channel, gc.Equals, "20.04")
-	c.Assert(obtainedOrigin.Platform.OS, gc.Equals, "ubuntu")
-	c.Assert(obtainedSeries, jc.SameContents, []string{"focal"})
-}
-
-func (s *charmHubRepositorySuite) TestResolveWithoutSeries(c *gc.C) {
+func (s *charmHubRepositorySuite) TestResolveWithoutBase(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectCharmRefreshInstallOneFromChannel(c)
 
@@ -294,6 +274,7 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
 		Source: "charm-hub",
 		Platform: corecharm.Platform{
 			Architecture: arch.DefaultArchitecture,
+			OS:           "ubuntu",
 			Channel:      "18.04",
 		},
 	}
@@ -442,7 +423,8 @@ func (s *charmHubRepositorySuite) TestGetEssentialMetadata(c *gc.C) {
 	c.Assert(got[0].Meta.Name, gc.Equals, "wordpress")
 	c.Assert(got[0].Config.Options["blog-title"], gc.Not(gc.IsNil))
 	c.Assert(got[0].Manifest.Bases, gc.HasLen, 1)
-	c.Assert(got[0].ResolvedOrigin.ID, gc.Equals, "charmCHARMcharmCHARMcharmCHARM01", gc.Commentf("expected origin to be resolved"))
+	c.Assert(got[0].ResolvedOrigin.ID, gc.Equals, "", gc.Commentf("ID is only added after charm download"))
+	c.Assert(got[0].ResolvedOrigin.Hash, gc.Equals, "", gc.Commentf("Hash is only added after charm download"))
 }
 
 func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneFromChannel(c *gc.C) {
@@ -715,11 +697,12 @@ func (refreshConfigSuite) TestRefreshByID(c *gc.C) {
 	platform := corecharm.MustParsePlatform("amd64/ubuntu/focal")
 	channel := corecharm.MustParseChannel("stable")
 	origin := corecharm.Origin{
-		Type:     transport.CharmType.String(),
-		ID:       id,
-		Platform: platform,
-		Revision: &revision,
-		Channel:  &channel,
+		Type:        transport.CharmType.String(),
+		ID:          id,
+		Platform:    platform,
+		Revision:    &revision,
+		Channel:     &channel,
+		InstanceKey: "instance-key",
 	}
 
 	cfg, err := refreshConfig(curl, origin)
@@ -825,7 +808,7 @@ func (*selectNextBaseSuite) TestSelectNextBaseWithCentosBase(c *gc.C) {
 	c.Assert(platform, gc.DeepEquals, []corecharm.Platform{{
 		Architecture: "amd64",
 		OS:           "centos",
-		Channel:      "centos7",
+		Channel:      "7",
 	}})
 }
 
@@ -873,7 +856,7 @@ func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestion(c *gc.C)
 
 	_, err := repo.selectNextBasesFromReleases([]transport.Release{{
 		Base: transport.Base{
-			Name:         "os",
+			Name:         "ubuntu",
 			Channel:      "20.04",
 			Architecture: "arch",
 		},
@@ -930,7 +913,7 @@ func (s *composeSuggestionsSuite) TestSuggestion(c *gc.C) {
 	repo := NewCharmHubRepository(s.logger, nil)
 	suggestions := repo.composeSuggestions([]transport.Release{{
 		Base: transport.Base{
-			Name:         "os",
+			Name:         "ubuntu",
 			Channel:      "20.04",
 			Architecture: "arch",
 		},
@@ -950,7 +933,7 @@ func (s *composeSuggestionsSuite) TestSuggestionWithRisk(c *gc.C) {
 	repo := NewCharmHubRepository(s.logger, nil)
 	suggestions := repo.composeSuggestions([]transport.Release{{
 		Base: transport.Base{
-			Name:         "os",
+			Name:         "ubuntu",
 			Channel:      "20.04/stable",
 			Architecture: "arch",
 		},
@@ -970,21 +953,21 @@ func (s *composeSuggestionsSuite) TestMultipleSuggestion(c *gc.C) {
 	repo := NewCharmHubRepository(s.logger, nil)
 	suggestions := repo.composeSuggestions([]transport.Release{{
 		Base: transport.Base{
-			Name:         "a",
+			Name:         "ubuntu",
 			Channel:      "20.04",
 			Architecture: "c",
 		},
 		Channel: "stable",
 	}, {
 		Base: transport.Base{
-			Name:         "a",
+			Name:         "ubuntu",
 			Channel:      "18.04",
 			Architecture: "c",
 		},
 		Channel: "stable",
 	}, {
 		Base: transport.Base{
-			Name:         "e",
+			Name:         "ubuntu",
 			Channel:      "18.04",
 			Architecture: "all",
 		},
@@ -1091,7 +1074,7 @@ func (selectReleaseByChannelSuite) TestSelectionWithCentos(c *gc.C) {
 	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
 		Architecture: "arch",
 		OS:           "centos",
-		Channel:      "centos7",
+		Channel:      "7",
 	}})
 }
 

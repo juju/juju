@@ -49,14 +49,9 @@ type AgentSuite struct {
 	agenttest.AgentSuite
 }
 
-func (s *AgentSuite) SetUpSuite(c *gc.C) {
-	s.JujuConnSuite.SetUpSuite(c)
-
-	agenttest.InstallFakeEnsureMongo(s)
-}
-
 func (s *AgentSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+	agenttest.InstallFakeEnsureMongo(s, s.DataDir())
 	// Set API host ports so FindTools/Tools API calls succeed.
 	hostPorts := []network.SpaceHostPorts{
 		network.NewSpaceHostPorts(1234, "0.1.2.3"),

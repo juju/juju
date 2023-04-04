@@ -529,17 +529,6 @@ func (s *Service) StartCommands() ([]string, error) {
 	return cmdList, nil
 }
 
-// RemoveOldService (UpgradableService) removes the service files that were
-// written for systemd services prior to 2.7.2.
-// The service definition and any exec-start script used to be written to a
-// directory named after the agent under /lib/systemd/system.
-// A symbolic link then pointed to this local from /etc/systemd/system.
-// We now just write files directly to /etc/systemd/system,
-// so the old directory is deleted if found.
-func (s *Service) RemoveOldService() error {
-	return errors.Trace(s.fileOps.RemoveAll(renderer.Join(LibSystemdDir, s.Name())))
-}
-
 // WriteService (UpgradableService) writes a systemd unit file for the service
 // and ensures that it is linked and enabled by systemd.
 func (s *Service) WriteService() error {

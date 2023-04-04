@@ -5,10 +5,11 @@ package state
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	mgotesting "github.com/juju/mgo/v2/testing"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -81,8 +82,9 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 				},
 			},
 		},
-		MongoSession:  s.Session,
-		AdminPassword: "dummy-secret",
+		MongoSession:        s.Session,
+		WatcherPollInterval: 10 * time.Millisecond,
+		AdminPassword:       "dummy-secret",
 		NewPolicy: func(*State) Policy {
 			return internalStatePolicy{}
 		},

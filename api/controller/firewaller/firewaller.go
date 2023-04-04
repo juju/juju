@@ -43,12 +43,6 @@ func NewClient(caller base.APICaller) (*Client, error) {
 	}, nil
 }
 
-// BestAPIVersion returns the API version that we were able to
-// determine is supported by both the client and the API Server.
-func (c *Client) BestAPIVersion() int {
-	return c.facade.BestAPIVersion()
-}
-
 // ModelTag returns the current model's tag.
 func (c *Client) ModelTag() (names.ModelTag, bool) {
 	return c.facade.RawAPICaller().ModelTag()
@@ -261,11 +255,6 @@ func (c *Client) FirewallRules(knownServices ...string) ([]params.FirewallRule, 
 // AllSpaceInfos returns the details about the known spaces and their
 // associated subnets.
 func (c *Client) AllSpaceInfos() (network.SpaceInfos, error) {
-	if c.BestAPIVersion() < 6 {
-		// AllSpaceInfos() was introduced in FirewallerAPIV6.
-		return nil, errors.NotImplementedf("AllSpaceInfos() (need V6+)")
-	}
-
 	var result params.SpaceInfos
 	err := c.facade.FacadeCall("SpaceInfos", params.SpaceInfosParams{}, &result)
 	if err != nil {

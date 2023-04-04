@@ -4,5 +4,5 @@
 package charms
 
 var (
-	NewFacadeV5 = newFacadeV5
+	NewFacade = newFacade
 )

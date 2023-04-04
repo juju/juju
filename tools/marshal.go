@@ -4,7 +4,7 @@
 package tools
 
 import (
-	"github.com/juju/mgo/v2/bson"
+	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/version/v2"
 )
 

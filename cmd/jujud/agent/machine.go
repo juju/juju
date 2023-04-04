@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,7 +20,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/lumberjack/v2"
-	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v3"
@@ -42,6 +43,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/charmhub"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
@@ -56,6 +58,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
@@ -91,11 +94,11 @@ import (
 
 var (
 	logger            = loggo.GetLogger("juju.cmd.jujud")
-	jujuRun           = paths.JujuRun(paths.CurrentOS())
+	jujuExec          = paths.JujuExec(paths.CurrentOS())
 	jujuDumpLogs      = paths.JujuDumpLogs(paths.CurrentOS())
 	jujuIntrospect    = paths.JujuIntrospect(paths.CurrentOS())
-	jujudSymlinks     = []string{jujuRun, jujuDumpLogs, jujuIntrospect}
-	caasJujudSymlinks = []string{jujuRun, jujuDumpLogs, jujuIntrospect}
+	jujudSymlinks     = []string{jujuExec, jujuDumpLogs, jujuIntrospect}
+	caasJujudSymlinks = []string{jujuExec, jujuDumpLogs, jujuIntrospect}
 
 	// The following are defined as variables to allow the tests to
 	// intercept calls to the functions. In every case, they should
@@ -112,7 +115,7 @@ var (
 	iaasMachineManifolds = machine.IAASManifolds
 )
 
-// Variable to override in tests, default is true
+// ProductionMongoWriteConcern is provided to override in tests, default is true
 var ProductionMongoWriteConcern = true
 
 func init() {
@@ -590,6 +593,11 @@ func (a *MachineAgent) makeEngineCreator(
 			handle("/metrics/", promhttp.HandlerFor(a.prometheusRegistry, promhttp.HandlerOpts{}))
 		}
 
+		// Create a single HTTP client so we can reuse HTTP connections, for
+		// example across the various Charmhub API requests required for deploy.
+		charmhubLogger := loggo.GetLoggerWithLabels("juju.charmhub", corelogger.CHARMHUB)
+		charmhubHTTPClient := charmhub.DefaultHTTPClient(charmhubLogger)
+
 		manifoldsCfg := machine.ManifoldsConfig{
 			PreviousAgentVersion:    previousAgentVersion,
 			AgentName:               agentName,
@@ -618,7 +626,6 @@ func (a *MachineAgent) makeEngineCreator(
 				return a.statusSetter(apiConn)
 			},
 			ControllerLeaseDuration:           time.Minute,
-			LogPruneInterval:                  5 * time.Minute,
 			TransactionPruneInterval:          time.Hour,
 			MachineLock:                       a.machineLock,
 			SetStatePool:                      statePoolReporter.Set,
@@ -635,6 +642,7 @@ func (a *MachineAgent) makeEngineCreator(
 			LeaseFSM:                raftlease.NewFSM(),
 			RaftOpQueue:             queue.NewOpQueue(clock.WallClock),
 			DependencyEngineMetrics: metrics,
+			CharmhubHTTPClient:      charmhubHTTPClient,
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
 		if a.isCaasAgent {
@@ -690,8 +698,8 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 		logger.Infof("Reboot: Error executing reboot: %v", err)
 		return errors.Trace(err)
 	}
-	// On windows, the shutdown command is asynchronous. We return ErrRebootMachine
-	// so the agent will simply exit without error pending reboot/shutdown.
+	// We return ErrRebootMachine so the agent will simply exit without error
+	// pending reboot/shutdown.
 	return jworker.ErrRebootMachine
 }
 
@@ -822,8 +830,10 @@ func (a *MachineAgent) Restart() error {
 // in use. Why can't upgradesteps depend on the main state connection?
 func (a *MachineAgent) openStateForUpgrade() (*state.StatePool, error) {
 	agentConfig := a.CurrentConfig()
-	if err := a.ensureMongoServer(agentConfig); err != nil {
-		return nil, errors.Trace(err)
+	if !a.isCaasAgent {
+		if err := cmdutil.EnsureMongoServerStarted(agentConfig.JujuDBSnapChannel()); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	info, ok := agentConfig.MongoInfo()
 	if !ok {
@@ -1151,25 +1161,15 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	if a.isCaasAgent {
 		return nil
 	}
-	// EnsureMongoServer installs/upgrades the init config as necessary.
-	ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
+	// EnsureMongoServerInstalled installs/upgrades the init config as necessary.
+	ensureServerParams, err := cmdutil.NewEnsureMongoParams(agentConfig)
 	if err != nil {
 		return err
 	}
-	var mongodVersion mongo.Version
-	if mongodVersion, err = cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
+	if err := cmdutil.EnsureMongoServerInstalled(ensureServerParams); err != nil {
 		return err
 	}
 	logger.Debugf("mongodb service is installed")
-	// update Mongo version.
-	if err = a.ChangeConfig(
-		func(config agent.ConfigSetter) error {
-			config.SetMongoVersion(mongodVersion)
-			return nil
-		},
-	); err != nil {
-		return errors.Annotate(err, "cannot set mongo version")
-	}
 	return nil
 }
 
@@ -1267,6 +1267,13 @@ func (a *MachineAgent) createJujudSymlinks(dataDir string) error {
 
 func (a *MachineAgent) createSymlink(target, link string) error {
 	fullLink := utils.EnsureBaseDir(a.rootDir, link)
+
+	// TODO(juju 4) - remove this legacy behaviour.
+	// Remove the obsolete "juju-run" symlink
+	if strings.Contains(fullLink, "/juju-exec") {
+		runLink := strings.Replace(fullLink, "/juju-exec", "/juju-run", 1)
+		_ = os.Remove(runLink)
+	}
 
 	currentTarget, err := symlink.Read(fullLink)
 	if err != nil && !os.IsNotExist(err) {

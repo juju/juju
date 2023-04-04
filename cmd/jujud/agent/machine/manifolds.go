@@ -88,8 +88,6 @@ import (
 	"github.com/juju/juju/worker/raft/raftforwarder"
 	"github.com/juju/juju/worker/raft/rafttransport"
 	"github.com/juju/juju/worker/reboot"
-	"github.com/juju/juju/worker/restorewatcher"
-	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/singular"
 	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/stateconfigwatcher"
@@ -98,7 +96,6 @@ import (
 	"github.com/juju/juju/worker/syslogger"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/toolsversionchecker"
-	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/upgradedatabase"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradeseries"
@@ -219,10 +216,6 @@ type ManifoldsConfig struct {
 	// for controller administration rights.
 	ControllerLeaseDuration time.Duration
 
-	// LogPruneInterval defines how frequently logs are pruned from
-	// the database.
-	LogPruneInterval time.Duration
-
 	// TransactionPruneInterval defines how frequently mgo/txn transactions
 	// are pruned from the database.
 	TransactionPruneInterval time.Duration
@@ -286,6 +279,13 @@ type ManifoldsConfig struct {
 	// DependencyEngineMetrics creates a set of metrics for a model, so it's
 	// possible to know the lifecycle of the workers in the dependency engine.
 	DependencyEngineMetrics modelworkermanager.ModelMetrics
+
+	// CharmhubHTTPClient is the HTTP client used for Charmhub API requests.
+	CharmhubHTTPClient HTTPClient
+}
+
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -570,11 +570,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// This worker will only ever be running on the Raft leader node.
 		leaseClockUpdaterName: ifRaftLeader(globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
 			RaftName:       raftName,
-			StateName:      stateName,
 			Clock:          config.Clock,
 			FSM:            config.LeaseFSM,
 			NewWorker:      globalclockupdater.NewWorker,
-			NewTarget:      globalclockupdater.NewTarget,
 			UpdateInterval: globalClockUpdaterUpdateInterval,
 			Logger:         loggo.GetLogger("juju.worker.globalclockupdater.raft"),
 		})),
@@ -626,15 +624,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			LogSource:     config.LogSource,
 		})),
 
-		resumerName: ifNotMigrating(resumer.Manifold(resumer.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			Clock:         config.Clock,
-			Interval:      time.Minute,
-			NewFacade:     resumer.NewFacade,
-			NewWorker:     resumer.NewWorker,
-		})),
-
 		identityFileWriterName: ifNotMigrating(identityfilewriter.Manifold(identityfilewriter.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
@@ -644,15 +633,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			externalcontrollerupdater.ManifoldConfig{
 				APICallerName:                      apiCallerName,
 				NewExternalControllerWatcherClient: newExternalControllerWatcherClient,
-			},
-		))),
-
-		txnPrunerName: ifNotMigrating(ifPrimaryController(txnpruner.Manifold(
-			txnpruner.ManifoldConfig{
-				ClockName:     clockName,
-				StateName:     stateName,
-				PruneInterval: config.TransactionPruneInterval,
-				NewWorker:     txnpruner.New,
 			},
 		))),
 
@@ -706,12 +686,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			MuxName:                httpServerArgsName,
 			LeaseManagerName:       leaseManagerName,
 			UpgradeGateName:        upgradeStepsGateName,
-			RestoreStatusName:      restoreWatcherName,
 			AuditConfigUpdaterName: auditConfigUpdaterName,
 			// Synthetic dependency - if raft-transport bounces we
 			// need to bounce api-server too, otherwise http-server
 			// can't shutdown properly.
-			RaftTransportName: raftTransportName,
+			RaftTransportName:      raftTransportName,
+			CharmhubHTTPClientName: charmhubHTTPClientName,
 
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
@@ -721,6 +701,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewMetricsCollector:               apiserver.NewMetricsCollector,
 			RaftOpQueue:                       config.RaftOpQueue,
 		})),
+
+		charmhubHTTPClientName: dependency.Manifold{
+			Start: func(_ dependency.Context) (worker.Worker, error) {
+				return engine.NewValueWorker(config.CharmhubHTTPClient)
+			},
+			Output: engine.ValueWorkerOutput,
+		},
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
 			AgentName:      agentName,
@@ -745,11 +732,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:            peergrouper.New,
 		})),
 
-		restoreWatcherName: restorewatcher.Manifold(restorewatcher.ManifoldConfig{
-			StateName: stateName,
-			NewWorker: restorewatcher.NewWorker,
-		}),
-
 		auditConfigUpdaterName: ifController(auditconfigupdater.Manifold(auditconfigupdater.ManifoldConfig{
 			AgentName: agentName,
 			StateName: stateName,
@@ -771,12 +753,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ClockName:            clockName,
 			AgentName:            agentName,
 			TransportName:        raftTransportName,
-			StateName:            stateName,
 			FSM:                  config.LeaseFSM,
 			Logger:               loggo.GetLogger("juju.worker.raft"),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            raft.NewWorker,
-			NewTarget:            raft.NewTarget,
 			Queue:                config.RaftOpQueue,
 			NewApplier:           raft.NewApplier,
 		})),
@@ -807,13 +787,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// applies them to the raft leader.
 		raftForwarderName: ifRaftLeader(raftforwarder.Manifold(raftforwarder.ManifoldConfig{
 			RaftName:             raftName,
-			StateName:            stateName,
 			CentralHubName:       centralHubName,
 			RequestTopic:         lease.LeaseRequestTopic,
 			Logger:               loggo.GetLogger("juju.worker.raft.raftforwarder"),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            raftforwarder.NewWorker,
-			NewTarget:            raftforwarder.NewTarget,
 		})),
 
 		// The global lease manager tracks lease information in the raft
@@ -822,7 +800,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:            agentName,
 			ClockName:            clockName,
 			CentralHubName:       centralHubName,
-			StateName:            stateName,
 			FSM:                  config.LeaseFSM,
 			RequestTopic:         lease.LeaseRequestTopic,
 			Logger:               loggo.GetLogger("juju.worker.lease.raft"),
@@ -929,6 +906,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			NewFacade:     machineactions.NewFacade,
 			NewWorker:     machineactions.NewMachineActionsWorker,
+			MachineLock:   config.MachineLock,
 		})),
 
 		// The upgrader is a leaf worker that returns a specific error
@@ -1013,7 +991,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 		// The machineSetupName manifold runs small tasks required
 		// to setup a machine, but requires the machine agent's API
-		// connection. Once its work is comlete, it stops.
+		// connection. Once its work is complete, it stops.
 		machineSetupName: ifNotMigrating(MachineStartupManifold(MachineStartupConfig{
 			APICallerName:  apiCallerName,
 			MachineStartup: config.MachineStartup,
@@ -1189,7 +1167,6 @@ const (
 	deployerName                  = "deployer"
 	authenticationWorkerName      = "ssh-authkeys-updater"
 	storageProvisionerName        = "storage-provisioner"
-	resumerName                   = "mgo-txn-resumer"
 	identityFileWriterName        = "ssh-identity-writer"
 	toolsVersionCheckerName       = "tools-version-checker"
 	machineActionName             = "machine-action-runner"
@@ -1201,7 +1178,6 @@ const (
 	isControllerFlagName          = "is-controller-flag"
 	isNotControllerFlagName       = "is-not-controller-flag"
 	instanceMutaterName           = "instance-mutater"
-	txnPrunerName                 = "transaction-pruner"
 	certificateWatcherName        = "certificate-watcher"
 	modelCacheName                = "model-cache"
 	modelCacheInitializedFlagName = "model-cache-initialized-flag"
@@ -1209,7 +1185,6 @@ const (
 	modelWorkerManagerName        = "model-worker-manager"
 	multiwatcherName              = "multiwatcher"
 	peergrouperName               = "peer-grouper"
-	restoreWatcherName            = "restore-watcher"
 	certificateUpdaterName        = "certificate-updater"
 	auditConfigUpdaterName        = "audit-config-updater"
 	leaseManagerName              = "lease-manager"
@@ -1236,4 +1211,6 @@ const (
 	validCredentialFlagName = "valid-credential-flag"
 
 	brokerTrackerName = "broker-tracker"
+
+	charmhubHTTPClientName = "charmhub-http-client"
 )

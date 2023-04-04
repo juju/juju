@@ -14,10 +14,9 @@ import (
 )
 
 var (
-	NewNICDevice          = newNICDevice
-	CheckBridgeConfigFile = checkBridgeConfigFile
-	SeriesRemoteAliases   = seriesRemoteAliases
-	ErrIPV6NotSupported   = errIPV6NotSupported
+	NewNICDevice        = newNICDevice
+	BaseRemoteAliases   = baseRemoteAliases
+	ErrIPV6NotSupported = errIPV6NotSupported
 )
 
 type patcher interface {
@@ -57,10 +56,6 @@ func GetImageSources(mgr container.Manager) ([]ServerSpec, error) {
 	cMgr := mgr.(*containerManager)
 	_ = cMgr.ensureInitialized()
 	return cMgr.getImageSources()
-}
-
-func VerifyNICsWithConfigFile(svr *Server, nics map[string]device, reader func(string) ([]byte, error)) error {
-	return svr.verifyNICsWithConfigFile(nics, reader)
 }
 
 func NetworkDevicesFromConfig(mgr container.Manager, netConfig *container.NetworkConfig) (

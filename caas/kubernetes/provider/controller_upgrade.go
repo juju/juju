@@ -49,8 +49,11 @@ func (u *upgradeCAASControllerBridge) Namespace() string {
 }
 
 func controllerUpgrade(appName string, vers version.Number, broker UpgradeCAASControllerBroker) error {
-	return upgradeStatefulSet(
+	return upgradeOperatorOrControllerStatefulSet(
 		appName,
+		appName,
+		false,
+		"",
 		"",
 		vers,
 		broker.IsLegacyLabels(),

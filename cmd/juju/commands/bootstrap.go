@@ -12,7 +12,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
@@ -26,11 +26,12 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/caas"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/constants"
+	"github.com/juju/juju/cmd/juju/application/refresher"
 	"github.com/juju/juju/cmd/juju/common"
 	cmdcontroller "github.com/juju/juju/cmd/juju/controller"
 	cmdmodel "github.com/juju/juju/cmd/juju/model"
@@ -79,7 +80,7 @@ Credentials are set beforehand and are distinct from any other
 configuration (see `[1:] + "`juju add-credential`" + `).
 The 'controller' model typically does not run workloads. It should remain
 pristine to run and manage Juju's own infrastructure for the corresponding
-cloud. Additional (hosted) models should be created with ` + "`juju create-\nmodel`" + ` for workload purposes.
+cloud. Additional models should be created with ` + "`juju add-model`" + ` for workload purposes.
 Note that a 'default' model is also created and becomes the current model
 of the environment once the command completes. It can be discarded if
 other models are created.
@@ -182,8 +183,8 @@ Examples:
     # For a bootstrap on k8s, setting the service type of the Juju controller service to LoadBalancer
     juju bootstrap --config controller-service-type=loadbalancer
 
-	# For a bootstrap on k8s, setting the service type of the Juju controller service to External
-    juju bootstrap --config controller-service-type=external --config controller-service-name=controller.juju.is
+    # For a bootstrap on k8s, setting the service type of the Juju controller service to External
+    juju bootstrap --config controller-service-type=external --config controller-external-name=controller.juju.is
 
 See also:
     add-credential
@@ -193,12 +194,6 @@ See also:
     model-config
     set-constraints
     show-cloud`
-
-const (
-	// defaultHostedModelName is the name of the hosted model created in each
-	// controller for deploying workloads to, in addition to the "controller" model.
-	defaultHostedModelName = "default"
-)
 
 func newBootstrapCommand() cmd.Command {
 	command := &bootstrapCommand{}
@@ -242,12 +237,16 @@ type bootstrapCommand struct {
 	CredentialName      string
 	Cloud               string
 	Region              string
-	noGUI               bool
 	noSwitch            bool
 	interactive         bool
 
-	hostedModelName string
-	noHostedModel   bool
+	// initialModelName is the name of a new model to create
+	// in addition to the controller model.
+	initialModelName string
+
+	ControllerCharmPath       string
+	ControllerCharmChannelStr string
+	ControllerCharmChannel    charm.Channel
 
 	// Force is used to allow a bootstrap to be run on unsupported series.
 	Force bool
@@ -309,27 +308,32 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "Specify the series of the bootstrap machine")
 	f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine")
 	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build local version of agent binary before bootstrapping")
-	if featureflag.Enabled(feature.MongoDbSnap) {
-		f.StringVar(&c.JujuDbSnapPath, "db-snap", "", "Path to a locally built .snap to use as the internal juju-db service.")
-		f.StringVar(&c.JujuDbSnapAssertionsPath, "db-snap-asserts", "", "Path to a local .assert file. Requires --juju-db-snap")
-	}
+	f.StringVar(&c.JujuDbSnapPath, "db-snap", "",
+		"Path to a locally built .snap to use as the internal juju-db service.")
+	f.StringVar(&c.JujuDbSnapAssertionsPath, "db-snap-asserts", "", "Path to a local .assert file. Requires --db-snap")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "Local path to use as agent and/or image metadata source")
 	f.StringVar(&c.Placement, "to", "", "Placement directive indicating an instance to bootstrap")
-	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "Do not destroy the provisioned controller instance if bootstrap fails")
+	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false,
+		"Do not destroy the provisioned controller instance if bootstrap fails")
 	f.BoolVar(&c.AutoUpgrade, "auto-upgrade", false, "After bootstrap, upgrade to the latest patch release")
 	f.StringVar(&c.AgentVersionParam, "agent-version", "", "Version of agent binaries to use for Juju agents")
 	f.StringVar(&c.CredentialName, "credential", "", "Credentials to use when bootstrapping")
-	f.Var(&c.config, "config", "Specify a controller configuration file, or one or more configuration\n    options\n    (--config config.yaml [--config key=value ...])")
-	f.Var(&c.modelDefaults, "model-default", "Specify a configuration file, or one or more configuration\n    options to be set for all models, unless otherwise specified\n    (--model-default config.yaml [--model-default key=value ...])")
-	f.Var(&c.storagePool, "storage-pool", "Specify options for an initial storage pool\n    'name' and 'type' are required, plus any additional attributes\n    (--storage-pool pool-config.yaml [--storage-pool key=value ...])")
-	f.StringVar(&c.hostedModelName, "d", defaultHostedModelName, "Name of the default hosted model for the controller")
-	f.StringVar(&c.hostedModelName, "default-model", defaultHostedModelName, "Name of the default hosted model for the controller")
-	f.BoolVar(&c.showClouds, "clouds", false, "Print the available clouds which can be used to bootstrap a Juju environment")
+	f.Var(&c.config, "config",
+		"Specify a controller configuration file, or one or more configuration\n    options\n    (--config config.yaml [--config key=value ...])")
+	f.Var(&c.modelDefaults, "model-default",
+		"Specify a configuration file, or one or more configuration\n    options to be set for all models, unless otherwise specified\n    (--model-default config.yaml [--model-default key=value ...])")
+	f.Var(&c.storagePool, "storage-pool",
+		"Specify options for an initial storage pool\n    'name' and 'type' are required, plus any additional attributes\n    (--storage-pool pool-config.yaml [--storage-pool key=value ...])")
+	f.StringVar(&c.initialModelName, "add-model", "", "Name of an initial model to create on the new controller")
+	f.BoolVar(&c.showClouds, "clouds", false,
+		"Print the available clouds which can be used to bootstrap a Juju environment")
 	f.StringVar(&c.showRegionsForCloud, "regions", "", "Print the available regions for the specified cloud")
-	f.BoolVar(&c.noGUI, "no-gui", false, "Do not install the Juju GUI in the controller when bootstrapping")
 	f.BoolVar(&c.noSwitch, "no-switch", false, "Do not switch to the newly created controller")
 	f.BoolVar(&c.Force, "force", false, "Allow the bypassing of checks such as supported series")
-	f.BoolVar(&c.noHostedModel, "no-default-model", false, "Do not create a default model")
+	f.StringVar(&c.ControllerCharmPath, "controller-charm-path", "", "Path to a locally built controller charm")
+	f.StringVar(&c.ControllerCharmChannelStr, "controller-charm-channel",
+		fmt.Sprintf("%d.%d/stable", jujuversion.Current.Major, jujuversion.Current.Minor),
+		"The Charmhub channel to download the controller charm from (if not using a local charm)")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -358,6 +362,31 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		return errors.New("--db-snap-asserts requires --db-snap")
 	}
 
+	if c.ControllerCharmPath != "" {
+		if refresher.IsLocalURL(c.ControllerCharmPath) {
+			_, err := c.Filesystem().Stat(c.ControllerCharmPath)
+			if err != nil {
+				return errors.Annotatef(err, "problem with --controller-charm-path")
+			}
+			ch, err := charm.ReadCharm(c.ControllerCharmPath)
+			if err != nil {
+				return errors.Errorf("--controller-charm-path %q is not a valid charm", c.ControllerCharmPath)
+			}
+			if ch.Meta().Name != bootstrap.ControllerCharmName {
+				return errors.Errorf("--controller-charm-path %q is not a %q charm", c.ControllerCharmPath,
+					bootstrap.ControllerCharmName)
+			}
+		} else {
+			// Assume this is a Charmhub URL
+			// TODO(barrettj12): validate the charm exists on CharmHub
+		}
+	}
+
+	c.ControllerCharmChannel, err = parseControllerCharmChannel(c.ControllerCharmChannelStr)
+	if err != nil {
+		return errors.NotValidf("controller charm channel %q", c.ControllerCharmChannelStr)
+	}
+
 	if c.showClouds && c.showRegionsForCloud != "" {
 		return errors.New("--clouds and --regions can't be used together")
 	}
@@ -376,9 +405,8 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		return errors.NotValidf("series %q", c.BootstrapSeries)
 	}
 
-	// controller is the name of the model created for internal juju management.
-	if c.hostedModelName == "controller" {
-		return errors.New(" 'controller' name is already assigned to juju internal management model")
+	if c.initialModelName == "" {
+		c.initialModelName = os.Getenv("JUJU_BOOTSTRAP_MODEL")
 	}
 
 	// Parse the placement directive. Bootstrap currently only
@@ -405,7 +433,8 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		}
 	}
 	if c.AgentVersion != nil && (c.AgentVersion.Major != jujuversion.Current.Major || c.AgentVersion.Minor != jujuversion.Current.Minor) {
-		return errors.Errorf("this client can only bootstrap %v.%v agents", jujuversion.Current.Major, jujuversion.Current.Minor)
+		return errors.Errorf("this client can only bootstrap %v.%v agents", jujuversion.Current.Major,
+			jujuversion.Current.Minor)
 	}
 
 	switch len(args) {
@@ -428,10 +457,26 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	return nil
 }
 
+func parseControllerCharmChannel(channelStr string) (charm.Channel, error) {
+	ch, err := charm.ParseChannel(channelStr)
+	if err != nil {
+		return charm.Channel{}, err
+	}
+
+	if ch.Track == "" {
+		ch.Track = fmt.Sprintf("%d.%d", jujuversion.Current.Major, jujuversion.Current.Minor)
+	}
+	if ch.Risk == "" {
+		ch.Risk = charm.Stable
+	}
+	return ch, nil
+}
+
 // BootstrapInterface provides bootstrap functionality that Run calls to support cleaner testing.
 type BootstrapInterface interface {
 	// Bootstrap bootstraps a controller.
-	Bootstrap(ctx environs.BootstrapContext, environ environs.BootstrapEnviron, callCtx envcontext.ProviderCallContext, args bootstrap.BootstrapParams) error
+	Bootstrap(ctx environs.BootstrapContext, environ environs.BootstrapEnviron, callCtx envcontext.ProviderCallContext,
+		args bootstrap.BootstrapParams) error
 
 	// CloudDetector returns a CloudDetector for the given provider,
 	// if the provider supports it.
@@ -448,7 +493,8 @@ type BootstrapInterface interface {
 
 type bootstrapFuncs struct{}
 
-func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.BootstrapEnviron, callCtx envcontext.ProviderCallContext, args bootstrap.BootstrapParams) error {
+func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.BootstrapEnviron,
+	callCtx envcontext.ProviderCallContext, args bootstrap.BootstrapParams) error {
 	return bootstrap.Bootstrap(ctx, env, callCtx, args)
 }
 
@@ -515,34 +561,30 @@ func (c *bootstrapCommand) parseConstraints(ctx *cmd.Context) (err error) {
 	return nil
 }
 
-func (c *bootstrapCommand) initializeHostedModel(
+func (c *bootstrapCommand) initializeFirstModel(
 	isCAASController bool,
 	config bootstrapConfigs,
 	store jujuclient.ClientStore,
 	environ environs.BootstrapEnviron,
 	bootstrapParams *bootstrap.BootstrapParams,
 ) (*jujuclient.ModelDetails, error) {
-	if c.noHostedModel {
-		return nil, nil
-	}
-	if isCAASController && c.hostedModelName == defaultHostedModelName {
-		// k8s controller does NOT have "default" hosted model
-		// if the user didn't specify a preferred hosted model name.
-		return nil, nil
+	if c.initialModelName == "" || c.initialModelName == "controller" {
+		// Nothing to do, but ensure the required model is selected by default.
+		return nil, store.SetCurrentModel(c.controllerName, c.initialModelName)
 	}
 
-	hostedModelUUID, err := utils.NewUUID()
+	initialModelUUID, err := utils.NewUUID()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	hostedModelType := model.IAAS
+	initialModelType := model.IAAS
 	if isCAASController {
-		hostedModelType = model.CAAS
+		initialModelType = model.CAAS
 	}
 	modelDetails := &jujuclient.ModelDetails{
-		ModelUUID: hostedModelUUID.String(),
-		ModelType: hostedModelType,
+		ModelUUID: initialModelUUID.String(),
+		ModelType: initialModelType,
 	}
 
 	if featureflag.Enabled(feature.Branches) || featureflag.Enabled(feature.Generations) {
@@ -551,19 +593,19 @@ func (c *bootstrapCommand) initializeHostedModel(
 
 	if err := store.UpdateModel(
 		c.controllerName,
-		c.hostedModelName,
+		c.initialModelName,
 		*modelDetails,
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	bootstrapParams.HostedModelConfig = c.hostedModelConfig(
-		hostedModelUUID, config.inheritedControllerAttrs, config.userConfigAttrs, environ,
+	bootstrapParams.InitialModelConfig = c.InitialModelConfig(
+		initialModelUUID, config.inheritedControllerAttrs, config.userConfigAttrs, environ,
 	)
 
 	if !c.noSwitch {
 		// Set the current model to the initial hosted model.
-		if err := store.SetCurrentModel(c.controllerName, c.hostedModelName); err != nil {
+		if err := store.SetCurrentModel(c.controllerName, c.initialModelName); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -574,13 +616,13 @@ func (c *bootstrapCommand) initializeHostedModel(
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
 func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
-	var hostedModel *jujuclient.ModelDetails
+	var initialModel *jujuclient.ModelDetails
 	var isCAASController bool
 	defer func() {
 		resultErr = handleChooseCloudRegionError(ctx, resultErr)
 		if !c.showClouds && resultErr == nil {
 			var msg string
-			if hostedModel == nil {
+			if initialModel == nil {
 				workloadType := ""
 				if isCAASController {
 					workloadType = "k8s "
@@ -592,7 +634,7 @@ to create a new model to deploy %sworkloads.
 `, workloadType)
 
 			} else {
-				msg = fmt.Sprintf("Initial model %q added", c.hostedModelName)
+				msg = fmt.Sprintf("Initial model %q added", c.initialModelName)
 			}
 			ctx.Infof(msg)
 		}
@@ -657,7 +699,8 @@ to create a new model to deploy %sworkloads.
 	credentials, regionName, err := c.credentialsAndRegionName(ctx, provider, cloud)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			err = errors.NewNotFound(nil, fmt.Sprintf("%v\nSee `juju add-credential %s --help` for instructions", err, cloud.Name))
+			err = errors.NewNotFound(nil,
+				fmt.Sprintf("%v\nSee `juju add-credential %s --help` for instructions", err, cloud.Name))
 		}
 
 		if err == cmd.ErrSilent {
@@ -686,6 +729,9 @@ to create a new model to deploy %sworkloads.
 	}
 
 	isCAASController = jujucloud.CloudIsCAAS(cloud)
+	if isCAASController && refresher.IsLocalURL(c.ControllerCharmPath) {
+		return errors.NotSupportedf("deploying a local controller charm on a k8s controller")
+	}
 	if !isCAASController {
 		if bootstrapCfg.bootstrap.ControllerServiceType != "" ||
 			bootstrapCfg.bootstrap.ControllerExternalName != "" ||
@@ -739,6 +785,7 @@ to create a new model to deploy %sworkloads.
 	if err != nil {
 		return errors.Annotate(err, "error reading supported bootstrap series")
 	}
+	logger.Tracef("supported bootstrap series %s", supportedBootstrapSeries.SortedValues())
 
 	bootstrapCfg.controller[controller.ControllerName] = c.controllerName
 
@@ -827,6 +874,8 @@ to create a new model to deploy %sworkloads.
 		JujuDbSnapPath:            c.JujuDbSnapPath,
 		JujuDbSnapAssertionsPath:  c.JujuDbSnapAssertionsPath,
 		StoragePools:              bootstrapCfg.storagePools,
+		ControllerCharmPath:       c.ControllerCharmPath,
+		ControllerCharmChannel:    c.ControllerCharmChannel,
 		DialOpts: environs.BootstrapDialOpts{
 			Timeout:        bootstrapCfg.bootstrap.BootstrapTimeout,
 			RetryDelay:     bootstrapCfg.bootstrap.BootstrapRetryDelay,
@@ -835,7 +884,7 @@ to create a new model to deploy %sworkloads.
 		Force: c.Force,
 	}
 
-	hostedModel, err = c.initializeHostedModel(
+	initialModel, err = c.initializeFirstModel(
 		isCAASController, bootstrapCfg, store, environ, &bootstrapParams,
 	)
 	if err != nil {
@@ -936,12 +985,6 @@ See `[1:] + "`juju kill-controller`" + `.`)
 
 	bootstrapParams.ModelConstraints = c.Constraints
 
-	// Check whether the Juju GUI must be installed in the controller.
-	// Leaving this value empty means no GUI will be installed.
-	if !c.noGUI {
-		bootstrapParams.GUIDataSourceBaseURL = common.GUIDataSourceBaseURL()
-	}
-
 	if credentials.name == "" {
 		// credentialName will be empty if the credential was detected.
 		// We must supply a name for the credential in the database,
@@ -971,7 +1014,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	}
 
 	if cloud.Type == k8sconstants.CAASProviderType {
-		if cloud.HostCloudRegion == caas.K8sCloudOther {
+		if cloud.HostCloudRegion == k8s.K8sCloudOther {
 			ctx.Infof("Bootstrap to generic Kubernetes cluster")
 		} else {
 			ctx.Infof("Bootstrap to Kubernetes cluster identified as %s",
@@ -995,8 +1038,8 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	}
 
 	modelNameToSet := bootstrap.ControllerModelName
-	if hostedModel != nil {
-		modelNameToSet = c.hostedModelName
+	if initialModel != nil {
+		modelNameToSet = c.initialModelName
 	}
 	if err = c.SetModelIdentifier(modelcmd.JoinModelName(c.controllerName, modelNameToSet), false); err != nil {
 		return errors.Trace(err)
@@ -1033,10 +1076,10 @@ func (c *bootstrapCommand) controllerDataRefresher(
 		if err != nil {
 			return errors.Trace(err)
 		}
-	} else if env, ok := environ.(caas.ServiceGetterSetter); ok {
+	} else if env, ok := environ.(caas.ServiceManager); ok {
 		// CAAS.
 		var svc *caas.Service
-		svc, err = env.GetService(k8sprovider.JujuControllerStackName, caas.ModeWorkload, false)
+		svc, err = env.GetService(k8sconstants.JujuControllerStackName, caas.ModeWorkload, false)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1194,7 +1237,8 @@ func (c *bootstrapCommand) detectCloud(
 	ctx.Verbosef("cloud %q not found, trying as a provider name", c.Cloud)
 	provider, err := environs.Provider(c.Cloud)
 	if errors.IsNotFound(err) {
-		return fail(errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-public-clouds")))
+		return fail(errors.NewNotFound(nil,
+			fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-public-clouds")))
 	} else if err != nil {
 		return fail(errors.Trace(err))
 	}
@@ -1204,7 +1248,8 @@ func (c *bootstrapCommand) detectCloud(
 			"provider %q does not support detecting regions",
 			c.Cloud,
 		)
-		return fail(errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-public-clouds")))
+		return fail(errors.NewNotFound(nil,
+			fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-public-clouds")))
 	}
 
 	var cloudEndpoint string
@@ -1455,7 +1500,7 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		combinedConfig[k] = v
 	}
 
-	// Provider specific attributes are either already specified in model
+	// Store specific attributes are either already specified in model
 	// config (but may have been coerced), or were not present. Either way,
 	// copy them in.
 	logger.Debugf("provider attrs: %v", providerAttrs)
@@ -1518,19 +1563,14 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		return bootstrapConfigs{}, errors.Annotate(err, "finalizing authorized-keys")
 	}
 
-	v, ok := bootstrapModelConfig[config.LoggingOutputKey]
-	if ok && v != "" && !controllerConfig.Features().Contains(feature.LoggingOutput) {
-		return bootstrapConfigs{}, errors.Errorf("cannot set %q without setting the %q feature flag", config.LoggingOutputKey, feature.LoggingOutput)
-	}
-
-	// We need to do an Azure specific check here.
-	// This won't be needed once the "default" model is banished.
-	// Until it is, we need to ensure that if a resource-group-name is specified,
-	// the user has also disabled the default model, otherwise we end up with 2
+	// We need to do an Azure specific check here to ensure that
+	// if a resource-group-name is specified, the user has also
+	// not specified a default model, otherwise we end up with 2
 	// models with the same resource group name.
 	resourceGroupName, ok := bootstrapModelConfig["resource-group-name"]
-	if ok && resourceGroupName != "" && !c.noHostedModel {
-		return bootstrapConfigs{}, errors.Errorf("if using resource-group-name %q then --no-default-model is required as well", resourceGroupName)
+	if ok && resourceGroupName != "" && c.initialModelName != "" {
+		return bootstrapConfigs{}, errors.Errorf("if using resource-group-name %q then a workload model cannot be specified as well",
+			resourceGroupName)
 	}
 
 	logger.Debugf("preparing controller with config: %v", bootstrapModelConfig)
@@ -1546,19 +1586,19 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	return configs, nil
 }
 
-func (c *bootstrapCommand) hostedModelConfig(
-	hostedModelUUID utils.UUID,
+func (c *bootstrapCommand) InitialModelConfig(
+	initialModelUUID utils.UUID,
 	inheritedControllerAttrs,
 	userConfigAttrs map[string]interface{},
 	environ environs.ConfigGetter,
 ) map[string]interface{} {
 
-	hostedModelConfig := map[string]interface{}{
-		"name":         c.hostedModelName,
-		config.UUIDKey: hostedModelUUID.String(),
+	InitialModelConfig := map[string]interface{}{
+		"name":         c.initialModelName,
+		config.UUIDKey: initialModelUUID.String(),
 	}
 	for k, v := range inheritedControllerAttrs {
-		hostedModelConfig[k] = v
+		InitialModelConfig[k] = v
 	}
 
 	// We copy across any user supplied attributes to the hosted model config.
@@ -1567,17 +1607,17 @@ func (c *bootstrapCommand) hostedModelConfig(
 	controllerModelConfigAttrs := environ.Config().AllAttrs()
 	for k, v := range userConfigAttrs {
 		if _, ok := controllerModelConfigAttrs[k]; ok {
-			hostedModelConfig[k] = v
+			InitialModelConfig[k] = v
 		}
 	}
 	// Ensure that certain config attributes are not included in the hosted
 	// model config. These attributes may be modified during bootstrap; by
 	// removing them from this map, we ensure the modified values are
 	// inherited.
-	delete(hostedModelConfig, config.AuthorizedKeysKey)
-	delete(hostedModelConfig, config.AgentVersionKey)
+	delete(InitialModelConfig, config.AuthorizedKeysKey)
+	delete(InitialModelConfig, config.AgentVersionKey)
 
-	return hostedModelConfig
+	return InitialModelConfig
 }
 
 // runInteractive queries the user about bootstrap config interactively at the

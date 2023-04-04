@@ -10,18 +10,17 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"runtime"
 	"sync"
 	"time"
 
+	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/juju/juju/sockets"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
-	"github.com/juju/testing"
 )
 
 type CAASUnitInitSuite struct {
@@ -31,9 +30,6 @@ type CAASUnitInitSuite struct {
 var _ = gc.Suite(&CAASUnitInitSuite{})
 
 func (s *CAASUnitInitSuite) SetUpTest(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("unsupported")
-	}
 	s.BaseSuite.SetUpTest(c)
 }
 
@@ -178,11 +174,7 @@ func (s *CAASUnitInitSuite) TestInitUnitWaitSend(c *gc.C) {
 func (s *CAASUnitInitSuite) TestWaitPID(c *gc.C) {
 	var cmd *exec.Cmd
 	pid := 0
-	if runtime.GOOS == "windows" {
-		cmd = exec.Command("ping", "127.0.0.1", "-n", "3")
-	} else {
-		cmd = exec.Command("sleep", "2")
-	}
+	cmd = exec.Command("sleep", "2")
 	err := cmd.Start()
 	c.Assert(err, jc.ErrorIsNil)
 	pid = cmd.Process.Pid

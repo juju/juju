@@ -15,6 +15,3 @@ subordinate: false
 series:
   - jammy
   - focal
-  - bionic
-  - xenial
-  - quantal

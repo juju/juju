@@ -35,7 +35,7 @@ func (s *bridgePolicyStateSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 
 	var err error
-	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	s.machine = containerizer.NewMachine(m)
 }
@@ -43,8 +43,8 @@ func (s *bridgePolicyStateSuite) SetUpTest(c *gc.C) {
 func (s *bridgePolicyStateSuite) addContainerMachine(c *gc.C) {
 	// Add a container machine with s.machine as its host.
 	containerTemplate := state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(containerTemplate, s.machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
@@ -170,8 +170,6 @@ func (s *bridgePolicyStateSuite) createLoopbackNIC(c *gc.C, machine containerize
 func (s *bridgePolicyStateSuite) createAllDefaultDevices(c *gc.C, machine containerizer.Machine) {
 	// loopback
 	s.createLoopbackNIC(c, machine)
-	// container.DefaultLxcBridge
-	s.createBridgeWithIP(c, machine, "lxcbr0", "10.0.3.1/24")
 	// container.DefaultLxdBridge
 	s.createBridgeWithIP(c, machine, "lxdbr0", "10.0.4.1/24")
 	// container.DefaultKvmBridge

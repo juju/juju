@@ -7,9 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/description/v3"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -28,7 +27,6 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -49,6 +47,7 @@ type Suite struct {
 
 	facadeContext facadetest.Context
 	callContext   context.ProviderCallContext
+	leaders       map[string]string
 }
 
 var _ = gc.Suite(&Suite{})
@@ -58,7 +57,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	// is required to allow model import test to work.
 	s.InitialConfig = jujutesting.CustomModelConfig(c, dummy.SampleConfig())
 
-	// The call up to StateSuite's SetUpTest uses s.InitialConfig so
+	// The call to StateSuite's SetUpTest uses s.InitialConfig so
 	// it has to happen here.
 	s.StateSuite.SetUpTest(c)
 
@@ -76,6 +75,8 @@ func (s *Suite) SetUpTest(c *gc.C) {
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	}
+
+	s.leaders = map[string]string{}
 }
 
 func (s *Suite) TestFacadeRegistered(c *gc.C) {
@@ -165,11 +166,9 @@ func (s *Suite) TestImportLeadership(c *gc.C) {
 	for i := 0; i < 3; i++ {
 		s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 	}
-	target := s.State.LeaseNotifyTarget(loggo.GetLogger("migrationtarget_test"))
-	target.Claimed(
-		lease.Key{"application-leadership", s.State.ModelUUID(), "wordpress"},
-		"wordpress/2",
-	)
+	s.leaders = map[string]string{
+		"wordpress": "wordpress/2",
+	}
 
 	var claimer fakeClaimer
 	s.facadeContext.LeadershipClaimer_ = &claimer
@@ -512,7 +511,7 @@ func (s *Suite) mustNewAPIWithModel(c *gc.C, env environs.Environ, broker caas.B
 }
 
 func (s *Suite) makeExportedModel(c *gc.C) (string, []byte) {
-	model, err := s.State.Export()
+	model, err := s.State.Export(s.leaders)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newUUID := utils.MustNewUUID().String()

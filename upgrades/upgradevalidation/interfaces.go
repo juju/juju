@@ -5,7 +5,7 @@ package upgradevalidation
 
 import (
 	"github.com/juju/names/v4"
-	"github.com/juju/replicaset/v2"
+	"github.com/juju/replicaset/v3"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/state"
@@ -19,8 +19,9 @@ type StatePool interface {
 
 // State represents a point of use interface for modelling a current model.
 type State interface {
+	AllCharmURLs() ([]*string, error)
 	HasUpgradeSeriesLocks() (bool, error)
-	MachineCountForSeries(series ...string) (map[string]int, error)
+	MachineCountForBase(base ...state.Base) (map[string]int, error)
 	MongoCurrentStatus() (*replicaset.Status, error)
 }
 

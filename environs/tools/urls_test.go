@@ -144,8 +144,16 @@ func (s *URLsSuite) TestToolsURL(c *gc.C) {
 		in:          "foo",
 		expected:    "",
 		expectedErr: fmt.Errorf("foo is not an absolute path"),
+	}, {
+		in:          "/home/foo",
+		expected:    "file:///home/foo/tools",
+		expectedErr: nil,
+	}, {
+		in:          "/home/foo/tools",
+		expected:    "file:///home/foo/tools",
+		expectedErr: nil,
 	}}
-	toolsTests = append(toolsTests, toolsTestsPlatformSpecific...)
+
 	for i, t := range toolsTests {
 		c.Logf("Test %d:", i)
 

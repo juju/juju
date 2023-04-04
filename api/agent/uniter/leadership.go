@@ -15,31 +15,24 @@ import (
 func NewLeadershipSettingsAccessor(
 	caller FacadeCallFn,
 	newWatcher NewNotifyWatcherFn,
-	checkAPIVersion CheckAPIVersionFn,
 ) *LeadershipSettingsAccessor {
-	return &LeadershipSettingsAccessor{caller, newWatcher, checkAPIVersion}
+	return &LeadershipSettingsAccessor{caller, newWatcher}
 }
 
 type FacadeCallFn func(request string, params, response interface{}) error
 type NewNotifyWatcherFn func(params.NotifyWatchResult) watcher.NotifyWatcher
-type CheckAPIVersionFn func(functionName string) error
 
 // LeadershipSettingsAccessor provides a type that can make RPC calls
 // to a service which can read, write, and watch leadership settings.
 type LeadershipSettingsAccessor struct {
 	facadeCaller     FacadeCallFn
 	newNotifyWatcher NewNotifyWatcherFn
-	checkAPIVersion  CheckAPIVersionFn
 }
 
 // Merge merges the provided settings into the leadership settings for
 // the given application and unit. Only leaders of a given application may perform
 // this operation.
 func (lsa *LeadershipSettingsAccessor) Merge(appId, unitId string, settings map[string]string) error {
-
-	if err := lsa.checkAPIVersion("Merge"); err != nil {
-		return errors.Annotatef(err, "cannot access leadership api")
-	}
 	results, err := lsa.bulkMerge(lsa.prepareMerge(appId, unitId, settings))
 	if err != nil {
 		return errors.Annotatef(err, "failed to call leadership api")
@@ -56,11 +49,6 @@ func (lsa *LeadershipSettingsAccessor) Merge(appId, unitId string, settings map[
 // Read retrieves the leadership settings for the given application
 // ID. Anyone may perform this operation.
 func (lsa *LeadershipSettingsAccessor) Read(appId string) (map[string]string, error) {
-
-	if err := lsa.checkAPIVersion("Read"); err != nil {
-		return nil, errors.Annotatef(err, "cannot access leadership api")
-	}
-
 	results, err := lsa.bulkRead(lsa.prepareRead(appId))
 	if err != nil {
 		return nil, errors.Annotatef(err, "failed to call leadership api")
@@ -77,10 +65,6 @@ func (lsa *LeadershipSettingsAccessor) Read(appId string) (map[string]string, er
 // WatchLeadershipSettings returns a watcher which can be used to wait
 // for leadership settings changes to be made for a given application ID.
 func (lsa *LeadershipSettingsAccessor) WatchLeadershipSettings(appId string) (watcher.NotifyWatcher, error) {
-
-	if err := lsa.checkAPIVersion("WatchLeadershipSettings"); err != nil {
-		return nil, errors.Annotatef(err, "cannot access leadership api")
-	}
 	var results params.NotifyWatchResults
 	if err := lsa.facadeCaller(
 		"WatchLeadershipSettings",

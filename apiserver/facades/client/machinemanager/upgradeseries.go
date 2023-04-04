@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -16,9 +15,9 @@ import (
 	"github.com/juju/juju/charmhub"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/os"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/state"
 )
 
 // UpgradeSeries defines an interface for interacting with upgrading a series.
@@ -60,19 +59,19 @@ type ApplicationValidator interface {
 	//
 	// I do question if you actually need to validate anything if force is
 	// employed here?
-	ValidateApplications(applications []Application, series string, force bool) error
+	ValidateApplications(applications []Application, base coreseries.Base, force bool) error
 }
 
-// UpgradeSeriesValidator defines a set of validators for the upgrade series
+// UpgradeBaseValidator defines a set of validators for the upgrade series
 // scenarios.
-type UpgradeSeriesValidator interface {
+type UpgradeBaseValidator interface {
 	ApplicationValidator
 
-	// ValidateSeries validates a given requested series against the current
-	// machine series.
+	// ValidateBase validates a given requested base against the current
+	// machine base.
 	// The machine tag is currently used for descriptive information and could
 	// be deprecated in reality.
-	ValidateSeries(requestedSeries, machineSeries, machineTag string) error
+	ValidateBase(requestedBase, machineBase coreseries.Base, machineTag string) error
 
 	// ValidateMachine validates a given machine for ensuring it meets a given
 	// state (quiescence essentially) and has no current ongoing machine lock.
@@ -87,14 +86,14 @@ type UpgradeSeriesValidator interface {
 // before entering the API.
 type UpgradeSeriesAPI struct {
 	state      UpgradeSeriesState
-	validator  UpgradeSeriesValidator
+	validator  UpgradeBaseValidator
 	authorizer Authorizer
 }
 
 // NewUpgradeSeriesAPI creates a new UpgradeSeriesAPI
 func NewUpgradeSeriesAPI(
 	state UpgradeSeriesState,
-	validator UpgradeSeriesValidator,
+	validator UpgradeBaseValidator,
 	authorizer Authorizer,
 ) *UpgradeSeriesAPI {
 	return &UpgradeSeriesAPI{
@@ -106,9 +105,9 @@ func NewUpgradeSeriesAPI(
 
 // ValidationEntity defines a type that requires validation.
 type ValidationEntity struct {
-	Tag    string
-	Series string
-	Force  bool
+	Tag     string
+	Channel string
+	Force   bool
 }
 
 // ValidationResult defines the result of the validation.
@@ -139,7 +138,12 @@ func (a *UpgradeSeriesAPI) Validate(entities []ValidationEntity) ([]ValidationRe
 			continue
 		}
 
-		if err := a.validateApplication(machine, entity.Series, entity.Force); err != nil {
+		requestedBase, err := baseFromParams(entity.Tag, machine.Base(), entity.Channel)
+		if err != nil {
+			results[i].Error = errors.Trace(err)
+			continue
+		}
+		if err := a.validateApplication(machine, requestedBase, entity.Force); err != nil {
 			results[i].Error = errors.Trace(err)
 			continue
 		}
@@ -166,12 +170,13 @@ func (a *UpgradeSeriesAPI) Validate(entities []ValidationEntity) ([]ValidationRe
 	return results, nil
 }
 
-func (a *UpgradeSeriesAPI) Prepare(tag, series string, force bool) (retErr error) {
-	if series == "" {
-		return errors.BadRequestf("series missing from args")
+func (a *UpgradeSeriesAPI) Prepare(tag, channel string, force bool) (retErr error) {
+	machine, err := a.state.MachineFromTag(tag)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
-	machine, err := a.state.MachineFromTag(tag)
+	requestedBase, err := baseFromParams(tag, machine.Base(), channel)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -192,7 +197,7 @@ func (a *UpgradeSeriesAPI) Prepare(tag, series string, force bool) (retErr error
 	// TODO 2018-06-28 managed series upgrade
 	// improve error handling based on error type, there will be cases where retrying
 	// the hooks is needed etc.
-	err = machine.CreateUpgradeSeriesLock(unitNames, series)
+	err = machine.CreateUpgradeSeriesLock(unitNames, state.Base{OS: requestedBase.OS, Channel: requestedBase.Channel.Track})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -209,12 +214,16 @@ func (a *UpgradeSeriesAPI) Prepare(tag, series string, force bool) (retErr error
 	}()
 
 	// Validate the machine applications for a given series.
-	if err := a.validateApplication(machine, series, force); err != nil {
+	if err := a.validateApplication(machine, requestedBase, force); err != nil {
 		return errors.Trace(err)
 	}
 
 	// Once validated, set the machine status to started.
-	message := fmt.Sprintf("started upgrade series from %q to %q", machine.Series(), series)
+	mBase, err := coreseries.ParseBase(machine.Base().OS, machine.Base().Channel)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	message := fmt.Sprintf("started upgrade from %q to %q", mBase.DisplayString(), requestedBase.DisplayString())
 	return machine.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareStarted, message)
 }
 
@@ -226,8 +235,12 @@ func (a *UpgradeSeriesAPI) Complete(tag string) error {
 	return machine.CompleteUpgradeSeries()
 }
 
-func (a *UpgradeSeriesAPI) validateApplication(machine Machine, requestedSeries string, force bool) error {
-	if err := a.validator.ValidateSeries(requestedSeries, machine.Series(), machine.Tag().String()); err != nil {
+func (a *UpgradeSeriesAPI) validateApplication(machine Machine, requestedBase coreseries.Base, force bool) error {
+	base, err := coreseries.ParseBase(machine.Base().OS, machine.Base().Channel)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := a.validator.ValidateBase(requestedBase, base, machine.Tag().String()); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -239,7 +252,7 @@ func (a *UpgradeSeriesAPI) validateApplication(machine Machine, requestedSeries 
 		return errors.Trace(err)
 	}
 
-	if err := a.validator.ValidateApplications(applications, requestedSeries, force); err != nil {
+	if err := a.validator.ValidateApplications(applications, requestedBase, force); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -296,45 +309,42 @@ func makeUpgradeSeriesValidator(client CharmhubClient) upgradeSeriesValidator {
 	}
 }
 
-// ValidateSeries validates a given requested series against the current
-// machine series.
-func (s upgradeSeriesValidator) ValidateSeries(requestedSeries, machineSeries, machineTag string) error {
-	if requestedSeries == "" {
-		return errors.BadRequestf("series missing from args")
+func baseFromParams(machineTag string, base state.Base, channel string) (coreseries.Base, error) {
+	if base.OS != "ubuntu" {
+		return coreseries.Base{}, errors.Errorf("%s is running %s and is not valid for Ubuntu series upgrade",
+			machineTag, base.OS)
+	}
+	if channel == "" {
+		return coreseries.Base{}, errors.New("channel missing from args")
+	}
+	return coreseries.ParseBase(base.OS, channel)
+}
+
+// ValidateBase validates a given requested base against the current
+// machine base.
+func (s upgradeSeriesValidator) ValidateBase(requestedBase, machineBase coreseries.Base, machineTag string) error {
+	if requestedBase.String() == "" {
+		return errors.BadRequestf("base missing from args")
 	}
 
-	opSys, err := coreseries.GetOSFromSeries(requestedSeries)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if opSys != os.Ubuntu {
-		return errors.Errorf("series %q is from OS %q and is not a valid upgrade target",
-			requestedSeries, opSys.String())
+	if requestedBase.OS != "ubuntu" {
+		return errors.Errorf("base %q is not a valid upgrade target", requestedBase)
 	}
 
-	opSys, err = coreseries.GetOSFromSeries(machineSeries)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if opSys != os.Ubuntu {
-		return errors.Errorf("%s is running %s and is not valid for Ubuntu series upgrade",
-			machineTag, opSys.String())
-	}
-
-	if requestedSeries == machineSeries {
-		return errors.Errorf("%s is already running series %s", machineTag, requestedSeries)
+	if requestedBase.Channel.Track == machineBase.Channel.Track {
+		return errors.Errorf("%s is already running base %s", machineTag, requestedBase.DisplayString())
 	}
 
 	// TODO (Check the charmhub API for all applications running on this) machine
 	// to see if it's possible to run a charm on this machine.
 
-	isOlderSeries, err := isSeriesLessThan(requestedSeries, machineSeries)
+	isOlderBase, err := isBaseLessThan(requestedBase, machineBase)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if isOlderSeries {
-		return errors.Errorf("machine %s is running %s which is a newer series than %s.",
-			machineTag, machineSeries, requestedSeries)
+	if isOlderBase {
+		return errors.Errorf("machine %s is running %s which is a newer base than %s.",
+			machineTag, machineBase.DisplayString(), requestedBase.DisplayString())
 	}
 
 	return nil
@@ -342,7 +352,7 @@ func (s upgradeSeriesValidator) ValidateSeries(requestedSeries, machineSeries, m
 
 // ValidateApplications attempts to validate a series of applications for
 // a given series.
-func (s upgradeSeriesValidator) ValidateApplications(applications []Application, series string, force bool) error {
+func (s upgradeSeriesValidator) ValidateApplications(applications []Application, base coreseries.Base, force bool) error {
 	// We do it this way, so we can batch the charmhub charm queries. This is
 	// leaking an implementation detail into the decision logic, but we can't
 	// work around that.
@@ -363,11 +373,11 @@ func (s upgradeSeriesValidator) ValidateApplications(applications []Application,
 		requestApps = append(requestApps, app)
 	}
 
-	if err := s.localValidator.ValidateApplications(stateApps, series, force); err != nil {
+	if err := s.localValidator.ValidateApplications(stateApps, base, force); err != nil {
 		return errors.Trace(err)
 	}
 
-	return s.remoteValidator.ValidateApplications(requestApps, series, force)
+	return s.remoteValidator.ValidateApplications(requestApps, base, force)
 }
 
 // ValidateMachine validates a given machine for ensuring it meets a given
@@ -428,21 +438,21 @@ func (s upgradeSeriesValidator) ValidateUnits(units []Unit) error {
 type stateSeriesValidator struct{}
 
 // ValidateApplications attempts to validate a series of applications for
-// a given series.
-func (s stateSeriesValidator) ValidateApplications(applications []Application, series string, force bool) error {
+// a given base.
+func (s stateSeriesValidator) ValidateApplications(applications []Application, base coreseries.Base, force bool) error {
 	if len(applications) == 0 {
 		return nil
 	}
 
 	for _, app := range applications {
-		if err := s.verifySupportedSeries(app, series, force); err != nil {
+		if err := s.verifySupportedBase(app, base, force); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
 }
 
-func (s stateSeriesValidator) verifySupportedSeries(application Application, series string, force bool) error {
+func (s stateSeriesValidator) verifySupportedBase(application Application, base coreseries.Base, force bool) error {
 	ch, _, err := application.Charm()
 	if err != nil {
 		return errors.Trace(err)
@@ -454,7 +464,11 @@ func (s stateSeriesValidator) verifySupportedSeries(application Application, ser
 	if len(supportedSeries) == 0 {
 		supportedSeries = append(supportedSeries, ch.URL().Series)
 	}
-	_, seriesSupportedErr := charm.SeriesForCharm(series, supportedSeries)
+	series, err := coreseries.GetSeriesFromBase(base)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	_, seriesSupportedErr := corecharm.SeriesForCharm(series, supportedSeries)
 	if seriesSupportedErr != nil && !force {
 		// TODO (stickupkid): Once all commands are placed in this API, we
 		// should relocate these to the API server.
@@ -470,8 +484,8 @@ type charmhubSeriesValidator struct {
 }
 
 // ValidateApplications attempts to validate a series of applications for
-// a given series.
-func (s charmhubSeriesValidator) ValidateApplications(applications []Application, series string, force bool) error {
+// a given base.
+func (s charmhubSeriesValidator) ValidateApplications(applications []Application, base coreseries.Base, force bool) error {
 	if len(applications) == 0 {
 		return nil
 	}
@@ -501,25 +515,29 @@ func (s charmhubSeriesValidator) ValidateApplications(applications []Application
 	}
 	for _, resp := range refreshResp {
 		if err := resp.Error; err != nil && !force {
-			return errors.Annotatef(err, "unable to locate application with series %s", series)
+			return errors.Annotatef(err, "unable to locate application with base %s", base.DisplayString())
 		}
 	}
 	// DownloadOneFromRevision does not take a base, however the response contains the bases
 	// supported by the given revision.  Validate against provided series.
-	channelToValidate, err := coreseries.SeriesVersion(series)
+	channelToValidate := base.Channel.Track
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, resp := range refreshResp {
 		var found bool
 		for _, base := range resp.Entity.Bases {
-			if channelToValidate == base.Channel || force {
+			track, err := corecharm.ChannelTrack(base.Channel)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if channelToValidate == track || force {
 				found = true
 				break
 			}
 		}
 		if !found {
-			return errors.Errorf("charm %q does not support %s, force not used", resp.Name, series)
+			return errors.Errorf("charm %q does not support %s, force not used", resp.Name, base)
 		}
 	}
 	return nil

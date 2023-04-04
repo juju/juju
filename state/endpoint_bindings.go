@@ -6,13 +6,13 @@ package state
 import (
 	"fmt"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
-	jujutxn "github.com/juju/txn/v2"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
+	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/mongo/utils"
@@ -272,9 +272,18 @@ func (b *Bindings) updateOps(txnRevno int64, newMap map[string]string, newMeta *
 		escaped[utils.EscapeKey(endpoint)] = space
 	}
 
+	_, bindingsErr := readEndpointBindingsDoc(b.app.st, b.app.globalKey())
+	if bindingsErr != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	if err != nil {
+		// No bindings to update.
+		return ops, nil
+	}
 	updateOp := txn.Op{
 		C:      endpointBindingsC,
 		Id:     b.app.globalKey(),
+		Assert: txn.DocExists,
 		Update: bson.M{"$set": bson.M{"bindings": escaped}},
 	}
 	if useTxnRevno {

@@ -5,7 +5,6 @@ package caas_test
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -23,9 +22,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
+	storagev1 "k8s.io/api/storage/v1"
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	jujucaas "github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/cloud"
@@ -164,23 +165,23 @@ func (api *fakeAddCloudAPI) AddCredential(tag string, credential cloud.Credentia
 
 type fakeK8sClusterMetadataChecker struct {
 	*jujutesting.CallMocker
-	jujucaas.ClusterMetadataChecker
+	k8s.ClusterMetadataChecker
 	existingSC bool
 }
 
-func (api *fakeK8sClusterMetadataChecker) GetClusterMetadata(storageClass string) (result *jujucaas.ClusterMetadata, err error) {
+func (api *fakeK8sClusterMetadataChecker) GetClusterMetadata(storageClass string) (result *k8s.ClusterMetadata, err error) {
 	results := api.MethodCall(api, "GetClusterMetadata")
-	return results[0].(*jujucaas.ClusterMetadata), jujutesting.TypeAssertError(results[1])
+	return results[0].(*k8s.ClusterMetadata), jujutesting.TypeAssertError(results[1])
 }
 
-func (api *fakeK8sClusterMetadataChecker) CheckDefaultWorkloadStorage(cluster string, storageProvisioner *jujucaas.StorageProvisioner) error {
+func (api *fakeK8sClusterMetadataChecker) CheckDefaultWorkloadStorage(cluster string, storageProvisioner *k8s.StorageProvisioner) error {
 	results := api.MethodCall(api, "CheckDefaultWorkloadStorage")
 	return jujutesting.TypeAssertError(results[0])
 }
 
-func (api *fakeK8sClusterMetadataChecker) EnsureStorageProvisioner(cfg jujucaas.StorageProvisioner) (*jujucaas.StorageProvisioner, bool, error) {
+func (api *fakeK8sClusterMetadataChecker) EnsureStorageProvisioner(cfg k8s.StorageProvisioner) (*k8s.StorageProvisioner, bool, error) {
 	results := api.MethodCall(api, "EnsureStorageProvisioner", cfg)
-	return results[0].(*jujucaas.StorageProvisioner), api.existingSC, jujutesting.TypeAssertError(results[1])
+	return results[0].(*k8s.StorageProvisioner), api.existingSC, jujutesting.TypeAssertError(results[1])
 }
 
 func fakeNewK8sClientConfig(_ string, _ io.Reader, contextName, clusterName string, _ clientconfig.K8sCredentialResolver) (*clientconfig.ClientConfig, error) {
@@ -268,7 +269,7 @@ func (s *addCAASSuite) setupBroker(c *gc.C) *gomock.Controller {
 }
 
 func CreateKubeConfigData(conf string) (string, error) {
-	file, err := ioutil.TempFile("", "")
+	file, err := os.CreateTemp("", "")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -310,9 +311,11 @@ func (s *addCAASSuite) SetUpTest(c *gc.C) {
 	}
 	s.cloudMetadataStore = &fakeCloudMetadataStore{CallMocker: jujutesting.NewCallMocker(logger)}
 
-	defaultClusterMetadata := &jujucaas.ClusterMetadata{
+	defaultClusterMetadata := &k8s.ClusterMetadata{
 		Cloud: "gce", Regions: set.NewStrings("us-east1"),
-		OperatorStorageClass: &jujucaas.StorageProvisioner{Name: "operator-sc"},
+		OperatorStorageClass: &storagev1.StorageClass{
+			ObjectMeta: meta.ObjectMeta{Name: "operator-sc"},
+		},
 	}
 	s.fakeK8sClusterMetadataChecker = &fakeK8sClusterMetadataChecker{
 		CallMocker: jujutesting.NewCallMocker(logger),
@@ -336,7 +339,7 @@ func (s *addCAASSuite) SetUpTest(c *gc.C) {
 
 func (s *addCAASSuite) writeTempKubeConfig(c *gc.C) {
 	fullpath := filepath.Join(s.dir, "empty-config")
-	err := ioutil.WriteFile(fullpath, []byte(""), 0644)
+	err := os.WriteFile(fullpath, []byte(""), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	os.Setenv("KUBECONFIG", fullpath)
 }
@@ -375,7 +378,7 @@ func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists, emptyClientConfig, 
 				return c, nil
 			}
 		},
-		func(cloud jujucloud.Cloud, credential jujucloud.Credential) (jujucaas.ClusterMetadataChecker, error) {
+		func(cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error) {
 			return s.fakeK8sClusterMetadataChecker, nil
 		},
 		caas.FakeCluster(kubeConfigStr),
@@ -530,74 +533,75 @@ func (s *addCAASSuite) TestInit(c *gc.C) {
 			args:           []string{"--context-name", "a", "--cluster-name", "b"},
 			expectedErrStr: "only specify one of cluster-name or context-name, not both",
 		},
-		{
-			args:           []string{"--gke", "--context-name", "a"},
-			expectedErrStr: "do not specify context name when adding a AKS/GKE/EKS cluster",
-		},
-		{
-			args:           []string{"--aks", "--context-name", "a"},
-			expectedErrStr: "do not specify context name when adding a AKS/GKE/EKS cluster",
-		},
-		{
-			args:           []string{"--eks", "--context-name", "a"},
-			expectedErrStr: "do not specify context name when adding a AKS/GKE/EKS cluster",
-		},
-		{
-			args:           []string{"--gke", "--cloud", "a"},
-			expectedErrStr: "do not specify --cloud when adding a GKE, EKS or AKS cluster",
-		},
-		{
-			args:           []string{"--aks", "--cloud", "a"},
-			expectedErrStr: "do not specify --cloud when adding a GKE, EKS or AKS cluster",
-		},
-		{
-			args:           []string{"--eks", "--cloud", "a"},
-			expectedErrStr: "do not specify --cloud when adding a GKE, EKS or AKS cluster",
-		},
-		{
-			args:           []string{"--gke", "--region", "cloud/region"},
-			expectedErrStr: "only specify region, not cloud/region, when adding a GKE, EKS or AKS cluster",
-		},
-		{
-			args:           []string{"--aks", "--region", "cloud/region"},
-			expectedErrStr: "only specify region, not cloud/region, when adding a GKE, EKS or AKS cluster",
-		},
-		{
-			args:           []string{"--eks", "--region", "cloud/region"},
-			expectedErrStr: "only specify region, not cloud/region, when adding a GKE, EKS or AKS cluster",
-		},
-		{
-			args:           []string{"--project", "a"},
-			expectedErrStr: "do not specify project unless adding a GKE cluster",
-		},
-		{
-			args:           []string{"--credential", "a"},
-			expectedErrStr: "do not specify credential unless adding a GKE cluster",
-		},
-		{
-			args:           []string{"--project", "a", "--aks"},
-			expectedErrStr: "do not specify project unless adding a GKE cluster",
-		},
-		{
-			args:           []string{"--credential", "a", "--aks"},
-			expectedErrStr: "do not specify credential unless adding a GKE cluster",
-		},
-		{
-			args:           []string{"--project", "a", "--eks"},
-			expectedErrStr: "do not specify project unless adding a GKE cluster",
-		},
-		{
-			args:           []string{"--credential", "a", "--eks"},
-			expectedErrStr: "do not specify credential unless adding a GKE cluster",
-		},
-		{
-			args:           []string{"--resource-group", "rg1", "--gke"},
-			expectedErrStr: "do not specify resource-group unless adding a AKS cluster",
-		},
-		{
-			args:           []string{"--resource-group", "rg1", "--eks"},
-			expectedErrStr: "do not specify resource-group unless adding a AKS cluster",
-		},
+		// TODO(k8s) - support k8s tooling in strict snap
+		//{
+		//	args:           []string{"--gke", "--context-name", "a"},
+		//	expectedErrStr: "do not specify context name when adding a AKS/GKE/EKS cluster",
+		//},
+		//{
+		//	args:           []string{"--aks", "--context-name", "a"},
+		//	expectedErrStr: "do not specify context name when adding a AKS/GKE/EKS cluster",
+		//},
+		//{
+		//	args:           []string{"--eks", "--context-name", "a"},
+		//	expectedErrStr: "do not specify context name when adding a AKS/GKE/EKS cluster",
+		//},
+		//{
+		//	args:           []string{"--gke", "--cloud", "a"},
+		//	expectedErrStr: "do not specify --cloud when adding a GKE, EKS or AKS cluster",
+		//},
+		//{
+		//	args:           []string{"--aks", "--cloud", "a"},
+		//	expectedErrStr: "do not specify --cloud when adding a GKE, EKS or AKS cluster",
+		//},
+		//{
+		//	args:           []string{"--eks", "--cloud", "a"},
+		//	expectedErrStr: "do not specify --cloud when adding a GKE, EKS or AKS cluster",
+		//},
+		//{
+		//	args:           []string{"--gke", "--region", "cloud/region"},
+		//	expectedErrStr: "only specify region, not cloud/region, when adding a GKE, EKS or AKS cluster",
+		//},
+		//{
+		//	args:           []string{"--aks", "--region", "cloud/region"},
+		//	expectedErrStr: "only specify region, not cloud/region, when adding a GKE, EKS or AKS cluster",
+		//},
+		//{
+		//	args:           []string{"--eks", "--region", "cloud/region"},
+		//	expectedErrStr: "only specify region, not cloud/region, when adding a GKE, EKS or AKS cluster",
+		//},
+		//{
+		//	args:           []string{"--project", "a"},
+		//	expectedErrStr: "do not specify project unless adding a GKE cluster",
+		//},
+		//{
+		//	args:           []string{"--credential", "a"},
+		//	expectedErrStr: "do not specify credential unless adding a GKE cluster",
+		//},
+		//{
+		//	args:           []string{"--project", "a", "--aks"},
+		//	expectedErrStr: "do not specify project unless adding a GKE cluster",
+		//},
+		//{
+		//	args:           []string{"--credential", "a", "--aks"},
+		//	expectedErrStr: "do not specify credential unless adding a GKE cluster",
+		//},
+		//{
+		//	args:           []string{"--project", "a", "--eks"},
+		//	expectedErrStr: "do not specify project unless adding a GKE cluster",
+		//},
+		//{
+		//	args:           []string{"--credential", "a", "--eks"},
+		//	expectedErrStr: "do not specify credential unless adding a GKE cluster",
+		//},
+		//{
+		//	args:           []string{"--resource-group", "rg1", "--gke"},
+		//	expectedErrStr: "do not specify resource-group unless adding a AKS cluster",
+		//},
+		//{
+		//	args:           []string{"--resource-group", "rg1", "--eks"},
+		//	expectedErrStr: "do not specify resource-group unless adding a AKS cluster",
+		//},
 	} {
 		args := append([]string{"myk8s"}, ts.args...)
 		command := s.makeCommand(c, true, false, true)
@@ -650,21 +654,22 @@ func (s *addCAASSuite) TestCloudAndRegionFlag(c *gc.C) {
 			title:          "missing region --cloud=brokenteststack and cloud's default region is not a cloud region",
 			cloud:          "brokenteststack",
 			expectedErrStr: `validating cloud region "azure": cloud region "azure" not valid`,
-		}, {
-			title:          "specify cloud with gke",
-			cloud:          "aws",
-			gke:            true,
-			expectedErrStr: `do not specify --cloud when adding a GKE, EKS or AKS cluster`,
-		}, {
-			title:          "specify cloud with aks",
-			cloud:          "aws",
-			aks:            true,
-			expectedErrStr: `do not specify --cloud when adding a GKE, EKS or AKS cluster`,
-		}, {
-			title:          "specify cloud/region with gke",
-			region:         "gce/us-east",
-			gke:            true,
-			expectedErrStr: `only specify region, not cloud/region, when adding a GKE, EKS or AKS cluster`,
+			// TODO(k8s) - support k8s tooling in strict snap
+			//}, {
+			//	title:          "specify cloud with gke",
+			//	cloud:          "aws",
+			//	gke:            true,
+			//	expectedErrStr: `do not specify --cloud when adding a GKE, EKS or AKS cluster`,
+			//}, {
+			//	title:          "specify cloud with aks",
+			//	cloud:          "aws",
+			//	aks:            true,
+			//	expectedErrStr: `do not specify --cloud when adding a GKE, EKS or AKS cluster`,
+			//}, {
+			//	title:          "specify cloud/region with gke",
+			//	region:         "gce/us-east",
+			//	gke:            true,
+			//	expectedErrStr: `only specify region, not cloud/region, when adding a GKE, EKS or AKS cluster`,
 		}, {
 			title: "missing region --cloud=teststack but cloud has default region",
 			cloud: "teststack",
@@ -877,7 +882,7 @@ You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`)
 }
 
 func (s *addCAASSuite) TestGatherClusterMetadataError(c *gc.C) {
-	var result *jujucaas.ClusterMetadata
+	var result *k8s.ClusterMetadata
 	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(result, errors.New("oops"))
 
 	err := SetKubeConfigData(kubeConfigStr)
@@ -899,8 +904,15 @@ func (s *addCAASSuite) TestGatherClusterMetadataNoRegions(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
-	var result jujucaas.ClusterMetadata
-	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(&result, nil)
+	result := &k8s.ClusterMetadata{
+		OperatorStorageClass: &storagev1.StorageClass{
+			ObjectMeta: meta.ObjectMeta{Name: "mystorage"},
+		},
+		WorkloadStorageClass: &storagev1.StorageClass{
+			ObjectMeta: meta.ObjectMeta{Name: "mystorage"},
+		},
+	}
+	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(result, nil)
 
 	err := SetKubeConfigData(kubeConfigStr)
 	c.Assert(err, jc.ErrorIsNil)
@@ -909,14 +921,13 @@ func (s *addCAASSuite) TestGatherClusterMetadataNoRegions(c *gc.C) {
 		command := s.makeCommand(c, true, false, true)
 		ctx, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--cluster-name", "myk8s", "--client", "-c", "foo")
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(strings.Trim(cmdtesting.Stdout(ctx), "\n"), gc.Equals, `k8s substrate "myk8s" added as cloud "myk8s"
-with operator storage provisioned by the workload storage class.
+		c.Assert(strings.Trim(cmdtesting.Stdout(ctx), "\n"), gc.Equals, `k8s substrate "myk8s" added as cloud "myk8s".
 You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`)
-	}, "other", "", "", testData{client: true, controller: true})
+	}, "other", "mystorage", "mystorage", testData{client: true, controller: true})
 }
 
 func (s *addCAASSuite) TestGatherClusterMetadataUnknownError(c *gc.C) {
-	result := &jujucaas.ClusterMetadata{
+	result := &k8s.ClusterMetadata{
 		Cloud:   "foo",
 		Regions: set.NewStrings("region"),
 	}
@@ -928,17 +939,14 @@ func (s *addCAASSuite) TestGatherClusterMetadataUnknownError(c *gc.C) {
 
 	command := s.makeCommand(c, true, false, true)
 	_, err = s.runCommand(c, nil, command, "myk8s", "--cluster-name", "myk8s", "-c", "foo")
-	expectedErr := `
-	Juju needs to query the k8s cluster to ensure that the recommended
-	storage defaults are available and to detect the cluster's cloud/region.
-	This was not possible in this case because the cloud "foo" is not known to Juju.
-	Run add-k8s again, using --storage=<name> to specify the storage class to use.
-`[1:]
-	c.Assert(err, gc.ErrorMatches, expectedErr)
+	c.Assert(err, gc.ErrorMatches, `	No recommended storage configuration is defined on this cluster.
+	Run add-k8s again with --storage=<name> and Juju will use the
+	specified storage class.
+`)
 }
 
 func (s *addCAASSuite) TestGatherClusterMetadataNoStorageError(c *gc.C) {
-	result := &jujucaas.ClusterMetadata{}
+	result := &k8s.ClusterMetadata{}
 	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(result, nil)
 	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(errors.NotFoundf("foo"))
 
@@ -947,27 +955,25 @@ func (s *addCAASSuite) TestGatherClusterMetadataNoStorageError(c *gc.C) {
 
 	command := s.makeCommand(c, true, false, true)
 	_, err = s.runCommand(c, nil, command, "myk8s", "--cluster-name", "myk8s", "-c", "foo")
-	expectedErr := `
-	Juju needs to know what storage class to use to provision workload storage.
-	Run add-k8s again, using --storage=<name> to specify the storage class to use.
-`[1:]
-	c.Assert(err, gc.ErrorMatches, expectedErr)
+	c.Assert(err, gc.ErrorMatches, `	No recommended storage configuration is defined on this cluster.
+	Run add-k8s again with --storage=<name> and Juju will use the
+	specified storage class.
+`)
 }
 
 func (s *addCAASSuite) TestGatherClusterMetadataUserStorage(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
-	var result jujucaas.ClusterMetadata
-	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(&result, nil)
-	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(errors.NotFoundf("foo"))
-	storageProvisioner := &jujucaas.StorageProvisioner{
-		Name:        "mystorage",
-		Provisioner: "kubernetes.io/gce-pd",
+	result := &k8s.ClusterMetadata{
+		OperatorStorageClass: &storagev1.StorageClass{
+			ObjectMeta: meta.ObjectMeta{Name: "mystorage"},
+		},
+		WorkloadStorageClass: &storagev1.StorageClass{
+			ObjectMeta: meta.ObjectMeta{Name: "mystorage"},
+		},
 	}
-	s.fakeK8sClusterMetadataChecker.Call("EnsureStorageProvisioner", jujucaas.StorageProvisioner{
-		Name: "mystorage",
-	}).Returns(storageProvisioner, nil)
+	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(result, nil)
 
 	err := SetKubeConfigData(kubeConfigStr)
 	c.Assert(err, jc.ErrorIsNil)
@@ -983,8 +989,8 @@ You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`)
 }
 
 func (s *addCAASSuite) TestGatherClusterMetadataNoRecommendedStorageError(c *gc.C) {
-	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(
-		&jujucaas.NonPreferredStorageError{PreferredStorage: jujucaas.PreferredStorage{Name: "disk"}})
+	result := k8s.ClusterMetadata{}
+	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(&result, nil)
 
 	err := SetKubeConfigData(kubeConfigStr)
 	c.Assert(err, jc.ErrorIsNil)
@@ -994,8 +1000,7 @@ func (s *addCAASSuite) TestGatherClusterMetadataNoRecommendedStorageError(c *gc.
 	expectedErr := `
 	No recommended storage configuration is defined on this cluster.
 	Run add-k8s again with --storage=<name> and Juju will use the
-	specified storage class or create a storage-class using the recommended
-	"disk" provisioner.
+	specified storage class.
 `[1:]
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
@@ -1007,14 +1012,16 @@ func (s *addCAASSuite) TestUnknownClusterExistingStorageClass(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
-	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(errors.NotFoundf("cluster"))
-	storageProvisioner := &jujucaas.StorageProvisioner{
-		Name:        "mystorage",
-		Provisioner: "kubernetes.io/gce-pd",
+	defaultClusterMetadata := &k8s.ClusterMetadata{
+		Cloud: cloudRegion,
+		OperatorStorageClass: &storagev1.StorageClass{
+			ObjectMeta: meta.ObjectMeta{Name: "mystorage"},
+		},
+		WorkloadStorageClass: &storagev1.StorageClass{
+			ObjectMeta: meta.ObjectMeta{Name: "mystorage"},
+		},
 	}
-	s.fakeK8sClusterMetadataChecker.Call("EnsureStorageProvisioner", jujucaas.StorageProvisioner{
-		Name: "mystorage",
-	}).Returns(storageProvisioner, nil)
+	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(defaultClusterMetadata, nil)
 
 	err := SetKubeConfigData(kubeConfigStr)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1031,7 +1038,7 @@ func (s *addCAASSuite) TestUnknownClusterExistingStorageClass(c *gc.C) {
 }
 
 func (s *addCAASSuite) TestSkipStorage(c *gc.C) {
-	result := &jujucaas.ClusterMetadata{}
+	result := &k8s.ClusterMetadata{}
 	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(result, nil)
 	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(errors.NotFoundf("foo"))
 
@@ -1046,115 +1053,19 @@ func (s *addCAASSuite) TestSkipStorage(c *gc.C) {
 	c.Assert(out, gc.Equals, `k8s substrate "myk8s" added as cloud "myk8s" with no configured storage provisioning capability on controller foo.`)
 }
 
-func (s *addCAASSuite) assertCreateDefaultStorageProvisioner(c *gc.C, expectedMsg string, t testData, additionalArgs ...string) {
-	s.fakeCloudAPI.isCloudRegionRequired = true
-	cloudRegion := "gce/us-east1"
-
-	ctrl := s.setupBroker(c)
-	defer ctrl.Finish()
-
-	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(
-		&jujucaas.NonPreferredStorageError{PreferredStorage: jujucaas.PreferredStorage{
-			Name:        "gce disk",
-			Provisioner: "kubernetes.io/gce-pd"}})
-	storageProvisioner := &jujucaas.StorageProvisioner{
-		Name:        "mystorage",
-		Provisioner: "kubernetes.io/gce-pd",
-	}
-	s.fakeK8sClusterMetadataChecker.Call("EnsureStorageProvisioner", jujucaas.StorageProvisioner{
-		Name:        "mystorage",
-		Provisioner: "kubernetes.io/gce-pd",
-	}).Returns(storageProvisioner, nil)
-
-	err := SetKubeConfigData(kubeConfigStr)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.assertAddCloudResult(c, func() {
-		command := s.makeCommand(c, true, false, true)
-		args := []string{"myk8s", "--cluster-name", "myk8s", "--storage", "mystorage"}
-		if t.controller {
-			args = append(args, "-c", "foo")
-		}
-		if t.client {
-			args = append(args, "--client")
-		}
-		if len(additionalArgs) > 0 {
-			args = append(args, additionalArgs...)
-		}
-		ctx, err := s.runCommand(c, nil, command, args...)
-		c.Assert(err, jc.ErrorIsNil)
-		result := strings.Trim(cmdtesting.Stdout(ctx), "\n")
-		result = strings.Replace(result, "\n", " ", -1)
-		c.Assert(result, gc.Equals, expectedMsg)
-	}, cloudRegion, "mystorage", "mystorage", t)
-}
-
-func (s *addCAASSuite) TestCreateDefaultStorageProvisionerBoth(c *gc.C) {
-	s.assertCreateDefaultStorageProvisioner(c,
-		`k8s substrate "myk8s" added as cloud "myk8s" with gce disk default storage provisioned by the existing "mystorage" storage class. You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`,
-		testData{client: true, controller: true})
-}
-
-func (s *addCAASSuite) TestCreateDefaultStorageProvisionerClientOnly(c *gc.C) {
-	s.assertCreateDefaultStorageProvisioner(c,
-		`k8s substrate "myk8s" added as cloud "myk8s" with gce disk default storage provisioned by the existing "mystorage" storage class. You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`,
-		testData{client: true})
-}
-
-func (s *addCAASSuite) TestCreateDefaultStorageProvisionerControllerOnly(c *gc.C) {
-	s.assertCreateDefaultStorageProvisioner(c,
-		`k8s substrate "myk8s" added as cloud "myk8s" with gce disk default storage provisioned by the existing "mystorage" storage class on controller foo.`,
-		testData{controller: true})
-}
-
-func (s *addCAASSuite) TestCreateCustomStorageProvisioner(c *gc.C) {
-	s.fakeCloudAPI.isCloudRegionRequired = true
-	s.fakeK8sClusterMetadataChecker.existingSC = false
-	cloudRegion := "gce/us-east1"
-
-	ctrl := s.setupBroker(c)
-	defer ctrl.Finish()
-
-	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(
-		&jujucaas.NonPreferredStorageError{PreferredStorage: jujucaas.PreferredStorage{Name: "gce disk"}})
-	storageProvisioner := &jujucaas.StorageProvisioner{
-		Name:        "mystorage",
-		Provisioner: "my disk provisioner",
-	}
-	s.fakeK8sClusterMetadataChecker.Call("EnsureStorageProvisioner", jujucaas.StorageProvisioner{
-		Name: "mystorage",
-	}).Returns(storageProvisioner, nil)
-
-	err := SetKubeConfigData(kubeConfigStr)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.assertAddCloudResult(c, func() {
-		command := s.makeCommand(c, true, false, true)
-		ctx, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--cluster-name", "myk8s", "--storage", "mystorage", "--client")
-		c.Assert(err, jc.ErrorIsNil)
-		result := strings.Trim(cmdtesting.Stdout(ctx), "\n")
-		result = strings.Replace(result, "\n", " ", -1)
-		c.Assert(result, gc.Equals, `k8s substrate "myk8s" added as cloud "myk8s" with storage provisioned by the new "mystorage" storage class. You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`)
-	}, cloudRegion, "mystorage", "mystorage", testData{client: true, controller: true})
-}
-
 func (s *addCAASSuite) TestFoundStorageProvisionerViaAnnationForMAASWIthoutStorageOptionProvided(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
-	storageProvisioner := &jujucaas.StorageProvisioner{
-		Name:        "mystorage",
+	sc := &storagev1.StorageClass{
+		ObjectMeta:  meta.ObjectMeta{Name: "mystorage"},
 		Provisioner: "my disk provisioner",
 	}
-	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(&jujucaas.ClusterMetadata{
-		Cloud:                 "maas",
-		OperatorStorageClass:  storageProvisioner,
-		NominatedStorageClass: storageProvisioner,
+	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(&k8s.ClusterMetadata{
+		Cloud:                "maas",
+		OperatorStorageClass: sc,
+		WorkloadStorageClass: sc,
 	}, nil)
-	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(errors.NotFoundf("no sc config for this cloud type"))
-	s.fakeK8sClusterMetadataChecker.Call("EnsureStorageProvisioner", jujucaas.StorageProvisioner{
-		Name: "mystorage",
-	}).Returns(storageProvisioner, nil)
 
 	err := SetKubeConfigData(kubeConfigStr)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1165,7 +1076,7 @@ func (s *addCAASSuite) TestFoundStorageProvisionerViaAnnationForMAASWIthoutStora
 		c.Assert(err, jc.ErrorIsNil)
 		result := strings.Trim(cmdtesting.Stdout(ctx), "\n")
 		result = strings.Replace(result, "\n", " ", -1)
-		c.Assert(result, gc.Equals, `k8s substrate "myk8s" added as cloud "myk8s" with storage provisioned by the existing "mystorage" storage class. You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`)
+		c.Assert(result, gc.Equals, `k8s substrate "myk8s" added as cloud "myk8s". You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`)
 	}, "maas", "mystorage", "mystorage", testData{client: true, controller: true})
 }
 
@@ -1178,6 +1089,14 @@ func (s *addCAASSuite) TestLocalOnly(c *gc.C) {
 
 	err := SetKubeConfigData(kubeConfigStr)
 	c.Assert(err, jc.ErrorIsNil)
+
+	defaultClusterMetadata := &k8s.ClusterMetadata{
+		Cloud: cloudRegion,
+		OperatorStorageClass: &storagev1.StorageClass{
+			ObjectMeta: meta.ObjectMeta{Name: "operator-sc"},
+		},
+	}
+	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(defaultClusterMetadata, nil)
 
 	s.assertAddCloudResult(c, func() {
 		command := s.makeCommand(c, true, false, true)
@@ -1262,6 +1181,7 @@ func (s *addCAASSuite) TestSkipTLSVerifyWithCertInvalid(c *gc.C) {
 }
 
 func (s *addCAASSuite) TestAddGkeCluster(c *gc.C) {
+	c.Skip("TODO(k8s) - support k8s tooling in strict snap")
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -1476,6 +1396,7 @@ func (s *addCAASSuite) TestCorrectSelectContext(c *gc.C) {
 }
 
 func (s *addCAASSuite) TestOnlyOneClusterProvider(c *gc.C) {
+	c.Skip("TODO(k8s) - support k8s tooling in strict snap")
 	command := s.makeCommand(c, true, false, true)
 	_, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--aks", "--gke")
 	c.Assert(err, gc.ErrorMatches, "only one of '--gke', '--eks' or '--aks' can be supplied")

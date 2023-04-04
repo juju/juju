@@ -39,10 +39,6 @@ func (s *leadershipSuite) SetUpTest(c *gc.C) {
 			s.stub.AddCall("NewNotifyWatcher", result)
 			return mockWatcher
 		},
-		func(name string) error {
-			s.stub.AddCall("CheckApiVersion", name)
-			return s.stub.NextErr()
-		},
 	)
 }
 
@@ -65,23 +61,8 @@ func (s *leadershipSuite) CheckCalls(c *gc.C, calls []testing.StubCall, f func()
 	s.stub.CheckCalls(c, calls)
 }
 
-func (s *leadershipSuite) TestReadBadVersion(c *gc.C) {
-	s.CheckCalls(c, []testing.StubCall{{
-		FuncName: "CheckApiVersion",
-		Args:     []interface{}{"Read"},
-	}}, func() {
-		s.stub.SetErrors(errors.New("splat"))
-		settings, err := s.lsa.Read("foobar")
-		c.Check(err, gc.ErrorMatches, "cannot access leadership api: splat")
-		c.Check(settings, gc.IsNil)
-	})
-}
-
 func (s *leadershipSuite) expectReadCalls() []testing.StubCall {
 	return []testing.StubCall{{
-		FuncName: "CheckApiVersion",
-		Args:     []interface{}{"Read"},
-	}, {
 		FuncName: "FacadeCall",
 		Args: []interface{}{
 			"Read",
@@ -131,7 +112,7 @@ func (s *leadershipSuite) TestReadFailure(c *gc.C) {
 func (s *leadershipSuite) TestReadError(c *gc.C) {
 	s.CheckCalls(c, s.expectReadCalls(), func() {
 		s.addResponder(nil)
-		s.stub.SetErrors(nil, errors.New("blart"))
+		s.stub.SetErrors(errors.New("blart"))
 		settings, err := s.lsa.Read("foobar")
 		c.Check(err, gc.ErrorMatches, "failed to call leadership api: blart")
 		c.Check(settings, gc.IsNil)
@@ -147,22 +128,8 @@ func (s *leadershipSuite) TestReadNoResults(c *gc.C) {
 	})
 }
 
-func (s *leadershipSuite) TestMergeBadVersion(c *gc.C) {
-	s.CheckCalls(c, []testing.StubCall{{
-		FuncName: "CheckApiVersion",
-		Args:     []interface{}{"Merge"},
-	}}, func() {
-		s.stub.SetErrors(errors.New("splat"))
-		err := s.lsa.Merge("foobar", "foobar/0", map[string]string{"foo": "bar"})
-		c.Check(err, gc.ErrorMatches, "cannot access leadership api: splat")
-	})
-}
-
 func (s *leadershipSuite) expectMergeCalls() []testing.StubCall {
 	return []testing.StubCall{{
-		FuncName: "CheckApiVersion",
-		Args:     []interface{}{"Merge"},
-	}, {
 		FuncName: "FacadeCall",
 		Args: []interface{}{
 			"Merge",
@@ -217,7 +184,7 @@ func (s *leadershipSuite) TestMergeFailure(c *gc.C) {
 func (s *leadershipSuite) TestMergeError(c *gc.C) {
 	s.CheckCalls(c, s.expectMergeCalls(), func() {
 		s.addResponder(nil)
-		s.stub.SetErrors(nil, errors.New("dink"))
+		s.stub.SetErrors(errors.New("dink"))
 		err := s.lsa.Merge("foobar", "foobar/0", map[string]string{
 			"foo": "bar",
 			"baz": "qux",
@@ -237,23 +204,8 @@ func (s *leadershipSuite) TestMergeNoResults(c *gc.C) {
 	})
 }
 
-func (s *leadershipSuite) TestWatchBadVersion(c *gc.C) {
-	s.CheckCalls(c, []testing.StubCall{{
-		FuncName: "CheckApiVersion",
-		Args:     []interface{}{"WatchLeadershipSettings"},
-	}}, func() {
-		s.stub.SetErrors(errors.New("splat"))
-		watcher, err := s.lsa.WatchLeadershipSettings("foobar")
-		c.Check(err, gc.ErrorMatches, "cannot access leadership api: splat")
-		c.Check(watcher, gc.IsNil)
-	})
-}
-
 func (s *leadershipSuite) expectWatchCalls() []testing.StubCall {
 	return []testing.StubCall{{
-		FuncName: "CheckApiVersion",
-		Args:     []interface{}{"WatchLeadershipSettings"},
-	}, {
 		FuncName: "FacadeCall",
 		Args: []interface{}{
 			"WatchLeadershipSettings",
@@ -305,7 +257,7 @@ func (s *leadershipSuite) TestWatchFailure(c *gc.C) {
 func (s *leadershipSuite) TestWatchError(c *gc.C) {
 	s.CheckCalls(c, s.expectWatchCalls(), func() {
 		s.addResponder(nil)
-		s.stub.SetErrors(nil, errors.New("snerk"))
+		s.stub.SetErrors(errors.New("snerk"))
 		watcher, err := s.lsa.WatchLeadershipSettings("foobar")
 		c.Check(err, gc.ErrorMatches, "failed to call leadership api: snerk")
 		c.Check(watcher, gc.IsNil)

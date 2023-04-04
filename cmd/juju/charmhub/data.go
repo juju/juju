@@ -4,7 +4,7 @@
 package charmhub
 
 import (
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 )
 
 const (
@@ -15,20 +15,24 @@ const (
 )
 
 type InfoResponse struct {
-	Type        string             `json:"type" yaml:"type"`
-	ID          string             `json:"id" yaml:"id"`
-	Name        string             `json:"name" yaml:"name"`
-	Description string             `json:"description" yaml:"description"`
-	Publisher   string             `json:"publisher" yaml:"publisher"`
-	Summary     string             `json:"summary" yaml:"summary"`
-	Series      []string           `json:"series,omitempty" yaml:"series,omitempty"`
-	StoreURL    string             `json:"store-url" yaml:"store-url"`
-	Tags        []string           `json:"tags,omitempty" yaml:"tags,omitempty"`
-	Charm       *Charm             `json:"charm,omitempty" yaml:"charm,omitempty"`
-	Bundle      *Bundle            `json:"bundle,omitempty" yaml:"bundle,omitempty"`
-	Channels    map[string]Channel `json:"channel-map" yaml:"channel-map"`
-	Tracks      []string           `json:"tracks,omitempty" yaml:"tracks,omitempty"`
+	Type        string       `json:"type" yaml:"type"`
+	ID          string       `json:"id" yaml:"id"`
+	Name        string       `json:"name" yaml:"name"`
+	Description string       `json:"description" yaml:"description"`
+	Publisher   string       `json:"publisher" yaml:"publisher"`
+	Summary     string       `json:"summary" yaml:"summary"`
+	Supports    []Base       `json:"supports,omitempty" yaml:"supports,omitempty"`
+	StoreURL    string       `json:"store-url" yaml:"store-url"`
+	Tags        []string     `json:"tags,omitempty" yaml:"tags,omitempty"`
+	Charm       *Charm       `json:"charm,omitempty" yaml:"charm,omitempty"`
+	Bundle      *Bundle      `json:"bundle,omitempty" yaml:"bundle,omitempty"`
+	Channels    RevisionsMap `json:"channels" yaml:"channels"`
+	Tracks      []string     `json:"tracks,omitempty" yaml:"tracks,omitempty"`
 }
+
+// RevisionsMap is a map of tracks to risks to list of revisions, for example
+// {"latest": {"stable": [r3, r2, r1]}}.
+type RevisionsMap map[string]map[string][]Revision
 
 type FindResponse struct {
 	Type      string   `json:"type" yaml:"type"`
@@ -39,21 +43,24 @@ type FindResponse struct {
 	Version   string   `json:"version" yaml:"version"`
 	Arches    []string `json:"architectures,omitempty" yaml:"architectures,omitempty"`
 	OS        []string `json:"os,omitempty" yaml:"os,omitempty"`
-	Series    []string `json:"series,omitempty" yaml:"series,omitempty"`
+	Supports  []Base   `json:"supports,omitempty" yaml:"supports,omitempty"`
 	StoreURL  string   `json:"store-url" yaml:"store-url"`
 }
 
-type Channel struct {
-	ReleasedAt string   `json:"released-at" yaml:"released-at"`
+type Revision struct {
 	Track      string   `json:"track" yaml:"track"`
 	Risk       string   `json:"risk" yaml:"risk"`
-	Revision   int      `json:"revision" yaml:"revision"`
-	Size       int      `json:"size" yaml:"size"`
 	Version    string   `json:"version" yaml:"version"`
+	Revision   int      `json:"revision" yaml:"revision"`
+	ReleasedAt string   `json:"released-at" yaml:"released-at"`
+	Size       int      `json:"size" yaml:"size"`
 	Arches     []string `json:"architectures" yaml:"architectures"`
-	// TODO(juju3) - remove series
-	Series []string `json:"series" yaml:"series"`
-	Bases  []string `json:"bases" yaml:"bases"`
+	Bases      []Base   `json:"bases" yaml:"bases"`
+}
+
+type Base struct {
+	Name    string `json:"name" yaml:"name"`
+	Channel string `json:"channel" yaml:"channel"`
 }
 
 // Charm matches a params.CharmHubCharm

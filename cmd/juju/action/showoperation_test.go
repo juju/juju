@@ -7,13 +7,17 @@ import (
 	"bytes"
 	"errors"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	gc "gopkg.in/check.v1"
 
 	actionapi "github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/cmd/juju/action"
+	"github.com/juju/juju/testing"
 )
 
 type ShowOperationSuite struct {
@@ -43,13 +47,17 @@ func (s *ShowOperationSuite) TestInit(c *gc.C) {
 		should:      "fail with both wait and watch",
 		args:        []string{"--wait", "0s", "--watch"},
 		expectError: `specify either --watch or --wait but not both`,
+	}, {
+		should:      "invalid wait time",
+		args:        []string{"--wait", "not-a-duration-at-all"},
+		expectError: `.*time: invalid duration "?not-a-duration-at-all"?`,
 	}}
 
 	for i, t := range tests {
 		for _, modelFlag := range s.modelFlags {
 			c.Logf("test %d: it should %s: juju show-operation %s", i,
 				t.should, strings.Join(t.args, " "))
-			cmd, _ := action.NewShowOperationCommandForTest(s.store)
+			cmd, _ := action.NewShowOperationCommandForTest(s.store, s.clock)
 			args := append([]string{modelFlag, "admin"}, t.args...)
 			err := cmdtesting.InitCommand(cmd, args)
 			if t.expectError != "" {
@@ -75,14 +83,9 @@ func (s *ShowOperationSuite) TestRun(c *gc.C) {
 		expectedOutput    string
 		watch             bool
 	}{{
-		should:         "handle wait-time formatting errors",
-		withClientWait: "not-a-duration-at-all",
-		expectedErr:    `invalid value "not-a-duration-at-all" for option --wait.*`,
-	}, {
 		should:            "timeout if result never comes",
 		withClientWait:    "2s",
-		withAPIDelay:      3 * time.Second,
-		withAPITimeout:    5 * time.Second,
+		withAPIDelay:      10 * time.Second,
 		withClientQueryID: operationId,
 		withAPIResponse: actionapi.Operations{
 			Operations: []actionapi.Operation{{
@@ -100,18 +103,15 @@ timing:
 	}, {
 		should:            "pass api error through properly",
 		withClientQueryID: operationId,
-		withAPITimeout:    1 * time.Second,
 		withAPIError:      "api call error",
 		expectedErr:       "api call error",
 	}, {
 		should:            "fail with id not found",
 		withClientQueryID: operationId,
-		withAPITimeout:    1 * time.Second,
 		expectedErr:       `operation "` + operationId + `" not found`,
 	}, {
 		should:            "pass through an error from the API server",
 		withClientQueryID: operationId,
-		withAPITimeout:    1 * time.Second,
 		withAPIResponse: actionapi.Operations{
 			Operations: []actionapi.Operation{{
 				ID:      operationId,
@@ -126,31 +126,8 @@ status: failed
 error: an apiserver error
 `[1:],
 	}, {
-		should:            "only return once status is no longer running or pending",
-		withAPIDelay:      1 * time.Second,
-		withClientWait:    "10s",
-		withClientQueryID: operationId,
-		withAPITimeout:    3 * time.Second,
-		withAPIResponse: actionapi.Operations{
-			Operations: []actionapi.Operation{{
-				ID:     operationId,
-				Status: "running",
-				Actions: []actionapi.ActionResult{{
-					Output: map[string]interface{}{
-						"foo": map[string]interface{}{
-							"bar": "baz",
-						},
-					},
-				}},
-				Enqueued: time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
-				Started:  time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
-			}},
-		},
-		expectedErr: "test timed out before wait time",
-	}, {
 		should:            "pretty-print operation output",
 		withClientQueryID: operationId,
-		withAPITimeout:    1 * time.Second,
 		withAPIResponse: actionapi.Operations{
 			Operations: []actionapi.Operation{{
 				ID:      operationId,
@@ -200,7 +177,6 @@ tasks:
 		should:            "pretty-print action output with no completed time",
 		withClientQueryID: operationId,
 		withClientWait:    "1s",
-		withAPITimeout:    2 * time.Second,
 		withAPIResponse: actionapi.Operations{
 			Operations: []actionapi.Operation{{
 				ID:      operationId,
@@ -248,8 +224,7 @@ tasks:
 	}, {
 		should:            "set an appropriate timer and wait, get a result",
 		withClientQueryID: operationId,
-		withAPITimeout:    5 * time.Second,
-		withClientWait:    "3s",
+		withClientWait:    "10s",
 		withAPIDelay:      1 * time.Second,
 		withAPIResponse: actionapi.Operations{
 			Operations: []actionapi.Operation{{
@@ -315,15 +290,16 @@ timing:
 	for i, t := range tests {
 		for _, modelFlag := range s.modelFlags {
 			c.Logf("test %d (model option %v): should %s", i, modelFlag, t.should)
-			fakeClient := makeFakeOperationClient(
+			s.clock = testClock()
+			fakeClient := s.makeFakeClient(
 				t.withAPIDelay,
 				t.withAPITimeout,
 				t.withAPIResponse,
-				map[string][]actionapi.ActionResult{},
 				t.withAPIError,
 			)
-			testRunOperationHelper(
-				c, s,
+
+			s.testRunHelper(
+				c,
 				fakeClient,
 				t.expectedErr,
 				t.expectedOutput,
@@ -337,11 +313,11 @@ timing:
 	}
 }
 
-func testRunOperationHelper(c *gc.C, s *ShowOperationSuite, client *fakeAPIClient,
+func (s *ShowOperationSuite) testRunHelper(c *gc.C, client *fakeAPIClient,
 	expectedErr, expectedOutput, format, wait, query, modelFlag string,
 	watch bool,
 ) {
-	unpatch := s.BaseActionSuite.patchAPIClient(client)
+	unpatch := s.patchAPIClient(client)
 	defer unpatch()
 	args := append([]string{modelFlag, "admin"}, query, "--utc")
 	if wait != "" {
@@ -354,8 +330,20 @@ func testRunOperationHelper(c *gc.C, s *ShowOperationSuite, client *fakeAPIClien
 		args = append(args, "--watch")
 	}
 
-	cmd, _ := action.NewShowOperationCommandForTest(s.store)
-	ctx, err := cmdtesting.RunCommand(c, cmd, args...)
+	runCmd, _ := action.NewShowOperationCommandForTest(s.store, s.clock)
+
+	var (
+		wg  sync.WaitGroup
+		ctx *cmd.Context
+		err error
+	)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ctx, err = cmdtesting.RunCommand(c, runCmd, args...)
+	}()
+
+	wg.Wait()
 
 	if expectedErr != "" {
 		c.Check(err, gc.ErrorMatches, expectedErr)
@@ -365,22 +353,22 @@ func testRunOperationHelper(c *gc.C, s *ShowOperationSuite, client *fakeAPIClien
 	}
 }
 
-func makeFakeOperationClient(
+func (s *ShowOperationSuite) makeFakeClient(
 	delay, timeout time.Duration,
 	response actionapi.Operations,
-	actionsByNames map[string][]actionapi.ActionResult,
 	errStr string,
 ) *fakeAPIClient {
-	var delayTimer *time.Timer
+	var delayTimer clock.Timer
 	if delay != 0 {
-		delayTimer = time.NewTimer(delay)
+		delayTimer = s.clock.NewTimer(delay)
+	}
+	if timeout == 0 {
+		timeout = testing.LongWait
 	}
 	client := &fakeAPIClient{
 		delay:            delayTimer,
-		timeout:          time.NewTimer(timeout),
+		timeout:          clock.WallClock.NewTimer(timeout),
 		operationResults: response,
-		actionsByNames:   actionsByNames,
-		apiVersion:       5,
 	}
 	if errStr != "" {
 		client.apiErr = errors.New(errStr)

@@ -5,14 +5,14 @@ run_show_clouds() {
 	echo "" >>"${TEST_DIR}/juju/public-clouds.yaml"
 	echo "" >>"${TEST_DIR}/juju/credentials.yaml"
 
-	OUT=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --local --format=json 2>/dev/null | jq '.[] | select(.defined != "built-in")')
+	OUT=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json 2>/dev/null | jq '.[] | select(.defined != "built-in")')
 	if [ -n "${OUT}" ]; then
 		echo "expected empty, got ${OUT}"
 		exit 1
 	fi
 
 	cp ./tests/suites/cli/clouds/public-clouds.yaml "${TEST_DIR}"/juju/public-clouds.yaml
-	OUT=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --local --format=json 2>/dev/null | jq '.[] | select(.defined != "built-in")')
+	OUT=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json 2>/dev/null | jq '.[] | select(.defined != "built-in")')
 	if [ -n "${OUT}" ]; then
 		echo "expected empty, got ${OUT}"
 		exit 1

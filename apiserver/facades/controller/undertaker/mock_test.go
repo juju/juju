@@ -10,9 +10,12 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/facades/controller/undertaker"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
 // mockState implements State interface and allows inspection of called
@@ -110,6 +113,22 @@ type mockModel struct {
 	statusData map[string]interface{}
 }
 
+func (m *mockModel) ControllerUUID() string {
+	return coretesting.ControllerTag.Id()
+}
+
+func (m *mockModel) Cloud() (cloud.Cloud, error) {
+	return cloud.Cloud{}, errors.NotImplemented
+}
+
+func (m *mockModel) CloudCredential() (*cloud.Credential, error) {
+	return nil, errors.NotImplemented
+}
+
+func (m *mockModel) Config() (*config.Config, error) {
+	return nil, errors.NotImplemented
+}
+
 var _ undertaker.Model = (*mockModel)(nil)
 
 func (m *mockModel) Owner() names.UserTag {
@@ -159,4 +178,14 @@ type mockWatcher struct {
 
 func (w *mockWatcher) Changes() <-chan struct{} {
 	return w.changes
+}
+
+type mockSecrets struct {
+	provider.SecretBackendProvider
+	cleanedUUID string
+}
+
+func (m *mockSecrets) CleanupModel(model provider.Model) error {
+	m.cleanedUUID = model.UUID()
+	return nil
 }

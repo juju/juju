@@ -4,7 +4,6 @@
 package provider_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -132,7 +131,7 @@ func (s *loopSuite) TestDestroyVolumes(c *gc.C) {
 	source, _ := s.loopVolumeSource(c)
 	fileName := filepath.Join(s.storageDir, "volume-0")
 
-	err := ioutil.WriteFile(fileName, nil, 0644)
+	err := os.WriteFile(fileName, nil, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	errs, err := source.DestroyVolumes(s.callCtx, []string{"volume-0"})
@@ -228,7 +227,7 @@ func (s *loopSuite) TestDetachVolumes(c *gc.C) {
 	s.commands.expect("losetup", "-d", "/dev/loop0")
 	s.commands.expect("losetup", "-d", "/dev/loop1")
 
-	err := ioutil.WriteFile(fileName, nil, 0644)
+	err := os.WriteFile(fileName, nil, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	errs, err := source.DetachVolumes(s.callCtx, []storage.VolumeAttachmentParams{{
@@ -256,7 +255,7 @@ func (s *loopSuite) TestDetachVolumesDetachFails(c *gc.C) {
 	cmd = s.commands.expect("losetup", "-d", "/dev/loop0")
 	cmd.respond("", errors.New("oy"))
 
-	err := ioutil.WriteFile(fileName, nil, 0644)
+	err := os.WriteFile(fileName, nil, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	errs, err := source.DetachVolumes(s.callCtx, []storage.VolumeAttachmentParams{{

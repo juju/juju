@@ -33,14 +33,14 @@ func (s *stateSuite) TearDownTest(c *gc.C) {
 func (s *stateSuite) TestWatchModelMachines(c *gc.C) {
 	w, err := s.firewaller.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertChange(s.machines[0].Id(), s.machines[1].Id(), s.machines[2].Id())
 
 	// Add another machine make sure they are detected.
-	otherMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	otherMachine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(otherMachine.Id())
 
@@ -51,8 +51,8 @@ func (s *stateSuite) TestWatchModelMachines(c *gc.C) {
 
 	// Add a container and make sure it's not detected.
 	template := state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 	_, err = s.State.AddMachineInsideMachine(template, s.machines[0].Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
@@ -70,7 +70,7 @@ func (s *stateSuite) TestWatchOpenedPorts(c *gc.C) {
 
 	w, err := s.firewaller.WatchOpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
 	expectChanges := []string{

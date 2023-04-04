@@ -10,7 +10,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/replicaset/v2"
+	"github.com/juju/replicaset/v3"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -912,8 +912,8 @@ func (b *fakeBackend) HasUpgradeSeriesLocks() (bool, error) {
 	return *b.hasUpgradeSeriesLocks, b.hasUpgradeSeriesLocksErr
 }
 
-func (b *fakeBackend) MachineCountForSeries(series ...string) (map[string]int, error) {
-	if strings.HasPrefix(series[0], "win") {
+func (b *fakeBackend) MachineCountForBase(base ...state.Base) (map[string]int, error) {
+	if strings.HasPrefix(base[0].Channel, "win") {
 		if b.machineCountForSeriesWin == nil {
 			return nil, nil
 		}
@@ -930,6 +930,10 @@ func (b *fakeBackend) MongoCurrentStatus() (*replicaset.Status, error) {
 		return &replicaset.Status{}, nil
 	}
 	return b.mongoCurrentStatus, b.mongoCurrentStatusErr
+}
+
+func (b *fakeBackend) AllCharmURLs() ([]*string, error) {
+	return nil, errors.NotFoundf("charms")
 }
 
 type fakePool struct {

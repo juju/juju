@@ -5,9 +5,10 @@ package featuretests
 
 import (
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/juju/cmd/juju/application"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/cmd/juju/application"
 
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -68,7 +69,7 @@ func (s *cmdApplicationSuite) TestShowApplicationOne(c *gc.C) {
 	c.Assert(output, gc.Equals, `
 wordpress:
   charm: wordpress
-  series: quantal
+  base: ubuntu@12.10
   constraints:
     arch: amd64
   principal: true
@@ -97,7 +98,7 @@ func (s *cmdApplicationSuite) TestShowApplicationManyYaml(c *gc.C) {
 	c.Assert(output, gc.Equals, `
 logging:
   charm: logging
-  series: quantal
+  base: ubuntu@12.10
   principal: false
   exposed: false
   remote: false
@@ -109,7 +110,7 @@ logging:
     logging-directory: alpha
 wordpress:
   charm: wordpress
-  series: quantal
+  base: ubuntu@12.10
   constraints:
     arch: amd64
   principal: true
@@ -132,8 +133,8 @@ wordpress:
 func (s *cmdApplicationSuite) TestRemoveApplication(c *gc.C) {
 	s.setupApplications(c)
 
-	ctx, err := cmdtesting.RunCommand(c, application.NewRemoveApplicationCommand(), "wordpress")
+	ctx, err := cmdtesting.RunCommand(c, application.NewRemoveApplicationCommand(), "--no-prompt", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "removing application wordpress\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "will remove application wordpress\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 }

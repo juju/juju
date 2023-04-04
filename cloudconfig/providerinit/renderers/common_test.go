@@ -6,13 +6,10 @@ package renderers_test
 
 import (
 	"encoding/base64"
-	"fmt"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit/cloudinittest"
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
 	"github.com/juju/juju/testing"
@@ -29,21 +26,6 @@ func (s *RenderersSuite) TestToBase64(c *gc.C) {
 	expected := base64.StdEncoding.EncodeToString(in)
 	out := renderers.ToBase64(in)
 	c.Assert(string(out), gc.Equals, expected)
-}
-
-func (s *RenderersSuite) TestWinEmbedInScript(c *gc.C) {
-	in := []byte("test")
-	out := string(renderers.WinEmbedInScript(in))
-	encUserdata := renderers.ToBase64(utils.Gzip(in))
-	expected := fmt.Sprintf(cloudconfig.UserDataScript, encUserdata)
-	c.Assert(out, jc.DeepEquals, expected)
-}
-
-func (s *RenderersSuite) TestAddPowershellTags(c *gc.C) {
-	in := []byte("test")
-	expected := []byte(`<powershell>` + string(in) + `</powershell>`)
-	out := renderers.AddPowershellTags(in)
-	c.Assert(out, jc.DeepEquals, expected)
 }
 
 func (s *RenderersSuite) TestRenderYAML(c *gc.C) {

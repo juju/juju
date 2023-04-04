@@ -7,7 +7,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/testing/factory"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/arch"
@@ -15,6 +14,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type PodSpecSuite struct {
@@ -204,7 +204,7 @@ func (s *PodSpecSuite) TestRemoveApplicationRemovesPodSpec(c *gc.C) {
 func (s *PodSpecSuite) TestWatchPodSpec(c *gc.C) {
 	w, err := s.Model.WatchPodSpec(s.application.ApplicationTag())
 	c.Assert(err, jc.ErrorIsNil)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	// No spec -> spec set.
@@ -225,6 +225,8 @@ func (s *PodSpecSuite) TestWatchPodSpec(c *gc.C) {
 	// Multiple changes coalesced.
 	err = s.Model.SetPodSpec(nil, s.application.ApplicationTag(), strPtr("spec1"))
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO(quiescence): these two changes should be one event.
+	wc.AssertOneChange()
 	err = s.Model.SetPodSpec(nil, s.application.ApplicationTag(), strPtr("spec2"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
@@ -236,7 +238,7 @@ func (s *PodSpecSuite) TestWatchPodSpec(c *gc.C) {
 func (s *PodSpecSuite) TestWatchRawK8sSpec(c *gc.C) {
 	w, err := s.Model.WatchPodSpec(s.application.ApplicationTag())
 	c.Assert(err, jc.ErrorIsNil)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	// No spec -> spec set.

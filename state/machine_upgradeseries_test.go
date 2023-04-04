@@ -18,7 +18,7 @@ func (s *MachineSuite) TestCreateUpgradeSeriesLock(c *gc.C) {
 	c.Assert(locked, jc.IsFalse)
 
 	unitIds := []string{"multi-series/0", "multi-series-subordinate/0"}
-	err = mach.CreateUpgradeSeriesLock(unitIds, "xenial")
+	err = mach.CreateUpgradeSeriesLock(unitIds, state.UbuntuBase("16.04"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	locked, err = mach.IsLockedForSeriesUpgrade()
@@ -38,17 +38,17 @@ func (s *MachineSuite) TestCreateUpgradeSeriesLock(c *gc.C) {
 }
 
 func (s *MachineSuite) TestIsParentLockedForSeriesUpgrade(c *gc.C) {
-	parent, err := s.State.AddMachine("xenial", state.JobHostUnits)
+	parent, err := s.State.AddMachine(state.UbuntuBase("16.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	template := state.MachineTemplate{
-		Series: "xenial",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("16.04"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 	child, err := s.State.AddMachineInsideMachine(template, parent.Id(), "lxd")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = parent.CreateUpgradeSeriesLock([]string{}, "bionic")
+	err = parent.CreateUpgradeSeriesLock([]string{}, state.UbuntuBase("18.04"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	locked, err := child.IsParentLockedForSeriesUpgrade()
@@ -58,35 +58,35 @@ func (s *MachineSuite) TestIsParentLockedForSeriesUpgrade(c *gc.C) {
 
 func (s *MachineSuite) TestCreateUpgradeSeriesLockErrorsIfLockExists(c *gc.C) {
 	mach := s.setupTestUpdateMachineSeries(c)
-	err := mach.CreateUpgradeSeriesLock([]string{"multi-series/0", "multi-series-subordinate/0"}, "xenial")
+	err := mach.CreateUpgradeSeriesLock([]string{"multi-series/0", "multi-series-subordinate/0"}, state.UbuntuBase("16.04"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = mach.CreateUpgradeSeriesLock([]string{}, "xenial")
+	err = mach.CreateUpgradeSeriesLock([]string{}, state.UbuntuBase("16.04"))
 	c.Assert(err, gc.ErrorMatches, "upgrade series lock for machine \".*\" already exists")
 }
 
 func (s *MachineSuite) TestDoesNotCreateUpgradeSeriesLockOnDyingMachine(c *gc.C) {
-	mach, err := s.State.AddMachine("precise", state.JobHostUnits)
+	mach, err := s.State.AddMachine(state.UbuntuBase("12.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = mach.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = mach.CreateUpgradeSeriesLock([]string{""}, "xenial")
+	err = mach.CreateUpgradeSeriesLock([]string{""}, state.UbuntuBase("16.04"))
 	c.Assert(err, gc.ErrorMatches, "machine not found or not alive")
 }
 
 func (s *MachineSuite) TestDoesNotCreateUpgradeSeriesLockOnSameSeries(c *gc.C) {
-	mach, err := s.State.AddMachine("xenial", state.JobHostUnits)
+	mach, err := s.State.AddMachine(state.UbuntuBase("16.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = mach.CreateUpgradeSeriesLock([]string{""}, "xenial")
-	c.Assert(err, gc.ErrorMatches, "machine .* already at series xenial")
+	err = mach.CreateUpgradeSeriesLock([]string{""}, state.UbuntuBase("16.04"))
+	c.Assert(err, gc.ErrorMatches, "machine .* already at base ubuntu@16.04/stable")
 }
 
 func (s *MachineSuite) TestDoesNotCreateUpgradeSeriesLockUnitsChanged(c *gc.C) {
 	mach := s.setupTestUpdateMachineSeries(c)
 
-	err := mach.CreateUpgradeSeriesLock([]string{"wordpress/0"}, "xenial")
+	err := mach.CreateUpgradeSeriesLock([]string{"wordpress/0"}, state.UbuntuBase("16.04"))
 	c.Assert(err, gc.ErrorMatches, "Units have changed, please retry (.*)")
 }
 
@@ -94,20 +94,20 @@ func (s *MachineSuite) TestUpgradeSeriesTarget(c *gc.C) {
 	mach := s.setupTestUpdateMachineSeries(c)
 
 	units := []string{"multi-series/0", "multi-series-subordinate/0"}
-	err := mach.CreateUpgradeSeriesLock(units, "bionic")
+	err := mach.CreateUpgradeSeriesLock(units, state.UbuntuBase("18.04"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	target, err := mach.UpgradeSeriesTarget()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(target, gc.Equals, "bionic")
+	c.Check(target, gc.Equals, "ubuntu@18.04/stable")
 }
 
 func (s *MachineSuite) TestRemoveUpgradeSeriesLockUnlocksMachine(c *gc.C) {
-	mach, err := s.State.AddMachine("precise", state.JobHostUnits)
+	mach, err := s.State.AddMachine(state.UbuntuBase("12.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	AssertMachineIsNOTLockedForPrepare(c, mach)
 
-	err = mach.CreateUpgradeSeriesLock([]string{}, "xenial")
+	err = mach.CreateUpgradeSeriesLock([]string{}, state.UbuntuBase("16.04"))
 	c.Assert(err, jc.ErrorIsNil)
 	AssertMachineLockedForPrepare(c, mach)
 
@@ -117,7 +117,7 @@ func (s *MachineSuite) TestRemoveUpgradeSeriesLockUnlocksMachine(c *gc.C) {
 }
 
 func (s *MachineSuite) TestRemoveUpgradeSeriesLockIsNoOpIfMachineIsNotLocked(c *gc.C) {
-	mach, err := s.State.AddMachine("precise", state.JobHostUnits)
+	mach, err := s.State.AddMachine(state.UbuntuBase("12.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	AssertMachineIsNOTLockedForPrepare(c, mach)
 
@@ -126,11 +126,11 @@ func (s *MachineSuite) TestRemoveUpgradeSeriesLockIsNoOpIfMachineIsNotLocked(c *
 }
 
 func (s *MachineSuite) TestForceMarksSeriesLockUnlocksMachineForCleanup(c *gc.C) {
-	mach, err := s.State.AddMachine("precise", state.JobHostUnits)
+	mach, err := s.State.AddMachine(state.UbuntuBase("12.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	AssertMachineIsNOTLockedForPrepare(c, mach)
 
-	err = mach.CreateUpgradeSeriesLock([]string{}, "xenial")
+	err = mach.CreateUpgradeSeriesLock([]string{}, state.UbuntuBase("16.04"))
 	c.Assert(err, jc.ErrorIsNil)
 	AssertMachineLockedForPrepare(c, mach)
 
@@ -150,7 +150,7 @@ func (s *MachineSuite) TestForceMarksSeriesLockUnlocksMachineForCleanup(c *gc.C)
 }
 
 func (s *MachineSuite) TestCompleteSeriesUpgradeShouldFailWhenMachineIsNotComplete(c *gc.C) {
-	err := s.machine.CreateUpgradeSeriesLock([]string{}, "cosmic")
+	err := s.machine.CreateUpgradeSeriesLock([]string{}, state.UbuntuBase("22.04"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.CompleteUpgradeSeries()
@@ -159,7 +159,7 @@ func (s *MachineSuite) TestCompleteSeriesUpgradeShouldFailWhenMachineIsNotComple
 
 func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSucceedWhenMachinePrepareIsComplete(c *gc.C) {
 	unit0 := s.addMachineUnit(c, s.machine)
-	err := s.machine.CreateUpgradeSeriesLock([]string{unit0.Name()}, "cosmic")
+	err := s.machine.CreateUpgradeSeriesLock([]string{unit0.Name()}, state.UbuntuBase("22.04"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted, "")
@@ -170,7 +170,7 @@ func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSucceedWhenMachinePrepareI
 }
 
 func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSetCompleteStatusOfMachine(c *gc.C) {
-	err := s.machine.CreateUpgradeSeriesLock([]string{}, "cosmic")
+	err := s.machine.CreateUpgradeSeriesLock([]string{}, state.UbuntuBase("22.04"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted, "")
@@ -186,7 +186,7 @@ func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSetCompleteStatusOfMachine
 
 func (s *MachineSuite) TestCompleteSeriesUpgradeShouldFailIfAlreadyInCompleteState(c *gc.C) {
 	unit0 := s.addMachineUnit(c, s.machine)
-	err := s.machine.CreateUpgradeSeriesLock([]string{unit0.Name()}, "cosmic")
+	err := s.machine.CreateUpgradeSeriesLock([]string{unit0.Name()}, state.UbuntuBase("22.04"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted, "")
@@ -206,7 +206,7 @@ func (s *MachineSuite) TestHasUpgradeSeriesLocks(c *gc.C) {
 	c.Assert(lock, jc.IsFalse)
 
 	unit0 := s.addMachineUnit(c, s.machine)
-	err = s.machine.CreateUpgradeSeriesLock([]string{unit0.Name()}, "cosmic")
+	err = s.machine.CreateUpgradeSeriesLock([]string{unit0.Name()}, state.UbuntuBase("22.04"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	lock, err = s.State.HasUpgradeSeriesLocks()
@@ -237,7 +237,7 @@ func (s *MachineSuite) TestUnitsHaveChangedTrue(c *gc.C) {
 }
 
 func (s *MachineSuite) TestUnitsHaveChangedFalseNoUnits(c *gc.C) {
-	mach, err := s.State.AddMachine("xenial", state.JobHostUnits)
+	mach, err := s.State.AddMachine(state.UbuntuBase("16.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	changed, err := state.UnitsHaveChanged(mach, []string{})
 	c.Assert(err, jc.ErrorIsNil)

@@ -143,7 +143,6 @@ func (c *addImageMetadataCommand) constructMetadataParam() params.CloudImageMeta
 	info := params.CloudImageMetadata{
 		ImageId:         c.ImageId,
 		Region:          c.Region,
-		Series:          c.Series,
 		Version:         c.Version,
 		Arch:            c.Arch,
 		VirtType:        c.VirtType,

@@ -9,10 +9,11 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v8"
+	charm "github.com/juju/charm/v9"
 	application "github.com/juju/juju/core/application"
 	network "github.com/juju/juju/core/network"
 	payloads "github.com/juju/juju/core/payloads"
+	secrets "github.com/juju/juju/core/secrets"
 	params "github.com/juju/juju/rpc/params"
 	jujuc "github.com/juju/juju/worker/uniter/runner/jujuc"
 	loggo "github.com/juju/loggo"
@@ -173,6 +174,21 @@ func (mr *MockContextMockRecorder) ConfigSettings() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigSettings", reflect.TypeOf((*MockContext)(nil).ConfigSettings))
 }
 
+// CreateSecret mocks base method.
+func (m *MockContext) CreateSecret(arg0 *jujuc.SecretCreateArgs) (*secrets.URI, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateSecret", arg0)
+	ret0, _ := ret[0].(*secrets.URI)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateSecret indicates an expected call of CreateSecret.
+func (mr *MockContextMockRecorder) CreateSecret(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSecret", reflect.TypeOf((*MockContext)(nil).CreateSecret), arg0)
+}
+
 // DeleteCharmStateValue mocks base method.
 func (m *MockContext) DeleteCharmStateValue(arg0 string) error {
 	m.ctrl.T.Helper()
@@ -305,6 +321,21 @@ func (mr *MockContextMockRecorder) GetRawK8sSpec() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRawK8sSpec", reflect.TypeOf((*MockContext)(nil).GetRawK8sSpec))
 }
 
+// GetSecret mocks base method.
+func (m *MockContext) GetSecret(arg0 *secrets.URI, arg1 string, arg2, arg3 bool) (secrets.SecretValue, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSecret", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(secrets.SecretValue)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSecret indicates an expected call of GetSecret.
+func (mr *MockContextMockRecorder) GetSecret(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecret", reflect.TypeOf((*MockContext)(nil).GetSecret), arg0, arg1, arg2, arg3)
+}
+
 // GoalState mocks base method.
 func (m *MockContext) GoalState() (*application.GoalState, error) {
 	m.ctrl.T.Helper()
@@ -318,6 +349,20 @@ func (m *MockContext) GoalState() (*application.GoalState, error) {
 func (mr *MockContextMockRecorder) GoalState() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GoalState", reflect.TypeOf((*MockContext)(nil).GoalState))
+}
+
+// GrantSecret mocks base method.
+func (m *MockContext) GrantSecret(arg0 *secrets.URI, arg1 *jujuc.SecretGrantRevokeArgs) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GrantSecret", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// GrantSecret indicates an expected call of GrantSecret.
+func (mr *MockContextMockRecorder) GrantSecret(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GrantSecret", reflect.TypeOf((*MockContext)(nil).GrantSecret), arg0, arg1)
 }
 
 // HookRelation mocks base method.
@@ -542,6 +587,20 @@ func (mr *MockContextMockRecorder) RemoteUnitName() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoteUnitName", reflect.TypeOf((*MockContext)(nil).RemoteUnitName))
 }
 
+// RemoveSecret mocks base method.
+func (m *MockContext) RemoveSecret(arg0 *secrets.URI, arg1 *int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveSecret", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveSecret indicates an expected call of RemoveSecret.
+func (mr *MockContextMockRecorder) RemoveSecret(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSecret", reflect.TypeOf((*MockContext)(nil).RemoveSecret), arg0, arg1)
+}
+
 // RequestReboot mocks base method.
 func (m *MockContext) RequestReboot(arg0 jujuc.RebootPriority) error {
 	m.ctrl.T.Helper()
@@ -554,6 +613,35 @@ func (m *MockContext) RequestReboot(arg0 jujuc.RebootPriority) error {
 func (mr *MockContextMockRecorder) RequestReboot(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequestReboot", reflect.TypeOf((*MockContext)(nil).RequestReboot), arg0)
+}
+
+// RevokeSecret mocks base method.
+func (m *MockContext) RevokeSecret(arg0 *secrets.URI, arg1 *jujuc.SecretGrantRevokeArgs) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RevokeSecret", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RevokeSecret indicates an expected call of RevokeSecret.
+func (mr *MockContextMockRecorder) RevokeSecret(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeSecret", reflect.TypeOf((*MockContext)(nil).RevokeSecret), arg0, arg1)
+}
+
+// SecretMetadata mocks base method.
+func (m *MockContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SecretMetadata")
+	ret0, _ := ret[0].(map[string]jujuc.SecretMetadata)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SecretMetadata indicates an expected call of SecretMetadata.
+func (mr *MockContextMockRecorder) SecretMetadata() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretMetadata", reflect.TypeOf((*MockContext)(nil).SecretMetadata))
 }
 
 // SetActionFailed mocks base method.
@@ -785,7 +873,7 @@ func (mr *MockContextMockRecorder) UntrackPayload(arg0, arg1 interface{}) *gomoc
 }
 
 // UpdateActionResults mocks base method.
-func (m *MockContext) UpdateActionResults(arg0 []string, arg1 string) error {
+func (m *MockContext) UpdateActionResults(arg0 []string, arg1 interface{}) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateActionResults", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -796,6 +884,20 @@ func (m *MockContext) UpdateActionResults(arg0 []string, arg1 string) error {
 func (mr *MockContextMockRecorder) UpdateActionResults(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateActionResults", reflect.TypeOf((*MockContext)(nil).UpdateActionResults), arg0, arg1)
+}
+
+// UpdateSecret mocks base method.
+func (m *MockContext) UpdateSecret(arg0 *secrets.URI, arg1 *jujuc.SecretUpdateArgs) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateSecret", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateSecret indicates an expected call of UpdateSecret.
+func (mr *MockContextMockRecorder) UpdateSecret(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecret", reflect.TypeOf((*MockContext)(nil).UpdateSecret), arg0, arg1)
 }
 
 // WorkloadName mocks base method.

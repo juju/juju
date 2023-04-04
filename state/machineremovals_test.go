@@ -121,11 +121,11 @@ func (s *MachineRemovalSuite) createRemovalWatcher(c *gc.C, st *state.State) (
 ) {
 	w := st.WatchMachineRemovals()
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, w) })
-	return w, testing.NewNotifyWatcherC(c, st, w)
+	return w, testing.NewNotifyWatcherC(c, w)
 }
 
 func (s *MachineRemovalSuite) makeMachine(c *gc.C, deadAlready bool) *state.Machine {
-	m, err := s.State.AddMachine("xenial", state.JobHostUnits)
+	m, err := s.State.AddMachine(state.UbuntuBase("16.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	if deadAlready {
 		deadenMachine(c, m)

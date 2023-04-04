@@ -19,11 +19,13 @@ run_deploy_specific_series() {
 	ensure "test-deploy-specific-series" "${file}"
 
 	juju deploy postgresql --series focal
-	series=$(juju status --format=json | jq ".applications.postgresql.series")
+	base_name=$(juju status --format=json | jq ".applications.postgresql.base.name")
+	base_channel=$(juju status --format=json | jq ".applications.postgresql.base.channel")
 
 	destroy_model "test-deploy-specific-series"
 
-	echo "$series" | check "focal"
+	echo "$base_name" | check "ubuntu"
+	echo "$base_channel" | check "20.04"
 }
 
 run_deploy_lxd_profile_charm() {
@@ -66,7 +68,7 @@ run_deploy_local_lxd_profile_charm() {
 
 	juju deploy ./testcharms/charms/lxd-profile
 	juju deploy ./testcharms/charms/lxd-profile-subordinate
-	juju add-relation lxd-profile-subordinate lxd-profile
+	juju integrate lxd-profile-subordinate lxd-profile
 
 	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
 	wait_for "lxd-profile-subordinate" ".applications | keys[1]"
@@ -123,7 +125,7 @@ run_deploy_lxd_to_machine() {
 	lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-0" |
 		grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"
 
-	juju upgrade-charm "lxd-profile-alt" --path "${charm}"
+	juju refresh "lxd-profile-alt" --path "${charm}"
 
 	# Ensure that an upgrade will be kicked off. This doesn't mean an upgrade
 	# has finished though, just started.
@@ -174,14 +176,14 @@ run_deploy_lxd_to_container() {
 	ensure "${model_name}" "${file}"
 
 	charm=./tests/suites/deploy/charms/lxd-profile-alt
-	juju deploy "${charm}" --to lxd --series=bionic
+	juju deploy "${charm}" --to lxd
 
 	wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 
 	OUT=$(juju exec --machine 0 -- sh -c 'sudo lxc profile show "juju-test-deploy-lxd-container-lxd-profile-alt-0"')
 	echo "${OUT}" | grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"
 
-	juju upgrade-charm "lxd-profile-alt" --path "${charm}"
+	juju refresh "lxd-profile-alt" --path "${charm}"
 
 	# Ensure that an upgrade will be kicked off. This doesn't mean an upgrade
 	# has finished though, just started.

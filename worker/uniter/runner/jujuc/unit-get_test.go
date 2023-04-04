@@ -5,10 +5,9 @@
 package jujuc_test
 
 import (
-	"strings"
-
-	"io/ioutil"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -39,7 +38,7 @@ var unitGetTests = []struct {
 
 func (s *UnitGetSuite) createCommand(c *gc.C) cmd.Command {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, cmdString("unit-get"))
+	com, err := jujuc.NewCommand(hctx, "unit-get")
 	c.Assert(err, jc.ErrorIsNil)
 	return jujuc.NewJujucCommandWrappedForTest(com)
 }
@@ -71,7 +70,7 @@ func (s *UnitGetSuite) TestOutputPath(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
-	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "some-file"))
+	content, err := os.ReadFile(filepath.Join(ctx.Dir, "some-file"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, "192.168.0.99\n")
 }
@@ -171,7 +170,7 @@ func (s *UnitGetSuite) TestNetworkInfoPrivateAddress(c *gc.C) {
 	launchCommand := func(input map[string]params.NetworkInfoResult, expected string) {
 		hctx := s.GetHookContext(c, -1, "")
 		hctx.info.NetworkInterface.NetworkInfoResults = input
-		com, err := jujuc.NewCommand(hctx, cmdString("unit-get"))
+		com, err := jujuc.NewCommand(hctx, "unit-get")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"private-address"})

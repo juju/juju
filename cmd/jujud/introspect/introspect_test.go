@@ -8,13 +8,12 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 	stdtesting "testing"
@@ -35,9 +34,6 @@ type IntrospectCommandSuite struct {
 }
 
 func (s *IntrospectCommandSuite) SetUpTest(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("introspection socket does not run on windows")
-	}
 	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(&config.DataDir, c.MkDir())
 }
@@ -184,7 +180,7 @@ func (s *IntrospectCommandSuite) TestListen(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(body), gc.Equals, "hello")
 }

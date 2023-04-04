@@ -213,7 +213,6 @@ func (s *removeCredentialSuite) TestRemoveRemoteCredentialForce(c *gc.C) {
 
 type fakeRemoveCredentialAPI struct {
 	jujutesting.Stub
-	v                 int
 	revokeCredentialF func(tag names.CloudCredentialTag) error
 	clouds            func() (map[names.CloudTag]jujucloud.Cloud, error)
 }
@@ -221,11 +220,6 @@ type fakeRemoveCredentialAPI struct {
 func (f *fakeRemoveCredentialAPI) Close() error {
 	f.AddCall("Close")
 	return nil
-}
-
-func (f *fakeRemoveCredentialAPI) BestAPIVersion() int {
-	f.AddCall("BestAPIVersion")
-	return f.v
 }
 
 func (f *fakeRemoveCredentialAPI) RevokeCredential(c names.CloudCredentialTag, force bool) error {

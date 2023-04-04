@@ -9,12 +9,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/status"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/upgradeseries"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -89,7 +90,7 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 func (s *upgradeSeriesSuite) TestCurrentSeries(c *gc.C) {
 	defer s.arrangeTest(c).Finish()
 
-	s.machine.EXPECT().Series().Return("xenial")
+	s.machine.EXPECT().Base().Return(state.UbuntuBase("16.04")).AnyTimes()
 
 	results, err := s.api.CurrentSeries(s.entityArgs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -156,13 +157,13 @@ func (s *upgradeSeriesSuite) TestFinishUpgradeSeriesUpgraded(c *gc.C) {
 	defer s.arrangeTest(c).Finish()
 
 	exp := s.machine.EXPECT()
-	exp.Series().Return("trusty")
-	exp.UpdateMachineSeries("xenial").Return(nil)
+	exp.Base().Return(state.UbuntuBase("22.04"))
+	exp.UpdateMachineSeries(state.UbuntuBase("20.04")).Return(nil)
 	exp.RemoveUpgradeSeriesLock().Return(nil)
 
 	entity := params.Entity{Tag: s.machineTag.String()}
 	args := params.UpdateChannelArgs{
-		Args: []params.UpdateChannelArg{{Entity: entity, Series: "xenial"}},
+		Args: []params.UpdateChannelArg{{Entity: entity, Channel: "20.04"}},
 	}
 
 	results, err := s.api.FinishUpgradeSeries(args)
@@ -176,12 +177,12 @@ func (s *upgradeSeriesSuite) TestFinishUpgradeSeriesNotUpgraded(c *gc.C) {
 	defer s.arrangeTest(c).Finish()
 
 	exp := s.machine.EXPECT()
-	exp.Series().Return("trusty")
+	exp.Base().Return(state.UbuntuBase("22.04"))
 	exp.RemoveUpgradeSeriesLock().Return(nil)
 
 	entity := params.Entity{Tag: s.machineTag.String()}
 	args := params.UpdateChannelArgs{
-		Args: []params.UpdateChannelArg{{Entity: entity, Series: "trusty"}},
+		Args: []params.UpdateChannelArg{{Entity: entity, Channel: "22.04"}},
 	}
 
 	results, err := s.api.FinishUpgradeSeries(args)

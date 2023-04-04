@@ -7,12 +7,14 @@ import (
 	"os"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3/shell"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/mongo"
@@ -112,10 +114,6 @@ func (c *configFromEnv) MetricsSpoolDir() string {
 	panic("not implemented")
 }
 
-func (c *configFromEnv) MongoVersion() mongo.Version {
-	panic("not implemented")
-}
-
 func (c *configFromEnv) MongoMemoryProfile() mongo.MemoryProfile {
 	panic("not implemented")
 }
@@ -146,13 +144,19 @@ func defaultConfig() agent.Config {
 	return &configFromEnv{}
 }
 
-type identityFunc func() identity
+type identityFunc func() (identity, error)
 
-func defaultIdentity() identity {
-	return identity{
-		PodName: os.Getenv("JUJU_K8S_POD_NAME"),
-		PodUUID: os.Getenv("JUJU_K8S_POD_UUID"),
+func identityFromK8sMetadata() (identity, error) {
+	podName := os.Getenv(k8sconstants.EnvJujuK8sPodName)
+	podUUID := os.Getenv(k8sconstants.EnvJujuK8sPodUUID)
+	if podName == "" || podUUID == "" {
+		return identity{}, errors.New("unable to extract pod name and UUID from environment")
 	}
+
+	return identity{
+		PodName: podName,
+		PodUUID: podUUID,
+	}, nil
 }
 
 type identity struct {

@@ -42,8 +42,6 @@ type RemoveCredentialAPI interface {
 	Clouds() (map[names.CloudTag]jujucloud.Cloud, error)
 	// RevokeCredential removes remote credential.
 	RevokeCredential(tag names.CloudCredentialTag, force bool) error
-	// BestAPIVersion returns current best api version.
-	BestAPIVersion() int
 	// Close closes api client.
 	Close() error
 }

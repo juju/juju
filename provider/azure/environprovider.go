@@ -17,7 +17,6 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/azure/internal/azurestorage"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 )
 
@@ -50,10 +49,6 @@ type ProviderConfig struct {
 	// CreateTokenCredential is set by tests to create a token.
 	CreateTokenCredential func(appId, appPassword, tenantID string, opts azcore.ClientOptions) (azcore.TokenCredential, error)
 
-	// NewStorageClient will be used to construct new storage
-	// clients.
-	NewStorageClient azurestorage.NewClientFunc
-
 	// RetryClock is used for retrying some operations, like
 	// waiting for deployments to complete.
 	//
@@ -61,10 +56,6 @@ type ProviderConfig struct {
 	// package, which uses "time" directly. We cannot mock the
 	// waiting in that case.
 	RetryClock clock.Clock
-
-	// RandomWindowsAdminPassword is a function used to generate
-	// a random password for the Windows admin user.
-	RandomWindowsAdminPassword func() string
 
 	// GneerateSSHKey is a functio nused to generate a new SSH
 	// key pair for provisioning Linux machines.
@@ -83,14 +74,8 @@ type ProviderConfig struct {
 
 // Validate validates the Azure provider configuration.
 func (cfg ProviderConfig) Validate() error {
-	if cfg.NewStorageClient == nil {
-		return errors.NotValidf("nil NewStorageClient")
-	}
 	if cfg.RetryClock == nil {
 		return errors.NotValidf("nil RetryClock")
-	}
-	if cfg.RandomWindowsAdminPassword == nil {
-		return errors.NotValidf("nil RandomWindowsAdminPassword")
 	}
 	if cfg.GenerateSSHKey == nil {
 		return errors.NotValidf("nil GenerateSSHKey")

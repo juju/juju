@@ -7,8 +7,9 @@ import (
 	"net/http"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/replicaset/v2"
+	"github.com/juju/replicaset/v3"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -25,7 +26,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinAgentVersions, map[int]version.Number{
 		3: version.MustParse("2.9.1"),
 	})
 
@@ -48,101 +49,54 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	)
 	cloudSpec := environscloudspec.CloudSpec{Type: "lxd"}
 
-	gomock.InOrder(
-		// 1. Check controller model.
-		// - check agent version;
-		ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
-		// - check mongo status;
-		ctrlState.EXPECT().MongoCurrentStatus().Return(&replicaset.Status{
-			Members: []replicaset.MemberStatus{
-				{
-					Id:      1,
-					Address: "1.1.1.1",
-					State:   replicaset.PrimaryState,
-				},
-				{
-					Id:      2,
-					Address: "2.2.2.2",
-					State:   replicaset.SecondaryState,
-				},
-				{
-					Id:      3,
-					Address: "3.3.3.3",
-					State:   replicaset.SecondaryState,
-				},
+	// 1. Check controller model.
+	// - check agent version;
+	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.666.1"), nil)
+	// - check mongo status;
+	ctrlState.EXPECT().MongoCurrentStatus().Return(&replicaset.Status{
+		Members: []replicaset.MemberStatus{
+			{
+				Id:      1,
+				Address: "1.1.1.1",
+				State:   replicaset.PrimaryState,
 			},
-		}, nil),
-		// - check mongo version;
-		statePool.EXPECT().MongoVersion().Return("4.4", nil),
-		// - check if the model has win machines;
-		ctrlState.EXPECT().MachineCountForSeries(
-			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81",
-		).Return(nil, nil),
-		ctrlState.EXPECT().MachineCountForSeries(
-			"artful",
-			"bionic",
-			"cosmic",
-			"disco",
-			"eoan",
-			"groovy",
-			"hirsute",
-			"impish",
-			"kinetic",
-			"precise",
-			"quantal",
-			"raring",
-			"saucy",
-			"trusty",
-			"utopic",
-			"vivid",
-			"wily",
-			"xenial",
-			"yakkety",
-			"zesty",
-		).Return(nil, nil),
-		// - check LXD version.
-		serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil),
-		server.EXPECT().ServerVersion().Return("5.2"),
+			{
+				Id:      2,
+				Address: "2.2.2.2",
+				State:   replicaset.SecondaryState,
+			},
+			{
+				Id:      3,
+				Address: "3.3.3.3",
+				State:   replicaset.SecondaryState,
+			},
+		},
+	}, nil)
+	// - check mongo version;
+	statePool.EXPECT().MongoVersion().Return("4.4", nil)
+	// - check if the model has win machines;
+	ctrlState.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
+	ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
+	// - check no charm store charms
+	ctrlState.EXPECT().AllCharmURLs().Return([]*string{}, errors.NotFoundf("charm urls"))
+	// - check LXD version.
+	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)
+	server.EXPECT().ServerVersion().Return("5.2")
+	// 2. Check hosted models.
+	// - check agent version;
+	model1.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
+	//  - check if model migration is ongoing;
+	model1.EXPECT().MigrationMode().Return(state.MigrationModeNone)
+	// - check if the model has win machines;
+	state1.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
+	state1.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
+	// - check no charm store charms
+	state1.EXPECT().AllCharmURLs().Return([]*string{}, errors.NotFoundf("charm urls"))
+	// - check LXD version.
+	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)
+	server.EXPECT().ServerVersion().Return("5.2")
 
-		// 2. Check hosted models.
-		// - check agent version;
-		model1.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
-		//  - check if model migration is ongoing;
-		model1.EXPECT().MigrationMode().Return(state.MigrationModeNone),
-		// - check if the model has win machines;
-		state1.EXPECT().MachineCountForSeries(
-			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81",
-		).Return(nil, nil),
-		state1.EXPECT().MachineCountForSeries(
-			"artful",
-			"bionic",
-			"cosmic",
-			"disco",
-			"eoan",
-			"groovy",
-			"hirsute",
-			"impish",
-			"kinetic",
-			"precise",
-			"quantal",
-			"raring",
-			"saucy",
-			"trusty",
-			"utopic",
-			"vivid",
-			"wily",
-			"xenial",
-			"yakkety",
-			"zesty",
-		).Return(nil, nil),
-		// - check LXD version.
-		serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil),
-		server.EXPECT().ServerVersion().Return("5.2"),
-	)
-
-	targetVersion := version.MustParse("3.0.0")
+	targetVersion := version.MustParse("3.666.2")
 	validators := upgradevalidation.ValidatorsForControllerUpgrade(true, targetVersion, cloudSpec)
 	checker := upgradevalidation.NewModelUpgradeCheck(ctrlModelTag.Id(), statePool, ctrlState, ctrlModel, validators...)
 	blockers, err := checker.Validate()
@@ -156,77 +110,9 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	c.Assert(blockers, gc.IsNil)
 }
 
-func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju2(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
-		3: version.MustParse("2.9.1"),
-	})
-
-	ctrlModelTag := names.NewModelTag("deadpork-0bad-400d-8000-4b1d0d06f00d")
-	model1ModelTag := coretesting.ModelTag
-	statePool := mocks.NewMockStatePool(ctrl)
-
-	ctrlState := mocks.NewMockState(ctrl)
-	ctrlModel := mocks.NewMockModel(ctrl)
-
-	state1 := mocks.NewMockState(ctrl)
-	model1 := mocks.NewMockModel(ctrl)
-
-	gomock.InOrder(
-		// 1. Check controller model.
-		// - check agent version;
-		ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
-		// - check mongo status;
-		ctrlState.EXPECT().MongoCurrentStatus().Return(&replicaset.Status{
-			Members: []replicaset.MemberStatus{
-				{
-					Id:      1,
-					Address: "1.1.1.1",
-					State:   replicaset.PrimaryState,
-				},
-				{
-					Id:      2,
-					Address: "2.2.2.2",
-					State:   replicaset.SecondaryState,
-				},
-				{
-					Id:      3,
-					Address: "3.3.3.3",
-					State:   replicaset.SecondaryState,
-				},
-			},
-		}, nil),
-
-		// 2. Check hosted models.
-		// - check agent version;
-		model1.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
-		//  - check if model migration is ongoing;
-		model1.EXPECT().MigrationMode().Return(state.MigrationModeNone),
-	)
-
-	targetVersion := version.MustParse("2.9.99")
-	validators := upgradevalidation.ValidatorsForControllerUpgrade(true, targetVersion, environscloudspec.CloudSpec{Type: "lxd"})
-	checker := upgradevalidation.NewModelUpgradeCheck(ctrlModelTag.Id(), statePool, ctrlState, ctrlModel, validators...)
-	blockers, err := checker.Validate()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockers, gc.IsNil)
-
-	validators = upgradevalidation.ValidatorsForControllerUpgrade(false, targetVersion, environscloudspec.CloudSpec{Type: "lxd"})
-	checker = upgradevalidation.NewModelUpgradeCheck(model1ModelTag.Id(), statePool, state1, model1, validators...)
-	blockers, err = checker.Validate()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockers, gc.IsNil)
-}
-
 func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
-		3: version.MustParse("2.9.1"),
-	})
 
 	modelTag := coretesting.ModelTag
 	statePool := mocks.NewMockStatePool(ctrl)
@@ -242,69 +128,17 @@ func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
 	)
 	cloudSpec := environscloudspec.CloudSpec{Type: "lxd"}
 
-	gomock.InOrder(
-		// - check no upgrade series in process.
-		state.EXPECT().HasUpgradeSeriesLocks().Return(false, nil),
-		// - check if the model has win machines.
-		state.EXPECT().MachineCountForSeries(
-			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81",
-		).Return(nil, nil),
-		state.EXPECT().MachineCountForSeries(
-			"artful",
-			"bionic",
-			"cosmic",
-			"disco",
-			"eoan",
-			"groovy",
-			"hirsute",
-			"impish",
-			"kinetic",
-			"precise",
-			"quantal",
-			"raring",
-			"saucy",
-			"trusty",
-			"utopic",
-			"vivid",
-			"wily",
-			"xenial",
-			"yakkety",
-			"zesty",
-		).Return(nil, nil),
-		// - check LXD version.
-		serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil),
-		server.EXPECT().ServerVersion().Return("5.2"),
-	)
+	// - check no upgrade series in process.
+	state.EXPECT().HasUpgradeSeriesLocks().Return(false, nil)
+	// - check if the model has win machines.
+	state.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
+	state.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
+	// - check LXD version.
+	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)
+	server.EXPECT().ServerVersion().Return("5.2")
 
 	targetVersion := version.MustParse("3.0.0")
 	validators := upgradevalidation.ValidatorsForModelUpgrade(false, targetVersion, cloudSpec)
-	checker := upgradevalidation.NewModelUpgradeCheck(modelTag.Id(), statePool, state, model, validators...)
-	blockers, err := checker.Validate()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockers, gc.IsNil)
-}
-
-func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju2(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
-		3: version.MustParse("2.9.1"),
-	})
-
-	modelTag := coretesting.ModelTag
-	statePool := mocks.NewMockStatePool(ctrl)
-	state := mocks.NewMockState(ctrl)
-	model := mocks.NewMockModel(ctrl)
-
-	gomock.InOrder(
-		// - check no upgrade series in process.
-		state.EXPECT().HasUpgradeSeriesLocks().Return(false, nil),
-	)
-
-	targetVersion := version.MustParse("2.9.99")
-	validators := upgradevalidation.ValidatorsForModelUpgrade(false, targetVersion, environscloudspec.CloudSpec{Type: "lxd"})
 	checker := upgradevalidation.NewModelUpgradeCheck(modelTag.Id(), statePool, state, model, validators...)
 	blockers, err := checker.Validate()
 	c.Assert(err, jc.ErrorIsNil)

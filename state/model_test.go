@@ -8,11 +8,11 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2/bson"
-	mgotesting "github.com/juju/mgo/v2/testing"
+	"github.com/juju/mgo/v3/bson"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -339,7 +339,7 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	c.Assert(entity.Tag(), gc.Equals, modelTag)
 
 	// Ensure the model is functional by adding a machine
-	_, err = st.AddMachine("quantal", state.JobHostUnits)
+	_, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the default model was created.
@@ -512,17 +512,6 @@ func (s *ModelSuite) TestConfigForOtherModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conf.Name(), gc.Equals, "other")
 	c.Assert(conf.UUID(), gc.Equals, otherModel.UUID())
-}
-
-func (s *ModelSuite) TestDeployCAASApplication(c *gc.C) {
-	ch := s.Factory.MakeCharm(c, nil)
-	args := state.AddApplicationArgs{
-		Name:   "gitlab",
-		Series: "kubernetes",
-		Charm:  ch,
-	}
-	_, err := s.State.AddApplication(args)
-	c.Assert(err, gc.ErrorMatches, `cannot add application "gitlab": series "kubernetes" \(OS "Kubernetes"\) not supported by charm, supported series are "quantal"`)
 }
 
 func (s *ModelSuite) TestAllUnits(c *gc.C) {
@@ -807,7 +796,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	// add some machines and applications
 	otherModel, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = otherSt.AddMachine("quantal", state.JobHostUnits)
+	_, err = otherSt.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
 
@@ -815,6 +804,10 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	args := state.AddApplicationArgs{
 		Name:  application.Name(),
 		Charm: ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "12.10/stable",
+		}},
 	}
 	_, err = otherSt.AddApplication(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1282,7 +1275,7 @@ func (s *ModelSuite) TestProcessDyingModelWithMachinesAndApplicationsNoOp(c *gc.
 	// add some machines and applications
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = st.AddMachine("quantal", state.JobHostUnits)
+	_, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
 
@@ -1290,6 +1283,10 @@ func (s *ModelSuite) TestProcessDyingModelWithMachinesAndApplicationsNoOp(c *gc.
 	args := state.AddApplicationArgs{
 		Name:  application.Name(),
 		Charm: ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "12.10/stable",
+		}},
 	}
 	_, err = st.AddApplication(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1328,8 +1325,8 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine, err := st.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Filesystems: []state.HostFilesystemParams{{
 			Filesystem: state.FilesystemParams{
 				Pool: "modelscoped-block",
@@ -1379,8 +1376,8 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine, err := st.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{
 				Pool: "modelscoped",
@@ -1831,7 +1828,7 @@ func (s *ModelCloudValidationSuite) TestNewModelMissingCloudRegion(c *gc.C) {
 		Owner:                   owner,
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
-	c.Assert(err, gc.ErrorMatches, "missing CloudRegion not valid")
+	c.Assert(err, gc.ErrorMatches, "missing cloud region not valid")
 }
 
 func (s *ModelCloudValidationSuite) TestNewModelUnknownCloudCredential(c *gc.C) {

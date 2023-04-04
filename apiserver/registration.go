@@ -6,7 +6,7 @@ package apiserver
 import (
 	"crypto/rand"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
@@ -109,7 +109,7 @@ func (h *registerUserHandler) processPost(req *http.Request, st *state.State) (
 		return names.UserTag{}, nil, err
 	}
 
-	data, err := ioutil.ReadAll(req.Body)
+	data, err := io.ReadAll(req.Body)
 	if err != nil {
 		return failure(err)
 	}

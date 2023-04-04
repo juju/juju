@@ -6,23 +6,15 @@ package application_test
 import (
 	"fmt"
 	"regexp"
-	"sync"
 	"time"
 
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
-	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	unitassignerapi "github.com/juju/juju/api/agent/unitassigner"
-	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facades/client/application"
@@ -38,24 +30,21 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
-	statestorage "github.com/juju/juju/state/storage"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type applicationSuite struct {
 	jujutesting.JujuConnSuite
 	commontesting.BlockHelper
 
-	applicationAPI *application.APIv15
+	applicationAPI *application.APIBase
 	application    *state.Application
 	authorizer     *apiservertesting.FakeAuthorizer
-	repo           *mockRepo
+	lastKnownRev   map[string]int
 }
 
 var _ = gc.Suite(&applicationSuite{})
@@ -71,52 +60,10 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 		Tag: s.AdminUserTag(c),
 	}
 	s.applicationAPI = s.makeAPI(c)
-
-	var logger loggo.Logger
-	s.repo = &mockRepo{
-		CallMocker: jtesting.NewCallMocker(logger),
-		revisions:  make(map[string]int),
-	}
-
-	s.PatchValue(&application.OpenCSRepo, func(args application.OpenCSRepoParams) (application.Repository, error) {
-		return s.repo, nil
-	})
+	s.lastKnownRev = make(map[string]int)
 }
 
-func (s *applicationSuite) openRepo(args application.OpenCSRepoParams) (application.Repository, error) {
-	return s.repo, nil
-}
-
-func (s *applicationSuite) UploadCharm(c *gc.C, url, name string) (*charm.URL, charm.Charm) {
-	resultURL := charm.MustParseURL(url)
-	if resultURL.User == "" {
-		resultURL.User = "who"
-	}
-	if resultURL.Revision < 0 {
-		base := *resultURL
-		rev, ok := s.repo.revisions[base.String()]
-		if !ok {
-			resultURL.Revision = 0
-		} else {
-			resultURL.Revision = rev + 1
-		}
-		s.repo.revisions[base.String()] = resultURL.Revision
-	}
-	ch, err := charm.ReadCharmArchive(
-		testcharms.RepoWithSeries("quantal").CharmArchivePath(c.MkDir(), name))
-	c.Assert(err, jc.ErrorIsNil)
-	s.repo.Call("DownloadCharm", resultURL.String()).Returns(
-		ch,
-		error(nil),
-	)
-	return resultURL, ch
-}
-
-func (s *applicationSuite) UploadCharmMultiSeries(c *gc.C, url, name string) (*charm.URL, charm.Charm) {
-	return s.UploadCharm(c, url, name)
-}
-
-func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv15 {
+func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 	resources := common.NewResources()
 	c.Assert(resources.RegisterNamed("dataDir", common.StringResource(c.MkDir())), jc.ErrorIsNil)
 	storageAccess, err := application.GetStorageState(s.State)
@@ -142,1209 +89,13 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv15 {
 		nil, // CAAS Broker not used in this suite.
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	return &application.APIv15{api}
-}
-
-func (s *applicationSuite) TestCharmConfig(c *gc.C) {
-	s.setUpConfigTest(c)
-
-	branchName := "test-branch"
-	c.Assert(s.State.AddBranch(branchName, "test-user"), jc.ErrorIsNil)
-
-	results, err := s.applicationAPI.CharmConfig(params.ApplicationGetArgs{
-		Args: []params.ApplicationGet{
-			{ApplicationName: "foo", BranchName: branchName},
-			{ApplicationName: "bar", BranchName: branchName},
-			{ApplicationName: "wat", BranchName: branchName},
-		},
-	})
-	assertConfigTest(c, results, err, []params.ConfigResult{})
-}
-
-func (s *applicationSuite) TestCharmConfigV8(c *gc.C) {
-	s.setUpConfigTest(c)
-	api := &application.APIv8{
-		APIv9: &application.APIv9{
-			APIv10: &application.APIv10{
-				APIv11: &application.APIv11{
-					APIv12: &application.APIv12{
-						APIv13: &application.APIv13{
-							APIv14: &application.APIv14{
-								s.applicationAPI,
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	results, err := api.CharmConfig(params.Entities{
-		Entities: []params.Entity{
-			{Tag: "wat"}, {Tag: "machine-0"}, {Tag: "user-foo"},
-			{Tag: "application-foo"}, {Tag: "application-bar"}, {Tag: "application-wat"},
-		},
-	})
-	assertConfigTest(c, results, err, []params.ConfigResult{
-		{Error: &params.Error{Message: `"wat" is not a valid tag`}},
-		{Error: &params.Error{Message: `unexpected tag type, expected application, got machine`}},
-		{Error: &params.Error{Message: `unexpected tag type, expected application, got user`}},
-	})
-}
-
-func (s *applicationSuite) TestGetConfig(c *gc.C) {
-	s.setUpConfigTest(c)
-	results, err := s.applicationAPI.GetConfig(params.Entities{
-		Entities: []params.Entity{
-			{Tag: "wat"}, {Tag: "machine-0"}, {Tag: "user-foo"},
-			{Tag: "application-foo"}, {Tag: "application-bar"}, {Tag: "application-wat"},
-		},
-	})
-	assertConfigTest(c, results, err, []params.ConfigResult{
-		{Error: &params.Error{Message: `"wat" is not a valid tag`}},
-		{Error: &params.Error{Message: `unexpected tag type, expected application, got machine`}},
-		{Error: &params.Error{Message: `unexpected tag type, expected application, got user`}},
-	})
-}
-
-func (s *applicationSuite) setUpConfigTest(c *gc.C) {
-	fooConfig := map[string]interface{}{
-		"title":       "foo",
-		"skill-level": 42,
-	}
-	dummy := s.Factory.MakeCharm(c, &factory.CharmParams{
-		Name: "dummy",
-	})
-	s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Name:        "foo",
-		Charm:       dummy,
-		CharmConfig: fooConfig,
-	})
-	barConfig := map[string]interface{}{
-		"title":   "bar",
-		"outlook": "fantastic",
-	}
-	s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Name:        "bar",
-		Charm:       dummy,
-		CharmConfig: barConfig,
-	})
-}
-
-func assertConfigTest(c *gc.C, results params.ApplicationGetConfigResults, err error, resPrefix []params.ConfigResult) {
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ApplicationGetConfigResults{
-		Results: append(resPrefix, []params.ConfigResult{
-			{
-				Config: map[string]interface{}{
-					"outlook": map[string]interface{}{
-						"description": "No default outlook.",
-						"source":      "unset",
-						"type":        "string",
-					},
-					"skill-level": map[string]interface{}{
-						"description": "A number indicating skill.",
-						"source":      "user",
-						"type":        "int",
-						"value":       42,
-					},
-					"title": map[string]interface{}{
-						"default":     "My Title",
-						"description": "A descriptive title used for the application.",
-						"source":      "user",
-						"type":        "string",
-						"value":       "foo",
-					},
-					"username": map[string]interface{}{
-						"default":     "admin001",
-						"description": "The name of the initial account (given admin permissions).",
-						"source":      "default",
-						"type":        "string",
-						"value":       "admin001",
-					},
-				},
-			}, {
-				Config: map[string]interface{}{
-					"outlook": map[string]interface{}{
-						"description": "No default outlook.",
-						"source":      "user",
-						"type":        "string",
-						"value":       "fantastic",
-					},
-					"skill-level": map[string]interface{}{
-						"description": "A number indicating skill.",
-						"source":      "unset",
-						"type":        "int",
-					},
-					"title": map[string]interface{}{
-						"default":     "My Title",
-						"description": "A descriptive title used for the application.",
-						"source":      "user",
-						"type":        "string",
-						"value":       "bar",
-					},
-					"username": map[string]interface{}{
-						"default":     "admin001",
-						"description": "The name of the initial account (given admin permissions).",
-						"source":      "default",
-						"type":        "string",
-						"value":       "admin001",
-					},
-				},
-			}, {
-				Error: &params.Error{Message: `application "wat" not found`, Code: "not found"},
-			},
-		}...)})
-}
-
-func (s *applicationSuite) TestSetMetricCredentials(c *gc.C) {
-	ch := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	wordpress := s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Charm: ch,
-	})
-	tests := []struct {
-		about   string
-		args    params.ApplicationMetricCredentials
-		results params.ErrorResults
-	}{
-		{
-			"test one argument and it passes",
-			params.ApplicationMetricCredentials{Creds: []params.ApplicationMetricCredential{{
-				ApplicationName:   s.application.Name(),
-				MetricCredentials: []byte("creds 1234"),
-			}}},
-			params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}},
-		},
-		{
-			"test two arguments and both pass",
-			params.ApplicationMetricCredentials{Creds: []params.ApplicationMetricCredential{
-				{
-					ApplicationName:   s.application.Name(),
-					MetricCredentials: []byte("creds 1234"),
-				},
-				{
-					ApplicationName:   wordpress.Name(),
-					MetricCredentials: []byte("creds 4567"),
-				},
-			}},
-			params.ErrorResults{Results: []params.ErrorResult{
-				{Error: nil},
-				{Error: nil},
-			}},
-		},
-		{
-			"test two arguments and second one fails",
-			params.ApplicationMetricCredentials{Creds: []params.ApplicationMetricCredential{
-				{
-					ApplicationName:   s.application.Name(),
-					MetricCredentials: []byte("creds 1234"),
-				},
-				{
-					ApplicationName:   "not-a-application",
-					MetricCredentials: []byte("creds 4567"),
-				},
-			}},
-			params.ErrorResults{Results: []params.ErrorResult{
-				{Error: nil},
-				{Error: &params.Error{Message: `application "not-a-application" not found`, Code: "not found"}},
-			}},
-		},
-	}
-	for i, t := range tests {
-		c.Logf("Running test %d %v", i, t.about)
-		results, err := s.applicationAPI.SetMetricCredentials(t.args)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(results.Results, gc.HasLen, len(t.results.Results))
-		c.Assert(results, gc.DeepEquals, t.results)
-
-		for i, a := range t.args.Creds {
-			if t.results.Results[i].Error == nil {
-				app, err := s.State.Application(a.ApplicationName)
-				c.Assert(err, jc.ErrorIsNil)
-				creds := app.MetricCredentials()
-				c.Assert(creds, gc.DeepEquals, a.MetricCredentials)
-			}
-		}
-	}
-}
-
-func (s *applicationSuite) TestCompatibleSettingsParsing(c *gc.C) {
-	// Test the exported settings parsing in a compatible way.
-	s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	app, err := s.State.Application("dummy")
-	c.Assert(err, jc.ErrorIsNil)
-	ch, _, err := app.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.String(), gc.Equals, "local:quantal/dummy-1")
-
-	// Empty string will be returned as nil.
-	options := map[string]string{
-		"title":    "foobar",
-		"username": "",
-	}
-	settings, err := application.ParseSettingsCompatible(ch.Config(), options)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, charm.Settings{
-		"title":    "foobar",
-		"username": nil,
-	})
-
-	// Illegal settings lead to an error.
-	options = map[string]string{
-		"yummy": "didgeridoo",
-	}
-	_, err = application.ParseSettingsCompatible(ch.Config(), options)
-	c.Assert(err, gc.ErrorMatches, `unknown option "yummy"`)
-}
-
-func (s *applicationSuite) TestApplicationDeployWithStorage(c *gc.C) {
-	curl, ch := s.UploadCharm(c, "cs:utopic/storage-block-10", "storage-block")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-	storageConstraints := map[string]storage.Constraints{
-		"data": {
-			Count: 1,
-			Size:  1024,
-			Pool:  "modelscoped-block",
-		},
-	}
-
-	var cons constraints.Value
-	args := params.ApplicationDeploy{
-		ApplicationName: "application",
-		CharmURL:        curl.String(),
-		CharmOrigin:     createCharmOriginFromURL(c, curl),
-		NumUnits:        1,
-		Constraints:     cons,
-		Storage:         storageConstraints,
-	}
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{args}},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{Error: nil}},
-	})
-	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, s.constraintsWithDefaultArch(c))
-	storageConstraintsOut, err := app.StorageConstraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageConstraintsOut, gc.DeepEquals, map[string]state.StorageConstraints{
-		"data": {
-			Count: 1,
-			Size:  1024,
-			Pool:  "modelscoped-block",
-		},
-		"allecto": {
-			Count: 0,
-			Size:  1024,
-			Pool:  "loop",
-		},
-	})
-}
-
-func (s *applicationSuite) TestMinJujuVersionTooHigh(c *gc.C) {
-	curl, _ := s.UploadCharm(c, "cs:quantal/minjujuversion-0", "minjujuversion")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	vers := jujuversion.Current
-	vers.Tag = ""
-	match := fmt.Sprintf(`charm's min version (999.999.999) is higher than this juju model's version (%s)`, vers)
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(match))
-}
-
-func (s *applicationSuite) TestApplicationDeployWithInvalidStoragePool(c *gc.C) {
-	curl, _ := s.UploadCharm(c, "cs:utopic/storage-block-0", "storage-block")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-	storageConstraints := map[string]storage.Constraints{
-		"data": {
-			Pool:  "foo",
-			Count: 1,
-			Size:  1024,
-		},
-	}
-
-	var cons constraints.Value
-	args := params.ApplicationDeploy{
-		ApplicationName: "application",
-		CharmURL:        curl.String(),
-		CharmOrigin:     createCharmOriginFromURL(c, curl),
-		NumUnits:        1,
-		Constraints:     cons,
-		Storage:         storageConstraints,
-	}
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{args}},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, `.* pool "foo" not found`)
-}
-
-func (s *applicationSuite) TestApplicationDeployDefaultFilesystemStorage(c *gc.C) {
-	curl, ch := s.UploadCharm(c, "cs:trusty/storage-filesystem-1", "storage-filesystem")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-	var cons constraints.Value
-	args := params.ApplicationDeploy{
-		ApplicationName: "application",
-		CharmURL:        curl.String(),
-		CharmOrigin:     createCharmOriginFromURL(c, curl),
-		NumUnits:        1,
-		Constraints:     cons,
-	}
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{args}},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{Error: nil}},
-	})
-	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, s.constraintsWithDefaultArch(c))
-	storageConstraintsOut, err := app.StorageConstraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageConstraintsOut, gc.DeepEquals, map[string]state.StorageConstraints{
-		"data": {
-			Count: 1,
-			Size:  1024,
-			Pool:  "rootfs",
-		},
-	})
-}
-
-func (s *applicationSuite) TestApplicationDeploy(c *gc.C) {
-	curl, ch := s.UploadCharm(c, "cs:quantal/dummy-42", "dummy")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-	var cons constraints.Value
-	args := params.ApplicationDeploy{
-		ApplicationName: "application",
-		CharmURL:        curl.String(),
-		CharmOrigin:     createCharmOriginFromURL(c, curl),
-		NumUnits:        1,
-		Constraints:     cons,
-		Placement: []*instance.Placement{
-			{Scope: "deadbeef-0bad-400d-8000-4b1d0d06f00d", Directive: "valid"},
-		},
-	}
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{args}},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{Error: nil}},
-	})
-	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, s.constraintsWithDefaultArch(c))
-	units, err := app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 1)
-}
-
-func (s *applicationSuite) constraintsWithDefaultArch(c *gc.C) constraints.Value {
-	a := arch.DefaultArchitecture
-	return constraints.Value{
-		Arch: &a,
-	}
-}
-
-func (s *applicationSuite) TestApplicationDeployWithInvalidPlacement(c *gc.C) {
-	curl, _ := s.UploadCharm(c, "cs:quantal/dummy-42", "dummy")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-	var cons constraints.Value
-	args := params.ApplicationDeploy{
-		ApplicationName: "application",
-		CharmURL:        curl.String(),
-		CharmOrigin:     createCharmOriginFromURL(c, curl),
-		NumUnits:        1,
-		Constraints:     cons,
-		Placement: []*instance.Placement{
-			{Scope: "deadbeef-0bad-400d-8000-4b1d0d06f00d", Directive: "invalid"},
-		},
-	}
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{args}},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.NotNil)
-	c.Assert(results.Results[0].Error.Error(), gc.Matches, ".* invalid placement is invalid")
-}
-
-func (s *applicationSuite) TestApplicationDeployWithMachinePlacementLockedError(c *gc.C) {
-	s.testApplicationDeployWithPlacementLockedError(c, instance.Placement{Scope: "#", Directive: "0"}, false)
-}
-
-func (s *applicationSuite) TestApplicationDeployWithMachineContainerPlacementLockedError(c *gc.C) {
-	s.testApplicationDeployWithPlacementLockedError(c, instance.Placement{Scope: "lxd", Directive: "0"}, false)
-}
-
-func (s *applicationSuite) TestApplicationDeployWithExtantMachineContainerLockedParentError(c *gc.C) {
-	s.testApplicationDeployWithPlacementLockedError(c, instance.Placement{Scope: "#", Directive: "0/lxd/0"}, true)
-}
-
-func (s *applicationSuite) testApplicationDeployWithPlacementLockedError(
-	c *gc.C, placement instance.Placement, addContainer bool,
-) {
-	m, err := s.BackingState.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-
-	if addContainer {
-		template := state.MachineTemplate{
-			Series: "xenial",
-			Jobs:   []state.MachineJob{state.JobHostUnits},
-		}
-		_, err := s.State.AddMachineInsideMachine(template, m.Id(), "lxd")
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-	c.Assert(m.CreateUpgradeSeriesLock(nil, "trusty"), jc.ErrorIsNil)
-
-	curl, _ := s.UploadCharm(c, "cs:quantal/dummy-42", "dummy")
-	err = application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-	var cons constraints.Value
-	args := params.ApplicationDeploy{
-		ApplicationName: "application",
-		CharmURL:        curl.String(),
-		CharmOrigin:     createCharmOriginFromURL(c, curl),
-		NumUnits:        1,
-		Constraints:     cons,
-		Placement:       []*instance.Placement{&placement},
-	}
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{args}},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.NotNil)
-	c.Assert(results.Results[0].Error.Error(), gc.Matches, ".* machine is locked for series upgrade")
-}
-
-func (s *applicationSuite) TestApplicationDeploymentRemovesPendingResourcesOnFailure(c *gc.C) {
-	charm := s.AddTestingCharm(c, "dummy-resource")
-	resources := s.State.Resources()
-	pendingID, err := resources.AddPendingResource("haha/borken", "user", charmresource.Resource{
-		Meta:   charm.Meta().Resources["dummy"],
-		Origin: charmresource.OriginUpload,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{{
-			ApplicationName: "haha/borken",
-			NumUnits:        1,
-			CharmURL:        charm.String(),
-			CharmOrigin:     createCharmOriginFromURL(c, charm.URL()),
-			Resources:       map[string]string{"dummy": pendingID},
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, `cannot add application "haha/borken": invalid name`)
-
-	res, err := resources.ListPendingResources("haha/borken")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Resources, gc.HasLen, 0)
-	c.Assert(res.UnitResources, gc.HasLen, 0)
-}
-
-func (s *applicationSuite) TestApplicationDeploymentLeavesResourcesOnSuccess(c *gc.C) {
-	charm := s.AddTestingCharm(c, "dummy-resource")
-	resources := s.State.Resources()
-	pendingID, err := resources.AddPendingResource("unborken", "user", charmresource.Resource{
-		Meta:   charm.Meta().Resources["dummy"],
-		Origin: charmresource.OriginUpload,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{{
-			ApplicationName: "unborken",
-			NumUnits:        1,
-			CharmURL:        charm.String(),
-			CharmOrigin:     createCharmOriginFromURL(c, charm.URL()),
-			Resources:       map[string]string{"dummy": pendingID},
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-
-	res, err := resources.ListResources("unborken")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Resources, gc.HasLen, 1)
-}
-
-func (s *applicationSuite) TestApplicationDeploymentWithTrust(c *gc.C) {
-	// This test should fail if the configuration parsing does not
-	// understand the "trust" configuration parameter
-	curl, ch := s.UploadCharm(c, "cs:quantal/dummy-42", "dummy")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-	var cons constraints.Value
-	config := map[string]string{"trust": "true"}
-	args := params.ApplicationDeploy{
-		ApplicationName: "application",
-		CharmURL:        curl.String(),
-		CharmOrigin:     createCharmOriginFromURL(c, curl),
-		NumUnits:        1,
-		Config:          config,
-		Constraints:     cons,
-		Placement: []*instance.Placement{
-			{Scope: "deadbeef-0bad-400d-8000-4b1d0d06f00d", Directive: "valid"},
-		},
-	}
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{args}},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{Error: nil}},
-	})
-
-	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, s.constraintsWithDefaultArch(c))
-
-	appConfig, err := app.ApplicationConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
-	trust := appConfig.GetBool("trust", false)
-	c.Assert(trust, jc.IsTrue)
-}
-
-func (s *applicationSuite) TestApplicationDeploymentNoTrust(c *gc.C) {
-	// This test should fail if the trust configuration setting defaults to
-	// anything other than "false" when no configuration parameter for trust
-	// is set at deployment.
-	curl, ch := s.UploadCharm(c, "cs:quantal/dummy-42", "dummy")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-	var cons constraints.Value
-	args := params.ApplicationDeploy{
-		ApplicationName: "application",
-		CharmURL:        curl.String(),
-		CharmOrigin:     createCharmOriginFromURL(c, curl),
-		NumUnits:        1,
-		Constraints:     cons,
-		Placement: []*instance.Placement{
-			{Scope: "deadbeef-0bad-400d-8000-4b1d0d06f00d", Directive: "valid"},
-		},
-	}
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{args}},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{Error: nil}},
-	})
-
-	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, s.constraintsWithDefaultArch(c))
-	appConfig, err := app.ApplicationConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	trust := appConfig.GetBool(application.TrustConfigOptionName, true)
-	c.Assert(trust, jc.IsFalse)
-}
-
-func (s *applicationSuite) testClientApplicationsDeployWithBindings(c *gc.C, endpointBindings, expected map[string]string) {
-	curl, _ := s.UploadCharm(c, "cs:quantal/riak-42", "riak")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var cons constraints.Value
-	args := params.ApplicationDeploy{
-		ApplicationName:  "application",
-		CharmURL:         curl.String(),
-		CharmOrigin:      &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.10"},
-		NumUnits:         1,
-		Constraints:      cons,
-		EndpointBindings: endpointBindings,
-	}
-
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{args}},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-
-	app, err := s.State.Application(args.ApplicationName)
-	c.Assert(err, jc.ErrorIsNil)
-
-	retrievedBindings, err := app.EndpointBindings()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(retrievedBindings.Map(), jc.DeepEquals, expected)
-}
-
-func (s *applicationSuite) TestClientApplicationsDeployWithOldBindings(c *gc.C) {
-	space, err := s.State.AddSpace("a-space", "", nil, true)
-	c.Assert(err, jc.ErrorIsNil)
-	expected := map[string]string{
-		"":         network.AlphaSpaceId,
-		"endpoint": space.Id(),
-		"ring":     network.AlphaSpaceId,
-		"admin":    network.AlphaSpaceId,
-	}
-	endpointBindings := map[string]string{
-		"endpoint": space.Name(),
-		"ring":     "",
-		"admin":    "",
-	}
-	s.testClientApplicationsDeployWithBindings(c, endpointBindings, expected)
-}
-
-func (s *applicationSuite) TestClientApplicationsDeployWithBindings(c *gc.C) {
-	space, err := s.State.AddSpace("a-space", "", nil, true)
-	c.Assert(err, jc.ErrorIsNil)
-	expected := map[string]string{
-		"":         network.AlphaSpaceId,
-		"endpoint": space.Id(),
-		"ring":     network.AlphaSpaceId,
-		"admin":    network.AlphaSpaceId,
-	}
-	endpointBindings := map[string]string{"endpoint": space.Id()}
-	s.testClientApplicationsDeployWithBindings(c, endpointBindings, expected)
-}
-
-func (s *applicationSuite) TestClientApplicationsDeployWithDefaultBindings(c *gc.C) {
-	expected := map[string]string{
-		"":         network.AlphaSpaceId,
-		"endpoint": network.AlphaSpaceId,
-		"ring":     network.AlphaSpaceId,
-		"admin":    network.AlphaSpaceId,
-	}
-	s.testClientApplicationsDeployWithBindings(c, nil, expected)
-}
-
-// TODO(wallyworld) - the following charm tests have been moved from the apiserver/client
-// package in order to use the fake charm store testing infrastructure. They are legacy tests
-// written to use the api client instead of the apiserver logic. They need to be rewritten and
-// feature tests added.
-
-func (s *applicationSuite) TestAddCharm(c *gc.C) {
-	var blobs blobs
-	s.PatchValue(application.NewStateStorage, func(uuid string, session *mgo.Session) statestorage.Storage {
-		storage := statestorage.NewStorage(uuid, session)
-		return &recordingStorage{Storage: storage, blobs: &blobs}
-	})
-
-	client := client.NewClient(s.APIState)
-	// First test the sanity checks.
-	err := client.AddCharm(&charm.URL{Name: "nonsense"}, csparams.StableChannel, false)
-	c.Assert(err, gc.ErrorMatches, `cannot parse charm or bundle URL: ":nonsense-0"`)
-	err = client.AddCharm(charm.MustParseURL("local:precise/dummy"), csparams.StableChannel, false)
-	c.Assert(err, gc.ErrorMatches, "only charm store charm URLs are supported, with cs: schema")
-	err = client.AddCharm(charm.MustParseURL("cs:precise/wordpress"), csparams.StableChannel, false)
-	c.Assert(err, gc.ErrorMatches, "charm URL must include a revision")
-
-	// Add a charm, without uploading it to storage, to
-	// check that AddCharm does not try to do it.
-	charmDir := testcharms.Repo.CharmDir("dummy")
-	ident := fmt.Sprintf("%s-%d", charmDir.Meta().Name, charmDir.Revision())
-	curl := charm.MustParseURL("cs:quantal/" + ident)
-	info := state.CharmInfo{
-		Charm:       charmDir,
-		ID:          curl,
-		StoragePath: "/storage/path",
-		SHA256:      ident + "-sha256",
-	}
-	sch, err := s.State.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// AddCharm should see the charm in state and not upload it.
-	err = client.AddCharm(sch.URL(), csparams.StableChannel, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blobs.m, gc.HasLen, 0)
-
-	// Now try adding another charm completely.
-	curl, _ = s.UploadCharm(c, "cs:quantal/wordpress-3", "wordpress")
-	err = client.AddCharm(curl, csparams.StableChannel, false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Verify it's in state and it got uploaded.
-	storage := statestorage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
-	sch, err = s.State.Charm(curl)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
-}
-
-func (s *applicationSuite) TestAddCharmConcurrently(c *gc.C) {
-	c.Skip("see lp:1596960 -- bad test for bad code")
-
-	var putBarrier sync.WaitGroup
-	var blobs blobs
-	s.PatchValue(application.NewStateStorage, func(uuid string, session *mgo.Session) statestorage.Storage {
-		storage := statestorage.NewStorage(uuid, session)
-		return &recordingStorage{Storage: storage, blobs: &blobs, putBarrier: &putBarrier}
-	})
-
-	client := client.NewClient(s.APIState)
-	curl, _ := s.UploadCharm(c, "trusty/wordpress-3", "wordpress")
-
-	// Try adding the same charm concurrently from multiple goroutines
-	// to test no "duplicate key errors" are reported (see lp bug
-	// #1067979) and also at the end only one charm document is
-	// created.
-
-	var wg sync.WaitGroup
-	// We don't add them 1-by-1 because that would allow each goroutine to
-	// finish separately without actually synchronizing between them
-	putBarrier.Add(10)
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func(index int) {
-			defer wg.Done()
-
-			c.Assert(client.AddCharm(curl, csparams.StableChannel, false), gc.IsNil, gc.Commentf("goroutine %d", index))
-			sch, err := s.State.Charm(curl)
-			c.Assert(err, gc.IsNil, gc.Commentf("goroutine %d", index))
-			c.Assert(sch.URL(), jc.DeepEquals, curl, gc.Commentf("goroutine %d", index))
-		}(i)
-	}
-	wg.Wait()
-
-	blobs.Lock()
-
-	c.Assert(blobs.m, gc.HasLen, 10)
-
-	// Verify there is only a single uploaded charm remains and it
-	// contains the correct data.
-	sch, err := s.State.Charm(curl)
-	c.Assert(err, jc.ErrorIsNil)
-	storagePath := sch.StoragePath()
-	c.Assert(blobs.m[storagePath], jc.IsTrue)
-	for path, exists := range blobs.m {
-		if path != storagePath {
-			c.Assert(exists, jc.IsFalse)
-		}
-	}
-
-	storage := statestorage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
-	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
-}
-
-func (s *applicationSuite) assertUploaded(c *gc.C, storage statestorage.Storage, storagePath, expectedSHA256 string) {
-	reader, _, err := storage.Get(storagePath)
-	c.Assert(err, jc.ErrorIsNil)
-	defer reader.Close()
-	downloadedSHA256, _, err := utils.ReadSHA256(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(downloadedSHA256, gc.Equals, expectedSHA256)
-}
-
-func (s *applicationSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
-	client := client.NewClient(s.APIState)
-	curl, _ := s.UploadCharm(c, "cs:trusty/wordpress-42", "wordpress")
-
-	// Add a placeholder with the same charm URL.
-	err := s.State.AddCharmPlaceholder(curl)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.Charm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-
-	// Now try to add the charm, which will convert the placeholder to
-	// a pending charm.
-	err = client.AddCharm(curl, csparams.StableChannel, false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Make sure the document's flags were reset as expected.
-	sch, err := s.State.Charm(curl)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sch.URL(), jc.DeepEquals, curl)
-	c.Assert(sch.IsPlaceholder(), jc.IsFalse)
-	c.Assert(sch.IsUploaded(), jc.IsTrue)
-}
-
-func (s *applicationSuite) TestApplicationSetCharm(c *gc.C) {
-	curl, _ := s.UploadCharm(c, "cs:quantal/dummy-0", "dummy")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-	numUnits := 3
-	for i := 0; i < numUnits; i++ {
-		_, err := s.State.AddMachine("quantal", state.JobHostUnits)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{{
-			CharmURL:        curl.String(),
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.10"},
-			ApplicationName: "application",
-			NumUnits:        numUnits,
-		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	curl, _ = s.UploadCharm(c, "cs:quantal/wordpress-3", "wordpress")
-	err = application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-	errs, err := unitassignerapi.New(s.APIState).AssignUnits([]names.UnitTag{
-		names.NewUnitTag("application/0"),
-		names.NewUnitTag("application/1"),
-		names.NewUnitTag("application/2"),
-	})
-	c.Assert(errs, gc.DeepEquals, []error{error(nil), error(nil), error(nil)})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.applicationAPI.SetCharm(params.ApplicationSetCharm{
-		ApplicationName: "application",
-		CharmURL:        curl.String(),
-		CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.10"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure that the charm is not marked as forced.
-	app, err := s.State.Application("application")
-	c.Assert(err, jc.ErrorIsNil)
-	charm, force, err := app.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charm.String(), gc.Equals, curl.String())
-	c.Assert(force, jc.IsFalse)
-}
-
-func (s *applicationSuite) setupApplicationSetCharm(c *gc.C) {
-	curl, _ := s.UploadCharm(c, "cs:quantal/dummy-0", "dummy")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	numUnits := 3
-	for i := 0; i < numUnits; i++ {
-		_, err := s.State.AddMachine("quantal", state.JobHostUnits)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{{
-			CharmURL:        curl.String(),
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.10"},
-			ApplicationName: "application",
-			NumUnits:        numUnits,
-		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	errs, err := unitassignerapi.New(s.APIState).AssignUnits([]names.UnitTag{
-		names.NewUnitTag("application/0"),
-		names.NewUnitTag("application/1"),
-		names.NewUnitTag("application/2"),
-	})
-	c.Assert(errs, gc.DeepEquals, []error{error(nil), error(nil), error(nil)})
-	c.Assert(err, jc.ErrorIsNil)
-	curl, _ = s.UploadCharm(c, "cs:quantal/wordpress-3", "wordpress")
-	err = application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *applicationSuite) assertApplicationSetCharm(c *gc.C, forceUnits bool) {
-	err := s.applicationAPI.SetCharm(params.ApplicationSetCharm{
-		ApplicationName: "application",
-		CharmURL:        "cs:~who/quantal/wordpress-3",
-		CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.10"},
-		ForceUnits:      forceUnits,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	// Ensure that the charm is not marked as forced.
-	app, err := s.State.Application("application")
-	c.Assert(err, jc.ErrorIsNil)
-	charm, _, err := app.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charm.String(), gc.Equals, "cs:~who/quantal/wordpress-3")
-}
-
-func (s *applicationSuite) assertApplicationSetCharmBlocked(c *gc.C, msg string) {
-	err := s.applicationAPI.SetCharm(params.ApplicationSetCharm{
-		ApplicationName: "application",
-		CharmURL:        "cs:~who/quantal/wordpress-3",
-		CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.10"},
-	})
-	s.AssertBlocked(c, err, msg)
-}
-
-func (s *applicationSuite) TestBlockDestroyApplicationSetCharm(c *gc.C) {
-	s.setupApplicationSetCharm(c)
-	s.BlockDestroyModel(c, "TestBlockDestroyApplicationSetCharm")
-	s.assertApplicationSetCharm(c, false)
-}
-
-func (s *applicationSuite) TestBlockRemoveApplicationSetCharm(c *gc.C) {
-	s.setupApplicationSetCharm(c)
-	s.BlockRemoveObject(c, "TestBlockRemoveApplicationSetCharm")
-	s.assertApplicationSetCharm(c, false)
-}
-
-func (s *applicationSuite) TestBlockChangesApplicationSetCharm(c *gc.C) {
-	s.setupApplicationSetCharm(c)
-	s.BlockAllChanges(c, "TestBlockChangesApplicationSetCharm")
-	s.assertApplicationSetCharmBlocked(c, "TestBlockChangesApplicationSetCharm")
-}
-
-func (s *applicationSuite) TestApplicationSetCharmForceUnits(c *gc.C) {
-	curl, _ := s.UploadCharm(c, "cs:quantal/dummy-0", "dummy")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-	numUnits := 3
-	for i := 0; i < numUnits; i++ {
-		_, err := s.State.AddMachine("quantal", state.JobHostUnits)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{{
-			CharmURL:        curl.String(),
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.10"},
-			ApplicationName: "application",
-			NumUnits:        numUnits,
-		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	curl, _ = s.UploadCharm(c, "cs:quantal/wordpress-3", "wordpress")
-	err = application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-	errs, err := unitassignerapi.New(s.APIState).AssignUnits([]names.UnitTag{
-		names.NewUnitTag("application/0"),
-		names.NewUnitTag("application/1"),
-		names.NewUnitTag("application/2"),
-	})
-	c.Assert(errs, gc.DeepEquals, []error{error(nil), error(nil), error(nil)})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.applicationAPI.SetCharm(params.ApplicationSetCharm{
-		ApplicationName: "application",
-		CharmURL:        curl.String(),
-		CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.10"},
-		ForceUnits:      true,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure that the charm is marked as forced.
-	app, err := s.State.Application("application")
-	c.Assert(err, jc.ErrorIsNil)
-	charm, force, err := app.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charm.String(), gc.Equals, curl.String())
-	c.Assert(force, jc.IsTrue)
-}
-
-func (s *applicationSuite) TestBlockApplicationSetCharmForce(c *gc.C) {
-	s.setupApplicationSetCharm(c)
-
-	// block all changes
-	s.BlockAllChanges(c, "TestBlockApplicationSetCharmForce")
-	s.BlockRemoveObject(c, "TestBlockApplicationSetCharmForce")
-	s.BlockDestroyModel(c, "TestBlockApplicationSetCharmForce")
-
-	s.assertApplicationSetCharm(c, true)
-}
-
-func (s *applicationSuite) TestApplicationSetCharmInvalidApplication(c *gc.C) {
-	err := s.applicationAPI.SetCharm(params.ApplicationSetCharm{
-		ApplicationName: "badapplication",
-		CharmURL:        "cs:quantal/wordpress-3",
-		CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.10"},
-		ForceSeries:     true,
-		ForceUnits:      true,
-	})
-	c.Assert(err, gc.ErrorMatches, `application "badapplication" not found`)
-}
-
-func (s *applicationSuite) TestApplicationAddCharmErrors(c *gc.C) {
-	for url, expect := range map[string]string{
-		"wordpress":                   "only charm store charm URLs are supported, with cs: schema",
-		"cs:wordpress":                "charm URL must include a revision",
-		"cs:precise/wordpress":        "charm URL must include a revision",
-		"cs:precise/wordpress-999999": `cannot retrieve "cs:precise/wordpress-999999": charm not found`,
-	} {
-		c.Logf("test %s", url)
-		err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-			URL: url,
-		}, s.openRepo)
-		c.Check(err, gc.ErrorMatches, expect)
-	}
-}
-
-func (s *applicationSuite) TestApplicationSetCharmLegacy(c *gc.C) {
-	curl, _ := s.UploadCharm(c, "cs:quantal/dummy-0", "dummy")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{{
-			CharmURL:        curl.String(),
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.10"},
-			ApplicationName: "application",
-		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	curl, _ = s.UploadCharm(c, "cs:trusty/dummy-1", "dummy")
-	err = application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Even with forceSeries = true, we can't change a charm where
-	// the series is specified in the URL.
-	err = s.applicationAPI.SetCharm(params.ApplicationSetCharm{
-		ApplicationName: "application",
-		CharmURL:        curl.String(),
-		CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.10"},
-		ForceSeries:     true,
-	})
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:~who/trusty/dummy-1": cannot change an application's series`)
-}
-
-func (s *applicationSuite) TestApplicationSetCharmUnsupportedSeries(c *gc.C) {
-	curl, _ := s.UploadCharmMultiSeries(c, "cs:~who/multi-series", "multi-series")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{{
-			CharmURL:        curl.String(),
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", Series: "bionic"},
-			ApplicationName: "application",
-		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	curl, _ = s.UploadCharmMultiSeries(c, "cs:~who/multi-series", "multi-series2")
-	err = application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.applicationAPI.SetCharm(params.ApplicationSetCharm{
-		ApplicationName: "application",
-		CharmURL:        curl.String(),
-		CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.10"},
-	})
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:~who/multi-series-1": only these series are supported: trusty, wily`)
-}
-
-func (s *applicationSuite) assertApplicationSetCharmSeries(c *gc.C, upgradeCharm, series string) {
-	curl, _ := s.UploadCharmMultiSeries(c, "cs:~who/multi-series", "multi-series")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{{
-			CharmURL:        curl.String(),
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", Series: "quantal"},
-			ApplicationName: "application",
-		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-
-	url := upgradeCharm
-	if series != "" {
-		url = series + "/" + upgradeCharm
-	}
-	curl, _ = s.UploadCharmMultiSeries(c, "cs:~who/"+url, upgradeCharm)
-	err = application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.applicationAPI.SetCharm(params.ApplicationSetCharm{
-		ApplicationName: "application",
-		CharmURL:        curl.String(),
-		CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.10"},
-		ForceSeries:     true,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	app, err := s.State.Application("application")
-	c.Assert(err, jc.ErrorIsNil)
-	ch, _, err := app.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.String(), gc.Equals, "cs:~who/"+url+"-0")
-}
-
-func (s *applicationSuite) TestApplicationSetCharmUnsupportedSeriesForce(c *gc.C) {
-	s.assertApplicationSetCharmSeries(c, "multi-series2", "")
-}
-
-func (s *applicationSuite) TestApplicationSetCharmNoExplicitSupportedSeries(c *gc.C) {
-	s.assertApplicationSetCharmSeries(c, "dummy", "quantal")
-}
-
-func (s *applicationSuite) TestApplicationSetCharmWrongOS(c *gc.C) {
-	curl, _ := s.UploadCharmMultiSeries(c, "cs:~who/multi-series", "multi-series")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{{
-			CharmURL:        curl.String(),
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", Series: "bionic"},
-			ApplicationName: "application",
-		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	curl, _ = s.UploadCharmMultiSeries(c, "cs:~who/multi-series-windows", "multi-series-windows")
-	err = application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.applicationAPI.SetCharm(params.ApplicationSetCharm{
-		ApplicationName: "application",
-		CharmURL:        curl.String(),
-		CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.10"},
-		ForceSeries:     true,
-	})
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:~who/multi-series-windows-0": OS "Ubuntu" not supported by charm`)
+	return api
 }
 
 func (s *applicationSuite) setupApplicationDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {
-	curl, ch := s.UploadCharm(c, "cs:quantal/dummy-42", "dummy")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
+	curl, ch := s.addCharmToState(c, "cs:jammy/dummy-42", "dummy")
 	cons := constraints.MustParse(args)
 	return curl, ch, cons
-}
-
-func createCharmOriginFromURL(c *gc.C, curl *charm.URL) *params.CharmOrigin {
-	switch curl.Schema {
-	case "cs":
-		return &params.CharmOrigin{Source: "charm-store", Series: "quantal"}
-	case "local":
-		return &params.CharmOrigin{Source: "local", Series: "quantal"}
-	default:
-		return &params.CharmOrigin{Source: "charm-hub", Series: "quantal"}
-	}
 }
 
 func (s *applicationSuite) assertApplicationDeployPrincipal(c *gc.C, curl *charm.URL, ch charm.Charm, mem4g constraints.Value) {
@@ -1393,11 +144,7 @@ func (s *applicationSuite) TestBlockChangesApplicationDeployPrincipal(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationDeploySubordinate(c *gc.C) {
-	curl, ch := s.UploadCharm(c, "cs:utopic/logging-47", "logging")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
+	curl, ch := s.addCharmToState(c, "cs:utopic/logging-47", "logging")
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
@@ -1431,11 +178,7 @@ func (s *applicationSuite) combinedSettings(ch *state.Charm, inSettings charm.Se
 }
 
 func (s *applicationSuite) TestApplicationDeployConfig(c *gc.C) {
-	curl, _ := s.UploadCharm(c, "cs:quantal/dummy-0", "dummy")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
+	curl, _ := s.addCharmToState(c, "cs:jammy/dummy-0", "dummy")
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
@@ -1460,11 +203,7 @@ func (s *applicationSuite) TestApplicationDeployConfig(c *gc.C) {
 func (s *applicationSuite) TestApplicationDeployConfigError(c *gc.C) {
 	// TODO(fwereade): test Config/ConfigYAML handling directly on srvClient.
 	// Can't be done cleanly until it's extracted similarly to Machiner.
-	curl, _ := s.UploadCharm(c, "cs:quantal/dummy-0", "dummy")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
+	curl, _ := s.addCharmToState(c, "cs:jammy/dummy-0", "dummy")
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
@@ -1481,13 +220,9 @@ func (s *applicationSuite) TestApplicationDeployConfigError(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
-	curl, ch := s.UploadCharm(c, "cs:quantal/dummy-0", "dummy")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
+	curl, ch := s.addCharmToState(c, "cs:jammy/dummy-0", "dummy")
 
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -1533,13 +268,9 @@ func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C) {
-	curl, ch := s.UploadCharm(c, "cs:quantal/lxd-profile-0", "lxd-profile")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
+	curl, ch := s.addCharmToState(c, "cs:jammy/lxd-profile-0", "lxd-profile")
 
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -1590,23 +321,10 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C)
 	c.Assert(mid, gc.Equals, machine.Id())
 }
 
-func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfile(c *gc.C) {
-	curl, _ := s.UploadCharm(c, "cs:quantal/lxd-profile-fail-0", "lxd-profile-fail")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, gc.ErrorMatches, `.*invalid lxd-profile.yaml: contains device type "unix-disk"`)
-}
-
 func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAndForceStillSucceeds(c *gc.C) {
-	curl, ch := s.UploadCharm(c, "cs:quantal/lxd-profile-fail-0", "lxd-profile-fail")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL:   curl.String(),
-		Force: true,
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
+	curl, ch := s.addCharmToState(c, "cs:jammy/lxd-profile-fail-0", "lxd-profile-fail")
 
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -1660,8 +378,8 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 func (s *applicationSuite) TestApplicationDeployToMachineNotFound(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmURL:        "cs:quantal/application-name-1",
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.10"},
+			CharmURL:        "cs:jammy/application-name-1",
+			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"}},
 			ApplicationName: "application-name",
 			NumUnits:        1,
 			Placement:       []*instance.Placement{instance.MustParsePlacement("42")},
@@ -1674,123 +392,6 @@ func (s *applicationSuite) TestApplicationDeployToMachineNotFound(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `application "application-name" not found`)
 }
 
-func (s *applicationSuite) deployApplicationForUpdateTests(c *gc.C) {
-	curl, _ := s.UploadCharm(c, "cs:quantal/dummy-1", "dummy")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{{
-			CharmURL:        curl.String(),
-			CharmOrigin:     createCharmOriginFromURL(c, curl),
-			ApplicationName: "application",
-			NumUnits:        1,
-		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-}
-
-func (s *applicationSuite) checkClientApplicationUpdateSetCharm(c *gc.C, forceCharmURL bool) {
-	s.deployApplicationForUpdateTests(c)
-	curl, _ := s.UploadCharm(c, "cs:quantal/wordpress-3", "wordpress")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Update the charm for the application.
-	minUnits := 3
-	args := params.ApplicationUpdate{
-		ApplicationName: "application",
-		MinUnits:        &minUnits,
-		ForceCharmURL:   forceCharmURL,
-	}
-	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
-	err = api.Update(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure the charm has been updated and and the force flag correctly set.
-	app, err := s.State.Application("application")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(app.MinUnits(), gc.Equals, minUnits)
-}
-
-func (s *applicationSuite) TestApplicationUpdateSetCharm(c *gc.C) {
-	s.checkClientApplicationUpdateSetCharm(c, false)
-}
-
-func (s *applicationSuite) TestBlockDestroyApplicationUpdate(c *gc.C) {
-	s.BlockDestroyModel(c, "TestBlockDestroyApplicationUpdate")
-	s.checkClientApplicationUpdateSetCharm(c, false)
-}
-
-func (s *applicationSuite) TestBlockRemoveApplicationUpdate(c *gc.C) {
-	s.BlockRemoveObject(c, "TestBlockRemoveApplicationUpdate")
-	s.checkClientApplicationUpdateSetCharm(c, false)
-}
-
-func (s *applicationSuite) setupApplicationUpdate(c *gc.C) string {
-	s.deployApplicationForUpdateTests(c)
-	curl, _ := s.UploadCharm(c, "cs:quantal/wordpress-3", "wordpress")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-	return curl.String()
-}
-
-func (s *applicationSuite) TestBlockChangeApplicationUpdate(c *gc.C) {
-	curl := s.setupApplicationUpdate(c)
-	s.BlockAllChanges(c, "TestBlockChangeApplicationUpdate")
-	// Update the charm for the application.
-	args := params.ApplicationUpdate{
-		ApplicationName: "application",
-		CharmURL:        curl,
-		ForceCharmURL:   false,
-	}
-	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
-	err := api.Update(args)
-	s.AssertBlocked(c, err, "TestBlockChangeApplicationUpdate")
-}
-
-func (s *applicationSuite) TestApplicationUpdateSetMinUnits(c *gc.C) {
-	app := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
-
-	// Set minimum units for the application.
-	minUnits := 2
-	args := params.ApplicationUpdate{
-		ApplicationName: "dummy",
-		MinUnits:        &minUnits,
-	}
-	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
-	err := api.Update(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure the minimum number of units has been set.
-	c.Assert(app.Refresh(), gc.IsNil)
-	c.Assert(app.MinUnits(), gc.Equals, minUnits)
-}
-
-func (s *applicationSuite) TestApplicationUpdateSetMinUnitsWithLXDProfile(c *gc.C) {
-	app := s.AddTestingApplication(c, "lxd-profile", s.AddTestingCharm(c, "lxd-profile"))
-
-	// Set minimum units for the application.
-	minUnits := 2
-	args := params.ApplicationUpdate{
-		ApplicationName: "lxd-profile",
-		MinUnits:        &minUnits,
-	}
-	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
-	err := api.Update(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure the minimum number of units has been set.
-	c.Assert(app.Refresh(), gc.IsNil)
-	c.Assert(app.MinUnits(), gc.Equals, minUnits)
-}
-
 func (s *applicationSuite) TestApplicationUpdateDoesNotSetMinUnitsWithLXDProfile(c *gc.C) {
 	series := "quantal"
 	repo := testcharms.RepoForSeries(series)
@@ -1799,461 +400,6 @@ func (s *applicationSuite) TestApplicationUpdateDoesNotSetMinUnitsWithLXDProfile
 	curl := charm.MustParseURL(fmt.Sprintf("local:%s/%s", series, ident))
 	_, err := jujutesting.PutCharm(s.State, curl, ch)
 	c.Assert(err, gc.ErrorMatches, `invalid lxd-profile.yaml: contains device type "unix-disk"`)
-}
-
-func (s *applicationSuite) TestApplicationUpdateSetMinUnitsError(c *gc.C) {
-	app := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
-
-	// Set a negative minimum number of units for the application.
-	minUnits := -1
-	args := params.ApplicationUpdate{
-		ApplicationName: "dummy",
-		MinUnits:        &minUnits,
-	}
-	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
-	err := api.Update(args)
-	c.Assert(err, gc.ErrorMatches,
-		`cannot set minimum units for application "dummy": cannot set a negative minimum number of units`)
-
-	// Ensure the minimum number of units has not been set.
-	c.Assert(app.Refresh(), gc.IsNil)
-	c.Assert(app.MinUnits(), gc.Equals, 0)
-}
-
-func (s *applicationSuite) TestApplicationUpdateSetSettingsStringsExplicitMaster(c *gc.C) {
-	s.testApplicationUpdateSetSettingsStrings(c, model.GenerationMaster)
-}
-
-func (s *applicationSuite) TestApplicationUpdateSetSettingsStringsEmptyBranchUsesMaster(c *gc.C) {
-	s.testApplicationUpdateSetSettingsStrings(c, "")
-}
-
-func (s *applicationSuite) testApplicationUpdateSetSettingsStrings(c *gc.C, branchName string) {
-	ch := s.AddTestingCharm(c, "dummy")
-	app := s.AddTestingApplication(c, "dummy", ch)
-
-	// Update settings for the application.
-	args := params.ApplicationUpdate{
-		ApplicationName: "dummy",
-		SettingsStrings: map[string]string{"title": "s-title", "username": "s-user"},
-		Generation:      branchName,
-	}
-	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
-	err := api.Update(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure the settings have been correctly updated.
-	expected := charm.Settings{"title": "s-title", "username": "s-user"}
-	obtained, err := app.CharmConfig(model.GenerationMaster)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, s.combinedSettings(ch, expected))
-}
-
-func (s *applicationSuite) TestApplicationUpdateSetSettingsStringsBranch(c *gc.C) {
-	ch := s.AddTestingCharm(c, "dummy")
-	app := s.AddTestingApplication(c, "dummy", ch)
-
-	const newBranch = "newBranch"
-	c.Assert(s.State.AddBranch(newBranch, "user"), jc.ErrorIsNil)
-
-	// Update settings for the application.
-	args := params.ApplicationUpdate{
-		ApplicationName: "dummy",
-		SettingsStrings: map[string]string{"title": "s-title", "username": "s-user"},
-		Generation:      newBranch,
-	}
-	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
-	err := api.Update(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure the settings have been correctly updated.
-	expected := charm.Settings{"title": "s-title", "username": "s-user"}
-	obtained, err := app.CharmConfig(newBranch)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, s.combinedSettings(ch, expected))
-
-	// Check that the application is recorded against the generation.
-	gen, err := s.State.Branch(newBranch)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(gen.AssignedUnits(), jc.DeepEquals, map[string][]string{"dummy": {}})
-}
-
-func (s *applicationSuite) TestApplicationUpdateSetSettingsYAMLExplicitMaster(c *gc.C) {
-	s.testApplicationUpdateSetSettingsYAML(c, model.GenerationMaster)
-}
-
-func (s *applicationSuite) TestApplicationUpdateSetSettingsYAMLEmptyBranchUsesMaster(c *gc.C) {
-	s.testApplicationUpdateSetSettingsYAML(c, "")
-}
-
-func (s *applicationSuite) testApplicationUpdateSetSettingsYAML(c *gc.C, branchName string) {
-	ch := s.AddTestingCharm(c, "dummy")
-	app := s.AddTestingApplication(c, "dummy", ch)
-
-	// Update settings for the application.
-	args := params.ApplicationUpdate{
-		ApplicationName: "dummy",
-		SettingsYAML:    "dummy:\n  title: y-title\n  username: y-user",
-		Generation:      branchName,
-	}
-	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
-	err := api.Update(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure the settings have been correctly updated.
-	expected := charm.Settings{"title": "y-title", "username": "y-user"}
-	obtained, err := app.CharmConfig(model.GenerationMaster)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, s.combinedSettings(ch, expected))
-}
-
-func (s *applicationSuite) TestApplicationUpdateSetSettingsYAMLBranch(c *gc.C) {
-	ch := s.AddTestingCharm(c, "dummy")
-	app := s.AddTestingApplication(c, "dummy", ch)
-
-	const newBranch = "newBranch"
-	c.Assert(s.State.AddBranch(newBranch, "user"), jc.ErrorIsNil)
-
-	// Update settings for the application.
-	args := params.ApplicationUpdate{
-		ApplicationName: "dummy",
-		SettingsYAML:    "dummy:\n  title: y-title\n  username: y-user",
-		Generation:      newBranch,
-	}
-	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
-	err := api.Update(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure the settings have been correctly updated.
-	expected := charm.Settings{"title": "y-title", "username": "y-user"}
-	obtained, err := app.CharmConfig(newBranch)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, s.combinedSettings(ch, expected))
-
-	// Check that the application is recorded against the generation.
-	gen, err := s.State.Branch(newBranch)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(gen.AssignedUnits(), jc.DeepEquals, map[string][]string{"dummy": {}})
-}
-
-func (s *applicationSuite) TestClientApplicationUpdateSetSettingsGetYAML(c *gc.C) {
-	ch := s.AddTestingCharm(c, "dummy")
-	app := s.AddTestingApplication(c, "dummy", ch)
-
-	// Update settings for the application.
-	args := params.ApplicationUpdate{
-		ApplicationName: "dummy",
-		SettingsYAML:    "charm: dummy\napplication: dummy\nsettings:\n  title:\n    value: y-title\n    type: string\n  username:\n    value: y-user\n  ignore:\n    blah: true",
-		Generation:      model.GenerationMaster,
-	}
-	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
-	err := api.Update(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure the settings have been correctly updated.
-	expected := charm.Settings{"title": "y-title", "username": "y-user"}
-	obtained, err := app.CharmConfig(model.GenerationMaster)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, s.combinedSettings(ch, expected))
-}
-
-func (s *applicationSuite) TestApplicationUpdateCombinedStringAndYAMLSettings(c *gc.C) {
-	ch := s.AddTestingCharm(c, "dummy")
-	app := s.AddTestingApplication(c, "dummy", ch)
-
-	const newBranch = "newBranch"
-	c.Assert(s.State.AddBranch(newBranch, "user"), jc.ErrorIsNil)
-
-	// Update settings for the application.
-	args := params.ApplicationUpdate{
-		ApplicationName: "dummy",
-		SettingsStrings: map[string]string{
-			"username": "s-user",
-		},
-		SettingsYAML: "dummy:\n  title: s-title",
-		Generation:   newBranch,
-	}
-	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
-	err := api.Update(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure the settings have been correctly updated.
-	expected := charm.Settings{"title": "s-title", "username": "s-user"}
-	obtained, err := app.CharmConfig(newBranch)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, s.combinedSettings(ch, expected))
-
-	// Check that the application is recorded against the generation.
-	gen, err := s.State.Branch(newBranch)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(gen.AssignedUnits(), jc.DeepEquals, map[string][]string{"dummy": {}})
-}
-
-func (s *applicationSuite) TestApplicationUpdateSetConstraints(c *gc.C) {
-	app := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
-
-	// Update constraints for the application.
-	cons, err := constraints.Parse("mem=4096", "cores=2")
-	c.Assert(err, jc.ErrorIsNil)
-	args := params.ApplicationUpdate{
-		ApplicationName: "dummy",
-		Constraints:     &cons,
-	}
-	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
-	err = api.Update(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure the constraints have been correctly updated.
-	obtained, err := app.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, cons)
-}
-
-func (s *applicationSuite) TestApplicationUpdateAllParams(c *gc.C) {
-	s.deployApplicationForUpdateTests(c)
-	curl, _ := s.UploadCharm(c, "cs:quantal/wordpress-3", "wordpress")
-	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	}, s.openRepo)
-	c.Assert(err, jc.ErrorIsNil)
-
-	app, err := s.State.Application("application")
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectCurl, expectForce, _ := app.Charm()
-	expectMinUnits := app.MinUnits()
-
-	// Update all the application attributes.
-	minUnits := 3
-	cons, err := constraints.Parse("mem=4096", "cores=2")
-	c.Assert(err, jc.ErrorIsNil)
-	args := params.ApplicationUpdate{
-		ApplicationName: "application",
-		CharmURL:        curl.String(),
-		ForceCharmURL:   true,
-		MinUnits:        &minUnits,
-		SettingsStrings: map[string]string{"blog-title": "string-title"},
-		SettingsYAML:    "application:\n  blog-title: yaml-title\n",
-		Constraints:     &cons,
-		Generation:      model.GenerationMaster,
-	}
-	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
-	err = api.Update(args)
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-
-	// Ensure the application not been.
-	err = app.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check the charm.
-	ch, force, err := app.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.String(), gc.Equals, expectCurl.String())
-	c.Assert(force, gc.Equals, expectForce)
-
-	// Check the minimum number of units.
-	c.Assert(app.MinUnits(), gc.Equals, expectMinUnits)
-}
-
-func (s *applicationSuite) TestApplicationUpdateNoParams(c *gc.C) {
-	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-
-	// Calling Update with no parameters set is a no-op.
-	args := params.ApplicationUpdate{ApplicationName: "wordpress"}
-	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
-	err := api.Update(args)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *applicationSuite) TestApplicationUpdateNoApplication(c *gc.C) {
-	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
-	err := api.Update(params.ApplicationUpdate{})
-	c.Assert(err, gc.ErrorMatches, `"" is not a valid application name`)
-}
-
-func (s *applicationSuite) TestApplicationUpdateInvalidApplication(c *gc.C) {
-	args := params.ApplicationUpdate{ApplicationName: "no-such-application"}
-	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
-	err := api.Update(args)
-	c.Assert(err, gc.ErrorMatches, `application "no-such-application" not found`)
-}
-
-var (
-	validSetTestValue = "a value with spaces\nand newline\nand UTF-8 characters: \U0001F604 / \U0001F44D"
-)
-
-func (s *applicationSuite) TestApplicationSet(c *gc.C) {
-	ch := s.AddTestingCharm(c, "dummy")
-	dummy := s.AddTestingApplication(c, "dummy", ch)
-
-	err := s.applicationAPI.Set(params.ApplicationSet{
-		ApplicationName: "dummy",
-		Options: map[string]string{
-			"title":    "foobar",
-			"username": validSetTestValue,
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	settings, err := dummy.CharmConfig(model.GenerationMaster)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, charm.Settings{
-		"title":    "foobar",
-		"username": validSetTestValue,
-	}))
-
-	err = s.applicationAPI.Set(params.ApplicationSet{
-		ApplicationName: "dummy", Options: map[string]string{
-			"title":    "barfoo",
-			"username": "",
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	settings, err = dummy.CharmConfig(model.GenerationMaster)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, charm.Settings{
-		"title":    "barfoo",
-		"username": "",
-	}))
-}
-
-func (s *applicationSuite) assertApplicationSetBlocked(c *gc.C, dummy *state.Application, msg string) {
-	err := s.applicationAPI.Set(params.ApplicationSet{
-		ApplicationName: "dummy",
-		Options: map[string]string{
-			"title":    "foobar",
-			"username": validSetTestValue}})
-	s.AssertBlocked(c, err, msg)
-}
-
-func (s *applicationSuite) assertApplicationSet(c *gc.C, dummy *state.Application) {
-	err := s.applicationAPI.Set(params.ApplicationSet{
-		ApplicationName: "dummy",
-		Options: map[string]string{
-			"title":    "foobar",
-			"username": validSetTestValue,
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	settings, err := dummy.CharmConfig(model.GenerationMaster)
-	c.Assert(err, jc.ErrorIsNil)
-	ch, _, err := dummy.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, charm.Settings{
-		"title":    "foobar",
-		"username": validSetTestValue,
-	}))
-}
-
-func (s *applicationSuite) TestBlockDestroyApplicationSet(c *gc.C) {
-	dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	s.BlockDestroyModel(c, "TestBlockDestroyApplicationSet")
-	s.assertApplicationSet(c, dummy)
-}
-
-func (s *applicationSuite) TestBlockRemoveApplicationSet(c *gc.C) {
-	dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	s.BlockRemoveObject(c, "TestBlockRemoveApplicationSet")
-	s.assertApplicationSet(c, dummy)
-}
-
-func (s *applicationSuite) TestBlockChangesApplicationSet(c *gc.C) {
-	dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	s.BlockAllChanges(c, "TestBlockChangesApplicationSet")
-	s.assertApplicationSetBlocked(c, dummy, "TestBlockChangesApplicationSet")
-}
-
-func (s *applicationSuite) TestServerUnset(c *gc.C) {
-	ch := s.AddTestingCharm(c, "dummy")
-	dummy := s.AddTestingApplication(c, "dummy", ch)
-
-	err := s.applicationAPI.Set(params.ApplicationSet{
-		ApplicationName: "dummy",
-		Options: map[string]string{
-			"title":    "foobar",
-			"username": "user name",
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	settings, err := dummy.CharmConfig(model.GenerationMaster)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, charm.Settings{
-		"title":    "foobar",
-		"username": "user name",
-	}))
-
-	err = s.applicationAPI.Unset(params.ApplicationUnset{
-		ApplicationName: "dummy",
-		Options:         []string{"username"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	settings, err = dummy.CharmConfig(model.GenerationMaster)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, charm.Settings{
-		"title": "foobar",
-	}))
-}
-
-func (s *applicationSuite) setupServerUnsetBlocked(c *gc.C) *state.Application {
-	dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
-
-	err := s.applicationAPI.Set(params.ApplicationSet{
-		ApplicationName: "dummy",
-		Options: map[string]string{
-			"title":    "foobar",
-			"username": "user name",
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	settings, err := dummy.CharmConfig(model.GenerationMaster)
-	c.Assert(err, jc.ErrorIsNil)
-	ch, _, err := dummy.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, charm.Settings{
-		"title":    "foobar",
-		"username": "user name",
-	}))
-	return dummy
-}
-
-func (s *applicationSuite) assertServerUnset(c *gc.C, dummy *state.Application) {
-	err := s.applicationAPI.Unset(params.ApplicationUnset{
-		ApplicationName: "dummy",
-		Options:         []string{"username"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	settings, err := dummy.CharmConfig(model.GenerationMaster)
-	c.Assert(err, jc.ErrorIsNil)
-	ch, _, err := dummy.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, charm.Settings{
-		"title": "foobar",
-	}))
-}
-
-func (s *applicationSuite) assertServerUnsetBlocked(c *gc.C, dummy *state.Application, msg string) {
-	err := s.applicationAPI.Unset(params.ApplicationUnset{
-		ApplicationName: "dummy",
-		Options:         []string{"username"},
-	})
-	s.AssertBlocked(c, err, msg)
-}
-
-func (s *applicationSuite) TestBlockDestroyServerUnset(c *gc.C) {
-	dummy := s.setupServerUnsetBlocked(c)
-	s.BlockDestroyModel(c, "TestBlockDestroyServerUnset")
-	s.assertServerUnset(c, dummy)
-}
-
-func (s *applicationSuite) TestBlockRemoveServerUnset(c *gc.C) {
-	dummy := s.setupServerUnsetBlocked(c)
-	s.BlockRemoveObject(c, "TestBlockRemoveServerUnset")
-	s.assertServerUnset(c, dummy)
-}
-
-func (s *applicationSuite) TestBlockChangesServerUnset(c *gc.C) {
-	dummy := s.setupServerUnsetBlocked(c)
-	s.BlockAllChanges(c, "TestBlockChangesServerUnset")
-	s.assertServerUnsetBlocked(c, dummy, "TestBlockChangesServerUnset")
 }
 
 var clientAddApplicationUnitsTests = []struct {
@@ -2322,7 +468,7 @@ func (s *applicationSuite) TestClientAddApplicationUnits(c *gc.C) {
 
 func (s *applicationSuite) TestAddApplicationUnitsToNewContainer(c *gc.C) {
 	app := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.applicationAPI.AddUnits(params.AddApplicationUnits{
@@ -2368,7 +514,7 @@ var addApplicationUnitTests = []struct {
 func (s *applicationSuite) TestAddApplicationUnits(c *gc.C) {
 	s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	// Add a machine for the units to be placed on.
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	_, err := s.State.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	for i, t := range addApplicationUnitTests {
 		c.Logf("test %d. %s", i, t.about)
@@ -2810,7 +956,16 @@ var applicationDestroyTests = []struct {
 	},
 }
 
+func (s *applicationSuite) apiv16() *application.APIv16 {
+	return &application.APIv16{
+		APIv17: &application.APIv17{
+			APIBase: s.applicationAPI,
+		},
+	}
+}
+
 func (s *applicationSuite) TestApplicationDestroy(c *gc.C) {
+	apiv16 := s.apiv16()
 	s.AddTestingApplication(c, "dummy-application", s.AddTestingCharm(c, "dummy"))
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "remote-application",
@@ -2821,7 +976,7 @@ func (s *applicationSuite) TestApplicationDestroy(c *gc.C) {
 
 	for i, t := range applicationDestroyTests {
 		c.Logf("test %d. %s", i, t.about)
-		err := s.applicationAPI.Destroy(params.ApplicationDestroy{ApplicationName: t.application})
+		err := apiv16.Destroy(params.ApplicationDestroy{ApplicationName: t.application})
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
@@ -2836,7 +991,7 @@ func (s *applicationSuite) TestApplicationDestroy(c *gc.C) {
 	applicationName := "wordpress"
 	app, err := s.State.Application(applicationName)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.applicationAPI.Destroy(params.ApplicationDestroy{ApplicationName: applicationName})
+	err = apiv16.Destroy(params.ApplicationDestroy{ApplicationName: applicationName})
 	c.Assert(err, jc.ErrorIsNil)
 	err = app.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -2849,11 +1004,12 @@ func assertLife(c *gc.C, entity state.Living, life state.Life) {
 }
 
 func (s *applicationSuite) TestBlockApplicationDestroy(c *gc.C) {
+	apiv16 := s.apiv16()
 	s.AddTestingApplication(c, "dummy-application", s.AddTestingCharm(c, "dummy"))
 
 	// block remove-objects
 	s.BlockRemoveObject(c, "TestBlockApplicationDestroy")
-	err := s.applicationAPI.Destroy(params.ApplicationDestroy{ApplicationName: "dummy-application"})
+	err := apiv16.Destroy(params.ApplicationDestroy{ApplicationName: "dummy-application"})
 	s.AssertBlocked(c, err, "TestBlockApplicationDestroy")
 	// Tests may have invalid application names.
 	app, err := s.State.Application("dummy-application")
@@ -2861,6 +1017,14 @@ func (s *applicationSuite) TestBlockApplicationDestroy(c *gc.C) {
 		// For valid application names, check that application is alive :-)
 		assertLife(c, app, state.Alive)
 	}
+}
+
+func (s *applicationSuite) TestDestroyControllerApplicationNotAllowed(c *gc.C) {
+	apiv16 := s.apiv16()
+	s.AddTestingApplication(c, "controller-application", s.AddTestingCharm(c, "juju-controller"))
+
+	err := apiv16.Destroy(params.ApplicationDestroy{"controller-application"})
+	c.Assert(err, gc.ErrorMatches, "removing the controller application not supported")
 }
 
 func (s *applicationSuite) TestDestroyPrincipalUnits(c *gc.C) {
@@ -2885,6 +1049,7 @@ func (s *applicationSuite) TestDestroyPrincipalUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) TestDestroySubordinateUnits(c *gc.C) {
+	apiv16 := s.apiv16()
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2901,7 +1066,7 @@ func (s *applicationSuite) TestDestroySubordinateUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Try to destroy the subordinate alone; check it fails.
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err = apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"logging/0"},
 	})
 	c.Assert(err, gc.ErrorMatches, `no units were destroyed: unit "logging/0" is a subordinate, .*`)
@@ -2911,8 +1076,9 @@ func (s *applicationSuite) TestDestroySubordinateUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) assertDestroyPrincipalUnits(c *gc.C, units []*state.Unit) {
+	apiv16 := s.apiv16()
 	// Destroy 2 of them; check they become Dying.
-	err := s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err := apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"wordpress/0", "wordpress/1"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2921,7 +1087,7 @@ func (s *applicationSuite) assertDestroyPrincipalUnits(c *gc.C, units []*state.U
 
 	// Try to destroy an Alive one and a Dying one; check
 	// it destroys the Alive one and ignores the Dying one.
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err = apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"wordpress/2", "wordpress/0"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2929,7 +1095,7 @@ func (s *applicationSuite) assertDestroyPrincipalUnits(c *gc.C, units []*state.U
 
 	// Try to destroy an Alive one along with a nonexistent one; check that
 	// the valid instruction is followed but the invalid one is warned about.
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err = apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"boojum/123", "wordpress/3"},
 	})
 	c.Assert(err, gc.ErrorMatches, `some units were not destroyed: unit "boojum/123" does not exist`)
@@ -2940,7 +1106,7 @@ func (s *applicationSuite) assertDestroyPrincipalUnits(c *gc.C, units []*state.U
 	c.Assert(err, jc.ErrorIsNil)
 	err = wp0.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err = apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"wordpress/0", "wordpress/4"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2986,27 +1152,30 @@ func (s *applicationSuite) assertBlockedErrorAndLiveliness(
 }
 
 func (s *applicationSuite) TestBlockChangesDestroyPrincipalUnits(c *gc.C) {
+	apiv16 := s.apiv16()
 	units := s.setupDestroyPrincipalUnits(c)
 	s.BlockAllChanges(c, "TestBlockChangesDestroyPrincipalUnits")
-	err := s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err := apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"wordpress/0", "wordpress/1"},
 	})
 	s.assertBlockedErrorAndLiveliness(c, err, "TestBlockChangesDestroyPrincipalUnits", units[0], units[1], units[2], units[3])
 }
 
 func (s *applicationSuite) TestBlockRemoveDestroyPrincipalUnits(c *gc.C) {
+	apiv16 := s.apiv16()
 	units := s.setupDestroyPrincipalUnits(c)
 	s.BlockRemoveObject(c, "TestBlockRemoveDestroyPrincipalUnits")
-	err := s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err := apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"wordpress/0", "wordpress/1"},
 	})
 	s.assertBlockedErrorAndLiveliness(c, err, "TestBlockRemoveDestroyPrincipalUnits", units[0], units[1], units[2], units[3])
 }
 
 func (s *applicationSuite) TestBlockDestroyDestroyPrincipalUnits(c *gc.C) {
+	apiv16 := s.apiv16()
 	units := s.setupDestroyPrincipalUnits(c)
 	s.BlockDestroyModel(c, "TestBlockDestroyDestroyPrincipalUnits")
-	err := s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err := apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"wordpress/0", "wordpress/1"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3015,10 +1184,11 @@ func (s *applicationSuite) TestBlockDestroyDestroyPrincipalUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) assertDestroySubordinateUnits(c *gc.C, wordpress0, logging0 *state.Unit) {
+	apiv16 := s.apiv16()
 	// Try to destroy the principal and the subordinate together; check it warns
 	// about the subordinate, but destroys the one it can. (The principal unit
 	// agent will be responsible for destroying the subordinate.)
-	err := s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err := apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"wordpress/0", "logging/0"},
 	})
 	c.Assert(err, gc.ErrorMatches, `some units were not destroyed: unit "logging/0" is a subordinate, .*`)
@@ -3027,6 +1197,7 @@ func (s *applicationSuite) assertDestroySubordinateUnits(c *gc.C, wordpress0, lo
 }
 
 func (s *applicationSuite) TestBlockRemoveDestroySubordinateUnits(c *gc.C) {
+	apiv16 := s.apiv16()
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3044,7 +1215,7 @@ func (s *applicationSuite) TestBlockRemoveDestroySubordinateUnits(c *gc.C) {
 
 	s.BlockRemoveObject(c, "TestBlockRemoveDestroySubordinateUnits")
 	// Try to destroy the subordinate alone; check it fails.
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err = apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"logging/0"},
 	})
 	s.AssertBlocked(c, err, "TestBlockRemoveDestroySubordinateUnits")
@@ -3052,7 +1223,7 @@ func (s *applicationSuite) TestBlockRemoveDestroySubordinateUnits(c *gc.C) {
 	assertLife(c, wordpress0, state.Alive)
 	assertLife(c, logging0, state.Alive)
 
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err = apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"wordpress/0", "logging/0"},
 	})
 	s.AssertBlocked(c, err, "TestBlockRemoveDestroySubordinateUnits")
@@ -3062,6 +1233,7 @@ func (s *applicationSuite) TestBlockRemoveDestroySubordinateUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) TestBlockChangesDestroySubordinateUnits(c *gc.C) {
+	apiv16 := s.apiv16()
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3079,7 +1251,7 @@ func (s *applicationSuite) TestBlockChangesDestroySubordinateUnits(c *gc.C) {
 
 	s.BlockAllChanges(c, "TestBlockChangesDestroySubordinateUnits")
 	// Try to destroy the subordinate alone; check it fails.
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err = apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"logging/0"},
 	})
 	s.AssertBlocked(c, err, "TestBlockChangesDestroySubordinateUnits")
@@ -3087,7 +1259,7 @@ func (s *applicationSuite) TestBlockChangesDestroySubordinateUnits(c *gc.C) {
 	assertLife(c, wordpress0, state.Alive)
 	assertLife(c, logging0, state.Alive)
 
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err = apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"wordpress/0", "logging/0"},
 	})
 	s.AssertBlocked(c, err, "TestBlockChangesDestroySubordinateUnits")
@@ -3097,6 +1269,7 @@ func (s *applicationSuite) TestBlockChangesDestroySubordinateUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) TestBlockDestroyDestroySubordinateUnits(c *gc.C) {
+	apiv16 := s.apiv16()
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3114,7 +1287,7 @@ func (s *applicationSuite) TestBlockDestroyDestroySubordinateUnits(c *gc.C) {
 
 	s.BlockDestroyModel(c, "TestBlockDestroyDestroySubordinateUnits")
 	// Try to destroy the subordinate alone; check it fails.
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err = apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"logging/0"},
 	})
 	c.Assert(err, gc.ErrorMatches, `no units were destroyed: unit "logging/0" is a subordinate, .*`)
@@ -3378,7 +1551,7 @@ func (s *applicationSuite) TestAddRemoteRelationVia(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	w := rel.WatchRelationEgressNetworks()
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChange("192.168.0.0/16")
 	wc.AssertNoChange()
 }
@@ -3436,4 +1609,44 @@ func (s *applicationSuite) TestRemoteRelationApplicationNotFound(c *gc.C) {
 	endpoints := []string{"wordpress", "unknown"}
 	_, err := s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints})
 	c.Assert(err, gc.ErrorMatches, `application "unknown" not found`)
+}
+
+// addCharmToState emulates the side-effects of an AddCharm call so that the
+// deploy tests in the suite can still work even though the AddCharmX calls
+// have been updated to return NotSupported errors for Juju 3.
+func (s *applicationSuite) addCharmToState(c *gc.C, charmURL string, name string) (*charm.URL, charm.Charm) {
+	curl := charm.MustParseURL(charmURL)
+	if curl.User == "" {
+		curl.User = "who"
+	}
+
+	if curl.Revision < 0 {
+		base := curl.String()
+
+		if rev, found := s.lastKnownRev[base]; found {
+			curl.Revision = rev + 1
+		} else {
+			curl.Revision = 0
+		}
+
+		s.lastKnownRev[base] = curl.Revision
+	}
+
+	_, err := s.State.PrepareCharmUpload(curl)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ch, err := charm.ReadCharmArchive(
+		testcharms.RepoWithSeries("quantal").CharmArchivePath(c.MkDir(), name))
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.UpdateUploadedCharm(state.CharmInfo{
+		Charm:       ch,
+		ID:          curl,
+		StoragePath: fmt.Sprintf("charms/%s", name),
+		SHA256:      "1234",
+		Version:     ch.Version(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	return curl, ch
 }

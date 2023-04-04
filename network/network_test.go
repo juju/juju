@@ -4,9 +4,7 @@
 package network_test
 
 import (
-	"io/ioutil"
 	"net"
-	"path/filepath"
 
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
@@ -110,29 +108,8 @@ type NetworkSuite struct {
 var _ = gc.Suite(&NetworkSuite{})
 
 func (s *NetworkSuite) TestFilterBridgeAddresses(c *gc.C) {
-	lxcFakeNetConfig := filepath.Join(c.MkDir(), "lxc-net")
-	// We create an LXC bridge named "foobar", and then put 10.0.3.1,
-	// 10.0.3.4 and 10.0.3.5/24 on that bridge.
-	// We also put 10.0.4.1 and 10.0.5.1/24 onto whatever bridge LXD is
-	// configured to use.
-	// And 192.168.122.1 on virbr0
-	netConf := []byte(`
-  # comments ignored
-LXC_BR= ignored
-LXC_ADDR = "fooo"
- LXC_BRIDGE = " foobar " # detected, spaces stripped
-anything else ignored
-LXC_BRIDGE="ignored"`[1:])
-	err := ioutil.WriteFile(lxcFakeNetConfig, netConf, 0644)
-	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&network.AddressesForInterfaceName, func(name string) ([]string, error) {
-		if name == "foobar" {
-			return []string{
-				"10.0.3.1",
-				"10.0.3.4",
-				"10.0.3.5/24",
-			}, nil
-		} else if name == network.DefaultLXDBridge {
+		if name == network.DefaultLXDBridge {
 			return []string{
 				"10.0.4.1",
 				"10.0.5.1/24",
@@ -145,16 +122,11 @@ LXC_BRIDGE="ignored"`[1:])
 		c.Fatalf("unknown bridge name: %q", name)
 		return nil, nil
 	})
-	s.PatchValue(&network.LXCNetDefaultConfig, lxcFakeNetConfig)
 
 	inputAddresses := corenetwork.NewMachineAddresses([]string{
 		"127.0.0.1",
 		"2001:db8::1",
 		"10.0.0.1",
-		"10.0.3.1",      // filtered (directly as IP)
-		"10.0.3.3",      // filtered (by the 10.0.3.5/24 CIDR)
-		"10.0.3.5",      // filtered (directly)
-		"10.0.3.4",      // filtered (directly)
 		"10.0.4.1",      // filtered (directly from LXD bridge)
 		"10.0.5.10",     // filtered (from LXD bridge, 10.0.5.1/24)
 		"10.0.6.10",     // unfiltered

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/series"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -108,7 +109,7 @@ type PrepareConfigParams struct {
 // supported by the provider.
 //
 // TODO(axw) replace CredentialSchemas with an updated environschema.
-// The GUI also needs to be able to handle multiple credential types,
+// The Dashboard also needs to be able to handle multiple credential types,
 // and dependencies in config attributes.
 type ProviderCredentials interface {
 	// CredentialSchemas returns credential schemas, keyed on
@@ -469,8 +470,8 @@ type InstanceLister interface {
 // PrecheckInstanceParams contains the parameters for
 // InstancePrechecker.PrecheckInstance.
 type PrecheckInstanceParams struct {
-	// Series contains the series of the machine.
-	Series string
+	// Base contains the base of the machine.
+	Base series.Base
 
 	// Constraints contains the machine constraints.
 	Constraints constraints.Value

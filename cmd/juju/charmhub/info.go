@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -125,12 +125,12 @@ func (c *infoCommand) validateCharmOrBundle(charmOrBundle string) error {
 // Run is the business logic of the info command.  It implements the meaty
 // part of the cmd.Command interface.
 func (c *infoCommand) Run(cmdContext *cmd.Context) error {
-	config, err := charmhub.CharmHubConfigFromURL(c.charmHubURL, logger)
-	if err != nil {
-		return errors.Trace(err)
+	cfg := charmhub.Config{
+		URL:    c.charmHubURL,
+		Logger: logger,
 	}
 
-	client, err := c.CharmHubClientFunc(config, charmhub.DefaultFileSystem())
+	client, err := c.CharmHubClientFunc(cfg)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -154,7 +154,7 @@ func (c *infoCommand) Run(cmdContext *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	view, err := convertCharmInfoResult(info, c.arch, c.series)
+	view, err := convertInfoResponse(info, c.arch, c.series)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -174,7 +174,21 @@ func (c *infoCommand) formatter(writer io.Writer, value interface{}) error {
 		return errors.Errorf("unexpected results")
 	}
 
-	if err := makeInfoWriter(writer, c.warningLog, c.config, c.unicode, results).Print(); err != nil {
+	// Default is to include both architecture and bases
+	mode := baseModeBoth
+	switch {
+	case c.arch != ArchAll && c.series != SeriesAll:
+		// If --arch and --series given, don't show arch or bases
+		mode = baseModeNone
+	case c.arch != ArchAll && c.series == SeriesAll:
+		// If only --arch given, show bases
+		mode = baseModeBases
+	case c.arch == ArchAll && c.series != SeriesAll:
+		// If only --series given, show arch
+		mode = baseModeArches
+	}
+
+	if err := makeInfoWriter(writer, c.warningLog, c.config, c.unicode, mode, results).Print(); err != nil {
 		return errors.Trace(err)
 	}
 

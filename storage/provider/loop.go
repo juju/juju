@@ -31,6 +31,10 @@ type loopProvider struct {
 
 var _ storage.Provider = (*loopProvider)(nil)
 
+func (*loopProvider) ValidateForK8s(map[string]any) error {
+	return errors.NotValidf("storage provider type %q", LoopProviderType)
+}
+
 // ValidateConfig is defined on the Provider interface.
 func (*loopProvider) ValidateConfig(*storage.Config) error {
 	// Loop provider has no configuration.

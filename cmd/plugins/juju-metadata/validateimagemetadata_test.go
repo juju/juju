@@ -75,7 +75,7 @@ func (s *ValidateImageMetadataSuite) TestUnsupportedProviderError(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `maas provider does not support image metadata validation`)
 }
 
-func (s *ValidateImageMetadataSuite) makeLocalMetadata(id, region, series, endpoint, stream string) error {
+func (s *ValidateImageMetadataSuite) makeLocalMetadata(id, region, version, endpoint, stream string) error {
 	im := &imagemetadata.ImageMetadata{
 		Id:     id,
 		Arch:   "amd64",
@@ -90,7 +90,7 @@ func (s *ValidateImageMetadataSuite) makeLocalMetadata(id, region, series, endpo
 		return err
 	}
 	ss := simplestreams.NewSimpleStreams(sstestings.TestDataSourceFactory())
-	err = imagemetadata.MergeAndWriteMetadata(ss, series, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
+	err = imagemetadata.MergeAndWriteMetadata(ss, version, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
 	if err != nil {
 		return err
 	}
@@ -102,7 +102,7 @@ func cacheTestEnvConfig(c *gc.C, store *jujuclient.MemStore) {
 	ec2Config, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":            "ec2",
 		"type":            "ec2",
-		"default-series":  "precise",
+		"default-series":  "jammy",
 		"controller-uuid": coretesting.ControllerTag.Id(),
 		"uuid":            ec2UUID,
 	})
@@ -165,7 +165,7 @@ func (s *ValidateImageMetadataSuite) setupEc2LocalMetadata(c *gc.C, region, stre
 	ep, err := resolver.ResolveEndpoint(region, ec2.EndpointResolverOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.makeLocalMetadata("1234", region, "precise", ep.URL, stream)
+	err = s.makeLocalMetadata("1234", region, "22.04", ep.URL, stream)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -201,7 +201,7 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironm
 func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.C) {
 	s.setupEc2LocalMetadata(c, "us-west-1", "")
 	ctx, err := runValidateImageMetadata(c, s.store,
-		"-p", "ec2", "-s", "precise", "-r", "us-west-1",
+		"-p", "ec2", "-s", "jammy", "-r", "us-west-1",
 		"-u", "https://ec2.us-west-1.amazonaws.com", "-d", s.metadataDir,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -220,7 +220,7 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataNoMatch(c *gc.C) {
 	)
 	c.Check(err, gc.ErrorMatches, "(.|\n)*Resolve Metadata:(.|\n)*")
 	_, err = runValidateImageMetadata(c, s.store,
-		"-p", "ec2", "-s", "precise", "-r", "region",
+		"-p", "ec2", "-s", "jammy", "-r", "region",
 		"-u", "https://ec2.region.amazonaws.com", "-d", s.metadataDir,
 	)
 	c.Assert(err, gc.NotNil)
@@ -229,7 +229,7 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataNoMatch(c *gc.C) {
 }
 
 func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataWithManualParams(c *gc.C) {
-	err := s.makeLocalMetadata("1234", "region-2", "raring", "some-auth-url", "")
+	err := s.makeLocalMetadata("1234", "region-2", "13.04", "some-auth-url", "")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := runValidateImageMetadata(c, s.store,
 		"-p", "openstack", "-s", "raring", "-r", "region-2",
@@ -244,10 +244,10 @@ func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataWithManualParams(
 }
 
 func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) {
-	err := s.makeLocalMetadata("1234", "region-2", "raring", "some-auth-url", "")
+	err := s.makeLocalMetadata("1234", "region-2", "13.04", "some-auth-url", "")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = runValidateImageMetadata(c, s.store,
-		"-p", "openstack", "-s", "precise", "-r", "region-2",
+		"-p", "openstack", "-s", "jammy", "-r", "region-2",
 		"-u", "some-auth-url", "-d", s.metadataDir,
 	)
 	c.Check(err, gc.ErrorMatches, "(.|\n)*Resolve Metadata:(.|\n)*")

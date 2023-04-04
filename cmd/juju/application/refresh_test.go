@@ -6,21 +6,22 @@ package application
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
-	csclientparams "github.com/juju/charmrepo/v6/csclient/params"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
+	csclientparams "github.com/juju/charmrepo/v7/csclient/params"
+	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -136,7 +137,6 @@ func (s *BaseRefreshSuite) setup(c *gc.C, currentCharmURL, latestCharmURL *charm
 	s.resolvedCharmURL = latestCharmURL
 
 	s.apiConnection = mockAPIConnection{
-		bestFacadeVersion: 2,
 		serverVersion: &version.Number{
 			Major: 1,
 			Minor: 2,
@@ -155,6 +155,7 @@ func (s *BaseRefreshSuite) setup(c *gc.C, currentCharmURL, latestCharmURL *charm
 			"": network.AlphaSpaceName,
 		},
 		charmOrigin: commoncharm.Origin{
+			ID:     "testing",
 			Source: schemaToOriginScource(currentCharmURL.Schema),
 			Risk:   "stable",
 		},
@@ -277,6 +278,7 @@ func (s *RefreshSuite) TestStorageConstraints(c *gc.C) {
 		StorageConstraints: map[string]storage.Constraints{
 			"bar": {Pool: "baz", Count: 1},
 		},
+		EndpointBindings: map[string]string{},
 	})
 }
 
@@ -293,25 +295,10 @@ func (s *RefreshSuite) TestUseConfiguredCharmStoreURL(c *gc.C) {
 	c.Assert(csURL, gc.Equals, "testing.api.charmstore")
 }
 
-func (s *RefreshSuite) TestStorageConstraintsMinFacadeVersion(c *gc.C) {
-	s.apiConnection.bestFacadeVersion = 1
-	_, err := s.runRefresh(c, "foo", "--storage", "bar=baz")
-	c.Assert(err, gc.ErrorMatches,
-		"updating storage constraints at refresh time is not supported by server version 1.2.3")
-}
-
-func (s *RefreshSuite) TestStorageConstraintsMinFacadeVersionNoServerVersion(c *gc.C) {
-	s.apiConnection.bestFacadeVersion = 1
-	s.apiConnection.serverVersion = nil
-	_, err := s.runRefresh(c, "foo", "--storage", "bar=baz")
-	c.Assert(err, gc.ErrorMatches,
-		"updating storage constraints at refresh time is not supported by this server")
-}
-
 func (s *RefreshSuite) TestConfigSettings(c *gc.C) {
 	tempdir := c.MkDir()
 	configFile := filepath.Join(tempdir, "config.yaml")
-	err := ioutil.WriteFile(configFile, []byte("foo:{}"), 0644)
+	err := os.WriteFile(configFile, []byte("foo:{}"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.runRefresh(c, "foo", "--config", configFile)
@@ -329,19 +316,8 @@ func (s *RefreshSuite) TestConfigSettings(c *gc.C) {
 			},
 		},
 		ConfigSettingsYAML: "foo:{}",
+		EndpointBindings:   map[string]string{},
 	})
-}
-
-func (s *RefreshSuite) TestConfigSettingsMinFacadeVersion(c *gc.C) {
-	tempdir := c.MkDir()
-	configFile := filepath.Join(tempdir, "config.yaml")
-	err := ioutil.WriteFile(configFile, []byte("foo:{}"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.apiConnection.bestFacadeVersion = 1
-	_, err = s.runRefresh(c, "foo", "--config", configFile)
-	c.Assert(err, gc.ErrorMatches,
-		"updating config at refresh time is not supported by server version 1.2.3")
 }
 
 func (s *RefreshSuite) TestUpgradeWithBindDefaults(c *gc.C) {
@@ -357,7 +333,6 @@ func (s *RefreshSuite) TestUpgradeWithBindDefaults(c *gc.C) {
 
 func (s *RefreshSuite) testUpgradeWithBind(c *gc.C, expectedBindings map[string]string) {
 	s.apiConnection = mockAPIConnection{
-		bestFacadeVersion: 11,
 		serverVersion: &version.Number{
 			Major: 1,
 			Minor: 2,
@@ -391,7 +366,6 @@ func (s *RefreshSuite) testUpgradeWithBind(c *gc.C, expectedBindings map[string]
 
 func (s *RefreshSuite) TestUpgradeWithBindAndUnknownEndpoint(c *gc.C) {
 	s.apiConnection = mockAPIConnection{
-		bestFacadeVersion: 11,
 		serverVersion: &version.Number{
 			Major: 1,
 			Minor: 2,
@@ -421,6 +395,16 @@ func (s *RefreshErrorsStateSuite) SetUpSuite(c *gc.C) {
 		c.Skip("Mongo failures on macOS")
 	}
 	s.RepoSuite.SetUpSuite(c)
+
+	// TODO: remove this patch once we removed all the old series from tests in current package.
+	s.PatchValue(&deployer.SupportedJujuSeries,
+		func(time.Time, string, string) (set.Strings, error) {
+			return set.NewStrings(
+				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
+				"jammy", "focal", "bionic", "xenial",
+			), nil
+		},
+	)
 }
 
 func (s *RefreshErrorsStateSuite) SetUpTest(c *gc.C) {
@@ -561,6 +545,16 @@ func (s *RefreshSuccessStateSuite) SetUpTest(c *gc.C) {
 	}
 	s.RepoSuite.SetUpTest(c)
 
+	// TODO: remove this patch once we removed all the old series from tests in current package.
+	s.PatchValue(&deployer.SupportedJujuSeries,
+		func(time.Time, string, string) (set.Strings, error) {
+			return set.NewStrings(
+				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
+				"jammy", "focal", "bionic", "xenial",
+			), nil
+		},
+	)
+
 	s.charmClient = mockCharmClient{}
 	s.cmd = NewRefreshCommandForStateTest(
 		func(
@@ -636,6 +630,7 @@ func (s *RefreshSuite) TestUpgradeWithChannel(c *gc.C) {
 				Risk:         "beta",
 			},
 		},
+		EndpointBindings: map[string]string{},
 	})
 }
 
@@ -658,6 +653,7 @@ func (s *RefreshSuite) TestUpgradeWithChannelNoNewCharmURL(c *gc.C) {
 				Risk:         "beta",
 			},
 		},
+		EndpointBindings: map[string]string{},
 	})
 }
 
@@ -680,21 +676,29 @@ func (s *RefreshSuite) TestRefreshShouldRespectDeployedChannelByDefault(c *gc.C)
 				Risk:         "beta",
 			},
 		},
+		EndpointBindings: map[string]string{},
 	})
+}
+
+func (s *RefreshSuite) TestUpgradeFailWithoutCharmHubOriginID(c *gc.C) {
+	s.resolvedChannel = csclientparams.BetaChannel
+	s.charmAPIClient.charmOrigin.Source = "charm-hub"
+	s.charmAPIClient.charmOrigin.ID = ""
+	_, err := s.runRefresh(c, "foo", "--channel=beta")
+	c.Assert(err, gc.ErrorMatches, "\"foo\" deploy incomplete, please try refresh again in a little bit.")
+	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin")
 }
 
 func (s *RefreshSuite) TestSwitch(c *gc.C) {
 	_, err := s.runRefresh(c, "foo", "--switch=cs:~other/trusty/anotherriak")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.charmClient.CheckCallNames(c, "CharmInfo")
-
+	s.charmClient.CheckCallNames(c, "CharmInfo", "CharmInfo")
 	s.charmClient.CheckCall(c, 0, "CharmInfo", s.resolvedCharmURL.String())
-	c.Logf("CallInfo called with %q", s.resolvedCharmURL.String())
+	s.charmClient.CheckCall(c, 1, "CharmInfo", s.resolvedCharmURL.String())
 	s.charmAdder.CheckCallNames(c, "AddCharm")
 	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, charm.Channel{Risk: charm.Stable}, corecharm.Platform{})
 	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false)
-	c.Logf("AddCharm called with %q", s.resolvedCharmURL.String())
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
@@ -706,8 +710,8 @@ func (s *RefreshSuite) TestSwitch(c *gc.C) {
 				Risk:         "stable",
 			},
 		},
+		EndpointBindings: map[string]string{},
 	})
-	c.Logf("SetCharm called with %q", s.resolvedCharmURL.String())
 	var curl *charm.URL
 	for _, call := range s.Calls() {
 		if call.FuncName == "ResolveCharm" {
@@ -845,12 +849,12 @@ func (s *RefreshSuccessStateSuite) TestForcedLXDProfileUpgrade(c *gc.C) {
 
 	container, err := s.State.AddMachineInsideNewMachine(
 		state.MachineTemplate{
-			Series: "bionic",
-			Jobs:   []state.MachineJob{state.JobHostUnits},
+			Base: state.UbuntuBase("22.04"),
+			Jobs: []state.MachineJob{state.JobHostUnits},
 		},
 		state.MachineTemplate{ // parent
-			Series: "bionic",
-			Jobs:   []state.MachineJob{state.JobHostUnits},
+			Base: state.UbuntuBase("22.04"),
+			Jobs: []state.MachineJob{state.JobHostUnits},
 		},
 		instance.LXD,
 	)
@@ -891,9 +895,9 @@ func (s *RefreshSuccessStateSuite) TestInitWithResources(c *gc.C) {
 
 	foopath := path.Join(dir, "foo")
 	barpath := path.Join(dir, "bar")
-	err := ioutil.WriteFile(foopath, []byte("foo"), 0600)
+	err := os.WriteFile(foopath, []byte("foo"), 0600)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(barpath, []byte("bar"), 0600)
+	err = os.WriteFile(barpath, []byte("bar"), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	res1 := fmt.Sprintf("foo=%s", foopath)
@@ -926,7 +930,7 @@ func (s *RefreshSuite) TestUpgradeSameVersionWithResourceUpload(c *gc.C) {
 	s.charmClient.charmResources = []charmresource.Resource{}
 	dir := c.MkDir()
 	barpath := path.Join(dir, "bar")
-	err := ioutil.WriteFile(barpath, []byte("bar"), 0600)
+	err := os.WriteFile(barpath, []byte("bar"), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	res1 := fmt.Sprintf("bar=%s", barpath)
@@ -946,7 +950,8 @@ func (s *RefreshSuite) TestUpgradeSameVersionWithResourceUpload(c *gc.C) {
 				Risk:         "stable",
 			},
 		},
-		ResourceIDs: map[string]string{"bar": "barId"},
+		EndpointBindings: map[string]string{},
+		ResourceIDs:      map[string]string{"bar": "barId"},
 	})
 }
 
@@ -995,10 +1000,11 @@ func (s *RefreshCharmHubSuite) TestUpgradeResourceRevision(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
-	s.charmClient.CheckCallNames(c, "CharmInfo", "ListCharmResources")
+	s.charmClient.CheckCallNames(c, "CharmInfo", "ListCharmResources", "CharmInfo")
 	s.CheckCall(c, 12, "DeployResources", "foo", resources.CharmID{
 		URL: s.resolvedCharmURL,
 		Origin: commoncharm.Origin{
+			ID:     "testing",
 			Source: "charm-hub",
 			Risk:   "stable"}},
 		map[string]string(nil),
@@ -1035,10 +1041,11 @@ func (s *RefreshCharmHubSuite) TestUpgradeResourceRevisionSupplied(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
-	s.charmClient.CheckCallNames(c, "CharmInfo", "ListCharmResources")
+	s.charmClient.CheckCallNames(c, "CharmInfo", "ListCharmResources", "CharmInfo")
 	s.CheckCall(c, 12, "DeployResources", "foo", resources.CharmID{
 		URL: s.resolvedCharmURL,
 		Origin: commoncharm.Origin{
+			ID:     "testing",
 			Source: "charm-hub",
 			Risk:   "stable"}},
 		map[string]string{"bar": "3"},
@@ -1074,7 +1081,7 @@ func (s *RefreshCharmHubSuite) TestUpgradeResourceNoChange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
-	s.charmClient.CheckCallNames(c, "CharmInfo", "ListCharmResources")
+	s.charmClient.CheckCallNames(c, "CharmInfo", "ListCharmResources", "CharmInfo")
 	for _, call := range s.Calls() {
 		c.Assert(call.FuncName, gc.Not(gc.Equals), "DeployResources", gc.Commentf("DeployResources should not be called here"))
 	}
@@ -1104,7 +1111,7 @@ func (s *RefreshSuccessStateSuite) TestCharmPath(c *gc.C) {
 	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
 
 	// Change the revision to 42 and upgrade to it with explicit revision.
-	err := ioutil.WriteFile(path.Join(myriakPath, "revision"), []byte("42"), 0644)
+	err := os.WriteFile(path.Join(myriakPath, "revision"), []byte("42"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.runRefresh(c, s.cmd, "riak", "--path", myriakPath)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1125,7 +1132,7 @@ func (s *RefreshSuccessStateSuite) TestSwitchToLocal(c *gc.C) {
 	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
 
 	// Change the revision to 42 and upgrade to it with explicit revision.
-	err := ioutil.WriteFile(path.Join(myriakPath, "revision"), []byte("42"), 0644)
+	err := os.WriteFile(path.Join(myriakPath, "revision"), []byte("42"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.runRefresh(c, s.cmd, "riak", "--switch", myriakPath)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1172,8 +1179,7 @@ func (s *RefreshSuccessStateSuite) TestCharmPathDifferentNameFails(c *gc.C) {
 
 type mockAPIConnection struct {
 	api.Connection
-	bestFacadeVersion int
-	serverVersion     *version.Number
+	serverVersion *version.Number
 }
 
 func (m *mockAPIConnection) Addr() string {
@@ -1195,10 +1201,6 @@ func (m *mockAPIConnection) PublicDNSName() string {
 func (m *mockAPIConnection) APIHostPorts() []network.MachineHostPorts {
 	hp, _ := network.ParseMachineHostPort(m.Addr())
 	return []network.MachineHostPorts{{*hp}}
-}
-
-func (m *mockAPIConnection) BestFacadeVersion(_ string) int {
-	return m.bestFacadeVersion
 }
 
 func (m *mockAPIConnection) ServerVersion() (version.Number, bool) {

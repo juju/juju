@@ -8,7 +8,6 @@ import (
 	stdcontext "context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -24,14 +23,17 @@ import (
 
 	cloudapi "github.com/juju/juju/api/client/cloud"
 	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	jujucmdcloud "github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -58,7 +60,7 @@ type AddCloudAPI interface {
 }
 
 // BrokerGetter returns caas broker instance.
-type BrokerGetter func(cloud jujucloud.Cloud, credential jujucloud.Credential) (caas.ClusterMetadataChecker, error)
+type BrokerGetter func(cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error)
 
 var usageAddCAASSummary = `
 Adds a k8s endpoint and credential to Juju.`[1:]
@@ -98,11 +100,9 @@ with the specified name.
 If the cluster does not have a storage provisioning capability, use the
 --skip-storage option to add the cluster without any workload storage configured.
 
-When adding a GKE or AKS cluster, you can use the --gke or --aks option to
-interactively be stepped through the registration process, or you can supply the
-necessary parameters directly.
-
 Examples:
+
+When your kubeconfig file is in the default location:
     juju add-k8s myk8scloud
     juju add-k8s myk8scloud --client
     juju add-k8s myk8scloud --controller mycontroller
@@ -112,17 +112,11 @@ Examples:
     juju add-k8s myk8scloud --cloud cloudNameOrCloudType --region=someregion
     juju add-k8s myk8scloud --cloud cloudNameOrCloudType --storage mystorageclass
 
+To add a Kubernetes cloud using data from your kubeconfig file, when this file is not in the default location:
     KUBECONFIG=path-to-kubeconfig-file juju add-k8s myk8scloud --cluster-name=my_cluster_name
+
+To add a Kubernetes cloud using data from kubectl, when your kubeconfig file is not in the default location:
     kubectl config view --raw | juju add-k8s myk8scloud --cluster-name=my_cluster_name
-
-    juju add-k8s --gke myk8scloud
-    juju add-k8s --gke --project=myproject myk8scloud
-    juju add-k8s --gke --credential=myaccount --project=myproject myk8scloud
-    juju add-k8s --gke --credential=myaccount --project=myproject --region=someregion myk8scloud
-
-    juju add-k8s --aks myk8scloud
-    juju add-k8s --aks --cluster-name mycluster myk8scloud
-    juju add-k8s --aks --cluster-name mycluster --resource-group myrg myk8scloud
 
 See also:
     remove-k8s
@@ -242,12 +236,13 @@ func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.hostCloud, "cloud", "", "k8s cluster cloud")
 	f.StringVar(&c.workloadStorage, "storage", "", "k8s storage class for workload storage")
 	f.BoolVar(&c.skipStorage, "skip-storage", false, "used when adding a cluster that doesn't have storage")
-	f.StringVar(&c.project, "project", "", "project to which the cluster belongs")
 	f.StringVar(&c.credential, "credential", "", "the credential to use when accessing the cluster")
-	f.StringVar(&c.resourceGroup, "resource-group", "", "the Azure resource group of the AKS cluster")
-	f.BoolVar(&c.gke, "gke", false, "used when adding a GKE cluster")
-	f.BoolVar(&c.aks, "aks", false, "used when adding an AKS cluster")
-	f.BoolVar(&c.eks, "eks", false, "used when adding an EKS cluster")
+	// TODO(k8s) - support k8s tooling in strict snap
+	// f.StringVar(&c.project, "project", "", "project to which the cluster belongs")
+	// f.StringVar(&c.resourceGroup, "resource-group", "", "the Azure resource group of the AKS cluster")
+	//f.BoolVar(&c.gke, "gke", false, "used when adding a GKE cluster")
+	//f.BoolVar(&c.aks, "aks", false, "used when adding an AKS cluster")
+	//f.BoolVar(&c.eks, "eks", false, "used when adding an EKS cluster")
 }
 
 func countTrue(items ...bool) (count int) {
@@ -347,7 +342,7 @@ func getStdinPipe(ctx *cmd.Context) (io.Reader, error) {
 		if err != nil {
 			return nil, err
 		}
-		content, err := ioutil.ReadAll(stdIn)
+		content, err := io.ReadAll(stdIn)
 		if err != nil {
 			return nil, err
 		}
@@ -449,24 +444,11 @@ var clusterQueryErrMsg = `
 	%s.
 `[1:]
 
-var unknownClusterErrMsg = `
-	Juju needs to query the k8s cluster to ensure that the recommended
-	storage defaults are available and to detect the cluster's cloud/region.
-	This was not possible in this case because the cloud %q is not known to Juju.
-	Run add-k8s again, using --storage=<name> to specify the storage class to use.
-`[1:]
-
-var noClusterSpecifiedErrMsg = `
-	Juju needs to know what storage class to use to provision workload storage.
-	Run add-k8s again, using --storage=<name> to specify the storage class to use.
-`[1:]
-
-var noRecommendedStorageErrMsg = `
+var noRecommendedStorageError = errors.New(`
 	No recommended storage configuration is defined on this cluster.
 	Run add-k8s again with --storage=<name> and Juju will use the
-	specified storage class or create a storage-class using the recommended
-	%q provisioner.
-`[1:]
+	specified storage class.
+`[1:])
 
 // Run is defined on the Command interface.
 func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
@@ -560,10 +542,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	var storageMsg string
-	if c.skipStorage {
-		storageMsg = " with no configured storage provisioning capability"
-	} else {
+	if !c.skipStorage {
 		storageParams := provider.KubeCloudStorageParams{
 			WorkloadStorage:        c.workloadStorage,
 			HostCloudRegion:        c.hostCloudRegion,
@@ -572,7 +551,8 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 		}
 
 		var err error
-		storageMsg, err = provider.UpdateKubeCloudWithStorage(&newCloud, storageParams)
+		var preferredStorageErr *environs.PreferredStorageNotFound
+		newCloud, err = provider.UpdateKubeCloudWithStorage(newCloud, storageParams)
 		if err != nil {
 			if provider.IsClusterQueryError(err) {
 				cloudArg := "--cloud=<cloud> to specify the cloud"
@@ -584,15 +564,8 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 				}
 				return errors.Annotatef(err, clusterQueryErrMsg, cloudArg)
 			}
-			if provider.IsNoRecommendedStorageError(err) {
-				return errors.Errorf(noRecommendedStorageErrMsg, err.(provider.NoRecommendedStorageError).StorageProvider())
-			}
-			if provider.IsUnknownClusterError(err) {
-				cloudName := err.(provider.UnknownClusterError).CloudName
-				if cloudName == "" {
-					return errors.New(noClusterSpecifiedErrMsg)
-				}
-				return errors.Errorf(unknownClusterErrMsg, cloudName)
+			if errors.As(err, &preferredStorageErr) {
+				return noRecommendedStorageError
 			}
 			return errors.Trace(err)
 		}
@@ -611,7 +584,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	}
 
 	if newCloud.HostCloudRegion == "" {
-		newCloud.HostCloudRegion = caas.K8sCloudOther
+		newCloud.HostCloudRegion = k8s.K8sCloudOther
 	}
 
 	var returnErr error
@@ -637,12 +610,21 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 		}
 	}
 
-	if clusterName == "" && newCloud.HostCloudRegion != caas.K8sCloudOther {
+	if clusterName == "" && newCloud.HostCloudRegion != k8s.K8sCloudOther {
 		clusterName = newCloud.HostCloudRegion
 	}
 	if clusterName != "" {
 		clusterName = fmt.Sprintf("%q ", clusterName)
 	}
+	storageMsg := " with no configured storage provisioning capability"
+	if !c.skipStorage && c.workloadStorage != "" {
+		storageMsg = fmt.Sprintf(` with storage provisioned
+by the existing %q storage class`,
+			newCloud.Config[k8sconstants.WorkloadStorageKey])
+	} else if !c.skipStorage && c.workloadStorage == "" {
+		storageMsg = ""
+	}
+
 	successMsg := fmt.Sprintf("k8s substrate %sadded as cloud %q%s", clusterName, c.caasName, storageMsg)
 	var msgDisplayed bool
 	if c.Client && returnErr == nil {
@@ -707,7 +689,7 @@ func checkCloudRegion(given, detected string) error {
 	return nil
 }
 
-func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential jujucloud.Credential) (caas.ClusterMetadataChecker, error) {
+func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error) {
 	openParams, err := provider.BaseKubeCloudOpenParams(cloud, credential)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -719,7 +701,17 @@ func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential j
 		}
 		openParams.ControllerUUID = ctrlUUID
 	}
-	return caas.New(stdcontext.TODO(), openParams)
+
+	broker, err := caas.New(stdcontext.TODO(), openParams)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// This is k8-specific and not part of the Broker interface
+	if metaChecker, implemented := broker.(k8s.ClusterMetadataChecker); implemented {
+		return metaChecker, nil
+	}
+	return nil, errors.NotSupportedf("querying cluster metadata using the broker")
 }
 
 func getCloudAndRegionFromOptions(cloudOption, regionOption string) (string, string, error) {
@@ -779,10 +771,10 @@ func (c *AddCAASCommand) tryEnsureCloudTypeForHostRegion(cloudOption, regionOpti
 func isRegionOptional(cloudType string) bool {
 	for _, v := range []string{
 		// Region is optional for CDK on microk8s, openstack, lxd, maas;
-		caas.K8sCloudMicrok8s,
-		caas.K8sCloudOpenStack,
-		caas.K8sCloudLXD,
-		caas.K8sCloudMAAS,
+		k8s.K8sCloudMicrok8s,
+		k8s.K8sCloudOpenStack,
+		k8s.K8sCloudLXD,
+		k8s.K8sCloudMAAS,
 	} {
 		if cloudType == v {
 			return true
@@ -799,7 +791,7 @@ func (c *AddCAASCommand) validateCloudRegion(ctx *cmd.Context, cloudRegion strin
 		return "", errors.Annotate(err, "parsing cloud region")
 	}
 	// microk8s is special.
-	if cloudType == caas.K8sCloudMicrok8s && region == caas.Microk8sRegion {
+	if cloudType == k8s.K8sCloudMicrok8s && region == k8s.Microk8sRegion {
 		return cloudRegion, nil
 	}
 
@@ -840,13 +832,13 @@ func (c *AddCAASCommand) validateCloudRegion(ctx *cmd.Context, cloudRegion strin
 }
 
 func (c *AddCAASCommand) getClusterMetadataFunc(ctx *cmd.Context) provider.GetClusterMetadataFunc {
-	return func(storageParams provider.KubeCloudStorageParams) (*caas.ClusterMetadata, error) {
+	return func(storageParams provider.KubeCloudStorageParams) (*k8s.ClusterMetadata, error) {
 		interrupted := make(chan os.Signal, 1)
 		defer close(interrupted)
 		ctx.InterruptNotify(interrupted)
 		defer ctx.StopInterruptNotify(interrupted)
 
-		result := make(chan *caas.ClusterMetadata, 1)
+		result := make(chan *k8s.ClusterMetadata, 1)
 		errChan := make(chan error, 1)
 		go func() {
 			clusterMetadata, err := storageParams.MetadataChecker.GetClusterMetadata(storageParams.WorkloadStorage)

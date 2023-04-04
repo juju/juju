@@ -6,7 +6,7 @@ package charmhub
 import (
 	"context"
 	"encoding/json"
-	http "net/http"
+	"net/http"
 	"net/http/httptest"
 
 	"github.com/golang/mock/gomock"
@@ -38,8 +38,8 @@ func (s *ResourcesSuite) TestListResourceRevisions(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGet(c, restClient, path, name, resource)
 
-	client := NewResourcesClient(path, restClient, &FakeLogger{})
-	response, err := client.ListResourceRevisions(context.TODO(), name, resource)
+	client := newResourcesClient(path, restClient, &FakeLogger{})
+	response, err := client.ListResourceRevisions(context.Background(), name, resource)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response, gc.HasLen, 3)
 }
@@ -57,8 +57,8 @@ func (s *ResourcesSuite) TestListResourceRevisionsFailure(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGetFailure(restClient)
 
-	client := NewResourcesClient(path, restClient, &FakeLogger{})
-	_, err := client.ListResourceRevisions(context.TODO(), name, resource)
+	client := newResourcesClient(path, restClient, &FakeLogger{})
+	_, err := client.ListResourceRevisions(context.Background(), name, resource)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 
@@ -68,11 +68,11 @@ func (s *ResourcesSuite) expectGet(c *gc.C, client *MockRESTClient, p path.Path,
 
 	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, response *transport.ResourcesResponse) {
 		response.Revisions = make([]transport.ResourceRevision, 3)
-	}).Return(RESTResponse{}, nil)
+	}).Return(restResponse{}, nil)
 }
 
 func (s *ResourcesSuite) expectGetFailure(client *MockRESTClient) {
-	client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(RESTResponse{StatusCode: http.StatusInternalServerError}, errors.Errorf("boom"))
+	client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(restResponse{StatusCode: http.StatusInternalServerError}, errors.Errorf("boom"))
 }
 
 func (s *ResourcesSuite) TestListResourceRevisionsRequestPayload(c *gc.C) {
@@ -92,20 +92,17 @@ func (s *ResourcesSuite) TestListResourceRevisionsRequestPayload(c *gc.C) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
-	config := Config{
-		URL: server.URL,
-	}
-	basePath, err := config.BasePath()
+	basePath, err := basePath(server.URL)
 	c.Assert(err, jc.ErrorIsNil)
 
 	resourcesPath, err := basePath.Join("resources")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := NewAPIRequester(DefaultHTTPTransport(&FakeLogger{}), &FakeLogger{})
-	restClient := NewHTTPRESTClient(apiRequester, nil)
+	apiRequester := newAPIRequester(DefaultHTTPClient(&FakeLogger{}), &FakeLogger{})
+	restClient := newHTTPRESTClient(apiRequester)
 
-	client := NewResourcesClient(resourcesPath, restClient, &FakeLogger{})
-	response, err := client.ListResourceRevisions(context.TODO(), "wordpress", "image")
+	client := newResourcesClient(resourcesPath, restClient, &FakeLogger{})
+	response, err := client.ListResourceRevisions(context.Background(), "wordpress", "image")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response, gc.DeepEquals, resourcesResponse.Revisions)
 }

@@ -192,3 +192,17 @@ func (mr *MockServiceMockRecorder) Stop() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockService)(nil).Stop))
 }
+
+// WriteService mocks base method.
+func (m *MockService) WriteService() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteService")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WriteService indicates an expected call of WriteService.
+func (mr *MockServiceMockRecorder) WriteService() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteService", reflect.TypeOf((*MockService)(nil).WriteService))
+}

@@ -39,9 +39,9 @@ func (s *authorisedKeysSuite) SetUpTest(c *gc.C) {
 
 	// Create machines to work with
 	var err error
-	s.rawMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	s.rawMachine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	s.unrelatedMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	s.unrelatedMachine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The default auth is as a controller
@@ -116,7 +116,7 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *gc.C) {
 	c.Assert(resource, gc.NotNil)
 
 	w := resource.(state.NotifyWatcher)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertNoChange()
 
 	s.setAuthorizedKeys(c, "key1\nkey2")

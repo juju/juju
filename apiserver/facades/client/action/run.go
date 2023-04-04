@@ -18,14 +18,111 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// Run the commands specified on the machines identified through the
+// list of machines, units and services.
+func (a *ActionAPI) Run(run params.RunParams) (results params.EnqueuedActions, err error) {
+	if err := a.checkCanAdmin(); err != nil {
+		return results, err
+	}
+
+	if err := a.check.ChangeAllowed(); err != nil {
+		return results, errors.Trace(err)
+	}
+
+	units, err := a.getAllUnitNames(run.Units, run.Applications)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+
+	machines := make([]names.Tag, len(run.Machines))
+	for i, machineId := range run.Machines {
+		if !names.IsValidMachine(machineId) {
+			return results, errors.Errorf("invalid machine id %q", machineId)
+		}
+		machines[i] = names.NewMachineTag(machineId)
+	}
+
+	actionParams, err := a.createRunActionsParams(append(units, machines...), run.Commands, run.Timeout, run.WorkloadContext, run.Parallel, run.ExecutionGroup)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	return a.EnqueueOperation(actionParams)
+}
+
+// RunOnAllMachines attempts to run the specified command on all the machines.
+func (a *ActionAPI) RunOnAllMachines(run params.RunParams) (results params.EnqueuedActions, err error) {
+	if err := a.checkCanAdmin(); err != nil {
+		return results, err
+	}
+
+	if err := a.check.ChangeAllowed(); err != nil {
+		return results, errors.Trace(err)
+	}
+
+	m, err := a.state.Model()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	if m.Type() != state.ModelTypeIAAS {
+		return results, errors.Errorf("cannot run on all machines with a %s model", m.Type())
+	}
+
+	machines, err := a.state.AllMachines()
+	if err != nil {
+		return results, err
+	}
+	machineTags := make([]names.Tag, len(machines))
+	for i, machine := range machines {
+		machineTags[i] = machine.Tag()
+	}
+
+	actionParams, err := a.createRunActionsParams(machineTags, run.Commands, run.Timeout, false, run.Parallel, run.ExecutionGroup)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	return a.EnqueueOperation(actionParams)
+}
+
+func (a *ActionAPI) createRunActionsParams(
+	actionReceiverTags []names.Tag,
+	quotedCommands string,
+	timeout time.Duration,
+	workloadContext bool,
+	parallel *bool,
+	executionGroup *string,
+) (params.Actions, error) {
+	apiActionParams := params.Actions{Actions: []params.Action{}}
+
+	if actions.HasJujuExecAction(quotedCommands) {
+		return apiActionParams, errors.NewNotSupported(nil, fmt.Sprintf("cannot use %q as an action command", quotedCommands))
+	}
+
+	actionParams := map[string]interface{}{}
+	actionParams["command"] = quotedCommands
+	actionParams["timeout"] = timeout.Nanoseconds()
+	actionParams["workload-context"] = workloadContext
+
+	for _, tag := range actionReceiverTags {
+		apiActionParams.Actions = append(apiActionParams.Actions, params.Action{
+			Receiver:       tag.String(),
+			Name:           actions.JujuExecActionName,
+			Parameters:     actionParams,
+			Parallel:       parallel,
+			ExecutionGroup: executionGroup,
+		})
+	}
+
+	return apiActionParams, nil
+}
+
 // getAllUnitNames returns a sequence of valid Unit objects from state. If any
 // of the application names or unit names are not found, an error is returned.
-func getAllUnitNames(st State, units, applications []string) (result []names.Tag, err error) {
+func (a *ActionAPI) getAllUnitNames(units, applications []string) (result []names.Tag, err error) {
 	var leaders map[string]string
 	getLeader := func(appName string) (string, error) {
 		if leaders == nil {
 			var err error
-			leaders, err = st.ApplicationLeaders()
+			leaders, err = a.leadership.Leaders()
 			if err != nil {
 				return "", err
 			}
@@ -55,7 +152,7 @@ func getAllUnitNames(st State, units, applications []string) (result []names.Tag
 	}
 
 	for _, name := range applications {
-		service, err := st.Application(name)
+		service, err := a.state.Application(name)
 		if err != nil {
 			return nil, err
 		}
@@ -74,126 +171,4 @@ func getAllUnitNames(st State, units, applications []string) (result []names.Tag
 		result = append(result, names.NewUnitTag(unitName))
 	}
 	return result, nil
-}
-
-// Run the commands specified on the machines identified through the
-// list of machines, units and services.
-func (a *ActionAPI) Run(run params.RunParams) (params.EnqueuedActionsV2, error) {
-	actionParams, err := a.run(run)
-	if err != nil {
-		return params.EnqueuedActionsV2{}, errors.Trace(err)
-	}
-	return a.EnqueueOperation(actionParams)
-}
-
-// Run the commands specified on the machines identified through the
-// list of machines, units and services.
-func (a *APIv6) Run(run params.RunParams) (params.ActionResults, error) {
-	actionParams, err := a.run(run)
-	if err != nil {
-		return params.ActionResults{}, errors.Trace(err)
-	}
-	return a.Enqueue(actionParams)
-}
-
-// Run the commands specified on the machines identified through the
-// list of machines, units and services.
-func (a *ActionAPI) run(run params.RunParams) (results params.Actions, err error) {
-	if err := a.checkCanAdmin(); err != nil {
-		return results, err
-	}
-
-	if err := a.check.ChangeAllowed(); err != nil {
-		return results, errors.Trace(err)
-	}
-
-	units, err := getAllUnitNames(a.state, run.Units, run.Applications)
-	if err != nil {
-		return results, errors.Trace(err)
-	}
-
-	machines := make([]names.Tag, len(run.Machines))
-	for i, machineId := range run.Machines {
-		if !names.IsValidMachine(machineId) {
-			return results, errors.Errorf("invalid machine id %q", machineId)
-		}
-		machines[i] = names.NewMachineTag(machineId)
-	}
-
-	return a.createRunActionsParams(append(units, machines...), run.Commands, run.Timeout, run.WorkloadContext)
-}
-
-// RunOnAllMachines attempts to run the specified command on all the machines.
-func (a *ActionAPI) RunOnAllMachines(run params.RunParams) (results params.EnqueuedActionsV2, err error) {
-	actionParams, err := a.runOnAllMachines(run)
-	if err != nil {
-		return params.EnqueuedActionsV2{}, errors.Trace(err)
-	}
-	return a.EnqueueOperation(actionParams)
-}
-
-// RunOnAllMachines attempts to run the specified command on all the machines.
-func (a *APIv6) RunOnAllMachines(run params.RunParams) (params.ActionResults, error) {
-	actionParams, err := a.runOnAllMachines(run)
-	if err != nil {
-		return params.ActionResults{}, errors.Trace(err)
-	}
-	return a.Enqueue(actionParams)
-}
-
-func (a *ActionAPI) runOnAllMachines(run params.RunParams) (results params.Actions, err error) {
-	if err := a.checkCanAdmin(); err != nil {
-		return results, err
-	}
-
-	if err := a.check.ChangeAllowed(); err != nil {
-		return results, errors.Trace(err)
-	}
-
-	m, err := a.state.Model()
-	if err != nil {
-		return results, errors.Trace(err)
-	}
-	if m.Type() != state.ModelTypeIAAS {
-		return results, errors.Errorf("cannot run on all machines with a %s model", m.Type())
-	}
-
-	machines, err := a.state.AllMachines()
-	if err != nil {
-		return results, err
-	}
-	machineTags := make([]names.Tag, len(machines))
-	for i, machine := range machines {
-		machineTags[i] = machine.Tag()
-	}
-
-	return a.createRunActionsParams(machineTags, run.Commands, run.Timeout, false)
-}
-
-func (a *ActionAPI) createRunActionsParams(
-	actionReceiverTags []names.Tag,
-	quotedCommands string,
-	timeout time.Duration,
-	workloadContext bool,
-) (params.Actions, error) {
-	apiActionParams := params.Actions{Actions: []params.Action{}}
-
-	if actions.HasJujuExecAction(quotedCommands) {
-		return apiActionParams, errors.NewNotSupported(nil, fmt.Sprintf("cannot use %q as an action command", quotedCommands))
-	}
-
-	actionParams := map[string]interface{}{}
-	actionParams["command"] = quotedCommands
-	actionParams["timeout"] = timeout.Nanoseconds()
-	actionParams["workload-context"] = workloadContext
-
-	for _, tag := range actionReceiverTags {
-		apiActionParams.Actions = append(apiActionParams.Actions, params.Action{
-			Receiver:   tag.String(),
-			Name:       actions.JujuRunActionName,
-			Parameters: actionParams,
-		})
-	}
-
-	return apiActionParams, nil
 }

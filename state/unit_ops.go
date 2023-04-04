@@ -5,10 +5,10 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
-	jujutxn "github.com/juju/txn/v2"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
+	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/quota"
 	mgoutils "github.com/juju/juju/mongo/utils"
@@ -130,6 +130,10 @@ func (op *unitSetStateOperation) newUnitStateDoc(unitGlobalKey string) (unitStat
 		newStDoc.StorageState = storState
 		quotaChecker.Check(storState)
 	}
+	if secretState, found := op.newState.SecretState(); found {
+		newStDoc.SecretState = secretState
+		quotaChecker.Check(secretState)
+	}
 	if meterStatusState, found := op.newState.MeterStatusState(); found {
 		newStDoc.MeterStatusState = meterStatusState
 		quotaChecker.Check(meterStatusState)
@@ -206,6 +210,15 @@ func (op *unitSetStateOperation) fields(currentDoc unitStateDoc) (bson.D, bson.D
 		} else if storState != currentDoc.StorageState {
 			setFields = append(setFields, bson.DocElem{"storage-state", storState})
 			quotaChecker.Check(storState)
+		}
+	}
+
+	if secretState, found := op.newState.SecretState(); found {
+		if secretState == "" {
+			unsetFields = append(unsetFields, bson.DocElem{Name: "secret-state"})
+		} else if secretState != currentDoc.SecretState {
+			setFields = append(setFields, bson.DocElem{"secret-state", secretState})
+			quotaChecker.Check(secretState)
 		}
 	}
 

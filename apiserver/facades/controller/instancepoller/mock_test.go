@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
@@ -247,10 +247,6 @@ func (m *mockState) SetSpaceInfo(infos network.SpaceInfos) {
 	defer m.mu.Unlock()
 	m.spaceInfos = infos
 }
-
-// StartSync implements statetesting.SyncStarter, so mockState can be
-// used with watcher helpers/checkers.
-func (m *mockState) StartSync() {}
 
 func (m *mockState) ApplyOperation(op state.ModelOperation) error {
 	m.MethodCall(m, "ApplyOperation", op)

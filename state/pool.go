@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v3"
@@ -130,6 +130,10 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 		return nil, errors.Annotate(err, "validating args")
 	}
 
+	if args.MaxTxnAttempts <= 0 {
+		args.MaxTxnAttempts = 20
+	}
+
 	pool := &StatePool{
 		pool: make(map[string]*PoolItem),
 		hub:  pubsub.NewSimpleHub(nil),
@@ -137,6 +141,7 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 
 	session := args.MongoSession.Copy()
 	st, err := open(
+		args.ControllerTag,
 		args.ControllerModelTag,
 		session,
 		args.InitDatabaseFunc,
@@ -144,6 +149,7 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 		args.NewPolicy,
 		args.Clock,
 		args.RunTransactionObserver,
+		args.MaxTxnAttempts,
 	)
 	if err != nil {
 		session.Close()
@@ -164,7 +170,7 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 			return nil, errors.Trace(mongo.MaybeUnauthorizedf(err, "cannot read model %s", args.ControllerModelTag.Id()))
 		}
 	}
-	if err = st.start(args.ControllerTag, pool.hub); err != nil {
+	if err = st.startWorkers(pool.hub); err != nil {
 		return nil, errors.Trace(err)
 	}
 	pool.systemState = st
@@ -183,12 +189,13 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 	if err = pool.watcherRunner.StartWorker(txnLogWorker, func() (worker.Worker, error) {
 		return watcher.NewTxnWatcher(
 			watcher.TxnWatcherConfig{
-				Session:        pool.txnWatcherSession,
-				JujuDBName:     jujuDB,
-				CollectionName: txnLogC,
-				Hub:            pool.hub,
-				Clock:          args.Clock,
-				Logger:         loggo.GetLogger("juju.state.pool.txnwatcher"),
+				Session:           pool.txnWatcherSession,
+				JujuDBName:        jujuDB,
+				Hub:               pool.hub,
+				Clock:             args.Clock,
+				Logger:            loggo.GetLogger("juju.state.pool.txnwatcher"),
+				IgnoreCollections: append([]string(nil), watcherIgnoreList...),
+				PollInterval:      args.WatcherPollInterval,
 			})
 	}); err != nil {
 		pool.txnWatcherSession.Close()
@@ -266,14 +273,16 @@ func (p *StatePool) openState(modelUUID string) (*State, error) {
 	modelTag := names.NewModelTag(modelUUID)
 	session := p.systemState.session.Copy()
 	newSt, err := newState(
+		p.systemState.controllerTag,
 		modelTag, p.systemState.controllerModelTag,
 		session, p.systemState.newPolicy, p.systemState.stateClock,
 		p.systemState.runTransactionObserver,
+		p.systemState.maxTxnAttempts,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := newSt.start(p.systemState.controllerTag, p.hub); err != nil {
+	if err := newSt.startWorkers(p.hub); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return newSt, nil
@@ -489,4 +498,10 @@ func (p *StatePool) Report() map[string]interface{} {
 	}
 	p.mu.Unlock()
 	return report
+}
+
+// StartWorkers is used by factory.NewModel in tests.
+// TODO(wallyworld) refactor to remove this dependency.
+func (p *StatePool) StartWorkers(st *State) error {
+	return st.startWorkers(p.hub)
 }

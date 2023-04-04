@@ -56,7 +56,7 @@ func (s *loggerSuite) setLoggingConfig(c *gc.C, loggingConfig string) {
 func (s *loggerSuite) TestWatchLoggingConfig(c *gc.C) {
 	watcher, err := s.logger.WatchLoggingConfig(s.rawMachine.Tag())
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, watcher, s.BackingState.StartSync)
+	wc := watchertest.NewNotifyWatcherC(c, watcher)
 	defer wc.AssertStops()
 
 	// Initial event

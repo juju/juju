@@ -10,10 +10,12 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
@@ -31,6 +33,10 @@ type WatcherSuite struct {
 	leadership                   *mockLeadershipTracker
 	watcher                      *remotestate.RemoteStateWatcher
 	clock                        *testclock.Clock
+
+	secretsClient              *mockSecretsClient
+	rotateSecretWatcherEvent   chan string
+	expireRevisionWatcherEvent chan string
 
 	applicationWatcher   *mockNotifyWatcher
 	runningStatusWatcher *mockNotifyWatcher
@@ -120,6 +126,12 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 		minionTicket: mockTicket{make(chan struct{}, 1), true},
 	}
 
+	s.rotateSecretWatcherEvent = make(chan string)
+	s.secretsClient = &mockSecretsClient{
+		secretsWatcher:          newMockStringsWatcher(),
+		secretsRevisionsWatcher: newMockStringsWatcher(),
+	}
+
 	s.clock = testclock.NewClock(time.Now())
 
 	s.workloadEventChannel = make(chan string)
@@ -181,11 +193,34 @@ func (s *WatcherSuite) setupWatcherConfig() remotestate.WatcherConfig {
 		Sidecar:                      s.sidecar,
 		EnforcedCharmModifiedVersion: s.enforcedCharmModifiedVersion,
 		LeadershipTracker:            s.leadership,
-		UnitTag:                      s.st.unit.tag,
-		UpdateStatusChannel:          statusTicker,
-		CanApplyCharmProfile:         s.modelType == model.IAAS,
-		WorkloadEventChannel:         s.workloadEventChannel,
-		ShutdownChannel:              s.shutdownChannel,
+		SecretsClient:                s.secretsClient,
+		SecretRotateWatcherFunc: func(u names.UnitTag, isLeader bool, rotateCh chan []string) (worker.Worker, error) {
+			select {
+			case s.rotateSecretWatcherEvent <- u.Id():
+			default:
+			}
+			rotateSecretWatcher := &mockSecretTriggerWatcher{
+				ch:     rotateCh,
+				stopCh: make(chan struct{}),
+			}
+			return rotateSecretWatcher, nil
+		},
+		SecretExpiryWatcherFunc: func(u names.UnitTag, isLeader bool, expireCh chan []string) (worker.Worker, error) {
+			select {
+			case s.expireRevisionWatcherEvent <- u.Id():
+			default:
+			}
+			expireRevisionWatcher := &mockSecretTriggerWatcher{
+				ch:     expireCh,
+				stopCh: make(chan struct{}),
+			}
+			return expireRevisionWatcher, nil
+		},
+		UnitTag:              s.st.unit.tag,
+		UpdateStatusChannel:  statusTicker,
+		CanApplyCharmProfile: s.modelType == model.IAAS,
+		WorkloadEventChannel: s.workloadEventChannel,
+		ShutdownChannel:      s.shutdownChannel,
 	}
 }
 
@@ -208,31 +243,37 @@ func (s *WatcherSuite) TearDownTest(c *gc.C) {
 func (s *WatcherSuiteIAAS) TestInitialSnapshot(c *gc.C) {
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Relations:           map[int]remotestate.RelationSnapshot{},
-		Storage:             map[names.StorageTag]remotestate.StorageSnapshot{},
-		ActionChanged:       map[string]int{},
-		UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
+		Relations:               map[int]remotestate.RelationSnapshot{},
+		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
+		ActionChanged:           map[string]int{},
+		UpgradeMachineStatus:    model.UpgradeSeriesNotStarted,
+		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
+		ObsoleteSecretRevisions: map[string][]int{},
 	})
 }
 
 func (s *WatcherSuiteCAAS) TestInitialSnapshot(c *gc.C) {
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Relations:           map[int]remotestate.RelationSnapshot{},
-		Storage:             map[names.StorageTag]remotestate.StorageSnapshot{},
-		ActionChanged:       map[string]int{},
-		ActionsBlocked:      true,
-		UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
+		Relations:               map[int]remotestate.RelationSnapshot{},
+		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
+		ActionChanged:           map[string]int{},
+		ActionsBlocked:          true,
+		UpgradeMachineStatus:    model.UpgradeSeriesNotStarted,
+		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
+		ObsoleteSecretRevisions: map[string][]int{},
 	})
 }
 
 func (s *WatcherSuiteSidecar) TestInitialSnapshot(c *gc.C) {
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Relations:           map[int]remotestate.RelationSnapshot{},
-		Storage:             map[names.StorageTag]remotestate.StorageSnapshot{},
-		ActionChanged:       map[string]int{},
-		UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
+		Relations:               map[int]remotestate.RelationSnapshot{},
+		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
+		ActionChanged:           map[string]int{},
+		UpgradeMachineStatus:    model.UpgradeSeriesNotStarted,
+		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
+		ObsoleteSecretRevisions: map[string][]int{},
 	})
 }
 
@@ -259,6 +300,8 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 	s.st.unit.relationsWatcher.changes <- []string{}
 	s.st.updateStatusIntervalWatcher.changes <- struct{}{}
 	s.leadership.claimTicket.ch <- struct{}{}
+	s.secretsClient.secretsWatcher.changes <- []string{}
+	s.secretsClient.secretsRevisionsWatcher.changes <- []string{}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 }
 
@@ -274,6 +317,7 @@ func (s *WatcherSuite) signalAll() {
 	s.leadership.claimTicket.ch <- struct{}{}
 	s.st.unit.storageWatcher.changes <- []string{}
 	s.applicationWatcher.changes <- struct{}{}
+	s.secretsClient.secretsWatcher.changes <- []string{}
 	if s.st.modelType == model.IAAS {
 		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
 		s.st.unit.instanceDataWatcher.changes <- struct{}{}
@@ -286,21 +330,23 @@ func (s *WatcherSuite) TestSnapshot(c *gc.C) {
 
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Life:                  s.st.unit.life,
-		Relations:             map[int]remotestate.RelationSnapshot{},
-		Storage:               map[names.StorageTag]remotestate.StorageSnapshot{},
-		ActionChanged:         map[string]int{},
-		CharmModifiedVersion:  s.st.unit.application.charmModifiedVersion,
-		CharmURL:              s.st.unit.application.curl,
-		ForceCharmUpgrade:     s.st.unit.application.forceUpgrade,
-		ResolvedMode:          s.st.unit.resolved,
-		ConfigHash:            "confighash",
-		TrustHash:             "trusthash",
-		AddressesHash:         "addresseshash",
-		LeaderSettingsVersion: 1,
-		Leader:                true,
-		UpgradeSeriesStatus:   model.UpgradeSeriesPrepareStarted,
-		UpgradeSeriesTarget:   "focal",
+		Life:                    s.st.unit.life,
+		Relations:               map[int]remotestate.RelationSnapshot{},
+		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
+		ActionChanged:           map[string]int{},
+		CharmModifiedVersion:    s.st.unit.application.charmModifiedVersion,
+		CharmURL:                s.st.unit.application.curl,
+		ForceCharmUpgrade:       s.st.unit.application.forceUpgrade,
+		ResolvedMode:            s.st.unit.resolved,
+		ConfigHash:              "confighash",
+		TrustHash:               "trusthash",
+		AddressesHash:           "addresseshash",
+		LeaderSettingsVersion:   1,
+		Leader:                  true,
+		UpgradeMachineStatus:    model.UpgradeSeriesPrepareStarted,
+		UpgradeMachineTarget:    "ubuntu@20.04",
+		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
+		ObsoleteSecretRevisions: map[string][]int{},
 	})
 }
 
@@ -310,20 +356,22 @@ func (s *WatcherSuiteSidecar) TestSnapshot(c *gc.C) {
 
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Life:                  s.st.unit.life,
-		Relations:             map[int]remotestate.RelationSnapshot{},
-		Storage:               map[names.StorageTag]remotestate.StorageSnapshot{},
-		ActionChanged:         map[string]int{},
-		CharmModifiedVersion:  s.st.unit.application.charmModifiedVersion,
-		CharmURL:              s.st.unit.application.curl,
-		ForceCharmUpgrade:     s.st.unit.application.forceUpgrade,
-		ResolvedMode:          s.st.unit.resolved,
-		ConfigHash:            "confighash",
-		TrustHash:             "trusthash",
-		AddressesHash:         "addresseshash",
-		LeaderSettingsVersion: 1,
-		Leader:                true,
-		UpgradeSeriesStatus:   model.UpgradeSeriesNotStarted,
+		Life:                    s.st.unit.life,
+		Relations:               map[int]remotestate.RelationSnapshot{},
+		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
+		ActionChanged:           map[string]int{},
+		CharmModifiedVersion:    s.st.unit.application.charmModifiedVersion,
+		CharmURL:                s.st.unit.application.curl,
+		ForceCharmUpgrade:       s.st.unit.application.forceUpgrade,
+		ResolvedMode:            s.st.unit.resolved,
+		ConfigHash:              "confighash",
+		TrustHash:               "trusthash",
+		AddressesHash:           "addresseshash",
+		LeaderSettingsVersion:   1,
+		Leader:                  true,
+		UpgradeMachineStatus:    model.UpgradeSeriesNotStarted,
+		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
+		ObsoleteSecretRevisions: map[string][]int{},
 	})
 }
 
@@ -333,22 +381,24 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Life:                   s.st.unit.life,
-		Relations:              map[int]remotestate.RelationSnapshot{},
-		Storage:                map[names.StorageTag]remotestate.StorageSnapshot{},
-		CharmModifiedVersion:   s.st.unit.application.charmModifiedVersion,
-		CharmURL:               s.st.unit.application.curl,
-		ForceCharmUpgrade:      s.st.unit.application.forceUpgrade,
-		ResolvedMode:           s.st.unit.resolved,
-		ConfigHash:             "confighash",
-		TrustHash:              "trusthash",
-		AddressesHash:          "addresseshash",
-		LeaderSettingsVersion:  1,
-		Leader:                 true,
-		UpgradeSeriesStatus:    model.UpgradeSeriesNotStarted,
-		ActionsBlocked:         true,
-		ActionChanged:          map[string]int{},
-		ContainerRunningStatus: nil,
+		Life:                    s.st.unit.life,
+		Relations:               map[int]remotestate.RelationSnapshot{},
+		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
+		CharmModifiedVersion:    s.st.unit.application.charmModifiedVersion,
+		CharmURL:                s.st.unit.application.curl,
+		ForceCharmUpgrade:       s.st.unit.application.forceUpgrade,
+		ResolvedMode:            s.st.unit.resolved,
+		ConfigHash:              "confighash",
+		TrustHash:               "trusthash",
+		AddressesHash:           "addresseshash",
+		LeaderSettingsVersion:   1,
+		Leader:                  true,
+		UpgradeMachineStatus:    model.UpgradeSeriesNotStarted,
+		ActionsBlocked:          true,
+		ActionChanged:           map[string]int{},
+		ContainerRunningStatus:  nil,
+		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
+		ObsoleteSecretRevisions: map[string][]int{},
 	})
 
 	t := time.Now()
@@ -368,23 +418,25 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 
 	snap = s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Life:                   s.st.unit.life,
-		Relations:              map[int]remotestate.RelationSnapshot{},
-		Storage:                map[names.StorageTag]remotestate.StorageSnapshot{},
-		CharmModifiedVersion:   s.st.unit.application.charmModifiedVersion,
-		CharmURL:               s.st.unit.application.curl,
-		ForceCharmUpgrade:      s.st.unit.application.forceUpgrade,
-		ResolvedMode:           s.st.unit.resolved,
-		ConfigHash:             "confighash",
-		TrustHash:              "trusthash",
-		AddressesHash:          "addresseshash",
-		LeaderSettingsVersion:  1,
-		Leader:                 true,
-		UpgradeSeriesStatus:    model.UpgradeSeriesNotStarted,
-		ActionsBlocked:         true,
-		ActionChanged:          map[string]int{},
-		ProviderID:             s.st.unit.providerID,
-		ContainerRunningStatus: s.running,
+		Life:                    s.st.unit.life,
+		Relations:               map[int]remotestate.RelationSnapshot{},
+		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
+		CharmModifiedVersion:    s.st.unit.application.charmModifiedVersion,
+		CharmURL:                s.st.unit.application.curl,
+		ForceCharmUpgrade:       s.st.unit.application.forceUpgrade,
+		ResolvedMode:            s.st.unit.resolved,
+		ConfigHash:              "confighash",
+		TrustHash:               "trusthash",
+		AddressesHash:           "addresseshash",
+		LeaderSettingsVersion:   1,
+		Leader:                  true,
+		UpgradeMachineStatus:    model.UpgradeSeriesNotStarted,
+		ActionsBlocked:          true,
+		ActionChanged:           map[string]int{},
+		ProviderID:              s.st.unit.providerID,
+		ContainerRunningStatus:  s.running,
+		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
+		ObsoleteSecretRevisions: map[string][]int{},
 	})
 
 	s.running = &remotestate.ContainerRunningStatus{
@@ -402,23 +454,25 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 
 	snap = s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Life:                   s.st.unit.life,
-		Relations:              map[int]remotestate.RelationSnapshot{},
-		Storage:                map[names.StorageTag]remotestate.StorageSnapshot{},
-		CharmModifiedVersion:   s.st.unit.application.charmModifiedVersion,
-		CharmURL:               s.st.unit.application.curl,
-		ForceCharmUpgrade:      s.st.unit.application.forceUpgrade,
-		ResolvedMode:           s.st.unit.resolved,
-		ConfigHash:             "confighash",
-		TrustHash:              "trusthash",
-		AddressesHash:          "addresseshash",
-		LeaderSettingsVersion:  1,
-		Leader:                 true,
-		UpgradeSeriesStatus:    model.UpgradeSeriesNotStarted,
-		ActionsBlocked:         false,
-		ActionChanged:          map[string]int{},
-		ProviderID:             s.st.unit.providerID,
-		ContainerRunningStatus: s.running,
+		Life:                    s.st.unit.life,
+		Relations:               map[int]remotestate.RelationSnapshot{},
+		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
+		CharmModifiedVersion:    s.st.unit.application.charmModifiedVersion,
+		CharmURL:                s.st.unit.application.curl,
+		ForceCharmUpgrade:       s.st.unit.application.forceUpgrade,
+		ResolvedMode:            s.st.unit.resolved,
+		ConfigHash:              "confighash",
+		TrustHash:               "trusthash",
+		AddressesHash:           "addresseshash",
+		LeaderSettingsVersion:   1,
+		Leader:                  true,
+		UpgradeMachineStatus:    model.UpgradeSeriesNotStarted,
+		ActionsBlocked:          false,
+		ActionChanged:           map[string]int{},
+		ProviderID:              s.st.unit.providerID,
+		ContainerRunningStatus:  s.running,
+		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
+		ObsoleteSecretRevisions: map[string][]int{},
 	})
 }
 
@@ -448,6 +502,39 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 
 	s.st.unit.storageWatcher.changes <- []string{}
 	assertOneChange()
+
+	rotateWatcher := remotestate.SecretRotateWatcher(s.watcher).(*mockSecretTriggerWatcher)
+	secretURIs := []string{"secret:999e2mr0ui3e8a215n4g", "secret:9m4e2mr0ui3e8a215n4g", "secret:8b4e2mr1wi3e8a215n5h"}
+	rotateWatcher.ch <- secretURIs
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().SecretRotations, jc.DeepEquals, secretURIs)
+
+	expireWatcher := remotestate.SecretExpiryWatcherFunc(s.watcher).(*mockSecretTriggerWatcher)
+	secretRevisions := []string{"secret:999e2mr0ui3e8a215n4g/666", "secret:9m4e2mr0ui3e8a215n4g/667", "secret:8b4e2mr1wi3e8a215n5h/668"}
+	expireWatcher.ch <- secretRevisions
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().ExpiredSecretRevisions, jc.DeepEquals, secretRevisions)
+
+	s.secretsClient.secretsWatcher.changes <- secretURIs
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().ConsumedSecretInfo, jc.DeepEquals, map[string]secrets.SecretRevisionInfo{
+		"secret:9m4e2mr0ui3e8a215n4g": {
+			Revision: 666,
+			Label:    "label-secret:9m4e2mr0ui3e8a215n4g",
+		},
+		"secret:8b4e2mr1wi3e8a215n5h": {
+			Revision: 667,
+			Label:    "label-secret:8b4e2mr1wi3e8a215n5h",
+		},
+	})
+	c.Assert(s.watcher.Snapshot().DeletedSecrets, jc.DeepEquals, []string{"secret:999e2mr0ui3e8a215n4g"})
+
+	s.secretsClient.secretsRevisionsWatcher.changes <- []string{"secret:9m4e2mr0ui3e8a215n4g/666", "secret:9m4e2mr0ui3e8a215n4g/668", "secret:666e2mr0ui3e8a215n4g"}
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().ObsoleteSecretRevisions, jc.DeepEquals, map[string][]int{
+		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
+	})
+	c.Assert(s.watcher.Snapshot().DeletedSecrets, jc.DeepEquals, []string{"secret:666e2mr0ui3e8a215n4g", "secret:999e2mr0ui3e8a215n4g"})
 
 	s.st.unit.configSettingsWatcher.changes <- []string{"confighash2"}
 	assertOneChange()
@@ -1003,6 +1090,39 @@ func (s *WatcherSuiteSidecarCharmModVer) TestRemoteStateChanged(c *gc.C) {
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().ConfigHash, gc.Equals, "confighash2")
 
+	rotateWatcher := remotestate.SecretRotateWatcher(s.watcher).(*mockSecretTriggerWatcher)
+	secretURIs := []string{"secret:999e2mr0ui3e8a215n4g", "secret:9m4e2mr0ui3e8a215n4g", "secret:8b4e2mr1wi3e8a215n5h"}
+	rotateWatcher.ch <- secretURIs
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().SecretRotations, jc.DeepEquals, secretURIs)
+
+	expireWatcher := remotestate.SecretExpiryWatcherFunc(s.watcher).(*mockSecretTriggerWatcher)
+	secretRevisions := []string{"secret:999e2mr0ui3e8a215n4g/666", "secret:9m4e2mr0ui3e8a215n4g/667", "secret:8b4e2mr1wi3e8a215n5h/668"}
+	expireWatcher.ch <- secretRevisions
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().ExpiredSecretRevisions, jc.DeepEquals, secretRevisions)
+
+	s.secretsClient.secretsWatcher.changes <- secretURIs
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().ConsumedSecretInfo, jc.DeepEquals, map[string]secrets.SecretRevisionInfo{
+		"secret:9m4e2mr0ui3e8a215n4g": {
+			Revision: 666,
+			Label:    "label-secret:9m4e2mr0ui3e8a215n4g",
+		},
+		"secret:8b4e2mr1wi3e8a215n5h": {
+			Revision: 667,
+			Label:    "label-secret:8b4e2mr1wi3e8a215n5h",
+		},
+	})
+	c.Assert(s.watcher.Snapshot().DeletedSecrets, jc.DeepEquals, []string{"secret:999e2mr0ui3e8a215n4g"})
+
+	s.secretsClient.secretsRevisionsWatcher.changes <- []string{"secret:9m4e2mr0ui3e8a215n4g/666", "secret:9m4e2mr0ui3e8a215n4g/668", "secret:666e2mr0ui3e8a215n4g"}
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().ObsoleteSecretRevisions, jc.DeepEquals, map[string][]int{
+		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
+	})
+	c.Assert(s.watcher.Snapshot().DeletedSecrets, jc.DeepEquals, []string{"secret:666e2mr0ui3e8a215n4g", "secret:999e2mr0ui3e8a215n4g"})
+
 	s.st.unit.applicationConfigSettingsWatcher.changes <- []string{"trusthash2"}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().TrustHash, gc.Equals, "trusthash2")
@@ -1040,20 +1160,22 @@ func (s *WatcherSuiteSidecarCharmModVer) TestSnapshot(c *gc.C) {
 
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Life:                  s.st.unit.life,
-		Relations:             map[int]remotestate.RelationSnapshot{},
-		Storage:               map[names.StorageTag]remotestate.StorageSnapshot{},
-		ActionChanged:         map[string]int{},
-		CharmModifiedVersion:  0,
-		CharmURL:              "",
-		ForceCharmUpgrade:     false,
-		ResolvedMode:          s.st.unit.resolved,
-		ConfigHash:            "confighash",
-		TrustHash:             "trusthash",
-		AddressesHash:         "addresseshash",
-		LeaderSettingsVersion: 1,
-		Leader:                true,
-		UpgradeSeriesStatus:   model.UpgradeSeriesNotStarted,
+		Life:                    s.st.unit.life,
+		Relations:               map[int]remotestate.RelationSnapshot{},
+		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
+		ActionChanged:           map[string]int{},
+		CharmModifiedVersion:    0,
+		CharmURL:                "",
+		ForceCharmUpgrade:       false,
+		ResolvedMode:            s.st.unit.resolved,
+		ConfigHash:              "confighash",
+		TrustHash:               "trusthash",
+		AddressesHash:           "addresseshash",
+		LeaderSettingsVersion:   1,
+		Leader:                  true,
+		UpgradeMachineStatus:    model.UpgradeSeriesNotStarted,
+		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
+		ObsoleteSecretRevisions: map[string][]int{},
 	})
 }
 
@@ -1114,4 +1236,157 @@ func (s *WatcherSuite) TestShutdown(c *gc.C) {
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	snap = s.watcher.Snapshot()
 	c.Assert(snap.Shutdown, jc.IsTrue)
+}
+
+func (s *WatcherSuite) TestRotateSecretsSignal(c *gc.C) {
+	s.signalAll()
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	snap := s.watcher.Snapshot()
+	c.Assert(snap.SecretRotations, gc.HasLen, 0)
+
+	rotateWatcher := remotestate.SecretRotateWatcher(s.watcher).(*mockSecretTriggerWatcher)
+
+	select {
+	case rotateWatcher.ch <- []string{"secret:9m4e2mr0ui3e8a215n4g"}:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out waiting to signal rotate secret channel")
+	}
+
+	// Need to synchronize here in case the goroutine receiving from the
+	// channel processes the first event but not the second (in which case the
+	// assertion at the bottom of this test sometimes failed).
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	// Adding same event twice shouldn't re-add it.
+	select {
+	case rotateWatcher.ch <- []string{"secret:9m4e2mr0ui3e8a215n4g"}:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out waiting to signal rotate secret channel")
+	}
+
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	snap = s.watcher.Snapshot()
+	c.Assert(snap.SecretRotations, gc.DeepEquals, []string{"secret:9m4e2mr0ui3e8a215n4g"})
+
+	s.watcher.RotateSecretCompleted("secret:9m4e2mr0ui3e8a215n4g")
+	snap = s.watcher.Snapshot()
+	c.Assert(snap.SecretRotations, gc.HasLen, 0)
+}
+
+func (s *WatcherSuite) TestExpireSecretRevisionsSignal(c *gc.C) {
+	s.signalAll()
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	snap := s.watcher.Snapshot()
+	c.Assert(snap.ExpiredSecretRevisions, gc.HasLen, 0)
+
+	expireWatcher := remotestate.SecretExpiryWatcherFunc(s.watcher).(*mockSecretTriggerWatcher)
+	select {
+	case expireWatcher.ch <- []string{"secret:9m4e2mr0ui3e8a215n4g/666"}:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out waiting to signal expire secret channel")
+	}
+
+	// Need to synchronize here in case the goroutine receiving from the
+	// channel processes the first event but not the second (in which case the
+	// assertion at the bottom of this test sometimes failed).
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	// Adding same event twice shouldn't re-add it.
+	select {
+	case expireWatcher.ch <- []string{"secret:9m4e2mr0ui3e8a215n4g/666"}:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out waiting to signal expire secret channel")
+	}
+
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	snap = s.watcher.Snapshot()
+	c.Assert(snap.ExpiredSecretRevisions, gc.DeepEquals, []string{"secret:9m4e2mr0ui3e8a215n4g/666"})
+
+	s.watcher.ExpireRevisionCompleted("secret:9m4e2mr0ui3e8a215n4g/666")
+	snap = s.watcher.Snapshot()
+	c.Assert(snap.ExpiredSecretRevisions, gc.HasLen, 0)
+}
+
+func (s *WatcherSuite) TestDeleteSecretSignal(c *gc.C) {
+	s.signalAll()
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	snap := s.watcher.Snapshot()
+	c.Assert(snap.ExpiredSecretRevisions, gc.HasLen, 0)
+
+	secretWatcher := s.secretsClient.secretsWatcher
+	select {
+	case secretWatcher.changes <- []string{"secret:9m4e2mr0ui3e8a215n4g"}:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out waiting to signal secret channel")
+	}
+
+	// Need to synchronize here in case the goroutine receiving from the
+	// channel processes the first event but not the second (in which case the
+	// assertion at the bottom of this test sometimes failed).
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	// Adding same event twice shouldn't re-add it.
+	select {
+	case secretWatcher.changes <- []string{"secret:9m4e2mr0ui3e8a215n4g"}:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out waiting to signal secret channel")
+	}
+
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	snap = s.watcher.Snapshot()
+	c.Assert(snap.DeletedSecrets, gc.DeepEquals, []string{"secret:9m4e2mr0ui3e8a215n4g"})
+
+	s.watcher.RemoveSecretsCompleted([]string{"secret:9m4e2mr0ui3e8a215n4g"})
+	snap = s.watcher.Snapshot()
+	c.Assert(snap.DeletedSecrets, gc.HasLen, 0)
+}
+
+func (s *WatcherSuite) TestLeaderRunsSecretTriggerWatchers(c *gc.C) {
+	s.leadership.claimTicket.result = false
+	s.signalAll()
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(s.watcher.Snapshot().Leader, jc.IsFalse)
+
+	s.leadership.leaderTicket.ch <- struct{}{}
+
+	select {
+	case unitName := <-s.rotateSecretWatcherEvent:
+		c.Assert(unitName, gc.Equals, "mysql/0")
+	case <-time.After(2000 * testing.LongWait):
+		c.Fatalf("timed out waiting to signal rotate secret channel")
+	}
+
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(s.watcher.Snapshot().Leader, jc.IsTrue)
+
+	rotateWatcher := remotestate.SecretRotateWatcher(s.watcher).(*mockSecretTriggerWatcher)
+	rotateWatcher.ch <- []string{"secret:8b4e2mr1wi3e8a215n5h"}
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(s.watcher.Snapshot().SecretRotations, jc.DeepEquals, []string{"secret:8b4e2mr1wi3e8a215n5h"})
+
+	expiryWatcher := remotestate.SecretExpiryWatcherFunc(s.watcher).(*mockSecretTriggerWatcher)
+	expiryWatcher.ch <- []string{"secret:8b4e2mr1wi3e8a215n5h/666"}
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(s.watcher.Snapshot().ExpiredSecretRevisions, jc.DeepEquals, []string{"secret:8b4e2mr1wi3e8a215n5h/666"})
+
+	// When not a leader anymore, stop the worker.
+	s.leadership.minionTicket.ch <- struct{}{}
+	select {
+	case <-rotateWatcher.stopCh:
+	case <-time.After(2000 * testing.LongWait):
+		c.Fatalf("timed out waiting to signal stop worker channel")
+	}
+
+	// When not a leader anymore, clear any pending secrets to be rotated/expired.
+	c.Assert(s.watcher.Snapshot().SecretRotations, gc.HasLen, 0)
+	c.Assert(s.watcher.Snapshot().ExpiredSecretRevisions, gc.HasLen, 0)
+
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(s.watcher.Snapshot().Leader, jc.IsFalse)
 }

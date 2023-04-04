@@ -6,7 +6,6 @@ package backups
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 
 	"github.com/juju/errors"
 )
@@ -15,18 +14,15 @@ var (
 	Create        = create
 	FileTimestamp = fileTimestamp
 
-	TestGetFilesToBackUp  = &getFilesToBackUp
-	GetDBDumper           = &getDBDumper
-	RunCreate             = &runCreate
-	FinishMeta            = &finishMeta
-	GetMongodumpPath      = &getMongodumpPath
-	GetMongorestorePath   = &getMongorestorePath
-	RunCommand            = &runCommandFn
-	ReplaceableFolders    = &replaceableFolders
-	MongoInstalledVersion = &mongoInstalledVersion
-	AvailableDisk         = &availableDisk
-	TotalDisk             = &totalDisk
-	DirSize               = &dirSize
+	TestGetFilesToBackUp = &getFilesToBackUp
+	GetDBDumper          = &getDBDumper
+	RunCreate            = &runCreate
+	FinishMeta           = &finishMeta
+	GetMongodumpPath     = &getMongodumpPath
+	RunCommand           = &runCommandFn
+	AvailableDisk        = &availableDisk
+	TotalDisk            = &totalDisk
+	DirSize              = &dirSize
 )
 
 // ExposeCreateResult extracts the values in a create() result.
@@ -66,7 +62,7 @@ func NewTestCreate(result *createResult) (*createArgs, func(*createArgs) (*creat
 	var received createArgs
 
 	if result == nil {
-		archiveFile := ioutil.NopCloser(bytes.NewBufferString("<archive>"))
+		archiveFile := io.NopCloser(bytes.NewBufferString("<archive>"))
 		result = NewTestCreateResult(archiveFile, 10, "<checksum>", "")
 	}
 

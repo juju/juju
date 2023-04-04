@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2/bson"
+	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
@@ -35,7 +35,7 @@ type MachineModelInfo struct {
 }
 
 // ModelSummary describe interesting information for a given model. This is meant to match the values that a user wants
-// to see as part of either show-model or list-models.
+// to see as part of either show-model or models.
 type ModelSummary struct {
 	Name           string
 	UUID           string

@@ -4,8 +4,8 @@
 package utils
 
 import (
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 
 	apicharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/common/charms"

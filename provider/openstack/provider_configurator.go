@@ -35,14 +35,13 @@ func (c *defaultConfigurator) ModifyRunServerOptions(_ *nova.RunServerOpts) {
 
 // GetCloudConfig implements ProviderConfigurator interface.
 func (c *defaultConfigurator) GetCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, error) {
-	cloudCfg, err := cloudinit.New(args.InstanceConfig.Series)
+	cloudCfg, err := cloudinit.New(args.InstanceConfig.Base.OS)
 	return cloudCfg, errors.Trace(err)
 }
 
 // GetConfigDefaults implements ProviderConfigurator interface.
 func (c *defaultConfigurator) GetConfigDefaults() schema.Defaults {
 	return schema.Defaults{
-		"use-floating-ip":      schema.Omit,
 		"use-default-secgroup": false,
 		"network":              "",
 		"external-network":     "",

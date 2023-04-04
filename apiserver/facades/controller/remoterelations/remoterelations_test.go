@@ -5,7 +5,7 @@ package remoterelations_test
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -124,64 +124,6 @@ func (s *remoteRelationsSuite) TestWatchRemoteRelations(c *gc.C) {
 	resource := s.resources.Get("1")
 	c.Assert(resource, gc.NotNil)
 	c.Assert(resource, gc.Implements, new(state.StringsWatcher))
-}
-
-func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	djangoRelationUnitsWatcher := newMockRelationUnitsWatcher()
-	djangoRelationUnitsWatcher.changes <- watcher.RelationUnitsChange{
-		Changed:    map[string]watcher.UnitSettings{"django/0": {Version: 1}},
-		AppChanged: map[string]int64{"django": 0},
-	}
-	djangoRelation := newMockRelation(123)
-	djangoRelation.endpointUnitsWatchers["django"] = djangoRelationUnitsWatcher
-	djangoRelation.endpoints = []state.Endpoint{{
-		ApplicationName: "db2",
-	}, {
-		ApplicationName: "django",
-	}}
-
-	s.st.EXPECT().KeyRelation("django:db db2:db").Return(djangoRelation, nil)
-	s.st.EXPECT().Application("db2").Return(nil, errors.NotFoundf(`application "db2"`))
-	s.st.EXPECT().Application("django").Return(nil, nil)
-	s.st.EXPECT().KeyRelation("hadoop:db db2:db").Return(nil, errors.NotFoundf(`relation "hadoop:db db2:db"`))
-
-	// WatchLocalRelationUnits has been removed from the V2 API.
-	api := &remoterelations.APIv1{s.api}
-	results, err := api.WatchLocalRelationUnits(params.Entities{[]params.Entity{
-		{"relation-django:db#db2:db"},
-		{"relation-hadoop:db#db2:db"},
-		{"machine-42"},
-	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, jc.DeepEquals, []params.RelationUnitsWatchResult{{
-		RelationUnitsWatcherId: "1",
-		Changes: params.RelationUnitsChange{
-			Changed: map[string]params.UnitSettings{
-				"django/0": {
-					Version: 1,
-				},
-			},
-			AppChanged: map[string]int64{
-				"django": 0,
-			},
-		},
-	}, {
-		Error: &params.Error{
-			Code:    params.CodeNotFound,
-			Message: `getting relation for "hadoop:db db2:db": relation "hadoop:db db2:db" not found`,
-		},
-	}, {
-		Error: &params.Error{
-			Message: `"machine-42" is not a valid relation tag`,
-		},
-	}})
-
-	djangoRelation.CheckCalls(c, []testing.StubCall{
-		{"Endpoints", []interface{}{}},
-		{"WatchUnits", []interface{}{"django"}},
-	})
 }
 
 func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
@@ -357,24 +299,6 @@ func (s *remoteRelationsSuite) TestSaveMacaroons(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
-}
-
-func (s *remoteRelationsSuite) TestRelationUnitSettings(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	djangoRelationUnit := newMockRelationUnit()
-	djangoRelationUnit.settings["key"] = "value"
-	db2Relation := newMockRelation(123)
-	db2Relation.units["django/0"] = djangoRelationUnit
-
-	s.st.EXPECT().KeyRelation("db2:db django:db").Return(db2Relation, nil)
-
-	// RelationUnitSettings has been removed from the V2 API.
-	api := &remoterelations.APIv1{s.api}
-	result, err := api.RelationUnitSettings(params.RelationUnits{
-		RelationUnits: []params.RelationUnit{{Relation: "relation-db2.db#django.db", Unit: "unit-django-0"}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, jc.DeepEquals, []params.SettingsResult{{Settings: params.Settings{"key": "value"}}})
 }
 
 func (s *remoteRelationsSuite) TestRemoteApplications(c *gc.C) {

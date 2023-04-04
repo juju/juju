@@ -6,16 +6,16 @@ package binarystorage_test
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strings"
 	stdtesting "testing"
 
-	"github.com/juju/blobstore/v2"
+	"github.com/juju/blobstore/v3"
 	"github.com/juju/errors"
-	mgotesting "github.com/juju/mgo/v2/testing"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	jc "github.com/juju/testing/checkers"
-	jujutxn "github.com/juju/txn/v2"
-	txntesting "github.com/juju/txn/v2/testing"
+	jujutxn "github.com/juju/txn/v3"
+	txntesting "github.com/juju/txn/v3/testing"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
@@ -52,7 +52,13 @@ func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
 	s.metadataCollection, closer = mongo.CollectionFromName(catalogue, "binarymetadata")
 	s.addCleanup(func(*gc.C) { closer() })
 	s.managedStorage = blobstore.NewManagedStorage(s.metadataCollection.Writeable().Underlying().Database, rs)
-	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{Database: catalogue})
+	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{
+		Database:                  catalogue,
+		TransactionCollectionName: "txns",
+		ChangeLogName:             "-",
+		ServerSideTransactions:    true,
+		MaxRetryAttempts:          3,
+	})
 	s.storage = binarystorage.New("my-uuid", s.managedStorage, s.metadataCollection, s.txnRunner)
 }
 
@@ -98,7 +104,7 @@ func (s *binaryStorageSuite) testAdd(c *gc.C, content string) {
 	defer rc.Close()
 	c.Assert(metadata, gc.Equals, addedMetadata)
 
-	data, err := ioutil.ReadAll(rc)
+	data, err := io.ReadAll(rc)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, content)
 }
@@ -175,7 +181,7 @@ func (s *binaryStorageSuite) TestOpen(c *gc.C) {
 		SHA256:  "hash(abc)",
 	})
 
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, "blah")
 }
@@ -360,7 +366,7 @@ func (s *binaryStorageSuite) assertMetadataAndContent(c *gc.C, expected binaryst
 	defer r.Close()
 	c.Assert(metadata, gc.Equals, expected)
 
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, content)
 }

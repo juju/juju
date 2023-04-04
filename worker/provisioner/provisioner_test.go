@@ -55,7 +55,6 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/provisioner"
 )
 
@@ -83,8 +82,6 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 	err := s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.BackingState.StartSync()
-
 	// Wait for the PA to load the new configuration. We wait for the change we expect
 	// like this because sometimes we pick up the initial harvest config (destroyed)
 	// rather than the one we change to (all).
@@ -98,7 +95,6 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 			}
 			received = append(received, newCfg.ProvisionerHarvestMode().String())
 		case <-time.After(coretesting.ShortWait):
-			s.BackingState.StartSync()
 		case <-timeout:
 			if len(received) == 0 {
 				c.Fatalf("PA did not action config change")
@@ -125,8 +121,6 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCou
 	err := s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.BackingState.StartSync()
-
 	// Wait for the PA to load the new configuration. We wait for the change we expect
 	// like this because sometimes we pick up the initial harvest config (destroyed)
 	// rather than the one we change to (all).
@@ -146,9 +140,6 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCou
 				}
 				received = append(received, newCfg.NumProvisionWorkers())
 			}
-
-		case <-time.After(coretesting.ShortWait):
-			s.BackingState.StartSync()
 		case <-timeout:
 			if len(received) == 0 {
 				c.Fatalf("PA did not action config change")
@@ -180,7 +171,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	err := s.State.CloudImageMetadataStorage.SaveMetadata([]cloudimagemetadata.Metadata{{
 		MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 			Region:          "region",
-			Series:          "trusty",
+			Version:         "22.04",
 			Arch:            "amd64",
 			VirtType:        "",
 			RootStorageType: "",
@@ -218,7 +209,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Addresses:  pAddrs,
-		Series:     "quantal",
+		Base:       state.UbuntuBase("12.10"),
 		Nonce:      agent.BootstrapNonce,
 		InstanceId: dummy.BootstrapInstanceId,
 		Jobs:       []state.MachineJob{state.JobManageModel},
@@ -301,7 +292,6 @@ func (s *CommonProvisionerSuite) checkStartInstancesCustom(
 ) (
 	returnInstances map[string]instances.Instance,
 ) {
-	s.BackingState.StartSync()
 	returnInstances = make(map[string]instances.Instance, len(machines))
 	found := 0
 	for {
@@ -395,7 +385,6 @@ func (s *CommonProvisionerSuite) checkStartInstancesCustom(
 
 // checkNoOperations checks that the environ was not operated upon.
 func (s *CommonProvisionerSuite) checkNoOperations(c *gc.C) {
-	s.BackingState.StartSync()
 	select {
 	case o := <-s.op:
 		c.Fatalf("unexpected operation %+v", o)
@@ -413,7 +402,6 @@ func (s *CommonProvisionerSuite) checkStopInstances(c *gc.C, instances ...instan
 func (s *CommonProvisionerSuite) checkStopSomeInstances(c *gc.C,
 	instancesToStop []instances.Instance, instancesToKeep []instances.Instance) {
 
-	s.BackingState.StartSync()
 	instanceIdsToStop := set.NewStrings()
 	for _, instance := range instancesToStop {
 		instanceIdsToStop.Add(string(instance.Id()))
@@ -463,7 +451,7 @@ func (s *CommonProvisionerSuite) waitForWatcher(c *gc.C, w state.NotifyWatcher, 
 			}
 		case <-resync:
 			resync = time.After(coretesting.ShortWait)
-			s.BackingState.StartSync()
+
 		case <-timeout:
 			c.Fatalf("%v wait timed out", name)
 		}
@@ -524,7 +512,7 @@ func (s *CommonProvisionerSuite) addMachine() (*state.Machine, error) {
 
 func (s *CommonProvisionerSuite) addMachineWithConstraints(cons constraints.Value) (*state.Machine, error) {
 	return s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:      jujuversion.DefaultSupportedLTS(),
+		Base:        state.DefaultLTSBase(),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
 	})
@@ -534,7 +522,7 @@ func (s *CommonProvisionerSuite) addMachines(number int) ([]*state.Machine, erro
 	templates := make([]state.MachineTemplate, number)
 	for i := range templates {
 		templates[i] = state.MachineTemplate{
-			Series:      jujuversion.DefaultSupportedLTS(),
+			Base:        state.DefaultLTSBase(),
 			Jobs:        []state.MachineJob{state.JobHostUnits},
 			Constraints: s.defaultConstraints,
 		}
@@ -543,7 +531,7 @@ func (s *CommonProvisionerSuite) addMachines(number int) ([]*state.Machine, erro
 }
 
 func (s *CommonProvisionerSuite) enableHA(c *gc.C, n int) []*state.Machine {
-	changes, err := s.BackingState.EnableHA(n, s.defaultConstraints, jujuversion.DefaultSupportedLTS(), nil)
+	changes, err := s.BackingState.EnableHA(n, s.defaultConstraints, state.DefaultLTSBase(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	added := make([]*state.Machine, len(changes.Added))
 	for i, mid := range changes.Added {
@@ -627,8 +615,8 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 
 	// Create the machine and check the tools that get passed into StartInstance.
 	machine, err := s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -705,7 +693,7 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable
 	// Check that an instance is not provisioned when the machine is created...
 	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
 		// We need a valid series that has no tools uploaded
-		Series:      "win10",
+		Base:        state.Base{OS: "centos", Channel: "7"},
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: s.defaultConstraints,
 	})
@@ -859,8 +847,8 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForLXD(c *gc.C) {
 
 	// make a container on the machine we just created
 	template := state.MachineTemplate{
-		Series: jujuversion.DefaultSupportedLTS(),
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.DefaultLTSBase(),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, m.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
@@ -887,8 +875,8 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForKVM(c *gc.C) {
 
 	// make a container on the machine we just created
 	template := state.MachineTemplate{
-		Series: jujuversion.DefaultSupportedLTS(),
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.DefaultLTSBase(),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, m.Id(), instance.KVM)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1097,7 +1085,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithEmptySpaces(c *gc.C)
 
 func (s *CommonProvisionerSuite) addMachineWithRequestedVolumes(volumes []state.HostVolumeParams, cons constraints.Value) (*state.Machine, error) {
 	return s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:      jujuversion.DefaultSupportedLTS(),
+		Base:        state.DefaultLTSBase(),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
 		Volumes:     volumes,
@@ -1115,7 +1103,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedRootDisk(c *gc.C
 
 	cons := constraints.MustParse("root-disk-source=persistent-pool " + s.defaultConstraints.String())
 	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:      jujuversion.DefaultSupportedLTS(),
+		Base:        state.DefaultLTSBase(),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
 	})
@@ -1985,8 +1973,8 @@ func (b *mockBroker) DeriveAvailabilityZones(ctx context.ProviderCallContext, ar
 type mockToolsFinder struct {
 }
 
-func (f mockToolsFinder) FindTools(number version.Number, series string, a string) (coretools.List, error) {
-	v, err := version.ParseBinary(fmt.Sprintf("%s-%s-%s", number, series, arch.HostArch()))
+func (f mockToolsFinder) FindTools(number version.Number, os string, a string) (coretools.List, error) {
+	v, err := version.ParseBinary(fmt.Sprintf("%s-%s-%s", number, os, arch.HostArch()))
 	if err != nil {
 		return nil, err
 	}

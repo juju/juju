@@ -16,9 +16,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3"
 
@@ -82,7 +82,7 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	if err == nil {
 		if foundUser.doc.Deleted {
 			// the user was deleted, we update it
-			return st.recreateDeletedUser(foundUser, name, displayName, password, creator, secretKey)
+			return st.recreateExistingUser(foundUser, name, displayName, password, creator, secretKey)
 		} else {
 			return nil, errors.AlreadyExistsf("user %s", name)
 		}
@@ -141,12 +141,8 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	return user, nil
 }
 
-// recreateDeletedUser manipulates the values of an existing user in the db.
-// This is particularly useful when reusing existing users that were previously
-// deleted.
-func (st *State) recreateDeletedUser(u *User, name, displayName, password, creator string, secretKey []byte) (*User, error) {
+func (st *State) recreateExistingUser(u *User, name, displayName, password, creator string, secretKey []byte) (*User, error) {
 	dateCreated := st.nowToTheSecond()
-
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			err := u.Refresh()
@@ -594,7 +590,7 @@ func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
 func (u *User) PasswordValid(password string) bool {
 	// If the User is deactivated or deleted, there is no point in carrying on.
 	// Since any authentication checks are done very soon after the user is
-	// read from the database, there is a very small timeframe where an user
+	// read from the database, there is a very small timeframe where a user
 	// could be disabled after it has been read but prior to being checked, but
 	// in practice, this isn't a problem.
 	if u.IsDisabled() || u.IsDeleted() {

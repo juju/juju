@@ -42,6 +42,13 @@ func checkClientVersion(userLogin bool, callerVersion version.Number) func(facad
 			return nil
 		}
 
+		// Clients can still access the "X+1.0" controller facades.
+		// But we never allow unfetted access to older controllers
+		// as newer clients may have had backwards compatibility removed.
+		if callerVersion.Major < serverVersion.Major && serverVersion.Minor == 0 {
+			return nil
+		}
+
 		// Calls to manage the migration of the target controller
 		// always need to be allowed.
 		if facadeName == "MigrationTarget" {

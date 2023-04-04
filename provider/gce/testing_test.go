@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // Ensure GCE provider supports the expected interfaces.
@@ -117,15 +118,14 @@ type BaseSuiteUnpatched struct {
 	EnvConfig      *environConfig
 	Env            *environ
 
-	Addresses       network.ProviderAddresses
-	BaseInstance    *google.Instance
-	BaseDisk        *google.Disk
-	Instance        *environInstance
-	InstName        string
-	UbuntuMetadata  map[string]string
-	WindowsMetadata map[string]string
-	StartInstArgs   environs.StartInstanceParams
-	InstanceType    instances.InstanceType
+	Addresses      network.ProviderAddresses
+	BaseInstance   *google.Instance
+	BaseDisk       *google.Disk
+	Instance       *environInstance
+	InstName       string
+	UbuntuMetadata map[string]string
+	StartInstArgs  environs.StartInstanceParams
+	InstanceType   instances.InstanceType
 
 	Rules firewall.IngressRules
 }
@@ -166,7 +166,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	cons := constraints.Value{InstanceType: &instType}
 
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons,
-		series.MakeDefaultBase("ubuntu", "14.04"), "", nil)
+		jujuversion.DefaultSupportedLTSBase(), "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = instanceConfig.SetTools(tools)
@@ -185,10 +185,6 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	instanceConfig.Tags = map[string]string{
 		tags.JujuIsController: "true",
 		tags.JujuController:   s.ControllerUUID,
-	}
-	s.WindowsMetadata = map[string]string{
-		metadataKeyWindowsUserdata: string(userData),
-		metadataKeyWindowsSysprep:  fmt.Sprintf(winSetHostnameScript, "juju.*"),
 	}
 	s.Addresses = []network.ProviderAddress{
 		network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)).AsProviderAddress(),
@@ -269,7 +265,7 @@ func (s *BaseSuiteUnpatched) UpdateConfig(c *gc.C, attrs map[string]interface{})
 
 func (s *BaseSuiteUnpatched) NewBaseInstance(c *gc.C, id string) *google.Instance {
 	diskSpec := google.DiskSpec{
-		Series:     "trusty",
+		OS:         "ubuntu",
 		SizeHintGB: 15,
 		ImageURL:   "some/image/path",
 		Boot:       true,
@@ -397,7 +393,7 @@ type fakeCommon struct {
 	fake
 
 	Arch        string
-	Series      string
+	Base        series.Base
 	BSFinalizer environs.CloudBootstrapFinalizer
 	AZInstances []common.AvailabilityZoneInstances
 }
@@ -411,7 +407,7 @@ func (fc *fakeCommon) Bootstrap(ctx environs.BootstrapContext, env environs.Envi
 
 	result := &environs.BootstrapResult{
 		Arch:                    fc.Arch,
-		Series:                  fc.Series,
+		Base:                    fc.Base,
 		CloudBootstrapFinalizer: fc.BSFinalizer,
 	}
 	return result, fc.err()

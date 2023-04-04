@@ -5,7 +5,6 @@ package machine
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -13,9 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3/winrm"
 
-	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/machinemanager"
 	"github.com/juju/juju/api/client/modelconfig"
 	jujucmd "github.com/juju/juju/cmd"
@@ -29,8 +26,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
-	"github.com/juju/juju/environs/manual/winrmprovisioner"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
@@ -136,9 +131,6 @@ Examples:
 	# connection
 	juju add-machine ssh:user@10.10.0.3 --public-key /tmp/id_rsa.pub --private-key /tmp/id_rsa
 
-	# Allocate a machine to the model via WinRM
-	juju add-machine winrm:user@10.10.0.3
-
 	# Allocate a machine to the model. Note: specific to MAAS.
 	juju add-machine host.internal
 
@@ -149,7 +141,7 @@ Further reading:
 
 See also:
 	remove-machine
-	get-model-constraints
+	model-constraints
 	set-model-constraints
 `
 
@@ -186,7 +178,7 @@ type addCommand struct {
 func (c *addCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "add-machine",
-		Args:    "[<container-type>[:<machine-id>] | (ssh|winrm):[<user>@]<host> | <placement>] | <private-key> | <public-key>",
+		Args:    "[<container-type>[:<machine-id>] | ssh:[<user>@]<host> | <placement>] | <private-key> | <public-key>",
 		Purpose: "Provision a new machine or assign one to the model.",
 		Doc:     addMachineDoc,
 	})
@@ -196,7 +188,7 @@ func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.Series, "series", "", "The operating system series to install on the new machine(s)")
 	f.IntVar(&c.NumMachines, "n", 1, "The number of machines to add")
-	f.StringVar(&c.ConstraintsStr, "constraints", "", "Machine constraints that overwrite those available from 'juju get-model-constraints' and provider's defaults")
+	f.StringVar(&c.ConstraintsStr, "constraints", "", "Machine constraints that overwrite those available from 'juju model-constraints' and provider's defaults")
 	f.Var(disksFlag{&c.Disks}, "disks", "Storage constraints for disks to attach to the machine(s)")
 	f.StringVar(&c.PrivateKey, "private-key", "", "Path to the private key to use during the connection")
 	f.StringVar(&c.PublicKey, "public-key", "", "Path to the public key to add to the remote authorized keys")
@@ -231,10 +223,9 @@ type ModelConfigAPI interface {
 
 type MachineManagerAPI interface {
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
-	DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error)
+	DestroyMachinesWithParams(force, keep, dryRun bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error)
 	ModelUUID() (string, bool)
 	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
-	BestAPIVersion() int
 	Close() error
 }
 
@@ -274,19 +265,6 @@ func (c *addCommand) getMachineManagerAPI() (MachineManagerAPI, error) {
 	return c.newMachineManagerClient()
 }
 
-// TODO(juju3) - remove
-type manualAPIAdaptor struct {
-	*apiclient.Client
-}
-
-func (m manualAPIAdaptor) DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
-	err := m.Client.DestroyMachinesWithParams(force, keep, machines...)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return []params.DestroyMachineResult{}, nil
-}
-
 func (c *addCommand) Run(ctx *cmd.Context) error {
 	var err error
 	c.Constraints, err = common.ParseConstraints(ctx, c.ConstraintsStr)
@@ -298,21 +276,6 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer machineManager.Close()
-
-	// Older controllers still have the manual provisioning
-	// methods on the client facade.
-	var manualClientAPI = machineManager
-	if machineManager.BestAPIVersion() < 7 {
-		root, err := c.NewAPIRoot()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		manualClientAPI = &manualAPIAdaptor{apiclient.NewClient(root)}
-	}
-
-	if len(c.Disks) > 0 && machineManager.BestAPIVersion() < 1 {
-		return errors.New("cannot add machines with disks: not supported by the API server")
-	}
 
 	logger.Infof("load config")
 	modelConfigClient, err := c.getModelConfigAPI()
@@ -333,7 +296,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.Placement != nil {
-		err := c.tryManualProvision(manualClientAPI, cfg, ctx)
+		err := c.tryManualProvision(machineManager, cfg, ctx)
 		if err != errNonManualScope {
 			return err
 		}
@@ -356,23 +319,18 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	jobs := []model.MachineJob{model.JobHostUnits}
 
 	var base *params.Base
-	if c.Series != "" && machineManager.BestAPIVersion() >= 8 {
+	if c.Series != "" {
 		info, err := series.GetBaseFromSeries(c.Series)
 		if err != nil {
 			return errors.NotValidf("machine series %q", c.Series)
 		}
-		c.Series = ""
 		base = &params.Base{
-			Name:    info.Name,
+			Name:    info.OS,
 			Channel: info.Channel.String(),
-		}
-		if machineManager.BestAPIVersion() >= 9 {
-			base.Channel = series.FromLegacyCentosChannel(base.Channel)
 		}
 	}
 	machineParams := params.AddMachineParams{
 		Placement:   c.Placement,
-		Series:      c.Series,
 		Base:        base,
 		Constraints: c.Constraints,
 		Jobs:        jobs,
@@ -422,10 +380,8 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 
 var (
 	sshProvisioner    = sshprovisioner.ProvisionMachine
-	winrmProvisioner  = winrmprovisioner.ProvisionMachine
 	errNonManualScope = errors.New("non-manual scope")
 	sshScope          = "ssh"
-	winrmScope        = "winrm"
 )
 
 func (c *addCommand) tryManualProvision(client manual.ProvisioningClientAPI, config *config.Config, ctx *cmd.Context) error {
@@ -434,8 +390,6 @@ func (c *addCommand) tryManualProvision(client manual.ProvisioningClientAPI, con
 	switch c.Placement.Scope {
 	case sshScope:
 		provisionMachine = sshProvisioner
-	case winrmScope:
-		provisionMachine = c.provisionWinRM
 	default:
 		return errNonManualScope
 	}
@@ -467,44 +421,4 @@ func (c *addCommand) tryManualProvision(client manual.ProvisioningClientAPI, con
 	}
 	ctx.Infof("created machine %v", machineId)
 	return nil
-}
-
-func (c *addCommand) provisionWinRM(args manual.ProvisionMachineArgs) (string, error) {
-	base := osenv.JujuXDGDataHomePath("x509")
-	keyPath := filepath.Join(base, "winrmkey.pem")
-	certPath := filepath.Join(base, "winrmcert.crt")
-	cert := winrm.NewX509()
-	if err := cert.LoadClientCert(keyPath, certPath); err != nil {
-		return "", errors.Annotatef(err, "connot load/create x509 client certs for winrm connection")
-	}
-	if err := cert.LoadCACert(filepath.Join(base, "winrmcacert.crt")); err != nil {
-		logger.Infof("cannot not find any CA cert to load")
-	}
-
-	cfg := winrm.ClientConfig{
-		User:    args.User,
-		Host:    args.Host,
-		Key:     cert.ClientKey(),
-		Cert:    cert.ClientCert(),
-		Timeout: 25 * time.Second,
-		Secure:  true,
-	}
-
-	caCert := cert.CACert()
-	if caCert == nil {
-		logger.Infof("Skipping winrm CA validation")
-		cfg.Insecure = true
-	} else {
-		cfg.CACert = caCert
-	}
-
-	client, err := winrm.NewClient(cfg)
-	if err != nil {
-		return "", errors.Annotatef(err, "cannot create WinRM client connection")
-	}
-	args.WinRM = manual.WinRMArgs{
-		Keys:   cert,
-		Client: client,
-	}
-	return winrmProvisioner(args)
 }

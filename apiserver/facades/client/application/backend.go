@@ -6,8 +6,8 @@ package application
 import (
 	"time"
 
-	"github.com/juju/charm/v8"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	"github.com/juju/charm/v9"
+	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
@@ -91,14 +91,13 @@ type Application interface {
 	IsPrincipal() bool
 	IsRemote() bool
 	Life() state.Life
-	Series() string
 	SetCharm(state.SetCharmConfig) error
 	SetConstraints(constraints.Value) error
 	MergeExposeSettings(map[string]state.ExposedEndpoint) error
 	UnsetExposeSettings([]string) error
 	SetMetricCredentials([]byte) error
 	SetMinUnits(int) error
-	UpdateApplicationSeries(string, bool) error
+	UpdateApplicationBase(state.Base, bool) error
 	UpdateCharmConfig(string, charm.Settings) error
 	UpdateApplicationConfig(coreconfig.ConfigAttributes, []string, environschema.Fields, schema.Defaults) error
 	SetScale(int, int64, bool) error

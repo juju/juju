@@ -6,8 +6,6 @@ package cloudinit
 
 import (
 	"github.com/juju/errors"
-	corenetwork "github.com/juju/juju/core/network"
-	jujupackaging "github.com/juju/juju/packaging"
 	"github.com/juju/packaging/v2"
 	"github.com/juju/packaging/v2/commands"
 	"github.com/juju/packaging/v2/config"
@@ -15,8 +13,9 @@ import (
 	"github.com/juju/utils/v3/shell"
 	"golang.org/x/crypto/ssh"
 
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/series"
+	jujupackaging "github.com/juju/juju/packaging"
 )
 
 // CloudConfig is the interface of all cloud-init cloudconfig options.
@@ -30,11 +29,12 @@ type CloudConfig interface {
 	// If the attribute has not been previously set, no error occurs.
 	UnsetAttr(string)
 
-	// GetSeries returns the series this CloudConfig was made for.
-	GetSeries() string
+	// GetOS returns the os this CloudConfig was made for.
+	GetOS() string
 
 	// CloudConfig also contains all the smaller interfaces for config
 	// management:
+
 	UsersConfig
 	SystemUpdateConfig
 	SystemUpgradeConfig
@@ -367,14 +367,6 @@ type AdvancedPackagingConfig interface {
 	//TODO(bogdanteleaga): this might be the same as the exported proxy setting up above, need
 	//to investigate how they're used
 	updateProxySettings(PackageManagerProxyConfig) error
-
-	// RequiresCloudArchiveCloudTools determines whether the cloudconfig
-	// requires the configuration of the cloud archive depending on its series.
-	RequiresCloudArchiveCloudTools() bool
-
-	// AddCloudArchiveCloudTools configures the cloudconfig to set up the cloud
-	// archive if it is required (eg: LTS'es).
-	AddCloudArchiveCloudTools()
 }
 
 type User struct {
@@ -421,62 +413,53 @@ func WithDisableNetplanMACMatch(cfg *cloudConfig) {
 }
 
 // New returns a new Config with no options set.
-func New(ser string, opts ...func(*cloudConfig)) (CloudConfig, error) {
-	seriesOS, err := series.GetOSFromSeries(ser)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func New(osname string, opts ...func(*cloudConfig)) (CloudConfig, error) {
+	osType := os.OSTypeForName(osname)
+	r, _ := shell.NewRenderer("bash")
 
 	cfg := &cloudConfig{
-		series: ser,
-		attrs:  make(map[string]interface{}),
+		osName:   osname,
+		renderer: r,
+		attrs:    make(map[string]interface{}),
 	}
 	for _, opt := range opts {
 		opt(cfg)
 	}
 
-	renderer := func(name string) shell.Renderer { r, _ := shell.NewRenderer(name); return r }
-
-	switch seriesOS {
-	case os.Windows:
-		cfg.renderer = renderer("powershell")
-		return &windowsCloudConfig{cfg}, nil
+	switch osType {
 	case os.Ubuntu:
-		cfg.renderer = renderer("bash")
 		cfg.paccmder = map[jujupackaging.PackageManagerName]commands.PackageCommander{
 			jujupackaging.AptPackageManager:  commands.NewAptPackageCommander(),
 			jujupackaging.SnapPackageManager: commands.NewSnapPackageCommander(),
 		}
 		cfg.pacconfer = map[jujupackaging.PackageManagerName]config.PackagingConfigurer{
-			jujupackaging.AptPackageManager: config.NewAptPackagingConfigurer(ser),
+			jujupackaging.AptPackageManager: config.NewAptPackagingConfigurer(osname),
 		}
 		return &ubuntuCloudConfig{cfg}, nil
 	case os.CentOS:
-		cfg.renderer = renderer("bash")
 		cfg.paccmder = map[jujupackaging.PackageManagerName]commands.PackageCommander{
 			jujupackaging.YumPackageManager: commands.NewYumPackageCommander(),
 		}
 		cfg.pacconfer = map[jujupackaging.PackageManagerName]config.PackagingConfigurer{
-			jujupackaging.YumPackageManager: config.NewYumPackagingConfigurer(ser),
+			jujupackaging.YumPackageManager: config.NewYumPackagingConfigurer("centos7"),
 		}
 		return &centOSCloudConfig{
 			cloudConfig: cfg,
 			helper:      centOSHelper{},
 		}, nil
 	case os.OpenSUSE:
-		cfg.renderer = renderer("bash")
 		cfg.paccmder = map[jujupackaging.PackageManagerName]commands.PackageCommander{
 			jujupackaging.ZypperPackageManager: commands.NewZypperPackageCommander(),
 		}
 		cfg.pacconfer = map[jujupackaging.PackageManagerName]config.PackagingConfigurer{
-			jujupackaging.ZypperPackageManager: config.NewZypperPackagingConfigurer(ser),
+			jujupackaging.ZypperPackageManager: config.NewZypperPackagingConfigurer(osname),
 		}
 		return &centOSCloudConfig{
 			cloudConfig: cfg,
 			helper:      openSUSEHelper{paccmder: commands.NewZypperPackageCommander()},
 		}, nil
 	default:
-		return nil, errors.NotFoundf("cloudconfig for series %q", ser)
+		return nil, errors.NotFoundf("cloudconfig for os %q", osname)
 	}
 }
 

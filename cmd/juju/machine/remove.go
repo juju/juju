@@ -4,6 +4,8 @@
 package machine
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/juju/cmd/v3"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/machinemanager"
+	"github.com/juju/juju/api/client/modelconfig"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -26,13 +29,18 @@ func NewRemoveCommand() cmd.Command {
 
 // removeCommand causes an existing machine to be destroyed.
 type removeCommand struct {
+	modelcmd.RemoveConfirmationCommandBase
 	baseMachinesCommand
-	apiRoot      api.Connection
-	machineAPI   RemoveMachineAPI
+	apiRoot api.Connection
+
+	machineAPI     RemoveMachineAPI
+	modelConfigApi ModelConfigAPI
+
 	MachineIds   []string
 	Force        bool
 	KeepInstance bool
 	NoWait       bool
+	DryRun       bool
 	fs           *gnuflag.FlagSet
 }
 
@@ -65,6 +73,14 @@ See also:
     add-machine
 `
 
+var removeMachineMsgNoDryRun = `
+This command will remove machine(s) %q
+Your controller does not support dry runs`[1:]
+
+var removeMachineMsgPrefix = "This command will perform the following actions:"
+
+var errDryRunNotSupported = errors.New("Your controller does not support `--dry-run`")
+
 // Info implements Command.Info.
 func (c *removeCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
@@ -78,9 +94,8 @@ func (c *removeCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	// This unused var is declared so we can pass a valid ptr into BoolVar
-	var noPromptHolder bool
-	f.BoolVar(&noPromptHolder, "no-prompt", false, "Does nothing. Option present for forward compatibility with Juju 3")
+	c.RemoveConfirmationCommandBase.SetFlags(f)
+	f.BoolVar(&c.DryRun, "dry-run", false, "Print what this command would be removed without removing")
 	f.BoolVar(&c.Force, "force", false, "Completely remove a machine and all its dependencies")
 	f.BoolVar(&c.KeepInstance, "keep-instance", false, "Do not stop the running cloud instance")
 	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through machine removal without waiting for each individual step to complete")
@@ -96,12 +111,17 @@ func (c *removeCommand) Init(args []string) error {
 			return errors.Errorf("invalid machine id %q", id)
 		}
 	}
+	if !c.Force && c.NoWait {
+		return errors.NotValidf("--no-wait without --force")
+	}
+
 	c.MachineIds = args
 	return nil
 }
 
 type RemoveMachineAPI interface {
-	DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error)
+	DestroyMachinesWithParams(force, keep, dryRun bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error)
+	BestAPIVersion() int
 	Close() error
 }
 
@@ -120,32 +140,26 @@ func (c *removeCommand) getRemoveMachineAPI() (RemoveMachineAPI, error) {
 	if err != nil {
 		return nil, err
 	}
-	if root.BestFacadeVersion("MachineManager") < 4 && c.KeepInstance {
-		return nil, errors.New("this version of Juju doesn't support --keep-instance")
-	}
 	return machinemanager.NewClient(root), nil
+}
+
+func (c *removeCommand) getModelConfigAPI() (ModelConfigAPI, error) {
+	if c.modelConfigApi != nil {
+		return c.modelConfigApi, nil
+	}
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return modelconfig.NewClient(root), nil
 }
 
 // Run implements Command.Run.
 func (c *removeCommand) Run(ctx *cmd.Context) error {
-	noWaitSet := false
-	forceSet := false
-	c.fs.Visit(func(flag *gnuflag.Flag) {
-		if flag.Name == "no-wait" {
-			noWaitSet = true
-		} else if flag.Name == "force" {
-			forceSet = true
-		}
-	})
-	if !forceSet && noWaitSet {
-		return errors.NotValidf("--no-wait without --force")
-	}
 	var maxWait *time.Duration
-	if c.Force {
-		if c.NoWait {
-			zeroSec := 0 * time.Second
-			maxWait = &zeroSec
-		}
+	if c.NoWait {
+		zeroSec := 0 * time.Second
+		maxWait = &zeroSec
 	}
 
 	client, err := c.getRemoveMachineAPI()
@@ -154,72 +168,136 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	results, err := client.DestroyMachinesWithParams(c.Force, c.KeepInstance, maxWait, c.MachineIds...)
-	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
+	modelConfigClient, err := c.getModelConfigAPI()
+	if err != nil {
 		return err
 	}
+	defer modelConfigClient.Close()
 
-	anyFailed := false
-	for i, result := range results {
-		// This is for backwards compatibility with controllers that
-		// don't include MachineID (and DestroyedContainers) in results
-		// TODO(jack-w-shaw) Drop this in 3.0
-		if result.Error == nil && result.Info.MachineId == "" {
-			result.Info.MachineId = c.MachineIds[i]
+	if c.DryRun {
+		return c.performDryRun(ctx, client)
+	}
+
+	needsConfirmation := c.NeedsConfirmation(modelConfigClient)
+	if needsConfirmation {
+		err := c.performDryRun(ctx, client)
+		if err == errDryRunNotSupported {
+			ctx.Warningf(removeMachineMsgNoDryRun, strings.Join(c.MachineIds, ", "))
+		} else if err != nil {
+			return err
 		}
-		err = logRemovedMachine(ctx, result, c.KeepInstance)
-		if err != nil {
-			anyFailed = true
-			ctx.Infof("%s", err)
+		if err := jujucmd.UserConfirmYes(ctx); err != nil {
+			return errors.Annotate(err, "machine removal")
 		}
 	}
 
+	results, err := client.DestroyMachinesWithParams(c.Force, c.KeepInstance, false, maxWait, c.MachineIds...)
+	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
+		return errors.Trace(err)
+	}
+
+	logAll := !needsConfirmation || client.BestAPIVersion() < 10
+	if logAll {
+		return c.logResults(ctx, results)
+	} else {
+		return c.logErrors(ctx, results)
+	}
+}
+
+func (c *removeCommand) performDryRun(ctx *cmd.Context, client RemoveMachineAPI) error {
+	// TODO(jack-w-shaw) Drop this once machinemanager 9 support is dropped
+	if client.BestAPIVersion() < 10 {
+		return errDryRunNotSupported
+	}
+	results, err := client.DestroyMachinesWithParams(c.Force, c.KeepInstance, true, nil, c.MachineIds...)
+	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
+		return errors.Trace(err)
+	}
+	if err := c.logErrors(ctx, results); err != nil {
+		return err
+	}
+	ctx.Warningf(removeMachineMsgPrefix)
+	_ = c.logResults(ctx, results)
+	if c.runNeedsForce(results) && !c.Force {
+		ctx.Infof("\nThis will require `--force`")
+	}
+	return nil
+}
+
+func (c *removeCommand) runNeedsForce(results []params.DestroyMachineResult) bool {
+	for _, result := range results {
+		if result.Error != nil {
+			continue
+		}
+		if len(result.Info.DestroyedContainers) > 0 || len(result.Info.DestroyedUnits) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *removeCommand) logErrors(ctx *cmd.Context, results []params.DestroyMachineResult) error {
+	return c.log(ctx, results, true)
+}
+
+func (c *removeCommand) logResults(ctx *cmd.Context, results []params.DestroyMachineResult) error {
+	return c.log(ctx, results, false)
+}
+
+func (c *removeCommand) log(ctx *cmd.Context, results []params.DestroyMachineResult, errorOnly bool) error {
+	anyFailed := false
+	for _, result := range results {
+		if err := c.logResult(ctx, result, errorOnly); err != nil {
+			anyFailed = true
+		}
+	}
 	if anyFailed {
 		return cmd.ErrSilent
 	}
 	return nil
 }
 
-func logRemovedMachine(ctx *cmd.Context, result params.DestroyMachineResult, keepInstance bool) error {
+func (c *removeCommand) logResult(ctx *cmd.Context, result params.DestroyMachineResult, errorOnly bool) error {
 	if result.Error != nil {
-		return errors.Errorf("removing machine failed: %s", result.Error)
+		err := errors.Annotate(result.Error, "removing machine failed")
+		cmd.WriteError(ctx.Stderr, err)
+		return errors.Trace(err)
 	}
-	for _, destroyContainerResult := range result.Info.DestroyedContainers {
-		err := logRemovedMachine(ctx, destroyContainerResult, keepInstance)
-		if err != nil {
-			ctx.Infof("%s", err)
-		}
-		ctx.Infof("\n")
+	if !errorOnly {
+		c.logRemovedMachine(ctx, result.Info)
 	}
-	id := result.Info.MachineId
-	if keepInstance {
-		ctx.Infof("removing machine %s (but retaining cloud instance)", id)
+	return c.log(ctx, result.Info.DestroyedContainers, errorOnly)
+}
+
+func (c *removeCommand) logRemovedMachine(ctx *cmd.Context, info *params.DestroyMachineInfo) {
+	id := info.MachineId
+	if c.KeepInstance {
+		_, _ = fmt.Fprintf(ctx.Stdout, "will remove machine %s (but retaining cloud instance)\n", id)
 	} else {
-		ctx.Infof("removing machine %s", id)
+		_, _ = fmt.Fprintf(ctx.Stdout, "will remove machine %s\n", id)
 	}
-	for _, entity := range result.Info.DestroyedUnits {
+	for _, entity := range info.DestroyedUnits {
 		unitTag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			logger.Warningf("%s", err)
+			ctx.Warningf("%s", err)
 			continue
 		}
-		ctx.Infof("- will remove %s", names.ReadableString(unitTag))
+		_, _ = fmt.Fprintf(ctx.Stdout, "- will remove %s\n", names.ReadableString(unitTag))
 	}
-	for _, entity := range result.Info.DestroyedStorage {
+	for _, entity := range info.DestroyedStorage {
 		storageTag, err := names.ParseStorageTag(entity.Tag)
 		if err != nil {
-			logger.Warningf("%s", err)
+			ctx.Warningf("%s", err)
 			continue
 		}
-		ctx.Infof("- will remove %s", names.ReadableString(storageTag))
+		_, _ = fmt.Fprintf(ctx.Stdout, "- will remove %s\n", names.ReadableString(storageTag))
 	}
-	for _, entity := range result.Info.DetachedStorage {
+	for _, entity := range info.DetachedStorage {
 		storageTag, err := names.ParseStorageTag(entity.Tag)
 		if err != nil {
-			logger.Warningf("%s", err)
+			ctx.Warningf("%s", err)
 			continue
 		}
-		ctx.Infof("- will detach %s", names.ReadableString(storageTag))
+		_, _ = fmt.Fprintf(ctx.Stdout, "- will detach %s\n", names.ReadableString(storageTag))
 	}
-	return nil
 }

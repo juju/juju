@@ -6,7 +6,6 @@ package params
 // TODO(ericsnow) Eliminate the juju-related imports.
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/juju/juju/core/instance"
@@ -97,11 +96,6 @@ type MachineStatus struct {
 	// DisplayName is a human-readable name for this machine.
 	DisplayName string `json:"display-name"`
 
-	// Series holds the name of the operating system release installed on
-	// this machine.
-	// TODO(juju3) - remove series
-	Series string `json:"series"`
-
 	// Base holds the details of the operating system release installed on
 	// this machine.
 	Base Base `json:"base"`
@@ -146,13 +140,11 @@ type LXDProfile struct {
 
 // ApplicationStatus holds status info about an application.
 type ApplicationStatus struct {
-	Err          *Error `json:"err,omitempty"`
-	Charm        string `json:"charm"`
-	CharmVersion string `json:"charm-version"`
-	CharmProfile string `json:"charm-profile"`
-	CharmChannel string `json:"charm-channel,omitempty"`
-	// TODO(juju3) - remove series
-	Series           string                     `json:"series"`
+	Err              *Error                     `json:"err,omitempty"`
+	Charm            string                     `json:"charm"`
+	CharmVersion     string                     `json:"charm-version"`
+	CharmProfile     string                     `json:"charm-profile"`
+	CharmChannel     string                     `json:"charm-channel,omitempty"`
 	Base             Base                       `json:"base"`
 	Exposed          bool                       `json:"exposed"`
 	ExposedEndpoints map[string]ExposedEndpoint `json:"exposed-endpoints,omitempty"`
@@ -170,19 +162,6 @@ type ApplicationStatus struct {
 	Scale         int    `json:"int,omitempty"`
 	ProviderId    string `json:"provider-id,omitempty"`
 	PublicAddress string `json:"public-address"`
-}
-
-// MarshalJSON marshals a status with a typo left in for compatibility.
-// TODO(wallyworld) - remove in Juju 3
-func (as ApplicationStatus) MarshalJSON() ([]byte, error) {
-	type Alias ApplicationStatus
-	return json.Marshal(&struct {
-		LegacyCharmVersion string `json:"charm-verion"`
-		Alias
-	}{
-		LegacyCharmVersion: as.CharmVersion,
-		Alias:              Alias(as),
-	})
 }
 
 // RemoteApplicationStatus holds status info about a remote application.

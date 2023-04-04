@@ -42,7 +42,7 @@ def deploy_mediawiki_with_db(client):
     client.deploy('cs:percona-cluster')
     client.wait_for_started()
     client.wait_for_workloads()
-    client.juju('run', ('--unit', 'percona-cluster/0', 'leader-get'))
+    client.juju('exec', ('--unit', 'percona-cluster/0', 'leader-get'))
 
     # Using local mediawiki charm due to db connect bug.
     # Once that's fixed we can use from the charmstore.
@@ -80,7 +80,7 @@ def deploy_keystone_with_db(client):
     client.deploy('cs:percona-cluster')
     client.wait_for_started()
     client.wait_for_workloads()
-    client.juju('run', ('--unit', 'percona-cluster/0', 'leader-get'))
+    client.juju('exec', ('--unit', 'percona-cluster/0', 'leader-get'))
 
     # use a charm which is under development by
     # canonical to try to avoid rot.
@@ -119,15 +119,15 @@ def deploy_simple_server_to_new_model(
         new_model.set_model_constraints(constraints)
     new_model.deploy('cs:nrpe', series=series, force=True)
     new_model.deploy('cs:nagios', series=series, force=True)
-    new_model.juju('add-relation', ('nrpe:monitors', 'nagios:monitors'))
+    new_model.juju('integrate', ('nrpe:monitors', 'nagios:monitors'))
 
     application = deploy_simple_resource_server(
         new_model, resource_contents, series,
     )
     _, deploy_complete = new_model.deploy('ubuntu', series=series)
     new_model.wait_for(deploy_complete)
-    new_model.juju('add-relation', ('nrpe', application))
-    new_model.juju('add-relation', ('nrpe', 'ubuntu'))
+    new_model.juju('integrate', ('nrpe', application))
+    new_model.juju('integrate', ('nrpe', 'ubuntu'))
     # Need to wait for the subordinate charms too.
     new_model.wait_for(AllApplicationActive(timeout=600))
     new_model.wait_for(AllApplicationWorkloads())

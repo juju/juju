@@ -6,8 +6,8 @@ package uniter
 import (
 	"fmt"
 
-	corecharm "github.com/juju/charm/v8"
-	"github.com/juju/charm/v8/hooks"
+	corecharm "github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -49,6 +49,11 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 		name = fmt.Sprintf("%s-%s", storageName, hi.Kind)
 		// TODO(axw) if the agent is not installed yet,
 		// set the status to "preparing storage".
+	case hi.Kind.IsSecret():
+		err := opc.u.secretsTracker.PrepareHook(hi)
+		if err != nil {
+			return "", err
+		}
 	case hi.Kind == hooks.ConfigChanged:
 		// TODO(axw)
 		//opc.u.f.DiscardConfigEvent()
@@ -71,6 +76,8 @@ func (opc *operationCallbacks) CommitHook(hi hook.Info) error {
 		return opc.u.relationStateTracker.CommitHook(hi)
 	case hi.Kind.IsStorage():
 		return opc.u.storage.CommitHook(hi)
+	case hi.Kind.IsSecret():
+		return opc.u.secretsTracker.CommitHook(hi)
 	}
 	return nil
 }
@@ -162,4 +169,14 @@ func (opc *operationCallbacks) RemoteInit(runningStatus remotestate.ContainerRun
 		return nil
 	}
 	return opc.u.remoteInitFunc(runningStatus, abort)
+}
+
+// SetSecretRotated is part of the operation.Callbacks interface.
+func (opc *operationCallbacks) SetSecretRotated(uri string, oldRevision int) error {
+	return opc.u.secretsClient.SecretRotated(uri, oldRevision)
+}
+
+// SecretsRemoved is part of the operation.Callbacks interface.
+func (opc *operationCallbacks) SecretsRemoved(uris []string) error {
+	return opc.u.secretsTracker.SecretsRemoved(uris)
 }

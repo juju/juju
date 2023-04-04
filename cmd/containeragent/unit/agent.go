@@ -4,7 +4,6 @@
 package unit
 
 import (
-	"io/ioutil"
 	"os"
 	"path"
 	"runtime"
@@ -50,7 +49,7 @@ import (
 var (
 	logger = loggo.GetLogger("juju.cmd.containeragent.unit")
 
-	jujuRun        = paths.JujuRun(paths.CurrentOS())
+	jujuRun        = paths.JujuExec(paths.CurrentOS())
 	jujuIntrospect = paths.JujuIntrospect(paths.CurrentOS())
 )
 
@@ -72,9 +71,10 @@ type containerUnitAgent struct {
 	fileReaderWriter utils.FileReaderWriter
 	environment      utils.Environment
 
-	charmModifiedVersion int
-	envVars              []string
-	containerNames       []string
+	charmModifiedVersion    int
+	envVars                 []string
+	containerNames          []string
+	colocatedWithController bool
 }
 
 // New creates containeragent unit command.
@@ -109,6 +109,7 @@ func (c *containerUnitAgent) SetFlags(f *gnuflag.FlagSet) {
 	c.AgentConf.AddFlags(f)
 	f.IntVar(&c.charmModifiedVersion, "charm-modified-version", -1, "charm modified version to validate downloaded charm is for the provided infrastructure")
 	f.Var(cmd.NewAppendStringsValue(&c.envVars), "append-env", "can be specified multiple times and with the form ENV_VAR=VALUE where VALUE can be empty or contain unexpanded variables using $OTHER_ENV")
+	f.BoolVar(&c.colocatedWithController, "controller", false, "should be specified if this unit agent is running on the same machine as a controller")
 }
 
 func (c *containerUnitAgent) CharmModifiedVersion() int {
@@ -133,7 +134,7 @@ func (c *containerUnitAgent) ensureAgentConf(dataDir string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := ioutil.WriteFile(configPath, configBytes, 0644); err != nil {
+	if err := os.WriteFile(configPath, configBytes, 0644); err != nil {
 		return errors.Annotate(err, "writing agent config file")
 	}
 
@@ -197,7 +198,7 @@ func (c *containerUnitAgent) Init(args []string) error {
 	if err := c.ensureToolSymlinks(srcDir, dataDir, unitTag); err != nil {
 		return errors.Annotate(err, "ensuring agent tool symlinks")
 	}
-	containerNames := c.environment.Getenv("JUJU_CONTAINER_NAMES")
+	containerNames := c.environment.Getenv(k8sconstants.EnvJujuContainerNames)
 	if len(containerNames) > 0 {
 		c.containerNames = strings.Split(containerNames, ",")
 	}
@@ -226,12 +227,12 @@ func (c *containerUnitAgent) ensureToolSymlinks(srcPath, dataDir string, unitTag
 		path.Join(toolsDir, jnames.ContainerAgent),
 		jujuRun, jujuIntrospect,
 	} {
-		if err = c.fileReaderWriter.Symlink(path.Join(srcPath, jnames.ContainerAgent), link); err != nil {
+		if err = c.fileReaderWriter.Symlink(path.Join(srcPath, jnames.ContainerAgent), link); err != nil && !errors.Is(err, os.ErrExist) {
 			return errors.Annotatef(err, "ensuring symlink %q", link)
 		}
 	}
 
-	if err = c.fileReaderWriter.Symlink(path.Join(srcPath, jnames.Jujuc), path.Join(toolsDir, jnames.Jujuc)); err != nil {
+	if err = c.fileReaderWriter.Symlink(path.Join(srcPath, jnames.Jujuc), path.Join(toolsDir, jnames.Jujuc)); err != nil && !errors.Is(err, os.ErrExist) {
 		return errors.Annotatef(err, "ensuring symlink %q", jnames.Jujuc)
 	}
 	return nil
@@ -286,23 +287,24 @@ func (c *containerUnitAgent) workers() (worker.Worker, error) {
 	})
 	agentConfig := c.AgentConf.CurrentConfig()
 	cfg := manifoldsConfig{
-		Agent:                agent.APIHostPortsSetter{Agent: c},
-		LogSource:            c.bufferedLogger.Logs(),
-		LeadershipGuarantee:  30 * time.Second,
-		UpgradeStepsLock:     upgradesteps.NewLock(agentConfig),
-		PreUpgradeSteps:      upgrades.PreUpgradeSteps,
-		AgentConfigChanged:   c.configChangedVal,
-		ValidateMigration:    c.validateMigration,
-		PrometheusRegisterer: c.prometheusRegistry,
-		UpdateLoggerConfig:   updateAgentConfLogging,
-		PreviousAgentVersion: agentConfig.UpgradedToVersion(),
-		ProbeAddress:         "localhost",
-		ProbePort:            probePort,
-		MachineLock:          c.machineLock,
-		Clock:                c.clk,
-		CharmModifiedVersion: c.CharmModifiedVersion(),
-		ContainerNames:       c.containerNames,
-		LocalHub:             localHub,
+		Agent:                   agent.APIHostPortsSetter{Agent: c},
+		LogSource:               c.bufferedLogger.Logs(),
+		LeadershipGuarantee:     30 * time.Second,
+		UpgradeStepsLock:        upgradesteps.NewLock(agentConfig),
+		PreUpgradeSteps:         upgrades.PreUpgradeSteps,
+		AgentConfigChanged:      c.configChangedVal,
+		ValidateMigration:       c.validateMigration,
+		PrometheusRegisterer:    c.prometheusRegistry,
+		UpdateLoggerConfig:      updateAgentConfLogging,
+		PreviousAgentVersion:    agentConfig.UpgradedToVersion(),
+		ProbeAddress:            "localhost",
+		ProbePort:               probePort,
+		MachineLock:             c.machineLock,
+		Clock:                   c.clk,
+		CharmModifiedVersion:    c.CharmModifiedVersion(),
+		ContainerNames:          c.containerNames,
+		LocalHub:                localHub,
+		ColocatedWithController: c.colocatedWithController,
 	}
 	manifolds := Manifolds(cfg)
 

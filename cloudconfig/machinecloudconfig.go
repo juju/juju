@@ -2,7 +2,6 @@ package cloudconfig
 
 import (
 	"encoding/base64"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -16,7 +15,7 @@ import (
 
 	utilsos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/paths"
-	utilsseries "github.com/juju/juju/core/series"
+	"github.com/juju/juju/core/series"
 )
 
 // InitReader describes methods for extracting machine provisioning config,
@@ -35,8 +34,8 @@ type InitReader interface {
 // MachineInitReader to retrieve initialisation configuration for
 // a single machine.
 type MachineInitReaderConfig struct {
-	// Series is the OS series of the machine.
-	Series string
+	// Base is the base of the machine.
+	Base series.Base
 
 	// CloudInitConfigDir is the directory where cloud configuration resides
 	// on MAAS hosts.
@@ -60,11 +59,11 @@ type MachineInitReader struct {
 }
 
 // NewMachineInitReader creates and returns a new MachineInitReader for the
-// input series.
-func NewMachineInitReader(series string) (InitReader, error) {
-	osType := paths.SeriesToOS(series)
+// input os name.
+func NewMachineInitReader(base series.Base) (InitReader, error) {
+	osType := paths.OSType(base.OS)
 	cfg := MachineInitReaderConfig{
-		Series:                     series,
+		Base:                       base,
 		CloudInitConfigDir:         paths.CloudInitCfgDir(osType),
 		CloudInitInstanceConfigDir: paths.MachineCloudInitDir(osType),
 		CurtinInstallConfigFile:    paths.CurtinInstallConfig(osType),
@@ -72,7 +71,7 @@ func NewMachineInitReader(series string) (InitReader, error) {
 	return NewMachineInitReaderFromConfig(cfg), nil
 }
 
-// NewMachineInitReader creates and returns a new MachineInitReader using
+// NewMachineInitReaderFromConfig creates and returns a new MachineInitReader using
 // the input configuration.
 func NewMachineInitReaderFromConfig(cfg MachineInitReaderConfig) InitReader {
 	return &MachineInitReader{config: cfg}
@@ -81,21 +80,16 @@ func NewMachineInitReaderFromConfig(cfg MachineInitReaderConfig) InitReader {
 // GetInitConfig returns a map of configuration data used to provision the
 // machine. It is sourced from both Cloud-Init and Curtin data.
 func (r *MachineInitReader) GetInitConfig() (map[string]interface{}, error) {
-	series := r.config.Series
-
-	containerOS, err := utilsseries.GetOSFromSeries(series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	switch containerOS {
+	switch utilsos.OSTypeForName(r.config.Base.OS) {
 	case utilsos.Ubuntu, utilsos.CentOS, utilsos.OpenSUSE:
 		hostSeries, err := osseries.HostSeries()
-		if err != nil || series != hostSeries {
-			logger.Debugf("not attempting to get init config for %s, series of machine and container differ", series)
+		series, err2 := series.GetSeriesFromBase(r.config.Base)
+		if err != nil || err2 != nil || series != hostSeries {
+			logger.Debugf("not attempting to get init config for %s, base of machine and container differ", r.config.Base.DisplayString())
 			return nil, nil
 		}
 	default:
-		logger.Debugf("not attempting to get init config for %s container", series)
+		logger.Debugf("not attempting to get init config for %s container", r.config.Base.DisplayString())
 		return nil, nil
 	}
 
@@ -124,28 +118,16 @@ func (r *MachineInitReader) GetInitConfig() (map[string]interface{}, error) {
 	return machineCloudInitData, nil
 }
 
-func (r *MachineInitReader) ExtractPropertiesFromConfig(
-	keys []string, cfg map[string]interface{}, log loggo.Logger,
-) map[string]interface{} {
-	if r.config.Series == "trusty" {
-		return extractPropertiesFromConfigLegacy(keys, cfg, log)
-	}
-
-	// There is a big assumption that supported CentOS and OpenSUSE versions
-	// supported by juju are using cloud-init version >= 0.7.8
-	return extractPropertiesFromConfig(keys, cfg, log)
-}
-
 // getMachineCloudCfgDirData returns a map of the combined machine's Cloud-Init
 // cloud.cfg.d config files. Files are read in lexical order.
 func (r *MachineInitReader) getMachineCloudCfgDirData() (map[string]interface{}, error) {
 	dir := r.config.CloudInitConfigDir
 
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, errors.Annotate(err, "determining files in CloudInitCfgDir for the machine")
 	}
-	sortedFiles := sortableFileInfos(files)
+	sortedFiles := sortableDirEntries(files)
 	sort.Sort(sortedFiles)
 
 	cloudInit := make(map[string]interface{})
@@ -198,13 +180,6 @@ func (r *MachineInitReader) unmarshallConfigFile(file string) (map[string]interf
 
 	decodedZippedBuf, err := utils.Gunzip(decodedData)
 	if err != nil {
-		// During testing, it was found that the trusty vendor-data.txt.i file
-		// can contain only the text "NONE", which doesn't unmarshall or decompress
-		// we don't want to fail in that case.
-		if r.config.Series == "trusty" {
-			logger.Debugf("failed to unmarshall or decompress %q: %s", file, err)
-			return nil, nil
-		}
 		return nil, errors.Annotatef(err, "cannot unmarshall or decompress %q", file)
 	}
 
@@ -215,7 +190,7 @@ func (r *MachineInitReader) unmarshallConfigFile(file string) (map[string]interf
 // fileAsConfigMap reads the file at the input path and returns its contents as
 // raw bytes, and if possible a map of config key-values.
 func fileAsConfigMap(file string) ([]byte, map[string]interface{}, error) {
-	raw, err := ioutil.ReadFile(file)
+	raw, err := os.ReadFile(file)
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "reading config from %q", file)
 	}
@@ -230,12 +205,13 @@ func fileAsConfigMap(file string) ([]byte, map[string]interface{}, error) {
 	return raw, cfg, nil
 }
 
-// extractPropertiesFromConfig filters the input config based on the
-// input properties and returns a map of cloud-init data, compatible with
-// version 0.7.8 and above.
-func extractPropertiesFromConfig(props []string, cfg map[string]interface{}, log loggo.Logger) map[string]interface{} {
+// ExtractPropertiesFromConfig filters the input config based on the
+// input properties and returns a map of cloud-init data.
+func (r *MachineInitReader) ExtractPropertiesFromConfig(
+	keys []string, cfg map[string]interface{}, log loggo.Logger,
+) map[string]interface{} {
 	foundDataMap := make(map[string]interface{})
-	for _, k := range props {
+	for _, k := range keys {
 		key := strings.TrimSpace(k)
 		switch key {
 		case "apt-security", "apt-primary", "apt-sources", "apt-sources_list":
@@ -282,64 +258,17 @@ func nestedAptConfig(key string, val interface{}, log loggo.Logger) map[string]i
 	return nil
 }
 
-// extractPropertiesFromConfigLegacy filters the input config based on the
-// input properties and returns a map of cloud-init data, compatible with
-// version 0.7.7 and below.
-func extractPropertiesFromConfigLegacy(
-	props []string, cfg map[string]interface{}, log loggo.Logger,
-) map[string]interface{} {
-	foundDataMap := make(map[string]interface{})
-	aptProcessed := false
+type sortableDirEntries []os.DirEntry
 
-	for _, k := range props {
-		key := strings.TrimSpace(k)
-		switch key {
-		case "apt-primary", "apt-sources":
-			if aptProcessed {
-				continue
-			}
-			for _, aptKey := range []string{"apt_mirror", "apt_mirror_search", "apt_mirror_search_dns", "apt_sources"} {
-				if val, ok := cfg[aptKey]; ok {
-					foundDataMap[aptKey] = val
-				} else {
-					log.Debugf("%s not found in machine init data", aptKey)
-				}
-			}
-			aptProcessed = true
-		case "apt-sources_list":
-			// Testing series trusty on MAAS 2.5+ shows that this could be
-			// treated in the same way as the non-legacy property
-			// extraction, but we would then be mixing techniques.
-			// Legacy handling is left unchanged here under the assumption
-			// that provisioning trusty machines on much newer MAAS
-			// versions is highly unlikely.
-			log.Debugf("%q ignored for this machine series", key)
-		case "apt-security":
-			// Translation for apt-security unknown at this time.
-			log.Debugf("%q ignored for this machine series", key)
-		case "ca-certs":
-			// No translation needed, ca-certs the same in both versions of Cloud-Init.
-			if val, ok := cfg[key]; ok {
-				foundDataMap[key] = val
-			} else {
-				log.Debugf("%s not found in machine init data", key)
-			}
-		}
-	}
-	return foundDataMap
-}
-
-type sortableFileInfos []os.FileInfo
-
-func (fil sortableFileInfos) Len() int {
+func (fil sortableDirEntries) Len() int {
 	return len(fil)
 }
 
-func (fil sortableFileInfos) Less(i, j int) bool {
+func (fil sortableDirEntries) Less(i, j int) bool {
 	return fil[i].Name() < fil[j].Name()
 }
 
-func (fil sortableFileInfos) Swap(i, j int) {
+func (fil sortableDirEntries) Swap(i, j int) {
 	fil[i], fil[j] = fil[j], fil[i]
 }
 

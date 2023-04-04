@@ -87,9 +87,8 @@ func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
 	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	s.storageBackend = storageBackend
-	v3, err := storageprovisioner.NewStorageProvisionerAPIv3(backend, storageBackend, s.resources, s.authorizer, registry, pm)
+	s.api, err = storageprovisioner.NewStorageProvisionerAPIv4(backend, storageBackend, s.resources, s.authorizer, registry, pm)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = storageprovisioner.NewStorageProvisionerAPIv4(v3)
 }
 
 func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
@@ -120,9 +119,8 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	s.storageBackend = storageBackend
-	v3, err := storageprovisioner.NewStorageProvisionerAPIv3(backend, storageBackend, s.resources, s.authorizer, registry, pm)
+	s.api, err = storageprovisioner.NewStorageProvisionerAPIv4(backend, storageBackend, s.resources, s.authorizer, registry, pm)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = storageprovisioner.NewStorageProvisionerAPIv4(v3)
 }
 
 func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
@@ -130,7 +128,7 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: tag}
 	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.State)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = storageprovisioner.NewStorageProvisionerAPIv3(backend, storageBackend, common.NewResources(), authorizer, nil, nil)
+	_, err = storageprovisioner.NewStorageProvisionerAPIv4(backend, storageBackend, common.NewResources(), authorizer, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -171,8 +169,8 @@ func (s *iaasProvisionerSuite) setupVolumes(c *gc.C) {
 	// TODO(axw) extend testing/factory to allow creating unprovisioned
 	// machines.
 	_, err = s.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{
 			{Volume: state.VolumeParams{Pool: "modelscoped", Size: 2048}},
 		},
@@ -215,8 +213,8 @@ func (s *iaasProvisionerSuite) setupFilesystems(c *gc.C) {
 	// TODO(axw) extend testing/factory to allow creating unprovisioned
 	// machines.
 	_, err = s.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Filesystems: []state.HostFilesystemParams{{
 			Filesystem: state.FilesystemParams{Pool: "modelscoped", Size: 2048},
 		}},
@@ -1015,7 +1013,7 @@ func (s *caasProvisionerSuite) TestWatchApplications(c *gc.C) {
 			"data": {Count: 1, Size: 1024},
 		},
 	})
-	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChange("mysql")
 }
 
@@ -1054,9 +1052,9 @@ func (s *iaasProvisionerSuite) TestWatchVolumes(c *gc.C) {
 
 	// Check that the Watch has consumed the initial events ("returned" in
 	// the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, s.State, v0Watcher.(state.StringsWatcher))
+	wc := statetesting.NewStringsWatcherC(c, v0Watcher.(state.StringsWatcher))
 	wc.AssertNoChange()
-	wc = statetesting.NewStringsWatcherC(c, s.State, v1Watcher.(state.StringsWatcher))
+	wc = statetesting.NewStringsWatcherC(c, v1Watcher.(state.StringsWatcher))
 	wc.AssertNoChange()
 }
 
@@ -1117,9 +1115,9 @@ func (s *iaasProvisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 
 	// Check that the Watch has consumed the initial events ("returned" in
 	// the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, s.State, v0Watcher.(state.StringsWatcher))
+	wc := statetesting.NewStringsWatcherC(c, v0Watcher.(state.StringsWatcher))
 	wc.AssertNoChange()
-	wc = statetesting.NewStringsWatcherC(c, s.State, v1Watcher.(state.StringsWatcher))
+	wc = statetesting.NewStringsWatcherC(c, v1Watcher.(state.StringsWatcher))
 	wc.AssertNoChange()
 }
 
@@ -1162,9 +1160,9 @@ func (s *iaasProvisionerSuite) TestWatchFilesystems(c *gc.C) {
 
 	// Check that the Watch has consumed the initial events ("returned" in
 	// the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, s.State, v0Watcher.(state.StringsWatcher))
+	wc := statetesting.NewStringsWatcherC(c, v0Watcher.(state.StringsWatcher))
 	wc.AssertNoChange()
-	wc = statetesting.NewStringsWatcherC(c, s.State, v1Watcher.(state.StringsWatcher))
+	wc = statetesting.NewStringsWatcherC(c, v1Watcher.(state.StringsWatcher))
 	wc.AssertNoChange()
 }
 
@@ -1220,9 +1218,9 @@ func (s *iaasProvisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 
 	// Check that the Watch has consumed the initial events ("returned" in
 	// the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, s.State, v0Watcher.(state.StringsWatcher))
+	wc := statetesting.NewStringsWatcherC(c, v0Watcher.(state.StringsWatcher))
 	wc.AssertNoChange()
-	wc = statetesting.NewStringsWatcherC(c, s.State, v1Watcher.(state.StringsWatcher))
+	wc = statetesting.NewStringsWatcherC(c, v1Watcher.(state.StringsWatcher))
 	wc.AssertNoChange()
 }
 
@@ -1253,7 +1251,7 @@ func (s *iaasProvisionerSuite) TestWatchBlockDevices(c *gc.C) {
 	defer statetesting.AssertStop(c, watcher)
 
 	// Check that the Watch has consumed the initial event.
-	wc := statetesting.NewNotifyWatcherC(c, s.State, watcher.(state.NotifyWatcher))
+	wc := statetesting.NewNotifyWatcherC(c, watcher.(state.NotifyWatcher))
 	wc.AssertNoChange()
 
 	m, err := s.State.Machine("0")
@@ -1682,9 +1680,9 @@ func (s *caasProvisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 
 	// Check that the Watch has consumed the initial events ("returned" in
 	// the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, s.State, v0Watcher.(state.StringsWatcher))
+	wc := statetesting.NewStringsWatcherC(c, v0Watcher.(state.StringsWatcher))
 	wc.AssertNoChange()
-	wc = statetesting.NewStringsWatcherC(c, s.State, v1Watcher.(state.StringsWatcher))
+	wc = statetesting.NewStringsWatcherC(c, v1Watcher.(state.StringsWatcher))
 	wc.AssertNoChange()
 }
 

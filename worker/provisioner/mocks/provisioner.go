@@ -200,10 +200,10 @@ func (mr *MockTaskAPIMockRecorder) MachinesWithTransientErrors() *gomock.Call {
 }
 
 // ProvisioningInfo mocks base method.
-func (m *MockTaskAPI) ProvisioningInfo(arg0 []names.MachineTag) (params.ProvisioningInfoResultsV10, error) {
+func (m *MockTaskAPI) ProvisioningInfo(arg0 []names.MachineTag) (params.ProvisioningInfoResults, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProvisioningInfo", arg0)
-	ret0, _ := ret[0].(params.ProvisioningInfoResultsV10)
+	ret0, _ := ret[0].(params.ProvisioningInfoResults)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

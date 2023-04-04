@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/client/backups"
 	"github.com/juju/juju/core/instance"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/state"
 )
 
@@ -29,8 +30,8 @@ func (s *stateShim) IsController() bool {
 	return *s.isController
 }
 
-func (s *stateShim) MachineSeries(id string) (string, error) {
-	return "xenial", nil
+func (s *stateShim) MachineBase(id string) (coreseries.Base, error) {
+	return coreseries.MakeDefaultBase("ubuntu", "16.04"), nil
 }
 
 func (s *stateShim) ControllerTag() names.ControllerTag {

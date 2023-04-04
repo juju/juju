@@ -41,32 +41,32 @@ relations:
     - mysql:shared-db
   - - nova-cloud-controller:neutron-api
     - neutron-api:neutron-api
-series: xenial
+series: focal
 applications:
   glance:
     annotations:
       gui-x: '250'
       gui-y: '0'
-    charm: cs:glance
+    charm: glance
     num_units: 1
     options:
-      openstack-origin: cloud:xenial-queens
+      openstack-origin: cloud:focal-yoga
       worker-multiplier: 0.25
   keystone:
     annotations:
       gui-x: '500'
       gui-y: '0'
-    charm: cs:keystone
+    charm: keystone
     num_units: 1
     options:
       admin-password: openstack
-      openstack-origin: cloud:xenial-queens
+      openstack-origin: cloud:focal-yoga
       worker-multiplier: 0.25
   mysql:
     annotations:
       gui-x: '0'
       gui-y: '250'
-    charm: cs:percona-cluster
+    charm: percona-cluster
     num_units: 1
     options:
       max-connections: 20000
@@ -75,52 +75,52 @@ applications:
     annotations:
       gui-x: '500'
       gui-y: '500'
-    charm: cs:neutron-api
+    charm: neutron-api
     num_units: 1
     options:
       neutron-security-groups: true
       overlay-network-type: "gre vxlan"
-      openstack-origin: cloud:xenial-queens
+      openstack-origin: cloud:focal-yoga
       flat-network-providers: physnet1
   neutron-gateway:
     annotations:
       gui-x: '0'
       gui-y: '0'
-    charm: cs:neutron-gateway
+    charm: neutron-gateway
     num_units: 1
     options:
-      openstack-origin: cloud:xenial-queens
+      openstack-origin: cloud:focal-yoga
       worker-multiplier: 0.25
       dns-servers: 10.101.0.1
   neutron-openvswitch:
     annotations:
       gui-x: '250'
       gui-y: '500'
-    charm: cs:neutron-openvswitch
+    charm: neutron-openvswitch
     num_units: 0
   nova-cloud-controller:
     annotations:
       gui-x: '0'
       gui-y: '500'
-    charm: cs:nova-cloud-controller
+    charm: nova-cloud-controller
     num_units: 1
     options:
       network-manager: Neutron
-      openstack-origin: cloud:xenial-queens
+      openstack-origin: cloud:focal-yoga
       worker-multiplier: 0.25
   nova-compute:
     annotations:
       gui-x: '250'
       gui-y: '250'
-    charm: cs:nova-compute
+    charm: nova-compute
     num_units: 1
     options:
       enable-live-migration: False
       enable-resize: False
-      openstack-origin: cloud:xenial-queens
+      openstack-origin: cloud:focal-yoga
   rabbitmq-server:
     annotations:
       gui-x: '500'
       gui-y: '250'
-    charm: cs:rabbitmq-server
+    charm: rabbitmq-server
     num_units: 1

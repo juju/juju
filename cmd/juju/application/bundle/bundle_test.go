@@ -4,12 +4,12 @@
 package bundle
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -70,10 +70,10 @@ func (s *buildModelRepSuite) testBuildModelRepresentationUseExistingMachines(c *
 			Name: "default",
 		},
 		Machines: map[string]params.MachineStatus{
-			"0": {Series: "bionic", Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
-			"1": {Series: "bionic", Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
-			"2": {Series: "bionic", Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
-			"3": {Series: "bionic", Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+			"0": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+			"1": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+			"2": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+			"3": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
 		},
 	}
 	machines := map[string]string{
@@ -107,21 +107,21 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithSubordi
 			Name: "default",
 		},
 		Machines: map[string]params.MachineStatus{
-			"0": {Series: "bionic", Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
-			"1": {Series: "bionic", Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+			"0": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+			"1": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
 		},
 		Applications: map[string]params.ApplicationStatus{
 			"wordpress": {
-				Charm:  "wordpress",
-				Series: "bionic",
-				Life:   life.Alive,
+				Charm: "wordpress",
+				Base:  params.Base{Name: "ubuntu", Channel: "18.04"},
+				Life:  life.Alive,
 				Units: map[string]params.UnitStatus{
 					"0": {Machine: "0"},
 				},
 			},
 			"sub": {
 				Charm:         "sub",
-				Series:        "bionic",
+				Base:          params.Base{Name: "ubuntu", Channel: "18.04"},
 				Life:          life.Alive,
 				SubordinateTo: []string{"wordpress"},
 			},
@@ -267,7 +267,7 @@ func (s *composeAndVerifyRepSuite) setupOverlayFile(c *gc.C) {
 	s.overlayDir = c.MkDir()
 	s.overlayFile = filepath.Join(s.overlayDir, "config.yaml")
 	c.Assert(
-		ioutil.WriteFile(
+		os.WriteFile(
 			s.overlayFile, []byte(`
                 applications:
                     wordpress:
@@ -276,7 +276,7 @@ func (s *composeAndVerifyRepSuite) setupOverlayFile(c *gc.C) {
             `), 0644),
 		jc.ErrorIsNil)
 	c.Assert(
-		ioutil.WriteFile(
+		os.WriteFile(
 			filepath.Join(s.overlayDir, "title"), []byte("magic bundle config"), 0644),
 		jc.ErrorIsNil)
 }
@@ -294,13 +294,13 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithExposed
 			Name: "default",
 		},
 		Machines: map[string]params.MachineStatus{
-			"0": {Series: "bionic", Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+			"0": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
 		},
 		Applications: map[string]params.ApplicationStatus{
 			"wordpress": {
-				Charm:  "wordpress",
-				Series: "bionic",
-				Life:   life.Alive,
+				Charm: "wordpress",
+				Base:  params.Base{Name: "ubuntu", Channel: "18.04"},
+				Life:  life.Alive,
 				Units: map[string]params.UnitStatus{
 					"0": {Machine: "0"},
 				},

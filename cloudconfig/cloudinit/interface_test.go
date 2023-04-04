@@ -11,14 +11,13 @@ import (
 
 var _ CloudConfig = (*ubuntuCloudConfig)(nil)
 var _ CloudConfig = (*centOSCloudConfig)(nil)
-var _ CloudConfig = (*windowsCloudConfig)(nil)
 
 type InterfaceSuite struct{}
 
 var _ = gc.Suite(InterfaceSuite{})
 
 func (HelperSuite) TestNewCloudConfigWithoutMACMatch(c *gc.C) {
-	cfg, err := New("jammy", WithDisableNetplanMACMatch)
+	cfg, err := New("ubuntu", WithDisableNetplanMACMatch)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cfg.(*ubuntuCloudConfig).omitNetplanHWAddrMatch, jc.IsTrue)
 }

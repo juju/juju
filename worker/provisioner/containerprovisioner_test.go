@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/provisioner"
 )
 
@@ -35,9 +34,6 @@ type kvmProvisionerSuite struct {
 var _ = gc.Suite(&kvmProvisionerSuite{})
 
 func (s *kvmProvisionerSuite) SetUpSuite(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("Skipping kvm tests on windows")
-	}
 	s.CommonProvisionerSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
 }
@@ -66,7 +62,6 @@ func (s *kvmProvisionerSuite) nextEvent(c *gc.C) mock.Event {
 }
 
 func (s *kvmProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) string {
-	s.State.StartSync()
 	event := s.nextEvent(c)
 	c.Assert(event.Action, gc.Equals, mock.Started)
 	err := machine.Refresh()
@@ -76,7 +71,6 @@ func (s *kvmProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) str
 }
 
 func (s *kvmProvisionerSuite) expectStopped(c *gc.C, instId string) {
-	s.State.StartSync()
 	event := s.nextEvent(c)
 	c.Assert(event.Action, gc.Equals, mock.Stopped)
 	c.Assert(event.InstanceId, gc.Equals, instId)
@@ -125,7 +119,7 @@ func (s *kvmProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
 	defer workertest.CleanKill(c, p)
 
 	// Check that an instance is not provisioned when the machine is created.
-	_, err := s.State.AddMachine(version.DefaultSupportedLTS(), state.JobHostUnits)
+	_, err := s.State.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectNoEvents(c)
@@ -142,8 +136,8 @@ func (s *kvmProvisionerSuite) TestDoesNotHaveRetryWatcher(c *gc.C) {
 
 func (s *kvmProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 	template := state.MachineTemplate{
-		Series: version.DefaultSupportedLTS(),
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.DefaultLTSBase(),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, "0", instance.KVM)
 	c.Assert(err, jc.ErrorIsNil)

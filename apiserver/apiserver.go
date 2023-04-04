@@ -45,8 +45,9 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
+
 	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/feature"
+
 	"github.com/juju/juju/pubsub/apiserver"
 	controllermsg "github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/resource"
@@ -84,7 +85,6 @@ type Server struct {
 	apiServerLoggers       apiServerLoggers
 	getAuditConfig         func() auditlog.Config
 	upgradeComplete        func() bool
-	restoreStatus          func() state.RestoreStatus
 	mux                    *apiserverhttp.Mux
 	metricsCollector       *Collector
 	execEmbeddedCommand    ExecEmbeddedCommandFunc
@@ -155,12 +155,6 @@ type ServerConfig struct {
 	// limit logins during upgrades.
 	UpgradeComplete func() bool
 
-	// RestoreStatus is a function that reports the restore
-	// status most recently observed by the agent running the
-	// API server. This is used by the API server to limit logins
-	// during a restore.
-	RestoreStatus func() state.RestoreStatus
-
 	// PublicDNSName is reported to the API clients who connect.
 	PublicDNSName string
 
@@ -208,6 +202,9 @@ type ServerConfig struct {
 	// RaftOpQueue is used by the API to apply operations to the raft
 	// instance.
 	RaftOpQueue Queue
+
+	// CharmhubHTTPClient is the HTTP client used for Charmhub API requests.
+	CharmhubHTTPClient facade.HTTPClient
 }
 
 // Validate validates the API server configuration.
@@ -241,9 +238,6 @@ func (c ServerConfig) Validate() error {
 	}
 	if c.UpgradeComplete == nil {
 		return errors.NotValidf("nil UpgradeComplete")
-	}
-	if c.RestoreStatus == nil {
-		return errors.NotValidf("nil RestoreStatus")
 	}
 	if c.GetAuditConfig == nil {
 		return errors.NotValidf("missing GetAuditConfig")
@@ -311,6 +305,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		controllerConfig:    controllerConfig,
 		raftOpQueue:         cfg.RaftOpQueue,
 		logger:              loggo.GetLogger("juju.apiserver"),
+		charmhubHTTPClient:  cfg.CharmhubHTTPClient,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -330,9 +325,6 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		return nil, errors.Trace(err)
 	}
 	loggingOutputs, _ := modelConfig.LoggingOutput()
-	if !controllerConfig.Features().Contains(feature.LoggingOutput) {
-		loggingOutputs = []string{}
-	}
 
 	srv := &Server{
 		clock:                         cfg.Clock,
@@ -343,7 +335,6 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		dataDir:                       cfg.DataDir,
 		logDir:                        cfg.LogDir,
 		upgradeComplete:               cfg.UpgradeComplete,
-		restoreStatus:                 cfg.RestoreStatus,
 		facades:                       AllFacades(),
 		mux:                           cfg.Mux,
 		authenticator:                 cfg.Authenticator,
@@ -691,7 +682,8 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	embeddedCLIHandler := newEmbeddedCLIHandler(httpCtxt)
 	debugLogHandler := newDebugLogDBHandler(
 		httpCtxt, srv.authenticator,
-		tagKindAuthorizer{names.MachineTagKind, names.ControllerAgentTagKind, names.UserTagKind, names.ApplicationTagKind})
+		tagKindAuthorizer{names.MachineTagKind, names.ControllerAgentTagKind, names.UserTagKind,
+			names.ApplicationTagKind})
 	pubsubHandler := newPubSubHandler(httpCtxt, srv.shared.centralHub)
 	logSinkHandler := logsink.NewHTTPHandler(
 		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, &srv.apiServerLoggers),
@@ -735,7 +727,8 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	modelToolsUploadAuthorizer := tagKindAuthorizer{names.UserTagKind}
 	modelToolsDownloadHandler := newToolsDownloadHandler(httpCtxt)
 	resourcesHandler := &ResourcesHandler{
-		StateAuthFunc: func(req *http.Request, tagKinds ...string) (ResourcesBackend, state.PoolHelper, names.Tag, error) {
+		StateAuthFunc: func(req *http.Request, tagKinds ...string) (ResourcesBackend, state.PoolHelper, names.Tag,
+			error) {
 			st, entity, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
 			if err != nil {
 				return nil, nil, nil, errors.Trace(err)
@@ -794,8 +787,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}
 	backupHandler := &backupHandler{ctxt: httpCtxt}
 	registerHandler := &registerUserHandler{ctxt: httpCtxt}
-	guiArchiveHandler := &guiArchiveHandler{ctxt: httpCtxt}
-	guiVersionHandler := &guiVersionHandler{ctxt: httpCtxt}
 
 	// HTTP handler for application offer macaroon authentication.
 	addOfferAuthHandlers(srv.offerAuthCtxt, srv.mux)
@@ -939,18 +930,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		methods:    []string{"POST"},
 		handler:    modelCharmsHTTPHandler,
 		authorizer: modelCharmsUploadAuthorizer,
-	}, {
-		pattern: "/gui-archive",
-		methods: []string{"POST"},
-		handler: guiArchiveHandler,
-	}, {
-		pattern:         "/gui-archive",
-		methods:         []string{"GET"},
-		handler:         guiArchiveHandler,
-		unauthenticated: true,
-	}, {
-		pattern: "/gui-version",
-		handler: guiVersionHandler,
 	}}
 	if srv.registerIntrospectionHandlers != nil {
 		add := func(subpath string, h http.Handler) {
@@ -966,15 +945,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	for _, handler := range handlers {
 		addHandler(handler)
 	}
-
-	// Finally, register GUI content endpoints.
-
-	// Add the legacy GUI handler.
-	guiEndpoints := guiEndpoints(guiURLPathPrefix, srv.dataDir, httpCtxt)
-	endpoints = append(endpoints, guiEndpoints...)
-	// And the new dashboard handler
-	dashboardEndpoints := dashboardEndpoints(dashboardURLPathPrefix, srv.dataDir, httpCtxt)
-	endpoints = append(endpoints, dashboardEndpoints...)
 
 	return endpoints, nil
 }

@@ -8,10 +8,8 @@ import (
 )
 
 var (
-	MergeWindowsEnvironment = mergeWindowsEnvironment
-	SearchHook              = discoverHookScript
-	HookCommand             = hookCommand
-	LookPath                = lookPath
+	SearchHook = discoverHookScript
+	LookPath   = lookPath
 )
 
 func RunnerPaths(rnr Runner) context.Paths {

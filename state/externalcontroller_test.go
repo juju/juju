@@ -7,7 +7,7 @@ import (
 	"regexp"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2/bson"
+	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -159,7 +159,7 @@ func (s *externalControllerSuite) TestWatchController(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 
 	// Initial event.
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	// Update the alias, check for one change.
@@ -190,8 +190,8 @@ func (s *externalControllerSuite) TestWatch(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 
 	// Initial event.
-	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChangeInSingleEvent(testing.ControllerTag.Id())
+	wc := statetesting.NewStringsWatcherC(c, w)
+	wc.AssertChange(testing.ControllerTag.Id())
 	wc.AssertNoChange()
 
 	// Update the controller, expect no change. We only get
@@ -204,7 +204,7 @@ func (s *externalControllerSuite) TestWatch(c *gc.C) {
 	// Remove the controller, we should get a change.
 	err = s.externalControllers.Remove(testing.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent(testing.ControllerTag.Id())
+	wc.AssertChange(testing.ControllerTag.Id())
 	wc.AssertNoChange()
 
 	// Removing a non-existent controller shouldn't trigger
@@ -216,7 +216,7 @@ func (s *externalControllerSuite) TestWatch(c *gc.C) {
 	// Add the controller again, and we should see a change.
 	_, err = s.externalControllers.Save(controllerInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent(testing.ControllerTag.Id())
+	wc.AssertChange(testing.ControllerTag.Id())
 	wc.AssertNoChange()
 }
 

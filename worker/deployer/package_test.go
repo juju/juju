@@ -5,10 +5,8 @@ package deployer_test
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 	stdtesting "testing"
 
 	"github.com/juju/testing"
@@ -21,10 +19,6 @@ import (
 )
 
 func TestPackage(t *stdtesting.T) {
-	//TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		t.Skip("bug 1403084: Currently does not work under windows")
-	}
 	coretesting.MgoTestPackage(t)
 }
 
@@ -44,6 +38,6 @@ func (s *BaseSuite) InitializeCurrentToolsDir(c *gc.C, dataDir string) {
 	testTools := coretools.Tools{Version: current, URL: "http://testing.invalid/tools"}
 	data, err := json.Marshal(testTools)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(toolsPath, data, 0644)
+	err = os.WriteFile(toolsPath, data, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 }

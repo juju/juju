@@ -7,8 +7,8 @@ import (
 	"regexp"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -37,7 +37,7 @@ func (s *constraintsValidationSuite) SetUpTest(c *gc.C) {
 
 func (s *constraintsValidationSuite) addOneMachine(c *gc.C, cons constraints.Value) (*state.Machine, error) {
 	return s.State.AddOneMachine(state.MachineTemplate{
-		Series:      "quantal",
+		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
 	})
@@ -285,8 +285,11 @@ func (s *applicationConstraintsSuite) SetUpTest(c *gc.C) {
 func (s *applicationConstraintsSuite) TestAddApplicationInvalidConstraints(c *gc.C) {
 	cons := constraints.MustParse("virt-type=blah")
 	_, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name:        s.applicationName,
-		Series:      "",
+		Name: s.applicationName,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "20.04/stable",
+		}},
 		Charm:       s.testCharm,
 		Constraints: cons,
 	})
@@ -296,8 +299,11 @@ func (s *applicationConstraintsSuite) TestAddApplicationInvalidConstraints(c *gc
 func (s *applicationConstraintsSuite) TestAddApplicationValidConstraints(c *gc.C) {
 	cons := constraints.MustParse("virt-type=kvm")
 	application, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name:        s.applicationName,
-		Series:      "",
+		Name: s.applicationName,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "20.04/stable",
+		}},
 		Charm:       s.testCharm,
 		Constraints: cons,
 	})
@@ -308,8 +314,11 @@ func (s *applicationConstraintsSuite) TestAddApplicationValidConstraints(c *gc.C
 func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *gc.C) {
 	posCons := constraints.MustParse("arch=amd64 spaces=db")
 	application, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name:        s.applicationName,
-		Series:      "",
+		Name: s.applicationName,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "20.04/stable",
+		}},
 		Charm:       s.testCharm,
 		Constraints: posCons,
 	})
@@ -318,8 +327,11 @@ func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *gc.C) {
 
 	negCons := constraints.MustParse("arch=amd64 spaces=^db2")
 	negApplication, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name:        "unimportant",
-		Series:      "",
+		Name: "unimportant",
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "20.04/stable",
+		}},
 		Charm:       s.testCharm,
 		Constraints: negCons,
 	})
@@ -352,8 +364,11 @@ func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *gc.C) {
 func (s *applicationConstraintsSuite) TestConstraintsSpaceNameChangeOps(c *gc.C) {
 	posCons := constraints.MustParse("spaces=db")
 	application, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name:        s.applicationName,
-		Series:      "",
+		Name: s.applicationName,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "20.04/stable",
+		}},
 		Charm:       s.testCharm,
 		Constraints: posCons,
 	})

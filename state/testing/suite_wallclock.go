@@ -4,7 +4,7 @@
 package testing
 
 import (
-	mgotesting "github.com/juju/mgo/v2/testing"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

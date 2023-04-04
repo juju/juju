@@ -1,9 +1,6 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-//go:build !windows
-// +build !windows
-
 package unit_test
 
 import (
@@ -119,6 +116,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"core/raftlease",
 		"core/relation",
 		"core/resources",
+		"core/secrets",
 		"core/series",
 		"core/snap",
 		"core/status",
@@ -130,7 +128,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"environs/config",
 		"environs/context",
 		"environs/filestorage",
-		"environs/gui",
+		"environs/dashboard",
 		"environs/imagemetadata",
 		"environs/instances",
 		"environs/simplestreams",
@@ -165,8 +163,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"service/common",
 		"service/snap",
 		"service/systemd",
-		"service/upstart",
-		"service/windows",
 		"state/errors",
 		"storage",
 		"storage/provider",

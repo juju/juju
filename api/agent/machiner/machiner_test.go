@@ -42,7 +42,7 @@ var _ = gc.Suite(&machinerSuite{})
 
 func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	m, err := s.State.AddMachine("quantal", state.JobManageModel)
+	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetProviderAddresses(network.NewSpaceAddress("10.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -192,7 +192,7 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 
 	w, err := machine.Watch()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.

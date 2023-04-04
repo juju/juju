@@ -6,6 +6,7 @@ package undertaker_test
 import (
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -15,12 +16,14 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type undertakerSuite struct {
 	coretesting.BaseSuite
+	secrets *mockSecrets
 }
 
 var _ = gc.Suite(&undertakerSuite{})
@@ -37,7 +40,10 @@ func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, modelName str
 	}
 
 	st := newMockState(names.NewUserTag("admin"), modelName, isSystem)
-	api, err := undertaker.NewUndertaker(st, nil, authorizer)
+	s.secrets = &mockSecrets{}
+	api, err := undertaker.NewUndertaker(st, nil, authorizer, func() (provider.SecretBackendProvider, provider.Model, error) {
+		return s.secrets, st.model, nil
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return st, api
 }
@@ -52,7 +58,9 @@ func (s *undertakerSuite) TestNoPerms(c *gc.C) {
 		_, err := undertaker.NewUndertaker(
 			st,
 			nil,
-			authorizer,
+			authorizer, func() (provider.SecretBackendProvider, provider.Model, error) {
+				return nil, nil, errors.NotImplemented
+			},
 		)
 		c.Assert(err, gc.ErrorMatches, "permission denied")
 	}
@@ -138,6 +146,7 @@ func (s *undertakerSuite) TestDeadRemoveModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(otherSt.removed, jc.IsTrue)
+	c.Assert(s.secrets.cleanedUUID, gc.Equals, otherSt.model.uuid)
 }
 
 func (s *undertakerSuite) TestModelConfig(c *gc.C) {

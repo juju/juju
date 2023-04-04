@@ -4,7 +4,7 @@
 package jujuc_test
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/juju/cmd/v3"
@@ -23,7 +23,7 @@ var _ = gc.Suite(&GoalStateSuite{})
 
 func (s *GoalStateSuite) TestHelp(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, cmdString("goal-state"))
+	com, err := jujuc.NewCommand(hctx, "goal-state")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
@@ -105,7 +105,7 @@ func (s *GoalStateSuite) TestOutputPath(c *gc.C) {
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 		c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
 
-		content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "some-file"))
+		content, err := os.ReadFile(filepath.Join(ctx.Dir, "some-file"))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(string(content), gc.Equals, t.out)
 	}
@@ -113,7 +113,7 @@ func (s *GoalStateSuite) TestOutputPath(c *gc.C) {
 
 func (s *GoalStateSuite) getGoalStateCommand(c *gc.C, args []string) (*cmd.Context, int) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, cmdString("goal-state"))
+	com, err := jujuc.NewCommand(hctx, "goal-state")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)
@@ -122,7 +122,7 @@ func (s *GoalStateSuite) getGoalStateCommand(c *gc.C, args []string) (*cmd.Conte
 
 func (s *GoalStateSuite) TestUnknownArg(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, cmdString("goal-state"))
+	com, err := jujuc.NewCommand(hctx, "goal-state")
 	c.Assert(err, jc.ErrorIsNil)
 	cmdtesting.TestInit(c, jujuc.NewJujucCommandWrappedForTest(com), []string{}, "")
 }

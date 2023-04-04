@@ -8,19 +8,18 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
-	jujutxn "github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 	"gopkg.in/macaroon.v2"
 
 	corecharm "github.com/juju/juju/core/charm"
-	coreseries "github.com/juju/juju/core/series"
-	"github.com/juju/juju/feature"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/mongo"
 	mongoutils "github.com/juju/juju/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -62,17 +61,74 @@ type Channel struct {
 	Branch string `bson:"branch,omitempty"`
 }
 
+// Base identifies the base os the charm was installed on.
+type Base struct {
+	OS      string `bson:"os"`
+	Channel string `bson:"channel"`
+}
+
+// Normalise ensures the channel always has a risk.
+func (b Base) Normalise() Base {
+	if strings.Contains(b.Channel, "/") {
+		return b
+	}
+	nb := b
+	nb.Channel = b.Channel + "/stable"
+	return nb
+}
+
+func (b Base) compatibleWith(other Base) bool {
+	if b.OS != other.OS {
+		return false
+	}
+	c1, err := series.ParseChannel(b.Channel)
+	if err != nil {
+		return false
+	}
+	c2, err := series.ParseChannel(other.Channel)
+	if err != nil {
+		return false
+	}
+	return c1 == c2
+}
+
+// DisplayString prints the base without the rask component.
+func (b Base) DisplayString() string {
+	if b.OS == "" || b.Channel == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s@%s", b.OS, strings.Split(b.Channel, "/")[0])
+}
+
+func (b Base) String() string {
+	if b.OS == "" || b.Channel == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s@%s", b.OS, b.Channel)
+}
+
+// UbuntuBase is used in tests.
+func UbuntuBase(channel string) Base {
+	return Base{OS: "ubuntu", Channel: channel + "/stable"}
+}
+
+// DefaultLTSBase is used in tests.
+func DefaultLTSBase() Base {
+	return Base{OS: "ubuntu", Channel: jujuversion.DefaultSupportedLTSBase().Channel.String()}
+}
+
 // Platform identifies the platform the charm was installed on.
 type Platform struct {
 	Architecture string `bson:"architecture,omitempty"`
-	OS           string `bson:"os,omitempty"`
-	Series       string `bson:"series,omitempty"`
+	OS           string `bson:"os"`
+	Channel      string `bson:"channel"`
 }
 
 // CharmOrigin holds the original source of a charm. Information about where the
 // charm was installed from (charm-hub, charm-store, local) and any additional
 // information we can utilise when making modelling decisions for upgrading or
 // changing.
+// Note: InstanceKey should never be added here. See core charm origin definition.
 type CharmOrigin struct {
 	Source   string    `bson:"source"`
 	Type     string    `bson:"type,omitempty"`
@@ -80,7 +136,7 @@ type CharmOrigin struct {
 	Hash     string    `bson:"hash"`
 	Revision *int      `bson:"revision,omitempty"`
 	Channel  *Channel  `bson:"channel,omitempty"`
-	Platform *Platform `bson:"platform,omitempty"`
+	Platform *Platform `bson:"platform"`
 }
 
 // AsCoreCharmOrigin converts a state Origin type into a core/charm.Origin.
@@ -102,18 +158,10 @@ func (o CharmOrigin) AsCoreCharmOrigin() corecharm.Origin {
 	}
 
 	if o.Platform != nil {
-		// TODO(juju3) - series will become channel in state
-		os := o.Platform.OS
-		channel := o.Platform.Series
-		base, err := coreseries.GetBaseFromSeries(o.Platform.Series)
-		if err == nil {
-			os = base.Name
-			channel = base.Channel.Track
-		}
 		origin.Platform = corecharm.Platform{
 			Architecture: o.Platform.Architecture,
-			OS:           os,
-			Channel:      channel,
+			OS:           o.Platform.OS,
+			Channel:      o.Platform.Channel,
 		}
 	}
 
@@ -293,7 +341,7 @@ func insertAnyCharmOps(mb modelBackend, cdoc *charmDoc) ([]txn.Op, error) {
 	} else if life == Dead {
 		return nil, errors.New("url already consumed")
 	} else {
-		return nil, errors.New("already exists")
+		return nil, errors.AlreadyExistsf("charm %q", cdoc.DocID)
 	}
 	charmOp := txn.Op{
 		C:      charmsC,
@@ -333,6 +381,8 @@ func updateCharmOps(mb modelBackend, info CharmInfo, assert bson.D) ([]txn.Op, e
 	}
 	op.Assert = append(lifeAssert, assert...)
 
+	pendingUpload := info.SHA256 == "" || info.StoragePath == ""
+
 	data := bson.D{
 		{"charm-version", info.Version},
 		{"meta", info.Charm.Meta()},
@@ -342,7 +392,7 @@ func updateCharmOps(mb modelBackend, info CharmInfo, assert bson.D) ([]txn.Op, e
 		{"metrics", info.Charm.Metrics()},
 		{"storagepath", info.StoragePath},
 		{"bundlesha256", info.SHA256},
-		{"pendingupload", false},
+		{"pendingupload", pendingUpload},
 		{"placeholder", false},
 	}
 
@@ -624,6 +674,9 @@ func (c *Charm) globalKey() string {
 
 // String returns a string representation of the charm's URL.
 func (c *Charm) String() string {
+	if c.doc.URL == nil {
+		return ""
+	}
 	return *c.doc.URL
 }
 
@@ -694,7 +747,12 @@ func (c *Charm) BundleSha256() string {
 }
 
 // IsUploaded returns whether the charm has been uploaded to the
-// model storage.
+// model storage. Response is only valid when the charm is
+// not a placeholder.
+// TODO - hml - 29-Mar-2023
+// Find a better answer than not pendingupload. Currently
+// this method returns true for placeholder charm docs as well,
+// thus the result cannot be evaluated independently.
 func (c *Charm) IsUploaded() bool {
 	return !c.doc.PendingUpload
 }
@@ -748,8 +806,7 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
 
-	minVer := info.Charm.Meta().MinJujuVersion
-	if err := jujuversion.CheckJujuMinVersion(minVer, jujuversion.Current); err != nil {
+	if err := jujuversion.CheckJujuMinVersion(info.Charm.Meta().MinJujuVersion, jujuversion.Current); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -798,24 +855,36 @@ func (st *State) AllCharms() ([]*Charm, error) {
 	return charms, errors.Trace(iter.Close())
 }
 
-// Charm returns the charm with the given URL. Charm placeholders are never
-// returned. Charms pending to be uploaded are only returned if the
-// async charm download feature flag is set.
-//
-// TODO(achilleasa) remove the feature flag check once the server-side bundle
-// expansion work lands.
+// Charm returns the charm with the given URL. Charms pending to be uploaded
+// are returned for Charmhub charms (but not Charmstore ones). Charm
+// placeholders are never returned.
 func (st *State) Charm(curl *charm.URL) (*Charm, error) {
-	var (
-		cdoc    charmDoc
-		charmID = curl.String()
-	)
+	ch, err := st.findCharm(curl)
+	if err != nil {
+		return nil, err
+	}
+	if (!ch.IsUploaded() && !charm.CharmHub.Matches(curl.Schema)) || ch.IsPlaceholder() {
+		return nil, errors.NotFoundf("charm %q", curl.String())
+	}
+	return ch, nil
+}
+
+// findCharm returns a charm matching the curl if it exists.  This method should
+// be used with deep understanding of charm deployment, refresh, charm revision
+// updater. Most code should use Charm above.
+// The primary direct use case is AddCharmMetadata. When we asynchronously download
+// a charm, the metadata is inserted into the db so that part of deploying or
+// refreshing a charm can happen before a charm is actually downloaded. Therefore
+// it must be able to find placeholders and update them to allow for a download
+// to happen as part of refresh.
+func (st *State) findCharm(curl *charm.URL) (*Charm, error) {
+	var cdoc charmDoc
 
 	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
 
 	what := bson.D{
 		{"_id", curl.String()},
-		{"placeholder", bson.D{{"$ne", true}}},
 	}
 	what = append(what, nsLife.notDead()...)
 	err := charms.Find(what).One(&cdoc)
@@ -826,16 +895,6 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 		return nil, errors.Annotatef(err, "cannot get charm %q", curl)
 	}
 
-	// This check ensures that we don't break the existing deploy logic
-	// until the server-side bundle expansion work lands.
-	cfg, err := st.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	returnPendingCharms := cfg.Features().Contains(feature.AsynchronousCharmDownloads)
-	if cdoc.PendingUpload && !returnPendingCharms {
-		return nil, errors.NotFoundf("charm %q", charmID)
-	}
 	return newCharm(st, &cdoc), nil
 }
 
@@ -1069,6 +1128,9 @@ func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
 // provided charm metadata details. If the charm document already exists it
 // will be returned back as a *charm.Charm.
 //
+// If the charm document already exists as a placeholder and the charm hasn't
+// been downloaded yet, the document is updated with the current charm info.
+//
 // If the provided CharmInfo does not include a SHA256 and storage path entry,
 // then the charm document will be created with the PendingUpload flag set
 // to true.
@@ -1087,11 +1149,24 @@ func (st *State) AddCharmMetadata(info CharmInfo) (*Charm, error) {
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Check if the charm doc already exists.
-		if _, err := st.Charm(info.ID); err == nil {
+		ch, err := st.findCharm(info.ID)
+		if errors.Is(err, errors.NotFound) {
+			return insertCharmOps(st, info)
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !ch.IsPlaceholder() {
+			// The charm has already been downloaded, no need to
+			// so again.
 			return nil, jujutxn.ErrNoOperations
 		}
-
-		return insertCharmOps(st, info)
+		// This doc was inserted by the charm revision updater worker.
+		// Add the charm metadata and mark for download.
+		assert := bson.D{
+			{"life", Alive},
+			{"placeholder", true},
+		}
+		return updateCharmOps(st, info, assert)
 	}
 
 	if err := st.db().Run(buildTxn); err != nil {
@@ -1103,4 +1178,29 @@ func (st *State) AddCharmMetadata(info CharmInfo) (*Charm, error) {
 		return nil, errors.Trace(err)
 	}
 	return ch, nil
+}
+
+// AllCharmURLs returns a slice of strings representing charm.URLs for every
+// charm deployed in this model.
+func (st *State) AllCharmURLs() ([]*string, error) {
+	applications, closer := st.db().GetCollection(charmsC)
+	defer closer()
+
+	var docs []struct {
+		CharmURL *string `bson:"url"`
+	}
+	err := applications.Find(bson.D{}).All(&docs)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("charms")
+	}
+	if err != nil {
+		return nil, errors.Errorf("cannot get all charm URLs")
+	}
+
+	curls := make([]*string, len(docs))
+	for i, v := range docs {
+		curls[i] = v.CharmURL
+	}
+
+	return curls, nil
 }

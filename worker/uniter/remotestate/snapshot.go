@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -89,13 +90,32 @@ type Snapshot struct {
 	// executed by this unit.
 	Commands []string
 
-	// UpgradeSeriesStatus is the preparation status of
-	// any currently running series upgrade.
-	UpgradeSeriesStatus model.UpgradeSeriesStatus
+	// SecretRotations is a list of secret URIs that need to be rotated.
+	SecretRotations []string
 
-	// UpgradeSeriesTarget is the OS series that an in-flight
-	// series upgrade is transitioning to.
-	UpgradeSeriesTarget string
+	// ExpiredSecretRevisions is a list of secret revisions that need to be expired.
+	ExpiredSecretRevisions []string
+
+	// ConsumedSecretInfo is a list of the labels and revision info
+	// for secrets consumed by this unit.
+	// The map is keyed on secret ID.
+	ConsumedSecretInfo map[string]secrets.SecretRevisionInfo
+
+	// ObsoleteSecretRevisions is a list of the obsolete
+	// revisions for secrets owned by this unit.
+	ObsoleteSecretRevisions map[string][]int
+
+	// DeletedSecrets is a list of deleted secrets
+	// owned by this unit.
+	DeletedSecrets []string
+
+	// UpgradeMachineStatus is the preparation status of
+	// any currently running machine upgrade.
+	UpgradeMachineStatus model.UpgradeSeriesStatus
+
+	// UpgradeMachineTarget is the OS base that an in-flight
+	// machine upgrade is transitioning to.
+	UpgradeMachineTarget string
 
 	// ContainerRunningStatus is set on CAAS models
 	// for remote init/upgrade of charm.

@@ -128,9 +128,6 @@ func (c *showCredentialCommand) remoteCredentials(ctxt *cmd.Context) ([]params.C
 
 	defer client.Close()
 
-	if v := client.BestAPIVersion(); v < 2 {
-		return nil, errors.NotSupportedf("credential content lookup on the controller in Juju v%d", v)
-	}
 	remoteContents, err := client.CredentialContents(c.CloudName, c.CredentialName, c.ShowSecrets)
 	if err != nil {
 		return nil, err
@@ -178,7 +175,6 @@ func (c *showCredentialCommand) localCredentials(ctxt *cmd.Context) ([]params.Cr
 
 type CredentialContentAPI interface {
 	CredentialContents(cloud, credential string, withSecrets bool) ([]params.CredentialContentResult, error)
-	BestAPIVersion() int
 	Close() error
 }
 

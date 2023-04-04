@@ -160,7 +160,7 @@ func (s *UserSuite) TestRemoveUserLongForm(c *gc.C) {
 }
 
 func (s *UserSuite) TestUserList(c *gc.C) {
-	ctx, err := s.RunUserCommand(c, "", "list-users")
+	ctx, err := s.RunUserCommand(c, "", "users")
 	c.Assert(err, jc.ErrorIsNil)
 	periodPattern := `(just now|\d+ \S+ ago)`
 	expected := fmt.Sprintf(`
@@ -168,7 +168,6 @@ Controller: kontroll
 
 Name\s+Display name\s+Access\s+Date created\s+Last connection
 admin.*\s+admin\s+superuser\s+%s\s+%s
-
 `[1:], periodPattern, periodPattern)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, expected)
 }

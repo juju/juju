@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/mgorootkeystore"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/bakerystorage"
@@ -22,8 +21,8 @@ func (st *State) NewBakeryStorage() (bakerystorage.ExpirableStorage, error) {
 		GetCollection: func() (mongo.Collection, func()) {
 			return st.db().GetCollection(bakeryStorageItemsC)
 		},
-		GetStorage: func(rootKeys *mgorootkeystore.RootKeys, coll mongo.Collection, expireAfter time.Duration) bakery.RootKeyStore {
-			return rootKeys.NewStore(coll.Writeable().Underlying(), mgorootkeystore.Policy{
+		GetStorage: func(rootKeys *bakerystorage.RootKeys, coll mongo.Collection, expireAfter time.Duration) bakery.RootKeyStore {
+			return rootKeys.NewStore(coll.Writeable().Underlying(), bakerystorage.Policy{
 				ExpiryDuration: expireAfter,
 			})
 		},

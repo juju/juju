@@ -262,6 +262,8 @@ type UnitStateResult struct {
 	RelationState map[int]string `json:"relation-state,omitempty"`
 	// StorageState is a internal storage state for this unit.
 	StorageState string `json:"storage-state,omitempty"`
+	// SecretState is internal secret state for this unit.
+	SecretState string `json:"secret-state,omitempty"`
 	// MeterStatusState encodes the meter status state for this unit.
 	MeterStatusState string `json:"meter-status-state,omitempty"`
 }
@@ -290,6 +292,7 @@ type SetUnitStateArg struct {
 	UniterState      *string            `json:"uniter-state,omitempty"`
 	RelationState    *map[int]string    `json:"relation-state,omitempty"`
 	StorageState     *string            `json:"storage-state,omitempty"`
+	SecretState      *string            `json:"secret-state,omitempty"`
 	MeterStatusState *string            `json:"meter-status-state,omitempty"`
 }
 
@@ -312,6 +315,11 @@ type CommitHookChangesArg struct {
 	AddStorage           []StorageAddParams     `json:"add-storage,omitempty"`
 	SetPodSpec           *PodSpec               `json:"pod-spec,omitempty"`
 	SetRawK8sSpec        *PodSpec               `json:"set-raw-k8s-spec,omitempty"`
+	SecretCreates        []CreateSecretArg      `json:"secret-creates,omitempty"`
+	SecretUpdates        []UpdateSecretArg      `json:"secret-updates,omitempty"`
+	SecretGrants         []GrantRevokeSecretArg `json:"secret-grants,omitempty"`
+	SecretRevokes        []GrantRevokeSecretArg `json:"secret-revokes,omitempty"`
+	SecretDeletes        []DeleteSecretArg      `json:"secret-deletes,omitempty"`
 }
 
 // ModelConfig holds a model configuration.
@@ -405,22 +413,6 @@ type RelationResult struct {
 	Key              string     `json:"key"`
 	Endpoint         Endpoint   `json:"endpoint"`
 	OtherApplication string     `json:"other-application,omitempty"`
-}
-
-// RelationResultV5 returns information about a single relation,
-// or an error, but doesn't include the other application name.
-type RelationResultV5 struct {
-	Error    *Error     `json:"error,omitempty"`
-	Life     life.Value `json:"life"`
-	Id       int        `json:"id"`
-	Key      string     `json:"key"`
-	Endpoint Endpoint   `json:"endpoint"`
-}
-
-// RelationResultsV5 holds the result of an API call that returns
-// information about multiple V5 relations.
-type RelationResultsV5 struct {
-	Results []RelationResultV5 `json:"results"`
 }
 
 // EntityCharmURL holds an entity's tag and a charm URL.
@@ -749,11 +741,13 @@ type CharmsResponse struct {
 // Commands and Timeout are expected to have values, and one or more
 // values should be in the Machines, Applications, or Units slices.
 type RunParams struct {
-	Commands     string        `json:"commands"`
-	Timeout      time.Duration `json:"timeout"`
-	Machines     []string      `json:"machines,omitempty"`
-	Applications []string      `json:"applications,omitempty"`
-	Units        []string      `json:"units,omitempty"`
+	Commands       string        `json:"commands"`
+	Timeout        time.Duration `json:"timeout"`
+	Machines       []string      `json:"machines,omitempty"`
+	Applications   []string      `json:"applications,omitempty"`
+	Units          []string      `json:"units,omitempty"`
+	Parallel       *bool         `json:"parallel,omitempty"`
+	ExecutionGroup *string       `json:"execution-group,omitempty"`
 
 	// WorkloadContext for CAAS is true when the Commands should be run on
 	// the workload not the operator.
@@ -790,46 +784,6 @@ type RetryProvisioningArgs struct {
 	All      bool     `json:"all"`
 }
 
-// ProvisioningInfoBase holds machine provisioning info common
-// across different versions of the provisioner API facade.
-type ProvisioningInfoBase struct {
-	Constraints constraints.Value `json:"constraints"`
-	// TODO(juju3) - remove series
-	Series            string                   `json:"series"`
-	Base              Base                     `json:"base"`
-	Placement         string                   `json:"placement"`
-	Jobs              []model.MachineJob       `json:"jobs"`
-	RootDisk          *VolumeParams            `json:"root-disk,omitempty"`
-	Volumes           []VolumeParams           `json:"volumes,omitempty"`
-	VolumeAttachments []VolumeAttachmentParams `json:"volume-attachments,omitempty"`
-	Tags              map[string]string        `json:"tags,omitempty"`
-	ImageMetadata     []CloudImageMetadata     `json:"image-metadata,omitempty"`
-	EndpointBindings  map[string]string        `json:"endpoint-bindings,omitempty"`
-	ControllerConfig  map[string]interface{}   `json:"controller-config,omitempty"`
-	CloudInitUserData map[string]interface{}   `json:"cloudinit-userdata,omitempty"`
-	CharmLXDProfiles  []string                 `json:"charm-lxd-profiles,omitempty"`
-}
-
-// ProvisioningInfo holds machine provisioning info returned by
-// versions 9 and lower of the provisioner API facade.
-type ProvisioningInfo struct {
-	ProvisioningInfoBase
-	SubnetsToZones map[string][]string `json:"subnets-to-zones,omitempty"`
-}
-
-// ProvisioningInfoResult holds machine provisioning info or an error
-// for versions 9 and lower of the provisioner API facade.
-type ProvisioningInfoResult struct {
-	Result *ProvisioningInfo `json:"result"`
-	Error  *Error            `json:"error,omitempty"`
-}
-
-// ProvisioningInfoResults holds multiple machine provisioning info results
-// for versions 9 and lower of the provisioner API facade.
-type ProvisioningInfoResults struct {
-	Results []ProvisioningInfoResult `json:"results"`
-}
-
 // ProvisioningNetworkTopology holds a network topology that is based on
 // positive machine space constraints.
 // This is used for creating NICs on instances where the provider is not space
@@ -847,24 +801,34 @@ type ProvisioningNetworkTopology struct {
 	SpaceSubnets map[string][]string `json:"space-subnets"`
 }
 
-// ProvisioningInfoV10 holds machine provisioning info returned by
-// versions 10 and above of the provisioner API facade.
-type ProvisioningInfoV10 struct {
-	ProvisioningInfoBase
+// ProvisioningInfo holds machine provisioning info.
+type ProvisioningInfo struct {
+	Constraints       constraints.Value        `json:"constraints"`
+	Base              Base                     `json:"base"`
+	Placement         string                   `json:"placement"`
+	Jobs              []model.MachineJob       `json:"jobs"`
+	RootDisk          *VolumeParams            `json:"root-disk,omitempty"`
+	Volumes           []VolumeParams           `json:"volumes,omitempty"`
+	VolumeAttachments []VolumeAttachmentParams `json:"volume-attachments,omitempty"`
+	Tags              map[string]string        `json:"tags,omitempty"`
+	ImageMetadata     []CloudImageMetadata     `json:"image-metadata,omitempty"`
+	EndpointBindings  map[string]string        `json:"endpoint-bindings,omitempty"`
+	ControllerConfig  map[string]interface{}   `json:"controller-config,omitempty"`
+	CloudInitUserData map[string]interface{}   `json:"cloudinit-userdata,omitempty"`
+	CharmLXDProfiles  []string                 `json:"charm-lxd-profiles,omitempty"`
+
 	ProvisioningNetworkTopology
 }
 
-// ProvisioningInfoResultV10 holds machine provisioning info or an error
-// for versions 10 and above of the provisioner API facade.
-type ProvisioningInfoResultV10 struct {
-	Result *ProvisioningInfoV10 `json:"result"`
-	Error  *Error               `json:"error,omitempty"`
+// ProvisioningInfoResult holds machine provisioning info or an error.
+type ProvisioningInfoResult struct {
+	Result *ProvisioningInfo `json:"result"`
+	Error  *Error            `json:"error,omitempty"`
 }
 
-// ProvisioningInfoResultsV10 holds multiple machine provisioning info results
-// for versions 10 and above of the provisioner API facade.
-type ProvisioningInfoResultsV10 struct {
-	Results []ProvisioningInfoResultV10 `json:"results"`
+// ProvisioningInfoResults holds multiple machine provisioning info results.
+type ProvisioningInfoResults struct {
+	Results []ProvisioningInfoResult `json:"results"`
 }
 
 // Metric holds a single metric.
@@ -928,28 +892,6 @@ type SingularClaim struct {
 // SingularClaims holds any number of SingularClaim~s.
 type SingularClaims struct {
 	Claims []SingularClaim `json:"claims"`
-}
-
-// GUIArchiveVersion holds information on a specific GUI archive version.
-type GUIArchiveVersion struct {
-	// Version holds the Juju GUI version number.
-	Version version.Number `json:"version"`
-	// SHA256 holds the SHA256 hash of the GUI tar.bz2 archive.
-	SHA256 string `json:"sha256"`
-	// Current holds whether this specific version is the current one served
-	// by the controller.
-	Current bool `json:"current"`
-}
-
-// GUIArchiveResponse holds the response to /gui-archive GET requests.
-type GUIArchiveResponse struct {
-	Versions []GUIArchiveVersion `json:"versions"`
-}
-
-// GUIVersionRequest holds the body for /gui-version PUT requests.
-type GUIVersionRequest struct {
-	// Version holds the Juju GUI version number.
-	Version version.Number `json:"version"`
 }
 
 // LogMessage is a structured logging entry.

@@ -24,7 +24,6 @@ import (
 var logger = loggo.GetLogger("juju.network.containerizer")
 
 var skippedDeviceNames = set.NewStrings(
-	network.DefaultLXCBridge,
 	network.DefaultLXDBridge,
 	network.DefaultKVMBridge,
 )

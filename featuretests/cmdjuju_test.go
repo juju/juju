@@ -4,7 +4,7 @@
 package featuretests
 
 import (
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/cmd/v3/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -321,11 +321,11 @@ func (s *cmdJujuSuite) TestApplicationAddUnitExistingContainer(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
 	app := s.AddTestingApplication(c, "some-application-name", ch)
 
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	template := state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)

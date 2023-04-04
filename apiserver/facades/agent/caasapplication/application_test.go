@@ -6,14 +6,13 @@ package caasapplication_test
 import (
 	"time"
 
-	"gopkg.in/yaml.v2"
-
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/caasapplication"
@@ -220,7 +219,6 @@ func (s *CAASApplicationSuite) TestAgentConf(c *gc.C) {
 		},
 		"oldpassword":               "ignore",
 		"values":                    nil,
-		"mongoversion":              "0.0",
 		"agent-logfile-max-backups": 0,
 		"agent-logfile-max-size":    0,
 	})

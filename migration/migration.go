@@ -5,12 +5,12 @@ package migration
 
 import (
 	"io"
-	"io/ioutil"
 	"net/url"
 	"os"
+	"time"
 
-	"github.com/juju/charm/v8"
-	"github.com/juju/description/v3"
+	"github.com/juju/charm/v9"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/naturalsort"
@@ -29,7 +29,7 @@ var logger = loggo.GetLogger("juju.migration")
 // model.
 type StateExporter interface {
 	// Export generates an abstract representation of a model.
-	Export() (description.Model, error)
+	Export(leaders map[string]string) (description.Model, error)
 }
 
 // StateImporter describes the method needed to import a model
@@ -79,7 +79,7 @@ func ImportModel(importer StateImporter, getClaimer ClaimerFunc, bytes []byte) (
 		err := claimer.ClaimLeadership(
 			application.Name(),
 			application.Leader(),
-			state.InitialLeaderClaimTime,
+			time.Minute,
 		)
 		if err != nil {
 			return nil, nil, errors.Annotatef(
@@ -190,7 +190,7 @@ func UploadBinaries(config UploadBinariesConfig) error {
 }
 
 func streamThroughTempFile(r io.Reader) (_ io.ReadSeeker, cleanup func(), err error) {
-	tempFile, err := ioutil.TempFile("", "juju-migrate-binary")
+	tempFile, err := os.CreateTemp("", "juju-migrate-binary")
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

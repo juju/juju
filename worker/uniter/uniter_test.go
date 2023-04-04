@@ -7,12 +7,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"syscall"
 
-	corecharm "github.com/juju/charm/v8"
-	"github.com/juju/charm/v8/hooks"
+	corecharm "github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -46,7 +45,6 @@ var _ = gc.Suite(&UniterSuite{})
 
 // This guarantees that we get proper platform
 // specific error directly from their source
-// This works on both windows and unix
 var errNotDir = syscall.ENOTDIR.Error()
 
 func (s *UniterSuite) SetUpSuite(c *gc.C) {
@@ -167,10 +165,6 @@ func (s *UniterSuite) TestPreviousDownloadsCleared(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterBootstrap(c *gc.C) {
-	//TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: currently does not work on windows")
-	}
 	s.runUniterTests(c, []uniterTest{
 		// Check error conditions during unit bootstrap phase.
 		ut(
@@ -458,6 +452,55 @@ func (s *UniterSuite) TestUniterStartHook(c *gc.C) {
 			// reboot.
 			waitHooks{"start"},
 			verifyRunning{},
+		),
+	})
+}
+
+func (s *UniterSuite) TestUniterRotateSecretHook(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"rotate secret hook runs when there are secrets to be rotated",
+			createCharm{},
+			serveCharm{},
+			createUniter{},
+			waitHooks(startupHooks(false)),
+			waitUnitAgent{status: status.Idle},
+			createSecret{},
+			rotateSecret{},
+			waitHooks{"secret-rotate"},
+		),
+	})
+}
+
+func (s *UniterSuite) TestUniterSecretExpiredHook(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"secret expired hook runs when there are secret revisions to be expired",
+			createCharm{},
+			serveCharm{},
+			createUniter{},
+			waitHooks(startupHooks(false)),
+			waitUnitAgent{status: status.Idle},
+			createSecret{},
+			expireSecret{},
+			waitHooks{"secret-expired"},
+		),
+	})
+}
+
+func (s *UniterSuite) TestUniterSecretChangedHook(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"change secret hook runs when there are secret changes",
+			createCharm{},
+			serveCharm{},
+			createUniter{},
+			waitHooks(startupHooks(false)),
+			waitUnitAgent{status: status.Idle},
+			createSecret{},
+			getSecret{},
+			changeSecret{},
+			waitHooks{"secret-changed"},
 		),
 	})
 }
@@ -873,10 +916,6 @@ func (s *UniterSuite) TestUniterErrorStateForcedUpgrade(c *gc.C) {
 
 func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1448308")
-	//TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: currently does not work on windows")
-	}
 	s.runUniterTests(c, []uniterTest{
 		// Upgrade scenarios - handling conflicts.
 		ut(
@@ -1481,7 +1520,7 @@ storage:
 			waitUniterDead{},
 		),
 		// TODO(axw) test that storage-attached is run for new
-		// storage attachments before upgrade-charm is run. This
+		// storage attachments before refresh is run. This
 		// requires additions to state to add storage when a charm
 		// is upgraded.
 	})

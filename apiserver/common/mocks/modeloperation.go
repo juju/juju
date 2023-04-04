@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	txn "github.com/juju/mgo/v2/txn"
+	txn "github.com/juju/mgo/v3/txn"
 )
 
 // MockModelOperation is a mock of ModelOperation interface.

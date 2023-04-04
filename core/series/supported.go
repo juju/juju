@@ -71,7 +71,11 @@ func (s *supportedInfo) compile(now time.Time) error {
 		// false when reading in the distro information. Setting OverrideSupport
 		// to true, will force it to be the same value as the default.
 		if !version.IgnoreDistroInfoUpdate {
-			supported = distroInfo.Supported(now)
+			if current {
+				// We only want to update the previously supported to possibly deprecated.
+				// But we do not want to update a Juju deprecated LTS to supported again.
+				supported = distroInfo.Supported(now)
+			}
 		}
 
 		s.values[seriesName] = seriesVersion{
@@ -134,7 +138,6 @@ func (s *supportedInfo) controllerSeries() []string {
 		if version.WorkloadType != ControllerWorkloadType {
 			continue
 		}
-
 		if version.ESMSupported || version.Supported {
 			result = append(result, namedSeries.Name.String())
 		}
@@ -155,6 +158,24 @@ func (s *supportedInfo) workloadSeries(includeUnsupported bool) []string {
 		}
 		if includeUnsupported || version.ESMSupported || version.Supported {
 			result = append(result, namedSeries.Name.String())
+		}
+	}
+	return result
+}
+
+// workloadVersions returns a slice of versions that are supported to run on a
+// target workload (charm).
+// Note: workload series will also include controller workload types, as they
+// can also be used for workloads.
+func (s *supportedInfo) workloadVersions(includeUnsupported bool) []string {
+	var result []string
+	for _, namedSeries := range s.namedSeries() {
+		version := namedSeries.SeriesVersion
+		if version.WorkloadType == UnsupportedWorkloadType {
+			continue
+		}
+		if includeUnsupported || version.ESMSupported || version.Supported {
+			result = append(result, version.Version)
 		}
 	}
 	return result
@@ -274,7 +295,6 @@ var ubuntuSeries = map[SeriesName]seriesVersion{
 		WorkloadType: ControllerWorkloadType,
 		Version:      "14.04",
 		LTS:          true,
-		ESMSupported: true,
 	},
 	Utopic: {
 		WorkloadType: ControllerWorkloadType,
@@ -292,7 +312,6 @@ var ubuntuSeries = map[SeriesName]seriesVersion{
 		WorkloadType: ControllerWorkloadType,
 		Version:      "16.04",
 		LTS:          true,
-		ESMSupported: true,
 	},
 	Yakkety: {
 		WorkloadType: ControllerWorkloadType,
@@ -310,7 +329,6 @@ var ubuntuSeries = map[SeriesName]seriesVersion{
 		WorkloadType: ControllerWorkloadType,
 		Version:      "18.04",
 		LTS:          true,
-		ESMSupported: true,
 	},
 	Cosmic: {
 		WorkloadType: ControllerWorkloadType,
@@ -364,111 +382,20 @@ const (
 	Kubernetes   SeriesName = "kubernetes"
 )
 
-var windowsVersions = map[string]seriesVersion{
-	"Windows Server 2008 R2": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2008r2",
-		Supported:    true,
-	},
-	"Hyper-V Server 2012 R2": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2012hvr2",
-		Supported:    true,
-	},
-	"Hyper-V Server 2012": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2012hv",
-		Supported:    true,
-	},
-	"Windows Server 2012 R2": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2012r2",
-		Supported:    true,
-	},
-	"Windows Storage Server 2012 R2": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2012r2",
-		Supported:    true,
-	},
-	"Windows Server 2012": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2012",
-		Supported:    true,
-	},
-	"Windows Storage Server 2012": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2012",
-		Supported:    true,
-	},
-	"Windows Server 2016": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2016",
-		Supported:    true,
-	},
-	"Windows Storage Server 2016": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2016",
-		Supported:    true,
-	},
-	"Hyper-V Server 2016": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2016hv",
-		Supported:    true,
-	},
-	"Windows Server 2019": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2019",
-		Supported:    true,
-	},
-	"Windows Storage Server 2019": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2019",
-		Supported:    true,
-	},
-	"Windows 7": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win7",
-		Supported:    true,
-	},
-	"Windows 8": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win8",
-		Supported:    true,
-	},
-	"Windows 8.1": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win81",
-		Supported:    true,
-	},
-	"Windows 10": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win10",
-		Supported:    true,
-	},
-}
-
-var windowsNanoVersions = map[SeriesName]seriesVersion{
-	"Windows Server 2016": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2016nano",
-		Supported:    true,
-	},
-}
-
 var centosSeries = map[SeriesName]seriesVersion{
 	Centos7: {
 		WorkloadType: OtherWorkloadType,
-		Version:      "centos7",
+		Version:      "7",
 		Supported:    true,
 	},
 	Centos8: {
 		WorkloadType: OtherWorkloadType,
-		Version:      "centos8",
+		Version:      "8",
 		Supported:    true,
 	},
 	Centos9: {
 		WorkloadType: OtherWorkloadType,
-		Version:      "centos9",
+		Version:      "9",
 		Supported:    true,
 	},
 }

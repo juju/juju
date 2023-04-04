@@ -75,7 +75,7 @@ func (*Suite) TestFetchManyDefaultFilter(c *gc.C) {
 	constraints, err := imagemetadata.NewImageConstraint(
 		simplestreams.LookupParams{
 			Arches:   []string{"amd64", "arm64", "ppc64el"},
-			Releases: []string{"xenial"},
+			Releases: []string{"16.04"},
 			Stream:   "released",
 		},
 	)
@@ -102,7 +102,7 @@ func (*Suite) TestFetchManyDefaultFilterAndCustomImageDownloadURL(c *gc.C) {
 	constraints, err := imagemetadata.NewImageConstraint(
 		simplestreams.LookupParams{
 			Arches:   []string{"amd64", "arm64", "ppc64el"},
-			Releases: []string{"xenial"},
+			Releases: []string{"16.04"},
 			Stream:   "released",
 		},
 	)
@@ -132,7 +132,7 @@ func (*Suite) TestFetchSingleDefaultFilter(c *gc.C) {
 	constraints := &imagemetadata.ImageConstraint{
 		LookupParams: simplestreams.LookupParams{
 			Arches:   []string{"ppc64el"},
-			Releases: []string{"jammy"},
+			Releases: []string{"16.04"},
 		}}
 	got, resolveInfo, err := Fetch(ss, tds, constraints, nil)
 	c.Check(resolveInfo.Signed, jc.IsTrue)
@@ -155,7 +155,7 @@ func (*Suite) TestFetchOneWithFilter(c *gc.C) {
 	constraints := &imagemetadata.ImageConstraint{
 		LookupParams: simplestreams.LookupParams{
 			Arches:   []string{"ppc64el"},
-			Releases: []string{"xenial"},
+			Releases: []string{"16.04"},
 		}}
 	got, resolveInfo, err := Fetch(ss, tds, constraints, Filter("disk1.img"))
 	c.Check(resolveInfo.Signed, jc.IsTrue)
@@ -182,7 +182,7 @@ func (*Suite) TestFetchManyWithFilter(c *gc.C) {
 	constraints := &imagemetadata.ImageConstraint{
 		LookupParams: simplestreams.LookupParams{
 			Arches:   []string{"amd64", "arm64", "ppc64el"},
-			Releases: []string{"xenial"},
+			Releases: []string{"16.04"},
 		}}
 	got, resolveInfo, err := Fetch(ss, tds, constraints, Filter("disk1.img"))
 	c.Check(resolveInfo.Signed, jc.IsTrue)
@@ -206,7 +206,7 @@ func (*Suite) TestOneAmd64XenialTarGz(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
-	got, err := One(ss, "amd64", "xenial", "", "tar.gz", newTestDataSourceFunc(ts.URL))
+	got, err := One(ss, "amd64", "16.04", "", "tar.gz", newTestDataSourceFunc(ts.URL))
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, &Metadata{
 		Arch:    "amd64",
@@ -219,20 +219,20 @@ func (*Suite) TestOneAmd64XenialTarGz(c *gc.C) {
 	})
 }
 
-func (*Suite) TestOnePpc64elXenialImg(c *gc.C) {
+func (*Suite) TestOneArm64JammyImg(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
-	got, err := One(ss, "ppc64el", "xenial", "", "disk1.img", newTestDataSourceFunc(ts.URL))
+	got, err := One(ss, "arm64", "22.04", "released", "disk1.img", newTestDataSourceFunc(ts.URL))
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, &Metadata{
-		Arch:    "ppc64el",
-		Release: "xenial",
-		Version: "16.04",
+		Arch:    "arm64",
+		Release: "jammy",
+		Version: "22.04",
 		FType:   "disk1.img",
-		SHA256:  "ff8aa24deae6e84769c96d98f7dcb3cd8772e1fbe6d71a09058783bba5fd6cea",
-		Path:    "server/releases/xenial/release-20211001/ubuntu-16.04-server-cloudimg-ppc64el-disk1.img",
-		Size:    321060864,
+		SHA256:  "78b5ca0da456b228e2441bdca0cca1eab30b1b6a3eaf9594eabcb2cfc21275f3",
+		Path:    "server/releases/jammy/release-20220923/ubuntu-22.04-server-cloudimg-arm64.img",
+		Size:    642646016,
 	})
 }
 
@@ -240,7 +240,7 @@ func (*Suite) TestOneArm64FocalImg(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
-	got, err := One(ss, "arm64", "focal", "released", "disk1.img", newTestDataSourceFunc(ts.URL))
+	got, err := One(ss, "arm64", "20.04", "released", "disk1.img", newTestDataSourceFunc(ts.URL))
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, &Metadata{
 		Arch:    "arm64",
@@ -256,22 +256,22 @@ func (*Suite) TestOneArm64FocalImg(c *gc.C) {
 func (*Suite) TestOneErrors(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	table := []struct {
-		description, arch, series, stream, ftype, errorMatch string
+		description, arch, version, stream, ftype, errorMatch string
 	}{
-		{"empty arch", "", "xenial", "", "disk1.img", `invalid parameters supplied arch=""`},
-		{"invalid arch", "<F7>", "xenial", "", "disk1.img", `invalid parameters supplied arch="<F7>"`},
-		{"empty series", "arm64", "", "released", "disk1.img", `invalid parameters supplied series=""`},
-		{"invalid series", "amd64", "rusty", "", "disk1.img", `invalid parameters supplied series="rusty"`},
-		{"empty ftype", "ppc64el", "xenial", "", "", `invalid parameters supplied ftype=""`},
-		{"invalid file type", "amd64", "trusty", "", "tragedy", `invalid parameters supplied ftype="tragedy"`},
-		{"all wrong except stream", "a", "t", "", "y", `invalid parameters supplied arch="a" series="t" ftype="y"`},
-		{"stream not found", "amd64", "xenial", "hourly", "disk1.img", `no results for "amd64", "xenial", "hourly", "disk1.img"`},
+		{"empty arch", "", "20.04", "", "disk1.img", `invalid parameters supplied arch=""`},
+		{"invalid arch", "<F7>", "20.04", "", "disk1.img", `invalid parameters supplied arch="<F7>"`},
+		{"empty series", "arm64", "", "released", "disk1.img", `invalid parameters supplied version=""`},
+		{"invalid series", "amd64", "rusty", "", "disk1.img", `invalid parameters supplied version="rusty"`},
+		{"empty ftype", "ppc64el", "20.04", "", "", `invalid parameters supplied ftype=""`},
+		{"invalid file type", "amd64", "22.04", "", "tragedy", `invalid parameters supplied ftype="tragedy"`},
+		{"all wrong except stream", "a", "t", "", "y", `invalid parameters supplied arch="a" version="t" ftype="y"`},
+		{"stream not found", "amd64", "22.04", "hourly", "disk1.img", `no results for "amd64", "22.04", "hourly", "disk1.img"`},
 	}
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
 	for i, test := range table {
 		c.Logf("test % 1d: %s\n", i+1, test.description)
-		_, err := One(ss, test.arch, test.series, test.stream, test.ftype, newTestDataSourceFunc(ts.URL))
+		_, err := One(ss, test.arch, test.version, test.stream, test.ftype, newTestDataSourceFunc(ts.URL))
 		c.Check(err, gc.ErrorMatches, test.errorMatch)
 	}
 }

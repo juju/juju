@@ -108,7 +108,7 @@ func (s *machineUpgraderSuite) TestTools(c *gc.C) {
 func (s *machineUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	w, err := s.st.WatchAPIVersion(s.rawMachine.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event

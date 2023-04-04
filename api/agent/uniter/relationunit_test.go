@@ -4,7 +4,7 @@
 package uniter_test
 
 import (
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -184,7 +184,7 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 	tag := names.NewRelationTag("wordpress:db mysql:server")
 	w, err := client.WatchRelationUnits(tag, names.NewUnitTag("mysql/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewRelationUnitsWatcherC(c, w, nil)
+	wc := watchertest.NewRelationUnitsWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.

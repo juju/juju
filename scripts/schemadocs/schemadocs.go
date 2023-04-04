@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"io/ioutil"
 	"log"
 	"os"
 	"sort"
@@ -22,7 +21,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	data, err := ioutil.ReadFile(os.Args[1])
+	data, err := os.ReadFile(os.Args[1])
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -8,7 +8,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -143,9 +142,6 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 		Mux:                 s.mux,
 		NewObserver:         func() observer.Observer { return &fakeobserver.Instance{} },
 		UpgradeComplete:     func() bool { return true },
-		RestoreStatus: func() state.RestoreStatus {
-			return state.RestoreNotActive
-		},
 		RegisterIntrospectionHandlers: func(f func(path string, h http.Handler)) {
 			f("navel", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				io.WriteString(w, "gazing")
@@ -314,7 +310,7 @@ func (s *apiserverBaseSuite) OpenAPIAsNewMachine(c *gc.C, srv *apiserver.Server,
 	if len(jobs) == 0 {
 		jobs = []state.MachineJob{state.JobHostUnits}
 	}
-	machine, err := s.State.AddMachine("quantal", jobs...)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), jobs...)
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -366,7 +362,7 @@ func (s *apiserverSuite) TestRestartMessage(c *gc.C) {
 func (s *apiserverSuite) getHealth(c *gc.C) (string, int) {
 	uri := s.server.URL + "/health"
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
 	result := string(body)
 	// Ensure that the last value is a carriage return.

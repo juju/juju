@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v3"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -66,7 +66,7 @@ type ModelManagerBackend interface {
 	AllVolumes() ([]state.Volume, error)
 	ControllerUUID() string
 	ControllerTag() names.ControllerTag
-	Export() (description.Model, error)
+	Export(leaders map[string]string) (description.Model, error)
 	ExportPartial(state.ExportConfig) (description.Model, error)
 	SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
 	SetModelMeterStatus(string, string) error
@@ -281,6 +281,7 @@ func (st modelManagerStateShim) AllMachines() ([]Machine, error) {
 
 // Application defines methods provided by a state.Application instance.
 type Application interface {
+	Name() string
 	UnitCount() int
 }
 

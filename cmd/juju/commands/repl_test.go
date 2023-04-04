@@ -156,7 +156,7 @@ func (s *ReplSuite) TestJujuCommandHelp(c *gc.C) {
 
 	stdout, _ := jujutesting.CaptureOutput(c, f)
 	s.assertOutMatches(c, stdout,
-		"Usage: juju show-status.*")
+		"Usage: juju status.*")
 }
 
 func (s *ReplSuite) TestRepl(c *gc.C) {

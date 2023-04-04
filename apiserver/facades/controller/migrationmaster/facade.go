@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v3"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/naturalsort"
@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/leadership"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -34,15 +35,7 @@ type API struct {
 	resources               facade.Resources
 	presence                facade.Presence
 	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error)
-}
-
-type APIV1 struct {
-	*APIV2
-}
-
-// APIV2 implements version 2 of the migration master API.
-type APIV2 struct {
-	*API
+	leadership              leadership.Reader
 }
 
 // NewAPI creates a new API server endpoint for the model migration
@@ -55,6 +48,7 @@ func NewAPI(
 	authorizer facade.Authorizer,
 	presence facade.Presence,
 	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error),
+	leadership leadership.Reader,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -67,6 +61,7 @@ func NewAPI(
 		resources:               resources,
 		presence:                presence,
 		environscloudspecGetter: environscloudspecGetter,
+		leadership:              leadership,
 	}, nil
 }
 
@@ -246,7 +241,12 @@ func (api *API) SetStatusMessage(args params.SetMigrationStatusMessageArgs) erro
 func (api *API) Export() (params.SerializedModel, error) {
 	var serialized params.SerializedModel
 
-	model, err := api.backend.Export()
+	leaders, err := api.leadership.Leaders()
+	if err != nil {
+		return serialized, err
+	}
+
+	model, err := api.backend.Export(leaders)
 	if err != nil {
 		return serialized, err
 	}
@@ -263,9 +263,6 @@ func (api *API) Export() (params.SerializedModel, error) {
 	}
 	return serialized, nil
 }
-
-// ProcessRelations is masked on older versions of the migration master API
-func (api *APIV1) ProcessRelations(_, _ struct{}) {}
 
 // ProcessRelations processes any relations that need updating after an export.
 // This should help fix any remoteApplications that have been migrated.
@@ -465,6 +462,3 @@ func revisionToSerialized(rr description.ResourceRevision) params.SerializedMode
 		Username:       rr.Username(),
 	}
 }
-
-// MinionReportTimeout is not available via the V2 API.
-func (api *APIV2) MinionReportTimeout(_, _ struct{}) {}

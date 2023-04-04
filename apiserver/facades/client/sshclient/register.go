@@ -18,17 +18,8 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("SSHClient", 1, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV2(ctx)
-	}, reflect.TypeOf((*FacadeV2)(nil)))
-	registry.MustRegister("SSHClient", 2, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV2(ctx) // v2 adds AllAddresses() method.
-	}, reflect.TypeOf((*FacadeV2)(nil)))
-	registry.MustRegister("SSHClient", 3, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV3(ctx) // v3 adds Leader() method.
-	}, reflect.TypeOf((*Facade)(nil)))
 	registry.MustRegister("SSHClient", 4, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacade(ctx) // v4 adds ModelCredentialForSSH() method.
+		return newFacade(ctx)
 	}, reflect.TypeOf((*Facade)(nil)))
 }
 
@@ -57,22 +48,4 @@ func newFacade(ctx facade.Context) (*Facade, error) {
 			return caas.New(ctx, args)
 		},
 	)
-}
-
-// newFacadeV3 is used for API registration.
-func newFacadeV3(ctx facade.Context) (*FacadeV3, error) {
-	f, err := newFacade(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &FacadeV3{f}, nil
-}
-
-// newFacadeV2 is used for API registration.
-func newFacadeV2(ctx facade.Context) (*FacadeV2, error) {
-	f, err := newFacadeV3(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &FacadeV2{f}, nil
 }

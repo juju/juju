@@ -5,7 +5,7 @@ package agent
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/mongo/mongometrics"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -83,8 +82,7 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	fakeCmd(filepath.Join(testpath, "start"))
 	fakeCmd(filepath.Join(testpath, "stop"))
 
-	s.PatchValue(&upstart.InitDir, c.MkDir())
-	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s)
+	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s, s.DataDir())
 }
 
 func (s *commonMachineSuite) assertChannelActive(c *gc.C, aChannel chan struct{}, intent string) {
@@ -97,7 +95,7 @@ func (s *commonMachineSuite) assertChannelActive(c *gc.C, aChannel chan struct{}
 }
 
 func fakeCmd(path string) {
-	err := ioutil.WriteFile(path, []byte("#!/bin/bash --norc\nexit 0"), 0755)
+	err := os.WriteFile(path, []byte("#!/bin/bash --norc\nexit 0"), 0755)
 	if err != nil {
 		panic(err)
 	}
@@ -118,7 +116,7 @@ func (s *commonMachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *s
 // primeAgentVersion is similar to primeAgent, but permits the
 // caller to specify the version.Binary to prime with.
 func (s *commonMachineSuite) primeAgentVersion(c *gc.C, vers version.Binary, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
-	m, err := s.State.AddMachine("quantal", jobs...)
+	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), jobs...)
 	c.Assert(err, jc.ErrorIsNil)
 	return s.primeAgentWithMachine(c, m, vers)
 }

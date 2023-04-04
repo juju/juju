@@ -5,7 +5,6 @@ package caasunitterminationworker_test
 
 import (
 	"os"
-	"runtime"
 	"testing"
 
 	"github.com/juju/clock"
@@ -50,9 +49,6 @@ func (s *TerminationWorkerSuite) newWorker(c *gc.C, willRestart bool) worker.Wor
 }
 
 func (s *TerminationWorkerSuite) TestStartStop(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("not supported")
-	}
 	w := s.newWorker(c, false)
 	w.Kill()
 	err := w.Wait()
@@ -60,9 +56,6 @@ func (s *TerminationWorkerSuite) TestStartStop(c *gc.C) {
 }
 
 func (s *TerminationWorkerSuite) TestAgentWillRestart(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("not supported")
-	}
 	w := s.newWorker(c, true)
 	proc, err := os.FindProcess(os.Getpid())
 	c.Assert(err, jc.ErrorIsNil)
@@ -77,9 +70,6 @@ func (s *TerminationWorkerSuite) TestAgentWillRestart(c *gc.C) {
 }
 
 func (s *TerminationWorkerSuite) TestAgentDying(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("not supported")
-	}
 	w := s.newWorker(c, false)
 	proc, err := os.FindProcess(os.Getpid())
 	c.Assert(err, jc.ErrorIsNil)

@@ -33,18 +33,16 @@ func (s *LeasesSuite) SetUpTest(c *gc.C) {
 func (s *LeasesSuite) TestLeases(c *gc.C) {
 	leases := map[corelease.Key]corelease.Info{
 		key(s.appName): {
-			Holder:   "redis/0",
-			Expiry:   offset(time.Second),
-			Trapdoor: corelease.LockedTrapdoor,
+			Holder: "redis/0",
+			Expiry: offset(time.Second),
 		},
 	}
 	// Add enough leases for other models and namespaces to ensure
 	// that we would definitely fail if the Leases method does the
 	// wrong thing.
 	bad := corelease.Info{
-		Holder:   "redis/1",
-		Expiry:   offset(time.Second),
-		Trapdoor: corelease.LockedTrapdoor,
+		Holder: "redis/1",
+		Expiry: offset(time.Second),
 	}
 	for i := 0; i < 100; i++ {
 		otherNS := fmt.Sprintf("ns%d", i)

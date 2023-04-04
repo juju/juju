@@ -9,13 +9,20 @@ package machineactions
 // but until the implementations converge, it's saner to duplicate the code since
 // the "correct" abstraction over both is not obvious.
 type Action struct {
-	name   string
-	params map[string]interface{}
+	id             string
+	name           string
+	params         map[string]interface{}
+	parallel       bool
+	executionGroup string
 }
 
-// NewAction makes a new Action with specified name and params map.
-func NewAction(name string, params map[string]interface{}) *Action {
-	return &Action{name: name, params: params}
+// NewAction makes a new Action with specified id, name and params map.
+func NewAction(id, name string, params map[string]interface{}, parallel bool, executionGroup string) *Action {
+	return &Action{id: id, name: name, params: params, parallel: parallel, executionGroup: executionGroup}
+}
+
+func (a *Action) ID() string {
+	return a.id
 }
 
 // Name retrieves the name of the Action.
@@ -26,4 +33,16 @@ func (a *Action) Name() string {
 // Params retrieves the params map of the Action.
 func (a *Action) Params() map[string]interface{} {
 	return a.params
+}
+
+// Parallel returns true if the action can run without
+// needed to acquire the machine lock.
+func (a *Action) Parallel() bool {
+	return a.parallel
+}
+
+// ExecutionGroup is the group of actions which cannot
+// execute in parallel with each other.
+func (a *Action) ExecutionGroup() string {
+	return a.executionGroup
 }

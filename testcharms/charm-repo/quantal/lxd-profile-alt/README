@@ -3,7 +3,7 @@
 Start ubuntu image on a container with the included lxd profile.  
 Most useful when deploying to a nested container in a lxd setup.
 
-# Usaage
+# Usage
 
 juju deploy lxd-profile-alt --to=lxd
 

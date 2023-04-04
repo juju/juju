@@ -14,16 +14,6 @@ import (
 const extensionName = "JujuCustomScriptExtension"
 
 const (
-	windowsExecuteCustomScriptCommand = `` +
-		`move C:\AzureData\CustomData.bin C:\AzureData\CustomData.ps1 && ` +
-		`powershell.exe -ExecutionPolicy Unrestricted -File C:\AzureData\CustomData.ps1 && ` +
-		`del /q C:\AzureData\CustomData.ps1`
-	windowsCustomScriptPublisher = "Microsoft.Compute"
-	windowsCustomScriptType      = "CustomScriptExtension"
-	windowsCustomScriptVersion   = "1.4"
-)
-
-const (
 	// The string will be split and executed by Python's
 	// subprocess.call, not interpreted as a shell command.
 	linuxExecuteCustomScriptCommand = `bash -c 'base64 -d /var/lib/waagent/CustomData | bash'`
@@ -38,11 +28,6 @@ func vmExtensionProperties(os jujuos.OSType) (*armcompute.VirtualMachineExtensio
 	var commandToExecute, extensionPublisher, extensionType, extensionVersion string
 
 	switch os {
-	case jujuos.Windows:
-		commandToExecute = windowsExecuteCustomScriptCommand
-		extensionPublisher = windowsCustomScriptPublisher
-		extensionType = windowsCustomScriptType
-		extensionVersion = windowsCustomScriptVersion
 	case jujuos.CentOS:
 		commandToExecute = linuxExecuteCustomScriptCommand
 		extensionPublisher = linuxCustomScriptPublisher
@@ -50,8 +35,7 @@ func vmExtensionProperties(os jujuos.OSType) (*armcompute.VirtualMachineExtensio
 		extensionVersion = linuxCustomScriptVersion
 	default:
 		// Ubuntu renders CustomData as cloud-config, and interprets
-		// it with cloud-init. Windows and CentOS do not use cloud-init
-		// on Azure.
+		// it with cloud-init. CentOS does not use cloud-init on Azure.
 		return nil, errors.NotSupportedf("CustomScript extension for OS %q", os)
 	}
 

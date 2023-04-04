@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/gnuflag"
+
 	"github.com/juju/juju/api/client/application"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
@@ -31,7 +32,7 @@ Examples:
     juju suspend-relation 123 456 --message "reason for suspending"
 
 See also: 
-    add-relation
+    integrate
     offers
     remove-relation
     resume-relation`
@@ -87,7 +88,6 @@ func (c *suspendRelationCommand) SetFlags(f *gnuflag.FlagSet) {
 // SetRelationSuspendedAPI defines the API methods that the suspend/resume relation commands use.
 type SetRelationSuspendedAPI interface {
 	Close() error
-	BestAPIVersion() int
 	SetRelationSuspended(relationIds []int, suspended bool, message string) error
 }
 
@@ -97,9 +97,6 @@ func (c *suspendRelationCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	if client.BestAPIVersion() < 5 {
-		return errors.New("suspending a relation is not supported by this version of Juju")
-	}
 	err = client.SetRelationSuspended(c.relationIds, true, c.message)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }

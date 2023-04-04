@@ -50,7 +50,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/backups" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/block"   // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/bundle"
-	"github.com/juju/juju/apiserver/facades/client/charmhub"
 	"github.com/juju/juju/apiserver/facades/client/charms"     // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/client"     // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/cloud"      // ModelUser Read
@@ -58,7 +57,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/credentialmanager"
 	"github.com/juju/juju/apiserver/facades/client/firewallrules"
 	"github.com/juju/juju/apiserver/facades/client/highavailability" // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/imagemanager"     // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/imagemetadatamanager"
 	"github.com/juju/juju/apiserver/facades/client/keymanager"     // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/machinemanager" // ModelUser Write
@@ -68,6 +66,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelmanager" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/payloads"
 	"github.com/juju/juju/apiserver/facades/client/resources"
+	"github.com/juju/juju/apiserver/facades/client/secrets"
 	"github.com/juju/juju/apiserver/facades/client/spaces"    // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/sshclient" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/storage"
@@ -101,7 +100,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
 	"github.com/juju/juju/apiserver/facades/controller/raftlease"
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations"
-	"github.com/juju/juju/apiserver/facades/controller/resumer"
 	"github.com/juju/juju/apiserver/facades/controller/singular"
 	"github.com/juju/juju/apiserver/facades/controller/statushistory"
 	"github.com/juju/juju/apiserver/facades/controller/undertaker"
@@ -125,7 +123,6 @@ func AllFacades() *facade.Registry {
 	backups.Register(registry)
 	block.Register(registry)
 	bundle.Register(registry)
-	charmhub.Register(registry)
 	charmdownloader.Register(registry)
 	charmrevisionupdater.Register(registry)
 	charms.Register(registry)
@@ -160,7 +157,6 @@ func AllFacades() *facade.Registry {
 	firewallrules.Register(registry)
 	highavailability.Register(registry)
 	hostkeyreporter.Register(registry)
-	imagemanager.Register(registry)
 	imagemetadata.Register(registry)
 	imagemetadatamanager.Register(registry)
 	instancemutater.Register(registry)
@@ -196,9 +192,9 @@ func AllFacades() *facade.Registry {
 	remoterelations.Register(registry)
 	resources.Register(registry)
 	resourceshookcontext.Register(registry)
-	resumer.Register(registry)
 	retrystrategy.Register(registry)
 	singular.Register(registry)
+	secrets.Register(registry)
 	secretsmanager.Register(registry)
 	sshclient.Register(registry)
 	spaces.Register(registry)
@@ -219,15 +215,11 @@ func AllFacades() *facade.Registry {
 		return NewPinger(ctx)
 	}, reflect.TypeOf((*Pinger)(nil)).Elem())
 
-	registry.MustRegister("AllWatcher", 1, NewAllWatcherV1, reflect.TypeOf((*SrvAllWatcherV1)(nil)))
-	registry.MustRegister("AllWatcher", 2, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
 	registry.MustRegister("AllWatcher", 3, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
 	// Note: AllModelWatcher uses the same infrastructure as AllWatcher
 	// but they are get under separate names as it possible the may
 	// diverge in the future (especially in terms of authorisation
 	// checks).
-	registry.MustRegister("AllModelWatcher", 2, NewAllWatcherV1, reflect.TypeOf((*SrvAllWatcherV1)(nil)))
-	registry.MustRegister("AllModelWatcher", 3, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
 	registry.MustRegister("AllModelWatcher", 4, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
 	registry.MustRegister("NotifyWatcher", 1, newNotifyWatcher, reflect.TypeOf((*srvNotifyWatcher)(nil)))
 	registry.MustRegister("StringsWatcher", 1, newStringsWatcher, reflect.TypeOf((*srvStringsWatcher)(nil)))
@@ -241,7 +233,7 @@ func AllFacades() *facade.Registry {
 	registry.MustRegister("EntityWatcher", 2, newEntitiesWatcher, reflect.TypeOf((*srvEntitiesWatcher)(nil)))
 	registry.MustRegister("MigrationStatusWatcher", 1, newMigrationStatusWatcher, reflect.TypeOf((*srvMigrationStatusWatcher)(nil)))
 	registry.MustRegister("ModelSummaryWatcher", 1, newModelSummaryWatcher, reflect.TypeOf((*SrvModelSummaryWatcher)(nil)))
-	registry.MustRegister("SecretsRotationWatcher", 1, newSecretsRotationWatcher, reflect.TypeOf((*srvSecretRotationWatcher)(nil)))
+	registry.MustRegister("SecretsTriggerWatcher", 1, newSecretsTriggerWatcher, reflect.TypeOf((*srvSecretTriggerWatcher)(nil)))
 
 	return registry
 }

@@ -1,9 +1,14 @@
 #!/bin/bash -e
-# juju_version will return only the version and not the architecture/substrait
-# of the juju version.
-# This will use any juju on $PATH
+# juju_version will return only the version and not the architecture/substrate
+# of the juju version. If JUJU_VERSION is defined in CI this value will be used
+# otherwise we interrogate the juju binary on path.
 juju_version() {
-	version=$(juju version | cut -f1 -d '-')
+	# Match only major, minor, and patch or tag + build number
+	if [ -n "${JUJU_VERSION:-}" ]; then
+		version=${JUJU_VERSION}
+	else
+		version=$(juju version | grep -oE '^[[:digit:]]+\.[[:digit:]]+(\.[[:digit:]]+|-\w+){1}(\.[[:digit:]]+)?')
+	fi
 	echo "${version}"
 }
 
@@ -128,7 +133,7 @@ bootstrap() {
 		if [[ -n ${OUT} ]]; then
 			echo "${model} already exists. Use the following to clean up the environment:"
 			echo "    juju switch ${bootstrapped_name}"
-			echo "    juju destroy-model -y ${model}"
+			echo "    juju destroy-model --no-prompt ${model}"
 			exit 1
 		fi
 
@@ -179,8 +184,6 @@ add_model() {
 add_images_for_vsphere() {
 	juju metadata add-image juju-ci-root/templates/jammy-test-template --series jammy
 	juju metadata add-image juju-ci-root/templates/focal-test-template --series focal
-	juju metadata add-image juju-ci-root/templates/bionic-test-template --series bionic
-	juju metadata add-image juju-ci-root/templates/xenial-test-template --series xenial
 }
 
 # setup_vsphere_simplestreams generates image metadata for use during vSphere bootstrap.  There is
@@ -234,7 +237,7 @@ juju_bootstrap() {
 
 	pre_bootstrap
 
-	command="juju bootstrap ${series} ${cloud_region} ${name} -d ${model} ${BOOTSTRAP_ADDITIONAL_ARGS}"
+	command="juju bootstrap ${series} ${cloud_region} ${name} --add-model ${model} ${BOOTSTRAP_ADDITIONAL_ARGS}"
 	# keep $@ here, otherwise hit SC2124
 	${command} "$@" 2>&1 | OUTPUT "${output}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
@@ -336,7 +339,7 @@ destroy_model() {
 	output="${TEST_DIR}/${name}-destroy.log"
 
 	echo "====> Destroying juju model ${name}"
-	echo "${name}" | xargs -I % juju destroy-model -y --destroy-storage --timeout="$timeout" % >"${output}" 2>&1 || true
+	echo "${name}" | xargs -I % juju destroy-model --no-prompt --destroy-storage --timeout="$timeout" % >"${output}" 2>&1 || true
 	CHK=$(cat "${output}" | grep -i "ERROR\|Unable to get the model status from the API" || true)
 	if [[ -n ${CHK} ]]; then
 		printf '\nFound some issues\n'
@@ -370,7 +373,7 @@ destroy_controller() {
 		echo "====> Destroying model ($(green "${name}"))"
 
 		output="${TEST_DIR}/${name}-destroy-model.log"
-		echo "${name}" | xargs -I % juju destroy-model -y % >"${output}" 2>&1 || true
+		echo "${name}" | xargs -I % juju destroy-model --no-prompt % >"${output}" 2>&1 || true
 
 		echo "====> Destroyed model ($(green "${name}"))"
 		return
@@ -395,9 +398,9 @@ destroy_controller() {
 
 	echo "====> Destroying juju ($(green "${name}"))"
 	if [[ ${KILL_CONTROLLER:-} != "true" ]]; then
-		echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models -y % >"${output}" 2>&1
+		echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models --no-prompt % >"${output}" 2>&1
 	else
-		echo "${name}" | xargs -I % juju kill-controller -t 0 -y % >"${output}" 2>&1
+		echo "${name}" | xargs -I % juju kill-controller -t 0 --no-prompt % >"${output}" 2>&1
 	fi
 
 	set +e

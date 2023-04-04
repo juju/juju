@@ -69,6 +69,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"central-hub",
 			"certificate-updater",
 			"certificate-watcher",
+			"charmhub-http-client",
 			"clock",
 			"controller-port",
 			"deployer",
@@ -91,7 +92,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"machine-action-runner",
 			"machine-setup",
 			"machiner",
-			"mgo-txn-resumer",
 			"migration-fortress",
 			"migration-minion",
 			"migration-inactive-flag",
@@ -111,7 +111,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"raft-leader-flag",
 			"raft-transport",
 			"reboot-executor",
-			"restore-watcher",
 			"ssh-authkeys-updater",
 			"ssh-identity-writer",
 			"state",
@@ -121,7 +120,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"syslog",
 			"termination-signal-handler",
 			"tools-version-checker",
-			"transaction-pruner",
 			"upgrade-check-flag",
 			"upgrade-check-gate",
 			"upgrade-database-flag",
@@ -149,8 +147,10 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"api-config-watcher",
 			"api-server",
 			"audit-config-updater",
+			"caas-units-manager",
 			"central-hub",
 			"certificate-watcher",
+			"charmhub-http-client",
 			"clock",
 			"controller-port",
 			"external-controller-updater",
@@ -162,7 +162,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"lease-manager",
 			"log-sender",
 			"logging-config-updater",
-			"mgo-txn-resumer",
 			"migration-fortress",
 			"migration-minion",
 			"migration-inactive-flag",
@@ -181,13 +180,11 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"raft-forwarder",
 			"raft-leader-flag",
 			"raft-transport",
-			"restore-watcher",
 			"ssh-identity-writer",
 			"state",
 			"state-config-watcher",
 			"syslog",
 			"termination-signal-handler",
-			"transaction-pruner",
 			"upgrade-check-flag",
 			"upgrade-check-gate",
 			"upgrade-database-flag",
@@ -198,7 +195,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"upgrade-steps-runner",
 			"upgrader",
 			"valid-credential-flag",
-			"caas-units-manager",
 		},
 	)
 }
@@ -233,6 +229,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"certificate-updater",
 		"certificate-watcher",
 		"central-hub",
+		"charmhub-http-client",
 		"clock",
 		"controller-port",
 		"deployer",
@@ -254,7 +251,6 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"peer-grouper",
 		"presence",
 		"pubsub-forwarder",
-		"restore-watcher",
 		"state",
 		"state-config-watcher",
 		"syslog",
@@ -316,7 +312,6 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 	// Explicitly guarded by ifPrimaryController.
 	primaryControllerWorkers := set.NewStrings(
 		"external-controller-updater",
-		"transaction-pruner",
 	)
 
 	// Guarded by ifDatabaseUpgradeComplete,
@@ -474,6 +469,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"audit-config-updater",
 		"central-hub",
+		"charmhub-http-client",
 		"clock",
 		"controller-port",
 		"http-server-args",
@@ -484,7 +480,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"model-cache-initialized-gate",
 		"multiwatcher",
 		"raft-transport",
-		"restore-watcher",
 		"state",
 		"state-config-watcher",
 		"syslog",
@@ -531,6 +526,8 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"state-config-watcher",
 	},
+
+	"charmhub-http-client": {},
 
 	"clock": {},
 
@@ -608,6 +605,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"audit-config-updater",
 		"central-hub",
 		"certificate-watcher",
+		"charmhub-http-client",
 		"clock",
 		"controller-port",
 		"http-server-args",
@@ -618,7 +616,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"model-cache-initialized-gate",
 		"multiwatcher",
 		"raft-transport",
-		"restore-watcher",
 		"state",
 		"state-config-watcher",
 		"syslog",
@@ -684,7 +681,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"central-hub",
 		"clock",
 		"is-controller-flag",
-		"state",
 		"state-config-watcher",
 	},
 
@@ -765,18 +761,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"api-caller",
 		"api-config-watcher",
 		"fan-configurer",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
-	"mgo-txn-resumer": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"upgrade-check-flag",
@@ -1002,12 +986,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"restore-watcher": {
-		"agent",
-		"state",
-		"state-config-watcher",
-	},
-
 	"ssh-authkeys-updater": {
 		"agent",
 		"api-caller",
@@ -1073,23 +1051,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"api-config-watcher",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
-	"transaction-pruner": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"clock",
-		"is-controller-flag",
-		"is-primary-controller-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"state",
-		"state-config-watcher",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
@@ -1184,6 +1145,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"agent",
 		"audit-config-updater",
 		"central-hub",
+		"charmhub-http-client",
 		"clock",
 		"controller-port",
 		"http-server-args",
@@ -1194,7 +1156,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"model-cache-initialized-gate",
 		"multiwatcher",
 		"raft-transport",
-		"restore-watcher",
 		"state",
 		"state-config-watcher",
 		"syslog",
@@ -1217,6 +1178,8 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"state-config-watcher",
 	},
+
+	"charmhub-http-client": {},
 
 	"clock": {},
 
@@ -1248,6 +1211,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"audit-config-updater",
 		"central-hub",
 		"certificate-watcher",
+		"charmhub-http-client",
 		"clock",
 		"controller-port",
 		"http-server-args",
@@ -1258,7 +1222,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"model-cache-initialized-gate",
 		"multiwatcher",
 		"raft-transport",
-		"restore-watcher",
 		"state",
 		"state-config-watcher",
 		"syslog",
@@ -1309,7 +1272,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"central-hub",
 		"clock",
 		"is-controller-flag",
-		"state",
 		"state-config-watcher",
 	},
 
@@ -1326,18 +1288,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	},
 
 	"logging-config-updater": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
-	"mgo-txn-resumer": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -1554,12 +1504,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"state-config-watcher",
 	},
 
-	"restore-watcher": {
-		"agent",
-		"state",
-		"state-config-watcher",
-	},
-
 	"ssh-identity-writer": {
 		"agent",
 		"api-caller",
@@ -1579,23 +1523,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"syslog": {},
 
 	"termination-signal-handler": {},
-
-	"transaction-pruner": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"clock",
-		"is-controller-flag",
-		"is-primary-controller-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"state",
-		"state-config-watcher",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
 
 	"upgrade-check-flag": {"upgrade-check-gate"},
 

@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
-	"io/ioutil"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -180,11 +179,11 @@ func (s *baseArchiveDataSuite) setupMetadata(c *gc.C, metadata string) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	archiveFile := newArchiveFile(c, meta)
-	compressed, err := ioutil.ReadAll(archiveFile)
+	compressed, err := io.ReadAll(archiveFile)
 	c.Assert(err, jc.ErrorIsNil)
 	gzr, err := gzip.NewReader(bytes.NewBuffer(compressed))
 	c.Assert(err, jc.ErrorIsNil)
-	data, err := ioutil.ReadAll(gzr)
+	data, err := io.ReadAll(gzr)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.archiveFile = bytes.NewBuffer(compressed)

@@ -4,8 +4,10 @@
 package testing
 
 import (
+	"time"
+
 	"github.com/juju/clock"
-	mgotesting "github.com/juju/mgo/v2/testing"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -120,9 +122,10 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.Controller {
 			},
 			RegionConfig: args.RegionConfig,
 		},
-		MongoSession:  session,
-		NewPolicy:     args.NewPolicy,
-		AdminPassword: args.AdminPassword,
+		MongoSession:        session,
+		WatcherPollInterval: 10 * time.Millisecond,
+		NewPolicy:           args.NewPolicy,
+		AdminPassword:       args.AdminPassword,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return ctlr

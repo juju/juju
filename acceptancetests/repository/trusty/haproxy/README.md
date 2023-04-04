@@ -6,7 +6,7 @@ This charm deploys a reverse proxy in front of other servies. You can use this t
 
     juju deploy haproxy
     juju deploy my-web-app
-    juju add-relation my-web-app:website haproxy:reverseproxy
+    juju integrate my-web-app:website haproxy:reverseproxy
     juju add-unit my-web-app
     ...
 

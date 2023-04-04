@@ -6,7 +6,7 @@ run_upgrade_series_relation() {
 	end_series="jammy"
 
 	# Setup
-	ensure "test-upgrade-series-relation" "${TEST_DIR}/test-upgrade-series-relation.log"
+	ensure "test-upgrade-machine-relation" "${TEST_DIR}/test-upgrade-machine-relation.log"
 	juju deploy ./testcharms/charms/dummy-sink --series $start_series
 	juju deploy ./testcharms/charms/dummy-source --series $end_series
 	juju relate dummy-sink dummy-source
@@ -17,13 +17,14 @@ run_upgrade_series_relation() {
 	assert_machine_series 0 $start_series
 
 	# Upgrade the machine
-	juju upgrade-series 0 prepare $end_series -y
+	juju upgrade-machine 0 prepare $end_series -y
 	reboot_machine 0
 	echo "Upgrading machine..."
 	echo "See ${TEST_DIR}/do-release-upgrade.log for progress."
-	juju ssh 0 'sudo do-release-upgrade -f DistUpgradeViewNonInteractive' &>"${TEST_DIR}/do-release-upgrade.log" || true
+	# TODO: remove -d flag once Ubuntu 22.04.1 is released
+	juju ssh 0 'sudo do-release-upgrade -d -f DistUpgradeViewNonInteractive' &>"${TEST_DIR}/do-release-upgrade.log" || true
 	reboot_machine 0
-	juju upgrade-series 0 complete
+	juju upgrade-machine 0 complete
 
 	# Check post-conditions
 	wait_for "Canonical" "$(workload_status 'dummy-sink' 0).message"
@@ -34,15 +35,16 @@ run_upgrade_series_relation() {
 
 # Assert the given machine has the given series.
 assert_machine_series() {
-	local machine expected_series actual_series
+	local machine expected_series actual_base actual_series
 	machine=$1
 	expected_series=$2
-	actual_series=$(juju status --format=json | jq -r ".machines[\"$machine\"].series")
+	actual_base=$(juju status --format=json | jq -r ".machines[\"$machine\"] | (.base.name+\"@\"+.base.channel)")
+	actual_series=$(base_to_series "${actual_base}")
 
 	if [[ $expected_series == "$actual_series" ]]; then
-		echo "Machine $machine has series $actual_series"
+		echo "Machine $machine has series $actual_series from base $actual_base"
 	else
-		echo "Machine $machine has series $actual_series, expected $expected_series"
+		echo "Machine $machine has series $actual_series from base $actual_base, expected $expected_series"
 		exit 1
 	fi
 }

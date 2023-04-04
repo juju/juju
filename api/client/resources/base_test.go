@@ -41,7 +41,7 @@ func (s *BaseSuite) setUpMocks(c *gc.C) *gomock.Controller {
 
 	s.facade = mocks.NewMockFacadeCaller(ctrl)
 	s.facade.EXPECT().RawAPICaller().Return(s.apiCaller).AnyTimes()
-	s.facade.EXPECT().BestAPIVersion().Return(3).AnyTimes()
+	s.facade.EXPECT().BestAPIVersion().Return(2).AnyTimes()
 	s.client = resources.NewClientForTest(s.facade, s.httpClient)
 	return ctrl
 }

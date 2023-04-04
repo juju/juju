@@ -28,6 +28,14 @@ var (
 	_ storage.Provider = (*rootfsProvider)(nil)
 )
 
+func (p *rootfsProvider) ValidateForK8s(attributes map[string]any) error {
+	if attributes == nil {
+		return nil
+	}
+	// check the configuration
+	return checkK8sConfig(attributes)
+}
+
 // ValidateConfig is defined on the Provider interface.
 func (p *rootfsProvider) ValidateConfig(cfg *storage.Config) error {
 	// Rootfs provider has no configuration.

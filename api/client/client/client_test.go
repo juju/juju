@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -27,7 +26,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -82,7 +80,7 @@ func (s *clientSuite) TestUploadToolsOtherModel(c *gc.C) {
 				"series":        []string{""},
 			})
 			defer r.Body.Close()
-			obtainedTools, err := ioutil.ReadAll(r.Body)
+			obtainedTools, err := io.ReadAll(r.Body)
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(obtainedTools, gc.DeepEquals, expectedTools)
 		},
@@ -127,16 +125,6 @@ func modelEndpoint(c *gc.C, apiState api.Connection, destination string) string 
 	modelTag, ok := apiState.ModelTag()
 	c.Assert(ok, jc.IsTrue)
 	return path.Join("/model", modelTag.Id(), destination)
-}
-
-func (s *clientSuite) TestClientModelUUID(c *gc.C) {
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	client := client.NewClient(s.APIState)
-	uuid, ok := client.ModelUUID()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(uuid, gc.Equals, model.Tag().Id())
 }
 
 func (s *clientSuite) TestWatchDebugLogConnected(c *gc.C) {
@@ -404,17 +392,4 @@ type closeWatcher struct {
 func (c *closeWatcher) Close() error {
 	c.closed = true
 	return nil
-}
-
-type IsolatedClientSuite struct {
-	testing.IsolationSuite
-}
-
-var _ = gc.Suite(&IsolatedClientSuite{})
-
-func (s *IsolatedClientSuite) TestFindAllErrorsOnOlderController(c *gc.C) {
-	apiCaller := apitesting.BestVersionCaller{BestVersion: 1}
-	client := client.BarebonesClient(apiCaller)
-	_, err := client.FindTools(0, 0, "", "", "proposed")
-	c.Assert(err, gc.ErrorMatches, "passing agent-stream not supported by the controller")
 }

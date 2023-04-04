@@ -37,7 +37,7 @@ Examples:
     juju show-commit 3 --utc
 
 See also:
-	list-commits
+	commits
 	add-branch
     track
     branch

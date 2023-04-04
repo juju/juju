@@ -35,8 +35,8 @@ type leadershipToken struct {
 }
 
 // Check is part of the leadership.Token interface.
-func (t leadershipToken) Check(attempt int, out interface{}) error {
-	err := t.token.Check(attempt, out)
+func (t leadershipToken) Check() error {
+	err := t.token.Check()
 	if errors.Cause(err) == lease.ErrNotHeld {
 		return leadership.NewNotLeaderError(t.unitName, t.applicationName)
 	}

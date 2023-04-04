@@ -241,15 +241,15 @@ func (s *environSuite) setupListImagesExpectations() {
 			CompartmentId:          &s.testCompartment,
 			Id:                     makeStringPointer("fakeUbuntu1"),
 			OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-			OperatingSystemVersion: makeStringPointer("14.04"),
-			DisplayName:            makeStringPointer("Canonical-Ubuntu-14.04-2018.01.11-0"),
+			OperatingSystemVersion: makeStringPointer("22.04"),
+			DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-2018.01.11-0"),
 		},
 		{
 			CompartmentId:          &s.testCompartment,
 			Id:                     makeStringPointer("fakeUbuntu2"),
 			OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-			OperatingSystemVersion: makeStringPointer("14.04"),
-			DisplayName:            makeStringPointer("Canonical-Ubuntu-14.04-2018.01.12-0"),
+			OperatingSystemVersion: makeStringPointer("22.04"),
+			DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-2018.01.12-0"),
 		},
 		{
 			CompartmentId:          &s.testCompartment,
@@ -434,7 +434,7 @@ func (s *environSuite) TestControllerInstancesOneController(c *gc.C) {
 }
 
 func (s *environSuite) TestCloudInit(c *gc.C) {
-	cfg, err := oci.GetCloudInitConfig(s.env, "quantal", 1234, 4321)
+	cfg, err := oci.GetCloudInitConfig(s.env, "ubuntu", 1234, 4321)
 	c.Assert(err, jc.ErrorIsNil)
 	script, err := cfg.RenderScript()
 	c.Assert(err, jc.ErrorIsNil)
@@ -442,7 +442,7 @@ func (s *environSuite) TestCloudInit(c *gc.C) {
 	c.Check(script, jc.Contains, "/sbin/iptables -I INPUT -p tcp --dport 4321 -j ACCEPT")
 	c.Check(script, jc.Contains, "/etc/init.d/netfilter-persistent save")
 
-	cfg, err = oci.GetCloudInitConfig(s.env, "quantal", 0, 0)
+	cfg, err = oci.GetCloudInitConfig(s.env, "ubuntu", 0, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	script, err = cfg.RenderScript()
 	c.Assert(err, jc.ErrorIsNil)
@@ -450,7 +450,7 @@ func (s *environSuite) TestCloudInit(c *gc.C) {
 	c.Check(script, gc.Not(jc.Contains), "/sbin/iptables -I INPUT -p tcp --dport 4321 -j ACCEPT")
 	c.Check(script, gc.Not(jc.Contains), "/etc/init.d/netfilter-persistent save")
 
-	cfg, err = oci.GetCloudInitConfig(s.env, "centos7", 1234, 4321)
+	cfg, err = oci.GetCloudInitConfig(s.env, "centos", 1234, 4321)
 	c.Assert(err, jc.ErrorIsNil)
 	script, err = cfg.RenderScript()
 	c.Assert(err, jc.ErrorIsNil)
@@ -918,7 +918,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
 			AvailableTools:           makeToolsList("ubuntu"),
-			BootstrapSeries:          "trusty",
+			BootstrapSeries:          "jammy",
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		})
 	c.Assert(err, gc.IsNil)
@@ -945,7 +945,7 @@ func (s *environSuite) TestBootstrapNoAllocatePublicIP(c *gc.C) {
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
 			AvailableTools:           makeToolsList("ubuntu"),
-			BootstrapSeries:          "trusty",
+			BootstrapSeries:          "jammy",
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 			BootstrapConstraints:     constraints.MustParse("allocate-public-ip=false"),
 		})
@@ -974,8 +974,8 @@ func (s *environSuite) TestBootstrapNoMatchingTools(c *gc.C) {
 	_, err := s.env.Bootstrap(ctx, nil,
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
-			AvailableTools:           makeToolsList("windows"),
-			BootstrapSeries:          "precise",
+			AvailableTools:           makeToolsList("centos"),
+			BootstrapSeries:          "jammy",
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		})
 	c.Assert(err, gc.ErrorMatches, "no matching agent binaries available")

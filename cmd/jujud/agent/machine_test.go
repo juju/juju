@@ -8,11 +8,9 @@ import (
 	"bytes"
 	stdcontext "context"
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"runtime/pprof"
 	"strings"
 	"time"
@@ -26,7 +24,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/lumberjack/v2"
-	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
@@ -49,6 +47,7 @@ import (
 	apimachiner "github.com/juju/juju/api/agent/machiner"
 	"github.com/juju/juju/api/base"
 	apiclient "github.com/juju/juju/api/client/client"
+	"github.com/juju/juju/api/client/machinemanager"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
@@ -56,6 +55,7 @@ import (
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/cmd/jujud/agent/mocks"
 	"github.com/juju/juju/cmd/jujud/agent/model"
+	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/instance"
@@ -73,6 +73,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/rpc/params"
+	_ "github.com/juju/juju/secrets/provider/all"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
@@ -290,6 +291,7 @@ func (s *MachineSuite) TestDyingMachine(c *gc.C) {
 }
 
 func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
+	testing.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
 	s.AgentSuite.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
 	s.AgentSuite.PatchValue(&instancepoller.ShortPollCap, 500*time.Millisecond)
 
@@ -316,7 +318,7 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 
 	// Wait for the workers to start. This ensures that the central
 	// hub referred to in startAddressPublisher has been assigned,
-	// and we will will not fail race tests with concurrent access.
+	// and we will not fail race tests with concurrent access.
 	select {
 	case <-a.WorkersStarted():
 	case <-time.After(testing.LongWait):
@@ -337,24 +339,6 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	insts, err := s.Environ.Instances(context.NewEmptyCloudCallContext(), []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
 
-	netEnv, ok := s.Environ.(environs.Networking)
-	c.Assert(ok, jc.IsTrue, gc.Commentf("expected an environ instance that supports the Networking interface"))
-
-	// Since the dummy environ implements the environ.NetworkingEnviron,
-	// the instancepoller will pull the provider addresses directly from
-	// the environ and resolve their space ID.
-	ifLists, err := netEnv.NetworkInterfaces(context.NewEmptyCloudCallContext(), []instance.Id{instId})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ifLists, gc.HasLen, 1)
-
-	var expAddrs network.SpaceAddresses
-	for _, iface := range ifLists[0] {
-		for _, addr := range append(iface.Addresses, iface.ShadowAddresses...) {
-			sAddr := network.NewSpaceAddress(addr.Value)
-			sAddr.SpaceID = network.AlphaSpaceId
-			expAddrs = append(expAddrs, sAddr)
-		}
-	}
 	dummy.SetInstanceStatus(insts[0], "running")
 
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
@@ -367,8 +351,11 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 		instStatus, err := m.InstanceStatus()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Logf("found status is %q %q", instStatus.Status, instStatus.Message)
-		if reflect.DeepEqual(m.Addresses(), expAddrs) && instStatus.Message == "running" {
-			c.Logf("machine %q addresses updated: %+v", m.Id(), expAddrs)
+
+		// The dummy provider always returns 3 devices with one address each.
+		// We don't care what they are, just that the instance-poller retrieved
+		// them and set them against the machine in state.
+		if len(m.Addresses()) == 3 && instStatus.Message == "running" {
 			break
 		}
 		c.Logf("waiting for machine %q address to be updated", m.Id())
@@ -405,8 +392,6 @@ func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machin
 		select {
 		case <-timeout:
 			c.Fatalf("timed out waiting for provisioning")
-		case <-time.After(coretesting.ShortWait):
-			s.State.StartSync()
 		case _, ok := <-w.Changes():
 			c.Assert(ok, jc.IsTrue)
 			err := m.Refresh()
@@ -657,13 +642,23 @@ func (s *MachineSuite) TestManageModelAuditsAPI(c *gc.C) {
 			defer st.Close()
 			doRequest(apiclient.NewClient(st))
 		}
+		makeMachineAPIRequest := func(doRequest func(*machinemanager.Client)) {
+			apiInfo, ok := conf.APIInfo()
+			c.Assert(ok, jc.IsTrue)
+			apiInfo.Tag = user.Tag()
+			apiInfo.Password = password
+			st, err := api.Open(apiInfo, fastDialOpts)
+			c.Assert(err, jc.ErrorIsNil)
+			defer st.Close()
+			doRequest(machinemanager.NewClient(st))
+		}
 
 		// Make requests in separate API connections so they're separate conversations.
 		makeAPIRequest(func(client *apiclient.Client) {
 			_, err = client.Status(nil)
 			c.Assert(err, jc.ErrorIsNil)
 		})
-		makeAPIRequest(func(client *apiclient.Client) {
+		makeMachineAPIRequest(func(client *machinemanager.Client) {
 			_, err = client.AddMachines([]params.AddMachineParams{{
 				Jobs: []coremodel.MachineJob{"JobHostUnits"},
 			}})
@@ -675,8 +670,8 @@ func (s *MachineSuite) TestManageModelAuditsAPI(c *gc.C) {
 		records := readAuditLog(c, logPath)
 		c.Assert(records, gc.HasLen, 3)
 		c.Assert(records[1].Request, gc.NotNil)
-		c.Assert(records[1].Request.Facade, gc.Equals, "Client")
-		c.Assert(records[1].Request.Method, gc.Equals, "AddMachinesV2")
+		c.Assert(records[1].Request.Facade, gc.Equals, "MachineManager")
+		c.Assert(records[1].Request.Method, gc.Equals, "AddMachines")
 
 		// Now update the controller config to remove the exclusion.
 		err := s.State.UpdateControllerConfig(map[string]interface{}{
@@ -791,16 +786,12 @@ func (s *MachineSuite) TestManageModelRunsCleaner(c *gc.C) {
 		w := unit.Watch()
 		defer worker.Stop(w)
 
-		// Trigger a sync on the state used by the agent, and wait
-		// for the unit to be removed.
-		agentState.StartSync()
+		// Wait for the unit to be removed.
 		timeout := time.After(coretesting.LongWait)
 		for done := false; !done; {
 			select {
 			case <-timeout:
 				c.Fatalf("unit not cleaned up")
-			case <-time.After(coretesting.ShortWait):
-				s.State.StartSync()
 			case <-w.Changes():
 				err := unit.Refresh()
 				if errors.IsNotFound(err) {
@@ -824,16 +815,12 @@ func (s *MachineSuite) TestJobManageModelRunsMinUnitsWorker(c *gc.C) {
 		w := app.Watch()
 		defer worker.Stop(w)
 
-		// Trigger a sync on the state used by the agent, and wait for the unit
-		// to be created.
-		agentState.StartSync()
+		// Wait for the unit to be created.
 		timeout := time.After(longerWait)
 		for {
 			select {
 			case <-timeout:
 				c.Fatalf("unit not created")
-			case <-time.After(coretesting.ShortWait):
-				s.State.StartSync()
 			case <-w.Changes():
 				units, err := app.AllUnits()
 				c.Assert(err, jc.ErrorIsNil)
@@ -846,10 +833,6 @@ func (s *MachineSuite) TestJobManageModelRunsMinUnitsWorker(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
-	//TODO(bogdanteleaga): Fix once we get authentication worker up on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: authentication worker not yet implemented on windows")
-	}
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	ctrl, a := s.newAgent(c, m)
@@ -863,7 +846,6 @@ func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for ssh keys file to be updated.
-	s.State.StartSync()
 	timeout := time.After(coretesting.LongWait)
 	sshKeyWithCommentPrefix := sshtesting.ValidKeyOne.Key + " Juju:user@host"
 	for {
@@ -871,7 +853,6 @@ func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 		case <-timeout:
 			c.Fatalf("timeout while waiting for authorised ssh keys to change")
 		case <-time.After(coretesting.ShortWait):
-			s.State.StartSync()
 			keys, err := ssh.ListKeys(authenticationworker.SSHUser, ssh.FullKeys)
 			c.Assert(err, jc.ErrorIsNil)
 			keysStr := strings.Join(keys, "\n")
@@ -899,13 +880,7 @@ func (s *MachineSuite) TestMachineAgentSymlinks(c *gc.C) {
 	s.waitStopped(c, state.JobManageModel, a, done)
 }
 
-func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		// Cannot make symlink to nonexistent file on windows or
-		// create a file point a symlink to it then remove it
-		c.Skip("Cannot test this on windows")
-	}
-
+func (s *MachineSuite) TestMachineAgentSymlinkJujuExecExists(c *gc.C) {
 	stm, _, _ := s.primeAgent(c, state.JobManageModel)
 	ctrl, a := s.newAgent(c, stm)
 	defer ctrl.Finish()
@@ -922,7 +897,7 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 	// Start the agent and wait for it be running.
 	_, done := s.waitForOpenState(c, a)
 
-	// juju-run symlink should have been recreated.
+	// juju-exec symlink should have been recreated.
 	for _, link := range jujudSymlinks {
 		fullLink := utils.EnsureBaseDir(a.rootDir, link)
 		linkTarget, err := symlink.Read(fullLink)
@@ -950,7 +925,6 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 
 	// Wait for config to be updated.
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		s.BackingState.StartSync()
 		if !attempt.HasNext() {
 			break
 		}
@@ -998,7 +972,6 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for state to be updated.
-	s.BackingState.StartSync()
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		devices, err := sb.BlockDevices(m.MachineTag())
 		c.Assert(err, jc.ErrorIsNil)
@@ -1079,7 +1052,7 @@ func (s *MachineSuite) testCertificateDNSUpdated(c *gc.C, a *MachineAgent) {
 	c.Check(expectedDnsNames.Difference(certDnsNames).IsEmpty(), jc.IsTrue)
 
 	// Check the mongo certificate file too.
-	pemContent, err := ioutil.ReadFile(filepath.Join(s.DataDir(), "server.pem"))
+	pemContent, err := os.ReadFile(filepath.Join(s.DataDir(), "server.pem"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(pemContent), gc.Equals, stateInfo.Cert+"\n"+stateInfo.PrivateKey)
 }
@@ -1131,12 +1104,12 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *gc.C) {
 func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 	ignoreAddressCh := s.setupIgnoreAddresses(c, true)
 
-	parent, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	parent, err := s.State.AddMachine(state.UbuntuBase("20.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	m, err := s.State.AddMachineInsideMachine(
 		state.MachineTemplate{
-			Series: "trusty",
-			Jobs:   []state.MachineJob{state.JobHostUnits},
+			Base: state.UbuntuBase("22.04"),
+			Jobs: []state.MachineJob{state.JobHostUnits},
 		},
 		parent.Id(),
 		instance.LXD,
@@ -1180,10 +1153,12 @@ func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
 	// Wait for it to stabilise, running as normal.
 	matcher := agenttest.NewWorkerMatcher(c, tracker, a.Tag().String(),
 		append(alwaysMachineWorkers, notMigratingMachineWorkers...))
-	// kvm-container-provisioner only runs where the hardware the
-	// test is run on supports kvm. This is not optimal.
-	matcher.AddOptionalWorkers([]string{"kvm-container-provisioner"})
-	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
+
+	// Indicate that this machine supports KVM containers rather than doing
+	// detection that may return true/false based on the machine running tests.
+	s.PatchValue(&kvm.IsKVMSupported, func() (bool, error) { return true, nil })
+
+	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait)
 }
 
 func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
@@ -1202,7 +1177,7 @@ func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
 	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, expectedWorkers)
 	s.assertJobWithState(c, state.JobManageModel, nil,
 		func(agent.Config, *state.State, *MachineAgent) {
-			agenttest.WaitMatch(c, matcher.Check, longerWait, s.BackingState.StartSync)
+			agenttest.WaitMatch(c, matcher.Check, longerWait)
 		},
 	)
 }
@@ -1231,7 +1206,7 @@ func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
 	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid,
 		append(alwaysModelWorkers, aliveModelWorkers...))
 	s.assertJobWithState(c, state.JobManageModel, nil, func(agent.Config, *state.State, *MachineAgent) {
-		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait, st.StartSync)
+		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait)
 	})
 }
 
@@ -1276,7 +1251,7 @@ func (s *MachineSuite) TestWorkersForHostedModelWithInvalidCredential(c *gc.C) {
 
 	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, remainingWorkers.SortedValues())
 	s.assertJobWithState(c, state.JobManageModel, nil, func(agent.Config, *state.State, *MachineAgent) {
-		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait, st.StartSync)
+		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait)
 	})
 }
 
@@ -1326,7 +1301,7 @@ func (s *MachineSuite) TestWorkersForHostedModelWithDeletedCredential(c *gc.C) {
 	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, remainingWorkers.SortedValues())
 
 	s.assertJobWithState(c, state.JobManageModel, nil, func(agent.Config, *state.State, *MachineAgent) {
-		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait, st.StartSync)
+		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait)
 	})
 }
 
@@ -1371,7 +1346,7 @@ func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
 	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid,
 		append(alwaysModelWorkers, migratingModelWorkers...))
 	s.assertJobWithState(c, state.JobManageModel, nil, func(agent.Config, *state.State, *MachineAgent) {
-		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait, st.StartSync)
+		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait)
 	})
 }
 
@@ -1400,8 +1375,6 @@ func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
 						return // successfully removed
 					}
 					c.Assert(err, jc.ErrorIsNil) // guaranteed fail
-				case <-time.After(coretesting.ShortWait):
-					st.StartSync()
 				case <-timeout:
 					c.Fatalf("timed out waiting for workers")
 				}
@@ -1410,7 +1383,6 @@ func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
 }
 
 func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C) {
-
 	// Grab responsibility for the model on behalf of another machine.
 	uuid := s.BackingState.ModelUUID()
 	claimSingularRaftLease(c, s.DataDir(), uuid)
@@ -1423,7 +1395,7 @@ func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C
 
 	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, alwaysModelWorkers)
 	s.assertJobWithState(c, state.JobManageModel, nil, func(agent.Config, *state.State, *MachineAgent) {
-		agenttest.WaitMatch(c, matcher.Check, longerWait, s.BackingState.StartSync)
+		agenttest.WaitMatch(c, matcher.Check, longerWait)
 	})
 }
 
@@ -1493,10 +1465,6 @@ func (s *MachineSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()
 }
 
 func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("controllers on windows aren't supported")
-	}
-
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()

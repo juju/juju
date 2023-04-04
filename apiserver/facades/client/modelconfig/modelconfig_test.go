@@ -6,13 +6,12 @@ package modelconfig_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/modelconfig"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
@@ -20,11 +19,12 @@ import (
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type modelconfigSuite struct {
-	gitjujutesting.IsolationSuite
+	testing.IsolationSuite
+	coretesting.JujuOSEnvSuite
 	backend    *mockBackend
 	authorizer apiservertesting.FakeAuthorizer
 	api        *modelconfig.ModelConfigAPIV3
@@ -33,18 +33,21 @@ type modelconfigSuite struct {
 var _ = gc.Suite(&modelconfigSuite{})
 
 func (s *modelconfigSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.DeveloperMode)
 	s.IsolationSuite.SetUpTest(c)
+	s.JujuOSEnvSuite.SetUpTest(c)
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:      names.NewUserTag("bruce@local"),
 		AdminTag: names.NewUserTag("bruce@local"),
 	}
 	s.backend = &mockBackend{
 		cfg: config.ConfigValues{
-			"type":            {"dummy", "model"},
-			"agent-version":   {"1.2.3.4", "model"},
-			"ftp-proxy":       {"http://proxy", "model"},
-			"authorized-keys": {testing.FakeAuthKeys, "model"},
-			"charmhub-url":    {"http://meshuggah.rocks", "model"},
+			"type":                  {"dummy", "model"},
+			"agent-version":         {"1.2.3.4", "model"},
+			"ftp-proxy":             {"http://proxy", "model"},
+			"authorized-keys":       {coretesting.FakeAuthKeys, "model"},
+			"charmhub-url":          {"http://meshuggah.rocks", "model"},
+			"secret-backend-config": {"shhh", "model"},
 		},
 	}
 	var err error
@@ -52,7 +55,24 @@ func (s *modelconfigSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *modelconfigSuite) TestModelGet(c *gc.C) {
+func (s *modelconfigSuite) TestAdminModelGet(c *gc.C) {
+	result, err := s.api.ModelGet()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Config, jc.DeepEquals, map[string]params.ConfigValue{
+		"type":                  {"dummy", "model"},
+		"ftp-proxy":             {"http://proxy", "model"},
+		"agent-version":         {Value: "1.2.3.4", Source: "model"},
+		"charmhub-url":          {"http://meshuggah.rocks", "model"},
+		"secret-backend-config": {"shhh", "model"},
+	})
+}
+
+func (s *modelconfigSuite) TestUserModelGet(c *gc.C) {
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		Tag:         names.NewUserTag("bruce@local"),
+		HasWriteTag: names.NewUserTag("bruce@local"),
+		AdminTag:    names.NewUserTag("mary@local"),
+	}
 	result, err := s.api.ModelGet()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Config, jc.DeepEquals, map[string]params.ConfigValue{
@@ -74,16 +94,35 @@ func (s *modelconfigSuite) assertConfigValueMissing(c *gc.C, key string) {
 	c.Assert(found, jc.IsFalse)
 }
 
-func (s *modelconfigSuite) TestModelSet(c *gc.C) {
+func (s *modelconfigSuite) TestAdminModelSet(c *gc.C) {
 	params := params.ModelSet{
 		Config: map[string]interface{}{
-			"some-key":  "value",
-			"other-key": "other value"},
+			"some-key":              "value",
+			"other-key":             "other value",
+			"secret-backend-config": "shhhhhh",
+		},
 	}
 	err := s.api.ModelSet(params)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertConfigValue(c, "some-key", "value")
 	s.assertConfigValue(c, "other-key", "other value")
+}
+
+func (s *modelconfigSuite) TestUserModelSet(c *gc.C) {
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		Tag:         names.NewUserTag("bruce@local"),
+		HasWriteTag: names.NewUserTag("bruce@local"),
+		AdminTag:    names.NewUserTag("mary@local"),
+	}
+	params := params.ModelSet{
+		Config: map[string]interface{}{
+			"some-key":              "value",
+			"other-key":             "other value",
+			"secret-backend-config": "shhhhhh",
+		},
+	}
+	err := s.api.ModelSet(params)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *modelconfigSuite) blockAllChanges(c *gc.C, msg string) {
@@ -111,7 +150,7 @@ func (s *modelconfigSuite) TestBlockChangesModelSet(c *gc.C) {
 }
 
 func (s *modelconfigSuite) TestModelSetCannotChangeAgentVersion(c *gc.C) {
-	old, err := config.New(config.UseDefaults, dummy.SampleConfig().Merge(testing.Attrs{
+	old, err := config.New(config.UseDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
 		"agent-version": "1.2.3.4",
 	}))
 	c.Assert(err, jc.ErrorIsNil)
@@ -132,7 +171,7 @@ func (s *modelconfigSuite) TestModelSetCannotChangeAgentVersion(c *gc.C) {
 }
 
 func (s *modelconfigSuite) TestModelSetCannotChangeCharmHubURL(c *gc.C) {
-	old, err := config.New(config.UseDefaults, dummy.SampleConfig().Merge(testing.Attrs{
+	old, err := config.New(config.UseDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
 		"charmhub-url": "http://meshuggah.rocks",
 	}))
 	c.Assert(err, jc.ErrorIsNil)
@@ -199,17 +238,6 @@ func (s *modelconfigSuite) TestUserCannotSetLogTrace(c *gc.C) {
 	s.authorizer.HasWriteTag = apiUser
 	err := s.api.ModelSet(args)
 	c.Assert(err, gc.ErrorMatches, `only controller admins can set a model's logging level to TRACE`)
-}
-
-func (s *modelconfigSuite) TestCannotSetLoggingOutputWithoutFeatureFlag(c *gc.C) {
-	args := params.ModelSet{
-		map[string]interface{}{"logging-output": "syslog"},
-	}
-	err := s.api.ModelSet(args)
-	c.Assert(err, gc.ErrorMatches, `cannot set "logging-output" without setting the "logging-output" feature flag`)
-	s.backend.features = feature.LoggingOutput
-	err = s.api.ModelSet(args)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *modelconfigSuite) TestModelUnset(c *gc.C) {
@@ -283,12 +311,11 @@ func (s *modelconfigSuite) TestClientGetModelConstraints(c *gc.C) {
 }
 
 type mockBackend struct {
-	cfg      config.ConfigValues
-	old      *config.Config
-	b        state.BlockType
-	features string
-	msg      string
-	cons     constraints.Value
+	cfg  config.ConfigValues
+	old  *config.Config
+	b    state.BlockType
+	msg  string
+	cons constraints.Value
 }
 
 func (m *mockBackend) SetModelConstraints(value constraints.Value) error {
@@ -308,7 +335,8 @@ func (m *mockBackend) Sequences() (map[string]int, error) {
 	return nil, nil
 }
 
-func (m *mockBackend) UpdateModelConfig(update map[string]interface{}, remove []string, validate ...state.ValidateConfigFunc) error {
+func (m *mockBackend) UpdateModelConfig(update map[string]interface{}, remove []string,
+	validate ...state.ValidateConfigFunc) error {
 	for _, validateFunc := range validate {
 		if err := validateFunc(update, remove, m.old); err != nil {
 			return err
@@ -349,12 +377,6 @@ func (m *mockBackend) SLALevel() (string, error) {
 
 func (m *mockBackend) SpaceByName(string) error {
 	return nil
-}
-
-func (m *mockBackend) ControllerConfig() (controller.Config, error) {
-	cfg := testing.FakeControllerConfig()
-	cfg[controller.Features] = []interface{}{m.features}
-	return cfg, nil
 }
 
 type mockBlock struct {

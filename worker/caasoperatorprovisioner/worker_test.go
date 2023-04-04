@@ -5,13 +5,13 @@ package caasoperatorprovisioner_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strconv"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -79,12 +79,12 @@ func waitForStubCalls(c *gc.C, stub *jujutesting.Stub, expected []jujutesting.St
 
 func (s *CAASProvisionerSuite) assertWorker(c *gc.C) worker.Worker {
 	w, err := caasoperatorprovisioner.NewProvisionerWorker(caasoperatorprovisioner.Config{
-		Facade:      s.provisionerFacade,
-		Broker:      s.caasClient,
-		ModelTag:    s.modelTag,
-		AgentConfig: s.agentConfig,
-		Clock:       s.clock,
-		Logger:      loggo.GetLogger("test"),
+		Facade:          s.provisionerFacade,
+		OperatorManager: s.caasClient,
+		ModelTag:        s.modelTag,
+		AgentConfig:     s.agentConfig,
+		Clock:           s.clock,
+		Logger:          loggo.GetLogger("test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
@@ -156,7 +156,7 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, updateCert
 	}
 
 	agentFile := filepath.Join(c.MkDir(), "agent.config")
-	err = ioutil.WriteFile(agentFile, config.AgentConf, 0644)
+	err = os.WriteFile(agentFile, config.AgentConf, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := agent.ReadConfig(agentFile)
 	c.Assert(err, jc.ErrorIsNil)
@@ -233,7 +233,6 @@ apiaddresses:
 - 192.18.1.1:17070
 oldpassword: dxKwhgZPrNzXVTrZSxY1VLHA
 values: {}
-mongoversion: "0.0"
 `[1:], strconv.Quote(coretesting.CACert))),
 		OperatorInfo: []byte(
 			fmt.Sprintf(
@@ -304,7 +303,6 @@ apiaddresses:
 - 192.18.1.1:17070
 oldpassword: dxKwhgZPrNzXVTrZSxY1VLHA
 values: {}
-mongoversion: "0.0"
 `[1:], strconv.Quote(coretesting.CACert))),
 		ConfigMapGeneration: 1,
 	}

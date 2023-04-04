@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
@@ -49,6 +50,7 @@ type HookContext interface {
 	ContextPayloads
 	ContextRelations
 	ContextVersion
+	ContextSecrets
 
 	// GetLogger returns a juju loggo Logger for the supplied module that is
 	// correctly wired up for the given context
@@ -95,7 +97,7 @@ type actionHookContext interface {
 	// UpdateActionResults inserts new values for use with action-set.
 	// The results struct will be delivered to the controller upon
 	// completion of the Action.
-	UpdateActionResults(keys []string, value string) error
+	UpdateActionResults(keys []string, value interface{}) error
 
 	// SetActionMessage sets a message for the Action.
 	SetActionMessage(string) error
@@ -162,6 +164,71 @@ type ContextUnit interface {
 
 	// CloudSpec returns the unit's cloud specification
 	CloudSpec() (*params.CloudSpec, error)
+}
+
+// SecretCreateArgs specifies args used to create a secret.
+// Nil values are not included in the create.
+type SecretCreateArgs struct {
+	SecretUpdateArgs
+
+	OwnerTag names.Tag
+}
+
+// SecretUpdateArgs specifies args used to update a secret.
+// Nil values are not included in the update.
+type SecretUpdateArgs struct {
+	// Value is the new secret value or nil to not update.
+	Value secrets.SecretValue
+
+	RotatePolicy *secrets.RotatePolicy
+	ExpireTime   *time.Time
+
+	Description *string
+	Label       *string
+}
+
+// SecretGrantRevokeArgs specify the args used to grant or revoke access to a secret.
+type SecretGrantRevokeArgs struct {
+	ApplicationName *string
+	UnitName        *string
+	RelationKey     *string
+	Role            *secrets.SecretRole
+}
+
+// SecretMetadata holds a secret's metadata.
+type SecretMetadata struct {
+	Owner            names.Tag
+	Description      string
+	Label            string
+	RotatePolicy     secrets.RotatePolicy
+	LatestRevision   int
+	LatestExpireTime *time.Time
+	NextRotateTime   *time.Time
+	BackendIds       map[int]string
+}
+
+// ContextSecrets is the part of a hook context related to secrets.
+type ContextSecrets interface {
+	// GetSecret returns the value of the specified secret.
+	GetSecret(*secrets.URI, string, bool, bool) (secrets.SecretValue, error)
+
+	// CreateSecret creates a secret with the specified data.
+	CreateSecret(*SecretCreateArgs) (*secrets.URI, error)
+
+	// UpdateSecret creates a secret with the specified data.
+	UpdateSecret(*secrets.URI, *SecretUpdateArgs) error
+
+	// RemoveSecret removes a secret with the specified uri.
+	RemoveSecret(*secrets.URI, *int) error
+
+	// GrantSecret grants access to the specified secret.
+	GrantSecret(*secrets.URI, *SecretGrantRevokeArgs) error
+
+	// RevokeSecret revokes access to the specified secret.
+	RevokeSecret(*secrets.URI, *SecretGrantRevokeArgs) error
+
+	// SecretMetadata gets the secret metadata for secrets created by the charm.
+	SecretMetadata() (map[string]SecretMetadata, error)
 }
 
 // ContextStatus is the part of a hook context related to the unit's status.
@@ -312,6 +379,9 @@ type ContextRelation interface {
 
 	// Name returns the name the locally executing charm assigned to this relation.
 	Name() string
+
+	// RelationTag returns the relation tag.
+	RelationTag() names.RelationTag
 
 	// FakeId returns a string of the form "relation-name:123", which uniquely
 	// identifies the relation to the hook. In reality, the identification

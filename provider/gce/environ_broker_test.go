@@ -56,21 +56,21 @@ func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 	s.spec = &instances.InstanceSpec{
 		InstanceType: s.InstanceType,
 		Image: instances.Image{
-			Id:       "ubuntu-1404-trusty-v20141212",
+			Id:       "ubuntu-2204-jammy-v20141212",
 			Arch:     amd64,
 			VirtType: "kvm",
 		},
 	}
 	s.ic = &instances.InstanceConstraint{
 		Region:      "home",
-		Series:      "trusty",
+		Base:        series.MakeDefaultBase("ubuntu", "22.04"),
 		Arch:        amd64,
 		Constraints: s.StartInstArgs.Constraints,
 	}
 	s.imageMetadata = []*imagemetadata.ImageMetadata{{
-		Id:         "ubuntu-1404-trusty-v20141212",
+		Id:         "ubuntu-2204-jammy-v20141212",
 		Arch:       "amd64",
-		Version:    "14.04",
+		Version:    "22.04",
 		RegionName: "us-central1",
 		Endpoint:   "https://www.googleapis.com",
 		Stream:     "<stream>",
@@ -208,14 +208,6 @@ func (s *environBrokerSuite) TestGetMetadataUbuntu(c *gc.C) {
 
 }
 
-func (s *environBrokerSuite) TestGetMetadataWindows(c *gc.C) {
-	metadata, err := gce.GetMetadata(s.StartInstArgs, jujuos.Windows)
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(metadata["windows-startup-script-ps1"], gc.Equals, s.WindowsMetadata["windows-startup-script-ps1"])
-	c.Check(metadata["sysprep-specialize-script-ps1"], gc.Matches, s.WindowsMetadata["sysprep-specialize-script-ps1"])
-}
-
 func (s *environBrokerSuite) TestGetMetadataOSNotSupported(c *gc.C) {
 	metadata, err := gce.GetMetadata(s.StartInstArgs, jujuos.GenericLinux)
 
@@ -224,19 +216,19 @@ func (s *environBrokerSuite) TestGetMetadataOSNotSupported(c *gc.C) {
 }
 
 var getDisksTests = []struct {
-	Series   string
+	osname   string
 	basePath string
 	error    error
 }{
-	{"trusty", gce.UbuntuImageBasePath, nil},
-	{"bionic", "/tmp/", nil}, // --config base-image-path=/tmp/
-	{"win2012r2", gce.WindowsImageBasePath, nil},
-	{"arch", "", errors.New("os Arch is not supported on the gce provider")},
+	{"ubuntu", gce.UbuntuImageBasePath, nil},
+	{"ubuntu", "/tmp/", nil}, // --config base-image-path=/tmp/
+	{"suse", "", errors.New("os Suse is not supported on the gce provider")},
 }
 
 func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
 	for _, test := range getDisksTests {
-		diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, test.Series, "32f7d570-5bac-4b72-b169-250c24a94b2b", test.basePath)
+		os := jujuos.OSTypeForName(test.osname)
+		diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, os, "32f7d570-5bac-4b72-b169-250c24a94b2b", test.basePath)
 		if test.error != nil {
 			c.Assert(err, gc.Equals, err)
 		} else {
@@ -245,8 +237,6 @@ func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
 
 			diskSpec := diskSpecs[0]
 
-			os, err := series.GetOSFromSeries(test.Series)
-			c.Assert(err, jc.ErrorIsNil)
 			switch os {
 			case jujuos.Ubuntu:
 				c.Check(diskSpec.SizeHintGB, gc.Equals, uint64(8))
@@ -259,7 +249,7 @@ func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
 		}
 	}
 
-	diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, "trusty", "32f7d570-5bac-4b72-b169-250c24a94b2b", gce.UbuntuDailyImageBasePath)
+	diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, jujuos.Ubuntu, "32f7d570-5bac-4b72-b169-250c24a94b2b", gce.UbuntuDailyImageBasePath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(diskSpecs, gc.HasLen, 1)
 	spec := diskSpecs[0]

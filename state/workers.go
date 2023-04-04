@@ -15,7 +15,9 @@ import (
 	jworker "github.com/juju/juju/worker"
 )
 
-const txnLogWorker = "txnlog"
+const (
+	txnLogWorker = "txnlog"
+)
 
 // workers runs the workers that a State instance requires.
 // It wraps a Runner instance which restarts any of the

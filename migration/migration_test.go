@@ -7,14 +7,12 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/url"
 	"time"
 
-	"github.com/juju/charm/v8"
-	"github.com/juju/description/v3"
+	"github.com/juju/charm/v9"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -22,7 +20,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/lease"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
@@ -62,13 +59,13 @@ func (s *ImportSuite) TestBadBytes(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "yaml: unmarshal errors:\n.*")
 }
 
-func (s *ImportSuite) exportImport(c *gc.C, getClaimer migration.ClaimerFunc) *state.State {
-	model, err := s.State.Export()
+func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string, getClaimer migration.ClaimerFunc) *state.State {
+	model, err := s.State.Export(leaders)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Update the config values in the exported model for different values for
 	// "state-port", "api-port", and "ca-cert". Also give the model a new UUID
-	// and name so we can import it nicely.
+	// and name, so we can import it nicely.
 	uuid := utils.MustNewUUID().String()
 	model.UpdateConfig(map[string]interface{}{
 		"name": "new-model",
@@ -91,19 +88,19 @@ func (s *ImportSuite) exportImport(c *gc.C, getClaimer migration.ClaimerFunc) *s
 }
 
 func (s *ImportSuite) TestImportModel(c *gc.C) {
-	s.exportImport(c, fakeGetClaimer)
+	s.exportImport(c, map[string]string{}, fakeGetClaimer)
 }
 
 func (s *ImportSuite) TestImportsLeadership(c *gc.C) {
 	s.makeApplicationWithUnits(c, "wordpress", 3)
-	s.makeUnitApplicationLeader(c, "wordpress/1", "wordpress")
 	s.makeApplicationWithUnits(c, "mysql", 2)
+	leaders := map[string]string{"wordpress": "wordpress/1"}
 
 	var (
 		claimer   fakeClaimer
 		modelUUID string
 	)
-	dbState := s.exportImport(c, func(uuid string) (leadership.Claimer, error) {
+	dbState := s.exportImport(c, leaders, func(uuid string) (leadership.Claimer, error) {
 		modelUUID = uuid
 		return &claimer, nil
 	})
@@ -125,14 +122,6 @@ func (s *ImportSuite) makeApplicationWithUnits(c *gc.C, applicationname string, 
 			Application: application,
 		})
 	}
-}
-
-func (s *ImportSuite) makeUnitApplicationLeader(c *gc.C, unitName, applicationName string) {
-	target := s.State.LeaseNotifyTarget(loggo.GetLogger("migration_import_test"))
-	target.Claimed(
-		lease.Key{"application-leadership", s.State.ModelUUID(), applicationName},
-		unitName,
-	)
 }
 
 func (s *ImportSuite) TestUploadBinariesConfigValidate(c *gc.C) {
@@ -261,7 +250,7 @@ func (d *fakeDownloader) OpenCharm(curl *charm.URL) (io.ReadCloser, error) {
 	urlStr := curl.String()
 	d.charms = append(d.charms, urlStr)
 	// Return the charm URL string as the fake charm content
-	return ioutil.NopCloser(bytes.NewReader([]byte(urlStr + " content"))), nil
+	return io.NopCloser(bytes.NewReader([]byte(urlStr + " content"))), nil
 }
 
 func (d *fakeDownloader) OpenURI(uri string, query url.Values) (io.ReadCloser, error) {
@@ -270,13 +259,13 @@ func (d *fakeDownloader) OpenURI(uri string, query url.Values) (io.ReadCloser, e
 	}
 	d.uris = append(d.uris, uri)
 	// Return the URI string as fake content
-	return ioutil.NopCloser(bytes.NewReader([]byte(uri))), nil
+	return io.NopCloser(bytes.NewReader([]byte(uri))), nil
 }
 
 func (d *fakeDownloader) OpenResource(app, name string) (io.ReadCloser, error) {
 	d.resources = append(d.resources, app+"/"+name)
 	// Use the resource name as the content.
-	return ioutil.NopCloser(bytes.NewReader([]byte(name))), nil
+	return io.NopCloser(bytes.NewReader([]byte(name))), nil
 }
 
 type fakeUploader struct {
@@ -288,7 +277,7 @@ type fakeUploader struct {
 }
 
 func (f *fakeUploader) UploadTools(r io.ReadSeeker, v version.Binary) (tools.List, error) {
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -297,7 +286,7 @@ func (f *fakeUploader) UploadTools(r io.ReadSeeker, v version.Binary) (tools.Lis
 }
 
 func (f *fakeUploader) UploadCharm(u *charm.URL, r io.ReadSeeker) (*charm.URL, error) {
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -314,7 +303,7 @@ func (f *fakeUploader) UploadCharm(u *charm.URL, r io.ReadSeeker) (*charm.URL, e
 }
 
 func (f *fakeUploader) UploadResource(res resources.Resource, r io.ReadSeeker) error {
-	body, err := ioutil.ReadAll(r)
+	body, err := io.ReadAll(r)
 	if err != nil {
 		return errors.Trace(err)
 	}

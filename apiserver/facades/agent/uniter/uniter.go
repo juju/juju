@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	leadershipapiserver "github.com/juju/juju/apiserver/facades/agent/leadership"
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
+	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/caas"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/cache"
@@ -39,9 +40,7 @@ var logger = loggo.GetLogger("juju.apiserver.uniter")
 // TODO (manadart 2020-10-21): Remove the ModelUUID method
 // from the next version of this facade.
 
-// UniterAPI implements the latest version (v18) of the Uniter API, which
-// augments the payload of the CommitHookChanges API call and introduces
-// the OpenedMachinePortRanges call as a replacement for AllMachinePorts.
+// UniterAPI implements the latest version (v18) of the Uniter API.
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
@@ -53,6 +52,7 @@ type UniterAPI struct {
 	*common.UpgradeSeriesAPI
 	*common.UnitStateAPI
 	*leadershipapiserver.LeadershipSettingsAccessor
+	*secretsmanager.SecretsManagerAPI
 	meterstatus.MeterStatus
 	lxdProfileAPI       *LXDProfileAPIv2
 	m                   *state.Model
@@ -79,104 +79,6 @@ type UniterAPI struct {
 	accessCloudSpec func() (func() bool, error)
 	cloudSpecer     cloudspec.CloudSpecer
 }
-
-// UniterAPIV17 implements version (v17) of the Uniter API, which adds
-// CloudSpec v2
-type UniterAPIV17 struct {
-	UniterAPI
-}
-
-// UniterAPIV16 implements version (v16) of the Uniter API, which adds
-// LXDProfileAPIV2.
-type UniterAPIV16 struct {
-	UniterAPIV17
-}
-
-// UniterAPIV15 implements version (v15) of the Uniter API, which adds
-// the State, CommitHookChanges, ReadLocalApplicationSettings calls and changes
-// WatchActionNotifications to notify on action changes.
-type UniterAPIV15 struct {
-	UniterAPIV16
-}
-
-// UniterAPIV14 implements version (v14) of the Uniter API,
-// which adds GetPodSpec, SetState and State.
-type UniterAPIV14 struct {
-	UniterAPIV15
-}
-
-// UniterAPIV13 implements version (v13) of the Uniter API,
-// which adds UpdateNetworkInfo.
-type UniterAPIV13 struct {
-	UniterAPIV14
-}
-
-// UniterAPIV12 implements version (v12) of the Uniter API,
-// Removes the embedded LXDProfileAPI, which in turn removes the following;
-// RemoveUpgradeCharmProfileData, WatchUnitLXDProfileUpgradeNotifications
-// and WatchLXDProfileUpgradeNotifications
-type UniterAPIV12 struct {
-	UniterAPIV13
-}
-
-// UniterAPIV11 implements version (v11) of the Uniter API, which adds
-// CloudAPIVersion.
-type UniterAPIV11 struct {
-	*LXDProfileAPI
-	UniterAPIV12
-}
-
-// UniterAPIV10 adds WatchUnitLXDProfileUpgradeNotifications and
-type UniterAPIV10 struct {
-	// LXDProfileAPI is removed from a UniterAPI embedded struct to UniterAPIV10
-	// embedded struct removing it completely from future API versions.
-	*LXDProfileAPI
-	UniterAPIV11
-}
-
-// UniterAPIV9 adds WatchConfigSettingsHash, WatchTrustConfigSettingsHash,
-// WatchUnitAddressesHash and LXDProfileAPI, which includes
-// WatchLXDProfileUpgradeNotifications and RemoveUpgradeCharmProfileData
-type UniterAPIV9 struct {
-	// LXDProfileAPI is removed from a UniterAPI embedded struct to UniterAPIV9
-	// embedded struct removing it completely from future API versions.
-	*LXDProfileAPI
-	UniterAPIV10
-}
-
-// UniterAPIV8 adds SetContainerSpec, GoalStates, CloudSpec,
-// WatchTrustConfigSettings, WatchActionNotifications,
-// UpgradeSeriesStatus, SetUpgradeSeriesStatus.
-type UniterAPIV8 struct {
-	UniterAPIV9
-}
-
-// UniterAPIV7 adds CMR support to NetworkInfo.
-type UniterAPIV7 struct {
-	UniterAPIV8
-}
-
-// UniterAPIV6 adds NetworkInfo as a preferred method to calling NetworkConfig.
-type UniterAPIV6 struct {
-	UniterAPIV7
-}
-
-// UniterAPIV5 returns a RelationResultsV5 instead of RelationResults
-// from Relation and RelationById - elements don't have an
-// OtherApplication field.
-type UniterAPIV5 struct {
-	UniterAPIV6
-}
-
-// UniterAPIV4 has old WatchApplicationRelations and NetworkConfig
-// methods, and doesn't have the new SLALevel, NetworkInfo or
-// WatchUnitRelations methods.
-type UniterAPIV4 struct {
-	UniterAPIV5
-}
-
-// OpenedMachinePortRangesByEndpoint is not available in V16 of the API.
-func (u *UniterAPIV16) OpenedMachinePortRangesByEndpoint(_ struct{}) {}
 
 // OpenedMachinePortRangesByEndpoint returns the port ranges opened by each
 // unit on the provided machines grouped by application endpoint.
@@ -217,58 +119,6 @@ func (u *UniterAPI) OpenedMachinePortRangesByEndpoint(args params.Entities) (par
 			sort.Slice(result.Results[i].UnitPortRanges[unitTag], func(a, b int) bool {
 				return result.Results[i].UnitPortRanges[unitTag][a].Endpoint < result.Results[i].UnitPortRanges[unitTag][b].Endpoint
 			})
-		}
-	}
-	return result, nil
-}
-
-// AllMachinePorts returns all opened port ranges for each given
-// machine (on all networks).
-//
-// DEPRECATED: clients should switch to the OpenedMachinePortRanges API call
-// when using the V17+ API.
-//
-// TODO(achilleasa): remove from V17 once all client references to this API
-// have been changed to use the new API.
-func (u *UniterAPI) AllMachinePorts(args params.Entities) (params.MachinePortsResults, error) {
-	result := params.MachinePortsResults{
-		Results: make([]params.MachinePortsResult, len(args.Entities)),
-	}
-	canAccess, err := u.accessMachine()
-	if err != nil {
-		return params.MachinePortsResults{}, err
-	}
-	for i, entity := range args.Entities {
-		machPortRanges, err := u.getOneMachineOpenedPortRanges(canAccess, entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		// This method is used by older clients that always open ports
-		// to all subnets; to emulate this behavior, we get the unique
-		// set of ports for each unit and return them back as a sorted
-		// list.
-		var resultPorts []params.MachinePortRange
-		for unitName, unitPortRanges := range machPortRanges.ByUnit() {
-			unitTag := names.NewUnitTag(unitName).String()
-			for _, pr := range unitPortRanges.UniquePortRanges() {
-				resultPorts = append(resultPorts, params.MachinePortRange{
-					UnitTag:   unitTag,
-					PortRange: params.FromNetworkPortRange(pr),
-				})
-			}
-		}
-
-		// Sort result by port range to ensure stable order for returned ranges.
-		sort.Slice(resultPorts, func(i, j int) bool {
-			return resultPorts[i].PortRange.NetworkPortRange().LessThan(
-				resultPorts[j].PortRange.NetworkPortRange(),
-			)
-		})
-
-		result.Results[i] = params.MachinePortsResult{
-			Ports: resultPorts,
 		}
 	}
 	return result, nil
@@ -820,162 +670,12 @@ func (u *UniterAPI) SetWorkloadVersion(args params.EntityWorkloadVersions) (para
 	return result, nil
 }
 
-// TODO(juju3) - remove
-func (u *UniterAPI) OpenPorts(args params.EntitiesPortRanges) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.ErrorResults{}, err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseUnitTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		if !canAccess(tag) {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-
-		unit, err := u.getUnit(tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		unitPortRanges, err := unit.OpenedPortRanges()
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		// This API method never supported opening a port across multiple
-		// subnets. Instead, it was assumed that the port range was
-		// always opened in all subnets. To emulate this behavior, we
-		// simply open the requested port range for all endpoints.
-		unitPortRanges.Open("", network.PortRange{
-			FromPort: entity.FromPort,
-			ToPort:   entity.ToPort,
-			Protocol: entity.Protocol,
-		})
-
-		err = u.st.ApplyOperation(unitPortRanges.Changes())
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
-
-// ClosePorts sets the policy of the port range with protocol to be
-// closed, for all given units.
-// TODO(juju3) - remove
-func (u *UniterAPI) ClosePorts(args params.EntitiesPortRanges) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.ErrorResults{}, err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseUnitTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		if !canAccess(tag) {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-
-		unit, err := u.getUnit(tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		unitPortRanges, err := unit.OpenedPortRanges()
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		// This API method never supported opening a port across multiple
-		// subnets. Instead, it was assumed that the port range was
-		// always opened in all subnets. To emulate this behavior, we
-		// simply close the requested port range for all endpoints.
-		unitPortRanges.Close("", network.PortRange{
-			FromPort: entity.FromPort,
-			ToPort:   entity.ToPort,
-			Protocol: entity.Protocol,
-		})
-
-		err = u.st.ApplyOperation(unitPortRanges.Changes())
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
-
 // ModelUUID returns the model UUID that this unit resides in.
 // It is implemented here directly as a result of removing it from
 // embedded APIAddresser *without* bumping the facade version.
 // It should be blanked when this facade version is next incremented.
 func (u *UniterAPI) ModelUUID() params.StringResult {
 	return params.StringResult{Result: u.m.UUID()}
-}
-
-// WatchConfigSettings returns a NotifyWatcher for observing changes
-// to each unit's application configuration settings. See also
-// state/watcher.go:Unit.WatchConfigSettings().
-func (u *UniterAPIV8) WatchConfigSettings(args params.Entities) (params.NotifyWatchResults, error) {
-	watcherFn := func(u *state.Unit) (state.NotifyWatcher, error) {
-		return u.WatchConfigSettings()
-	}
-	result, err := u.WatchSettings(args, watcherFn)
-	if err != nil {
-		return params.NotifyWatchResults{}, errors.Trace(err)
-	}
-
-	return result, nil
-}
-
-func (u *UniterAPIV8) WatchTrustConfigSettings(args params.Entities) (params.NotifyWatchResults, error) {
-	watcherFn := func(u *state.Unit) (state.NotifyWatcher, error) {
-		return u.WatchApplicationConfigSettings()
-	}
-	result, err := u.WatchSettings(args, watcherFn)
-	if err != nil {
-		return params.NotifyWatchResults{}, errors.Trace(err)
-	}
-
-	return result, nil
-}
-
-func (u *UniterAPIV8) WatchSettings(args params.Entities, configWatcherFn func(u *state.Unit) (state.NotifyWatcher, error)) (params.NotifyWatchResults, error) {
-	result := params.NotifyWatchResults{
-		Results: make([]params.NotifyWatchResult, len(args.Entities)),
-	}
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.NotifyWatchResults{}, err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseUnitTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		err = apiservererrors.ErrPerm
-		watcherId := ""
-		if canAccess(tag) {
-			watcherId, err = u.watchOneUnitConfigSettings(tag, configWatcherFn)
-		}
-		result.Results[i].NotifyWatcherId = watcherId
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
 }
 
 // WatchActionNotifications returns a StringsWatcher for observing
@@ -985,18 +685,6 @@ func (u *UniterAPIV8) WatchSettings(args params.Entities, configWatcherFn func(u
 func (u *UniterAPI) WatchActionNotifications(args params.Entities) (params.StringsWatchResults, error) {
 	tagToActionReceiver := common.TagToActionReceiverFn(u.st.FindEntity)
 	watchOne := common.WatchOneActionReceiverNotifications(tagToActionReceiver, u.resources.Register)
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.StringsWatchResults{}, err
-	}
-	return common.WatchActionNotifications(args, canAccess, watchOne), nil
-}
-
-// WatchActionNotifications preserves previous functionality of the ActionNotifications watcher
-// to only trigger once on creation of a pending Action.
-func (u *UniterAPIV14) WatchActionNotifications(args params.Entities) (params.StringsWatchResults, error) {
-	tagToActionReceiver := common.TagToActionReceiverFn(u.st.FindEntity)
-	watchOne := common.WatchPendingActionsForReceiver(tagToActionReceiver, u.resources.Register)
 	canAccess, err := u.accessUnit()
 	if err != nil {
 		return params.StringsWatchResults{}, err
@@ -1210,39 +898,6 @@ func (u *UniterAPI) RelationById(args params.RelationIds) (params.RelationResult
 		relParams, err := u.getOneRelationById(relId)
 		if err == nil {
 			result.Results[i] = relParams
-		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
-
-// JoinedRelations returns the tags of all relations for which each supplied unit
-// has entered scope.
-// TODO(wallyworld) - this API is replaced by RelationsStatus
-func (u *UniterAPIV6) JoinedRelations(args params.Entities) (params.StringsResults, error) {
-	result := params.StringsResults{
-		Results: make([]params.StringsResult, len(args.Entities)),
-	}
-	if len(args.Entities) == 0 {
-		return result, nil
-	}
-	canRead, err := u.accessUnit()
-	if err != nil {
-		return params.StringsResults{}, err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseUnitTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		err = apiservererrors.ErrPerm
-		if canRead(tag) {
-			var unit *state.Unit
-			unit, err = u.getUnit(tag)
-			if err == nil {
-				result.Results[i].Result, err = relationsInScopeTags(unit)
-			}
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
@@ -1557,9 +1212,6 @@ func (u *UniterAPI) ReadSettings(args params.RelationUnits) (params.SettingsResu
 	return result, nil
 }
 
-// ReadLocalApplicationSettings is not available in V14 of the API.
-func (u *UniterAPIV14) ReadLocalApplicationSettings(_ struct{}) {}
-
 // ReadLocalApplicationSettings returns the local application settings for a
 // particular relation when invoked by the leader unit.
 func (u *UniterAPI) ReadLocalApplicationSettings(arg params.RelationUnit) (params.SettingsResult, error) {
@@ -1635,7 +1287,7 @@ func (u *UniterAPI) readLocalApplicationSettings(relTag string, appTag names.App
 		}
 		// For provider-requirer relations only allow the
 		// leader unit to read the application settings.
-		return token.Check(0, nil) == nil
+		return token.Check() == nil
 	}
 
 	return u.getRelationAppSettings(canAccessSettings, relTag, appTag)
@@ -1693,37 +1345,6 @@ func (u *UniterAPI) ReadRemoteSettings(args params.RelationUnitPairs) (params.Se
 		result.Results[i].Settings = settings
 	}
 
-	return result, nil
-}
-
-// UpdateSettings persists all changes made to the local settings of
-// all given pairs of relation and unit. Keys with empty values are
-// considered a signal to delete these values.
-// TODO(juju3) - remove
-func (u *UniterAPI) UpdateSettings(args params.RelationUnitsSettings) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.RelationUnits)),
-	}
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.ErrorResults{}, err
-	}
-
-	for i, arg := range args.RelationUnits {
-		updateOp, err := u.updateUnitAndApplicationSettingsOp(arg, canAccess)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		if err = u.st.ApplyOperation(updateOp); err != nil {
-			if leadership.IsNotLeaderError(err) {
-				err = apiservererrors.ErrPerm
-			}
-
-			result.Results[i].Error = apiservererrors.ServerError(err)
-		}
-	}
 	return result, nil
 }
 
@@ -1847,7 +1468,7 @@ func (u *UniterAPI) SetRelationStatus(args params.RelationStatusArgs) (params.Er
 			return err
 		}
 		token := checker.LeadershipCheck(unit.ApplicationName(), unit.Name())
-		if err := token.Check(0, nil); err != nil {
+		if err := token.Check(); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -1890,39 +1511,8 @@ func (u *UniterAPI) SetRelationStatus(args params.RelationStatusArgs) (params.Er
 	return statusResults, nil
 }
 
-// WatchUnitAddresses returns a NotifyWatcher for observing changes
-// to each unit's addresses.
-func (u *UniterAPIV8) WatchUnitAddresses(args params.Entities) (params.NotifyWatchResults, error) {
-	result := params.NotifyWatchResults{
-		Results: make([]params.NotifyWatchResult, len(args.Entities)),
-	}
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.NotifyWatchResults{}, err
-	}
-	for i, entity := range args.Entities {
-		unit, err := names.ParseUnitTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		err = apiservererrors.ErrPerm
-		watcherId := ""
-		if canAccess(unit) {
-			watcherId, err = u.watchOneUnitAddresses(unit)
-		}
-		result.Results[i].NotifyWatcherId = watcherId
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
-
 func (u *UniterAPI) getUnit(tag names.UnitTag) (*state.Unit, error) {
 	return u.st.Unit(tag.Id())
-}
-
-func (u *UniterAPI) getApplication(tag names.ApplicationTag) (*state.Application, error) {
-	return u.st.Application(tag.Id())
 }
 
 func (u *UniterAPI) getRelationUnit(canAccess common.AuthFunc, relTag string, unitTag names.UnitTag) (*state.RelationUnit, error) {
@@ -2107,54 +1697,6 @@ func (u *UniterAPI) destroySubordinates(principal *state.Unit) error {
 	return nil
 }
 
-func (u *UniterAPIV8) watchOneUnitConfigSettings(tag names.UnitTag, configWatcherFn func(u *state.Unit) (state.NotifyWatcher, error)) (string, error) {
-	unit, err := u.getUnit(tag)
-	if err != nil {
-		return "", err
-	}
-	configWatcher, err := configWatcherFn(unit)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	// Consume the initial event. Technically, API
-	// calls to Watch 'transmit' the initial event
-	// in the Watch response. But NotifyWatchers
-	// have no state to transmit.
-	if _, ok := <-configWatcher.Changes(); ok {
-		return u.resources.Register(configWatcher), nil
-	}
-	return "", watcher.EnsureErr(configWatcher)
-}
-
-func (u *UniterAPIV8) watchOneUnitAddresses(tag names.UnitTag) (string, error) {
-	unit, err := u.getUnit(tag)
-	if err != nil {
-		return "", err
-	}
-	var watch state.NotifyWatcher
-	if unit.ShouldBeAssigned() {
-		machineId, err := unit.AssignedMachineId()
-		if err != nil {
-			return "", err
-		}
-		machine, err := u.st.Machine(machineId)
-		if err != nil {
-			return "", err
-		}
-		watch = machine.WatchAddresses()
-	} else {
-		watch = unit.WatchContainerAddresses()
-	}
-	// Consume the initial event. Technically, API
-	// calls to Watch 'transmit' the initial event
-	// in the Watch response. But NotifyWatchers
-	// have no state to transmit.
-	if _, ok := <-watch.Changes(); ok {
-		return u.resources.Register(watch), nil
-	}
-	return "", watcher.EnsureErr(watch)
-}
-
 func (u *UniterAPI) watchOneRelationUnit(relUnit *state.RelationUnit) (params.RelationUnitsWatchResult, error) {
 	stateWatcher := relUnit.Watch()
 	watch, err := common.RelationUnitsWatcherFromState(stateWatcher)
@@ -2229,18 +1771,6 @@ func convertRelationSettings(settings map[string]interface{}) (params.Settings, 
 		result[k] = sval
 	}
 	return result, nil
-}
-
-func relationsInScopeTags(unit *state.Unit) ([]string, error) {
-	relations, err := unit.RelationsInScope()
-	if err != nil {
-		return nil, err
-	}
-	tags := make([]string, len(relations))
-	for i, relation := range relations {
-		tags[i] = relation.Tag().String()
-	}
-	return tags, nil
 }
 
 func leadershipSettingsAccessorFactory(
@@ -2433,271 +1963,6 @@ func (u *UniterAPI) watchOneUnitRelations(tag names.UnitTag) (params.StringsWatc
 	return nothing, watcher.EnsureErr(watch)
 }
 
-// NetworkConfig returns information about all given relation/unit pairs,
-// including their id, key and the local endpoint.
-// It's not included in APIv5
-// TODO(wpk): NetworkConfig API is obsoleted by Uniter.NetworkInfo
-func (u *UniterAPIV4) NetworkConfig(args params.UnitsNetworkConfig) (params.UnitNetworkConfigResults, error) {
-	result := params.UnitNetworkConfigResults{
-		Results: make([]params.UnitNetworkConfigResult, len(args.Args)),
-	}
-
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.UnitNetworkConfigResults{}, err
-	}
-
-	for i, arg := range args.Args {
-		netConfig, err := u.getOneNetworkConfig(canAccess, arg.UnitTag, arg.BindingName)
-		if err == nil {
-			result.Results[i].Config = netConfig
-		} else {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-		}
-	}
-	return result, nil
-}
-
-func (u *UniterAPIV4) getOneNetworkConfig(canAccess common.AuthFunc, unitTagArg, bindingName string) ([]params.NetworkConfig, error) {
-	unitTag, err := names.ParseUnitTag(unitTagArg)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if bindingName == "" {
-		return nil, errors.Errorf("binding name cannot be empty")
-	}
-
-	if !canAccess(unitTag) {
-		return nil, apiservererrors.ErrPerm
-	}
-
-	unit, err := u.getUnit(unitTag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	application, err := unit.Application()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	bindings, err := application.EndpointBindings()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	boundSpace, known := bindings.Map()[bindingName]
-	if !known {
-		return nil, errors.Errorf("binding name %q not defined by the unit's charm", bindingName)
-	}
-
-	machineID, err := unit.AssignedMachineId()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	machine, err := u.st.Machine(machineID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var results []params.NetworkConfig
-	if boundSpace == network.AlphaSpaceId {
-		logger.Debugf(
-			"endpoint %q not explicitly bound to a space, using preferred private address for machine %q",
-			bindingName, machineID,
-		)
-
-		privateAddress, err := machine.PrivateAddress()
-		if err != nil {
-			return nil, errors.Annotatef(err, "getting machine %q preferred private address", machineID)
-		}
-
-		results = append(results, params.NetworkConfig{
-			Address: privateAddress.Value,
-		})
-		return results, nil
-	} else {
-		logger.Debugf("endpoint %q is explicitly bound to space %q", bindingName, boundSpace)
-	}
-
-	// TODO(dimitern): Use NetworkInterfaces() instead later, this is just for
-	// the PoC to enable minimal network-get implementation returning just the
-	// primary address.
-	//
-	// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119258804
-	addresses, err := machine.AllDeviceAddresses()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get devices addresses")
-	}
-	logger.Debugf(
-		"getting network config for machine %q with addresses %+v, hosting unit %q of application %q, with bindings %+v",
-		machineID, addresses, unit.Name(), application.Name(), bindings,
-	)
-
-	for _, addr := range addresses {
-		subnet, err := addr.Subnet()
-		if errors.IsNotFound(err) {
-			logger.Debugf("skipping %s: not linked to a known subnet (%v)", addr, err)
-			continue
-		} else if err != nil {
-			return nil, errors.Annotatef(err, "cannot get subnet for address %q", addr)
-		}
-
-		if space := subnet.SpaceID(); space != boundSpace {
-			logger.Debugf("skipping %s: want bound to space %q, got space %q", addr, boundSpace, space)
-			continue
-		}
-		logger.Debugf("endpoint %q bound to space %q has address %q", bindingName, boundSpace, addr)
-
-		// TODO(dimitern): Fill in the rest later (see linked LKK card above).
-		results = append(results, params.NetworkConfig{
-			Address: addr.Value(),
-		})
-	}
-
-	return results, nil
-}
-
-func relationResultsToV5(v6Results params.RelationResults) params.RelationResultsV5 {
-	results := make([]params.RelationResultV5, len(v6Results.Results))
-	for i, v6Result := range v6Results.Results {
-		results[i].Error = v6Result.Error
-		results[i].Life = v6Result.Life
-		results[i].Id = v6Result.Id
-		results[i].Key = v6Result.Key
-		results[i].Endpoint = v6Result.Endpoint
-	}
-	return params.RelationResultsV5{Results: results}
-}
-
-// Relation returns information about all given relation/unit pairs,
-// including their id, key and the local endpoint (without other
-// application name).
-func (u *UniterAPIV5) Relation(args params.RelationUnits) (params.RelationResultsV5, error) {
-	v6Results, err := u.UniterAPI.Relation(args)
-	if err != nil {
-		return params.RelationResultsV5{}, errors.Trace(err)
-	}
-	return relationResultsToV5(v6Results), nil
-}
-
-// RelationById returns information about all given relations,
-// specified by their ids, including their key and the local
-// endpoint (without other application name).
-func (u *UniterAPIV5) RelationById(args params.RelationIds) (params.RelationResultsV5, error) {
-	v6Results, err := u.UniterAPI.RelationById(args)
-	if err != nil {
-		return params.RelationResultsV5{}, errors.Trace(err)
-	}
-	return relationResultsToV5(v6Results), nil
-}
-
-// WatchApplicationRelations returns a StringsWatcher, for each given
-// application, that notifies of changes to the lifecycles of
-// relations involving that application. This method is obsolete -
-// it's been replaced by WatchUnitRelations in V5 of the uniter API.
-func (u *UniterAPIV4) WatchApplicationRelations(args params.Entities) (params.StringsWatchResults, error) {
-	result := params.StringsWatchResults{
-		Results: make([]params.StringsWatchResult, len(args.Entities)),
-	}
-	canAccess, err := u.accessApplication()
-	if err != nil {
-		return params.StringsWatchResults{}, err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseApplicationTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		err = apiservererrors.ErrPerm
-		if canAccess(tag) {
-			result.Results[i], err = u.watchOneApplicationRelations(tag)
-		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
-
-func (u *UniterAPIV4) watchOneApplicationRelations(tag names.ApplicationTag) (params.StringsWatchResult, error) {
-	nothing := params.StringsWatchResult{}
-	application, err := u.getApplication(tag)
-	if err != nil {
-		return nothing, err
-	}
-	watch := application.WatchRelations()
-	// Consume the initial event and forward it to the result.
-	if changes, ok := <-watch.Changes(); ok {
-		return params.StringsWatchResult{
-			StringsWatcherId: u.resources.Register(watch),
-			Changes:          changes,
-		}, nil
-	}
-	return nothing, watcher.EnsureErr(watch)
-}
-
-// Mask the new methods from the V4 API. The API reflection code in
-// rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so this
-// removes the method as far as the RPC machinery is concerned.
-
-// SLALevel isn't on the V4 API.
-func (u *UniterAPIV4) SLALevel(_, _ struct{}) {}
-
-// NetworkInfo isn't on the V4 API.
-func (u *UniterAPIV4) NetworkInfo(_, _ struct{}) {}
-
-// WatchUnitRelations isn't on the V4 API.
-func (u *UniterAPIV4) WatchUnitRelations(_, _ struct{}) {}
-
-func networkInfoResultsToV6(v7Results params.NetworkInfoResults) params.NetworkInfoResultsV6 {
-	results := make(map[string]params.NetworkInfoResultV6)
-	for k, v6Result := range v7Results.Results {
-		results[k] = params.NetworkInfoResultV6{Error: v6Result.Error, Info: v6Result.Info}
-	}
-	return params.NetworkInfoResultsV6{Results: results}
-}
-
-// NetworkInfo implements UniterAPIV6 version of NetworkInfo by constructing an API V6 compatible result.
-func (u *UniterAPIV6) NetworkInfo(args params.NetworkInfoParams) (params.NetworkInfoResultsV6, error) {
-	v6Results, err := u.UniterAPI.NetworkInfo(args)
-	if err != nil {
-		return params.NetworkInfoResultsV6{}, errors.Trace(err)
-	}
-	return networkInfoResultsToV6(v6Results), nil
-}
-
-// Mask the SetPodSpec method from the v7 API. The API reflection code
-// in rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so
-// this removes the method as far as the RPC machinery is concerned.
-
-// SetPodSpec isn't on the v7 API.
-func (u *UniterAPIV7) SetPodSpec(_, _ struct{}) {}
-
-// SetPodSpec sets the pod specs for a set of applications. This call is kept
-// here for backwards compatibility with V14 clients. Clients that support V15+
-// of the facade will use the CommitHookChanges API call instead.
-func (u *UniterAPIV14) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Specs)),
-	}
-	authTag := u.auth.GetAuthTag()
-	canAccessApp := makeAppAuthChecker(authTag)
-
-	for i, arg := range args.Specs {
-		results.Results[i].Error = apiservererrors.ServerError(
-			// NOTE(achilleasa) The operator authenticates as the
-			// application so we cannot extract the unit id for
-			// leadership check purposes. To this end we pass
-			// nil as the unit tag to bypass the leadership check.
-			// Newer controllers will use the CommitHookChanges
-			// call which does perform the leadership check.
-			u.setPodSpec(arg.Tag, &arg.Value, nil, canAccessApp),
-		)
-	}
-	return results, nil
-}
-
 func makeAppAuthChecker(authTag names.Tag) common.AuthFunc {
 	return func(tag names.Tag) bool {
 		if tag, ok := tag.(names.ApplicationTag); ok {
@@ -2711,14 +1976,6 @@ func makeAppAuthChecker(authTag names.Tag) common.AuthFunc {
 		}
 		return false
 	}
-}
-
-func (u *UniterAPI) setPodSpec(appTag string, spec *string, unitTag names.Tag, canAccessApp common.AuthFunc) error {
-	modelOp, err := u.setPodSpecOperation(appTag, spec, unitTag, canAccessApp)
-	if err != nil {
-		return err
-	}
-	return u.st.ApplyOperation(modelOp)
 }
 
 func (u *UniterAPI) setPodSpecOperation(appTag string, spec *string, unitTag names.Tag, canAccessApp common.AuthFunc) (state.ModelOperation, error) {
@@ -2788,26 +2045,12 @@ func (u *UniterAPI) setRawK8sSpecOperation(appTag string, spec *string, unitTag 
 	return cm.SetRawK8sSpecOperation(token, parsedAppTag, spec), nil
 }
 
-// Mask the GetPodSpec method from the v13 API. The API reflection code
-// in rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so
-// this removes the method as far as the RPC machinery is concerned.
-
-// GetPodSpec isn't on the v13 API.
-func (u *UniterAPIV13) GetPodSpec(_, _ struct{}) {}
-
 // GetPodSpec gets the pod specs for a set of applications.
 func (u *UniterAPI) GetPodSpec(args params.Entities) (params.StringResults, error) {
 	return u.getContainerSpec(args, func(m caasSpecGetter) getSpecFunc {
 		return m.PodSpec
 	})
 }
-
-// Mask the GetRawK8sSpec method from the v14 API. The API reflection code
-// in rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so
-// this removes the method as far as the RPC machinery is concerned.
-
-// GetRawK8sSpec isn't on the v14 API.
-func (u *UniterAPIV14) GetRawK8sSpec(_, _ struct{}) {}
 
 // GetRawK8sSpec gets the raw k8s specs for a set of applications.
 func (u *UniterAPI) GetRawK8sSpec(args params.Entities) (params.StringResults, error) {
@@ -3122,20 +2365,6 @@ func (u *UniterAPI) WatchUnitAddressesHash(args params.Entities) (params.Strings
 	return result, nil
 }
 
-// Mask WatchConfigSettingsHash from the v8 API. The API reflection
-// code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
-// so this removes the method as far as the RPC machinery is
-// concerned.
-
-// WatchConfigSettingsHash isn't on the v8 API.
-func (u *UniterAPIV8) WatchConfigSettingsHash(_, _ struct{}) {}
-
-// WatchTrustConfigSettingsHash isn't on the v8 API.
-func (u *UniterAPIV8) WatchTrustConfigSettingsHash(_, _ struct{}) {}
-
-// WatchUnitAddressesHash isn't on the v8 API.
-func (u *UniterAPIV8) WatchUnitAddressesHash(_, _ struct{}) {}
-
 func (u *UniterAPI) watchHashes(args params.Entities, getWatcher func(u *state.Unit) (state.StringsWatcher, error)) (params.StringsWatchResults, error) {
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
@@ -3178,9 +2407,6 @@ func (u *UniterAPI) watchOneUnitHashes(tag names.UnitTag, getWatcher func(u *sta
 	}
 	return "", nil, watcher.EnsureErr(w)
 }
-
-// CloudAPIVersion isn't on the v10 API.
-func (u *UniterAPIV10) CloudAPIVersion(_, _ struct{}) {}
 
 // CloudAPIVersion returns the cloud API version, if available.
 func (u *UniterAPI) CloudAPIVersion() (params.StringResult, error) {
@@ -3289,15 +2515,6 @@ func (u *UniterAPI) updateUnitNetworkInfoOperation(unitTag names.UnitTag, unit *
 
 	return state.ComposeModelOperations(modelOps...), nil
 }
-
-// State isn't on the v14 API.
-func (u *UniterAPIV14) State(_ struct{}) {}
-
-// SetState isn't on the v14 API.
-func (u *UniterAPIV14) SetState(_ struct{}) {}
-
-// CommitHookChanges isn't on the v14 API.
-func (u *UniterAPIV14) CommitHookChanges(_ struct{}) {}
 
 // CommitHookChanges batches together all required API calls for applying
 // a set of changes after a hook successfully completes and executes them in a
@@ -3441,6 +2658,9 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 		if changes.SetUnitState.StorageState != nil {
 			newUS.SetStorageState(*changes.SetUnitState.StorageState)
 		}
+		if changes.SetUnitState.SecretState != nil {
+			newUS.SetSecretState(*changes.SetUnitState.SecretState)
+		}
 		if changes.SetUnitState.MeterStatusState != nil {
 			newUS.SetMeterStatusState(*changes.SetUnitState.MeterStatusState)
 		}
@@ -3503,36 +2723,79 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 		modelOps = append(modelOps, modelOp)
 	}
 
+	// TODO - do in txn once we have support for that
+	if len(changes.SecretDeletes) > 0 {
+		result, err := u.SecretsManagerAPI.RemoveSecrets(params.DeleteSecretArgs{Args: changes.SecretDeletes})
+		if err == nil {
+			err = result.Combine()
+		}
+		if err != nil {
+			return errors.Annotate(err, "removing secrets")
+		}
+	}
+	if len(changes.SecretCreates) > 0 {
+		result, err := u.SecretsManagerAPI.CreateSecrets(params.CreateSecretArgs{Args: changes.SecretCreates})
+		if err == nil {
+			var errorStrings []string
+			for _, r := range result.Results {
+				if r.Error != nil {
+					errorStrings = append(errorStrings, r.Error.Error())
+				}
+			}
+			if errorStrings != nil {
+				err = errors.New(strings.Join(errorStrings, "\n"))
+			}
+		}
+		if err != nil {
+			return errors.Annotate(err, "creating secrets")
+		}
+	}
+	if len(changes.SecretUpdates) > 0 {
+		result, err := u.SecretsManagerAPI.UpdateSecrets(params.UpdateSecretArgs{Args: changes.SecretUpdates})
+		if err == nil {
+			err = result.Combine()
+		}
+		if err != nil {
+			return errors.Annotate(err, "updating secrets")
+		}
+	}
+	if len(changes.SecretGrants) > 0 {
+		result, err := u.SecretsManagerAPI.SecretsGrant(params.GrantRevokeSecretArgs{Args: changes.SecretGrants})
+		if err == nil {
+			err = result.Combine()
+		}
+		if err != nil {
+			return errors.Annotate(err, "granting secrets access")
+		}
+	}
+	if len(changes.SecretRevokes) > 0 {
+		result, err := u.SecretsManagerAPI.SecretsRevoke(params.GrantRevokeSecretArgs{Args: changes.SecretRevokes})
+		if err == nil {
+			err = result.Combine()
+		}
+		if err != nil {
+			return errors.Annotate(err, "revoking secrets access")
+		}
+	}
+
 	// Apply all changes in a single transaction.
 	return u.st.ApplyOperation(state.ComposeModelOperations(modelOps...))
 }
-
-// WatchInstanceData isn't on the v15 API.
-func (u *UniterAPIV15) WatchInstanceData(_ struct{}) {}
 
 // WatchInstanceData is a shim to call the LXDProfileAPIv2 version of this method.
 func (u *UniterAPI) WatchInstanceData(args params.Entities) (params.NotifyWatchResults, error) {
 	return u.lxdProfileAPI.WatchInstanceData(args)
 }
 
-// LXDProfileName isn't on the v15 API.
-func (u *UniterAPIV15) LXDProfileName(_ struct{}) {}
-
 // LXDProfileName is a shim to call the LXDProfileAPIv2 version of this method.
 func (u *UniterAPI) LXDProfileName(args params.Entities) (params.StringResults, error) {
 	return u.lxdProfileAPI.LXDProfileName(args)
 }
 
-// LXDProfileRequired isn't on the v15 API.
-func (u *UniterAPIV15) LXDProfileRequired(_ struct{}) {}
-
 // LXDProfileRequired is a shim to call the LXDProfileAPIv2 version of this method.
 func (u *UniterAPI) LXDProfileRequired(args params.CharmURLs) (params.BoolResults, error) {
 	return u.lxdProfileAPI.LXDProfileRequired(args)
 }
-
-// CanApplyLXDProfile isn't on the v15 API.
-func (u *UniterAPIV15) CanApplyLXDProfile(_ struct{}) {}
 
 // CanApplyLXDProfile is a shim to call the LXDProfileAPIv2 version of this method.
 func (u *UniterAPI) CanApplyLXDProfile(args params.Entities) (params.BoolResults, error) {

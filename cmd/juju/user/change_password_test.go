@@ -29,7 +29,7 @@ var _ = gc.Suite(&ChangePasswordCommandSuite{})
 
 func (s *ChangePasswordCommandSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.mockAPI = &mockChangePasswordAPI{version: 2}
+	s.mockAPI = &mockChangePasswordAPI{}
 	s.store = s.BaseSuite.store
 }
 
@@ -136,7 +136,6 @@ func (s *ChangePasswordCommandSuite) TestResetPasswordFail(c *gc.C) {
 	context, _, err := s.run(c, "--reset", "other")
 	c.Assert(err, gc.ErrorMatches, "failed to do something")
 	s.mockAPI.CheckCalls(c, []testing.StubCall{
-		{"BestAPIVersion", nil},
 		{"ResetPassword", []interface{}{"other"}},
 	})
 	// TODO (anastasiamac 2017-08-17)
@@ -152,7 +151,6 @@ func (s *ChangePasswordCommandSuite) TestResetOthersPassword(c *gc.C) {
 	context, _, err := s.run(c, "other", "--reset")
 	c.Assert(err, jc.ErrorIsNil)
 	s.mockAPI.CheckCalls(c, []testing.StubCall{
-		{"BestAPIVersion", nil},
 		{"ResetPassword", []interface{}{"other"}},
 	})
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
@@ -161,17 +159,6 @@ Password for "other" has been reset.
 Ask the user to run:
      juju register (.+)
 `[1:])
-}
-
-func (s *ChangePasswordCommandSuite) TestResetPasswordOldAPI(c *gc.C) {
-	s.mockAPI.version = 1
-	context, _, err := s.run(c, "--reset", "other")
-	c.Assert(err, gc.ErrorMatches, "on this juju controller, reset password not supported")
-	s.mockAPI.CheckCalls(c, []testing.StubCall{
-		{"BestAPIVersion", nil},
-	})
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 }
 
 func (s *ChangePasswordCommandSuite) assertResetSelfPasswordFail(c *gc.C, context *cmd.Context, err error) {
@@ -186,8 +173,7 @@ If you want to change it, please call `[1:]+"`juju change-user-password`"+` with
 
 type mockChangePasswordAPI struct {
 	testing.Stub
-	key     []byte
-	version int
+	key []byte
 }
 
 func (m *mockChangePasswordAPI) SetPassword(username, password string) error {
@@ -203,11 +189,6 @@ func (m *mockChangePasswordAPI) ResetPassword(username string) ([]byte, error) {
 func (m *mockChangePasswordAPI) Close() error {
 	m.MethodCall(m, "Close")
 	return nil
-}
-
-func (m *mockChangePasswordAPI) BestAPIVersion() int {
-	m.MethodCall(m, "BestAPIVersion")
-	return m.version
 }
 
 type mockAPIConnection struct {

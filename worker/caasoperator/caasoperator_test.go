@@ -4,11 +4,9 @@
 package caasoperator_test
 
 import (
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/juju/clock"
@@ -69,9 +67,6 @@ var _ = gc.Suite(&WorkerSuite{})
 
 func sockPath(c *gc.C) sockets.Socket {
 	sockPath := filepath.Join(c.MkDir(), "test.listener")
-	if runtime.GOOS == "windows" {
-		return sockets.Socket{Address: `\\.\pipe` + sockPath[2:], Network: "unix"}
-	}
 	return sockets.Socket{Address: sockPath, Network: "unix"}
 }
 
@@ -154,7 +149,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	agentBinaryDir := agenttools.ToolsDir(s.config.DataDir, "application-gitlab")
 	err = os.MkdirAll(agentBinaryDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(s.config.DataDir, "tools", "jujud"), []byte("jujud"), 0755)
+	err = os.WriteFile(filepath.Join(s.config.DataDir, "tools", "jujud"), []byte("jujud"), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -310,7 +305,7 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 
 	// fakeClient.Charm returns the SHA256 sum of fakeCharmContent.
 	fakeCharmPath := filepath.Join(c.MkDir(), "fake.charm")
-	err = ioutil.WriteFile(fakeCharmPath, fakeCharmContent, 0644)
+	err = os.WriteFile(fakeCharmPath, fakeCharmContent, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	f, err := os.Open(fakeCharmPath)
 	c.Assert(err, jc.ErrorIsNil)

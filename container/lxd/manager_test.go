@@ -173,7 +173,7 @@ func (s *managerSuite) TestContainerCreateDestroy(c *gc.C) {
 	)
 
 	instance, hc, err := s.manager.CreateContainer(
-		iCfg, constraints.Value{}, "xenial", prepNetworkConfig(), &container.StorageConfig{}, lxdtesting.NoOpCallback,
+		iCfg, constraints.Value{}, series.MakeDefaultBase("ubuntu", "16.04"), prepNetworkConfig(), &container.StorageConfig{}, lxdtesting.NoOpCallback,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -227,7 +227,7 @@ func (s *managerSuite) TestContainerCreateUpdateIPv4Network(c *gc.C) {
 		ParentInterfaceName: network.DefaultLXDBridge,
 	}})
 	_, _, err = s.manager.CreateContainer(
-		iCfg, constraints.Value{}, "xenial", netConfig, &container.StorageConfig{}, lxdtesting.NoOpCallback,
+		iCfg, constraints.Value{}, series.MakeDefaultBase("ubuntu", "16.04"), netConfig, &container.StorageConfig{}, lxdtesting.NoOpCallback,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -248,7 +248,7 @@ func (s *managerSuite) TestCreateContainerCreateFailed(c *gc.C) {
 	_, _, err := s.manager.CreateContainer(
 		prepInstanceConfig(c),
 		constraints.Value{},
-		"xenial",
+		series.MakeDefaultBase("ubuntu", "16.04"),
 		prepNetworkConfig(),
 		&container.StorageConfig{},
 		lxdtesting.NoOpCallback,
@@ -271,7 +271,7 @@ func (s *managerSuite) TestCreateContainerSpecCreationError(c *gc.C) {
 	_, _, err := s.manager.CreateContainer(
 		prepInstanceConfig(c),
 		constraints.Value{},
-		"xenial",
+		series.MakeDefaultBase("ubuntu", "16.04"),
 		prepNetworkConfig(),
 		&container.StorageConfig{},
 		lxdtesting.NoOpCallback,
@@ -304,7 +304,7 @@ func (s *managerSuite) TestCreateContainerStartFailed(c *gc.C) {
 	_, _, err = s.manager.CreateContainer(
 		iCfg,
 		constraints.Value{},
-		"xenial",
+		series.MakeDefaultBase("ubuntu", "16.04"),
 		prepNetworkConfig(),
 		&container.StorageConfig{},
 		lxdtesting.NoOpCallback,
@@ -633,7 +633,7 @@ func (s *managerSuite) expectGetImage(image lxdapi.Image, getImageErr error) {
 
 	exp := s.cSvr.EXPECT()
 	gomock.InOrder(
-		exp.GetImageAlias("juju/xenial/"+s.Arch()).Return(alias, lxdtesting.ETag, nil),
+		exp.GetImageAlias("juju/ubuntu@16.04/"+s.Arch()).Return(alias, lxdtesting.ETag, nil),
 		exp.GetImage(target).Return(&image, lxdtesting.ETag, getImageErr),
 	)
 }

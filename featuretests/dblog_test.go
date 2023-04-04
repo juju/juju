@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v2/bson"
-	mgotesting "github.com/juju/mgo/v2/testing"
+	"github.com/juju/mgo/v3/bson"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -85,8 +85,8 @@ func (s *dblogSuite) TestControllerAgentLogsGoToDBCAAS(c *gc.C) {
 func (s *dblogSuite) TestMachineAgentLogsGoToDBIAAS(c *gc.C) {
 	// Create a machine and an agent for it.
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
-		Nonce:  agent.BootstrapNonce,
-		Series: "quantal",
+		Nonce: agent.BootstrapNonce,
+		Base:  state.UbuntuBase("12.10"),
 	})
 
 	s.PrimeAgent(c, m.Tag(), password)

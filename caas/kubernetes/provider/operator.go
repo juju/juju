@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
@@ -20,6 +21,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"github.com/juju/juju/agent"
@@ -28,6 +30,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/storage"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
+	"github.com/juju/juju/cloudconfig/podcfg"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/paths"
 	coreresources "github.com/juju/juju/core/resources"
@@ -181,7 +184,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	if k.namespace == "" {
 		return errNoNamespace
 	}
-	logger.Debugf("creating/updating %s operator", appName)
+	logger.Infof("creating/updating %s operator", appName)
 
 	operatorName := k.operatorName(appName)
 
@@ -217,8 +220,8 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 			Ports: []core.ServicePort{
 				{
 					Protocol:   core.ProtocolTCP,
-					Port:       k8sconstants.JujuRunServerSocketPort,
-					TargetPort: intstr.FromInt(k8sconstants.JujuRunServerSocketPort),
+					Port:       k8sconstants.JujuExecServerSocketPort,
+					TargetPort: intstr.FromInt(k8sconstants.JujuExecServerSocketPort),
 				},
 			},
 		},
@@ -267,6 +270,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		svc.Spec.ClusterIP,
 		agentPath,
 		config.ImageDetails,
+		config.BaseImageDetails,
 		selectorLabels,
 		annotations.Copy(),
 		sa.GetName(),
@@ -665,11 +669,24 @@ func (k *kubernetesClient) WatchOperator(appName string) (watcher.NotifyWatcher,
 
 // Operator returns an Operator with current status and life details.
 func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
-	if k.namespace == "" {
+	return operator(k.client(),
+		k.namespace,
+		k.operatorName(appName),
+		appName,
+		k.IsLegacyLabels(),
+		k.clock.Now())
+}
+
+func operator(client kubernetes.Interface,
+	namespace string,
+	operatorName string,
+	appName string,
+	legacyLabels bool,
+	now time.Time) (*caas.Operator, error) {
+	if namespace == "" {
 		return nil, errNoNamespace
 	}
-	operatorName := k.operatorName(appName)
-	statefulSets := k.client().AppsV1().StatefulSets(k.namespace)
+	statefulSets := client.AppsV1().StatefulSets(namespace)
 	_, err := statefulSets.Get(context.TODO(), operatorName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("operator %s", appName)
@@ -678,9 +695,9 @@ func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
 		return nil, errors.Trace(err)
 	}
 
-	pods := k.client().CoreV1().Pods(k.namespace)
+	pods := client.CoreV1().Pods(namespace)
 	podsList, err := pods.List(context.TODO(), v1.ListOptions{
-		LabelSelector: operatorSelector(appName, k.IsLegacyLabels()),
+		LabelSelector: operatorSelector(appName, legacyLabels),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -692,32 +709,50 @@ func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
 	opPod := podsList.Items[0]
 
 	eventGetter := func() ([]core.Event, error) {
-		return k.getEvents(opPod.Name, "Pod")
+		return resources.ListEventsForObject(context.TODO(), client, namespace, opPod.Name, "Pod")
 	}
 
 	terminated := opPod.DeletionTimestamp != nil
 	statusMessage, opStatus, since, err := resources.PodToJujuStatus(
-		opPod, k.clock.Now(), eventGetter)
+		opPod, now, eventGetter)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	cfg := caas.OperatorConfig{}
-	if ver, ok := opPod.Annotations[utils.AnnotationVersionKey(k.IsLegacyLabels())]; ok {
+	if ver, ok := opPod.Annotations[utils.AnnotationVersionKey(legacyLabels)]; ok {
 		cfg.Version, err = version.Parse(ver)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
-	for _, container := range opPod.Spec.Containers {
-		if container.Name == operatorContainerName {
+	for _, container := range opPod.Spec.InitContainers {
+		if container.Name == operatorInitContainerName {
 			cfg.ImageDetails = coreresources.DockerImageDetails{
 				RegistryPath: container.Image,
 			}
 			break
 		}
 	}
-	configMaps := k.client().CoreV1().ConfigMaps(k.namespace)
+	for _, container := range opPod.Spec.Containers {
+		if container.Name == operatorContainerName {
+			if podcfg.IsJujuOCIImage(container.Image) {
+				// Old pod spec operators use the operator/controller image rather than a focal
+				// charm-base image.
+				cfg.ImageDetails = coreresources.DockerImageDetails{
+					RegistryPath: container.Image,
+				}
+				break
+			} else if podcfg.IsCharmBaseImage(container.Image) {
+				cfg.BaseImageDetails = coreresources.DockerImageDetails{
+					RegistryPath: container.Image,
+				}
+				break
+			}
+			return nil, errors.Errorf("unrecognized operator image path %q", container.Image)
+		}
+	}
+	configMaps := client.CoreV1().ConfigMaps(namespace)
 	configMap, err := configMaps.Get(context.TODO(), operatorConfigMapName(operatorName), v1.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, errors.Trace(err)
@@ -752,6 +787,7 @@ func operatorPod(
 	operatorServiceIP,
 	agentPath string,
 	operatorImageDetails coreresources.DockerImageDetails,
+	baseImageDetails coreresources.DockerImageDetails,
 	selectorLabels map[string]string,
 	annotations k8sannotations.Annotation,
 	serviceAccountName string,
@@ -802,10 +838,30 @@ func operatorPod(
 		Spec: core.PodSpec{
 			ServiceAccountName:           serviceAccountName,
 			AutomountServiceAccountToken: &mountToken,
+			InitContainers: []core.Container{{
+				Name:            operatorInitContainerName,
+				ImagePullPolicy: core.PullIfNotPresent,
+				Image:           operatorImageDetails.RegistryPath,
+				Command: []string{
+					"/bin/sh",
+				},
+				Args: []string{
+					"-c",
+					fmt.Sprintf(
+						caas.JujudCopySh,
+						"/opt/juju",
+						"",
+					),
+				},
+				VolumeMounts: []core.VolumeMount{{
+					Name:      "juju-bins",
+					MountPath: "/opt/juju",
+				}},
+			}},
 			Containers: []core.Container{{
 				Name:            operatorContainerName,
 				ImagePullPolicy: core.PullIfNotPresent,
-				Image:           operatorImageDetails.RegistryPath,
+				Image:           baseImageDetails.RegistryPath,
 				WorkingDir:      jujuDataDir,
 				Command: []string{
 					"/bin/sh",
@@ -813,9 +869,10 @@ func operatorPod(
 				Args: []string{
 					"-c",
 					fmt.Sprintf(
-						caas.JujudStartUpSh,
+						caas.JujudStartUpAltSh,
 						jujuDataDir,
 						"tools",
+						"/opt/juju",
 						jujudCmd,
 					),
 				},
@@ -828,6 +885,9 @@ func operatorPod(
 					Name:      configVolName,
 					MountPath: filepath.Join(agent.Dir(agentPath, appTag), caas.OperatorInfoFile),
 					SubPath:   caas.OperatorInfoFile,
+				}, {
+					Name:      "juju-bins",
+					MountPath: "/opt/juju",
 				}},
 			}},
 			Volumes: []core.Volume{{
@@ -845,6 +905,11 @@ func operatorPod(
 							Path: caas.OperatorInfoFile,
 						}},
 					},
+				},
+			}, {
+				Name: "juju-bins",
+				VolumeSource: core.VolumeSource{
+					EmptyDir: &core.EmptyDirVolumeSource{},
 				},
 			}},
 		},

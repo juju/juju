@@ -37,7 +37,7 @@ type generateAgentsCommand struct {
 }
 
 const generateAgentsDoc = `
-generate-agents creates the simplestreams metadata for agents.
+generate-agent-binaries creates the simplestreams metadata for agents.
 
 This command works by scanning a directory for agent binary tarballs from which 
 to generate simplestreams agent metadata. The working directory is specified
@@ -71,24 +71,23 @@ use the --clean option.
 Examples:
 
 # generate metadata for "released":
-juju metadata generate-agents -d <workingdir>
+juju metadata generate-agent-binaries -d <workingdir>
 
 # generate metadata for "released":
-juju metadata generate-agents -d <workingdir> --stream released
+juju metadata generate-agent-binaries -d <workingdir> --stream released
 
 # generate metadata for "proposed":
-juju metadata generate-agents -d <workingdir> --stream proposed
+juju metadata generate-agent-binaries -d <workingdir> --stream proposed
 
 # generate metadata for "proposed", first removing existing "proposed" metadata:
-juju metadata generate-agents -d <workingdir> --stream proposed --clean
+juju metadata generate-agent-binaries -d <workingdir> --stream proposed --clean
 `
 
 func (c *generateAgentsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "generate-agents",
+		Name:    "generate-agent-binaries",
 		Purpose: "generate simplestreams agent metadata",
 		Doc:     generateAgentsDoc,
-		Aliases: []string{"generate-tools"},
 	})
 }
 

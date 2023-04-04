@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	v3 "github.com/juju/description/v3"
-	v4 "github.com/juju/names/v4"
+	v4 "github.com/juju/description/v4"
+	v40 "github.com/juju/names/v4"
 )
 
 // MockMigrationRemoteApplication is a mock of MigrationRemoteApplication interface.
@@ -135,10 +135,10 @@ func (mr *MockMigrationRemoteApplicationMockRecorder) OfferUUID() *gomock.Call {
 }
 
 // SourceModel mocks base method.
-func (m *MockMigrationRemoteApplication) SourceModel() v4.ModelTag {
+func (m *MockMigrationRemoteApplication) SourceModel() v40.ModelTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SourceModel")
-	ret0, _ := ret[0].(v4.ModelTag)
+	ret0, _ := ret[0].(v40.ModelTag)
 	return ret0
 }
 
@@ -163,10 +163,10 @@ func (mr *MockMigrationRemoteApplicationMockRecorder) Spaces() *gomock.Call {
 }
 
 // Tag mocks base method.
-func (m *MockMigrationRemoteApplication) Tag() v4.Tag {
+func (m *MockMigrationRemoteApplication) Tag() v40.Tag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tag")
-	ret0, _ := ret[0].(v4.Tag)
+	ret0, _ := ret[0].(v40.Tag)
 	return ret0
 }
 
@@ -253,10 +253,10 @@ func (m *MockStatusSource) EXPECT() *MockStatusSourceMockRecorder {
 }
 
 // StatusArgs mocks base method.
-func (m *MockStatusSource) StatusArgs(arg0 string) (v3.StatusArgs, error) {
+func (m *MockStatusSource) StatusArgs(arg0 string) (v4.StatusArgs, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StatusArgs", arg0)
-	ret0, _ := ret[0].(v3.StatusArgs)
+	ret0, _ := ret[0].(v4.StatusArgs)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -306,10 +306,10 @@ func (mr *MockRemoteApplicationSourceMockRecorder) AllRemoteApplications() *gomo
 }
 
 // StatusArgs mocks base method.
-func (m *MockRemoteApplicationSource) StatusArgs(arg0 string) (v3.StatusArgs, error) {
+func (m *MockRemoteApplicationSource) StatusArgs(arg0 string) (v4.StatusArgs, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StatusArgs", arg0)
-	ret0, _ := ret[0].(v3.StatusArgs)
+	ret0, _ := ret[0].(v4.StatusArgs)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -344,10 +344,10 @@ func (m *MockRemoteApplicationModel) EXPECT() *MockRemoteApplicationModelMockRec
 }
 
 // AddRemoteApplication mocks base method.
-func (m *MockRemoteApplicationModel) AddRemoteApplication(arg0 v3.RemoteApplicationArgs) v3.RemoteApplication {
+func (m *MockRemoteApplicationModel) AddRemoteApplication(arg0 v4.RemoteApplicationArgs) v4.RemoteApplication {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddRemoteApplication", arg0)
-	ret0, _ := ret[0].(v3.RemoteApplication)
+	ret0, _ := ret[0].(v4.RemoteApplication)
 	return ret0
 }
 

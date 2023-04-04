@@ -5,7 +5,7 @@ package jujuc_test
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/juju/cmd/v3"
@@ -72,7 +72,7 @@ func (s *statusGetSuite) TestOutputFormatJustStatus(c *gc.C) {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetStatusHookContext(c)
 		setFakeStatus(hctx)
-		com, err := jujuc.NewCommand(hctx, cmdString("status-get"))
+		com, err := jujuc.NewCommand(hctx, "status-get")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
@@ -97,7 +97,7 @@ func (s *statusGetSuite) TestOutputFormatJustStatus(c *gc.C) {
 
 func (s *statusGetSuite) TestHelp(c *gc.C) {
 	hctx := s.GetStatusHookContext(c)
-	com, err := jujuc.NewCommand(hctx, cmdString("status-get"))
+	com, err := jujuc.NewCommand(hctx, "status-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
@@ -129,14 +129,14 @@ func (s *statusGetSuite) TestHelp(c *gc.C) {
 func (s *statusGetSuite) TestOutputPath(c *gc.C) {
 	hctx := s.GetStatusHookContext(c)
 	setFakeStatus(hctx)
-	com, err := jujuc.NewCommand(hctx, cmdString("status-get"))
+	com, err := jujuc.NewCommand(hctx, "status-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--format", "json", "--output", "some-file", "--include-data"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
-	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "some-file"))
+	content, err := os.ReadFile(filepath.Join(ctx.Dir, "some-file"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	var out map[string]interface{}
@@ -160,7 +160,7 @@ func (s *statusGetSuite) TestApplicationStatus(c *gc.C) {
 	}
 	hctx := s.GetStatusHookContext(c)
 	setFakeApplicationStatus(hctx)
-	com, err := jujuc.NewCommand(hctx, cmdString("status-get"))
+	com, err := jujuc.NewCommand(hctx, "status-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--format", "json", "--include-data", "--application"})

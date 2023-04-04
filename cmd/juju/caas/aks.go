@@ -12,7 +12,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cmd/juju/interact"
 )
@@ -26,7 +26,7 @@ func newAKSCluster() k8sCluster {
 }
 
 func (a *aks) cloud() string {
-	return caas.K8sCloudAzure
+	return k8s.K8sCloudAzure
 }
 
 func (a *aks) ensureExecutable() error {

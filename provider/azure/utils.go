@@ -4,38 +4,14 @@
 package azure
 
 import (
-	"math/rand"
-
 	azurecloud "github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 )
-
-// randomAdminPassword returns a random administrator password for
-// Windows machines.
-func randomAdminPassword() string {
-	// We want at least one each of lower-alpha, upper-alpha, and digit.
-	// Allocate 16 of each (randomly), and then the remaining characters
-	// will be randomly chosen from the full set.
-	validRunes := append(utils.LowerAlpha, utils.Digits...)
-	validRunes = append(validRunes, utils.UpperAlpha...)
-
-	lowerAlpha := utils.RandomString(16, utils.LowerAlpha)
-	upperAlpha := utils.RandomString(16, utils.UpperAlpha)
-	digits := utils.RandomString(16, utils.Digits)
-	mixed := utils.RandomString(16, validRunes)
-	password := []rune(lowerAlpha + upperAlpha + digits + mixed)
-	for i := len(password) - 1; i >= 1; i-- {
-		j := rand.Intn(i + 1)
-		password[i], password[j] = password[j], password[i]
-	}
-	return string(password)
-}
 
 // collectAPIVersions returns a map of the latest API version for each
 // possible resource type. This is needed to use the Azure Resource

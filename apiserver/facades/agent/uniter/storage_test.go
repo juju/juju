@@ -21,7 +21,6 @@ import (
 
 type storageSuite struct {
 	testing.BaseSuite
-	called []string
 }
 
 var _ = gc.Suite(&storageSuite{})
@@ -311,148 +310,6 @@ func (s *storageSuite) TestRemoveStorageAttachments(c *gc.C) {
 	})
 }
 
-const (
-	addStorageCall = "mockAdd"
-)
-
-func (s *storageSuite) TestAddUnitStorageConstraintsErrors(c *gc.C) {
-	unitTag0 := names.NewUnitTag("mysql/0")
-	storageName0 := "data"
-	storageName1 := "store"
-
-	resources := common.NewResources()
-	getCanAccess := func() (common.AuthFunc, error) {
-		return func(tag names.Tag) bool {
-			return tag == unitTag0
-		}, nil
-	}
-
-	s.called = []string{}
-	mockState := &mockStorageState{
-		unitStorageConstraints: map[string]state.StorageConstraints{
-			storageName0: {},
-		},
-	}
-
-	storage, err := uniter.NewStorageAPI(mockState, mockState, resources, getCanAccess)
-	c.Assert(err, jc.ErrorIsNil)
-	size := uint64(10)
-	count := uint64(0)
-	addErrors, err := storage.AddUnitStorage(params.StoragesAddParams{
-		Storages: []params.StorageAddParams{
-			{
-				UnitTag:     unitTag0.String(),
-				StorageName: storageName0,
-				Constraints: params.StorageConstraints{Pool: "matter"},
-			}, {
-				UnitTag:     unitTag0.String(),
-				StorageName: storageName0,
-				Constraints: params.StorageConstraints{Size: &size},
-			}, {
-				UnitTag:     unitTag0.String(),
-				StorageName: storageName0,
-				Constraints: params.StorageConstraints{},
-			}, {
-				UnitTag:     unitTag0.String(),
-				StorageName: storageName0,
-				Constraints: params.StorageConstraints{Count: &count},
-			}, {
-				UnitTag:     unitTag0.String(),
-				StorageName: storageName1,
-				Constraints: params.StorageConstraints{},
-			},
-		}},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.called, gc.HasLen, 0)
-	c.Assert(addErrors, jc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{&params.Error{Message: `adding storage data for unit-mysql-0: only count can be specified`}},
-			{&params.Error{Message: `adding storage data for unit-mysql-0: only count can be specified`}},
-			{&params.Error{Message: `adding storage data for unit-mysql-0: count must be specified`}},
-			{&params.Error{Message: `adding storage data for unit-mysql-0: count must be specified`}},
-			{&params.Error{
-				Code:    "not found",
-				Message: "adding storage store for unit-mysql-0: storage \"store\" not found"}},
-		},
-	})
-}
-
-func (s *storageSuite) TestAddUnitStorage(c *gc.C) {
-	setMockAdd := func(st *mockStorageState, f func(tag names.UnitTag, name string, cons state.StorageConstraints) error) {
-		st.addUnitStorageOperation = f
-	}
-
-	unitTag0 := names.NewUnitTag("mysql/0")
-	storageName0 := "data"
-	storageName1 := "store"
-
-	unitPool := "real"
-	size := uint64(3)
-	unitSize := size * 2
-	unitCount := uint64(100)
-	testCount := uint64(10)
-
-	resources := common.NewResources()
-	getCanAccess := func() (common.AuthFunc, error) {
-		return func(tag names.Tag) bool {
-			return tag == unitTag0
-		}, nil
-	}
-
-	s.called = []string{}
-	mockState := &mockStorageState{
-		unitStorageConstraints: map[string]state.StorageConstraints{
-			storageName0: {
-				Pool:  unitPool,
-				Size:  unitSize,
-				Count: unitCount,
-			},
-			storageName1: {},
-		},
-	}
-
-	setMockAdd(mockState, func(u names.UnitTag, name string, cons state.StorageConstraints) error {
-		s.called = append(s.called, addStorageCall)
-		c.Assert(u, gc.DeepEquals, unitTag0)
-		if name == storageName1 {
-			return errors.New("badness")
-		}
-		c.Assert(cons.Count, gc.Not(gc.Equals), unitCount)
-		c.Assert(cons.Count, jc.DeepEquals, testCount)
-		c.Assert(cons.Pool, jc.DeepEquals, unitPool)
-		c.Assert(cons.Size, jc.DeepEquals, unitSize)
-		return nil
-	})
-
-	storage, err := uniter.NewStorageAPI(mockState, mockState, resources, getCanAccess)
-	c.Assert(err, jc.ErrorIsNil)
-	addErrors, err := storage.AddUnitStorage(params.StoragesAddParams{
-		Storages: []params.StorageAddParams{
-			{
-				UnitTag:     unitTag0.String(),
-				StorageName: storageName0,
-				Constraints: params.StorageConstraints{Count: &testCount},
-			}, {
-				UnitTag:     unitTag0.String(),
-				StorageName: storageName1,
-				Constraints: params.StorageConstraints{Count: &testCount},
-			},
-		}},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.called, jc.SameContents, []string{
-		addStorageCall,
-		addStorageCall,
-	})
-	c.Assert(addErrors, jc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{nil},
-			{&params.Error{Message: "adding storage store for unit-mysql-0: badness"}},
-		},
-	})
-}
-
 type mockUnit struct {
 	assignedMachine    string
 	storageConstraints map[string]state.StorageConstraints
@@ -703,7 +560,7 @@ func (s *watchStorageAttachmentSuite) testWatchStorageAttachment(c *gc.C, change
 		s.unitTag,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	wc := statetesting.NewNotifyWatcherC(c, nopSyncStarter{}, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 	change()
 	wc.AssertOneChange()

@@ -4,19 +4,10 @@
 package state
 
 import (
-	"github.com/juju/mgo/v2"
-
-	"github.com/juju/juju/state/cloudimagemetadata"
+	"github.com/juju/mgo/v3"
 
 	"github.com/juju/juju/state/bakerystorage"
-)
-
-// The capped collection used for transaction logs defaults to 10MB.
-// It's tweaked in export_test.go to 1MB to avoid the overhead of
-// creating and deleting the large file repeatedly in tests.
-var (
-	txnLogSize      = 10000000
-	txnLogSizeTests = 1000000
+	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
 // allCollections should be the single source of truth for information about
@@ -65,18 +56,6 @@ func allCollections() CollectionSchema {
 				Key: []string{"s"},
 			}},
 		},
-		txnLogC: {
-			// This collection is used by mgo/txn to record the set of documents
-			// affected by each successful transaction; and by state/watcher to
-			// generate a stream of document-resolution events that are delivered
-			// to, and interpreted by, both state and the multiwatcher.
-			global:    true,
-			rawAccess: true,
-			explicitCreate: &mgo.CollectionInfo{
-				Capped:   true,
-				MaxBytes: txnLogSize,
-			},
-		},
 
 		// ------------------
 
@@ -90,10 +69,6 @@ func allCollections() CollectionSchema {
 		// This collection holds the details of the HA-ness of controllers.
 		controllerNodesC: {},
 
-		// This collection is used to track progress when restoring a
-		// controller from backup.
-		restoreInfoC: {global: true},
-
 		// This collection is used by the controllers to coordinate binary
 		// upgrades and schema migrations.
 		upgradeInfoC: {global: true},
@@ -104,13 +79,6 @@ func allCollections() CollectionSchema {
 		// Tools metadata is per-model, to allow multiple revisions of tools to
 		// be uploaded to different models without affecting other models.
 		toolsmetadataC: {},
-
-		// This collection holds a convenient representation of the content of
-		// the simplestreams data source pointing to Juju GUI archives.
-		guimetadataC: {global: true},
-
-		// This collection holds Juju GUI current version and other settings.
-		guisettingsC: {global: true},
 
 		// This collection holds model information; in particular its
 		// Life and its UUID.
@@ -216,16 +184,6 @@ func allCollections() CollectionSchema {
 		autocertCacheC: {
 			global:    true,
 			rawAccess: true,
-		},
-
-		// This collection tracks who holds which lease when the store
-		// is managed by raft - so that transactions can still make
-		// assertions about holding the lease.
-		leaseHoldersC: {
-			global: true,
-			indexes: []mgo.Index{{
-				Key: []string{"model-uuid", "namespace"},
-			}},
 		},
 
 		// This collection holds the last time the model user connected
@@ -572,6 +530,38 @@ func allCollections() CollectionSchema {
 		// eg addresses.
 		cloudServicesC: {},
 
+		secretMetadataC: {
+			indexes: []mgo.Index{{
+				Key: []string{"owner-tag", "label", "model-uuid"},
+			}},
+		},
+
+		secretRevisionsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"revision", "_id"},
+			}},
+		},
+
+		secretConsumersC: {
+			indexes: []mgo.Index{{
+				Key: []string{"consumer-tag", "label", "model-uuid"},
+			}},
+		},
+
+		secretPermissionsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"subject-tag", "scope-tag", "model-uuid"},
+			}},
+		},
+
+		secretRotateC: {
+			indexes: []mgo.Index{{
+				Key: []string{"owner-tag", "model-uuid"},
+			}},
+		},
+
+		// ----------------------
+
 		// Raw-access collections
 		// ======================
 
@@ -613,10 +603,7 @@ const (
 	globalClockC               = "globalclock"
 	globalRefcountsC           = "globalRefcounts"
 	globalSettingsC            = "globalSettings"
-	guimetadataC               = "guimetadata"
-	guisettingsC               = "guisettings"
 	instanceDataC              = "instanceData"
-	leaseHoldersC              = "leaseholders"
 	machinesC                  = "machines"
 	machineRemovalsC           = "machineremovals"
 	machineUpgradeSeriesLocksC = "machineUpgradeSeriesLocks"
@@ -641,7 +628,6 @@ const (
 	rebootC                    = "reboot"
 	relationScopesC            = "relationscopes"
 	relationsC                 = "relations"
-	restoreInfoC               = "restoreInfo"
 	sequenceC                  = "sequence"
 	applicationsC              = "applications"
 	endpointBindingsC          = "endpointbindings"
@@ -661,7 +647,6 @@ const (
 	linkLayerDevicesC          = "linklayerdevices"
 	ipAddressesC               = "ip.addresses"
 	toolsmetadataC             = "toolsmetadata"
-	txnLogC                    = "txns.log"
 	txnsC                      = "txns"
 	unitsC                     = "units"
 	unitStatesC                = "unitstates"
@@ -681,4 +666,20 @@ const (
 	externalControllersC = "externalControllers"
 	relationNetworksC    = "relationNetworks"
 	firewallRulesC       = "firewallRules"
+
+	// Secrets
+	secretMetadataC    = "secretMetadata"
+	secretRevisionsC   = "secretRevisions"
+	secretConsumersC   = "secretConsumers"
+	secretPermissionsC = "secretPermissions"
+	secretRotateC      = "secretRotate"
 )
+
+// watcherIgnoreList contains all the collections in mongo that should not be watched by the
+// TxnWatcher.
+var watcherIgnoreList = []string{
+	bakeryStorageItemsC,
+	sequenceC,
+	refcountsC,
+	statusesHistoryC,
+}

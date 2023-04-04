@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v3"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
@@ -174,7 +174,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		s.st, s.ctlrSt, nil, nil, nil, common.NewBlockChecker(s.st),
+		s.st, s.ctlrSt, nil, nil, common.NewBlockChecker(s.st),
 		&s.authorizer, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -192,39 +192,10 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	var err error
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		s.st, s.ctlrSt, nil, nil, nil,
+		s.st, s.ctlrSt, nil, nil,
 		common.NewBlockChecker(s.st), s.authorizer, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *modelInfoSuite) TestModelInfoV7(c *gc.C) {
-	api := &modelmanager.ModelManagerAPIV7{
-		&modelmanager.ModelManagerAPIV8{
-			s.modelmanager,
-		},
-	}
-
-	results, err := api.ModelInfo(params.Entities{
-		Entities: []params.Entity{{
-			names.NewModelTag(s.st.model.cfg.UUID()).String(),
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Check(results.Results[0].Result, gc.NotNil)
-	c.Check(results.Results[0].Error, gc.IsNil)
-	s.assertModelInfo(c, *results.Results[0].Result, s.expectedModelInfo(c, nil))
-	s.st.CheckCalls(c, []gitjujutesting.StubCall{
-		{"ControllerTag", nil},
-		{"GetBackend", []interface{}{s.st.model.cfg.UUID()}},
-		{"Model", nil},
-		{"IsController", nil},
-		{"AllMachines", nil},
-		{"ControllerNodes", nil},
-		{"HAPrimaryMachine", nil},
-		{"LatestMigration", nil},
-	})
 }
 
 func (s *modelInfoSuite) expectedModelInfo(c *gc.C, credentialValidity *bool) params.ModelInfo {
@@ -696,8 +667,8 @@ func (st *mockState) ControllerModelTag() names.ModelTag {
 	return st.controllerModel.tag
 }
 
-func (st *mockState) Export() (description.Model, error) {
-	st.MethodCall(st, "Export")
+func (st *mockState) Export(leaders map[string]string) (description.Model, error) {
+	st.MethodCall(st, "Export", leaders)
 	return &fakeModelDescription{UUID: st.model.UUID()}, nil
 }
 
@@ -706,7 +677,7 @@ func (st *mockState) ExportPartial(cfg state.ExportConfig) (description.Model, e
 	if !cfg.IgnoreIncompleteModel {
 		return nil, errors.New("expected IgnoreIncompleteModel=true")
 	}
-	return st.Export()
+	return &fakeModelDescription{UUID: st.model.UUID()}, nil
 }
 
 func (st *mockState) AllModelUUIDs() ([]string, error) {

@@ -1089,15 +1089,12 @@ func (s *ProvisionerTaskSuite) expectProvisioningInfo(machines ...*testMachine) 
 
 	base, _ := series.GetBaseFromSeries(jujuversion.DefaultSupportedLTS())
 
-	piResults := transform.Slice(machines, func(m *testMachine) params.ProvisioningInfoResultV10 {
-		return params.ProvisioningInfoResultV10{
-			Result: &params.ProvisioningInfoV10{
-				ProvisioningInfoBase: params.ProvisioningInfoBase{
-					ControllerConfig: coretesting.FakeControllerConfig(),
-					Series:           jujuversion.DefaultSupportedLTS(),
-					Base:             params.Base{Name: base.Name, Channel: base.Channel.String()},
-					Constraints:      constraints.MustParse(m.constraints),
-				},
+	piResults := transform.Slice(machines, func(m *testMachine) params.ProvisioningInfoResult {
+		return params.ProvisioningInfoResult{
+			Result: &params.ProvisioningInfo{
+				ControllerConfig:            coretesting.FakeControllerConfig(),
+				Base:                        params.Base{Name: base.OS, Channel: base.Channel.String()},
+				Constraints:                 constraints.MustParse(m.constraints),
 				ProvisioningNetworkTopology: m.topology,
 			},
 			Error: nil,
@@ -1105,7 +1102,7 @@ func (s *ProvisionerTaskSuite) expectProvisioningInfo(machines ...*testMachine) 
 	})
 
 	s.taskAPI.EXPECT().ProvisioningInfo(tags).Return(
-		params.ProvisioningInfoResultsV10{Results: piResults}, nil).AnyTimes()
+		params.ProvisioningInfoResults{Results: piResults}, nil).AnyTimes()
 }
 
 type testInstanceBroker struct {

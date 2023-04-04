@@ -7,20 +7,21 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	rbacv1 "k8s.io/api/rbac/v1"
+
+	"github.com/juju/juju/caas/kubernetes/provider/resources"
 )
 
 func getDefaultApplicationNamespaceRules(namespace string) []rbacv1.PolicyRule {
 	return []rbacv1.PolicyRule{
 		{
-			APIGroups: []string{""},
-			Resources: []string{"namespaces"},
+			APIGroups:     []string{""},
+			Resources:     []string{"namespaces"},
+			ResourceNames: []string{namespace},
 			Verbs: []string{
 				"get",
 				"list",
 			},
-			ResourceNames: []string{namespace},
 		},
 		{
 			APIGroups: []string{""},

@@ -6,7 +6,7 @@ package resource
 import (
 	"io"
 
-	charmresource "github.com/juju/charm/v8/resource"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -74,7 +74,6 @@ func (c *UploadCommand) Info() *cmd.Info {
 		Args:    "application name=file|OCI image",
 		Purpose: "Update a resource for an application.",
 		Doc:     attachDoc,
-		Aliases: []string{"attach"},
 	})
 }
 

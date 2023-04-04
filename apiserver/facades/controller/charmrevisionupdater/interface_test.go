@@ -5,10 +5,10 @@ package charmrevisionupdater_test
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
-	"github.com/juju/charm/v8/resource"
-	"github.com/juju/charmrepo/v6/csclient"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/resource"
+	"github.com/juju/charmrepo/v7/csclient"
+	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -54,7 +54,7 @@ func makeApplication(ctrl *gomock.Controller, schema, charmName, charmID, appID 
 		Platform: &state.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
-			Series:       "focal",
+			Channel:      "20.04/stable",
 		},
 	}).AnyTimes()
 	app.EXPECT().Channel().Return(csparams.Channel("latest/stable")).AnyTimes()

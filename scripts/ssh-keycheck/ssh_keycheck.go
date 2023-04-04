@@ -5,7 +5,7 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"os"
 	"os/user"
@@ -38,7 +38,7 @@ func getKnownHostKeys(fname string) []string {
 	}
 	defer func() { _ = f.Close() }()
 
-	content, err := ioutil.ReadAll(f)
+	content, err := io.ReadAll(f)
 	if err != nil {
 		panic(fmt.Sprintf("failed while reading known-hosts file: %q %v", fname, err))
 	}

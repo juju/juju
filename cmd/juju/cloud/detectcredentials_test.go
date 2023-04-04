@@ -111,7 +111,6 @@ func (s *detectCredentialsSuite) SetUpTest(c *gc.C) {
 	s.store = jujuclient.NewMemStore()
 	s.aCredential = jujucloud.CloudCredential{}
 	s.api = &fakeUpdateCredentialAPI{
-		v:      5,
 		clouds: func() (map[names.CloudTag]jujucloud.Cloud, error) { return nil, nil },
 	}
 	s.credentialAPIFunc = func() (cloud.CredentialAPI, error) { return s.api, nil }

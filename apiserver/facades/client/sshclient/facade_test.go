@@ -244,19 +244,6 @@ func (s *facadeSuite) TestProxyFalse(c *gc.C) {
 	})
 }
 
-func (s *facadeSuite) TestLeader(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	mockReader := mocks.NewMockReader(ctrl)
-	mockReader.EXPECT().Leaders().Return(map[string]string{"testme": "ubuntu/4", "ubuntu": "ubuntu/5"}, nil)
-	facade, err := sshclient.InternalFacade(s.backend, mockReader, s.authorizer, s.callContext, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	result, err := facade.Leader(params.Entity{Tag: names.NewApplicationTag("ubuntu").String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.Result, gc.Equals, "ubuntu/5")
-}
-
 func (s *facadeSuite) TestModelCredentialForSSHFailedNotAuthorized(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

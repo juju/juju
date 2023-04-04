@@ -7,7 +7,7 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -69,7 +69,7 @@ func (environProviderCredentials) FinalizeCredential(_ environs.FinalizeCredenti
 // RegisterCredentials is part of the environs.ProviderCredentialsRegister interface.
 func (p environProviderCredentials) RegisterCredentials(cld cloud.Cloud) (map[string]*cloud.CloudCredential, error) {
 	cloudName := cld.Name
-	if cloudName != caas.K8sCloudMicrok8s {
+	if cloudName != k8s.K8sCloudMicrok8s {
 		return registerCredentialsKubeConfig(cld)
 	}
 	cred, err := p.builtinCredentialGetter(p.cmdRunner)

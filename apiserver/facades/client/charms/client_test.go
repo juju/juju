@@ -7,8 +7,8 @@ import (
 	"net/url"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	"github.com/juju/charm/v9"
+	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
-	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -68,13 +67,14 @@ func (ctx *charmsSuiteContext) Controller() *cache.Controller                 { 
 func (ctx *charmsSuiteContext) CachedModel(uuid string) (*cache.Model, error) { return nil, nil }
 func (ctx *charmsSuiteContext) MultiwatcherFactory() multiwatcher.Factory     { return nil }
 
-func (ctx *charmsSuiteContext) LeadershipClaimer(string) (leadership.Claimer, error) { return nil, nil }
-func (ctx *charmsSuiteContext) LeadershipRevoker(string) (leadership.Revoker, error) { return nil, nil }
-func (ctx *charmsSuiteContext) LeadershipChecker() (leadership.Checker, error)       { return nil, nil }
-func (ctx *charmsSuiteContext) LeadershipPinner(string) (leadership.Pinner, error)   { return nil, nil }
-func (ctx *charmsSuiteContext) LeadershipReader(string) (leadership.Reader, error)   { return nil, nil }
-func (ctx *charmsSuiteContext) SingularClaimer() (lease.Claimer, error)              { return nil, nil }
-func (ctx *charmsSuiteContext) Raft() facade.RaftContext                             { return nil }
+func (ctx *charmsSuiteContext) LeadershipClaimer(string) (leadership.Claimer, error)  { return nil, nil }
+func (ctx *charmsSuiteContext) LeadershipRevoker(string) (leadership.Revoker, error)  { return nil, nil }
+func (ctx *charmsSuiteContext) LeadershipChecker() (leadership.Checker, error)        { return nil, nil }
+func (ctx *charmsSuiteContext) LeadershipPinner(string) (leadership.Pinner, error)    { return nil, nil }
+func (ctx *charmsSuiteContext) LeadershipReader(string) (leadership.Reader, error)    { return nil, nil }
+func (ctx *charmsSuiteContext) SingularClaimer() (lease.Claimer, error)               { return nil, nil }
+func (ctx *charmsSuiteContext) Raft() facade.RaftContext                              { return nil }
+func (ctx *charmsSuiteContext) HTTPClient(facade.HTTPClientPurpose) facade.HTTPClient { return nil }
 
 func (s *charmsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
@@ -85,7 +85,7 @@ func (s *charmsSuite) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.api, err = charms.NewFacadeV5(&charmsSuiteContext{cs: s})
+	s.api, err = charms.NewFacade(&charmsSuiteContext{cs: s})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -296,9 +296,8 @@ func (s *charmsMockSuite) TestAddCharmWithLocalSource(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown schema for charm URL "local:testme"`)
 }
 
-func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
+func (s *charmsMockSuite) TestAddCharmCharmstore(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.state.EXPECT().ControllerConfig().Return(controller.Config{}, nil)
 
 	curl, err := charm.ParseURL("cs:testme-8")
 	c.Assert(err, jc.ErrorIsNil)
@@ -326,7 +325,6 @@ func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 			Source: "charm-store",
 			Risk:   "stable",
 		},
-		Force: false,
 	}
 	obtained, err := api.AddCharm(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -338,9 +336,8 @@ func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 	})
 }
 
-func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
+func (s *charmsMockSuite) TestAddCharmCharmstoreWithAuthorization(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.state.EXPECT().ControllerConfig().Return(controller.Config{}, nil)
 
 	curl, err := charm.ParseURL("cs:testme-8")
 	c.Assert(err, jc.ErrorIsNil)
@@ -385,28 +382,34 @@ func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	})
 }
 
-func (s *charmsMockSuite) TestQueueAsyncCharmDownload(c *gc.C) {
+func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
+	// Charmhub charms are downloaded asynchronously
 	defer s.setupMocks(c).Finish()
 
-	curl, err := charm.ParseURL("cs:testme-8")
+	curl, err := charm.ParseURL("chtest")
 	c.Assert(err, jc.ErrorIsNil)
 
 	requestedOrigin := corecharm.Origin{
-		Source: "charm-store",
+		Source: "charm-hub",
 		Channel: &charm.Channel{
 			Risk: "edge",
 		},
+		Platform: corecharm.Platform{
+			OS:      "ubuntu",
+			Channel: "20.04",
+		},
 	}
 	resolvedOrigin := corecharm.Origin{
-		Source: "charm-store",
+		Source: "charm-hub",
 		Channel: &charm.Channel{
 			Risk: "stable",
 		},
+		Platform: corecharm.Platform{
+			OS:      "ubuntu",
+			Channel: "20.04",
+		},
 	}
 
-	s.state.EXPECT().ControllerConfig().Return(controller.Config{
-		controller.Features: []interface{}{feature.AsynchronousCharmDownloads},
-	}, nil)
 	s.state.EXPECT().Charm(curl).Return(nil, errors.NotFoundf("%q", curl))
 	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any()).Return(s.repository, nil)
 
@@ -442,16 +445,17 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownload(c *gc.C) {
 	args := params.AddCharmWithOrigin{
 		URL: curl.String(),
 		Origin: params.CharmOrigin{
-			Source: "charm-store",
+			Source: "charm-hub",
+			Base:   params.Base{Name: "ubuntu", Channel: "20.04/stable"},
 			Risk:   "edge",
 		},
-		Force: false,
 	}
 	obtained, err := api.AddCharm(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{
 		Origin: params.CharmOrigin{
-			Source: "charm-store",
+			Source: "charm-hub",
+			Base:   params.Base{Name: "ubuntu", Channel: "20.04/stable"},
 			Risk:   "stable",
 		},
 	})
@@ -460,21 +464,22 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownload(c *gc.C) {
 func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlreadyDownloadedCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	curl, err := charm.ParseURL("cs:testme-8")
+	curl, err := charm.ParseURL("chtest")
 	c.Assert(err, jc.ErrorIsNil)
 	resURL, err := url.Parse(curl.String())
 	c.Assert(err, jc.ErrorIsNil)
 
 	resolvedOrigin := corecharm.Origin{
-		Source: "charm-store",
+		Source: "charm-hub",
 		Channel: &charm.Channel{
 			Risk: "stable",
 		},
+		Platform: corecharm.Platform{
+			OS:      "ubuntu",
+			Channel: "20.04",
+		},
 	}
 
-	s.state.EXPECT().ControllerConfig().Return(controller.Config{
-		controller.Features: []interface{}{feature.AsynchronousCharmDownloads},
-	}, nil)
 	s.state.EXPECT().Charm(curl).Return(nil, nil) // a nil error indicates that the charm doc already exists
 	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any()).Return(s.repository, nil)
 	s.repository.EXPECT().GetDownloadURL(curl, gomock.Any(), nil).Return(resURL, resolvedOrigin, nil)
@@ -484,8 +489,9 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlrea
 	args := params.AddCharmWithOrigin{
 		URL: curl.String(),
 		Origin: params.CharmOrigin{
-			Source: "charm-store",
+			Source: "charm-hub",
 			Risk:   "edge",
+			Base:   params.Base{Name: "ubuntu", Channel: "20.04/stable"},
 		},
 		Force: false,
 	}
@@ -493,8 +499,9 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlrea
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{
 		Origin: params.CharmOrigin{
-			Source: "charm-store",
+			Source: "charm-hub",
 			Risk:   "stable",
+			Base:   params.Base{Name: "ubuntu", Channel: "20.04/stable"},
 		},
 	}, gc.Commentf("expected to get back the origin recorded by the application"))
 }

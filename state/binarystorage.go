@@ -4,9 +4,9 @@
 package state
 
 import (
-	"github.com/juju/blobstore/v2"
+	"github.com/juju/blobstore/v3"
 	"github.com/juju/errors"
-	jujutxn "github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/binarystorage"
@@ -36,12 +36,6 @@ func (st *State) ToolsStorage() (binarystorage.StorageCloser, error) {
 		modelStorage.Close()
 		controllerStorage.Close()
 	}}, nil
-}
-
-// GUIStorage returns a new binarystorage.StorageCloser that stores GUI archive
-// metadata in the "juju" database "guimetadata" collection.
-func (st *State) GUIStorage() (binarystorage.StorageCloser, error) {
-	return newBinaryStorageCloser(st.database, guimetadataC, st.ControllerModelUUID()), nil
 }
 
 func newBinaryStorageCloser(db Database, collectionName, uuid string) binarystorage.StorageCloser {

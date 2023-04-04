@@ -5,7 +5,7 @@ package internal_test
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -265,7 +265,7 @@ func (s *elasticContainerRegistrySuite) TestTags(c *gc.C) {
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
-				Body:       ioutil.NopCloser(strings.NewReader(data)),
+				Body:       io.NopCloser(strings.NewReader(data)),
 			}
 			return resps, nil
 		}),
@@ -296,7 +296,7 @@ func (s *elasticContainerRegistrySuite) TestTagsErrorResponse(c *gc.C) {
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusForbidden,
-				Body:       ioutil.NopCloser(strings.NewReader(data)),
+				Body:       io.NopCloser(strings.NewReader(data)),
 			}
 			return resps, nil
 		}),
@@ -322,7 +322,7 @@ func (s *elasticContainerRegistrySuite) assertGetManifestsSchemaVersion1(c *gc.C
 				},
 				Request:    req,
 				StatusCode: http.StatusOK,
-				Body:       ioutil.NopCloser(strings.NewReader(responseData)),
+				Body:       io.NopCloser(strings.NewReader(responseData)),
 			}
 			return resps, nil
 		}),
@@ -376,7 +376,7 @@ func (s *elasticContainerRegistrySuite) TestGetBlobs(c *gc.C) {
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
-				Body: ioutil.NopCloser(strings.NewReader(`
+				Body: io.NopCloser(strings.NewReader(`
 {"architecture":"amd64"}
 `[1:])),
 			}

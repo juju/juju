@@ -8,10 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sync"
 	"time"
 
@@ -67,7 +65,7 @@ func (c *RpcCommand) Run(ctx *cmd.Context) error {
 	}
 	ctx.Stdout.Write([]byte("eye of newt\n"))
 	ctx.Stderr.Write([]byte("toe of frog\n"))
-	return ioutil.WriteFile(ctx.AbsPath("local"), []byte(c.Value), 0644)
+	return os.WriteFile(ctx.AbsPath("local"), []byte(c.Value), 0644)
 }
 
 func factory(contextId, cmdName string) (cmd.Command, error) {
@@ -91,12 +89,7 @@ var _ = gc.Suite(&ServerSuite{})
 
 func (s *ServerSuite) osDependentSockPath(c *gc.C) sockets.Socket {
 	pipeRoot := c.MkDir()
-	var sock string
-	if runtime.GOOS == "windows" {
-		sock = fmt.Sprintf(`\\.\pipe%s`, filepath.ToSlash(pipeRoot[2:]))
-	} else {
-		sock = filepath.Join(pipeRoot, "test.sock")
-	}
+	sock := filepath.Join(pipeRoot, "test.sock")
 	return sockets.Socket{Network: "unix", Address: sock}
 }
 
@@ -141,7 +134,7 @@ func (s *ServerSuite) TestHappyPath(c *gc.C) {
 	c.Assert(resp.Code, gc.Equals, 0)
 	c.Assert(string(resp.Stdout), gc.Equals, "wool of bat\neye of newt\n")
 	c.Assert(string(resp.Stderr), gc.Equals, "toe of frog\n")
-	content, err := ioutil.ReadFile(filepath.Join(dir, "local"))
+	content, err := os.ReadFile(filepath.Join(dir, "local"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, "something")
 }
@@ -266,14 +259,13 @@ var newCommandTests = []struct {
 	{"storage-get", ""},
 	{"status-get", ""},
 	{"status-set", ""},
-	// The error message contains .exe on Windows
-	{"random", "unknown command: random(.exe)?"},
+	{"random", "unknown command: random"},
 }
 
 func (s *NewCommandSuite) TestNewCommand(c *gc.C) {
 	ctx, _ := s.newHookContext(0, "", "")
 	for _, t := range newCommandTests {
-		com, err := jujuc.NewCommand(ctx, cmdString(t.name))
+		com, err := jujuc.NewCommand(ctx, t.name)
 		if t.err == "" {
 			// At this level, just check basic sanity; commands are tested in
 			// more detail elsewhere.

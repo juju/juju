@@ -126,6 +126,7 @@ func newBuilder(destinationDir string, filesToBackUp []string, db DBDumper) (b *
 		stagingDir = filepath.Join(snapTmpDir, stagingDir)
 	}
 
+	// TODO(hpidcock): lp:1558657
 	finalFilename := time.Now().Format(FilenameTemplate)
 	// Populate the builder.
 	b = &builder{

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/description/v3"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -98,14 +98,12 @@ func (s *cmdModelSuite) TestModelUsersCmd(c *gc.C) {
 	// to clear the logging writers here.
 	loggo.RemoveWriter("warning")
 
-	context := s.run(c, "list-users", "controller")
+	context := s.run(c, "users", "controller")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Name           Display name  Access  Last connection\n"+
 		"admin*         admin         admin   just now\n"+
-		"bar@ubuntuone                read    never connected\n"+
-		"\n")
-
+		"bar@ubuntuone                read    never connected\n")
 }
 
 func (s *cmdModelSuite) TestModelConfigGet(c *gc.C) {
@@ -137,7 +135,6 @@ func (s *cmdModelSuite) TestModelDefaultsGet(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
 Attribute  Default  Controller
 special    -        known
-
 `[1:])
 }
 
@@ -145,11 +142,10 @@ func (s *cmdModelSuite) TestModelDefaultsGetCloud(c *gc.C) {
 	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, &environscloudspec.CloudRegionSpec{Cloud: "dummy"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	context := s.run(c, "model-defaults", "dummy", "special")
+	context := s.run(c, "model-defaults", "--cloud", "dummy", "special")
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
 Attribute  Default  Controller
 special    -        known
-
 `[1:])
 }
 
@@ -157,12 +153,11 @@ func (s *cmdModelSuite) TestModelDefaultsGetRegion(c *gc.C) {
 	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, &environscloudspec.CloudRegionSpec{"dummy", "dummy-region"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	context := s.run(c, "model-defaults", "dummy-region", "special")
+	context := s.run(c, "model-defaults", "--region", "dummy-region", "special")
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
 Attribute       Default  Controller
 special         -        -
   dummy-region  known    -
-
 `[1:])
 }
 
@@ -176,7 +171,7 @@ func (s *cmdModelSuite) TestModelDefaultsSet(c *gc.C) {
 }
 
 func (s *cmdModelSuite) TestModelDefaultsSetCloud(c *gc.C) {
-	s.run(c, "model-defaults", "dummy", "special=known")
+	s.run(c, "model-defaults", "--cloud", "dummy", "special=known")
 	defaults, err := s.State.ModelConfigDefaultValues(s.Model.CloudName())
 	c.Assert(err, jc.ErrorIsNil)
 	value, found := defaults["special"]
@@ -186,7 +181,7 @@ func (s *cmdModelSuite) TestModelDefaultsSetCloud(c *gc.C) {
 }
 
 func (s *cmdModelSuite) TestModelDefaultsSetRegion(c *gc.C) {
-	s.run(c, "model-defaults", "dummy/dummy-region", "special=known")
+	s.run(c, "model-defaults", "--region", "dummy/dummy-region", "special=known")
 	defaults, err := s.State.ModelConfigDefaultValues(s.Model.CloudName())
 	c.Assert(err, jc.ErrorIsNil)
 	value, found := defaults["special"]
@@ -210,7 +205,7 @@ func (s *cmdModelSuite) TestModelDefaultsResetCloud(c *gc.C) {
 	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, &environscloudspec.CloudRegionSpec{Cloud: "dummy"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.run(c, "model-defaults", "dummy", "--reset", "special")
+	s.run(c, "model-defaults", "--cloud", "dummy", "--reset", "special")
 	defaults, err := s.State.ModelConfigDefaultValues(s.Model.CloudName())
 	c.Assert(err, jc.ErrorIsNil)
 	_, found := defaults["special"]
@@ -221,7 +216,7 @@ func (s *cmdModelSuite) TestModelDefaultsResetRegion(c *gc.C) {
 	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, &environscloudspec.CloudRegionSpec{"dummy", "dummy-region"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.run(c, "model-defaults", "dummy-region", "--reset", "special")
+	s.run(c, "model-defaults", "--region", "dummy-region", "--reset", "special")
 	defaults, err := s.State.ModelConfigDefaultValues(s.Model.CloudName())
 	c.Assert(err, jc.ErrorIsNil)
 	_, found := defaults["special"]

@@ -703,35 +703,6 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 	})
 }
 
-func (s *cloudSuite) TestCheckCredentialsModels(c *gc.C) {
-	bruceTag := names.NewUserTag("bruce")
-	defer s.setup(c, bruceTag).Finish()
-
-	_, tag := cloudCredentialTag(credParams{"three", "bruce", "meep", jujucloud.EmptyAuthType,
-		map[string]string{}}, c)
-
-	backend := s.backend.EXPECT()
-	backend.CredentialModels(tag).Return(nil, nil)
-
-	// Most of the actual validation functionality is tested by other tests in the suite.
-	// All we need to know is that this call does not actually update existing controller credential content.
-	apiV6 := &cloudfacade.CloudAPIV6{s.api}
-	results, err := apiV6.CheckCredentialsModels(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
-		Tag: "cloudcred-meep_bruce_three",
-		Credential: params.CloudCredential{
-			AuthType:   "oauth1",
-			Attributes: map[string]string{"token": "foo:bar:baz"},
-		},
-	}}})
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(results, jc.DeepEquals, params.UpdateCredentialResults{
-		Results: []params.UpdateCredentialResult{
-			{CredentialTag: "cloudcred-meep_bruce_three"},
-		},
-	})
-}
-
 func (s *cloudSuite) TestUpdateCredentialsAdminAccess(c *gc.C) {
 	adminTag := names.NewUserTag("admin")
 	defer s.setup(c, adminTag).Finish()
@@ -907,44 +878,6 @@ func (s *cloudSuite) TestUpdateCredentialsModelGetError(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.UpdateCredentialResults{
 		Results: []params.UpdateCredentialResult{{
 			CredentialTag: "cloudcred-meep_julia_three",
-			Models: []params.UpdateCredentialModelResult{
-				{
-					ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-					ModelName: "testModel1",
-					Errors:    []params.ErrorResult{{Error: &params.Error{Message: "cannot get a model", Code: ""}}},
-				},
-			},
-		}},
-	})
-}
-
-func (s *cloudSuite) TestUpdateCredentialsModelGetErrorLegacy(c *gc.C) {
-	adminTag := names.NewUserTag("admin")
-	defer s.setup(c, adminTag).Finish()
-
-	_, tag := cloudCredentialTag(credParams{"three", "julia", "meep", jujucloud.EmptyAuthType,
-		map[string]string{}}, c)
-
-	backend := s.backend.EXPECT()
-	backend.CredentialModels(tag).Return(map[string]string{
-		coretesting.ModelTag.Id(): "testModel1",
-	}, nil)
-
-	pool := s.pool.EXPECT()
-	pool.GetModelCallContext(coretesting.ModelTag.Id()).Return(nil, nil, errors.New("cannot get a model"))
-
-	apiV6 := &cloudfacade.CloudAPIV6{s.api}
-	results, err := apiV6.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
-		Force: false,
-		Credentials: []params.TaggedCredential{{
-			Tag:        "cloudcred-meep_julia_three",
-			Credential: params.CloudCredential{},
-		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.UpdateCredentialResults{
-		Results: []params.UpdateCredentialResult{{
-			CredentialTag: "cloudcred-meep_julia_three",
-			Error:         &params.Error{Message: "some models are no longer visible"},
 			Models: []params.UpdateCredentialModelResult{
 				{
 					ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -1848,4 +1781,9 @@ type credParams struct {
 	cloudName  string
 	permission jujucloud.AuthType
 	attrs      map[string]string
+}
+
+type mockModelBackend struct {
+	credentialcommon.PersistentBackend
+	uuid string
 }

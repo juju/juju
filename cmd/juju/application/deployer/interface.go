@@ -5,8 +5,8 @@ package deployer
 
 import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
@@ -99,10 +99,12 @@ type ConsumeDetails interface {
 	Close() error
 }
 
-var supportedJujuSeries = series.WorkloadSeries
+// For testing.
+// TODO: unexport it if we don't need to patch it anymore.
+var SupportedJujuSeries = series.WorkloadSeries
 
 type DeployerAPI interface {
-	// APICallCloser is needed for BestFacadeVersion and for the DeployResourcesFunc.
+	// APICallCloser is needed for the DeployResourcesFunc.
 	base.APICallCloser
 
 	ApplicationAPI
@@ -122,7 +124,6 @@ type DeployerAPI interface {
 }
 
 type ApplicationAPI interface {
-	BestAPIVersion() int
 	AddMachines(machineParams []apiparams.AddMachineParams) ([]apiparams.AddMachinesResult, error)
 	AddRelation(endpoints, viaCIDRs []string) (*apiparams.AddRelationResults, error)
 	AddUnits(application.AddUnitsParams) ([]string, error)
@@ -139,9 +140,6 @@ type ApplicationAPI interface {
 
 	GetConstraints(appNames ...string) ([]constraints.Value, error)
 	SetConstraints(application string, constraints constraints.Value) error
-
-	// Deprecate use of Update, use SetConfig instead.
-	Update(apiparams.ApplicationUpdate) error
 
 	ScaleApplication(application.ScaleApplicationParams) (apiparams.ScaleApplicationResult, error)
 	Consume(arg crossmodel.ConsumeApplicationArgs) (string, error)

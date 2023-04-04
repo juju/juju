@@ -41,7 +41,6 @@ type Config struct {
 	Raft                 RaftApplier
 	Logger               Logger
 	Topic                string
-	Target               raftlease.NotifyTarget
 	PrometheusRegisterer prometheus.Registerer
 }
 
@@ -58,9 +57,6 @@ func (config Config) Validate() error {
 	}
 	if config.Topic == "" {
 		return errors.NotValidf("empty Topic")
-	}
-	if config.Target == nil {
-		return errors.NotValidf("nil Target")
 	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
@@ -161,10 +157,6 @@ func (w *forwarder) processRequest(command string) (raftlease.ForwardResponse, e
 	response, ok := respValue.(raftlease.FSMResponse)
 	if !ok {
 		return empty, errors.Errorf("expected an FSMResponse, got %T: %#v", respValue, respValue)
-	}
-
-	if err := response.Notify(w.config.Target); err != nil {
-		w.config.Logger.Errorf("failed to notify: %v", err)
 	}
 
 	return responseFromError(response.Error()), nil

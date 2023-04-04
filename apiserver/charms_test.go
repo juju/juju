@@ -10,23 +10,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	apitesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -101,10 +97,6 @@ func (s *charmsSuite) setModelImporting(c *gc.C) {
 }
 
 func (s *charmsSuite) SetUpSuite(c *gc.C) {
-	// TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: Skipping this on windows for now")
-	}
 	s.apiserverBaseSuite.SetUpSuite(c)
 }
 
@@ -336,13 +328,13 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
 
-	data, err := ioutil.ReadAll(reader)
+	data, err := io.ReadAll(reader)
 	c.Assert(err, jc.ErrorIsNil)
-	downloadedFile, err := ioutil.TempFile(c.MkDir(), "downloaded")
+	downloadedFile, err := os.CreateTemp(c.MkDir(), "downloaded")
 	c.Assert(err, jc.ErrorIsNil)
 	defer downloadedFile.Close()
 	defer os.Remove(downloadedFile.Name())
-	err = ioutil.WriteFile(downloadedFile.Name(), data, 0644)
+	err = os.WriteFile(downloadedFile.Name(), data, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	bundle, err := charm.ReadCharmArchive(downloadedFile.Name())
@@ -582,27 +574,19 @@ func (s *charmsSuite) TestGetReturnsNotFoundWhenMissing(c *gc.C) {
 }
 
 func (s *charmsSuite) TestGetReturnsNotYetAvailableForPendingCharms(c *gc.C) {
-	// Required to allow charm lookups to return pending charms.
-	err := s.State.UpdateControllerConfig(
-		map[string]interface{}{
-			controller.Features: []interface{}{feature.AsynchronousCharmDownloads},
-		}, nil,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Add a charm in pending mode.
 	chInfo := state.CharmInfo{
-		ID:          charm.MustParseURL("cs:focal/dummy-1"),
+		ID:          charm.MustParseURL("ch:focal/dummy-1"),
 		Charm:       testcharms.Repo.CharmArchive(c.MkDir(), "dummy"),
 		StoragePath: "", // indicates that we don't have the data in the blobstore yet.
 		SHA256:      "", // indicates that we don't have the data in the blobstore yet.
 		Version:     "42",
 	}
-	_, err = s.State.AddCharmMetadata(chInfo)
+	_, err := s.State.AddCharmMetadata(chInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure a 490 is returned if the charm is pending to be downloaded.
-	uri := s.charmsURI("?url=cs:focal/dummy-1")
+	uri := s.charmsURI("?url=ch:focal/dummy-1")
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusConflict, gc.Commentf("expected to get 409 for charm that is pending to be downloaded"))
 }
@@ -658,7 +642,7 @@ func (s *charmsSuite) TestGetCharmIcon(c *gc.C) {
 	// Prepare the tests.
 	svgMimeType := mime.TypeByExtension(".svg")
 	iconPath := filepath.Join(testcharms.Repo.CharmDirPath("mysql"), "icon.svg")
-	icon, err := ioutil.ReadFile(iconPath)
+	icon, err := os.ReadFile(iconPath)
 	c.Assert(err, jc.ErrorIsNil)
 	tests := []struct {
 		about      string
@@ -741,7 +725,7 @@ func (s *charmsSuite) TestGetStarReturnsArchiveBytes(c *gc.C) {
 		testcharms.RepoWithSeries("quantal").ClonedDirPath(c.MkDir(), "dummy"))
 	c.Assert(err, jc.ErrorIsNil)
 	// Create an archive from the charm dir.
-	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
+	tempFile, err := os.CreateTemp(c.MkDir(), "charm")
 	c.Assert(err, jc.ErrorIsNil)
 	defer tempFile.Close()
 	defer os.Remove(tempFile.Name())
@@ -749,7 +733,7 @@ func (s *charmsSuite) TestGetStarReturnsArchiveBytes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: tempFile.Name()})
 
-	data, err := ioutil.ReadFile(tempFile.Name())
+	data, err := os.ReadFile(tempFile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri := s.charmsURI("?url=local:quantal/dummy-1&file=*")
@@ -818,7 +802,7 @@ func (s *charmsSuite) TestNoTempFilesLeftBehind(c *gc.C) {
 	apitesting.AssertResponse(c, resp, http.StatusOK, "application/zip")
 
 	// Ensure the tmp directory exists but nothing is in it.
-	files, err := ioutil.ReadDir(filepath.Join(s.config.DataDir, "charm-get-tmp"))
+	files, err := os.ReadDir(filepath.Join(s.config.DataDir, "charm-get-tmp"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(files, gc.HasLen, 0)
 }
@@ -830,7 +814,7 @@ type fileReader struct {
 
 func (r *fileReader) Read(out []byte) (int, error) {
 	if r.r == nil {
-		content, err := ioutil.ReadFile(r.path)
+		content, err := os.ReadFile(r.path)
 		if err != nil {
 			return 0, err
 		}

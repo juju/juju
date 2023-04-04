@@ -12,7 +12,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
@@ -20,7 +19,6 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
-	"github.com/juju/worker/v3/workertest"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
@@ -28,10 +26,7 @@ import (
 	"github.com/juju/juju/api"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/lease"
 	leasemanager "github.com/juju/juju/worker/lease/manifold"
 )
@@ -42,10 +37,9 @@ type manifoldSuite struct {
 	context  dependency.Context
 	manifold dependency.Manifold
 
-	agent        *mockAgent
-	clock        *testclock.Clock
-	hub          *pubsub.StructuredHub
-	stateTracker *stubStateTracker
+	agent *mockAgent
+	clock *testclock.Clock
+	hub   *pubsub.StructuredHub
 
 	fsm     *raftlease.FSM
 	logger  loggo.Logger
@@ -71,10 +65,6 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 	}}
 	s.clock = testclock.NewClock(time.Now())
 	s.hub = pubsub.NewStructuredHub(nil)
-	s.stateTracker = &stubStateTracker{
-		done: make(chan struct{}),
-		pool: s.StatePool,
-	}
 
 	s.fsm = raftlease.NewFSM()
 	s.logger = loggo.GetLogger("lease.manifold_test")
@@ -90,7 +80,6 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 		AgentName:            "agent",
 		ClockName:            "clock",
 		CentralHubName:       "hub",
-		StateName:            "state",
 		FSM:                  s.fsm,
 		RequestTopic:         "lease.manifold_test",
 		Logger:               &s.logger,
@@ -106,7 +95,6 @@ func (s *manifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"agent": s.agent,
 		"clock": s.clock,
 		"hub":   s.hub,
-		"state": s.stateTracker,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -127,13 +115,13 @@ func (s *manifoldSuite) newStore(config raftlease.StoreConfig) *raftlease.Store 
 	return s.store
 }
 
-func (s *manifoldSuite) newClient(clientType leasemanager.ClientType, apiInfo *api.Info, hub *pubsub.StructuredHub, topic string, clock clock.Clock, metrics *raftlease.OperationClientMetrics, logger leasemanager.Logger) (raftlease.Client, error) {
-	s.stub.MethodCall(s, "NewClient", clientType, apiInfo, hub, topic, clock, metrics, logger)
-	return s.client, nil
+func (s *manifoldSuite) newClient(hub *pubsub.StructuredHub, topic string, clock clock.Clock, metrics *raftlease.OperationClientMetrics) raftlease.Client {
+	s.stub.MethodCall(s, "NewClient", hub, topic, clock, metrics)
+	return s.client
 }
 
 var expectedInputs = []string{
-	"agent", "clock", "hub", "state",
+	"agent", "clock", "hub",
 }
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
@@ -151,27 +139,19 @@ func (s *manifoldSuite) TestMissingInputs(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestStart(c *gc.C) {
-	w, err := s.manifold.Start(s.context)
+	_, err := s.manifold.Start(s.context)
 	c.Assert(err, jc.ErrorIsNil)
-	underlying, ok := w.(*common.CleanupWorker)
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(underlying.Worker, gc.Equals, s.worker)
 
 	s.stub.CheckCallNames(c, "NewClient", "NewStore", "NewWorker")
 
 	args := s.stub.Calls()[0].Args
-	c.Assert(args, gc.HasLen, 7)
-	c.Assert(args[0], gc.Equals, leasemanager.PubsubClientType)
+	c.Assert(args, gc.HasLen, 4)
 
 	args = s.stub.Calls()[1].Args
 	c.Assert(args, gc.HasLen, 1)
 	c.Assert(args[0], gc.FitsTypeOf, raftlease.StoreConfig{})
-	storeConfig := args[0].(raftlease.StoreConfig)
 
-	systemState, err := s.stateTracker.pool.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
-	assertTrapdoorFuncsEqual(c, storeConfig.Trapdoor, systemState.LeaseTrapdoorFunc())
-	storeConfig.Trapdoor = nil
+	storeConfig := args[0].(raftlease.StoreConfig)
 	storeConfig.Client = nil
 	storeConfig.MetricsCollector = nil
 
@@ -217,38 +197,6 @@ func (s *manifoldSuite) TestOutput(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `expected output of type \*core/lease.Manager, got \*io.Writer`)
 }
 
-func (s *manifoldSuite) TestStoppingWorkerReleasesState(c *gc.C) {
-	w, err := s.manifold.Start(s.context)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.stateTracker.CheckCallNames(c, "Use")
-	select {
-	case <-s.stateTracker.done:
-		c.Fatal("unexpected state release")
-	case <-time.After(coretesting.ShortWait):
-	}
-
-	// Stopping the worker should cause the state to
-	// eventually be released.
-	workertest.CleanKill(c, w)
-
-	s.stateTracker.waitDone(c)
-	s.stateTracker.CheckCallNames(c, "Use", "Done")
-}
-
-func assertTrapdoorFuncsEqual(c *gc.C, actual, expected raftlease.TrapdoorFunc) {
-	if actual == nil {
-		c.Assert(expected, gc.Equals, nil)
-		return
-	}
-	var actualOps, expectedOps []txn.Op
-	err := actual(corelease.Key{"ns", "model", "lease"}, "holder")(0, &actualOps)
-	c.Assert(err, jc.ErrorIsNil)
-	err = expected(corelease.Key{"ns", "model", "lease"}, "holder")(0, &expectedOps)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actualOps, gc.DeepEquals, expectedOps)
-}
-
 type mockAgent struct {
 	agent.Agent
 	conf mockAgentConfig
@@ -283,34 +231,4 @@ type mockClient struct{}
 
 func (*mockClient) Request(context.Context, *raftlease.Command) error {
 	return nil
-}
-
-type stubStateTracker struct {
-	testing.Stub
-	pool *state.StatePool
-	done chan struct{}
-}
-
-func (s *stubStateTracker) Use() (*state.StatePool, error) {
-	s.MethodCall(s, "Use")
-	return s.pool, s.NextErr()
-}
-
-func (s *stubStateTracker) Done() error {
-	s.MethodCall(s, "Done")
-	err := s.NextErr()
-	close(s.done)
-	return err
-}
-
-func (s *stubStateTracker) Report() map[string]interface{} {
-	return map[string]interface{}{"hey": "mum"}
-}
-
-func (s *stubStateTracker) waitDone(c *gc.C) {
-	select {
-	case <-s.done:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for state to be released")
-	}
 }

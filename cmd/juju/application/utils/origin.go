@@ -4,9 +4,7 @@
 package utils
 
 import (
-	"strings"
-
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
@@ -35,34 +33,12 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 		architecture = arch.DefaultArchitecture
 	}
 
-	var (
-		origin commoncharm.Origin
-		series string
-		err    error
-	)
-	if platform.OS != "" && platform.Channel != "" {
-		// Legacy k8s charms - assume ubuntu focal.
-		if platform.OS == "kubernetes" || platform.Channel == "kubernetes" {
-			series = "kubernetes"
-			platform.OS = "ubuntu"
-			platform.Channel = "20.04"
-		} else {
-			series, err = coreseries.GetSeriesFromChannel(platform.OS, platform.Channel)
-			if err != nil {
-				return commoncharm.Origin{}, errors.Trace(err)
-			}
-		}
-	} else if platform.OS == "" && platform.Channel != "" {
-		// If there is a series, ensure there is an OS.
-		series, err = coreseries.VersionSeries(platform.Channel)
-		if err != nil {
-			return commoncharm.Origin{}, err
-		}
-		os, err := coreseries.GetOSFromSeries(series)
-		if err != nil {
-			return commoncharm.Origin{}, err
-		}
-		platform.OS = strings.ToLower(os.String())
+	var origin commoncharm.Origin
+	// Legacy k8s charms - assume ubuntu focal.
+	if platform.OS == coreseries.Kubernetes.String() || platform.Channel == coreseries.Kubernetes.String() {
+		b := coreseries.LegacyKubernetesBase()
+		platform.OS = b.OS
+		platform.Channel = b.Channel.Track
 	}
 	switch url.Schema {
 	case "cs":
@@ -70,13 +46,11 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 			Source:       commoncharm.OriginCharmStore,
 			Risk:         string(channel.Risk),
 			Architecture: architecture,
-			Series:       series,
 		}
 	case "local":
 		origin = commoncharm.Origin{
 			Source:       commoncharm.OriginLocal,
 			Architecture: architecture,
-			Series:       series,
 		}
 	default:
 		var track *string
@@ -98,7 +72,6 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 			Track:        track,
 			Branch:       branch,
 			Architecture: architecture,
-			Series:       series,
 		}
 	}
 	if platform.OS != "" && platform.Channel != "" {
@@ -120,7 +93,7 @@ func DeducePlatform(cons constraints.Value, series string, modelCons constraints
 		if err != nil {
 			return corecharm.Platform{}, errors.Trace(err)
 		}
-		os = base.Name
+		os = base.OS
 		channel = base.Channel.Track
 	}
 

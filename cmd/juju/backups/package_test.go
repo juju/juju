@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -33,7 +32,7 @@ var MetaResultString = `
 
 backup format version: 0 
 juju version:          0.0.0 
-series:                 
+base:                   
 
 controller UUID:       
 model UUID:             
@@ -60,7 +59,6 @@ type BaseBackupsSuite struct {
 
 	metaresult *params.BackupsMetadataResult
 	data       string
-	apiVersion int
 
 	filename string
 
@@ -75,8 +73,6 @@ func (s *BaseBackupsSuite) SetUpTest(c *gc.C) {
 		Filename: "backup-filename",
 	}
 	s.data = "<compressed archive data>"
-
-	s.apiVersion = 2
 
 	s.store = jujuclienttesting.MinimalStore()
 	models := s.store.Models["arthur"]
@@ -108,8 +104,8 @@ func (s *BaseBackupsSuite) patchAPIClient(client backups.APIClient) {
 
 func (s *BaseBackupsSuite) patchGetAPI(client backups.APIClient) {
 	s.PatchValue(backups.NewGetAPI,
-		func(c *backups.CommandBase) (backups.APIClient, int, error) {
-			return client, s.apiVersion, nil
+		func(c *backups.CommandBase) (backups.APIClient, error) {
+			return client, nil
 		},
 	)
 }
@@ -128,7 +124,7 @@ func (s *BaseBackupsSuite) setFailure(failure string) *fakeAPIClient {
 
 func (s *BaseBackupsSuite) setDownload() *fakeAPIClient {
 	client := s.setSuccess()
-	client.archive = ioutil.NopCloser(bytes.NewBufferString(s.data))
+	client.archive = io.NopCloser(bytes.NewBufferString(s.data))
 	return client
 }
 
@@ -157,7 +153,7 @@ func (s *BaseBackupsSuite) checkArchive(c *gc.C) {
 		}
 	})
 
-	data, err := ioutil.ReadAll(archive)
+	data, err := io.ReadAll(archive)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(data), gc.Equals, s.data)
 }

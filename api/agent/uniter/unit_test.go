@@ -6,7 +6,7 @@ package uniter_test
 import (
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -69,8 +69,7 @@ func (s *unitSuite) TestSetAgentStatus(c *gc.C) {
 		}
 		return nil
 	})
-	caller := basetesting.BestVersionCaller{apiCaller, 2}
-	client := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.SetAgentStatus(status.Idle, "blah", map[string]interface{}{"foo": "bar"})
@@ -92,8 +91,7 @@ func (s *unitSuite) TestSetUnitStatus(c *gc.C) {
 		}
 		return nil
 	})
-	caller := basetesting.BestVersionCaller{apiCaller, 2}
-	client := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.SetUnitStatus(status.Idle, "blah", map[string]interface{}{"foo": "bar"})
@@ -255,7 +253,7 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.Watch()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, w, nil)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.
@@ -292,7 +290,7 @@ func (s *unitSuite) TestWatchRelations(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchRelations()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, nil)
+	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.
@@ -312,8 +310,7 @@ func (s *unitSuite) TestAssignedMachine(c *gc.C) {
 		}
 		return nil
 	})
-	caller := basetesting.BestVersionCaller{apiCaller, 1}
-	client := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	tag, err := unit.AssignedMachine()
@@ -550,7 +547,7 @@ func (s *unitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchConfigSettingsHash()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, nil)
+	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.
@@ -582,7 +579,7 @@ func (s *unitSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchTrustConfigSettingsHash()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, nil)
+	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.
@@ -614,7 +611,7 @@ func (s *unitSuite) TestWatchAddressesHash(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchAddressesHash()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, nil)
+	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.
@@ -645,7 +642,7 @@ func (s *unitSuite) TestWatchUpgradeSeriesNotifications(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchUpgradeSeriesNotifications()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, w, nil)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.
@@ -737,6 +734,7 @@ func (s *unitSuite) TestUnitState(c *gc.C) {
 	unitState := params.UnitStateResult{
 		MeterStatusState: "meter",
 		StorageState:     "storage",
+		SecretState:      "secret",
 		UniterState:      "uniter",
 		CharmState:       map[string]string{"foo": "bar"},
 		RelationState:    map[int]string{666: "666"},
@@ -926,7 +924,7 @@ func (s *unitSuite) TestWatchInstanceData(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchInstanceData()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, w, nil)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.
@@ -951,8 +949,7 @@ func (s *unitSuite) TestLXDProfileName(c *gc.C) {
 		}
 		return nil
 	})
-	caller := basetesting.BestVersionCaller{apiCaller, 1}
-	client := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	profile, err := unit.LXDProfileName()
 	c.Assert(err, jc.ErrorIsNil)
@@ -972,8 +969,7 @@ func (s *unitSuite) TestCanApplyLXDProfile(c *gc.C) {
 		}
 		return nil
 	})
-	caller := basetesting.BestVersionCaller{apiCaller, 1}
-	client := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	canApply, err := unit.CanApplyLXDProfile()
 	c.Assert(err, jc.ErrorIsNil)

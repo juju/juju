@@ -4,7 +4,6 @@
 package raftlease_test
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -46,8 +45,7 @@ func (s *storeSuite) SetUpTest(c *gc.C) {
 
 	metrics := raftlease.NewOperationClientMetrics(s.clock)
 	s.store = raftlease.NewStore(raftlease.StoreConfig{
-		FSM:      s.fsm,
-		Trapdoor: FakeTrapdoor,
+		FSM: s.fsm,
 		Client: raftlease.NewPubsubClient(raftlease.PubsubClientConfig{
 			Hub:            s.hub,
 			RequestTopic:   "lease.request",
@@ -434,19 +432,9 @@ func (s *storeSuite) TestLeases(c *gc.C) {
 	c.Assert(r1.Holder, gc.Equals, "verdi")
 	c.Assert(r1.Expiry, gc.Equals, in10Seconds)
 
-	// Can't compare trapdoors directly.
-	var out string
-	err := r1.Trapdoor(0, &out)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, gc.Equals, "{quam olim abrahe} held by verdi")
-
 	r2 := result[lease2]
 	c.Assert(r2.Holder, gc.Equals, "mozart")
 	c.Assert(r2.Expiry, gc.Equals, in5Seconds)
-
-	err = r2.Trapdoor(0, &out)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, gc.Equals, "{la cry mosa} held by mozart")
 }
 
 func (s *storeSuite) TestLeasesFilter(c *gc.C) {
@@ -479,19 +467,9 @@ func (s *storeSuite) TestLeaseGroup(c *gc.C) {
 	c.Assert(r1.Holder, gc.Equals, "verdi")
 	c.Assert(r1.Expiry, gc.Equals, in10Seconds)
 
-	// Can't compare trapdoors directly.
-	var out string
-	err := r1.Trapdoor(0, &out)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, gc.Equals, "{quam olim abrahe} held by verdi")
-
 	r2 := result[lease2]
 	c.Assert(r2.Holder, gc.Equals, "mozart")
 	c.Assert(r2.Expiry, gc.Equals, in5Seconds)
-
-	err = r2.Trapdoor(0, &out)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, gc.Equals, "{la cry mosa} held by mozart")
 }
 
 func (s *storeSuite) TestPin(c *gc.C) {
@@ -807,16 +785,6 @@ func (f *fakeFSM) Pinned() map[lease.Key][]string {
 
 func (f *fakeFSM) GlobalTime() time.Time {
 	return f.globalTime
-}
-
-func FakeTrapdoor(key lease.Key, holder string) lease.Trapdoor {
-	return func(attempt int, out interface{}) error {
-		if s, ok := out.(*string); ok {
-			*s = fmt.Sprintf("%v held by %s", key, holder)
-			return nil
-		}
-		return errors.Errorf("bad input")
-	}
 }
 
 func marshal(c *gc.C, command raftlease.Command) string {

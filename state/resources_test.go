@@ -7,12 +7,12 @@ import (
 	"bytes"
 	"crypto/sha512"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"sort"
 	"time"
 
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -291,6 +291,7 @@ func (s *ResourcesSuite) TestUnitResource(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	spam.Timestamp = resultRes.Resources[0].Timestamp
+	resultRes.UnitResources[0].Resources[0].Timestamp = spam.Timestamp
 	c.Assert(resultRes, jc.DeepEquals, resources.ApplicationResources{
 		Resources: []resources.Resource{spam},
 		UnitResources: []resources.UnitResources{{
@@ -332,7 +333,7 @@ func (s *ResourcesSuite) TestOpenResource(c *gc.C) {
 	spam.Timestamp = r.Timestamp
 	c.Assert(r, jc.DeepEquals, spam)
 
-	resData, err := ioutil.ReadAll(rdr)
+	resData, err := io.ReadAll(rdr)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(resData), gc.Equals, data)
 
@@ -359,6 +360,8 @@ func (s *ResourcesSuite) TestOpenResource(c *gc.C) {
 	}
 	expected[0].Resource = spam.Resource
 	expected[0].Timestamp = resultRes.Resources[0].Timestamp
+
+	resultRes.UnitResources[0].Resources[0].Timestamp = spam.Timestamp
 
 	c.Assert(resultRes, jc.DeepEquals, resources.ApplicationResources{
 		Resources:           expected,

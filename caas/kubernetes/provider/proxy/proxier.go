@@ -90,6 +90,7 @@ func (p *Proxier) RawConfig() (map[string]interface{}, error) {
 	return rval, errors.Trace(err)
 }
 
+// MarshalYAML implements the yaml Marshaler interface
 func (p *Proxier) MarshalYAML() (interface{}, error) {
 	return &p.config, nil
 }

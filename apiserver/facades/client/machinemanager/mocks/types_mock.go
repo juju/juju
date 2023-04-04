@@ -10,7 +10,7 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v8"
+	charm "github.com/juju/charm/v9"
 	storagecommon "github.com/juju/juju/apiserver/common/storagecommon"
 	machinemanager "github.com/juju/juju/apiserver/facades/client/machinemanager"
 	charmhub "github.com/juju/juju/charmhub"
@@ -541,6 +541,20 @@ func (mr *MockMachineMockRecorder) ApplicationNames() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationNames", reflect.TypeOf((*MockMachine)(nil).ApplicationNames))
 }
 
+// Base mocks base method.
+func (m *MockMachine) Base() state.Base {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Base")
+	ret0, _ := ret[0].(state.Base)
+	return ret0
+}
+
+// Base indicates an expected call of Base.
+func (mr *MockMachineMockRecorder) Base() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Base", reflect.TypeOf((*MockMachine)(nil).Base))
+}
+
 // CompleteUpgradeSeries mocks base method.
 func (m *MockMachine) CompleteUpgradeSeries() error {
 	m.ctrl.T.Helper()
@@ -571,7 +585,7 @@ func (mr *MockMachineMockRecorder) Containers() *gomock.Call {
 }
 
 // CreateUpgradeSeriesLock mocks base method.
-func (m *MockMachine) CreateUpgradeSeriesLock(arg0 []string, arg1 string) error {
+func (m *MockMachine) CreateUpgradeSeriesLock(arg0 []string, arg1 state.Base) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateUpgradeSeriesLock", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -727,20 +741,6 @@ func (m *MockMachine) RemoveUpgradeSeriesLock() error {
 func (mr *MockMachineMockRecorder) RemoveUpgradeSeriesLock() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUpgradeSeriesLock", reflect.TypeOf((*MockMachine)(nil).RemoveUpgradeSeriesLock))
-}
-
-// Series mocks base method.
-func (m *MockMachine) Series() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Series")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// Series indicates an expected call of Series.
-func (mr *MockMachineMockRecorder) Series() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Series", reflect.TypeOf((*MockMachine)(nil).Series))
 }
 
 // SetInstanceStatus mocks base method.

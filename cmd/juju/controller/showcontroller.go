@@ -302,10 +302,6 @@ type ShowControllerDetails struct {
 
 // ControllerDetails holds details of a controller to show.
 type ControllerDetails struct {
-	// TODO(anastasiamac 2018-08-10) This is a deprecated property, see lp#1596607.
-	// It was added for backward compatibility, lp#1786061, to be removed for Juju 3.
-	OldControllerUUID string `yaml:"uuid" json:"-"`
-
 	// ControllerUUID is the unique ID for the controller.
 	ControllerUUID string `yaml:"controller-uuid" json:"uuid"`
 
@@ -320,8 +316,8 @@ type ControllerDetails struct {
 
 	// AgentVersion is the version of the agent running on this controller.
 	// AgentVersion need not always exist so we omitempty here. This struct is
-	// used in both list-controller and show-controller. show-controller
-	// displays the agent version where list-controller does not.
+	// used in both controllers and show-controller. show-controller
+	// displays the agent version where controllers does not.
 	AgentVersion string `yaml:"agent-version,omitempty" json:"agent-version,omitempty"`
 
 	// AgentGitCommit is the git commit hash used to build the controller binary.
@@ -362,10 +358,6 @@ type MachineDetails struct {
 
 // ModelDetails holds details of a model to show.
 type ModelDetails struct {
-	// TODO(anastasiamac 2018-08-10) This is a deprecated property, see lp#1596607.
-	// It was added for backward compatibility, lp#1786061, to be removed for Juju 3.
-	OldModelUUID string `yaml:"uuid" json:"-"`
-
 	// ModelUUID holds the details of a model.
 	ModelUUID string `yaml:"model-uuid" json:"uuid"`
 
@@ -408,7 +400,6 @@ func (c *showControllerCommand) convertControllerForShow(
 
 	controller.Details = ControllerDetails{
 		ControllerUUID:         details.ControllerUUID,
-		OldControllerUUID:      details.ControllerUUID,
 		APIEndpoints:           details.APIEndpoints,
 		CACert:                 details.CACert,
 		CAFingerprint:          caFingerprint,
@@ -479,10 +470,10 @@ func (c *showControllerCommand) convertModelsForShow(
 		controller.Errors = append(controller.Errors, "model status incomplete")
 	}
 	for i, m := range models {
+		modelDetails := ModelDetails{ModelUUID: m.UUID}
 		if i >= len(modelStatus) {
 			continue
 		}
-		modelDetails := ModelDetails{ModelUUID: m.UUID, OldModelUUID: m.UUID}
 		result := modelStatus[i]
 		if result.Error != nil {
 			if !errors.IsNotFound(result.Error) {

@@ -7,11 +7,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -118,7 +117,7 @@ type mockResources struct {
 
 func (m *mockResources) OpenResource(applicationID string, name string) (resources.Resource, io.ReadCloser, error) {
 	out, err := json.Marshal(m.resource)
-	return resources.Resource{}, ioutil.NopCloser(bytes.NewBuffer(out)), err
+	return resources.Resource{}, io.NopCloser(bytes.NewBuffer(out)), err
 }
 
 type mockStorageRegistry struct {
@@ -197,7 +196,7 @@ type mockApplication struct {
 	life                 state.Life
 	tag                  names.Tag
 	password             string
-	series               string
+	base                 state.Base
 	charm                caasapplicationprovisioner.Charm
 	units                []*mockUnit
 	constraints          constraints.Value
@@ -209,6 +208,12 @@ type mockApplication struct {
 	unitsWatcher         *statetesting.MockStringsWatcher
 	unitsChanges         chan []string
 	watcher              *statetesting.MockNotifyWatcher
+	charmPending         bool
+}
+
+func (a *mockApplication) CharmPendingToBeDownloaded() bool {
+	a.MethodCall(a, "CharmPendingToBeDownloaded")
+	return a.charmPending
 }
 
 func (a *mockApplication) Tag() names.Tag {
@@ -284,9 +289,9 @@ func (a *mockApplication) Name() string {
 	return a.tag.Id()
 }
 
-func (a *mockApplication) Series() string {
-	a.MethodCall(a, "Series")
-	return a.series
+func (a *mockApplication) Base() state.Base {
+	a.MethodCall(a, "Base")
+	return a.base
 }
 
 func (a *mockApplication) SetOperatorStatus(statusInfo status.StatusInfo) error {

@@ -9,8 +9,7 @@ import (
 	"time" // Only used for time types.
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/mgorootkeystore"
-	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v3"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -58,7 +57,7 @@ func (s *StorageSuite) SetUpTest(c *gc.C) {
 			s.PopNoErr()
 			return &s.collection, s.closeCollection
 		},
-		GetStorage: func(rootKeys *mgorootkeystore.RootKeys, coll mongo.Collection, expireAfter time.Duration) bakery.RootKeyStore {
+		GetStorage: func(rootKeys *RootKeys, coll mongo.Collection, expireAfter time.Duration) bakery.RootKeyStore {
 			s.AddCall("GetStorage", coll, expireAfter)
 			s.PopNoErr()
 			return s.memStorage

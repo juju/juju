@@ -72,7 +72,7 @@ func SetupToStartMachine(
 	p ProvisionerTask,
 	machine apiprovisioner.MachineProvisioner,
 	version *version.Number,
-	pInfoResult params.ProvisioningInfoResultV10,
+	pInfoResult params.ProvisioningInfoResult,
 ) (environs.StartInstanceParams, error) {
 	return p.(*provisionerTask).setupToStartMachine(machine, version, pInfoResult)
 }

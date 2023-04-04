@@ -102,7 +102,7 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	w, err := machine.WatchUnits()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.
@@ -134,7 +134,7 @@ func (s *deployerSuite) TestUnit(c *gc.C) {
 
 	// Try getting a unit we're not responsible for.
 	// First create a new machine and deploy another unit there.
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	principal1, err := s.app0.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)

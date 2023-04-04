@@ -69,7 +69,7 @@ func (s *rebootSuite) setUpMachine(c *gc.C, machine *state.Machine) *machines {
 	c.Check(resourceMachine, gc.NotNil)
 
 	w := resourceMachine.(state.NotifyWatcher)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertNoChange()
 
 	return &machines{
@@ -88,11 +88,11 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 	var err error
 
 	template := state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXD)

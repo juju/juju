@@ -5,19 +5,17 @@ package jujuclient
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/proxy"
+	proxyfactory "github.com/juju/juju/proxy/factory"
 )
-
-var logger = loggo.GetLogger("juju.jujuclient")
 
 // For testing purposes.
 var NewProxierFactory = newProxierFactory
 
 func newProxierFactory() (ProxyFactory, error) {
-	return proxy.NewDefaultFactory()
+	return proxyfactory.NewDefaultFactory()
 }
 
 // ProxyFactory defines the interface for a factory that can create a proxy.
@@ -62,7 +60,6 @@ func (p *ProxyConfWrapper) UnmarshalYAML(unmarshal func(interface{}) error) erro
 	if err != nil {
 		return errors.Annotate(err, "unmarshalling raw proxy config")
 	}
-	logger.Debugf("unmarshalled proxy config for %q", pc.Type)
 	p.Proxier, err = factory.ProxierFromConfig(pc.Type, pc.Config)
 	if err != nil {
 		return errors.Annotatef(err, "cannot make proxier for type %s", pc.Type)

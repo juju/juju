@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -17,6 +16,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/state"
 )
 
 // CharmhubClient represents a way for querying the charmhub api for information
@@ -25,55 +25,55 @@ type CharmhubClient interface {
 	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
 }
 
-// UpdateSeries defines an interface for interacting with updating a series.
-type UpdateSeries interface {
+// UpdateBase defines an interface for interacting with updating a base.
+type UpdateBase interface {
 
-	// UpdateSeries attempts to update an application series for deploying new
+	// UpdateBase attempts to update an application base for deploying new
 	// units.
-	UpdateSeries(string, string, bool) error
+	UpdateBase(string, coreseries.Base, bool) error
 }
 
-// UpdateSeriesState defines a common set of functions for retrieving state
+// UpdateBaseState defines a common set of functions for retrieving state
 // objects.
-type UpdateSeriesState interface {
-	// ApplicationsFromMachine returns a list of all the applications for a
+type UpdateBaseState interface {
+	// Application returns a list of all the applications for a
 	// given machine. This includes all the subordinates.
 	Application(string) (Application, error)
 }
 
-// UpdateSeriesValidator defines an application validator.
-type UpdateSeriesValidator interface {
+// UpdateBaseValidator defines an application validator.
+type UpdateBaseValidator interface {
 	// ValidateApplication attempts to validate an application for
-	// a given series. Using force to allow the overriding of the error to
+	// a given base. Using force to allow the overriding of the error to
 	// ensure all application validate.
 	//
 	// I do question if you actually need to validate anything if force is
 	// employed here?
-	ValidateApplication(application Application, series string, force bool) error
+	ValidateApplication(application Application, base coreseries.Base, force bool) error
 }
 
-// UpdateSeriesAPI provides the update series API facade for any given version.
+// UpdateBaseAPI provides the update series API facade for any given version.
 // It is expected that any API parameter changes should be performed before
 // entering the API.
-type UpdateSeriesAPI struct {
-	state     UpdateSeriesState
-	validator UpdateSeriesValidator
+type UpdateBaseAPI struct {
+	state     UpdateBaseState
+	validator UpdateBaseValidator
 }
 
-// NewUpdateSeriesAPI creates a new UpdateSeriesAPI
-func NewUpdateSeriesAPI(
-	state UpdateSeriesState,
-	validator UpdateSeriesValidator,
-) *UpdateSeriesAPI {
-	return &UpdateSeriesAPI{
+// NewUpdateBaseAPI creates a new UpdateBaseAPI
+func NewUpdateBaseAPI(
+	state UpdateBaseState,
+	validator UpdateBaseValidator,
+) *UpdateBaseAPI {
+	return &UpdateBaseAPI{
 		state:     state,
 		validator: validator,
 	}
 }
 
-func (a *UpdateSeriesAPI) UpdateSeries(tag, series string, force bool) error {
-	if series == "" {
-		return errors.BadRequestf("series missing from args")
+func (a *UpdateBaseAPI) UpdateBase(tag string, base coreseries.Base, force bool) error {
+	if base.String() == "" {
+		return errors.BadRequestf("base missing from args")
 	}
 	applicationTag, err := names.ParseApplicationTag(tag)
 	if err != nil {
@@ -90,35 +90,37 @@ func (a *UpdateSeriesAPI) UpdateSeries(tag, series string, force bool) error {
 		}
 	}
 
-	if err := a.validator.ValidateApplication(app, series, force); err != nil {
+	if err := a.validator.ValidateApplication(app, base, force); err != nil {
 		return errors.Trace(err)
 	}
 
-	return app.UpdateApplicationSeries(series, force)
+	return app.UpdateApplicationBase(state.Base{
+		OS: base.OS, Channel: base.Channel.String(),
+	}, force)
 }
 
 type updateSeriesValidator struct {
-	localValidator  UpdateSeriesValidator
-	removeValidator UpdateSeriesValidator
+	localValidator  UpdateBaseValidator
+	remoteValidator UpdateBaseValidator
 }
 
 func makeUpdateSeriesValidator(client CharmhubClient) updateSeriesValidator {
 	return updateSeriesValidator{
 		localValidator: stateSeriesValidator{},
-		removeValidator: charmhubSeriesValidator{
+		remoteValidator: charmhubSeriesValidator{
 			client: client,
 		},
 	}
 }
 
-func (s updateSeriesValidator) ValidateApplication(app Application, series string, force bool) error {
+func (s updateSeriesValidator) ValidateApplication(app Application, base coreseries.Base, force bool) error {
 	// This is not a charmhub charm, so we can fallback to querying state
 	// for the supported series.
 	if origin := app.CharmOrigin(); origin == nil || !corecharm.CharmHub.Matches(origin.Source) {
-		return s.localValidator.ValidateApplication(app, series, force)
+		return s.localValidator.ValidateApplication(app, base, force)
 	}
 
-	return s.removeValidator.ValidateApplication(app, series, force)
+	return s.remoteValidator.ValidateApplication(app, base, force)
 }
 
 // stateSeriesValidator validates an application using the state (database)
@@ -127,9 +129,9 @@ func (s updateSeriesValidator) ValidateApplication(app Application, series strin
 // When making changes here, review the copy for required changes as well.
 type stateSeriesValidator struct{}
 
-// ValidateApplications attempts to validate a series of applications for
-// a given series.
-func (s stateSeriesValidator) ValidateApplication(application Application, series string, force bool) error {
+// ValidateApplication attempts to validate an applications for
+// a given base.
+func (s stateSeriesValidator) ValidateApplication(application Application, base coreseries.Base, force bool) error {
 	ch, _, err := application.Charm()
 	if err != nil {
 		return errors.Trace(err)
@@ -141,7 +143,11 @@ func (s stateSeriesValidator) ValidateApplication(application Application, serie
 	if len(supportedSeries) == 0 {
 		supportedSeries = append(supportedSeries, ch.URL().Series)
 	}
-	_, seriesSupportedErr := charm.SeriesForCharm(series, supportedSeries)
+	series, err := coreseries.GetSeriesFromChannel(base.OS, base.Channel.String())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	_, seriesSupportedErr := corecharm.SeriesForCharm(series, supportedSeries)
 	if seriesSupportedErr != nil && !force {
 		// TODO (stickupkid): Once all commands are placed in this API, we
 		// should relocate these to the API server.
@@ -156,9 +162,9 @@ type charmhubSeriesValidator struct {
 	client CharmhubClient
 }
 
-// ValidateApplications attempts to validate a series of applications for
-// a given series.
-func (s charmhubSeriesValidator) ValidateApplication(application Application, series string, force bool) error {
+// ValidateApplication attempts to validate an application for
+// a given base.
+func (s charmhubSeriesValidator) ValidateApplication(application Application, base coreseries.Base, force bool) error {
 	// We can be assured that the charm origin is not nil, because we
 	// guarded against it before.
 	origin := application.CharmOrigin()
@@ -181,15 +187,12 @@ func (s charmhubSeriesValidator) ValidateApplication(application Application, se
 	}
 	for _, resp := range refreshResp {
 		if err := resp.Error; err != nil && !force {
-			return errors.Annotatef(err, "unable to locate application with series %s", series)
+			return errors.Annotatef(err, "unable to locate application with base %s", base.DisplayString())
 		}
 	}
 	// DownloadOneFromRevision does not take a base, however the response contains the bases
 	// supported by the given revision.  Validate against provided series.
-	channelToValidate, err := coreseries.SeriesVersion(series)
-	if err != nil {
-		return errors.Trace(err)
-	}
+	channelToValidate := base.Channel.Track
 	for _, resp := range refreshResp {
 		var found bool
 		for _, base := range resp.Entity.Bases {
@@ -199,7 +202,7 @@ func (s charmhubSeriesValidator) ValidateApplication(application Application, se
 			}
 		}
 		if !found {
-			return errors.Errorf("charm %q does not support %s, force not used", resp.Name, series)
+			return errors.Errorf("charm %q does not support %s, force not used", resp.Name, base.DisplayString())
 		}
 	}
 	return nil

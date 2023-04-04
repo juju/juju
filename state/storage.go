@@ -9,17 +9,17 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
-	jujutxn "github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/storage"
@@ -756,7 +756,7 @@ func createStorageOps(
 	entityTag names.Tag,
 	charmMeta *charm.Meta,
 	cons map[string]StorageConstraints,
-	series string,
+	osname string,
 	maybeMachineAssignable machineAssignable,
 ) (ops []txn.Op, storageTags map[string][]names.StorageTag, numStorageAttachments int, err error) {
 
@@ -849,7 +849,7 @@ func createStorageOps(
 				if maybeMachineAssignable != nil {
 					var err error
 					hostStorageOps, err = unitAssignedMachineStorageOps(
-						sb, unitTag, charmMeta, series,
+						sb, charmMeta, osname,
 						storageInstance,
 						maybeMachineAssignable,
 					)
@@ -864,7 +864,7 @@ func createStorageOps(
 				// as there's no machine for the unit to be assigned to.
 				if sb.modelType == ModelTypeCAAS {
 					storageParams, err := storageParamsForStorageInstance(
-						sb, charmMeta, unitTag, series, storageInstance,
+						sb, charmMeta, osname, storageInstance,
 					)
 					if err != nil {
 						return fail(errors.Trace(err))
@@ -903,9 +903,8 @@ func createStorageOps(
 // this, and no error will be returned.
 func unitAssignedMachineStorageOps(
 	sb *storageBackend,
-	unitTag names.UnitTag,
 	charmMeta *charm.Meta,
-	series string,
+	osname string,
 	storage *storageInstance,
 	machineAssignable machineAssignable,
 ) (ops []txn.Op, err error) {
@@ -921,7 +920,7 @@ func unitAssignedMachineStorageOps(
 	}
 
 	storageParams, err := storageParamsForStorageInstance(
-		sb, charmMeta, unitTag, series, storage,
+		sb, charmMeta, osname, storage,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1042,7 +1041,11 @@ func (sb *storageBackend) AttachStorage(storage names.StorageTag, unit names.Uni
 		if err != nil {
 			return nil, errors.Annotate(err, "getting charm")
 		}
-		ops, err := sb.attachStorageOps(si, u.UnitTag(), u.Series(), ch, u)
+		uSeries, err := series.GetSeriesFromChannel(u.Base().OS, u.Base().Channel)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops, err := sb.attachStorageOps(si, u.UnitTag(), uSeries, ch, u)
 		if errors.IsAlreadyExists(err) {
 			return nil, jujutxn.ErrNoOperations
 		}
@@ -1088,7 +1091,7 @@ func (sb *storageBackend) AttachStorage(storage names.StorageTag, unit names.Uni
 func (sb *storageBackend) attachStorageOps(
 	si *storageInstance,
 	unitTag names.UnitTag,
-	unitSeries string,
+	osName string,
 	ch *Charm,
 	maybeMachineAssignable machineAssignable,
 ) ([]txn.Op, error) {
@@ -1159,7 +1162,7 @@ func (sb *storageBackend) attachStorageOps(
 
 	if maybeMachineAssignable != nil {
 		machineStorageOps, err := unitAssignedMachineStorageOps(
-			sb, unitTag, charmMeta, unitSeries, si,
+			sb, charmMeta, osName, si,
 			maybeMachineAssignable,
 		)
 		if err != nil {
@@ -1877,10 +1880,9 @@ func validateStoragePool(
 			*machineId = ""
 		}
 	}
-
-	// Validate any k8s config.
+	//
 	if sb.modelType == ModelTypeCAAS {
-		if err := k8sprovider.ValidateStorageProvider(providerType, poolConfig); err != nil {
+		if err := aProvider.ValidateForK8s(poolConfig); err != nil {
 			return errors.Annotatef(err, "invalid storage config")
 		}
 	}
@@ -2200,12 +2202,16 @@ func (sb *storageBackend) addUnitStorageOps(
 	}
 
 	// Create storage db operations
+	sSeries, err := series.GetSeriesFromChannel(u.Base().OS, u.Base().Channel)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 	storageOps, storageTags, _, err := createStorageOps(
 		sb,
 		u.Tag(),
 		charmMeta,
 		map[string]StorageConstraints{storageName: cons},
-		u.Series(),
+		sSeries,
 		u,
 	)
 	if err != nil {

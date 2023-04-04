@@ -5,11 +5,11 @@ package resource_test
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -45,7 +45,7 @@ func (s *CharmHubSuite) TestGetResource(c *gc.C) {
 				Platform: &state.Platform{
 					Architecture: "amd64",
 					OS:           "ubuntu",
-					Series:       "focal",
+					Channel:      "20.04/stable",
 				},
 			},
 		},
@@ -72,7 +72,7 @@ func (s *CharmHubSuite) newCharmHubClient() *resource.CharmHubClient {
 }
 
 func (s *CharmHubSuite) expectDownloadResource() {
-	s.client.EXPECT().DownloadResource(gomock.Any(), gomock.Any()).Return(ioutil.NopCloser(bytes.NewBuffer([]byte{})), nil)
+	s.client.EXPECT().DownloadResource(gomock.Any(), gomock.Any()).Return(io.NopCloser(bytes.NewBuffer([]byte{})), nil)
 }
 
 func (s *CharmHubSuite) expectRefresh() {

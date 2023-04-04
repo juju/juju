@@ -4,7 +4,6 @@
 package series
 
 import (
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -37,10 +36,10 @@ func (s *SupportedSeriesSuite) TestSeriesForTypes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctrlSeries := info.controllerSeries()
-	c.Assert(ctrlSeries, jc.DeepEquals, []string{"kinetic", "jammy", "focal", "bionic", "xenial", "trusty"})
+	c.Assert(ctrlSeries, jc.DeepEquals, []string{"jammy", "focal"})
 
 	wrkSeries := info.workloadSeries(false)
-	c.Assert(wrkSeries, jc.DeepEquals, []string{"kinetic", "jammy", "focal", "bionic", "xenial", "trusty", "centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap", "win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2016", "win2016hv", "win2016nano", "win2019", "win7", "win8", "win81"})
+	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "centos9", "centos8", "centos7", "genericlinux", "kubernetes", "opensuseleap"})
 }
 
 func (s *SupportedSeriesSuite) TestSeriesForTypesUsingImageStream(c *gc.C) {
@@ -53,10 +52,10 @@ func (s *SupportedSeriesSuite) TestSeriesForTypesUsingImageStream(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctrlSeries := info.controllerSeries()
-	c.Assert(ctrlSeries, jc.DeepEquals, []string{"kinetic", "jammy", "focal", "bionic", "xenial", "trusty"})
+	c.Assert(ctrlSeries, jc.DeepEquals, []string{"jammy", "focal"})
 
 	wrkSeries := info.workloadSeries(false)
-	c.Assert(wrkSeries, jc.DeepEquals, []string{"kinetic", "jammy", "focal", "bionic", "xenial", "trusty", "centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap", "win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2016", "win2016hv", "win2016nano", "win2019", "win7", "win8", "win81"})
+	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "centos9", "centos8", "centos7", "genericlinux", "kubernetes", "opensuseleap"})
 }
 
 func (s *SupportedSeriesSuite) TestSeriesForTypesUsingInvalidImageStream(c *gc.C) {
@@ -69,10 +68,10 @@ func (s *SupportedSeriesSuite) TestSeriesForTypesUsingInvalidImageStream(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctrlSeries := info.controllerSeries()
-	c.Assert(ctrlSeries, jc.DeepEquals, []string{"kinetic", "jammy", "focal", "bionic", "xenial", "trusty"})
+	c.Assert(ctrlSeries, jc.DeepEquals, []string{"jammy", "focal"})
 
 	wrkSeries := info.workloadSeries(false)
-	c.Assert(wrkSeries, jc.DeepEquals, []string{"kinetic", "jammy", "focal", "bionic", "xenial", "trusty", "centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap", "win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2016", "win2016hv", "win2016nano", "win2019", "win7", "win8", "win81"})
+	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "centos9", "centos8", "centos7", "genericlinux", "kubernetes", "opensuseleap"})
 }
 
 func (s *SupportedSeriesSuite) TestSeriesForTypesUsingInvalidSeries(c *gc.C) {
@@ -85,10 +84,10 @@ func (s *SupportedSeriesSuite) TestSeriesForTypesUsingInvalidSeries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctrlSeries := info.controllerSeries()
-	c.Assert(ctrlSeries, jc.DeepEquals, []string{"kinetic", "jammy", "focal", "bionic", "xenial", "trusty"})
+	c.Assert(ctrlSeries, jc.DeepEquals, []string{"jammy", "focal"})
 
 	wrkSeries := info.workloadSeries(false)
-	c.Assert(wrkSeries, jc.DeepEquals, []string{"kinetic", "jammy", "focal", "bionic", "xenial", "trusty", "centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap", "win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2016", "win2016hv", "win2016nano", "win2019", "win7", "win8", "win81"})
+	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "centos9", "centos8", "centos7", "genericlinux", "kubernetes", "opensuseleap"})
 }
 
 var getOSFromSeriesTests = []struct {
@@ -98,12 +97,6 @@ var getOSFromSeriesTests = []struct {
 }{{
 	series: "precise",
 	want:   coreos.Ubuntu,
-}, {
-	series: "win2012r2",
-	want:   coreos.Windows,
-}, {
-	series: "win2016nano",
-	want:   coreos.Windows,
 }, {
 	series: "mountainlion",
 	want:   coreos.OSX,
@@ -143,22 +136,6 @@ func (s *SupportedSeriesSuite) TestUnknownOSFromSeries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown OS for series: "Xuanhuaceratops"`)
 }
 
-func (s *SupportedSeriesSuite) TestVersionSeriesValid(c *gc.C) {
-	seriesResult, err := VersionSeries("14.04")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert("trusty", gc.DeepEquals, seriesResult)
-}
-
-func (s *SupportedSeriesSuite) TestVersionSeriesEmpty(c *gc.C) {
-	_, err := VersionSeries("")
-	c.Assert(err, gc.ErrorMatches, `.*unknown series for version: "".*`)
-}
-
-func (s *SupportedSeriesSuite) TestVersionSeriesInvalid(c *gc.C) {
-	_, err := VersionSeries("73655")
-	c.Assert(err, gc.ErrorMatches, `.*unknown series for version: "73655".*`)
-}
-
 func (s *SupportedSeriesSuite) TestSeriesVersionEmpty(c *gc.C) {
 	_, err := SeriesVersion("")
 	c.Assert(err, gc.ErrorMatches, `.*unknown version for series: "".*`)
@@ -168,7 +145,7 @@ func boolPtr(b bool) *bool {
 	return &b
 }
 
-func (s *SupportedSeriesSuite) TestGetOSVersionFromSeries(c *gc.C) {
+func (s *SupportedSeriesSuite) TestGetBaseFromSeries(c *gc.C) {
 	vers, err := GetBaseFromSeries("jammy")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vers, jc.DeepEquals, MakeDefaultBase("ubuntu", "22.04"))
@@ -176,7 +153,7 @@ func (s *SupportedSeriesSuite) TestGetOSVersionFromSeries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `series "unknown" not valid`)
 	vers, err = GetBaseFromSeries("centos7")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vers, jc.DeepEquals, MakeDefaultBase("centos", "centos7"))
+	c.Assert(vers, jc.DeepEquals, MakeDefaultBase("centos", "7"))
 }
 
 func (s *SupportedSeriesSuite) TestGetSeriesFromOSVersion(c *gc.C) {
@@ -185,7 +162,7 @@ func (s *SupportedSeriesSuite) TestGetSeriesFromOSVersion(c *gc.C) {
 	c.Assert(series, gc.Equals, "jammy")
 	_, err = GetSeriesFromChannel("bad", "22.04")
 	c.Assert(err, gc.ErrorMatches, `os "bad" version "22.04" not found`)
-	series, err = GetSeriesFromChannel("centos", "centos7")
+	series, err = GetSeriesFromChannel("centos", "7/stable")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(series, gc.Equals, "centos7")
 }
@@ -323,7 +300,7 @@ func (s *SupportedSeriesSuite) TestUbuntuVersions(c *gc.C) {
 }
 
 func makeTempFile(c *gc.C, content string) (*os.File, func()) {
-	tmpfile, err := ioutil.TempFile("", "distroinfo")
+	tmpfile, err := os.CreateTemp("", "distroinfo")
 	if err != nil {
 		c.Assert(err, jc.ErrorIsNil)
 	}

@@ -14,7 +14,6 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc/params"
@@ -84,8 +83,8 @@ func (st *State) machineLife(tag names.MachineTag) (life.Value, error) {
 }
 
 // ProvisioningInfo implements MachineProvisioner.ProvisioningInfo.
-func (st *State) ProvisioningInfo(machineTags []names.MachineTag) (params.ProvisioningInfoResultsV10, error) {
-	var results params.ProvisioningInfoResultsV10
+func (st *State) ProvisioningInfo(machineTags []names.MachineTag) (params.ProvisioningInfoResults, error) {
+	var results params.ProvisioningInfoResults
 	args := params.Entities{Entities: transform.Slice(machineTags, func(t names.MachineTag) params.Entity {
 		return params.Entity{Tag: t.String()}
 	})}
@@ -159,31 +158,8 @@ func (st *State) ContainerManagerConfig(args params.ContainerManagerConfigParams
 // ContainerConfig returns information from the model config that is
 // needed for container cloud-init.
 func (st *State) ContainerConfig() (result params.ContainerConfig, err error) {
-	if st.facade.BestAPIVersion() < 6 {
-		return st.containerConfigV5()
-	}
 	err = st.facade.FacadeCall("ContainerConfig", nil, &result)
 	return result, err
-}
-
-func (st *State) containerConfigV5() (params.ContainerConfig, error) {
-	var result params.ContainerConfigV5
-	if err := st.facade.FacadeCall("ContainerConfig", nil, &result); err != nil {
-		return params.ContainerConfig{}, err
-	}
-	return params.ContainerConfig{
-		ProviderType:            result.ProviderType,
-		AuthorizedKeys:          result.AuthorizedKeys,
-		SSLHostnameVerification: result.SSLHostnameVerification,
-		LegacyProxy:             result.Proxy,
-		AptProxy:                result.AptProxy,
-		// JujuProxy is zero value.
-		// SnapProxy is zero value,
-		AptMirror:                  result.AptMirror,
-		CloudInitUserData:          result.CloudInitUserData,
-		ContainerInheritProperties: result.ContainerInheritProperties,
-		UpdateBehavior:             result.UpdateBehavior,
-	}, nil
 }
 
 // MachinesWithTransientErrors returns a slice of machines and corresponding status information
@@ -211,12 +187,10 @@ func (st *State) MachinesWithTransientErrors() ([]MachineStatusResult, error) {
 
 // FindTools returns al ist of tools matching the specified version number and
 // series, and, arch. If arch is blank, a default will be used.
-func (st *State) FindTools(v version.Number, series string, arch string) (tools.List, error) {
+func (st *State) FindTools(v version.Number, os string, arch string) (tools.List, error) {
 	args := params.FindToolsParams{
-		Number:       v,
-		OSType:       coreseries.DefaultOSTypeNameFromSeries(series),
-		MajorVersion: -1,
-		MinorVersion: -1,
+		Number: v,
+		OSType: os,
 	}
 	if arch != "" {
 		args.Arch = arch

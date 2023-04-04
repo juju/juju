@@ -63,16 +63,14 @@ run_model_migration_version() {
 	export JUJU_VERSION=$juju_version_without_build_number
 	major_minor=$(echo "$JUJU_VERSION" | cut -d'-' -f1 | cut -d'.' -f1,2)
 
-	# test against beta channel for devel
-	# TODO: change back to stable once 3.0 released.
-	# channel="$major_minor/beta"  # 3.0
-	channel="$major_minor/stable" # 2.9
+	# test against 3.0/stable channel for 3.0 and develop branch.
+	channel="$major_minor/stable"
 
 	stable_version=$(snap info juju | yq ".channels[\"$channel\"]" | cut -d' ' -f1)
 	echo "stable_version ==> $stable_version"
 	if [[ $stable_version == "--" || $stable_version == null ]]; then
 		echo "==> SKIP: run_model_migration_version because $channel is not published yet!"
-		exit 0
+		return
 	fi
 	export JUJU_VERSION=$stable_version
 
@@ -83,7 +81,7 @@ run_model_migration_version() {
 
 	juju --show-log deploy easyrsa
 	juju --show-log deploy etcd
-	juju --show-log add-relation etcd easyrsa
+	juju --show-log integrate etcd easyrsa
 	juju --show-log add-unit -n 2 etcd
 
 	wait_for "active" '.applications["easyrsa"] | ."application-status".current'
@@ -97,8 +95,7 @@ run_model_migration_version() {
 	wait_for "active" "$(workload_status "etcd" 1).current"
 	wait_for "active" "$(workload_status "etcd" 2).current"
 
-	# juju --show-log run etcd/0 etcd/1 etcd/2 --wait=5m health  # 3.0
-	juju --show-log run-action etcd/0 etcd/1 etcd/2 --wait=5m health # 2.9
+	juju --show-log run etcd/0 etcd/1 etcd/2 --wait=5m health
 
 	juju --show-log migrate "model-migration-version-stable" "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
 	juju --show-log switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
@@ -128,8 +125,7 @@ run_model_migration_version() {
 	wait_for "active" "$(workload_status "etcd" 3).current"
 	wait_for "active" "$(workload_status "etcd" 4).current"
 
-	# juju --show-log run etcd/0 etcd/1 etcd/2 etcd/3 etcd/4 --wait=10m health  # 3.0
-	juju --show-log run-action etcd/0 etcd/1 etcd/2 etcd/3 etcd/4 --wait=10m health # 2.9
+	juju --show-log run etcd/0 etcd/1 etcd/2 etcd/3 etcd/4 --wait=10m health
 
 	# Clean up.
 	destroy_controller "alt-model-migration-version-stable"
@@ -173,6 +169,9 @@ run_model_migration_saas_common() {
 	# ERROR source prechecks failed: unit dummy-source/0 hasn't joined relation "dummy-source:sink remote-abaa4396b3ae409981ad83d1d04af21f:source" yet
 	wait_for "dummy-source" '.applications["dummy-sink"] | .relations.source[0]'
 	sleep 30
+
+	juju switch "model-migration-saas"
+	wait_for "1" '.offers["dummy-source"]["active-connected-count"]'
 
 	juju --show-log migrate "model-migration-saas" "alt-model-migration-saas"
 	sleep 5
@@ -239,6 +238,8 @@ run_model_migration_saas_external() {
 	sleep 30
 
 	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+	wait_for "1" '.offers["dummy-source"]["active-connected-count"]'
+
 	juju --show-log migrate "model-migration-saas" "model-migration-saas-target"
 	sleep 5
 	juju switch "model-migration-saas-target"

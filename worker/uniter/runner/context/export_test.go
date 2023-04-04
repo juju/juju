@@ -4,7 +4,7 @@
 package context
 
 import (
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/rpc/params"
+	jujusecrets "github.com/juju/juju/secrets"
 	"github.com/juju/juju/worker/uniter/runner/context/mocks"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -35,30 +36,46 @@ type HookContextParams struct {
 	AssignedMachineTag  names.MachineTag
 	Storage             StorageContextAccessor
 	StorageTag          names.StorageTag
+	SecretsClient       SecretsAccessor
+	SecretsStore        jujusecrets.Backend
+	SecretMetadata      map[string]jujuc.SecretMetadata
 	Paths               Paths
 	Clock               Clock
 }
 
+type stubLeadershipContext struct {
+	LeadershipContext
+	isLeader bool
+}
+
+func (stub *stubLeadershipContext) IsLeader() (bool, error) {
+	return stub.isLeader, nil
+}
+
 func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	ctx := &HookContext{
-		unit:                hcParams.Unit,
-		state:               hcParams.State,
-		id:                  hcParams.ID,
-		uuid:                hcParams.UUID,
-		modelName:           hcParams.ModelName,
-		unitName:            hcParams.Unit.Name(),
-		relationId:          hcParams.RelationID,
-		remoteUnitName:      hcParams.RemoteUnitName,
-		relations:           hcParams.Relations,
-		apiAddrs:            hcParams.APIAddrs,
-		legacyProxySettings: hcParams.LegacyProxySettings,
-		jujuProxySettings:   hcParams.JujuProxySettings,
-		actionData:          hcParams.ActionData,
-		assignedMachineTag:  hcParams.AssignedMachineTag,
-		storage:             hcParams.Storage,
-		storageTag:          hcParams.StorageTag,
-		clock:               hcParams.Clock,
-		logger:              loggo.GetLogger("test"),
+		unit:                 hcParams.Unit,
+		state:                hcParams.State,
+		id:                   hcParams.ID,
+		uuid:                 hcParams.UUID,
+		modelName:            hcParams.ModelName,
+		unitName:             hcParams.Unit.Name(),
+		relationId:           hcParams.RelationID,
+		remoteUnitName:       hcParams.RemoteUnitName,
+		relations:            hcParams.Relations,
+		apiAddrs:             hcParams.APIAddrs,
+		legacyProxySettings:  hcParams.LegacyProxySettings,
+		jujuProxySettings:    hcParams.JujuProxySettings,
+		actionData:           hcParams.ActionData,
+		assignedMachineTag:   hcParams.AssignedMachineTag,
+		storage:              hcParams.Storage,
+		storageTag:           hcParams.StorageTag,
+		secretsClient:        hcParams.SecretsClient,
+		secretsBackendGetter: func() (jujusecrets.Backend, error) { return hcParams.SecretsStore, nil },
+		secretMetadata:       hcParams.SecretMetadata,
+		clock:                hcParams.Clock,
+		logger:               loggo.GetLogger("test"),
+		LeadershipContext:    &stubLeadershipContext{isLeader: true},
 	}
 	// Get and cache the addresses.
 	var err error
@@ -79,6 +96,7 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 		return nil, errors.Trace(err)
 	}
 	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, hcParams.Unit.Tag(), machPorts)
+	ctx.secretChanges = newSecretsChangeRecorder(ctx.logger)
 
 	statusCode, statusInfo, err := hcParams.Unit.MeterStatus()
 	if err != nil {
@@ -91,24 +109,40 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	return ctx, nil
 }
 
-func NewMockUnitHookContext(unitName string, mockUnit *mocks.MockHookUnit) *HookContext {
+func NewMockUnitHookContext(mockUnit *mocks.MockHookUnit, leadership LeadershipContext) *HookContext {
 	logger := loggo.GetLogger("test")
 	return &HookContext{
-		unit:             mockUnit,
-		logger:           logger,
-		portRangeChanges: newPortRangeChangeRecorder(logger, names.NewUnitTag(unitName), nil),
+		unit:              mockUnit,
+		unitName:          mockUnit.Tag().Id(),
+		logger:            logger,
+		LeadershipContext: leadership,
+		portRangeChanges:  newPortRangeChangeRecorder(logger, mockUnit.Tag(), nil),
+		secretChanges:     newSecretsChangeRecorder(logger),
 	}
 }
 
-func NewMockUnitHookContextWithState(unitName string, mockUnit *mocks.MockHookUnit, state *uniter.State) *HookContext {
+func NewMockUnitHookContextWithState(mockUnit *mocks.MockHookUnit, state *uniter.State) *HookContext {
 	logger := loggo.GetLogger("test")
 	return &HookContext{
 		unitName:         mockUnit.Tag().Id(), //unitName used by the action finaliser method.
 		unit:             mockUnit,
 		state:            state,
 		logger:           logger,
-		portRangeChanges: newPortRangeChangeRecorder(logger, names.NewUnitTag(unitName), nil),
+		portRangeChanges: newPortRangeChangeRecorder(logger, mockUnit.Tag(), nil),
+		secretChanges:    newSecretsChangeRecorder(logger),
 	}
+}
+
+// SetEnvironmentHookContextSecret exists purely to set the fields used in hookVars.
+func SetEnvironmentHookContextSecret(
+	context *HookContext, secretURI string, metadata map[string]jujuc.SecretMetadata, client SecretsAccessor, backend jujusecrets.Backend,
+) {
+	context.secretURI = secretURI
+	context.secretLabel = "label-" + secretURI
+	context.secretRevision = 666
+	context.secretsClient = client
+	context.secretsBackend = backend
+	context.secretMetadata = metadata
 }
 
 // SetEnvironmentHookContextRelation exists purely to set the fields used in hookVars.
@@ -257,4 +291,32 @@ func CachedAppSettings(cf0 ContextFactory, relId int, appName string) (params.Se
 
 func (ctx *HookContext) SLALevel() string {
 	return ctx.slaLevel
+}
+
+func (ctx *HookContext) PendingSecretRemoves() []uniter.SecretDeleteArg {
+	return ctx.secretChanges.pendingDeletes
+}
+
+func (ctx *HookContext) PendingSecretCreates() []uniter.SecretCreateArg {
+	return ctx.secretChanges.pendingCreates
+}
+
+func (ctx *HookContext) PendingSecretUpdates() []uniter.SecretUpdateArg {
+	return ctx.secretChanges.pendingUpdates
+}
+
+func (ctx *HookContext) SetPendingSecretCreates(in []uniter.SecretCreateArg) {
+	ctx.secretChanges.pendingCreates = in
+}
+
+func (ctx *HookContext) SetPendingSecretUpdates(in []uniter.SecretUpdateArg) {
+	ctx.secretChanges.pendingUpdates = in
+}
+
+func (ctx *HookContext) PendingSecretGrants() []uniter.SecretGrantRevokeArgs {
+	return ctx.secretChanges.pendingGrants
+}
+
+func (ctx *HookContext) PendingSecretRevokes() []uniter.SecretGrantRevokeArgs {
+	return ctx.secretChanges.pendingRevokes
 }

@@ -59,9 +59,9 @@ run_deploy_cmr_bundle() {
 	destroy_model "test-cmr-bundles-deploy"
 }
 
-# run_deploy_exported_charmstore_bundle_with_fixed_revisions tests how juju deploys
-# a charmstore bundle that specifies revisions for its charms
-run_deploy_exported_charmstore_bundle_with_fixed_revisions() {
+# run_deploy_exported_charmhub_bundle_with_fixed_revisions tests how juju deploys
+# a charmhub bundle that specifies revisions for its charms
+run_deploy_exported_charmhub_bundle_with_fixed_revisions() {
 	echo
 
 	file="${TEST_DIR}/test-export-bundles-deploy-with-fixed-revisions.log"
@@ -118,13 +118,13 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 
 	echo "Create telegraf_bundle_without_revisions.yaml with known latest revisions from charmhub"
 	if [[ -n ${MODEL_ARCH:-} ]]; then
-		influxdb_rev=$(juju info influxdb --arch="${MODEL_ARCH}" --format json | jq -r '."channel-map"."latest/stable".revision')
-		telegraf_rev=$(juju info telegraf --arch="${MODEL_ARCH}" --format json | jq -r '."channel-map"."latest/stable".revision')
-		ubuntu_rev=$(juju info ubuntu --arch="${MODEL_ARCH}" --format json | jq -r '."channel-map"."latest/stable".revision')
+		influxdb_rev=$(juju info influxdb --arch="${MODEL_ARCH}" --format json | jq -r '."channels"."latest"."stable"[0].revision')
+		telegraf_rev=$(juju info telegraf --arch="${MODEL_ARCH}" --format json | jq -r '."channels"."latest"."stable"[0].revision')
+		ubuntu_rev=$(juju info ubuntu --arch="${MODEL_ARCH}" --format json | jq -r '."channels"."latest"."stable"[0].revision')
 	else
-		influxdb_rev=$(juju info influxdb --format json | jq -r '."channel-map"."latest/stable".revision')
-		telegraf_rev=$(juju info telegraf --format json | jq -r '."channel-map"."latest/stable".revision')
-		ubuntu_rev=$(juju info ubuntu --format json | jq -r '."channel-map"."latest/stable".revision')
+		influxdb_rev=$(juju info influxdb --format json | jq -r '."channels"."latest"."stable"[0].revision')
+		telegraf_rev=$(juju info telegraf --format json | jq -r '."channels"."latest"."stable"[0].revision')
+		ubuntu_rev=$(juju info ubuntu --format json | jq -r '."channels"."latest"."stable"[0].revision')
 	fi
 
 	echo "Make a copy of reference yaml and insert revisions in it"
@@ -166,7 +166,7 @@ run_deploy_trusted_bundle() {
 	OUT=$(juju deploy ${bundle} 2>&1 || true)
 	echo "${OUT}" | check "repeat the deploy command with the --trust argument"
 
-	juju deploy --trust ${bundle} --force # TODO: remove --force once "juju-qa-trust-checker" supports jammy.
+	juju deploy --trust ${bundle}
 
 	wait_for "trust-checker" "$(idle_condition "trust-checker")"
 
@@ -297,7 +297,7 @@ test_deploy_bundles() {
 
 		run "run_deploy_bundle"
 		run "run_deploy_bundle_overlay"
-		run "run_deploy_exported_charmstore_bundle_with_fixed_revisions"
+		run "run_deploy_exported_charmhub_bundle_with_fixed_revisions"
 		run "run_deploy_exported_charmhub_bundle_with_float_revisions"
 		run "run_deploy_trusted_bundle"
 		run "run_deploy_charmhub_bundle"

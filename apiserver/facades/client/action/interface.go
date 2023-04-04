@@ -15,7 +15,6 @@ type State interface {
 	AllApplications() ([]*state.Application, error)
 	AllMachines() ([]*state.Machine, error)
 	Application(name string) (*state.Application, error)
-	ApplicationLeaders() (map[string]string, error)
 	FindEntity(tag names.Tag) (state.Entity, error)
 	GetBlockForType(t state.BlockType) (state.Block, bool, error)
 	Model() (Model, error)
@@ -25,10 +24,9 @@ type State interface {
 // Model describes model state used by the action facade.
 type Model interface {
 	ActionByTag(tag names.ActionTag) (state.Action, error)
-	AddAction(receiver state.ActionReceiver, operationID, name string, payload map[string]interface{}) (state.Action, error)
+	AddAction(receiver state.ActionReceiver, operationID, name string, payload map[string]interface{}, parallel *bool, executionGroup *string) (state.Action, error)
 	EnqueueOperation(summary string, count int) (string, error)
 	FailOperationEnqueuing(operationID, failMessage string, count int) error
-	FindActionTagsById(idValue string) ([]names.ActionTag, error)
 	FindActionsByName(name string) ([]state.Action, error)
 	ListOperations(actionNames []string, actionReceivers []names.Tag, operationStatus []state.ActionStatus,
 		offset, limit int,
@@ -52,10 +50,6 @@ func (s *stateShim) AllMachines() ([]*state.Machine, error) {
 
 func (s *stateShim) Application(name string) (*state.Application, error) {
 	return s.st.Application(name)
-}
-
-func (s *stateShim) ApplicationLeaders() (map[string]string, error) {
-	return s.st.ApplicationLeaders()
 }
 
 func (s *stateShim) FindEntity(tag names.Tag) (state.Entity, error) {

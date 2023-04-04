@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -112,13 +112,10 @@ type helpToolCommand struct {
 
 func (t *helpToolCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "hook-tool",
+		Name:    "help-tool",
 		Args:    "[tool]",
 		Purpose: "Show help on a Juju charm hook tool.",
 		Doc:     helpToolDoc,
-		Aliases: []string{
-			"help-tool", // TODO (anastasimac 2017-11-1) This should be removed in Juju 3.
-			"hook-tools"},
 	})
 }
 
@@ -156,7 +153,7 @@ Examples:
 
     For help on a specific tool, supply the name of that tool, for example:
 
-        juju hook-tool unit-get
+        juju help-tool unit-get
 
 `, listHookTools())
 

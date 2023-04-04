@@ -6,7 +6,7 @@ package backups_test
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -17,7 +17,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/backups"
 	backupstesting "github.com/juju/juju/state/backups/testing"
 )
@@ -74,7 +73,7 @@ func (s *backupsSuite) checkFailure(c *gc.C, expected string) {
 	dbInfo := backups.DBInfo{
 		Address: "a", Username: "b", Password: "c",
 		Targets:      targets,
-		MongoVersion: mongo.Mongo32wt, ApproxSizeMB: s.dbSizeMiB}
+		ApproxSizeMB: s.dbSizeMiB}
 	meta := backupstesting.NewMetadataStarted()
 	meta.Notes = "some notes"
 
@@ -84,7 +83,7 @@ func (s *backupsSuite) checkFailure(c *gc.C, expected string) {
 
 func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	// Patch the internals.
-	archiveFile := ioutil.NopCloser(bytes.NewBufferString("<compressed tarball>"))
+	archiveFile := io.NopCloser(bytes.NewBufferString("<compressed tarball>"))
 	result := backups.NewTestCreateResult(
 		archiveFile,
 		10,
@@ -110,7 +109,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	dbInfo := backups.DBInfo{
 		Address: "a", Username: "b", Password: "c",
 		Targets:      targets,
-		MongoVersion: mongo.Mongo32wt, ApproxSizeMB: s.dbSizeMiB}
+		ApproxSizeMB: s.dbSizeMiB}
 	meta := backupstesting.NewMetadataStarted()
 	backupstesting.SetOrigin(meta, "<model ID>", "<machine ID>", "<hostname>")
 	meta.Notes = "some notes"
@@ -224,7 +223,7 @@ func (s *backupsSuite) TestGetFileName(c *gc.C) {
 	// Purpose for metadata here is for the checksum to be used by the
 	// caller, so check it here.
 	c.Assert(resultMeta.FileMetadata.Checksum(), gc.NotNil)
-	b, err := ioutil.ReadAll(resultArchive)
+	b, err := io.ReadAll(resultArchive)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(b), gc.Equals, "archive file testing")
 

@@ -5,7 +5,6 @@ package utils
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 )
 
@@ -13,6 +12,7 @@ import (
 
 // FileReaderWriter provides methods for reading a file or writing to a file.
 type FileReaderWriter interface {
+	Stat(filename string) (os.FileInfo, error)
 	ReadFile(filename string) ([]byte, error)
 	WriteFile(filename string, data []byte, perm os.FileMode) error
 
@@ -33,12 +33,16 @@ type fileReaderWriter struct{}
 
 var _ FileReaderWriter = (*fileReaderWriter)(nil)
 
+func (fileReaderWriter) Stat(filename string) (os.FileInfo, error) {
+	return os.Stat(filename)
+}
+
 func (fileReaderWriter) ReadFile(filename string) ([]byte, error) {
-	return ioutil.ReadFile(filename)
+	return os.ReadFile(filename)
 }
 
 func (fileReaderWriter) WriteFile(filename string, data []byte, perm os.FileMode) error {
-	return ioutil.WriteFile(filename, data, perm)
+	return os.WriteFile(filename, data, perm)
 }
 
 func (fileReaderWriter) MkdirAll(path string, perm os.FileMode) error {

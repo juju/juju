@@ -22,18 +22,6 @@ import (
 	"github.com/juju/juju/tools"
 )
 
-// FindTags wraps a slice of strings that are prefixes to use when
-// searching for matching tags.
-type FindTags struct {
-	Prefixes []string `json:"prefixes"`
-}
-
-// FindTagsResults wraps the mapping between the requested prefix and the
-// matching tags for each requested prefix.
-type FindTagsResults struct {
-	Matches map[string][]Entity `json:"matches"`
-}
-
 // Entity identifies a single entity.
 type Entity struct {
 	Tag string `json:"tag"`
@@ -186,11 +174,6 @@ type AddCharmWithOrigin struct {
 	URL    string      `json:"url"`
 	Origin CharmOrigin `json:"charm-origin"`
 	Force  bool        `json:"force"`
-
-	// Deprecated, series has moved into Origin and this should only be used
-	// to talk to older controllers.
-	// TODO(juju3) - remove series
-	Series string `json:"series,omitempty"`
 }
 
 // AddCharmWithAuthorization holds the arguments for making an
@@ -209,11 +192,6 @@ type AddCharmWithAuth struct {
 	Origin             CharmOrigin        `json:"charm-origin"`
 	CharmStoreMacaroon *macaroon.Macaroon `json:"macaroon"`
 	Force              bool               `json:"force"`
-
-	// Deprecated, series has moved into Origin and this should only be used
-	// to talk to older controllers.
-	// TODO(juju3) - remove series
-	Series string `json:"series,omitempty"`
 }
 
 // CharmOriginResult holds the results of AddCharms calls where
@@ -230,7 +208,7 @@ type CharmURLOriginResult struct {
 	Error  *Error      `json:"error,omitempty"`
 }
 
-// Base holds the name of an OS and its version.
+// Base holds the name of an OS name and its version.
 type Base struct {
 	Name    string `json:"name"`
 	Channel string `json:"channel"`
@@ -240,9 +218,6 @@ type Base struct {
 type AddMachineParams struct {
 	// The following fields hold attributes that will be given to the
 	// new machine when it is created.
-	// Series is deprecated and replaced by Base.
-	// TODO(juju3) - remove series
-	Series      string             `json:"series,omitempty"`
 	Base        *Base              `json:"base,omitempty"`
 	Constraints constraints.Value  `json:"constraints"`
 	Jobs        []model.MachineJob `json:"jobs"`
@@ -297,19 +272,24 @@ type AddMachinesResult struct {
 	Error   *Error `json:"error,omitempty"`
 }
 
-// DestroyMachines holds parameters for the DestroyMachines call.
-// This is the legacy params struct used with the client facade.
-// TODO(wallyworld) - remove in Juju 3.0
-type DestroyMachines struct {
-	MachineNames []string `json:"machine-names"`
-	Force        bool     `json:"force"`
+// DestroyMachinesParamsV9 holds parameters for the v9 DestroyMachinesWithParams call.
+type DestroyMachinesParamsV9 struct {
+	MachineTags []string `json:"machine-tags"`
+	Force       bool     `json:"force,omitempty"`
+	Keep        bool     `json:"keep,omitempty"`
+
+	// MaxWait specifies the amount of time that each step in machine destroy process
+	// will wait before forcing the next step to kick-off. This parameter
+	// only makes sense in combination with 'force' set to 'true'.
+	MaxWait *time.Duration `json:"max-wait,omitempty"`
 }
 
-// DestroyMachinesParams holds parameters for the DestroyMachinesWithParams call.
+// DestroyMachinesParams holds parameters for the latest DestroyMachinesWithParams call.
 type DestroyMachinesParams struct {
 	MachineTags []string `json:"machine-tags"`
 	Force       bool     `json:"force,omitempty"`
 	Keep        bool     `json:"keep,omitempty"`
+	DryRun      bool     `json:"dry-run,omitempty"`
 
 	// MaxWait specifies the amount of time that each step in machine destroy process
 	// will wait before forcing the next step to kick-off. This parameter
@@ -335,10 +315,8 @@ type RecordAgentStartInformationArg struct {
 // version 5 and greater. For MachineManger, only known by facade version
 // 4 or greater.
 type UpdateChannelArg struct {
-	Entity Entity `json:"tag"`
-	Force  bool   `json:"force"`
-	// TODO(juju3) - remove series
-	Series  string `json:"series"`
+	Entity  Entity `json:"tag"`
+	Force   bool   `json:"force"`
 	Channel string `json:"channel"`
 }
 
@@ -390,12 +368,13 @@ type OperatorProvisioningInfoResults struct {
 
 // OperatorProvisioningInfo holds info need to provision an operator.
 type OperatorProvisioningInfo struct {
-	ImageDetails DockerImageInfo             `json:"image-details"`
-	Version      version.Number              `json:"version"`
-	APIAddresses []string                    `json:"api-addresses"`
-	Tags         map[string]string           `json:"tags,omitempty"`
-	CharmStorage *KubernetesFilesystemParams `json:"charm-storage,omitempty"`
-	Error        *Error                      `json:"error,omitempty"`
+	ImageDetails     DockerImageInfo             `json:"image-details"`
+	BaseImageDetails DockerImageInfo             `json:"base-image-details"`
+	Version          version.Number              `json:"version"`
+	APIAddresses     []string                    `json:"api-addresses"`
+	Tags             map[string]string           `json:"tags,omitempty"`
+	CharmStorage     *KubernetesFilesystemParams `json:"charm-storage,omitempty"`
+	Error            *Error                      `json:"error,omitempty"`
 }
 
 // IssueOperatorCertificateResult contains an x509 certificate
@@ -541,6 +520,30 @@ type ApplicationMergeBindings struct {
 	Force          bool              `json:"force"`
 }
 
+// DestroyUnitsParamsV15 holds bulk parameters for the Application.DestroyUnit call.
+type DestroyUnitsParamsV15 struct {
+	Units []DestroyUnitParamsV15 `json:"units"`
+}
+
+// DestroyUnitParams holds parameters for the Application.DestroyUnit call.
+type DestroyUnitParamsV15 struct {
+	// UnitTag holds the tag of the unit to destroy.
+	UnitTag string `json:"unit-tag"`
+
+	// DestroyStorage controls whether or not storage
+	// attached to the unit should be destroyed.
+	DestroyStorage bool `json:"destroy-storage,omitempty"`
+
+	// Force controls whether or not the destruction of an application
+	// will be forced, i.e. ignore operational errors.
+	Force bool `json:"force"`
+
+	// MaxWait specifies the amount of time that each step in unit removal
+	// will wait before forcing the next step to kick-off. This parameter
+	// only makes sense in combination with 'force' set to 'true'.
+	MaxWait *time.Duration `json:"max-wait,omitempty"`
+}
+
 // DestroyApplicationUnits holds parameters for the deprecated
 // Application.DestroyUnits call.
 type DestroyApplicationUnits struct {
@@ -563,12 +566,16 @@ type DestroyUnitParams struct {
 
 	// Force controls whether or not the destruction of an application
 	// will be forced, i.e. ignore operational errors.
-	Force bool `json:"force"`
+	Force bool `json:"force,omitempty"`
 
 	// MaxWait specifies the amount of time that each step in unit removal
 	// will wait before forcing the next step to kick-off. This parameter
 	// only makes sense in combination with 'force' set to 'true'.
 	MaxWait *time.Duration `json:"max-wait,omitempty"`
+
+	// DryRun specifies whether to perform the destroy action or
+	// just return what this action will destroy
+	DryRun bool `json:"dry-run,omitempty"`
 }
 
 // Creds holds credentials for identifying an entity.
@@ -786,20 +793,6 @@ type ContainerConfig struct {
 	*UpdateBehavior
 }
 
-// ContainerConfigV5 contains information from the model config that is
-// needed for container cloud-init for version 5 provisioner api calls.
-type ContainerConfigV5 struct {
-	ProviderType               string                 `json:"provider-type"`
-	AuthorizedKeys             string                 `json:"authorized-keys"`
-	SSLHostnameVerification    bool                   `json:"ssl-hostname-verification"`
-	Proxy                      proxy.Settings         `json:"proxy"`
-	AptProxy                   proxy.Settings         `json:"apt-proxy"`
-	AptMirror                  string                 `json:"apt-mirror"`
-	CloudInitUserData          map[string]interface{} `json:"cloudinit-userdata,omitempty"`
-	ContainerInheritProperties string                 `json:"container-inherit-properties,omitempty"`
-	*UpdateBehavior
-}
-
 // ProvisioningScriptParams contains the parameters for the
 // ProvisioningScript client API call.
 type ProvisioningScriptParams struct {
@@ -955,10 +948,6 @@ type LoginResult struct {
 type ControllersSpec struct {
 	NumControllers int               `json:"num-controllers"`
 	Constraints    constraints.Value `json:"constraints,omitempty"`
-	// Series is the series to associate with new controller machines.
-	// If this is empty, then the model's default series is used.
-	// TODO(juju3) - remove - this have never been set
-	Series string `json:"series,omitempty"`
 	// Placement defines specific machines to become new controller machines.
 	Placement []string `json:"placement,omitempty"`
 }
@@ -999,19 +988,11 @@ type FindToolsParams struct {
 	Number version.Number `json:"number"`
 
 	// MajorVersion will be used to match the major version if non-zero.
+	// TODO(juju 3.1) - remove
 	MajorVersion int `json:"major"`
-
-	// MinorVersion will be used to match the major version if greater
-	// than or equal to zero, and Number is zero.
-	MinorVersion int `json:"minor"`
 
 	// Arch will be used to match tools by architecture if non-empty.
 	Arch string `json:"arch"`
-
-	// TODO(juju3) - remove series
-	// Kept foe compatibility with older clients.
-	// Series will be used to match tools by series if non-empty.
-	Series string `json:"series"`
 
 	// OSType will be used to match tools by os type if non-empty.
 	OSType string `json:"os-type"`
@@ -1024,32 +1005,6 @@ type FindToolsParams struct {
 type FindToolsResult struct {
 	List  tools.List `json:"list"`
 	Error *Error     `json:"error,omitempty"`
-}
-
-// ImageFilterParams holds the parameters used to specify images to delete.
-type ImageFilterParams struct {
-	Images []ImageSpec `json:"images"`
-}
-
-// ImageSpec defines the parameters to select images list or delete.
-type ImageSpec struct {
-	Kind   string `json:"kind"`
-	Arch   string `json:"arch"`
-	Series string `json:"series"`
-}
-
-// ListImageResult holds the results of querying images.
-type ListImageResult struct {
-	Result []ImageMetadata `json:"result"`
-}
-
-// ImageMetadata represents an image in storage.
-type ImageMetadata struct {
-	Kind    string    `json:"kind"`
-	Arch    string    `json:"arch"`
-	Series  string    `json:"series"`
-	URL     string    `json:"url"`
-	Created time.Time `json:"created"`
 }
 
 // RebootActionResults holds a list of RebootActionResult and any error.

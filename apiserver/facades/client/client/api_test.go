@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -117,7 +117,6 @@ var scenarioStatus = &params.FullStatus{
 			ModificationStatus: params.DetailedStatus{
 				Status: status.Idle.String(),
 			},
-			Series:     "quantal",
 			Base:       params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 			Containers: map[string]params.MachineStatus{},
 			Jobs:       []model.MachineJob{model.JobManageModel},
@@ -136,7 +135,6 @@ var scenarioStatus = &params.FullStatus{
 			ModificationStatus: params.DetailedStatus{
 				Status: status.Idle.String(),
 			},
-			Series:     "quantal",
 			Base:       params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 			Containers: map[string]params.MachineStatus{},
 			Jobs:       []model.MachineJob{model.JobHostUnits},
@@ -155,7 +153,6 @@ var scenarioStatus = &params.FullStatus{
 			ModificationStatus: params.DetailedStatus{
 				Status: status.Idle.String(),
 			},
-			Series:      "quantal",
 			Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 			Constraints: "mem=1024M",
 			Containers:  map[string]params.MachineStatus{},
@@ -196,9 +193,8 @@ var scenarioStatus = &params.FullStatus{
 	},
 	Applications: map[string]params.ApplicationStatus{
 		"logging": {
-			Charm:  "local:quantal/logging-1",
-			Series: "quantal",
-			Base:   params.Base{Name: "ubuntu", Channel: "12.10/stable"},
+			Charm: "local:quantal/logging-1",
+			Base:  params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 			Relations: map[string][]string{
 				"logging-directory": {"wordpress"},
 			},
@@ -216,7 +212,6 @@ var scenarioStatus = &params.FullStatus{
 		},
 		"mysql": {
 			Charm:         "local:quantal/mysql-1",
-			Series:        "quantal",
 			Base:          params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 			Relations:     map[string][]string{},
 			SubordinateTo: []string{},
@@ -233,9 +228,8 @@ var scenarioStatus = &params.FullStatus{
 			},
 		},
 		"wordpress": {
-			Charm:  "local:quantal/wordpress-3",
-			Series: "quantal",
-			Base:   params.Base{Name: "ubuntu", Channel: "12.10/stable"},
+			Charm: "local:quantal/wordpress-3",
+			Base:  params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 			Relations: map[string][]string{
 				"logging-dir": {"logging"},
 			},
@@ -410,7 +404,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	setDefaultPassword(c, u)
 	add(u)
 
-	m, err := s.State.AddMachine("quantal", state.JobManageModel)
+	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
 	err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "", "fake_nonce", nil)
@@ -483,7 +477,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		setDefaultPassword(c, wu)
 		add(wu)
 
-		m, err := s.State.AddMachine("quantal", state.JobHostUnits)
+		m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(m.Tag(), gc.Equals, names.NewMachineTag(fmt.Sprintf("%d", i+1)))
 		if i == 1 {

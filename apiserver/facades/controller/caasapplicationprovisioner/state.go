@@ -7,7 +7,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/controller"
@@ -50,6 +50,7 @@ type Model interface {
 
 type Application interface {
 	Charm() (ch Charm, force bool, err error)
+	CharmPendingToBeDownloaded() bool
 	SetOperatorStatus(status.StatusInfo) error
 	AllUnits() ([]Unit, error)
 	UpdateUnits(unitsOp *state.UpdateUnitsOperation) error
@@ -58,7 +59,7 @@ type Application interface {
 	Name() string
 	Constraints() (constraints.Value, error)
 	Life() state.Life
-	Series() string
+	Base() state.Base
 	SetStatus(statusInfo status.StatusInfo) error
 	CharmModifiedVersion() int
 	CharmURL() (curl *string, force bool)

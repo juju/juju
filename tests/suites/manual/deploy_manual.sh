@@ -44,13 +44,19 @@ manual_deploy() {
 	juju add-machine ssh:ubuntu@"${addr_m2}" 2>&1 | tee "${TEST_DIR}/add-machine-2.log"
 
 	juju enable-ha --to "1,2" 2>&1 | tee "${TEST_DIR}/enable-ha.log"
-	wait_for "3" '[.machines[] | select(.["controller-member-status"] == "has-vote")] | length'
+	wait_for "controller" "$(active_condition "controller" 0)"
 
-	machine_series=$(juju machines --format=json | jq -r '.machines | .["0"] | .series')
+	machine_base=$(juju machines --format=json | jq -r '.machines | .["0"] | (.base.name+"@"+.base.channel)')
+	machine_series=$(base_to_series "${machine_base}")
+
+	if [[ -z ${machine_series} ]]; then
+		echo "machine 0 has invalid series"
+		exit 1
+	fi
 
 	juju deploy ubuntu --to=0 --series="${machine_series}"
 
-	wait_for "ubuntu" "$(idle_condition "ubuntu" 0)"
+	wait_for "ubuntu" "$(idle_condition "ubuntu" 1)"
 
 	juju remove-application ubuntu
 

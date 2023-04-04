@@ -19,8 +19,6 @@ func (MAASRenderer) Render(cfg cloudinit.CloudConfig, os jujuos.OSType) ([]byte,
 	switch os {
 	case jujuos.Ubuntu, jujuos.CentOS:
 		return renderers.RenderYAML(cfg, utils.Gzip, renderers.ToBase64)
-	case jujuos.Windows:
-		return renderers.RenderYAML(cfg, renderers.WinEmbedInScript, renderers.ToBase64)
 	default:
 		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os.String())
 	}

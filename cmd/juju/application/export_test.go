@@ -6,7 +6,7 @@ package application
 import (
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	gc "gopkg.in/check.v1"
@@ -21,8 +21,6 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 )
-
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/deployer_mock.go github.com/juju/juju/cmd/juju/application/deployer Deployer,DeployerFactory
 
 func NewRefreshCommandForTest(
 	store jujuclient.ClientStore,
@@ -93,8 +91,8 @@ func NewBindCommandForTest(
 }
 
 // NewResolvedCommandForTest returns a ResolvedCommand with the api provided as specified.
-func NewResolvedCommandForTest(applicationResolveAPI applicationResolveAPI, clientAPI clientAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
-	cmd := &resolvedCommand{applicationResolveAPI: applicationResolveAPI, clientAPI: clientAPI}
+func NewResolvedCommandForTest(applicationResolveAPI applicationResolveAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
+	cmd := &resolvedCommand{applicationResolveAPI: applicationResolveAPI}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
@@ -115,18 +113,15 @@ func NewAddUnitCommandForTestWithRefresh(api applicationAddUnitAPI, store jujucl
 }
 
 // NewRemoveUnitCommandForTest returns a RemoveUnitCommand with the api provided as specified.
-func NewRemoveUnitCommandForTest(api RemoveApplicationAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
-	cmd := &removeUnitCommand{api: api}
+func NewRemoveUnitCommandForTest(api RemoveApplicationAPI, modelConfigApi ModelConfigClient, store jujuclient.ClientStore) modelcmd.ModelCommand {
+	cmd := &removeUnitCommand{api: api, modelConfigApi: modelConfigApi}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
 
-type removeAPIFunc func() (RemoveApplicationAPI, int, error)
-
 // NewRemoveApplicationCommandForTest returns a RemoveApplicationCommand.
-func NewRemoveApplicationCommandForTest(f removeAPIFunc, store jujuclient.ClientStore) modelcmd.ModelCommand {
-	c := &removeApplicationCommand{}
-	c.newAPIFunc = f
+func NewRemoveApplicationCommandForTest(api RemoveApplicationAPI, modelConfigApi ModelConfigClient, store jujuclient.ClientStore) modelcmd.ModelCommand {
+	c := &removeApplicationCommand{api: api, modelConfigApi: modelConfigApi}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c)
 }
@@ -244,6 +239,13 @@ func NewShowUnitCommandForTest(api UnitsInfoAPI, store jujuclient.ClientStore) c
 	return modelcmd.Wrap(cmd)
 }
 
+// NewConfigCommandForTest returns a SetCommand with the api provided as specified.
+func NewConfigCommandForTest(api ApplicationAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
+	c := modelcmd.Wrap(&configCommand{configBase: appConfigBase, api: api})
+	c.SetClientStore(store)
+	return c
+}
+
 // RepoSuiteBaseSuite allows the patching of the supported juju suite for
 // each test.
 type RepoSuiteBaseSuite struct {
@@ -252,7 +254,14 @@ type RepoSuiteBaseSuite struct {
 
 func (s *RepoSuiteBaseSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
-		return defaultSupportedJujuSeries, nil
-	})
+
+	// TODO: remove this patch once we removed all the old series from tests in current package.
+	s.PatchValue(&deployer.SupportedJujuSeries,
+		func(time.Time, string, string) (set.Strings, error) {
+			return set.NewStrings(
+				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
+				"jammy", "focal", "bionic", "xenial",
+			), nil
+		},
+	)
 }

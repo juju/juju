@@ -13,7 +13,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -133,21 +133,16 @@ func (c *downloadCommand) validateCharmOrBundle(charmOrBundle string) (*charm.UR
 // Run is the business logic of the download command.  It implements the meaty
 // part of the cmd.Command interface.
 func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
-	config, err := charmhub.CharmHubConfigFromURL(c.charmHubURL, downloadLogger{
-		Context: cmdContext,
-	})
-	if err != nil {
-		return errors.Trace(err)
+	cfg := charmhub.Config{
+		URL:    c.charmHubURL,
+		Logger: downloadLogger{Context: cmdContext},
 	}
 
-	var fileSystem charmhub.FileSystem
 	if c.pipeToStdout {
-		fileSystem = stdoutFileSystem{}
-	} else {
-		fileSystem = charmhub.DefaultFileSystem()
+		cfg.FileSystem = stdoutFileSystem{}
 	}
 
-	client, err := c.CharmHubClientFunc(config, fileSystem)
+	client, err := c.CharmHubClientFunc(cfg)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -189,18 +184,13 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	entitySHA := entity.Download.HashSHA256
 
 	path := c.archivePath
-	if c.archivePath == "" {
-		// Use the sha256 to create a unique path for every download. The
-		// consequence of this is that same sha binary blobs will overwrite
-		// each other. That should be ok, as the sha will match.
-		var short string
-		if len(entitySHA) >= 7 {
-			short = fmt.Sprintf("_%s", entitySHA[0:7])
-		}
-		path = fmt.Sprintf("%s%s.%s", entity.Name, short, entityType)
+	if path == "" {
+		// Use the revision number to create a unique path for every download.
+		path = fmt.Sprintf("%s_r%d.%s", entity.Name, entity.Revision, entityType)
 	}
 
-	cmdContext.Infof("Fetching %s %q using %q channel and base %q", entityType, entity.Name, normChannel, normBase)
+	cmdContext.Infof("Fetching %s %q revision %d using %q channel and base %q",
+		entityType, entity.Name, entity.Revision, normChannel, normBase)
 
 	resourceURL, err := url.Parse(entity.Download.URL)
 	if err != nil {
@@ -253,19 +243,16 @@ func (c *downloadCommand) refresh(ctx context.Context, cmdContext *cmd.Context, 
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	platform := fmt.Sprintf("%s/%s/%s", arch, base.Name, base.Channel.Track)
+	platform := fmt.Sprintf("%s/%s/%s", arch, base.OS, base.Channel.Track)
 	normBase, err := corecharm.ParsePlatformNormalize(platform)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	// Ensure we compute the base channel correctly.
-	computedNormBase := corecharm.ComputeBaseChannel(normBase)
-
 	refreshConfig, err := charmhub.InstallOneFromChannel(c.charmOrBundle, normChannel.String(), charmhub.RefreshBase{
-		Architecture: computedNormBase.Architecture,
-		Name:         computedNormBase.OS,
-		Channel:      computedNormBase.Channel,
+		Architecture: normBase.Architecture,
+		Name:         normBase.OS,
+		Channel:      normBase.Channel,
 	})
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -305,12 +292,12 @@ func (c *downloadCommand) suggested(cmdContext *cmd.Context, requestedSeries str
 	series := set.NewStrings()
 	for _, rel := range releases {
 		if rel.Channel == channel {
-			platform := corecharm.NormalisePlatformSeries(corecharm.Platform{
+			platform := corecharm.Platform{
 				Architecture: rel.Base.Architecture,
 				OS:           rel.Base.Name,
 				Channel:      rel.Base.Channel,
-			})
-			s, err := coreseries.VersionSeries(platform.Channel)
+			}
+			s, err := coreseries.GetSeriesFromChannel(platform.OS, platform.Channel)
 			if err == nil {
 				if !series.Contains(s) {
 					ordered = append(ordered, s)

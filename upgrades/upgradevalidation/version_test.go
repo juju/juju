@@ -27,25 +27,25 @@ type versionCheckTC struct {
 	patch   bool
 }
 
-func (s *versionSuite) TestUpgradeToAllowed(c *gc.C) {
+func (s *versionSuite) TestUpgradeControllerAllowed(c *gc.C) {
 	for i, t := range []versionCheckTC{
 		{
 			from:    "2.8.0",
 			to:      "3.0.0",
 			allowed: false,
-			minVers: "2.9.35",
+			minVers: "2.9.36",
 			patch:   true,
 		}, {
-			from:    "2.9.35",
+			from:    "2.9.65",
 			to:      "3.0.0",
 			allowed: true,
-			minVers: "2.9.35",
+			minVers: "2.9.36",
 			patch:   true,
 		}, {
-			from:    "2.9.36",
+			from:    "2.9.37",
 			to:      "3.0.0",
 			allowed: true,
-			minVers: "2.9.35",
+			minVers: "2.9.36",
 			patch:   true,
 		}, {
 			from:    "2.9.0",
@@ -53,7 +53,7 @@ func (s *versionSuite) TestUpgradeToAllowed(c *gc.C) {
 			allowed: false,
 			minVers: "0.0.0",
 			patch:   true,
-			err:     `upgrade to \"4.0.0\" is not supported from \"2.9.0\"`,
+			err:     `upgrading controller to \"4.0.0\" is not supported from \"2.9.0\"`,
 		}, {
 			from:    "3.0.0",
 			to:      "2.0.0",
@@ -63,15 +63,15 @@ func (s *versionSuite) TestUpgradeToAllowed(c *gc.C) {
 			err:     `downgrade is not allowed`,
 		},
 	} {
-		s.assertUpgradeToAllowed(c, i, t)
+		s.assertUpgradeControllerAllowed(c, i, t)
 	}
 }
 
-func (s *versionSuite) assertUpgradeToAllowed(c *gc.C, i int, t versionCheckTC) {
+func (s *versionSuite) assertUpgradeControllerAllowed(c *gc.C, i int, t versionCheckTC) {
 	c.Logf("testing %d", i)
 	if t.patch {
-		restore := jujutesting.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
-			3: version.MustParse("2.9.35"),
+		restore := jujutesting.PatchValue(&upgradevalidation.MinAgentVersions, map[int]version.Number{
+			3: version.MustParse("2.9.36"),
 		})
 		defer restore()
 	}
@@ -79,7 +79,7 @@ func (s *versionSuite) assertUpgradeToAllowed(c *gc.C, i int, t versionCheckTC) 
 	from := version.MustParse(t.from)
 	to := version.MustParse(t.to)
 	minVers := version.MustParse(t.minVers)
-	allowed, vers, err := upgradevalidation.UpgradeToAllowed(from, to)
+	allowed, vers, err := upgradevalidation.UpgradeControllerAllowed(from, to)
 	c.Check(allowed, gc.Equals, t.allowed)
 	c.Check(vers, gc.DeepEquals, minVers)
 	if t.err == "" {

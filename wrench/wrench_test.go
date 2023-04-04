@@ -4,7 +4,6 @@
 package wrench_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -57,7 +56,7 @@ func (s *wrenchSuite) createWrenchDir(c *gc.C) {
 
 func (s *wrenchSuite) createWrenchFile(c *gc.C, name, content string) string {
 	filename := filepath.Join(s.wrenchDir, name)
-	err := ioutil.WriteFile(filename, []byte(content), 0700)
+	err := os.WriteFile(filename, []byte(content), 0700)
 	c.Assert(err, jc.ErrorIsNil)
 	return filename
 }

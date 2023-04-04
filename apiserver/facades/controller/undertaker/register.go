@@ -7,7 +7,10 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/apiserver/common/secrets"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/secrets/provider"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -24,6 +27,12 @@ func newUndertakerFacade(ctx facade.Context) (*UndertakerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	return newUndertakerAPI(&stateShim{st, m}, ctx.Resources(), ctx.Auth())
+	secretsProviderGetter := func() (provider.SecretBackendProvider, provider.Model, error) {
+		model, err := st.Model()
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		return secrets.ProviderInfoForModel(model)
+	}
+	return newUndertakerAPI(&stateShim{st, m}, ctx.Resources(), ctx.Auth(), secretsProviderGetter)
 }

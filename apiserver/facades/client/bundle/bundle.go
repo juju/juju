@@ -10,10 +10,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/charm/v8"
-	"github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/resource"
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v3"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -36,37 +36,6 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/version"
 )
-
-// APIv1 provides the Bundle API facade for version 1.
-type APIv1 struct {
-	*APIv2
-}
-
-// APIv2 provides the Bundle API facade for version 2.
-type APIv2 struct {
-	*APIv3
-}
-
-// APIv3 provides the Bundle API facade for version 3. It is otherwise
-// identical to V2 with the exception that the V3 ExportBundle implementation
-// also exposes the the current trust status for each application.
-type APIv3 struct {
-	*APIv4
-}
-
-// APIv4 provides the Bundle API facade for version 4. It is otherwise
-// identical to V3 with the exception that the V4 now has GetChangesAsMap, which
-// returns the same data as GetChanges, but with better args data.
-type APIv4 struct {
-	*APIv5
-}
-
-// APIv5 provides the Bundle API facade for version 5. It is otherwise
-// identical to V4 with the exception that the V5 adds an arg to export
-// bundle to control what is exported..
-type APIv5 struct {
-	*APIv6
-}
 
 // APIv6 provides the Bundle API facade for version 6. It is otherwise
 // identical to V5 with the exception that the V6 adds the support for
@@ -112,21 +81,6 @@ func NewBundleAPI(
 	}, nil
 }
 
-// NewBundleAPIv1 returns the new Bundle APIv1 facade.
-// Deprecated:this only exists to support the deprecated
-// client.GetBundleChanges() API.
-func NewBundleAPIv1(
-	st Backend,
-	auth facade.Authorizer,
-	tag names.ModelTag,
-) (*APIv1, error) {
-	api, err := NewBundleAPI(st, auth, tag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv1{&APIv2{&APIv3{&APIv4{&APIv5{&APIv6{api}}}}}}, nil
-}
-
 func (b *BundleAPI) checkCanRead() error {
 	canRead, err := b.authorizer.HasPermission(permission.ReadAccess, b.modelTag)
 	if err != nil {
@@ -147,32 +101,10 @@ type validators struct {
 // GetChanges returns the list of changes required to deploy the given bundle
 // data. The changes are sorted by requirements, so that they can be applied in
 // order.
-// V1 GetChanges did not support device.
-func (b *APIv1) GetChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
-	return b.doGetChanges(args, 1)
-}
-
-// GetChanges returns the list of changes required to deploy the given bundle
-// data. The changes are sorted by requirements, so that they can be applied in
-// order.
-// GetChanges has been superseded in favour of GetChangesMapArgs. It's
-// preferable to use that new method to add new functionality and move clients
-// away from this one.
-func (b *APIv5) GetChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
-	return b.doGetChanges(args, 5)
-}
-
-// GetChanges returns the list of changes required to deploy the given bundle
-// data. The changes are sorted by requirements, so that they can be applied in
-// order.
 // GetChanges has been superseded in favour of GetChangesMapArgs. It's
 // preferable to use that new method to add new functionality and move clients
 // away from this one.
 func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
-	return b.doGetChanges(args, 6)
-}
-
-func (b *BundleAPI) doGetChanges(args params.BundleChangesParams, version int) (params.BundleChangesResults, error) {
 	vs := validators{
 		verifyConstraints: func(s string) error {
 			_, err := constraints.Parse(s)
@@ -188,26 +120,8 @@ func (b *BundleAPI) doGetChanges(args params.BundleChangesParams, version int) (
 		},
 	}
 
-	expandOverlays := version > 5
-
-	mapFn := mapBundleChanges
-
-	if version == 1 {
-		mapFn = mapBundleChangesV1
-		vs.verifyDevices = nil // device verification is not supported for V1 facades
-	}
-
-	return b.getBundleChanges(args, vs, expandOverlays, mapFn)
-}
-
-func (b *BundleAPI) getBundleChanges(
-	args params.BundleChangesParams,
-	vs validators,
-	expandOverlays bool,
-	postProcess func([]bundlechanges.Change, *params.BundleChangesResults) error,
-) (params.BundleChangesResults, error) {
 	var results params.BundleChangesResults
-	changes, validationErrors, err := b.doGetBundleChanges(args, vs, expandOverlays)
+	changes, validationErrors, err := b.doGetBundleChanges(args, vs)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -218,22 +132,9 @@ func (b *BundleAPI) getBundleChanges(
 		}
 		return results, nil
 	}
-	err = postProcess(changes, &results)
+	err = mapBundleChanges(changes, &results)
 	return results, errors.Trace(err)
 
-}
-
-func mapBundleChangesV1(changes []bundlechanges.Change, results *params.BundleChangesResults) error {
-	results.Changes = make([]*params.BundleChange, len(changes))
-	for i, c := range changes {
-		results.Changes[i] = &params.BundleChange{
-			Id:       c.Id(),
-			Method:   c.Method(),
-			Args:     c.GUIArgs(),
-			Requires: c.Requires(),
-		}
-	}
-	return nil
 }
 
 func mapBundleChanges(changes []bundlechanges.Change, results *params.BundleChangesResults) error {
@@ -259,16 +160,9 @@ func mapBundleChanges(changes []bundlechanges.Change, results *params.BundleChan
 func (b *BundleAPI) doGetBundleChanges(
 	args params.BundleChangesParams,
 	vs validators,
-	expandOverlays bool,
 ) ([]bundlechanges.Change, []error, error) {
-	var data *charm.BundleData
-	var err error
-	if expandOverlays {
-		dataSource, _ := charm.StreamBundleDataSource(strings.NewReader(args.BundleDataYAML), args.BundleURL)
-		data, err = charm.ReadAndMergeBundleData(dataSource)
-	} else {
-		data, err = charm.ReadBundleData(strings.NewReader(args.BundleDataYAML))
-	}
+	dataSource, _ := charm.StreamBundleDataSource(strings.NewReader(args.BundleDataYAML), args.BundleURL)
+	data, err := charm.ReadAndMergeBundleData(dataSource)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "cannot read bundle YAML")
 	}
@@ -295,27 +189,11 @@ func (b *BundleAPI) doGetBundleChanges(
 	return changes, nil, nil
 }
 
-// GetChangesMapArgs is not in V3 API or less.
-// Mask the new method from V3 API or less.
-func (u *APIv3) GetChangesMapArgs() (_, _ struct{}) { return }
-
-// GetChangesMapArgs returns the list of changes required to deploy the given
-// bundle data. The changes are sorted by requirements, so that they can be
-// applied in order.
-// V4 GetChangesMapArgs is not supported on anything less than v4
-func (b *APIv5) GetChangesMapArgs(args params.BundleChangesParams) (params.BundleChangesMapArgsResults, error) {
-	return b.doGetChangesMapArgs(args, false)
-}
-
 // GetChangesMapArgs returns the list of changes required to deploy the given
 // bundle data. The changes are sorted by requirements, so that they can be
 // applied in order.
 // V4 GetChangesMapArgs is not supported on anything less than v4
 func (b *BundleAPI) GetChangesMapArgs(args params.BundleChangesParams) (params.BundleChangesMapArgsResults, error) {
-	return b.doGetChangesMapArgs(args, true)
-}
-
-func (b *BundleAPI) doGetChangesMapArgs(args params.BundleChangesParams, expandOverlays bool) (params.BundleChangesMapArgsResults, error) {
 	vs := validators{
 		verifyConstraints: func(s string) error {
 			_, err := constraints.Parse(s)
@@ -330,7 +208,7 @@ func (b *BundleAPI) doGetChangesMapArgs(args params.BundleChangesParams, expandO
 			return err
 		},
 	}
-	return b.doGetBundleChangesMapArgs(args, vs, expandOverlays, func(changes []bundlechanges.Change, results *params.BundleChangesMapArgsResults) error {
+	return b.doGetBundleChangesMapArgs(args, vs, func(changes []bundlechanges.Change, results *params.BundleChangesMapArgsResults) error {
 		results.Changes = make([]*params.BundleChangesMapArgs, len(changes))
 		for i, c := range changes {
 			args, err := c.Args()
@@ -352,11 +230,10 @@ func (b *BundleAPI) doGetChangesMapArgs(args params.BundleChangesParams, expandO
 func (b *BundleAPI) doGetBundleChangesMapArgs(
 	args params.BundleChangesParams,
 	vs validators,
-	expandOverlays bool,
 	postProcess func([]bundlechanges.Change, *params.BundleChangesMapArgsResults) error,
 ) (params.BundleChangesMapArgsResults, error) {
 	var results params.BundleChangesMapArgsResults
-	changes, validationErrors, err := b.doGetBundleChanges(args, vs, expandOverlays)
+	changes, validationErrors, err := b.doGetBundleChanges(args, vs)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -369,11 +246,6 @@ func (b *BundleAPI) doGetBundleChangesMapArgs(
 	}
 	err = postProcess(changes, &results)
 	return results, err
-}
-
-// ExportBundle v4 did not have any parameters.
-func (b *APIv4) ExportBundle() (params.StringResult, error) {
-	return b.APIv5.ExportBundle(params.ExportBundleParams{})
 }
 
 // ExportBundle exports the current model configuration as bundle.
@@ -468,10 +340,6 @@ func bundleOutputFromBundleData(bd *charm.BundleData) *bundleOutput {
 	}
 }
 
-// ExportBundle is not in V1 API.
-// Mask the new method from V1 API.
-func (u *APIv1) ExportBundle() (_, _ struct{}) { return }
-
 func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults bool, backend Backend) (*charm.BundleData, error) {
 	cfg := model.Config()
 	value, ok := cfg["default-series"]
@@ -502,7 +370,10 @@ func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults
 
 	// Machine bundle data.
 	var machineSeries set.Strings
-	data.Machines, machineSeries = b.bundleDataMachines(model.Machines(), machineIds, defaultSeries)
+	data.Machines, machineSeries, err = b.bundleDataMachines(model.Machines(), machineIds, defaultSeries)
+	if err != nil {
+		return nil, err
+	}
 	usedSeries = usedSeries.Union(machineSeries)
 
 	// Remote Application bundle data.
@@ -560,14 +431,16 @@ func (b *BundleAPI) bundleDataApplications(
 	printEndpointBindingSpaceNames := b.printSpaceNamesInEndpointBindings(apps)
 
 	for _, application := range apps {
+		if application.CharmOrigin() == nil || application.CharmOrigin().Platform() == "" {
+			return nil, nil, nil, errors.Errorf("missing charm origin data for %q", application)
+		}
 		var newApplication *charm.ApplicationSpec
-
-		platform, err := corecharm.ParsePlatform(application.CharmOrigin().Platform())
+		p, err := corecharm.ParsePlatformNormalize(application.CharmOrigin().Platform())
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("extracting charm origin from application description %w", err)
 		}
 
-		appSeries, err := series.GetSeriesFromChannel(platform.OS, platform.Channel)
+		appSeries, err := series.GetSeriesFromChannel(p.OS, p.Channel)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("extracting series from application description %w", err)
 		}
@@ -768,23 +641,21 @@ func applicationDataResources(resources []description.Resource) map[string]inter
 	return resourceData
 }
 
-func (b *BundleAPI) bundleDataMachines(machines []description.Machine, machineIds set.Strings, defaultSeries string) (map[string]*charm.MachineSpec, set.Strings) {
+func (b *BundleAPI) bundleDataMachines(machines []description.Machine, machineIds set.Strings, defaultSeries string) (map[string]*charm.MachineSpec, set.Strings, error) {
 	usedSeries := set.NewStrings()
 	machineData := make(map[string]*charm.MachineSpec)
 	for _, machine := range machines {
 		if !machineIds.Contains(machine.Tag().Id()) {
 			continue
 		}
-		base, err := series.ParseBaseFromString(machine.Base())
+		macBase, err := series.ParseBaseFromString(machine.Base())
 		if err != nil {
-			return machineData, usedSeries
+			return nil, nil, errors.Trace(err)
 		}
-
-		macSeries, err := series.GetSeriesFromBase(base)
+		macSeries, err := series.GetSeriesFromBase(macBase)
 		if err != nil {
-			return machineData, usedSeries
+			return nil, nil, errors.Trace(err)
 		}
-
 		usedSeries.Add(macSeries)
 		newMachine := &charm.MachineSpec{
 			Annotations: machine.Annotations(),
@@ -799,7 +670,7 @@ func (b *BundleAPI) bundleDataMachines(machines []description.Machine, machineId
 
 		machineData[machine.Id()] = newMachine
 	}
-	return machineData, usedSeries
+	return machineData, usedSeries, nil
 }
 
 func bundleDataRemoteApplications(remoteApps []description.RemoteApplication) map[string]*charm.SaasSpec {

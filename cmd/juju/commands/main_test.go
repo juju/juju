@@ -6,10 +6,8 @@ package commands
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 
@@ -27,7 +25,6 @@ import (
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujuos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
@@ -170,12 +167,6 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 }
 
 func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
-	//TODO(bogdanteleaga): cannot read the env file because of some suite
-	//problems. The juju home, when calling something from the command line is
-	//not the same as in the test suite.
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: cannot read env file on windows because of suite problems")
-	}
 	s.PatchEnvironment(osenv.JujuControllerEnvKey, "current-controller")
 	s.PatchEnvironment(osenv.JujuModelEnvKey, "current")
 	logpath := filepath.Join(c.MkDir(), "log")
@@ -187,7 +178,7 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("test %d: %v", i, test)
 		badrun(c, 0, test...)
-		content, err := ioutil.ReadFile(logpath)
+		content, err := os.ReadFile(logpath)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(string(content), gc.Matches, "(.|\n)*running juju(.|\n)*command finished(.|\n)*")
 		err = os.Remove(logpath)
@@ -231,7 +222,7 @@ func (s *MainSuite) TestNoWarn2xFirstRun(c *gc.C) {
 
 	assertNoArgs(c, argChan)
 	c.Check(string(stderr), gc.Equals, `
-Since Juju 2 is being run for the first time, it has downloaded the latest public cloud information.`[1:]+"\n")
+Since Juju 3 is being run for the first time, it has downloaded the latest public cloud information.`[1:]+"\n")
 	checkVersionOutput(c, string(stdout))
 }
 
@@ -291,7 +282,6 @@ var commandNames = []string{
 	"add-k8s",
 	"add-machine",
 	"add-model",
-	"add-relation",
 	"add-space",
 	"add-ssh-key",
 	"add-storage",
@@ -299,14 +289,11 @@ var commandNames = []string{
 	"add-user",
 	"agree",
 	"agreements",
-	"attach",
 	"attach-resource",
 	"attach-storage",
 	"autoload-credentials",
 	"bind",
 	"bootstrap",
-	"budget",
-	"cached-images",
 	"cancel-task",
 	"change-user-password",
 	"charm-resources",
@@ -318,7 +305,6 @@ var commandNames = []string{
 	"controllers",
 	"create-backup",
 	"create-storage-pool",
-	"create-wallet",
 	"credentials",
 	"dashboard",
 	"debug-code",
@@ -347,22 +333,19 @@ var commandNames = []string{
 	"find",
 	"find-offers",
 	"firewall-rules",
-	"get-constraints",
-	"get-model-constraints",
+	"constraints",
+	"model-constraints",
 	"grant",
 	"grant-cloud",
-	"gui",
 	"help",
 	"help-tool",
-	"hook-tool",
-	"hook-tools",
 	"import-filesystem",
 	"import-ssh-key",
 	"info",
+	"integrate",
 	"kill-controller",
 	"list-actions",
 	"list-agreements",
-	"list-cached-images",
 	"list-charm-resources",
 	"list-clouds",
 	"list-controllers",
@@ -372,17 +355,17 @@ var commandNames = []string{
 	"list-machines",
 	"list-models",
 	"list-offers",
+	"list-operations",
 	"list-payloads",
-	"list-plans",
 	"list-regions",
 	"list-resources",
+	"list-secrets",
 	"list-spaces",
 	"list-ssh-keys",
 	"list-storage",
 	"list-storage-pools",
 	"list-subnets",
 	"list-users",
-	"list-wallets",
 	"login",
 	"logout",
 	"machines",
@@ -395,17 +378,15 @@ var commandNames = []string{
 	"move-to-space",
 	"offer",
 	"offers",
+	"operations",
 	"payloads",
-	"plans",
 	"refresh",
 	"regions",
 	"register",
-	"relate", //alias for add-relation
+	"relate", // alias for integrate
 	"reload-spaces",
 	"remove-application",
-	"remove-cached-images",
 	"remove-cloud",
-	"remove-consumed-application",
 	"remove-credential",
 	"remove-k8s",
 	"remove-machine",
@@ -429,17 +410,15 @@ var commandNames = []string{
 	"run",
 	"scale-application",
 	"scp",
+	"secrets",
 	"set-application-base",
 	"set-credential",
 	"set-constraints",
-	"set-default-credential",
+	"set-default-credentials",
 	"set-default-region",
 	"set-firewall-rule",
 	"set-meter-status",
 	"set-model-constraints",
-	"set-plan",
-	"set-series",
-	"set-wallet",
 	"show-action",
 	"show-application",
 	"show-cloud",
@@ -449,14 +428,14 @@ var commandNames = []string{
 	"show-machine",
 	"show-model",
 	"show-offer",
-	"show-status",
+	"show-operation",
+	"show-secret",
 	"show-status-log",
 	"show-storage",
 	"show-space",
+	"show-task",
 	"show-unit",
 	"show-user",
-	"show-wallet",
-	"sla",
 	"spaces",
 	"ssh",
 	"ssh-keys",
@@ -467,7 +446,6 @@ var commandNames = []string{
 	"suspend-relation",
 	"switch",
 	"sync-agent-binary",
-	"sync-tools",
 	"trust",
 	"unexpose",
 	"unregister",
@@ -477,28 +455,21 @@ var commandNames = []string{
 	"update-credential",
 	"update-credentials",
 	"update-storage-pool",
-	"upgrade-charm",
 	"upgrade-controller",
-	"upgrade-dashboard",
-	"upgrade-gui",
-	"upgrade-juju",
 	"upgrade-model",
 	"upgrade-machine",
-	"upgrade-series",
 	"users",
 	"version",
-	"wallets",
+	"wait-for",
 	"whoami",
 }
 
 // optionalFeatures are feature flags that impact registration of commands.
-var optionalFeatures = []string{
-	feature.ActionsV2,
-}
+var optionalFeatures = []string{}
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
-	"run", "show-task", "operations", "list-operations", "show-operation",
+	"list-secrets", "secrets", "show-secret",
 )
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
@@ -509,17 +480,9 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 
 	// remove features behind dev_flag for the first test
 	// since they are not enabled.
+	// NB there are no such commands as of now, but leave this step
+	// for when we add some again.
 	cmdSet := set.NewStrings(commandNames...)
-	if !featureflag.Enabled(feature.ActionsV2) {
-		cmdSet.Add("actions")
-		cmdSet.Add("list-actions")
-		cmdSet.Add("run-action")
-		cmdSet.Add("run")
-		cmdSet.Add("show-action")
-		cmdSet.Add("show-action-status")
-		cmdSet.Add("show-action-output")
-		cmdSet.Add("cancel-action")
-	}
 
 	// 1. Default Commands. Disable all features.
 	setFeatureFlags("")
@@ -537,8 +500,7 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	unknown = registered.Difference(cmdSet)
 	c.Assert(unknown, jc.DeepEquals, set.NewStrings())
 	missing = cmdSet.Difference(registered)
-	c.Assert(missing, jc.DeepEquals, set.NewStrings(
-		"cancel-action", "run-action", "show-action-status", "show-action-output"))
+	c.Assert(missing.IsEmpty(), jc.IsTrue)
 }
 
 func getHelpCommandNames(c *gc.C) set.Strings {
@@ -606,9 +568,6 @@ func (s *MainSuite) TestRegisterCommands(c *gc.C) {
 
 	expected := make([]string, len(commandNames))
 	copy(expected, commandNames)
-	if !featureflag.Enabled(feature.ActionsV2) {
-		expected = append(expected, "cancel-action", "run-action", "show-action-status", "show-action-output")
-	}
 	sort.Strings(expected)
 	c.Check(registry.names, jc.DeepEquals, expected)
 }
@@ -617,11 +576,11 @@ func (s *MainSuite) TestRegisterCommandsWhitelist(c *gc.C) {
 	stubRegistry := &stubRegistry{stub: &jujutesting.Stub{}}
 	registry := jujuCommandRegistry{
 		commandRegistry: stubRegistry,
-		whitelist:       set.NewStrings("show-status"),
+		whitelist:       set.NewStrings("status"),
 		excluded:        set.NewStrings(),
 	}
 	registerCommands(registry)
-	c.Assert(stubRegistry.names, jc.SameContents, []string{"show-status", "status"})
+	c.Assert(stubRegistry.names, jc.SameContents, []string{"status"})
 }
 
 func (s *MainSuite) TestRegisterCommandsEmbedded(c *gc.C) {

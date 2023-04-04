@@ -328,6 +328,20 @@ func (mr *MockContextMockRecorder) Dispose() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dispose", reflect.TypeOf((*MockContext)(nil).Dispose))
 }
 
+// HTTPClient mocks base method.
+func (m *MockContext) HTTPClient(arg0 facade.HTTPClientPurpose) facade.HTTPClient {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HTTPClient", arg0)
+	ret0, _ := ret[0].(facade.HTTPClient)
+	return ret0
+}
+
+// HTTPClient indicates an expected call of HTTPClient.
+func (mr *MockContextMockRecorder) HTTPClient(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HTTPClient", reflect.TypeOf((*MockContext)(nil).HTTPClient), arg0)
+}
+
 // Hub mocks base method.
 func (m *MockContext) Hub() facade.Hub {
 	m.ctrl.T.Helper()

@@ -7,15 +7,14 @@ import (
 	"fmt"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	"github.com/juju/charm/v8"
-	"github.com/juju/charmrepo/v6"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charmrepo/v7"
+	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -69,11 +68,10 @@ func newRefreshCommand() *refreshCommand {
 			return modelconfig.NewClient(api)
 		},
 		NewCharmHubClient: func(url string) (store.DownloadBundleClient, error) {
-			cfg, err := charmhub.CharmHubConfigFromURL(url, logger)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return charmhub.NewClient(cfg)
+			return charmhub.NewClient(charmhub.Config{
+				URL:    url,
+				Logger: logger,
+			})
 		},
 		CharmStoreURLGetter: getCharmStoreAPIURL,
 		NewCharmStore: func(
@@ -151,13 +149,13 @@ type refreshCommand struct {
 
 	ApplicationName string
 	// Force should be ubiquitous and we should eventually deprecate both
-	// ForceUnits and ForceSeries; instead just using "force"
-	Force       bool
-	ForceUnits  bool
-	ForceSeries bool
-	SwitchURL   string
-	CharmPath   string
-	Revision    int // defaults to -1 (latest)
+	// ForceUnits and ForceBase; instead just using "force"
+	Force      bool
+	ForceUnits bool
+	ForceBase  bool
+	SwitchURL  string
+	CharmPath  string
+	Revision   int // defaults to -1 (latest)
 
 	BindToSpaces string
 	Bindings     map[string]string
@@ -249,13 +247,13 @@ is determined by the contents of the charm at the specified path.
 number with --switch, give it in the charm URL, for instance "cs:wordpress-5"
 would specify revision number 5 of the wordpress charm.
 
-Use of the --force-units option is not generally recommended; units upgraded 
-while in an error state will not have refreshed hooks executed, and may cause 
+Use of the --force-units option is not generally recommended; units upgraded
+while in an error state will not have refreshed hooks executed, and may cause
 unexpected behavior.
 
---force option for LXD Profiles is not generally recommended when upgrading an 
-application; overriding profiles on the container may cause unexpected 
-behavior. 
+--force option for LXD Profiles is not generally recommended when upgrading an
+application; overriding profiles on the container may cause unexpected
+behavior.
 `
 
 func (c *refreshCommand) Info() *cmd.Info {
@@ -264,7 +262,6 @@ func (c *refreshCommand) Info() *cmd.Info {
 		Args:    "<application>",
 		Purpose: "Refresh an application's charm.",
 		Doc:     refreshDoc,
-		Aliases: []string{"upgrade-charm"},
 	})
 }
 
@@ -273,7 +270,7 @@ func (c *refreshCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Force, "force", false, "Allow a charm to be refreshed which bypasses LXD profile allow list")
 	f.BoolVar(&c.ForceUnits, "force-units", false, "Refresh all units immediately, even if in error state")
 	f.StringVar(&c.channelStr, "channel", "", "Channel to use when getting the charm or bundle from the charm store or charm hub")
-	f.BoolVar(&c.ForceSeries, "force-series", false, "Refresh even if series of deployed applications are not supported by the new charm")
+	f.BoolVar(&c.ForceBase, "force-series", false, "Refresh even if series of deployed applications are not supported by the new charm")
 	f.StringVar(&c.SwitchURL, "switch", "", "Crossgrade to a different charm")
 	f.StringVar(&c.CharmPath, "path", "", "Refresh to a charm located at path")
 	f.IntVar(&c.Revision, "revision", -1, "Explicit revision of current charm")
@@ -316,18 +313,6 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	}
 	defer func() { _ = apiRoot.Close() }()
 
-	// If the user has specified config or storage constraints,
-	// make sure the server has facade version 2 at a minimum.
-	if c.Config.Path != "" || len(c.Storage) > 0 {
-		action := "updating config"
-		if c.Config.Path == "" {
-			action = "updating storage constraints"
-		}
-		if err := c.checkApplicationFacadeSupport(apiRoot, action, 2); err != nil {
-			return err
-		}
-	}
-
 	generation, err := c.ActiveBranch()
 	if err != nil {
 		return errors.Trace(err)
@@ -338,13 +323,17 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	// Select a suitable default URL schema for charm URLs that don't
-	// provide one depending on whether the current controller supports
-	// resources v2 facades which is for charmhub (i.e. it is a 2.9+ controller).
-	var defaultCharmSchema = charm.CharmHub
-	if apiRoot.BestFacadeVersion("Resources") < 2 {
-		defaultCharmSchema = charm.CharmStore
+	// There is a timing window where deploy has been called and the charm
+	// is not yet downloaded. Check here to verify the origin has an ID,
+	// otherwise refresh result may be in accurate. We could use the
+	// retry package, but the issue is only seen in automated test due to
+	// speed. Can always use retry if it becomes an issue.
+	if oldOrigin.Source == commoncharm.OriginCharmHub && oldOrigin.ID == "" {
+		return errors.Errorf("%q deploy incomplete, please try refresh again in a little bit.", c.ApplicationName)
 	}
+
+	// Set a default URL schema for charm URLs that don't provide one.
+	var defaultCharmSchema = charm.CharmHub
 
 	// Ensure that the switchURL (if provided) always contains a schema. If
 	// one is missing inject the default value we selected above.
@@ -358,10 +347,6 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.BindToSpaces != "" {
-		if err := c.checkApplicationFacadeSupport(apiRoot, "specifying bindings", 11); err != nil {
-			return err
-		}
-
 		if err := c.parseBindFlag(apiRoot); err != nil && errors.IsNotSupported(err) {
 			ctx.Infof("Spaces not supported by this model's cloud, ignoring bindings.")
 		} else if err != nil {
@@ -400,17 +385,9 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	var chBase series.Base
-	if applicationInfo.Series != "" && applicationInfo.Base.Name == "" {
-		chBase, err = series.GetBaseFromSeries(applicationInfo.Series)
-		if err != nil {
-			return errors.Trace(err) // This should never happen.
-		}
-	} else if applicationInfo.Base.Channel != "" {
-		chBase, err = series.ParseBase(applicationInfo.Base.Name, applicationInfo.Base.Channel)
-		if err != nil {
-			return errors.Trace(err)
-		}
+	chBase, err := series.ParseBase(applicationInfo.Base.Name, applicationInfo.Base.Channel)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	cfg := refresher.RefresherConfig{
 		ApplicationName: c.ApplicationName,
@@ -420,7 +397,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		Channel:         c.Channel,
 		DeployedBase:    chBase,
 		Force:           c.Force,
-		ForceSeries:     c.ForceSeries,
+		ForceBase:       c.ForceBase,
 		Switch:          c.SwitchURL != "",
 		Logger:          ctx,
 	}
@@ -477,23 +454,20 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	var bindingsChangelog []string
-	if apiRoot.BestFacadeVersion("Application") >= 11 {
-		// Fetch information about the charm we want to upgrade to and
-		// print out the updated endpoint binding plan.
-		charmInfo, err := c.NewCharmClient(apiRoot).CharmInfo(curl.String())
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		curBindings := applicationInfo.EndpointBindings
-		appDefaultSpace := curBindings[""]
-		newCharmEndpoints := allEndpoints(charmInfo)
-		if err := c.validateEndpointNames(newCharmEndpoints, curBindings, c.Bindings); err != nil {
-			return errors.Trace(err)
-		}
-		c.Bindings, bindingsChangelog = mergeBindings(newCharmEndpoints, curBindings, c.Bindings, appDefaultSpace)
+	// Print out the updated endpoint binding plan.
+	charmsClient := c.NewCharmClient(apiRoot)
+	charmInfo, err := charmsClient.CharmInfo(curl.String())
+	if err != nil {
+		return errors.Trace(err)
 	}
+	var bindingsChangelog []string
+	curBindings := applicationInfo.EndpointBindings
+	appDefaultSpace := curBindings[""]
+	newCharmEndpoints := allEndpoints(charmInfo)
+	if err := c.validateEndpointNames(newCharmEndpoints, curBindings, c.Bindings); err != nil {
+		return errors.Trace(err)
+	}
+	c.Bindings, bindingsChangelog = mergeBindings(newCharmEndpoints, curBindings, c.Bindings, appDefaultSpace)
 
 	// Finally, upgrade the application.
 	var configYAML []byte
@@ -508,7 +482,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		CharmID:            chID,
 		ConfigSettingsYAML: string(configYAML),
 		Force:              c.Force,
-		ForceSeries:        c.ForceSeries,
+		ForceBase:          c.ForceBase,
 		ForceUnits:         c.ForceUnits,
 		ResourceIDs:        resourceIDs,
 		StorageConstraints: c.Storage,
@@ -566,24 +540,6 @@ func (c *refreshCommand) parseBindFlag(apiRoot base.APICallCloser) error {
 	return nil
 }
 
-type versionQuerier interface {
-	BestFacadeVersion(string) int
-	ServerVersion() (version.Number, bool)
-}
-
-func (c *refreshCommand) checkApplicationFacadeSupport(verQuerier versionQuerier, action string, minVersion int) error {
-	if verQuerier.BestFacadeVersion("Application") >= minVersion {
-		return nil
-	}
-
-	suffix := "this server"
-	if ver, ok := verQuerier.ServerVersion(); ok {
-		suffix = fmt.Sprintf("server version %s", ver)
-	}
-
-	return errors.New(action + " at refresh time is not supported by " + suffix)
-}
-
 // upgradeResources pushes metadata up to the server for each resource defined
 // in the new charm's metadata and returns a map of resource names to pending
 // IDs to include in the refresh call.
@@ -639,51 +595,25 @@ func (c *refreshCommand) upgradeResources(
 func newCharmAdder(
 	conn api.Connection,
 ) store.CharmAdder {
-	adder := &charmAdderShim{
-		api:         &apiClient{Client: apiclient.NewClient(conn)},
-		modelconfig: &modelConfigClient{Client: modelconfig.NewClient(conn)},
+	return &charmAdderShim{
+		api:               &apiClient{Client: apiclient.NewClient(conn)},
+		charmsClient:      &charmsClient{Client: apicharms.NewClient(conn)},
+		modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(conn)},
 	}
-	adder.charmuploader = &charmsClient{Client: apicharms.NewClient(conn)}
-	if best := conn.BestFacadeVersion("Charms"); best > 2 {
-		adder.charms = adder.charmuploader
-	}
-	return adder
 }
 
 type charmAdderShim struct {
-	charms        *charmsClient
-	charmuploader *charmsClient
-	modelconfig   *modelConfigClient
-	api           *apiClient
+	*charmsClient
+	*modelConfigClient
+	api *apiClient
 }
 
 func (c *charmAdderShim) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool) (*charm.URL, error) {
-	agentVersion, err := agentVersion(c.modelconfig)
+	agentVersion, err := agentVersion(c.modelConfigClient)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.charmuploader.AddLocalCharm(curl, ch, force, agentVersion)
-}
-
-func (c *charmAdderShim) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
-	if c.charms != nil {
-		return c.charms.AddCharm(curl, origin, force)
-	}
-	return origin, c.api.AddCharm(curl, csparams.Channel(origin.Risk), force)
-}
-
-func (c *charmAdderShim) AddCharmWithAuthorization(curl *charm.URL, origin commoncharm.Origin, mac *macaroon.Macaroon, force bool) (commoncharm.Origin, error) {
-	if c.charms != nil {
-		return c.charms.AddCharmWithAuthorization(curl, origin, mac, force)
-	}
-	return origin, c.api.AddCharmWithAuthorization(curl, csparams.Channel(origin.Risk), mac, force)
-}
-
-func (c *charmAdderShim) CheckCharmPlacement(appName string, curl *charm.URL) error {
-	if c.charms != nil {
-		return c.charms.CheckCharmPlacement(appName, curl)
-	}
-	return nil
+	return c.charmsClient.AddLocalCharm(curl, ch, force, agentVersion)
 }
 
 func getCharmStore(

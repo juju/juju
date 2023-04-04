@@ -4,7 +4,6 @@
 package jujuclient
 
 import (
-	"io/ioutil"
 	"os"
 
 	"github.com/juju/errors"
@@ -24,7 +23,7 @@ func JujuCredentialsPath() string {
 // ReadCredentialsFile loads all credentials defined in a given file.
 // If the file is not found, it is not an error.
 func ReadCredentialsFile(file string) (*cloud.CredentialCollection, error) {
-	data, err := ioutil.ReadFile(file)
+	data, err := os.ReadFile(file)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return &cloud.CredentialCollection{}, nil

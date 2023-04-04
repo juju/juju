@@ -4,17 +4,14 @@
 package watcher
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/worker/v3"
-	"gopkg.in/retry.v1"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/wrench"
 )
 
@@ -38,68 +35,30 @@ const (
 	// change (data is the Change instance).
 	TxnWatcherCollection = "collection"
 
-	txnWatcherShortWait = 10 * time.Millisecond
-
-	maxSyncRetries           = 8
-	txnWatcherErrorShortWait = 500 * time.Millisecond
+	// txnWatcherErrorWait is the delay after an error before trying to resume
+	// the change stream by a call to aggregate changeStream.
+	txnWatcherErrorWait = 5 * time.Second
 )
 
+// RunCmdFunc allows tests to override calls to mongo db.Run.
+type RunCmdFunc func(db *mgo.Database, cmd any, resp any) error
+
 var (
-
-	// PollStrategy is used to determine how long
-	// to delay between poll intervals. A new timer
-	// is created each time some watcher event is
-	// fired or if the old timer completes.
-	//
-	// It must not be changed when any watchers are active.
-	PollStrategy retry.Strategy = retry.Exponential{
-		Initial:  txnWatcherShortWait,
-		Factor:   1.5,
-		MaxDelay: 5 * time.Second,
-	}
-
-	// ErrorStrategy is used to determine how long
-	// to delay between poll intervals when attempting
-	// to recover from a mongo error.
-	// Given an initial delay of 500ms and 8 retries,
-	// we'll retry roughly like so:
-	// .5, 1, 2, 4, 8, 16, 30, 30
-	//
-	// It must not be changed when any watchers are active.
-	ErrorStrategy retry.Strategy = retry.Exponential{
-		Initial:  txnWatcherErrorShortWait,
-		Factor:   2.0,
-		MaxDelay: 30 * time.Second,
-	}
-
 	// TxnPollNotifyFunc allows tests to be able to specify
 	// callbacks each time the database has been polled and processed.
 	TxnPollNotifyFunc func()
 )
 
-type outOfSyncError struct {
-	lastCollectionId interface{}
-	lastSeenId       interface{}
-}
-
-func (e outOfSyncError) Error() string {
-	return fmt.Sprintf("txn watcher out of sync\nlast collection id: %v\nlast seen id: %v",
-		e.lastCollectionId,
-		e.lastSeenId)
-}
-
-// A TxnWatcher watches the txns.log collection and publishes all change events
+// A TxnWatcher watches a mongo change stream and publishes all change events
 // to the hub.
 type TxnWatcher struct {
 	hub    Hub
 	clock  Clock
 	logger Logger
 
-	tomb           tomb.Tomb
-	iteratorFunc   func(*mgo.Collection) mongo.Iterator
-	session        *mgo.Session
-	jujuDBName     string
-	collectionName string
+	tomb       tomb.Tomb
+	session    *mgo.Session
+	jujuDBName string
 
 	// notifySync is copied from the package variable when the watcher
 	// is created.
@@ -126,8 +85,24 @@ type TxnWatcher struct {
 	// averageSyncLen tracks a filtered average of how long the sync event queue gets before we flush
 	averageSyncLen float64
 
-	// lastId is the most recent transaction id observed by a sync.
-	lastId interface{}
+	// resumeToken is passed back by the aggregate changeStream call so that a change stream may
+	// be resumed if the cursor dies for some reason.
+	resumeToken bson.Raw
+
+	// cursorId is the id of the current cursor used for paging results from the change stream.
+	cursorId int64
+
+	// pollInterval is the duration of the long polling getMore call on the cursor.
+	pollInterval time.Duration
+
+	// readyChan is closed when the watcher has started the change stream, used for tests.
+	readyChan chan any
+
+	// runCmd can be used to override the db.Run function, used for tests.
+	runCmd RunCmdFunc
+
+	// ignoreCollections when set the watcher will ignore all changes for these collections.
+	ignoreCollections []string
 }
 
 // TxnWatcherConfig contains the configuration parameters required
@@ -137,26 +112,27 @@ type TxnWatcherConfig struct {
 	Session *mgo.Session
 	// JujuDBName is the Juju database name, usually "juju".
 	JujuDBName string
-	// CollectionName is txn logs collection name, usually "txns.log".
-	CollectionName string
 	// Hub is where the changes are published to.
 	Hub Hub
 	// Clock allows tests to control the advancing of time.
 	Clock Clock
 	// Logger is used to control where the log messages for this watcher go.
 	Logger Logger
-	// IteratorFunc can be overridden in tests to control what values the
-	// watcher sees.
-	IteratorFunc func(*mgo.Collection) mongo.Iterator
+	// PollInterval is used to set how long mongo will wait before returning an
+	// empty result. It defaults to 1s.
+	PollInterval time.Duration
+	// RunCmd is called to run commands against an mgo.Database, used for
+	// testing.
+	RunCmd RunCmdFunc
+	// IgnoreCollections is optional, when provided the TxnWatcher will ignore changes
+	// to documents in these collections.
+	IgnoreCollections []string
 }
 
 // Validate ensures that all the values that have to be set are set.
 func (config TxnWatcherConfig) Validate() error {
 	if config.Session == nil {
 		return errors.NotValidf("missing Session")
-	}
-	if config.CollectionName == "" {
-		return errors.NotValidf("missing CollectionName")
 	}
 	if config.JujuDBName == "" {
 		return errors.NotValidf("missing JujuDBName")
@@ -167,43 +143,56 @@ func (config TxnWatcherConfig) Validate() error {
 	if config.Clock == nil {
 		return errors.NotValidf("missing Clock")
 	}
+	if config.PollInterval < 0 {
+		return errors.NotValidf("negative PollInterval")
+	}
 	return nil
 }
 
-// New returns a new Watcher observing the changelog collection,
-// which must be a capped collection maintained by mgo/txn.
+// NewTxnWatcher returns a new Watcher observing the changelog collection.
 func NewTxnWatcher(config TxnWatcherConfig) (*TxnWatcher, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Annotate(err, "new TxnWatcher invalid config")
 	}
 
 	w := &TxnWatcher{
-		hub:            config.Hub,
-		clock:          config.Clock,
-		logger:         config.Logger,
-		session:        config.Session,
-		jujuDBName:     config.JujuDBName,
-		collectionName: config.CollectionName,
-		iteratorFunc:   config.IteratorFunc,
-		notifySync:     TxnPollNotifyFunc,
-		reportRequest:  make(chan chan map[string]interface{}),
-	}
-	if w.iteratorFunc == nil {
-		w.iteratorFunc = w.iter
+		hub:               config.Hub,
+		clock:             config.Clock,
+		logger:            config.Logger,
+		session:           config.Session,
+		jujuDBName:        config.JujuDBName,
+		notifySync:        TxnPollNotifyFunc,
+		reportRequest:     make(chan chan map[string]interface{}),
+		readyChan:         make(chan any),
+		pollInterval:      config.PollInterval,
+		runCmd:            config.RunCmd,
+		ignoreCollections: config.IgnoreCollections,
 	}
 	if w.logger == nil {
 		w.logger = noOpLogger{}
 	}
+	if w.pollInterval == 0 {
+		w.pollInterval = 1 * time.Second
+	}
+	if w.runCmd == nil {
+		w.runCmd = w.runCmdImpl
+	}
 	w.tomb.Go(func() error {
 		err := w.loop()
-		cause := errors.Cause(err)
 		// tomb expects ErrDying or ErrStillAlive as
 		// exact values, so we need to log and unwrap
 		// the error first.
-		if err != nil && cause != tomb.ErrDying {
+		cause := errors.Cause(err)
+		switch cause {
+		case tomb.ErrDying:
+			return tomb.ErrDying
+		case tomb.ErrStillAlive:
+			return tomb.ErrStillAlive
+		}
+		if err != nil {
 			w.logger.Infof("watcher loop failed: %v", err)
 		}
-		return cause
+		return err
 	})
 	return w, nil
 }
@@ -254,12 +243,15 @@ func (w *TxnWatcher) Report() map[string]interface{} {
 	}
 }
 
-// getTxnLogCollection returns the raw mongodb txns collection.
-func (w *TxnWatcher) getTxnLogCollection() *mgo.Collection {
-	if w.session.Ping() != nil {
-		w.session.Refresh()
+// Ready waits for the watcher to have started the change stream against mongo or return an error.
+// Useful for testing.
+func (w *TxnWatcher) Ready() error {
+	select {
+	case <-w.tomb.Dying():
+		return w.tomb.Err()
+	case <-w.readyChan:
+		return nil
 	}
-	return w.session.DB(w.jujuDBName).C(w.collectionName)
 }
 
 // loop implements the main watcher loop.
@@ -267,35 +259,24 @@ func (w *TxnWatcher) getTxnLogCollection() *mgo.Collection {
 func (w *TxnWatcher) loop() error {
 	w.logger.Tracef("loop started")
 	defer w.logger.Tracef("loop finished")
-	// Make sure we have read the last ID before telling people
-	// we have started.
-	logCollection := w.getTxnLogCollection()
-	if err := w.initLastId(logCollection); err != nil {
-		return errors.Trace(err)
-	}
 
-	// Initially we have no retries and will use the
-	// polling backoff strategy.
-	syncRetryCount := 0
-	backoffStrategy := PollStrategy
+	// Change Stream specification can be found here:
+	// https://github.com/mongodb/specifications/blob/master/source/change-streams/change-streams.rst
+	w.resumeToken = bson.Raw{}
+	errorOccurred := false
 
-	// Also make sure we have prepared the timer before
-	// we tell people we've started.
-	now := w.clock.Now()
-	backoff := backoffStrategy.NewTimer(now)
-	d, _ := backoff.NextSleep(now)
-	next := w.clock.After(d)
+	immediate := make(chan time.Time)
+	close(immediate)
+	var next <-chan time.Time = immediate
+
+	first := true
+
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return errors.Trace(tomb.ErrDying)
 		case <-next:
-			d, ok := backoff.NextSleep(w.clock.Now())
-			if !ok {
-				// This shouldn't happen, but be defensive.
-				backoff = backoffStrategy.NewTimer(w.clock.Now())
-			}
-			next = w.clock.After(d)
+			next = immediate
 		case resCh := <-w.reportRequest:
 			report := map[string]interface{}{
 				// How long was sync-events in our last flush
@@ -321,50 +302,201 @@ func (w *TxnWatcher) loop() error {
 			continue
 		}
 
-		if logCollection == nil {
-			// On error the log collection will be set to nil so get it again.
-			// This will refresh the mongo session if needed.
-			logCollection = w.getTxnLogCollection()
+		var added bool
+		var err error
+		if errorOccurred || first {
+			if !first {
+				w.killCursor()
+			}
+			added, err = w.init()
+			if err != nil {
+				err = errors.Wrap(FatalChangeStreamError, err)
+			}
+			if first {
+				defer w.killCursor()
+				w.logger.Infof("txn watcher started")
+				close(w.readyChan)
+				first = false
+			}
+		} else {
+			added, err = w.sync()
 		}
-		added, err := w.sync(logCollection)
 		if w.logger.IsTraceEnabled() && wrench.IsActive("txnwatcher", "sync-error") {
 			added = false
 			err = errors.New("test sync watcher error")
 		}
 		if err == nil {
-			if syncRetryCount > 0 {
-				w.logger.Infof("txn sync watcher recovered after %d retries", syncRetryCount)
+			if errorOccurred {
+				w.logger.Infof("txn sync watcher resumed after failure")
 			}
-			// Something's happened, so reset the exponential backoff
-			// so we'll retry again quickly.
-			if syncRetryCount > 0 || added {
-				backoff = PollStrategy.NewTimer(w.clock.Now())
-				next = w.clock.After(txnWatcherShortWait)
-			}
-			syncRetryCount = 0
+			errorOccurred = false
 			w.flush()
 			if !added && w.notifySync != nil {
 				w.notifySync()
 			}
 		} else {
-			w.logger.Warningf("txn watcher sync error: %v\ncurrent retry count %d", err, syncRetryCount)
-			_, isSyncError := errors.Cause(err).(outOfSyncError)
-			if isSyncError || syncRetryCount > maxSyncRetries {
+			w.logger.Warningf("txn watcher sync error: %v", err)
+			// If didn't get a resumable error and either we have already had one error resuming
+			// or received a fatal error, then exit the watcher and report failure.
+			if !errors.Is(err, ResumableChangeStreamError) &&
+				(errors.Is(err, FatalChangeStreamError) || errorOccurred) {
 				_ = w.hub.Publish(TxnWatcherSyncErr, err)
 				return errors.Trace(err)
 			}
-			logCollection = nil
-			syncRetryCount++
-			if syncRetryCount == 1 {
-				// An error occurred so set up the error retry strategy.
-				backoff = ErrorStrategy.NewTimer(w.clock.Now())
-				next = w.clock.After(txnWatcherErrorShortWait)
-			}
+			w.logger.Warningf("txn watcher resume queued")
+			errorOccurred = true
+			next = w.clock.After(txnWatcherErrorWait)
 			if w.notifySync != nil {
 				w.notifySync()
 			}
 		}
 	}
+}
+
+func (w *TxnWatcher) killCursor() {
+	if w.cursorId == 0 {
+		return
+	}
+	db := w.session.DB(w.jujuDBName)
+	var err error
+	for i := 0; i < 2; i++ {
+		err = w.runCmd(db, bson.D{
+			{"killCursors", "$cmd.aggregate"},
+			{"cursors", []int64{w.cursorId}},
+		}, nil)
+		if isCursorNotFoundError(err) {
+			break
+		} else if err == nil {
+			break
+		}
+		w.logger.Warningf("failed to kill cursor %d: %s", w.cursorId, err.Error())
+	}
+	w.cursorId = 0
+}
+
+func (w *TxnWatcher) init() (bool, error) {
+	db := w.session.DB(w.jujuDBName)
+
+	cs := bson.M{
+		"fullDocument":             "updateLookup",
+		"fullDocumentBeforeChange": "off",
+	}
+	if len(w.resumeToken.Data) > 0 {
+		cs["resumeAfter"] = w.resumeToken
+	}
+
+	match := bson.D{
+		{"$or", []bson.D{
+			{{"operationType", "insert"}},
+			{{"operationType", "update"}},
+			{{"operationType", "replace"}},
+			{{"operationType", "delete"}},
+		}},
+	}
+
+	if len(w.ignoreCollections) > 0 {
+		match = append(match, bson.DocElem{"ns.coll", bson.D{{"$not", bson.D{{"$in", w.ignoreCollections}}}}})
+	}
+
+	cmd := bson.D{
+		{"aggregate", 1},
+		{"pipeline", []bson.D{
+			{{"$changeStream", cs}},
+			{{"$match", match}},
+		}},
+		{"cursor", bson.D{{"batchSize", 10}}},
+		{"readConcern", bson.D{{"level", "majority"}}},
+	}
+
+	resp := aggregateResponse{}
+	err := w.runCmd(db, cmd, &resp)
+	if err != nil {
+		return false, errors.Annotate(err, "starting change stream")
+	}
+	w.cursorId = resp.Cursor.Id
+	added, err := w.process(resp.Cursor.FirstBatch)
+	if err != nil {
+		return false, errors.Annotate(err, "processing first change stream batch")
+	}
+	w.resumeToken = resp.Cursor.PostBatchResumeToken
+
+	return added, nil
+}
+
+func (w *TxnWatcher) process(changes []bson.Raw) (bool, error) {
+	added := false
+
+	for i := len(changes) - 1; i >= 0; i-- {
+		changeRaw := changes[i]
+		change := changeStreamDocument{}
+		err := bson.Unmarshal(changeRaw.Data, &change)
+		if err != nil {
+			return added, errors.Trace(err)
+		}
+		if len(change.Id.Data) == 0 {
+			return added, errors.Annotate(FatalChangeStreamError, "missing change id in change")
+		}
+		revno := int64(0)
+		switch change.OperationType {
+		case "insert", "replace":
+			// We read the revno from the committed document as reported by the change stream.
+			revno = change.FullDocument.Revno
+		case "update":
+			// For updates we read the revno from the updated fields so that it isn't newer as
+			// FullDocument on an update is only guaranteed to be the state of the document after
+			// the update, not the state of the document as a result of the update, so the reported
+			// revno could be greater.
+			revno = change.UpdateDescription.UpdatedFields.Revno
+			if revno == 0 && change.TxnNumber == 0 {
+				a := bson.M{}
+				err := bson.Unmarshal(changeRaw.Data, &a)
+				if err != nil {
+					return added, errors.Trace(err)
+				}
+				j, err := bson.MarshalJSON(a)
+				if err != nil {
+					return added, errors.Trace(err)
+				}
+				// If you get this message then a document was updated outside a mongo multi-doc transaction
+				// and wasn't involved in a jujutxn (incrementing txn-revno).
+				// If you were trying to modify a document from the mongo cli, you need to start a transaction
+				// then modify the document while also incrementing its txn-revno field. Then commit the transaction.
+				// This will correctly trigger the watcher.
+				// If you are seeing this otherwise, maybe the collection should not have been watched, so go update
+				// the watcherIgnoreList in state/allcollections.go
+				// If you want to receive watch notifications on your collection and get here, you need to make sure
+				// all mutations are done inside a jujutxn otherwise you have a programming error and the change will
+				// get skipped.
+				w.logger.Criticalf("update %s %v without revno %s", change.Ns.Collection, change.DocumentKey.Id, j)
+				w.resumeToken = change.Id
+				continue
+			} else if revno == 0 && change.TxnNumber != 0 {
+				// Skip update because the revno "$set" was elided.
+				w.resumeToken = change.Id
+				continue
+			}
+		case "delete":
+			// Revno of -1 indicates a deleted document.
+			revno = -1
+		default:
+			// If we have a bad change, then we can just skip it, making sure to update the resumption token
+			// to resume after this event.
+			w.logger.Warningf("received bad change type %s", change.OperationType)
+			w.resumeToken = change.Id
+			continue
+		}
+		w.logger.Debugf("txn watcher: %s %v #%d", change.Ns.Collection, change.DocumentKey.Id, revno)
+		w.syncEvents = append(w.syncEvents, Change{
+			C:     change.Ns.Collection,
+			Id:    change.DocumentKey.Id,
+			Revno: revno,
+		})
+		w.changesCount++
+		added = true
+		w.resumeToken = change.Id
+	}
+
+	return added, nil
 }
 
 // flush sends all pending events to their respective channels.
@@ -381,108 +513,141 @@ func (w *TxnWatcher) flush() {
 	// doesn't grow to the size of the largest-ever change and never shrink
 }
 
-// initLastId reads the most recent changelog document and initializes
-// lastId with it. This causes all history that precedes the creation
-// of the watcher to be ignored.
-func (w *TxnWatcher) initLastId(log *mgo.Collection) error {
-	var entry struct {
-		Id interface{} `bson:"_id"`
-	}
-	err := log.Find(nil).Sort("-$natural").One(&entry)
-	if err != nil && err != mgo.ErrNotFound {
-		return errors.Trace(err)
-	}
-	w.lastId = entry.Id
-	return nil
-}
-
-func (w *TxnWatcher) iter(log *mgo.Collection) mongo.Iterator {
-	return log.Find(nil).Batch(10).Sort("-$natural").Iter()
-}
-
 // sync updates the watcher knowledge from the database, and
 // queues events to observing channels.
-func (w *TxnWatcher) sync(log *mgo.Collection) (bool, error) {
+func (w *TxnWatcher) sync() (bool, error) {
 	w.logger.Tracef("txn watcher %p starting sync", w)
-	added := false
-	// Iterate through log events in reverse insertion order (newest first).
-	iter := w.iteratorFunc(log)
-	seen := make(map[watchKey]bool)
-	first := true
-	lastId := w.lastId
-	var (
-		entry      bson.D
-		lastSeenId interface{}
-	)
-	for iter.Next(&entry) {
-		w.iteratorStepCount++
-		if len(entry) == 0 {
-			w.logger.Tracef("got empty changelog document")
+
+	db := w.session.DB(w.jujuDBName)
+	resp := aggregateResponse{}
+	var err error
+	for i := 0; i < 2; i++ {
+		select {
+		case <-w.tomb.Dying():
+			return false, tomb.ErrDying
+		default:
 		}
-		id := entry[0]
-		if id.Name != "_id" {
-			w.logger.Warningf("watcher: _id field isn't first entry")
-			continue
-		}
-		if first {
-			w.lastId = id.Value
-			first = false
-		}
-		lastSeenId = id.Value
-		if id.Value == lastId {
+		err = w.runCmd(db, bson.D{
+			{"getMore", w.cursorId},
+			{"collection", "$cmd.aggregate"},
+			{"batchSize", 10},
+			{"maxTimeMS", w.pollInterval.Milliseconds()},
+			{"readConcern", bson.D{{"level", "majority"}}},
+		}, &resp)
+		if isCursorNotFoundError(err) {
+			return false, errors.Wrap(ResumableChangeStreamError, err)
+		} else if isFatalGetMoreError(err) {
+			return false, errors.Wrap(FatalChangeStreamError, err)
+		} else if err == nil {
 			break
 		}
-		w.logger.Tracef("%p step %d got changelog document: %#v", w, w.iteratorStepCount, entry)
-		for _, c := range entry[1:] {
-			// See txn's Runner.ChangeLog for the structure of log entries.
-			var d, r []interface{}
-			dr, _ := c.Value.(bson.D)
-			for _, item := range dr {
-				switch item.Name {
-				case "d":
-					d, _ = item.Value.([]interface{})
-				case "r":
-					r, _ = item.Value.([]interface{})
-				}
-			}
-			if len(d) == 0 || len(d) != len(r) {
-				w.logger.Warningf("changelog has invalid collection document: %#v", c)
-				continue
-			}
-			for i := len(d) - 1; i >= 0; i-- {
-				key := watchKey{c.Name, d[i]}
-				if seen[key] {
-					continue
-				}
-				seen[key] = true
-				revno, ok := r[i].(int64)
-				if !ok {
-					w.logger.Warningf("changelog has revno with type %T: %#v", r[i], r[i])
-					continue
-				}
-				if revno < 0 {
-					revno = -1
-				}
-				w.syncEvents = append(w.syncEvents, Change{
-					C:     c.Name,
-					Id:    d[i],
-					Revno: revno,
-				})
-				w.changesCount++
-				added = true
-			}
-		}
 	}
-	if err := iter.Close(); err != nil {
-		return false, errors.Annotate(err, "watcher iteration error")
+	if err != nil {
+		return false, errors.Wrap(ResumableChangeStreamError, err)
 	}
-	// If we have exited the iterator without consuming all the txns since we
-	// last synced, or the collection has looped that's an issue.
-	if lastId != nil && lastSeenId != lastId {
-		return false, outOfSyncError{
-			lastCollectionId: lastId,
-			lastSeenId:       lastSeenId,
-		}
+
+	added, err := w.process(resp.Cursor.NextBatch)
+	if err != nil {
+		return added, errors.Trace(err)
 	}
+	w.resumeToken = resp.Cursor.PostBatchResumeToken
+
 	return added, nil
 }
+
+func (w *TxnWatcher) runCmdImpl(db *mgo.Database, cmd any, resp any) error {
+	return db.Run(cmd, resp)
+}
+
+type changeStreamDocument struct {
+	Id                bson.Raw            `bson:"_id"`
+	OperationType     string              `bson:"operationType"`
+	Ns                nsRef               `bson:"ns"`
+	DocumentKey       *docKey             `bson:"documentKey"`
+	ClusterTime       bson.MongoTimestamp `bson:"clusterTime"`
+	FullDocument      *txnDoc             `bson:"fullDocument"`
+	UpdateDescription *updateDescription  `bson:"updateDescription"`
+	TxnNumber         int64               `bson:"txnNumber"`
+}
+
+type updateDescription struct {
+	UpdatedFields txnDoc `bson:"updatedFields"`
+}
+
+type nsRef struct {
+	Database   string `bson:"db"`
+	Collection string `bson:"coll"`
+}
+
+type docKey struct {
+	Id any `bson:"_id"`
+}
+
+type txnDoc struct {
+	Revno int64 `bson:"txn-revno"`
+}
+
+type cursorData struct {
+	FirstBatch           []bson.Raw `bson:"firstBatch"`
+	NextBatch            []bson.Raw `bson:"nextBatch"`
+	Ns                   string     `bson:"ns"`
+	Id                   int64      `bson:"id"`
+	PostBatchResumeToken bson.Raw   `bson:"postBatchResumeToken"`
+}
+
+type aggregateResponse struct {
+	Ok     bool
+	Cursor cursorData
+}
+
+func isCursorNotFoundError(err error) bool {
+	code := 0
+	switch e := err.(type) {
+	case *mgo.LastError:
+		code = e.Code
+	case *mgo.QueryError:
+		code = e.Code
+	}
+	switch code {
+	case 43: // CursorNotFound
+		return true
+	}
+	return false
+}
+
+func isFatalGetMoreError(err error) bool {
+	code := 0
+	switch e := err.(type) {
+	case *mgo.LastError:
+		code = e.Code
+	case *mgo.QueryError:
+		code = e.Code
+	}
+	switch code {
+	case
+		6,     // HostUnreachable
+		7,     // HostNotFound
+		89,    // NetworkTimeout
+		91,    // ShutdownInProgress
+		189,   // PrimarySteppedDown
+		262,   // ExceededTimeLimit
+		9001,  // SocketException
+		10107, // NotWritablePrimary
+		11600, // InterruptedAtShutdown
+		11602, // InterruptedDueToReplStateChange
+		13435, // NotPrimaryNoSecondaryOk
+		13436, // NotPrimaryOrSecondary
+		63,    // StaleShardVersion
+		150,   // StaleEpoch
+		13388, // StaleConfig
+		234,   // RetryChangeStream
+		133:   // FailedToSatisfyReadPreference
+		return true
+	}
+	return false
+}
+
+const (
+	FatalChangeStreamError     errors.ConstError = "fatal change stream error"
+	ResumableChangeStreamError errors.ConstError = "resumable change stream error"
+)

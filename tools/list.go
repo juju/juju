@@ -10,9 +10,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
-
-	coreos "github.com/juju/juju/core/os"
-	coreseries "github.com/juju/juju/core/series"
 )
 
 // List holds tools available in an environment. The order of tools within
@@ -123,19 +120,20 @@ func (src Versions) Newest() (version.Number, Versions) {
 }
 
 // NewestCompatible returns the most recent version compatible with
-// base, i.e. with the same major and minor numbers and greater or
-// equal patch and build numbers.
-func (src Versions) NewestCompatible(base version.Number) (newest version.Number, found bool) {
+// base, i.e. with the same major number and greater or
+// equal minor, patch and build numbers.
+func (src Versions) NewestCompatible(base version.Number, allowDevBuilds bool) (newest version.Number, found bool) {
 	newest = base
 	found = false
 	for _, agent := range src {
-		toolVersion := agent.AgentVersion()
-		if newest == toolVersion {
+		agentVersion := agent.AgentVersion()
+		if newest == agentVersion {
 			found = true
-		} else if newest.Compare(toolVersion) < 0 &&
-			toolVersion.Major == newest.Major &&
-			toolVersion.Minor == newest.Minor {
-			newest = toolVersion
+		} else if newest.Compare(agentVersion) < 0 &&
+			agentVersion.Major == newest.Major &&
+			agentVersion.Minor == newest.Minor &&
+			(allowDevBuilds || agentVersion.Build == 0) {
+			newest = agentVersion
 			found = true
 		}
 	}
@@ -215,20 +213,8 @@ func (f Filter) match(agent HasVersion) bool {
 	if !ok {
 		return true
 	}
-	// TODO(juju4) - remove this logic
-	// Older tools were based on series. So if the filter is
-	// using a os type, we need to convert the tools to the
-	// corresponding os type before matching.
-	if f.OSType != "" {
-		release := tools.Version.Release
-		if tools.Version.Major == 2 && tools.Version.Minor <= 8 {
-			if !coreos.IsValidOSTypeName(release) {
-				release = coreseries.DefaultOSTypeNameFromSeries(release)
-			}
-		}
-		if release != f.OSType {
-			return false
-		}
+	if f.OSType != "" && tools.Version.Release != f.OSType {
+		return false
 	}
 	if f.Arch != "" && tools.Version.Arch != f.Arch {
 		return false

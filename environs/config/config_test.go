@@ -9,6 +9,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
 	"github.com/juju/proxy"
 	"github.com/juju/schema"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -36,6 +38,7 @@ type ConfigSuite struct {
 var _ = gc.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.DeveloperMode)
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	// Make sure that the defaults are used, which
 	// is <root>=WARNING
@@ -92,7 +95,6 @@ var configTests = []configTest{
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"image-stream":           "released",
 			"agent-stream":           "released",
-			"gui-stream":             "released",
 			"container-image-stream": "daily",
 		}),
 	}, {
@@ -107,8 +109,22 @@ var configTests = []configTest{
 		about:       "Explicit series",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"default-series": "jammy",
+		}),
+	}, {
+		about:       "old series",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"default-series": "bionic",
+		}),
+		err: `series "bionic" not supported`,
+	}, {
+		about:       "bad series",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"default-series": "my-series",
 		}),
+		err: `series "my-series" not supported`,
 	}, {
 		about:       "Explicit logging",
 		useDefaults: config.UseDefaults,
@@ -373,12 +389,6 @@ var configTests = []configTest{
 			"agent-stream": "proposed",
 		}),
 	}, {
-		about:       "explicit gui stream",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"gui-stream": "devl",
-		}),
-	}, {
 		about:       "Invalid logging configuration",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
@@ -402,7 +412,7 @@ var configTests = []configTest{
 			"ssl-hostname-verification":  true,
 			"authorized-keys":            "ssh-rsa mykeys rog@rog-x220\n",
 			"region":                     "us-east-1",
-			"default-series":             "precise",
+			"default-series":             "focal",
 			"secret-key":                 "a-secret-key",
 			"access-key":                 "an-access-key",
 			"agent-version":              "1.13.2",
@@ -1213,21 +1223,21 @@ func (s *ConfigSuite) TestCharmHubURL(c *gc.C) {
 	config := newTestConfig(c, testing.Attrs{})
 	chURL, ok := config.CharmHubURL()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(chURL, gc.Equals, charmhub.CharmHubServerURL)
+	c.Assert(chURL, gc.Equals, charmhub.DefaultServerURL)
 }
 
 func (s *ConfigSuite) TestMode(c *gc.C) {
-	config := newTestConfig(c, testing.Attrs{})
-	mode, ok := config.Mode()
+	cfg := newTestConfig(c, testing.Attrs{})
+	mode, ok := cfg.Mode()
 	c.Assert(ok, jc.IsFalse)
-	c.Assert(mode, gc.DeepEquals, []string{})
+	c.Assert(mode, gc.DeepEquals, set.NewStrings())
 
-	config = newTestConfig(c, testing.Attrs{
-		"mode": "strict",
+	cfg = newTestConfig(c, testing.Attrs{
+		config.ModeKey: config.RequiresPromptsMode,
 	})
-	mode, ok = config.Mode()
+	mode, ok = cfg.Mode()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(mode, gc.DeepEquals, []string{"strict"})
+	c.Assert(mode, gc.DeepEquals, set.NewStrings(config.RequiresPromptsMode))
 }
 
 func (s *ConfigSuite) TestLoggingOutput(c *gc.C) {

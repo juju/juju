@@ -23,8 +23,6 @@ var commonModelFacadeNames = set.NewStrings(
 	"CharmDownloader",
 	"CharmRevisionUpdater",
 	"Charms",
-	"CharmDownloader",
-	"CharmHub",
 	"Cleaner",
 	"Client",
 	"Cloud",
@@ -37,6 +35,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"LeadershipService",
 	"LifeFlag",
 	"Logger",
+	"LogPruner",
 	"MeterStatus",
 	"MigrationFlag",
 	"MigrationMaster",
@@ -59,6 +58,9 @@ var commonModelFacadeNames = set.NewStrings(
 	"RemoteRelations",
 	"Resumer",
 	"RetryStrategy",
+	"Secrets",
+	"SecretsManager",
+	"SecretsTriggerWatcher",
 	"Singular",
 	"StatusHistory",
 	"Storage",
@@ -88,7 +90,7 @@ var caasModelFacadeNames = set.NewStrings(
 	// For sidecar applications.
 	"CAASApplication",
 	"CAASApplicationProvisioner",
-	"CAASFirewallerEmbedded", // TODO(juju3): rename to CAASFirewallerSidecar
+	"CAASFirewallerSidecar",
 )
 
 func caasModelFacadesOnly(facadeName, _ string) error {

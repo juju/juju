@@ -5,82 +5,84 @@ package application
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/charmhub/transport"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/state"
 )
 
-type UpdateSeriesSuite struct {
+type UpdateBaseSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&UpdateSeriesSuite{})
+var _ = gc.Suite(&UpdateBaseSuite{})
 
-func (s *UpdateSeriesSuite) TestUpdateSeries(c *gc.C) {
+func (s *UpdateBaseSuite) TestUpdateBase(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	app := NewMockApplication(ctrl)
 	app.EXPECT().IsPrincipal().Return(true)
-	app.EXPECT().UpdateApplicationSeries("focal", false)
+	app.EXPECT().UpdateApplicationBase(state.UbuntuBase("20.04"), false)
 
-	state := NewMockUpdateSeriesState(ctrl)
+	state := NewMockUpdateBaseState(ctrl)
 	state.EXPECT().Application("foo").Return(app, nil)
 
-	validator := NewMockUpdateSeriesValidator(ctrl)
-	validator.EXPECT().ValidateApplication(app, "focal", false).Return(nil)
+	validator := NewMockUpdateBaseValidator(ctrl)
+	coreBase := coreseries.MakeDefaultBase("ubuntu", "20.04")
+	validator.EXPECT().ValidateApplication(app, coreBase, false).Return(nil)
 
-	api := NewUpdateSeriesAPI(state, validator)
-	err := api.UpdateSeries("application-foo", "focal", false)
+	api := NewUpdateBaseAPI(state, validator)
+	err := api.UpdateBase("application-foo", coreBase, false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *UpdateSeriesSuite) TestUpdateSeriesNoSeries(c *gc.C) {
+func (s *UpdateBaseSuite) TestUpdateBaseNoSeries(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	api := NewUpdateSeriesAPI(nil, nil)
-	err := api.UpdateSeries("application-foo", "", false)
-	c.Assert(err, gc.ErrorMatches, `series missing from args`)
+	api := NewUpdateBaseAPI(nil, nil)
+	err := api.UpdateBase("application-foo", coreseries.Base{}, false)
+	c.Assert(err, gc.ErrorMatches, `base missing from args`)
 }
 
-func (s *UpdateSeriesSuite) TestUpdateSeriesNotPrincipal(c *gc.C) {
+func (s *UpdateBaseSuite) TestUpdateBaseNotPrincipal(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	app := NewMockApplication(ctrl)
 	app.EXPECT().IsPrincipal().Return(false)
 
-	state := NewMockUpdateSeriesState(ctrl)
+	state := NewMockUpdateBaseState(ctrl)
 	state.EXPECT().Application("foo").Return(app, nil)
 
-	validator := NewMockUpdateSeriesValidator(ctrl)
+	validator := NewMockUpdateBaseValidator(ctrl)
 
-	api := NewUpdateSeriesAPI(state, validator)
-	err := api.UpdateSeries("application-foo", "focal", false)
+	api := NewUpdateBaseAPI(state, validator)
+	err := api.UpdateBase("application-foo", coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, gc.ErrorMatches, `"foo" is a subordinate application, update-series not supported`)
 }
 
-func (s *UpdateSeriesSuite) TestUpdateSeriesNotValid(c *gc.C) {
+func (s *UpdateBaseSuite) TestUpdateBaseNotValid(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	app := NewMockApplication(ctrl)
 	app.EXPECT().IsPrincipal().Return(true)
 
-	state := NewMockUpdateSeriesState(ctrl)
+	state := NewMockUpdateBaseState(ctrl)
 	state.EXPECT().Application("foo").Return(app, nil)
 
-	validator := NewMockUpdateSeriesValidator(ctrl)
-	validator.EXPECT().ValidateApplication(app, "focal", false).Return(errors.New("bad"))
+	validator := NewMockUpdateBaseValidator(ctrl)
+	validator.EXPECT().ValidateApplication(app, coreseries.MakeDefaultBase("ubuntu", "20.04"), false).Return(errors.New("bad"))
 
-	api := NewUpdateSeriesAPI(state, validator)
-	err := api.UpdateSeries("application-foo", "focal", false)
+	api := NewUpdateBaseAPI(state, validator)
+	err := api.UpdateBase("application-foo", coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, gc.ErrorMatches, `bad`)
 }
 
@@ -104,7 +106,7 @@ func (s StateValidatorSuite) TestValidateApplication(c *gc.C) {
 	application.EXPECT().Charm().Return(ch, false, nil)
 
 	validator := stateSeriesValidator{}
-	err := validator.ValidateApplication(application, "focal", false)
+	err := validator.ValidateApplication(application, coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -123,7 +125,7 @@ func (s StateValidatorSuite) TestValidateApplicationWithFallbackSeries(c *gc.C) 
 	application.EXPECT().Charm().Return(ch, false, nil)
 
 	validator := stateSeriesValidator{}
-	err := validator.ValidateApplication(application, "focal", false)
+	err := validator.ValidateApplication(application, coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -142,7 +144,7 @@ func (s StateValidatorSuite) TestValidateApplicationWithUnsupportedSeries(c *gc.
 	application.EXPECT().Charm().Return(ch, false, nil)
 
 	validator := stateSeriesValidator{}
-	err := validator.ValidateApplication(application, "focal", false)
+	err := validator.ValidateApplication(application, coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, gc.ErrorMatches, `series "focal" not supported by charm "cs:foo-1", supported series are: xenial, bionic`)
 }
 
@@ -160,7 +162,7 @@ func (s StateValidatorSuite) TestValidateApplicationWithUnsupportedSeriesWithFor
 	application.EXPECT().Charm().Return(ch, false, nil)
 
 	validator := stateSeriesValidator{}
-	err := validator.ValidateApplication(application, "focal", true)
+	err := validator.ValidateApplication(application, coreseries.MakeDefaultBase("ubuntu", "20.04"), true)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -190,14 +192,14 @@ func (s CharmhubValidatorSuite) TestValidateApplication(c *gc.C) {
 		Platform: &state.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
-			Series:       "bionic",
+			Channel:      "18.04/stable",
 		},
 	})
 
 	validator := charmhubSeriesValidator{
 		client: client,
 	}
-	err := validator.ValidateApplication(application, "focal", false)
+	err := validator.ValidateApplication(application, coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -214,7 +216,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithNoRevision(c *gc.C) {
 	validator := charmhubSeriesValidator{
 		client: client,
 	}
-	err := validator.ValidateApplication(application, "focal", false)
+	err := validator.ValidateApplication(application, coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, gc.ErrorMatches, `no revision found for application "foo"`)
 }
 
@@ -236,14 +238,14 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithClientRefreshError(c 
 		Platform: &state.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
-			Series:       "bionic",
+			Channel:      "18.04/stable",
 		},
 	})
 
 	validator := charmhubSeriesValidator{
 		client: client,
 	}
-	err := validator.ValidateApplication(application, "focal", false)
+	err := validator.ValidateApplication(application, coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, gc.ErrorMatches, `bad`)
 }
 
@@ -267,15 +269,15 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithRefreshError(c *gc.C)
 		Platform: &state.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
-			Series:       "bionic",
+			Channel:      "18.04/stable",
 		},
 	})
 
 	validator := charmhubSeriesValidator{
 		client: client,
 	}
-	err := validator.ValidateApplication(application, "focal", false)
-	c.Assert(err, gc.ErrorMatches, `unable to locate application with series focal: bad`)
+	err := validator.ValidateApplication(application, coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
+	c.Assert(err, gc.ErrorMatches, `unable to locate application with base ubuntu@20.04: bad`)
 }
 
 func (s CharmhubValidatorSuite) TestValidateApplicationWithRefreshErrorAndForce(c *gc.C) {
@@ -301,13 +303,13 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithRefreshErrorAndForce(
 		Platform: &state.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
-			Series:       "bionic",
+			Channel:      "18.04/stable",
 		},
 	})
 
 	validator := charmhubSeriesValidator{
 		client: client,
 	}
-	err := validator.ValidateApplication(application, "focal", true)
+	err := validator.ValidateApplication(application, coreseries.MakeDefaultBase("ubuntu", "20.04"), true)
 	c.Assert(err, jc.ErrorIsNil)
 }

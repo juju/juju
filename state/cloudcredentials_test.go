@@ -473,7 +473,7 @@ func (s *CloudCredentialsSuite) createCredentialWatcher(c *gc.C, st *state.State
 ) {
 	w := st.WatchCredential(cred)
 	s.AddCleanup(func(c *gc.C) { statetesting.AssertStop(c, w) })
-	return w, statetesting.NewNotifyWatcherC(c, st, w)
+	return w, statetesting.NewNotifyWatcherC(c, w)
 }
 
 func (s *CloudCredentialsSuite) TestWatchCredential(c *gc.C) {

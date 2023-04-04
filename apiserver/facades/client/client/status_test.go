@@ -46,7 +46,7 @@ type statusSuite struct {
 var _ = gc.Suite(&statusSuite{})
 
 func (s *statusSuite) addMachine(c *gc.C) *state.Machine {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	return machine
 }
@@ -78,7 +78,6 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 		c.Fatalf("Missing machine with id %q", machine.Id())
 	}
 	c.Check(resultMachine.Id, gc.Equals, machine.Id())
-	c.Check(resultMachine.Series, gc.Equals, machine.Series())
 	c.Check(resultMachine.Base, jc.DeepEquals, params.Base{Name: "ubuntu", Channel: "12.10/stable"})
 	c.Check(resultMachine.LXDProfiles, gc.HasLen, 0)
 }
@@ -623,7 +622,6 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 	model2, err := state2.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.State.StartSync()
 	s.WaitForModelWatchersIdle(c, model2.UUID())
 
 	// Get API connection to hosted model.
@@ -1021,6 +1019,10 @@ func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 		Series: "kubernetes",
 	})
 	s.app = s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "20.04/stable",
+		}},
 		Charm: ch,
 	})
 	s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.app})
@@ -1105,8 +1107,7 @@ func (s *CAASStatusSuite) assertUnitStatus(c *gc.C, appStatus params.Application
 	}
 	c.Assert(appStatus, jc.DeepEquals, params.ApplicationStatus{
 		Charm:           *curl,
-		Series:          "kubernetes",
-		Base:            params.Base{Name: "kubernetes", Channel: "kubernetes"},
+		Base:            params.Base{Name: "ubuntu", Channel: "20.04/stable"},
 		WorkloadVersion: workloadVersion,
 		Relations:       map[string][]string{},
 		SubordinateTo:   []string{},
@@ -1156,9 +1157,10 @@ func (s *CAASStatusSuite) TestStatusWorkloadVersionSetByCharm(c *gc.C) {
 type filteringBranchesSuite struct {
 	baseSuite
 
-	appA string
-	appB string
-	subB string
+	appA    string
+	appB    string
+	subB    string
+	leaders map[string]string
 }
 
 var _ = gc.Suite(&filteringBranchesSuite{})
@@ -1326,7 +1328,6 @@ func (s *filteringBranchesSuite) TestFullStatusBranchFilterTwoBranchesSubordinat
 }
 
 func (s *filteringBranchesSuite) clientForTest(c *gc.C) *client.Client {
-	s.State.StartSync()
 	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	ctx := &facadetest.Context{
@@ -1342,9 +1343,18 @@ func (s *filteringBranchesSuite) clientForTest(c *gc.C) *client.Client {
 			leaders: map[string]string{s.appA: s.appA + "/0"},
 		},
 	}
-	client, err := client.NewFacade(ctx)
+
+	var (
+		err     error
+		client_ *client.Client
+	)
+
+	s.leaders, err = ctx.LeadershipReader_.Leaders()
 	c.Assert(err, jc.ErrorIsNil)
-	return client
+
+	client_, err = client.NewFacade(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	return client_
 }
 
 func (s *filteringBranchesSuite) assertBranchAssignUnit(c *gc.C, bName, uName string) {

@@ -5,10 +5,8 @@ package agentbootstrap_test
 
 import (
 	stdcontext "context"
-	"io/ioutil"
-	"path/filepath"
 
-	mgotesting "github.com/juju/mgo/v2/testing"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -25,6 +23,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -53,6 +52,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	// Don't use MgoSuite, because we need to ensure
 	// we have a fresh mongo for each test case.
 	s.mgoInst.EnableAuth = true
+	s.mgoInst.EnableReplicaSet = true
 	err := s.mgoInst.Start(testing.Certs)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -65,24 +65,8 @@ func (s *bootstrapSuite) TearDownTest(c *gc.C) {
 func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	dataDir := c.MkDir()
 
-	lxcFakeNetConfig := filepath.Join(c.MkDir(), "lxc-net")
-	netConf := []byte(`
-  # comments ignored
-LXC_BR= ignored
-LXC_ADDR = "fooo"
-LXC_BRIDGE="foobar" # detected
-anything else ignored
-LXC_BRIDGE="ignored"`[1:])
-	err := ioutil.WriteFile(lxcFakeNetConfig, netConf, 0644)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&network.AddressesForInterfaceName, func(name string) ([]string, error) {
-		if name == "foobar" {
-			return []string{
-				"10.0.3.1",
-				"10.0.3.4",
-			}, nil
-		} else if name == network.DefaultLXDBridge {
+		if name == network.DefaultLXDBridge {
 			return []string{
 				"10.0.4.1",
 				"10.0.4.4",
@@ -94,7 +78,6 @@ LXC_BRIDGE="ignored"`[1:])
 		c.Fatalf("unknown bridge in testing: %v", name)
 		return nil, nil
 	})
-	s.PatchValue(&network.LXCNetDefaultConfig, lxcFakeNetConfig)
 
 	configParams := agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: dataDir},
@@ -126,12 +109,10 @@ LXC_BRIDGE="ignored"`[1:])
 	initialAddrs := corenetwork.NewMachineAddresses([]string{
 		"zeroonetwothree",
 		"0.1.2.3",
-		"10.0.3.1", // lxc bridge address filtered.
-		"10.0.3.4", // lxc bridge address filtered (-"-).
 		"10.0.3.3", // not a lxc bridge address
 		"10.0.4.1", // lxd bridge address filtered.
 		"10.0.4.4", // lxd bridge address filtered.
-		"10.0.4.5", // not an lxd bridge address
+		"10.0.4.5", // not a lxd bridge address
 	}).AsProviderAddresses()
 	filteredAddrs := corenetwork.NewSpaceAddresses(
 		"zeroonetwothree",
@@ -142,17 +123,17 @@ LXC_BRIDGE="ignored"`[1:])
 
 	modelAttrs := testing.FakeConfig().Merge(testing.Attrs{
 		"agent-version":  jujuversion.Current.String(),
-		"charmhub-url":   charmhub.CharmHubServerURL,
+		"charmhub-url":   charmhub.DefaultServerURL,
 		"not-for-hosted": "foo",
 	})
 	modelCfg, err := config.New(config.NoDefaults, modelAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	controllerCfg := testing.FakeControllerConfig()
 
-	hostedModelUUID := utils.MustNewUUID().String()
-	hostedModelConfigAttrs := map[string]interface{}{
+	initialModelUUID := utils.MustNewUUID().String()
+	InitialModelConfigAttrs := map[string]interface{}{
 		"name": "hosted",
-		"uuid": hostedModelUUID,
+		"uuid": initialModelUUID,
 	}
 	controllerInheritedConfig := map[string]interface{}{
 		"apt-mirror": "http://mirror",
@@ -184,7 +165,7 @@ LXC_BRIDGE="ignored"`[1:])
 			ControllerModelEnvironVersion: 666,
 			ModelConstraints:              expectModelConstraints,
 			ControllerInheritedConfig:     controllerInheritedConfig,
-			HostedModelConfig:             hostedModelConfigAttrs,
+			InitialModelConfig:            InitialModelConfigAttrs,
 			StoragePools: map[string]storage.Attrs{
 				"spool": {
 					"type": "loop",
@@ -270,18 +251,18 @@ LXC_BRIDGE="ignored"`[1:])
 	// Check that the hosted model has been added, model constraints
 	// set, and its config contains the same authorized-keys as the
 	// controller model.
-	hostedModelSt, err := ctlr.StatePool().Get(hostedModelUUID)
+	initialModelSt, err := ctlr.StatePool().Get(initialModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	defer hostedModelSt.Release()
-	gotModelConstraints, err = hostedModelSt.ModelConstraints()
+	defer initialModelSt.Release()
+	gotModelConstraints, err = initialModelSt.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
-	hostedModel, err := hostedModelSt.Model()
+	initialModel, err := initialModelSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hostedModel.Name(), gc.Equals, "hosted")
-	c.Assert(hostedModel.CloudRegion(), gc.Equals, "dummy-region")
-	c.Assert(hostedModel.EnvironVersion(), gc.Equals, 123)
-	hostedCfg, err := hostedModel.ModelConfig()
+	c.Assert(initialModel.Name(), gc.Equals, "hosted")
+	c.Assert(initialModel.CloudRegion(), gc.Equals, "dummy-region")
+	c.Assert(initialModel.EnvironVersion(), gc.Equals, 123)
+	hostedCfg, err := initialModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	_, hasUnexpected := hostedCfg.AllAttrs()["not-for-hosted"]
 	c.Assert(hasUnexpected, jc.IsFalse)
@@ -292,7 +273,9 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, "0")
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageModel})
-	c.Assert(m.Series(), gc.Equals, testing.HostSeries(c))
+	base, err := coreseries.ParseBase(m.Base().OS, m.Base().Channel)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.Base().String(), gc.Equals, base.String())
 	c.Assert(m.CheckProvisioned(agent.BootstrapNonce), jc.IsTrue)
 	c.Assert(m.Addresses(), jc.DeepEquals, filteredAddrs)
 	gotBootstrapConstraints, err := m.Constraints()
@@ -423,12 +406,12 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	})
 	modelAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
 		"agent-version": jujuversion.Current.String(),
-		"charmhub-url":  charmhub.CharmHubServerURL,
+		"charmhub-url":  charmhub.DefaultServerURL,
 	})
 	modelCfg, err := config.New(config.NoDefaults, modelAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	hostedModelConfigAttrs := map[string]interface{}{
+	InitialModelConfigAttrs := map[string]interface{}{
 		"name": "hosted",
 		"uuid": utils.MustNewUUID().String(),
 	}
@@ -444,7 +427,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 			},
 			ControllerConfig:      testing.FakeControllerConfig(),
 			ControllerModelConfig: modelCfg,
-			HostedModelConfig:     hostedModelConfigAttrs,
+			InitialModelConfig:    InitialModelConfigAttrs,
 		},
 		BootstrapMachineJobs: []model.MachineJob{model.JobManageModel},
 		SharedSecret:         "abc123",

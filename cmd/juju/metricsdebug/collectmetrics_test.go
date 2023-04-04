@@ -4,7 +4,7 @@
 package metricsdebug_test
 
 import (
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -65,8 +65,8 @@ var (
 					Receiver: "unit-uptime-0",
 				},
 				Output: map[string]interface{}{
-					"Stdout": "ok",
-					"Stderr": "",
+					"stdout": "ok",
+					"stderr": "",
 				},
 			},
 			actionID2: {
@@ -74,8 +74,8 @@ var (
 					ID: actionID2,
 				},
 				Output: map[string]interface{}{
-					"Stdout": "ok",
-					"Stderr": "",
+					"stdout": "ok",
+					"stderr": "",
 				},
 			},
 		},
@@ -121,8 +121,8 @@ var (
 					Receiver: "unit-uptime-0",
 				},
 				Output: map[string]interface{}{
-					"Stdout": "ok",
-					"Stderr": "",
+					"stdout": "ok",
+					"stderr": "",
 				},
 			},
 		},
@@ -153,8 +153,8 @@ var (
 					Receiver: "unit-uptime-0",
 				},
 				Output: map[string]interface{}{
-					"Stdout": "ok",
-					"Stderr": "",
+					"stdout": "ok",
+					"stderr": "",
 				},
 			},
 		},
@@ -179,8 +179,8 @@ var (
 					Receiver: "unit-uptime-0",
 				},
 				Output: map[string]interface{}{
-					"Stdout": "ok",
-					"Stderr": "",
+					"stdout": "ok",
+					"stderr": "",
 				},
 			},
 		},
@@ -207,8 +207,8 @@ var (
 					Receiver: "unit-uptime-0",
 				},
 				Output: map[string]interface{}{
-					"Stdout": "ok",
-					"Stderr": "",
+					"stdout": "ok",
+					"stderr": "",
 				},
 			},
 		},
@@ -235,8 +235,8 @@ var (
 					Receiver: "unit-uptime-0",
 				},
 				Output: map[string]interface{}{
-					"Stdout": "ok",
-					"Stderr": "",
+					"stdout": "ok",
+					"stderr": "",
 				},
 			},
 			actionID2: {},
@@ -264,8 +264,8 @@ var (
 					Receiver: "unit-uptime-0",
 				},
 				Output: map[string]interface{}{
-					"Stdout": "ok",
-					"Stderr": "",
+					"stdout": "ok",
+					"stderr": "",
 				},
 			},
 			actionID2: {
@@ -274,8 +274,8 @@ var (
 					Receiver: "unit-uptime-0",
 				},
 				Output: map[string]interface{}{
-					"Stdout": "garbage",
-					"Stderr": "kek",
+					"stdout": "garbage",
+					"stderr": "kek",
 				},
 			},
 		},
@@ -351,21 +351,10 @@ func (t *testRunClient) Run(run actionapi.RunParams) (actionapi.EnqueuedActions,
 	}
 	r := t.results[0]
 	t.results = t.results[1:]
-	result := actionapi.EnqueuedActions{Actions: make([]actionapi.ActionResult, len(r))}
-	for i, a := range r {
-		result.Actions[i] = actionapi.ActionResult{
-			Error: a.Error,
-		}
-		if a.Action != nil {
-			result.Actions[i] = actionapi.ActionResult{
-				Action: &actionapi.Action{
-					ID:       a.Action.ID,
-					Receiver: a.Action.Receiver,
-				},
-			}
-		}
-	}
-	return result, nil
+	return actionapi.EnqueuedActions{
+		OperationID: "1",
+		Actions:     r,
+	}, nil
 }
 
 // Close implements the runClient interface.

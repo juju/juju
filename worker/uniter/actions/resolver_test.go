@@ -4,6 +4,7 @@
 package actions_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -95,6 +96,22 @@ func (s *actionsSuite) TestNextActionBlocked(c *gc.C) {
 		ActionsBlocked: true,
 	}
 	op, err := actionResolver.NextOp(localState, remoteState, &mockOperations{})
+	c.Assert(err, gc.DeepEquals, resolver.ErrNoOperation)
+	c.Assert(op, gc.IsNil)
+}
+
+func (s *actionsSuite) TestNextActionNotAvailable(c *gc.C) {
+	actionResolver := s.newResolver()
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind: operation.Continue,
+		},
+		CompletedActions: map[string]struct{}{"actionA": {}},
+	}
+	remoteState := remotestate.Snapshot{
+		ActionsPending: []string{"actionA", "actionB"},
+	}
+	op, err := actionResolver.NextOp(localState, remoteState, &mockOperations{err: charmrunner.ErrActionNotAvailable})
 	c.Assert(err, gc.DeepEquals, resolver.ErrNoOperation)
 	c.Assert(op, gc.IsNil)
 }
@@ -238,9 +255,13 @@ func (s *actionsSuite) TestPendingActionNotAvailable(c *gc.C) {
 
 type mockOperations struct {
 	operation.Factory
+	err error
 }
 
 func (m *mockOperations) NewAction(id string) (operation.Operation, error) {
+	if m.err != nil {
+		return nil, errors.Annotate(m.err, "action error")
+	}
 	if id == "666" {
 		return nil, charmrunner.ErrActionNotAvailable
 	}

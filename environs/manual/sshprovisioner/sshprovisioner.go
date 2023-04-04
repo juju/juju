@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/cloudconfig/sshinit"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/service"
@@ -239,9 +240,17 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 		return nil, manual.ErrProvisioned
 	}
 
-	hc, series, err := DetectSeriesAndHardwareCharacteristics(hostname)
+	hc, machineSeries, err := DetectSeriesAndHardwareCharacteristics(hostname)
 	if err != nil {
 		return nil, errors.Annotatef(err, "error detecting linux hardware characteristics")
+	}
+	info, err := series.GetBaseFromSeries(machineSeries)
+	if err != nil {
+		return nil, errors.NotValidf("machine series %q", machineSeries)
+	}
+	base := &params.Base{
+		Name:    info.OS,
+		Channel: info.Channel.String(),
 	}
 
 	// There will never be a corresponding "instance" that any provider
@@ -252,7 +261,7 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 	instanceId := instance.Id(manual.ManualInstancePrefix + hostname)
 	nonce := fmt.Sprintf("%s:%s", instanceId, uuid.String())
 	machineParams := &params.AddMachineParams{
-		Series:                  series,
+		Base:                    base,
 		HardwareCharacteristics: hc,
 		InstanceId:              instanceId,
 		Nonce:                   nonce,
@@ -274,7 +283,7 @@ func runProvisionScript(script, host string, progressWriter io.Writer) error {
 // executed on a remote host to carry out the cloud-init
 // configuration.
 func ProvisioningScript(icfg *instancecfg.InstanceConfig) (string, error) {
-	cloudcfg, err := cloudinit.New(icfg.Series)
+	cloudcfg, err := cloudinit.New(icfg.Base.OS)
 	if err != nil {
 		return "", errors.Annotate(err, "error generating cloud-config")
 	}

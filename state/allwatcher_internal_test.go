@@ -8,7 +8,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -112,7 +112,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	})
 
 	now := s.currentTime
-	m, err := st.AddMachine("quantal", JobHostUnits)
+	m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
 	// Ensure there's one and only one controller.
@@ -120,7 +120,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	c.Assert(err, jc.ErrorIsNil)
 	needController := len(controllerIds) == 0
 	if needController {
-		_, err = st.EnableHA(1, constraints.Value{}, "quantal", []string{m.Id()})
+		_, err = st.EnableHA(1, constraints.Value{}, UbuntuBase("20.04"), []string{m.Id()})
 		c.Assert(err, jc.ErrorIsNil)
 		node, err := st.ControllerNode(m.Id())
 		c.Assert(err, jc.ErrorIsNil)
@@ -171,7 +171,6 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 			Since:   &now,
 		},
 		Life:                    life.Alive,
-		Series:                  "quantal",
 		Base:                    "ubuntu@12.10",
 		Jobs:                    jobs,
 		Addresses:               addresses,
@@ -265,7 +264,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(wu.Tag().String(), gc.Equals, fmt.Sprintf("unit-wordpress-%d", i))
 
-		m, err := st.AddMachine("quantal", JobHostUnits)
+		m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(m.Tag().String(), gc.Equals, fmt.Sprintf("machine-%d", i+1))
 
@@ -274,7 +273,6 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 			ModelUUID:   modelUUID,
 			Name:        fmt.Sprintf("wordpress/%d", i),
 			Application: wordpress.Name(),
-			Series:      m.Series(),
 			Base:        "ubuntu@12.10",
 			Life:        life.Alive,
 			MachineID:   m.Id(),
@@ -329,7 +327,6 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 				Since:   &now,
 			},
 			Life:                    life.Alive,
-			Series:                  "quantal",
 			Base:                    "ubuntu@12.10",
 			Jobs:                    []coremodel.MachineJob{JobHostUnits.ToParams()},
 			Addresses:               []network.ProviderAddress{},
@@ -357,7 +354,6 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 			ModelUUID:   modelUUID,
 			Name:        fmt.Sprintf("logging/%d", i),
 			Application: "logging",
-			Series:      "quantal",
 			Base:        "ubuntu@12.10",
 			Life:        life.Alive,
 			MachineID:   m.Id(),
@@ -684,7 +680,7 @@ func (s *allWatcherStateSuite) TestChangeCAASApplications(c *gc.C) {
 			cm, err := m.CAASModel()
 			c.Assert(err, jc.ErrorIsNil)
 			ch := AddTestingCharmForSeries(c, caasSt, "kubernetes", "mysql")
-			mysql := AddTestingApplication(c, caasSt, "mysql", ch)
+			mysql := AddTestingApplicationForBase(c, caasSt, UbuntuBase("20.04"), "mysql", ch)
 			err = cm.SetPodSpec(nil, mysql.ApplicationTag(), strPtr("some podspec"))
 			c.Assert(err, jc.ErrorIsNil)
 			now := st.clock().Now()
@@ -727,7 +723,7 @@ func (s *allWatcherStateSuite) TestChangeCAASApplications(c *gc.C) {
 			cm, err := m.CAASModel()
 			c.Assert(err, jc.ErrorIsNil)
 			ch := AddTestingCharmForSeries(c, caasSt, "kubernetes", "mysql")
-			mysql := AddTestingApplication(c, caasSt, "mysql", ch)
+			mysql := AddTestingApplicationForBase(c, caasSt, UbuntuBase("20.04"), "mysql", ch)
 			err = cm.SetPodSpec(nil, mysql.ApplicationTag(), strPtr("some podspec"))
 			c.Assert(err, jc.ErrorIsNil)
 			return changeTestCase{
@@ -756,7 +752,7 @@ func (s *allWatcherStateSuite) TestChangeCAASApplications(c *gc.C) {
 		func(c *gc.C, st *State) changeTestCase {
 			caasSt := s.newCAASState(c)
 			ch := AddTestingCharmForSeries(c, caasSt, "kubernetes", "mysql")
-			mysql := AddTestingApplication(c, caasSt, "mysql", ch)
+			mysql := AddTestingApplicationForBase(c, caasSt, UbuntuBase("20.04"), "mysql", ch)
 			now := st.clock().Now()
 			sInfo := status.StatusInfo{
 				Status:  status.Error,
@@ -800,7 +796,7 @@ func (s *allWatcherStateSuite) TestChangeCAASUnits(c *gc.C) {
 		func(c *gc.C, st *State) changeTestCase {
 			caasSt := s.newCAASState(c)
 			ch := AddTestingCharmForSeries(c, caasSt, "kubernetes", "mysql")
-			mysql := AddTestingApplication(c, caasSt, "mysql", ch)
+			mysql := AddTestingApplicationForBase(c, caasSt, UbuntuBase("20.04"), "mysql", ch)
 			unit, err := mysql.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
 
@@ -826,8 +822,7 @@ func (s *allWatcherStateSuite) TestChangeCAASUnits(c *gc.C) {
 						ModelUUID:   caasSt.ModelUUID(),
 						Name:        "mysql/0",
 						Application: "mysql",
-						Series:      "kubernetes",
-						Base:        "kubernetes",
+						Base:        "ubuntu@20.04",
 						Life:        "alive",
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "waiting",
@@ -853,7 +848,7 @@ func (s *allWatcherStateSuite) TestChangeCAASUnits(c *gc.C) {
 		func(c *gc.C, st *State) changeTestCase {
 			caasSt := s.newCAASState(c)
 			ch := AddTestingCharmForSeries(c, caasSt, "kubernetes", "mysql")
-			mysql := AddTestingApplication(c, caasSt, "mysql", ch)
+			mysql := AddTestingApplicationForBase(c, caasSt, UbuntuBase("20.04"), "mysql", ch)
 			unit, err := mysql.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
 
@@ -875,8 +870,7 @@ func (s *allWatcherStateSuite) TestChangeCAASUnits(c *gc.C) {
 						ModelUUID:   caasSt.ModelUUID(),
 						Name:        "mysql/0",
 						Application: "mysql",
-						Series:      "kubernetes",
-						Base:        "kubernetes",
+						Base:        "ubuntu@20.04",
 					},
 				},
 				change: watcher.Change{
@@ -888,8 +882,7 @@ func (s *allWatcherStateSuite) TestChangeCAASUnits(c *gc.C) {
 						ModelUUID:   caasSt.ModelUUID(),
 						Name:        "mysql/0",
 						Application: "mysql",
-						Series:      "kubernetes",
-						Base:        "kubernetes",
+						Base:        "ubuntu@20.04",
 						ContainerStatus: multiwatcher.StatusInfo{
 							Current: "maintenance",
 							Message: "setting up",
@@ -942,7 +935,7 @@ func (s *allWatcherStateSuite) TestChangeActions(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			operationID, err := m.EnqueueOperation("a test", 1)
 			c.Assert(err, jc.ErrorIsNil)
-			action, err := m.EnqueueAction(operationID, u.Tag(), "vacuumdb", map[string]interface{}{}, nil)
+			action, err := m.EnqueueAction(operationID, u.Tag(), "vacuumdb", map[string]interface{}{}, true, "group", nil)
 			c.Assert(err, jc.ErrorIsNil)
 			enqueued := makeActionInfo(action, st)
 			action, err = action.Begin()
@@ -1047,7 +1040,7 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 	wordpress := AddTestingApplication(c, s.state, "wordpress", AddTestingCharm(c, s.state, "wordpress"))
 	u, err := wordpress.AddUnit(AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	m, err := s.state.AddMachine("quantal", JobHostUnits)
+	m, err := s.state.AddMachine(UbuntuBase("12.10"), JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1078,7 +1071,6 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 			ModelUUID:      s.state.ModelUUID(),
 			Name:           "wordpress/0",
 			Application:    "wordpress",
-			Series:         "quantal",
 			Base:           "ubuntu@12.10",
 			Life:           life.Alive,
 			MachineID:      "0",
@@ -1114,7 +1106,6 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 			ModelUUID:      s.state.ModelUUID(),
 			Name:           "wordpress/0",
 			Application:    "wordpress",
-			Series:         "quantal",
 			Base:           "ubuntu@12.10",
 			MachineID:      "0",
 			Life:           life.Alive,
@@ -1707,7 +1698,7 @@ func testChangeAnnotations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 				}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			m, err := st.AddMachine("quantal", JobHostUnits)
+			m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			model, err := st.Model()
 			c.Assert(err, jc.ErrorIsNil)
@@ -1739,7 +1730,7 @@ func testChangeAnnotations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			m, err := st.AddMachine("quantal", JobHostUnits)
+			m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			model, err := st.Model()
 			c.Assert(err, jc.ErrorIsNil)
@@ -1825,7 +1816,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 				}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			m, err := st.AddMachine("quantal", JobHostUnits)
+			m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			now := st.clock().Now()
 			sInfo := status.StatusInfo{
@@ -1858,7 +1849,6 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 							Since:   &now,
 						},
 						Life:      life.Alive,
-						Series:    "quantal",
 						Base:      "ubuntu@12.10",
 						Jobs:      []coremodel.MachineJob{JobHostUnits.ToParams()},
 						Addresses: []network.ProviderAddress{},
@@ -1867,7 +1857,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			m, err := st.AddMachine("trusty", JobHostUnits)
+			m, err := st.AddMachine(UbuntuBase("22.04"), JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			err = m.SetProvisioned("i-0", "", "bootstrap_nonce", nil)
 			c.Assert(err, jc.ErrorIsNil)
@@ -1918,8 +1908,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 							Since:   &now,
 						},
 						Life:                     life.Alive,
-						Series:                   "trusty",
-						Base:                     "ubuntu@14.04",
+						Base:                     "ubuntu@22.04",
 						Jobs:                     []coremodel.MachineJob{JobHostUnits.ToParams()},
 						Addresses:                []network.ProviderAddress{},
 						HardwareCharacteristics:  &instance.HardwareCharacteristics{},
@@ -1959,7 +1948,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			m, err := st.AddMachine("quantal", JobHostUnits)
+			m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			now := st.clock().Now()
 			sInfo := status.StatusInfo{
@@ -2015,7 +2004,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			m, err := st.AddMachine("quantal", JobHostUnits)
+			m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 
 			hc := &instance.HardwareCharacteristics{}
@@ -2594,7 +2583,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
-			m, err := st.AddMachine("quantal", JobHostUnits)
+			m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
@@ -2624,7 +2613,6 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						ModelUUID:   st.ModelUUID(),
 						Name:        "wordpress/0",
 						Application: "wordpress",
-						Series:      "quantal",
 						Base:        "ubuntu@12.10",
 						Life:        life.Alive,
 						MachineID:   "0",
@@ -2653,7 +2641,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
-			m, err := st.AddMachine("quantal", JobHostUnits)
+			m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
@@ -2694,7 +2682,6 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						ModelUUID:   st.ModelUUID(),
 						Name:        "wordpress/0",
 						Application: "wordpress",
-						Series:      "quantal",
 						Base:        "ubuntu@12.10",
 						Life:        life.Alive,
 						MachineID:   "0",
@@ -2722,7 +2709,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
-			m, err := st.AddMachine("quantal", JobHostUnits)
+			m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
@@ -2764,7 +2751,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
-			m, err := st.AddMachine("quantal", JobHostUnits)
+			m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
@@ -2787,7 +2774,6 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						ModelUUID:   st.ModelUUID(),
 						Name:        "wordpress/0",
 						Application: "wordpress",
-						Series:      "quantal",
 						Base:        "ubuntu@12.10",
 						Life:        life.Alive,
 						MachineID:   "0",
@@ -2818,7 +2804,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
-			m, err := st.AddMachine("quantal", JobHostUnits)
+			m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
@@ -2853,7 +2839,6 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						ModelUUID:      st.ModelUUID(),
 						Name:           "wordpress/0",
 						Application:    "wordpress",
-						Series:         "quantal",
 						Base:           "ubuntu@12.10",
 						Life:           life.Alive,
 						PublicAddress:  "public",
@@ -3207,7 +3192,7 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 		wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 		u, err := wordpress.AddUnit(AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
-		m, err := st.AddMachine("quantal", JobHostUnits)
+		m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		if flag&assignUnit != 0 {
 			// Assign the unit.
@@ -3253,7 +3238,6 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 						ModelUUID:   st.ModelUUID(),
 						Name:        "wordpress/0",
 						Application: "wordpress",
-						Series:      "quantal",
 						Base:        "ubuntu@12.10",
 						Life:        life.Alive,
 						MachineID:   "0",
@@ -3286,7 +3270,6 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 						ModelUUID:   st.ModelUUID(),
 						Name:        "wordpress/0",
 						Application: "wordpress",
-						Series:      "quantal",
 						Base:        "ubuntu@12.10",
 						Life:        life.Alive,
 						MachineID:   "0",
@@ -3322,7 +3305,6 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 						ModelUUID:   st.ModelUUID(),
 						Name:        "wordpress/0",
 						Application: "wordpress",
-						Series:      "quantal",
 						Base:        "ubuntu@12.10",
 						Life:        life.Alive,
 						MachineID:   "0",
@@ -3355,7 +3337,6 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 						ModelUUID:   st.ModelUUID(),
 						Name:        "wordpress/0",
 						Application: "wordpress",
-						Series:      "quantal",
 						Base:        "ubuntu@12.10",
 						Life:        life.Alive,
 						WorkloadStatus: multiwatcher.StatusInfo{
@@ -3727,17 +3708,19 @@ func (s entityInfoSlice) Less(i, j int) bool {
 func makeActionInfo(a Action, st *State) multiwatcher.ActionInfo {
 	results, message := a.Results()
 	return multiwatcher.ActionInfo{
-		ModelUUID:  st.ModelUUID(),
-		ID:         a.Id(),
-		Receiver:   a.Receiver(),
-		Name:       a.Name(),
-		Parameters: a.Parameters(),
-		Status:     string(a.Status()),
-		Message:    message,
-		Results:    results,
-		Enqueued:   a.Enqueued(),
-		Started:    a.Started(),
-		Completed:  a.Completed(),
+		ModelUUID:      st.ModelUUID(),
+		ID:             a.Id(),
+		Receiver:       a.Receiver(),
+		Name:           a.Name(),
+		Parameters:     a.Parameters(),
+		Parallel:       a.Parallel(),
+		ExecutionGroup: a.ExecutionGroup(),
+		Status:         string(a.Status()),
+		Message:        message,
+		Results:        results,
+		Enqueued:       a.Enqueued(),
+		Started:        a.Started(),
+		Completed:      a.Completed(),
 	}
 }
 

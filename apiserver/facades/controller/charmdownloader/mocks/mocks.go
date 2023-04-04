@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v8"
+	charm "github.com/juju/charm/v9"
 	services "github.com/juju/juju/apiserver/facades/client/charms/services"
 	charmdownloader "github.com/juju/juju/apiserver/facades/controller/charmdownloader"
 	controller "github.com/juju/juju/controller"
@@ -233,6 +233,20 @@ func (m *MockApplication) CharmPendingToBeDownloaded() bool {
 func (mr *MockApplicationMockRecorder) CharmPendingToBeDownloaded() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmPendingToBeDownloaded", reflect.TypeOf((*MockApplication)(nil).CharmPendingToBeDownloaded))
+}
+
+// SetDownloadedIDAndHash mocks base method.
+func (m *MockApplication) SetDownloadedIDAndHash(arg0, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetDownloadedIDAndHash", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetDownloadedIDAndHash indicates an expected call of SetDownloadedIDAndHash.
+func (mr *MockApplicationMockRecorder) SetDownloadedIDAndHash(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDownloadedIDAndHash", reflect.TypeOf((*MockApplication)(nil).SetDownloadedIDAndHash), arg0, arg1)
 }
 
 // SetStatus mocks base method.

@@ -83,7 +83,7 @@ func formatWhoAmITabular(writer io.Writer, value interface{}) error {
 		modelName = "<no-current-model>"
 	}
 	fmt.Fprintf(tw, "Model:\t%s\n", modelName)
-	fmt.Fprintf(tw, "User:\t%s", details.UserName)
+	fmt.Fprintf(tw, "User:\t%s\n", details.UserName)
 	return tw.Flush()
 }
 
@@ -94,7 +94,7 @@ func (c *whoAmICommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	if err != nil {
-		fmt.Fprintln(ctx.Stderr, "There is no current controller.\nRun juju list-controllers to see available controllers.")
+		fmt.Fprintln(ctx.Stderr, "There is no current controller.\nRun juju controllers to see available controllers.")
 		return nil
 	}
 	modelName, err := c.store.CurrentModel(controllerName)

@@ -108,7 +108,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	}
 
 	// Attempting to provision a machine twice should fail. We effect
-	// this by checking for existing juju upstart configurations.
+	// this by checking for existing juju systemd configurations.
 	defer fakeSSH{
 		Provisioned:        true,
 		InitUbuntuUser:     true,
@@ -178,7 +178,7 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 	script, err := sshprovisioner.ProvisioningScript(icfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cloudcfg, err := cloudinit.New(series)
+	cloudcfg, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudconfig.NewUserdataConfig(icfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)

@@ -9,7 +9,7 @@ import (
 	"crypto/x509"
 	"math/rand"
 
-	mgotesting "github.com/juju/mgo/v2/testing"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	utilscert "github.com/juju/utils/v3/cert"
 )
 

@@ -74,7 +74,7 @@ func makeAllEndpointsRanges(stringRanges ...string) network.GroupedPortRanges {
 func (s *PortsSuite) TestOpenClose(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	for _, t := range portsTests {
-		com, err := jujuc.NewCommand(hctx, cmdString(t.cmd[0]))
+		com, err := jujuc.NewCommand(hctx, t.cmd[0])
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.cmd[1:])
@@ -87,7 +87,7 @@ func (s *PortsSuite) TestOpenClose(c *gc.C) {
 
 func (s *PortsSuite) TestHelp(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
-	open, err := jujuc.NewCommand(hctx, cmdString("open-port"))
+	open, err := jujuc.NewCommand(hctx, "open-port")
 	c.Assert(err, jc.ErrorIsNil)
 	flags := cmdtesting.NewFlagSet()
 	c.Assert(string(open.Info().Help(flags)), gc.Equals, `
@@ -104,7 +104,7 @@ application endpoints. The --endpoints option can be used to constrain the
 open request to a comma-delimited list of application endpoints.
 `[1:])
 
-	close, err := jujuc.NewCommand(hctx, cmdString("close-port"))
+	close, err := jujuc.NewCommand(hctx, "close-port")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(close.Info().Help(flags)), gc.Equals, `
 Usage: close-port <port>[/<protocol>] or <from>-<to>[/<protocol>] or icmp
@@ -134,7 +134,7 @@ func (s *PortsSuite) TestOpenCloseDeprecation(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	for _, t := range portsFormatDeprecationTests {
 		name := t.cmd[0]
-		com, err := jujuc.NewCommand(hctx, cmdString(name))
+		com, err := jujuc.NewCommand(hctx, name)
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.cmd[1:])

@@ -4,10 +4,9 @@
 package collect_test
 
 import (
-	"runtime"
 	"time"
 
-	corecharm "github.com/juju/charm/v8"
+	corecharm "github.com/juju/charm/v9"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/keyvalues"
 	gc "gopkg.in/check.v1"
@@ -96,8 +95,5 @@ func (s *ContextSuite) TestHookContextEnv(c *gc.C) {
 	c.Assert(varMap["JUJU_CHARM_DIR"], gc.Equals, "/dummy/charm")
 	c.Assert(varMap["CHARM_DIR"], gc.Equals, "/dummy/charm")
 	key := "PATH"
-	if runtime.GOOS == "windows" {
-		key = "Path"
-	}
 	c.Assert(varMap[key], gc.Not(gc.Equals), "")
 }

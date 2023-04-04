@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/names/v4"
@@ -33,6 +33,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corepresence "github.com/juju/juju/core/presence"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscontext "github.com/juju/juju/environs/context"
@@ -195,7 +196,7 @@ var (
 			"current": "idle",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"series": "quantal",
+		"base": M{"name": "ubuntu", "channel": "12.10"},
 		"network-interfaces": M{
 			"eth0": M{
 				"ip-addresses": []string{"10.0.0.1"},
@@ -223,7 +224,7 @@ var (
 			"current": "idle",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"series": "quantal",
+		"base": M{"name": "ubuntu", "channel": "12.10"},
 		"network-interfaces": M{
 			"eth0": M{
 				"ip-addresses": []string{"10.0.1.1"},
@@ -250,7 +251,7 @@ var (
 			"current": "idle",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"series": "quantal",
+		"base": M{"name": "ubuntu", "channel": "12.10"},
 		"network-interfaces": M{
 			"eth0": M{
 				"ip-addresses": []string{"10.0.1.1"},
@@ -306,7 +307,7 @@ var (
 			"current": "idle",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"series": "quantal",
+		"base": M{"name": "ubuntu", "channel": "12.10"},
 		"network-interfaces": M{
 			"eth0": M{
 				"ip-addresses": []string{"10.0.2.1"},
@@ -334,7 +335,7 @@ var (
 			"current": "idle",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"series": "quantal",
+		"base": M{"name": "ubuntu", "channel": "12.10"},
 		"network-interfaces": M{
 			"eth0": M{
 				"ip-addresses": []string{"10.0.3.1"},
@@ -361,7 +362,7 @@ var (
 			"current": "idle",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"series": "quantal",
+		"base": M{"name": "ubuntu", "channel": "12.10"},
 		"network-interfaces": M{
 			"eth0": M{
 				"ip-addresses": []string{"10.0.4.1"},
@@ -399,7 +400,7 @@ var (
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series": "quantal",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.3.1"},
@@ -420,7 +421,7 @@ var (
 					"current": "idle",
 					"since":   "01 Apr 15 01:23+10:00",
 				},
-				"series": "quantal",
+				"base": M{"name": "ubuntu", "channel": "12.10"},
 				"network-interfaces": M{
 					"eth0": M{
 						"ip-addresses": []string{"10.0.2.1"},
@@ -443,7 +444,7 @@ var (
 					"current": "idle",
 					"since":   "01 Apr 15 01:23+10:00",
 				},
-				"series": "quantal",
+				"base": M{"name": "ubuntu", "channel": "12.10"},
 			},
 		},
 		"hostname":     "eldritch-octopii",
@@ -458,7 +459,7 @@ var (
 			"current": "idle",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"series": "quantal",
+		"base": M{"name": "ubuntu", "channel": "12.10"},
 		"network-interfaces": M{
 			"eth0": M{
 				"ip-addresses": []string{"10.0.1.1"},
@@ -486,8 +487,7 @@ var (
 		"charm-origin": "charmstore",
 		"charm-name":   "logging",
 		"charm-rev":    1,
-		"series":       "quantal",
-		"os":           "ubuntu",
+		"base":         M{"name": "ubuntu", "channel": "12.10"},
 		"exposed":      true,
 		"application-status": M{
 			"current": "error",
@@ -548,7 +548,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series":                   "quantal",
+						"base":                     M{"name": "ubuntu", "channel": "12.10"},
 						"controller-member-status": "adding-vote",
 					},
 				},
@@ -586,7 +586,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series": "quantal",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.0.1"},
@@ -633,7 +633,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series": "quantal",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.0.1"},
@@ -681,7 +681,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 							"version": "1.2.3",
 						},
-						"series": "quantal",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.0.1"},
@@ -736,7 +736,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series": "quantal",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.0.1"},
@@ -786,7 +786,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series":                   "quantal",
+						"base":                     M{"name": "ubuntu", "channel": "12.10"},
 						"constraints":              "cores=2 mem=8192M root-disk=8192M",
 						"hardware":                 "arch=amd64 cores=2 mem=8192M root-disk=8192M",
 						"controller-member-status": "adding-vote",
@@ -822,7 +822,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series":                   "quantal",
+						"base":                     M{"name": "ubuntu", "channel": "12.10"},
 						"controller-member-status": "adding-vote",
 					},
 				},
@@ -854,7 +854,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series":                   "quantal",
+						"base":                     M{"name": "ubuntu", "channel": "12.10"},
 						"hardware":                 "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 						"controller-member-status": "adding-vote",
 					},
@@ -1067,7 +1067,7 @@ var statusTests = []testCase{
 							"message": "Really?",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series": "quantal",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.3.1"},
@@ -1095,7 +1095,7 @@ var statusTests = []testCase{
 							"message": "Beware the red toys",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series": "quantal",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.4.1"},
@@ -1120,7 +1120,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series": "quantal",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 					},
 				},
 				"applications": M{
@@ -1647,7 +1647,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series": "quantal",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 					},
 				},
 				"applications": M{
@@ -1710,7 +1710,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series":   "quantal",
+						"base":     M{"name": "ubuntu", "channel": "12.10"},
 						"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 					},
 				},
@@ -1883,8 +1883,7 @@ var statusTests = []testCase{
 						"charm-origin": "charmstore",
 						"charm-name":   "varnish",
 						"charm-rev":    1,
-						"series":       "quantal",
-						"os":           "ubuntu",
+						"base":         M{"name": "ubuntu", "channel": "12.10"},
 						"exposed":      true,
 						"application-status": M{
 							"current": "waiting",
@@ -2013,8 +2012,7 @@ var statusTests = []testCase{
 						"charm-origin": "charmstore",
 						"charm-name":   "riak",
 						"charm-rev":    7,
-						"series":       "quantal",
-						"os":           "ubuntu",
+						"base":         M{"name": "ubuntu", "channel": "12.10"},
 						"exposed":      true,
 						"application-status": M{
 							"current": "active",
@@ -2588,7 +2586,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"series": "quantal",
+								"base": M{"name": "ubuntu", "channel": "12.10"},
 								"network-interfaces": M{
 									"eth0": M{
 										"ip-addresses": []string{"10.0.2.1"},
@@ -2610,7 +2608,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series": "quantal",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.1.1"},
@@ -3107,7 +3105,7 @@ var statusTests = []testCase{
 					"timestamp": "15:04:05+07:00",
 				},
 			},
-			stderr: "Model \"controller\" is empty.\n",
+			stderr: "\nModel \"controller\" is empty.\n",
 		},
 	),
 	test( // 19
@@ -3321,7 +3319,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series": "quantal",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"2001:db8::1"},
@@ -3464,7 +3462,7 @@ var statusTests = []testCase{
 					"timestamp": "15:04:05+07:00",
 				},
 			},
-			stderr: "Model \"controller\" is empty.\n",
+			stderr: "\nModel \"controller\" is empty.\n",
 		},
 	),
 	test( // 25
@@ -3493,7 +3491,7 @@ var statusTests = []testCase{
 					"timestamp": "15:04:05+07:00",
 				},
 			},
-			stderr: "Model \"controller\" is empty.\n",
+			stderr: "\nModel \"controller\" is empty.\n",
 		},
 	),
 	test( //26
@@ -3551,7 +3549,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series": "quantal",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.1.1"},
@@ -3562,7 +3560,7 @@ var statusTests = []testCase{
 						"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 					},
 					"0": M{
-						"series": "quantal",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.0.1"},
@@ -3591,8 +3589,7 @@ var statusTests = []testCase{
 				},
 				"applications": M{
 					"wordpress": M{
-						"series":     "quantal",
-						"os":         "ubuntu",
+						"base":       M{"name": "ubuntu", "channel": "12.10"},
 						"charm-name": "wordpress",
 						"exposed":    bool(false),
 						"units": M{
@@ -3732,7 +3729,7 @@ var statusTests = []testCase{
 					"timestamp": "15:04:05+07:00",
 				},
 			},
-			stderr: "Model \"controller\" is empty.\n",
+			stderr: "\nModel \"controller\" is empty.\n",
 		},
 	),
 }
@@ -3743,8 +3740,7 @@ func mysqlCharm(extras M) M {
 		"charm-origin": "charmstore",
 		"charm-name":   "mysql",
 		"charm-rev":    1,
-		"series":       "quantal",
-		"os":           "ubuntu",
+		"base":         M{"name": "ubuntu", "channel": "12.10"},
 		"exposed":      false,
 	}
 	return composeCharms(charm, extras)
@@ -3757,8 +3753,7 @@ func lxdProfileCharm(extras M) M {
 		"charm-name":    "lxd-profile",
 		"charm-rev":     1,
 		"charm-profile": "juju-controller-lxd-profile-1",
-		"series":        "quantal",
-		"os":            "ubuntu",
+		"base":          M{"name": "ubuntu", "channel": "12.10"},
 		"exposed":       false,
 	}
 	return composeCharms(charm, extras)
@@ -3770,8 +3765,7 @@ func meteredCharm(extras M) M {
 		"charm-origin": "charmstore",
 		"charm-name":   "metered",
 		"charm-rev":    1,
-		"series":       "quantal",
-		"os":           "ubuntu",
+		"base":         M{"name": "ubuntu", "channel": "12.10"},
 		"exposed":      false,
 	}
 	return composeCharms(charm, extras)
@@ -3783,8 +3777,7 @@ func dummyCharm(extras M) M {
 		"charm-origin": "charmstore",
 		"charm-name":   "dummy",
 		"charm-rev":    1,
-		"series":       "quantal",
-		"os":           "ubuntu",
+		"base":         M{"name": "ubuntu", "channel": "12.10"},
 		"exposed":      false,
 	}
 	return composeCharms(charm, extras)
@@ -3796,8 +3789,7 @@ func wordpressCharm(extras M) M {
 		"charm-origin": "charmstore",
 		"charm-name":   "wordpress",
 		"charm-rev":    3,
-		"series":       "quantal",
-		"os":           "ubuntu",
+		"base":         M{"name": "ubuntu", "channel": "12.10"},
 		"exposed":      false,
 	}
 	return composeCharms(charm, extras)
@@ -3849,7 +3841,7 @@ type addMachine struct {
 
 func (am addMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.AddOneMachine(state.MachineTemplate{
-		Series:      "quantal",
+		Base:        state.UbuntuBase("12.10"),
 		Constraints: am.cons,
 		Jobs:        []state.MachineJob{am.job},
 	})
@@ -3878,8 +3870,8 @@ type addContainer struct {
 
 func (ac addContainer) step(c *gc.C, ctx *context) {
 	template := state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{ac.job},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{ac.job},
 	}
 	m, err := ctx.st.AddMachineInsideMachine(template, ac.parentId, instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4153,12 +4145,13 @@ func (as addApplication) step(c *gc.C, ctx *context) {
 	if series == "" {
 		series = "quantal"
 	}
-
+	base, err := coreseries.GetBaseFromSeries(series)
+	c.Assert(err, jc.ErrorIsNil)
 	app, err := ctx.st.AddApplication(state.AddApplicationArgs{
 		Name:             as.name,
 		Charm:            ch,
 		EndpointBindings: as.binding,
-		Series:           series,
+		CharmOrigin:      &state.CharmOrigin{Platform: &state.Platform{OS: base.OS, Channel: base.Channel.String()}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	if app.IsPrincipal() {
@@ -4687,7 +4680,7 @@ func (e scopedExpect) step(c *gc.C, ctx *context) {
 	for _, format := range statusFormats {
 		c.Logf("format %q", format.name)
 		// Run command with the required format.
-		args := []string{"--format", format.name}
+		args := []string{"--no-color", "--format", format.name}
 		if ctx.expectIsoTime {
 			args = append(args, "--utc")
 		}
@@ -4782,9 +4775,9 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 	}
 
 	for _, format := range statusFormats {
-		code, stdout, stderr := runStatus(c, "-m", "hosted", "--format", format.name)
+		code, stdout, stderr := runStatus(c, "--no-color", "-m", "hosted", "--format", format.name)
 		c.Check(code, gc.Equals, 0)
-		c.Assert(string(stderr), gc.Equals, "Model \"hosted\" is empty.\n")
+		c.Assert(string(stderr), gc.Equals, "\nModel \"hosted\" is empty.\n")
 
 		stdout = substituteFakeTime(c, "since", stdout, false)
 		stdout = substituteFakeTimestamp(c, stdout, false)
@@ -4806,14 +4799,13 @@ func (s *StatusSuite) TestMigrationInProgressTabular(c *gc.C) {
 	expected := `
 Model   Controller  Cloud/Region        Version  SLA          Timestamp       Notes
 hosted  kontroll    dummy/dummy-region  2.0.0    unsupported  15:04:05+07:00  migrating: foo bar
-
 `[1:]
 
 	st := s.setupMigrationTest(c)
 	defer st.Close()
-	code, stdout, stderr := runStatus(c, "-m", "hosted", "--format", "tabular")
+	code, stdout, stderr := runStatus(c, "--no-color", "-m", "hosted", "--format", "tabular")
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(string(stderr), gc.Equals, "Model \"hosted\" is empty.\n")
+	c.Assert(string(stderr), gc.Equals, "\nModel \"hosted\" is empty.\n")
 
 	output := substituteFakeTimestamp(c, stdout, false)
 	output = substituteSpacingBetweenTimestampAndNotes(c, output)
@@ -4824,7 +4816,6 @@ func (s *StatusSuite) TestMigrationInProgressAndUpgradeAvailable(c *gc.C) {
 	expected := `
 Model   Controller  Cloud/Region        Version  SLA          Timestamp       Notes
 hosted  kontroll    dummy/dummy-region  2.0.0    unsupported  15:04:05+07:00  migrating: foo bar
-
 `[1:]
 
 	st := s.setupMigrationTest(c)
@@ -4835,9 +4826,9 @@ hosted  kontroll    dummy/dummy-region  2.0.0    unsupported  15:04:05+07:00  mi
 	err = model.UpdateLatestToolsVersion(nextVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	code, stdout, stderr := runStatus(c, "-m", "hosted", "--format", "tabular")
+	code, stdout, stderr := runStatus(c, "--no-color", "-m", "hosted", "--format", "tabular")
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(string(stderr), gc.Equals, "Model \"hosted\" is empty.\n")
+	c.Assert(string(stderr), gc.Equals, "\nModel \"hosted\" is empty.\n")
 
 	output := substituteFakeTimestamp(c, stdout, false)
 	output = substituteSpacingBetweenTimestampAndNotes(c, output)
@@ -4931,7 +4922,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 	for _, s := range steps {
 		s.step(c, ctx)
 	}
-	code, stdout, stderr := runStatus(c, "--format", "summary")
+	code, stdout, stderr := runStatus(c, "--no-color", "--format", "summary")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	c.Assert(string(stdout), gc.Equals, `
@@ -4951,7 +4942,6 @@ Running on subnets:  127.0.0.1/8, 10.0.2.1/8
                  
         # Remote:  (1)
       hosted-riak       me/model.riak
-
 `[1:])
 }
 func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
@@ -5003,29 +4993,29 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 
 	ctx.run(c, steps, s.WaitForModelWatchersIdle)
 
-	const expected = `
+	var expected = `
 - mysql/0: 10.0.2.1 (agent:idle, workload:active)
   - logging/1: 10.0.2.1 (agent:idle, workload:error)
 - wordpress/0: 10.0.1.1 (agent:idle, workload:active)
   - logging/0: 10.0.1.1 (agent:idle, workload:active)
-`
+`[1:]
 	assertOneLineStatus(c, expected)
 }
 
 func assertOneLineStatus(c *gc.C, expected string) {
-	code, stdout, stderr := runStatus(c, "--format", "oneline")
+	code, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	c.Assert(string(stdout), gc.Equals, expected)
 
 	c.Log(`Check that "short" is an alias for oneline.`)
-	code, stdout, stderr = runStatus(c, "--format", "short")
+	code, stdout, stderr = runStatus(c, "--no-color", "--format", "short")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	c.Assert(string(stdout), gc.Equals, expected)
 
 	c.Log(`Check that "line" is an alias for oneline.`)
-	code, stdout, stderr = runStatus(c, "--format", "line")
+	code, stdout, stderr = runStatus(c, "--no-color", "--format", "line")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	c.Assert(string(stdout), gc.Equals, expected)
@@ -5134,12 +5124,12 @@ mysql/1       terminated   idle   1        10.0.1.1               gooooone
 wordpress/0*  active       idle   1        10.0.1.1               
   logging/0   active       idle            10.0.1.1               
 
-Machine  State    Address   Inst id       Series   AZ          Message
-0        started  10.0.0.1  controller-0  quantal  us-east-1a  
-1        started  10.0.1.1  snowflake     quantal              
-2        started  10.0.2.1  controller-2  quantal              
-3        started  10.0.3.1  controller-3  quantal              I am number three
-4        error    10.0.3.1  controller-4  quantal              I am an error
+Machine  State    Address   Inst id       Base          AZ          Message
+0        started  10.0.0.1  controller-0  ubuntu@12.10  us-east-1a  
+1        started  10.0.1.1  snowflake     ubuntu@12.10              
+2        started  10.0.2.1  controller-2  ubuntu@12.10              
+3        started  10.0.3.1  controller-3  ubuntu@12.10              I am number three
+4        error    10.0.3.1  controller-4  ubuntu@12.10              I am an error
 
 Offer         Application  Charm  Rev  Connected  Endpoint  Interface  Role
 hosted-mysql  mysql        mysql  1    1/1        server    mysql      provider
@@ -5148,13 +5138,12 @@ Relation provider      Requirer                   Interface  Type         Messag
 mysql:juju-info        logging:info               juju-info  subordinate  
 mysql:server           wordpress:db               mysql      regular      suspended  
 wordpress:logging-dir  logging:logging-directory  logging    subordinate  
-
 `[1:]
 
 func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 	ctx := s.prepareTabularData(c)
 	defer s.resetContext(c, ctx)
-	code, stdout, stderr := runStatus(c, "--format", "tabular", "--relations")
+	code, stdout, stderr := runStatus(c, "--no-color", "--format", "tabular", "--relations")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 
@@ -5167,7 +5156,7 @@ func (s *StatusSuite) TestStatusWithFormatTabularValidModelUUID(c *gc.C) {
 	ctx := s.prepareTabularData(c)
 	defer s.resetContext(c, ctx)
 
-	code, stdout, stderr := runStatus(c, "--format", "tabular", "--relations", "-m", s.Model.UUID())
+	code, stdout, stderr := runStatus(c, "--no-color", "--format", "tabular", "--relations", "-m", s.Model.UUID())
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 
@@ -5179,7 +5168,7 @@ func (s *StatusSuite) TestStatusWithFormatTabularValidModelUUID(c *gc.C) {
 func (s *StatusSuite) TestStatusWithFormatYaml(c *gc.C) {
 	ctx := s.prepareTabularData(c)
 	defer s.resetContext(c, ctx)
-	code, stdout, stderr := runStatus(c, "--format", "yaml")
+	code, stdout, stderr := runStatus(c, "--no-color", "--format", "yaml")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	c.Assert(string(stdout), jc.Contains, "display-name: snowflake")
@@ -5188,7 +5177,7 @@ func (s *StatusSuite) TestStatusWithFormatYaml(c *gc.C) {
 func (s *StatusSuite) TestStatusWithFormatJson(c *gc.C) {
 	ctx := s.prepareTabularData(c)
 	defer s.resetContext(c, ctx)
-	code, stdout, stderr := runStatus(c, "--format", "json")
+	code, stdout, stderr := runStatus(c, "--no-color", "--format", "json")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	c.Assert(string(stdout), jc.Contains, `"display-name":"snowflake"`)
@@ -5404,6 +5393,123 @@ foo/0  waiting   allocating  10.0.0.1  80/TCP
 `[1:])
 }
 
+func (s *StatusSuite) TestFormatTabularManyPorts(c *gc.C) {
+	fStatus := formattedStatus{
+		Model: modelStatus{
+			Type: "caas",
+		},
+		Applications: map[string]applicationStatus{
+			"foo": {
+				Scale:   1,
+				Address: "54.32.1.2",
+				Units: map[string]unitStatus{
+					"foo/0": {
+						Address:     "10.0.0.1",
+						OpenedPorts: []string{"1555/TCP", "123/UDP", "ICMP", "80/TCP"},
+						JujuStatusInfo: statusInfoContents{
+							Current: status.Allocating,
+						},
+						WorkloadStatusInfo: statusInfoContents{
+							Current: status.Waiting,
+						},
+					},
+				},
+			},
+		},
+	}
+	out := &bytes.Buffer{}
+	err := FormatTabular(out, false, fStatus)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.String(), gc.Equals, `
+Model  Controller  Cloud/Region  Version
+                                 
+
+App  Version  Status  Scale  Charm  Channel  Rev  Address    Exposed  Message
+foo                     0/1                    0  54.32.1.2  no       
+
+Unit   Workload  Agent       Address   Ports                     Message
+foo/0  waiting   allocating  10.0.0.1  80,1555/TCP 123/UDP ICMP  
+`[1:])
+}
+
+func (s *StatusSuite) TestFormatTabularManyPortsGrouped(c *gc.C) {
+	fStatus := formattedStatus{
+		Model: modelStatus{
+			Type: "caas",
+		},
+		Applications: map[string]applicationStatus{
+			"foo": {
+				Scale:   1,
+				Address: "54.32.1.2",
+				Units: map[string]unitStatus{
+					"foo/0": {
+						Address:     "10.0.0.1",
+						OpenedPorts: []string{"1557/TCP", "1555/TCP", "80/TCP", "ICMP", "1556/TCP"},
+						JujuStatusInfo: statusInfoContents{
+							Current: status.Allocating,
+						},
+						WorkloadStatusInfo: statusInfoContents{
+							Current: status.Waiting,
+						},
+					},
+				},
+			},
+		},
+	}
+	out := &bytes.Buffer{}
+	err := FormatTabular(out, false, fStatus)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.String(), gc.Equals, `
+Model  Controller  Cloud/Region  Version
+                                 
+
+App  Version  Status  Scale  Charm  Channel  Rev  Address    Exposed  Message
+foo                     0/1                    0  54.32.1.2  no       
+
+Unit   Workload  Agent       Address   Ports                  Message
+foo/0  waiting   allocating  10.0.0.1  80,1555-1557/TCP ICMP  
+`[1:])
+}
+
+func (s *StatusSuite) TestFormatTabularManyPortsCommonGrouped(c *gc.C) {
+	fStatus := formattedStatus{
+		Model: modelStatus{
+			Type: "caas",
+		},
+		Applications: map[string]applicationStatus{
+			"foo": {
+				Scale:   1,
+				Address: "54.32.1.2",
+				Units: map[string]unitStatus{
+					"foo/0": {
+						Address:     "10.0.0.1",
+						OpenedPorts: []string{"1557/TCP", "1555/TCP", "1558/TCP", "1559/TCP", "80/TCP", "1556/TCP"},
+						JujuStatusInfo: statusInfoContents{
+							Current: status.Allocating,
+						},
+						WorkloadStatusInfo: statusInfoContents{
+							Current: status.Waiting,
+						},
+					},
+				},
+			},
+		},
+	}
+	out := &bytes.Buffer{}
+	err := FormatTabular(out, false, fStatus)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.String(), gc.Equals, `
+Model  Controller  Cloud/Region  Version
+                                 
+
+App  Version  Status  Scale  Charm  Channel  Rev  Address    Exposed  Message
+foo                     0/1                    0  54.32.1.2  no       
+
+Unit   Workload  Agent       Address   Ports             Message
+foo/0  waiting   allocating  10.0.0.1  80,1555-1559/TCP  
+`[1:])
+}
+
 func (s *StatusSuite) TestFormatTabularTruncateMessage(c *gc.C) {
 	longMessage := "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
 	longMeterStatus := meterStatus{
@@ -5457,17 +5563,23 @@ func (s *StatusSuite) TestFormatTabularTruncateMessage(c *gc.C) {
 		},
 		Machines: map[string]machineStatus{
 			"0": {
-				Id:                 "0",
-				DNSName:            "10.53.62.100",
-				Series:             "jammy",
+				Id:      "0",
+				DNSName: "10.53.62.100",
+				Base: &formattedBase{
+					Name:    "ubuntu",
+					Channel: "22.04",
+				},
 				JujuStatus:         longStatusInfo,
 				MachineStatus:      longStatusInfo,
 				ModificationStatus: longStatusInfo,
 				Containers: map[string]machineStatus{
 					"0": {
-						Id:                 "0/lxd/0",
-						DNSName:            "10.53.62.101",
-						Series:             "jammy",
+						Id:      "0/lxd/0",
+						DNSName: "10.53.62.101",
+						Base: &formattedBase{
+							Name:    "ubuntu",
+							Channel: "22.04",
+						},
 						JujuStatus:         longStatusInfo,
 						MachineStatus:      longStatusInfo,
 						ModificationStatus: longStatusInfo,
@@ -5477,8 +5589,8 @@ func (s *StatusSuite) TestFormatTabularTruncateMessage(c *gc.C) {
 		},
 		Relations: []relationStatus{
 			{
-				Provider:  "foo",
-				Requirer:  "bar",
+				Provider:  "foo:cluster",
+				Requirer:  "bar:cluster",
 				Interface: "baz",
 				Message:   longMessage,
 			},
@@ -5506,12 +5618,12 @@ Entity  Meter status  Message
 model   blue          Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...  
 foo/0   blue          Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...  
 
-Machine  State   Address       Inst id  Series  AZ  Message
-0        active  10.53.62.100           jammy       Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
-0/lxd/0  active  10.53.62.101           jammy       Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
+Machine  State   Address       Inst id  Base          AZ  Message
+0        active  10.53.62.100           ubuntu@22.04      Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
+0/lxd/0  active  10.53.62.101           ubuntu@22.04      Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
 
-Relation provider  Requirer  Interface  Type  Message
-foo                bar       baz                 - Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...  
+Relation provider  Requirer     Interface  Type  Message
+foo:cluster        bar:cluster  baz                Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
 `[1:])
 }
 
@@ -5538,7 +5650,7 @@ func (s *StatusSuite) TestStatusWithNilStatusAPI(c *gc.C) {
 		return &client, nil
 	})
 
-	code, _, stderr := runStatus(c, "--format", "tabular")
+	code, _, stderr := runStatus(c, "--no-color", "--format", "tabular")
 	c.Check(code, gc.Equals, 1)
 	c.Check(string(stderr), gc.Equals, "ERROR unable to obtain the current status\n")
 }
@@ -5674,11 +5786,10 @@ func (s *StatusSuite) TestFilterToActive(c *gc.C) {
 	// And unit 0 of the "mysql" application has an error
 	setAgentStatus{"mysql/0", status.Error, "mock error", nil}.step(c, ctx)
 	// When I run juju status --format oneline started
-	_, stdout, stderr := runStatus(c, "--format", "oneline", "active")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline", "active")
 	c.Assert(string(stderr), gc.Equals, "")
 	// Then I should receive output prefixed with:
 	const expected = `
-
 - wordpress/0: 10.0.1.1 (agent:idle, workload:active)
   - logging/0: 10.0.1.1 (agent:idle, workload:active)
 `
@@ -5691,11 +5802,10 @@ func (s *StatusSuite) TestFilterToMachine(c *gc.C) {
 	defer s.resetContext(c, ctx)
 
 	// When I run juju status --format oneline 1
-	_, stdout, stderr := runStatus(c, "--format", "oneline", "1")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline", "1")
 	c.Assert(string(stderr), gc.Equals, "")
 	// Then I should receive output prefixed with:
 	const expected = `
-
 - wordpress/0: 10.0.1.1 (agent:idle, workload:active)
   - logging/0: 10.0.1.1 (agent:idle, workload:active)
 `
@@ -5708,7 +5818,7 @@ func (s *StatusSuite) TestFilterToMachineShowsContainer(c *gc.C) {
 	defer s.resetContext(c, ctx)
 
 	// When I run juju status --format yaml 0
-	_, stdout, stderr := runStatus(c, "--format", "yaml", "0")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "yaml", "0")
 	c.Assert(string(stderr), gc.Equals, "")
 	// Then I should receive output matching:
 	const expected = "(.|\n)*machines:(.|\n)*\"0\"(.|\n)*0/lxd/0(.|\n)*"
@@ -5721,7 +5831,7 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 	defer s.resetContext(c, ctx)
 
 	// When I run juju status --format yaml 0/lxd/0
-	_, stdout, stderr := runStatus(c, "--format", "yaml", "0/lxd/0")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "yaml", "0/lxd/0")
 	c.Assert(string(stderr), gc.Equals, "")
 
 	const expected = "" +
@@ -5751,7 +5861,9 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"    modification-status:\n" +
 		"      current: idle\n" +
 		"      since: 01 Apr 15 01:23+10:00\n" +
-		"    series: quantal\n" +
+		"    base:\n" +
+		"      name: ubuntu\n" +
+		"      channel: \"12.10\"\n" +
 		"    network-interfaces:\n" +
 		"      eth0:\n" +
 		"        ip-addresses:\n" +
@@ -5770,7 +5882,9 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"        modification-status:\n" +
 		"          current: idle\n" +
 		"          since: 01 Apr 15 01:23+10:00\n" +
-		"        series: quantal\n" +
+		"        base:\n" +
+		"          name: ubuntu\n" +
+		"          channel: \"12.10\"\n" +
 		"    hardware: arch=amd64 cores=1 mem=1024M root-disk=8192M\n" +
 		"    controller-member-status: adding-vote\n" +
 		"applications: {}\n" +
@@ -5791,11 +5905,10 @@ func (s *StatusSuite) TestFilterToErrored(c *gc.C) {
 	// Given unit 1 of the "logging" application has an error
 	setAgentStatus{"logging/1", status.Error, "mock error", nil}.step(c, ctx)
 	// When I run juju status --format oneline error
-	_, stdout, stderr := runStatus(c, "--format", "oneline", "error")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline", "error")
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
-
 - mysql/0: 10.0.2.1 (agent:idle, workload:active)
   - logging/1: 10.0.2.1 (agent:idle, workload:error)
 `
@@ -5808,11 +5921,10 @@ func (s *StatusSuite) TestFilterToApplication(c *gc.C) {
 	defer s.resetContext(c, ctx)
 
 	// When I run juju status --format oneline error
-	_, stdout, stderr := runStatus(c, "--format", "oneline", "mysql")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline", "mysql")
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
-
 - mysql/0: 10.0.2.1 (agent:idle, workload:active)
   - logging/1: 10.0.2.1 (agent:idle, workload:active)
 `
@@ -5832,11 +5944,10 @@ func (s *StatusSuite) TestFilterToExposedApplication(c *gc.C) {
 	// And the wordpress application is not exposed
 	setApplicationExposed{"wordpress", false}.step(c, ctx)
 	// When I run juju status --format oneline exposed
-	_, stdout, stderr := runStatus(c, "--format", "oneline", "exposed")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline", "exposed")
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
-
 - mysql/0: 10.0.2.1 (agent:idle, workload:active)
   - logging/1: 10.0.2.1 (agent:idle, workload:active)
 `
@@ -5850,11 +5961,10 @@ func (s *StatusSuite) TestFilterToNotExposedApplication(c *gc.C) {
 
 	setApplicationExposed{"mysql", true}.step(c, ctx)
 	// When I run juju status --format oneline not exposed
-	_, stdout, stderr := runStatus(c, "--format", "oneline", "not", "exposed")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline", "not", "exposed")
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
-
 - wordpress/0: 10.0.1.1 (agent:idle, workload:active)
   - logging/0: 10.0.1.1 (agent:idle, workload:active)
 `
@@ -5871,11 +5981,10 @@ func (s *StatusSuite) TestFilterOnSubnet(c *gc.C) {
 	// And the address for machine "2" is "10.0.2.1"
 	setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")}.step(c, ctx)
 	// When I run juju status --format oneline 127.0.0.1
-	_, stdout, stderr := runStatus(c, "--format", "oneline", "127.0.0.1")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline", "127.0.0.1")
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
-
 - wordpress/0: localhost (agent:idle, workload:active)
   - logging/0: localhost (agent:idle, workload:active)
 `
@@ -5893,11 +6002,10 @@ func (s *StatusSuite) TestFilterOnPorts(c *gc.C) {
 	setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")}.step(c, ctx)
 	openUnitPort{"wordpress/0", "tcp", 80}.step(c, ctx)
 	// When I run juju status --format oneline 80/tcp
-	_, stdout, stderr := runStatus(c, "--format", "oneline", "80/tcp")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline", "80/tcp")
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
-
 - wordpress/0: localhost (agent:idle, workload:active) 80/tcp
   - logging/0: localhost (agent:idle, workload:active)
 `
@@ -5910,11 +6018,10 @@ func (s *StatusSuite) TestFilterParentButNotSubordinate(c *gc.C) {
 	defer s.resetContext(c, ctx)
 
 	// When I run juju status --format oneline 80/tcp
-	_, stdout, stderr := runStatus(c, "--format", "oneline", "logging")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline", "logging")
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
-
 - mysql/0: 10.0.2.1 (agent:idle, workload:active)
   - logging/1: 10.0.2.1 (agent:idle, workload:active)
 - wordpress/0: 10.0.1.1 (agent:idle, workload:active)
@@ -5931,11 +6038,10 @@ func (s *StatusSuite) TestFilterSubordinateButNotParent(c *gc.C) {
 	// Given the wordpress application is exposed
 	setApplicationExposed{"wordpress", true}.step(c, ctx)
 	// When I run juju status --format oneline not exposed
-	_, stdout, stderr := runStatus(c, "--format", "oneline", "not", "exposed")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline", "not", "exposed")
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
-
 - mysql/0: 10.0.2.1 (agent:idle, workload:active)
   - logging/1: 10.0.2.1 (agent:idle, workload:active)
 `
@@ -5946,11 +6052,10 @@ func (s *StatusSuite) TestFilterMultipleHomogenousPatterns(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	_, stdout, stderr := runStatus(c, "--format", "oneline", "wordpress/0", "mysql/0")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline", "wordpress/0", "mysql/0")
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
-
 - mysql/0: 10.0.2.1 (agent:idle, workload:active)
   - logging/1: 10.0.2.1 (agent:idle, workload:active)
 - wordpress/0: 10.0.1.1 (agent:idle, workload:active)
@@ -5963,11 +6068,10 @@ func (s *StatusSuite) TestFilterMultipleHeterogenousPatterns(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	_, stdout, stderr := runStatus(c, "--format", "oneline", "wordpress/0", "active")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format", "oneline", "wordpress/0", "active")
 	c.Assert(stderr, gc.IsNil)
-	// Then I should receive output prefixed with:
+	// Then I should receive output prefixed with:runStatus
 	const expected = `
-
 - mysql/0: 10.0.2.1 (agent:idle, workload:active)
   - logging/1: 10.0.2.1 (agent:idle, workload:active)
 - wordpress/0: 10.0.1.1 (agent:idle, workload:active)
@@ -6116,8 +6220,7 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 				},
 				InstanceId:     "pending",
 				InstanceStatus: params.DetailedStatus{},
-				Series:         "trusty",
-				Base:           params.Base{Name: "ubuntu", Channel: "14.04"},
+				Base:           params.Base{Name: "ubuntu", Channel: "22.04"},
 				Id:             "1",
 				Jobs:           []coremodel.MachineJob{"JobHostUnits"},
 			},
@@ -6140,7 +6243,7 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 			"1": {
 				JujuStatus:        statusInfoContents{Current: "error", Message: "<error while provisioning>"},
 				InstanceId:        "pending",
-				Series:            "trusty",
+				Base:              &formattedBase{Name: "ubuntu", Channel: "22.04"},
 				Id:                "1",
 				Containers:        map[string]machineStatus{},
 				NetworkInterfaces: map[string]networkInterface{},
@@ -6170,8 +6273,7 @@ func (s *StatusSuite) TestMissingControllerTimestampInFullStatus(c *gc.C) {
 				},
 				InstanceId:     "pending",
 				InstanceStatus: params.DetailedStatus{},
-				Series:         "trusty",
-				Base:           params.Base{Name: "ubuntu", Channel: "14.04"},
+				Base:           params.Base{Name: "ubuntu", Channel: "22.04"},
 				Id:             "1",
 				Jobs:           []coremodel.MachineJob{"JobHostUnits"},
 			},
@@ -6193,7 +6295,7 @@ func (s *StatusSuite) TestMissingControllerTimestampInFullStatus(c *gc.C) {
 			"1": {
 				JujuStatus:        statusInfoContents{Current: "error", Message: "<error while provisioning>"},
 				InstanceId:        "pending",
-				Series:            "trusty",
+				Base:              &formattedBase{Name: "ubuntu", Channel: "22.04"},
 				Id:                "1",
 				Containers:        map[string]machineStatus{},
 				NetworkInterfaces: map[string]networkInterface{},
@@ -6221,8 +6323,7 @@ func (s *StatusSuite) TestControllerTimestampInFullStatus(c *gc.C) {
 				},
 				InstanceId:     "pending",
 				InstanceStatus: params.DetailedStatus{},
-				Series:         "trusty",
-				Base:           params.Base{Name: "ubuntu", Channel: "14.04"},
+				Base:           params.Base{Name: "ubuntu", Channel: "22.04"},
 				Id:             "1",
 				Jobs:           []coremodel.MachineJob{"JobHostUnits"},
 			},
@@ -6246,7 +6347,7 @@ func (s *StatusSuite) TestControllerTimestampInFullStatus(c *gc.C) {
 			"1": {
 				JujuStatus:        statusInfoContents{Current: "error", Message: "<error while provisioning>"},
 				InstanceId:        "pending",
-				Series:            "trusty",
+				Base:              &formattedBase{Name: "ubuntu", Channel: "22.04"},
 				Id:                "1",
 				Containers:        map[string]machineStatus{},
 				NetworkInterfaces: map[string]networkInterface{},
@@ -6267,7 +6368,7 @@ func (s *StatusSuite) TestTabularNoRelations(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	_, stdout, stderr := runStatus(c)
+	_, stdout, stderr := runStatus(c, "--no-color")
 	c.Assert(stderr, gc.IsNil)
 	c.Assert(strings.Contains(string(stdout), "Relation provider"), jc.IsFalse)
 }
@@ -6276,7 +6377,7 @@ func (s *StatusSuite) TestTabularDisplayRelations(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	_, stdout, stderr := runStatus(c, "--relations")
+	_, stdout, stderr := runStatus(c, "--no-color", "--relations")
 	c.Assert(stderr, gc.IsNil)
 	c.Assert(strings.Contains(string(stdout), "Relation provider"), jc.IsTrue)
 }
@@ -6285,7 +6386,7 @@ func (s *StatusSuite) TestNonTabularDisplayRelations(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	_, stdout, stderr := runStatus(c, "--format=yaml", "--relations")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format=yaml", "--relations")
 	c.Assert(string(stderr), gc.Equals, "provided relations option is always enabled in non tabular formats\n")
 	logger.Debugf("stdout -> \n%q", stdout)
 	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
@@ -6296,7 +6397,7 @@ func (s *StatusSuite) TestNonTabularDisplayStorage(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	_, stdout, stderr := runStatus(c, "--format=yaml", "--storage")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format=yaml", "--storage")
 	c.Assert(string(stderr), gc.Equals, "provided storage option is always enabled in non tabular formats\n")
 	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
 	c.Assert(strings.Contains(string(stdout), "storage:"), jc.IsTrue)
@@ -6306,7 +6407,7 @@ func (s *StatusSuite) TestNonTabularDisplayRelationsAndStorage(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	_, stdout, stderr := runStatus(c, "--format=yaml", "--relations", "--storage")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format=yaml", "--relations", "--storage")
 	c.Assert(string(stderr), gc.Equals, "provided relations, storage options are always enabled in non tabular formats\n")
 	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
 	c.Assert(strings.Contains(string(stdout), "storage:"), jc.IsTrue)
@@ -6316,7 +6417,7 @@ func (s *StatusSuite) TestNonTabularRelations(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	_, stdout, stderr := runStatus(c, "--format=yaml")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format=yaml")
 	c.Assert(stderr, gc.IsNil)
 	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
 	c.Assert(strings.Contains(string(stdout), "storage:"), jc.IsTrue)
@@ -6354,7 +6455,7 @@ func (s *StatusSuite) TestBranchesOutputTabular(c *gc.C) {
 		c.Fatalf(`Expected "bla" got %q. This test failed because the file store did not save the value in time of access`, m.ActiveBranch)
 	}
 
-	_, stdout, stderr := runStatus(c)
+	_, stdout, stderr := runStatus(c, "--no-color")
 	c.Assert(stderr, gc.IsNil)
 	c.Assert(strings.Contains(string(stdout), "bla*"), jc.IsTrue)
 	c.Assert(strings.Contains(string(stdout), "test*"), jc.IsFalse)
@@ -6375,36 +6476,34 @@ func (s *StatusSuite) TestBranchesOutputNonTabular(c *gc.C) {
 	if m.ActiveBranch != "bla" {
 		c.Fatalf(`Expected "bla" got %q. This test failed because the file store did not save the value in time of access`, m.ActiveBranch)
 	}
-	_, stdout, stderr := runStatus(c, "--format=yaml")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format=yaml")
 	c.Assert(stderr, gc.IsNil)
 	c.Assert(strings.Contains(string(stdout), "active: true"), jc.IsTrue)
 }
 
 func (s *StatusSuite) TestStatusFormatTabularEmptyModel(c *gc.C) {
-	code, stdout, stderr := runStatus(c)
+	code, stdout, stderr := runStatus(c, "--no-color")
 	c.Check(code, gc.Equals, 0)
-	c.Check(string(stderr), gc.Equals, "Model \"controller\" is empty.\n")
+	c.Check(string(stderr), gc.Equals, "\nModel \"controller\" is empty.\n")
 	expected := `
 Model       Controller  Cloud/Region        Version  SLA          Timestamp
 controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00
-
 `[1:]
 	output := substituteFakeTimestamp(c, stdout, false)
 	c.Assert(string(output), gc.Equals, expected)
 }
 
 func (s *StatusSuite) TestStatusFormatTabularForUnmatchedFilter(c *gc.C) {
-	code, stdout, stderr := runStatus(c, "unmatched")
+	code, stdout, stderr := runStatus(c, "--no-color", "unmatched")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "Nothing matched specified filter.\n")
 	expected := `
 Model       Controller  Cloud/Region        Version  SLA          Timestamp
 controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00
-
 `[1:]
 	output := substituteFakeTimestamp(c, stdout, false)
 	c.Assert(string(output), gc.Equals, expected)
 
-	_, _, stderr = runStatus(c, "cannot", "match", "me")
+	_, _, stderr = runStatus(c, "--no-color", "cannot", "match", "me")
 	c.Check(string(stderr), gc.Equals, "Nothing matched specified filters.\n")
 }

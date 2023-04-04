@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/testing"
@@ -178,8 +179,8 @@ func (s *workerSuite) expectMachinePrepareStartedUnitFilesWrittenProgressPrepare
 	exp.MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
 	s.expectSetInstanceStatus(model.UpgradeSeriesPrepareStarted, "preparing units")
 	s.expectUnitsPrepared("wordpress/0", "mysql/0")
-	exp.CurrentSeries().Return("trusty", nil)
-	exp.TargetSeries().Return("xenial", nil)
+	exp.CurrentSeries().Return("focal", nil)
+	exp.TargetSeries().Return("jammy", nil)
 
 	s.upgrader.EXPECT().PerformUpgrade().Return(nil)
 	s.expectSetInstanceStatus(model.UpgradeSeriesPrepareStarted, "completing preparation")

@@ -6,7 +6,6 @@ package common
 import (
 	"archive/zip"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -33,26 +32,15 @@ func ReadCharmFromStorage(store storage.Storage, dataDir, storagePath string) (s
 	}
 	defer reader.Close()
 
-	charmFile, err := ioutil.TempFile(tmpDir, "charm")
+	charmFile, err := os.CreateTemp(tmpDir, "charm")
 	if err != nil {
 		return "", errors.Annotate(err, "cannot create charm archive file")
 	}
 	if _, err = io.Copy(charmFile, reader); err != nil {
-		cleanupFile(charmFile)
 		return "", errors.Annotate(err, "error processing charm archive download")
 	}
 	charmFile.Close()
 	return charmFile.Name(), nil
-}
-
-// On windows we cannot remove a file until it has been closed
-// If this poses an active problem somewhere else it will be refactored in
-// utils and used everywhere.
-func cleanupFile(file *os.File) {
-	// Errors are ignored because it is ok for this to be called when
-	// the file is already closed or has been moved.
-	file.Close()
-	os.Remove(file.Name())
 }
 
 // CharmArchiveEntry retrieves the specified entry from the zip archive.
@@ -82,7 +70,7 @@ func CharmArchiveEntry(charmPath, entryPath string, wantIcon bool) ([]byte, erro
 			return nil, errors.Annotatef(err, "unable to read file %q", entryPath)
 		}
 		defer contents.Close()
-		return ioutil.ReadAll(contents)
+		return io.ReadAll(contents)
 	}
 	if wantIcon {
 		// An icon was requested but none was found in the archive so

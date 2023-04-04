@@ -5,11 +5,9 @@ package runner_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -34,6 +32,11 @@ import (
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
 )
 
+var (
+	hookName      = "something-happened"
+	echoPidScript = "echo $$ > pid"
+)
+
 type ContextSuite struct {
 	testing.JujuConnSuite
 
@@ -51,6 +54,7 @@ type ContextSuite struct {
 	apiUnit     *uniter.Unit
 	payloads    *uniter.PayloadFacadeClient
 	storage     *runnertesting.StorageContextAccessor
+	secrets     *runnertesting.SecretsContextAccessor
 
 	apiRelunits map[int]*uniter.RelationUnit
 	relch       *state.Charm
@@ -76,6 +80,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 			},
 		},
 	}
+	s.secrets = &runnertesting.SecretsContextAccessor{}
 
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -112,6 +117,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
+		SecretsClient:    s.secrets,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
 		Logger:           loggo.GetLogger("test"),
@@ -119,7 +125,6 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	factory, err := runner.NewFactory(
-		s.uniter,
 		s.paths,
 		s.contextFactory,
 		runner.NewRunner,
@@ -243,7 +248,7 @@ func makeCharm(c *gc.C, spec hookSpec, charmDir string) {
 		_, err := fmt.Fprintf(hook, f+"\n", a...)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	if !spec.missingShebang && runtime.GOOS != "windows" {
+	if !spec.missingShebang {
 		printf("#!/bin/bash")
 	}
 	printf(echoPidScript)
@@ -267,7 +272,7 @@ func makeCharm(c *gc.C, spec hookSpec, charmDir string) {
 func makeCharmMetadata(c *gc.C, charmDir string) {
 	err := os.MkdirAll(charmDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(path.Join(charmDir, "metadata.yaml"), nil, 0664)
+	err = os.WriteFile(path.Join(charmDir, "metadata.yaml"), nil, 0664)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

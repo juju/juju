@@ -53,7 +53,7 @@ EOF
 	echo "waiting for modeloperator to become available"
 	while :; do
 		# shellcheck disable=SC2046
-		if [ $(kubectl --kubeconfig "${TEST_DIR}"/kube-sa.json get deploy -n "${namespace}" "modeloperator" -o=jsonpath='{.status.readyReplicas}' || echo "0") -eq 1 ]; then
+		if [ $(kubectl --kubeconfig "${TEST_DIR}"/kube-sa.json get deploy -n "${namespace}" "modeloperator" -o=jsonpath='{.status.readyReplicas}' || echo "0") == 1 ]; then
 			break
 		fi
 		sleep 1

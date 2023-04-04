@@ -4,7 +4,7 @@
 package operation_test
 
 import (
-	"github.com/juju/charm/v8/hooks"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -200,7 +200,7 @@ func (s *RunHookSuite) getExecuteRunnerTest(
 
 	// Target is supplied for the special-cased pre-series-upgrade hook.
 	// This is the only one of the designated unit hooks with validation.
-	op, err := newHook(factory, hook.Info{Kind: kind, SeriesUpgradeTarget: "focal"})
+	op, err := newHook(factory, hook.Info{Kind: kind, MachineUpgradeTarget: "ubuntu@20.04"})
 
 	c.Assert(err, jc.ErrorIsNil)
 	return op, callbacks, runnerFactory
@@ -897,4 +897,86 @@ func (s *RunHookSuite) TestRunningHookMessageForRelationHooks(c *gc.C) {
 		},
 	)
 	c.Assert(msg, gc.Equals, "running install hook", gc.Commentf("expected remote unit not to be included for a non-relation hook"))
+}
+
+func (s *RunHookSuite) TestRunningHookMessageForSecretsHooks(c *gc.C) {
+	msg := operation.RunningHookMessage(
+		"secret-rotate",
+		hook.Info{
+			Kind:      hooks.SecretRotate,
+			SecretURI: "secret:9m4e2mr0ui3e8a215n4g",
+		},
+	)
+	c.Assert(msg, gc.Equals, `running secret-rotate hook for secret:9m4e2mr0ui3e8a215n4g`)
+}
+
+func (s *RunHookSuite) TestRunningHookMessageForSecretHooksWithRevision(c *gc.C) {
+	msg := operation.RunningHookMessage(
+		"secret-expired",
+		hook.Info{
+			Kind:           hooks.SecretExpired,
+			SecretURI:      "secret:9m4e2mr0ui3e8a215n4g",
+			SecretRevision: 666,
+		},
+	)
+	c.Assert(msg, gc.Equals, `running secret-expired hook for secret:9m4e2mr0ui3e8a215n4g/666`)
+}
+
+func (s *RunHookSuite) TestCommitSuccess_SecretRotate_SetRotated(c *gc.C) {
+	callbacks := &CommitHookCallbacks{
+		MockCommitHook: &MockCommitHook{},
+	}
+	runnerFactory := &MockRunnerFactory{
+		MockNewHookRunner: &MockNewHookRunner{
+			runner: &MockRunner{
+				context: &MockContext{},
+			},
+		},
+	}
+	factory := newOpFactory(runnerFactory, callbacks)
+	op, err := factory.NewRunHook(hook.Info{
+		Kind: hooks.SecretRotate, SecretURI: "secret:9m4e2mr0ui3e8a215n4g",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectState := &operation.State{
+		Kind: operation.Continue,
+		Step: operation.Pending,
+	}
+
+	_, err = op.Prepare(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+	newState, err := op.Commit(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newState, jc.DeepEquals, expectState)
+	c.Assert(callbacks.rotatedSecretURI, gc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
+	c.Assert(callbacks.rotatedOldRevision, gc.Equals, 666)
+}
+
+func (s *RunHookSuite) TestPrepareSecretHookError_NotLeader(c *gc.C) {
+	s.assertPrepareSecretHookErrorNotLeader(c, hooks.SecretRotate)
+	s.assertPrepareSecretHookErrorNotLeader(c, hooks.SecretExpired)
+	s.assertPrepareSecretHookErrorNotLeader(c, hooks.SecretRemove)
+}
+
+func (s *RunHookSuite) assertPrepareSecretHookErrorNotLeader(c *gc.C, kind hooks.Kind) {
+	callbacks := &PrepareHookCallbacks{
+		MockPrepareHook: &MockPrepareHook{nil, string(kind), nil},
+	}
+	runnerFactory := &MockRunnerFactory{
+		MockNewHookRunner: &MockNewHookRunner{
+			runner: &MockRunner{
+				context: &MockContext{isLeader: false},
+			},
+		},
+	}
+	factory := newOpFactory(runnerFactory, callbacks)
+
+	op, err := factory.NewRunHook(hook.Info{
+		Kind: kind, SecretURI: "secret:9m4e2mr0ui3e8a215n4g", SecretRevision: 666,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = op.Prepare(operation.State{})
+	c.Assert(err, gc.Equals, operation.ErrSkipExecute)
 }

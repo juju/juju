@@ -51,6 +51,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
@@ -66,11 +67,6 @@ type EnvironProvider struct {
 	FirewallerFactory FirewallerFactory
 	FlavorFilter      FlavorFilter
 
-	// NetworkingDecorator, if non-nil, will be used to
-	// decorate the default networking implementation.
-	// This can be used to override behaviour.
-	NetworkingDecorator NetworkingDecorator
-
 	// ClientFromEndpoint returns an Openstack client for the given endpoint.
 	ClientFromEndpoint func(endpoint string) client.AuthenticatingClient
 }
@@ -85,7 +81,6 @@ var providerInstance = &EnvironProvider{
 	Configurator:        &defaultConfigurator{},
 	FirewallerFactory:   &firewallerFactory{},
 	FlavorFilter:        FlavorFilterFunc(AcceptAllFlavors),
-	NetworkingDecorator: nil,
 	ClientFromEndpoint:  newGooseClient,
 }
 
@@ -220,15 +215,6 @@ func (p EnvironProvider) getEnvironNetworkingFirewaller(e *Environ) (Networking,
 			"newer to maintain compatibility.")
 	}
 	networking := newNetworking(e)
-	if p.NetworkingDecorator != nil {
-		var err error
-		// The NetworkingDecorator is used by the rackspace provider, which
-		// uses a majority of this provider's code.
-		networking, err = p.NetworkingDecorator.DecorateNetworking(networking)
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-	}
 	return networking, p.FirewallerFactory.GetFirewaller(e), nil
 }
 
@@ -1091,7 +1077,7 @@ func (e *Environ) startInstance(
 	}
 	spec, err := findInstanceSpec(e, instances.InstanceConstraint{
 		Region:      e.cloud().Region,
-		Series:      args.InstanceConfig.Series,
+		Base:        args.InstanceConfig.Base,
 		Arch:        arch,
 		Constraints: args.Constraints,
 	}, args.ImageMetadata)
@@ -1319,7 +1305,7 @@ func (e *Environ) startInstance(
 		runOpts:      &opts,
 	}
 	logger.Infof("started instance %q", inst.Id())
-	withPublicIP := e.ecfg().useFloatingIP()
+	var withPublicIP bool
 	// Any machine constraint for allocating a public IP address
 	// overrides the (deprecated) model config.
 	if args.Constraints.HasAllocatePublicIP() {
@@ -1327,7 +1313,7 @@ func (e *Environ) startInstance(
 	}
 	if withPublicIP {
 		// If we don't lock here, AllocatePublicIP() can return the same
-		// public IP for 2 different instances.  Only one will successfully
+		// public IP for 2 different instances. Only one will successfully
 		// be assigned the public IP, the other will not have one.
 		e.publicIPMutex.Lock()
 		defer e.publicIPMutex.Unlock()
@@ -1438,23 +1424,41 @@ func (e *Environ) networksForInstance(
 	// We know that we are operating in the single configured network.
 	networkID := networks[0].NetworkId
 
-	// Attempt to filter the subnet IDs for the configured availability zone.
-	// If there is no configured zone, consider all subnet IDs.
+	// Attempt to filter the constraint/binding subnet IDs for the supplied
+	// availability zone.
+	// The zone is supplied by the provisioner based on its attempt to maintain
+	// distribution of units across zones.
+	// The zones recorded against O7k subnets in Juju are affected by the
+	// `availability_zone_hints` attribute on the network where they reside,
+	// and the default AZ configuration for the project.
+	// They are a read-only attribute.
+	// If a subnet in the subnets-to-zones map has no zones, we assume a basic
+	// O7k set-up where networks are not zone-limited. We log a warning and
+	// consider all the supplied subnets.
+	// See:
+	// - https://docs.openstack.org/neutron/latest/admin/config-az.html#availability-zone-related-attributes
+	// - https://docs.openstack.org/neutron/latest/admin/ovn/availability_zones.html#network-availability-zones
 	az := args.AvailabilityZone
 	subnetIDsForZone := make([][]network.Id, len(args.SubnetsToZones))
 	for i, nic := range args.SubnetsToZones {
-		var subnetIDs []network.Id
-		if az != "" {
-			var err error
-			if subnetIDs, err = network.FindSubnetIDsForAvailabilityZone(az, nic); err != nil {
-				return nil, errors.Annotatef(err, "getting subnets in zone %q", az)
+		subnetIDs, err := network.FindSubnetIDsForAvailabilityZone(az, nic)
+		if err != nil {
+			// We found no subnets in the zone.
+			// Add subnets without zone-limited networks.
+			for subnetID, zones := range nic {
+				if len(zones) == 0 {
+					logger.Warningf(
+						"subnet %q is not in a network with availability zones listed; assuming availability in zone %q",
+						subnetID, az)
+					subnetIDs = append(subnetIDs, subnetID)
+				}
 			}
+
 			if len(subnetIDs) == 0 {
-				return nil, errors.Errorf("availability zone %q has no subnets satisfying space constraints", az)
-			}
-		} else {
-			for subnetID := range nic {
-				subnetIDs = append(subnetIDs, subnetID)
+				// If we still have no candidate subnets, then they are all in
+				// networks with availability zones, and none of those zones
+				// match the input one. Return the error we have in hand.
+				return nil, errors.Annotatef(err, "determining subnets in zone %q", az)
 			}
 		}
 
@@ -2243,7 +2247,11 @@ func (e *Environ) AgentMetadataLookupParams(region string) (*simplestreams.Metad
 
 // ImageMetadataLookupParams returns parameters which are used to query image simple-streams metadata.
 func (e *Environ) ImageMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
-	return e.metadataLookupParams(region, config.PreferredSeries(e.ecfg()))
+	release, err := imagemetadata.ImageRelease(config.PreferredSeries(e.ecfg()))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return e.metadataLookupParams(region, release)
 }
 
 // MetadataLookupParams returns parameters which are used to query simple-streams metadata.

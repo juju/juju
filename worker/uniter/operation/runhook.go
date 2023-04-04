@@ -6,11 +6,13 @@ package operation
 import (
 	"fmt"
 
-	"github.com/juju/charm/v8/hooks"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -49,6 +51,12 @@ func (rh *runHook) String() string {
 		}
 	case rh.info.Kind.IsStorage():
 		suffix = fmt.Sprintf(" (%s)", rh.info.StorageId)
+	case rh.info.Kind.IsSecret():
+		if rh.info.SecretRevision == 0 {
+			suffix = fmt.Sprintf(" (%s)", rh.info.SecretURI)
+		} else {
+			suffix = fmt.Sprintf(" (%s/%d)", rh.info.SecretURI, rh.info.SecretRevision)
+		}
 	}
 	return fmt.Sprintf("run %s%s hook", rh.info.Kind, suffix)
 }
@@ -65,8 +73,20 @@ func (rh *runHook) Prepare(state State) (*State, error) {
 		return nil, err
 	}
 
-	switch hooks.Kind(name) {
-	case hooks.LeaderElected:
+	kind := hooks.Kind(name)
+	leaderNeeded := kind == hooks.LeaderElected
+	if kind == hooks.SecretRotate || kind == hooks.SecretExpired || kind == hooks.SecretRemove {
+		secretMetadata, err := rnr.Context().SecretMetadata()
+		if err != nil {
+			return nil, err
+		}
+		if uri, err := secrets.ParseURI(rh.info.SecretURI); err == nil {
+			md, ok := secretMetadata[uri.ID]
+			leaderNeeded = ok && md.Owner.Kind() != names.UnitTagKind
+		}
+	}
+
+	if leaderNeeded {
 		// Check if leadership has changed between queueing of the hook and
 		// Actual execution. Skip execution if we are no longer the leader.
 		var isLeader bool
@@ -98,6 +118,13 @@ func (rh *runHook) Prepare(state State) (*State, error) {
 func RunningHookMessage(hookName string, info hook.Info) string {
 	if info.Kind.IsRelation() && info.RemoteUnit != "" {
 		return fmt.Sprintf("running %s hook for %s", hookName, info.RemoteUnit)
+	}
+	if info.Kind.IsSecret() {
+		revMsg := ""
+		if info.SecretRevision > 0 {
+			revMsg = fmt.Sprintf("/%d", info.SecretRevision)
+		}
+		return fmt.Sprintf("running %s hook for %s%s", hookName, info.SecretURI, revMsg)
 	}
 	return fmt.Sprintf("running %s hook", hookName)
 }
@@ -301,6 +328,19 @@ func (rh *runHook) Commit(state State) (*State, error) {
 	case hooks.PostSeriesUpgrade:
 		message := createUpgradeSeriesStatusMessage(rh.name, rh.hookFound)
 		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesCompleted, message)
+	case hooks.SecretRotate:
+		var info map[string]jujuc.SecretMetadata
+		info, err = rh.runner.Context().SecretMetadata()
+		if err != nil {
+			break
+		}
+		originalRevision := 0
+		uri, _ := secrets.ParseURI(rh.info.SecretURI)
+		if m, ok := info[uri.ID]; ok {
+			originalRevision = m.LatestRevision
+		}
+		rh.logger.Debugf("set secret rotated for %q, original rev %v", rh.info.SecretURI, originalRevision)
+		err = rh.callbacks.SetSecretRotated(rh.info.SecretURI, originalRevision)
 	}
 	if err != nil {
 		return nil, err

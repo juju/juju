@@ -90,7 +90,6 @@ func (c *removeCommand) Init(args []string) error {
 type RemoveAPI interface {
 	Close() error
 	DestroyOffers(force bool, offerURLs ...string) error
-	BestAPIVersion() int
 }
 
 // NewApplicationOffersAPI returns an application offers api.
@@ -105,8 +104,7 @@ func (c *removeCommand) NewApplicationOffersAPI(controllerName string) (*applica
 var removeOfferMsg = `
 WARNING! This command will remove offers: %v
 This includes all relations to those offers.
-
-Continue [y/N]? `[1:]
+`[1:]
 
 // Run implements Command.Run.
 func (c *removeCommand) Run(ctx *cmd.Context) error {
@@ -151,7 +149,7 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if !c.assumeYes && c.force {
-		fmt.Fprintf(ctx.Stdout, removeOfferMsg, strings.Join(c.offers, ", "))
+		fmt.Fprintf(ctx.Stderr, removeOfferMsg, strings.Join(c.offers, ", "))
 
 		if err := jujucmd.UserConfirmYes(ctx); err != nil {
 			return errors.Annotate(err, "offer removal")
@@ -163,10 +161,6 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer api.Close()
-
-	if c.force && api.BestAPIVersion() < 2 {
-		return errors.NotSupportedf("on this juju controller, remove-offer --force")
-	}
 
 	err = api.DestroyOffers(c.force, c.offers...)
 	return block.ProcessBlockedError(err, block.BlockRemove)

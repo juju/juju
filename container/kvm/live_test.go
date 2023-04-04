@@ -97,7 +97,7 @@ func createContainer(c *gc.C, manager container.Manager, machineId string) insta
 	machineNonce := "fake-nonce"
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, machineNonce,
-		imagemetadata.ReleasedStream, series.MakeDefaultBase("ubuntu", "12.10"), apiInfo)
+		imagemetadata.ReleasedStream, series.MakeDefaultBase("ubuntu", "22.04"), apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	nics := network.InterfaceInfos{{
@@ -118,7 +118,7 @@ func createContainer(c *gc.C, manager container.Manager, machineId string) insta
 	err = instancecfg.FinishInstanceConfig(instanceConfig, environConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
-	inst, hardware, err := manager.CreateContainer(instanceConfig, constraints.Value{}, "precise", net, nil, callback)
+	inst, hardware, err := manager.CreateContainer(instanceConfig, constraints.Value{}, series.MakeDefaultBase("ubuntu", "12.04"), net, nil, callback)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hardware, gc.NotNil)
 	expected := fmt.Sprintf("arch=%s cores=1 mem=512M root-disk=8192M", arch.HostArch())

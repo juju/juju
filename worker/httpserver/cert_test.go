@@ -7,7 +7,6 @@ import (
 	"crypto/tls"
 	"net/http"
 	"net/url"
-	"runtime"
 
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -80,11 +79,6 @@ func (s *certSuite) TestAutocertFailure(c *gc.C) {
 			ServerName: "somewhere.example",
 		})
 		expectedErr := `.*x509: certificate is valid for .*, not somewhere.example`
-		if runtime.GOOS == "windows" {
-			// For some reason, windows doesn't think that the certificate is signed
-			// by a valid authority. This could be problematic.
-			expectedErr = ".*x509: certificate signed by unknown authority"
-		}
 		// We can't get an autocert certificate, so we'll fall back to the local certificate
 		// which isn't valid for connecting to somewhere.example.
 		c.Assert(err, gc.ErrorMatches, expectedErr)
@@ -121,11 +115,6 @@ func (s *certSuite) TestAutocertNameMismatch(c *gc.C) {
 			ServerName: "somewhere.else",
 		})
 		expectedErr := `.*x509: certificate is valid for .*, not somewhere.else`
-		if runtime.GOOS == "windows" {
-			// For some reason, windows doesn't think that the certificate is signed
-			// by a valid authority. This could be problematic.
-			expectedErr = ".*x509: certificate signed by unknown authority"
-		}
 		// We can't get an autocert certificate, so we'll fall back to the local certificate
 		// which isn't valid for connecting to somewhere.example.
 		c.Assert(err, gc.ErrorMatches, expectedErr)
@@ -150,11 +139,6 @@ func (s *certSuite) TestAutocertNoAutocertDNSName(c *gc.C) {
 			ServerName: "somewhere.example",
 		})
 		expectedErr := `.*x509: certificate is valid for .*, not somewhere.example`
-		if runtime.GOOS == "windows" {
-			// For some reason, windows doesn't think that the certificate is signed
-			// by a valid authority. This could be problematic.
-			expectedErr = ".*x509: certificate signed by unknown authority"
-		}
 		// We can't get an autocert certificate, so we'll fall back to the local certificate
 		// which isn't valid for connecting to somewhere.example.
 		c.Assert(err, gc.ErrorMatches, expectedErr)

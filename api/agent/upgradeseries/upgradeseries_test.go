@@ -210,7 +210,7 @@ func (s *upgradeSeriesSuite) TestFinishUpgradeSeries(c *gc.C) {
 
 	args := params.UpdateChannelArgs{
 		Args: []params.UpdateChannelArg{
-			{Series: "xenial", Channel: "16.04", Entity: s.args.Entities[0]},
+			{Channel: "16.04", Entity: s.args.Entities[0]},
 		},
 	}
 	resultSource := params.ErrorResults{Results: []params.ErrorResult{{}}}

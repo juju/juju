@@ -50,13 +50,17 @@ type Config struct {
 	LeaseManager                      lease.Manager
 	SysLogger                         syslogger.SysLogger
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
-	RestoreStatus                     func() state.RestoreStatus
 	UpgradeComplete                   func() bool
 	GetAuditConfig                    func() auditlog.Config
 	NewServer                         NewServerFunc
 	MetricsCollector                  *apiserver.Collector
 	EmbeddedCommand                   apiserver.ExecEmbeddedCommandFunc
 	RaftOpQueue                       Queue
+	CharmhubHTTPClient                HTTPClient
+}
+
+type HTTPClient interface {
+	Do(*http.Request) (*http.Response, error)
 }
 
 // NewServerFunc is the type of function that will be used
@@ -98,9 +102,6 @@ func (config Config) Validate() error {
 	if config.RegisterIntrospectionHTTPHandlers == nil {
 		return errors.NotValidf("nil RegisterIntrospectionHTTPHandlers")
 	}
-	if config.RestoreStatus == nil {
-		return errors.NotValidf("nil RestoreStatus")
-	}
 	if config.SysLogger == nil {
 		return errors.NotValidf("nil SysLogger")
 	}
@@ -115,6 +116,9 @@ func (config Config) Validate() error {
 	}
 	if config.RaftOpQueue == nil {
 		return errors.NotValidf("nil RaftOpQueue")
+	}
+	if config.CharmhubHTTPClient == nil {
+		return errors.NotValidf("nil CharmhubHTTPClient")
 	}
 	return nil
 }
@@ -162,7 +166,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 		MultiwatcherFactory:           config.MultiwatcherFactory,
 		Mux:                           config.Mux,
 		Authenticator:                 config.Authenticator,
-		RestoreStatus:                 config.RestoreStatus,
 		UpgradeComplete:               config.UpgradeComplete,
 		PublicDNSName:                 controllerConfig.AutocertDNSName(),
 		AllowModelAccess:              controllerConfig.AllowModelAccess(),
@@ -175,6 +178,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		ExecEmbeddedCommand:           config.EmbeddedCommand,
 		RaftOpQueue:                   config.RaftOpQueue,
 		SysLogger:                     config.SysLogger,
+		CharmhubHTTPClient:            config.CharmhubHTTPClient,
 	}
 	return config.NewServer(serverConfig)
 }

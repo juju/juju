@@ -21,14 +21,12 @@ import (
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/core/instance"
-	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/series"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
-	"github.com/juju/juju/environs/manual/winrmprovisioner"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -83,9 +81,25 @@ type MachineManagerAPI struct {
 	callContext environscontext.ProviderCallContext
 }
 
-// NewFacade create a new server-side MachineManager API facade. This
+type MachineManagerV9 struct {
+	*MachineManagerAPI
+}
+
+// NewFacadeV9 create a new server-side MachineManager API facade. This
 // is used for facade registration.
-func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
+func NewFacadeV9(ctx facade.Context) (*MachineManagerV9, error) {
+	api, err := NewFacadeV10(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &MachineManagerV9{
+		MachineManagerAPI: api,
+	}, nil
+}
+
+// NewFacadeV10 create a new server-side MachineManager API facade. This
+// is used for facade registration.
+func NewFacadeV10(ctx facade.Context) (*MachineManagerAPI, error) {
 	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {
@@ -109,22 +123,12 @@ func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	options := []charmhub.Option{
-		// TODO (stickupkid): Get the http transport from the facade context
-		charmhub.WithHTTPTransport(charmhub.DefaultHTTPTransport),
-	}
-
-	var chCfg charmhub.Config
-	chURL, ok := modelCfg.CharmHubURL()
-	if ok {
-		chCfg, err = charmhub.CharmHubConfigFromURL(chURL, logger, options...)
-	} else {
-		chCfg, err = charmhub.CharmHubConfig(logger, options...)
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	chClient, err := charmhub.NewClient(chCfg)
+	chURL, _ := modelCfg.CharmHubURL()
+	chClient, err := charmhub.NewClient(charmhub.Config{
+		URL:        chURL,
+		HTTPClient: ctx.HTTPClient(facade.CharmhubHTTPClient),
+		Logger:     logger,
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -142,38 +146,6 @@ func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
 		leadership,
 		chClient,
 	)
-}
-
-// MachineManagerAPIV4 defines the Version 4 of MachineManagerAPI
-type MachineManagerAPIV4 struct {
-	*MachineManagerAPIV5
-}
-
-// MachineManagerAPIV5 defines the Version 5 of Machine Manager API.
-// Adds CreateUpgradeSeriesLock and removes UpdateMachineSeries.
-type MachineManagerAPIV5 struct {
-	*MachineManagerAPIV6
-}
-
-// MachineManagerAPIV6 defines the Version 6 of Machine Manager API.
-// Changes input parameters to DestroyMachineWithParams and ForceDestroyMachine.
-type MachineManagerAPIV6 struct {
-	*MachineManagerAPIV7
-}
-
-// MachineManagerAPIV7 defines the Version 7 of Machine Manager API.
-type MachineManagerAPIV7 struct {
-	*MachineManagerAPIV8
-}
-
-// MachineManagerAPIV8 defines the Version 8 of Machine Manager API.
-type MachineManagerAPIV8 struct {
-	*MachineManagerAPIV9
-}
-
-// MachineManagerAPIV9 defines the Version 9 of Machine Manager API.
-type MachineManagerAPIV9 struct {
-	*MachineManagerAPI
 }
 
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
@@ -210,26 +182,6 @@ func NewMachineManagerAPI(
 }
 
 // AddMachines adds new machines with the supplied parameters.
-// The args will contain machine series.
-func (mm *MachineManagerAPIV7) AddMachines(args params.AddMachines) (params.AddMachinesResults, error) {
-	for i, arg := range args.MachineParams {
-		if arg.Series == "" {
-			continue
-		}
-		base, err := series.GetBaseFromSeries(arg.Series)
-		if err != nil {
-			continue
-		}
-		arg.Base = &params.Base{
-			Name:    base.Name,
-			Channel: base.Channel.String(),
-		}
-		args.MachineParams[i] = arg
-	}
-	return mm.MachineManagerAPI.AddMachines(args)
-}
-
-// AddMachines adds new machines with the supplied parameters.
 // The args will contain Base info.
 func (mm *MachineManagerAPI) AddMachines(args params.AddMachines) (params.AddMachinesResults, error) {
 	results := params.AddMachinesResults{
@@ -250,6 +202,8 @@ func (mm *MachineManagerAPI) AddMachines(args params.AddMachines) (params.AddMac
 	}
 	return results, nil
 }
+
+var supportedJujuSeries = coreseries.WorkloadSeries
 
 func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Machine, error) {
 	if p.ParentId != "" && p.ContainerType == "" {
@@ -278,26 +232,35 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		p.Addrs = nil
 	}
 
-	// TODO(wallyworld) - from here on we still expect series.
-	// Future work will convert downstream to use Base.
-	if p.Series == "" {
-		if p.Base == nil {
-			model, err := mm.st.Model()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			conf, err := model.Config()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			p.Series = config.PreferredSeries(conf)
-		} else {
-			var err error
-			p.Series, err = series.GetSeriesFromChannel(p.Base.Name, p.Base.Channel)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
+	var base coreseries.Base
+	if p.Base == nil {
+		model, err := mm.st.Model()
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
+		conf, err := model.Config()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		base = config.PreferredBase(conf)
+	} else {
+		var err error
+		base, err = coreseries.ParseBase(p.Base.Name, p.Base.Channel)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	// TODO(wallyworld) - I think we can remove this check
+	series, err := coreseries.GetSeriesFromBase(base)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	supportedSeries, err := supportedJujuSeries(time.Now(), series, "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if !supportedSeries.Contains(series) {
+		return nil, errors.NotSupportedf("series %q", series)
 	}
 
 	var placementDirective string
@@ -344,7 +307,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		return nil, errors.Trace(err)
 	}
 	template := state.MachineTemplate{
-		Series:                  p.Series,
+		Base:                    state.Base{OS: base.OS, Channel: base.Channel.String()},
 		Constraints:             p.Constraints,
 		Volumes:                 volumes,
 		InstanceId:              p.InstanceId,
@@ -362,9 +325,6 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 	}
 	return mm.st.AddMachineInsideNewMachine(template, template, p.ContainerType)
 }
-
-// ProvisioningScript is not available via the V6 API.
-func (api *MachineManagerAPIV6) ProvisioningScript(_ struct{}) {}
 
 // ProvisioningScript returns a shell script that, when run,
 // provisions a machine agent on the machine executing the script.
@@ -408,17 +368,7 @@ func (mm *MachineManagerAPI) ProvisioningScript(args params.ProvisioningScriptPa
 		icfg.EnableOSRefreshUpdate = cfg.EnableOSRefreshUpdate()
 	}
 
-	osSeries, err := series.GetOSFromSeries(icfg.Series)
-	if err != nil {
-		return result, apiservererrors.ServerError(errors.Annotatef(err,
-			"cannot decide which provisioning script to generate based on this series %q", icfg.Series))
-	}
-
 	getProvisioningScript := sshprovisioner.ProvisioningScript
-	if osSeries == coreos.Windows {
-		getProvisioningScript = winrmprovisioner.ProvisioningScript
-	}
-
 	result.Script, err = getProvisioningScript(icfg)
 	if err != nil {
 		return result, apiservererrors.ServerError(errors.Annotate(
@@ -428,9 +378,6 @@ func (mm *MachineManagerAPI) ProvisioningScript(args params.ProvisioningScriptPa
 
 	return result, nil
 }
-
-// RetryProvisioning is not available via the V6 API.
-func (api *MachineManagerAPIV6) RetryProvisioning(_ struct{}) {}
 
 // RetryProvisioning marks a provisioning error as transient on the machines.
 func (mm *MachineManagerAPI) RetryProvisioning(p params.RetryProvisioningArgs) (params.ErrorResults, error) {
@@ -498,39 +445,25 @@ func (mm *MachineManagerAPI) maybeUpdateInstanceStatus(all bool, m Machine, data
 	return m.SetInstanceStatus(sInfo)
 }
 
-// DestroyMachine removes a set of machines from the model.
-// TODO(juju3) - remove
-func (mm *MachineManagerAPI) DestroyMachine(args params.Entities) (params.DestroyMachineResults, error) {
-	return mm.destroyMachine(args, false, false, time.Duration(0))
-}
-
-// ForceDestroyMachine forcibly removes a set of machines from the model.
-// TODO(juju3) - remove
-// Also from ModelManger v6 this call is less useful as it does not support MaxWait customisation.
-func (mm *MachineManagerAPI) ForceDestroyMachine(args params.Entities) (params.DestroyMachineResults, error) {
-	return mm.destroyMachine(args, true, false, time.Duration(0))
-}
-
-// DestroyMachineWithParams removes a set of machines from the model.
-// v5 and prior versions did not support MaxWait.
-func (mm *MachineManagerAPIV5) DestroyMachineWithParams(args params.DestroyMachinesParams) (params.DestroyMachineResults, error) {
-	entities := params.Entities{Entities: make([]params.Entity, len(args.MachineTags))}
-	for i, tag := range args.MachineTags {
-		entities.Entities[i].Tag = tag
-	}
-	return mm.destroyMachine(entities, args.Force, args.Keep, time.Duration(0))
-}
-
 // DestroyMachineWithParams removes a set of machines from the model.
 func (mm *MachineManagerAPI) DestroyMachineWithParams(args params.DestroyMachinesParams) (params.DestroyMachineResults, error) {
 	entities := params.Entities{Entities: make([]params.Entity, len(args.MachineTags))}
 	for i, tag := range args.MachineTags {
 		entities.Entities[i].Tag = tag
 	}
-	return mm.destroyMachine(entities, args.Force, args.Keep, common.MaxWait(args.MaxWait))
+	return mm.destroyMachine(entities, args.Force, args.Keep, args.DryRun, common.MaxWait(args.MaxWait))
 }
 
-func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bool, maxWait time.Duration) (params.DestroyMachineResults, error) {
+// DestroyMachineWithParams removes a set of machines from the model.
+func (mm *MachineManagerV9) DestroyMachineWithParams(args params.DestroyMachinesParamsV9) (params.DestroyMachineResults, error) {
+	entities := params.Entities{Entities: make([]params.Entity, len(args.MachineTags))}
+	for i, tag := range args.MachineTags {
+		entities.Entities[i].Tag = tag
+	}
+	return mm.destroyMachine(entities, args.Force, args.Keep, false, common.MaxWait(args.MaxWait))
+}
+
+func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep, dryRun bool, maxWait time.Duration) (params.DestroyMachineResults, error) {
 	if err := mm.authorizer.CanWrite(); err != nil {
 		return params.DestroyMachineResults{}, err
 	}
@@ -574,8 +507,8 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 			fail(err)
 			continue
 		}
-		if force {
-			info.DestroyedContainers, err = mm.destoryContainer(containers, force, keep, maxWait)
+		if force || dryRun {
+			info.DestroyedContainers, err = mm.destoryContainer(containers, force, keep, dryRun, maxWait)
 			if err != nil {
 				fail(err)
 				continue
@@ -598,6 +531,12 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 				continue
 			}
 			logger.Warningf("could not deal with units' storage on machine %v: %v", machineTag.Id(), err)
+		}
+
+		if dryRun {
+			result.Info = &info
+			results[i] = result
+			continue
 		}
 
 		applicationNames, err := mm.leadership.GetMachineApplicationNames(machineTag.Id())
@@ -640,14 +579,13 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 					"could not unpin application leaders for machine %s with error %v", machineTag.Id(), result.Error)
 			}
 		}
-
 		result.Info = &info
 		results[i] = result
 	}
 	return params.DestroyMachineResults{Results: results}, nil
 }
 
-func (mm *MachineManagerAPI) destoryContainer(containers []string, force, keep bool, maxWait time.Duration) ([]params.DestroyMachineResult, error) {
+func (mm *MachineManagerAPI) destoryContainer(containers []string, force, keep, dryRun bool, maxWait time.Duration) ([]params.DestroyMachineResult, error) {
 	if containers == nil || len(containers) == 0 {
 		return nil, nil
 	}
@@ -655,7 +593,7 @@ func (mm *MachineManagerAPI) destoryContainer(containers []string, force, keep b
 	for i, container := range containers {
 		entities.Entities[i] = params.Entity{Tag: names.NewMachineTag(container).String()}
 	}
-	results, err := mm.destroyMachine(entities, force, keep, maxWait)
+	results, err := mm.destroyMachine(entities, force, keep, dryRun, maxWait)
 	return results.Results, err
 }
 
@@ -709,14 +647,10 @@ func (mm *MachineManagerAPI) UpgradeSeriesValidate(
 ) (params.UpgradeSeriesUnitsResults, error) {
 	entities := make([]ValidationEntity, len(args.Args))
 	for i, arg := range args.Args {
-		argSeries, err := mm.seriesFromParams(arg)
-		if err != nil {
-			return params.UpgradeSeriesUnitsResults{}, apiservererrors.ServerError(err)
-		}
 		entities[i] = ValidationEntity{
-			Tag:    arg.Entity.Tag,
-			Series: argSeries,
-			Force:  arg.Force,
+			Tag:     arg.Entity.Tag,
+			Channel: arg.Channel,
+			Force:   arg.Force,
 		}
 	}
 
@@ -738,29 +672,6 @@ func (mm *MachineManagerAPI) UpgradeSeriesValidate(
 	return results, nil
 }
 
-func (mm *MachineManagerAPI) seriesFromParams(arg params.UpdateChannelArg) (string, error) {
-	machineTag, err := names.ParseMachineTag(arg.Entity.Tag)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	machine, err := mm.st.Machine(machineTag.Id())
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	argSeries := arg.Series
-	if argSeries == "" && arg.Channel != "" {
-		base, err := series.GetBaseFromSeries(machine.Series())
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-		argSeries, err = series.GetSeriesFromChannel(base.Name, arg.Channel)
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-	}
-	return argSeries, nil
-}
-
 // UpgradeSeriesPrepare prepares a machine for a OS series upgrade.
 func (mm *MachineManagerAPI) UpgradeSeriesPrepare(arg params.UpdateChannelArg) (params.ErrorResult, error) {
 	if err := mm.authorizer.CanWrite(); err != nil {
@@ -769,12 +680,7 @@ func (mm *MachineManagerAPI) UpgradeSeriesPrepare(arg params.UpdateChannelArg) (
 	if err := mm.check.ChangeAllowed(); err != nil {
 		return params.ErrorResult{}, err
 	}
-	argSeries, err := mm.seriesFromParams(arg)
-	if err != nil {
-		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
-	}
-	err = mm.upgradeSeriesAPI.Prepare(arg.Entity.Tag, argSeries, arg.Force)
-	if err != nil {
+	if err := mm.upgradeSeriesAPI.Prepare(arg.Entity.Tag, arg.Channel, arg.Force); err != nil {
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 	return params.ErrorResult{}, nil
@@ -784,9 +690,6 @@ func (mm *MachineManagerAPI) UpgradeSeriesPrepare(arg params.UpdateChannelArg) (
 // upgrade.
 func (mm *MachineManagerAPI) UpgradeSeriesComplete(arg params.UpdateChannelArg) (params.ErrorResult, error) {
 	if err := mm.authorizer.CanWrite(); err != nil {
-		return params.ErrorResult{}, err
-	}
-	if err := mm.check.ChangeAllowed(); err != nil {
 		return params.ErrorResult{}, err
 	}
 	if err := mm.check.ChangeAllowed(); err != nil {
@@ -882,36 +785,18 @@ func (mm *MachineManagerAPI) machineFromTag(tag string) (Machine, error) {
 	return machine, nil
 }
 
-// isSeriesLessThan returns a bool indicating whether the first argument's
+// isBaseLessThan returns a bool indicating whether the first argument's
 // version is lexicographically less than the second argument's, thus indicating
 // that the series represents an older version of the operating system. The
 // output is only valid for Ubuntu series.
-func isSeriesLessThan(series1, series2 string) (bool, error) {
-	version1, err := series.SeriesVersion(series1)
-	if err != nil {
-		return false, err
-	}
-	version2, err := series.SeriesVersion(series2)
-	if err != nil {
-		return false, err
-	}
+func isBaseLessThan(base1, base2 coreseries.Base) (bool, error) {
 	// Versions may be numeric.
-	vers1Int, err1 := strconv.Atoi(version1)
-	vers2Int, err2 := strconv.Atoi(version2)
+	vers1Int, err1 := strconv.Atoi(base1.Channel.Track)
+	vers2Int, err2 := strconv.Atoi(base2.Channel.Track)
 	if err1 == nil && err2 == nil {
 		return vers2Int > vers1Int, nil
 	}
-	return version2 > version1, nil
-}
-
-// UpdateMachineSeries returns an error.
-// DEPRECATED
-func (mm *MachineManagerAPIV4) UpdateMachineSeries(_ params.UpdateChannelArgs) (params.ErrorResults, error) {
-	return params.ErrorResults{
-		Results: []params.ErrorResult{{
-			Error: apiservererrors.ServerError(errors.New("UpdateMachineSeries is no longer supported")),
-		}},
-	}, nil
+	return base2.Channel.Track > base1.Channel.Track, nil
 }
 
 // ModelAuthorizer defines if a given operation can be performed based on a

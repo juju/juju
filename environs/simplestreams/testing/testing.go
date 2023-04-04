@@ -7,7 +7,7 @@ package testing
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -15,7 +15,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/testing"
 )
@@ -571,7 +570,7 @@ func AddSignedFiles(c *gc.C, files map[string]string) map[string]string {
 		all[name] = content
 		// Sign file content
 		r := strings.NewReader(content)
-		bytes, err := ioutil.ReadAll(r)
+		bytes, err := io.ReadAll(r)
 		c.Assert(err, jc.ErrorIsNil)
 		signedName, signedContent, err := SignMetadata(name, bytes)
 		c.Assert(err, jc.ErrorIsNil)
@@ -647,13 +646,9 @@ func (tc *testConstraint) IndexIds() []string {
 }
 
 func (tc *testConstraint) ProductIds() ([]string, error) {
-	version, err := series.SeriesVersion(tc.Releases[0])
-	if err != nil {
-		return nil, err
-	}
 	ids := make([]string, len(tc.Arches))
 	for i, arch := range tc.Arches {
-		ids[i] = fmt.Sprintf("com.ubuntu.cloud:server:%s:%s", version, arch)
+		ids[i] = fmt.Sprintf("com.ubuntu.cloud:server:%s:%s", tc.Releases[0], arch)
 	}
 	return ids, nil
 }
@@ -691,7 +686,7 @@ func (testSkipVerifyDataSourceFactory) NewDataSource(cfg simplestreams.Config) s
 	))
 }
 
-// FileTestingMiddleware registers support for file:// URLs on the given
+// FileProtocolMiddleware registers support for file:// URLs on the given
 // transport.
 func FileProtocolMiddleware(transport *http.Transport) *http.Transport {
 	TestRoundTripper.RegisterForTransportScheme(transport, "test")
@@ -706,6 +701,7 @@ func init() {
 
 type TestItem struct {
 	Id          string `json:"id"`
+	Version     string `json:"version"`
 	Storage     string `json:"root_store"`
 	VirtType    string `json:"virt"`
 	Arch        string `json:"arch"`
@@ -763,7 +759,7 @@ func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidCloudSpec(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 	ic := NewTestConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{Region: "bad", Endpoint: "spec"},
-		Releases:  []string{"precise"},
+		Releases:  []string{"12.04"},
 	})
 	_, err = indexRef.GetProductsPath(ic)
 	c.Assert(err, gc.NotNil)
@@ -774,7 +770,7 @@ func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidProductSpec(c *g
 	c.Assert(err, jc.ErrorIsNil)
 	ic := NewTestConstraint(simplestreams.LookupParams{
 		CloudSpec: s.ValidConstraint.Params().CloudSpec,
-		Releases:  []string{"precise"},
+		Releases:  []string{"12.04"},
 		Arches:    []string{"bad"},
 		Stream:    "spec",
 	})

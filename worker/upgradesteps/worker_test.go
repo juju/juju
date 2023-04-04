@@ -433,7 +433,7 @@ func (s *UpgradeSuite) create3Controllers(c *gc.C) (machineIdA, machineIdB, mach
 	})
 	machineIdA = machine0.Id()
 
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
+	changes, err := s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(changes.Added), gc.Equals, 2)
 

@@ -6,7 +6,7 @@ package cloudimagemetadata_test
 import (
 	"fmt"
 
-	"github.com/juju/mgo/v2/bson"
+	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -36,10 +36,10 @@ func (s *funcMetadataSuite) TestSearchCriteriaWithRegion(c *gc.C) {
 		bson.D{{"region", "region-value"}})
 }
 
-func (s *funcMetadataSuite) TestSearchCriteriaWithSeries(c *gc.C) {
+func (s *funcMetadataSuite) TestSearchCriteriaWithVersion(c *gc.C) {
 	s.assertSearchCriteriaBuilt(c,
-		cloudimagemetadata.MetadataFilter{Series: []string{"series-value"}},
-		bson.D{{"series", bson.D{{"$in", []string{"series-value"}}}}})
+		cloudimagemetadata.MetadataFilter{Versions: []string{"version-value"}},
+		bson.D{{"version", bson.D{{"$in", []string{"version-value"}}}}})
 }
 
 func (s *funcMetadataSuite) TestSearchCriteriaWithArch(c *gc.C) {
@@ -65,7 +65,7 @@ func (s *funcMetadataSuite) TestSearchCriteriaAll(c *gc.C) {
 	s.assertSearchCriteriaBuilt(c,
 		cloudimagemetadata.MetadataFilter{
 			RootStorageType: "rootstorage-value",
-			Series:          []string{"series-value", "series-value-two"},
+			Versions:        []string{"version-value", "version-value-two"},
 			Stream:          "stream-value",
 			Region:          "region-value",
 			Arches:          []string{"arch-value", "arch-value-two"},
@@ -75,7 +75,7 @@ func (s *funcMetadataSuite) TestSearchCriteriaAll(c *gc.C) {
 		bson.D{
 			{"stream", "stream-value"},
 			{"region", "region-value"},
-			{"series", bson.D{{"$in", []string{"series-value", "series-value-two"}}}},
+			{"version", bson.D{{"$in", []string{"version-value", "version-value-two"}}}},
 			{"arch", bson.D{{"$in", []string{"arch-value", "arch-value-two"}}}},
 			{"virt_type", "vtype-value"},
 			{"root_storage_type", "rootstorage-value"},

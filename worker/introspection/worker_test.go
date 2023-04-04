@@ -6,7 +6,7 @@ package introspection_test
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -146,7 +146,7 @@ func (s *introspectionSuite) post(c *gc.C, path string, values url.Values) *http
 }
 
 func (s *introspectionSuite) body(c *gc.C, r *http.Response) string {
-	response, err := ioutil.ReadAll(r.Body)
+	response, err := io.ReadAll(r.Body)
 	c.Assert(err, jc.ErrorIsNil)
 	return string(response)
 }

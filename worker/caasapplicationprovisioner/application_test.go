@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
@@ -73,7 +73,7 @@ type testCase struct {
 	provisioningInfoChan chan struct{}
 }
 
-func (s *ApplicationWorkerSuite) getWorker(c *gc.C) (func(...*gomock.Call) worker.Worker, testCase, *gomock.Controller) {
+func (s *ApplicationWorkerSuite) getWorker(c *gc.C, name string) (func(...*gomock.Call) worker.Worker, testCase, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 
 	tc := testCase{}
@@ -86,9 +86,9 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C) (func(...*gomock.Call) worke
 
 	s.appCharmInfo = &charmscommon.CharmInfo{
 		Meta: &charm.Meta{
-			Name: "test",
+			Name: name,
 			Containers: map[string]charm.Container{
-				"test": {
+				name: {
 					Resource: "test-oci",
 				},
 			},
@@ -135,7 +135,7 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C) (func(...*gomock.Call) worke
 
 	startFunc := func(additionalAssertCalls ...*gomock.Call) worker.Worker {
 		config := caasapplicationprovisioner.AppWorkerConfig{
-			Name:       "test",
+			Name:       name,
 			Facade:     tc.facade,
 			Broker:     tc.broker,
 			ModelTag:   s.modelTag,
@@ -144,48 +144,59 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C) (func(...*gomock.Call) worke
 			UnitFacade: tc.unitFacade,
 		}
 		expectedCalls := append([]*gomock.Call{},
-			tc.broker.EXPECT().Application("test", caas.DeploymentStateful).Return(tc.brokerApp),
-			tc.facade.EXPECT().Life("test").Return(life.Alive, nil),
+			tc.broker.EXPECT().Application(name, caas.DeploymentStateful).Return(tc.brokerApp),
+			tc.facade.EXPECT().Life(name).Return(life.Alive, nil),
 
 			// Verify charm is v2
-			tc.facade.EXPECT().WatchApplication("test").Return(watchertest.NewMockNotifyWatcher(tc.appStateChan), nil),
-			tc.facade.EXPECT().ApplicationCharmInfo("test").Return(s.appCharmInfo, nil),
+			tc.facade.EXPECT().WatchApplication(name).Return(watchertest.NewMockNotifyWatcher(tc.appStateChan), nil),
+			tc.facade.EXPECT().ApplicationCharmInfo(name).Return(s.appCharmInfo, nil),
 
 			// Operator delete loop
-			tc.broker.EXPECT().OperatorExists("test").Return(caas.DeploymentState{Exists: false}, nil),
+			tc.broker.EXPECT().OperatorExists(name).Return(caas.DeploymentState{Exists: false}, nil),
 
 			// Pre-loop setup
-			tc.facade.EXPECT().SetPassword("test", gomock.Any()).Return(nil),
-			tc.unitFacade.EXPECT().WatchApplicationScale("test").Return(watchertest.NewMockNotifyWatcher(tc.appScaleChan), nil),
-			tc.unitFacade.EXPECT().WatchApplicationTrustHash("test").Return(watchertest.NewMockStringsWatcher(tc.appTrustHashChan), nil),
-			tc.facade.EXPECT().WatchUnits("test").Return(watchertest.NewMockStringsWatcher(tc.unitsChan), nil),
-
+			tc.facade.EXPECT().SetPassword(name, gomock.Any()).Return(nil),
+			tc.unitFacade.EXPECT().WatchApplicationScale(name).Return(watchertest.NewMockNotifyWatcher(tc.appScaleChan), nil),
+		)
+		if name != "controller" {
+			expectedCalls = append(expectedCalls,
+				tc.unitFacade.EXPECT().WatchApplicationTrustHash(name).Return(watchertest.NewMockStringsWatcher(tc.appTrustHashChan), nil),
+			)
+		}
+		expectedCalls = append(expectedCalls,
+			tc.facade.EXPECT().WatchUnits(name).Return(watchertest.NewMockStringsWatcher(tc.unitsChan), nil),
 			// Initial run - Ensure() for the application.
-			tc.facade.EXPECT().Life("test").Return(life.Alive, nil),
-			tc.facade.EXPECT().WatchProvisioningInfo("test").Return(watchertest.NewMockNotifyWatcher(tc.provisioningInfoChan), nil),
-			tc.facade.EXPECT().ProvisioningInfo("test").Return(s.appProvisioningInfo, nil),
+			tc.facade.EXPECT().Life(name).Return(life.Alive, nil),
+			tc.facade.EXPECT().WatchProvisioningInfo(name).Return(watchertest.NewMockNotifyWatcher(tc.provisioningInfoChan), nil),
+			tc.facade.EXPECT().ProvisioningInfo(name).Return(s.appProvisioningInfo, nil),
 			tc.facade.EXPECT().CharmInfo("cs:test").Return(s.appCharmInfo, nil),
 			tc.brokerApp.EXPECT().Exists().Return(caas.DeploymentState{}, nil),
-			tc.facade.EXPECT().ApplicationOCIResources("test").Return(s.ociResources, nil),
-			tc.brokerApp.EXPECT().Ensure(gomock.Any()).DoAndReturn(func(config caas.ApplicationConfig) error {
-				mc := jc.NewMultiChecker()
-				mc.AddExpr(`_.IntroductionSecret`, gc.HasLen, 24)
-				mc.AddExpr(`_.Charm`, gc.NotNil)
-				c.Check(config, mc, caas.ApplicationConfig{
-					CharmBaseImagePath: "jujusolutions/charm-base:ubuntu-20.04",
-					Containers: map[string]caas.ContainerConfig{
-						"test": {
-							Name: "test",
-							Image: resources.DockerImageDetails{
-								RegistryPath: "some/test:img",
+			tc.facade.EXPECT().ApplicationOCIResources(name).Return(s.ociResources, nil),
+		)
+		if name != "controller" {
+			expectedCalls = append(expectedCalls,
+
+				tc.brokerApp.EXPECT().Ensure(gomock.Any()).DoAndReturn(func(config caas.ApplicationConfig) error {
+					mc := jc.NewMultiChecker()
+					mc.AddExpr(`_.IntroductionSecret`, gc.HasLen, 24)
+					mc.AddExpr(`_.Charm`, gc.NotNil)
+					c.Check(config, mc, caas.ApplicationConfig{
+						CharmBaseImagePath: "jujusolutions/charm-base:ubuntu-20.04",
+						Containers: map[string]caas.ContainerConfig{
+							name: {
+								Name: name,
+								Image: resources.DockerImageDetails{
+									RegistryPath: "some/test:img",
+								},
 							},
 						},
-					},
-					Trust:        true,
-					InitialScale: 3,
-				})
-				return nil
-			}),
+						Trust:        true,
+						InitialScale: 3,
+					})
+					return nil
+				}))
+		}
+		expectedCalls = append(expectedCalls,
 			tc.brokerApp.EXPECT().Watch().Return(watchertest.NewMockNotifyWatcher(tc.appChan), nil),
 			tc.brokerApp.EXPECT().WatchReplicas().DoAndReturn(func() (watcher.NotifyWatcher, error) {
 				return watchertest.NewMockNotifyWatcher(tc.appReplicasChan), nil
@@ -253,20 +264,28 @@ var unitsAPIResultPartialActive = []params.CAASUnit{
 }
 
 func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
-	newAppWorker, tc, ctrl := s.getWorker(c)
+	s.assertWorker(c, "test")
+}
+
+func (s *ApplicationWorkerSuite) TestWorkerControllerApp(c *gc.C) {
+	s.assertWorker(c, "controller")
+}
+
+func (s *ApplicationWorkerSuite) assertWorker(c *gc.C, name string) {
+	newAppWorker, tc, ctrl := s.getWorker(c, name)
 	defer ctrl.Finish()
 
 	done := make(chan struct{})
 
 	assertionCalls := []*gomock.Call{
 		// Got replicaChanges -> updateState().
-		tc.facade.EXPECT().Units("test").DoAndReturn(func(string) ([]params.CAASUnit, error) {
+		tc.facade.EXPECT().Units(name).DoAndReturn(func(string) ([]params.CAASUnit, error) {
 			return unitsAPIResultSingleActive, nil
 		}),
 		tc.brokerApp.EXPECT().State().DoAndReturn(func() (caas.ApplicationState, error) {
 			return caas.ApplicationState{
 				DesiredReplicas: 1,
-				Replicas:        []string{"test-0"},
+				Replicas:        []string{name + "-0"},
 			}, nil
 		}),
 		tc.brokerApp.EXPECT().Service().DoAndReturn(func() (*caas.Service, error) {
@@ -276,16 +295,16 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 			}, nil
 		}),
 		tc.unitFacade.EXPECT().UpdateApplicationService(params.UpdateApplicationServiceArg{
-			ApplicationTag: "application-test",
+			ApplicationTag: "application-" + name,
 			ProviderId:     "deadbeef",
 			Addresses:      params.FromProviderAddresses(network.NewMachineAddress("10.6.6.6").AsProviderAddress()),
 		}).Return(nil),
-		tc.facade.EXPECT().GarbageCollect("test", []names.Tag{names.NewUnitTag("test/0")}, 1, []string{"test-0"}, false).
+		tc.facade.EXPECT().GarbageCollect(name, []names.Tag{names.NewUnitTag("test/0")}, 1, []string{name + "-0"}, false).
 			DoAndReturn(
 				func(_ string, _ []names.Tag, _ int, _ []string, _ bool) error { return nil },
 			),
 		tc.brokerApp.EXPECT().Units().Return([]caas.Unit{{
-			Id:      "test-0",
+			Id:      name + "-0",
 			Address: "10.10.10.1",
 			Dying:   false,
 			Status: status.StatusInfo{
@@ -313,10 +332,10 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 			}},
 		}}, nil),
 		tc.facade.EXPECT().UpdateUnits(params.UpdateApplicationUnits{
-			ApplicationTag: "application-test",
+			ApplicationTag: "application-" + name,
 			Status:         params.EntityStatus{},
 			Units: []params.ApplicationUnitParams{{
-				ProviderId: "test-0",
+				ProviderId: name + "-0",
 				Address:    "10.10.10.1",
 				Status:     "active",
 				FilesystemInfo: []params.KubernetesFilesystemInfo{{
@@ -349,10 +368,10 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 
 		// Second run - Ensure() for the application.
 		// Should not Ensure since unchanged.
-		tc.facade.EXPECT().Life("test").DoAndReturn(func(string) (life.Value, error) {
+		tc.facade.EXPECT().Life(name).DoAndReturn(func(string) (life.Value, error) {
 			return life.Alive, nil
 		}),
-		tc.facade.EXPECT().ProvisioningInfo("test").DoAndReturn(func(string) (api.ProvisioningInfo, error) {
+		tc.facade.EXPECT().ProvisioningInfo(name).DoAndReturn(func(string) (api.ProvisioningInfo, error) {
 			return s.appProvisioningInfo, nil
 		}),
 		tc.facade.EXPECT().CharmInfo("cs:test").DoAndReturn(func(string) (*charmscommon.CharmInfo, error) {
@@ -361,7 +380,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		tc.brokerApp.EXPECT().Exists().DoAndReturn(func() (caas.DeploymentState, error) {
 			return caas.DeploymentState{}, nil
 		}),
-		tc.facade.EXPECT().ApplicationOCIResources("test").DoAndReturn(func(string) (map[string]resources.DockerImageDetails, error) {
+		tc.facade.EXPECT().ApplicationOCIResources(name).DoAndReturn(func(string) (map[string]resources.DockerImageDetails, error) {
 			return s.ociResources, nil
 		}),
 
@@ -373,7 +392,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 			}),
 
 		// Got appChanges -> updateState().
-		tc.facade.EXPECT().Units("test").DoAndReturn(func(string) ([]params.CAASUnit, error) {
+		tc.facade.EXPECT().Units(name).DoAndReturn(func(string) ([]params.CAASUnit, error) {
 			return unitsAPIResultSingleActive, nil
 		}),
 		tc.brokerApp.EXPECT().State().DoAndReturn(func() (caas.ApplicationState, error) {
@@ -389,23 +408,23 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 			}, nil
 		}),
 		tc.unitFacade.EXPECT().UpdateApplicationService(params.UpdateApplicationServiceArg{
-			ApplicationTag: "application-test",
+			ApplicationTag: "application-" + name,
 			ProviderId:     "deadbeef",
 			Addresses:      params.FromProviderAddresses(network.NewMachineAddress("10.6.6.6").AsProviderAddress()),
 		}).Return(nil),
-		tc.facade.EXPECT().GarbageCollect("test", []names.Tag{names.NewUnitTag("test/0")}, 0, []string(nil), false).DoAndReturn(func(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error {
+		tc.facade.EXPECT().GarbageCollect(name, []names.Tag{names.NewUnitTag("test/0")}, 0, []string(nil), false).DoAndReturn(func(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error {
 			return nil
 		}),
 
 		tc.brokerApp.EXPECT().Units().Return([]caas.Unit{{
-			Id:    "test-0",
+			Id:    name + "-0",
 			Dying: true,
 			Status: status.StatusInfo{
 				Status: status.Terminated,
 			},
 		}}, nil),
 		tc.facade.EXPECT().UpdateUnits(params.UpdateApplicationUnits{
-			ApplicationTag: "application-test",
+			ApplicationTag: "application-" + name,
 			Status:         params.EntityStatus{},
 		}).Return(nil, nil),
 
@@ -417,7 +436,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 			}),
 
 		// 1st Notify() - dying.
-		tc.facade.EXPECT().Life("test").DoAndReturn(func(string) (life.Value, error) {
+		tc.facade.EXPECT().Life(name).DoAndReturn(func(string) (life.Value, error) {
 			return life.Dying, nil
 		}),
 		tc.brokerApp.EXPECT().Scale(0).DoAndReturn(func(int) error {
@@ -426,7 +445,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		}),
 
 		// 2nd Notify() - dead.
-		tc.facade.EXPECT().Life("test").DoAndReturn(func(string) (life.Value, error) {
+		tc.facade.EXPECT().Life(name).DoAndReturn(func(string) (life.Value, error) {
 			return life.Dead, nil
 		}),
 		tc.brokerApp.EXPECT().Scale(0).DoAndReturn(func(int) error {
@@ -441,8 +460,8 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 				Terminating: false,
 			}, nil
 		}),
-		tc.facade.EXPECT().ClearApplicationResources("test").Return(nil),
-		tc.facade.EXPECT().Units("test").DoAndReturn(func(string) ([]params.CAASUnit, error) {
+		tc.facade.EXPECT().ClearApplicationResources(name).Return(nil),
+		tc.facade.EXPECT().Units(name).DoAndReturn(func(string) ([]params.CAASUnit, error) {
 			return []params.CAASUnit(nil), nil
 		}),
 		tc.brokerApp.EXPECT().State().DoAndReturn(func() (caas.ApplicationState, error) {
@@ -452,9 +471,9 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 			}, nil
 		}),
 		tc.brokerApp.EXPECT().Service().DoAndReturn(func() (*caas.Service, error) {
-			return nil, errors.NotFoundf("test")
+			return nil, errors.NotFoundf(name)
 		}),
-		tc.facade.EXPECT().GarbageCollect("test", []names.Tag(nil), 0, []string(nil), true).DoAndReturn(func(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error {
+		tc.facade.EXPECT().GarbageCollect(name, []names.Tag(nil), 0, []string(nil), true).DoAndReturn(func(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error {
 			close(done)
 			return nil
 		}),
@@ -487,7 +506,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 }
 
 func (s *ApplicationWorkerSuite) TestScaleChanges(c *gc.C) {
-	newAppWorker, tc, ctrl := s.getWorker(c)
+	newAppWorker, tc, ctrl := s.getWorker(c, "test")
 	defer ctrl.Finish()
 
 	done := make(chan struct{})
@@ -514,7 +533,7 @@ func (s *ApplicationWorkerSuite) TestScaleChanges(c *gc.C) {
 }
 
 func (s *ApplicationWorkerSuite) TestScaleRetry(c *gc.C) {
-	newAppWorker, tc, ctrl := s.getWorker(c)
+	newAppWorker, tc, ctrl := s.getWorker(c, "test")
 	defer ctrl.Finish()
 
 	done := make(chan struct{})
@@ -551,7 +570,7 @@ func (s *ApplicationWorkerSuite) TestScaleRetry(c *gc.C) {
 }
 
 func (s *ApplicationWorkerSuite) TestTrustChanges(c *gc.C) {
-	newAppWorker, tc, ctrl := s.getWorker(c)
+	newAppWorker, tc, ctrl := s.getWorker(c, "test")
 	defer ctrl.Finish()
 
 	done := make(chan struct{})
@@ -578,7 +597,7 @@ func (s *ApplicationWorkerSuite) TestTrustChanges(c *gc.C) {
 }
 
 func (s *ApplicationWorkerSuite) TestUnitChanges(c *gc.C) {
-	newAppWorker, tc, ctrl := s.getWorker(c)
+	newAppWorker, tc, ctrl := s.getWorker(c, "test")
 	defer ctrl.Finish()
 
 	done := make(chan struct{})
@@ -607,7 +626,7 @@ func (s *ApplicationWorkerSuite) TestUnitChanges(c *gc.C) {
 }
 
 func (s *ApplicationWorkerSuite) TestTrustRetry(c *gc.C) {
-	newAppWorker, tc, ctrl := s.getWorker(c)
+	newAppWorker, tc, ctrl := s.getWorker(c, "test")
 	defer ctrl.Finish()
 
 	done := make(chan struct{})
@@ -655,7 +674,7 @@ func (s *ApplicationWorkerSuite) assertRefreshApplicationStatus(
 }
 
 func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusNewUnitsAllocating(c *gc.C) {
-	newAppWorker, tc, ctrl := s.getWorker(c)
+	newAppWorker, tc, ctrl := s.getWorker(c, "test")
 	defer ctrl.Finish()
 
 	done := make(chan struct{})
@@ -697,7 +716,7 @@ func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusNewUnitsAllocating(
 }
 
 func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusAllUnitsAreSettled(c *gc.C) {
-	newAppWorker, tc, ctrl := s.getWorker(c)
+	newAppWorker, tc, ctrl := s.getWorker(c, "test")
 	defer ctrl.Finish()
 
 	done := make(chan struct{})
@@ -739,7 +758,7 @@ func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusAllUnitsAreSettled(
 }
 
 func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusTransitionFromWaitingToActive(c *gc.C) {
-	newAppWorker, tc, ctrl := s.getWorker(c)
+	newAppWorker, tc, ctrl := s.getWorker(c, "test")
 	defer ctrl.Finish()
 
 	done := make(chan struct{})
@@ -785,7 +804,7 @@ func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusTransitionFromWaiti
 }
 
 func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusNoOpsForDyingApplication(c *gc.C) {
-	newAppWorker, tc, ctrl := s.getWorker(c)
+	newAppWorker, tc, ctrl := s.getWorker(c, "test")
 	defer ctrl.Finish()
 
 	done := make(chan struct{})
@@ -803,7 +822,7 @@ func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusNoOpsForDyingApplic
 }
 
 func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusNoOpsForDeadApplication(c *gc.C) {
-	newAppWorker, tc, ctrl := s.getWorker(c)
+	newAppWorker, tc, ctrl := s.getWorker(c, "test")
 	defer ctrl.Finish()
 
 	done := make(chan struct{})

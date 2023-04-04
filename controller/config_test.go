@@ -6,13 +6,13 @@ package controller_test
 import (
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	stdtesting "testing"
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charmrepo/v6/csclient"
+	"github.com/juju/charmrepo/v7/csclient"
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
 	"github.com/juju/romulus"
@@ -665,7 +665,7 @@ func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
 				c.Assert(req.URL.String(), gc.Equals, `https://index.docker.io/v2`)
 				resps := &http.Response{
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(nil),
+					Body:       io.NopCloser(nil),
 				}
 				return resps, nil
 			},
@@ -676,7 +676,7 @@ func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
 				c.Assert(req.URL.String(), gc.Equals, `https://registry.foo.com/v2`)
 				resps := &http.Response{
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(nil),
+					Body:       io.NopCloser(nil),
 				}
 				return resps, nil
 			},
@@ -687,7 +687,7 @@ func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
 				c.Assert(req.URL.String(), gc.Equals, `https://ghcr.io/v2/`)
 				resps := &http.Response{
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(nil),
+					Body:       io.NopCloser(nil),
 				}
 				return resps, nil
 			},

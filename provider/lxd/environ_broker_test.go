@@ -18,6 +18,7 @@ import (
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/lxd"
 )
@@ -91,7 +92,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultNIC(c *gc.C) {
 	exp := svr.EXPECT()
 	gomock.InOrder(
 		exp.HostArch().Return(arch.AMD64),
-		exp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.FindImage(series.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
@@ -99,7 +100,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultNIC(c *gc.C) {
 	)
 
 	env := s.NewEnviron(c, svr, nil)
-	_, err := env.StartInstance(s.callCtx, s.GetStartInstanceArgs(c, "bionic"))
+	_, err := env.StartInstance(s.callCtx, s.GetStartInstanceArgs(c))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -130,7 +131,7 @@ func (s *environBrokerSuite) TestStartInstanceNonDefaultNIC(c *gc.C) {
 	exp := svr.EXPECT()
 	gomock.InOrder(
 		exp.HostArch().Return(arch.AMD64),
-		exp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.FindImage(series.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(nics, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
@@ -138,7 +139,7 @@ func (s *environBrokerSuite) TestStartInstanceNonDefaultNIC(c *gc.C) {
 	)
 
 	env := s.NewEnviron(c, svr, nil)
-	_, err := env.StartInstance(s.callCtx, s.GetStartInstanceArgs(c, "bionic"))
+	_, err := env.StartInstance(s.callCtx, s.GetStartInstanceArgs(c))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -202,7 +203,7 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *gc.C) {
 	exp := svr.EXPECT()
 	gomock.InOrder(
 		exp.HostArch().Return(arch.AMD64),
-		exp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.FindImage(series.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(profileNICs, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
@@ -210,7 +211,7 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *gc.C) {
 	)
 
 	env := s.NewEnviron(c, svr, nil)
-	startArgs := s.GetStartInstanceArgs(c, "bionic")
+	startArgs := s.GetStartInstanceArgs(c)
 	startArgs.SubnetsToZones = []map[network.Id][]string{
 		// The following are bogus subnet names that shouldn't
 		// normally be reported by Subnets(). They are only
@@ -244,7 +245,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *gc.C) {
 	image := &api.Image{Filename: "container-image"}
 
 	tExp.GetServer().Return(serverRet, lxdtesting.ETag, nil)
-	tExp.GetImageAlias("juju/bionic/amd64").Return(&api.ImageAliasesEntry{}, lxdtesting.ETag, nil)
+	tExp.GetImageAlias("juju/ubuntu@22.04/amd64").Return(&api.ImageAliasesEntry{}, lxdtesting.ETag, nil)
 	tExp.GetImage("").Return(image, lxdtesting.ETag, nil)
 
 	jujuTarget, err := containerlxd.NewServer(target)
@@ -286,7 +287,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *gc.C) {
 
 	env := s.NewEnviron(c, svr, nil)
 
-	args := s.GetStartInstanceArgs(c, "bionic")
+	args := s.GetStartInstanceArgs(c)
 	args.Placement = "zone=node01"
 
 	_, err = env.StartInstance(s.callCtx, args)
@@ -312,7 +313,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotPresent(c *gc.C) {
 
 	env := s.NewEnviron(c, svr, nil)
 
-	args := s.GetStartInstanceArgs(c, "bionic")
+	args := s.GetStartInstanceArgs(c)
 	args.Placement = "zone=node03"
 
 	_, err := env.StartInstance(s.callCtx, args)
@@ -338,7 +339,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotAvailable(c *gc.C)
 
 	env := s.NewEnviron(c, svr, nil)
 
-	args := s.GetStartInstanceArgs(c, "bionic")
+	args := s.GetStartInstanceArgs(c)
 	args.Placement = "zone=node01"
 
 	_, err := env.StartInstance(s.callCtx, args)
@@ -356,7 +357,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementBadArgument(c *gc.C) 
 	)
 	env := s.NewEnviron(c, svr, nil)
 
-	args := s.GetStartInstanceArgs(c, "bionic")
+	args := s.GetStartInstanceArgs(c)
 	args.Placement = "breakfast=eggs"
 
 	_, err := env.StartInstance(s.callCtx, args)
@@ -383,14 +384,14 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *gc.C) {
 	exp := svr.EXPECT()
 	gomock.InOrder(
 		exp.HostArch().Return(arch.AMD64),
-		exp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.FindImage(series.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
 		exp.HostArch().Return(arch.AMD64),
 	)
 
-	args := s.GetStartInstanceArgs(c, "bionic")
+	args := s.GetStartInstanceArgs(c)
 	cores := uint64(2)
 	mem := uint64(2048)
 	it := "t2.micro"
@@ -428,14 +429,14 @@ func (s *environBrokerSuite) TestStartInstanceWithCharmLXDProfile(c *gc.C) {
 	exp := svr.EXPECT()
 	gomock.InOrder(
 		exp.HostArch().Return(arch.AMD64),
-		exp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.FindImage(series.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
 		exp.HostArch().Return(arch.AMD64),
 	)
 
-	args := s.GetStartInstanceArgs(c, "bionic")
+	args := s.GetStartInstanceArgs(c)
 	args.CharmLXDProfiles = []string{"juju-model-test-0"}
 
 	env := s.NewEnviron(c, svr, nil)
@@ -452,7 +453,7 @@ func (s *environBrokerSuite) TestStartInstanceNoTools(c *gc.C) {
 	exp.HostArch().Return(arch.PPC64EL)
 
 	env := s.NewEnviron(c, svr, nil)
-	_, err := env.StartInstance(s.callCtx, s.GetStartInstanceArgs(c, "bionic"))
+	_, err := env.StartInstance(s.callCtx, s.GetStartInstanceArgs(c))
 	c.Assert(err, gc.ErrorMatches, "no matching agent binaries available")
 }
 
@@ -465,14 +466,14 @@ func (s *environBrokerSuite) TestStartInstanceInvalidCredentials(c *gc.C) {
 	exp := svr.EXPECT()
 	gomock.InOrder(
 		exp.HostArch().Return(arch.AMD64),
-		exp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.FindImage(series.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		exp.CreateContainerFromSpec(gomock.Any()).Return(&containerlxd.Container{}, fmt.Errorf("not authorized")),
 	)
 
 	env := s.NewEnviron(c, svr, nil)
-	_, err := env.StartInstance(s.callCtx, s.GetStartInstanceArgs(c, "bionic"))
+	_, err := env.StartInstance(s.callCtx, s.GetStartInstanceArgs(c))
 	c.Assert(err, gc.ErrorMatches, "not authorized")
 	c.Assert(s.invalidCredential, jc.IsTrue)
 }

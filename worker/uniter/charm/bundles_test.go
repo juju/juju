@@ -4,14 +4,13 @@
 package charm_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
 
 	"github.com/juju/loggo"
 
-	corecharm "github.com/juju/charm/v8"
+	corecharm "github.com/juju/charm/v9"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -108,7 +107,7 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	d := charm.NewBundlesDir(bunsDir, downloader, loggo.GetLogger(""))
 
 	checkDownloadsEmpty := func() {
-		files, err := ioutil.ReadDir(filepath.Join(bunsDir, "downloads"))
+		files, err := os.ReadDir(filepath.Join(bunsDir, "downloads"))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(files, gc.HasLen, 0)
 	}
@@ -172,8 +171,8 @@ func (s *ClearDownloadsSuite) TestWorks(c *gc.C) {
 	bunsDir := filepath.Join(baseDir, "bundles")
 	downloadDir := filepath.Join(bunsDir, "downloads")
 	c.Assert(os.MkdirAll(downloadDir, 0777), jc.ErrorIsNil)
-	c.Assert(ioutil.WriteFile(filepath.Join(downloadDir, "stuff"), []byte("foo"), 0755), jc.ErrorIsNil)
-	c.Assert(ioutil.WriteFile(filepath.Join(downloadDir, "thing"), []byte("bar"), 0755), jc.ErrorIsNil)
+	c.Assert(os.WriteFile(filepath.Join(downloadDir, "stuff"), []byte("foo"), 0755), jc.ErrorIsNil)
+	c.Assert(os.WriteFile(filepath.Join(downloadDir, "thing"), []byte("bar"), 0755), jc.ErrorIsNil)
 
 	err := charm.ClearDownloads(bunsDir)
 	c.Assert(err, jc.ErrorIsNil)

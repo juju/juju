@@ -4,9 +4,6 @@
 package subnets
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -24,7 +21,7 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.subnets")
 
-// Backend contains the state methods used in this package.
+// Backing contains the state methods used in this package.
 type Backing interface {
 	environs.EnvironConfigGetter
 
@@ -35,9 +32,6 @@ type Backing interface {
 	// SetAvailabilityZones replaces the cached list of availability
 	// zones with the given zones.
 	SetAvailabilityZones(network.AvailabilityZones) error
-
-	// AddSubnet creates a backing subnet for an existing subnet.
-	AddSubnet(networkingcommon.BackingSubnetInfo) (networkingcommon.BackingSubnet, error)
 
 	// AllSubnets returns all backing subnets.
 	AllSubnets() ([]networkingcommon.BackingSubnet, error)
@@ -55,21 +49,6 @@ type Backing interface {
 	ModelTag() names.ModelTag
 }
 
-// APIv2 provides the subnets API facade for versions < 3.
-type APIv2 struct {
-	*APIv3
-}
-
-// APIv3 provides the subnets API facade for version 3.
-type APIv3 struct {
-	*APIv4
-}
-
-// APIv4 provides the subnets API facade for version 4.
-type APIv4 struct {
-	*API
-}
-
 // API provides the subnets API facade for version 5.
 type API struct {
 	backing    Backing
@@ -84,17 +63,6 @@ func (api *API) checkCanRead() error {
 		return errors.Trace(err)
 	}
 	if !canRead {
-		return apiservererrors.ServerError(apiservererrors.ErrPerm)
-	}
-	return nil
-}
-
-func (api *API) checkCanWrite() error {
-	canWrite, err := api.authorizer.HasPermission(permission.WriteAccess, api.backing.ModelTag())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !canWrite {
 		return apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
 	return nil
@@ -123,73 +91,6 @@ func (api *API) AllZones() (params.ZoneResults, error) {
 		return params.ZoneResults{}, err
 	}
 	return allZones(api.context, api.backing)
-}
-
-// AllSpaces returns the tags of all network spaces known to Juju.
-// This is not recruited by any Juju client code and should not actually exist.
-// It is preserved for versions 3 and below of the facade,
-// but blanked for later versions to ensure it is not used.
-func (api *APIv3) AllSpaces() (params.SpaceResults, error) {
-	if err := api.checkCanRead(); err != nil {
-		return params.SpaceResults{}, err
-	}
-
-	var results params.SpaceResults
-
-	spaces, err := api.backing.AllSpaces()
-	if err != nil {
-		return results, errors.Trace(err)
-	}
-
-	results.Results = make([]params.SpaceResult, len(spaces))
-	for i, space := range spaces {
-		tag := names.NewSpaceTag(space.Name())
-		results.Results[i].Tag = tag.String()
-	}
-	return results, nil
-}
-
-// AddSubnets adds existing subnets to Juju.
-func (api *APIv4) AddSubnets(args params.AddSubnetsParams) (params.ErrorResults, error) {
-	if err := api.checkCanWrite(); err != nil {
-		return params.ErrorResults{}, err
-	}
-	return api.addSubnets(args)
-}
-
-// AddSubnets adds existing subnets to Juju.
-// Args are converted to the new form for compatibility.
-func (api *APIv2) AddSubnets(args params.AddSubnetsParamsV2) (params.ErrorResults, error) {
-	if err := api.checkCanWrite(); err != nil {
-		return params.ErrorResults{}, err
-	}
-	newArgs, errIndex, err := convertToAddSubnetsParams(args)
-	if err != nil {
-		results := params.ErrorResults{
-			Results: make([]params.ErrorResult, len(args.Subnets)),
-		}
-		results.Results[errIndex].Error = apiservererrors.ServerError(err)
-	}
-	return api.addSubnets(newArgs)
-}
-
-func (api *API) addSubnets(args params.AddSubnetsParams) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Subnets)),
-	}
-
-	if len(args.Subnets) == 0 {
-		return results, nil
-	}
-
-	cache := NewAddSubnetsCache(api.backing)
-	for i, arg := range args.Subnets {
-		err := addOneSubnet(api.context, api.backing, arg, cache)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-		}
-	}
-	return results, nil
 }
 
 // ListSubnets returns the matching subnets after applying
@@ -265,25 +166,4 @@ func (api *API) SubnetsByCIDR(arg params.CIDRParams) (params.SubnetsResults, err
 	}
 	result.Results = results
 	return result, nil
-}
-
-func convertToAddSubnetsParams(old params.AddSubnetsParamsV2) (params.AddSubnetsParams, int, error) {
-	subnetsParams := params.AddSubnetsParams{
-		Subnets: make([]params.AddSubnetParams, len(old.Subnets)),
-	}
-	for i, oldSubnet := range old.Subnets {
-		split := strings.Split(oldSubnet.SubnetTag, "-")
-		if len(split) != 2 || split[0] != "subnet" {
-			return params.AddSubnetsParams{}, i, errors.New(fmt.Sprintf("%q is not valid SubnetTag", oldSubnet.SubnetTag))
-		}
-		subnetsParams.Subnets[i] = params.AddSubnetParams{
-			CIDR:              split[1],
-			SubnetProviderId:  oldSubnet.SubnetProviderId,
-			ProviderNetworkId: oldSubnet.ProviderNetworkId,
-			SpaceTag:          oldSubnet.SpaceTag,
-			VLANTag:           oldSubnet.VLANTag,
-			Zones:             oldSubnet.Zones,
-		}
-	}
-	return subnetsParams, -1, nil
 }

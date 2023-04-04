@@ -20,7 +20,6 @@ var (
 	UbuntuImageBasePath                               = ubuntuImageBasePath
 	UbuntuDailyImageBasePath                          = ubuntuDailyImageBasePath
 	UbuntuProImageBasePath                            = ubuntuProImageBasePath
-	WindowsImageBasePath                              = windowsImageBasePath
 )
 
 func ExposeInstBase(inst instances.Instance) *google.Instance {

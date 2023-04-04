@@ -4,7 +4,7 @@
 package cloudimagemetadata
 
 import (
-	jujutxn "github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/mongo"
 )
@@ -18,11 +18,8 @@ type MetadataAttributes struct {
 	// Region is the name of cloud region associated with the image.
 	Region string
 
-	// Version is OS version, for e.g. "12.04".
+	// Version is OS version, for e.g. "22.04".
 	Version string
-
-	// Series is OS series, for e.g. "trusty".
-	Series string
 
 	// Arch is the architecture for this cloud image, for e.g. "amd64"
 	Arch string

@@ -16,9 +16,6 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("CAASAgent", 1, func(ctx facade.Context) (facade.Facade, error) {
-		return newStateFacadeV1(ctx)
-	}, reflect.TypeOf((*FacadeV1)(nil)))
 	registry.MustRegister("CAASAgent", 2, func(ctx facade.Context) (facade.Facade, error) {
 		return newStateFacadeV2(ctx)
 	}, reflect.TypeOf((*FacadeV2)(nil)))
@@ -51,30 +48,5 @@ func newStateFacadeV2(ctx facade.Context) (*FacadeV2, error) {
 		ControllerConfigAPI: common.NewStateControllerConfig(ctx.State()),
 		auth:                authorizer,
 		resources:           resources,
-	}, nil
-}
-
-// newStateFacadeV1 provides the signature required for facade registration of
-// caas agent v1
-func newStateFacadeV1(ctx facade.Context) (*FacadeV1, error) {
-	v2Facade, err := newStateFacadeV2(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	model, err := ctx.State().Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	v2Facade.CloudSpecer = cloudspec.NewCloudSpecV1(
-		ctx.Resources(),
-		cloudspec.MakeCloudSpecGetterForModel(ctx.State()),
-		cloudspec.MakeCloudSpecWatcherForModel(ctx.State()),
-		cloudspec.MakeCloudSpecCredentialWatcherForModel(ctx.State()),
-		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(ctx.State()),
-		common.AuthFuncForTag(model.ModelTag()),
-	)
-	return &FacadeV1{
-		v2Facade,
 	}, nil
 }

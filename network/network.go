@@ -4,10 +4,8 @@
 package network
 
 import (
-	"bufio"
 	"fmt"
 	"net"
-	"os"
 	"strings"
 
 	"github.com/juju/errors"
@@ -22,9 +20,6 @@ var logger = loggo.GetLogger("juju.network")
 
 // UnknownId can be used whenever an Id is needed but not known.
 const UnknownId = ""
-
-// DefaultLXCBridge is the bridge that gets used for LXC containers
-const DefaultLXCBridge = "lxcbr0"
 
 // DefaultLXDBridge is the bridge that gets used for LXD containers
 const DefaultLXDBridge = "lxdbr0"
@@ -46,10 +41,6 @@ type DeviceToBridge struct {
 	// MACAddress is the MAC address of the device to be bridged
 	MACAddress string
 }
-
-// LXCNetDefaultConfig is the location of the default network config
-// of the lxc package. It's exported to allow cross-package testing.
-var LXCNetDefaultConfig = "/etc/default/lxc-net"
 
 // AddressesForInterfaceName returns the addresses in string form for the
 // given interface name. It's exported to facilitate cross-package testing.
@@ -145,44 +136,6 @@ func filterAddrs(
 	return filtered
 }
 
-// gatherLXCAddresses tries to discover the default lxc bridge name
-// and all of its addresses. See LP bug #1416928.
-func gatherLXCAddresses(toRemove map[string][]string) {
-	file, err := os.Open(LXCNetDefaultConfig)
-	if os.IsNotExist(err) {
-		// No lxc-net config found, nothing to do.
-		logger.Debugf("no lxc bridge addresses to filter for machine")
-		return
-	} else if err != nil {
-		// Just log it, as it's not fatal.
-		logger.Errorf("cannot open %q: %v", LXCNetDefaultConfig, err)
-		return
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		switch {
-		case strings.HasPrefix(line, "#"):
-			// Skip comments.
-		case strings.HasPrefix(line, "LXC_BRIDGE"):
-			// Extract <name> from LXC_BRIDGE="<name>".
-			parts := strings.Split(line, `"`)
-			if len(parts) < 2 {
-				logger.Debugf("ignoring invalid line '%s' in %q", line, LXCNetDefaultConfig)
-				continue
-			}
-			bridgeName := strings.TrimSpace(parts[1])
-			gatherBridgeAddresses(bridgeName, toRemove)
-			return
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		logger.Debugf("failed to read %q: %v (ignoring)", LXCNetDefaultConfig, err)
-	}
-}
-
 func gatherBridgeAddresses(bridgeName string, toRemove map[string][]string) {
 	addrs, err := AddressesForInterfaceName(bridgeName)
 	if err != nil {
@@ -199,7 +152,6 @@ func gatherBridgeAddresses(bridgeName string, toRemove map[string][]string) {
 // This includes addresses used by the local Fan network.
 func FilterBridgeAddresses(addresses corenetwork.ProviderAddresses) corenetwork.ProviderAddresses {
 	addressesToRemove := make(map[string][]string)
-	gatherLXCAddresses(addressesToRemove)
 	gatherBridgeAddresses(DefaultLXDBridge, addressesToRemove)
 	gatherBridgeAddresses(DefaultKVMBridge, addressesToRemove)
 	filtered := filterAddrs(addresses, addressesToRemove)

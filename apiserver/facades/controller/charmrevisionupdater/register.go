@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/state"
 )
@@ -37,9 +36,8 @@ func newCharmRevisionUpdaterAPI(ctx facade.Context) (*CharmRevisionUpdaterAPI, e
 		return charmstore.NewCachingClient(state.MacaroonCache{MacaroonCacheState: st}, controllerCfg.CharmStoreURL())
 	}
 	newCharmhubClient := func(st State) (CharmhubRefreshClient, error) {
-		// TODO (stickupkid): Get the http transport from the facade context
-		transport := charmhub.DefaultHTTPTransport(logger)
-		return common.CharmhubClient(charmhubClientStateShim{state: st}, transport, logger)
+		httpClient := ctx.HTTPClient(facade.CharmhubHTTPClient)
+		return common.CharmhubClient(charmhubClientStateShim{state: st}, httpClient, logger)
 	}
 	return NewCharmRevisionUpdaterAPIState(
 		StateShim{State: ctx.State()},

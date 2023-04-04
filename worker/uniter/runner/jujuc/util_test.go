@@ -30,10 +30,6 @@ func bufferString(w io.Writer) string {
 	return w.(*bytes.Buffer).String()
 }
 
-func cmdString(cmd string) string {
-	return cmd + jujuc.CmdSuffix
-}
-
 type ContextSuite struct {
 	jujuctesting.ContextSuite
 	testing.BaseSuite

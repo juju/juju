@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"sort"
 	"strings"
@@ -269,7 +268,7 @@ func (c *updatePublicCloudsCommand) cloudAPI() (updatePublicCloudAPI, error) {
 }
 
 func decodeCheckSignature(r io.Reader, publicKey string) ([]byte, error) {
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}

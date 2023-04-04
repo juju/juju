@@ -27,22 +27,6 @@ func IsClusterQueryError(err error) bool {
 	return ok
 }
 
-// UnknownClusterError occurs when the provided cluster is not known to Juju.
-type UnknownClusterError struct {
-	Message   string
-	CloudName string
-}
-
-func (e UnknownClusterError) Error() string {
-	return e.Message
-}
-
-// IsUnknownClusterError returns true if err is a UnknownClusterError
-func IsUnknownClusterError(err error) bool {
-	_, ok := err.(UnknownClusterError)
-	return ok
-}
-
 // NoRecommendedStorageError represents when Juju is unable to determine which storage a cluster uses (or should use)
 type NoRecommendedStorageError struct {
 	Message      string

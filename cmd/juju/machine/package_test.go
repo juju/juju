@@ -12,6 +12,8 @@ import (
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/upgrademachineseries_api_mock.go github.com/juju/juju/cmd/juju/machine UpgradeMachineSeriesAPI
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/status_api_mock.go github.com/juju/juju/cmd/juju/machine StatusAPI
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/removemachine_api_mock.go github.com/juju/juju/cmd/juju/machine RemoveMachineAPI
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/modelconfig_api_mock.go github.com/juju/juju/cmd/juju/machine ModelConfigAPI
 
 // None of the tests in this package require mongo.
 

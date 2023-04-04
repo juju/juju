@@ -6,7 +6,7 @@ package crossmodel
 import (
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
 

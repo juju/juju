@@ -46,17 +46,6 @@ func (s *toolsSuite) TestValidateUploadAllowedIncompatibleHostArch(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot use agent built for "ppc64el" using a machine running on "amd64"`)
 }
 
-func (s *toolsSuite) TestValidateUploadAllowedIncompatibleHostOS(c *gc.C) {
-	// Host runs Ubuntu, want win2012 tools.
-	s.PatchValue(&os.HostOS, func() os.OSType { return os.Ubuntu })
-	env := newEnviron("foo", useDefaultKeys, nil)
-	series := "win2012"
-	validator, err := env.ConstraintsValidator(context.NewEmptyCloudCallContext())
-	c.Assert(err, jc.ErrorIsNil)
-	err = bootstrap.ValidateUploadAllowed(env, nil, &series, validator)
-	c.Assert(err, gc.ErrorMatches, `cannot use agent built for "win2012" using a machine running "Ubuntu"`)
-}
-
 func (s *toolsSuite) TestValidateUploadAllowedIncompatibleTargetArch(c *gc.C) {
 	// Host runs ppc64el, environment only supports amd64, arm64.
 	s.PatchValue(&arch.HostArch, func() string { return arch.PPC64EL })

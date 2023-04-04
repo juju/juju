@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
-	core "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/core/config"
@@ -18,10 +17,12 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/proxy"
 	"github.com/juju/juju/storage"
 )
 
@@ -173,31 +174,68 @@ type Broker interface {
 	// Provider returns the ContainerEnvironProvider that created this Broker.
 	Provider() ContainerEnvironProvider
 
-	// APIVersion returns the master kubelet API version.
+	// InstancePrechecker provides a means of "prechecking" placement
+	// arguments before recording them in state.
+	environs.InstancePrechecker
+
+	// BootstrapEnviron defines methods for bootstrapping a controller.
+	environs.BootstrapEnviron
+
+	// ResourceAdopter defines methods for adopting resources.
+	environs.ResourceAdopter
+
+	// StorageValidator provides methods to validate storage.
+	StorageValidator
+
+	// Upgrader provides the API to perform upgrades.
+	Upgrader
+
+	// APIVersion returns the version of the container orchestration layer.
 	APIVersion() (string, error)
 
-	// EnsureModelOperator creates or updates a model operator pod for running
-	// model operations in a CAAS namespace/model
-	EnsureModelOperator(modelUUID, agentPath string, config *ModelOperatorConfig) error
+	// GetSecretToken returns the token content for the specified secret name.
+	GetSecretToken(name string) (string, error)
 
-	// ModelOperator return the model operator config used to create the current
-	// model operator for this broker
-	ModelOperator() (*ModelOperatorConfig, error)
+	// ClusterVersionGetter provides methods to get cluster version information.
+	ClusterVersionGetter
 
-	// ModelOperatorExists indicates if the model operator for the given broker
-	// exists
-	ModelOperatorExists() (bool, error)
+	// CredentialChecker provides an API for checking that the credentials
+	// used by the broker are functioning.
+	CredentialChecker
 
-	// EnsureOperator creates or updates an operator pod for running
-	// a charm for the specified application.
-	EnsureOperator(appName, agentPath string, config *OperatorConfig) error
+	// ApplicationBroker provides an API for accessing the broker interface
+	// for individual applications and watching their units.
+	ApplicationBroker
 
-	// OperatorExists indicates if the operator for the specified
-	// application exists, and whether the operator is terminating.
-	OperatorExists(appName string) (DeploymentState, error)
+	// ServiceManager provides an API for creating and watching services.
+	ServiceManager
 
-	// DeleteOperator deletes the specified operator.
-	DeleteOperator(appName string) error
+	// SecretsProvider provides an API for accessing the broker interface for managing secret k8s provider resources.
+	SecretsProvider
+
+	// SecretsBackend provides an API for managing Juju secrets.
+	SecretsBackend
+
+	// ModelOperatorManager provides an API for deploying operators for
+	// individual models.
+	ModelOperatorManager
+
+	// ApplicationOperatorManager provides an API for deploying operators
+	// for individual applications.
+	ApplicationOperatorManager
+
+	// EnsureImageRepoSecret ensures the image pull secret gets created.
+	EnsureImageRepoSecret(docker.ImageRepoDetails) error
+
+	// ProxyManager provides methods for managing application proxy connections.
+	ProxyManager
+}
+
+// ApplicationBroker provides an API for accessing the broker interface for
+// individual applications and watching their units.
+type ApplicationBroker interface {
+	// Application returns the broker interface for an Application
+	Application(string, DeploymentType) Application
 
 	// WatchUnits returns a watcher which notifies when there
 	// are changes to units of the specified application.
@@ -216,6 +254,64 @@ type Broker interface {
 	// the provider id for the unit. If containerName is empty, then the first workload container
 	// is used.
 	WatchContainerStart(appName string, containerName string) (watcher.StringsWatcher, error)
+}
+
+// SecretsProvider provides an API for accessing the broker interface for managing secret k8s provider resources.
+type SecretsProvider interface {
+	// EnsureSecretAccessToken ensures the secret related RBAC resources for the provided entity.
+	EnsureSecretAccessToken(tag names.Tag, owned, read, removed []string) (string, error)
+
+	// RemoveSecretAccessToken removes the secret related RBAC resources for the provided entity.
+	RemoveSecretAccessToken(tag names.Tag) error
+}
+
+// SecretsBackend provides an API for managing Juju secrets.
+type SecretsBackend interface {
+	// SaveJujuSecret saves a secret, returning an id used to access the secret later.
+	SaveJujuSecret(ctx context.Context, name string, value secrets.SecretValue) (string, error)
+
+	// GetJujuSecret gets the content of a Juju secret.
+	GetJujuSecret(ctx context.Context, id string) (secrets.SecretValue, error)
+
+	// DeleteJujuSecret deletes a Juju secret.
+	DeleteJujuSecret(ctx context.Context, id string) error
+}
+
+// ModelOperatorManager provides an API for deploying operators for individual
+// models.
+type ModelOperatorManager interface {
+	// ModelOperatorExists indicates if the model operator for the given broker
+	// exists
+	ModelOperatorExists() (bool, error)
+
+	// EnsureModelOperator creates or updates a model operator pod for running
+	// model operations in a CAAS namespace/model
+	EnsureModelOperator(modelUUID, agentPath string, config *ModelOperatorConfig) error
+
+	// ModelOperator return the model operator config used to create the current
+	// model operator for this broker
+	ModelOperator() (*ModelOperatorConfig, error)
+}
+
+// ApplicationOperatorManager provides an API for deploying operators for
+// individual applications.
+type ApplicationOperatorManager interface {
+	// Application returns the broker interface for an Application.
+	Application(string, DeploymentType) Application
+
+	// OperatorExists indicates if the operator for the specified
+	// application exists, and whether the operator is terminating.
+	OperatorExists(appName string) (DeploymentState, error)
+
+	// EnsureOperator creates or updates an operator pod for running
+	// a charm for the specified application.
+	EnsureOperator(appName, agentPath string, config *OperatorConfig) error
+
+	// DeleteOperator deletes the specified operator.
+	DeleteOperator(appName string) error
+
+	// Operator returns an Operator with current status and life details.
+	Operator(string) (*Operator, error)
 
 	// WatchOperator returns a watcher which notifies when there
 	// are changes to the operator of the specified application.
@@ -224,49 +320,6 @@ type Broker interface {
 	// WatchService returns a watcher which notifies when there
 	// are changes to the deployment of the specified application.
 	WatchService(appName string, mode DeploymentMode) (watcher.NotifyWatcher, error)
-
-	// Operator returns an Operator with current status and life details.
-	Operator(string) (*Operator, error)
-
-	// Application returns the broker interface for an Application
-	Application(string, DeploymentType) Application
-
-	// EnsureImageRepoSecret ensures the image pull secret gets created.
-	EnsureImageRepoSecret(docker.ImageRepoDetails) error
-
-	// GetSecretToken returns the token content for the specified secret name.
-	GetSecretToken(name string) (string, error)
-
-	// ClusterMetadataChecker provides an API to query cluster metadata.
-	ClusterMetadataChecker
-
-	// NamespaceWatcher provides the API to watch caas namespace.
-	NamespaceWatcher
-
-	// InstancePrechecker provides a means of "prechecking" placement
-	// arguments before recording them in state.
-	environs.InstancePrechecker
-
-	// BootstrapEnviron defines methods for bootstrapping a controller.
-	environs.BootstrapEnviron
-
-	// ResourceAdopter defines methods for adopting resources.
-	environs.ResourceAdopter
-
-	// NamespaceGetterSetter provides the API to get/set namespace.
-	NamespaceGetterSetter
-
-	// StorageValidator provides methods to validate storage.
-	StorageValidator
-
-	// ServiceGetterSetter provides the API to get/set service.
-	ServiceGetterSetter
-
-	// Upgrader provides the API to perform upgrades.
-	Upgrader
-
-	// ClusterVersionGetter provides methods to get cluster version information.
-	ClusterVersionGetter
 }
 
 // Upgrader provides the API to perform upgrades.
@@ -287,8 +340,21 @@ type ClusterVersionGetter interface {
 	Version() (*version.Number, error)
 }
 
-// ServiceGetterSetter provides the API to get/set service.
-type ServiceGetterSetter interface {
+// CredentialChecker provides an API for checking that the credentials
+// used by the broker are functioning.
+type CredentialChecker interface {
+	// CheckCloudCredentials verifies that the provided cloud credentials
+	// are still valid for the cloud.
+	CheckCloudCredentials() error
+}
+
+// ProxyManager provides the API to get proxier information for applications
+type ProxyManager interface {
+	ProxyToApplication(appName, remotePort string) (proxy.Proxier, error)
+}
+
+// ServiceManager provides the API to manipulate services.
+type ServiceManager interface {
 	// EnsureService creates or updates a service for pods with the given params.
 	EnsureService(appName string, statusCallback StatusCallbackFunc, params *ServiceParams, numUnits int, config config.ConfigAttributes) error
 
@@ -303,38 +369,10 @@ type ServiceGetterSetter interface {
 
 	// GetService returns the service for the specified application.
 	GetService(appName string, mode DeploymentMode, includeClusterIP bool) (*Service, error)
-}
 
-// NamespaceGetterSetter provides the API to get/set namespace.
-type NamespaceGetterSetter interface {
-	// Namespaces returns name names of the namespaces on the cluster.
-	Namespaces() ([]string, error)
-
-	// GetNamespace returns the namespace for the specified name or current namespace.
-	GetNamespace(name string) (*core.Namespace, error)
-
-	// GetCurrentNamespace returns current namespace name.
-	GetCurrentNamespace() string
-}
-
-// ClusterMetadataChecker provides an API to query cluster metadata.
-type ClusterMetadataChecker interface {
-	// GetClusterMetadata returns metadata about host cloud and storage for the cluster.
-	GetClusterMetadata(storageClass string) (result *ClusterMetadata, err error)
-
-	// CheckDefaultWorkloadStorage returns an error if the opinionated storage defined for
-	// the cluster does not match the specified storage.
-	CheckDefaultWorkloadStorage(cluster string, storageProvisioner *StorageProvisioner) error
-
-	// EnsureStorageProvisioner creates a storage provisioner with the specified config, or returns an existing one.
-	EnsureStorageProvisioner(cfg StorageProvisioner) (*StorageProvisioner, bool, error)
-}
-
-// NamespaceWatcher provides the API to watch caas namespace.
-type NamespaceWatcher interface {
-	// WatchNamespace returns a watcher which notifies when there
-	// are changes to current namespace.
-	WatchNamespace() (watcher.NotifyWatcher, error)
+	// WatchService returns a watcher which notifies when there
+	// are changes to the deployment of the specified application.
+	WatchService(appName string, mode DeploymentMode) (watcher.NotifyWatcher, error)
 }
 
 // Service represents information about the status of a caas service entity.
@@ -409,7 +447,7 @@ type ModelOperatorConfig struct {
 	// AgentConf is the contents of the agent.conf file.
 	AgentConf []byte
 
-	// ImageDetails is the docker registry URL and auth details for the image.
+	// ImageDetails is the docker registry URL and auth details for the juju operator image.
 	ImageDetails resources.DockerImageDetails
 
 	// Port is the socket port that the operator model will be listening on
@@ -418,8 +456,11 @@ type ModelOperatorConfig struct {
 
 // OperatorConfig is the config to use when creating an operator.
 type OperatorConfig struct {
-	// ImageDetails is the docker registry URL and auth details for the image.
+	// ImageDetails is the docker registry URL and auth details for the juju operator image.
 	ImageDetails resources.DockerImageDetails
+
+	// BaseImageDetails is the docker registry URL and auth details for the charm base image.
+	BaseImageDetails resources.DockerImageDetails
 
 	// Version is the Juju version of the operator image.
 	Version version.Number

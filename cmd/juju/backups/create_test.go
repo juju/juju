@@ -5,7 +5,7 @@ package backups_test
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"os"
 	"strings"
 
@@ -65,7 +65,7 @@ func (s *createSuite) setFailure(failure string) *fakeAPIClient {
 
 func (s *createSuite) setDownload() *fakeAPIClient {
 	client := s.setSuccess()
-	client.archive = ioutil.NopCloser(bytes.NewBufferString(s.data))
+	client.archive = io.NopCloser(bytes.NewBufferString(s.data))
 	return client
 }
 
@@ -161,21 +161,6 @@ func (s *createSuite) TestDefault(c *gc.C) {
 
 	client.CheckCalls(c, "Create", "Download")
 	client.CheckArgs(c, "", "false", "backup-filename")
-	s.checkDownload(c, ctx)
-	c.Check(s.command.Filename, gc.Equals, backups.NotSet)
-}
-
-func (s *createSuite) TestDefaultV1(c *gc.C) {
-	s.apiVersion = 1
-	client := s.setDownload()
-	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand)
-	c.Assert(err, jc.ErrorIsNil)
-
-	client.CheckCalls(c, "Create", "Download")
-	client.CheckArgs(c, "", "false", "backup-id")
-	s.expectedErr = `
-Downloaded to juju-backup-00010101-000000.tar.gz
-`[1:]
 	s.checkDownload(c, ctx)
 	c.Check(s.command.Filename, gc.Equals, backups.NotSet)
 }

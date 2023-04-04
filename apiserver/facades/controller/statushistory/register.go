@@ -6,6 +6,8 @@ package statushistory
 import (
 	"reflect"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 )
@@ -19,16 +21,14 @@ func Register(registry facade.FacadeRegistry) {
 
 // newAPI returns an API Instance.
 func newAPI(ctx facade.Context) (*API, error) {
-	st := ctx.State()
-	m, err := st.Model()
+	m, err := Model(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-
-	auth := ctx.Auth()
 	return &API{
-		ModelWatcher: common.NewModelWatcher(m, ctx.Resources(), auth),
-		st:           st,
-		authorizer:   auth,
+		ModelWatcher: common.NewModelWatcher(m, ctx.Resources(), ctx.Auth()),
+		st:           ctx.State(),
+		authorizer:   ctx.Auth(),
+		cancel:       ctx.Cancel(),
 	}, nil
 }

@@ -4,10 +4,12 @@
 package state
 
 import (
+	"time"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3"
 
@@ -63,6 +65,14 @@ type InitializeParams struct {
 	// accessing state data. The caller remains responsible
 	// for closing this session; Initialize will copy it.
 	MongoSession *mgo.Session
+
+	// MaxTxnAttempts is the number of attempts when running transactions
+	// against mongo. OpenStatePool defaults this if 0.
+	MaxTxnAttempts int
+
+	// WatcherPollInterval is the duration of TxnWatcher long-polls. TxnWatcher
+	// defaults this if 0.
+	WatcherPollInterval time.Duration
 
 	// AdminPassword holds the password for the initial user.
 	AdminPassword string
@@ -154,12 +164,14 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 	modelTag := names.NewModelTag(modelUUID)
 
 	ctlr, err := OpenController(OpenParams{
-		Clock:              args.Clock,
-		ControllerTag:      controllerTag,
-		ControllerModelTag: modelTag,
-		MongoSession:       args.MongoSession,
-		NewPolicy:          args.NewPolicy,
-		InitDatabaseFunc:   InitDatabase,
+		Clock:               args.Clock,
+		ControllerTag:       controllerTag,
+		ControllerModelTag:  modelTag,
+		MongoSession:        args.MongoSession,
+		MaxTxnAttempts:      args.MaxTxnAttempts,
+		WatcherPollInterval: args.WatcherPollInterval,
+		NewPolicy:           args.NewPolicy,
+		InitDatabaseFunc:    InitDatabase,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "opening controller")

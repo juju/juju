@@ -54,7 +54,6 @@ func (s *NewMachineManagerSuite) TestUpgradeSeriesValidate(c *gc.C) {
 		Args: []params.UpdateChannelArg{
 			{
 				Entity:  params.Entity{Tag: names.NewMachineTag(s.tag.String()).String()},
-				Series:  "xenial",
 				Channel: "16.04/stable",
 			},
 		},
@@ -75,7 +74,6 @@ func (s *NewMachineManagerSuite) TestUpgradeSeriesPrepareAlreadyInProgress(c *gc
 
 	arg := params.UpdateChannelArg{
 		Entity:  params.Entity{Tag: s.tag.String()},
-		Series:  "xenial",
 		Channel: "16.04/stable",
 		Force:   true,
 	}
@@ -96,8 +94,6 @@ func (s *NewMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.clientFacade = mocks.NewMockClientFacade(ctrl)
 	s.facade = mocks.NewMockFacadeCaller(ctrl)
-
-	s.clientFacade.EXPECT().BestAPIVersion().Return(5)
 
 	s.client = machinemanager.ConstructClient(s.clientFacade, s.facade)
 

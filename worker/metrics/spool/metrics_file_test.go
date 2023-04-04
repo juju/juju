@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -87,7 +86,7 @@ func (s *metricFileSuite) TestContention(c *gc.C) {
 	st, err := os.Stat(fileName)
 	c.Assert(err, gc.IsNil)
 	c.Assert(st.Size(), gc.Equals, int64(2))
-	contents, err := ioutil.ReadFile(fileName)
+	contents, err := os.ReadFile(fileName)
 	c.Assert(err, gc.IsNil)
 	c.Assert(contents, gc.DeepEquals, []byte("vi"))
 }

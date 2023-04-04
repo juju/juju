@@ -1,7 +1,6 @@
 package cloudconfig_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -12,6 +11,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig"
+	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/testing"
 )
 
@@ -26,7 +27,7 @@ type fromHostSuite struct {
 var _ = gc.Suite(&fromHostSuite{})
 
 func (s *fromHostSuite) SetUpTest(c *gc.C) {
-	s.PatchValue(&utilsseries.HostSeries, func() (string, error) { return "xenial", nil })
+	s.PatchValue(&utilsseries.HostSeries, func() (string, error) { return "jammy", nil })
 
 	// Pre-seed /etc/cloud/cloud.cfg.d replacement for testing
 	s.tempCloudCfgDir = c.MkDir() // will clean up
@@ -46,71 +47,57 @@ func (s *fromHostSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *fromHostSuite) TestGetMachineCloudInitData(c *gc.C) {
-	obtained, err := s.newMachineInitReader("xenial").GetInitConfig()
+	obtained, err := s.newMachineInitReader(series.MakeDefaultBase("ubuntu", "22.04")).GetInitConfig()
 	c.Assert(err, gc.IsNil)
 	c.Assert(obtained, gc.DeepEquals, expectedResult)
 }
 
 type cloudinitDataVerifyTest struct {
-	description     string
-	machineSeries   string
-	containerSeries string
-	result          map[string]interface{}
+	description   string
+	machineBase   series.Base
+	containerBase series.Base
+	result        map[string]interface{}
 }
 
 var cloudinitDataVerifyTests = []cloudinitDataVerifyTest{
 	{
-		description:     "xenial on xenial",
-		machineSeries:   "xenial",
-		containerSeries: "xenial",
-		result:          expectedResult,
+		description:   "focal on focal",
+		machineBase:   series.MakeDefaultBase("ubuntu", "20.04"),
+		containerBase: series.MakeDefaultBase("ubuntu", "20.04"),
+		result:        expectedResult,
 	},
 	{
-		description:     "trusty on trusty",
-		machineSeries:   "trusty",
-		containerSeries: "trusty",
-		result:          expectedResult,
+		description:   "jammy on jammy",
+		machineBase:   series.MakeDefaultBase("ubuntu", "22.04"),
+		containerBase: series.MakeDefaultBase("ubuntu", "22.04"),
+		result:        expectedResult,
 	},
 	{
-		description:     "xenial on trusty",
-		machineSeries:   "trusty",
-		containerSeries: "xenial",
+		description:   "jammy on focal",
+		machineBase:   series.MakeDefaultBase("ubuntu", "20.04"),
+		containerBase: series.MakeDefaultBase("ubuntu", "22.04"),
 	},
 	{
-		description:     "opensuseleap on opensuseleap",
-		machineSeries:   "opensuseleap",
-		containerSeries: "opensuseleap",
-		result:          expectedResult,
+		description:   "centos7 on centos7",
+		machineBase:   series.MakeDefaultBase("centos", "7"),
+		containerBase: series.MakeDefaultBase("centos", "7"),
+		result:        expectedResult,
 	},
 	{
-		description:     "centos7 on centos7",
-		machineSeries:   "centos7",
-		containerSeries: "centos7",
-		result:          expectedResult,
-	},
-	{
-		description:     "centos8 on centos8",
-		machineSeries:   "centos8",
-		containerSeries: "centos8",
-		result:          expectedResult,
-	},
-	{
-		description:     "win2012 on win2012",
-		machineSeries:   "win2012",
-		containerSeries: "win2012",
-	},
-	{
-		description:     "highsierra on highsierra",
-		machineSeries:   "highsierra",
-		containerSeries: "highsierra",
+		description:   "centos8 on centos8",
+		machineBase:   series.MakeDefaultBase("centos", "8"),
+		containerBase: series.MakeDefaultBase("centos", "8"),
+		result:        expectedResult,
 	},
 }
 
 func (s *fromHostSuite) TestGetMachineCloudInitDataVerifySeries(c *gc.C) {
 	for i, test := range cloudinitDataVerifyTests {
 		c.Logf("Test %d of %d: %s", i, len(cloudinitDataVerifyTests), test.description)
-		s.PatchValue(&utilsseries.HostSeries, func() (string, error) { return test.machineSeries, nil })
-		obtained, err := s.newMachineInitReader(test.containerSeries).GetInitConfig()
+		machineSeries, err := series.GetSeriesFromBase(test.machineBase)
+		c.Assert(err, jc.ErrorIsNil)
+		s.PatchValue(&utilsseries.HostSeries, func() (string, error) { return machineSeries, nil })
+		obtained, err := s.newMachineInitReader(test.containerBase).GetInitConfig()
 		c.Assert(err, gc.IsNil)
 		if test.result != nil {
 			c.Assert(obtained, gc.DeepEquals, expectedResult)
@@ -125,16 +112,8 @@ func (s *fromHostSuite) TestMissingVendorDataFile(c *gc.C) {
 	c.Assert(os.RemoveAll(dir), jc.ErrorIsNil)
 	s.tempCloudInitDir = dir
 
-	obtained, err := s.newMachineInitReader("xenial").GetInitConfig()
+	obtained, err := s.newMachineInitReader(series.MakeDefaultBase("ubuntu", "22.04")).GetInitConfig()
 	c.Assert(err, gc.ErrorMatches, "reading config from.*vendor-data.txt.*")
-	c.Assert(obtained, gc.IsNil)
-}
-
-func (s *fromHostSuite) TestMissingVendorDataFileTrusty(c *gc.C) {
-	seedData(c, s.tempCloudInitDir, "vendor-data.txt", vendorDataTrusty)
-
-	obtained, err := s.newMachineInitReader("trusty").GetInitConfig()
-	c.Assert(err, gc.IsNil)
 	c.Assert(obtained, gc.IsNil)
 }
 
@@ -143,13 +122,13 @@ func (s *fromHostSuite) TestGetMachineCloudCfgDirDataReadDirFailed(c *gc.C) {
 	c.Assert(os.RemoveAll(dir), jc.ErrorIsNil)
 	s.tempCloudCfgDir = dir
 
-	obtained, err := s.newMachineInitReader("xenial").GetInitConfig()
+	obtained, err := s.newMachineInitReader(series.MakeDefaultBase("ubuntu", "22.04")).GetInitConfig()
 	c.Assert(err, gc.ErrorMatches, "determining files in CloudInitCfgDir for the machine: .* no such file or directory")
 	c.Assert(obtained, gc.IsNil)
 }
 
-func (s *fromHostSuite) TestCloudConfigVersionV078(c *gc.C) {
-	reader := s.newMachineInitReader("xenial")
+func (s *fromHostSuite) TestCloudConfig(c *gc.C) {
+	reader := s.newMachineInitReader(series.MakeDefaultBase("ubuntu", "22.04"))
 	obtained, err := reader.GetInitConfig()
 	c.Assert(err, gc.IsNil)
 	c.Assert(obtained, gc.DeepEquals, expectedResult)
@@ -180,39 +159,13 @@ func (s *fromHostSuite) TestCloudConfigVersionV078(c *gc.C) {
 }
 
 func (s *fromHostSuite) TestCloudConfigVersionNoContainerInheritProperties(c *gc.C) {
-	reader := s.newMachineInitReader("xenial")
-	resultMap := reader.ExtractPropertiesFromConfig(nil, nil, loggo.GetLogger("juju.machinecloudconfig"))
-	c.Assert(resultMap, gc.HasLen, 0)
-}
-
-func (s *fromHostSuite) TestCloudConfigVersionV077(c *gc.C) {
-	s.PatchValue(&utilsseries.HostSeries, func() (string, error) { return "trusty", nil })
-	seedData(c, s.tempCloudCfgDir, "90_dpkg_local_cloud_config.cfg", dpkgLocalCloudConfigLegacy)
-
-	reader := s.newMachineInitReader("trusty")
-	obtained, err := reader.GetInitConfig()
-	c.Assert(err, gc.IsNil)
-
-	resultMap := reader.ExtractPropertiesFromConfig(
-		[]string{"apt-primary", "ca-certs", "apt-security"}, obtained, loggo.GetLogger("juju.machinecloudconfig"))
-
-	// Can't compare map-to-map equality directly due to one of the values
-	// being a slice - it fails intermittently.
-	c.Assert(resultMap, gc.HasLen, 5)
-	c.Assert(resultMap["apt_mirror"], gc.Equals, expectedResultLegacy["apt_mirror"])
-	c.Assert(resultMap["apt_mirror_search_dns"], gc.Equals, expectedResultLegacy["apt_mirror_search_dns"])
-	c.Assert(resultMap["apt_mirror_search"], jc.SameContents, expectedResultLegacy["apt_mirror_search"])
-	c.Assert(resultMap["apt_sources"], gc.DeepEquals, expectedResultLegacy["apt_sources"])
-}
-
-func (s *fromHostSuite) TestCloudConfigVersionNoContainerInheritPropertiesLegacy(c *gc.C) {
-	reader := s.newMachineInitReader("trusty")
+	reader := s.newMachineInitReader(series.MakeDefaultBase("ubuntu", "22.04"))
 	resultMap := reader.ExtractPropertiesFromConfig(nil, nil, loggo.GetLogger("juju.machinecloudconfig"))
 	c.Assert(resultMap, gc.HasLen, 0)
 }
 
 func (s *fromHostSuite) TestCurtinConfigAptProperties(c *gc.C) {
-	s.PatchValue(&utilsseries.HostSeries, func() (string, error) { return "bionic", nil })
+	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
 
 	// Seed the curtin install config as for MAAS 2.5+
 	curtinDir := c.MkDir()
@@ -238,7 +191,7 @@ deb http://us.archive.ubuntu.com/ubuntu $RELEASE-backports universe main multive
 		"preserve_sources_list": false,
 	}
 
-	reader := s.newMachineInitReader("bionic")
+	reader := s.newMachineInitReader(series.MakeDefaultBase("ubuntu", "22.04"))
 	obtained, err := reader.GetInitConfig()
 	c.Assert(err, gc.IsNil)
 	c.Assert(obtained["apt"], gc.DeepEquals, expected)
@@ -250,9 +203,9 @@ deb http://us.archive.ubuntu.com/ubuntu $RELEASE-backports universe main multive
 	c.Assert(resultMap["apt"].(map[string]interface{})["sources_list"], gc.Equals, expectedSources)
 }
 
-func (s *fromHostSuite) newMachineInitReader(series string) cloudconfig.InitReader {
+func (s *fromHostSuite) newMachineInitReader(base series.Base) cloudconfig.InitReader {
 	cfg := cloudconfig.MachineInitReaderConfig{
-		Series:                     series,
+		Base:                       base,
 		CloudInitConfigDir:         s.tempCloudCfgDir,
 		CloudInitInstanceConfigDir: s.tempCloudInitDir,
 		CurtinInstallConfigFile:    s.tempCurtinCfgFile,
@@ -261,7 +214,7 @@ func (s *fromHostSuite) newMachineInitReader(series string) cloudconfig.InitRead
 }
 
 func seedData(c *gc.C, dir, name, data string) {
-	c.Assert(ioutil.WriteFile(path.Join(dir, name), []byte(data), 0644), jc.ErrorIsNil)
+	c.Assert(os.WriteFile(path.Join(dir, name), []byte(data), 0644), jc.ErrorIsNil)
 }
 
 var dpkgLocalCloudConfig = `
@@ -274,38 +227,6 @@ apt:
   security:
   - arches: [default]
     uri: http://archive.ubuntu.com/ubuntu
-apt_preserve_sources_list: true
-reporting:
-  maas: {consumer_key: mpU9YZLWDG7ZQubksN, endpoint: 'http://10.10.101.2/MAAS/metadata/status/cmfcxx',
-    token_key: tgEn5v5TcakKwWKwCf, token_secret: jzLdPTuh7hHqHTG9kGEHSG7F25GMAmzJ,
-    type: webhook}
-system_info:
-  package_mirrors:
-  - arches: [i386, amd64]
-    failsafe: {primary: 'http://archive.ubuntu.com/ubuntu', security: 'http://security.ubuntu.com/ubuntu'}
-    search:
-      primary: ['http://archive.ubuntu.com/ubuntu']
-      security: ['http://archive.ubuntu.com/ubuntu']
-  - arches: [default]
-    failsafe: {primary: 'http://ports.ubuntu.com/ubuntu-ports', security: 'http://ports.ubuntu.com/ubuntu-ports'}
-    search:
-      primary: ['http://ports.ubuntu.com/ubuntu-ports']
-      security: ['http://ports.ubuntu.com/ubuntu-ports']
-`[1:]
-
-var dpkgLocalCloudConfigLegacy = `
-# cloud-init/local-cloud-config
-apt_mirror: http://archive.ubuntu.com/ubuntu
-apt_mirror_search:
- - http://local-mirror.mydomain
- - http://archive.ubuntu.com
-apt_mirror_search_dns: False
-apt_sources:
- - source: "deb http://apt.opscode.com/ $RELEASE-0.10 main"
-   key: |
-     -----BEGIN PGP PUBLIC KEY BLOCK-----
-     Version: GnuPG v1.4.9 (GNU/Linux)
-     -----END PGP PUBLIC KEY BLOCK-----
 apt_preserve_sources_list: true
 reporting:
   maas: {consumer_key: mpU9YZLWDG7ZQubksN, endpoint: 'http://10.10.101.2/MAAS/metadata/status/cmfcxx',
@@ -400,10 +321,6 @@ ntp:
   servers: [10.10.76.2]
 `[1:]
 
-var vendorDataTrusty = `
-None
-`[1:]
-
 var readmeFile = `
 # All files in this directory will be read by cloud-init
 # They are read in lexical order.  Later files overwrite values in
@@ -424,48 +341,6 @@ var expectedResult = map[string]interface{}{
 				"arches": []interface{}{"default"},
 				"uri":    "http://archive.ubuntu.com/ubuntu",
 			},
-		},
-	},
-	"reporting": map[interface{}]interface{}{
-		"maas": map[interface{}]interface{}{
-			"endpoint":     "http://10.10.101.2/MAAS/metadata/status/cmfcxx",
-			"token_key":    "tgEn5v5TcakKwWKwCf",
-			"token_secret": "jzLdPTuh7hHqHTG9kGEHSG7F25GMAmzJ",
-			"type":         "webhook",
-			"consumer_key": "mpU9YZLWDG7ZQubksN",
-		},
-	},
-	"system_info": expectedSystemInfoCommon,
-	"ntp": map[interface{}]interface{}{
-		"servers": []interface{}{"10.10.76.2"},
-		"pools":   []interface{}{},
-	},
-	"write_files": []interface{}{
-		map[interface{}]interface{}{
-			"path":        "/tmp/juju-test",
-			"permissions": 420,
-			"content":     "Hello World!\n",
-		}},
-	"apt_preserve_sources_list": true,
-	"packages":                  []interface{}{"‘python-novaclient’"},
-	"ca-certs": map[interface{}]interface{}{
-		"remove-defaults": true,
-		"trusted":         []interface{}{"-----BEGIN CERTIFICATE-----\nYOUR-ORGS-TRUSTED-CA-CERT-HERE\n-----END CERTIFICATE-----\n"},
-	},
-	"network": expectedNetworkCommon,
-}
-
-var expectedResultLegacy = map[string]interface{}{
-	"apt_mirror": "http://archive.ubuntu.com/ubuntu",
-	"apt_mirror_search": []interface{}{
-		"http://local-mirror.mydomain",
-		"http://archive.ubuntu.com",
-	},
-	"apt_mirror_search_dns": false,
-	"apt_sources": []interface{}{
-		map[interface{}]interface{}{
-			"source": "deb http://apt.opscode.com/ $RELEASE-0.10 main",
-			"key":    "-----BEGIN PGP PUBLIC KEY BLOCK-----\nVersion: GnuPG v1.4.9 (GNU/Linux)\n-----END PGP PUBLIC KEY BLOCK-----\n",
 		},
 	},
 	"reporting": map[interface{}]interface{}{

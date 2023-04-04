@@ -49,7 +49,7 @@ func (s *StatusHistorySuite) SetUpTest(c *gc.C) {
 			}, {
 				Kind:   status.KindWorkload,
 				Status: status.Waiting,
-				Info:   "agent initializing",
+				Info:   "agent initialising",
 				Since:  s.next(),
 			}, {
 				Kind:   status.KindWorkload,
@@ -102,12 +102,11 @@ Time                  Type       Status       Message
 2017-11-28 12:34:56Z  juju-unit  allocating   
 2017-11-28 12:35:56Z  workload   waiting      waiting for machine
 2017-11-28 12:36:56Z  workload   waiting      installing agent
-2017-11-28 12:37:56Z  workload   waiting      agent initializing
+2017-11-28 12:37:56Z  workload   waiting      agent initialising
 2017-11-28 12:38:56Z  workload   maintenance  installing charm software
 2017-11-28 12:39:56Z  juju-unit  executing    running install hoook
 2017-11-28 12:40:56Z  juju-unit  executing    running config-changed hoook
 2017-11-28 12:41:56Z  model      suspended    invalid credentials
-
 `[1:]
 	ctx, err := cmdtesting.RunCommand(c, s.newCommand(), "missing/0", "--utc")
 	c.Assert(err, jc.ErrorIsNil)
@@ -130,7 +129,7 @@ func (s *StatusHistorySuite) TestYaml(c *gc.C) {
   since: 2017-11-28T12:36:56Z
   type: workload
 - status: waiting
-  message: agent initializing
+  message: agent initialising
   since: 2017-11-28T12:37:56Z
   type: workload
 - status: maintenance
@@ -169,8 +168,4 @@ func (*fakeHistoryAPI) Close() error {
 
 func (f *fakeHistoryAPI) StatusHistory(kind status.HistoryKind, tag names.Tag, filter status.StatusHistoryFilter) (status.History, error) {
 	return f.history, f.err
-}
-
-func (*fakeHistoryAPI) BestAPIVersion() int {
-	return 3
 }

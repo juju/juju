@@ -25,7 +25,6 @@ type StatusHistorySuite struct {
 var _ = gc.Suite(&StatusHistorySuite{})
 
 func (s *StatusHistorySuite) SetUpTest(c *gc.C) {
-	s.InitialTime = time.Now()
 	s.StateSuite.SetUpTest(c)
 }
 
@@ -34,7 +33,7 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryBySize(c *gc.C) {
 
 	initialHistory := 20000
 	filter := status.StatusHistoryFilter{Size: 25000}
-	expectMax := 10000
+	expectMax := 11100
 	// On some of the architectures, the status history collection is much
 	// smaller than amd64, so we need more entries to get the right size.
 	switch arch.HostArch() {
@@ -53,7 +52,8 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryBySize(c *gc.C) {
 	c.Assert(history, gc.HasLen, initialHistory+1)
 
 	// Prune down to 1MB.
-	err = state.PruneStatusHistory(s.State, 0, 1)
+	var stop <-chan struct{}
+	err = state.PruneStatusHistory(stop, s.State, 0, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	history, err = unit.StatusHistory(filter)
@@ -80,7 +80,8 @@ func (s *StatusHistorySuite) TestPruneStatusBySizeOnlyForController(c *gc.C) {
 	c.Logf("%d\n", len(history))
 	c.Assert(history, gc.HasLen, 20001)
 
-	err = state.PruneStatusHistory(st, 0, 1)
+	var stop <-chan struct{}
+	err = state.PruneStatusHistory(stop, st, 0, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	history, err = unit.StatusHistory(status.StatusHistoryFilter{Size: 25000})
@@ -92,7 +93,6 @@ func (s *StatusHistorySuite) TestPruneStatusBySizeOnlyForController(c *gc.C) {
 }
 
 func (s *StatusHistorySuite) TestPruneStatusHistoryByDate(c *gc.C) {
-
 	// NOTE: the behaviour is bad, and the test is ugly. I'm just verifying
 	// the existing logic here.
 	//
@@ -111,18 +111,18 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryByDate(c *gc.C) {
 		agents[i] = units[i].Agent()
 	}
 
-	primeUnitStatusHistory(c, units[0], 10, 0)
-	primeUnitStatusHistory(c, units[0], 10, 24*time.Hour)
-	primeUnitStatusHistory(c, units[1], 50, 0)
-	primeUnitStatusHistory(c, units[1], 50, 24*time.Hour)
-	primeUnitStatusHistory(c, units[2], 100, 0)
-	primeUnitStatusHistory(c, units[2], 100, 24*time.Hour)
-	primeUnitAgentStatusHistory(c, agents[0], 100, 0, "")
-	primeUnitAgentStatusHistory(c, agents[0], 100, 24*time.Hour, "")
-	primeUnitAgentStatusHistory(c, agents[1], 50, 0, "")
-	primeUnitAgentStatusHistory(c, agents[1], 50, 24*time.Hour, "")
-	primeUnitAgentStatusHistory(c, agents[2], 10, 0, "")
-	primeUnitAgentStatusHistory(c, agents[2], 10, 24*time.Hour, "")
+	primeUnitStatusHistory(c, s.Clock, units[0], 10, 0)
+	primeUnitStatusHistory(c, s.Clock, units[0], 10, 24*time.Hour)
+	primeUnitStatusHistory(c, s.Clock, units[1], 50, 0)
+	primeUnitStatusHistory(c, s.Clock, units[1], 50, 24*time.Hour)
+	primeUnitStatusHistory(c, s.Clock, units[2], 100, 0)
+	primeUnitStatusHistory(c, s.Clock, units[2], 100, 24*time.Hour)
+	primeUnitAgentStatusHistory(c, s.Clock, agents[0], 100, 0, "")
+	primeUnitAgentStatusHistory(c, s.Clock, agents[0], 100, 24*time.Hour, "")
+	primeUnitAgentStatusHistory(c, s.Clock, agents[1], 50, 0, "")
+	primeUnitAgentStatusHistory(c, s.Clock, agents[1], 50, 24*time.Hour, "")
+	primeUnitAgentStatusHistory(c, s.Clock, agents[2], 10, 0, "")
+	primeUnitAgentStatusHistory(c, s.Clock, agents[2], 10, 24*time.Hour, "")
 
 	history, err := units[0].StatusHistory(status.StatusHistoryFilter{Size: 50})
 	c.Assert(err, jc.ErrorIsNil)
@@ -135,7 +135,8 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryByDate(c *gc.C) {
 		checkPrimedUnitStatus(c, statusInfo, 9-i, 24*time.Hour)
 	}
 
-	err = state.PruneStatusHistory(s.State, 10*time.Hour, 1024)
+	var stop <-chan struct{}
+	err = state.PruneStatusHistory(stop, s.State, 10*time.Hour, 1024)
 	c.Assert(err, jc.ErrorIsNil)
 
 	history, err = units[0].StatusHistory(status.StatusHistoryFilter{Size: 50})
@@ -184,13 +185,12 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryByDate(c *gc.C) {
 }
 
 func (s *StatusHistorySuite) TestStatusHistoryFilterRunningUpdateStatusHook(c *gc.C) {
-
 	application := s.Factory.MakeApplication(c, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 	agent := unit.Agent()
 
-	primeUnitAgentStatusHistory(c, agent, 100, 0, "running update-status hook")
-	primeUnitAgentStatusHistory(c, agent, 100, 0, "doing something else")
+	primeUnitAgentStatusHistory(c, s.Clock, agent, 100, 0, "running update-status hook")
+	primeUnitAgentStatusHistory(c, s.Clock, agent, 100, 0, "doing something else")
 	history, err := agent.StatusHistory(status.StatusHistoryFilter{Size: 200})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(history, gc.HasLen, 200)
@@ -204,13 +204,12 @@ func (s *StatusHistorySuite) TestStatusHistoryFilterRunningUpdateStatusHook(c *g
 }
 
 func (s *StatusHistorySuite) TestStatusHistoryFilterRunningUpdateStatusHookFiltered(c *gc.C) {
-
 	application := s.Factory.MakeApplication(c, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 	agent := unit.Agent()
 
-	primeUnitAgentStatusHistory(c, agent, 100, 0, "running update-status hook")
-	primeUnitAgentStatusHistory(c, agent, 100, 0, "doing something else")
+	primeUnitAgentStatusHistory(c, s.Clock, agent, 100, 0, "running update-status hook")
+	primeUnitAgentStatusHistory(c, s.Clock, agent, 100, 0, "doing something else")
 	history, err := agent.StatusHistory(status.StatusHistoryFilter{Size: 200, Exclude: set.NewStrings("running update-status hook")})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(history, gc.HasLen, 101)
@@ -227,7 +226,7 @@ func (s *StatusHistorySuite) TestStatusHistoryFiltersByDateAndDelta(c *gc.C) {
 
 	twoDaysBack := time.Hour * 48
 	threeDaysBack := time.Hour * 72
-	now := time.Now()
+	now := s.Clock.Now()
 	twoDaysAgo := now.Add(-twoDaysBack)
 	threeDaysAgo := now.Add(-threeDaysBack)
 	sInfo := status.StatusInfo{
@@ -310,7 +309,7 @@ func (s *StatusHistorySuite) TestSameValueNotRepeated(c *gc.C) {
 	application := s.Factory.MakeApplication(c, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 
-	now := time.Now()
+	now := s.Clock.Now()
 	for i := 0; i < 10; i++ {
 		when := now.Add(time.Duration(i) * time.Second)
 		err := unit.SetStatus(status.StatusInfo{

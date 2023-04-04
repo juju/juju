@@ -6,7 +6,6 @@ package apiserver
 import (
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/juju/errors"
@@ -91,7 +90,7 @@ func (h *backupHandler) read(req *http.Request, expectedType string) ([]byte, er
 		return nil, errors.Errorf("expected Content-Type %q, got %q", expectedType, ctype)
 	}
 
-	body, err := ioutil.ReadAll(req.Body)
+	body, err := io.ReadAll(req.Body)
 	if err != nil {
 		return nil, errors.Annotate(err, "while reading request body")
 	}

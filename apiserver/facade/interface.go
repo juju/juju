@@ -160,6 +160,9 @@ type Context interface {
 
 	// Raft returns a lease context for managing raft.
 	Raft() RaftContext
+
+	// HTTPClient returns an HTTP client to use for the given purpose.
+	HTTPClient(purpose HTTPClientPurpose) HTTPClient
 }
 
 // RequestRecorder is implemented by types that can record information about
@@ -257,3 +260,15 @@ type ModelPresence interface {
 type Hub interface {
 	Publish(topic string, data interface{}) (func(), error)
 }
+
+// HTTPClient represents an HTTP client, for example, an *http.Client.
+type HTTPClient interface {
+	Do(*http.Request) (*http.Response, error)
+}
+
+// HTTPClientPurpose describes a specific purpose for an HTTP client.
+type HTTPClientPurpose string
+
+const (
+	CharmhubHTTPClient HTTPClientPurpose = "charmhub"
+)

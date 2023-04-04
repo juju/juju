@@ -11,10 +11,10 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
-	jujutxn "github.com/juju/txn/v2"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
+	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
@@ -485,7 +485,7 @@ func statusHistoryExists(db Database, historyDoc *historicalStatusDoc) (bool, bs
 // to avoid locking the status history collection for extended
 // periods of time, preventing status history being recorded
 // for other entities.
-func eraseStatusHistory(mb modelBackend, globalKey string) error {
+func eraseStatusHistory(stop <-chan struct{}, mb modelBackend, globalKey string) error {
 	// TODO(axw) restructure status history so we have one
 	// document per global key, and sub-documents per status
 	// recording. This method would then become a single
@@ -501,6 +501,7 @@ func eraseStatusHistory(mb modelBackend, globalKey string) error {
 
 	logFormat := "deleted %d status history documents for " + fmt.Sprintf("%q", globalKey)
 	deleted, err := deleteInBatches(
+		stop,
 		history.Writeable().Underlying(), nil, "", iter,
 		logFormat, loggo.DEBUG,
 		noEarlyFinish,
@@ -519,12 +520,13 @@ type statusHistoryArgs struct {
 	db        Database
 	globalKey string
 	filter    status.StatusHistoryFilter
+	clock     clock.Clock
 }
 
 // fetchNStatusResults will return status for the given key filtered with the
 // given filter or error.
-func fetchNStatusResults(col mongo.Collection, key string,
-	filter status.StatusHistoryFilter) ([]historicalStatusDoc, error) {
+func fetchNStatusResults(col mongo.Collection, clock clock.Clock,
+	key string, filter status.StatusHistoryFilter) ([]historicalStatusDoc, error) {
 	var (
 		docs  []historicalStatusDoc
 		query mongo.Query
@@ -532,8 +534,7 @@ func fetchNStatusResults(col mongo.Collection, key string,
 	baseQuery := bson.M{"globalkey": key}
 	if filter.Delta != nil {
 		delta := *filter.Delta
-		// TODO(perrito666) 2016-10-06 lp:1558657
-		updated := time.Now().Add(-delta)
+		updated := clock.Now().Add(-delta)
 		baseQuery["updated"] = bson.M{"$gt": updated.UnixNano()}
 	}
 	if filter.FromDate != nil {
@@ -568,7 +569,7 @@ func statusHistory(args *statusHistoryArgs) ([]status.StatusInfo, error) {
 	defer closer()
 
 	var results []status.StatusInfo
-	docs, err := fetchNStatusResults(statusHistory, args.globalKey, args.filter)
+	docs, err := fetchNStatusResults(statusHistory, args.clock, args.globalKey, args.filter)
 	partial := []status.StatusInfo{}
 	if err != nil {
 		return []status.StatusInfo{}, errors.Trace(err)
@@ -585,7 +586,11 @@ func statusHistory(args *statusHistoryArgs) ([]status.StatusInfo, error) {
 	return results, nil
 }
 
-func PruneStatusHistory(st *State, maxHistoryTime time.Duration, maxHistoryMB int) error {
-	err := pruneCollection(st, maxHistoryTime, maxHistoryMB, statusesHistoryC, "updated", nil, NanoSeconds)
+// PruneStatusHistory prunes the status history collection.
+func PruneStatusHistory(stop <-chan struct{}, st *State, maxHistoryTime time.Duration, maxHistoryMB int) error {
+	coll, closer := st.db().GetRawCollection(statusesHistoryC)
+	defer closer()
+
+	err := pruneCollection(stop, st, maxHistoryTime, maxHistoryMB, coll, "updated", nil, NanoSeconds)
 	return errors.Trace(err)
 }

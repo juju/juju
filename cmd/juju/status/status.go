@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/juju/juju/cmd/output"
 
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"github.com/juju/viddy"
 
 	storageapi "github.com/juju/juju/api/client/storage"
 	jujucmd "github.com/juju/juju/cmd"
@@ -59,7 +61,8 @@ type statusCommand struct {
 	retryCount int
 	retryDelay time.Duration
 
-	color bool
+	color   bool
+	noColor bool
 
 	// relations indicates if 'relations' section is displayed
 	relations bool
@@ -138,9 +141,8 @@ Examples:
     # Provide output as valid JSON
     juju status --format=json
 
-    # Watch the status of the mysql application every five seconds
-    # Only available for unix-based systems.
-    juju status --watch 5s mysql
+    # Watch the status every five seconds
+    juju status --watch 5s
 
     # Show only applications/units in active status
     juju status active
@@ -159,11 +161,10 @@ See also:
 
 func (c *statusCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "show-status",
+		Name:    "status",
 		Args:    "[<selector> [...]]",
 		Purpose: usageSummary,
 		Doc:     usageDetails,
-		Aliases: []string{"status"},
 	})
 }
 
@@ -172,16 +173,14 @@ func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.isoTime, "utc", false, "Display timestamps in the UTC timezone")
 
 	f.BoolVar(&c.color, "color", false, "Use ANSI color codes in tabular output")
+	f.BoolVar(&c.noColor, "no-color", false, "Disable ANSI color codes in tabular output")
 	f.BoolVar(&c.relations, "relations", false, "Show 'relations' section in tabular output")
 	f.BoolVar(&c.storage, "storage", false, "Show 'storage' section in tabular output")
 
 	f.IntVar(&c.retryCount, "retry-count", 3, "Number of times to retry API failures")
 	f.DurationVar(&c.retryDelay, "retry-delay", 100*time.Millisecond, "Time to wait between retry attempts")
 
-	if runtime.GOOS != "windows" {
-		// The watch flag is only available for unix-based systems.
-		f.DurationVar(&c.watch, "watch", 0, "Watch the status every period of time")
-	}
+	f.DurationVar(&c.watch, "watch", 0, "Watch the status every period of time")
 
 	c.checkProvidedIgnoredFlagF = func() set.Strings {
 		ignoredFlagForNonTabularFormat := set.NewStrings(
@@ -201,13 +200,13 @@ func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 	defaultFormat := "tabular"
 
 	c.out.AddFlags(f, defaultFormat, map[string]cmd.Formatter{
-		"yaml":    cmd.FormatYaml,
-		"json":    cmd.FormatJson,
-		"short":   FormatOneline,
-		"oneline": FormatOneline,
-		"line":    FormatOneline,
+		"yaml":    c.formatYaml,
+		"json":    c.formatJson,
+		"short":   c.formatOneline,
+		"oneline": c.formatOneline,
+		"line":    c.formatOneline,
 		"tabular": c.FormatTabular,
-		"summary": FormatSummary,
+		"summary": c.formatSummary,
 	})
 }
 
@@ -224,14 +223,14 @@ func (c *statusCommand) Init(args []string) error {
 			}
 		}
 	}
-
-	if c.watch < 0 {
-		return errors.Errorf("invalid value %q, expected a positive value", c.watch)
-	}
-
 	if c.clock == nil {
 		c.clock = clock.WallClock
 	}
+
+	if c.color && c.noColor {
+		return errors.Errorf("cannot mix --no-color and --color")
+	}
+
 	return nil
 }
 
@@ -385,7 +384,10 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		ctx.Infof("Model %q is empty.", modelName)
+		// A change was made in cmd/v3.0.2 output.go that broke the consistency in output for the
+		// default formatter by removing the newline delimiter. Hence we prefix '\n' in the text below.
+		// https://github.com/juju/cmd/commit/be22fa661a798055c801f1511aee226db249ef95
+		ctx.Infof("\nModel %q is empty.", modelName)
 	} else {
 		plural := func() string {
 			if len(c.patterns) == 1 {
@@ -399,29 +401,38 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 	return nil
 }
 
-// clearScreen removes any character from the terminal
-// using ANSI scape characters.
-func clearScreen() {
-	fmt.Printf("\u001Bc")
+// statusArgsWithoutWatchFlag returns all args cut off '--watch' flag of status commands
+// and the value of '--watch' flag
+func (c *statusCommand) statusArgsWithoutWatchFlag(args []string) []string {
+	var jujuStatusArgsWithoutWatchFlag []string
+
+	for i := range args {
+		if args[i] == "--watch" {
+			jujuStatusArgsWithoutWatchFlag = append(args[:i], args[i+2:]...)
+			if !c.noColor {
+				jujuStatusArgsWithoutWatchFlag = append(jujuStatusArgsWithoutWatchFlag, "--color")
+			}
+			break
+		}
+	}
+
+	return jujuStatusArgsWithoutWatchFlag
 }
 
 func (c *statusCommand) Run(ctx *cmd.Context) error {
 	defer c.close()
 
 	if c.watch != 0 {
-		clearScreen()
-	}
+		jujuStatusArgs := c.statusArgsWithoutWatchFlag(os.Args)
 
-	err := c.runStatus(ctx)
-	if err != nil || c.watch == 0 {
-		return err
-	}
+		viddyArgs := append([]string{"--no-title", "--interval", c.watch.String()}, jujuStatusArgs...)
 
-	// repeat the call using a ticker
-	ticker := time.NewTicker(c.watch)
-
-	for range ticker.C {
-		clearScreen()
+		// Define tview styles and launch preconfiged Viddy watcher
+		app := viddy.NewPreconfigedViddy(viddyArgs)
+		if err := app.Run(); err != nil {
+			return errors.Annotate(err, "unable to run Viddy (watcher for status command)")
+		}
+	} else {
 		err := c.runStatus(ctx)
 		if err != nil {
 			return err
@@ -431,6 +442,75 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
+func (c *statusCommand) formatYaml(writer io.Writer, value interface{}) error {
+	var noColor bool
+
+	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
+		return cmd.FormatYaml(writer, value)
+	}
+
+	if noColor && c.color {
+		return output.FormatYamlWithColor(writer, value)
+	}
+
+	if isTerminal(writer) && !noColor {
+		return output.FormatYamlWithColor(writer, value)
+	}
+
+	if !isTerminal(writer) && c.color {
+		return output.FormatYamlWithColor(writer, value)
+	}
+
+	return cmd.FormatYaml(writer, value)
+}
+
+func (c *statusCommand) formatOneline(writer io.Writer, value interface{}) error {
+	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
+		return FormatOneline(writer, false, value)
+	}
+
+	if c.color {
+		return FormatOneline(writer, c.color, value)
+	}
+
+	if isTerminal(writer) && !c.noColor {
+		return FormatOneline(writer, true, value)
+	}
+
+	if !isTerminal(writer) && c.color {
+		return FormatOneline(writer, true, value)
+	}
+
+	return FormatOneline(writer, false, value)
+}
+
+func (c *statusCommand) formatJson(writer io.Writer, value interface{}) error {
+	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
+		return cmd.FormatJson(writer, value)
+	}
+	// NO_COLOR="" and --color=true
+	if c.color {
+		return output.FormatJsonWithColor(writer, value)
+	}
+
+	if isTerminal(writer) && !c.noColor {
+		return output.FormatJsonWithColor(writer, value)
+	}
+
+	if !isTerminal(writer) && c.color {
+		return output.FormatJsonWithColor(writer, value)
+	}
+
+	return cmd.FormatJson(writer, value)
+}
+
 func (c *statusCommand) FormatTabular(writer io.Writer, value interface{}) error {
+	if c.noColor {
+		if _, ok := os.LookupEnv("NO_COLOR"); !ok {
+			defer os.Unsetenv("NO_COLOR")
+			os.Setenv("NO_COLOR", "")
+		}
+	}
+
 	return FormatTabular(writer, c.color, value)
 }

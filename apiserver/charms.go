@@ -9,7 +9,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
-	"io/ioutil"
 	"mime"
 	"net/http"
 	"os"
@@ -19,7 +18,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	ziputil "github.com/juju/utils/v3/zip"
 
@@ -308,7 +307,7 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 		return nil, errors.Errorf("unsupported schema %q", schema)
 	}
 
-	err = h.repackageAndUploadCharm(st, archive, curl)
+	err = RepackageAndUploadCharm(st, archive, curl)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -348,7 +347,7 @@ func (h *charmsHandler) processUploadedArchive(path string) error {
 
 	// There is one or more subdirs, so we need extract it to a temp
 	// dir and then read it as a charm dir.
-	tempDir, err := ioutil.TempDir("", "charm-extract")
+	tempDir, err := os.MkdirTemp("", "charm-extract")
 	if err != nil {
 		return errors.Annotate(err, "cannot create temp directory")
 	}
@@ -402,12 +401,12 @@ func (d byDepth) Len() int           { return len(d) }
 func (d byDepth) Swap(i, j int)      { d[i], d[j] = d[j], d[i] }
 func (d byDepth) Less(i, j int) bool { return depth(d[i]) < depth(d[j]) }
 
-// repackageAndUploadCharm expands the given charm archive to a
+// RepackageAndUploadCharm expands the given charm archive to a
 // temporary directory, repackages it with the given curl's revision,
 // then uploads it to storage, and finally updates the state.
-func (h *charmsHandler) repackageAndUploadCharm(st *state.State, archive *charm.CharmArchive, curl *charm.URL) error {
+func RepackageAndUploadCharm(st *state.State, archive *charm.CharmArchive, curl *charm.URL) error {
 	// Create a temp dir to contain the extracted charm dir.
-	tempDir, err := ioutil.TempDir("", "charm-download")
+	tempDir, err := os.MkdirTemp("", "charm-download")
 	if err != nil {
 		return errors.Annotate(err, "cannot create temp directory")
 	}
@@ -579,7 +578,7 @@ func sendBundleContent(
 }
 
 func writeCharmToTempFile(r io.Reader) (string, error) {
-	tempFile, err := ioutil.TempFile("", "charm")
+	tempFile, err := os.CreateTemp("", "charm")
 	if err != nil {
 		return "", errors.Annotate(err, "creating temp file")
 	}

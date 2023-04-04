@@ -21,8 +21,11 @@ func ValidatorsForModelMigrationSource(
 		validators = append(validators,
 			checkNoWinMachinesForModel,
 			checkForDeprecatedUbuntuSeriesForModel,
-			getCheckForLXDVersion(cloudspec, minLXDVersion),
+			getCheckForLXDVersion(cloudspec),
 		)
+		if targetVersion.Minor >= 1 {
+			validators = append(validators, checkForCharmStoreCharms)
+		}
 	}
 	return validators
 }

@@ -11,7 +11,9 @@ run_refresh_cs() {
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
 	OUT=$(juju refresh ubuntu 2>&1 || true)
-	if echo "${OUT}" | grep -E -vq "Added"; then
+	if echo "${OUT}" | grep -E -q "Added"; then
+		echo "refresh passed successfully"
+	else
 		# shellcheck disable=SC2046
 		echo $(red "failed refreshing charm: ${OUT}")
 		exit 5
@@ -19,8 +21,8 @@ run_refresh_cs() {
 	# shellcheck disable=SC2059
 	printf "${OUT}\n"
 
-	# format: Added charm-store charm "ubuntu", revision 21 in channel stable, to the model
-	revision=$(echo "${OUT}" | awk 'BEGIN{FS=","} {print $2}' | awk 'BEGIN{FS=" "} {print $2}')
+	# Added charm-store charm "ubuntu", revision 21 in channel stable, to the model
+	revision=$(echo "${OUT}" | tail -n 1 | awk 'BEGIN{FS=","} {print $2}' | awk 'BEGIN{FS=" "} {print $2}')
 
 	wait_for "ubuntu" "$(charm_rev "ubuntu" "${revision}")"
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"

@@ -84,6 +84,10 @@ type Provider interface {
 	// ValidateConfig validates the provided storage provider config,
 	// returning an error if it is invalid.
 	ValidateConfig(*Config) error
+
+	// ValidateForkK8s validates if a storage provider can be set for
+	// a given K8s configuration.
+	ValidateForK8s(map[string]any) error
 }
 
 // VolumeSource provides an interface for creating, destroying, describing,

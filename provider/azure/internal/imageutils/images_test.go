@@ -10,10 +10,12 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
 	"github.com/Azure/go-autorest/autorest/mocks"
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/arch"
 	gc "gopkg.in/check.v1"
 
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v3/arch"
+
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
@@ -45,25 +47,11 @@ func (s *imageutilsSuite) SetUpTest(c *gc.C) {
 	s.callCtx = context.NewEmptyCloudCallContext()
 }
 
-func (s *imageutilsSuite) TestSeriesImageLegacy(c *gc.C) {
-	s.mockSender.AppendResponse(mocks.NewResponseWithContent(
-		`[{"name": "14.04.3"}, {"name": "14.04.1-LTS"}, {"name": "12.04.5"}]`,
-	))
-	image, err := imageutils.SeriesImage(s.callCtx, "trusty", "released", "westus", s.client)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(image, gc.NotNil)
-	c.Assert(image, jc.DeepEquals, &instances.Image{
-		Id:       "Canonical:UbuntuServer:14.04.3:latest",
-		Arch:     arch.AMD64,
-		VirtType: "Hyper-V",
-	})
-}
-
 func (s *imageutilsSuite) TestSeriesImage(c *gc.C) {
 	s.mockSender.AppendResponse(mocks.NewResponseWithContent(
 		`[{"name": "20_04"}, {"name": "20_04-LTS"}, {"name": "19_04"}]`,
 	))
-	image, err := imageutils.SeriesImage(s.callCtx, "focal", "released", "westus", s.client)
+	image, err := imageutils.SeriesImage(s.callCtx, series.MakeDefaultBase("ubuntu", "20.04"), "released", "westus", s.client)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(image, gc.NotNil)
 	c.Assert(image, jc.DeepEquals, &instances.Image{
@@ -75,54 +63,44 @@ func (s *imageutilsSuite) TestSeriesImage(c *gc.C) {
 
 func (s *imageutilsSuite) TestSeriesImageInvalidSKU(c *gc.C) {
 	s.mockSender.AppendResponse(mocks.NewResponseWithContent(
-		`[{"name": "14.04.invalid"}, {"name": "14.04.5-LTS"}]`,
+		`[{"name": "22_04_invalid"}, {"name": "22_04_5-LTS"}]`,
 	))
-	image, err := imageutils.SeriesImage(s.callCtx, "trusty", "released", "westus", s.client)
+	image, err := imageutils.SeriesImage(s.callCtx, series.MakeDefaultBase("ubuntu", "22.04"), "released", "westus", s.client)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(image, gc.NotNil)
 	c.Assert(image, jc.DeepEquals, &instances.Image{
-		Id:       "Canonical:UbuntuServer:14.04.5-LTS:latest",
+		Id:       "Canonical:0001-com-ubuntu-server-jammy:22_04_5-LTS:latest",
 		Arch:     arch.AMD64,
 		VirtType: "Hyper-V",
 	})
 }
 
-func (s *imageutilsSuite) TestSeriesImageWindows(c *gc.C) {
-	s.assertImageId(c, "win2012r2", "daily", "MicrosoftWindowsServer:WindowsServer:2012-R2-Datacenter:latest")
-	s.assertImageId(c, "win2012", "daily", "MicrosoftWindowsServer:WindowsServer:2012-Datacenter:latest")
-	s.assertImageId(c, "win81", "daily", "MicrosoftVisualStudio:Windows:8.1-Enterprise-N:latest")
-	s.assertImageId(c, "win10", "daily", "MicrosoftVisualStudio:Windows:10-Enterprise:latest")
-}
-
 func (s *imageutilsSuite) TestSeriesImageCentOS(c *gc.C) {
-	for _, series := range []string{"centos7", "centos8"} {
-		s.assertImageId(c, series, "released", "OpenLogic:CentOS:7.3:latest")
+	for _, cseries := range []string{"7", "8"} {
+		base := series.MakeDefaultBase("centos", cseries)
+		s.assertImageId(c, base, "released", "OpenLogic:CentOS:7.3:latest")
 	}
-}
-
-func (s *imageutilsSuite) TestSeriesImageGenericLinux(c *gc.C) {
-	_, err := imageutils.SeriesImage(s.callCtx, "genericlinux", "released", "westus", s.client)
-	c.Assert(err, gc.ErrorMatches, "deploying GenericLinux not supported")
 }
 
 func (s *imageutilsSuite) TestSeriesImageStream(c *gc.C) {
 	s.mockSender.AppendAndRepeatResponse(mocks.NewResponseWithContent(
-		`[{"name": "14.04.2"}, {"name": "14.04.3-DAILY"}, {"name": "14.04.1-LTS"}]`), 2)
-	s.assertImageId(c, "trusty", "daily", "Canonical:UbuntuServer:14.04.3-DAILY:latest")
-	s.assertImageId(c, "trusty", "released", "Canonical:UbuntuServer:14.04.2:latest")
+		`[{"name": "22_04_2"}, {"name": "22_04_3-DAILY"}, {"name": "22_04_1-LTS"}]`), 2)
+	base := series.MakeDefaultBase("ubuntu", "22.04")
+	s.assertImageId(c, base, "daily", "Canonical:0001-com-ubuntu-server-jammy:22_04_3-DAILY:latest")
+	s.assertImageId(c, base, "released", "Canonical:0001-com-ubuntu-server-jammy:22_04_2:latest")
 }
 
 func (s *imageutilsSuite) TestSeriesImageNotFound(c *gc.C) {
 	s.mockSender.AppendResponse(mocks.NewResponseWithContent(`[]`))
-	image, err := imageutils.SeriesImage(s.callCtx, "trusty", "released", "westus", s.client)
-	c.Assert(err, gc.ErrorMatches, "selecting SKU for trusty: Ubuntu SKUs for released stream not found")
+	image, err := imageutils.SeriesImage(s.callCtx, series.MakeDefaultBase("ubuntu", "22.04"), "released", "westus", s.client)
+	c.Assert(err, gc.ErrorMatches, "selecting SKU for ubuntu@22.04: Ubuntu SKUs for released stream not found")
 	c.Assert(image, gc.IsNil)
 }
 
 func (s *imageutilsSuite) TestSeriesImageStreamNotFound(c *gc.C) {
-	s.mockSender.AppendResponse(mocks.NewResponseWithContent(`[{"name": "14.04-beta1"}]`))
-	_, err := imageutils.SeriesImage(s.callCtx, "trusty", "whatever", "westus", s.client)
-	c.Assert(err, gc.ErrorMatches, "selecting SKU for trusty: Ubuntu SKUs for whatever stream not found")
+	s.mockSender.AppendResponse(mocks.NewResponseWithContent(`[{"name": "22_04-beta1"}]`))
+	_, err := imageutils.SeriesImage(s.callCtx, series.MakeDefaultBase("ubuntu", "22.04"), "whatever", "westus", s.client)
+	c.Assert(err, gc.ErrorMatches, "selecting SKU for ubuntu@22.04: Ubuntu SKUs for whatever stream not found")
 }
 
 func (s *imageutilsSuite) TestSeriesImageStreamThrewCredentialError(c *gc.C) {
@@ -133,7 +111,7 @@ func (s *imageutilsSuite) TestSeriesImageStreamThrewCredentialError(c *gc.C) {
 		return nil
 	}
 
-	_, err := imageutils.SeriesImage(s.callCtx, "trusty", "whatever", "westus", s.client)
+	_, err := imageutils.SeriesImage(s.callCtx, series.MakeDefaultBase("ubuntu", "22.04"), "whatever", "westus", s.client)
 	c.Assert(err.Error(), jc.Contains, "RESPONSE 401")
 	c.Assert(called, jc.IsTrue)
 }
@@ -146,13 +124,13 @@ func (s *imageutilsSuite) TestSeriesImageStreamThrewNonCredentialError(c *gc.C) 
 		return nil
 	}
 
-	_, err := imageutils.SeriesImage(s.callCtx, "trusty", "whatever", "westus", s.client)
+	_, err := imageutils.SeriesImage(s.callCtx, series.MakeDefaultBase("ubuntu", "22.04"), "whatever", "westus", s.client)
 	c.Assert(err.Error(), jc.Contains, "RESPONSE 308")
 	c.Assert(called, jc.IsFalse)
 }
 
-func (s *imageutilsSuite) assertImageId(c *gc.C, series, stream, id string) {
-	image, err := imageutils.SeriesImage(s.callCtx, series, stream, "westus", s.client)
+func (s *imageutilsSuite) assertImageId(c *gc.C, base series.Base, stream, id string) {
+	image, err := imageutils.SeriesImage(s.callCtx, base, stream, "westus", s.client)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(image.Id, gc.Equals, id)
 }

@@ -4,7 +4,6 @@
 package authenticationworker_test
 
 import (
-	"runtime"
 	"strings"
 	"time"
 
@@ -36,10 +35,6 @@ type workerSuite struct {
 var _ = gc.Suite(&workerSuite{})
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
-	//TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: authentication worker not implemented yet on windows")
-	}
 	s.JujuConnSuite.SetUpTest(c)
 	// Default ssh user is currently "ubuntu".
 	c.Assert(authenticationworker.SSHUser, gc.Equals, "ubuntu")
@@ -86,7 +81,6 @@ func (s *workerSuite) setAuthorisedKeys(c *gc.C, keys ...string) {
 	keyStr := strings.Join(keys, "\n")
 	err := s.Model.UpdateModelConfig(map[string]interface{}{"authorized-keys": keyStr}, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.BackingState.StartSync()
 }
 
 func (s *workerSuite) waitSSHKeys(c *gc.C, expected []string) {

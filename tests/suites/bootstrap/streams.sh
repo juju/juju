@@ -7,7 +7,7 @@ run_simplestream_metadata() {
 	add_bootstrap_tools "${VERSION}"
 
 	add_clean_func "remove_bootstrap_metadata"
-	juju metadata generate-agents \
+	juju metadata generate-agent-binaries \
 		--clean \
 		--prevent-fallback \
 		-d "./tests/suites/bootstrap/streams/"
@@ -32,6 +32,7 @@ run_simplestream_metadata() {
 		--show-log \
 		--config agent-metadata-url="http://${server_address}:8666/" \
 		--config test-mode=true \
+		--add-model=default \
 		--bootstrap-series="${BOOTSTRAP_SERIES}" \
 		--agent-version="${JUJUD_VERSION}" 2>&1 | OUTPUT "${file}"
 	echo "${name}" >>"${TEST_DIR}/jujus"

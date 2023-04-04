@@ -10,7 +10,6 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	stdtesting "testing"
 
@@ -64,17 +63,15 @@ var allowedCalls = map[string]set.Strings{
 	// upgrade-model is not a whitelisted embedded CLI command.
 	"juju/commands/upgrademodel.go": set.NewStrings("os.Open", "os.RemoveAll"),
 	// ssh is not a whitelisted embedded CLI command.
-	"juju/commands/ssh_machine.go": set.NewStrings("os.Remove"),
-	// upgrade-gui is not a whitelisted embedded CLI command.
-	"juju/gui/upgradegui.go": set.NewStrings("os.Remove"),
-	// agree is not a whitelisted embedded CLI command.
-	"juju/romulus/agree/agree.go": set.NewStrings("exec.Command", "exec.LookPath"),
+	"juju/ssh/ssh_machine.go": set.NewStrings("os.Remove"),
+	// agree is not exposed to shell scripts because it uses PAGER to present terms
+	"juju/agree/agree/agree.go": set.NewStrings("exec.Command", "exec.LookPath"),
 	// Ignore the actual os calls.
 	"modelcmd/filesystem.go": set.NewStrings("*"),
 	// signmetadata is not a whitelisted embedded CLI command.
 	"plugins/juju-metadata/signmetadata.go": set.NewStrings("os.Open"),
 	// containeragent needs to ensure jujud symlinks.
-	"containeragent/utils/filesystem.go": set.NewStrings("os.Symlink", "os.OpenFile", "os.RemoveAll"),
+	"containeragent/utils/filesystem.go": set.NewStrings("os.Stat", "os.Symlink", "os.OpenFile", "os.RemoveAll"),
 }
 
 var ignoredPackages = set.NewStrings(
@@ -91,9 +88,6 @@ var _ = gc.Suite(&OSCallTest{})
 // This ensures embedded commands do not accidentally bypass
 // the restrictions to filesystem or exec access.
 func (s *OSCallTest) TestNoRestrictedCalls(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("not needed on Windows, checking for imports on Ubuntu sufficient")
-	}
 	fset := token.NewFileSet()
 	calls := make(map[string]set.Strings)
 

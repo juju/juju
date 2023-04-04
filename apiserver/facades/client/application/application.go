@@ -8,10 +8,11 @@ import (
 	"math"
 	"net"
 	"reflect"
-	"time"
+	"strings"
 
-	"github.com/juju/charm/v8"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	"github.com/juju/charm/v9"
+	csparams "github.com/juju/charmrepo/v7/csclient/params"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -25,13 +26,11 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/client/charms"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
@@ -46,6 +45,7 @@ import (
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -60,84 +60,30 @@ var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
 var logger = loggo.GetLogger("juju.apiserver.application")
 
-// APIv4 provides the Application API facade for versions 1-4.
-type APIv4 struct {
-	*APIv5
+// APIv17 provides the Application API facade for version 17.
+type APIv17 struct {
+	*APIBase
 }
 
-// APIv5 provides the Application API facade for version 5.
-type APIv5 struct {
-	*APIv6
-}
-
-// APIv6 provides the Application API facade for version 6.
-type APIv6 struct {
-	*APIv7
-}
-
-// APIv7 provides the Application API facade for version 7.
-type APIv7 struct {
-	*APIv8
-}
-
-// APIv8 provides the Application API facade for version 8.
-type APIv8 struct {
-	*APIv9
-}
-
-// APIv9 provides the Application API facade for version 9.
-type APIv9 struct {
-	*APIv10
-}
-
-// APIv10 provides the Application API facade for version 10.
-// It adds --force and --max-wait parameters to remove-saas.
-type APIv10 struct {
-	*APIv11
-}
-
-// APIv11 provides the Application API facade for version 11.
-// The Get call also returns the current endpoint bindings while the SetCharm
-// call access a map of operator-defined bindings.
-type APIv11 struct {
-	*APIv12
-}
-
-// APIv12 provides the Application API facade for version 12.
-// It adds the UnitsInfo method.
-type APIv12 struct {
-	*APIv13
-}
-
-// APIv13 provides the Application API facade for version 13.
-// It adds CharmOrigin. The ApplicationsInfo call populates the exposed
-// endpoints field in its response entries.
-type APIv13 struct {
-	*APIv14
-}
-
-// APIv14 provides the Application API facade for version 14.
-// It adds Leader.
-type APIv14 struct {
-	*APIv15
+// APIv16 provides the Application API facade for version 16.
+type APIv16 struct {
+	*APIv17
 }
 
 // APIv15 provides the Application API facade for version 15.
 type APIv15 struct {
-	*APIBase
+	*APIv16
 }
 
 // APIBase implements the shared application interface and is the concrete
 // implementation of the api end point.
-//
-// API provides the Application API facade for version 5.
 type APIBase struct {
 	backend       Backend
 	storageAccess StorageInterface
 
-	authorizer   facade.Authorizer
-	check        BlockChecker
-	updateSeries UpdateSeries
+	authorizer facade.Authorizer
+	check      BlockChecker
+	updateBase UpdateBase
 
 	model     Model
 	modelType state.ModelType
@@ -202,33 +148,23 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		return nil, errors.Trace(err)
 	}
 
-	options := []charmhub.Option{
-		// TODO (stickupkid): Get the http transport from the facade context
-		charmhub.WithHTTPTransport(charmhub.DefaultHTTPTransport),
-	}
-
-	var chCfg charmhub.Config
-	chURL, ok := modelCfg.CharmHubURL()
-	if ok {
-		chCfg, err = charmhub.CharmHubConfigFromURL(chURL, logger, options...)
-	} else {
-		chCfg, err = charmhub.CharmHubConfig(logger, options...)
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	chClient, err := charmhub.NewClient(chCfg)
+	chURL, _ := modelCfg.CharmHubURL()
+	chClient, err := charmhub.NewClient(charmhub.Config{
+		URL:        chURL,
+		HTTPClient: ctx.HTTPClient(facade.CharmhubHTTPClient),
+		Logger:     logger,
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	updateSeries := NewUpdateSeriesAPI(state, makeUpdateSeriesValidator(chClient))
+	updateBase := NewUpdateBaseAPI(state, makeUpdateSeriesValidator(chClient))
 
 	return NewAPIBase(
 		state,
 		storageAccess,
 		ctx.Auth(),
-		updateSeries,
+		updateBase,
 		blockChecker,
 		&modelShim{Model: model}, // modelShim wraps the AllPorts() API.
 		leadershipReader,
@@ -246,7 +182,7 @@ func NewAPIBase(
 	backend Backend,
 	storageAccess StorageInterface,
 	authorizer facade.Authorizer,
-	updateSeries UpdateSeries,
+	updateBase UpdateBase,
 	blockChecker BlockChecker,
 	model Model,
 	leadershipReader leadership.Reader,
@@ -264,7 +200,7 @@ func NewAPIBase(
 		backend:               backend,
 		storageAccess:         storageAccess,
 		authorizer:            authorizer,
-		updateSeries:          updateSeries,
+		updateBase:            updateBase,
 		check:                 blockChecker,
 		model:                 model,
 		modelType:             model.Type(),
@@ -324,87 +260,6 @@ func (api *APIBase) SetMetricCredentials(args params.ApplicationMetricCredential
 
 // Deploy fetches the charms from the charm store and deploys them
 // using the specified placement directives.
-// V5 deploy did not support policy, so pass through an empty string.
-func (api *APIv5) Deploy(args params.ApplicationsDeployV5) (params.ErrorResults, error) {
-	noDefinedPolicy := ""
-	var newArgs params.ApplicationsDeploy
-	for _, value := range args.Applications {
-		newArgs.Applications = append(newArgs.Applications, params.ApplicationDeploy{
-			ApplicationName:  value.ApplicationName,
-			Series:           value.Series,
-			CharmURL:         value.CharmURL,
-			Channel:          value.Channel,
-			NumUnits:         value.NumUnits,
-			Config:           value.Config,
-			ConfigYAML:       value.ConfigYAML,
-			Constraints:      value.Constraints,
-			Placement:        value.Placement,
-			Policy:           noDefinedPolicy,
-			Storage:          value.Storage,
-			AttachStorage:    value.AttachStorage,
-			EndpointBindings: value.EndpointBindings,
-			Resources:        value.Resources,
-		})
-	}
-	return api.APIBase.Deploy(newArgs)
-}
-
-// Deploy fetches the charms from the charm store and deploys them
-// using the specified placement directives.
-// V6 deploy did not support devices, so pass through an empty map.
-func (api *APIv6) Deploy(args params.ApplicationsDeployV6) (params.ErrorResults, error) {
-	var newArgs params.ApplicationsDeploy
-	for _, value := range args.Applications {
-		newArgs.Applications = append(newArgs.Applications, params.ApplicationDeploy{
-			ApplicationName:  value.ApplicationName,
-			Series:           value.Series,
-			CharmURL:         value.CharmURL,
-			Channel:          value.Channel,
-			NumUnits:         value.NumUnits,
-			Config:           value.Config,
-			ConfigYAML:       value.ConfigYAML,
-			Constraints:      value.Constraints,
-			Placement:        value.Placement,
-			Policy:           value.Policy,
-			Devices:          nil, // set Devices to nil because v6 and lower versions do not support it
-			Storage:          value.Storage,
-			AttachStorage:    value.AttachStorage,
-			EndpointBindings: value.EndpointBindings,
-			Resources:        value.Resources,
-		})
-	}
-	return api.APIBase.Deploy(newArgs)
-}
-
-// Deploy fetches the charms from the charm store and deploys them
-// using the specified placement directives.
-// V12 deploy did not CharmOrigin, so pass through an unknown source.
-func (api *APIv12) Deploy(args params.ApplicationsDeployV12) (params.ErrorResults, error) {
-	var newArgs params.ApplicationsDeploy
-	for _, value := range args.Applications {
-		newArgs.Applications = append(newArgs.Applications, params.ApplicationDeploy{
-			ApplicationName:  value.ApplicationName,
-			Series:           value.Series,
-			CharmURL:         value.CharmURL,
-			Channel:          value.Channel,
-			NumUnits:         value.NumUnits,
-			Config:           value.Config,
-			ConfigYAML:       value.ConfigYAML,
-			Constraints:      value.Constraints,
-			Placement:        value.Placement,
-			Policy:           value.Policy,
-			Devices:          value.Devices,
-			Storage:          value.Storage,
-			AttachStorage:    value.AttachStorage,
-			EndpointBindings: value.EndpointBindings,
-			Resources:        value.Resources,
-		})
-	}
-	return api.APIBase.Deploy(newArgs)
-}
-
-// Deploy fetches the charms from the charm store and deploys them
-// using the specified placement directives.
 func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
@@ -417,6 +272,17 @@ func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults,
 	}
 
 	for i, arg := range args.Applications {
+		// If either the charm origin ID or Hash is set before a charm is
+		// downloaded, charm download will fail for charms with a forced series.
+		// The logic (refreshConfig) in sending the correct request to charmhub
+		// will break.
+		if arg.CharmOrigin != nil &&
+			((arg.CharmOrigin.ID != "" && arg.CharmOrigin.Hash == "") ||
+				(arg.CharmOrigin.ID == "" && arg.CharmOrigin.Hash != "")) {
+			err := errors.BadRequestf("programming error, Deploy, neither CharmOrigin ID nor Hash can be set before a charm is downloaded. See CharmHubRepository GetDownloadURL.")
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 		err := deployApplication(
 			api.backend,
 			api.model,
@@ -532,7 +398,6 @@ func splitApplicationAndCharmConfigFromYAML(modelType state.ModelType, inYaml, a
 
 func caasPrecheck(
 	ch Charm,
-	controllerCfg controller.Config,
 	model Model,
 	args params.ApplicationDeploy,
 	storagePoolManager poolmanager.PoolManager,
@@ -644,18 +509,13 @@ func deployApplication(
 		return errors.Trace(err)
 	}
 
-	minver := ch.Meta().MinJujuVersion
-	if err := jujuversion.CheckJujuMinVersion(minver, jujuversion.Current); err != nil {
+	if err := jujuversion.CheckJujuMinVersion(ch.Meta().MinJujuVersion, jujuversion.Current); err != nil {
 		return errors.Trace(err)
 	}
 
 	modelType := model.Type()
 	if modelType != state.ModelTypeIAAS {
-		cfg, err := backend.ControllerConfig()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if err := caasPrecheck(ch, cfg, model, args, storagePoolManager, registry, caasBroker); err != nil {
+		if err := caasPrecheck(ch, model, args, storagePoolManager, registry, caasBroker); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -688,7 +548,6 @@ func deployApplication(
 	}
 	_, err = deployApplicationFunc(backend, model, DeployApplicationParams{
 		ApplicationName:   args.ApplicationName,
-		Series:            args.Series,
 		Charm:             stateCharm(ch),
 		CharmOrigin:       origin,
 		Channel:           csparams.Channel(args.Channel),
@@ -714,13 +573,13 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 	)
 	if origin != nil {
 		originType = origin.Type
-		base, err := charms.ConvertParamsBase(*origin)
+		base, err := series.ParseBase(origin.Base.Name, origin.Base.Channel)
 		if err != nil {
 			return corecharm.Origin{}, errors.Trace(err)
 		}
 		platform = corecharm.Platform{
 			Architecture: origin.Architecture,
-			OS:           base.Name,
+			OS:           base.OS,
 			Channel:      base.Channel.Track,
 		}
 	}
@@ -965,48 +824,7 @@ type setCharmParams struct {
 }
 
 type forceParams struct {
-	ForceSeries, ForceUnits, Force bool
-}
-
-// Update updates the application attributes, including charm URL,
-// minimum number of units, charm config and constraints.
-// All parameters in params.ApplicationUpdate except the application name are optional.
-// Note: Updating the charm-url via Update is no longer supported.  See SetCharm.
-// Note: This method is no longer supported with facade v13.  See: SetCharm, SetConfigs.
-func (api *APIv12) Update(args params.ApplicationUpdate) error {
-	if err := api.checkCanWrite(); err != nil {
-		return err
-	}
-	if !args.ForceCharmURL {
-		if err := api.check.ChangeAllowed(); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	app, err := api.backend.Application(args.ApplicationName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Set the charm for the given application.
-	if args.CharmURL != "" {
-		return errors.NotSupportedf("updating charm url, see SetCharm")
-	}
-	// Set the minimum number of units for the given application.
-	if args.MinUnits != nil {
-		if err = app.SetMinUnits(*args.MinUnits); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	if err := api.setConfig(app, args.Generation, args.SettingsYAML, args.SettingsStrings); err != nil {
-		return errors.Trace(err)
-	}
-
-	// Update application's constraints.
-	if args.Constraints != nil {
-		return app.SetConstraints(*args.Constraints)
-	}
-	return nil
+	ForceBase, ForceUnits, Force bool
 }
 
 func (api *APIBase) setConfig(app Application, generation, settingsYAML string, settingsStrings map[string]string) error {
@@ -1055,17 +873,8 @@ func (api *APIBase) setConfig(app Application, generation, settingsYAML string, 
 	return nil
 }
 
-// UpdateApplicationBase isn't on the V14 API.
-func (api *APIv14) UpdateApplicationBase(_ struct{}) {}
-
-// UpdateApplicationSeries updates the application base. Series for
-// subordinates updated too.
-func (api *APIv14) UpdateApplicationSeries(args params.UpdateChannelArgs) (params.ErrorResults, error) {
-	return api.APIBase.UpdateApplicationBase(args)
-}
-
-// UpdateApplicationBase updates the application series. Bases for
-// subordinates updated too.
+// UpdateApplicationBase updates the application base.
+// Base for subordinates is updated too.
 func (api *APIBase) UpdateApplicationBase(args params.UpdateChannelArgs) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, err
@@ -1077,48 +886,30 @@ func (api *APIBase) UpdateApplicationBase(args params.UpdateChannelArgs) (params
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
 	for i, arg := range args.Args {
-		err := api.updateOneApplicationSeries(arg)
+		err := api.updateOneApplicationBase(arg)
 		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
 }
 
-func (api *APIBase) updateOneApplicationSeries(arg params.UpdateChannelArg) error {
-	if arg.Series == "" {
-		channel, err := series.ParseChannel(arg.Channel)
+func (api *APIBase) updateOneApplicationBase(arg params.UpdateChannelArg) error {
+	var argBase series.Base
+	if arg.Channel != "" {
+		appTag, err := names.ParseTag(arg.Entity.Tag)
 		if err != nil {
-			return errors.NotValidf("channel %q", arg.Channel)
+			return errors.Trace(err)
 		}
-		var mseries string
-		mseries, err = series.VersionSeries(channel.Track)
+		app, err := api.backend.Application(appTag.Id())
 		if err != nil {
-			mseries, err = series.VersionSeries("centos" + channel.Track)
+			return errors.Trace(err)
 		}
+		origin := app.CharmOrigin()
+		argBase, err = series.ParseBase(origin.Platform.OS, arg.Channel)
 		if err != nil {
-			return errors.NotValidf("channel %q", arg.Channel)
+			return errors.Trace(err)
 		}
-		arg.Series = mseries
 	}
-	return api.updateSeries.UpdateSeries(arg.Entity.Tag, arg.Series, arg.Force)
-}
-
-// SetCharm sets the charm for a given for the application.
-func (api *APIv12) SetCharm(args params.ApplicationSetCharmV12) error {
-	newArgs := params.ApplicationSetCharm{
-		ApplicationName:    args.ApplicationName,
-		Generation:         args.Generation,
-		CharmURL:           args.CharmURL,
-		Channel:            args.Channel,
-		ConfigSettings:     args.ConfigSettings,
-		ConfigSettingsYAML: args.ConfigSettingsYAML,
-		Force:              args.Force,
-		ForceUnits:         args.ForceUnits,
-		ForceSeries:        args.ForceSeries,
-		ResourceIDs:        args.ResourceIDs,
-		StorageConstraints: args.StorageConstraints,
-		EndpointBindings:   args.EndpointBindings,
-	}
-	return api.APIBase.SetCharm(newArgs)
+	return api.updateBase.UpdateBase(arg.Entity.Tag, argBase, arg.Force)
 }
 
 // SetCharm sets the charm for a given for the application.
@@ -1149,9 +940,9 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 			StorageConstraints:    args.StorageConstraints,
 			EndpointBindings:      args.EndpointBindings,
 			Force: forceParams{
-				ForceSeries: args.ForceSeries,
-				ForceUnits:  args.ForceUnits,
-				Force:       args.Force,
+				ForceBase:  args.ForceBase,
+				ForceUnits: args.ForceUnits,
+				Force:      args.Force,
 			},
 		},
 		args.CharmURL,
@@ -1219,7 +1010,7 @@ func (api *APIBase) setCharmWithAgentValidation(
 		if unsupportedReason != "" {
 			return errors.NotSupportedf(unsupportedReason)
 		}
-		origin, err := stateCharmOrigin(newOrigin)
+		origin, err := StateCharmOrigin(newOrigin)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1250,7 +1041,7 @@ func (api *APIBase) setCharmWithAgentValidation(
 		}
 	}
 
-	origin, err := stateCharmOrigin(newOrigin)
+	origin, err := StateCharmOrigin(newOrigin)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1308,7 +1099,7 @@ func (api *APIBase) applicationSetCharm(
 		CharmOrigin:        newOrigin,
 		Channel:            params.Channel,
 		ConfigSettings:     settings,
-		ForceSeries:        force.ForceSeries,
+		ForceBase:          force.ForceBase,
 		ForceUnits:         force.ForceUnits,
 		Force:              force.Force,
 		PendingResourceIDs: params.ResourceIDs,
@@ -1325,80 +1116,7 @@ func (api *APIBase) applicationSetCharm(
 		return errors.New("cannot downgrade from v2 charm format to v1")
 	}
 
-	// If upgrading from a pod-spec (v1) charm to sidecar (v2), override the
-	// application's series to what it would be for a fresh sidecar deploy.
-	oldSeries := params.Application.Series()
-	if oldSeries == series.Kubernetes.String() && charm.MetaFormat(newCharm) >= charm.FormatV2 && corecharm.IsKubernetes(newCharm) {
-		// Disallow upgrading from a v1 DaemonSet or Deployment type charm
-		// (only StatefulSet is supported in v2 right now).
-		deployment := oldCharm.Meta().Deployment
-		if deployment != nil && deployment.DeploymentType != charm.DeploymentStateful {
-			return errors.Errorf("cannot upgrade from v1 %s deployment to v2", deployment.DeploymentType)
-		}
-
-		modelConfig, err := api.model.ModelConfig()
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		var supported []string
-		for _, base := range newCharm.Manifest().Bases {
-			series, err := series.VersionSeries(base.Channel.Track)
-			if err != nil {
-				continue
-			}
-			supported = append(supported, series)
-		}
-
-		newSeries, err := sidecarUpgradeSeries(modelConfig, supported)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		logger.Debugf("upgrading pod-spec to sidecar charm, setting series to %q", newSeries)
-		cfg.Series = newSeries
-	}
-
 	return params.Application.SetCharm(cfg)
-}
-
-// sidecarUpgradeSeries is a cut-down version of seriesSelector.charmSeries
-// for a refresh from a pod-spec to a sidecar charm. It looks at the model's
-// default and falls back to the charm's series (no support for "--series",
-// series in charm URL, or default LTS).
-func sidecarUpgradeSeries(modelConfig *environsconfig.Config, supported []string) (string, error) {
-	supportedJuju, err := series.WorkloadSeries(time.Now(), "", modelConfig.ImageStream())
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	// Use model default series, if explicitly set and supported by the charm.
-	if selected, explicit := modelConfig.DefaultSeries(); explicit {
-		if _, err := charm.SeriesForCharm(selected, supported); err == nil {
-			// validate the series we get from the charm
-			if !supportedJuju.Contains(selected) {
-				return "", errors.NotSupportedf("series: %q", selected)
-			}
-			return selected, nil
-		}
-	}
-
-	// Fall back to the charm's list of series, filtered to what's supported
-	// by Juju. Preserve the order of the supported series from the charm
-	// metadata, as the order could be out of order compared to Ubuntu series
-	// order (precise, xenial, bionic, trusty, etc).
-	var filtered []string
-	for _, charmSeries := range supported {
-		if supportedJuju.Contains(charmSeries) {
-			filtered = append(filtered, charmSeries)
-		}
-	}
-	selected, err := charm.SeriesForCharm("", filtered)
-	if err == nil {
-		return selected, nil
-	}
-
-	// Otherwise it's an error
-	return "", err
 }
 
 // charmConfigFromYamlConfigValues will parse a yaml produced by juju get and
@@ -1439,23 +1157,6 @@ func charmConfigFromConfigValues(yamlContents map[string]interface{}) (charm.Set
 	return onlySettings, nil
 }
 
-// GetCharmURL returns the charm URL the given application is
-// running at present.
-func (api *APIBase) GetCharmURL(args params.ApplicationGet) (params.StringResult, error) {
-	if err := api.checkCanWrite(); err != nil {
-		return params.StringResult{}, errors.Trace(err)
-	}
-	oneApplication, err := api.backend.Application(args.ApplicationName)
-	if err != nil {
-		return params.StringResult{}, errors.Trace(err)
-	}
-	charmURL, _ := oneApplication.CharmURL()
-	return params.StringResult{Result: *charmURL}, nil
-}
-
-// GetCharmURLOrigin isn't on the V12 API.
-func (api *APIv12) GetCharmURLOrigin(_ struct{}) {}
-
 // GetCharmURLOrigin returns the charm URL and charm origin the given
 // application is running at present.
 func (api *APIBase) GetCharmURLOrigin(args params.ApplicationGet) (params.CharmURLOriginResult, error) {
@@ -1473,9 +1174,9 @@ func (api *APIBase) GetCharmURLOrigin(args params.ApplicationGet) (params.CharmU
 		result.Error = apiservererrors.ServerError(errors.NotFoundf("charm origin for %q", args.ApplicationName))
 		return result, nil
 	}
-	result.Origin, err = makeParamsCharmOrigin(chOrigin)
-	if err != nil {
-		return params.CharmURLOriginResult{Error: apiservererrors.ServerError(err)}, nil
+	if result.Origin, err = makeParamsCharmOrigin(chOrigin); err != nil {
+		result.Error = apiservererrors.ServerError(errors.NotFoundf("charm origin for %q", args.ApplicationName))
+		return result, nil
 	}
 	result.Origin.InstanceKey = charmhub.CreateInstanceKey(oneApplication.ApplicationTag(), api.model.ModelTag())
 	return result, nil
@@ -1501,80 +1202,9 @@ func makeParamsCharmOrigin(origin *state.CharmOrigin) (params.CharmOrigin, error
 	}
 	if origin.Platform != nil {
 		retOrigin.Architecture = origin.Platform.Architecture
-		var base series.Base
-		if origin.Platform.Series != "" {
-			var err error
-			if origin.Platform.OS == "" {
-				base, err = series.GetBaseFromSeries(origin.Platform.Series)
-			} else {
-				var channel string
-				channel, err = series.SeriesVersion(origin.Platform.Series)
-				if err == nil {
-					base, err = series.ParseBase(origin.Platform.OS, channel)
-				}
-			}
-			if err != nil {
-				return params.CharmOrigin{}, errors.Trace(err)
-			}
-		}
-		retOrigin.Base = params.Base{Name: base.Name, Channel: base.Channel.String()}
-		retOrigin.OS = base.Name
-		retOrigin.Channel = base.Channel.String()
-		retOrigin.Series = origin.Platform.Series
+		retOrigin.Base = params.Base{Name: origin.Platform.OS, Channel: origin.Platform.Channel}
 	}
 	return retOrigin, nil
-}
-
-// Set implements the server side of Application.Set.
-// It does not unset values that are set to an empty string.
-// Unset should be used for that.
-func (api *APIBase) Set(p params.ApplicationSet) error {
-	if err := api.checkCanWrite(); err != nil {
-		return err
-	}
-	if err := api.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	app, err := api.backend.Application(p.ApplicationName)
-	if err != nil {
-		return err
-	}
-	ch, _, err := app.Charm()
-	if err != nil {
-		return err
-	}
-	// Validate the settings.
-	changes, err := ch.Config().ParseSettingsStrings(p.Options)
-	if err != nil {
-		return err
-	}
-
-	return app.UpdateCharmConfig(model.GenerationMaster, changes)
-}
-
-// Unset implements the server side of Client.Unset.
-func (api *APIBase) Unset(p params.ApplicationUnset) error {
-	if err := api.checkCanWrite(); err != nil {
-		return err
-	}
-	if err := api.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	app, err := api.backend.Application(p.ApplicationName)
-	if err != nil {
-		return err
-	}
-	settings := make(charm.Settings)
-	for _, option := range p.Options {
-		settings[option] = nil
-	}
-
-	// We need a guard on the API server-side for direct API callers such as
-	// python-libjuju. Always default to the master branch.
-	if p.BranchName == "" {
-		p.BranchName = model.GenerationMaster
-	}
-	return app.UpdateCharmConfig(p.BranchName, settings)
 }
 
 // CharmRelations implements the server side of Application.CharmRelations.
@@ -1713,22 +1343,25 @@ func (api *APIBase) Unexpose(args params.ApplicationUnexpose) error {
 }
 
 // AddUnits adds a given number of units to an application.
-func (api *APIv5) AddUnits(args params.AddApplicationUnitsV5) (params.AddApplicationUnitsResults, error) {
-	noDefinedPolicy := ""
-	return api.APIBase.AddUnits(params.AddApplicationUnits{
-		ApplicationName: args.ApplicationName,
-		NumUnits:        args.NumUnits,
-		Placement:       args.Placement,
-		Policy:          noDefinedPolicy,
-		AttachStorage:   args.AttachStorage,
-	})
-}
-
-// AddUnits adds a given number of units to an application.
 func (api *APIBase) AddUnits(args params.AddApplicationUnits) (params.AddApplicationUnitsResults, error) {
 	if api.modelType == state.ModelTypeCAAS {
 		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units to a container-based model")
 	}
+
+	// TODO(wallyworld) - enable-ha is how we add new controllers at the moment
+	// Remove this check before 3.0 when enable-ha is refactored.
+	app, err := api.backend.Application(args.ApplicationName)
+	if err != nil {
+		return params.AddApplicationUnitsResults{}, errors.Trace(err)
+	}
+	ch, _, err := app.Charm()
+	if err != nil {
+		return params.AddApplicationUnitsResults{}, errors.Trace(err)
+	}
+	if ch.Meta().Name == bootstrap.ControllerCharmName {
+		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units to the controller application")
+	}
+
 	if err := api.checkCanWrite(); err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
@@ -1800,15 +1433,8 @@ func addApplicationUnits(backend Backend, modelType state.ModelType, args params
 
 // DestroyUnits removes a given set of application units.
 //
-// NOTE(axw) this exists only for backwards compatibility,
-// for API facade versions 1-3; clients should prefer its
-// successor, DestroyUnit, below. Until all consumers have
-// been updated, or we bump a major version, we can't drop
-// this.
-//
-// TODO(axw) 2017-03-16 #1673323
-// Drop this in Juju 3.0.
-func (api *APIBase) DestroyUnits(args params.DestroyApplicationUnits) error {
+// TODO(jack-w-shaw) Drop this once facade 16 is not longer supported
+func (api *APIv16) DestroyUnits(args params.DestroyApplicationUnits) error {
 	var errs []error
 	entities := params.DestroyUnitsParams{
 		Units: make([]params.DestroyUnitParams, 0, len(args.UnitNames)),
@@ -1834,17 +1460,21 @@ func (api *APIBase) DestroyUnits(args params.DestroyApplicationUnits) error {
 	return apiservererrors.DestroyErr("units", args.UnitNames, errs)
 }
 
-// DestroyUnit removes a given set of application units.
-//
-// NOTE(axw) this provides backwards compatibility for facade version 4.
-func (api *APIv4) DestroyUnit(args params.Entities) (params.DestroyUnitResults, error) {
-	v5args := params.DestroyUnitsParams{
-		Units: make([]params.DestroyUnitParams, len(args.Entities)),
+func (*APIBase) DestroyUnits(_ struct{}) {}
+
+func (api *APIv15) DestroyUnit(argsV15 params.DestroyUnitsParamsV15) (params.DestroyUnitResults, error) {
+	args := params.DestroyUnitsParams{
+		Units: transform.Slice(argsV15.Units, func(p params.DestroyUnitParamsV15) params.DestroyUnitParams {
+			return params.DestroyUnitParams{
+				UnitTag:        p.UnitTag,
+				DestroyStorage: p.DestroyStorage,
+				Force:          p.Force,
+				MaxWait:        p.MaxWait,
+				DryRun:         false,
+			}
+		}),
 	}
-	for i, arg := range args.Entities {
-		v5args.Units[i].UnitTag = arg.Tag
-	}
-	return api.APIBase.DestroyUnit(v5args)
+	return api.APIv16.DestroyUnit(args)
 }
 
 // DestroyUnit removes a given set of application units.
@@ -1858,11 +1488,14 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 	if err := api.check.RemoveAllowed(); err != nil {
 		return params.DestroyUnitResults{}, errors.Trace(err)
 	}
+
+	appCharms := make(map[string]Charm)
 	destroyUnit := func(arg params.DestroyUnitParams) (*params.DestroyUnitInfo, error) {
 		unitTag, err := names.ParseUnitTag(arg.UnitTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+
 		name := unitTag.Id()
 		unit, err := api.backend.Unit(name)
 		if errors.IsNotFound(err) {
@@ -1873,6 +1506,26 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 		if !unit.IsPrincipal() {
 			return nil, errors.Errorf("unit %q is a subordinate, to remove use remove-relation. Note: this will remove all units of %q", name, unit.ApplicationName())
 		}
+
+		// TODO(wallyworld) - enable-ha is how we remove controllers at the moment
+		// Remove this check before 3.0 when enable-ha is refactored.
+		appName, _ := names.UnitApplication(unitTag.Id())
+		ch, ok := appCharms[appName]
+		if !ok {
+			app, err := api.backend.Application(appName)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ch, _, err = app.Charm()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			appCharms[appName] = ch
+		}
+		if ch.Meta().Name == bootstrap.ControllerCharmName {
+			return nil, errors.NotSupportedf("removing units from the controller application")
+		}
+
 		var info params.DestroyUnitInfo
 		unitStorage, err := storagecommon.UnitStorage(api.storageAccess, unit.UnitTag())
 		if err != nil {
@@ -1893,6 +1546,9 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+		}
+		if arg.DryRun {
+			return &info, nil
 		}
 		op := unit.DestroyOperation()
 		op.DestroyStorage = arg.DestroyStorage
@@ -1924,15 +1580,8 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 
 // Destroy destroys a given application, local or remote.
 //
-// NOTE(axw) this exists only for backwards compatibility,
-// for API facade versions 1-3; clients should prefer its
-// successor, DestroyApplication, below. Until all consumers
-// have been updated, or we bump a major version, we can't
-// drop this.
-//
-// TODO(axw) 2017-03-16 #1673323
-// Drop this in Juju 3.0.
-func (api *APIBase) Destroy(in params.ApplicationDestroy) error {
+// TODO(jack-w-shaw) Drop this once facade 16 is not longer supported
+func (api *APIv16) Destroy(in params.ApplicationDestroy) error {
 	if !names.IsValidApplication(in.ApplicationName) {
 		return errors.NotValidf("application name %q", in.ApplicationName)
 	}
@@ -1951,17 +1600,22 @@ func (api *APIBase) Destroy(in params.ApplicationDestroy) error {
 	return nil
 }
 
+func (*APIBase) Destroy(_ struct{}) {}
+
 // DestroyApplication removes a given set of applications.
-//
-// NOTE(axw) this provides backwards compatibility for facade version 4.
-func (api *APIv4) DestroyApplication(args params.Entities) (params.DestroyApplicationResults, error) {
-	v5args := params.DestroyApplicationsParams{
-		Applications: make([]params.DestroyApplicationParams, len(args.Entities)),
+func (api *APIv15) DestroyApplication(argsV15 params.DestroyApplicationsParamsV15) (params.DestroyApplicationResults, error) {
+	args := params.DestroyApplicationsParams{
+		Applications: transform.Slice(argsV15.Applications, func(p params.DestroyApplicationParamsV15) params.DestroyApplicationParams {
+			return params.DestroyApplicationParams{
+				ApplicationTag: p.ApplicationTag,
+				DestroyStorage: p.DestroyStorage,
+				Force:          p.Force,
+				MaxWait:        p.MaxWait,
+				DryRun:         false,
+			}
+		}),
 	}
-	for i, arg := range args.Entities {
-		v5args.Applications[i].ApplicationTag = arg.Tag
-	}
-	return api.APIBase.DestroyApplication(v5args)
+	return api.APIBase.DestroyApplication(args)
 }
 
 // DestroyApplication removes a given set of applications.
@@ -1982,6 +1636,15 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 		if err != nil {
 			return nil, err
 		}
+
+		ch, _, err := app.Charm()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if ch.Meta().Name == bootstrap.ControllerCharmName {
+			return nil, errors.NotSupportedf("removing the controller application")
+		}
+
 		units, err := app.AllUnits()
 		if err != nil {
 			return nil, err
@@ -2028,6 +1691,11 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 				info.DetachedStorage = append(info.DetachedStorage, detached...)
 			}
 		}
+
+		if arg.DryRun {
+			return &info, nil
+		}
+
 		op := app.DestroyOperation()
 		op.DestroyStorage = arg.DestroyStorage
 		op.Force = arg.Force
@@ -2097,9 +1765,6 @@ func (api *APIBase) DestroyConsumedApplications(args params.DestroyConsumedAppli
 		Results: results,
 	}, nil
 }
-
-// ScaleApplications isn't on the V7 API.
-func (u *APIv7) ScaleApplications(_, _ struct{}) {}
 
 // ScaleApplications scales the specified application to the requested number of units.
 func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (params.ScaleApplicationResults, error) {
@@ -2555,48 +2220,6 @@ func (api *APIBase) maybeUpdateExistingApplicationEndpoints(
 	return existingRemoteApp, appStatus.Status, nil
 }
 
-// Mask the new methods from the V4 API. The API reflection code in
-// rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so this
-// removes the method as far as the RPC machinery is concerned.
-
-// UpdateApplicationSeries isn't on the V4 API.
-func (u *APIv4) UpdateApplicationSeries(_, _ struct{}) {}
-
-// GetConfig isn't on the V4 API.
-func (u *APIv4) GetConfig(_, _ struct{}) {}
-
-// GetConstraints returns the v4 implementation of GetConstraints.
-func (api *APIv4) GetConstraints(args params.GetApplicationConstraints) (params.GetConstraintsResults, error) {
-	if err := api.checkCanRead(); err != nil {
-		return params.GetConstraintsResults{}, errors.Trace(err)
-	}
-	app, err := api.backend.Application(args.ApplicationName)
-	if err != nil {
-		return params.GetConstraintsResults{}, errors.Trace(err)
-	}
-	cons, err := app.Constraints()
-	return params.GetConstraintsResults{
-		Constraints: cons,
-	}, errors.Trace(err)
-}
-
-// Mask the new methods from the v4 and v5 API. The API reflection code in
-// rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so this
-// removes the method as far as the RPC machinery is concerned.
-//
-// Since the v4 builds on v5, we can just make the methods unavailable on v5
-// and they will also be unavailable on v4.
-
-// CharmConfig isn't on the v5 API.
-func (u *APIv5) CharmConfig(_, _ struct{}) {}
-
-// CharmConfig is a shim to GetConfig on APIv5. It returns only charm config.
-// Version 8 and below accept params.Entities, where later versions must accept
-// a model generation
-func (api *APIv8) CharmConfig(args params.Entities) (params.ApplicationGetConfigResults, error) {
-	return api.GetConfig(args)
-}
-
 // CharmConfig returns charm config for the input list of applications and
 // model generations.
 func (api *APIBase) CharmConfig(args params.ApplicationGetArgs) (params.ApplicationGetConfigResults, error) {
@@ -2658,37 +2281,7 @@ func (api *APIBase) getCharmConfig(gen string, appName string) (map[string]inter
 	return describe(settings, ch.Config()), nil
 }
 
-// SetApplicationsConfig isn't on the v5 API.
-func (u *APIv5) SetApplicationsConfig(_, _ struct{}) {}
-
-// SetApplicationsConfig implements the server side of Application.SetApplicationsConfig.
-// It does not unset values that are set to an empty string.
-// Unset should be used for that.
-// Note: SetApplicationsConfig is misleading, both application and charm config are set.
-// Note: For facade version 13 and higher, use SetConfig.
-func (api *APIv12) SetApplicationsConfig(args params.ApplicationConfigSetArgs) (params.ErrorResults, error) {
-	var result params.ErrorResults
-	if err := api.checkCanWrite(); err != nil {
-		return result, errors.Trace(err)
-	}
-	if err := api.check.ChangeAllowed(); err != nil {
-		return result, errors.Trace(err)
-	}
-	result.Results = make([]params.ErrorResult, len(args.Args))
-	for i, arg := range args.Args {
-		app, err := api.backend.Application(arg.ApplicationName)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		err = api.setConfig(app, arg.Generation, "", arg.Config)
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
-
-// SetConfig implements the server side of Application.SetConfig.  Both
+// SetConfigs implements the server side of Application.SetConfig.  Both
 // application and charm config are set. It does not unset values in
 // Config map that are set to an empty string. Unset should be used for that.
 func (api *APIBase) SetConfigs(args params.ConfigSetArgs) (params.ErrorResults, error) {
@@ -2720,9 +2313,6 @@ func (api *APIBase) addAppToBranch(branchName string, appName string) error {
 	err = gen.AssignApplication(appName)
 	return errors.Annotatef(err, "adding %q to next generation", appName)
 }
-
-// UnsetApplicationsConfig isn't on the v5 API.
-func (u *APIv5) UnsetApplicationsConfig(_, _ struct{}) {}
 
 // UnsetApplicationsConfig implements the server side of Application.UnsetApplicationsConfig.
 func (api *APIBase) UnsetApplicationsConfig(args params.ApplicationConfigUnsetArgs) (params.ErrorResults, error) {
@@ -2783,9 +2373,6 @@ func (api *APIBase) unsetApplicationConfig(arg params.ApplicationUnset) error {
 	return nil
 }
 
-// ResolveUnitErrors isn't on the v5 API.
-func (u *APIv5) ResolveUnitErrors(_, _ struct{}) {}
-
 // ResolveUnitErrors marks errors on the specified units as resolved.
 func (api *APIBase) ResolveUnitErrors(p params.UnitsResolved) (params.ErrorResults, error) {
 	if p.All {
@@ -2825,9 +2412,6 @@ func (api *APIBase) ResolveUnitErrors(p params.UnitsResolved) (params.ErrorResul
 	}
 	return result, nil
 }
-
-// ApplicationInfo isn't on the v8 API.
-func (u *APIv8) ApplicationInfo(_, _ struct{}) {}
 
 // ApplicationsInfo returns applications information.
 func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfoResults, error) {
@@ -2886,7 +2470,6 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 		out[i].Result = &params.ApplicationResult{
 			Tag:              tag.String(),
 			Charm:            details.Charm,
-			Series:           details.Series,
 			Base:             details.Base,
 			Channel:          channel,
 			Constraints:      details.Constraints,
@@ -3018,7 +2601,7 @@ var (
 	// upgrade juju using 2.5.x agents with 2.6 or greater controllers.
 	ErrInvalidAgentVersions = errors.Errorf(
 		"Unable to upgrade LXDProfile charms with the current model version. " +
-			"Please run juju upgrade-juju to upgrade the current model to match your controller.")
+			"Please run juju upgrade-model to upgrade the current model to match your controller.")
 )
 
 func getAgentToolsVersion(agentTools AgentTools) (version.Number, error) {
@@ -3071,9 +2654,6 @@ func validateAgentVersions(application Application, versioner AgentVersioner) er
 	}
 	return nil
 }
-
-// UnitsInfo isn't on the v11 API.
-func (u *APIv11) UnitsInfo(_, _ struct{}) {}
 
 // UnitsInfo returns unit information for the given entities (units or
 // applications).
@@ -3320,8 +2900,28 @@ func (api *APIBase) crossModelRelationData(rel Relation, appName string, erd *pa
 	return nil
 }
 
-// Leader is not available via the V13 Facade.
-func (*APIv13) Leader(_ struct{}) {}
+func checkCAASMinVersion(ch Charm, caasVersion *version.Number) (err error) {
+	// check caas min version.
+	charmDeployment := ch.Meta().Deployment
+	if caasVersion == nil || charmDeployment == nil || charmDeployment.MinVersion == "" {
+		return nil
+	}
+	if len(strings.Split(charmDeployment.MinVersion, ".")) == 2 {
+		// append build number if it's not specified.
+		charmDeployment.MinVersion += ".0"
+	}
+	minver, err := version.Parse(charmDeployment.MinVersion)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if minver != version.Zero && minver.Compare(*caasVersion) > 0 {
+		return errors.NewNotValid(nil, fmt.Sprintf(
+			"charm requires a minimum k8s version of %v but the cluster only runs version %v",
+			minver, caasVersion,
+		))
+	}
+	return nil
+}
 
 // Leader returns the unit name of the leader for the given application.
 func (api *APIBase) Leader(entity params.Entity) (params.StringResult, error) {

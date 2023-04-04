@@ -4,7 +4,7 @@
 package cache_test
 
 import (
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
@@ -113,7 +113,6 @@ var unitChange = cache.UnitChange{
 	ModelUUID:                "model-uuid",
 	Name:                     "application-name/0",
 	Application:              "application-name",
-	Series:                   "bionic",
 	Base:                     "ubuntu@18.04",
 	Life:                     life.Alive,
 	CharmURL:                 "www.charm-url.com-1",

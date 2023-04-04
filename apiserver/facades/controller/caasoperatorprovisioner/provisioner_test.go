@@ -6,7 +6,7 @@ package caasoperatorprovisioner_test
 import (
 	"crypto/x509"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -139,6 +139,9 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoDefault(c *gc.C) {
 			ImageDetails: params.DockerImageInfo{
 				RegistryPath: "jujusolutions/jujud-operator:2.6-beta3.666",
 			},
+			BaseImageDetails: params.DockerImageInfo{
+				RegistryPath: "jujusolutions/charm-base:ubuntu-20.04",
+			},
 			Version:      version.MustParse("2.6-beta3.666"),
 			APIAddresses: []string{"10.0.0.1:1"},
 			Tags: map[string]string{
@@ -171,6 +174,10 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfo(c *gc.C) {
 		Results: []params.OperatorProvisioningInfo{{
 			ImageDetails: params.DockerImageInfo{
 				RegistryPath: s.st.operatorRepo + "/jujud-operator:" + "2.6-beta3.666",
+				Repository:   s.st.operatorRepo,
+			},
+			BaseImageDetails: params.DockerImageInfo{
+				RegistryPath: s.st.operatorRepo + "/charm-base:ubuntu-20.04",
 				Repository:   s.st.operatorRepo,
 			},
 			Version:      version.MustParse("2.6-beta3.666"),
@@ -208,6 +215,10 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoNoStorage(c *gc.C) {
 				RegistryPath: s.st.operatorRepo + "/jujud-operator:" + "2.6-beta3.666",
 				Repository:   s.st.operatorRepo,
 			},
+			BaseImageDetails: params.DockerImageInfo{
+				RegistryPath: s.st.operatorRepo + "/charm-base:ubuntu-20.04",
+				Repository:   s.st.operatorRepo,
+			},
 			Version:      version.MustParse("2.6-beta3.666"),
 			APIAddresses: []string{"10.0.0.1:1"},
 			Tags: map[string]string{
@@ -232,6 +243,10 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoSidecarNoStorage(c *g
 				RegistryPath: s.st.operatorRepo + "/jujud-operator:" + "2.6-beta3.666",
 				Repository:   s.st.operatorRepo,
 			},
+			BaseImageDetails: params.DockerImageInfo{
+				RegistryPath: s.st.operatorRepo + "/charm-base:ubuntu-20.04",
+				Repository:   s.st.operatorRepo,
+			},
 			Version:      version.MustParse("2.6-beta3.666"),
 			APIAddresses: []string{"10.0.0.1:1"},
 			Tags: map[string]string{
@@ -254,6 +269,10 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoNoStoragePool(c *gc.C
 		Results: []params.OperatorProvisioningInfo{{
 			ImageDetails: params.DockerImageInfo{
 				RegistryPath: s.st.operatorRepo + "/jujud-operator:" + "2.6-beta3.666",
+				Repository:   s.st.operatorRepo,
+			},
+			BaseImageDetails: params.DockerImageInfo{
+				RegistryPath: s.st.operatorRepo + "/charm-base:ubuntu-20.04",
 				Repository:   s.st.operatorRepo,
 			},
 			Version:      version.MustParse("2.6-beta3.666"),

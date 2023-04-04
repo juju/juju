@@ -64,7 +64,7 @@ type ProvisionerTask interface {
 type TaskAPI interface {
 	Machines(...names.MachineTag) ([]apiprovisioner.MachineResult, error)
 	MachinesWithTransientErrors() ([]apiprovisioner.MachineStatusResult, error)
-	ProvisioningInfo(machineTags []names.MachineTag) (params.ProvisioningInfoResultsV10, error)
+	ProvisioningInfo(machineTags []names.MachineTag) (params.ProvisioningInfoResults, error)
 }
 
 type DistributionGroupFinder interface {
@@ -75,9 +75,9 @@ type DistributionGroupFinder interface {
 // provisioned instances.
 type ToolsFinder interface {
 	// FindTools returns a list of tools matching the specified
-	// version, series, and architecture. If arch is empty, the
+	// version, os, and architecture. If arch is empty, the
 	// implementation is expected to use a well documented default.
-	FindTools(version version.Number, series string, arch string) (coretools.List, error)
+	FindTools(version version.Number, os string, arch string) (coretools.List, error)
 }
 
 // TaskConfig holds the initialisation data for a ProvisionerTask instance.
@@ -762,7 +762,7 @@ func (task *provisionerTask) doStopInstances(ctx context.ProviderCallContext, in
 func (task *provisionerTask) constructInstanceConfig(
 	machine apiprovisioner.MachineProvisioner,
 	auth authentication.AuthenticationProvider,
-	pInfo *params.ProvisioningInfoV10,
+	pInfo *params.ProvisioningInfo,
 ) (*instancecfg.InstanceConfig, error) {
 
 	apiInfo, err := auth.SetupAuthentication(machine)
@@ -779,17 +779,9 @@ func (task *provisionerTask) constructInstanceConfig(
 	}
 
 	nonce := fmt.Sprintf("%s:%s", task.hostTag, uuid)
-	var base series.Base
-	if pInfo.Series != "" {
-		base, err = series.GetBaseFromSeries(pInfo.Series)
-		if err != nil {
-			return nil, errors.Annotatef(err, "converting machine series %q to base", pInfo.Series)
-		}
-	} else {
-		base, err = series.ParseBase(pInfo.Base.Name, pInfo.Base.Channel)
-		if err != nil {
-			return nil, errors.Annotatef(err, "parsing machine base %q to series", pInfo.Base)
-		}
+	base, err := series.ParseBase(pInfo.Base.Name, pInfo.Base.Channel)
+	if err != nil {
+		return nil, errors.Annotatef(err, "parsing machine base %q", pInfo.Base)
 	}
 	instanceConfig, err := instancecfg.NewInstanceConfig(
 		names.NewControllerTag(controller.Config(pInfo.ControllerConfig).ControllerUUID()),
@@ -830,7 +822,7 @@ func (task *provisionerTask) constructStartInstanceParams(
 	controllerUUID string,
 	machine apiprovisioner.MachineProvisioner,
 	instanceConfig *instancecfg.InstanceConfig,
-	provisioningInfo *params.ProvisioningInfoV10,
+	provisioningInfo *params.ProvisioningInfo,
 	possibleTools coretools.List,
 ) (environs.StartInstanceParams, error) {
 
@@ -1237,7 +1229,7 @@ func (task *provisionerTask) queueStartMachines(ctx context.ProviderCallContext,
 	if err != nil {
 		return errors.Trace(err)
 	}
-	pInfoMap := make(map[string]params.ProvisioningInfoResultV10, len(pInfoResults.Results))
+	pInfoMap := make(map[string]params.ProvisioningInfoResult, len(pInfoResults.Results))
 	for i, tag := range machineTags {
 		pInfoMap[tag.Id()] = pInfoResults.Results[i]
 	}
@@ -1322,7 +1314,7 @@ func (task *provisionerTask) doStartMachine(
 	ctx context.ProviderCallContext,
 	machine apiprovisioner.MachineProvisioner,
 	distributionGroupMachineIds []string,
-	pInfoResult params.ProvisioningInfoResultV10,
+	pInfoResult params.ProvisioningInfoResult,
 ) (startErr error) {
 	defer func() {
 		if startErr == nil {
@@ -1502,7 +1494,7 @@ func (task *provisionerTask) doStartMachine(
 // based on the specified machine, to create ProvisioningInfo
 // and StartInstanceParams to be used by startMachine.
 func (task *provisionerTask) setupToStartMachine(
-	machine apiprovisioner.MachineProvisioner, version *version.Number, pInfoResult params.ProvisioningInfoResultV10,
+	machine apiprovisioner.MachineProvisioner, version *version.Number, pInfoResult params.ProvisioningInfoResult,
 ) (environs.StartInstanceParams, error) {
 	// Check that we have a result.
 	// We should never have an empty result without an error,
@@ -1526,14 +1518,7 @@ func (task *provisionerTask) setupToStartMachine(
 		agentArch = *pInfo.Constraints.Arch
 	}
 
-	mSeries := pInfo.Series
-	if mSeries == "" {
-		mSeries, err = series.GetSeriesFromChannel(pInfo.Base.Name, pInfo.Base.Channel)
-		if err != nil {
-			return environs.StartInstanceParams{}, errors.Annotatef(err, "converting machine base %q to series", pInfo.Base)
-		}
-	}
-	possibleTools, err := task.toolsFinder.FindTools(*version, mSeries, agentArch)
+	possibleTools, err := task.toolsFinder.FindTools(*version, pInfo.Base.Name, agentArch)
 	if err != nil {
 		return environs.StartInstanceParams{}, errors.Annotatef(err, "finding agent binaries for machine %q", machine)
 	}

@@ -104,11 +104,6 @@ func (m *Machine) IsManual() (bool, error) {
 // machine and returns back two maps where keys are unit names and values are
 // open port range groupings by subnet CIDR and endpoint name.
 func (m *Machine) OpenedMachinePortRanges() (byUnitAndCIDR map[names.UnitTag]network.GroupedPortRanges, byUnitAndEndpoint map[names.UnitTag]network.GroupedPortRanges, err error) {
-	if m.st.BestAPIVersion() < 6 {
-		// OpenedMachinePortRanges() was introduced in FirewallerAPIV6.
-		return nil, nil, errors.NotImplementedf("OpenedMachinePortRanges() (need V6+)")
-	}
-
 	var results params.OpenMachinePortRangesResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},

@@ -11,9 +11,9 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/network"
@@ -386,8 +386,9 @@ func (s *Space) Refresh() error {
 // that creates the default space (id=0).
 func (st *State) createDefaultSpaceOp() txn.Op {
 	return txn.Op{
-		C:  spacesC,
-		Id: st.docID(network.AlphaSpaceId),
+		C:      spacesC,
+		Id:     st.docID(network.AlphaSpaceId),
+		Assert: txn.DocMissing,
 		Insert: spaceDoc{
 			Id:       network.AlphaSpaceId,
 			Life:     Alive,

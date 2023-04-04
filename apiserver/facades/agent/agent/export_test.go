@@ -4,5 +4,5 @@
 package agent
 
 var (
-	NewAgentAPIV2 = newAgentAPIV2
+	NewAgentAPIV3 = newAgentAPIV3
 )

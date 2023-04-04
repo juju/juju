@@ -6,94 +6,15 @@ package machinemanager
 import (
 	"reflect"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/apiserver/facade"
 )
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("MachineManager", 2, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacade(ctx)
-	}, reflect.TypeOf((*MachineManagerAPI)(nil)))
-	registry.MustRegister("MachineManager", 3, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacade(ctx) // Adds DestroyMachine and ForceDestroyMachine.
-	}, reflect.TypeOf((*MachineManagerAPI)(nil)))
-	registry.MustRegister("MachineManager", 4, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV4(ctx) // Adds DestroyMachineWithParams.
-	}, reflect.TypeOf((*MachineManagerAPIV4)(nil)))
-	registry.MustRegister("MachineManager", 5, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV5(ctx) // Adds UpgradeSeriesPrepare, removes UpdateMachineSeries.
-	}, reflect.TypeOf((*MachineManagerAPIV5)(nil)))
-	registry.MustRegister("MachineManager", 6, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV6(ctx) // DestroyMachinesWithParams gains maxWait.
-	}, reflect.TypeOf((*MachineManagerAPIV6)(nil)))
-	registry.MustRegister("MachineManager", 7, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV7(ctx) // Move provisioning apis from client facade.
-	}, reflect.TypeOf((*MachineManagerAPIV7)(nil)))
-	registry.MustRegister("MachineManager", 8, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV8(ctx) // Use base not series.
-	}, reflect.TypeOf((*MachineManagerAPIV8)(nil)))
 	registry.MustRegister("MachineManager", 9, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV9(ctx) // Use base not series.
-	}, reflect.TypeOf((*MachineManagerAPIV9)(nil)))
-}
-
-// newFacade creates a new server-side MachineManager API facade.
-func newFacade(ctx facade.Context) (*MachineManagerAPI, error) {
-	return NewFacade(ctx)
-}
-
-// newFacadeV4 creates a new server-side MachineManager API facade.
-func newFacadeV4(ctx facade.Context) (*MachineManagerAPIV4, error) {
-	machineManagerAPIV5, err := newFacadeV5(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &MachineManagerAPIV4{machineManagerAPIV5}, nil
-}
-
-// newFacadeV5 creates a new server-side MachineManager API facade.
-func newFacadeV5(ctx facade.Context) (*MachineManagerAPIV5, error) {
-	machineManagerAPIv6, err := newFacadeV6(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &MachineManagerAPIV5{machineManagerAPIv6}, nil
-}
-
-// newFacadeV6 creates a new server-side MachineManager API facade.
-func newFacadeV6(ctx facade.Context) (*MachineManagerAPIV6, error) {
-	machineManagerAPIv7, err := newFacadeV7(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &MachineManagerAPIV6{machineManagerAPIv7}, nil
-}
-
-// newFacadeV7 creates a new server-side MachineManager API facade.
-func newFacadeV7(ctx facade.Context) (*MachineManagerAPIV7, error) {
-	machineManagerAPIV8, err := newFacadeV8(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &MachineManagerAPIV7{machineManagerAPIV8}, nil
-}
-
-// newFacadeV8 creates a new server-side MachineManager API facade.
-func newFacadeV8(ctx facade.Context) (*MachineManagerAPIV8, error) {
-	machineManagerAPI, err := newFacadeV9(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &MachineManagerAPIV8{machineManagerAPI}, nil
-}
-
-// newFacadeV9 creates a new server-side MachineManager API facade.
-func newFacadeV9(ctx facade.Context) (*MachineManagerAPIV9, error) {
-	machineManagerAPI, err := newFacade(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &MachineManagerAPIV9{machineManagerAPI}, nil
+		return NewFacadeV9(ctx)
+	}, reflect.TypeOf((*MachineManagerV9)(nil)))
+	registry.MustRegister("MachineManager", 10, func(ctx facade.Context) (facade.Facade, error) {
+		return NewFacadeV10(ctx) // DestroyMachineWithParams gains dry-run
+	}, reflect.TypeOf((*MachineManagerAPI)(nil)))
 }

@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -268,7 +268,7 @@ func (t *LiveTests) TestPrechecker(c *gc.C) {
 	t.PrepareOnce(c)
 	err := t.Env.PrecheckInstance(t.ProviderCallContext,
 		environs.PrecheckInstanceParams{
-			Series: "precise",
+			Base: series.MakeDefaultBase("ubuntu", "22.04"),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -922,13 +922,13 @@ func (t *LiveTests) assertStopInstance(c *gc.C, env environs.Environ, instId ins
 	c.Fatalf("provisioner failed to stop machine after %v", waitAgent.Total)
 }
 
-// Check that we get a consistent error when asking for an instance without
-// a valid machine config.
 func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
+	// Check that we get a consistent error when asking for an instance without
+	// a valid machine config.
 	machineId := "4"
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, "",
-		"released", series.MakeDefaultBase("ubuntu", "14.04"), apiInfo)
+		"released", series.MakeDefaultBase("ubuntu", "22.04"), apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	t.PrepareOnce(c)
@@ -947,7 +947,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	err = jujutesting.SetImageMetadata(
 		t.Env,
 		simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory()),
-		[]string{"trusty"},
+		[]string{"22.04"},
 		[]string{"amd64"},
 		&params.ImageMetadata,
 	)

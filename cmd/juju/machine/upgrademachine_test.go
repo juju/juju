@@ -7,22 +7,23 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/errors"
+	"github.com/juju/collections/set"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/machine/mocks"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
 )
 
 type UpgradeSeriesSuite struct {
-	testing.BaseSuite
+	testing.IsolationSuite
 
 	statusExpectation   *statusExpectation
 	prepareExpectation  *upgradeSeriesPrepareExpectation
@@ -32,7 +33,7 @@ type UpgradeSeriesSuite struct {
 var _ = gc.Suite(&UpgradeSeriesSuite{})
 
 func (s *UpgradeSeriesSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 	s.statusExpectation = &statusExpectation{
 		status: &params.FullStatus{
 			Machines: map[string]params.MachineStatus{
@@ -66,6 +67,16 @@ func (s *UpgradeSeriesSuite) SetUpTest(c *gc.C) {
 	}
 	s.prepareExpectation = &upgradeSeriesPrepareExpectation{gomock.Any(), gomock.Any(), gomock.Any()}
 	s.completeExpectation = &upgradeSeriesCompleteExpectation{gomock.Any()}
+
+	// TODO: remove this patch once we removed all the old series from tests in current package.
+	s.PatchValue(&machine.SupportedJujuSeries,
+		func(time.Time, string, string) (set.Strings, error) {
+			return set.NewStrings(
+				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
+				"jammy", "focal", "bionic", "xenial",
+			), nil
+		},
+	)
 }
 
 const (
@@ -155,7 +166,7 @@ func (s *UpgradeSeriesSuite) TestUpgradeCommandShouldNotAcceptInvalidPrepCommand
 	invalidPrepCommand := "actuate"
 	err := s.runUpgradeSeriesCommand(c, machineArg, invalidPrepCommand, seriesArg)
 	c.Assert(err, gc.ErrorMatches,
-		".* \"actuate\" is an invalid upgrade-series command; valid commands are: prepare, complete.")
+		".* \"actuate\" is an invalid upgrade-machine command; valid commands are: prepare, complete.")
 }
 
 func (s *UpgradeSeriesSuite) TestUpgradeCommandShouldNotAcceptInvalidMachineArgs(c *gc.C) {
@@ -187,31 +198,6 @@ func (s *UpgradeSeriesSuite) TestCompleteCommandDoesNotAcceptSeries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "wrong number of arguments")
 }
 
-func (s *UpgradeSeriesSuite) TestCompleteCommandWithUnsupportedError(c *gc.C) {
-	ctx := s.ctxWithConfirmation(c, "y")
-
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	mockStatusAPI := mocks.NewMockStatusAPI(ctrl)
-	mockUpgradeSeriesAPI := mocks.NewMockUpgradeMachineSeriesAPI(ctrl)
-
-	uExp := mockUpgradeSeriesAPI.EXPECT()
-	prep := s.prepareExpectation
-	uExp.UpgradeSeriesPrepare(prep.machineArg, prep.seriesArg, prep.force).Return(errors.NotSupportedf("bad"))
-
-	mockStatusAPI.EXPECT().Status(gomock.Nil()).AnyTimes().Return(s.statusExpectation.status, nil)
-
-	com := machine.NewUpgradeSeriesCommandForTest(mockStatusAPI, mockUpgradeSeriesAPI)
-
-	err := cmdtesting.InitCommand(com, []string{"1", machine.PrepareCommand, seriesArg})
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = com.Run(ctx)
-	c.Assert(err, gc.ErrorMatches, `upgrade-series is not supported.
-Please upgrade your controller to perform the operation.`)
-}
-
 func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptYes(c *gc.C) {
 	err := s.runUpgradeSeriesCommand(c, machineArg, machine.PrepareCommand, seriesArg, "--yes")
 	c.Assert(err, jc.ErrorIsNil)
@@ -225,7 +211,7 @@ func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptYesAbbreviation(c *gc
 func (s *UpgradeSeriesSuite) TestPrepareCommandShouldPromptUserForConfirmation(c *gc.C) {
 	ctx, err := s.runUpgradeSeriesCommandWithConfirmation(c, "y", machineArg, machine.PrepareCommand, seriesArg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), jc.HasSuffix, "Continue [y/N]?")
+	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Matches, `(?s).*Continue \[y\/N\]\? .*`)
 }
 
 func (s *UpgradeSeriesSuite) TestPrepareCommandShouldIndicateOnlySubordinatesOnMachine(c *gc.C) {
@@ -248,7 +234,7 @@ func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptYesFlagAndNotPrompt(c
 	displayedMessage := strings.Join([]string{confirmationMessage, finishedMessage}, "") + "\n"
 	out := ctx.Stderr.(*bytes.Buffer).String()
 	c.Assert(out, gc.Equals, displayedMessage)
-	c.Assert(out, jc.Contains, fmt.Sprintf("juju upgrade-series %s complete", machineArg))
+	c.Assert(out, jc.Contains, fmt.Sprintf("juju upgrade-machine %s complete", machineArg))
 }
 
 type statusExpectation struct {

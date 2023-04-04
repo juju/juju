@@ -7,7 +7,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"net/rpc"
-	"runtime"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -36,10 +35,6 @@ func (s *SocketSuite) TestTCP(c *gc.C) {
 }
 
 func (s *SocketSuite) TestAbstractDomain(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("abstract domain socket not supported on windows")
-		return
-	}
 	socketDesc := sockets.Socket{
 		Address: "@hello-juju",
 		Network: "unix",

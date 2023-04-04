@@ -44,12 +44,12 @@ type metricsAdderSuite struct {
 func (s *metricsAdderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.machine0 = s.Factory.MakeMachine(c, &jujuFactory.MachineParams{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits, state.JobManageModel},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits, state.JobManageModel},
 	})
 	s.machine1 = s.Factory.MakeMachine(c, &jujuFactory.MachineParams{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
 	mysqlCharm := s.Factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "mysql",

@@ -72,8 +72,6 @@ func (step commonDeploymentUpgradeStep) Run(ctx context.ProviderCallContext) err
 		rules = append(rules, rule)
 	}
 
-	env.mu.Lock()
-	env.mu.Unlock()
 	return env.createCommonResourceDeployment(ctx, nil, rules)
 }
 

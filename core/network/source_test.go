@@ -4,7 +4,6 @@
 package network_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,7 +33,7 @@ func (*sourceSuite) TestParseInterfaceType(c *gc.C) {
 
 		fakeUEventPath := filepath.Join(fakeInterfacePath, "uevent")
 		contents := strings.Join(lines, "\n")
-		err = ioutil.WriteFile(fakeUEventPath, []byte(contents), 0644)
+		err = os.WriteFile(fakeUEventPath, []byte(contents), 0644)
 		c.Check(err, jc.ErrorIsNil)
 		return fakeUEventPath
 	}
@@ -84,7 +83,7 @@ func (*sourceSuite) TestGetBridgePorts(c *gc.C) {
 
 		for _, portName := range portNames {
 			portPath := filepath.Join(fakePortsPath, portName)
-			err = ioutil.WriteFile(portPath, []byte(""), 0644)
+			err = os.WriteFile(portPath, []byte(""), 0644)
 			c.Check(err, jc.ErrorIsNil)
 		}
 	}

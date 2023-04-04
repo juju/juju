@@ -1,5 +1,8 @@
 test_deploy_aks() {
-	if [ "$(skip 'test_deploy_aks')" ]; then
+	# TODO(anvial): we need to enable this test after we add support of k8s tooling in strict snap
+	# https://github.com/juju/juju/blob/develop/cmd/juju/caas/add.go#L240-L245
+	# shellcheck disable=SC2160
+	if [ true ]; then
 		echo "==> TEST SKIPPED: Deploy aks tests"
 		return
 	fi

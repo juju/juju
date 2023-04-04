@@ -4,7 +4,7 @@
 package state_test
 
 import (
-	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -67,8 +67,16 @@ func (s *ConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	return state.AddTestingCharm(c, s.State, name)
 }
 
+func (s *ConnSuite) AddTestingCharmWithSeries(c *gc.C, name string, series string) *state.Charm {
+	return state.AddTestingCharmWithSeries(c, s.State, name, series)
+}
+
 func (s *ConnSuite) AddTestingApplication(c *gc.C, name string, ch *state.Charm) *state.Application {
 	return state.AddTestingApplication(c, s.State, name, ch)
+}
+
+func (s *ConnSuite) AddTestingApplicationForBase(c *gc.C, base state.Base, name string, ch *state.Charm) *state.Application {
+	return state.AddTestingApplicationForBase(c, s.State, base, name, ch)
 }
 
 func (s *ConnSuite) AddTestingApplicationWithNumUnits(c *gc.C, numUnits int, name string, ch *state.Charm) *state.Application {

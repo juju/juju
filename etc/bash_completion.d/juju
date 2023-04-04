@@ -6,7 +6,7 @@
 # License: GPLv3
 #
 # Includes --model and --controller handling:
-#   juju list-models --controller <TAB>
+#   juju models --controller <TAB>
 #   juju switch <TAB>
 #   juju status --model <TAB>
 #   juju ssh --model <TAB> [... will complete with proper model's units/etc ...]
@@ -119,7 +119,7 @@ _JUJU_2_juju_status_cache_fname() {
     local model=$(_get_current_model)
     local juju_status_file=${cache_dir}/juju-status-"${model}"
     _JUJU_2_cache_cmd ${_JUJU_2_cache_TTL} \
-      echo ${_juju_cmd_JUJU_2?} status --model "${model}" --format json
+      echo ${_juju_cmd_JUJU_2?} status --model "${model}" --format json 2>/dev/null
     return $?
 }
 # Print (return) all machines
@@ -174,30 +174,30 @@ print ("\n".join(j.get("branches", {}).keys()))
 '   < ${cache_fname}
 }
 
-# Print (return) all actions IDS from (cached) "juju show-action-status" output
-_JUJU_2_action_ids_from_action_status() {
+# Print (return) all operations IDS from (cached) "juju operations" output
+_JUJU_2_operation_ids_from_operations() {
     local model=$(_get_current_model)
     local juju_status_file=${cache_dir}/juju-status-"${model}"
     local cache_fname=$(
       _JUJU_2_cache_cmd ${_JUJU_2_cache_TTL} \
-        echo ${_juju_cmd_JUJU_2?} show-action-status --model "${model}" --format json
+        echo ${_juju_cmd_JUJU_2?} operations --model "${model}" --format json
     ) || return $?
     [ -n "${cache_fname}" ] || return 0
     ${_juju_cmd_PYTHON?} -c '
 import json, sys
 sys.stderr.close()
-print ("\n".join([x["id"] for x in json.load(sys.stdin).get("actions", {})]))
+print ("\n".join([x for x in json.load(sys.stdin).keys()]))
 '   < ${cache_fname}
 }
 
-# Print (return) all storage IDs from (cached) "juju list-storage" output
-# Caches "juju list-storage" output, print(return) cache filename
+# Print (return) all storage IDs from (cached) "juju storage" output
+# Caches "juju storage" output, print(return) cache filename
 _JUJU_2_storage_ids_from_list_storage() {
     local model=$(_get_current_model)
     local juju_status_file=${cache_dir}/juju-status-"${model}"
     local cache_fname=$(
       _JUJU_2_cache_cmd ${_JUJU_2_cache_TTL} \
-        echo ${_juju_cmd_JUJU_2?} list-storage --model "${model}" --format json
+        echo ${_juju_cmd_JUJU_2?} storage --model "${model}" --format json
     ) || return $?
     [ -n "${cache_fname}" ] || return 0
     ${_juju_cmd_PYTHON?} -c '
@@ -257,7 +257,7 @@ print ("\n".join(
 # List all controllers
 _JUJU_2_list_controllers_noflags() {
     _JUJU_2_cache_cmd ${_JUJU_2_cache_TTL} cat \
-      ${_juju_cmd_JUJU_2?} list-controllers --format json | _JUJU_2_list_controllers_from_stdin
+      ${_juju_cmd_JUJU_2?} controllers --format json | _JUJU_2_list_controllers_from_stdin
 }
 # Print:
 # - list of controllers as: <controller>:<current_model>
@@ -273,7 +273,7 @@ _JUJU_2_list_controllers_models_noflags() {
     local controller=
     for controller in ${controllers};do
       _JUJU_2_cache_cmd ${_JUJU_2_cache_TTL} cat \
-        ${_juju_cmd_JUJU_2?} list-models --controller ${controller} --format json |\
+        ${_juju_cmd_JUJU_2?} models --controller ${controller} --format json |\
           _JUJU_2_list_models_from_stdin "${controller}:"
       # early break, specially if user hit Ctrl-C
       [ $? -eq 0 ] || return 1
@@ -281,7 +281,7 @@ _JUJU_2_list_controllers_models_noflags() {
 
     # List all models under current controller
     _JUJU_2_cache_cmd ${_JUJU_2_cache_TTL} cat \
-      ${_juju_cmd_JUJU_2?} list-models --controller ${cur_controller} --format json |\
+      ${_juju_cmd_JUJU_2?} models --controller ${cur_controller} --format json |\
         _JUJU_2_list_models_from_stdin
 }
 
@@ -330,8 +330,8 @@ _JUJU_2_completion_func_for_cmd() {
             echo _JUJU_2_applications_from_status;;
         *\<machine*)
             echo _JUJU_2_machines_from_status;;
-        *\<action*)
-            echo _JUJU_2_action_ids_from_action_status;;
+        *\<operation*)
+            echo _JUJU_2_operation_ids_from_operations;;
         *show-storage*)
             echo _JUJU_2_storage_ids_from_list_storage;;
         *pattern*|*application-or-unit*)
@@ -466,7 +466,7 @@ export _JUJU_2_cache_TTL=2
 # All above completion is juju-2 specific, uses $_juju_cmd_JUJU_2
 
 # Detect juju built from source (highest priority)
-if [ -x "$GOPATH/bin/juju" ]; then 
+if [ -x "$GOPATH/bin/juju" ]; then
     export _juju_cmd_JUJU_2="$GOPATH/bin/juju"
 elif [ -x "$GOROOT/bin/juju" ]; then
     export _juju_cmd_JUJU_2="$GOROOT/bin/juju"

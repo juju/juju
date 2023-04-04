@@ -6,7 +6,7 @@ package featuretests
 import (
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
@@ -18,7 +18,6 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -51,7 +50,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplications(c *gc.C) {
 		c.Assert(worker.Stop(w), jc.ErrorIsNil)
 	}()
 
-	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
 	wc.AssertChangeInSingleEvent("mysql")
@@ -86,8 +85,8 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelations(c *gc.C) {
 		c.Assert(worker.Stop(w), jc.ErrorIsNil)
 	}()
 
-	assertRemoteRelationsChange(c, s.BackingState, w, []string{})
-	assertNoRemoteRelationsChange(c, s.BackingState, w)
+	assertRemoteRelationsChange(c, w, []string{})
+	assertNoRemoteRelationsChange(c, w)
 
 	// Add the relation, and expect a watcher change.
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
@@ -100,14 +99,13 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelations(c *gc.C) {
 	rel, err := s.State.AddRelation(eps[0], eps[1])
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertRemoteRelationsChange(c, s.BackingState, w, []string{rel.String()})
-	assertNoRemoteRelationsChange(c, s.BackingState, w)
+	assertRemoteRelationsChange(c, w, []string{rel.String()})
+	assertNoRemoteRelationsChange(c, w)
 }
 
 func assertRemoteRelationsChange(
-	c *gc.C, ss statetesting.SyncStarter, w watcher.StringsWatcher, expect []string,
+	c *gc.C, w watcher.StringsWatcher, expect []string,
 ) {
-	ss.StartSync()
 	select {
 	case change, ok := <-w.Changes():
 		c.Assert(ok, jc.IsTrue)
@@ -117,8 +115,7 @@ func assertRemoteRelationsChange(
 	}
 }
 
-func assertNoRemoteRelationsChange(c *gc.C, ss statetesting.SyncStarter, w watcher.StringsWatcher) {
-	ss.StartSync()
+func assertNoRemoteRelationsChange(c *gc.C, w watcher.StringsWatcher) {
 	select {
 	case change, ok := <-w.Changes():
 		c.Errorf("unexpected change from application relations watcher: %v, %v", change, ok)
@@ -157,12 +154,12 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
 	}()
 
 	uc := 0
-	assertRelationUnitsChange(c, s.BackingState, w, params.RemoteRelationChangeEvent{
+	assertRelationUnitsChange(c, w, params.RemoteRelationChangeEvent{
 		RelationToken:    relToken,
 		ApplicationToken: appToken,
 		UnitCount:        &uc,
 	})
-	assertNoRelationUnitsChange(c, s.BackingState, w)
+	assertNoRelationUnitsChange(c, w)
 
 	// Add a unit of wordpress, expect a change.
 	settings := map[string]interface{}{"key": "value"}
@@ -184,8 +181,8 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
 		}},
 		UnitCount: &uc,
 	}
-	assertRelationUnitsChange(c, s.BackingState, w, expect)
-	assertNoRelationUnitsChange(c, s.BackingState, w)
+	assertRelationUnitsChange(c, w, expect)
+	assertNoRelationUnitsChange(c, w)
 
 	// Change the settings, expect a change.
 	ruSettings, err := ru.Settings()
@@ -208,8 +205,8 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
 		}},
 		UnitCount: &uc,
 	}
-	assertRelationUnitsChange(c, s.BackingState, w, expect)
-	assertNoRelationUnitsChange(c, s.BackingState, w)
+	assertRelationUnitsChange(c, w, expect)
+	assertNoRelationUnitsChange(c, w)
 
 	// Remove a unit of wordpress, expect a change.
 	err = ru.LeaveScope()
@@ -221,14 +218,13 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
 		DepartedUnits:    []int{0},
 		UnitCount:        &uc,
 	}
-	assertRelationUnitsChange(c, s.BackingState, w, expect)
-	assertNoRelationUnitsChange(c, s.BackingState, w)
+	assertRelationUnitsChange(c, w, expect)
+	assertNoRelationUnitsChange(c, w)
 }
 
 func assertRelationUnitsChange(
-	c *gc.C, ss statetesting.SyncStarter, w apiwatcher.RemoteRelationWatcher, expect params.RemoteRelationChangeEvent,
+	c *gc.C, w apiwatcher.RemoteRelationWatcher, expect params.RemoteRelationChangeEvent,
 ) {
-	ss.StartSync()
 	select {
 	case change, ok := <-w.Changes():
 		c.Assert(ok, jc.IsTrue)
@@ -238,8 +234,7 @@ func assertRelationUnitsChange(
 	}
 }
 
-func assertNoRelationUnitsChange(c *gc.C, ss statetesting.SyncStarter, w apiwatcher.RemoteRelationWatcher) {
-	ss.StartSync()
+func assertNoRelationUnitsChange(c *gc.C, w apiwatcher.RemoteRelationWatcher) {
 	select {
 	case change, ok := <-w.Changes():
 		c.Errorf("unexpected change from relations units watcher: %v, %v", change, ok)
@@ -255,8 +250,8 @@ func (s *remoteRelationsSuite) TestWatchRemoteRelations(c *gc.C) {
 		c.Assert(worker.Stop(w), jc.ErrorIsNil)
 	}()
 
-	assertRemoteRelationsChange(c, s.BackingState, w, []string{})
-	assertNoRemoteRelationsChange(c, s.BackingState, w)
+	assertRemoteRelationsChange(c, w, []string{})
+	assertNoRemoteRelationsChange(c, w)
 
 	// Add a relation, and expect a watcher change.
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
@@ -279,6 +274,6 @@ func (s *remoteRelationsSuite) TestWatchRemoteRelations(c *gc.C) {
 	rel, err := s.State.AddRelation(eps[0], eps[1])
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertRemoteRelationsChange(c, s.BackingState, w, []string{rel.String()})
-	assertNoRemoteRelationsChange(c, s.BackingState, w)
+	assertRemoteRelationsChange(c, w, []string{rel.String()})
+	assertNoRemoteRelationsChange(c, w)
 }

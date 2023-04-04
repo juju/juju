@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v4"
 	pacman "github.com/juju/packaging/v2/manager"
 	jc "github.com/juju/testing/checkers"
@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+
 	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -59,7 +60,7 @@ func (s *upgradeSuite) SetUpSuite(c *gc.C) {
 
 func (s *upgradeSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
-	agenttest.InstallFakeEnsureMongo(s)
+	agenttest.InstallFakeEnsureMongo(s, s.DataDir())
 
 	s.oldVersion = coretesting.CurrentVersion()
 	s.oldVersion.Major--
@@ -256,6 +257,8 @@ func (s *upgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectF
 	c.Fatalf("timed out waiting for expected API behaviour. last error was: %v", err)
 }
 
+const clientFacadeVersion = 6
+
 func (s *upgradeSuite) attemptRestrictedAPIAsUser(c *gc.C, conf agent.Config) error {
 	info, ok := conf.APIInfo()
 	c.Assert(ok, jc.IsTrue)
@@ -274,13 +277,13 @@ func (s *upgradeSuite) attemptRestrictedAPIAsUser(c *gc.C, conf agent.Config) er
 	// This call should always work, but might fail if the apiserver
 	// is restarting. If it fails just return the error so retries
 	// can continue.
-	err = apiState.APICall("Client", 1, "", "FullStatus", nil, new(params.FullStatus))
+	err = apiState.APICall("Client", clientFacadeVersion, "", "FullStatus", nil, new(params.FullStatus))
 	if err != nil {
 		return errors.Annotate(err, "FullStatus call")
 	}
 
 	// this call should only work if API is not restricted
-	err = apiState.APICall("Client", 1, "", "WatchAll", nil, nil)
+	err = apiState.APICall("Client", clientFacadeVersion, "", "WatchAll", nil, nil)
 	return errors.Annotate(err, "WatchAll call")
 }
 

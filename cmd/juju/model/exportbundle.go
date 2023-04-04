@@ -7,25 +7,19 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/juju/charm/v8"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/client/bundle"
-	appFacade "github.com/juju/juju/apiserver/facades/client/application"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/rpc/params"
 )
 
 // NewExportBundleCommand returns a fully constructed export bundle command.
 func NewExportBundleCommand() cmd.Command {
 	command := &exportBundleCommand{}
-	command.newAPIFunc = func() (ExportBundleAPI, ConfigAPI, error) {
+	command.newAPIFunc = func() (ExportBundleAPI, error) {
 		return command.getAPIs()
 	}
 	return modelcmd.Wrap(command)
@@ -33,7 +27,7 @@ func NewExportBundleCommand() cmd.Command {
 
 type exportBundleCommand struct {
 	modelcmd.ModelCommandBase
-	newAPIFunc           func() (ExportBundleAPI, ConfigAPI, error)
+	newAPIFunc           func() (ExportBundleAPI, error)
 	Filename             string
 	includeCharmDefaults bool
 }
@@ -75,49 +69,30 @@ func (c *exportBundleCommand) Init(args []string) error {
 
 // ExportBundleAPI specifies the used function calls of the BundleFacade.
 type ExportBundleAPI interface {
-	BestAPIVersion() int
 	Close() error
 	ExportBundle(bool) (string, error)
 }
 
-// ConfigAPI specifies the used function calls of the ApplicationFacade.
-type ConfigAPI interface {
-	Close() error
-	Get(branchName string, application string) (*params.ApplicationGetResults, error)
-}
-
-func (c *exportBundleCommand) getAPIs() (ExportBundleAPI, ConfigAPI, error) {
+func (c *exportBundleCommand) getAPIs() (ExportBundleAPI, error) {
 	api, err := c.NewAPIRoot()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return bundle.NewClient(api), application.NewClient(api), nil
+	return bundle.NewClient(api), nil
 }
 
 // Run implements Command.
 func (c *exportBundleCommand) Run(ctx *cmd.Context) error {
-	bundleClient, cfgClient, err := c.newAPIFunc()
+	bundleClient, err := c.newAPIFunc()
 	if err != nil {
 		return err
 	}
-	defer func() {
-		_ = bundleClient.Close()
-		_ = cfgClient.Close()
-	}()
+	defer bundleClient.Close()
 
 	result, err := bundleClient.ExportBundle(c.includeCharmDefaults)
 	if err != nil {
 		return err
-	}
-
-	// The V3 API exports the trust flag for bundle contents; for
-	// older server API versions we need to query the config for each
-	// app and patch the bundle client-side.
-	if bundleClient.BestAPIVersion() < 3 {
-		if result, err = c.injectTrustFlag(cfgClient, result); err != nil {
-			return errors.Trace(err)
-		}
 	}
 
 	if c.Filename == "" {
@@ -139,41 +114,4 @@ func (c *exportBundleCommand) Run(ctx *cmd.Context) error {
 	fmt.Fprintln(ctx.Stdout, "Bundle successfully exported to", filename)
 
 	return nil
-}
-
-func (c *exportBundleCommand) injectTrustFlag(cfgClient ConfigAPI, bundleYaml string) (string, error) {
-	var (
-		bundleSpec   *charm.BundleData
-		appliedPatch bool
-	)
-	if err := yaml.Unmarshal([]byte(bundleYaml), &bundleSpec); err != nil {
-		return "", err
-	}
-
-	for appName, appSpec := range bundleSpec.Applications {
-		res, err := cfgClient.Get(model.GenerationMaster, appName)
-		if err != nil {
-			return "", errors.Annotatef(err, "could not retrieve configuration for %q", appName)
-		}
-
-		if res.ApplicationConfig == nil {
-			continue
-		}
-
-		cfgMap, ok := res.ApplicationConfig[appFacade.TrustConfigOptionName].(map[string]interface{})
-		if ok && cfgMap["value"] == true {
-			appSpec.RequiresTrust = true
-			appliedPatch = true
-		}
-	}
-
-	if !appliedPatch {
-		return bundleYaml, nil
-	}
-
-	patchedYaml, err := yaml.Marshal(bundleSpec)
-	if err != nil {
-		return "", err
-	}
-	return string(patchedYaml), nil
 }

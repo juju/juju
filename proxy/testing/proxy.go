@@ -5,6 +5,9 @@ package testing
 
 type MockProxier struct {
 	// See Proxier interface
+	RawConfigFn func() (map[string]interface{}, error)
+
+	// See Proxier interface
 	StartFn func() error
 
 	// See Proxier interface
@@ -12,12 +15,6 @@ type MockProxier struct {
 
 	// See Proxier interface
 	TypeFn func() string
-
-	// See Proxier interface
-	MarshalYAMLFn func() (interface{}, error)
-
-	// See Proxier interface
-	RawConfigFn func() (map[string]interface{}, error)
 }
 
 type MockTunnelProxier struct {
@@ -36,6 +33,13 @@ func NewMockTunnelProxier() *MockTunnelProxier {
 	}
 }
 
+func (mp *MockProxier) RawConfig() (map[string]interface{}, error) {
+	if mp.RawConfigFn == nil {
+		return map[string]interface{}{}, nil
+	}
+	return mp.RawConfigFn()
+}
+
 func (mp *MockProxier) Start() error {
 	if mp.StartFn == nil {
 		return nil
@@ -43,12 +47,7 @@ func (mp *MockProxier) Start() error {
 	return mp.StartFn()
 }
 
-func (mp *MockProxier) MarshalYAML() (interface{}, error) {
-	if mp.MarshalYAMLFn == nil {
-		return nil, nil
-	}
-	return mp.MarshalYAMLFn()
-}
+func (mp *MockProxier) MarshalYAML() (interface{}, error) { return nil, nil }
 
 func (mp *MockProxier) Insecure() {}
 
@@ -56,13 +55,6 @@ func (mp *MockProxier) Stop() {
 	if mp.StopFn != nil {
 		mp.StopFn()
 	}
-}
-
-func (mp *MockProxier) RawConfig() (map[string]interface{}, error) {
-	if mp.RawConfigFn == nil {
-		return nil, nil
-	}
-	return mp.RawConfigFn()
 }
 
 func (mp *MockProxier) Type() string {

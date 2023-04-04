@@ -5,10 +5,9 @@ package spool_test
 
 import (
 	"path/filepath"
-	"runtime"
 	"time"
 
-	corecharm "github.com/juju/charm/v8"
+	corecharm "github.com/juju/charm/v9"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -62,9 +61,6 @@ func (s *metricsBatchSuite) TestAPIMetricBatch(c *gc.C) {
 
 func osDependentSockPath(c *gc.C) string {
 	sockPath := filepath.Join(c.MkDir(), "test.sock")
-	if runtime.GOOS == "windows" {
-		return `\\.\pipe` + sockPath[2:]
-	}
 	return sockPath
 }
 

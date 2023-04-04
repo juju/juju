@@ -7,7 +7,7 @@ import (
 	"context"
 	"crypto"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -126,13 +126,11 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 
 		// The machine config should set its upgrade behavior based on
 		// the environment config.
-		base, err := coreseries.GetBaseFromSeries(args.InstanceConfig.Series)
-		c.Assert(err, jc.ErrorIsNil)
 		expectedMcfg, err := instancecfg.NewBootstrapInstanceConfig(
 			coretesting.FakeControllerConfig(),
 			args.Constraints,
 			args.Constraints,
-			base,
+			args.InstanceConfig.Base,
 			"",
 			nil,
 		)
@@ -211,7 +209,7 @@ func (s *BootstrapSuite) TestBootstrapSeries(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
-	c.Check(result.Series, gc.Equals, bootstrapSeries)
+	c.Check(result.Base.String(), gc.Equals, jujuversion.DefaultSupportedLTSBase().String())
 }
 
 func (s *BootstrapSuite) TestBootstrapInvalidSeries(c *gc.C) {
@@ -251,7 +249,7 @@ func (s *BootstrapSuite) TestBootstrapFallbackSeries(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
-	c.Check(result.Series, gc.Equals, jujuversion.DefaultSupportedLTS())
+	c.Check(result.Base.String(), gc.Equals, jujuversion.DefaultSupportedLTSBase().String())
 }
 
 func (s *BootstrapSuite) TestBootstrapSeriesWithForce(c *gc.C) {
@@ -273,7 +271,7 @@ func (s *BootstrapSuite) TestBootstrapSeriesWithForce(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
-	c.Check(result.Series, gc.Equals, "xenial")
+	c.Check(result.Base.String(), gc.Equals, coreseries.MakeDefaultBase("ubuntu", "16.04").String())
 }
 
 func (s *BootstrapSuite) TestBootstrapSeriesWithForceAndInvalidFallback(c *gc.C) {
@@ -301,7 +299,7 @@ func (s *BootstrapSuite) TestBootstrapSeriesWithForceAndInvalidFallback(c *gc.C)
 		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 		Force:                    true,
 	})
-	c.Assert(err, gc.ErrorMatches, "bootstrap instance series not valid")
+	c.Assert(err, gc.ErrorMatches, "bootstrap instance series \"\" not valid")
 }
 
 func (s *BootstrapSuite) TestStartInstanceDerivedZone(c *gc.C) {
@@ -636,7 +634,9 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
-	c.Assert(result.Series, gc.Equals, config.PreferredSeries(mocksConfig))
+	series, err := coreseries.GetSeriesFromBase(result.Base)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(series, gc.Equals, config.PreferredSeries(mocksConfig))
 	c.Assert(result.CloudBootstrapFinalizer, gc.NotNil)
 
 	// Check that we make the SSH connection with desired options.
@@ -666,7 +666,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		if c.Check(submatch, gc.NotNil, gc.Commentf("%s", sshArgs)) {
 			knownHostsFile := submatch[1]
 			knownHostsFile = strings.Replace(knownHostsFile, `\"`, ``, -1)
-			knownHostsBytes, err := ioutil.ReadFile(knownHostsFile)
+			knownHostsBytes, err := os.ReadFile(knownHostsFile)
 			if err != nil {
 				return err
 			}

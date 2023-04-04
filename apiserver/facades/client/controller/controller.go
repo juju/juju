@@ -5,6 +5,7 @@ package controller
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -12,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
@@ -24,15 +25,19 @@ import (
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/caas"
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -44,7 +49,7 @@ type ControllerAPI struct {
 	*common.ModelStatusAPI
 	cloudspec.CloudSpecer
 
-	state      *state.State
+	state      Backend
 	statePool  *state.StatePool
 	authorizer facade.Authorizer
 	apiUser    names.UserTag
@@ -56,54 +61,6 @@ type ControllerAPI struct {
 	multiwatcherFactory multiwatcher.Factory
 }
 
-// ControllerAPIv10 provides the v10 controller API. The only difference between
-// this and the v11 is that v10 doesn't support force destroy.
-type ControllerAPIv10 struct {
-	*ControllerAPI
-}
-
-// ControllerAPIv9 provides the v9 controller API. The only difference between
-// this and the v10 is that v9 use the cloudspec api v1
-type ControllerAPIv9 struct {
-	*ControllerAPIv10
-}
-
-// ControllerAPIv8 provides the v8 Controller API. The only difference
-// between this and v9 is that v8 doesn't have the model summary watchers.
-type ControllerAPIv8 struct {
-	*ControllerAPIv9
-}
-
-// ControllerAPIv7 provides the v7 Controller API. The only difference
-// between this and v8 is that v7 doesn't have the ControllerVersion method.
-type ControllerAPIv7 struct {
-	*ControllerAPIv8
-}
-
-// ControllerAPIv6 provides the v6 Controller API. The only difference
-// between this and v7 is that v6 doesn't have the IdentityProviderURL method.
-type ControllerAPIv6 struct {
-	*ControllerAPIv7
-}
-
-// ControllerAPIv5 provides the v5 Controller API. The only difference
-// between this and v6 is that v5 doesn't have the MongoVersion method.
-type ControllerAPIv5 struct {
-	*ControllerAPIv6
-}
-
-// ControllerAPIv4 provides the v4 Controller API. The only difference
-// between this and v5 is that v4 doesn't have the
-// UpdateControllerConfig method.
-type ControllerAPIv4 struct {
-	*ControllerAPIv5
-}
-
-// ControllerAPIv3 provides the v3 Controller API.
-type ControllerAPIv3 struct {
-	*ControllerAPIv4
-}
-
 // LatestAPI is used for testing purposes to create the latest
 // controller API.
 var LatestAPI = newControllerAPIv11
@@ -111,7 +68,7 @@ var LatestAPI = newControllerAPIv11
 // TestingAPI is an escape hatch for requesting a controller API that won't
 // allow auth to correctly happen for ModelStatus. I'm not convicned this
 // should exist at all.
-var TestingAPI = newControllerAPIv6
+var TestingAPI = LatestAPI
 
 // NewControllerAPI creates a new api server endpoint for operations
 // on a controller.
@@ -152,7 +109,7 @@ func NewControllerAPI(
 			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
 			common.AuthFuncForTag(model.ModelTag()),
 		),
-		state:               st,
+		state:               stateShim{st},
 		statePool:           pool,
 		authorizer:          authorizer,
 		apiUser:             apiUser,
@@ -175,9 +132,6 @@ func (c *ControllerAPI) checkIsSuperUser() error {
 	return nil
 }
 
-// ControllerVersion isn't on the v7 API.
-func (c *ControllerAPIv7) ControllerVersion(_, _ struct{}) {}
-
 // ControllerVersion returns the version information associated with this
 // controller binary.
 //
@@ -190,9 +144,6 @@ func (c *ControllerAPI) ControllerVersion() (params.ControllerVersionResults, er
 	}
 	return result, nil
 }
-
-// IdentityProviderURL isn't on the v6 API.
-func (c *ControllerAPIv6) IdentityProviderURL() {}
 
 // IdentityProviderURL returns the URL of the configured external identity
 // provider for this controller or an empty string if no external identity
@@ -214,26 +165,6 @@ func (c *ControllerAPI) IdentityProviderURL() (params.StringResult, error) {
 	return result, nil
 }
 
-// ModelStatus is a legacy method call to ensure that we preserve
-// backward compatibility.
-// TODO (anastasiamac 2017-10-26) This should be made obsolete/removed.
-func (c *ControllerAPIv3) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
-	results, err := c.ModelStatusAPI.ModelStatus(req)
-	if err != nil {
-		return params.ModelStatusResults{}, err
-	}
-
-	for _, r := range results.Results {
-		if r.Error != nil {
-			return params.ModelStatusResults{Results: make([]params.ModelStatus, len(req.Entities))}, errors.Trace(r.Error)
-		}
-	}
-	return results, nil
-}
-
-// MongoVersion isn't on the v5 API.
-func (c *ControllerAPIv5) MongoVersion() {}
-
 // MongoVersion allows the introspection of the mongo version per controller
 func (c *ControllerAPI) MongoVersion() (params.StringResult, error) {
 	result := params.StringResult{}
@@ -246,6 +177,155 @@ func (c *ControllerAPI) MongoVersion() (params.StringResult, error) {
 	}
 	result.Result = version
 	return result, nil
+}
+
+// dashboardConnectionInforForCAAS returns a dashboard connection for a Juju
+// dashboard deployed on CAAS.
+func (c *ControllerAPI) dashboardConnectionInfoForCAAS(
+	m *state.Model,
+	applicationName string,
+) (*params.Proxy, error) {
+	configGetter := stateenvirons.EnvironConfigGetter{Model: m}
+	environ, err := common.EnvironFuncForModel(m, configGetter)()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	caasBroker, ok := environ.(caas.Broker)
+	if !ok {
+		return nil, errors.New("cannot get CAAS environ for model")
+	}
+
+	dashboardApp, err := c.state.Application(applicationName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cfg, err := dashboardApp.CharmConfig(model.GenerationMaster)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	port, ok := cfg["port"]
+	if !ok {
+		return nil, errors.NotFoundf("dashboard port in charm config")
+	}
+
+	proxier, err := caasBroker.ProxyToApplication(applicationName, fmt.Sprint(port))
+	if err != nil {
+		return nil, err
+	}
+
+	return params.NewProxy(proxier)
+}
+
+// dashboardConnectionInforForIAAS returns a dashboard connection for a Juju
+// dashboard deployed on IAAS.
+func (c *ControllerAPI) dashboardConnectionInfoForIAAS(
+	appName string,
+	appSettings map[string]interface{},
+) (*params.DashboardConnectionSSHTunnel, error) {
+	addr, ok := appSettings["dashboard-ingress"]
+	if !ok {
+		return nil, errors.NotFoundf("dashboard address in relation data")
+	}
+
+	// TODO: support cross-model relations
+	// If the dashboard app is in a different model, this will try to look in
+	// the controller model, returning `application "dashboard" not found`
+	dashboardApp, err := c.state.Application(appName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cfg, err := dashboardApp.CharmConfig(model.GenerationMaster)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	port, ok := cfg["port"]
+	if !ok {
+		return nil, errors.NotFoundf("dashboard port in charm config")
+	}
+
+	model, err := c.state.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	modelName := model.Name()
+	ctrCfg, err := c.state.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	controllerName := ctrCfg.ControllerName()
+
+	return &params.DashboardConnectionSSHTunnel{
+		Model:  fmt.Sprintf("%s:%s", controllerName, modelName),
+		Entity: fmt.Sprintf("%s/leader", appName),
+		Host:   fmt.Sprintf("%s", addr),
+		Port:   fmt.Sprintf("%d", port),
+	}, nil
+}
+
+// DashboardConnectionInfo returns the connection information for a client to
+// connect to the Juju Dashboard including any proxying information.
+func (c *ControllerAPI) DashboardConnectionInfo() (params.DashboardConnectionInfo, error) {
+	getDashboardInfo := func() (params.DashboardConnectionInfo, error) {
+		rval := params.DashboardConnectionInfo{}
+		controllerApp, err := c.state.Application(bootstrap.ControllerApplicationName)
+		if err != nil {
+			return rval, errors.Trace(err)
+		}
+
+		rels, err := controllerApp.Relations()
+		if err != nil {
+			return rval, errors.Trace(err)
+		}
+
+		for _, rel := range rels {
+			ep, err := rel.Endpoint(controllerApp.Name())
+			if err != nil {
+				return rval, errors.Trace(err)
+			}
+			if ep.Name != "dashboard" {
+				continue
+			}
+
+			model, _, err := c.statePool.GetModel(rel.ModelUUID())
+			if err != nil {
+				return rval, errors.Trace(err)
+			}
+
+			relatedEps, err := rel.RelatedEndpoints(controllerApp.Name())
+			if err != nil {
+				return rval, errors.Trace(err)
+			}
+			related := relatedEps[0]
+
+			appSettings, err := rel.ApplicationSettings(related.ApplicationName)
+			if err != nil {
+				return rval, errors.Trace(err)
+			}
+
+			if model.Type() != state.ModelTypeCAAS {
+				sshConnection, err := c.dashboardConnectionInfoForIAAS(
+					related.ApplicationName,
+					appSettings)
+				rval.SSHConnection = sshConnection
+				return rval, err
+			}
+
+			proxyConnection, err := c.dashboardConnectionInfoForCAAS(model, related.ApplicationName)
+			rval.ProxyConnection = proxyConnection
+			return rval, err
+		}
+
+		return rval, errors.NotFoundf("dashboard")
+	}
+	conInfo, err := getDashboardInfo()
+
+	if conInfo.ProxyConnection != nil && conInfo.SSHConnection != nil {
+		return params.DashboardConnectionInfo{},
+			errors.New("cannot set both proxy and ssh connection for dashboard connection info")
+	}
+	conInfo.Error = apiservererrors.ServerError(err)
+	return conInfo, nil
 }
 
 // AllModels allows controller administrators to get the list of all the
@@ -468,9 +548,6 @@ func (c *ControllerAPI) WatchAllModelSummaries() (params.SummaryWatcherID, error
 	}, nil
 }
 
-// WatchAllModelSummaries isn't on the v8 API.
-func (c *ControllerAPIv8) WatchAllModelSummaries(_, _ struct{}) {}
-
 // WatchModelSummaries starts watching the summary updates from the cache.
 // Only models that the user has access to are returned.
 func (c *ControllerAPI) WatchModelSummaries() (params.SummaryWatcherID, error) {
@@ -480,9 +557,6 @@ func (c *ControllerAPI) WatchModelSummaries() (params.SummaryWatcherID, error) {
 		WatcherID: c.resources.Register(w),
 	}, nil
 }
-
-// WatchModelSummaries isn't on the v8 API.
-func (c *ControllerAPIv8) WatchModelSummaries(_, _ struct{}) {}
 
 // GetControllerAccess returns the level of access the specified users
 // have on the controller.
@@ -632,12 +706,8 @@ func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAcces
 
 		controllerAccess := permission.Access(arg.Access)
 		if err := permission.ValidateControllerAccess(controllerAccess); err != nil {
-			// TODO(wallyworld) - remove in Juju 3.0
-			// Backwards compatibility requires us to accept add-model.
-			if controllerAccess != permission.AddModelAccess {
-				result.Results[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
 		}
 
 		targetUserTag, err := names.ParseUserTag(arg.UserTag)
@@ -676,13 +746,6 @@ func (c *ControllerAPI) ConfigSet(args params.ControllerConfigSet) error {
 	}
 	return nil
 }
-
-// Mask the ConfigSet method from the v4 API. The API reflection code
-// in rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so
-// this removes the method as far as the RPC machinery is concerned.
-
-// ConfigSet isn't on the v4 API.
-func (c *ControllerAPIv4) ConfigSet(_, _ struct{}) {}
 
 // runMigrationPrechecks runs prechecks on the migration and updates
 // information in targetInfo as needed based on information
@@ -909,55 +972,14 @@ func targetToAPIInfo(ti *coremigration.TargetInfo) *api.Info {
 	}
 }
 
-// grantControllerCloudAccess exists for backwards compatibility since older clients
-// still set add-model on the controller rather than the controller cloud.
-func grantControllerCloudAccess(accessor *state.State, targetUserTag names.UserTag, access permission.Access) error {
-	controllerInfo, err := accessor.ControllerInfo()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	cloud := controllerInfo.CloudName
-	err = accessor.CreateCloudAccess(cloud, targetUserTag, access)
-	if errors.IsAlreadyExists(err) {
-		cloudAccess, err := accessor.GetCloudAccess(cloud, targetUserTag)
-		if errors.IsNotFound(err) {
-			// Conflicts with prior check, must be inconsistent state.
-			err = txn.ErrExcessiveContention
-		}
-		if err != nil {
-			return errors.Annotate(err, "could not look up cloud access for user")
-		}
-
-		// Only set access if greater access is being granted.
-		if cloudAccess.EqualOrGreaterCloudAccessThan(access) {
-			return errors.Errorf("user already has %q access or greater", access)
-		}
-		if _, err = accessor.SetUserAccess(targetUserTag, names.NewCloudTag(cloud), access); err != nil {
-			return errors.Annotate(err, "could not set cloud access for user")
-		}
-		return nil
-
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-func grantControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access permission.Access) error {
-	// TODO(wallyworld) - remove in Juju 3.0
-	// Older clients still use the controller facade to manage add-model access.
-	if access == permission.AddModelAccess {
-		return grantControllerCloudAccess(accessor, targetUserTag, access)
-	}
-
+func grantControllerAccess(accessor ControllerAccess, targetUserTag, apiUser names.UserTag, access permission.Access) error {
 	_, err := accessor.AddControllerUser(state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: access})
 	if errors.IsAlreadyExists(err) {
 		controllerTag := accessor.ControllerTag()
 		controllerUser, err := accessor.UserAccess(targetUserTag, controllerTag)
 		if errors.IsNotFound(err) {
 			// Conflicts with prior check, must be inconsistent state.
-			err = txn.ErrExcessiveContention
+			err = jujutxn.ErrExcessiveContention
 		}
 		if err != nil {
 			return errors.Annotate(err, "could not look up controller access for user")
@@ -979,17 +1001,7 @@ func grantControllerAccess(accessor *state.State, targetUserTag, apiUser names.U
 	return nil
 }
 
-func revokeControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access permission.Access) error {
-	// TODO(wallyworld) - remove in Juju 3.0
-	// Older clients still use the controller facade to manage add-model access.
-	if access == permission.AddModelAccess {
-		controllerInfo, err := accessor.ControllerInfo()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return accessor.RemoveCloudAccess(controllerInfo.CloudName, targetUserTag)
-	}
-
+func revokeControllerAccess(accessor ControllerAccess, targetUserTag, apiUser names.UserTag, access permission.Access) error {
 	controllerTag := accessor.ControllerTag()
 	switch access {
 	case permission.LoginAccess:
@@ -1012,7 +1024,7 @@ func revokeControllerAccess(accessor *state.State, targetUserTag, apiUser names.
 
 // ChangeControllerAccess performs the requested access grant or revoke action for the
 // specified user on the controller.
-func ChangeControllerAccess(accessor *state.State, apiUser, targetUserTag names.UserTag, action params.ControllerAction, access permission.Access) error {
+func ChangeControllerAccess(accessor ControllerAccess, apiUser, targetUserTag names.UserTag, action params.ControllerAction, access permission.Access) error {
 	switch action {
 	case params.GrantControllerAccess:
 		err := grantControllerAccess(accessor, targetUserTag, apiUser, access)

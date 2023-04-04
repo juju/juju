@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
-	jujutxn "github.com/juju/txn/v2"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
+	jujutxn "github.com/juju/txn/v3"
 )
 
 const (

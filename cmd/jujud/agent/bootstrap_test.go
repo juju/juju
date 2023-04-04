@@ -9,40 +9,46 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 	"time"
 
+	"github.com/golang/mock/gomock"
+	"github.com/juju/charm/v9"
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v2"
-	mgotesting "github.com/juju/mgo/v2/testing"
+	"github.com/juju/mgo/v3"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
+	osseries "github.com/juju/os/v2/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
 	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/apiserver/facades/client/charms/interfaces"
+	"github.com/juju/juju/apiserver/facades/client/charms/mocks"
+	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/series"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"
@@ -61,6 +67,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -75,12 +82,12 @@ type BootstrapSuite struct {
 	bootstrapParamsFile string
 	bootstrapParams     instancecfg.StateInitializationParams
 
-	dataDir         string
-	logDir          string
-	mongoOplogSize  string
-	fakeEnsureMongo *agenttest.FakeEnsureMongo
-	bootstrapName   string
-	hostedModelUUID string
+	dataDir          string
+	logDir           string
+	mongoOplogSize   string
+	fakeEnsureMongo  *agenttest.FakeEnsureMongo
+	bootstrapName    string
+	initialModelUUID string
 
 	toolsStorage storage.Storage
 }
@@ -113,14 +120,14 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&sshGenerateKey, func(name string) (string, string, error) {
 		return "private-key", "public-key", nil
 	})
-	s.PatchValue(&series.UbuntuDistroInfo, "/path/notexists")
+	s.PatchValue(&coreseries.UbuntuDistroInfo, "/path/notexists")
 
 	s.MgoSuite.SetUpTest(c)
 	s.dataDir = c.MkDir()
 	s.logDir = c.MkDir()
 	s.bootstrapParamsFile = filepath.Join(s.dataDir, "bootstrap-params")
 	s.mongoOplogSize = "1234"
-	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s)
+	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s, s.dataDir)
 	s.PatchValue(&initiateMongoServer, s.fakeEnsureMongo.InitiateMongo)
 	s.makeTestModel(c)
 
@@ -129,19 +136,17 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	toolsDir := filepath.FromSlash(agenttools.SharedToolsDir(s.dataDir, current))
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(toolsDir, "tools.tar.gz"), nil, 0644)
+	err = os.WriteFile(filepath.Join(toolsDir, "tools.tar.gz"), nil, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	s.writeDownloadedTools(c, &tools.Tools{Version: current})
 
-	// Create fake gui.tar.bz2 and downloaded-gui.txt.
-	guiDir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
-	err = os.MkdirAll(guiDir, 0755)
+	// Create fake local controller charm.
+	controllerCharmPath := filepath.Join(s.dataDir, "charms")
+	err = os.MkdirAll(controllerCharmPath, 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(guiDir, "gui.tar.bz2"), nil, 0644)
+	pathToArchive := testcharms.Repo.CharmArchivePath(controllerCharmPath, "juju-controller")
+	err = os.Rename(pathToArchive, filepath.Join(controllerCharmPath, "controller.charm"))
 	c.Assert(err, jc.ErrorIsNil)
-	s.writeDownloadedGUI(c, &tools.GUIArchive{
-		Version: version.MustParse("2.0.42"),
-	})
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
@@ -155,88 +160,8 @@ func (s *BootstrapSuite) writeDownloadedTools(c *gc.C, tools *tools.Tools) {
 	c.Assert(err, jc.ErrorIsNil)
 	data, err := json.Marshal(tools)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(toolsDir, "downloaded-tools.txt"), data, 0644)
+	err = os.WriteFile(filepath.Join(toolsDir, "downloaded-tools.txt"), data, 0644)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *BootstrapSuite) writeDownloadedGUI(c *gc.C, gui *tools.GUIArchive) {
-	guiDir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
-	err := os.MkdirAll(guiDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
-	data, err := json.Marshal(gui)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(guiDir, "downloaded-gui.txt"), data, 0644)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *BootstrapSuite) TestGUIArchiveInfoNotFound(c *gc.C) {
-	dir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
-	info := filepath.Join(dir, "downloaded-gui.txt")
-	err := os.Remove(info)
-	c.Assert(err, jc.ErrorIsNil)
-	_, cmd, err := s.initBootstrapCommand(c, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var tw loggo.TestWriter
-	err = loggo.RegisterWriter("bootstrap-test", &tw)
-	c.Assert(err, jc.ErrorIsNil)
-	defer loggo.RemoveWriter("bootstrap-test")
-
-	err = cmd.Run(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
-		loggo.WARNING,
-		`cannot set up Juju GUI: cannot fetch GUI info: GUI metadata not found`,
-	}})
-}
-
-func (s *BootstrapSuite) TestGUIArchiveInfoError(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		// TODO frankban: skipping for now due to chmod problems with mode 0000
-		// on Windows. We will re-enable this test after further investigation:
-		// "jujud bootstrap" is never run on Windows anyway.
-		c.Skip("needs chmod investigation")
-	}
-	dir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
-	info := filepath.Join(dir, "downloaded-gui.txt")
-	err := os.Chmod(info, 0000)
-	c.Assert(err, jc.ErrorIsNil)
-	defer os.Chmod(info, 0600)
-	_, cmd, err := s.initBootstrapCommand(c, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var tw loggo.TestWriter
-	err = loggo.RegisterWriter("bootstrap-test", &tw)
-	c.Assert(err, jc.ErrorIsNil)
-	defer loggo.RemoveWriter("bootstrap-test")
-
-	err = cmd.Run(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
-		loggo.WARNING,
-		`cannot set up Juju GUI: cannot fetch GUI info: cannot read GUI metadata in directory .*`,
-	}})
-}
-
-func (s *BootstrapSuite) TestGUIArchiveError(c *gc.C) {
-	dir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
-	archive := filepath.Join(dir, "gui.tar.bz2")
-	err := os.Remove(archive)
-	c.Assert(err, jc.ErrorIsNil)
-	_, cmd, err := s.initBootstrapCommand(c, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var tw loggo.TestWriter
-	err = loggo.RegisterWriter("bootstrap-test", &tw)
-	c.Assert(err, jc.ErrorIsNil)
-	defer loggo.RemoveWriter("bootstrap-test")
-
-	err = cmd.Run(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
-		loggo.WARNING,
-		`cannot set up Juju GUI: cannot read GUI archive: .*`,
-	}})
 }
 
 func (s *BootstrapSuite) getSystemState(c *gc.C) (*state.State, func()) {
@@ -251,7 +176,12 @@ func (s *BootstrapSuite) getSystemState(c *gc.C) (*state.State, func()) {
 	c.Assert(err, jc.ErrorIsNil)
 	return systemState, func() { pool.Close() }
 }
-func (s *BootstrapSuite) TestGUIArchiveSuccess(c *gc.C) {
+
+func (s *BootstrapSuite) TestLocalControllerCharm(c *gc.C) {
+	if coreos.HostOS() != coreos.Ubuntu {
+		c.Skip("controller charm only supported on Ubuntu")
+	}
+
 	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -264,26 +194,149 @@ func (s *BootstrapSuite) TestGUIArchiveSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
 		loggo.DEBUG,
-		`Juju GUI successfully set up`,
+		`Successfully deployed local Juju controller charm`,
 	}})
+	s.assertControllerApplication(c)
+}
 
-	// Retrieve the state so that it is possible to access the GUI storage.
+func stringp(v string) *string {
+	return &v
+}
+
+func (s *BootstrapSuite) TestControllerCharmConstraints(c *gc.C) {
+	if coreos.HostOS() != coreos.Ubuntu {
+		c.Skip("controller charm only supported on Ubuntu")
+	}
+
+	s.PatchValue(&osseries.HostSeries, func() (string, error) {
+		return "jammy", nil
+	})
+
+	s.bootstrapParams.BootstrapMachineConstraints = constraints.Value{
+		Arch: stringp("arm64"),
+	}
+	s.writeBootstrapParamsFile(c)
+	_, cmd, err := s.initBootstrapCommand(c, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var tw loggo.TestWriter
+	err = loggo.RegisterWriter("bootstrap-test", &tw)
+	c.Assert(err, jc.ErrorIsNil)
+	defer loggo.RemoveWriter("bootstrap-test")
+
+	err = cmd.Run(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
+		loggo.DEBUG,
+		`Successfully deployed local Juju controller charm`,
+	}})
+	s.assertControllerApplication(c)
 	st, closer := s.getSystemState(c)
 	defer closer()
 
-	// The GUI archive has been uploaded to the GUI storage.
-	storage, err := st.GUIStorage()
+	app, err := st.Application("controller")
 	c.Assert(err, jc.ErrorIsNil)
-	defer storage.Close()
-	allMeta, err := storage.AllMetadata()
+	constraints, err := app.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(allMeta, gc.HasLen, 1)
-	c.Assert(allMeta[0].Version, gc.Equals, "2.0.42")
+	consArch := constraints.Arch
+	c.Assert(consArch, gc.NotNil)
+	c.Assert(*consArch, gc.Equals, "arm64")
+}
 
-	// The current GUI version has been set.
-	vers, err := st.GUIVersion()
+func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
+	if coreos.HostOS() != coreos.Ubuntu {
+		c.Skip("controller charm only supported on Ubuntu")
+	}
+
+	s.PatchValue(&osseries.HostSeries, func() (string, error) {
+		return "jammy", nil
+	})
+
+	// Remove the local controller charm so we use the store one.
+	controllerCharmPath := filepath.Join(s.dataDir, "charms", "controller.charm")
+	err := os.Remove(controllerCharmPath)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vers.String(), gc.Equals, "2.0.42")
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	repo := mocks.NewMockRepository(ctrl)
+	s.PatchValue(&newCharmRepo, func(cfg services.CharmRepoFactoryConfig) (corecharm.Repository, error) {
+		return repo, nil
+	})
+	downloader := mocks.NewMockDownloader(ctrl)
+	s.PatchValue(&newCharmDownloader, func(cfg services.CharmDownloaderConfig) (interfaces.Downloader, error) {
+		return downloader, nil
+	})
+
+	curl := charm.MustParseURL(controllerCharmURL)
+	channel := corecharm.MustParseChannel("3.0/beta")
+	origin := corecharm.Origin{
+		Source:  corecharm.CharmHub,
+		Channel: &channel,
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Channel:      "22.04",
+		},
+	}
+
+	storeCurl := *curl
+	storeCurl.Revision = 666
+	storeCurl.Series = "jammy"
+	storeCurl.Architecture = "amd64"
+	storeOrigin := origin
+	storeOrigin.Type = "charm"
+	repo.EXPECT().ResolveWithPreferredChannel(curl, origin, nil).Return(&storeCurl, storeOrigin, nil, nil)
+
+	downloader.EXPECT().DownloadAndStore(&storeCurl, storeOrigin, nil, false).
+		DoAndReturn(func(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice, force bool) (corecharm.Origin, error) {
+			controllerCharm := testcharms.Repo.CharmArchive(c.MkDir(), "juju-controller")
+			st, closer := s.getSystemState(c)
+			defer closer()
+			_, err = st.AddCharm(state.CharmInfo{
+				Charm:       controllerCharm,
+				ID:          charmURL,
+				StoragePath: "foo", // required to flag the charm as uploaded
+				SHA256:      "bar", // required to flag the charm as uploaded
+			})
+			c.Assert(err, jc.ErrorIsNil)
+			return requestedOrigin, nil
+		})
+
+	_, cmd, err := s.initBootstrapCommand(c, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var tw loggo.TestWriter
+	err = loggo.RegisterWriter("bootstrap-test", &tw)
+	c.Assert(err, jc.ErrorIsNil)
+	defer loggo.RemoveWriter("bootstrap-test")
+
+	err = cmd.Run(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
+		loggo.DEBUG,
+		`Successfully deployed store Juju controller charm`,
+	}})
+	s.assertControllerApplication(c)
+}
+
+func (s *BootstrapSuite) assertControllerApplication(c *gc.C) {
+	st, closer := s.getSystemState(c)
+	defer closer()
+
+	app, err := st.Application("controller")
+	c.Assert(err, jc.ErrorIsNil)
+	appCh, _, err := app.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	stateCh, err := st.Charm(appCh.URL())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stateCh.Meta().Name, gc.Equals, "juju-controller")
+	units, err := app.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 1)
+	m, err := units[0].AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m, gc.Equals, "0")
 }
 
 var testPassword = "my-admin-secret"
@@ -338,7 +391,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []model.MachineJob, 
 	return machineConf, cmd, err
 }
 
-func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
+func (s *BootstrapSuite) TestInitializeModel(c *gc.C) {
 	machConf, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
@@ -347,7 +400,6 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.DataDir, gc.Equals, s.dataDir)
 	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
-	c.Assert(s.fakeEnsureMongo.DataDir, gc.Equals, s.dataDir)
 	c.Assert(s.fakeEnsureMongo.OplogSize, gc.Equals, 1234)
 
 	expectInfo, exists := machConf.StateServingInfo()
@@ -400,7 +452,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(cfg.AuthorizedKeys(), gc.Equals, s.bootstrapParams.ControllerModelConfig.AuthorizedKeys()+"\npublic-key")
 }
 
-func (s *BootstrapSuite) TestInitializeEnvironmentInvalidOplogSize(c *gc.C) {
+func (s *BootstrapSuite) TestInitializeModelInvalidOplogSize(c *gc.C) {
 	s.mongoOplogSize = "NaN"
 	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -408,7 +460,7 @@ func (s *BootstrapSuite) TestInitializeEnvironmentInvalidOplogSize(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `failed to start mongo: invalid oplog size: "NaN"`)
 }
 
-func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
+func (s *BootstrapSuite) TestInitializeModelToolsNotFound(c *gc.C) {
 	// bootstrap with 2.99.1 but there will be no tools so version will be reset.
 	cfg, err := s.bootstrapParams.ControllerModelConfig.Apply(map[string]interface{}{
 		"agent-version": "2.99.1",
@@ -479,21 +531,6 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	m, err := st.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Jobs(), gc.DeepEquals, expectedJobs)
-}
-
-func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
-	jobs := []model.MachineJob{model.JobManageModel}
-	_, cmd, err := s.initBootstrapCommand(c, jobs)
-	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	st, closer := s.getSystemState(c)
-	defer closer()
-
-	m, err := st.Machine("0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageModel})
 }
 
 func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
@@ -597,9 +634,9 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 		c.Assert(dialOpts.Direct, jc.IsTrue)
 		c.Assert(dialOpts.Timeout, gc.Equals, 30*time.Second)
 		c.Assert(dialOpts.SocketTimeout, gc.Equals, 123*time.Second)
-		c.Assert(args.HostedModelConfig, jc.DeepEquals, map[string]interface{}{
-			"name": "hosted-model",
-			"uuid": s.hostedModelUUID,
+		c.Assert(args.InitialModelConfig, jc.DeepEquals, map[string]interface{}{
+			"name": "my-model",
+			"uuid": s.initialModelUUID,
 		})
 		return nil, errors.New("failed to initialize state")
 	}
@@ -665,7 +702,7 @@ func (s *BootstrapSuite) TestSystemIdentityWritten(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	data, err := ioutil.ReadFile(filepath.Join(s.dataDir, agent.SystemIdentity))
+	data, err := os.ReadFile(filepath.Join(s.dataDir, agent.SystemIdentity))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, "private-key")
 }
@@ -720,7 +757,7 @@ func createImageMetadata() []*imagemetadata.ImageMetadata {
 		Storage:    "rootStore",
 		VirtType:   "virtType",
 		Arch:       "amd64",
-		Version:    "14.04",
+		Version:    "22.04",
 		Endpoint:   "endpoint",
 		RegionName: "region",
 	}}
@@ -758,8 +795,7 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 		MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 			Region:          "region",
 			Arch:            "amd64",
-			Version:         "14.04",
-			Series:          "trusty",
+			Version:         "22.04",
 			RootStorageType: "rootStore",
 			VirtType:        "virtType",
 			Source:          "custom",
@@ -768,17 +804,6 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 		ImageId:  "imageId",
 	}
 	s.assertWrittenToState(c, s.Session, expect)
-}
-
-func (s *BootstrapSuite) TestStructuredImageMetadataInvalidSeries(c *gc.C) {
-	s.bootstrapParams.CustomImageMetadata = createImageMetadata()
-	s.bootstrapParams.CustomImageMetadata[0].Version = "woat"
-	s.writeBootstrapParamsFile(c)
-
-	_, cmd, err := s.initBootstrapCommand(c, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(nil)
-	c.Assert(err, gc.ErrorMatches, `cannot determine series for version woat: unknown series for version: \"woat\"`)
 }
 
 func (s *BootstrapSuite) makeTestModel(c *gc.C) {
@@ -819,7 +844,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	addr, _ := addresses.OneMatchingScope(network.ScopeMatchPublic)
 	s.bootstrapName = addr.Value
-	s.hostedModelUUID = utils.MustNewUUID().String()
+	s.initialModelUUID = utils.MustNewUUID().String()
 
 	var args instancecfg.StateInitializationParams
 	args.ControllerConfig = controllerCfg
@@ -827,15 +852,16 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	args.ControllerModelConfig = env.Config()
 	hw := instance.MustParseHardware("arch=amd64 mem=8G")
 	args.BootstrapMachineHardwareCharacteristics = &hw
-	args.HostedModelConfig = map[string]interface{}{
-		"name": "hosted-model",
-		"uuid": s.hostedModelUUID,
+	args.InitialModelConfig = map[string]interface{}{
+		"name": "my-model",
+		"uuid": s.initialModelUUID,
 	}
 	args.ControllerCloud = cloud.Cloud{
 		Name:      "dummy",
 		Type:      "dummy",
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 	}
+	args.ControllerCharmChannel = charm.Channel{Track: "3.0", Risk: "beta"}
 	s.bootstrapParams = args
 	s.writeBootstrapParamsFile(c)
 }
@@ -843,15 +869,15 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 func (s *BootstrapSuite) writeBootstrapParamsFile(c *gc.C) {
 	data, err := s.bootstrapParams.Marshal()
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(s.bootstrapParamsFile, data, 0600)
+	err = os.WriteFile(s.bootstrapParamsFile, data, 0600)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func nullContext() environs.BootstrapContext {
 	ctx, _ := cmd.DefaultContext()
 	ctx.Stdin = io.LimitReader(nil, 0)
-	ctx.Stdout = ioutil.Discard
-	ctx.Stderr = ioutil.Discard
+	ctx.Stdout = io.Discard
+	ctx.Stderr = io.Discard
 	return modelcmd.BootstrapContext(context.Background(), ctx)
 }
 

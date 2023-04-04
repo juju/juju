@@ -4,14 +4,15 @@
 package application_test
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
-	"github.com/juju/charm/v8/assumes"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/assumes"
+	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -37,7 +38,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
@@ -61,7 +61,7 @@ type mockLXDProfilerCharm struct {
 type ApplicationSuite struct {
 	testing.CleanupSuite
 
-	api *application.APIv15
+	api *application.APIBase
 
 	backend            *mocks.MockBackend
 	storageAccess      *mocks.MockStorageInterface
@@ -77,6 +77,8 @@ type ApplicationSuite struct {
 
 	authorizer apiservertesting.FakeAuthorizer
 	modelType  state.ModelType
+
+	allSpaceInfos network.SpaceInfos
 
 	deployParams               map[string]application.DeployApplicationParams
 	addRemoteApplicationParams state.AddRemoteApplicationParams
@@ -119,6 +121,8 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	s.changeAllowed = nil
 	s.removeAllowed = nil
 
+	s.allSpaceInfos = network.SpaceInfos{}
+
 	testMac := apitesting.MustNewMacaroon("test")
 	s.addRemoteApplicationParams = state.AddRemoteApplicationParams{
 		Name:        "hosted-mysql",
@@ -153,6 +157,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, map[string]interface{}{}),
 	).AnyTimes()
 	s.backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
+	s.backend.EXPECT().AllSpaceInfos().Return(s.allSpaceInfos, nil).AnyTimes()
 
 	s.storageAccess = mocks.NewMockStorageInterface(ctrl)
 	s.storageAccess.EXPECT().VolumeAccess().Return(nil).AnyTimes()
@@ -201,7 +206,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		s.caasBroker,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = &application.APIv15{api}
+	s.api = api
 	return ctrl
 }
 
@@ -221,11 +226,13 @@ func (s *ApplicationSuite) expectCharm(
 	return ch
 }
 
+var defaultCharmConfig = &charm.Config{Options: map[string]charm.Option{
+	"stringOption": {Type: "string"},
+	"intOption":    {Type: "int", Default: int(123)},
+}}
+
 func (s *ApplicationSuite) expectDefaultCharm(ctrl *gomock.Controller) *mocks.MockCharm {
-	return s.expectCharm(ctrl, &charm.Meta{Name: "charm-postgresql"}, &charm.Manifest{}, &charm.Config{Options: map[string]charm.Option{
-		"stringOption": {Type: "string"},
-		"intOption":    {Type: "int", Default: int(123)},
-	}})
+	return s.expectCharm(ctrl, &charm.Meta{Name: "charm-postgresql"}, &charm.Manifest{}, defaultCharmConfig)
 }
 
 func (s *ApplicationSuite) expectLxdProfilerCharm(ctrl *gomock.Controller, lxdProfile *charm.LXDProfile) *mockLXDProfilerCharm {
@@ -243,16 +250,9 @@ func (s *ApplicationSuite) expectDefaultLxdProfilerCharm(ctrl *gomock.Controller
 }
 
 func (s *ApplicationSuite) expectApplication(ctrl *gomock.Controller, name string) *mocks.MockApplication {
-	var series string
-	if s.modelType == state.ModelTypeIAAS {
-		series = "quantal"
-	}
-	if s.modelType == state.ModelTypeCAAS {
-		series = "kubernetes"
-	}
 	app := mocks.NewMockApplication(ctrl)
 	app.EXPECT().Name().Return(name).AnyTimes()
-	app.EXPECT().Series().Return(series).AnyTimes()
+	app.EXPECT().ApplicationTag().Return(names.NewApplicationTag(name)).AnyTimes()
 	app.EXPECT().IsPrincipal().Return(true).AnyTimes()
 	app.EXPECT().IsExposed().Return(false).AnyTimes()
 	app.EXPECT().IsRemote().Return(false).AnyTimes()
@@ -269,6 +269,8 @@ func (s *ApplicationSuite) expectDefaultApplication(ctrl *gomock.Controller) *mo
 func (s *ApplicationSuite) expectApplicationWithCharm(ctrl *gomock.Controller, ch application.Charm, name string) *mocks.MockApplication {
 	app := s.expectApplication(ctrl, name)
 	app.EXPECT().Charm().Return(ch, true, nil).AnyTimes()
+	curl := fmt.Sprintf("cs:%s-42", name)
+	app.EXPECT().CharmURL().Return(&curl, false).AnyTimes()
 	return app
 }
 
@@ -284,46 +286,6 @@ func (s *ApplicationSuite) expectUpdateApplicationConfig(c *gc.C, app *mocks.Moc
 	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	app.EXPECT().UpdateApplicationConfig(appCfg.Attributes(), []string(nil), appCfgSchema, defaults).Return(nil)
-}
-
-func (s *ApplicationSuite) TestUpdateCAASApplicationSettings(c *gc.C) {
-	s.modelType = state.ModelTypeCAAS
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().UpdateCharmConfig("master", charm.Settings{
-		"stringOption": "bar",
-	})
-
-	s.expectUpdateApplicationConfig(c, app)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	// Update settings for the application.
-	args := params.ApplicationUpdate{
-		ApplicationName: "postgresql",
-		SettingsYAML:    "postgresql:\n  stringOption: bar\n  juju-external-hostname: foo",
-	}
-	api := &application.APIv12{&application.APIv13{&application.APIv14{s.api}}}
-	err := api.Update(args)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *ApplicationSuite) TestUpdateCAASApplicationSettingsInIAASModelTriggersError(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	app := s.expectDefaultApplication(ctrl)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	// Update settings for the application.
-	args := params.ApplicationUpdate{
-		ApplicationName: "postgresql",
-		SettingsYAML:    "postgresql:\n  stringOption: bar\n  juju-external-hostname: foo",
-	}
-	api := &application.APIv12{&application.APIv13{&application.APIv14{s.api}}}
-	err := api.Update(args)
-	c.Assert(err, gc.ErrorMatches, `.*unknown option "juju-external-hostname"`, gc.Commentf("expected to get an error when attempting to set CAAS-specific app setting in IAAS model"))
 }
 
 func (s *ApplicationSuite) TestSetCAASConfigSettings(c *gc.C) {
@@ -371,6 +333,97 @@ func (s *ApplicationSuite) TestSetCAASConfigSettingsInIAASModelTriggersError(c *
 	}}, gc.Commentf("expected to get an error when attempting to set CAAS-specific app setting in IAAS model"))
 }
 
+func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	ch := s.expectDefaultCharm(ctrl)
+	curl := charm.MustParseURL("cs:something-else")
+	s.backend.EXPECT().Charm(curl).Return(ch, nil)
+
+	app := s.expectDefaultApplication(ctrl)
+	app.EXPECT().SetCharm(state.SetCharmConfig{
+		Charm: &state.Charm{},
+		CharmOrigin: &state.CharmOrigin{
+			Source:   "charm-store",
+			Platform: &state.Platform{OS: "ubuntu", Channel: "20.04"},
+		},
+	})
+	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+
+	err := s.api.SetCharm(params.ApplicationSetCharm{
+		ApplicationName: "postgresql",
+		CharmURL:        "cs:something-else",
+		CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ApplicationSuite) TestSetCharmWithBlockRemove(c *gc.C) {
+	s.removeAllowed = errors.New("remove blocked")
+	s.TestSetCharm(c)
+}
+
+func (s *ApplicationSuite) TestSetCharmWithBlockChange(c *gc.C) {
+	s.changeAllowed = errors.New("change blocked")
+	defer s.setup(c).Finish()
+
+	err := s.api.SetCharm(params.ApplicationSetCharm{
+		ApplicationName: "postgresql",
+		CharmURL:        "cs:something-else",
+		CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
+	})
+	c.Assert(err, gc.ErrorMatches, "change blocked")
+}
+
+func (s *ApplicationSuite) TestSetCharmForceUnits(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	ch := s.expectDefaultCharm(ctrl)
+	curl := charm.MustParseURL("cs:something-else")
+	s.backend.EXPECT().Charm(curl).Return(ch, nil)
+
+	app := s.expectDefaultApplication(ctrl)
+	app.EXPECT().SetCharm(state.SetCharmConfig{
+		Charm: &state.Charm{},
+		CharmOrigin: &state.CharmOrigin{
+			Source:   "charm-store",
+			Platform: &state.Platform{OS: "ubuntu", Channel: "20.04"},
+		},
+		ForceUnits: true,
+	})
+
+	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+	err := s.api.SetCharm(params.ApplicationSetCharm{
+		ApplicationName: "postgresql",
+		CharmURL:        "cs:something-else",
+		ForceUnits:      true,
+		CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ApplicationSuite) TestSetCharmWithBlocksAndForceUnits(c *gc.C) {
+	s.removeAllowed = errors.New("remove blocked")
+	s.changeAllowed = errors.New("change blocked")
+	s.TestSetCharmForceUnits(c)
+}
+
+func (s *ApplicationSuite) TestSetCharmInvalidApplication(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.backend.EXPECT().Application("badapplication").Return(nil, errors.NotFoundf(`application "badapplication"`))
+
+	err := s.api.SetCharm(params.ApplicationSetCharm{
+		ApplicationName: "badapplication",
+		CharmURL:        "cs:something-else",
+		ForceBase:       true,
+		ForceUnits:      true,
+	})
+	c.Assert(err, gc.ErrorMatches, `application "badapplication" not found`)
+}
+
 func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
@@ -384,7 +437,7 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
-			Platform: &state.Platform{OS: "ubuntu", Series: "bionic"},
+			Platform: &state.Platform{OS: "ubuntu", Channel: "20.04"},
 		},
 		StorageConstraints: map[string]state.StorageConstraints{
 			"a": {},
@@ -407,7 +460,7 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 			"c": {Size: toUint64Ptr(123)},
 			"d": {Count: toUint64Ptr(456)},
 		},
-		CharmOrigin: &params.CharmOrigin{Series: "bionic"},
+		CharmOrigin: &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -427,7 +480,7 @@ func (s *ApplicationSuite) TestSetCAASCharmInvalid(c *gc.C) {
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "cs:postgresql",
-		CharmOrigin:     &params.CharmOrigin{OS: "ubuntu", Series: "bionic"},
+		CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 	})
 	c.Assert(err, gc.NotNil)
 	msg := strings.Replace(err.Error(), "\n", "", -1)
@@ -447,7 +500,7 @@ func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
-			Platform: &state.Platform{OS: "ubuntu", Series: "bionic"},
+			Platform: &state.Platform{OS: "ubuntu", Channel: "20.04"},
 		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
@@ -457,7 +510,7 @@ func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 		ApplicationName: "postgresql",
 		CharmURL:        "cs:postgresql",
 		ConfigSettings:  map[string]string{"stringOption": "value"},
-		CharmOrigin:     &params.CharmOrigin{OS: "ubuntu", Series: "bionic"},
+		CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -477,7 +530,7 @@ func (s *ApplicationSuite) TestSetCharmDisallowDowngradeFormat(c *gc.C) {
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "ch:postgresql",
-		CharmOrigin:     &params.CharmOrigin{Series: "quantal"},
+		CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 	})
 	c.Assert(err, gc.ErrorMatches, "cannot downgrade from v2 charm format to v1")
 }
@@ -507,23 +560,15 @@ func (s *ApplicationSuite) TestSetCharmUpgradeFormat(c *gc.C) {
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-hub",
-			Platform: &state.Platform{OS: "ubuntu", Series: "bionic"},
+			Platform: &state.Platform{OS: "ubuntu", Channel: "20.04"},
 		},
-		Series: "focal",
 	}).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	attrs := coretesting.FakeConfig().Merge(map[string]interface{}{
-		"operator-storage": "k8s-operator-storage",
-		"workload-storage": "k8s-storage",
-		"default-series":   "focal",
-	})
-	s.model.EXPECT().ModelConfig().Return(config.New(config.UseDefaults, attrs))
 
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "ch:postgresql",
-		CharmOrigin:     &params.CharmOrigin{Source: "charm-hub", Series: "bionic"},
+		CharmOrigin:     &params.CharmOrigin{Source: "charm-hub", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -541,7 +586,7 @@ func (s *ApplicationSuite) TestSetCharmConfigSettingsYAML(c *gc.C) {
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
-			Platform: &state.Platform{OS: "ubuntu", Series: "bionic"},
+			Platform: &state.Platform{OS: "ubuntu", Channel: "20.04"},
 		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	}).Return(nil)
@@ -550,7 +595,7 @@ func (s *ApplicationSuite) TestSetCharmConfigSettingsYAML(c *gc.C) {
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "cs:postgresql",
-		CharmOrigin:     &params.CharmOrigin{Series: "bionic"},
+		CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 		ConfigSettingsYAML: `
 postgresql:
   stringOption: value
@@ -582,7 +627,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
-			Platform: &state.Platform{OS: "ubuntu", Series: "bionic"},
+			Platform: &state.Platform{OS: "ubuntu", Channel: "20.04"},
 		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	}).Return(nil)
@@ -593,7 +638,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "cs:postgresql",
-		CharmOrigin:     &params.CharmOrigin{Series: "bionic"},
+		CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 		ConfigSettings:  map[string]string{"stringOption": "value"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -617,11 +662,11 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithOldAgentVersion(c *gc.C) {
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "cs:postgresql",
-		CharmOrigin:     &params.CharmOrigin{Series: "bionic"},
+		CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 		ConfigSettings:  map[string]string{"stringOption": "value"},
 	})
 	c.Assert(err, gc.ErrorMatches, "Unable to upgrade LXDProfile charms with the current model version. "+
-		"Please run juju upgrade-juju to upgrade the current model to match your controller.")
+		"Please run juju upgrade-model to upgrade the current model to match your controller.")
 }
 
 func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
@@ -639,7 +684,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
-			Platform: &state.Platform{OS: "ubuntu", Series: "bionic"},
+			Platform: &state.Platform{OS: "ubuntu", Channel: "20.04"},
 		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	}).Return(nil)
@@ -651,9 +696,93 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
 		ApplicationName: "postgresql",
 		CharmURL:        "cs:postgresql",
 		ConfigSettings:  map[string]string{"stringOption": "value"},
-		CharmOrigin:     &params.CharmOrigin{Series: "bionic"},
+		CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ApplicationSuite) TestSetCharmAssumesNotSatisfied(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	ch := s.expectCharm(
+		ctrl,
+		&charm.Meta{
+			Assumes: &assumes.ExpressionTree{
+				Expression: assumes.CompositeExpression{
+					ExprType: assumes.AllOfExpression,
+					SubExpressions: []assumes.Expression{
+						assumes.FeatureExpression{Name: "popcorn"},
+					},
+				},
+			},
+		},
+		nil,
+		&charm.Config{
+			Options: map[string]charm.Option{
+				"stringOption": {Type: "string"},
+				"intOption":    {Type: "int", Default: int(123)},
+			},
+		},
+	)
+
+	curl := charm.MustParseURL("cs:postgresql")
+	s.backend.EXPECT().Charm(curl).Return(ch, nil)
+
+	app := s.expectDefaultApplication(ctrl)
+	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+
+	// Try to upgrade the charm
+	err := s.api.SetCharm(params.ApplicationSetCharm{
+		ApplicationName: "postgresql",
+		CharmURL:        "cs:postgresql",
+		ConfigSettings:  map[string]string{"stringOption": "value"},
+		CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
+	})
+	c.Assert(err, gc.ErrorMatches, `(?m).*Charm feature requirements cannot be met.*`)
+}
+
+func (s *ApplicationSuite) TestSetCharmAssumesNotSatisfiedWithForce(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	ch := s.expectCharm(
+		ctrl,
+		&charm.Meta{
+			Assumes: &assumes.ExpressionTree{
+				Expression: assumes.CompositeExpression{
+					ExprType: assumes.AllOfExpression,
+					SubExpressions: []assumes.Expression{
+						assumes.FeatureExpression{Name: "popcorn"},
+					},
+				},
+			},
+		},
+		nil,
+		&charm.Config{
+			Options: map[string]charm.Option{
+				"stringOption": {Type: "string"},
+				"intOption":    {Type: "int", Default: int(123)},
+			},
+		},
+	)
+
+	curl := charm.MustParseURL("cs:postgresql")
+	s.backend.EXPECT().Charm(curl).Return(ch, nil)
+
+	app := s.expectDefaultApplication(ctrl)
+	app.EXPECT().SetCharm(gomock.Any()).Return(nil)
+	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+
+	// Try to upgrade the charm
+	err := s.api.SetCharm(params.ApplicationSetCharm{
+		ApplicationName: "postgresql",
+		CharmURL:        "cs:postgresql",
+		CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
+		ConfigSettings:  map[string]string{"stringOption": "value"},
+		Force:           true,
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("expected SetCharm to succeed when --force is set"))
 }
 
 func (s *ApplicationSuite) TestDestroyRelation(c *gc.C) {
@@ -741,31 +870,17 @@ func (s *ApplicationSuite) expectStorageInstance(ctrl *gomock.Controller, name s
 	return storageInstace
 }
 
-func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().AllUnits().Return([]application.Unit{
-		s.expectUnit(ctrl, "postgresql/0"),
-		s.expectUnit(ctrl, "postgresql/1"),
-	}, nil)
-	app.EXPECT().DestroyOperation().Return(&state.DestroyApplicationOperation{})
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
+func (s *ApplicationSuite) expectDefaultStorageAttachments(ctrl *gomock.Controller) {
 	s.storageAccess.EXPECT().UnitStorageAttachments(names.NewUnitTag("postgresql/0")).Return([]state.StorageAttachment{
 		s.expectStorageAttachment(ctrl, "pgdata/0"),
 		s.expectStorageAttachment(ctrl, "pgdata/1"),
 	}, nil)
 	s.storageAccess.EXPECT().StorageInstance(names.NewStorageTag("pgdata/0")).Return(s.expectStorageInstance(ctrl, "pgdata/0"), nil)
 	s.storageAccess.EXPECT().StorageInstance(names.NewStorageTag("pgdata/1")).Return(s.expectStorageInstance(ctrl, "pgdata/1"), nil)
-	s.storageAccess.EXPECT().UnitStorageAttachments(names.NewUnitTag("postgresql/1")).Return(nil, nil)
+	s.storageAccess.EXPECT().UnitStorageAttachments(names.NewUnitTag("postgresql/1")).Return([]state.StorageAttachment{}, nil)
+}
 
-	s.backend.EXPECT().ApplyOperation(&state.DestroyApplicationOperation{}).Return(nil)
-
-	results, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
-		Applications: []params.DestroyApplicationParams{{ApplicationTag: "application-postgresql"}},
-	})
+func (s *ApplicationSuite) assertDefaultDestruction(c *gc.C, results params.DestroyApplicationResults, err error) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0], jc.DeepEquals, params.DestroyApplicationResult{
@@ -784,6 +899,47 @@ func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
 	})
 }
 
+func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	app := s.expectDefaultApplication(ctrl)
+	app.EXPECT().AllUnits().Return([]application.Unit{
+		s.expectUnit(ctrl, "postgresql/0"),
+		s.expectUnit(ctrl, "postgresql/1"),
+	}, nil)
+	app.EXPECT().DestroyOperation().Return(&state.DestroyApplicationOperation{})
+	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+
+	s.expectDefaultStorageAttachments(ctrl)
+
+	s.backend.EXPECT().ApplyOperation(&state.DestroyApplicationOperation{}).Return(nil)
+
+	results, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
+		Applications: []params.DestroyApplicationParams{{
+			ApplicationTag: "application-postgresql",
+		}},
+	})
+	s.assertDefaultDestruction(c, results, err)
+}
+
+func (s *ApplicationSuite) TestDestroyApplicationWithBlockChange(c *gc.C) {
+	s.changeAllowed = errors.New("change blocked")
+	s.TestDestroyApplication(c)
+}
+
+func (s *ApplicationSuite) TestDestroyApplicationWithBlockRemove(c *gc.C) {
+	s.removeAllowed = errors.New("remove blocked")
+	defer s.setup(c).Finish()
+
+	_, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
+		Applications: []params.DestroyApplicationParams{{
+			ApplicationTag: "application-postgresql",
+		}},
+	})
+	c.Assert(err, gc.ErrorMatches, "remove blocked")
+}
+
 func (s *ApplicationSuite) TestForceDestroyApplication(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
@@ -796,13 +952,7 @@ func (s *ApplicationSuite) TestForceDestroyApplication(c *gc.C) {
 	app.EXPECT().DestroyOperation().Return(&state.DestroyApplicationOperation{})
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
-	s.storageAccess.EXPECT().UnitStorageAttachments(names.NewUnitTag("postgresql/0")).Return([]state.StorageAttachment{
-		s.expectStorageAttachment(ctrl, "pgdata/0"),
-		s.expectStorageAttachment(ctrl, "pgdata/1"),
-	}, nil)
-	s.storageAccess.EXPECT().StorageInstance(names.NewStorageTag("pgdata/0")).Return(s.expectStorageInstance(ctrl, "pgdata/0"), nil)
-	s.storageAccess.EXPECT().StorageInstance(names.NewStorageTag("pgdata/1")).Return(s.expectStorageInstance(ctrl, "pgdata/1"), nil)
-	s.storageAccess.EXPECT().UnitStorageAttachments(names.NewUnitTag("postgresql/1")).Return(nil, nil)
+	s.expectDefaultStorageAttachments(ctrl)
 
 	zero := time.Duration(0)
 
@@ -818,22 +968,7 @@ func (s *ApplicationSuite) TestForceDestroyApplication(c *gc.C) {
 			MaxWait:        &zero,
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0], jc.DeepEquals, params.DestroyApplicationResult{
-		Info: &params.DestroyApplicationInfo{
-			DestroyedUnits: []params.Entity{
-				{Tag: "unit-postgresql-0"},
-				{Tag: "unit-postgresql-1"},
-			},
-			DetachedStorage: []params.Entity{
-				{Tag: "storage-pgdata-0"},
-			},
-			DestroyedStorage: []params.Entity{
-				{Tag: "storage-pgdata-1"},
-			},
-		},
-	})
+	s.assertDefaultDestruction(c, results, err)
 }
 
 func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
@@ -848,13 +983,7 @@ func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
 	app.EXPECT().DestroyOperation().Return(&state.DestroyApplicationOperation{})
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
-	s.storageAccess.EXPECT().UnitStorageAttachments(names.NewUnitTag("postgresql/0")).Return([]state.StorageAttachment{
-		s.expectStorageAttachment(ctrl, "pgdata/0"),
-		s.expectStorageAttachment(ctrl, "pgdata/1"),
-	}, nil)
-	s.storageAccess.EXPECT().StorageInstance(names.NewStorageTag("pgdata/0")).Return(s.expectStorageInstance(ctrl, "pgdata/0"), nil)
-	s.storageAccess.EXPECT().StorageInstance(names.NewStorageTag("pgdata/1")).Return(s.expectStorageInstance(ctrl, "pgdata/1"), nil)
-	s.storageAccess.EXPECT().UnitStorageAttachments(names.NewUnitTag("postgresql/1")).Return(nil, nil)
+	s.expectDefaultStorageAttachments(ctrl)
 
 	s.backend.EXPECT().ApplyOperation(&state.DestroyApplicationOperation{
 		DestroyStorage: true,
@@ -882,15 +1011,36 @@ func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
 	})
 }
 
+func (s *ApplicationSuite) TestDestroyApplicationDryRun(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	app := s.expectDefaultApplication(ctrl)
+	app.EXPECT().AllUnits().Return([]application.Unit{
+		s.expectUnit(ctrl, "postgresql/0"),
+		s.expectUnit(ctrl, "postgresql/1"),
+	}, nil)
+	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+
+	s.expectDefaultStorageAttachments(ctrl)
+	results, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
+		Applications: []params.DestroyApplicationParams{{
+			ApplicationTag: "application-postgresql",
+			DryRun:         true,
+		}},
+	})
+	s.assertDefaultDestruction(c, results, err)
+}
+
 func (s *ApplicationSuite) TestDestroyApplicationNotFound(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.backend.EXPECT().Application("postgresql").Return(nil, errors.NotFoundf(`application "postgresql"`))
 
 	results, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
-		Applications: []params.DestroyApplicationParams{
-			{ApplicationTag: "application-postgresql"},
-		},
+		Applications: []params.DestroyApplicationParams{{
+			ApplicationTag: "application-postgresql",
+		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -975,19 +1125,14 @@ func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
+	app := s.expectDefaultApplication(ctrl)
+	s.backend.EXPECT().Application("postgresql").MinTimes(1).Return(app, nil)
+
 	// unit 0 loop
 	unit0 := s.expectUnit(ctrl, "postgresql/0")
 	unit0.EXPECT().IsPrincipal().Return(true)
 	unit0.EXPECT().DestroyOperation().Return(&state.DestroyUnitOperation{})
 	s.backend.EXPECT().Unit("postgresql/0").Return(unit0, nil)
-
-	s.storageAccess.EXPECT().UnitStorageAttachments(names.NewUnitTag("postgresql/0")).Return([]state.StorageAttachment{
-		s.expectStorageAttachment(ctrl, "pgdata/0"),
-		s.expectStorageAttachment(ctrl, "pgdata/1"),
-	}, nil)
-	s.storageAccess.EXPECT().StorageInstance(names.NewStorageTag("pgdata/0")).Return(s.expectStorageInstance(ctrl, "pgdata/0"), nil)
-	s.storageAccess.EXPECT().StorageInstance(names.NewStorageTag("pgdata/1")).Return(s.expectStorageInstance(ctrl, "pgdata/1"), nil)
-
 	s.backend.EXPECT().ApplyOperation(&state.DestroyUnitOperation{}).Return(nil)
 
 	// unit 1 loop
@@ -995,10 +1140,9 @@ func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
 	unit1.EXPECT().IsPrincipal().Return(true)
 	unit1.EXPECT().DestroyOperation().Return(&state.DestroyUnitOperation{})
 	s.backend.EXPECT().Unit("postgresql/1").Return(unit1, nil)
-
-	s.storageAccess.EXPECT().UnitStorageAttachments(names.NewUnitTag("postgresql/1")).Return([]state.StorageAttachment{}, nil)
-
 	s.backend.EXPECT().ApplyOperation(&state.DestroyUnitOperation{DestroyStorage: true}).Return(nil)
+
+	s.expectDefaultStorageAttachments(ctrl)
 
 	results, err := s.api.DestroyUnit(params.DestroyUnitsParams{
 		Units: []params.DestroyUnitParams{
@@ -1026,22 +1170,35 @@ func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
 	}})
 }
 
+func (s *ApplicationSuite) TestDestroyUnitWithChangeBlock(c *gc.C) {
+	s.changeAllowed = errors.New("change blocked")
+	s.TestDestroyUnit(c)
+}
+
+func (s *ApplicationSuite) TestDestroyUnitWithRemoveBlock(c *gc.C) {
+	s.removeAllowed = errors.New("remove blocked")
+	defer s.setup(c).Finish()
+
+	_, err := s.api.DestroyUnit(params.DestroyUnitsParams{
+		Units: []params.DestroyUnitParams{{
+			UnitTag: "unit-postgresql-1",
+		}},
+	})
+	c.Assert(err, gc.ErrorMatches, "remove blocked")
+}
+
 func (s *ApplicationSuite) TestForceDestroyUnit(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
+
+	app := s.expectDefaultApplication(ctrl)
+	s.backend.EXPECT().Application("postgresql").MinTimes(1).Return(app, nil)
 
 	// unit 0 loop
 	unit0 := s.expectUnit(ctrl, "postgresql/0")
 	unit0.EXPECT().IsPrincipal().Return(true)
 	unit0.EXPECT().DestroyOperation().Return(&state.DestroyUnitOperation{})
 	s.backend.EXPECT().Unit("postgresql/0").Return(unit0, nil)
-
-	s.storageAccess.EXPECT().UnitStorageAttachments(names.NewUnitTag("postgresql/0")).Return([]state.StorageAttachment{
-		s.expectStorageAttachment(ctrl, "pgdata/0"),
-		s.expectStorageAttachment(ctrl, "pgdata/1"),
-	}, nil)
-	s.storageAccess.EXPECT().StorageInstance(names.NewStorageTag("pgdata/0")).Return(s.expectStorageInstance(ctrl, "pgdata/0"), nil)
-	s.storageAccess.EXPECT().StorageInstance(names.NewStorageTag("pgdata/1")).Return(s.expectStorageInstance(ctrl, "pgdata/1"), nil)
 
 	zero := time.Duration(0)
 	s.backend.EXPECT().ApplyOperation(&state.DestroyUnitOperation{ForcedOperation: state.ForcedOperation{
@@ -1054,10 +1211,9 @@ func (s *ApplicationSuite) TestForceDestroyUnit(c *gc.C) {
 	unit1.EXPECT().IsPrincipal().Return(true)
 	unit1.EXPECT().DestroyOperation().Return(&state.DestroyUnitOperation{})
 	s.backend.EXPECT().Unit("postgresql/1").Return(unit1, nil)
-
-	s.storageAccess.EXPECT().UnitStorageAttachments(names.NewUnitTag("postgresql/1")).Return([]state.StorageAttachment{}, nil)
-
 	s.backend.EXPECT().ApplyOperation(&state.DestroyUnitOperation{DestroyStorage: true}).Return(nil)
+
+	s.expectDefaultStorageAttachments(ctrl)
 
 	results, err := s.api.DestroyUnit(params.DestroyUnitsParams{
 		Units: []params.DestroyUnitParams{
@@ -1087,31 +1243,93 @@ func (s *ApplicationSuite) TestForceDestroyUnit(c *gc.C) {
 	}})
 }
 
+func (s *ApplicationSuite) TestDestroySubordinateUnits(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	unit0 := s.expectUnit(ctrl, "subordinate/0")
+	unit0.EXPECT().IsPrincipal().Return(false)
+	s.backend.EXPECT().Unit("subordinate/0").Return(unit0, nil)
+
+	results, err := s.api.DestroyUnit(params.DestroyUnitsParams{
+		Units: []params.DestroyUnitParams{{
+			UnitTag: "unit-subordinate-0",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, `unit "subordinate/0" is a subordinate, .*`)
+}
+
+func (s *ApplicationSuite) TestDestroyUnitDryRun(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	app := s.expectDefaultApplication(ctrl)
+	s.backend.EXPECT().Application("postgresql").MinTimes(1).Return(app, nil)
+
+	unit0 := s.expectUnit(ctrl, "postgresql/0")
+	unit0.EXPECT().IsPrincipal().Return(true)
+	s.backend.EXPECT().Unit("postgresql/0").Return(unit0, nil)
+
+	unit1 := s.expectUnit(ctrl, "postgresql/1")
+	unit1.EXPECT().IsPrincipal().Return(true)
+	s.backend.EXPECT().Unit("postgresql/1").Return(unit1, nil)
+
+	s.expectDefaultStorageAttachments(ctrl)
+
+	results, err := s.api.DestroyUnit(params.DestroyUnitsParams{
+		Units: []params.DestroyUnitParams{
+			{
+				UnitTag: "unit-postgresql-0",
+				DryRun:  true,
+			}, {
+				UnitTag: "unit-postgresql-1",
+				DryRun:  true,
+			},
+		},
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results, jc.DeepEquals, []params.DestroyUnitResult{{
+		Info: &params.DestroyUnitInfo{
+			DetachedStorage: []params.Entity{
+				{Tag: "storage-pgdata-0"},
+			},
+			DestroyedStorage: []params.Entity{
+				{Tag: "storage-pgdata-1"},
+			},
+		},
+	}, {
+		Info: &params.DestroyUnitInfo{},
+	}})
+}
+
 func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
 	ch := s.expectDefaultCharm(ctrl)
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil).Times(3)
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil).MinTimes(1)
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local", Series: "bionic"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 			AttachStorage:   []string{"storage-foo-0"},
 		}, {
 			ApplicationName: "bar",
 			CharmURL:        "local:bar-1",
-			CharmOrigin:     &params.CharmOrigin{Source: "local", Series: "bionic"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        2,
 			AttachStorage:   []string{"storage-bar-0"},
 		}, {
 			ApplicationName: "baz",
 			CharmURL:        "local:baz-2",
-			CharmOrigin:     &params.CharmOrigin{Source: "local", Series: "bionic"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 			AttachStorage:   []string{"volume-baz-0"},
 		}},
@@ -1130,14 +1348,13 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 
 	ch := s.expectDefaultCharm(ctrl)
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil).Times(3)
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil).MinTimes(1)
 
 	track := "latest"
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local", Series: "bionic"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 		}, {
 			ApplicationName: "bar",
@@ -1146,7 +1363,7 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 				Source: "charm-store",
 				Risk:   "stable",
 				Track:  &track,
-				Series: "bionic",
+				Base:   params.Base{Name: "ubuntu", Channel: "20.04/stable"},
 			},
 			NumUnits: 1,
 		}, {
@@ -1155,7 +1372,7 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 			CharmOrigin: &params.CharmOrigin{
 				Source: "charm-hub",
 				Risk:   "stable",
-				Series: "bionic",
+				Base:   params.Base{Name: "ubuntu", Channel: "20.04/stable"},
 			},
 			NumUnits: 1,
 		}},
@@ -1170,6 +1387,266 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 	c.Assert(s.deployParams["foo"].CharmOrigin.Source, gc.Equals, corecharm.Source("local"))
 	c.Assert(s.deployParams["bar"].CharmOrigin.Source, gc.Equals, corecharm.Source("charm-store"))
 	c.Assert(s.deployParams["hub"].CharmOrigin.Source, gc.Equals, corecharm.Source("charm-hub"))
+}
+
+func createCharmOriginFromURL(c *gc.C, curl *charm.URL) *params.CharmOrigin {
+	switch curl.Schema {
+	case "cs":
+		return &params.CharmOrigin{Source: "charm-store", Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"}}
+	case "local":
+		return &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"}}
+	default:
+		return &params.CharmOrigin{Source: "charm-hub", Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"}}
+	}
+}
+
+func (s *ApplicationSuite) TestApplicationDeployWithStorage(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	ch := s.expectCharm(ctrl, &charm.Meta{Storage: map[string]charm.Storage{
+		"data":    {Type: charm.StorageBlock},
+		"allecto": {Type: charm.StorageBlock},
+	}}, nil, &charm.Config{})
+	curl := charm.MustParseURL("cs:utopic/storage-block-10")
+	s.backend.EXPECT().Charm(curl).Return(ch, nil)
+
+	storageConstraints := map[string]storage.Constraints{
+		"data": {
+			Count: 1,
+			Size:  1024,
+			Pool:  "modelscoped-block",
+		},
+	}
+	args := params.ApplicationDeploy{
+		ApplicationName: "my-app",
+		CharmURL:        curl.String(),
+		CharmOrigin:     createCharmOriginFromURL(c, curl),
+		NumUnits:        1,
+		Storage:         storageConstraints,
+	}
+	results, err := s.api.Deploy(params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{args}},
+	)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	c.Assert(s.deployParams["my-app"].Storage, gc.DeepEquals, storageConstraints)
+}
+
+func (s *ApplicationSuite) TestApplicationDeployDefaultFilesystemStorage(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	ch := s.expectCharm(ctrl, &charm.Meta{Storage: map[string]charm.Storage{
+		"data": {Type: charm.StorageFilesystem, ReadOnly: true},
+	}}, nil, &charm.Config{})
+	curl := charm.MustParseURL("cs:utopic/storage-filesystem-1")
+	s.backend.EXPECT().Charm(curl).Return(ch, nil)
+
+	args := params.ApplicationDeploy{
+		ApplicationName: "my-app",
+		CharmURL:        curl.String(),
+		CharmOrigin:     createCharmOriginFromURL(c, curl),
+		NumUnits:        1,
+	}
+	results, err := s.api.Deploy(params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{args}},
+	)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+}
+
+func (s *ApplicationSuite) TestApplicationDeployPlacement(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	ch := s.expectDefaultCharm(ctrl)
+	curl := charm.MustParseURL("cs:precise/dummy-42")
+	s.backend.EXPECT().Charm(curl).Return(ch, nil)
+
+	machine := mocks.NewMockMachine(ctrl)
+	machine.EXPECT().IsLockedForSeriesUpgrade().Return(false, nil)
+	machine.EXPECT().IsParentLockedForSeriesUpgrade().Return(false, nil)
+	s.backend.EXPECT().Machine("valid").Return(machine, nil)
+
+	placement := []*instance.Placement{
+		{Scope: "deadbeef-0bad-400d-8000-4b1d0d06f00d", Directive: "valid"},
+	}
+	args := params.ApplicationDeploy{
+		ApplicationName: "my-app",
+		CharmURL:        curl.String(),
+		CharmOrigin:     createCharmOriginFromURL(c, curl),
+		NumUnits:        1,
+		Placement:       placement,
+	}
+	results, err := s.api.Deploy(params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{args}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	c.Assert(s.deployParams["my-app"].Placement, gc.DeepEquals, placement)
+}
+
+func (s *ApplicationSuite) TestApplicationDeployWithPlacementLockedError(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	machine := mocks.NewMockMachine(ctrl)
+	machine.EXPECT().IsLockedForSeriesUpgrade().Return(true, nil).MinTimes(1)
+	s.backend.EXPECT().Machine("0").Return(machine, nil).MinTimes(1)
+	containerMachine := mocks.NewMockMachine(ctrl)
+	containerMachine.EXPECT().IsLockedForSeriesUpgrade().Return(false, nil).MinTimes(1)
+	containerMachine.EXPECT().IsParentLockedForSeriesUpgrade().Return(true, nil).MinTimes(1)
+	s.backend.EXPECT().Machine("0/lxd/0").Return(containerMachine, nil).MinTimes(1)
+
+	curl := charm.MustParseURL("cs:precise/dummy-42")
+	args := []params.ApplicationDeploy{{
+		ApplicationName: "machine-placement",
+		CharmURL:        curl.String(),
+		Placement:       []*instance.Placement{{Scope: "#", Directive: "0"}},
+	}, {
+		ApplicationName: "container-placement",
+		CharmURL:        curl.String(),
+		Placement:       []*instance.Placement{{Scope: "lxd", Directive: "0"}},
+	}, {
+		ApplicationName: "container-placement-locked-parent",
+		CharmURL:        curl.String(),
+		Placement:       []*instance.Placement{{Scope: "#", Directive: "0/lxd/0"}},
+	}}
+	results, err := s.api.Deploy(params.ApplicationsDeploy{
+		Applications: args,
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 3)
+	c.Assert(results.Results[0].Error.Error(), gc.Matches, ".*: machine is locked for series upgrade")
+	c.Assert(results.Results[1].Error.Error(), gc.Matches, ".*: machine is locked for series upgrade")
+	c.Assert(results.Results[2].Error.Error(), gc.Matches, ".*: parent machine is locked for series upgrade")
+}
+
+func (s *ApplicationSuite) TestApplicationDeployFailCharmOrigin(c *gc.C) {
+	originId := createCharmOriginFromURL(c, charm.MustParseURL("cs:jammy/test-42"))
+	originId.ID = "testingID"
+	originHash := createCharmOriginFromURL(c, charm.MustParseURL("cs:jammy/test-42"))
+	originHash.Hash = "testing-hash"
+
+	args := []params.ApplicationDeploy{{
+		CharmOrigin: originId,
+	}, {
+		CharmOrigin: originHash,
+	}}
+	results, err := s.api.Deploy(params.ApplicationsDeploy{
+		Applications: args,
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[0].Error.Code, gc.Equals, "bad request")
+	c.Assert(results.Results[1].Error.Code, gc.Equals, "bad request")
+}
+
+func (s *ApplicationSuite) TestApplicationDeploymentRemovesPendingResourcesOnFailure(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	resources := map[string]string{"dummy": "pending-id"}
+	resourcesManager := mocks.NewMockResources(ctrl)
+	resourcesManager.EXPECT().RemovePendingAppResources("my-app", resources).Return(nil)
+	s.backend.EXPECT().Resources().Return(resourcesManager)
+
+	results, err := s.api.Deploy(params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			// CharmURL is missing to ensure deployApplication fails
+			// so that we can assert pending app resources are removed
+			ApplicationName: "my-app",
+			Resources:       resources,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+}
+
+func (s *ApplicationSuite) TestApplicationDeploymentTrust(c *gc.C) {
+	// This test should fail if the configuration parsing does not
+	// understand the "trust" configuration parameter
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	ch := s.expectDefaultCharm(ctrl)
+	curl := charm.MustParseURL("cs:precise/dummy-42")
+	s.backend.EXPECT().Charm(curl).Return(ch, nil).MinTimes(1)
+
+	withTrust := map[string]string{"trust": "true"}
+	args := params.ApplicationDeploy{
+		ApplicationName: "my-app",
+		CharmURL:        curl.String(),
+		CharmOrigin:     createCharmOriginFromURL(c, curl),
+		NumUnits:        1,
+		Config:          withTrust,
+	}
+	results, err := s.api.Deploy(params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{args},
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	c.Assert(s.deployParams["my-app"].ApplicationConfig.Attributes().GetBool("trust", false), gc.Equals, true)
+}
+
+func (s *ApplicationSuite) TestClientApplicationsDeployWithBindings(c *gc.C) {
+	s.allSpaceInfos = network.SpaceInfos{{ID: "42", Name: "a-space"}}
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	ch := s.expectDefaultCharm(ctrl)
+	curl := charm.MustParseURL("cs:focal/riak-42")
+	s.backend.EXPECT().Charm(curl).Return(ch, nil).MinTimes(1)
+
+	args := []params.ApplicationDeploy{{
+		ApplicationName: "old",
+		CharmURL:        curl.String(),
+		CharmOrigin:     &params.CharmOrigin{Source: "charm-store", Base: params.Base{Name: "ubuntu", Channel: "focal"}},
+		NumUnits:        1,
+		EndpointBindings: map[string]string{
+			"endpoint": "a-space",
+			"ring":     "",
+			"admin":    "",
+		},
+	}, {
+		ApplicationName: "regular",
+		CharmURL:        curl.String(),
+		CharmOrigin:     &params.CharmOrigin{Source: "charm-store", Base: params.Base{Name: "ubuntu", Channel: "focal"}},
+		NumUnits:        1,
+		EndpointBindings: map[string]string{
+			"endpoint": "42",
+		},
+	}}
+	results, err := s.api.Deploy(params.ApplicationsDeploy{
+		Applications: args,
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[1].Error, gc.IsNil)
+
+	c.Assert(s.deployParams["old"].EndpointBindings, gc.DeepEquals, map[string]string{
+		"endpoint": "42",
+		"ring":     network.AlphaSpaceId,
+		"admin":    network.AlphaSpaceId,
+	})
+	c.Assert(s.deployParams["regular"].EndpointBindings, gc.DeepEquals, map[string]string{
+		"endpoint": "42",
+	})
 }
 
 func (s *ApplicationSuite) expectDefaultK8sModelConfig() {
@@ -1204,7 +1681,7 @@ func (s *ApplicationSuite) TestDeployMinDeploymentVersionTooHigh(c *gc.C) {
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local", Series: "bionic"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 			Config:          map[string]string{"kubernetes-service-annotations": "a=b c="},
 		}},
@@ -1237,34 +1714,33 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 		},
 	)
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil).Times(4)
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil).MinTimes(1)
 	s.expectDefaultK8sModelConfig()
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local", Series: "bionic"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 			Config:          map[string]string{"kubernetes-service-annotations": "a=b c="},
 			ConfigYAML:      "foo:\n  stringOption: fred\n  kubernetes-service-type: loadbalancer",
 		}, {
 			ApplicationName: "foobar",
 			CharmURL:        "local:foobar-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local", Series: "bionic"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 			Config:          map[string]string{"kubernetes-service-type": "cluster", "intOption": "2"},
 			ConfigYAML:      "foobar:\n  intOption: 1\n  kubernetes-service-type: loadbalancer\n  kubernetes-ingress-ssl-redirect: true",
 		}, {
 			ApplicationName: "bar",
 			CharmURL:        "local:bar-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local", Series: "bionic"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 			AttachStorage:   []string{"storage-bar-0"},
 		}, {
 			ApplicationName: "baz",
 			CharmURL:        "local:baz-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local", Series: "bionic"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 			Placement:       []*instance.Placement{{}, {}},
 		}},
@@ -1297,7 +1773,7 @@ func (s *ApplicationSuite) TestDeployCAASInvalidServiceType(c *gc.C) {
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Series: "bionic"},
+			CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 			Config:          map[string]string{"kubernetes-service-type": "ClusterIP", "intOption": "2"},
 		}},
@@ -1371,7 +1847,6 @@ func (s *ApplicationSuite) TestDeployCAASModelCharmNeedsNoOperatorStorage(c *gc.
 		MinJujuVersion: version.MustParse("2.8.0"),
 	}, &charm.Manifest{}, &charm.Config{})
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil).MinTimes(1)
 
 	attrs := coretesting.FakeConfig().Merge(map[string]interface{}{
 		"workload-storage": "k8s-storage",
@@ -1382,7 +1857,7 @@ func (s *ApplicationSuite) TestDeployCAASModelCharmNeedsNoOperatorStorage(c *gc.
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local", Series: "bionic"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 		}},
 	}
@@ -1404,13 +1879,12 @@ func (s *ApplicationSuite) TestDeployCAASModelSidecarCharmNeedsNoOperatorStorage
 		"workload-storage": "k8s-storage",
 	})
 	s.model.EXPECT().ModelConfig().Return(config.New(config.UseDefaults, attrs)).MinTimes(1)
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil).MinTimes(1)
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local", Series: "bionic"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 		}},
 	}
@@ -1427,7 +1901,6 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultOperatorStorageClass(c *gc.
 
 	ch := s.expectDefaultCharm(ctrl)
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil).MinTimes(1)
 	s.expectDefaultK8sModelConfig()
 	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any()).Return(nil)
 	s.storagePoolManager.EXPECT().Get("k8s-operator-storage").Return(nil, errors.NotFoundf("pool"))
@@ -1437,7 +1910,7 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultOperatorStorageClass(c *gc.
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local", Series: "bionic"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 		}},
 	}
@@ -1465,7 +1938,7 @@ func (s *ApplicationSuite) TestDeployCAASModelWrongOperatorStorageType(c *gc.C) 
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local", Series: "bionic"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 		}},
 	}
@@ -1495,7 +1968,7 @@ func (s *ApplicationSuite) TestDeployCAASModelInvalidStorage(c *gc.C) {
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local", Series: "bionic"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 			Storage: map[string]storage.Constraints{
 				"database": {},
@@ -1527,13 +2000,12 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultStorageClass(c *gc.C) {
 		map[string]interface{}{"foo": "bar"}),
 	)
 	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any()).Return(nil)
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil).MinTimes(1)
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local", Series: "bionic"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 			Storage: map[string]storage.Constraints{
 				"database": {},
@@ -1554,7 +2026,7 @@ func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
 
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().AddUnit(state.AddUnitParams{AttachStorage: []names.StorageTag{}}).Return(newUnit, nil)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
 
 	results, err := s.api.AddUnits(params.AddApplicationUnits{
 		ApplicationName: "postgresql",
@@ -1589,7 +2061,7 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
 	app.EXPECT().AddUnit(state.AddUnitParams{
 		AttachStorage: []names.StorageTag{names.NewStorageTag("pgdata/0")},
 	}).Return(newUnit, nil)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
 
 	_, err := s.api.AddUnits(params.AddApplicationUnits{
 		ApplicationName: "postgresql",
@@ -1600,7 +2072,12 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestAddUnitsAttachStorageMultipleUnits(c *gc.C) {
-	defer s.setup(c).Finish()
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	currentCh := s.expectCharm(ctrl, &charm.Meta{Name: "charm-foo"}, &charm.Manifest{Bases: []charm.Base{{}}}, nil)
+	app := s.expectApplicationWithCharm(ctrl, currentCh, "foo")
+	s.backend.EXPECT().Application("foo").AnyTimes().Return(app, nil)
 
 	_, err := s.api.AddUnits(params.AddApplicationUnits{
 		ApplicationName: "foo",
@@ -1611,7 +2088,12 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorageMultipleUnits(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestAddUnitsAttachStorageInvalidStorageTag(c *gc.C) {
-	defer s.setup(c).Finish()
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	currentCh := s.expectCharm(ctrl, &charm.Meta{Name: "charm-foo"}, &charm.Manifest{Bases: []charm.Base{{}}}, nil)
+	app := s.expectApplicationWithCharm(ctrl, currentCh, "foo")
+	s.backend.EXPECT().Application("foo").AnyTimes().Return(app, nil)
 
 	_, err := s.api.AddUnits(params.AddApplicationUnits{
 		ApplicationName: "foo",
@@ -2096,19 +2578,6 @@ func (s *ApplicationSuite) TestConsumeRemoteAppTerminated(c *gc.C) {
 	c.Assert(results.OneError(), gc.IsNil)
 }
 
-func (s *ApplicationSuite) TestApplicationUpdateSeriesNoParams(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	api := application.APIv14{s.api}
-	results, err := api.UpdateApplicationSeries(
-		params.UpdateChannelArgs{
-			Args: []params.UpdateChannelArg{},
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{}})
-}
-
 func (s *ApplicationSuite) TestApplicationUpdateBaseNoParams(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -2130,8 +2599,8 @@ func (s *ApplicationSuite) TestApplicationUpdateBasePermissionDenied(c *gc.C) {
 	_, err := s.api.UpdateApplicationBase(
 		params.UpdateChannelArgs{
 			Args: []params.UpdateChannelArg{{
-				Entity: params.Entity{Tag: names.NewApplicationTag("postgresql").String()},
-				Series: "trusty",
+				Entity:  params.Entity{Tag: names.NewApplicationTag("postgresql").String()},
+				Channel: "22.04",
 			}},
 		},
 	)
@@ -2152,107 +2621,6 @@ func (s *ApplicationSuite) TestRemoteRelationDisAllowedCIDR(c *gc.C) {
 	endpoints := []string{"wordpress", "hosted-mysql:nope"}
 	_, err := s.api.AddRelation(params.AddRelation{Endpoints: endpoints, ViaCIDRs: []string{"0.0.0.0/0"}})
 	c.Assert(err, gc.ErrorMatches, `CIDR "0.0.0.0/0" not allowed`)
-}
-
-func (s *ApplicationSuite) TestSetApplicationConfigExplicitMaster(c *gc.C) {
-	s.modelType = state.ModelTypeCAAS
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().UpdateCharmConfig(model.GenerationMaster, charm.Settings{"stringOption": "stringVal"})
-	s.expectUpdateApplicationConfig(c, app)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	api := &application.APIv12{&application.APIv13{&application.APIv14{s.api}}}
-	result, err := api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
-		Args: []params.ApplicationConfigSet{{
-			ApplicationName: "postgresql",
-			Config: map[string]string{
-				"juju-external-hostname": "foo",
-				"stringOption":           "stringVal",
-			},
-			Generation: model.GenerationMaster,
-		}}})
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), jc.ErrorIsNil)
-}
-
-func (s *ApplicationSuite) TestSetApplicationConfigEmptyUsesMaster(c *gc.C) {
-	s.modelType = state.ModelTypeCAAS
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().UpdateCharmConfig(model.GenerationMaster, charm.Settings{"stringOption": "stringVal"})
-	s.expectUpdateApplicationConfig(c, app)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	api := &application.APIv12{&application.APIv13{&application.APIv14{s.api}}}
-	result, err := api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
-		Args: []params.ApplicationConfigSet{{
-			ApplicationName: "postgresql",
-			Config: map[string]string{
-				"juju-external-hostname": "foo",
-				"stringOption":           "stringVal",
-			},
-		}}})
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), jc.ErrorIsNil)
-}
-
-func (s *ApplicationSuite) TestSetApplicationConfigBranch(c *gc.C) {
-	s.modelType = state.ModelTypeCAAS
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().UpdateCharmConfig("new-branch", charm.Settings{"stringOption": "stringVal"})
-	s.expectUpdateApplicationConfig(c, app)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	gen := mocks.NewMockGeneration(ctrl)
-	gen.EXPECT().AssignApplication("postgresql")
-	s.backend.EXPECT().Branch("new-branch").Return(gen, nil)
-
-	api := &application.APIv12{&application.APIv13{&application.APIv14{s.api}}}
-	result, err := api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
-		Args: []params.ApplicationConfigSet{{
-			ApplicationName: "postgresql",
-			Config: map[string]string{
-				"juju-external-hostname": "foo",
-				"stringOption":           "stringVal",
-			},
-			Generation: "new-branch",
-		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), jc.ErrorIsNil)
-}
-
-func (s *ApplicationSuite) TestSetApplicationsEmptyConfigMasterBranch(c *gc.C) {
-	s.modelType = state.ModelTypeCAAS
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().UpdateCharmConfig("master", charm.Settings{"stringOption": ""})
-	s.expectUpdateApplicationConfig(c, app)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	api := &application.APIv12{&application.APIv13{&application.APIv14{s.api}}}
-	result, err := api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
-		Args: []params.ApplicationConfigSet{{
-			ApplicationName: "postgresql",
-			Config: map[string]string{
-				"juju-external-hostname": "foo",
-				"stringOption":           "",
-			},
-			Generation: "master",
-		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), jc.ErrorIsNil)
 }
 
 func (s *ApplicationSuite) TestSetConfigBranch(c *gc.C) {
@@ -2303,21 +2671,6 @@ func (s *ApplicationSuite) TestSetEmptyConfigMasterBranch(c *gc.C) {
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), jc.ErrorIsNil)
-}
-
-func (s *ApplicationSuite) TestSetApplicationConfigPermissionDenied(c *gc.C) {
-	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: names.NewUserTag("fred"),
-	}
-	s.modelType = state.ModelTypeCAAS
-	defer s.setup(c).Finish()
-
-	api := &application.APIv12{&application.APIv13{&application.APIv14{s.api}}}
-	_, err := api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
-		Args: []params.ApplicationConfigSet{{
-			ApplicationName: "postgresql",
-		}}})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *ApplicationSuite) TestUnsetApplicationConfig(c *gc.C) {
@@ -2474,11 +2827,10 @@ func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil).MinTimes(1)
-
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
-		Channel: &state.Channel{Track: "2.0", Risk: "candidate"},
+		Channel:  &state.Channel{Track: "2.0", Risk: "candidate"},
+		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"},
 	}).MinTimes(1)
 	app.EXPECT().ApplicationConfig().Return(coreconfig.ConfigAttributes{}, nil).MinTimes(1)
 	app.EXPECT().CharmConfig("master").Return(map[string]interface{}{"stringOption": "", "intOption": int(123)}, nil).MinTimes(1)
@@ -2497,8 +2849,7 @@ func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {
 	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
 		Tag:         "application-postgresql",
 		Charm:       "charm-postgresql",
-		Series:      "quantal",
-		Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
+		Base:        params.Base{Name: "ubuntu", Channel: "22.04/stable"},
 		Channel:     "2.0/candidate",
 		Constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
 		Principal:   true,
@@ -2510,13 +2861,14 @@ func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestApplicationsInfoOneWithExposedEndpoints(c *gc.C) {
+	s.allSpaceInfos = network.SpaceInfos{{ID: "42", Name: "non-euclidean-geometry"}}
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{{ID: "42", Name: "non-euclidean-geometry"}}, nil).MinTimes(1)
-
 	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().CharmOrigin().Return(nil).MinTimes(1)
+	app.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
+		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"},
+	}).MinTimes(1)
 	app.EXPECT().ApplicationConfig().Return(coreconfig.ConfigAttributes{}, nil).MinTimes(1)
 	app.EXPECT().CharmConfig("master").Return(map[string]interface{}{"stringOption": "", "intOption": int(123)}, nil).MinTimes(1)
 	app.EXPECT().Channel().Return(csparams.DevelopmentChannel).MinTimes(1)
@@ -2539,8 +2891,7 @@ func (s *ApplicationSuite) TestApplicationsInfoOneWithExposedEndpoints(c *gc.C) 
 	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
 		Tag:         "application-postgresql",
 		Charm:       "charm-postgresql",
-		Series:      "quantal",
-		Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
+		Base:        params.Base{Name: "ubuntu", Channel: "22.04/stable"},
 		Channel:     "development",
 		Constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
 		Principal:   true,
@@ -2561,8 +2912,6 @@ func (s *ApplicationSuite) TestApplicationsInfoDetailsErr(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil).MinTimes(1)
-
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().CharmConfig("master").Return(nil, errors.Errorf("boom"))
 	s.backend.EXPECT().Application("postgresql").Return(app, nil).MinTimes(1)
@@ -2577,8 +2926,6 @@ func (s *ApplicationSuite) TestApplicationsInfoDetailsErr(c *gc.C) {
 func (s *ApplicationSuite) TestApplicationsInfoBindingsErr(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
-
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil).MinTimes(1)
 
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().ApplicationConfig().Return(coreconfig.ConfigAttributes{}, nil).MinTimes(1)
@@ -2597,11 +2944,11 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil).MinTimes(1)
-
 	// postgresql
 	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().CharmOrigin().Return(nil).MinTimes(1)
+	app.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
+		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"},
+	}).MinTimes(1)
 	app.EXPECT().ApplicationConfig().Return(coreconfig.ConfigAttributes{}, nil).MinTimes(1)
 	app.EXPECT().CharmConfig("master").Return(map[string]interface{}{"stringOption": "", "intOption": int(123)}, nil).MinTimes(1)
 	app.EXPECT().Channel().Return(csparams.DevelopmentChannel).MinTimes(1)
@@ -2622,8 +2969,7 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
 		Tag:         "application-postgresql",
 		Charm:       "charm-postgresql",
-		Series:      "quantal",
-		Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
+		Base:        params.Base{Name: "ubuntu", Channel: "22.04/stable"},
 		Channel:     "development",
 		Constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
 		Principal:   true,
@@ -2639,8 +2985,6 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 func (s *ApplicationSuite) TestApplicationMergeBindingsErr(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
-
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil)
 
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().MergeBindings(gomock.Any(), gomock.Any()).Return(errors.Errorf("boom"))
@@ -2658,12 +3002,6 @@ func (s *ApplicationSuite) TestApplicationMergeBindingsErr(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(req.Args))
 	c.Assert(*result.Results[0].Error, gc.ErrorMatches, "boom")
-}
-
-func (s *ApplicationSuite) expectMachine(ctrl *gomock.Controller, publicAddress string) *mocks.MockMachine {
-	machine := mocks.NewMockMachine(ctrl)
-	machine.EXPECT().PublicAddress().Return(network.SpaceAddress{MachineAddress: network.MachineAddress{Value: publicAddress}}, nil).AnyTimes()
-	return machine
 }
 
 func (s *ApplicationSuite) expectCloudContainer(ctrl *gomock.Controller) *mocks.MockCloudContainer {
@@ -2697,6 +3035,12 @@ func (s *ApplicationSuite) expectRelationUnit(ctrl *gomock.Controller, name stri
 	return relUnit
 }
 
+func (s *ApplicationSuite) expectMachineWithIP(ctrl *gomock.Controller, publicAddress string) *mocks.MockMachine {
+	machine := mocks.NewMockMachine(ctrl)
+	machine.EXPECT().PublicAddress().Return(network.SpaceAddress{MachineAddress: network.MachineAddress{Value: publicAddress}}, nil).MinTimes(1)
+	return machine
+}
+
 func (s *ApplicationSuite) TestUnitsInfo(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
@@ -2707,8 +3051,6 @@ func (s *ApplicationSuite) TestUnitsInfo(c *gc.C) {
 	s.backend.EXPECT().Unit("mysql/0").Return(nil, errors.NotFoundf(`unit "mysql/0"`))
 
 	app := s.expectDefaultApplication(ctrl)
-	curl := "cs:postgresql-42"
-	app.EXPECT().CharmURL().Return(&curl, true)
 
 	rel := s.expectRelation(ctrl, "postgresql:db gitlab:server", false)
 	rel.EXPECT().Id().Return(101)
@@ -2717,7 +3059,7 @@ func (s *ApplicationSuite) TestUnitsInfo(c *gc.C) {
 
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
-	s.backend.EXPECT().Machine("0").Return(s.expectMachine(ctrl, "10.0.0.1"), nil)
+	s.backend.EXPECT().Machine("0").Return(s.expectMachineWithIP(ctrl, "10.0.0.1"), nil)
 
 	s.model.EXPECT().OpenedPortRangesForMachine("0").Return(s.expectMachineUnitPortRange(ctrl, "postgresql/0", "100-102/tcp"), nil)
 
@@ -2770,9 +3112,6 @@ func (s *ApplicationSuite) TestUnitsInfoForApplication(c *gc.C) {
 	unit1 := s.expectUnitWithCloudContainer(ctrl, s.expectCloudContainer(ctrl), "postgresql/1")
 	app.EXPECT().AllUnits().Return([]application.Unit{unit0, unit1}, nil)
 
-	curl := "cs:postgresql-42"
-	app.EXPECT().CharmURL().Return(&curl, true).MinTimes(1)
-
 	rel := s.expectRelation(ctrl, "postgresql:db gitlab:server", false)
 	rel.EXPECT().Id().Return(101).MinTimes(1)
 	rel.EXPECT().AllRemoteUnits("gitlab").Return([]application.RelationUnit{s.expectRelationUnit(ctrl, "gitlab/2")}, nil).MinTimes(1)
@@ -2780,8 +3119,8 @@ func (s *ApplicationSuite) TestUnitsInfoForApplication(c *gc.C) {
 
 	s.backend.EXPECT().Application("postgresql").Return(app, nil).MinTimes(1)
 
-	s.backend.EXPECT().Machine("0").Return(s.expectMachine(ctrl, "10.0.0.1"), nil)
-	s.backend.EXPECT().Machine("1").Return(s.expectMachine(ctrl, "10.0.0.1"), nil)
+	s.backend.EXPECT().Machine("0").Return(s.expectMachineWithIP(ctrl, "10.0.0.1"), nil)
+	s.backend.EXPECT().Machine("1").Return(s.expectMachineWithIP(ctrl, "10.0.0.1"), nil)
 
 	s.model.EXPECT().OpenedPortRangesForMachine("0").Return(s.expectMachineUnitPortRange(ctrl, "postgresql/0", "100-102/tcp"), nil)
 	s.model.EXPECT().OpenedPortRangesForMachine("1").Return(s.expectMachineUnitPortRange(ctrl, "postgresql/1", "100-102/tcp"), nil)
@@ -2846,90 +3185,6 @@ func (s *ApplicationSuite) TestUnitsInfoForApplication(c *gc.C) {
 	})
 }
 
-func (s *ApplicationSuite) TestSetCharmAssumesNotSatisfied(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	ch := s.expectCharm(
-		ctrl,
-		&charm.Meta{
-			Assumes: &assumes.ExpressionTree{
-				Expression: assumes.CompositeExpression{
-					ExprType: assumes.AllOfExpression,
-					SubExpressions: []assumes.Expression{
-						assumes.FeatureExpression{Name: "popcorn"},
-					},
-				},
-			},
-		},
-		nil,
-		&charm.Config{
-			Options: map[string]charm.Option{
-				"stringOption": {Type: "string"},
-				"intOption":    {Type: "int", Default: int(123)},
-			},
-		},
-	)
-
-	curl := charm.MustParseURL("cs:postgresql")
-	s.backend.EXPECT().Charm(curl).Return(ch, nil)
-
-	app := s.expectDefaultApplication(ctrl)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	// Try to upgrade the charm
-	err := s.api.SetCharm(params.ApplicationSetCharm{
-		ApplicationName: "postgresql",
-		CharmURL:        "cs:postgresql",
-		ConfigSettings:  map[string]string{"stringOption": "value"},
-		CharmOrigin:     &params.CharmOrigin{Series: "bionic"},
-	})
-	c.Assert(err, gc.ErrorMatches, `(?m).*Charm feature requirements cannot be met.*`)
-}
-
-func (s *ApplicationSuite) TestSetCharmAssumesNotSatisfiedWithForce(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	ch := s.expectCharm(
-		ctrl,
-		&charm.Meta{
-			Assumes: &assumes.ExpressionTree{
-				Expression: assumes.CompositeExpression{
-					ExprType: assumes.AllOfExpression,
-					SubExpressions: []assumes.Expression{
-						assumes.FeatureExpression{Name: "popcorn"},
-					},
-				},
-			},
-		},
-		nil,
-		&charm.Config{
-			Options: map[string]charm.Option{
-				"stringOption": {Type: "string"},
-				"intOption":    {Type: "int", Default: int(123)},
-			},
-		},
-	)
-
-	curl := charm.MustParseURL("cs:postgresql")
-	s.backend.EXPECT().Charm(curl).Return(ch, nil)
-
-	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().SetCharm(gomock.Any()).Return(nil)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	// Try to upgrade the charm
-	err := s.api.SetCharm(params.ApplicationSetCharm{
-		ApplicationName: "postgresql",
-		CharmURL:        "cs:postgresql",
-		ConfigSettings:  map[string]string{"stringOption": "value"},
-		Force:           true,
-		CharmOrigin:     &params.CharmOrigin{Series: "bionic"},
-	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("expected SetCharm to succeed when --force is set"))
-}
-
 func (s *ApplicationSuite) TestLeader(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -2939,32 +3194,231 @@ func (s *ApplicationSuite) TestLeader(c *gc.C) {
 	c.Assert(result.Result, gc.Equals, "postgresql/0")
 }
 
-func (s *ApplicationSuite) TestApplicationGetCharmURL(c *gc.C) {
+func (s *ApplicationSuite) setupConfigTest(ctrl *gomock.Controller) {
+	ch := s.expectCharm(ctrl, nil, nil, &charm.Config{Options: map[string]charm.Option{
+		"outlook":     {Type: "string", Description: "No default outlook."},
+		"skill-level": {Type: "int", Description: "A number indicating skill."},
+		"title":       {Type: "string", Default: "My Title", Description: "A descriptive title used for the application."},
+		"username":    {Type: "string", Default: "admin001", Description: "The name of the initial account (given admin permissions)."},
+	}})
+
+	foo := s.expectApplicationWithCharm(ctrl, ch, "foo")
+	foo.EXPECT().CharmConfig(gomock.Any()).Return(map[string]interface{}{
+		"title":       "foo",
+		"skill-level": 42,
+	}, nil)
+	s.backend.EXPECT().Application("foo").Return(foo, nil)
+
+	bar := s.expectApplicationWithCharm(ctrl, ch, "bar")
+	bar.EXPECT().CharmConfig(gomock.Any()).Return(map[string]interface{}{
+		"title":   "bar",
+		"outlook": "fantastic",
+	}, nil)
+	s.backend.EXPECT().Application("bar").Return(bar, nil)
+
+	s.backend.EXPECT().Application(gomock.Any()).DoAndReturn(func(name string) (application.Application, error) {
+		return nil, errors.NotFoundf("application %q", name)
+	}).AnyTimes()
+}
+
+func (s *ApplicationSuite) TestCharmConfig(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	app := s.expectDefaultApplication(ctrl)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+	s.setupConfigTest(ctrl)
 
-	curl := "local:quantal/postgresql-3"
-	app.EXPECT().CharmURL().Return(&curl, false)
-	result, err := s.api.GetCharmURL(params.ApplicationGet{ApplicationName: "postgresql"})
+	branch := "test-branch"
+	results, err := s.api.CharmConfig(params.ApplicationGetArgs{
+		Args: []params.ApplicationGet{
+			{ApplicationName: "foo", BranchName: branch},
+			{ApplicationName: "bar", BranchName: branch},
+			{ApplicationName: "wat", BranchName: branch},
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.Result, gc.Equals, "local:quantal/postgresql-3")
+	assertConfigTest(c, results, []params.ConfigResult{})
+}
+
+func (s *ApplicationSuite) TestGetConfig(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.setupConfigTest(ctrl)
+
+	results, err := s.api.GetConfig(params.Entities{
+		Entities: []params.Entity{
+			{Tag: "wat"}, {Tag: "machine-0"}, {Tag: "user-foo"},
+			{Tag: "application-foo"}, {Tag: "application-bar"}, {Tag: "application-wat"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	assertConfigTest(c, results, []params.ConfigResult{
+		{Error: &params.Error{Message: `"wat" is not a valid tag`}},
+		{Error: &params.Error{Message: `unexpected tag type, expected application, got machine`}},
+		{Error: &params.Error{Message: `unexpected tag type, expected application, got user`}},
+	})
+
+}
+
+func assertConfigTest(c *gc.C, results params.ApplicationGetConfigResults, resPrefix []params.ConfigResult) {
+	c.Assert(results, jc.DeepEquals, params.ApplicationGetConfigResults{
+		Results: append(resPrefix, []params.ConfigResult{
+			{
+				Config: map[string]interface{}{
+					"outlook": map[string]interface{}{
+						"description": "No default outlook.",
+						"source":      "unset",
+						"type":        "string",
+					},
+					"skill-level": map[string]interface{}{
+						"description": "A number indicating skill.",
+						"source":      "user",
+						"type":        "int",
+						"value":       42,
+					},
+					"title": map[string]interface{}{
+						"default":     "My Title",
+						"description": "A descriptive title used for the application.",
+						"source":      "user",
+						"type":        "string",
+						"value":       "foo",
+					},
+					"username": map[string]interface{}{
+						"default":     "admin001",
+						"description": "The name of the initial account (given admin permissions).",
+						"source":      "default",
+						"type":        "string",
+						"value":       "admin001",
+					},
+				},
+			}, {
+				Config: map[string]interface{}{
+					"outlook": map[string]interface{}{
+						"description": "No default outlook.",
+						"source":      "user",
+						"type":        "string",
+						"value":       "fantastic",
+					},
+					"skill-level": map[string]interface{}{
+						"description": "A number indicating skill.",
+						"source":      "unset",
+						"type":        "int",
+					},
+					"title": map[string]interface{}{
+						"default":     "My Title",
+						"description": "A descriptive title used for the application.",
+						"source":      "user",
+						"type":        "string",
+						"value":       "bar",
+					},
+					"username": map[string]interface{}{
+						"default":     "admin001",
+						"description": "The name of the initial account (given admin permissions).",
+						"source":      "default",
+						"type":        "string",
+						"value":       "admin001",
+					},
+				},
+			}, {
+				Error: &params.Error{Message: `application "wat" not found`, Code: "not found"},
+			},
+		}...)})
+}
+
+func (s *ApplicationSuite) TestSetMetricCredentialsOneArg(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	app := s.expectApplication(ctrl, "mysql")
+	app.EXPECT().SetMetricCredentials([]byte("creds 1234")).Return(nil)
+	s.backend.EXPECT().Application("mysql").Return(app, nil)
+
+	results, err := s.api.SetMetricCredentials(params.ApplicationMetricCredentials{Creds: []params.ApplicationMetricCredential{{
+		ApplicationName:   "mysql",
+		MetricCredentials: []byte("creds 1234"),
+	}}})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}}})
+}
+
+func (s *ApplicationSuite) TestSetMetricCredentialsTwoArgsBothPass(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	app0 := s.expectApplication(ctrl, "mysql")
+	app0.EXPECT().SetMetricCredentials([]byte("creds 1234")).Return(nil)
+	s.backend.EXPECT().Application("mysql").Return(app0, nil)
+
+	app1 := s.expectApplication(ctrl, "wordpress")
+	app1.EXPECT().SetMetricCredentials([]byte("creds 4567")).Return(nil)
+	s.backend.EXPECT().Application("wordpress").Return(app1, nil)
+
+	results, err := s.api.SetMetricCredentials(params.ApplicationMetricCredentials{Creds: []params.ApplicationMetricCredential{{
+		ApplicationName:   "mysql",
+		MetricCredentials: []byte("creds 1234"),
+	}, {
+		ApplicationName:   "wordpress",
+		MetricCredentials: []byte("creds 4567"),
+	}}})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}, {}}})
+}
+
+func (s *ApplicationSuite) TestSetMetricCredentialsTwoArgsSecondFails(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	app := s.expectApplication(ctrl, "mysql")
+	app.EXPECT().SetMetricCredentials([]byte("creds 1234")).Return(nil)
+	s.backend.EXPECT().Application("mysql").Return(app, nil)
+	s.backend.EXPECT().Application("not-an-application").Return(nil, errors.NotFoundf(`application "not-an-application"`))
+
+	results, err := s.api.SetMetricCredentials(params.ApplicationMetricCredentials{Creds: []params.ApplicationMetricCredential{{
+		ApplicationName:   "mysql",
+		MetricCredentials: []byte("creds 1234"),
+	}, {
+		ApplicationName:   "not-an-application",
+		MetricCredentials: []byte("creds 4567"),
+	}}})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{
+		{},
+		{Error: &params.Error{Message: `application "not-an-application" not found`, Code: "not found"}},
+	}})
+}
+
+func (s *ApplicationSuite) TestCompatibleSettingsParsing(c *gc.C) {
+	settings, err := application.ParseSettingsCompatible(defaultCharmConfig, map[string]string{
+		"stringOption": "",
+		"intOption":    "27",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, charm.Settings{
+		"stringOption": nil,
+		"intOption":    int64(27),
+	})
+}
+
+func (s *ApplicationSuite) TestIllegalSettingsParsing(c *gc.C) {
+	_, err := application.ParseSettingsCompatible(defaultCharmConfig, map[string]string{
+		"yummy": "didgeridoo",
+	})
+	c.Assert(err, gc.ErrorMatches, `unknown option "yummy"`)
 }
 
 func (s *ApplicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
+	rev := 42
 	app := s.expectDefaultApplication(ctrl)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	// Technically this charm origin is impossible, a local
-	// charm cannot have a channel.  Done just for testing.
-	rev := 666
-	stateOrigin := state.CharmOrigin{
+	app.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
 		Source:   "local",
 		Revision: &rev,
 		Channel: &state.Channel{
@@ -2975,17 +3429,15 @@ func (s *ApplicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 		Platform: &state.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
-			Series:       "focal",
+			Channel:      "22.04/stable",
 		},
-	}
-	curl := "local:quantal/postgresql-666"
-	app.EXPECT().ApplicationTag().Return(names.NewApplicationTag("postgresql")).AnyTimes()
-	app.EXPECT().CharmURL().Return(&curl, false)
-	app.EXPECT().CharmOrigin().Return(&stateOrigin)
+	})
+	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+
 	result, err := s.api.GetCharmURLOrigin(params.ApplicationGet{ApplicationName: "postgresql"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.URL, gc.Equals, curl)
+	c.Assert(result.URL, gc.Equals, "cs:postgresql-42")
 
 	latest := "latest"
 	branch := "foo"
@@ -2997,45 +3449,7 @@ func (s *ApplicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 		Track:        &latest,
 		Branch:       &branch,
 		Architecture: "amd64",
-		OS:           "ubuntu",
-		Series:       "focal",
-		Channel:      "20.04/stable",
-		Base:         params.Base{Name: "ubuntu", Channel: "20.04/stable"},
-		InstanceKey:  charmhub.CreateInstanceKey(app.ApplicationTag(), s.model.ModelTag()),
-	})
-}
-
-// TODO(juju3) - delete me
-func (s *ApplicationSuite) TestApplicationGetCharmURLOriginMissingOS(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	app := s.expectDefaultApplication(ctrl)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	stateOrigin := state.CharmOrigin{
-		Source: "local",
-		Platform: &state.Platform{
-			Architecture: "amd64",
-			Series:       "focal",
-		},
-	}
-	curl := "local:quantal/postgresql-666"
-	app.EXPECT().ApplicationTag().Return(names.NewApplicationTag("postgresql")).AnyTimes()
-	app.EXPECT().CharmURL().Return(&curl, false)
-	app.EXPECT().CharmOrigin().Return(&stateOrigin)
-	result, err := s.api.GetCharmURLOrigin(params.ApplicationGet{ApplicationName: "postgresql"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.URL, gc.Equals, curl)
-
-	c.Assert(result.Origin, jc.DeepEquals, params.CharmOrigin{
-		Source:       "local",
-		Architecture: "amd64",
-		OS:           "ubuntu",
-		Series:       "focal",
-		Channel:      "20.04/stable",
-		Base:         params.Base{Name: "ubuntu", Channel: "20.04/stable"},
-		InstanceKey:  charmhub.CreateInstanceKey(app.ApplicationTag(), s.model.ModelTag()),
+		Base:         params.Base{Name: "ubuntu", Channel: "22.04/stable"},
+		InstanceKey:  charmhub.CreateInstanceKey(app.ApplicationTag(), coretesting.ModelTag),
 	})
 }

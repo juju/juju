@@ -4,11 +4,11 @@
 package state_test
 
 import (
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/crossmodel"
@@ -801,7 +801,8 @@ func (s *applicationOffersSuite) TestRemovingApplicationFailsRace(c *gc.C) {
 		}
 	}
 
-	bumpTxnRevno := txn.TestHook{Before: addRelation, After: rmRelations}
+	state.SetMaxTxnAttempts(c, s.State, 3)
+	bumpTxnRevno := jujutxn.TestHook{Before: addRelation, After: rmRelations}
 	defer state.SetTestHooks(c, s.State, bumpTxnRevno, bumpTxnRevno, bumpTxnRevno).Check()
 
 	err = s.mysql.Destroy()
@@ -851,7 +852,7 @@ func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	// Initial event.
 	wc.AssertOneChange()
 
@@ -867,6 +868,7 @@ func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
 	u := s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: app,
 	})
+	wc.AssertOneChange()
 	err = u.SetStatus(status.StatusInfo{
 		Status: status.Blocked,
 	})
@@ -907,7 +909,7 @@ func (s *applicationOffersSuite) TestWatchOffer(c *gc.C) {
 	w := s.State.WatchOffer(offer.OfferName)
 
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	// Initial event.
 	wc.AssertOneChange()
 

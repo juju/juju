@@ -32,7 +32,7 @@ type KillerForTesting interface {
 }
 
 func assertEnableHA(c *gc.C, s *jujutesting.JujuConnSuite) {
-	m, err := s.State.AddMachine("quantal", state.JobManageModel)
+	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = m.SetMachineAddresses(
@@ -54,9 +54,9 @@ func assertEnableHA(c *gc.C, s *jujutesting.JujuConnSuite) {
 	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 3)
-	c.Assert(machines[0].Series(), gc.Equals, "quantal")
-	c.Assert(machines[1].Series(), gc.Equals, "quantal")
-	c.Assert(machines[2].Series(), gc.Equals, "quantal")
+	c.Assert(machines[0].Base().String(), gc.Equals, "ubuntu@12.10/stable")
+	c.Assert(machines[1].Base().String(), gc.Equals, "ubuntu@12.10/stable")
+	c.Assert(machines[2].Base().String(), gc.Equals, "ubuntu@12.10/stable")
 }
 
 func (s *clientSuite) TestClientEnableHA(c *gc.C) {

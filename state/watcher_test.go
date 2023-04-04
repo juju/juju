@@ -24,15 +24,14 @@ func (s *watcherSuite) TestEntityWatcherEventsNonExistent(c *gc.C) {
 	// Just watching a document should not trigger an event
 	c.Logf("starting watcher for %q %q", "machines", "2")
 	w := state.NewEntityWatcher(s.State, "machines", "2")
-	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 }
 
 func (s *watcherSuite) TestEntityWatcherFirstEvent(c *gc.C) {
-	m, err := s.State.AddMachine("bionic", state.JobHostUnits)
+	m, err := s.State.AddMachine(state.UbuntuBase("18.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	// Send the Machine creation event before we start our watcher
-	s.State.StartSync()
 	w := m.Watch()
 
 	// This code is essentially what's in NewNotifyWatcherC.AssertOneChange()
@@ -71,12 +70,12 @@ func (s *watcherSuite) TestLegacyActionNotificationWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	w := state.NewActionNotificationWatcher(s.State, true, unit)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 
 	operationID, err := s.Model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.Model.AddAction(unit, operationID, "snapshot", nil)
+	action, err := s.Model.AddAction(unit, operationID, "snapshot", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(action.Id())
 

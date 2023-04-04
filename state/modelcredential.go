@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
-	jujutxn "github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/status"
@@ -151,9 +151,10 @@ func (m *Model) SetCloudCredential(tag names.CloudCredentialTag) (bool, error) {
 // a model reference to a cloud credential.
 func (m *Model) WatchModelCredential() NotifyWatcher {
 	current := m.doc.CloudCredential
+	modelUUID := m.doc.UUID
 	filter := func(id interface{}) bool {
 		id, ok := id.(string)
-		if !ok || id != m.doc.UUID {
+		if !ok || id != modelUUID {
 			return false
 		}
 

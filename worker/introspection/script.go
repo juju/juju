@@ -4,7 +4,7 @@
 package introspection
 
 import (
-	"io/ioutil"
+	"os"
 	"path"
 	"runtime"
 
@@ -26,7 +26,7 @@ func WriteProfileFunctions(profileDir string) error {
 		return nil
 	}
 	filename := profileFilename(profileDir)
-	if err := ioutil.WriteFile(filename, []byte(shellFuncs), 0644); err != nil {
+	if err := os.WriteFile(filename, []byte(shellFuncs), 0644); err != nil {
 		return errors.Annotate(err, "writing introspection bash funcs")
 	}
 	return nil

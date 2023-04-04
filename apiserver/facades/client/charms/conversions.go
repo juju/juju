@@ -4,7 +4,7 @@
 package charms
 
 import (
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 
 	corecharm "github.com/juju/juju/core/charm"
@@ -25,12 +25,12 @@ func convertOrigin(origin corecharm.Origin) (params.CharmOrigin, error) {
 	if origin.Channel != nil {
 		risk = string(origin.Channel.Risk)
 	}
-	var chSeries string
+	var base series.Base
 	if origin.Platform.Channel != "" {
 		var err error
-		chSeries, err = series.VersionSeries(origin.Platform.Channel)
+		base, err = series.ParseBase(origin.Platform.OS, origin.Platform.Channel)
 		if err != nil {
-			chSeries = origin.Platform.Channel
+			return params.CharmOrigin{}, errors.Trace(err)
 		}
 	}
 	return params.CharmOrigin{
@@ -43,11 +43,8 @@ func convertOrigin(origin corecharm.Origin) (params.CharmOrigin, error) {
 		Track:        track,
 		Branch:       branch,
 		Architecture: origin.Platform.Architecture,
-		OS:           origin.Platform.OS,
-		Channel:      origin.Platform.Channel,
-		// TODO(juju3) - remove series
-		Series:      chSeries,
-		InstanceKey: origin.InstanceKey,
+		Base:         params.Base{Name: base.OS, Channel: base.Channel.String()},
+		InstanceKey:  origin.InstanceKey,
 	}, nil
 }
 
@@ -62,7 +59,7 @@ func ConvertParamsOrigin(origin params.CharmOrigin) (corecharm.Origin, error) {
 		branch = *origin.Branch
 	}
 
-	base, err := ConvertParamsBase(origin)
+	base, err := series.ParseBase(origin.Base.Name, origin.Base.Channel)
 	if err != nil {
 		return corecharm.Origin{}, errors.Trace(err)
 	}
@@ -79,28 +76,9 @@ func ConvertParamsOrigin(origin params.CharmOrigin) (corecharm.Origin, error) {
 		},
 		Platform: corecharm.Platform{
 			Architecture: origin.Architecture,
-			OS:           base.Name,
+			OS:           base.OS,
 			Channel:      base.Channel.Track,
 		},
 		InstanceKey: origin.InstanceKey,
 	}, nil
-}
-
-// ConvertParamsBase converts a params struct to a series base.
-func ConvertParamsBase(origin params.CharmOrigin) (series.Base, error) {
-	var (
-		base series.Base
-		err  error
-	)
-	if origin.Base.Name != "" {
-		base, err = series.ParseBase(origin.Base.Name, origin.Base.Channel)
-	} else if origin.Series != "" && (origin.OS == "" || origin.Channel == "") {
-		base, err = series.GetBaseFromSeries(origin.Series)
-	} else if origin.Channel != "" {
-		base, err = series.ParseBase(origin.OS, origin.Channel)
-	} else {
-		// TODO(juju3) - empty origin is not valid
-		// err = errors.NotValidf("empty charm origin")
-	}
-	return base, err
 }

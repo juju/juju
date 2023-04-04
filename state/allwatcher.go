@@ -7,10 +7,10 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
@@ -339,15 +339,14 @@ func (m *backingMachine) updated(ctx *allWatcherContext) error {
 
 	}
 	isManual := isManualMachine(m.Id, m.Nonce, providerType)
-	base, err := series.GetBaseFromSeries(m.Series)
+	base, err := series.ParseBase(m.Base.OS, m.Base.Channel)
 	if err != nil {
-		return errors.Annotatef(err, "converting machine series %q to base", m.Series) // Should not happen.
+		return errors.Trace(err)
 	}
 	info := &multiwatcher.MachineInfo{
 		ModelUUID:                m.ModelUUID,
 		ID:                       m.Id,
 		Life:                     life.Value(m.Life.String()),
-		Series:                   m.Series,
 		Base:                     base.DisplayString(),
 		ContainerType:            m.ContainerType,
 		IsManual:                 isManual,
@@ -516,19 +515,14 @@ func (u *backingUnit) updateAgentVersion(info *multiwatcher.UnitInfo) {
 
 func (u *backingUnit) updated(ctx *allWatcherContext) error {
 	allWatcherLogger.Tracef(`unit "%s:%s" updated`, ctx.modelUUID, ctx.id)
-	var base series.Base
-	if u.Series != "" {
-		var err error
-		base, err = series.GetBaseFromSeries(u.Series)
-		if err != nil {
-			return errors.Annotatef(err, "converting unit series %q to base", u.Series)
-		}
+	base, err := series.ParseBase(u.Base.OS, u.Base.Channel)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	info := &multiwatcher.UnitInfo{
 		ModelUUID:   u.ModelUUID,
 		Name:        u.Name,
 		Application: u.Application,
-		Series:      u.Series,
 		Base:        base.DisplayString(),
 		Life:        life.Value(u.Life.String()),
 		MachineID:   u.MachineId,
@@ -1009,17 +1003,19 @@ func (a *backingAction) removed(ctx *allWatcherContext) error {
 func (a *backingAction) updated(ctx *allWatcherContext) error {
 	allWatcherLogger.Tracef(`action "%s:%s" updated`, ctx.modelUUID, ctx.id)
 	info := &multiwatcher.ActionInfo{
-		ModelUUID:  a.ModelUUID,
-		ID:         ctx.id, // local ID isn't available on the action doc
-		Receiver:   a.Receiver,
-		Name:       a.Name,
-		Parameters: a.Parameters,
-		Status:     string(a.Status),
-		Message:    a.Message,
-		Results:    a.Results,
-		Enqueued:   a.Enqueued,
-		Started:    a.Started,
-		Completed:  a.Completed,
+		ModelUUID:      a.ModelUUID,
+		ID:             ctx.id, // local ID isn't available on the action doc
+		Receiver:       a.Receiver,
+		Name:           a.Name,
+		Parameters:     a.Parameters,
+		Parallel:       a.Parallel,
+		ExecutionGroup: a.ExecutionGroup,
+		Status:         string(a.Status),
+		Message:        a.Message,
+		Results:        a.Results,
+		Enqueued:       a.Enqueued,
+		Started:        a.Started,
+		Completed:      a.Completed,
 	}
 	ctx.store.Update(info)
 	return nil

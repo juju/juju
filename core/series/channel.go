@@ -136,3 +136,14 @@ func (ch Channel) String() string {
 	}
 	return path
 }
+
+func (ch Channel) DisplayString() string {
+	track, risk := ch.Track, ch.Risk
+	if risk == Stable && track != "kubernetes" {
+		risk = ""
+	}
+	if risk == "" {
+		return track
+	}
+	return fmt.Sprintf("%s/%s", track, risk)
+}

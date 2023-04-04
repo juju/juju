@@ -4,7 +4,7 @@
 package charmdownloader
 
 import (
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/facade"
@@ -52,6 +52,9 @@ type appShim struct {
 
 func (a appShim) CharmPendingToBeDownloaded() bool       { return a.app.CharmPendingToBeDownloaded() }
 func (a appShim) SetStatus(info status.StatusInfo) error { return a.app.SetStatus(info) }
+func (a appShim) SetDownloadedIDAndHash(id, hash string) error {
+	return a.app.SetDownloadedIDAndHash(id, hash)
+}
 
 func (a appShim) CharmOrigin() *corecharm.Origin {
 	if origin := a.app.CharmOrigin(); origin != nil {

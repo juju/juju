@@ -4,10 +4,10 @@
 package resources_test
 
 import (
-	"io/ioutil"
+	"io"
 	"strings"
 
-	charmresource "github.com/juju/charm/v8/resource"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -93,7 +93,7 @@ func (s *CheckerSuite) TestVerifyOkay(c *gc.C) {
 	wrapped := checker.WrapReader(reader)
 
 	s.stub.CheckNoCalls(c)
-	data, err := ioutil.ReadAll(wrapped)
+	data, err := io.ReadAll(wrapped)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(data), gc.Equals, "some data")
 	err = checker.Verify()
@@ -111,7 +111,7 @@ func (s *CheckerSuite) TestVerifyFailed(c *gc.C) {
 	wrapped := checker.WrapReader(reader)
 
 	s.stub.CheckNoCalls(c)
-	_, err := ioutil.ReadAll(wrapped)
+	_, err := io.ReadAll(wrapped)
 	c.Assert(err, jc.ErrorIsNil)
 	err = checker.Verify()
 	c.Assert(err, gc.ErrorMatches, "resource size does not match expected \\(9 != 10\\)")

@@ -6,13 +6,12 @@ package resource_test
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"sync"
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -173,7 +172,7 @@ func (s *OpenerSuite) setupMocks(c *gc.C, includeUnit bool) *gomock.Controller {
 		Platform: &state.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
-			Series:       "focal",
+			Channel:      "20.04/stable",
 		},
 	}
 	return ctrl
@@ -184,10 +183,10 @@ func (s *OpenerSuite) expectCacheMethods(res resources.Resource, numConcurrentRe
 		s.resources.EXPECT().OpenResourceForUniter("postgresql/0", "wal-e").DoAndReturn(func(unitName, resName string) (resources.Resource, io.ReadCloser, error) {
 			s.unleash.Lock()
 			defer s.unleash.Unlock()
-			return resources.Resource{}, ioutil.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e")
+			return resources.Resource{}, io.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e")
 		})
 	} else {
-		s.resources.EXPECT().OpenResource("postgresql", "wal-e").Return(resources.Resource{}, ioutil.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e"))
+		s.resources.EXPECT().OpenResource("postgresql", "wal-e").Return(resources.Resource{}, io.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e"))
 	}
 	s.resources.EXPECT().GetResource("postgresql", "wal-e").Return(res, nil)
 	s.resources.EXPECT().SetResource("postgresql", "", res.Resource, gomock.Any(), state.DoNotIncrementCharmModifiedVersion).Return(res, nil)
@@ -195,9 +194,9 @@ func (s *OpenerSuite) expectCacheMethods(res resources.Resource, numConcurrentRe
 	other := res
 	other.ApplicationID = "postgreql"
 	if s.unitName != "" {
-		s.resources.EXPECT().OpenResourceForUniter("postgresql/0", "wal-e").Return(other, ioutil.NopCloser(bytes.NewBuffer([]byte{})), nil).Times(numConcurrentRequests)
+		s.resources.EXPECT().OpenResourceForUniter("postgresql/0", "wal-e").Return(other, io.NopCloser(bytes.NewBuffer([]byte{})), nil).Times(numConcurrentRequests)
 	} else {
-		s.resources.EXPECT().OpenResource("postgresql", "wal-e").Return(other, ioutil.NopCloser(bytes.NewBuffer([]byte{})), nil)
+		s.resources.EXPECT().OpenResource("postgresql", "wal-e").Return(other, io.NopCloser(bytes.NewBuffer([]byte{})), nil)
 	}
 }
 
@@ -220,7 +219,7 @@ func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
 	s.resources.EXPECT().OpenResourceForUniter("postgresql/0", "wal-e").DoAndReturn(func(unitName, resName string) (resources.Resource, io.ReadCloser, error) {
 		s.unleash.Lock()
 		defer s.unleash.Unlock()
-		return resources.Resource{}, ioutil.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e")
+		return resources.Resource{}, io.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e")
 	})
 	s.resources.EXPECT().GetResource("postgresql", "wal-e").Return(res, nil)
 	const retryCount = 3

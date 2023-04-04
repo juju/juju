@@ -10,7 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/cloudinit/cloudinittest"
-	"github.com/juju/juju/cloudconfig/providerinit/renderers"
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/testing"
@@ -33,18 +32,6 @@ func (s *UserdataSuite) TestAmazonUnix(c *gc.C) {
 	result, err = renderer.Render(cloudcfg, os.CentOS)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, utils.Gzip(cloudcfg.YAML))
-}
-
-func (s *UserdataSuite) TestAmazonWindows(c *gc.C) {
-	renderer := ec2.AmazonRenderer{}
-	cloudcfg := &cloudinittest.CloudConfig{YAML: []byte("yaml")}
-
-	result, err := renderer.Render(cloudcfg, os.Windows)
-	c.Assert(err, jc.ErrorIsNil)
-	expected := []byte(`<powershell>` +
-		string(renderers.WinEmbedInScript(cloudcfg.YAML)) +
-		`</powershell>`)
-	c.Assert(result, jc.DeepEquals, expected)
 }
 
 func (s *UserdataSuite) TestAmazonUnknownOS(c *gc.C) {

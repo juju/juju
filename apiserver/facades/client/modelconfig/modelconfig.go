@@ -12,13 +12,11 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
-// ModelConfigAPI provides the base implementation of the methods
-// for the V2 and V1 api calls.
+// ModelConfigAPI provides the base implementation of the methods.
 type ModelConfigAPI struct {
 	backend Backend
 	auth    facade.Authorizer
@@ -28,16 +26,6 @@ type ModelConfigAPI struct {
 // ModelConfigAPIV3 is currently the latest.
 type ModelConfigAPIV3 struct {
 	*ModelConfigAPI
-}
-
-// ModelConfigAPIV2 hides V3 functionality
-type ModelConfigAPIV2 struct {
-	*ModelConfigAPIV3
-}
-
-// ModelConfigAPIV1 hides V2 functionality
-type ModelConfigAPIV1 struct {
-	*ModelConfigAPIV2
 }
 
 // NewModelConfigAPI creates a new instance of the ModelConfig Facade.
@@ -90,11 +78,34 @@ func (c *ModelConfigAPI) canReadModel() error {
 	return nil
 }
 
+func (c *ModelConfigAPI) isModelAdmin() (bool, error) {
+	isAdmin, err := c.auth.HasPermission(permission.SuperuserAccess, c.backend.ControllerTag())
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	if isAdmin {
+		return true, nil
+	}
+	isAdmin, err = c.auth.HasPermission(permission.AdminAccess, c.backend.ModelTag())
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return isAdmin, nil
+}
+
 // ModelGet implements the server-side part of the
 // model-config CLI command.
 func (c *ModelConfigAPI) ModelGet() (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
 	if err := c.canReadModel(); err != nil {
+		return result, errors.Trace(err)
+	}
+	isAdmin, err := c.isModelAdmin()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	defaultSchema, err := config.Schema(nil)
+	if err != nil {
 		return result, errors.Trace(err)
 	}
 
@@ -109,6 +120,10 @@ func (c *ModelConfigAPI) ModelGet() (params.ModelConfigResults, error) {
 		// juju ssh-keys and including them here just
 		// clutters everything.
 		if attr == config.AuthorizedKeysKey {
+			continue
+		}
+		// Only admins get to see attributes marked as secret.
+		if attr, ok := defaultSchema[attr]; ok && attr.Secret && !isAdmin {
 			continue
 		}
 		result.Config[attr] = params.ConfigValue{
@@ -129,6 +144,20 @@ func (c *ModelConfigAPI) ModelSet(args params.ModelSet) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
+	isAdmin, err := c.isModelAdmin()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defaultSchema, err := config.Schema(nil)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// Only admins get to set attributes marked as secret.
+	for attr := range args.Config {
+		if attr, ok := defaultSchema[attr]; ok && attr.Secret && !isAdmin {
+			return apiservererrors.ErrPerm
+		}
+	}
 
 	// Make sure we don't allow changing agent-version.
 	checkAgentVersion := c.checkAgentVersion()
@@ -142,13 +171,9 @@ func (c *ModelConfigAPI) ModelSet(args params.ModelSet) error {
 	// Make sure DefaultSpace exists.
 	checkDefaultSpace := c.checkDefaultSpace()
 
-	// To use the logging-output feature, the feature flag needs to be set.
-	checkLoggingConfig := c.checkLoggingOutput()
-
 	// Replace any deprecated attributes with their new values.
 	attrs := config.ProcessDeprecatedAttributes(args.Config)
-	return c.backend.UpdateModelConfig(attrs, nil,
-		checkAgentVersion, checkLogTrace, checkDefaultSpace, checkCharmhubURL, checkLoggingConfig)
+	return c.backend.UpdateModelConfig(attrs, nil, checkAgentVersion, checkLogTrace, checkDefaultSpace, checkCharmhubURL)
 }
 
 func (c *ModelConfigAPI) checkLogTrace() state.ValidateConfigFunc {
@@ -230,23 +255,6 @@ func (c *ModelConfigAPI) checkCharmhubURL() state.ValidateConfigFunc {
 	}
 }
 
-func (c *ModelConfigAPI) checkLoggingOutput() state.ValidateConfigFunc {
-	return func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
-		v, ok := updateAttrs[config.LoggingOutputKey]
-		if !ok || v == "" {
-			return nil
-		}
-		cfg, err := c.backend.ControllerConfig()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if !cfg.Features().Contains(feature.LoggingOutput) {
-			return errors.Errorf("cannot set %q without setting the %q feature flag", config.LoggingOutputKey, feature.LoggingOutput)
-		}
-		return nil
-	}
-}
-
 // ModelUnset implements the server-side part of the
 // set-model-config CLI command.
 func (c *ModelConfigAPI) ModelUnset(args params.ModelUnset) error {
@@ -258,9 +266,6 @@ func (c *ModelConfigAPI) ModelUnset(args params.ModelUnset) error {
 	}
 	return c.backend.UpdateModelConfig(nil, args.Keys)
 }
-
-// GetModelConstraints is not available via the V2 API.
-func (api *ModelConfigAPIV2) GetModelConstraints(_ struct{}) {}
 
 // GetModelConstraints returns the constraints for the model.
 func (c *ModelConfigAPI) GetModelConstraints() (params.GetConstraintsResults, error) {
@@ -274,9 +279,6 @@ func (c *ModelConfigAPI) GetModelConstraints() (params.GetConstraintsResults, er
 	}
 	return params.GetConstraintsResults{cons}, nil
 }
-
-// SetModelConstraints is not available via the V2 API.
-func (api *ModelConfigAPIV2) SetModelConstraints(_ struct{}) {}
 
 // SetModelConstraints sets the constraints for the model.
 func (c *ModelConfigAPI) SetModelConstraints(args params.SetConstraints) error {
@@ -325,10 +327,3 @@ func (c *ModelConfigAPI) Sequences() (params.ModelSequencesResult, error) {
 	result.Sequences = values
 	return result, nil
 }
-
-// Mask the new methods from the V1 API. The API reflection code in
-// rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so this
-// removes the method as far as the RPC machinery is concerned.
-
-// Sequences isn't on the V1 API.
-func (a *ModelConfigAPIV1) Sequences(_, _ struct{}) {}

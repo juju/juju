@@ -10,13 +10,12 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
 	exttest "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/arch"
@@ -41,12 +40,6 @@ var _ = gc.Suite(&buildSuite{})
 
 func (b *buildSuite) SetUpTest(c *gc.C) {
 	b.BaseSuite.SetUpTest(c)
-
-	suffix := ""
-	if runtime.GOOS == "windows" {
-		suffix = ".bat"
-	}
-
 	dir1 := c.MkDir()
 	dir2 := c.MkDir()
 
@@ -60,8 +53,8 @@ func (b *buildSuite) SetUpTest(c *gc.C) {
 	os.Setenv("PATH", strings.Join([]string{dir1, dir2, path}, string(filepath.ListSeparator)))
 
 	// Make an executable file called "juju-test" in dir2.
-	b.filePath = filepath.Join(dir2, "juju-test"+suffix)
-	err := ioutil.WriteFile(
+	b.filePath = filepath.Join(dir2, "juju-test")
+	err := os.WriteFile(
 		b.filePath,
 		[]byte("doesn't matter, we don't execute it"),
 		0755)
@@ -86,17 +79,13 @@ func (b *buildSuite) TearDownTest(c *gc.C) {
 }
 
 func (b *buildSuite) TestFindExecutable(c *gc.C) {
-	root := "/"
-	if runtime.GOOS == "windows" {
-		root = `C:\`
-	}
 	for _, test := range []struct {
 		execFile   string
 		expected   string
 		errorMatch string
 	}{{
-		execFile: filepath.Join(root, "some", "absolute", "path"),
-		expected: filepath.Join(root, "some", "absolute", "path"),
+		execFile: filepath.Join("/", "some", "absolute", "path"),
+		expected: filepath.Join("/", "some", "absolute", "path"),
 	}, {
 		execFile: "./foo",
 		expected: filepath.Join(b.cwd, "foo"),
@@ -169,13 +158,16 @@ func (b *buildSuite) TestGetVersionFromJujud(c *gc.C) {
 
 	b.PatchValue(&tools.ExecCommand, execCommand)
 
-	v, err := tools.GetVersionFromJujud("foo")
+	dir := c.MkDir()
+	cmd := filepath.Join(dir, names.Jujud)
+	err := os.WriteFile(cmd, []byte{}, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	v, err := tools.GetVersionFromJujud(dir)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(v, gc.Equals, ver)
 
 	select {
 	case args := <-argsCh:
-		cmd := filepath.Join("foo", names.Jujud)
 		c.Assert(args, gc.DeepEquals, []string{cmd, "version"})
 	default:
 		c.Fatalf("Failed to get args sent to executable.")
@@ -192,12 +184,15 @@ func (b *buildSuite) TestGetVersionFromJujudWithParseError(c *gc.C) {
 
 	b.PatchValue(&tools.ExecCommand, execCommand)
 
-	_, err := tools.GetVersionFromJujud("foo")
+	dir := c.MkDir()
+	cmd := filepath.Join(dir, names.Jujud)
+	err := os.WriteFile(cmd, []byte{}, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = tools.GetVersionFromJujud(dir)
 	c.Assert(err, gc.ErrorMatches, `invalid version "oops, not a valid version" printed by jujud`)
 
 	select {
 	case args := <-argsCh:
-		cmd := filepath.Join("foo", names.Jujud)
 		c.Assert(args, gc.DeepEquals, []string{cmd, "version"})
 	default:
 		c.Fatalf("Failed to get args sent to executable.")
@@ -215,9 +210,12 @@ func (b *buildSuite) TestGetVersionFromJujudWithRunError(c *gc.C) {
 
 	b.PatchValue(&tools.ExecCommand, execCommand)
 
-	_, err := tools.GetVersionFromJujud("foo")
+	dir := c.MkDir()
+	cmd := filepath.Join(dir, names.Jujud)
+	err := os.WriteFile(cmd, []byte{}, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = tools.GetVersionFromJujud(dir)
 
-	cmd := filepath.Join("foo", names.Jujud)
 	msg := fmt.Sprintf("cannot get version from %q: exit status 1; the stderr\nthe stdout\n", cmd)
 
 	c.Assert(err.Error(), gc.Equals, msg)
@@ -230,16 +228,26 @@ func (b *buildSuite) TestGetVersionFromJujudWithRunError(c *gc.C) {
 	}
 }
 
+func (b *buildSuite) TestGetVersionFromJujudNoJujud(c *gc.C) {
+	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
+		ExitCode: 1,
+	})
+	b.PatchValue(&tools.ExecCommand, execCommand)
+
+	_, err := tools.GetVersionFromJujud("foo")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (b *buildSuite) setUpFakeBinaries(c *gc.C, versionFile string) string {
 	dir := c.MkDir()
-	err := ioutil.WriteFile(filepath.Join(dir, "juju"), []byte("some data"), 0755)
+	err := os.WriteFile(filepath.Join(dir, "juju"), []byte("some data"), 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(dir, "jujuc"), []byte(fakeBinary), 0755)
+	err = os.WriteFile(filepath.Join(dir, "jujuc"), []byte(fakeBinary), 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(dir, "jujud"), []byte(fakeBinary), 0755)
+	err = os.WriteFile(filepath.Join(dir, "jujud"), []byte(fakeBinary), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	if versionFile != "" {
-		err = ioutil.WriteFile(filepath.Join(dir, "jujud-versions.yaml"), []byte(versionFile), 0755)
+		err = os.WriteFile(filepath.Join(dir, "jujud-versions.yaml"), []byte(versionFile), 0755)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -358,7 +366,7 @@ func (b *buildSuite) TestBundleToolsWriteForceVersionFileForOfficial(c *gc.C) {
 		}
 		c.Assert(err, jc.ErrorIsNil)
 		if header.Typeflag == tar.TypeReg && header.Name == "FORCE-VERSION" {
-			forceVersionFile, err := ioutil.ReadAll(tarReader)
+			forceVersionFile, err := io.ReadAll(tarReader)
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(string(forceVersionFile), gc.Equals, `1.2.3.1`)
 			break

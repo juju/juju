@@ -4,7 +4,7 @@
 package testing
 
 import (
-	"io/ioutil"
+	"os"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -69,7 +69,7 @@ func CreateContainerWithMachineAndNetworkAndStorageConfig(
 ) instances.Instance {
 	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
 	inst, hardware, err := manager.CreateContainer(
-		instanceConfig, constraints.Value{}, "bionic", networkConfig, storageConfig, callback)
+		instanceConfig, constraints.Value{}, series.MakeDefaultBase("ubuntu", "18.04"), networkConfig, storageConfig, callback)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hardware, gc.NotNil)
 	c.Assert(hardware.String(), gc.Not(gc.Equals), "")
@@ -78,7 +78,7 @@ func CreateContainerWithMachineAndNetworkAndStorageConfig(
 
 func AssertCloudInit(c *gc.C, filename string) []byte {
 	c.Assert(filename, jc.IsNonEmptyFile)
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), jc.HasPrefix, "#cloud-config\n")
 	return data

@@ -23,7 +23,7 @@ var _ = gc.Suite(&BlockDevicesSuite{})
 func (s *BlockDevicesSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	var err error
-	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	s.machine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -165,7 +165,7 @@ func (s *BlockDevicesSuite) TestWatchBlockDevices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	w := sb.WatchBlockDevices(s.machine.MachineTag())
 	defer testing.AssertStop(c, w)
-	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	// Setting the same should not trigger the watcher.

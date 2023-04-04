@@ -6,8 +6,8 @@ package state
 import (
 	"testing"
 
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -25,7 +25,7 @@ import (
 
 //go:generate go run github.com/golang/mock/mockgen -package state -destination migration_import_mock_test.go github.com/juju/juju/state TransactionRunner,StateDocumentFactory,DocModelNamespace
 //go:generate go run github.com/golang/mock/mockgen -package state -destination migration_import_input_mock_test.go github.com/juju/juju/state RemoteEntitiesInput,RelationNetworksInput,RemoteApplicationsInput,ApplicationOfferStateDocumentFactory,ApplicationOfferInput,ExternalControllerStateDocumentFactory,ExternalControllersInput,FirewallRulesInput
-//go:generate go run github.com/golang/mock/mockgen -package state -destination migration_description_mock_test.go github.com/juju/description/v3 ApplicationOffer,ExternalController,FirewallRule,RemoteEntity,RelationNetwork,RemoteApplication,RemoteSpace,Status
+//go:generate go run github.com/golang/mock/mockgen -package state -destination migration_description_mock_test.go github.com/juju/description/v4 ApplicationOffer,ExternalController,FirewallRule,RemoteEntity,RelationNetwork,RemoteApplication,RemoteSpace,Status
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/operation_mock.go github.com/juju/juju/state ModelOperation
 
 func TestPackage(t *testing.T) {

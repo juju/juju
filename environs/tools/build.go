@@ -10,7 +10,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -28,7 +27,7 @@ import (
 // Archive writes the executable files found in the given directory in
 // gzipped tar format to w.
 func Archive(w io.Writer, dir string) error {
-	entries, err := ioutil.ReadDir(dir)
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}
@@ -40,15 +39,21 @@ func Archive(w io.Writer, dir string) error {
 	defer closeErrorCheck(&err, tarw)
 
 	for _, ent := range entries {
-		h := tarHeader(ent)
+		fi, err := ent.Info()
+		if err != nil {
+			logger.Errorf("failed to read file info: %s", ent.Name())
+			continue
+		}
+
+		h := tarHeader(fi)
 		logger.Debugf("adding entry: %#v", h)
 		// ignore local umask
-		if isExecutable(ent) {
+		if isExecutable(fi) {
 			h.Mode = 0755
 		} else {
 			h.Mode = 0644
 		}
-		err := tarw.WriteHeader(h)
+		err = tarw.WriteHeader(h)
 		if err != nil {
 			return err
 		}
@@ -165,9 +170,12 @@ func copyFileWithMode(from, to string, mode os.FileMode) error {
 	return nil
 }
 
+// Override for testing.
+var ExistingJujuLocation = existingJujuLocation
+
 // ExistingJujuLocation returns the directory where 'juju' is running, and where
 // we expect to find 'jujuc' and 'jujud'.
-func ExistingJujuLocation() (string, error) {
+func existingJujuLocation() (string, error) {
 	jujuLocation, err := findExecutable(os.Args[0])
 	if err != nil {
 		logger.Infof("%v", err)
@@ -322,7 +330,7 @@ func bundleTools(
 	getForceVersion func(version.Number) version.Number,
 	jujudVersion func(dir string) (version.Binary, bool, error),
 ) (_ version.Binary, _ version.Number, official bool, sha256hash string, _ error) {
-	dir, err := ioutil.TempDir("", "juju-tools")
+	dir, err := os.MkdirTemp("", "juju-tools")
 	if err != nil {
 		return version.Binary{}, version.Number{}, false, "", err
 	}
@@ -333,7 +341,7 @@ func bundleTools(
 		return version.Binary{}, version.Number{}, false, "", errors.Annotate(err, "couldn't find existing jujud")
 	}
 	_, official, err = jujudVersion(existingJujuLocation)
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		return version.Binary{}, version.Number{}, official, "", errors.Trace(err)
 	}
 	if official && build {
@@ -354,7 +362,7 @@ func bundleTools(
 	}
 	forceVersion := getForceVersion(tvers.Number)
 	logger.Debugf("forcing version to %s", forceVersion)
-	if err := ioutil.WriteFile(filepath.Join(dir, "FORCE-VERSION"), []byte(forceVersion.String()), 0666); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "FORCE-VERSION"), []byte(forceVersion.String()), 0666); err != nil {
 		return version.Binary{}, version.Number{}, false, "", err
 	}
 
@@ -369,7 +377,14 @@ func bundleTools(
 var ExecCommand = exec.Command
 
 func getVersionFromJujud(dir string) (version.Binary, error) {
+	// If there's no jujud, return a NotFound error.
 	path := filepath.Join(dir, names.Jujud)
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return version.Binary{}, errors.NotFoundf(path)
+		}
+		return version.Binary{}, errors.Trace(err)
+	}
 	cmd := ExecCommand(path, "version")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

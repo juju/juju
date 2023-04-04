@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 
 	coreseries "github.com/juju/juju/core/series"
@@ -50,10 +50,11 @@ type Origin struct {
 	Channel  *charm.Channel
 	Platform Platform
 
-	// InstanceKey is a unique string associated with the application. To
-	// assist with keeping KPI data in charmhub, it must be the same for every
-	// charmhub Refresh action related to an application. Create with the
-	// charmhub.CreateInstanceKey method. LP: 1944582
+	// InstanceKey is an optional unique string associated with the application.
+	// To assist with keeping KPI data in charmhub, it must be the same for every
+	// charmhub Refresh action for the Refresh api endpoint related to an
+	// application. For all other actions, a random uuid will used when the request
+	// is sent. Create with the charmhub.CreateInstanceKey method. LP: 1944582
 	InstanceKey string
 }
 
@@ -192,36 +193,6 @@ func (p Platform) String() string {
 	}
 
 	return path
-}
-
-// ComputeBaseChannel ensure that the platform has a valid charmhub
-// channel for centos versions.
-func ComputeBaseChannel(platform Platform) Platform {
-	track, _ := ChannelTrack(platform.Channel)
-	switch strings.ToLower(platform.OS) {
-	case "centos":
-		p := platform
-		p.Channel = strings.TrimPrefix(track, "centos")
-		return p
-	}
-	return platform
-}
-
-// NormalisePlatformSeries origin.Platform.Channel returns a valid Juju series and
-// not a charmhub series, ensuring we correctly normalize the base channel.
-func NormalisePlatformSeries(platform Platform) Platform {
-	switch strings.ToLower(platform.OS) {
-	case "centos":
-		// If the platform has already a "centos" prefix, don't double prefix it.
-		if strings.HasPrefix(strings.ToLower(platform.Channel), "centos") {
-			return platform
-		}
-
-		p := platform
-		p.Channel = fmt.Sprintf("centos%s", platform.Channel)
-		return p
-	}
-	return platform
 }
 
 func ChannelTrack(channel string) (string, error) {

@@ -5,17 +5,16 @@ package deployer
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"gopkg.in/macaroon.v2"
-	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api/client/application"
 	applicationapi "github.com/juju/juju/api/client/application"
@@ -28,6 +27,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/storage"
 )
 
@@ -50,7 +50,7 @@ type deployCharm struct {
 	placement        []*instance.Placement
 	placementSpec    string
 	resources        map[string]string
-	series           string
+	seriesFlag       string
 	steps            []DeployStep
 	storage          map[string]storage.Constraints
 	trust            bool
@@ -69,12 +69,6 @@ func (d *deployCharm) deploy(
 	charmInfo, err := deployAPI.CharmInfo(id.URL.String())
 	if err != nil {
 		return err
-	}
-
-	if len(d.attachStorage) > 0 && deployAPI.BestFacadeVersion("Application") < 5 {
-		// DeployArgs.attachStorage is only supported from
-		// Application API version 5 and onwards.
-		return errors.New("this juju controller does not support --attach-storage")
 	}
 
 	// storage cannot be added to a container.
@@ -118,7 +112,7 @@ func (d *deployCharm) deploy(
 		return errors.Errorf("only a single config YAML file can be specified, got %d", len(files))
 	}
 	if len(files) == 1 {
-		configYAML, err = ioutil.ReadFile(files[0])
+		configYAML, err = os.ReadFile(files[0])
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -145,33 +139,6 @@ func (d *deployCharm) deploy(
 	// Expand the trust flag into the appConfig
 	if d.trust {
 		appConfig[app.TrustConfigOptionName] = strconv.FormatBool(d.trust)
-	}
-
-	// Application facade V5 expects charm config to either all be in YAML
-	// or config map. If config map is specified, that overrides YAML.
-	// So we need to combine the two here to have only one.
-	if deployAPI.BestFacadeVersion("Application") < 6 && len(appConfig) > 0 {
-		var configFromFile map[string]map[string]string
-		err := yaml.Unmarshal(configYAML, &configFromFile)
-		if err != nil {
-			return errors.Annotate(err, "badly formatted YAML config file")
-		}
-		if configFromFile == nil {
-			configFromFile = make(map[string]map[string]string)
-		}
-		charmSettings, ok := configFromFile[applicationName]
-		if !ok {
-			charmSettings = make(map[string]string)
-		}
-		for k, v := range appConfig {
-			charmSettings[k] = v
-		}
-		appConfig = nil
-		configFromFile[applicationName] = charmSettings
-		configYAML, err = yaml.Marshal(configFromFile)
-		if err != nil {
-			return errors.Trace(err)
-		}
 	}
 
 	bakeryClient, err := d.model.BakeryClient()
@@ -239,7 +206,6 @@ func (d *deployCharm) deploy(
 		CharmOrigin:      id.Origin,
 		Cons:             d.constraints,
 		ApplicationName:  applicationName,
-		Series:           d.series,
 		NumUnits:         numUnits,
 		ConfigYAML:       string(configYAML),
 		Config:           appConfig,
@@ -295,7 +261,7 @@ func (d *deployCharm) formatDeployingText() string {
 	}
 
 	return fmt.Sprintf("Deploying %q from %s charm %q, revision %d%s on %s",
-		name, origin.Source, curl.Name, curl.Revision, channel, origin.Series)
+		name, origin.Source, curl.Name, curl.Revision, channel, origin.Base.String())
 }
 
 type predeployedLocalCharm struct {
@@ -363,7 +329,6 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 		URL:    d.userCharmURL,
 		Origin: origin,
 	}
-	d.series = userCharmURL.Series
 	return d.deploy(ctx, deployAPI)
 }
 
@@ -409,7 +374,6 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 		Origin: origin,
 		// Local charms don't need a channel.
 	}
-	l.series = l.curl.Series
 	return l.deploy(ctx, deployAPI)
 }
 
@@ -461,15 +425,19 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	// argument so users can target a specific origin.
 	origin := c.id.Origin
 	var usingDefaultSeries bool
-	if defaultSeries, ok := modelCfg.DefaultSeries(); ok && origin.Series == "" {
-		origin.Series = defaultSeries
+	if defaultSeries, ok := modelCfg.DefaultSeries(); ok && origin.Base.Channel.Empty() {
+		base, err := coreseries.GetBaseFromSeries(defaultSeries)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		origin.Base = base
 		usingDefaultSeries = true
 	}
 	storeCharmOrBundleURL, origin, supportedSeries, err := resolver.ResolveCharm(userRequestedURL, origin, false) // no --switch possible.
 	if charm.IsUnsupportedSeriesError(err) {
 		msg := fmt.Sprintf("%v. Use --force to deploy the charm anyway.", err)
 		if usingDefaultSeries {
-			msg = msg + " Used the default-series."
+			msg += " Used the default-series."
 		}
 		return errors.Errorf(msg)
 	} else if err != nil {
@@ -481,7 +449,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 
 	selector := seriesSelector{
 		charmURLSeries:      userRequestedURL.Series,
-		seriesFlag:          c.series,
+		seriesFlag:          c.seriesFlag,
 		supportedSeries:     supportedSeries,
 		supportedJujuSeries: workloadSeries,
 		force:               c.force,
@@ -505,7 +473,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	if charm.IsUnsupportedSeriesError(err) {
 		msg := fmt.Sprintf("%v. Use --force to deploy the charm anyway.", err)
 		if usingDefaultSeries {
-			msg = msg + " Used the default-series."
+			msg += " Used the default-series."
 		}
 		return errors.Errorf(msg)
 	}
@@ -514,14 +482,27 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	}
 
 	// Ensure we save the origin.
-	origin = origin.WithSeries(series)
+	var base coreseries.Base
+	if series == coreseries.Kubernetes.String() {
+		base = coreseries.LegacyKubernetesBase()
+	} else {
+		base, err = coreseries.GetBaseFromSeries(series)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	origin = origin.WithBase(&base)
 
-	// In-order for the url to represent the following updates to the the origin
+	// In-order for the url to represent the following updates to the origin
 	// and machine, we need to ensure that the series is actually correct as
 	// well in the url.
 	deployableURL := storeCharmOrBundleURL
 	if charm.CharmHub.Matches(storeCharmOrBundleURL.Schema) {
-		deployableURL = storeCharmOrBundleURL.WithSeries(origin.Series)
+		series, err := coreseries.GetSeriesFromBase(origin.Base)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		deployableURL = storeCharmOrBundleURL.WithSeries(series)
 	}
 
 	if c.dryRun {
@@ -535,7 +516,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		}
 
 		ctx.Infof(fmt.Sprintf("%q from %s charm %q, revision %d%s on %s would be deployed",
-			name, origin.Source, deployableURL.Name, deployableURL.Revision, channel, origin.Series))
+			name, origin.Source, deployableURL.Name, deployableURL.Revision, channel, origin.Base.DisplayString()))
 		return nil
 	}
 
@@ -563,7 +544,6 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		}
 	}
 
-	c.series = series
 	c.csMac = csMac
 	c.id = application.CharmID{
 		URL:    curl,
@@ -578,10 +558,7 @@ func isEmptyOrigin(origin commoncharm.Origin, source commoncharm.OriginSource) b
 		return true
 	}
 	other.Source = source
-	if origin == other {
-		return true
-	}
-	return false
+	return origin == other
 }
 
 func formatLocatedText(curl *charm.URL, origin commoncharm.Origin) string {

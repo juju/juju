@@ -14,9 +14,18 @@ import (
 // API is the concrete implementation of the Pruner endpoint.
 type API struct {
 	*common.ModelWatcher
+	cancel     <-chan struct{}
 	st         *state.State
 	authorizer facade.Authorizer
 }
+
+// Model returns the model for a context (override for tests).
+var Model = func(ctx facade.Context) (state.ModelAccessor, error) {
+	return ctx.State().Model()
+}
+
+// Prune performs the status history pruner operation (override for tests).
+var Prune = state.PruneStatusHistory
 
 // Prune endpoint removes status history entries until
 // only the ones newer than now - p.MaxHistoryTime remain and
@@ -25,5 +34,5 @@ func (api *API) Prune(p params.StatusHistoryPruneArgs) error {
 	if !api.authorizer.AuthController() {
 		return apiservererrors.ErrPerm
 	}
-	return state.PruneStatusHistory(api.st, p.MaxHistoryTime, p.MaxHistoryMB)
+	return Prune(api.cancel, api.st, p.MaxHistoryTime, p.MaxHistoryMB)
 }

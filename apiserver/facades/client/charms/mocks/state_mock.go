@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v8"
+	charm "github.com/juju/charm/v9"
 	interfaces "github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	services "github.com/juju/juju/apiserver/facades/client/charms/services"
 	cloud "github.com/juju/juju/cloud"
@@ -18,7 +18,7 @@ import (
 	instance "github.com/juju/juju/core/instance"
 	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
-	mgo "github.com/juju/mgo/v2"
+	mgo "github.com/juju/mgo/v3"
 	names "github.com/juju/names/v4"
 	macaroon "gopkg.in/macaroon.v2"
 )

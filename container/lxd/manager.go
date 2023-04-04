@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -108,7 +109,7 @@ func (m *containerManager) DestroyContainer(id instance.Id) error {
 func (m *containerManager) CreateContainer(
 	instanceConfig *instancecfg.InstanceConfig,
 	cons constraints.Value,
-	series string,
+	base series.Base,
 	networkConfig *container.NetworkConfig,
 	_ *container.StorageConfig,
 	callback environs.StatusCallbackFunc,
@@ -118,7 +119,7 @@ func (m *containerManager) CreateContainer(
 	}
 
 	_ = callback(status.Provisioning, "Creating container spec", nil)
-	spec, err := m.getContainerSpec(instanceConfig, cons, series, networkConfig, callback)
+	spec, err := m.getContainerSpec(instanceConfig, cons, base, networkConfig, callback)
 	if err != nil {
 		_ = callback(status.ProvisioningError, fmt.Sprintf("Creating container spec: %v", err), nil)
 		return nil, nil, errors.Trace(err)
@@ -184,7 +185,7 @@ func (m *containerManager) IsInitialized() bool {
 func (m *containerManager) getContainerSpec(
 	instanceConfig *instancecfg.InstanceConfig,
 	cons constraints.Value,
-	series string,
+	base series.Base,
 	networkConfig *container.NetworkConfig,
 	callback environs.StatusCallbackFunc,
 ) (ContainerSpec, error) {
@@ -198,7 +199,7 @@ func (m *containerManager) getContainerSpec(
 	// If an image needs to be copied from a remote, we don't want many
 	// goroutines attempting to do it at once.
 	m.imageMutex.Lock()
-	found, err := m.server.FindImage(series, jujuarch.HostArch(), imageSources, true, callback)
+	found, err := m.server.FindImage(base, jujuarch.HostArch(), imageSources, true, callback)
 	m.imageMutex.Unlock()
 	if err != nil {
 		return ContainerSpec{}, errors.Annotatef(err, "acquiring LXD image")
@@ -245,7 +246,7 @@ func (m *containerManager) getContainerSpec(
 		networkConfig.Interfaces = interfaces
 	}
 
-	cloudConfig, err := cloudinit.New(instanceConfig.Series, cloudinit.WithDisableNetplanMACMatch)
+	cloudConfig, err := cloudinit.New(instanceConfig.Base.OS, cloudinit.WithDisableNetplanMACMatch)
 	if err != nil {
 		return ContainerSpec{}, errors.Trace(err)
 	}

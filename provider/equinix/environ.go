@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
-	"github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/cmd/juju/ssh"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -255,7 +255,7 @@ func (e *environ) configureInstance(ctx context.ProviderCallContext, args enviro
 		instanceTypes.InstanceTypes,
 		&instances.InstanceConstraint{
 			Region:      e.cloud.Region,
-			Series:      args.InstanceConfig.Series,
+			Base:        args.InstanceConfig.Base,
 			Arch:        arch,
 			Constraints: args.Constraints,
 		},
@@ -267,28 +267,30 @@ func (e *environ) configureInstance(ctx context.ProviderCallContext, args enviro
 	return spec, nil
 }
 
+const (
+	defaultIPTablesCommands = `iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
+iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT
+iptables -A INPUT -p icmp -j ACCEPT
+iptables -A INPUT -i lo -j ACCEPT
+iptables -A OUTPUT -o lo -j ACCEPT
+iptables -P INPUT ! -i lo -s 127.0.0.0/8 -j REJECT
+iptables -A OUTPUT -p tcp --sport %d -m conntrack --ctstate ESTABLISHED -j ACCEPT`
+
+	acceptInputPort = `iptables -A INPUT -p tcp --dport %d -j ACCEPT`
+)
+
 func getCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, error) {
-	cloudCfg, err := cloudinit.New(args.InstanceConfig.Series)
+	cloudCfg, err := cloudinit.New(args.InstanceConfig.Base.OS)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	cloudCfg.AddPackage("iptables-persistent")
 	cloudCfg.AddPackage("jq")
 
-	// Set a default INPUT policy of drop, permitting ssh and 10.0.0.0/8 private
-	// network traffic.
-	acceptInputPort := "iptables -A INPUT -p tcp --dport %d -j ACCEPT"
-	iptablesDefault := []string{
-		"iptables -A INPUT -m conntrack --ctstate INVALID -j DROP",
-		"iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT",
-		"iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT",
-		"iptables -A INPUT -p icmp -j ACCEPT",
-		"iptables -A INPUT -i lo -j ACCEPT",
-		"iptables -A OUTPUT -o lo -j ACCEPT",
-		"iptables -P INPUT ! -i lo -s 127.0.0.0/8 -j REJECT",
-		fmt.Sprintf("iptables -A OUTPUT -p tcp --sport %d -m conntrack --ctstate ESTABLISHED -j ACCEPT", commands.SSHPort),
-		fmt.Sprintf(acceptInputPort, commands.SSHPort),
-	}
+	// Set a default INPUT policy of drop, permitting ssh
+	iptablesDefault := strings.Split(fmt.Sprintf(defaultIPTablesCommands, ssh.SSHPort), "\n")
+	iptablesDefault = append(iptablesDefault, fmt.Sprintf(acceptInputPort, ssh.SSHPort))
 	if args.InstanceConfig.IsController() {
 		for _, port := range []int{
 			args.InstanceConfig.ControllerConfig.APIPort(),
@@ -319,7 +321,7 @@ func getCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, e
 	// NOTE(achilleasa): this is a hack and is only meant to be used
 	// temporarily; we must ensure that equinix mirrors the official
 	// ubuntu cloud images.
-	if _, err := series.UbuntuSeriesVersion(args.InstanceConfig.Series); err == nil {
+	if _, err := series.GetSeriesFromBase(args.InstanceConfig.Base); err == nil {
 		cloudCfg.AddScripts(
 			"apt-get update",
 			"DEBIAN_FRONTEND=noninteractive apt-get --option=Dpkg::Options::=--force-confdef --option=Dpkg::Options::=--force-confold --option=Dpkg::Options::=--force-unsafe-io --assume-yes --quiet install dmidecode snapd",
@@ -331,7 +333,7 @@ func getCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, e
 	// references the juju-assigned hostname before localhost. Otherwise,
 	// running 'hostname -f' would return localhost whereas 'hostname'
 	// returns the juju-assigned host (see LP1956538).
-	if _, err := series.UbuntuSeriesVersion(args.InstanceConfig.Series); err == nil {
+	if _, err := series.GetSeriesFromBase(args.InstanceConfig.Base); err == nil {
 		cloudCfg.AddScripts(
 			`sed -i -e "/127\.0\.0\.1/c\127\.0\.0\.1 $(hostname) localhost" /etc/hosts`,
 		)
@@ -638,6 +640,8 @@ func (e *environ) supportedInstanceTypes() ([]instances.InstanceType, error) {
 	opt := &packngo.ListOptions{
 		Includes: []string{"available_in_metros"},
 	}
+	opt.Filter("line", "baremetal")
+	opt.Filter("deployment_type", "on_demand")
 	plans, _, err := e.equinixClient.Plans.List(opt)
 	if err != nil {
 		return nil, errors.Annotate(err, "retrieving supported instance types")
@@ -709,10 +713,21 @@ nextPlan:
 
 func validPlan(plan packngo.Plan, region string) bool {
 	// some plans may not be servers
-	if plan.Pricing == nil ||
+	if plan.Line != "baremetal" ||
+		plan.Pricing == nil ||
 		plan.Specs == nil ||
 		plan.Specs.Memory == nil ||
 		len(plan.Specs.Cpus) == 0 || plan.Specs.Cpus[0].Count == 0 {
+		return false
+	}
+	var validDeploymentType bool
+	for _, d := range plan.DeploymentTypes {
+		if d == "on_demand" {
+			validDeploymentType = true
+			break
+		}
+	}
+	if !validDeploymentType {
 		return false
 	}
 
@@ -823,26 +838,10 @@ func waitDeviceActive(ctx context.ProviderCallContext, c *packngo.Client, id str
 
 // Helper function to get supported OS version
 func isDistroSupported(os packngo.OS, ic *instances.InstanceConstraint) bool {
-	switch os.Distro {
-	case "ubuntu":
-		series, err := series.VersionSeries(os.Version)
-		if err != nil || ic.Series != series {
-			return false
-		}
-	case "centos":
-		series, err := series.CentOSVersionSeries(os.Version)
-		if err != nil || ic.Series != series {
-			return false
-		}
-	case "windows":
-		series, err := series.WindowsVersionSeries(os.Version)
-		if err != nil || ic.Series != series {
-			return false
-		}
-	default:
+	base, err := series.ParseBase(os.Distro, os.Version)
+	if err != nil || !ic.Base.IsCompatible(base) {
 		return false
 	}
-
 	return true
 }
 

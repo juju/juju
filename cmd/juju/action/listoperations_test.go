@@ -142,7 +142,7 @@ var listOperationResults = actionapi.Operations{
 			Action: &actionapi.Action{
 				ID:       "6",
 				Receiver: "machine-1",
-				Name:     "juju-run",
+				Name:     "juju-exec",
 			},
 		}},
 		Summary:   "operation 5",
@@ -193,7 +193,6 @@ ID  Status   Started  Finished             Task IDs  Summary
  3  running           2014-02-14T06:06:06  4         operation 3
  5  pending                                6         operation 5
 10  error                                            operation 10
-
 `[1:]
 		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)
 	}
@@ -221,7 +220,6 @@ ID  Status   Started  Finished             Task IDs  Summary
  3  running           2014-02-14T06:06:06  4         operation 3
  5  pending                                6         operation 5
 10  error                                            operation 10
-
 `[1:]
 		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)
 	}
@@ -286,7 +284,6 @@ func (s *ListOperationsSuite) TestRunPlainManyTasks(c *gc.C) {
 		expected := `
 ID  Status     Started              Finished  Task IDs      Summary
  1  completed  2015-02-14T06:06:06            2,3,4,5,6...  operation 1
-
 `[1:]
 		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)
 	}
@@ -334,7 +331,7 @@ func (s *ListOperationsSuite) TestRunYaml(c *gc.C) {
   summary: operation 5
   status: pending
   action:
-    name: juju-run
+    name: juju-exec
     parameters: {}
   timing:
     enqueued: 2013-02-14 06:06:06 +0000 UTC

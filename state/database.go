@@ -5,16 +5,16 @@ package state
 
 import (
 	"runtime/debug"
-	"strings"
 	"sync"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/txn"
-	jujutxn "github.com/juju/txn/v2"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/txn"
+	jujutxn "github.com/juju/txn/v3"
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/controller"
@@ -30,7 +30,7 @@ func dontCloseAnything() {}
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/database_mock.go github.com/juju/juju/state Database
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mongo_mock.go github.com/juju/juju/mongo Collection,Query
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/txn_mock.go github.com/juju/txn/v2 Runner
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/txn_mock.go github.com/juju/txn/v3 Runner
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/clock_mock.go github.com/juju/clock Clock
 
 // Database exposes the mongodb capabilities that most of state should see.
@@ -194,14 +194,6 @@ func (schema CollectionSchema) Create(
 	for name, info := range schema {
 		rawCollection := db.C(name)
 		if spec := info.explicitCreate; spec != nil {
-			// We allow the max txn log collection size to be overridden by the user.
-			if name == txnLogC && settings != nil {
-				maxSize := settings.MaxTxnLogSizeMB()
-				if maxSize > 0 {
-					logger.Infof("overriding max txn log collection size: %dM", maxSize)
-					spec.MaxBytes = maxSize * 1024 * 1024
-				}
-			}
 			if err := createCollection(rawCollection, spec); err != nil {
 				return mongo.MaybeUnauthorizedf(err, "cannot create collection %q", name)
 			}
@@ -222,13 +214,16 @@ func (schema CollectionSchema) Create(
 	return nil
 }
 
+const codeNamespaceExists = 48
+
 // createCollection swallows collection-already-exists errors.
 func createCollection(raw *mgo.Collection, spec *mgo.CollectionInfo) error {
 	err := raw.Create(spec)
-	// The lack of error code for this error was reported upstream:
-	//     https://jira.mongodb.org/browse/SERVER-6992
-	if err == nil || strings.HasSuffix(err.Error(), "already exists") {
-		return nil
+	if err, ok := err.(*mgo.QueryError); ok {
+		// 48 is collection already exists.
+		if err.Code == codeNamespaceExists {
+			return nil
+		}
 	}
 	if mgoAlreadyExistsErr(err) {
 		return nil
@@ -258,10 +253,6 @@ type database struct {
 	// resulting from Copy.
 	ownSession bool
 
-	// serverSideTransactions can be set to request that we use server-side
-	// transactions instead of client-side transactions when applying changes
-	serverSideTransactions bool
-
 	// runTransactionObserver is passed on to txn.TransactionRunner, to be
 	// invoked after calls to Run and RunTransaction.
 	runTransactionObserver RunTransactionObserverFunc
@@ -269,24 +260,28 @@ type database struct {
 	// clock is used to time how long transactions take to run
 	clock clock.Clock
 
+	// maxTxnAttempts is used when creating the txn runner to control how
+	// many attempts a txn should have.
+	maxTxnAttempts int
+
 	mu           sync.RWMutex
 	queryTracker *queryTracker
 }
 
 // RunTransactionObserverFunc is the type of a function to be called
 // after an mgo/txn transaction is run.
-type RunTransactionObserverFunc func(dbName, modelUUID string, ops []txn.Op, err error)
+type RunTransactionObserverFunc func(dbName, modelUUID string, attempt int, duration time.Duration, ops []txn.Op, err error)
 
 func (db *database) copySession(modelUUID string) (*database, SessionCloser) {
 	session := db.raw.Session.Copy()
 	return &database{
-		raw:                    db.raw.With(session),
-		schema:                 db.schema,
-		modelUUID:              modelUUID,
-		runner:                 db.runner,
-		ownSession:             true,
-		serverSideTransactions: db.serverSideTransactions,
-		clock:                  db.clock,
+		raw:            db.raw.With(session),
+		schema:         db.schema,
+		modelUUID:      modelUUID,
+		runner:         db.runner,
+		ownSession:     true,
+		clock:          db.clock,
+		maxTxnAttempts: db.maxTxnAttempts,
 	}, session.Close
 }
 
@@ -385,15 +380,20 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 				}
 				db.runTransactionObserver(
 					db.raw.Name, db.modelUUID,
+					t.Attempt,
+					t.Duration,
 					t.Ops, t.Error,
 				)
 			}
 		}
 		params := jujutxn.RunnerParams{
-			Database:               raw,
-			RunTransactionObserver: observer,
-			Clock:                  db.clock,
-			ServerSideTransactions: db.serverSideTransactions,
+			Database:                  raw,
+			RunTransactionObserver:    observer,
+			Clock:                     db.clock,
+			TransactionCollectionName: "txns",
+			ChangeLogName:             "-",
+			ServerSideTransactions:    true,
+			MaxRetryAttempts:          db.maxTxnAttempts,
 		}
 		runner = jujutxn.NewRunner(params)
 	}

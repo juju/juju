@@ -4,8 +4,6 @@
 package apiaddressupdater_test
 
 import (
-	"io/ioutil"
-	"path/filepath"
 	"time"
 
 	"github.com/juju/errors"
@@ -35,11 +33,10 @@ func (s *APIAddressUpdaterSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	err := s.State.SetAPIHostPorts(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	// By default mock these to better isolate the test from the real machine.
+
 	s.PatchValue(&network.AddressesForInterfaceName, func(string) ([]string, error) {
 		return nil, nil
 	})
-	s.PatchValue(&network.LXCNetDefaultConfig, "")
 }
 
 type apiAddressSetter struct {
@@ -115,7 +112,6 @@ func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
-	s.BackingState.StartSync()
 	updatedServers := []corenetwork.SpaceHostPorts{
 		corenetwork.NewSpaceHostPorts(1234, "localhost", "127.0.0.1"),
 	}
@@ -129,7 +125,6 @@ func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
 	}
 	err = s.State.SetAPIHostPorts(updatedServers)
 	c.Assert(err, jc.ErrorIsNil)
-	s.BackingState.StartSync()
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for SetAPIHostPorts to be called after update")
@@ -154,7 +149,6 @@ func (s *APIAddressUpdaterSuite) TestAddressChangeEmpty(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
-	s.BackingState.StartSync()
 
 	// SetAPIHostPorts should be called with the initial value (empty),
 	// and then the updated value.
@@ -171,7 +165,6 @@ func (s *APIAddressUpdaterSuite) TestAddressChangeEmpty(c *gc.C) {
 
 	err = s.State.SetAPIHostPorts(updatedServers)
 	c.Assert(err, jc.ErrorIsNil)
-	s.BackingState.StartSync()
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for SetAPIHostPorts to be called after update")
@@ -186,7 +179,6 @@ func (s *APIAddressUpdaterSuite) TestAddressChangeEmpty(c *gc.C) {
 	updatedServers = []corenetwork.SpaceHostPorts{}
 	err = s.State.SetAPIHostPorts(updatedServers)
 	c.Assert(err, jc.ErrorIsNil)
-	s.BackingState.StartSync()
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for SetAPIHostPorts to be called after update")
@@ -200,23 +192,8 @@ func (s *APIAddressUpdaterSuite) TestAddressChangeEmpty(c *gc.C) {
 }
 
 func (s *APIAddressUpdaterSuite) TestBridgeAddressesFiltering(c *gc.C) {
-	lxcFakeNetConfig := filepath.Join(c.MkDir(), "lxc-net")
-	netConf := []byte(`
-  # comments ignored
-LXC_BR= ignored
-LXC_ADDR = "fooo"
-LXC_BRIDGE="foobar" # detected
-anything else ignored
-LXC_BRIDGE="ignored"`[1:])
-	err := ioutil.WriteFile(lxcFakeNetConfig, netConf, 0644)
-	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&network.AddressesForInterfaceName, func(name string) ([]string, error) {
-		if name == "foobar" {
-			return []string{
-				"10.0.3.1",
-				"10.0.3.4",
-			}, nil
-		} else if name == network.DefaultLXDBridge {
+		if name == network.DefaultLXDBridge {
 			return []string{
 				"10.0.4.1",
 				"10.0.4.4",
@@ -229,21 +206,18 @@ LXC_BRIDGE="ignored"`[1:])
 		c.Fatalf("unknown bridge in testing: %v", name)
 		return nil, nil
 	})
-	s.PatchValue(&network.LXCNetDefaultConfig, lxcFakeNetConfig)
 
 	initialServers := []corenetwork.SpaceHostPorts{
 		corenetwork.NewSpaceHostPorts(1234, "localhost", "127.0.0.1"),
 		corenetwork.NewSpaceHostPorts(
 			4321,
-			"10.0.3.1",      // filtered
-			"10.0.3.3",      // not filtered (not a lxc bridge address)
+			"10.0.3.3",      // not filtered
 			"10.0.4.1",      // filtered lxd bridge address
 			"10.0.4.2",      // not filtered
 			"192.168.122.1", // filtered default virbr0
 		),
-		corenetwork.NewSpaceHostPorts(4242, "10.0.3.4"), // filtered
 	}
-	err = s.State.SetAPIHostPorts(initialServers)
+	err := s.State.SetAPIHostPorts(initialServers)
 	c.Assert(err, jc.ErrorIsNil)
 
 	setter := &apiAddressSetter{servers: make(chan []corenetwork.HostPorts, 1)}
@@ -257,17 +231,13 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(w.Wait(), gc.IsNil) }()
 	defer w.Kill()
-	s.BackingState.StartSync()
 
 	updatedServers := []corenetwork.SpaceHostPorts{
 		corenetwork.NewSpaceHostPorts(1234, "localhost", "127.0.0.1"),
 		corenetwork.NewSpaceHostPorts(
 			4001,
-			"10.0.3.1", // filtered
-			"10.0.3.3", // not filtered (not a lxc bridge address)
+			"10.0.3.3", // not filtered
 		),
-		corenetwork.NewSpaceHostPorts(4200, "10.0.3.4"), // filtered
-		corenetwork.NewSpaceHostPorts(4200, "10.0.4.1"), // filtered
 	}
 
 	expServer1 := corenetwork.ProviderHostPorts{
@@ -292,7 +262,6 @@ LXC_BRIDGE="ignored"`[1:])
 
 	err = s.State.SetAPIHostPorts(updatedServers)
 	c.Assert(err, gc.IsNil)
-	s.BackingState.StartSync()
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for SetAPIHostPorts to be called after update")

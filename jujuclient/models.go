@@ -5,7 +5,6 @@ package jujuclient
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -30,7 +29,7 @@ func JujuModelsPath() string {
 // ReadModelsFile loads all models defined in a given file.
 // If the file is not found, it is not an error.
 func ReadModelsFile(file string) (map[string]*ControllerModels, error) {
-	data, err := ioutil.ReadFile(file)
+	data, err := os.ReadFile(file)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil

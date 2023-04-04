@@ -6,7 +6,7 @@ package uniter
 import (
 	"fmt"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -64,7 +64,6 @@ func NewState(
 	state.LeadershipSettings = NewLeadershipSettingsAccessor(
 		facadeCaller.FacadeCall,
 		newWatcher,
-		ErrIfNotVersionFn(2, state.BestAPIVersion()),
 	)
 	return state
 }
@@ -264,10 +263,18 @@ func (st *State) Action(tag names.ActionTag) (*Action, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Action{
+	a := &Action{
+		id:     tag.Id(),
 		name:   result.Action.Name,
 		params: result.Action.Parameters,
-	}, nil
+	}
+	if result.Action.Parallel != nil {
+		a.parallel = *result.Action.Parallel
+	}
+	if result.Action.ExecutionGroup != nil {
+		a.executionGroup = *result.Action.ExecutionGroup
+	}
+	return a, nil
 }
 
 // ActionBegin marks an action as running.
@@ -373,47 +380,9 @@ func (st *State) Model() (*model.Model, error) {
 	}, nil
 }
 
-// AllMachinePorts returns all port ranges currently open on the given
-// machine, mapped to the tags of the unit that opened them and the
-// relation that applies.
-func (st *State) AllMachinePorts(machineTag names.MachineTag) (map[network.PortRange]params.RelationUnit, error) {
-	if st.BestAPIVersion() < 1 {
-		// AllMachinePorts() was introduced in UniterAPIV1.
-		return nil, errors.NotImplementedf("AllMachinePorts() (need V1+)")
-	}
-	var results params.MachinePortsResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: machineTag.String()}},
-	}
-	err := st.facade.FacadeCall("AllMachinePorts", args, &results)
-	if err != nil {
-		return nil, err
-	}
-	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	portsMap := make(map[network.PortRange]params.RelationUnit)
-	for _, ports := range result.Ports {
-		portRange := ports.PortRange.NetworkPortRange()
-		portsMap[portRange] = params.RelationUnit{
-			Unit:     ports.UnitTag,
-			Relation: ports.RelationTag,
-		}
-	}
-	return portsMap, nil
-}
-
-// OpenedMachinePortRanges returns all port ranges currently open on the given
+// OpenedMachinePortRangesByEndpoint returns all port ranges currently open on the given
 // machine, grouped by unit tag and application endpoint.
 func (st *State) OpenedMachinePortRangesByEndpoint(machineTag names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error) {
-	if st.BestAPIVersion() < 17 {
-		// OpenedMachinePortRangesByEndpoint() was introduced in UniterAPIV17.
-		return nil, errors.NotImplementedf("OpenedMachinePortRangesByEndpoint() (need V17+)")
-	}
 	var results params.OpenMachinePortRangesByEndpointResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: machineTag.String()}},
@@ -477,23 +446,8 @@ func (st *State) WatchRelationUnits(
 	return w, nil
 }
 
-// ErrIfNotVersionFn returns a function which can be used to check for
-// the minimum supported version, and, if appropriate, generate an
-// error.
-func ErrIfNotVersionFn(minVersion int, bestAPIVersion int) func(string) error {
-	return func(fnName string) error {
-		if minVersion <= bestAPIVersion {
-			return nil
-		}
-		return errors.NotImplementedf("%s(...) requires v%d+", fnName, minVersion)
-	}
-}
-
 // SLALevel returns the SLA level set on the model.
 func (st *State) SLALevel() (string, error) {
-	if st.BestAPIVersion() < 5 {
-		return "unsupported", nil
-	}
 	var result params.StringResult
 	err := st.facade.FacadeCall("SLALevel", nil, &result)
 	if err != nil {
@@ -507,9 +461,6 @@ func (st *State) SLALevel() (string, error) {
 
 // CloudAPIVersion returns the API version of the cloud, if known.
 func (st *State) CloudAPIVersion() (string, error) {
-	if st.BestAPIVersion() < 11 {
-		return "", nil
-	}
 	var result params.StringResult
 	err := st.facade.FacadeCall("CloudAPIVersion", nil, &result)
 	if err != nil {

@@ -23,19 +23,7 @@ var runIPRouteShow = func() (string, error) {
 	return string(output), nil
 }
 
-// GetDefaultRoute returns the IP address and device name of default gateway on the machine.
-// If we don't support OS, or we don't have a default route, we return nothing (not an error!).
 func GetDefaultRoute() (net.IP, string, error) {
-	// TODO(wpk) 2017-11-20 Add Windows support here, hence the switch.
-	switch goos() {
-	case "linux":
-		return getDefaultRouteLinux()
-	default:
-		return nil, "", nil
-	}
-}
-
-func getDefaultRouteLinux() (net.IP, string, error) {
 	output, err := runIPRouteShow()
 	if err != nil {
 		return nil, "", err

@@ -4,9 +4,11 @@
 package hook
 
 import (
-	"github.com/juju/charm/v8/hooks"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+
+	"github.com/juju/juju/core/secrets"
 )
 
 // Info holds details required to execute a hook. Not all fields are
@@ -41,10 +43,19 @@ type Info struct {
 	// WorkloadName is the name of the sidecar container or workload relevant to the hook.
 	WorkloadName string `yaml:"workload-name,omitempty"`
 
-	// SeriesUpgradeTarget is the series that the unit's machine is to be
-	// updated to when Juju is issued the `upgrade-series` command.
+	// MachineUpgradeTarget is the base that the unit's machine is to be
+	// updated to when Juju is issued the `upgrade-machine` command.
 	// It is only set for the pre-series-upgrade hook.
-	SeriesUpgradeTarget string `yaml:"series-upgrade-target,omitempty"`
+	MachineUpgradeTarget string `yaml:"series-upgrade-target,omitempty"`
+
+	// SecretURI is the secret URI relevant to the hook.
+	SecretURI string `yaml:"secret-uri,omitempty"`
+
+	// SecretRevision is the secret revision relevant to the hook.
+	SecretRevision int `yaml:"secret-revision,omitempty"`
+
+	// SecretLabel is the secret label to expose to the hook.
+	SecretLabel string `yaml:"secret-label,omitempty"`
 }
 
 // Validate returns an error if the info is not valid.
@@ -73,8 +84,8 @@ func (hi Info) Validate() error {
 		}
 		return nil
 	case hooks.PreSeriesUpgrade:
-		if hi.SeriesUpgradeTarget == "" {
-			return errors.Errorf("%q hook requires a target series", hi.Kind)
+		if hi.MachineUpgradeTarget == "" {
+			return errors.Errorf("%q hook requires a target base", hi.Kind)
 		}
 		return nil
 	case hooks.Install, hooks.Remove, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop,
@@ -89,6 +100,17 @@ func (hi Info) Validate() error {
 		}
 		return nil
 	case hooks.LeaderElected, hooks.LeaderDeposed, hooks.LeaderSettingsChanged:
+		return nil
+	case hooks.SecretRotate, hooks.SecretChanged, hooks.SecretExpired, hooks.SecretRemove:
+		if hi.SecretURI == "" {
+			return errors.Errorf("%q hook requires a secret URI", hi.Kind)
+		}
+		if _, err := secrets.ParseURI(hi.SecretURI); err != nil {
+			return errors.Errorf("invalid secret URI %q", hi.SecretURI)
+		}
+		if (hi.Kind == hooks.SecretRemove || hi.Kind == hooks.SecretExpired) && hi.SecretRevision <= 0 {
+			return errors.Errorf("%q hook requires a secret revision", hi.Kind)
+		}
 		return nil
 	}
 	return errors.Errorf("unknown hook kind %q", hi.Kind)

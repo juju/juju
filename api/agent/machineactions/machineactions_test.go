@@ -344,14 +344,18 @@ func (s *ClientSuite) TestGetActionSuccess(c *gc.C) {
 	expectedParams := map[string]interface{}{"floob": "zgloob"}
 	var stub jujutesting.Stub
 
+	parallel := true
+	group := "group"
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		c.Check(result, gc.FitsTypeOf, &params.ActionResults{})
 		*(result.(*params.ActionResults)) = params.ActionResults{
 			Results: []params.ActionResult{{
 				Action: &params.Action{
-					Name:       expectedName,
-					Parameters: expectedParams,
+					Name:           expectedName,
+					Parameters:     expectedParams,
+					Parallel:       &parallel,
+					ExecutionGroup: &group,
 				},
 			}},
 		}
@@ -363,6 +367,8 @@ func (s *ClientSuite) TestGetActionSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(action.Name(), gc.Equals, expectedName)
 	c.Assert(action.Params(), gc.DeepEquals, expectedParams)
+	c.Assert(action.Parallel(), jc.IsTrue)
+	c.Assert(action.ExecutionGroup(), gc.Equals, "group")
 	stub.CheckCalls(c, expectedCalls)
 }
 

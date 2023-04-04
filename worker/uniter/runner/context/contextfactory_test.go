@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/juju/charm/v8/hooks"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -64,6 +64,7 @@ func (s *ContextFactorySuite) SetUpTest(c *gc.C) {
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
+		SecretsClient:    s.secrets,
 		Payloads:         s.payloads,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
@@ -178,7 +179,7 @@ func (s *ContextFactorySuite) TestNewActionContextLeadershipContext(c *gc.C) {
 		s.SetCharm(c, "dummy")
 		operationID, err := s.Model(c).EnqueueOperation("a test", 1)
 		c.Assert(err, jc.ErrorIsNil)
-		action, err := s.Model(c).EnqueueAction(operationID, s.unit.Tag(), "snapshot", nil, nil)
+		action, err := s.Model(c).EnqueueAction(operationID, s.unit.Tag(), "snapshot", nil, true, "group", nil)
 		c.Assert(err, jc.ErrorIsNil)
 
 		actionData := &context.ActionData{
@@ -206,6 +207,7 @@ func (s *ContextFactorySuite) TestRelationHookContext(c *gc.C) {
 	s.AssertRelationContext(c, ctx, 1, "", "")
 	s.AssertNotStorageContext(c, ctx)
 	s.AssertNotWorkloadContext(c, ctx)
+	s.AssertNotSecretContext(c, ctx)
 }
 
 func (s *ContextFactorySuite) TestWorkloadHookContext(c *gc.C) {
@@ -220,6 +222,7 @@ func (s *ContextFactorySuite) TestWorkloadHookContext(c *gc.C) {
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)
 	s.AssertNotStorageContext(c, ctx)
+	s.AssertNotSecretContext(c, ctx)
 }
 
 func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
@@ -275,6 +278,7 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
+		SecretsClient:    s.secrets,
 		Payloads:         s.payloads,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
@@ -294,6 +298,23 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 	})
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)
+	s.AssertNotSecretContext(c, ctx)
+}
+
+func (s *ContextFactorySuite) TestSecretHookContext(c *gc.C) {
+	hi := hook.Info{
+		Kind:        hooks.SecretRotate,
+		SecretURI:   "secret:9m4e2mr0ui3e8a215n4g",
+		SecretLabel: "label",
+	}
+	ctx, err := s.factory.HookContext(hi)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AssertCoreContext(c, ctx)
+	s.AssertSecretContext(c, ctx, hi.SecretURI, hi.SecretLabel)
+	s.AssertNotWorkloadContext(c, ctx)
+	s.AssertNotActionContext(c, ctx)
+	s.AssertNotRelationContext(c, ctx)
+	s.AssertNotStorageContext(c, ctx)
 }
 
 var podSpec = `
@@ -351,6 +372,7 @@ func (s *ContextFactorySuite) setupPodSpec(c *gc.C) (*state.State, context.Conte
 		},
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
+		SecretsClient:    s.secrets,
 		Payloads:         s.payloads,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
@@ -500,7 +522,7 @@ func (s *ContextFactorySuite) TestHookContextCAASNilPodSpecNilRawPodSpecButUpgra
 	appTag := names.NewApplicationTag(appName)
 	w, err := cm.WatchPodSpec(appTag)
 	c.Assert(err, jc.ErrorIsNil)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange() // initial event.
 
 	// No change for non upgrade-hook.
@@ -560,6 +582,7 @@ func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {
 		},
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
+		SecretsClient:    s.secrets,
 		Payloads:         s.payloads,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
@@ -582,7 +605,7 @@ func (s *ContextFactorySuite) TestActionContext(c *gc.C) {
 	s.SetCharm(c, "dummy")
 	operationID, err := s.Model(c).EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.Model(c).EnqueueAction(operationID, s.unit.Tag(), "snapshot", nil, nil)
+	action, err := s.Model(c).EnqueueAction(operationID, s.unit.Tag(), "snapshot", nil, true, "group", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	actionData := &context.ActionData{

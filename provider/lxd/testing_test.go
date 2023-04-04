@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
-	coreseries "github.com/juju/juju/core/series"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // Ensure LXD provider supports the expected interfaces.
@@ -152,7 +153,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	cons := constraints.Value{}
 
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons,
-		coreseries.MakeDefaultBase("ubuntu", "14.04"), "", nil)
+		jujuversion.DefaultSupportedLTSBase(), "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = instanceConfig.SetTools(coretools.List{
@@ -420,9 +421,9 @@ func (conn *StubClient) CreateContainerFromSpec(spec lxd.ContainerSpec) (*lxd.Co
 }
 
 func (conn *StubClient) FindImage(
-	series, arch string, sources []lxd.ServerSpec, copyLocal bool, callback environs.StatusCallbackFunc,
+	base series.Base, arch string, sources []lxd.ServerSpec, copyLocal bool, callback environs.StatusCallbackFunc,
 ) (lxd.SourcedImage, error) {
-	conn.AddCall("FindImage", series, arch)
+	conn.AddCall("FindImage", base.DisplayString(), arch)
 	if err := conn.NextErr(); err != nil {
 		return lxd.SourcedImage{}, errors.Trace(err)
 	}
@@ -789,22 +790,21 @@ func (s *EnvironSuite) NewEnvironWithServerFactory(c *gc.C, srv ServerFactory, c
 	}
 }
 
-func (s *EnvironSuite) GetStartInstanceArgs(c *gc.C, series string) environs.StartInstanceParams {
+func (s *EnvironSuite) GetStartInstanceArgs(c *gc.C) environs.StartInstanceParams {
 	tools := []*coretools.Tools{
 		{
-			Version: version.Binary{Arch: arch.AMD64, Release: coreseries.DefaultOSTypeNameFromSeries(series)},
+			Version: version.Binary{Arch: arch.AMD64, Release: "ubuntu"},
 			URL:     "https://example.org/amd",
 		},
 		{
-			Version: version.Binary{Arch: arch.ARM64, Release: coreseries.DefaultOSTypeNameFromSeries(series)},
+			Version: version.Binary{Arch: arch.ARM64, Release: "ubuntu"},
 			URL:     "https://example.org/arm",
 		},
 	}
 
 	cons := constraints.Value{}
-	base, err := coreseries.GetBaseFromSeries(series)
-	c.Assert(err, jc.ErrorIsNil)
-	iConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, base, "", nil)
+	iConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons,
+		jujuversion.DefaultSupportedLTSBase(), "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return environs.StartInstanceParams{

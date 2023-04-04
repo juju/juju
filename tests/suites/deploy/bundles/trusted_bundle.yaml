@@ -1,6 +1,5 @@
-series: jammy
 applications:
     trust-checker:
-        charm: cs:~juju-qa/trust-checker-0
+        charm: ../charms/trust-checker
         num_units: 1
         trust: true

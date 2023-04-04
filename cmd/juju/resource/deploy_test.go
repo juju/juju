@@ -6,13 +6,12 @@ package resource
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"strings"
 
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -404,7 +403,7 @@ password: 'hunter2',,
 		if t.fileContents != "" {
 			dir := c.MkDir()
 			resourceValue = path.Join(dir, "details.json")
-			err := ioutil.WriteFile(resourceValue, []byte(t.fileContents), 0600)
+			err := os.WriteFile(resourceValue, []byte(t.fileContents), 0600)
 			c.Assert(err, jc.ErrorIsNil)
 			deps.data = []byte(t.fileContents)
 		}
@@ -532,7 +531,7 @@ func (s DeploySuite) TestGetDockerDetailsData(c *gc.C) {
 
 	dir := c.MkDir()
 	yamlFile := path.Join(dir, "actually-yaml-file")
-	err = ioutil.WriteFile(yamlFile, []byte("registrypath: mariadb/mariadb:10.2"), 0600)
+	err = os.WriteFile(yamlFile, []byte("registrypath: mariadb/mariadb:10.2"), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 	result, err = getDockerDetailsData(yamlFile, fs.Open)
 	c.Assert(err, jc.ErrorIsNil)

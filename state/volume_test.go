@@ -5,7 +5,7 @@ package state_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2/bson"
+	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -36,7 +36,7 @@ func (s *VolumeStateSuite) TestAddMachine(c *gc.C) {
 
 func (s *VolumeStateSuite) TestAssignToMachine(c *gc.C) {
 	_, unit, _ := s.setupSingleStorage(c, "block", "loop-pool")
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,7 +87,14 @@ func (s *VolumeStateSuite) TestAddApplicationInvalidPool(c *gc.C) {
 	testStorage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("invalid-pool", 1024, 1),
 	}
-	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Charm: ch, Storage: testStorage})
+	_, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name: "storage-block", Charm: ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "20.04/stable",
+		}},
+		Storage: testStorage,
+	})
 	c.Assert(err, gc.ErrorMatches, `.* pool "invalid-pool" not found`)
 }
 
@@ -96,7 +103,14 @@ func (s *VolumeStateSuite) TestAddApplicationNoUserDefaultPool(c *gc.C) {
 	testStorage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
 	}
-	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Charm: ch, Storage: testStorage})
+	app, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name: "storage-block", Charm: ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "20.04/stable",
+		}},
+		Storage: testStorage,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -188,7 +202,7 @@ func (s *VolumeStateSuite) TestSetVolumeInfoNoStorageAssigned(c *gc.C) {
 		Size: 123,
 	}
 	machineTemplate := state.MachineTemplate{
-		Series:                  "precise",
+		Base:                    state.UbuntuBase("12.10"),
 		Constraints:             cons,
 		HardwareCharacteristics: hc,
 		InstanceId:              "inst-id",
@@ -258,7 +272,7 @@ func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
 
 	w := s.storageBackend.WatchVolumeAttachment(machineTag, volumeTag)
 	defer testing.AssertStop(c, w)
-	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	machine, err := s.State.Machine(assignedMachineId)
@@ -292,12 +306,12 @@ func (s *VolumeStateSuite) TestWatchModelVolumes(c *gc.C) {
 
 	w := s.storageBackend.WatchModelVolumes()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChangeInSingleEvent("0", "1") // initial
+	wc := testing.NewStringsWatcherC(c, w)
+	wc.AssertChange("0", "1") // initial
 	wc.AssertNoChange()
 
 	addUnit()
-	wc.AssertChangeInSingleEvent("4", "5")
+	wc.AssertChange("4", "5")
 	wc.AssertNoChange()
 
 	volume, err := s.storageBackend.Volume(names.NewVolumeTag("0"))
@@ -307,7 +321,7 @@ func (s *VolumeStateSuite) TestWatchModelVolumes(c *gc.C) {
 	removeStorageInstance(c, s.storageBackend, storageTag)
 	err = s.storageBackend.DestroyVolume(names.NewVolumeTag("0"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0") // dying
+	wc.AssertChange("0") // dying
 	wc.AssertNoChange()
 
 	err = s.storageBackend.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("0"), false)
@@ -317,7 +331,7 @@ func (s *VolumeStateSuite) TestWatchModelVolumes(c *gc.C) {
 
 	err = s.storageBackend.RemoveVolume(names.NewVolumeTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0") // removed
+	wc.AssertChange("0") // removed
 	wc.AssertNoChange()
 }
 
@@ -333,22 +347,22 @@ func (s *VolumeStateSuite) TestWatchModelVolumeAttachments(c *gc.C) {
 
 	w := s.storageBackend.WatchModelVolumeAttachments()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChangeInSingleEvent("0:0", "0:1") // initial
+	wc := testing.NewStringsWatcherC(c, w)
+	wc.AssertChange("0:0", "0:1") // initial
 	wc.AssertNoChange()
 
 	addUnit()
-	wc.AssertChangeInSingleEvent("1:4", "1:5")
+	wc.AssertChange("1:4", "1:5")
 	wc.AssertNoChange()
 
 	err := s.storageBackend.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("0"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0:0") // dying
+	wc.AssertChange("0:0") // dying
 	wc.AssertNoChange()
 
 	err = s.storageBackend.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0:0") // removed
+	wc.AssertChange("0:0") // removed
 	wc.AssertNoChange()
 }
 
@@ -364,8 +378,8 @@ func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
 
 	w := s.storageBackend.WatchMachineVolumes(names.NewMachineTag("0"))
 	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChangeInSingleEvent("0/0", "0/1") // initial
+	wc := testing.NewStringsWatcherC(c, w)
+	wc.AssertChange("0/0", "0/1") // initial
 	wc.AssertNoChange()
 
 	addUnit()
@@ -379,7 +393,7 @@ func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
 	removeStorageInstance(c, s.storageBackend, storageTag)
 	err = s.storageBackend.DestroyVolume(volume.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0/0") // dying
+	wc.AssertChange("0/0") // dying
 	wc.AssertNoChange()
 
 	err = s.storageBackend.DestroyVolume(names.NewVolumeTag("0/0"), false)
@@ -388,7 +402,7 @@ func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.RemoveVolume(names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0/0") // removed
+	wc.AssertChange("0/0") // removed
 	wc.AssertNoChange()
 }
 
@@ -412,8 +426,8 @@ func (s *VolumeStateSuite) TestWatchMachineVolumeAttachments(c *gc.C) {
 
 	w := s.storageBackend.WatchMachineVolumeAttachments(names.NewMachineTag("0"))
 	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChangeInSingleEvent("0:0/0", "0:0/1") // initial
+	wc := testing.NewStringsWatcherC(c, w)
+	wc.AssertChange("0:0/0", "0:0/1") // initial
 	wc.AssertNoChange()
 
 	addUnit(nil)
@@ -429,16 +443,16 @@ func (s *VolumeStateSuite) TestWatchMachineVolumeAttachments(c *gc.C) {
 	removeVolumeStorageInstance(c, s.storageBackend, names.NewVolumeTag("0/0"))
 	err = s.storageBackend.DestroyVolume(names.NewVolumeTag("0/0"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0:0/0") // dying
+	wc.AssertChange("0:0/0") // dying
 	wc.AssertNoChange()
 
 	err = s.storageBackend.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0:0/0") // removed
+	wc.AssertChange("0:0/0") // removed
 	wc.AssertNoChange()
 
 	addUnit(m0)
-	wc.AssertChangeInSingleEvent("0:0/8", "0:0/9") // added
+	wc.AssertChange("0:0/8", "0:0/9") // added
 }
 
 func (s *VolumeStateSuite) TestParseVolumeAttachmentId(c *gc.C) {
@@ -479,8 +493,8 @@ func (s *VolumeStateSuite) TestAllVolumes(c *gc.C) {
 
 func (s *VolumeStateSuite) assertCreateVolumes(c *gc.C) (_ *state.Machine, all, persistent []names.VolumeTag) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Pool: "persistent-block", Size: 1024},
 		}, {
@@ -885,8 +899,8 @@ func (s *VolumeStateSuite) TestRemoveVolumeAttachmentAlive(c *gc.C) {
 
 func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Pool: "persistent-block", Size: 1024}, // unprovisioned
 		}, {
@@ -949,8 +963,8 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 
 func (s *VolumeStateSuite) TestEnsureMachineDeadAddVolumeConcurrently(c *gc.C) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Pool: "static", Size: 1024},
 		}},
@@ -973,8 +987,8 @@ func (s *VolumeStateSuite) TestEnsureMachineDeadAddVolumeConcurrently(c *gc.C) {
 
 func (s *VolumeStateSuite) TestEnsureMachineDeadRemoveVolumeConcurrently(c *gc.C) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Pool: "static", Size: 1024},
 		}},
@@ -993,8 +1007,8 @@ func (s *VolumeStateSuite) TestEnsureMachineDeadRemoveVolumeConcurrently(c *gc.C
 
 func (s *VolumeStateSuite) TestVolumeMachineScoped(c *gc.C) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Pool: "loop", Size: 1024},
 		}},
@@ -1057,8 +1071,8 @@ func (s *VolumeStateSuite) setupMachineScopedVolumeAttachment(c *gc.C) (state.Vo
 
 func (s *VolumeStateSuite) setupVolumeAttachment(c *gc.C, pool string) (state.Volume, *state.Machine) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Pool: pool, Size: 1024},
 		}},

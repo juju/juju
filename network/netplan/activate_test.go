@@ -4,7 +4,7 @@
 package netplan_test
 
 import (
-	"io/ioutil"
+	"os"
 	"path"
 	"strings"
 
@@ -65,9 +65,9 @@ func (s *ActivateSuite) TestActivateSuccess(c *gc.C) {
 	contents := make([][]byte, len(files))
 	for i, file := range files {
 		var err error
-		contents[i], err = ioutil.ReadFile(path.Join("testdata/TestReadWriteBackup", file))
+		contents[i], err = os.ReadFile(path.Join("testdata/TestReadWriteBackup", file))
 		c.Assert(err, jc.ErrorIsNil)
-		err = ioutil.WriteFile(path.Join(tempDir, file), contents[i], 0644)
+		err = os.WriteFile(path.Join(tempDir, file), contents[i], 0644)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	result, err := netplan.BridgeAndActivate(params)
@@ -98,9 +98,9 @@ func (s *ActivateSuite) TestActivateDeviceAndVLAN(c *gc.C) {
 	contents := make([][]byte, len(files))
 	for i, file := range files {
 		var err error
-		contents[i], err = ioutil.ReadFile(path.Join("testdata/TestReadWriteBackup", file))
+		contents[i], err = os.ReadFile(path.Join("testdata/TestReadWriteBackup", file))
 		c.Assert(err, jc.ErrorIsNil)
-		err = ioutil.WriteFile(path.Join(tempDir, file), contents[i], 0644)
+		err = os.WriteFile(path.Join(tempDir, file), contents[i], 0644)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	result, err := netplan.BridgeAndActivate(params)
@@ -131,9 +131,9 @@ func (s *ActivateSuite) TestActivateFailure(c *gc.C) {
 	contents := make([][]byte, len(files))
 	for i, file := range files {
 		var err error
-		contents[i], err = ioutil.ReadFile(path.Join("testdata/TestReadWriteBackup", file))
+		contents[i], err = os.ReadFile(path.Join("testdata/TestReadWriteBackup", file))
 		c.Assert(err, jc.ErrorIsNil)
-		err = ioutil.WriteFile(path.Join(tempDir, file), contents[i], 0644)
+		err = os.WriteFile(path.Join(tempDir, file), contents[i], 0644)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	result, err := netplan.BridgeAndActivate(params)
@@ -145,17 +145,17 @@ func (s *ActivateSuite) TestActivateFailure(c *gc.C) {
 
 	// old files are in place and unchanged
 	for i, file := range files {
-		content, err := ioutil.ReadFile(path.Join(tempDir, file))
+		content, err := os.ReadFile(path.Join(tempDir, file))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(string(content), gc.Equals, string(contents[i]))
 	}
 	// there are no other YAML files in this directory
-	fileInfos, err := ioutil.ReadDir(tempDir)
+	dirEntries, err := os.ReadDir(tempDir)
 	c.Assert(err, jc.ErrorIsNil)
 
 	yamlCount := 0
-	for _, fileInfo := range fileInfos {
-		if !fileInfo.IsDir() && strings.HasSuffix(fileInfo.Name(), ".yaml") {
+	for _, entry := range dirEntries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".yaml") {
 			yamlCount++
 		}
 	}
@@ -187,9 +187,9 @@ func (s *ActivateSuite) TestActivateTimeout(c *gc.C) {
 	contents := make([][]byte, len(files))
 	for i, file := range files {
 		var err error
-		contents[i], err = ioutil.ReadFile(path.Join("testdata/TestReadWriteBackup", file))
+		contents[i], err = os.ReadFile(path.Join("testdata/TestReadWriteBackup", file))
 		c.Assert(err, jc.ErrorIsNil)
-		err = ioutil.WriteFile(path.Join(tempDir, file), contents[i], 0644)
+		err = os.WriteFile(path.Join(tempDir, file), contents[i], 0644)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	result, err := netplan.BridgeAndActivate(params)

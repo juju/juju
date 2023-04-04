@@ -17,19 +17,18 @@ type cmdSetSeriesSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-func (s *cmdSetSeriesSuite) TestSetApplicationSeries(c *gc.C) {
-	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "multi-series", URL: "local:quantal/multi-series-1"})
+func (s *cmdSetSeriesSuite) TestSetApplicationBase(c *gc.C) {
+	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "multi-series", URL: "local:focal/multi-series-1"})
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm:       charm,
-		CharmOrigin: &state.CharmOrigin{},
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
 	})
 	s.Factory.MakeUnit(c, &factory.UnitParams{Application: app, SetCharmURL: true})
-	c.Assert(app.Series(), gc.Equals, "quantal")
-	context, err := runCommand(c, append([]string{"set-series"}, "multi-series", "trusty")...)
+	context, err := runCommand(c, append([]string{"set-application-base"}, "multi-series", "jammy")...)
 	c.Assert(err, gc.IsNil)
 	c.Check(cmdtesting.Stderr(context), jc.Contains, "WARNING To ensure the correct charm binaries are installed when add-unit is next called, please first run `juju refresh` for this application and any related subordinates.")
 
 	err = app.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(app.Series(), gc.Equals, "trusty")
+	c.Assert(app.Base().String(), gc.Equals, "ubuntu@22.04/stable")
 }

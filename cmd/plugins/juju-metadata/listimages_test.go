@@ -78,26 +78,25 @@ func (s *ListSuite) TestListDefault(c *gc.C) {
 	// Default format is tabular
 	s.assertValidList(c, `
 Source  Version  Arch   Region  Image ID  Stream    Virt Type  Storage Type
+custom  22.04    amd64  europe  im-21     released  kvm        ebs
+custom  22.04    i386   asia    im-21     released  kvm        ebs
+custom  22.04    i386   europe  im-21     released  kvm        ebs
+custom  20.04    amd64  asia    im-21     released  kvm        ebs
 custom  20.04    amd64  europe  im-21     released  kvm        ebs
-custom  20.04    i386   asia    im-21     released  kvm        ebs
-custom  20.04    i386   europe  im-21     released  kvm        ebs
-custom  18.04    amd64  asia    im-21     released  kvm        ebs
-custom  18.04    amd64  europe  im-21     released  kvm        ebs
-custom  18.04    amd64  us      im-21     released  kvm        ebs
-public  20.04    i386   europe  im-21     released  kvm        ebs
-public  20.04    i386   europe  im-42     devel     kvm        ebs
-public  20.04    i386   europe  im-42     devel                ebs
-public  20.04    i386   europe  im-42     devel     kvm        
-public  20.04    i386   europe  im-42     devel                
-public  18.04    amd64  europe  im-21     released  kvm        ebs
-
+custom  20.04    amd64  us      im-21     released  kvm        ebs
+public  22.04    i386   europe  im-21     released  kvm        ebs
+public  22.04    i386   europe  im-42     devel     kvm        ebs
+public  22.04    i386   europe  im-42     devel                ebs
+public  22.04    i386   europe  im-42     devel     kvm        
+public  22.04    i386   europe  im-42     devel                
+public  20.04    amd64  europe  im-21     released  kvm        ebs
 `[1:], "")
 }
 
 func (s *ListSuite) TestListYAML(c *gc.C) {
 	s.assertValidList(c, `
 custom:
-  "18.04":
+  "20.04":
     amd64:
       asia:
       - image-id: im-21
@@ -114,7 +113,7 @@ custom:
         stream: released
         virt-type: kvm
         storage-type: ebs
-  "20.04":
+  "22.04":
     amd64:
       europe:
       - image-id: im-21
@@ -133,14 +132,14 @@ custom:
         virt-type: kvm
         storage-type: ebs
 public:
-  "18.04":
+  "20.04":
     amd64:
       europe:
       - image-id: im-21
         stream: released
         virt-type: kvm
         storage-type: ebs
-  "20.04":
+  "22.04":
     i386:
       europe:
       - image-id: im-21
@@ -280,7 +279,7 @@ func (s mockListAPI) List(stream, region string, ser, arch []string, virtType, r
 var testData = []params.CloudImageMetadata{
 	{
 		Source:          "custom",
-		Version:         "18.04",
+		Version:         "20.04",
 		Arch:            "amd64",
 		Region:          "asia",
 		ImageId:         "im-21",
@@ -290,7 +289,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	{
 		Source:          "custom",
-		Version:         "18.04",
+		Version:         "20.04",
 		Arch:            "amd64",
 		Region:          "us",
 		ImageId:         "im-21",
@@ -300,7 +299,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	{
 		Source:          "custom",
-		Version:         "18.04",
+		Version:         "20.04",
 		Arch:            "amd64",
 		Region:          "europe",
 		ImageId:         "im-21",
@@ -310,16 +309,6 @@ var testData = []params.CloudImageMetadata{
 	},
 	{
 		Source:          "public",
-		Version:         "18.04",
-		Arch:            "amd64",
-		Region:          "europe",
-		ImageId:         "im-21",
-		Stream:          "released",
-		VirtType:        "kvm",
-		RootStorageType: "ebs",
-	},
-	{
-		Source:          "custom",
 		Version:         "20.04",
 		Arch:            "amd64",
 		Region:          "europe",
@@ -330,7 +319,17 @@ var testData = []params.CloudImageMetadata{
 	},
 	{
 		Source:          "custom",
-		Version:         "20.04",
+		Version:         "22.04",
+		Arch:            "amd64",
+		Region:          "europe",
+		ImageId:         "im-21",
+		Stream:          "released",
+		VirtType:        "kvm",
+		RootStorageType: "ebs",
+	},
+	{
+		Source:          "custom",
+		Version:         "22.04",
 		Arch:            "i386",
 		Region:          "europe",
 		ImageId:         "im-21",
@@ -340,7 +339,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	{
 		Source:          "custom",
-		Version:         "20.04",
+		Version:         "22.04",
 		Arch:            "i386",
 		Region:          "asia",
 		ImageId:         "im-21",
@@ -350,7 +349,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	{
 		Source:          "public",
-		Version:         "20.04",
+		Version:         "22.04",
 		Arch:            "i386",
 		Region:          "europe",
 		ImageId:         "im-21",
@@ -360,7 +359,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	{
 		Source:          "public",
-		Version:         "20.04",
+		Version:         "22.04",
 		Arch:            "i386",
 		Region:          "europe",
 		ImageId:         "im-42",
@@ -370,7 +369,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	{
 		Source:          "public",
-		Version:         "20.04",
+		Version:         "22.04",
 		Arch:            "i386",
 		Region:          "europe",
 		ImageId:         "im-42",
@@ -379,7 +378,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	{
 		Source:   "public",
-		Version:  "20.04",
+		Version:  "22.04",
 		Arch:     "i386",
 		Region:   "europe",
 		ImageId:  "im-42",
@@ -388,7 +387,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	{
 		Source:  "public",
-		Version: "20.04",
+		Version: "22.04",
 		Arch:    "i386",
 		Region:  "europe",
 		ImageId: "im-42",

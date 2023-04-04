@@ -5,8 +5,6 @@ package os
 
 import (
 	"strings"
-
-	"github.com/juju/collections/set"
 )
 
 var HostOS = hostOS // for monkey patching
@@ -44,29 +42,43 @@ func (t OSType) String() string {
 	return "Unknown"
 }
 
-var validOSTypeNames set.Strings
+var validOSTypeNames map[string]OSType
 
 func init() {
-	osTypes := []string{
-		Unknown.String(),
-		Ubuntu.String(),
-		Windows.String(),
-		OSX.String(),
-		CentOS.String(),
-		GenericLinux.String(),
-		OpenSUSE.String(),
-		Kubernetes.String(),
+	osTypes := []OSType{
+		Unknown,
+		Ubuntu,
+		Windows,
+		OSX,
+		CentOS,
+		GenericLinux,
+		OpenSUSE,
+		Kubernetes,
 	}
-	for i, osType := range osTypes {
-		osTypes[i] = strings.ToLower(osType)
+	validOSTypeNames = make(map[string]OSType)
+	for _, osType := range osTypes {
+		validOSTypeNames[strings.ToLower(osType.String())] = osType
 	}
-	validOSTypeNames = set.NewStrings(osTypes...)
 }
 
 // IsValidOSTypeName returns true if osType is a
 // valid os type name.
 func IsValidOSTypeName(osType string) bool {
-	return validOSTypeNames.Contains(osType)
+	for n := range validOSTypeNames {
+		if n == osType {
+			return true
+		}
+	}
+	return false
+}
+
+// OSTypeForName return the named OS.
+func OSTypeForName(name string) OSType {
+	os, ok := validOSTypeNames[name]
+	if ok {
+		return os
+	}
+	return Unknown
 }
 
 // HostOSTypeName returns the name of the host OS.

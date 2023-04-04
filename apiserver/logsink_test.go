@@ -4,7 +4,7 @@
 package apiserver_test
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,7 +14,7 @@ import (
 	"github.com/gorilla/websocket"
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v2/bson"
+	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -75,7 +75,7 @@ func (s *logsinkSuite) checkAuthFails(c *gc.C, header http.Header, code int, mes
 	defer resp.Body.Close()
 
 	c.Assert(resp.StatusCode, gc.Equals, code)
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(body), gc.Equals, message+"\n")
 }
@@ -158,7 +158,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 
 	// Check that the logsink log file was populated as expected
 	logPath := filepath.Join(s.config.LogDir, "logsink.log")
-	logContents, err := ioutil.ReadFile(logPath)
+	logContents, err := os.ReadFile(logPath)
 	c.Assert(err, jc.ErrorIsNil)
 	line0 := modelUUID + ": machine-0 2015-06-01 23:02:01 INFO some.where foo.go:42 all is well \n"
 	line1 := modelUUID + ": machine-0 2015-06-01 23:02:02 ERROR else.where bar.go:99 oh noes \n"

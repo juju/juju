@@ -7,14 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
+	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"time"
 
-	corecharm "github.com/juju/charm/v8"
+	corecharm "github.com/juju/charm/v9"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -184,7 +183,7 @@ func (s *senderSuite) TestSendingFails(c *gc.C) {
 }
 
 func (s *senderSuite) TestDataErrorIgnored(c *gc.C) {
-	err := ioutil.WriteFile(filepath.Join(s.spoolDir, "foo.meta"), []byte{}, 0644)
+	err := os.WriteFile(filepath.Join(s.spoolDir, "foo.meta"), []byte{}, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	apiSender := newTestAPIMetricSender()
 
@@ -343,9 +342,5 @@ func (c *mockConnection) Read(p []byte) (n int, err error) {
 }
 
 func sockPath(c *gc.C) string {
-	sockPath := path.Join(c.MkDir(), "test.listener")
-	if runtime.GOOS == "windows" {
-		return `\\.\pipe` + sockPath[2:]
-	}
-	return sockPath
+	return path.Join(c.MkDir(), "test.listener")
 }

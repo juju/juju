@@ -56,7 +56,7 @@ func (i *infoSuite) TestHasControllerProxy(c *gc.C) {
 		TargetService: "controller-service",
 	}
 
-	// fake k8sclient does not populate the token for secret, so we have to do it manually.
+	// fake k8s client does not populate the token for secret, so we have to do it manually.
 	_, err := i.client.CoreV1().Secrets(testNamespace).Create(context.TODO(), &core.Secret{
 		ObjectMeta: meta.ObjectMeta{
 			Labels: labels.Set{},
@@ -72,6 +72,7 @@ func (i *infoSuite) TestHasControllerProxy(c *gc.C) {
 	}, meta.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = proxy.CreateControllerProxy(
+		context.Background(),
 		config,
 		labels.Set{},
 		i.clock,
@@ -98,7 +99,7 @@ func (i *infoSuite) TestGetControllerProxier(c *gc.C) {
 		TargetService: "controller-service",
 	}
 
-	// fake k8sclient does not populate the token for secret, so we have to do it manually.
+	// fake k8s client does not populate the token for secret, so we have to do it manually.
 	_, err := i.client.CoreV1().Secrets(testNamespace).Create(context.TODO(), &core.Secret{
 		ObjectMeta: meta.ObjectMeta{
 			Labels: labels.Set{},
@@ -114,6 +115,7 @@ func (i *infoSuite) TestGetControllerProxier(c *gc.C) {
 	}, meta.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = proxy.CreateControllerProxy(
+		context.Background(),
 		config,
 		labels.Set{},
 		i.clock,

@@ -46,7 +46,7 @@ jobs:
       if: matrix.cloud == 'microk8s'
       uses: balchua/microk8s-actions@v0.3.1
       with:
-        channel: "1.25/stable"
+        channel: "1.25-strict/stable"
         addons: '["dns", "hostpath-storage", "rbac"]'
 
     - name: Set up Go
@@ -70,7 +70,7 @@ jobs:
       if: matrix.cloud == 'microk8s'
       run: |
         # TODO: use temporary Docker account (set DOCKER_USERNAME env var)
-        sg microk8s 'make microk8s-operator-update'
+        sg snap_microk8s 'make microk8s-operator-update'
 
     - name: Smoke test (LXD)
       if: matrix.cloud == 'localhost'
@@ -84,4 +84,4 @@ jobs:
       shell: bash
       run: |
         cd tests
-        sg microk8s './main.sh -c microk8s -s test_build -v smoke'
+        sg snap_microk8s './main.sh -c microk8s -s test_build -v smoke'

@@ -6,9 +6,9 @@ package application
 import (
 	"fmt"
 
-	"github.com/juju/charm/v8"
-	"github.com/juju/charm/v8/assumes"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/assumes"
+	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage"
@@ -34,7 +34,6 @@ var (
 // charm.
 type DeployApplicationParams struct {
 	ApplicationName   string
-	Series            string
 	Charm             *state.Charm
 	CharmOrigin       corecharm.Origin
 	Channel           csparams.Channel
@@ -72,6 +71,9 @@ func DeployApplication(st ApplicationDeployer, model Model, args DeployApplicati
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	if args.Charm.Meta().Name == bootstrap.ControllerCharmName {
+		return nil, errors.NotSupportedf("manual deploy of the controller charm")
+	}
 	if args.Charm.Meta().Subordinate {
 		if args.NumUnits != 0 {
 			return nil, fmt.Errorf("subordinate application must be deployed without units")
@@ -90,35 +92,19 @@ func DeployApplication(st ApplicationDeployer, model Model, args DeployApplicati
 		logger.Warningf("proceeding with deployment of application %q even though the charm feature requirements could not be met as --force was specified", args.ApplicationName)
 	}
 
+	if corecharm.IsKubernetes(args.Charm) && charm.MetaFormat(args.Charm) == charm.FormatV1 {
+		logger.Debugf("DEPRECATED: %q is a podspec charm, which will be removed in a future release", args.Charm.URL())
+	}
+
 	// TODO(fwereade): transactional State.AddApplication including settings, constraints
 	// (minimumUnitCount, initialMachineIds?).
 
-	// TODO(juju3) - remove
-	// We still store series in state for now.
-	series := args.Series
-	// Legacy k8s charms from kubernetes bundles do not set the channel.
-	if series == "" && args.CharmOrigin.Platform.Channel != "" {
-		series, err = coreseries.GetSeriesFromChannel(args.CharmOrigin.Platform.OS, args.CharmOrigin.Platform.Channel)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	if series != "" && args.CharmOrigin.Platform.Channel == "" {
-		base, err := coreseries.GetBaseFromSeries(series)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		args.CharmOrigin.Platform.OS = base.Name
-		args.CharmOrigin.Platform.Channel = base.Channel.String()
-	}
-
-	origin, err := stateCharmOrigin(args.CharmOrigin)
+	origin, err := StateCharmOrigin(args.CharmOrigin)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	asa := state.AddApplicationArgs{
 		Name:              args.ApplicationName,
-		Series:            series,
 		Charm:             args.Charm,
 		CharmOrigin:       origin,
 		Channel:           args.Channel,
@@ -203,7 +189,8 @@ func stateDeviceConstraints(cons map[string]devices.Constraints) map[string]stat
 	return result
 }
 
-func stateCharmOrigin(origin corecharm.Origin) (*state.CharmOrigin, error) {
+// StateCharmOrigin returns a state layer CharmOrigin given a core Origin.
+func StateCharmOrigin(origin corecharm.Origin) (*state.CharmOrigin, error) {
 	var ch *state.Channel
 	if c := origin.Channel; c != nil {
 		normalizedC := c.Normalize()
@@ -212,10 +199,6 @@ func stateCharmOrigin(origin corecharm.Origin) (*state.CharmOrigin, error) {
 			Risk:   string(normalizedC.Risk),
 			Branch: normalizedC.Branch,
 		}
-	}
-	series, err := coreseries.GetSeriesFromChannel(origin.Platform.OS, origin.Platform.Channel)
-	if err != nil {
-		return nil, errors.Trace(err)
 	}
 	return &state.CharmOrigin{
 		Type:     origin.Type,
@@ -227,7 +210,7 @@ func stateCharmOrigin(origin corecharm.Origin) (*state.CharmOrigin, error) {
 		Platform: &state.Platform{
 			Architecture: origin.Platform.Architecture,
 			OS:           origin.Platform.OS,
-			Series:       series,
+			Channel:      origin.Platform.Channel,
 		},
 	}, nil
 }

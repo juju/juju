@@ -6,13 +6,16 @@ package operation_test
 import (
 	"sync"
 
-	"github.com/juju/charm/v8/hooks"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	utilexec "github.com/juju/utils/v3/exec"
 
+	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -226,10 +229,23 @@ func (mock *MockCommitHook) Call(hookInfo hook.Info) error {
 type CommitHookCallbacks struct {
 	operation.Callbacks
 	*MockCommitHook
+
+	rotatedSecretURI   string
+	rotatedOldRevision int
+}
+
+func (cb *CommitHookCallbacks) PrepareHook(hookInfo hook.Info) (string, error) {
+	return "", nil
 }
 
 func (cb *CommitHookCallbacks) CommitHook(hookInfo hook.Info) error {
 	return cb.MockCommitHook.Call(hookInfo)
+}
+
+func (cb *CommitHookCallbacks) SetSecretRotated(url string, oldRevision int) error {
+	cb.rotatedSecretURI = url
+	cb.rotatedOldRevision = oldRevision
+	return nil
 }
 
 type MockNewActionRunner struct {
@@ -287,8 +303,8 @@ type MockRunnerFactory struct {
 	*MockNewCommandRunner
 }
 
-func (f *MockRunnerFactory) NewActionRunner(actionId string, cancel <-chan struct{}) (runner.Runner, error) {
-	return f.MockNewActionRunner.Call(actionId, cancel)
+func (f *MockRunnerFactory) NewActionRunner(action *uniter.Action, cancel <-chan struct{}) (runner.Runner, error) {
+	return f.MockNewActionRunner.Call(action.ID(), cancel)
 }
 
 func (f *MockRunnerFactory) NewHookRunner(hookInfo hook.Info) (runner.Runner, error) {
@@ -304,8 +320,8 @@ type MockRunnerActionWaitFactory struct {
 	*MockNewActionWaitRunner
 }
 
-func (f *MockRunnerActionWaitFactory) NewActionRunner(actionId string, cancel <-chan struct{}) (runner.Runner, error) {
-	return f.MockNewActionWaitRunner.Call(actionId, cancel)
+func (f *MockRunnerActionWaitFactory) NewActionRunner(action *uniter.Action, cancel <-chan struct{}) (runner.Runner, error) {
+	return f.MockNewActionWaitRunner.Call(action.ID(), cancel)
 }
 
 type MockContext struct {
@@ -316,6 +332,18 @@ type MockContext struct {
 	status          jujuc.StatusInfo
 	isLeader        bool
 	relation        *MockRelation
+}
+
+func (mock *MockContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error) {
+	return map[string]jujuc.SecretMetadata{
+		"9m4e2mr0ui3e8a215n4g": {
+			Description:    "description",
+			Label:          "label",
+			Owner:          names.NewApplicationTag("mariadb"),
+			RotatePolicy:   secrets.RotateHourly,
+			LatestRevision: 666,
+		},
+	}, nil
 }
 
 func (mock *MockContext) ActionData() (*runnercontext.ActionData, error) {

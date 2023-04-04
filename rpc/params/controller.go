@@ -37,7 +37,7 @@ type DestroyControllerArgs struct {
 	ModelTimeout *time.Duration `json:"model-timeout,omitempty"`
 }
 
-// ModelBlockInfo holds information about an model and its
+// ModelBlockInfo holds information about a model and its
 // current blocks.
 type ModelBlockInfo struct {
 	Name     string   `json:"name"`
@@ -61,17 +61,18 @@ type RemoveBlocksArgs struct {
 
 // ModelStatus holds information about the status of a juju model.
 type ModelStatus struct {
-	ModelTag           string                `json:"model-tag"`
-	Life               life.Value            `json:"life"`
-	Type               string                `json:"type"`
-	HostedMachineCount int                   `json:"hosted-machine-count"`
-	ApplicationCount   int                   `json:"application-count"`
-	UnitCount          int                   `json:"unit-count"`
-	OwnerTag           string                `json:"owner-tag"`
-	Machines           []ModelMachineInfo    `json:"machines,omitempty"`
-	Volumes            []ModelVolumeInfo     `json:"volumes,omitempty"`
-	Filesystems        []ModelFilesystemInfo `json:"filesystems,omitempty"`
-	Error              *Error                `json:"error,omitempty"`
+	ModelTag           string                 `json:"model-tag"`
+	Life               life.Value             `json:"life"`
+	Type               string                 `json:"type"`
+	HostedMachineCount int                    `json:"hosted-machine-count"`
+	ApplicationCount   int                    `json:"application-count"`
+	UnitCount          int                    `json:"unit-count"`
+	OwnerTag           string                 `json:"owner-tag"`
+	Applications       []ModelApplicationInfo `json:"applications,omitempty"`
+	Machines           []ModelMachineInfo     `json:"machines,omitempty"`
+	Volumes            []ModelVolumeInfo      `json:"volumes,omitempty"`
+	Filesystems        []ModelFilesystemInfo  `json:"filesystems,omitempty"`
+	Error              *Error                 `json:"error,omitempty"`
 }
 
 // ModelStatusResults holds status information about a group of models.
@@ -130,4 +131,20 @@ const (
 type ControllerVersionResults struct {
 	Version   string `json:"version"`
 	GitCommit string `json:"git-commit"`
+}
+
+// DashboardConnectionSSHTunnel represents an ssh tunnel connection to the Juju
+// Dashboard
+type DashboardConnectionSSHTunnel struct {
+	Model  string `json:"model,omitempty"`
+	Entity string `json:"entity,omitempty"`
+	Host   string `json:"host"`
+	Port   string `json:"port"`
+}
+
+// DashboardConnectionInfo holds the information necessary
+type DashboardConnectionInfo struct {
+	ProxyConnection *Proxy                        `json:"proxy-connection"`
+	SSHConnection   *DashboardConnectionSSHTunnel `json:"ssh-connection"`
+	Error           *Error                        `json:"error,omitempty"`
 }

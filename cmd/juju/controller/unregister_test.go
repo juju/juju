@@ -76,7 +76,7 @@ func (s *UnregisterSuite) TestUnregisterUnknownController(c *gc.C) {
 
 func (s *UnregisterSuite) TestUnregisterController(c *gc.C) {
 	command := controller.NewUnregisterCommand(s.store)
-	_, err := cmdtesting.RunCommand(c, command, "fake1", "-y")
+	_, err := cmdtesting.RunCommand(c, command, "fake1", "--no-prompt")
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(s.store.lookupName, gc.Equals, "fake1")
@@ -88,13 +88,13 @@ This command will remove connection information for controller "fake1".
 Doing so will prevent you from accessing this controller until
 you register it again.
 
-Continue [y/N]?`[1:]
+To continue, enter the name of the controller to be destroyed: `[1:]
 
 func (s *UnregisterSuite) unregisterCommandAborts(c *gc.C, answer string) {
-	var stdin, stdout bytes.Buffer
+	var stdin, stderr bytes.Buffer
 	ctx, err := cmd.DefaultContext()
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.Stdout = &stdout
+	ctx.Stderr = &stderr
 	ctx.Stdin = &stdin
 
 	// Ensure confirmation is requested if "-y" is not specified.
@@ -107,7 +107,7 @@ func (s *UnregisterSuite) unregisterCommandAborts(c *gc.C, answer string) {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, unregisterMsg)
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, unregisterMsg)
 	c.Check(s.store.lookupName, gc.Equals, "fake1")
 	c.Check(s.store.removedName, gc.Equals, "")
 }
@@ -143,5 +143,5 @@ func (s *UnregisterSuite) unregisterCommandConfirms(c *gc.C, answer string) {
 }
 
 func (s *UnregisterSuite) TestUnregisterCommandConfirmsOnY(c *gc.C) {
-	s.unregisterCommandConfirms(c, "y")
+	s.unregisterCommandConfirms(c, "fake1")
 }

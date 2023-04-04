@@ -9,13 +9,15 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	mgotesting "github.com/juju/mgo/v2/testing"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing/factory"
 )
 
 type ControllerSuite struct {
@@ -187,7 +189,7 @@ func (s *ControllerSuite) TestUpdateControllerConfigRejectsSpaceWithoutAddresses
 	_, err := s.State.AddSpace("mgmt-space", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	m, err := s.State.AddMachine("quantal", state.JobManageModel, state.JobHostUnits)
+	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.SetMachineAddresses(network.NewSpaceAddress("192.168.9.9")), jc.ErrorIsNil)
 
@@ -202,7 +204,7 @@ func (s *ControllerSuite) TestUpdateControllerConfigAcceptsSpaceWithAddresses(c 
 	sp, err := s.State.AddSpace("mgmt-space", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	m, err := s.State.AddMachine("quantal", state.JobManageModel, state.JobHostUnits)
+	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr := network.NewSpaceAddress("192.168.9.9")
@@ -228,6 +230,32 @@ func (s *ControllerSuite) TestControllerInfo(c *gc.C) {
 	info, err = s.State.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.ControllerIds, jc.DeepEquals, []string{node.Id()})
+}
+
+func (s *ControllerSuite) TestSetMachineAddressesControllerCharm(c *gc.C) {
+	controller, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	worker, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerApp := s.AddTestingApplication(c, "controller", s.AddTestingCharm(c, "juju-controller"))
+	s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: controllerApp,
+		Machine:     controller,
+	})
+
+	addresses := network.NewSpaceAddresses("10.0.0.1")
+	err = controller.SetMachineAddresses(addresses...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Updating a worker machine does not affect charm config.
+	addresses = network.NewSpaceAddresses("10.0.0.2")
+	err = worker.SetMachineAddresses(addresses...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg, err := controllerApp.CharmConfig(model.GenerationMaster)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg["controller-url"], gc.Equals, "wss://10.0.0.1:17777/api")
 }
 
 func (s *ControllerSuite) testOpenParams() state.OpenParams {

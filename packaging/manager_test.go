@@ -4,10 +4,11 @@
 package packaging_test
 
 import (
-	"github.com/juju/juju/packaging"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/packaging"
+	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&DependencyManagerTestSuite{})
@@ -46,17 +47,17 @@ func (s *DependencyManagerTestSuite) TestInstallWithOpenSuse(c *gc.C) {
 	})
 }
 
-func (s *DependencyManagerTestSuite) TestInstallWithAptBackports(c *gc.C) {
+func (s *DependencyManagerTestSuite) TestInstallWithAptOnJammy(c *gc.C) {
 	s.assertInstallCallsCorrectBinary(c, assertParams{
-		series:       "trusty",
-		pkg:          "lxd", // requires backport on trusty
+		series:       "jammy",
+		pkg:          "lxd",
 		pm:           packaging.AptPackageManager,
 		expPkgBinary: "apt-get",
 		expArgs: []string{
 			"--option=Dpkg::Options::=--force-confold",
 			"--option=Dpkg::Options::=--force-unsafe-io",
 			"--assume-yes", "--quiet", "install",
-			"--target-release", "trusty-backports", "lxd",
+			"lxd",
 		},
 	})
 }

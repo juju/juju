@@ -5,7 +5,6 @@ package cloud_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -44,7 +43,7 @@ func (s *updateCredentialSuite) SetUpTest(c *gc.C) {
 		},
 		CurrentControllerName: "controller",
 	}
-	s.api = &fakeUpdateCredentialAPI{v: 5}
+	s.api = &fakeUpdateCredentialAPI{}
 	s.testCommand = cloud.NewUpdateCredentialCommandForTest(s.store, s.api)
 }
 
@@ -69,7 +68,7 @@ func (s *updateCredentialSuite) TestBadFileSpecified(c *gc.C) {
 func (s *updateCredentialSuite) makeCredentialsTestFile(c *gc.C, data string) string {
 	dir := c.MkDir()
 	credsFile := filepath.Join(dir, "cred.yaml")
-	err := ioutil.WriteFile(credsFile, []byte(data), 0644)
+	err := os.WriteFile(credsFile, []byte(data), 0644)
 	c.Assert(err, gc.IsNil)
 	return credsFile
 }
@@ -298,7 +297,7 @@ credentials:
 }
 
 func (s *updateCredentialSuite) TestUpdateRemoteCredentialWithFilePath(c *gc.C) {
-	tmpFile, err := ioutil.TempFile("", "juju-bootstrap-test")
+	tmpFile, err := os.CreateTemp("", "juju-bootstrap-test")
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		tmpFile.Close()
@@ -329,7 +328,7 @@ func (s *updateCredentialSuite) TestUpdateRemoteCredentialWithFilePath(c *gc.C) 
 	}
 
 	contents := []byte("{something: special}\n")
-	err = ioutil.WriteFile(tmpFile.Name(), contents, 0644)
+	err = os.WriteFile(tmpFile.Name(), contents, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Double check credential from local cache does not contain contents. We expect it to be file path.
@@ -348,7 +347,7 @@ func (s *updateCredentialSuite) TestUpdateRemoteCredentialWithFilePath(c *gc.C) 
 }
 
 func (s *updateCredentialSuite) TestUpdateLocalCredentialWithFilePath(c *gc.C) {
-	tmpFile, err := ioutil.TempFile("", "juju-bootstrap-test")
+	tmpFile, err := os.CreateTemp("", "juju-bootstrap-test")
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		tmpFile.Close()
@@ -373,7 +372,7 @@ func (s *updateCredentialSuite) TestUpdateLocalCredentialWithFilePath(c *gc.C) {
 	}
 
 	contents := []byte("{something: special}\n")
-	err = ioutil.WriteFile(tmpFile.Name(), contents, 0644)
+	err = os.WriteFile(tmpFile.Name(), contents, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	testFile := s.makeCredentialsTestFile(c, fmt.Sprintf(`
@@ -436,7 +435,7 @@ clouds:
     auth-types: [access-key]
     endpoint: http://custom
 `[1:]
-	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
+	err := os.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.api.clouds = func() (map[names.CloudTag]jujucloud.Cloud, error) {
@@ -617,7 +616,6 @@ Use ‘juju set-credential’ to change credential for these models.
 }
 
 type fakeUpdateCredentialAPI struct {
-	v                       int
 	updateCloudsCredentials func(cloudCredentials map[string]jujucloud.Credential, force bool) ([]params.UpdateCredentialResult, error)
 	addCloudsCredentials    func(cloudCredentials map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error)
 	clouds                  func() (map[names.CloudTag]jujucloud.Cloud, error)
@@ -625,10 +623,6 @@ type fakeUpdateCredentialAPI struct {
 
 func (f *fakeUpdateCredentialAPI) Close() error {
 	return nil
-}
-
-func (f *fakeUpdateCredentialAPI) BestAPIVersion() int {
-	return f.v
 }
 
 func (f *fakeUpdateCredentialAPI) UpdateCloudsCredentials(c map[string]jujucloud.Credential, force bool) ([]params.UpdateCredentialResult, error) {

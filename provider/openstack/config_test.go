@@ -29,7 +29,6 @@ type configTest struct {
 	config                  testing.Attrs
 	change                  map[string]interface{}
 	expect                  map[string]interface{}
-	useFloatingIP           bool
 	useDefaultSecurityGroup bool
 	network                 string
 	externalNetwork         string
@@ -80,7 +79,6 @@ func (t configTest) check(c *gc.C) {
 	if t.firewallMode != "" {
 		c.Assert(ecfg.FirewallMode(), gc.Equals, t.firewallMode)
 	}
-	c.Assert(ecfg.useFloatingIP(), gc.Equals, t.useFloatingIP)
 	c.Assert(ecfg.useDefaultSecurityGroup(), gc.Equals, t.useDefaultSecurityGroup)
 	c.Assert(ecfg.network(), gc.Equals, t.network)
 	c.Assert(ecfg.externalNetwork(), gc.Equals, t.externalNetwork)
@@ -109,17 +107,6 @@ func (s *ConfigSuite) SetUpTest(c *gc.C) {
 
 var configTests = []configTest{
 	{
-		summary: "default use floating ip",
-		config:  requiredConfig,
-		// Do not use floating IP's by default.
-		useFloatingIP: false,
-	}, {
-		summary: "use floating ip",
-		config: requiredConfig.Merge(testing.Attrs{
-			"use-floating-ip": true,
-		}),
-		useFloatingIP: true,
-	}, {
 		summary: "default use default security group",
 		config:  requiredConfig,
 		// Do not use default security group by default.

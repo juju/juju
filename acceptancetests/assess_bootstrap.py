@@ -75,7 +75,7 @@ def assess_metadata(bs_manager, local_source):
 def get_controller_hostname(client):
     """Get the hostname of the controller for this model."""
     controller_client = client.get_controller_client()
-    name = controller_client.run(['hostname'], machines=['0'], use_json=False)
+    name = controller_client.exec_cmds(['hostname'], machines=['0'], use_json=False)
     return name.strip()
 
 

@@ -5,15 +5,17 @@ package utils
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
+	"os"
 	"strconv"
 
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"github.com/mattn/go-isatty"
 
 	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -252,9 +254,19 @@ func ReadValue(ctx *cmd.Context, filesystem modelcmd.Filesystem, filename string
 	if fi.Size() > maxValueSize {
 		return "", errors.Errorf("size of option file is larger than 5M")
 	}
-	content, err := ioutil.ReadFile(ctx.AbsPath(filename))
+	content, err := os.ReadFile(ctx.AbsPath(filename))
 	if err != nil {
 		return "", errors.Errorf("cannot read option from file %q: %v", filename, err)
 	}
 	return string(content), nil
+}
+
+// isTerminal checks if the file descriptor is a terminal.
+func IsTerminal(w io.Writer) bool {
+	f, ok := w.(*os.File)
+	if !ok {
+		return false
+	}
+
+	return isatty.IsTerminal(f.Fd())
 }

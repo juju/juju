@@ -6,7 +6,7 @@ run_model_config_isomorphic() {
 
 	FILE=$(mktemp)
 
-	juju model-config --format=yaml | juju model-config --ignore-read-only-fields -
+	juju model-config --format=yaml | juju model-config --ignore-read-only-fields --file -
 
 	destroy_model "model-config-isomorphic"
 }
@@ -26,7 +26,7 @@ cloudinit-userdata: |
     - shellcheck
 EOF
 
-	juju model-config "${FILE}"
+	juju model-config --file "${FILE}"
 	OUT=$(juju model-config cloudinit-userdata)
 	echo "${OUT}" | grep -q "shellcheck"
 

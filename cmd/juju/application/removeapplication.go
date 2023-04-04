@@ -4,6 +4,8 @@
 package application
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/juju/cmd/v3"
@@ -12,6 +14,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/client/application"
+	"github.com/juju/juju/api/client/modelconfig"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -21,22 +24,23 @@ import (
 // NewRemoveApplicationCommand returns a command which removes an application.
 func NewRemoveApplicationCommand() cmd.Command {
 	c := &removeApplicationCommand{}
-	c.newAPIFunc = func() (RemoveApplicationAPI, int, error) {
-		return c.getAPI()
-	}
 	return modelcmd.Wrap(c)
 }
 
 // removeApplicationCommand causes an existing application to be destroyed.
 type removeApplicationCommand struct {
+	modelcmd.RemoveConfirmationCommandBase
 	modelcmd.ModelCommandBase
 
-	newAPIFunc func() (RemoveApplicationAPI, int, error)
+	api            RemoveApplicationAPI
+	modelConfigApi ModelConfigClient
 
 	ApplicationNames []string
 	DestroyStorage   bool
 	Force            bool
 	NoWait           bool
+	NoPrompt         bool
+	DryRun           bool
 	fs               *gnuflag.FlagSet
 }
 
@@ -71,6 +75,14 @@ Examples:
     juju remove-application --force --no-wait hadoop
     juju remove-application -m test-model mariadb`[1:]
 
+var removeApplicationMsgNoDryRun = `
+This command will remove application(s) %q
+Your controller does not support dry runs`[1:]
+
+var removeApplicationMsgPrefix = "This command will perform the following actions:"
+
+var errDryRunNotSupportedByController = errors.New("Your controller does not support `--dry-run`")
+
 func (c *removeApplicationCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "remove-application",
@@ -82,9 +94,8 @@ func (c *removeApplicationCommand) Info() *cmd.Info {
 
 func (c *removeApplicationCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	// This unused var is declared so we can pass a valid ptr into BoolVar
-	var noPromptHolder bool
-	f.BoolVar(&noPromptHolder, "no-prompt", false, "Does nothing. Option present for forward compatibility with Juju 3")
+	c.RemoveConfirmationCommandBase.SetFlags(f)
+	f.BoolVar(&c.DryRun, "dry-run", false, "Print what this command would remove without removing")
 	f.BoolVar(&c.DestroyStorage, "destroy-storage", false, "Destroy storage attached to application units")
 	f.BoolVar(&c.Force, "force", false, "Completely remove an application and all its dependencies")
 	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through application removal without waiting for each individual step to complete")
@@ -100,6 +111,9 @@ func (c *removeApplicationCommand) Init(args []string) error {
 			return errors.Errorf("invalid application name %q", arg)
 		}
 	}
+	if !c.Force && c.NoWait {
+		return errors.NotValidf("--no-wait without --force")
+	}
 	c.ApplicationNames = args
 	return nil
 }
@@ -108,75 +122,66 @@ type RemoveApplicationAPI interface {
 	Close() error
 	ScaleApplication(application.ScaleApplicationParams) (params.ScaleApplicationResult, error)
 	DestroyApplications(application.DestroyApplicationsParams) ([]params.DestroyApplicationResult, error)
-	DestroyDeprecated(appName string) error
 	DestroyUnits(application.DestroyUnitsParams) ([]params.DestroyUnitResult, error)
-	DestroyUnitsDeprecated(unitNames ...string) error
 	ModelUUID() string
 	BestAPIVersion() int
 }
 
-func (c *removeApplicationCommand) getAPI() (RemoveApplicationAPI, int, error) {
+func (c *removeApplicationCommand) getAPI() (RemoveApplicationAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
 	root, err := c.NewAPIRoot()
 	if err != nil {
-		return nil, -1, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	version := root.BestFacadeVersion("Application")
-	return application.NewClient(root), version, nil
+	return application.NewClient(root), nil
+}
+
+func (c *removeApplicationCommand) getModelConfigAPI() (ModelConfigClient, error) {
+	if c.modelConfigApi != nil {
+		return c.modelConfigApi, nil
+	}
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return modelconfig.NewClient(root), nil
 }
 
 func (c *removeApplicationCommand) Run(ctx *cmd.Context) error {
-	noWaitSet := false
-	forceSet := false
-	c.fs.Visit(func(flag *gnuflag.Flag) {
-		if flag.Name == "no-wait" {
-			noWaitSet = true
-		} else if flag.Name == "force" {
-			forceSet = true
-		}
-	})
-	if !forceSet && noWaitSet {
-		return errors.NotValidf("--no-wait without --force")
+	var maxWait *time.Duration
+	if c.NoWait {
+		zeroSec := 0 * time.Second
+		maxWait = &zeroSec
 	}
 
-	client, apiVersion, err := c.newAPIFunc()
+	client, err := c.getAPI()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	if apiVersion < 4 {
-		return c.removeApplicationsDeprecated(ctx, client)
+	modelConfigClient, err := c.getModelConfigAPI()
+	if err != nil {
+		return err
 	}
-	if c.DestroyStorage && apiVersion < 5 {
-		return errors.New("--destroy-storage is not supported by this controller")
-	}
-	return c.removeApplications(ctx, client)
-}
+	defer modelConfigClient.Close()
 
-// TODO(axw) 2017-03-16 #1673323
-// Drop this in Juju 3.0.
-func (c *removeApplicationCommand) removeApplicationsDeprecated(
-	ctx *cmd.Context,
-	client RemoveApplicationAPI,
-) error {
-	for _, name := range c.ApplicationNames {
-		err := client.DestroyDeprecated(name)
-		if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
-			return errors.Trace(err)
+	if c.DryRun {
+		return c.performDryRun(ctx, client)
+	}
+
+	needsConfirmation := c.NeedsConfirmation(modelConfigClient)
+	if needsConfirmation {
+		err := c.performDryRun(ctx, client)
+		if err == errDryRunNotSupportedByController {
+			ctx.Warningf(removeApplicationMsgNoDryRun, strings.Join(c.ApplicationNames, ", "))
+		} else if err != nil {
+			return err
 		}
-	}
-	return nil
-}
-
-func (c *removeApplicationCommand) removeApplications(
-	ctx *cmd.Context,
-	client RemoveApplicationAPI,
-) error {
-	var maxWait *time.Duration
-	if c.Force {
-		if c.NoWait {
-			zeroSec := 0 * time.Second
-			maxWait = &zeroSec
+		if err := jujucmd.UserConfirmYes(ctx); err != nil {
+			return errors.Annotate(err, "application removal")
 		}
 	}
 
@@ -185,50 +190,118 @@ func (c *removeApplicationCommand) removeApplications(
 		DestroyStorage: c.DestroyStorage,
 		Force:          c.Force,
 		MaxWait:        maxWait,
+		DryRun:         false,
 	})
 	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
 		return errors.Trace(err)
 	}
+	logAll := !needsConfirmation || client.BestAPIVersion() < 16
+	if logAll {
+		return c.logResults(ctx, results)
+	} else {
+		return c.logErrors(ctx, results)
+	}
+}
+
+func (c *removeApplicationCommand) performDryRun(
+	ctx *cmd.Context,
+	client RemoveApplicationAPI,
+) error {
+	// TODO(jack-w-shaw) Drop this once application 15 support is dropped
+	if client.BestAPIVersion() < 16 {
+		return errDryRunNotSupportedByController
+	}
+	results, err := client.DestroyApplications(application.DestroyApplicationsParams{
+		Applications:   c.ApplicationNames,
+		DestroyStorage: c.DestroyStorage,
+		DryRun:         true,
+	})
+	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
+		return errors.Trace(err)
+	}
+	if err := c.logErrors(ctx, results); err != nil {
+		return err
+	}
+	ctx.Warningf(removeApplicationMsgPrefix)
+	_ = c.logResults(ctx, results)
+	return nil
+}
+
+func (c *removeApplicationCommand) logErrors(ctx *cmd.Context, results []params.DestroyApplicationResult) error {
+	return c.log(ctx, results, true)
+}
+
+func (c *removeApplicationCommand) logResults(ctx *cmd.Context, results []params.DestroyApplicationResult) error {
+	return c.log(ctx, results, false)
+}
+
+func (c *removeApplicationCommand) log(
+	ctx *cmd.Context,
+	results []params.DestroyApplicationResult,
+	errorsOnly bool,
+) error {
 	anyFailed := false
 	for i, name := range c.ApplicationNames {
 		result := results[i]
-		if result.Error != nil {
+		if err := c.logResult(ctx, name, result, errorsOnly); err != nil {
 			anyFailed = true
-			err := result.Error.Error()
-			if params.IsCodeNotSupported(result.Error) {
-				err = errors.New("another user was updating application; please try again").Error()
-			}
-			ctx.Infof("removing application %s failed: %s", name, err)
-			continue
-		}
-		ctx.Infof("removing application %s", name)
-		for _, entity := range result.Info.DestroyedUnits {
-			unitTag, err := names.ParseUnitTag(entity.Tag)
-			if err != nil {
-				logger.Warningf("%s", err)
-				continue
-			}
-			ctx.Verbosef("- will remove %s", names.ReadableString(unitTag))
-		}
-		for _, entity := range result.Info.DestroyedStorage {
-			storageTag, err := names.ParseStorageTag(entity.Tag)
-			if err != nil {
-				logger.Warningf("%s", err)
-				continue
-			}
-			ctx.Infof("- will remove %s", names.ReadableString(storageTag))
-		}
-		for _, entity := range result.Info.DetachedStorage {
-			storageTag, err := names.ParseStorageTag(entity.Tag)
-			if err != nil {
-				logger.Warningf("%s", err)
-				continue
-			}
-			ctx.Infof("- will detach %s", names.ReadableString(storageTag))
 		}
 	}
 	if anyFailed {
 		return cmd.ErrSilent
 	}
 	return nil
+}
+
+func (c *removeApplicationCommand) logResult(
+	ctx *cmd.Context,
+	name string,
+	result params.DestroyApplicationResult,
+	errorsOnly bool,
+) error {
+	if result.Error != nil {
+		var err error = result.Error
+		if params.IsCodeNotSupported(result.Error) {
+			err = errors.New("another user was updating application; please try again")
+		}
+		err = errors.Annotatef(err, "removing application %s failed", name)
+		cmd.WriteError(ctx.Stderr, err)
+		return errors.Trace(err)
+	}
+	if !errorsOnly {
+		c.logRemovedApplication(ctx, name, result.Info)
+	}
+	return nil
+}
+
+func (c *removeApplicationCommand) logRemovedApplication(
+	ctx *cmd.Context,
+	name string,
+	info *params.DestroyApplicationInfo,
+) {
+	_, _ = fmt.Fprintf(ctx.Stdout, "will remove application %s\n", name)
+	for _, entity := range info.DestroyedUnits {
+		unitTag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			ctx.Warningf("%s", err)
+			continue
+		}
+		_, _ = fmt.Fprintf(ctx.Stdout, "- will remove %s\n", names.ReadableString(unitTag))
+	}
+	for _, entity := range info.DestroyedStorage {
+		storageTag, err := names.ParseStorageTag(entity.Tag)
+		if err != nil {
+			ctx.Warningf("%s", err)
+			continue
+		}
+		_, _ = fmt.Fprintf(ctx.Stdout, "- will remove %s\n", names.ReadableString(storageTag))
+	}
+	for _, entity := range info.DetachedStorage {
+		storageTag, err := names.ParseStorageTag(entity.Tag)
+		if err != nil {
+			ctx.Warningf("%s", err)
+			continue
+		}
+		_, _ = fmt.Fprintf(ctx.Stdout, "- will detach %s\n", names.ReadableString(storageTag))
+	}
 }

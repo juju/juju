@@ -8,30 +8,26 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/url"
+	stdos "os"
 	"path"
 	"path/filepath"
 	"strings"
 	"text/template"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v3"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
-	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/upstart"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig")
@@ -180,14 +176,6 @@ func (w *unixConfigure) ConfigureBasic() error {
 		"set -xe", // ensure we run all the scripts or abort.
 	)
 	switch w.os {
-	case os.Ubuntu:
-		if (w.icfg.AgentVersion() != version.Binary{}) {
-			initSystem, err := service.VersionInitSystem(w.icfg.Series)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			w.addCleanShutdownJob(initSystem)
-		}
 	case os.CentOS:
 		w.conf.AddScripts(
 			// Mask and stop firewalld, if enabled, so it cannot start. See
@@ -199,7 +187,6 @@ func (w *unixConfigure) ConfigureBasic() error {
 
 			`sed -i "s/^.*requiretty/#Defaults requiretty/" /etc/sudoers`,
 		)
-		w.addCleanShutdownJob(service.InitSystemSystemd)
 	case os.OpenSUSE:
 		w.conf.AddScripts(
 			// Mask and stop firewalld, if enabled, so it cannot start. See
@@ -213,7 +200,6 @@ func (w *unixConfigure) ConfigureBasic() error {
 			`(grep ubuntu /etc/group) || groupadd ubuntu`,
 			`usermod -g ubuntu -G ubuntu,users ubuntu`,
 		)
-		w.addCleanShutdownJob(service.InitSystemSystemd)
 	}
 	SetUbuntuUser(w.conf, w.icfg.AuthorizedKeys)
 
@@ -246,14 +232,6 @@ func (w *unixConfigure) ConfigureBasic() error {
 	noncefile := path.Join(w.icfg.DataDir, NonceFile)
 	w.conf.AddRunTextFile(noncefile, w.icfg.MachineNonce, 0644)
 	return nil
-}
-
-func (w *unixConfigure) addCleanShutdownJob(initSystem string) {
-	switch initSystem {
-	case service.InitSystemUpstart:
-		p, contents := upstart.CleanShutdownJobPath, upstart.CleanShutdownJob
-		w.conf.AddRunTextFile(p, contents, 0644)
-	}
 }
 
 func (w *unixConfigure) setDataDirPermissions() string {
@@ -356,7 +334,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 	}
 
 	// Make the lock dir and change the ownership of the lock dir itself to
-	// ubuntu:ubuntu from root:root so the juju-run command run as the ubuntu
+	// ubuntu:ubuntu from root:root so the juju-exec command run as the ubuntu
 	// user is able to get access to the hook execution lock (like the uniter
 	// itself does.)
 	lockDir := path.Join(w.icfg.DataDir, "locks")
@@ -397,20 +375,14 @@ func (w *unixConfigure) ConfigureJuju() error {
 		return errors.Trace(err)
 	}
 
-	// Add the cloud archive cloud-tools pocket to apt sources
-	// for series that need it. This gives us up-to-date LXC,
-	// MongoDB, and other infrastructure.
-	// This is only done on ubuntu.
-	if w.conf.SystemUpdate() && w.conf.RequiresCloudArchiveCloudTools() {
-		w.conf.AddCloudArchiveCloudTools()
-	}
-
 	if w.icfg.Bootstrap != nil {
-		if err := w.configureBootstrap(); err != nil {
+		if err = w.addLocalSnapUpload(); err != nil {
 			return errors.Trace(err)
 		}
-
-		if err = w.addLocalSnapUpload(); err != nil {
+		if err = w.addLocalControllerCharmsUpload(); err != nil {
+			return errors.Trace(err)
+		}
+		if err := w.configureBootstrap(); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -496,15 +468,6 @@ func (w *unixConfigure) ConfigureCustomOverrides() error {
 }
 
 func (w *unixConfigure) configureBootstrap() error {
-	// Add the Juju GUI to the bootstrap node.
-	cleanup, err := w.setUpGUI()
-	if err != nil {
-		return errors.Annotate(err, "cannot set up Juju GUI")
-	}
-	if cleanup != nil {
-		defer cleanup()
-	}
-
 	bootstrapParamsFile := path.Join(w.icfg.DataDir, FileNameBootstrapParams)
 	bootstrapParams, err := w.icfg.Bootstrap.StateInitializationParams.Marshal()
 	if err != nil {
@@ -549,7 +512,7 @@ func (w *unixConfigure) addLocalSnapUpload() error {
 	}
 
 	logger.Infof("preparing to upload juju-db snap from %v", snapPath)
-	snapData, err := ioutil.ReadFile(snapPath)
+	snapData, err := stdos.ReadFile(snapPath)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -557,7 +520,7 @@ func (w *unixConfigure) addLocalSnapUpload() error {
 	w.conf.AddRunBinaryFile(path.Join(w.icfg.SnapDir(), snapName), snapData, 0644)
 
 	logger.Infof("preparing to upload juju-db assertions from %v", assertionsPath)
-	snapAssertionsData, err := ioutil.ReadFile(assertionsPath)
+	snapAssertionsData, err := stdos.ReadFile(assertionsPath)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -567,10 +530,49 @@ func (w *unixConfigure) addLocalSnapUpload() error {
 	return nil
 }
 
+func (w *unixConfigure) addLocalControllerCharmsUpload() error {
+	if w.icfg.Bootstrap == nil {
+		return nil
+	}
+
+	charmPath := w.icfg.Bootstrap.ControllerCharm
+
+	if charmPath == "" {
+		return nil
+	}
+
+	logger.Infof("preparing to upload controller charm from %v", charmPath)
+	_, err := charm.ReadCharm(charmPath)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var charmData []byte
+	if charm.IsCharmDir(charmPath) {
+		ch, err := charm.ReadCharmDir(charmPath)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		buf := bytes.NewBuffer(nil)
+		err = ch.ArchiveTo(buf)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		charmData = buf.Bytes()
+	} else {
+		charmData, err = stdos.ReadFile(charmPath)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	w.conf.AddRunBinaryFile(path.Join(w.icfg.CharmDir(), bootstrap.ControllerCharmArchive), charmData, 0644)
+
+	return nil
+}
+
 func (w *unixConfigure) addDownloadToolsCmds() error {
 	tools := w.icfg.ToolsList()[0]
 	if strings.HasPrefix(tools.URL, fileSchemePrefix) {
-		toolsData, err := ioutil.ReadFile(tools.URL[len(fileSchemePrefix):])
+		toolsData, err := stdos.ReadFile(tools.URL[len(fileSchemePrefix):])
 		if err != nil {
 			return err
 		}
@@ -621,21 +623,6 @@ func (w *unixConfigure) addDownloadToolsCmds() error {
 		"tar zxf $bin/tools.tar.gz -C $bin",
 	)
 
-	// When adding a machine to a 2.8 or earlier model on a 2.9 controller,
-	// we need to add a symlink named after the series so that the 2.x agent
-	// can still find the binaries when deploying units.
-	if vers := w.icfg.AgentVersion(); vers.Major == 2 && vers.Minor <= 8 {
-		hostSeries, err := series.HostSeries()
-		if err != nil {
-			return err
-		}
-		legacyVers := w.icfg.AgentVersion()
-		legacyVers.Release = hostSeries
-		w.conf.AddScripts(
-			fmt.Sprintf("ln -s $bin %s", agenttools.SharedToolsDir(w.icfg.DataDir, legacyVers)),
-		)
-	}
-
 	toolsJson, err := json.Marshal(tools)
 	if err != nil {
 		return err
@@ -645,62 +632,6 @@ func (w *unixConfigure) addDownloadToolsCmds() error {
 	)
 
 	return nil
-}
-
-// setUpGUI fetches the Juju GUI archive and save it to the controller.
-// The returned clean up function must be called when the bootstrapping
-// process is completed.
-func (w *unixConfigure) setUpGUI() (func(), error) {
-	if w.icfg.Bootstrap.GUI == nil {
-		// No GUI archives were found on simplestreams, and no development
-		// GUI path has been passed with the JUJU_GUI environment variable.
-		return nil, nil
-	}
-	u, err := url.Parse(w.icfg.Bootstrap.GUI.URL)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot parse Juju GUI URL")
-	}
-	guiJson, err := json.Marshal(w.icfg.Bootstrap.GUI)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	guiDir := w.icfg.GUITools()
-	w.conf.AddScripts(
-		"gui="+shquote(guiDir),
-		"mkdir -p $gui",
-	)
-	if u.Scheme == "file" {
-		// Upload the GUI from a local archive file.
-		guiData, err := ioutil.ReadFile(filepath.FromSlash(u.Path))
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot read Juju GUI archive")
-		}
-		w.conf.AddRunBinaryFile(path.Join(guiDir, "gui.tar.bz2"), guiData, 0644)
-	} else {
-		// Download the GUI from simplestreams.
-		command := "curl -sSf -o $gui/gui.tar.bz2 --retry 10"
-		if w.icfg.DisableSSLHostnameVerification {
-			command += " --insecure"
-		}
-		curlProxyArgs := w.formatCurlProxyArguments()
-		command += curlProxyArgs
-		command += " " + shquote(u.String())
-		// A failure in fetching the Juju GUI archive should not prevent the
-		// model to be bootstrapped. Better no GUI than no Juju at all.
-		command += " || echo Unable to retrieve Juju GUI"
-		w.conf.AddRunCmd(command)
-	}
-	w.conf.AddScripts(
-		"[ -f $gui/gui.tar.bz2 ] && sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256",
-		fmt.Sprintf(
-			`[ -f $gui/jujugui.sha256 ] && (grep '%s' $gui/jujugui.sha256 && echo -n %s > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)`,
-			w.icfg.Bootstrap.GUI.SHA256, shquote(string(guiJson))),
-	)
-	return func() {
-		// Don't remove the GUI archive until after bootstrap agent runs,
-		// so it has a chance to add it to its catalogue.
-		w.conf.AddRunCmd("rm -f $gui/gui.tar.bz2 $gui/jujugui.sha256 $gui/downloaded-gui.txt")
-	}, nil
 }
 
 // toolsDownloadCommand takes a curl command minus the source URL,

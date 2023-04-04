@@ -6,5 +6,5 @@ Deploy dummy-subordinate charm:
 
 juju deploy dummy-sink
 juju deploy dummy-subordinate
-juju add-relation dummy-sink dummy-subordinate
+juju integrate dummy-sink dummy-subordinate
 juju config dummy-subordinate token="Canonical"

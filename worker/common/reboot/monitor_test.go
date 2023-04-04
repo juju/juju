@@ -1,18 +1,16 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-//go:build !windows
-// +build !windows
-
 package reboot_test
 
 import (
 	"testing"
 
-	"github.com/juju/juju/worker/common/reboot"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/worker/common/reboot"
 )
 
 type monitorSuite struct{}

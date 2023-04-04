@@ -73,7 +73,7 @@ func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.Cont
 	params.ControllersChanges, error,
 ) {
 	if !st.IsController() {
-		return params.ControllersChanges{}, errors.New("unsupported with hosted models")
+		return params.ControllersChanges{}, errors.New("unsupported with workload models")
 	}
 	// Check if changes are allowed and the command may proceed.
 	blockChecker := common.NewBlockChecker(st)
@@ -86,22 +86,19 @@ func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.Cont
 		return params.ControllersChanges{}, err
 	}
 
+	referenceMachine, err := getReferenceController(st, controllerIds)
+	if err != nil {
+		return params.ControllersChanges{}, errors.Trace(err)
+	}
 	// If there were no supplied constraints, use the original bootstrap
 	// constraints.
-	if constraints.IsEmpty(&spec.Constraints) || spec.Series == "" {
-		referenceMachine, err := getReferenceController(st, controllerIds)
-		if err != nil {
-			return params.ControllersChanges{}, errors.Trace(err)
-		}
+	if constraints.IsEmpty(&spec.Constraints) {
 		if constraints.IsEmpty(&spec.Constraints) {
 			cons, err := referenceMachine.Constraints()
 			if err != nil {
 				return params.ControllersChanges{}, errors.Trace(err)
 			}
 			spec.Constraints = cons
-		}
-		if spec.Series == "" {
-			spec.Series = referenceMachine.Series()
 		}
 	}
 
@@ -121,7 +118,7 @@ func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.Cont
 	}
 
 	// Might be nicer to pass the spec itself to this method.
-	changes, err := st.EnableHA(spec.NumControllers, spec.Constraints, spec.Series, spec.Placement)
+	changes, err := st.EnableHA(spec.NumControllers, spec.Constraints, referenceMachine.Base(), spec.Placement)
 	if err != nil {
 		return params.ControllersChanges{}, err
 	}

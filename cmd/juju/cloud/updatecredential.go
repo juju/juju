@@ -5,7 +5,7 @@ package cloud
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
@@ -144,7 +144,6 @@ type CredentialAPI interface {
 	Clouds() (map[names.CloudTag]jujucloud.Cloud, error)
 	AddCloudsCredentials(cloudCredentials map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error)
 	UpdateCloudsCredentials(cloudCredentials map[string]jujucloud.Credential, force bool) ([]params.UpdateCredentialResult, error)
-	BestAPIVersion() int
 	Close() error
 }
 
@@ -194,7 +193,7 @@ func (c *updateCredentialCommand) Run(ctx *cmd.Context) error {
 }
 
 func credentialsFromFile(credentialsFile, cloudName, credentialName string) (map[string]jujucloud.CloudCredential, error) {
-	data, err := ioutil.ReadFile(credentialsFile)
+	data, err := os.ReadFile(credentialsFile)
 	if err != nil {
 		return nil, errors.Annotate(err, "reading credentials file")
 	}

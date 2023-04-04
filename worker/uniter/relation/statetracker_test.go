@@ -4,14 +4,13 @@
 package relation_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
-	"github.com/juju/charm/v8/hooks"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -344,7 +343,7 @@ func (s *syncScopesSuite) setupCharmDir(c *gc.C) {
 	s.charmDir = filepath.Join(c.MkDir(), "charm")
 	err := os.MkdirAll(s.charmDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(s.charmDir, "metadata.yaml"), []byte(minimalMetadata), 0755)
+	err = os.WriteFile(filepath.Join(s.charmDir, "metadata.yaml"), []byte(minimalMetadata), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

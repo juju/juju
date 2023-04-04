@@ -9,9 +9,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -123,7 +123,7 @@ func (s *baseToolsSuite) getToolsFromStorage(c *gc.C, st *state.State, vers stri
 	defer storage.Close()
 	metadata, r, err := storage.Open(vers)
 	c.Assert(err, jc.ErrorIsNil)
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	r.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	return metadata, data
@@ -141,7 +141,7 @@ func (s *baseToolsSuite) getToolsMetadataFromStorage(c *gc.C, st *state.State) [
 func (s *baseToolsSuite) testDownload(c *gc.C, tools *coretools.Tools, uuid string) []byte {
 	resp := s.downloadRequest(c, tools.Version, uuid)
 	defer resp.Body.Close()
-	data, err := ioutil.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.HasLen, int(tools.Size))
 
@@ -179,7 +179,7 @@ func (s *toolsSuite) TestRequiresPOST(c *gc.C) {
 
 func (s *toolsSuite) TestAuthRequiresUser(c *gc.C) {
 	// Add a machine and try to login.
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("foo", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -230,7 +230,7 @@ func (s *toolsSuite) setupToolsForUpload(c *gc.C) (coretools.List, version.Binar
 	versionStrings := []string{vers.String()}
 	expectedTools := toolstesting.MakeToolsWithCheckSum(c, localStorage, "released", versionStrings)
 	toolsFile := envtools.StorageName(vers, "released")
-	toolsContent, err := ioutil.ReadFile(filepath.Join(localStorage, toolsFile))
+	toolsContent, err := os.ReadFile(filepath.Join(localStorage, toolsFile))
 	c.Assert(err, jc.ErrorIsNil)
 	return expectedTools, vers, toolsContent
 }
@@ -400,39 +400,6 @@ func (s *toolsSuite) TestUploadAllowsOtherModelUUIDPath(c *gc.C) {
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
-func (s *toolsSuite) TestUploadConvertsSeries(c *gc.C) {
-	// Make some fake tools.
-	expectedTools, v, toolsContent := s.setupToolsForUpload(c)
-	vCopy := v
-	vCopy.Release = "bionic"
-	vers := v.String()
-	// Now try uploading them. The tools will be cloned for
-	// each additional series specified.
-	params := "?binaryVersion=" + vCopy.String()
-	resp := s.uploadRequest(c, s.toolsURI(params), "application/x-tar-gz", bytes.NewReader(toolsContent))
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
-
-	// Check the response.
-	expectedTools[0].URL = s.toolsURL("").String() + "/" + vers
-	s.assertUploadResponse(c, resp, expectedTools[0])
-
-	// Check the contents.
-	storage, err := s.State.ToolsStorage()
-	c.Assert(err, jc.ErrorIsNil)
-	defer storage.Close()
-	_, r, err := storage.Open(v.String())
-	c.Assert(err, jc.ErrorIsNil)
-	uploadedData, err := ioutil.ReadAll(r)
-	r.Close()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uploadedData, gc.DeepEquals, toolsContent)
-
-	// ensure the series *isn't* there.
-	v.Release = "bionic"
-	_, err = storage.Metadata(v.String())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
 func (s *toolsSuite) TestDownloadModelUUIDPath(c *gc.C) {
 	tools := s.storeFakeTools(c, s.State, "abc", binarystorage.Metadata{
 		Version: testing.CurrentVersion().String(),
@@ -440,60 +407,6 @@ func (s *toolsSuite) TestDownloadModelUUIDPath(c *gc.C) {
 		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
 	})
 	s.testDownload(c, tools, s.State.ModelUUID())
-}
-
-// TODO(juju4) - remove
-func (s *toolsSuite) TestDownloadOldAgentNewRequest(c *gc.C) {
-	tools := s.storeFakeTools(c, s.State, "abc", binarystorage.Metadata{
-		Version: "2.8.9-focal-amd64",
-		Size:    3,
-		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
-	})
-	resp := s.downloadRequest(c, version.MustParseBinary("2.8.9-ubuntu-amd64"), s.State.ModelUUID())
-	defer resp.Body.Close()
-	data, err := ioutil.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.HasLen, int(tools.Size))
-
-	hash := sha256.New()
-	hash.Write(data)
-	c.Assert(fmt.Sprintf("%x", hash.Sum(nil)), gc.Equals, tools.SHA256)
-}
-
-// TODO(juju4) - remove
-func (s *toolsSuite) TestDownloadAgentOldRequest(c *gc.C) {
-	tools := s.storeFakeTools(c, s.State, "abc", binarystorage.Metadata{
-		Version: "2.8.9-ubuntu-amd64",
-		Size:    3,
-		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
-	})
-	resp := s.downloadRequest(c, version.MustParseBinary("2.8.9-focal-amd64"), s.State.ModelUUID())
-	defer resp.Body.Close()
-	data, err := ioutil.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.HasLen, int(tools.Size))
-
-	hash := sha256.New()
-	hash.Write(data)
-	c.Assert(fmt.Sprintf("%x", hash.Sum(nil)), gc.Equals, tools.SHA256)
-}
-
-// TODO(juju4) - remove
-func (s *toolsSuite) TestDownloadSeriesAgentOldRequest(c *gc.C) {
-	tools := s.storeFakeTools(c, s.State, "abc", binarystorage.Metadata{
-		Version: "2.8.9-bionic-amd64",
-		Size:    3,
-		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
-	})
-	resp := s.downloadRequest(c, version.MustParseBinary("2.8.9-focal-amd64"), s.State.ModelUUID())
-	defer resp.Body.Close()
-	data, err := ioutil.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.HasLen, int(tools.Size))
-
-	hash := sha256.New()
-	hash.Write(data)
-	c.Assert(fmt.Sprintf("%x", hash.Sum(nil)), gc.Equals, tools.SHA256)
 }
 
 func (s *toolsSuite) TestDownloadOtherModelUUIDPath(c *gc.C) {

@@ -72,7 +72,7 @@ type machineStatus struct {
 	DisplayName        string                        `json:"display-name,omitempty" yaml:"display-name,omitempty"`
 	MachineStatus      statusInfoContents            `json:"machine-status,omitempty" yaml:"machine-status,omitempty"`
 	ModificationStatus statusInfoContents            `json:"modification-status,omitempty" yaml:"modification-status,omitempty"`
-	Series             string                        `json:"series" yaml:"series"`
+	Base               *formattedBase                `json:"base,omitempty" yaml:"base,omitempty"`
 	Id                 string                        `json:"-" yaml:"-"`
 	NetworkInterfaces  map[string]networkInterface   `json:"network-interfaces,omitempty" yaml:"network-interfaces,omitempty"`
 	Containers         map[string]machineStatus      `json:"containers,omitempty" yaml:"containers,omitempty"`
@@ -117,11 +117,9 @@ type lxdProfileContents struct {
 }
 
 type applicationStatus struct {
-	Err   error  `json:"-" yaml:",omitempty"`
-	Charm string `json:"charm" yaml:"charm"`
-	// TODO(juju3) - remove series and os
-	Series           string                `json:"series" yaml:"series"`
-	OS               string                `json:"os" yaml:"os"`
+	Err              error                 `json:"-" yaml:",omitempty"`
+	Charm            string                `json:"charm" yaml:"charm"`
+	Base             *formattedBase        `json:"base,omitempty" yaml:"base,omitempty"`
 	CharmOrigin      string                `json:"charm-origin" yaml:"charm-origin"`
 	CharmName        string                `json:"charm-name" yaml:"charm-name"`
 	CharmRev         int                   `json:"charm-rev" yaml:"charm-rev"`
@@ -140,6 +138,11 @@ type applicationStatus struct {
 	Units            map[string]unitStatus `json:"units,omitempty" yaml:"units,omitempty"`
 	Version          string                `json:"version,omitempty" yaml:"version,omitempty"`
 	EndpointBindings map[string]string     `json:"endpoint-bindings,omitempty" yaml:"endpoint-bindings,omitempty"`
+}
+
+type formattedBase struct {
+	Name    string `json:"name" yaml:"name"`
+	Channel string `json:"channel" yaml:"channel"`
 }
 
 type applicationStatusNoMarshal applicationStatus

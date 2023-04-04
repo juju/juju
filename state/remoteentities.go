@@ -7,11 +7,11 @@ import (
 	"encoding/json"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
-	jujutxn "github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/utils/v3"
 	"gopkg.in/macaroon.v2"
 )
@@ -159,11 +159,18 @@ func (r *RemoteEntities) ImportRemoteEntity(entity names.Tag, token string) erro
 			if remoteEntity.Token == token {
 				return nil, jujutxn.ErrNoOperations
 			}
-			// Token already exists, so remove first.
-			ops = append(ops, r.removeRemoteEntityOps(entity)...)
+			// Token already exists; update.
+			return []txn.Op{{
+				C:      remoteEntitiesC,
+				Id:     entity.String(),
+				Assert: txn.DocExists,
+				Update: bson.D{
+					{"$set", bson.D{{"token", token}}},
+					{"$unset", bson.D{{"macaroon", nil}}},
+				},
+			}}, nil
 		}
-		ops = append(ops, r.importRemoteEntityOps(entity, token)...)
-		return ops, nil
+		return r.importRemoteEntityOps(entity, token), nil
 	}
 	err := r.st.db().Run(buildTxn)
 	return errors.Annotatef(err, "recording reference to %s", names.ReadableString(entity))

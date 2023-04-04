@@ -22,7 +22,7 @@ type ResumeRelationSuite struct {
 
 func (s *ResumeRelationSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.mockAPI = &mockResumeAPI{Stub: &testing.Stub{}, version: 6}
+	s.mockAPI = &mockResumeAPI{Stub: &testing.Stub{}}
 	s.mockAPI.setRelationSuspendedFunc = func(relationIds []int, suspended bool, message string) error {
 		return s.mockAPI.NextErr()
 	}
@@ -44,13 +44,6 @@ func (s *ResumeRelationSuite) TestResumeRelationInvalidArguments(c *gc.C) {
 	// argument not an integer
 	err = s.runResumeRelation(c, "application1")
 	c.Assert(err, gc.ErrorMatches, `relation ID "application1" not valid`)
-}
-
-func (s *ResumeRelationSuite) TestResumeRelationIdOldServer(c *gc.C) {
-	s.mockAPI.version = 4
-	err := s.runResumeRelation(c, "123")
-	c.Assert(err, gc.ErrorMatches, "resuming a relation is not supported by this version of Juju")
-	s.mockAPI.CheckCall(c, 0, "Close")
 }
 
 func (s *ResumeRelationSuite) TestResumeRelationSuccess(c *gc.C) {
@@ -79,7 +72,6 @@ func (s *ResumeRelationSuite) TestResumeRelationBlocked(c *gc.C) {
 
 type mockResumeAPI struct {
 	*testing.Stub
-	version                  int
 	setRelationSuspendedFunc func(relationIds []int, suspended bool, message string) error
 }
 
@@ -91,8 +83,4 @@ func (s mockResumeAPI) Close() error {
 func (s mockResumeAPI) SetRelationSuspended(relationIds []int, suspended bool, message string) error {
 	s.MethodCall(s, "SetRelationSuspended", relationIds, suspended, message)
 	return s.setRelationSuspendedFunc(relationIds, suspended, message)
-}
-
-func (s mockResumeAPI) BestAPIVersion() int {
-	return s.version
 }

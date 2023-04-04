@@ -4,13 +4,14 @@
 package state
 
 import (
-	"github.com/juju/description/v3"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/secrets"
 )
 
 // Migration import tasks provide a boundary of isolation between the
@@ -494,6 +495,129 @@ func (ImportExternalControllers) Execute(src ExternalControllersInput, runner Tr
 			return errors.Trace(err)
 		}
 		ops[i] = src.MakeExternalControllerOp(doc, existing)
+	}
+
+	if err := runner.RunTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// SecretsDescription defines an in-place usage for reading secrets.
+type SecretsDescription interface {
+	Secrets() []description.Secret
+}
+
+// SecretsInput describes the input used for migrating secrets.
+type SecretsInput interface {
+	DocModelNamespace
+	SecretsDescription
+}
+
+// ImportSecrets describes a way to import secrets from a
+// description.
+type ImportSecrets struct{}
+
+// Execute the import on the secrets description, carefully modelling
+// the dependencies we have.
+func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner) error {
+	allSecrets := src.Secrets()
+	if len(allSecrets) == 0 {
+		return nil
+	}
+
+	var ops []txn.Op
+	for _, secret := range allSecrets {
+		uri := &secrets.URI{ID: secret.Id()}
+		docID := src.DocID(secret.Id())
+		owner, err := secret.Owner()
+		if err != nil {
+			return errors.Annotatef(err, "invalid owner for secret %q", secret.Id())
+		}
+		ops = append(ops, txn.Op{
+			C:      secretMetadataC,
+			Id:     docID,
+			Assert: txn.DocMissing,
+			Insert: secretMetadataDoc{
+				DocID:            docID,
+				Version:          secret.Version(),
+				OwnerTag:         owner.String(),
+				Description:      secret.Description(),
+				Label:            secret.Label(),
+				LatestRevision:   secret.LatestRevision(),
+				LatestExpireTime: secret.LatestExpireTime(),
+				RotatePolicy:     secret.RotatePolicy(),
+				CreateTime:       secret.Created(),
+				UpdateTime:       secret.Updated(),
+			},
+		})
+		if secret.NextRotateTime() != nil {
+			nextRotateTime := secret.NextRotateTime()
+			ops = append(ops, txn.Op{
+				C:      secretRotateC,
+				Id:     docID,
+				Assert: txn.DocMissing,
+				Insert: secretRotationDoc{
+					DocID:          docID,
+					NextRotateTime: *nextRotateTime,
+				},
+			})
+		}
+		for _, rev := range secret.Revisions() {
+			key := secretRevisionKey(uri, rev.Number())
+			dataCopy := make(secretsDataMap)
+			for k, v := range rev.Content() {
+				dataCopy[k] = v
+			}
+			ops = append(ops, txn.Op{
+				C:      secretRevisionsC,
+				Id:     key,
+				Assert: txn.DocMissing,
+				Insert: secretRevisionDoc{
+					DocID:      key,
+					Revision:   rev.Number(),
+					CreateTime: rev.Created(),
+					UpdateTime: rev.Updated(),
+					ExpireTime: rev.ExpireTime(),
+					Obsolete:   rev.Obsolete(),
+					Data:       dataCopy,
+					OwnerTag:   owner.String(),
+				},
+			})
+		}
+		for subject, access := range secret.ACL() {
+			key := secretConsumerKey(uri.ID, subject)
+			ops = append(ops, txn.Op{
+				C:      secretPermissionsC,
+				Id:     key,
+				Assert: txn.DocMissing,
+				Insert: secretPermissionDoc{
+					DocID:   key,
+					Subject: subject,
+					Scope:   access.Scope(),
+					Role:    access.Role(),
+				},
+			})
+		}
+		for _, info := range secret.Consumers() {
+			consumer, err := info.Consumer()
+			if err != nil {
+				return errors.Annotatef(err, "invalid consumer for secret %q", secret.Id())
+			}
+			key := secretConsumerKey(uri.ID, consumer.String())
+			ops = append(ops, txn.Op{
+				C:      secretConsumersC,
+				Id:     key,
+				Assert: txn.DocMissing,
+				Insert: secretConsumerDoc{
+					DocID:           key,
+					ConsumerTag:     consumer.String(),
+					Label:           info.Label(),
+					CurrentRevision: info.CurrentRevision(),
+					LatestRevision:  info.LatestRevision(),
+				},
+			})
+		}
 	}
 
 	if err := runner.RunTransaction(ops); err != nil {

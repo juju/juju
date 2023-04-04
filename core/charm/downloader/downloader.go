@@ -5,12 +5,11 @@ package downloader
 
 import (
 	"io"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"strings"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
 	"gopkg.in/macaroon.v2"
@@ -51,7 +50,7 @@ type Storage interface {
 	Store(*charm.URL, DownloadedCharm) error
 }
 
-// DownloadResult encapsulates the details of a downloaded charm.
+// DownloadedCharm encapsulates the details of a downloaded charm.
 type DownloadedCharm struct {
 	// Charm provides information about the charm contents.
 	Charm charm.Charm
@@ -146,7 +145,7 @@ func (d *Downloader) DownloadAndStore(charmURL *charm.URL, requestedOrigin corec
 	}
 
 	// Download charm blob to a temp file
-	tmpFile, err := ioutil.TempFile("", charmURL.Name)
+	tmpFile, err := os.CreateTemp("", charmURL.Name)
 	if err != nil {
 		return corecharm.Origin{}, errors.Trace(err)
 	}

@@ -5,8 +5,6 @@
 package providerinit_test
 
 import (
-	"encoding/base64"
-	"fmt"
 	"path"
 
 	"github.com/juju/names/v4"
@@ -18,13 +16,13 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/provider/openstack"
@@ -121,26 +119,22 @@ func (s *CloudInitSuite) TestFinishInstanceConfigNonDefault(c *gc.C) {
 }
 
 func (s *CloudInitSuite) TestUserData(c *gc.C) {
-	s.testUserData(c, "quantal", false)
+	s.testUserData(c, coreseries.MakeDefaultBase("ubuntu", "22.04"), false)
 }
 
 func (s *CloudInitSuite) TestControllerUserData(c *gc.C) {
-	s.testUserData(c, "quantal", true)
+	s.testUserData(c, coreseries.MakeDefaultBase("ubuntu", "22.04"), true)
 }
 
-func (s *CloudInitSuite) TestControllerUserDataPrecise(c *gc.C) {
-	s.testUserData(c, "precise", true)
-}
-
-func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
+func (*CloudInitSuite) testUserData(c *gc.C, base coreseries.Base, bootstrap bool) {
 	// Use actual series paths instead of local defaults
-	logDir := paths.LogDir(paths.SeriesToOS(series))
-	metricsSpoolDir := paths.MetricsSpoolDir(paths.SeriesToOS(series))
-	dataDir := paths.DataDir(paths.SeriesToOS(series))
+	logDir := paths.LogDir(paths.OSType(base.OS))
+	metricsSpoolDir := paths.MetricsSpoolDir(paths.OSType(base.OS))
+	dataDir := paths.DataDir(paths.OSType(base.OS))
 	toolsList := tools.List{
 		&tools.Tools{
 			URL:     "http://tools.testing/tools/released/juju.tgz",
-			Version: version.Binary{version.MustParse("1.2.3"), "quantal", "amd64"},
+			Version: version.Binary{version.MustParse("1.2.3"), "jammy", "amd64"},
 		},
 	}
 	envConfig, err := config.New(config.NoDefaults, dummySampleConfig())
@@ -154,7 +148,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 		ControllerTag: testing.ControllerTag,
 		MachineId:     "10",
 		MachineNonce:  "5432",
-		Series:        series,
+		Base:          base,
 		APIInfo: &api.Info{
 			Addrs:    []string{"127.0.0.1:1234"},
 			Password: "pw2",
@@ -193,7 +187,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 	}
 	script1 := "script1"
 	script2 := "script2"
-	cloudcfg, err := cloudinit.New(series)
+	cloudcfg, err := cloudinit.New(base.OS)
 	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg.AddRunCmd(script1)
 	cloudcfg.AddRunCmd(script2)
@@ -225,20 +219,10 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 				"mkdir /tmp/preruncmd2",
 				"script1", "script2",
 				"set -xe",
-				"install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown.conf'",
-				"echo '\nauthor \"Juju Team <juju@lists.ubuntu.com>\"\ndescription \"Stop all network interfaces on shutdown\"\nstart on runlevel [016]\ntask\nconsole output\n\nexec /sbin/ifdown -a -v --force\n' > '/etc/init/juju-clean-shutdown.conf'",
 				"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
 				"echo '5432' > '/var/lib/juju/nonce.txt'",
 			},
-		}
-		// OSType with old cloudinit versions don't support adding
-		// users so need the old way to set SSH authorized keys.
-		if series == "precise" {
-			expected["ssh_authorized_keys"] = []interface{}{
-				"wheredidileavemykeys",
-			}
-		} else {
-			expected["users"] = []interface{}{
+			"users": []interface{}{
 				map[interface{}]interface{}{
 					"name":        "ubuntu",
 					"lock_passwd": true,
@@ -250,7 +234,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 					"sudo":                "ALL=(ALL) NOPASSWD:ALL",
 					"ssh_authorized_keys": []interface{}{"wheredidileavemykeys"},
 				},
-			}
+			},
 		}
 		c.Check(config, jc.DeepEquals, expected)
 	} else {
@@ -269,65 +253,6 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 			`mkdir /tmp/postruncmd2`,
 		})
 	}
-}
-
-func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
-	series := "win8"
-	metricsSpoolDir := paths.MetricsSpoolDir(paths.SeriesToOS(series))
-	toolsList := tools.List{
-		&tools.Tools{
-			URL:     "http://foo.com/tools/released/juju1.2.3-windows-amd64.tgz",
-			Version: version.MustParseBinary("1.2.3-windows-amd64"),
-			Size:    10,
-			SHA256:  "1234",
-		},
-	}
-	dataDir := paths.DataDir(paths.SeriesToOS(series))
-	logDir := paths.LogDir(paths.SeriesToOS(series))
-
-	cfg := instancecfg.InstanceConfig{
-		ControllerTag:    testing.ControllerTag,
-		MachineId:        "10",
-		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
-		Series:           series,
-		Jobs:             []model.MachineJob{model.JobHostUnits},
-		MachineNonce:     "FAKE_NONCE",
-		APIInfo: &api.Info{
-			Addrs:    []string{"state-addr.testing.invalid:54321"},
-			Password: "bletch",
-			CACert:   "CA CERT\n" + testing.CACert,
-			Tag:      names.NewMachineTag("10"),
-			ModelTag: testing.ModelTag,
-		},
-		MachineAgentServiceName: "jujud-machine-10",
-		DataDir:                 dataDir,
-		LogDir:                  path.Join(logDir, "juju"),
-		MetricsSpoolDir:         metricsSpoolDir,
-		CloudInitOutputLog:      path.Join(logDir, "cloud-init-output.log"),
-	}
-	err := cfg.SetTools(toolsList)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ci, err := cloudinit.New("win8")
-	c.Assert(err, jc.ErrorIsNil)
-
-	udata, err := cloudconfig.NewUserdataConfig(&cfg, ci)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = udata.Configure()
-	c.Assert(err, jc.ErrorIsNil)
-
-	data, err := ci.RenderYAML()
-	c.Assert(err, jc.ErrorIsNil)
-
-	cicompose, err := cloudinit.New("win8")
-	c.Assert(err, jc.ErrorIsNil)
-
-	base64Data := base64.StdEncoding.EncodeToString(utils.Gzip(data))
-	got := []byte(fmt.Sprintf(cloudconfig.UserDataScript, base64Data))
-	expected, err := providerinit.ComposeUserData(&cfg, cicompose, openstack.OpenstackRenderer{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(got), gc.Equals, string(expected))
 }
 
 var validCloudInitUserData = `

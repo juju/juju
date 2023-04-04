@@ -7,7 +7,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/juju/cmd/v3"
@@ -46,8 +48,9 @@ type initCommand struct {
 	// the container agent.
 	containerAgentPebbleDir string
 
-	dataDir string
-	binDir  string
+	dataDir      string
+	binDir       string
+	isController bool
 }
 
 // ApplicationAPI provides methods for unit introduction.
@@ -60,7 +63,7 @@ type ApplicationAPI interface {
 func New() cmd.Command {
 	return &initCommand{
 		config:           defaultConfig,
-		identity:         defaultIdentity,
+		identity:         identityFromK8sMetadata,
 		fileReaderWriter: utils.NewFileReaderWriter(),
 		environment:      utils.NewEnvironment(),
 	}
@@ -72,6 +75,7 @@ func (c *initCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.charmModifiedVersion, "charm-modified-version", "", "charm modified version for update hook")
 	f.StringVar(&c.dataDir, "data-dir", "", "directory for juju data")
 	f.StringVar(&c.binDir, "bin-dir", "", "copy juju binaries to this directory")
+	f.BoolVar(&c.isController, "controller", false, "set when the charm is colocated with the controller")
 }
 
 // Info returns a description of the command.
@@ -106,8 +110,25 @@ func (c *initCommand) Init(args []string) error {
 	return c.CommandBase.Init(args)
 }
 
-func (c *initCommand) Run(ctx *cmd.Context) error {
+func (c *initCommand) Run(ctx *cmd.Context) (err error) {
 	ctx.Infof("starting containeragent init command")
+
+	defer func() {
+		if err == nil {
+			err = c.writeContainerAgentPebbleConfig()
+		}
+		if err == nil {
+			err = c.copyBinaries()
+		}
+	}()
+
+	// If the agent conf already exists, no need to do the unit introduction.
+	// TODO(wallyworld) - we may need to revisit this when we support stateless workloads.
+	templateConfigPath := path.Join(c.dataDir, k8sconstants.TemplateFileNameAgentConf)
+	_, err = c.fileReaderWriter.Stat(templateConfigPath)
+	if err == nil || !os.IsNotExist(err) {
+		return errors.Trace(err)
+	}
 
 	applicationAPI, err := c.getApplicationAPI()
 	if err != nil {
@@ -115,7 +136,10 @@ func (c *initCommand) Run(ctx *cmd.Context) error {
 	}
 	defer func() { _ = applicationAPI.Close() }()
 
-	identity := c.identity()
+	identity, err := c.identity()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	unitConfig, err := applicationAPI.UnitIntroduction(identity.PodName, identity.PodUUID)
 	if err != nil {
 		return errors.Trace(err)
@@ -125,12 +149,15 @@ func (c *initCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	templateConfigPath := path.Join(c.dataDir, k8sconstants.TemplateFileNameAgentConf)
 	if err = c.fileReaderWriter.WriteFile(templateConfigPath, unitConfig.AgentConf, 0644); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err = c.fileReaderWriter.MkdirAll(c.binDir, 0755); err != nil {
+	return nil
+}
+
+func (c *initCommand) copyBinaries() error {
+	if err := c.fileReaderWriter.MkdirAll(c.binDir, 0755); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -157,23 +184,28 @@ func (c *initCommand) Run(ctx *cmd.Context) error {
 		})
 	}
 
-	if err := c.ContainerAgentPebbleConfig(); err != nil {
-		return err
-	}
-
 	doCopy("/opt/pebble", path.Join(c.binDir, "pebble"))
 	doCopy("/opt/containeragent", path.Join(c.binDir, "containeragent"))
 	doCopy("/opt/jujuc", path.Join(c.binDir, "jujuc"))
 	return eg.Wait()
 }
 
-// ContainerAgentPebbleConfig is responsible for generating the container agent
+// writeContainerAgentPebbleConfig is responsible for generating the container agent
 // pebble service configuration.
-func (c *initCommand) ContainerAgentPebbleConfig() error {
-	extraArgs := ""
+func (c *initCommand) writeContainerAgentPebbleConfig() error {
+	extraArgs := []string{}
 	// If we actually have the charmModifiedVersion let's add it the args.
 	if c.charmModifiedVersion != "" {
-		extraArgs = "--charm-modified-version " + c.charmModifiedVersion
+		extraArgs = append(extraArgs, "--charm-modified-version", c.charmModifiedVersion)
+	}
+
+	if c.isController {
+		extraArgs = append(extraArgs, "--controller")
+	}
+
+	onCheckFailureAction := plan.ActionShutdown
+	if c.isController {
+		onCheckFailureAction = plan.ActionRestart
 	}
 
 	containerAgentLayer := plan.Layer{
@@ -186,10 +218,10 @@ func (c *initCommand) ContainerAgentPebbleConfig() error {
 					path.Join(c.binDir, "containeragent"),
 					c.dataDir,
 					c.binDir,
-					extraArgs),
+					strings.Join(extraArgs, " ")),
 				Startup: plan.StartupEnabled,
 				OnCheckFailure: map[string]plan.ServiceAction{
-					"liveness":  plan.ActionShutdown,
+					"liveness":  onCheckFailureAction,
 					"readiness": plan.ActionIgnore,
 				},
 				Environment: map[string]string{

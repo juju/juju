@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/constraints"
@@ -21,8 +21,8 @@ import (
 // MachineTemplate holds attributes that are to be associated
 // with a newly created machine.
 type MachineTemplate struct {
-	// Series is the series to be associated with the new machine.
-	Series string
+	// Base is the base to be associated with the new machine.
+	Base Base
 
 	// Constraints are the constraints to be used when finding
 	// an instance for the machine.
@@ -130,10 +130,10 @@ func (st *State) AddMachineInsideMachine(template MachineTemplate, parentId stri
 
 // AddMachine adds a machine with the given series and jobs.
 // It is deprecated and around for testing purposes only.
-func (st *State) AddMachine(series string, jobs ...MachineJob) (*Machine, error) {
+func (st *State) AddMachine(base Base, jobs ...MachineJob) (*Machine, error) {
 	ms, err := st.AddMachines(MachineTemplate{
-		Series: series,
-		Jobs:   jobs,
+		Base: base,
+		Jobs: jobs,
 	})
 	if err != nil {
 		return nil, err
@@ -219,8 +219,8 @@ func (st *State) resolveMachineConstraints(cons constraints.Value) (constraints.
 // represents the data that will be inserted into the state.
 func (st *State) effectiveMachineTemplate(p MachineTemplate, allowController bool) (tmpl MachineTemplate, err error) {
 	// First check for obvious errors.
-	if p.Series == "" {
-		return tmpl, errors.New("no series specified")
+	if p.Base.String() == "" {
+		return tmpl, errors.New("no base specified")
 	}
 	if p.InstanceId != "" {
 		if p.Nonce == "" {
@@ -270,7 +270,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 			return nil, nil, err
 		}
 		if err := st.precheckInstance(
-			template.Series,
+			template.Base,
 			template.Constraints,
 			template.Placement,
 			volumeAttachments,
@@ -426,7 +426,7 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 			return nil, nil, err
 		}
 		if err := st.precheckInstance(
-			parentTemplate.Series,
+			parentTemplate.Base,
 			parentTemplate.Constraints,
 			parentTemplate.Placement,
 			volumeAttachments,
@@ -506,11 +506,12 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 		"new machine %q has preferred addresses: private %q, public %q",
 		id, privateAddr, publicAddr,
 	)
+	base := template.Base.Normalise()
 	return &machineDoc{
 		DocID:                   st.docID(id),
 		Id:                      id,
 		ModelUUID:               st.ModelUUID(),
-		Series:                  template.Series,
+		Base:                    base,
 		Jobs:                    template.Jobs,
 		Clean:                   !template.Dirty,
 		Principals:              template.principals,

@@ -6,8 +6,7 @@ package state_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn/v2"
-	jujutxn "github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
@@ -36,7 +35,7 @@ func (s *MachinePortsDocSuite) SetUpTest(c *gc.C) {
 
 	s.charm = s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 	s.application = s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: s.charm})
-	s.machine = s.Factory.MakeMachine(c, &factory.MachineParams{Series: "quantal"})
+	s.machine = s.Factory.MakeMachine(c, &factory.MachineParams{Base: state.UbuntuBase("12.10")})
 	s.unit1 = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.application, Machine: s.machine})
 	s.unit2 = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.application, Machine: s.machine})
 
@@ -111,7 +110,7 @@ func (s *MachinePortsDocSuite) TestModelAllOpenPortRanges(c *gc.C) {
 	s.mustOpenCloseMachinePorts(c, s.machPortRanges, s.unit2.Name(), allEndpoints, toOpen[1:2], nil)
 
 	// Add a second machine with another unit and open the last port range
-	mach2 := s.Factory.MakeMachine(c, &factory.MachineParams{Series: "quantal"})
+	mach2 := s.Factory.MakeMachine(c, &factory.MachineParams{Base: state.UbuntuBase("12.10")})
 	unit3 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.application, Machine: mach2})
 	mach2Ports, err := mach2.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
@@ -421,7 +420,7 @@ func (s *MachinePortsDocSuite) TestWatchMachinePorts(c *gc.C) {
 	c.Assert(w, gc.NotNil)
 
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc := statetesting.NewStringsWatcherC(c, w)
 	// The first change we get is an empty one, as there are no ports
 	// opened yet and we need an initial event for the API watcher to
 	// work.
@@ -523,5 +522,5 @@ func (s *MachinePortsDocSuite) TestChangesForIndividualUnits(c *gc.C) {
 	// Verify that if we call changes on the machine ports instance we
 	// get no ops as everything has been committed.
 	_, err = s.machPortRanges.Changes().Build(0)
-	c.Assert(err, gc.Equals, txn.ErrNoOperations, gc.Commentf("machine port range was not synced correctly after applying changes"))
+	c.Assert(err, gc.Equals, jujutxn.ErrNoOperations, gc.Commentf("machine port range was not synced correctly after applying changes"))
 }

@@ -6,7 +6,7 @@ package application_test
 import (
 	"fmt"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/controller"
+	corecharm "github.com/juju/juju/core/charm"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -49,6 +50,20 @@ func (s *DeployLocalSuite) SetUpTest(c *gc.C) {
 	s.charm = charm
 }
 
+func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
+	ch := s.AddTestingCharm(c, "juju-controller")
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = application.DeployApplication(stateDeployer{s.State},
+		model,
+		application.DeployApplicationParams{
+			ApplicationName: "my-controller",
+			Charm:           ch,
+			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
+		})
+	c.Assert(err, gc.ErrorMatches, "manual deploy of the controller charm not supported")
+}
+
 func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -57,7 +72,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			Series:          "bionic",
+			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharm(c, app, s.charm.URL())
@@ -67,7 +82,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 	s.assertMachines(c, app, constraints.Value{})
 }
 
-func (s *DeployLocalSuite) TestDeploySeries(c *gc.C) {
+func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
 	var f fakeDeployer
 
 	model, err := s.State.Model()
@@ -78,13 +93,14 @@ func (s *DeployLocalSuite) TestDeploySeries(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			Series:          "bionic",
+			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(f.args.Name, gc.Equals, "bob")
 	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
-	c.Assert(f.args.Series, gc.Equals, "bionic")
+	c.Assert(f.args.CharmOrigin, jc.DeepEquals, &state.CharmOrigin{
+		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04"}})
 }
 
 func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
@@ -99,7 +115,7 @@ func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
 			ApplicationName:  "bob",
 			Charm:            wordpressCharm,
 			EndpointBindings: nil,
-			Series:           "bionic",
+			CharmOrigin:      corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -160,11 +176,11 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
-			Series:          "bionic",
 			EndpointBindings: map[string]string{
 				"":   publicSpace.Id(),
 				"db": dbSpace.Id(),
 			},
+			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -201,13 +217,13 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
-			Series:          "bionic",
 			EndpointBindings: map[string]string{
 				"":          publicSpace.Id(),
 				"db":        dbSpace.Id(),
 				"db-client": dbSpace.Id(),
 				"admin-api": internalSpace.Id(),
 			},
+			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -241,11 +257,11 @@ func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
-			Series:          "bionic",
 			EndpointBindings: map[string]string{
 				"":   publicSpace.Id(),
 				"db": "42", //unknown space id
 			},
+			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "bob": space not found`)
 	c.Check(app, gc.IsNil)
@@ -265,11 +281,11 @@ func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			Series:          "bionic",
 			EndpointBindings: map[string]string{
 				"": "public",
 			},
-			Resources: map[string]string{"foo": "bar"},
+			Resources:   map[string]string{"foo": "bar"},
+			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -287,11 +303,11 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			Series:          "bionic",
 			CharmConfig: charm.Settings{
 				"title":       "banana cupcakes",
 				"skill-level": 9901,
 			},
+			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertSettings(c, app, charm.Settings{
@@ -309,10 +325,10 @@ func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			Series:          "bionic",
 			CharmConfig: charm.Settings{
 				"skill-level": 99.01,
 			},
+			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
 	c.Assert(err, gc.ErrorMatches, `option "skill-level" expected int, got 99.01`)
 	_, err = s.State.Application("bob")
@@ -344,8 +360,8 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName:   "bob",
 			Charm:             s.charm,
-			Series:            "bionic",
 			ApplicationConfig: cfg,
+			CharmOrigin:       corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationConfig(c, app, coreconfig.ConfigAttributes{
@@ -367,8 +383,8 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			Series:          "bionic",
 			Constraints:     applicationCons,
+			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertConstraints(c, app, constraints.MustParse("cores=2 arch=amd64"))
@@ -386,9 +402,9 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			Series:          "bionic",
 			Constraints:     applicationCons,
 			NumUnits:        2,
+			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -410,10 +426,10 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			Series:          "bionic",
 			Constraints:     applicationCons,
 			NumUnits:        1,
 			Placement:       []*instance.Placement{instance.MustParsePlacement("0")},
+			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -437,10 +453,10 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			Series:          "bionic",
 			Constraints:     applicationCons,
 			NumUnits:        1,
 			Placement:       []*instance.Placement{instance.MustParsePlacement(fmt.Sprintf("%s:0", instance.LXD))},
+			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.args.Name, gc.Equals, "bob")
@@ -469,10 +485,10 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			Series:          "bionic",
 			Constraints:     applicationCons,
 			NumUnits:        4,
 			Placement:       placement,
+			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -499,8 +515,8 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "assume-metal",
 			Charm:           charm,
-			Series:          "bionic",
 			NumUnits:        1,
+			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
 	c.Assert(err, gc.ErrorMatches, "(?m).*Charm feature requirements cannot be met.*")
 }
@@ -521,9 +537,9 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C)
 		application.DeployApplicationParams{
 			ApplicationName: "assume-metal",
 			Charm:           charm,
-			Series:          "bionic",
 			NumUnits:        1,
 			Force:           true, // bypass assumes checks
+			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -541,10 +557,10 @@ func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			Series:          "bionic",
 			Constraints:     applicationCons,
 			NumUnits:        3,
 			Placement:       placement,
+			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.args.Name, gc.Equals, "bob")

@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/gate"
 	workerstate "github.com/juju/juju/worker/state"
@@ -42,13 +41,13 @@ type ManifoldConfig struct {
 	ModelCacheName         string
 	MultiwatcherName       string
 	MuxName                string
-	RestoreStatusName      string
 	StateName              string
 	UpgradeGateName        string
 	AuditConfigUpdaterName string
 	LeaseManagerName       string
 	RaftTransportName      string
 	SyslogName             string
+	CharmhubHTTPClientName string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -80,9 +79,6 @@ func (config ManifoldConfig) Validate() error {
 	if config.MuxName == "" {
 		return errors.NotValidf("empty MuxName")
 	}
-	if config.RestoreStatusName == "" {
-		return errors.NotValidf("empty RestoreStatusName")
-	}
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
 	}
@@ -106,6 +102,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.SyslogName == "" {
 		return errors.NotValidf("empty SyslogName")
+	}
+	if config.CharmhubHTTPClientName == "" {
+		return errors.NotValidf("nil CharmhubHTTPClientName")
 	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
@@ -137,13 +136,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ModelCacheName,
 			config.MultiwatcherName,
 			config.MuxName,
-			config.RestoreStatusName,
 			config.StateName,
 			config.UpgradeGateName,
 			config.AuditConfigUpdaterName,
 			config.LeaseManagerName,
 			config.RaftTransportName,
 			config.SyslogName,
+			config.CharmhubHTTPClientName,
 		},
 		Start: config.start,
 	}
@@ -172,11 +171,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	var authenticator httpcontext.LocalMacaroonAuthenticator
 	if err := context.Get(config.AuthenticatorName, &authenticator); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var restoreStatus func() state.RestoreStatus
-	if err := context.Get(config.RestoreStatusName, &restoreStatus); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -222,6 +216,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var charmhubHTTPClient HTTPClient
+	if err := context.Get(config.CharmhubHTTPClientName, &charmhubHTTPClient); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Register the metrics collector against the prometheus register.
 	metricsCollector := config.NewMetricsCollector()
 	if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
@@ -249,7 +248,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		MultiwatcherFactory:               factory,
 		LeaseManager:                      leaseManager,
 		RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
-		RestoreStatus:                     restoreStatus,
 		UpgradeComplete:                   upgradeLock.IsUnlocked,
 		Hub:                               config.Hub,
 		Presence:                          config.Presence,
@@ -260,6 +258,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		EmbeddedCommand:                   execEmbeddedCommand,
 		RaftOpQueue:                       config.RaftOpQueue,
 		SysLogger:                         sysLogger,
+		CharmhubHTTPClient:                charmhubHTTPClient,
 	})
 	if err != nil {
 		_ = stTracker.Done()

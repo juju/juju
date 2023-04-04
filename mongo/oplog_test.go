@@ -8,9 +8,9 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	mgotesting "github.com/juju/mgo/v2/testing"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/arch"
 	gc "gopkg.in/check.v1"
@@ -227,11 +227,7 @@ func (s *oplogSuite) TestNewMongoTimestampBeforeUnixEpoch(c *gc.C) {
 }
 
 func (s *oplogSuite) startMongoWithReplicaset(c *gc.C) (*mgotesting.MgoInstance, *mgo.Session) {
-	inst := &mgotesting.MgoInstance{
-		Params: []string{
-			"--replSet", "juju",
-		},
-	}
+	inst := &mgotesting.MgoInstance{EnableReplicaSet: true}
 	err := inst.Start(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { inst.Destroy() })

@@ -6,7 +6,6 @@ package backups
 import (
 	"bytes"
 	"io"
-	"strings"
 	"text/template"
 	"time"
 
@@ -45,7 +44,7 @@ func (c *CommandBase) NewAPIClient() (APIClient, error) {
 }
 
 // NewGetAPI returns a client for the backups api endpoint.
-func (c *CommandBase) NewGetAPI() (APIClient, int, error) {
+func (c *CommandBase) NewGetAPI() (APIClient, error) {
 	return getAPI(c)
 }
 
@@ -88,20 +87,19 @@ var newAPIClient = func(c *CommandBase) (APIClient, error) {
 }
 
 // GetAPI returns a client and the api version of the controller
-var getAPI = func(c *CommandBase) (APIClient, int, error) {
+var getAPI = func(c *CommandBase) (APIClient, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
-		return nil, -1, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	version := root.BestFacadeVersion("Backups")
 	client := backups.NewClient(root)
-	return client, version, nil
+	return client, nil
 }
 
-var backupMetadataTemplate = `
+const backupMetadataTemplate = `
 backup format version: {{.FormatVersion}} 
 juju version:          {{.JujuVersion}} 
-series:                {{.Series}} 
+base:                  {{.Base}} 
 
 controller UUID:       {{.ControllerUUID}}{{if (gt .HANodes 1)}} 
 controllers in HA:     {{.HANodes}}{{end}}
@@ -134,16 +132,10 @@ type MetadataParams struct {
 	MachineID      string
 	Hostname       string
 	JujuVersion    version.Number
-	// TODO(juju3) - remove series
-	Series string
-	Base   string
+	Base           string
 }
 
 func (c *CommandBase) metadata(result *params.BackupsMetadataResult) string {
-	if result.Series == "" && result.Base != "" {
-		result.Series = result.Base
-		backupMetadataTemplate = strings.ReplaceAll(backupMetadataTemplate, "series:", "base:")
-	}
 	m := MetadataParams{
 		result.FormatVersion,
 		result.Checksum,
@@ -159,7 +151,6 @@ func (c *CommandBase) metadata(result *params.BackupsMetadataResult) string {
 		result.Machine,
 		result.Hostname,
 		result.Version,
-		result.Series,
 		result.Base,
 	}
 	t := template.Must(template.New("template").Parse(backupMetadataTemplate))

@@ -12,3 +12,16 @@ import (
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
+
+func NewAddMachineParamsMachine(id string) AddMachineParams {
+	return AddMachineParams{
+		machineID: id,
+	}
+}
+
+func NewAddMachineParamsContainer(baseMachine, id string) AddMachineParams {
+	return AddMachineParams{
+		machineID:          baseMachine,
+		containerMachineID: id,
+	}
+}

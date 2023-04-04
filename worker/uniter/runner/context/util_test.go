@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -37,13 +38,15 @@ var apiAddrs = []string{"a1:123", "a2:123"}
 // methods should not be added to this type, because they'll get run repeatedly.
 type HookContextSuite struct {
 	testing.JujuConnSuite
-	application *state.Application
-	unit        *state.Unit
-	machine     *state.Machine
-	relch       *state.Charm
-	relunits    map[int]*state.RelationUnit
-	storage     *runnertesting.StorageContextAccessor
-	clock       *testclock.Clock
+	application    *state.Application
+	unit           *state.Unit
+	machine        *state.Machine
+	relch          *state.Charm
+	relunits       map[int]*state.RelationUnit
+	secretMetadata map[string]jujuc.SecretMetadata
+	storage        *runnertesting.StorageContextAccessor
+	secrets        *runnertesting.SecretsContextAccessor
+	clock          *testclock.Clock
 
 	st             api.Connection
 	uniter         *uniter.State
@@ -122,6 +125,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 			},
 		},
 	}
+	s.secrets = &runnertesting.SecretsContextAccessor{}
 
 	s.clock = testclock.NewClock(time.Time{})
 }
@@ -217,6 +221,9 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int, remot
 		ActionData:          nil,
 		AssignedMachineTag:  s.machine.Tag().(names.MachineTag),
 		Storage:             s.storage,
+		SecretMetadata:      s.secretMetadata,
+		SecretsClient:       s.secrets,
+		SecretsStore:        s.secrets,
 		StorageTag:          storageTag,
 		Paths:               runnertesting.NewRealPaths(c),
 		Clock:               s.clock,
@@ -305,6 +312,18 @@ func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx *runnercontext.HookCon
 	az, err := ctx.AvailabilityZone()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(az, gc.Equals, "a-zone")
+
+	info, err := ctx.SecretMetadata()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, gc.HasLen, 1)
+	for id, v := range info {
+		c.Assert(id, gc.Equals, "9m4e2mr0ui3e8a215n4g")
+		c.Assert(v.Label, gc.Equals, "label")
+		c.Assert(v.Owner.String(), gc.Equals, "application-mariadb")
+		c.Assert(v.Description, gc.Equals, "description")
+		c.Assert(v.RotatePolicy, gc.Equals, secrets.RotateHourly)
+		c.Assert(v.LatestRevision, gc.Equals, 666)
+	}
 }
 
 func (s *HookContextSuite) AssertNotActionContext(c *gc.C, ctx *runnercontext.HookContext) {
@@ -358,6 +377,18 @@ func (s *HookContextSuite) AssertWorkloadContext(c *gc.C, ctx *runnercontext.Hoo
 
 func (s *HookContextSuite) AssertNotWorkloadContext(c *gc.C, ctx *runnercontext.HookContext) {
 	workloadName, err := ctx.WorkloadName()
+	c.Assert(err, gc.NotNil)
+	c.Assert(workloadName, gc.Equals, "")
+}
+
+func (s *HookContextSuite) AssertSecretContext(c *gc.C, ctx *runnercontext.HookContext, secretURI, label string) {
+	uri, _ := ctx.SecretURI()
+	c.Assert(uri, gc.Equals, secretURI)
+	c.Assert(ctx.SecretLabel(), gc.Equals, label)
+}
+
+func (s *HookContextSuite) AssertNotSecretContext(c *gc.C, ctx *runnercontext.HookContext) {
+	workloadName, err := ctx.SecretURI()
 	c.Assert(err, gc.NotNil)
 	c.Assert(workloadName, gc.Equals, "")
 }

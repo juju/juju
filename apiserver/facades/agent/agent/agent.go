@@ -22,8 +22,8 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-// AgentAPIV3 implements the version 3 of the API provided to an agent.
-type AgentAPIV3 struct {
+// AgentAPI implements the version 3 of the API provided to an agent.
+type AgentAPI struct {
 	*common.PasswordChanger
 	*common.RebootFlagClearer
 	*common.ModelWatcher
@@ -35,11 +35,7 @@ type AgentAPIV3 struct {
 	resources facade.Resources
 }
 
-type AgentAPIV2 struct {
-	*AgentAPIV3
-}
-
-func (api *AgentAPIV3) GetEntities(args params.Entities) params.AgentGetEntitiesResults {
+func (api *AgentAPI) GetEntities(args params.Entities) params.AgentGetEntitiesResults {
 	results := params.AgentGetEntitiesResults{
 		Entities: make([]params.AgentGetEntitiesResult, len(args.Entities)),
 	}
@@ -56,7 +52,7 @@ func (api *AgentAPIV3) GetEntities(args params.Entities) params.AgentGetEntities
 	return results
 }
 
-func (api *AgentAPIV3) getEntity(tag names.Tag) (result params.AgentGetEntitiesResult, err error) {
+func (api *AgentAPI) getEntity(tag names.Tag) (result params.AgentGetEntitiesResult, err error) {
 	// Allow only for the owner agent.
 	// Note: having a bulk API call for this is utter madness, given that
 	// this check means we can only ever return a single object.
@@ -81,7 +77,7 @@ func (api *AgentAPIV3) getEntity(tag names.Tag) (result params.AgentGetEntitiesR
 	return
 }
 
-func (api *AgentAPIV3) StateServingInfo() (result params.StateServingInfo, err error) {
+func (api *AgentAPI) StateServingInfo() (result params.StateServingInfo, err error) {
 	if !api.auth.AuthController() {
 		err = apiservererrors.ErrPerm
 		return
@@ -115,7 +111,7 @@ func (api *AgentAPIV3) StateServingInfo() (result params.StateServingInfo, err e
 // be overridden by tests.
 var MongoIsMaster = mongo.IsMaster
 
-func (api *AgentAPIV3) IsMaster() (params.IsMasterResult, error) {
+func (api *AgentAPI) IsMaster() (params.IsMasterResult, error) {
 	if !api.auth.AuthController() {
 		return params.IsMasterResult{}, apiservererrors.ErrPerm
 	}
@@ -144,7 +140,7 @@ func stateJobsToAPIParamsJobs(jobs []state.MachineJob) []model.MachineJob {
 }
 
 // WatchCredentials watches for changes to the specified credentials.
-func (api *AgentAPIV3) WatchCredentials(args params.Entities) (params.NotifyWatchResults, error) {
+func (api *AgentAPI) WatchCredentials(args params.Entities) (params.NotifyWatchResults, error) {
 	if !api.auth.AuthController() {
 		return params.NotifyWatchResults{}, apiservererrors.ErrPerm
 	}

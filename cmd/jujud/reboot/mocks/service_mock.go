@@ -13,7 +13,6 @@ import (
 	instance "github.com/juju/juju/core/instance"
 	instances "github.com/juju/juju/environs/instances"
 	params "github.com/juju/juju/rpc/params"
-	common "github.com/juju/juju/service/common"
 )
 
 // MockAgentConfig is a mock of AgentConfig interface.
@@ -165,21 +164,6 @@ func (m *MockRebootWaiter) EXPECT() *MockRebootWaiterMockRecorder {
 	return m.recorder
 }
 
-// HostSeries mocks base method.
-func (m *MockRebootWaiter) HostSeries() (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HostSeries")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// HostSeries indicates an expected call of HostSeries.
-func (mr *MockRebootWaiterMockRecorder) HostSeries() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HostSeries", reflect.TypeOf((*MockRebootWaiter)(nil).HostSeries))
-}
-
 // ListServices mocks base method.
 func (m *MockRebootWaiter) ListServices() ([]string, error) {
 	m.ctrl.T.Helper()
@@ -210,19 +194,19 @@ func (mr *MockRebootWaiterMockRecorder) NewContainerManager(arg0, arg1 interface
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewContainerManager", reflect.TypeOf((*MockRebootWaiter)(nil).NewContainerManager), arg0, arg1)
 }
 
-// NewService mocks base method.
-func (m *MockRebootWaiter) NewService(arg0 string, arg1 common.Conf, arg2 string) (reboot.Service, error) {
+// NewServiceReference mocks base method.
+func (m *MockRebootWaiter) NewServiceReference(arg0 string) (reboot.Service, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewService", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "NewServiceReference", arg0)
 	ret0, _ := ret[0].(reboot.Service)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// NewService indicates an expected call of NewService.
-func (mr *MockRebootWaiterMockRecorder) NewService(arg0, arg1, arg2 interface{}) *gomock.Call {
+// NewServiceReference indicates an expected call of NewServiceReference.
+func (mr *MockRebootWaiterMockRecorder) NewServiceReference(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewService", reflect.TypeOf((*MockRebootWaiter)(nil).NewService), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewServiceReference", reflect.TypeOf((*MockRebootWaiter)(nil).NewServiceReference), arg0)
 }
 
 // ScheduleAction mocks base method.

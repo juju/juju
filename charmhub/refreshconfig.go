@@ -68,7 +68,7 @@ func (c refreshOne) Build() (transport.RefreshRequest, error) {
 			// is the installed date of the charm on the system.
 		}},
 		Actions: []transport.RefreshRequestAction{{
-			Action:      string(RefreshAction),
+			Action:      string(refreshAction),
 			InstanceKey: c.instanceKey,
 			ID:          &c.ID,
 		}},
@@ -94,7 +94,7 @@ type executeOne struct {
 	Base     RefreshBase
 	// instanceKey is a private unique key that we construct for CharmHub API
 	// asynchronous calls.
-	action      Action
+	action      action
 	instanceKey string
 	fields      []string
 }
@@ -175,7 +175,7 @@ type executeOneByRevision struct {
 	// instanceKey is a private unique key that we construct for CharmHub API
 	// asynchronous calls.
 	instanceKey string
-	action      Action
+	action      action
 	fields      []string
 }
 
@@ -185,7 +185,6 @@ func (c executeOneByRevision) InstanceKey() string {
 }
 
 // Build a refresh request for sending to the API.
-
 func (c executeOneByRevision) Build() (transport.RefreshRequest, error) {
 	var name, id *string
 	if c.Name != "" {
@@ -253,6 +252,9 @@ func RefreshMany(configs ...RefreshConfig) RefreshConfig {
 
 // Build a refresh request that can be past to the API.
 func (c refreshMany) Build() (transport.RefreshRequest, error) {
+	if len(c.Configs) == 0 {
+		return transport.RefreshRequest{}, errors.NotFoundf("configs")
+	}
 	// Not all configs built here have a context, start out with an empty
 	// slice, so we do not call Refresh with a nil context.
 	// See executeOne.Build().

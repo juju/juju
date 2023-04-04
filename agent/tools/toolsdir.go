@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -23,10 +22,9 @@ import (
 )
 
 const (
-	dirPerm        = 0755
-	filePerm       = 0644
-	guiArchiveFile = "downloaded-gui.txt"
-	toolsFile      = "downloaded-tools.txt"
+	dirPerm   = 0755
+	filePerm  = 0644
+	toolsFile = "downloaded-tools.txt"
 )
 
 // SharedToolsDir returns the directory that is used to
@@ -34,12 +32,6 @@ const (
 // within the dataDir directory.
 func SharedToolsDir(dataDir string, vers version.Binary) string {
 	return path.Join(dataDir, "tools", vers.String())
-}
-
-// SharedGUIDir returns the directory that is used to store release archives
-// of the Juju GUI within the dataDir directory.
-func SharedGUIDir(dataDir string) string {
-	return path.Join(dataDir, "gui")
 }
 
 // ToolsDir returns the directory that is used/ to store binaries for
@@ -65,7 +57,7 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 		return err
 	}
 	defer zr.Close()
-	f, err := ioutil.TempFile(os.TempDir(), "tools-tar")
+	f, err := os.CreateTemp(os.TempDir(), "tools-tar")
 	if err != nil {
 		return err
 	}
@@ -86,7 +78,7 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 	if err != nil {
 		return err
 	}
-	dir, err := ioutil.TempDir(toolsDir, "unpacking-")
+	dir, err := os.MkdirTemp(toolsDir, "unpacking-")
 	if err != nil {
 		return err
 	}
@@ -122,7 +114,7 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 	}
 
 	// The tempdir is created with 0700, so we need to make it more
-	// accessible for juju-run.
+	// accessible for juju-exec.
 	err = os.Chmod(dir, dirPerm)
 	if err != nil {
 		return err
@@ -163,7 +155,7 @@ func writeFile(name string, mode os.FileMode, r io.Reader) error {
 // The tools information is json encoded in a text file, "downloaded-tools.txt".
 func ReadTools(dataDir string, vers version.Binary) (*coretools.Tools, error) {
 	dir := SharedToolsDir(dataDir, vers)
-	toolsData, err := ioutil.ReadFile(path.Join(dir, toolsFile))
+	toolsData, err := os.ReadFile(path.Join(dir, toolsFile))
 	if err != nil {
 		return nil, fmt.Errorf("cannot read agent metadata in directory %v: %v", dir, err)
 	}
@@ -172,24 +164,6 @@ func ReadTools(dataDir string, vers version.Binary) (*coretools.Tools, error) {
 		return nil, fmt.Errorf("invalid agent metadata in directory %q: %v", dir, err)
 	}
 	return &tools, nil
-}
-
-// ReadGUIArchive reads the GUI information from the dataDir directory.
-// The GUI information is JSON encoded in a text file, "downloaded-gui.txt".
-func ReadGUIArchive(dataDir string) (*coretools.GUIArchive, error) {
-	dir := SharedGUIDir(dataDir)
-	toolsData, err := ioutil.ReadFile(path.Join(dir, guiArchiveFile))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, errors.NotFoundf("GUI metadata")
-		}
-		return nil, fmt.Errorf("cannot read GUI metadata in directory %q: %v", dir, err)
-	}
-	var gui coretools.GUIArchive
-	if err := json.Unmarshal(toolsData, &gui); err != nil {
-		return nil, fmt.Errorf("invalid GUI metadata in directory %q: %v", dir, err)
-	}
-	return &gui, nil
 }
 
 // ChangeAgentTools atomically replaces the agent-specific symlink
@@ -219,5 +193,5 @@ func WriteToolsMetadataData(dir string, tools *coretools.Tools) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path.Join(dir, toolsFile), toolsMetadataData, filePerm)
+	return os.WriteFile(path.Join(dir, toolsFile), toolsMetadataData, filePerm)
 }

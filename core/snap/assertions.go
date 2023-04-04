@@ -5,7 +5,7 @@ package snap
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -48,7 +48,7 @@ func LookupAssertions(proxyURL string) (assertions, storeID string, err error) {
 		return "", "", errors.Annotatef(err, "could not retrieve assertions from proxy at %q; proxy replied with unexpected HTTP status code %d", noCredsProxyURL, res.StatusCode)
 	}
 
-	data, err := ioutil.ReadAll(res.Body)
+	data, err := io.ReadAll(res.Body)
 	if err != nil {
 		return "", "", errors.Annotatef(err, "could not read assertions response from proxy at %q", noCredsProxyURL)
 	}

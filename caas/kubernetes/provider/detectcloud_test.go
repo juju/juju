@@ -4,7 +4,6 @@
 package provider_test
 
 import (
-	"io/ioutil"
 	"os"
 
 	"github.com/juju/errors"
@@ -62,7 +61,7 @@ func (s *detectCloudSuite) getProvider(builtin builtinCloudRet) caas.ContainerEn
 		dummyRunner{},
 		credentialGetterFunc(builtin),
 		cloudGetterFunc(builtin),
-		func(environs.OpenParams) (caas.ClusterMetadataChecker, error) {
+		func(environs.OpenParams) (provider.ClusterMetadataStorageChecker, error) {
 			return &fakeK8sClusterMetadataChecker{}, nil
 		},
 	)
@@ -114,7 +113,7 @@ users:
     password: test
 `
 
-	file, err := ioutil.TempFile("", "")
+	file, err := os.CreateTemp("", "")
 	c.Assert(err, jc.ErrorIsNil)
 	defer file.Close()
 

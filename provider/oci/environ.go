@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os"
-	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"
@@ -427,9 +426,9 @@ func (e *Environ) Provider() environs.EnvironProvider {
 // bundled with iptables-persistent on Ubuntu and firewalld on CentOS, which maintains
 // a number of iptables firewall rules. We need to at least allow the juju API port for state
 // machines. SSH port is allowed by default on linux images.
-func (e *Environ) getCloudInitConfig(series string, apiPort int, statePort int) (cloudinit.CloudConfig, error) {
+func (e *Environ) getCloudInitConfig(osname string, apiPort int, statePort int) (cloudinit.CloudConfig, error) {
 	// TODO (gsamfira): remove this function when the above mention bug is fixed
-	cloudcfg, err := cloudinit.New(series)
+	cloudcfg, err := cloudinit.New(osname)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create cloudinit template")
 	}
@@ -438,10 +437,7 @@ func (e *Environ) getCloudInitConfig(series string, apiPort int, statePort int) 
 		return cloudcfg, nil
 	}
 
-	operatingSystem, err := jujuseries.GetOSFromSeries(series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	operatingSystem := os.OSTypeForName(osname)
 	switch operatingSystem {
 	case os.Ubuntu:
 		cloudcfg.AddRunCmd(fmt.Sprintf("/sbin/iptables -I INPUT -p tcp --dport %d -j ACCEPT", apiPort))
@@ -497,13 +493,12 @@ func (e *Environ) startInstance(
 		logger.Tracef("Image cache contains: %# v", pretty.Formatter(imgCache))
 	}
 
-	series := args.InstanceConfig.Series
 	arch, err := args.Tools.OneArch()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	types := imgCache.SupportedShapes(series)
+	types := imgCache.SupportedShapes(args.InstanceConfig.Base)
 
 	defaultType := string(VirtualMachine)
 	if args.Constraints.VirtType == nil {
@@ -512,13 +507,13 @@ func (e *Environ) startInstance(
 
 	// check if we find an image that is compliant with the
 	// constraints provided in the oracle cloud account
-	args.ImageMetadata = imgCache.ImageMetadata(series, *args.Constraints.VirtType)
+	args.ImageMetadata = imgCache.ImageMetadata(args.InstanceConfig.Base, *args.Constraints.VirtType)
 
 	spec, image, err := findInstanceSpec(
 		args.ImageMetadata,
 		types,
 		&instances.InstanceConstraint{
-			Series:      series,
+			Base:        args.InstanceConfig.Base,
 			Arch:        arch,
 			Constraints: args.Constraints,
 		},
@@ -562,7 +557,7 @@ func (e *Environ) startInstance(
 		desiredStatus = ociCore.InstanceLifecycleStateProvisioning
 	}
 
-	cloudcfg, err := e.getCloudInitConfig(series, apiPort, statePort)
+	cloudcfg, err := e.getCloudInitConfig(args.InstanceConfig.Base.OS, apiPort, statePort)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create cloudinit template")
 	}

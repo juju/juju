@@ -6,7 +6,6 @@ package apiserver_test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"mime"
 	"net/http"
 	"net/url"
@@ -14,7 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -126,8 +125,9 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 	mysqlCh, err := s.State.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{
-		Name:  "mysql",
-		Charm: mysqlCh,
+		Name:        "mysql",
+		Charm:       mysqlCh,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -145,8 +145,9 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{
-		Name:  "dummy",
-		Charm: dummyCh,
+		Name:        "dummy",
+		Charm:       dummyCh,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	offer2, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
@@ -175,7 +176,7 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 	// Prepare the tests.
 	svgMimeType := mime.TypeByExtension(".svg")
 	iconPath := filepath.Join(testcharms.Repo.CharmDirPath("mysql"), "icon.svg")
-	icon, err := ioutil.ReadFile(iconPath)
+	icon, err := os.ReadFile(iconPath)
 	c.Assert(err, jc.ErrorIsNil)
 	tests := []struct {
 		about      string

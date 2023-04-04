@@ -27,7 +27,7 @@ type maasModelConfig struct {
 	attrs map[string]interface{}
 }
 
-func (p MaasEnvironProvider) newConfig(cfg *config.Config) (*maasModelConfig, error) {
+func (p EnvironProvider) newConfig(cfg *config.Config) (*maasModelConfig, error) {
 	validCfg, err := p.Validate(cfg, nil)
 	if err != nil {
 		return nil, err
@@ -39,7 +39,7 @@ func (p MaasEnvironProvider) newConfig(cfg *config.Config) (*maasModelConfig, er
 }
 
 // Schema returns the configuration schema for an environment.
-func (MaasEnvironProvider) Schema() environschema.Fields {
+func (EnvironProvider) Schema() environschema.Fields {
 	fields, err := config.Schema(configSchema)
 	if err != nil {
 		panic(err)
@@ -49,17 +49,17 @@ func (MaasEnvironProvider) Schema() environschema.Fields {
 
 // ConfigSchema returns extra config attributes specific
 // to this provider only.
-func (p MaasEnvironProvider) ConfigSchema() schema.Fields {
+func (p EnvironProvider) ConfigSchema() schema.Fields {
 	return configFields
 }
 
 // ConfigDefaults returns the default values for the
 // provider specific config attributes.
-func (p MaasEnvironProvider) ConfigDefaults() schema.Defaults {
+func (p EnvironProvider) ConfigDefaults() schema.Defaults {
 	return configDefaults
 }
 
-func (p MaasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Config, error) {
+func (p EnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Config, error) {
 	// Validate base configuration change before validating MAAS specifics.
 	err := config.Validate(cfg, oldCfg)
 	if err != nil {

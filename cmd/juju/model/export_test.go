@@ -18,7 +18,8 @@ import (
 // provided as specified.
 func NewConfigCommandForTest(api configCommandAPI) cmd.Command {
 	cmd := &configCommand{
-		api: api,
+		configBase: modelConfigBase,
+		api:        api,
 	}
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	return modelcmd.Wrap(cmd)
@@ -27,6 +28,7 @@ func NewConfigCommandForTest(api configCommandAPI) cmd.Command {
 // NewDefaultsCommandForTest returns a defaultsCommand with the api provided as specified.
 func NewDefaultsCommandForTest(apiRoot api.Connection, dAPI defaultsCommandAPI, cAPI cloudAPI, store jujuclient.ClientStore) cmd.Command {
 	cmd := &defaultsCommand{
+		configBase:     defConfigBase,
 		newAPIRoot:     func() (api.Connection, error) { return apiRoot, nil },
 		newDefaultsAPI: func(caller base.APICallCloser) defaultsCommandAPI { return dAPI },
 		newCloudAPI:    func(caller base.APICallCloser) cloudAPI { return cAPI },
@@ -69,9 +71,9 @@ func NewDumpDBCommandForTest(api DumpDBAPI, store jujuclient.ClientStore) cmd.Co
 }
 
 // NewExportBundleCommandForTest returns a ExportBundleCommand with the api provided as specified.
-func NewExportBundleCommandForTest(bundleAPI ExportBundleAPI, cfgAPI ConfigAPI, store jujuclient.ClientStore) cmd.Command {
-	cmd := &exportBundleCommand{newAPIFunc: func() (ExportBundleAPI, ConfigAPI, error) {
-		return bundleAPI, cfgAPI, nil
+func NewExportBundleCommandForTest(bundleAPI ExportBundleAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &exportBundleCommand{newAPIFunc: func() (ExportBundleAPI, error) {
+		return bundleAPI, nil
 	}}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
@@ -80,16 +82,12 @@ func NewExportBundleCommandForTest(bundleAPI ExportBundleAPI, cfgAPI ConfigAPI, 
 // NewDestroyCommandForTest returns a DestroyCommand with the api provided as specified.
 func NewDestroyCommandForTest(
 	api DestroyModelAPI,
-	configAPI ModelConfigAPI,
-	storageAPI StorageAPI,
 	clk jujuclock.Clock,
 	refreshFunc func(jujuclient.ClientStore, string) error, store jujuclient.ClientStore,
 ) cmd.Command {
 	cmd := &destroyCommand{
-		api:        api,
-		clock:      clk,
-		configAPI:  configAPI,
-		storageAPI: storageAPI,
+		api:   api,
+		clock: clk,
 	}
 	cmd.SetClientStore(store)
 	cmd.SetModelRefresh(refreshFunc)
@@ -165,8 +163,6 @@ func NewModelGetConstraintsCommandForTest() cmd.Command {
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	return modelcmd.Wrap(cmd)
 }
-
-var GetBudgetAPIClient = &getBudgetAPIClient
 
 // NewModelCredentialCommandForTest returns a ModelCredentialCommand with the api provided as specified.
 func NewModelCredentialCommandForTest(modelClient ModelCredentialAPI, cloudClient CloudAPI, rootFunc func() (base.APICallCloser, error), store jujuclient.ClientStore) cmd.Command {

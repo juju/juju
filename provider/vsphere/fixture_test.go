@@ -80,7 +80,7 @@ func serveImageMetadata(requests *[]*http.Request) *httptest.Server {
       "datatype": "image-downloads", 
       "path": "streams/v1/com.ubuntu.cloud:released:download.json", 
       "updated": "Tue, 24 Feb 2015 10:16:54 +0000", 
-      "products": ["com.ubuntu.cloud:server:14.04:amd64"], 
+      "products": ["com.ubuntu.cloud:server:22.04:amd64"], 
       "format": "products:1.0"
     }
   }, 
@@ -94,16 +94,16 @@ func serveImageMetadata(requests *[]*http.Request) *httptest.Server {
   "format": "products:1.0", 
   "datatype": "image-downloads", 
   "products": {
-    "com.ubuntu.cloud:server:14.04:amd64": {
-      "release": "trusty", 
-      "version": "14.04", 
+    "com.ubuntu.cloud:server:22.04:amd64": {
+      "release": "jammy", 
+      "version": "22.04", 
       "arch": "amd64", 
       "versions": {
         "20150305": {
           "items": {
             "ova": {
               "size": 7196, 
-              "path": "server/releases/trusty/release-20150305/ubuntu-14.04-server-cloudimg-amd64.ova",
+              "path": "server/releases/trusty/release-20150305/ubuntu-22.04-server-cloudimg-amd64.ova",
               "ftype": "ova", 
               "sha256": "%s", 
               "md5": "00662c59ca52558e7a3bb9a67d194730"
@@ -116,9 +116,9 @@ func serveImageMetadata(requests *[]*http.Request) *httptest.Server {
 }`, ovatest.FakeOVASHA256())
 
 	files := map[string][]byte{
-		"/streams/v1/index.json":                                                          []byte(index),
-		"/streams/v1/com.ubuntu.cloud:released:download.json":                             []byte(download),
-		"/server/releases/trusty/release-20150305/ubuntu-14.04-server-cloudimg-amd64.ova": ovatest.FakeOVAContents(),
+		"/streams/v1/index.json":                                                         []byte(index),
+		"/streams/v1/com.ubuntu.cloud:released:download.json":                            []byte(download),
+		"/server/releases/jammy/release-20150305/ubuntu-22.04-server-cloudimg-amd64.ova": ovatest.FakeOVAContents(),
 	}
 	mux := http.NewServeMux()
 	for path := range files {

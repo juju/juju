@@ -10,7 +10,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -159,7 +159,7 @@ func (s *InstancePollerSuite) TestWatchForModelConfigChangesSuccess(c *gc.C) {
 	defer statetesting.AssertStop(c, resource)
 
 	// Check that the watcher has consumed the initial event
-	wc := statetesting.NewNotifyWatcherC(c, s.st, resource.(state.NotifyWatcher))
+	wc := statetesting.NewNotifyWatcherC(c, resource.(state.NotifyWatcher))
 	wc.AssertNoChange()
 
 	s.st.CheckCallNames(c, "WatchForModelConfigChanges")
@@ -223,7 +223,7 @@ func (s *InstancePollerSuite) assertMachineWatcherSucceeds(c *gc.C, watchFacadeN
 	}()
 
 	// Check that the watcher has consumed the initial event
-	wc1 := statetesting.NewStringsWatcherC(c, s.st, resource1.(state.StringsWatcher))
+	wc1 := statetesting.NewStringsWatcherC(c, resource1.(state.StringsWatcher))
 	wc1.AssertNoChange()
 
 	s.st.CheckCallNames(c, watchFacadeName)
@@ -237,7 +237,7 @@ func (s *InstancePollerSuite) assertMachineWatcherSucceeds(c *gc.C, watchFacadeN
 	c.Assert(s.resources.Count(), gc.Equals, 2)
 	resource2 := s.resources.Get("2")
 	defer statetesting.AssertStop(c, resource2)
-	wc2 := statetesting.NewStringsWatcherC(c, s.st, resource2.(state.StringsWatcher))
+	wc2 := statetesting.NewStringsWatcherC(c, resource2.(state.StringsWatcher))
 	wc2.AssertNoChange()
 
 	// Remove machine 1, check it's reported.

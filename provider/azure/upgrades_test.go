@@ -43,9 +43,8 @@ func (s *environUpgradeSuite) SetUpTest(c *gc.C) {
 	s.requests = nil
 
 	s.provider = newProvider(c, azure.ProviderConfig{
-		Sender:                     azuretesting.NewSerialSender(&s.sender),
-		RequestInspector:           &azuretesting.RequestRecorderPolicy{Requests: &s.requests},
-		RandomWindowsAdminPassword: func() string { return "sorandom" },
+		Sender:           azuretesting.NewSerialSender(&s.sender),
+		RequestInspector: &azuretesting.RequestRecorderPolicy{Requests: &s.requests},
 		CreateTokenCredential: func(appId, appPassword, tenantID string, opts azcore.ClientOptions) (azcore.TokenCredential, error) {
 			return &azuretesting.FakeCredential{}, nil
 		},

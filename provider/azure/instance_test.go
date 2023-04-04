@@ -50,9 +50,8 @@ var _ = gc.Suite(&instanceSuite{})
 func (s *instanceSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.provider = newProvider(c, azure.ProviderConfig{
-		Sender:                     &s.sender,
-		RequestInspector:           &azuretesting.RequestRecorderPolicy{Requests: &s.requests},
-		RandomWindowsAdminPassword: func() string { return "sorandom" },
+		Sender:           &s.sender,
+		RequestInspector: &azuretesting.RequestRecorderPolicy{Requests: &s.requests},
 		CreateTokenCredential: func(appId, appPassword, tenantID string, opts azcore.ClientOptions) (azcore.TokenCredential, error) {
 			return &azuretesting.FakeCredential{}, nil
 		},

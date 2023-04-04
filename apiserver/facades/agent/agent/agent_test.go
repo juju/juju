@@ -45,15 +45,15 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	var err error
-	s.machine0, err = s.State.AddMachine("quantal", state.JobManageModel)
+	s.machine0, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.machine1, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	s.machine1, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	template := state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 	s.container, err = s.State.AddMachineInsideMachine(template, s.machine1.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
@@ -71,7 +71,7 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 func (s *agentSuite) TestAgentFailsWithNonAgent(c *gc.C) {
 	auth := s.authorizer
 	auth.Tag = names.NewUserTag("admin")
-	api, err := agent.NewAgentAPIV2(facadetest.Context{
+	api, err := agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      auth,
@@ -84,7 +84,7 @@ func (s *agentSuite) TestAgentFailsWithNonAgent(c *gc.C) {
 func (s *agentSuite) TestAgentSucceedsWithUnitAgent(c *gc.C) {
 	auth := s.authorizer
 	auth.Tag = names.NewUnitTag("foosball/1")
-	_, err := agent.NewAgentAPIV2(facadetest.Context{
+	_, err := agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      auth,
@@ -103,7 +103,7 @@ func (s *agentSuite) TestGetEntities(c *gc.C) {
 			{Tag: "machine-42"},
 		},
 	}
-	api, err := agent.NewAgentAPIV2(facadetest.Context{
+	api, err := agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
@@ -129,7 +129,7 @@ func (s *agentSuite) TestGetEntitiesContainer(c *gc.C) {
 	err := s.container.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	api, err := agent.NewAgentAPIV2(facadetest.Context{
+	api, err := agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      auth,
@@ -174,7 +174,7 @@ func (s *agentSuite) TestGetEntitiesNotFound(c *gc.C) {
 	err = s.machine1.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	api, err := agent.NewAgentAPIV2(facadetest.Context{
+	api, err := agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
@@ -195,7 +195,7 @@ func (s *agentSuite) TestGetEntitiesNotFound(c *gc.C) {
 }
 
 func (s *agentSuite) TestSetPasswords(c *gc.C) {
-	api, err := agent.NewAgentAPIV2(facadetest.Context{
+	api, err := agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
@@ -223,7 +223,7 @@ func (s *agentSuite) TestSetPasswords(c *gc.C) {
 }
 
 func (s *agentSuite) TestSetPasswordsShort(c *gc.C) {
-	api, err := agent.NewAgentAPIV2(facadetest.Context{
+	api, err := agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
@@ -241,7 +241,7 @@ func (s *agentSuite) TestSetPasswordsShort(c *gc.C) {
 }
 
 func (s *agentSuite) TestClearReboot(c *gc.C) {
-	api, err := agent.NewAgentAPIV2(facadetest.Context{
+	api, err := agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
@@ -279,7 +279,7 @@ func (s *agentSuite) TestWatchCredentials(c *gc.C) {
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
 	}
-	api, err := agent.NewAgentAPIV2(facadetest.Context{
+	api, err := agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      authorizer,
@@ -295,7 +295,7 @@ func (s *agentSuite) TestWatchCredentials(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 
 	// Check that the Watch has consumed the initial events ("returned" in the Watch call)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w.(state.NotifyWatcher))
+	wc := statetesting.NewNotifyWatcherC(c, w.(state.NotifyWatcher))
 	wc.AssertNoChange()
 
 	s.State.UpdateCloudCredential(tag, cloud.NewCredential(cloud.UserPassAuthType, nil))
@@ -307,7 +307,7 @@ func (s *agentSuite) TestWatchAuthError(c *gc.C) {
 		Tag:        names.NewMachineTag("1"),
 		Controller: false,
 	}
-	api, err := agent.NewAgentAPIV2(facadetest.Context{
+	api, err := agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      authorizer,

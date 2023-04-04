@@ -45,7 +45,7 @@ func (s *UpgradeSuite) provision(c *gc.C, machineIds ...string) {
 }
 
 func (s *UpgradeSuite) addControllers(c *gc.C) (machineId1, machineId2 string) {
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
+	changes, err := s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.04"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return changes.Added[0], changes.Added[1]
 }
@@ -58,7 +58,7 @@ func (s *UpgradeSuite) assertUpgrading(c *gc.C, expect bool) {
 
 func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	controller, err := s.State.AddMachine("quantal", state.JobManageModel)
+	controller, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	s.serverIdA = controller.Id()
 	s.provision(c, s.serverIdA)
@@ -326,7 +326,7 @@ func (s *UpgradeSuite) TestWatch(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 
 	// initial event
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	// single change is reported
@@ -342,6 +342,8 @@ func (s *UpgradeSuite) TestWatch(c *gc.C) {
 	// changes are coalesced
 	_, err = s.State.EnsureUpgradeInfo(serverIdB, v111, v123)
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO(quiescence): these two changes should be one event.
+	wc.AssertOneChange()
 	_, err = s.State.EnsureUpgradeInfo(serverIdC, v111, v123)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
@@ -366,7 +368,7 @@ func (s *UpgradeSuite) TestWatchMethod(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 
 	// initial event
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	// single change is reported
@@ -382,6 +384,8 @@ func (s *UpgradeSuite) TestWatchMethod(c *gc.C) {
 	// changes are coalesced
 	_, err = s.State.EnsureUpgradeInfo(serverIdC, v111, v123)
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO(quiescence): these two changes should be one event.
+	wc.AssertOneChange()
 	err = info.SetStatus(state.UpgradeDBComplete)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()

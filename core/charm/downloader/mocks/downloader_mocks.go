@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v8"
+	charm "github.com/juju/charm/v9"
 	charm0 "github.com/juju/juju/core/charm"
 	downloader "github.com/juju/juju/core/charm/downloader"
 	macaroon "gopkg.in/macaroon.v2"

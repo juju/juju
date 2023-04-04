@@ -7,7 +7,7 @@ import (
 	"bytes"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3/txn"
 )
 
 // StagedResource represents resource info that has been added to the

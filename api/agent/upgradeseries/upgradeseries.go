@@ -71,7 +71,7 @@ func (s *Client) MachineStatus() (model.UpgradeSeriesStatus, error) {
 
 // CurrentSeries returns what Juju thinks the current series of the machine is.
 // Note that a machine could have been upgraded out-of-band by running
-// do-release-upgrade outside of the upgrade-series workflow,
+// do-release-upgrade outside of the upgrade-machine workflow,
 // making this value incorrect.
 func (s *Client) CurrentSeries() (string, error) {
 	series, err := s.series("CurrentSeries")
@@ -111,7 +111,7 @@ func (s *Client) series(methodName string) (string, error) {
 }
 
 // UnitsPrepared returns the units running on this machine that have
-// completed their upgrade-series preparation, and are ready to be stopped and
+// completed their upgrade-machine preparation, and are ready to be stopped and
 // have their unit agent services converted for the target series.
 func (s *Client) UnitsPrepared() ([]names.UnitTag, error) {
 	units, err := s.unitsInState("UnitsPrepared")
@@ -119,7 +119,7 @@ func (s *Client) UnitsPrepared() ([]names.UnitTag, error) {
 }
 
 // UnitsCompleted returns the units running on this machine that have completed
-// the upgrade-series workflow and are in their normal running state.
+// the upgrade-machine workflow and are in their normal running state.
 func (s *Client) UnitsCompleted() ([]names.UnitTag, error) {
 	units, err := s.unitsInState("UnitsCompleted")
 	return units, errors.Trace(err)
@@ -219,7 +219,6 @@ func (s *Client) FinishUpgradeSeries(hostSeries string) error {
 	}
 	args := params.UpdateChannelArgs{Args: []params.UpdateChannelArg{{
 		Entity:  params.Entity{Tag: s.authTag.String()},
-		Series:  hostSeries,
 		Channel: base.Channel.Track,
 	}}}
 

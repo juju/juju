@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -181,7 +180,7 @@ func (p environProviderCredentials) detectLocalCredentials(certPEM, keyPEM []byt
 
 	label := fmt.Sprintf("LXD credential %q", lxdnames.DefaultCloud)
 	certCredential, err := p.finalizeLocalCredential(
-		ioutil.Discard, svr, string(certPEM), string(keyPEM), label,
+		io.Discard, svr, string(certPEM), string(keyPEM), label,
 	)
 	return certCredential, errors.Trace(err)
 }
@@ -538,11 +537,11 @@ type certificateReadWriter struct{}
 func (certificateReadWriter) Read(path string) ([]byte, []byte, error) {
 	clientCertPath := filepath.Join(path, "client.crt")
 	clientKeyPath := filepath.Join(path, "client.key")
-	certPEM, err := ioutil.ReadFile(clientCertPath)
+	certPEM, err := os.ReadFile(clientCertPath)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	keyPEM, err := ioutil.ReadFile(clientKeyPath)
+	keyPEM, err := os.ReadFile(clientKeyPath)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -555,10 +554,10 @@ func (certificateReadWriter) Write(path string, certPEM, keyPEM []byte) error {
 	if err := os.MkdirAll(path, 0700); err != nil {
 		return errors.Trace(err)
 	}
-	if err := ioutil.WriteFile(clientCertPath, certPEM, 0600); err != nil {
+	if err := os.WriteFile(clientCertPath, certPEM, 0600); err != nil {
 		return errors.Trace(err)
 	}
-	if err := ioutil.WriteFile(clientKeyPath, keyPEM, 0600); err != nil {
+	if err := os.WriteFile(clientKeyPath, keyPEM, 0600); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -633,7 +632,6 @@ func configDirs() []string {
 	}
 	dirs = append(dirs, filepath.Join(utils.Home(), ".config", "lxc"))
 	if runtime.GOOS == "linux" {
-		// TODO(juju3) - remove "~/snap/lxd/current/.config/lxc"
 		dirs = append(dirs, filepath.Join(utils.Home(), "snap", "lxd", "current", ".config", "lxc"))
 		dirs = append(dirs, filepath.Join(utils.Home(), "snap", "lxd", "common", "config"))
 	}

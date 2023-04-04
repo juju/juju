@@ -5,7 +5,7 @@ package jujuc_test
 
 import (
 	"bytes"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/juju/cmd/v3"
@@ -154,14 +154,14 @@ func (s *K8sSpecSetSuite) initCommand(
 		ctx.Stdin = bytes.NewBufferString(yaml)
 	} else if filename != "" {
 		filename = filepath.Join(c.MkDir(), filename)
-		err := ioutil.WriteFile(filename, []byte(yaml), 0644)
+		err := os.WriteFile(filename, []byte(yaml), 0644)
 		c.Assert(err, jc.ErrorIsNil)
 		args = append(args, "--file", filename)
 	}
 	if withK8sResource {
 		k8sResourceFileName := "k8sresources.yaml"
 		k8sResourceFileName = filepath.Join(c.MkDir(), k8sResourceFileName)
-		err := ioutil.WriteFile(k8sResourceFileName, []byte(k8sResourcesYaml), 0644)
+		err := os.WriteFile(k8sResourceFileName, []byte(k8sResourcesYaml), 0644)
 		c.Assert(err, jc.ErrorIsNil)
 		args = append(args, "--k8s-resources", k8sResourceFileName)
 	}

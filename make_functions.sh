@@ -73,7 +73,7 @@ operator_image_path() {
 }
 
 
-# build_push_operator_image is responsible for doing the heavy lifiting when it
+# build_push_operator_image is responsible for doing the heavy lifting when it
 # comes time to build the Juju oci operator image. This function can also build
 # the operator image for multiple architectures at once. Takes 2 arguments that
 # describe one or more platforms to build for and whether to push the image.

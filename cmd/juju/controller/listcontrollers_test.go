@@ -54,7 +54,6 @@ aws-test             admin/controller  -      -          aws/us-east-1          
 k8s-controller       my-k8s-model      admin  superuser  microk8s/localhost       2      3   -  6.6.6      
 mallards*            my-model          admin  superuser  mallards/mallards1       2      -   -  (unknown)  
 mark-test-prodstack  -                 admin  (unknown)  prodstack                -      -   -  (unknown)  
-
 `[1:]
 
 	s.assertListControllers(c)
@@ -82,7 +81,6 @@ aws-test             controller    admin  (unknown)  aws/us-east-1            1 
 k8s-controller       my-k8s-model  admin  superuser  microk8s/localhost       2      4   -  6.6.6      
 mallards*            my-model      admin  superuser  mallards/mallards1       2      4   -  (unknown)  
 mark-test-prodstack  -             admin  (unknown)  prodstack                -      -   -  (unknown)  
-
 `[1:]
 	s.assertListControllers(c, "--refresh")
 	// Check store was updated.
@@ -139,7 +137,6 @@ aws-test             controller    admin  (unknown)  aws/us-east-1            1 
 k8s-controller       my-k8s-model  admin  superuser  microk8s/localhost       2      4     -  6.6.6      
 mallards*            my-model      admin  superuser  mallards/mallards1       2      4  none  (unknown)  
 mark-test-prodstack  -             admin  (unknown)  prodstack                -      -     -  (unknown)  
-
 `[1:]
 	s.assertListControllers(c, "--refresh")
 }
@@ -151,7 +148,6 @@ controllers:
     current-model: controller
     user: admin
     recent-server: this-is-aws-test-of-many-api-endpoints
-    uuid: this-is-the-aws-test-uuid
     controller-uuid: this-is-the-aws-test-uuid
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
     ca-cert: this-is-aws-test-ca-cert
@@ -168,7 +164,6 @@ controllers:
     user: admin
     access: superuser
     recent-server: this-is-one-of-many-k8s-api-endpoints
-    uuid: this-is-a-k8s-uuid
     controller-uuid: this-is-a-k8s-uuid
     api-endpoints: [this-is-one-of-many-k8s-api-endpoints]
     ca-cert: this-is-a-k8s-ca-cert
@@ -185,7 +180,6 @@ controllers:
     user: admin
     access: superuser
     recent-server: this-is-another-of-many-api-endpoints
-    uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
     controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: |-
@@ -213,7 +207,6 @@ controllers:
   mark-test-prodstack:
     user: admin
     recent-server: this-is-one-of-many-api-endpoints
-    uuid: this-is-a-uuid
     controller-uuid: this-is-a-uuid
     api-endpoints: [this-is-one-of-many-api-endpoints]
     ca-cert: this-is-a-ca-cert

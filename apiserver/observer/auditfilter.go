@@ -131,8 +131,6 @@ var readonlyMethods = set.NewStrings(
 	// Collected by running read-only commands.
 	"Action.Actions",
 	"Action.ApplicationsCharmsActions",
-	"Action.FindActionsByNames",
-	"Action.FindActionTagsByPrefix",
 	"Application.GetConstraints",
 	"ApplicationOffers.ApplicationOffers",
 	"Backups.Info",
@@ -156,17 +154,13 @@ var readonlyMethods = set.NewStrings(
 	// swamp the log.
 
 	// All client facade methods that start with List.
-	"Action.ListAll",
-	"Action.ListPending",
-	"Action.ListRunning",
-	"Action.ListComplete",
+	"Action.ListOperations",
 	"ApplicationOffers.ListApplicationOffers",
 	"Backups.List",
 	"Block.List",
 	"Charms.List",
 	"Controller.ListBlockedModels",
 	"FirewallRules.ListFirewallRules",
-	"ImageManager.ListImages",
 	"ImageMetadata.List",
 	"KeyManager.ListKeys",
 	"ModelManager.ListModels",

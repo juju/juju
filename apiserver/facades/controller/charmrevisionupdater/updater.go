@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v8"
-	"github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/resource"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmstore"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/version"
@@ -170,12 +171,16 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+			series, err := coreseries.GetSeriesFromChannel(origin.Platform.OS, origin.Platform.Channel)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			cid := charmhubID{
 				id:          origin.ID,
 				revision:    *origin.Revision,
 				channel:     channel.String(),
 				os:          strings.ToLower(origin.Platform.OS), // charmhub API requires lowercase OS key
-				series:      origin.Platform.Series,
+				series:      series,
 				arch:        origin.Platform.Architecture,
 				instanceKey: charmhub.CreateInstanceKey(application.ApplicationTag(), model.ModelTag()),
 			}
@@ -202,8 +207,12 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 				Channel: application.Channel(),
 			}
 			if telemetry {
+				series, err := coreseries.GetSeriesFromChannel(origin.Platform.OS, origin.Platform.Channel)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
 				cid.Metadata = map[string]string{
-					"series": origin.Platform.Series,
+					"series": series,
 					"arch":   origin.Platform.Architecture,
 				}
 			}

@@ -27,7 +27,7 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
-// Actions takes a list of ActionTags, and returns the full
+// Actions takes a list of action IDs, and returns the full
 // Action for each ID.
 func (c *Client) Actions(actionIDs []string) ([]ActionResult, error) {
 	arg := params.Entities{Entities: make([]params.Entity, len(actionIDs))}
@@ -41,9 +41,6 @@ func (c *Client) Actions(actionIDs []string) ([]ActionResult, error) {
 
 // ListOperations fetches the operation summaries for specified apps/units.
 func (c *Client) ListOperations(arg OperationQueryArgs) (Operations, error) {
-	if v := c.BestAPIVersion(); v < 6 {
-		return Operations{}, errors.Errorf("ListOperations not supported by this version (%d) of Juju", v)
-	}
 	args := params.OperationQueryArgs{
 		Applications: arg.Applications,
 		Units:        arg.Units,
@@ -61,13 +58,10 @@ func (c *Client) ListOperations(arg OperationQueryArgs) (Operations, error) {
 	return unmarshallOperations(results), err
 }
 
-// Operation fetches the operation with the specified id.
-func (c *Client) Operation(id string) (Operation, error) {
-	if v := c.BestAPIVersion(); v < 6 {
-		return Operation{}, errors.Errorf("Operations not supported by this version (%d) of Juju", v)
-	}
+// Operation fetches the operation with the specified ID.
+func (c *Client) Operation(ID string) (Operation, error) {
 	arg := params.Entities{
-		Entities: []params.Entity{{names.NewOperationTag(id).String()}},
+		Entities: []params.Entity{{names.NewOperationTag(ID).String()}},
 	}
 	var results params.OperationResults
 	err := c.facade.FacadeCall("Operations", arg, &results)
@@ -93,42 +87,10 @@ func maybeNotFound(err *params.Error) error {
 	return errors.NewNotFound(err, "")
 }
 
-// FindActionTagsByPrefix takes a list of string prefixes and finds
-// corresponding ActionTags that match that prefix.
-func (c *Client) FindActionTagsByPrefix(arg params.FindTags) (params.FindTagsResults, error) {
-	results := params.FindTagsResults{}
-	err := c.facade.FacadeCall("FindActionTagsByPrefix", arg, &results)
-	return results, err
-}
-
-// Enqueue takes a list of Actions and queues them up to be executed by
-// the designated ActionReceiver, returning the params.Action for each
-// queued Action, or an error if there was a problem queueing up the
-// Action.
-func (c *Client) Enqueue(actions []Action) ([]ActionResult, error) {
-	arg := params.Actions{Actions: make([]params.Action, len(actions))}
-	for i, a := range actions {
-		arg.Actions[i] = params.Action{
-			Receiver:   a.Receiver,
-			Name:       a.Name,
-			Parameters: a.Parameters,
-		}
-	}
-	results := params.ActionResults{}
-	err := c.facade.FacadeCall("Enqueue", arg, &results)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return unmarshallActionResults(results.Results), nil
-}
-
 // EnqueueOperation takes a list of Actions and queues them up to be executed as
 // an operation, each action running as a task on the the designated ActionReceiver.
 // We return the ID of the overall operation and each individual task.
 func (c *Client) EnqueueOperation(actions []Action) (EnqueuedActions, error) {
-	if v := c.BestAPIVersion(); v < 6 {
-		return EnqueuedActions{}, errors.Errorf("EnqueueOperation not supported by this version (%d) of Juju", v)
-	}
 	arg := params.Actions{Actions: make([]params.Action, len(actions))}
 	for i, a := range actions {
 		arg.Actions[i] = params.Action{
@@ -137,34 +99,12 @@ func (c *Client) EnqueueOperation(actions []Action) (EnqueuedActions, error) {
 			Parameters: a.Parameters,
 		}
 	}
-
-	if c.BestAPIVersion() > 6 {
-		var results params.EnqueuedActionsV2
-		err := c.facade.FacadeCall("EnqueueOperation", arg, &results)
-		if err != nil {
-			return EnqueuedActions{}, errors.Trace(err)
-		}
-		return unmarshallEnqueuedActionsV2(results)
-	}
-
 	results := params.EnqueuedActions{}
 	err := c.facade.FacadeCall("EnqueueOperation", arg, &results)
 	if err != nil {
 		return EnqueuedActions{}, errors.Trace(err)
 	}
 	return unmarshallEnqueuedActions(results)
-}
-
-// FindActionsByNames takes a list of action names and returns actions for
-// every name.
-func (c *Client) FindActionsByNames(arg params.FindActionsByNames) (map[string][]ActionResult, error) {
-	results := params.ActionsByNames{}
-	err := c.facade.FacadeCall("FindActionsByNames", arg, &results)
-	result := make(map[string][]ActionResult)
-	for _, a := range results.Actions {
-		result[a.Name] = unmarshallActionResults(a.Actions)
-	}
-	return result, err
 }
 
 // Cancel attempts to cancel a queued up Action from running.
@@ -211,9 +151,6 @@ func (c *Client) ApplicationCharmActions(appName string) (map[string]ActionSpec,
 // WatchActionProgress returns a watcher that reports on action log messages.
 // The result strings are json formatted core.actions.ActionMessage objects.
 func (c *Client) WatchActionProgress(actionId string) (watcher.StringsWatcher, error) {
-	if v := c.BestAPIVersion(); v < 5 {
-		return nil, errors.Errorf("WatchActionProgress not supported by this version (%d) of Juju", v)
-	}
 	var results params.StringsWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{

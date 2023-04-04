@@ -63,7 +63,7 @@ func (s *cmdCurrentControllerSuite) run(c *gc.C, args ...string) (*cmd.Context, 
 }
 
 func (s *cmdCurrentControllerSuite) TestControllerListCommand(c *gc.C) {
-	context, err := s.run(c, "list-controllers")
+	context, err := s.run(c, "controllers")
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedOutput := `
@@ -74,7 +74,6 @@ ctrlOne     -           -      -                                   -      -   - 
 ctrlThree*  -           -      -                                   -      -   -  (unknown)  
 ctrlTwo     -           -      -                                   -      -   -  (unknown)  
 kontroll    controller  admin  superuser  dummy/dummy-region       1      -   -  (unknown)  
-
 `[1:]
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, expectedOutput)
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
@@ -89,7 +88,8 @@ func (s *cmdCurrentControllerSuite) TestControllerLevelCommandModelEnvVarConflic
 	context, err := s.run(c, "models")
 	c.Assert(err, gc.ErrorMatches, "cmd: error out silently")
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, "")
-	c.Assert(cmdtesting.Stderr(context), jc.Contains, "ERROR controller name from JUJU_MODEL (kontroll) conflicts with value in JUJU_CONTROLLER (ctrlTwo)\n")
+	c.Assert(cmdtesting.Stderr(context), jc.Contains,
+		"ERROR controller name from JUJU_MODEL (kontroll) conflicts with value in JUJU_CONTROLLER (ctrlTwo)\n")
 }
 
 // TestControllerLevelCommandOptionPrecedence ensures that
@@ -131,7 +131,7 @@ func (s *cmdCurrentControllerSuite) TestModelLevelCommandOptionPrecedenceControl
 	//    controller  kontroll    dummy/dummy-region  2.5.2    unsupported  15:22:42+01:00
 	// It's enough to check that the model and expected controller appear.
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, "controller  kontroll")
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "Model \"controller\" is empty.\n")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "\nModel \"controller\" is empty.\n")
 }
 
 // TestModelLevelCommandOptionPrecedenceModelVar ensures that
@@ -147,7 +147,7 @@ func (s *cmdCurrentControllerSuite) TestModelLevelCommandOptionPrecedenceModelVa
 	//    controller  kontroll    dummy/dummy-region  2.5.2    unsupported  15:22:42+01:00
 	// It's enough to check that the model and expected controller appear.
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, "controller  kontroll")
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "Model \"controller\" is empty.\n")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "\nModel \"controller\" is empty.\n")
 }
 
 // TestModelLevelCommandOptionPrecedence ensures that
@@ -164,7 +164,7 @@ func (s *cmdCurrentControllerSuite) TestModelLevelCommandOptionPrecedence(c *gc.
 	//    controller  kontroll    dummy/dummy-region  2.5.2    unsupported  15:22:42+01:00
 	// It's enough to check that the model and expected controller appear.
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, "controller  kontroll")
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "Model \"controller\" is empty.\n")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "\nModel \"controller\" is empty.\n")
 }
 
 // TestModelLevelCommandOptionOnly ensures that
@@ -178,7 +178,7 @@ func (s *cmdCurrentControllerSuite) TestModelLevelCommandOptionOnly(c *gc.C) {
 	//    controller  kontroll    dummy/dummy-region  2.5.2    unsupported  15:22:42+01:00
 	// It's enough to check that the model and expected controller appear.
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, "controller  kontroll")
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "Model \"controller\" is empty.\n")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "\nModel \"controller\" is empty.\n")
 }
 
 // TestModelLevelCommandWithNoControllerInModelOptionAndNoEnvVar ensures that
@@ -193,7 +193,7 @@ func (s *cmdCurrentControllerSuite) TestModelLevelCommandWithNoControllerInModel
 	//    controller  kontroll    dummy/dummy-region  2.5.2    unsupported  15:22:42+01:00
 	// It's enough to check that the model and expected controller appear.
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, "controller  kontroll")
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "Model \"controller\" is empty.\n")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "\nModel \"controller\" is empty.\n")
 }
 
 // TestModelLevelCommandWithEnvVarsConflict ensures that
@@ -204,7 +204,8 @@ func (s *cmdCurrentControllerSuite) TestModelLevelCommandWithEnvVarsConflict(c *
 	s.PatchEnvironment("JUJU_CONTROLLER", "ctrlOne")
 	s.PatchEnvironment("JUJU_MODEL", "ctrlTwo:controller")
 	context, err := s.run(c, "status", "-m", "controller")
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("controller name from JUJU_MODEL (ctrlTwo) conflicts with value in JUJU_CONTROLLER (ctrlOne)"))
+	c.Assert(err, gc.ErrorMatches,
+		regexp.QuoteMeta("controller name from JUJU_MODEL (ctrlTwo) conflicts with value in JUJU_CONTROLLER (ctrlOne)"))
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, "")
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 }

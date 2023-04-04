@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -84,7 +84,7 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C, firewallMode string) {
 
 	// Create a manager machine and login to the API.
 	var err error
-	s.controllerMachine, err = s.State.AddMachine("quantal", state.JobManageModel)
+	s.controllerMachine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	s.controllerPassword, err = utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -114,8 +114,6 @@ func (s *firewallerBaseSuite) assertIngressRules(c *gc.C, inst instances.Instanc
 
 	start := time.Now()
 	for {
-		s.BackingState.StartSync()
-
 		// Make it more likely for the dust to have settled (there still may
 		// be rare cases where a test passes when it shouldn't if expected
 		// is nil, which is the initial value).
@@ -146,7 +144,6 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected firewall.Ingr
 
 	start := time.Now()
 	for {
-		s.BackingState.StartSync()
 		got, err := fwEnv.IngressRules(s.callCtx)
 		if err != nil {
 			c.Fatal(err)
@@ -459,7 +456,7 @@ func (s *InstanceModeSuite) TestStartWithState(c *gc.C) {
 }
 
 func (s *InstanceModeSuite) TestStartWithPartialState(c *gc.C) {
-	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	inst := s.startInstance(c, m)
 
@@ -490,7 +487,7 @@ func (s *InstanceModeSuite) TestStartWithPartialState(c *gc.C) {
 }
 
 func (s *InstanceModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
-	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	inst := s.startInstance(c, m)
 
@@ -540,7 +537,7 @@ func (s *InstanceModeSuite) TestStartMachineWithManualMachine(c *gc.C) {
 	assertWatching(names.NewMachineTag("0"))
 
 	_, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:     "quantal",
+		Base:       state.UbuntuBase("12.10"),
 		Jobs:       []state.MachineJob{state.JobHostUnits},
 		InstanceId: "2",
 		Nonce:      "manual:",
@@ -553,8 +550,8 @@ func (s *InstanceModeSuite) TestStartMachineWithManualMachine(c *gc.C) {
 	}
 
 	m, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	assertWatching(m.MachineTag())
@@ -824,7 +821,6 @@ func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *gc.C) {
 
 	errc := make(chan error, 1)
 	go func() { errc <- fw.Wait() }()
-	s.BackingState.StartSync()
 	select {
 	case err := <-errc:
 		c.Assert(err, gc.ErrorMatches,
@@ -965,7 +961,6 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 	// This will trigger the firewaller to publish the changes.
 	err := ru.EnterScope(map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	s.BackingState.StartSync()
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("time out waiting for ingress change to be published on enter scope")
@@ -979,7 +974,6 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 	ingressRequired = false
 	err = ru.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
-	s.BackingState.StartSync()
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("time out waiting for ingress change to be published on leave scope")
@@ -999,8 +993,6 @@ func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *gc.C) {
 	// This will trigger the firewaller to try and publish the changes.
 	err := ru.EnterScope(map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	s.BackingState.StartSync()
-
 	// We should not have published any ingress events yet - no changed published.
 	select {
 	case <-time.After(coretesting.ShortWait):
@@ -1181,15 +1173,13 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 	// This will trigger the firewaller to publish the changes.
 	err = ru.EnterScope(map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	s.BackingState.StartSync()
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("time out waiting for ingress change to be published on enter scope")
 	case <-published:
 	}
 
-	// Check that the relation status is set to error.
-	s.BackingState.StartSync()
+	// Check that the relation status is set to error
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		relStatus, err := rel.Status()
 		c.Check(err, jc.ErrorIsNil)
@@ -1741,7 +1731,7 @@ func (s *GlobalModeSuite) TestGlobalMode(c *gc.C) {
 }
 
 func (s *GlobalModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
-	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	s.startInstance(c, m)
 

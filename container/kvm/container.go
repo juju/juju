@@ -49,12 +49,12 @@ func (c *kvmContainer) EnsureCachedImage(params StartParams) error {
 	sp := syncParams{
 		fetcher: c.fetcher,
 		arch:    params.Arch,
-		series:  params.Series,
+		version: params.Version,
 		stream:  params.Stream,
 		fType:   DiskImageType,
 		srcFunc: srcFunc,
 	}
-	logger.Debugf("synchronise images for %s %s %s %s", sp.arch, sp.series, sp.stream, params.ImageDownloadURL)
+	logger.Debugf("synchronise images for %s %s %s %s", sp.arch, sp.version, sp.stream, params.ImageDownloadURL)
 	var callback ProgressCallback
 	if params.StatusCallback != nil {
 		callback = func(msg string) {
@@ -103,7 +103,7 @@ func (c *kvmContainer) Start(params StartParams) error {
 	}
 	mparams := CreateMachineParams{
 		Hostname:          c.name,
-		Series:            params.Series,
+		Version:           params.Version,
 		UserDataFile:      params.UserDataFile,
 		NetworkConfigData: params.NetworkConfigData,
 		Memory:            params.Memory,

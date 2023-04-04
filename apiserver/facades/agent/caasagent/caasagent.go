@@ -17,8 +17,3 @@ type FacadeV2 struct {
 	*common.ModelWatcher
 	*common.ControllerConfigAPI
 }
-
-// FacadeV1 is the V1 facade of the caas agent
-type FacadeV1 struct {
-	*FacadeV2
-}

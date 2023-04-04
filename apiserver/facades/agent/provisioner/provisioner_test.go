@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
@@ -53,7 +53,7 @@ type provisionerSuite struct {
 
 	authorizer  apiservertesting.FakeAuthorizer
 	resources   *common.Resources
-	provisioner *provisioner.ProvisionerAPIV10
+	provisioner *provisioner.ProvisionerAPIV11
 }
 
 var _ = gc.Suite(&provisionerSuite{})
@@ -78,7 +78,7 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 		s.machines = append(s.machines, testing.AddControllerMachine(c, s.State))
 	}
 	for i := 0; i < 5; i++ {
-		machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+		machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Check(err, jc.ErrorIsNil)
 		s.machines = append(s.machines, machine)
 	}
@@ -94,7 +94,7 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	s.resources = common.NewResources()
 
 	// Create a provisioner API for the machine.
-	provisionerAPI, err := provisioner.NewProvisionerAPIV10(facadetest.Context{
+	provisionerAPI, err := provisioner.NewProvisionerAPIV11(facadetest.Context{
 		Auth_:      s.authorizer,
 		State_:     s.State,
 		StatePool_: s.StatePool,
@@ -223,8 +223,8 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 
 	// Create some containers to work on.
 	template := state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 	var containers []*state.Machine
 	for i := 0; i < 3; i++ {
@@ -720,9 +720,9 @@ func (s *withoutControllerSuite) TestWatchContainers(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)
-	wc0 := statetesting.NewStringsWatcherC(c, s.State, m0Watcher.(state.StringsWatcher))
+	wc0 := statetesting.NewStringsWatcherC(c, m0Watcher.(state.StringsWatcher))
 	wc0.AssertNoChange()
-	wc1 := statetesting.NewStringsWatcherC(c, s.State, m1Watcher.(state.StringsWatcher))
+	wc1 := statetesting.NewStringsWatcherC(c, m1Watcher.(state.StringsWatcher))
 	wc1.AssertNoChange()
 }
 
@@ -757,9 +757,9 @@ func (s *withoutControllerSuite) TestWatchAllContainers(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)
-	wc0 := statetesting.NewStringsWatcherC(c, s.State, m0Watcher.(state.StringsWatcher))
+	wc0 := statetesting.NewStringsWatcherC(c, m0Watcher.(state.StringsWatcher))
 	wc0.AssertNoChange()
-	wc1 := statetesting.NewStringsWatcherC(c, s.State, m1Watcher.(state.StringsWatcher))
+	wc1 := statetesting.NewStringsWatcherC(c, m1Watcher.(state.StringsWatcher))
 	wc1.AssertNoChange()
 }
 
@@ -891,31 +891,6 @@ func (s *withoutControllerSuite) TestInstanceStatus(c *gc.C) {
 	})
 }
 
-func (s *withoutControllerSuite) TestSeries(c *gc.C) {
-	// Add a machine with different series.
-	foobarMachine := s.Factory.MakeMachine(c, &factory.MachineParams{Series: "foobar"})
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: s.machines[0].Tag().String()},
-		{Tag: foobarMachine.Tag().String()},
-		{Tag: s.machines[2].Tag().String()},
-		{Tag: "machine-42"},
-		{Tag: "unit-foo-0"},
-		{Tag: "application-bar"},
-	}}
-	result, err := s.provisioner.Series(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{
-			{Result: s.machines[0].Series()},
-			{Result: foobarMachine.Series()},
-			{Result: s.machines[2].Series()},
-			{Error: apiservertesting.NotFoundError("machine 42")},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-}
-
 func (s *withoutControllerSuite) TestAvailabilityZone(c *gc.C) {
 	availabilityZone := "ru-north-siberia"
 	emptyAz := ""
@@ -1014,7 +989,7 @@ func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 	setProvisioned("3")
 
 	// Add a few controllers, provision two of them.
-	_, err = s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
+	_, err = s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	setProvisioned("5")
 	setProvisioned("7")
@@ -1144,7 +1119,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 	setProvisioned("3")
 
 	// Add a few controllers, provision two of them.
-	_, err = s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
+	_, err = s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	setProvisioned("5")
 	setProvisioned("7")
@@ -1198,7 +1173,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineIdMachineAgentAut
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
-	provisionerV5, err := provisioner.NewProvisionerAPIV5(facadetest.Context{
+	provisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
 		Auth_:      anAuthorizer,
 		State_:     s.State,
 		StatePool_: s.StatePool,
@@ -1213,7 +1188,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineIdMachineAgentAut
 		{Tag: "machine-1-lxd-99"},
 		{Tag: "machine-1-lxd-99-lxd-100"},
 	}}
-	result, err := provisionerV5.DistributionGroupByMachineId(args)
+	result, err := provisioner.DistributionGroupByMachineId(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
@@ -1233,7 +1208,7 @@ func (s *withoutControllerSuite) TestConstraints(c *gc.C) {
 	// Add a machine with some constraints.
 	cons := constraints.MustParse("cores=123", "mem=8G")
 	template := state.MachineTemplate{
-		Series:      "quantal",
+		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
 	}
@@ -1281,8 +1256,8 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	volumesMachine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Size: 1000},
 		}},
@@ -1428,7 +1403,7 @@ func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
+	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 
 	// Make sure WatchModelMachines fails with a machine agent login.
@@ -1478,7 +1453,7 @@ func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
+	wc := statetesting.NewNotifyWatcherC(c, resource.(state.NotifyWatcher))
 	wc.AssertNoChange()
 
 	// We should now get a time triggered change.
@@ -1499,32 +1474,6 @@ func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 	result, err := aProvisioner.WatchMachineErrorRetry()
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{})
-}
-
-func (s *withoutControllerSuite) TestFindTools(c *gc.C) {
-	otherSt := s.Factory.MakeModel(c, nil)
-	defer otherSt.Close()
-	provisionerAPI, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      s.authorizer,
-		State_:     otherSt,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
-	},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	args := params.FindToolsParams{
-		MajorVersion: -1,
-		MinorVersion: -1,
-	}
-	result, err := provisionerAPI.FindTools(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.List, gc.Not(gc.HasLen), 0)
-	for _, tools := range result.List {
-		url := fmt.Sprintf("https://%s/model/%s/tools/%s",
-			s.APIState.Addr(), otherSt.ModelUUID(), tools.Version)
-		c.Assert(tools.URL, gc.Equals, url)
-	}
 }
 
 func (s *withoutControllerSuite) TestMarkMachinesForRemoval(c *gc.C) {
@@ -1642,55 +1591,6 @@ func (s *withoutControllerSuite) TestContainerConfigLegacy(c *gc.C) {
 	c.Check(results.SSLHostnameVerification, jc.IsTrue)
 	c.Check(results.LegacyProxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.JujuProxy.HasProxySet(), jc.IsFalse)
-	c.Check(results.AptProxy, gc.DeepEquals, expectedAPTProxy)
-	c.Check(results.AptMirror, gc.DeepEquals, "http://example.mirror.com")
-	c.Check(results.CloudInitUserData, gc.DeepEquals, map[string]interface{}{
-		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
-		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
-		"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
-		"package_upgrade": false})
-	c.Check(results.ContainerInheritProperties, gc.DeepEquals, "ca-certs,apt-primary")
-}
-
-func (s *withoutControllerSuite) TestContainerConfigV5(c *gc.C) {
-	attrs := map[string]interface{}{
-		"http-proxy":                   "http://proxy.example.com:9000",
-		"apt-https-proxy":              "https://proxy.example.com:9000",
-		"allow-lxd-loop-mounts":        true,
-		"apt-mirror":                   "http://example.mirror.com",
-		"cloudinit-userdata":           validCloudInitUserData,
-		"container-inherit-properties": "ca-certs,apt-primary",
-	}
-	err := s.Model.UpdateModelConfig(attrs, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	expectedAPTProxy := proxy.Settings{
-		Http:    "http://proxy.example.com:9000",
-		Https:   "https://proxy.example.com:9000",
-		NoProxy: "127.0.0.1,localhost,::1",
-	}
-
-	expectedProxy := proxy.Settings{
-		Http:    "http://proxy.example.com:9000",
-		NoProxy: "127.0.0.1,localhost,::1",
-	}
-
-	provisionerV5, err := provisioner.NewProvisionerAPIV5(facadetest.Context{
-		Auth_:      s.authorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
-	})
-	c.Check(err, jc.ErrorIsNil)
-
-	var results params.ContainerConfigV5
-	results, err = provisionerV5.ContainerConfig()
-	c.Check(err, jc.ErrorIsNil)
-
-	c.Check(results.UpdateBehavior, gc.Not(gc.IsNil))
-	c.Check(results.ProviderType, gc.Equals, "dummy")
-	c.Check(results.AuthorizedKeys, gc.Equals, s.Environ.Config().AuthorizedKeys())
-	c.Check(results.SSLHostnameVerification, jc.IsTrue)
-	c.Check(results.Proxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.AptProxy, gc.DeepEquals, expectedAPTProxy)
 	c.Check(results.AptMirror, gc.DeepEquals, "http://example.mirror.com")
 	c.Check(results.CloudInitUserData, gc.DeepEquals, map[string]interface{}{

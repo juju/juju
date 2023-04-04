@@ -42,7 +42,7 @@ run_start_hook_fires_after_reboot() {
 	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
 	# Ensure that the implicit start hook does not fire after upgrading the unit
-	juju upgrade-charm ubuntu-lite --revision 10
+	juju refresh ubuntu-lite --revision 10
 	echo
 	sleep 1
 	wait_for "ubuntu-lite" "$(charm_rev "ubuntu-lite" 10)"
@@ -86,7 +86,7 @@ run_reboot_monitor_state_cleanup() {
 	juju deploy mysql --channel=edge --force --series jammy
 	# Deploy mysql/rsyslog-forwarder-ha. The latter is a subordinate
 	juju deploy rsyslog-forwarder-ha
-	juju add-relation rsyslog-forwarder-ha mysql
+	juju integrate rsyslog-forwarder-ha mysql
 	wait_for "mysql" "$(idle_condition "mysql")"
 	wait_for "rsyslog-forwarder-ha" "$(idle_subordinate_condition "rsyslog-forwarder-ha" "mysql")"
 

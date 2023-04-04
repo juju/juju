@@ -6,12 +6,14 @@ package context
 import (
 	"fmt"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/juju/charm/v8"
-	"github.com/juju/charm/v8/hooks"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/hooks"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -24,9 +26,12 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/quota"
+	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/runner/context/payloads"
@@ -114,8 +119,6 @@ type HookProcess interface {
 	Kill() error
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/hookunit_mock.go github.com/juju/juju/worker/uniter/runner/context HookUnit
-
 // HookUnit represents the functions needed by a unit in a hook context to
 // call into state.
 type HookUnit interface {
@@ -147,6 +150,14 @@ type HookContext struct {
 	// over fully to API calls on State.  This adds that ability, but we're
 	// not fully there yet.
 	state *uniter.State
+
+	// secretsClient allows the context to access the secrets backend.
+	secretsClient SecretsAccessor
+
+	// secretsBackendGetter is used to get a client to access the secrets backend.
+	secretsBackendGetter SecretsBackendGetter
+	// secretsBackend is the secrets backend client, created only when needed.
+	secretsBackend secrets.Backend
 
 	// LeadershipContext supplies several hooks.Context methods.
 	LeadershipContext
@@ -242,7 +253,7 @@ type HookContext struct {
 	assignedMachineTag names.MachineTag
 
 	// process is the process of the command that is being run in the local context,
-	// like a juju-run command or a hook
+	// like a juju-exec command or a hook
 	process HookProcess
 
 	// rebootPriority tells us when the hook wants to reboot. If rebootPriority
@@ -300,9 +311,24 @@ type HookContext struct {
 	// workloadName is the name of the container which the hook is in relation to.
 	workloadName string
 
-	// seriesUpgradeTarget is the series that the unit's machine is to be
-	// updated to when Juju is issued the `upgrade-series` command.
-	seriesUpgradeTarget string
+	// baseUpgradeTarget is the base that the unit's machine is to be
+	// updated to when Juju is issued the `upgrade-machine` command.
+	baseUpgradeTarget string
+
+	// secretURI is the reference to the secret relevant to the hook.
+	secretURI string
+
+	// secretRevision is the secret revision relevant to the hook.
+	secretRevision int
+
+	// secretLabel is the secret label to expose to the hook.
+	secretLabel string
+
+	// secretMetadata contains the metadata for secrets created by this charm.
+	secretMetadata map[string]jujuc.SecretMetadata
+
+	// secretChanges records changes to secrets during a hook execution.
+	secretChanges *secretsChangeRecorder
 
 	mu sync.Mutex
 }
@@ -722,6 +748,277 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 	return result, nil
 }
 
+func (ctx *HookContext) getSecretsBackend() (secrets.Backend, error) {
+	if ctx.secretsBackend != nil {
+		return ctx.secretsBackend, nil
+	}
+	var err error
+	ctx.secretsBackend, err = ctx.secretsBackendGetter()
+	if err != nil {
+		return nil, err
+	}
+	return ctx.secretsBackend, nil
+}
+
+func (ctx *HookContext) lookupOwnedSecretURIByLabel(label string) (*coresecrets.URI, error) {
+	mds, err := ctx.SecretMetadata()
+	if err != nil {
+		return nil, err
+	}
+	for ID, md := range mds {
+		if md.Label == label && md.Owner.Id() == ctx.unit.Tag().Id() {
+			return &coresecrets.URI{ID: ID}, nil
+		}
+	}
+	for _, md := range ctx.secretChanges.pendingCreates {
+		// Check if we have any pending create changes.
+		if md.Label == nil || md.URI == nil {
+			continue
+		}
+		if *md.Label == label && md.OwnerTag.Id() == ctx.unit.Tag().Id() {
+			return md.URI, nil
+		}
+	}
+	for _, md := range ctx.secretChanges.pendingUpdates {
+		// Check if we have any pending label update changes.
+		if md.Label == nil || md.URI == nil {
+			continue
+		}
+		if *md.Label == label {
+			return md.URI, nil
+		}
+	}
+	return nil, errors.NotFoundf("secret owned by %q with label %q", ctx.unitName, label)
+}
+
+// GetSecret returns the value of the specified secret.
+func (ctx *HookContext) GetSecret(uri *coresecrets.URI, label string, refresh, peek bool) (coresecrets.SecretValue, error) {
+	if uri == nil && label == "" {
+		return nil, errors.NotValidf("empty URI and label")
+	}
+	if label != "" {
+		// try to resolve label to URI by looking up owned secrets.
+		ownedSecretURI, err := ctx.lookupOwnedSecretURIByLabel(label)
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			return nil, err
+		}
+		if ownedSecretURI != nil {
+			if uri != nil {
+				return nil, errors.NewNotValid(nil, "either URI or label should be used for getting an owned secret but not both")
+			}
+			if refresh {
+				return nil, errors.NewNotValid(nil, "secret owner cannot use --refresh")
+			}
+			// Found owned secret, no need label anymore.
+			uri = ownedSecretURI
+			label = ""
+		}
+	}
+	if v, got := ctx.getPendingSecretValue(uri); got {
+		return v, nil
+	}
+	store, err := ctx.getSecretsBackend()
+	if err != nil {
+		return nil, err
+	}
+	v, err := store.GetContent(uri, label, refresh, peek)
+	if err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+func (ctx *HookContext) getPendingSecretValue(uri *coresecrets.URI) (coresecrets.SecretValue, bool) {
+	if uri == nil {
+		return nil, false
+	}
+	for _, v := range ctx.secretChanges.pendingCreates {
+		if v.URI != nil && v.URI.ID == uri.ID {
+			// The initial value of the secret is not stored in the database yet.
+			return v.Value, true
+		}
+	}
+	for _, v := range ctx.secretChanges.pendingUpdates {
+		if v.URI != nil && v.URI.ID == uri.ID {
+			// The new value of the secret is going to be updated to the database.
+			return v.Value, v.Value != nil && !v.Value.IsEmpty()
+		}
+	}
+	return nil, false
+}
+
+// CreateSecret creates a secret with the specified data.
+func (ctx *HookContext) CreateSecret(args *jujuc.SecretCreateArgs) (*coresecrets.URI, error) {
+	if args.OwnerTag.Kind() == names.ApplicationTagKind {
+		isLeader, err := ctx.IsLeader()
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot determine leadership")
+		}
+		if !isLeader {
+			return nil, ErrIsNotLeader
+		}
+	}
+	uris, err := ctx.secretsClient.CreateSecretURIs(1)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	err = ctx.secretChanges.create(uniter.SecretCreateArg{
+		SecretUpsertArg: uniter.SecretUpsertArg{
+			URI:          uris[0],
+			RotatePolicy: args.RotatePolicy,
+			ExpireTime:   args.ExpireTime,
+			Description:  args.Description,
+			Label:        args.Label,
+			Value:        args.Value,
+		},
+		OwnerTag: args.OwnerTag,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return uris[0], nil
+}
+
+// UpdateSecret creates a secret with the specified data.
+func (ctx *HookContext) UpdateSecret(uri *coresecrets.URI, args *jujuc.SecretUpdateArgs) error {
+	md, ok := ctx.secretMetadata[uri.ID]
+	if ok && md.Owner.Kind() == names.ApplicationTagKind {
+		isLeader, err := ctx.IsLeader()
+		if err != nil {
+			return errors.Annotatef(err, "cannot determine leadership")
+		}
+		if !isLeader {
+			return ErrIsNotLeader
+		}
+	}
+	ctx.secretChanges.update(uniter.SecretUpdateArg{
+		SecretUpsertArg: uniter.SecretUpsertArg{
+			URI:          uri,
+			RotatePolicy: args.RotatePolicy,
+			ExpireTime:   args.ExpireTime,
+			Description:  args.Description,
+			Label:        args.Label,
+			Value:        args.Value,
+		},
+		CurrentRevision: md.LatestRevision,
+	})
+	return nil
+}
+
+// RemoveSecret removes a secret with the specified uri.
+func (ctx *HookContext) RemoveSecret(uri *coresecrets.URI, revision *int) error {
+	md, ok := ctx.secretMetadata[uri.ID]
+	if ok && md.Owner.Kind() == names.ApplicationTagKind {
+		isLeader, err := ctx.IsLeader()
+		if err != nil {
+			return errors.Annotatef(err, "cannot determine leadership")
+		}
+		if !isLeader {
+			return ErrIsNotLeader
+		}
+	}
+	ctx.secretChanges.remove(uri, revision)
+	return nil
+}
+
+// SecretMetadata gets the secret ids and their labels and latest revisions created by the charm.
+// The result includes any pending updates.
+func (ctx *HookContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error) {
+	pendingUpdatesByID := make(map[string]uniter.SecretUpsertArg)
+	for _, u := range ctx.secretChanges.pendingUpdates {
+		pendingUpdatesByID[u.URI.ID] = u.SecretUpsertArg
+	}
+	pendingDeletes := set.NewStrings()
+	for _, r := range ctx.secretChanges.pendingDeletes {
+		pendingDeletes.Add(r.URI.ID)
+	}
+
+	result := make(map[string]jujuc.SecretMetadata)
+	for _, c := range ctx.secretChanges.pendingCreates {
+		md := jujuc.SecretMetadata{
+			Owner:          c.OwnerTag,
+			LatestRevision: 1,
+		}
+		if c.Label != nil {
+			md.Label = *c.Label
+		}
+		if c.Description != nil {
+			md.Description = *c.Description
+		}
+		if c.RotatePolicy != nil {
+			md.RotatePolicy = *c.RotatePolicy
+		}
+		if c.ExpireTime != nil {
+			md.LatestExpireTime = c.ExpireTime
+		}
+		result[c.URI.ID] = md
+	}
+	for id, v := range ctx.secretMetadata {
+		if pendingDeletes.Contains(id) {
+			continue
+		}
+		if u, ok := pendingUpdatesByID[id]; ok {
+			if u.Label != nil {
+				v.Label = *u.Label
+			}
+			if u.Description != nil {
+				v.Description = *u.Description
+			}
+			if u.RotatePolicy != nil {
+				v.RotatePolicy = *u.RotatePolicy
+			}
+			if u.ExpireTime != nil {
+				v.LatestExpireTime = u.ExpireTime
+			}
+		}
+		result[id] = v
+	}
+	return result, nil
+}
+
+// GrantSecret grants access to a specified secret.
+func (ctx *HookContext) GrantSecret(uri *coresecrets.URI, args *jujuc.SecretGrantRevokeArgs) error {
+	md, ok := ctx.secretMetadata[uri.ID]
+	if ok && md.Owner.Kind() == names.ApplicationTagKind {
+		isLeader, err := ctx.IsLeader()
+		if err != nil {
+			return errors.Annotatef(err, "cannot determine leadership")
+		}
+		if !isLeader {
+			return ErrIsNotLeader
+		}
+	}
+	ctx.secretChanges.grant(uniter.SecretGrantRevokeArgs{
+		URI:             uri,
+		ApplicationName: args.ApplicationName,
+		UnitName:        args.UnitName,
+		RelationKey:     args.RelationKey,
+		Role:            coresecrets.RoleView,
+	})
+	return nil
+}
+
+// RevokeSecret revokes access to a specified secret.
+func (ctx *HookContext) RevokeSecret(uri *coresecrets.URI, args *jujuc.SecretGrantRevokeArgs) error {
+	md, ok := ctx.secretMetadata[uri.ID]
+	if ok && md.Owner.Kind() == names.ApplicationTagKind {
+		isLeader, err := ctx.IsLeader()
+		if err != nil {
+			return errors.Annotatef(err, "cannot determine leadership")
+		}
+		if !isLeader {
+			return ErrIsNotLeader
+		}
+	}
+	ctx.secretChanges.revoke(uniter.SecretGrantRevokeArgs{
+		URI:             uri,
+		ApplicationName: args.ApplicationName,
+		UnitName:        args.UnitName,
+		RelationKey:     args.RelationKey,
+	})
+	return nil
+}
+
 // GoalState returns the goal state for the current unit.
 // Implements jujuc.HookContext.ContextUnit, part of runner.Context.
 func (ctx *HookContext) GoalState() (*application.GoalState, error) {
@@ -851,7 +1148,7 @@ func (ctx *HookContext) SetActionFailed() error {
 // upon completion of the Action.  It returns an error if not called on an
 // Action-containing HookContext.
 // Implements jujuc.ActionHookContext.actionHookContext, part of runner.Context.
-func (ctx *HookContext) UpdateActionResults(keys []string, value string) error {
+func (ctx *HookContext) UpdateActionResults(keys []string, value interface{}) error {
 	ctx.actionDataMu.Lock()
 	defer ctx.actionDataMu.Unlock()
 	if ctx.actionData == nil {
@@ -1014,10 +1311,34 @@ func (ctx *HookContext) HookVars(
 		vars = append(vars, "JUJU_WORKLOAD_NAME="+ctx.workloadName)
 	}
 
-	if ctx.seriesUpgradeTarget != "" {
+	if ctx.baseUpgradeTarget != "" {
+		// We need to set both the base and the series for the hook. This until
+		// we migrate everything to use base.
+		b, err := series.ParseBaseFromString(ctx.baseUpgradeTarget)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		s, err := series.GetSeriesFromBase(b)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		vars = append(vars,
-			"JUJU_TARGET_SERIES="+ctx.seriesUpgradeTarget,
+			"JUJU_TARGET_BASE="+ctx.baseUpgradeTarget,
+			"JUJU_TARGET_SERIES="+s,
 		)
+	}
+
+	if ctx.secretURI != "" {
+		vars = append(vars,
+			"JUJU_SECRET_ID="+ctx.secretURI,
+			"JUJU_SECRET_LABEL="+ctx.secretLabel,
+		)
+		if ctx.secretRevision > 0 {
+			vars = append(vars,
+				"JUJU_SECRET_REVISION="+strconv.Itoa(ctx.secretRevision),
+			)
+		}
 	}
 
 	if storage, err := ctx.HookStorage(); err == nil {
@@ -1134,6 +1455,90 @@ func (ctx *HookContext) doFlush(process string) error {
 		b.AddStorage(ctx.storageAddConstraints)
 	}
 
+	// Before saving the secret metadata to Juju, save the content to an external
+	// backend (if configured) - we need the backend id to send to Juju.
+	// If the flush to Juju fails, we'll delete the external content.
+	var secretsBackend secrets.Backend
+	if ctx.secretChanges.haveContentUpdates() {
+		var err error
+		secretsBackend, err = ctx.getSecretsBackend()
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	var cleanups []string
+	pendingCreates := make([]uniter.SecretCreateArg, len(ctx.secretChanges.pendingCreates))
+	pendingUpdates := make([]uniter.SecretUpsertArg, len(ctx.secretChanges.pendingUpdates))
+	pendingDeletes := make([]uniter.SecretDeleteArg, len(ctx.secretChanges.pendingDeletes))
+	for i, c := range ctx.secretChanges.pendingCreates {
+		backendId, err := secretsBackend.SaveContent(c.URI, 1, c.Value)
+		if errors.IsNotSupported(err) {
+			pendingCreates[i] = c
+			continue
+		}
+		if err != nil {
+			return errors.Annotatef(err, "saving content for secret %q", c.URI.ID)
+		}
+		cleanups = append(cleanups, backendId)
+		c.BackendId = &backendId
+		c.Value = nil
+		pendingCreates[i] = c
+	}
+	for i, u := range ctx.secretChanges.pendingUpdates {
+		// Juju checks that the current revision is stable when updating metadata so it's
+		// safe to increment here knowing the same value will be saved in Juju.
+		if u.Value.IsEmpty() {
+			pendingUpdates[i] = u.SecretUpsertArg
+			continue
+		}
+		backendId, err := secretsBackend.SaveContent(u.URI, u.CurrentRevision+1, u.Value)
+		if errors.IsNotSupported(err) {
+			pendingUpdates[i] = u.SecretUpsertArg
+			continue
+		}
+		if err != nil {
+			return errors.Annotatef(err, "saving content for secret %q", u.URI.ID)
+		}
+		cleanups = append(cleanups, backendId)
+		u.BackendId = &backendId
+		u.Value = nil
+		pendingUpdates[i] = u.SecretUpsertArg
+	}
+
+	for i, d := range ctx.secretChanges.pendingDeletes {
+		pendingDeletes[i] = d
+		md, ok := ctx.secretMetadata[d.URI.ID]
+		if !ok {
+			continue
+		}
+		var backendIds []string
+		if d.Revision == nil {
+			for _, backendId := range md.BackendIds {
+				backendIds = append(backendIds, backendId)
+			}
+		} else {
+			if backendId, ok := md.BackendIds[*d.Revision]; ok {
+				backendIds = []string{backendId}
+			}
+		}
+		ctx.logger.Debugf("deleting secret %q provider ids: %v", d.URI.String(), backendIds)
+	deleteDone:
+		for _, secretId := range backendIds {
+			if err := secretsBackend.DeleteContent(secretId); err != nil {
+				if errors.IsNotSupported(err) {
+					break deleteDone
+				}
+				return errors.Annotatef(err, "cannot delete secret %q from store: %v", secretId, err)
+			}
+		}
+	}
+
+	b.AddSecretCreates(pendingCreates)
+	b.AddSecretUpdates(pendingUpdates)
+	b.AddSecretDeletes(pendingDeletes)
+	b.AddSecretGrants(ctx.secretChanges.pendingGrants)
+	b.AddSecretRevokes(ctx.secretChanges.pendingRevokes)
+
 	if ctx.modelType == model.CAAS {
 		if err := ctx.addCommitHookChangesForCAAS(b, process); err != nil {
 			return err
@@ -1144,8 +1549,16 @@ func (ctx *HookContext) doFlush(process string) error {
 	commitReq, numChanges := b.Build()
 	if numChanges > 0 {
 		if err := ctx.unit.CommitHookChanges(commitReq); err != nil {
-			err = errors.Annotatef(err, "cannot apply changes")
-			ctx.logger.Errorf("%v", err)
+			ctx.logger.Errorf("cannot apply changes: %v", err)
+		cleanupDone:
+			for _, secretId := range cleanups {
+				if err2 := secretsBackend.DeleteContent(secretId); err2 != nil {
+					if errors.IsNotSupported(err) {
+						break cleanupDone
+					}
+					ctx.logger.Errorf("cannot cleanup secret %q: %v", secretId, err2)
+				}
+			}
 			return errors.Trace(err)
 		}
 	}
@@ -1229,13 +1642,13 @@ func (ctx *HookContext) finalizeAction(err, flushErr error) error {
 		if results == nil {
 			results = map[string]interface{}{}
 		}
-		if stderr, ok := results["Stderr"].(string); ok {
-			results["Stderr"] = stderr + "\n" + flushErr.Error()
+		if stderr, ok := results["stderr"].(string); ok {
+			results["stderr"] = stderr + "\n" + flushErr.Error()
 		} else {
-			results["Stderr"] = flushErr.Error()
+			results["stderr"] = flushErr.Error()
 		}
-		if code, ok := results["Code"]; !ok || code == "0" {
-			results["Code"] = "1"
+		if code, ok := results["return-code"]; !ok || code == "0" {
+			results["return-code"] = "1"
 		}
 		actionStatus = params.ActionFailed
 		if message == "" {
@@ -1340,4 +1753,21 @@ func (ctx *HookContext) WorkloadName() (string, error) {
 		return "", errors.NotFoundf("workload name")
 	}
 	return ctx.workloadName, nil
+}
+
+// SecretURI returns the secret URI for secret hooks.
+// This is not yet used by any hook commands - it is exported
+// for tests to use.
+func (ctx *HookContext) SecretURI() (string, error) {
+	if ctx.secretURI == "" {
+		return "", errors.NotFoundf("secret URI")
+	}
+	return ctx.secretURI, nil
+}
+
+// SecretLabel returns the secret label for secret hooks.
+// This is not yet used by any hook commands - it is exported
+// for tests to use.
+func (ctx *HookContext) SecretLabel() string {
+	return ctx.secretLabel
 }

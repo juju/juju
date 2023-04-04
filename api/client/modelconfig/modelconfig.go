@@ -109,9 +109,6 @@ func (c *Client) SLALevel() (string, error) {
 
 // Sequences returns all sequence names and next values.
 func (c *Client) Sequences() (map[string]int, error) {
-	if c.BestAPIVersion() < 2 {
-		return nil, errors.NotSupportedf("Sequences on v1 facade")
-	}
 	var result params.ModelSequencesResult
 	err := c.facade.FacadeCall("Sequences", nil, &result)
 	if err != nil {

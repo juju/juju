@@ -106,7 +106,3 @@ type mockVolumeAttachment struct {
 func (a *mockVolumeAttachment) Life() state.Life {
 	return a.life
 }
-
-type nopSyncStarter struct{}
-
-func (nopSyncStarter) StartSync() {}

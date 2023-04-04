@@ -41,8 +41,16 @@ func (s *URLsSuite) TestImageMetadataURL(c *gc.C) {
 		in:          "foo",
 		expected:    "",
 		expectedErr: fmt.Errorf("foo is not an absolute path"),
+	}, {
+		in:          "/home/foo",
+		expected:    "file:///home/foo/images",
+		expectedErr: nil,
+	}, {
+		in:          "/home/foo/images",
+		expected:    "file:///home/foo/images",
+		expectedErr: nil,
 	}}
-	imageTests = append(imageTests, imageTestsPlatformSpecific...)
+
 	for i, t := range imageTests {
 		c.Logf("Test %d:", i)
 

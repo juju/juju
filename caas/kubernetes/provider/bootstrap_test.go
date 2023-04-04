@@ -6,7 +6,6 @@ package provider_test
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -15,7 +14,6 @@ import (
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 	apps "k8s.io/api/apps/v1"
@@ -46,7 +44,7 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type bootstrapSuite struct {
@@ -79,7 +77,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.cfg = cfg
 
 	s.controllerCfg = coretesting.FakeControllerConfig()
-	s.controllerCfg["juju-db-snap-channel"] = "4.4/stable"
+	s.controllerCfg["juju-db-snap-channel"] = controller.DefaultJujuDBSnapChannel
 	s.controllerCfg[controller.CAASImageRepo] = `
 {
     "serveraddress": "quay.io",
@@ -87,10 +85,12 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
     "repository": "test-account"
 }`[1:]
 	pcfg, err := podcfg.NewBootstrapControllerPodConfig(
-		s.controllerCfg, controllerName, "bionic", constraints.MustParse("root-disk=10000M mem=4000M"))
+		s.controllerCfg, controllerName, "ubuntu", constraints.MustParse("root-disk=10000M mem=4000M"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	pcfg.JujuVersion = version.MustParse("2.6.6.888")
+	current := jujuversion.Current
+	current.Build = 666
+	pcfg.JujuVersion = current
 	pcfg.APIInfo = &api.Info{
 		Password: "password",
 		CACert:   coretesting.CACert,
@@ -98,8 +98,8 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	}
 	pcfg.Bootstrap.ControllerModelConfig = s.cfg
 	pcfg.Bootstrap.BootstrapMachineInstanceId = "instance-id"
-	pcfg.Bootstrap.HostedModelConfig = map[string]interface{}{
-		"name": "hosted-model",
+	pcfg.Bootstrap.InitialModelConfig = map[string]interface{}{
+		"name": "my-model",
 	}
 	pcfg.Bootstrap.StateServingInfo = controller.StateServingInfo{
 		Cert:         coretesting.ServerCert,
@@ -306,6 +306,10 @@ func (s *bootstrapSuite) TestGetControllerSvcSpec(c *gc.C) {
 	}
 }
 
+func int64Ptr(a int64) *int64 {
+	return &a
+}
+
 func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	podWatcher, podFirer := k8swatchertest.NewKubernetesTestWatcher()
 	eventWatcher, _ := k8swatchertest.NewKubernetesTestWatcher()
@@ -350,12 +354,6 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 
 	s.pcfg.Bootstrap.Timeout = 10 * time.Minute
 	s.pcfg.Bootstrap.ControllerExternalIPs = []string{"10.0.0.1"}
-	s.pcfg.Bootstrap.GUI = &tools.GUIArchive{
-		URL:     "http://gui-url",
-		Version: version.MustParse("6.6.6"),
-		SHA256:  "deadbeef",
-		Size:    999,
-	}
 	s.pcfg.Bootstrap.IgnoreProxy = true
 
 	controllerStacker := s.controllerStackerGetter()
@@ -436,6 +434,19 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		},
 	}
 
+	secretControllerAppConfig := &core.Secret{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        "juju-controller-test-application-config",
+			Namespace:   s.namespace,
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
+			Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
+		},
+		Type: core.SecretTypeOpaque,
+		Data: map[string][]byte{
+			"JUJU_K8S_UNIT_PASSWORD": []byte(controllerStacker.GetControllerUnitAgentPassword()),
+		},
+	}
+
 	secretCAASImageRepoData, err := s.controllerCfg.CAASImageRepo().SecretData()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -463,8 +474,9 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
 		},
 		Data: map[string]string{
-			"bootstrap-params": string(bootstrapParamsContent),
-			"agent.conf":       controllerStacker.GetAgentConfigContent(c),
+			"bootstrap-params":           string(bootstrapParamsContent),
+			"controller-agent.conf":      controllerStacker.GetControllerAgentConfigContent(c),
+			"controller-unit-agent.conf": controllerStacker.GetControllerUnitAgentConfigContent(c),
 		},
 	}
 
@@ -516,10 +528,16 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 					Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
 				},
 				Spec: core.PodSpec{
-					RestartPolicy:                core.RestartPolicyAlways,
-					ServiceAccountName:           "controller",
-					AutomountServiceAccountToken: pointer.BoolPtr(true),
+					ServiceAccountName:            "controller",
+					AutomountServiceAccountToken:  pointer.BoolPtr(true),
+					TerminationGracePeriodSeconds: int64Ptr(300),
 					Volumes: []core.Volume{
+						{
+							Name: "charm-data",
+							VolumeSource: core.VolumeSource{
+								EmptyDir: &core.EmptyDirVolumeSource{},
+							},
+						},
 						{
 							Name: "juju-controller-test-server-pem",
 							VolumeSource: core.VolumeSource{
@@ -561,8 +579,11 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			ConfigMap: &core.ConfigMapVolumeSource{
 				Items: []core.KeyToPath{
 					{
-						Key:  "agent.conf",
-						Path: "template-agent.conf",
+						Key:  "controller-agent.conf",
+						Path: "controller-agent.conf",
+					}, {
+						Key:  "controller-unit-agent.conf",
+						Path: "controller-unit-agent.conf",
 					},
 				},
 			},
@@ -593,24 +614,73 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		Command: []string{
 			"mongo",
 			fmt.Sprintf("--port=%d", s.controllerCfg.StatePort()),
-			"--ssl",
-			"--sslAllowInvalidHostnames",
-			"--sslAllowInvalidCertificates",
-			"--sslPEMKeyFile=/var/lib/juju/server.pem",
+			"--tls",
+			"--tlsAllowInvalidHostnames",
+			"--tlsAllowInvalidCertificates",
+			"--tlsCertificateKeyFile=/var/lib/juju/server.pem",
 			"--eval",
 			"db.adminCommand('ping')",
 		},
 	}
-	expectedArgs := []string{
-		`printf 'args="--dbpath=/var/lib/juju/db --sslPEMKeyFile=/var/lib/juju/server.pem --sslPEMKeyPassword=ignored --sslMode=requireSSL --port=1234 --journal --replSet=juju --quiet --oplogSize=1024 --auth --keyFile=/var/lib/juju/shared-secret --storageEngine=wiredTiger --bind_ip_all"`,
-		`ipv6Disabled=$(sysctl net.ipv6.conf.all.disable_ipv6 -n)`,
-		`if [ $ipv6Disabled -eq 0 ]; then`,
-		`  args="${args} --ipv6"`,
-		`fi`,
-		`exec mongod ${args}`,
-		`'>/root/mongo.sh && chmod a+x /root/mongo.sh && /root/mongo.sh`,
-	}
 	statefulSetSpec.Spec.Template.Spec.Containers = []core.Container{
+		{
+			Name:            "charm",
+			ImagePullPolicy: core.PullIfNotPresent,
+			Image:           "jujusolutions/charm-base:ubuntu-22.04",
+			WorkingDir:      "/var/lib/juju",
+			Command:         []string{"/charm/bin/pebble"},
+			Args:            []string{"run", "--http", ":38812", "--verbose"},
+			Resources: core.ResourceRequirements{
+				Requests: core.ResourceList{
+					core.ResourceMemory: resource.MustParse("4000Mi"),
+				},
+				Limits: core.ResourceList{
+					core.ResourceMemory: resource.MustParse("4000Mi"),
+				},
+			},
+			Env: []core.EnvVar{
+				{
+					Name:  "JUJU_CONTAINER_NAMES",
+					Value: "api-server",
+				},
+				{
+					Name:  osenv.JujuFeatureFlagEnvKey,
+					Value: "developer-mode",
+				},
+			},
+			SecurityContext: &core.SecurityContext{
+				RunAsUser:  int64Ptr(0),
+				RunAsGroup: int64Ptr(0),
+			},
+			VolumeMounts: []core.VolumeMount{
+				{
+					Name:      "charm-data",
+					MountPath: "/charm/bin",
+					SubPath:   "charm/bin",
+					ReadOnly:  true,
+				},
+				{
+					Name:      "charm-data",
+					MountPath: "/var/lib/juju",
+					SubPath:   "var/lib/juju",
+				},
+				{
+					Name:      "charm-data",
+					MountPath: "/charm/containers",
+					SubPath:   "charm/containers",
+				},
+				{
+					Name:      "charm-data",
+					MountPath: "/var/lib/pebble/default",
+					SubPath:   "containeragent/pebble",
+				},
+				{
+					Name:      "juju-controller-test-agent-conf",
+					MountPath: "/var/lib/juju/template-agent.conf",
+					SubPath:   "controller-unit-agent.conf",
+				},
+			},
+		},
 		{
 			Name:            "mongodb",
 			ImagePullPolicy: core.PullIfNotPresent,
@@ -620,7 +690,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			},
 			Args: []string{
 				"-c",
-				strings.Join(expectedArgs, "\\n"),
+				`printf 'args="--dbpath=/var/lib/juju/db --tlsCertificateKeyFile=/var/lib/juju/server.pem --tlsCertificateKeyFilePassword=ignored --tlsMode=requireTLS --port=1234 --journal --replSet=juju --quiet --oplogSize=1024 --auth --keyFile=/var/lib/juju/shared-secret --storageEngine=wiredTiger --bind_ip_all"\nipv6Disabled=$(sysctl net.ipv6.conf.all.disable_ipv6 -n)\nif [ $ipv6Disabled -eq 0 ]; then\n  args="${args} --ipv6"\nfi\nexec mongod ${args}\n'>/root/mongo.sh && chmod a+x /root/mongo.sh && /root/mongo.sh`,
 			},
 			Ports: []core.ContainerPort{
 				{
@@ -628,6 +698,16 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 					ContainerPort: int32(s.controllerCfg.StatePort()),
 					Protocol:      "TCP",
 				},
+			},
+			StartupProbe: &core.Probe{
+				ProbeHandler: core.ProbeHandler{
+					Exec: probCmds,
+				},
+				FailureThreshold:    60,
+				InitialDelaySeconds: 1,
+				PeriodSeconds:       5,
+				SuccessThreshold:    1,
+				TimeoutSeconds:      1,
 			},
 			ReadinessProbe: &core.Probe{
 				ProbeHandler: core.ProbeHandler{
@@ -648,14 +728,6 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				PeriodSeconds:       10,
 				SuccessThreshold:    1,
 				TimeoutSeconds:      5,
-			},
-			Resources: core.ResourceRequirements{
-				Requests: core.ResourceList{
-					core.ResourceMemory: resource.MustParse("4000Mi"),
-				},
-				Limits: core.ResourceList{
-					core.ResourceMemory: resource.MustParse("4000Mi"),
-				},
 			},
 			VolumeMounts: []core.VolumeMount{
 				{
@@ -684,7 +756,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "api-server",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "test-account/jujud-operator:" + "2.6.6.888",
+			Image:           "test-account/jujud-operator:" + jujuversion.Current.String() + ".666",
 			Env: []core.EnvVar{{
 				Name:  osenv.JujuFeatureFlagEnvKey,
 				Value: "developer-mode",
@@ -701,22 +773,33 @@ export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools
 mkdir -p $JUJU_TOOLS_DIR
 cp /opt/jujud $JUJU_TOOLS_DIR/jujud
 
-echo Installing Dashboard...
-export gui='/var/lib/juju/gui'
-mkdir -p $gui
-curl -sSf -o $gui/gui.tar.bz2 --retry 10 'http://gui-url' || echo Unable to retrieve Juju Dashboard
-[ -f $gui/gui.tar.bz2 ] && sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256
-[ -f $gui/jujugui.sha256 ] && (grep 'deadbeef' $gui/jujugui.sha256 && printf %s '{"version":"6.6.6","url":"http://gui-url","sha256":"deadbeef","size":999}' > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)
 test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf || JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_DATA_DIR/bootstrap-params --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s
-JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-to-stderr --debug
+
+mkdir -p /var/lib/pebble/default/layers
+cat > /var/lib/pebble/default/layers/001-jujud.yaml <<EOF
+summary: jujud service
+services:
+    jujud:
+        summary: Juju controller agent
+        startup: enabled
+        override: replace
+        command: $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-to-stderr --debug
+        environment:
+            JUJU_DEV_FEATURE_FLAGS: developer-mode
+
+EOF
+
+/opt/pebble run --http :38811 --verbose
 `[1:],
 			},
 			WorkingDir: "/var/lib/juju",
-			Resources: core.ResourceRequirements{
-				Limits: core.ResourceList{
-					core.ResourceMemory: resource.MustParse("4000Mi"),
+			EnvFrom: []core.EnvFromSource{{
+				SecretRef: &core.SecretEnvSource{
+					LocalObjectReference: core.LocalObjectReference{
+						Name: "juju-controller-test-application-config",
+					},
 				},
-			},
+			}},
 			VolumeMounts: []core.VolumeMount{
 				{
 					Name:      "storage",
@@ -725,7 +808,7 @@ JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud machine --data-dir $
 				{
 					Name:      "juju-controller-test-agent-conf",
 					MountPath: "/var/lib/juju/agents/controller-0/template-agent.conf",
-					SubPath:   "template-agent.conf",
+					SubPath:   "controller-agent.conf",
 				},
 				{
 					Name:      "juju-controller-test-server-pem",
@@ -745,9 +828,119 @@ JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud machine --data-dir $
 					SubPath:   "bootstrap-params",
 					ReadOnly:  true,
 				},
+				{
+					Name:      "charm-data",
+					MountPath: "/charm/container",
+					SubPath:   "charm/containers/api-server",
+				},
+			},
+			StartupProbe: &core.Probe{
+				ProbeHandler: core.ProbeHandler{
+					HTTPGet: &core.HTTPGetAction{
+						Path: "/v1/health?level=alive",
+						Port: intstr.Parse("38811"),
+					},
+				},
+				InitialDelaySeconds: 3,
+				TimeoutSeconds:      3,
+				PeriodSeconds:       3,
+				SuccessThreshold:    1,
+				FailureThreshold:    100,
+			},
+			LivenessProbe: &core.Probe{
+				ProbeHandler: core.ProbeHandler{
+					HTTPGet: &core.HTTPGetAction{
+						Path: "/v1/health?level=alive",
+						Port: intstr.Parse("38811"),
+					},
+				},
+				InitialDelaySeconds: 1,
+				TimeoutSeconds:      3,
+				PeriodSeconds:       5,
+				SuccessThreshold:    1,
+				FailureThreshold:    2,
+			},
+			ReadinessProbe: &core.Probe{
+				ProbeHandler: core.ProbeHandler{
+					HTTPGet: &core.HTTPGetAction{
+						Path: "/v1/health?level=ready",
+						Port: intstr.Parse("38811"),
+					},
+				},
+				InitialDelaySeconds: 1,
+				TimeoutSeconds:      3,
+				PeriodSeconds:       5,
+				SuccessThreshold:    1,
+				FailureThreshold:    2,
+			},
+			SecurityContext: &core.SecurityContext{
+				RunAsUser:  pointer.Int64Ptr(0),
+				RunAsGroup: pointer.Int64Ptr(0),
 			},
 		},
 	}
+	statefulSetSpec.Spec.Template.Spec.InitContainers = []core.Container{{
+		Name:            "charm-init",
+		ImagePullPolicy: core.PullIfNotPresent,
+		Image:           "test-account/jujud-operator:" + jujuversion.Current.String() + ".666",
+		WorkingDir:      "/var/lib/juju",
+		Command:         []string{"/opt/containeragent"},
+		Args:            []string{"init", "--containeragent-pebble-dir", "/containeragent/pebble", "--charm-modified-version", "0", "--data-dir", "/var/lib/juju", "--bin-dir", "/charm/bin", "--controller"},
+		Env: []core.EnvVar{
+			{
+				Name:  "JUJU_CONTAINER_NAMES",
+				Value: "api-server",
+			},
+			{
+				Name: "JUJU_K8S_POD_NAME",
+				ValueFrom: &core.EnvVarSource{
+					FieldRef: &core.ObjectFieldSelector{
+						FieldPath: "metadata.name",
+					},
+				},
+			},
+			{
+				Name: "JUJU_K8S_POD_UUID",
+				ValueFrom: &core.EnvVarSource{
+					FieldRef: &core.ObjectFieldSelector{
+						FieldPath: "metadata.uid",
+					},
+				},
+			},
+		},
+		EnvFrom: []core.EnvFromSource{
+			{
+				SecretRef: &core.SecretEnvSource{
+					LocalObjectReference: core.LocalObjectReference{
+						Name: "controller-application-config",
+					},
+				},
+			},
+		},
+		VolumeMounts: []core.VolumeMount{
+			{
+				Name:      "charm-data",
+				MountPath: "/var/lib/juju",
+				SubPath:   "var/lib/juju",
+			}, {
+				Name:      "charm-data",
+				MountPath: "/charm/bin",
+				SubPath:   "charm/bin",
+			}, {
+				Name:      "charm-data",
+				MountPath: "/charm/containers",
+				SubPath:   "charm/containers",
+			}, {
+				Name:      "charm-data",
+				MountPath: "/containeragent/pebble",
+				SubPath:   "containeragent/pebble",
+			}, {
+				Name:      "juju-controller-test-agent-conf",
+				MountPath: "/var/lib/juju/template-agent.conf",
+				SubPath:   "controller-unit-agent.conf",
+			},
+		},
+	}}
 
 	controllerServiceAccount := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
@@ -886,6 +1079,10 @@ JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud machine --data-dir $
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(secret, gc.DeepEquals, secretCAASImageRepo)
 
+		secret, err = s.mockSecrets.Get(context.Background(), "juju-controller-test-application-config", v1.GetOptions{})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(secret, gc.DeepEquals, secretControllerAppConfig)
+
 		configmap, err := s.mockConfigMaps.Get(context.Background(), "juju-controller-test-configmap", v1.GetOptions{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(configmap, gc.DeepEquals, configMapWithAgentConfAdded)
@@ -933,12 +1130,6 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
 
 	s.pcfg.Bootstrap.Timeout = 10 * time.Minute
 	s.pcfg.Bootstrap.ControllerExternalIPs = []string{"10.0.0.1"}
-	s.pcfg.Bootstrap.GUI = &tools.GUIArchive{
-		URL:     "http://gui-url",
-		Version: version.MustParse("6.6.6"),
-		SHA256:  "deadbeef",
-		Size:    999,
-	}
 	s.pcfg.Bootstrap.IgnoreProxy = true
 
 	controllerStacker := s.controllerStackerGetter()

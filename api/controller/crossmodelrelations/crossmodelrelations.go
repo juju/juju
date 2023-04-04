@@ -8,7 +8,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
@@ -245,88 +244,10 @@ func (c *Client) RegisterRemoteRelations(relations ...params.RegisterRemoteRelat
 	return result, nil
 }
 
-// watchRelationUnits returns a watcher that notifies of changes to
-// the units in the remote model for the relation with the given
-// remote token. It's used for backwards compatibility when the
-// controller we're talking to only supports v1 of the API.
-func (c *Client) watchRelationUnits(relationToken, applicationToken string, macs macaroon.Slice) (apiwatcher.RemoteRelationWatcher, error) {
-	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{{
-		Token:         relationToken,
-		Macaroons:     macs,
-		BakeryVersion: bakery.LatestVersion,
-	}}}
-	// Use any previously cached discharge macaroons.
-	if ms, ok := c.getCachedMacaroon("watch relation units", relationToken); ok {
-		args.Args[0].Macaroons = ms
-		args.Args[0].BakeryVersion = bakery.LatestVersion
-	}
-
-	var results params.RelationUnitsWatchResults
-	apiCall := func() error {
-		// Reset the results struct before each api call.
-		results = params.RelationUnitsWatchResults{}
-		if err := c.facade.FacadeCall("WatchRelationUnits", args, &results); err != nil {
-			return errors.Trace(err)
-		}
-		if len(results.Results) != 1 {
-			return errors.Errorf("expected 1 result, got %d", len(results.Results))
-		}
-		return nil
-	}
-
-	// Make the api call the first time.
-	if err := apiCall(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// On error, possibly discharge the macaroon and retry.
-	result := results.Results[0]
-	if result.Error != nil {
-		mac, err := c.handleError(result.Error)
-		if err != nil {
-			result.Error.Message = err.Error()
-			return nil, result.Error
-		}
-		args.Args[0].Macaroons = mac
-		args.Args[0].BakeryVersion = bakery.LatestVersion
-		c.cache.Upsert(args.Args[0].Token, mac)
-
-		if err := apiCall(); err != nil {
-			return nil, errors.Trace(err)
-		}
-		result = results.Results[0]
-	}
-	if result.Error != nil {
-		return nil, result.Error
-	}
-
-	// Callback so the watcher can get the unit settings for the
-	// change events that come back from the internal watcher.
-	getSettings := func(unitNames []string) ([]params.SettingsResult, error) {
-		return c.relationUnitSettings(unitNames, relationToken, args.Args[0].Macaroons)
-	}
-
-	// Return the units watcher wrapped in a compatibility watcher so
-	// it emits RemoteRelationChangeEvents.
-	w := apiwatcher.NewRemoteRelationCompatWatcher(
-		c.facade.RawAPICaller(),
-		result,
-		relationToken,
-		applicationToken,
-		getSettings,
-	)
-	return w, nil
-}
-
 // WatchRelationChanges returns a watcher that notifies of changes to
 // the units or application settings in the remote model for the
 // relation with the given remote token.
 func (c *Client) WatchRelationChanges(relationToken, applicationToken string, macs macaroon.Slice) (apiwatcher.RemoteRelationWatcher, error) {
-	if c.BestAPIVersion() < 2 {
-		logger.Debugf("best API version %d - falling back to v1 CMR API", c.BestAPIVersion())
-		return c.watchRelationUnits(relationToken, applicationToken, macs)
-	}
-
 	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{{
 		Token:         relationToken,
 		Macaroons:     macs,
@@ -379,84 +300,6 @@ func (c *Client) WatchRelationChanges(relationToken, applicationToken string, ma
 
 	w := apiwatcher.NewRemoteRelationWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
-}
-
-// relationUnitSettings returns the relation unit settings for the given relation units in the remote model.
-func (c *Client) relationUnitSettings(unitNames []string, relationToken string, macs macaroon.Slice) ([]params.SettingsResult, error) {
-	var (
-		args         params.RemoteRelationUnits
-		retryIndices []int
-	)
-
-	if newMacs, ok := c.getCachedMacaroon("relation unit settings", relationToken); ok {
-		macs = newMacs
-	}
-
-	relationUnits := make([]params.RemoteRelationUnit, len(unitNames))
-	for i, unit := range unitNames {
-		relationUnits[i] = params.RemoteRelationUnit{
-			RelationToken: relationToken,
-			Unit:          names.NewUnitTag(unit).String(),
-			Macaroons:     macs,
-			BakeryVersion: bakery.LatestVersion,
-		}
-	}
-	args = params.RemoteRelationUnits{RelationUnits: relationUnits}
-
-	var results params.SettingsResults
-	apiCall := func() error {
-		// Reset the results struct before each api call.
-		results = params.SettingsResults{}
-		err := c.facade.FacadeCall("RelationUnitSettings", args, &results)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if len(results.Results) != len(args.RelationUnits) {
-			return errors.Errorf("expected %d result(s), got %d", len(args.RelationUnits), len(results.Results))
-		}
-		return nil
-	}
-
-	// Make the api call the first time.
-	if err := apiCall(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	// On error, possibly discharge the macaroon and retry.
-	result := results.Results
-	args = params.RemoteRelationUnits{}
-	// Separate the successful calls from those needing a retry.
-	for i, res := range results.Results {
-		if res.Error == nil {
-			continue
-		}
-		mac, err := c.handleError(res.Error)
-		if err != nil {
-			resCopy := res
-			resCopy.Error.Message = err.Error()
-			result[i] = resCopy
-			continue
-		}
-		retryArg := relationUnits[i]
-		retryArg.Macaroons = mac
-		retryArg.BakeryVersion = bakery.LatestVersion
-		args.RelationUnits = append(args.RelationUnits, retryArg)
-		retryIndices = append(retryIndices, i)
-		c.cache.Upsert(retryArg.RelationToken, mac)
-	}
-	// Nothing to retry so return the original result.
-	if len(args.RelationUnits) == 0 {
-		return result, nil
-	}
-
-	if err := apiCall(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	// After a retry, insert the results into the original result slice.
-	for j, res := range results.Results {
-		resCopy := res
-		result[retryIndices[j]] = resCopy
-	}
-	return result, nil
 }
 
 // WatchEgressAddressesForRelation returns a watcher that notifies when addresses,

@@ -261,8 +261,7 @@ func processPodAffinity(pod *core.PodSpec, affinityLabels map[string]string) err
 	return nil
 }
 
-// ConfigureConstraint configures the requests and limits for the resource.
-func ConfigureConstraint(pod *core.PodSpec, resourceName core.ResourceName, value string) (err error) {
+func configureConstraint(pod *core.PodSpec, resourceName core.ResourceName, value string) (err error) {
 	if len(pod.Containers) == 0 {
 		return nil
 	}

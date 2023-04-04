@@ -4,7 +4,7 @@
 package cloud_test
 
 import (
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -239,7 +239,7 @@ clouds:
       bootstrap-timeout: 1800
       use-default-secgroup: true
 `[1:]
-	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
+	err := os.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewShowCloudCommand(), "homestack", "--client")
 	c.Assert(err, jc.ErrorIsNil)
@@ -279,11 +279,6 @@ use-default-secgroup:
   type: bool
   description: Whether new machine instances should have the "default" Openstack security
     group assigned in addition to juju defined security groups.
-use-floating-ip:
-  type: bool
-  description: Whether a floating IP address is required to give the nodes a public
-    IP address. Some installations assign public IP addresses by default without requiring
-    a floating IP address.
 use-openstack-gbp:
   type: bool
   description: Whether to use Neutrons Group-Based Policy
@@ -306,9 +301,8 @@ clouds:
     region-config:
       london:
         bootstrap-timeout: 1800
-        use-floating-ip: true
 `[1:]
-	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
+	err := os.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewShowCloudCommand(), "homestack", "--include-config", "--client")
 	c.Assert(err, jc.ErrorIsNil)
@@ -331,7 +325,6 @@ config:
 region-config:
   london:
     bootstrap-timeout: 1800
-    use-floating-ip: true
 `[1:], openstackProviderConfig}, ""))
 }
 
@@ -400,7 +393,7 @@ ca-credentials:
 `[1:]
 
 func (s *showSuite) TestShowWithCACertificate(c *gc.C) {
-	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(yamlWithCert), 0600)
+	err := os.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(yamlWithCert), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewShowCloudCommand(), "homestack", "--client")
 	c.Assert(err, jc.ErrorIsNil)

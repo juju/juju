@@ -8,12 +8,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
 
-	charmresource "github.com/juju/charm/v8/resource"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/yaml.v2"
@@ -192,7 +191,7 @@ func (d deployUploader) validateResources() error {
 }
 
 // charmStoreResources returns which resources revisions will need to be retrieved
-// either as they where explicitly requested by the user for that rev or they
+// either as they were explicitly requested by the user for that rev or they
 // weren't provided by the user.
 func (d deployUploader) charmStoreResources(uploads map[string]string, revisions map[string]int) []charmresource.Resource {
 	var resources []charmresource.Resource
@@ -269,7 +268,7 @@ func getDockerDetailsData(path string, osOpen osOpenFunc) (resources.DockerImage
 
 func unMarshalDockerDetails(data io.Reader) (resources.DockerImageDetails, error) {
 	var details resources.DockerImageDetails
-	contents, err := ioutil.ReadAll(data)
+	contents, err := io.ReadAll(data)
 	if err != nil {
 		return details, errors.Trace(err)
 	}

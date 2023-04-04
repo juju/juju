@@ -49,15 +49,6 @@ type Networking interface {
 	FindNetworks(internal bool) (set.Strings, error)
 }
 
-// NetworkingDecorator is an interface that provides a means of overriding
-// the default Networking implementation.
-type NetworkingDecorator interface {
-	// DecorateNetworking can be used to return a new Networking
-	// implementation that overrides the provided, default Networking
-	// implementation.
-	DecorateNetworking(Networking) (Networking, error)
-}
-
 // NetworkingBase describes the EnvironProvider methods needed for Networking.
 type NetworkingBase interface {
 	client() NetworkingAuthenticatingClient

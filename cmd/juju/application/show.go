@@ -15,6 +15,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -92,7 +93,6 @@ func (c *showApplicationCommand) SetFlags(f *gnuflag.FlagSet) {
 // ApplicationsInfoAPI defines the API methods that show-application command uses.
 type ApplicationsInfoAPI interface {
 	Close() error
-	BestAPIVersion() int
 	ApplicationsInfo([]names.ApplicationTag) ([]params.ApplicationInfoResult, error)
 }
 
@@ -110,11 +110,6 @@ func (c *showApplicationCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-
-	if v := client.BestAPIVersion(); v < 9 {
-		// old client does not support showing applications.
-		return errors.NotSupportedf("show applications on API server version %v", v)
-	}
 
 	tags, err := c.getApplicationTags()
 	if err != nil {
@@ -177,7 +172,7 @@ func formatApplicationInfos(all []params.ApplicationResult) (map[string]Applicat
 // ApplicationInfo defines the serialization behaviour of the application information.
 type ApplicationInfo struct {
 	Charm            string                     `yaml:"charm,omitempty" json:"charm,omitempty"`
-	Series           string                     `yaml:"series,omitempty" json:"series,omitempty"`
+	Base             string                     `yaml:"base,omitempty" json:"base,omitempty"`
 	Channel          string                     `yaml:"channel,omitempty" json:"channel,omitempty"`
 	Constraints      constraints.Value          `yaml:"constraints,omitempty" json:"constraints,omitempty"`
 	Principal        bool                       `yaml:"principal" json:"principal"`
@@ -213,9 +208,13 @@ func createApplicationInfo(details params.ApplicationResult) (names.ApplicationT
 
 	}
 
+	base, err := series.ParseBase(details.Base.Name, details.Base.Channel)
+	if err != nil {
+		return names.ApplicationTag{}, ApplicationInfo{}, errors.Trace(err)
+	}
 	info := ApplicationInfo{
 		Charm:            details.Charm,
-		Series:           details.Series,
+		Base:             base.DisplayString(),
 		Channel:          details.Channel,
 		Constraints:      details.Constraints,
 		Principal:        details.Principal,

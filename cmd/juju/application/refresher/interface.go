@@ -4,7 +4,7 @@
 package refresher
 
 import (
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"gopkg.in/macaroon.v2"
 
 	commoncharm "github.com/juju/juju/api/common/charm"

@@ -35,7 +35,6 @@ func (s *statusHistoryTestSuite) SetUpTest(c *gc.C) {
 	s.api, err = client.NewClient(
 		s.st,
 		nil, // pool
-		nil, // modelconfig API
 		nil, // resources
 		authorizer,
 		nil,                                // presence
@@ -46,7 +45,6 @@ func (s *statusHistoryTestSuite) SetUpTest(c *gc.C) {
 		nil,
 		nil,
 		nil, // multiwatcher.Factory
-		nil,
 		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)

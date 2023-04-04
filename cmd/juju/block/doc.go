@@ -23,7 +23,7 @@ Commands that can be disabled are grouped based on logical operations as follows
 
 "all" prevents:
     add-machine
-    add-relation
+    integrate
     add-unit
     add-ssh-key
     add-user
@@ -54,11 +54,11 @@ Commands that can be disabled are grouped based on logical operations as follows
     retry-provisioning
     run
     scale-application
+    set-application-base    
     set-credential
     set-constraints
-    set-series
     sync-agents
     unexpose
-    upgrade-charm
+    refresh
     upgrade-model
 	`

@@ -66,6 +66,8 @@ TEST_NAMES="agents \
             refresh \
             relations \
             resources \
+            secrets_iaas \
+            secrets_k8s \
             sidecar \
             smoke \
             spaces_ec2 \
@@ -190,6 +192,10 @@ while getopts "hH?vAs:a:x:rl:p:c:R:S:" opt; do
 		PROVIDER=$(juju clouds --client 2>/dev/null | grep "${CLOUD}" | awk '{print $4}' | head -n 1)
 		if [[ -z ${PROVIDER} ]]; then
 			PROVIDER="${CLOUD}"
+		fi
+		# We want "ec2" to redirect to "aws". This is needed e.g. for the ck tests
+		if [[ ${PROVIDER} == "ec2" ]]; then
+			PROVIDER="aws"
 		fi
 		export BOOTSTRAP_PROVIDER="${PROVIDER}"
 		export BOOTSTRAP_CLOUD="${CLOUD}"

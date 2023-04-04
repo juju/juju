@@ -27,18 +27,6 @@ type API struct {
 	modelCache        ModelCache
 }
 
-type APIV3 struct {
-	*API
-}
-
-type APIV2 struct {
-	*APIV3
-}
-
-type APIV1 struct {
-	*APIV2
-}
-
 // NewModelGenerationAPI creates a new API endpoint for dealing with model generations.
 func NewModelGenerationAPI(
 	st State,
@@ -94,14 +82,6 @@ func (api *API) AddBranch(arg params.BranchArg) (params.ErrorResult, error) {
 		result.Error = apiservererrors.ServerError(api.model.AddBranch(arg.BranchName, api.apiUser.Name()))
 	}
 	return result, nil
-}
-
-// TrackBranch marks the input units and/or applications as tracking the input
-// branch, causing them to realise changes made under that branch.
-func (api *APIV2) TrackBranch(arg params.BranchTrackArg) (params.ErrorResults, error) {
-	// For backwards compatibility, ensure we always set the NumUnits to 0
-	arg.NumUnits = 0
-	return api.API.TrackBranch(arg)
 }
 
 // TrackBranch marks the input units and/or applications as tracking the input

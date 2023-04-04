@@ -22,7 +22,7 @@ run_mongo_memory_profile() {
 		echo "[+] (attempt ${attempt}) polling mongo service"
 		cat_mongo_service | sed 's/^/    | /g'
 		# This will attempt to wait for 2 minutes before failing out.
-		if [ "${attempt}" -ge 24 ]; then
+		if [[ ${attempt} -ge 24 ]]; then
 			echo "Failed: expected wiredTigerCacheSizeGB to be set in mongo service."
 			exit 1
 		fi
@@ -39,7 +39,7 @@ run_mongo_memory_profile() {
 }
 
 test_mongo_memory_profile() {
-	if [ -n "$(skip 'test_mongo_memory_profile')" ]; then
+	if [[ -n "$(skip 'test_mongo_memory_profile')" ]]; then
 		echo "==> SKIP: Asked to skip controller mongo memory profile tests"
 		return
 	fi

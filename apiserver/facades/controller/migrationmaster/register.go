@@ -15,57 +15,40 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("MigrationMaster", 1, func(ctx facade.Context) (facade.Facade, error) {
-		return newMigrationMasterFacadeV1(ctx)
-	}, reflect.TypeOf((*APIV1)(nil)))
-	registry.MustRegister("MigrationMaster", 2, func(ctx facade.Context) (facade.Facade, error) {
-		return newMigrationMasterFacadeV2(ctx)
-	}, reflect.TypeOf((*APIV2)(nil)))
 	registry.MustRegister("MigrationMaster", 3, func(ctx facade.Context) (facade.Facade, error) {
 		return newMigrationMasterFacade(ctx) // Adds MinionReportTimeout.
 	}, reflect.TypeOf((*API)(nil)))
 }
 
-// newMigrationMasterFacadeV1 exists to provide the required signature for API
-// registration, converting st to backend.
-func newMigrationMasterFacadeV1(ctx facade.Context) (*APIV1, error) {
-	v2, err := newMigrationMasterFacadeV2(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIV1{v2}, nil
-}
-
-// newMigrationMasterFacadeV2 exists to provide the required signature for API
-// registration, converting st to backend.
-func newMigrationMasterFacadeV2(ctx facade.Context) (*APIV2, error) {
-	v3, err := newMigrationMasterFacade(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIV2{v3}, nil
-}
-
 // newMigrationMasterFacade exists to provide the required signature for API
 // registration, converting st to backend.
 func newMigrationMasterFacade(ctx facade.Context) (*API, error) {
-	controllerState, err := ctx.StatePool().SystemState()
+	pool := ctx.StatePool()
+	modelState := ctx.State()
+
+	controllerState, err := pool.SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	precheckBackend, err := migration.PrecheckShim(ctx.State(), controllerState)
+
+	preCheckBackend, err := migration.PrecheckShim(modelState, controllerState)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating precheck backend")
 	}
 
-	environscloudspecGetter := cloudspec.MakeCloudSpecGetter(ctx.StatePool())
+	leadership, err := ctx.LeadershipReader(modelState.ModelUUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return NewAPI(
-		newBacked(ctx.State()),
-		precheckBackend,
-		migration.PoolShim(ctx.StatePool()),
+		newBacked(modelState),
+		preCheckBackend,
+		migration.PoolShim(pool),
 		ctx.Resources(),
 		ctx.Auth(),
 		ctx.Presence(),
-		environscloudspecGetter,
+		cloudspec.MakeCloudSpecGetter(pool),
+		leadership,
 	)
 }

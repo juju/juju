@@ -23,13 +23,9 @@ type ProxyUpdaterSuite struct {
 
 var _ = gc.Suite(&ProxyUpdaterSuite{})
 
-func newAPI(c *gc.C, version int, args ...apitesting.APICall) (*int, *proxyupdater.API) {
+func newAPI(c *gc.C, args ...apitesting.APICall) (*int, *proxyupdater.API) {
 	apiCaller := apitesting.APICallChecker(c, args...)
-	api, err := proxyupdater.NewAPI(
-		apitesting.BestVersionCaller{
-			APICallerFunc: apiCaller.APICallerFunc,
-			BestVersion:   version,
-		}, names.NewUnitTag("u/0"))
+	api, err := proxyupdater.NewAPI(apiCaller.APICallerFunc, names.NewUnitTag("u/0"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(api, gc.NotNil)
 	c.Assert(apiCaller.CallCount, gc.Equals, 0)
@@ -38,7 +34,7 @@ func newAPI(c *gc.C, version int, args ...apitesting.APICall) (*int, *proxyupdat
 }
 
 func (s *ProxyUpdaterSuite) TestNewAPISuccess(c *gc.C) {
-	newAPI(c, 2)
+	newAPI(c)
 }
 
 func (s *ProxyUpdaterSuite) TestNilAPICallerFails(c *gc.C) {
@@ -69,7 +65,7 @@ func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C
 		return fake
 	})
 
-	called, api := newAPI(c, 2, apitesting.APICall{
+	called, api := newAPI(c, apitesting.APICall{
 		Facade:  "ProxyUpdater",
 		Method:  "WatchForProxyConfigAndAPIHostPortChanges",
 		Results: res,
@@ -107,7 +103,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 		AptMirror: "http://mirror",
 	}
 
-	called, api := newAPI(c, 2, apitesting.APICall{
+	called, api := newAPI(c, apitesting.APICall{
 		Facade: "ProxyUpdater",
 		Method: "ProxyConfig",
 		Results: params.ProxyConfigResults{
@@ -140,45 +136,4 @@ func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 		Https: "https-snap",
 	})
 	c.Check(config.AptMirror, gc.Equals, "http://mirror")
-}
-
-func (s *ProxyUpdaterSuite) TestProxyConfigV1(c *gc.C) {
-	conf := params.ProxyConfigResultV1{
-		ProxySettings: params.ProxyConfig{
-			HTTP:    "http-legacy",
-			HTTPS:   "https-legacy",
-			FTP:     "ftp-legacy",
-			NoProxy: "no-proxy-legacy",
-		},
-		APTProxySettings: params.ProxyConfig{
-			HTTP:  "http-apt",
-			HTTPS: "https-apt",
-			FTP:   "ftp-apt",
-		},
-	}
-
-	called, api := newAPI(c, 1, apitesting.APICall{
-		Facade: "ProxyUpdater",
-		Method: "ProxyConfig",
-		Results: params.ProxyConfigResultsV1{
-			Results: []params.ProxyConfigResultV1{conf},
-		},
-	})
-
-	config, err := api.ProxyConfig()
-	c.Assert(*called, gc.Equals, 1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(config.LegacyProxy, jc.DeepEquals, proxy.Settings{
-		Http:    "http-legacy",
-		Https:   "https-legacy",
-		Ftp:     "ftp-legacy",
-		NoProxy: "no-proxy-legacy",
-	})
-	c.Check(config.JujuProxy, jc.DeepEquals, proxy.Settings{})
-	c.Check(config.APTProxy, jc.DeepEquals, proxy.Settings{
-		Http:  "http-apt",
-		Https: "https-apt",
-		Ftp:   "ftp-apt",
-	})
-	c.Check(config.SnapProxy, jc.DeepEquals, proxy.Settings{})
 }

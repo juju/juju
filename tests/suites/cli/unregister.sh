@@ -29,7 +29,7 @@ EOF
 	echo "${CONTROLLERS}" >>"${TEST_DIR}/juju/controllers.yaml"
 
 	echo "Unregister the unregister-test controller"
-	JUJU_DATA="${TEST_DIR}/juju" juju unregister --yes "unregister-test"
+	JUJU_DATA="${TEST_DIR}/juju" juju unregister --no-prompt "unregister-test"
 
 	echo "Check that temporary controllers.yaml has no controllers' data"
 	EXPECTED="controllers: {}"

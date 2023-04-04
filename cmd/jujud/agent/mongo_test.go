@@ -4,7 +4,7 @@
 package agent
 
 import (
-	mgotesting "github.com/juju/mgo/v2/testing"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -29,13 +29,12 @@ func (s *mongoSuite) TestStateWorkerDialDoesNotSetWriteMajorityWithoutReplsetCon
 
 func (s *mongoSuite) testStateWorkerDialSetsWriteMajority(c *gc.C, configureReplset bool) {
 	inst := mgotesting.MgoInstance{
-		Params: []string{"--replSet", "juju"},
+		EnableReplicaSet: true,
 	}
 	err := inst.Start(coretesting.Certs)
 	c.Assert(err, jc.ErrorIsNil)
 	defer inst.Destroy()
 
-	var expectedWMode string
 	dialOpts := stateWorkerDialOpts
 	dialOpts.Timeout = coretesting.LongWait
 	if configureReplset {
@@ -47,7 +46,6 @@ func (s *mongoSuite) testStateWorkerDialSetsWriteMajority(c *gc.C, configureRepl
 		}
 		err = peergrouper.InitiateMongoServer(args)
 		c.Assert(err, jc.ErrorIsNil)
-		expectedWMode = "majority"
 	} else {
 		dialOpts.Direct = true
 	}
@@ -64,6 +62,6 @@ func (s *mongoSuite) testStateWorkerDialSetsWriteMajority(c *gc.C, configureRepl
 
 	safe := session.Safe()
 	c.Assert(safe, gc.NotNil)
-	c.Assert(safe.WMode, gc.Equals, expectedWMode)
+	c.Assert(safe.WMode, gc.Equals, "majority")
 	c.Assert(safe.J, jc.IsTrue) // always enabled
 }

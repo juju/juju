@@ -39,51 +39,51 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 	var err error
 
 	// Add machine
-	s.machine, err = s.State.AddMachine("quantal", state.JobManageModel)
+	s.machine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add first container
 	s.c1, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	}, s.machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add second container
 	s.c2, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	}, s.c1.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add container on the same level as the first container.
 	s.c3, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	}, s.machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.w = s.machine.WatchForRebootEvent()
 
-	s.wc = statetesting.NewNotifyWatcherC(c, s.State, s.w)
+	s.wc = statetesting.NewNotifyWatcherC(c, s.w)
 	s.wc.AssertOneChange()
 
 	s.wC1 = s.c1.WatchForRebootEvent()
 
 	// Initial event on container 1.
-	s.wcC1 = statetesting.NewNotifyWatcherC(c, s.State, s.wC1)
+	s.wcC1 = statetesting.NewNotifyWatcherC(c, s.wC1)
 	s.wcC1.AssertOneChange()
 
 	// Get reboot watcher on container 2
 	s.wC2 = s.c2.WatchForRebootEvent()
 
 	// Initial event on container 2.
-	s.wcC2 = statetesting.NewNotifyWatcherC(c, s.State, s.wC2)
+	s.wcC2 = statetesting.NewNotifyWatcherC(c, s.wC2)
 	s.wcC2.AssertOneChange()
 
 	// Get reboot watcher on container 3
 	s.wC3 = s.c3.WatchForRebootEvent()
 
 	// Initial event on container 3.
-	s.wcC3 = statetesting.NewNotifyWatcherC(c, s.State, s.wC3)
+	s.wcC3 = statetesting.NewNotifyWatcherC(c, s.wC3)
 	s.wcC3.AssertOneChange()
 }
 
@@ -123,8 +123,12 @@ func (s *RebootSuite) TestWatchForRebootEvent(c *gc.C) {
 
 	err = s.machine.SetRebootFlag(true)
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO(quiescence): these three changes should be one event.
+	s.wc.AssertOneChange()
 	err = s.machine.SetRebootFlag(false)
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO(quiescence): these two changes should be one event.
+	s.wc.AssertOneChange()
 	err = s.machine.SetRebootFlag(true)
 	c.Assert(err, jc.ErrorIsNil)
 

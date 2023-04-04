@@ -36,8 +36,7 @@ run_deploy_ck() {
 	# Then we will get `Error while granting requests (TagLimitExceeded); check credentials and debug-log` error in next test run.
 	# So we purge the subnet tags here in advance as a workaround.
 	integrator_app_name=$(cat "$overlay_path" | yq '.applications | keys | .[] | select(.== "*integrator")')
-	juju --show-log run-action "$integrator_app_name/leader" --wait=10m purge-subnet-tags
-	# juju --show-log run "$integrator_app_name/leader"--wait=10m purge-subnet-tags  # 3.0
+	juju --show-log run "$integrator_app_name/leader" --wait=10m purge-subnet-tags
 }
 
 # Ensure that a CAAS workload (mariadb+mediawiki) deploys successfully,

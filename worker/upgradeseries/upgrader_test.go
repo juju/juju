@@ -10,7 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/upgradeseries"
 	. "github.com/juju/juju/worker/upgradeseries/mocks"
@@ -33,18 +32,12 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	s.machineService = "jujud-machine-0"
 }
 
-func (s *upgraderSuite) TestToSystemdServicesWritten(c *gc.C) {
+func (s *upgraderSuite) TestPerformUpgrade(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	s.setupMocks(ctrl)
 
-	s.patchFrom("trusty")
-
-	s.manager.EXPECT().WriteSystemdAgent(
-		s.machineService, paths.NixDataDir, systemd.EtcSystemdMultiUserDir,
-	).Return(nil)
-
-	upg := s.newUpgrader(c, "trusty", "xenial")
+	upg := s.newUpgrader(c, "focal", "jammy")
 	c.Assert(upg.PerformUpgrade(), jc.ErrorIsNil)
 }
 
@@ -60,8 +53,4 @@ func (s *upgraderSuite) newUpgrader(c *gc.C, currentSeries, toSeries string) upg
 	upg, err := upgradeseries.NewUpgrader(currentSeries, toSeries, s.manager, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	return upg
-}
-
-func (s *upgraderSuite) patchFrom(series string) {
-	upgradeseries.PatchHostSeries(s, series)
 }

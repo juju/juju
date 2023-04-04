@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"io/ioutil"
 	"path"
 	"sort"
 	"time"
@@ -227,7 +226,7 @@ func appendMatchingTools(source simplestreams.DataSource, matchingTools []interf
 		if toolsConstraint, ok := cons.(*ToolsConstraint); ok {
 			tmNumber := version.MustParse(tm.Version)
 			if toolsConstraint.Version == version.Zero {
-				if toolsConstraint.MajorVersion >= 0 && toolsConstraint.MajorVersion != tmNumber.Major {
+				if toolsConstraint.MajorVersion > 0 && toolsConstraint.MajorVersion != tmNumber.Major {
 					continue
 				}
 				if toolsConstraint.MinorVersion >= 0 && toolsConstraint.MinorVersion != tmNumber.Minor {
@@ -410,7 +409,7 @@ func metadataUnchanged(stor storage.Storage, stream string, generatedMetadata []
 		return false, nil
 	}
 	defer existingDataReader.Close()
-	existingData, err := ioutil.ReadAll(existingDataReader)
+	existingData, err := io.ReadAll(existingDataReader)
 	if err != nil {
 		return false, err
 	}

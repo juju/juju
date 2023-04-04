@@ -6,7 +6,6 @@ package context
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/juju/os/v2/series"
 
@@ -108,8 +107,6 @@ func ContextDependentEnvVars(env Environmenter) []string {
 // should be set for a hook context.
 func OSDependentEnvVars(paths Paths, env Environmenter) []string {
 	switch jujuos.HostOS() {
-	case jujuos.Windows:
-		return windowsEnv(paths, env)
 	case jujuos.Ubuntu:
 		return ubuntuEnv(paths, env)
 	case jujuos.CentOS:
@@ -134,20 +131,9 @@ func ubuntuEnv(paths Paths, envVars Environmenter) []string {
 		"APT_LISTCHANGES_FRONTEND=none",
 		"DEBIAN_FRONTEND=noninteractive",
 		"LANG=C.UTF-8",
+		"TERM=tmux-256color",
 	}
-
-	env = append(env, path...)
-
-	hostSeries, err := series.HostSeries()
-	if err == nil && hostSeries == "trusty" {
-		// Trusty is in ESM at the time of writing and it does not have patch 20150502 for ncurses 5.9
-		// with terminal definitions for "tmux" and "tmux-256color"
-		env = append(env, "TERM=screen-256color")
-	} else {
-		env = append(env, "TERM=tmux-256color")
-	}
-
-	return env
+	return append(env, path...)
 }
 
 func centosEnv(paths Paths, envVars Environmenter) []string {
@@ -206,17 +192,4 @@ func genericLinuxEnv(paths Paths, envVars Environmenter) []string {
 	env = append(env, "TERM=screen")
 
 	return env
-}
-
-// windowsEnv adds windows specific environment variables. PSModulePath
-// helps hooks use normal imports instead of dot sourcing modules
-// its a convenience variable. The PATH variable delimiter is
-// a semicolon instead of a colon
-func windowsEnv(paths Paths, env Environmenter) []string {
-	charmDir := paths.GetCharmDir()
-	charmModules := filepath.Join(charmDir, "lib", "Modules")
-	return []string{
-		"Path=" + paths.GetToolsDir() + ";" + env.Getenv("Path"),
-		"PSModulePath=" + env.Getenv("PSModulePath") + ";" + charmModules,
-	}
 }

@@ -5,6 +5,7 @@ package caas
 
 import (
 	"github.com/juju/version/v2"
+	core "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
@@ -22,6 +23,9 @@ type Application interface {
 	Delete() error
 	Watch() (watcher.NotifyWatcher, error)
 	WatchReplicas() (watcher.NotifyWatcher, error)
+
+	// ApplicationPodSpec returns the pod spec needed to run the application workload.
+	ApplicationPodSpec(config ApplicationConfig) (*core.PodSpec, error)
 
 	// Scale scales the Application's unit to the value specified. Scale must
 	// be >= 0. Application units will be removed or added to meet the scale
@@ -93,6 +97,13 @@ type ApplicationConfig struct {
 
 	// Containers is the list of containers that make up the container (excluding uniter and init containers).
 	Containers map[string]ContainerConfig
+
+	// ExistingContainers is a list of names for containers which will be added
+	// to the application pod spec outside the ApplicationPodSpec method.
+	// These containers will be added to the JUJU_CONTAINER_NAMES env variable
+	// in the charm container, but we will not create new container specs for
+	// them, as they are assumed to already exist.
+	ExistingContainers []string
 
 	// IntroductionSecret
 	IntroductionSecret string

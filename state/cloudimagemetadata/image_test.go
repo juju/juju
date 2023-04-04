@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	mgotesting "github.com/juju/mgo/v2/testing"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn/v2"
-	txntesting "github.com/juju/txn/v2/testing"
+	jujutxn "github.com/juju/txn/v3"
+	txntesting "github.com/juju/txn/v3/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/mongo"
@@ -47,8 +47,7 @@ func (s *cloudImageMetadataSuite) TestSaveMetadata(c *gc.C) {
 	attrs1 := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
 		Region:          "region-test",
-		Version:         "14.04",
-		Series:          "trusty",
+		Version:         "22.04",
 		Arch:            "arch",
 		VirtType:        "virtType-test",
 		RootStorageType: "rootStorageType-test",
@@ -58,7 +57,6 @@ func (s *cloudImageMetadataSuite) TestSaveMetadata(c *gc.C) {
 		Stream:  "chalk",
 		Region:  "nether",
 		Version: "12.04",
-		Series:  "precise",
 		Arch:    "amd64",
 		Source:  "test",
 	}
@@ -75,8 +73,7 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataWithDateCreated(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
 		Region:          "region-test",
-		Version:         "14.04",
-		Series:          "trusty",
+		Version:         "22.04",
 		Arch:            "arch",
 		VirtType:        "virtType-test",
 		RootStorageType: "rootStorageType-test",
@@ -92,8 +89,7 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataExpiry(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
 		Region:          "region-test",
-		Version:         "14.04",
-		Series:          "trusty",
+		Version:         "22.04",
 		Arch:            "arch",
 		VirtType:        "virtType-test",
 		RootStorageType: "rootStorageType-test",
@@ -133,8 +129,7 @@ func (s *cloudImageMetadataSuite) TestFindMetadataNotFound(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
 		Region:          "region",
-		Version:         "14.04",
-		Series:          "trusty",
+		Version:         "22.04",
 		Arch:            "arch",
 		VirtType:        "virtType",
 		Source:          "test",
@@ -158,8 +153,8 @@ func buildAttributesFilter(attrs cloudimagemetadata.MetadataAttributes) cloudima
 		Region:          attrs.Region,
 		VirtType:        attrs.VirtType,
 		RootStorageType: attrs.RootStorageType}
-	if attrs.Series != "" {
-		filter.Series = []string{attrs.Series}
+	if attrs.Version != "" {
+		filter.Versions = []string{attrs.Version}
 	}
 	if attrs.Arch != "" {
 		filter.Arches = []string{attrs.Arch}
@@ -171,8 +166,7 @@ func (s *cloudImageMetadataSuite) TestFindMetadata(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
 		Region:          "region",
-		Version:         "14.04",
-		Series:          "trusty",
+		Version:         "22.04",
 		Arch:            "arch",
 		VirtType:        "virtType",
 		Source:          "test",
@@ -199,8 +193,7 @@ func (s *cloudImageMetadataSuite) TestFindMetadata(c *gc.C) {
 func (s *cloudImageMetadataSuite) TestSaveMetadataUpdateSameAttrsAndImages(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:  "stream",
-		Version: "14.04",
-		Series:  "trusty",
+		Version: "22.04",
 		Arch:    "arch",
 		Source:  "test",
 		Region:  "wonder",
@@ -216,8 +209,7 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataUpdateSameAttrsAndImages(c *gc
 func (s *cloudImageMetadataSuite) TestSaveMetadataUpdateSameAttrsDiffImages(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:  "stream",
-		Version: "14.04",
-		Series:  "trusty",
+		Version: "22.04",
 		Arch:    "arch",
 		Source:  "test",
 		Region:  "wonder",
@@ -235,8 +227,7 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataUpdateSameAttrsDiffImages(c *g
 func (s *cloudImageMetadataSuite) TestSaveMetadataDuplicates(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:   "stream",
-		Version:  "14.04",
-		Series:   "trusty",
+		Version:  "22.04",
 		Arch:     "arch",
 		Source:   "test",
 		Region:   "wonder",
@@ -244,14 +235,13 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataDuplicates(c *gc.C) {
 	}
 	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "1", 0}
 	err := s.storage.SaveMetadata([]cloudimagemetadata.Metadata{metadata0, metadata0})
-	c.Assert(err, gc.ErrorMatches, ".*"+regexp.QuoteMeta(`duplicate metadata record for image id 1 (key="stream:wonder:trusty:arch:lxd::test")`))
+	c.Assert(err, gc.ErrorMatches, ".*"+regexp.QuoteMeta(`duplicate metadata record for image id 1 (key="stream:wonder:22.04:arch:lxd::test")`))
 }
 
 func (s *cloudImageMetadataSuite) TestSaveDiffMetadataConcurrentlyAndOrderByDateCreated(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:  "stream",
-		Version: "14.04",
-		Series:  "trusty",
+		Version: "22.04",
 		Arch:    "arch",
 		Region:  "wonder",
 		Source:  "test",
@@ -272,8 +262,7 @@ func (s *cloudImageMetadataSuite) TestSaveDiffMetadataConcurrentlyAndOrderByDate
 func (s *cloudImageMetadataSuite) TestSaveSameMetadataDiffImageConcurrently(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:  "stream",
-		Version: "14.04",
-		Series:  "trusty",
+		Version: "22.04",
 		Arch:    "arch",
 		Source:  "test",
 		Region:  "wonder",
@@ -291,8 +280,7 @@ func (s *cloudImageMetadataSuite) TestSaveSameMetadataDiffImageConcurrently(c *g
 func (s *cloudImageMetadataSuite) TestSaveSameMetadataSameImageConcurrently(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:  "stream",
-		Version: "14.04",
-		Series:  "trusty",
+		Version: "22.04",
 		Arch:    "arch",
 		Source:  "test",
 		Region:  "wonder",
@@ -309,8 +297,7 @@ func (s *cloudImageMetadataSuite) TestSaveSameMetadataSameImageConcurrently(c *g
 func (s *cloudImageMetadataSuite) TestSaveSameMetadataSameImageDiffSourceConcurrently(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:  "stream",
-		Version: "14.04",
-		Series:  "trusty",
+		Version: "22.04",
 		Arch:    "arch",
 		Source:  "public",
 		Region:  "wonder",
@@ -330,46 +317,22 @@ func (s *cloudImageMetadataSuite) TestSaveSameMetadataSameImageDiffSourceConcurr
 
 func (s *cloudImageMetadataSuite) TestSaveMetadataNoVersionPassed(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
-		Stream: "stream",
-		Series: "trusty",
-		Arch:   "arch",
-		Source: "test",
-		Region: "wonder",
+		Stream:  "stream",
+		Version: "22.04",
+		Arch:    "arch",
+		Source:  "test",
+		Region:  "wonder",
 	}
 	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "1", 0}
 	s.assertRecordMetadata(c, metadata0)
 }
 
-func (s *cloudImageMetadataSuite) TestSaveMetadataNoSeriesPassed(c *gc.C) {
-	attrs := cloudimagemetadata.MetadataAttributes{
-		Stream: "stream",
-		Arch:   "arch",
-		Source: "test",
-		Region: "wonder",
-	}
-	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "1", 0}
-	err := s.storage.SaveMetadata([]cloudimagemetadata.Metadata{metadata0})
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`missing series: metadata for image 1 not valid`))
-}
-
-func (s *cloudImageMetadataSuite) TestSaveMetadataUnsupportedSeriesPassed(c *gc.C) {
-	attrs := cloudimagemetadata.MetadataAttributes{
-		Stream: "stream",
-		Series: "blah",
-		Arch:   "arch",
-		Source: "test",
-	}
-	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "1", 0}
-	err := s.storage.SaveMetadata([]cloudimagemetadata.Metadata{metadata0})
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`unknown version for series: "blah"`))
-}
-
 func (s *cloudImageMetadataSuite) TestSaveMetadataNoStreamPassed(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
-		Arch:   "arch",
-		Source: "test",
-		Series: "trusty",
-		Region: "wonder",
+		Arch:    "arch",
+		Source:  "test",
+		Version: "22.04",
+		Region:  "wonder",
 	}
 	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "1", 0}
 	err := s.storage.SaveMetadata([]cloudimagemetadata.Metadata{metadata0})
@@ -378,10 +341,10 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataNoStreamPassed(c *gc.C) {
 
 func (s *cloudImageMetadataSuite) TestSaveMetadataNoSourcePassed(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
-		Stream: "stream",
-		Arch:   "arch",
-		Series: "trusty",
-		Region: "wonder",
+		Stream:  "stream",
+		Arch:    "arch",
+		Version: "22.04",
+		Region:  "wonder",
 	}
 	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "1", 0}
 	err := s.storage.SaveMetadata([]cloudimagemetadata.Metadata{metadata0})
@@ -390,10 +353,10 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataNoSourcePassed(c *gc.C) {
 
 func (s *cloudImageMetadataSuite) TestSaveMetadataNoArchitecturePassed(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
-		Stream: "stream",
-		Source: "test",
-		Series: "trusty",
-		Region: "wonder",
+		Stream:  "stream",
+		Source:  "test",
+		Version: "22.04",
+		Region:  "wonder",
 	}
 	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "1", 0}
 	err := s.storage.SaveMetadata([]cloudimagemetadata.Metadata{metadata0})
@@ -402,10 +365,10 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataNoArchitecturePassed(c *gc.C) 
 
 func (s *cloudImageMetadataSuite) TestSaveMetadataNoRegionPassed(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
-		Stream: "stream",
-		Arch:   "arch",
-		Source: "test",
-		Series: "trusty",
+		Stream:  "stream",
+		Arch:    "arch",
+		Source:  "test",
+		Version: "22.04",
 	}
 	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "1", 0}
 	err := s.storage.SaveMetadata([]cloudimagemetadata.Metadata{metadata0})
@@ -465,8 +428,7 @@ func (s *cloudImageMetadataSuite) TestSupportedArchitectures(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          stream,
 		Region:          region,
-		Version:         "14.04",
-		Series:          "trusty",
+		Version:         "22.04",
 		Arch:            arch1,
 		VirtType:        "virtType-test",
 		Source:          "test",
@@ -500,8 +462,7 @@ func (s *cloudImageMetadataSuite) TestSupportedArchitecturesUnmatchedStreams(c *
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          "new-stream",
 		Region:          region,
-		Version:         "14.04",
-		Series:          "trusty",
+		Version:         "22.04",
 		Arch:            "arch",
 		VirtType:        "virtType-test",
 		Source:          "test",
@@ -524,8 +485,7 @@ func (s *cloudImageMetadataSuite) TestSupportedArchitecturesUnmatchedRegions(c *
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          stream,
 		Region:          "new-region",
-		Version:         "14.04",
-		Series:          "trusty",
+		Version:         "22.04",
 		Arch:            "arch",
 		VirtType:        "virtType-test",
 		Source:          "test",
@@ -548,8 +508,7 @@ func (s *cloudImageMetadataSuite) TestSupportedArchitecturesUnmatchedStreamsAndR
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          "new-stream",
 		Region:          "new-region",
-		Version:         "14.04",
-		Series:          "trusty",
+		Version:         "22.04",
 		Arch:            "arch",
 		VirtType:        "virtType-test",
 		Source:          "test",
@@ -607,8 +566,7 @@ func (s *cloudImageMetadataSuite) addTestImageMetadata(c *gc.C, imageId string) 
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
 		Region:          "region-test",
-		Version:         "14.04",
-		Series:          "trusty",
+		Version:         "22.04",
 		Arch:            "arch",
 		VirtType:        "virtType-test",
 		Source:          "test",
@@ -635,14 +593,17 @@ func (s *cloudImageMetadataSuite) assertNoMetadata(c *gc.C) {
 
 type TestMongo struct {
 	database *mgo.Database
-	runner   txn.Runner
+	runner   jujutxn.Runner
 }
 
 func NewTestMongo(database *mgo.Database) *TestMongo {
 	return &TestMongo{
 		database: database,
-		runner: txn.NewRunner(txn.RunnerParams{
-			Database: database,
+		runner: jujutxn.NewRunner(jujutxn.RunnerParams{
+			Database:                  database,
+			TransactionCollectionName: "txns",
+			ChangeLogName:             "-",
+			ServerSideTransactions:    true,
 		}),
 	}
 }
@@ -651,6 +612,6 @@ func (m *TestMongo) GetCollection(name string) (mongo.Collection, func()) {
 	return mongo.CollectionFromName(m.database, name)
 }
 
-func (m *TestMongo) RunTransaction(getTxn txn.TransactionSource) error {
+func (m *TestMongo) RunTransaction(getTxn jujutxn.TransactionSource) error {
 	return m.runner.Run(getTxn)
 }

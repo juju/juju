@@ -10,14 +10,15 @@ import (
 	"time" // only uses time.Time values
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
-	"github.com/juju/description/v3"
+	"github.com/juju/charm/v9"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
+	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
@@ -29,10 +30,9 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
-	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/permission"
-	coreseries "github.com/juju/juju/core/series"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
@@ -66,7 +66,7 @@ func (s *MigrationImportSuite) checkStatusHistory(c *gc.C, exported, imported st
 }
 
 func (s *MigrationImportSuite) TestExisting(c *gc.C) {
-	out, err := s.State.Export()
+	out, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, _, err = s.Controller.Import(out)
@@ -76,11 +76,11 @@ func (s *MigrationImportSuite) TestExisting(c *gc.C) {
 func (s *MigrationImportSuite) importModel(
 	c *gc.C, st *state.State, transform ...func(map[string]interface{}),
 ) (*state.Model, *state.State) {
-	out, err := st.Export()
+	out, err := st.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// When working with importing models, it becomes very handy to read the
-	// model in a human readable format.
+	// model in a human-readable format.
 	// yaml.Marshal will do this in a decent manor.
 	//	bytes, _ := yaml.Marshal(out)
 	//	fmt.Println(string(bytes))
@@ -107,7 +107,7 @@ func (s *MigrationImportSuite) importModel(
 
 	newModel, newSt, err := s.Controller.Import(in)
 	c.Assert(err, jc.ErrorIsNil)
-	// add the cleanup here to close the model.
+
 	s.AddCleanup(func(c *gc.C) {
 		c.Check(newSt.Close(), jc.ErrorIsNil)
 	})
@@ -142,7 +142,7 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	err = s.Model.SetAnnotations(original, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 
-	out, err := s.State.Export()
+	out, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid := utils.MustNewUUID().String()
@@ -320,7 +320,7 @@ func (s *MigrationImportSuite) TestMeterStatusNotAvailable(c *gc.C) {
 func (s *MigrationImportSuite) AssertMachineEqual(c *gc.C, newMachine, oldMachine *state.Machine) {
 	c.Assert(newMachine.Id(), gc.Equals, oldMachine.Id())
 	c.Assert(newMachine.Principals(), jc.DeepEquals, oldMachine.Principals())
-	c.Assert(newMachine.Series(), gc.Equals, oldMachine.Series())
+	c.Assert(newMachine.Base().String(), gc.Equals, oldMachine.Base().String())
 	c.Assert(newMachine.ContainerType(), gc.Equals, oldMachine.ContainerType())
 	newHardware, err := newMachine.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
@@ -426,41 +426,6 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	c.Assert(*characteristics.RootDiskSource, gc.Equals, "bunyan")
 }
 
-func (s *MigrationImportSuite) TestMachineAgentVersion(c *gc.C) {
-	machine1 := s.Factory.MakeMachine(c, nil)
-	_ = s.Factory.MakeMachineNested(c, machine1.Id(), nil)
-	hardware, err := machine1.HardwareCharacteristics()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hardware, gc.NotNil)
-
-	// Set the original machine to use series based agent binary version.
-	err = machine1.SetAgentVersion(version.Binary{
-		Number:  version.MustParse("1.2.3"),
-		Release: coretesting.HostSeries(c),
-		Arch:    "amd64",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	allMachines, err := s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(allMachines, gc.HasLen, 2)
-
-	_, newSt := s.importModel(c, s.State)
-
-	importedMachines, err := newSt.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(importedMachines, gc.HasLen, 2)
-
-	for i, newMachine := range importedMachines {
-		agentTools, err := newMachine.AgentTools()
-		c.Assert(err, jc.ErrorIsNil)
-		oldTools, err := allMachines[i].AgentTools()
-		c.Assert(err, jc.ErrorIsNil)
-		oldTools.Version.Release = coreos.HostOSTypeName()
-		c.Assert(agentTools.Version, gc.DeepEquals, oldTools.Version)
-	}
-}
-
 func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, nil)
 	// Create two devices, first with all fields set, second just to show that
@@ -505,7 +470,7 @@ func (s *MigrationImportSuite) TestMachinePortOps(c *gc.C) {
 	c.Assert(ops[0].Id, gc.Equals, "3")
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/description_mock.go github.com/juju/description/v3 Machine,MachinePortRanges,UnitPortRanges
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/description_mock.go github.com/juju/description/v4 Machine,MachinePortRanges,UnitPortRanges
 func setupMockOpenedPortRanges(c *gc.C, mID string) (*gomock.Controller, *mocks.MockMachine) {
 	ctrl := gomock.NewController(c)
 	mockMachine := mocks.NewMockMachine(ctrl)
@@ -602,19 +567,11 @@ func (s *MigrationImportSuite) assertImportedApplication(
 	imported := importedApplications[0]
 
 	c.Assert(imported.ApplicationTag(), gc.Equals, exported.ApplicationTag())
-	c.Assert(imported.Series(), gc.Equals, exported.Series())
-	if exported.Series() == "kubernetes" {
-		origin := exported.CharmOrigin()
-		origin.Platform.OS = "ubuntu"
-		origin.Platform.Series = "focal"
-		c.Assert(imported.CharmOrigin(), jc.DeepEquals, origin)
-	} else {
-		c.Assert(imported.CharmOrigin(), jc.DeepEquals, exported.CharmOrigin())
-	}
 	c.Assert(imported.IsExposed(), gc.Equals, exported.IsExposed())
 	c.Assert(imported.ExposedEndpoints(), gc.DeepEquals, exported.ExposedEndpoints())
 	c.Assert(imported.MetricCredentials(), jc.DeepEquals, exported.MetricCredentials())
 	c.Assert(imported.PasswordValid(pwd), jc.IsTrue)
+	c.Assert(imported.CharmOrigin(), jc.DeepEquals, exported.CharmOrigin())
 
 	exportedCharmConfig, err := exported.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
@@ -653,7 +610,7 @@ func (s *MigrationImportSuite) assertImportedApplication(
 		agentTools := version.Binary{
 			Number:  jujuversion.Current,
 			Arch:    arch.HostArch(),
-			Release: coreseries.DefaultOSTypeNameFromSeries(application.Series()),
+			Release: application.CharmOrigin().Platform.OS,
 		}
 
 		tools, err := imported.AgentTools()
@@ -664,7 +621,7 @@ func (s *MigrationImportSuite) assertImportedApplication(
 
 func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 mem=8G root-disk-source=tralfamadore")
-	platform := &state.Platform{Architecture: corearch.DefaultArchitecture, OS: "ubuntu", Series: "quantal"}
+	platform := &state.Platform{Architecture: corearch.DefaultArchitecture, OS: "ubuntu", Channel: "12.10/stable"}
 	testCharm, application, pwd := s.setupSourceApplications(c, s.State, cons, platform, true)
 
 	allApplications, err := s.State.AllApplications()
@@ -685,18 +642,13 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestApplicationsUpdateSeriesNotPlatform(c *gc.C) {
-	// In previous versions of Juju it's been possible that the application doc
-	// series get's out of sync with the platform series. While this has been
-	// fixed this test asserts that a hard decision is made should the case
-	// ever be come across.
-	// We should always use the platform series for applications now on import.
-	// This asserts this is the path we take.
-
+	// The application series should be quantal, the origin platform series should
+	// be focal.  After migration, the platform series should be quantal as well.
 	cons := constraints.MustParse("arch=amd64 mem=8G root-disk-source=tralfamadore")
 	platform := &state.Platform{
 		Architecture: corearch.DefaultArchitecture,
 		OS:           "ubuntu",
-		Series:       "focal",
+		Channel:      "20.04/stable",
 	}
 	_, _, _ = s.setupSourceApplications(c, s.State, cons, platform, true)
 
@@ -707,8 +659,7 @@ func (s *MigrationImportSuite) TestApplicationsUpdateSeriesNotPlatform(c *gc.C) 
 	origin := exportedApp.CharmOrigin()
 	c.Check(origin, gc.NotNil)
 	c.Check(origin.Platform, gc.NotNil)
-	c.Check(origin.Platform.Series, gc.Equals, "focal")
-	c.Check(exportedApp.Series(), gc.Equals, "quantal")
+	c.Check(origin.Platform.Channel, gc.Equals, "20.04/stable")
 
 	_, newSt := s.importModel(c, s.State)
 
@@ -717,12 +668,14 @@ func (s *MigrationImportSuite) TestApplicationsUpdateSeriesNotPlatform(c *gc.C) 
 	obtainedOrigin := obtainedApp.CharmOrigin()
 	c.Assert(obtainedOrigin, gc.NotNil)
 	c.Assert(obtainedOrigin.Platform, gc.NotNil)
-	c.Assert(obtainedOrigin.Platform.Series, gc.Equals, "focal")
+	c.Assert(obtainedOrigin.Platform.Architecture, gc.Equals, corearch.DefaultArchitecture)
+	c.Assert(obtainedOrigin.Platform.OS, gc.Equals, "ubuntu")
+	c.Assert(obtainedOrigin.Platform.Channel, gc.Equals, "20.04/stable")
 }
 
 func (s *MigrationImportSuite) TestApplicationStatus(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 mem=8G")
-	platform := &state.Platform{Architecture: corearch.DefaultArchitecture, OS: "ubuntu", Series: "quantal"}
+	platform := &state.Platform{Architecture: corearch.DefaultArchitecture, OS: "ubuntu", Channel: "12.10/stable"}
 	testCharm, application, pwd := s.setupSourceApplications(c, s.State, cons, platform, false)
 
 	s.Factory.MakeUnit(c, &factory.UnitParams{
@@ -762,7 +715,7 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 
 	cons := constraints.MustParse("arch=amd64 mem=8G")
-	platform := &state.Platform{Architecture: corearch.DefaultArchitecture, OS: "kubernetes", Series: "kubernetes"}
+	platform := &state.Platform{Architecture: corearch.DefaultArchitecture, OS: "ubuntu", Channel: "20.04/stable"}
 	charm, application, pwd := s.setupSourceApplications(c, caasSt, cons, platform, true)
 
 	model, err := caasSt.Model()
@@ -814,11 +767,7 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 
 	cons := constraints.MustParse("arch=amd64 mem=8G")
-	platform := &state.Platform{
-		Architecture: corearch.DefaultArchitecture,
-		OS:           "ubuntu",
-		Series:       "focal",
-	}
+	platform := &state.Platform{Architecture: corearch.DefaultArchitecture, OS: "ubuntu", Channel: "20.04"}
 	testCharm, application, _ := s.setupSourceApplications(c, caasSt, cons, platform, false)
 	ss, err := application.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1020,7 +969,7 @@ func (s *MigrationImportSuite) TestCharmRevSequencesNotImported(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(nextVal, gc.Equals, 3)
 
-	out, err := s.State.Export()
+	out, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(len(out.Applications()), gc.Equals, 1)
@@ -1083,7 +1032,7 @@ func (s *MigrationImportSuite) TestApplicationsSubordinatesAfter(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	out, err := s.State.Export()
+	out, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	apps := out.Applications()
@@ -1927,8 +1876,7 @@ func (s *MigrationImportSuite) TestCloudImageMetadata(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
 		Region:          "region-test",
-		Version:         "14.04",
-		Series:          "trusty",
+		Version:         "22.04",
 		Arch:            "arch",
 		VirtType:        "virtType-test",
 		RootStorageType: "rootStorageType-test",
@@ -1938,8 +1886,7 @@ func (s *MigrationImportSuite) TestCloudImageMetadata(c *gc.C) {
 	attrsCustom := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
 		Region:          "region-custom",
-		Version:         "14.04",
-		Series:          "trusty",
+		Version:         "22.04",
 		Arch:            "arch",
 		VirtType:        "virtType-test",
 		RootStorageType: "rootStorageType-test",
@@ -1974,7 +1921,7 @@ func (s *MigrationImportSuite) TestCloudImageMetadata(c *gc.C) {
 	image := images[0]
 	c.Check(image.Stream, gc.Equals, "stream")
 	c.Check(image.Region, gc.Equals, "region-custom")
-	c.Check(image.Version, gc.Equals, "14.04")
+	c.Check(image.Version, gc.Equals, "22.04")
 	c.Check(image.Arch, gc.Equals, "arch")
 	c.Check(image.VirtType, gc.Equals, "virtType-test")
 	c.Check(image.RootStorageType, gc.Equals, "rootStorageType-test")
@@ -1996,14 +1943,14 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 	// pending action.
 	operationIDPending, err := m.EnqueueOperation("a test", 2)
 	c.Assert(err, jc.ErrorIsNil)
-	actionPending, err := m.EnqueueAction(operationIDPending, machine.MachineTag(), "action-pending", nil, nil)
+	actionPending, err := m.EnqueueAction(operationIDPending, machine.MachineTag(), "action-pending", nil, true, "group", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actionPending.Status(), gc.Equals, state.ActionPending)
 
 	// running action.
 	operationIDRunning, err := m.EnqueueOperation("another test", 2)
 	c.Assert(err, jc.ErrorIsNil)
-	actionRunning, err := m.EnqueueAction(operationIDRunning, machine.MachineTag(), "action-running", nil, nil)
+	actionRunning, err := m.EnqueueAction(operationIDRunning, machine.MachineTag(), "action-running", nil, true, "group", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actionRunning.Status(), gc.Equals, state.ActionPending)
 	actionRunning, err = actionRunning.Begin()
@@ -2013,7 +1960,7 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 	// aborting action.
 	operationIDAborting, err := m.EnqueueOperation("another test", 2)
 	c.Assert(err, jc.ErrorIsNil)
-	actionAborting, err := m.EnqueueAction(operationIDAborting, machine.MachineTag(), "action-aborting", nil, nil)
+	actionAborting, err := m.EnqueueAction(operationIDAborting, machine.MachineTag(), "action-aborting", nil, true, "group", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actionAborting.Status(), gc.Equals, state.ActionPending)
 	actionAborting, err = actionAborting.Begin()
@@ -2026,7 +1973,7 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 	// aborted action.
 	operationIDAborted, err := m.EnqueueOperation("another test", 2)
 	c.Assert(err, jc.ErrorIsNil)
-	actionAborted, err := m.EnqueueAction(operationIDAborted, machine.MachineTag(), "action-aborted", nil, nil)
+	actionAborted, err := m.EnqueueAction(operationIDAborted, machine.MachineTag(), "action-aborted", nil, true, "group", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actionAborted.Status(), gc.Equals, state.ActionPending)
 	actionAborted, err = actionAborted.Begin()
@@ -2039,7 +1986,7 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 	// completed action.
 	operationIDCompleted, err := m.EnqueueOperation("another test", 2)
 	c.Assert(err, jc.ErrorIsNil)
-	actionCompleted, err := m.EnqueueAction(operationIDCompleted, machine.MachineTag(), "action-completed", nil, nil)
+	actionCompleted, err := m.EnqueueAction(operationIDCompleted, machine.MachineTag(), "action-completed", nil, true, "group", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actionCompleted.Status(), gc.Equals, state.ActionPending)
 	actionCompleted, err = actionCompleted.Begin()
@@ -2064,6 +2011,8 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 	c.Check(actionPending.Name(), gc.Equals, "action-pending")
 	c.Check(state.ActionOperationId(actionPending), gc.Equals, operationIDPending)
 	c.Check(actionPending.Status(), gc.Equals, state.ActionPending)
+	c.Check(actionPending.Parallel(), jc.IsTrue)
+	c.Check(actionPending.ExecutionGroup(), gc.Equals, "group")
 
 	actionRunning, err = newModel.ActionByTag(actionRunning.ActionTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -2071,6 +2020,8 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 	c.Check(actionRunning.Name(), gc.Equals, "action-running")
 	c.Check(state.ActionOperationId(actionRunning), gc.Equals, operationIDRunning)
 	c.Check(actionRunning.Status(), gc.Equals, state.ActionRunning)
+	c.Check(actionRunning.Parallel(), jc.IsTrue)
+	c.Check(actionRunning.ExecutionGroup(), gc.Equals, "group")
 
 	actionAborting, err = newModel.ActionByTag(actionAborting.ActionTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -2078,6 +2029,8 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 	c.Check(actionAborting.Name(), gc.Equals, "action-aborting")
 	c.Check(state.ActionOperationId(actionAborting), gc.Equals, operationIDAborting)
 	c.Check(actionAborting.Status(), gc.Equals, state.ActionAborting)
+	c.Check(actionAborting.Parallel(), jc.IsTrue)
+	c.Check(actionAborting.ExecutionGroup(), gc.Equals, "group")
 
 	actionAborted, err = newModel.ActionByTag(actionAborted.ActionTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -2085,6 +2038,8 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 	c.Check(actionAborted.Name(), gc.Equals, "action-aborted")
 	c.Check(state.ActionOperationId(actionAborted), gc.Equals, operationIDAborted)
 	c.Check(actionAborted.Status(), gc.Equals, state.ActionAborted)
+	c.Check(actionAborted.Parallel(), jc.IsTrue)
+	c.Check(actionAborted.ExecutionGroup(), gc.Equals, "group")
 
 	actionCompleted, err = newModel.ActionByTag(actionCompleted.ActionTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -2092,6 +2047,8 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 	c.Check(actionCompleted.Name(), gc.Equals, "action-completed")
 	c.Check(state.ActionOperationId(actionCompleted), gc.Equals, operationIDCompleted)
 	c.Check(actionCompleted.Status(), gc.Equals, state.ActionCompleted)
+	c.Check(actionCompleted.Parallel(), jc.IsTrue)
+	c.Check(actionCompleted.ExecutionGroup(), gc.Equals, "group")
 
 	// Only pending/running/aborting actions will have action notification docs imported.
 	actionIDs, err := newModel.AllActionIDsHasActionNotifications()
@@ -2612,7 +2569,7 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 	}, s.Model.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 
-	out, err := s.State.Export()
+	out, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid := utils.MustNewUUID().String()
@@ -2760,7 +2717,7 @@ func (s *MigrationImportSuite) TestOneSubordinateTwoGuvnors(c *gc.C) {
 		agentTools := version.Binary{
 			Number:  jujuversion.Current,
 			Arch:    arch.HostArch(),
-			Release: coreseries.DefaultOSTypeNameFromSeries(app.Series()),
+			Release: app.CharmOrigin().Platform.OS,
 		}
 		err = unit.SetAgentVersion(agentTools)
 		c.Assert(err, jc.ErrorIsNil)
@@ -2812,7 +2769,7 @@ func (s *MigrationImportSuite) TestOneSubordinateTwoGuvnors(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestImportingModelWithBlankType(c *gc.C) {
-	testModel, err := s.State.Export()
+	testModel, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	newConfig := testModel.Config()
@@ -2843,17 +2800,17 @@ func (s *MigrationImportSuite) TestImportingModelWithDefaultSeriesBefore2935(c *
 func (s *MigrationImportSuite) TestImportingModelWithDefaultSeriesAfter2935(c *gc.C) {
 	defaultSeries, ok := s.testImportingModelWithDefaultSeries(c, version.MustParse("2.9.35"))
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(defaultSeries, gc.Equals, "bionic")
+	c.Assert(defaultSeries, gc.Equals, "jammy")
 }
 
 func (s *MigrationImportSuite) testImportingModelWithDefaultSeries(c *gc.C, toolsVer version.Number) (string, bool) {
-	testModel, err := s.State.Export()
+	testModel, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	newConfig := testModel.Config()
 	newConfig["uuid"] = "aabbccdd-1234-8765-abcd-0123456789ab"
 	newConfig["name"] = "something-new"
-	newConfig["default-series"] = "bionic"
+	newConfig["default-series"] = "jammy"
 	newConfig["agent-version"] = toolsVer.String()
 	importModel := description.NewModel(description.ModelArgs{
 		Type:           string(state.ModelTypeIAAS),
@@ -2929,10 +2886,12 @@ func (s *MigrationImportSuite) TestApplicationAddLatestCharmChannelTrack(c *gc.C
 		Channel: &state.Channel{
 			Risk: "edge",
 		},
+		ID:   "charm-hub-id",
+		Hash: "charmhub-hash",
 		Platform: &state.Platform{
 			Architecture: testCharm.URL().Architecture,
 			OS:           "ubuntu",
-			Series:       testCharm.URL().Series,
+			Channel:      "12.10/stable",
 		},
 	}
 	application := f.MakeApplication(c, &factory.ApplicationParams{
@@ -2948,7 +2907,153 @@ func (s *MigrationImportSuite) TestApplicationAddLatestCharmChannelTrack(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	exportedOrigin := application.CharmOrigin()
 	exportedOrigin.Channel.Track = "latest"
-	c.Assert(importedApp.CharmOrigin(), gc.DeepEquals, exportedOrigin)
+	c.Assert(importedApp.CharmOrigin(), gc.DeepEquals, exportedOrigin, gc.Commentf("obtained %s", pretty.Sprint(importedApp.CharmOrigin())))
+}
+
+func (s *MigrationImportSuite) TestApplicationFillInCharmOriginID(c *gc.C) {
+	st := s.State
+	// Add a application with charm settings, app config, and leadership settings.
+	f := factory.NewFactory(st, s.StatePool)
+
+	// Add a application with charm settings, app config, and leadership settings.
+	testCharm := f.MakeCharmV2(c, &factory.CharmParams{
+		Name: "snappass-test", // it has resources
+	})
+	c.Assert(testCharm.Meta().Resources, gc.HasLen, 3)
+	origin := &state.CharmOrigin{
+		Source:   "charm-hub",
+		Type:     "charm",
+		Revision: &testCharm.URL().Revision,
+		Channel: &state.Channel{
+			Risk: "edge",
+		},
+		ID:   "charm-hub-id",
+		Hash: "charmhub-hash",
+		Platform: &state.Platform{
+			Architecture: testCharm.URL().Architecture,
+			OS:           "ubuntu",
+			Channel:      "12.10/stable",
+		},
+	}
+	appOne := f.MakeApplication(c, &factory.ApplicationParams{
+		Name:        "one",
+		Charm:       testCharm,
+		CharmOrigin: origin,
+	})
+	originNoID := origin
+	originNoID.ID = ""
+	originNoID.Hash = ""
+	appTwo := f.MakeApplication(c, &factory.ApplicationParams{
+		Name:        "two",
+		Charm:       testCharm,
+		CharmOrigin: origin,
+	})
+	appThree := f.MakeApplication(c, &factory.ApplicationParams{
+		Name:        "three",
+		Charm:       testCharm,
+		CharmOrigin: origin,
+	})
+	allApplications, err := s.State.AllApplications()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allApplications, gc.HasLen, 3)
+
+	_, newSt := s.importModel(c, s.State)
+	importedAppOne, err := newSt.Application(appOne.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	importedAppTwo, err := newSt.Application(appTwo.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	importedAppThree, err := newSt.Application(appThree.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	obtainedChOrigOne := importedAppOne.CharmOrigin()
+	obtainedChOrigTwo := importedAppTwo.CharmOrigin()
+	obtainedChOrigThree := importedAppThree.CharmOrigin()
+	c.Assert(obtainedChOrigTwo.ID, gc.Equals, obtainedChOrigOne.ID)
+	c.Assert(obtainedChOrigThree.ID, gc.Equals, obtainedChOrigOne.ID)
+}
+
+func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
+	store := state.NewSecrets(s.State)
+	owner := s.Factory.MakeApplication(c, nil)
+	uri := secrets.NewURI()
+	createTime := time.Now().UTC().Round(time.Second)
+	next := createTime.Add(time.Minute).Round(time.Second).UTC()
+	expire := createTime.Add(2 * time.Hour).Round(time.Second).UTC()
+	p := state.CreateSecretParams{
+		Version: 1,
+		Owner:   owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(next),
+			Description:    ptr("my secret"),
+			Label:          ptr("foobar"),
+			ExpireTime:     ptr(expire),
+			Params:         nil,
+			Data:           map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := store.CreateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+	updateTime := time.Now().UTC().Round(time.Second)
+	md, err = store.UpdateSecret(md.URI, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "bar2"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
+		LeaderToken: &fakeToken{},
+		Scope:       owner.Tag(),
+		Subject:     owner.Tag(),
+		Role:        secrets.RoleManage,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	consumer := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "wordpress",
+		}),
+	})
+	err = s.State.SaveSecretConsumer(uri, consumer.Tag(), &secrets.SecretConsumerMetadata{
+		Label:           "consumer label",
+		CurrentRevision: 666,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c, s.State)
+
+	store = state.NewSecrets(newSt)
+	all, err := store.ListSecrets(state.SecretsFilter{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.HasLen, 1)
+	c.Assert(all[0], jc.DeepEquals, md)
+
+	revs, err := store.ListSecretRevisions(md.URI)
+	c.Assert(err, jc.ErrorIsNil)
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
+	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	c.Assert(revs, mc, []*secrets.SecretRevisionMetadata{{
+		Revision:   1,
+		CreateTime: createTime,
+		UpdateTime: updateTime,
+		ExpireTime: &expire,
+	}, {
+		Revision:   2,
+		CreateTime: createTime,
+		UpdateTime: createTime,
+	}})
+
+	access, err := newSt.SecretAccess(uri, owner.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, secrets.RoleManage)
+
+	info, err := newSt.GetSecretConsumer(uri, consumer.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, &secrets.SecretConsumerMetadata{
+		Label:           "consumer label",
+		CurrentRevision: 666,
+		LatestRevision:  2,
+	})
 }
 
 // newModel replaces the uuid and name of the config attributes so we

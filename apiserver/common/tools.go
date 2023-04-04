@@ -6,16 +6,14 @@ package common
 import (
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
-	coreos "github.com/juju/juju/core/os"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
@@ -155,30 +153,13 @@ func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersio
 		return nil, err
 	}
 
-	findParams := params.FindToolsParams{
-		Number:       agentVersion,
-		MajorVersion: -1,
-		MinorVersion: -1,
-		OSType:       existingTools.Version.Release,
-		Arch:         existingTools.Version.Arch,
-	}
-	// Older agents will ask for tools based on series.
-	// We now store tools based on OS name so update the find params
-	// if needed to ensure the correct search is done.
-	allSeries, err := coreseries.AllWorkloadSeries("", "")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if allSeries.Contains(existingTools.Version.Release) {
-		findParams.Series = existingTools.Version.Release
-		findParams.OSType = ""
+	findParams := FindAgentsParams{
+		Number: agentVersion,
+		OSType: existingTools.Version.Release,
+		Arch:   existingTools.Version.Arch,
 	}
 
-	tools, err := t.toolsFinder.FindTools(findParams)
-	if err != nil {
-		return nil, err
-	}
-	return tools.List, nil
+	return t.toolsFinder.FindAgents(findParams)
 }
 
 // ToolsSetter implements a common Tools method for use by various
@@ -233,9 +214,36 @@ func (t *ToolsSetter) setOneAgentVersion(tag names.Tag, vers version.Binary, can
 	return entity.SetAgentVersion(vers)
 }
 
+// FindAgentsParams defines parameters for the FindAgents method.
+type FindAgentsParams struct {
+	// ControllerCfg is the controller config.
+	ControllerCfg controller.Config
+
+	// ModelType is the type of the model.
+	ModelType state.ModelType
+
+	// Number will be used to match tools versions exactly if non-zero.
+	Number version.Number
+
+	// MajorVersion will be used to match the major version if non-zero.
+	MajorVersion int
+
+	// MinorVersion will be used to match the minor version if non-zero.
+	MinorVersion int
+
+	// Arch will be used to match tools by architecture if non-empty.
+	Arch string
+
+	// OSType will be used to match tools by os type if non-empty.
+	OSType string
+
+	// AgentStream will be used to set agent stream to search
+	AgentStream string
+}
+
 // ToolsFinder defines methods for finding tools.
 type ToolsFinder interface {
-	FindTools(args params.FindToolsParams) (params.FindToolsResult, error)
+	FindAgents(args FindAgentsParams) (coretools.List, error)
 }
 
 type toolsFinder struct {
@@ -256,38 +264,12 @@ func NewToolsFinder(
 	return &toolsFinder{configGetter, toolsStorageGetter, urlGetter, newEnviron}
 }
 
-// FindTools returns a List containing all tools matching the given parameters.
-func (f *toolsFinder) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
-	list, err := f.findTools(args)
-	if err != nil {
-		return params.FindToolsResult{Error: apiservererrors.ServerError(err)}, nil
-	}
-
-	return params.FindToolsResult{List: list}, nil
-}
-
-// findTools calls findMatchingTools and then rewrites the URLs
+// FindAgents calls findMatchingTools and then rewrites the URLs
 // using the provided ToolsURLGetter.
-func (f *toolsFinder) findTools(args params.FindToolsParams) (coretools.List, error) {
-	list, err := f.findMatchingTools(args)
+func (f *toolsFinder) FindAgents(args FindAgentsParams) (coretools.List, error) {
+	list, err := f.findMatchingAgents(args)
 	if err != nil {
 		return nil, err
-	}
-
-	// This handles clients and agents that may be attempting to find tools in
-	// the context of series instead of OS type.
-	// If we get a request by series we ensure that any matched OS tools are
-	// converted to the requested series.
-	// Conversely, if we get a request by OS type, matching series tools are
-	// converted to match the OS.
-	// TODO: Remove this block and the called methods for Juju 3/4.
-	if args.Number.Major == 2 && args.Number.Minor <= 8 && (args.OSType != "" || args.Series != "") {
-		if args.OSType != "" {
-			list = f.resultForOSTools(list, args.OSType)
-		}
-		if args.Series != "" {
-			list = f.resultForSeriesTools(list, args.Series)
-		}
 	}
 
 	// Rewrite the URLs so they point at the API servers. If the
@@ -308,72 +290,14 @@ func (f *toolsFinder) findTools(args params.FindToolsParams) (coretools.List, er
 	return fullList, nil
 }
 
-// TODO: Remove for Juju 3/4.
-func (f *toolsFinder) resultForOSTools(list coretools.List, osType string) coretools.List {
-	added := make(map[version.Binary]bool)
-	var matched coretools.List
-	for _, t := range list {
-		converted := *t
-
-		// t might be for a series so convert to an OS type.
-		if !coreos.IsValidOSTypeName(t.Version.Release) {
-			osTypeName, err := coreseries.GetOSFromSeries(t.Version.Release)
-			if err != nil {
-				continue
-			}
-			converted.Version.Release = strings.ToLower(osTypeName.String())
-		}
-
-		if converted.Version.Release != osType {
-			continue
-		}
-		if added[converted.Version] {
-			continue
-		}
-
-		matched = append(matched, &converted)
-		added[converted.Version] = true
-	}
-
-	return matched
-}
-
-// TODO: Remove for Juju 3/4.
-func (f *toolsFinder) resultForSeriesTools(list coretools.List, series string) coretools.List {
-	osType := coreseries.DefaultOSTypeNameFromSeries(series)
-
-	added := make(map[version.Binary]bool)
-	var matched coretools.List
-	for _, t := range list {
-		converted := *t
-
-		if coreos.IsValidOSTypeName(t.Version.Release) {
-			if osType != t.Version.Release {
-				continue
-			}
-			converted.Version.Release = series
-		} else if series != t.Version.Release {
-			continue
-		}
-		if added[converted.Version] {
-			continue
-		}
-
-		matched = append(matched, &converted)
-		added[converted.Version] = true
-	}
-
-	return matched
-}
-
-// findMatchingTools searches tools storage and simplestreams for tools
+// findMatchingAgents searches agent storage and simplestreams for agents
 // matching the given parameters.
-// If an exact match is specified (number, series and arch) and is found in
-// tools storage, then simplestreams will not be searched.
-func (f *toolsFinder) findMatchingTools(args params.FindToolsParams) (result coretools.List, _ error) {
-	exactMatch := args.Number != version.Zero && (args.OSType != "" || args.Series != "") && args.Arch != ""
+// If an exact match is specified (number, ostype and arch) and is found in
+// agent storage, then simplestreams will not be searched.
+func (f *toolsFinder) findMatchingAgents(args FindAgentsParams) (result coretools.List, _ error) {
+	exactMatch := args.Number != version.Zero && args.OSType != "" && args.Arch != ""
 
-	storageList, err := f.matchingStorageTools(args)
+	storageList, err := f.matchingStorageAgent(args)
 	if err != nil && err != coretools.ErrNoMatches {
 		return nil, err
 	}
@@ -396,8 +320,14 @@ func (f *toolsFinder) findMatchingTools(args params.FindToolsParams) (result cor
 
 	streams := envtools.PreferredStreams(&args.Number, cfg.Development(), requestedStream)
 	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
+	majorVersion := args.Number.Major
+	minorVersion := args.Number.Minor
+	if args.Number == version.Zero {
+		majorVersion = args.MajorVersion
+		minorVersion = args.MinorVersion
+	}
 	simplestreamsList, err := envtoolsFindTools(ss,
-		env, args.MajorVersion, args.MinorVersion, streams, filter,
+		env, majorVersion, minorVersion, streams, filter,
 	)
 	if len(storageList) == 0 && err != nil {
 		return nil, err
@@ -417,9 +347,9 @@ func (f *toolsFinder) findMatchingTools(args params.FindToolsParams) (result cor
 	return list, nil
 }
 
-// matchingStorageTools returns a coretools.List, with an entry for each
-// metadata entry in the tools storage that matches the given parameters.
-func (f *toolsFinder) matchingStorageTools(args params.FindToolsParams) (coretools.List, error) {
+// matchingStorageAgent returns a coretools.List, with an entry for each
+// metadata entry in the agent storage that matches the given parameters.
+func (f *toolsFinder) matchingStorageAgent(args FindAgentsParams) (coretools.List, error) {
 	storage, err := f.toolsStorageGetter.ToolsStorage()
 	if err != nil {
 		return nil, err
@@ -446,12 +376,21 @@ func (f *toolsFinder) matchingStorageTools(args params.FindToolsParams) (coretoo
 	if err != nil {
 		return nil, err
 	}
+	// Return early if we are doing an exact match.
+	if args.Number != version.Zero {
+		if len(list) == 0 {
+			return nil, coretools.ErrNoMatches
+		}
+		return list, nil
+	}
+	// At this point, we are matching just on major or minor version
+	// rather than an exact match.
 	var matching coretools.List
 	for _, tools := range list {
-		if args.MajorVersion != -1 && tools.Version.Major != args.MajorVersion {
+		if tools.Version.Major != args.MajorVersion {
 			continue
 		}
-		if args.MinorVersion != -1 && tools.Version.Minor != args.MinorVersion {
+		if args.MinorVersion > 0 && tools.Version.Minor != args.MinorVersion {
 			continue
 		}
 		matching = append(matching, tools)
@@ -462,18 +401,11 @@ func (f *toolsFinder) matchingStorageTools(args params.FindToolsParams) (coretoo
 	return matching, nil
 }
 
-func toolsFilter(args params.FindToolsParams) coretools.Filter {
-	var release string
-	if args.Series != "" {
-		release = coreseries.DefaultOSTypeNameFromSeries(args.Series)
-	}
-	if args.OSType != "" {
-		release = args.OSType
-	}
+func toolsFilter(args FindAgentsParams) coretools.Filter {
 	return coretools.Filter{
 		Number: args.Number,
 		Arch:   args.Arch,
-		OSType: release,
+		OSType: args.OSType,
 	}
 }
 

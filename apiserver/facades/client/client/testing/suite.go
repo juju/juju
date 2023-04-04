@@ -11,9 +11,9 @@ package testing
 import (
 	"fmt"
 
-	"github.com/juju/charm/v8"
-	"github.com/juju/charmrepo/v6/csclient"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charmrepo/v7/csclient"
+	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jtesting "github.com/juju/testing"
@@ -130,8 +130,8 @@ func (s *CharmSuite) SetStoreError(name string, err error) {
 // AddMachine adds a new machine to state.
 func (s *CharmSuite) AddMachine(c *gc.C, machineId string, job state.MachineJob) {
 	m, err := s.jcSuite.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{job},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{job},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, machineId)
@@ -184,15 +184,15 @@ func (s *CharmSuite) AddApplication(c *gc.C, charmName, applicationName string) 
 	c.Assert(ok, jc.IsTrue)
 	revision := ch.Revision()
 	_, err := s.jcSuite.State.AddApplication(state.AddApplicationArgs{
-		Name:   applicationName,
-		Charm:  ch,
-		Series: "quantal",
+		Name:  applicationName,
+		Charm: ch,
 		CharmOrigin: &state.CharmOrigin{
-			ID: "mycharmhubid",
+			ID:   "mycharmhubid",
+			Hash: "mycharmhash",
 			Platform: &state.Platform{
 				Architecture: "amd64",
 				OS:           "ubuntu",
-				Series:       "quantal",
+				Channel:      "12.10/stable",
 			},
 			Revision: &revision,
 			Channel: &state.Channel{

@@ -30,64 +30,6 @@ func relPathFunc(base string) func(parts ...string) string {
 	}
 }
 
-func (s *PathsSuite) TestWindows(c *gc.C) {
-	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Windows })
-
-	dataDir := c.MkDir()
-	unitTag := names.NewUnitTag("some-application/323")
-	paths := uniter.NewPaths(dataDir, unitTag, nil)
-
-	relData := relPathFunc(dataDir)
-	relAgent := relPathFunc(relData("agents", "unit-some-application-323"))
-	localRunSocket := sockets.Socket{Network: "unix", Address: `\\.\pipe\unit-some-application-323-run`}
-	localJujucSocket := sockets.Socket{Network: "unix", Address: `\\.\pipe\unit-some-application-323-agent`}
-	c.Assert(paths, jc.DeepEquals, uniter.Paths{
-		ToolsDir: relData("tools/unit-some-application-323"),
-		Runtime: uniter.RuntimePaths{
-			LocalJujuRunSocket:     uniter.SocketPair{localRunSocket, localRunSocket},
-			LocalJujucServerSocket: uniter.SocketPair{localJujucSocket, localJujucSocket},
-		},
-		State: uniter.StatePaths{
-			BaseDir:         relAgent(),
-			CharmDir:        relAgent("charm"),
-			ResourcesDir:    relAgent("resources"),
-			BundlesDir:      relAgent("state", "bundles"),
-			DeployerDir:     relAgent("state", "deployer"),
-			MetricsSpoolDir: relAgent("state", "spool", "metrics"),
-		},
-	})
-}
-
-func (s *PathsSuite) TestWorkerPathsWindows(c *gc.C) {
-	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Windows })
-
-	dataDir := c.MkDir()
-	unitTag := names.NewUnitTag("some-application/323")
-	worker := "some-worker"
-	paths := uniter.NewWorkerPaths(dataDir, unitTag, worker, nil)
-
-	relData := relPathFunc(dataDir)
-	relAgent := relPathFunc(relData("agents", "unit-some-application-323"))
-
-	localRunSocket := sockets.Socket{Network: "unix", Address: `\\.\pipe\unit-some-application-323-some-worker-run`}
-	localJujucSocket := sockets.Socket{Network: "unix", Address: `\\.\pipe\unit-some-application-323-some-worker-agent`}
-	c.Assert(paths, jc.DeepEquals, uniter.Paths{
-		ToolsDir: relData("tools/unit-some-application-323"),
-		Runtime: uniter.RuntimePaths{
-			LocalJujuRunSocket:     uniter.SocketPair{localRunSocket, localRunSocket},
-			LocalJujucServerSocket: uniter.SocketPair{localJujucSocket, localJujucSocket},
-		},
-		State: uniter.StatePaths{
-			BaseDir:         relAgent(),
-			CharmDir:        relAgent("charm"),
-			ResourcesDir:    relAgent("resources"),
-			BundlesDir:      relAgent("state", "bundles"),
-			DeployerDir:     relAgent("state", "deployer"),
-			MetricsSpoolDir: relAgent("state", "spool", "metrics"),
-		},
-	})
-}
-
 func (s *PathsSuite) TestOther(c *gc.C) {
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Unknown })
 
@@ -104,7 +46,7 @@ func (s *PathsSuite) TestOther(c *gc.C) {
 	c.Assert(paths, jc.DeepEquals, uniter.Paths{
 		ToolsDir: relData("tools/unit-some-application-323"),
 		Runtime: uniter.RuntimePaths{
-			LocalJujuRunSocket:     uniter.SocketPair{localRunSocket, localRunSocket},
+			LocalJujuExecSocket:    uniter.SocketPair{localRunSocket, localRunSocket},
 			LocalJujucServerSocket: uniter.SocketPair{localJujucSocket, localJujucSocket},
 		},
 		State: uniter.StatePaths{
@@ -143,9 +85,9 @@ func (s *PathsSuite) TestTCPRemote(c *gc.C) {
 	c.Assert(paths, jc.DeepEquals, uniter.Paths{
 		ToolsDir: relData("tools/unit-some-application-323"),
 		Runtime: uniter.RuntimePaths{
-			LocalJujuRunSocket:      uniter.SocketPair{localRunSocket, localRunSocket},
+			LocalJujuExecSocket:     uniter.SocketPair{localRunSocket, localRunSocket},
 			LocalJujucServerSocket:  uniter.SocketPair{localJujucSocket, localJujucSocket},
-			RemoteJujuRunSocket:     uniter.SocketPair{remoteRunServerSocket, remoteRunClientSocket},
+			RemoteJujuExecSocket:    uniter.SocketPair{remoteRunServerSocket, remoteRunClientSocket},
 			RemoteJujucServerSocket: uniter.SocketPair{remoteJujucServerSocket, remoteJujucClientSocket},
 		},
 		State: uniter.StatePaths{
@@ -174,7 +116,7 @@ func (s *PathsSuite) TestWorkerPaths(c *gc.C) {
 	c.Assert(paths, jc.DeepEquals, uniter.Paths{
 		ToolsDir: relData("tools/unit-some-application-323"),
 		Runtime: uniter.RuntimePaths{
-			LocalJujuRunSocket:     uniter.SocketPair{localRunSocket, localRunSocket},
+			LocalJujuExecSocket:    uniter.SocketPair{localRunSocket, localRunSocket},
 			LocalJujucServerSocket: uniter.SocketPair{localJujucSocket, localJujucSocket},
 		},
 		State: uniter.StatePaths{

@@ -13,6 +13,9 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/names/v4"
+	"golang.org/x/crypto/ssh/terminal"
+
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/authentication"
 	jujucmd "github.com/juju/juju/cmd"
@@ -20,8 +23,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/names/v4"
-	"golang.org/x/crypto/ssh/terminal"
 )
 
 const userChangePasswordDoc = `
@@ -105,7 +106,6 @@ func (c *changePasswordCommand) Init(args []string) error {
 type ChangePasswordAPI interface {
 	SetPassword(username, password string) error
 	ResetPassword(username string) ([]byte, error)
-	BestAPIVersion() int
 	Close() error
 }
 
@@ -127,9 +127,6 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 		if c.User == "" || (c.accountDetails != nil && c.User == c.accountDetails.User) {
 			ctx.Infof("You cannot reset your own password.\nIf you want to change it, please call `juju change-user-password` without --reset option.")
 			return nil
-		}
-		if c.api.BestAPIVersion() < 2 {
-			return errors.NotSupportedf("on this juju controller, reset password")
 		}
 		return c.resetUserPassword(ctx)
 	}

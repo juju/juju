@@ -5,7 +5,7 @@ potential use-cases.
  * Allows the api server machines to ssh to other machines in the model
    * could be used to set up ssh tunnels through a single public facing IP
      address on the server
-   * allows juju-run commands to be run on remote machiens
+   * allows juju-exec commands to be run on remote machiens
 
 Juju already creates a private key for serving the mongo database. It was an
 option to also use this key, but in the end, having different keys for

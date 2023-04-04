@@ -43,7 +43,6 @@ func (s *BindSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvironment("JUJU_COOKIEFILE", cookieFile)
 
 	s.apiConnection = mockAPIConnection{
-		bestFacadeVersion: 2,
 		serverVersion: &version.Number{
 			Major: 1,
 			Minor: 2,
@@ -93,7 +92,7 @@ func (s *BindSuite) runBind(c *gc.C, args ...string) (*cmd.Context, error) {
 }
 
 func (s *BindSuite) TestBind(c *gc.C) {
-	s.setupAPIConnection(11)
+	s.setupAPIConnection()
 	s.applicationClient.getResults = &params.ApplicationGetResults{
 		EndpointBindings: map[string]string{
 			"ep1": network.AlphaSpaceName,
@@ -119,14 +118,14 @@ func (s *BindSuite) TestBind(c *gc.C) {
 }
 
 func (s *BindSuite) TestBindWithNoBindings(c *gc.C) {
-	s.setupAPIConnection(11)
+	s.setupAPIConnection()
 
 	_, err := s.runBind(c, "foo")
 	c.Assert(err, gc.ErrorMatches, "no bindings specified")
 }
 
 func (s *BindSuite) TestBindUnknownEndpoint(c *gc.C) {
-	s.setupAPIConnection(11)
+	s.setupAPIConnection()
 	s.applicationClient.getResults = &params.ApplicationGetResults{
 		EndpointBindings: map[string]string{
 			"ep1": network.AlphaSpaceName,
@@ -138,16 +137,8 @@ func (s *BindSuite) TestBindUnknownEndpoint(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `endpoint "unknown" not found`)
 }
 
-func (s *BindSuite) TestBindWithOlderController(c *gc.C) {
-	s.setupAPIConnection(10)
-
-	_, err := s.runBind(c, "foo", "unknown=sp1")
-	c.Assert(err, gc.ErrorMatches, `changing application bindings is not supported by server version.*`)
-}
-
-func (s *BindSuite) setupAPIConnection(bestFacadeVersion int) {
+func (s *BindSuite) setupAPIConnection() {
 	s.apiConnection = mockAPIConnection{
-		bestFacadeVersion: bestFacadeVersion,
 		serverVersion: &version.Number{
 			Major: 1,
 			Minor: 2,

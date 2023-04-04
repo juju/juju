@@ -5,12 +5,12 @@ package application_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
@@ -42,9 +42,7 @@ var _ = gc.Suite(&diffSuite{})
 func (s *diffSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.apiRoot = &mockAPIRoot{
-		responses:                 makeAPIResponses(),
-		bestFacadeVersion:         make(map[string]int),
-		bestFacadeVersionFallback: 42,
+		responses: makeAPIResponses(),
 	}
 	s.charmStore = &mockCharmStore{}
 	s.modelClient = &mockModelClient{
@@ -331,32 +329,6 @@ machines:
 `[1:])
 }
 
-func (s *diffSuite) TestCharmHubBundleWithInvalidController(c *gc.C) {
-	s.apiRoot = &mockAPIRoot{
-		responses: makeAPIResponses(),
-		bestFacadeVersion: map[string]int{
-			"Charms": 1,
-		},
-		bestFacadeVersionFallback: 42,
-	}
-
-	bundleData, err := charm.ReadBundleData(strings.NewReader(testCharmHubBundle))
-	c.Assert(err, jc.ErrorIsNil)
-	s.charmStore.url = &charm.URL{
-		Schema: "ch",
-		Name:   "my-bundle",
-		Series: "bundle",
-	}
-	s.charmStore.bundle = &mockBundle{data: bundleData}
-
-	_, err = s.runDiffBundleWithCharmAdapter(c, nil, func() (application.ModelConstraintsClient, error) {
-		return s.modelClient, nil
-	}, "my-bundle")
-	c.Assert(err, gc.ErrorMatches, `
-Current controller version is not compatible with CharmHub bundles.
-Consider using a CharmStore bundle instead.`[1:])
-}
-
 func (s *diffSuite) TestRelationsWithMissingEndpoints(c *gc.C) {
 	rels := []params.RelationStatus{
 		{
@@ -367,9 +339,7 @@ func (s *diffSuite) TestRelationsWithMissingEndpoints(c *gc.C) {
 		},
 	}
 	s.apiRoot = &mockAPIRoot{
-		responses:                 makeAPIResponsesWithRelations(rels),
-		bestFacadeVersion:         make(map[string]int),
-		bestFacadeVersionFallback: 42,
+		responses: makeAPIResponsesWithRelations(rels),
 	}
 
 	ctx, err := s.runDiffBundle(c, s.writeLocalBundle(c, withMissingRelationEndpoints))
@@ -489,9 +459,7 @@ applications:
 		c.Logf("test %d: %s", i, spec.descr)
 
 		s.apiRoot = &mockAPIRoot{
-			responses:                 makeAPIResponsesWithExposedEndpoints(spec.modelExposedEndpoints),
-			bestFacadeVersion:         make(map[string]int),
-			bestFacadeVersionFallback: 42,
+			responses: makeAPIResponsesWithExposedEndpoints(spec.modelExposedEndpoints),
 		}
 
 		ctx, err := s.runDiffBundle(c, s.writeLocalBundle(c, spec.bundle))
@@ -508,7 +476,7 @@ func (s *diffSuite) writeLocalBundle(c *gc.C, content string) string {
 
 func (s *diffSuite) writeFile(c *gc.C, name, content string) string {
 	path := filepath.Join(s.dir, name)
-	err := ioutil.WriteFile(path, []byte(content), 0666)
+	err := os.WriteFile(path, []byte(content), 0666)
 	c.Assert(err, jc.ErrorIsNil)
 	return path
 }
@@ -531,17 +499,17 @@ func makeAPIResponsesWithRelations(relations []params.RelationStatus) map[string
 		"Client.FullStatus": params.FullStatus{
 			Applications: map[string]params.ApplicationStatus{
 				"prometheus": {
-					Charm:  "cs:prometheus2-7",
-					Series: "xenial",
-					Life:   "alive",
+					Charm: "cs:prometheus2-7",
+					Base:  params.Base{Name: "ubuntu", Channel: "16.04"},
+					Life:  "alive",
 					Units: map[string]params.UnitStatus{
 						"prometheus/0": {Machine: "0"},
 					},
 				},
 				"grafana": {
-					Charm:  "ch:grafana-19",
-					Series: "bionic",
-					Life:   "alive",
+					Charm: "ch:grafana-19",
+					Base:  params.Base{Name: "ubuntu", Channel: "18.04"},
+					Life:  "alive",
 					Units: map[string]params.UnitStatus{
 						"grafana/0": {Machine: "1"},
 					},
@@ -549,8 +517,8 @@ func makeAPIResponsesWithRelations(relations []params.RelationStatus) map[string
 			},
 			Relations: relations,
 			Machines: map[string]params.MachineStatus{
-				"0": {Series: "xenial", Base: params.Base{Name: "ubuntu", Channel: "16.04"}},
-				"1": {Series: "bionic", Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+				"0": {Base: params.Base{Name: "ubuntu", Channel: "16.04"}},
+				"1": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
 			},
 		},
 		"Annotations.Get": params.AnnotationsGetResults{
@@ -600,9 +568,9 @@ func makeAPIResponsesWithExposedEndpoints(exposedEndpoints map[string]params.Exp
 		"Client.FullStatus": params.FullStatus{
 			Applications: map[string]params.ApplicationStatus{
 				"prometheus": {
-					Charm:  "cs:prometheus2-7",
-					Series: "xenial",
-					Life:   "alive",
+					Charm: "cs:prometheus2-7",
+					Base:  params.Base{Name: "ubuntu", Channel: "16.04"},
+					Life:  "alive",
 					Units: map[string]params.UnitStatus{
 						"prometheus/0": {Machine: "0"},
 					},
@@ -610,7 +578,7 @@ func makeAPIResponsesWithExposedEndpoints(exposedEndpoints map[string]params.Exp
 				},
 			},
 			Machines: map[string]params.MachineStatus{
-				"0": {Series: "xenial", Base: params.Base{Name: "ubuntu", Channel: "16.04"}},
+				"0": {Base: params.Base{Name: "ubuntu", Channel: "16.04"}},
 			},
 		},
 		"Annotations.Get": params.AnnotationsGetResults{
@@ -667,18 +635,13 @@ func (b *mockBundle) ContainsOverlays() bool  { return false }
 type mockAPIRoot struct {
 	base.APICallCloser
 
-	stub                      jujutesting.Stub
-	responses                 map[string]interface{}
-	bestFacadeVersion         map[string]int
-	bestFacadeVersionFallback int
+	stub      jujutesting.Stub
+	responses map[string]interface{}
 }
 
 func (r *mockAPIRoot) BestFacadeVersion(name string) int {
 	r.stub.AddCall("BestFacadeVersion", name)
-	if version, ok := r.bestFacadeVersion[name]; ok {
-		return version
-	}
-	return r.bestFacadeVersionFallback
+	return 42
 }
 
 func (r *mockAPIRoot) APICall(objType string, version int, id, request string, params, response interface{}) error {

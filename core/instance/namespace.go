@@ -44,7 +44,6 @@ func NewNamespace(modelUUID string) (Namespace, error) {
 	}
 	// The suffix is the last six hex digits of the model uuid.
 	suffix := modelUUID[len(modelUUID)-uuidSuffixDigits:]
-
 	return &namespace{name: suffix}, nil
 }
 

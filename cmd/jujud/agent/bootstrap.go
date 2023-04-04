@@ -7,7 +7,6 @@ import (
 	"bytes"
 	stdcontext "context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -18,7 +17,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/utils/v3/ssh"
 	"github.com/juju/version/v2"
@@ -149,7 +147,7 @@ var (
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(_ *cmd.Context) error {
-	bootstrapParamsData, err := ioutil.ReadFile(c.BootstrapParamsFile)
+	bootstrapParamsData, err := os.ReadFile(c.BootstrapParamsFile)
 	if err != nil {
 		return errors.Annotate(err, "reading bootstrap params file")
 	}
@@ -160,10 +158,12 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	isCAAS := args.ControllerCloud.Type == k8sconstants.CAASProviderType
 
+	var controllerUnitPassword string
 	if isCAAS {
 		if err := c.ensureConfigFilesForCaas(); err != nil {
 			return errors.Trace(err)
 		}
+		controllerUnitPassword = os.Getenv(k8sconstants.EnvJujuK8sUnitPassword)
 	}
 
 	// Get the bootstrap machine's addresses from the provider.
@@ -371,12 +371,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		}
 	}
 
-	// Populate the GUI archive catalogue.
-	if err := c.populateGUIArchive(st, env); err != nil {
-		// Do not stop the bootstrapping process for Juju GUI archive errors.
-		logger.Warningf("cannot set up Juju GUI: %s", err)
-	} else {
-		logger.Debugf("Juju GUI successfully set up")
+	// Deploy and set up the controller charm and application.
+	if err := c.deployControllerCharm(st, args.BootstrapMachineConstraints, args.ControllerCharmPath, args.ControllerCharmChannel, isCAAS, controllerUnitPassword); err != nil {
+		return errors.Annotate(err, "cannot deploy controller application")
 	}
 
 	// bootstrap nodes always get the vote
@@ -473,13 +470,15 @@ func (c *BootstrapCommand) startMongo(isCAAS bool, addrs network.ProviderAddress
 	}
 
 	if !isCAAS {
-		logger.Debugf("calling ensureMongoServer")
-		ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
+		logger.Debugf("calling EnsureMongoServerInstalled")
+		ensureServerParams, err := cmdutil.NewEnsureMongoParams(agentConfig)
 		if err != nil {
 			return err
 		}
-		_, err = cmdutil.EnsureMongoServer(ensureServerParams)
-		if err != nil {
+		if err := cmdutil.EnsureMongoServerInstalled(ensureServerParams); err != nil {
+			return err
+		}
+		if err := cmdutil.EnsureMongoServerStarted(ensureServerParams.JujuDBSnapChannel); err != nil {
 			return err
 		}
 	}
@@ -516,7 +515,7 @@ func (c *BootstrapCommand) populateTools(st *state.State) error {
 		return errors.Trace(err)
 	}
 
-	data, err := ioutil.ReadFile(filepath.Join(
+	data, err := os.ReadFile(filepath.Join(
 		agenttools.SharedToolsDir(dataDir, current),
 		"tools.tar.gz",
 	))
@@ -541,43 +540,6 @@ func (c *BootstrapCommand) populateTools(st *state.State) error {
 	}
 	return nil
 }
-
-// populateGUIArchive stores the uploaded Juju GUI archive in provider storage,
-// updates the GUI metadata and set the current Juju GUI version.
-func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.BootstrapEnviron) error {
-	agentConfig := c.CurrentConfig()
-	dataDir := agentConfig.DataDir()
-
-	guiStorage, err := st.GUIStorage()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer func() { _ = guiStorage.Close() }()
-
-	gui, err := agenttools.ReadGUIArchive(dataDir)
-	if err != nil {
-		return errors.Annotate(err, "cannot fetch GUI info")
-	}
-
-	f, err := os.Open(filepath.Join(agenttools.SharedGUIDir(dataDir), "gui.tar.bz2"))
-	if err != nil {
-		return errors.Annotate(err, "cannot read GUI archive")
-	}
-	defer func() { _ = f.Close() }()
-
-	if err := guiStorage.Add(f, binarystorage.Metadata{
-		Version: gui.Version.String(),
-		Size:    gui.Size,
-		SHA256:  gui.SHA256,
-	}); err != nil {
-		return errors.Annotate(err, "cannot store GUI archive")
-	}
-
-	return errors.Annotate(st.GUISetVersion(gui.Version), "cannot set current GUI version")
-}
-
-// Override for testing.
-var seriesFromVersion = series.VersionSeries
 
 // saveCustomImageMetadata stores the custom image metadata to the database,
 func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State, env environs.BootstrapEnviron, imageMetadata []*imagemetadata.ImageMetadata) error {
@@ -606,11 +568,6 @@ func storeImageMetadataInState(st *state.State, env environs.BootstrapEnviron, s
 			Priority: priority,
 			ImageId:  one.Id,
 		}
-		s, err := seriesFromVersion(one.Version)
-		if err != nil {
-			return errors.Annotatef(err, "cannot determine series for version %v", one.Version)
-		}
-		m.Series = s
 		if m.Stream == "" {
 			m.Stream = cfg.ImageStream()
 		}

@@ -6,9 +6,9 @@ package charmstore
 import (
 	"sort"
 
-	"github.com/juju/charm/v8"
-	"github.com/juju/charm/v8/resource"
-	"github.com/juju/charmrepo/v6/csclient/params"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/resource"
+	"github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"

@@ -4,7 +4,7 @@
 package podcfg_test
 
 import (
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -72,4 +72,21 @@ func (*imageSuite) TestImageForBase(c *gc.C) {
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, gc.DeepEquals, `jujusolutions/charm-base:ubuntu-20.04-edge`)
+}
+
+func (*imageSuite) TestRecoverRepoFromOperatorPath(c *gc.C) {
+	repo, err := podcfg.RecoverRepoFromOperatorPath("testing-repo/jujud-operator:2.6-beta3.666")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(repo, gc.Equals, "testing-repo")
+
+	repo, err = podcfg.RecoverRepoFromOperatorPath("testing-repo:8080/jujud-operator:2.6-beta3.666")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(repo, gc.Equals, "testing-repo:8080")
+
+	repo, err = podcfg.RecoverRepoFromOperatorPath("jujusolutions/jujud-operator:2.6-beta3")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(repo, gc.Equals, "jujusolutions")
+
+	_, err = podcfg.RecoverRepoFromOperatorPath("jujusolutions/nope:2.6-beta3")
+	c.Assert(err, gc.ErrorMatches, `image path "jujusolutions/nope:2.6-beta3" does not match the form somerepo/jujud-operator:\.\*`)
 }

@@ -9,15 +9,15 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
-	jujutxn "github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
@@ -75,8 +75,8 @@ type unitDoc struct {
 	DocID                  string `bson:"_id"`
 	Name                   string `bson:"name"`
 	ModelUUID              string `bson:"model-uuid"`
+	Base                   Base   `bson:"base"`
 	Application            string
-	Series                 string
 	CharmURL               *string
 	Principal              string
 	Subordinates           []string
@@ -159,9 +159,9 @@ func (u *Unit) ApplicationName() string {
 	return u.doc.Application
 }
 
-// Series returns the deployed charm's series.
-func (u *Unit) Series() string {
-	return u.doc.Series
+// Base returns the deployed charm's base.
+func (u *Unit) Base() Base {
+	return u.doc.Base
 }
 
 // String returns the unit as string.
@@ -577,27 +577,45 @@ func (op *DestroyUnitOperation) Done(err error) error {
 		}
 		op.AddError(errors.Errorf("force erase unit's %q history proceeded despite encountering ERROR %v", op.unit.globalKey(), err))
 	}
+	if err := op.deleteSecrets(); err != nil {
+		logger.Errorf("cannot delete secrets for unit %q: %v", op.unit, err)
+	}
 	return nil
 }
 
 func (op *DestroyUnitOperation) eraseHistory() error {
-	if err := eraseStatusHistory(op.unit.st, op.unit.globalKey()); err != nil {
+	var stop <-chan struct{} // stop not used here yet.
+	if err := eraseStatusHistory(stop, op.unit.st, op.unit.globalKey()); err != nil {
 		one := errors.Annotate(err, "workload")
 		if op.FatalError(one) {
 			return one
 		}
 	}
-	if err := eraseStatusHistory(op.unit.st, op.unit.globalAgentKey()); err != nil {
+	if err := eraseStatusHistory(stop, op.unit.st, op.unit.globalAgentKey()); err != nil {
 		one := errors.Annotate(err, "agent")
 		if op.FatalError(one) {
 			return one
 		}
 	}
-	if err := eraseStatusHistory(op.unit.st, op.unit.globalWorkloadVersionKey()); err != nil {
+	if err := eraseStatusHistory(stop, op.unit.st, op.unit.globalWorkloadVersionKey()); err != nil {
 		one := errors.Annotate(err, "version")
 		if op.FatalError(one) {
 			return one
 		}
+	}
+	return nil
+}
+
+func (op *DestroyUnitOperation) deleteSecrets() error {
+	ownedURIs, err := op.unit.st.referencedSecrets(op.unit.Tag(), "owner-tag")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if _, err := op.unit.st.deleteSecrets(ownedURIs); err != nil {
+		return errors.Annotatef(err, "deleting owned secrets for %q", op.unit.Name())
+	}
+	if err := op.unit.st.removeSecretConsumer(op.unit.Tag()); err != nil {
+		return errors.Annotatef(err, "deleting secret consumer records for %q", op.unit.Name())
 	}
 	return nil
 }
@@ -1364,6 +1382,7 @@ func (u *Unit) StatusHistory(filter status.StatusHistoryFilter) ([]status.Status
 		db:        u.st.db(),
 		globalKey: u.globalKey(),
 		filter:    filter,
+		clock:     u.st.clock(),
 	}
 	return statusHistory(args)
 }
@@ -1641,6 +1660,8 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	}
 	u.doc.MachineId = m.doc.Id
 	m.doc.Clean = false
+	m.doc.Principals = append(m.doc.Principals, u.doc.Name)
+	sort.Strings(m.doc.Principals)
 	return nil
 }
 
@@ -1676,7 +1697,7 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	}
 	if err := validateUnitMachineAssignment(
-		m, u.doc.Series, u.doc.Principal != "", storagePools,
+		m, u.doc.Base, u.doc.Principal != "", storagePools,
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1706,7 +1727,10 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 			{{"machineid", m.Id()}},
 		},
 	}}...)
-	massert := isAliveDoc
+	massert := append(isAliveDoc, bson.D{{
+		// The machine must be able to accept a unit.
+		"jobs", bson.M{"$in": []MachineJob{JobHostUnits}},
+	}}...)
 	if unused {
 		massert = append(massert, bson.D{{"clean", bson.D{{"$ne", false}}}}...)
 	}
@@ -1731,7 +1755,7 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 // to a specified machine.
 func validateUnitMachineAssignment(
 	m *Machine,
-	series string,
+	base Base,
 	isSubordinate bool,
 	storagePools set.Strings,
 ) (err error) {
@@ -1741,8 +1765,8 @@ func validateUnitMachineAssignment(
 	if isSubordinate {
 		return fmt.Errorf("unit is a subordinate")
 	}
-	if series != m.doc.Series {
-		return fmt.Errorf("series does not match")
+	if !base.compatibleWith(m.doc.Base) {
+		return fmt.Errorf("base does not match: unit has %q, machine has %q", base.DisplayString(), m.doc.Base.DisplayString())
 	}
 	canHost := false
 	for _, j := range m.doc.Jobs {
@@ -2082,7 +2106,7 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 			}
 		}
 		template := MachineTemplate{
-			Series:      u.doc.Series,
+			Base:        u.doc.Base,
 			Constraints: *cons,
 			Jobs:        []MachineJob{JobHostUnits},
 		}
@@ -2140,7 +2164,7 @@ func (u *Unit) assignToNewMachine(placement string) error {
 			return nil, errors.Trace(err)
 		}
 		template := MachineTemplate{
-			Series:                u.doc.Series,
+			Base:                  u.doc.Base,
 			Constraints:           *cons,
 			Jobs:                  []MachineJob{JobHostUnits},
 			Placement:             placement,
@@ -2219,11 +2243,11 @@ func unitStorageParams(u *Unit) (*storageParams, error) {
 		}
 		storageInstances = append(storageInstances, storage)
 	}
-	return storageParamsForUnit(sb, storageInstances, u.UnitTag(), u.Series(), ch.Meta())
+	return storageParamsForUnit(sb, storageInstances, u.UnitTag(), u.Base(), ch.Meta())
 }
 
 func storageParamsForUnit(
-	sb *storageBackend, storageInstances []*storageInstance, tag names.UnitTag, series string, chMeta *charm.Meta,
+	sb *storageBackend, storageInstances []*storageInstance, tag names.UnitTag, base Base, chMeta *charm.Meta,
 ) (*storageParams, error) {
 
 	var volumes []HostVolumeParams
@@ -2232,7 +2256,7 @@ func storageParamsForUnit(
 	filesystemAttachments := make(map[names.FilesystemTag]FilesystemAttachmentParams)
 	for _, storage := range storageInstances {
 		storageParams, err := storageParamsForStorageInstance(
-			sb, chMeta, tag, series, storage,
+			sb, chMeta, base.OS, storage,
 		)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -2264,8 +2288,7 @@ func storageParamsForUnit(
 func storageParamsForStorageInstance(
 	sb *storageBackend,
 	charmMeta *charm.Meta,
-	unit names.UnitTag,
-	series string,
+	osName string,
 	storage *storageInstance,
 ) (*storageParams, error) {
 
@@ -2278,7 +2301,7 @@ func storageParamsForStorageInstance(
 
 	switch storage.Kind() {
 	case StorageKindFilesystem:
-		location, err := FilesystemMountPoint(charmStorage, storage.StorageTag(), series)
+		location, err := FilesystemMountPoint(charmStorage, storage.StorageTag(), osName)
 		if err != nil {
 			return nil, errors.Annotatef(
 				err, "getting filesystem mount point for storage %s",
@@ -2467,7 +2490,7 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 
 	terms := bson.D{
 		{"life", Alive},
-		{"series", u.doc.Series},
+		{"base", u.doc.Base},
 		{"jobs", []MachineJob{JobHostUnits}},
 		{"clean", true},
 		{"machineid", bson.D{{"$nin", omitMachineIds}}},
@@ -2718,9 +2741,9 @@ type ActionSpecsByName map[string]charm.ActionSpec
 
 // PrepareActionPayload returns the payload to use in creating an action for this unit.
 // Note that the use of spec.InsertDefaults mutates payload.
-func (u *Unit) PrepareActionPayload(name string, payload map[string]interface{}) (map[string]interface{}, error) {
+func (u *Unit) PrepareActionPayload(name string, payload map[string]interface{}, parallel *bool, executionGroup *string) (map[string]interface{}, bool, string, error) {
 	if len(name) == 0 {
-		return nil, errors.New("no action name given")
+		return nil, false, "", errors.New("no action name given")
 	}
 
 	// If the action is predefined inside juju, get spec from map
@@ -2728,38 +2751,47 @@ func (u *Unit) PrepareActionPayload(name string, payload map[string]interface{})
 	if !ok {
 		specs, err := u.ActionSpecs()
 		if err != nil {
-			return nil, err
+			return nil, false, "", err
 		}
 		spec, ok = specs[name]
 		if !ok {
-			return nil, errors.Errorf("action %q not defined on unit %q", name, u.Name())
+			return nil, false, "", errors.Errorf("action %q not defined on unit %q", name, u.Name())
 		}
 	}
 	// Reject bad payloads before attempting to insert defaults.
 	err := spec.ValidateParams(payload)
 	if err != nil {
-		return nil, err
+		return nil, false, "", errors.Trace(err)
 	}
 	payloadWithDefaults, err := spec.InsertDefaults(payload)
 	if err != nil {
-		return nil, err
+		return nil, false, "", errors.Trace(err)
 	}
 
 	// For k8s operators, we run the action on the operator pod by default.
 	if _, ok := payloadWithDefaults["workload-context"]; !ok {
 		app, err := u.Application()
 		if err != nil {
-			return nil, err
+			return nil, false, "", errors.Trace(err)
 		}
 		ch, _, err := app.Charm()
 		if err != nil {
-			return nil, err
+			return nil, false, "", errors.Trace(err)
 		}
 		if ch.Meta().Deployment != nil && ch.Meta().Deployment.DeploymentMode == charm.ModeOperator {
 			payloadWithDefaults["workload-context"] = false
 		}
 	}
-	return payloadWithDefaults, nil
+
+	runParallel := spec.Parallel
+	if parallel != nil {
+		runParallel = *parallel
+	}
+	runExecutionGroup := spec.ExecutionGroup
+	if executionGroup != nil {
+		runExecutionGroup = *executionGroup
+	}
+	return payloadWithDefaults, runParallel, runExecutionGroup, nil
 }
 
 // ActionSpecs gets the ActionSpec map for the Unit's charm.
@@ -2976,11 +3008,12 @@ func (g *HistoryGetter) StatusHistory(filter status.StatusHistoryFilter) ([]stat
 		db:        g.st.db(),
 		globalKey: g.globalKey,
 		filter:    filter,
+		clock:     g.st.clock(),
 	}
 	return statusHistory(args)
 }
 
-// UpgradeSeriesStatus returns the upgrade status of the units assigned machine.
+// UpgradeSeriesStatus returns the upgrade status of the unit's assigned machine.
 func (u *Unit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, string, error) {
 	mID, err := u.AssignedMachineId()
 	if err != nil {
@@ -3004,7 +3037,7 @@ func (u *Unit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, string, error) 
 		return "", "", errors.NotFoundf("unit %q of machine %q", u.Name(), mID)
 	}
 
-	return sts.Status, lock.ToSeries, nil
+	return sts.Status, lock.ToBase, nil
 }
 
 // SetUpgradeSeriesStatus sets the upgrade status of the units assigned machine.

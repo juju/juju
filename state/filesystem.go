@@ -9,13 +9,13 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
-	jujutxn "github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/status"
@@ -1398,9 +1398,9 @@ func setFilesystemAttachmentInfoOps(
 func FilesystemMountPoint(
 	meta charm.Storage,
 	tag names.StorageTag,
-	series string,
+	osname string,
 ) (string, error) {
-	storageDir := paths.StorageDir(paths.SeriesToOS(series))
+	storageDir := paths.StorageDir(paths.OSType(osname))
 	if strings.HasPrefix(meta.Location, storageDir) {
 		return "", errors.Errorf(
 			"invalid location %q: must not fall within %q",

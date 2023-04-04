@@ -6,7 +6,7 @@ package jujuc_test
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/juju/cmd/v3"
@@ -43,7 +43,7 @@ func (s *ConfigGetSuite) TestOutputFormatKey(c *gc.C) {
 	for i, t := range configGetKeyTests {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetHookContext(c, -1, "")
-		com, err := jujuc.NewCommand(hctx, cmdString("config-get"))
+		com, err := jujuc.NewCommand(hctx, "config-get")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
@@ -100,7 +100,7 @@ func (s *ConfigGetSuite) TestOutputFormatAll(c *gc.C) {
 	for i, t := range configGetAllTests {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetHookContext(c, -1, "")
-		com, err := jujuc.NewCommand(hctx, cmdString("config-get"))
+		com, err := jujuc.NewCommand(hctx, "config-get")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
@@ -120,7 +120,7 @@ func (s *ConfigGetSuite) TestOutputFormatAll(c *gc.C) {
 
 func (s *ConfigGetSuite) TestHelp(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, cmdString("config-get"))
+	com, err := jujuc.NewCommand(hctx, "config-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
@@ -148,28 +148,28 @@ reported as null. <key> and --all are mutually exclusive.
 
 func (s *ConfigGetSuite) TestOutputPath(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, cmdString("config-get"))
+	com, err := jujuc.NewCommand(hctx, "config-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--output", "some-file", "monsters"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
-	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "some-file"))
+	content, err := os.ReadFile(filepath.Join(ctx.Dir, "some-file"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, "False\n")
 }
 
 func (s *ConfigGetSuite) TestUnknownArg(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, cmdString("config-get"))
+	com, err := jujuc.NewCommand(hctx, "config-get")
 	c.Assert(err, jc.ErrorIsNil)
 	cmdtesting.TestInit(c, jujuc.NewJujucCommandWrappedForTest(com), []string{"multiple", "keys"}, `unrecognized args: \["keys"\]`)
 }
 
 func (s *ConfigGetSuite) TestAllPlusKey(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, cmdString("config-get"))
+	com, err := jujuc.NewCommand(hctx, "config-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--all", "--format", "json", "monsters"})

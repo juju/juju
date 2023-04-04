@@ -6,7 +6,7 @@ package caasapplicationprovisioner
 import (
 	"fmt"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
@@ -75,18 +75,9 @@ func (c *Client) SetPassword(appName string, password string) error {
 		return errors.Errorf("invalid number of results %d expected 1", len(result.Results))
 	}
 	if result.Results[0].Error != nil {
-		return errors.Trace(maybeNotFound(result.Results[0].Error))
+		return errors.Trace(params.TranslateWellKnownError(result.Results[0].Error))
 	}
 	return nil
-}
-
-// maybeNotFound returns an error satisfying errors.IsNotFound
-// if the supplied error has a CodeNotFound error.
-func maybeNotFound(err *params.Error) error {
-	if err == nil || !params.IsCodeNotFound(err) {
-		return err
-	}
-	return errors.NewNotFound(err, "")
 }
 
 // Life returns the lifecycle state for the specified application
@@ -113,7 +104,7 @@ func (c *Client) Life(entityName string) (life.Value, error) {
 		return "", errors.Errorf("expected 1 result, got %d", n)
 	}
 	if err := results.Results[0].Error; err != nil {
-		return "", maybeNotFound(err)
+		return "", params.TranslateWellKnownError(err)
 	}
 	return results.Results[0].Life, nil
 }
@@ -175,7 +166,7 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 	}
 	r := result.Results[0]
 	if err := r.Error; err != nil {
-		return ProvisioningInfo{}, errors.Trace(maybeNotFound(err))
+		return ProvisioningInfo{}, errors.Trace(params.TranslateWellKnownError(err))
 	}
 
 	base, err := series.ParseBase(r.Base.Name, r.Base.Channel)
@@ -278,7 +269,7 @@ func (c *Client) Units(appName string) ([]params.CAASUnit, error) {
 	}
 	res := result.Results[0]
 	if res.Error != nil {
-		return nil, errors.Annotatef(maybeNotFound(res.Error), "unable to fetch units for %s", appName)
+		return nil, errors.Annotatef(params.TranslateWellKnownError(res.Error), "unable to fetch units for %s", appName)
 	}
 	out := make([]params.CAASUnit, len(res.Units))
 	for i, v := range res.Units {
@@ -335,7 +326,7 @@ func (c *Client) ApplicationOCIResources(appName string) (map[string]resources.D
 	}
 	res := result.Results[0]
 	if res.Error != nil {
-		return nil, errors.Annotatef(maybeNotFound(res.Error), "unable to fetch OCI image resources for %s", appName)
+		return nil, errors.Annotatef(params.TranslateWellKnownError(res.Error), "unable to fetch OCI image resources for %s", appName)
 	}
 	if res.Result == nil {
 		return nil, errors.Errorf("missing result")
@@ -371,7 +362,7 @@ func (c *Client) UpdateUnits(arg params.UpdateApplicationUnits) (*params.UpdateA
 	if firstResult.Error == nil {
 		return firstResult.Info, nil
 	}
-	return firstResult.Info, maybeNotFound(firstResult.Error)
+	return firstResult.Info, params.TranslateWellKnownError(firstResult.Error)
 }
 
 // WatchApplication returns a NotifyWatcher that notifies of
@@ -394,7 +385,7 @@ func (c *Client) ClearApplicationResources(appName string) error {
 	if result.Results[0].Error == nil {
 		return nil
 	}
-	return maybeNotFound(result.Results[0].Error)
+	return params.TranslateWellKnownError(result.Results[0].Error)
 }
 
 // WatchUnits returns a StringsWatcher that notifies of

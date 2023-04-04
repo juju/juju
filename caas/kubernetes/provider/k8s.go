@@ -39,6 +39,9 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/pointer"
 
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	jujuversion "github.com/juju/juju/version"
+
 	"github.com/juju/juju/caas"
 	k8sapplication "github.com/juju/juju/caas/kubernetes/provider/application"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -75,7 +78,8 @@ const (
 
 	gpuAffinityNodeSelectorKey = "gpu"
 
-	operatorContainerName = "juju-operator"
+	operatorInitContainerName = "juju-init"
+	operatorContainerName     = "juju-operator"
 
 	dataDirVolumeName = "juju-data-dir"
 
@@ -473,14 +477,14 @@ func (k *kubernetesClient) Bootstrap(
 
 		logger.Debugf("controller pod config: \n%+v", pcfg)
 
-		// validate hosted model name if we need to create it.
-		if hostedModelName, has := pcfg.GetHostedModel(); has {
-			_, err := k.getNamespaceByName(hostedModelName)
+		// validate initial model name if we need to create it.
+		if initialModelName, has := pcfg.GetInitialModel(); has {
+			_, err := k.getNamespaceByName(initialModelName)
 			if err == nil {
 				return errors.NewAlreadyExists(nil,
 					fmt.Sprintf(`
 namespace %q already exists in the cluster,
-please choose a different hosted model name then try again.`, hostedModelName),
+please choose a different initial model name then try again.`, initialModelName),
 				)
 			}
 			if !errors.IsNotFound(err) {
@@ -512,7 +516,7 @@ please choose a different hosted model name then try again.`, hostedModelName),
 		}
 
 		// create configmap, secret, volume, statefulset, etc resources for controller stack.
-		controllerStack, err := newcontrollerStack(ctx, JujuControllerStackName, storageClass, k, pcfg)
+		controllerStack, err := newcontrollerStack(ctx, k8sconstants.JujuControllerStackName, storageClass, k, pcfg)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -522,10 +526,14 @@ please choose a different hosted model name then try again.`, hostedModelName),
 		)
 	}
 
+	podArch := arch.AMD64
+	if args.BootstrapConstraints.HasArch() {
+		podArch = *args.BootstrapConstraints.Arch
+	}
+	// TODO(wallyworld) - use actual series of controller pod image
 	return &environs.BootstrapResult{
-		// TODO(bootstrap): review this default arch and series(required for determining DataDir etc.) later.
-		Arch:                   arch.AMD64,
-		Series:                 "kubernetes",
+		Arch:                   podArch,
+		Base:                   jujuversion.DefaultSupportedLTSBase(),
 		CaasBootstrapFinalizer: finalizer,
 	}, nil
 }
@@ -1026,7 +1034,20 @@ func (k *kubernetesClient) ensureService(
 		}
 	}
 	if err := k8sapplication.ApplyConstraints(
-		&workloadSpec.Pod.PodSpec, appName, params.Constraints, k8sapplication.ConfigureConstraint,
+		&workloadSpec.Pod.PodSpec, appName, params.Constraints,
+		func(pod *core.PodSpec, resourceName core.ResourceName, value string) error {
+			if len(pod.Containers) == 0 {
+				return nil
+			}
+			// Just the first container is enough for scheduling purposes.
+			pod.Containers[0].Resources.Requests, err = k8sapplication.MergeConstraint(
+				resourceName, value, pod.Containers[0].Resources.Requests,
+			)
+			if err != nil {
+				return errors.Annotatef(err, "merging request constraint %s=%s", resourceName, value)
+			}
+			return nil
+		},
 	); err != nil {
 		return errors.Trace(err)
 	}
@@ -1362,7 +1383,7 @@ func ensureJujuInitContainer(podSpec *core.PodSpec, operatorImagePath string) er
 
 func getJujuInitContainerAndStorageInfo(operatorImagePath string) (container core.Container, vol core.Volume, volMounts []core.VolumeMount, err error) {
 	dataDir := paths.DataDir(paths.OSUnixLike)
-	jujuRun := paths.JujuRun(paths.OSUnixLike)
+	jujuExec := paths.JujuExec(paths.OSUnixLike)
 	jujudCmd := `
 initCmd=$($JUJU_TOOLS_DIR/jujud help commands | grep caas-unit-init)
 if test -n "$initCmd"; then
@@ -1400,7 +1421,7 @@ fi`[1:]
 	}
 	volMounts = []core.VolumeMount{
 		{Name: dataDirVolumeName, MountPath: dataDir},
-		{Name: dataDirVolumeName, MountPath: jujuRun, SubPath: "tools/jujud"},
+		{Name: dataDirVolumeName, MountPath: jujuExec, SubPath: "tools/jujud"},
 	}
 	return container, vol, volMounts, nil
 }
@@ -1648,11 +1669,32 @@ func (k *kubernetesClient) ensureDeployment(spec *apps.Deployment) error {
 		return errNoNamespace
 	}
 	deployments := k.client().AppsV1().Deployments(k.namespace)
-	_, err := deployments.Update(context.TODO(), spec, v1.UpdateOptions{})
-	if k8serrors.IsNotFound(err) {
-		_, err = deployments.Create(context.TODO(), spec, v1.CreateOptions{})
+	_, err := k.createDeployment(spec)
+	if err == nil || !errors.IsAlreadyExists(err) {
+		return errors.Annotatef(err, "ensuring deployment %q", spec.GetName())
+	}
+	existing, err := k.getDeployment(spec.GetName())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	existing.SetAnnotations(spec.GetAnnotations())
+	existing.Spec = spec.Spec
+	_, err = deployments.Update(context.TODO(), existing, v1.UpdateOptions{})
+	if err != nil {
+		return errors.Annotatef(err, "ensuring deployment %q", spec.GetName())
 	}
 	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) createDeployment(spec *apps.Deployment) (*apps.Deployment, error) {
+	out, err := k.client().AppsV1().Deployments(k.namespace).Create(context.TODO(), spec, v1.CreateOptions{})
+	if k8serrors.IsAlreadyExists(err) {
+		return nil, errors.AlreadyExistsf("deployment %q", spec.GetName())
+	}
+	if k8serrors.IsInvalid(err) {
+		return nil, errors.NotValidf("deployment %q", spec.GetName())
+	}
+	return out, errors.Trace(err)
 }
 
 func (k *kubernetesClient) getDeployment(name string) (*apps.Deployment, error) {
@@ -2141,6 +2183,17 @@ func (k *kubernetesClient) WatchService(appName string, mode caas.DeploymentMode
 	return watcher.NewMultiNotifyWatcher(w1, w2, w3), nil
 }
 
+// CheckCloudCredentials verifies the the cloud credentials provided to the
+// broker are functioning.
+func (k *kubernetesClient) CheckCloudCredentials() error {
+	if _, err := k.Namespaces(); err != nil {
+		// If this call could not be made with provided credential, we
+		// know that the credential is invalid.
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // Units returns all units and any associated filesystems of the specified application.
 // Filesystems are mounted via volumes bound to the unit.
 func (k *kubernetesClient) Units(appName string, mode caas.DeploymentMode) ([]caas.Unit, error) {
@@ -2230,6 +2283,21 @@ func (k *kubernetesClient) Units(appName string, mode caas.DeploymentMode) ([]ca
 		units = append(units, unitInfo)
 	}
 	return units, nil
+}
+
+// ListPods filters a list of pods for the provided namespace and labels.
+func (k *kubernetesClient) ListPods(namespace string, selector k8slabels.Selector) ([]core.Pod, error) {
+	listOps := v1.ListOptions{
+		LabelSelector: selector.String(),
+	}
+	list, err := k.client().CoreV1().Pods(namespace).List(context.TODO(), listOps)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(list.Items) == 0 {
+		return nil, errors.NotFoundf("pods with selector %q", selector)
+	}
+	return list.Items, nil
 }
 
 func (k *kubernetesClient) getPod(podName string) (*core.Pod, error) {

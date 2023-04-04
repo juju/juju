@@ -60,6 +60,7 @@ type ManifoldSuite struct {
 	upgradeGate          stubGateWaiter
 	queue                *queue.OpQueue
 	sysLogger            syslogger.SysLogger
+	charmhubHTTPClient   *http.Client
 
 	stub testing.Stub
 }
@@ -86,6 +87,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.leaseManager = &lease.Manager{}
 	s.queue = queue.NewOpQueue(testclock.NewClock(time.Now()))
 	s.sysLogger = &mockSysLogger{}
+	s.charmhubHTTPClient = &http.Client{}
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)
@@ -96,13 +98,13 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		MuxName:                           "mux",
 		ModelCacheName:                    "modelcache",
 		MultiwatcherName:                  "multiwatcher",
-		RestoreStatusName:                 "restore-status",
 		StateName:                         "state",
 		UpgradeGateName:                   "upgrade",
 		AuditConfigUpdaterName:            "auditconfig-updater",
 		LeaseManagerName:                  "lease-manager",
 		RaftTransportName:                 "raft-transport",
 		SyslogName:                        "syslog",
+		CharmhubHTTPClientName:            "charmhub-http-client",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		Hub:                               &s.hub,
@@ -115,19 +117,19 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
-		"agent":               s.agent,
-		"authenticator":       s.authenticator,
-		"clock":               s.clock,
-		"mux":                 s.mux,
-		"modelcache":          s.controller,
-		"multiwatcher":        s.multiwatcherFactory,
-		"restore-status":      s.RestoreStatus,
-		"state":               &s.state,
-		"upgrade":             &s.upgradeGate,
-		"auditconfig-updater": s.auditConfig.get,
-		"lease-manager":       s.leaseManager,
-		"raft-transport":      nil,
-		"syslog":              s.sysLogger,
+		"agent":                s.agent,
+		"authenticator":        s.authenticator,
+		"clock":                s.clock,
+		"mux":                  s.mux,
+		"modelcache":           s.controller,
+		"multiwatcher":         s.multiwatcherFactory,
+		"state":                &s.state,
+		"upgrade":              &s.upgradeGate,
+		"auditconfig-updater":  s.auditConfig.get,
+		"lease-manager":        s.leaseManager,
+		"raft-transport":       nil,
+		"syslog":               s.sysLogger,
+		"charmhub-http-client": s.charmhubHTTPClient,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -141,11 +143,6 @@ type mockSysLogger struct {
 
 func (*mockSysLogger) Log([]corelogger.LogRecord) error {
 	return nil
-}
-
-func (s *ManifoldSuite) RestoreStatus() state.RestoreStatus {
-	s.stub.MethodCall(s, "RestoreStatus")
-	return ""
 }
 
 func (s *ManifoldSuite) newWorker(config apiserver.Config) (worker.Worker, error) {
@@ -162,8 +159,8 @@ func (s *ManifoldSuite) newMetricsCollector() *coreapiserver.Collector {
 
 var expectedInputs = []string{
 	"agent", "authenticator", "clock", "modelcache", "multiwatcher", "mux",
-	"restore-status", "state", "upgrade", "auditconfig-updater", "lease-manager",
-	"raft-transport", "syslog",
+	"state", "upgrade", "auditconfig-updater", "lease-manager",
+	"raft-transport", "syslog", "charmhub-http-client",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -205,11 +202,6 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config.UpgradeComplete = nil
 	s.upgradeGate.CheckCallNames(c, "IsUnlocked")
 
-	c.Assert(config.RestoreStatus, gc.NotNil)
-	config.RestoreStatus()
-	config.RestoreStatus = nil
-	s.stub.CheckCallNames(c, "NewWorker", "RestoreStatus")
-
 	c.Assert(config.RegisterIntrospectionHTTPHandlers, gc.NotNil)
 	config.RegisterIntrospectionHTTPHandlers = nil
 
@@ -237,6 +229,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		Hub:                 &s.hub,
 		RaftOpQueue:         s.queue,
 		SysLogger:           s.sysLogger,
+		CharmhubHTTPClient:  s.charmhubHTTPClient,
 	})
 }
 

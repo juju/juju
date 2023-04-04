@@ -12,12 +12,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/utils/v3/exec"
+	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
@@ -30,23 +34,43 @@ import (
 	"github.com/juju/juju/environs/context"
 )
 
+// ClusterMetadataStorageChecker provides functionalities for checking k8s cluster storage and pods details.
+type ClusterMetadataStorageChecker interface {
+	k8s.ClusterMetadataChecker
+	ListStorageClasses(selector k8slabels.Selector) ([]storagev1.StorageClass, error)
+	ListPods(namespace string, selector k8slabels.Selector) ([]corev1.Pod, error)
+}
+
 type kubernetesEnvironProvider struct {
 	environProviderCredentials
 	cmdRunner          CommandRunner
 	builtinCloudGetter func(CommandRunner) (cloud.Cloud, error)
-	brokerGetter       func(environs.OpenParams) (caas.ClusterMetadataChecker, error)
+	brokerGetter       func(environs.OpenParams) (ClusterMetadataStorageChecker, error)
 }
 
 var _ environs.EnvironProvider = (*kubernetesEnvironProvider)(nil)
 var providerInstance = kubernetesEnvironProvider{
 	environProviderCredentials: environProviderCredentials{
-		cmdRunner:               defaultRunner{},
-		builtinCredentialGetter: attemptMicroK8sCredential,
+		cmdRunner: defaultRunner{},
+		builtinCredentialGetter: func(cmdRunner CommandRunner) (cloud.Credential, error) {
+			return attemptMicroK8sCredential(cmdRunner, decideKubeConfigDir)
+		},
 	},
-	cmdRunner:          defaultRunner{},
-	builtinCloudGetter: attemptMicroK8sCloud,
-	brokerGetter: func(args environs.OpenParams) (caas.ClusterMetadataChecker, error) {
-		return caas.New(stdcontext.TODO(), args)
+	cmdRunner: defaultRunner{},
+	builtinCloudGetter: func(cmdRunner CommandRunner) (cloud.Cloud, error) {
+		return attemptMicroK8sCloud(cmdRunner, decideKubeConfigDir)
+	},
+	brokerGetter: func(args environs.OpenParams) (ClusterMetadataStorageChecker, error) {
+		broker, err := caas.New(stdcontext.TODO(), args)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		metaChecker, supported := broker.(ClusterMetadataStorageChecker)
+		if !supported {
+			return nil, errors.NotSupportedf("cluster metadata ")
+		}
+		return metaChecker, nil
 	},
 }
 

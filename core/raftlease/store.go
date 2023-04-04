@@ -33,23 +33,6 @@ func aborted(command *Command) error {
 	}
 }
 
-// NotifyTarget defines methods needed to keep an external database
-// updated with who holds leases. (In non-test code the notify target
-// will generally be the state DB.)
-type NotifyTarget interface {
-	// Claimed will be called when a new lease has been claimed.
-	Claimed(lease.Key, string) error
-
-	// Expiries will be called when a set of existing leases have expired.
-	Expiries([]Expired) error
-}
-
-// TrapdoorFunc returns a trapdoor to be attached to lease details for
-// use by clients. This is intended to hold assertions that can be
-// added to state transactions to ensure the lease is still held when
-// the transaction is applied.
-type TrapdoorFunc func(lease.Key, string) lease.Trapdoor
-
 // ReadOnlyClock describes a clock from which global time can be read.
 type ReadOnlyClock interface {
 	GlobalTime() time.Time
@@ -72,7 +55,6 @@ type ReadonlyFSM interface {
 type StoreConfig struct {
 	FSM              ReadonlyFSM
 	Client           Client
-	Trapdoor         TrapdoorFunc
 	Clock            clock.Clock
 	MetricsCollector MetricsCollector
 }
@@ -135,23 +117,12 @@ func (s *Store) RevokeLease(key lease.Key, holder string, stop <-chan struct{}) 
 
 // Leases is part of lease.Store.
 func (s *Store) Leases(keys ...lease.Key) map[lease.Key]lease.Info {
-	leaseMap := s.fsm.Leases(s.config.Clock.Now, keys...)
-	s.addTrapdoors(leaseMap)
-	return leaseMap
+	return s.fsm.Leases(s.config.Clock.Now, keys...)
 }
 
 // LeaseGroup is part of Lease.Store.
 func (s *Store) LeaseGroup(namespace, modelUUID string) map[lease.Key]lease.Info {
-	leaseMap := s.fsm.LeaseGroup(s.config.Clock.Now, namespace, modelUUID)
-	s.addTrapdoors(leaseMap)
-	return leaseMap
-}
-
-func (s *Store) addTrapdoors(leaseMap map[lease.Key]lease.Info) {
-	for k, v := range leaseMap {
-		v.Trapdoor = s.config.Trapdoor(k, v.Holder)
-		leaseMap[k] = v
-	}
+	return s.fsm.LeaseGroup(s.config.Clock.Now, namespace, modelUUID)
 }
 
 // PinLease is part of lease.Store.

@@ -5,9 +5,9 @@ package service_test
 
 import (
 	"path/filepath"
-	"runtime"
 	"strings"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/shell"
@@ -19,18 +19,11 @@ import (
 )
 
 var (
-	cmdSuffix string
-	shquote   = utils.ShQuote
+	shquote = utils.ShQuote
 )
 
-func init() {
-	if runtime.GOOS == "windows" {
-		cmdSuffix = ".exe"
-	}
-}
-
 type agentSuite struct {
-	service.BaseSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&agentSuite{})
@@ -45,7 +38,7 @@ func (*agentSuite) TestAgentConfMachineLocal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	conf := service.AgentConf(info, renderer)
 
-	jujud := filepath.Join(dataDir, "tools", "machine-0", "jujud"+cmdSuffix)
+	jujud := filepath.Join(dataDir, "tools", "machine-0", "jujud")
 	cmd := strings.Join([]string{
 		shquote(jujud),
 		"machine",
@@ -107,41 +100,6 @@ func (*agentSuite) TestAgentConfMachineUbuntu(c *gc.C) {
 	})
 }
 
-func (*agentSuite) TestAgentConfMachineWindows(c *gc.C) {
-	dataDir := `C:\Juju\lib\juju`
-	logDir := `C:\Juju\logs\juju`
-	info := service.NewMachineAgentInfo("0", dataDir, logDir)
-	renderer, err := shell.NewRenderer("windows")
-	c.Assert(err, jc.ErrorIsNil)
-	conf := service.AgentConf(info, renderer)
-
-	jujud := dataDir + `\tools\machine-0\jujud.exe`
-	cmd := strings.Join([]string{
-		shquote(jujud),
-		"machine",
-		"--data-dir", shquote(dataDir),
-		"--machine-id", "0",
-		"--debug",
-	}, " ")
-	serviceBinary := jujud
-	serviceArgs := []string{
-		"machine",
-		"--data-dir", dataDir,
-		"--machine-id", "0",
-		"--debug",
-	}
-	c.Check(conf, jc.DeepEquals, common.Conf{
-		Desc:          "juju agent for machine-0",
-		ExecStart:     cmd,
-		Logfile:       logDir + `\machine-0.log`,
-		Env:           osenv.FeatureFlags(),
-		Limit:         expectedLimits,
-		Timeout:       300,
-		ServiceBinary: serviceBinary,
-		ServiceArgs:   serviceArgs,
-	})
-}
-
 func (*agentSuite) TestAgentConfUnit(c *gc.C) {
 	dataDir := c.MkDir()
 	logDir := c.MkDir()
@@ -150,7 +108,7 @@ func (*agentSuite) TestAgentConfUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	conf := service.AgentConf(info, renderer)
 
-	jujud := filepath.Join(dataDir, "tools", "unit-wordpress-0", "jujud"+cmdSuffix)
+	jujud := filepath.Join(dataDir, "tools", "unit-wordpress-0", "jujud")
 	cmd := strings.Join([]string{
 		shquote(jujud),
 		"unit",
@@ -184,7 +142,7 @@ func (*agentSuite) TestContainerAgentConf(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	conf := service.ContainerAgentConf(info, renderer, "cont")
 
-	jujud := filepath.Join(dataDir, "tools", "unit-wordpress-0", "jujud"+cmdSuffix)
+	jujud := filepath.Join(dataDir, "tools", "unit-wordpress-0", "jujud")
 	cmd := strings.Join([]string{
 		shquote(jujud),
 		"unit",

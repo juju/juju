@@ -6,7 +6,7 @@ package application_test
 import (
 	"fmt"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
@@ -31,7 +31,7 @@ import (
 type getSuite struct {
 	jujutesting.JujuConnSuite
 
-	applicationAPI *application.APIv15
+	applicationAPI *application.APIBase
 	authorizer     apiservertesting.FakeAuthorizer
 }
 
@@ -64,94 +64,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		nil, // CAAS Broker not used in this suite.
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.applicationAPI = &application.APIv15{api}
-}
-
-func (s *getSuite) TestClientApplicationGetSmokeTestV4(c *gc.C) {
-	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	v4 := &application.APIv4{
-		&application.APIv5{
-			&application.APIv6{
-				&application.APIv7{
-					&application.APIv8{
-						&application.APIv9{
-							&application.APIv10{
-								&application.APIv11{
-									APIv12: &application.APIv12{
-										APIv13: &application.APIv13{
-											APIv14: &application.APIv14{
-												s.applicationAPI,
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	results, err := v4.Get(params.ApplicationGet{ApplicationName: "wordpress"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
-		Application: "wordpress",
-		Charm:       "wordpress",
-		CharmConfig: map[string]interface{}{
-			"blog-title": map[string]interface{}{
-				"default":     true,
-				"description": "A descriptive title used for the blog.",
-				"type":        "string",
-				"value":       "My Title",
-			},
-		},
-		Constraints: constraints.MustParse("arch=amd64"),
-		Series:      "quantal",
-		Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
-	})
-}
-
-func (s *getSuite) TestClientApplicationGetSmokeTestV5(c *gc.C) {
-	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	v5 := &application.APIv5{
-		&application.APIv6{
-			&application.APIv7{
-				&application.APIv8{
-					&application.APIv9{
-						&application.APIv10{
-							&application.APIv11{
-								APIv12: &application.APIv12{
-									APIv13: &application.APIv13{
-										APIv14: &application.APIv14{
-											s.applicationAPI,
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	results, err := v5.Get(params.ApplicationGet{ApplicationName: "wordpress"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
-		Application: "wordpress",
-		Charm:       "wordpress",
-		CharmConfig: map[string]interface{}{
-			"blog-title": map[string]interface{}{
-				"default":     "My Title",
-				"description": "A descriptive title used for the blog.",
-				"source":      "default",
-				"type":        "string",
-				"value":       "My Title",
-			},
-		},
-		Constraints: constraints.MustParse("arch=amd64"),
-		Series:      "quantal",
-		Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
-	})
+	s.applicationAPI = api
 }
 
 func (s *getSuite) TestClientApplicationGetIAASModelSmokeTest(c *gc.C) {
@@ -180,7 +93,6 @@ func (s *getSuite) TestClientApplicationGetIAASModelSmokeTest(c *gc.C) {
 				"value":       false,
 			}},
 		Constraints: constraints.MustParse("arch=amd64"),
-		Series:      "quantal",
 		Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 		EndpointBindings: map[string]string{
 			"":                network.AlphaSpaceName,
@@ -202,7 +114,10 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "dashboard4miner", Series: "kubernetes"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "dashboard4miner", Charm: ch})
+	app := f.MakeApplication(c, &factory.ApplicationParams{
+		Name: "dashboard4miner", Charm: ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
+	})
 
 	schemaFields, err := caas.ConfigSchema(provider.ConfigSchema())
 	c.Assert(err, jc.ErrorIsNil)
@@ -268,25 +183,8 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		nil, // CAAS Broker not used in this suite.
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	apiV8 := &application.APIv8{
-		&application.APIv9{
-			&application.APIv10{
-				&application.APIv11{
-					APIv12: &application.APIv12{
-						APIv13: &application.APIv13{
-							APIv14: &application.APIv14{
-								APIv15: &application.APIv15{
-									api,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
 
-	results, err := apiV8.Get(params.ApplicationGet{ApplicationName: "dashboard4miner"})
+	results, err := api.Get(params.ApplicationGet{ApplicationName: "dashboard4miner"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ApplicationGetResults{
 		Application: "dashboard4miner",
@@ -302,8 +200,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		},
 		ApplicationConfig: expectedAppConfig,
 		Constraints:       constraints.MustParse("arch=amd64"),
-		Series:            "kubernetes",
-		Base:              params.Base{Name: "kubernetes", Channel: "kubernetes"},
+		Base:              params.Base{Name: "ubuntu", Channel: "22.04/stable"},
 		EndpointBindings: map[string]string{
 			"":      network.AlphaSpaceName,
 			"miner": network.AlphaSpaceName,
@@ -335,6 +232,10 @@ var getTests = []struct {
 		// Use default (but there's no charm default)
 		"skill-level": nil,
 		// Outlook is left unset.
+	},
+	origin: &state.CharmOrigin{
+		Source:   "charm-hub",
+		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"},
 	},
 	expect: params.ApplicationGetResults{
 		CharmConfig: map[string]interface{}{
@@ -372,8 +273,7 @@ var getTests = []struct {
 				"type":        "bool",
 			},
 		},
-		Series: "quantal",
-		Base:   params.Base{Name: "ubuntu", Channel: "12.10/stable"},
+		Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"},
 		EndpointBindings: map[string]string{
 			"": network.AlphaSpaceName,
 		},
@@ -391,6 +291,10 @@ var getTests = []struct {
 		"skill-level": 0,
 		// String value.
 		"outlook": "phlegmatic",
+	},
+	origin: &state.CharmOrigin{
+		Source:   "charm-hub",
+		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"},
 	},
 	expect: params.ApplicationGetResults{
 		CharmConfig: map[string]interface{}{
@@ -435,8 +339,7 @@ var getTests = []struct {
 				"type":        "bool",
 			},
 		},
-		Series: "quantal",
-		Base:   params.Base{Name: "ubuntu", Channel: "12.10/stable"},
+		Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"},
 		EndpointBindings: map[string]string{
 			"": network.AlphaSpaceName,
 		},
@@ -444,10 +347,13 @@ var getTests = []struct {
 }, {
 	about: "subordinate application",
 	charm: "logging",
+	origin: &state.CharmOrigin{
+		Source:   "charm-hub",
+		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"},
+	},
 	expect: params.ApplicationGetResults{
 		CharmConfig: map[string]interface{}{},
-		Series:      "quantal",
-		Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
+		Base:        params.Base{Name: "ubuntu", Channel: "22.04/stable"},
 		ApplicationConfig: map[string]interface{}{
 			"trust": map[string]interface{}{
 				"value":       false,
@@ -473,11 +379,11 @@ var getTests = []struct {
 			Risk:   "stable",
 			Branch: "foo",
 		},
+		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"},
 	},
 	expect: params.ApplicationGetResults{
 		CharmConfig: map[string]interface{}{},
-		Series:      "quantal",
-		Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
+		Base:        params.Base{Name: "ubuntu", Channel: "22.04/stable"},
 		ApplicationConfig: map[string]interface{}{
 			"trust": map[string]interface{}{
 				"value":       false,

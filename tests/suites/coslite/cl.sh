@@ -14,7 +14,7 @@ run_deploy_coslite() {
 	wait_for 0 "$(not_idle_list) | length" 1800
 
 	# run-action will change in 3.0
-	admin_passwd=$(juju run-action --wait grafana/0 get-admin-password --format json | jq '.["unit-grafana-0"]["results"]["admin-password"]')
+	admin_passwd=$(juju run grafana/0 get-admin-password --wait=2m --format json | jq '.["unit-grafana-0"]["results"]["admin-password"]')
 	if [ -z "$admin_passwd" ]; then
 		echo "expected to get admin password for grafana/0"
 		exit 1

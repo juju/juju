@@ -32,9 +32,9 @@ import (
 
 // ProvisioningInfo returns the provisioning information for each given machine entity.
 // It supports all positive space constraints.
-func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.ProvisioningInfoResultsV10, error) {
-	result := params.ProvisioningInfoResultsV10{
-		Results: make([]params.ProvisioningInfoResultV10, len(args.Entities)),
+func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.ProvisioningInfoResults, error) {
+	result := params.ProvisioningInfoResults{
+		Results: make([]params.ProvisioningInfoResult, len(args.Entities)),
 	}
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
@@ -70,7 +70,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine,
 	env environs.Environ,
 	spaceInfos network.SpaceInfos,
-) (*params.ProvisioningInfoV10, error) {
+) (*params.ProvisioningInfo, error) {
 	endpointBindings, err := api.machineEndpointBindings(m)
 	if err != nil {
 		return nil, apiservererrors.ServerError(errors.Annotate(err, "cannot determine machine endpoint bindings"))
@@ -81,8 +81,8 @@ func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine,
 		return nil, apiservererrors.ServerError(errors.Annotate(err, "cannot determine spaces for endpoint bindings"))
 	}
 
-	var result params.ProvisioningInfoV10
-	if result.ProvisioningInfoBase, err = api.getProvisioningInfoBase(m, env, spaceBindings); err != nil {
+	var result params.ProvisioningInfo
+	if result, err = api.getProvisioningInfoBase(m, env, spaceBindings); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -98,85 +98,13 @@ func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine,
 	return &result, nil
 }
 
-// ProvisioningInfo returns the provisioning information for each given machine entity.
-// It supports the first of any specified positive space constraints.
-func (api *ProvisionerAPIV9) ProvisioningInfo(args params.Entities) (params.ProvisioningInfoResults, error) {
-	result := params.ProvisioningInfoResults{
-		Results: make([]params.ProvisioningInfoResult, len(args.Entities)),
-	}
-	canAccess, err := api.getAuthFunc()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	env, err := environs.GetEnviron(api.configGetter, environs.New)
-	if err != nil {
-		return result, errors.Annotate(err, "retrieving environ")
-	}
-
-	spaceInfos, err := api.st.AllSpaceInfos()
-	if err != nil {
-		return result, errors.Annotate(err, "getting all spaces")
-	}
-
-	for i, entity := range args.Entities {
-		tag, err := names.ParseMachineTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		machine, err := api.getMachine(canAccess, tag)
-		if err == nil {
-			result.Results[i].Result, err = api.getProvisioningInfo(machine, env, spaceInfos)
-		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
-
-func (api *ProvisionerAPIV9) getProvisioningInfo(m *state.Machine,
-	env environs.Environ,
-	spaceInfos network.SpaceInfos,
-) (*params.ProvisioningInfo, error) {
-	endpointBindings, err := api.machineEndpointBindings(m)
-	if err != nil {
-		return nil, apiservererrors.ServerError(errors.Annotate(err, "cannot determine machine endpoint bindings"))
-	}
-
-	spaceBindings, err := api.translateEndpointBindingsToSpaces(spaceInfos, endpointBindings)
-	if err != nil {
-		return nil, apiservererrors.ServerError(errors.Annotate(err, "cannot determine spaces for endpoint bindings"))
-	}
-
-	base, err := api.getProvisioningInfoBase(m, env, spaceBindings)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	subnetsToZones, err := api.machineSubnetsAndZones(m)
-	if err != nil {
-		return nil, errors.Annotate(err, "matching subnets to zones")
-	}
-
-	return &params.ProvisioningInfo{
-		ProvisioningInfoBase: base,
-		SubnetsToZones:       subnetsToZones,
-	}, nil
-}
-
-// getProvisioningInfoBase returns the component of provisioning
-// info that is common to all versions of the API.
 func (api *ProvisionerAPI) getProvisioningInfoBase(m *state.Machine,
 	env environs.Environ,
 	endpointBindings map[string]string,
-) (params.ProvisioningInfoBase, error) {
-	base, err := series.GetBaseFromSeries(m.Series())
-	if err != nil {
-		return params.ProvisioningInfoBase{}, errors.Trace(err) // Should never happen.
-	}
-	result := params.ProvisioningInfoBase{
-		Series:            m.Series(),
-		Base:              params.Base{Name: base.Name, Channel: base.Channel.String()},
+) (params.ProvisioningInfo, error) {
+	base := m.Base()
+	result := params.ProvisioningInfo{
+		Base:              params.Base{Name: base.OS, Channel: base.Channel},
 		Placement:         m.Placement(),
 		CloudInitUserData: env.Config().CloudInitUserData(),
 
@@ -185,6 +113,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(m *state.Machine,
 		EndpointBindings: endpointBindings,
 	}
 
+	var err error
 	if result.Constraints, err = m.Constraints(); err != nil {
 		return result, errors.Trace(err)
 	}
@@ -449,35 +378,6 @@ func (api *ProvisionerAPI) machineSpaceTopology(machineID string, spaceNames []s
 	return topology, nil
 }
 
-// machineSubnetsAndZones returns a map of availability zone names
-// keyed by provider subnet ID.
-// The result can be empty if there are no spaces constraints specified
-// for the machine, or there is an error fetching them.
-func (api *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]string, error) {
-	cons, err := m.Constraints()
-	if err != nil {
-		return nil, errors.Annotate(err, "retrieving machine constraints")
-	}
-
-	includeSpaces := cons.IncludeSpaces()
-	if len(includeSpaces) < 1 {
-		return nil, nil
-	}
-
-	// Versions 9 and below of the API only support honouring a single positive
-	// space constraint. Take the first if there are any.
-	spaceName := includeSpaces[0]
-	if len(includeSpaces) > 1 {
-		logger.Debugf(
-			"using space %q from constraints for machine %q (ignoring remaining: %v)",
-			spaceName, m.Id(), includeSpaces[1:],
-		)
-	}
-
-	subnetsAndZones, err := api.subnetsAndZonesForSpace(m.Id(), spaceName)
-	return subnetsAndZones, errors.Trace(err)
-}
-
 func (api *ProvisionerAPI) subnetsAndZonesForSpace(machineID string, spaceName string) (map[string][]string, error) {
 	space, err := api.st.SpaceByName(spaceName)
 	if err != nil {
@@ -494,6 +394,23 @@ func (api *ProvisionerAPI) subnetsAndZonesForSpace(machineID string, spaceName s
 		return nil, errors.Errorf("cannot use space %q as deployment target: no subnets", spaceName)
 	}
 
+	// Memoise the determination of the model's provider.
+	var pType string
+	getProviderType := func() (string, error) {
+		if pType == "" {
+			m, err := api.st.Model()
+			if err != nil {
+				return "", errors.Trace(err)
+			}
+			cfg, err := m.Config()
+			if err != nil {
+				return "", errors.Trace(err)
+			}
+			pType = cfg.Type()
+		}
+		return pType, nil
+	}
+
 	subnetsToZones := make(map[string][]string, len(subnets))
 	for _, subnet := range subnets {
 		warningPrefix := fmt.Sprintf("not using subnet %q in space %q for machine %q provisioning: ",
@@ -508,18 +425,19 @@ func (api *ProvisionerAPI) subnetsAndZonesForSpace(machineID string, spaceName s
 
 		zones := subnet.AvailabilityZones
 		if len(zones) == 0 {
-			// For most providers we expect availability zones but Azure
-			// uses Availability Sets instead. So in that case we accept
-			// an empty map.
-			m, err := api.st.Model()
+			// For most providers we expect availability zones, however:
+			// - Azure uses Availability Sets.
+			// - OpenStack networks have R/W availability zone *hints*,
+			//   and AZs based on the actual scheduling of the resource.
+			// For these cases we allow empty map entries.
+			// TODO (manadart 2022-11-10): Bring this condition under testing
+			// when we cut machine handling over to Dqlite.
+			providerType, err := getProviderType()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			cfg, err := m.Config()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			if cfg.Type() != azure.ProviderType {
+
+			if providerType != azure.ProviderType && providerType != "openstack" {
 				logger.Warningf(warningPrefix + "no availability zone(s) set")
 				continue
 			}
@@ -656,8 +574,17 @@ func (api *ProvisionerAPI) availableImageMetadata(
 
 // constructImageConstraint returns model-specific criteria used to look for image metadata.
 func (api *ProvisionerAPI) constructImageConstraint(m *state.Machine, env environs.Environ) (*imagemetadata.ImageConstraint, error) {
+	// TODO(wallyworld) - does centos still need the series hack?
+	base, err := series.ParseBase(m.Base().OS, m.Base().Channel)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	vers := base.Channel.Track
+	if m.Base().OS == "centos" {
+		vers = "centos" + vers
+	}
 	lookup := simplestreams.LookupParams{
-		Releases: []string{m.Series()},
+		Releases: []string{vers},
 		Stream:   env.Config().ImageStream(),
 	}
 
@@ -721,10 +648,10 @@ func (api *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.Imag
 // that matches given criteria.
 func (api *ProvisionerAPI) imageMetadataFromState(constraint *imagemetadata.ImageConstraint) ([]params.CloudImageMetadata, error) {
 	filter := cloudimagemetadata.MetadataFilter{
-		Series: constraint.Releases,
-		Arches: constraint.Arches,
-		Region: constraint.Region,
-		Stream: constraint.Stream,
+		Versions: constraint.Releases,
+		Arches:   constraint.Arches,
+		Region:   constraint.Region,
+		Stream:   constraint.Stream,
 	}
 	stored, err := api.st.CloudImageMetadataStorage.FindMetadata(filter)
 	if err != nil {
@@ -737,7 +664,6 @@ func (api *ProvisionerAPI) imageMetadataFromState(constraint *imagemetadata.Imag
 			Stream:          m.Stream,
 			Region:          m.Region,
 			Version:         m.Version,
-			Series:          m.Series,
 			Arch:            m.Arch,
 			VirtType:        m.VirtType,
 			RootStorageType: m.RootStorageType,
@@ -765,7 +691,7 @@ func (api *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, co
 	}
 
 	cfg := env.Config()
-	toModel := func(m *imagemetadata.ImageMetadata, mSeries string, source string, priority int) cloudimagemetadata.Metadata {
+	toModel := func(m *imagemetadata.ImageMetadata, source string, priority int) cloudimagemetadata.Metadata {
 		result := cloudimagemetadata.Metadata{
 			MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 				Region:          m.RegionName,
@@ -773,7 +699,6 @@ func (api *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, co
 				VirtType:        m.VirtType,
 				RootStorageType: m.Storage,
 				Source:          source,
-				Series:          mSeries,
 				Stream:          m.Stream,
 				Version:         m.Version,
 			},
@@ -802,12 +727,7 @@ func (api *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, co
 			continue
 		}
 		for _, m := range found {
-			mSeries, err := series.VersionSeries(m.Version)
-			if err != nil {
-				logger.Warningf("could not determine series for image id %s: %v", m.Id, err)
-				continue
-			}
-			metadataState = append(metadataState, toModel(m, mSeries, info.Source, source.Priority()))
+			metadataState = append(metadataState, toModel(m, info.Source, source.Priority()))
 		}
 	}
 	if len(metadataState) > 0 {
@@ -825,7 +745,7 @@ func (api *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, co
 	}
 
 	if len(all) == 0 {
-		return nil, errors.NotFoundf("image metadata for series %v, arch %v", constraint.Releases, constraint.Arches)
+		return nil, errors.NotFoundf("image metadata for version %v, arch %v", constraint.Releases, constraint.Arches)
 	}
 
 	return all, nil

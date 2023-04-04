@@ -35,15 +35,11 @@ func (s *IDWatcherSuite) TestWatcher(c *gc.C) {
 	idWatcher, err := caasoperator.NewUnitIDWatcher(m, srcWatcher)
 	c.Assert(err, jc.ErrorIsNil)
 
-	testWatcher := testing.NewStringsWatcherC(c, s, idWatcher)
+	testWatcher := testing.NewStringsWatcherC(c, idWatcher)
 	testWatcher.AssertChangeInSingleEvent("A")
 	wc <- []string{"c"}
 	testWatcher.AssertChangeInSingleEvent("C")
 
 	err = idWatcher.Stop()
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-// StartSync fulfills testing.StartSync interface.
-func (s *IDWatcherSuite) StartSync() {
 }

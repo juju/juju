@@ -7,9 +7,9 @@ import (
 	"net"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 
 	"github.com/juju/juju/core/network/firewall"
 )
@@ -70,13 +70,6 @@ func (r *firewallRulesDoc) toRule() *FirewallRule {
 		wellKnownService: firewall.WellKnownServiceType(r.WellKnownService),
 		whitelistCIDRs:   r.WhitelistCIDRS,
 	}
-}
-
-// FirewallRuler instances provide access to firewall rules in state.
-type FirewallRuler interface {
-	Save(service firewall.WellKnownServiceType, whiteListCidrs []string) (FirewallRule, error)
-	Rule(service firewall.WellKnownServiceType) (FirewallRule, error)
-	AllRules() ([]FirewallRule, error)
 }
 
 type firewallRulesState struct {

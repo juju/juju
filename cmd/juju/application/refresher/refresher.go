@@ -8,8 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/juju/charm/v8"
-	"github.com/juju/charmrepo/v6"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charmrepo/v7"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 
@@ -44,7 +44,7 @@ type RefresherConfig struct {
 	Channel         charm.Channel
 	DeployedBase    series.Base
 	Force           bool
-	ForceSeries     bool
+	ForceBase       bool
 	Switch          bool
 	Logger          CommandLogger
 }
@@ -117,7 +117,7 @@ func (d *factory) maybeReadLocal(charmAdder store.CharmAdder, charmRepo CharmRep
 			charmRef:     cfg.CharmRef,
 			deployedBase: cfg.DeployedBase,
 			force:        cfg.Force,
-			forceSeries:  cfg.ForceSeries,
+			forceBase:    cfg.ForceBase,
 		}, nil
 	}
 }
@@ -136,7 +136,7 @@ func (d *factory) maybeCharmStore(authorizer store.MacaroonGetter, charmAdder st
 				deployedBase:    cfg.DeployedBase,
 				switchCharm:     cfg.Switch,
 				force:           cfg.Force,
-				forceSeries:     cfg.ForceSeries,
+				forceBase:       cfg.ForceBase,
 				logger:          cfg.Logger,
 			},
 			authorizer: authorizer,
@@ -165,7 +165,7 @@ func (d *factory) maybeCharmHub(charmAdder store.CharmAdder, charmResolver Charm
 				deployedBase:    cfg.DeployedBase,
 				switchCharm:     cfg.Switch,
 				force:           cfg.Force,
-				forceSeries:     cfg.ForceSeries,
+				forceBase:       cfg.ForceBase,
 				logger:          cfg.Logger,
 			},
 		}, nil
@@ -180,7 +180,7 @@ type localCharmRefresher struct {
 	charmRef     string
 	deployedBase series.Base
 	force        bool
-	forceSeries  bool
+	forceBase    bool
 }
 
 // Allowed will attempt to check if a local charm is allowed to be refreshed.
@@ -194,14 +194,13 @@ func (d *localCharmRefresher) Allowed(_ RefresherConfig) (bool, error) {
 // Bundles are not supported as there is no physical representation in Juju.
 func (d *localCharmRefresher) Refresh() (*CharmID, error) {
 	var deployedSeries string
-	if d.deployedBase.Name != "" {
+	if !d.deployedBase.Channel.Empty() {
 		var err error
-		deployedSeries, err = series.GetSeriesFromBase(d.deployedBase)
-		if err != nil {
+		if deployedSeries, err = series.GetSeriesFromBase(d.deployedBase); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
-	ch, newURL, err := d.charmRepo.NewCharmAtPathForceSeries(d.charmRef, deployedSeries, d.forceSeries)
+	ch, newURL, err := d.charmRepo.NewCharmAtPathForceSeries(d.charmRef, deployedSeries, d.forceBase)
 	if err == nil {
 		newName := ch.Meta().Name
 		if newName != d.charmURL.Name {
@@ -265,7 +264,7 @@ type baseRefresher struct {
 	deployedBase    series.Base
 	switchCharm     bool
 	force           bool
-	forceSeries     bool
+	forceBase       bool
 	logger          CommandLogger
 }
 
@@ -296,14 +295,13 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 	}
 
 	var deployedSeries string
-	if r.deployedBase.Name != "" {
-		deployedSeries, err = series.GetSeriesFromBase(r.deployedBase)
-		if err != nil {
+	if !r.deployedBase.Channel.Empty() {
+		if deployedSeries, err = series.GetSeriesFromBase(r.deployedBase); err != nil {
 			return nil, commoncharm.Origin{}, errors.Trace(err)
 		}
 	}
-	_, seriesSupportedErr := charm.SeriesForCharm(deployedSeries, supportedSeries)
-	if !r.forceSeries && deployedSeries != "" && newURL.Series == "" && seriesSupportedErr != nil {
+	_, seriesSupportedErr := corecharm.SeriesForCharm(deployedSeries, supportedSeries)
+	if !r.forceBase && deployedSeries != "" && newURL.Series == "" && seriesSupportedErr != nil {
 		series := []string{"no series"}
 		if len(supportedSeries) > 0 {
 			series = supportedSeries
@@ -396,14 +394,9 @@ func (r *charmStoreRefresher) Refresh() (*CharmID, error) {
 		return nil, errors.Trace(err)
 	}
 
-	if r.deployedBase.Name != "" {
-		origin.Series, err = series.GetSeriesFromBase(r.deployedBase)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+	if !r.deployedBase.Channel.Empty() {
 		origin.Base = r.deployedBase
 	}
-
 	curl, csMac, _, err := store.AddCharmWithAuthorizationFromURL(r.charmAdder, r.authorizer, newURL, origin, r.force)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -493,11 +486,7 @@ func (r *charmHubRefresher) Refresh() (*CharmID, error) {
 		return nil, errors.Trace(err)
 	}
 
-	if r.deployedBase.Name != "" {
-		origin.Series, err = series.GetSeriesFromBase(r.deployedBase)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+	if !r.deployedBase.Channel.Empty() {
 		origin.Base = r.deployedBase
 	}
 

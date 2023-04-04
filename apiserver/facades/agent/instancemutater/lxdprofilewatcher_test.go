@@ -5,7 +5,7 @@ package instancemutater_test
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
@@ -411,17 +411,13 @@ func (s *lxdProfileWatcherSuite) setupWatchers(c *gc.C) {
 	s.instanceWatcher.EXPECT().Wait().Return(nil)
 }
 
-type noopSyncer struct{}
-
-func (noopSyncer) StartSync() {}
-
 func (s *lxdProfileWatcherSuite) assertStartLxdProfileWatcher(c *gc.C) worker.Worker {
 	s.setupWatchers(c)
 
 	s.machine0.EXPECT().Id().AnyTimes().Return("0")
 
 	w := instancemutater.NewTestLxdProfileWatcher(c, s.machine0, s.state)
-	wc := testing.NewNotifyWatcherC(c, noopSyncer{}, w)
+	wc := testing.NewNotifyWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange()
 	s.wc0 = wc

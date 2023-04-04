@@ -6,7 +6,7 @@ package machinemanager
 import (
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -82,11 +82,11 @@ type Machine interface {
 	HardwareCharacteristics() (*instance.HardwareCharacteristics, error)
 	Destroy() error
 	ForceDestroy(time.Duration) error
-	Series() string
+	Base() state.Base
 	Containers() ([]string, error)
 	Units() ([]Unit, error)
 	SetKeepInstance(keepInstance bool) error
-	CreateUpgradeSeriesLock([]string, string) error
+	CreateUpgradeSeriesLock([]string, state.Base) error
 	RemoveUpgradeSeriesLock() error
 	CompleteUpgradeSeries() error
 	Principals() []string

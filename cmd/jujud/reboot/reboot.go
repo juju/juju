@@ -5,7 +5,6 @@
 package reboot
 
 import (
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -20,7 +19,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/service/common"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud.reboot")
@@ -33,7 +31,7 @@ func runCommand(args []string) error {
 }
 
 var tmpFile = func() (*os.File, error) {
-	f, err := ioutil.TempFile(os.TempDir(), "juju-reboot")
+	f, err := os.CreateTemp(os.TempDir(), "juju-reboot")
 	return f, errors.Trace(err)
 }
 
@@ -63,12 +61,12 @@ func (r *Reboot) ExecuteReboot(action params.RebootAction) error {
 	}
 
 	// Stop all units before issuing a reboot. During a reboot, the machine agent
-	// will attempt to hold the execution lock until the reboot happens. However, since
-	// the old file based locking method has been replaced with semaphores (Windows), and
-	// sockets (Linux), if the machine agent is killed by the init system during shutdown,
-	// before the unit agents, the lock is released and unit agents start running hooks.
-	// When they in turn are killed, the hook is thrown into error state. If automatic retries
-	// are disabled, the hook remains in error state.
+	// will attempt to hold the execution lock until the reboot happens. However,
+	// since the old file based locking method has been replaced with sockets, if
+	// the machine agent is killed by the init system during shutdown, before the
+	// unit agents, the lock is released and unit agents start running hooks.
+	// When they in turn are killed, the hook is thrown into error state. If
+	// automatic retries are disabled, the hook remains in error state.
 	if err := r.stopDeployedUnits(); err != nil {
 		return errors.Trace(err)
 	}
@@ -81,17 +79,13 @@ func (r *Reboot) ExecuteReboot(action params.RebootAction) error {
 }
 
 func (r *Reboot) stopDeployedUnits() error {
-	osVersion, err := r.reboot.HostSeries()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	services, err := r.reboot.ListServices()
 	if err != nil {
 		return err
 	}
 	for _, svcName := range services {
 		if strings.HasPrefix(svcName, `jujud-unit-`) {
-			svc, err := r.reboot.NewService(svcName, common.Conf{}, osVersion)
+			svc, err := r.reboot.NewServiceReference(svcName)
 			if err != nil {
 				return err
 			}

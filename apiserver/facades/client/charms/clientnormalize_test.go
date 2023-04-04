@@ -4,7 +4,7 @@
 package charms
 
 import (
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -29,14 +29,10 @@ func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginNoAll(c *gc.C) {
 		Track:        &track,
 		Branch:       &branch,
 		Architecture: "all",
-		OS:           "all",
-		Series:       "all",
 	}
 	obtained, err := normalizeCharmOrigin(origin, "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	origin.Architecture = "amd64"
-	origin.OS = ""
-	origin.Series = ""
 	c.Assert(obtained, gc.DeepEquals, origin)
 }
 
@@ -48,34 +44,12 @@ func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginWithEmpty(c *gc.C) 
 		Risk:         "edge",
 		Track:        &track,
 		Architecture: "",
-		OS:           "all",
-		Series:       "all",
+		Base:         params.Base{Channel: "all"},
 	}
 	obtained, err := normalizeCharmOrigin(origin, "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	origin.Architecture = "amd64"
-	origin.OS = ""
-	origin.Series = ""
-	c.Assert(obtained, gc.DeepEquals, origin)
-}
-
-func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginLowerCase(c *gc.C) {
-	track := "1.0"
-	origin := params.CharmOrigin{
-		Source:       "charm-hub",
-		Type:         "charm",
-		Risk:         "edge",
-		Track:        &track,
-		Architecture: "s390",
-		OS:           "Ubuntu",
-		Series:       "focal",
-		Channel:      "20.04",
-	}
-	obtained, err := normalizeCharmOrigin(origin, "amd64")
-	c.Assert(err, jc.ErrorIsNil)
-	origin.OS = ""
-	origin.Channel = ""
-	origin.Base = params.Base{Name: "ubuntu", Channel: "20.04/stable"}
+	origin.Base.Channel = ""
 	c.Assert(obtained, gc.DeepEquals, origin)
 }
 

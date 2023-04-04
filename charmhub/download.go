@@ -6,12 +6,11 @@ package charmhub
 import (
 	"context"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 )
 
@@ -20,11 +19,6 @@ type FileSystem interface {
 	// Create creates or truncates the named file. If the file already exists,
 	// it is truncated.
 	Create(string) (*os.File, error)
-}
-
-// DefaultFileSystem is the file system used for most download requests.
-func DefaultFileSystem() FileSystem {
-	return fileSystem{}
 }
 
 type fileSystem struct{}
@@ -54,29 +48,29 @@ func newDownloadOptions() *downloadOptions {
 	return &downloadOptions{}
 }
 
-// DownloadClient represents a client for downloading charm resources directly.
-type DownloadClient struct {
-	transport  Transport
+// downloadClient represents a client for downloading charm resources directly.
+type downloadClient struct {
+	httpClient HTTPClient
 	fileSystem FileSystem
 	logger     Logger
 }
 
-// NewDownloadClient creates a DownloadClient for requesting
-func NewDownloadClient(transport Transport, fileSystem FileSystem, logger Logger) *DownloadClient {
-	return &DownloadClient{
-		transport:  transport,
+// newDownloadClient creates a downloadClient for requesting
+func newDownloadClient(httpClient HTTPClient, fileSystem FileSystem, logger Logger) *downloadClient {
+	return &downloadClient{
+		httpClient: httpClient,
 		fileSystem: fileSystem,
 		logger:     logger,
 	}
 }
 
-// DownloadKey represents a key for accessing the context value.
-type DownloadKey string
+// downloadKey represents a key for accessing the context value.
+type downloadKey string
 
 const (
 	// DownloadNameKey defines a name of a download, so the progress bar can
 	// show it.
-	DownloadNameKey DownloadKey = "download-name-key"
+	DownloadNameKey downloadKey = "download-name-key"
 )
 
 // ProgressBar defines a progress bar type for giving feedback to the user about
@@ -98,7 +92,7 @@ type ProgressBar interface {
 // TODO (stickupkid): We should either create and remove, or take a file and
 // let the callee remove. The fact that the operations are asymmetrical can lead
 // to unexpected expectations; namely leaking of files.
-func (c *DownloadClient) Download(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) error {
+func (c *downloadClient) Download(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) error {
 	opts := newDownloadOptions()
 	for _, option := range options {
 		option(opts)
@@ -149,7 +143,7 @@ func (c *DownloadClient) Download(ctx context.Context, resourceURL *url.URL, arc
 }
 
 // DownloadAndRead returns a charm archive retrieved from the given URL.
-func (c *DownloadClient) DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.CharmArchive, error) {
+func (c *downloadClient) DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.CharmArchive, error) {
 	err := c.Download(ctx, resourceURL, archivePath, options...)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -159,7 +153,7 @@ func (c *DownloadClient) DownloadAndRead(ctx context.Context, resourceURL *url.U
 }
 
 // DownloadAndReadBundle returns a bundle archive retrieved from the given URL.
-func (c *DownloadClient) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.BundleArchive, error) {
+func (c *downloadClient) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.BundleArchive, error) {
 	err := c.Download(ctx, resourceURL, archivePath, options...)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -169,7 +163,7 @@ func (c *DownloadClient) DownloadAndReadBundle(ctx context.Context, resourceURL 
 }
 
 // DownloadResource returns an io.ReadCloser to read the Resource from.
-func (c *DownloadClient) DownloadResource(ctx context.Context, resourceURL *url.URL) (r io.ReadCloser, err error) {
+func (c *downloadClient) DownloadResource(ctx context.Context, resourceURL *url.URL) (r io.ReadCloser, err error) {
 	resp, err := c.downloadFromURL(ctx, resourceURL)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -177,7 +171,7 @@ func (c *DownloadClient) DownloadResource(ctx context.Context, resourceURL *url.
 	return resp.Body, nil
 }
 
-func (c *DownloadClient) downloadFromURL(ctx context.Context, resourceURL *url.URL) (resp *http.Response, err error) {
+func (c *downloadClient) downloadFromURL(ctx context.Context, resourceURL *url.URL) (resp *http.Response, err error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", resourceURL.String(), nil)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot make new request")
@@ -185,7 +179,7 @@ func (c *DownloadClient) downloadFromURL(ctx context.Context, resourceURL *url.U
 
 	c.logger.Tracef("download from URL %s", resourceURL.String())
 
-	resp, err = c.transport.Do(req)
+	resp, err = c.httpClient.Do(req)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get archive")
 	}
@@ -200,7 +194,7 @@ func (c *DownloadClient) downloadFromURL(ctx context.Context, resourceURL *url.U
 	// Ensure we drain the response body so this connection can be reused. As
 	// there is no error message, we have no ability other than to check the
 	// status codes.
-	_, _ = io.Copy(ioutil.Discard, resp.Body)
+	_, _ = io.Copy(io.Discard, resp.Body)
 	_ = resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {

@@ -137,7 +137,6 @@ aws      down*, bob
 azure    azhja
 google   default
 mycloud  me
-
 `[1:])
 }
 
@@ -166,7 +165,6 @@ Cloud   Credentials
 aws     down*, bob
 azure   azhja
 google  default
-
 `[1:])
 	c.Check(logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
 		{
@@ -188,7 +186,6 @@ aws      down*, bob
 azure    azhja
 google   default
 mycloud  me
-
 `[1:])
 }
 
@@ -206,7 +203,6 @@ aws      down*, bob
 azure    azhja
 google   default
 mycloud  me
-
 `[1:])
 }
 
@@ -217,7 +213,6 @@ func (s *listCredentialsSuite) TestListCredentialsTabularFiltered(c *gc.C) {
 Client Credentials:
 Cloud  Credentials
 aws    down*, bob
-
 `[1:])
 }
 
@@ -228,7 +223,6 @@ func (s *listCredentialsSuite) TestListCredentialsTabularFilteredLocalOnly(c *gc
 Client Credentials:
 Cloud  Credentials
 aws    down*, bob
-
 `[1:])
 }
 
@@ -276,7 +270,6 @@ aws      down*, bob
 azure    azhja
 google   default
 mycloud  me
-
 `[1:])
 }
 

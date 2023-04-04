@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -44,12 +44,7 @@ func BuildModelRepresentation(
 			base series.Base
 			err  error
 		)
-		if machineStatus.Series != "" && machineStatus.Base.Name == "" {
-			base, err = series.GetBaseFromSeries(machineStatus.Series)
-			if err != nil {
-				return nil, errors.Trace(err) // This should never happen.
-			}
-		} else if machineStatus.Base.Channel != "" {
+		if machineStatus.Base.Channel != "" {
 			base, err = series.ParseBase(machineStatus.Base.Name, machineStatus.Base.Channel)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -92,17 +87,9 @@ func BuildModelRepresentation(
 			charmAlias = curl.Name
 		}
 
-		var base series.Base
-		if appStatus.Series != "" && appStatus.Base.Name == "" {
-			base, err = series.GetBaseFromSeries(appStatus.Series)
-			if err != nil {
-				return nil, errors.Trace(err) // This should never happen.
-			}
-		} else if appStatus.Base.Channel != "" {
-			base, err = series.ParseBase(appStatus.Base.Name, appStatus.Base.Channel)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
+		base, err := series.ParseBase(appStatus.Base.Name, appStatus.Base.Channel)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
 		app := &bundlechanges.Application{
 			Name:          name,

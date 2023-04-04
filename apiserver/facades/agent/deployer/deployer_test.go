@@ -66,10 +66,10 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	// machine 1 (authorized): mysql/0 (principal0), logging/0 (subordinate0)
 
 	var err error
-	s.machine0, err = s.State.AddMachine("quantal", state.JobManageModel, state.JobHostUnits)
+	s.machine0, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.machine1, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	s.machine1, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.service0 = s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
@@ -166,7 +166,7 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
+	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 }
 

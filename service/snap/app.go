@@ -30,7 +30,7 @@ const (
 	JailModePolicy ConfinementPolicy = "jailmode"
 )
 
-// Valid validates a given confinement policy to ensure it matches the ones we
+// Validate validates a given confinement policy to ensure it matches the ones we
 // expect.
 func (p ConfinementPolicy) Validate() error {
 	switch p {

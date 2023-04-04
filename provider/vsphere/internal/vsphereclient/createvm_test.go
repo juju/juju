@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -65,7 +64,7 @@ func (s *clientSuite) TestCreateTemplateVM(c *gc.C) {
 		"streaming vmdk: 100.00% (0B/s)",
 	})
 	c.Assert(s.uploadRequests, gc.HasLen, 1)
-	contents, err := ioutil.ReadAll(s.uploadRequests[0].Body)
+	contents, err := io.ReadAll(s.uploadRequests[0].Body)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(contents), gc.Equals, "FakeVmdkContent")
 
@@ -798,7 +797,7 @@ func (s *clientSuite) TestVerifyMAC(c *gc.C) {
 func baseImportOVAParameters(c *gc.C, client *Client) ImportOVAParameters {
 	readOVA := func() (string, io.ReadCloser, error) {
 		r := bytes.NewReader(ovatest.FakeOVAContents())
-		return "fake-ova-location", ioutil.NopCloser(r), nil
+		return "fake-ova-location", io.NopCloser(r), nil
 	}
 	fakeSHA256 := ovatest.FakeOVASHA256()
 	fakeDS := types.ManagedObjectReference{

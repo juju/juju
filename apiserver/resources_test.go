@@ -7,14 +7,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
 	"time"
 
-	charmresource "github.com/juju/charm/v8/resource"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -229,7 +228,7 @@ func checkHTTPResp(c *gc.C, recorder *httptest.ResponseRecorder, status int, cty
 	c.Check(hdr.Get("Content-Type"), gc.Equals, ctype)
 	c.Check(hdr.Get("Content-Length"), gc.Equals, strconv.Itoa(len(body)))
 
-	actualBody, err := ioutil.ReadAll(recorder.Body)
+	actualBody, err := io.ReadAll(recorder.Body)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(actualBody), gc.Equals, body)
 }
@@ -247,7 +246,7 @@ const resourceBody = "body"
 func (s *fakeBackend) OpenResource(application, name string) (resources.Resource, io.ReadCloser, error) {
 	res := resources.Resource{}
 	res.Size = int64(len(resourceBody))
-	reader := ioutil.NopCloser(strings.NewReader(resourceBody))
+	reader := io.NopCloser(strings.NewReader(resourceBody))
 	return res, reader, nil
 }
 

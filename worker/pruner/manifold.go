@@ -21,7 +21,7 @@ type ManifoldConfig struct {
 	Clock         clock.Clock
 	PruneInterval time.Duration
 	NewWorker     func(Config) (worker.Worker, error)
-	NewFacade     func(base.APICaller) Facade
+	NewClient     func(base.APICaller) Facade
 	Logger        Logger
 }
 
@@ -43,7 +43,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	facade := config.NewFacade(apiCaller)
+	facade := config.NewClient(apiCaller)
 	prunerConfig := Config{
 		Facade:        facade,
 		PruneInterval: config.PruneInterval,
@@ -68,8 +68,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
-	if config.NewFacade == nil {
-		return errors.NotValidf("nil NewFacade")
+	if config.NewClient == nil {
+		return errors.NotValidf("nil NewClient")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")

@@ -9,12 +9,11 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
-	mgotesting "github.com/juju/mgo/v2/testing"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/retry.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
@@ -40,12 +39,11 @@ type StateSuite struct {
 	AdminPassword             string
 	Factory                   *factory.Factory
 	InitialConfig             *config.Config
-	InitialTime               time.Time
 	ControllerConfig          map[string]interface{}
 	ControllerInheritedConfig map[string]interface{}
 	ControllerModelType       state.ModelType
 	RegionConfig              cloud.RegionConfig
-	Clock                     *testclock.Clock
+	Clock                     testclock.AdvanceableClock
 	txnSyncNotify             chan struct{}
 	modelWatcherIdle          chan string
 	modelWatcherMutex         *sync.Mutex
@@ -72,21 +70,10 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&statewatcher.HubWatcherIdleFunc, s.hubWatcherIdleFunc)
 
 	s.Owner = names.NewLocalUserTag("test-admin")
-	initialTime := s.InitialTime
-	if initialTime.IsZero() {
-		initialTime = testing.NonZeroTime()
+
+	if s.Clock == nil {
+		s.Clock = testclock.NewDilatedWallClock(100 * time.Millisecond)
 	}
-	s.Clock = testclock.NewClock(initialTime)
-	// Patch the polling policy of the primary txn watcher for the
-	// state pool. Since we are using a testing clock the StartSync
-	// method on the state object advances the clock one second.
-	// Make the txn poller use a standard one second poll interval.
-	s.PatchValue(
-		&statewatcher.PollStrategy,
-		retry.Exponential{
-			Initial: time.Second,
-			Factor:  1.0,
-		})
 
 	s.AdminPassword = "admin-secret"
 	s.Controller = InitializeWithArgs(c, InitializeArgs{
@@ -158,12 +145,9 @@ func (s *StateSuite) WaitForNextSync(c *gc.C) {
 	}()
 	timeout := time.After(jujutesting.LongWait)
 	for {
-		s.Clock.Advance(time.Second)
-		loop := time.After(10 * time.Millisecond)
 		select {
 		case <-done:
 			return
-		case <-loop:
 		case <-timeout:
 			c.Fatal("no sync event sent, is the watcher dead?")
 		}
@@ -201,7 +185,6 @@ func (s *StateSuite) WaitForModelWatchersIdle(c *gc.C, modelUUID string) {
 
 	timeout := time.After(jujutesting.LongWait)
 	for {
-		s.Clock.Advance(10 * time.Millisecond)
 		loop := time.After(10 * time.Millisecond)
 		select {
 		case <-loop:

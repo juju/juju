@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -766,7 +765,7 @@ func (srv *mockServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	srv.requests = append(srv.requests, r)
-	requestBody, err := ioutil.ReadAll(r.Body)
+	requestBody, err := io.ReadAll(r.Body)
 	if err != nil {
 		panic(err)
 	}

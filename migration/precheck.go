@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/replicaset/v2"
+	"github.com/juju/replicaset/v3"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -33,10 +33,11 @@ type PrecheckBackend interface {
 	AllMachines() ([]PrecheckMachine, error)
 	AllApplications() ([]PrecheckApplication, error)
 	AllRelations() ([]PrecheckRelation, error)
+	AllCharmURLs() ([]*string, error)
 	ControllerBackend() (PrecheckBackend, error)
 	CloudCredential(tag names.CloudCredentialTag) (state.Credential, error)
 	HasUpgradeSeriesLocks() (bool, error)
-	MachineCountForSeries(series ...string) (map[string]int, error)
+	MachineCountForBase(base ...state.Base) (map[string]int, error)
 	MongoCurrentStatus() (*replicaset.Status, error)
 }
 

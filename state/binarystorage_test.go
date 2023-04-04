@@ -5,15 +5,15 @@ package state_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strings"
 
-	"github.com/juju/blobstore/v2"
+	"github.com/juju/blobstore/v3"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	jujutxn "github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -110,14 +110,6 @@ func (s *binaryStorageSuite) TestToolsStorageParamsHostedModel(c *gc.C) {
 	s.testStorageParams(c, "toolsmetadata", []string{s.modelUUID, s.State.ModelUUID()}, s.st.ToolsStorage)
 }
 
-func (s *binaryStorageSuite) TestGUIArchiveStorage(c *gc.C) {
-	s.testStorage(c, "guimetadata", s.State.GUIStorage)
-}
-
-func (s *binaryStorageSuite) TestGUIArchiveStorageParams(c *gc.C) {
-	s.testStorageParams(c, "guimetadata", []string{s.controllerModelUUID}, s.st.GUIStorage)
-}
-
 func (s *binaryStorageSuite) testStorage(c *gc.C, collName string, openStorage storageOpener) {
 	session := s.State.MongoSession()
 	// if the collection didn't exist, we will create it on demand.
@@ -193,7 +185,7 @@ func (s *binaryStorageSuite) TestToolsStorageLayered(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(rc, gc.NotNil)
 		defer rc.Close()
-		data, err := ioutil.ReadAll(rc)
+		data, err := io.ReadAll(rc)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(string(data), gc.Equals, contents)
 	}

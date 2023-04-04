@@ -59,9 +59,9 @@ func (paths Paths) ComponentDir(name string) string {
 // RuntimePaths represents the set of paths that are relevant at runtime.
 type RuntimePaths struct {
 
-	// JujuRunSocket listens for juju-run invocations, and is always
+	// JujuExecSocket listens for juju-exec invocations, and is always
 	// active.
-	JujuRunSocket string
+	JujuExecSocket string
 
 	// HookCommandServerSocket listens for hook command invocations, and is only
 	// active when supporting a hook execution context.

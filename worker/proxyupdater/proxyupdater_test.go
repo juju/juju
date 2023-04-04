@@ -5,13 +5,11 @@ package proxyupdater_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -150,10 +148,6 @@ func (s *ProxyUpdaterSuite) waitProxySettings(c *gc.C, expected proxy.Settings) 
 }
 
 func (s *ProxyUpdaterSuite) waitForFile(c *gc.C, filename, expected string) {
-	//TODO(bogdanteleaga): Find a way to test this on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("Proxy settings are written to the registry on windows")
-	}
 	maxWait := time.After(coretesting.LongWait)
 	for {
 		select {
@@ -161,7 +155,7 @@ func (s *ProxyUpdaterSuite) waitForFile(c *gc.C, filename, expected string) {
 			c.Fatalf("timeout while waiting for proxy settings to change")
 			return
 		case <-time.After(10 * time.Millisecond):
-			fileContent, err := ioutil.ReadFile(filename)
+			fileContent, err := os.ReadFile(filename)
 			if os.IsNotExist(err) {
 				continue
 			}
@@ -218,7 +212,7 @@ func (s *ProxyUpdaterSuite) useJujuConfig(c *gc.C) (proxy.Settings, proxy.Settin
 }
 
 func (s *ProxyUpdaterSuite) TestInitialStateLegacyProxy(c *gc.C) {
-	if host := jujuos.HostOS(); host == jujuos.Windows || host == jujuos.CentOS {
+	if host := jujuos.HostOS(); host == jujuos.CentOS {
 		c.Skip(fmt.Sprintf("apt settings not handled on %s", host.String()))
 	}
 
@@ -238,7 +232,7 @@ func (s *ProxyUpdaterSuite) TestInitialStateLegacyProxy(c *gc.C) {
 }
 
 func (s *ProxyUpdaterSuite) TestInitialStateJujuProxy(c *gc.C) {
-	if host := jujuos.HostOS(); host == jujuos.Windows || host == jujuos.CentOS {
+	if host := jujuos.HostOS(); host == jujuos.CentOS {
 		c.Skip(fmt.Sprintf("apt settings not handled on %s", host.String()))
 	}
 
@@ -396,7 +390,7 @@ func nextCall(c *gc.C, calls <-chan []string) []string {
 }
 
 func (s *ProxyUpdaterSuite) TestSnapProxySetNoneSet(c *gc.C) {
-	if host := jujuos.HostOS(); host == jujuos.Windows || host == jujuos.CentOS {
+	if host := jujuos.HostOS(); host == jujuos.CentOS {
 		c.Skip(fmt.Sprintf("snap settings not handled on %s", host.String()))
 	}
 
@@ -425,7 +419,7 @@ func (s *ProxyUpdaterSuite) TestSnapProxySetNoneSet(c *gc.C) {
 }
 
 func (s *ProxyUpdaterSuite) TestSnapProxySet(c *gc.C) {
-	if host := jujuos.HostOS(); host == jujuos.Windows || host == jujuos.CentOS {
+	if host := jujuos.HostOS(); host == jujuos.CentOS {
 		c.Skip(fmt.Sprintf("snap settings not handled on %s", host.String()))
 	}
 
@@ -459,7 +453,7 @@ func (s *ProxyUpdaterSuite) TestSnapProxySet(c *gc.C) {
 }
 
 func (s *ProxyUpdaterSuite) TestSnapStoreProxy(c *gc.C) {
-	if host := jujuos.HostOS(); host == jujuos.Windows || host == jujuos.CentOS {
+	if host := jujuos.HostOS(); host == jujuos.CentOS {
 		c.Skip(fmt.Sprintf("snap settings not handled on %s", host.String()))
 	}
 
@@ -491,7 +485,7 @@ func (s *ProxyUpdaterSuite) TestSnapStoreProxy(c *gc.C) {
 }
 
 func (s *ProxyUpdaterSuite) TestSnapStoreProxyURL(c *gc.C) {
-	if host := jujuos.HostOS(); host == jujuos.Windows || host == jujuos.CentOS {
+	if host := jujuos.HostOS(); host == jujuos.CentOS {
 		c.Skip(fmt.Sprintf("snap settings not handled on %s", host.String()))
 	}
 
@@ -545,7 +539,7 @@ DATA...
 }
 
 func (s *ProxyUpdaterSuite) TestSnapStoreProxyURLOverridesManualAssertion(c *gc.C) {
-	if host := jujuos.HostOS(); host == jujuos.Windows || host == jujuos.CentOS {
+	if host := jujuos.HostOS(); host == jujuos.CentOS {
 		c.Skip(fmt.Sprintf("snap settings not handled on %s", host.String()))
 	}
 
@@ -601,7 +595,7 @@ DATA...
 }
 
 func (s *ProxyUpdaterSuite) TestAptMirror(c *gc.C) {
-	if host := jujuos.HostOS(); host == jujuos.Windows || host == jujuos.CentOS {
+	if host := jujuos.HostOS(); host == jujuos.CentOS {
 		c.Skip(fmt.Sprintf("apt mirror not supported on %s", host.String()))
 	}
 

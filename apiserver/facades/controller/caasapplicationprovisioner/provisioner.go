@@ -7,11 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"sort"
 	"time"
 
-	charmresource "github.com/juju/charm/v8/resource"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -31,7 +30,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
@@ -278,6 +276,15 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		return nil, errors.Trace(err)
 	}
 
+	charmURL, _ := app.CharmURL()
+	if charmURL == nil {
+		return nil, errors.NotValidf("application charm url nil")
+	}
+
+	if app.CharmPendingToBeDownloaded() {
+		return nil, errors.NotProvisionedf("charm %q pending", *charmURL)
+	}
+
 	cfg, err := a.ctrlSt.ControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -339,22 +346,11 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		}
 	}
 	caCert, _ := cfg.CACert()
-	charmURL, _ := app.CharmURL()
-	if charmURL == nil {
-		return nil, errors.NotValidf("application charm url nil")
-	}
 	appConfig, err := app.ApplicationConfig()
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting application config")
 	}
-	var base series.Base
-	appSeries := app.Series()
-	if appSeries != "" {
-		base, err = series.GetBaseFromSeries(appSeries)
-		if err != nil {
-			return nil, errors.Annotatef(err, "converting app series %q to base", appSeries)
-		}
-	}
+	base := app.Base()
 	return &params.CAASApplicationProvisioningInfo{
 		Version:              vers,
 		APIAddresses:         addrs,
@@ -363,7 +359,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		Filesystems:          filesystemParams,
 		Devices:              devices,
 		Constraints:          mergedCons,
-		Base:                 params.Base{Name: base.Name, Channel: base.Channel.String()},
+		Base:                 params.Base{Name: base.OS, Channel: base.Channel},
 		ImageRepo:            params.NewDockerImageInfo(cfg.CAASImageRepo(), imagePath),
 		CharmModifiedVersion: app.CharmModifiedVersion(),
 		CharmURL:             *charmURL,
@@ -706,7 +702,7 @@ func (a *API) applicationFilesystemParams(
 			charmStorage := ch.Meta().Storage[name]
 			id := fmt.Sprintf("%s/%v", name, i)
 			tag := names.NewStorageTag(id)
-			location, err := state.FilesystemMountPoint(charmStorage, tag, "kubernetes")
+			location, err := state.FilesystemMountPoint(charmStorage, tag, "ubuntu")
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -826,7 +822,7 @@ func (a *API) ApplicationOCIResources(args params.Entities) (params.CAASApplicat
 
 func readDockerImageResource(reader io.Reader) (params.DockerImageInfo, error) {
 	var details resources.DockerImageDetails
-	contents, err := ioutil.ReadAll(reader)
+	contents, err := io.ReadAll(reader)
 	if err != nil {
 		return params.DockerImageInfo{}, errors.Trace(err)
 	}

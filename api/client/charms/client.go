@@ -6,15 +6,14 @@ package charms
 import (
 	"archive/zip"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
 
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
@@ -25,7 +24,6 @@ import (
 	commoncharms "github.com/juju/juju/api/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -71,20 +69,14 @@ type ResolvedCharm struct {
 
 // ResolveCharms resolves the given charm URLs with an optionally specified
 // preferred channel.
-// ResolveCharms is only supported in version 3 and above, it is expected that
-// the consumer of the client is intended to handle the fallback.
 func (c *Client) ResolveCharms(charms []CharmToResolve) ([]ResolvedCharm, error) {
-	if c.facade.BestAPIVersion() < 3 {
-		return nil, errors.NotSupportedf("resolve charms")
-	}
-
 	args := params.ResolveCharmsWithChannel{
 		Resolve: make([]params.ResolveCharmWithChannel, len(charms)),
 	}
 	for i, ch := range charms {
 		args.Resolve[i] = params.ResolveCharmWithChannel{
 			Reference:   ch.URL.String(),
-			Origin:      c.paramsCharmOrigin(ch.Origin),
+			Origin:      ch.Origin.ParamsCharmOrigin(),
 			SwitchCharm: ch.SwitchCharm,
 		}
 	}
@@ -128,14 +120,10 @@ type DownloadInfo struct {
 // GetDownloadInfo will get a download information from the given charm URL
 // using the appropriate charm store.
 func (c *Client) GetDownloadInfo(curl *charm.URL, origin apicharm.Origin, mac *macaroon.Macaroon) (DownloadInfo, error) {
-	if c.facade.BestAPIVersion() < 3 {
-		return DownloadInfo{}, errors.NotSupportedf("get download info")
-	}
-
 	args := params.CharmURLAndOrigins{
 		Entities: []params.CharmURLAndOrigin{{
 			CharmURL: curl.String(),
-			Origin:   c.paramsCharmOrigin(origin),
+			Origin:   origin.ParamsCharmOrigin(),
 			Macaroon: mac,
 		}},
 	}
@@ -157,17 +145,6 @@ func (c *Client) GetDownloadInfo(curl *charm.URL, origin apicharm.Origin, mac *m
 	}, nil
 }
 
-func (c *Client) paramsCharmOrigin(origin apicharm.Origin) params.CharmOrigin {
-	if origin.Base.Name == "centos" {
-		if c.BestAPIVersion() < 5 {
-			origin.Base.Channel.Track = series.ToLegacyCentosChannel(origin.Base.Channel.Track)
-		} else {
-			origin.Base.Channel.Track = series.FromLegacyCentosChannel(origin.Base.Channel.Track)
-		}
-	}
-	return origin.ParamsCharmOrigin()
-}
-
 // AddCharm adds the given charm URL (which must include revision) to
 // the model, if it does not exist yet. Local charms are not
 // supported, only charm store and charm hub URLs. See also AddLocalCharm().
@@ -178,11 +155,8 @@ func (c *Client) paramsCharmOrigin(origin apicharm.Origin) params.CharmOrigin {
 func (c *Client) AddCharm(curl *charm.URL, origin apicharm.Origin, force bool) (apicharm.Origin, error) {
 	args := params.AddCharmWithOrigin{
 		URL:    curl.String(),
-		Origin: c.paramsCharmOrigin(origin),
+		Origin: origin.ParamsCharmOrigin(),
 		Force:  force,
-		// Deprecated: Series is used here to communicate with older
-		// controllers and instead we use Origin to describe the platform.
-		Series: origin.Series,
 	}
 	var result params.CharmOriginResult
 	if err := c.facade.FacadeCall("AddCharm", args, &result); err != nil {
@@ -205,12 +179,9 @@ func (c *Client) AddCharm(curl *charm.URL, origin apicharm.Origin, force bool) (
 func (c *Client) AddCharmWithAuthorization(curl *charm.URL, origin apicharm.Origin, csMac *macaroon.Macaroon, force bool) (apicharm.Origin, error) {
 	args := params.AddCharmWithAuth{
 		URL:                curl.String(),
-		Origin:             c.paramsCharmOrigin(origin),
+		Origin:             origin.ParamsCharmOrigin(),
 		CharmStoreMacaroon: csMac,
 		Force:              force,
-		// Deprecated: Series is used here to communicate with older
-		// controllers and instead we use Origin to describe the platform.
-		Series: origin.Series,
 	}
 	var result params.CharmOriginResult
 	if err := c.facade.FacadeCall("AddCharmWithAuthorization", args, &result); err != nil {
@@ -241,7 +212,7 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool, agen
 	switch ch := ch.(type) {
 	case *charm.CharmDir:
 		var err error
-		if archive, err = ioutil.TempFile("", "charm"); err != nil {
+		if archive, err = os.CreateTemp("", "charm"); err != nil {
 			return nil, errors.Annotate(err, "cannot create temp file")
 		}
 		defer os.Remove(archive.Name())
@@ -400,14 +371,10 @@ func (c *Client) CheckCharmPlacement(applicationName string, curl *charm.URL) er
 
 // ListCharmResources returns a list of associated resources for a given charm.
 func (c *Client) ListCharmResources(curl *charm.URL, origin apicharm.Origin) ([]charmresource.Resource, error) {
-	if c.facade.BestAPIVersion() < 3 {
-		return nil, errors.NotSupportedf("list resources")
-	}
-
 	args := params.CharmURLAndOrigins{
 		Entities: []params.CharmURLAndOrigin{{
 			CharmURL: curl.String(),
-			Origin:   c.paramsCharmOrigin(origin),
+			Origin:   origin.ParamsCharmOrigin(),
 		}},
 	}
 	var results params.CharmResourcesResults

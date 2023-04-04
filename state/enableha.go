@@ -8,18 +8,19 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
-	"github.com/juju/replicaset/v2"
-	jujutxn "github.com/juju/txn/v2"
+	"github.com/juju/replicaset/v3"
+	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/mongo"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/tools"
@@ -89,7 +90,7 @@ func (st *State) maintainControllersOps(newIds []string, bootstrapOnly bool) ([]
 // exhausted; thereafter any new machines are started according to the constraints and series.
 // MachineID is the id of the machine where the apiserver is running.
 func (st *State) EnableHA(
-	numControllers int, cons constraints.Value, series string, placement []string,
+	numControllers int, cons constraints.Value, base Base, placement []string,
 ) (ControllersChanges, error) {
 
 	if numControllers < 0 || (numControllers != 0 && numControllers%2 != 1) {
@@ -144,7 +145,7 @@ func (st *State) EnableHA(
 		logger.Infof("%d new machines; converting %v", intent.newCount, intent.convert)
 
 		var ops []txn.Op
-		ops, change, err = st.enableHAIntentionOps(intent, cons, series)
+		ops, change, err = st.enableHAIntentionOps(intent, cons, base)
 		return ops, err
 	}
 	if err := st.db().Run(buildTxn); err != nil {
@@ -166,14 +167,35 @@ type ControllersChanges struct {
 func (st *State) enableHAIntentionOps(
 	intent *enableHAIntent,
 	cons constraints.Value,
-	series string,
+	base Base,
 ) ([]txn.Op, ControllersChanges, error) {
 	var ops []txn.Op
 	var change ControllersChanges
 
+	// TODO(wallyworld) - only need until we transition away from enable-ha
+	controllerApp, err := st.Application(bootstrap.ControllerApplicationName)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, ControllersChanges{}, errors.Trace(err)
+	}
+
 	for _, m := range intent.convert {
 		ops = append(ops, convertControllerOps(m)...)
 		change.Converted = append(change.Converted, m.Id())
+		// Add a controller charm unit to the promoted machine.
+		if controllerApp != nil {
+			unitName, unitOps, err := controllerApp.addUnitOps("", AddUnitParams{machineID: m.Id()}, nil)
+			if err != nil {
+				return nil, ControllersChanges{}, errors.Trace(err)
+			}
+			ops = append(ops, unitOps...)
+			addToMachineOp := txn.Op{
+				C:      machinesC,
+				Id:     m.doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{{"$addToSet", bson.D{{"principals", unitName}}}, {"$set", bson.D{{"clean", false}}}},
+			}
+			ops = append(ops, addToMachineOp)
+		}
 	}
 
 	// Use any placement directives that have been provided when adding new
@@ -193,7 +215,7 @@ func (st *State) enableHAIntentionOps(
 	for i := 0; i < intent.newCount; i++ {
 		placement, cons := getPlacementConstraints()
 		template := MachineTemplate{
-			Series: series,
+			Base: base,
 			Jobs: []MachineJob{
 				JobHostUnits,
 				JobManageModel,
@@ -201,15 +223,36 @@ func (st *State) enableHAIntentionOps(
 			Constraints: cons,
 			Placement:   placement,
 		}
+		// Set up the new controller to have a controller charm unit.
+		// The unit itself is created below.
+		var controllerUnitName string
+		if controllerApp != nil {
+			controllerUnitName, err = controllerApp.newUnitName()
+			if err != nil {
+				return nil, ControllersChanges{}, errors.Trace(err)
+			}
+			template.Dirty = true
+			template.principals = []string{controllerUnitName}
+		}
 		mdoc, addOps, err := st.addMachineOps(template)
 		if err != nil {
-			return nil, ControllersChanges{}, err
+			return nil, ControllersChanges{}, errors.Trace(err)
 		}
 		if isController(mdoc) {
 			controllerIds = append(controllerIds, mdoc.Id)
 		}
 		ops = append(ops, addOps...)
 		change.Added = append(change.Added, mdoc.Id)
+		if controllerApp != nil {
+			_, unitOps, err := controllerApp.addUnitOps("", AddUnitParams{
+				UnitName:  &controllerUnitName,
+				machineID: mdoc.Id,
+			}, nil)
+			if err != nil {
+				return nil, ControllersChanges{}, errors.Trace(err)
+			}
+			ops = append(ops, unitOps...)
+		}
 	}
 
 	for _, m := range intent.maintain {

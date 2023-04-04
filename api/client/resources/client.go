@@ -7,8 +7,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/api/http"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -156,13 +155,7 @@ type AddPendingResourcesArgs struct {
 // without making it available yet.
 func (c Client) AddPendingResources(args AddPendingResourcesArgs) ([]string, error) {
 	tag := names.NewApplicationTag(args.ApplicationID)
-	var apiArgs interface{}
-	var err error
-	if c.BestAPIVersion() < 2 {
-		apiArgs, err = newAddPendingResourcesArgs(tag, args.CharmID, args.CharmStoreMacaroon, args.Resources)
-	} else {
-		apiArgs, err = newAddPendingResourcesArgsV2(c.BestAPIVersion(), tag, args.CharmID, args.CharmStoreMacaroon, args.Resources)
-	}
+	apiArgs, err := newAddPendingResourcesArgsV2(tag, args.CharmID, args.CharmStoreMacaroon, args.Resources)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -189,32 +182,9 @@ func (c Client) AddPendingResources(args AddPendingResourcesArgs) ([]string, err
 	return result.PendingIDs, nil
 }
 
-// newAddPendingResourcesArgs returns the arguments for the
-// AddPendingResources API endpoint.
-func newAddPendingResourcesArgs(tag names.ApplicationTag, chID CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (params.AddPendingResourcesArgs, error) {
-	var args params.AddPendingResourcesArgs
-	var apiResources []params.CharmResource
-	for _, res := range resources {
-		if err := res.Validate(); err != nil {
-			return args, errors.Trace(err)
-		}
-		apiRes := CharmResource2API(res)
-		apiResources = append(apiResources, apiRes)
-	}
-	args.Tag = tag.String()
-	args.Resources = apiResources
-	if chID.URL != nil {
-		args.URL = chID.URL.String()
-	}
-	args.Channel = chID.Origin.CharmChannel().String()
-	args.CharmStoreMacaroon = csMac
-
-	return args, nil
-}
-
 // newAddPendingResourcesArgsV2 returns the arguments for the
 // AddPendingResources APIv2 endpoint.
-func newAddPendingResourcesArgsV2(apiVers int, tag names.ApplicationTag, chID CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (params.AddPendingResourcesArgsV2, error) {
+func newAddPendingResourcesArgsV2(tag names.ApplicationTag, chID CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (params.AddPendingResourcesArgsV2, error) {
 	var args params.AddPendingResourcesArgsV2
 
 	var apiResources []params.CharmResource
@@ -230,16 +200,6 @@ func newAddPendingResourcesArgsV2(apiVers int, tag names.ApplicationTag, chID Ch
 	if chID.URL != nil {
 		args.URL = chID.URL.String()
 	}
-	if chID.Origin.Base.Name == "centos" {
-		channel := chID.Origin.Base.Channel
-		if apiVers < 3 {
-			channel.Track = series.ToLegacyCentosChannel(channel.Track)
-		} else {
-			channel.Track = series.FromLegacyCentosChannel(channel.Track)
-		}
-		chID.Origin.Base.Channel = channel
-	}
-	base := params.Base{Name: chID.Origin.Base.Name, Channel: chID.Origin.Base.Channel.String()}
 	args.CharmOrigin = params.CharmOrigin{
 		Source:       chID.Origin.Source.String(),
 		ID:           chID.Origin.ID,
@@ -248,11 +208,7 @@ func newAddPendingResourcesArgsV2(apiVers int, tag names.ApplicationTag, chID Ch
 		Revision:     chID.Origin.Revision,
 		Track:        chID.Origin.Track,
 		Architecture: chID.Origin.Architecture,
-		Base:         base,
-		OS:           chID.Origin.Base.Name,
-		Channel:      chID.Origin.Base.Channel.String(),
-		// TODO(juju3) - remove series
-		Series: chID.Origin.Series,
+		Base:         params.Base{Name: chID.Origin.Base.OS, Channel: chID.Origin.Base.Channel.String()},
 	}
 	args.CharmStoreMacaroon = csMac
 	return args, nil

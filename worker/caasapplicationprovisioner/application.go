@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -207,12 +208,20 @@ func (a *appWorker) loop() error {
 		return errors.Annotatef(err, "failed to watch for application %q scale changes", a.name)
 	}
 
-	appTrustWatcher, err := a.unitFacade.WatchApplicationTrustHash(a.name)
-	if err != nil {
-		return errors.Annotatef(err, "creating application %q trust watcher", a.name)
-	}
-	if err := a.catacomb.Add(appTrustWatcher); err != nil {
-		return errors.Annotatef(err, "failed to watch for application %q trust changes", a.name)
+	var trustChanges watcher.StringsChannel
+	// The out of the box "controller" application is set up at bootstrap and does
+	// not use the same roles and cluster roles as "normal" applications.
+	// So we don't want to process trust changes.
+	if a.name != bootstrap.ControllerApplicationName {
+		appTrustWatcher, err := a.unitFacade.WatchApplicationTrustHash(a.name)
+		if err != nil {
+			return errors.Annotatef(err, "creating application %q trust watcher", a.name)
+		}
+
+		if err := a.catacomb.Add(appTrustWatcher); err != nil {
+			return errors.Annotatef(err, "failed to watch for application %q trust changes", a.name)
+		}
+		trustChanges = appTrustWatcher.Changes()
 	}
 
 	var appUnitsWatcher watcher.StringsWatcher
@@ -247,7 +256,11 @@ func (a *appWorker) loop() error {
 				appProvisionChanges = appProvisionWatcher.Changes()
 			}
 			err = a.alive(app)
-			if err != nil {
+			if errors.Is(err, errors.NotProvisioned) {
+				// State not ready for this application to be provisioned yet.
+				// Usually because the charm has not yet been downloaded.
+				break
+			} else if err != nil {
 				return errors.Trace(err)
 			}
 			if appChanges == nil {
@@ -321,7 +334,7 @@ func (a *appWorker) loop() error {
 			} else {
 				scaleChan = nil
 			}
-		case _, ok := <-appTrustWatcher.Changes():
+		case _, ok := <-trustChanges:
 			if !ok {
 				return fmt.Errorf("application %q trust watcher closed channel", a.name)
 			}
@@ -687,7 +700,10 @@ func (a *appWorker) alive(app caas.Application) error {
 	a.logger.Debugf("ensuring application %q exists", a.name)
 
 	provisionInfo, err := a.facade.ProvisioningInfo(a.name)
-	if err != nil {
+	if errors.Is(err, errors.NotProvisioned) {
+		a.logger.Debugf("application %s is not provisioned yet: %s", a.name, err.Error())
+		return errors.NotProvisioned
+	} else if err != nil {
 		return errors.Annotate(err, "retrieving provisioning info")
 	}
 	if provisionInfo.CharmURL == nil {
@@ -717,7 +733,7 @@ func (a *appWorker) alive(app caas.Application) error {
 
 	ch := charmInfo.Charm()
 	charmBaseImage, err := podcfg.ImageForBase(provisionInfo.ImageDetails.Repository, charm.Base{
-		Name: provisionInfo.Base.Name,
+		Name: provisionInfo.Base.OS,
 		Channel: charm.Channel{
 			Track: provisionInfo.Base.Channel.Track,
 			Risk:  charm.Risk(provisionInfo.Base.Channel.Risk),
@@ -766,6 +782,12 @@ func (a *appWorker) alive(app caas.Application) error {
 		CharmModifiedVersion: provisionInfo.CharmModifiedVersion,
 		Trust:                provisionInfo.Trust,
 		InitialScale:         provisionInfo.Scale,
+	}
+	// The out of the box "controller" application is set up at bootstrap and does
+	// not use the same provisioning config as "normal" applications.
+	if a.name == bootstrap.ControllerApplicationName && a.lastApplied.AgentImagePath == "" {
+		a.lastApplied = config
+		return nil
 	}
 	reason := "unchanged"
 	// TODO(sidecar): implement Equals method for caas.ApplicationConfig

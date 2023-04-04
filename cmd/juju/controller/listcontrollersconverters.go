@@ -30,13 +30,10 @@ type ControllerMachines struct {
 
 // ControllerItem defines the serialization behaviour of controller information.
 type ControllerItem struct {
-	ModelName string `yaml:"current-model,omitempty" json:"current-model,omitempty"`
-	User      string `yaml:"user,omitempty" json:"user,omitempty"`
-	Access    string `yaml:"access,omitempty" json:"access,omitempty"`
-	Server    string `yaml:"recent-server,omitempty" json:"recent-server,omitempty"`
-	// TODO(anastasiamac 2018-08-10) This is a deprecated property, see lp#1596607.
-	// It was added for backward compatibility, lp#1786061, to be removed for Juju 3.
-	OldControllerUUID  string              `yaml:"uuid" json:"-"`
+	ModelName          string              `yaml:"current-model,omitempty" json:"current-model,omitempty"`
+	User               string              `yaml:"user,omitempty" json:"user,omitempty"`
+	Access             string              `yaml:"access,omitempty" json:"access,omitempty"`
+	Server             string              `yaml:"recent-server,omitempty" json:"recent-server,omitempty"`
 	ControllerUUID     string              `yaml:"controller-uuid" json:"uuid"`
 	APIEndpoints       []string            `yaml:"api-endpoints,flow" json:"api-endpoints"`
 	CACert             string              `yaml:"ca-cert" json:"ca-cert"`
@@ -112,17 +109,16 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 		modelCount := len(models)
 
 		item := ControllerItem{
-			ModelName:         modelName,
-			User:              userName,
-			Access:            access,
-			Server:            serverName,
-			APIEndpoints:      details.APIEndpoints,
-			ControllerUUID:    details.ControllerUUID,
-			OldControllerUUID: details.ControllerUUID,
-			CACert:            details.CACert,
-			Cloud:             details.Cloud,
-			CloudRegion:       details.CloudRegion,
-			AgentVersion:      details.AgentVersion,
+			ModelName:      modelName,
+			User:           userName,
+			Access:         access,
+			Server:         serverName,
+			APIEndpoints:   details.APIEndpoints,
+			ControllerUUID: details.ControllerUUID,
+			CACert:         details.CACert,
+			Cloud:          details.Cloud,
+			CloudRegion:    details.CloudRegion,
+			AgentVersion:   details.AgentVersion,
 		}
 		isCaas := details.CloudType == string(k8sconstants.StorageProviderType)
 		if details.MachineCount != nil && *details.MachineCount > 0 {

@@ -23,10 +23,14 @@ type actionSuite struct {
 var _ = gc.Suite(&actionSuite{})
 
 func (s *actionSuite) TestAction(c *gc.C) {
+	parallel := true
+	group := "group"
 	actionResult := params.ActionResult{
 		Action: &params.Action{
-			Name:       "backup",
-			Parameters: map[string]interface{}{"foo": "bar"},
+			Name:           "backup",
+			Parameters:     map[string]interface{}{"foo": "bar"},
+			Parallel:       &parallel,
+			ExecutionGroup: &group,
 		},
 	}
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -43,8 +47,11 @@ func (s *actionSuite) TestAction(c *gc.C) {
 
 	a, err := client.Action(names.NewActionTag("666"))
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(a.ID(), gc.Equals, "666")
 	c.Assert(a.Name(), gc.Equals, actionResult.Action.Name)
 	c.Assert(a.Params(), jc.DeepEquals, actionResult.Action.Parameters)
+	c.Assert(a.Parallel(), jc.IsTrue)
+	c.Assert(a.ExecutionGroup(), gc.Equals, "group")
 }
 
 func (s *actionSuite) TestActionError(c *gc.C) {
@@ -166,7 +173,7 @@ func (s *actionSuite) TestWatchActionNotifications(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchActionNotifications()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, nil)
+	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.

@@ -7,10 +7,8 @@ package paths
 import (
 	"os"
 	"runtime"
-	"strings"
 
 	jujuos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/series"
 )
 
 type OS int // strongly typed runtime.GOOS value to help with refactoring
@@ -28,7 +26,7 @@ const (
 	dataDir
 	storageDir
 	confDir
-	jujuRun
+	jujuExec
 	certDir
 	metricsSpoolDir
 	uniterStateDir
@@ -59,7 +57,7 @@ var nixVals = map[osVarType]string{
 	transientDataDir:     NixTransientDataDir,
 	storageDir:           "/var/lib/juju/storage",
 	confDir:              "/etc/juju",
-	jujuRun:              "/usr/bin/juju-run",
+	jujuExec:             "/usr/bin/juju-exec",
 	jujuDumpLogs:         "/usr/bin/juju-dumplogs",
 	jujuIntrospect:       "/usr/bin/juju-introspect",
 	certDir:              "/etc/juju/certs.d",
@@ -77,7 +75,7 @@ var winVals = map[osVarType]string{
 	transientDataDir: "C:/Juju/lib/juju-transient",
 	storageDir:       "C:/Juju/lib/juju/storage",
 	confDir:          "C:/Juju/etc",
-	jujuRun:          "C:/Juju/bin/juju-run.exe",
+	jujuExec:         "C:/Juju/bin/juju-exec.exe",
 	jujuDumpLogs:     "C:/Juju/bin/juju-dumplogs.exe",
 	jujuIntrospect:   "C:/Juju/bin/juju-introspect.exe",
 	certDir:          "C:/Juju/certs",
@@ -99,18 +97,9 @@ func CurrentOS() OS {
 	}
 }
 
-// SeriesToOS converts the given series to an OS value.
-func SeriesToOS(ser string) OS {
-	osType, err := series.GetOSFromSeries(ser)
-	if err != nil {
-		// We shouldn't get here in normal operation, as the series should be
-		// valid at this point, but handle in a reasonable way in any case.
-		if strings.HasPrefix(ser, "win") {
-			return OSWindows
-		}
-		return OSUnixLike
-	}
-	switch osType {
+// OSType converts the given os name to an OS value.
+func OSType(osName string) OS {
+	switch jujuos.OSTypeForName(osName) {
 	case jujuos.Windows:
 		return OSWindows
 	default:
@@ -127,13 +116,6 @@ func osVal(os OS, valname osVarType) string {
 	default:
 		return nixVals[valname]
 	}
-}
-
-// TempDir returns the path on disk to the correct tmp directory
-// for the series. This value will be the same on virtually
-// all linux systems, but will differ on windows
-func TempDir(os OS) string {
-	return osVal(os, tmpDir)
 }
 
 // LogDir returns filesystem path the directory where juju may
@@ -179,10 +161,10 @@ func ConfDir(os OS) string {
 	return osVal(os, confDir)
 }
 
-// JujuRun returns the absolute path to the juju-run binary for
+// JujuExec returns the absolute path to the juju-exec binary for
 // a particular series.
-func JujuRun(os OS) string {
-	return osVal(os, jujuRun)
+func JujuExec(os OS) string {
+	return osVal(os, jujuExec)
 }
 
 // JujuDumpLogs returns the absolute path to the juju-dumplogs binary

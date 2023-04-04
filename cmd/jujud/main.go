@@ -8,7 +8,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	proxyutils "github.com/juju/proxy"
@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	coreos "github.com/juju/juju/core/os"
 	jujunames "github.com/juju/juju/juju/names"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/utils/proxy"
@@ -48,12 +49,16 @@ import (
 
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
+
+	// Import the secret providers.
+	_ "github.com/juju/juju/secrets/provider/all"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud")
 
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 var jujudDoc = `
@@ -116,7 +121,7 @@ func getSocket() (sockets.Socket, error) {
 	if err != nil {
 		return sockets.Socket{}, err
 	}
-	caCert, err := ioutil.ReadFile(caCertFile)
+	caCert, err := os.ReadFile(caCertFile)
 	if err != nil {
 		return sockets.Socket{}, errors.Annotatef(err, "reading %s", caCertFile)
 	}
@@ -172,7 +177,7 @@ func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int
 	var resp exec.ExecResponse
 	err = client.Call("Jujuc.Main", req, &resp)
 	if err != nil && err.Error() == jujuc.ErrNoStdin.Error() {
-		req.Stdin, err = ioutil.ReadAll(os.Stdin)
+		req.Stdin, err = io.ReadAll(os.Stdin)
 		if err != nil {
 			err = errors.Annotate(err, "cannot read stdin")
 			return
@@ -284,10 +289,12 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 }
 
 // MainWrapper exists to preserve test functionality.
-// On windows we need to catch the return code from main for
-// service functionality purposes, but on unix we can just os.Exit
 func MainWrapper(args []string) {
 	os.Exit(Main(args))
+}
+
+func main() {
+	MainWrapper(os.Args)
 }
 
 // Main is not redundant with main(), because it provides an entry point
@@ -313,9 +320,9 @@ func Main(args []string) int {
 	switch commandName {
 	case jujunames.Jujud:
 		code, err = jujuDMain(args, ctx)
-	case jujunames.JujuRun:
+	case jujunames.JujuExec:
 		lock, err := machinelock.New(machinelock.Config{
-			AgentName:   "juju-run",
+			AgentName:   "juju-exec",
 			Clock:       clock.WallClock,
 			Logger:      loggo.GetLogger("juju.machinelock"),
 			LogFilename: filepath.Join(config.LogDir, machinelock.Filename),

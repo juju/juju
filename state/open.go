@@ -4,18 +4,19 @@
 package state
 
 import (
+	"fmt"
 	"runtime/pprof"
+	"strings"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
-	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v4"
-	"github.com/juju/txn/v2"
 	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/feature"
+	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
 // Register the state tracker as a new profile.
@@ -49,6 +50,12 @@ type OpenParams struct {
 	// InitDatabaseFunc, if non-nil, is a function that will be called
 	// just after the state database is opened.
 	InitDatabaseFunc InitDatabaseFunc
+
+	// MaxTxnAttempts is defaulted by OpenStatePool if otherwise not set.
+	MaxTxnAttempts int
+
+	// WatcherPollInterval is defaulted by the TxnWatcher if otherwise not set.
+	WatcherPollInterval time.Duration
 }
 
 // Validate validates the OpenParams.
@@ -85,6 +92,7 @@ func OpenController(args OpenParams) (*Controller, error) {
 }
 
 func open(
+	controllerTag names.ControllerTag,
 	controllerModelTag names.ModelTag,
 	session *mgo.Session,
 	initDatabase InitDatabaseFunc,
@@ -92,8 +100,16 @@ func open(
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
 	runTransactionObserver RunTransactionObserverFunc,
+	maxTxnAttempts int,
 ) (*State, error) {
-	st, err := newState(controllerModelTag, controllerModelTag, session, newPolicy, clock, runTransactionObserver)
+	st, err := newState(controllerTag,
+		controllerModelTag,
+		controllerModelTag,
+		session,
+		newPolicy,
+		clock,
+		runTransactionObserver,
+		maxTxnAttempts)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -108,19 +124,20 @@ func open(
 	return st, nil
 }
 
-// newState creates an incomplete *State, with no running workers or
-// controllerTag. You must start() the returned *State before it will
-// function correctly.
+// newState creates an incomplete *State, with no running workers.
+// You must startWorkers() the returned *State before it will function correctly.
 // modelTag is used to filter all queries and transactions.
 //
 // newState takes responsibility for the supplied *mgo.Session, and will
 // close it if it cannot be returned under the aegis of a *State.
 func newState(
+	controllerTag names.ControllerTag,
 	modelTag, controllerModelTag names.ModelTag,
 	session *mgo.Session,
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
 	runTransactionObserver RunTransactionObserverFunc,
+	maxTxnAttempts int,
 ) (_ *State, err error) {
 
 	defer func() {
@@ -129,27 +146,29 @@ func newState(
 		}
 	}()
 
-	mongodb := session.DB(jujuDB)
-	sstxn := featureflag.Enabled(feature.MongoDbSSTXN)
-	if sstxn {
-		if !txn.SupportsServerSideTransactions(mongodb) {
-			logger.Warningf("User requested server-side transactions, but they are not supported.\n"+
-				" Falling back to client-side transactions.\n"+
-				" Consider using the '%s' feature flag", feature.MongoDbSnap)
-			sstxn = false
-		} else {
-			logger.Infof("using server-side transactions")
-		}
-	} else {
-		logger.Infof("using client-side transactions")
+	info, err := session.BuildInfo()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	if len(info.VersionArray) < 1 || info.VersionArray[0] < 4 {
+		parts := make([]string, len(info.VersionArray))
+		for i, v := range info.VersionArray {
+			parts[i] = fmt.Sprintf("%d", v)
+		}
+		mongoVers := "this mongo version"
+		if len(parts) > 0 {
+			mongoVers = fmt.Sprintf("mongo version %v", strings.Join(parts, "."))
+		}
+		return nil, errors.Errorf("%v does not support server side transactions", mongoVers)
+	}
+	mongodb := session.DB(jujuDB)
 	db := &database{
 		raw:                    mongodb,
 		schema:                 allCollections(),
 		modelUUID:              modelTag.Id(),
 		runTransactionObserver: runTransactionObserver,
-		serverSideTransactions: sstxn,
 		clock:                  clock,
+		maxTxnAttempts:         maxTxnAttempts,
 	}
 
 	// Create State.
@@ -161,12 +180,20 @@ func newState(
 		database:               db,
 		newPolicy:              newPolicy,
 		runTransactionObserver: runTransactionObserver,
+		maxTxnAttempts:         maxTxnAttempts,
 	}
 	if newPolicy != nil {
 		st.policy = newPolicy(st)
 	}
 	// Record this State instance with the global tracker.
 	profileTracker.Add(st, 1)
+
+	st.controllerTag = controllerTag
+	logger.Infof("creating cloud image metadata storage")
+	st.CloudImageMetadataStorage = cloudimagemetadata.NewStorage(
+		cloudimagemetadataC,
+		&environMongo{st},
+	)
 	return st, nil
 }
 

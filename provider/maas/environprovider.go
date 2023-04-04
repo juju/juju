@@ -18,7 +18,6 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/common"
 )
 
 var cloudSchema = &jsonschema.Schema{
@@ -43,24 +42,24 @@ var cloudSchema = &jsonschema.Schema{
 // Logger for the MAAS provider.
 var logger = loggo.GetLogger("juju.provider.maas")
 
-type MaasEnvironProvider struct {
+type EnvironProvider struct {
 	environProviderCredentials
 
 	// GetCapabilities is a function that connects to MAAS to return its set of
 	// capabilities.
-	GetCapabilities MaasCapabilities
+	GetCapabilities Capabilities
 }
 
-var _ environs.EnvironProvider = (*MaasEnvironProvider)(nil)
+var _ environs.EnvironProvider = (*EnvironProvider)(nil)
 
-var providerInstance MaasEnvironProvider
+var providerInstance EnvironProvider
 
 // Version is part of the EnvironProvider interface.
-func (MaasEnvironProvider) Version() int {
+func (EnvironProvider) Version() int {
 	return 0
 }
 
-func (MaasEnvironProvider) Open(_ stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
+func (EnvironProvider) Open(_ stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
 	logger.Debugf("opening model %q.", args.Config.Name())
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
@@ -73,12 +72,12 @@ func (MaasEnvironProvider) Open(_ stdcontext.Context, args environs.OpenParams) 
 }
 
 // CloudSchema returns the schema for adding new clouds of this type.
-func (p MaasEnvironProvider) CloudSchema() *jsonschema.Schema {
+func (p EnvironProvider) CloudSchema() *jsonschema.Schema {
 	return cloudSchema
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p MaasEnvironProvider) Ping(ctx context.ProviderCallContext, endpoint string) error {
+func (p EnvironProvider) Ping(ctx context.ProviderCallContext, endpoint string) error {
 	base, version, includesVersion := gomaasapi.SplitVersionedURL(endpoint)
 	if includesVersion {
 		err := p.checkMaas(base, version)
@@ -86,12 +85,7 @@ func (p MaasEnvironProvider) Ping(ctx context.ProviderCallContext, endpoint stri
 			return nil
 		}
 	} else {
-		// No version info in the endpoint - try both in preference order.
 		err := p.checkMaas(endpoint, apiVersion2)
-		if err == nil {
-			return nil
-		}
-		err = p.checkMaas(endpoint, apiVersion1)
 		if err == nil {
 			return nil
 		}
@@ -99,7 +93,7 @@ func (p MaasEnvironProvider) Ping(ctx context.ProviderCallContext, endpoint stri
 	return errors.Errorf("No MAAS server running at %s", endpoint)
 }
 
-func (p MaasEnvironProvider) checkMaas(endpoint, ver string) error {
+func (p EnvironProvider) checkMaas(endpoint, ver string) error {
 	c, err := gomaasapi.NewAnonymousClient(endpoint, ver)
 	if err != nil {
 		logger.Debugf("Can't create maas API %s client for %q: %v", ver, endpoint, err)
@@ -111,7 +105,7 @@ func (p MaasEnvironProvider) checkMaas(endpoint, ver string) error {
 }
 
 // PrepareConfig is specified in the EnvironProvider interface.
-func (p MaasEnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+func (p EnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
@@ -127,24 +121,8 @@ func (p MaasEnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*
 	return args.Config.Apply(attrs)
 }
 
-func verifyCredentials(env *maasEnviron, ctx context.ProviderCallContext) error {
-	// Verify we can connect to the server and authenticate.
-	if env.usingMAAS2() {
-		// The maas2 controller verifies credentials at creation time.
-		return nil
-	}
-	_, err := env.getMAASClient().GetSubObject("maas").CallGet("get_config", nil)
-	if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
-		logger.Debugf("authentication failed: %v", err)
-		return errors.New(`authentication failed.
-
-Please ensure the credentials are correct.`)
-	}
-	return nil
-}
-
 // DetectRegions is specified in the environs.CloudRegionDetector interface.
-func (p MaasEnvironProvider) DetectRegions() ([]cloud.Region, error) {
+func (p EnvironProvider) DetectRegions() ([]cloud.Region, error) {
 	return nil, errors.NotFoundf("regions")
 }
 

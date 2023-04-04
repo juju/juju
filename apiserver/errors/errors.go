@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
@@ -21,6 +21,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.common.errors")
 
 const (
+	// TODO(juju3): move to params
 	ErrBadId              = errors.ConstError("id not found")
 	ErrBadCreds           = errors.ConstError("invalid entity name or password")
 	ErrNoCreds            = errors.ConstError("no credentials provided")
@@ -47,12 +48,12 @@ func OperationBlockedError(msg string) error {
 	}
 }
 
-var singletonErrorCodes = map[error]string{
+var singletonErrorCodes = map[errors.ConstError]string{
 	stateerrors.ErrCannotEnterScopeYet: params.CodeCannotEnterScopeYet,
 	stateerrors.ErrCannotEnterScope:    params.CodeCannotEnterScope,
 	stateerrors.ErrUnitHasSubordinates: params.CodeUnitHasSubordinates,
 	stateerrors.ErrDead:                params.CodeDead,
-	txn.ErrExcessiveContention:         params.CodeExcessiveContention,
+	jujutxn.ErrExcessiveContention:     params.CodeExcessiveContention, // TODO(dqlite): remove jujutxn.ErrExcessiveContention from api errors
 	leadership.ErrClaimDenied:          params.CodeLeadershipClaimDenied,
 	lease.ErrClaimDenied:               params.CodeLeaseClaimDenied,
 	ErrBadId:                           params.CodeNotFound,
@@ -68,14 +69,13 @@ var singletonErrorCodes = map[error]string{
 }
 
 func singletonCode(err error) (string, bool) {
-	// All error types may not be hashable; deal with
-	// that by catching the panic if we try to look up
-	// a non-hashable type.
-	defer func() {
-		_ = recover()
-	}()
-	code, ok := singletonErrorCodes[err]
-	return code, ok
+	switch e := err.(type) {
+	case errors.ConstError:
+		code, ok := singletonErrorCodes[e]
+		return code, ok
+	default:
+		return "", false
+	}
 }
 
 func singletonError(err error) (bool, error) {
@@ -118,10 +118,6 @@ func ServerErrorAndStatus(err error) (*params.Error, int) {
 		status = http.StatusUnauthorized
 	case params.CodeRedirect:
 		status = http.StatusMovedPermanently
-	case params.CodeNotLeader:
-		status = http.StatusTemporaryRedirect
-	case params.CodeLeaseError:
-		status = leaseStatusCode(err1)
 	case params.CodeNotYetAvailable:
 		// The request could not be completed due to a conflict with
 		// the current state of the resource. This code is only allowed
@@ -130,6 +126,10 @@ func ServerErrorAndStatus(err error) (*params.Error, int) {
 		//
 		// See https://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.4.10
 		status = http.StatusConflict
+	case params.CodeNotLeader:
+		status = http.StatusTemporaryRedirect
+	case params.CodeLeaseError:
+		status = leaseStatusCode(err1)
 	}
 	return err1, status
 }
@@ -210,7 +210,7 @@ func ServerError(err error) *params.Error {
 	case errors.Is(err, errors.NotValid):
 		code = params.CodeNotValid
 	case errors.Is(err, IncompatibleSeriesError), errors.Is(err, stateerrors.IncompatibleSeriesError):
-		code = params.CodeIncompatibleSeries
+		code = params.CodeIncompatibleBase
 	case errors.As(err, &dischargeRequiredError):
 		code = params.CodeDischargeRequired
 		info = params.DischargeRequiredErrorInfo{
@@ -285,6 +285,8 @@ func DestroyErr(desc string, ids []string, errs []error) error {
 
 // RestoreError makes a best effort at converting the given error
 // back into an error originally converted by ServerError().
+// TODO(juju3): move to params.TranslateWellKnownError
+// Prefer to use the params.TranslateWellKnownError instead.
 func RestoreError(err error) error {
 	if err == nil {
 		return nil
@@ -305,20 +307,9 @@ func RestoreError(err error) error {
 		return singleton
 	}
 
-	// TODO(ericsnow) Support the other error types handled by ServerError().
 	switch {
-	case params.IsCodeUnauthorized(err):
-		return errors.NewUnauthorized(nil, msg)
-	case params.IsCodeNotFound(err):
-		return errors.NewNotFound(nil, msg)
 	case params.IsCodeModelNotFound(err):
 		return fmt.Errorf("%s%w", msg, errors.Hide(UnknownModelError))
-	case params.IsCodeUserNotFound(err):
-		return errors.NewUserNotFound(nil, msg)
-	case params.IsCodeAlreadyExists(err):
-		return errors.NewAlreadyExists(nil, msg)
-	case params.IsCodeNotAssigned(err):
-		return errors.NewNotAssigned(nil, msg)
 	case params.IsCodeHasAssignedUnits(err):
 		// TODO(ericsnow) Handle stateerrors.HasAssignedUnitsError here.
 		// ...by parsing msg?
@@ -333,8 +324,6 @@ func RestoreError(err error) error {
 		// TODO(ericsnow) Handle isNoAddressSetError here.
 		// ...by parsing msg?
 		return err
-	case params.IsCodeNotProvisioned(err):
-		return errors.NewNotProvisioned(nil, msg)
 	case params.IsCodeUpgradeInProgress(err):
 		// TODO(ericsnow) Handle stateerrors.UpgradeInProgressError here.
 		// ...by parsing msg?
@@ -345,17 +334,9 @@ func RestoreError(err error) error {
 		return err
 	case params.IsCodeStorageAttached(err):
 		return err
-	case params.IsCodeNotSupported(err):
-		return errors.NewNotSupported(nil, msg)
-	case params.IsBadRequest(err):
-		return errors.NewBadRequest(nil, msg)
-	case params.IsMethodNotAllowed(err):
-		return errors.NewMethodNotAllowed(nil, msg)
 	case params.ErrCode(err) == params.CodeDischargeRequired:
 		// TODO(ericsnow) Handle DischargeRequiredError here.
 		return err
-	case params.IsCodeQuotaLimitExceeded(err):
-		return errors.NewQuotaLimitExceeded(nil, msg)
 	case params.IsCodeNotLeader(err):
 		e, ok := err.(*params.Error)
 		if !ok {
@@ -368,13 +349,10 @@ func RestoreError(err error) error {
 		return fmt.Errorf(msg+"%w", errors.Hide(DeadlineExceededError))
 	case params.IsLeaseError(err):
 		return rehydrateLeaseError(err)
-	case params.IsCodeNotYetAvailable(err):
-		return errors.NewNotYetAvailable(nil, msg)
 	case params.IsCodeTryAgain(err):
 		return ErrTryAgain
-	case params.IsCodeNotValid(err):
-		return errors.NewNotValid(nil, msg)
 	default:
-		return err
+		// Handle all other codes here.
+		return params.TranslateWellKnownError(err)
 	}
 }

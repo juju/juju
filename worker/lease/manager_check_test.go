@@ -26,15 +26,14 @@ func (s *TokenSuite) TestSuccess(c *gc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			key("redis"): {
-				Holder:   "redis/0",
-				Expiry:   offset(time.Second),
-				Trapdoor: corelease.LockedTrapdoor,
+				Holder: "redis/0",
+				Expiry: offset(time.Second),
 			},
 		},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		token := getChecker(c, manager).Token("redis", "redis/0")
-		err := token.Check(0, nil)
+		err := token.Check()
 		c.Check(err, jc.ErrorIsNil)
 	})
 }
@@ -43,7 +42,7 @@ func (s *TokenSuite) TestFailureMissing(c *gc.C) {
 	fix := &Fixture{}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		token := getChecker(c, manager).Token("redis", "redis/0")
-		err := token.Check(0, nil)
+		err := token.Check()
 		c.Check(errors.Cause(err), gc.Equals, corelease.ErrNotHeld)
 	})
 }
@@ -52,15 +51,14 @@ func (s *TokenSuite) TestFailureOtherHolder(c *gc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			key("redis"): {
-				Holder:   "redis/99",
-				Expiry:   offset(time.Second),
-				Trapdoor: corelease.LockedTrapdoor,
+				Holder: "redis/99",
+				Expiry: offset(time.Second),
 			},
 		},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		token := getChecker(c, manager).Token("redis", "redis/0")
-		err := token.Check(0, nil)
+		err := token.Check()
 		c.Check(errors.Cause(err), gc.Equals, corelease.ErrNotHeld)
 	})
 }

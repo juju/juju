@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/juju/blobstore/v2"
+	"github.com/juju/blobstore/v3"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
-	jujutxn "github.com/juju/txn/v2"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
+	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/mongo"
 )

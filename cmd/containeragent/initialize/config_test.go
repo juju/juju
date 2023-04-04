@@ -1,9 +1,6 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-//go:build !windows
-// +build !windows
-
 package initialize_test
 
 import (
@@ -40,8 +37,9 @@ func (s *initCommandSuit) TestConfigFromEnv(c *gc.C) {
 
 }
 
-func (s *initCommandSuit) TestDefaultIdentity(c *gc.C) {
-	ID := initialize.DefaultIdentity()
+func (s *initCommandSuit) TestDefaultIdentityOnK8S(c *gc.C) {
+	ID, err := initialize.Identity()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ID.PodName, gc.DeepEquals, `gitlab-0`)
 	c.Assert(ID.PodUUID, gc.DeepEquals, `gitlab-uuid`)
 }

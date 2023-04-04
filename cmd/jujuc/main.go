@@ -6,7 +6,7 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -15,10 +15,12 @@ import (
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3/exec"
 
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
 )
 
@@ -26,6 +28,7 @@ var logger = loggo.GetLogger("juju.cmd.jujud")
 
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 const (
@@ -76,7 +79,7 @@ func getSocket() (sockets.Socket, error) {
 	if err != nil {
 		return sockets.Socket{}, err
 	}
-	caCert, err := ioutil.ReadFile(caCertFile)
+	caCert, err := os.ReadFile(caCertFile)
 	if err != nil {
 		return sockets.Socket{}, errors.Annotatef(err, "reading %s", caCertFile)
 	}
@@ -149,7 +152,7 @@ func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int
 	var resp exec.ExecResponse
 	err = client.Call("Jujuc.Main", req, &resp)
 	if err != nil && err.Error() == ErrNoStdinStr {
-		req.Stdin, err = ioutil.ReadAll(os.Stdin)
+		req.Stdin, err = io.ReadAll(os.Stdin)
 		if err != nil {
 			err = errors.Annotate(err, "cannot read stdin")
 			return

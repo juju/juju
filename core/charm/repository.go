@@ -6,8 +6,8 @@ package charm
 import (
 	"net/url"
 
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	"gopkg.in/macaroon.v2"
 )
 

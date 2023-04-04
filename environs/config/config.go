@@ -9,10 +9,12 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
@@ -26,7 +28,9 @@ import (
 	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/logfwd/syslog"
 	jujuversion "github.com/juju/juju/version"
@@ -97,10 +101,6 @@ const (
 	// ContainerImageMetadataURLKey is the key used to specify the location
 	// of OS image metadata for containers.
 	ContainerImageMetadataURLKey = "container-image-metadata-url"
-
-	// GUIStreamKey stores the key used to specify the stream
-	// to used when fetching a gui tarball.
-	GUIStreamKey = "gui-stream"
 
 	// Proxy behaviour has become something of an annoying thing to define
 	// well. These following four proxy variables are being kept to continue
@@ -272,9 +272,6 @@ const (
 	// using.
 	// It is expected that when in a different mode, Juju will perform in a
 	// different state.
-	// The lack of a mode means it will default into compatibility mode.
-	//
-	//  - strict mode ensures that we handle any fallbacks as errors.
 	ModeKey = "mode"
 
 	//
@@ -301,6 +298,13 @@ const (
 	// DefaultSeriesKey is a key for determining the series a model should
 	// explicitly use for charms unless otherwise provided.
 	DefaultSeriesKey = "default-series"
+
+	// SecretBackendKey is used to specify the secret backend.
+	SecretBackendKey = "secret-backend"
+
+	// SecretBackendConfigKey is used to configure the secret backend.
+	// The config is provider dependent and is expected to be json or yaml.
+	SecretBackendConfigKey = "secret-backend-config"
 )
 
 // ParseHarvestMode parses description of harvesting method and
@@ -388,6 +392,16 @@ func PreferredSeries(cfg HasDefaultSeries) string {
 	return GetDefaultSupportedLTS()
 }
 
+// PreferredBase returns the preferred base to use when a charm does not
+// explicitly specify a base.
+func PreferredBase(cfg HasDefaultSeries) series.Base {
+	ser, ok := cfg.DefaultSeries()
+	if !ok {
+		return jujuversion.DefaultSupportedLTSBase()
+	}
+	return series.MakeDefaultBase("ubuntu", ser)
+}
+
 // Config holds an immutable environment configuration.
 type Config struct {
 	// defined holds the attributes that are defined for Config.
@@ -425,6 +439,12 @@ const (
 //
 // if $XDG_DATA_HOME is defined it will be used instead of ~/.local/share
 func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error) {
+	initSchema.Do(func() {
+		allFields = fields()
+		defaultsWhenParsing = allDefaults()
+		withDefaultsChecker = schema.FieldMap(allFields, defaultsWhenParsing)
+		noDefaultsChecker = schema.FieldMap(allFields, alwaysOptional)
+	})
 	checker := noDefaultsChecker
 	if withDefaults {
 		checker = withDefaultsChecker
@@ -448,7 +468,7 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 	}
 	// Copy unknown attributes onto the type-specific map.
 	for k, v := range attrs {
-		if _, ok := fields[k]; !ok {
+		if _, ok := allFields[k]; !ok {
 			c.unknown[k] = v
 		}
 	}
@@ -517,6 +537,7 @@ var defaultConfigValues = map[string]interface{}{
 	"enable-os-upgrade":             true,
 	"development":                   false,
 	TestModeKey:                     false,
+	ModeKey:                         "",
 	DisableTelemetryKey:             false,
 	TransmitVendorMetricsKey:        true,
 	UpdateStatusHookInterval:        DefaultUpdateStatusHookInterval,
@@ -527,7 +548,7 @@ var defaultConfigValues = map[string]interface{}{
 	BackupDirKey:                    "",
 	LXDSnapChannel:                  DefaultLxdSnapChannel,
 
-	CharmHubURLKey: charmhub.CharmHubServerURL,
+	CharmHubURLKey: charmhub.DefaultServerURL,
 
 	// Image and agent streams and URLs.
 	"image-stream":               "released",
@@ -567,6 +588,10 @@ var defaultConfigValues = map[string]interface{}{
 	MaxStatusHistorySize: DefaultStatusHistorySize,
 	MaxActionResultsAge:  DefaultActionResultsAge,
 	MaxActionResultsSize: DefaultActionResultsSize,
+
+	// By default the Juju backend is used.
+	SecretBackendKey:       "",
+	SecretBackendConfigKey: "",
 }
 
 // defaultLoggingConfig is the default value for logging-config if it is otherwise not set.
@@ -579,7 +604,14 @@ const defaultLoggingConfig = "<root>=INFO"
 // to be used for any new model where there is no
 // value yet defined.
 func ConfigDefaults() map[string]interface{} {
-	return defaultConfigValues
+	defaults := make(map[string]interface{})
+	for name, value := range defaultConfigValues {
+		if developerConfigValue(name) {
+			continue
+		}
+		defaults[name] = value
+	}
+	return defaults
 }
 
 func (c *Config) setLoggingFromEnviron() error {
@@ -806,6 +838,10 @@ func Validate(cfg, old *Config) error {
 		return errors.Trace(err)
 	}
 
+	if err := cfg.validateDefaultSeries(); err != nil {
+		return errors.Trace(err)
+	}
+
 	if err := cfg.validateMode(); err != nil {
 		return errors.Trace(err)
 	}
@@ -942,7 +978,25 @@ func (c *Config) DefaultSpace() string {
 	return c.asString(DefaultSpace)
 }
 
-// DefaultSeriesKey returns the configured default Ubuntu series for the model,
+var supportedJujuSeries = series.WorkloadSeries
+
+func (c *Config) validateDefaultSeries() error {
+	defaultSeries, configured := c.DefaultSeries()
+	if !configured {
+		return nil
+	}
+	supported, err := supportedJujuSeries(time.Now(), "", "")
+	if err != nil {
+		return errors.Annotate(err, "cannot read supported series")
+	}
+	logger.Tracef("supported series %s", supported.SortedValues())
+	if !supported.Contains(defaultSeries) {
+		return errors.NotSupportedf("series %q", defaultSeries)
+	}
+	return nil
+}
+
+// DefaultSeries returns the configured default Ubuntu series for the model,
 // and whether the default series was explicitly configured on the environment.
 func (c *Config) DefaultSeries() (string, bool) {
 	s, ok := c.defined[DefaultSeriesKey]
@@ -956,6 +1010,20 @@ func (c *Config) DefaultSeries() (string, bool) {
 		logger.Errorf("invalid default-series: %q", s)
 		return "", false
 	}
+}
+
+// SecretStore returns the secret store name.
+func (c *Config) SecretStore() string {
+	value, _ := c.defined[SecretBackendKey].(string)
+	return value
+}
+
+// SecretBackendConfig returns the secret store config,
+// expected to be a json or yaml encoded config struct
+// relevant to the configured secret store type.
+func (c *Config) SecretBackendConfig() string {
+	value, _ := c.defined[SecretBackendConfigKey].(string)
+	return value
 }
 
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
@@ -1372,23 +1440,12 @@ func (c *Config) ContainerImageStream() string {
 	return "released"
 }
 
-// GUIStream returns the simplestreams stream
-// used to identify which gui to use when
-// when fetching a gui tarball.
-func (c *Config) GUIStream() string {
-	v, _ := c.defined[GUIStreamKey].(string)
-	if v != "" {
-		return v
-	}
-	return "released"
-}
-
 // CharmHubURL returns the URL to use for CharmHub API calls.
 func (c *Config) CharmHubURL() (string, bool) {
 	if v, ok := c.defined[CharmHubURLKey].(string); ok && v != "" {
 		return v, true
 	}
-	return charmhub.CharmHubServerURL, false
+	return charmhub.DefaultServerURL, false
 }
 
 func (c *Config) validateCharmHubURL() error {
@@ -1403,13 +1460,25 @@ func (c *Config) validateCharmHubURL() error {
 	return nil
 }
 
-// Mode returns the mode type for the configuration.
-// Only two modes exist at the moment (strict or ""). Empty string
-// implies compatible mode.
-func (c *Config) Mode() ([]string, bool) {
+const (
+	// RequiresPromptsMode is used to tell clients interacting with
+	// model that confirmation prompts are required when removing
+	// potentially important resources
+	RequiresPromptsMode = "requires-prompts"
+
+	// StrictMode is currently unused
+	// TODO(jack-w-shaw) remove this mode
+	StrictMode = "strict"
+)
+
+var allModes = set.NewStrings(RequiresPromptsMode, StrictMode)
+
+// Mode returns a set of mode types for the configuration.
+// Only one option exists at the moment ('requires-prompts')
+func (c *Config) Mode() (set.Strings, bool) {
 	modes, ok := c.defined[ModeKey]
 	if !ok {
-		return []string{}, false
+		return set.NewStrings(), false
 	}
 	if m, ok := modes.(string); ok {
 		s := set.NewStrings()
@@ -1420,21 +1489,18 @@ func (c *Config) Mode() ([]string, bool) {
 			s.Add(strings.TrimSpace(v))
 		}
 		if s.Size() > 0 {
-			return s.SortedValues(), true
+			return s, true
 		}
 	}
 
-	return []string{}, false
+	return set.NewStrings(), false
 }
 
 func (c *Config) validateMode() error {
 	modes, _ := c.Mode()
-	for _, mode := range modes {
-		switch strings.TrimSpace(mode) {
-		case "strict":
-		default:
-			return errors.NotValidf("mode %q", mode)
-		}
+	difference := modes.Difference(allModes)
+	if !difference.IsEmpty() {
+		return errors.NotValidf("mode(s) %q", strings.Join(difference.SortedValues(), ", "))
 	}
 	return nil
 }
@@ -1557,16 +1623,8 @@ func (c *Config) MaxActionResultsSizeMB() uint {
 // UpdateStatusHookInterval is how often to run the charm
 // update-status hook.
 func (c *Config) UpdateStatusHookInterval() time.Duration {
-	// TODO(wallyworld) - remove this work around when possible as
-	// we already have a defaulting mechanism for config.
-	// It's only here to guard against using Juju clients >= 2.2
-	// with Juju controllers running 2.1.x
-	raw := c.asString(UpdateStatusHookInterval)
-	if raw == "" {
-		raw = DefaultUpdateStatusHookInterval
-	}
 	// Value has already been validated.
-	val, _ := time.ParseDuration(raw)
+	val, _ := time.ParseDuration(c.asString(UpdateStatusHookInterval))
 	return val
 }
 
@@ -1671,7 +1729,7 @@ var fields = func() schema.Fields {
 		panic(err)
 	}
 	return fs
-}()
+}
 
 // alwaysOptional holds configuration defaults for attributes that may
 // be unspecified even after a configuration has been created with all
@@ -1722,7 +1780,6 @@ var alwaysOptional = schema.Defaults{
 	SnapStoreProxyURLKey:            schema.Omit,
 	AptMirrorKey:                    schema.Omit,
 	AgentStreamKey:                  schema.Omit,
-	GUIStreamKey:                    schema.Omit,
 	ResourceTagsKey:                 schema.Omit,
 	"cloudimg-base-url":             schema.Omit,
 	"enable-os-refresh-update":      schema.Omit,
@@ -1758,13 +1815,13 @@ var alwaysOptional = schema.Defaults{
 	DefaultSpace:                    schema.Omit,
 	LXDSnapChannel:                  schema.Omit,
 	CharmHubURLKey:                  schema.Omit,
+	SecretBackendKey:                schema.Omit,
+	SecretBackendConfigKey:          schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
 	return alwaysOptional[attr] == "" || alwaysOptional[attr] == schema.Omit
 }
-
-var defaultsWhenParsing = allDefaults()
 
 // allDefaults returns a schema.Defaults that contains
 // defaults to be used when creating a new config with
@@ -1776,6 +1833,9 @@ func allDefaults() schema.Defaults {
 		d[attr] = val
 	}
 	for attr, val := range alwaysOptional {
+		if developerConfigValue(attr) {
+			continue
+		}
 		if _, ok := d[attr]; !ok {
 			d[attr] = val
 		}
@@ -1792,11 +1852,15 @@ var immutableAttributes = []string{
 	UUIDKey,
 	"firewall-mode",
 	CharmHubURLKey,
+	SecretBackendKey,
 }
 
 var (
-	withDefaultsChecker = schema.FieldMap(fields, defaultsWhenParsing)
-	noDefaultsChecker   = schema.FieldMap(fields, alwaysOptional)
+	initSchema          sync.Once
+	allFields           schema.Fields
+	defaultsWhenParsing schema.Defaults
+	withDefaultsChecker schema.Checker
+	noDefaultsChecker   schema.Checker
 )
 
 // ValidateUnknownAttrs checks the unknown attributes of the config against
@@ -1824,7 +1888,7 @@ func (c *Config) ValidateUnknownAttrs(extrafields schema.Fields, defaults schema
 			if val, isString := value.(string); isString && val != "" {
 				// only warn about attributes with non-empty string values
 				altName := strings.Replace(name, "_", "-", -1)
-				if extrafields[altName] != nil || fields[altName] != nil {
+				if extrafields[altName] != nil || allFields[altName] != nil {
 					logger.Warningf("unknown config field %q, did you mean %q?", name, altName)
 				} else {
 					logger.Warningf("unknown config field %q", name)
@@ -1887,6 +1951,16 @@ func AptProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 	return settings
 }
 
+func developerConfigValue(name string) bool {
+	if !featureflag.Enabled(feature.DeveloperMode) {
+		switch name {
+		case SecretBackendKey, SecretBackendConfigKey:
+			return true
+		}
+	}
+	return false
+}
+
 // Schema returns a configuration schema that includes both
 // the given extra fields and all the fields defined in this package.
 // It returns an error if extra defines any fields defined in this
@@ -1894,6 +1968,9 @@ func AptProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 func Schema(extra environschema.Fields) (environschema.Fields, error) {
 	fields := make(environschema.Fields)
 	for name, field := range configSchema {
+		if developerConfigValue(name) {
+			continue
+		}
 		if controller.ControllerOnlyAttribute(name) {
 			return nil, errors.Errorf("config field %q clashes with controller config", name)
 		}
@@ -1969,6 +2046,7 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
+	// TODO (jack-w-shaw) integrate this into mode
 	"development": {
 		Description: "Whether the model is in development mode",
 		Type:        environschema.Tbool,
@@ -2091,11 +2169,6 @@ global or per instance security groups.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	GUIStreamKey: {
-		Description: `The simplestreams stream used to identify which gui ids to search when downloading a gui tarball.`,
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
 	ContainerImageMetadataURLKey: {
 		Description: "The URL at which the metadata used to locate container OS image ids is located",
 		Type:        environschema.Tstring,
@@ -2199,10 +2272,11 @@ data of the store. (default false)`,
 		Group:       environschema.EnvironGroup,
 	},
 	ModeKey: {
-		Description: `Mode sets the type of mode the model should run in.
-If the mode is set to "strict" then errors will be used instead of
-using fallbacks. By default mode is set to be lenient and use fallbacks
-where possible. (default "")`,
+		Description: `Mode is a comma-separated list which sets the 
+mode the model should run in. So far only one is implemented
+- If 'requires-prompts' is present, clients will ask for confirmation before removing
+potentially valuable resources.
+(default "")`,
 		Type:  environschema.Tstring,
 		Group: environschema.EnvironGroup,
 	},
@@ -2308,5 +2382,16 @@ where possible. (default "")`,
 		Description: `The logging output destination: database and/or syslog. (default "")`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
+	},
+	SecretBackendKey: {
+		Description: `The name of the secret store backend. (default "" which implies Juju)`,
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	SecretBackendConfigKey: {
+		Description: `The json or yaml secret store config. (default "")`,
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+		Secret:      true,
 	},
 }

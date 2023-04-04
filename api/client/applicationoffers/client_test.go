@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -591,54 +591,6 @@ func (s *crossmodelMockSuite) TestFindFacadeCallError(c *gc.C) {
 	c.Assert(results, gc.IsNil)
 }
 
-func (s *crossmodelMockSuite) TestGetConsumeDetailsLegacy(c *gc.C) {
-	offer := params.ApplicationOfferDetails{
-		SourceModelTag:         "source model",
-		OfferName:              "an offer",
-		OfferURL:               "offer url",
-		ApplicationDescription: "description",
-		Endpoints:              []params.RemoteEndpoint{{Name: "endpoint"}},
-	}
-	controllerInfo := &params.ExternalControllerInfo{
-		Addrs: []string{"1.2.3.4"},
-	}
-	mac, err := apitesting.NewMacaroon("id")
-	c.Assert(err, jc.ErrorIsNil)
-	var called bool
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			called = true
-			c.Assert(request, gc.Equals, "GetConsumeDetails")
-			args, ok := a.(params.OfferURLs)
-			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.OfferURLs, jc.DeepEquals, []string{"me/prod.app"})
-			if results, ok := result.(*params.ConsumeOfferDetailsResults); ok {
-				result := params.ConsumeOfferDetailsResult{
-					ConsumeOfferDetails: params.ConsumeOfferDetails{
-						Offer:          &offer,
-						Macaroon:       mac,
-						ControllerInfo: controllerInfo,
-					},
-				}
-				results.Results = []params.ConsumeOfferDetailsResult{result}
-			}
-			return nil
-		})
-	client := applicationoffers.NewClient(apiCaller)
-	details, err := client.GetConsumeDetails("me/prod.app")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
-	c.Assert(details, jc.DeepEquals, params.ConsumeOfferDetails{
-		Offer:          &offer,
-		Macaroon:       mac,
-		ControllerInfo: controllerInfo,
-	})
-}
-
 func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
 	offer := params.ApplicationOfferDetails{
 		SourceModelTag:         "source model",
@@ -737,24 +689,4 @@ func (s *crossmodelMockSuite) TestDestroyOffers(c *gc.C) {
 	err := client.DestroyOffers(true, "me/prod.app")
 	c.Assert(err, gc.ErrorMatches, "fail")
 	c.Assert(called, jc.IsTrue)
-}
-
-func (s *crossmodelMockSuite) TestDestroyOffersForce(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				c.Fail()
-				return nil
-			},
-		),
-		BestVersion: 1,
-	}
-	client := applicationoffers.NewClient(apiCaller)
-	err := client.DestroyOffers(true, "offer-url")
-
-	c.Assert(err, gc.ErrorMatches, "DestroyOffers\\(\\).* not implemented")
 }

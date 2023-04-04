@@ -44,8 +44,7 @@ func (*fakeStatusAPI) Status(c []string) (*params.FullStatus, error) {
 					"10.0.1.1",
 				},
 				InstanceId: "juju-badd06-0",
-				Series:     "trusty",
-				Base:       params.Base{Name: "ubuntu", Channel: "14.04"},
+				Base:       params.Base{Name: "ubuntu", Channel: "22.04"},
 				NetworkInterfaces: map[string]params.NetworkInterface{
 					"eth0": {
 						IPAddresses: []string{
@@ -70,8 +69,7 @@ func (*fakeStatusAPI) Status(c []string) (*params.FullStatus, error) {
 					"10.0.1.2",
 				},
 				InstanceId: "juju-badd06-1",
-				Series:     "trusty",
-				Base:       params.Base{Name: "ubuntu", Channel: "14.04"},
+				Base:       params.Base{Name: "ubuntu", Channel: "22.04"},
 				NetworkInterfaces: map[string]params.NetworkInterface{
 					"eth0": {
 						IPAddresses: []string{
@@ -94,8 +92,7 @@ func (*fakeStatusAPI) Status(c []string) (*params.FullStatus, error) {
 							"10.0.1.3",
 						},
 						InstanceId: "juju-badd06-1-lxd-0",
-						Series:     "trusty",
-						Base:       params.Base{Name: "ubuntu", Channel: "14.04"},
+						Base:       params.Base{Name: "ubuntu", Channel: "22.04"},
 						NetworkInterfaces: map[string]params.NetworkInterface{
 							"eth0": {
 								IPAddresses: []string{
@@ -140,11 +137,10 @@ func (s *MachineListCommandSuite) TestMachine(c *gc.C) {
 	context, err := cmdtesting.RunCommand(c, newMachineListCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
-		"Machine  State    Address   Inst id              Series  AZ         Message\n"+
-		"0        started  10.0.0.1  juju-badd06-0        trusty  us-east-1  \n"+
-		"1        started  10.0.0.2  juju-badd06-1        trusty             \n"+
-		"1/lxd/0  pending  10.0.0.3  juju-badd06-1-lxd-0  trusty             \n"+
-		"\n")
+		"Machine  State    Address   Inst id              Base          AZ         Message\n"+
+		"0        started  10.0.0.1  juju-badd06-0        ubuntu@22.04  us-east-1  \n"+
+		"1        started  10.0.0.2  juju-badd06-1        ubuntu@22.04             \n"+
+		"1/lxd/0  pending  10.0.0.3  juju-badd06-1-lxd-0  ubuntu@22.04             \n")
 }
 
 func (s *MachineListCommandSuite) TestListMachineYaml(c *gc.C) {
@@ -161,7 +157,9 @@ func (s *MachineListCommandSuite) TestListMachineYaml(c *gc.C) {
 		"    - 10.0.0.1\n"+
 		"    - 10.0.1.1\n"+
 		"    instance-id: juju-badd06-0\n"+
-		"    series: trusty\n"+
+		"    base:\n"+
+		"      name: ubuntu\n"+
+		"      channel: \"22.04\"\n"+
 		"    network-interfaces:\n"+
 		"      eth0:\n"+
 		"        ip-addresses:\n"+
@@ -179,7 +177,9 @@ func (s *MachineListCommandSuite) TestListMachineYaml(c *gc.C) {
 		"    - 10.0.0.2\n"+
 		"    - 10.0.1.2\n"+
 		"    instance-id: juju-badd06-1\n"+
-		"    series: trusty\n"+
+		"    base:\n"+
+		"      name: ubuntu\n"+
+		"      channel: \"22.04\"\n"+
 		"    network-interfaces:\n"+
 		"      eth0:\n"+
 		"        ip-addresses:\n"+
@@ -196,7 +196,9 @@ func (s *MachineListCommandSuite) TestListMachineYaml(c *gc.C) {
 		"        - 10.0.0.3\n"+
 		"        - 10.0.1.3\n"+
 		"        instance-id: juju-badd06-1-lxd-0\n"+
-		"        series: trusty\n"+
+		"        base:\n"+
+		"          name: ubuntu\n"+
+		"          channel: \"22.04\"\n"+
 		"        network-interfaces:\n"+
 		"          eth0:\n"+
 		"            ip-addresses:\n"+
@@ -238,7 +240,7 @@ func (s *MachineListCommandSuite) TestListMachineJson(c *gc.C) {
 		"		  \"instance-id\":\"juju-badd06-0\"," +
 		"		  \"machine-status\":{}," +
 		"		  \"modification-status\":{}," +
-		"		  \"series\":\"trusty\"," +
+		"		  \"base\":{\"name\":\"ubuntu\",\"channel\":\"22.04\"}," +
 		"		  \"network-interfaces\":{" +
 		"			 \"eth0\":{" +
 		"				\"ip-addresses\":[" +
@@ -264,7 +266,7 @@ func (s *MachineListCommandSuite) TestListMachineJson(c *gc.C) {
 		"		  \"instance-id\":\"juju-badd06-1\"," +
 		"		  \"machine-status\":{}," +
 		"		  \"modification-status\":{}," +
-		"		  \"series\":\"trusty\"," +
+		"		  \"base\":{\"name\":\"ubuntu\",\"channel\":\"22.04\"}," +
 		"		  \"network-interfaces\":{" +
 		"			 \"eth0\":{" +
 		"				\"ip-addresses\":[" +
@@ -288,7 +290,7 @@ func (s *MachineListCommandSuite) TestListMachineJson(c *gc.C) {
 		"				\"instance-id\":\"juju-badd06-1-lxd-0\"," +
 		"				\"machine-status\":{}," +
 		"				\"modification-status\":{}," +
-		"				\"series\":\"trusty\"," +
+		"		        \"base\":{\"name\":\"ubuntu\",\"channel\":\"22.04\"}," +
 		"				\"network-interfaces\":{" +
 		"				   \"eth0\":{" +
 		"					  \"ip-addresses\":[" +

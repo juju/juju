@@ -5,11 +5,11 @@ package featuretests
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
-	charmresource "github.com/juju/charm/v8/resource"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -78,7 +78,6 @@ Resource          Supplied by  Revision
 install-resource  upload       -
 store-resource    upload       -
 upload-resource   upload       -
-
 `[1:])
 
 	// check "juju resources <unit>"
@@ -90,7 +89,6 @@ Resource          Revision
 install-resource  -
 store-resource    -
 upload-resource   -
-
 `[1:])
 
 	// check "juju attach-resource"
@@ -101,7 +99,7 @@ upload-resource   -
 
 	// Empty files are fine.
 	filename := filepath.Join(c.MkDir(), "empty.txt")
-	err = ioutil.WriteFile(filename, []byte{}, 0755)
+	err = os.WriteFile(filename, []byte{}, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = runCommand(c, "attach-resource", s.appOneName, "install-resource="+filename)
 	c.Check(err, jc.ErrorIsNil)
@@ -117,7 +115,6 @@ Resource          Revision
 install-resource  1
 store-resource    1
 upload-resource   1
-
 `[1:])
 	s.client.stub.CheckCallNames(c, "ListResources")
 }

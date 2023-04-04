@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -17,17 +17,15 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	apiresources "github.com/juju/juju/api/client/resources"
+	commoncharm "github.com/juju/juju/api/common/charm"
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	charmsinterfaces "github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
-	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/series"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -37,10 +35,11 @@ var logger = loggo.GetLogger("juju.apiserver.charms")
 // API implements the charms interface and is the concrete
 // implementation of the API end point.
 type API struct {
-	charmInfoAPI *charmscommon.CharmInfoAPI
-	authorizer   facade.Authorizer
-	backendState charmsinterfaces.BackendState
-	backendModel charmsinterfaces.BackendModel
+	charmInfoAPI       *charmscommon.CharmInfoAPI
+	authorizer         facade.Authorizer
+	backendState       charmsinterfaces.BackendState
+	backendModel       charmsinterfaces.BackendModel
+	charmhubHTTPClient facade.HTTPClient
 
 	tag             names.ModelTag
 	requestRecorder facade.RequestRecorder
@@ -51,18 +50,6 @@ type API struct {
 
 	mu          sync.Mutex
 	repoFactory corecharm.RepositoryFactory
-}
-
-type APIv2 struct {
-	*APIv3
-}
-
-type APIv3 struct {
-	*APIv4
-}
-
-type APIv4 struct {
-	*API
 }
 
 // CharmInfo returns information about the requested charm.
@@ -149,9 +136,6 @@ func (a *API) List(args params.CharmsList) (params.CharmsListResult, error) {
 	return params.CharmsListResult{CharmURLs: charmURLs}, nil
 }
 
-// GetDownloadInfos is not available via the V2 API.
-func (a *APIv2) GetDownloadInfos(_ struct{}) {}
-
 // GetDownloadInfos attempts to get the bundle corresponding to the charm url
 // and origin.
 func (a *API) GetDownloadInfos(args params.CharmURLAndOrigins) (params.DownloadInfoResults, error) {
@@ -233,21 +217,9 @@ func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string) (param
 	// know nor understand what "all" means, so we need to ensure it doesn't leak
 	// out.
 	o := origin
-	if origin.Series == "all" {
+	if origin.Base.Name == "all" || origin.Base.Channel == "all" {
 		logger.Warningf("Release all detected, removing all from the origin. %s", origin.ID)
-		o.Series = ""
-		o.OS = ""
-		o.Channel = ""
-	} else if origin.Series != "" {
-		// Always set the os from the series, so we know it's correctly
-		// normalized for the rest of Juju.
-		base, err := series.GetBaseFromSeries(origin.Series)
-		if err != nil {
-			return params.CharmOrigin{}, errors.Trace(err)
-		}
-		o.Base = params.Base{Name: base.Name, Channel: base.Channel.String()}
-		o.OS = ""
-		o.Channel = ""
+		o.Base = params.Base{}
 	}
 
 	if origin.Architecture == "all" || origin.Architecture == "" {
@@ -257,9 +229,6 @@ func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string) (param
 
 	return o, nil
 }
-
-// AddCharm is not available via the V2 API.
-func (a *APIv2) AddCharm(_ struct{}) {}
 
 // AddCharm adds the given charm URL (which must include revision) to the
 // environment, if it does not exist yet. Local charms are not supported,
@@ -273,9 +242,6 @@ func (a *API) AddCharm(args params.AddCharmWithOrigin) (params.CharmOriginResult
 		Force:              args.Force,
 	})
 }
-
-// AddCharmWithAuthorization is not available via the V2 API.
-func (a *APIv2) AddCharmWithAuthorization(_ struct{}) {}
 
 // AddCharmWithAuthorization adds the given charm URL (which must include
 // revision) to the environment, if it does not exist yet. Local charms are
@@ -293,29 +259,17 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		return params.CharmOriginResult{}, errors.Errorf("unknown schema for charm URL %q", args.URL)
 	}
 
-	if args.Origin.Source == "charm-hub" && args.Origin.Series == "" {
-		return params.CharmOriginResult{}, errors.BadRequestf("series required for charm-hub charms")
+	if args.Origin.Source == "charm-hub" && (args.Origin.Base.Name == "" || args.Origin.Base.Channel == "") {
+		return params.CharmOriginResult{}, errors.BadRequestf("base required for charm-hub charms")
 	}
 
 	if err := a.checkCanWrite(); err != nil {
 		return params.CharmOriginResult{}, err
 	}
 
-	charmURL, err := charm.ParseURL(args.URL)
-	if err != nil {
-		return params.CharmOriginResult{}, err
-	}
-
-	ctrlCfg, err := a.backendState.ControllerConfig()
-	if err != nil {
-		return params.CharmOriginResult{}, err
-	}
-
-	// TODO(achilleasa): This escape hatch allows us to test the asynchronous
-	// charm download code-path without breaking the existing deploy logic.
-	//
-	// It will be removed once the new universal deploy facade is into place.
-	if ctrlCfg.Features().Contains(feature.AsynchronousCharmDownloads) {
+	// Only the Charmhub API gives us the metadata we need to support async
+	// charm downloads, so don't do it for legacy Charmstore ones.
+	if commoncharm.OriginSource(args.Origin.Source) == commoncharm.OriginCharmHub {
 		actualOrigin, err := a.queueAsyncCharmDownload(args)
 		if err != nil {
 			return params.CharmOriginResult{}, errors.Trace(err)
@@ -330,14 +284,17 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		}, nil
 	}
 
-	httpTransport := charmhub.RequestHTTPTransport(a.requestRecorder, charmhub.DefaultRetryPolicy())
+	charmURL, err := charm.ParseURL(args.URL)
+	if err != nil {
+		return params.CharmOriginResult{}, err
+	}
 
 	downloader, err := a.newDownloader(services.CharmDownloaderConfig{
-		Logger:         logger,
-		Transport:      httpTransport(logger),
-		StorageFactory: a.newStorage,
-		StateBackend:   a.backendState,
-		ModelBackend:   a.backendModel,
+		Logger:             logger,
+		CharmhubHTTPClient: a.charmhubHTTPClient,
+		StorageFactory:     a.newStorage,
+		StateBackend:       a.backendState,
+		ModelBackend:       a.backendModel,
 	})
 	if err != nil {
 		return params.CharmOriginResult{}, errors.Trace(err)
@@ -458,9 +415,6 @@ func (adapter charmInfoAdapter) Actions() *charm.Actions {
 func (adapter charmInfoAdapter) Revision() int {
 	return 0 // not part of the essential metadata
 }
-
-// ResolveCharms is not available via the V2 API.
-func (a *APIv2) ResolveCharms(_ struct{}) {}
 
 // ResolveCharms resolves the given charm URLs with an optionally specified
 // preferred channel.  Channel provided via CharmOrigin.
@@ -585,12 +539,11 @@ func (a *API) getCharmRepository(src corecharm.Source) (corecharm.Repository, er
 	}
 	a.mu.Unlock()
 
-	httpTransport := charmhub.RequestHTTPTransport(a.requestRecorder, charmhub.DefaultRetryPolicy())
 	repoFactory := a.newRepoFactory(services.CharmRepoFactoryConfig{
-		Logger:       logger,
-		Transport:    httpTransport(logger),
-		StateBackend: a.backendState,
-		ModelBackend: a.backendModel,
+		Logger:             logger,
+		CharmhubHTTPClient: a.charmhubHTTPClient,
+		StateBackend:       a.backendState,
+		ModelBackend:       a.backendModel,
 	})
 
 	return repoFactory.GetCharmRepository(src)
@@ -615,9 +568,6 @@ func (a *API) IsMetered(args params.CharmURL) (params.IsMeteredResult, error) {
 	}
 	return params.IsMeteredResult{Metered: false}, nil
 }
-
-// CheckCharmPlacement isn't on the v13 API.
-func (a *APIv3) CheckCharmPlacement(_, _ struct{}) {}
 
 // CheckCharmPlacement checks if a charm is allowed to be placed with in a
 // given application.
@@ -759,9 +709,6 @@ func (a *API) getMachineArch(machine charmsinterfaces.Machine) (arch.Arch, error
 
 	return "", nil
 }
-
-// ListCharmResources is not available via the V2 API.
-func (a *APIv2) ListCharmResources(_ struct{}) {}
 
 // ListCharmResources returns a series of resources for a given charm.
 func (a *API) ListCharmResources(args params.CharmURLAndOrigins) (params.CharmResourcesResults, error) {

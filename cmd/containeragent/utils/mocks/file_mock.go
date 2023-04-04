@@ -93,6 +93,21 @@ func (mr *MockFileReaderWriterMockRecorder) RemoveAll(arg0 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveAll", reflect.TypeOf((*MockFileReaderWriter)(nil).RemoveAll), arg0)
 }
 
+// Stat mocks base method.
+func (m *MockFileReaderWriter) Stat(arg0 string) (fs.FileInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Stat", arg0)
+	ret0, _ := ret[0].(fs.FileInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Stat indicates an expected call of Stat.
+func (mr *MockFileReaderWriterMockRecorder) Stat(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stat", reflect.TypeOf((*MockFileReaderWriter)(nil).Stat), arg0)
+}
+
 // Symlink mocks base method.
 func (m *MockFileReaderWriter) Symlink(arg0, arg1 string) error {
 	m.ctrl.T.Helper()

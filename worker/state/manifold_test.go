@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	mgotesting "github.com/juju/mgo/v2/testing"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
@@ -133,7 +133,9 @@ func (s *ManifoldSuite) TestStatePinging(c *gc.C) {
 	// Kill the mongod to cause pings to fail.
 	mgotesting.MgoServer.Destroy()
 
-	checkExitsWithError(c, w, "state ping failed: .+")
+	// FIXME: Ideally we'd want the "state ping failed" error here, but in reality the txn watcher will fail
+	// first because it is long polling.
+	checkExitsWithError(c, w, "(state ping failed|hub txn watcher sync error): .+")
 }
 
 func (s *ManifoldSuite) TestOutputBadWorker(c *gc.C) {
@@ -222,7 +224,6 @@ func (s *ManifoldSuite) TestDeadStateRemoved(c *gc.C) {
 	c.Assert(model.Life(), gc.Equals, state.Dying)
 	c.Assert(newSt.RemoveDyingModel(), jc.ErrorIsNil)
 	c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
-	s.State.StartSync()
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		st, err := pool.Get(newSt.ModelUUID())

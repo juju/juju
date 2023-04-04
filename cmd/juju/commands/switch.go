@@ -82,7 +82,9 @@ func (c *switchCommand) SetClientStore(store jujuclient.ClientStore) {
 }
 
 func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
-	store := modelcmd.QualifyingClientStore{c.Store}
+	store := modelcmd.QualifyingClientStore{
+		ClientStore: c.Store,
+	}
 
 	// Get the current name for logging the transition or printing
 	// the current controller/model.

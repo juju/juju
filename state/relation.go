@@ -9,13 +9,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
-	jujutxn "github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/permission"
@@ -556,6 +556,11 @@ func (r *Relation) removeOps(ignoreApplication string, departingUnitName string,
 	ops = append(ops, tokenOps...)
 	offerOps := removeOfferConnectionsForRelationOps(r.Id())
 	ops = append(ops, offerOps...)
+	secretPermissionsOps, err := r.st.removeScopedSecretPermissionOps(r.Tag())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, secretPermissionsOps...)
 	// This cleanup does not need to be forced.
 	cleanupOp := newCleanupOp(cleanupRelationSettings, fmt.Sprintf("r#%d#", r.Id()))
 	return append(ops, cleanupOp), nil
@@ -675,6 +680,11 @@ func (r *Relation) Endpoint(applicationname string) (Endpoint, error) {
 	}
 	msg := fmt.Sprintf("application %q is not a member of %q", applicationname, r)
 	return Endpoint{}, errors.NewNotFound(nil, msg)
+}
+
+// ModelUUID returns the model UUID for the relation.
+func (r *Relation) ModelUUID() string {
+	return r.doc.ModelUUID
 }
 
 // Endpoints returns the endpoints for the relation.

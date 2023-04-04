@@ -160,14 +160,13 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 	if params.ControllerUUID == "" {
 		return errors.New("missing controller UUID in start instance parameters")
 	}
-	preferredSeries := config.PreferredSeries(env.Config())
 	agentVersion, ok := env.Config().AgentVersion()
 	if !ok {
 		return errors.New("missing agent version in model config")
 	}
 	filter := coretools.Filter{
 		Number: agentVersion,
-		OSType: series.DefaultOSTypeNameFromSeries(preferredSeries),
+		OSType: "ubuntu",
 	}
 	if params.Constraints.Arch != nil {
 		filter.Arch = *params.Constraints.Arch
@@ -183,11 +182,16 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 		return errors.Trace(err)
 	}
 
+	preferredSeries := config.PreferredSeries(env.Config())
 	if params.ImageMetadata == nil {
+		vers, err := imagemetadata.ImageRelease(preferredSeries)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		if err := SetImageMetadata(
 			env,
 			ss,
-			[]string{preferredSeries},
+			[]string{vers},
 			[]string{filter.Arch},
 			&params.ImageMetadata,
 		); err != nil {
@@ -226,7 +230,7 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 	return nil
 }
 
-func SetImageMetadata(env environs.Environ, fetcher imagemetadata.SimplestreamsFetcher, series, arches []string, out *[]*imagemetadata.ImageMetadata) error {
+func SetImageMetadata(env environs.Environ, fetcher imagemetadata.SimplestreamsFetcher, release, arches []string, out *[]*imagemetadata.ImageMetadata) error {
 	hasRegion, ok := env.(simplestreams.HasRegion)
 	if !ok {
 		return nil
@@ -241,7 +245,7 @@ func SetImageMetadata(env environs.Environ, fetcher imagemetadata.SimplestreamsF
 	}
 	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: region,
-		Releases:  series,
+		Releases:  release,
 		Arches:    arches,
 		Stream:    env.Config().ImageStream(),
 	})

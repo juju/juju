@@ -5,12 +5,12 @@ package charms_test
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
@@ -45,7 +45,7 @@ func (s *charmDownloaderSuite) TestCharmOpener(c *gc.C) {
 	resp := &http.Response{
 		StatusCode: 200,
 		Header:     make(http.Header),
-		Body:       ioutil.NopCloser(strings.NewReader(charmData)),
+		Body:       io.NopCloser(strings.NewReader(charmData)),
 	}
 	resp.Header.Add("Content-Type", "application/json")
 	mockHttpDoer.EXPECT().Do(
@@ -60,7 +60,7 @@ func (s *charmDownloaderSuite) TestCharmOpener(c *gc.C) {
 	defer reader.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
-	data, err := ioutil.ReadAll(reader)
+	data, err := io.ReadAll(reader)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(data, jc.DeepEquals, []byte(charmData))
 }

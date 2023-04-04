@@ -22,7 +22,7 @@ type ConfigModel interface {
 }
 
 // CharmhubClient creates a new charmhub Client based on this model's config.
-func CharmhubClient(mg ModelGetter, httpClient charmhub.Transport, logger loggo.Logger) (*charmhub.Client, error) {
+func CharmhubClient(mg ModelGetter, httpClient charmhub.HTTPClient, logger loggo.Logger) (*charmhub.Client, error) {
 	model, err := mg.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -33,16 +33,11 @@ func CharmhubClient(mg ModelGetter, httpClient charmhub.Transport, logger loggo.
 	}
 	url, _ := modelConfig.CharmHubURL()
 
-	config, err := charmhub.CharmHubConfigFromURL(url, logger,
-		charmhub.WithHTTPTransport(func(charmhub.Logger) charmhub.Transport {
-			return httpClient
-		}),
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	client, err := charmhub.NewClient(config)
+	client, err := charmhub.NewClient(charmhub.Config{
+		URL:        url,
+		HTTPClient: httpClient,
+		Logger:     logger,
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

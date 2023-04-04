@@ -7,7 +7,6 @@
 package cloud
 
 import (
-	"io/ioutil"
 	"os"
 
 	"github.com/juju/errors"
@@ -35,7 +34,7 @@ func PersonalCloudMetadata() (map[string]Cloud, error) {
 // ParseCloudMetadataFile loads any cloud metadata defined
 // in the specified file.
 func ParseCloudMetadataFile(file string) (map[string]Cloud, error) {
-	data, err := ioutil.ReadFile(file)
+	data, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}
@@ -53,5 +52,5 @@ func WritePersonalCloudMetadata(cloudsMap map[string]Cloud) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return ioutil.WriteFile(JujuPersonalCloudsPath(), data, os.FileMode(0600))
+	return os.WriteFile(JujuPersonalCloudsPath(), data, os.FileMode(0600))
 }

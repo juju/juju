@@ -5,7 +5,6 @@ package uniter_test
 
 import (
 	"path/filepath"
-	"runtime"
 
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -27,9 +26,6 @@ var _ = gc.Suite(&ListenerSuite{})
 
 func sockPath(c *gc.C) sockets.Socket {
 	sockPath := filepath.Join(c.MkDir(), "test.listener")
-	if runtime.GOOS == "windows" {
-		return sockets.Socket{Address: `\\.\pipe` + sockPath[2:], Network: "unix"}
-	}
 	return sockets.Socket{Address: sockPath, Network: "unix"}
 }
 
@@ -53,9 +49,6 @@ func (s *ListenerSuite) NewRunListener(c *gc.C, operator bool) *uniter.RunListen
 }
 
 func (s *ListenerSuite) TestNewRunListenerOnExistingSocketRemovesItAndSucceeds(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: Current named pipes implementation does not support this")
-	}
 	s.NewRunListener(c, false)
 	s.NewRunListener(c, false)
 }
@@ -75,7 +68,7 @@ func (s *ListenerSuite) TestClientCall(c *gc.C) {
 		ForceRemoteUnit: false,
 		UnitName:        "test/0",
 	}
-	err = client.Call(uniter.JujuRunEndpoint, args, &result)
+	err = client.Call(uniter.JujuExecEndpoint, args, &result)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(string(result.Stdout), gc.Equals, "some-command stdout")
@@ -99,7 +92,7 @@ func (s *ListenerSuite) TestUnregisterRunner(c *gc.C) {
 		ForceRemoteUnit: false,
 		UnitName:        "test/0",
 	}
-	err = client.Call(uniter.JujuRunEndpoint, args, &result)
+	err = client.Call(uniter.JujuExecEndpoint, args, &result)
 	c.Assert(err, gc.ErrorMatches, ".*no runner is registered for unit test/0")
 }
 
@@ -119,7 +112,7 @@ func (s *ListenerSuite) TestOperatorFlag(c *gc.C) {
 		UnitName:        "test/0",
 		Operator:        true,
 	}
-	err = client.Call(uniter.JujuRunEndpoint, args, &result)
+	err = client.Call(uniter.JujuExecEndpoint, args, &result)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(string(result.Stdout), gc.Equals, "some-command stdout")

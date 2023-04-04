@@ -29,7 +29,6 @@ var _ = gc.Suite(&ScaleApplicationSuite{})
 
 type mockScaleApplicationAPI struct {
 	*testing.Stub
-	version int
 }
 
 func (s mockScaleApplicationAPI) Close() error {
@@ -42,13 +41,9 @@ func (s mockScaleApplicationAPI) ScaleApplication(args application.ScaleApplicat
 	return params.ScaleApplicationResult{Info: &params.ScaleApplicationInfo{Scale: args.Scale}}, s.NextErr()
 }
 
-func (s mockScaleApplicationAPI) BestAPIVersion() int {
-	return s.version
-}
-
 func (s *ScaleApplicationSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.mockAPI = &mockScaleApplicationAPI{Stub: &testing.Stub{}, version: 8}
+	s.mockAPI = &mockScaleApplicationAPI{Stub: &testing.Stub{}}
 }
 
 func (s *ScaleApplicationSuite) runScaleApplication(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -93,11 +88,4 @@ func (s *ScaleApplicationSuite) TestInvalidArgs(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `no scale specified`)
 	_, err = s.runScaleApplication(c, "name", "scale")
 	c.Assert(err, gc.ErrorMatches, `invalid scale "scale": strconv.Atoi: parsing "scale": invalid syntax`)
-}
-
-func (s *ScaleApplicationSuite) TestOldServer(c *gc.C) {
-	s.mockAPI.version = 4
-	_, err := s.runScaleApplication(c, "foo", "2")
-	c.Assert(err, gc.ErrorMatches, "scaling applications is not supported by this controller")
-	s.mockAPI.CheckCall(c, 0, "Close")
 }

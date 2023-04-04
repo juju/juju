@@ -78,19 +78,6 @@ software deployed by the charm in any way; and there is currently no mechanism
 by which deployed software can safely feed information back into the charm
 and/or expect that it will be acted upon in a timely way.
 
-[TODO: this sucks a bit. We have plans for a tool called `juju-run`, which
-would allow an arbitrary script to be invoked as though it were a hook at any
-time (well, it'd block until no other hook were running, but still). Probably
-isn't even that hard but it's still rolling around my brain, might either click
-soon or be overridden by higher priorities and be left for ages. I'm less sure,
-but have a suspicion, that `juju ssh <unit>` should also default to a juju-run
-model: primarily because, without this, in the context of forced upgrades,
-the system cannot offer *any* guarantees about what it might suddenly do to the
-charm directory while the user's doing things with it. The alternative is to
-allow unguarded ssh, but tell people that they have to use something like
-`juju-run --interactive` before they modify the charm dir; this feels somewhat
-user-hostile, though.]
-
 Execution environment
 ---------------------
 

@@ -208,7 +208,6 @@ func (s *deployerSuite) TestDeployRecallRemoveSubordinates(c *gc.C) {
 	// Set one to Dying; check nothing happens.
 	err = sub1.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	s.State.StartSync()
 	c.Assert(isRemoved(s.State, sub1.Name())(c), jc.IsFalse)
 	s.waitFor(c, isDeployed(ctx, u.Name(), sub0.Name(), sub1.Name()))
 
@@ -244,7 +243,6 @@ func (s *deployerSuite) TestNonAliveSubordinates(c *gc.C) {
 }
 
 func (s *deployerSuite) waitFor(c *gc.C, t func(c *gc.C) bool) {
-	s.BackingState.StartSync()
 	if t(c) {
 		return
 	}

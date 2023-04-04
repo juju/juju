@@ -8,14 +8,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/textproto"
 	"net/url"
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jujutesting "github.com/juju/testing"
@@ -133,7 +133,7 @@ func (s *ClientSuite) TestOpenLogTransferStream(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "sound hound")
 
 	caller.Stub.CheckCall(c, 0, "ConnectControllerStream", "/migrate/logtransfer",
-		url.Values{"jujuclientversion": {jujuversion.Current.String()}},
+		url.Values{},
 		http.Header{textproto.CanonicalMIMEHeaderKey(params.MigrationModelHTTPHeader): {"bad-dad"}},
 	)
 }
@@ -376,7 +376,7 @@ func newFakeDoer(c *gc.C, respBody interface{}) *fakeDoer {
 	c.Assert(err, jc.ErrorIsNil)
 	resp := &http.Response{
 		StatusCode: 200,
-		Body:       ioutil.NopCloser(bytes.NewReader(body)),
+		Body:       io.NopCloser(bytes.NewReader(body)),
 	}
 	resp.Header = make(http.Header)
 	resp.Header.Add("Content-Type", "application/json")
@@ -406,7 +406,7 @@ func (d *fakeDoer) Do(req *http.Request) (*http.Response, error) {
 	}
 
 	// ReadAll the body if it's found.
-	body, err := ioutil.ReadAll(req.Body)
+	body, err := io.ReadAll(req.Body)
 	if err != nil {
 		panic(err)
 	}

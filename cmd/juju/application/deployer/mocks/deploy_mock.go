@@ -11,8 +11,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v8"
-	resource "github.com/juju/charm/v8/resource"
+	charm "github.com/juju/charm/v9"
+	resource "github.com/juju/charm/v9/resource"
 	cmd "github.com/juju/cmd/v3"
 	api "github.com/juju/juju/api"
 	base "github.com/juju/juju/api/base"
@@ -181,20 +181,6 @@ func (m *MockDeployerAPI) BakeryClient() base.MacaroonDischarger {
 func (mr *MockDeployerAPIMockRecorder) BakeryClient() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BakeryClient", reflect.TypeOf((*MockDeployerAPI)(nil).BakeryClient))
-}
-
-// BestAPIVersion mocks base method.
-func (m *MockDeployerAPI) BestAPIVersion() int {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BestAPIVersion")
-	ret0, _ := ret[0].(int)
-	return ret0
-}
-
-// BestAPIVersion indicates an expected call of BestAPIVersion.
-func (mr *MockDeployerAPIMockRecorder) BestAPIVersion() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BestAPIVersion", reflect.TypeOf((*MockDeployerAPI)(nil).BestAPIVersion))
 }
 
 // BestFacadeVersion mocks base method.
@@ -693,20 +679,6 @@ func (m *MockDeployerAPI) Status(arg0 []string) (*params.FullStatus, error) {
 func (mr *MockDeployerAPIMockRecorder) Status(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockDeployerAPI)(nil).Status), arg0)
-}
-
-// Update mocks base method.
-func (m *MockDeployerAPI) Update(arg0 params.ApplicationUpdate) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Update", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Update indicates an expected call of Update.
-func (mr *MockDeployerAPIMockRecorder) Update(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockDeployerAPI)(nil).Update), arg0)
 }
 
 // WatchAll mocks base method.

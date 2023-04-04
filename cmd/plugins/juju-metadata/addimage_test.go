@@ -5,11 +5,11 @@ package main
 
 import (
 	"fmt"
-	"regexp"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -97,17 +97,9 @@ func (s *addImageSuite) TestAddImageMetadataNoImageId(c *gc.C) {
 
 func (s *addImageSuite) TestAddImageMetadataNoSeries(c *gc.C) {
 	m := constructTestImageMetadata()
-	m.Series = ""
 	m.Version = ""
-	// OSType will default to config default, for e.g. "trusty"
+	// OSType will default to config default, for e.g. "jammy"
 	s.assertValidAddImageMetadata(c, m)
-}
-
-func (s *addImageSuite) TestAddImageMetadataInvalidSeries(c *gc.C) {
-	m := constructTestImageMetadata()
-	m.Series = "blah"
-
-	s.assertAddImageMetadataErr(c, m, regexp.QuoteMeta(`unknown version for series: "blah"`))
 }
 
 func (s *addImageSuite) TestAddImageMetadataNoArch(c *gc.C) {
@@ -150,8 +142,7 @@ func (s *addImageSuite) assertAddImageMetadataErr(c *gc.C, m params.CloudImageMe
 func constructTestImageMetadata() params.CloudImageMetadata {
 	return params.CloudImageMetadata{
 		ImageId:  "im-33333",
-		Series:   "trusty",
-		Version:  "14.04",
+		Version:  "22.04",
 		Arch:     "arch",
 		Source:   "custom",
 		Priority: 50,
@@ -171,7 +162,13 @@ func getAddImageMetadataCmdFlags(c *gc.C, data params.CloudImageMetadata) []stri
 		}
 	}
 
-	addFlag("--series", data.Series, "")
+	var aseries string
+	if data.Version != "" {
+		var err error
+		aseries, err = series.VersionSeries(data.Version)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	addFlag("--series", aseries, "")
 	addFlag("--region", data.Region, "")
 	addFlag("--arch", data.Arch, "amd64")
 	addFlag("--virt-type", data.VirtType, "")

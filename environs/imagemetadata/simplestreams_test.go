@@ -78,7 +78,7 @@ func Test(t *stdtesting.T) {
 		}
 		cons, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 			CloudSpec: testData.validCloudSpec,
-			Releases:  []string{"quantal"},
+			Releases:  []string{"12.10"},
 			Arches:    []string{"amd64"},
 		})
 		if err != nil {
@@ -96,7 +96,7 @@ func registerSimpleStreamsTests(t *stdtesting.T) {
 			Region:   "us-east-1",
 			Endpoint: "https://ec2.us-east-1.amazonaws.com",
 		},
-		Releases: []string{"precise"},
+		Releases: []string{"12.04"},
 		Arches:   []string{"amd64", "arm"},
 	})
 	if err != nil {
@@ -321,7 +321,7 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 		}
 		imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 			CloudSpec: cloudSpec,
-			Releases:  []string{"precise"},
+			Releases:  []string{"12.04"},
 			Arches:    t.arches,
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -351,7 +351,7 @@ var _ = gc.Suite(&productSpecSuite{})
 
 func (s *productSpecSuite) TestIdWithDefaultStream(c *gc.C) {
 	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		Releases: []string{"precise"},
+		Releases: []string{"12.04"},
 		Arches:   []string{"amd64"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -365,7 +365,7 @@ func (s *productSpecSuite) TestIdWithDefaultStream(c *gc.C) {
 
 func (s *productSpecSuite) TestId(c *gc.C) {
 	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		Releases: []string{"precise"},
+		Releases: []string{"12.04"},
 		Arches:   []string{"amd64"},
 		Stream:   "daily",
 	})
@@ -377,7 +377,7 @@ func (s *productSpecSuite) TestId(c *gc.C) {
 
 func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		Releases: []string{"precise"},
+		Releases: []string{"12.04"},
 		Arches:   []string{"amd64", "i386"},
 		Stream:   "daily",
 	})
@@ -421,7 +421,7 @@ func (s *signedSuite) TestSignedImageMetadata(c *gc.C) {
 			Region:   "us-east-1",
 			Endpoint: "https://ec2.us-east-1.amazonaws.com",
 		},
-		Releases: []string{"precise"},
+		Releases: []string{"12.04"},
 		Arches:   []string{"amd64"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -451,7 +451,7 @@ func (s *signedSuite) TestSignedImageMetadataInvalidSignature(c *gc.C) {
 			Region:   "us-east-1",
 			Endpoint: "https://ec2.us-east-1.amazonaws.com",
 		},
-		Releases: []string{"precise"},
+		Releases: []string{"12.04"},
 		Arches:   []string{"amd64"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -529,7 +529,7 @@ var unsignedProduct = `
  "content_id": "com.ubuntu.cloud:released:aws",
  "products": {
   "com.ubuntu.cloud:server:12.04:amd64": {
-   "release": "precise",
+   "release": "12.04",
    "version": "12.04",
    "arch": "amd64",
    "region": "us-east-1",

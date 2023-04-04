@@ -6,12 +6,10 @@ package tools_test
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -33,7 +31,7 @@ func (t *ToolsImportSuite) TestPackageDependencies(c *gc.C) {
 	// resulting slice has that prefix removed to keep the output short.
 	c.Assert(testing.FindJujuCoreImports(c, "github.com/juju/juju/agent/tools"),
 		gc.DeepEquals,
-		[]string{"core/os", "core/series", "juju/names", "tools"})
+		[]string{"juju/names", "tools"})
 }
 
 type ToolsSuite struct {
@@ -163,53 +161,12 @@ func (t *ToolsSuite) TestReadToolsErrors(c *gc.C) {
 	err = os.MkdirAll(dir, agenttools.DirPerm)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = ioutil.WriteFile(filepath.Join(dir, agenttools.ToolsFile), []byte(" \t\n"), 0644)
+	err = os.WriteFile(filepath.Join(dir, agenttools.ToolsFile), []byte(" \t\n"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	testTools, err = agenttools.ReadTools(t.dataDir, vers)
 	c.Assert(testTools, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "invalid agent metadata in directory .*")
-}
-
-func (t *ToolsSuite) TestReadGUIArchiveErrorNotFound(c *gc.C) {
-	gui, err := agenttools.ReadGUIArchive(t.dataDir)
-	c.Assert(err, gc.ErrorMatches, "GUI metadata not found")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(gui, gc.IsNil)
-}
-
-func (t *ToolsSuite) TestReadGUIArchiveErrorNotValid(c *gc.C) {
-	dir := agenttools.SharedGUIDir(t.dataDir)
-	err := os.MkdirAll(dir, agenttools.DirPerm)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = ioutil.WriteFile(filepath.Join(dir, agenttools.GUIArchiveFile), []byte(" \t\n"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-
-	gui, err := agenttools.ReadGUIArchive(t.dataDir)
-	c.Assert(err, gc.ErrorMatches, "invalid GUI metadata in directory .*")
-	c.Assert(gui, gc.IsNil)
-}
-
-func (t *ToolsSuite) TestReadGUIArchiveSuccess(c *gc.C) {
-	dir := agenttools.SharedGUIDir(t.dataDir)
-	err := os.MkdirAll(dir, agenttools.DirPerm)
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectGUI := coretest.GUIArchive{
-		Version: version.MustParse("2.0.42"),
-		URL:     "file:///path/to/gui",
-		SHA256:  "hash",
-		Size:    47,
-	}
-	b, err := json.Marshal(expectGUI)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(dir, agenttools.GUIArchiveFile), b, 0644)
-	c.Assert(err, jc.ErrorIsNil)
-
-	gui, err := agenttools.ReadGUIArchive(t.dataDir)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*gui, gc.Equals, expectGUI)
 }
 
 func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
@@ -262,11 +219,6 @@ func (t *ToolsSuite) TestSharedToolsDir(c *gc.C) {
 	c.Assert(dir, gc.Equals, "/var/lib/juju/tools/1.2.3-ubuntu-amd64")
 }
 
-func (t *ToolsSuite) TestSharedGUIDir(c *gc.C) {
-	dir := agenttools.SharedGUIDir("/var/lib/juju")
-	c.Assert(dir, gc.Equals, "/var/lib/juju/gui")
-}
-
 // assertToolsContents asserts that the directory for the tools
 // has the given contents.
 func (t *ToolsSuite) assertToolsContents(c *gc.C, testTools *coretest.Tools, files []*testing.TarFile) {
@@ -295,7 +247,7 @@ func assertFileContents(c *gc.C, dir, file, contents string, mode os.FileMode) {
 	info, err := os.Stat(file)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Mode()&(os.ModeType|mode), gc.Equals, mode)
-	data, err := ioutil.ReadFile(file)
+	data, err := os.ReadFile(file)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, contents)
 }

@@ -36,10 +36,12 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/pebble"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/storage"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
+	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/status"
@@ -51,11 +53,8 @@ import (
 var logger = loggo.GetLogger("juju.kubernetes.provider.application")
 
 const (
-	unitContainerName = "charm"
-	charmVolumeName   = "charm-data"
-
 	containerAgentPebblePort = "38812"
-	containerPebblePortStart = 38813 // Arbitrary, but PEBBLE -> P38813 -> Port 38813
+
 	// containerProbeInitialDelay is the initial delay in seconds before the probe starts.
 	containerProbeInitialDelay = 30
 	// containerProbeTimeout is the timeout for the probe to complete in seconds.
@@ -158,120 +157,18 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	logger.Debugf("creating/updating %s application", a.name)
 
 	applier := a.newApplier()
-	secret := resources.Secret{
-		Secret: corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        a.secretName(),
-				Namespace:   a.namespace,
-				Labels:      a.labels(),
-				Annotations: a.annotations(config),
-			},
-			Data: map[string][]byte{
-				"JUJU_K8S_APPLICATION":          []byte(a.name),
-				"JUJU_K8S_MODEL":                []byte(a.modelUUID),
-				"JUJU_K8S_APPLICATION_PASSWORD": []byte(config.IntroductionSecret),
-				"JUJU_K8S_CONTROLLER_ADDRESSES": []byte(config.ControllerAddresses),
-				"JUJU_K8S_CONTROLLER_CA_CERT":   []byte(config.ControllerCertBundle),
-			},
-		},
-	}
-	applier.Apply(&secret)
 
-	err = a.ensureImagePullSecrets(applier, config)
+	err = a.applyServiceAccountAndSecrets(applier, config)
 	if err != nil {
-		return errors.Annotatef(err, "applying image pull secrets")
+		return errors.Annotatef(err, "applying service account and secrets")
 	}
-
-	serviceAccount := resources.ServiceAccount{
-		ServiceAccount: corev1.ServiceAccount{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        a.serviceAccountName(),
-				Namespace:   a.namespace,
-				Labels:      a.labels(),
-				Annotations: a.annotations(config),
-			},
-			// Will be automounted by the pod.
-			AutomountServiceAccountToken: pointer.BoolPtr(false),
-		},
-	}
-	applier.Apply(&serviceAccount)
-
-	role := resources.Role{
-		Role: rbacv1.Role{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        a.serviceAccountName(),
-				Namespace:   a.namespace,
-				Labels:      a.labels(),
-				Annotations: a.annotations(config),
-			},
-			Rules: a.roleRules(config.Trust),
-		},
-	}
-	applier.Apply(&role)
-
-	roleBinding := resources.RoleBinding{
-		RoleBinding: rbacv1.RoleBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        a.serviceAccountName(),
-				Namespace:   a.namespace,
-				Labels:      a.labels(),
-				Annotations: a.annotations(config),
-			},
-			RoleRef: rbacv1.RoleRef{
-				Name: a.serviceAccountName(),
-				Kind: "Role",
-			},
-			Subjects: []rbacv1.Subject{
-				{
-					Kind:      rbacv1.ServiceAccountKind,
-					Name:      a.serviceAccountName(),
-					Namespace: a.namespace,
-				},
-			},
-		},
-	}
-	applier.Apply(&roleBinding)
-
-	clusterRole := resources.ClusterRole{
-		ClusterRole: rbacv1.ClusterRole{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        a.qualifiedClusterName(),
-				Labels:      a.labels(),
-				Annotations: a.annotations(config),
-			},
-			Rules: a.clusterRoleRules(config.Trust),
-		},
-	}
-	applier.Apply(&clusterRole)
-
-	clusterRoleBinding := resources.ClusterRoleBinding{
-		ClusterRoleBinding: rbacv1.ClusterRoleBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        a.qualifiedClusterName(),
-				Labels:      a.labels(),
-				Annotations: a.annotations(config),
-			},
-			RoleRef: rbacv1.RoleRef{
-				Name: a.qualifiedClusterName(),
-				Kind: "ClusterRole",
-			},
-			Subjects: []rbacv1.Subject{
-				{
-					Kind:      rbacv1.ServiceAccountKind,
-					Name:      a.serviceAccountName(),
-					Namespace: a.namespace,
-				},
-			},
-		},
-	}
-	applier.Apply(&clusterRoleBinding)
 
 	if err := a.configureDefaultService(a.annotations(config)); err != nil {
 		return errors.Annotatef(err, "ensuring the default service %q", a.name)
 	}
 
 	// Set up the parameters for creating charm storage (if required).
-	podSpec, err := a.applicationPodSpec(config)
+	podSpec, err := a.ApplicationPodSpec(config)
 	if err != nil {
 		return errors.Annotate(err, "generating application podspec")
 	}
@@ -289,7 +186,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	var handleVolumeMount handleVolumeMountFunc = func(storageName string, m corev1.VolumeMount) error {
 		for i := range podSpec.Containers {
 			name := podSpec.Containers[i].Name
-			if name == unitContainerName {
+			if name == constants.ApplicationCharmContainer {
 				podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts, m)
 				continue
 			}
@@ -384,7 +281,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 						Spec: *podSpec,
 					},
 					PodManagementPolicy: appsv1.ParallelPodManagement,
-					ServiceName:         headlessServiceName(a.name),
+					ServiceName:         HeadlessServiceName(a.name),
 				},
 			},
 		}
@@ -496,10 +393,194 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	return applier.Run(context.Background(), a.client, false)
 }
 
+func (a *app) applyServiceAccountAndSecrets(applier resources.Applier, config caas.ApplicationConfig) error {
+	secret := resources.Secret{
+		Secret: corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        a.secretName(),
+				Namespace:   a.namespace,
+				Labels:      a.labels(),
+				Annotations: a.annotations(config),
+			},
+			Data: map[string][]byte{
+				"JUJU_K8S_APPLICATION":          []byte(a.name),
+				"JUJU_K8S_MODEL":                []byte(a.modelUUID),
+				"JUJU_K8S_APPLICATION_PASSWORD": []byte(config.IntroductionSecret),
+				"JUJU_K8S_CONTROLLER_ADDRESSES": []byte(config.ControllerAddresses),
+				"JUJU_K8S_CONTROLLER_CA_CERT":   []byte(config.ControllerCertBundle),
+			},
+		},
+	}
+	applier.Apply(&secret)
+
+	serviceAccount := resources.ServiceAccount{
+		ServiceAccount: corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        a.serviceAccountName(),
+				Namespace:   a.namespace,
+				Labels:      a.labels(),
+				Annotations: a.annotations(config),
+			},
+			// Will be automounted by the pod.
+			AutomountServiceAccountToken: pointer.BoolPtr(false),
+		},
+	}
+	applier.Apply(&serviceAccount)
+
+	role := resources.Role{
+		Role: rbacv1.Role{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        a.serviceAccountName(),
+				Namespace:   a.namespace,
+				Labels:      a.labels(),
+				Annotations: a.annotations(config),
+			},
+			Rules: a.roleRules(config.Trust),
+		},
+	}
+	applier.Apply(&role)
+
+	roleBinding := resources.RoleBinding{
+		RoleBinding: rbacv1.RoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        a.serviceAccountName(),
+				Namespace:   a.namespace,
+				Labels:      a.labels(),
+				Annotations: a.annotations(config),
+			},
+			RoleRef: rbacv1.RoleRef{
+				Name: a.serviceAccountName(),
+				Kind: "Role",
+			},
+			Subjects: []rbacv1.Subject{
+				{
+					Kind:      rbacv1.ServiceAccountKind,
+					Name:      a.serviceAccountName(),
+					Namespace: a.namespace,
+				},
+			},
+		},
+	}
+	applier.Apply(&roleBinding)
+
+	clusterRole := resources.ClusterRole{
+		ClusterRole: rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        a.qualifiedClusterName(),
+				Labels:      a.labels(),
+				Annotations: a.annotations(config),
+			},
+			Rules: a.clusterRoleRules(config.Trust),
+		},
+	}
+	applier.Apply(&clusterRole)
+
+	clusterRoleBinding := resources.ClusterRoleBinding{
+		ClusterRoleBinding: rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        a.qualifiedClusterName(),
+				Labels:      a.labels(),
+				Annotations: a.annotations(config),
+			},
+			RoleRef: rbacv1.RoleRef{
+				Name: a.qualifiedClusterName(),
+				Kind: "ClusterRole",
+			},
+			Subjects: []rbacv1.Subject{
+				{
+					Kind:      rbacv1.ServiceAccountKind,
+					Name:      a.serviceAccountName(),
+					Namespace: a.namespace,
+				},
+			},
+		},
+	}
+	applier.Apply(&clusterRoleBinding)
+
+	return a.applyImagePullSecrets(applier, config)
+}
+
+// Upgrade upgrades the app to the specified version.
+func (a *app) Upgrade(ver version.Number) error {
+	// TODO(sidecar): Unify this with Ensure
+	applier := a.newApplier()
+
+	if err := a.upgradeMainResource(applier, ver); err != nil {
+		return errors.Trace(err)
+	}
+
+	// TODO(sidecar):  we could query the cluster for all resources with the `app.juju.is/created-by` and `app.kubernetes.io/name` labels instead
+	// (so longer as the resource also does have the juju version annotation already).
+	// Then we don't have to worry about missing anything if something is added later and not also updated here.
+	for _, r := range []annotationUpdater{
+		resources.NewSecret(a.secretName(), a.namespace, nil),
+		resources.NewServiceAccount(a.serviceAccountName(), a.namespace, nil),
+		resources.NewRole(a.serviceAccountName(), a.namespace, nil),
+		resources.NewRoleBinding(a.serviceAccountName(), a.namespace, nil),
+		resources.NewClusterRole(a.qualifiedClusterName(), nil),
+		resources.NewClusterRoleBinding(a.qualifiedClusterName(), nil),
+		resources.NewService(a.name, a.namespace, nil),
+	} {
+		if err := r.Get(context.Background(), a.client); err != nil {
+			return errors.Trace(err)
+		}
+		existingAnnotations := annotations.New(r.GetAnnotations())
+		r.SetAnnotations(a.upgradeAnnotations(existingAnnotations, ver))
+		applier.Apply(r)
+	}
+
+	return applier.Run(context.Background(), a.client, false)
+}
+
 type annotationUpdater interface {
 	resources.Resource
 	GetAnnotations() map[string]string
 	SetAnnotations(annotations map[string]string)
+}
+
+func (a *app) upgradeHeadlessService(applier resources.Applier, ver version.Number) error {
+	r := resources.NewService(HeadlessServiceName(a.name), a.namespace, nil)
+	if err := r.Get(context.Background(), a.client); err != nil {
+		return errors.Trace(err)
+	}
+	r.SetAnnotations(a.upgradeAnnotations(annotations.New(r.GetAnnotations()), ver))
+	applier.Apply(r)
+	return nil
+}
+
+func (a *app) upgradeMainResource(applier resources.Applier, ver version.Number) error {
+	switch a.deploymentType {
+	case caas.DeploymentStateful:
+		if err := a.upgradeHeadlessService(applier, ver); err != nil {
+			return errors.Trace(err)
+		}
+
+		ss := resources.NewStatefulSet(a.name, a.namespace, nil)
+		if err := ss.Get(context.Background(), a.client); err != nil {
+			return errors.Trace(err)
+		}
+		initContainers := ss.Spec.Template.Spec.InitContainers
+		if len(initContainers) != 1 {
+			return errors.NotValidf("init container of %q", a.name)
+		}
+		initContainer := initContainers[0]
+		var err error
+		initContainer.Image, err = podcfg.RebuildOldOperatorImagePath(initContainer.Image, ver)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ss.Spec.Template.Spec.InitContainers = []corev1.Container{initContainer}
+		ss.Spec.Template.SetAnnotations(a.upgradeAnnotations(annotations.New(ss.Spec.Template.GetAnnotations()), ver))
+		ss.SetAnnotations(a.upgradeAnnotations(annotations.New(ss.GetAnnotations()), ver))
+		applier.Apply(ss)
+		return nil
+	case caas.DeploymentStateless:
+		return errors.NotSupportedf("upgrade for deployment type %q", a.deploymentType)
+	case caas.DeploymentDaemon:
+		return errors.NotSupportedf("upgrade for deployment type %q", a.deploymentType)
+	default:
+		return errors.NotSupportedf("unknown deployment type %q", a.deploymentType)
+	}
 }
 
 // Exists indicates if the application for the specified
@@ -553,12 +634,14 @@ func (a *app) Exists() (caas.DeploymentState, error) {
 	return state, nil
 }
 
-func headlessServiceName(appName string) string {
+// HeadlessServiceName is an idempotent function for returning the name of the
+// endpoints service juju make for applications.
+func HeadlessServiceName(appName string) string {
 	return fmt.Sprintf("%s-endpoints", appName)
 }
 
 func (a *app) configureHeadlessService(name string, annotation annotations.Annotation) error {
-	svc := resources.NewService(headlessServiceName(name), a.namespace, &corev1.Service{
+	svc := resources.NewService(HeadlessServiceName(name), a.namespace, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: a.labels(),
 			Annotations: annotation.
@@ -670,7 +753,7 @@ func (a *app) updateContainerPorts(applier resources.Applier, ports []corev1.Ser
 	updatePodSpec := func(spec *corev1.PodSpec, containerPorts []corev1.ContainerPort) {
 		for i, c := range spec.Containers {
 			ps := containerPorts
-			if c.Name != unitContainerName {
+			if c.Name != constants.ApplicationCharmContainer {
 				spec.Containers[i].Ports = ps
 			}
 		}
@@ -853,7 +936,7 @@ func (a *app) Delete() error {
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
 		applier.Delete(resources.NewStatefulSet(a.name, a.namespace, nil))
-		applier.Delete(resources.NewService(headlessServiceName(a.name), a.namespace, nil))
+		applier.Delete(resources.NewService(HeadlessServiceName(a.name), a.namespace, nil))
 	case caas.DeploymentStateless:
 		applier.Delete(resources.NewDeployment(a.name, a.namespace, nil))
 	case caas.DeploymentDaemon:
@@ -1090,7 +1173,7 @@ func (a *app) Units() ([]caas.Unit, error) {
 		// Gather info about how filesystems are attached/mounted to the pod.
 		// The mount name represents the filesystem tag name used by Juju.
 		for _, volMount := range p.Spec.Containers[0].VolumeMounts {
-			if volMount.Name == charmVolumeName {
+			if volMount.Name == constants.CharmVolumeName {
 				continue
 			}
 			vol, ok := volumesByName[volMount.Name]
@@ -1101,7 +1184,8 @@ func (a *app) Units() ([]caas.Unit, error) {
 
 			// Ignore volume sources for volumes created for K8s pod-spec charms.
 			// See: https://discourse.charmhub.io/t/k8s-spec-v3-changes/2698
-			if vol.Secret != nil && strings.Contains(vol.Secret.SecretName, "-token") {
+			if vol.Secret != nil &&
+				(strings.Contains(vol.Secret.SecretName, "-token") || strings.HasPrefix(vol.Secret.SecretName, "controller-")) {
 				logger.Tracef("ignoring volume source for service account secret: %v", vol.Name)
 				continue
 			}
@@ -1144,14 +1228,12 @@ func (a *app) Units() ([]caas.Unit, error) {
 	return units, nil
 }
 
-// applicationPodSpec returns a PodSpec for the application pod
+// ApplicationPodSpec returns a PodSpec for the application pod
 // of the specified application.
-func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec, error) {
-	appSecret := a.secretName()
-
+func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec, error) {
 	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 
-	containerNames := []string(nil)
+	containerNames := config.ExistingContainers
 	containers := []caas.ContainerConfig(nil)
 	for _, v := range config.Containers {
 		containerNames = append(containerNames, v.Name)
@@ -1164,7 +1246,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 
 	env := []corev1.EnvVar{
 		{
-			Name:  "JUJU_CONTAINER_NAMES",
+			Name:  constants.EnvJujuContainerNames,
 			Value: strings.Join(containerNames, ","),
 		},
 		{
@@ -1213,7 +1295,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 	charmContainerStartupProbe := charmContainerLivenessProbe
 	charmContainerExtraVolumeMounts := []corev1.VolumeMount{
 		{
-			Name:      charmVolumeName,
+			Name:      constants.CharmVolumeName,
 			MountPath: constants.DefaultPebbleDir,
 			SubPath:   "containeragent/pebble",
 		},
@@ -1272,7 +1354,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 	}
 
 	containerSpecs := []corev1.Container{{
-		Name:            unitContainerName,
+		Name:            constants.ApplicationCharmContainer,
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Image:           config.CharmBaseImagePath,
 		WorkingDir:      jujuDataDir,
@@ -1288,18 +1370,18 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		StartupProbe:   charmContainerStartupProbe,
 		VolumeMounts: append([]corev1.VolumeMount{
 			{
-				Name:      charmVolumeName,
+				Name:      constants.CharmVolumeName,
 				MountPath: "/charm/bin",
 				SubPath:   "charm/bin",
 				ReadOnly:  true,
 			},
 			{
-				Name:      charmVolumeName,
+				Name:      constants.CharmVolumeName,
 				MountPath: jujuDataDir,
 				SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
 			},
 			{
-				Name:      charmVolumeName,
+				Name:      constants.CharmVolumeName,
 				MountPath: "/charm/containers",
 				SubPath:   "charm/containers",
 			},
@@ -1323,7 +1405,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				"run",
 				"--create-dirs",
 				"--hold",
-				"--http", fmt.Sprintf(":%d", containerPebblePortStart+i),
+				"--http", fmt.Sprintf(":%s", pebble.WorkloadHealthCheckPort(i)),
 				"--verbose",
 			},
 			Env: []corev1.EnvVar{{
@@ -1334,12 +1416,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				Value: "/charm/container/pebble.socket",
 			}},
 			LivenessProbe: &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/v1/health?level=alive",
-						Port: intstr.FromInt(containerPebblePortStart + i),
-					},
-				},
+				ProbeHandler:        pebble.LivenessHandler(pebble.WorkloadHealthCheckPort(i)),
 				InitialDelaySeconds: containerProbeInitialDelay,
 				TimeoutSeconds:      containerProbeTimeout,
 				PeriodSeconds:       containerProbePeriod,
@@ -1347,12 +1424,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				FailureThreshold:    containerProbeFailure,
 			},
 			ReadinessProbe: &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/v1/health?level=ready",
-						Port: intstr.FromInt(containerPebblePortStart + i),
-					},
-				},
+				ProbeHandler:        pebble.ReadinessHandler(pebble.WorkloadHealthCheckPort(i)),
 				InitialDelaySeconds: containerProbeInitialDelay,
 				TimeoutSeconds:      containerProbeTimeout,
 				PeriodSeconds:       containerProbePeriod,
@@ -1366,13 +1438,13 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
-					Name:      charmVolumeName,
+					Name:      constants.CharmVolumeName,
 					MountPath: "/charm/bin/pebble",
 					SubPath:   "charm/bin/pebble",
 					ReadOnly:  true,
 				},
 				{
-					Name:      charmVolumeName,
+					Name:      constants.CharmVolumeName,
 					MountPath: "/charm/container",
 					SubPath:   fmt.Sprintf("charm/containers/%s", v.Name),
 				},
@@ -1393,7 +1465,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 	}
 	charmInitAdditionalMounts := []corev1.VolumeMount{
 		{
-			Name:      charmVolumeName,
+			Name:      constants.CharmVolumeName,
 			MountPath: "/containeragent/pebble",
 			SubPath:   "containeragent/pebble",
 		},
@@ -1410,13 +1482,14 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 	}
 
 	automountToken := true
+	appSecret := a.secretName()
 	spec := &corev1.PodSpec{
 		AutomountServiceAccountToken:  &automountToken,
 		ServiceAccountName:            a.serviceAccountName(),
 		ImagePullSecrets:              imagePullSecrets,
 		TerminationGracePeriodSeconds: pointer.Int64Ptr(300),
 		InitContainers: []corev1.Container{{
-			Name:            "charm-init",
+			Name:            constants.ApplicationInitContainer,
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Image:           config.AgentImagePath,
 			WorkingDir:      jujuDataDir,
@@ -1424,11 +1497,11 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			Args:            containerAgentArgs,
 			Env: []corev1.EnvVar{
 				{
-					Name:  "JUJU_CONTAINER_NAMES",
+					Name:  constants.EnvJujuContainerNames,
 					Value: strings.Join(containerNames, ","),
 				},
 				{
-					Name: "JUJU_K8S_POD_NAME",
+					Name: constants.EnvJujuK8sPodName,
 					ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{
 							FieldPath: "metadata.name",
@@ -1436,7 +1509,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 					},
 				},
 				{
-					Name: "JUJU_K8S_POD_UUID",
+					Name: constants.EnvJujuK8sPodUUID,
 					ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{
 							FieldPath: "metadata.uid",
@@ -1455,17 +1528,18 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			},
 			VolumeMounts: append([]corev1.VolumeMount{
 				{
-					Name:      charmVolumeName,
+					Name:      constants.CharmVolumeName,
 					MountPath: jujuDataDir,
 					SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
 				},
 				{
-					Name:      charmVolumeName,
+					Name:      constants.CharmVolumeName,
 					MountPath: "/charm/bin",
 					SubPath:   "charm/bin",
 				},
+				// DO we need this in init container????
 				{
-					Name:      charmVolumeName,
+					Name:      constants.CharmVolumeName,
 					MountPath: "/charm/containers",
 					SubPath:   "charm/containers",
 				},
@@ -1474,21 +1548,21 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		Containers: containerSpecs,
 		Volumes: []corev1.Volume{
 			{
-				Name: charmVolumeName,
+				Name: constants.CharmVolumeName,
 				VolumeSource: corev1.VolumeSource{
 					EmptyDir: &corev1.EmptyDirVolumeSource{},
 				},
 			},
 		},
 	}
-	err := ApplyConstraints(spec, a.name, config.Constraints, ConfigureConstraint)
+	err := ApplyConstraints(spec, a.name, config.Constraints, configureConstraint)
 	if err != nil {
 		return nil, errors.Annotate(err, "processing constraints")
 	}
 	return spec, nil
 }
 
-func (a *app) ensureImagePullSecrets(applier resources.Applier, config caas.ApplicationConfig) error {
+func (a *app) applyImagePullSecrets(applier resources.Applier, config caas.ApplicationConfig) error {
 	desired := []resources.Resource(nil)
 	for _, container := range config.Containers {
 		if container.Image.Password == "" {
@@ -1539,6 +1613,10 @@ func (a *app) annotations(config caas.ApplicationConfig) annotations.Annotation 
 		Merge(utils.AnnotationsForVersion(config.AgentVersion.String(), a.legacyLabels))
 }
 
+func (a *app) upgradeAnnotations(anns annotations.Annotation, ver version.Number) annotations.Annotation {
+	return anns.Merge(utils.AnnotationsForVersion(ver.String(), a.legacyLabels))
+}
+
 func (a *app) labels() labels.Set {
 	// TODO: add modelUUID for global resources?
 	return utils.LabelsForApp(a.name, a.legacyLabels)
@@ -1579,6 +1657,10 @@ func (a *app) imagePullSecretName(containerName string) string {
 }
 
 func (a *app) matchImagePullSecret(name string) bool {
+	// Don't match secrets without a container name.
+	if name == a.name+"-secret" {
+		return false
+	}
 	return strings.HasPrefix(name, a.name+"-") && strings.HasSuffix(name, "-secret")
 }
 

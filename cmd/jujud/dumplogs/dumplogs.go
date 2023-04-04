@@ -10,7 +10,6 @@ package dumplogs
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/agent"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
+	corelogger "github.com/juju/juju/core/logger"
 	corenames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
@@ -148,7 +148,7 @@ func (c *dumpLogsCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *dumpLogsCommand) findAgentTag(dataDir string) (names.Tag, error) {
-	entries, err := ioutil.ReadDir(agent.BaseDir(dataDir))
+	entries, err := os.ReadDir(agent.BaseDir(dataDir))
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to read agent configuration base directory")
 	}
@@ -191,7 +191,7 @@ func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, statePool *state.Stat
 	writer := bufio.NewWriter(file)
 	defer writer.Flush()
 
-	tailer, err := state.NewLogTailer(st, state.LogTailerParams{NoTail: true})
+	tailer, err := state.NewLogTailer(st, corelogger.LogTailerParams{NoTail: true}, nil)
 	if err != nil {
 		return errors.Annotate(err, "failed to create a log tailer")
 	}

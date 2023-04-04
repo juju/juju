@@ -8,16 +8,16 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
-	"github.com/juju/replicaset/v2"
+	"github.com/juju/replicaset/v3"
 	"github.com/juju/version/v2"
 
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/series"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/provider/lxd/lxdnames"
 	"github.com/juju/juju/state"
@@ -153,14 +153,17 @@ func getCheckUpgradeSeriesLockForModel(force bool) Validator {
 	}
 }
 
-func checkNoWinMachinesForModel(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
-	winSeries := set.NewStrings()
-	for _, v := range series.WindowsVersions() {
-		winSeries.Add(v)
+var windowsSeries = []string{
+	"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
+	"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
+}
+
+func checkNoWinMachinesForModel(_ string, _ StatePool, st State, _ Model) (*Blocker, error) {
+	windowsBases := make([]state.Base, len(windowsSeries))
+	for i, s := range windowsSeries {
+		windowsBases[i] = state.Base{OS: "windows", Channel: s}
 	}
-	result, err := st.MachineCountForSeries(
-		winSeries.SortedValues()..., // sort for tests.
-	)
+	result, err := st.MachineCountForBase(windowsBases...)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot count windows machines")
 	}
@@ -187,15 +190,20 @@ func stringifyMachineCounts(result map[string]int) string {
 }
 
 func checkForDeprecatedUbuntuSeriesForModel(
-	modelUUID string, pool StatePool, st State, model Model,
+	_ string, _ StatePool, st State, _ Model,
 ) (*Blocker, error) {
 	supported := false
-	deprecatedSeries := set.NewStrings()
-	for s := range series.UbuntuVersions(&supported, nil) {
-		deprecatedSeries.Add(s)
+	var deprecatedBases []state.Base
+	for _, vers := range series.UbuntuVersions(&supported, nil) {
+		deprecatedBases = append(deprecatedBases, state.Base{OS: "ubuntu", Channel: vers})
 	}
-	result, err := st.MachineCountForSeries(
-		deprecatedSeries.SortedValues()..., // sort for tests.
+
+	// sort for tests.
+	sort.Slice(deprecatedBases, func(i, j int) bool {
+		return deprecatedBases[i].Channel < deprecatedBases[j].Channel
+	})
+	result, err := st.MachineCountForBase(
+		deprecatedBases...,
 	)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot count deprecated ubuntu machines")
@@ -206,6 +214,58 @@ func checkForDeprecatedUbuntuSeriesForModel(
 		), nil
 	}
 	return nil, nil
+}
+
+func checkForCharmStoreCharms(_ string, _ StatePool, st State, _ Model) (*Blocker, error) {
+	curls, err := st.AllCharmURLs()
+	if errors.Is(err, errors.NotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	result := set.NewStrings()
+	for _, curlStr := range curls {
+		if curlStr == nil {
+			return nil, errors.New("malformed charm in database with no URL")
+		}
+		curl, err := charm.ParseURL(*curlStr)
+		if err != nil {
+			logger.Errorf("error from ParseURL: %s", err)
+			return nil, errors.New(fmt.Sprintf("malformed charm url in database: %q", *curlStr))
+		}
+		// TODO 6-dec-2022
+		// Update check once charm's ValidateSchema rejects charm store charms.
+		if !charm.CharmHub.Matches(curl.Schema) && !charm.Local.Matches(curl.Schema) {
+			c := curl.WithSeries("").WithArchitecture("")
+			result.Add(c.String())
+		}
+	}
+	if !result.IsEmpty() {
+		return NewBlocker("the model hosts deprecated charm store charms(s): %s",
+			strings.Join(result.SortedValues(), ", "),
+		), nil
+	}
+	return nil, nil
+}
+
+func getCheckTargetVersionForControllerModel(
+	targetVersion version.Number,
+) Validator {
+	return func(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
+		agentVersion, err := model.AgentVersion()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if targetVersion.Major == agentVersion.Major &&
+			targetVersion.Minor == agentVersion.Minor {
+			return nil, nil
+		}
+
+		return NewBlocker(
+			"upgrading a controller to a newer major.minor version %d.%d not supported", targetVersion.Major, targetVersion.Minor,
+		), nil
+	}
 }
 
 func getCheckTargetVersionForModel(
@@ -264,22 +324,16 @@ func checkMongoStatusForControllerUpgrade(modelUUID string, pool StatePool, st S
 	return nil, nil
 }
 
-func checkMongoVersionForControllerModel(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
+func checkMongoVersionForControllerModel(_ string, pool StatePool, _ State, _ Model) (*Blocker, error) {
 	v, err := pool.MongoVersion()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	mongoVersion, err := mongo.NewVersion(v)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	mongoVersion.StorageEngine = ""
-	mongoMinVersion := mongo.Version{Major: 4, Minor: 4}
-	if mongoVersion.NewerThan(mongoMinVersion) < 0 {
-		// Controllers with mongo version < 4.4 are not able to be upgraded further.
+
+	if !strings.Contains(v, "4.4") {
+		// Controllers with mongo version != 4.4 are not able to be upgraded further.
 		return NewBlocker(
-			"mongo version has to be %q at least, but current version is %q",
-			mongoMinVersion, mongoVersion,
+			`mongo version has to be "4.4" at least, but current version is %q`, v,
 		), nil
 	}
 	return nil, nil
@@ -288,12 +342,7 @@ func checkMongoVersionForControllerModel(modelUUID string, pool StatePool, st St
 // For testing.
 var NewServerFactory = lxd.NewServerFactory
 
-var minLXDVersion = version.Number{Major: 5, Minor: 0}
-
-func getCheckForLXDVersion(
-	cloudspec environscloudspec.CloudSpec,
-	minVer version.Number,
-) Validator {
+func getCheckForLXDVersion(cloudspec environscloudspec.CloudSpec) Validator {
 	return func(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
 		if !lxdnames.IsDefaultCloud(cloudspec.Type) {
 			return nil, nil
@@ -305,18 +354,10 @@ func getCheckForLXDVersion(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		serverVersion := server.ServerVersion()
-		currentVer, err := lxd.ParseAPIVersion(serverVersion)
-		if err != nil {
-			return nil, errors.Trace(err)
+		err = lxd.ValidateAPIVersion(server.ServerVersion())
+		if errors.Is(err, errors.NotSupported) {
+			return NewBlocker(err.Error()), nil
 		}
-		logger.Debugf("current LXD version %q, min LXD version %q", currentVer, minVer)
-		if currentVer.Compare(minVer) < 0 {
-			return NewBlocker(
-				"LXD version has to be at least %q, but current version is only %q",
-				minVer, currentVer,
-			), nil
-		}
-		return nil, nil
+		return nil, errors.Trace(err)
 	}
 }

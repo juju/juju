@@ -7,9 +7,9 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 
 	mgoutils "github.com/juju/juju/mongo/utils"
 )
@@ -36,6 +36,10 @@ type unitStateDoc struct {
 	// StorageState is a serialized yaml string containing storage internal
 	// state for this unit from the uniter.
 	StorageState string `bson:"storage-state,omitempty"`
+
+	// SecretState is a serialized yaml string containing secret internal
+	// state for this unit from the uniter.
+	SecretState string `bson:"secret-state,omitempty"`
 
 	// MeterStatusState is a serialized yaml string containing the internal
 	// state for this unit's meter status worker.
@@ -125,6 +129,11 @@ type UnitState struct {
 	storageState    string
 	storageStateSet bool
 
+	// secretState is a serialized yaml string containing secret internal
+	// state for this unit from the uniter.
+	secretState    string
+	secretStateSet bool
+
 	// meterStatusState is a serialized yaml string containing the internal
 	// state for the meter status worker for this unit.
 	meterStatusState    string
@@ -140,6 +149,7 @@ func NewUnitState() *UnitState {
 func (u *UnitState) Modified() bool {
 	return u.relationStateSet ||
 		u.storageStateSet ||
+		u.secretStateSet ||
 		u.charmStateSet ||
 		u.uniterStateSet ||
 		u.meterStatusStateSet
@@ -201,6 +211,18 @@ func (u *UnitState) SetStorageState(state string) {
 // whether the data was set.
 func (u *UnitState) StorageState() (string, bool) {
 	return u.storageState, u.storageStateSet
+}
+
+// SetSecretState sets the secret state value.
+func (u *UnitState) SetSecretState(state string) {
+	u.secretStateSet = true
+	u.secretState = state
+}
+
+// SecretState returns the secret state and bool indicating
+// whether the data was set.
+func (u *UnitState) SecretState() (string, bool) {
+	return u.secretState, u.secretStateSet
 }
 
 // SetMeterStatusState sets the state value for meter state.
@@ -272,6 +294,7 @@ func (u *Unit) State() (*UnitState, error) {
 
 	us.SetUniterState(stDoc.UniterState)
 	us.SetStorageState(stDoc.StorageState)
+	us.SetSecretState(stDoc.SecretState)
 	us.SetMeterStatusState(stDoc.MeterStatusState)
 
 	return us, nil

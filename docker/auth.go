@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"reflect"
 	"time"
@@ -249,7 +248,7 @@ func NewImageRepoDetails(contentOrPath string) (o *ImageRepoDetails, err error) 
 	isPath, err := fileExists(contentOrPath)
 	if err == nil && isPath {
 		logger.Debugf("reading image repository information from %q", contentOrPath)
-		data, err = ioutil.ReadFile(contentOrPath)
+		data, err = os.ReadFile(contentOrPath)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

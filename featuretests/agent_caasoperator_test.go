@@ -4,10 +4,8 @@
 package featuretests
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/juju/cmd/v3"
@@ -29,6 +27,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/juju/sockets"
+	_ "github.com/juju/juju/secrets/provider/all"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -60,10 +59,10 @@ func (s *CAASOperatorSuite) SetUpTest(c *gc.C) {
 
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 	// Set up a CAAS model to replace the IAAS one.
-	// Ensure an older major version is used to prevent an upgrade
+	// Ensure major version 1 is used to prevent an upgrade
 	// from being attempted.
 	modelVers := jujuversion.Current
-	modelVers.Major--
+	modelVers.Major = 1
 	extraAttrs := coretesting.Attrs{
 		"agent-version": modelVers.String(),
 	}
@@ -103,7 +102,7 @@ func (s *CAASOperatorSuite) primeOperator(c *gc.C, app *state.Application) {
 	}
 	data, err := info.Marshal()
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(file, data, 0644)
+	err = os.WriteFile(file, data, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -197,9 +196,6 @@ var (
 
 func sockPath(c *gc.C) sockets.Socket {
 	sockPath := filepath.Join(c.MkDir(), "test.listener")
-	if runtime.GOOS == "windows" {
-		return sockets.Socket{Address: `\\.\pipe` + sockPath[2:], Network: "unix"}
-	}
 	return sockets.Socket{Address: sockPath, Network: "unix"}
 }
 
@@ -236,7 +232,7 @@ func (s *CAASOperatorSuite) TestWorkers(c *gc.C) {
 
 	matcher := agenttest.NewWorkerMatcher(c, tracker, a.Tag().String(),
 		append(alwaysCAASWorkers, notMigratingCAASWorkers...))
-	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
+	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait)
 }
 
 type mockContainerStartWatcher struct{}

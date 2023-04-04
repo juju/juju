@@ -9,7 +9,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -314,7 +314,7 @@ func (s *crossmodelSuite) TestAddRelationFromURL(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, crossmodel.NewOfferCommand(),
 		"mysql:server", "hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = runCommand(c, "add-relation", "wordpress", "admin/controller.hosted-mysql")
+	_, err = runCommand(c, "integrate", "wordpress", "admin/controller.hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	svc, err := s.State.RemoteApplication("hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -341,7 +341,7 @@ func (s *crossmodelSuite) TestAddRelationFromURL(c *gc.C) {
 }
 
 func (s *crossmodelSuite) assertAddRelationSameControllerSuccess(c *gc.C, otherModeluser string) {
-	_, err := runCommand(c, "add-relation", "-m", "admin/controller", "wordpress", otherModeluser+"/othermodel.hosted-mysql")
+	_, err := runCommand(c, "integrate", "-m", "admin/controller", "wordpress", otherModeluser+"/othermodel.hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.RemoteApplication("hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -380,8 +380,9 @@ func (s *crossmodelSuite) TestAddRelationSameControllerSameOwner(c *gc.C) {
 	ch, err := jujutesting.PutCharm(otherModel, curl, mysql)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = otherModel.AddApplication(state.AddApplicationArgs{
-		Name:  "mysql",
-		Charm: ch,
+		Name:        "mysql",
+		Charm:       ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	offersAPi := state.NewApplicationOffers(otherModel)
@@ -406,8 +407,9 @@ func (s *crossmodelSuite) addOtherModelApplication(c *gc.C) *state.State {
 	ch, err := jujutesting.PutCharm(otherModel, curl, mysql)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = otherModel.AddApplication(state.AddApplicationArgs{
-		Name:  "mysql",
-		Charm: ch,
+		Name:        "mysql",
+		Charm:       ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -464,7 +466,7 @@ func (s *crossmodelSuite) TestAddRelationSameControllerPermissionDenied(c *gc.C)
 
 	s.createTestUser(c)
 	s.loginTestUser(c)
-	context, err := runCommand(c, "add-relation", "-m", "admin/controller", "wordpress", "otheruser/othermodel.hosted-mysql")
+	context, err := runCommand(c, "integrate", "-m", "admin/controller", "wordpress", "otheruser/othermodel.hosted-mysql")
 	c.Assert(err, gc.NotNil)
 	c.Assert(cmdtesting.Stderr(context), jc.Contains, `application offer "otheruser/othermodel.hosted-mysql" not found`)
 }

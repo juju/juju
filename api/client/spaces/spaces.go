@@ -31,24 +31,6 @@ func NewAPI(caller base.APICallCloser) *API {
 	}
 }
 
-func makeCreateSpacesParamsV4(name string, cidrs []string, public bool) params.CreateSpacesParamsV4 {
-	spaceTag := names.NewSpaceTag(name).String()
-	subnetTags := make([]string, len(cidrs))
-
-	for i, cidr := range cidrs {
-		// For backwards compatibility, mimic old SubnetTags from names.v2.
-		// The CIDR will be validated by the facade.
-		subnetTags[i] = "subnet-" + cidr
-	}
-
-	return params.CreateSpacesParamsV4{
-		Spaces: []params.CreateSpaceParamsV4{{
-			SpaceTag:   spaceTag,
-			SubnetTags: subnetTags,
-			Public:     public,
-		}}}
-}
-
 func makeCreateSpacesParams(name string, cidrs []string, public bool) params.CreateSpacesParams {
 	return params.CreateSpacesParams{
 		Spaces: []params.CreateSpaceParams{
@@ -65,12 +47,7 @@ func makeCreateSpacesParams(name string, cidrs []string, public bool) params.Cre
 // specified subnets with it (optional; can be empty).
 func (api *API) CreateSpace(name string, cidrs []string, public bool) error {
 	var response params.ErrorResults
-	var args interface{}
-	if bestVer := api.BestAPIVersion(); bestVer < 5 {
-		args = makeCreateSpacesParamsV4(name, cidrs, public)
-	} else {
-		args = makeCreateSpacesParams(name, cidrs, public)
-	}
+	var args = makeCreateSpacesParams(name, cidrs, public)
 	err := api.facade.FacadeCall("CreateSpaces", args, &response)
 	if err != nil {
 		if params.IsCodeNotSupported(err) {
@@ -119,9 +96,6 @@ func (api *API) ListSpaces() ([]params.Space, error) {
 
 // ReloadSpaces reloads spaces from substrate.
 func (api *API) ReloadSpaces() error {
-	if api.facade.BestAPIVersion() < 3 {
-		return errors.NewNotSupported(nil, "Controller does not support reloading spaces")
-	}
 	err := api.facade.FacadeCall("ReloadSpaces", nil, nil)
 	if params.IsCodeNotSupported(err) {
 		return errors.NewNotSupported(nil, err.Error())

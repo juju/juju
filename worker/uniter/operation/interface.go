@@ -45,6 +45,9 @@ type Operation interface {
 	// NeedsGlobalMachineLock returns a bool expressing whether we need to lock the machine.
 	NeedsGlobalMachineLock() bool
 
+	// ExecutionGroup returns a string used to construct the name of the machine lock.
+	ExecutionGroup() string
+
 	// Prepare ensures that the operation is valid and ready to be executed.
 	// If it returns a non-nil state, that state will be validated and recorded.
 	// If it returns ErrSkipExecute, it indicates that the operation can be
@@ -156,6 +159,10 @@ type Factory interface {
 	// NewResignLeadership creates an operation to ensure the uniter does not
 	// act as application leader.
 	NewResignLeadership() (Operation, error)
+
+	// NewNoOpSecretsRemoved creates an operation to update the secrets
+	// state when secrets are removed.
+	NewNoOpSecretsRemoved(uris []string) (Operation, error)
 }
 
 // CommandArgs stores the arguments for a Command operation.
@@ -237,6 +244,13 @@ type Callbacks interface {
 	// upgrade series hook code completes and, for display purposes, to
 	// supply a reason as to why it is making the change.
 	SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, reason string) error
+
+	// SetSecretRotated updates the secret rotation status.
+	SetSecretRotated(url string, originalRevision int) error
+
+	// SecretsRemoved updates the unit secret state when
+	// secrets are removed.
+	SecretsRemoved(uris []string) error
 
 	// RemoteInit copies the charm to the remote instance. CAAS only.
 	RemoteInit(runningStatus remotestate.ContainerRunningStatus, abort <-chan struct{}) error

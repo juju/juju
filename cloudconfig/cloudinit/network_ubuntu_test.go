@@ -8,10 +8,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
@@ -49,10 +47,6 @@ var _ = gc.Suite(&NetworkUbuntuSuite{})
 
 func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-
-	if runtime.GOOS == "windows" {
-		c.Skip("This test is for Linux only")
-	}
 
 	s.tempFolder = c.MkDir()
 	networkFolder := c.MkDir()
@@ -415,7 +409,7 @@ network:
 
 func (s *NetworkUbuntuSuite) TestAddNetworkConfigSampleConfig(c *gc.C) {
 	netConfig := container.BridgeNetworkConfig(0, s.fakeInterfaces)
-	cloudConf, err := cloudinit.New("xenial")
+	cloudConf, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudConf, gc.NotNil)
 	err = cloudConf.AddNetworkConfig(netConfig.Interfaces)
@@ -506,13 +500,13 @@ func (s *NetworkUbuntuSuite) runENIScript(c *gc.C, pythonBinary, ipCommand, inpu
 	templFile := filepath.Join(s.tempFolder, "interfaces.templ")
 	scriptFile := filepath.Join(s.tempFolder, "script.py")
 
-	err := ioutil.WriteFile(dataFile, []byte(s.originalSystemNetworkInterfaces), 0644)
+	err := os.WriteFile(dataFile, []byte(s.originalSystemNetworkInterfaces), 0644)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Can't write interfaces file"))
 
-	err = ioutil.WriteFile(templFile, []byte(input), 0644)
+	err = os.WriteFile(templFile, []byte(input), 0644)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Can't write interfaces.templ file"))
 
-	err = ioutil.WriteFile(scriptFile, []byte(cloudinit.NetworkInterfacesScript), 0755)
+	err = os.WriteFile(scriptFile, []byte(cloudinit.NetworkInterfacesScript), 0755)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Can't write script file"))
 
 	script := fmt.Sprintf("%q %q --interfaces-file %q --output-file %q --command %q --wait %d --retries %d",
@@ -526,7 +520,7 @@ func (s *NetworkUbuntuSuite) runENIScript(c *gc.C, pythonBinary, ipCommand, inpu
 		dataOutFile: expectedOutput,
 		dataFile:    s.originalSystemNetworkInterfaces,
 	} {
-		data, err := ioutil.ReadFile(file)
+		data, err := os.ReadFile(file)
 		c.Assert(err, jc.ErrorIsNil, gc.Commentf("can't open %q file: %s", file, err))
 		output := string(data)
 		c.Assert(output, gc.Equals, expected)
@@ -543,7 +537,7 @@ func (s *NetworkUbuntuSuite) createMockCommand(c *gc.C, outputs []string) string
 	lastFile := ""
 	for i, output := range outputs {
 		dataFile := filepath.Join(s.tempFolder, fmt.Sprintf("%s.%d", baseName, i))
-		err := ioutil.WriteFile(dataFile, []byte(output), 0644)
+		err := os.WriteFile(dataFile, []byte(output), 0644)
 		c.Assert(err, jc.ErrorIsNil, gc.Commentf("can't write mock file"))
 		if lastFile != "" {
 			script += fmt.Sprintf("mv %q %q || true\n", dataFile, lastFile)
@@ -552,7 +546,7 @@ func (s *NetworkUbuntuSuite) createMockCommand(c *gc.C, outputs []string) string
 	}
 
 	scriptPath := filepath.Join(s.tempFolder, fmt.Sprintf("%s.sh", baseName))
-	err := ioutil.WriteFile(scriptPath, []byte(script), 0755)
+	err := os.WriteFile(scriptPath, []byte(script), 0755)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("can't write script file"))
 	return scriptPath
 }

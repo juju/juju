@@ -7,8 +7,8 @@ import (
 	"bytes"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -58,9 +59,6 @@ func (s *charmSuite) SetUpTest(c *gc.C) {
 
 func (s *charmSuite) TestSimpleCharmDeploy(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(7).AnyTimes()
-	s.deployerAPI.EXPECT().CharmInfo(gomock.Any()).Return(s.charmInfo, nil)
-	s.deployerAPI.EXPECT().ModelUUID().Return("dead-beef", true)
 	s.modelCommand.EXPECT().BakeryClient().Return(nil, nil)
 	s.modelCommand.EXPECT().Filesystem().Return(s.filesystem)
 	s.configFlag.EXPECT().AbsoluteFileNames(gomock.Any()).Return(nil, nil)
@@ -101,7 +99,6 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *gc.C) 
 	s.expectDeployerAPIModelGet(c, "jammy")
 
 	dCharm := s.newDeployCharm()
-	dCharm.series = ""
 	dCharm.dryRun = true
 	dCharm.force = true
 	dCharm.validateCharmSeriesWithName = func(series, name string, imageStream string) error {
@@ -130,7 +127,7 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *gc.C) 
 
 	err := repoCharm.PrepareAndDeploy(ctx, s.deployerAPI, s.resolver, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(output.String(), gc.Equals, "\"testme\" from  charm \"testme\", revision -1 on jammy would be deployed\n")
+	c.Check(output.String(), gc.Equals, "\"testme\" from  charm \"testme\", revision -1 on ubuntu@22.04 would be deployed\n")
 }
 
 func (s *charmSuite) newDeployCharm() *deployCharm {
@@ -149,12 +146,11 @@ func (s *charmSuite) newDeployCharm() *deployCharm {
 		},
 		id: application.CharmID{
 			URL:    s.url,
-			Origin: commoncharm.Origin{},
+			Origin: commoncharm.Origin{Base: series.MakeDefaultBase("ubuntu", "20.04")},
 		},
 		flagSet:  &gnuflag.FlagSet{},
 		model:    s.modelCommand,
 		numUnits: 0,
-		series:   "focal",
 		steps:    []DeployStep{},
 	}
 }
@@ -162,6 +158,9 @@ func (s *charmSuite) newDeployCharm() *deployCharm {
 func (s *charmSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.deployerAPI = mocks.NewMockDeployerAPI(ctrl)
+	s.deployerAPI.EXPECT().CharmInfo(gomock.Any()).Return(s.charmInfo, nil).AnyTimes()
+	s.deployerAPI.EXPECT().ModelUUID().Return("dead-beef", true).AnyTimes()
+
 	s.modelCommand = mocks.NewMockModelCommand(ctrl)
 	s.configFlag = mocks.NewMockDeployConfigFlag(ctrl)
 	return ctrl

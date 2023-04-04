@@ -10,10 +10,10 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
-	jujutxn "github.com/juju/txn/v2"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
+	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/model"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -23,8 +23,8 @@ import (
 // series update of a machine
 type upgradeSeriesLockDoc struct {
 	Id            string                             `bson:"machine-id"`
-	ToSeries      string                             `bson:"to-series"`
-	FromSeries    string                             `bson:"from-series"`
+	ToBase        string                             `bson:"to-base"`
+	FromBase      string                             `bson:"from-base"`
 	MachineStatus model.UpgradeSeriesStatus          `bson:"machine-status"`
 	Messages      []UpgradeSeriesMessage             `bson:"messages"`
 	TimeStamp     time.Time                          `bson:"timestamp"`
@@ -59,7 +59,7 @@ func newUpgradeSeriesMessage(name string, message string, timestamp time.Time) U
 // this item exists in the database for a given machine it indicates that a
 // machine's operating system is being upgraded from one series to another;
 // for example, from xenial to bionic.
-func (m *Machine) CreateUpgradeSeriesLock(unitNames []string, toSeries string) error {
+func (m *Machine) CreateUpgradeSeriesLock(unitNames []string, toBase Base) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -76,10 +76,10 @@ func (m *Machine) CreateUpgradeSeriesLock(unitNames []string, toSeries string) e
 		if err = m.isStillAlive(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		// Exit early if the Machine series doesn't need to change.
-		fromSeries := m.Series()
-		if fromSeries == toSeries {
-			return nil, errors.Trace(errors.Errorf("machine %s already at series %s", m.Id(), toSeries))
+		// Exit early if the Machine base doesn't need to change.
+		fromBase := m.Base().String()
+		if fromBase == toBase.String() {
+			return nil, errors.Trace(errors.Errorf("machine %s already at base %s", m.Id(), toBase.String()))
 		}
 		// If the units have changed, the verification is no longer valid.
 		changed, err := m.unitsHaveChanged(unitNames)
@@ -89,7 +89,7 @@ func (m *Machine) CreateUpgradeSeriesLock(unitNames []string, toSeries string) e
 		if changed {
 			return nil, errors.Errorf("Units have changed, please retry (%v)", unitNames)
 		}
-		data := m.prepareUpgradeSeriesLock(unitNames, toSeries)
+		data := m.prepareUpgradeBaseLock(unitNames, toBase)
 		return createUpgradeSeriesLockTxnOps(m.doc.Id, data), nil
 	}
 	err := m.st.db().Run(buildTxn)
@@ -149,7 +149,7 @@ func (m *Machine) unitsHaveChanged(unitNames []string) (bool, error) {
 	return !unitNameSet.Difference(curUnitSet).IsEmpty(), nil
 }
 
-func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) *upgradeSeriesLockDoc {
+func (m *Machine) prepareUpgradeBaseLock(unitNames []string, toBase Base) *upgradeSeriesLockDoc {
 	// We want to put the unit statuses in to a prepared started state and only
 	// the machine status should be in a validate state. As we're only
 	// validating the machine and not each individual unit.
@@ -161,12 +161,12 @@ func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) 
 		}
 	}
 
-	message := fmt.Sprintf("validation of upgrade series from %q to %q", m.Series(), toSeries)
+	message := fmt.Sprintf("validation of upgrade base from %q to %q", m.Base().String(), toBase.String())
 	updateMessage := newUpgradeSeriesMessage(m.Tag().String(), message, timestamp)
 	return &upgradeSeriesLockDoc{
 		Id:            m.Id(),
-		ToSeries:      toSeries,
-		FromSeries:    m.Series(),
+		ToBase:        toBase.String(),
+		FromBase:      m.Base().String(),
 		MachineStatus: model.UpgradeSeriesValidate,
 		UnitStatuses:  unitStatuses,
 		TimeStamp:     timestamp,
@@ -192,17 +192,17 @@ func createUpgradeSeriesLockTxnOps(machineDocId string, data *upgradeSeriesLockD
 	}
 }
 
-// UpgradeSeriesTarget returns the series
+// UpgradeSeriesTarget returns the base
 // that the machine is being upgraded to.
 func (m *Machine) UpgradeSeriesTarget() (string, error) {
 	lock, err := m.getUpgradeSeriesLock()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return lock.ToSeries, nil
+	return lock.ToBase, nil
 }
 
-// StartUpgradeSeriesUnitCompletion notifies units that an upgrade-series
+// StartUpgradeSeriesUnitCompletion notifies units that an upgrade-machine
 // workflow is ready for its "completion" phase.
 func (m *Machine) StartUpgradeSeriesUnitCompletion(message string) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {

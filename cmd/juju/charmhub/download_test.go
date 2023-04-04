@@ -89,6 +89,11 @@ func (s *downloadSuite) TestRun(c *gc.C) {
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, "(?s)"+`
+Fetching charm "test" revision 123 using "stable" channel and base "amd64/ubuntu/22.04"
+Install the "test" charm with:
+    juju deploy ./test_r123\.charm
+`[1:])
 }
 
 func (s *downloadSuite) TestRunWithStdout(c *gc.C) {
@@ -168,7 +173,7 @@ func (s *downloadSuite) TestRunWithUnsupportedSeriesReturnsSecondAttempt(c *gc.C
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, gc.ErrorMatches, `"test" does not support series "bionic" in channel "stable".  Supported series are: bionic, trusty, xenial.`)
+	c.Assert(err, gc.ErrorMatches, `"test" does not support series ".*" in channel "stable".  Supported series are: bionic, trusty, xenial.`)
 }
 
 func (s *downloadSuite) TestRunWithNoStableRelease(c *gc.C) {
@@ -215,7 +220,7 @@ func (s *downloadSuite) TestRunWithInvalidStdout(c *gc.C) {
 func (s *downloadSuite) newCharmHubCommand() *charmHubCommand {
 	return &charmHubCommand{
 		arches: arch.AllArches(),
-		CharmHubClientFunc: func(charmhub.Config, charmhub.FileSystem) (CharmHubClient, error) {
+		CharmHubClientFunc: func(charmhub.Config) (CharmHubClient, error) {
 			return s.charmHubAPI, nil
 		},
 	}
@@ -245,6 +250,7 @@ func (s *downloadSuite) expectRefresh(charmHubURL string) {
 					HashSHA256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 					URL:        charmHubURL,
 				},
+				Revision: 123,
 			},
 		}}, nil
 	})
@@ -299,11 +305,11 @@ func (s *downloadSuite) expectRefreshUnsupportedSeries() {
 func (s *downloadSuite) expectDownload(c *gc.C, charmHubURL string) {
 	resourceURL, err := url.Parse(charmHubURL)
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmHubAPI.EXPECT().Download(gomock.Any(), resourceURL, "test_e3b0c44.charm", gomock.Any()).Return(nil)
+	s.charmHubAPI.EXPECT().Download(gomock.Any(), resourceURL, "test_r123.charm", gomock.Any()).Return(nil)
 }
 
 func (s *downloadSuite) expectFilesystem(c *gc.C) {
 	s.file.EXPECT().Read(gomock.Any()).Return(0, io.EOF).AnyTimes()
 	s.file.EXPECT().Close().Return(nil)
-	s.filesystem.EXPECT().Open("test_e3b0c44.charm").Return(s.file, nil)
+	s.filesystem.EXPECT().Open("test_r123.charm").Return(s.file, nil)
 }

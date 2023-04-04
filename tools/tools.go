@@ -19,11 +19,3 @@ type Tools struct {
 func (t *Tools) AgentVersion() version.Number {
 	return t.Version.Number
 }
-
-// GUIArchive represents the location and version of a GUI release archive.
-type GUIArchive struct {
-	Version version.Number `json:"version"`
-	URL     string         `json:"url"`
-	SHA256  string         `json:"sha256,omitempty"`
-	Size    int64          `json:"size"`
-}

@@ -375,86 +375,8 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			// TODO(redir): BBB: When we no longer support upstart based systems this can change to series.LatestLts()
-			BootstrapSeries:          "xenial",
-			AdminSecret:              testing.AdminSecret,
-			CAPrivateKey:             coretesting.CAKey,
-			SupportedBootstrapSeries: set.NewStrings("xenial").Union(coretesting.FakeSupportedJujuSeries),
-		})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// check that ControllerInstances returns the id of the bootstrap machine.
-	instanceIds, err := env.ControllerInstances(t.callCtx, t.ControllerUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instanceIds, gc.HasLen, 1)
-
-	insts, err := env.AllRunningInstances(t.callCtx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(insts, gc.HasLen, 1)
-	c.Check(insts[0].Id(), gc.Equals, instanceIds[0])
-
-	// check that the user data is configured to and the machine and
-	// provisioning agents.  check that the user data is configured to only
-	// configure authorized SSH keys and set the log output; everything else
-	// happens after the machine is brought up.
-	inst := t.srv.ec2srv.Instance(string(insts[0].Id()))
-	c.Assert(inst, gc.NotNil)
-	addresses, err := insts[0].Addresses(t.callCtx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, gc.Not(gc.HasLen), 0)
-	userData, err := utils.Gunzip(inst.UserData)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var userDataMap map[string]interface{}
-	err = goyaml.Unmarshal(userData, &userDataMap)
-	c.Assert(err, jc.ErrorIsNil)
-	var keys []string
-	for key := range userDataMap {
-		keys = append(keys, key)
-	}
-	c.Assert(keys, jc.SameContents, []string{"output", "users", "runcmd", "ssh_keys"})
-	c.Assert(userDataMap["runcmd"], jc.DeepEquals, []interface{}{
-		"set -xe",
-		"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
-		"echo 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
-	})
-
-	// check that a new instance will be started with a machine agent
-	inst1, hc := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")
-	c.Check(*hc.Arch, gc.Equals, "amd64")
-	c.Check(*hc.Mem, gc.Equals, uint64(1024))
-	c.Check(*hc.CpuCores, gc.Equals, uint64(2))
-	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
-	c.Assert(inst, gc.NotNil)
-	userData, err = utils.Gunzip(inst.UserData)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("second instance: UserData: %q", userData)
-	userDataMap = nil
-	err = goyaml.Unmarshal(userData, &userDataMap)
-	c.Assert(err, jc.ErrorIsNil)
-	CheckPackage(c, userDataMap, "curl", true)
-	CheckPackage(c, userDataMap, "mongodb-server", false)
-	CheckScripts(c, userDataMap, "jujud bootstrap-state", false)
-	CheckScripts(c, userDataMap, "/var/lib/juju/agents/machine-1/agent.conf", true)
-	// TODO check for provisioning agent
-
-	err = env.Destroy(t.callCtx)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = env.ControllerInstances(t.callCtx, t.ControllerUUID)
-	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
-}
-
-// TestUpstartBoostrapInstanceUserDataAndState is a test for legacy systems
-// using upstart which will be around until trusty is no longer supported.
-// TODO(redir): BBB: remove when trusty is no longer supported
-func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C) {
-	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(t.BootstrapContext, env,
-		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
-			BootstrapSeries:          "trusty",
+			BootstrapSeries:          coreseries.LatestLTS(),
 			AdminSecret:              testing.AdminSecret,
 			CAPrivateKey:             coretesting.CAKey,
 			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
@@ -493,8 +415,6 @@ func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C)
 	c.Assert(keys, jc.SameContents, []string{"output", "users", "runcmd", "ssh_keys"})
 	c.Assert(userDataMap["runcmd"], jc.DeepEquals, []interface{}{
 		"set -xe",
-		"install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown.conf'",
-		"echo '\nauthor \"Juju Team <juju@lists.ubuntu.com>\"\ndescription \"Stop all network interfaces on shutdown\"\nstart on runlevel [016]\ntask\nconsole output\n\nexec /sbin/ifdown -a -v --force\n' > '/etc/init/juju-clean-shutdown.conf'",
 		"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
 		"echo 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
 	})
@@ -1526,7 +1446,7 @@ func (t *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=m1.small root-disk=1G")
 	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:      jujuversion.DefaultSupportedLTS(),
+		Base:        jujuversion.DefaultSupportedLTSBase(),
 		Constraints: cons,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1536,7 +1456,7 @@ func (t *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=m1.invalid")
 	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:      jujuversion.DefaultSupportedLTS(),
+		Base:        jujuversion.DefaultSupportedLTSBase(),
 		Constraints: cons,
 	})
 	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "m1.invalid" specified`)
@@ -1546,7 +1466,7 @@ func (t *localServerSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=cc1.4xlarge arch=arm64")
 	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:      jujuversion.DefaultSupportedLTS(),
+		Base:        jujuversion.DefaultSupportedLTSBase(),
 		Constraints: cons,
 	})
 	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "cc1.4xlarge" and arch "arm64" specified`)
@@ -1556,7 +1476,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-available"
 	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:    jujuversion.DefaultSupportedLTS(),
+		Base:      jujuversion.DefaultSupportedLTSBase(),
 		Placement: placement,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1566,7 +1486,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unavailable"
 	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:    jujuversion.DefaultSupportedLTS(),
+		Base:      jujuversion.DefaultSupportedLTSBase(),
 		Placement: placement,
 	})
 	c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is "unavailable"`)
@@ -1576,7 +1496,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unknown"
 	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:    jujuversion.DefaultSupportedLTS(),
+		Base:      jujuversion.DefaultSupportedLTSBase(),
 		Placement: placement,
 	})
 	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
@@ -1600,7 +1520,7 @@ func (t *localServerSuite) testPrecheckInstanceVolumeAvailZone(c *gc.C, placemen
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:    jujuversion.DefaultSupportedLTS(),
+		Base:      jujuversion.DefaultSupportedLTSBase(),
 		Placement: placement,
 		VolumeAttachments: []storage.VolumeAttachmentParams{{
 			AttachmentParams: storage.AttachmentParams{
@@ -1623,7 +1543,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZoneVolumeConflict(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:    jujuversion.DefaultSupportedLTS(),
+		Base:      jujuversion.DefaultSupportedLTSBase(),
 		Placement: "zone=test-available",
 		VolumeAttachments: []storage.VolumeAttachmentParams{{
 			AttachmentParams: storage.AttachmentParams{
@@ -1646,14 +1566,14 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	env := t.Prepare(c)
 	params, err := env.(simplestreams.ImageMetadataValidator).ImageMetadataLookupParams("test")
 	c.Assert(err, jc.ErrorIsNil)
-	params.Release = jujuversion.DefaultSupportedLTS()
+	params.Release = jujuversion.DefaultSupportedLTSBase().Channel.Track
 	params.Endpoint = "http://foo"
 	params.Sources, err = environs.ImageMetadataSources(env, ss)
 	c.Assert(err, jc.ErrorIsNil)
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(ss, params)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(image_ids)
-	c.Assert(image_ids, gc.DeepEquals, []string{"ami-02004133", "ami-02004135", "ami-02004139"})
+	c.Assert(image_ids, gc.DeepEquals, []string{"ami-02204133", "ami-02204135", "ami-02204139"})
 }
 
 func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
@@ -2476,7 +2396,7 @@ func (t *localServerSuite) TestPrechecker(c *gc.C) {
 	t.Prepare(c)
 	err := t.Env.PrecheckInstance(t.ProviderCallContext,
 		environs.PrecheckInstanceParams{
-			Series: "precise",
+			Base: jujuversion.DefaultSupportedLTSBase(),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -2801,8 +2721,8 @@ func (t *localServerSuite) TestBootstrapMultiple(c *gc.C) {
 func (t *localServerSuite) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	machineId := "4"
 	apiInfo := testing.FakeAPIInfo(machineId)
-	base := coreseries.MakeDefaultBase("ubuntu", "14.04")
-	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, "", "released", base, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, "",
+		"released", jujuversion.DefaultSupportedLTSBase(), apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	t.Prepare(c)
@@ -2822,7 +2742,7 @@ func (t *localServerSuite) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	err = testing.SetImageMetadata(
 		t.Env,
 		simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory()),
-		[]string{"trusty"},
+		[]string{"22.04"},
 		[]string{"amd64"},
 		&params.ImageMetadata,
 	)

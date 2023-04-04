@@ -30,7 +30,7 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 	region := "region"
 
 	// This is used by filters to search function
-	testSeries := "trusty"
+	testSeries := "jammy"
 	version, err := series.SeriesVersion(testSeries)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -62,7 +62,6 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 						Stream:          args.Stream,
 						Region:          args.Region,
 						Version:         args.Versions[0],
-						Series:          args.Series[0],
 						Arch:            args.Arches[0],
 						VirtType:        args.VirtType,
 						RootStorageType: args.RootStorageType,
@@ -90,7 +89,6 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 			Stream:          stream,
 			Region:          region,
 			Version:         version,
-			Series:          testSeries,
 			Arch:            arch,
 			VirtType:        virtType,
 			RootStorageType: rootStorageType,

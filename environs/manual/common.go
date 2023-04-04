@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -18,17 +17,6 @@ const ManualInstancePrefix = "manual:"
 
 // RecordMachineInState records and saves into the state machine the provisioned machine
 func RecordMachineInState(client ProvisioningClientAPI, machineParams params.AddMachineParams) (machineId string, err error) {
-	if client.BestAPIVersion() >= 8 && machineParams.Base == nil {
-		info, err := series.GetBaseFromSeries(machineParams.Series)
-		if err != nil {
-			return "", errors.NotValidf("machine series %q", machineParams.Series)
-		}
-		machineParams.Series = ""
-		machineParams.Base = &params.Base{
-			Name:    info.Name,
-			Channel: info.Channel.String(),
-		}
-	}
 	results, err := client.AddMachines([]params.AddMachineParams{machineParams})
 	if err != nil {
 		return "", errors.Trace(err)

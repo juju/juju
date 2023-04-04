@@ -4,7 +4,7 @@
 package instancemutater
 
 import (
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -19,6 +19,18 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.apiserver.instancemutater")
+
+// InstanceMutaterV2 defines the methods on the instance mutater API facade, version 2.
+type InstanceMutaterV2 interface {
+	Life(args params.Entities) (params.LifeResults, error)
+
+	CharmProfilingInfo(arg params.Entity) (params.CharmProfilingInfoResult, error)
+	ContainerType(arg params.Entity) (params.ContainerTypeResult, error)
+	SetCharmProfiles(args params.SetProfileArgs) (params.ErrorResults, error)
+	SetModificationStatus(args params.SetStatus) (params.ErrorResults, error)
+	WatchMachines() (params.StringsWatchResult, error)
+	WatchLXDProfileVerificationNeeded(args params.Entities) (params.NotifyWatchResults, error)
+}
 
 type InstanceMutaterAPI struct {
 	*common.LifeGetter
@@ -37,14 +49,6 @@ type InstanceMutatorWatcher interface {
 
 type instanceMutatorWatcher struct {
 	st InstanceMutaterState
-}
-
-type InstanceMutaterAPIV1 struct {
-	*InstanceMutaterAPIV2
-}
-
-type InstanceMutaterAPIV2 struct {
-	*InstanceMutaterAPI
 }
 
 // NewInstanceMutaterAPI creates a new API server endpoint for managing
@@ -166,7 +170,7 @@ func (api *InstanceMutaterAPI) SetCharmProfiles(args params.SetProfileArgs) (par
 // WatchMachines starts a watcher to track machines.
 // WatchMachines does not consume the initial event of the watch response, as
 // that returns the initial set of machines that are currently available.
-func (api *InstanceMutaterAPIV2) WatchMachines() (params.StringsWatchResult, error) {
+func (api *InstanceMutaterAPI) WatchMachines() (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
 	if !api.authorizer.AuthController() {
 		return result, apiservererrors.ErrPerm
@@ -181,9 +185,6 @@ func (api *InstanceMutaterAPIV2) WatchMachines() (params.StringsWatchResult, err
 	}
 	return result, nil
 }
-
-// WatchModelMachines is not available via the V2 API.
-func (api *InstanceMutaterAPIV2) WatchModelMachines(_ struct{}) {}
 
 // WatchModelMachines starts a watcher to track machines, but not containers.
 // WatchModelMachines does not consume the initial event of the watch response, as

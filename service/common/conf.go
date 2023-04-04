@@ -27,14 +27,12 @@ type Conf struct {
 
 	// Env holds the environment variables that will be set when the
 	// command runs.
-	// Currently not used on Windows.
 	Env map[string]string
 
 	// TODO(ericsnow) Add a Limit type, since the possible keys are known.
 
 	// Limit holds the ulimit values that will be set when the command
 	// runs. Each value will be used as both the soft and hard limit.
-	// Currently not used on Windows.
 	// Valid values are integers or "infinity"
 	Limit map[string]string
 

@@ -6,7 +6,7 @@ package cloud
 import (
 	stdcontext "context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"sort"
 	"strings"
 
@@ -43,7 +43,7 @@ type CloudMetadataStore interface {
 }
 
 var usageAddCloudSummary = `
-Adds a cloud definition to Juju.`[1:]
+Add a cloud definition to Juju.`[1:]
 
 var usageAddCloudDetails = `
 Juju needs to know how to connect to clouds. A cloud definition 
@@ -76,10 +76,6 @@ to this client as well as upload it to a controller.
 Use --controller option to upload a cloud to a controller. 
 
 Use --client option to add cloud to the current client.
-
-DEPRECATED (use 'update-credential' instead) 
-If <cloud name> already exists on this client, then the `[1:] + "`--replace`" + ` 
-option is required.
 
 A cloud definition file has the following YAML format:
 
@@ -144,10 +140,6 @@ type AddCloudAPI interface {
 // for use with juju bootstrap.
 type AddCloudCommand struct {
 	modelcmd.OptionalControllerCommand
-
-	// Replace, if true, existing cloud information is overwritten.
-	// TODO (anastasiamac 2019-6-4) Remove as redundant and unsupported for Juju 3.
-	Replace bool
 
 	// Cloud is the name of the cloud to add.
 	Cloud string
@@ -216,7 +208,6 @@ func (c *AddCloudCommand) Info() *cmd.Info {
 // SetFlags initializes the flags supported by the command.
 func (c *AddCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
-	f.BoolVar(&c.Replace, "replace", false, "DEPRECATED: Overwrite any existing cloud information for <cloud name>")
 	f.BoolVar(&c.Force, "force", false, "Force add cloud to the controller")
 	f.StringVar(&c.CloudFile, "f", "", "The path to a cloud definition file")
 	f.StringVar(&c.CloudFile, "file", "", "The path to a cloud definition file")
@@ -298,9 +289,6 @@ func (c *AddCloudCommand) addCredentialToController(ctx *cmd.Context, cloud juju
 // Run executes the add cloud command, adding a cloud based on a passed-in yaml
 // file or interactive queries.
 func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
-	if c.Replace {
-		ctxt.Warningf("'add-cloud --replace' is deprecated. Use 'update-cloud' instead.")
-	}
 	if err := c.MaybePrompt(ctxt, "add cloud to"); err != nil {
 		return errors.Trace(err)
 	}
@@ -329,10 +317,10 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	}
 
 	var returnErr error
-	if c.Replace || (c.Client && !c.existsLocally) {
+	if c.Client && !c.existsLocally {
 		returnErr = c.addLocalCloud(ctxt, newCloud)
 	}
-	if !c.Replace && (c.Client && c.existsLocally) {
+	if c.Client && c.existsLocally {
 		returnErr = errors.AlreadyExistsf("use `update-cloud %s --client` to override known definition: local cloud %q", newCloud.Name, newCloud.Name)
 	}
 
@@ -390,9 +378,6 @@ func (c *AddCloudCommand) addRemoteCloud(ctxt *cmd.Context, newCloud *jujucloud.
 
 func (c *AddCloudCommand) addLocalCloud(ctxt *cmd.Context, newCloud *jujucloud.Cloud) error {
 	operation := "added"
-	if c.Replace {
-		operation = "updated"
-	}
 	if err := addLocalCloud(c.cloudMetadataStore, *newCloud); err != nil {
 		ctxt.Infof("Cloud %q was not %v locally: %v", newCloud.Name, operation, err)
 		return cmd.ErrSilent
@@ -496,7 +481,7 @@ func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) (*jujucloud.Cloud, e
 	// VerifyCertFile will return true if the schema format type "cert-filename" is used
 	// and the value is readable and a valid cert file.
 	pollster.VerifyCertFile = func(s string) (bool, string, error) {
-		out, err := ioutil.ReadFile(s)
+		out, err := os.ReadFile(s)
 		if err != nil {
 			return false, "Can't validate CA Certificate file: " + err.Error(), nil
 		}
@@ -549,7 +534,7 @@ func addCertificate(data []byte) (string, []byte, error) {
 	}
 	filename := name.(string)
 	if ok && filename != "" {
-		out, err := ioutil.ReadFile(filename)
+		out, err := os.ReadFile(filename)
 		if err != nil {
 			return filename, nil, err
 		}

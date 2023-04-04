@@ -7,17 +7,17 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"os"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/gnuflag"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
-	jujutxn "github.com/juju/txn/v2"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
+	jujutxn "github.com/juju/txn/v3"
 	"github.com/kr/pretty"
 )
 
@@ -27,7 +27,7 @@ type Args struct {
 	Password     string
 	Database     string
 	AuthDatabase string
-	SSL          bool
+	TLS          bool
 	Verbose      bool
 }
 
@@ -37,7 +37,7 @@ var defaultArgs = Args{
 	Password:     "",
 	Database:     "juju",
 	AuthDatabase: "admin",
-	SSL:          true,
+	TLS:          true,
 	Verbose:      false,
 }
 
@@ -75,12 +75,12 @@ Where txn is a JSON encoded list of transaction operations taking the form:
 	flags.StringVar(&args.Password, "password", defaultArgs.Password, "password for connection")
 	flags.StringVar(&args.Database, "db", defaultArgs.Database, "database to access")
 	flags.StringVar(&args.AuthDatabase, "authdb", defaultArgs.AuthDatabase, "database to use for authentication")
-	flags.BoolVar(&args.SSL, "ssl", defaultArgs.SSL, "use --ssl=false to disable ssl")
+	flags.BoolVar(&args.TLS, "tls", defaultArgs.TLS, "use --tls=false to disable tls")
 	flags.BoolVar(&args.Verbose, "v", defaultArgs.Verbose, "print transaction before running it")
 	return args
 }
 
-func dialSSL(addr *mgo.ServerAddr) (net.Conn, error) {
+func dialTLS(addr *mgo.ServerAddr) (net.Conn, error) {
 	c, err := net.Dial("tcp", addr.String())
 	if err != nil {
 		return nil, err
@@ -111,7 +111,7 @@ func main() {
 		fmt.Printf("error opening file %s:\n%s\n", flags.Arg(0), err)
 		os.Exit(1)
 	}
-	bytes, err := ioutil.ReadAll(f)
+	bytes, err := io.ReadAll(f)
 	if err != nil {
 		fmt.Printf("error reading file %s:\n%s\n", flags.Arg(0), err)
 		os.Exit(1)
@@ -135,8 +135,8 @@ func main() {
 		Password:   args.Password,
 		DialServer: nil, // func(addr *ServerAddr) (net.Conn, error)
 	}
-	if args.SSL {
-		dialInfo.DialServer = dialSSL
+	if args.TLS {
+		dialInfo.DialServer = dialTLS
 	}
 	session, err := mgo.DialWithInfo(dialInfo)
 	if err != nil {
@@ -146,7 +146,8 @@ func main() {
 	runner := jujutxn.NewRunner(jujutxn.RunnerParams{
 		Database:                  session.DB(args.Database),
 		TransactionCollectionName: "txns",
-		ChangeLogName:             "txns.log",
+		ChangeLogName:             "-",
+		ServerSideTransactions:    true,
 		Clock:                     clock.WallClock,
 	})
 	txnOps := make([]txn.Op, len(ops))

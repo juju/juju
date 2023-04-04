@@ -7,14 +7,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/golang/mock/gomock"
-	charmresource "github.com/juju/charm/v8/resource"
+	charmresource "github.com/juju/charm/v9/resource"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -164,7 +164,7 @@ func (s *resourcesUploadSuite) TestUpload(c *gc.C) {
 	res, reader, err := rSt.OpenResource(s.appName, "bin")
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
-	readContent, err := ioutil.ReadAll(reader)
+	readContent, err := io.ReadAll(reader)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(readContent), gc.Equals, content)
 	c.Assert(res.ID, gc.Equals, outResp.ID)

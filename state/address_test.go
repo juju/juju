@@ -4,8 +4,8 @@
 package state_test
 
 import (
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -321,7 +321,7 @@ func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForClients(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 
 	// Initial event.
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	err := s.State.SetAPIHostPorts([]network.SpaceHostPorts{network.NewSpaceHostPorts(99, "0.1.2.3")})
@@ -344,7 +344,7 @@ func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForAgents(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 
 	// Initial event.
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	mgmtHP := network.SpaceHostPort{

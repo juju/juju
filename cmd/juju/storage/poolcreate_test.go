@@ -6,9 +6,10 @@ package storage_test
 import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/juju/core/model"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/model"
 
 	"github.com/juju/juju/cmd/juju/storage"
 	_ "github.com/juju/juju/provider/dummy"
@@ -24,7 +25,7 @@ var _ = gc.Suite(&PoolCreateSuite{})
 func (s *PoolCreateSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
-	s.mockAPI = &mockPoolCreateAPI{APIVersion: 5}
+	s.mockAPI = &mockPoolCreateAPI{}
 }
 
 func (s *PoolCreateSuite) runPoolCreate(c *gc.C, args []string) (*cmd.Context, error) {
@@ -147,8 +148,7 @@ type mockCreateData struct {
 }
 
 type mockPoolCreateAPI struct {
-	APIVersion int
-	Creates    []mockCreateData
+	Creates []mockCreateData
 }
 
 func (s *mockPoolCreateAPI) CreatePool(pname, ptype string, pconfig map[string]interface{}) error {
@@ -158,8 +158,4 @@ func (s *mockPoolCreateAPI) CreatePool(pname, ptype string, pconfig map[string]i
 
 func (s mockPoolCreateAPI) Close() error {
 	return nil
-}
-
-func (s mockPoolCreateAPI) BestAPIVersion() int {
-	return s.APIVersion
 }

@@ -6,8 +6,8 @@ package resource_test
 import (
 	"strings"
 
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	jujucmd "github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -87,7 +87,6 @@ func (s *CharmResourcesSuite) TestOkay(c *gc.C) {
 Resource  Revision
 music     1
 website   2
-
 `[1:])
 	c.Check(stderr, gc.Equals, "")
 	s.stub.CheckCallNames(c,
@@ -139,7 +138,6 @@ func (s *CharmResourcesSuite) TestOutputFormats(c *gc.C) {
 Resource  Revision
 music     1
 website   1
-
 `[1:],
 		"yaml": `
 - name: music

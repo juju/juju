@@ -9,16 +9,14 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v3"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
@@ -182,6 +180,10 @@ func (s *CharmSuite) TestReferenceDyingCharm(c *gc.C) {
 	args := state.AddApplicationArgs{
 		Name:  "blah",
 		Charm: s.charm,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "22.04/stable",
+		}},
 	}
 	_, err := s.State.AddApplication(args)
 	c.Check(err, gc.ErrorMatches, `cannot add application "blah": charm: not found or not alive`)
@@ -196,6 +198,10 @@ func (s *CharmSuite) TestReferenceDyingCharmRace(c *gc.C) {
 	args := state.AddApplicationArgs{
 		Name:  "blah",
 		Charm: s.charm,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "22.04/stable",
+		}},
 	}
 	_, err := s.State.AddApplication(args)
 	c.Check(err, gc.ErrorMatches, `cannot add application "blah": charm: not found or not alive`)
@@ -690,36 +696,50 @@ func (s *CharmSuite) TestAllCharms(c *gc.C) {
 }
 
 func (s *CharmSuite) TestAddCharmMetadata(c *gc.C) {
-	// Required to allow charm lookups to return pending charms.
-	err := s.State.UpdateControllerConfig(
-		map[string]interface{}{
-			controller.Features: []interface{}{feature.AsynchronousCharmDownloads},
-		}, nil,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Check that a charm with missing sha/storage path is flagged as pending
 	// to be uploaded.
-	dummy1 := s.dummyCharm(c, "cs:quantal/dummy-1")
+	dummy1 := s.dummyCharm(c, "ch:quantal/dummy-1")
 	dummy1.SHA256 = ""
 	dummy1.StoragePath = ""
 	ch1, err := s.State.AddCharmMetadata(dummy1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch1.IsPlaceholder(), jc.IsFalse)
-	c.Assert(ch1.IsUploaded(), jc.IsFalse, gc.Commentf("expected charm with missing SHA/storage path to have the PendingUpload flag set"))
+	c.Check(ch1.IsPlaceholder(), jc.IsFalse)
+	c.Check(ch1.IsUploaded(), jc.IsFalse, gc.Commentf("expected charm with missing SHA/storage path to have the PendingUpload flag set"))
 
 	// Check that uploading the same charm ID yields the same charm
 	ch, err := s.State.AddCharmMetadata(dummy1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch1, gc.DeepEquals, ch)
+	c.Check(ch1, gc.DeepEquals, ch)
 
 	// Check that a charm with populated sha/storage path is flagged as
 	// uploaded.
-	dummy2 := s.dummyCharm(c, "cs:quantal/dummy-2")
+	dummy2 := s.dummyCharm(c, "ch:quantal/dummy-2")
 	ch2, err := s.State.AddCharmMetadata(dummy2)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch2.IsPlaceholder(), jc.IsFalse)
-	c.Assert(ch2.IsUploaded(), jc.IsTrue, gc.Commentf("expected charm with populated SHA/storage path to have the PendingUpload flag unset"))
+	c.Check(ch2.IsPlaceholder(), jc.IsFalse)
+	c.Check(ch2.IsUploaded(), jc.IsTrue, gc.Commentf("expected charm with populated SHA/storage path to have the PendingUpload flag unset"))
+}
+
+func (s *CharmSuite) TestAddCharmMetadataUpdatesPlaceholder(c *gc.C) {
+	// The charm revision updater adds a placeholder charm doc into the db.
+	// Ensure that AddCharmMetadata can handle that.
+	err := s.State.AddCharmPlaceholder(charm.MustParseURL("ch:quantal/testme-2"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	testme := s.dummyCharm(c, "ch:quantal/testme-2")
+	ch2, err := s.State.AddCharmMetadata(testme)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(ch2.IsPlaceholder(), jc.IsFalse)
+}
+
+func (s *CharmSuite) TestAllCharmURLs(c *gc.C) {
+	ch2 := state.AddTestingCharmhubCharmForSeries(c, s.State, "jammy", "dummy")
+	state.AddTestingApplication(c, s.State, "testme-jammy", ch2)
+
+	curls, err := s.State.AllCharmURLs()
+	c.Assert(err, jc.ErrorIsNil)
+	// One application from SetUpTest
+	c.Assert(len(curls), gc.Equals, 2, gc.Commentf("%v", curls))
 }
 
 type CharmTestHelperSuite struct {

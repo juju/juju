@@ -53,12 +53,12 @@ When an application is specified, all units from that application are relevant.
 When run without any arguments, operations corresponding to actions for all
 application units are returned.
 To see operations corresponding to juju run tasks, specify an action name
-"juju-run" and/or one or more machines.
+"juju-exec" and/or one or more machines.
 
 Examples:
     juju operations
     juju operations --format yaml
-    juju operations --actions juju-run
+    juju operations --actions juju-exec
     juju operations --actions backup,restore
     juju operations --apps mysql,mediawiki
     juju operations --units mysql/0,mediawiki/1
@@ -190,13 +190,13 @@ func (c *listOperationsCommand) Run(ctx *cmd.Context) error {
 	sort.Sort(operationResults)
 	if c.out.Name() == "plain" {
 		if c.offset > 0 || results.Truncated {
-			fmt.Fprintln(ctx.Stdout, fmt.Sprintf("Displaying operation results %d to %d.", c.offset+1, int(c.offset)+len(operationResults)))
+			fmt.Fprintf(ctx.Stdout, "Displaying operation results %d to %d.\n", c.offset+1, int(c.offset)+len(operationResults))
 			if results.Truncated {
 				limit := c.limit
 				if limit == 0 {
 					limit = defaultMaxOperationsLimit
 				}
-				fmt.Fprintln(ctx.Stdout, fmt.Sprintf("Run the command again with --offset=%d --limit=%d to see the next batch.\n", c.offset+limit, limit))
+				fmt.Fprintf(ctx.Stdout, "Run the command again with --offset=%d --limit=%d to see the next batch.\n\n", c.offset+limit, limit)
 			}
 		}
 		return c.out.Write(ctx, operationResults)
@@ -224,7 +224,7 @@ func (c *listOperationsCommand) formatTabular(writer io.Writer, value interface{
 		return errors.Errorf("expected value of type %T, got %T", results, value)
 	}
 	tw := output.TabWriter(writer)
-	w := output.Wrapper{tw}
+	w := output.Wrapper{TabWriter: tw}
 	w.SetColumnAlignRight(0)
 
 	printOperations := func(operations []operationLine, utc bool) {

@@ -2,9 +2,8 @@ name: new-charm-with-multi-series
 summary: "K/V storage engine"
 description: "Scalable K/V Store in Erlang with Clocks :-)"
 series:
-  - precise
-  - trusty
-  - quantal
+  - jammy
+  - focal
 provides:
   endpoint:
     interface: http

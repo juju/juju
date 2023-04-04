@@ -6,7 +6,7 @@ package azureauth
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -59,11 +59,11 @@ func CheckForGraphError(r autorest.Responder) autorest.Responder {
 func maybeGraphError(resp *http.Response) (error, bool) {
 	if resp.Body != nil {
 		defer resp.Body.Close()
-		b, err := ioutil.ReadAll(resp.Body)
+		b, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return errors.Trace(err), false
 		}
-		resp.Body = ioutil.NopCloser(bytes.NewReader(b))
+		resp.Body = io.NopCloser(bytes.NewReader(b))
 
 		// Remove any UTF-8 BOM, if present.
 		b = bytes.TrimPrefix(b, []byte("\ufeff"))

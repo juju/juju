@@ -5,7 +5,6 @@ package downloader
 
 import (
 	"io"
-	"io/ioutil"
 	"net/url"
 	"os"
 
@@ -113,7 +112,7 @@ func (dl *Download) download(req Request) (filename string, err error) {
 	if dir == "" {
 		dir = os.TempDir()
 	}
-	tempFile, err := ioutil.TempFile(dir, "inprogress-")
+	tempFile, err := os.CreateTemp(dir, "inprogress-")
 	if err != nil {
 		return "", errors.Trace(err)
 	}

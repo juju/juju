@@ -5,10 +5,9 @@ package status
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v4"
 	"github.com/juju/naturalsort"
@@ -16,7 +15,6 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/storage"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
@@ -168,7 +166,16 @@ func (sf *statusFormatter) MachineFormat(machineId []string) formattedMachineSta
 }
 
 func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineStatus {
-	out := machineStatus{
+	var out machineStatus
+
+	var base *formattedBase
+	if machine.Base.Channel != "" {
+		channel, err := series.ParseChannel(machine.Base.Channel)
+		if err == nil {
+			base = &formattedBase{Name: machine.Base.Name, Channel: channel.DisplayString()}
+		}
+	}
+	out = machineStatus{
 		JujuStatus:         sf.getStatusInfoContents(machine.AgentStatus),
 		Hostname:           machine.Hostname,
 		DNSName:            machine.DNSName,
@@ -177,7 +184,7 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 		DisplayName:        machine.DisplayName,
 		MachineStatus:      sf.getStatusInfoContents(machine.InstanceStatus),
 		ModificationStatus: sf.getStatusInfoContents(machine.ModificationStatus),
-		Series:             machine.Series,
+		Base:               base,
 		Id:                 machine.Id,
 		NetworkInterfaces:  make(map[string]networkInterface),
 		Containers:         make(map[string]machineStatus),
@@ -253,30 +260,15 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 		charmName = curl.Name
 	}
 
-	appSeries := application.Series
-	var appOS string
-	if appSeries == "" {
-		base, err := series.ParseBase(application.Base.Name, application.Base.Channel)
-		if err != nil {
-			logger.Errorf("failed to create charm base: %v", err)
-		}
-		appSeries, _ = series.GetSeriesFromBase(base)
-		appOS = base.Name
-	} else {
-		osInfo, _ := series.GetOSFromSeries(application.Series)
-		appOS = strings.ToLower(osInfo.String())
-
-		// TODO(caas) - enhance GetOSFromSeries
-		if osInfo == os.Unknown && sf.status.Model.Type == "caas" {
-			//appSeries = "kubernetes"
-			appOS = appSeries
-		}
+	var base *formattedBase
+	channel, err := series.ParseChannel(application.Base.Channel)
+	if err == nil {
+		base = &formattedBase{Name: application.Base.Name, Channel: channel.DisplayString()}
 	}
 	out := applicationStatus{
 		Err:              typedNilCheck(application.Err),
 		Charm:            charmAlias,
-		Series:           appSeries,
-		OS:               appOS,
+		Base:             base,
 		CharmOrigin:      charmOrigin,
 		CharmName:        charmName,
 		CharmRev:         charmRev,

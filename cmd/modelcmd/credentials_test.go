@@ -5,7 +5,7 @@ package modelcmd_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/golang/mock/gomock"
@@ -92,7 +92,7 @@ func (s *credentialsSuite) SetUpTest(c *gc.C) {
 
 	dir := c.MkDir()
 	keyFile := filepath.Join(dir, "keyfile")
-	err := ioutil.WriteFile(keyFile, []byte("value"), 0600)
+	err := os.WriteFile(keyFile, []byte("value"), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.store = jujuclient.NewMemStore()

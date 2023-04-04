@@ -5,13 +5,13 @@ package application
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/charm/v8"
-	"github.com/juju/charmrepo/v6"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charmrepo/v7"
+	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/api/client/annotations"
 	"github.com/juju/juju/api/client/application"
 	apicharms "github.com/juju/juju/api/client/charms"
-	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/modelconfig"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/charmhub"
@@ -111,10 +110,7 @@ func NewDiffBundleCommand() cmd.Command {
 			return nil, errors.Trace(err)
 		}
 		client := modelconfig.NewClient(root)
-		if client.BestAPIVersion() > 2 {
-			return client, nil
-		}
-		return apiclient.NewClient(root), nil
+		return client, nil
 	}
 	return modelcmd.Wrap(cmd)
 }
@@ -335,7 +331,7 @@ Consider using a CharmStore bundle instead.`
 	// GetBundle creates the directory so we actually want to create a temp
 	// directory then add a namespace (bundle name) so that charmhub get
 	// bundle can create it.
-	dir, err := ioutil.TempDir("", "diff-bundle-")
+	dir, err := os.MkdirTemp("", "diff-bundle-")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -379,12 +375,10 @@ func (c *diffBundleCommand) charmAdaptor(apiRoot base.APICallCloser, curl *charm
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-
-		cfg, err := charmhub.CharmHubConfigFromURL(url, logger)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return charmhub.NewClient(cfg)
+		return charmhub.NewClient(charmhub.Config{
+			URL:    url,
+			Logger: logger,
+		})
 	}
 
 	return store.NewCharmAdaptor(apicharms.NewClient(apiRoot), charmStoreRepo, downloadClient), nil

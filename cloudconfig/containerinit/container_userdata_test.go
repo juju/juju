@@ -5,7 +5,6 @@
 package containerinit_test
 
 import (
-	"runtime"
 	"strings"
 	stdtesting "testing"
 
@@ -33,10 +32,6 @@ var _ = gc.Suite(&UserDataSuite{})
 
 func (s *UserDataSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-
-	if runtime.GOOS == "windows" {
-		c.Skip("This test is for Linux only")
-	}
 }
 
 func CloudInitDataExcludingOutputSection(data string) []string {
@@ -81,7 +76,7 @@ func (s *UserDataSuite) TestCloudInitUserDataNoNetworkConfig(c *gc.C) {
 	instanceConfig, err := containertesting.MockMachineConfig("1/lxd/0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg, err := cloudinit.New(instanceConfig.Series)
+	cfg, err := cloudinit.New(instanceConfig.Base.OS)
 	c.Assert(err, jc.ErrorIsNil)
 
 	data, err := containerinit.CloudInitUserData(cfg, instanceConfig, nil)
@@ -105,7 +100,7 @@ func (s *UserDataSuite) TestCloudInitUserDataSomeNetworkConfig(c *gc.C) {
 		ConfigType:    network.ConfigDHCP,
 	}}
 
-	cfg, err := cloudinit.New(instanceConfig.Series)
+	cfg, err := cloudinit.New(instanceConfig.Base.OS)
 	c.Assert(err, jc.ErrorIsNil)
 
 	data, err := containerinit.CloudInitUserData(cfg, instanceConfig, container.BridgeNetworkConfig(0, nics))

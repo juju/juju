@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 )
@@ -29,7 +28,7 @@ func ProductMetadataStoragePath() string {
 // MergeAndWriteMetadata reads the existing metadata from storage (if any),
 // and merges it with supplied metadata, writing the resulting metadata is written to storage.
 func MergeAndWriteMetadata(fetcher SimplestreamsFetcher,
-	ser string,
+	vers string,
 	metadata []*ImageMetadata,
 	cloudSpec *simplestreams.CloudSpec,
 	metadataStore storage.Storage) error {
@@ -38,11 +37,7 @@ func MergeAndWriteMetadata(fetcher SimplestreamsFetcher,
 	if err != nil {
 		return err
 	}
-	seriesVersion, err := series.SeriesVersion(ser)
-	if err != nil {
-		return err
-	}
-	toWrite, allCloudSpec := mergeMetadata(seriesVersion, cloudSpec, metadata, existingMetadata)
+	toWrite, allCloudSpec := mergeMetadata(vers, cloudSpec, metadata, existingMetadata)
 	return writeMetadata(toWrite, allCloudSpec, metadataStore)
 }
 

@@ -76,7 +76,7 @@ func (s *storageListSuite) TestOutputNoMatches(c *gc.C) {
 
 func (s *storageListSuite) testOutputFormat(c *gc.C, args []string, format int, expect interface{}) {
 	hctx := s.newHookContext()
-	com, err := jujuc.NewCommand(hctx, cmdString("storage-list"))
+	com, err := jujuc.NewCommand(hctx, "storage-list")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)
@@ -100,7 +100,7 @@ func (s *storageListSuite) testOutputFormat(c *gc.C, args []string, format int, 
 
 func (s *storageListSuite) TestHelp(c *gc.C) {
 	hctx := s.newHookContext()
-	com, err := jujuc.NewCommand(hctx, cmdString("storage-list"))
+	com, err := jujuc.NewCommand(hctx, "storage-list")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})

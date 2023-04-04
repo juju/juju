@@ -44,23 +44,6 @@ func (c *Client) ModelUUID() (string, bool) {
 
 // AddMachines adds new machines with the supplied parameters, creating any requested disks.
 func (client *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
-	if client.BestAPIVersion() == 8 {
-		for i, m := range machineParams {
-			if m.Base == nil || m.Base.Name != "centos" {
-				continue
-			}
-			m.Base.Channel = coreseries.ToLegacyCentosChannel(m.Base.Channel)
-			machineParams[i] = m
-		}
-	} else if client.BestAPIVersion() >= 9 {
-		for i, m := range machineParams {
-			if m.Base == nil || m.Base.Name != "centos" {
-				continue
-			}
-			m.Base.Channel = coreseries.FromLegacyCentosChannel(m.Base.Channel)
-			machineParams[i] = m
-		}
-	}
 	args := params.AddMachines{
 		MachineParams: machineParams,
 	}
@@ -80,15 +63,13 @@ func (client *Client) AddMachines(machineParams []params.AddMachineParams) ([]pa
 
 // DestroyMachinesWithParams removes the given set of machines, the semantics of which
 // is determined by the force and keep parameters.
-// TODO(wallyworld) - for Juju 3.0, this should be the preferred api to use.
-func (client *Client) DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
+func (client *Client) DestroyMachinesWithParams(force, keep, dryRun bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
 	args := params.DestroyMachinesParams{
 		Force:       force,
 		Keep:        keep,
+		DryRun:      dryRun,
 		MachineTags: make([]string, 0, len(machines)),
-	}
-	if client.BestAPIVersion() > 5 {
-		args.MaxWait = maxWait
+		MaxWait:     maxWait,
 	}
 	allResults := make([]params.DestroyMachineResult, len(machines))
 	index := make([]int, 0, len(machines))
@@ -146,9 +127,6 @@ func (c *Client) RetryProvisioning(all bool, machines ...names.MachineTag) ([]pa
 // place for a given machine and as such the machine is guarded against
 // operations that would impede, fail, or interfere with the upgrade process.
 func (client *Client) UpgradeSeriesPrepare(machineName, series string, force bool) error {
-	if client.BestAPIVersion() < 5 {
-		return errors.NotSupportedf("upgrade-series prepare")
-	}
 	base, err := coreseries.GetBaseFromSeries(series)
 	if err != nil {
 		return errors.Trace(err)
@@ -157,7 +135,6 @@ func (client *Client) UpgradeSeriesPrepare(machineName, series string, force boo
 		Entity: params.Entity{
 			Tag: names.NewMachineTag(machineName).String(),
 		},
-		Series:  series,
 		Channel: base.Channel.String(),
 		Force:   force,
 	}
@@ -175,9 +152,6 @@ func (client *Client) UpgradeSeriesPrepare(machineName, series string, force boo
 // UpgradeSeriesComplete notifies the controller that a given machine has
 // successfully completed the managed series upgrade process.
 func (client *Client) UpgradeSeriesComplete(machineName string) error {
-	if client.BestAPIVersion() < 5 {
-		return errors.NotSupportedf("UpgradeSeriesComplete")
-	}
 	args := params.UpdateChannelArg{
 		Entity: params.Entity{Tag: names.NewMachineTag(machineName).String()},
 	}
@@ -194,9 +168,6 @@ func (client *Client) UpgradeSeriesComplete(machineName string) error {
 }
 
 func (client *Client) UpgradeSeriesValidate(machineName, series string) ([]string, error) {
-	if client.BestAPIVersion() < 5 {
-		return nil, errors.NotSupportedf("UpgradeSeriesValidate")
-	}
 	base, err := coreseries.GetBaseFromSeries(series)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -205,7 +176,6 @@ func (client *Client) UpgradeSeriesValidate(machineName, series string) ([]strin
 		Args: []params.UpdateChannelArg{
 			{
 				Entity:  params.Entity{Tag: names.NewMachineTag(machineName).String()},
-				Series:  series,
 				Channel: base.Channel.String(),
 			},
 		},
@@ -227,9 +197,6 @@ func (client *Client) UpgradeSeriesValidate(machineName, series string) ([]strin
 // WatchUpgradeSeriesNotifications returns a NotifyWatcher for observing the state of
 // a series upgrade.
 func (client *Client) WatchUpgradeSeriesNotifications(machineName string) (watcher.NotifyWatcher, string, error) {
-	if client.BestAPIVersion() < 5 {
-		return nil, "", errors.NotSupportedf("WatchUpgradeSeriesNotifications")
-	}
 	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: names.NewMachineTag(machineName).String()}},
@@ -252,9 +219,6 @@ func (client *Client) WatchUpgradeSeriesNotifications(machineName string) (watch
 // GetUpgradeSeriesMessages returns a StringsWatcher for observing the state of
 // a series upgrade.
 func (client *Client) GetUpgradeSeriesMessages(machineName, watcherId string) ([]string, error) {
-	if client.BestAPIVersion() < 5 {
-		return nil, errors.NotSupportedf("GetUpgradeSeriesMessages")
-	}
 	var results params.StringsResults
 	args := params.UpgradeSeriesNotificationParams{
 		Params: []params.UpgradeSeriesNotificationParam{

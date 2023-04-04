@@ -10,12 +10,12 @@ import (
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v3/arch"
 
 	"github.com/juju/juju/core/os"
+	jujuos "github.com/juju/juju/core/os"
 	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -30,13 +30,6 @@ const (
 	centOSOffering  = "CentOS"
 
 	ubuntuPublisher = "Canonical"
-	ubuntuOffering  = "UbuntuServer"
-
-	windowsServerPublisher = "MicrosoftWindowsServer"
-	windowsServerOffering  = "WindowsServer"
-
-	windowsPublisher = "MicrosoftVisualStudio"
-	windowsOffering  = "Windows"
 
 	dailyStream = "daily"
 )
@@ -49,57 +42,35 @@ const (
 // for a series.
 func SeriesImage(
 	ctx context.ProviderCallContext,
-	series, stream, location string,
+	base jujuseries.Base, stream, location string,
 	client *armcompute.VirtualMachineImagesClient,
 ) (*instances.Image, error) {
-	seriesOS, err := jujuseries.GetOSFromSeries(series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	seriesOS := jujuos.OSTypeForName(base.OS)
 
 	var publisher, offering, sku string
 	switch seriesOS {
 	case os.Ubuntu:
+		series, err := jujuseries.GetSeriesFromBase(base)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		publisher = ubuntuPublisher
 		sku, offering, err = ubuntuSKU(ctx, series, stream, location, client)
 		if err != nil {
-			return nil, errors.Annotatef(err, "selecting SKU for %s", series)
-		}
-
-	case os.Windows:
-		switch series {
-		case "win81":
-			publisher = windowsPublisher
-			offering = windowsOffering
-			sku = "8.1-Enterprise-N"
-		case "win10":
-			publisher = windowsPublisher
-			offering = windowsOffering
-			sku = "10-Enterprise"
-		case "win2012":
-			publisher = windowsServerPublisher
-			offering = windowsServerOffering
-			sku = "2012-Datacenter"
-		case "win2012r2":
-			publisher = windowsServerPublisher
-			offering = windowsServerOffering
-			sku = "2012-R2-Datacenter"
-		default:
-			return nil, errors.NotSupportedf("deploying %s", series)
+			return nil, errors.Annotatef(err, "selecting SKU for %s", base.DisplayString())
 		}
 
 	case os.CentOS:
 		publisher = centOSPublisher
 		offering = centOSOffering
-		switch series {
-		case "centos7", "centos8": // TODO: this doesn't look right. Add support for centos 9 stream.
+		switch base.Channel.Track {
+		case "7", "8": // TODO: this doesn't look right. Add support for centos 9 stream.
 			sku = "7.3"
 		default:
-			return nil, errors.NotSupportedf("deploying %s", series)
+			return nil, errors.NotSupportedf("deploying %s", base)
 		}
 
 	default:
-		// TODO(axw) CentOS
 		return nil, errors.NotSupportedf("deploying %s", seriesOS)
 	}
 
@@ -114,11 +85,6 @@ func offerForUbuntuSeries(series string) (string, string, error) {
 	seriesVersion, err := jujuseries.SeriesVersion(series)
 	if err != nil {
 		return "", "", errors.Trace(err)
-	}
-
-	oldSeries := set.NewStrings("trusty", "xenial", "bionic", "cosmic", "disco")
-	if oldSeries.Contains(series) {
-		return ubuntuOffering, seriesVersion, nil
 	}
 	seriesVersion = strings.ReplaceAll(seriesVersion, ".", "_")
 	return fmt.Sprintf("0001-com-ubuntu-server-%s", series), seriesVersion, nil
@@ -142,7 +108,7 @@ func ubuntuSKU(ctx context.ProviderCallContext, series, stream, location string,
 		skuName := *img.Name
 		logger.Debugf("Found Azure SKU Name: %v", skuName)
 		if !strings.HasPrefix(skuName, seriesVersion) {
-			logger.Debugf("ignoring SKU %q (does not match series %q)", skuName, series)
+			logger.Debugf("ignoring SKU %q (does not match series %q with version %q)", skuName, series, seriesVersion)
 			continue
 		}
 		version, tag, err := parseUbuntuSKU(skuName)
@@ -180,7 +146,7 @@ type ubuntuVersion struct {
 }
 
 // parseUbuntuSKU splits an UbuntuServer SKU into its
-// version ("14.04.3") and tag ("LTS") parts.
+// version ("22_04.3") and tag ("LTS") parts.
 func parseUbuntuSKU(sku string) (ubuntuVersion, string, error) {
 	var version ubuntuVersion
 	var tag string

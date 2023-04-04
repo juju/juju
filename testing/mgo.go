@@ -5,8 +5,9 @@ package testing
 
 import (
 	"testing"
+	"time"
 
-	mgotesting "github.com/juju/mgo/v2/testing"
+	mgotesting "github.com/juju/mgo/v3/testing"
 )
 
 // MgoTestPackage should be called to register the tests for any package
@@ -17,6 +18,10 @@ import (
 // MgoSSLTestPackage.
 func MgoTestPackage(t *testing.T) {
 	mgotesting.MgoServer.EnableReplicaSet = true
+	// Tests tend to cause enough contention that the default lock request
+	// timeout of 5ms is not enough. We may need to consider increasing the
+	// value for production also.
+	mgotesting.MgoServer.MaxTransactionLockRequestTimeout = 20 * time.Millisecond
 	mgotesting.MgoTestPackage(t, nil)
 }
 
@@ -24,5 +29,9 @@ func MgoTestPackage(t *testing.T) {
 // that requires a secure (SSL) connection to a MongoDB server.
 func MgoSSLTestPackage(t *testing.T) {
 	mgotesting.MgoServer.EnableReplicaSet = true
+	// Tests tend to cause enough contention that the default lock request
+	// timeout of 5ms is not enough. We may need to consider increasing the
+	// value for production also.
+	mgotesting.MgoServer.MaxTransactionLockRequestTimeout = 20 * time.Millisecond
 	mgotesting.MgoTestPackage(t, Certs)
 }

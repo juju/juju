@@ -53,7 +53,7 @@ type firewallerSidecarSuite struct {
 
 var _ = gc.Suite(&firewallerSidecarSuite{
 	firewallerBaseSuite{
-		objType: "CAASFirewallerEmbedded", // TODO(juju3): rename to CAASFirewallerSidecar
+		objType: "CAASFirewallerSidecar",
 		newFunc: func(caller base.APICaller) clientCommmon {
 			return caasfirewaller.NewClientSidecar(caller)
 		},

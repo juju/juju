@@ -27,7 +27,9 @@ type PrunerSuite struct {
 
 var _ = gc.Suite(&PrunerSuite{})
 
-func (s *PrunerSuite) setupPruner(c *gc.C) (*fakeFacade, *testclock.Clock) {
+type newPrunerFunc func(pruner.Config) (worker.Worker, error)
+
+func (s *PrunerSuite) setupPruner(c *gc.C, newPruner newPrunerFunc) (*fakeFacade, *testclock.Clock) {
 	facade := newFakeFacade()
 	attrs := coretesting.FakeConfig()
 	attrs["max-status-history-age"] = "1s"
@@ -44,20 +46,13 @@ func (s *PrunerSuite) setupPruner(c *gc.C) (*fakeFacade, *testclock.Clock) {
 		Logger:        loggo.GetLogger("test"),
 	}
 
-	// an example pruner
-	pruner, err := statushistorypruner.New(conf)
-
+	pruner, err := newPruner(conf)
 	c.Check(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) {
 		c.Assert(worker.Stop(pruner), jc.ErrorIsNil)
 	})
 
-	facade.changesWatcher.changes <- struct{}{}
-	select {
-	case <-facade.gotConfig:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for model config")
-	}
+	facade.modelChangesWatcher.changes <- struct{}{}
 
 	return facade, testClock
 }
@@ -80,12 +75,12 @@ func (s *PrunerSuite) assertWorkerCallsPrune(c *gc.C, facade *fakeFacade, testCl
 }
 
 func (s *PrunerSuite) TestWorkerCallsPrune(c *gc.C) {
-	facade, clock := s.setupPruner(c)
+	facade, clock := s.setupPruner(c, statushistorypruner.New)
 	s.assertWorkerCallsPrune(c, facade, clock, 3)
 }
 
 func (s *PrunerSuite) TestWorkerWontCallPruneBeforeFiringTimer(c *gc.C) {
-	facade, _ := s.setupPruner(c)
+	facade, _ := s.setupPruner(c, statushistorypruner.New)
 
 	select {
 	case <-facade.pruned:
@@ -95,22 +90,21 @@ func (s *PrunerSuite) TestWorkerWontCallPruneBeforeFiringTimer(c *gc.C) {
 }
 
 func (s *PrunerSuite) TestModelConfigChange(c *gc.C) {
-	facade, clock := s.setupPruner(c)
+	facade, clock := s.setupPruner(c, statushistorypruner.New)
 	s.assertWorkerCallsPrune(c, facade, clock, 3)
 
 	var err error
 	facade.modelConfig, err = facade.modelConfig.Apply(map[string]interface{}{"max-status-history-size": "4M"})
 	c.Assert(err, jc.ErrorIsNil)
-	facade.changesWatcher.changes <- struct{}{}
+	facade.modelChangesWatcher.changes <- struct{}{}
 
 	s.assertWorkerCallsPrune(c, facade, clock, 4)
 }
 
 type fakeFacade struct {
-	pruned         chan pruneParams
-	changesWatcher *mockNotifyWatcher
-	modelConfig    *config.Config
-	gotConfig      chan struct{}
+	pruned              chan pruneParams
+	modelChangesWatcher *mockNotifyWatcher
+	modelConfig         *config.Config
 }
 
 type pruneParams struct {
@@ -120,9 +114,8 @@ type pruneParams struct {
 
 func newFakeFacade() *fakeFacade {
 	return &fakeFacade{
-		pruned:         make(chan pruneParams, 1),
-		gotConfig:      make(chan struct{}, 1),
-		changesWatcher: newMockNotifyWatcher(),
+		pruned:              make(chan pruneParams, 1),
+		modelChangesWatcher: newMockNotifyWatcher(),
 	}
 }
 
@@ -138,12 +131,11 @@ func (f *fakeFacade) Prune(maxAge time.Duration, maxHistoryMB int) error {
 
 // WatchForModelConfigChanges implements Facade
 func (f *fakeFacade) WatchForModelConfigChanges() (watcher.NotifyWatcher, error) {
-	return f.changesWatcher, nil
+	return f.modelChangesWatcher, nil
 }
 
 // ModelConfig implements Facade
 func (f *fakeFacade) ModelConfig() (*config.Config, error) {
-	f.gotConfig <- struct{}{}
 	return f.modelConfig, nil
 }
 

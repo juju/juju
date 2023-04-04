@@ -5,7 +5,6 @@ package testing
 
 import (
 	"path/filepath"
-	"runtime"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -13,8 +12,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/juju/sockets"
+	jujusecrets "github.com/juju/juju/secrets"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -29,9 +31,6 @@ type RealPaths struct {
 
 func osDependentSockPath(c *gc.C) sockets.Socket {
 	sockPath := filepath.Join(c.MkDir(), "test.sock")
-	if runtime.GOOS == "windows" {
-		return sockets.Socket{Network: "unix", Address: `\\.\pipe` + sockPath[2:]}
-	}
 	return sockets.Socket{Network: "unix", Address: sockPath}
 }
 
@@ -144,4 +143,38 @@ func (ft *FakeTicket) Ready() <-chan struct{} {
 	c := make(chan struct{})
 	close(c)
 	return c
+}
+
+type SecretsContextAccessor struct {
+	context.SecretsAccessor
+	jujusecrets.Backend
+}
+
+func (s SecretsContextAccessor) CreateSecretURIs(int) ([]*secrets.URI, error) {
+	return []*secrets.URI{{
+		ID: "8m4e2mr0ui3e8a215n4g",
+	}}, nil
+}
+
+func (s SecretsContextAccessor) SecretMetadata(filter secrets.Filter) ([]secrets.SecretOwnerMetadata, error) {
+	uri, _ := secrets.ParseURI("secret:9m4e2mr0ui3e8a215n4g")
+	return []secrets.SecretOwnerMetadata{{
+		Metadata: secrets.SecretMetadata{
+			URI:            uri,
+			LatestRevision: 666,
+			OwnerTag:       "application-mariadb",
+			Description:    "description",
+			RotatePolicy:   secrets.RotateHourly,
+			Label:          "label",
+		},
+		BackendIds: map[int]string{666: "backend-id"},
+	}}, nil
+}
+
+func (s SecretsContextAccessor) SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (string, error) {
+	return "", errors.NotSupportedf("")
+}
+
+func (s SecretsContextAccessor) DeleteContent(backendId string) error {
+	return errors.NotSupportedf("")
 }

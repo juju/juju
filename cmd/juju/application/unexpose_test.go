@@ -7,13 +7,14 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/juju/application/deployer"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/testcharms"
@@ -30,9 +31,17 @@ func (s *UnexposeSuite) SetUpTest(c *gc.C) {
 		c.Skip("Mongo failures on macOS")
 	}
 	s.RepoSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
-		return defaultSupportedJujuSeries, nil
-	})
+
+	// TODO: remove this patch once we removed all the old series from tests in current package.
+	s.PatchValue(&deployer.SupportedJujuSeries,
+		func(time.Time, string, string) (set.Strings, error) {
+			return set.NewStrings(
+				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
+				"jammy", "focal", "bionic", "xenial",
+			), nil
+		},
+	)
+
 	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
@@ -54,10 +63,10 @@ func (s *UnexposeSuite) assertExposed(c *gc.C, application string, expected bool
 
 func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
 	ch := testcharms.RepoWithSeries("bionic").CharmArchivePath(c.MkDir(), "multi-series")
-	err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
+	err := runDeploy(c, ch, "some-application-name", "--series", "jammy")
 
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/multi-series-1")
+	curl := charm.MustParseURL("local:jammy/multi-series-1")
 	s.AssertApplication(c, "some-application-name", curl, 1, 0)
 
 	err = runExpose(c, "some-application-name")
@@ -77,10 +86,10 @@ func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
 
 func (s *UnexposeSuite) TestBlockUnexpose(c *gc.C) {
 	ch := testcharms.RepoWithSeries("bionic").CharmArchivePath(c.MkDir(), "multi-series")
-	err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
+	err := runDeploy(c, ch, "some-application-name", "--series", "jammy")
 
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/multi-series-1")
+	curl := charm.MustParseURL("local:jammy/multi-series-1")
 	s.AssertApplication(c, "some-application-name", curl, 1, 0)
 
 	// Block operation

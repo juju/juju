@@ -7,7 +7,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -1106,7 +1106,13 @@ func (s *remoteApplicationSuite) TestAddApplicationModelDying(c *gc.C) {
 
 func (s *remoteApplicationSuite) TestAddApplicationSameLocalExists(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
+	_, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name: "s1", Charm: charm,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "20.04/stable",
+		}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "s1", SourceModel: s.Model.ModelTag()})
@@ -1119,7 +1125,13 @@ func (s *remoteApplicationSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.
 	// there is no conflict initially but a local application is added
 	// before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
+		_, err := s.State.AddApplication(state.AddApplicationArgs{
+			Name: "s1", Charm: charm,
+			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+				OS:      "ubuntu",
+				Channel: "20.04/stable",
+			}},
+		})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
@@ -1168,29 +1180,29 @@ func (s *remoteApplicationSuite) TestAddApplicationModelDiesAfterInitial(c *gc.C
 func (s *remoteApplicationSuite) TestWatchRemoteApplications(c *gc.C) {
 	w := s.State.WatchRemoteApplications()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChangeInSingleEvent("mysql") // initial
+	wc := testing.NewStringsWatcherC(c, w)
+	wc.AssertChange("mysql") // initial
 	wc.AssertNoChange()
 
 	db2, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "db2", SourceModel: s.Model.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("db2")
+	wc.AssertChange("db2")
 	wc.AssertNoChange()
 
 	err = db2.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = db2.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	wc.AssertChangeInSingleEvent("db2")
+	wc.AssertChange("db2")
 	wc.AssertNoChange()
 }
 
 func (s *remoteApplicationSuite) TestWatchRemoteApplicationsDying(c *gc.C) {
 	w := s.State.WatchRemoteApplications()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChangeInSingleEvent("mysql") // initial
+	wc := testing.NewStringsWatcherC(c, w)
+	wc.AssertChange("mysql") // initial
 	wc.AssertNoChange()
 
 	ch := s.AddTestingCharm(c, "wordpress")
@@ -1216,7 +1228,7 @@ func (s *remoteApplicationSuite) TestWatchRemoteApplicationsDying(c *gc.C) {
 	err = s.application.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	wc.AssertChangeInSingleEvent("mysql")
+	wc.AssertChange("mysql")
 	wc.AssertNoChange()
 }
 

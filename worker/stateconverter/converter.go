@@ -44,7 +44,7 @@ type wrapper struct {
 	m *machiner.State
 }
 
-// Machines implements machiner.Machine and returns a machine from the wrapper
+// Machine implements machiner.Machine and returns a machine from the wrapper
 // api/machiner.
 func (w wrapper) Machine(tag names.MachineTag) (Machine, error) {
 	m, err := w.m.Machine(tag)
@@ -79,7 +79,7 @@ func (c *converter) Handle(_ <-chan struct{}) error {
 		return nil
 	}
 
-	return &agenterrors.FatalError{"bounce agent to pick up new jobs"}
+	return &agenterrors.FatalError{Err: "bounce agent to pick up new jobs"}
 }
 
 // TearDown implements NotifyWatchHandler's TearDown method.

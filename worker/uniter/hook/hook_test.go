@@ -4,7 +4,7 @@
 package hook_test
 
 import (
-	"github.com/juju/charm/v8/hooks"
+	"github.com/juju/charm/v9/hooks"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -48,7 +48,16 @@ var validateTests = []struct {
 		`"pebble-ready" hook requires a workload name`,
 	}, {
 		hook.Info{Kind: hooks.PreSeriesUpgrade},
-		`"pre-series-upgrade" hook requires a target series`,
+		`"pre-series-upgrade" hook requires a target base`,
+	}, {
+		hook.Info{Kind: hooks.SecretRotate},
+		`"secret-rotate" hook requires a secret URI`,
+	}, {
+		hook.Info{Kind: hooks.SecretExpired, SecretURI: "secret:9m4e2mr0ui3e8a215n4g"},
+		`"secret-expired" hook requires a secret revision`,
+	}, {
+		hook.Info{Kind: hooks.SecretRotate, SecretURI: "foo"},
+		`invalid secret URI "foo"`,
 	},
 	{hook.Info{Kind: hooks.Install}, ""},
 	{hook.Info{Kind: hooks.Start}, ""},
@@ -68,7 +77,7 @@ var validateTests = []struct {
 	{hook.Info{Kind: hooks.StorageAttached, StorageId: "data/0"}, ""},
 	{hook.Info{Kind: hooks.StorageDetaching, StorageId: "data/0"}, ""},
 	{hook.Info{Kind: hooks.PebbleReady, WorkloadName: "gitlab"}, ""},
-	{hook.Info{Kind: hooks.PreSeriesUpgrade, SeriesUpgradeTarget: "focal"}, ""},
+	{hook.Info{Kind: hooks.PreSeriesUpgrade, MachineUpgradeTarget: "ubuntu@20.04"}, ""},
 }
 
 func (s *InfoSuite) TestValidate(c *gc.C) {

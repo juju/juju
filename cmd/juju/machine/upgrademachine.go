@@ -34,11 +34,13 @@ const (
 	CompleteCommand = "complete"
 )
 
+// For testing.
+var SupportedJujuSeries = series.WorkloadSeries
+
 var upgradeSeriesConfirmationMsg = `
 WARNING: This command will mark machine %q as being upgraded to series %q.
 This operation cannot be reverted or canceled once started.
-%s
-Continue [y/N]?`[1:]
+%s`[1:]
 
 var upgradeSeriesAffectedMsg = `
 Units running on the machine will also be upgraded. These units include:
@@ -54,7 +56,7 @@ Juju is now ready for the series to be updated.
 Perform any manual steps required along with "do-release-upgrade".
 When ready, run the following to complete the upgrade series process:
 
-juju upgrade-series %s complete`
+juju upgrade-machine %s complete`
 
 const UpgradeSeriesCompleteFinishedMessage = `
 Upgrade series for machine %q has successfully completed`
@@ -71,7 +73,7 @@ Juju is now ready for the series to be updated.
 Perform any manual steps required along with "do-release-upgrade".
 When ready, run the following to complete the upgrade series process:
 
-juju upgrade-series %[1]s complete`
+juju upgrade-machine %[1]s complete`
 
 const UpgradeSeriesCompleteOngoingMessage = `
 Upgrade series is currently completing for machine %q.
@@ -84,7 +86,6 @@ func NewUpgradeSeriesCommand() cmd.Command {
 }
 
 type UpgradeMachineSeriesAPI interface {
-	BestAPIVersion() int
 	Close() error
 	UpgradeSeriesPrepare(string, string, bool) error
 	UpgradeSeriesComplete(string) error
@@ -117,7 +118,7 @@ type upgradeSeriesCommand struct {
 var upgradeSeriesDoc = `
 Upgrade a machine's operating system series.
 
-upgrade-series allows users to perform a managed upgrade of the operating system
+upgrade-machine allows users to perform a managed upgrade of the operating system
 series of a machine. This command is performed in two steps; prepare and complete.
 
 The "prepare" step notifies Juju that a series upgrade is taking place for a given
@@ -142,29 +143,28 @@ Examples:
 
 Prepare machine 3 for upgrade to series "bionic"":
 
-	juju upgrade-series 3 prepare bionic
+	juju upgrade-machine 3 prepare bionic
 
 Prepare machine 4 for upgrade to series "focal" even if there are applications
 running units that do not support the target series:
 
-	juju upgrade-series 4 prepare focal --force
+	juju upgrade-machine 4 prepare focal --force
 
 Complete upgrade of machine 5, indicating that all automatic and any
 necessary manual upgrade steps have completed successfully:
 
-	juju upgrade-series 5 complete
+	juju upgrade-machine 5 complete
 
 See also:
     machines
     status
-    upgrade-charm
-    set-series
+    refresh
+    set-application-base
 `
 
 func (c *upgradeSeriesCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "upgrade-series",
-		Aliases: []string{"upgrade-machine"},
+		Name:    "upgrade-machine",
 		Args:    "<machine> <command> [args]",
 		Purpose: "Upgrade the Ubuntu series of a machine.",
 		Doc:     upgradeSeriesDoc,
@@ -208,7 +208,7 @@ func (c *upgradeSeriesCommand) Init(args []string) error {
 
 	if c.subCommand == PrepareCommand {
 		seriesArg := args[2]
-		workloadSeries, err := series.WorkloadSeries(time.Now(), seriesArg, "")
+		workloadSeries, err := SupportedJujuSeries(time.Now(), seriesArg, "")
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -218,7 +218,6 @@ func (c *upgradeSeriesCommand) Init(args []string) error {
 		}
 		c.series = s
 	}
-
 	return nil
 }
 
@@ -250,13 +249,13 @@ func (c *upgradeSeriesCommand) trapInterrupt(ctx *cmd.Context) func() {
 			select {
 			case <-cancelCtx.Done():
 				// Ctrl-C already pressed
-				_, _ = fmt.Fprintln(ctx.Stdout, "\nCtrl-C pressed, cancelling an upgrade-series.")
+				_, _ = fmt.Fprintln(ctx.Stdout, "\nCtrl-C pressed, cancelling an upgrade-machine.")
 				os.Exit(1)
 				return
 			default:
 				// Newline prefix is intentional, so output appears as
 				// "^C\nCtrl-C pressed" instead of "^CCtrl-C pressed".
-				_, _ = fmt.Fprintln(ctx.Stdout, "\nCtrl-C pressed, cancelling an upgrade-series is not recommended. Ctrl-C to proceed anyway.")
+				_, _ = fmt.Fprintln(ctx.Stdout, "\nCtrl-C pressed, cancelling an upgrade-machine is not recommended. Ctrl-C to proceed anyway.")
 				cancel()
 			}
 		}
@@ -357,11 +356,6 @@ func getMachineID(fullStatus *params.FullStatus, id string) (string, error) {
 // or the info was malformed, we will fall back to the underlying error
 // and not provide any hints.
 func (c *upgradeSeriesCommand) displayProgressFromError(ctx *cmd.Context, err error) error {
-	if errors.IsNotSupported(err) {
-		return errors.Wrap(err, errors.Errorf(`upgrade-series is not supported.
-Please upgrade your controller to perform the operation.`))
-	}
-
 	errResp, ok := errors.Cause(err).(*params.Error)
 	if !ok {
 		return errors.Trace(err)
@@ -540,7 +534,7 @@ func checkSubCommands(validCommands []string, argCommand string) (string, error)
 		}
 	}
 
-	return "", errors.Errorf("%q is an invalid upgrade-series command; valid commands are: %s.",
+	return "", errors.Errorf("%q is an invalid upgrade-machine command; valid commands are: %s.",
 		argCommand, strings.Join(validCommands, ", "))
 }
 

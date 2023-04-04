@@ -5,15 +5,14 @@ package deployer
 
 import (
 	"archive/zip"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -236,7 +235,7 @@ func (d *factory) newDeployCharm() deployCharm {
 		placement:        d.placement,
 		placementSpec:    d.placementSpec,
 		resources:        d.resources,
-		series:           d.series,
+		seriesFlag:       d.series,
 		steps:            d.steps,
 		storage:          d.storage,
 		trust:            d.trust,
@@ -287,7 +286,6 @@ func (d *factory) maybeReadLocalBundle() (Deployer, error) {
 		Source:       commoncharm.OriginLocal,
 		Architecture: platform.Architecture,
 		Base:         base,
-		Series:       d.series,
 	}
 	return &localBundle{deployBundle: db}, nil
 }
@@ -346,7 +344,7 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 		}
 
 		imageStream = modelCfg.ImageStream()
-		workloadSeries, err := supportedJujuSeries(d.clock.Now(), d.series, imageStream)
+		workloadSeries, err := SupportedJujuSeries(d.clock.Now(), seriesName, imageStream)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -379,9 +377,9 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 	// We check for several types of known error which indicate
 	// that the supplied reference was indeed a path but there was
 	// an issue reading the charm located there.
-	if charm.IsMissingSeriesError(err) {
+	if corecharm.IsMissingSeriesError(err) {
 		return nil, err
-	} else if charm.IsUnsupportedSeriesError(err) {
+	} else if corecharm.IsUnsupportedSeriesError(err) {
 		return nil, errors.Trace(err)
 	} else if errors.Cause(err) == zip.ErrFormat {
 		return nil, errors.Errorf("invalid charm or bundle provided at %q", charmOrBundle)
@@ -430,6 +428,7 @@ func (d *factory) maybeReadRepositoryBundle(resolver Resolver) (Deployer, error)
 		if curl.Revision == -1 {
 			curl = curl.WithRevision(d.revision)
 		}
+		logger.Warningf("Charm store bundles, those with cs: before the bundle name, will not be supported in juju 3.1.\n\tMigration of this model to a juju 3.1 controller will be prohibited.")
 	}
 	platform, err := utils.DeducePlatform(d.constraints, d.series, d.modelConstraints)
 	if err != nil {
@@ -477,7 +476,7 @@ func (d *factory) maybeReadRepositoryBundle(resolver Resolver) (Deployer, error)
 	// from the charmstore we simply use the existing
 	// charmrepo.v4 API to read the base bundle and
 	// wrap it in a BundleDataSource for use by deployBundle.
-	dir, err := ioutil.TempDir("", bundleURL.Name)
+	dir, err := os.MkdirTemp("", bundleURL.Name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -519,6 +518,7 @@ func (d *factory) repositoryCharm() (Deployer, error) {
 		if userRequestedURL.Revision == -1 && d.revision != -1 {
 			userRequestedURL = userRequestedURL.WithRevision(d.revision)
 		}
+		logger.Warningf("Charm store charms, those with cs: before the charm name, will not be supported in juju 3.1.\n\tMigration of this model to a juju 3.1 controller will be prohibited.")
 	}
 	platform, err := utils.DeducePlatform(d.constraints, d.series, d.modelConstraints)
 	if err != nil {
@@ -592,7 +592,7 @@ func seriesSelectorRequirements(api ModelConfigGetter, cl jujuclock.Clock, chURL
 	}
 
 	imageStream := modelCfg.ImageStream()
-	workloadSeries, err := supportedJujuSeries(cl.Now(), userRequestedSeries, imageStream)
+	workloadSeries, err := SupportedJujuSeries(cl.Now(), userRequestedSeries, imageStream)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -615,19 +615,12 @@ func (d *factory) validateCharmSeries(seriesName string, imageStream string) err
 
 	// attempt to locate the charm series from the list of known juju series
 	// that we currently support.
-	workloadSeries, err := supportedJujuSeries(d.clock.Now(), seriesName, imageStream)
+	workloadSeries, err := SupportedJujuSeries(d.clock.Now(), seriesName, imageStream)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	var found bool
-	for _, name := range workloadSeries.Values() {
-		if name == seriesName {
-			found = true
-			break
-		}
-	}
-	if !found && !d.force {
+	if !workloadSeries.Contains(seriesName) && !d.force {
 		return errors.NotSupportedf("series: %s", seriesName)
 	}
 	return nil
@@ -645,13 +638,10 @@ func (d *factory) validateCharmSeriesWithName(series, name string, imageStream s
 // to help provide better feedback to the user when somethings gone wrong around
 // validating a charm validation
 func charmValidationError(name string, err error) error {
-	if err != nil {
-		if errors.IsNotSupported(err) {
-			return errors.Errorf("%v is not available on the following %v", name, err)
-		}
-		return errors.Trace(err)
+	if errors.Is(err, errors.NotSupported) {
+		return errors.Errorf("%v is not available on the following %v", name, err)
 	}
-	return nil
+	return errors.Trace(err)
 }
 
 func (d *factory) validateResourcesNeededForLocalDeploy(charmMeta *charm.Meta) error {

@@ -38,7 +38,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/proxy"
+	"github.com/juju/juju/proxy/factory"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -278,7 +278,7 @@ func (c *registerCommand) publicControllerDetails(host, controllerName string) (
 }
 
 func getProxier(proxyConfig params.Proxy) (*jujuclient.ProxyConfWrapper, error) {
-	f, err := proxy.NewDefaultFactory()
+	f, err := factory.NewDefaultFactory()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create default proxy factory")
 	}

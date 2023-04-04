@@ -4,7 +4,7 @@
 package azureauth_test
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -71,7 +71,7 @@ func (ErrorSuite) TestCheckForGraphError(c *gc.C) {
 
 			// If the next in the chain is called then the response body should be unchanged.
 			defer resp.Body.Close()
-			b, err := ioutil.ReadAll(resp.Body)
+			b, err := io.ReadAll(resp.Body)
 			c.Assert(err, jc.ErrorIsNil)
 			c.Check(string(b), gc.Equals, test.responseBody)
 			return nil
@@ -79,7 +79,7 @@ func (ErrorSuite) TestCheckForGraphError(c *gc.C) {
 
 		r = azureauth.CheckForGraphError(r)
 
-		err := r.Respond(&http.Response{Body: ioutil.NopCloser(strings.NewReader(test.responseBody))})
+		err := r.Respond(&http.Response{Body: io.NopCloser(strings.NewReader(test.responseBody))})
 		if test.expectError == "" {
 			c.Check(nextResponderCalled, gc.Equals, true)
 			continue

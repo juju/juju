@@ -5,12 +5,13 @@ package downloader_test
 
 import (
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/url"
+	"os"
 	"path/filepath"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -121,7 +122,7 @@ func (s *downloaderSuite) TestDownloadAndHash(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tmpFile := filepath.Join(c.MkDir(), "ubuntu-lite.zip")
-	c.Assert(ioutil.WriteFile(tmpFile, []byte("meshuggah\n"), 0644), jc.ErrorIsNil)
+	c.Assert(os.WriteFile(tmpFile, []byte("meshuggah\n"), 0644), jc.ErrorIsNil)
 
 	curl := charm.MustParseURL("ch:ubuntu-lite")
 	requestedOrigin := corecharm.Origin{Source: corecharm.CharmHub, Channel: mustParseChannel(c, "20.04/edge")}
@@ -221,7 +222,7 @@ func (s downloaderSuite) TestDownloadAndStore(c *gc.C) {
 		func(_ *charm.URL, dc downloader.DownloadedCharm) error {
 			c.Assert(dc.Size, gc.Equals, int64(10))
 
-			contents, err := ioutil.ReadAll(dc.CharmData)
+			contents, err := io.ReadAll(dc.CharmData)
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(string(contents), gc.DeepEquals, "meshuggah\n", gc.Commentf("read charm contents do not match the data written to disk"))
 			c.Assert(dc.CharmVersion, gc.Equals, "the-version")
@@ -234,7 +235,7 @@ func (s downloaderSuite) TestDownloadAndStore(c *gc.C) {
 	s.repoGetter.EXPECT().GetCharmRepository(corecharm.CharmHub).Return(repoAdapter{s.repo}, nil)
 	s.repo.EXPECT().DownloadCharm(curl, requestedOriginWithPlatform, macaroons, gomock.Any()).DoAndReturn(
 		func(_ *charm.URL, requestedOrigin corecharm.Origin, _ macaroon.Slice, archivePath string) (downloader.CharmArchive, corecharm.Origin, error) {
-			c.Assert(ioutil.WriteFile(archivePath, []byte("meshuggah\n"), 0644), jc.ErrorIsNil)
+			c.Assert(os.WriteFile(archivePath, []byte("meshuggah\n"), 0644), jc.ErrorIsNil)
 			return s.charmArchive, resolvedOrigin, nil
 		},
 	)

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
-	storageprovider "github.com/juju/juju/storage/provider"
 )
 
 var _ = gc.Suite(&storageSuite{})
@@ -174,25 +173,24 @@ func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
 }
 
 func (s *storageSuite) TestValidateStorageProvider(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	prov := s.k8sProvider(c, ctrl)
+
 	for _, t := range []struct {
-		providerType storage.ProviderType
-		attrs        map[string]interface{}
-		err          string
+		attrs map[string]interface{}
+		err   string
 	}{
 		{
-			providerType: storageprovider.RootfsProviderType,
-		}, {
-			providerType: storageprovider.TmpfsProviderType,
-		}, {
-			providerType: storageprovider.LoopProviderType,
-			err:          `storage provider type "loop" not valid`,
-		}, {
-			providerType: storageprovider.TmpfsProviderType,
-			attrs:        map[string]interface{}{"storage-medium": "foo"},
-			err:          `storage medium "foo" not valid`,
+			attrs: map[string]interface{}{"storage-medium": "foo"},
+			err:   `storage medium "foo" not valid`,
+		},
+		{
+			attrs: nil,
 		},
 	} {
-		err := provider.ValidateStorageProvider(t.providerType, t.attrs)
+		err := prov.ValidateForK8s(t.attrs)
 		if t.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {

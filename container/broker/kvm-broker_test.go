@@ -6,7 +6,6 @@ package broker_test
 import (
 	"fmt"
 	"path/filepath"
-	"runtime"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/container/kvm/mock"
 	kvmtesting "github.com/juju/juju/container/kvm/testing"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	coretesting "github.com/juju/juju/testing"
@@ -45,9 +45,6 @@ type kvmBrokerSuite struct {
 var _ = gc.Suite(&kvmBrokerSuite{})
 
 func (s *kvmSuite) SetUpTest(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("Skipping kvm tests on windows")
-	}
 	s.TestSuite.SetUpTest(c)
 	s.events = make(chan mock.Event)
 	s.eventsDone = make(chan struct{})
@@ -67,9 +64,6 @@ func (s *kvmSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("Skipping kvm tests on windows")
-	}
 	s.kvmSuite.SetUpTest(c)
 	broker.PatchNewMachineInitReader(s, newBlankMachineInitReader)
 
@@ -278,7 +272,7 @@ func (r *blankMachineInitReader) GetInitConfig() (map[string]interface{}, error)
 	return nil, nil
 }
 
-var newBlankMachineInitReader = func(series string) (cloudconfig.InitReader, error) {
-	r, err := cloudconfig.NewMachineInitReader(series)
+var newBlankMachineInitReader = func(base series.Base) (cloudconfig.InitReader, error) {
+	r, err := cloudconfig.NewMachineInitReader(base)
 	return &blankMachineInitReader{r}, err
 }

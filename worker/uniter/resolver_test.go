@@ -6,7 +6,7 @@ package uniter_test
 import (
 	"fmt"
 
-	"github.com/juju/charm/v8/hooks"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/worker/uniter/reboot"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
+	"github.com/juju/juju/worker/uniter/secrets"
 	"github.com/juju/juju/worker/uniter/storage"
 	"github.com/juju/juju/worker/uniter/upgradeseries"
 	"github.com/juju/juju/worker/uniter/verifycharmprofile"
@@ -94,6 +95,8 @@ func (s *rebootResolverSuite) SetUpTest(_ *gc.C) {
 func (s *baseResolverSuite) SetUpTest(c *gc.C, modelType model.ModelType, rebootDetected bool) {
 	attachments, err := storage.NewAttachments(&dummyStorageAccessor{}, names.NewUnitTag("u/0"), &fakeRW{}, nil)
 	c.Assert(err, jc.ErrorIsNil)
+	secretsTracker, err := secrets.NewSecrets(&dummySecretsAccessor{}, names.NewUnitTag("u/0"), &fakeRW{}, nil)
+	c.Assert(err, jc.ErrorIsNil)
 	logger := loggo.GetLogger("test")
 
 	s.workloadEvents = container.NewWorkloadEvents()
@@ -106,6 +109,7 @@ func (s *baseResolverSuite) SetUpTest(c *gc.C, modelType model.ModelType, reboot
 		StopRetryHookTimer:  func() { s.stub.AddCall("StopRetryHookTimer") },
 		ShouldRetryHooks:    true,
 		UpgradeSeries:       upgradeseries.NewResolver(logger),
+		Secrets:             secrets.NewSecretsResolver(logger, secretsTracker, func(_ string) {}, func(_ string) {}, func(_ []string) {}),
 		Reboot:              reboot.NewResolver(logger, rebootDetected),
 		Leadership:          leadership.NewResolver(logger),
 		Actions:             uniteractions.NewResolver(logger),
@@ -181,8 +185,8 @@ func (s *resolverSuite) TestNotStartedNotInstalled(c *gc.C) {
 
 func (s *iaasResolverSuite) TestUpgradeSeriesPrepareStatusChanged(c *gc.C) {
 	localState := resolver.LocalState{
-		CharmURL:            s.charmURL,
-		UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
+		CharmURL:             s.charmURL,
+		UpgradeMachineStatus: model.UpgradeSeriesNotStarted,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: true,
@@ -190,8 +194,8 @@ func (s *iaasResolverSuite) TestUpgradeSeriesPrepareStatusChanged(c *gc.C) {
 		},
 	}
 
-	s.remoteState.UpgradeSeriesStatus = model.UpgradeSeriesPrepareStarted
-	s.remoteState.UpgradeSeriesTarget = "focal"
+	s.remoteState.UpgradeMachineStatus = model.UpgradeSeriesPrepareStarted
+	s.remoteState.UpgradeMachineTarget = "ubuntu@20.04"
 
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
@@ -201,7 +205,7 @@ func (s *iaasResolverSuite) TestUpgradeSeriesPrepareStatusChanged(c *gc.C) {
 func (s *iaasResolverSuite) TestPostSeriesUpgradeHookRunsWhenConditionsAreMet(c *gc.C) {
 	localState := resolver.LocalState{
 		CharmURL:              s.charmURL,
-		UpgradeSeriesStatus:   model.UpgradeSeriesNotStarted,
+		UpgradeMachineStatus:  model.UpgradeSeriesNotStarted,
 		LeaderSettingsVersion: 1,
 		State: operation.State{
 			Kind:       operation.Continue,
@@ -210,7 +214,7 @@ func (s *iaasResolverSuite) TestPostSeriesUpgradeHookRunsWhenConditionsAreMet(c 
 			ConfigHash: "version1",
 		},
 	}
-	s.remoteState.UpgradeSeriesStatus = model.UpgradeSeriesCompleteStarted
+	s.remoteState.UpgradeMachineStatus = model.UpgradeSeriesCompleteStarted
 
 	// Bumping the remote state versions verifies that the upgrade-series
 	// completion hook takes precedence.
@@ -224,15 +228,15 @@ func (s *iaasResolverSuite) TestPostSeriesUpgradeHookRunsWhenConditionsAreMet(c 
 
 func (s *iaasResolverSuite) TestRunsOperationToResetLocalUpgradeSeriesStateWhenConditionsAreMet(c *gc.C) {
 	localState := resolver.LocalState{
-		CharmURL:            s.charmURL,
-		UpgradeSeriesStatus: model.UpgradeSeriesCompleted,
+		CharmURL:             s.charmURL,
+		UpgradeMachineStatus: model.UpgradeSeriesCompleted,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: true,
 			Started:   true,
 		},
 	}
-	s.remoteState.UpgradeSeriesStatus = model.UpgradeSeriesNotStarted
+	s.remoteState.UpgradeMachineStatus = model.UpgradeSeriesNotStarted
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "complete upgrade series")
@@ -240,14 +244,14 @@ func (s *iaasResolverSuite) TestRunsOperationToResetLocalUpgradeSeriesStateWhenC
 
 func (s *iaasResolverSuite) TestUniterIdlesWhenRemoteStateIsUpgradeSeriesCompleted(c *gc.C) {
 	localState := resolver.LocalState{
-		UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
-		CharmURL:            s.charmURL,
+		UpgradeMachineStatus: model.UpgradeSeriesNotStarted,
+		CharmURL:             s.charmURL,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: true,
 		},
 	}
-	s.remoteState.UpgradeSeriesStatus = model.UpgradeSeriesPrepareCompleted
+	s.remoteState.UpgradeMachineStatus = model.UpgradeSeriesPrepareCompleted
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
@@ -641,6 +645,23 @@ func (s *resolverSuite) TestRunHookPendingUpgradeOperation(c *gc.C) {
 	c.Assert(op.String(), gc.Equals, fmt.Sprintf("upgrade to %s", s.charmURL))
 }
 
+func (s *resolverSuite) TestRunsSecretRotated(c *gc.C) {
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+			Started:   true,
+			Leader:    true,
+		},
+	}
+	s.remoteState.Leader = true
+	s.remoteState.SecretRotations = []string{"secret:9m4e2mr0ui3e8a215n4g"}
+
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "run secret-rotate (secret:9m4e2mr0ui3e8a215n4g) hook")
+}
+
 func (s *conflictedResolverSuite) TestNextOpConflicted(c *gc.C) {
 	s.baseResolverSuite.SetUpTest(c, model.IAAS, rebootNotDetected)
 	opFactory := setupUpgradeOpFactory()
@@ -739,7 +760,7 @@ func (s *rebootResolverSuite) TestStartHookTriggerPostReboot(c *gc.C) {
 			Started:   true, // charm must be started
 		},
 	}
-	s.remoteState.UpgradeSeriesStatus = model.UpgradeSeriesNotStarted
+	s.remoteState.UpgradeMachineStatus = model.UpgradeSeriesNotStarted
 
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
@@ -754,8 +775,8 @@ func (s *rebootResolverSuite) TestStartHookDeferredWhenUpgradeIsInProgress(c *gc
 	s.baseResolverSuite.SetUpTest(c, model.IAAS, rebootDetected)
 
 	localState := resolver.LocalState{
-		CharmURL:            s.charmURL,
-		UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
+		CharmURL:             s.charmURL,
+		UpgradeMachineStatus: model.UpgradeSeriesNotStarted,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: true,
@@ -797,8 +818,8 @@ func (s *rebootResolverSuite) TestStartHookDeferredWhenUpgradeIsInProgress(c *gc
 
 	for _, statusTest := range statusChecks {
 		c.Logf("triggering resolver with upgrade status: %s", statusTest.status)
-		s.remoteState.UpgradeSeriesStatus = statusTest.status
-		s.remoteState.UpgradeSeriesTarget = "focal"
+		s.remoteState.UpgradeMachineStatus = statusTest.status
+		s.remoteState.UpgradeMachineTarget = "ubuntu@20.04"
 
 		op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 		if statusTest.expErr != nil {
@@ -812,7 +833,7 @@ func (s *rebootResolverSuite) TestStartHookDeferredWhenUpgradeIsInProgress(c *gc
 	// Mutate remote state to indicate that upgrade has not been started
 	// and run the resolver again. This time, we should get back the
 	// deferred start hook.
-	s.remoteState.UpgradeSeriesStatus = model.UpgradeSeriesNotStarted
+	s.remoteState.UpgradeMachineStatus = model.UpgradeSeriesNotStarted
 
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)

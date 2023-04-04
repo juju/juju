@@ -4,6 +4,8 @@
 package context_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -12,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/metrics/spool"
@@ -305,6 +308,101 @@ func (s *FlushContextSuite) TestRunHookAddUnitStorageOnSuccess(c *gc.C) {
 	all, err := sb.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(all, gc.HasLen, 0)
+}
+
+type fakeToken struct{}
+
+func (t *fakeToken) Check() error {
+	return nil
+}
+
+func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *gc.C) {
+	claimer, err := s.LeaseManager.Claimer("application-leadership", s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	err = claimer.Claim(s.application.Tag().Id(), s.unit.Tag().Id(), time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	store := state.NewSecrets(s.State)
+	uri := secrets.NewURI()
+	_, err = store.CreateSecret(uri, state.CreateSecretParams{
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+		},
+		Owner: s.application.Tag(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
+		LeaderToken: &fakeToken{},
+		Scope:       s.application.Tag(),
+		Subject:     s.application.Tag(),
+		Role:        secrets.RoleManage,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	uri2 := secrets.NewURI()
+	_, err = store.CreateSecret(uri2, state.CreateSecretParams{
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo2": "bar"},
+		},
+		Owner: s.application.Tag(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.GrantSecretAccess(uri2, state.SecretAccessParams{
+		LeaderToken: &fakeToken{},
+		Scope:       s.application.Tag(),
+		Subject:     s.application.Tag(),
+		Role:        secrets.RoleManage,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.secretMetadata = map[string]jujuc.SecretMetadata{
+		uri.ID: {Description: "some secret", LatestRevision: 1, Owner: names.NewApplicationTag("mariadb")},
+	}
+	ctx := s.context(c)
+
+	err = ctx.UpdateSecret(uri, &jujuc.SecretUpdateArgs{
+		RotatePolicy: ptr(secrets.RotateDaily),
+		Description:  ptr("a secret"),
+		Label:        ptr("foobar"),
+		Value:        secrets.NewSecretValue(map[string]string{"foo": "bar2"}),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = ctx.RemoveSecret(uri2, ptr(1))
+	c.Assert(err, jc.ErrorIsNil)
+	err = ctx.RevokeSecret(uri, &jujuc.SecretGrantRevokeArgs{
+		ApplicationName: ptr(s.application.Name()),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the secrets are not actually updated in state yet.
+	md, err := store.GetSecret(uri)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(md.Description, gc.Equals, "")
+	val, _, err := store.GetSecretValue(uri, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar"})
+	val, _, err = store.GetSecretValue(uri, 2)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	// Flush the context with a success.
+	err = ctx.Flush("some badge", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Verify changes now saved.
+	_, err = store.GetSecret(uri2)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	md, err = store.GetSecret(uri)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(md.Description, gc.Equals, "a secret")
+	c.Assert(md.Label, gc.Equals, "foobar")
+	c.Assert(md.RotatePolicy, gc.Equals, secrets.RotateDaily)
+	val, _, err = store.GetSecretValue(uri, 2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar2"})
+	access, err := s.State.SecretAccess(uri, s.application.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, secrets.RoleNone)
 }
 
 func (s *HookContextSuite) context(c *gc.C) *context.HookContext {

@@ -14,7 +14,8 @@ import (
 )
 
 var (
-	SSHProvisioner = &sshProvisioner
+	SSHProvisioner        = &sshProvisioner
+	ErrDryRunNotSupported = errDryRunNotSupported
 )
 
 type AddCommand struct {
@@ -50,10 +51,11 @@ type RemoveCommand struct {
 }
 
 // NewRemoveCommand returns an RemoveCommand with the api provided as specified.
-func NewRemoveCommandForTest(apiRoot api.Connection, machineAPI RemoveMachineAPI) (cmd.Command, *RemoveCommand) {
+func NewRemoveCommandForTest(apiRoot api.Connection, machineAPI RemoveMachineAPI, modelConfigApi ModelConfigAPI) (cmd.Command, *RemoveCommand) {
 	command := &removeCommand{
-		apiRoot:    apiRoot,
-		machineAPI: machineAPI,
+		apiRoot:        apiRoot,
+		machineAPI:     machineAPI,
+		modelConfigApi: modelConfigApi,
 	}
 	command.SetClientStore(jujuclienttesting.MinimalStore())
 	return modelcmd.Wrap(command), &RemoveCommand{command}

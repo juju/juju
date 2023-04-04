@@ -7,11 +7,12 @@ import (
 	"context"
 
 	"github.com/golang/mock/gomock"
-	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"github.com/packethost/packngo"
 	gc "gopkg.in/check.v1"
+
+	jtesting "github.com/juju/testing"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -349,14 +350,58 @@ func (s *environProviderSuite) TestStartInstance(c *gc.C) {
 	device.EXPECT().Get(gomock.Eq("100"), nil).Return(&expDev, nil, nil)
 
 	plan := mocks.NewMockPlanService(cntrl)
-	plan.EXPECT().List(&packngo.ListOptions{
+	opts := &packngo.ListOptions{
 		Includes: []string{"available_in_metros"},
-	}).Return([]packngo.Plan{
+	}
+	opts.Filter("line", "baremetal")
+	opts.Filter("deployment_type", "on_demand")
+	plan.EXPECT().List(opts).Return([]packngo.Plan{
 		{
-			ID:          "18e285e0-1872-11ea-8d71-111111111111",
-			Slug:        "g2.large.x86",
-			Name:        "g2.large.x86",
-			Description: "Our g2.large.x86 configuration is a zippy general use server, with a Intel Xeon E 2278G (8 cores, 16 threads) processor and 32GB of RAM.",
+			ID:          "e818d69e-1ccf-11ec-9621-0242ac130002",
+			Slug:        "test.baremetal-line-filtered.x86",
+			Name:        "test.baremetal-line-filtered.x86",
+			Description: "Our c3.small.x86 configuration is a zippy general use server, with a Intel Xeon E 2278G (8 cores, 16 threads) processor and 32GB of RAM.",
+			Line:        "baremetal-line-filtered",
+			Legacy:      true,
+			Specs: &packngo.Specs{
+				Cpus: []*packngo.Cpus{
+					{
+						Count: 1,
+						Type:  "Intel(R) Xeon(R) E-2278G CPU @ 3.40GHz",
+					},
+				},
+				Memory: &packngo.Memory{
+					Total: "32GB",
+				},
+				Drives: []*packngo.Drives{
+					{
+						Count: 2,
+						Size:  "480GB",
+						Type:  "ssd",
+					},
+				},
+			},
+			Pricing: &packngo.Pricing{
+				Hour: 0.5,
+			},
+			DeploymentTypes: []string{
+				"on_demand",
+			},
+			Class: "test.baremetal-line-filtered.x86",
+			AvailableInMetros: []packngo.Metro{
+				{
+					ID:      "108b2cfb-246b-45e3-885a-bf3e82fce1a0",
+					Name:    "Amsterdam",
+					Code:    "am",
+					Country: "NL",
+				},
+			},
+		},
+		{
+			ID:          "e818d69e-1ccf-11ec-9621-0242ac130002",
+			Slug:        "test.deployment-type-filtered.x86",
+			Name:        "test.deployment-type-filtered.x86",
+			Description: "Our c3.small.x86 configuration is a zippy general use server, with a Intel Xeon E 2278G (8 cores, 16 threads) processor and 32GB of RAM.",
 			Line:        "baremetal",
 			Legacy:      true,
 			Specs: &packngo.Specs{
@@ -378,13 +423,12 @@ func (s *environProviderSuite) TestStartInstance(c *gc.C) {
 				},
 			},
 			Pricing: &packngo.Pricing{
-				Hour: 1.20,
+				Hour: 0.5,
 			},
 			DeploymentTypes: []string{
-				"on_demand",
-				"spot_market",
+				"deployment-type-filtered",
 			},
-			Class: "g2.large.x86",
+			Class: "test.deployment-type-filtered.x86",
 			AvailableInMetros: []packngo.Metro{
 				{
 					ID:      "108b2cfb-246b-45e3-885a-bf3e82fce1a0",
@@ -421,6 +465,48 @@ func (s *environProviderSuite) TestStartInstance(c *gc.C) {
 			},
 			Pricing: &packngo.Pricing{
 				Hour: 0.5,
+			},
+			DeploymentTypes: []string{
+				"on_demand",
+				"spot_market",
+			},
+			Class: "c3.small.x86",
+			AvailableInMetros: []packngo.Metro{
+				{
+					ID:      "108b2cfb-246b-45e3-885a-bf3e82fce1a0",
+					Name:    "Amsterdam",
+					Code:    "am",
+					Country: "NL",
+				},
+			},
+		},
+		{
+			ID:          "18e285e0-1872-11ea-8d71-111111111111",
+			Slug:        "g2.large.x86",
+			Name:        "g2.large.x86",
+			Description: "Our g2.large.x86 configuration is a zippy general use server, with a Intel Xeon E 2278G (8 cores, 16 threads) processor and 32GB of RAM.",
+			Line:        "baremetal",
+			Legacy:      true,
+			Specs: &packngo.Specs{
+				Cpus: []*packngo.Cpus{
+					{
+						Count: 1,
+						Type:  "Intel(R) Xeon(R) E-2278G CPU @ 3.40GHz",
+					},
+				},
+				Memory: &packngo.Memory{
+					Total: "32GB",
+				},
+				Drives: []*packngo.Drives{
+					{
+						Count: 2,
+						Size:  "480GB",
+						Type:  "ssd",
+					},
+				},
+			},
+			Pricing: &packngo.Pricing{
+				Hour: 1.20,
 			},
 			DeploymentTypes: []string{
 				"on_demand",
@@ -529,6 +615,7 @@ func (s *environProviderSuite) TestStartInstance(c *gc.C) {
 			ProvisionableOn: []string{
 				"c1.large.arm",
 				"c3.small.x86",
+				"g2.large.x86",
 			},
 		},
 		{
@@ -539,6 +626,7 @@ func (s *environProviderSuite) TestStartInstance(c *gc.C) {
 			ProvisionableOn: []string{
 				"c1.large.arm",
 				"c3.small.x86",
+				"g2.large.x86",
 			},
 		},
 	}, nil, nil)
@@ -557,8 +645,8 @@ func (s *environProviderSuite) TestStartInstance(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
 	cons := constraints.Value{}
-	iConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons,
-		series.MakeDefaultBase("ubuntu", "20.04"), "", nil)
+	base := series.MakeDefaultBase("ubuntu", "20.04")
+	iConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, base, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = env.StartInstance(environContext.NewCloudCallContext(context.TODO()), environs.StartInstanceParams{
 		ControllerUUID:   env.Config().UUID(),
@@ -654,7 +742,7 @@ func (*EquinixUtils) TestIsDistroSupported(c *gc.C) {
 				Version: "20.10",
 			},
 			ic: &instances.InstanceConstraint{
-				Series: "20.10",
+				Base: series.MakeDefaultBase("ubuntu", "20.10"),
 			},
 			expect: false,
 		},
@@ -687,6 +775,69 @@ func (*EquinixUtils) TestGetArchitectureFromPlan(c *gc.C) {
 		o := getArchitectureFromPlan(s.plan)
 		if o != s.expect {
 			c.Errorf("for plan \"%s\" expected \"%s\" got \"%s\"", s.plan, s.expect, o)
+		}
+	}
+}
+
+func (*EquinixUtils) TestValidPlan(c *gc.C) {
+	const UNEXPECTED = "unexpected"
+
+	plan := func(f func(*packngo.Plan)) packngo.Plan {
+		p := &packngo.Plan{
+			Slug:            "test",
+			Name:            "test.x86",
+			Line:            "baremetal",
+			DeploymentTypes: []string{"on_demand"},
+			Pricing:         &packngo.Pricing{},
+			Specs: &packngo.Specs{
+				Memory: &packngo.Memory{Total: "32GB"},
+				Cpus:   []*packngo.Cpus{{Count: 1}},
+			},
+			AvailableInMetros: []packngo.Metro{{Code: "dc"}},
+		}
+		f(p)
+		return *p
+	}
+	for _, s := range []struct {
+		name   string
+		plan   packngo.Plan
+		region string
+		expect bool
+	}{
+		{
+			name:   "matched",
+			plan:   plan(func(p *packngo.Plan) {}),
+			region: "dc",
+			expect: true,
+		},
+		{
+			name: "unexpected.line",
+			plan: plan(func(p *packngo.Plan) {
+				p.Line = UNEXPECTED
+			}),
+			region: "dc",
+			expect: false,
+		},
+		{
+			plan: plan(func(p *packngo.Plan) {
+				p.Slug = "unexpected.deploymenttype"
+				p.DeploymentTypes[0] = UNEXPECTED
+			}),
+			region: "dc",
+			expect: false,
+		},
+		{
+			plan: plan(func(p *packngo.Plan) {
+				p.Slug = "unexpected.metro"
+				p.AvailableInMetros[0].Code = UNEXPECTED
+			}),
+			region: "dc",
+			expect: false,
+		},
+	} {
+		o := validPlan(s.plan, s.region)
+		if o != s.expect {
+			c.Errorf("for plan \"%s\" expected \"%s\" got \"%s\"", s.name, s.expect, o)
 		}
 	}
 }

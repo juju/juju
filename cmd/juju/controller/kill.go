@@ -27,15 +27,15 @@ import (
 
 const killDoc = `
 Forcibly destroy the specified controller.  If the API server is accessible,
-this command will attempt to destroy the controller model and all hosted models
+this command will attempt to destroy the controller model and all models
 and their resources.
 
 If the API server is unreachable, the machines of the controller model will be
 destroyed through the cloud provisioner.  If there are additional machines,
-including machines within hosted models, these machines will not be destroyed
+including machines within models, these machines will not be destroyed
 and will never be reconnected to the Juju controller being destroyed.
 
-The normal process of killing the controller will involve watching the hosted
+The normal process of killing the controller will involve watching the
 models as they are brought down in a controlled manner. If for some reason the
 models do not stop cleanly, there is a default five minute timeout. If no change
 in the model state occurs for the duration of this timeout, the command will
@@ -104,11 +104,6 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	store := c.ClientStore()
-	if !c.assumeYes {
-		if err := confirmDestruction(ctx, controllerName); err != nil {
-			return err
-		}
-	}
 
 	// Attempt to connect to the API.
 	api, err := c.getControllerAPIWithTimeout(10 * time.Second)
@@ -132,6 +127,21 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	if api == nil {
 		ctx.Infof("Unable to connect to the API server, destroying through provider")
 		return c.environsDestroy(controllerName, controllerEnviron, cloudCallCtx, store)
+	}
+
+	if err := c.DestroyConfirmationCommandBase.Run(ctx); err != nil {
+		return errors.Trace(err)
+	}
+	if c.DestroyConfirmationCommandBase.NeedsConfirmation() {
+		updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
+		modelStatus := updateStatus(0)
+		ctx.Warningf(destroySysMsg, controllerName)
+		if err := printDestroyWarningDetails(ctx, modelStatus, false); err != nil {
+			return errors.Trace(err)
+		}
+		if err := jujucmd.UserConfirmName(controllerName, "controller", ctx); err != nil {
+			return errors.Annotate(err, "controller destruction")
+		}
 	}
 
 	// Attempt to destroy the controller and all models and storage.
@@ -244,7 +254,7 @@ func (c *killCommand) DirectDestroyRemaining(
 				Config:         cfg,
 			}
 			var env environs.CloudDestroyer
-			if model.CloudSpec.Type == cloud.CloudTypeCAAS {
+			if cloud.CloudTypeIsCAAS(model.CloudSpec.Type) {
 				env, err = caas.Open(stdcontext.TODO(), cloudProvider, openParams)
 			} else {
 				env, err = environs.Open(stdcontext.TODO(), cloudProvider, openParams)
@@ -266,7 +276,7 @@ func (c *killCommand) DirectDestroyRemaining(
 	if hasErrors {
 		logger.Warningf("there were problems destroying some models, manual intervention may be necessary to ensure resources are released")
 	} else {
-		ctx.Infof("All hosted models destroyed, cleaning up controller machines")
+		ctx.Infof("All models destroyed, cleaning up controller machines")
 	}
 }
 
@@ -310,15 +320,15 @@ func (c *killCommand) WaitForModels(ctx *cmd.Context, api destroyControllerAPI, 
 	updateStatus := newTimedStatusUpdater(ctx, api, uuid, c.clock)
 
 	envStatus := updateStatus(0)
-	lastStatus := envStatus.controller
+	lastStatus := envStatus.Controller
 	lastChange := c.clock.Now().Truncate(time.Second)
 	deadline := lastChange.Add(c.timeout)
 	// Check for both undead models and live machines, as machines may be
 	// in the controller model.
 	for ; hasUnreclaimedResources(envStatus) && (deadline.After(c.clock.Now())); envStatus = updateStatus(5 * time.Second) {
 		now := c.clock.Now().Truncate(time.Second)
-		if envStatus.controller != lastStatus {
-			lastStatus = envStatus.controller
+		if envStatus.Controller != lastStatus {
+			lastStatus = envStatus.Controller
 			lastChange = now
 			deadline = lastChange.Add(c.timeout)
 		}
@@ -330,15 +340,15 @@ func (c *killCommand) WaitForModels(ctx *cmd.Context, api destroyControllerAPI, 
 		if timeSinceLastChange > thirtySeconds || timeUntilDestruction < thirtySeconds {
 			warning = fmt.Sprintf(", will kill machines directly in %s", timeUntilDestruction)
 		}
-		ctx.Infof("%s%s", fmtCtrStatus(envStatus.controller), warning)
-		for _, modelStatus := range envStatus.models {
+		ctx.Infof("%s%s", fmtCtrStatus(envStatus.Controller), warning)
+		for _, modelStatus := range envStatus.Models {
 			ctx.Verbosef(fmtModelStatus(modelStatus))
 		}
 	}
 	if hasUnreclaimedResources(envStatus) {
 		return errors.New("timed out")
 	} else {
-		ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
+		ctx.Infof("All models reclaimed, cleaning up controller machines")
 	}
 	return nil
 }

@@ -6,7 +6,7 @@ package featuretests
 import (
 	"fmt"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v4"
@@ -44,6 +44,7 @@ func (s *ApplicationConfigSuite) assertApplicationDeployed(c *gc.C) {
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:             s.appName,
 		Charm:            s.charm,
+		CharmOrigin:      &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04"}},
 		EndpointBindings: nil,
 		CharmConfig: map[string]interface{}{
 			"stroverwrite":     "test value",
@@ -135,8 +136,9 @@ func (s *ApplicationConfigSuite) TestConfigNoValueSingleSetting(c *gc.C) {
 	appName := "appconfigsingle"
 	charm := s.AddTestingCharm(c, appName)
 	_, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name:  appName,
-		Charm: charm,
+		Name:        appName,
+		Charm:       charm,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
