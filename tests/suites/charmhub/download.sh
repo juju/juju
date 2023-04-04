@@ -2,39 +2,45 @@ run_charmhub_download() {
 	echo
 	name="charmhub-download"
 
-	file="${TEST_DIR}/test-${name}.log"
+	file="${TEST_DIR}/${name}.log"
 
-	ensure "test-${name}" "${file}"
+	ensure "${name}" "${file}"
 
-	output=$(juju download postgresql --series focal --filepath="${TEST_DIR}/postgresql.charm" 2>&1 || true)
+	output=$(juju download postgresql --base ubuntu@20.04 --filepath="${TEST_DIR}/postgresql.charm" 2>&1 || true)
 	check_contains "${output}" 'Fetching charm "postgresql"'
 
 	juju deploy "${TEST_DIR}/postgresql.charm" postgresql
 	juju wait-for application --timeout=15m postgresql
+
+	destroy_model "${name}"
 }
 
 run_charmstore_download() {
 	echo
-	name="charmstore-download"
+	name="test-charmstore-download"
 
-	file="${TEST_DIR}/test-${name}.log"
+	file="${TEST_DIR}/${name}.log"
 
-	ensure "test-${name}" "${file}"
+	ensure "${name}" "${file}"
 
 	output=$(juju download cs:meshuggah 2>&1 || echo "not found")
-	check_contains "${output}" '"cs:meshuggah" is not a Charmhub charm'
+	check_contains "${output}" 'ERROR charm or bundle name, "cs:meshuggah", is not valid'
+
+	destroy_model "${name}"
 }
 
 run_unknown_download() {
 	echo
-	name="unknown-download"
+	name="test-unknown-download"
 
-	file="${TEST_DIR}/test-${name}.log"
+	file="${TEST_DIR}/${name}.log"
 
-	ensure "test-${name}" "${file}"
+	ensure "${name}" "${file}"
 
 	output=$(juju download meshuggah 2>&1 || echo "not found")
 	check_contains "${output}" "The Charm with the given name was not found in the Store"
+
+	destroy_model "${name}"
 }
 
 test_charmhub_download() {

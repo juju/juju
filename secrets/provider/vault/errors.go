@@ -14,11 +14,15 @@ import (
 )
 
 func isNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
 	var apiErr *api.ResponseError
 	if errors.As(err, &apiErr) {
 		return apiErr.StatusCode == http.StatusNotFound
 	}
-	return false
+	// Sadly we can just get a string from the api.
+	return strings.Contains(err.Error(), "no secret found")
 }
 
 func isAlreadyExists(err error, message string) bool {
@@ -26,6 +30,15 @@ func isAlreadyExists(err error, message string) bool {
 	if errors.As(err, &apiErr) {
 		errMessage := strings.Join(apiErr.Errors, ",")
 		return apiErr.StatusCode == http.StatusBadRequest && strings.Contains(errMessage, message)
+	}
+	return false
+}
+
+func isMountNotFound(err error) bool {
+	var apiErr *api.ResponseError
+	if errors.As(err, &apiErr) {
+		errMessage := strings.Join(apiErr.Errors, ",")
+		return apiErr.StatusCode == http.StatusBadRequest && strings.Contains(errMessage, "no matching mount")
 	}
 	return false
 }
@@ -38,4 +51,12 @@ func maybePermissionDenied(err error) error {
 		}
 	}
 	return err
+}
+
+func isPermissionDenied(err error) bool {
+	var apiErr *api.ResponseError
+	if errors.As(err, &apiErr) {
+		return apiErr.StatusCode == http.StatusForbidden
+	}
+	return false
 }

@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/charmhub/transport"
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
@@ -331,7 +330,7 @@ func (s *statusUnitTestSuite) TestModelMeterStatus(c *gc.C) {
 }
 
 func (s *statusUnitTestSuite) TestMeterStatus(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered"})
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
 
 	units, err := app.AllUnits()
@@ -434,7 +433,7 @@ func (s *statusUnitTestSuite) TestMeterStatusWithCredentials(c *gc.C) {
 }
 
 func (s *statusUnitTestSuite) TestApplicationWithExposedEndpoints(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered"})
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
 	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
 		"": {
@@ -460,8 +459,8 @@ func (s *statusUnitTestSuite) TestApplicationWithExposedEndpoints(c *gc.C) {
 }
 
 func (s *statusUnitTestSuite) TestPrincipalUpgradingFrom(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered-3"})
-	meteredCharmNew := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered-5"})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered-3"})
+	meteredCharmNew := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered-5"})
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
 	u := s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: app,
@@ -485,13 +484,13 @@ func (s *statusUnitTestSuite) TestPrincipalUpgradingFrom(c *gc.C) {
 	c.Assert(status, gc.NotNil)
 	unitStatus, ok = status.Applications[app.Name()].Units[u.Name()]
 	c.Assert(ok, gc.Equals, true)
-	c.Assert(unitStatus.Charm, gc.Equals, "cs:quantal/metered-3")
+	c.Assert(unitStatus.Charm, gc.Equals, "ch:amd64/quantal/metered-3")
 }
 
 func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
-	principalCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "mysql", URL: "cs:quantal/mysql"})
-	subordCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "logging", URL: "cs:quantal/logging-1"})
-	subordCharmNew := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "logging", URL: "cs:quantal/logging-2"})
+	principalCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "mysql", URL: "ch:amd64/quantal/mysql"})
+	subordCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "logging", URL: "ch:amd64/quantal/logging-1"})
+	subordCharmNew := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "logging", URL: "ch:amd64/quantal/logging-2"})
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: principalCharm,
 		Name:  "principal",
@@ -537,7 +536,7 @@ func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
 	c.Assert(status, gc.NotNil)
 	unitStatus, ok = status.Applications["principal"].Units["principal/0"].Subordinates["subord/0"]
 	c.Assert(ok, gc.Equals, true)
-	c.Assert(unitStatus.Charm, gc.Equals, "cs:quantal/logging-1")
+	c.Assert(unitStatus.Charm, gc.Equals, "ch:amd64/quantal/logging-1")
 }
 
 func addUnitWithVersion(c *gc.C, application *state.Application, version string) *state.Unit {
@@ -902,10 +901,6 @@ func (s *statusUpgradeUnitSuite) SetUpTest(c *gc.C) {
 	s.CharmSuite.SetUpTest(c)
 
 	state := charmrevisionupdater.StateShim{State: s.State}
-	newCharmstoreClient := func(st charmrevisionupdater.State) (charmstore.Client, error) {
-		return charmstore.NewCustomClient(s.Store), nil
-	}
-
 	s.ctrl = gomock.NewController(c)
 	charmhubClient := mocks.NewMockCharmhubRefreshClient(s.ctrl)
 	charmhubClient.EXPECT().RefreshWithRequestMetrics(gomock.Any(), gomock.Any(),
@@ -918,35 +913,13 @@ func (s *statusUpgradeUnitSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, clock.WallClock,
-		newCharmstoreClient, newCharmhubClient)
+		newCharmhubClient)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *statusUpgradeUnitSuite) TearDownTest(c *gc.C) {
 	s.JujuConnSuite.TearDownTest(c)
 	s.ctrl.Finish()
-}
-
-func (s *statusUpgradeUnitSuite) TestUpdateRevisionsCharmstore(c *gc.C) {
-	s.AddMachine(c, "0", state.JobManageModel)
-	s.SetupScenario(c)
-	client := apiclient.NewClient(s.APIState)
-	status, _ := client.Status(nil)
-
-	appStatus, ok := status.Applications["mysql"]
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(appStatus.CanUpgradeTo, gc.Equals, "")
-
-	// Update to the latest available charm revision.
-	result, err := s.charmrevisionupdater.UpdateLatestRevisions()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-
-	// Check if CanUpgradeTo suggests the latest revision.
-	status, _ = client.Status(nil)
-	appStatus, ok = status.Applications["mysql"]
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(appStatus.CanUpgradeTo, gc.Equals, "cs:quantal/mysql-23")
 }
 
 func (s *statusUpgradeUnitSuite) TestUpdateRevisionsCharmhub(c *gc.C) {
@@ -972,7 +945,7 @@ func (s *statusUpgradeUnitSuite) TestUpdateRevisionsCharmhub(c *gc.C) {
 	status, _ = client.Status(nil)
 	appStatus, ok = status.Applications["charmhubby"]
 	c.Assert(ok, gc.Equals, true)
-	c.Assert(appStatus.CanUpgradeTo, gc.Equals, "ch:charmhubby-42")
+	c.Assert(appStatus.CanUpgradeTo, gc.Equals, "ch:amd64/jammy/charmhubby-42")
 }
 
 type CAASStatusSuite struct {

@@ -5,28 +5,25 @@ package deployer
 
 import (
 	"fmt"
-	"os"
-	"strconv"
 	"strings"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/client/application"
 	applicationapi "github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	app "github.com/juju/juju/apiserver/facades/client/application"
-	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/series"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/storage"
 )
@@ -39,7 +36,6 @@ type deployCharm struct {
 	constraints      constraints.Value
 	dryRun           bool
 	modelConstraints constraints.Value
-	csMac            *macaroon.Macaroon
 	devices          map[string]devices.Constraints
 	deployResources  DeployResourcesFunc
 	force            bool
@@ -50,7 +46,7 @@ type deployCharm struct {
 	placement        []*instance.Placement
 	placementSpec    string
 	resources        map[string]string
-	seriesFlag       string
+	baseFlag         series.Base
 	steps            []DeployStep
 	storage          map[string]storage.Constraints
 	trust            bool
@@ -97,48 +93,13 @@ func (d *deployCharm) deploy(
 	}
 
 	// Process the --config args.
-	// We may have a single file arg specified, in which case
-	// it points to a YAML file keyed on the charm name and
-	// containing values for any charm settings.
-	// We may also have key/value pairs representing
-	// charm settings which overrides anything in the YAML file.
-	// If more than one file is specified, that is an error.
-	var configYAML []byte
-	files, err := d.configOptions.AbsoluteFileNames(ctx)
+	appConfig, configYAML, err := utils.ProcessConfig(ctx, d.model.Filesystem(), d.configOptions, d.trust)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if len(files) > 1 {
-		return errors.Errorf("only a single config YAML file can be specified, got %d", len(files))
-	}
-	if len(files) == 1 {
-		configYAML, err = os.ReadFile(files[0])
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	attr, err := d.configOptions.ReadConfigPairs(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	appConfig := make(map[string]string)
-	for k, v := range attr {
-		appConfig[k] = v.(string)
-
-		// Handle @ syntax for including file contents as values so we
-		// are consistent to how 'juju config' works
-		if len(appConfig[k]) < 1 || appConfig[k][0] != '@' {
-			continue
-		}
-
-		if appConfig[k], err = utils.ReadValue(ctx, d.model.Filesystem(), appConfig[k][1:]); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	// Expand the trust flag into the appConfig
-	if d.trust {
-		appConfig[app.TrustConfigOptionName] = strconv.FormatBool(d.trust)
+	// At deploy time, there's no need to include "trust=false" as missing is the same thing.
+	if !d.trust {
+		delete(appConfig, app.TrustConfigOptionName)
 	}
 
 	bakeryClient, err := d.model.BakeryClient()
@@ -186,7 +147,6 @@ func (d *deployCharm) deploy(
 			URL:    id.URL,
 			Origin: id.Origin,
 		},
-		d.csMac,
 		d.resources,
 		charmInfo.Meta.Resources,
 		deployAPI,
@@ -207,7 +167,7 @@ func (d *deployCharm) deploy(
 		Cons:             d.constraints,
 		ApplicationName:  applicationName,
 		NumUnits:         numUnits,
-		ConfigYAML:       string(configYAML),
+		ConfigYAML:       configYAML,
 		Config:           appConfig,
 		Placement:        d.placement,
 		Storage:          d.storage,
@@ -285,7 +245,7 @@ func (d *predeployedLocalCharm) String() string {
 
 // PrepareAndDeploy finishes preparing to deploy a predeployed local charm,
 // then deploys it.
-func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ Resolver, _ store.MacaroonGetter) error {
+func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ Resolver) error {
 	userCharmURL := d.userCharmURL
 	ctx.Verbosef("Preparing to deploy local charm %q again", userCharmURL.Name)
 	if d.dryRun {
@@ -316,10 +276,12 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 		return errors.Trace(err)
 	}
 
-	platform, err := utils.DeducePlatform(d.constraints, d.userCharmURL.Series, d.modelConstraints)
+	base, err := series.GetBaseFromSeries(d.userCharmURL.Series)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	platform := utils.MakePlatform(d.constraints, base, d.modelConstraints)
 	origin, err := utils.DeduceOrigin(userCharmURL, charm.Channel{}, platform)
 	if err != nil {
 		return errors.Trace(err)
@@ -345,7 +307,7 @@ func (l *localCharm) String() string {
 
 // PrepareAndDeploy finishes preparing to deploy a local charm,
 // then deploys it.
-func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ Resolver, _ store.MacaroonGetter) error {
+func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ Resolver) error {
 	ctx.Verbosef("Preparing to deploy local charm: %q ", l.curl.Name)
 	if l.dryRun {
 		ctx.Infof("ignoring dry-run flag for local charms")
@@ -359,10 +321,12 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 		return errors.Trace(err)
 	}
 
-	platform, err := utils.DeducePlatform(l.constraints, l.curl.Series, l.modelConstraints)
+	base, err := series.GetBaseFromSeries(l.curl.Series)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	platform := utils.MakePlatform(l.constraints, base, l.modelConstraints)
 	origin, err := utils.DeduceOrigin(curl, charm.Channel{}, platform)
 	if err != nil {
 		return errors.Trace(err)
@@ -387,7 +351,7 @@ type repositoryCharm struct {
 func (c *repositoryCharm) String() string {
 	str := fmt.Sprintf("deploy charm: %s", c.userRequestedURL.String())
 	origin := c.id.Origin
-	if isEmptyOrigin(origin, commoncharm.OriginCharmStore) {
+	if isEmptyOrigin(origin, commoncharm.OriginCharmHub) {
 		return str
 	}
 	var revision string
@@ -405,14 +369,12 @@ func (c *repositoryCharm) String() string {
 	return fmt.Sprintf("%s%s%s", str, revision, channel)
 }
 
-// PrepareAndDeploy finishes preparing to deploy a charm store charm,
+// PrepareAndDeploy finishes preparing to deploy a repository charm,
 // then deploys it.
-func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver, macaroonGetter store.MacaroonGetter) error {
+func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver) error {
 	userRequestedURL := c.userRequestedURL
 	location := "charmhub"
-	if charm.CharmStore.Matches(userRequestedURL.Schema) {
-		location = "charm-store"
-	}
+
 	ctx.Verbosef("Preparing to deploy %q from the %s", userRequestedURL.Name, location)
 
 	modelCfg, workloadSeries, err := seriesSelectorRequirements(deployAPI, c.clock, userRequestedURL)
@@ -425,8 +387,8 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	// argument so users can target a specific origin.
 	origin := c.id.Origin
 	var usingDefaultSeries bool
-	if defaultSeries, ok := modelCfg.DefaultSeries(); ok && origin.Base.Channel.Empty() {
-		base, err := coreseries.GetBaseFromSeries(defaultSeries)
+	if defaultBase, ok := modelCfg.DefaultBase(); ok && origin.Base.Channel.Empty() {
+		base, err := coreseries.ParseBaseFromString(defaultBase)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -447,9 +409,18 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		return errors.Trace(err)
 	}
 
+	var seriesFlag string
+	if !c.baseFlag.Empty() {
+		var err error
+		seriesFlag, err = series.GetSeriesFromBase(c.baseFlag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	selector := seriesSelector{
 		charmURLSeries:      userRequestedURL.Series,
-		seriesFlag:          c.seriesFlag,
+		seriesFlag:          seriesFlag,
 		supportedSeries:     supportedSeries,
 		supportedJujuSeries: workloadSeries,
 		force:               c.force,
@@ -496,19 +467,19 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	// In-order for the url to represent the following updates to the origin
 	// and machine, we need to ensure that the series is actually correct as
 	// well in the url.
-	deployableURL := storeCharmOrBundleURL
+	curl := storeCharmOrBundleURL
 	if charm.CharmHub.Matches(storeCharmOrBundleURL.Schema) {
 		series, err := coreseries.GetSeriesFromBase(origin.Base)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		deployableURL = storeCharmOrBundleURL.WithSeries(series)
+		curl = storeCharmOrBundleURL.WithSeries(series)
 	}
 
 	if c.dryRun {
 		name := c.applicationName
 		if name == "" {
-			name = deployableURL.Name
+			name = curl.Name
 		}
 		channel := origin.CharmChannel().String()
 		if channel != "" {
@@ -516,17 +487,17 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		}
 
 		ctx.Infof(fmt.Sprintf("%q from %s charm %q, revision %d%s on %s would be deployed",
-			name, origin.Source, deployableURL.Name, deployableURL.Revision, channel, origin.Base.DisplayString()))
+			name, origin.Source, curl.Name, curl.Revision, channel, origin.Base.DisplayString()))
 		return nil
 	}
 
 	// Store the charm in the controller
-	curl, csMac, csOrigin, err := store.AddCharmWithAuthorizationFromURL(deployAPI, macaroonGetter, deployableURL, origin, c.force)
+	csOrigin, err := deployAPI.AddCharm(curl, origin, c.force)
 	if err != nil {
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())
 		}
-		return errors.Annotatef(err, "storing charm %q", deployableURL.Name)
+		return errors.Annotatef(err, "storing charm %q", curl.Name)
 	}
 	ctx.Infof(formatLocatedText(curl, csOrigin))
 
@@ -544,7 +515,6 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		}
 	}
 
-	c.csMac = csMac
 	c.id = application.CharmID{
 		URL:    curl,
 		Origin: csOrigin,

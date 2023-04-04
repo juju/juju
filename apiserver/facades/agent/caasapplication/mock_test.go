@@ -4,7 +4,7 @@
 package caasapplication_test
 
 import (
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -43,7 +43,7 @@ func newMockState() *mockState {
 			name:  "gitlab",
 			life:  state.Alive,
 			charm: mockCharm{
-				url:    charm.MustParseURL("cs:gitlab-1"),
+				url:    charm.MustParseURL("ch:gitlab-1"),
 				sha256: "fake-sha256",
 				manifest: &charm.Manifest{
 					// charm.FormatV2.

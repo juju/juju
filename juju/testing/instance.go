@@ -182,8 +182,13 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 		return errors.Trace(err)
 	}
 
-	preferredSeries := config.PreferredSeries(env.Config())
+	preferredBase := config.PreferredBase(env.Config())
+
 	if params.ImageMetadata == nil {
+		preferredSeries, err := series.GetSeriesFromBase(preferredBase)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		vers, err := imagemetadata.ImageRelease(preferredSeries)
 		if err != nil {
 			return errors.Trace(err)
@@ -201,16 +206,12 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 
 	machineNonce := "fake_nonce"
 	apiInfo := FakeAPIInfo(machineId)
-	base, err := series.GetBaseFromSeries(preferredSeries)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	instanceConfig, err := instancecfg.NewInstanceConfig(
 		testing.ControllerTag,
 		machineId,
 		machineNonce,
 		imagemetadata.ReleasedStream,
-		base,
+		preferredBase,
 		apiInfo,
 	)
 	if err != nil {

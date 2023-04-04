@@ -22,6 +22,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
@@ -35,7 +36,7 @@ import (
 // Server defines an interface of all localized methods that the environment
 // and provider utilizes.
 type Server interface {
-	FindImage(series.Base, string, []lxd.ServerSpec, bool, environs.StatusCallbackFunc) (lxd.SourcedImage, error)
+	FindImage(series.Base, string, instance.VirtType, []lxd.ServerSpec, bool, environs.StatusCallbackFunc) (lxd.SourcedImage, error)
 	GetServer() (server *lxdapi.Server, ETag string, err error)
 	ServerVersion() string
 	GetConnectionInfo() (info *lxdclient.ConnectionInfo, err error)

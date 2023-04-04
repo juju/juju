@@ -834,15 +834,35 @@ type HostNetworkChangeResults struct {
 	Results []HostNetworkChange `json:"results"`
 }
 
-// OpenMachinePortRangesByEndpointResults holds the results of a request to the
-// uniter's OpenedMachinePortRangesByEndpoint API.
-type OpenMachinePortRangesByEndpointResults struct {
-	Results []OpenMachinePortRangesByEndpointResult `json:"results"`
+// ApplicationOpenedPorts describes the set of port ranges that have been
+// opened by an application for an endpoint.
+type ApplicationOpenedPorts struct {
+	Endpoint   string      `json:"endpoint"`
+	PortRanges []PortRange `json:"port-ranges"`
 }
 
-// OpenMachinePortRangesByEndpointResult holds a single result of a request to
-// the uniter's OpenedMachinePortRangesByEndpoint API.
-type OpenMachinePortRangesByEndpointResult struct {
+// ApplicationOpenedPortsResult holds a single result of the
+// CAASFirewallerEmbedded.GetOpenedPorts() API calls.
+type ApplicationOpenedPortsResult struct {
+	Error                 *Error                   `json:"error,omitempty"`
+	ApplicationPortRanges []ApplicationOpenedPorts `json:"application-port-ranges"`
+}
+
+// ApplicationOpenedPortsResults holds all the results of the
+// CAASFirewallerEmbedded.GetOpenedPorts() API calls.
+type ApplicationOpenedPortsResults struct {
+	Results []ApplicationOpenedPortsResult `json:"results"`
+}
+
+// OpenPortRangesByEndpointResults holds the results of a request to the
+// uniter's OpenedMachinePortRangesByEndpoint and OpenedPortRangesByEndpoint API.
+type OpenPortRangesByEndpointResults struct {
+	Results []OpenPortRangesByEndpointResult `json:"results"`
+}
+
+// OpenPortRangesByEndpointResult holds a single result of a request to
+// the uniter's OpenedMachinePortRangesByEndpoint and OpenedPortRangesByEndpoint API.
+type OpenPortRangesByEndpointResult struct {
 	Error *Error `json:"error,omitempty"`
 
 	// The set of opened port ranges grouped by unit tag.

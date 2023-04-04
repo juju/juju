@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/charm/v9"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
+	"github.com/juju/charm/v10"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
@@ -80,12 +80,11 @@ type applicationDoc struct {
 	Name        string `bson:"name"`
 	ModelUUID   string `bson:"model-uuid"`
 	Subordinate bool   `bson:"subordinate"`
-	// CharmURL and channel should be moved to CharmOrigin. Attempting it should
+	// CharmURL should be moved to CharmOrigin. Attempting it should
 	// be relatively straight forward, but very time consuming.
-	// When moving to CharmHub or removing CharmStore from Juju it should be
+	// When moving to CharmHub from Juju it should be
 	// tackled then.
 	CharmURL    *string     `bson:"charmurl"`
-	Channel     string      `bson:"cs-channel"`
 	CharmOrigin CharmOrigin `bson:"charm-origin"`
 	// CharmModifiedVersion changes will trigger the upgrade-charm hook
 	// for units independent of charm url changes.
@@ -689,11 +688,16 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 	}
 	ops = append(ops, removeOfferOps...)
 	// Remove secret permissions.
-	secretPermissionsOps, err := a.st.removeScopedSecretPermissionOps(a.Tag())
+	secretScopedPermissionsOps, err := a.st.removeScopedSecretPermissionOps(a.Tag())
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
-	ops = append(ops, secretPermissionsOps...)
+	ops = append(ops, secretScopedPermissionsOps...)
+	secretConsumerPermissionsOps, err := a.st.removeConsumerSecretPermissionOps(a.Tag())
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, secretConsumerPermissionsOps...)
 	secretLabelOps, err := a.st.removeOwnerSecretLabelOps(a.ApplicationTag())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -745,6 +749,12 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 		removeModelApplicationRefOp(a.st, name),
 		removePodSpecOp(a.ApplicationTag()),
 	)
+
+	apr, err := getApplicationPortRanges(a.st, a.Name())
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, apr.removeOps()...)
 
 	cancelCleanupOps, err := a.cancelScheduledCleanupOps()
 	if err != nil {
@@ -973,13 +983,6 @@ func (a *Application) CharmURL() (*string, bool) {
 	return a.doc.CharmURL, a.doc.ForceCharm
 }
 
-// Channel identifies the charm store channel from which the application's
-// charm was deployed. It is only needed when interacting with the charm
-// store.
-func (a *Application) Channel() csparams.Channel {
-	return csparams.Channel(a.doc.Channel)
-}
-
 // Endpoints returns the application's currently available relation endpoints.
 func (a *Application) Endpoints() (eps []Endpoint, err error) {
 	ch, _, err := a.Charm()
@@ -1197,7 +1200,6 @@ func (a *Application) IsSidecar() (bool, error) {
 // charm URL to a new value.
 func (a *Application) changeCharmOps(
 	ch *Charm,
-	channel string,
 	updatedSettings charm.Settings,
 	forceUnits bool,
 	updatedStorageConstraints map[string]StorageConstraints,
@@ -1302,7 +1304,6 @@ func (a *Application) changeCharmOps(
 			Id: a.doc.DocID,
 			Update: bson.D{{"$set", bson.D{
 				{"charmurl", cURL},
-				{"cs-channel", channel},
 				{"forcecharm", forceUnits},
 			}}},
 		},
@@ -1542,9 +1543,6 @@ type SetCharmConfig struct {
 	// Channel should be move there.
 	CharmOrigin *CharmOrigin
 
-	// Channel is the charm store channel from which charm was pulled.
-	Channel csparams.Channel
-
 	// ConfigSettings is the charm config settings to apply when upgrading
 	// the charm.
 	ConfigSettings charm.Settings
@@ -1632,7 +1630,6 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	}
 
 	var newCharmModifiedVersion int
-	channel := string(cfg.Channel)
 	acopy := &Application{a.st, a.doc}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		a := acopy
@@ -1667,7 +1664,6 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 
 		if *a.doc.CharmURL == cfg.Charm.URL().String() {
 			updates := bson.D{
-				{"cs-channel", channel},
 				{"forcecharm", cfg.ForceUnits},
 			}
 			// Local charms will not have a channel in their charm origin
@@ -1701,7 +1697,6 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 
 			chng, err := a.changeCharmOps(
 				cfg.Charm,
-				channel,
 				updatedSettings,
 				cfg.ForceUnits,
 				cfg.StorageConstraints,
@@ -2770,11 +2765,19 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
+	appPortsOps, err := removeApplicationPortsForUnitOps(a.st, u)
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
+	}
 	resOps, err := removeUnitResourcesOps(a.st, u.doc.Name)
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
-	secretPermissionsOps, err := a.st.removeScopedSecretPermissionOps(u.Tag())
+	secretScopedPermissionsOps, err := a.st.removeScopedSecretPermissionOps(u.Tag())
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
+	}
+	secretConsumerPermissionsOps, err := a.st.removeConsumerSecretPermissionOps(u.Tag())
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
@@ -2809,9 +2812,11 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 		newCleanupOp(cleanupRemovedUnit, u.doc.Name, op.Force),
 	}
 	ops = append(ops, portsOps...)
+	ops = append(ops, appPortsOps...)
 	ops = append(ops, resOps...)
 	ops = append(ops, hostOps...)
-	ops = append(ops, secretPermissionsOps...)
+	ops = append(ops, secretScopedPermissionsOps...)
+	ops = append(ops, secretConsumerPermissionsOps...)
 	ops = append(ops, secretOwnerLabelOps...)
 	ops = append(ops, secretConsumerLabelOps...)
 
@@ -3231,6 +3236,24 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 	}}
 	ops = append(ops, setConstraintsOp(a.globalKey(), cons))
 	return onAbort(a.st.db().RunTransaction(ops), applicationNotAliveErr)
+}
+
+func assertApplicationAliveOp(docID string) txn.Op {
+	return txn.Op{
+		C:      applicationsC,
+		Id:     docID,
+		Assert: isAliveDoc,
+	}
+}
+
+// OpenedPortRanges returns a ApplicationPortRanges object that can be used to query
+// and/or mutate the port ranges opened by the embedded k8s application.
+func (a *Application) OpenedPortRanges() (ApplicationPortRanges, error) {
+	apr, err := getApplicationPortRanges(a.st, a.Name())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return apr, nil
 }
 
 // EndpointBindings returns the mapping for each endpoint name and the space

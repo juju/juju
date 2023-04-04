@@ -109,6 +109,7 @@ func SampleConfig() testing.Attrs {
 		"uuid":                      testing.ModelTag.Id(),
 		"authorized-keys":           testing.FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
+		"secret-backend":            "auto",
 		"ssl-hostname-verification": true,
 		"development":               false,
 		"default-space":             "",

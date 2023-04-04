@@ -58,7 +58,7 @@ func (s *SecretsSuite) TestListSecretsReveal(c *gc.C) {
 	s.assertListSecrets(c, true, false)
 }
 
-func (s *SecretsSuite) TestListSecretsRevealFromStore(c *gc.C) {
+func (s *SecretsSuite) TestListSecretsRevealFromBackend(c *gc.C) {
 	s.assertListSecrets(c, true, true)
 }
 
@@ -66,7 +66,7 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withStore bool) {
+func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withBackend bool) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
@@ -78,9 +78,29 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withStore bool) {
 			true, nil)
 	}
 
-	facade, err := apisecrets.NewTestAPI(s.secretsState, func() (provider.SecretsBackend, error) {
-		return s.secretsBackend, nil
-	}, s.authorizer)
+	facade, err := apisecrets.NewTestAPI(s.secretsState,
+		func() (*provider.ModelBackendConfigInfo, error) {
+			return &provider.ModelBackendConfigInfo{
+				ControllerUUID: coretesting.ControllerTag.Id(),
+				ModelUUID:      coretesting.ModelTag.Id(),
+				ModelName:      "some-model",
+				ActiveID:       "backend-id",
+				Configs: map[string]provider.BackendConfig{
+					"backend-id": {
+						BackendType: "active-type",
+						Config:      map[string]interface{}{"foo": "active-type"},
+					},
+					"other-backend-id": {
+						BackendType: "other-type",
+						Config:      map[string]interface{}{"foo": "other-type"},
+					},
+				},
+			}, nil
+		},
+		func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+			c.Assert(cfg.Config, jc.DeepEquals, provider.ConfigAttrs{"foo": cfg.BackendType})
+			return s.secretsBackend, nil
+		}, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	now := time.Now()
@@ -104,10 +124,11 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withStore bool) {
 		UpdateTime: now.Add(time.Second),
 		ExpireTime: ptr(now.Add(time.Hour)),
 	}, {
-		Revision:   667,
-		CreateTime: now,
-		UpdateTime: now.Add(2 * time.Second),
-		ExpireTime: ptr(now.Add(2 * time.Hour)),
+		Revision:    667,
+		BackendName: ptr("some backend"),
+		CreateTime:  now,
+		UpdateTime:  now.Add(2 * time.Second),
+		ExpireTime:  ptr(now.Add(2 * time.Hour)),
 	}}
 	s.secretsState.EXPECT().ListSecrets(state.SecretsFilter{}).Return(
 		metadata, nil,
@@ -121,11 +142,14 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withStore bool) {
 		valueResult = &params.SecretValueResult{
 			Data: map[string]string{"foo": "bar"},
 		}
-		if withStore {
+		if withBackend {
 			s.secretsState.EXPECT().GetSecretValue(uri, 2).Return(
-				nil, ptr("provider-id"), nil,
+				nil, &coresecrets.ValueRef{
+					BackendID:  "backend-id",
+					RevisionID: "rev-id",
+				}, nil,
 			)
-			s.secretsBackend.EXPECT().GetContent(gomock.Any(), "provider-id").Return(
+			s.secretsBackend.EXPECT().GetContent(gomock.Any(), "rev-id").Return(
 				coresecrets.NewSecretValue(valueResult.Data), nil,
 			)
 		} else {
@@ -152,15 +176,17 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withStore bool) {
 			UpdateTime:       now.Add(time.Second),
 			Value:            valueResult,
 			Revisions: []params.SecretRevision{{
-				Revision:   666,
-				CreateTime: now,
-				UpdateTime: now.Add(time.Second),
-				ExpireTime: ptr(now.Add(time.Hour)),
+				Revision:    666,
+				BackendName: ptr("internal"),
+				CreateTime:  now,
+				UpdateTime:  now.Add(time.Second),
+				ExpireTime:  ptr(now.Add(time.Hour)),
 			}, {
-				Revision:   667,
-				CreateTime: now,
-				UpdateTime: now.Add(2 * time.Second),
-				ExpireTime: ptr(now.Add(2 * time.Hour)),
+				Revision:    667,
+				BackendName: ptr("some backend"),
+				CreateTime:  now,
+				UpdateTime:  now.Add(2 * time.Second),
+				ExpireTime:  ptr(now.Add(2 * time.Hour)),
 			}},
 		}},
 	})
@@ -173,7 +199,7 @@ func (s *SecretsSuite) TestListSecretsPermissionDenied(c *gc.C) {
 	s.authorizer.EXPECT().HasPermission(permission.ReadAccess, coretesting.ModelTag).Return(
 		false, nil)
 
-	facade, err := apisecrets.NewTestAPI(s.secretsState, nil, s.authorizer)
+	facade, err := apisecrets.NewTestAPI(s.secretsState, nil, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = facade.ListSecrets(params.ListSecretsArgs{})
@@ -189,7 +215,7 @@ func (s *SecretsSuite) TestListSecretsPermissionDeniedShow(c *gc.C) {
 	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(
 		false, nil)
 
-	facade, err := apisecrets.NewTestAPI(s.secretsState, nil, s.authorizer)
+	facade, err := apisecrets.NewTestAPI(s.secretsState, nil, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = facade.ListSecrets(params.ListSecretsArgs{ShowSecrets: true})

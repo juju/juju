@@ -11,6 +11,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	secrets "github.com/juju/juju/core/secrets"
 	names "github.com/juju/names/v4"
+	version "github.com/juju/version/v2"
 )
 
 // MockBroker is a mock of Broker interface.
@@ -107,4 +108,19 @@ func (m *MockBroker) SaveJujuSecret(arg0 context.Context, arg1 string, arg2 secr
 func (mr *MockBrokerMockRecorder) SaveJujuSecret(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveJujuSecret", reflect.TypeOf((*MockBroker)(nil).SaveJujuSecret), arg0, arg1, arg2)
+}
+
+// Version mocks base method.
+func (m *MockBroker) Version() (*version.Number, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Version")
+	ret0, _ := ret[0].(*version.Number)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Version indicates an expected call of Version.
+func (mr *MockBrokerMockRecorder) Version() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Version", reflect.TypeOf((*MockBroker)(nil).Version))
 }

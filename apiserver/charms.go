@@ -18,7 +18,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	ziputil "github.com/juju/utils/v3/zip"
 
@@ -224,10 +224,10 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 		schema = "local"
 	}
 	if schema != "local" {
-		// charmstore and charmhub charms may only be uploaded into models
-		// which are being imported during model migrations. There's currently
-		// no other time where it makes sense to accept charm store
-		// charms through this endpoint.
+		// charmhub charms may only be uploaded into models
+		// which are being imported during model migrations.
+		// There's currently no other time where it makes sense
+		// to accept repository charms through this endpoint.
 		if isImporting, err := modelIsImporting(st); err != nil {
 			return nil, errors.Trace(err)
 		} else if !isImporting {
@@ -282,10 +282,6 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-
-	case charm.CharmStore:
-		curl.User = query.Get("user")
-		fallthrough
 
 	case charm.CharmHub:
 		// If a revision argument is provided, it takes precedence

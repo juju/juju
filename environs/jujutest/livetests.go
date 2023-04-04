@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -217,12 +217,12 @@ func (t *LiveTests) bootstrapParams() bootstrap.BootstrapParams {
 			Regions:   regions,
 			Endpoint:  t.CloudEndpoint,
 		},
-		CloudRegion:              t.CloudRegion,
-		CloudCredential:          &credential,
-		CloudCredentialName:      "credential",
-		AdminSecret:              AdminSecret,
-		CAPrivateKey:             coretesting.CAKey,
-		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+		CloudRegion:             t.CloudRegion,
+		CloudCredential:         &credential,
+		CloudCredentialName:     "credential",
+		AdminSecret:             AdminSecret,
+		CAPrivateKey:            coretesting.CAKey,
+		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 	}
 }
 

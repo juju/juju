@@ -16,6 +16,8 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
+	"github.com/juju/juju/secrets/provider/juju"
+	"github.com/juju/juju/secrets/provider/kubernetes"
 	"github.com/juju/juju/state"
 )
 
@@ -24,9 +26,14 @@ type SecretsAPI struct {
 	authorizer     facade.Authorizer
 	controllerUUID string
 	modelUUID      string
+	modelName      string
 
-	state       SecretsState
-	storeGetter func() (provider.SecretsBackend, error)
+	state           SecretsState
+	activeBackendID string
+	backends        map[string]provider.SecretsBackend
+
+	backendConfigGetter func() (*provider.ModelBackendConfigInfo, error)
+	backendGetter       func(*provider.ModelBackendConfig) (provider.SecretsBackend, error)
 }
 
 func (s *SecretsAPI) checkCanRead() error {
@@ -117,11 +124,24 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 			UpdateTime:       m.UpdateTime,
 		}
 		for _, r := range revisionMetadata[m.URI.ID] {
+			backendName := r.BackendName
+			if backendName == nil {
+				if r.ValueRef != nil {
+					if r.ValueRef.BackendID == s.modelUUID {
+						name := kubernetes.BuiltInName(s.modelName)
+						backendName = &name
+					}
+				} else {
+					name := juju.BackendName
+					backendName = &name
+				}
+			}
 			secretResult.Revisions = append(secretResult.Revisions, params.SecretRevision{
-				Revision:   r.Revision,
-				CreateTime: r.CreateTime,
-				UpdateTime: r.UpdateTime,
-				ExpireTime: r.ExpireTime,
+				Revision:    r.Revision,
+				CreateTime:  r.CreateTime,
+				UpdateTime:  r.UpdateTime,
+				ExpireTime:  r.ExpireTime,
+				BackendName: backendName,
 			})
 		}
 		if arg.ShowSecrets {
@@ -129,10 +149,7 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 			if arg.Filter.Revision != nil {
 				rev = *arg.Filter.Revision
 			}
-			val, backendId, err := s.state.GetSecretValue(m.URI, rev)
-			if backendId != nil {
-				val, err = s.secretContentFromStore(*backendId)
-			}
+			val, err := s.secretContentFromBackend(m.URI, rev)
 			valueResult := &params.SecretValueResult{
 				Error: apiservererrors.ServerError(err),
 			}
@@ -146,10 +163,63 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 	return result, nil
 }
 
-func (s *SecretsAPI) secretContentFromStore(backendId string) (coresecrets.SecretValue, error) {
-	store, err := s.storeGetter()
+func (s *SecretsAPI) getBackendInfo() error {
+	info, err := s.backendConfigGetter()
 	if err != nil {
-		return nil, err
+		return errors.Trace(err)
 	}
-	return store.GetContent(context.Background(), backendId)
+	for id, cfg := range info.Configs {
+		s.backends[id], err = s.backendGetter(&provider.ModelBackendConfig{
+			ControllerUUID: info.ControllerUUID,
+			ModelUUID:      info.ModelUUID,
+			ModelName:      info.ModelName,
+			BackendConfig:  cfg,
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	s.activeBackendID = info.ActiveID
+	return nil
+}
+
+func (s *SecretsAPI) secretContentFromBackend(uri *coresecrets.URI, rev int) (coresecrets.SecretValue, error) {
+	if s.activeBackendID == "" {
+		err := s.getBackendInfo()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	lastBackendID := ""
+	for {
+		val, ref, err := s.state.GetSecretValue(uri, rev)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if ref == nil {
+			return val, nil
+		}
+
+		backendID := ref.BackendID
+		backend, ok := s.backends[backendID]
+		if !ok {
+			return nil, errors.NotFoundf("external secret backend %q, have %q", backendID, s.backends)
+		}
+		val, err = backend.GetContent(context.TODO(), ref.RevisionID)
+		if err == nil || !errors.Is(err, errors.NotFound) || lastBackendID == backendID {
+			return val, errors.Trace(err)
+		}
+		lastBackendID = backendID
+		// Secret may have been drained to the active backend.
+		if backendID != s.activeBackendID {
+			continue
+		}
+		// The active backend may have changed.
+		if initErr := s.getBackendInfo(); initErr != nil {
+			return nil, errors.Trace(initErr)
+		}
+		if s.activeBackendID == backendID {
+			return nil, errors.Trace(err)
+		}
+	}
 }

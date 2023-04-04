@@ -10,8 +10,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/juju/charm/v9"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
+	"github.com/juju/charm/v10"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -283,6 +282,10 @@ func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults,
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+		if err := common.ValidateCharmOrigin(arg.CharmOrigin); err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 		err := deployApplication(
 			api.backend,
 			api.model,
@@ -542,7 +545,7 @@ func deployApplication(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	origin, err := convertCharmOrigin(args.CharmOrigin, curl, args.Channel)
+	origin, err := convertCharmOrigin(args.CharmOrigin, curl)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -550,7 +553,6 @@ func deployApplication(
 		ApplicationName:   args.ApplicationName,
 		Charm:             stateCharm(ch),
 		CharmOrigin:       origin,
-		Channel:           csparams.Channel(args.Channel),
 		NumUnits:          args.NumUnits,
 		ApplicationConfig: appConfig,
 		CharmConfig:       charmSettings,
@@ -566,7 +568,7 @@ func deployApplication(
 	return errors.Trace(err)
 }
 
-func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreChannel string) (corecharm.Origin, error) {
+func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL) (corecharm.Origin, error) {
 	var (
 		originType string
 		platform   corecharm.Platform
@@ -585,24 +587,6 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 	}
 
 	switch {
-	case origin == nil || origin.Source == "" || origin.Source == "charm-store":
-		var rev *int
-		if curl.Revision != -1 {
-			rev = &curl.Revision
-		}
-		var ch *charm.Channel
-		if charmStoreChannel != "" {
-			ch = &charm.Channel{
-				Risk: charm.Risk(charmStoreChannel),
-			}
-		}
-		return corecharm.Origin{
-			Type:     originType,
-			Source:   corecharm.CharmStore,
-			Revision: rev,
-			Channel:  ch,
-			Platform: platform,
-		}, nil
 	case origin.Source == "local":
 		return corecharm.Origin{
 			Type:     originType,
@@ -610,6 +594,8 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 			Revision: &curl.Revision,
 			Platform: platform,
 		}, nil
+	case origin.Source != "charm-hub":
+		return corecharm.Origin{}, errors.NotValidf("origin source not local nor charm-hub")
 	}
 
 	var track string
@@ -814,7 +800,6 @@ type setCharmParams struct {
 	AppName               string
 	Application           Application
 	CharmOrigin           *params.CharmOrigin
-	Channel               csparams.Channel
 	ConfigSettingsStrings map[string]string
 	ConfigSettingsYAML    string
 	ResourceIDs           map[string]string
@@ -917,6 +902,11 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 	if err := api.checkCanWrite(); err != nil {
 		return err
 	}
+
+	if err := common.ValidateCharmOrigin(args.CharmOrigin); err != nil {
+		return err
+	}
+
 	// when forced units in error, don't block
 	if !args.ForceUnits {
 		if err := api.check.ChangeAllowed(); err != nil {
@@ -927,13 +917,11 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	channel := csparams.Channel(args.Channel)
 	return api.setCharmWithAgentValidation(
 		setCharmParams{
 			AppName:               args.ApplicationName,
 			Application:           oneApplication,
 			CharmOrigin:           args.CharmOrigin,
-			Channel:               channel,
 			ConfigSettingsStrings: args.ConfigSettings,
 			ConfigSettingsYAML:    args.ConfigSettingsYAML,
 			ResourceIDs:           args.ResourceIDs,
@@ -991,7 +979,7 @@ func (api *APIBase) setCharmWithAgentValidation(
 	if err != nil {
 		logger.Debugf("Unable to locate current charm: %v", err)
 	}
-	newOrigin, err := convertCharmOrigin(params.CharmOrigin, curl, string(params.Channel))
+	newOrigin, err := convertCharmOrigin(params.CharmOrigin, curl)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1048,21 +1036,25 @@ func (api *APIBase) setCharmWithAgentValidation(
 	return api.applicationSetCharm(params, newCharm, origin)
 }
 
-// applicationSetCharm sets the charm for the given for the application.
+// applicationSetCharm sets the charm and updated config
+// for the given application.
 func (api *APIBase) applicationSetCharm(
 	params setCharmParams,
 	newCharm Charm,
 	newOrigin *state.CharmOrigin,
 ) error {
-	var err error
-	var settings charm.Settings
-	if params.ConfigSettingsYAML != "" {
-		settings, err = newCharm.Config().ParseSettingsYAML([]byte(params.ConfigSettingsYAML), params.AppName)
-	} else if len(params.ConfigSettingsStrings) > 0 {
-		settings, err = parseSettingsCompatible(newCharm.Config(), params.ConfigSettingsStrings)
+	model, err := api.backend.Model()
+	if err != nil {
+		return errors.Annotate(err, "retrieving model")
 	}
+	modelType := model.Type()
+
+	appConfig, appSchema, charmSettings, appDefaults, err := parseCharmSettings(modelType, newCharm, params.AppName, params.ConfigSettingsStrings, params.ConfigSettingsYAML, environsconfig.NoDefaults)
 	if err != nil {
 		return errors.Annotate(err, "parsing config settings")
+	}
+	if err := appConfig.Validate(); err != nil {
+		return errors.Annotate(err, "validating config settings")
 	}
 	var stateStorageConstraints map[string]state.StorageConstraints
 	if len(params.StorageConstraints) > 0 {
@@ -1080,11 +1072,6 @@ func (api *APIBase) applicationSetCharm(
 	}
 
 	// Enforce "assumes" requirements if the feature flag is enabled.
-	model, err := api.backend.Model()
-	if err != nil {
-		return errors.Annotate(err, "retrieving model")
-	}
-
 	if err := assertCharmAssumptions(newCharm.Meta().Assumes, model, api.backend.ControllerConfig); err != nil {
 		if !errors.IsNotSupported(err) || !params.Force.Force {
 			return errors.Trace(err)
@@ -1097,14 +1084,15 @@ func (api *APIBase) applicationSetCharm(
 	cfg := state.SetCharmConfig{
 		Charm:              api.stateCharm(newCharm),
 		CharmOrigin:        newOrigin,
-		Channel:            params.Channel,
-		ConfigSettings:     settings,
 		ForceBase:          force.ForceBase,
 		ForceUnits:         force.ForceUnits,
 		Force:              force.Force,
 		PendingResourceIDs: params.ResourceIDs,
 		StorageConstraints: stateStorageConstraints,
 		EndpointBindings:   params.EndpointBindings,
+	}
+	if len(charmSettings) > 0 {
+		cfg.ConfigSettings = charmSettings
 	}
 
 	// Disallow downgrading from a v2 charm to a v1 charm.
@@ -1116,7 +1104,14 @@ func (api *APIBase) applicationSetCharm(
 		return errors.New("cannot downgrade from v2 charm format to v1")
 	}
 
-	return params.Application.SetCharm(cfg)
+	// TODO(wallyworld) - do in a single transaction
+	if err := params.Application.SetCharm(cfg); err != nil {
+		return errors.Annotate(err, "updating charm config")
+	}
+	if attr := appConfig.Attributes(); len(attr) > 0 {
+		return params.Application.UpdateApplicationConfig(attr, nil, appSchema, appDefaults)
+	}
+	return nil
 }
 
 // charmConfigFromYamlConfigValues will parse a yaml produced by juju get and
@@ -1460,7 +1455,7 @@ func (api *APIv16) DestroyUnits(args params.DestroyApplicationUnits) error {
 	return apiservererrors.DestroyErr("units", args.UnitNames, errs)
 }
 
-func (*APIBase) DestroyUnits(_ struct{}) {}
+func (*APIBase) DestroyUnits(_, _ struct{}) {}
 
 func (api *APIv15) DestroyUnit(argsV15 params.DestroyUnitsParamsV15) (params.DestroyUnitResults, error) {
 	args := params.DestroyUnitsParams{
@@ -1600,7 +1595,7 @@ func (api *APIv16) Destroy(in params.ApplicationDestroy) error {
 	return nil
 }
 
-func (*APIBase) Destroy(_ struct{}) {}
+func (*APIBase) Destroy(_, _ struct{}) {}
 
 // DestroyApplication removes a given set of applications.
 func (api *APIv15) DestroyApplication(argsV15 params.DestroyApplicationsParamsV15) (params.DestroyApplicationResults, error) {

@@ -1,18 +1,19 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resources
+package resources_test
 
 import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v9"
-	charmresource "github.com/juju/charm/v9/resource"
+	"github.com/juju/charm/v10"
+	charmresource "github.com/juju/charm/v10/resource"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/hash"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/facades/client/resources"
 	"github.com/juju/juju/apiserver/facades/client/resources/mocks"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
@@ -162,7 +163,7 @@ func (s *CharmHubClientSuite) TestResourceInfo(c *gc.C) {
 		},
 	}
 
-	result, err := s.newClient().ResourceInfo(curl, origin, "wal-e", 25)
+	result, err := resources.ResourceInfo(s.newClient(), curl, origin, "wal-e", 25)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, charmresource.Resource{
 		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
@@ -201,10 +202,10 @@ func (s *CharmHubClientSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func charmID() CharmID {
+func charmID() resources.CharmID {
 	curl := charm.MustParseURL("ubuntu")
 	channel, _ := charm.ParseChannel("stable")
-	return CharmID{
+	return resources.CharmID{
 		URL: curl,
 		Origin: corecharm.Origin{
 			ID:      "meshuggah",
@@ -218,15 +219,8 @@ func charmID() CharmID {
 		}}
 }
 
-func (s *CharmHubClientSuite) newClient() *charmHubClient {
-	c := &charmHubClient{
-		client: s.client,
-	}
-	c.resourceClient = resourceClient{
-		client: c,
-		logger: s.logger,
-	}
-	return c
+func (s *CharmHubClientSuite) newClient() *resources.CharmHubClient {
+	return resources.NewResourceClient(s.client, s.logger)
 }
 
 func (s *CharmHubClientSuite) expectRefresh(id bool) {

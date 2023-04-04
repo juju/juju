@@ -6,8 +6,6 @@ package provisioner
 import (
 	"sort"
 
-	"github.com/juju/juju/rpc/params"
-
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
@@ -15,6 +13,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/rpc/params"
 )
 
 func SetObserver(p Provisioner, observer chan<- *config.Config) {

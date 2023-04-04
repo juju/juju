@@ -7,6 +7,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
+	"github.com/juju/names/v4"
+
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/mongo"
 )
 
 // Until we add 3.0 upgrade steps, keep static analysis happy.
@@ -95,58 +99,114 @@ func applyToAllModelSettings(st *State, change func(*settingsDoc) (bool, error))
 	return nil
 }
 
-// CorrectCharmOriginsMultiAppSingleCharm corrects application charm origins
-// where the charm has been downloaded, however the origin was not updated
-// with ID and Hash data. Per LP 1999060, usually seen with multi application
-// using same charm bundles.
-func CorrectCharmOriginsMultiAppSingleCharm(pool *StatePool) error {
+// RemoveOrphanedSecretPermissions removes secret permission records
+// where the subject has been removed but the permission is left behind.
+func RemoveOrphanedSecretPermissions(pool *StatePool) error {
 	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
-		col, closer := st.db().GetCollection(applicationsC)
+		permissionsColl, closer := st.db().GetCollection(secretPermissionsC)
 		defer closer()
 
-		var docsWithID, docsWithoutID []applicationDoc
-		if err := col.Find(bson.D{
-			{"charm-origin.id", bson.M{"$eq": ""}},
-			{"charm-origin.source", bson.M{"$eq": "charm-hub"}},
-		}).All(&docsWithoutID); err != nil {
+		unitsColl, closer := st.db().GetCollection(unitsC)
+		defer closer()
+
+		appsColl, closer := st.db().GetCollection(applicationsC)
+		defer closer()
+
+		var permissions []secretPermissionDoc
+		if err := permissionsColl.Find(nil).All(&permissions); err != nil {
 			return errors.Trace(err)
 		}
-		if len(docsWithoutID) == 0 {
+		if len(permissions) == 0 {
 			return nil // nothing to do
 		}
-		if err := col.Find(bson.D{
-			{"charm-origin.id", bson.M{"$ne": ""}},
-			{"charm-origin.source", bson.M{"$eq": "charm-hub"}},
-		}).All(&docsWithID); err != nil {
+		var ops []txn.Op
+		for _, doc := range permissions {
+			subject, err := names.ParseTag(doc.Subject)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			exists := false
+			var coll mongo.Collection
+			if subject.Kind() == names.UnitTagKind {
+				coll = unitsColl
+			} else if subject.Kind() == names.ApplicationTagKind {
+				coll = appsColl
+			}
+			cnt, err := coll.FindId(ensureModelUUID(st.ModelUUID(), subject.Id())).Count()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			exists = cnt > 0
+			if !exists {
+				ops = append(ops, txn.Op{
+					C:      secretPermissionsC,
+					Id:     doc.DocID,
+					Remove: true,
+				})
+			}
+		}
+		if len(ops) > 0 {
+			return errors.Trace(st.runRawTransaction(ops))
+		}
+		return nil
+	}))
+}
+
+// MigrateApplicationOpenedPortsToUnitScope moves the opened ports for an application for all its units.
+func MigrateApplicationOpenedPortsToUnitScope(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		apps, err := st.AllApplications()
+		if err != nil {
 			return errors.Trace(err)
 		}
-
-		charmOrigins := make(map[string]CharmOrigin, len(docsWithID))
-		for _, doc := range docsWithID {
-			if doc.CharmURL == nil {
-				return errors.Errorf("application %q missing charm url", doc.Name)
-			}
-			charmOrigins[*doc.CharmURL] = doc.CharmOrigin
+		var appNames []string
+		for _, app := range apps {
+			appNames = append(appNames, app.Name())
+		}
+		openedPorts, closer := st.db().GetCollection(openedPortsC)
+		defer closer()
+		docs := []applicationPortRangesDoc{}
+		if err = openedPorts.Find(bson.D{{"application-name", bson.D{{"$in", appNames}}}}).All(&docs); err != nil {
+			return errors.Trace(err)
 		}
 
 		var ops []txn.Op
-		for _, doc := range docsWithoutID {
-			if doc.CharmURL == nil {
-				return errors.Errorf("application %q missing charm url", doc.Name)
+		for _, doc := range docs {
+			if len(doc.PortRanges) == 0 {
+				continue
 			}
-			if origin, ok := charmOrigins[*doc.CharmURL]; ok {
-				ops = append(ops, txn.Op{
-					C:      applicationsC,
-					Id:     doc.DocID,
-					Assert: txn.DocExists,
-					Update: bson.D{{"$set", bson.D{{"charm-origin.id", origin.ID},
-						{"charm-origin.hash", origin.Hash}}}},
-				})
-			} else {
-				return errors.Errorf("application %q missing charm origin for %q", doc.Name, *doc.CharmURL)
-			}
-		}
 
+			app, err := st.Application(doc.ApplicationName)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			units, err := app.AllUnits()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if len(units) == 0 {
+				continue
+			}
+
+			if doc.UnitRanges == nil {
+				doc.UnitRanges = make(map[string]network.GroupedPortRanges)
+			}
+			for _, unit := range units {
+				doc.UnitRanges[unit.Name()] = doc.PortRanges.Clone()
+			}
+			doc.PortRanges = nil
+
+			ops = append(ops, txn.Op{
+				C:  openedPortsC,
+				Id: doc.DocID,
+				Update: bson.D{
+					{Name: "$set", Value: bson.D{
+						{Name: "port-ranges", Value: doc.PortRanges},
+						{Name: "unit-port-ranges", Value: doc.UnitRanges},
+					}},
+				},
+			})
+		}
 		if len(ops) > 0 {
 			return errors.Trace(st.runRawTransaction(ops))
 		}

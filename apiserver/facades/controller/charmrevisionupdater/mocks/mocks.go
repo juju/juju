@@ -9,13 +9,11 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v9"
-	params "github.com/juju/charmrepo/v7/csclient/params"
+	charm "github.com/juju/charm/v10"
 	charmrevisionupdater "github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	charmhub "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
 	cloud "github.com/juju/juju/cloud"
-	controller "github.com/juju/juju/controller"
 	metrics "github.com/juju/juju/core/charm/metrics"
 	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
@@ -57,20 +55,6 @@ func (m *MockApplication) ApplicationTag() names.ApplicationTag {
 func (mr *MockApplicationMockRecorder) ApplicationTag() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationTag", reflect.TypeOf((*MockApplication)(nil).ApplicationTag))
-}
-
-// Channel mocks base method.
-func (m *MockApplication) Channel() params.Channel {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Channel")
-	ret0, _ := ret[0].(params.Channel)
-	return ret0
-}
-
-// Channel indicates an expected call of Channel.
-func (mr *MockApplicationMockRecorder) Channel() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Channel", reflect.TypeOf((*MockApplication)(nil).Channel))
 }
 
 // CharmOrigin mocks base method.
@@ -385,21 +369,6 @@ func (m *MockState) Cloud(arg0 string) (cloud.Cloud, error) {
 func (mr *MockStateMockRecorder) Cloud(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cloud", reflect.TypeOf((*MockState)(nil).Cloud), arg0)
-}
-
-// ControllerConfig mocks base method.
-func (m *MockState) ControllerConfig() (controller.Config, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerConfig")
-	ret0, _ := ret[0].(controller.Config)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ControllerConfig indicates an expected call of ControllerConfig.
-func (mr *MockStateMockRecorder) ControllerConfig() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockState)(nil).ControllerConfig))
 }
 
 // ControllerUUID mocks base method.

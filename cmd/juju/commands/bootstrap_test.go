@@ -321,6 +321,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	expected := map[string]interface{}{
 		"name":            bootstrap.ControllerModelName,
 		"type":            "dummy",
+		"default-base":    "ubuntu@22.04/stable",
 		"default-series":  "jammy",
 		"authorized-keys": "public auth key\n",
 		// Dummy provider defaults
@@ -1219,7 +1220,8 @@ func createImageMetadata(c *gc.C) (string, []*imagemetadata.ImageMetadata) {
 	sourceStor, err := filestorage.NewFileStorageWriter(sourceDir)
 	c.Assert(err, jc.ErrorIsNil)
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	err = imagemetadata.MergeAndWriteMetadata(ss, "22.04", im, cloudSpec, sourceStor)
+	base := jujuseries.MustParseBaseFromString("ubuntu@22.04")
+	err = imagemetadata.MergeAndWriteMetadata(ss, base, im, cloudSpec, sourceStor)
 	c.Assert(err, jc.ErrorIsNil)
 	return sourceDir, im
 }
@@ -1238,6 +1240,24 @@ func (s *BootstrapSuite) TestBootstrapCalledWithMetadataDir(c *gc.C) {
 		"--metadata-source", sourceDir, "--constraints", "mem=4G",
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "default-series=jammy",
+	)
+	c.Assert(bootstrapFuncs.args.MetadataDir, gc.Equals, sourceDir)
+}
+
+func (s *BootstrapSuite) TestBootstrapCalledWitBase(c *gc.C) {
+	sourceDir, _ := createImageMetadata(c)
+	resetJujuXDGDataHome(c)
+
+	var bootstrapFuncs fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrapFuncs
+	})
+
+	cmdtesting.RunCommand(
+		c, s.newBootstrapCommand(),
+		"--metadata-source", sourceDir, "--constraints", "mem=4G",
+		"dummy-cloud/region-1", "devcontroller",
+		"--config", "default-base=ubuntu@22.04",
 	)
 	c.Assert(bootstrapFuncs.args.MetadataDir, gc.Equals, sourceDir)
 }
@@ -1270,6 +1290,36 @@ func (s *BootstrapSuite) TestBootstrapWithVersionNumber(c *gc.C) {
 
 func (s *BootstrapSuite) TestBootstrapWithBinaryVersionNumber(c *gc.C) {
 	s.checkBootstrapWithVersion(c, "2.3.4-jammy-ppc64", "2.3.4")
+}
+
+func (s *BootstrapSuite) checkBootstrapBaseWithVersion(c *gc.C, vers, expect string) {
+	resetJujuXDGDataHome(c)
+
+	var bootstrapFuncs fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrapFuncs
+	})
+
+	num := jujuversion.Current
+	num.Major = 2
+	num.Minor = 3
+	s.PatchValue(&jujuversion.Current, num)
+	cmdtesting.RunCommand(
+		c, s.newBootstrapCommand(),
+		"--agent-version", vers,
+		"dummy-cloud/region-1", "devcontroller",
+		"--config", "default-base=ubuntu@22.04",
+	)
+	c.Assert(bootstrapFuncs.args.AgentVersion, gc.NotNil)
+	c.Assert(*bootstrapFuncs.args.AgentVersion, gc.Equals, version.MustParse(expect))
+}
+
+func (s *BootstrapSuite) TestBootstrapBaseWithVersionNumber(c *gc.C) {
+	s.checkBootstrapBaseWithVersion(c, "2.3.4", "2.3.4")
+}
+
+func (s *BootstrapSuite) TestBootstrapBaseWithBinaryVersionNumber(c *gc.C) {
+	s.checkBootstrapBaseWithVersion(c, "2.3.4-jammy-ppc64", "2.3.4")
 }
 
 func (s *BootstrapSuite) TestBootstrapWithAutoUpgrade(c *gc.C) {
@@ -1567,15 +1617,10 @@ func (s *BootstrapSuite) TestBootstrapProviderManyDetectedCredentials(c *gc.C) {
 
 func (s *BootstrapSuite) TestBootstrapWithBootstrapSeries(c *gc.C) {
 	s.patchVersionAndSeries(c, "jammy")
-	ctx, err := cmdtesting.RunCommand(
+	_, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(), "no-cloud-regions", "ctrl", "--bootstrap-series", "spock",
 	)
-	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "Creating Juju controller \"ctrl\" on no-cloud-regions(.|\n)*")
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{loggo.ERROR, "failed to bootstrap model: series \"spock\" not valid"},
-		{loggo.DEBUG, "(error details.*)"},
-	})
+	c.Assert(err, gc.ErrorMatches, `cannot determine base for series "spock"`)
 }
 
 func (s *BootstrapSuite) TestBootstrapWithDeprecatedSeries(c *gc.C) {
@@ -1584,7 +1629,7 @@ func (s *BootstrapSuite) TestBootstrapWithDeprecatedSeries(c *gc.C) {
 		c, s.newBootstrapCommand(), "dummy-cloud-without-regions", "ctrl",
 		"--config", "default-series=bionic",
 	)
-	c.Assert(err, gc.ErrorMatches, `series "bionic" not supported`)
+	c.Assert(err, gc.ErrorMatches, `base "ubuntu@18.04" not supported`)
 }
 
 func (s *BootstrapSuite) TestBootstrapWithNoBootstrapSeriesUsesFallbackButStillFails(c *gc.C) {
@@ -1592,7 +1637,7 @@ func (s *BootstrapSuite) TestBootstrapWithNoBootstrapSeriesUsesFallbackButStillF
 	_, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(), "no-cloud-regions", "ctrl", "--config", "default-series=spock",
 	)
-	c.Assert(err, gc.ErrorMatches, `series "spock" not supported`)
+	c.Assert(err, gc.ErrorMatches, `series "spock" not valid`)
 }
 
 func (s *BootstrapSuite) TestBootstrapWithBootstrapSeriesDoesNotUseFallbackButStillFails(c *gc.C) {
@@ -1602,7 +1647,25 @@ func (s *BootstrapSuite) TestBootstrapWithBootstrapSeriesDoesNotUseFallbackButSt
 		"--bootstrap-series", "spock",
 		"--config", "default-series=kirk",
 	)
-	c.Assert(err, gc.ErrorMatches, `series "kirk" not supported`)
+	c.Assert(err, gc.ErrorMatches, `cannot determine base for series "spock"`)
+}
+
+func (s *BootstrapSuite) TestBootstrapBaseWithNoBootstrapSeriesUsesFallbackButStillFails(c *gc.C) {
+	s.patchVersionAndSeries(c, "jammy")
+	_, err := cmdtesting.RunCommand(
+		c, s.newBootstrapCommand(), "no-cloud-regions", "ctrl", "--config", "default-base=spock",
+	)
+	c.Assert(err, gc.ErrorMatches, `invalid default base "spock": expected base string to contain os and channel separated by '@'`)
+}
+
+func (s *BootstrapSuite) TestBootstrapBaseWithBootstrapSeriesDoesNotUseFallbackButStillFails(c *gc.C) {
+	s.patchVersionAndSeries(c, "jammy")
+	_, err := cmdtesting.RunCommand(
+		c, s.newBootstrapCommand(), "no-cloud-regions", "ctrl",
+		"--bootstrap-base", "spock",
+		"--config", "default-base=kirk",
+	)
+	c.Assert(err, gc.ErrorMatches, `base "spock" not valid`)
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderFileCredential(c *gc.C) {

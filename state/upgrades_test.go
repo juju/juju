@@ -6,7 +6,6 @@ package state
 import (
 	"sort"
 
-	"github.com/juju/charm/v9"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	jc "github.com/juju/testing/checkers"
@@ -91,7 +90,7 @@ func (x bsonMById) Less(i, j int) bool {
 	return x[i]["_id"].(string) < x[j]["_id"].(string)
 }
 
-func (s *upgradesSuite) TestCorrectCharmOriginsMultiAppSingleCharm(c *gc.C) {
+func (s *upgradesSuite) TestRemoveOrphanedSecretPermissions(c *gc.C) {
 	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
 	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
 	defer func() {
@@ -102,189 +101,216 @@ func (s *upgradesSuite) TestCorrectCharmOriginsMultiAppSingleCharm(c *gc.C) {
 	uuid1 := model1.ModelUUID()
 	uuid2 := model2.ModelUUID()
 
-	appColl, appCloser := s.state.db().GetRawCollection(applicationsC)
-	defer appCloser()
+	permissionsColl, closer := s.state.db().GetRawCollection(secretPermissionsC)
+	defer closer()
+
+	appsColl, closer := s.state.db().GetRawCollection(applicationsC)
+	defer closer()
+
+	unitsColl, closer := s.state.db().GetRawCollection(unitsC)
+	defer closer()
 
 	var err error
-	err = appColl.Insert(bson.M{
+	err = appsColl.Insert(bson.M{
 		"_id":        ensureModelUUID(uuid1, "app1"),
 		"name":       "app1",
 		"model-uuid": uuid1,
-		"charmurl":   charm.MustParseURL("cs:test").String(),
-		"charm-origin": bson.M{
-			"source": "charm-store",
-		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = appColl.Insert(bson.M{
-		"_id":        ensureModelUUID(uuid1, "app2"),
+	err = appsColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid2, "app2"),
 		"name":       "app2",
+		"model-uuid": uuid2,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = unitsColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, "unit/1"),
+		"name":       "unit/1",
 		"model-uuid": uuid1,
-		"charmurl":   charm.MustParseURL("ch:amd64/focal/test").String(),
-		"charm-origin": bson.M{
-			"source":   "charm-hub",
-			"type":     "charm",
-			"id":       "yyyy5",
-			"hash":     "xxxx5",
-			"revision": 12,
-			"channel": bson.M{
-				"track": "latest",
-				"risk":  "edge",
-			},
-			"platform": bson.M{
-				"architecture": "amd64",
-				"os":           "ubuntu",
-				"channel":      "20.04",
-			},
-		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = appColl.Insert(bson.M{
-		"_id":        ensureModelUUID(uuid2, "app3"),
-		"name":       "app3",
+	err = unitsColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid2, "unit/2"),
+		"name":       "unit/2",
 		"model-uuid": uuid2,
-		"charmurl":   charm.MustParseURL("local:test2").String(),
-		"charm-origin": bson.M{
-			"source": "local",
-		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = appColl.Insert(bson.M{
-		"_id":        ensureModelUUID(uuid2, "app4"),
-		"name":       "app4",
-		"model-uuid": uuid2,
-		"charmurl":   charm.MustParseURL("ch:amd64/focal/testtwo").String(),
-		"charm-origin": bson.M{
-			"source":   "charm-hub",
-			"type":     "charm",
-			"id":       "yyyy",
-			"hash":     "xxxx",
-			"revision": 12,
-			"channel": bson.M{
-				"track": "latest",
-				"risk":  "edge",
-			},
-			"platform": bson.M{
-				"architecture": "amd64",
-				"os":           "ubuntu",
-				"channel":      "20.04",
-			},
-		},
+
+	secretID := "4fdg37dgag3jdjej49sj"
+	err = permissionsColl.Insert(bson.M{
+		"model-uuid":  uuid1,
+		"_id":         ensureModelUUID(uuid1, secretID+"#application-app1"),
+		"subject-tag": "application-app1",
+		"scope-tag":   "relation-blah",
+		"role":        "view",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = appColl.Insert(bson.M{
-		"_id":        ensureModelUUID(uuid2, "app5"),
-		"name":       "app5",
-		"model-uuid": uuid2,
-		"charmurl":   charm.MustParseURL("ch:amd64/focal/testtwo").String(),
-		"charm-origin": bson.M{
-			"source":   "charm-hub",
-			"type":     "charm",
-			"id":       "",
-			"hash":     "",
-			"revision": 12,
-			"channel": bson.M{
-				"track": "8.0",
-				"risk":  "stable",
-			},
-			"platform": bson.M{
-				"architecture": "amd64",
-				"os":           "ubuntu",
-				"channel":      "20.04",
-			},
-		},
+	err = permissionsColl.Insert(bson.M{
+		"model-uuid":  uuid1,
+		"_id":         ensureModelUUID(uuid1, secretID+"#application-appbad1"),
+		"subject-tag": "application-appbad1",
+		"scope-tag":   "relation-blah",
+		"role":        "view",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = permissionsColl.Insert(bson.M{
+		"model-uuid":  uuid1,
+		"_id":         ensureModelUUID(uuid1, secretID+"#unit-unit-1"),
+		"subject-tag": "unit-unit-1",
+		"scope-tag":   "relation-blah",
+		"role":        "view",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = permissionsColl.Insert(bson.M{
+		"model-uuid":  uuid1,
+		"_id":         ensureModelUUID(uuid1, secretID+"#unit-unitbad-1"),
+		"subject-tag": "unit-unitbad-1",
+		"scope-tag":   "relation-blah",
+		"role":        "view",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = permissionsColl.Insert(bson.M{
+		"model-uuid":  uuid2,
+		"_id":         ensureModelUUID(uuid2, secretID+"#application-app2"),
+		"subject-tag": "application-app2",
+		"scope-tag":   "relation-blah",
+		"role":        "view",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = permissionsColl.Insert(bson.M{
+		"model-uuid":  uuid2,
+		"_id":         ensureModelUUID(uuid2, secretID+"#application-appbad2"),
+		"subject-tag": "application-appbad2",
+		"scope-tag":   "relation-blah",
+		"role":        "view",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = permissionsColl.Insert(bson.M{
+		"model-uuid":  uuid2,
+		"_id":         ensureModelUUID(uuid2, secretID+"#unit-unit-2"),
+		"subject-tag": "unit-unit-2",
+		"scope-tag":   "relation-blah",
+		"role":        "view",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = permissionsColl.Insert(bson.M{
+		"model-uuid":  uuid2,
+		"_id":         ensureModelUUID(uuid2, secretID+"#unit-unitbad-2"),
+		"subject-tag": "unit-unitbad-2",
+		"scope-tag":   "relation-blah",
+		"role":        "view",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := bsonMById{
 		{
-			"_id":        ensureModelUUID(uuid1, "app1"),
-			"model-uuid": uuid1,
-			"name":       "app1",
-			"charmurl":   "cs:test",
-			"charm-origin": bson.M{
-				"source": "charm-store",
-			},
+			"_id":         ensureModelUUID(uuid1, secretID+"#application-app1"),
+			"model-uuid":  uuid1,
+			"subject-tag": "application-app1",
+			"scope-tag":   "relation-blah",
+			"role":        "view",
 		},
 		{
-			"_id":        ensureModelUUID(uuid1, "app2"),
-			"model-uuid": uuid1,
-			"name":       "app2",
-			"charmurl":   "ch:amd64/focal/test",
-			"charm-origin": bson.M{
-				"source":   "charm-hub",
-				"type":     "charm",
-				"id":       "yyyy5",
-				"hash":     "xxxx5",
-				"revision": 12,
-				"channel": bson.M{
-					"track": "latest",
-					"risk":  "edge",
-				},
-				"platform": bson.M{
-					"architecture": "amd64",
-					"os":           "ubuntu",
-					"channel":      "20.04",
-				},
-			},
+			"_id":         ensureModelUUID(uuid1, secretID+"#unit-unit-1"),
+			"model-uuid":  uuid1,
+			"subject-tag": "unit-unit-1",
+			"scope-tag":   "relation-blah",
+			"role":        "view",
 		},
 		{
-			"_id":        ensureModelUUID(uuid2, "app3"),
-			"model-uuid": uuid2,
-			"name":       "app3",
-			"charmurl":   "local:test2",
-			"charm-origin": bson.M{
-				"source": "local",
-			},
+			"_id":         ensureModelUUID(uuid2, secretID+"#application-app2"),
+			"model-uuid":  uuid2,
+			"subject-tag": "application-app2",
+			"scope-tag":   "relation-blah",
+			"role":        "view",
 		},
 		{
-			"_id":        ensureModelUUID(uuid2, "app4"),
-			"model-uuid": uuid2,
-			"name":       "app4",
-			"charmurl":   charm.MustParseURL("ch:amd64/focal/testtwo").String(),
-			"charm-origin": bson.M{
-				"source":   "charm-hub",
-				"type":     "charm",
-				"id":       "yyyy",
-				"hash":     "xxxx",
-				"revision": 12,
-				"channel": bson.M{
-					"track": "latest",
-					"risk":  "edge",
-				},
-				"platform": bson.M{
-					"architecture": "amd64",
-					"os":           "ubuntu",
-					"channel":      "20.04",
-				},
-			},
-		},
-		{
-			"_id":        ensureModelUUID(uuid2, "app5"),
-			"model-uuid": uuid2,
-			"name":       "app5",
-			"charmurl":   charm.MustParseURL("ch:amd64/focal/testtwo").String(),
-			"charm-origin": bson.M{
-				"source":   "charm-hub",
-				"type":     "charm",
-				"id":       "yyyy",
-				"hash":     "xxxx",
-				"revision": 12,
-				"channel": bson.M{
-					"track": "8.0",
-					"risk":  "stable",
-				},
-				"platform": bson.M{
-					"architecture": "amd64",
-					"os":           "ubuntu",
-					"channel":      "20.04",
-				},
-			},
+			"_id":         ensureModelUUID(uuid2, secretID+"#unit-unit-2"),
+			"model-uuid":  uuid2,
+			"subject-tag": "unit-unit-2",
+			"scope-tag":   "relation-blah",
+			"role":        "view",
 		},
 	}
 
 	sort.Sort(expected)
-	s.assertUpgradedData(c, CorrectCharmOriginsMultiAppSingleCharm,
-		upgradedData(appColl, expected),
+	s.assertUpgradedData(c, RemoveOrphanedSecretPermissions,
+		upgradedData(permissionsColl, expected),
+	)
+}
+
+func (s *upgradesSuite) TestMigrateApplicationOpenedPortsToUnitScope(c *gc.C) {
+	model := s.makeModel(c, "model-1", coretesting.Attrs{})
+	defer func() {
+		_ = model.Close()
+	}()
+
+	modelUUID := model.ModelUUID()
+
+	openedPorts, closer := s.state.db().GetRawCollection(openedPortsC)
+	defer closer()
+
+	appsColl, closer := s.state.db().GetRawCollection(applicationsC)
+	defer closer()
+
+	unitsColl, closer := s.state.db().GetRawCollection(unitsC)
+	defer closer()
+
+	var err error
+	err = appsColl.Insert(bson.M{
+		"_id":        ensureModelUUID(modelUUID, "app1"),
+		"name":       "app1",
+		"model-uuid": modelUUID,
+		"life":       Alive,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = unitsColl.Insert(bson.M{
+		"_id":         ensureModelUUID(modelUUID, "unit/0"),
+		"name":        "unit/0",
+		"model-uuid":  modelUUID,
+		"application": "app1",
+		"life":        Alive,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	pg := bson.M{
+		"": []interface{}{
+			bson.M{
+				"fromport": 3000,
+				"toport":   3000,
+				"protocol": "tcp",
+			},
+			bson.M{
+				"fromport": 3001,
+				"toport":   3001,
+				"protocol": "tcp",
+			},
+		},
+	}
+	err = openedPorts.Insert(bson.M{
+		"_id":              ensureModelUUID(modelUUID, "app1"),
+		"model-uuid":       modelUUID,
+		"application-name": "app1",
+		"port-ranges":      pg,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		{
+			"_id":              ensureModelUUID(modelUUID, "app1"),
+			"model-uuid":       modelUUID,
+			"application-name": "app1",
+			"port-ranges":      bson.M{},
+			"unit-port-ranges": bson.M{
+				"unit/0": pg,
+			},
+		},
+	}
+	sort.Sort(expected)
+	s.assertUpgradedData(c, MigrateApplicationOpenedPortsToUnitScope,
+		upgradedData(openedPorts, expected),
 	)
 }

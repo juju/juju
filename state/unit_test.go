@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time" // Only used for time types.
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -1283,8 +1283,8 @@ func (s *UnitSuite) TestSetCharmURLFailures(c *gc.C) {
 	err := s.unit.SetCharmURL(nil)
 	c.Assert(err, gc.ErrorMatches, "cannot set nil charm url")
 
-	err = s.unit.SetCharmURL(charm.MustParseURL("cs:missing/one-1"))
-	c.Assert(err, gc.ErrorMatches, `unknown charm url "cs:missing/one-1"`)
+	err = s.unit.SetCharmURL(charm.MustParseURL("ch:missing/one-1"))
+	c.Assert(err, gc.ErrorMatches, `unknown charm url "ch:missing/one-1"`)
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2039,10 +2039,24 @@ func (s *UnitSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C) {
 	_, err := store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Make a relation for the access scope.
+	endpoint1, err := s.application.Endpoint("juju-info")
+	c.Assert(err, jc.ErrorIsNil)
+	application2 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "logging",
+		}),
+	})
+	endpoint2, err := application2.Endpoint("info")
+	c.Assert(err, jc.ErrorIsNil)
+	rel := s.Factory.MakeRelation(c, &factory.RelationParams{
+		Endpoints: []state.Endpoint{endpoint1, endpoint2},
+	})
+
 	unit := s.Factory.MakeUnit(c, nil)
 	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
 		LeaderToken: &fakeToken{},
-		Scope:       unit.Tag(),
+		Scope:       rel.Tag(),
 		Subject:     unit.Tag(),
 		Role:        secrets.RoleView,
 	})

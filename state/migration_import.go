@@ -10,7 +10,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
+	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -245,14 +247,14 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 }
 
 // modelConfig creates a config for the model being imported.
-// If the tools version is before 2.9.35, the default-series
-// value is cleared. This matches an upgrade step for 2.9.35
-// as well. Ensuring that the default-series value is set by
-// the user rather than a hold over from an old juju set value.
-// Related to using the default-series value in the same way
-// as a series flag at deploy.
 func modelConfig(attrs map[string]interface{}) (*config.Config, error) {
-	v, ok := attrs["agent-version"].(string)
+	// If the tools version is before 2.9.35, the default-series
+	// value is cleared. This matches an upgrade step for 2.9.35
+	// as well. Ensuring that the default-series value is set by
+	// the user rather than a hold over from an old juju set value.
+	// Related to using the default-series value in the same way
+	// as a series flag at deploy.
+	v, ok := attrs[config.AgentVersionKey].(string)
 	if !ok {
 		return nil, errors.New("model config missing agent-version")
 	}
@@ -262,10 +264,29 @@ func modelConfig(attrs map[string]interface{}) (*config.Config, error) {
 	}
 	// Using MustParse as the value parsed will never change.
 	newer := version.MustParse("2.9.35")
-	if comp := toolsVersion.Compare(newer); comp >= 0 {
-		return config.New(config.NoDefaults, attrs)
+	if comp := toolsVersion.Compare(newer); comp < 0 {
+		attrs[config.DefaultBaseKey] = ""
+		delete(attrs, config.DefaultSeriesKey)
 	}
-	attrs["default-series"] = ""
+
+	if v, ok := attrs[config.DefaultSeriesKey]; ok {
+		if v == "" {
+			attrs[config.DefaultBaseKey] = ""
+		} else {
+			s, err := series.GetBaseFromSeries(v.(string))
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			attrs[config.DefaultBaseKey] = s.String()
+		}
+		delete(attrs, config.DefaultSeriesKey)
+	}
+
+	// Ensure the expected default secret-backend value is set.
+	if v, ok := attrs[config.SecretBackendKey].(string); v == "" || !ok {
+		attrs[config.SecretBackendKey] = config.DefaultSecretBackend
+	}
+
 	return config.New(config.NoDefaults, attrs)
 }
 
@@ -275,9 +296,10 @@ func modelConfig(attrs map[string]interface{}) (*config.Config, error) {
 // Running the state migration visits all the migrations and exits upon seeing
 // the first error from the migration.
 type ImportStateMigration struct {
-	src        description.Model
-	dst        Database
-	migrations []func() error
+	src                 description.Model
+	dst                 Database
+	knownSecretBackends set.Strings
+	migrations          []func() error
 }
 
 // Add adds a migration to execute at a later time
@@ -502,7 +524,7 @@ func (i *importer) machine(m description.Machine) error {
 	// 4. gather prereqs and machine op, run ops.
 	ops := append(prereqOps, machineOp)
 
-	// 5. add any ops that we may need to add the opened ports information.
+	// 5. add any ops that we may need to add the opened ports information for the machine.
 	ops = append(ops, i.machinePortsOp(m))
 
 	if err := i.st.db().RunTransaction(ops); err != nil {
@@ -595,6 +617,35 @@ func (i *importer) machinePortsOp(m description.Machine) txn.Op {
 	}
 }
 
+func (i *importer) applicationPortsOp(a description.Application) txn.Op {
+	modelUUID := i.st.ModelUUID()
+	appName := a.Name()
+	docID := i.st.docID(applicationGlobalKey(appName))
+
+	portRangeDoc := newApplicationPortRangesDoc(docID, modelUUID, appName)
+	for unitName, unitPorts := range a.OpenedPortRanges().ByUnit() {
+		portRangeDoc.UnitRanges[unitName] = make(network.GroupedPortRanges)
+
+		for endpointName, portRanges := range unitPorts.ByEndpoint() {
+			portRangeList := transform.Slice(portRanges, func(pr description.UnitPortRange) network.PortRange {
+				return network.PortRange{
+					FromPort: pr.FromPort(),
+					ToPort:   pr.ToPort(),
+					Protocol: pr.Protocol(),
+				}
+			})
+			portRangeDoc.UnitRanges[unitName][endpointName] = portRangeList
+		}
+	}
+
+	return txn.Op{
+		C:      openedPortsC,
+		Id:     docID,
+		Assert: txn.DocMissing,
+		Insert: portRangeDoc,
+	}
+}
+
 func (i *importer) machineInstanceOp(mdoc *machineDoc, inst description.CloudInstance) txn.Op {
 	doc := &instanceData{
 		DocID:       mdoc.DocID,
@@ -627,6 +678,9 @@ func (i *importer) machineInstanceOp(mdoc *machineDoc, inst description.CloudIns
 	}
 	if az := inst.AvailabilityZone(); az != "" {
 		doc.AvailZone = &az
+	}
+	if vt := inst.VirtType(); vt != "" {
+		doc.VirtType = &vt
 	}
 	if profiles := inst.CharmProfiles(); len(profiles) > 0 {
 		doc.CharmProfiles = profiles
@@ -922,6 +976,9 @@ func (i *importer) application(a description.Application, ctrlCfg controller.Con
 	})
 
 	ops = append(ops, i.appResourceOps(a)...)
+
+	// add any ops that we may need to add the opened ports information for the application.
+	ops = append(ops, i.applicationPortsOp(a))
 
 	if err := i.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
@@ -1315,7 +1372,6 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		Name:                 a.Name(),
 		Subordinate:          a.Subordinate(),
 		CharmURL:             &cURL,
-		Channel:              a.Channel(),
 		CharmModifiedVersion: a.CharmModifiedVersion(),
 		CharmOrigin:          *origin,
 		ForceCharm:           a.ForceCharm(),
@@ -1344,22 +1400,20 @@ func (i *importer) makeCharmOrigin(a description.Application) (*CharmOrigin, err
 		return foundOrigin, nil
 	}
 
-	curl, err := charm.ParseURL(curlStr)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	co := a.CharmOrigin()
 	rev := co.Revision()
 
 	var channel *Channel
-	if serialized := co.Channel(); serialized != "" {
+	// Only charmhub charms will have a channel. Local charms
+	// should not have a channel, so drop even if provided.
+	serialized := co.Channel()
+	if serialized != "" && corecharm.CharmHub.Matches(co.Source()) {
 		c, err := charm.ParseChannelNormalize(serialized)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		track := c.Track
-		if corecharm.CharmHub.Matches(co.Source()) && track == "" {
+		if track == "" {
 			track = "latest"
 		}
 		channel = &Channel{
@@ -1367,9 +1421,8 @@ func (i *importer) makeCharmOrigin(a description.Application) (*CharmOrigin, err
 			Risk:   string(c.Risk),
 			Branch: c.Branch,
 		}
-	} else {
-		// Attempt to fallback to get the channel if it's missing.
-		_, channel = getApplicationSourceChannel(a, curl)
+	} else if serialized != "" && corecharm.Local.Matches(co.Source()) {
+		i.logger.Warningf("Dropping channel: %q for application %q, should not exist", serialized, a.Name())
 	}
 
 	p, err := corecharm.ParsePlatformNormalize(co.Platform())
@@ -1394,43 +1447,6 @@ func (i *importer) makeCharmOrigin(a description.Application) (*CharmOrigin, err
 	}
 	i.charmOrigins[curlStr] = origin
 	return origin, nil
-}
-
-// Attempt to get as much information from the appChannel where possible.
-func getApplicationSourceChannel(a description.Application, url *charm.URL) (corecharm.Source, *Channel) {
-	var source corecharm.Source
-	switch url.Schema {
-	case "cs":
-		source = corecharm.CharmStore
-	case "local":
-		source = corecharm.Local
-	default:
-		source = corecharm.CharmHub
-	}
-
-	c := a.Channel()
-	if c == "" || source == corecharm.Local {
-		return source, nil
-	}
-
-	if source == corecharm.CharmStore {
-		return source, &Channel{Risk: a.Channel()}
-	}
-
-	norm, err := charm.ParseChannelNormalize(a.Channel())
-	if err != nil {
-		return source, nil
-	}
-
-	if norm.Track == "" {
-		norm.Track = "latest"
-	}
-
-	return source, &Channel{
-		Track:  norm.Track,
-		Risk:   string(norm.Risk),
-		Branch: norm.Branch,
-	}
 }
 
 func (i *importer) relationCount(application string) int {
@@ -2666,16 +2682,27 @@ func (i *importer) storagePools() error {
 
 func (i *importer) secrets() error {
 	i.logger.Debugf("importing secrets")
+	backends := NewSecretBackends(i.st)
+	allBackends, err := backends.ListSecretBackends()
+	if err != nil {
+		return errors.Annotate(err, "loading secret backends")
+	}
+	knownBackends := set.NewStrings()
+	for _, b := range allBackends {
+		knownBackends.Add(b.ID)
+	}
+
 	migration := &ImportStateMigration{
-		src: i.model,
-		dst: i.st.db(),
+		src:                 i.model,
+		dst:                 i.st.db(),
+		knownSecretBackends: knownBackends,
 	}
 	migration.Add(func() error {
 		m := ImportSecrets{}
 		return m.Execute(stateModelNamspaceShim{
 			Model: migration.src,
 			st:    i.st,
-		}, migration.dst)
+		}, migration.dst, migration.knownSecretBackends)
 	})
 	if err := migration.Run(); err != nil {
 		return errors.Trace(err)

@@ -17,7 +17,6 @@ type DestroyConfirmationCommandBase struct {
 	assumeNoPrompt bool
 }
 
-// SetFlags implements Command.SetFlags.
 func (c *DestroyConfirmationCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation. Option present for backwards compatibility with Juju 2.9")
 	f.BoolVar(&c.assumeYes, "yes", false, "")

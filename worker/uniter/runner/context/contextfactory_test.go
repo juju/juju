@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/juju/charm/v9/hooks"
+	"github.com/juju/charm/v10/hooks"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -897,9 +897,10 @@ func (s *ContextFactorySuite) TestReadApplicationSettings(c *gc.C) {
 type StubLeadershipContext struct {
 	context.LeadershipContext
 	*testing.Stub
+	isLeader bool
 }
 
 func (stub *StubLeadershipContext) IsLeader() (bool, error) {
 	stub.MethodCall(stub, "IsLeader")
-	return false, stub.NextErr()
+	return stub.isLeader, stub.NextErr()
 }

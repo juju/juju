@@ -8,8 +8,8 @@ import (
 	"io"
 
 	"github.com/im7mortal/kmutex"
-	"github.com/juju/charm/v9"
-	charmresource "github.com/juju/charm/v9/resource"
+	"github.com/juju/charm/v10"
+	charmresource "github.com/juju/charm/v10/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -90,8 +90,6 @@ func newInternalResourceOpener(
 	switch {
 	case charm.CharmHub.Matches(charmURL.Schema):
 		resourceClientGetter = newCharmHubOpener(st)
-	case charm.CharmStore.Matches(charmURL.Schema):
-		resourceClientGetter = newCharmStoreOpener(st)
 	default:
 		// Use the nop opener that performs no store side requests. Instead it
 		// will resort to using the state package only. Any thing else will call
@@ -206,10 +204,6 @@ func (ro ResourceOpener) getResource(resName string, done func()) (_ resources.R
 	// data from charmhub through a new resourceClient and set the data
 	// for the resource in the cache.
 
-	if res.Origin != charmresource.OriginStore {
-		return resources.Resource{}, nil, errors.NotFoundf("resource %q", res.Name)
-	}
-
 	id := CharmID{
 		URL:    ro.charmURL,
 		Origin: ro.charmOrigin,
@@ -247,7 +241,7 @@ func (ro ResourceOpener) get(name string) (resources.Resource, io.ReadCloser, er
 	}
 
 	res, reader, err := ro.open(name)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		reader = nil
 		res, err = ro.resourceCache.GetResource(ro.appName, name)
 	}

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	coretesting "github.com/juju/testing"
@@ -404,7 +404,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtraction() {
 
 	unitExp.ApplicationName().Return("foo")
 	stateExp.Application("foo").Return(s.application, nil)
-	chURLStr := "cs:app-0"
+	chURLStr := "ch:app-0"
 	appExp.CharmURL().Return(&chURLStr)
 	chURL := charm.MustParseURL(chURLStr)
 	stateExp.Charm(chURL).Return(s.charm, nil)
@@ -430,7 +430,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtractionWithE
 
 	unitExp.ApplicationName().Return("foo")
 	stateExp.Application("foo").Return(s.application, nil)
-	chURLStr := "cs:app-0"
+	chURLStr := "ch:app-0"
 	appExp.CharmURL().Return(&chURLStr)
 	chURL := charm.MustParseURL(chURLStr)
 	stateExp.Charm(chURL).Return(s.charm, nil)

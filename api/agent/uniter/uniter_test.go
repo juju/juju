@@ -44,9 +44,9 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 		c.Assert(objType, gc.Equals, "Uniter")
 		c.Assert(request, gc.Equals, "OpenedMachinePortRangesByEndpoint")
 		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "machine-42"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.OpenMachinePortRangesByEndpointResults{})
-		*(result.(*params.OpenMachinePortRangesByEndpointResults)) = params.OpenMachinePortRangesByEndpointResults{
-			Results: []params.OpenMachinePortRangesByEndpointResult{
+		c.Assert(result, gc.FitsTypeOf, &params.OpenPortRangesByEndpointResults{})
+		*(result.(*params.OpenPortRangesByEndpointResults)) = params.OpenPortRangesByEndpointResults{
+			Results: []params.OpenPortRangesByEndpointResult{
 				{
 					UnitPortRanges: map[string][]params.OpenUnitPortRangesByEndpoint{
 						"unit-mysql-0": {
@@ -85,4 +85,115 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 			"monitoring-port": []network.PortRange{network.MustParsePortRange("1337/udp")},
 		},
 	})
+}
+
+func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "OpenedPortRangesByEndpoint")
+		c.Assert(arg, gc.IsNil)
+		c.Assert(result, gc.FitsTypeOf, &params.OpenPortRangesByEndpointResults{})
+		*(result.(*params.OpenPortRangesByEndpointResults)) = params.OpenPortRangesByEndpointResults{
+			Results: []params.OpenPortRangesByEndpointResult{
+				{
+					UnitPortRanges: map[string][]params.OpenUnitPortRangesByEndpoint{
+						"unit-mysql-0": {
+							{
+								Endpoint:   "",
+								PortRanges: []params.PortRange{{100, 200, "tcp"}},
+							},
+							{
+								Endpoint:   "server",
+								PortRanges: []params.PortRange{{3306, 3306, "tcp"}},
+							},
+						},
+						"unit-wordpress-0": {
+							{
+								Endpoint:   "monitoring-port",
+								PortRanges: []params.PortRange{{1337, 1337, "udp"}},
+							},
+						},
+					},
+				},
+			},
+		}
+		return nil
+	})
+	caller := testing.BestVersionCaller{apiCaller, 18}
+	client := uniter.NewState(caller, names.NewUnitTag("gitlab/0"))
+
+	result, err := client.OpenedPortRangesByEndpoint()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, map[names.UnitTag]network.GroupedPortRanges{
+		names.NewUnitTag("mysql/0"): {
+			"":       []network.PortRange{network.MustParsePortRange("100-200/tcp")},
+			"server": []network.PortRange{network.MustParsePortRange("3306/tcp")},
+		},
+		names.NewUnitTag("wordpress/0"): {
+			"monitoring-port": []network.PortRange{network.MustParsePortRange("1337/udp")},
+		},
+	})
+}
+
+func (s *uniterSuite) TestOpenedApplicationPortRangesByEndpoint(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "OpenedApplicationPortRangesByEndpoint")
+		c.Assert(arg, gc.DeepEquals, params.Entity{Tag: "application-gitlab"})
+		c.Assert(result, gc.FitsTypeOf, &params.ApplicationOpenedPortsResults{})
+		*(result.(*params.ApplicationOpenedPortsResults)) = params.ApplicationOpenedPortsResults{
+			Results: []params.ApplicationOpenedPortsResult{
+				{
+					ApplicationPortRanges: []params.ApplicationOpenedPorts{
+						{
+							Endpoint:   "",
+							PortRanges: []params.PortRange{{100, 200, "tcp"}},
+						},
+						{
+							Endpoint:   "server",
+							PortRanges: []params.PortRange{{3306, 3306, "tcp"}},
+						},
+					},
+				},
+			},
+		}
+		return nil
+	})
+	caller := testing.BestVersionCaller{apiCaller, 18}
+	client := uniter.NewState(caller, names.NewUnitTag("gitlab/0"))
+
+	result, err := client.OpenedApplicationPortRangesByEndpoint(names.NewApplicationTag("gitlab"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, network.GroupedPortRanges{
+		"":       []network.PortRange{network.MustParsePortRange("100-200/tcp")},
+		"server": []network.PortRange{network.MustParsePortRange("3306/tcp")},
+	})
+}
+
+func (s *uniterSuite) TestOpenedApplicationPortRangesByEndpointOldAPINotSupported(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "OpenedApplicationPortRangesByEndpoint")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-gitlab-0"}}})
+		return nil
+	})
+	caller := testing.BestVersionCaller{apiCaller, 17}
+	client := uniter.NewState(caller, names.NewUnitTag("gitlab/0"))
+
+	_, err := client.OpenedApplicationPortRangesByEndpoint(names.NewApplicationTag("gitlab"))
+	c.Assert(err, gc.ErrorMatches, `OpenedApplicationPortRangesByEndpoint\(\) \(need V18\+\) not implemented`)
+}
+
+func (s *uniterSuite) TestOpenedPortRangesByEndpointOldAPINotSupported(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "OpenedPortRangesByEndpoint")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-gitlab-0"}}})
+		return nil
+	})
+	caller := testing.BestVersionCaller{apiCaller, 17}
+	client := uniter.NewState(caller, names.NewUnitTag("gitlab/0"))
+
+	_, err := client.OpenedPortRangesByEndpoint()
+	c.Assert(err, gc.ErrorMatches, `OpenedPortRangesByEndpoint\(\) \(need V18\+\) not implemented`)
 }

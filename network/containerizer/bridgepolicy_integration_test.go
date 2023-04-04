@@ -1201,6 +1201,7 @@ func (g configGetter) Config() *config.Config {
 		config.NameKey:                    "some-model",
 		config.TypeKey:                    "some-cloud",
 		config.UUIDKey:                    utils.MustNewUUID().String(),
+		config.SecretBackendKey:           "auto",
 		config.NetBondReconfigureDelayKey: g.reconfDelay,
 		config.ContainerNetworkingMethod:  g.netMethod,
 		config.FanConfig:                  "172.16.0.0/16=253.0.0.0/8",

@@ -47,6 +47,7 @@ type Instance struct {
 	tags                []types.Tag
 	rootDeviceType      types.DeviceType
 	rootDeviceName      string
+	metadataOptions     *types.InstanceMetadataOptionsResponse
 
 	iamInstanceProfile *types.IamInstanceProfileSpecification
 }
@@ -162,8 +163,18 @@ func (srv *Server) RunInstances(ctx context.Context, in *ec2.RunInstancesInput, 
 	resp.ReservationId = aws.String(r.id)
 	resp.OwnerId = aws.String(ownerId)
 
+	var metadataResponse *types.InstanceMetadataOptionsResponse
+	if in.MetadataOptions != nil {
+		metadataResponse = &types.InstanceMetadataOptionsResponse{
+			HttpEndpoint:            in.MetadataOptions.HttpEndpoint,
+			HttpPutResponseHopLimit: in.MetadataOptions.HttpPutResponseHopLimit,
+			HttpTokens:              in.MetadataOptions.HttpTokens,
+			State:                   types.InstanceMetadataOptionsStateApplied,
+		}
+	}
+
 	for i := 0; i < int(max); i++ {
-		inst := srv.newInstance(r, instType, imageId, availZone, srv.initialInstanceState)
+		inst := srv.newInstance(r, instType, imageId, availZone, srv.initialInstanceState, in.TagSpecifications)
 		// Create any NICs on the instance subnet (if any), and then
 		// save the VPC and subnet ids on the instance, as EC2 does.
 		inst.ifaces = srv.createNICsOnRun(inst.id(), instSubnet, ifacesToCreate)
@@ -175,6 +186,7 @@ func (srv *Server) RunInstances(ctx context.Context, in *ec2.RunInstancesInput, 
 		inst.blockDeviceMappings = append(inst.blockDeviceMappings,
 			srv.createBlockDeviceMappingsOnRun(in.BlockDeviceMappings)...,
 		)
+		inst.metadataOptions = metadataResponse
 		resp.Instances = append(resp.Instances, inst.ec2instance())
 	}
 	return resp, nil
@@ -331,7 +343,7 @@ func (srv *Server) NewInstancesVPC(vpcId, subnetId string, n int, instType types
 
 	ids := make([]string, n)
 	for i := 0; i < n; i++ {
-		inst := srv.newInstance(r, instType, imageId, defaultAvailZone, state)
+		inst := srv.newInstance(r, instType, imageId, defaultAvailZone, state, nil)
 		inst.vpcId = vpcId
 		inst.subnetId = subnetId
 		ids[i] = inst.id()
@@ -399,6 +411,7 @@ func (inst *Instance) ec2instance() types.Instance {
 		Tags:                inst.tags,
 		RootDeviceType:      inst.rootDeviceType,
 		RootDeviceName:      aws.String(inst.rootDeviceName),
+		MetadataOptions:     inst.metadataOptions,
 	}
 }
 
@@ -446,7 +459,7 @@ func (inst *Instance) matchAttr(attr, value string) (ok bool, err error) {
 	return false, fmt.Errorf("unknown attribute %q", attr)
 }
 
-func (srv *Server) newInstance(r *reservation, instType types.InstanceType, imageId string, availZone string, state types.InstanceState) *Instance {
+func (srv *Server) newInstance(r *reservation, instType types.InstanceType, imageId string, availZone string, state types.InstanceState, tagSpecs []types.TagSpecification) *Instance {
 	inst := &Instance{
 		seq:             srv.maxId.next(),
 		first:           true,
@@ -456,6 +469,7 @@ func (srv *Server) newInstance(r *reservation, instType types.InstanceType, imag
 		state:           state,
 		reservation:     r,
 		sourceDestCheck: true,
+		tags:            tagSpecForType(types.ResourceTypeInstance, tagSpecs).Tags,
 	}
 	id := inst.id()
 	srv.instances[id] = inst
@@ -465,7 +479,7 @@ func (srv *Server) newInstance(r *reservation, instType types.InstanceType, imag
 		// create a root disk for the instance
 		inst.rootDeviceType = "ebs"
 		inst.rootDeviceName = "/dev/sda1"
-		volume := srv.newVolume("magnetic", 8)
+		volume := srv.newVolume("magnetic", 8, tagSpecs)
 		volume.AvailabilityZone = aws.String(availZone)
 		volume.State = "in-use"
 		volumeAttachment := &volumeAttachment{}

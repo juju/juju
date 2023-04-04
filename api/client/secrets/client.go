@@ -74,10 +74,11 @@ func (api *Client) ListSecrets(reveal bool, filter secrets.Filter) ([]SecretDeta
 		details.Revisions = make([]secrets.SecretRevisionMetadata, len(r.Revisions))
 		for i, r := range r.Revisions {
 			details.Revisions[i] = secrets.SecretRevisionMetadata{
-				Revision:   r.Revision,
-				CreateTime: r.CreateTime,
-				UpdateTime: r.UpdateTime,
-				ExpireTime: r.ExpireTime,
+				Revision:    r.Revision,
+				BackendName: r.BackendName,
+				CreateTime:  r.CreateTime,
+				UpdateTime:  r.UpdateTime,
+				ExpireTime:  r.ExpireTime,
 			}
 		}
 		if reveal && r.Value != nil {

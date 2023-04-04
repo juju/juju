@@ -4,7 +4,7 @@
 package applicationoffers_test
 
 import (
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/names/v4"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -112,7 +112,7 @@ func (s *baseSuite) setupOffers(c *gc.C, filterAppName string, filterWithEndpoin
 		"test": &mockApplication{
 			name:     "test",
 			charm:    ch,
-			curl:     "cs:db2-2",
+			curl:     "ch:db2-2",
 			bindings: map[string]string{"db2": "myspace"}, // myspace
 		},
 	}

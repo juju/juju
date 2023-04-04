@@ -10,9 +10,8 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/juju/charm/v9"
-	charmresource "github.com/juju/charm/v9/resource"
-	"github.com/juju/description/v4"
+	"github.com/juju/charm/v10"
+	charmresource "github.com/juju/charm/v10/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -22,6 +21,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/macaroon.v2"
+
+	"github.com/juju/description/v4"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -2683,7 +2684,10 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	md, err = store.UpdateSecret(md.URI, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
-		Data:        map[string]string{"foo": "bar2"},
+		ValueRef: &secrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "rev-id",
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
@@ -2724,7 +2728,9 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 	c.Assert(revisions, gc.HasLen, 2)
 	c.Assert(revisions[0].Content(), jc.DeepEquals, map[string]string{"foo": "bar"})
 	c.Assert(revisions[0].ExpireTime(), jc.DeepEquals, ptr(expire))
-	c.Assert(revisions[1].Content(), jc.DeepEquals, map[string]string{"foo": "bar2"})
+	c.Assert(revisions[1].ValueRef(), gc.NotNil)
+	c.Assert(revisions[1].ValueRef().BackendID(), jc.DeepEquals, "backend-id")
+	c.Assert(revisions[1].ValueRef().RevisionID(), jc.DeepEquals, "rev-id")
 	consumers := secret.Consumers()
 	c.Assert(consumers, gc.HasLen, 1)
 	info := consumers[0]

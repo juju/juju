@@ -113,6 +113,8 @@ type mockModel struct {
 	statusData map[string]interface{}
 }
 
+var _ undertaker.Model = (*mockModel)(nil)
+
 func (m *mockModel) ControllerUUID() string {
 	return coretesting.ControllerTag.Id()
 }
@@ -120,16 +122,6 @@ func (m *mockModel) ControllerUUID() string {
 func (m *mockModel) Cloud() (cloud.Cloud, error) {
 	return cloud.Cloud{}, errors.NotImplemented
 }
-
-func (m *mockModel) CloudCredential() (*cloud.Credential, error) {
-	return nil, errors.NotImplemented
-}
-
-func (m *mockModel) Config() (*config.Config, error) {
-	return nil, errors.NotImplemented
-}
-
-var _ undertaker.Model = (*mockModel)(nil)
 
 func (m *mockModel) Owner() names.UserTag {
 	return m.owner
@@ -185,7 +177,10 @@ type mockSecrets struct {
 	cleanedUUID string
 }
 
-func (m *mockSecrets) CleanupModel(model provider.Model) error {
-	m.cleanedUUID = model.UUID()
+func (m *mockSecrets) CleanupModel(cfg *provider.ModelBackendConfig) error {
+	if cfg.BackendType != "some-backend" {
+		return errors.New("unknown backend " + cfg.BackendType)
+	}
+	m.cleanedUUID = cfg.ModelUUID
 	return nil
 }

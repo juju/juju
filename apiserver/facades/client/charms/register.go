@@ -20,12 +20,31 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Charms", 5, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacade(ctx)
-	}, reflect.TypeOf((*API)(nil)))
+		return newFacadeV5(ctx)
+	}, reflect.TypeOf((*APIv5)(nil)))
+	registry.MustRegister("Charms", 6, func(ctx facade.Context) (facade.Facade, error) {
+		return newFacadeV6(ctx)
+	}, reflect.TypeOf((*APIv6)(nil)))
 }
 
-// newFacade provides the signature required for facade registration.
-func newFacade(ctx facade.Context) (*API, error) {
+func newFacadeV6(ctx facade.Context) (*APIv6, error) {
+	api, err := newFacadeBase(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv6{api}, nil
+}
+
+func newFacadeV5(ctx facade.Context) (*APIv5, error) {
+	api, err := newFacadeV6(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv5{api}, nil
+}
+
+// newFacadeBase provides the signature required for facade registration.
+func newFacadeBase(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm

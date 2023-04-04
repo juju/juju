@@ -8,7 +8,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/juju/charm/v9/hooks"
+	"github.com/juju/charm/v10/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -78,7 +78,7 @@ type SecretsAccessor interface {
 }
 
 // SecretsBackendGetter creates a secrets backend client.
-type SecretsBackendGetter func() (jujusecrets.Backend, error)
+type SecretsBackendGetter func() (jujusecrets.BackendsClient, error)
 
 // RelationsFunc is used to get snapshots of relation membership at context
 // creation time.
@@ -406,7 +406,9 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	}
 
 	var machPortRanges map[names.UnitTag]network.GroupedPortRanges
-	if f.modelType == model.IAAS {
+	var appPortRanges map[names.UnitTag]network.GroupedPortRanges
+	switch f.modelType {
+	case model.IAAS:
 		if machPortRanges, err = f.state.OpenedMachinePortRangesByEndpoint(f.machineTag); err != nil {
 			return errors.Trace(err)
 		}
@@ -415,9 +417,13 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 		if err != nil && !params.IsCodeNoAddressSet(err) {
 			f.logger.Warningf("cannot get legacy private address for %v: %v", f.unit.Name(), err)
 		}
+	case model.CAAS:
+		if appPortRanges, err = f.state.OpenedPortRangesByEndpoint(); err != nil && !errors.Is(err, errors.NotSupported) {
+			return errors.Trace(err)
+		}
 	}
 
-	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, f.unit.Tag(), machPortRanges)
+	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, f.unit.Tag(), f.modelType, machPortRanges, appPortRanges)
 	ctx.secretChanges = newSecretsChangeRecorder(ctx.logger)
 	owner := f.unit.Tag().String()
 	info, err := ctx.secretsClient.SecretMetadata(secrets.Filter{
@@ -429,10 +435,6 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	ctx.secretMetadata = make(map[string]jujuc.SecretMetadata)
 	for _, v := range info {
 		md := v.Metadata
-		backendIds := make(map[int]string)
-		for rev, id := range v.BackendIds {
-			backendIds[rev] = id
-		}
 		ownerTag, err := names.ParseTag(md.OwnerTag)
 		if err != nil {
 			return err
@@ -445,7 +447,7 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 			LatestRevision:   md.LatestRevision,
 			LatestExpireTime: md.LatestExpireTime,
 			NextRotateTime:   md.NextRotateTime,
-			BackendIds:       backendIds,
+			Revisions:        v.Revisions,
 		}
 	}
 

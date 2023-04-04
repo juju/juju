@@ -8,16 +8,22 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
+	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -96,23 +102,29 @@ func (s *SecretsSuite) TestCreate(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
-func (s *SecretsSuite) TestCreateBackendId(c *gc.C) {
+func (s *SecretsSuite) TestCreateBackendRef(c *gc.C) {
 	uri := secrets.NewURI()
 	p := state.CreateSecretParams{
 		Version: 1,
 		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
-			BackendId:   ptr("backend-id"),
+			ValueRef: &secrets.ValueRef{
+				BackendID:  "backend-id",
+				RevisionID: "rev-id",
+			},
 		},
 	}
 	_, err := s.store.CreateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
-	v, backendId, err := s.store.GetSecretValue(uri, 1)
+	v, valueRef, err := s.store.GetSecretValue(uri, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(v.EncodedValues(), gc.HasLen, 0)
-	c.Assert(backendId, gc.NotNil)
-	c.Assert(*backendId, gc.Equals, "backend-id")
+	c.Assert(valueRef, gc.NotNil)
+	c.Assert(*valueRef, jc.DeepEquals, secrets.ValueRef{
+		BackendID:  "backend-id",
+		RevisionID: "rev-id",
+	})
 }
 
 func (s *SecretsSuite) TestCreateDuplicateLabelApplicationOwned(c *gc.C) {
@@ -465,6 +477,87 @@ func (s *SecretsSuite) TestListByConsumer(c *gc.C) {
 	}})
 }
 
+func (s *SecretsSuite) TestListModelSecrets(c *gc.C) {
+	uri := secrets.NewURI()
+	p := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := s.store.CreateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri2 := secrets.NewURI()
+	p2 := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			ValueRef:    &secrets.ValueRef{BackendID: "backend-id"},
+		},
+	}
+	_, err = s.store.CreateSecret(uri2, p2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	caasSt := s.newCAASState(c)
+	caasSecrets := state.NewSecrets(caasSt)
+	uri3 := secrets.NewURI()
+	p3 := state.CreateSecretParams{
+		Version: 1,
+		Owner:   names.NewApplicationTag("wordpress"),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			ValueRef:    &secrets.ValueRef{BackendID: caasSt.ModelUUID()},
+		},
+	}
+	_, err = caasSecrets.CreateSecret(uri3, p3)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.store.ListModelSecrets(true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, map[string]set.Strings{
+		s.State.ControllerUUID(): set.NewStrings(uri.ID),
+		"backend-id":             set.NewStrings(uri2.ID),
+		caasSt.ModelUUID():       set.NewStrings(uri3.ID),
+	})
+
+	result, err = s.store.ListModelSecrets(false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, map[string]set.Strings{
+		s.State.ControllerUUID(): set.NewStrings(uri.ID),
+		"backend-id":             set.NewStrings(uri2.ID),
+	})
+}
+
+func (s *SecretsSuite) newCAASState(c *gc.C) *state.State {
+	cfg := jujutesting.CustomModelConfig(c, jujutesting.Attrs{
+		"name": "caasmodel",
+		"uuid": utils.MustNewUUID().String(),
+	})
+	_, st, err := s.Controller.NewModel(state.ModelArgs{
+		Type:        state.ModelTypeCAAS,
+		CloudName:   "dummy",
+		CloudRegion: "dummy-region",
+		Config:      cfg,
+		Owner:       s.Owner,
+		StorageProviderRegistry: storage.ChainedProviderRegistry{
+			dummy.StorageProviders(),
+			provider.CommonStorageProviders(),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(*gc.C) { st.Close() })
+	s.Factory = factory.NewFactory(st, s.StatePool)
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "wordpress",
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
+	})
+	return st
+}
+
 func (s *SecretsSuite) TestUpdateNothing(c *gc.C) {
 	up := state.UpdateSecretParams{}
 	uri := secrets.NewURI()
@@ -761,13 +854,13 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMeta
 	if update.Data != nil {
 		expectedData = update.Data
 	}
-	val, backendId, err := s.store.GetSecretValue(md.URI, expectedRevision)
+	val, valueRef, err := s.store.GetSecretValue(md.URI, expectedRevision)
 	c.Assert(err, jc.ErrorIsNil)
-	if update.BackendId != nil {
-		c.Assert(backendId, gc.NotNil)
-		c.Assert(*update.BackendId, gc.Equals, *backendId)
+	if update.ValueRef != nil {
+		c.Assert(valueRef, gc.NotNil)
+		c.Assert(*update.ValueRef, jc.DeepEquals, *valueRef)
 	} else {
-		c.Assert(backendId, gc.IsNil)
+		c.Assert(valueRef, gc.IsNil)
 		c.Assert(val.EncodedValues(), jc.DeepEquals, expectedData)
 	}
 	if update.ExpireTime != nil {
@@ -879,10 +972,20 @@ func (s *SecretsSuite) TestListSecretRevisions(c *gc.C) {
 		LeaderToken: &fakeToken{},
 		Data:        newData,
 	})
+
+	backendStore := state.NewSecretBackends(s.State)
+	backendID, err := backendStore.CreateSecretBackend(state.CreateSecretBackendParams{
+		Name:        "myvault",
+		BackendType: "vault",
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	updateTime := s.Clock.Now().Round(time.Second).UTC()
 	s.assertUpdatedSecret(c, md, 3, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
-		BackendId:   ptr("backend-id"),
+		ValueRef: &secrets.ValueRef{
+			BackendID:  backendID,
+			RevisionID: "rev-id",
+		},
 	})
 	updateTime2 := s.Clock.Now().Round(time.Second).UTC()
 	r, err := s.store.ListSecretRevisions(uri)
@@ -900,10 +1003,14 @@ func (s *SecretsSuite) TestListSecretRevisions(c *gc.C) {
 		CreateTime: updateTime,
 		UpdateTime: updateTime,
 	}, {
-		Revision:   3,
-		BackendId:  ptr("backend-id"),
-		CreateTime: updateTime2,
-		UpdateTime: updateTime2,
+		Revision: 3,
+		ValueRef: &secrets.ValueRef{
+			BackendID:  backendID,
+			RevisionID: "rev-id",
+		},
+		BackendName: ptr("myvault"),
+		CreateTime:  updateTime2,
+		UpdateTime:  updateTime2,
 	}})
 }
 
@@ -971,19 +1078,8 @@ func (s *SecretsSuite) TestGetSecretConsumerAndGetSecretConsumerURI(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(uri3, jc.DeepEquals, uri)
 
-	ownerNonLeaderUnit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.owner})
-	err = s.State.SaveSecretConsumer(
-		// No consumer label for app owned secrets.
-		uri, ownerNonLeaderUnit.UnitTag(),
-		&secrets.SecretConsumerMetadata{CurrentRevision: 666},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	mdOwnerNonLeaderUnit, err := s.State.GetSecretConsumer(uri, ownerNonLeaderUnit.Tag())
-	c.Check(err, jc.ErrorIsNil)
-	// owner label visible for its own units.
-	c.Check(mdOwnerNonLeaderUnit.Label, gc.Equals, "owner-label")
-	c.Check(mdOwnerNonLeaderUnit.CurrentRevision, gc.Equals, 666)
+	_, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mysql/0"))
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *SecretsSuite) TestSaveSecretConsumer(c *gc.C) {
@@ -1265,16 +1361,29 @@ func (s *SecretsSuite) TestDelete(c *gc.C) {
 		return uri
 	}
 	uri1 := create("label1")
+	up := state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		ValueRef: &secrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "rev-id",
+		},
+	}
+	_, err := s.store.UpdateSecret(uri1, up)
+	c.Assert(err, jc.ErrorIsNil)
+
 	uri2 := create("label2")
 
-	removed, err := s.store.DeleteSecret(uri1)
+	external, err := s.store.DeleteSecret(uri1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(removed, jc.IsTrue)
+	c.Assert(external, jc.DeepEquals, []secrets.ValueRef{{
+		BackendID:  "backend-id",
+		RevisionID: "rev-id",
+	}})
 	_, _, err = s.store.GetSecretValue(uri1, 1)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	removed, err = s.store.DeleteSecret(uri1)
+	external, err = s.store.DeleteSecret(uri1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(removed, jc.IsTrue)
+	c.Assert(external, gc.HasLen, 0)
 
 	// Check that other secret info remains intact.
 	secretRevisionsCollection, closer := state.GetCollection(s.State, "secretRevisions")
@@ -1345,25 +1454,35 @@ func (s *SecretsSuite) TestDeleteRevisions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
-		Data:        map[string]string{"foo": "bar3"},
+		ValueRef: &secrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "rev-id",
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	removed, err := s.store.DeleteSecret(uri, 1)
+	external, err := s.store.DeleteSecret(uri, 1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(removed, jc.IsFalse)
+	c.Assert(external, gc.HasLen, 0)
 	_, _, err = s.store.GetSecretValue(uri, 1)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	val, _, err := s.store.GetSecretValue(uri, 2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar2"})
-	val, _, err = s.store.GetSecretValue(uri, 3)
+	_, ref, err := s.store.GetSecretValue(uri, 3)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar3"})
+	c.Assert(ref, gc.NotNil)
+	c.Assert(ref, jc.DeepEquals, &secrets.ValueRef{
+		BackendID:  "backend-id",
+		RevisionID: "rev-id",
+	})
 
-	removed, err = s.store.DeleteSecret(uri, 1, 2, 3)
+	external, err = s.store.DeleteSecret(uri, 1, 2, 3)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(removed, jc.IsTrue)
+	c.Assert(external, jc.DeepEquals, []secrets.ValueRef{{
+		BackendID:  "backend-id",
+		RevisionID: "rev-id",
+	}})
 	_, _, err = s.store.GetSecretValue(uri, 3)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	_, err = s.store.GetSecret(uri)

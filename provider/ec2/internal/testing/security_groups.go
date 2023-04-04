@@ -25,11 +25,13 @@ func (srv *Server) CreateSecurityGroup(ctx context.Context, in *ec2.CreateSecuri
 	if srv.group(types.GroupIdentifier{GroupName: in.GroupName}) != nil {
 		return nil, apiError("InvalidGroup.Duplicate", "group %q already exists", name)
 	}
+
 	g := &securityGroup{
 		name:        name,
 		description: aws.ToString(in.Description),
 		id:          fmt.Sprintf("sg-%d", srv.groupId.next()),
 		perms:       make(map[permKey]bool),
+		tags:        tagSpecForType(types.ResourceTypeSecurityGroup, in.TagSpecifications).Tags,
 	}
 	vpcId := aws.ToString(in.VpcId)
 	if vpcId != "" {
@@ -39,7 +41,7 @@ func (srv *Server) CreateSecurityGroup(ctx context.Context, in *ec2.CreateSecuri
 
 	resp := &ec2.CreateSecurityGroupOutput{
 		GroupId: aws.String(g.id),
-		Tags:    nil,
+		Tags:    g.tags,
 	}
 	return resp, nil
 }

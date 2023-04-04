@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
@@ -56,6 +57,7 @@ type ModelSummary struct {
 	// Needs Config()
 	ProviderType  string
 	DefaultSeries string
+	DefaultBase   series.Base
 	AgentVersion  *version.Number
 
 	// Needs Statuses collection
@@ -113,8 +115,6 @@ func newProcessorFromModelDocs(st *State, modelDocs []modelDoc, user names.UserT
 			CloudTag:           names.NewCloudTag(doc.Cloud).String(),
 			CloudRegion:        doc.CloudRegion,
 			CloudCredentialTag: cloudCred,
-			/// Users:              make(map[string]UserAccessInfo),
-			/// Machines:           make(map[string]MachineModelInfo),
 		}
 		p.indexByUUID[doc.UUID] = i
 		p.modelUUIDs[i] = doc.UUID
@@ -149,7 +149,14 @@ func (p *modelSummaryProcessor) fillInFromConfig() error {
 		}
 		detail := &(p.summaries[idx])
 		detail.ProviderType = cfg.Type()
-		detail.DefaultSeries = config.PreferredSeries(cfg)
+		detail.DefaultBase = config.PreferredBase(cfg)
+
+		// TODO(stickupkid): Ensure we fill in the default series for now, we
+		// can switch that out later.
+		if detail.DefaultSeries, err = series.GetSeriesFromBase(detail.DefaultBase); err != nil {
+			return errors.Trace(err)
+		}
+
 		if agentVersion, exists := cfg.AgentVersion(); exists {
 			detail.AgentVersion = &agentVersion
 		}

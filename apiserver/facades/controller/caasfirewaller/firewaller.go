@@ -4,6 +4,8 @@
 package caasfirewaller
 
 import (
+	"sort"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -11,6 +13,7 @@ import (
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
 )
@@ -215,4 +218,51 @@ func (f *FacadeSidecar) watchOneModelOpenedPorts(tag names.Tag) (string, []strin
 		return f.resources.Register(watch), changes, nil
 	}
 	return "", nil, watcher.EnsureErr(watch)
+}
+
+// GetOpenedPorts returns all the opened ports for each given application tag.
+func (f *FacadeSidecar) GetOpenedPorts(arg params.Entity) (params.ApplicationOpenedPortsResults, error) {
+	result := params.ApplicationOpenedPortsResults{
+		Results: make([]params.ApplicationOpenedPortsResult, 1),
+	}
+
+	appTag, err := names.ParseApplicationTag(arg.Tag)
+	if err != nil {
+		result.Results[0].Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+
+	app, err := f.state.Application(appTag.Id())
+	if err != nil {
+		result.Results[0].Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+	openedPortRanges, err := app.OpenedPortRanges()
+	if err != nil {
+		result.Results[0].Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+	for endpointName, pgs := range openedPortRanges {
+		result.Results[0].ApplicationPortRanges = append(
+			result.Results[0].ApplicationPortRanges,
+			f.applicationOpenedPortsForEndpoint(endpointName, pgs),
+		)
+	}
+	sort.Slice(result.Results[0].ApplicationPortRanges, func(i, j int) bool {
+		// For test.
+		return result.Results[0].ApplicationPortRanges[i].Endpoint < result.Results[0].ApplicationPortRanges[j].Endpoint
+	})
+	return result, nil
+}
+
+func (f *FacadeSidecar) applicationOpenedPortsForEndpoint(endpointName string, pgs []network.PortRange) params.ApplicationOpenedPorts {
+	network.SortPortRanges(pgs)
+	o := params.ApplicationOpenedPorts{
+		Endpoint:   endpointName,
+		PortRanges: make([]params.PortRange, len(pgs)),
+	}
+	for i, pg := range pgs {
+		o.PortRanges[i] = params.FromNetworkPortRange(pg)
+	}
+	return o
 }

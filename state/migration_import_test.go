@@ -10,7 +10,7 @@ import (
 	"time" // only uses time.Time values
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -24,6 +24,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	corearch "github.com/juju/juju/core/arch"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -470,11 +471,29 @@ func (s *MigrationImportSuite) TestMachinePortOps(c *gc.C) {
 	c.Assert(ops[0].Id, gc.Equals, "3")
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/description_mock.go github.com/juju/description/v4 Machine,MachinePortRanges,UnitPortRanges
+func (s *MigrationImportSuite) ApplicationPortOps(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	mockApplication := mocks.NewMockApplication(ctrl)
+	mockApplicationPortRanges := mocks.NewMockPortRanges(ctrl)
+
+	aExp := mockApplication.EXPECT()
+	aExp.Name().Return("gitlab")
+	aExp.OpenedPortRanges().Return(mockApplicationPortRanges)
+
+	opExp := mockApplicationPortRanges.EXPECT()
+	opExp.ByUnit().Return(nil)
+
+	ops, err := state.ApplicationPortOps(s.State, mockApplication)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.HasLen, 1)
+	c.Assert(ops[0].Id, gc.Equals, "gitlab")
+}
+
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/description_mock.go github.com/juju/description/v4 Application,Machine,PortRanges,UnitPortRanges
 func setupMockOpenedPortRanges(c *gc.C, mID string) (*gomock.Controller, *mocks.MockMachine) {
 	ctrl := gomock.NewController(c)
 	mockMachine := mocks.NewMockMachine(ctrl)
-	mockMachinePortRanges := mocks.NewMockMachinePortRanges(ctrl)
+	mockMachinePortRanges := mocks.NewMockPortRanges(ctrl)
 
 	mExp := mockMachine.EXPECT()
 	mExp.Id().Return(mID)
@@ -513,7 +532,7 @@ func (s *MigrationImportSuite) setupSourceApplications(
 	application, pwd := f.MakeApplicationReturningPassword(c, &factory.ApplicationParams{
 		Charm: testCharm,
 		CharmOrigin: &state.CharmOrigin{
-			Source:   "charm-store",
+			Source:   "charm-hub",
 			Type:     "charm",
 			Revision: &testCharm.URL().Revision,
 			Channel: &state.Channel{
@@ -571,7 +590,11 @@ func (s *MigrationImportSuite) assertImportedApplication(
 	c.Assert(imported.ExposedEndpoints(), gc.DeepEquals, exported.ExposedEndpoints())
 	c.Assert(imported.MetricCredentials(), jc.DeepEquals, exported.MetricCredentials())
 	c.Assert(imported.PasswordValid(pwd), jc.IsTrue)
-	c.Assert(imported.CharmOrigin(), jc.DeepEquals, exported.CharmOrigin())
+	exportedOrigin := exported.CharmOrigin()
+	if corecharm.CharmHub.Matches(exportedOrigin.Source) && exportedOrigin.Channel.Track == "" {
+		exportedOrigin.Channel.Track = "latest"
+	}
+	c.Assert(imported.CharmOrigin(), jc.DeepEquals, exportedOrigin)
 
 	exportedCharmConfig, err := exported.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2522,11 +2545,10 @@ func (s *MigrationImportSuite) TestPayloads(c *gc.C) {
 
 func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:           "gravy-rainbow",
-		URL:            "me/model.rainbow",
-		SourceModel:    s.Model.ModelTag(),
-		Token:          "charisma",
-		ConsumeVersion: 1,
+		Name:        "gravy-rainbow",
+		URL:         "me/model.rainbow",
+		SourceModel: s.Model.ModelTag(),
+		Token:       "charisma",
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
 			Name:      "db",
@@ -2587,6 +2609,85 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 	remoteApplication := remoteApplications[0]
 	c.Assert(remoteApplication.Name(), gc.Equals, "gravy-rainbow")
 	c.Assert(remoteApplication.ConsumeVersion(), gc.Equals, 1)
+
+	url, _ := remoteApplication.URL()
+	c.Assert(url, gc.Equals, "me/model.rainbow")
+	c.Assert(remoteApplication.SourceModel(), gc.Equals, s.Model.ModelTag())
+
+	token, err := remoteApplication.Token()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(token, gc.Equals, "charisma")
+
+	s.assertRemoteApplicationEndpoints(c, remoteApp, remoteApplication)
+	s.assertRemoteApplicationSpaces(c, remoteApp, remoteApplication)
+}
+
+func (s *MigrationImportSuite) TestRemoteApplicationsConsumerProxy(c *gc.C) {
+	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "gravy-rainbow",
+		URL:             "me/model.rainbow",
+		SourceModel:     s.Model.ModelTag(),
+		Token:           "charisma",
+		ConsumeVersion:  2,
+		IsConsumerProxy: true,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}, {
+			Interface: "mysql-root",
+			Name:      "db-admin",
+			Limit:     5,
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}, {
+			Interface: "logging",
+			Name:      "logging",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+		Spaces: []*environs.ProviderSpaceInfo{{
+			SpaceInfo: network.SpaceInfo{
+				Name:       "unicorns",
+				ProviderId: "space-provider-id",
+				Subnets: []network.SubnetInfo{{
+					CIDR:              "10.0.1.0/24",
+					ProviderId:        "subnet-provider-id",
+					AvailabilityZones: []string{"eu-west-1"},
+				}},
+			},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	service := state.NewExternalControllers(s.State)
+	_, err = service.Save(crossmodel.ControllerInfo{
+		ControllerTag: s.Model.ControllerTag(),
+		Addrs:         []string{"192.168.1.1:8080"},
+		Alias:         "magic",
+		CACert:        "magic-ca-cert",
+	}, s.Model.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	out, err := s.State.Export(map[string]string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	uuid := utils.MustNewUUID().String()
+	in := newModel(out, uuid, "new")
+
+	_, newSt, err := s.Controller.Import(in)
+	if err == nil {
+		defer newSt.Close()
+	}
+	c.Assert(err, jc.ErrorIsNil)
+	remoteApplications, err := newSt.AllRemoteApplications()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(remoteApplications, gc.HasLen, 1)
+
+	remoteApplication := remoteApplications[0]
+	c.Assert(remoteApplication.Name(), gc.Equals, "gravy-rainbow")
+	c.Assert(remoteApplication.ConsumeVersion(), gc.Equals, 2)
 
 	url, _ := remoteApplication.URL()
 	c.Assert(url, gc.Equals, "me/model.rainbow")
@@ -2786,21 +2887,21 @@ func (s *MigrationImportSuite) TestImportingModelWithBlankType(c *gc.C) {
 		CloudRegion:        testModel.CloudRegion(),
 	})
 	imported, newSt, err := s.Controller.Import(noTypeModel)
-	defer func() { _ = newSt.Close() }()
 	c.Assert(err, jc.ErrorIsNil)
+	defer func() { _ = newSt.Close() }()
 
 	c.Assert(imported.Type(), gc.Equals, state.ModelTypeIAAS)
 }
 
 func (s *MigrationImportSuite) TestImportingModelWithDefaultSeriesBefore2935(c *gc.C) {
-	defaultSeries, ok := s.testImportingModelWithDefaultSeries(c, version.MustParse("2.7.8"))
-	c.Assert(ok, jc.IsFalse, gc.Commentf("value: %q", defaultSeries))
+	defaultBase, ok := s.testImportingModelWithDefaultSeries(c, version.MustParse("2.7.8"))
+	c.Assert(ok, jc.IsFalse, gc.Commentf("value: %q", defaultBase))
 }
 
 func (s *MigrationImportSuite) TestImportingModelWithDefaultSeriesAfter2935(c *gc.C) {
-	defaultSeries, ok := s.testImportingModelWithDefaultSeries(c, version.MustParse("2.9.35"))
+	defaultBase, ok := s.testImportingModelWithDefaultSeries(c, version.MustParse("2.9.35"))
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(defaultSeries, gc.Equals, "jammy")
+	c.Assert(defaultBase, gc.Equals, "ubuntu@22.04/stable")
 }
 
 func (s *MigrationImportSuite) testImportingModelWithDefaultSeries(c *gc.C, toolsVer version.Number) (string, bool) {
@@ -2822,12 +2923,12 @@ func (s *MigrationImportSuite) testImportingModelWithDefaultSeries(c *gc.C, tool
 		CloudRegion:    testModel.CloudRegion(),
 	})
 	imported, newSt, err := s.Controller.Import(importModel)
-	defer func() { _ = newSt.Close() }()
 	c.Assert(err, jc.ErrorIsNil)
+	defer func() { _ = newSt.Close() }()
 
 	importedCfg, err := imported.Config()
 	c.Assert(err, jc.ErrorIsNil)
-	return importedCfg.DefaultSeries()
+	return importedCfg.DefaultBase()
 }
 
 func (s *MigrationImportSuite) TestImportingRelationApplicationSettings(c *gc.C) {
@@ -2972,6 +3073,13 @@ func (s *MigrationImportSuite) TestApplicationFillInCharmOriginID(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
+	backendStore := state.NewSecretBackends(s.State)
+	backendID, err := backendStore.CreateSecretBackend(state.CreateSecretBackendParams{
+		Name:        "myvault",
+		BackendType: "vault",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	store := state.NewSecrets(s.State)
 	owner := s.Factory.MakeApplication(c, nil)
 	uri := secrets.NewURI()
@@ -2997,7 +3105,10 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 	updateTime := time.Now().UTC().Round(time.Second)
 	md, err = store.UpdateSecret(md.URI, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
-		Data:        map[string]string{"foo": "bar2"},
+		ValueRef: &secrets.ValueRef{
+			BackendID:  backendID,
+			RevisionID: "rev-id",
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
@@ -3034,13 +3145,19 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
 	c.Assert(revs, mc, []*secrets.SecretRevisionMetadata{{
 		Revision:   1,
+		ValueRef:   nil,
 		CreateTime: createTime,
 		UpdateTime: updateTime,
 		ExpireTime: &expire,
 	}, {
-		Revision:   2,
-		CreateTime: createTime,
-		UpdateTime: createTime,
+		Revision: 2,
+		ValueRef: &secrets.ValueRef{
+			BackendID:  backendID,
+			RevisionID: "rev-id",
+		},
+		BackendName: ptr("myvault"),
+		CreateTime:  createTime,
+		UpdateTime:  createTime,
 	}})
 
 	access, err := newSt.SecretAccess(uri, owner.Tag())
@@ -3054,6 +3171,59 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 		CurrentRevision: 666,
 		LatestRevision:  2,
 	})
+}
+
+func (s *MigrationImportSuite) TestSecretsMissingBackend(c *gc.C) {
+	store := state.NewSecrets(s.State)
+	owner := s.Factory.MakeApplication(c, nil)
+	uri := secrets.NewURI()
+	p := state.CreateSecretParams{
+		Version: 1,
+		Owner:   owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			ValueRef: &secrets.ValueRef{
+				BackendID:  "missing-id",
+				RevisionID: "rev-id",
+			},
+		},
+	}
+	_, err := store.CreateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	out, err := s.State.Export(map[string]string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	uuid := utils.MustNewUUID().String()
+	in := newModel(out, uuid, "new")
+	_, _, err = s.Controller.Import(in)
+	c.Assert(err, gc.ErrorMatches, "secrets: target controller does not have all required secret backends set up")
+}
+
+func (s *MigrationImportSuite) TestDefaultSecretBackend(c *gc.C) {
+	testModel, err := s.State.Export(map[string]string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newConfig := testModel.Config()
+	newConfig["uuid"] = "aabbccdd-1234-8765-abcd-0123456789ab"
+	newConfig["name"] = "something-new"
+	delete(newConfig, "secret-backend")
+	importModel := description.NewModel(description.ModelArgs{
+		Type:           string(state.ModelTypeIAAS),
+		Owner:          testModel.Owner(),
+		Config:         newConfig,
+		EnvironVersion: testModel.EnvironVersion(),
+		Blocks:         testModel.Blocks(),
+		Cloud:          testModel.Cloud(),
+		CloudRegion:    testModel.CloudRegion(),
+	})
+	imported, newSt, err := s.Controller.Import(importModel)
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() { _ = newSt.Close() }()
+
+	importedCfg, err := imported.Config()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedCfg.SecretBackend(), gc.Equals, "auto")
 }
 
 // newModel replaces the uuid and name of the config attributes so we

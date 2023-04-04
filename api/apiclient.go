@@ -35,7 +35,7 @@ import (
 	"gopkg.in/retry.v1"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/charmstore"
+	coremacaroon "github.com/juju/juju/core/macaroon"
 	"github.com/juju/juju/rpc/params"
 
 	"github.com/juju/juju/core/network"
@@ -525,7 +525,7 @@ func (st *state) addCookiesToHeader(h http.Header) error {
 		// logtransfer connection for a migration.)
 		// See https://bugs.launchpad.net/juju/+bug/1650451
 		for _, macaroon := range st.macaroons {
-			cookie, err := httpbakery.NewCookie(charmstore.MacaroonNamespace, macaroon)
+			cookie, err := httpbakery.NewCookie(coremacaroon.MacaroonNamespace, macaroon)
 			if err != nil {
 				return errors.Trace(err)
 			}

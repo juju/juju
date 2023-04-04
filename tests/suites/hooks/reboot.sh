@@ -109,7 +109,7 @@ run_reboot_monitor_state_cleanup() {
 
 	wait_for_subordinate_count "mysql"
 	num_files=$(juju ssh mysql/0 'ls -1 /var/run/juju/reboot-monitor/ | wc -l' 2>/dev/null | tr -d "[:space:]")
-	echo "   | number of monitor state files: ''${num_files}"
+	echo "   | number of monitor state files: ${num_files}"
 	if [ "$num_files" != "1" ]; then
 		# shellcheck disable=SC2046
 		echo $(red "Expected one remaining reboot monitor state file after subordinate removal; got ${num_files}")

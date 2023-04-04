@@ -56,12 +56,13 @@ var sampleConfig = testing.Attrs{
 	"unknown":                    "my-unknown",
 	"ssl-hostname-verification":  true,
 	"development":                false,
-	"default-series":             jujuversion.DefaultSupportedLTS(),
+	"default-base":               jujuversion.DefaultSupportedLTSBase().String(),
 	"disable-network-management": false,
 	"ignore-machine-addresses":   false,
 	"automatically-retry-hooks":  true,
 	"proxy-ssh":                  false,
 	"resource-tags":              []string{},
+	"secret-backend":             "auto",
 }
 
 type configTest struct {
@@ -106,25 +107,25 @@ var configTests = []configTest{
 			"container-image-metadata-url": "container-image-metadata-url-value",
 		}),
 	}, {
-		about:       "Explicit series",
+		about:       "Explicit base",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"default-series": "jammy",
+			"default-base": "ubuntu@20.04",
 		}),
 	}, {
-		about:       "old series",
+		about:       "old base",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"default-series": "bionic",
+			"default-base": "ubuntu@18.04",
 		}),
-		err: `series "bionic" not supported`,
+		err: `base "ubuntu@18.04" not supported`,
 	}, {
-		about:       "bad series",
+		about:       "bad base",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"default-series": "my-series",
+			"default-base": "my-series",
 		}),
-		err: `series "my-series" not supported`,
+		err: `invalid default base "my-series": expected base string to contain os and channel separated by '@'`,
 	}, {
 		about:       "Explicit logging",
 		useDefaults: config.UseDefaults,
@@ -396,6 +397,18 @@ var configTests = []configTest{
 		}),
 		err: `unknown severity level "bar"`,
 	}, {
+		about:       "compatible with older empty, now mandatory",
+		useDefaults: config.NoDefaults,
+		attrs: sampleConfig.Merge(testing.Attrs{
+			"secret-backend": "",
+		}),
+	}, {
+		about:       "compatible with older missing, now mandatory",
+		useDefaults: config.NoDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"resource-tags": []string{},
+		}),
+	}, {
 		about:       "Sample configuration",
 		useDefaults: config.UseDefaults,
 		attrs:       sampleConfig,
@@ -413,6 +426,7 @@ var configTests = []configTest{
 			"authorized-keys":            "ssh-rsa mykeys rog@rog-x220\n",
 			"region":                     "us-east-1",
 			"default-series":             "focal",
+			"default-base":               "ubuntu@20.04",
 			"secret-key":                 "a-secret-key",
 			"access-key":                 "an-access-key",
 			"agent-version":              "1.13.2",
@@ -424,6 +438,7 @@ var configTests = []configTest{
 			"resource-tags":              []string{},
 			"type":                       "ec2",
 			"uuid":                       testing.ModelTag.Id(),
+			"secret-backend":             "auto",
 		},
 	}, {
 		about:       "TestMode flag specified",
@@ -691,14 +706,14 @@ func (test configTest) check(c *gc.C) {
 	dev, _ := test.attrs["development"].(bool)
 	c.Assert(cfg.Development(), gc.Equals, dev)
 
-	seriesAttr, _ := test.attrs["default-series"].(string)
-	defaultSeries, ok := cfg.DefaultSeries()
-	if seriesAttr != "" {
+	baseAttr, _ := test.attrs["default-base"].(string)
+	defaultBase, ok := cfg.DefaultBase()
+	if baseAttr != "" {
 		c.Assert(ok, jc.IsTrue)
-		c.Assert(defaultSeries, gc.Equals, seriesAttr)
+		c.Assert(defaultBase, gc.Equals, baseAttr)
 	} else {
 		c.Assert(ok, jc.IsFalse)
-		c.Assert(defaultSeries, gc.Equals, "")
+		c.Assert(defaultBase, gc.Equals, "")
 	}
 
 	if m, _ := test.attrs["firewall-mode"].(string); m != "" {
@@ -848,13 +863,14 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"firewall-mode":              config.FwInstance,
 		"unknown":                    "my-unknown",
 		"ssl-hostname-verification":  true,
-		"default-series":             jujuversion.DefaultSupportedLTS(),
+		"default-base":               jujuversion.DefaultSupportedLTSBase().String(),
 		"disable-network-management": false,
 		"ignore-machine-addresses":   false,
 		"automatically-retry-hooks":  true,
 		"proxy-ssh":                  false,
 		"development":                false,
 		"test-mode":                  false,
+		"secret-backend":             "auto",
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1601,7 +1617,7 @@ func (s *ConfigSuite) TestTelemetryConfigDoesNotExist(c *gc.C) {
 		"uuid": testing.ModelTag.Id(),
 	}
 
-	cfg, err := config.New(config.NoDefaults, final)
+	cfg, err := config.New(config.UseDefaults, final)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Telemetry(), jc.IsTrue)
 }

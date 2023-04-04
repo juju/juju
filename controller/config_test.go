@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charmrepo/v7/csclient"
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
 	"github.com/juju/romulus"
@@ -731,16 +730,6 @@ func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
 	}
 }
 
-func (s *ConfigSuite) TestCharmstoreURLDefault(c *gc.C) {
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]interface{}{},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg.CharmStoreURL(), gc.Equals, csclient.ServerURL)
-}
-
 func (s *ConfigSuite) TestControllerNameDefault(c *gc.C) {
 	cfg := controller.Config{}
 	c.Check(cfg.ControllerName(), gc.Equals, "")
@@ -756,19 +745,6 @@ func (s *ConfigSuite) TestControllerNameSetGet(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cfg.ControllerName(), gc.Equals, "test")
-}
-
-func (s *ConfigSuite) TestCharmstoreURLSettingValue(c *gc.C) {
-	csURL := "http://homestarrunner.com/charmstore"
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]interface{}{
-			controller.CharmStoreURL: csURL,
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.CharmStoreURL(), gc.Equals, csURL)
 }
 
 func (s *ConfigSuite) TestMeteringURLDefault(c *gc.C) {

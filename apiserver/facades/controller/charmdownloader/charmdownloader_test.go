@@ -8,13 +8,12 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon.v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
@@ -87,12 +86,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsDeploy(c *gc.C) {
 		},
 	}
 
-	mac, err := macaroon.New(nil, []byte("id"), "", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
-	macaroons := macaroon.Slice{mac}
-
 	pendingCharm := mocks.NewMockCharm(ctrl)
-	pendingCharm.EXPECT().Macaroon().Return(macaroons, nil)
 	pendingCharm.EXPECT().URL().Return(charmURL)
 
 	app := mocks.NewMockApplication(ctrl)
@@ -107,7 +101,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsDeploy(c *gc.C) {
 
 	s.authChecker.EXPECT().AuthController().Return(true)
 	s.stateBackend.EXPECT().Application("ufo").Return(app, nil)
-	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, macaroons, false).Return(downloadedOrigin, nil)
+	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, false).Return(downloadedOrigin, nil)
 
 	got, err := s.api.DownloadApplicationCharms(params.Entities{
 		Entities: []params.Entity{
@@ -132,12 +126,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsDeployMultiAppOneCha
 		},
 	}
 
-	mac, err := macaroon.New(nil, []byte("id"), "", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
-	macaroons := macaroon.Slice{mac}
-
 	pendingCharm := mocks.NewMockCharm(ctrl)
-	pendingCharm.EXPECT().Macaroon().Return(macaroons, nil).AnyTimes()
 	pendingCharm.EXPECT().URL().Return(charmURL).AnyTimes()
 
 	appOne := mocks.NewMockApplication(ctrl)
@@ -159,7 +148,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsDeployMultiAppOneCha
 	s.authChecker.EXPECT().AuthController().Return(true)
 	s.stateBackend.EXPECT().Application("ufo").Return(appOne, nil)
 	s.stateBackend.EXPECT().Application("another-ufo").Return(appTwo, nil)
-	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, macaroons, false).Return(downloadedOrigin, nil).AnyTimes()
+	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, false).Return(downloadedOrigin, nil).AnyTimes()
 
 	got, err := s.api.DownloadApplicationCharms(params.Entities{
 		Entities: []params.Entity{
@@ -188,12 +177,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsRefresh(c *gc.C) {
 		},
 	}
 
-	mac, err := macaroon.New(nil, []byte("id"), "", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
-	macaroons := macaroon.Slice{mac}
-
 	pendingCharm := mocks.NewMockCharm(ctrl)
-	pendingCharm.EXPECT().Macaroon().Return(macaroons, nil)
 	pendingCharm.EXPECT().URL().Return(charmURL)
 
 	app := mocks.NewMockApplication(ctrl)
@@ -207,7 +191,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsRefresh(c *gc.C) {
 
 	s.authChecker.EXPECT().AuthController().Return(true)
 	s.stateBackend.EXPECT().Application("ufo").Return(app, nil)
-	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, macaroons, false).Return(downloadedOrigin, nil)
+	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, false).Return(downloadedOrigin, nil)
 
 	got, err := s.api.DownloadApplicationCharms(params.Entities{
 		Entities: []params.Entity{
@@ -232,12 +216,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsSetStatusIfDownloadF
 		},
 	}
 
-	mac, err := macaroon.New(nil, []byte("id"), "", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
-	macaroons := macaroon.Slice{mac}
-
 	pendingCharm := mocks.NewMockCharm(ctrl)
-	pendingCharm.EXPECT().Macaroon().Return(macaroons, nil)
 	pendingCharm.EXPECT().URL().Return(charmURL)
 
 	app := mocks.NewMockApplication(ctrl)
@@ -247,7 +226,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsSetStatusIfDownloadF
 
 	s.authChecker.EXPECT().AuthController().Return(true)
 	s.stateBackend.EXPECT().Application("ufo").Return(app, nil)
-	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, macaroons, false).Return(corecharm.Origin{}, errors.NotFoundf("charm"))
+	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, false).Return(corecharm.Origin{}, errors.NotFoundf("charm"))
 
 	got, err := s.api.DownloadApplicationCharms(params.Entities{
 		Entities: []params.Entity{

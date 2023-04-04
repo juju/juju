@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v4"
 	"github.com/juju/naturalsort"
@@ -242,14 +242,11 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 		// but if we do, don't crash.
 		logger.Errorf("failed to parse charm: %v", err)
 	} else {
-		switch curl.Schema {
-		case "ch":
+		switch {
+		case charm.CharmHub.Matches(curl.Schema):
 			charmOrigin = "charmhub"
 			charmAlias = curl.Name
-		case "cs":
-			charmOrigin = "charmstore"
-			charmAlias = application.Charm
-		case "local":
+		case charm.Local.Matches(curl.Schema):
 			charmOrigin = "local"
 			charmAlias = application.Charm
 		default:

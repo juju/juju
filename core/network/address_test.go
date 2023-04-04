@@ -1138,3 +1138,93 @@ func (s *AddressSuite) TestConvertToSpaceAddresses(c *gc.C) {
 		},
 	})
 }
+
+type testFindSubnetAddr struct {
+	val string
+}
+
+func (a testFindSubnetAddr) Network() string {
+	return "ip+net"
+}
+
+func (a testFindSubnetAddr) String() string {
+	return a.val
+}
+
+func testAddresses(c *gc.C, networks ...string) ([]net.Addr, error) {
+	addrs := make([]net.Addr, 0)
+	for _, n := range networks {
+		_, _, err := net.ParseCIDR(n)
+		if err != nil {
+			return nil, err
+		}
+		c.Assert(err, gc.IsNil)
+		addrs = append(addrs, testFindSubnetAddr{n})
+	}
+	return addrs, nil
+}
+
+func (s *AddressSuite) TestIsLocalAddress(c *gc.C) {
+
+	tests := []struct {
+		descr            string
+		ip               net.IP
+		ifaceAddrsResult []string
+		ifaceAddrsErr    error
+		expected         bool
+		expectedErr      string
+	}{
+		{
+			descr:         "error returned from net.InterfaceAddrs()",
+			ifaceAddrsErr: errors.New("interface addrs - some error"),
+			expectedErr:   "interface addrs - some error",
+			expected:      false,
+		},
+		{
+			descr:            "IPv4 is local",
+			ifaceAddrsResult: []string{"192.168.0.0/16"},
+			ip:               net.IPv4(192, 168, 0, 0),
+			expected:         true,
+		},
+		{
+			descr:            "IPv4 is not local",
+			ifaceAddrsResult: []string{"192.168.0.0/16"},
+			ip:               net.IPv4(8, 8, 8, 8),
+			expected:         false,
+		},
+		{
+			descr:            "IPv6 is local",
+			ifaceAddrsResult: []string{"fc00::/7"},
+			ip:               net.ParseIP("fc00::0"),
+			expected:         true,
+		},
+		{
+			descr:            "IPv6 is not local",
+			ifaceAddrsResult: []string{"fc00::/7"},
+			ip:               net.ParseIP("2606::1"),
+			expected:         false,
+		},
+	}
+
+	for i, tt := range tests {
+		c.Logf("Test %d: %s", i, tt.descr)
+
+		s.PatchValue(&network.InterfaceAddrs, func() ([]net.Addr, error) {
+			if tt.ifaceAddrsErr != nil {
+				return []net.Addr{}, tt.ifaceAddrsErr
+			}
+			return testAddresses(c, tt.ifaceAddrsResult...)
+		})
+		isLocal, err := network.IsLocalAddress(tt.ip)
+		if err != nil {
+			c.Check(err, gc.ErrorMatches, tt.expectedErr)
+			// when err is returned, isLocal is false
+			c.Check(isLocal, gc.Equals, false)
+			continue
+		}
+		c.Check(err, jc.ErrorIsNil)
+		c.Check("", gc.Equals, tt.expectedErr)
+
+		c.Check(isLocal, gc.Equals, tt.expected)
+	}
+}

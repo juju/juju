@@ -26,6 +26,7 @@ type Backend interface {
 	SpaceByName(string) error
 	SetModelConstraints(value constraints.Value) error
 	ModelConstraints() (constraints.Value, error)
+	GetSecretBackend(string) error
 }
 
 type stateShim struct {
@@ -52,6 +53,12 @@ func (st stateShim) ModelTag() names.ModelTag {
 
 func (st stateShim) SpaceByName(name string) error {
 	_, err := st.State.SpaceByName(name)
+	return err
+}
+
+func (st stateShim) GetSecretBackend(name string) error {
+	backends := state.NewSecretBackends(st.State)
+	_, err := backends.GetSecretBackend(name)
 	return err
 }
 

@@ -189,6 +189,7 @@ func ModelMachineInfo(st ModelManagerBackend) (machineInfo []params.ModelMachine
 				CpuPower:         hw.CpuPower,
 				Tags:             hw.Tags,
 				AvailabilityZone: hw.AvailabilityZone,
+				VirtType:         hw.VirtType,
 			}
 			mInfo.Hardware = hwParams
 		}

@@ -39,7 +39,7 @@ run_deploy_ck() {
 	juju --show-log run "$integrator_app_name/leader" --wait=10m purge-subnet-tags
 }
 
-# Ensure that a CAAS workload (mariadb+mediawiki) deploys successfully,
+# Ensure that a CAAS workload deploys successfully,
 # and that we can relate the two applications once it has.
 run_deploy_caas_workload() {
 	echo
@@ -75,7 +75,6 @@ test_deploy_ck() {
 
 	(
 		set_verbosity
-
 		cd .. || exit
 
 		run "run_deploy_ck"

@@ -1,6 +1,8 @@
 name: "Upgrade"
 on:
   push:
+    branches-ignore:
+      - 'develop'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -8,6 +10,9 @@ on:
       - 'go.mod'
       - 'snap/**'
       - '.github/workflows/upgrade.yml'
+      - '.github/setup-lxd/**'
+    branches-ignore:
+      - 'develop'
   workflow_dispatch:
 
 permissions:
@@ -39,7 +44,7 @@ jobs:
           set -euxo pipefail
           sudo snap install snapcraft --classic
           sudo snap install yq
-          sudo snap install juju --channel=3.0/stable
+          sudo snap install juju --channel=3.1/stable
           mkdir -p ~/.local/share
           echo "/snap/bin" >> $GITHUB_PATH
 

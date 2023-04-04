@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// TODO(benhoyt) - also add caching and retries, like we do with charmstore
+// TODO(benhoyt) - also add caching and retries
 
 package charmrevisionupdater
 
@@ -9,7 +9,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/charm/v9/resource"
+	"github.com/juju/charm/v10/resource"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/charmhub"

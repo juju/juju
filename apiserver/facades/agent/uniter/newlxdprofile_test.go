@@ -5,7 +5,7 @@ package uniter_test
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -100,8 +100,8 @@ func (s *newLxdProfileSuite) TestLXDProfileRequired(c *gc.C) {
 
 	args := params.CharmURLs{
 		URLs: []params.CharmURL{
-			{URL: "cs:mysql-1"},
-			{URL: "cs:testme-3"},
+			{URL: "ch:mysql-1"},
+			{URL: "ch:testme-3"},
 		},
 	}
 
@@ -111,7 +111,7 @@ func (s *newLxdProfileSuite) TestLXDProfileRequired(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
 			{Result: true, Error: nil},
-			{Result: false, Error: &params.Error{Message: "cs:testme-3 not found", Code: "not found"}},
+			{Result: false, Error: &params.Error{Message: "ch:testme-3 not found", Code: "not found"}},
 		},
 	})
 }
@@ -269,10 +269,10 @@ func (s *newLxdProfileSuite) expectOneLXDProfileName() {
 }
 
 func (s *newLxdProfileSuite) expectOneLXDProfileRequired() {
-	s.backend.EXPECT().Charm(charm.MustParseURL("cs:mysql-1")).Return(s.charm, nil)
+	s.backend.EXPECT().Charm(charm.MustParseURL("ch:mysql-1")).Return(s.charm, nil)
 	s.charm.EXPECT().LXDProfile().Return(lxdprofile.Profile{Config: map[string]string{"one": "two"}})
 
-	s.backend.EXPECT().Charm(charm.MustParseURL("cs:testme-3")).Return(nil, errors.NotFoundf("cs:testme-3"))
+	s.backend.EXPECT().Charm(charm.MustParseURL("ch:testme-3")).Return(nil, errors.NotFoundf("ch:testme-3"))
 }
 
 func (s *newLxdProfileSuite) expectModel() {
@@ -289,9 +289,10 @@ func (s *newLxdProfileSuite) expectModelTypeCAAS() {
 
 func (s *newLxdProfileSuite) expectProviderType(c *gc.C, pType string) {
 	attrs := map[string]interface{}{
-		config.TypeKey: pType,
-		config.NameKey: "testmodel",
-		config.UUIDKey: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		config.TypeKey:          pType,
+		config.NameKey:          "testmodel",
+		config.UUIDKey:          "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		config.SecretBackendKey: "auto",
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)

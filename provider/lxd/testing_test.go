@@ -421,7 +421,7 @@ func (conn *StubClient) CreateContainerFromSpec(spec lxd.ContainerSpec) (*lxd.Co
 }
 
 func (conn *StubClient) FindImage(
-	base series.Base, arch string, sources []lxd.ServerSpec, copyLocal bool, callback environs.StatusCallbackFunc,
+	base series.Base, arch string, virtType instance.VirtType, sources []lxd.ServerSpec, copyLocal bool, callback environs.StatusCallbackFunc,
 ) (lxd.SourcedImage, error) {
 	conn.AddCall("FindImage", base.DisplayString(), arch)
 	if err := conn.NextErr(); err != nil {
@@ -739,7 +739,7 @@ type EnvironSuite struct {
 	testing.BaseSuite
 }
 
-func (s *EnvironSuite) NewEnviron(c *gc.C, srv Server, cfgEdit map[string]interface{}) environs.Environ {
+func (s *EnvironSuite) NewEnviron(c *gc.C, srv Server, cfgEdit map[string]interface{}, cloudSpec environscloudspec.CloudSpec) environs.Environ {
 	cfg, err := testing.ModelConfig(c).Apply(ConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -759,6 +759,7 @@ func (s *EnvironSuite) NewEnviron(c *gc.C, srv Server, cfgEdit map[string]interf
 		serverUnlocked: srv,
 		ecfgUnlocked:   eCfg,
 		namespace:      namespace,
+		cloud:          cloudSpec,
 	}
 }
 

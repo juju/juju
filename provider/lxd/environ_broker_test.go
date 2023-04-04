@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/series"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/lxd"
 )
@@ -92,14 +93,14 @@ func (s *environBrokerSuite) TestStartInstanceDefaultNIC(c *gc.C) {
 	exp := svr.EXPECT()
 	gomock.InOrder(
 		exp.HostArch().Return(arch.AMD64),
-		exp.FindImage(series.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.FindImage(series.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
 		exp.HostArch().Return(arch.AMD64),
 	)
 
-	env := s.NewEnviron(c, svr, nil)
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
 	_, err := env.StartInstance(s.callCtx, s.GetStartInstanceArgs(c))
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -131,14 +132,14 @@ func (s *environBrokerSuite) TestStartInstanceNonDefaultNIC(c *gc.C) {
 	exp := svr.EXPECT()
 	gomock.InOrder(
 		exp.HostArch().Return(arch.AMD64),
-		exp.FindImage(series.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.FindImage(series.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(nics, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
 		exp.HostArch().Return(arch.AMD64),
 	)
 
-	env := s.NewEnviron(c, svr, nil)
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
 	_, err := env.StartInstance(s.callCtx, s.GetStartInstanceArgs(c))
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -203,14 +204,14 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *gc.C) {
 	exp := svr.EXPECT()
 	gomock.InOrder(
 		exp.HostArch().Return(arch.AMD64),
-		exp.FindImage(series.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.FindImage(series.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(profileNICs, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
 		exp.HostArch().Return(arch.AMD64),
 	)
 
-	env := s.NewEnviron(c, svr, nil)
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
 	startArgs := s.GetStartInstanceArgs(c)
 	startArgs.SubnetsToZones = []map[network.Id][]string{
 		// The following are bogus subnet names that shouldn't
@@ -285,7 +286,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *gc.C) {
 	tExp.UpdateInstanceState(gomock.Any(), gomock.Any(), "").Return(startOp, nil)
 	tExp.GetInstance(gomock.Any()).Return(&api.Instance{Type: "container"}, lxdtesting.ETag, nil)
 
-	env := s.NewEnviron(c, svr, nil)
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
 
 	args := s.GetStartInstanceArgs(c)
 	args.Placement = "zone=node01"
@@ -311,7 +312,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotPresent(c *gc.C) {
 		sExp.GetClusterMembers().Return(members, nil),
 	)
 
-	env := s.NewEnviron(c, svr, nil)
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
 
 	args := s.GetStartInstanceArgs(c)
 	args.Placement = "zone=node03"
@@ -337,7 +338,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotAvailable(c *gc.C)
 		sExp.GetClusterMembers().Return(members, nil),
 	)
 
-	env := s.NewEnviron(c, svr, nil)
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
 
 	args := s.GetStartInstanceArgs(c)
 	args.Placement = "zone=node01"
@@ -355,7 +356,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementBadArgument(c *gc.C) 
 	gomock.InOrder(
 		sExp.HostArch().Return(arch.AMD64),
 	)
-	env := s.NewEnviron(c, svr, nil)
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
 
 	args := s.GetStartInstanceArgs(c)
 	args.Placement = "breakfast=eggs"
@@ -384,7 +385,7 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *gc.C) {
 	exp := svr.EXPECT()
 	gomock.InOrder(
 		exp.HostArch().Return(arch.AMD64),
-		exp.FindImage(series.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.FindImage(series.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
@@ -401,7 +402,49 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *gc.C) {
 		InstanceType: &it,
 	}
 
-	env := s.NewEnviron(c, svr, nil)
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
+	_, err := env.StartInstance(s.callCtx, args)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *environBrokerSuite) TestStartInstanceWithConstraintsAndVirtType(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	svr := lxd.NewMockServer(ctrl)
+
+	// Check that the constraints were passed through to spec.Config.
+	check := func(spec containerlxd.ContainerSpec) bool {
+		cfg := spec.Config
+		if cfg["limits.cpu"] != "2" {
+			return false
+		}
+		if cfg["limits.memory"] != "2048MiB" {
+			return false
+		}
+		return spec.InstanceType == "t2.micro" && spec.VirtType == api.InstanceTypeVM
+	}
+
+	exp := svr.EXPECT()
+	exp.HostArch().Return(arch.AMD64)
+	exp.FindImage(series.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, api.InstanceTypeVM, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil)
+	exp.ServerVersion().Return("3.10.0")
+	exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil)
+	exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil)
+	exp.HostArch().Return(arch.AMD64)
+
+	args := s.GetStartInstanceArgs(c)
+	cores := uint64(2)
+	mem := uint64(2048)
+	it := "t2.micro"
+	virtType := string(api.InstanceTypeVM)
+	args.Constraints = constraints.Value{
+		CpuCores:     &cores,
+		Mem:          &mem,
+		InstanceType: &it,
+		VirtType:     &virtType,
+	}
+
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
 	_, err := env.StartInstance(s.callCtx, args)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -429,7 +472,7 @@ func (s *environBrokerSuite) TestStartInstanceWithCharmLXDProfile(c *gc.C) {
 	exp := svr.EXPECT()
 	gomock.InOrder(
 		exp.HostArch().Return(arch.AMD64),
-		exp.FindImage(series.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.FindImage(series.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
@@ -439,7 +482,7 @@ func (s *environBrokerSuite) TestStartInstanceWithCharmLXDProfile(c *gc.C) {
 	args := s.GetStartInstanceArgs(c)
 	args.CharmLXDProfiles = []string{"juju-model-test-0"}
 
-	env := s.NewEnviron(c, svr, nil)
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
 	_, err := env.StartInstance(s.callCtx, args)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -452,7 +495,7 @@ func (s *environBrokerSuite) TestStartInstanceNoTools(c *gc.C) {
 	exp := svr.EXPECT()
 	exp.HostArch().Return(arch.PPC64EL)
 
-	env := s.NewEnviron(c, svr, nil)
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
 	_, err := env.StartInstance(s.callCtx, s.GetStartInstanceArgs(c))
 	c.Assert(err, gc.ErrorMatches, "no matching agent binaries available")
 }
@@ -466,13 +509,13 @@ func (s *environBrokerSuite) TestStartInstanceInvalidCredentials(c *gc.C) {
 	exp := svr.EXPECT()
 	gomock.InOrder(
 		exp.HostArch().Return(arch.AMD64),
-		exp.FindImage(series.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.FindImage(series.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		exp.CreateContainerFromSpec(gomock.Any()).Return(&containerlxd.Container{}, fmt.Errorf("not authorized")),
 	)
 
-	env := s.NewEnviron(c, svr, nil)
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
 	_, err := env.StartInstance(s.callCtx, s.GetStartInstanceArgs(c))
 	c.Assert(err, gc.ErrorMatches, "not authorized")
 	c.Assert(s.invalidCredential, jc.IsTrue)
@@ -485,7 +528,7 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 
 	svr.EXPECT().RemoveContainers([]string{"juju-f75cba-1", "juju-f75cba-2"})
 
-	env := s.NewEnviron(c, svr, nil)
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
 	err := env.StopInstances(s.callCtx, "juju-f75cba-1", "juju-f75cba-2", "not-in-namespace-so-ignored")
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -498,7 +541,7 @@ func (s *environBrokerSuite) TestStopInstancesInvalidCredentials(c *gc.C) {
 
 	svr.EXPECT().RemoveContainers([]string{"juju-f75cba-1", "juju-f75cba-2"}).Return(fmt.Errorf("not authorized"))
 
-	env := s.NewEnviron(c, svr, nil)
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
 	err := env.StopInstances(s.callCtx, "juju-f75cba-1", "juju-f75cba-2", "not-in-namespace-so-ignored")
 	c.Assert(err, gc.ErrorMatches, "not authorized")
 	c.Assert(s.invalidCredential, jc.IsTrue)
@@ -509,7 +552,7 @@ func (s *environBrokerSuite) TestImageSourcesDefault(c *gc.C) {
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
 
-	sources, err := lxd.GetImageSources(s.NewEnviron(c, svr, nil))
+	sources, err := lxd.GetImageSources(s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkSources(c, sources, []string{
@@ -525,7 +568,7 @@ func (s *environBrokerSuite) TestImageMetadataURL(c *gc.C) {
 
 	env := s.NewEnviron(c, svr, map[string]interface{}{
 		"image-metadata-url": "https://my-test.com/images/",
-	})
+	}, environscloudspec.CloudSpec{})
 
 	sources, err := lxd.GetImageSources(env)
 	c.Assert(err, jc.ErrorIsNil)
@@ -545,7 +588,7 @@ func (s *environBrokerSuite) TestImageMetadataURLEnsuresHTTPS(c *gc.C) {
 	// HTTP should be converted to HTTPS.
 	env := s.NewEnviron(c, svr, map[string]interface{}{
 		"image-metadata-url": "http://my-test.com/images/",
-	})
+	}, environscloudspec.CloudSpec{})
 
 	sources, err := lxd.GetImageSources(env)
 	c.Assert(err, jc.ErrorIsNil)
@@ -564,7 +607,7 @@ func (s *environBrokerSuite) TestImageStreamReleased(c *gc.C) {
 
 	env := s.NewEnviron(c, svr, map[string]interface{}{
 		"image-stream": "released",
-	})
+	}, environscloudspec.CloudSpec{})
 
 	sources, err := lxd.GetImageSources(env)
 	c.Assert(err, jc.ErrorIsNil)
@@ -582,7 +625,7 @@ func (s *environBrokerSuite) TestImageStreamDaily(c *gc.C) {
 
 	env := s.NewEnviron(c, svr, map[string]interface{}{
 		"image-stream": "daily",
-	})
+	}, environscloudspec.CloudSpec{})
 
 	sources, err := lxd.GetImageSources(env)
 	c.Assert(err, jc.ErrorIsNil)

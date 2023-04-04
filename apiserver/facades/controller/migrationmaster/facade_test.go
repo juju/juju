@@ -317,7 +317,7 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 
 	app := s.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("foo"),
-		CharmURL: "cs:foo-0",
+		CharmURL: "ch:foo-0",
 	})
 
 	const tools0 = "2.0.0-ubuntu-amd64"
@@ -383,7 +383,7 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 	// is in the serialised output.
 	c.Check(string(serialized.Bytes), jc.Contains, jujuversion.Current.String())
 
-	c.Check(serialized.Charms, gc.DeepEquals, []string{"cs:foo-0"})
+	c.Check(serialized.Charms, gc.DeepEquals, []string{"ch:foo-0"})
 	if modelType == "caas" {
 		c.Check(serialized.Tools, gc.HasLen, 0)
 	} else {

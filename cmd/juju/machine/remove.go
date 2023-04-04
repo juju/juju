@@ -114,7 +114,6 @@ func (c *removeCommand) Init(args []string) error {
 	if !c.Force && c.NoWait {
 		return errors.NotValidf("--no-wait without --force")
 	}
-
 	c.MachineIds = args
 	return nil
 }

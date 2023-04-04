@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
+	_ "github.com/juju/juju/secrets/provider/all"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -41,8 +42,16 @@ func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, modelName str
 
 	st := newMockState(names.NewUserTag("admin"), modelName, isSystem)
 	s.secrets = &mockSecrets{}
-	api, err := undertaker.NewUndertaker(st, nil, authorizer, func() (provider.SecretBackendProvider, provider.Model, error) {
-		return s.secrets, st.model, nil
+	s.PatchValue(&undertaker.GetProvider, func(string) (provider.SecretBackendProvider, error) { return s.secrets, nil })
+
+	api, err := undertaker.NewUndertaker(st, nil, authorizer, func() (*provider.ModelBackendConfigInfo, error) {
+		return &provider.ModelBackendConfigInfo{
+			ModelUUID: "9d3d3b19-2b0c-4a3f-acde-0b1645586a72",
+			Configs: map[string]provider.BackendConfig{
+				"backend-id": {
+					BackendType: "some-backend",
+				}},
+		}, nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return st, api
@@ -58,8 +67,8 @@ func (s *undertakerSuite) TestNoPerms(c *gc.C) {
 		_, err := undertaker.NewUndertaker(
 			st,
 			nil,
-			authorizer, func() (provider.SecretBackendProvider, provider.Model, error) {
-				return nil, nil, errors.NotImplemented
+			authorizer, func() (*provider.ModelBackendConfigInfo, error) {
+				return nil, errors.NotImplemented
 			},
 		)
 		c.Assert(err, gc.ErrorMatches, "permission denied")

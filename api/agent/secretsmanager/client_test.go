@@ -37,26 +37,40 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *SecretsSuite) TestGetSecretStoreConfig(c *gc.C) {
+func (s *SecretsSuite) TestGetSecretBackendConfig(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "SecretsManager")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "GetSecretStoreConfig")
+		c.Check(request, gc.Equals, "GetSecretBackendConfig")
 		c.Check(arg, gc.IsNil)
-		c.Assert(result, gc.FitsTypeOf, &params.SecretStoreConfig{})
-		*(result.(*params.SecretStoreConfig)) = params.SecretStoreConfig{
-			StoreType: "juju",
-			Params:    map[string]interface{}{"foo": "bar"},
+		c.Assert(result, gc.FitsTypeOf, &params.SecretBackendConfigResults{})
+		*(result.(*params.SecretBackendConfigResults)) = params.SecretBackendConfigResults{
+			ControllerUUID: coretesting.ControllerTag.Id(),
+			ModelUUID:      coretesting.ModelTag.Id(),
+			ModelName:      "fred",
+			Configs: map[string]params.SecretBackendConfig{
+				"some-id": {
+					BackendType: "controller",
+					Params:      map[string]interface{}{"foo": "bar"},
+				},
+			},
 		}
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
 	result, err := client.GetSecretBackendConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, &provider.BackendConfig{
-		BackendType: "juju",
-		Config:      map[string]interface{}{"foo": "bar"},
+	c.Assert(result, jc.DeepEquals, &provider.ModelBackendConfigInfo{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		Configs: map[string]provider.BackendConfig{
+			"some-id": {
+				BackendType: "controller",
+				Config:      map[string]interface{}{"foo": "bar"},
+			},
+		},
 	})
 }
 
@@ -161,6 +175,49 @@ func (s *SecretsSuite) TestGetContentInfoError(c *gc.C) {
 	c.Assert(result, gc.IsNil)
 }
 
+func (s *SecretsSuite) TestGetRevisionContentInfo(c *gc.C) {
+	uri := coresecrets.NewURI()
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SecretsManager")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "GetSecretRevisionContentInfo")
+		c.Check(arg, jc.DeepEquals, params.SecretRevisionArg{
+			URI:           uri.String(),
+			Revisions:     []int{666},
+			PendingDelete: true,
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
+		*(result.(*params.SecretContentResults)) = params.SecretContentResults{
+			[]params.SecretContentResult{{
+				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
+			}},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	result, err := client.GetRevisionContentInfo(uri, 666, true)
+	c.Assert(err, jc.ErrorIsNil)
+	value := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
+	c.Assert(result, jc.DeepEquals, &secrets.ContentParams{SecretValue: value})
+}
+
+func (s *SecretsSuite) TestGetRevisionContentInfoError(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		*(result.(*params.SecretContentResults)) = params.SecretContentResults{
+			[]params.SecretContentResult{{
+				Error: &params.Error{Message: "boom"},
+			}},
+		}
+		return nil
+	})
+	uri := coresecrets.NewURI()
+	client := secretsmanager.NewClient(apiCaller)
+	result, err := client.GetRevisionContentInfo(uri, 666, true)
+	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(result, gc.IsNil)
+}
+
 func (s *SecretsSuite) TestGetSecretMetadata(c *gc.C) {
 	uri := coresecrets.NewURI()
 	now := time.Now()
@@ -178,12 +235,15 @@ func (s *SecretsSuite) TestGetSecretMetadata(c *gc.C) {
 				URI:              uri.String(),
 				OwnerTag:         "application-mariadb",
 				Label:            "label",
-				LatestRevision:   666,
+				LatestRevision:   667,
 				NextRotateTime:   &now,
 				LatestExpireTime: &now,
 				Revisions: []params.SecretRevision{{
-					Revision:  666,
-					BackendId: ptr("backend-id"),
+					Revision: 666,
+					ValueRef: &params.SecretValueRef{
+						BackendID:  "backend-id",
+						RevisionID: "rev-id",
+					},
 				}, {
 					Revision: 667,
 				}},
@@ -201,10 +261,10 @@ func (s *SecretsSuite) TestGetSecretMetadata(c *gc.C) {
 		c.Assert(info.Metadata.URI.String(), gc.Equals, uri.String())
 		c.Assert(info.Metadata.OwnerTag, gc.Equals, "application-mariadb")
 		c.Assert(info.Metadata.Label, gc.Equals, "label")
-		c.Assert(info.Metadata.LatestRevision, gc.Equals, 666)
+		c.Assert(info.Metadata.LatestRevision, gc.Equals, 667)
 		c.Assert(info.Metadata.LatestExpireTime, gc.Equals, &now)
 		c.Assert(info.Metadata.NextRotateTime, gc.Equals, &now)
-		c.Assert(info.BackendIds, jc.DeepEquals, map[int]string{666: "backend-id"})
+		c.Assert(info.Revisions, jc.DeepEquals, []int{666, 667})
 	}
 }
 

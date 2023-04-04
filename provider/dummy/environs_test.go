@@ -145,9 +145,9 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 				Type:      "dummy",
 				AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 			},
-			AdminSecret:              AdminSecret,
-			CAPrivateKey:             testing.CAKey,
-			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
+			AdminSecret:             AdminSecret,
+			CAPrivateKey:            testing.CAKey,
+			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	return netenv

@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/version"
@@ -97,13 +98,39 @@ func (s *environPolicySuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `availability zone "a-zone" not valid`)
 }
 
-func (s *environPolicySuite) TestConstraintsValidatorOkay(c *gc.C) {
+func (s *environPolicySuite) TestConstraintsValidatorArch(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	validator, err := s.env.ConstraintsValidator(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64")
+	unsupported, err := validator.Validate(cons)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(unsupported, gc.HasLen, 0)
+}
+
+func (s *environPolicySuite) TestConstraintsValidatorVirtType(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	validator, err := s.env.ConstraintsValidator(s.callCtx)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons := constraints.MustParse("virt-type=container")
+	unsupported, err := validator.Validate(cons)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(unsupported, gc.HasLen, 0)
+}
+
+func (s *environPolicySuite) TestConstraintsValidatorEmptyVirtType(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	validator, err := s.env.ConstraintsValidator(s.callCtx)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons := constraints.MustParse("virt-type=")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -135,7 +162,7 @@ func (s *environPolicySuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 		"instance-type=some-type",
 		"cores=2",
 		"cpu-power=250",
-		"virt-type=kvm",
+		"virt-type=virtual-machine",
 	}, " "))
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
@@ -143,7 +170,6 @@ func (s *environPolicySuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	expected := []string{
 		"tags",
 		"cpu-power",
-		"virt-type",
 	}
 	c.Check(unsupported, jc.SameContents, expected)
 }
@@ -218,7 +244,7 @@ func (s *environPolicySuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.svr = lxd.NewMockServer(ctrl)
 	s.svr.EXPECT().SupportedArches().Return([]string{arch.AMD64}).MaxTimes(1)
 
-	s.env = s.NewEnviron(c, s.svr, nil)
+	s.env = s.NewEnviron(c, s.svr, nil, environscloudspec.CloudSpec{})
 
 	return ctrl
 }

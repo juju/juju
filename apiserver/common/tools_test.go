@@ -80,6 +80,7 @@ func (s *getToolsSuite) TestTools(c *gc.C) {
 		"type":                 "some-type",
 		"uuid":                 coretesting.ModelTag.Id(),
 		config.AgentVersionKey: current.Number.String(),
+		"secret-backend":       "auto",
 	}
 	cfg, err := config.New(config.NoDefaults, configAttrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -133,6 +134,7 @@ func (s *getToolsSuite) TestOSTools(c *gc.C) {
 		"type":                 "some-type",
 		"uuid":                 coretesting.ModelTag.Id(),
 		config.AgentVersionKey: currentCopy.Number.String(),
+		"secret-backend":       "auto",
 	}
 	cfg, err := config.New(config.NoDefaults, configAttrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -313,7 +315,7 @@ func (s *findToolsSuite) expectBootstrapEnvironConfig(c *gc.C) {
 		"type":                 "some-type",
 		"uuid":                 coretesting.ModelTag.Id(),
 		config.AgentVersionKey: current.Number.String(),
-		"development":          false,
+		"secret-backend":       "auto",
 	}
 	cfg, err := config.New(config.NoDefaults, configAttrs)
 	c.Assert(err, jc.ErrorIsNil)

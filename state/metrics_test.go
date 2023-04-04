@@ -27,7 +27,7 @@ var _ = gc.Suite(&MetricSuite{})
 
 func (s *MetricSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.meteredCharm = s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered-1"})
+	s.meteredCharm = s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:quantal/metered-1"})
 	s.application = s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: s.meteredCharm})
 	s.unit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.application, SetCharmURL: true})
 }
@@ -75,7 +75,7 @@ func (s *MetricSuite) TestAddMetric(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatch.Unit(), gc.Equals, "metered/0")
 	c.Assert(metricBatch.ModelUUID(), gc.Equals, modelUUID)
-	c.Assert(metricBatch.CharmURL(), gc.Equals, "cs:quantal/metered-1")
+	c.Assert(metricBatch.CharmURL(), gc.Equals, "ch:quantal/metered-1")
 	c.Assert(metricBatch.Sent(), jc.IsFalse)
 	c.Assert(metricBatch.Created(), gc.Equals, now)
 	c.Assert(metricBatch.Metrics(), gc.HasLen, 2)
@@ -93,7 +93,7 @@ func (s *MetricSuite) TestAddMetric(c *gc.C) {
 	saved, err := s.State.MetricBatch(metricBatch.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(saved.Unit(), gc.Equals, "metered/0")
-	c.Assert(metricBatch.CharmURL(), gc.Equals, "cs:quantal/metered-1")
+	c.Assert(metricBatch.CharmURL(), gc.Equals, "ch:quantal/metered-1")
 	c.Assert(saved.Sent(), jc.IsFalse)
 	c.Assert(saved.Metrics(), gc.HasLen, 2)
 	metric = saved.Metrics()[0]
@@ -131,7 +131,7 @@ func (s *MetricSuite) TestAddMetricOrderedLabels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatch.Unit(), gc.Equals, "metered/0")
 	c.Assert(metricBatch.ModelUUID(), gc.Equals, modelUUID)
-	c.Assert(metricBatch.CharmURL(), gc.Equals, "cs:quantal/metered-1")
+	c.Assert(metricBatch.CharmURL(), gc.Equals, "ch:quantal/metered-1")
 	c.Assert(metricBatch.Sent(), jc.IsFalse)
 	c.Assert(metricBatch.Created(), gc.Equals, now)
 	uniqueMetrics := metricBatch.UniqueMetrics()
@@ -367,7 +367,7 @@ func (s *MetricSuite) TestAllMetricBatches(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatches, gc.HasLen, 1)
 	c.Assert(metricBatches[0].Unit(), gc.Equals, "metered/0")
-	c.Assert(metricBatches[0].CharmURL(), gc.Equals, "cs:quantal/metered-1")
+	c.Assert(metricBatches[0].CharmURL(), gc.Equals, "ch:quantal/metered-1")
 	c.Assert(metricBatches[0].Sent(), jc.IsFalse)
 	c.Assert(metricBatches[0].Metrics(), gc.HasLen, 1)
 }
@@ -376,7 +376,7 @@ func (s *MetricSuite) TestAllMetricBatchesCustomCharmURLAndUUID(c *gc.C) {
 	now := state.NowToTheSecond(s.State)
 	m := state.Metric{Key: "pings", Value: "5", Time: now}
 	uuid := utils.MustNewUUID().String()
-	charmURL := "cs:quantal/metered-1"
+	charmURL := "ch:quantal/metered-1"
 	_, err := s.State.AddMetrics(
 		state.BatchParam{
 			UUID:     uuid,
@@ -635,7 +635,7 @@ func (s *MetricSuite) TestAddBuiltInMetric(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(metricBatch.Unit(), gc.Equals, "metered/0")
 			c.Assert(metricBatch.ModelUUID(), gc.Equals, modelUUID)
-			c.Assert(metricBatch.CharmURL(), gc.Equals, "cs:quantal/metered-1")
+			c.Assert(metricBatch.CharmURL(), gc.Equals, "ch:quantal/metered-1")
 			c.Assert(metricBatch.Sent(), jc.IsFalse)
 			c.Assert(metricBatch.Created(), gc.Equals, now)
 			c.Assert(metricBatch.Metrics(), gc.HasLen, 1)
@@ -648,7 +648,7 @@ func (s *MetricSuite) TestAddBuiltInMetric(c *gc.C) {
 			saved, err := s.State.MetricBatch(metricBatch.UUID())
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(saved.Unit(), gc.Equals, "metered/0")
-			c.Assert(metricBatch.CharmURL(), gc.Equals, "cs:quantal/metered-1")
+			c.Assert(metricBatch.CharmURL(), gc.Equals, "ch:quantal/metered-1")
 			c.Assert(saved.Sent(), jc.IsFalse)
 			c.Assert(saved.Metrics(), gc.HasLen, 1)
 			metric = saved.Metrics()[0]
@@ -844,7 +844,7 @@ func (s *MetricLocalCharmSuite) TestModelMetricBatches(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
-	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered-1"})
+	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:quantal/metered-1"})
 	application := f.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
 	unit := f.MakeUnit(c, &factory.UnitParams{Application: application, SetCharmURL: true})
 	_, err = st.AddMetrics(
@@ -977,7 +977,7 @@ func (s *MetricLocalCharmSuite) TestUnitMetricBatchesReturnsAllCharms(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	csMeteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered-1"})
+	csMeteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:quantal/metered-1"})
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "csmetered", Charm: csMeteredCharm})
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application, SetCharmURL: true})
 	_, err = s.State.AddMetrics(
@@ -1068,7 +1068,7 @@ func (s *CrossModelMetricSuite) mustCreateMeteredModel(c *gc.C) modelData {
 	st := s.Factory.MakeModel(c, nil)
 	localFactory := factory.NewFactory(st, s.StatePool)
 
-	meteredCharm := localFactory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered-1"})
+	meteredCharm := localFactory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:quantal/metered-1"})
 	application := localFactory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
 	unit := localFactory.MakeUnit(c, &factory.UnitParams{Application: application, SetCharmURL: true})
 	s.AddCleanup(func(*gc.C) { st.Close() })

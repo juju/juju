@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	caasmocks "github.com/juju/juju/caas/mocks"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/testing"
@@ -85,14 +86,70 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 	done := make(chan struct{})
 
 	go func() {
+		// 1st port change event.
 		s.portsChanges <- []string{"port changes"}
+		// 2nd port change event.
+		s.portsChanges <- []string{"port changes"}
+		// 3rd port change event.
+		s.portsChanges <- []string{"port changes"}
+
 		s.applicationChanges <- struct{}{}
 	}()
+
+	gpr1 := network.GroupedPortRanges{
+		"": []network.PortRange{
+			network.MustParsePortRange("1000/tcp"),
+		},
+	}
+
+	gpr2 := network.GroupedPortRanges{
+		"": []network.PortRange{
+			network.MustParsePortRange("1000/tcp"),
+		},
+		"monitoring-port": []network.PortRange{
+			network.MustParsePortRange("2000/udp"),
+		},
+	}
 
 	gomock.InOrder(
 		s.firewallerAPI.EXPECT().WatchApplication(s.appName).Return(s.appsWatcher, nil),
 		s.firewallerAPI.EXPECT().WatchOpenedPorts().Return(s.portsWatcher, nil),
 		s.broker.EXPECT().Application(s.appName, caas.DeploymentStateful).Return(s.brokerApp),
+
+		// initial fetch.
+		s.firewallerAPI.EXPECT().GetOpenedPorts(s.appName).Return(network.GroupedPortRanges{}, nil),
+
+		// 1st triggerred by port change event.
+		s.firewallerAPI.EXPECT().GetOpenedPorts(s.appName).Return(gpr1, nil),
+		s.brokerApp.EXPECT().UpdatePorts([]caas.ServicePort{
+			{
+				Name:       "1000-tcp",
+				Port:       1000,
+				TargetPort: 1000,
+				Protocol:   "tcp",
+			},
+		}, false).Return(nil),
+
+		// 2nd triggerred by port change event, no UpdatePorts because no diff on the portchanges.
+		s.firewallerAPI.EXPECT().GetOpenedPorts(s.appName).Return(gpr1, nil),
+
+		// 1rd triggerred by port change event.
+		s.firewallerAPI.EXPECT().GetOpenedPorts(s.appName).Return(gpr2, nil),
+		s.brokerApp.EXPECT().UpdatePorts([]caas.ServicePort{
+			{
+				Name:       "1000-tcp",
+				Port:       1000,
+				TargetPort: 1000,
+				Protocol:   "tcp",
+			},
+			{
+				Name:       "2000-udp",
+				Port:       2000,
+				TargetPort: 2000,
+				Protocol:   "udp",
+			},
+		}, false).Return(nil),
+
 		s.firewallerAPI.EXPECT().IsExposed(s.appName).DoAndReturn(func(_ string) (bool, error) {
 			close(done)
 			return false, nil

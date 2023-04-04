@@ -9,10 +9,9 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v9"
+	charm "github.com/juju/charm/v10"
 	charm0 "github.com/juju/juju/core/charm"
 	downloader "github.com/juju/juju/core/charm/downloader"
-	macaroon "gopkg.in/macaroon.v2"
 )
 
 // MockLogger is a mock of Logger interface.
@@ -248,9 +247,9 @@ func (m *MockCharmRepository) EXPECT() *MockCharmRepositoryMockRecorder {
 }
 
 // DownloadCharm mocks base method.
-func (m *MockCharmRepository) DownloadCharm(arg0 *charm.URL, arg1 charm0.Origin, arg2 macaroon.Slice, arg3 string) (charm0.CharmArchive, charm0.Origin, error) {
+func (m *MockCharmRepository) DownloadCharm(arg0 *charm.URL, arg1 charm0.Origin, arg2 string) (charm0.CharmArchive, charm0.Origin, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DownloadCharm", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "DownloadCharm", arg0, arg1, arg2)
 	ret0, _ := ret[0].(charm0.CharmArchive)
 	ret1, _ := ret[1].(charm0.Origin)
 	ret2, _ := ret[2].(error)
@@ -258,15 +257,15 @@ func (m *MockCharmRepository) DownloadCharm(arg0 *charm.URL, arg1 charm0.Origin,
 }
 
 // DownloadCharm indicates an expected call of DownloadCharm.
-func (mr *MockCharmRepositoryMockRecorder) DownloadCharm(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockCharmRepositoryMockRecorder) DownloadCharm(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadCharm", reflect.TypeOf((*MockCharmRepository)(nil).DownloadCharm), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadCharm", reflect.TypeOf((*MockCharmRepository)(nil).DownloadCharm), arg0, arg1, arg2)
 }
 
 // GetDownloadURL mocks base method.
-func (m *MockCharmRepository) GetDownloadURL(arg0 *charm.URL, arg1 charm0.Origin, arg2 macaroon.Slice) (*url.URL, charm0.Origin, error) {
+func (m *MockCharmRepository) GetDownloadURL(arg0 *charm.URL, arg1 charm0.Origin) (*url.URL, charm0.Origin, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetDownloadURL", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "GetDownloadURL", arg0, arg1)
 	ret0, _ := ret[0].(*url.URL)
 	ret1, _ := ret[1].(charm0.Origin)
 	ret2, _ := ret[2].(error)
@@ -274,15 +273,15 @@ func (m *MockCharmRepository) GetDownloadURL(arg0 *charm.URL, arg1 charm0.Origin
 }
 
 // GetDownloadURL indicates an expected call of GetDownloadURL.
-func (mr *MockCharmRepositoryMockRecorder) GetDownloadURL(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockCharmRepositoryMockRecorder) GetDownloadURL(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDownloadURL", reflect.TypeOf((*MockCharmRepository)(nil).GetDownloadURL), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDownloadURL", reflect.TypeOf((*MockCharmRepository)(nil).GetDownloadURL), arg0, arg1)
 }
 
 // ResolveWithPreferredChannel mocks base method.
-func (m *MockCharmRepository) ResolveWithPreferredChannel(arg0 *charm.URL, arg1 charm0.Origin, arg2 macaroon.Slice) (*charm.URL, charm0.Origin, []string, error) {
+func (m *MockCharmRepository) ResolveWithPreferredChannel(arg0 *charm.URL, arg1 charm0.Origin) (*charm.URL, charm0.Origin, []string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ResolveWithPreferredChannel", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ResolveWithPreferredChannel", arg0, arg1)
 	ret0, _ := ret[0].(*charm.URL)
 	ret1, _ := ret[1].(charm0.Origin)
 	ret2, _ := ret[2].([]string)
@@ -291,9 +290,9 @@ func (m *MockCharmRepository) ResolveWithPreferredChannel(arg0 *charm.URL, arg1 
 }
 
 // ResolveWithPreferredChannel indicates an expected call of ResolveWithPreferredChannel.
-func (mr *MockCharmRepositoryMockRecorder) ResolveWithPreferredChannel(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockCharmRepositoryMockRecorder) ResolveWithPreferredChannel(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveWithPreferredChannel", reflect.TypeOf((*MockCharmRepository)(nil).ResolveWithPreferredChannel), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveWithPreferredChannel", reflect.TypeOf((*MockCharmRepository)(nil).ResolveWithPreferredChannel), arg0, arg1)
 }
 
 // MockRepositoryGetter is a mock of RepositoryGetter interface.

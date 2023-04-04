@@ -11,6 +11,7 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -33,6 +34,8 @@ type applicationWorker struct {
 
 	initial           bool
 	previouslyExposed bool
+
+	currentPorts network.GroupedPortRanges
 
 	logger Logger
 }
@@ -97,13 +100,10 @@ func (w *applicationWorker) setUp() (err error) {
 	w.portMutator = app
 	w.serviceUpdater = app
 
-	// TODO(sidecar):
-	/*
-		if ports, err := w.firewallerAPI.OpenedPorts(w.appName); err != nil {
-			return errors.Annotatef(err, "failed to get initial openned ports for application")
-		}
-		w.currentPorts = newPortRanges(ports)
-	*/
+	if w.currentPorts, err = w.firewallerAPI.GetOpenedPorts(w.appName); err != nil {
+		return errors.Annotatef(err, "failed to get initial openned ports for application")
+	}
+
 	return nil
 }
 
@@ -151,21 +151,43 @@ func (w *applicationWorker) loop() (err error) {
 	}
 }
 
-func (w *applicationWorker) onPortChanged() (err error) {
-	// TODO(sidecar):
-	/*
-		ports, err := w.firewallerAPI.OpenedPorts(w.appName)
-		if err != nil {
-			return err
+func toServicePorts(in network.GroupedPortRanges) []caas.ServicePort {
+	ports := in.UniquePortRanges()
+	network.SortPortRanges(ports)
+	out := make([]caas.ServicePort, len(ports))
+	for i, p := range ports {
+		out[i] = caas.ServicePort{
+			// k8s complains about `/`.
+			Name:       strings.Replace(p.String(), "/", "-", -1),
+			Port:       p.FromPort,
+			TargetPort: p.ToPort,
+			Protocol:   p.Protocol,
 		}
-		changedPortRanges := newPortRanges(ports)
-		if w.current.equal(changedPortRanges){
-			logger.Tracef("no port changes for app %q", w.appName)
-			return nil
-		}
-		w.currentPorts = changedPortRanges
-		return w.portMutator.UpdatePorts(w.currentPorts.toServicePorts(), false)
-	*/
+	}
+	return out
+}
+
+func (w *applicationWorker) onPortChanged() error {
+	changedPortRanges, err := w.firewallerAPI.GetOpenedPorts(w.appName)
+	if err != nil {
+		return err
+	}
+	w.logger.Tracef("current port for app %q, %v", w.appName, w.currentPorts)
+	w.logger.Tracef("port changed for app %q, %v", w.appName, changedPortRanges)
+	if w.currentPorts.EqualTo(changedPortRanges) {
+		w.logger.Debugf("no port changes for app %q", w.appName)
+		return nil
+	}
+
+	err = w.portMutator.UpdatePorts(toServicePorts(changedPortRanges), false)
+	if errors.Is(err, errors.NotFound) {
+		return nil
+	}
+	if err != nil {
+		return errors.Annotatef(err, "cannot update service port for application %q", w.appName)
+	}
+
+	w.currentPorts = changedPortRanges
 	return nil
 }
 

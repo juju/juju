@@ -39,7 +39,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
-	coreseries "github.com/juju/juju/core/series"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -477,14 +477,19 @@ func (e *environ) PrecheckInstance(ctx context.ProviderCallContext, args environ
 
 // AgentMetadataLookupParams returns parameters which are used to query agent simple-streams metadata.
 func (e *environ) AgentMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
-	series := config.PreferredSeries(e.ecfg())
-	hostOSType := coreseries.DefaultOSTypeNameFromSeries(series)
-	return e.metadataLookupParams(region, hostOSType)
+	base := config.PreferredBase(e.ecfg())
+	return e.metadataLookupParams(region, base.OS)
 }
 
 // ImageMetadataLookupParams returns parameters which are used to query image simple-streams metadata.
 func (e *environ) ImageMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
-	release, err := imagemetadata.ImageRelease(config.PreferredSeries(e.ecfg()))
+	base := config.PreferredBase(e.ecfg())
+	baseSeries, err := series.GetSeriesFromBase(base)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	release, err := imagemetadata.ImageRelease(baseSeries)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -654,6 +659,22 @@ func (e *environ) StartInstance(
 	}
 	rootDiskSize := uint64(aws.ToInt32(blockDeviceMappings[0].Ebs.VolumeSize)) * 1024
 
+	instanceName := resourceName(
+		names.NewMachineTag(args.InstanceConfig.MachineId), e.Config().Name(),
+	)
+	args.InstanceConfig.Tags[tagName] = instanceName
+
+	instanceTags := CreateTagSpecification(types.ResourceTypeInstance, args.InstanceConfig.Tags)
+
+	cfg := e.Config()
+	rootVolumeTags := tags.ResourceTags(
+		names.NewModelTag(cfg.UUID()),
+		names.NewControllerTag(args.ControllerUUID),
+		cfg,
+	)
+	rootVolumeTags[tagName] = instanceName + "-root"
+	volumeTags := CreateTagSpecification(types.ResourceTypeVolume, rootVolumeTags)
+
 	var instResp *ec2.RunInstancesOutput
 	commonRunArgs := &ec2.RunInstancesInput{
 		MinCount:            aws.Int32(1),
@@ -663,6 +684,17 @@ func (e *environ) StartInstance(
 		SecurityGroupIds:    groupIDs,
 		BlockDeviceMappings: blockDeviceMappings,
 		ImageId:             aws.String(spec.Image.Id),
+		MetadataOptions: &types.InstanceMetadataOptionsRequest{
+			HttpEndpoint: types.InstanceMetadataEndpointStateEnabled,
+			// By forcing HTTP tokens here we move all created instances over to
+			// IMDSv2.
+			// Fixes lp1960568
+			HttpTokens: types.HttpTokensStateRequired,
+		},
+		TagSpecifications: []types.TagSpecification{
+			instanceTags,
+			volumeTags,
+		},
 	}
 
 	runArgs := commonRunArgs
@@ -708,29 +740,6 @@ func (e *environ) StartInstance(
 		logger.Infof("started instance %q in AZ %q, subnet %q, VPC %q", inst.Id(), instAZ, instSubnet, instVPC)
 	} else {
 		logger.Infof("started instance %q in AZ %q", inst.Id(), instAZ)
-	}
-
-	// Tag instance, for accounting and identification.
-	instanceName := resourceName(
-		names.NewMachineTag(args.InstanceConfig.MachineId), e.Config().Name(),
-	)
-	args.InstanceConfig.Tags[tagName] = instanceName
-	if err := tagResources(e.ec2Client, ctx, args.InstanceConfig.Tags, string(inst.Id())); err != nil {
-		return nil, annotateWrapError(err, "tagging instance")
-	}
-
-	// Tag the machine's root EBS volume, if it has one.
-	if inst.i.RootDeviceType == "ebs" {
-		cfg := e.Config()
-		tags := tags.ResourceTags(
-			names.NewModelTag(cfg.UUID()),
-			names.NewControllerTag(args.ControllerUUID),
-			cfg,
-		)
-		tags[tagName] = instanceName + "-root"
-		if err := tagRootDisk(e.ec2Client, ctx, tags, &inst.i); err != nil {
-			return nil, annotateWrapError(err, "tagging root disk")
-		}
 	}
 
 	hc := instance.HardwareCharacteristics{
@@ -1141,70 +1150,6 @@ func tagResources(e Client, ctx context.ProviderCallContext, tags map[string]str
 		err = retry.LastError(err)
 	}
 	return maybeConvertCredentialError(err, ctx)
-}
-
-func tagRootDisk(e Client, ctx context.ProviderCallContext, tags map[string]string, inst *types.Instance) error {
-	if len(tags) == 0 {
-		return nil
-	}
-	findVolumeID := func(inst *types.Instance) string {
-		for _, m := range inst.BlockDeviceMappings {
-			if aws.ToString(m.DeviceName) != aws.ToString(inst.RootDeviceName) {
-				continue
-			}
-			if m.Ebs == nil {
-				continue
-			}
-			return aws.ToString(m.Ebs.VolumeId)
-		}
-		return ""
-	}
-	var volumeID string
-
-	retryStrategy := retry.CallArgs{
-		Clock:       clock.WallClock,
-		MaxDuration: 5 * time.Minute,
-		Delay:       5 * time.Second,
-	}
-	retryStrategy.IsFatalError = func(err error) bool {
-		if strings.HasSuffix(ec2ErrCode(err), ".NotFound") {
-			// EC2 calls are eventually consistent; if we get a
-			// NotFound error when looking up the instance we
-			// should retry until it appears or we run out of
-			// attempts.
-			logger.Debugf("instance %v is not available yet; retrying fetch of instance information", inst.InstanceId)
-			return false
-		} else if errors.IsNotFound(err) {
-			// Volume ID not found
-			return false
-		}
-		// No need to retry for other error types
-		return true
-	}
-	retryStrategy.Func = func() error {
-		// Refresh instance
-		resp, err := e.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
-			InstanceIds: []string{aws.ToString(inst.InstanceId)},
-		})
-		if err != nil {
-			return err
-		}
-		if len(resp.Reservations) > 0 && len(resp.Reservations[0].Instances) > 0 {
-			inst = &resp.Reservations[0].Instances[0]
-		}
-
-		volumeID = findVolumeID(inst)
-		if volumeID == "" {
-			return errors.NewNotFound(nil, "Volume ID not found")
-		}
-		return nil
-	}
-	err := retry.Call(retryStrategy)
-	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
-		return errors.New("timed out waiting for EBS volume to be associated")
-	}
-
-	return tagResources(e, ctx, tags, volumeID)
 }
 
 var runInstances = _runInstances
@@ -2515,10 +2460,22 @@ func (e *environ) ensureGroup(ctx context.ProviderCallContext, controllerUUID, n
 		vpcIDParam = aws.String(chosenVPCID)
 	}
 
+	// Tag the created group with the model and controller UUIDs.
+	cfg := e.Config()
+	tags := tags.ResourceTags(
+		names.NewModelTag(cfg.UUID()),
+		names.NewControllerTag(controllerUUID),
+		cfg,
+	)
+	groupTagSpec := CreateTagSpecification(types.ResourceTypeSecurityGroup, tags)
+
 	groupResp, err := e.ec2Client.CreateSecurityGroup(ctx, &ec2.CreateSecurityGroupInput{
 		GroupName:   aws.String(name),
 		VpcId:       vpcIDParam,
 		Description: aws.String("juju group"),
+		TagSpecifications: []types.TagSpecification{
+			groupTagSpec,
+		},
 	})
 	if err != nil && ec2ErrCode(err) != "InvalidGroup.Duplicate" {
 		err = errors.Annotatef(maybeConvertCredentialError(err, ctx), "creating security group %q%s", name, inVPCLogSuffix)
@@ -2526,20 +2483,7 @@ func (e *environ) ensureGroup(ctx context.ProviderCallContext, controllerUUID, n
 	}
 
 	var have permSet
-	if err == nil {
-		groupID = aws.ToString(groupResp.GroupId)
-		// Tag the created group with the model and controller UUIDs.
-		cfg := e.Config()
-		tags := tags.ResourceTags(
-			names.NewModelTag(cfg.UUID()),
-			names.NewControllerTag(controllerUUID),
-			cfg,
-		)
-		if err := tagResources(e.ec2Client, ctx, tags, aws.ToString(groupResp.GroupId)); err != nil {
-			return groupID, errors.Annotate(err, "tagging security group")
-		}
-		logger.Debugf("created security group %q with ID %q%s", name, aws.ToString(groupResp.GroupId), inVPCLogSuffix)
-	} else {
+	if err != nil {
 		groups, err := e.securityGroupsByNameOrID(ctx, name)
 		if err != nil {
 			return "", errors.Annotatef(maybeConvertCredentialError(err, ctx), "fetching security group %q%s", name, inVPCLogSuffix)
@@ -2554,6 +2498,9 @@ func (e *environ) ensureGroup(ctx context.ProviderCallContext, controllerUUID, n
 		// so we ignore it.
 		groupID = aws.ToString(info.GroupId)
 		have = newPermSetForGroup(info.IpPermissions, &groupID)
+	} else {
+		groupID = aws.ToString(groupResp.GroupId)
+		logger.Debugf("created security group %q with ID %q%s", name, aws.ToString(groupResp.GroupId), inVPCLogSuffix)
 	}
 
 	want := newPermSetForGroup(perms, &groupID)
@@ -2821,4 +2768,22 @@ func (e *environ) SetCloudSpec(ctx stdcontext.Context, spec environscloudspec.Cl
 // This is part of the environs.FirewallFeatureQuerier interface.
 func (e *environ) SupportsRulesWithIPV6CIDRs(context.ProviderCallContext) (bool, error) {
 	return true, nil
+}
+
+// CreateTagSpecification creates an AWS tag specification for the given
+// resource type and tags.
+func CreateTagSpecification(resourceType types.ResourceType, tags map[string]string) types.TagSpecification {
+	spec := types.TagSpecification{
+		ResourceType: resourceType,
+		Tags:         make([]types.Tag, 0, len(tags)),
+	}
+
+	for k, v := range tags {
+		spec.Tags = append(spec.Tags, types.Tag{
+			Key:   aws.String(k),
+			Value: aws.String(v),
+		})
+	}
+
+	return spec
 }

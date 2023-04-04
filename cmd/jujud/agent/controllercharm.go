@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
@@ -186,7 +186,7 @@ func populateStoreControllerCharm(st *state.State, charmPath string, channel cha
 	// error response.
 	//
 	// The controller charm doesn't have any series specific code.
-	curl, origin, _, err = charmRepo.ResolveWithPreferredChannel(curl, origin, nil)
+	curl, origin, _, err = charmRepo.ResolveWithPreferredChannel(curl, origin)
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "resolving %q", controllerCharmURL)
 	}
@@ -204,7 +204,7 @@ func populateStoreControllerCharm(st *state.State, charmPath string, channel cha
 	if err != nil {
 		return nil, nil, err
 	}
-	resOrigin, err := charmDownloader.DownloadAndStore(curl, origin, nil, false)
+	resOrigin, err := charmDownloader.DownloadAndStore(curl, origin, false)
 	if err != nil {
 		return nil, nil, err
 	}

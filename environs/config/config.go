@@ -299,12 +299,12 @@ const (
 	// explicitly use for charms unless otherwise provided.
 	DefaultSeriesKey = "default-series"
 
+	// DefaultBaseKey is a key for determining the base a model should
+	// explicitly use for charms unless otherwise provided.
+	DefaultBaseKey = "default-base"
+
 	// SecretBackendKey is used to specify the secret backend.
 	SecretBackendKey = "secret-backend"
-
-	// SecretBackendConfigKey is used to configure the secret backend.
-	// The config is provider dependent and is expected to be json or yaml.
-	SecretBackendConfigKey = "secret-backend-config"
 )
 
 // ParseHarvestMode parses description of harvesting method and
@@ -371,35 +371,28 @@ func (method HarvestMode) HarvestUnknown() bool {
 	return method&HarvestUnknown != 0
 }
 
-// HasDefaultSeries defines a interface if a type has a default series or not.
-type HasDefaultSeries interface {
-	DefaultSeries() (string, bool)
-}
-
-// GetDefaultSupportedLTS returns the DefaultSupportedLTS.
+// GetDefaultSupportedLTSBase returns the DefaultSupportedLTSBase.
 // This is exposed for one reason and one reason only; testing!
-// The fact that PreferredSeries doesn't take an argument for a default series
+// The fact that PreferredBase doesn't take an argument for a default base
 // as a fallback. We then have to expose this so we can exercise the branching
 // code for other scenarios makes me sad.
-var GetDefaultSupportedLTS = jujuversion.DefaultSupportedLTS
+var GetDefaultSupportedLTSBase = jujuversion.DefaultSupportedLTSBase
 
-// PreferredSeries returns the preferred series to use when a charm does not
-// explicitly specify a series.
-func PreferredSeries(cfg HasDefaultSeries) string {
-	if series, ok := cfg.DefaultSeries(); ok {
-		return series
-	}
-	return GetDefaultSupportedLTS()
+// HasDefaultBase defines a interface if a type has a default base or not.
+type HasDefaultBase interface {
+	DefaultBase() (string, bool)
 }
 
 // PreferredBase returns the preferred base to use when a charm does not
 // explicitly specify a base.
-func PreferredBase(cfg HasDefaultSeries) series.Base {
-	ser, ok := cfg.DefaultSeries()
-	if !ok {
-		return jujuversion.DefaultSupportedLTSBase()
+func PreferredBase(cfg HasDefaultBase) series.Base {
+	base, ok := cfg.DefaultBase()
+	if ok {
+		// We can safely ignore the error here as we know that we have
+		// validated the base when we set it.
+		return series.MustParseBaseFromString(base)
 	}
-	return series.MakeDefaultBase("ubuntu", ser)
+	return GetDefaultSupportedLTSBase()
 }
 
 // Config holds an immutable environment configuration.
@@ -448,7 +441,25 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 	checker := noDefaultsChecker
 	if withDefaults {
 		checker = withDefaultsChecker
+	} else {
+		// Config may be from an older Juju.
+		// Handle the case where we are parsing a fully formed
+		// set of config attributes (NoDefaults) and a value is strictly
+		// not optional, but may have previously been either set to empty
+		// or is missing.
+		// In this case, we use the default.
+		for k := range defaultsWhenParsing {
+			v, ok := attrs[k]
+			if ok && v != "" {
+				continue
+			}
+			_, explicitlyOptional := alwaysOptional[k]
+			if !explicitlyOptional {
+				attrs[k] = defaultsWhenParsing[k]
+			}
+		}
 	}
+
 	defined, err := checker.Coerce(attrs, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -495,6 +506,9 @@ const (
 
 	// DefaultLxdSnapChannel is the default lxd snap channel to install on host vms.
 	DefaultLxdSnapChannel = "5.0/stable"
+
+	// DefaultSecretBackend is the default secret backend to use.
+	DefaultSecretBackend = "auto"
 )
 
 var defaultConfigValues = map[string]interface{}{
@@ -525,7 +539,8 @@ var defaultConfigValues = map[string]interface{}{
 	NetBondReconfigureDelayKey: 17,
 	ContainerNetworkingMethod:  "",
 
-	DefaultSeriesKey:                "",
+	DefaultBaseKey: "",
+
 	ProvisionerHarvestModeKey:       HarvestDestroyed.String(),
 	NumProvisionWorkersKey:          16,
 	NumContainerProvisionWorkersKey: 4,
@@ -589,9 +604,8 @@ var defaultConfigValues = map[string]interface{}{
 	MaxActionResultsAge:  DefaultActionResultsAge,
 	MaxActionResultsSize: DefaultActionResultsSize,
 
-	// By default the Juju backend is used.
-	SecretBackendKey:       "",
-	SecretBackendConfigKey: "",
+	// Secret settings.
+	SecretBackendKey: DefaultSecretBackend,
 }
 
 // defaultLoggingConfig is the default value for logging-config if it is otherwise not set.
@@ -838,7 +852,7 @@ func Validate(cfg, old *Config) error {
 		return errors.Trace(err)
 	}
 
-	if err := cfg.validateDefaultSeries(); err != nil {
+	if err := cfg.validateDefaultBase(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -978,28 +992,39 @@ func (c *Config) DefaultSpace() string {
 	return c.asString(DefaultSpace)
 }
 
-var supportedJujuSeries = series.WorkloadSeries
-
-func (c *Config) validateDefaultSeries() error {
-	defaultSeries, configured := c.DefaultSeries()
+func (c *Config) validateDefaultBase() error {
+	defaultBase, configured := c.DefaultBase()
 	if !configured {
 		return nil
 	}
-	supported, err := supportedJujuSeries(time.Now(), "", "")
+
+	parsedBase, err := series.ParseBaseFromString(defaultBase)
 	if err != nil {
-		return errors.Annotate(err, "cannot read supported series")
+		return errors.Annotatef(err, "invalid default base %q", defaultBase)
 	}
-	logger.Tracef("supported series %s", supported.SortedValues())
-	if !supported.Contains(defaultSeries) {
-		return errors.NotSupportedf("series %q", defaultSeries)
+
+	supported, err := series.WorkloadBases(time.Now(), series.Base{}, "")
+	if err != nil {
+		return errors.Annotate(err, "cannot read supported bases")
+	}
+	logger.Tracef("supported bases %s", supported)
+	var found bool
+	for _, supportedBase := range supported {
+		if parsedBase.IsCompatible(supportedBase) {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return errors.NotSupportedf("base %q", parsedBase.DisplayString())
 	}
 	return nil
 }
 
-// DefaultSeries returns the configured default Ubuntu series for the model,
-// and whether the default series was explicitly configured on the environment.
-func (c *Config) DefaultSeries() (string, bool) {
-	s, ok := c.defined[DefaultSeriesKey]
+// DefaultBase returns the configured default base for the model, and whether
+// the default base was explicitly configured on the environment.
+func (c *Config) DefaultBase() (string, bool) {
+	s, ok := c.defined[DefaultBaseKey]
 	if !ok {
 		return "", false
 	}
@@ -1007,22 +1032,14 @@ func (c *Config) DefaultSeries() (string, bool) {
 	case string:
 		return s, s != ""
 	default:
-		logger.Errorf("invalid default-series: %q", s)
+		logger.Errorf("invalid default-base: %q", s)
 		return "", false
 	}
 }
 
-// SecretStore returns the secret store name.
-func (c *Config) SecretStore() string {
+// SecretBackend returns the secret backend name.
+func (c *Config) SecretBackend() string {
 	value, _ := c.defined[SecretBackendKey].(string)
-	return value
-}
-
-// SecretBackendConfig returns the secret store config,
-// expected to be a json or yaml encoded config struct
-// relevant to the configured secret store type.
-func (c *Config) SecretBackendConfig() string {
-	value, _ := c.defined[SecretBackendConfigKey].(string)
 	return value
 }
 
@@ -1789,7 +1806,7 @@ var alwaysOptional = schema.Defaults{
 	AgentMetadataURLKey:             schema.Omit,
 	ContainerImageStreamKey:         schema.Omit,
 	ContainerImageMetadataURLKey:    schema.Omit,
-	DefaultSeriesKey:                schema.Omit,
+	DefaultBaseKey:                  schema.Omit,
 	"development":                   schema.Omit,
 	"ssl-hostname-verification":     schema.Omit,
 	"proxy-ssh":                     schema.Omit,
@@ -1815,8 +1832,6 @@ var alwaysOptional = schema.Defaults{
 	DefaultSpace:                    schema.Omit,
 	LXDSnapChannel:                  schema.Omit,
 	CharmHubURLKey:                  schema.Omit,
-	SecretBackendKey:                schema.Omit,
-	SecretBackendConfigKey:          schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1852,7 +1867,6 @@ var immutableAttributes = []string{
 	UUIDKey,
 	"firewall-mode",
 	CharmHubURLKey,
-	SecretBackendKey,
 }
 
 var (
@@ -1954,8 +1968,7 @@ func AptProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 func developerConfigValue(name string) bool {
 	if !featureflag.Enabled(feature.DeveloperMode) {
 		switch name {
-		case SecretBackendKey, SecretBackendConfigKey:
-			return true
+		// Add developer-mode keys here.
 		}
 	}
 	return false
@@ -2041,8 +2054,8 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	DefaultSeriesKey: {
-		Description: "The default series of Ubuntu to use for deploying charms, will act like --series when deploying charms",
+	DefaultBaseKey: {
+		Description: "The default base image to use for deploying charms, will act like --base when deploying charms",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
@@ -2384,14 +2397,8 @@ potentially valuable resources.
 		Group:       environschema.EnvironGroup,
 	},
 	SecretBackendKey: {
-		Description: `The name of the secret store backend. (default "" which implies Juju)`,
+		Description: `The name of the secret store backend. (default "auto")`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
-	},
-	SecretBackendConfigKey: {
-		Description: `The json or yaml secret store config. (default "")`,
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-		Secret:      true,
 	},
 }

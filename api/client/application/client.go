@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -349,11 +349,7 @@ func (c *Client) SetCharm(branchName string, cfg SetCharmConfig) error {
 }
 
 // UpdateApplicationBase updates the application base in the db.
-func (c *Client) UpdateApplicationBase(appName, series string, force bool) error {
-	base, err := coreseries.GetBaseFromSeries(series)
-	if err != nil {
-		return errors.Trace(err)
-	}
+func (c *Client) UpdateApplicationBase(appName string, base coreseries.Base, force bool) error {
 	args := params.UpdateChannelArgs{
 		Args: []params.UpdateChannelArg{{
 			Entity:  params.Entity{Tag: names.NewApplicationTag(appName).String()},
@@ -361,10 +357,8 @@ func (c *Client) UpdateApplicationBase(appName, series string, force bool) error
 			Channel: base.Channel.Track,
 		}},
 	}
-
 	results := new(params.ErrorResults)
-	err = c.facade.FacadeCall("UpdateApplicationBase", args, results)
-	if err != nil {
+	if err := c.facade.FacadeCall("UpdateApplicationBase", args, results); err != nil {
 		return errors.Trace(err)
 	}
 	return results.OneError()

@@ -11,8 +11,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v9"
-	resource "github.com/juju/charm/v9/resource"
+	charm "github.com/juju/charm/v10"
+	resource "github.com/juju/charm/v10/resource"
 	cmd "github.com/juju/cmd/v3"
 	api "github.com/juju/juju/api"
 	base "github.com/juju/juju/api/base"
@@ -24,7 +24,6 @@ import (
 	params "github.com/juju/juju/rpc/params"
 	names "github.com/juju/names/v4"
 	httprequest "gopkg.in/httprequest.v1"
-	macaroon "gopkg.in/macaroon.v2"
 )
 
 // MockDeployerAPI is a mock of DeployerAPI interface.
@@ -77,21 +76,6 @@ func (m *MockDeployerAPI) AddCharm(arg0 *charm.URL, arg1 charm0.Origin, arg2 boo
 func (mr *MockDeployerAPIMockRecorder) AddCharm(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharm", reflect.TypeOf((*MockDeployerAPI)(nil).AddCharm), arg0, arg1, arg2)
-}
-
-// AddCharmWithAuthorization mocks base method.
-func (m *MockDeployerAPI) AddCharmWithAuthorization(arg0 *charm.URL, arg1 charm0.Origin, arg2 *macaroon.Macaroon, arg3 bool) (charm0.Origin, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddCharmWithAuthorization", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(charm0.Origin)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddCharmWithAuthorization indicates an expected call of AddCharmWithAuthorization.
-func (mr *MockDeployerAPIMockRecorder) AddCharmWithAuthorization(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharmWithAuthorization", reflect.TypeOf((*MockDeployerAPI)(nil).AddCharmWithAuthorization), arg0, arg1, arg2, arg3)
 }
 
 // AddLocalCharm mocks base method.
@@ -549,20 +533,6 @@ func (m *MockDeployerAPI) Offer(arg0, arg1 string, arg2 []string, arg3, arg4, ar
 func (mr *MockDeployerAPIMockRecorder) Offer(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Offer", reflect.TypeOf((*MockDeployerAPI)(nil).Offer), arg0, arg1, arg2, arg3, arg4, arg5)
-}
-
-// PlanURL mocks base method.
-func (m *MockDeployerAPI) PlanURL() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PlanURL")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// PlanURL indicates an expected call of PlanURL.
-func (mr *MockDeployerAPIMockRecorder) PlanURL() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PlanURL", reflect.TypeOf((*MockDeployerAPI)(nil).PlanURL))
 }
 
 // ScaleApplication mocks base method.

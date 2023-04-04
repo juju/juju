@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -109,7 +109,7 @@ func (s *ApplicationSuite) TestSetCharmCharmOrigin(c *gc.C) {
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 	rev := sch.Revision()
 	origin := &state.CharmOrigin{
-		Source:   "charm-store",
+		Source:   "charm-hub",
 		Revision: &rev,
 		Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -153,7 +153,7 @@ func (s *ApplicationSuite) TestSetCharmCharmOriginNoChange(c *gc.C) {
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 	rev := sch.Revision()
 	origin := &state.CharmOrigin{
-		Source:   "charm-store",
+		Source:   "charm-hub",
 		Revision: &rev,
 	}
 	cfg := state.SetCharmConfig{
@@ -665,7 +665,7 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeries(c *gc.
 		Charm: chDifferentSeries,
 	}
 	err := app.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:multi-series2-8": only these series are supported: trusty, wily`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "ch:multi-series2-8": only these series are supported: trusty, wily`)
 }
 
 func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeriesForce(c *gc.C) {
@@ -683,7 +683,7 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeriesForce(c
 	c.Assert(err, jc.ErrorIsNil)
 	ch, _, err = app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.String(), gc.Equals, "cs:multi-series2-8")
+	c.Assert(ch.String(), gc.Equals, "ch:multi-series2-8")
 }
 
 func (s *ApplicationSuite) TestClientApplicationSetCharmWrongOS(c *gc.C) {
@@ -696,19 +696,7 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmWrongOS(c *gc.C) {
 		ForceBase: true,
 	}
 	err := app.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:multi-series-centos-1": OS "Ubuntu" not supported by charm`)
-}
-
-func (s *ApplicationSuite) TestSetCharmChangeSeriesWhenMovingFromCharmstoreToCharmhub(c *gc.C) {
-	// Moving from a cs to a ch charm should not prevent us from changing the series.
-	chCharm := state.AddTestingCharmhubCharmForSeries(c, s.State, "quantal", "multi-series")
-	cfg := state.SetCharmConfig{
-		Charm:      chCharm,
-		ForceUnits: true,
-	}
-
-	err := s.mysql.SetCharm(cfg)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("expected SetCharm to work with different series when switching from a charmstore to a charmhub charm"))
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "ch:multi-series-centos-1": OS "Ubuntu" not supported by charm`)
 }
 
 func (s *ApplicationSuite) TestSetCharmPreconditions(c *gc.C) {
@@ -1736,7 +1724,7 @@ func (s *ApplicationSuite) setupCharmForTestUpdateApplicationBase(c *gc.C, name 
 
 	rev := ch.Revision()
 	origin := &state.CharmOrigin{
-		Source:   "charm-store",
+		Source:   "charm-hub",
 		Revision: &rev,
 		Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -1815,7 +1803,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesFail(
 	// Trusty is listed in only version 1 of the charm.
 	err := app.UpdateApplicationBase(state.UbuntuBase("22.04"), false)
 	c.Assert(err, gc.ErrorMatches,
-		"updating application series: series \"jammy\" not supported by charm \"cs:multi-series-2\", "+
+		"updating application series: series \"jammy\" not supported by charm \"ch:multi-series-2\", "+
 			"supported series are: focal, bionic")
 }
 
@@ -3106,6 +3094,165 @@ func (s *ApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *ApplicationSuite) TestDestroyWithRemovableApplicationOpenedPortRanges(c *gc.C) {
+	st, app := s.addCAASSidecarApplication(c)
+	defer st.Close()
+
+	appPortRanges, err := app.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
+
+	unit0, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	portRangesUnit0, err := unit0.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	portRangesUnit0.Open(allEndpoints, network.MustParsePortRange("3000/tcp"))
+	portRangesUnit0.Open(allEndpoints, network.MustParsePortRange("3001/tcp"))
+	c.Assert(st.ApplyOperation(portRangesUnit0.Changes()), jc.ErrorIsNil)
+
+	portRangesUnit0, err = unit0.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(portRangesUnit0.UniquePortRanges(), gc.HasLen, 2)
+
+	unit1, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	portRangesUnit1, err := unit1.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	portRangesUnit1.Open(allEndpoints, network.MustParsePortRange("3001/tcp"))
+	portRangesUnit1.Open(allEndpoints, network.MustParsePortRange("3002/tcp"))
+	c.Assert(st.ApplyOperation(portRangesUnit1.Changes()), jc.ErrorIsNil)
+
+	portRangesUnit1, err = unit1.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(portRangesUnit1.UniquePortRanges(), gc.HasLen, 2)
+
+	appPortRanges, err = app.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 3)
+
+	portRangesUnit1.Close(allEndpoints, network.MustParsePortRange("3002/tcp"))
+	c.Assert(st.ApplyOperation(portRangesUnit1.Changes()), jc.ErrorIsNil)
+
+	portRangesUnit1, err = unit1.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(portRangesUnit1.UniquePortRanges(), gc.HasLen, 1)
+
+	appPortRanges, err = app.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 2)
+
+	portRangesUnit1.Open(allEndpoints, network.MustParsePortRange("3003/tcp"))
+	c.Assert(st.ApplyOperation(portRangesUnit1.Changes()), jc.ErrorIsNil)
+
+	appPortRanges, err = app.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 3)
+
+	err = unit1.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit1.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	appPortRanges, err = app.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 2)
+
+	// Remove all units, all opened ports should be removed.
+	err = unit0.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit0.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit1.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit1.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	appPortRanges, err = app.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
+
+	err = app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ApplicationSuite) TestOpenedPortRanges(c *gc.C) {
+	st, app := s.addCAASSidecarApplication(c)
+	defer st.Close()
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	portRanges, err := unit.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+
+	flush := func(expectedErr string) {
+		if len(expectedErr) == 0 {
+			c.Assert(st.ApplyOperation(portRanges.Changes()), jc.ErrorIsNil)
+		} else {
+			c.Assert(st.ApplyOperation(portRanges.Changes()), gc.ErrorMatches, expectedErr)
+		}
+		portRanges, err = unit.OpenedPortRanges()
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	c.Assert(portRanges.UniquePortRanges(), gc.HasLen, 0)
+	portRanges.Open(allEndpoints, network.MustParsePortRange("3000/tcp"))
+	portRanges.Open("data-port", network.MustParsePortRange("2000/udp"))
+	// All good.
+	flush(``)
+	c.Assert(portRanges.UnitName(), jc.DeepEquals, `cockroachdb/0`)
+	c.Assert(portRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{
+		network.MustParsePortRange("3000/tcp"),
+		network.MustParsePortRange("2000/udp"),
+	})
+	c.Assert(portRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
+		allEndpoints: []network.PortRange{network.MustParsePortRange("3000/tcp")},
+		"data-port":  []network.PortRange{network.MustParsePortRange("2000/udp")},
+	})
+
+	// Errors for unknown endpoint.
+	portRanges.Open("bad-endpoint", network.MustParsePortRange("2000/udp"))
+	flush(`cannot open/close ports: open port range: endpoint "bad-endpoint" for application "cockroachdb" not found`)
+	c.Assert(portRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
+		allEndpoints: []network.PortRange{network.MustParsePortRange("3000/tcp")},
+		"data-port":  []network.PortRange{network.MustParsePortRange("2000/udp")},
+	})
+
+	// No ops for duplicated Open.
+	portRanges.Open("data-port", network.MustParsePortRange("2000/udp"))
+	flush(``)
+	c.Assert(portRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
+		allEndpoints: []network.PortRange{network.MustParsePortRange("3000/tcp")},
+		"data-port":  []network.PortRange{network.MustParsePortRange("2000/udp")},
+	})
+
+	// Close one port.
+	portRanges.Close("data-port", network.MustParsePortRange("2000/udp"))
+	flush(``)
+	c.Assert(portRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
+		allEndpoints: []network.PortRange{network.MustParsePortRange("3000/tcp")},
+	})
+
+	// No ops for Close non existing port.
+	portRanges.Close("data-port", network.MustParsePortRange("2000/udp"))
+	flush(``)
+	c.Assert(portRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
+		allEndpoints: []network.PortRange{network.MustParsePortRange("3000/tcp")},
+	})
+
+	// Destroy the application; check application and
+	// openedApplicationportRanges removed.
+	err = unit.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	appPortRanges, err := app.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
+
+	err = app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *ApplicationSuite) TestDestroyWithReferencedRelation(c *gc.C) {
 	s.assertDestroyWithReferencedRelation(c, true)
 }
@@ -3236,9 +3383,23 @@ func (s *ApplicationSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C) {
 	_, err := store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Make a relation for the access scope.
+	endpoint1, err := s.mysql.Endpoint("juju-info")
+	c.Assert(err, jc.ErrorIsNil)
+	application2 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "logging",
+		}),
+	})
+	endpoint2, err := application2.Endpoint("info")
+	c.Assert(err, jc.ErrorIsNil)
+	rel := s.Factory.MakeRelation(c, &factory.RelationParams{
+		Endpoints: []state.Endpoint{endpoint1, endpoint2},
+	})
+
 	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
 		LeaderToken: &fakeToken{},
-		Scope:       s.mysql.Tag(),
+		Scope:       rel.Tag(),
 		Subject:     s.mysql.Tag(),
 		Role:        secrets.RoleView,
 	})
@@ -5294,11 +5455,20 @@ func (s *ApplicationSuite) TestDeployedMachinesNotAssignedUnit(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestCAASSidecarCharm(c *gc.C) {
+	st, app := s.addCAASSidecarApplication(c)
+	defer st.Close()
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	sidecar, err := unit.IsSidecar()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sidecar, jc.IsTrue)
+}
+
+func (s *ApplicationSuite) addCAASSidecarApplication(c *gc.C) (*state.State, *state.Application) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
 		Type: state.ModelTypeCAAS,
 	})
-	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
 
 	charmDef := `
@@ -5312,15 +5482,13 @@ resources:
   redis-container-resource:
     name: redis-container
     type: oci-image
+provides:
+  data-port:
+    interface: data
+    scope: container
 `
 	ch := state.AddCustomCharmWithManifest(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch})
-
-	unit, err := app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	sidecar, err := unit.IsSidecar()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sidecar, jc.IsTrue)
+	return st, f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch})
 }
 
 func (s *ApplicationSuite) TestCAASNonSidecarCharm(c *gc.C) {

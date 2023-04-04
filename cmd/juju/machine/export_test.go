@@ -61,11 +61,11 @@ func NewRemoveCommandForTest(apiRoot api.Connection, machineAPI RemoveMachineAPI
 	return modelcmd.Wrap(command), &RemoveCommand{command}
 }
 
-// NewUpgradeSeriesCommand returns an upgrade series command for test
-func NewUpgradeSeriesCommandForTest(statusAPI StatusAPI, upgradeAPI UpgradeMachineSeriesAPI) cmd.Command {
-	command := &upgradeSeriesCommand{
-		statusClient:               statusAPI,
-		upgradeMachineSeriesClient: upgradeAPI,
+// NewUpgradeMachineCommand returns an upgrade machine command for test
+func NewUpgradeMachineCommandForTest(statusAPI StatusAPI, upgradeAPI UpgradeMachineAPI) cmd.Command {
+	command := &upgradeMachineCommand{
+		statusClient:         statusAPI,
+		upgradeMachineClient: upgradeAPI,
 	}
 	command.plan = catacomb.Plan{
 		Site: &command.catacomb,

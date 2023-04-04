@@ -4,13 +4,14 @@
 package waitfor
 
 import (
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/cmd/juju/waitfor/query"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 type applicationScopeSuite struct {
@@ -34,8 +35,8 @@ func (s *applicationScopeSuite) TestGetIdentValue(c *gc.C) {
 		Expected:        query.NewString("alive"),
 	}, {
 		Field:           "charm-url",
-		ApplicationInfo: &params.ApplicationInfo{CharmURL: "cs:charm"},
-		Expected:        query.NewString("cs:charm"),
+		ApplicationInfo: &params.ApplicationInfo{CharmURL: "ch:charm"},
+		Expected:        query.NewString("ch:charm"),
 	}, {
 		Field:           "subordinate",
 		ApplicationInfo: &params.ApplicationInfo{Subordinate: true},

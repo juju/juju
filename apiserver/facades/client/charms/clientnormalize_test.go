@@ -4,7 +4,7 @@
 package charms
 
 import (
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -76,34 +76,4 @@ func (s *clientValidateOriginSuite) TestValidateOriginWithEmptyArch(c *gc.C) {
 
 	err := validateOrigin(origin, charm.MustParseURL("ch:ubuntu"), false)
 	c.Assert(err, gc.ErrorMatches, "empty architecture not valid")
-}
-
-func (s *clientValidateOriginSuite) TestValidateOriginWithInvalidCharmStoreSource(c *gc.C) {
-	origin := corecharm.Origin{
-		Source:   "charm-store",
-		Platform: corecharm.Platform{Architecture: "all"},
-	}
-
-	err := validateOrigin(origin, charm.MustParseURL("ch:ubuntu"), false)
-	c.Assert(err, gc.ErrorMatches, `origin source "charm-store" with schema not valid`)
-}
-
-func (s *clientValidateOriginSuite) TestValidateOriginWithInvalidCharmHubSource(c *gc.C) {
-	origin := corecharm.Origin{
-		Source:   "charm-hub",
-		Platform: corecharm.Platform{Architecture: "all"},
-	}
-
-	err := validateOrigin(origin, charm.MustParseURL("cs:ubuntu"), false)
-	c.Assert(err, gc.ErrorMatches, `origin source "charm-hub" with schema not valid`)
-}
-
-func (s *clientValidateOriginSuite) TestValidateOriginWhenSwitchingCharmsFromDifferentStores(c *gc.C) {
-	origin := corecharm.Origin{
-		Source:   "charm-store",
-		Platform: corecharm.Platform{Architecture: "all"},
-	}
-
-	err := validateOrigin(origin, charm.MustParseURL("ch:ubuntu"), true)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("expected validateOrigin to succeed when switching from charmstore to charmhub"))
 }

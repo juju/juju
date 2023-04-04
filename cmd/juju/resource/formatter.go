@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"sort"
 
-	charmresource "github.com/juju/charm/v9/resource"
+	charmresource "github.com/juju/charm/v10/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -172,9 +172,6 @@ func combinedRevision(r resources.Resource) string {
 func combinedOrigin(used bool, r resources.Resource) string {
 	if r.Origin == charmresource.OriginUpload && used && r.Username != "" {
 		return r.Username
-	}
-	if r.Origin == charmresource.OriginStore {
-		return "charmstore"
 	}
 	return r.Origin.String()
 }

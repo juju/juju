@@ -4,8 +4,9 @@
 package modelgeneration
 
 import (
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/core/cache"
 
 	"github.com/juju/juju/state"

@@ -15,14 +15,13 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/leadership"
 	coresecrets "github.com/juju/juju/core/secrets"
-	coretesting "github.com/juju/juju/testing"
 )
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsbackend.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsBackend
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsstate.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsState
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsconsumer.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsConsumer
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretswatcher.go github.com/juju/juju/state StringsWatcher
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secrettriggers.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretTriggers
@@ -34,11 +33,11 @@ func NewTestAPI(
 	authorizer facade.Authorizer,
 	resources facade.Resources,
 	leadership leadership.Checker,
-	backend SecretsBackend,
+	secretsState SecretsState,
 	consumer SecretsConsumer,
 	secretTriggers SecretTriggers,
-	storeConfigGetter commonsecrets.BackendConfigGetter,
-	providerGetter commonsecrets.ProviderInfoGetter,
+	backendConfigGetter commonsecrets.BackendConfigGetter,
+	adminConfigGetter commonsecrets.BackendConfigGetter,
 	authTag names.Tag,
 	clock clock.Clock,
 ) (*SecretsManagerAPI, error) {
@@ -47,16 +46,15 @@ func NewTestAPI(
 	}
 
 	return &SecretsManagerAPI{
-		authTag:           authTag,
-		modelUUID:         coretesting.ModelTag.Id(),
-		resources:         resources,
-		leadershipChecker: leadership,
-		secretsBackend:    backend,
-		secretsConsumer:   consumer,
-		secretsTriggers:   secretTriggers,
-		storeConfigGetter: storeConfigGetter,
-		providerGetter:    providerGetter,
-		clock:             clock,
+		authTag:             authTag,
+		resources:           resources,
+		leadershipChecker:   leadership,
+		secretsState:        secretsState,
+		secretsConsumer:     consumer,
+		secretsTriggers:     secretTriggers,
+		backendConfigGetter: backendConfigGetter,
+		adminConfigGetter:   adminConfigGetter,
+		clock:               clock,
 	}, nil
 }
 

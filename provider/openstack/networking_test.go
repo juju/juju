@@ -45,7 +45,7 @@ func (s *networkingSuite) SetUpTest(c *gc.C) {
 
 func (s *networkingSuite) TestAllocatePublicIPConfiguredExternalNetwork(c *gc.C) {
 	// Get a FIP for an instance with a configured external-network,
-	// which has available FIPs.  Other external networks to exist,
+	// which has available FIPs. Other external networks do exist -
 	// at last 1 in the same AZ as the instance. Should get the FIP
 	// on the configured external-network.
 	defer s.setupMocks(c).Finish()
@@ -322,7 +322,7 @@ func (s *networkingSuite) expectNeutronCalls(c *gc.C) *gomock.Controller {
 }
 
 func (s *networkingSuite) expectListSubnets() {
-	s.ecfg.EXPECT().network().Return("int-net")
+	s.ecfg.EXPECT().networks().Return([]string{"int-net"})
 
 	s.expectExternalNetwork()
 	s.neutron.EXPECT().ListNetworksV2(gomock.Any()).Return([]neutron.NetworkV2{
