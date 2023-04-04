@@ -107,43 +107,28 @@ func NewTrackedDBWorker(dbApp DBApp, namespace string, opts ...TrackedDBWorkerOp
 	return w, nil
 }
 
-// Txn closes over a raw *sql.Tx. This allows retry semantics in only one
-// location. For instances where the underlying sql database is busy or if
-// it's a common retryable error that can be handled cleanly in one place.
+// Txn executes the input function against the tracked database,
+// within a transaction that depends on the input context.
+// Retry semantics are applied automatically based on transient failures.
+// This is the function that almost all downstream database consumers
+// should use.
 func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
-	return w.DB(func(db *sql.DB) error {
-		return database.Retry(ctx, func() error {
-			// Record the number of transactions.
-			w.metrics.TxnRequests.WithLabelValues(w.namespace).Inc()
-
-			return errors.Trace(database.Txn(ctx, db, fn))
-		})
+	return database.Retry(ctx, func() error {
+		return errors.Trace(w.TxnNoRetry(ctx, fn))
 	})
 }
 
-// DB executes the input function against the tracked sql.DB reference,
-// and returns the resulting error.
-func (w *trackedDBWorker) DB(fn func(*sql.DB) error) (err error) {
-	// Record metrics based on the namespace.
+// TxnNoRetry executes the input function against the tracked database,
+// within a transaction that depends on the input context.
+// We meter both the total transaction count and active operations.
+func (w *trackedDBWorker) TxnNoRetry(ctx context.Context, fn func(context.Context, *sql.Tx) error) (err error) {
+	begin := w.clock.Now()
+	w.metrics.TxnRequests.WithLabelValues(w.namespace).Inc()
 	w.metrics.DBRequests.WithLabelValues(w.namespace).Inc()
-	defer func(begin time.Time) {
-		w.metrics.DBRequests.WithLabelValues(w.namespace).Dec()
+	defer w.meterDBOpResult(begin, err)
 
-		// Record the duration of the DB call and specifically call out if the
-		// result was a success or an error. It might be useful to see if there
-		// is a correlation between the duration of the call and the result.
-		result := "success"
-		if err != nil {
-			result = "error"
-		}
-		w.metrics.DBDuration.WithLabelValues(
-			w.namespace,
-			result,
-		).Observe(w.clock.Now().Sub(begin).Seconds())
-	}(w.clock.Now())
-
-	// If the DB health check failed, the worker's error will be set and we
-	// will be without a usable database reference. Return the error.
+	// If the DB health check failed, the worker's error will be set,
+	// and we will be without a usable database reference. Return the error.
 	w.mutex.RLock()
 	if w.err != nil {
 		w.mutex.RUnlock()
@@ -153,10 +138,18 @@ func (w *trackedDBWorker) DB(fn func(*sql.DB) error) (err error) {
 	db := w.db
 	w.mutex.RUnlock()
 
-	if err = fn(db); err != nil {
-		return errors.Trace(err)
+	return errors.Trace(database.Txn(ctx, db, fn))
+}
+
+// meterDBOpResults decrements the active DB operation count,
+// and records the result and duration of the completed operation.
+func (w *trackedDBWorker) meterDBOpResult(begin time.Time, err error) {
+	w.metrics.DBRequests.WithLabelValues(w.namespace).Dec()
+	result := "success"
+	if err != nil {
+		result = "error"
 	}
-	return nil
+	w.metrics.DBDuration.WithLabelValues(w.namespace, result).Observe(w.clock.Now().Sub(begin).Seconds())
 }
 
 // Err will return any fatal errors that have occurred on the worker, trying
