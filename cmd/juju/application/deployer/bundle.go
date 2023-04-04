@@ -182,14 +182,34 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 // there is no series explicitly defined by the user.
 func (d *deployBundle) checkExplicitSeries(bundleData *charm.BundleData) error {
 	for _, applicationSpec := range bundleData.Applications {
-		cons, err := constraints.Parse(applicationSpec.Constraints)
+		// First we check if the app is deployed "to" a machine that
+		// has the image-id constraint
+		machineHasImageID := false
+		for _, to := range applicationSpec.To {
+			machineCons, err := constraints.Parse(bundleData.Machines[to].Constraints)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if machineCons.HasImageID() {
+				machineHasImageID = true
+				break
+			}
+		}
+		// Then we check if the constraints declared on the app have
+		// image-id
+		appCons, err := constraints.Parse(applicationSpec.Constraints)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if (cons.HasImageID() || d.modelConstraints.HasImageID()) &&
+		appHasImageID := appCons.HasImageID()
+		// Lastly we check if the model constraints have image-id
+		modelHasImageID := d.modelConstraints.HasImageID()
+		// We check if series are defined when any of the constraints
+		// above have image-id
+		if (appHasImageID || modelHasImageID || machineHasImageID) &&
 			applicationSpec.Series == "" &&
 			bundleData.Series == "" {
-			return errors.Forbiddenf("series must be explicitly provided when image-id constraint is used")
+			return errors.Forbiddenf("series must be explicitly provided for %q when image-id constraint is used", applicationSpec.Charm)
 		}
 	}
 	return nil
