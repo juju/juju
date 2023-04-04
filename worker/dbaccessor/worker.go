@@ -21,14 +21,9 @@ import (
 	"github.com/juju/juju/pubsub/apiserver"
 )
 
-const (
-	// PollInterval is the amount of time to wait between polling the database.
-	PollInterval = time.Second * 10
-
-	// DefaultVerifyAttempts is the number of attempts to verify the database,
-	// by opening a new database on verification failure.
-	DefaultVerifyAttempts = 3
-)
+// nodeShutdownTimeout is the timeout that we add to the context passed
+// handoff/shutdown calls when shutting down the Dqlite node.
+const nodeShutdownTimeout = 30 * time.Second
 
 // NodeManager creates Dqlite `App` initialisation arguments and options.
 type NodeManager interface {
@@ -199,7 +194,7 @@ func newWorker(cfg WorkerConfig) (*dbWorker, error) {
 func (w *dbWorker) loop() (err error) {
 	// The context here should not be tied to the catacomb, as the context will
 	// be cancelled when the worker is stopped, and we want to wait for the
-	// dqlite app to shutdown gracefully.
+	// Dqlite app to shut down gracefully.
 	// There is a timeout in shutdownDqlite to ensure that we don't wait
 	// forever.
 	defer w.shutdownDqlite(context.Background())
@@ -568,7 +563,7 @@ func (w *dbWorker) shutdownDqlite(ctx context.Context) {
 
 	// Ensure that we don't block forever and bound the shutdown time for
 	// handing over a dqlite node.
-	ctx, cancel := context.WithTimeout(ctx, time.Second*30)
+	ctx, cancel := context.WithTimeout(ctx, nodeShutdownTimeout)
 	defer cancel()
 
 	if err := w.dbApp.Handover(ctx); err != nil {
