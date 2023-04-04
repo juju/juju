@@ -229,6 +229,8 @@ func (s *CAASProvisionerSuite) assertProvisioningInfo(c *gc.C, isRawK8sSpec bool
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	expectedVersion := jujuversion.Current
+	expectedVersion.Build = 666
 	// Maps are harder to check...
 	// http://ci.jujucharms.com/job/make-check-juju/4853/testReport/junit/github/com_juju_juju_apiserver_facades_controller_caasunitprovisioner/TestAll/
 	expectedResult := &params.KubernetesProvisioningInfo{
@@ -237,7 +239,7 @@ func (s *CAASProvisionerSuite) assertProvisioningInfo(c *gc.C, isRawK8sSpec bool
 			ServiceType:    "loadbalancer",
 		},
 		ImageRepo: params.DockerImageInfo{
-			RegistryPath: fmt.Sprintf("jujusolutions/jujud-operator:%s", jujuversion.Current.String()+".666"),
+			RegistryPath: fmt.Sprintf("jujusolutions/jujud-operator:%s", expectedVersion.String()),
 		},
 		Devices: []params.KubernetesDeviceParams{
 			{
