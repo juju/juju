@@ -141,12 +141,8 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	return user, nil
 }
 
-// recreateExistingUser manipulates the values of an existing user in the db.
-// This is particularly useful when reusing existing users that were previously
-// deleted.
 func (st *State) recreateExistingUser(u *User, name, displayName, password, creator string, secretKey []byte) (*User, error) {
 	dateCreated := st.nowToTheSecond()
-
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			err := u.Refresh()

@@ -53,7 +53,7 @@ run_resource_refresh_no_new_charm_rev_supply_res_rev() {
 	# refresh the resource revision without changing the
 	# charm url
 	echo
-	name="resource-refresh-no-new-charm-rev"
+	name="resource-refresh-no-new-charm-rev-supply-res-rev"
 
 	file="${TEST_DIR}/test-${name}.log"
 
