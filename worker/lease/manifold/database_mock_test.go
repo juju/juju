@@ -35,20 +35,6 @@ func (m *MockTrackedDB) EXPECT() *MockTrackedDBMockRecorder {
 	return m.recorder
 }
 
-// DB mocks base method.
-func (m *MockTrackedDB) DB(arg0 func(*sql.DB) error) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DB", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DB indicates an expected call of DB.
-func (mr *MockTrackedDBMockRecorder) DB(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DB", reflect.TypeOf((*MockTrackedDB)(nil).DB), arg0)
-}
-
 // Err mocks base method.
 func (m *MockTrackedDB) Err() error {
 	m.ctrl.T.Helper()
@@ -75,4 +61,18 @@ func (m *MockTrackedDB) Txn(arg0 context.Context, arg1 func(context.Context, *sq
 func (mr *MockTrackedDBMockRecorder) Txn(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Txn", reflect.TypeOf((*MockTrackedDB)(nil).Txn), arg0, arg1)
+}
+
+// TxnNoRetry mocks base method.
+func (m *MockTrackedDB) TxnNoRetry(arg0 context.Context, arg1 func(context.Context, *sql.Tx) error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TxnNoRetry", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// TxnNoRetry indicates an expected call of TxnNoRetry.
+func (mr *MockTrackedDBMockRecorder) TxnNoRetry(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TxnNoRetry", reflect.TypeOf((*MockTrackedDB)(nil).TxnNoRetry), arg0, arg1)
 }
