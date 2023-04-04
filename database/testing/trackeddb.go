@@ -9,8 +9,10 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/database"
+	"github.com/juju/juju/database/txn"
 )
+
+var defaultTransactionRunner = txn.NewTransactionRunner()
 
 // trackedDB is used for testing purposes.
 type trackedDB struct {
@@ -18,12 +20,12 @@ type trackedDB struct {
 }
 
 func (t *trackedDB) Txn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
-	return database.Retry(ctx, func() error {
+	return defaultTransactionRunner.Retry(ctx, func() error {
 		return errors.Trace(t.TxnNoRetry(ctx, fn))
 	})
 }
 func (t *trackedDB) TxnNoRetry(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
-	return errors.Trace(database.Txn(ctx, t.db, fn))
+	return errors.Trace(defaultTransactionRunner.Txn(ctx, t.db, fn))
 }
 
 func (t *trackedDB) Err() error {
