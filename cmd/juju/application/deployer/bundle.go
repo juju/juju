@@ -99,7 +99,7 @@ func (d *deployBundle) deploy(
 	}
 	d.printDryRunUnmarshalErrors(ctx, unmarshalErrors)
 
-	err = d.checkExplicitBase(bundleData)
+	err = d.checkExplicitSeries(bundleData)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -178,23 +178,18 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 	return nil
 }
 
-// checkExplicitBase returns an error if the image-id constraint is used and
-// there is no base (series) explicitly defined by the user.
-func (d *deployBundle) checkExplicitBase(bundleData *charm.BundleData) error {
+// checkExplicitSeries returns an error if the image-id constraint is used and
+// there is no series explicitly defined by the user.
+func (d *deployBundle) checkExplicitSeries(bundleData *charm.BundleData) error {
 	for _, applicationSpec := range bundleData.Applications {
-		charmURL, err := resolveCharmURL(applicationSpec.Charm, d.defaultCharmSchema)
-		if err != nil {
-			return errors.Trace(err)
-		}
 		cons, err := constraints.Parse(applicationSpec.Constraints)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if (cons.HasImageID() || d.modelConstraints.HasImageID()) &&
 			applicationSpec.Series == "" &&
-			charmURL.Series == "" &&
 			bundleData.Series == "" {
-			return errors.Forbiddenf("base must be explicitly provided when image-id constraint is used")
+			return errors.Forbiddenf("series must be explicitly provided when image-id constraint is used")
 		}
 	}
 	return nil
