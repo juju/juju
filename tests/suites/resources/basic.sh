@@ -44,7 +44,7 @@ run_resource_attach() {
 
 	juju deploy juju-qa-test
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
-	juju attach juju-qa-test foo-file="./tests/suites/resources/foo-file.txt"
+	juju attach-resource juju-qa-test foo-file="./tests/suites/resources/foo-file.txt"
 
 	juju config juju-qa-test foo-file=true
 	# wait for config-changed, the charm will update the status
@@ -70,7 +70,7 @@ run_resource_attach_large() {
 	# Use urandom to add alpha numeric characters with new lines added to the file
 	dd if=/dev/urandom bs=1048576 count=100 2>/dev/null | base64 >"${FILE}"
 	line=$(head -n 1 "${FILE}")
-	juju attach juju-qa-test foo-file="${FILE}"
+	juju attach-resource juju-qa-test foo-file="${FILE}"
 
 	juju config juju-qa-test foo-file=true
 	# wait for config-changed, the charm will update the status
