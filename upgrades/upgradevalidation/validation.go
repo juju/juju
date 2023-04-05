@@ -5,6 +5,7 @@ package upgradevalidation
 
 import (
 	"fmt"
+	"net/http"
 	"sort"
 	"strings"
 
@@ -347,10 +348,11 @@ func getCheckForLXDVersion(cloudspec environscloudspec.CloudSpec) Validator {
 		if !lxdnames.IsDefaultCloud(cloudspec.Type) {
 			return nil, nil
 		}
-		httpClient := jujuhttp.NewClient(
-			jujuhttp.WithLogger(logger.ChildWithLabels("http", corelogger.HTTP)),
-		)
-		server, err := NewServerFactory(httpClient.Client()).RemoteServer(cloudspec)
+		server, err := NewServerFactory(lxd.NewHTTPClientFunc(func() *http.Client {
+			return jujuhttp.NewClient(
+				jujuhttp.WithLogger(logger.ChildWithLabels("http", corelogger.HTTP)),
+			).Client()
+		})).RemoteServer(cloudspec)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
