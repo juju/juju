@@ -132,7 +132,6 @@ var (
 		"proxy-config-updater",
 		"reboot-executor",
 		"ssh-authkeys-updater",
-		"state-converter",
 		"storage-provisioner",
 		"upgrade-series",
 	}
