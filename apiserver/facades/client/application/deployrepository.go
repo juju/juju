@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"sync"
@@ -17,6 +18,9 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
+	resfacade "github.com/juju/juju/apiserver/facades/client/resources"
+	"github.com/juju/juju/charmhub"
+	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
@@ -69,20 +73,41 @@ type DeployFromRepositoryState interface {
 // API facade for any given version. It is expected that any API
 // parameter changes should be performed before entering the API.
 type DeployFromRepositoryAPI struct {
-	state     DeployFromRepositoryState
-	validator DeployFromRepositoryValidator
-
-	stateCharm func(Charm) *state.Charm
+	state          DeployFromRepositoryState
+	validator      DeployFromRepositoryValidator
+	charmhubClient charmhub.Client
+	stateCharm     func(Charm) *state.Charm
 }
 
 // NewDeployFromRepositoryAPI creates a new DeployFromRepositoryAPI.
-func NewDeployFromRepositoryAPI(state DeployFromRepositoryState, validator DeployFromRepositoryValidator) DeployFromRepository {
-	api := &DeployFromRepositoryAPI{
-		state:      state,
-		validator:  validator,
-		stateCharm: CharmToStateCharm,
+func NewDeployFromRepositoryAPI(state DeployFromRepositoryState, validator DeployFromRepositoryValidator, ctx facade.Context) (DeployFromRepository, error) {
+	m, err := ctx.State().Model()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting model")
 	}
-	return api
+	model := &modelShim{Model: m}
+	modelCfg, err := model.Config()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	charmhubHTTPClient := ctx.HTTPClient(facade.CharmhubHTTPClient)
+	chURL, _ := modelCfg.CharmHubURL()
+	chClient, err := charmhub.NewClient(charmhub.Config{
+		URL:        chURL,
+		HTTPClient: charmhubHTTPClient,
+		Logger:     logger,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	api := &DeployFromRepositoryAPI{
+		state:          state,
+		validator:      validator,
+		stateCharm:     CharmToStateCharm,
+		charmhubClient: *chClient,
+	}
+	return api, nil
 }
 
 func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRepositoryArg) (params.DeployFromRepositoryInfo, []*params.PendingResourceUpload, []error) {
@@ -124,9 +149,9 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
 
-	resources, pendingResourceUploads, resolveResErr := api.resolveResources(dt.resources, ch.Meta().Resources)
+	resources, pendingResourceUploads, resolveResErr := api.resolveResources(ch.URL(), dt.origin, dt.resources, ch.Meta().Resources)
 	if resolveResErr != nil {
-		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
+		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(resolveResErr)}
 	}
 
 	// Last step, add pending resources.
@@ -165,49 +190,146 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 // PendingResourceUpload is only returned
 // for local resources which will require the client to upload the
 // resource once DeployFromRepository returns.
-func (api *DeployFromRepositoryAPI) resolveResources(deployRes map[string]string, resMeta map[string]resource.Meta) ([]*resource.Resource, []*params.PendingResourceUpload, error) {
+func (api *DeployFromRepositoryAPI) resolveResources(
+	curl *charm.URL,
+	origin corecharm.Origin,
+	deployResArg map[string]string,
+	resMeta map[string]resource.Meta,
+) ([]resource.Resource, []*params.PendingResourceUpload, error) {
 	var pendingUploadIDs []*params.PendingResourceUpload
-	var resources []*resource.Resource
+	var resources []resource.Resource
+	var storeResources map[string]resource.Resource
 
 	for name, meta := range resMeta {
-		r := &resource.Resource{
-			Meta:     meta,
-			Revision: -1,
-		}
-		deployValue, ok := deployRes[name]
-		if !ok {
-			// TODO, this is temporary until resolving resources is completed.
-			// irl, this should never fail.
-			continue
-		}
-		if rev, err := strconv.Atoi(deployValue); err == nil {
-			r.Revision = rev
-			r.Origin = resource.OriginStore
-		} else {
+		deployValue, ok := deployResArg[name]
+
+		if ok {
+			// resource flag is used on the cli, either a resource revision, or a filename
+			if providedRev, err := strconv.Atoi(deployValue); err == nil {
+				// a resource revision is provided
+				charmhubResp, listResErr := api.charmhubClient.ListResourceRevisions(context.TODO(), curl.Name, name)
+				if listResErr != nil {
+					if errors.Is(listResErr, errors.NotFound) {
+
+						return nil, nil, errors.Annotatef(listResErr, "unrecognized resource %v", name)
+					}
+
+					return nil, nil, errors.Annotatef(listResErr, "unable to retrieve resource info %q for charm %q", name, curl.String())
+				}
+				r, resErr := resourceFromRevision(name, providedRev, charmhubResp)
+				r.Meta = meta
+				if resErr != nil {
+					return nil, nil, errors.Trace(resErr)
+				}
+				resources = append(resources, r)
+				continue
+			}
+			// a file is coming from the client
+			r := resource.Resource{
+				Meta:     meta,
+				Revision: -1,
+			}
 			r.Origin = resource.OriginUpload
+			r.Name = name
+			// add a PendingResourceUpload for this resource to be uploaded by the client
 			pendingUploadIDs = append(pendingUploadIDs, &params.PendingResourceUpload{
 				Name:     meta.Name,
 				Type:     meta.Type.String(),
 				Filename: deployValue,
 			})
+			resources = append(resources, r)
+			continue
 		}
-		r.Name = name
+
+		// This is a store resource and juju selects the resource
+		// Compute the list of store resources only if necessary
+		if storeResources == nil {
+			var listErr error
+			if storeResources, listErr = api.listStoreResources(curl, origin); listErr != nil {
+				return nil, nil, errors.Trace(listErr)
+			}
+		}
+		r, ok := storeResources[name]
+		if !ok {
+			return nil, nil, errors.New(fmt.Sprintf("unrecognized resource %q", name))
+		}
 		resources = append(resources, r)
 	}
 
 	return resources, pendingUploadIDs, nil
 }
 
+func resourceFromRevision(name string, providedRev int, charmhubResp []transport.ResourceRevision) (resource.Resource, error) {
+	for _, res := range charmhubResp {
+		if res.Revision == providedRev {
+			if r, resErr := resfacade.ResourceFromRevision(res); resErr == nil {
+				return r, nil
+			} else {
+				return resource.Resource{}, errors.Annotatef(resErr, "unable to create resource %v", name)
+			}
+		}
+	}
+	return resource.Resource{}, errors.New(fmt.Sprintf("unrecognized resource %q", name))
+}
+
+// listStoreResources calls the charmhub refresh to get a slice of resource
+// details for the given charm (for a specific channel)
+func (api *DeployFromRepositoryAPI) listStoreResources(curl *charm.URL, origin corecharm.Origin) (map[string]resource.Resource, error) {
+	var cfg charmhub.RefreshConfig
+	var err error
+	refBase := charmhub.RefreshBase{
+		Architecture: origin.Platform.Architecture,
+		Name:         origin.Platform.OS,
+		Channel:      origin.Platform.Channel,
+	}
+	// Prep the refresh config for the charmhub refresh call
+	switch {
+	case origin.ID != "":
+		cfg, err = charmhub.DownloadOneFromChannel(origin.ID, origin.Channel.String(), refBase)
+		if err != nil {
+			logger.Errorf("creating resources config for charm (%q, %q): %s", origin.ID, origin.Channel.String(), err)
+			return nil, errors.Annotatef(err, "creating resources config for charm %q", curl.String())
+		}
+	case origin.ID == "":
+		cfg, err = charmhub.DownloadOneFromChannelByName(curl.Name, origin.Channel.String(), refBase)
+		if err != nil {
+			logger.Errorf("creating resources config for charm (%q, %q): %s", curl.Name, origin.Channel.String(), err)
+			return nil, errors.Annotatef(err, "creating resources config for charm %q", curl.String())
+		}
+	}
+	refreshResp, refreshErr := api.charmhubClient.Refresh(context.TODO(), cfg)
+	if refreshErr != nil {
+		return nil, errors.Annotatef(refreshErr, "calling charmhub refresh %q", curl.String())
+	}
+	if len(refreshResp) == 0 {
+		return nil, errors.Errorf("no download refresh responses received")
+	}
+	resp := refreshResp[0]
+	if resp.Error != nil {
+		return nil, errors.Annotatef(errors.New(resp.Error.Message), "listing resources for charm %q", curl.String())
+	}
+	//
+	resources := make(map[string]resource.Resource, len(resp.Entity.Resources))
+	for _, v := range resp.Entity.Resources {
+		var err error
+		resources[v.Name], err = resfacade.ResourceFromRevision(v)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return resources, nil
+}
+
 // addPendingResource adds a pending resource doc for all resources to be
 // added when deploying the charm. All resources will be
 // processed. Errors are not terminal. It also returns the name to pendingIDs
 // map that's needed by the AddApplication.
-func (api *DeployFromRepositoryAPI) addPendingResources(appName string, resources []*resource.Resource) (map[string]string, []error) {
+func (api *DeployFromRepositoryAPI) addPendingResources(appName string, resources []resource.Resource) (map[string]string, []error) {
 	var errs []error
 	pendingIDs := make(map[string]string)
 
 	for _, r := range resources {
-		pID, err := api.state.AddPendingResource(appName, *r)
+		pID, err := api.state.AddPendingResource(appName, r)
 		if err != nil {
 			logger.Warningf("Unable to add pending resource %v for application %v", r.Name, appName)
 			errs = append(errs, err)
@@ -696,7 +818,7 @@ func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedO
 		}
 	}
 	resolvedOrigin.Platform.OS = base.OS
-	resolvedOrigin.Platform.Channel = base.Channel.String()
+	resolvedOrigin.Platform.Channel = base.Channel.Track
 
 	return resultURL, resolvedOrigin, nil
 }
