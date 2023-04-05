@@ -290,28 +290,50 @@ func (c *Client) GetSecretsToMigrate() ([]coresecrets.SecretMetadataForMigration
 		}
 		revisions := make([]coresecrets.SecretRevisionMetadata, len(info.Revisions))
 		for i, r := range info.Revisions {
-			revisions[i] = coresecrets.SecretRevisionMetadata{
-				Revision: r.Revision,
-				ValueRef: &coresecrets.ValueRef{
-					BackendID:  r.ValueRef.BackendID,
-					RevisionID: r.ValueRef.RevisionID,
-				},
+			rev := coresecrets.SecretRevisionMetadata{
+				Revision:    r.Revision,
 				BackendName: r.BackendName,
 				CreateTime:  r.CreateTime,
 				UpdateTime:  r.UpdateTime,
 				ExpireTime:  r.ExpireTime,
 			}
+			if r.ValueRef != nil {
+				rev.ValueRef = &coresecrets.ValueRef{
+					BackendID:  r.ValueRef.BackendID,
+					RevisionID: r.ValueRef.RevisionID,
+				}
+			}
+			revisions[i] = rev
 		}
 		out[i] = coresecrets.SecretMetadataForMigration{Metadata: md, Revisions: revisions}
 	}
 	return out, nil
 }
 
-// UpdateSecretBackend updates the backend for the specified secret after migration done.
-func (c *Client) UpdateSecretBackend(uri *coresecrets.URI, revision int, backendID string) error {
-	// TODO: bulk update!!
-	// logger.Criticalf("TODO: updating secret backend for %q", uri)
-	return nil
+// ChangeSecretBackend updates the backend for the specified secret after migration done.
+func (c *Client) ChangeSecretBackend(uri *coresecrets.URI, revision int, valueRef *coresecrets.ValueRef, data coresecrets.SecretData) error {
+	var results params.ErrorResults
+	arg := params.ChangeSecretBackendArg{
+		URI:      uri.String(),
+		Revision: revision,
+		Content:  params.SecretContentParams{Data: data},
+	}
+	if valueRef != nil {
+		arg.Content.ValueRef = &params.SecretValueRef{
+			BackendID:  valueRef.BackendID,
+			RevisionID: valueRef.RevisionID,
+		}
+	}
+	args := params.ChangeSecretBackendArgs{Args: []params.ChangeSecretBackendArg{arg}}
+	err := c.facade.FacadeCall("ChangeSecretBackend", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	return apiservererrors.RestoreError(result.Error)
 }
 
 // WatchSecretsRotationChanges returns a watcher which serves changes to

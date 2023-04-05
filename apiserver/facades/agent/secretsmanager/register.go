@@ -60,6 +60,6 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		clock:               clock.WallClock,
 		backendConfigGetter: secretBackendConfigGetter,
 		adminConfigGetter:   secretBackendAdminConfigGetter,
-		modelConfigState:    model,
+		modelState:          model,
 	}, nil
 }

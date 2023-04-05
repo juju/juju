@@ -16,6 +16,7 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v3"
+	"github.com/kr/pretty"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/leadership"
@@ -60,6 +61,15 @@ func (u *UpdateSecretParams) hasUpdate() bool {
 		len(u.Params) > 0
 }
 
+// ChangeSecretBackendParams are used to change the backend of a secret.
+type ChangeSecretBackendParams struct {
+	Token    leadership.Token
+	URI      *secrets.URI
+	Revision int
+	ValueRef *secrets.ValueRef
+	Data     secrets.SecretData
+}
+
 // SecretsFilter holds attributes to match when listing secrets.
 type SecretsFilter struct {
 	URI          *secrets.URI
@@ -79,6 +89,7 @@ type SecretsStore interface {
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
 	GetSecretRevision(uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error)
 	WatchObsolete(owners []names.Tag) (StringsWatcher, error)
+	ChangeSecretBackend(ChangeSecretBackendParams) error
 }
 
 // NewSecrets creates a new mongo backed secrets store.
@@ -737,6 +748,7 @@ func (s *secretsStore) getSecretValue(uri *secrets.URI, revision int, checkExist
 	var doc secretRevisionDoc
 	key := secretRevisionKey(uri, revision)
 	err := secretValuesCollection.FindId(key).One(&doc)
+	logger.Criticalf("getSecretValue(%q): %s", key, pretty.Sprint(doc))
 	if err == mgo.ErrNotFound {
 		return nil, nil, errors.NotFoundf("secret revision %q", key)
 	}
@@ -755,6 +767,53 @@ func (s *secretsStore) getSecretValue(uri *secrets.URI, revision int, checkExist
 		}
 	}
 	return secrets.NewSecretValue(data), valueRef, nil
+}
+
+// ChangeSecretBackend updates the backend ID for the provided secret revision.
+func (s *secretsStore) ChangeSecretBackend(arg ChangeSecretBackendParams) error {
+	if err := s.st.checkExists(arg.URI); err != nil {
+		return errors.Trace(err)
+	}
+
+	secretValuesCollection, closer := s.st.db().GetCollection(secretRevisionsC)
+	defer closer()
+	var doc secretRevisionDoc
+	key := secretRevisionKey(arg.URI, arg.Revision)
+	err := secretValuesCollection.FindId(key).One(&doc)
+	if err == mgo.ErrNotFound {
+		return errors.NotFoundf("secret revision %q", key)
+	}
+	logger.Criticalf("secretsStore.ChangeSecretBackend doc => %s", pretty.Sprint(doc))
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	dataCopy := make(secretsDataMap)
+	for k, v := range arg.Data {
+		dataCopy[k] = v
+	}
+	var valRefDoc *valueRefDoc
+	if arg.ValueRef != nil {
+		valRefDoc = &valueRefDoc{
+			BackendID:  arg.ValueRef.BackendID,
+			RevisionID: arg.ValueRef.RevisionID,
+		}
+	}
+
+	logger.Criticalf("secretsStore.ChangeSecretBackend: old %+v, new %+v", doc.ValueRef, arg.ValueRef)
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		return []txn.Op{
+			{
+				C:      secretRevisionsC,
+				Id:     doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.M{"$set": bson.M{"value-reference": valRefDoc, "data": dataCopy}},
+			},
+		}, nil
+	}
+	err = s.st.db().Run(buildTxnWithLeadership(buildTxn, arg.Token))
+	return errors.Trace(err)
 }
 
 // GetSecret gets the secret metadata for the specified URL.

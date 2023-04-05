@@ -15,12 +15,12 @@ type secretBackendModelConfigWatcher struct {
 	catacomb          catacomb.Catacomb
 	out               chan struct{}
 	src               state.NotifyWatcher
-	modelConfigGetter ModelConfigState
+	modelConfigGetter ModelState
 
 	currentSecretBackend string
 }
 
-func newSecretBackendModelConfigWatcher(modelConfigGetter ModelConfigState, src state.NotifyWatcher) (*secretBackendModelConfigWatcher, error) {
+func newSecretBackendModelConfigWatcher(modelConfigGetter ModelState, src state.NotifyWatcher) (*secretBackendModelConfigWatcher, error) {
 	w := &secretBackendModelConfigWatcher{
 		out:               make(chan struct{}),
 		src:               src,

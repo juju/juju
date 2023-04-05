@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/kr/pretty"
 
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -42,7 +43,7 @@ type SecretsManagerAPI struct {
 
 	backendConfigGetter commonsecrets.BackendConfigGetter
 	adminConfigGetter   commonsecrets.BackendConfigGetter
-	modelConfigState    ModelConfigState
+	modelState          ModelState
 }
 
 // GetSecretStoreConfig is for 3.0.x agents.
@@ -344,6 +345,8 @@ func (s *SecretsManagerAPI) getSecretMetadata(
 ) (params.ListSecretResults, error) {
 	var result params.ListSecretResults
 	listFilter := state.SecretsFilter{
+		// TODO: there is a bug that operator agents can't get any unit owned secrets!
+		// Because the authTag here is the application tag, but not unit tag.
 		OwnerTags: []names.Tag{s.authTag},
 	}
 	// Unit leaders can also get metadata for secrets owned by the app.
@@ -410,23 +413,65 @@ func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretResults, error
 
 // GetSecretsToMigrate returns metadata for the secrets that need to be migrated.
 func (s *SecretsManagerAPI) GetSecretsToMigrate() (params.ListSecretResults, error) {
-	modelConfig, err := s.modelConfigState.ModelConfig()
+	modelConfig, err := s.modelState.ModelConfig()
 	if err != nil {
 		return params.ListSecretResults{}, errors.Trace(err)
 	}
 	activeBackend := modelConfig.SecretBackend()
+	modelType := s.modelState.Type()
+	isInternalBackendActive := activeBackend == secretsprovider.Internal ||
+		(activeBackend == secretsprovider.Auto && modelType == state.ModelTypeIAAS)
 	return s.getSecretMetadata(func(md *coresecrets.SecretMetadata, rev *coresecrets.SecretRevisionMetadata) bool {
+		logger.Criticalf("GetSecretsToMigrate md: %s, rev: %s", pretty.Sprint(md), pretty.Sprint(rev))
 		if rev.ValueRef == nil {
-			return false
+			// Only internal backend secrets have nil ValueRef.
+			return !isInternalBackendActive
 		}
 		return rev.ValueRef.BackendID != activeBackend
 	})
 }
 
-// UpdateSecretBackend updates the backend for the specified secret after migration done.
-func (s *SecretsManagerAPI) UpdateSecretBackend(uri *coresecrets.URI, revision int, backendID string) error {
-	// TODO:
-	return nil
+// ChangeSecretBackend updates the backend for the specified secret after migration done.
+func (s *SecretsManagerAPI) ChangeSecretBackend(args params.ChangeSecretBackendArgs) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Args)),
+	}
+	for i, arg := range args.Args {
+		err := s.changeSecretBackendForOne(arg)
+		result.Results[i].Error = apiservererrors.ServerError(err)
+	}
+	return result, nil
+}
+
+func (s *SecretsManagerAPI) changeSecretBackendForOne(arg params.ChangeSecretBackendArg) (err error) {
+	defer func() {
+		logger.Criticalf("changeSecretBackendForOne arg: %s, err %#v", pretty.Sprint(arg), err)
+	}()
+	uri, err := coresecrets.ParseURI(arg.URI)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	token, err := s.canManage(uri)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return s.secretsState.ChangeSecretBackend(toChangeSecretBackendParams(token, uri, arg))
+}
+
+func toChangeSecretBackendParams(token leadership.Token, uri *coresecrets.URI, arg params.ChangeSecretBackendArg) state.ChangeSecretBackendParams {
+	params := state.ChangeSecretBackendParams{
+		Token:    token,
+		URI:      uri,
+		Revision: arg.Revision,
+		Data:     arg.Content.Data,
+	}
+	if arg.Content.ValueRef != nil {
+		params.ValueRef = &coresecrets.ValueRef{
+			BackendID:  arg.Content.ValueRef.BackendID,
+			RevisionID: arg.Content.ValueRef.RevisionID,
+		}
+	}
+	return params
 }
 
 // GetSecretContentInfo returns the secret values for the specified secrets.
@@ -766,8 +811,8 @@ func (s *SecretsManagerAPI) WatchSecretsRotationChanges(args params.Entities) (p
 
 // WatchSecretBackendChanged sets up a watcher to notify of changes to the secret backend.
 func (s *SecretsManagerAPI) WatchSecretBackendChanged() (params.NotifyWatchResult, error) {
-	stateWatcher := s.modelConfigState.WatchForModelConfigChanges()
-	w, err := newSecretBackendModelConfigWatcher(s.modelConfigState, stateWatcher)
+	stateWatcher := s.modelState.WatchForModelConfigChanges()
+	w, err := newSecretBackendModelConfigWatcher(s.modelState, stateWatcher)
 	if err != nil {
 		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}, nil
 	}
