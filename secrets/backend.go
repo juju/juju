@@ -25,7 +25,6 @@ const PermissionDenied = errors.ConstError("permission denied")
 type secretsClient struct {
 	jujuAPI         JujuAPIClient
 	activeBackendID string
-	backends        map[string]provider.SecretsBackend
 }
 
 // For testing.
@@ -108,6 +107,27 @@ func (c *secretsClient) GetContent(uri *secrets.URI, label string, refresh, peek
 	}
 }
 
+// GetRevisionContent implements Client.
+func (c *secretsClient) GetRevisionContent(uri *secrets.URI, revision int) (secrets.SecretValue, error) {
+	content, err := c.jujuAPI.GetRevisionContentInfo(uri, revision, false)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err = content.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if content.ValueRef == nil {
+		return content.SecretValue, nil
+	}
+
+	backendID := content.ValueRef.BackendID
+	backend, _, err := c.GetBackend(&backendID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return backend.GetContent(context.TODO(), content.ValueRef.RevisionID)
+}
+
 // SaveContent implements Client.
 func (c *secretsClient) SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (secrets.ValueRef, error) {
 	activeBackend, activeBackendID, err := c.GetBackend(nil)
@@ -143,9 +163,9 @@ func (c *secretsClient) DeleteContent(uri *secrets.URI, revision int) error {
 		}
 
 		backendID := content.ValueRef.BackendID
-		backend, ok := c.backends[backendID]
-		if !ok {
-			return errors.NotFoundf("external secret backend %q", backendID)
+		backend, _, err := c.GetBackend(&backendID)
+		if err != nil {
+			return errors.Trace(err)
 		}
 		err = backend.DeleteContent(context.TODO(), content.ValueRef.RevisionID)
 		if err == nil || !errors.Is(err, errors.NotFound) || lastBackendID == backendID {
@@ -162,6 +182,7 @@ func (c *secretsClient) DeleteContent(uri *secrets.URI, revision int) error {
 
 // DeleteExternalContent implements Client.
 func (c *secretsClient) DeleteExternalContent(ref secrets.ValueRef) error {
+	logger.Criticalf("secretsClient.DeleteExternalContent(%+v)", ref)
 	backend, _, err := c.GetBackend(&ref.BackendID)
 	if err != nil {
 		return errors.Trace(err)
