@@ -55,6 +55,15 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
 	}
+	if cfg.NewFacade == nil {
+		return errors.NotValidf("nil NewFacade")
+	}
+	if cfg.NewWorker == nil {
+		return errors.NotValidf("nil NewWorker")
+	}
+	if cfg.NewBackendsClient == nil {
+		return errors.NotValidf("nil NewBackendsClient")
+	}
 	return nil
 }
 
