@@ -64,14 +64,14 @@ run_resource_refresh_no_new_charm_rev_supply_res_rev() {
 	juju config juju-qa-test foo-file=true
 
 	# wait for update-status
-	wait_for "resource line one: testing four." "$(workload_status juju-qa-test 0).message"
+	wait_for "resource line one: testing two." "$(workload_status juju-qa-test 0).message"
 	juju resources juju-qa-test --format json | jq -S '.resources[0] | .[ "revision"] == "2"'
 	juju config juju-qa-test foo-file=false
 
 	juju refresh juju-qa-test --resource foo-file=3
 
 	juju config juju-qa-test foo-file=true
-	wait_for "resource line one: testing three." "$(workload_status juju-qa-test 0).message"
+	wait_for "resource line one: testing one plus one." "$(workload_status juju-qa-test 0).message"
 	juju resources juju-qa-test --format json | jq -S '.resources[0] | .[ "revision"] == "3"'
 
 	destroy_model "test-${name}"
