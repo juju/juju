@@ -34,7 +34,7 @@ func (s *DBSuite) SetUpSuite(c *gc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 
 	dbPath := c.MkDir()
-	port := findTCPPort(c)
+	port := FindTCPPort(c)
 
 	url := fmt.Sprintf("%s:%d", "127.0.0.1", port)
 	c.Logf("Opening sqlite3 db with: %v", url)
@@ -95,7 +95,7 @@ func (s *DBSuite) TrackedDB() coredatabase.TrackedDB {
 // It is prone to racing, so the port should be used as soon as it is acquired
 // to minimise the change of another process using it in the interim.
 // The chances of this should be negligible during testing.
-func findTCPPort(c *gc.C) int {
+func FindTCPPort(c *gc.C) int {
 	l, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(l.Close(), jc.ErrorIsNil)
