@@ -526,7 +526,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())
 		}
-		if origin.Source != commoncharm.OriginLocal || origin.Source != commoncharm.OriginCharmHub {
+		if origin.Source != commoncharm.OriginLocal && origin.Source != commoncharm.OriginCharmHub {
 			return errors.Annotatef(err, "schema not supported")
 		}
 		return errors.Annotatef(err, "storing charm %q", deployableURL.Name)
