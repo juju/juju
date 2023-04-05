@@ -65,10 +65,9 @@ var listCloudsDoc = "" +
 	"\n" +
 	"    Documentation:   https://juju.is/docs/olm/manage-clouds\n" +
 	"    microk8s:        https://microk8s.io/\n" +
-	"    LXD hypervisor:  https://linuxcontainers.org/lxd/\n" +
-	listCloudsDocExamples
+	"    LXD hypervisor:  https://linuxcontainers.org/lxd/\n"
 
-var listCloudsExamples = `
+const listCloudsExamples = `
     juju clouds
     juju clouds --format yaml
     juju clouds --controller mycontroller 
