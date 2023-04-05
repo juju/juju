@@ -171,7 +171,15 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 	}
 
 	updateBase := NewUpdateBaseAPI(state, makeUpdateSeriesValidator(chClient))
-	repoDeploy := NewDeployFromRepositoryAPI(state, makeDeployFromRepositoryValidator(state, model, charmhubHTTPClient))
+	validatorCfg := validatorConfig{
+		charmhubHTTPClient: charmhubHTTPClient,
+		caasBroker:         caasBroker,
+		model:              m,
+		registry:           registry,
+		state:              state,
+		storagePoolManager: storagePoolManager,
+	}
+	repoDeploy := NewDeployFromRepositoryAPI(state, makeDeployFromRepositoryValidator(validatorCfg))
 
 	return NewAPIBase(
 		state,
@@ -416,31 +424,42 @@ func splitApplicationAndCharmConfigFromYAML(modelType state.ModelType, inYaml, a
 	return appConfigAttrs, string(charmConfig), nil
 }
 
-func caasPrecheck(
-	ch Charm,
+// caasDeployParams contains deploy configuration requiring prechecks
+// specific to a caas.
+type caasDeployParams struct {
+	applicationName string
+	attachStorage   []string
+	charm           CharmMeta
+	config          map[string]string
+	placement       []*instance.Placement
+	storage         map[string]storage.Constraints
+}
+
+// precheck, checks the deploy config based on caas specific
+// requirements.
+func (c caasDeployParams) precheck(
 	model Model,
-	args params.ApplicationDeploy,
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
 	caasBroker CaasBrokerInterface,
 ) error {
-	if len(args.AttachStorage) > 0 {
+	if len(c.attachStorage) > 0 {
 		return errors.Errorf(
 			"AttachStorage may not be specified for container models",
 		)
 	}
-	if len(args.Placement) > 1 {
+	if len(c.placement) > 1 {
 		return errors.Errorf(
 			"only 1 placement directive is supported for container models, got %d",
-			len(args.Placement),
+			len(c.placement),
 		)
 	}
-	for _, s := range ch.Meta().Storage {
+	for _, s := range c.charm.Meta().Storage {
 		if s.Type == charm.StorageBlock {
 			return errors.Errorf("block storage %q is not supported for container charms", s.Name)
 		}
 	}
-	serviceType := args.Config[k8s.ServiceTypeConfigKey]
+	serviceType := c.config[k8s.ServiceTypeConfigKey]
 	if _, err := k8s.CaasServiceToK8s(caas.ServiceType(serviceType)); err != nil {
 		return errors.NotValidf("service type %q", serviceType)
 	}
@@ -451,7 +470,7 @@ func caasPrecheck(
 	}
 
 	// For older charms, operator-storage model config is mandatory.
-	if k8s.RequireOperatorStorage(ch) {
+	if k8s.RequireOperatorStorage(c.charm) {
 		storageClassName, _ := cfg.AllAttrs()[k8sconstants.OperatorStorageKey].(string)
 		if storageClassName == "" {
 			return errors.New(
@@ -463,7 +482,7 @@ func caasPrecheck(
 		}
 		sp, err := caasoperatorprovisioner.CharmStorageParams("", storageClassName, cfg, "", storagePoolManager, registry)
 		if err != nil {
-			return errors.Annotatef(err, "getting operator storage params for %q", args.ApplicationName)
+			return errors.Annotatef(err, "getting operator storage params for %q", c.applicationName)
 		}
 		if sp.Provider != string(k8sconstants.StorageProviderType) {
 			poolName := cfg.AllAttrs()[k8sconstants.OperatorStorageKey]
@@ -476,13 +495,13 @@ func caasPrecheck(
 	}
 
 	workloadStorageClass, _ := cfg.AllAttrs()[k8sconstants.WorkloadStorageKey].(string)
-	for storageName, cons := range args.Storage {
+	for storageName, cons := range c.storage {
 		if cons.Pool == "" && workloadStorageClass == "" {
 			return errors.Errorf("storage pool for %q must be specified since there's no model default storage class", storageName)
 		}
 		_, err := caasoperatorprovisioner.CharmStorageParams("", workloadStorageClass, cfg, cons.Pool, storagePoolManager, registry)
 		if err != nil {
-			return errors.Annotatef(err, "getting workload storage params for %q", args.ApplicationName)
+			return errors.Annotatef(err, "getting workload storage params for %q", c.applicationName)
 		}
 	}
 
@@ -490,7 +509,7 @@ func caasPrecheck(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := checkCAASMinVersion(ch, caasVersion); err != nil {
+	if err := checkCAASMinVersion(c.charm, caasVersion); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -535,7 +554,15 @@ func deployApplication(
 
 	modelType := model.Type()
 	if modelType != state.ModelTypeIAAS {
-		if err := caasPrecheck(ch, model, args, storagePoolManager, registry, caasBroker); err != nil {
+		caas := caasDeployParams{
+			applicationName: args.ApplicationName,
+			attachStorage:   args.AttachStorage,
+			charm:           ch,
+			config:          args.Config,
+			placement:       args.Placement,
+			storage:         args.Storage,
+		}
+		if err := caas.precheck(model, storagePoolManager, registry, caasBroker); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -2927,7 +2954,7 @@ func (api *APIBase) crossModelRelationData(rel Relation, appName string, erd *pa
 	return nil
 }
 
-func checkCAASMinVersion(ch Charm, caasVersion *version.Number) (err error) {
+func checkCAASMinVersion(ch CharmMeta, caasVersion *version.Number) (err error) {
 	// check caas min version.
 	charmDeployment := ch.Meta().Deployment
 	if caasVersion == nil || charmDeployment == nil || charmDeployment.MinVersion == "" {

@@ -29,6 +29,8 @@ import (
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -129,7 +131,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 		Name:              dt.applicationName,
 		Charm:             api.stateCharm(ch),
 		CharmOrigin:       stOrigin,
-		Storage:           nil,
+		Storage:           stateStorageConstraints(dt.storage),
 		Devices:           nil,
 		AttachStorage:     nil,
 		EndpointBindings:  dt.endpoints,
@@ -205,6 +207,7 @@ func (api *DeployFromRepositoryAPI) addPendingResources(appName string, deployRe
 type deployTemplate struct {
 	applicationConfig *config.Config
 	applicationName   string
+	attachStorage     []string
 	charm             charm.Charm
 	charmSettings     charm.Settings
 	charmURL          *charm.URL
@@ -216,14 +219,23 @@ type deployTemplate struct {
 	origin            corecharm.Origin
 	placement         []*instance.Placement
 	resources         map[string]string
-	storage           map[string]state.StorageConstraints
+	storage           map[string]storage.Constraints
 }
 
-func makeDeployFromRepositoryValidator(st DeployFromRepositoryState, m Model, charmhubHTTPClient facade.HTTPClient) DeployFromRepositoryValidator {
+type validatorConfig struct {
+	charmhubHTTPClient facade.HTTPClient
+	caasBroker         CaasBrokerInterface
+	model              Model
+	registry           storage.ProviderRegistry
+	state              DeployFromRepositoryState
+	storagePoolManager poolmanager.PoolManager
+}
+
+func makeDeployFromRepositoryValidator(cfg validatorConfig) DeployFromRepositoryValidator {
 	v := &deployFromRepositoryValidator{
-		charmhubHTTPClient: charmhubHTTPClient,
-		model:              m,
-		state:              st,
+		charmhubHTTPClient: cfg.charmhubHTTPClient,
+		model:              cfg.model,
+		state:              cfg.state,
 		newRepoFactory: func(cfg services.CharmRepoFactoryConfig) corecharm.RepositoryFactory {
 			return services.NewCharmRepoFactory(cfg)
 		},
@@ -231,9 +243,23 @@ func makeDeployFromRepositoryValidator(st DeployFromRepositoryState, m Model, ch
 			return state.NewBindings(st, givenMap)
 		},
 	}
-	if m.Type() == state.ModelTypeCAAS {
+	if cfg.model.Type() == state.ModelTypeCAAS {
 		return &caasDeployFromRepositoryValidator{
-			validator: v,
+			caasBroker:         cfg.caasBroker,
+			registry:           cfg.registry,
+			storagePoolManager: cfg.storagePoolManager,
+			validator:          v,
+			caasPrecheckFunc: func(dt deployTemplate) error {
+				cdp := caasDeployParams{
+					applicationName: dt.applicationName,
+					attachStorage:   dt.attachStorage,
+					charm:           dt.charm,
+					config:          nil,
+					placement:       dt.placement,
+					storage:         dt.storage,
+				}
+				return cdp.precheck(v.model, cfg.storagePoolManager, cfg.registry, cfg.caasBroker)
+			},
 		}
 	}
 	return &iaasDeployFromRepositoryValidator{
@@ -266,39 +292,51 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 		errs = append(errs, err)
 	}
 
-	initialCurl, requestedOrigin, usedModelDefaultBase, err := v.createOrigin(arg)
-	if err != nil {
-		errs = append(errs, err)
-		return deployTemplate{}, errs
-	}
-	deployRepoLogger.Tracef("from createOrigin: %s, %s", initialCurl, pretty.Sprint(requestedOrigin))
-	// TODO:
-	// The logic in resolveCharm and getCharm can be improved as there is some
-	// duplication. We call ResolveCharmWithPreferredChannel, then pick a
-	// series, then call GetEssentialMetadata, which again calls ResolveCharmWithPreferredChannel
-	// then a refresh request.
-
-	charmURL, resolvedOrigin, err := v.resolveCharm(initialCurl, requestedOrigin, arg.Force, usedModelDefaultBase, arg.Cons)
-	if err != nil {
-		errs = append(errs, err)
-		return deployTemplate{}, errs
-	}
-	deployRepoLogger.Tracef("from resolveCharm: %s, %s", charmURL, pretty.Sprint(resolvedOrigin))
-	// Are we deploying a charm? if not, fail fast here.
-	// TODO: add a ErrorNotACharm or the like for the juju client.
-
 	// get the charm data to validate against, either a previously deployed
 	// charm or the essential metadata from a charm to be async downloaded.
-	resolvedOrigin, resolvedCharm, err := v.getCharm(charmURL, resolvedOrigin)
+	charmURL, resolvedOrigin, resolvedCharm, err := v.getCharm(arg)
 	if err != nil {
-		errs = append(errs, err)
+		errs = append(errs, err...)
+		// return any errors here, there is no need to continue with
+		// validation if we cannot find the charm.
 		return deployTemplate{}, errs
 	}
 	deployRepoLogger.Tracef("from getCharm: %s", charmURL, pretty.Sprint(resolvedOrigin))
 
+	// Various checks of the resolved charm against the arg provided.
+	dt, rcErrs := v.resolvedCharmValidation(resolvedCharm, arg)
+	if len(rcErrs) > 0 {
+		errs = append(errs, rcErrs...)
+	}
+
+	// TODO validate
+	// dt.attachStorage
+
+	dt.charmURL = charmURL
+	dt.dryRun = arg.DryRun
+	dt.force = arg.Force
+	dt.origin = resolvedOrigin
+	dt.placement = arg.Placement
+	dt.storage = arg.Storage
+	if len(arg.EndpointBindings) > 0 {
+		bindings, err := v.newStateBindings(v.state, arg.EndpointBindings)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		dt.endpoints = bindings.Map()
+	}
+	deployRepoLogger.Tracef("validateDeployFromRepositoryArgs returning: %s", pretty.Sprint(dt))
+	return dt, errs
+}
+
+func (v *deployFromRepositoryValidator) resolvedCharmValidation(resolvedCharm charm.Charm, arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
+	errs := make([]error, 0)
 	if resolvedCharm.Meta().Name == bootstrap.ControllerCharmName {
 		errs = append(errs, errors.NotSupportedf("manual deploy of the controller charm"))
 	}
+
+	var cons constraints.Value
+	var numUnits int
 	if resolvedCharm.Meta().Subordinate {
 		if arg.NumUnits != nil && *arg.NumUnits != 0 {
 			errs = append(errs, fmt.Errorf("subordinate application must be deployed without units"))
@@ -306,11 +344,22 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 		if !constraints.IsEmpty(&arg.Cons) {
 			errs = append(errs, fmt.Errorf("subordinate application must be deployed without constraints"))
 		}
-	}
-	if err := jujuversion.CheckJujuMinVersion(resolvedCharm.Meta().MinJujuVersion, jujuversion.Current); err != nil {
-		errs = append(errs, err)
+	} else {
+		cons = arg.Cons
+
+		if arg.NumUnits != nil {
+			numUnits = *arg.NumUnits
+		} else {
+			// The juju client defaults num units to 1. Ensure that a
+			// charm deployed by any client has at least one if no
+			// number provided.
+			numUnits = 1
+		}
 	}
 
+	// appNameForConfig is the application name used in a config file.
+	// It is based on user knowledge and either the charm or application
+	// name from the cli.
 	appNameForConfig := arg.CharmName
 	if arg.ApplicationName != "" {
 		appNameForConfig = arg.ApplicationName
@@ -320,6 +369,13 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 		errs = append(errs, err)
 	}
 
+	if err := jujuversion.CheckJujuMinVersion(resolvedCharm.Meta().MinJujuVersion, jujuversion.Current); err != nil {
+		errs = append(errs, err)
+	}
+
+	// The appName is subtly different from the application config name.
+	// The charm name in the metadata can be different from the charm
+	// name used to deploy a charm.
 	appName := resolvedCharm.Meta().Name
 	if arg.ApplicationName != "" {
 		appName = arg.ApplicationName
@@ -330,62 +386,45 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 		if !errors.Is(err, errors.NotSupported) || !arg.Force {
 			errs = append(errs, err)
 		}
-		deployRepoLogger.Warningf("proceeding with deployment of application %q even though the charm feature requirements could not be met as --force was specified", appName)
+		deployRepoLogger.Warningf("proceeding with deployment of application even though the charm feature requirements could not be met as --force was specified")
 	}
 
-	var numUnits int
-	if arg.NumUnits != nil {
-		numUnits = *arg.NumUnits
-	}
-
-	// Validate the other args.
 	dt := deployTemplate{
 		applicationConfig: appConfig,
 		applicationName:   appName,
 		charm:             resolvedCharm,
 		charmSettings:     settings,
-		charmURL:          charmURL,
-		dryRun:            arg.DryRun,
-		force:             arg.Force,
+		constraints:       cons,
 		numUnits:          numUnits,
-		origin:            resolvedOrigin,
-		placement:         arg.Placement,
-		storage:           stateStorageConstraints(arg.Storage),
 		resources:         arg.Resources,
 	}
-	if arg.NumUnits != nil {
-		dt.numUnits = *arg.NumUnits
-	} else {
-		// The juju client defaults num units to 1. Ensure that a
-		// charm deployed by any client has at least one if no
-		// number provided.
-		dt.numUnits = 1
-	}
-	if len(arg.EndpointBindings) > 0 {
-		bindings, err := v.newStateBindings(v.state, arg.EndpointBindings)
-		if err != nil {
-			errs = append(errs, err)
-		}
-		dt.endpoints = bindings.Map()
-	}
 
-	if !resolvedCharm.Meta().Subordinate {
-		dt.constraints = arg.Cons
-	}
-	deployRepoLogger.Tracef("validateDeployFromRepositoryArgs returning: %s", pretty.Sprint(dt))
 	return dt, errs
 }
 
 type caasDeployFromRepositoryValidator struct {
 	validator *deployFromRepositoryValidator
+
+	caasBroker         CaasBrokerInterface
+	registry           storage.ProviderRegistry
+	storagePoolManager poolmanager.PoolManager
+
+	// Needed for testing. caasDeployTemplate precheck funcationality tested
+	// elsewhere
+	caasPrecheckFunc func(deployTemplate) error
 }
 
 func (v caasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
-	// TODO: NumUnits
-	// TODO: Storage
 	dt, errs := v.validator.validate(arg)
 	if corecharm.IsKubernetes(dt.charm) && charm.MetaFormat(dt.charm) == charm.FormatV1 {
 		deployRepoLogger.Debugf("DEPRECATED: %q is a podspec charm, which will be removed in a future release", arg.CharmName)
+	}
+	// TODO
+	// Convert dt.applicationConfig from Config to a map[string]string.
+	// Config across the wire as a map[string]string no longer exists for
+	// deploy. How to get the caas provider config here?
+	if err := v.caasPrecheckFunc(dt); err != nil {
+		errs = append(errs, err)
 	}
 	return dt, errs
 }
@@ -648,11 +687,34 @@ func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedO
 }
 
 // getCharm returns the charm being deployed. Either it already has been
-// used once and we get the data from state. Or we get the essential metadata.
-func (v *deployFromRepositoryValidator) getCharm(charmURL *charm.URL, resolvedOrigin corecharm.Origin) (corecharm.Origin, charm.Charm, error) {
+// used once, and we get the data from state. Or we get the essential metadata.
+func (v *deployFromRepositoryValidator) getCharm(arg params.DeployFromRepositoryArg) (*charm.URL, corecharm.Origin, charm.Charm, []error) {
+	errs := make([]error, 0)
+	initialCurl, requestedOrigin, usedModelDefaultBase, err := v.createOrigin(arg)
+	if err != nil {
+		errs = append(errs, err)
+		return nil, corecharm.Origin{}, nil, errs
+	}
+	deployRepoLogger.Tracef("from createOrigin: %s, %s", initialCurl, pretty.Sprint(requestedOrigin))
+	// TODO:
+	// The logic in resolveCharm and getCharm can be improved as there is some
+	// duplication. We call ResolveCharmWithPreferredChannel, then pick a
+	// series, then call GetEssentialMetadata, which again calls ResolveCharmWithPreferredChannel
+	// then a refresh request.
+
+	charmURL, resolvedOrigin, err := v.resolveCharm(initialCurl, requestedOrigin, arg.Force, usedModelDefaultBase, arg.Cons)
+	if err != nil {
+		errs = append(errs, err)
+		return nil, corecharm.Origin{}, nil, errs
+	}
+	deployRepoLogger.Tracef("from resolveCharm: %s, %s", charmURL, pretty.Sprint(resolvedOrigin))
+	// Are we deploying a charm? if not, fail fast here.
+	// TODO: add a ErrorNotACharm or the like for the juju client.
+
 	repo, err := v.getCharmRepository(corecharm.CharmHub)
 	if err != nil {
-		return resolvedOrigin, nil, err
+		errs = append(errs, err)
+		return nil, corecharm.Origin{}, nil, errs
 	}
 
 	// Check if a charm doc already exists for this charm URL. If so, the
@@ -680,11 +742,12 @@ func (v *deployFromRepositoryValidator) getCharm(charmURL *charm.URL, resolvedOr
 		Origin:   resolvedOrigin,
 	})
 	if err != nil {
-		return resolvedOrigin, nil, errors.Annotatef(err, "retrieving essential metadata for charm %q", charmURL)
+		errs = append(errs, errors.Annotatef(err, "retrieving essential metadata for charm %q", charmURL))
+		return nil, corecharm.Origin{}, nil, errs
 	}
 	metaRes := essentialMeta[0]
 	resolvedCharm := corecharm.NewCharmInfoAdapter(metaRes)
-	return metaRes.ResolvedOrigin, resolvedCharm, nil
+	return charmURL, metaRes.ResolvedOrigin, resolvedCharm, nil
 }
 
 func (v *deployFromRepositoryValidator) appCharmSettings(appName string, trust bool, chCfg *charm.Config, configYAML string) (*config.Config, charm.Settings, error) {

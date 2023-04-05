@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/dqlite"
+	dqlitetesting "github.com/juju/juju/database/testing"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -234,6 +235,7 @@ Role: 0
 
 func (s *nodeManagerSuite) TestWithAddressOptionSuccess(c *gc.C) {
 	m := NewNodeManager(nil, stubLogger{})
+	m.port = dqlitetesting.FindTCPPort(c)
 
 	dqliteApp, err := app.New(c.MkDir(), m.WithAddressOption("127.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
