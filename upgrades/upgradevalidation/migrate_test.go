@@ -4,8 +4,6 @@
 package upgradevalidation_test
 
 import (
-	"net/http"
-
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -30,7 +28,7 @@ func (s *upgradeValidationSuite) TestValidatorsForModelMigrationSourceJuju3(c *g
 	server := mocks.NewMockServer(ctrl)
 	serverFactory := mocks.NewMockServerFactory(ctrl)
 	s.PatchValue(&upgradevalidation.NewServerFactory,
-		func(httpClient *http.Client) lxd.ServerFactory {
+		func(_ lxd.NewHTTPClientFunc) lxd.ServerFactory {
 			return serverFactory
 		},
 	)
