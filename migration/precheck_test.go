@@ -4,7 +4,6 @@
 package migration_test
 
 import (
-	"net/http"
 	"strings"
 
 	"github.com/golang/mock/gomock"
@@ -92,7 +91,7 @@ func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 	server := upgradevalidationmocks.NewMockServer(ctrl)
 	serverFactory := upgradevalidationmocks.NewMockServerFactory(ctrl)
 	s.PatchValue(&upgradevalidation.NewServerFactory,
-		func(httpClient *http.Client) lxd.ServerFactory {
+		func(_ lxd.NewHTTPClientFunc) lxd.ServerFactory {
 			return serverFactory
 		},
 	)

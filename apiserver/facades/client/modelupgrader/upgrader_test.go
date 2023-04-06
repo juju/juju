@@ -4,8 +4,6 @@
 package modelupgrader_test
 
 import (
-	"net/http"
-
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -195,7 +193,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	server := upgradevalidationmocks.NewMockServer(ctrl)
 	serverFactory := upgradevalidationmocks.NewMockServerFactory(ctrl)
 	s.PatchValue(&upgradevalidation.NewServerFactory,
-		func(httpClient *http.Client) lxd.ServerFactory {
+		func(_ lxd.NewHTTPClientFunc) lxd.ServerFactory {
 			return serverFactory
 		},
 	)
@@ -319,7 +317,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	server := upgradevalidationmocks.NewMockServer(ctrl)
 	serverFactory := upgradevalidationmocks.NewMockServerFactory(ctrl)
 	s.PatchValue(&upgradevalidation.NewServerFactory,
-		func(httpClient *http.Client) lxd.ServerFactory {
+		func(_ lxd.NewHTTPClientFunc) lxd.ServerFactory {
 			return serverFactory
 		},
 	)
@@ -446,7 +444,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 	server := upgradevalidationmocks.NewMockServer(ctrl)
 	serverFactory := upgradevalidationmocks.NewMockServerFactory(ctrl)
 	s.PatchValue(&upgradevalidation.NewServerFactory,
-		func(httpClient *http.Client) lxd.ServerFactory {
+		func(_ lxd.NewHTTPClientFunc) lxd.ServerFactory {
 			return serverFactory
 		},
 	)
@@ -525,7 +523,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	server := upgradevalidationmocks.NewMockServer(ctrl)
 	serverFactory := upgradevalidationmocks.NewMockServerFactory(ctrl)
 	s.PatchValue(&upgradevalidation.NewServerFactory,
-		func(httpClient *http.Client) lxd.ServerFactory {
+		func(_ lxd.NewHTTPClientFunc) lxd.ServerFactory {
 			return serverFactory
 		},
 	)
