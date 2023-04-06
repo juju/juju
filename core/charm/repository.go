@@ -24,7 +24,7 @@ type Repository interface {
 
 	// ResolveWithPreferredChannel verified that the charm with the requested
 	// channel exists.  If no channel is specified, the latests, most stable is
-	// is used. It returns a charm URL which includes the most current revision,
+	// used. It returns a charm URL which includes the most current revision,
 	// if none was provided, a charm origin, and a slice of series supported by
 	// this charm.
 	ResolveWithPreferredChannel(*charm.URL, Origin) (*charm.URL, Origin, []string, error)
@@ -36,6 +36,11 @@ type Repository interface {
 
 	// ListResources returns a list of resources associated with a given charm.
 	ListResources(*charm.URL, Origin) ([]charmresource.Resource, error)
+
+	// ResolveResources looks at the provided repository and backend (already
+	// downloaded) resources to determine which to use. Provided (uploaded) take
+	// precedence. If charmhub has a newer resource than the back end, use that.
+	ResolveResources(resources []charmresource.Resource, id CharmID) ([]charmresource.Resource, error)
 }
 
 // RepositoryFactory is a factory for charm Repositories.
@@ -66,4 +71,17 @@ type EssentialMetadata struct {
 	Meta     *charm.Meta
 	Manifest *charm.Manifest
 	Config   *charm.Config
+}
+
+// CharmID encapsulates data for identifying a unique charm in a charm repository.
+type CharmID struct {
+	// URL is the url of the charm.
+	URL *charm.URL
+
+	// Origin holds the original source of a charm, including its channel.
+	Origin Origin
+
+	// Metadata is optional extra information about a particular model's
+	// "in-theatre" use of the charm.
+	Metadata map[string]string
 }

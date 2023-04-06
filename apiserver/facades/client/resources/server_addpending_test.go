@@ -12,7 +12,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/client/resources"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/rpc/params"
 )
@@ -94,7 +93,7 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchComplete(c *gc.C) {
 	aTag := names.NewApplicationTag("a-application")
 	s.backend.EXPECT().AddPendingResource(aTag.Id(), gomock.Any(), resourceMatcher{c: c}).Return(id1, nil)
 	curl := charm.MustParseURL("ch:amd64/jammy/spam-5")
-	charmID := resources.CharmID{
+	charmID := corecharm.CharmID{
 		URL:    curl,
 		Origin: corecharm.Origin{Channel: &charm.Channel{}},
 	}
@@ -146,7 +145,7 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchIncomplete(c *gc.C) {
 		Revision: 3,
 	}}
 	curl := charm.MustParseURL("ch:amd64/jammy/spam-5")
-	charmID := resources.CharmID{
+	charmID := corecharm.CharmID{
 		URL:    curl,
 		Origin: corecharm.Origin{Channel: &charm.Channel{}},
 	}
@@ -194,7 +193,7 @@ func (s *AddPendingResourcesSuite) TestWithURLNoRevision(c *gc.C) {
 	csRes.Size = 10
 	expected := []charmresource.Resource{csRes.Resource}
 	curl := charm.MustParseURL("ch:amd64/jammy/spam-5")
-	charmID := resources.CharmID{
+	charmID := corecharm.CharmID{
 		URL:    curl,
 		Origin: corecharm.Origin{Channel: &charm.Channel{}},
 	}
@@ -235,7 +234,7 @@ func (s *AddPendingResourcesSuite) TestWithURLUpload(c *gc.C) {
 	csRes.Revision = 3
 	expected := []charmresource.Resource{csRes.Resource}
 	curl := charm.MustParseURL("ch:amd64/jammy/spam-5")
-	charmID := resources.CharmID{
+	charmID := corecharm.CharmID{
 		URL:    curl,
 		Origin: corecharm.Origin{Channel: &charm.Channel{}},
 	}
@@ -273,7 +272,7 @@ func (s *AddPendingResourcesSuite) TestUnknownResource(c *gc.C) {
 	s.backend.EXPECT().AddPendingResource(aTag.Id(), gomock.Any(), resourceMatcher{c: c}).Return(id1, nil)
 	expected := []charmresource.Resource{res1.Resource}
 	curl := charm.MustParseURL("ch:amd64/jammy/spam-5")
-	charmID := resources.CharmID{
+	charmID := corecharm.CharmID{
 		URL:    curl,
 		Origin: corecharm.Origin{Channel: &charm.Channel{}},
 	}

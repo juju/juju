@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/charms"
 	"github.com/juju/juju/charmhub"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/charm/repository"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/rpc/params"
@@ -76,7 +77,7 @@ func NewFacade(ctx facade.Context) (*API, error) {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			return NewCharmHubClient(chClient, logger.ChildWithLabels("charmhub", corelogger.CHARMHUB)), nil
+			return repository.NewCharmHubRepository(logger.ChildWithLabels("charmhub", corelogger.CHARMHUB), chClient), nil
 
 		case charm.Local.Matches(schema):
 			return &localClient{}, nil
@@ -183,7 +184,7 @@ func (a *API) addPendingResources(appName, chRef string, origin corecharm.Origin
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		id := CharmID{
+		id := corecharm.CharmID{
 			URL:    cURL,
 			Origin: origin,
 		}

@@ -22,10 +22,8 @@ import (
 type BaseSuite struct {
 	testing.IsolationSuite
 
-	backend  *mocks.MockBackend
-	chClient *mocks.MockCharmHub
-	logger   *mocks.MockLogger
-	factory  *mocks.MockNewCharmRepository
+	backend *mocks.MockBackend
+	factory *mocks.MockNewCharmRepository
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -34,25 +32,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 func (s *BaseSuite) setUpTest(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.chClient = mocks.NewMockCharmHub(ctrl)
 	s.factory = mocks.NewMockNewCharmRepository(ctrl)
 	s.backend = mocks.NewMockBackend(ctrl)
-	s.logger = mocks.NewMockLogger(ctrl)
-	s.logger.EXPECT().Tracef(gomock.Any(), gomock.Any()).AnyTimes().Do(
-		func(msg string, args ...interface{}) {
-			c.Logf("Trace: "+msg, args...)
-		},
-	)
-	s.logger.EXPECT().Debugf(gomock.Any(), gomock.Any()).AnyTimes().Do(
-		func(msg string, args ...interface{}) {
-			c.Logf("Debug: "+msg, args...)
-		},
-	)
-	s.logger.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes().Do(
-		func(msg string, args ...interface{}) {
-			c.Logf("Error: "+msg, args...)
-		},
-	)
 	return ctrl
 }
 
