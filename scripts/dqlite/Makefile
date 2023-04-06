@@ -14,30 +14,30 @@ MUSL_PATH=${PROJECT_DIR}/_deps/musl-${DQLITE_BUILD_ARCH}
 MUSL_BIN_PATH=${MUSL_PATH}/output/bin
 
 ${DQLITE_ARCHIVE_PATH}:
-	@./scripts/dqlite/scripts/dqlite/build-lxd.sh
+	+@./scripts/dqlite/scripts/dqlite/build-lxd.sh
 
 dqlite-build-lxd: ${DQLITE_ARCHIVE_PATH}
 
 dqlite-build:
-	@./scripts/dqlite/scripts/dqlite/build.sh
+	+@./scripts/dqlite/scripts/dqlite/build.sh
 
 dqlite-push: ${DQLITE_ARCHIVE_PATH}
-	@./scripts/dqlite/scripts/dqlite/push.sh
+	+@./scripts/dqlite/scripts/dqlite/push.sh
 
 dqlite-install:
-	@./scripts/dqlite/scripts/dqlite/install.sh
+	+@./scripts/dqlite/scripts/dqlite/install.sh
 
 dqlite-install-if-missing:
-	@./scripts/dqlite/scripts/dqlite/install-if-missing.sh
+	+@./scripts/dqlite/scripts/dqlite/install-if-missing.sh
 
 musl-install:
-	@./scripts/dqlite/scripts/musl/install.sh
+	+@./scripts/dqlite/scripts/musl/install.sh
 
 musl-install-if-missing:
-	@./scripts/dqlite/scripts/musl/install-if-missing.sh
+	+@./scripts/dqlite/scripts/musl/install-if-missing.sh
 
 repl-install:
-	@./scripts/dqlite/scripts/repl/install.sh
+	+@./scripts/dqlite/scripts/repl/install.sh
 
 repl:
-	@./scripts/dqlite/scripts/repl/repl.sh
+	+@./scripts/dqlite/scripts/repl/repl.sh
