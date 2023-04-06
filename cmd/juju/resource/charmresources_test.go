@@ -42,7 +42,6 @@ func (s *CharmResourcesSuite) TestInfo(c *gc.C) {
 		Name:    "charm-resources",
 		Args:    "<charm>",
 		Purpose: "Display the resources for a charm in a repository.",
-		Aliases: []string{"list-charm-resources"},
 		Doc: `
 This command will report the resources and the current revision of each
 resource for a charm in a repository.
@@ -56,14 +55,16 @@ series for the model is used.
 Channel can be specified with --channel.  If not provided, stable is used.
 
 Where a channel is not supplied, stable is used.
-
-Examples:
-
+`,
+		Examples: `
 Display charm resources for the postgresql charm:
+
     juju charm-resources postgresql
 
 Display charm resources for mycharm in the 2.0/edge channel:
+
     juju charm-resources mycharm --channel 2.0/edge
+
 `,
 		FlagKnownAs:    "option",
 		ShowSuperFlags: []string{"show-log", "debug", "logging-config", "verbose", "quiet", "h", "help"},
