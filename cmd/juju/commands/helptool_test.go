@@ -100,7 +100,7 @@ Currently available charm hook tools are:
 
 Examples:
 
-    For help on a specific tool, supply the name of that tool, for example:
+For help on a specific tool, supply the name of that tool, for example:
 
         juju help-tool unit-get
 `)
