@@ -3,14 +3,6 @@ on:
   push:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - '**.go'
-      - 'go.mod'
-      - 'testcharms/**'
-      - 'tests/main.sh'
-      - 'tests/includes/**'
-      - 'tests/suites/smoke/**'
-      - '.github/workflows/smoke.yml'
   workflow_dispatch:
 
 permissions:
