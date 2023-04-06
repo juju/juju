@@ -22,10 +22,9 @@ import (
 type BaseSuite struct {
 	testing.IsolationSuite
 
-	backend  *mocks.MockBackend
-	chClient *mocks.MockCharmHub
-	logger   *mocks.MockLogger
-	factory  *mocks.MockNewCharmRepository
+	backend *mocks.MockBackend
+	logger  *mocks.MockLogger
+	factory *mocks.MockNewCharmRepository
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -34,7 +33,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 func (s *BaseSuite) setUpTest(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.chClient = mocks.NewMockCharmHub(ctrl)
 	s.factory = mocks.NewMockNewCharmRepository(ctrl)
 	s.backend = mocks.NewMockBackend(ctrl)
 	s.logger = mocks.NewMockLogger(ctrl)

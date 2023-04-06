@@ -58,6 +58,21 @@ func (mr *MockCharmHubClientMockRecorder) DownloadAndRead(arg0, arg1, arg2 inter
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadAndRead", reflect.TypeOf((*MockCharmHubClient)(nil).DownloadAndRead), varargs...)
 }
 
+// ListResourceRevisions mocks base method.
+func (m *MockCharmHubClient) ListResourceRevisions(arg0 context.Context, arg1, arg2 string) ([]transport.ResourceRevision, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListResourceRevisions", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]transport.ResourceRevision)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListResourceRevisions indicates an expected call of ListResourceRevisions.
+func (mr *MockCharmHubClientMockRecorder) ListResourceRevisions(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListResourceRevisions", reflect.TypeOf((*MockCharmHubClient)(nil).ListResourceRevisions), arg0, arg1, arg2)
+}
+
 // Refresh mocks base method.
 func (m *MockCharmHubClient) Refresh(arg0 context.Context, arg1 charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
 	m.ctrl.T.Helper()

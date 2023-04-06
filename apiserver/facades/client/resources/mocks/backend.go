@@ -9,8 +9,8 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	resource "github.com/juju/charm/v10/resource"
-	resources "github.com/juju/juju/apiserver/facades/client/resources"
-	resources0 "github.com/juju/juju/core/resources"
+	charm "github.com/juju/juju/core/charm"
+	resources "github.com/juju/juju/core/resources"
 )
 
 // MockBackend is a mock of Backend interface.
@@ -52,10 +52,10 @@ func (mr *MockBackendMockRecorder) AddPendingResource(arg0, arg1, arg2 interface
 }
 
 // ListResources mocks base method.
-func (m *MockBackend) ListResources(arg0 string) (resources0.ApplicationResources, error) {
+func (m *MockBackend) ListResources(arg0 string) (resources.ApplicationResources, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListResources", arg0)
-	ret0, _ := ret[0].(resources0.ApplicationResources)
+	ret0, _ := ret[0].(resources.ApplicationResources)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -90,7 +90,7 @@ func (m *MockNewCharmRepository) EXPECT() *MockNewCharmRepositoryMockRecorder {
 }
 
 // ResolveResources mocks base method.
-func (m *MockNewCharmRepository) ResolveResources(arg0 []resource.Resource, arg1 resources.CharmID) ([]resource.Resource, error) {
+func (m *MockNewCharmRepository) ResolveResources(arg0 []resource.Resource, arg1 charm.CharmID) ([]resource.Resource, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveResources", arg0, arg1)
 	ret0, _ := ret[0].([]resource.Resource)
