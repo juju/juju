@@ -37,7 +37,7 @@ musl_install_system() {
 
 musl_install_local() {
     ./configure --prefix=${MUSL_PATH} || { echo "Failed to configure musl"; exit 1; }
-    make install || { echo "Failed to install musl"; exit 1; }
+    make install GNU_SITE=https://mirrors.kernel.org/gnu || { exit 1; }
 
     mkdir -p ${MUSL_BIN_PATH} || { echo "Failed to create ${MUSL_BIN_PATH}"; exit 1; }
     ln -s ${MUSL_PATH}/bin/musl-gcc ${MUSL_BIN_PATH}/musl-gcc || { echo "Failed to link musl-gcc"; exit 1; }
@@ -74,6 +74,9 @@ musl_install_cross_arch() {
     cd ${MUSL_PATH}
     mkdir -p ${MUSL_PATH}/build
 
+    rm -f config.mak
+    touch config.mak
+
     case "${BUILD_ARCH}" in
         amd64)   echo "TARGET=x86_64-linux-musl" >> config.mak ;;
         arm64)   echo "TARGET=aarch64-linux-musl" >> config.mak ;;
@@ -90,7 +93,7 @@ musl_install_cross_arch() {
     echo "COMMON_CONFIG += CFLAGS=\"-g0 -Os\" CXXFLAGS=\"-g0 -Os\" LDFLAGS=\"-s\"" >> config.mak
 
     echo "Building musl-${BUILD_ARCH}"
-    make install || { exit 1; }
+    make install GNU_SITE=https://mirrors.kernel.org/gnu || { exit 1; }
 
     echo "Linking musl-${BUILD_ARCH} to musl-gcc"
     cd ${MUSL_PATH}/output/bin
