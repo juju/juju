@@ -65,9 +65,10 @@ musl_install() {
 musl_install_cross_arch() {
     mkdir -p ${MUSL_PATH} || { exit 1; }
 
-    git -C "$MUSL_PATH" rev-parse
     # If MUSL_PATH is not a git repo lets check it out at the location.
-    if [ $? -ne 0 ]; then
+    if git --git-dir "$MUSL_PATH/.git" rev-parse; then
+      echo "musl-cross-make already fetched"
+    else
       git clone https://github.com/richfelker/musl-cross-make.git ${MUSL_PATH}
     fi
 
