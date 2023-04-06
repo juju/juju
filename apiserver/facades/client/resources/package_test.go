@@ -13,5 +13,4 @@ func Test(t *testing.T) {
 	gc.TestingT(t)
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/logger.go github.com/juju/juju/apiserver/facades/client/resources Logger
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/backend.go github.com/juju/juju/apiserver/facades/client/resources Backend,NewCharmRepository

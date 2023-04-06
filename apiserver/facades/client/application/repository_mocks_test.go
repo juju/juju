@@ -103,6 +103,21 @@ func (mr *MockRepositoryMockRecorder) ListResources(arg0, arg1 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListResources", reflect.TypeOf((*MockRepository)(nil).ListResources), arg0, arg1)
 }
 
+// ResolveResources mocks base method.
+func (m *MockRepository) ResolveResources(arg0 []resource.Resource, arg1 charm0.CharmID) ([]resource.Resource, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResolveResources", arg0, arg1)
+	ret0, _ := ret[0].([]resource.Resource)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ResolveResources indicates an expected call of ResolveResources.
+func (mr *MockRepositoryMockRecorder) ResolveResources(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveResources", reflect.TypeOf((*MockRepository)(nil).ResolveResources), arg0, arg1)
+}
+
 // ResolveWithPreferredChannel mocks base method.
 func (m *MockRepository) ResolveWithPreferredChannel(arg0 *charm.URL, arg1 charm0.Origin) (*charm.URL, charm0.Origin, []string, error) {
 	m.ctrl.T.Helper()
