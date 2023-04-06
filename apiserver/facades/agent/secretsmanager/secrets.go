@@ -340,6 +340,11 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(consumerTag names.Tag, uriStr 
 	return consumer, nil
 }
 
+// GetSecretMetadata returns metadata for the caller's secrets.
+func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretResults, error) {
+	return s.getSecretMetadata(nil)
+}
+
 func (s *SecretsManagerAPI) getSecretMetadata(
 	filter func(*coresecrets.SecretMetadata, *coresecrets.SecretRevisionMetadata) bool,
 ) (params.ListSecretResults, error) {
@@ -406,26 +411,34 @@ func (s *SecretsManagerAPI) getSecretMetadata(
 	return result, nil
 }
 
-// GetSecretMetadata returns metadata for the caller's secrets.
-func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretResults, error) {
-	return s.getSecretMetadata(nil)
-}
-
 // GetSecretsToMigrate returns metadata for the secrets that need to be migrated.
 func (s *SecretsManagerAPI) GetSecretsToMigrate() (params.ListSecretResults, error) {
 	modelConfig, err := s.modelState.ModelConfig()
 	if err != nil {
 		return params.ListSecretResults{}, errors.Trace(err)
 	}
-	activeBackend := modelConfig.SecretBackend()
 	modelType := s.modelState.Type()
-	isInternalBackendActive := activeBackend == secretsprovider.Internal ||
-		(activeBackend == secretsprovider.Auto && modelType == state.ModelTypeIAAS)
+	modelUUID := s.modelState.UUID()
+	controllerUUID := s.modelState.ControllerUUID()
+
+	activeBackend := modelConfig.SecretBackend()
+	if activeBackend == secretsprovider.Auto {
+		activeBackend = controllerUUID
+		if modelType == state.ModelTypeCAAS {
+			activeBackend = modelUUID
+		}
+	}
 	return s.getSecretMetadata(func(md *coresecrets.SecretMetadata, rev *coresecrets.SecretRevisionMetadata) bool {
 		logger.Criticalf("GetSecretsToMigrate md: %s, rev: %s", pretty.Sprint(md), pretty.Sprint(rev))
 		if rev.ValueRef == nil {
 			// Only internal backend secrets have nil ValueRef.
-			return !isInternalBackendActive
+			if activeBackend == secretsprovider.Internal {
+				return false
+			}
+			if activeBackend == controllerUUID {
+				return false
+			}
+			return true
 		}
 		return rev.ValueRef.BackendID != activeBackend
 	})

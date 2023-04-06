@@ -47,4 +47,6 @@ type ModelState interface {
 	ModelConfig() (*config.Config, error)
 	Type() state.ModelType
 	WatchForModelConfigChanges() state.NotifyWatcher
+	UUID() string
+	ControllerUUID() string
 }

@@ -20,7 +20,7 @@ type secretBackendModelConfigWatcher struct {
 	currentSecretBackend string
 }
 
-func newSecretBackendModelConfigWatcher(modelConfigGetter ModelState, src state.NotifyWatcher) (*secretBackendModelConfigWatcher, error) {
+func newSecretBackendModelConfigWatcher(modelConfigGetter ModelState, src state.NotifyWatcher) (state.NotifyWatcher, error) {
 	w := &secretBackendModelConfigWatcher{
 		out:               make(chan struct{}),
 		src:               src,

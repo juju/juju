@@ -23,7 +23,8 @@ func TestPackage(t *testing.T) {
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsstate.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsState
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsconsumer.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsConsumer
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretswatcher.go github.com/juju/juju/state StringsWatcher
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/modelstate.go github.com/juju/juju/apiserver/facades/agent/secretsmanager ModelState
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/statewatcher.go github.com/juju/juju/state StringsWatcher,NotifyWatcher
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secrettriggers.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretTriggers
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/leadershipchecker.go github.com/juju/juju/core/leadership Checker,Token
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsriggerwatcher.go github.com/juju/juju/state SecretsTriggerWatcher
@@ -34,6 +35,7 @@ func NewTestAPI(
 	resources facade.Resources,
 	leadership leadership.Checker,
 	secretsState SecretsState,
+	modelState ModelState,
 	consumer SecretsConsumer,
 	secretTriggers SecretTriggers,
 	backendConfigGetter commonsecrets.BackendConfigGetter,
@@ -50,6 +52,7 @@ func NewTestAPI(
 		resources:           resources,
 		leadershipChecker:   leadership,
 		secretsState:        secretsState,
+		modelState:          modelState,
 		secretsConsumer:     consumer,
 		secretsTriggers:     secretTriggers,
 		backendConfigGetter: backendConfigGetter,
@@ -61,3 +64,7 @@ func NewTestAPI(
 func (s *SecretsManagerAPI) CanManage(uri *coresecrets.URI) (leadership.Token, error) {
 	return s.canManage(uri)
 }
+
+var (
+	NewSecretBackendModelConfigWatcher = newSecretBackendModelConfigWatcher
+)
