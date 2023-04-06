@@ -64,9 +64,14 @@ musl_install() {
 
 musl_install_cross_arch() {
     mkdir -p ${MUSL_PATH} || { exit 1; }
-    git clone https://github.com/richfelker/musl-cross-make.git ${MUSL_PATH}
-    cd ${MUSL_PATH}
 
+    git -C "$MUSL_PATH" rev-parse
+    # If MUSL_PATH is not a git repo lets check it out at the location.
+    if [ $? -ne 0 ]; then
+      git clone https://github.com/richfelker/musl-cross-make.git ${MUSL_PATH}
+    fi
+
+    cd ${MUSL_PATH}
     mkdir -p ${MUSL_PATH}/build
 
     case "${BUILD_ARCH}" in
