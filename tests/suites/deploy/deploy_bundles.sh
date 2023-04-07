@@ -68,7 +68,7 @@ run_deploy_bundle_overlay_with_image_id_no_base() {
 
 	bundle=./tests/suites/deploy/bundles/overlay_bundle_image_id_no_base.yaml
 	got=$(juju deploy ${bundle} 2>&1 || true)
-	check_contains "${got}" 'base must be explicitly provided when image-id constraint is used'
+	check_contains "${got}" 'base must be explicitly provided for "ubuntu" when image-id constraint is used'
 
 	destroy_model "test-bundles-deploy-overlay-image-id_no_base"
 }
