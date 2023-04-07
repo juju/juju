@@ -209,7 +209,7 @@ func (d *deployBundle) checkExplicitSeries(bundleData *charm.BundleData) error {
 		if (appHasImageID || modelHasImageID || machineHasImageID) &&
 			applicationSpec.Series == "" &&
 			bundleData.Series == "" {
-			return errors.Forbiddenf("series must be explicitly provided for %q when image-id constraint is used", applicationSpec.Charm)
+			return errors.Forbiddenf("base must be explicitly provided for %q when image-id constraint is used", applicationSpec.Charm)
 		}
 	}
 	return nil

@@ -16,8 +16,8 @@ type bundleSuite struct {
 var _ = gc.Suite(&bundleSuite{})
 
 func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
-	explicitSeriesErrorUbuntu := "series must be explicitly provided for \"ch:ubuntu\" when image-id constraint is used"
-	explicitSeriesError := "series must be explicitly provided for(.)*"
+	explicitSeriesErrorUbuntu := "base must be explicitly provided for \"ch:ubuntu\" when image-id constraint is used"
+	explicitSeriesError := "base must be explicitly provided for(.)*"
 
 	testCases := []struct {
 		title         string
