@@ -34,7 +34,7 @@ JUJU_METADATA_SOURCE ?= ${BUILD_DIR}/simplestreams
 TEST_PACKAGE_LIST ?=
 
 # Explicitly tell GO that we don't want CGO in our builds
-export CGO_ENABLED=0
+export CGO_ENABLED ?= 0
 
 # bin_platform_path calculates the bin directory path for build artifacts for
 # the list of Go style platforms passed to this macro. For example
@@ -137,11 +137,10 @@ else
 endif
 TEST_TIMEOUT:=$(TEST_TIMEOUT)
 
+TEST_ARGS ?=
 # Limit concurrency on s390x.
 ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(s390x).*/golang/'), golang)
-	TEST_ARGS := -p 4
-else
-	TEST_ARGS :=
+	TEST_ARGS += -p 4
 endif
 
 # Enable coverage testing.
@@ -157,9 +156,14 @@ endif
 # Compile with debug flags if requested.
 ifeq ($(DEBUG_JUJU), 1)
     COMPILE_FLAGS = -gcflags "all=-N -l"
+    CGO_ENABLED = 0
     LINK_FLAGS = -ldflags "-X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
 else
-    LINK_FLAGS = -ldflags "-s -w -extldflags '-static' -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
+    EXTRA_LD_FLAGS=-extldflags '-static'
+    ifeq ($(CGO_ENABLED), 1)
+        EXTRA_LD_FLAGS=
+    endif
+    LINK_FLAGS = -ldflags "-s -w $(EXTRA_LD_FLAGS) -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
 endif
 
 define DEPENDENCIES
@@ -325,6 +329,11 @@ check: pre-check run-tests
 .PHONY: test
 test: run-tests
 ## test: Verify Juju code using unit tests
+
+.PHONY: race-test
+race-test:
+## race-test: Verify Juju code using unit tests with the race detector enabled
+	+make run-tests CGO_ENABLED=1 TEST_ARGS="$(TEST_ARGS) -race"
 
 .PHONY: run-tests
 # Can't make the length of the TMP dir too long or it hits socket name length issues.
