@@ -530,7 +530,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 			// The following error raise is an assumption. If we have an alternative source at some point,
 			// then this error will have to change. The proper way to do this is to have a separate
 			// error type that's raised in AddCharmWithAuthorizationFromURL above for unsupported schema.
-			return errors.Annotatef(err, "schema not supported")
+			return errors.Annotatef(err, "schema %q not supported", origin.Source)
 		}
 		return errors.Annotatef(err, "storing charm %q", deployableURL.Name)
 	}
