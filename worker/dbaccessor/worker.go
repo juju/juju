@@ -380,6 +380,11 @@ func (w *dbWorker) initialiseDqlite(options ...app.Option) error {
 
 func (w *dbWorker) openDatabase(namespace string) error {
 	err := w.dbRunner.StartWorker(namespace, func() (worker.Worker, error) {
+		w.mu.RLock()
+		defer w.mu.RUnlock()
+		if w.dbApp == nil {
+			return nil, errors.New("db worker shutting down")
+		}
 		return w.cfg.NewDBWorker(w.dbApp, namespace,
 			WithClock(w.cfg.Clock),
 			WithLogger(w.cfg.Logger),
