@@ -15,7 +15,7 @@ import (
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
-	ociIdentity "github.com/oracle/oci-go-sdk/v47/identity"
+	ociIdentity "github.com/oracle/oci-go-sdk/v65/identity"
 	"gopkg.in/ini.v1"
 	"gopkg.in/juju/environschema.v1"
 
