@@ -118,7 +118,7 @@ build() {
     git clone https://github.com/sqlite/sqlite.git --depth 1 --branch ${TAG_SQLITE}
     cd sqlite
     ./configure --disable-shared CFLAGS="${CUSTOM_CFLAGS}"
-    make
+    make CFLAGS="${CUSTOM_CFLAGS}"
     cd ../
 
     # dqlite
