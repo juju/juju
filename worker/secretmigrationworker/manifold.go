@@ -4,7 +4,6 @@
 package secretmigrationworker
 
 import (
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
@@ -18,7 +17,6 @@ import (
 type ManifoldConfig struct {
 	APICallerName string
 	Logger        Logger
-	Clock         clock.Clock
 
 	NewFacade         func(base.APICaller) Facade
 	NewWorker         func(Config) (worker.Worker, error)
@@ -52,9 +50,6 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if cfg.Clock == nil {
-		return errors.NotValidf("nil Clock")
-	}
 	if cfg.NewFacade == nil {
 		return errors.NotValidf("nil NewFacade")
 	}
@@ -82,7 +77,6 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 	worker, err := cfg.NewWorker(Config{
 		Facade: facade,
 		Logger: cfg.Logger,
-		Clock:  cfg.Clock,
 		SecretsBackendGetter: func() (jujusecrets.BackendsClient, error) {
 			return cfg.NewBackendsClient(secretsmanager.NewClient(apiCaller))
 		},

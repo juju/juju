@@ -5,9 +5,7 @@ package secretmigrationworker
 
 import (
 	"context"
-	"runtime/debug"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
@@ -16,8 +14,6 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	jujusecrets "github.com/juju/juju/secrets"
-	// "github.com/juju/juju/worker/fortress"
-	// "github.com/juju/juju/secrets/provider"
 )
 
 // logger is here to stop the desire of creating a package level logger.
@@ -49,7 +45,6 @@ type Facade interface {
 type Config struct {
 	Facade Facade
 	Logger Logger
-	Clock  clock.Clock
 
 	SecretsBackendGetter func() (jujusecrets.BackendsClient, error)
 }
@@ -61,9 +56,6 @@ func (config Config) Validate() error {
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
-	}
-	if config.Clock == nil {
-		return errors.NotValidf("nil Clock")
 	}
 	if config.SecretsBackendGetter == nil {
 		return errors.NotValidf("nil SecretsBackendGetter")
@@ -89,26 +81,12 @@ func NewWorker(config Config) (worker.Worker, error) {
 type Worker struct {
 	catacomb catacomb.Catacomb
 	config   Config
-
-	_secretsBackends jujusecrets.BackendsClient
-}
-
-func (w *Worker) secretsBackends() (_ jujusecrets.BackendsClient, err error) {
-	if w._secretsBackends == nil {
-		if w._secretsBackends, err = w.config.SecretsBackendGetter(); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	return w._secretsBackends, nil
 }
 
 // TODO: we should do backend connection validation (ping the backend) when we change the secret backend in model config!!!
 // juju model-config secret-backend=myothersecrets
 // Or we should have a secret backend validator worker keeps ping the backend to make sure it's alive.
 // The worker should make the backend as inactive if it's not alive.
-
-// TODO: we should notify the secret owner (uniter or leader units) to migrate the secret to the new backend.
-// Because Juju doesn't want to know the secret content at all!!!!
 
 // TODO: user created secrets should be migrated on the controller becasue they donot have an owner unit!!
 
@@ -123,15 +101,6 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop() (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			w.config.Logger.Criticalf("stacktrace from panic: \n" + string(debug.Stack()))
-		}
-		if err != nil {
-			w.config.Logger.Criticalf("secret migration worker loop failed: %v", err)
-		}
-	}()
-
 	watcher, err := w.config.Facade.WatchSecretBackendChanged()
 	if err != nil {
 		return errors.Trace(err)
@@ -159,7 +128,7 @@ func (w *Worker) loop() (err error) {
 				continue
 			}
 			w.config.Logger.Criticalf("secrets that needs to be migrated: %+v", secrets)
-			backends, err := w.secretsBackends()
+			backends, err := w.config.SecretsBackendGetter()
 			if err != nil {
 				return errors.Trace(err)
 			}
