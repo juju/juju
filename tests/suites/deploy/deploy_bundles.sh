@@ -114,6 +114,16 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
     " "${TEST_DIR}/telegraf_bundle_with_fake_revisions.yaml"
 	fi
 
+	# Add correct PGP key for influxdb - workaround from
+	# https://bugs.launchpad.net/influxdb-charm/+bug/2004303
+	INFLUXDB_PGP=$(curl -s https://repos.influxdata.com/influxdata-archive_compat.key)
+	yq -i "
+		.applications.influxdb.options.install_keys = \"${INFLUXDB_PGP}\"
+	" "${TEST_DIR}/telegraf_bundle_without_revisions.yaml"
+	yq -i "
+		.applications.influxdb.options.install_keys = \"${INFLUXDB_PGP}\"
+	" "${TEST_DIR}/telegraf_bundle_with_fake_revisions.yaml"
+
 	juju deploy "${TEST_DIR}/telegraf_bundle_without_revisions.yaml"
 
 	echo "Create telegraf_bundle_without_revisions.yaml with known latest revisions from charmhub"
@@ -148,10 +158,12 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 	# everything is done deploying
 	echo "Compare export-bundle with telegraf_bundle_with_revisions"
 	juju export-bundle --filename "${TEST_DIR}/exported_bundle.yaml"
-	# reformat the yaml to have the same format as telegraf_bundle_with_revisions.yaml
-	yq -i . "${TEST_DIR}/exported_bundle.yaml"
+	# Sort keys in both yaml files to get a fair comparison.
+	yq -i 'sort_keys(..)' "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
+	yq -i 'sort_keys(..)' "${TEST_DIR}/exported_bundle.yaml"
 	diff -u "${TEST_DIR}/telegraf_bundle_with_revisions.yaml" "${TEST_DIR}/exported_bundle.yaml"
 
+	wait_for "ubuntu" "$(idle_condition "ubuntu" 2)"
 	destroy_model "test-export-bundles-deploy-with-float-revisions"
 }
 
