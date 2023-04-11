@@ -98,10 +98,10 @@ func (w *secretBackendModelConfigWatcher) isSecretBackendChanged() (bool, error)
 		return false, errors.Trace(err)
 	}
 	latest := modelConfig.SecretBackend()
-	logger.Criticalf("secretBackendModelConfigWatcher.isSecretBackendChanged(), current secret backend: %s, latest: %s", w.currentSecretBackend, latest)
 	if w.currentSecretBackend == latest {
 		return false, nil
 	}
+	logger.Tracef("secret backend was changed from %s to %s", w.currentSecretBackend, latest)
 	w.currentSecretBackend = latest
 	return true, nil
 }
