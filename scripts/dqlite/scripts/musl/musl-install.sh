@@ -69,7 +69,7 @@ musl_install_cross_arch() {
     if git --git-dir "$MUSL_PATH/.git" rev-parse; then
       echo "musl-cross-make already fetched"
     else
-      git clone https://github.com/richfelker/musl-cross-make.git ${MUSL_PATH}
+      git clone https://github.com/juju/musl-cross-make.git ${MUSL_PATH}
     fi
 
     cd ${MUSL_PATH}

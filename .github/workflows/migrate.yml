@@ -8,6 +8,9 @@ on:
       - 'go.mod'
       - 'snap/**'
       - '.github/workflows/migrate.yml'
+      - 'scripts/dqlite/**'
+      - 'Makefile'
+      - 'make_functions.sh'
   workflow_dispatch:
 
 permissions:
