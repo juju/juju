@@ -14,7 +14,6 @@ import (
 var (
 	InstanceTypes          = instanceTypes
 	RefreshImageCache      = refreshImageCache
-	ShapeSpecs             = shapeSpecs
 	SetImageCache          = setImageCache
 	NewInstance            = newInstance
 	MaxPollIterations      = &maxPollIterations

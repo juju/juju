@@ -5,6 +5,8 @@ package oci
 
 import (
 	"context"
+	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -13,7 +15,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3/arch"
-
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 
 	"github.com/juju/juju/core/series"
@@ -245,6 +246,15 @@ func NewInstanceImage(img ociCore.Image, compartmentID *string) (imgType Instanc
 	case centOS:
 		base = series.MakeDefaultBase("centos", *img.OperatingSystemVersion)
 	case ubuntuOS:
+		// TODO: fix base creation:
+		//  e.g.
+		//        OperatingSystem:        &"Canonical Ubuntu",
+		//        OperatingSystemVersion: &"22.04 Minimal aarch64",
+		//  becomes ->
+		//  Base:      series.Base{
+		//        OS:      "ubuntu",
+		//        Channel: series.Channel{Track:"22.04 Minimal aarch64", Risk:"stable"},
+		//    },
 		base = series.MakeDefaultBase("ubuntu", *img.OperatingSystemVersion)
 	default:
 		return imgType, errors.NotSupportedf("os %s", osName)
@@ -283,24 +293,94 @@ func instanceTypes(cli ComputeClient, compartmentID, imageID *string) ([]instanc
 	// convert shapes to InstanceType
 	types := []instances.InstanceType{}
 	for _, val := range shapes {
-		spec, ok := shapeSpecs[*val.Shape]
-		if !ok {
-			logger.Debugf("shape %s does not have a mapping", *val.Shape)
-			continue
+		var mem, cpus float32
+		if val.MemoryInGBs != nil {
+			mem = *val.MemoryInGBs * 1024
 		}
-		instanceType := string(spec.Type)
+		if val.Ocpus != nil {
+			cpus = *val.Ocpus
+		}
+		archForShape, instanceType := parseArchAndInstType(val)
+
 		newType := instances.InstanceType{
 			Name:     *val.Shape,
-			Arch:     arch.AMD64,
-			Mem:      uint64(spec.Memory),
-			CpuCores: uint64(spec.Cpus),
-			// it's not really virtualization type. We have just 3 types of images:
-			// bare metal, virtual and generic (works on metal and VM).
+			Arch:     archForShape,
+			Mem:      uint64(mem),
+			CpuCores: uint64(cpus),
 			VirtType: &instanceType,
 		}
 		types = append(types, newType)
 	}
 	return types, nil
+}
+
+func parseArchAndInstType(shape ociCore.Shape) (string, string) {
+	// This code is very brittle. It's highly dependent on the strings currently
+	// returned by the oracle sdk. The best option is to have
+	// PlatformConfigOptions as they have types we can rely on.
+	if shape.PlatformConfigOptions != nil {
+		return normaliseArchAndInstType(shape.PlatformConfigOptions.Type)
+	}
+	var archType, instType string
+	if shape.ProcessorDescription != nil {
+		// ProcessorDescription:          &"2.55 GHz AMD EPYC™ 7J13 (Milan)",
+		// ProcessorDescription:          &"2.6 GHz Intel® Xeon® Platinum 8358 (Ice Lake)",
+		// ProcessorDescription:          &"3.0 GHz Ampere® Altra™",
+		description := strings.ToLower(*shape.ProcessorDescription)
+		if strings.Contains(description, "ampere") {
+			archType = arch.ARM64
+		} else if strings.Contains(description, "intel") || strings.Contains(description, "amd") {
+			archType = arch.AMD64
+		}
+	}
+	if shape.Shape == nil {
+		return archType, instType
+	}
+	// Shape: &"VM.GPU.A10.2",
+	// Shape: &"VM.Optimized3.Flex",
+	// Shape: &"VM.Standard.A1.Flex",
+	// Shape: &"BM.GPU.A10.4",
+	// Shape: &"BM.HPC2.36",
+	// Shape: &"BM.Optimized3.36",
+	// Shape: &"BM.Standard.A1.160",
+	switch {
+	case strings.HasPrefix(*shape.Shape, "VM.GPU"), strings.HasPrefix(*shape.Shape, "BM.GPU"):
+		instType = string(GPUMachine)
+	case strings.HasPrefix(*shape.Shape, "VM."):
+		instType = string(VirtualMachine)
+	case strings.HasPrefix(*shape.Shape, "BM."):
+		instType = string(BareMetal)
+	}
+	return archType, instType
+}
+
+var oracleAmdBm = fmt.Sprintf("%s|%s|%s|%s", string(ociCore.ShapePlatformConfigOptionsTypeAmdMilanBm), string(ociCore.ShapePlatformConfigOptionsTypeAmdRomeBm), string(ociCore.ShapePlatformConfigOptionsTypeIntelSkylakeBm), string(ociCore.ShapePlatformConfigOptionsTypeIntelIcelakeBm))
+var oracleAmdBmGpu = fmt.Sprintf("%s|%s", string(ociCore.ShapePlatformConfigOptionsTypeAmdMilanBmGpu), string(ociCore.ShapePlatformConfigOptionsTypeAmdRomeBmGpu))
+var oracleAmd = fmt.Sprintf("%s|%s", string(ociCore.ShapePlatformConfigOptionsTypeAmdVm), string(ociCore.ShapePlatformConfigOptionsTypeIntelVm))
+
+// archREs maps regular expressions for matching
+// oracle architectures and instance types to juju
+// values
+var archREs = []struct {
+	*regexp.Regexp
+	arch         string
+	instanceType string
+}{
+	{regexp.MustCompile(oracleAmd), arch.AMD64, string(VirtualMachine)},
+	{regexp.MustCompile(oracleAmdBm), arch.AMD64, string(BareMetal)},
+	{regexp.MustCompile(oracleAmdBmGpu), arch.AMD64, string(GPUMachine)},
+}
+
+// normaliseArchAndInstType returns the Juju architecture and instance type
+// corresponding to a shape's reported architecture and instance type based
+// off ShapePlatformConfigOptionsTypeEnum.
+func normaliseArchAndInstType(val ociCore.ShapePlatformConfigOptionsTypeEnum) (string, string) {
+	for _, re := range archREs {
+		if re.Match([]byte(val)) {
+			return re.arch, re.instanceType
+		}
+	}
+	return arch.AMD64, string(VirtualMachine)
 }
 
 func refreshImageCache(cli ComputeClient, compartmentID *string) (*ImageCache, error) {
@@ -333,6 +413,9 @@ func refreshImageCache(cli ComputeClient, compartmentID *string) (*ImageCache, e
 			continue
 		}
 		img.SetInstanceTypes(instTypes)
+		// TODO: ListImages can return more than one option for a base
+		// based on time created. Depending on order, the oldest image
+		// available could be used.
 		images[img.Base] = append(images[img.Base], img)
 	}
 	for v := range images {

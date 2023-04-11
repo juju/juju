@@ -259,12 +259,8 @@ func (s *environSuite) setupListImagesExpectations() {
 			DisplayName:            makeStringPointer("CentOS-7-2017.10.19-0"),
 		},
 	}
-	shapesResponse := makeShapesRequestResponse(
-		s.testCompartment, "fake", []string{
-			"VM.Standard1.1",
-		})
 	s.compute.EXPECT().ListImages(context.Background(), &s.testCompartment).Return(response, nil)
-	s.compute.EXPECT().ListShapes(context.Background(), gomock.Any(), gomock.Any()).Return(shapesResponse, nil).AnyTimes()
+	s.compute.EXPECT().ListShapes(context.Background(), gomock.Any(), gomock.Any()).Return(listShapesResponse(), nil).AnyTimes()
 }
 
 func (s *environSuite) TestAvailabilityZones(c *gc.C) {
