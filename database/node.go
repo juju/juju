@@ -158,10 +158,31 @@ func (m *NodeManager) SetNodeInfo(server dqlite.NodeInfo) error {
 // log output via this factory's logger where the level is recognised.
 func (m *NodeManager) WithLogFuncOption() app.Option {
 	return app.WithLogFunc(func(level client.LogLevel, msg string, args ...interface{}) {
-		if actualLevel, known := loggo.ParseLevel(level.String()); known {
-			m.logger.Logf(actualLevel, msg, args...)
+		actualLevel, known := loggo.ParseLevel(level.String())
+		if !known {
+			return
 		}
+
+		// If we're tracing the dqlite logs we only want to log slow queries
+		// and not all the debug messages.
+		// In the future, we may want to make this configurable.
+		if m.cfg.QueryTracingEnabled() && level == client.LogWarn &&
+			isSlowQueryLogMessage(msg, args, m.cfg.SlowQueryThreshold()) {
+			m.logger.Warningf("slow query: "+msg, args...)
+			return
+		}
+
+		m.logger.Logf(actualLevel, msg, args...)
 	})
+}
+
+// WithTracingOption returns a Dqlite application Option that will enable
+// tracing of Dqlite queries.
+func (m *NodeManager) WithTracingOption() app.Option {
+	if m.cfg.QueryTracingEnabled() {
+		return app.WithTracing(client.LogWarn)
+	}
+	return app.WithTracing(client.LogNone)
 }
 
 // WithLoopbackAddressOption returns a Dqlite application
@@ -224,4 +245,48 @@ func (m *NodeManager) WithClusterOption(addrs []string) app.Option {
 func (m *NodeManager) nodeClusterStore() (*client.YamlNodeStore, error) {
 	store, err := client.NewYamlNodeStore(path.Join(m.dataDir, dqliteClusterFileName))
 	return store, errors.Annotate(err, "opening Dqlite cluster node store")
+}
+
+// This is highly dependent on the format of the log message, which is
+// not ideal, but it's the only way to get the query string out of the
+// log message. This potentially breaks if the dqlite library changes the
+// format of the log message. It would be better if the dqlite library
+// provided a way to get traces from a request that wasn't tied to the logging
+// system.
+//
+// The timed queries logged to the tracing request are for the whole time the
+// query is being processed. This includes the network time, along with the
+// time performing the sqlite query. If the node is sensitive to latency, then
+// it will show up here, even though the query itself might be fast at the
+// sqlite level.
+//
+// Raw log messages will be in the form:
+//
+//   - "%.3fs request query: %q"
+//   - "%.3fs request exec: %q"
+//   - "%.3fs request prepared: %q"
+//
+// It is expected that each log message will have 2 arguments, the first being
+// the duration of the query in seconds as a float64. The second being the query
+// performed as a string.
+func isSlowQueryLogMessage(msg string, args []any, slowQueryThreshold float64) bool {
+	if len(args) != 2 {
+		return false
+	}
+
+	// We're not a slow query if the message doesn't match the expected format.
+	if !strings.HasPrefix(msg, "%.3fs request ") {
+		return false
+	}
+
+	// Validate that the first argument is a float64.
+	var duration float64
+	switch t := args[0].(type) {
+	case float64:
+		duration = t
+	default:
+		return false
+	}
+
+	return duration >= slowQueryThreshold
 }
