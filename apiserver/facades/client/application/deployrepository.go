@@ -18,12 +18,12 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
-	resfacade "github.com/juju/juju/apiserver/facades/client/resources"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
+	corecharmrepo "github.com/juju/juju/core/charm/repository"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -262,7 +262,7 @@ func (api *DeployFromRepositoryAPI) resolveResources(
 func resourceFromRevision(name string, providedRev int, charmhubResp []transport.ResourceRevision) (resource.Resource, error) {
 	for _, res := range charmhubResp {
 		if res.Revision == providedRev {
-			if r, resErr := resfacade.ResourceFromRevision(res); resErr == nil {
+			if r, resErr := corecharmrepo.ResourceFromRevision(res); resErr == nil {
 				return r, nil
 			} else {
 				return resource.Resource{}, errors.Annotatef(resErr, "unable to create resource %v", name)
@@ -312,7 +312,7 @@ func (api *DeployFromRepositoryAPI) listStoreResources(curl *charm.URL, origin c
 	resources := make(map[string]resource.Resource, len(resp.Entity.Resources))
 	for _, v := range resp.Entity.Resources {
 		var err error
-		resources[v.Name], err = resfacade.ResourceFromRevision(v)
+		resources[v.Name], err = corecharmrepo.ResourceFromRevision(v)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
