@@ -60,10 +60,10 @@ ensure() {
 bootstrap() {
 	local cloud name output model bootstrapped_name
 	case "${BOOTSTRAP_PROVIDER:-}" in
-	"aws" | "ec2")
+	"ec2")
 		cloud="aws"
 		;;
-	"google" | "gce")
+	"gce")
 		cloud="google"
 		;;
 	"azure")
