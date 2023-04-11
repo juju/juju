@@ -43,6 +43,7 @@ var deployRepoLogger = logger.Child("deployfromrepository")
 // DeployFromRepositoryValidator defines an deploy config validator.
 type DeployFromRepositoryValidator interface {
 	ValidateArg(params.DeployFromRepositoryArg) (deployTemplate, []error)
+	ResolveResources(*charm.URL, corecharm.Origin, map[string]string, map[string]resource.Meta) ([]resource.Resource, []*params.PendingResourceUpload, []error)
 }
 
 // DeployFromRepository defines an interface for deploying a charm
@@ -73,39 +74,17 @@ type DeployFromRepositoryState interface {
 // API facade for any given version. It is expected that any API
 // parameter changes should be performed before entering the API.
 type DeployFromRepositoryAPI struct {
-	state          DeployFromRepositoryState
-	validator      DeployFromRepositoryValidator
-	charmhubClient charmhub.Client
-	stateCharm     func(Charm) *state.Charm
+	state      DeployFromRepositoryState
+	validator  DeployFromRepositoryValidator
+	stateCharm func(Charm) *state.Charm
 }
 
 // NewDeployFromRepositoryAPI creates a new DeployFromRepositoryAPI.
-func NewDeployFromRepositoryAPI(state DeployFromRepositoryState, validator DeployFromRepositoryValidator, ctx facade.Context) (DeployFromRepository, error) {
-	m, err := ctx.State().Model()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting model")
-	}
-	model := &modelShim{Model: m}
-	modelCfg, err := model.Config()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	charmhubHTTPClient := ctx.HTTPClient(facade.CharmhubHTTPClient)
-	chURL, _ := modelCfg.CharmHubURL()
-	chClient, err := charmhub.NewClient(charmhub.Config{
-		URL:        chURL,
-		HTTPClient: charmhubHTTPClient,
-		Logger:     logger,
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
+func NewDeployFromRepositoryAPI(state DeployFromRepositoryState, validator DeployFromRepositoryValidator) (DeployFromRepository, error) {
 	api := &DeployFromRepositoryAPI{
-		state:          state,
-		validator:      validator,
-		stateCharm:     CharmToStateCharm,
-		charmhubClient: *chClient,
+		state:      state,
+		validator:  validator,
+		stateCharm: CharmToStateCharm,
 	}
 	return api, nil
 }
@@ -149,7 +128,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
 
-	resources, pendingResourceUploads, resolveResErrs := api.resolveResources(ch.URL(), dt.origin, dt.resources, ch.Meta().Resources)
+	resources, pendingResourceUploads, resolveResErrs := api.validator.ResolveResources(ch.URL(), dt.origin, dt.resources, ch.Meta().Resources)
 	if resolveResErrs != nil {
 		return params.DeployFromRepositoryInfo{}, nil, resolveResErrs
 	}
@@ -191,7 +170,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 // which will require the client to upload the resource once
 // the DeployFromRepository returns. Errors are not terminal,
 // and will be collected and returned altogether.
-func (api *DeployFromRepositoryAPI) resolveResources(
+func (v *deployFromRepositoryValidator) resolveResources(
 	curl *charm.URL,
 	origin corecharm.Origin,
 	deployResArg map[string]string,
@@ -208,8 +187,23 @@ func (api *DeployFromRepositoryAPI) resolveResources(
 		if ok {
 			// resource flag is used on the cli, either a resource revision, or a filename
 			if providedRev, err := strconv.Atoi(deployValue); err == nil {
-				// a resource revision is provided
-				charmhubResp, listResErr := api.charmhubClient.ListResourceRevisions(context.TODO(), curl.Name, name)
+				// a resource revision is provided, get a charmhub client to call the ListResourceRevisions
+				modelCfg, err := v.model.Config()
+				if err != nil {
+					errs = append(errs, errors.Trace(err))
+					continue
+				}
+				chURL, _ := modelCfg.CharmHubURL()
+				chClient, err := charmhub.NewClient(charmhub.Config{
+					URL:        chURL,
+					HTTPClient: v.charmhubHTTPClient,
+					Logger:     logger,
+				})
+				if err != nil {
+					errs = append(errs, errors.Trace(err))
+					continue
+				}
+				charmhubResp, listResErr := chClient.ListResourceRevisions(context.TODO(), curl.Name, name)
 				if listResErr != nil {
 					if errors.Is(listResErr, errors.NotFound) {
 						errs = append(errs, errors.Annotatef(listResErr, "unrecognized resource %v", name))
@@ -556,6 +550,15 @@ type caasDeployFromRepositoryValidator struct {
 	caasPrecheckFunc func(deployTemplate) error
 }
 
+func (v caasDeployFromRepositoryValidator) ResolveResources(
+	curl *charm.URL,
+	origin corecharm.Origin,
+	deployResArg map[string]string,
+	resMeta map[string]resource.Meta,
+) ([]resource.Resource, []*params.PendingResourceUpload, []error) {
+	return v.validator.resolveResources(curl, origin, deployResArg, resMeta)
+}
+
 func (v caasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
 	dt, errs := v.validator.validate(arg)
 	if corecharm.IsKubernetes(dt.charm) && charm.MetaFormat(dt.charm) == charm.FormatV1 {
@@ -573,6 +576,15 @@ func (v caasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepo
 
 type iaasDeployFromRepositoryValidator struct {
 	validator *deployFromRepositoryValidator
+}
+
+func (v iaasDeployFromRepositoryValidator) ResolveResources(
+	curl *charm.URL,
+	origin corecharm.Origin,
+	deployResArg map[string]string,
+	resMeta map[string]resource.Meta,
+) ([]resource.Resource, []*params.PendingResourceUpload, []error) {
+	return v.validator.resolveResources(curl, origin, deployResArg, resMeta)
 }
 
 func (v *iaasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
