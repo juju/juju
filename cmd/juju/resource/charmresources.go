@@ -113,9 +113,10 @@ type baseCharmResourcesCommand struct {
 
 func (c *baseCharmResourcesCommand) baseInfo() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Args:    "<charm>",
-		Purpose: "Display the resources for a charm in a repository.",
-		Doc:     charmResourcesDoc,
+		Args:     "<charm>",
+		Purpose:  "Display the resources for a charm in a repository.",
+		Doc:      charmResourcesDoc,
+		Examples: charmResourcesExamples,
 	})
 }
 
@@ -211,14 +212,17 @@ series for the model is used.
 Channel can be specified with --channel.  If not provided, stable is used.
 
 Where a channel is not supplied, stable is used.
+`
 
-Examples:
-
+const charmResourcesExamples = `
 Display charm resources for the postgresql charm:
+
     juju charm-resources postgresql
 
 Display charm resources for mycharm in the 2.0/edge channel:
+
     juju charm-resources mycharm --channel 2.0/edge
+
 `
 
 func resolveCharm(raw string) (*charm.URL, error) {

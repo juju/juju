@@ -86,19 +86,15 @@ LXD
   Credentials:
     1. On Linux, $HOME/.config/lxc/config.yml
 
-Example:
+`[1:]
+
+const detectCredentialsExamples = `
     juju autoload-credentials
     juju autoload-credentials --client
     juju autoload-credentials --controller mycontroller
     juju autoload-credentials --client --controller mycontroller
     juju autoload-credentials aws
-   
-See also:
-    add-credential
-    credentials
-    default-credential
-    remove-credential
-`[1:]
+`
 
 // NewDetectCredentialsCommand returns a command to add credential information to credentials.yaml.
 func NewDetectCredentialsCommand() cmd.Command {
@@ -118,10 +114,17 @@ func NewDetectCredentialsCommand() cmd.Command {
 
 func (c *detectCredentialsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "autoload-credentials",
-		Purpose: detectCredentialsSummary,
-		Args:    "[<cloud-type>]",
-		Doc:     detectCredentialsDoc,
+		Name:     "autoload-credentials",
+		Purpose:  detectCredentialsSummary,
+		Args:     "[<cloud-type>]",
+		Doc:      detectCredentialsDoc,
+		Examples: detectCredentialsExamples,
+		SeeAlso: []string{
+			"add-credential",
+			"credentials",
+			"default-credential",
+			"remove-credential",
+		},
 	})
 }
 

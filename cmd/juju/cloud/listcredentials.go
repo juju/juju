@@ -71,22 +71,15 @@ for a given cloud.
 Use --controller option to list credentials from a controller.
 
 Use --client option to list credentials known locally on this client.
+`
 
-Examples:
+const usageListCredentialsExamples = `
     juju credentials
     juju credentials aws
     juju credentials aws --client
     juju credentials --format yaml --show-secrets
     juju credentials --controller mycontroller
     juju credentials --controller mycontroller --client
-
-See also: 
-    add-credential
-    update-credential
-    remove-credential
-    default-credential
-    autoload-credentials
-    show-credentials
 `
 
 type listCredentialsCommand struct {
@@ -172,10 +165,19 @@ func (c *listCredentialsCommand) cloudAPI() (ListCredentialsAPI, error) {
 
 func (c *listCredentialsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "credentials",
-		Args:    "[<cloud name>]",
-		Purpose: usageListCredentialsSummary,
-		Doc:     usageListCredentialsDetails,
+		Name:     "credentials",
+		Args:     "[<cloud name>]",
+		Purpose:  usageListCredentialsSummary,
+		Doc:      usageListCredentialsDetails,
+		Examples: usageListCredentialsExamples,
+		SeeAlso: []string{
+			"add-credential",
+			"update-credential",
+			"remove-credential",
+			"default-credential",
+			"autoload-credentials",
+			"show-credentials",
+		},
 		Aliases: []string{"list-credentials"},
 	})
 }

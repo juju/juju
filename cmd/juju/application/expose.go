@@ -64,8 +64,7 @@ juju to only allow access to ports opened for the "logs" endpoint from CIDR
 juju expose apache2 --endpoints logs --to-cidrs 10.0.0.0/24
 juju expose apache2 --endpoints logs --to-cidrs 192.168.0.0/24
 
-See also: 
-    unexpose`[1:]
+`[1:]
 
 // NewExposeCommand returns a command to expose applications.
 func NewExposeCommand() modelcmd.ModelCommand {
@@ -87,6 +86,9 @@ func (c *exposeCommand) Info() *cmd.Info {
 		Args:    "<application name>",
 		Purpose: usageExposeSummary,
 		Doc:     usageExposeDetails,
+		SeeAlso: []string{
+			"unexpose",
+		},
 	})
 }
 

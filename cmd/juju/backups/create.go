@@ -38,13 +38,11 @@ filesystem; the same path must exist on each controller if using HA.
 Use --verbose to see extra information about backup.
 
 To access remote backups stored on the controller, see 'juju download-backup'.
+`
 
-Examples:
+const createExamples = `
     juju create-backup 
     juju create-backup --no-download
-
-See also:
-    download-backup
 `
 
 // NewCreateCommand returns a command used to create backups.
@@ -66,10 +64,14 @@ type createCommand struct {
 // Info implements Command.Info.
 func (c *createCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "create-backup",
-		Args:    "[<notes>]",
-		Purpose: "Create a backup.",
-		Doc:     createDoc,
+		Name:     "create-backup",
+		Args:     "[<notes>]",
+		Purpose:  "Create a backup.",
+		Doc:      createDoc,
+		Examples: createExamples,
+		SeeAlso: []string{
+			"download-backup",
+		},
 	})
 }
 

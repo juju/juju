@@ -94,12 +94,6 @@ settings back to their default value as defined in the charm metadata:
 
 juju config apache2 --reset servername
 juju config apache2 --reset servername,lb_balancer_timeout
-
-See also:
-    deploy
-    status
-    model-config
-    controller-config
 `
 )
 
@@ -140,6 +134,12 @@ func (c *configCommand) Info() *cmd.Info {
 		Args:    "<application name> [--branch <branch-name>] [--reset <key[,key]>] [<attribute-key>][=<value>] ...]",
 		Purpose: configSummary,
 		Doc:     configDetails,
+		SeeAlso: []string{
+			"deploy",
+			"status",
+			"model-config",
+			"controller-config",
+		},
 	})
 }
 

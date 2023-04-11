@@ -36,13 +36,13 @@ To unset previously set default region for a cloud, use --reset option.
 To confirm what region is currently set to be default for a cloud, 
 use the command without region argument.
 
-Examples:
+`[1:]
+
+const usageSetDefaultRegionnExamples = `
     juju default-region azure-china chinaeast
     juju default-region azure-china
     juju default-region azure-china --reset
-
-See also:
-    add-credential`[1:]
+`
 
 // NewSetDefaultRegionCommand returns a command to set the default region for a cloud.
 func NewSetDefaultRegionCommand() cmd.Command {
@@ -58,11 +58,15 @@ func (c *setDefaultRegionCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *setDefaultRegionCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "default-region",
-		Aliases: []string{"set-default-region"},
-		Args:    "<cloud name> [<region>]",
-		Purpose: usageSetDefaultRegionSummary,
-		Doc:     usageSetDefaultRegionDetails,
+		Name:     "default-region",
+		Aliases:  []string{"set-default-region"},
+		Args:     "<cloud name> [<region>]",
+		Purpose:  usageSetDefaultRegionSummary,
+		Doc:      usageSetDefaultRegionDetails,
+		Examples: usageSetDefaultRegionnExamples,
+		SeeAlso: []string{
+			"add-credential",
+		},
 	})
 }
 

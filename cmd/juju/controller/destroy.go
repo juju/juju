@@ -87,29 +87,32 @@ proceed to the next step until the current step has finished.
 However, when using --force, users can also specify --no-wait to progress through steps 
 without delay waiting for each step to complete.
 
-Examples:
-    # Destroy the controller and all models. If there is
-    # persistent storage remaining in any of the models, then
-    # this will prompt you to choose to either destroy or release
-    # the storage.
+`
+
+const usageExamples = `
+Destroy the controller and all models. If there is
+persistent storage remaining in any of the models, then
+this will prompt you to choose to either destroy or release
+the storage.
+
     juju destroy-controller --destroy-all-models mycontroller
 
-    # Destroy the controller and all models, destroying
-    # any remaining persistent storage.
+Destroy the controller and all models, destroying
+any remaining persistent storage.
+
     juju destroy-controller --destroy-all-models --destroy-storage
 
-    # Destroy the controller and all models, releasing
-    # any remaining persistent storage from Juju's control.
+Destroy the controller and all models, releasing
+any remaining persistent storage from Juju's control.
+
     juju destroy-controller --destroy-all-models --release-storage
 
-    # Destroy the controller and all models, continuing
-    # even if there are operational errors.
+Destroy the controller and all models, continuing
+even if there are operational errors.
+
     juju destroy-controller --destroy-all-models --force
     juju destroy-controller --destroy-all-models --force --no-wait
-
-See also:
-    kill-controller
-    unregister`
+`
 
 var usageSummary = `
 Destroys a controller.`[1:]
@@ -148,10 +151,15 @@ type destroyControllerAPI interface {
 // Info implements Command.Info.
 func (c *destroyCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "destroy-controller",
-		Args:    "<controller name>",
-		Purpose: usageSummary,
-		Doc:     usageDetails,
+		Name:     "destroy-controller",
+		Args:     "<controller name>",
+		Purpose:  usageSummary,
+		Doc:      usageDetails,
+		Examples: usageExamples,
+		SeeAlso: []string{
+			"kill-controller",
+			"unregister",
+		},
 	})
 }
 

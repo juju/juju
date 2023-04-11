@@ -36,11 +36,11 @@ const (
 	attachStorageCommandDoc = `
 Attach existing storage to a unit. Specify a unit
 and one or more storage IDs to attach to it.
-
-Examples:
-    juju attach-storage postgresql/1 pgdata/0
 `
+	attachStorageCommandExamples = `
+    juju attach-storage postgresql/1 pgdata/0
 
+`
 	attachStorageCommandArgs = `<unit> <storage> [<storage> ...]`
 )
 
@@ -66,10 +66,11 @@ func (c *attachStorageCommand) Init(args []string) error {
 // Info implements Command.Info.
 func (c *attachStorageCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "attach-storage",
-		Purpose: "Attaches existing storage to a unit.",
-		Doc:     attachStorageCommandDoc,
-		Args:    attachStorageCommandArgs,
+		Name:     "attach-storage",
+		Purpose:  "Attaches existing storage to a unit.",
+		Doc:      attachStorageCommandDoc,
+		Args:     attachStorageCommandArgs,
+		Examples: attachStorageCommandExamples,
 	})
 }
 

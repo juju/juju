@@ -65,14 +65,17 @@ To import a filesystem, you must specify three things:
 
 Once a filesystem is imported, Juju will create an associated storage
 instance using the given storage name.
-
-Examples:
-    # Import an existing filesystem backed by an EBS volume,
-    # and assign it the "pgdata" storage name. Juju will
-    # associate a storage instance ID like "pgdata/0" with
-    # the volume and filesystem contained within.
-    juju import-filesystem ebs vol-123456 pgdata
 `
+	importFilesystemCommandExamples = `
+Import an existing filesystem backed by an EBS volume,
+and assign it the "pgdata" storage name. Juju will
+associate a storage instance ID like "pgdata/0" with
+the volume and filesystem contained within.
+
+    juju import-filesystem ebs vol-123456 pgdata
+
+`
+
 	importFilesystemCommandAgs = `
 <storage-provider> <provider-id> <storage-name>
 `
@@ -115,10 +118,11 @@ func (c *importFilesystemCommand) Init(args []string) error {
 // Info implements Command.Info.
 func (c *importFilesystemCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "import-filesystem",
-		Purpose: "Imports a filesystem into the model.",
-		Doc:     importFilesystemCommandDoc,
-		Args:    importFilesystemCommandAgs,
+		Name:     "import-filesystem",
+		Purpose:  "Imports a filesystem into the model.",
+		Doc:      importFilesystemCommandDoc,
+		Args:     importFilesystemCommandAgs,
+		Examples: importFilesystemCommandExamples,
 	})
 }
 

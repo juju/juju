@@ -117,7 +117,7 @@ When forced addition is desired, use --force.
 
 `
 
-const examples = `
+const usageAddCloudExamples = `
     juju add-cloud
     juju add-cloud --force
     juju add-cloud mycloud ~/mycloud.yaml
@@ -199,7 +199,7 @@ func (c *AddCloudCommand) Info() *cmd.Info {
 		Args:     "<cloud name> [<cloud definition file>]",
 		Purpose:  usageAddCloudSummary,
 		Doc:      fmt.Sprintf(usageAddCloudDetails, jujucloud.CurrentWhiteList()),
-		Examples: examples,
+		Examples: usageAddCloudExamples,
 		SeeAlso: []string{
 			"clouds",
 			"update-cloud",

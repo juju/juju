@@ -48,9 +48,9 @@ By default, the controller is the current controller.
 Users with read access are limited in what they can do with models:
 ` + "`juju models`, `juju machines`, and `juju status`" + `.
 
-`[1:] + validAccessLevels + `
+`[1:] + validAccessLevels
 
-Examples:
+const usageGrantExamples = `
 Grant user 'joe' 'read' access to model 'mymodel':
 
     juju grant joe read mymodel
@@ -75,9 +75,7 @@ Grant user 'sam' 'read' access to application offers 'fred/prod.hosted-mysql' an
 
     juju grant sam read fred/prod.hosted-mysql mary/test.hosted-mysql
 
-See also: 
-    revoke
-    add-user`
+`
 
 var usageRevokeSummary = `
 Revokes access from a Juju user for a model, controller, or application offer.`[1:]
@@ -89,9 +87,9 @@ Revoking write access, from a user who has that permission, will leave
 that user with read access. Revoking read access, however, also revokes
 write access.
 
-`[1:] + validAccessLevels + `
+`[1:] + validAccessLevels
 
-Examples:
+const usageRevokeExamples = `
 Revoke 'read' (and 'write') access from user 'joe' for model 'mymodel':
 
     juju revoke joe read mymodel
@@ -107,9 +105,7 @@ Revoke 'read' (and 'write') access from user 'joe' for application offer 'fred/p
 Revoke 'consume' access from user 'sam' for models 'fred/prod.hosted-mysql' and 'mary/test.hosted-mysql':
 
     juju revoke sam consume fred/prod.hosted-mysql mary/test.hosted-mysql
-
-See also: 
-    grant`
+`
 
 type accessCommand struct {
 	modelcmd.ControllerCommandBase
@@ -192,10 +188,15 @@ type grantCommand struct {
 // Info implements Command.Info.
 func (c *grantCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "grant",
-		Args:    "<user name> <permission> [<model name> ... | <offer url> ...]",
-		Purpose: usageGrantSummary,
-		Doc:     usageGrantDetails,
+		Name:     "grant",
+		Args:     "<user name> <permission> [<model name> ... | <offer url> ...]",
+		Purpose:  usageGrantSummary,
+		Doc:      usageGrantDetails,
+		Examples: usageGrantExamples,
+		SeeAlso: []string{
+			"revoke",
+			"add-user",
+		},
 	})
 }
 
@@ -307,10 +308,14 @@ type revokeCommand struct {
 // Info implements cmd.Command.
 func (c *revokeCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "revoke",
-		Args:    "<user name> <permission> [<model name> ... | <offer url> ...]",
-		Purpose: usageRevokeSummary,
-		Doc:     usageRevokeDetails,
+		Name:     "revoke",
+		Args:     "<user name> <permission> [<model name> ... | <offer url> ...]",
+		Purpose:  usageRevokeSummary,
+		Doc:      usageRevokeDetails,
+		Examples: usageRevokeExamples,
+		SeeAlso: []string{
+			"grant",
+		},
 	})
 }
 

@@ -26,7 +26,7 @@ quoting the entire public key as an argument.
 
 `[1:]
 
-const examples = `
+const usageAddSSHKeyExamples = `
     juju add-ssh-key "ssh-rsa qYfS5LieM79HIOr535ret6xy
     AAAAB3NzaC1yc2EAAAADAQA6fgBAAABAQCygc6Rc9XgHdhQqTJ
     Wsoj+I3xGrOtk21xYtKijnhkGqItAHmrE5+VH6PY1rVIUXhpTg
@@ -63,7 +63,7 @@ func (c *addKeysCommand) Info() *cmd.Info {
 		Args:     "<ssh key> ...",
 		Purpose:  usageAddSSHKeySummary,
 		Doc:      usageAddSSHKeyDetails,
-		Examples: examples,
+		Examples: usageAddSSHKeyExamples,
 		SeeAlso: []string{
 			"ssh-keys",
 			"remove-ssh-key",

@@ -84,19 +84,15 @@ Model destruction is a multi-step process. Under normal circumstances, Juju will
 proceed to the next step until the current step has finished. 
 However, when using --force, users can also specify --no-wait to progress through steps 
 without delay waiting for each step to complete.
+`
 
-Examples:
-
-    juju destroy-model test
+const destroyExamples = `
     juju destroy-model --no-prompt mymodel
     juju destroy-model --no-prompt mymodel --timeout 5m
     juju destroy-model --no-prompt mymodel --destroy-storage
     juju destroy-model --no-prompt mymodel --release-storage
     juju destroy-model --no-prompt mymodel --force
     juju destroy-model --no-prompt mymodel --force --no-wait
-
-See also:
-    destroy-controller
 `
 
 var destroyModelMsg = `
@@ -125,10 +121,14 @@ type DestroyModelAPI interface {
 // Info implements Command.Info.
 func (c *destroyCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "destroy-model",
-		Args:    "[<controller name>:]<model name>",
-		Purpose: "Terminate all machines/containers and resources for a non-controller model.",
-		Doc:     destroyDoc,
+		Name:     "destroy-model",
+		Args:     "[<controller name>:]<model name>",
+		Purpose:  "Terminate all machines/containers and resources for a non-controller model.",
+		Doc:      destroyDoc,
+		Examples: destroyExamples,
+		SeeAlso: []string{
+			"destroy-controller",
+		},
 	})
 }
 

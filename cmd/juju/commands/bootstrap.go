@@ -171,7 +171,9 @@ Available keys for use with --config are:
 `
 
 var usageBootstrapDetailsPartTwo = `
-Examples:
+`
+
+const usageBootstrapExamples = `
     juju bootstrap
     juju bootstrap --clouds
     juju bootstrap --regions aws
@@ -189,15 +191,7 @@ Examples:
 
     # For a bootstrap on k8s, setting the service type of the Juju controller service to External
     juju bootstrap --config controller-service-type=external --config controller-external-name=controller.juju.is
-
-See also:
-    add-credential
-    autoload-credentials
-    add-model
-    controller-config
-    model-config
-    set-constraints
-    show-cloud`
+`
 
 func newBootstrapCommand() cmd.Command {
 	command := &bootstrapCommand{}
@@ -259,8 +253,18 @@ type bootstrapCommand struct {
 
 func (c *bootstrapCommand) Info() *cmd.Info {
 	info := &cmd.Info{
-		Name:    "bootstrap",
-		Args:    "[<cloud name>[/region] [<controller name>]]",
+		Name:     "bootstrap",
+		Args:     "[<cloud name>[/region] [<controller name>]]",
+		Examples: usageBootstrapExamples,
+		SeeAlso: []string{
+			"add-credential",
+			"autoload-credentials",
+			"add-model",
+			"controller-config",
+			"model-config",
+			"set-constraints",
+			"show-cloud",
+		},
 		Purpose: usageBootstrapSummary,
 	}
 	if details := c.configDetails(); len(details) > 0 {

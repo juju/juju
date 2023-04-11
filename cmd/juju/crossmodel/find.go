@@ -18,17 +18,16 @@ const findCommandDoc = `
 Find which offered application endpoints are available to the current user.
 
 This command is aimed for a user who wants to discover what endpoints are available to them.
+`
 
-Examples:
-   $ juju find-offers
-   $ juju find-offers mycontroller:
-   $ juju find-offers fred/prod
-   $ juju find-offers --interface mysql
-   $ juju find-offers --url fred/prod.db2
-   $ juju find-offers --offer db2
+const findCommandExamples = `
+    juju find-offers
+    juju find-offers mycontroller:
+    juju find-offers fred/prod
+    juju find-offers --interface mysql
+    juju find-offers --url fred/prod.db2
+    juju find-offers --offer db2
    
-See also:
-   show-offer   
 `
 
 type findCommand struct {
@@ -76,9 +75,13 @@ func (c *findCommand) Init(args []string) (err error) {
 // Info implements Command.Info.
 func (c *findCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "find-offers",
-		Purpose: "Find offered application endpoints.",
-		Doc:     findCommandDoc,
+		Name:     "find-offers",
+		Purpose:  "Find offered application endpoints.",
+		Doc:      findCommandDoc,
+		Examples: findCommandExamples,
+		SeeAlso: []string{
+			"show-offer",
+		},
 	})
 }
 

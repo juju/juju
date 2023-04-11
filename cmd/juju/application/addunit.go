@@ -57,7 +57,7 @@ to new machines).
 
 `[1:]
 
-const examples = `
+const usageAddUnitExamples = `
 Add five units of mysql on five new machines:
 
     juju add-unit mysql -n 5
@@ -166,7 +166,7 @@ func (c *addUnitCommand) Info() *cmd.Info {
 		Args:     "<application name>",
 		Purpose:  usageAddUnitSummary,
 		Doc:      usageAddUnitDetails,
-		Examples: examples,
+		Examples: usageAddUnitExamples,
 		SeeAlso: []string{
 			"remove-unit",
 		},

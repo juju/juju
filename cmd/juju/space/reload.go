@@ -25,7 +25,7 @@ type ReloadCommand struct {
 }
 
 const ReloadCommandDoc = `
-Reloades spaces and subnets from substrate
+Reloades spaces and subnets from substrate.
 `
 
 // Info is defined on the cmd.Command interface.

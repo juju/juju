@@ -112,10 +112,11 @@ type helpToolCommand struct {
 
 func (t *helpToolCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "help-tool",
-		Args:    "[tool]",
-		Purpose: "Show help on a Juju charm hook tool.",
-		Doc:     helpToolDoc,
+		Name:     "help-tool",
+		Args:     "[tool]",
+		Purpose:  "Show help on a Juju charm hook tool.",
+		Doc:      helpToolDoc,
+		Examples: helpToolExamples,
 	})
 }
 
@@ -149,13 +150,13 @@ These are useful for the charm to be able to inspect its running environment.
 Currently available charm hook tools are:
 
 %v
-Examples:
+`, listHookTools())
 
-    For help on a specific tool, supply the name of that tool, for example:
+const helpToolExamples = `
+For help on a specific tool, supply the name of that tool, for example:
 
         juju help-tool unit-get
-
-`, listHookTools())
+`
 
 func listHookTools() string {
 	all := ""

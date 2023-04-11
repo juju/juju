@@ -44,16 +44,12 @@ configuration as space-separated pairs, e.g. tags, size, path, etc.
 
 For Kubernetes models, the provider type defaults to "kubernetes"
 unless otherwise specified.
+`
 
-Examples:
-
+const poolCreateCommandExamples = `
     juju create-storage-pool ebsrotary ebs volume-type=standard
     juju create-storage-pool gcepd storage-provisioner=kubernetes.io/gce-pd [storage-mode=RWX|RWO|ROX] parameters.type=pd-standard
 
-See also:
-    remove-storage-pool
-    update-storage-pool
-    storage-pools
 `
 
 // NewPoolCreateCommand returns a command that creates or defines a storage pool
@@ -128,10 +124,16 @@ func (c *poolCreateCommand) Init(args []string) (err error) {
 // Info implements Command.Info.
 func (c *poolCreateCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "create-storage-pool",
-		Args:    "<name> <provider> [<key>=<value> [<key>=<value>...]]",
-		Purpose: "Create or define a storage pool.",
-		Doc:     poolCreateCommandDoc,
+		Name:     "create-storage-pool",
+		Args:     "<name> <provider> [<key>=<value> [<key>=<value>...]]",
+		Purpose:  "Create or define a storage pool.",
+		Doc:      poolCreateCommandDoc,
+		Examples: poolCreateCommandExamples,
+		SeeAlso: []string{
+			"remove-storage-pool",
+			"update-storage-pool",
+			"storage-pools",
+		},
 	})
 }
 

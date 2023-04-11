@@ -92,7 +92,7 @@ Further reading:
 	https://juju.is/docs/reference/constraints
 `
 
-const examples = `
+const addMachineExamples = `
 Start a new machine by requesting one from the cloud provider:
 
 	juju add-machine
@@ -186,7 +186,7 @@ func (c *addCommand) Info() *cmd.Info {
 		Args:     "[<container-type>[:<machine-id>] | ssh:[<user>@]<host> | <placement>] | <private-key> | <public-key>",
 		Purpose:  "Provision a new machine or assign one to the model.",
 		Doc:      addMachineDoc,
-		Examples: examples,
+		Examples: addMachineExamples,
 		SeeAlso: []string{
 			"remove-machine",
 			"model-constraints",
