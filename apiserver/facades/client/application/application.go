@@ -179,7 +179,10 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		state:              state,
 		storagePoolManager: storagePoolManager,
 	}
-	repoDeploy := NewDeployFromRepositoryAPI(state, makeDeployFromRepositoryValidator(validatorCfg))
+	repoDeploy, err := NewDeployFromRepositoryAPI(state, makeDeployFromRepositoryValidator(validatorCfg), ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	return NewAPIBase(
 		state,
