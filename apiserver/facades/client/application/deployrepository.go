@@ -149,9 +149,9 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
 
-	resources, pendingResourceUploads, resolveResErr := api.resolveResources(ch.URL(), dt.origin, dt.resources, ch.Meta().Resources)
-	if resolveResErr != nil {
-		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(resolveResErr)}
+	resources, pendingResourceUploads, resolveResErrs := api.resolveResources(ch.URL(), dt.origin, dt.resources, ch.Meta().Resources)
+	if resolveResErrs != nil {
+		return params.DeployFromRepositoryInfo{}, nil, resolveResErrs
 	}
 
 	// Last step, add pending resources.
@@ -187,18 +187,20 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 	return info, pendingResourceUploads, errs
 }
 
-// PendingResourceUpload is only returned
-// for local resources which will require the client to upload the
-// resource once DeployFromRepository returns.
+// PendingResourceUpload is only returned for local resources
+// which will require the client to upload the resource once
+// the DeployFromRepository returns. Errors are not terminal,
+// and will be collected and returned altogether.
 func (api *DeployFromRepositoryAPI) resolveResources(
 	curl *charm.URL,
 	origin corecharm.Origin,
 	deployResArg map[string]string,
 	resMeta map[string]resource.Meta,
-) ([]resource.Resource, []*params.PendingResourceUpload, error) {
+) ([]resource.Resource, []*params.PendingResourceUpload, []error) {
 	var pendingUploadIDs []*params.PendingResourceUpload
 	var resources []resource.Resource
 	var storeResources map[string]resource.Resource
+	var errs []error
 
 	for name, meta := range resMeta {
 		deployValue, ok := deployResArg[name]
@@ -210,16 +212,17 @@ func (api *DeployFromRepositoryAPI) resolveResources(
 				charmhubResp, listResErr := api.charmhubClient.ListResourceRevisions(context.TODO(), curl.Name, name)
 				if listResErr != nil {
 					if errors.Is(listResErr, errors.NotFound) {
-
-						return nil, nil, errors.Annotatef(listResErr, "unrecognized resource %v", name)
+						errs = append(errs, errors.Annotatef(listResErr, "unrecognized resource %v", name))
+						continue
 					}
-
-					return nil, nil, errors.Annotatef(listResErr, "unable to retrieve resource info %q for charm %q", name, curl.String())
+					errs = append(errs, errors.Annotatef(listResErr, "unable to retrieve resource info %q for charm %q", name, curl.String()))
+					continue
 				}
 				r, resErr := resourceFromRevision(name, providedRev, charmhubResp)
 				r.Meta = meta
 				if resErr != nil {
-					return nil, nil, errors.Trace(resErr)
+					errs = append(errs, errors.Trace(resErr))
+					continue
 				}
 				resources = append(resources, r)
 				continue
@@ -246,17 +249,19 @@ func (api *DeployFromRepositoryAPI) resolveResources(
 		if storeResources == nil {
 			var listErr error
 			if storeResources, listErr = api.listStoreResources(curl, origin); listErr != nil {
-				return nil, nil, errors.Trace(listErr)
+				errs = append(errs, errors.Trace(listErr))
+				continue
 			}
 		}
 		r, ok := storeResources[name]
 		if !ok {
-			return nil, nil, errors.New(fmt.Sprintf("unrecognized resource %q", name))
+			errs = append(errs, errors.New(fmt.Sprintf("unrecognized resource %q", name)))
+			continue
 		}
 		resources = append(resources, r)
 	}
 
-	return resources, pendingUploadIDs, nil
+	return resources, pendingUploadIDs, errs
 }
 
 func resourceFromRevision(name string, providedRev int, charmhubResp []transport.ResourceRevision) (resource.Resource, error) {
