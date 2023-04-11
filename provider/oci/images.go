@@ -138,10 +138,7 @@ func (t byVersion) Less(i, j int) bool {
 // ImageCache holds a cache of all provider images for a fixed
 // amount of time before it becomes stale
 type ImageCache struct {
-	// images []InstanceImage
 	images map[series.Base][]InstanceImage
-
-	// shapeToInstanceImageMap map[string][]InstanceImage
 
 	lastRefresh time.Time
 }
@@ -223,6 +220,15 @@ func (i ImageCache) SupportedShapes(base series.Base) []instances.InstanceType {
 	return ret
 }
 
+// TODO - display names for Images no longer contain vm, bm.
+// Find a better way to determine image type. One bit of useful info
+// is "-aarch64-" indicates arm64 images today.
+//
+// DisplayName:   &"Canonical-Ubuntu-22.04-aarch64-2023.03.18-0",
+// DisplayName:   &"CentOS-7-2023.01.31-0",
+// DisplayName:   &"Canonical-Ubuntu-22.04-2023.03.18-0",
+// DisplayName:   &"Canonical-Ubuntu-22.04-Minimal-2023.01.30-0",
+// DisplayName:   &"Oracle-Linux-7.9-Gen2-GPU-2022.12.16-0",
 func getImageType(img ociCore.Image) ImageType {
 	if img.DisplayName == nil {
 		return ImageTypeGeneric
@@ -323,19 +329,29 @@ func parseArchAndInstType(shape ociCore.Shape) (string, string) {
 	}
 	var archType, instType string
 	if shape.ProcessorDescription != nil {
-		// ProcessorDescription:          &"2.55 GHz AMD EPYC™ 7J13 (Milan)",
-		// ProcessorDescription:          &"2.6 GHz Intel® Xeon® Platinum 8358 (Ice Lake)",
-		// ProcessorDescription:          &"3.0 GHz Ampere® Altra™",
-		description := strings.ToLower(*shape.ProcessorDescription)
-		if strings.Contains(description, "ampere") {
-			archType = arch.ARM64
-		} else if strings.Contains(description, "intel") || strings.Contains(description, "amd") {
-			archType = arch.AMD64
-		}
+		archType = archTypeByProcessorDescription(*shape.ProcessorDescription)
 	}
 	if shape.Shape == nil {
 		return archType, instType
 	}
+	return archType, instTypeByShapeName(*shape.Shape)
+}
+
+func archTypeByProcessorDescription(input string) string {
+	// ProcessorDescription:          &"2.55 GHz AMD EPYC™ 7J13 (Milan)",
+	// ProcessorDescription:          &"2.6 GHz Intel® Xeon® Platinum 8358 (Ice Lake)",
+	// ProcessorDescription:          &"3.0 GHz Ampere® Altra™",
+	var archType string
+	description := strings.ToLower(input)
+	if strings.Contains(description, "ampere") {
+		archType = arch.ARM64
+	} else if strings.Contains(description, "intel") || strings.Contains(description, "amd") {
+		archType = arch.AMD64
+	}
+	return archType
+}
+
+func instTypeByShapeName(shape string) string {
 	// Shape: &"VM.GPU.A10.2",
 	// Shape: &"VM.Optimized3.Flex",
 	// Shape: &"VM.Standard.A1.Flex",
@@ -344,14 +360,15 @@ func parseArchAndInstType(shape ociCore.Shape) (string, string) {
 	// Shape: &"BM.Optimized3.36",
 	// Shape: &"BM.Standard.A1.160",
 	switch {
-	case strings.HasPrefix(*shape.Shape, "VM.GPU"), strings.HasPrefix(*shape.Shape, "BM.GPU"):
-		instType = string(GPUMachine)
-	case strings.HasPrefix(*shape.Shape, "VM."):
-		instType = string(VirtualMachine)
-	case strings.HasPrefix(*shape.Shape, "BM."):
-		instType = string(BareMetal)
+	case strings.HasPrefix(shape, "VM.GPU"), strings.HasPrefix(shape, "BM.GPU"):
+		return string(GPUMachine)
+	case strings.HasPrefix(shape, "VM."):
+		return string(VirtualMachine)
+	case strings.HasPrefix(shape, "BM."):
+		return string(BareMetal)
+	default:
+		return ""
 	}
-	return archType, instType
 }
 
 var oracleAmdBm = fmt.Sprintf("%s|%s|%s|%s", string(ociCore.ShapePlatformConfigOptionsTypeAmdMilanBm), string(ociCore.ShapePlatformConfigOptionsTypeAmdRomeBm), string(ociCore.ShapePlatformConfigOptionsTypeIntelSkylakeBm), string(ociCore.ShapePlatformConfigOptionsTypeIntelIcelakeBm))

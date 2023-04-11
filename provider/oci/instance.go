@@ -36,7 +36,6 @@ type ociInstance struct {
 	raw      ociCore.Instance
 	instType *instances.InstanceType
 	env      *Environ
-	arch     string
 	etag     *string
 
 	newInstanceConfigurator func(string) common.InstanceConfigurator
@@ -75,7 +74,6 @@ func newInstance(raw ociCore.Instance, env *Environ) (*ociInstance, error) {
 	return &ociInstance{
 		raw:                     raw,
 		env:                     env,
-		arch:                    "amd64",
 		newInstanceConfigurator: common.NewSshInstanceConfigurator,
 	}, nil
 }
@@ -253,18 +251,32 @@ func (o *ociInstance) deleteInstance(ctx envcontext.ProviderCallContext) error {
 // hardwareCharacteristics returns the hardware characteristics of the current
 // instance
 func (o *ociInstance) hardwareCharacteristics() *instance.HardwareCharacteristics {
-	if o.arch == "" {
-		return nil
+	shapeCfg := o.raw.ShapeConfig
+	var mem, cpus *uint64
+	var archType string
+	if shapeCfg != nil {
+		if shapeCfg.MemoryInGBs != nil {
+			v := uint64(*shapeCfg.MemoryInGBs * 1024)
+			mem = &v
+		}
+		if shapeCfg.Ocpus != nil {
+			v := uint64(*shapeCfg.Ocpus)
+			cpus = &v
+		}
+		if shapeCfg.ProcessorDescription != nil {
+			archType = archTypeByProcessorDescription(*shapeCfg.ProcessorDescription)
+		}
 	}
-
-	hc := &instance.HardwareCharacteristics{Arch: &o.arch}
-	if o.instType != nil {
-		hc.Mem = &o.instType.Mem
-		hc.RootDisk = &o.instType.RootDisk
-		hc.CpuCores = &o.instType.CpuCores
+	var az string
+	if o.raw.AvailabilityDomain != nil {
+		az = *o.raw.AvailabilityDomain
 	}
-
-	return hc
+	return &instance.HardwareCharacteristics{
+		Arch:             &archType,
+		Mem:              mem,
+		CpuCores:         cpus,
+		AvailabilityZone: &az,
+	}
 }
 
 func (o *ociInstance) waitForMachineStatus(state ociCore.InstanceLifecycleStateEnum, timeout time.Duration) error {
