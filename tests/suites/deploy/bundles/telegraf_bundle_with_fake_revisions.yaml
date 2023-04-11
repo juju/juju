@@ -20,6 +20,9 @@ applications:
     to:
     - "1"
     constraints: arch=amd64
+    storage:
+      block: loop,100M
+      files: tmpfs,1,100M
 machines:
   "0": {}
   "1": {}

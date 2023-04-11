@@ -4,7 +4,7 @@ test_manual() {
 		return
 	fi
 
-	if [[ ${BOOTSTRAP_PROVIDER:-} == "aws" ]]; then
+	if [[ ${BOOTSTRAP_PROVIDER:-} == "ec2" ]]; then
 		# Ensure that the aws cli and juju both use the same aws region
 		export AWS_DEFAULT_REGION="${BOOTSTRAP_REGION}"
 	fi
