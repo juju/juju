@@ -240,7 +240,8 @@ func (s *nodeManagerSuite) TestWithAddressOptionSuccess(c *gc.C) {
 	dqliteApp, err := app.New(c.MkDir(), m.WithAddressOption("127.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	_ = dqliteApp.Close()
+	err = dqliteApp.Close()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *nodeManagerSuite) TestWithTLSOptionSuccess(c *gc.C) {
@@ -253,7 +254,8 @@ func (s *nodeManagerSuite) TestWithTLSOptionSuccess(c *gc.C) {
 	dqliteApp, err := app.New(c.MkDir(), withTLS)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_ = dqliteApp.Close()
+	err = dqliteApp.Close()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *nodeManagerSuite) TestWithClusterOptionSuccess(c *gc.C) {
@@ -263,7 +265,8 @@ func (s *nodeManagerSuite) TestWithClusterOptionSuccess(c *gc.C) {
 	dqliteApp, err := app.New(c.MkDir(), m.WithClusterOption([]string{"10.6.6.6"}))
 	c.Assert(err, jc.ErrorIsNil)
 
-	_ = dqliteApp.Close()
+	err = dqliteApp.Close()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type fakeAgentConfig struct {
