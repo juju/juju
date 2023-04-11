@@ -63,6 +63,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 
 		"caas-unit-termination-worker",
 		"caas-units-manager",
+		"secret-migration-worker",
 	}
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {
@@ -103,6 +104,7 @@ func (s *ManifoldsSuite) TestManifoldNamesColocatedController(c *gc.C) {
 
 		"caas-unit-termination-worker",
 		"caas-units-manager",
+		"secret-migration-worker",
 	}
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {
@@ -285,5 +287,12 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+	},
+	"secret-migration-worker": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
 	},
 }

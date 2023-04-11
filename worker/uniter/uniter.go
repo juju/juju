@@ -127,10 +127,6 @@ type Uniter struct {
 	// secret revisions owned by this unit or its application should be expired.
 	secretExpiryWatcherFunc remotestate.SecretTriggerWatcherFunc
 
-	// secretMigrationWorkerFunc returns a watcher that triggers when
-	// secrets owned by this unit or its application should be migrated.
-	// secretMigrationWorkerFunc remotestate.SecretMigrationWorkerFunc
-
 	Probe Probe
 
 	// TODO(axw) move the runListener and run-command code outside of the
@@ -190,17 +186,16 @@ type Uniter struct {
 
 // UniterParams hold all the necessary parameters for a new Uniter.
 type UniterParams struct {
-	UniterFacade            *uniter.State
-	ResourcesFacade         *uniter.ResourcesFacadeClient
-	PayloadFacade           *uniter.PayloadFacadeClient
-	SecretsClient           SecretsClient
-	SecretsBackendGetter    context.SecretsBackendGetter
-	UnitTag                 names.UnitTag
-	ModelType               model.ModelType
-	LeadershipTrackerFunc   func(names.UnitTag) leadership.TrackerWorker
-	SecretRotateWatcherFunc remotestate.SecretTriggerWatcherFunc
-	SecretExpiryWatcherFunc remotestate.SecretTriggerWatcherFunc
-	// SecretMigrationWorkerFunc     remotestate.SecretMigrationWorkerFunc
+	UniterFacade                  *uniter.State
+	ResourcesFacade               *uniter.ResourcesFacadeClient
+	PayloadFacade                 *uniter.PayloadFacadeClient
+	SecretsClient                 SecretsClient
+	SecretsBackendGetter          context.SecretsBackendGetter
+	UnitTag                       names.UnitTag
+	ModelType                     model.ModelType
+	LeadershipTrackerFunc         func(names.UnitTag) leadership.TrackerWorker
+	SecretRotateWatcherFunc       remotestate.SecretTriggerWatcherFunc
+	SecretExpiryWatcherFunc       remotestate.SecretTriggerWatcherFunc
 	DataDir                       string
 	Downloader                    charm.Downloader
 	MachineLock                   machinelock.Lock
@@ -268,18 +263,17 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 	}
 	startFunc := func() (worker.Worker, error) {
 		u := &Uniter{
-			st:                      uniterParams.UniterFacade,
-			resources:               uniterParams.ResourcesFacade,
-			payloads:                uniterParams.PayloadFacade,
-			secretsClient:           uniterParams.SecretsClient,
-			secretsBackendGetter:    uniterParams.SecretsBackendGetter,
-			paths:                   NewPaths(uniterParams.DataDir, uniterParams.UnitTag, uniterParams.SocketConfig),
-			modelType:               uniterParams.ModelType,
-			hookLock:                uniterParams.MachineLock,
-			leadershipTracker:       uniterParams.LeadershipTrackerFunc(uniterParams.UnitTag),
-			secretRotateWatcherFunc: uniterParams.SecretRotateWatcherFunc,
-			secretExpiryWatcherFunc: uniterParams.SecretExpiryWatcherFunc,
-			// secretMigrationMinionWorkerFunc: uniterParams.SecretMigrationWorkerFunc,
+			st:                            uniterParams.UniterFacade,
+			resources:                     uniterParams.ResourcesFacade,
+			payloads:                      uniterParams.PayloadFacade,
+			secretsClient:                 uniterParams.SecretsClient,
+			secretsBackendGetter:          uniterParams.SecretsBackendGetter,
+			paths:                         NewPaths(uniterParams.DataDir, uniterParams.UnitTag, uniterParams.SocketConfig),
+			modelType:                     uniterParams.ModelType,
+			hookLock:                      uniterParams.MachineLock,
+			leadershipTracker:             uniterParams.LeadershipTrackerFunc(uniterParams.UnitTag),
+			secretRotateWatcherFunc:       uniterParams.SecretRotateWatcherFunc,
+			secretExpiryWatcherFunc:       uniterParams.SecretExpiryWatcherFunc,
 			charmDirGuard:                 uniterParams.CharmDirGuard,
 			updateStatusAt:                uniterParams.UpdateStatusSignal,
 			hookRetryStrategy:             uniterParams.HookRetryStrategy,
@@ -408,12 +402,11 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		var err error
 		watcher, err = remotestate.NewWatcher(
 			remotestate.WatcherConfig{
-				State:                   remotestate.NewAPIState(u.st),
-				LeadershipTracker:       u.leadershipTracker,
-				SecretsClient:           u.secretsClient,
-				SecretRotateWatcherFunc: u.secretRotateWatcherFunc,
-				SecretExpiryWatcherFunc: u.secretExpiryWatcherFunc,
-				// SecretMigrationWorkerFunc:     u.secretMigrationWorkerFunc,
+				State:                         remotestate.NewAPIState(u.st),
+				LeadershipTracker:             u.leadershipTracker,
+				SecretsClient:                 u.secretsClient,
+				SecretRotateWatcherFunc:       u.secretRotateWatcherFunc,
+				SecretExpiryWatcherFunc:       u.secretExpiryWatcherFunc,
 				UnitTag:                       unitTag,
 				UpdateStatusChannel:           u.updateStatusAt,
 				CommandChannel:                u.commandChannel,
