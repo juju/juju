@@ -231,7 +231,7 @@ func (p vaultProvider) RestrictedConfig(
 		}
 		policies = append(policies, policyName)
 	}
-	logger.Criticalf("policies: %#v", policies)
+	logger.Tracef("policies: %#v", policies)
 	s, err := backend.client.Auth().Token().Create(&api.TokenCreateRequest{
 		TTL:             "10m", // 10 minutes for now, can configure later.
 		NoDefaultPolicy: true,

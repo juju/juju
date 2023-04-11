@@ -182,7 +182,6 @@ func (c *secretsClient) DeleteContent(uri *secrets.URI, revision int) error {
 
 // DeleteExternalContent implements Client.
 func (c *secretsClient) DeleteExternalContent(ref secrets.ValueRef) error {
-	logger.Criticalf("secretsClient.DeleteExternalContent(%+v)", ref)
 	backend, _, err := c.GetBackend(&ref.BackendID)
 	if err != nil {
 		return errors.Trace(err)
