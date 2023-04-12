@@ -3,14 +3,31 @@
 run_deploy_ck() {
 	echo
 
-	local name model_name file overlay_path kube_home
+	local name model_name file overlay_path overlay_url kube_home
 	name="deploy-ck"
 	model_name="${name}"
 	file="${TEST_DIR}/${model_name}.log"
 
 	ensure "${model_name}" "${file}"
 
-	overlay_path="./tests/suites/ck/overlay/${BOOTSTRAP_PROVIDER}.yaml"
+	case "${BOOTSTRAP_PROVIDER:-}" in
+	"ec2")
+		overlay_url="https://raw.githubusercontent.com/charmed-kubernetes/bundle/main/overlays/aws-storage-overlay.yaml"
+		;;
+	"gce")
+		overlay_url="https://raw.githubusercontent.com/charmed-kubernetes/bundle/main/overlays/gcp-storage-overlay.yaml"
+		;;
+	"azure")
+		overlay_url="https://raw.githubusercontent.com/charmed-kubernetes/bundle/main/overlays/azure-cloud-overlay.yaml"
+		;;
+	*)
+		echo "Unexpected bootstrap provider (${BOOTSTRAP_PROVIDER})."
+		exit 1
+		;;
+	esac
+
+	overlay_path="${TEST_DIR}/overlay.yaml"
+	wget "${overlay_url}" -O "${overlay_path}"
 	juju deploy charmed-kubernetes --overlay "${overlay_path}" --trust
 
 	if ! which "kubectl" >/dev/null 2>&1; then
