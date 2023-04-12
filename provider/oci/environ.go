@@ -33,9 +33,9 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 
-	ociCommon "github.com/oracle/oci-go-sdk/v47/common"
-	ociCore "github.com/oracle/oci-go-sdk/v47/core"
-	ociIdentity "github.com/oracle/oci-go-sdk/v47/identity"
+	ociCommon "github.com/oracle/oci-go-sdk/v65/common"
+	ociCore "github.com/oracle/oci-go-sdk/v65/core"
+	ociIdentity "github.com/oracle/oci-go-sdk/v65/identity"
 )
 
 type Environ struct {
@@ -501,7 +501,7 @@ func (e *Environ) startInstance(
 
 	types := imgCache.SupportedShapes(args.InstanceConfig.Base)
 
-	defaultType := string(VirtualMachine)
+	defaultType := VirtualMachine.String()
 	if args.Constraints.VirtType == nil {
 		args.Constraints.VirtType = &defaultType
 	}

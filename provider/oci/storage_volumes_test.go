@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/provider/oci"
 	"github.com/juju/juju/storage"
 
-	ociCore "github.com/oracle/oci-go-sdk/v47/core"
+	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 )
 
 type storageVolumeSuite struct {
