@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/kr/pretty"
 
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -429,7 +428,6 @@ func (s *SecretsManagerAPI) GetSecretsToMigrate() (params.ListSecretResults, err
 		}
 	}
 	return s.getSecretMetadata(func(md *coresecrets.SecretMetadata, rev *coresecrets.SecretRevisionMetadata) bool {
-		logger.Criticalf("GetSecretsToMigrate md: %s, rev: %s", pretty.Sprint(md), pretty.Sprint(rev))
 		if rev.ValueRef == nil {
 			// Only internal backend secrets have nil ValueRef.
 			if activeBackend == secretsprovider.Internal {
@@ -457,9 +455,6 @@ func (s *SecretsManagerAPI) ChangeSecretBackend(args params.ChangeSecretBackendA
 }
 
 func (s *SecretsManagerAPI) changeSecretBackendForOne(arg params.ChangeSecretBackendArg) (err error) {
-	defer func() {
-		logger.Criticalf("changeSecretBackendForOne arg: %s, err %#v", pretty.Sprint(arg), err)
-	}()
 	uri, err := coresecrets.ParseURI(arg.URI)
 	if err != nil {
 		return errors.Trace(err)

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/kr/pretty"
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/secrets/provider"
@@ -56,11 +55,9 @@ func (c *secretsClient) GetBackend(backendID *string) (provider.SecretsBackend, 
 		return nil, "", errors.Trace(err)
 	}
 	want := info.ActiveID
-	logger.Criticalf("secretsClient.getBackend(%+v), info.ActiveID %q", backendID, info.ActiveID)
 	if backendID != nil {
 		want = *backendID
 	}
-	logger.Warningf("secretsClient.getBackend(%+v), info.Configs -> %s", backendID, pretty.Sprint(info.Configs))
 	cfg, ok := info.Configs[want]
 	if !ok {
 		return nil, "", errors.Errorf("secret backend %q missing from config", want)
@@ -101,6 +98,7 @@ func (c *secretsClient) GetContent(uri *secrets.URI, label string, refresh, peek
 		lastBackendID = backendID
 		// Secret may have been drained to the active backend.
 		if backendID != c.activeBackendID {
+			logger.Tracef("secret %q revisionID %q may be migrating from %q to %q", uri, content.ValueRef.RevisionID, backendID, c.activeBackendID)
 			continue
 		}
 		return nil, errors.Trace(err)

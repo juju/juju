@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
-	"github.com/kr/pretty"
 
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
@@ -83,12 +82,11 @@ type Worker struct {
 	config   Config
 }
 
-// TODO: we should do backend connection validation (ping the backend) when we change the secret backend in model config!!!
+// TODO: we should do backend connection validation (ping the backend) when we change the secret backend in model config!
 // juju model-config secret-backend=myothersecrets
 // Or we should have a secret backend validator worker keeps ping the backend to make sure it's alive.
 // The worker should make the backend as inactive if it's not alive.
-
-// TODO: user created secrets should be migrated on the controller becasue they donot have an owner unit!!
+// TODO: user created secrets should be migrated on the controller because they do not have an owner unit!
 
 // Kill is defined on worker.Worker.
 func (w *Worker) Kill() {
@@ -118,21 +116,17 @@ func (w *Worker) loop() (err error) {
 				return errors.New("secret backend changed watch closed")
 			}
 
-			w.config.Logger.Criticalf("secret backend has changed, now fetching secrets that needs to be migrated!!!")
 			secrets, err := w.config.Facade.GetSecretsToMigrate()
 			if err != nil {
 				return errors.Trace(err)
 			}
 			if len(secrets) == 0 {
-				w.config.Logger.Criticalf("no secrets needs to be migrated")
 				continue
 			}
-			w.config.Logger.Criticalf("secrets that needs to be migrated: %+v", secrets)
 			backends, err := w.config.SecretsBackendGetter()
 			if err != nil {
 				return errors.Trace(err)
 			}
-			w.config.Logger.Criticalf("secrets backends: %+v", backends)
 			_, activeBackendID, err := backends.GetBackend(nil)
 			if err != nil {
 				return errors.Trace(err)
@@ -152,20 +146,17 @@ func (w *Worker) migrateSecret(
 	activeBackendID string,
 ) error {
 	for _, rev := range md.Revisions {
-		w.config.Logger.Criticalf("migrateSecret rev(activeBackendID %q): %+v", activeBackendID, rev)
 		if rev.ValueRef != nil && rev.ValueRef.BackendID == activeBackendID {
-			w.config.Logger.Criticalf("THIS SHOULD NEVER HAPPEND, found secrets have already migrated!!!!")
+			// This should never happen.
+			w.config.Logger.Warningf("secret %q revision %d is already migrated to the active backend %q", md.Metadata.URI, rev.Revision, activeBackendID)
 			continue
 		}
 
-		// secretVal, err := oldBackend.GetContent(context.TODO(), rev.ValueRef.RevisionID)
 		secretVal, err := client.GetRevisionContent(md.Metadata.URI, rev.Revision)
-		w.config.Logger.Criticalf("migrateSecrets secretVal: %s, err %#v", pretty.Sprint(secretVal), err)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		valueRef, err := client.SaveContent(md.Metadata.URI, rev.Revision, secretVal)
-		w.config.Logger.Criticalf("migrateSecrets activeBackend.SaveContent(%q, %d, secretVal) err %#v", md.Metadata.URI, rev.Revision, err)
 		if err != nil && !errors.Is(err, errors.NotSupported) {
 			return errors.Trace(err)
 		}
@@ -174,12 +165,11 @@ func (w *Worker) migrateSecret(
 		if err == nil {
 			// We are migrating to an external backend,
 			newValueRef = &valueRef
-			// The content has successfuly saved into the external backend.
+			// The content has successfully saved into the external backend.
 			// So we won't save the content into the Juju database.
 			data = nil
 		}
 
-		// var oldBackend provider.SecretsBackend
 		var cleanUpExternalBackend func() error
 		if rev.ValueRef != nil {
 			// The old backend is an external backend.
@@ -201,13 +191,11 @@ func (w *Worker) migrateSecret(
 		if err := w.config.Facade.ChangeSecretBackend(md.Metadata.URI, rev.Revision, newValueRef, data); err != nil {
 			return errors.Trace(err)
 		}
-		w.config.Logger.Criticalf("w.config.Facade.ChangeSecretBackend(%q, %d, %q) success", md.Metadata.URI, rev.Revision, activeBackendID)
 
 		if cleanUpExternalBackend != nil {
 			if err := cleanUpExternalBackend(); err != nil {
 				return errors.Trace(err)
 			}
-			w.config.Logger.Criticalf("oldBackend.DeleteContent(%q) success", rev.ValueRef)
 		}
 	}
 	return nil

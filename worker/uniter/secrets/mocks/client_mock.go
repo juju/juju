@@ -52,18 +52,18 @@ func (mr *MockSecretsClientMockRecorder) GetConsumerSecretsRevisionInfo(arg0, ar
 }
 
 // SecretMetadata mocks base method.
-func (m *MockSecretsClient) SecretMetadata(arg0 secrets.Filter) ([]secrets.SecretOwnerMetadata, error) {
+func (m *MockSecretsClient) SecretMetadata() ([]secrets.SecretOwnerMetadata, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SecretMetadata", arg0)
+	ret := m.ctrl.Call(m, "SecretMetadata")
 	ret0, _ := ret[0].([]secrets.SecretOwnerMetadata)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // SecretMetadata indicates an expected call of SecretMetadata.
-func (mr *MockSecretsClientMockRecorder) SecretMetadata(arg0 interface{}) *gomock.Call {
+func (mr *MockSecretsClientMockRecorder) SecretMetadata() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretMetadata", reflect.TypeOf((*MockSecretsClient)(nil).SecretMetadata), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretMetadata", reflect.TypeOf((*MockSecretsClient)(nil).SecretMetadata))
 }
 
 // WatchConsumedSecretsChanges mocks base method.

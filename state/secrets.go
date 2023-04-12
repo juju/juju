@@ -16,7 +16,6 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/kr/pretty"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/leadership"
@@ -748,7 +747,6 @@ func (s *secretsStore) getSecretValue(uri *secrets.URI, revision int, checkExist
 	var doc secretRevisionDoc
 	key := secretRevisionKey(uri, revision)
 	err := secretValuesCollection.FindId(key).One(&doc)
-	logger.Criticalf("getSecretValue(%q): %s", key, pretty.Sprint(doc))
 	if err == mgo.ErrNotFound {
 		return nil, nil, errors.NotFoundf("secret revision %q", key)
 	}
@@ -783,7 +781,6 @@ func (s *secretsStore) ChangeSecretBackend(arg ChangeSecretBackendParams) error 
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("secret revision %q", key)
 	}
-	logger.Criticalf("secretsStore.ChangeSecretBackend doc => %s", pretty.Sprint(doc))
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -799,8 +796,6 @@ func (s *secretsStore) ChangeSecretBackend(arg ChangeSecretBackendParams) error 
 			RevisionID: arg.ValueRef.RevisionID,
 		}
 	}
-
-	logger.Criticalf("secretsStore.ChangeSecretBackend: old %+v, new %+v", doc.ValueRef, arg.ValueRef)
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		return []txn.Op{

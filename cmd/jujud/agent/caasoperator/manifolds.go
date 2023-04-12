@@ -308,11 +308,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Hub:           config.LocalHub,
 		}),
 
-		// The secretMigrationWorker is worker that migrates secrets from the inactive backend to the current active backend.
+		// The secretMigrationWorker is the worker that migrates secrets from the inactive backend to the current active backend.
 		secretMigrationWorker: ifNotMigrating(secretmigrationworker.Manifold(secretmigrationworker.ManifoldConfig{
 			APICallerName:     apiCallerName,
 			Logger:            loggo.GetLogger("juju.worker.secretmigrationworker"),
-			Clock:             config.Clock,
 			NewFacade:         secretmigrationworker.NewClient,
 			NewWorker:         secretmigrationworker.NewWorker,
 			NewBackendsClient: secretmigrationworker.NewBackendsClient,

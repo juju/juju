@@ -1315,10 +1315,14 @@ func (s *SecretsManagerSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 func (s *SecretsManagerSuite) TestWatchSecretBackendChanged(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	ch := make(chan struct{}, 1)
-	ch <- struct{}{}
-	s.modelConfigChangesWatcher.EXPECT().Wait().Return(nil)
-	s.modelConfigChangesWatcher.EXPECT().Changes().Return(ch).AnyTimes()
+	done := make(chan struct{})
+	changeChan := make(chan struct{}, 1)
+	changeChan <- struct{}{}
+	s.modelConfigChangesWatcher.EXPECT().Wait().DoAndReturn(func() error {
+		close(done)
+		return nil
+	})
+	s.modelConfigChangesWatcher.EXPECT().Changes().Return(changeChan).AnyTimes()
 
 	s.modelState.EXPECT().WatchForModelConfigChanges().Return(s.modelConfigChangesWatcher)
 	configAttrs := map[string]interface{}{
@@ -1338,6 +1342,13 @@ func (s *SecretsManagerSuite) TestWatchSecretBackendChanged(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, params.NotifyWatchResult{
 		NotifyWatcherId: "11",
 	})
+
+	select {
+	case <-done:
+		// We need to wait for the watcher to fully start to ensure that all expected methods are called.
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for 2nd loop")
+	}
 }
 
 func (s *SecretsManagerSuite) TestSecretsRotated(c *gc.C) {
