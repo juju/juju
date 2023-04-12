@@ -12,10 +12,10 @@ applications:
     charm: telegraf
     channel: stable
     revision: 53
-  ubuntu:
-    charm: ubuntu
+  tinybash:
+    charm: tiny-bash
     channel: stable
-    revision: 20
+    revision: 2
     num_units: 1
     to:
     - "1"
@@ -25,6 +25,6 @@ machines:
   "1": {}
 relations:
 - - telegraf:juju-info
-  - ubuntu:juju-info
+  - tinybash:juju-info
 - - telegraf:influxdb-api
   - influxdb:query
