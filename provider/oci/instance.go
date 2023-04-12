@@ -33,10 +33,9 @@ const (
 )
 
 type ociInstance struct {
-	raw      ociCore.Instance
-	instType *instances.InstanceType
-	env      *Environ
-	etag     *string
+	raw  ociCore.Instance
+	env  *Environ
+	etag *string
 
 	newInstanceConfigurator func(string) common.InstanceConfigurator
 

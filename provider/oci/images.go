@@ -46,6 +46,11 @@ var globalImageCache = &ImageCache{}
 var cacheMutex = &sync.Mutex{}
 
 type InstanceType string
+
+func (i InstanceType) String() string {
+	return string(i)
+}
+
 type ImageType string
 
 type ImageVersion struct {
@@ -361,19 +366,21 @@ func instTypeByShapeName(shape string) string {
 	// Shape: &"BM.Standard.A1.160",
 	switch {
 	case strings.HasPrefix(shape, "VM.GPU"), strings.HasPrefix(shape, "BM.GPU"):
-		return string(GPUMachine)
+		return GPUMachine.String()
 	case strings.HasPrefix(shape, "VM."):
-		return string(VirtualMachine)
+		return VirtualMachine.String()
 	case strings.HasPrefix(shape, "BM."):
-		return string(BareMetal)
+		return BareMetal.String()
 	default:
 		return ""
 	}
 }
 
-var oracleAmdBm = fmt.Sprintf("%s|%s|%s|%s", string(ociCore.ShapePlatformConfigOptionsTypeAmdMilanBm), string(ociCore.ShapePlatformConfigOptionsTypeAmdRomeBm), string(ociCore.ShapePlatformConfigOptionsTypeIntelSkylakeBm), string(ociCore.ShapePlatformConfigOptionsTypeIntelIcelakeBm))
-var oracleAmdBmGpu = fmt.Sprintf("%s|%s", string(ociCore.ShapePlatformConfigOptionsTypeAmdMilanBmGpu), string(ociCore.ShapePlatformConfigOptionsTypeAmdRomeBmGpu))
-var oracleAmd = fmt.Sprintf("%s|%s", string(ociCore.ShapePlatformConfigOptionsTypeAmdVm), string(ociCore.ShapePlatformConfigOptionsTypeIntelVm))
+var (
+	oracleAmdBm    = fmt.Sprintf("%s|%s|%s|%s", string(ociCore.ShapePlatformConfigOptionsTypeAmdMilanBm), string(ociCore.ShapePlatformConfigOptionsTypeAmdRomeBm), string(ociCore.ShapePlatformConfigOptionsTypeIntelSkylakeBm), string(ociCore.ShapePlatformConfigOptionsTypeIntelIcelakeBm))
+	oracleAmdBmGpu = fmt.Sprintf("%s|%s", string(ociCore.ShapePlatformConfigOptionsTypeAmdMilanBmGpu), string(ociCore.ShapePlatformConfigOptionsTypeAmdRomeBmGpu))
+	oracleAmd      = fmt.Sprintf("%s|%s", string(ociCore.ShapePlatformConfigOptionsTypeAmdVm), string(ociCore.ShapePlatformConfigOptionsTypeIntelVm))
+)
 
 // archREs maps regular expressions for matching
 // oracle architectures and instance types to juju
@@ -383,9 +390,9 @@ var archREs = []struct {
 	arch         string
 	instanceType string
 }{
-	{regexp.MustCompile(oracleAmd), arch.AMD64, string(VirtualMachine)},
-	{regexp.MustCompile(oracleAmdBm), arch.AMD64, string(BareMetal)},
-	{regexp.MustCompile(oracleAmdBmGpu), arch.AMD64, string(GPUMachine)},
+	{regexp.MustCompile(oracleAmd), arch.AMD64, VirtualMachine.String()},
+	{regexp.MustCompile(oracleAmdBm), arch.AMD64, BareMetal.String()},
+	{regexp.MustCompile(oracleAmdBmGpu), arch.AMD64, GPUMachine.String()},
 }
 
 // normaliseArchAndInstType returns the Juju architecture and instance type
@@ -397,7 +404,7 @@ func normaliseArchAndInstType(val ociCore.ShapePlatformConfigOptionsTypeEnum) (s
 			return re.arch, re.instanceType
 		}
 	}
-	return arch.AMD64, string(VirtualMachine)
+	return arch.AMD64, VirtualMachine.String()
 }
 
 func refreshImageCache(cli ComputeClient, compartmentID *string) (*ImageCache, error) {

@@ -501,7 +501,7 @@ func (e *Environ) startInstance(
 
 	types := imgCache.SupportedShapes(args.InstanceConfig.Base)
 
-	defaultType := string(VirtualMachine)
+	defaultType := VirtualMachine.String()
 	if args.Constraints.VirtType == nil {
 		args.Constraints.VirtType = &defaultType
 	}
