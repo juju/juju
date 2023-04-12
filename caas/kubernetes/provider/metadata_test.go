@@ -741,3 +741,24 @@ func (s *K8sMetadataSuite) TestNominatedStorageNotFound(c *gc.C) {
 	c.Assert(errors.As(err, &notFoundError), jc.IsTrue)
 	c.Assert(notFoundError.StorageName, gc.Equals, "my-nominated-storage")
 }
+
+// TestNominatedStorageNotFoundWithNilStorageClasses is a regression test to
+// make sure that when no storage classes are defined and a nominated storage
+// class has been specified a NominatedStorageNotFoundError is returned.
+func (s *K8sMetadataSuite) TestNominatedStorageNotFoundWithNilStorageClasses(c *gc.C) {
+	clientSet := fake.NewSimpleClientset(
+		newNode(map[string]string{}),
+	)
+
+	_, err := provider.GetClusterMetadata(
+		context.TODO(),
+		"my-nominated-storage",
+		clientSet.CoreV1().Nodes(),
+		clientSet.StorageV1().StorageClasses(),
+	)
+
+	var notFoundError *environs.NominatedStorageNotFound
+	c.Assert(err, gc.NotNil)
+	c.Assert(errors.As(err, &notFoundError), jc.IsTrue)
+	c.Assert(notFoundError.StorageName, gc.Equals, "my-nominated-storage")
+}
