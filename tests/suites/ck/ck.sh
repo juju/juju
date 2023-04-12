@@ -66,7 +66,23 @@ run_deploy_caas_workload() {
 
 	name="deploy-caas-workload"
 	k8s_cloud_name="k8s-cloud"
-	storage="csi-aws-ebs-default"
+
+	case "${BOOTSTRAP_PROVIDER:-}" in
+	"ec2")
+		storage="csi-aws-ebs-default"
+		;;
+	"gce")
+		storage="gce-pd-csi-driver"
+		;;
+	"azure")
+		storage="azure-csi-default"
+		;;
+	*)
+		echo "Unexpected bootstrap provider (${BOOTSTRAP_PROVIDER})."
+		exit 1
+		;;
+	esac
+
 	model_name="test-${name}"
 	file="${TEST_DIR}/${model_name}.log"
 
