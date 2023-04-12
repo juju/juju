@@ -446,7 +446,7 @@ func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
 		addr, err := w.bindAddrFromServerDetails(apiDetails)
 		if err != nil {
 			if errors.Is(err, errors.NotFound) {
-				w.cfg.Logger.Debugf(err.Error())
+				w.cfg.Logger.Infof(err.Error())
 				return nil
 			}
 			return errors.Trace(err)
@@ -513,7 +513,7 @@ func (w *dbWorker) joinNodeToCluster(apiDetails apiserver.Details) error {
 	localAddr, err := w.bindAddrFromServerDetails(apiDetails)
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
-			w.cfg.Logger.Debugf(err.Error())
+			w.cfg.Logger.Infof(err.Error())
 			return nil
 		}
 		return errors.Trace(err)
@@ -533,7 +533,7 @@ func (w *dbWorker) joinNodeToCluster(apiDetails apiserver.Details) error {
 		}
 	}
 	if len(clusterAddrs) == 0 {
-		w.cfg.Logger.Debugf("no addresses available for this Dqlite node to join cluster")
+		w.cfg.Logger.Infof("no addresses available for this Dqlite node to join cluster")
 		return nil
 	}
 
