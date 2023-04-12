@@ -1,10 +1,10 @@
 applications:
-    ubuntu:
-        charm: ubuntu
+    tiny-bash:
+        charm: tiny-bash
         scale: 1
 
 ---
 
 applications:
-    ubuntu:
+    tiny-bash:
         scale: 2

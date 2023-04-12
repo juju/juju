@@ -1,7 +1,7 @@
 create_vpc() {
+	set -e
 	vpc_id=$(aws ec2 create-vpc --cidr-block 10.0.0.0/28 --query 'Vpc.VpcId' --tag-specifications 'ResourceType=vpc,Tags=[{Key=Name,Value=manual-deploy}]' --output text)
 	aws ec2 wait vpc-available --vpc-ids "${vpc_id}"
-
 	aws ec2 modify-vpc-attribute --vpc-id "${vpc_id}" --enable-dns-support '{"Value":true}' >/dev/null
 	aws ec2 modify-vpc-attribute --vpc-id "${vpc_id}" --enable-dns-hostnames '{"Value":true}' >/dev/null
 
@@ -9,6 +9,7 @@ create_vpc() {
 }
 
 create_igw() {
+	set -e
 	igw_id=$(aws ec2 create-internet-gateway --query 'InternetGateway.InternetGatewayId' --output text)
 	aws ec2 attach-internet-gateway --internet-gateway-id "${igw_id}" --vpc-id "${vpc_id}" >/dev/null
 
@@ -16,7 +17,8 @@ create_igw() {
 }
 
 create_subnet() {
-	subnet_id=$(aws ec2 create-subnet --vpc-id "${vpc_id}" --cidr-block 10.0.0.0/28 --query 'Subnet.SubnetId' --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=manual-deploy}]' --output text)
+	set -e
+	subnet_id=$(aws ec2 create-subnet --vpc-id "${vpc_id}" --cidr-block 10.0.0.0/28 --query 'Subnet.SubnetId' --output text)
 
 	routetable_id=$(aws ec2 create-route-table --vpc-id "${vpc_id}" --query 'RouteTable.RouteTableId' --output text)
 
@@ -27,6 +29,7 @@ create_subnet() {
 }
 
 create_secgroup() {
+	set -e
 	sg_id=$(aws ec2 create-security-group --group-name "ci-manual-deploy" --description "run_deploy_manual_aws" --vpc-id "${vpc_id}" --query 'GroupId' --output text)
 	aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol tcp --port 22 --cidr 0.0.0.0/0 >/dev/null
 	aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol tcp --port 0-65535 --cidr 0.0.0.0/0 >/dev/null
@@ -75,7 +78,7 @@ run_deploy_manual_aws() {
 	OUT=$(aws ec2 describe-vpcs | jq '.Vpcs[] | select(.Tags[]? | select((.Key=="Name") and (.Value=="manual-deploy")))' || true)
 	if [[ -z ${OUT} ]]; then
 		vpc_id=$(create_vpc)
-		echo "===> Creating vpc $vpc_id"
+		echo "===> Created vpc $vpc_id"
 	else
 		vpc_id=$(echo "${OUT}" | jq -r '.VpcId' || true)
 		echo "===> Re-using vpc $vpc_id"
@@ -84,16 +87,16 @@ run_deploy_manual_aws() {
 	OUT=$(aws ec2 describe-internet-gateways | jq ".InternetGateways[] | select(.Attachments[0].VpcId == \"${vpc_id}\")")
 	if [[ -z ${OUT} ]]; then
 		igw_id=$(create_igw)
-		echo "===> Creating igw $igw_id"
+		echo "===> Created igw $igw_id"
 	else
 		igw_id=$(echo "${OUT}" | jq -r '.InternetGatewayId')
 		echo "===> Re-using igw $igw_id"
 	fi
 
-	OUT=$(aws ec2 describe-subnets | jq '.Subnets[] | select(.Tags[]? | select((.Key=="Name") and (.Value=="manual-deploy")))' || true)
+	OUT=$(aws ec2 describe-subnets | jq ".Subnets[] | select(.VpcId == \"${vpc_id}\")" || true)
 	if [[ -z ${OUT} ]]; then
 		subnet_id=$(create_subnet)
-		echo "===> Creating subnet $subnet_id"
+		echo "===> Created subnet $subnet_id"
 	else
 		subnet_id=$(echo "${OUT}" | jq -r '.SubnetId')
 		echo "===> Re-using subnet $subnet_id"
@@ -102,7 +105,7 @@ run_deploy_manual_aws() {
 	OUT=$(aws ec2 describe-security-groups | jq ".SecurityGroups[] | select(.VpcId==\"${vpc_id}\" and .GroupName==\"ci-manual-deploy\")" || true)
 	if [[ -z ${OUT} ]]; then
 		sg_id=$(create_secgroup)
-		echo "===> Creating secgroup $sg_id"
+		echo "===> Created secgroup $sg_id"
 	else
 		sg_id=$(echo "${OUT}" | jq -r '.GroupId')
 		echo "===> Re-using secgroup $sg_id"
