@@ -151,11 +151,11 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 	if [[ -n ${MODEL_ARCH:-} ]]; then
 		yq -i "
       .applications.influxdb.constraints = \"arch=${MODEL_ARCH}\" |
-      .applications.ubuntu.constraints = \"arch=${MODEL_ARCH}\"
+      .applications.tinybash.constraints = \"arch=${MODEL_ARCH}\"
     " "${TEST_DIR}/telegraf_bundle_without_revisions.yaml"
 		yq -i "
       .applications.influxdb.constraints = \"arch=${MODEL_ARCH}\" |
-      .applications.ubuntu.constraints = \"arch=${MODEL_ARCH}\"
+      .applications.tinybash.constraints = \"arch=${MODEL_ARCH}\"
     " "${TEST_DIR}/telegraf_bundle_with_fake_revisions.yaml"
 	fi
 
@@ -173,13 +173,13 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 
 	echo "Create telegraf_bundle_without_revisions.yaml with known latest revisions from charmhub"
 	if [[ -n ${MODEL_ARCH:-} ]]; then
-		influxdb_rev=$(juju info influxdb --arch="${MODEL_ARCH}" --format json | jq -r '."channels"."latest"."stable"[0].revision')
-		telegraf_rev=$(juju info telegraf --arch="${MODEL_ARCH}" --format json | jq -r '."channels"."latest"."stable"[0].revision')
-		ubuntu_rev=$(juju info ubuntu --arch="${MODEL_ARCH}" --format json | jq -r '."channels"."latest"."stable"[0].revision')
+		influxdb_rev=$(juju info influxdb --arch="${MODEL_ARCH}" --format json | jq -r '."channel-map"."latest/stable".revision')
+		telegraf_rev=$(juju info telegraf --arch="${MODEL_ARCH}" --format json | jq -r '."channel-map"."latest/stable".revision')
+		tinybash_rev=$(juju info tiny-bash --arch="${MODEL_ARCH}" --format json | jq -r '."channel-map"."latest/stable".revision')
 	else
-		influxdb_rev=$(juju info influxdb --format json | jq -r '."channels"."latest"."stable"[0].revision')
-		telegraf_rev=$(juju info telegraf --format json | jq -r '."channels"."latest"."stable"[0].revision')
-		ubuntu_rev=$(juju info ubuntu --format json | jq -r '."channels"."latest"."stable"[0].revision')
+		influxdb_rev=$(juju info influxdb --format json | jq -r '."channel-map"."latest/stable".revision')
+		telegraf_rev=$(juju info telegraf --format json | jq -r '."channel-map"."latest/stable".revision')
+		tinybash_rev=$(juju info tiny-bash --format json | jq -r '."channel-map"."latest/stable".revision')
 	fi
 
 	echo "Make a copy of reference yaml and insert revisions in it"
@@ -187,13 +187,13 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 	yq -i "
 		.applications.influxdb.revision = ${influxdb_rev} |
 		.applications.telegraf.revision = ${telegraf_rev} |
-		.applications.ubuntu.revision = ${ubuntu_rev}
+		.applications.tinybash.revision = ${tinybash_rev}
 	" "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
 
 	if [[ -n ${MODEL_ARCH:-} ]]; then
 		yq -i "
 			.applications.influxdb.constraints = \"arch=${MODEL_ARCH}\" |
-			.applications.ubuntu.constraints = \"arch=${MODEL_ARCH}\" |
+			.applications.tinybash_rev.constraints = \"arch=${MODEL_ARCH}\" |
 			.machines.\"0\".constraints = \"arch=${MODEL_ARCH}\" |
 			.machines.\"1\".constraints = \"arch=${MODEL_ARCH}\"
 		" "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
@@ -208,7 +208,6 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 	yq -i 'sort_keys(..)' "${TEST_DIR}/exported_bundle.yaml"
 	diff -u "${TEST_DIR}/telegraf_bundle_with_revisions.yaml" "${TEST_DIR}/exported_bundle.yaml"
 
-	wait_for "ubuntu" "$(idle_condition "ubuntu" 2)"
 	destroy_model "test-export-bundles-deploy-with-float-revisions"
 }
 

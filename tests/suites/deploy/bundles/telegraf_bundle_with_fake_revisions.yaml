@@ -12,22 +12,19 @@ applications:
     charm: telegraf
     channel: stable
     revision: -1
-  ubuntu:
-    charm: ubuntu
+  tinybash:
+    charm: tiny-bash
     channel: stable
     revision: -1
     num_units: 1
     to:
     - "1"
     constraints: arch=amd64
-    storage:
-      block: loop,100M
-      files: tmpfs,1,100M
 machines:
   "0": {}
   "1": {}
 relations:
 - - telegraf:juju-info
-  - ubuntu:juju-info
+  - tinybash:juju-info
 - - telegraf:influxdb-api
   - influxdb:query
