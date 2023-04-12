@@ -179,7 +179,7 @@ func GetClusterMetadata(
 			}
 		}
 
-		if selectedOperatorSC == nil || selectedWorkloadSC.Name != nominatedStorageClass {
+		if selectedWorkloadSC == nil || selectedWorkloadSC.Name != nominatedStorageClass {
 			return nil, &environs.NominatedStorageNotFound{
 				StorageName: nominatedStorageClass,
 			}
