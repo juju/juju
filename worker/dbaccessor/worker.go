@@ -445,6 +445,10 @@ func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
 
 		addr, err := w.bindAddrFromServerDetails(apiDetails)
 		if err != nil {
+			if errors.Is(err, errors.NotFound) {
+				w.cfg.Logger.Debugf(err.Error())
+				return nil
+			}
 			return errors.Trace(err)
 		}
 

@@ -166,8 +166,8 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
-	mgrExp.IsExistingNode().Return(true, nil).Times(2)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(2)
+	mgrExp.IsExistingNode().Return(true, nil).Times(3)
+	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(3)
 	mgrExp.WithLogFuncOption().Return(nil)
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
@@ -192,6 +192,20 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 	case w.(*dbWorker).apiServerChanges <- apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
 			"0": {ID: "0", InternalAddress: "10.6.6.6:1234"},
+		},
+	}:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for cluster change to be processed")
+	}
+
+	// Multiple servers still do not cause a binding change
+	// if there is no internal address to bind to.
+	select {
+	case w.(*dbWorker).apiServerChanges <- apiserver.Details{
+		Servers: map[string]apiserver.APIServer{
+			"0": {ID: "0"},
+			"1": {ID: "1", InternalAddress: "10.6.6.7:1234"},
+			"2": {ID: "2", InternalAddress: "10.6.6.8:1234"},
 		},
 	}:
 	case <-time.After(testing.LongWait):
