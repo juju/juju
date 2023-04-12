@@ -499,12 +499,19 @@ func (w *dbWorker) rebindAddress(ctx context.Context, addr string) error {
 	return errors.Trace(mgr.SetNodeInfo(servers[0]))
 }
 
+// joinNodeToCluster uses the input server details to determine a bind address
+// for this node, and one or more addresses of other nodes to cluster with.
+// It then uses these to initialise Dqlite.
+// If either bind or cluster addresses can not be determined,
+// we just return nil and keep waiting for further server detail messages.
 func (w *dbWorker) joinNodeToCluster(apiDetails apiserver.Details) error {
-	w.cfg.Logger.Infof("joining Dqlite cluster")
-
 	// Get our address from the API details.
 	localAddr, err := w.bindAddrFromServerDetails(apiDetails)
 	if err != nil {
+		if errors.Is(err, errors.NotFound) {
+			w.cfg.Logger.Debugf(err.Error())
+			return nil
+		}
 		return errors.Trace(err)
 	}
 
@@ -522,9 +529,11 @@ func (w *dbWorker) joinNodeToCluster(apiDetails apiserver.Details) error {
 		}
 	}
 	if len(clusterAddrs) == 0 {
-		return errors.New("no addresses available for this Dqlite node to join cluster")
+		w.cfg.Logger.Debugf("no addresses available for this Dqlite node to join cluster")
+		return nil
 	}
 
+	w.cfg.Logger.Infof("joining Dqlite cluster")
 	mgr := w.cfg.NodeManager
 
 	withTLS, err := mgr.WithTLSOption()
@@ -541,7 +550,7 @@ func (w *dbWorker) joinNodeToCluster(apiDetails apiserver.Details) error {
 func (w *dbWorker) bindAddrFromServerDetails(apiDetails apiserver.Details) (string, error) {
 	hostPort := apiDetails.Servers[w.cfg.ControllerID].InternalAddress
 	if hostPort == "" {
-		return "", errors.New("no internal address determined for this Dqlite node to bind to")
+		return "", errors.NotFoundf("internal address for this Dqlite node to bind to")
 	}
 
 	addr, _, err := net.SplitHostPort(hostPort)
