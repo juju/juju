@@ -266,6 +266,7 @@ func NewInstanceImage(img ociCore.Image, compartmentID *string) (imgType Instanc
 		//        OS:      "ubuntu",
 		//        Channel: series.Channel{Track:"22.04 Minimal aarch64", Risk:"stable"},
 		//    },
+		//  This may limit our ability to use arm64 images currently.
 		base = series.MakeDefaultBase("ubuntu", *img.OperatingSystemVersion)
 	default:
 		return imgType, errors.NotSupportedf("os %s", osName)
@@ -313,6 +314,10 @@ func instanceTypes(cli ComputeClient, compartmentID, imageID *string) ([]instanc
 		}
 		archForShape, instanceType := parseArchAndInstType(val)
 
+		// TODO 2023-04-12 (hml)
+		// Can we add cost information for each instance type by
+		// using the FREE, PAID, and LIMITED_FREE values ranked?
+		// BillingType and IsBilledForStoppedInstance.
 		newType := instances.InstanceType{
 			Name:     *val.Shape,
 			Arch:     archForShape,
@@ -438,8 +443,8 @@ func refreshImageCache(cli ComputeClient, compartmentID *string) (*ImageCache, e
 		}
 		img.SetInstanceTypes(instTypes)
 		// TODO: ListImages can return more than one option for a base
-		// based on time created. Depending on order, the oldest image
-		// available could be used.
+		// based on time created. There is no guarantee that the same
+		// shapes are used with all versions of the same images.
 		images[img.Base] = append(images[img.Base], img)
 	}
 	for v := range images {
