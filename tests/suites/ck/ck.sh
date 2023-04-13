@@ -28,7 +28,7 @@ run_deploy_ck() {
 
 	overlay_path="${TEST_DIR}/overlay.yaml"
 	wget "${overlay_url}" -O "${overlay_path}"
-	juju deploy charmed-kubernetes --overlay "${overlay_path}" --trust
+	juju deploy charmed-kubernetes --overlay "${overlay_path}" --overlay "./tests/suites/ck/overlay.yaml" --trust
 
 	if ! which "kubectl" >/dev/null 2>&1; then
 		sudo snap install kubectl --classic --channel latest/stable
@@ -36,6 +36,25 @@ run_deploy_ck() {
 
 	wait_for "active" '.applications["kubernetes-control-plane"] | ."application-status".current' 1800
 	wait_for "active" '.applications["kubernetes-worker"] | ."application-status".current'
+
+	case "${BOOTSTRAP_PROVIDER:-}" in
+	"ec2")
+		wait_for "active" '.applications["aws-integrator"] | ."application-status".current'
+		wait_for "active" '.applications["aws-k8s-storage"] | ."application-status".current'
+		;;
+	"gce")
+		wait_for "active" '.applications["gcp-integrator"] | ."application-status".current'
+		wait_for "active" '.applications["gcp-k8s-storage"] | ."application-status".current'
+		;;
+	"azure")
+		wait_for "active" '.applications["azure-integrator"] | ."application-status".current'
+		wait_for "active" '.applications["azure-cloud-provider"] | ."application-status".current'
+		;;
+	*)
+		echo "Unexpected bootstrap provider (${BOOTSTRAP_PROVIDER})."
+		exit 1
+		;;
+	esac
 
 	kube_home="${HOME}/.kube"
 	mkdir -p "${kube_home}"
@@ -66,7 +85,23 @@ run_deploy_caas_workload() {
 
 	name="deploy-caas-workload"
 	k8s_cloud_name="k8s-cloud"
-	storage="csi-aws-ebs-default"
+
+	case "${BOOTSTRAP_PROVIDER:-}" in
+	"ec2")
+		storage="csi-aws-ebs-default"
+		;;
+	"gce")
+		storage="gce-pd-csi-driver"
+		;;
+	"azure")
+		storage="csi-azure-default"
+		;;
+	*)
+		echo "Unexpected bootstrap provider (${BOOTSTRAP_PROVIDER})."
+		exit 1
+		;;
+	esac
+
 	model_name="test-${name}"
 	file="${TEST_DIR}/${model_name}.log"
 
@@ -75,12 +110,9 @@ run_deploy_caas_workload() {
 
 	add_model "${model_name}" "${k8s_cloud_name}" "${controller_name}" "${file}"
 
-	juju deploy postgresql-k8s
-	juju deploy mattermost-k8s
-	juju relate mattermost-k8s postgresql-k8s:db
+	juju deploy snappass-test
 
-	wait_for "postgresql-k8s" "$(idle_condition "postgresql-k8s" 1)"
-	wait_for "mattermost-k8s" "$(idle_condition "mattermost-k8s" 0)"
+	wait_for "snappass-test" "$(idle_condition "snappass-test" 0)"
 
 	destroy_model "${model_name}"
 }
