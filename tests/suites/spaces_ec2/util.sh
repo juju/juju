@@ -31,7 +31,11 @@ add_multi_nic_machine() {
 	# shellcheck disable=SC2086,SC2016
 	juju ssh ${juju_machine_id} 'sudo sh -c "echo \"            gateway4: `ip route | grep default | cut -d\" \" -f3`\n        ens6:\n            dhcp4: true\n    version: 2\n\" >> /etc/netplan/50-cloud-init.yaml"'
 	# shellcheck disable=SC2086,SC2016
+	echo "[+] Reconfiguring netplan:"
+	juju ssh ${juju_machine_id} 'sudo cat /etc/netplan/50-cloud-init.yaml'
+	# shellcheck disable=SC2086,SC2016
 	juju ssh ${juju_machine_id} 'sudo netplan apply'
+	echo "[+] Applied"
 	# shellcheck disable=SC2086,SC2016
 	juju ssh ${juju_machine_id} 'sudo systemctl restart jujud-machine-*'
 
