@@ -268,12 +268,13 @@ func (s *LoginCommandSuite) TestLoginWithCAVerification(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	specs := []struct {
-		descr    string
-		input    string
-		host     string
-		endpoint string
-		expRegex string
-		expCode  int
+		descr     string
+		input     string
+		host      string
+		endpoint  string
+		expRegex  string
+		expCode   int
+		extraArgs []string
 	}{
 		{
 			descr:    "user trusts CA cert",
@@ -317,6 +318,51 @@ ERROR cannot log into "127.0.0.1:443": controller CA not trusted
 `,
 			expCode: 1,
 		},
+		{
+			descr:     "user does not trust CA cert when logging to a controller IP without prompt",
+			input:     "",
+			extraArgs: []string{"--no-prompt"},
+			host:      "127.0.0.1:443",
+			endpoint:  "127.0.0.1:443",
+			expRegex: `
+Controller "127.0.0.1:443" presented a CA cert that could not be verified.
+CA fingerprint: [` + fingerprint + `]
+ERROR cannot log into "127.0.0.1:443": controller CA not trusted
+`,
+			expCode: 1,
+		},
+		{
+			descr:     "user trusts blindly with --trust",
+			input:     "",
+			extraArgs: []string{"--no-prompt", "--trust"},
+			host:      "127.0.0.1:443",
+			endpoint:  "127.0.0.1:443",
+			expRegex: `
+Controller "127.0.0.1:443" presented a CA cert that could not be verified.
+CA fingerprint: [` + fingerprint + `]
+Welcome, new-user. You are now logged into "foo".
+
+There are no models available. You can add models with
+"juju add-model", or you can ask an administrator or owner
+of a model to grant access to that model with "juju grant".
+`,
+			expCode: 0,
+		},
+		{
+			descr:     "user does not trust CA cert when logging to a controller IP ignoring --trust",
+			input:     "n\n",
+			extraArgs: []string{"--trust"},
+			host:      "127.0.0.1:443",
+			endpoint:  "127.0.0.1:443",
+			expRegex: `
+Controller "127.0.0.1:443" presented a CA cert that could not be verified.
+CA fingerprint: [` + fingerprint + `]
+Ignoring --trust without --no-prompt
+Trust remote controller? (y/N): 
+ERROR cannot log into "127.0.0.1:443": controller CA not trusted
+`,
+			expCode: 1,
+		},
 	}
 
 	for specIndex, spec := range specs {
@@ -331,7 +377,7 @@ ERROR cannot log into "127.0.0.1:443": controller CA not trusted
 			return s.apiConnection, nil
 		}
 
-		stdout, stderr, code := runLogin(c, spec.input, spec.host, "-c", "foo", "-u", "new-user")
+		stdout, stderr, code := runLogin(c, spec.input, append([]string{spec.host, "-c", "foo", "-u", "new-user"}, spec.extraArgs...)...)
 		c.Check(stdout, gc.Equals, ``)
 		c.Check(stderr, gc.Equals, spec.expRegex[1:])
 		c.Assert(code, gc.Equals, spec.expCode)
