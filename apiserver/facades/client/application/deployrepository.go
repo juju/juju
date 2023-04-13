@@ -78,13 +78,12 @@ type DeployFromRepositoryAPI struct {
 }
 
 // NewDeployFromRepositoryAPI creates a new DeployFromRepositoryAPI.
-func NewDeployFromRepositoryAPI(state DeployFromRepositoryState, validator DeployFromRepositoryValidator) (DeployFromRepository, error) {
-	api := &DeployFromRepositoryAPI{
+func NewDeployFromRepositoryAPI(state DeployFromRepositoryState, validator DeployFromRepositoryValidator) DeployFromRepository {
+	return &DeployFromRepositoryAPI{
 		state:      state,
 		validator:  validator,
 		stateCharm: CharmToStateCharm,
 	}
-	return api, nil
 }
 
 func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRepositoryArg) (params.DeployFromRepositoryInfo, []*params.PendingResourceUpload, []error) {
