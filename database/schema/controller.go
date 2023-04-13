@@ -8,6 +8,7 @@ func ControllerDDL() []string {
 	schemas := []func() string{
 		leaseSchema,
 		changeLogSchema,
+		cloudSchema,
 	}
 
 	var deltas []string
@@ -111,5 +112,114 @@ CREATE TABLE change_log (
     CONSTRAINT          fk_change_log_namespace
             FOREIGN KEY (namespace_id)
             REFERENCES  change_log_namespace(id)
+);`[1:]
+}
+
+func cloudSchema() string {
+	return `
+CREATE TABLE cloud_type (
+    id   INT PRIMARY KEY,
+    type TEXT
+);
+
+CREATE UNIQUE INDEX idx_cloud_type_type
+ON cloud_type (type);
+
+-- The list of all the cloud types that are supported for this release. This
+-- doesn't indicate whether the cloud type is supported for the current
+-- controller, but rather the cloud type is supported in general.
+INSERT INTO cloud_type VALUES
+    (0, 'kubernetes'),
+    (1, 'lxd'),
+    (2, 'maas'),
+    (3, 'manual'),
+    (4, 'azure'),
+    (5, 'ec2'),
+    (6, 'equinix'),
+    (7, 'gce'),
+    (8, 'oci'),
+    (9, 'openstack'),
+    (10, 'vsphere');
+
+CREATE TABLE auth_type (
+    id   INT PRIMARY KEY,
+    type TEXT
+);
+
+CREATE UNIQUE INDEX idx_auth_type_type
+ON auth_type (type);
+
+INSERT INTO auth_type VALUES
+    (0, 'access-key'),
+    (1, 'instance-role'),
+    (2, 'userpass'),
+    (3, 'oauth1'),
+    (4, 'oauth2'),
+    (5, 'jsonfile'),
+    (6, 'clientcertificate'),
+    (7, 'httpsig'),
+    (8, 'interactive'),
+    (9, 'empty'),
+    (10, 'certificate'),
+    (11, 'oauth2withcert');
+
+CREATE TABLE cloud_auth_type (
+    uuid              TEXT PRIMARY KEY,
+    cloud_uuid        TEXT NOT NULL,
+    auth_type_id      INT NOT NULL,
+    CONSTRAINT		  fk_cloud_auth_type_cloud
+        FOREIGN KEY       (cloud_uuid)
+        REFERENCES        cloud(uuid),
+    CONSTRAINT        fk_cloud_auth_type_auth_type
+        FOREIGN KEY       (auth_type_id)
+        REFERENCES        auth_type(id)
+);
+
+CREATE UNIQUE INDEX idx_cloud_auth_type_cloud_uuid_auth_type_id
+ON cloud_auth_type (cloud_uuid, auth_type_id);
+
+CREATE TABLE cloud_region (
+    uuid                TEXT PRIMARY KEY,
+    cloud_uuid          TEXT NOT NULL,
+    name                TEXT NOT NULL,
+    endpoint            TEXT,
+    identity_endpoint   TEXT,
+    storage_endpoint    TEXT,
+    CONSTRAINT          fk_cloud_region_cloud
+        FOREIGN KEY         (cloud_uuid)
+        REFERENCES          cloud(uuid)
+);
+
+CREATE UNIQUE INDEX idx_cloud_region_cloud_uuid
+ON cloud_region (cloud_uuid);
+
+CREATE TABLE ca_cert (
+    uuid        TEXT PRIMARY KEY,
+    ca_cert     TEXT
+);
+
+CREATE TABLE cloud_ca_cert (
+    uuid              TEXT PRIMARY KEY,
+    cloud_uuid        TEXT NOT NULL,
+    ca_cert_uuid      TEXT NOT NULL,
+    CONSTRAINT        fk_cloud_ca_cert_cloud
+        FOREIGN KEY       (cloud_uuid)
+        REFERENCES        cloud(uuid),
+    CONSTRAINT        fk_cloud_ca_cert_ca_cert
+                          FOREIGN KEY (ca_cert_uuid)
+                          REFERENCES ca_cert(uuid)
+);
+
+CREATE UNIQUE INDEX idx_cloud_ca_cert_cloud_uuid_ca_cert_uuid
+ON cloud_ca_cert (cloud_uuid, ca_cert_uuid);
+
+CREATE TABLE cloud (
+    uuid                TEXT PRIMARY KEY,
+    name                TEXT NOT NULL,
+    cloud_type_id       INT NOT NULL,
+    endpoint            TEXT NOT NULL,
+    identity_endpoint   TEXT,
+    storage_endpoint    TEXT,
+    skip_tls_verify     BOOLEAN NOT NULL
 );`[1:]
 }
