@@ -15,7 +15,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/romulus"
-	"github.com/juju/schema"
 	"github.com/juju/utils/v3"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
@@ -253,8 +252,17 @@ const (
 	// PublicDNSAddress is the public DNS address (and port) of the controller.
 	PublicDNSAddress = "public-dns-address"
 
-	// Attribute Defaults
+	// QueryTracingEnabled returns whether query tracing is enabled.
+	QueryTracingEnabled = "query-tracing-enabled"
 
+	// QueryTracingThreshold returns the threshold for query tracing. The
+	// lower the threshold, the more queries will be output. A value of 0
+	// means all queries will be output.
+	QueryTracingThreshold = "query-tracing-threshold"
+)
+
+// Attribute Defaults
+const (
 	// DefaultApplicationResourceDownloadLimit allows unlimited
 	// resource download requests initiated by a unit agent per application.
 	DefaultApplicationResourceDownloadLimit = 0
@@ -363,8 +371,18 @@ const (
 	// state data that agents can store to the controller.
 	DefaultMaxAgentStateSize = 512 * 1024
 
-	// DefaultMigrationMinionWaitMax is the default value for
+	// DefaultMigrationMinionWaitMax is the default value for how long a
+	// migration minion will wait for the migration to complete.
 	DefaultMigrationMinionWaitMax = 15 * time.Minute
+
+	// DefaultQueryTracingEnabled is the default value for if query tracing
+	// is enabled.
+	DefaultQueryTracingEnabled = true
+
+	// DefaultQueryTracingThreshold is the default value for the threshold
+	// for query tracing. If a query takes longer than this to complete
+	// it will be logged if query tracing is enabled.
+	DefaultQueryTracingThreshold = time.Millisecond
 )
 
 var (
@@ -417,6 +435,8 @@ var (
 		MigrationMinionWaitMax,
 		ApplicationResourceDownloadLimit,
 		ControllerResourceDownloadLimit,
+		QueryTracingEnabled,
+		QueryTracingThreshold,
 	}
 
 	// For backwards compatibility, we must include "anything", "juju-apiserver"
@@ -467,6 +487,8 @@ var (
 		MigrationMinionWaitMax,
 		ApplicationResourceDownloadLimit,
 		ControllerResourceDownloadLimit,
+		QueryTracingEnabled,
+		QueryTracingThreshold,
 	)
 
 	// DefaultAuditLogExcludeMethods is the default list of methods to
@@ -552,6 +574,14 @@ func (c Config) mustInt(name string) int {
 func (c Config) intOrDefault(name string, defaultVal int) int {
 	if _, ok := c[name]; ok {
 		return c.mustInt(name)
+	}
+	return defaultVal
+}
+
+func (c Config) boolOrDefault(name string, defaultVal bool) bool {
+	if value, ok := c[name]; ok {
+		// Value has already been validated.
+		return value.(bool)
 	}
 	return defaultVal
 }
@@ -981,6 +1011,18 @@ func (c Config) MigrationMinionWaitMax() time.Duration {
 	return c.durationOrDefault(MigrationMinionWaitMax, DefaultMigrationMinionWaitMax)
 }
 
+// QueryTracingEnabled returns whether query tracing is enabled.
+func (c Config) QueryTracingEnabled() bool {
+	return c.boolOrDefault(QueryTracingEnabled, DefaultQueryTracingEnabled)
+}
+
+// QueryTracingThreshold returns the threshold for query tracing. The
+// lower the threshold, the more queries will be output. A value of 0
+// means all queries will be output.
+func (c Config) QueryTracingThreshold() time.Duration {
+	return c.durationOrDefault(QueryTracingThreshold, DefaultQueryTracingThreshold)
+}
+
 // Validate ensures that config is a valid configuration.
 func Validate(c Config) error {
 	if v, ok := c[IdentityPublicKey].(string); ok {
@@ -1227,6 +1269,12 @@ func Validate(c Config) error {
 		}
 	}
 
+	if d, ok := c[QueryTracingThreshold].(time.Duration); ok {
+		if d < 0 {
+			return errors.Errorf("%s value %q must be a positive duration", QueryTracingThreshold, d)
+		}
+	}
+
 	return nil
 }
 
@@ -1277,283 +1325,4 @@ func (c Config) AsSpaceConstraints(spaces *[]string) *[]string {
 	}
 	ns := newSpaces.SortedValues()
 	return &ns
-}
-
-var configChecker = schema.FieldMap(schema.Fields{
-	AgentRateLimitMax:                schema.ForceInt(),
-	AgentRateLimitRate:               schema.TimeDuration(),
-	AuditingEnabled:                  schema.Bool(),
-	AuditLogCaptureArgs:              schema.Bool(),
-	AuditLogMaxSize:                  schema.String(),
-	AuditLogMaxBackups:               schema.ForceInt(),
-	AuditLogExcludeMethods:           schema.List(schema.String()),
-	APIPort:                          schema.ForceInt(),
-	APIPortOpenDelay:                 schema.TimeDuration(),
-	ControllerAPIPort:                schema.ForceInt(),
-	ControllerName:                   schema.String(),
-	StatePort:                        schema.ForceInt(),
-	LoginTokenRefreshURL:             schema.String(),
-	IdentityURL:                      schema.String(),
-	IdentityPublicKey:                schema.String(),
-	SetNUMAControlPolicyKey:          schema.Bool(),
-	AutocertURLKey:                   schema.String(),
-	AutocertDNSNameKey:               schema.String(),
-	AllowModelAccessKey:              schema.Bool(),
-	MongoMemoryProfile:               schema.String(),
-	JujuDBSnapChannel:                schema.String(),
-	MaxDebugLogDuration:              schema.TimeDuration(),
-	MaxTxnLogSize:                    schema.String(),
-	MaxPruneTxnBatchSize:             schema.ForceInt(),
-	MaxPruneTxnPasses:                schema.ForceInt(),
-	AgentLogfileMaxBackups:           schema.ForceInt(),
-	AgentLogfileMaxSize:              schema.String(),
-	ModelLogfileMaxBackups:           schema.ForceInt(),
-	ModelLogfileMaxSize:              schema.String(),
-	ModelLogsSize:                    schema.String(),
-	PruneTxnQueryCount:               schema.ForceInt(),
-	PruneTxnSleepTime:                schema.TimeDuration(),
-	PublicDNSAddress:                 schema.String(),
-	JujuHASpace:                      schema.String(),
-	JujuManagementSpace:              schema.String(),
-	CAASOperatorImagePath:            schema.String(),
-	CAASImageRepo:                    schema.String(),
-	Features:                         schema.List(schema.String()),
-	MeteringURL:                      schema.String(),
-	MaxCharmStateSize:                schema.ForceInt(),
-	MaxAgentStateSize:                schema.ForceInt(),
-	MigrationMinionWaitMax:           schema.TimeDuration(),
-	ApplicationResourceDownloadLimit: schema.ForceInt(),
-	ControllerResourceDownloadLimit:  schema.ForceInt(),
-}, schema.Defaults{
-	AgentRateLimitMax:                schema.Omit,
-	AgentRateLimitRate:               schema.Omit,
-	APIPort:                          DefaultAPIPort,
-	APIPortOpenDelay:                 DefaultAPIPortOpenDelay,
-	ControllerAPIPort:                schema.Omit,
-	ControllerName:                   schema.Omit,
-	AuditingEnabled:                  DefaultAuditingEnabled,
-	AuditLogCaptureArgs:              DefaultAuditLogCaptureArgs,
-	AuditLogMaxSize:                  fmt.Sprintf("%vM", DefaultAuditLogMaxSizeMB),
-	AuditLogMaxBackups:               DefaultAuditLogMaxBackups,
-	AuditLogExcludeMethods:           DefaultAuditLogExcludeMethods,
-	StatePort:                        DefaultStatePort,
-	LoginTokenRefreshURL:             schema.Omit,
-	IdentityURL:                      schema.Omit,
-	IdentityPublicKey:                schema.Omit,
-	SetNUMAControlPolicyKey:          DefaultNUMAControlPolicy,
-	AutocertURLKey:                   schema.Omit,
-	AutocertDNSNameKey:               schema.Omit,
-	AllowModelAccessKey:              schema.Omit,
-	MongoMemoryProfile:               DefaultMongoMemoryProfile,
-	JujuDBSnapChannel:                DefaultJujuDBSnapChannel,
-	MaxDebugLogDuration:              DefaultMaxDebugLogDuration,
-	MaxTxnLogSize:                    fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
-	MaxPruneTxnBatchSize:             DefaultMaxPruneTxnBatchSize,
-	MaxPruneTxnPasses:                DefaultMaxPruneTxnPasses,
-	AgentLogfileMaxBackups:           DefaultAgentLogfileMaxBackups,
-	AgentLogfileMaxSize:              fmt.Sprintf("%vM", DefaultAgentLogfileMaxSize),
-	ModelLogfileMaxBackups:           DefaultModelLogfileMaxBackups,
-	ModelLogfileMaxSize:              fmt.Sprintf("%vM", DefaultModelLogfileMaxSize),
-	ModelLogsSize:                    fmt.Sprintf("%vM", DefaultModelLogsSizeMB),
-	PruneTxnQueryCount:               DefaultPruneTxnQueryCount,
-	PruneTxnSleepTime:                DefaultPruneTxnSleepTime,
-	PublicDNSAddress:                 schema.Omit,
-	JujuHASpace:                      schema.Omit,
-	JujuManagementSpace:              schema.Omit,
-	CAASOperatorImagePath:            schema.Omit,
-	CAASImageRepo:                    schema.Omit,
-	Features:                         schema.Omit,
-	MeteringURL:                      romulus.DefaultAPIRoot,
-	MaxCharmStateSize:                DefaultMaxCharmStateSize,
-	MaxAgentStateSize:                DefaultMaxAgentStateSize,
-	MigrationMinionWaitMax:           DefaultMigrationMinionWaitMax,
-	ApplicationResourceDownloadLimit: schema.Omit,
-	ControllerResourceDownloadLimit:  schema.Omit,
-})
-
-// ConfigSchema holds information on all the fields defined by
-// the config package.
-var ConfigSchema = environschema.Fields{
-	ApplicationResourceDownloadLimit: {
-		Description: "The maximum number of concurrent resources downloads per application",
-		Type:        environschema.Tint,
-	},
-	ControllerResourceDownloadLimit: {
-		Description: "The maximum number of concurrent resources downloads across all the applications on the controller",
-		Type:        environschema.Tint,
-	},
-	AgentRateLimitMax: {
-		Description: "The maximum size of the token bucket used to ratelimit agent connections",
-		Type:        environschema.Tint,
-	},
-	AgentRateLimitRate: {
-		Description: "The time taken to add a new token to the ratelimit bucket",
-		Type:        environschema.Tstring,
-	},
-	AuditingEnabled: {
-		Description: "Determines if the controller records auditing information",
-		Type:        environschema.Tbool,
-	},
-	AuditLogCaptureArgs: {
-		Description: `Determines if the audit log contains the arguments passed to API methods`,
-		Type:        environschema.Tbool,
-	},
-	AuditLogMaxSize: {
-		Description: "The maximum size for the current controller audit log file",
-		Type:        environschema.Tstring,
-	},
-	AuditLogMaxBackups: {
-		Type:        environschema.Tint,
-		Description: "The number of old audit log files to keep (compressed)",
-	},
-	AuditLogExcludeMethods: {
-		Type:        environschema.Tlist,
-		Description: "The list of Facade.Method names that aren't interesting for audit logging purposes.",
-	},
-	APIPort: {
-		Type:        environschema.Tint,
-		Description: "The port used for api connections",
-	},
-	APIPortOpenDelay: {
-		Type: environschema.Tstring,
-		Description: `The duration that the controller will wait 
-between when the controller has been deemed to be ready to open 
-the api-port and when the api-port is actually opened 
-(only used when a controller-api-port value is set).`,
-	},
-	ControllerAPIPort: {
-		Type: environschema.Tint,
-		Description: `An optional port that may be set for controllers
-that have a very heavy load. If this port is set, this port is used by
-the controllers to talk to each other - used for the local API connection
-as well as the pubsub forwarders, and the raft workers. If this value is
-set, the api-port isn't opened until the controllers have started properly.`,
-	},
-	StatePort: {
-		Type:        environschema.Tint,
-		Description: `The port used for mongo connections`,
-	},
-	LoginTokenRefreshURL: {
-		Type:        environschema.Tstring,
-		Description: `The url of the jwt well known endpoint`,
-	},
-	IdentityURL: {
-		Type:        environschema.Tstring,
-		Description: `The url of the identity manager`,
-	},
-	IdentityPublicKey: {
-		Type:        environschema.Tstring,
-		Description: `The public key of the identity manager`,
-	},
-	SetNUMAControlPolicyKey: {
-		Type:        environschema.Tbool,
-		Description: `Determines if the NUMA control policy is set`,
-	},
-	AutocertURLKey: {
-		Type:        environschema.Tstring,
-		Description: `The URL used to obtain official TLS certificates when a client connects to the API`,
-	},
-	AutocertDNSNameKey: {
-		Type:        environschema.Tstring,
-		Description: `The DNS name of the controller`,
-	},
-	AllowModelAccessKey: {
-		Type: environschema.Tbool,
-		Description: `Determines if the controller allows users to 
-connect to models they have been authorized for even when 
-they don't have any access rights to the controller itself`,
-	},
-	MongoMemoryProfile: {
-		Type:        environschema.Tstring,
-		Description: `Sets mongo memory profile`,
-	},
-	JujuDBSnapChannel: {
-		Type:        environschema.Tstring,
-		Description: `Sets channel for installing mongo snaps when bootstrapping on focal or later`,
-	},
-	MaxDebugLogDuration: {
-		Type:        environschema.Tstring,
-		Description: `The maximum duration that a debug-log session is allowed to run`,
-	},
-	MaxTxnLogSize: {
-		Type:        environschema.Tstring,
-		Description: `The maximum size the of capped txn log collection`,
-	},
-	MaxPruneTxnBatchSize: {
-		Type:        environschema.Tint,
-		Description: `(deprecated) The maximum number of transactions evaluated in one go when pruning`,
-	},
-	MaxPruneTxnPasses: {
-		Type:        environschema.Tint,
-		Description: `(deprecated) The maximum number of batches processed when pruning`,
-	},
-	AgentLogfileMaxBackups: {
-		Type:        environschema.Tint,
-		Description: "The number of old agent log files to keep (compressed)",
-	},
-	AgentLogfileMaxSize: {
-		Type:        environschema.Tstring,
-		Description: `The maximum size of the agent log file`,
-	},
-	ModelLogfileMaxBackups: {
-		Type:        environschema.Tint,
-		Description: "The number of old model log files to keep (compressed)",
-	},
-	ModelLogfileMaxSize: {
-		Type:        environschema.Tstring,
-		Description: `The maximum size of the log file written out by the controller on behalf of workers running for a model`,
-	},
-	ModelLogsSize: {
-		Type:        environschema.Tstring,
-		Description: `The size of the capped collections used to hold the logs for the models`,
-	},
-	PruneTxnQueryCount: {
-		Type:        environschema.Tint,
-		Description: `The number of transactions to read in a single query`,
-	},
-	PruneTxnSleepTime: {
-		Type:        environschema.Tstring,
-		Description: `The amount of time to sleep between processing each batch query`,
-	},
-	PublicDNSAddress: {
-		Type:        environschema.Tstring,
-		Description: `Public DNS address (with port) of the controller.`,
-	},
-	JujuHASpace: {
-		Type:        environschema.Tstring,
-		Description: `The network space within which the MongoDB replica-set should communicate`,
-	},
-	JujuManagementSpace: {
-		Type:        environschema.Tstring,
-		Description: `The network space that agents should use to communicate with controllers`,
-	},
-	CAASOperatorImagePath: {
-		Type: environschema.Tstring,
-		Description: `(deprected) The url of the docker image used for the application operator.
-Use "caas-image-repo" instead.`,
-	},
-	CAASImageRepo: {
-		Type:        environschema.Tstring,
-		Description: `The docker repo to use for the jujud operator and mongo images`,
-	},
-	Features: {
-		Type:        environschema.Tlist,
-		Description: `A list of runtime changeable features to be updated`,
-	},
-	MeteringURL: {
-		Type:        environschema.Tstring,
-		Description: `The url for metrics`,
-	},
-	MaxCharmStateSize: {
-		Type:        environschema.Tint,
-		Description: `The maximum size (in bytes) of charm-specific state that units can store to the controller`,
-	},
-	MaxAgentStateSize: {
-		Type:        environschema.Tint,
-		Description: `The maximum size (in bytes) of internal state data that agents can store to the controller`,
-	},
-	MigrationMinionWaitMax: {
-		Type:        environschema.Tstring,
-		Description: `The maximum during model migrations that the migration worker will wait for agents to report on phases of the migration`,
-	},
 }

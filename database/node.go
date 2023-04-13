@@ -13,6 +13,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
@@ -157,6 +158,11 @@ func (m *NodeManager) SetNodeInfo(server dqlite.NodeInfo) error {
 // WithLogFuncOption returns a Dqlite application Option that will proxy Dqlite
 // log output via this factory's logger where the level is recognised.
 func (m *NodeManager) WithLogFuncOption() app.Option {
+	var (
+		tracingEnabled   = m.cfg.QueryTracingEnabled()
+		tracingThreshold = m.cfg.QueryTracingThreshold()
+	)
+
 	return app.WithLogFunc(func(level client.LogLevel, msg string, args ...interface{}) {
 		actualLevel, known := loggo.ParseLevel(level.String())
 		if !known {
@@ -165,9 +171,8 @@ func (m *NodeManager) WithLogFuncOption() app.Option {
 
 		// If we're tracing the dqlite logs we only want to log slow queries
 		// and not all the debug messages.
-		// In the future, we may want to make this configurable.
-		if m.cfg.QueryTracingEnabled() && level == client.LogWarn &&
-			isSlowQueryLogMessage(msg, args, m.cfg.SlowQueryThreshold()) {
+		if tracingEnabled && level == client.LogWarn &&
+			isSlowQueryLogMessage(msg, args, tracingThreshold) {
 			m.logger.Warningf("slow query: "+msg, args...)
 			return
 		}
@@ -269,7 +274,7 @@ func (m *NodeManager) nodeClusterStore() (*client.YamlNodeStore, error) {
 // It is expected that each log message will have 2 arguments, the first being
 // the duration of the query in seconds as a float64. The second being the query
 // performed as a string.
-func isSlowQueryLogMessage(msg string, args []any, slowQueryThreshold float64) bool {
+func isSlowQueryLogMessage(msg string, args []any, slowQueryThreshold time.Duration) bool {
 	if len(args) != 2 {
 		return false
 	}
@@ -288,5 +293,5 @@ func isSlowQueryLogMessage(msg string, args []any, slowQueryThreshold float64) b
 		return false
 	}
 
-	return duration >= slowQueryThreshold
+	return duration >= slowQueryThreshold.Seconds()
 }

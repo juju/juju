@@ -41,22 +41,22 @@ type LogLevel int
 
 // Available logging levels.
 const (
-	None LogLevel = iota
-	Debug
-	Info
-	Warn
-	Error
+	LogNone LogLevel = iota
+	LogDebug
+	LogInfo
+	LogWarn
+	LogError
 )
 
 func (l LogLevel) String() string {
 	switch l {
-	case Debug:
+	case LogDebug:
 		return "DEBUG"
-	case Info:
+	case LogInfo:
 		return "INFO"
-	case Warn:
+	case LogWarn:
 		return "WARN"
-	case Error:
+	case LogError:
 		return "ERROR"
 	default:
 		return "UNKNOWN"

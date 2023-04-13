@@ -99,6 +99,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			configJujuDBSnapChannel := controllerConfig.JujuDBSnapChannel()
 			jujuDBSnapChannelChanged := agentsJujuDBSnapChannel != configJujuDBSnapChannel
 
+			agentsQueryTracingEnabled := agent.CurrentConfig().QueryTracingEnabled()
+			configQueryTracingEnabled := controllerConfig.QueryTracingEnabled()
+			queryTracingEnabledChanged := agentsQueryTracingEnabled != configQueryTracingEnabled
+
+			agentsQueryTracingThreshold := agent.CurrentConfig().QueryTracingThreshold()
+			configQueryTracingThreshold := controllerConfig.QueryTracingThreshold()
+			queryTracingThresholdChanged := agentsQueryTracingThreshold != configQueryTracingThreshold
+
 			info, err := apiState.StateServingInfo()
 			if err != nil {
 				return nil, errors.Annotate(err, "getting state serving info")
@@ -125,17 +133,33 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					logger.Debugf("setting agent config mongo snap channel: %q => %q", agentsJujuDBSnapChannel, configJujuDBSnapChannel)
 					config.SetJujuDBSnapChannel(configJujuDBSnapChannel)
 				}
+				if queryTracingEnabledChanged {
+					logger.Debugf("setting agent config query tracing enabled: %t => %t", agentsQueryTracingEnabled, configQueryTracingEnabled)
+					config.SetQueryTracingEnabled(configQueryTracingEnabled)
+				}
+				if queryTracingThresholdChanged {
+					logger.Debugf("setting agent config query tracing threshold: %d => %d", agentsQueryTracingThreshold, configQueryTracingThreshold)
+					config.SetQueryTracingThreshold(configQueryTracingThreshold)
+				}
+
 				return nil
 			})
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+
 			// If we need a restart, return the fatal error.
 			if mongoProfileChanged {
 				logger.Infof("restarting agent for new mongo memory profile")
 				return nil, jworker.ErrRestartAgent
 			} else if jujuDBSnapChannelChanged {
 				logger.Infof("restarting agent for new mongo snap channel")
+				return nil, jworker.ErrRestartAgent
+			} else if queryTracingEnabledChanged {
+				logger.Infof("restarting agent for new query tracing enabled")
+				return nil, jworker.ErrRestartAgent
+			} else if queryTracingThresholdChanged {
+				logger.Infof("restarting agent for new query tracing threshold")
 				return nil, jworker.ErrRestartAgent
 			}
 
@@ -148,11 +172,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			return NewWorker(WorkerConfig{
-				Agent:             agent,
-				Hub:               hub,
-				MongoProfile:      configMongoMemoryProfile,
-				JujuDBSnapChannel: configJujuDBSnapChannel,
-				Logger:            config.Logger,
+				Agent:                 agent,
+				Hub:                   hub,
+				MongoProfile:          configMongoMemoryProfile,
+				JujuDBSnapChannel:     configJujuDBSnapChannel,
+				QueryTracingEnabled:   configQueryTracingEnabled,
+				QueryTracingThreshold: configQueryTracingThreshold,
+				Logger:                config.Logger,
 			})
 		},
 	}
