@@ -1456,7 +1456,9 @@ func (a *API) destroyUnit(args params.DestroyUnitParams) (params.DestroyUnitResu
 	}
 
 	unit, err := a.state.Unit(unitTag.Id())
-	if err != nil {
+	if errors.Is(err, errors.NotFound) {
+		return params.DestroyUnitResult{}, nil
+	} else if err != nil {
 		return params.DestroyUnitResult{}, fmt.Errorf("fetching unit %q state: %w", unitTag, err)
 	}
 

@@ -293,6 +293,7 @@ func (a *appWorker) loop() error {
 	var scaleTries int
 	var trustChan <-chan time.Time
 	var trustTries int
+	var reconcileDeadChan <-chan time.Time
 	const maxRetries = 20
 	const retryDelay = 3 * time.Second
 
@@ -331,20 +332,21 @@ func (a *appWorker) loop() error {
 				trustChan = a.clock.After(0)
 			}
 			shouldRefresh = false
-		case units, ok := <-appUnitsWatcher.Changes():
+		case _, ok := <-appUnitsWatcher.Changes():
 			if !ok {
 				return fmt.Errorf("application %q units watcher closed channel", a.name)
 			}
-			for _, unit := range units {
-				unitLife, err := a.facade.Life(unit)
-				if errors.Is(err, errors.NotFound) {
-					return errors.Annotatef(err, "fetching unit %q life", unit)
-				}
-				a.logger.Debugf("got unit change %q (%s)", unit, unitLife)
+			if reconcileDeadChan == nil {
+				reconcileDeadChan = a.clock.After(0)
 			}
+		case <-reconcileDeadChan:
 			err := a.ReconcileDeadUnitScale(app)
-			if err != nil {
+			if errors.Is(err, errors.NotFound) {
+				reconcileDeadChan = a.clock.After(retryDelay)
+			} else if err != nil {
 				return fmt.Errorf("reconciling dead unit scale: %w", err)
+			} else {
+				reconcileDeadChan = nil
 			}
 		case <-trustChan:
 			err := a.ensureTrust(app)
@@ -500,15 +502,17 @@ func (a *appWorker) updateState(app caas.Application, force bool, lastReportedSt
 		}
 	}
 
+	if force {
+		return nil, nil
+	}
+
 	err = a.facade.GarbageCollect(a.name, getTagsFromUnits(observedUnits), st.DesiredReplicas, st.Replicas, force)
 	if errors.IsNotFound(err) {
 		return nil, nil
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if force {
-		return nil, nil
-	}
+
 	// TODO: consolidate GarbageCollect and UpdateApplicationUnits into a single call.
 	units, err := app.Units()
 	if err != nil {
