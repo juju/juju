@@ -377,12 +377,12 @@ const (
 
 	// DefaultQueryTracingEnabled is the default value for if query tracing
 	// is enabled.
-	DefaultQueryTracingEnabled = true
+	DefaultQueryTracingEnabled = false
 
 	// DefaultQueryTracingThreshold is the default value for the threshold
 	// for query tracing. If a query takes longer than this to complete
 	// it will be logged if query tracing is enabled.
-	DefaultQueryTracingThreshold = time.Millisecond
+	DefaultQueryTracingThreshold = time.Second
 )
 
 var (

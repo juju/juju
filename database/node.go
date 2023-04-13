@@ -158,27 +158,10 @@ func (m *NodeManager) SetNodeInfo(server dqlite.NodeInfo) error {
 // WithLogFuncOption returns a Dqlite application Option that will proxy Dqlite
 // log output via this factory's logger where the level is recognised.
 func (m *NodeManager) WithLogFuncOption() app.Option {
-	var (
-		tracingEnabled   = m.cfg.QueryTracingEnabled()
-		tracingThreshold = m.cfg.QueryTracingThreshold()
-	)
-
-	return app.WithLogFunc(func(level client.LogLevel, msg string, args ...interface{}) {
-		actualLevel, known := loggo.ParseLevel(level.String())
-		if !known {
-			return
-		}
-
-		// If we're tracing the dqlite logs we only want to log slow queries
-		// and not all the debug messages.
-		if tracingEnabled && level == client.LogWarn &&
-			isSlowQueryLogMessage(msg, args, tracingThreshold) {
-			m.logger.Warningf("slow query: "+msg, args...)
-			return
-		}
-
-		m.logger.Logf(actualLevel, msg, args...)
-	})
+	if m.cfg.QueryTracingEnabled() {
+		return app.WithLogFunc(m.slowQueryLogFunc(m.cfg.QueryTracingThreshold()))
+	}
+	return app.WithLogFunc(m.appLogFunc)
 }
 
 // WithTracingOption returns a Dqlite application Option that will enable
@@ -252,6 +235,47 @@ func (m *NodeManager) nodeClusterStore() (*client.YamlNodeStore, error) {
 	return store, errors.Annotate(err, "opening Dqlite cluster node store")
 }
 
+func (m *NodeManager) slowQueryLogFunc(threshold time.Duration) client.LogFunc {
+	return func(level client.LogLevel, msg string, args ...interface{}) {
+		if level != client.LogWarn {
+			m.appLogFunc(level, msg, args...)
+			return
+		}
+
+		// If we're tracing the dqlite logs we only want to log slow queries
+		// and not all the debug messages.
+		queryType := parseSlowQuery(msg, args, threshold)
+		switch queryType {
+		case slowQuery:
+			m.logger.Warningf("slow query: "+msg, args...)
+		case normalQuery:
+			m.appLogFunc(level, msg, args...)
+		default:
+			// This is a slow query, but we shouldn't report it.
+		}
+	}
+}
+
+func (m *NodeManager) appLogFunc(level client.LogLevel, msg string, args ...interface{}) {
+	actualLevel, known := loggo.ParseLevel(level.String())
+	if !known {
+		return
+	}
+
+	m.logger.Logf(actualLevel, msg, args...)
+}
+
+// QueryType represents the type of query that is being sent. This simplifies
+// the logic for determining if a query is slow or not and if it should be
+// reported.
+type queryType int
+
+const (
+	normalQuery queryType = iota
+	slowQuery
+	ignoreSlowQuery
+)
+
 // This is highly dependent on the format of the log message, which is
 // not ideal, but it's the only way to get the query string out of the
 // log message. This potentially breaks if the dqlite library changes the
@@ -274,14 +298,14 @@ func (m *NodeManager) nodeClusterStore() (*client.YamlNodeStore, error) {
 // It is expected that each log message will have 2 arguments, the first being
 // the duration of the query in seconds as a float64. The second being the query
 // performed as a string.
-func isSlowQueryLogMessage(msg string, args []any, slowQueryThreshold time.Duration) bool {
+func parseSlowQuery(msg string, args []any, slowQueryThreshold time.Duration) queryType {
 	if len(args) != 2 {
-		return false
+		return normalQuery
 	}
 
 	// We're not a slow query if the message doesn't match the expected format.
 	if !strings.HasPrefix(msg, "%.3fs request ") {
-		return false
+		return normalQuery
 	}
 
 	// Validate that the first argument is a float64.
@@ -290,8 +314,12 @@ func isSlowQueryLogMessage(msg string, args []any, slowQueryThreshold time.Durat
 	case float64:
 		duration = t
 	default:
-		return false
+		return normalQuery
 	}
 
-	return duration >= slowQueryThreshold.Seconds()
+	if duration >= slowQueryThreshold.Seconds() {
+		return slowQuery
+	}
+
+	return ignoreSlowQuery
 }
