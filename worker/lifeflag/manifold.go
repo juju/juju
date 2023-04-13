@@ -23,17 +23,17 @@ var _ logger = struct{}{}
 // ManifoldConfig describes how to configure and construct a Worker,
 // and what registered resources it may depend upon.
 type ManifoldConfig struct {
-	APICallerName string
-	Entity        names.Tag
-	Result        life.Predicate
-	Filter        dependency.FilterFunc
+	APICallerName  string
+	Entity         names.Tag
+	Result         life.Predicate
+	Filter         dependency.FilterFunc
+	NotFoundIsDead bool
 
 	NewFacade func(base.APICaller) Facade
 	NewWorker func(Config) (worker.Worker, error)
 }
 
 func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
-
 	var apiCaller base.APICaller
 	if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 		return nil, errors.Trace(err)
@@ -41,9 +41,10 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	facade := config.NewFacade(apiCaller)
 
 	worker, err := config.NewWorker(Config{
-		Facade: facade,
-		Entity: config.Entity,
-		Result: config.Result,
+		Facade:         facade,
+		Entity:         config.Entity,
+		Result:         config.Result,
+		NotFoundIsDead: config.NotFoundIsDead,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -219,11 +219,11 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		}),
 
 		deadFlagName: lifeflag.Manifold(lifeflag.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Entity:        config.Agent.CurrentConfig().Tag(),
-			Result:        life.IsDead,
-			Filter:        cmdmodel.LifeFilter,
-
+			APICallerName:  apiCallerName,
+			Entity:         config.Agent.CurrentConfig().Tag(),
+			Result:         life.IsDead,
+			Filter:         cmdmodel.LifeFilter,
+			NotFoundIsDead: true,
 			NewFacade: func(b base.APICaller) lifeflag.Facade {
 				return agentlifeflag.NewClient(b)
 			},

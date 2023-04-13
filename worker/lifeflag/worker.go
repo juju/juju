@@ -21,9 +21,10 @@ type Facade interface {
 
 // Config holds the configuration and dependencies for a worker.
 type Config struct {
-	Facade Facade
-	Entity names.Tag
-	Result life.Predicate
+	Facade         Facade
+	Entity         names.Tag
+	Result         life.Predicate
+	NotFoundIsDead bool
 }
 
 // Validate returns an error if the config cannot be expected
@@ -119,11 +120,13 @@ func (w *Worker) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case <-watcher.Changes():
-			life, err := w.config.Facade.Life(w.config.Entity)
-			if err != nil {
+			l, err := w.config.Facade.Life(w.config.Entity)
+			if w.config.NotFoundIsDead && errors.Is(err, errors.NotFound) {
+				l = life.Dead
+			} else if err != nil {
 				return errors.Trace(err)
 			}
-			if w.config.Result(life) != w.Check() {
+			if w.config.Result(l) != w.Check() {
 				return ErrValueChanged
 			}
 		}
