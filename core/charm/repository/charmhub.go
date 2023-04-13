@@ -374,7 +374,7 @@ func (c *CharmHubRepository) ListResources(charmURL *charm.URL, origin corecharm
 
 	results := make([]charmresource.Resource, len(resp.Entity.Resources))
 	for i, resource := range resp.Entity.Resources {
-		results[i], err = ResourceFromRevision(resource)
+		results[i], err = resourceFromRevision(resource)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -426,7 +426,7 @@ func (c *CharmHubRepository) listResourcesIfRevisions(resources []charmresource.
 		}
 		for _, res := range refreshResp {
 			if res.Revision == resource.Revision {
-				results[resource.Name], err = ResourceFromRevision(refreshResp[0])
+				results[resource.Name], err = resourceFromRevision(refreshResp[0])
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -482,7 +482,7 @@ func (c *CharmHubRepository) listResourcesMap(id corecharm.CharmID) (map[string]
 	results := make(map[string]charmresource.Resource, len(resp.Entity.Resources))
 	for _, v := range resp.Entity.Resources {
 		var err error
-		results[v.Name], err = ResourceFromRevision(v)
+		results[v.Name], err = resourceFromRevision(v)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -585,7 +585,7 @@ func (c *CharmHubRepository) resourceInfo(curl *charm.URL, origin corecharm.Orig
 
 		for _, entity := range resp.Entity.Resources {
 			if entity.Name == name && entity.Revision == revision {
-				rfr, err := ResourceFromRevision(entity)
+				rfr, err := resourceFromRevision(entity)
 				return rfr, err
 			}
 		}
@@ -1025,7 +1025,7 @@ func selectReleaseByArchAndChannel(releases []transport.Release, origin corechar
 	return results, nil
 }
 
-func ResourceFromRevision(rev transport.ResourceRevision) (charmresource.Resource, error) {
+func resourceFromRevision(rev transport.ResourceRevision) (charmresource.Resource, error) {
 	resType, err := charmresource.ParseType(rev.Type)
 	if err != nil {
 		return charmresource.Resource{}, errors.Trace(err)
