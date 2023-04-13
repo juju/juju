@@ -7,13 +7,11 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/retry"
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/agent"
@@ -164,39 +162,8 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 		}
 	}
 
-	if unit != nil && unit.Life() != state.Alive {
-		retryErr := errors.New("retry")
-		call := retry.CallArgs{
-			Clock:    f.clock,
-			Delay:    5 * time.Second,
-			Attempts: 12,
-			IsFatalError: func(err error) bool {
-				return err != retryErr
-			},
-			Func: func() error {
-				err := unit.Refresh()
-				if errors.IsNotFound(err) {
-					unit = nil
-					return nil
-				} else if err != nil {
-					return retryErr
-				}
-				switch unit.Life() {
-				case state.Alive:
-					return nil
-				case state.Dying, state.Dead:
-					logger.Debugf("still waiting for old unit %q to cleanup", unit.Tag().String())
-					return retryErr
-				default:
-					return errors.Errorf("unknown life state")
-				}
-			},
-		}
-		err := retry.Call(call)
-		if err != nil {
-			return errResp(errors.Annotatef(err,
-				"failed waiting for old unit %q to cleanup", unit.Tag().String()))
-		}
+	if unit != nil && unit.Life() == state.Dead {
+		return errResp(errors.Errorf("unit %q is dead", unit.Tag().String()))
 	}
 
 	// Find the pod/unit in the provider.
@@ -234,6 +201,20 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 
 	// Create a new unit if we never found one.
 	if unit == nil {
+		switch deploymentType {
+		case caas.DeploymentStateful:
+			splitPodName := strings.Split(args.PodName, "-")
+			ord, err := strconv.Atoi(splitPodName[len(splitPodName)-1])
+			if err != nil {
+				return errResp(err)
+			}
+			if ord >= application.GetScale() {
+				return errResp(errors.Errorf("unit not required"))
+			}
+		default:
+			return errResp(errors.NotSupportedf("unknown deployment type"))
+		}
+
 		unit, err = application.AddUnit(state.AddUnitParams{
 			UnitName:   unitName,
 			ProviderId: &containerID,

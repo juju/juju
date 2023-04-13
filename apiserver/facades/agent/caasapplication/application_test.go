@@ -71,6 +71,7 @@ func (s *CAASApplicationSuite) TestAddUnit(c *gc.C) {
 		},
 		updateOp: nil,
 	}
+	s.st.app.scale = 1
 
 	s.broker.app = &mockCAASApplication{
 		units: []caas.Unit{{
@@ -88,13 +89,38 @@ func (s *CAASApplicationSuite) TestAddUnit(c *gc.C) {
 
 	s.st.CheckCallNames(c, "Model", "Application", "Unit", "ControllerConfig", "APIHostPortsForAgents")
 	s.st.CheckCall(c, 1, "Application", "gitlab")
-	s.st.app.CheckCallNames(c, "Life", "Name", "Name", "AddUnit")
-	c.Assert(s.st.app.Calls()[3].Args[0], gc.DeepEquals, state.AddUnitParams{
+	s.st.app.CheckCallNames(c, "Life", "Name", "Name", "GetScale", "AddUnit")
+	c.Assert(s.st.app.Calls()[4].Args[0], gc.DeepEquals, state.AddUnitParams{
 		ProviderId: strPtr("gitlab-0"),
 		UnitName:   strPtr("gitlab/0"),
 		Address:    strPtr("1.2.3.4"),
 		Ports:      &[]string{"80"},
 	})
+}
+
+func (s *CAASApplicationSuite) TestAddUnitNotNeeded(c *gc.C) {
+	args := params.CAASUnitIntroductionArgs{
+		PodName: "gitlab-0",
+		PodUUID: "gitlab-uuid",
+	}
+
+	s.st.app.scale = 0
+
+	s.broker.app = &mockCAASApplication{
+		units: []caas.Unit{{
+			Id:      "gitlab-0",
+			Address: "1.2.3.4",
+			Ports:   []string{"80"},
+		}},
+	}
+
+	results, err := s.facade.UnitIntroduction(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Error, gc.ErrorMatches, "unit not required")
+
+	s.st.CheckCallNames(c, "Model", "Application", "Unit")
+	s.st.CheckCall(c, 1, "Application", "gitlab")
+	s.st.app.CheckCallNames(c, "Life", "Name", "Name", "GetScale")
 }
 
 func (s *CAASApplicationSuite) TestReuseUnitByName(c *gc.C) {
@@ -139,6 +165,38 @@ func (s *CAASApplicationSuite) TestReuseUnitByName(c *gc.C) {
 	})
 }
 
+func (s *CAASApplicationSuite) TestDontReuseDeadUnitByName(c *gc.C) {
+	args := params.CAASUnitIntroductionArgs{
+		PodName: "gitlab-0",
+		PodUUID: "gitlab-uuid",
+	}
+
+	s.st.units["gitlab/0"] = &mockUnit{
+		life: state.Dead,
+		containerInfo: &mockCloudContainer{
+			providerID: "gitlab-0",
+			unit:       "gitlab/0",
+		},
+	}
+
+	s.broker.app = &mockCAASApplication{
+		units: []caas.Unit{{
+			Id:      "gitlab-0",
+			Address: "1.2.3.4",
+			Ports:   []string{"80"},
+		}},
+	}
+
+	results, err := s.facade.UnitIntroduction(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Error, gc.ErrorMatches, `unit "unit-gitlab-0" is dead`)
+
+	s.st.CheckCallNames(c, "Model", "Application", "Unit")
+	s.st.CheckCall(c, 1, "Application", "gitlab")
+	s.st.units["gitlab/0"].CheckCallNames(c, "Life")
+	s.st.app.CheckCallNames(c, "Life", "Name")
+}
+
 func (s *CAASApplicationSuite) TestFindByProviderID(c *gc.C) {
 	c.Skip("skip for now, because of the TODO in UnitIntroduction facade: hardcoded deploymentType := caas.DeploymentStateful")
 
@@ -181,6 +239,7 @@ func (s *CAASApplicationSuite) TestAgentConf(c *gc.C) {
 		},
 		updateOp: nil,
 	}
+	s.st.app.scale = 1
 
 	s.broker.app = &mockCAASApplication{
 		units: []caas.Unit{{
