@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelconfig"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/constraints"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/provider/dummy"
@@ -282,8 +283,9 @@ func (s *modelconfigSuite) TestUserCannotSetLogTrace(c *gc.C) {
 }
 
 func (s *modelconfigSuite) TestSetSecretBackend(c *gc.C) {
+	// TODO: FIX!!
 	args := params.ModelSet{
-		map[string]interface{}{"secret-backend": "invalid"},
+		Config: map[string]interface{}{"secret-backend": "invalid"},
 	}
 	err := s.api.ModelSet(args)
 	c.Assert(err, gc.NotNil)
@@ -373,11 +375,12 @@ func (s *modelconfigSuite) TestClientGetModelConstraints(c *gc.C) {
 }
 
 type mockBackend struct {
-	cfg  config.ConfigValues
-	old  *config.Config
-	b    state.BlockType
-	msg  string
-	cons constraints.Value
+	cfg           config.ConfigValues
+	old           *config.Config
+	b             state.BlockType
+	msg           string
+	cons          constraints.Value
+	secretBackend *coresecrets.SecretBackend
 }
 
 func (m *mockBackend) SetModelConstraints(value constraints.Value) error {
@@ -441,11 +444,11 @@ func (m *mockBackend) SpaceByName(string) error {
 	return nil
 }
 
-func (m *mockBackend) GetSecretBackend(name string) error {
+func (m *mockBackend) GetSecretBackend(name string) (*coresecrets.SecretBackend, error) {
 	if name == "invalid" {
-		return errors.NotFoundf("invalid")
+		return nil, errors.NotFoundf("invalid")
 	}
-	return nil
+	return m.secretBackend, nil
 }
 
 type mockBlock struct {
