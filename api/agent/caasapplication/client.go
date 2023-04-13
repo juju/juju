@@ -44,9 +44,9 @@ func (c *Client) UnitIntroduction(podName string, podUUID string) (*UnitConfig, 
 	}
 	if err := result.Error; err != nil {
 		if params.IsCodeAlreadyExists(err) {
-			return nil, errors.Wrap(err, errors.AlreadyExists)
+			return nil, errors.AlreadyExists
 		} else if params.IsCodeNotAssigned(err) {
-			return nil, errors.Wrap(err, errors.NotAssigned)
+			return nil, errors.NotAssigned
 		}
 		return nil, err
 	}
