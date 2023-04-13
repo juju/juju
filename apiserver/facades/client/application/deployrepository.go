@@ -208,22 +208,11 @@ func (v *deployFromRepositoryValidator) resolveResources(
 		resources = append(resources, r)
 	}
 
-	modelCfg, err := v.model.Config()
+	repo, err := v.repoFactory.GetCharmRepository(origin.Source)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	chURL, _ := modelCfg.CharmHubURL()
-	chClient, err := charmhub.NewClient(charmhub.Config{
-		URL:        chURL,
-		HTTPClient: v.charmhubHTTPClient,
-		Logger:     logger,
-	})
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	charmhubRepo := corecharmrepo.NewCharmHubRepository(logger, chClient)
-	resolvedResources, resolveErr := charmhubRepo.ResolveResources(resources, corecharm.CharmID{URL: curl, Origin: origin})
+	resolvedResources, resolveErr := repo.ResolveResources(resources, corecharm.CharmID{URL: curl, Origin: origin})
 
 	return resolvedResources, pendingUploadIDs, resolveErr
 }
