@@ -1,10 +1,10 @@
 applications:
-    tiny-bash:
-        charm: tiny-bash
+    juju-qa-test:
+        charm: juju-qa-test
         scale: 1
 
 ---
 
 applications:
-    tiny-bash:
+    juju-qa-test:
         scale: 2

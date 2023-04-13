@@ -1,5 +1,5 @@
 create_vpc() {
-	set -e
+	set_verbosity
 	vpc_id=$(aws ec2 create-vpc --cidr-block 10.0.0.0/28 --query 'Vpc.VpcId' --tag-specifications 'ResourceType=vpc,Tags=[{Key=Name,Value=manual-deploy}]' --output text)
 	aws ec2 wait vpc-available --vpc-ids "${vpc_id}"
 	aws ec2 modify-vpc-attribute --vpc-id "${vpc_id}" --enable-dns-support '{"Value":true}' >/dev/null
@@ -9,7 +9,7 @@ create_vpc() {
 }
 
 create_igw() {
-	set -e
+	set_verbosity
 	igw_id=$(aws ec2 create-internet-gateway --query 'InternetGateway.InternetGatewayId' --output text)
 	aws ec2 attach-internet-gateway --internet-gateway-id "${igw_id}" --vpc-id "${vpc_id}" >/dev/null
 
@@ -17,7 +17,7 @@ create_igw() {
 }
 
 create_subnet() {
-	set -e
+	set_verbosity
 	subnet_id=$(aws ec2 create-subnet --vpc-id "${vpc_id}" --cidr-block 10.0.0.0/28 --query 'Subnet.SubnetId' --output text)
 
 	routetable_id=$(aws ec2 create-route-table --vpc-id "${vpc_id}" --query 'RouteTable.RouteTableId' --output text)
@@ -29,7 +29,7 @@ create_subnet() {
 }
 
 create_secgroup() {
-	set -e
+	set_verbosity
 	sg_id=$(aws ec2 create-security-group --group-name "ci-manual-deploy" --description "run_deploy_manual_aws" --vpc-id "${vpc_id}" --query 'GroupId' --output text)
 	aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol tcp --port 22 --cidr 0.0.0.0/0 >/dev/null
 	aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol tcp --port 0-65535 --cidr 0.0.0.0/0 >/dev/null
