@@ -60,24 +60,30 @@ func New(config Config) (*Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
+	w := &Worker{
+		config: config,
+	}
+	plan := catacomb.Plan{
+		Site: &w.catacomb,
+		Work: w.loop,
+	}
+
+	var err error
 	// Read it before the worker starts, so that we have a value
 	// guaranteed before we return the worker. Because we read this
 	// before we start the internal watcher, we'll need an additional
 	// read triggered by the first change event; this will *probably*
 	// be the same value, but we can't assume it.
-	life, err := config.Facade.Life(config.Entity)
-	if err != nil {
+	w.life, err = config.Facade.Life(config.Entity)
+	if config.NotFoundIsDead && errors.Is(err, ErrNotFound) {
+		// If we handle notfound as dead, we will always be dead.
+		w.life = life.Dead
+		plan.Work = w.alwaysDead
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	w := &Worker{
-		config: config,
-		life:   life,
-	}
-	err = catacomb.Invoke(catacomb.Plan{
-		Site: &w.catacomb,
-		Work: w.loop,
-	})
+	err = catacomb.Invoke(plan)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -107,6 +113,14 @@ func (w *Worker) Check() bool {
 	return w.config.Result(w.life)
 }
 
+func (w *Worker) alwaysDead() error {
+	if w.config.Result(life.Dead) != w.Check() {
+		return ErrValueChanged
+	}
+	<-w.catacomb.Dying()
+	return w.catacomb.ErrDying()
+}
+
 func (w *Worker) loop() error {
 	watcher, err := w.config.Facade.Watch(w.config.Entity)
 	if err != nil {
@@ -121,7 +135,7 @@ func (w *Worker) loop() error {
 			return w.catacomb.ErrDying()
 		case <-watcher.Changes():
 			l, err := w.config.Facade.Life(w.config.Entity)
-			if w.config.NotFoundIsDead && errors.Is(err, errors.NotFound) {
+			if w.config.NotFoundIsDead && errors.Is(err, ErrNotFound) {
 				l = life.Dead
 			} else if err != nil {
 				return errors.Trace(err)
