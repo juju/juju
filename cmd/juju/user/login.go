@@ -102,9 +102,12 @@ func NewLoginCommand() cmd.Command {
 // loginCommand changes the password for a user.
 type loginCommand struct {
 	modelcmd.ControllerCommandBase
-	domain   string
-	username string
-	pollster *interact.Pollster
+	domain           string
+	username         string
+	noPrompt         bool
+	noPromptPassword string
+	trust            bool
+	pollster         *interact.Pollster
 
 	// controllerName holds the name of the current controller.
 	// We define this and the --controller flag here because
@@ -133,6 +136,8 @@ func (c *loginCommand) SetFlags(fset *gnuflag.FlagSet) {
 	fset.StringVar(&c.controllerName, "controller", "", "")
 	fset.StringVar(&c.username, "u", "", "log in as this local user")
 	fset.StringVar(&c.username, "user", "", "")
+	fset.BoolVar(&c.noPrompt, "no-prompt", false, "don't prompt for password just read a line from stdin")
+	fset.BoolVar(&c.trust, "trust", false, "automatically trust controller CA certificate")
 }
 
 // Init implements Command.Init.
@@ -147,8 +152,10 @@ func (c *loginCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *loginCommand) Run(ctx *cmd.Context) error {
-	errout := interact.NewErrWriter(ctx.Stdout)
-	c.pollster = interact.New(ctx.Stdin, ctx.Stderr, errout)
+	if !c.noPrompt {
+		errout := interact.NewErrWriter(ctx.Stdout)
+		c.pollster = interact.New(ctx.Stdin, ctx.Stderr, errout)
+	}
 
 	err := c.run(ctx)
 	if err != nil && c.onRunError != nil {
@@ -351,6 +358,19 @@ func (c *loginCommand) publicControllerLogin(
 		}
 		dialOpts.BakeryClient.InteractionMethods = []httpbakery.Interactor{
 			authentication.NewInteractor(d.User, func(string) (string, error) {
+				if c.noPrompt {
+					if c.noPromptPassword != "" {
+						return c.noPromptPassword, nil
+					}
+					fmt.Fprintln(ctx.Stderr, "reading password from stdin...")
+					password, err := readLine(ctx.Stdin)
+					if err != nil {
+						return "", err
+					}
+					c.noPromptPassword = password
+					return password, nil
+				}
+
 				// The visitor from the authentication package
 				// passes the username to the password getter
 				// func. As other password getters may rely on
@@ -440,6 +460,10 @@ Run "juju logout" first before attempting to log in as a different user.`,
 		}
 		if !params.IsCodeNoCreds(err) {
 			return nil, nil, errors.Trace(err)
+		}
+
+		if c.noPrompt {
+			return nil, nil, errors.Errorf("cannot deduce user, please pass --user with --no-prompt")
 		}
 
 		// CodeNoCreds was returned, which means that external users
@@ -593,10 +617,17 @@ func (c *loginCommand) promptUserToTrustCA(ctx *cmd.Context, ctrlDetails *jujucl
 			prettyName = fmt.Sprintf("%q (%s)", host, endpoint)
 		}
 		fmt.Fprintf(ctx.Stderr, "Controller %s presented a CA cert that could not be verified.\nCA fingerprint: [%s]\n", prettyName, fingerprint)
-		// If the user does not type Y, pollster returns false (and an error
-		// which doesn't really matter) causing the if block below to abort
-		// the connection attempt with an error.
-		trust, _ := c.pollster.YN("Trust remote controller", false)
+
+		trust := c.trust
+		if !c.noPrompt {
+			if trust {
+				fmt.Fprintln(ctx.Stderr, "Ignoring --trust without --no-prompt")
+			}
+			// If the user does not type Y, pollster returns false (and an error
+			// which doesn't really matter) causing the if block below to abort
+			// the connection attempt with an error.
+			trust, _ = c.pollster.YN("Trust remote controller", false)
+		}
 		if !trust {
 			return errors.New("controller CA not trusted")
 		}
