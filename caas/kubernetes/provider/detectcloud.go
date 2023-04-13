@@ -50,18 +50,14 @@ func localKubeConfigClouds() ([]cloud.Cloud, error) {
 
 // DetectCloud implements environs.CloudDetector.
 func (p kubernetesEnvironProvider) DetectCloud(name string) (cloud.Cloud, error) {
-	mk8sCloud, err := p.builtinCloudGetter(p.cmdRunner)
-	if err == nil && name == k8s.K8sCloudMicrok8s {
-		return mk8sCloud, nil
-	}
-
-	if !errors.IsNotFound(err) && err != nil {
-		// if the cloud is not microk8s and we get the user group error, return not found so the caller skips the cloud
-		// https://bugs.launchpad.net/juju/+bug/1937985
-		if name != k8s.K8sCloudMicrok8s {
-			return cloud.Cloud{}, errors.NotFoundf("cloud %s", name)
+	if name == k8s.K8sCloudMicrok8s {
+		// TODO: this whole thing is poorly written and we need to handle this better.
+		// Also builtinCloudGetter should really be called, microk8sCloudGetter...
+		microk8sCloud, err := p.builtinCloudGetter(p.cmdRunner)
+		if err != nil {
+			return cloud.Cloud{}, errors.Trace(err)
 		}
-		return cloud.Cloud{}, errors.Trace(err)
+		return microk8sCloud, nil
 	}
 
 	localKubeConfigClouds, err := localKubeConfigClouds()
