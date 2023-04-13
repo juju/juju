@@ -163,7 +163,7 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 	}
 
 	if unit != nil && unit.Life() == state.Dead {
-		return errResp(errors.Errorf("unit %q is dead", unit.Tag().String()))
+		return errResp(errors.AlreadyExistsf("dead unit %q", unit.Tag().Id()))
 	}
 
 	// Find the pod/unit in the provider.
@@ -209,7 +209,7 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 				return errResp(err)
 			}
 			if ord >= application.GetScale() {
-				return errResp(errors.Errorf("unit not required"))
+				return errResp(errors.NotAssignedf("unrequired unit"))
 			}
 		default:
 			return errResp(errors.NotSupportedf("unknown deployment type"))

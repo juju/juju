@@ -116,7 +116,7 @@ func (s *CAASApplicationSuite) TestAddUnitNotNeeded(c *gc.C) {
 
 	results, err := s.facade.UnitIntroduction(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Error, gc.ErrorMatches, "unit not required")
+	c.Assert(results.Error, gc.ErrorMatches, "unrequired unit not assigned")
 
 	s.st.CheckCallNames(c, "Model", "Application", "Unit")
 	s.st.CheckCall(c, 1, "Application", "gitlab")
@@ -189,7 +189,7 @@ func (s *CAASApplicationSuite) TestDontReuseDeadUnitByName(c *gc.C) {
 
 	results, err := s.facade.UnitIntroduction(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Error, gc.ErrorMatches, `unit "unit-gitlab-0" is dead`)
+	c.Assert(results.Error, gc.ErrorMatches, `dead unit "gitlab/0" already exists`)
 
 	s.st.CheckCallNames(c, "Model", "Application", "Unit")
 	s.st.CheckCall(c, 1, "Application", "gitlab")
