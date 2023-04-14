@@ -14,6 +14,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 	"github.com/juju/worker/v3/dependency"
+	"gopkg.in/tomb.v2"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/app"
@@ -373,13 +374,25 @@ func (w *dbWorker) initialiseDqlite(options ...app.Option) error {
 	return nil
 }
 
+// openDatabase starts a TrackedDB worker for the database with the input name.
+// It is called by initialiseDqlite to open the controller databases,
+// and via GetDB to service downstream database requests.
+// It is important to note that the start function passed to StartWorker is not
+// invoked synchronously.
+// Since GetDB blocks until dbReady is closed, and initialiseDqlite waits for
+// the node to be ready, we can assume that we will never race with a nil dbApp
+// when first starting up.
+// Since the only way we can get into this race is during shutdown, it is safe
+// to return ErrDying if we detect a nil database.
+// This preserves the error that the worker is exiting with, including nil.
 func (w *dbWorker) openDatabase(namespace string) error {
 	err := w.dbRunner.StartWorker(namespace, func() (worker.Worker, error) {
 		w.mu.RLock()
 		defer w.mu.RUnlock()
 		if w.dbApp == nil {
-			return nil, errors.New("db worker shutting down")
+			return nil, tomb.ErrDying
 		}
+
 		return w.cfg.NewDBWorker(w.dbApp, namespace,
 			WithClock(w.cfg.Clock),
 			WithLogger(w.cfg.Logger),
