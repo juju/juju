@@ -729,6 +729,8 @@ func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedO
 		}
 	}
 	resolvedOrigin.Platform.OS = base.OS
+	// Avoid using Channel.String() here instead of Channel.Track for the Platform.Channel,
+	// because String() will return "track/risk" if the channel's risk is non-empty
 	resolvedOrigin.Platform.Channel = base.Channel.Track
 
 	return resultURL, resolvedOrigin, nil
