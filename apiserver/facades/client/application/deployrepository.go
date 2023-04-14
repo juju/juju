@@ -39,7 +39,6 @@ var deployRepoLogger = logger.Child("deployfromrepository")
 // DeployFromRepositoryValidator defines an deploy config validator.
 type DeployFromRepositoryValidator interface {
 	ValidateArg(params.DeployFromRepositoryArg) (deployTemplate, []error)
-	ResolveResources(*charm.URL, corecharm.Origin, map[string]string, map[string]resource.Meta) ([]resource.Resource, []*params.PendingResourceUpload, error)
 }
 
 // DeployFromRepository defines an interface for deploying a charm
@@ -123,13 +122,8 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
 
-	resources, pendingResourceUploads, resolveResErr := api.validator.ResolveResources(ch.URL(), dt.origin, dt.resources, ch.Meta().Resources)
-	if resolveResErr != nil {
-		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(resolveResErr)}
-	}
-
 	// Last step, add pending resources.
-	pendingIDs, errs := api.addPendingResources(dt.applicationName, resources)
+	pendingIDs, errs := api.addPendingResources(dt.applicationName, dt.resolvedResources)
 
 	_, err = api.state.AddApplication(state.AddApplicationArgs{
 		Name:              dt.applicationName,
@@ -158,7 +152,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
 
-	return info, pendingResourceUploads, errs
+	return info, dt.pendingResourceUploads, errs
 }
 
 // PendingResourceUpload is only returned for local resources
@@ -235,21 +229,23 @@ func (api *DeployFromRepositoryAPI) addPendingResources(appName string, resource
 }
 
 type deployTemplate struct {
-	applicationConfig *config.Config
-	applicationName   string
-	attachStorage     []string
-	charm             charm.Charm
-	charmSettings     charm.Settings
-	charmURL          *charm.URL
-	constraints       constraints.Value
-	endpoints         map[string]string
-	dryRun            bool
-	force             bool
-	numUnits          int
-	origin            corecharm.Origin
-	placement         []*instance.Placement
-	resources         map[string]string
-	storage           map[string]storage.Constraints
+	applicationConfig      *config.Config
+	applicationName        string
+	attachStorage          []string
+	charm                  charm.Charm
+	charmSettings          charm.Settings
+	charmURL               *charm.URL
+	constraints            constraints.Value
+	endpoints              map[string]string
+	dryRun                 bool
+	force                  bool
+	numUnits               int
+	origin                 corecharm.Origin
+	placement              []*instance.Placement
+	resources              map[string]string
+	storage                map[string]storage.Constraints
+	pendingResourceUploads []*params.PendingResourceUpload
+	resolvedResources      []resource.Resource
 }
 
 type validatorConfig struct {
@@ -355,6 +351,15 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 		}
 		dt.endpoints = bindings.Map()
 	}
+	// resolve and validate resources
+	resources, pendingResourceUploads, resolveResErr := v.resolveResources(dt.charmURL, dt.origin, dt.resources, resolvedCharm.Meta().Resources)
+	if resolveResErr != nil {
+		errs = append(errs, resolveResErr)
+	}
+
+	dt.pendingResourceUploads = pendingResourceUploads
+	dt.resolvedResources = resources
+
 	deployRepoLogger.Tracef("validateDeployFromRepositoryArgs returning: %s", pretty.Sprint(dt))
 	return dt, errs
 }
@@ -444,15 +449,6 @@ type caasDeployFromRepositoryValidator struct {
 	caasPrecheckFunc func(deployTemplate) error
 }
 
-func (v caasDeployFromRepositoryValidator) ResolveResources(
-	curl *charm.URL,
-	origin corecharm.Origin,
-	deployResArg map[string]string,
-	resMeta map[string]resource.Meta,
-) ([]resource.Resource, []*params.PendingResourceUpload, error) {
-	return v.validator.resolveResources(curl, origin, deployResArg, resMeta)
-}
-
 func (v caasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
 	dt, errs := v.validator.validate(arg)
 	if corecharm.IsKubernetes(dt.charm) && charm.MetaFormat(dt.charm) == charm.FormatV1 {
@@ -470,15 +466,6 @@ func (v caasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepo
 
 type iaasDeployFromRepositoryValidator struct {
 	validator *deployFromRepositoryValidator
-}
-
-func (v iaasDeployFromRepositoryValidator) ResolveResources(
-	curl *charm.URL,
-	origin corecharm.Origin,
-	deployResArg map[string]string,
-	resMeta map[string]resource.Meta,
-) ([]resource.Resource, []*params.PendingResourceUpload, error) {
-	return v.validator.resolveResources(curl, origin, deployResArg, resMeta)
 }
 
 func (v *iaasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
