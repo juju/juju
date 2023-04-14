@@ -806,8 +806,6 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 		ID:    charm.MustParseURL("ch:amd64/jammy/testme-5"),
 	}
 
-	s.charm.EXPECT().Meta().Return(&charm.Meta{Resources: nil})
-
 	s.state.EXPECT().AddCharmMetadata(info).Return(s.charm, nil)
 
 	addAppArgs := state.AddApplicationArgs{
@@ -891,6 +889,22 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testme",
 	}
+	pendUp := &params.PendingResourceUpload{
+		Name:     "foo-resource",
+		Type:     "file",
+		Filename: "bar",
+	}
+	meta := resource.Meta{
+		Name:        "foo-resource",
+		Type:        resource.TypeFile,
+		Path:        "foo.txt",
+		Description: "bar",
+	}
+	r := resource.Resource{
+		Meta:   meta,
+		Origin: resource.OriginUpload,
+	}
+
 	template := deployTemplate{
 		applicationName: "metadata-name",
 		charm:           corecharm.NewCharmInfoAdapter(corecharm.EssentialMetadata{}),
@@ -903,8 +917,10 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 			Channel:  &charm.Channel{Risk: "stable"},
 			Platform: corecharm.MustParsePlatform("amd64/ubuntu/22.04"),
 		},
-		placement: []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
-		resources: map[string]string{"foo-file": "bar"},
+		placement:              []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
+		resources:              map[string]string{"foo-file": "bar"},
+		pendingResourceUploads: []*params.PendingResourceUpload{pendUp},
+		resolvedResources:      []resource.Resource{r},
 	}
 	s.validator.EXPECT().ValidateArg(arg).Return(template, nil)
 	info := state.CharmInfo{
@@ -913,21 +929,6 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 	}
 
 	s.state.EXPECT().AddCharmMetadata(info).Return(s.charm, nil)
-
-	meta := resource.Meta{
-		Name:        "foo-resource",
-		Type:        resource.TypeFile,
-		Path:        "foo.txt",
-		Description: "bar",
-	}
-	r := resource.Resource{
-		Meta:   meta,
-		Origin: resource.OriginUpload,
-	}
-	s.charm.EXPECT().Meta().Return(&charm.Meta{
-		Resources: map[string]resource.Meta{
-			"foo-file": meta,
-		}})
 
 	s.state.EXPECT().AddPendingResource("metadata-name", r).Return("3", nil)
 
@@ -952,7 +953,7 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 		EndpointBindings: map[string]string{"to": "from"},
 		NumUnits:         1,
 		Placement:        []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
-		Resources:        map[string]string{"foo-file": "3"},
+		Resources:        map[string]string{"foo-resource": "3"},
 		Storage:          map[string]state.StorageConstraints{},
 	}
 	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}).Return(s.application, nil)
@@ -971,11 +972,6 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 		Revision:         5,
 	})
 
-	pendUp := &params.PendingResourceUpload{
-		Name:     "foo-resource",
-		Type:     "file",
-		Filename: "bar",
-	}
 	c.Assert(resources, gc.DeepEquals, []*params.PendingResourceUpload{pendUp})
 }
 
@@ -983,6 +979,21 @@ func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc
 	defer s.setupMocks(c).Finish()
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testme",
+	}
+	pendUp := &params.PendingResourceUpload{
+		Name:     "foo-resource",
+		Type:     "file",
+		Filename: "bar",
+	}
+	meta := resource.Meta{
+		Name:        "foo-resource",
+		Type:        resource.TypeFile,
+		Path:        "foo.txt",
+		Description: "bar",
+	}
+	r := resource.Resource{
+		Meta:   meta,
+		Origin: resource.OriginUpload,
 	}
 	template := deployTemplate{
 		applicationName: "metadata-name",
@@ -996,8 +1007,10 @@ func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc
 			Channel:  &charm.Channel{Risk: "stable"},
 			Platform: corecharm.MustParsePlatform("amd64/ubuntu/22.04"),
 		},
-		placement: []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
-		resources: map[string]string{"foo-file": "bar"},
+		placement:              []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
+		resources:              map[string]string{"foo-file": "bar"},
+		pendingResourceUploads: []*params.PendingResourceUpload{pendUp},
+		resolvedResources:      []resource.Resource{r},
 	}
 	s.validator.EXPECT().ValidateArg(arg).Return(template, nil)
 	info := state.CharmInfo{
@@ -1006,21 +1019,6 @@ func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc
 	}
 
 	s.state.EXPECT().AddCharmMetadata(info).Return(s.charm, nil)
-
-	meta := resource.Meta{
-		Name:        "foo-resource",
-		Type:        resource.TypeFile,
-		Path:        "foo.txt",
-		Description: "bar",
-	}
-	r := resource.Resource{
-		Meta:   meta,
-		Origin: resource.OriginUpload,
-	}
-	s.charm.EXPECT().Meta().Return(&charm.Meta{
-		Resources: map[string]resource.Meta{
-			"foo-file": meta,
-		}})
 
 	s.state.EXPECT().AddPendingResource("metadata-name", r).Return("3", nil)
 
@@ -1045,11 +1043,11 @@ func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc
 		EndpointBindings: map[string]string{"to": "from"},
 		NumUnits:         1,
 		Placement:        []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
-		Resources:        map[string]string{"foo-file": "3"},
+		Resources:        map[string]string{"foo-resource": "3"},
 		Storage:          map[string]state.StorageConstraints{},
 	}
 
-	s.state.EXPECT().RemovePendingResources("metadata-name", map[string]string{"foo-file": "3"})
+	s.state.EXPECT().RemovePendingResources("metadata-name", map[string]string{"foo-resource": "3"})
 
 	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}).Return(s.application,
 		errors.New("fail"))
