@@ -13,7 +13,6 @@ import (
 	services "github.com/juju/juju/apiserver/facades/client/charms/services"
 	cloud "github.com/juju/juju/cloud"
 	controller "github.com/juju/juju/controller"
-	charm "github.com/juju/juju/core/charm"
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
@@ -313,22 +312,6 @@ func NewMockDeployFromRepositoryValidator(ctrl *gomock.Controller) *MockDeployFr
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockDeployFromRepositoryValidator) EXPECT() *MockDeployFromRepositoryValidatorMockRecorder {
 	return m.recorder
-}
-
-// ResolveResources mocks base method.
-func (m *MockDeployFromRepositoryValidator) ResolveResources(arg0 *v10.URL, arg1 charm.Origin, arg2 map[string]string, arg3 map[string]resource.Meta) ([]resource.Resource, []*params.PendingResourceUpload, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ResolveResources", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].([]resource.Resource)
-	ret1, _ := ret[1].([]*params.PendingResourceUpload)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// ResolveResources indicates an expected call of ResolveResources.
-func (mr *MockDeployFromRepositoryValidatorMockRecorder) ResolveResources(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveResources", reflect.TypeOf((*MockDeployFromRepositoryValidator)(nil).ResolveResources), arg0, arg1, arg2, arg3)
 }
 
 // ValidateArg mocks base method.
