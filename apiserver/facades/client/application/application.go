@@ -682,7 +682,7 @@ func deployApplication(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	origin, err := convertCharmOrigin(args.CharmOrigin, curl, args.Channel)
+	origin, err := convertCharmOrigin(args.CharmOrigin, curl, args.Channel, args.Series)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -707,7 +707,11 @@ func deployApplication(
 	return errors.Trace(err)
 }
 
-func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreChannel string) (corecharm.Origin, error) {
+// convertCharmOrigin converts a params CharmOrigin to a core charm
+// Origin. If the input origin is nil, a core charm Origin is deduced
+// from the provided data. It is used in both deploying and refreshing
+// charms, including from old clients which aren't charm origin aware.
+func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreChannel, maybeSeries string) (corecharm.Origin, error) {
 	var (
 		originType string
 		platform   corecharm.Platform
@@ -723,10 +727,28 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 			OS:           base.Name,
 			Channel:      base.Channel.Track,
 		}
+	} else {
+		base, err := series.GetBaseFromSeries(maybeSeries)
+		if err != nil {
+			return corecharm.Origin{}, errors.Trace(err)
+		}
+		platform = corecharm.Platform{
+			OS:      base.Name,
+			Channel: base.Channel.Track,
+		}
 	}
 
 	switch {
-	case origin == nil || origin.Source == "" || origin.Source == "charm-store":
+	case corecharm.Local.Matches(curl.Schema):
+		orig := corecharm.Origin{
+			Type:     originType,
+			Source:   corecharm.Local,
+			Revision: &curl.Revision,
+			Platform: platform,
+		}
+		return orig, nil
+	case origin == nil || origin.Source == "" || charm.CharmStore.Matches(origin.Source) ||
+		corecharm.CharmStore.Matches(curl.Schema):
 		var rev *int
 		if curl.Revision != -1 {
 			rev = &curl.Revision
@@ -737,20 +759,14 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 				Risk: charm.Risk(charmStoreChannel),
 			}
 		}
-		return corecharm.Origin{
+		orig := corecharm.Origin{
 			Type:     originType,
 			Source:   corecharm.CharmStore,
 			Revision: rev,
 			Channel:  ch,
 			Platform: platform,
-		}, nil
-	case origin.Source == "local":
-		return corecharm.Origin{
-			Type:     originType,
-			Source:   corecharm.Local,
-			Revision: &curl.Revision,
-			Platform: platform,
-		}, nil
+		}
+		return orig, nil
 	}
 
 	var track string
@@ -1200,7 +1216,7 @@ func (api *APIBase) setCharmWithAgentValidation(
 	if err != nil {
 		logger.Debugf("Unable to locate current charm: %v", err)
 	}
-	newOrigin, err := convertCharmOrigin(params.CharmOrigin, curl, string(params.Channel))
+	newOrigin, err := convertCharmOrigin(params.CharmOrigin, curl, string(params.Channel), oneApplication.Series())
 	if err != nil {
 		return errors.Trace(err)
 	}
