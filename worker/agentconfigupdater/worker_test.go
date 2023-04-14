@@ -237,7 +237,8 @@ func (s *WorkerSuite) TestUpdateQueryTracingThreshold(c *gc.C) {
 	// Query tracing threshold is the same, worker still alive.
 	workertest.CheckAlive(c, w)
 
-	newConfig.Config[controller.QueryTracingThreshold] = time.Duration(time.Second * 2).String()
+	d := time.Second * 2
+	newConfig.Config[controller.QueryTracingThreshold] = d.String()
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	select {

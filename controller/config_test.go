@@ -973,7 +973,8 @@ func (s *ConfigSuite) TestQueryTraceThreshold(c *gc.C) {
 	cfg[controller.QueryTracingThreshold] = time.Second * 10
 	c.Assert(cfg.QueryTracingThreshold(), gc.Equals, time.Second*10)
 
-	cfg[controller.QueryTracingThreshold] = time.Duration(time.Second * 10).String()
+	d := time.Second * 10
+	cfg[controller.QueryTracingThreshold] = d.String()
 
 	bytes, err := json.Marshal(cfg)
 	c.Assert(err, jc.ErrorIsNil)
