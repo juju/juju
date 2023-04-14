@@ -89,20 +89,12 @@ func (s *baseSuite) expectTimer(ticks int) <-chan struct{} {
 	return s.expectTick(ch, ticks)
 }
 
-func (s *baseSuite) expectTrackedDB(c *gc.C) chan struct{} {
-	done := make(chan struct{})
-
+// expectTrackedDBKill accommodates termination of the TrackedDB.
+// the expectations are soft, because the worker may not have called the
+// NewDBWorker function before it is killed.
+func (s *baseSuite) expectTrackedDBKill() {
 	s.trackedDB.EXPECT().Kill().AnyTimes()
-	s.trackedDB.EXPECT().Wait().DoAndReturn(func() error {
-		select {
-		case <-done:
-		case <-time.After(jujutesting.LongWait):
-			c.Fatal("timed out waiting for Wait to be called")
-		}
-		return nil
-	})
-
-	return done
+	s.trackedDB.EXPECT().Wait().Return(nil).AnyTimes()
 }
 
 type dbBaseSuite struct {
