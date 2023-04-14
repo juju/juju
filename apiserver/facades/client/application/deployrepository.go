@@ -175,14 +175,12 @@ func (v *deployFromRepositoryValidator) resolveResources(
 	var resources []resource.Resource
 
 	for name, meta := range resMeta {
-		deployValue, ok := deployResArg[name]
-
 		r := resource.Resource{
 			Meta:     meta,
 			Origin:   resource.OriginStore,
 			Revision: -1,
 		}
-		r.Name = name
+		deployValue, ok := deployResArg[name]
 		if ok {
 			// resource flag is used on the cli, either a resource revision, or a filename
 			if providedRev, err := strconv.Atoi(deployValue); err == nil {
@@ -211,7 +209,7 @@ func (v *deployFromRepositoryValidator) resolveResources(
 		return nil, nil, errors.Trace(err)
 	}
 	resolvedResources, resolveErr := repo.ResolveResources(resources, corecharm.CharmID{URL: curl, Origin: origin})
-	
+
 	return resolvedResources, pendingUploadIDs, resolveErr
 }
 
