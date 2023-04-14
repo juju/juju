@@ -32,7 +32,6 @@ require (
 	github.com/coreos/go-systemd/v22 v22.3.2
 	github.com/docker/distribution v2.8.0+incompatible
 	github.com/dustin/go-humanize v1.0.1
-	github.com/ghodss/yaml v1.0.0
 	github.com/go-goose/goose/v5 v5.0.0-20220707165353-781664254fe4
 	github.com/go-logr/logr v1.2.2
 	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.1

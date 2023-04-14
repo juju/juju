@@ -14,6 +14,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
@@ -184,11 +185,10 @@ func (s *nodeManagerSuite) TestSetClusterServersSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// cluster.yaml should reflect the new server list.
-	c.Check(string(data), gc.Equals, `
-- Address: 10.6.6.6:17666
-  ID: 3297041220608546238
-  Role: 0
-`[1:])
+	var result []dqlite.NodeInfo
+	err = yaml.Unmarshal(data, &result)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, servers)
 }
 
 func (s *nodeManagerSuite) TestSetNodeInfoSuccess(c *gc.C) {
@@ -226,11 +226,10 @@ Role: 0
 	c.Assert(err, jc.ErrorIsNil)
 
 	// info.yaml should reflect the new node info.
-	c.Check(string(data), gc.Equals, `
-Address: 10.6.6.6:17666
-ID: 3297041220608546238
-Role: 0
-`[1:])
+	var result dqlite.NodeInfo
+	err = yaml.Unmarshal(data, &result)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, server)
 }
 
 func (s *nodeManagerSuite) TestWithAddressOptionSuccess(c *gc.C) {

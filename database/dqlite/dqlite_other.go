@@ -5,10 +5,12 @@
 
 package dqlite
 
+type NodeRole int
+
 type NodeInfo struct {
-	ID      uint64
-	Address string
-	Role    int
+	ID      uint64   `yaml:"ID"`
+	Address string   `yaml:"Address"`
+	Role    NodeRole `yaml:"Role"`
 }
 
 func ReconfigureMembership(string, []NodeInfo) error {
