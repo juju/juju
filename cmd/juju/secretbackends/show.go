@@ -65,7 +65,7 @@ func (c *showSecretBackendCommand) Info() *cmd.Info {
 		Examples: showSecretBackendsExamples,
 		SeeAlso: []string{
 			"add-secret-backend",
-			"list-secret-backends",
+			"secret-backends",
 			"remove-secret-backend",
 			"update-secret-backend",
 		},

@@ -204,7 +204,6 @@ func (c *addRelationCommand) Info() *cmd.Info {
 			"consume",
 			"find-offers",
 			"set-firewall-rule",
-			"suspend-integration",
 		},
 	}
 	return jujucmd.Info(addCmd)

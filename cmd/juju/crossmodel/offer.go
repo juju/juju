@@ -84,7 +84,7 @@ func (c *offerCommand) Info() *cmd.Info {
 		Examples: offerCommandExamples,
 		SeeAlso: []string{
 			"consume",
-			"relate",
+			"integrate",
 			"remove-saas",
 		},
 	})

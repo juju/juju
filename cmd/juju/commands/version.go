@@ -14,17 +14,14 @@ import (
 )
 
 const versionDoc = `
-Print only the Juju CLI client version.
+Print only the Juju CLI client version.`
 
+const versionExamplesDoc = `
 To see the version of Juju running on a particular controller, use
   juju show-controller
 
 To see the version of Juju running on a particular model, use
-  juju show-model
-
-See also:
-    show-controller
-    show-model`
+  juju show-model`
 
 // versionDetail is populated with version information from juju/juju/cmd
 // and passed into each SuperCommand. It can be printed using `juju version --all`.
@@ -58,9 +55,14 @@ func newVersionCommand() *versionCommand {
 
 func (v *versionCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "version",
-		Purpose: "Print the Juju CLI client version.",
-		Doc:     versionDoc,
+		Name:     "version",
+		Purpose:  "Print the Juju CLI client version.",
+		Doc:      versionDoc,
+		Examples: versionExamplesDoc,
+		SeeAlso: []string{
+			"show-controller",
+			"show-model",
+		},
 	}
 }
 
