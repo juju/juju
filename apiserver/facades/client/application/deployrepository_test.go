@@ -5,12 +5,13 @@ package application
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/kr/pretty"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/charm/v10"
 	"github.com/juju/charm/v10/resource"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/kr/pretty"
-	gc "gopkg.in/check.v1"
 
 	corecharm "github.com/juju/juju/core/charm"
 	coreconfig "github.com/juju/juju/core/config"
@@ -49,11 +50,12 @@ func (s *validatorSuite) TestValidateSuccess(c *gc.C) {
 		Source:   "charm-hub",
 		Type:     "charm",
 		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
-		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
 		Revision: intptr(4),
 	}
 	supportedSeries := []string{"jammy", "focal"}
 	s.repo.EXPECT().ResolveWithPreferredChannel(curl, origin).Return(resultURL, resolvedOrigin, supportedSeries, nil)
+	s.repo.EXPECT().ResolveResources(nil, corecharm.CharmID{URL: resultURL, Origin: resolvedOrigin}).Return(nil, nil)
 	// getCharm
 	expMeta := &charm.Meta{
 		Name: "test-charm",
@@ -101,11 +103,13 @@ func (s *validatorSuite) TestValidatePlacementSuccess(c *gc.C) {
 		Source:   "charm-hub",
 		Type:     "charm",
 		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
-		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
 		Revision: intptr(4),
 	}
 	supportedSeries := []string{"jammy", "focal"}
 	s.repo.EXPECT().ResolveWithPreferredChannel(curl, origin).Return(resultURL, resolvedOrigin, supportedSeries, nil)
+	s.repo.EXPECT().ResolveResources(nil, corecharm.CharmID{URL: resultURL, Origin: resolvedOrigin}).Return(nil, nil)
+
 	// getCharm
 	expMeta := &charm.Meta{
 		Name: "test-charm",
@@ -166,11 +170,13 @@ func (s *validatorSuite) TestValidateEndpointBindingSuccess(c *gc.C) {
 		Source:   "charm-hub",
 		Type:     "charm",
 		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
-		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
 		Revision: intptr(4),
 	}
 	supportedSeries := []string{"jammy", "focal"}
 	s.repo.EXPECT().ResolveWithPreferredChannel(curl, origin).Return(resultURL, resolvedOrigin, supportedSeries, nil)
+	s.repo.EXPECT().ResolveResources(nil, corecharm.CharmID{URL: resultURL, Origin: resolvedOrigin}).Return(nil, nil)
+
 	// getCharm
 	expMeta := &charm.Meta{
 		Name: "test-charm",
@@ -228,7 +234,7 @@ func (s *validatorSuite) TestResolveCharm(c *gc.C) {
 		Source:   "charm-hub",
 		Type:     "charm",
 		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
-		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
 		Revision: intptr(4),
 	}
 	supportedSeries := []string{"jammy", "focal"}
@@ -257,7 +263,7 @@ func (s *validatorSuite) TestResolveCharmArchAll(c *gc.C) {
 		Source:   "charm-hub",
 		Type:     "charm",
 		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
-		Platform: corecharm.Platform{Architecture: "all", OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: corecharm.Platform{Architecture: "all", OS: "ubuntu", Channel: "22.04"},
 		Revision: intptr(4),
 	}
 	supportedSeries := []string{"jammy", "focal"}
@@ -280,13 +286,13 @@ func (s *validatorSuite) TestResolveCharmUnsupportedSeriesErrorForce(c *gc.C) {
 	origin := corecharm.Origin{
 		Source:   "charm-hub",
 		Channel:  &charm.Channel{Risk: "stable"},
-		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
 	}
 	resolvedOrigin := corecharm.Origin{
 		Source:   "charm-hub",
 		Type:     "charm",
 		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
-		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
 		Revision: intptr(4),
 	}
 	supportedSeries := []string{"focal"}
@@ -308,13 +314,13 @@ func (s *validatorSuite) TestResolveCharmUnsupportedSeriesError(c *gc.C) {
 	origin := corecharm.Origin{
 		Source:   "charm-hub",
 		Channel:  &charm.Channel{Risk: "stable"},
-		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
 	}
 	resolvedOrigin := corecharm.Origin{
 		Source:   "charm-hub",
 		Type:     "charm",
 		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
-		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
 		Revision: intptr(4),
 	}
 	supportedSeries := []string{"focal"}
@@ -438,7 +444,7 @@ func (s *validatorSuite) TestGetCharm(c *gc.C) {
 		Source:   "charm-hub",
 		Type:     "charm",
 		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
-		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
 		Revision: intptr(4),
 	}
 	supportedSeries := []string{"jammy", "focal"}
@@ -683,15 +689,18 @@ func (s *validatorSuite) TestCaasDeployFromRepositoryValidator(c *gc.C) {
 		Source:   "charm-hub",
 		Type:     "charm",
 		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
-		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
 		Revision: intptr(4),
 	}
 	supportedSeries := []string{"jammy", "focal"}
 	s.repo.EXPECT().ResolveWithPreferredChannel(curl, origin).Return(resultURL, resolvedOrigin, supportedSeries, nil)
+	s.repo.EXPECT().ResolveResources(nil, corecharm.CharmID{URL: resultURL, Origin: resolvedOrigin}).Return(nil, nil)
+
 	// getCharm
 	expMeta := &charm.Meta{
 		Name: "test-charm",
 	}
+
 	expManifest := new(charm.Manifest)
 	expConfig := new(charm.Config)
 	essMeta := corecharm.EssentialMetadata{
