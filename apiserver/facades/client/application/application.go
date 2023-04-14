@@ -711,62 +711,21 @@ func deployApplication(
 // Origin. If the input origin is nil, a core charm Origin is deduced
 // from the provided data. It is used in both deploying and refreshing
 // charms, including from old clients which aren't charm origin aware.
+// MaybeSeries is a fallback if the origin is not provided.
 func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreChannel, maybeSeries string) (corecharm.Origin, error) {
-	var (
-		originType string
-		platform   corecharm.Platform
-	)
-	if origin != nil {
-		originType = origin.Type
-		base, err := charms.ConvertParamsBase(*origin)
-		if err != nil {
-			return corecharm.Origin{}, errors.Trace(err)
-		}
-		platform = corecharm.Platform{
-			Architecture: origin.Architecture,
-			OS:           base.Name,
-			Channel:      base.Channel.Track,
-		}
-	} else {
-		base, err := series.GetBaseFromSeries(maybeSeries)
-		if err != nil {
-			return corecharm.Origin{}, errors.Trace(err)
-		}
-		platform = corecharm.Platform{
-			OS:      base.Name,
-			Channel: base.Channel.Track,
-		}
+	if origin == nil {
+		return createCharmOrigin(curl, charmStoreChannel, maybeSeries)
 	}
 
-	switch {
-	case corecharm.Local.Matches(curl.Schema):
-		orig := corecharm.Origin{
-			Type:     originType,
-			Source:   corecharm.Local,
-			Revision: &curl.Revision,
-			Platform: platform,
-		}
-		return orig, nil
-	case origin == nil || origin.Source == "" || charm.CharmStore.Matches(origin.Source) ||
-		corecharm.CharmStore.Matches(curl.Schema):
-		var rev *int
-		if curl.Revision != -1 {
-			rev = &curl.Revision
-		}
-		var ch *charm.Channel
-		if charmStoreChannel != "" {
-			ch = &charm.Channel{
-				Risk: charm.Risk(charmStoreChannel),
-			}
-		}
-		orig := corecharm.Origin{
-			Type:     originType,
-			Source:   corecharm.CharmStore,
-			Revision: rev,
-			Channel:  ch,
-			Platform: platform,
-		}
-		return orig, nil
+	originType := origin.Type
+	base, err := charms.ConvertParamsBase(*origin)
+	if err != nil {
+		return corecharm.Origin{}, errors.Trace(err)
+	}
+	platform := corecharm.Platform{
+		Architecture: origin.Architecture,
+		OS:           base.Name,
+		Channel:      base.Channel.Track,
 	}
 
 	var track string
@@ -792,6 +751,44 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 		Hash:     origin.Hash,
 		Revision: origin.Revision,
 		Channel:  channel,
+		Platform: platform,
+	}, nil
+}
+
+func createCharmOrigin(curl *charm.URL, charmStoreChannel, maybeSeries string) (corecharm.Origin, error) {
+	base, err := series.GetBaseFromSeries(maybeSeries)
+	if err != nil {
+		return corecharm.Origin{}, errors.Trace(err)
+	}
+	platform := corecharm.Platform{
+		OS:      base.Name,
+		Channel: base.Channel.Track,
+	}
+
+	if corecharm.Local.Matches(curl.Schema) {
+		return corecharm.Origin{
+			Type:     "charm",
+			Source:   corecharm.Local,
+			Revision: &curl.Revision,
+			Platform: platform,
+		}, nil
+	}
+
+	var rev *int
+	if curl.Revision != -1 {
+		rev = &curl.Revision
+	}
+	var ch *charm.Channel
+	if charmStoreChannel != "" {
+		ch = &charm.Channel{
+			Risk: charm.Risk(charmStoreChannel),
+		}
+	}
+	return corecharm.Origin{
+		Type:     "charm",
+		Source:   corecharm.CharmStore,
+		Revision: rev,
+		Channel:  ch,
 		Platform: platform,
 	}, nil
 }
