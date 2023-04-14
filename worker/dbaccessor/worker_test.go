@@ -33,8 +33,7 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 
 	s.expectAnyLogs()
 	s.expectClock()
-
-	done := s.expectTrackedDB(c)
+	s.expectTrackedDBKill()
 
 	mgrExp := s.nodeManager.EXPECT()
 	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
@@ -106,9 +105,6 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 		c.Fatal("timed out waiting for Dqlite node start")
 	}
 
-	// Close the wait on the tracked DB
-	close(done)
-
 	workertest.CleanKill(c, w)
 }
 
@@ -117,8 +113,7 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 
 	s.expectAnyLogs()
 	s.expectClock()
-
-	done := s.expectTrackedDB(c)
+	s.expectTrackedDBKill()
 
 	mgrExp := s.nodeManager.EXPECT()
 	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
@@ -146,9 +141,6 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 		c.Fatal("timed out waiting for Dqlite node start")
 	}
 
-	// Close the wait on the tracked DB.
-	close(done)
-
 	workertest.CleanKill(c, w)
 }
 
@@ -157,8 +149,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 
 	s.expectAnyLogs()
 	s.expectClock()
-
-	done := s.expectTrackedDB(c)
+	s.expectTrackedDBKill()
 
 	dataDir := c.MkDir()
 	mgrExp := s.nodeManager.EXPECT()
@@ -212,9 +203,6 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 		c.Fatal("timed out waiting for cluster change to be processed")
 	}
 
-	// Close the wait on the tracked DB.
-	close(done)
-
 	workertest.CleanKill(c, w)
 }
 
@@ -223,8 +211,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 
 	s.expectAnyLogs()
 	s.expectClock()
-
-	done := s.expectTrackedDB(c)
+	s.expectTrackedDBKill()
 
 	dataDir := c.MkDir()
 	mgrExp := s.nodeManager.EXPECT()
@@ -286,9 +273,6 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for cluster change to be processed")
 	}
-
-	// Close the wait on the tracked DB.
-	close(done)
 
 	err := workertest.CheckKilled(c, w)
 	c.Assert(errors.Is(err, dependency.ErrBounce), jc.IsTrue)
