@@ -206,12 +206,12 @@ func (v *deployFromRepositoryValidator) resolveResources(
 		resources = append(resources, r)
 	}
 
-	repo, err := v.repoFactory.GetCharmRepository(origin.Source)
+	repo, err := v.getCharmRepository(origin.Source)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 	resolvedResources, resolveErr := repo.ResolveResources(resources, corecharm.CharmID{URL: curl, Origin: origin})
-
+	
 	return resolvedResources, pendingUploadIDs, resolveErr
 }
 
