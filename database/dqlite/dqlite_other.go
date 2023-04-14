@@ -5,6 +5,11 @@
 
 package dqlite
 
+const (
+	// Enabled is false if dqlite is disabled.
+	Enabled = false
+)
+
 type NodeRole int
 
 type NodeInfo struct {

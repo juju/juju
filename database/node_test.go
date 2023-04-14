@@ -30,6 +30,14 @@ type nodeManagerSuite struct {
 
 var _ = gc.Suite(&nodeManagerSuite{})
 
+func (s *nodeManagerSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
+	if !dqlite.Enabled {
+		c.Skip("This requires a dqlite server to be running")
+	}
+}
+
 func (s *nodeManagerSuite) TestEnsureDataDirSuccess(c *gc.C) {
 	subDir := strconv.Itoa(rand.Intn(10))
 
