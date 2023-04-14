@@ -4,6 +4,8 @@
 package modelconfig
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
@@ -346,7 +348,7 @@ func (c *ModelConfigAPI) checkSecretBackend() state.ValidateConfigFunc {
 		}
 		backendName, ok := v.(string)
 		if !ok {
-			return errors.NotValidf("%q is not a string", config.SecretBackendKey)
+			return errors.NewNotValid(nil, fmt.Sprintf("%q config value is not a string", config.SecretBackendKey))
 		}
 		if backendName == "" {
 			return errors.NotValidf("empty %q config value", config.SecretBackendKey)
