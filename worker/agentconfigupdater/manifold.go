@@ -86,11 +86,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, errors.Annotate(err, "getting controller config")
 			}
+
+			logger := config.Logger
+
 			// If the mongo memory profile from the controller config
 			// is different from the one in the agent config we need to
 			// restart the agent to apply the memory profile to the mongo
 			// service.
-			logger := config.Logger
 			agentsMongoMemoryProfile := agent.CurrentConfig().MongoMemoryProfile()
 			configMongoMemoryProfile := mongo.MemoryProfile(controllerConfig.MongoMemoryProfile())
 			mongoProfileChanged := agentsMongoMemoryProfile != configMongoMemoryProfile

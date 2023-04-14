@@ -5,6 +5,7 @@ package controller_test
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -971,4 +972,15 @@ func (s *ConfigSuite) TestQueryTraceThreshold(c *gc.C) {
 
 	cfg[controller.QueryTracingThreshold] = time.Second * 10
 	c.Assert(cfg.QueryTracingThreshold(), gc.Equals, time.Second*10)
+
+	cfg[controller.QueryTracingThreshold] = time.Duration(time.Second * 10).String()
+
+	bytes, err := json.Marshal(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var cfg2 controller.Config
+	err = json.Unmarshal(bytes, &cfg2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(cfg2.QueryTracingThreshold(), gc.Equals, time.Second*10)
 }
