@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -247,7 +248,7 @@ func (m *NodeManager) slowQueryLogFunc(threshold time.Duration) client.LogFunc {
 		queryType := parseSlowQuery(msg, args, threshold)
 		switch queryType {
 		case slowQuery:
-			m.logger.Warningf("slow query: "+msg, args...)
+			m.logger.Warningf("slow query: "+msg+"\n%s", append(args, debug.Stack())...)
 		case normalQuery:
 			m.appLogFunc(level, msg, args...)
 		default:
