@@ -5342,3 +5342,20 @@ func (s *ApplicationSuite) TestWatch(c *gc.C) {
 
 	wc.AssertChange("e1471e8a7299da0ac2150445ffc6d08d9d801194037d88416c54b01899b8a9b2")
 }
+
+func (s *ApplicationSuite) TestProvisioningState(c *gc.C) {
+	ps := s.mysql.ProvisioningState()
+	c.Assert(ps, gc.IsNil)
+
+	err := s.mysql.SetProvisioningState(state.ApplicationProvisioningState{
+		Scaling:     true,
+		ScaleTarget: 10,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ps = s.mysql.ProvisioningState()
+	c.Assert(ps, jc.DeepEquals, &state.ApplicationProvisioningState{
+		Scaling:     true,
+		ScaleTarget: 10,
+	})
+}

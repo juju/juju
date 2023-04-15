@@ -6960,6 +6960,18 @@
                     },
                     "description": "ProvisioningInfo returns the info needed to provision a caas application."
                 },
+                "ProvisioningState": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/CAASApplicationProvisioningStateResult"
+                        }
+                    },
+                    "description": "ProvisioningState returns the provisioning state for the application."
+                },
                 "Remove": {
                     "type": "object",
                     "properties": {
@@ -6995,6 +7007,18 @@
                         }
                     },
                     "description": "SetPasswords sets the given password for each supplied entity, if possible."
+                },
+                "SetProvisioningState": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/CAASApplicationProvisioningStateArg"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResult"
+                        }
+                    },
+                    "description": "SetProvisioningState sets the provisioning state for the application."
                 },
                 "Units": {
                     "type": "object",
@@ -7330,6 +7354,50 @@
                     "required": [
                         "results"
                     ]
+                },
+                "CAASApplicationProvisioningState": {
+                    "type": "object",
+                    "properties": {
+                        "scale-target": {
+                            "type": "integer"
+                        },
+                        "scaling": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "scaling",
+                        "scale-target"
+                    ]
+                },
+                "CAASApplicationProvisioningStateArg": {
+                    "type": "object",
+                    "properties": {
+                        "application": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "provisioning-state": {
+                            "$ref": "#/definitions/CAASApplicationProvisioningState"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "application",
+                        "provisioning-state"
+                    ]
+                },
+                "CAASApplicationProvisioningStateResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "provisioning-state": {
+                            "$ref": "#/definitions/CAASApplicationProvisioningState"
+                        }
+                    },
+                    "additionalProperties": false
                 },
                 "CAASUnitInfo": {
                     "type": "object",

@@ -920,3 +920,33 @@ func (s *CAASApplicationProvisionerSuite) TestWatchUnits(c *gc.C) {
 	res := s.resources.Get("1")
 	c.Assert(res, gc.Equals, s.st.app.unitsWatcher)
 }
+
+func (s *CAASApplicationProvisionerSuite) TestProvisioningState(c *gc.C) {
+	s.st.app = &mockApplication{
+		life:              state.Alive,
+		provisioningState: nil,
+	}
+
+	result, err := s.api.ProvisioningState(params.Entity{Tag: "application-gitlab"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.ProvisioningState, gc.IsNil)
+
+	setResult, err := s.api.SetProvisioningState(params.CAASApplicationProvisioningStateArg{
+		Application: params.Entity{Tag: "application-gitlab"},
+		ProvisioningState: params.CAASApplicationProvisioningState{
+			Scaling:     true,
+			ScaleTarget: 10,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(setResult.Error, gc.IsNil)
+
+	result, err = s.api.ProvisioningState(params.Entity{Tag: "application-gitlab"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.ProvisioningState, jc.DeepEquals, &params.CAASApplicationProvisioningState{
+		Scaling:     true,
+		ScaleTarget: 10,
+	})
+
+	s.st.app.Stub.CheckCallNames(c, "ProvisioningState", "SetProvisioningState", "ProvisioningState")
+}

@@ -48,6 +48,7 @@ type Application interface {
 	UpdateUnits(unitsOp *state.UpdateUnitsOperation) error
 	AddUnit(args state.AddUnitParams) (unit Unit, err error)
 	GetScale() int
+	ProvisioningState() *state.ApplicationProvisioningState
 }
 
 // Charm provides the subset of charm state required by the

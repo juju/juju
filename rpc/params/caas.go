@@ -181,3 +181,23 @@ type CAASUnitsResult struct {
 type CAASUnitsResults struct {
 	Results []CAASUnitsResult `json:"results"`
 }
+
+// CAASApplicationProvisioningState represents the provisioning state for a CAAS application.
+type CAASApplicationProvisioningState struct {
+	Scaling     bool `json:"scaling"`
+	ScaleTarget int  `json:"scale-target"`
+}
+
+// CAASApplicationProvisioningStateResult represents the result of getting the
+// provisioning state for a CAAS application.
+type CAASApplicationProvisioningStateResult struct {
+	ProvisioningState *CAASApplicationProvisioningState `json:"provisioning-state,omitempty"`
+	Error             *Error                            `json:"error,omitempty"`
+}
+
+// CAASApplicationProvisioningStateArg holds the arguments for setting a CAAS application's
+// provisioning state.
+type CAASApplicationProvisioningStateArg struct {
+	Application       Entity                           `json:"application"`
+	ProvisioningState CAASApplicationProvisioningState `json:"provisioning-state"`
+}

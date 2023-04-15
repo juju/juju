@@ -208,7 +208,10 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 			if err != nil {
 				return errResp(err)
 			}
-			if ord >= application.GetScale() {
+
+			// TODO: we need to move almost all this logic into a txn.
+			ps := application.ProvisioningState()
+			if ord >= application.GetScale() || (ps != nil && ps.Scaling && ord >= ps.ScaleTarget) {
 				return errResp(errors.NotAssignedf("unrequired unit"))
 			}
 		default:

@@ -1470,3 +1470,60 @@ func (a *API) destroyUnit(args params.DestroyUnitParams) (params.DestroyUnitResu
 
 	return params.DestroyUnitResult{}, nil
 }
+
+// ProvisioningState returns the provisioning state for the application.
+func (a *API) ProvisioningState(args params.Entity) (params.CAASApplicationProvisioningStateResult, error) {
+	result := params.CAASApplicationProvisioningStateResult{}
+
+	appTag, err := names.ParseApplicationTag(args.Tag)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+
+	app, err := a.state.Application(appTag.Id())
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+
+	ps := app.ProvisioningState()
+	if ps == nil {
+		return result, nil
+	}
+
+	result.ProvisioningState = &params.CAASApplicationProvisioningState{
+		Scaling:     ps.Scaling,
+		ScaleTarget: ps.ScaleTarget,
+	}
+	return result, nil
+}
+
+// SetProvisioningState sets the provisioning state for the application.
+func (a *API) SetProvisioningState(args params.CAASApplicationProvisioningStateArg) (params.ErrorResult, error) {
+	result := params.ErrorResult{}
+
+	appTag, err := names.ParseApplicationTag(args.Application.Tag)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+
+	app, err := a.state.Application(appTag.Id())
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+
+	ps := state.ApplicationProvisioningState{
+		Scaling:     args.ProvisioningState.Scaling,
+		ScaleTarget: args.ProvisioningState.ScaleTarget,
+	}
+	err = app.SetProvisioningState(ps)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+
+	return result, nil
+}

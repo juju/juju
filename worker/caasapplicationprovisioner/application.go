@@ -46,6 +46,7 @@ type appWorker struct {
 	password    string
 	lastApplied caas.ApplicationConfig
 	life        life.Value
+	ps          params.CAASApplicationProvisioningState
 }
 
 type AppWorkerConfig struct {
@@ -57,6 +58,8 @@ type AppWorkerConfig struct {
 	Logger     Logger
 	UnitFacade CAASUnitProvisionerFacade
 }
+
+const retryError errors.ConstError = "retry operation"
 
 type NewAppWorkerFunc func(AppWorkerConfig) func() (worker.Worker, error)
 
@@ -226,6 +229,27 @@ func (a *appWorker) loop() error {
 	}
 
 	done := false
+	ps, err := a.facade.ProvisioningState(a.name)
+	if err != nil {
+		return errors.Annotatef(err, "failed to get provisioning state for application %q", a.name)
+	}
+	if ps != nil {
+		a.ps = *ps
+	}
+
+	var (
+		initial             = true
+		scaleChan           <-chan time.Time
+		scaleTries          int
+		trustChan           <-chan time.Time
+		trustTries          int
+		reconcileDeadChan   <-chan time.Time
+		stateAppChangedChan <-chan time.Time
+	)
+	const (
+		maxRetries = 20
+		retryDelay = 3 * time.Second
+	)
 
 	handleChange := func() error {
 		appLife, err = a.facade.Life(a.name)
@@ -235,6 +259,12 @@ func (a *appWorker) loop() error {
 			return errors.Trace(err)
 		}
 		a.life = appLife
+
+		if initial && a.ps.Scaling {
+			initial = false
+			scaleChan = a.clock.After(0)
+			reconcileDeadChan = a.clock.After(0)
+		}
 		switch appLife {
 		case life.Alive:
 			if appProvisionChanges == nil {
@@ -289,14 +319,6 @@ func (a *appWorker) loop() error {
 		return nil
 	}
 
-	var scaleChan <-chan time.Time
-	var scaleTries int
-	var trustChan <-chan time.Time
-	var trustTries int
-	var reconcileDeadChan <-chan time.Time
-	const maxRetries = 20
-	const retryDelay = 3 * time.Second
-
 	for {
 		shouldRefresh := true
 		select {
@@ -316,6 +338,9 @@ func (a *appWorker) loop() error {
 					return errors.Annotatef(err, "more than %d retries ensuring scale", maxRetries)
 				}
 				scaleTries++
+				scaleChan = a.clock.After(retryDelay)
+				shouldRefresh = false
+			} else if errors.Is(err, retryError) {
 				scaleChan = a.clock.After(retryDelay)
 				shouldRefresh = false
 			} else if err != nil {
@@ -343,6 +368,8 @@ func (a *appWorker) loop() error {
 			err := a.ReconcileDeadUnitScale(app)
 			if errors.Is(err, errors.NotFound) {
 				reconcileDeadChan = a.clock.After(retryDelay)
+			} else if errors.Is(err, retryError) {
+				reconcileDeadChan = a.clock.After(retryDelay)
 			} else if err != nil {
 				return fmt.Errorf("reconciling dead unit scale: %w", err)
 			} else {
@@ -365,15 +392,22 @@ func (a *appWorker) loop() error {
 		case <-a.catacomb.Dying():
 			return a.catacomb.ErrDying()
 		case <-appProvisionChanges:
-			err = handleChange()
-			if err != nil {
-				return errors.Trace(err)
+			if stateAppChangedChan == nil {
+				stateAppChangedChan = a.clock.After(0)
 			}
 		case <-a.changes:
+			if stateAppChangedChan == nil {
+				stateAppChangedChan = a.clock.After(0)
+			}
+		case <-stateAppChangedChan:
 			// Respond to life changes (Notify called by parent worker).
 			err = handleChange()
-			if err != nil {
+			if errors.Is(err, retryError) {
+				stateAppChangedChan = a.clock.After(retryDelay)
+			} else if err != nil {
 				return errors.Trace(err)
+			} else {
+				stateAppChangedChan = nil
 			}
 		case <-appChanges:
 			// Respond to changes in provider application.
@@ -657,23 +691,69 @@ func (a *appWorker) ensureScale(app caas.Application) error {
 	}
 
 	a.logger.Debugf("updating application %q scale to %d", a.name, desiredScale)
+	if !a.ps.Scaling || a.life != life.Alive {
+		// TODO: Fix this gargbage.
+		for {
+			newPs := params.CAASApplicationProvisioningState{
+				Scaling:     true,
+				ScaleTarget: desiredScale,
+			}
+			err = a.facade.SetProvisioningState(a.name, newPs)
+			if err != nil {
+				return errors.Annotatef(err, "setting provisiong state for application %q", a.name)
+			}
+			a.ps = newPs
 
-	ctx := context.TODO()
+			switch a.life {
+			case life.Alive:
+				desiredScale, err = a.unitFacade.ApplicationScale(a.name)
+				if err != nil {
+					return errors.Annotatef(err, "fetching application %q desired scale", a.name)
+				}
+			}
 
-	unitsToRemove, err := app.UnitsToRemove(ctx, desiredScale)
+			if a.ps.ScaleTarget == desiredScale {
+				break
+			}
+		}
+	}
+
+	units, err := a.facade.Units(a.name)
+	if err != nil {
+		return err
+	}
+	if a.ps.ScaleTarget >= len(units) {
+		err = app.Scale(a.ps.ScaleTarget)
+		if err != nil {
+			return err
+		}
+		newPs := params.CAASApplicationProvisioningState{}
+		err = a.facade.SetProvisioningState(a.name, newPs)
+		if err != nil {
+			return errors.Annotatef(err, "setting provisiong state for application %q", a.name)
+		}
+		a.ps = newPs
+		return nil
+	}
+
+	unitsToDestroy, err := app.UnitsToRemove(context.TODO(), a.ps.ScaleTarget)
 	if err != nil && errors.Is(err, errors.NotFound) {
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("scaling application %q to desired scale %d: %w",
-			a.name, desiredScale, err)
-	}
-	if len(unitsToRemove) == 0 {
-		return app.Scale(desiredScale)
+			a.name, a.ps.ScaleTarget, err)
 	}
 
-	if err := a.facade.DestroyUnits(unitsToRemove); err != nil {
-		return err
+	if len(unitsToDestroy) > 0 {
+		if err := a.facade.DestroyUnits(unitsToDestroy); err != nil {
+			return err
+		}
 	}
+
+	if a.ps.ScaleTarget != desiredScale {
+		return retryError
+	}
+
 	return nil
 }
 
@@ -808,6 +888,10 @@ func (a *appWorker) dying(app caas.Application) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot scale dying application to 0")
 	}
+	err = a.ReconcileDeadUnitScale(app)
+	if err != nil {
+		return errors.Annotate(err, "cannot reconcile dead units in dying application")
+	}
 	return nil
 }
 
@@ -876,13 +960,11 @@ func (a *appWorker) ReconcileDeadUnitScale(app caas.Application) error {
 		return fmt.Errorf("getting units for application %s: %w", a.name, err)
 	}
 
-	// We need to know what the target scale is, so we can make sure all extra
-	// units are dead before we go
-	desiredScale, err := a.unitFacade.ApplicationScale(a.name)
-	if err != nil {
-		return err
+	if !a.ps.Scaling {
+		return nil
 	}
 
+	desiredScale := a.ps.ScaleTarget
 	unitsToRemove := len(units) - desiredScale
 
 	var deadUnits []params.CAASUnit
@@ -907,7 +989,7 @@ func (a *appWorker) ReconcileDeadUnitScale(app caas.Application) error {
 	}
 
 	a.logger.Infof("scaling application %q to desired scale %d", a.name, desiredScale)
-	if err := app.Scale(desiredScale); err != nil {
+	if err := app.Scale(desiredScale); err != nil && !errors.Is(err, errors.NotFound) {
 		return fmt.Errorf(
 			"scaling application %q to scale %d: %w",
 			a.name,
@@ -916,12 +998,28 @@ func (a *appWorker) ReconcileDeadUnitScale(app caas.Application) error {
 		)
 	}
 
+	appState, err := app.State()
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return err
+	}
+	// TODO: stop k8s things from mutating the statefulset.
+	if len(appState.Replicas) > desiredScale {
+		return retryError
+	}
+
 	for _, deadUnit := range deadUnits {
 		a.logger.Infof("removing dead unit %s", deadUnit.Tag.Id())
-		if err := a.facade.RemoveUnit(deadUnit.Tag.Id()); err != nil {
+		if err := a.facade.RemoveUnit(deadUnit.Tag.Id()); err != nil && !errors.Is(err, errors.NotFound) {
 			return fmt.Errorf("removing dead unit %q: %w", deadUnit.Tag.Id(), err)
 		}
 	}
+
+	newPs := params.CAASApplicationProvisioningState{}
+	err = a.facade.SetProvisioningState(a.name, newPs)
+	if err != nil {
+		return errors.Annotatef(err, "setting provisiong state for application %q", a.name)
+	}
+	a.ps = newPs
 
 	return nil
 }

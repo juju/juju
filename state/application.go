@@ -108,14 +108,23 @@ type applicationDoc struct {
 	ExposedEndpoints map[string]ExposedEndpoint `bson:"exposed-endpoints,omitempty"`
 
 	// CAAS related attributes.
-	DesiredScale int    `bson:"scale"`
-	PasswordHash string `bson:"passwordhash"`
+	DesiredScale      int                           `bson:"scale"`
+	PasswordHash      string                        `bson:"passwordhash"`
+	ProvisioningState *ApplicationProvisioningState `bson:"provisioning-state"`
+
 	// Placement is the placement directive that should be used allocating units/pods.
 	Placement string `bson:"placement,omitempty"`
 	// HasResources is set to false after an application has been removed
 	// and any k8s cluster resources have been fully cleaned up.
 	// Until then, the application must not be removed from the Juju model.
 	HasResources bool `bson:"has-resources,omitempty"`
+}
+
+// ApplicationProvisioningState is the CAAS application provisioning state for an
+// application.
+type ApplicationProvisioningState struct {
+	Scaling     bool `bson:"scaling"`
+	ScaleTarget int  `bson:"scale-target"`
 }
 
 func newApplication(st *State, doc *applicationDoc) *Application {
@@ -243,7 +252,30 @@ func (a *Application) SetAgentVersion(v version.Binary) (err error) {
 	}
 	a.doc.Tools = versionedTool
 	return nil
+}
 
+// SetProvisioningState sets the provisioning state for the application.
+func (a *Application) SetProvisioningState(ps ApplicationProvisioningState) error {
+	ops := []txn.Op{{
+		C:      applicationsC,
+		Id:     a.doc.DocID,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{{"provisioning-state", ps}}}},
+	}}
+	if err := a.st.db().RunTransaction(ops); err != nil {
+		return errors.Annotatef(err, "failed to set provisioning-state for application %q", a)
+	}
+	a.doc.ProvisioningState = &ps
+	return nil
+}
+
+// ProvisioningState returns the provisioning state for the application.
+func (a *Application) ProvisioningState() *ApplicationProvisioningState {
+	if a.doc.ProvisioningState == nil {
+		return nil
+	}
+	ps := *a.doc.ProvisioningState
+	return &ps
 }
 
 var errRefresh = stderrors.New("state seems inconsistent, refresh and try again")

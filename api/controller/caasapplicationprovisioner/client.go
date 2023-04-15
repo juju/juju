@@ -474,3 +474,35 @@ func (c *Client) DestroyUnits(unitNames []string) error {
 
 	return nil
 }
+
+// ProvisioningState returns the current provisioning state for the CAAS application.
+// The result can be nil.
+func (c *Client) ProvisioningState(appName string) (*params.CAASApplicationProvisioningState, error) {
+	var result params.CAASApplicationProvisioningStateResult
+	args := params.Entity{Tag: names.NewApplicationTag(appName).String()}
+	err := c.facade.FacadeCall("ProvisioningState", args, &result)
+	if err != nil {
+		return nil, err
+	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return result.ProvisioningState, nil
+}
+
+// SetProvisioningState sets the provisioning state for the CAAS application.
+func (c *Client) SetProvisioningState(appName string, state params.CAASApplicationProvisioningState) error {
+	var result params.ErrorResult
+	args := params.CAASApplicationProvisioningStateArg{
+		Application:       params.Entity{Tag: names.NewApplicationTag(appName).String()},
+		ProvisioningState: state,
+	}
+	err := c.facade.FacadeCall("SetProvisioningState", args, &result)
+	if err != nil {
+		return err
+	}
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}

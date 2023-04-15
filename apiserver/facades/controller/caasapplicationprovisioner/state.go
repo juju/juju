@@ -69,6 +69,8 @@ type Application interface {
 	ClearResources() error
 	Watch() state.NotifyWatcher
 	WatchUnits() state.StringsWatcher
+	ProvisioningState() *state.ApplicationProvisioningState
+	SetProvisioningState(state.ApplicationProvisioningState) error
 }
 
 type Charm interface {
