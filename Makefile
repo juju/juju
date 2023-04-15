@@ -166,14 +166,24 @@ define link_flags_version
 	-X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)
 endef
 
+COMPILE_FLAGS ?=
+
 # Compile with debug flags if requested.
 ifeq ($(DEBUG_JUJU), 1)
-    COMPILE_FLAGS = -gcflags "all=-N -l"
+    COMPILE_FLAGS += -gcflags "all=-N -l"
     LINK_FLAGS =  "-X $(link_flags_version)"
 	CGO_LINK_FLAGS = "-linkmode 'external' -extldflags '-static' $(link_flags_version)"
 else
     LINK_FLAGS = "-s -w -extldflags '-static' $(link_flags_version)"
 	CGO_LINK_FLAGS = "-s -w -linkmode 'external' -extldflags '-static' $(link_flags_version)"
+endif
+
+FORCE_CGO ?= 0
+ifeq ($(findstring -race,$(TEST_ARGS)),-race)
+    FORCE_CGO = 1
+endif
+ifeq ($(findstring -race,$(COMPILE_FLAGS)),-race)
+    FORCE_CGO = 1
 endif
 
 define DEPENDENCIES
@@ -182,34 +192,6 @@ define DEPENDENCIES
   distro-info-data
   git
   zip
-endef
-
-# run_go_build is a canned command sequence for the steps required to build a
-# juju package. It's expected that the make target using this sequence has a
-# local variable defined for PACKAGE. An example of PACKAGE would be
-# PACKAGE=github.com/juju/juju
-#
-# This canned command also allows building for architectures defined as
-# ppc64el. Because of legacy Juju we use the arch ppc64el over the go defined
-# arch of ppc64le. This canned command will do a last minute transformation of
-# the string we build the "correct" go architecture. However the build result
-# will still be placed at the expected location with names matching ppc64el.
-define run_go_build
-	$(eval OS = $(word 1,$(subst _, ,$*)))
-	$(eval ARCH = $(word 2,$(subst _, ,$*)))
-	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
-	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
-	@@mkdir -p ${BBIN_DIR}
-	@echo "Building ${PACKAGE} for ${OS}/${ARCH}"
-	@env GOOS=${OS} \
-		GOARCH=${BUILD_ARCH} \
-		go build \
-			-mod=$(JUJU_GOMOD_MODE) \
-			-tags=$(BUILD_TAGS) \
-			-o ${BBIN_DIR} \
-			$(COMPILE_FLAGS) \
-			-ldflags $(LINK_FLAGS) \
-			-v ${PACKAGE}
 endef
 
 define run_cgo_build
@@ -237,15 +219,38 @@ define run_cgo_build
 			-v ${PACKAGE}
 endef
 
-define run_go_install
-	@echo "Installing ${PACKAGE}"
-	@go install \
-		-mod=$(JUJU_GOMOD_MODE) \
-		-tags=$(BUILD_TAGS) \
-		$(COMPILE_FLAGS) \
-		-ldflags $(LINK_FLAGS) \
-		-v ${PACKAGE}
+# run_go_build is a canned command sequence for the steps required to build a
+# juju package. It's expected that the make target using this sequence has a
+# local variable defined for PACKAGE. An example of PACKAGE would be
+# PACKAGE=github.com/juju/juju
+#
+# This canned command also allows building for architectures defined as
+# ppc64el. Because of legacy Juju we use the arch ppc64el over the go defined
+# arch of ppc64le. This canned command will do a last minute transformation of
+# the string we build the "correct" go architecture. However the build result
+# will still be placed at the expected location with names matching ppc64el.
+
+ifeq ($(FORCE_CGO),1)
+run_go_build = $(run_cgo_build)
+else
+define run_go_build
+	$(eval OS = $(word 1,$(subst _, ,$*)))
+	$(eval ARCH = $(word 2,$(subst _, ,$*)))
+	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
+	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
+	@@mkdir -p ${BBIN_DIR}
+	@echo "Building ${PACKAGE} for ${OS}/${ARCH}"
+	@env GOOS=${OS} \
+		GOARCH=${BUILD_ARCH} \
+		go build \
+			-mod=$(JUJU_GOMOD_MODE) \
+			-tags=$(BUILD_TAGS) \
+			-o ${BBIN_DIR} \
+			$(COMPILE_FLAGS) \
+			-ldflags $(LINK_FLAGS) \
+			-v ${PACKAGE}
 endef
+endif
 
 define run_cgo_install
 	@echo "Installing ${PACKAGE}"
@@ -263,6 +268,20 @@ define run_cgo_install
 			-ldflags ${CGO_LINK_FLAGS} \
 			-v ${PACKAGE}
 endef
+
+ifeq ($(FORCE_CGO),1)
+run_go_install = $(run_cgo_install)
+else
+define run_go_install
+	@echo "Installing ${PACKAGE}"
+	@go install \
+		-mod=$(JUJU_GOMOD_MODE) \
+		-tags=$(BUILD_TAGS) \
+		$(COMPILE_FLAGS) \
+		-ldflags $(LINK_FLAGS) \
+		-v ${PACKAGE}
+endef
+endif
 
 default: build
 
@@ -472,9 +491,9 @@ rebuild-schema:
 	@echo "Generating facade schema..."
 # GOOS and GOARCH environment variables are cleared in case the user is trying to cross architecture compilation.
 ifdef SCHEMA_PATH
-	@env GOOS= GOARCH= go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades "$(SCHEMA_PATH)"
+	@env GOOS= GOARCH= go run $(subst -race,,$(COMPILE_FLAGS)) $(PROJECT)/generate/schemagen -admin-facades "$(SCHEMA_PATH)"
 else
-	@env GOOS= GOARCH= go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades \
+	@env GOOS= GOARCH= go run $(subst -race,,$(COMPILE_FLAGS)) $(PROJECT)/generate/schemagen -admin-facades \
 		./apiserver/facades/schema.json
 endif
 
