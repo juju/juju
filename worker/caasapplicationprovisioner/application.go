@@ -410,13 +410,13 @@ func (a *appWorker) loop() error {
 			}
 		case <-appChanges:
 			// Respond to changes in provider application.
-			lastReportedStatus, err = a.updateState(app, false, lastReportedStatus)
+			lastReportedStatus, err = a.updateState(app, lastReportedStatus)
 			if err != nil {
 				return errors.Trace(err)
 			}
 		case <-replicaChanges:
 			// Respond to changes in replicas of the application.
-			lastReportedStatus, err = a.updateState(app, false, lastReportedStatus)
+			lastReportedStatus, err = a.updateState(app, lastReportedStatus)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -496,21 +496,7 @@ func (a *appWorker) verifyCharmUpgraded() (shouldExit bool, err error) {
 	}
 }
 
-func (a *appWorker) updateState(app caas.Application, force bool, lastReportedStatus map[string]status.StatusInfo) (map[string]status.StatusInfo, error) {
-	// Fetching the units here is to ensure happens-before consistency
-	// on the deletion of units.
-	observedUnits, err := a.facade.Units(a.name)
-	if errors.IsNotFound(err) {
-		return nil, nil
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	}
-	st, err := app.State()
-	if errors.IsNotFound(err) {
-		// Do nothing
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	}
+func (a *appWorker) updateState(app caas.Application, lastReportedStatus map[string]status.StatusInfo) (map[string]status.StatusInfo, error) {
 	appTag := names.NewApplicationTag(a.name).String()
 	appStatus := params.EntityStatus{}
 	svc, err := app.Service()
@@ -535,18 +521,6 @@ func (a *appWorker) updateState(app caas.Application, force bool, lastReportedSt
 		}
 	}
 
-	if force {
-		return nil, nil
-	}
-
-	err = a.facade.GarbageCollect(a.name, getTagsFromUnits(observedUnits), st.DesiredReplicas, st.Replicas, force)
-	if errors.IsNotFound(err) {
-		return nil, nil
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// TODO: consolidate GarbageCollect and UpdateApplicationUnits into a single call.
 	units, err := app.Units()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -702,6 +676,7 @@ func (a *appWorker) ensureScale(app caas.Application) error {
 		return err
 	}
 	if a.ps.ScaleTarget >= len(units) {
+		a.logger.Infof("scaling application %q to desired scale %d", a.name, a.ps.ScaleTarget)
 		err = app.Scale(a.ps.ScaleTarget)
 		if err != nil {
 			return err
@@ -726,6 +701,7 @@ func (a *appWorker) ensureScale(app caas.Application) error {
 	if a.ps.ScaleTarget != desiredScale {
 		// if the current scale target doesn't equal the desired scale
 		// we need to rerun this.
+		a.logger.Debugf("application %q currently scaling to %d but desired scale is %d", a.name, a.ps.ScaleTarget, desiredScale)
 		return tryAgain
 	}
 
@@ -889,7 +865,7 @@ func (a *appWorker) dead(app caas.Application) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = a.updateState(app, true, nil)
+	_, err = a.updateState(app, nil)
 	if err != nil {
 		return errors.Trace(err)
 	}

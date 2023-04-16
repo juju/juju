@@ -114,20 +114,6 @@ func (mr *MockCAASProvisionerFacadeMockRecorder) DestroyUnits(arg0 interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyUnits", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).DestroyUnits), arg0)
 }
 
-// GarbageCollect mocks base method.
-func (m *MockCAASProvisionerFacade) GarbageCollect(arg0 string, arg1 []names.Tag, arg2 int, arg3 []string, arg4 bool) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GarbageCollect", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// GarbageCollect indicates an expected call of GarbageCollect.
-func (mr *MockCAASProvisionerFacadeMockRecorder) GarbageCollect(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GarbageCollect", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).GarbageCollect), arg0, arg1, arg2, arg3, arg4)
-}
-
 // Life mocks base method.
 func (m *MockCAASProvisionerFacade) Life(arg0 string) (life.Value, error) {
 	m.ctrl.T.Helper()

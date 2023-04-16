@@ -54,7 +54,6 @@ type CAASProvisionerFacade interface {
 	ApplicationCharmInfo(string) (*charmscommon.CharmInfo, error)
 	SetOperatorStatus(appName string, status status.Status, message string, data map[string]interface{}) error
 	Units(appName string) ([]params.CAASUnit, error)
-	GarbageCollect(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error
 	ApplicationOCIResources(appName string) (map[string]resources.DockerImageDetails, error)
 	UpdateUnits(arg params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error)
 	WatchApplication(appName string) (watcher.NotifyWatcher, error)

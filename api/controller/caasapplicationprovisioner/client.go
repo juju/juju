@@ -294,32 +294,6 @@ func (c *Client) Units(appName string) ([]params.CAASUnit, error) {
 	return out, nil
 }
 
-// GarbageCollect cleans up units that have gone away permanently.
-// Only observed units will be deleted as new units could have surfaced between
-// the capturing of kubernetes pod state/application state and this call.
-func (c *Client) GarbageCollect(
-	appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error {
-	var result params.ErrorResults
-	observedEntities := params.Entities{
-		Entities: make([]params.Entity, len(observedUnits)),
-	}
-	for i, v := range observedUnits {
-		observedEntities.Entities[i].Tag = v.String()
-	}
-	args := params.CAASApplicationGarbageCollectArgs{Args: []params.CAASApplicationGarbageCollectArg{{
-		Application:     params.Entity{Tag: names.NewApplicationTag(appName).String()},
-		ObservedUnits:   observedEntities,
-		DesiredReplicas: desiredReplicas,
-		ActivePodNames:  activePodNames,
-		Force:           force,
-	}}}
-	err := c.facade.FacadeCall("CAASApplicationGarbageCollect", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
-}
-
 // ApplicationOCIResources returns all the OCI image resources for an application.
 func (c *Client) ApplicationOCIResources(appName string) (map[string]resources.DockerImageDetails, error) {
 	args := params.Entities{Entities: []params.Entity{{

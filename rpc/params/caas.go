@@ -62,22 +62,6 @@ type CAASApplicationProvisioningInfo struct {
 	Error                *Error                       `json:"error,omitempty"`
 }
 
-// CAASApplicationGarbageCollectArg holds info needed to cleanup units that have
-// gone away permanently.
-type CAASApplicationGarbageCollectArg struct {
-	Application     Entity   `json:"application"`
-	ObservedUnits   Entities `json:"observed-units"`
-	DesiredReplicas int      `json:"desired-replicas"`
-	ActivePodNames  []string `json:"active-pod-names"`
-	Force           bool     `json:"force"`
-}
-
-// CAASApplicationGarbageCollectArgs holds info needed to cleanup units that have
-// gone away permanently.
-type CAASApplicationGarbageCollectArgs struct {
-	Args []CAASApplicationGarbageCollectArg `json:"args"`
-}
-
 // DockerImageInfo holds the details for a Docker resource type.
 type DockerImageInfo struct {
 	// RegistryPath holds the path of the Docker image (including host and sha256) in a docker registry.
