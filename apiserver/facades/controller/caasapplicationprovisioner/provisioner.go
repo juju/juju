@@ -1520,7 +1520,10 @@ func (a *API) SetProvisioningState(args params.CAASApplicationProvisioningStateA
 		ScaleTarget: args.ProvisioningState.ScaleTarget,
 	}
 	err = app.SetProvisioningState(ps)
-	if err != nil {
+	if errors.Is(err, stateerrors.ProvisioningStateInconsistent) {
+		result.Error = apiservererrors.ServerError(apiservererrors.ErrTryAgain)
+		return result, nil
+	} else if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
 	}

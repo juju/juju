@@ -99,8 +99,9 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 	// }
 	deploymentType := caas.DeploymentStateful
 
+	upsert := state.UpsertCAASUnitParams{}
+
 	containerID := args.PodName
-	var unitName *string
 	switch deploymentType {
 	case caas.DeploymentStateful:
 		splitPodName := strings.Split(args.PodName, "-")
@@ -109,61 +110,11 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 			return errResp(err)
 		}
 		n := fmt.Sprintf("%s/%d", application.Name(), ord)
-		unitName = &n
-	case caas.DeploymentStateless, caas.DeploymentDaemon:
-		// Both handled the same way.
+		upsert.UnitName = &n
+		upsert.OrderedId = ord
+		upsert.OrderedScale = true
 	default:
 		return errResp(errors.NotSupportedf("unknown deployment type"))
-	}
-
-	var unit Unit = nil
-	if unitName != nil {
-		unit, err = f.state.Unit(*unitName)
-		if err != nil && !errors.IsNotFound(err) {
-			return errResp(err)
-		}
-	} else {
-		containers, err := f.model.Containers(containerID)
-		if err != nil {
-			return errResp(err)
-		}
-
-		if len(containers) != 0 {
-			container := containers[0]
-			unit, err = f.state.Unit(container.Unit())
-			if err != nil {
-				return errResp(err)
-			}
-			logger.Debugf("pod %q matched unit %q", args.PodName, unit.Tag().String())
-		}
-
-		// Find an existing unit that isn't yet assigned.
-		if unit == nil {
-			units, err := application.AllUnits()
-			if err != nil {
-				return errResp(err)
-			}
-			for _, existingUnit := range units {
-				info, err := existingUnit.ContainerInfo()
-				if errors.IsNotFound(err) {
-					unit = existingUnit
-					break
-				} else if err != nil {
-					return errResp(err)
-				}
-				if info.ProviderId() == "" {
-					unit = existingUnit
-					break
-				}
-			}
-			if unit != nil {
-				logger.Debugf("pod %q matched unused unit %q", args.PodName, unit.Tag().String())
-			}
-		}
-	}
-
-	if unit != nil && unit.Life() == state.Dead {
-		return errResp(errors.AlreadyExistsf("dead unit %q", unit.Tag().Id()))
 	}
 
 	// Find the pod/unit in the provider.
@@ -182,60 +133,22 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 	if pod == nil {
 		return errResp(errors.NotFoundf("pod %s in provider", args.PodName))
 	}
-
-	// Force update of provider-id.
-	if unit != nil {
-		update := unit.UpdateOperation(state.UnitUpdateProperties{
-			ProviderId: &containerID,
-			Address:    &pod.Address,
-			Ports:      &pod.Ports,
-		})
-		var unitUpdate state.UpdateUnitsOperation
-		unitUpdate.Updates = append(unitUpdate.Updates, update)
-		err = application.UpdateUnits(&unitUpdate)
-		if err != nil {
-			return errResp(err)
-		}
-		logger.Debugf("unit %q updated provider id to %q", unit.Tag().String(), containerID)
+	upsert.ProviderId = &containerID
+	if pod.Address != "" {
+		upsert.Address = &pod.Address
 	}
-
-	// Create a new unit if we never found one.
-	if unit == nil {
-		switch deploymentType {
-		case caas.DeploymentStateful:
-			splitPodName := strings.Split(args.PodName, "-")
-			ord, err := strconv.Atoi(splitPodName[len(splitPodName)-1])
-			if err != nil {
-				return errResp(err)
-			}
-
-			// TODO: we need to move almost all this logic into a txn.
-			ps := application.ProvisioningState()
-			if ord >= application.GetScale() || (ps != nil && ps.Scaling && ord >= ps.ScaleTarget) {
-				return errResp(errors.NotAssignedf("unrequired unit"))
-			}
-		default:
-			return errResp(errors.NotSupportedf("unknown deployment type"))
-		}
-
-		unit, err = application.AddUnit(state.AddUnitParams{
-			UnitName:   unitName,
-			ProviderId: &containerID,
-			Address:    &pod.Address,
-			Ports:      &pod.Ports,
-		})
-		if err != nil {
-			return errResp(err)
-		}
-		logger.Debugf("created new unit %q for pod %s/%s", unit.Tag().String(), args.PodName, containerID)
+	if len(pod.Ports) != 0 {
+		upsert.Ports = &pod.Ports
 	}
 
 	password, err := utils.RandomPassword()
 	if err != nil {
 		return errResp(err)
 	}
+	passwordHash := utils.AgentPasswordHash(password)
+	upsert.PasswordHash = &passwordHash
 
-	err = unit.SetPassword(password)
+	unit, err := application.UpsertCAASUnit(upsert)
 	if err != nil {
 		return errResp(err)
 	}
@@ -244,12 +157,10 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 	if err != nil {
 		return errResp(err)
 	}
-
 	apiHostPorts, err := f.ctrlSt.APIHostPortsForAgents()
 	if err != nil {
 		return errResp(err)
 	}
-
 	addrs := []string(nil)
 	for _, hostPorts := range apiHostPorts {
 		ordered := hostPorts.HostPorts().PrioritizedForScope(network.ScopeMatchCloudLocal)
@@ -264,7 +175,6 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 	version, _ := f.model.AgentVersion()
 	dataDir := paths.DataDir(paths.OSUnixLike)
 	logDir := paths.LogDir(paths.OSUnixLike)
-
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			Paths: agent.Paths{
@@ -283,7 +193,6 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 	if err != nil {
 		return errResp(errors.Annotatef(err, "creating new agent config"))
 	}
-
 	agentConfBytes, err := conf.Render()
 	if err != nil {
 		return errResp(err)

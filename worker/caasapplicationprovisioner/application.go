@@ -59,7 +59,7 @@ type AppWorkerConfig struct {
 	UnitFacade CAASUnitProvisionerFacade
 }
 
-const retryError errors.ConstError = "retry operation"
+const tryAgain errors.ConstError = "try again"
 
 type NewAppWorkerFunc func(AppWorkerConfig) func() (worker.Worker, error)
 
@@ -340,9 +340,8 @@ func (a *appWorker) loop() error {
 				scaleTries++
 				scaleChan = a.clock.After(retryDelay)
 				shouldRefresh = false
-			} else if errors.Is(err, retryError) {
+			} else if errors.Is(err, tryAgain) {
 				scaleChan = a.clock.After(retryDelay)
-				shouldRefresh = false
 			} else if err != nil {
 				return errors.Trace(err)
 			} else {
@@ -365,10 +364,10 @@ func (a *appWorker) loop() error {
 				reconcileDeadChan = a.clock.After(0)
 			}
 		case <-reconcileDeadChan:
-			err := a.ReconcileDeadUnitScale(app)
+			err := a.reconcileDeadUnitScale(app)
 			if errors.Is(err, errors.NotFound) {
 				reconcileDeadChan = a.clock.After(retryDelay)
-			} else if errors.Is(err, retryError) {
+			} else if errors.Is(err, tryAgain) {
 				reconcileDeadChan = a.clock.After(retryDelay)
 			} else if err != nil {
 				return fmt.Errorf("reconciling dead unit scale: %w", err)
@@ -402,7 +401,7 @@ func (a *appWorker) loop() error {
 		case <-stateAppChangedChan:
 			// Respond to life changes (Notify called by parent worker).
 			err = handleChange()
-			if errors.Is(err, retryError) {
+			if errors.Is(err, tryAgain) {
 				stateAppChangedChan = a.clock.After(retryDelay)
 			} else if err != nil {
 				return errors.Trace(err)
@@ -692,29 +691,9 @@ func (a *appWorker) ensureScale(app caas.Application) error {
 
 	a.logger.Debugf("updating application %q scale to %d", a.name, desiredScale)
 	if !a.ps.Scaling || a.life != life.Alive {
-		// TODO: Fix this gargbage.
-		for {
-			newPs := params.CAASApplicationProvisioningState{
-				Scaling:     true,
-				ScaleTarget: desiredScale,
-			}
-			err = a.facade.SetProvisioningState(a.name, newPs)
-			if err != nil {
-				return errors.Annotatef(err, "setting provisiong state for application %q", a.name)
-			}
-			a.ps = newPs
-
-			switch a.life {
-			case life.Alive:
-				desiredScale, err = a.unitFacade.ApplicationScale(a.name)
-				if err != nil {
-					return errors.Annotatef(err, "fetching application %q desired scale", a.name)
-				}
-			}
-
-			if a.ps.ScaleTarget == desiredScale {
-				break
-			}
+		err := a.updateProvisioningState(true, desiredScale)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -727,13 +706,7 @@ func (a *appWorker) ensureScale(app caas.Application) error {
 		if err != nil {
 			return err
 		}
-		newPs := params.CAASApplicationProvisioningState{}
-		err = a.facade.SetProvisioningState(a.name, newPs)
-		if err != nil {
-			return errors.Annotatef(err, "setting provisiong state for application %q", a.name)
-		}
-		a.ps = newPs
-		return nil
+		return a.updateProvisioningState(false, 0)
 	}
 
 	unitsToDestroy, err := app.UnitsToRemove(context.TODO(), a.ps.ScaleTarget)
@@ -751,7 +724,9 @@ func (a *appWorker) ensureScale(app caas.Application) error {
 	}
 
 	if a.ps.ScaleTarget != desiredScale {
-		return retryError
+		// if the current scale target doesn't equal the desired scale
+		// we need to rerun this.
+		return tryAgain
 	}
 
 	return nil
@@ -888,7 +863,7 @@ func (a *appWorker) dying(app caas.Application) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot scale dying application to 0")
 	}
-	err = a.ReconcileDeadUnitScale(app)
+	err = a.reconcileDeadUnitScale(app)
 	if err != nil {
 		return errors.Annotate(err, "cannot reconcile dead units in dying application")
 	}
@@ -922,7 +897,6 @@ func (a *appWorker) dead(app caas.Application) error {
 }
 
 func (a *appWorker) waitForTerminated(app caas.Application) error {
-	tryAgain := errors.New("try again")
 	existsFunc := func() error {
 		appState, err := app.Exists()
 		if err != nil {
@@ -943,18 +917,18 @@ func (a *appWorker) waitForTerminated(app caas.Application) error {
 		Clock:       a.clock,
 		Func:        existsFunc,
 		IsFatalError: func(err error) bool {
-			return err != tryAgain
+			return !errors.Is(err, tryAgain)
 		},
 	}
 	return errors.Trace(retry.Call(retryCallArgs))
 }
 
-// ReconcileDeadUnitScale is setup to respond to CAAS sidecard units that become
+// reconcileDeadUnitScale is setup to respond to CAAS sidecard units that become
 // dead. It takes stock of what the current desired scale is for the application
 // and the number of dead units in the application. Once the number of dead units
 // has reached the a point where the desired scale has been achieved this func
 // can go ahead and removed the units from CAAS provider.
-func (a *appWorker) ReconcileDeadUnitScale(app caas.Application) error {
+func (a *appWorker) reconcileDeadUnitScale(app caas.Application) error {
 	units, err := a.facade.Units(a.name)
 	if err != nil {
 		return fmt.Errorf("getting units for application %s: %w", a.name, err)
@@ -1004,7 +978,7 @@ func (a *appWorker) ReconcileDeadUnitScale(app caas.Application) error {
 	}
 	// TODO: stop k8s things from mutating the statefulset.
 	if len(appState.Replicas) > desiredScale {
-		return retryError
+		return tryAgain
 	}
 
 	for _, deadUnit := range deadUnits {
@@ -1014,12 +988,20 @@ func (a *appWorker) ReconcileDeadUnitScale(app caas.Application) error {
 		}
 	}
 
-	newPs := params.CAASApplicationProvisioningState{}
-	err = a.facade.SetProvisioningState(a.name, newPs)
-	if err != nil {
+	return a.updateProvisioningState(false, 0)
+}
+
+func (a *appWorker) updateProvisioningState(scaling bool, scaleTarget int) error {
+	newPs := params.CAASApplicationProvisioningState{
+		Scaling:     scaling,
+		ScaleTarget: scaleTarget,
+	}
+	err := a.facade.SetProvisioningState(a.name, newPs)
+	if params.IsCodeTryAgain(err) {
+		return tryAgain
+	} else if err != nil {
 		return errors.Annotatef(err, "setting provisiong state for application %q", a.name)
 	}
 	a.ps = newPs
-
 	return nil
 }

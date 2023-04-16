@@ -256,13 +256,42 @@ func (a *Application) SetAgentVersion(v version.Binary) (err error) {
 
 // SetProvisioningState sets the provisioning state for the application.
 func (a *Application) SetProvisioningState(ps ApplicationProvisioningState) error {
+	life := a.Life()
+	assertions := bson.D{
+		{"life", life},
+		{"provisioning-state", a.doc.ProvisioningState},
+	}
+	sets := bson.D{{"provisioning-state", ps}}
+	if ps.Scaling {
+		switch life {
+		case Alive:
+			alreadyScaling := false
+			if a.doc.ProvisioningState != nil && a.doc.ProvisioningState.Scaling {
+				alreadyScaling = true
+			}
+			if !alreadyScaling && ps.Scaling {
+				// if starting a scale, ensure we are scaling to the same target.
+				assertions = append(assertions, bson.DocElem{
+					"scale", ps.ScaleTarget,
+				})
+			}
+		case Dying, Dead:
+			// force scale to the scale target when dying/dead.
+			sets = append(sets, bson.DocElem{
+				"scale", ps.ScaleTarget,
+			})
+		}
+	}
+
 	ops := []txn.Op{{
 		C:      applicationsC,
 		Id:     a.doc.DocID,
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"provisioning-state", ps}}}},
+		Assert: assertions,
+		Update: bson.D{{"$set", sets}},
 	}}
-	if err := a.st.db().RunTransaction(ops); err != nil {
+	if err := a.st.db().RunTransaction(ops); errors.Is(err, txn.ErrAborted) {
+		return stateerrors.ProvisioningStateInconsistent
+	} else if err != nil {
 		return errors.Annotatef(err, "failed to set provisioning-state for application %q", a)
 	}
 	a.doc.ProvisioningState = &ps
@@ -2289,6 +2318,7 @@ func (a *Application) addUnitOps(
 		address:            args.Address,
 		ports:              args.Ports,
 		unitName:           args.UnitName,
+		passwordHash:       args.PasswordHash,
 	})
 	if err != nil {
 		return uNames, ops, errors.Trace(err)
@@ -2308,10 +2338,11 @@ type applicationAddUnitOpsArgs struct {
 	attachStorage []names.StorageTag
 
 	// These optional attributes are relevant to CAAS models.
-	providerId *string
-	address    *string
-	ports      *[]string
-	unitName   *string
+	providerId   *string
+	address      *string
+	ports        *[]string
+	unitName     *string
+	passwordHash *string
 }
 
 // addUnitOpsWithCons is a helper method for returning addUnitOps.
@@ -2356,6 +2387,9 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		Principal:              args.principalName,
 		MachineId:              args.principalMachineID,
 		StorageAttachmentCount: numStorageAttachments,
+	}
+	if args.passwordHash != nil {
+		udoc.PasswordHash = *args.passwordHash
 	}
 	now := a.st.clock().Now()
 	agentStatusDoc := statusDoc{
@@ -2607,6 +2641,9 @@ type AddUnitParams struct {
 	// machineID is only passed in if the unit being created is
 	// a subordinate and refers to the machine that is hosting the principal.
 	machineID string
+
+	// PasswordHash is only passed for CAAS sidecar units on creation.
+	PasswordHash *string
 }
 
 // AddUnit adds a new principal unit to the application.
@@ -2628,6 +2665,109 @@ func (a *Application) AddUnit(args AddUnitParams) (unit *Unit, err error) {
 		return nil, err
 	}
 	return a.st.Unit(name)
+}
+
+type UpsertCAASUnitParams struct {
+	AddUnitParams
+
+	OrderedScale bool
+	OrderedId    int
+}
+
+func (a *Application) UpsertCAASUnit(args UpsertCAASUnitParams) (*Unit, error) {
+	if args.PasswordHash == nil {
+		return nil, errors.NotValidf("password hash")
+	}
+	if args.ProviderId == nil {
+		return nil, errors.NotValidf("provider id")
+	}
+	if !args.OrderedScale {
+		return nil, errors.NotImplementedf("upserting CAAS units not supported without ordered unit IDs")
+	}
+	if args.UnitName == nil {
+		return nil, errors.NotValidf("unit name")
+	}
+
+	var unit *Unit
+	err := a.st.db().Run(func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			err := a.Refresh()
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if args.UnitName != nil {
+			var err error
+			if unit == nil {
+				unit, err = a.st.Unit(*args.UnitName)
+			} else {
+				err = unit.Refresh()
+			}
+			if errors.Is(err, errors.NotFound) {
+				unit = nil
+			} else if err != nil {
+				return nil, err
+			}
+		}
+
+		if unit == nil {
+			if ps := a.ProvisioningState(); args.OrderedId >= a.GetScale() ||
+				(ps != nil && ps.Scaling && args.OrderedId >= ps.ScaleTarget) {
+				return nil, errors.NotAssignedf("unrequired unit")
+			}
+
+			_, addOps, err := a.addUnitOps("", args.AddUnitParams, nil)
+			if err != nil {
+				return nil, err
+			}
+
+			ops := []txn.Op{{
+				C:  applicationsC,
+				Id: a.doc.DocID,
+				Assert: bson.D{
+					{"life", Alive},
+					{"scale", a.GetScale()},
+					{"provisioning-state", a.ProvisioningState()},
+				},
+			}}
+			ops = append(ops, addOps...)
+			return ops, nil
+		}
+
+		if unit.Life() == Dead {
+			return nil, errors.AlreadyExistsf("dead unit %q", unit.Tag().Id())
+		}
+
+		updateOps, err := unit.UpdateOperation(UnitUpdateProperties{
+			ProviderId: args.ProviderId,
+			Address:    args.Address,
+			Ports:      args.Ports,
+		}).Build(attempt)
+		if err != nil {
+			return nil, err
+		}
+
+		var ops []txn.Op
+		ops = append(ops, unit.setPasswordHashOps(*args.PasswordHash)...) // setPasswordHashOps asserts notDead
+		ops = append(ops, updateOps...)
+		return ops, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if unit == nil {
+		unit, err = a.st.Unit(*args.UnitName)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		err = unit.Refresh()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return unit, nil
 }
 
 // removeUnitOps returns the operations necessary to remove the supplied unit,

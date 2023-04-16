@@ -45,8 +45,7 @@ type Application interface {
 	Charm() (Charm, bool, error)
 	Name() string
 	AllUnits() ([]Unit, error)
-	UpdateUnits(unitsOp *state.UpdateUnitsOperation) error
-	AddUnit(args state.AddUnitParams) (unit Unit, err error)
+	UpsertCAASUnit(args state.UpsertCAASUnitParams) (Unit, error)
 	GetScale() int
 	ProvisioningState() *state.ApplicationProvisioningState
 }
@@ -105,8 +104,8 @@ func (a applicationShim) AllUnits() ([]Unit, error) {
 	return result, nil
 }
 
-func (a applicationShim) AddUnit(args state.AddUnitParams) (unit Unit, err error) {
-	u, err := a.Application.AddUnit(args)
+func (a applicationShim) UpsertCAASUnit(args state.UpsertCAASUnitParams) (Unit, error) {
+	u, err := a.Application.UpsertCAASUnit(args)
 	if err != nil {
 		return nil, err
 	}
@@ -118,8 +117,6 @@ type Unit interface {
 	ContainerInfo() (state.CloudContainer, error)
 	Life() state.Life
 	Refresh() error
-	UpdateOperation(props state.UnitUpdateProperties) *state.UpdateUnitOperation
-	SetPassword(string) error
 	ApplicationName() string
 }
 
