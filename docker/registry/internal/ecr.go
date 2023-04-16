@@ -209,8 +209,10 @@ func (c *elasticContainerRegistryPublic) Match() bool {
 	return strings.Contains(c.repoDetails.ServerAddress, "public.ecr.aws")
 }
 
-func (c *elasticContainerRegistryPublic) WrapTransport(...TransportWrapper) error {
-	// `/manifests` and `/blobs` API work.
-	// but `/tags/list` does not work. - https://github.com/aws/containers-roadmap/issues/1262
-	return errors.NotSupportedf("container registry %q", c.repoDetails.ServerAddress)
+func (c *elasticContainerRegistryPublic) WrapTransport(wrappers ...TransportWrapper) error {
+	return c.baseClient.WrapTransport(wrappers...)
+}
+
+func (c *elasticContainerRegistryPublic) Ping() error {
+	return nil
 }
