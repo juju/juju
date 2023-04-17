@@ -172,15 +172,17 @@ func GetClusterMetadata(
 		}
 	}
 
-	if nominatedStorageClass != "" && selectedOperatorSC.Name != nominatedStorageClass {
-		return nil, &environs.NominatedStorageNotFound{
-			StorageName: nominatedStorageClass,
+	if nominatedStorageClass != "" {
+		if selectedOperatorSC == nil || selectedOperatorSC.Name != nominatedStorageClass {
+			return nil, &environs.NominatedStorageNotFound{
+				StorageName: nominatedStorageClass,
+			}
 		}
-	}
 
-	if nominatedStorageClass != "" && selectedWorkloadSC.Name != nominatedStorageClass {
-		return nil, &environs.NominatedStorageNotFound{
-			StorageName: nominatedStorageClass,
+		if selectedWorkloadSC == nil || selectedWorkloadSC.Name != nominatedStorageClass {
+			return nil, &environs.NominatedStorageNotFound{
+				StorageName: nominatedStorageClass,
+			}
 		}
 	}
 

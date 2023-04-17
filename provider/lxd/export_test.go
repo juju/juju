@@ -5,6 +5,7 @@ package lxd
 
 import (
 	"errors"
+	"net/http"
 
 	"github.com/juju/clock"
 
@@ -56,6 +57,9 @@ func NewServerFactoryWithMocks(localServerFunc func() (Server, error),
 		newRemoteServerFunc: remoteServerFunc,
 		interfaceAddress:    interfaceAddress,
 		clock:               clock,
+		newHTTPClientFunc: NewHTTPClientFunc(func() *http.Client {
+			return &http.Client{}
+		}),
 	}
 }
 

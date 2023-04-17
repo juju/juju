@@ -11,6 +11,9 @@ on:
       - 'snap/**'
       - '.github/workflows/upgrade.yml'
       - '.github/setup-lxd/**'
+      - 'scripts/dqlite/**'
+      - 'Makefile'
+      - 'make_functions.sh'
     branches-ignore:
       - 'develop'
   workflow_dispatch:

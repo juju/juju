@@ -10,7 +10,6 @@ import (
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package leaseexpiry_test -destination clock_mock_test.go github.com/juju/clock Clock,Timer
-//go:generate go run github.com/golang/mock/mockgen -package leaseexpiry_test -destination database_mock_test.go github.com/juju/juju/core/database TrackedDB
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

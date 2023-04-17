@@ -5,7 +5,7 @@ package common
 
 import (
 	"github.com/juju/collections/set"
-	ociCommon "github.com/oracle/oci-go-sdk/v47/common"
+	ociCommon "github.com/oracle/oci-go-sdk/v65/common"
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/common"

@@ -15,13 +15,14 @@ import (
 	"github.com/juju/version/v2"
 
 	gomock "github.com/golang/mock/gomock"
-	ocitesting "github.com/juju/juju/provider/oci/testing"
-	jujutesting "github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	ociCore "github.com/oracle/oci-go-sdk/v47/core"
-	ociIdentity "github.com/oracle/oci-go-sdk/v47/identity"
+	ocitesting "github.com/juju/juju/provider/oci/testing"
+	jujutesting "github.com/juju/juju/testing"
+
+	ociCore "github.com/oracle/oci-go-sdk/v65/core"
+	ociIdentity "github.com/oracle/oci-go-sdk/v65/identity"
 
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -193,16 +194,57 @@ func makeListVnicAttachmentsRequestResponse(vnicAttachDetails []ociCore.VnicAtta
 	return request, response
 }
 
-func makeShapesRequestResponse(compartment, id string, shapeNames []string) []ociCore.Shape {
-	ociShapes := []ociCore.Shape{}
-	for _, val := range shapeNames {
-		shape := ociCore.Shape{
-			Shape: makeStringPointer(val),
-		}
-		ociShapes = append(ociShapes, shape)
+func listShapesResponse() []ociCore.Shape {
+	return []ociCore.Shape{
+		{
+			Shape:                    makeStringPointer("VM.Standard1.1"),
+			ProcessorDescription:     makeStringPointer("2.0 GHz Intel® Xeon® Platinum 8167M (Skylake)"),
+			Ocpus:                    makeFloat32Pointer(1),
+			MemoryInGBs:              makeFloat32Pointer(7),
+			LocalDisks:               makeIntPointer(0),
+			LocalDisksTotalSizeInGBs: (*float32)(nil),
+			PlatformConfigOptions: &ociCore.ShapePlatformConfigOptions{
+				Type: "INTEL_VM",
+			},
+			IsBilledForStoppedInstance: makeBoolPointer(false),
+			BillingType:                "PAID",
+		},
+		{
+			Shape:                      makeStringPointer("VM.GPU.A10.1"),
+			ProcessorDescription:       makeStringPointer("2.6 GHz Intel® Xeon® Platinum 8358 (Ice Lake)"),
+			Ocpus:                      makeFloat32Pointer(15),
+			MemoryInGBs:                makeFloat32Pointer(240),
+			Gpus:                       makeIntPointer(1),
+			GpuDescription:             makeStringPointer("NVIDIA® A10"),
+			LocalDisks:                 makeIntPointer(0),
+			LocalDisksTotalSizeInGBs:   (*float32)(nil),
+			PlatformConfigOptions:      (*ociCore.ShapePlatformConfigOptions)(nil),
+			IsBilledForStoppedInstance: makeBoolPointer(false),
+			BillingType:                "PAID",
+		},
+		{
+			Shape:                      makeStringPointer("BM.Standard.A1.160"),
+			ProcessorDescription:       makeStringPointer("3.0 GHz Ampere® Altra™"),
+			Ocpus:                      makeFloat32Pointer(160),
+			MemoryInGBs:                makeFloat32Pointer(1024),
+			LocalDisks:                 makeIntPointer(0),
+			LocalDisksTotalSizeInGBs:   (*float32)(nil),
+			PlatformConfigOptions:      (*ociCore.ShapePlatformConfigOptions)(nil),
+			IsBilledForStoppedInstance: makeBoolPointer(false),
+			BillingType:                "PAID",
+		},
+		{
+			Shape:                      makeStringPointer("VM.Standard.A1.Flex"),
+			ProcessorDescription:       makeStringPointer("3.0 GHz Ampere® Altra™"),
+			Ocpus:                      makeFloat32Pointer(1),
+			MemoryInGBs:                makeFloat32Pointer(6),
+			LocalDisks:                 makeIntPointer(0),
+			LocalDisksTotalSizeInGBs:   (*float32)(nil),
+			PlatformConfigOptions:      (*ociCore.ShapePlatformConfigOptions)(nil),
+			IsBilledForStoppedInstance: makeBoolPointer(false),
+			BillingType:                "LIMITED_FREE",
+		},
 	}
-
-	return ociShapes
 }
 
 type commonSuite struct {

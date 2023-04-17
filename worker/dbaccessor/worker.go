@@ -14,6 +14,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 	"github.com/juju/worker/v3/dependency"
+	"gopkg.in/tomb.v2"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/app"
@@ -21,14 +22,9 @@ import (
 	"github.com/juju/juju/pubsub/apiserver"
 )
 
-const (
-	// PollInterval is the amount of time to wait between polling the database.
-	PollInterval = time.Second * 10
-
-	// DefaultVerifyAttempts is the number of attempts to verify the database,
-	// by opening a new database on verification failure.
-	DefaultVerifyAttempts = 3
-)
+// nodeShutdownTimeout is the timeout that we add to the context passed
+// handoff/shutdown calls when shutting down the Dqlite node.
+const nodeShutdownTimeout = 30 * time.Second
 
 // NodeManager creates Dqlite `App` initialisation arguments and options.
 type NodeManager interface {
@@ -199,7 +195,7 @@ func newWorker(cfg WorkerConfig) (*dbWorker, error) {
 func (w *dbWorker) loop() (err error) {
 	// The context here should not be tied to the catacomb, as the context will
 	// be cancelled when the worker is stopped, and we want to wait for the
-	// dqlite app to shutdown gracefully.
+	// Dqlite app to shut down gracefully.
 	// There is a timeout in shutdownDqlite to ensure that we don't wait
 	// forever.
 	defer w.shutdownDqlite(context.Background())
@@ -378,8 +374,25 @@ func (w *dbWorker) initialiseDqlite(options ...app.Option) error {
 	return nil
 }
 
+// openDatabase starts a TrackedDB worker for the database with the input name.
+// It is called by initialiseDqlite to open the controller databases,
+// and via GetDB to service downstream database requests.
+// It is important to note that the start function passed to StartWorker is not
+// invoked synchronously.
+// Since GetDB blocks until dbReady is closed, and initialiseDqlite waits for
+// the node to be ready, we can assume that we will never race with a nil dbApp
+// when first starting up.
+// Since the only way we can get into this race is during shutdown, it is safe
+// to return ErrDying if we detect a nil database.
+// This preserves the error that the worker is exiting with, including nil.
 func (w *dbWorker) openDatabase(namespace string) error {
 	err := w.dbRunner.StartWorker(namespace, func() (worker.Worker, error) {
+		w.mu.RLock()
+		defer w.mu.RUnlock()
+		if w.dbApp == nil {
+			return nil, tomb.ErrDying
+		}
+
 		return w.cfg.NewDBWorker(w.dbApp, namespace,
 			WithClock(w.cfg.Clock),
 			WithLogger(w.cfg.Logger),
@@ -445,6 +458,10 @@ func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
 
 		addr, err := w.bindAddrFromServerDetails(apiDetails)
 		if err != nil {
+			if errors.Is(err, errors.NotFound) {
+				w.cfg.Logger.Infof(err.Error())
+				return nil
+			}
 			return errors.Trace(err)
 		}
 
@@ -499,12 +516,19 @@ func (w *dbWorker) rebindAddress(ctx context.Context, addr string) error {
 	return errors.Trace(mgr.SetNodeInfo(servers[0]))
 }
 
+// joinNodeToCluster uses the input server details to determine a bind address
+// for this node, and one or more addresses of other nodes to cluster with.
+// It then uses these to initialise Dqlite.
+// If either bind or cluster addresses can not be determined,
+// we just return nil and keep waiting for further server detail messages.
 func (w *dbWorker) joinNodeToCluster(apiDetails apiserver.Details) error {
-	w.cfg.Logger.Infof("joining Dqlite cluster")
-
 	// Get our address from the API details.
 	localAddr, err := w.bindAddrFromServerDetails(apiDetails)
 	if err != nil {
+		if errors.Is(err, errors.NotFound) {
+			w.cfg.Logger.Infof(err.Error())
+			return nil
+		}
 		return errors.Trace(err)
 	}
 
@@ -522,9 +546,11 @@ func (w *dbWorker) joinNodeToCluster(apiDetails apiserver.Details) error {
 		}
 	}
 	if len(clusterAddrs) == 0 {
-		return errors.New("no addresses available for this Dqlite node to join cluster")
+		w.cfg.Logger.Infof("no addresses available for this Dqlite node to join cluster")
+		return nil
 	}
 
+	w.cfg.Logger.Infof("joining Dqlite cluster")
 	mgr := w.cfg.NodeManager
 
 	withTLS, err := mgr.WithTLSOption()
@@ -541,7 +567,7 @@ func (w *dbWorker) joinNodeToCluster(apiDetails apiserver.Details) error {
 func (w *dbWorker) bindAddrFromServerDetails(apiDetails apiserver.Details) (string, error) {
 	hostPort := apiDetails.Servers[w.cfg.ControllerID].InternalAddress
 	if hostPort == "" {
-		return "", errors.New("no internal address determined for this Dqlite node to bind to")
+		return "", errors.NotFoundf("internal address for this Dqlite node to bind to")
 	}
 
 	addr, _, err := net.SplitHostPort(hostPort)
@@ -568,7 +594,7 @@ func (w *dbWorker) shutdownDqlite(ctx context.Context) {
 
 	// Ensure that we don't block forever and bound the shutdown time for
 	// handing over a dqlite node.
-	ctx, cancel := context.WithTimeout(ctx, time.Second*30)
+	ctx, cancel := context.WithTimeout(ctx, nodeShutdownTimeout)
 	defer cancel()
 
 	if err := w.dbApp.Handover(ctx); err != nil {

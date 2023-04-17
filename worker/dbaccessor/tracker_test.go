@@ -58,19 +58,13 @@ func (s *trackedDBWorkerSuite) TestWorkerDBIsNotNil(c *gc.C) {
 
 	defer workertest.DirtyKill(c, w)
 
-	done := make(chan struct{})
-	w.DB(func(d *sql.DB) error {
-		defer close(done)
-
-		c.Assert(d, gc.NotNil)
+	err = w.TxnNoRetry(context.Background(), func(_ context.Context, tx *sql.Tx) error {
+		if tx == nil {
+			return errors.New("nil transaction")
+		}
 		return nil
 	})
-
-	select {
-	case <-done:
-	case <-time.After(testing.ShortWait):
-		c.Fatal("timed out waiting for DB callback")
-	}
+	c.Assert(err, jc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
 }
@@ -318,11 +312,6 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
 	c.Assert(w.Err(), gc.ErrorMatches, "boom")
 
 	// Ensure that the DB is dead.
-	err = w.DB(func(db *sql.DB) error {
-		c.Fatal("failed if called")
-		return nil
-	})
-	c.Assert(err, gc.ErrorMatches, "boom")
 	err = w.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
 		c.Fatal("failed if called")
 		return nil

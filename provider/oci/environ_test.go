@@ -11,8 +11,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	ociCore "github.com/oracle/oci-go-sdk/v47/core"
-	ociIdentity "github.com/oracle/oci-go-sdk/v47/identity"
+	ociCore "github.com/oracle/oci-go-sdk/v65/core"
+	ociIdentity "github.com/oracle/oci-go-sdk/v65/identity"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
@@ -259,12 +259,8 @@ func (s *environSuite) setupListImagesExpectations() {
 			DisplayName:            makeStringPointer("CentOS-7-2017.10.19-0"),
 		},
 	}
-	shapesResponse := makeShapesRequestResponse(
-		s.testCompartment, "fake", []string{
-			"VM.Standard1.1",
-		})
 	s.compute.EXPECT().ListImages(context.Background(), &s.testCompartment).Return(response, nil)
-	s.compute.EXPECT().ListShapes(context.Background(), gomock.Any(), gomock.Any()).Return(shapesResponse, nil).AnyTimes()
+	s.compute.EXPECT().ListShapes(context.Background(), gomock.Any(), gomock.Any()).Return(listShapesResponse(), nil).AnyTimes()
 }
 
 func (s *environSuite) TestAvailabilityZones(c *gc.C) {

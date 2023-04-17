@@ -7,6 +7,8 @@ on:
       - '**.go'
       - 'go.mod'
       - '.github/workflows/gen.yml'
+      - 'Makefile'
+      - 'make_functions.sh'
   workflow_dispatch:
 
 permissions:

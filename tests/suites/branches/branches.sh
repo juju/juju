@@ -8,7 +8,7 @@ run_branch() {
 
 	juju branch | check 'Active branch is "master"'
 
-	juju deploy mongodb
+	juju deploy mongodb --channel 3.6/stable
 
 	wait_for "mongodb" "$(idle_condition "mongodb")"
 

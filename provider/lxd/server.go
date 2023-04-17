@@ -132,6 +132,10 @@ func (interfaceAddress) InterfaceAddress(interfaceName string) (string, error) {
 	return utils.GetAddressForInterface(interfaceName)
 }
 
+// NewHTTPClientFunc is responsible for generating a new http client every time
+// it is called.
+type NewHTTPClientFunc func() *http.Client
+
 type serverFactory struct {
 	newLocalServerFunc  func() (Server, error)
 	newRemoteServerFunc func(lxd.ServerSpec) (Server, error)
@@ -140,11 +144,14 @@ type serverFactory struct {
 	interfaceAddress    InterfaceAddress
 	clock               clock.Clock
 	mutex               sync.Mutex
-	httpClient          *http.Client
+	newHTTPClientFunc   NewHTTPClientFunc
 }
 
 // NewServerFactory creates a new ServerFactory with sane defaults.
-func NewServerFactory(httpClient *http.Client) ServerFactory {
+// A NewHTTPClientFunc is taken as an argument to address LP2003135. Previously
+// we reused the same http client for all LXD connections. This can't happen
+// as the LXD client code modifies the HTTP server.
+func NewServerFactory(newHttpFn NewHTTPClientFunc) ServerFactory {
 	return &serverFactory{
 		newLocalServerFunc: func() (Server, error) {
 			return lxd.NewLocalServer()
@@ -152,8 +159,8 @@ func NewServerFactory(httpClient *http.Client) ServerFactory {
 		newRemoteServerFunc: func(spec lxd.ServerSpec) (Server, error) {
 			return lxd.NewRemoteServer(spec)
 		},
-		interfaceAddress: interfaceAddress{},
-		httpClient:       httpClient,
+		interfaceAddress:  interfaceAddress{},
+		newHTTPClientFunc: newHttpFn,
 	}
 }
 
@@ -211,7 +218,7 @@ func (s *serverFactory) RemoteServer(spec environscloudspec.CloudSpec) (Server, 
 
 	serverSpec := lxd.NewServerSpec(spec.Endpoint, serverCert, clientCert).
 		WithProxy(proxy.DefaultConfig.GetProxy).
-		WithHTTPClient(s.httpClient)
+		WithHTTPClient(s.newHTTPClientFunc())
 
 	svr, err := s.newRemoteServerFunc(serverSpec)
 	if err == nil {
@@ -238,7 +245,7 @@ func (s *serverFactory) InsecureRemoteServer(spec environscloudspec.CloudSpec) (
 	serverSpec := lxd.NewInsecureServerSpec(spec.Endpoint).
 		WithClientCertificate(clientCert).
 		WithSkipGetServer(true).
-		WithHTTPClient(s.httpClient)
+		WithHTTPClient(s.newHTTPClientFunc())
 
 	svr, err := s.newRemoteServerFunc(serverSpec)
 	return svr, errors.Trace(err)

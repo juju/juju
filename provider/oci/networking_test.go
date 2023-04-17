@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/golang/mock/gomock"
-	ociCore "github.com/oracle/oci-go-sdk/v47/core"
+	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"

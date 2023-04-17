@@ -33,7 +33,7 @@ const (
 // RetryStrategy defines a function for retrying a transaction.
 type RetryStrategy func(context.Context, func() error) error
 
-// Option defines a function for setting options on a transactioner.
+// Option defines a function for setting options on a TransactionRunner.
 type Option func(*option)
 
 // WithTimeout defines a timeout for the transaction. This is useful for

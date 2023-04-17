@@ -6,8 +6,8 @@ package oci
 import (
 	"context"
 
-	ociCore "github.com/oracle/oci-go-sdk/v47/core"
-	ociIdentity "github.com/oracle/oci-go-sdk/v47/identity"
+	ociCore "github.com/oracle/oci-go-sdk/v65/core"
+	ociIdentity "github.com/oracle/oci-go-sdk/v65/identity"
 )
 
 // These interfaces represent the methods required by the OCI provider to

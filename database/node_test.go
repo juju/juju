@@ -14,6 +14,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
@@ -28,6 +29,14 @@ type nodeManagerSuite struct {
 }
 
 var _ = gc.Suite(&nodeManagerSuite{})
+
+func (s *nodeManagerSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
+	if !dqlite.Enabled {
+		c.Skip("This requires a dqlite server to be running")
+	}
+}
 
 func (s *nodeManagerSuite) TestEnsureDataDirSuccess(c *gc.C) {
 	subDir := strconv.Itoa(rand.Intn(10))
@@ -184,11 +193,10 @@ func (s *nodeManagerSuite) TestSetClusterServersSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// cluster.yaml should reflect the new server list.
-	c.Check(string(data), gc.Equals, `
-- Address: 10.6.6.6:17666
-  ID: 3297041220608546238
-  Role: 0
-`[1:])
+	var result []dqlite.NodeInfo
+	err = yaml.Unmarshal(data, &result)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, servers)
 }
 
 func (s *nodeManagerSuite) TestSetNodeInfoSuccess(c *gc.C) {
@@ -226,11 +234,10 @@ Role: 0
 	c.Assert(err, jc.ErrorIsNil)
 
 	// info.yaml should reflect the new node info.
-	c.Check(string(data), gc.Equals, `
-Address: 10.6.6.6:17666
-ID: 3297041220608546238
-Role: 0
-`[1:])
+	var result dqlite.NodeInfo
+	err = yaml.Unmarshal(data, &result)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, server)
 }
 
 func (s *nodeManagerSuite) TestWithAddressOptionSuccess(c *gc.C) {
@@ -240,7 +247,8 @@ func (s *nodeManagerSuite) TestWithAddressOptionSuccess(c *gc.C) {
 	dqliteApp, err := app.New(c.MkDir(), m.WithAddressOption("127.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	_ = dqliteApp.Close()
+	err = dqliteApp.Close()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *nodeManagerSuite) TestWithTLSOptionSuccess(c *gc.C) {
@@ -253,7 +261,8 @@ func (s *nodeManagerSuite) TestWithTLSOptionSuccess(c *gc.C) {
 	dqliteApp, err := app.New(c.MkDir(), withTLS)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_ = dqliteApp.Close()
+	err = dqliteApp.Close()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *nodeManagerSuite) TestWithClusterOptionSuccess(c *gc.C) {
@@ -263,7 +272,8 @@ func (s *nodeManagerSuite) TestWithClusterOptionSuccess(c *gc.C) {
 	dqliteApp, err := app.New(c.MkDir(), m.WithClusterOption([]string{"10.6.6.6"}))
 	c.Assert(err, jc.ErrorIsNil)
 
-	_ = dqliteApp.Close()
+	err = dqliteApp.Close()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type fakeAgentConfig struct {
