@@ -62,7 +62,7 @@ func (s *ControllerSuite) TrackedDB() coredatabase.TrackedDB {
 	return s.trackedDB
 }
 
-// NewDB returns a new sql.DB reference.
+// NewCleanDB returns a new sql.DB reference.
 func (s *ControllerSuite) NewCleanDB(c *gc.C) *sql.DB {
 	dir := c.MkDir()
 
