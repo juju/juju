@@ -28,18 +28,18 @@ type Logger interface {
 	Infof(string, ...interface{})
 }
 
-// Facade instances provide a set of API for the worker to deal with secret drain process.
-type Facade interface {
+// SecretsDrainFacade instances provide a set of API for the worker to deal with secret drain process.
+type SecretsDrainFacade interface {
 	WatchSecretBackendChanged() (watcher.NotifyWatcher, error)
 	GetSecretsToDrain() ([]coresecrets.SecretMetadataForDrain, error)
 	ChangeSecretBackend(uri *coresecrets.URI, revision int, valueRef *coresecrets.ValueRef, val coresecrets.SecretData) error
-
-	jujusecrets.JujuAPIClient
 }
+
+// jujusecrets.JujuAPIClient
 
 // Config defines the operation of the Worker.
 type Config struct {
-	Facade Facade
+	SecretsDrainFacade
 	Logger Logger
 
 	SecretsBackendGetter func() (jujusecrets.BackendsClient, error)
@@ -47,8 +47,8 @@ type Config struct {
 
 // Validate returns an error if config cannot drive the Worker.
 func (config Config) Validate() error {
-	if config.Facade == nil {
-		return errors.NotValidf("nil Facade")
+	if config.SecretsDrainFacade == nil {
+		return errors.NotValidf("nil SecretsDrainFacade")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -92,7 +92,7 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop() (err error) {
-	watcher, err := w.config.Facade.WatchSecretBackendChanged()
+	watcher, err := w.config.SecretsDrainFacade.WatchSecretBackendChanged()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -109,7 +109,7 @@ func (w *Worker) loop() (err error) {
 				return errors.New("secret backend changed watch closed")
 			}
 
-			secrets, err := w.config.Facade.GetSecretsToDrain()
+			secrets, err := w.config.SecretsDrainFacade.GetSecretsToDrain()
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -181,7 +181,7 @@ func (w *Worker) drainSecret(
 				return errors.Trace(err)
 			}
 		}
-		if err := w.config.Facade.ChangeSecretBackend(md.Metadata.URI, rev.Revision, newValueRef, data); err != nil {
+		if err := w.config.SecretsDrainFacade.ChangeSecretBackend(md.Metadata.URI, rev.Revision, newValueRef, data); err != nil {
 			return errors.Trace(err)
 		}
 

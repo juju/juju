@@ -46,10 +46,6 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		}
 		return secrets.AdminBackendConfigInfo(secrets.SecretsModel(model))
 	}
-	model, err := context.State().Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	return &SecretsManagerAPI{
 		authTag:             context.Auth().GetAuthTag(),
 		leadershipChecker:   leadershipChecker,
@@ -60,6 +56,5 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		clock:               clock.WallClock,
 		backendConfigGetter: secretBackendConfigGetter,
 		adminConfigGetter:   secretBackendAdminConfigGetter,
-		model:               model,
 	}, nil
 }

@@ -38,7 +38,7 @@ func (s *ManifoldSuite) validConfig() secretdrainworker.ManifoldConfig {
 		NewWorker: func(config secretdrainworker.Config) (worker.Worker, error) {
 			return nil, nil
 		},
-		NewFacade: func(base.APICaller) secretdrainworker.Facade { return nil },
+		NewSecretsDrainFacade: func(base.APICaller) secretdrainworker.SecretsDrainFacade { return nil },
 		NewBackendsClient: func(jujusecrets.JujuAPIClient) (jujusecrets.BackendsClient, error) {
 			return nil, nil
 		},
@@ -64,8 +64,8 @@ func (s *ManifoldSuite) TestMissingNewWorker(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestMissingNewFacade(c *gc.C) {
-	s.config.NewFacade = nil
-	s.checkNotValid(c, "nil NewFacade not valid")
+	s.config.NewSecretsDrainFacade = nil
+	s.checkNotValid(c, "nil NewSecretsDrainFacade not valid")
 }
 
 func (s *ManifoldSuite) TestMissingNewBackendsClient(c *gc.C) {
@@ -84,7 +84,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	defer ctrl.Finish()
 
 	facade := mocks.NewMockFacade(ctrl)
-	s.config.NewFacade = func(base.APICaller) secretdrainworker.Facade {
+	s.config.NewSecretsDrainFacade = func(base.APICaller) secretdrainworker.SecretsDrainFacade {
 		return facade
 	}
 	backendClients := mocks.NewMockBackendsClient(ctrl)
@@ -99,7 +99,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		mc.AddExpr(`_.Facade`, gc.NotNil)
 		mc.AddExpr(`_.Logger`, gc.NotNil)
 		mc.AddExpr(`_.SecretsBackendGetter`, gc.NotNil)
-		c.Check(config, mc, secretdrainworker.Config{Facade: facade})
+		c.Check(config, mc, secretdrainworker.Config{SecretsDrainFacade: facade})
 		return nil, nil
 	}
 	manifold := secretdrainworker.Manifold(s.config)

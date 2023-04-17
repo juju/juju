@@ -48,8 +48,8 @@ func (s *workerSuite) getWorkerNewer(c *gc.C, calls ...*gomock.Call) (func(), *g
 
 	start := func() {
 		w, err := secretdrainworker.NewWorker(secretdrainworker.Config{
-			Logger: s.logger,
-			Facade: s.facade,
+			Logger:             s.logger,
+			SecretsDrainFacade: s.facade,
 			SecretsBackendGetter: func() (jujusecrets.BackendsClient, error) {
 				return s.backendClient, nil
 			},

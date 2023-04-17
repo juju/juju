@@ -8,6 +8,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
+	"github.com/juju/juju/api/agent/secretsdrain"
 	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/base"
 	jujusecrets "github.com/juju/juju/secrets"
@@ -18,14 +19,14 @@ type ManifoldConfig struct {
 	APICallerName string
 	Logger        Logger
 
-	NewFacade         func(base.APICaller) Facade
-	NewWorker         func(Config) (worker.Worker, error)
-	NewBackendsClient func(jujusecrets.JujuAPIClient) (jujusecrets.BackendsClient, error)
+	NewSecretsDrainFacade func(base.APICaller) SecretsDrainFacade
+	NewWorker             func(Config) (worker.Worker, error)
+	NewBackendsClient     func(jujusecrets.JujuAPIClient) (jujusecrets.BackendsClient, error)
 }
 
-// NewClient returns a new secretdrainworker facade.
-func NewClient(caller base.APICaller) Facade {
-	return secretsmanager.NewClient(caller)
+// NewSecretsDrainFacade returns a new SecretsDrainFacade.
+func NewSecretsDrainFacade(caller base.APICaller) SecretsDrainFacade {
+	return secretsdrain.NewClient(caller)
 }
 
 // NewBackendsClient returns a new secret backends client.
@@ -51,8 +52,8 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if cfg.NewFacade == nil {
-		return errors.NotValidf("nil NewFacade")
+	if cfg.NewSecretsDrainFacade == nil {
+		return errors.NotValidf("nil NewSecretsDrainFacade")
 	}
 	if cfg.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -74,10 +75,9 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 		return nil, errors.Trace(err)
 	}
 
-	facade := cfg.NewFacade(apiCaller)
 	worker, err := cfg.NewWorker(Config{
-		Facade: facade,
-		Logger: cfg.Logger,
+		SecretsDrainFacade: cfg.NewSecretsDrainFacade(apiCaller),
+		Logger:             cfg.Logger,
 		SecretsBackendGetter: func() (jujusecrets.BackendsClient, error) {
 			return cfg.NewBackendsClient(secretsmanager.NewClient(apiCaller))
 		},

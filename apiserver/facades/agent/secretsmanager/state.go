@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
@@ -40,13 +39,4 @@ type SecretsState interface {
 	ListSecrets(state.SecretsFilter) ([]*secrets.SecretMetadata, error)
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
 	WatchObsolete(owners []names.Tag) (state.StringsWatcher, error)
-	ChangeSecretBackend(state.ChangeSecretBackendParams) error
-}
-
-type Model interface {
-	ModelConfig() (*config.Config, error)
-	Type() state.ModelType
-	WatchForModelConfigChanges() state.NotifyWatcher
-	UUID() string
-	ControllerUUID() string
 }

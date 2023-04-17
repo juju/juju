@@ -280,11 +280,11 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 
 		// The secretDrainWorker is the worker that drains secrets from the inactive backend to the current active backend.
 		secretDrainWorker: ifNotMigrating(secretdrainworker.Manifold(secretdrainworker.ManifoldConfig{
-			APICallerName:     apiCallerName,
-			Logger:            loggo.GetLogger("juju.worker.secretdrainworker"),
-			NewFacade:         secretdrainworker.NewClient,
-			NewWorker:         secretdrainworker.NewWorker,
-			NewBackendsClient: secretdrainworker.NewBackendsClient,
+			APICallerName:         apiCallerName,
+			Logger:                loggo.GetLogger("juju.worker.secretdrainworker"),
+			NewSecretsDrainFacade: secretdrainworker.NewSecretsDrainFacade,
+			NewWorker:             secretdrainworker.NewWorker,
+			NewBackendsClient:     secretdrainworker.NewBackendsClient,
 		})),
 	}
 }

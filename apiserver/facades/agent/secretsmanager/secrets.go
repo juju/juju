@@ -42,7 +42,6 @@ type SecretsManagerAPI struct {
 
 	backendConfigGetter commonsecrets.BackendConfigGetter
 	adminConfigGetter   commonsecrets.BackendConfigGetter
-	model               Model
 }
 
 // GetSecretStoreConfig is for 3.0.x agents.
@@ -410,78 +409,6 @@ func (s *SecretsManagerAPI) getSecretMetadata(
 	return result, nil
 }
 
-// GetSecretsToDrain returns metadata for the secrets that need to be drained.
-func (s *SecretsManagerAPI) GetSecretsToDrain() (params.ListSecretResults, error) {
-	modelConfig, err := s.model.ModelConfig()
-	if err != nil {
-		return params.ListSecretResults{}, errors.Trace(err)
-	}
-	modelType := s.model.Type()
-	modelUUID := s.model.UUID()
-	controllerUUID := s.model.ControllerUUID()
-
-	activeBackend := modelConfig.SecretBackend()
-	if activeBackend == secretsprovider.Auto {
-		activeBackend = controllerUUID
-		if modelType == state.ModelTypeCAAS {
-			activeBackend = modelUUID
-		}
-	}
-	return s.getSecretMetadata(func(md *coresecrets.SecretMetadata, rev *coresecrets.SecretRevisionMetadata) bool {
-		if rev.ValueRef == nil {
-			// Only internal backend secrets have nil ValueRef.
-			if activeBackend == secretsprovider.Internal {
-				return false
-			}
-			if activeBackend == controllerUUID {
-				return false
-			}
-			return true
-		}
-		return rev.ValueRef.BackendID != activeBackend
-	})
-}
-
-// ChangeSecretBackend updates the backend for the specified secret after migration done.
-func (s *SecretsManagerAPI) ChangeSecretBackend(args params.ChangeSecretBackendArgs) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Args)),
-	}
-	for i, arg := range args.Args {
-		err := s.changeSecretBackendForOne(arg)
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
-
-func (s *SecretsManagerAPI) changeSecretBackendForOne(arg params.ChangeSecretBackendArg) (err error) {
-	uri, err := coresecrets.ParseURI(arg.URI)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	token, err := s.canManage(uri)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return s.secretsState.ChangeSecretBackend(toChangeSecretBackendParams(token, uri, arg))
-}
-
-func toChangeSecretBackendParams(token leadership.Token, uri *coresecrets.URI, arg params.ChangeSecretBackendArg) state.ChangeSecretBackendParams {
-	params := state.ChangeSecretBackendParams{
-		Token:    token,
-		URI:      uri,
-		Revision: arg.Revision,
-		Data:     arg.Content.Data,
-	}
-	if arg.Content.ValueRef != nil {
-		params.ValueRef = &coresecrets.ValueRef{
-			BackendID:  arg.Content.ValueRef.BackendID,
-			RevisionID: arg.Content.ValueRef.RevisionID,
-		}
-	}
-	return params
-}
-
 // GetSecretContentInfo returns the secret values for the specified secrets.
 func (s *SecretsManagerAPI) GetSecretContentInfo(args params.GetSecretContentArgs) (params.SecretContentResults, error) {
 	result := params.SecretContentResults{
@@ -815,19 +742,6 @@ func (s *SecretsManagerAPI) WatchSecretsRotationChanges(args params.Entities) (p
 		result.Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
-}
-
-// WatchSecretBackendChanged sets up a watcher to notify of changes to the secret backend.
-func (s *SecretsManagerAPI) WatchSecretBackendChanged() (params.NotifyWatchResult, error) {
-	stateWatcher := s.model.WatchForModelConfigChanges()
-	w, err := newSecretBackendModelConfigWatcher(s.model, stateWatcher)
-	if err != nil {
-		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}, nil
-	}
-	if _, ok := <-w.Changes(); ok {
-		return params.NotifyWatchResult{NotifyWatcherId: s.resources.Register(w)}, nil
-	}
-	return params.NotifyWatchResult{Error: apiservererrors.ServerError(watcher.EnsureErr(w))}, nil
 }
 
 // SecretsRotated records when secrets were last rotated.
