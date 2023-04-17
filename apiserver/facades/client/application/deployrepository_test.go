@@ -674,6 +674,76 @@ func (s *validatorSuite) TestAppCharmSettings(c *gc.C) {
 	c.Assert(charmConfig["optionTwo"], gc.DeepEquals, int64(8))
 }
 
+func (s *validatorSuite) TestResolveResourcesSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	curl := charm.MustParseURL("testcharm")
+	origin := corecharm.Origin{
+		Source:   "charm-hub",
+		Channel:  &charm.Channel{Risk: "stable"},
+		Platform: corecharm.Platform{Architecture: "amd64"},
+	}
+	// Resource 1 : file upload from client
+	meta1 := resource.Meta{
+		Name:        "foo-resource",
+		Type:        resource.TypeFile,
+		Path:        "foo.txt",
+		Description: "bar",
+	}
+	res := resource.Resource{
+		Meta:     meta1,
+		Origin:   resource.OriginUpload,
+		Revision: -1,
+	}
+	// Resource 2 : store resource with --resource <revision> flag
+	meta2 := resource.Meta{
+		Name:        "foo-resource2",
+		Type:        resource.TypeFile,
+		Path:        "foo.txt",
+		Description: "bar",
+	}
+	res2 := resource.Resource{
+		Meta:     meta2,
+		Origin:   resource.OriginStore,
+		Revision: 3,
+	}
+	// Resource 3 : store resource without the --resource flag
+	// (revision is reported by the store)
+	meta3 := resource.Meta{
+		Name:        "foo-resource3",
+		Type:        resource.TypeFile,
+		Path:        "foo.txt",
+		Description: "bar",
+	}
+	res3 := resource.Resource{
+		Meta:     meta3,
+		Origin:   resource.OriginStore,
+		Revision: -1,
+	}
+
+	resMeta := map[string]resource.Meta{"foo-file": meta1, "foo-file2": meta2, "store-file-res": meta3}
+	resArgs := []resource.Resource{res, res2, res3}
+	// Note that for the Resource 3, in the args res3 has revision -1, and the result below has revision 4
+	r4 := resource.Resource{
+		Meta:     meta3,
+		Origin:   resource.OriginStore,
+		Revision: 4,
+	}
+	resResult := []resource.Resource{res, res2, r4}
+	// First one of below is the file upload for Resource 1, the second is the revision for Resource 2e
+	deployResArg := map[string]string{"foo-file": "bar", "foo-file2": "3"}
+
+	s.repo.EXPECT().ResolveResources(resArgs, corecharm.CharmID{URL: curl, Origin: origin}).Return(resResult, nil)
+	resources, pendingResourceUploads, resolveResErr := s.getValidator().resolveResources(curl, origin, deployResArg, resMeta)
+	pendUp := &params.PendingResourceUpload{
+		Name:     "foo-resource",
+		Type:     "file",
+		Filename: "bar",
+	}
+	c.Assert(resolveResErr, jc.ErrorIsNil)
+	c.Assert(resources, gc.DeepEquals, resResult)
+	c.Assert(pendingResourceUploads, gc.DeepEquals, []*params.PendingResourceUpload{pendUp})
+}
+
 func (s *validatorSuite) TestCaasDeployFromRepositoryValidator(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSimpleValidate()
