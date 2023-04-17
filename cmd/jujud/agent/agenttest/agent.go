@@ -174,7 +174,11 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 			CACert:            stateInfo.CACert,
 			Controller:        coretesting.ControllerTag,
 			Model:             apiInfo.ModelTag,
-		})
+
+			QueryTracingEnabled:   controller.DefaultQueryTracingEnabled,
+			QueryTracingThreshold: controller.DefaultQueryTracingThreshold,
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	conf.SetPassword(password)
 	c.Assert(conf.Write(), gc.IsNil)
