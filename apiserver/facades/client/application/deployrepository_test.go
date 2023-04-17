@@ -5,12 +5,13 @@ package application
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/kr/pretty"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/charm/v10"
 	"github.com/juju/charm/v10/resource"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/kr/pretty"
-	gc "gopkg.in/check.v1"
 
 	corecharm "github.com/juju/juju/core/charm"
 	coreconfig "github.com/juju/juju/core/config"
@@ -49,11 +50,12 @@ func (s *validatorSuite) TestValidateSuccess(c *gc.C) {
 		Source:   "charm-hub",
 		Type:     "charm",
 		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
-		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
 		Revision: intptr(4),
 	}
 	supportedSeries := []string{"jammy", "focal"}
 	s.repo.EXPECT().ResolveWithPreferredChannel(curl, origin).Return(resultURL, resolvedOrigin, supportedSeries, nil)
+	s.repo.EXPECT().ResolveResources(nil, corecharm.CharmID{URL: resultURL, Origin: resolvedOrigin}).Return(nil, nil)
 	// getCharm
 	expMeta := &charm.Meta{
 		Name: "test-charm",
@@ -101,11 +103,13 @@ func (s *validatorSuite) TestValidatePlacementSuccess(c *gc.C) {
 		Source:   "charm-hub",
 		Type:     "charm",
 		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
-		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
 		Revision: intptr(4),
 	}
 	supportedSeries := []string{"jammy", "focal"}
 	s.repo.EXPECT().ResolveWithPreferredChannel(curl, origin).Return(resultURL, resolvedOrigin, supportedSeries, nil)
+	s.repo.EXPECT().ResolveResources(nil, corecharm.CharmID{URL: resultURL, Origin: resolvedOrigin}).Return(nil, nil)
+
 	// getCharm
 	expMeta := &charm.Meta{
 		Name: "test-charm",
@@ -166,11 +170,13 @@ func (s *validatorSuite) TestValidateEndpointBindingSuccess(c *gc.C) {
 		Source:   "charm-hub",
 		Type:     "charm",
 		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
-		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
 		Revision: intptr(4),
 	}
 	supportedSeries := []string{"jammy", "focal"}
 	s.repo.EXPECT().ResolveWithPreferredChannel(curl, origin).Return(resultURL, resolvedOrigin, supportedSeries, nil)
+	s.repo.EXPECT().ResolveResources(nil, corecharm.CharmID{URL: resultURL, Origin: resolvedOrigin}).Return(nil, nil)
+
 	// getCharm
 	expMeta := &charm.Meta{
 		Name: "test-charm",
@@ -228,7 +234,7 @@ func (s *validatorSuite) TestResolveCharm(c *gc.C) {
 		Source:   "charm-hub",
 		Type:     "charm",
 		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
-		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
 		Revision: intptr(4),
 	}
 	supportedSeries := []string{"jammy", "focal"}
@@ -257,7 +263,7 @@ func (s *validatorSuite) TestResolveCharmArchAll(c *gc.C) {
 		Source:   "charm-hub",
 		Type:     "charm",
 		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
-		Platform: corecharm.Platform{Architecture: "all", OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: corecharm.Platform{Architecture: "all", OS: "ubuntu", Channel: "22.04"},
 		Revision: intptr(4),
 	}
 	supportedSeries := []string{"jammy", "focal"}
@@ -280,13 +286,13 @@ func (s *validatorSuite) TestResolveCharmUnsupportedSeriesErrorForce(c *gc.C) {
 	origin := corecharm.Origin{
 		Source:   "charm-hub",
 		Channel:  &charm.Channel{Risk: "stable"},
-		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
 	}
 	resolvedOrigin := corecharm.Origin{
 		Source:   "charm-hub",
 		Type:     "charm",
 		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
-		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
 		Revision: intptr(4),
 	}
 	supportedSeries := []string{"focal"}
@@ -308,13 +314,13 @@ func (s *validatorSuite) TestResolveCharmUnsupportedSeriesError(c *gc.C) {
 	origin := corecharm.Origin{
 		Source:   "charm-hub",
 		Channel:  &charm.Channel{Risk: "stable"},
-		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
 	}
 	resolvedOrigin := corecharm.Origin{
 		Source:   "charm-hub",
 		Type:     "charm",
 		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
-		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
 		Revision: intptr(4),
 	}
 	supportedSeries := []string{"focal"}
@@ -438,7 +444,7 @@ func (s *validatorSuite) TestGetCharm(c *gc.C) {
 		Source:   "charm-hub",
 		Type:     "charm",
 		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
-		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
 		Revision: intptr(4),
 	}
 	supportedSeries := []string{"jammy", "focal"}
@@ -668,6 +674,76 @@ func (s *validatorSuite) TestAppCharmSettings(c *gc.C) {
 	c.Assert(charmConfig["optionTwo"], gc.DeepEquals, int64(8))
 }
 
+func (s *validatorSuite) TestResolveResourcesSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	curl := charm.MustParseURL("testcharm")
+	origin := corecharm.Origin{
+		Source:   "charm-hub",
+		Channel:  &charm.Channel{Risk: "stable"},
+		Platform: corecharm.Platform{Architecture: "amd64"},
+	}
+	// Resource 1 : file upload from client
+	meta1 := resource.Meta{
+		Name:        "foo-resource",
+		Type:        resource.TypeFile,
+		Path:        "foo.txt",
+		Description: "bar",
+	}
+	res := resource.Resource{
+		Meta:     meta1,
+		Origin:   resource.OriginUpload,
+		Revision: -1,
+	}
+	// Resource 2 : store resource with --resource <revision> flag
+	meta2 := resource.Meta{
+		Name:        "foo-resource2",
+		Type:        resource.TypeFile,
+		Path:        "foo.txt",
+		Description: "bar",
+	}
+	res2 := resource.Resource{
+		Meta:     meta2,
+		Origin:   resource.OriginStore,
+		Revision: 3,
+	}
+	// Resource 3 : store resource without the --resource flag
+	// (revision is reported by the store)
+	meta3 := resource.Meta{
+		Name:        "foo-resource3",
+		Type:        resource.TypeFile,
+		Path:        "foo.txt",
+		Description: "bar",
+	}
+	res3 := resource.Resource{
+		Meta:     meta3,
+		Origin:   resource.OriginStore,
+		Revision: -1,
+	}
+
+	resMeta := map[string]resource.Meta{"foo-file": meta1, "foo-file2": meta2, "store-file-res": meta3}
+	resArgs := []resource.Resource{res, res2, res3}
+	// Note that for the Resource 3, in the args res3 has revision -1, and the result below has revision 4
+	r4 := resource.Resource{
+		Meta:     meta3,
+		Origin:   resource.OriginStore,
+		Revision: 4,
+	}
+	resResult := []resource.Resource{res, res2, r4}
+	// First one of below is the file upload for Resource 1, the second is the revision for Resource 2e
+	deployResArg := map[string]string{"foo-file": "bar", "foo-file2": "3"}
+
+	s.repo.EXPECT().ResolveResources(resArgs, corecharm.CharmID{URL: curl, Origin: origin}).Return(resResult, nil)
+	resources, pendingResourceUploads, resolveResErr := s.getValidator().resolveResources(curl, origin, deployResArg, resMeta)
+	pendUp := &params.PendingResourceUpload{
+		Name:     "foo-resource",
+		Type:     "file",
+		Filename: "bar",
+	}
+	c.Assert(resolveResErr, jc.ErrorIsNil)
+	c.Assert(resources, gc.DeepEquals, resResult)
+	c.Assert(pendingResourceUploads, gc.DeepEquals, []*params.PendingResourceUpload{pendUp})
+}
+
 func (s *validatorSuite) TestCaasDeployFromRepositoryValidator(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSimpleValidate()
@@ -683,15 +759,18 @@ func (s *validatorSuite) TestCaasDeployFromRepositoryValidator(c *gc.C) {
 		Source:   "charm-hub",
 		Type:     "charm",
 		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
-		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
 		Revision: intptr(4),
 	}
 	supportedSeries := []string{"jammy", "focal"}
 	s.repo.EXPECT().ResolveWithPreferredChannel(curl, origin).Return(resultURL, resolvedOrigin, supportedSeries, nil)
+	s.repo.EXPECT().ResolveResources(nil, corecharm.CharmID{URL: resultURL, Origin: resolvedOrigin}).Return(nil, nil)
+
 	// getCharm
 	expMeta := &charm.Meta{
 		Name: "test-charm",
 	}
+
 	expManifest := new(charm.Manifest)
 	expConfig := new(charm.Config)
 	essMeta := corecharm.EssentialMetadata{
@@ -797,8 +876,6 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 		ID:    charm.MustParseURL("ch:amd64/jammy/testme-5"),
 	}
 
-	s.charm.EXPECT().Meta().Return(&charm.Meta{Resources: nil})
-
 	s.state.EXPECT().AddCharmMetadata(info).Return(s.charm, nil)
 
 	addAppArgs := state.AddApplicationArgs{
@@ -882,6 +959,22 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testme",
 	}
+	pendUp := &params.PendingResourceUpload{
+		Name:     "foo-resource",
+		Type:     "file",
+		Filename: "bar",
+	}
+	meta := resource.Meta{
+		Name:        "foo-resource",
+		Type:        resource.TypeFile,
+		Path:        "foo.txt",
+		Description: "bar",
+	}
+	r := resource.Resource{
+		Meta:   meta,
+		Origin: resource.OriginUpload,
+	}
+
 	template := deployTemplate{
 		applicationName: "metadata-name",
 		charm:           corecharm.NewCharmInfoAdapter(corecharm.EssentialMetadata{}),
@@ -894,8 +987,10 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 			Channel:  &charm.Channel{Risk: "stable"},
 			Platform: corecharm.MustParsePlatform("amd64/ubuntu/22.04"),
 		},
-		placement: []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
-		resources: map[string]string{"foo-file": "bar"},
+		placement:              []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
+		resources:              map[string]string{"foo-file": "bar"},
+		pendingResourceUploads: []*params.PendingResourceUpload{pendUp},
+		resolvedResources:      []resource.Resource{r},
 	}
 	s.validator.EXPECT().ValidateArg(arg).Return(template, nil)
 	info := state.CharmInfo{
@@ -904,21 +999,6 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 	}
 
 	s.state.EXPECT().AddCharmMetadata(info).Return(s.charm, nil)
-
-	meta := resource.Meta{
-		Name:        "foo-resource",
-		Type:        resource.TypeFile,
-		Path:        "foo.txt",
-		Description: "bar",
-	}
-	r := resource.Resource{
-		Meta:   meta,
-		Origin: resource.OriginUpload,
-	}
-	s.charm.EXPECT().Meta().Return(&charm.Meta{
-		Resources: map[string]resource.Meta{
-			"foo-file": meta,
-		}})
 
 	s.state.EXPECT().AddPendingResource("metadata-name", r).Return("3", nil)
 
@@ -943,7 +1023,7 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 		EndpointBindings: map[string]string{"to": "from"},
 		NumUnits:         1,
 		Placement:        []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
-		Resources:        map[string]string{"foo-file": "3"},
+		Resources:        map[string]string{"foo-resource": "3"},
 		Storage:          map[string]state.StorageConstraints{},
 	}
 	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}).Return(s.application, nil)
@@ -962,11 +1042,6 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 		Revision:         5,
 	})
 
-	pendUp := &params.PendingResourceUpload{
-		Name:     "foo-resource",
-		Type:     "file",
-		Filename: "bar",
-	}
 	c.Assert(resources, gc.DeepEquals, []*params.PendingResourceUpload{pendUp})
 }
 
@@ -974,6 +1049,21 @@ func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc
 	defer s.setupMocks(c).Finish()
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testme",
+	}
+	pendUp := &params.PendingResourceUpload{
+		Name:     "foo-resource",
+		Type:     "file",
+		Filename: "bar",
+	}
+	meta := resource.Meta{
+		Name:        "foo-resource",
+		Type:        resource.TypeFile,
+		Path:        "foo.txt",
+		Description: "bar",
+	}
+	r := resource.Resource{
+		Meta:   meta,
+		Origin: resource.OriginUpload,
 	}
 	template := deployTemplate{
 		applicationName: "metadata-name",
@@ -987,8 +1077,10 @@ func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc
 			Channel:  &charm.Channel{Risk: "stable"},
 			Platform: corecharm.MustParsePlatform("amd64/ubuntu/22.04"),
 		},
-		placement: []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
-		resources: map[string]string{"foo-file": "bar"},
+		placement:              []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
+		resources:              map[string]string{"foo-file": "bar"},
+		pendingResourceUploads: []*params.PendingResourceUpload{pendUp},
+		resolvedResources:      []resource.Resource{r},
 	}
 	s.validator.EXPECT().ValidateArg(arg).Return(template, nil)
 	info := state.CharmInfo{
@@ -997,21 +1089,6 @@ func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc
 	}
 
 	s.state.EXPECT().AddCharmMetadata(info).Return(s.charm, nil)
-
-	meta := resource.Meta{
-		Name:        "foo-resource",
-		Type:        resource.TypeFile,
-		Path:        "foo.txt",
-		Description: "bar",
-	}
-	r := resource.Resource{
-		Meta:   meta,
-		Origin: resource.OriginUpload,
-	}
-	s.charm.EXPECT().Meta().Return(&charm.Meta{
-		Resources: map[string]resource.Meta{
-			"foo-file": meta,
-		}})
 
 	s.state.EXPECT().AddPendingResource("metadata-name", r).Return("3", nil)
 
@@ -1036,11 +1113,11 @@ func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc
 		EndpointBindings: map[string]string{"to": "from"},
 		NumUnits:         1,
 		Placement:        []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
-		Resources:        map[string]string{"foo-file": "3"},
+		Resources:        map[string]string{"foo-resource": "3"},
 		Storage:          map[string]state.StorageConstraints{},
 	}
 
-	s.state.EXPECT().RemovePendingResources("metadata-name", map[string]string{"foo-file": "3"})
+	s.state.EXPECT().RemovePendingResources("metadata-name", map[string]string{"foo-resource": "3"})
 
 	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}).Return(s.application,
 		errors.New("fail"))

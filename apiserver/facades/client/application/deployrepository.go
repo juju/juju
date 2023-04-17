@@ -69,20 +69,18 @@ type DeployFromRepositoryState interface {
 // API facade for any given version. It is expected that any API
 // parameter changes should be performed before entering the API.
 type DeployFromRepositoryAPI struct {
-	state     DeployFromRepositoryState
-	validator DeployFromRepositoryValidator
-
+	state      DeployFromRepositoryState
+	validator  DeployFromRepositoryValidator
 	stateCharm func(Charm) *state.Charm
 }
 
 // NewDeployFromRepositoryAPI creates a new DeployFromRepositoryAPI.
 func NewDeployFromRepositoryAPI(state DeployFromRepositoryState, validator DeployFromRepositoryValidator) DeployFromRepository {
-	api := &DeployFromRepositoryAPI{
+	return &DeployFromRepositoryAPI{
 		state:      state,
 		validator:  validator,
 		stateCharm: CharmToStateCharm,
 	}
-	return api
 }
 
 func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRepositoryArg) (params.DeployFromRepositoryInfo, []*params.PendingResourceUpload, []error) {
@@ -125,7 +123,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 	}
 
 	// Last step, add pending resources.
-	pendingIDs, pendingResourceUploads, errs := api.addPendingResources(dt.applicationName, dt.resources, ch.Meta().Resources)
+	pendingIDs, errs := api.addPendingResources(dt.applicationName, dt.resolvedResources)
 
 	_, err = api.state.AddApplication(state.AddApplicationArgs{
 		Name:              dt.applicationName,
@@ -154,72 +152,98 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
 
-	return info, pendingResourceUploads, errs
+	return info, dt.pendingResourceUploads, errs
 }
 
-// addPendingResource adds a pending resource doc for all resources to be
-// added when deploying the charm. PendingResourceUpload is only returned
-// for local resources which will require the client to upload the
-// resource once DeployFromRepository returns. All resources will be
-// processed. Errors are not terminal. It also returns the name to pendingIDs
-// map that's needed by the AddApplication.
-func (api *DeployFromRepositoryAPI) addPendingResources(appName string, deployRes map[string]string, resMeta map[string]resource.Meta) (map[string]string, []*params.PendingResourceUpload, []error) {
+// PendingResourceUpload is only returned for local resources
+// which will require the client to upload the resource once
+// the DeployFromRepository returns. Errors are not terminal,
+// and will be collected and returned altogether.
+func (v *deployFromRepositoryValidator) resolveResources(
+	curl *charm.URL,
+	origin corecharm.Origin,
+	deployResArg map[string]string,
+	resMeta map[string]resource.Meta,
+) ([]resource.Resource, []*params.PendingResourceUpload, error) {
 	var pendingUploadIDs []*params.PendingResourceUpload
-	var errs []error
-	pendingIDs := make(map[string]string)
+	var resources []resource.Resource
 
 	for name, meta := range resMeta {
 		r := resource.Resource{
-			Meta: meta,
+			Meta:     meta,
+			Origin:   resource.OriginStore,
+			Revision: -1,
 		}
-		deployValue, ok := deployRes[name]
-		if !ok {
-			// TODO, this is temporary until resolving resources is completed.
-			// irl, this should never fail.
-			continue
-		}
-		if rev, err := strconv.Atoi(deployValue); err == nil {
-			r.Revision = rev
-			r.Origin = resource.OriginStore
-		} else {
+		deployValue, ok := deployResArg[name]
+		if ok {
+			// resource flag is used on the cli, either a resource revision, or a filename
+			if providedRev, err := strconv.Atoi(deployValue); err == nil {
+				// a resource revision is provided
+				r.Revision = providedRev
+				resources = append(resources, r)
+				continue
+			}
+			// a file is coming from the client
 			r.Origin = resource.OriginUpload
+
+			// add a PendingResourceUpload for this resource to be uploaded by the client
+			pendingUploadIDs = append(pendingUploadIDs, &params.PendingResourceUpload{
+				Name:     meta.Name,
+				Type:     meta.Type.String(),
+				Filename: deployValue,
+			})
 		}
+		resources = append(resources, r)
+	}
+
+	repo, err := v.getCharmRepository(origin.Source)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	resolvedResources, resolveErr := repo.ResolveResources(resources, corecharm.CharmID{URL: curl, Origin: origin})
+
+	return resolvedResources, pendingUploadIDs, resolveErr
+}
+
+// addPendingResource adds a pending resource doc for all resources to be
+// added when deploying the charm. All resources will be
+// processed. Errors are not terminal. It also returns the name to pendingIDs
+// map that's needed by the AddApplication.
+func (api *DeployFromRepositoryAPI) addPendingResources(appName string, resources []resource.Resource) (map[string]string, []error) {
+	var errs []error
+	pendingIDs := make(map[string]string)
+
+	for _, r := range resources {
 		pID, err := api.state.AddPendingResource(appName, r)
 		if err != nil {
-			logger.Warningf("Unable to add pending resource %v for application %v", name, appName)
+			deployRepoLogger.Errorf("Unable to add pending resource %v for application %v: %v", r.Name, appName, err)
 			errs = append(errs, err)
 			continue
 		}
-		pendingIDs[name] = pID
-		if r.Origin == resource.OriginStore {
-			continue
-		}
-		pendingUploadIDs = append(pendingUploadIDs, &params.PendingResourceUpload{
-			Name:     meta.Name,
-			Type:     meta.Type.String(),
-			Filename: deployValue,
-		})
+		pendingIDs[r.Name] = pID
 	}
 
-	return pendingIDs, pendingUploadIDs, errs
+	return pendingIDs, errs
 }
 
 type deployTemplate struct {
-	applicationConfig *config.Config
-	applicationName   string
-	attachStorage     []string
-	charm             charm.Charm
-	charmSettings     charm.Settings
-	charmURL          *charm.URL
-	constraints       constraints.Value
-	endpoints         map[string]string
-	dryRun            bool
-	force             bool
-	numUnits          int
-	origin            corecharm.Origin
-	placement         []*instance.Placement
-	resources         map[string]string
-	storage           map[string]storage.Constraints
+	applicationConfig      *config.Config
+	applicationName        string
+	attachStorage          []string
+	charm                  charm.Charm
+	charmSettings          charm.Settings
+	charmURL               *charm.URL
+	constraints            constraints.Value
+	endpoints              map[string]string
+	dryRun                 bool
+	force                  bool
+	numUnits               int
+	origin                 corecharm.Origin
+	placement              []*instance.Placement
+	resources              map[string]string
+	storage                map[string]storage.Constraints
+	pendingResourceUploads []*params.PendingResourceUpload
+	resolvedResources      []resource.Resource
 }
 
 type validatorConfig struct {
@@ -325,6 +349,15 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 		}
 		dt.endpoints = bindings.Map()
 	}
+	// resolve and validate resources
+	resources, pendingResourceUploads, resolveResErr := v.resolveResources(dt.charmURL, dt.origin, dt.resources, resolvedCharm.Meta().Resources)
+	if resolveResErr != nil {
+		errs = append(errs, resolveResErr)
+	}
+
+	dt.pendingResourceUploads = pendingResourceUploads
+	dt.resolvedResources = resources
+
 	deployRepoLogger.Tracef("validateDeployFromRepositoryArgs returning: %s", pretty.Sprint(dt))
 	return dt, errs
 }
@@ -681,7 +714,9 @@ func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedO
 		}
 	}
 	resolvedOrigin.Platform.OS = base.OS
-	resolvedOrigin.Platform.Channel = base.Channel.String()
+	// Avoid using Channel.String() here instead of Channel.Track for the Platform.Channel,
+	// because String() will return "track/risk" if the channel's risk is non-empty
+	resolvedOrigin.Platform.Channel = base.Channel.Track
 
 	return resultURL, resolvedOrigin, nil
 }
