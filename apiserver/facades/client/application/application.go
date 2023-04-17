@@ -230,23 +230,12 @@ func NewAPIBase(
 	}, nil
 }
 
-func (api *APIBase) checkPermission(tag names.Tag, perm permission.Access) error {
-	allowed, err := api.authorizer.HasPermission(perm, tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !allowed {
-		return apiservererrors.ErrPerm
-	}
-	return nil
-}
-
 func (api *APIBase) checkCanRead() error {
-	return api.checkPermission(api.model.ModelTag(), permission.ReadAccess)
+	return api.authorizer.HasPermission(permission.ReadAccess, api.model.ModelTag())
 }
 
 func (api *APIBase) checkCanWrite() error {
-	return api.checkPermission(api.model.ModelTag(), permission.WriteAccess)
+	return api.authorizer.HasPermission(permission.WriteAccess, api.model.ModelTag())
 }
 
 // SetMetricCredentials sets credentials on the application.

@@ -4,12 +4,14 @@
 package usermanager
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -32,11 +34,8 @@ type UserManagerAPI struct {
 }
 
 func (api *UserManagerAPI) hasControllerAdminAccess() (bool, error) {
-	isAdmin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.state.ControllerTag())
-	if errors.IsNotFound(err) {
-		return false, nil
-	}
-	return isAdmin, err
+	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.state.ControllerTag())
+	return err == nil, err
 }
 
 // AddUser adds a user with a username, and either a password or
@@ -55,12 +54,8 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 	// Create the results list to populate.
 	result.Results = make([]params.AddUserResult, len(args.Users))
 
-	isSuperUser, err := api.hasControllerAdminAccess()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if !isSuperUser {
-		return result, apiservererrors.ErrPerm
+	if _, err := api.hasControllerAdminAccess(); err != nil {
+		return result, err
 	}
 
 	for i, arg := range args.Users {
@@ -157,12 +152,8 @@ func (api *UserManagerAPI) getUser(tag string) (*state.User, error) {
 // EnableUser enables one or more users.  If the user is already enabled,
 // the action is considered a success.
 func (api *UserManagerAPI) EnableUser(users params.Entities) (params.ErrorResults, error) {
-	isSuperUser, err := api.hasControllerAdminAccess()
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	if !isSuperUser {
-		return params.ErrorResults{}, apiservererrors.ErrPerm
+	if _, err := api.hasControllerAdminAccess(); err != nil {
+		return params.ErrorResults{}, err
 	}
 
 	if err := api.check.ChangeAllowed(); err != nil {
@@ -174,12 +165,8 @@ func (api *UserManagerAPI) EnableUser(users params.Entities) (params.ErrorResult
 // DisableUser disables one or more users.  If the user is already disabled,
 // the action is considered a success.
 func (api *UserManagerAPI) DisableUser(users params.Entities) (params.ErrorResults, error) {
-	isSuperUser, err := api.hasControllerAdminAccess()
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	if !isSuperUser {
-		return params.ErrorResults{}, apiservererrors.ErrPerm
+	if _, err := api.hasControllerAdminAccess(); err != nil {
+		return params.ErrorResults{}, err
 	}
 
 	if err := api.check.ChangeAllowed(); err != nil {
@@ -195,13 +182,10 @@ func (api *UserManagerAPI) enableUserImpl(args params.Entities, action string, m
 		return result, nil
 	}
 
-	isSuperUser, err := api.hasControllerAdminAccess()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	if !api.isAdmin && isSuperUser {
-		return result, apiservererrors.ErrPerm
+	if !api.isAdmin {
+		if _, err := api.hasControllerAdminAccess(); err != nil {
+			return result, err
+		}
 	}
 
 	// Create the results list to populate.
@@ -225,7 +209,7 @@ func (api *UserManagerAPI) enableUserImpl(args params.Entities, action string, m
 func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.UserInfoResults, error) {
 	var results params.UserInfoResults
 	isAdmin, err := api.hasControllerAdminAccess()
-	if err != nil {
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return results, errors.Trace(err)
 	}
 
@@ -318,14 +302,7 @@ func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.User
 }
 
 func (api *UserManagerAPI) checkCanRead(modelTag names.Tag) error {
-	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, modelTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !canRead {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+	return api.authorizer.HasPermission(permission.ReadAccess, modelTag)
 }
 
 // ModelUserInfo returns information on all users in the model.
@@ -391,6 +368,7 @@ func (api *UserManagerAPI) SetPassword(args params.EntityPasswords) (params.Erro
 	result.Results = make([]params.ErrorResult, len(args.Changes))
 	for i, arg := range args.Changes {
 		if err := api.setPassword(arg); err != nil {
+			fmt.Println("here 112345")
 			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
@@ -403,14 +381,12 @@ func (api *UserManagerAPI) setPassword(arg params.EntityPassword) error {
 		return errors.Trace(err)
 	}
 
-	isSuperUser, err := api.hasControllerAdminAccess()
-	if err != nil {
-		return errors.Trace(err)
+	if !api.isAdmin {
+		if _, err := api.hasControllerAdminAccess(); err != nil && api.apiUser != user.UserTag() {
+			return err
+		}
 	}
 
-	if api.apiUser != user.UserTag() && !api.isAdmin && !isSuperUser {
-		return errors.Trace(apiservererrors.ErrPerm)
-	}
 	if arg.Password == "" {
 		return errors.New("cannot use an empty password")
 	}
@@ -436,7 +412,7 @@ func (api *UserManagerAPI) ResetPassword(args params.Entities) (params.AddUserRe
 	}
 
 	isSuperUser, err := api.hasControllerAdminAccess()
-	if err != nil {
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return result, errors.Trace(err)
 	}
 

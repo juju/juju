@@ -58,14 +58,7 @@ type API struct {
 }
 
 func (api *API) checkCanRead() error {
-	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, api.backing.ModelTag())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !canRead {
-		return apiservererrors.ServerError(apiservererrors.ErrPerm)
-	}
-	return nil
+	return api.authorizer.HasPermission(permission.ReadAccess, api.backing.ModelTag())
 }
 
 // newAPIWithBacking creates a new server-side Subnets API facade with

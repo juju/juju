@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -46,55 +47,40 @@ func NewModelConfigAPI(backend Backend, authorizer facade.Authorizer) (*ModelCon
 }
 
 func (c *ModelConfigAPI) checkCanWrite() error {
-	canWrite, err := c.auth.HasPermission(permission.WriteAccess, c.backend.ModelTag())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !canWrite {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+	return c.auth.HasPermission(permission.WriteAccess, c.backend.ModelTag())
 }
 
 func (c *ModelConfigAPI) isControllerAdmin() error {
-	hasAccess, err := c.auth.HasPermission(permission.SuperuserAccess, c.backend.ControllerTag())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !hasAccess {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+	return c.auth.HasPermission(permission.SuperuserAccess, c.backend.ControllerTag())
 }
 
 func (c *ModelConfigAPI) canReadModel() error {
-	isAdmin, err := c.auth.HasPermission(permission.SuperuserAccess, c.backend.ControllerTag())
-	if err != nil {
+	err := c.auth.HasPermission(permission.SuperuserAccess, c.backend.ControllerTag())
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
+	} else if err == nil {
+		return nil
 	}
-	canRead, err := c.auth.HasPermission(permission.ReadAccess, c.backend.ModelTag())
-	if err != nil {
+
+	err = c.auth.HasPermission(permission.AdminAccess, c.backend.ModelTag())
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
+	} else if err == nil {
+		return nil
 	}
-	if !isAdmin && !canRead {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+
+	return c.auth.HasPermission(permission.ReadAccess, c.backend.ModelTag())
 }
 
 func (c *ModelConfigAPI) isModelAdmin() (bool, error) {
-	isAdmin, err := c.auth.HasPermission(permission.SuperuserAccess, c.backend.ControllerTag())
-	if err != nil {
+	err := c.auth.HasPermission(permission.SuperuserAccess, c.backend.ControllerTag())
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return false, errors.Trace(err)
-	}
-	if isAdmin {
+	} else if err == nil {
 		return true, nil
 	}
-	isAdmin, err = c.auth.HasPermission(permission.AdminAccess, c.backend.ModelTag())
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	return isAdmin, nil
+	err = c.auth.HasPermission(permission.AdminAccess, c.backend.ModelTag())
+	return err == nil, err
 }
 
 // ModelGet implements the server-side part of the
@@ -104,10 +90,12 @@ func (c *ModelConfigAPI) ModelGet() (params.ModelConfigResults, error) {
 	if err := c.canReadModel(); err != nil {
 		return result, errors.Trace(err)
 	}
+
 	isAdmin, err := c.isModelAdmin()
-	if err != nil {
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return result, errors.Trace(err)
 	}
+
 	defaultSchema, err := config.Schema(nil)
 	if err != nil {
 		return result, errors.Trace(err)
@@ -181,7 +169,7 @@ func (c *ModelConfigAPI) ModelSet(args params.ModelSet) error {
 		return errors.Trace(err)
 	}
 	isAdmin, err := c.isModelAdmin()
-	if err != nil {
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
 	defaultSchema, err := config.Schema(nil)
@@ -288,10 +276,11 @@ func (c *ModelConfigAPI) checkLogTrace() state.ValidateConfigFunc {
 		if !haveTrace {
 			return nil
 		}
-		if err := c.isControllerAdmin(); err != nil {
-			if errors.Cause(err) != apiservererrors.ErrPerm {
-				return errors.Trace(err)
-			}
+
+		err = c.isControllerAdmin()
+		if !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+			return errors.Trace(err)
+		} else if err != nil {
 			return errors.New("only controller admins can set a model's logging level to TRACE")
 		}
 		return nil

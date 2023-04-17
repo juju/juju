@@ -13,7 +13,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/apiserver/httpcontext"
+	"github.com/juju/juju/apiserver/authentication/macaroon"
 	workerstate "github.com/juju/juju/worker/state"
 )
 
@@ -100,7 +100,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 var (
 	muxType           = reflect.TypeOf(&apiserverhttp.Mux{})
-	authenticatorType = reflect.TypeOf((*httpcontext.LocalMacaroonAuthenticator)(nil)).Elem()
+	authenticatorType = reflect.TypeOf((*macaroon.LocalMacaroonAuthenticator)(nil)).Elem()
 )
 
 func manifoldOutput(in worker.Worker, out interface{}) error {
@@ -125,7 +125,7 @@ func manifoldOutput(in worker.Worker, out interface{}) error {
 
 func newWorker(
 	mux *apiserverhttp.Mux,
-	authenticator httpcontext.LocalMacaroonAuthenticator,
+	authenticator macaroon.LocalMacaroonAuthenticator,
 	cleanup func(),
 ) worker.Worker {
 	w := argsWorker{
@@ -142,7 +142,7 @@ func newWorker(
 
 type argsWorker struct {
 	mux           *apiserverhttp.Mux
-	authenticator httpcontext.LocalMacaroonAuthenticator
+	authenticator macaroon.LocalMacaroonAuthenticator
 	tomb          tomb.Tomb
 }
 

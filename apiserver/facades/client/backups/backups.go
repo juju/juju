@@ -8,6 +8,7 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -46,10 +47,13 @@ type API struct {
 
 // NewAPI creates a new instance of the Backups API facade.
 func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
-	isControllerAdmin, err := authorizer.HasPermission(permission.SuperuserAccess, backend.ControllerTag())
-	if err != nil && !errors.IsNotFound(err) {
+	err := authorizer.HasPermission(permission.SuperuserAccess, backend.ControllerTag())
+	if err != nil &&
+		!errors.Is(err, authentication.ErrorEntityMissingPermission) &&
+		!errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
+	isControllerAdmin := err == nil
 
 	if !authorizer.AuthClient() || !isControllerAdmin {
 		return nil, apiservererrors.ErrPerm

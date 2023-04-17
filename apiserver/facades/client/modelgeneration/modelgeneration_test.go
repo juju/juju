@@ -6,10 +6,11 @@ package modelgeneration_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/cache"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/cache"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/client/modelgeneration"
@@ -238,11 +239,10 @@ func (s *modelGenerationSuite) setupModelGenerationAPI(c *gc.C) *gomock.Controll
 	s.mockState.EXPECT().ControllerTag().Return(names.NewControllerTag(s.modelUUID))
 
 	s.mockModel = mocks.NewMockModel(ctrl)
-	s.mockModel.EXPECT().ModelTag().Return(names.NewModelTag(s.modelUUID))
 
 	mockAuthorizer := facademocks.NewMockAuthorizer(ctrl)
 	aExp := mockAuthorizer.EXPECT()
-	aExp.HasPermission(gomock.Any(), gomock.Any()).Return(true, nil).AnyTimes()
+	aExp.HasPermission(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	aExp.GetAuthTag().Return(names.NewUserTag("test-user"))
 	aExp.AuthClient().Return(true)
 

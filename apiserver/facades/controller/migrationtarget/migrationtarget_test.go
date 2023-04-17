@@ -101,7 +101,7 @@ func (s *Suite) TestNotUser(c *gc.C) {
 func (s *Suite) TestNotControllerAdmin(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("jrandomuser")
 	_, err := s.newAPI(nil, nil)
-	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
+	c.Assert(errors.Is(err, apiservererrors.ErrPerm), jc.IsTrue)
 }
 
 func (s *Suite) importModel(c *gc.C, api *migrationtarget.API) names.ModelTag {

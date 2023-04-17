@@ -991,19 +991,19 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			}
 
 			estate.apiServer, err = apiserver.NewServer(apiserver.ServerConfig{
-				StatePool:           statePool,
-				Controller:          estate.controller,
-				MultiwatcherFactory: multiWatcherWorker,
-				Authenticator:       stateAuthenticator,
-				Clock:               clock.WallClock,
-				GetAuditConfig:      func() auditlog.Config { return auditlog.Config{} },
-				Tag:                 machineTag,
-				DataDir:             DataDir,
-				LogDir:              LogDir,
-				Mux:                 estate.mux,
-				Hub:                 estate.hub,
-				Presence:            estate.presence,
-				LeaseManager:        estate.leaseManager,
+				StatePool:                  statePool,
+				Controller:                 estate.controller,
+				MultiwatcherFactory:        multiWatcherWorker,
+				LocalMacaroonAuthenticator: stateAuthenticator,
+				Clock:                      clock.WallClock,
+				GetAuditConfig:             func() auditlog.Config { return auditlog.Config{} },
+				Tag:                        machineTag,
+				DataDir:                    DataDir,
+				LogDir:                     LogDir,
+				Mux:                        estate.mux,
+				Hub:                        estate.hub,
+				Presence:                   estate.presence,
+				LeaseManager:               estate.leaseManager,
 				NewObserver: func() observer.Observer {
 					logger := loggo.GetLogger("juju.apiserver")
 					ctx := observer.RequestObserverContext{

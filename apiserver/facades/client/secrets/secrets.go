@@ -37,25 +37,12 @@ type SecretsAPI struct {
 }
 
 func (s *SecretsAPI) checkCanRead() error {
-	canRead, err := s.authorizer.HasPermission(permission.ReadAccess, names.NewModelTag(s.modelUUID))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !canRead {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+	return s.authorizer.HasPermission(permission.ReadAccess, names.NewModelTag(s.modelUUID))
 }
 
 func (s *SecretsAPI) checkCanAdmin() error {
-	canAdmin, err := common.HasModelAdmin(s.authorizer, names.NewControllerTag(s.controllerUUID), names.NewModelTag(s.modelUUID))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !canAdmin {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+	_, err := common.HasModelAdmin(s.authorizer, names.NewControllerTag(s.controllerUUID), names.NewModelTag(s.modelUUID))
+	return err
 }
 
 // ListSecrets lists available secrets.

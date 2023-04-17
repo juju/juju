@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/crossmodel"
@@ -113,7 +114,7 @@ func PublishRelationChange(auth authoriser, backend Backend, relationTag names.T
 }
 
 type authoriser interface {
-	EntityHasPermission(entity names.Tag, operation permission.Access, target names.Tag) (bool, error)
+	EntityHasPermission(entity names.Tag, operation permission.Access, target names.Tag) error
 }
 
 type offerBackend interface {
@@ -123,20 +124,26 @@ type offerBackend interface {
 // CheckCanConsume checks consume permission for a user on an offer connection.
 func CheckCanConsume(auth authoriser, backend offerBackend, controllerTag, modelTag names.Tag, oc OfferConnection) (bool, error) {
 	user := names.NewUserTag(oc.UserName())
-	ok, err := auth.EntityHasPermission(user, permission.SuperuserAccess, controllerTag)
-	if ok || err != nil && !errors.Is(err, &apiservererrors.AccessRequiredError{}) {
-		return ok, errors.Trace(err)
+	err := auth.EntityHasPermission(user, permission.SuperuserAccess, controllerTag)
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		return false, errors.Trace(err)
+	} else if err == nil {
+		return true, nil
 	}
-	ok, err = auth.EntityHasPermission(user, permission.AdminAccess, modelTag)
-	if ok || err != nil && !errors.Is(err, &apiservererrors.AccessRequiredError{}) {
-		return ok, errors.Trace(err)
+
+	err = auth.EntityHasPermission(user, permission.AdminAccess, modelTag)
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		return false, errors.Trace(err)
+	} else if err == nil {
+		return true, nil
 	}
 
 	offer, err := backend.ApplicationOfferForUUID(oc.OfferUUID())
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	return auth.EntityHasPermission(user, permission.ConsumeAccess, names.NewApplicationOfferTag(offer.ApplicationName))
+	err = auth.EntityHasPermission(user, permission.ConsumeAccess, names.NewApplicationOfferTag(offer.ApplicationName))
+	return err == nil, err
 }
 
 func handleSuspendedRelation(auth authoriser, backend Backend, change params.RemoteRelationChangeEvent, rel Relation, dyingOrDead bool) error {

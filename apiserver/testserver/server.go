@@ -81,7 +81,8 @@ func NewServer(c *gc.C, statePool *state.StatePool, controller *cache.Controller
 // server configuration may be specified (see DefaultServerConfig
 // for a suitable starting point).
 func NewServerWithConfig(c *gc.C, statePool *state.StatePool, cfg apiserver.ServerConfig) *Server {
-	// Note that we can't listen on localhost here because TestAPIServerCanListenOnBothIPv4AndIPv6 assumes
+	// Note that we can't listen on localhost here because
+	// TestAPIServerCanListenOnBothIPv4AndIPv6 assumes
 	// that we listen on IPv6 too, and listening on localhost does not do that.
 	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -102,10 +103,10 @@ func NewServerWithConfig(c *gc.C, statePool *state.StatePool, cfg apiserver.Serv
 	cfg.Mux = mux
 	cfg.StatePool = statePool
 
-	if cfg.Authenticator == nil {
+	if cfg.LocalMacaroonAuthenticator == nil {
 		authenticator, err := stateauthenticator.NewAuthenticator(statePool, cfg.Clock)
 		c.Assert(err, jc.ErrorIsNil)
-		cfg.Authenticator = authenticator
+		cfg.LocalMacaroonAuthenticator = authenticator
 	}
 
 	if cfg.MetricsCollector == nil {

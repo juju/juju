@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -464,7 +463,7 @@ type tokenParser struct {
 	jwkSet jwk.Set
 }
 
-func (p *tokenParser) Parse(ctx context.Context, tok string) (jwt.Token, state.Entity, error) {
+func (p *tokenParser) Parse(ctx context.Context, tok string) (jwt.Token, authentication.Entity, error) {
 	tokBytes, err := base64.StdEncoding.DecodeString(tok)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "invalid jwt authToken in request")
