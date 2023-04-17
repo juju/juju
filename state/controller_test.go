@@ -68,6 +68,8 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.AgentLogfileMaxSize,
 		controller.ControllerResourceDownloadLimit,
 		controller.ApplicationResourceDownloadLimit,
+		controller.QueryTracingEnabled,
+		controller.QueryTracingThreshold,
 	)
 	for _, controllerAttr := range controller.ControllerOnlyConfigAttributes {
 		v, ok := controllerSettings.Get(controllerAttr)

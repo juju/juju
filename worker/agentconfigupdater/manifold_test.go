@@ -227,8 +227,10 @@ func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIP
 				result := response.(*params.ControllerConfigResult)
 				*result = params.ControllerConfigResult{
 					Config: map[string]interface{}{
-						"mongo-memory-profile": "default",
-						"juju-db-snap-channel": controller.DefaultJujuDBSnapChannel,
+						"mongo-memory-profile":    "default",
+						"juju-db-snap-channel":    controller.DefaultJujuDBSnapChannel,
+						"query-tracing-enabled":   controller.DefaultQueryTracingEnabled,
+						"query-tracing-threshold": controller.DefaultQueryTracingThreshold,
 					},
 				}
 			default:

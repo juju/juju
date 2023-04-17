@@ -144,7 +144,7 @@ const (
 	AllowModelAccessKey = "allow-model-access"
 
 	// MongoMemoryProfile sets whether mongo uses the least possible memory or the
-	// detault
+	// default.
 	MongoMemoryProfile = "mongo-memory-profile"
 
 	// JujuDBSnapChannel selects the channel to use when installing mongo
