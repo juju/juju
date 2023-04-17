@@ -10,9 +10,9 @@ run_query_tracing_enabled() {
 
 	ensure "query-tracing-enabled" "${file}"
 
-    check_not_contains "$(cat_query_tracing_enabled_agent_conf)" querytracingenabled
+	check_not_contains "$(cat_query_tracing_enabled_agent_conf)" querytracingenabled
 
-    juju controller-config query-tracing-enabled=true
+	juju controller-config query-tracing-enabled=true
 
 	sleep 5
 
@@ -50,9 +50,9 @@ run_query_tracing_threshold() {
 
 	ensure "query-tracing-threshold" "${file}"
 
-    check_contains "$(cat_query_tracing_threshold_agent_conf)" "1s"
+	check_contains "$(cat_query_tracing_threshold_agent_conf)" "1s"
 
-    juju controller-config query-tracing-threshold="42ms"
+	juju controller-config query-tracing-threshold="42ms"
 
 	sleep 5
 
@@ -90,6 +90,6 @@ test_query_tracing() {
 		cd .. || exit
 
 		run "run_query_tracing_enabled"
-        run "run_query_tracing_threshold"
+		run "run_query_tracing_threshold"
 	)
 }
