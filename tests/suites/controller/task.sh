@@ -14,6 +14,8 @@ test_controller() {
 	bootstrap "test-controller" "${file}"
 
 	test_enable_ha
+	test_query_tracing
+
 	# Leave this one last, as it can cause mongo to slowdown to a snails pace.
 	test_mongo_memory_profile
 
