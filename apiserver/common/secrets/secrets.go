@@ -55,7 +55,7 @@ func backendsForModel(model Model) (configs map[string]provider.BackendConfig, a
 	}
 	backendName := cfg.SecretBackend()
 
-	// We need to include builtin backends for secret migration(draining) and accessing those secrets while migration is in progress.
+	// We need to include builtin backends for secret draining and accessing those secrets while drain is in progress.
 	// TODO(secrets) - only use those in use by model
 	// For now, we'll return all backends on the controller.
 	configs = make(map[string]provider.BackendConfig)

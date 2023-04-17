@@ -42,7 +42,7 @@ type SecretsManagerAPI struct {
 
 	backendConfigGetter commonsecrets.BackendConfigGetter
 	adminConfigGetter   commonsecrets.BackendConfigGetter
-	modelState          ModelState
+	model               Model
 }
 
 // GetSecretStoreConfig is for 3.0.x agents.
@@ -410,15 +410,15 @@ func (s *SecretsManagerAPI) getSecretMetadata(
 	return result, nil
 }
 
-// GetSecretsToMigrate returns metadata for the secrets that need to be migrated.
-func (s *SecretsManagerAPI) GetSecretsToMigrate() (params.ListSecretResults, error) {
-	modelConfig, err := s.modelState.ModelConfig()
+// GetSecretsToDrain returns metadata for the secrets that need to be drained.
+func (s *SecretsManagerAPI) GetSecretsToDrain() (params.ListSecretResults, error) {
+	modelConfig, err := s.model.ModelConfig()
 	if err != nil {
 		return params.ListSecretResults{}, errors.Trace(err)
 	}
-	modelType := s.modelState.Type()
-	modelUUID := s.modelState.UUID()
-	controllerUUID := s.modelState.ControllerUUID()
+	modelType := s.model.Type()
+	modelUUID := s.model.UUID()
+	controllerUUID := s.model.ControllerUUID()
 
 	activeBackend := modelConfig.SecretBackend()
 	if activeBackend == secretsprovider.Auto {
@@ -819,8 +819,8 @@ func (s *SecretsManagerAPI) WatchSecretsRotationChanges(args params.Entities) (p
 
 // WatchSecretBackendChanged sets up a watcher to notify of changes to the secret backend.
 func (s *SecretsManagerAPI) WatchSecretBackendChanged() (params.NotifyWatchResult, error) {
-	stateWatcher := s.modelState.WatchForModelConfigChanges()
-	w, err := newSecretBackendModelConfigWatcher(s.modelState, stateWatcher)
+	stateWatcher := s.model.WatchForModelConfigChanges()
+	w, err := newSecretBackendModelConfigWatcher(s.model, stateWatcher)
 	if err != nil {
 		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}, nil
 	}

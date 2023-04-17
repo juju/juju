@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package secretmigrationworker
+package secretdrainworker
 
 import (
 	"context"
@@ -23,18 +23,15 @@ var _ logger = struct{}{}
 
 // Logger represents the methods used by the worker to log information.
 type Logger interface {
-	Tracef(string, ...interface{})
 	Debugf(string, ...interface{})
 	Warningf(string, ...interface{})
 	Infof(string, ...interface{})
-	Errorf(string, ...interface{})
-	Criticalf(string, ...interface{})
 }
 
-// Facade instances provide a set of API for the worker to deal with secret migration task changes.
+// Facade instances provide a set of API for the worker to deal with secret drain process.
 type Facade interface {
 	WatchSecretBackendChanged() (watcher.NotifyWatcher, error)
-	GetSecretsToMigrate() ([]coresecrets.SecretMetadataForMigration, error)
+	GetSecretsToDrain() ([]coresecrets.SecretMetadataForDrain, error)
 	ChangeSecretBackend(uri *coresecrets.URI, revision int, valueRef *coresecrets.ValueRef, val coresecrets.SecretData) error
 
 	jujusecrets.JujuAPIClient
@@ -62,7 +59,7 @@ func (config Config) Validate() error {
 	return nil
 }
 
-// NewWorker returns a secretmigrationworker Worker backed by config, or an error.
+// NewWorker returns a secretdrainworker Worker backed by config, or an error.
 func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -76,17 +73,13 @@ func NewWorker(config Config) (worker.Worker, error) {
 	return w, errors.Trace(err)
 }
 
-// Worker migrates secrets to the new backend when the model's secret backend has changed.
+// Worker drains secrets to the new backend when the model's secret backend has changed.
 type Worker struct {
 	catacomb catacomb.Catacomb
 	config   Config
 }
 
-// TODO: we should do backend connection validation (ping the backend) when we change the secret backend in model config!
-// juju model-config secret-backend=myothersecrets
-// Or we should have a secret backend validator worker keeps ping the backend to make sure it's alive.
-// The worker should make the backend as inactive if it's not alive.
-// TODO: user created secrets should be migrated on the controller because they do not have an owner unit!
+// TODO(secrets): user created secrets should be drained on the controller because they do not have an owner unit!
 
 // Kill is defined on worker.Worker.
 func (w *Worker) Kill() {
@@ -116,7 +109,7 @@ func (w *Worker) loop() (err error) {
 				return errors.New("secret backend changed watch closed")
 			}
 
-			secrets, err := w.config.Facade.GetSecretsToMigrate()
+			secrets, err := w.config.Facade.GetSecretsToDrain()
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -132,7 +125,7 @@ func (w *Worker) loop() (err error) {
 				return errors.Trace(err)
 			}
 			for _, md := range secrets {
-				if err := w.migrateSecret(md, backends, activeBackendID); err != nil {
+				if err := w.drainSecret(md, backends, activeBackendID); err != nil {
 					return errors.Trace(err)
 				}
 			}
@@ -140,15 +133,15 @@ func (w *Worker) loop() (err error) {
 	}
 }
 
-func (w *Worker) migrateSecret(
-	md coresecrets.SecretMetadataForMigration,
+func (w *Worker) drainSecret(
+	md coresecrets.SecretMetadataForDrain,
 	client jujusecrets.BackendsClient,
 	activeBackendID string,
 ) error {
 	for _, rev := range md.Revisions {
 		if rev.ValueRef != nil && rev.ValueRef.BackendID == activeBackendID {
 			// This should never happen.
-			w.config.Logger.Warningf("secret %q revision %d is already migrated to the active backend %q", md.Metadata.URI, rev.Revision, activeBackendID)
+			w.config.Logger.Warningf("secret %q revision %d is already drained to the active backend %q", md.Metadata.URI, rev.Revision, activeBackendID)
 			continue
 		}
 
@@ -163,7 +156,7 @@ func (w *Worker) migrateSecret(
 		var newValueRef *coresecrets.ValueRef
 		data := secretVal.EncodedValues()
 		if err == nil {
-			// We are migrating to an external backend,
+			// We are draining to an external backend,
 			newValueRef = &valueRef
 			// The content has successfully saved into the external backend.
 			// So we won't save the content into the Juju database.

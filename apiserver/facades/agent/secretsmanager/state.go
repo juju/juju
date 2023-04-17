@@ -43,7 +43,7 @@ type SecretsState interface {
 	ChangeSecretBackend(state.ChangeSecretBackendParams) error
 }
 
-type ModelState interface {
+type Model interface {
 	ModelConfig() (*config.Config, error)
 	Type() state.ModelType
 	WatchForModelConfigChanges() state.NotifyWatcher

@@ -62,7 +62,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"migration-minion",
 		"uniter",
 		"upgrader",
-		"secret-migration-worker",
+		"secret-drain-worker",
 	}
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {
@@ -224,7 +224,7 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"api-caller",
 		"api-config-watcher",
 	},
-	"secret-migration-worker": {
+	"secret-drain-worker": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",

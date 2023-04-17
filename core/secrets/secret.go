@@ -159,8 +159,8 @@ type SecretOwnerMetadata struct {
 	Revisions []int
 }
 
-// SecretMetadataForMigration holds a secret metadata and any backend references of revisions for migration.
-type SecretMetadataForMigration struct {
+// SecretMetadataForDrain holds a secret metadata and any backend references of revisions for drain.
+type SecretMetadataForDrain struct {
 	Metadata  SecretMetadata
 	Revisions []SecretRevisionMetadata
 }

@@ -264,14 +264,14 @@ func (s *SecretsSuite) TestSecretMetadata(c *gc.C) {
 	}
 }
 
-func (s *SecretsSuite) TestGetSecretsToMigrate(c *gc.C) {
+func (s *SecretsSuite) TestGetSecretsToDrain(c *gc.C) {
 	uri := coresecrets.NewURI()
 	now := time.Now()
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "SecretsManager")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "GetSecretsToMigrate")
+		c.Check(request, gc.Equals, "GetSecretsToDrain")
 		c.Check(arg, gc.IsNil)
 		c.Assert(result, gc.FitsTypeOf, &params.ListSecretResults{})
 		*(result.(*params.ListSecretResults)) = params.ListSecretResults{
@@ -296,7 +296,7 @@ func (s *SecretsSuite) TestGetSecretsToMigrate(c *gc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	result, err := client.GetSecretsToMigrate()
+	result, err := client.GetSecretsToDrain()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	for _, info := range result {

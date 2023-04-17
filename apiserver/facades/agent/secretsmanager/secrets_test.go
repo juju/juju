@@ -592,7 +592,7 @@ func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 	})
 }
 
-func (s *SecretsManagerSuite) assertGetSecretsToMigrate(
+func (s *SecretsManagerSuite) assertGetSecretsToDrain(
 	c *gc.C, modelType state.ModelType, secretBackend string,
 	expectedRevions ...params.SecretRevision,
 ) {
@@ -651,7 +651,7 @@ func (s *SecretsManagerSuite) assertGetSecretsToMigrate(
 		},
 	}, nil)
 
-	results, err := s.facade.GetSecretsToMigrate()
+	results, err := s.facade.GetSecretsToDrain()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ListSecretResults{
 		Results: []params.ListSecretResult{{
@@ -667,8 +667,8 @@ func (s *SecretsManagerSuite) assertGetSecretsToMigrate(
 	})
 }
 
-func (s *SecretsManagerSuite) TestGetSecretsToMigrateAUTOIAAS(c *gc.C) {
-	s.assertGetSecretsToMigrate(c, state.ModelTypeIAAS, "auto",
+func (s *SecretsManagerSuite) TestGetSecretsToDrainAUTOIAAS(c *gc.C) {
+	s.assertGetSecretsToDrain(c, state.ModelTypeIAAS, "auto",
 		// External backend.
 		params.SecretRevision{
 			Revision: 666,
@@ -688,8 +688,8 @@ func (s *SecretsManagerSuite) TestGetSecretsToMigrateAUTOIAAS(c *gc.C) {
 	)
 }
 
-func (s *SecretsManagerSuite) TestGetSecretsToMigrateAUTOCAAS(c *gc.C) {
-	s.assertGetSecretsToMigrate(c, state.ModelTypeCAAS, "auto",
+func (s *SecretsManagerSuite) TestGetSecretsToDrainAUTOCAAS(c *gc.C) {
+	s.assertGetSecretsToDrain(c, state.ModelTypeCAAS, "auto",
 		// External backend.
 		params.SecretRevision{
 			Revision: 666,
@@ -705,8 +705,8 @@ func (s *SecretsManagerSuite) TestGetSecretsToMigrateAUTOCAAS(c *gc.C) {
 	)
 }
 
-func (s *SecretsManagerSuite) TestGetSecretsToMigrateInternal(c *gc.C) {
-	s.assertGetSecretsToMigrate(c, state.ModelTypeIAAS, provider.Internal,
+func (s *SecretsManagerSuite) TestGetSecretsToDrainInternal(c *gc.C) {
+	s.assertGetSecretsToDrain(c, state.ModelTypeIAAS, provider.Internal,
 		// External backend.
 		params.SecretRevision{
 			Revision: 666,
@@ -726,8 +726,8 @@ func (s *SecretsManagerSuite) TestGetSecretsToMigrateInternal(c *gc.C) {
 	)
 }
 
-func (s *SecretsManagerSuite) TestGetSecretsToMigrateExternalIAAS(c *gc.C) {
-	s.assertGetSecretsToMigrate(c, state.ModelTypeIAAS, "backend-id",
+func (s *SecretsManagerSuite) TestGetSecretsToDrainExternalIAAS(c *gc.C) {
+	s.assertGetSecretsToDrain(c, state.ModelTypeIAAS, "backend-id",
 		// Internal backend.
 		params.SecretRevision{
 			Revision: 667,
@@ -743,8 +743,8 @@ func (s *SecretsManagerSuite) TestGetSecretsToMigrateExternalIAAS(c *gc.C) {
 	)
 }
 
-func (s *SecretsManagerSuite) TestGetSecretsToMigrateExternalCAAS(c *gc.C) {
-	s.assertGetSecretsToMigrate(c, state.ModelTypeIAAS, "backend-id",
+func (s *SecretsManagerSuite) TestGetSecretsToDrainExternalCAAS(c *gc.C) {
+	s.assertGetSecretsToDrain(c, state.ModelTypeIAAS, "backend-id",
 		// Internal backend.
 		params.SecretRevision{
 			Revision: 667,

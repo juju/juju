@@ -39512,14 +39512,14 @@
                     },
                     "description": "GetSecretStoreConfig is for 3.0.x agents.\nTODO(wallyworld) - remove when we auto upgrade migrated models."
                 },
-                "GetSecretsToMigrate": {
+                "GetSecretsToDrain": {
                     "type": "object",
                     "properties": {
                         "Result": {
                             "$ref": "#/definitions/ListSecretResults"
                         }
                     },
-                    "description": "GetSecretsToMigrate returns metadata for the secrets that need to be migrated."
+                    "description": "GetSecretsToDrain returns metadata for the secrets that need to be drained."
                 },
                 "RemoveSecrets": {
                     "type": "object",
@@ -45352,14 +45352,14 @@
                     },
                     "description": "GetSecretStoreConfig is for 3.0.x agents.\nTODO(wallyworld) - remove when we auto upgrade migrated models."
                 },
-                "GetSecretsToMigrate": {
+                "GetSecretsToDrain": {
                     "type": "object",
                     "properties": {
                         "Result": {
                             "$ref": "#/definitions/ListSecretResults"
                         }
                     },
-                    "description": "GetSecretsToMigrate returns metadata for the secrets that need to be migrated."
+                    "description": "GetSecretsToDrain returns metadata for the secrets that need to be drained."
                 },
                 "GoalStates": {
                     "type": "object",

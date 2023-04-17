@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package secretmigrationworker_test
+package secretdrainworker_test
 
 import (
 	"time"
@@ -19,8 +19,8 @@ import (
 	jujusecrets "github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/secretmigrationworker"
-	"github.com/juju/juju/worker/secretmigrationworker/mocks"
+	"github.com/juju/juju/worker/secretdrainworker"
+	"github.com/juju/juju/worker/secretdrainworker/mocks"
 )
 
 type workerSuite struct {
@@ -47,7 +47,7 @@ func (s *workerSuite) getWorkerNewer(c *gc.C, calls ...*gomock.Call) (func(), *g
 	s.facade.EXPECT().WatchSecretBackendChanged().Return(watchertest.NewMockNotifyWatcher(s.notifyBackendChangedCh), nil)
 
 	start := func() {
-		w, err := secretmigrationworker.NewWorker(secretmigrationworker.Config{
+		w, err := secretdrainworker.NewWorker(secretdrainworker.Config{
 			Logger: s.logger,
 			Facade: s.facade,
 			SecretsBackendGetter: func() (jujusecrets.BackendsClient, error) {
@@ -72,28 +72,28 @@ func (s *workerSuite) waitDone(c *gc.C) {
 	}
 }
 
-func (s *workerSuite) TestNothingToMigrate(c *gc.C) {
+func (s *workerSuite) TestNothingToDrain(c *gc.C) {
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
 
 	s.notifyBackendChangedCh <- struct{}{}
 	gomock.InOrder(
-		s.facade.EXPECT().GetSecretsToMigrate().DoAndReturn(func() ([]coresecrets.SecretMetadataForMigration, error) {
+		s.facade.EXPECT().GetSecretsToDrain().DoAndReturn(func() ([]coresecrets.SecretMetadataForDrain, error) {
 			close(s.done)
-			return []coresecrets.SecretMetadataForMigration{}, nil
+			return []coresecrets.SecretMetadataForDrain{}, nil
 		}),
 	)
 	start()
 }
 
-func (s *workerSuite) TestMigrateNoOPS(c *gc.C) {
+func (s *workerSuite) TestDrainNoOPS(c *gc.C) {
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
 
 	uri := coresecrets.NewURI()
 	s.notifyBackendChangedCh <- struct{}{}
 	gomock.InOrder(
-		s.facade.EXPECT().GetSecretsToMigrate().Return([]coresecrets.SecretMetadataForMigration{
+		s.facade.EXPECT().GetSecretsToDrain().Return([]coresecrets.SecretMetadataForDrain{
 			{
 				Metadata: coresecrets.SecretMetadata{URI: uri},
 				Revisions: []coresecrets.SecretRevisionMetadata{
@@ -112,7 +112,7 @@ func (s *workerSuite) TestMigrateNoOPS(c *gc.C) {
 	start()
 }
 
-func (s *workerSuite) TestMigrateBetweenExternalBackends(c *gc.C) {
+func (s *workerSuite) TestDrainBetweenExternalBackends(c *gc.C) {
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
 
@@ -126,7 +126,7 @@ func (s *workerSuite) TestMigrateBetweenExternalBackends(c *gc.C) {
 		RevisionID: "revision-1",
 	}
 	gomock.InOrder(
-		s.facade.EXPECT().GetSecretsToMigrate().Return([]coresecrets.SecretMetadataForMigration{
+		s.facade.EXPECT().GetSecretsToDrain().Return([]coresecrets.SecretMetadataForDrain{
 			{
 				Metadata: coresecrets.SecretMetadata{URI: uri},
 				Revisions: []coresecrets.SecretRevisionMetadata{
@@ -152,7 +152,7 @@ func (s *workerSuite) TestMigrateBetweenExternalBackends(c *gc.C) {
 	start()
 }
 
-func (s *workerSuite) TestMigrateFromInternalToExternal(c *gc.C) {
+func (s *workerSuite) TestDrainFromInternalToExternal(c *gc.C) {
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
 
@@ -165,7 +165,7 @@ func (s *workerSuite) TestMigrateFromInternalToExternal(c *gc.C) {
 		RevisionID: "revision-1",
 	}
 	gomock.InOrder(
-		s.facade.EXPECT().GetSecretsToMigrate().Return([]coresecrets.SecretMetadataForMigration{
+		s.facade.EXPECT().GetSecretsToDrain().Return([]coresecrets.SecretMetadataForDrain{
 			{
 				Metadata:  coresecrets.SecretMetadata{URI: uri},
 				Revisions: []coresecrets.SecretRevisionMetadata{{Revision: 1}},
@@ -184,7 +184,7 @@ func (s *workerSuite) TestMigrateFromInternalToExternal(c *gc.C) {
 	start()
 }
 
-func (s *workerSuite) TestMigrateFromExternalToInternal(c *gc.C) {
+func (s *workerSuite) TestDrainFromExternalToInternal(c *gc.C) {
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
 
@@ -194,7 +194,7 @@ func (s *workerSuite) TestMigrateFromExternalToInternal(c *gc.C) {
 
 	oldBackend := mocks.NewMockSecretsBackend(ctrl)
 	gomock.InOrder(
-		s.facade.EXPECT().GetSecretsToMigrate().Return([]coresecrets.SecretMetadataForMigration{
+		s.facade.EXPECT().GetSecretsToDrain().Return([]coresecrets.SecretMetadataForDrain{
 			{
 				Metadata: coresecrets.SecretMetadata{URI: uri},
 				Revisions: []coresecrets.SecretRevisionMetadata{

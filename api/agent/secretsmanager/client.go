@@ -275,14 +275,14 @@ func (c *Client) SecretMetadata() ([]coresecrets.SecretOwnerMetadata, error) {
 	return out, nil
 }
 
-// GetSecretsToMigrate returns metadata for the secrets that need to be migrated.
-func (c *Client) GetSecretsToMigrate() ([]coresecrets.SecretMetadataForMigration, error) {
+// GetSecretsToDrain returns metadata for the secrets that need to be drained.
+func (c *Client) GetSecretsToDrain() ([]coresecrets.SecretMetadataForDrain, error) {
 	var results params.ListSecretResults
-	err := c.facade.FacadeCall("GetSecretsToMigrate", nil, &results)
+	err := c.facade.FacadeCall("GetSecretsToDrain", nil, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	out := make([]coresecrets.SecretMetadataForMigration, len(results.Results))
+	out := make([]coresecrets.SecretMetadataForDrain, len(results.Results))
 	for i, info := range results.Results {
 		md, err := processListSecretResult(info)
 		if err != nil {
@@ -305,7 +305,7 @@ func (c *Client) GetSecretsToMigrate() ([]coresecrets.SecretMetadataForMigration
 			}
 			revisions[i] = rev
 		}
-		out[i] = coresecrets.SecretMetadataForMigration{Metadata: md, Revisions: revisions}
+		out[i] = coresecrets.SecretMetadataForDrain{Metadata: md, Revisions: revisions}
 	}
 	return out, nil
 }

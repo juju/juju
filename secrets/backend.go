@@ -98,7 +98,7 @@ func (c *secretsClient) GetContent(uri *secrets.URI, label string, refresh, peek
 		lastBackendID = backendID
 		// Secret may have been drained to the active backend.
 		if backendID != c.activeBackendID {
-			logger.Tracef("secret %q revisionID %q may be migrating from %q to %q", uri, content.ValueRef.RevisionID, backendID, c.activeBackendID)
+			logger.Tracef("secret %q revisionID %q may be draining from %q to %q", uri, content.ValueRef.RevisionID, backendID, c.activeBackendID)
 			continue
 		}
 		return nil, errors.Trace(err)

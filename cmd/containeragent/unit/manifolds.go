@@ -43,7 +43,7 @@ import (
 	"github.com/juju/juju/worker/muxhttpserver"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/retrystrategy"
-	"github.com/juju/juju/worker/secretmigrationworker"
+	"github.com/juju/juju/worker/secretdrainworker"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgradesteps"
 )
@@ -334,13 +334,13 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			Hub:           config.LocalHub,
 		}),
 
-		// The secretMigrationWorker is the worker that migrates secrets from the inactive backend to the current active backend.
-		secretMigrationWorker: ifNotMigrating(secretmigrationworker.Manifold(secretmigrationworker.ManifoldConfig{
+		// The secretDrainWorker is the worker that drains secrets from the inactive backend to the current active backend.
+		secretDrainWorker: ifNotMigrating(secretdrainworker.Manifold(secretdrainworker.ManifoldConfig{
 			APICallerName:     apiCallerName,
-			Logger:            loggo.GetLogger("juju.worker.secretmigrationworker"),
-			NewFacade:         secretmigrationworker.NewClient,
-			NewWorker:         secretmigrationworker.NewWorker,
-			NewBackendsClient: secretmigrationworker.NewBackendsClient,
+			Logger:            loggo.GetLogger("juju.worker.secretdrainworker"),
+			NewFacade:         secretdrainworker.NewClient,
+			NewWorker:         secretdrainworker.NewWorker,
+			NewBackendsClient: secretdrainworker.NewBackendsClient,
 		})),
 	}
 
@@ -398,7 +398,7 @@ const (
 	caasUnitTerminationWorker = "caas-unit-termination-worker"
 	caasUnitsManager          = "caas-units-manager"
 
-	secretMigrationWorker = "secret-migration-worker"
+	secretDrainWorker = "secret-drain-worker"
 )
 
 type noopStatusSetter struct{}

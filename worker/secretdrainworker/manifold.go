@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package secretmigrationworker
+package secretdrainworker
 
 import (
 	"github.com/juju/errors"
@@ -13,7 +13,7 @@ import (
 	jujusecrets "github.com/juju/juju/secrets"
 )
 
-// ManifoldConfig describes the resources used by the secretmigrationworker worker.
+// ManifoldConfig describes the resources used by the secretdrainworker worker.
 type ManifoldConfig struct {
 	APICallerName string
 	Logger        Logger
@@ -23,16 +23,17 @@ type ManifoldConfig struct {
 	NewBackendsClient func(jujusecrets.JujuAPIClient) (jujusecrets.BackendsClient, error)
 }
 
-// NewClient returns a new secretmigrationworker facade.
+// NewClient returns a new secretdrainworker facade.
 func NewClient(caller base.APICaller) Facade {
 	return secretsmanager.NewClient(caller)
 }
 
+// NewBackendsClient returns a new secret backends client.
 func NewBackendsClient(facade jujusecrets.JujuAPIClient) (jujusecrets.BackendsClient, error) {
 	return jujusecrets.NewClient(facade)
 }
 
-// Manifold returns a Manifold that encapsulates the secretmigrationworker worker.
+// Manifold returns a Manifold that encapsulates the secretdrainworker worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
