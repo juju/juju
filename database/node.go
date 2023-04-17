@@ -14,13 +14,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	// Note that this is a deliberate use of the same YAML dependency
-	// as go-dqlite. It preserves files as written by that library,
-	// whereas gopkg.in/yaml.v3 does not.
-	"github.com/ghodss/yaml"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/database/app"

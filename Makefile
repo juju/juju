@@ -144,11 +144,10 @@ else
 endif
 TEST_TIMEOUT := $(TEST_TIMEOUT)
 
+TEST_ARGS ?=
 # Limit concurrency on s390x.
 ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(s390x).*/golang/'), golang)
-	TEST_ARGS ?= -p 4
-else
-	TEST_ARGS ?=
+	TEST_ARGS += -p 4
 endif
 
 # Enable coverage testing.
@@ -393,6 +392,11 @@ check: pre-check run-tests
 .PHONY: test
 test: run-tests
 ## test: Verify Juju code using unit tests
+
+.PHONY: race-test
+race-test:
+## race-test: Verify Juju code using unit tests with the race detector enabled
+	+make run-tests TEST_ARGS="$(TEST_ARGS) -race"
 
 .PHONY: run-tests run-go-tests
 # Can't make the length of the TMP dir too long or it hits socket name length issues.

@@ -6,7 +6,7 @@ package common
 import (
 	"context"
 
-	ociCore "github.com/oracle/oci-go-sdk/v47/core"
+	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 )
 
 // These interfaces represent the methods required for the OCI Provider to interact with

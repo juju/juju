@@ -8,11 +8,12 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	jc "github.com/juju/testing/checkers"
-	ociCore "github.com/oracle/oci-go-sdk/v47/core"
+	"github.com/juju/utils/v3/arch"
+	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/series"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/oci"
 	ocitesting "github.com/juju/juju/provider/oci/testing"
 	jujutesting "github.com/juju/juju/testing"
@@ -86,72 +87,56 @@ func makeIntPointer(name int) *int {
 	return &name
 }
 
+func makeBoolPointer(name bool) *bool {
+	return &name
+}
+func makeFloat32Pointer(name float32) *float32 {
+	return &name
+}
+
 func (s *imagesSuite) TestInstanceTypes(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	compute := ocitesting.NewMockComputeClient(ctrl)
 	defer ctrl.Finish()
 
-	response := []ociCore.Shape{
-		{
-			Shape: makeStringPointer("VM.Standard1.1"),
-		},
-		{
-			Shape: makeStringPointer("VM.Standard2.1"),
-		},
-		{
-			Shape: makeStringPointer("VM.Standard1.2"),
-		},
-	}
-
-	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &s.testImageID).Return(response, nil)
+	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &s.testImageID).Return(listShapesResponse(), nil)
 
 	types, err := oci.InstanceTypes(compute, &s.testCompartment, &s.testImageID)
 	c.Assert(err, gc.IsNil)
-	c.Check(types, gc.HasLen, 3)
-
-	_, ok := oci.ShapeSpecs["VM.Standard1.1"]
-	c.Assert(ok, jc.IsTrue)
-	//c.Check(int(types[0].Mem), gc.Equals, spec.Memory)
-	//c.Check(int(types[0].CpuCores), gc.Equals, spec.Cpus)
-
-	_, ok = oci.ShapeSpecs["VM.Standard2.1"]
-	c.Assert(ok, jc.IsTrue)
-	//c.Check(int(types[1].Mem), gc.Equals, spec.Memory)
-	//c.Check(int(types[1].CpuCores), gc.Equals, spec.Cpus)
-
-	_, ok = oci.ShapeSpecs["VM.Standard1.2"]
-	c.Assert(ok, jc.IsTrue)
-	//c.Check(int(types[2].Mem), gc.Equals, spec.Memory)
-	//c.Check(int(types[2].CpuCores), gc.Equals, spec.Cpus)
+	c.Check(types, gc.HasLen, 4)
+	expectedTypes := []instances.InstanceType{
+		{
+			Name:     "VM.Standard1.1",
+			Arch:     arch.AMD64,
+			Mem:      7 * 1024,
+			CpuCores: 1,
+			VirtType: makeStringPointer("vm"),
+		}, {
+			Name:     "VM.GPU.A10.1",
+			Arch:     arch.AMD64,
+			Mem:      240 * 1024,
+			CpuCores: 15,
+			VirtType: makeStringPointer("gpu"),
+		}, {
+			Name:     "BM.Standard.A1.160",
+			Arch:     arch.ARM64,
+			Mem:      1024 * 1024,
+			CpuCores: 160,
+			VirtType: makeStringPointer("metal"),
+		}, {
+			Name:     "VM.Standard.A1.Flex",
+			Arch:     arch.ARM64,
+			Mem:      6 * 1024,
+			CpuCores: 1,
+			VirtType: makeStringPointer("vm"),
+		},
+	}
+	c.Assert(types, gc.DeepEquals, expectedTypes)
 }
 
 func (s *imagesSuite) TestInstanceTypesNilClient(c *gc.C) {
 	_, err := oci.InstanceTypes(nil, &s.testCompartment, &s.testImageID)
 	c.Assert(err, gc.ErrorMatches, "cannot use nil client")
-}
-
-func (s *imagesSuite) TestInstanceTypesImageWithUnknownShape(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	compute := ocitesting.NewMockComputeClient(ctrl)
-	defer ctrl.Finish()
-
-	response := []ociCore.Shape{
-		{
-			Shape: makeStringPointer("IDontExistInTheOCIProviderWasProbablyAddedLaterAndThatsWhyIHopeTheyWillAddResourceDetailsToShapesAPISoWeDontNeedToMaintainAMapping"),
-		},
-		{
-			Shape: makeStringPointer("VM.Standard2.1"),
-		},
-		{
-			Shape: makeStringPointer("VM.Standard1.2"),
-		},
-	}
-
-	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &s.testImageID).Return(response, nil)
-
-	types, err := oci.InstanceTypes(compute, &s.testCompartment, &s.testImageID)
-	c.Assert(err, gc.IsNil)
-	c.Check(types, gc.HasLen, 2)
 }
 
 func (s *imagesSuite) TestNewInstanceImage(c *gc.C) {
@@ -217,18 +202,11 @@ func (s *imagesSuite) TestRefreshImageCache(c *gc.C) {
 			DisplayName:            makeStringPointer("CentOS-7-2017.10.19-0"),
 		},
 	}
-	shapesResponseUbuntu := makeShapesRequestResponse(
-		s.testCompartment, fakeUbuntuID, []string{"VM.Standard2.1", "VM.Standard1.2"})
 
-	shapesResponseCentOS := makeShapesRequestResponse(
-		s.testCompartment, "fakeCentOS", []string{"VM.Standard1.2"})
-
-	gomock.InOrder(
-		compute.EXPECT().ListImages(context.Background(), &s.testCompartment).Return(listImageResponse, nil),
-		compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeUbuntuID).Return(shapesResponseUbuntu, nil),
-		compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeUbuntuIDSecond).Return(shapesResponseUbuntu, nil),
-		compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeCentOSID).Return(shapesResponseCentOS, nil),
-	)
+	compute.EXPECT().ListImages(context.Background(), &s.testCompartment).Return(listImageResponse, nil)
+	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeUbuntuID).Return(listShapesResponse(), nil)
+	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeUbuntuIDSecond).Return(listShapesResponse(), nil)
+	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeCentOSID).Return(listShapesResponse()[:2], nil)
 
 	imgCache, err := oci.RefreshImageCache(compute, &s.testCompartment)
 	c.Assert(err, gc.IsNil)
@@ -246,8 +224,8 @@ func (s *imagesSuite) TestRefreshImageCache(c *gc.C) {
 	c.Assert(imageMap[jammy][0].Version.TimeStamp, gc.Equals, timeStamp)
 
 	// Check that InstanceTypes are set
-	c.Assert(imageMap[jammy][0].InstanceTypes, gc.HasLen, 2)
-	c.Assert(imageMap[series.MakeDefaultBase("centos", "7")][0].InstanceTypes, gc.HasLen, 1)
+	c.Assert(imageMap[jammy][0].InstanceTypes, gc.HasLen, 4)
+	c.Assert(imageMap[series.MakeDefaultBase("centos", "7")][0].InstanceTypes, gc.HasLen, 2)
 }
 
 func (s *imagesSuite) TestRefreshImageCacheFetchFromCache(c *gc.C) {
@@ -310,17 +288,9 @@ func (s *imagesSuite) TestRefreshImageCacheWithInvalidImage(c *gc.C) {
 	fakeUbuntuID := "fakeUbuntu1"
 	fakeBadID := "fake image id for bad image"
 
-	shapesResponseUbuntu := makeShapesRequestResponse(
-		s.testCompartment, fakeUbuntuID, []string{"VM.Standard2.1", "VM.Standard1.2"})
-
-	shapesResponseBadImage := makeShapesRequestResponse(
-		s.testCompartment, fakeBadID, []string{"VM.Standard1.2"})
-
-	gomock.InOrder(
-		compute.EXPECT().ListImages(context.Background(), &s.testCompartment).Return(listImageResponse, nil),
-		compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeUbuntuID).Return(shapesResponseUbuntu, nil),
-		compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeBadID).Return(shapesResponseBadImage, nil),
-	)
+	compute.EXPECT().ListImages(context.Background(), &s.testCompartment).Return(listImageResponse, nil)
+	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeUbuntuID).Return(listShapesResponse(), nil)
+	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeBadID).Return(listShapesResponse(), nil)
 
 	imgCache, err := oci.RefreshImageCache(compute, &s.testCompartment)
 	c.Assert(err, gc.IsNil)

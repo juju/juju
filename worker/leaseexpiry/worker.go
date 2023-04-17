@@ -14,7 +14,6 @@ import (
 	"gopkg.in/tomb.v2"
 
 	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/database"
 	"github.com/juju/juju/database/txn"
 )
 
@@ -100,48 +99,36 @@ func (w *expiryWorker) loop() error {
 }
 
 func (w *expiryWorker) expireLeases(ctx context.Context) error {
-	err := w.trackedDB.DB(func(db *sql.DB) error {
-		// Txn here provides the transaction semantics we need, but there are
-		// no retry strategies employed. This is a special case, in this instance
-		// we will retry this in one second and other controllers in a HA
-		// setup will also retry.
-		return database.Txn(ctx, db, func(ctx context.Context, tx *sql.Tx) error {
-			res, err := tx.ExecContext(ctx, w.dml)
-			if err != nil {
-				// TODO (manadart 2022-12-15): This incarnation of the worker runs on
-				// all controller nodes. Retryable errors are those that occur due to
-				// locking or other contention. We know we will retry very soon,
-				// so just log and indicate success for these cases.
-				// Rethink this if the worker cardinality changes to be singular.
-				if txn.IsErrRetryable(err) {
-					w.logger.Debugf("ignoring error during lease expiry: %s", err.Error())
-					return nil
-				}
-				return errors.Trace(err)
+	err := w.trackedDB.TxnNoRetry(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		res, err := tx.ExecContext(ctx, w.dml)
+		if err != nil {
+			// TODO (manadart 2022-12-15): This incarnation of the worker runs on
+			// all controller nodes. Retryable errors are those that occur due to
+			// locking or other contention. We know we will retry very soon,
+			// so just log and indicate success for these cases.
+			// Rethink this if the worker cardinality changes to be singular.
+			if txn.IsErrRetryable(err) {
+				w.logger.Debugf("ignoring error during lease expiry: %s", err.Error())
+				return nil
 			}
+			return errors.Trace(err)
+		}
 
-			expired, err := res.RowsAffected()
-			if err != nil {
-				return errors.Trace(err)
-			}
+		expired, err := res.RowsAffected()
+		if err != nil {
+			return errors.Trace(err)
+		}
 
-			if expired > 0 {
-				w.logger.Infof("expired %d leases", expired)
-			}
+		if expired > 0 {
+			w.logger.Infof("expired %d leases", expired)
+		}
 
-			return nil
-		})
+		return nil
 	})
 	if err != nil {
-		if txn.IsErrRetryable(err) {
-			return nil
-		}
 		return errors.Trace(err)
 	}
-	if w.trackedDB.Err() != nil {
-		return errors.Trace(w.trackedDB.Err())
-	}
-	return nil
+	return errors.Trace(w.trackedDB.Err())
 }
 
 // Kill is part of the worker.Worker interface.

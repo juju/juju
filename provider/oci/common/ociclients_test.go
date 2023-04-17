@@ -9,8 +9,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	ociCommon "github.com/oracle/oci-go-sdk/v47/common"
-	ociCore "github.com/oracle/oci-go-sdk/v47/core"
+	ociCommon "github.com/oracle/oci-go-sdk/v65/common"
+	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/tags"

@@ -118,7 +118,7 @@ var usageSummary = `
 Destroys a controller.`[1:]
 
 var destroySysMsg = `
-This command with destroy the %q controller and all its resources
+This command will destroy the %q controller and all its resources
 `[1:]
 
 var destroySysMsgDetails = `

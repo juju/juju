@@ -242,7 +242,7 @@ parts:
 
       CFLAGS="${CUSTOM_CFLAGS}" \
         ./configure --disable-shared
-      make
+      make CFLAGS="${CUSTOM_CFLAGS}"
 
       mkdir -p $SNAPCRAFT_PART_INSTALL/libsqlite3
       cp -r $SNAPCRAFT_PART_BUILD/*.* $SNAPCRAFT_PART_INSTALL/libsqlite3

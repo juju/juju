@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/oracle/oci-go-sdk/v47/common"
-	ociCore "github.com/oracle/oci-go-sdk/v47/core"
+	"github.com/oracle/oci-go-sdk/v65/common"
+	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 )
 
 // NewComputeClient returns a client which implements the

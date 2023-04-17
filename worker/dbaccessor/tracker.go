@@ -18,6 +18,15 @@ import (
 	"github.com/juju/juju/database"
 )
 
+const (
+	// PollInterval is the amount of time to wait between polling the database.
+	PollInterval = time.Second * 10
+
+	// DefaultVerifyAttempts is the number of attempts to verify the database,
+	// by opening a new database on verification failure.
+	DefaultVerifyAttempts = 3
+)
+
 // TrackedDB defines the union of a TrackedDB and a worker.Worker interface.
 // This is local to the package, allowing for better testing of the underlying
 // trackerDB worker.
@@ -98,55 +107,49 @@ func NewTrackedDBWorker(dbApp DBApp, namespace string, opts ...TrackedDBWorkerOp
 	return w, nil
 }
 
-// DB closes over a raw *sql.DB. Closing over the DB allows the late
-// realization of the database. Allowing retries of DB acquisition if there
-// is a failure that is non-retryable.
-func (w *trackedDBWorker) DB(fn func(*sql.DB) error) (err error) {
-	// Record metrics based on the namespace.
+// Txn executes the input function against the tracked database,
+// within a transaction that depends on the input context.
+// Retry semantics are applied automatically based on transient failures.
+// This is the function that almost all downstream database consumers
+// should use.
+func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
+	return database.Retry(ctx, func() error {
+		return errors.Trace(w.TxnNoRetry(ctx, fn))
+	})
+}
+
+// TxnNoRetry executes the input function against the tracked database,
+// within a transaction that depends on the input context.
+// We meter both the total transaction count and active operations.
+func (w *trackedDBWorker) TxnNoRetry(ctx context.Context, fn func(context.Context, *sql.Tx) error) (err error) {
+	begin := w.clock.Now()
+	w.metrics.TxnRequests.WithLabelValues(w.namespace).Inc()
 	w.metrics.DBRequests.WithLabelValues(w.namespace).Inc()
-	defer func(begin time.Time) {
-		w.metrics.DBRequests.WithLabelValues(w.namespace).Dec()
+	defer w.meterDBOpResult(begin, err)
 
-		// Record the duration of the DB call and specifically call out if the
-		// result was a success or an error. It might be useful to see if there
-		// is a correlation between the duration of the call and the result.
-		result := "success"
-		if err != nil {
-			result = "error"
-		}
-		w.metrics.DBDuration.WithLabelValues(
-			w.namespace,
-			result,
-		).Observe(w.clock.Now().Sub(begin).Seconds())
-	}(w.clock.Now())
-
+	// If the DB health check failed, the worker's error will be set,
+	// and we will be without a usable database reference. Return the error.
 	w.mutex.RLock()
-	// We have a fatal error, the DB can not be accessed.
 	if w.err != nil {
 		w.mutex.RUnlock()
 		return errors.Trace(w.err)
 	}
+
 	db := w.db
 	w.mutex.RUnlock()
 
-	if err = fn(db); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(database.Txn(ctx, db, fn))
 }
 
-// Txn closes over a raw *sql.Tx. This allows retry semantics in only one
-// location. For instances where the underlying sql database is busy or if
-// it's a common retryable error that can be handled cleanly in one place.
-func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
-	return w.DB(func(db *sql.DB) error {
-		return database.Retry(ctx, func() error {
-			// Record the number of transactions.
-			w.metrics.TxnRequests.WithLabelValues(w.namespace).Inc()
-
-			return database.Txn(ctx, db, fn)
-		})
-	})
+// meterDBOpResults decrements the active DB operation count,
+// and records the result and duration of the completed operation.
+func (w *trackedDBWorker) meterDBOpResult(begin time.Time, err error) {
+	w.metrics.DBRequests.WithLabelValues(w.namespace).Dec()
+	result := "success"
+	if err != nil {
+		result = "error"
+	}
+	w.metrics.DBDuration.WithLabelValues(w.namespace, result).Observe(w.clock.Now().Sub(begin).Seconds())
 }
 
 // Err will return any fatal errors that have occurred on the worker, trying
@@ -218,7 +221,7 @@ func (w *trackedDBWorker) loop() error {
 	}
 }
 
-// ensureDBAliveAndOpenNewIfRequired is a bit long winded, but it is a way to
+// ensureDBAliveAndOpenNewIfRequired is a bit long-winded, but it is a way to
 // ensure that the underlying database is alive and well. If it is not, we
 // attempt to open a new one. If that fails, we return an error.
 func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(db *sql.DB) (*sql.DB, error) {
@@ -229,13 +232,14 @@ func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(db *sql.DB) (*sql.DB, e
 	defer cancel()
 
 	if w.logger.IsTraceEnabled() {
-		w.logger.Tracef("ensuring %s database is alive", w.namespace)
+		w.logger.Tracef("ensuring database %q is alive", w.namespace)
 	}
 
-	// There are multiple levels of retries here. For good reason. We want to
-	// retry the transaction semantics for retryable errors. Then if that fails
-	// we want to retry if the database is at fault. In that case we want
-	// to open up a new database and try the transaction again.
+	// There are multiple levels of retries here.
+	// - We want to retry the ping function for retryable errors.
+	//   These might be DB-locked or busy-syncing errors for example.
+	// - If the error is fatal, we discard the DB instance and reconnect
+	//   before attempting health verification again.
 	for i := 0; i < DefaultVerifyAttempts; i++ {
 		// Verify that we don't have a potential nil database from the retry
 		// semantics.
@@ -245,7 +249,7 @@ func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(db *sql.DB) (*sql.DB, e
 
 		err := database.Retry(ctx, func() error {
 			if w.logger.IsTraceEnabled() {
-				w.logger.Tracef("attempting %s ping", w.namespace)
+				w.logger.Tracef("pinging database %q", w.namespace)
 			}
 			return w.pingDBFunc(ctx, db)
 		})
@@ -255,15 +259,16 @@ func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(db *sql.DB) (*sql.DB, e
 			return db, nil
 		}
 
-		// We failed to apply the transaction, so just return the error and
-		// cause the worker to crash.
+		// We exhausted the retry strategy for pinging the database.
+		// Terminate the worker with the error.
 		if i == DefaultVerifyAttempts-1 {
 			return nil, errors.Trace(err)
 		}
 
 		// We got an error that is non-retryable, attempt to open a new database
 		// connection and see if that works.
-		w.logger.Warningf("unable to ping %s database: attempting to reopen the database before attempting again: %v", w.namespace, err)
+		w.logger.Warningf("unable to ping database %q: attempting to reopen the database before trying again: %v",
+			w.namespace, err)
 
 		// Attempt to open a new database. If there is an error, just crash
 		// the worker, we can't do anything else.

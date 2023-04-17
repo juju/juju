@@ -610,6 +610,8 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		}...,
 	)
 
+	expectedVersion := jujuversion.Current
+	expectedVersion.Build = 666
 	probCmds := &core.ExecAction{
 		Command: []string{
 			"mongo",
@@ -756,7 +758,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "api-server",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "test-account/jujud-operator:" + jujuversion.Current.String() + ".666",
+			Image:           "test-account/jujud-operator:" + expectedVersion.String(),
 			Env: []core.EnvVar{{
 				Name:  osenv.JujuFeatureFlagEnvKey,
 				Value: "developer-mode",
@@ -882,7 +884,7 @@ EOF
 	statefulSetSpec.Spec.Template.Spec.InitContainers = []core.Container{{
 		Name:            "charm-init",
 		ImagePullPolicy: core.PullIfNotPresent,
-		Image:           "test-account/jujud-operator:" + jujuversion.Current.String() + ".666",
+		Image:           "test-account/jujud-operator:" + expectedVersion.String(),
 		WorkingDir:      "/var/lib/juju",
 		Command:         []string{"/opt/containeragent"},
 		Args:            []string{"init", "--containeragent-pebble-dir", "/containeragent/pebble", "--charm-modified-version", "0", "--data-dir", "/var/lib/juju", "--bin-dir", "/charm/bin", "--controller"},

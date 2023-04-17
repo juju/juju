@@ -6,13 +6,14 @@ package common_test
 import (
 	"fmt"
 
-	ocicommon "github.com/oracle/oci-go-sdk/v47/common"
+	ocicommon "github.com/oracle/oci-go-sdk/v65/common"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
+
 	"github.com/juju/juju/provider/oci/common"
 	"github.com/juju/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type errorsSuite struct {

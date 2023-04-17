@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/provider/oci/common"
 	"github.com/juju/juju/storage"
 
-	ociCore "github.com/oracle/oci-go-sdk/v47/core"
+	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 )
 
 func mibToGib(m uint64) uint64 {

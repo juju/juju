@@ -14,7 +14,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	ociCore "github.com/oracle/oci-go-sdk/v47/core"
+	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"

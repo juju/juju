@@ -11,13 +11,24 @@ run_user_change_password() {
 	juju add-user test-change-password-user
 
 	echo "Change test-change-password-user password"
-	expect_that "juju change-user-password test-change-password-user" "
-expect \"new password: \" { send \"test-password\r\" }
-expect \"type new password again: \" { send \"test-password\r\"; puts \"Pass\" }
-" | check "Pass"
+	echo "test-password" | juju change-user-password test-change-password-user --no-prompt
+
+	echo "Change admin password"
+	echo "admin-password" | juju change-user-password admin --no-prompt
+
+	echo "Logout"
+	juju logout
+
+	echo "Login as test-change-password-user"
+	echo "test-password" | juju login --user test-change-password-user --no-prompt
+
+	echo "Logout"
+	juju logout
+
+	echo "Login as admin"
+	echo "admin-password" | juju login --user admin --no-prompt
 
 	destroy_model "user-change-password"
-
 }
 
 test_user_login_password() {

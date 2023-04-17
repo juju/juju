@@ -7,7 +7,8 @@ run_deploy_default_series() {
 	ensure "${model_name}" "${file}"
 
 	juju model-config default-series=focal
-	juju deploy ubuntu
+	juju deploy ubuntu --storage "files=tmpfs"
+	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
 	ubuntu_base_name=$(juju status --format=json | jq ".applications.ubuntu.base.name")
 	ubuntu_base_ch=$(juju status --format=json | jq ".applications.ubuntu.base.channel")
@@ -26,7 +27,8 @@ run_deploy_not_default_series() {
 	ensure "${model_name}" "${file}"
 
 	juju model-config default-series=focal
-	juju deploy ubuntu --base ubuntu@22.04
+	juju deploy ubuntu --storage "files=tmpfs" --base ubuntu@22.04
+	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
 	ubuntu_base_name=$(juju status --format=json | jq ".applications.ubuntu.base.name")
 	ubuntu_base_ch=$(juju status --format=json | jq ".applications.ubuntu.base.channel")

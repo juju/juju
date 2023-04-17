@@ -212,6 +212,12 @@ started upgrade to 3.9.99
 func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersionUploadLocalOfficial(c *gc.C) {
 	s.reset(c)
 
+	s.PatchValue(&jujuversion.Current, func() version.Number {
+		v := jujuversion.Current
+		v.Build = 0
+		return v
+	}())
+
 	s.PatchValue(&CheckCanImplicitUpload,
 		func(model.ModelType, bool, version.Number, version.Number) bool { return true },
 	)

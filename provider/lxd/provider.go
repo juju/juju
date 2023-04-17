@@ -5,6 +5,7 @@ package lxd
 
 import (
 	stdcontext "context"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -115,11 +116,13 @@ var cloudSchema = &jsonschema.Schema{
 
 // NewProvider returns a new LXD EnvironProvider.
 func NewProvider() environs.CloudEnvironProvider {
-	httpClient := jujuhttp.NewClient(
-		jujuhttp.WithLogger(logger.ChildWithLabels("http", corelogger.HTTP)),
-	)
 	configReader := lxcConfigReader{}
-	factory := NewServerFactory(httpClient.Client())
+	factory := NewServerFactory(NewHTTPClientFunc(func() *http.Client {
+		return jujuhttp.NewClient(
+			jujuhttp.WithLogger(logger.ChildWithLabels("http", corelogger.HTTP)),
+		).Client()
+	}))
+
 	credentials := environProviderCredentials{
 		certReadWriter:  certificateReadWriter{},
 		certGenerator:   certificateGenerator{},

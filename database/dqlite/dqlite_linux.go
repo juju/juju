@@ -7,6 +7,11 @@ package dqlite
 
 import "github.com/canonical/go-dqlite"
 
+const (
+	// Enabled is true if dqlite is enabled.
+	Enabled = true
+)
+
 // NodeInfo holds information about a single server.
 type NodeInfo = dqlite.NodeInfo
 
