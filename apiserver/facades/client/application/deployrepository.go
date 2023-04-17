@@ -216,7 +216,7 @@ func (api *DeployFromRepositoryAPI) addPendingResources(appName string, resource
 	for _, r := range resources {
 		pID, err := api.state.AddPendingResource(appName, r)
 		if err != nil {
-			logger.Warningf("Unable to add pending resource %v for application %v", r.Name, appName)
+			deployRepoLogger.Errorf("Unable to add pending resource %v for application %v: %v", r.Name, appName, err)
 			errs = append(errs, err)
 			continue
 		}
