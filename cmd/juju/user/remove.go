@@ -85,7 +85,6 @@ func (c *removeCommand) Info() *cmd.Info {
 			"revoke",
 			"show-user",
 			"users",
-			"switch-user",
 			"disable-user",
 			"enable-user",
 			"change-user-password",

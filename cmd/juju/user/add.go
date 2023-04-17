@@ -67,7 +67,7 @@ func (c *addCommand) Info() *cmd.Info {
 		SeeAlso: []string{
 			"register",
 			"grant",
-			"usesr",
+			"users",
 			"show-user",
 			"disable-user",
 			"enable-user",

@@ -73,8 +73,6 @@ func (c *modelsCommand) Info() *cmd.Info {
 		Examples: listModelsExamples,
 		SeeAlso: []string{
 			"add-model",
-			"share-model",
-			"unshare-model",
 		},
 	})
 }

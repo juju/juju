@@ -89,7 +89,7 @@ func (c *addSecretBackendCommand) Info() *cmd.Info {
 		Args:     "<backend-name> <backend-type>",
 		Examples: addSecretBackendsExamples,
 		SeeAlso: []string{
-			"list-secret-backends",
+			"secret-backends",
 			"remove-secret-backend",
 			"show-secret-backend",
 			"update-secret-backend",

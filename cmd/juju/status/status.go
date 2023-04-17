@@ -169,7 +169,6 @@ func (c *statusCommand) Info() *cmd.Info {
 		SeeAlso: []string{
 			"machines",
 			"show-model",
-			"show-debug-log",
 			"show-status-log",
 			"storage",
 		},

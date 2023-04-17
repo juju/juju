@@ -68,7 +68,7 @@ func (c *removeSecretBackendCommand) Info() *cmd.Info {
 		Examples: removeSecretBackendExamples,
 		SeeAlso: []string{
 			"add-secret-backend",
-			"list-secret-backends",
+			"secret-backends",
 			"show-secret-backend",
 			"update-secret-backend",
 		},

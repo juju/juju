@@ -176,7 +176,7 @@ func (c *listCredentialsCommand) Info() *cmd.Info {
 			"remove-credential",
 			"default-credential",
 			"autoload-credentials",
-			"show-credentials",
+			"show-credential",
 		},
 		Aliases: []string{"list-credentials"},
 	})
