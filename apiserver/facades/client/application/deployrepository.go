@@ -192,8 +192,6 @@ func (v *deployFromRepositoryValidator) resolveResources(
 				Type:     meta.Type.String(),
 				Filename: deployValue,
 			})
-			resources = append(resources, r)
-			continue
 		}
 		resources = append(resources, r)
 	}
