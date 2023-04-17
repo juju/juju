@@ -2285,7 +2285,7 @@ data of the store. (default false)`,
 		Group:       environschema.EnvironGroup,
 	},
 	ModeKey: {
-		Description: `Mode is a comma-separated list which sets the 
+		Description: `Mode is a comma-separated list which sets the
 mode the model should run in. So far only one is implemented
 - If 'requires-prompts' is present, clients will ask for confirmation before removing
 potentially valuable resources.
