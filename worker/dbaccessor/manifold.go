@@ -15,6 +15,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database"
 	"github.com/juju/juju/database/app"
+	"github.com/juju/juju/database/logger"
 	"github.com/juju/juju/worker/common"
 )
 
@@ -47,10 +48,12 @@ type ManifoldConfig struct {
 	Clock                clock.Clock
 	Hub                  Hub
 	Logger               Logger
+	LogDir               string
 	PrometheusRegisterer prometheus.Registerer
 	NewApp               func(string, ...app.Option) (DBApp, error)
 	NewDBWorker          func(DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
 	NewMetricsCollector  func() *Collector
+	NewSlowQueryLogger   func(string, clock.Clock, logger.Logger) *logger.SlowQueryLogger
 }
 
 func (cfg ManifoldConfig) Validate() error {
@@ -66,6 +69,9 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
+	if cfg.LogDir == "" {
+		return errors.NotValidf("empty LogDir")
+	}
 	if cfg.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
 	}
@@ -77,6 +83,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.NewMetricsCollector == nil {
 		return errors.NotValidf("nil NewMetricsCollector")
+	}
+	if cfg.NewSlowQueryLogger == nil {
+		return errors.NotValidf("nil NewSlowQueryLogger")
 	}
 	return nil
 }
@@ -106,8 +115,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			slowQueryLogger := config.NewSlowQueryLogger(config.LogDir, config.Clock, config.Logger)
+
 			cfg := WorkerConfig{
-				NodeManager:      database.NewNodeManager(agentConfig, config.Logger),
+				NodeManager:      database.NewNodeManager(agentConfig, config.Logger, slowQueryLogger),
 				Clock:            config.Clock,
 				Hub:              config.Hub,
 				ControllerID:     agentConfig.Tag().Id(),
@@ -128,6 +139,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				// Clean up the metrics for the worker, so the next time a
 				// worker is created we can safely register the metrics again.
 				config.PrometheusRegisterer.Unregister(metricsCollector)
+
+				if err := slowQueryLogger.Close(); err != nil {
+					config.Logger.Errorf("error closing slow query logger: %v", err)
+				}
 			}), nil
 		},
 	}

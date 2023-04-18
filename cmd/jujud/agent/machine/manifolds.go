@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
+	databaselogger "github.com/juju/juju/database/logger"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/upgrades"
 	proxyconfig "github.com/juju/juju/utils/proxy"
@@ -695,10 +696,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:                config.Clock,
 			Hub:                  config.CentralHub,
 			Logger:               loggo.GetLogger("juju.worker.dbaccessor"),
+			LogDir:               agentConfig.LogDir(),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewApp:               dbaccessor.NewApp,
 			NewDBWorker:          dbaccessor.NewTrackedDBWorker,
 			NewMetricsCollector:  dbaccessor.NewMetricsCollector,
+			NewSlowQueryLogger:   databaselogger.NewSlowQueryLogger,
 		})),
 
 		fileNotifyWatcherName: ifController(filenotifywatcher.Manifold(filenotifywatcher.ManifoldConfig{

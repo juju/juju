@@ -20,3 +20,9 @@ func (stubLogger) Errorf(string, ...interface{})            {}
 func (stubLogger) Warningf(string, ...interface{})          {}
 func (stubLogger) Debugf(string, ...interface{})            {}
 func (stubLogger) Logf(loggo.Level, string, ...interface{}) {}
+
+type stubSlowQueryLogger struct{}
+
+func (stubSlowQueryLogger) Log(string, float64, string, []byte) error {
+	return nil
+}
