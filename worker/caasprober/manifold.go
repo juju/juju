@@ -39,7 +39,7 @@ func gatherCAASProbes(
 	probes := NewCAASProbes()
 
 	// General add function that can be called for the 2 different types of
-	// providers we recieve.
+	// providers we receive.
 	addProvider := func(id string, provider probe.ProbeProvider) {
 		supported := provider.SupportedProbes()
 

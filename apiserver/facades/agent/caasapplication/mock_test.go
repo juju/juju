@@ -4,8 +4,6 @@
 package caasapplication_test
 
 import (
-	"github.com/juju/charm/v8"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -124,11 +122,10 @@ func (st *mockModel) Tag() names.Tag {
 
 type mockApplication struct {
 	testing.Stub
-	life         state.Life
-	forceUpgrade bool
-	name         string
-	unit         *mockUnit
-	scale        int
+	life  state.Life
+	name  string
+	unit  *mockUnit
+	scale int
 }
 
 func (*mockApplication) Tag() names.Tag {
@@ -199,29 +196,6 @@ func (u *mockUnit) ApplicationName() string {
 	return "gitlab"
 }
 
-type mockCharm struct {
-	url      *charm.URL
-	sha256   string
-	meta     *charm.Meta
-	manifest *charm.Manifest
-}
-
-func (ch *mockCharm) URL() *charm.URL {
-	return ch.url
-}
-
-func (ch *mockCharm) BundleSha256() string {
-	return ch.sha256
-}
-
-func (ch *mockCharm) Meta() *charm.Meta {
-	return ch.meta
-}
-
-func (ch *mockCharm) Manifest() *charm.Manifest {
-	return ch.manifest
-}
-
 type mockBroker struct {
 	testing.Stub
 	app *mockCAASApplication
@@ -250,15 +224,6 @@ func (cc *mockCloudContainer) Address() *network.SpaceAddress {
 }
 
 func (cc *mockCloudContainer) Ports() []string {
-	return nil
-}
-
-type mockLeadershipRevoker struct {
-	revoked set.Strings
-}
-
-func (s *mockLeadershipRevoker) RevokeLeadership(applicationId, unitId string) error {
-	s.revoked.Add(unitId)
 	return nil
 }
 

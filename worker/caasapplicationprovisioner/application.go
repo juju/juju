@@ -434,14 +434,6 @@ func (a *appWorker) loop() error {
 	}
 }
 
-func getTagsFromUnits(in []params.CAASUnit) []names.Tag {
-	var out []names.Tag
-	for _, v := range in {
-		out = append(out, v.Tag)
-	}
-	return out
-}
-
 func (a *appWorker) charmFormat() (charm.Format, error) {
 	charmInfo, err := a.facade.ApplicationCharmInfo(a.name)
 	if err != nil {
