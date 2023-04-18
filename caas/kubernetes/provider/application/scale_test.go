@@ -49,3 +49,14 @@ func (s *applicationSuite) TestApplicationScaleStatefulLessThanZero(c *gc.C) {
 
 	c.Assert(errors.IsNotValid(app.Scale(-1)), jc.IsTrue)
 }
+
+func (s *applicationSuite) TestCurrentScale(c *gc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	s.assertEnsure(c, app, false, constraints.Value{}, false, "", func() {})
+
+	c.Assert(app.Scale(3), jc.ErrorIsNil)
+
+	units, err := app.UnitsToRemove(context.Background(), 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, jc.SameContents, []string{"gitlab/1", "gitlab/2"})
+}

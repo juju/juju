@@ -41,9 +41,9 @@ func (a *app) Scale(scaleTo int) error {
 	}
 }
 
-// CurrentScale returns the current scale in use for the applications. i.e how
+// currentScale returns the current scale in use for the applications. i.e how
 // many units is Kubernetes currently running for application x.
-func (a *app) CurrentScale(ctx context.Context) (int, error) {
+func (a *app) currentScale(ctx context.Context) (int, error) {
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
 		ss, err := a.client.AppsV1().StatefulSets(a.namespace).Get(ctx, a.name, meta.GetOptions{})
@@ -63,9 +63,10 @@ func (a *app) CurrentScale(ctx context.Context) (int, error) {
 	}
 }
 
+// UnitsToRemove returns the names of units that need to be removed to reach the desired scale.
 func (a *app) UnitsToRemove(ctx context.Context, desiredScale int) ([]string, error) {
 	var unitsToRemove []string
-	currentScale, err := a.CurrentScale(ctx)
+	currentScale, err := a.currentScale(ctx)
 	if err != nil {
 		return unitsToRemove, err
 	}

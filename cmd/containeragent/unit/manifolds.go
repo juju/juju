@@ -130,43 +130,6 @@ type manifoldsConfig struct {
 	SignalCh chan os.Signal
 }
 
-const (
-	agentName            = "agent"
-	apiConfigWatcherName = "api-config-watcher"
-	apiCallerName        = "api-caller"
-	uniterName           = "uniter"
-	logSenderName        = "log-sender"
-
-	charmDirName          = "charm-dir"
-	leadershipTrackerName = "leadership-tracker"
-	hookRetryStrategyName = "hook-retry-strategy"
-
-	upgraderName         = "upgrader"
-	upgradeStepsName     = "upgrade-steps-runner"
-	upgradeStepsGateName = "upgrade-steps-gate"
-	upgradeStepsFlagName = "upgrade-steps-flag"
-
-	migrationFortressName     = "migration-fortress"
-	migrationInactiveFlagName = "migration-inactive-flag"
-	migrationMinionName       = "migration-minion"
-
-	caasProberName       = "caas-prober"
-	caasZombieProberName = "caas-zombie-prober"
-	probeHTTPServerName  = "probe-http-server"
-
-	proxyConfigUpdaterName   = "proxy-config-updater"
-	loggingConfigUpdaterName = "logging-config-updater"
-	apiAddressUpdaterName    = "api-address-updater"
-
-	caasUnitTerminationWorker = "caas-unit-termination-worker"
-	caasUnitsManager          = "caas-units-manager"
-
-	signalHandlerName = "signal-handler"
-
-	deadFlagName    = "dead-flag"
-	notDeadFlagName = "not-dead-flag"
-)
-
 var (
 	ifDead = engine.Housing{
 		Flags: []string{
@@ -220,24 +183,23 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 
 		deadFlagName: lifeflag.Manifold(lifeflag.ManifoldConfig{
 			APICallerName:  apiCallerName,
-			Entity:         config.Agent.CurrentConfig().Tag(),
+			AgentName:      agentName,
 			Result:         life.IsDead,
 			Filter:         cmdmodel.LifeFilter,
 			NotFoundIsDead: true,
-			NewFacade: func(b base.APICaller) lifeflag.Facade {
-				return agentlifeflag.NewClient(b)
+			NewFacade: func(b base.APICaller) (lifeflag.Facade, error) {
+				return agentlifeflag.NewClient(b), nil
 			},
 			NewWorker: lifeflag.NewWorker,
 		}),
 
 		notDeadFlagName: lifeflag.Manifold(lifeflag.ManifoldConfig{
 			APICallerName: apiCallerName,
-			Entity:        config.Agent.CurrentConfig().Tag(),
+			AgentName:     agentName,
 			Result:        life.IsNotDead,
 			Filter:        cmdmodel.LifeFilter,
-
-			NewFacade: func(b base.APICaller) lifeflag.Facade {
-				return agentlifeflag.NewClient(b)
+			NewFacade: func(b base.APICaller) (lifeflag.Facade, error) {
+				return agentlifeflag.NewClient(b), nil
 			},
 			NewWorker: lifeflag.NewWorker,
 		}),
@@ -445,6 +407,43 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		})),
 	}
 }
+
+const (
+	agentName            = "agent"
+	apiConfigWatcherName = "api-config-watcher"
+	apiCallerName        = "api-caller"
+	uniterName           = "uniter"
+	logSenderName        = "log-sender"
+
+	charmDirName          = "charm-dir"
+	leadershipTrackerName = "leadership-tracker"
+	hookRetryStrategyName = "hook-retry-strategy"
+
+	upgraderName         = "upgrader"
+	upgradeStepsName     = "upgrade-steps-runner"
+	upgradeStepsGateName = "upgrade-steps-gate"
+	upgradeStepsFlagName = "upgrade-steps-flag"
+
+	migrationFortressName     = "migration-fortress"
+	migrationInactiveFlagName = "migration-inactive-flag"
+	migrationMinionName       = "migration-minion"
+
+	caasProberName       = "caas-prober"
+	caasZombieProberName = "caas-zombie-prober"
+	probeHTTPServerName  = "probe-http-server"
+
+	proxyConfigUpdaterName   = "proxy-config-updater"
+	loggingConfigUpdaterName = "logging-config-updater"
+	apiAddressUpdaterName    = "api-address-updater"
+
+	caasUnitTerminationWorker = "caas-unit-termination-worker"
+	caasUnitsManager          = "caas-units-manager"
+
+	signalHandlerName = "signal-handler"
+
+	deadFlagName    = "dead-flag"
+	notDeadFlagName = "not-dead-flag"
+)
 
 type noopStatusSetter struct{}
 

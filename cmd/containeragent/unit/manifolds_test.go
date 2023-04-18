@@ -66,6 +66,12 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 
 		"caas-unit-termination-worker",
 		"caas-units-manager",
+		"caas-zombie-prober",
+
+		"dead-flag",
+		"not-dead-flag",
+
+		"signal-handler",
 	}
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {
@@ -93,6 +99,11 @@ func (*ManifoldsSuite) TestMigrationGuards(c *gc.C) {
 
 		"upgrade-steps-flag",
 		"caas-units-manager",
+
+		"dead-flag",
+		"not-dead-flag",
+		"signal-handler",
+		"caas-zombie-prober",
 	)
 	config := unit.ManifoldsConfig{}
 	manifolds := unit.Manifolds(config)
@@ -129,9 +140,14 @@ type fakeAgent struct {
 
 var expectedUnitManifoldsWithDependencies = map[string][]string{
 
-	"agent":              {},
-	"api-config-watcher": {"agent"},
-	"api-caller":         {"agent", "api-config-watcher"},
+	"agent": {},
+	"api-config-watcher": {
+		"agent",
+	},
+	"api-caller": {
+		"agent",
+		"api-config-watcher",
+	},
 	"uniter": {
 		"agent",
 		"api-caller",
@@ -141,9 +157,15 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"leadership-tracker",
 		"migration-fortress",
 		"migration-inactive-flag",
+		"not-dead-flag",
 	},
 
-	"log-sender": {"agent", "api-caller", "api-config-watcher"},
+	"log-sender": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"not-dead-flag",
+	},
 
 	"charm-dir": {
 		"agent",
@@ -215,6 +237,7 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"migration-inactive-flag",
 		"probe-http-server",
 		"uniter",
+		"not-dead-flag",
 	},
 	"upgrade-steps-flag": {
 		"upgrade-steps-gate",
@@ -225,12 +248,14 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"api-caller",
 		"api-config-watcher",
 		"upgrade-steps-gate",
+		"not-dead-flag",
 	},
 	"upgrader": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
 		"upgrade-steps-gate",
+		"not-dead-flag",
 	},
 
 	"caas-unit-termination-worker": {
@@ -243,10 +268,37 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"migration-fortress",
 		"migration-inactive-flag",
 		"uniter",
+		"not-dead-flag",
 	},
 	"caas-units-manager": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"not-dead-flag",
+	},
+	"caas-zombie-prober": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"dead-flag",
+		"probe-http-server",
+	},
+
+	"dead-flag": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+	},
+	"not-dead-flag": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+	},
+
+	"signal-handler": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"dead-flag",
 	},
 }

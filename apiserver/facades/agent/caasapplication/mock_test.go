@@ -31,39 +31,15 @@ type mockState struct {
 }
 
 func newMockState() *mockState {
-	units := make(map[string]*mockUnit)
 	st := &mockState{
-		units: units,
 		model: mockModel{
 			agentVersion:  version.MustParse("1.9.99"),
 			controllerTag: names.NewControllerTag("ffffffff-ffff-ffff-ffff-ffffffffffff"),
 			tag:           names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff"),
 		},
 		app: mockApplication{
-			units: units,
-			name:  "gitlab",
-			life:  state.Alive,
-			charm: mockCharm{
-				url:    charm.MustParseURL("cs:gitlab-1"),
-				sha256: "fake-sha256",
-				manifest: &charm.Manifest{
-					// charm.FormatV2.
-					Bases: []charm.Base{
-						{
-							Name: "ubuntu",
-							Channel: charm.Channel{
-								Risk:  "stable",
-								Track: "20.04",
-							},
-						},
-					},
-				},
-				meta: &charm.Meta{
-					Deployment: &charm.Deployment{
-						DeploymentType: charm.DeploymentStateful,
-					},
-				},
-			},
+			name: "gitlab",
+			life: state.Alive,
 		},
 		controllerConfig: jujucontroller.Config{
 			jujucontroller.CACertKey: jtesting.CACert,
@@ -149,11 +125,9 @@ func (st *mockModel) Tag() names.Tag {
 type mockApplication struct {
 	testing.Stub
 	life         state.Life
-	charm        mockCharm
 	forceUpgrade bool
 	name         string
-	newUnit      caasapplication.Unit
-	units        map[string]*mockUnit
+	unit         *mockUnit
 	scale        int
 }
 
@@ -166,47 +140,19 @@ func (a *mockApplication) Life() state.Life {
 	return a.life
 }
 
-func (a *mockApplication) Charm() (caasapplication.Charm, bool, error) {
-	a.MethodCall(a, "Charm")
-	if err := a.NextErr(); err != nil {
-		return nil, false, err
-	}
-	return &a.charm, a.forceUpgrade, nil
-}
-
-func (a *mockApplication) AllUnits() ([]caasapplication.Unit, error) {
-	a.MethodCall(a, "AllUnits")
-	if err := a.NextErr(); err != nil {
-		return nil, err
-	}
-	var units []caasapplication.Unit
-	for _, v := range a.units {
-		units = append(units, v)
-	}
-	return units, nil
-}
-
 func (a *mockApplication) Name() string {
 	a.MethodCall(a, "Name")
 	return a.name
 }
 
-func (a *mockApplication) UpdateUnits(unitsOp *state.UpdateUnitsOperation) error {
-	a.MethodCall(a, "UpdateUnits", unitsOp)
-	return a.NextErr()
-}
-
-func (a *mockApplication) AddUnit(args state.AddUnitParams) (unit caasapplication.Unit, err error) {
-	a.MethodCall(a, "AddUnit", args)
-	if err := a.NextErr(); err != nil {
-		return nil, err
-	}
-	return a.newUnit, nil
-}
-
 func (a *mockApplication) GetScale() int {
 	a.MethodCall(a, "GetScale")
 	return a.scale
+}
+
+func (a *mockApplication) UpsertCAASUnit(args state.UpsertCAASUnitParams) (caasapplication.Unit, error) {
+	a.MethodCall(a, "UpsertCAASUnit", args)
+	return a.unit, a.NextErr()
 }
 
 type mockUnit struct {

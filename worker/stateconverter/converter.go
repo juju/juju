@@ -81,7 +81,7 @@ func (c *converter) Handle(_ <-chan struct{}) error {
 		return nil
 	}
 
-	return fmt.Errorf("bouncing agent to pick up new jobs %w", errors.Hide(agenterrors.FatalError))
+	return fmt.Errorf("bounce agent to pick up new jobs%w", errors.Hide(agenterrors.FatalError))
 }
 
 // TearDown implements NotifyWatchHandler's TearDown method.

@@ -15,7 +15,7 @@ type CAASProbes struct {
 }
 
 // NewCAASProbes is responsible for constructing a new CAASProbes struct with
-// it's members initialised.
+// its members initialised.
 func NewCAASProbes() *CAASProbes {
 	return &CAASProbes{
 		Liveness:  probe.NewAggregate(),

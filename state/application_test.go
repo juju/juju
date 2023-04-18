@@ -5351,6 +5351,15 @@ func (s *ApplicationSuite) TestProvisioningState(c *gc.C) {
 		Scaling:     true,
 		ScaleTarget: 10,
 	})
+	c.Assert(errors.Is(err, stateerrors.ProvisioningStateInconsistent), jc.IsTrue)
+
+	err = s.mysql.SetScale(10, 0, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.mysql.SetProvisioningState(state.ApplicationProvisioningState{
+		Scaling:     true,
+		ScaleTarget: 10,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ps = s.mysql.ProvisioningState()

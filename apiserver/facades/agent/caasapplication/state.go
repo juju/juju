@@ -32,7 +32,6 @@ type ControllerState interface {
 // Model provides the subset of CAAS model state required
 // by the CAAS application facade.
 type Model interface {
-	Containers(providerIds ...string) ([]state.CloudContainer, error)
 	AgentVersion() (version.Number, error)
 	ControllerTag() names.ControllerTag
 	Tag() names.Tag
@@ -42,12 +41,9 @@ type Model interface {
 // required by the CAAS application facade.
 type Application interface {
 	Life() state.Life
-	Charm() (Charm, bool, error)
 	Name() string
-	AllUnits() ([]Unit, error)
 	UpsertCAASUnit(args state.UpsertCAASUnitParams) (Unit, error)
 	GetScale() int
-	ProvisioningState() *state.ApplicationProvisioningState
 }
 
 // Charm provides the subset of charm state required by the

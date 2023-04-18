@@ -175,8 +175,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Result:        life.IsNotDead,
 			Filter:        LifeFilter,
 
-			NewFacade: func(b base.APICaller) lifeflag.Facade {
-				return controllerlifeflag.NewClient(b)
+			NewFacade: func(b base.APICaller) (lifeflag.Facade, error) {
+				return controllerlifeflag.NewClient(b), nil
 			},
 			NewWorker: lifeflag.NewWorker,
 			// No Logger defined in lifeflag package.
@@ -187,8 +187,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Result:        life.IsNotAlive,
 			Filter:        LifeFilter,
 
-			NewFacade: func(b base.APICaller) lifeflag.Facade {
-				return controllerlifeflag.NewClient(b)
+			NewFacade: func(b base.APICaller) (lifeflag.Facade, error) {
+				return controllerlifeflag.NewClient(b), nil
 			},
 			NewWorker: lifeflag.NewWorker,
 			// No Logger defined in lifeflag package.
@@ -227,7 +227,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// the model is not dead, and not upgrading; this frees
 		// their dependencies from model-lifetime/upgrade concerns.
 		migrationFortressName: ifNotUpgrading(ifNotDead(fortress.Manifold(
-			// No Logger defined in fortress package.
+		// No Logger defined in fortress package.
 		))),
 		migrationInactiveFlagName: ifNotUpgrading(ifNotDead(migrationflag.Manifold(migrationflag.ManifoldConfig{
 			APICallerName: apiCallerName,

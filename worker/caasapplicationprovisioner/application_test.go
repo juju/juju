@@ -280,10 +280,6 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 			ProviderId:     "deadbeef",
 			Addresses:      params.FromProviderAddresses(network.NewMachineAddress("10.6.6.6").AsProviderAddress()),
 		}).Return(nil),
-		tc.facade.EXPECT().GarbageCollect("test", []names.Tag{names.NewUnitTag("test/0")}, 1, []string{"test-0"}, false).
-			DoAndReturn(
-				func(_ string, _ []names.Tag, _ int, _ []string, _ bool) error { return nil },
-			),
 		tc.brokerApp.EXPECT().Units().Return([]caas.Unit{{
 			Id:      "test-0",
 			Address: "10.10.10.1",
@@ -393,9 +389,6 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 			ProviderId:     "deadbeef",
 			Addresses:      params.FromProviderAddresses(network.NewMachineAddress("10.6.6.6").AsProviderAddress()),
 		}).Return(nil),
-		tc.facade.EXPECT().GarbageCollect("test", []names.Tag{names.NewUnitTag("test/0")}, 0, []string(nil), false).DoAndReturn(func(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error {
-			return nil
-		}),
 
 		tc.brokerApp.EXPECT().Units().Return([]caas.Unit{{
 			Id:    "test-0",
@@ -448,10 +441,6 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 			}, nil
 		}),
 		tc.brokerApp.EXPECT().Service().Return(nil, errors.NotFound),
-		tc.facade.EXPECT().GarbageCollect("test", []names.Tag(nil), 0, []string(nil), true).DoAndReturn(func(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error {
-			close(done)
-			return nil
-		}),
 	}
 
 	appWorker := newAppWorker(assertionCalls...)
@@ -948,10 +937,6 @@ func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusNoOpsForDeadApplica
 		}),
 		tc.brokerApp.EXPECT().Service().DoAndReturn(func() (*caas.Service, error) {
 			return nil, errors.NotFoundf("test")
-		}),
-		tc.facade.EXPECT().GarbageCollect("test", []names.Tag(nil), 0, []string(nil), true).DoAndReturn(func(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error {
-			close(done)
-			return nil
 		}),
 	)
 	s.waitDone(c, done)
