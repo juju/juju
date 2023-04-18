@@ -490,9 +490,6 @@ func (c *nestedContext) createUnitAgentConfig(tag names.UnitTag, initialPassword
 
 			AgentLogfileMaxBackups: c.agentConfig.AgentLogfileMaxBackups(),
 			AgentLogfileMaxSizeMB:  c.agentConfig.AgentLogfileMaxSizeMB(),
-
-			QueryTracingEnabled:   c.agentConfig.QueryTracingEnabled(),
-			QueryTracingThreshold: c.agentConfig.QueryTracingThreshold(),
 		})
 	if err != nil {
 		return nil, errors.Trace(err)
