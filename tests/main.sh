@@ -53,7 +53,7 @@ TEST_NAMES="agents \
             deploy \
             deploy_aks \
             deploy_caas \
-            expose_ec2 \
+			firewall \
             hooks \
             hooktools \
 			kubeflow \
