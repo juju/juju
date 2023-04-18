@@ -1176,10 +1176,8 @@ func (*StorageAPIv4) RemovePool(_, _ struct{}) {}
 func (*StorageAPIv4) UpdatePool(_, _ struct{}) {}
 
 // Remove etc added in v4 api version.
-func (*StorageAPIv3) Remove(_, _ struct{})           {}
-func (*StorageAPIv3) Import(_, _ struct{})           {}
-func (*StorageAPIv3) importStorage(_, _ struct{})    {}
-func (*StorageAPIv3) importFilesystem(_, _ struct{}) {}
+func (*StorageAPIv3) Remove(_, _ struct{}) {}
+func (*StorageAPIv3) Import(_, _ struct{}) {}
 
 // Destroy sets the specified storage entities to Dying, unless they are
 // already Dying or Dead.

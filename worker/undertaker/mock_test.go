@@ -76,9 +76,10 @@ type cloudDestroyer interface {
 }
 
 type mockDestroyer struct {
-	cloudDestroyer
 	stub *testing.Stub
 }
+
+var _ cloudDestroyer = (*mockDestroyer)(nil)
 
 func (mock *mockDestroyer) Destroy(ctx context.ProviderCallContext) error {
 	mock.stub.AddCall("Destroy", ctx)

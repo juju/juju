@@ -136,9 +136,6 @@ type addCredentialCommand struct {
 	// These attributes are used when adding credentials to a controller.
 	remoteCloudFound  bool
 	credentialAPIFunc func() (CredentialAPI, error)
-
-	// existsLocally whether this credential already exists locally.
-	existsLocally bool
 }
 
 // NewAddCredentialCommand returns a command to add credential information.

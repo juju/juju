@@ -25,6 +25,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
@@ -78,7 +79,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 }
 
 func (s *Suite) TestFacadeRegistered(c *gc.C) {
-	aFactory, err := apiserver.AllFacades().GetFactory("MigrationTarget", 1)
+	aFactory, err := apiserver.AllFacades().GetFactory("MigrationTarget", 2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := aFactory(&facadetest.Context{
@@ -217,28 +218,53 @@ func (s *Suite) TestAbortNotImportingModel(c *gc.C) {
 }
 
 func (s *Suite) TestActivate(c *gc.C) {
+	sourceModel := "deadbeef-0bad-400d-8000-4b1d0d06f666"
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "foo", SourceModel: names.NewModelTag(sourceModel),
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	api := s.mustNewAPI(c)
 	tag := s.importModel(c, api)
 
-	err := api.Activate(params.ModelArgs{ModelTag: tag.String()})
+	err = api.Activate(params.ActivateModelArgs{
+		ModelTag:        tag.String(),
+		ControllerTag:   jujutesting.ControllerTag.String(),
+		ControllerAlias: "mycontroller",
+		SourceAPIAddrs:  []string{"10.6.6.6:17070"},
+		SourceCACert:    jujutesting.CACert,
+		CrossModelUUIDs: []string{sourceModel},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, ph, err := s.StatePool.GetModel(tag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	defer ph.Release()
 	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeNone)
+
+	ec := state.NewExternalControllers(model.State())
+	info, err := ec.ControllerForModel(sourceModel)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.ControllerInfo(), jc.DeepEquals, crossmodel.ControllerInfo{
+		ControllerTag: jujutesting.ControllerTag,
+		Alias:         "mycontroller",
+		Addrs:         []string{"10.6.6.6:17070"},
+		CACert:        jujutesting.CACert,
+	})
+	app, err := model.State().RemoteApplication("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(app.SourceController(), gc.Equals, jujutesting.ControllerTag.Id())
 }
 
 func (s *Suite) TestActivateNotATag(c *gc.C) {
 	api := s.mustNewAPI(c)
-	err := api.Activate(params.ModelArgs{ModelTag: "not-a-tag"})
+	err := api.Activate(params.ActivateModelArgs{ModelTag: "not-a-tag"})
 	c.Assert(err, gc.ErrorMatches, `"not-a-tag" is not a valid tag`)
 }
 
 func (s *Suite) TestActivateMissingModel(c *gc.C) {
 	api := s.mustNewAPI(c)
 	newUUID := utils.MustNewUUID().String()
-	err := api.Activate(params.ModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
+	err := api.Activate(params.ActivateModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
 	c.Assert(err, gc.ErrorMatches, `model "`+newUUID+`" not found`)
 }
 
@@ -249,7 +275,7 @@ func (s *Suite) TestActivateNotImportingModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	api := s.mustNewAPI(c)
-	err = api.Activate(params.ModelArgs{ModelTag: model.ModelTag().String()})
+	err = api.Activate(params.ActivateModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, gc.ErrorMatches, `migration mode for the model is not importing`)
 }
 

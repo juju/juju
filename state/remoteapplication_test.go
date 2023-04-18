@@ -120,21 +120,6 @@ func (s *remoteApplicationSuite) makeRemoteApplication(c *gc.C, name, url string
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *remoteApplicationSuite) assertApplicationRelations(c *gc.C, app *state.Application, expectedKeys ...string) []*state.Relation {
-	rels, err := app.Relations()
-	c.Assert(err, jc.ErrorIsNil)
-	if len(rels) == 0 {
-		return nil
-	}
-	relKeys := make([]string, len(expectedKeys))
-	for i, rel := range rels {
-		relKeys[i] = rel.String()
-	}
-	sort.Strings(relKeys)
-	c.Assert(relKeys, gc.DeepEquals, expectedKeys)
-	return rels
-}
-
 func (s *remoteApplicationSuite) TestNoStatusForConsumerProxy(c *gc.C) {
 	application, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:            "hosted-mysql",
@@ -490,6 +475,25 @@ func (s *remoteApplicationSuite) TestAddRemoteApplicationFromConsumer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foo.Name(), gc.Equals, "foo")
 	c.Assert(foo.IsConsumerProxy(), jc.IsTrue)
+}
+
+func (s *remoteApplicationSuite) TestSetSourceController(c *gc.C) {
+	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "foo", OfferUUID: "offer-uuid", SourceModel: s.Model.ModelTag(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = foo.SetSourceController("source-controller-uuid")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Test results without and then with refresh.
+	for i := 0; i < 2; i++ {
+		sourceCtrl := foo.SourceController()
+		c.Assert(sourceCtrl, gc.Equals, "source-controller-uuid")
+
+		err = foo.Refresh()
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }
 
 func (s *remoteApplicationSuite) TestAddEndpoints(c *gc.C) {

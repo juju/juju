@@ -61,8 +61,6 @@ func NewDownloadCommand() cmd.Command {
 type downloadCommand struct {
 	*charmHubCommand
 
-	out cmd.Output
-
 	channel       string
 	charmOrBundle string
 	archivePath   string

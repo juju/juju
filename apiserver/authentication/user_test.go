@@ -354,12 +354,6 @@ func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
 	}
 }
 
-type errorEntityFinder string
-
-func (f errorEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
-	return nil, errors.New(string(f))
-}
-
 type simpleEntityFinder map[string]bool
 
 func (f simpleEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {

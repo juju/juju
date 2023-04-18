@@ -17,9 +17,7 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type InterfaceInfoSuite struct {
-	info corenetwork.InterfaceInfos
-}
+type InterfaceInfoSuite struct{}
 
 var _ = gc.Suite(&InterfaceInfoSuite{})
 

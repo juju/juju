@@ -1921,11 +1921,6 @@ func (u *UniterAPI) getUnit(tag names.UnitTag) (*state.Unit, error) {
 	return u.st.Unit(tag.Id())
 }
 
-func (u *UniterAPI) getCacheUnit(tag names.UnitTag) (cache.Unit, error) {
-	unit, err := u.cacheModel.Unit(tag.Id())
-	return unit, errors.Trace(err)
-}
-
 func (u *UniterAPI) getApplication(tag names.ApplicationTag) (*state.Application, error) {
 	return u.st.Application(tag.Id())
 }

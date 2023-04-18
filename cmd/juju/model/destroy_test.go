@@ -47,8 +47,6 @@ var _ = gc.Suite(&DestroySuite{})
 // fakeDestroyAPI mocks out the client API
 type fakeAPI struct {
 	*jutesting.Stub
-	err                error
-	env                map[string]interface{}
 	statusCallCount    int
 	bestAPIVersion     int
 	modelInfoErr       []*params.Error

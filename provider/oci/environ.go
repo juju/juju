@@ -54,8 +54,6 @@ type Environ struct {
 	ecfgObj    *environConfig
 	namespace  instance.Namespace
 
-	vcn     ociCore.Vcn
-	seclist ociCore.SecurityList
 	// subnets contains one subnet for each availability domain
 	// these will get created once the environment is spun up, and
 	// will never change.

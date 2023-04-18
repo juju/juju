@@ -5,9 +5,11 @@ package lxd_test
 
 import (
 	stdcontext "context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path"
+	"strings"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
@@ -35,8 +37,6 @@ var (
 
 type providerSuite struct {
 	lxd.BaseSuite
-
-	provider environs.EnvironProvider
 }
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
@@ -515,7 +515,9 @@ func (s *providerSuite) TestPingFailWithNoEndpoint(c *gc.C) {
 	p, err := environs.Provider("lxd")
 	c.Assert(err, jc.ErrorIsNil)
 	err = p.Ping(context.NewEmptyCloudCallContext(), server.URL)
-	c.Assert(err, gc.ErrorMatches, "no lxd server running at "+server.URL)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
+		"no lxd server running at %[1]s: Failed to fetch %[1]s/1.0: 404 Not Found",
+		server.URL))
 }
 
 func (s *providerSuite) TestPingFailWithHTTP(c *gc.C) {
@@ -525,7 +527,10 @@ func (s *providerSuite) TestPingFailWithHTTP(c *gc.C) {
 	p, err := environs.Provider("lxd")
 	c.Assert(err, jc.ErrorIsNil)
 	err = p.Ping(context.NewEmptyCloudCallContext(), server.URL)
-	c.Assert(err, gc.ErrorMatches, "invalid URL \""+server.URL+"\": only HTTPS is supported")
+	httpsURL := "https://" + strings.TrimPrefix(server.URL, "http://")
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
+		`no lxd server running at %[1]s: Get "%[1]s/1.0": http: server gave HTTP response to HTTPS client`,
+		httpsURL))
 }
 
 type ProviderFunctionalSuite struct {

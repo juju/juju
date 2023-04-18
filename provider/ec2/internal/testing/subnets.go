@@ -134,13 +134,3 @@ func (srv *Server) calcSubnetAvailIPs(cidrBlock string) (int, error) {
 	maskOnes, maskBits := ipnet.Mask.Size()
 	return 1<<uint(maskBits-maskOnes) - 5, nil
 }
-
-func (srv *Server) subnet(id string) (*subnet, error) {
-	srv.mu.Lock()
-	defer srv.mu.Unlock()
-	s, found := srv.subnets[id]
-	if !found {
-		return nil, apiError("InvalidSubnetID.NotFound", "subnet %s not found", id)
-	}
-	return s, nil
-}

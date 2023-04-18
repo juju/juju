@@ -77,7 +77,11 @@ func (c *baselistMachinesCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("unable to obtain the current status")
 	}
 
-	formatter := status.NewStatusFormatter(fullStatus, c.isoTime)
+	formatter := status.NewStatusFormatter(status.NewStatusFormatterParams{
+		Status:        fullStatus,
+		ISOTime:       c.isoTime,
+		ShowRelations: true,
+	})
 	formatted := formatter.MachineFormat(c.machineIds)
 	return c.out.Write(ctx, formatted)
 }

@@ -7,7 +7,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/equinix"
 	"github.com/juju/testing"
@@ -64,12 +63,4 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 
 	validAttrs := validCfg.AllAttrs()
 	c.Assert(config.AllAttrs(), gc.DeepEquals, validAttrs)
-}
-
-func (s *providerSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec, expect string) {
-	_, err := s.provider.Open(context.NewEmptyCloudCallContext(), environs.OpenParams{
-		Cloud:  spec,
-		Config: fakeConfig(c),
-	})
-	c.Assert(err, gc.ErrorMatches, expect)
 }

@@ -41,16 +41,6 @@ func (s *machineSuite) TearDownTest(c *gc.C) {
 	s.firewallerSuite.TearDownTest(c)
 }
 
-func (s *machineSuite) assertRemoveMachinePortsDoc(c *gc.C, p state.MachinePortRanges) {
-	type remover interface {
-		Remove() error
-	}
-
-	portRemover, supports := p.(remover)
-	c.Assert(supports, jc.IsTrue, gc.Commentf("machine ports interface does not implement Remove()"))
-	c.Assert(portRemover.Remove(), jc.ErrorIsNil)
-}
-
 func (s *machineSuite) TestMachine(c *gc.C) {
 	apiMachine42, err := s.firewaller.Machine(names.NewMachineTag("42"))
 	c.Assert(err, gc.ErrorMatches, "machine 42 not found")

@@ -5,7 +5,6 @@ package upgradevalidation_test
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
@@ -373,7 +372,7 @@ func (s *upgradeValidationSuite) assertGetCheckForLXDVersion(c *gc.C, cloudType 
 	serverFactory := mocks.NewMockServerFactory(ctrl)
 
 	s.PatchValue(&upgradevalidation.NewServerFactory,
-		func(httpClient *http.Client) lxd.ServerFactory {
+		func(_ lxd.NewHTTPClientFunc) lxd.ServerFactory {
 			return serverFactory
 		},
 	)
@@ -406,7 +405,7 @@ func (s *upgradeValidationSuite) TestGetCheckForLXDVersionSkippedForNonLXDCloud(
 	serverFactory := mocks.NewMockServerFactory(ctrl)
 
 	s.PatchValue(&upgradevalidation.NewServerFactory,
-		func(httpClient *http.Client) lxd.ServerFactory {
+		func(_ lxd.NewHTTPClientFunc) lxd.ServerFactory {
 			return serverFactory
 		},
 	)
@@ -426,7 +425,7 @@ func (s *upgradeValidationSuite) TestGetCheckForLXDVersionFailed(c *gc.C) {
 	serverFactory := mocks.NewMockServerFactory(ctrl)
 
 	s.PatchValue(&upgradevalidation.NewServerFactory,
-		func(httpClient *http.Client) lxd.ServerFactory {
+		func(_ lxd.NewHTTPClientFunc) lxd.ServerFactory {
 			return serverFactory
 		},
 	)

@@ -889,7 +889,6 @@ type statusUpgradeUnitSuite struct {
 	jujutesting.JujuConnSuite
 
 	charmrevisionupdater *charmrevisionupdater.CharmRevisionUpdaterAPI
-	authoriser           apiservertesting.FakeAuthorizer
 	ctrl                 *gomock.Controller
 }
 
@@ -1157,10 +1156,9 @@ func (s *CAASStatusSuite) TestStatusWorkloadVersionSetByCharm(c *gc.C) {
 type filteringBranchesSuite struct {
 	baseSuite
 
-	appA    string
-	appB    string
-	subB    string
-	leaders map[string]string
+	appA string
+	appB string
+	subB string
 }
 
 var _ = gc.Suite(&filteringBranchesSuite{})

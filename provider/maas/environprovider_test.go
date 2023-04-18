@@ -218,7 +218,7 @@ func (s *MaasPingSuite) TestPingNoEndpoint(c *gc.C) {
 			return nil, errors.New("nope")
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, "No MAAS server running at "+endpoint)
+	c.Assert(err, gc.ErrorMatches, "No MAAS server running at "+endpoint+": nope")
 	c.Assert(serverURLs, gc.DeepEquals, []string{
 		"https://foo.com/MAAS/api/2.0/",
 		"https://foo.com/MAAS/api/1.0/",
@@ -267,7 +267,7 @@ func (s *MaasPingSuite) TestPingVersionURLBad(c *gc.C) {
 			return nil, errors.New("nope")
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, "No MAAS server running at "+endpoint)
+	c.Assert(err, gc.ErrorMatches, "No MAAS server running at "+endpoint+": nope")
 	c.Assert(serverURLs, gc.DeepEquals, []string{
 		"https://foo.com/MAAS/api/10.1/",
 	})

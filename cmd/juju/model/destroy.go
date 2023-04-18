@@ -404,14 +404,6 @@ type modelData struct {
 	errorCount       int
 }
 
-func (data *modelData) isEmpty() bool {
-	return data.errorCount == 0 &&
-		data.machineCount == 0 &&
-		data.applicationCount == 0 &&
-		data.volumeCount == 0 &&
-		data.filesystemCount == 0
-}
-
 func waitForModelDestroyed(
 	ctx *cmd.Context,
 	api DestroyModelAPI,

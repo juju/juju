@@ -7,14 +7,27 @@ run_deploy_default_series() {
 	ensure "${model_name}" "${file}"
 
 	juju model-config default-series=bionic
-	juju deploy ubuntu
-	juju deploy cs:ubuntu csubuntu
+	juju deploy ubuntu --storage "files=tmpfs"
+	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	series=$(juju status --format=json | jq ".applications.ubuntu.series")
+	echo "$series" | check "bionic"
 
-	ubuntu_series=$(juju status --format=json | jq ".applications.ubuntu.series")
-	echo "$ubuntu_series" | check "bionic"
+	destroy_model "${model_name}"
+}
 
-	csubuntu_series=$(juju status --format=json | jq ".applications.csubuntu.series")
-	echo "$csubuntu_series" | check "bionic"
+run_deploy_default_series_cs() {
+	echo
+
+	model_name="test-deploy-default-series-cs"
+	file="${TEST_DIR}/${model_name}.log"
+
+	ensure "${model_name}" "${file}"
+
+	juju model-config default-series=bionic
+	juju deploy cs:ubuntu --storage "files=tmpfs"
+	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	series=$(juju status --format=json | jq ".applications.ubuntu.series")
+	echo "$series" | check "bionic"
 
 	destroy_model "${model_name}"
 }
@@ -28,14 +41,27 @@ run_deploy_not_default_series() {
 	ensure "${model_name}" "${file}"
 
 	juju model-config default-series=bionic
-	juju deploy ubuntu --series focal
-	juju deploy cs:ubuntu csubuntu --series focal
+	juju deploy ubuntu --storage "files=tmpfs" --series focal
+	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	series=$(juju status --format=json | jq ".applications.ubuntu.series")
+	echo "$series" | check "focal"
 
-	ubuntu_series=$(juju status --format=json | jq ".applications.ubuntu.series")
-	echo "$ubuntu_series" | check "focal"
+	destroy_model "${model_name}"
+}
 
-	csubuntu_series=$(juju status --format=json | jq ".applications.csubuntu.series")
-	echo "$csubuntu_series" | check "focal"
+run_deploy_not_default_series_cs() {
+	echo
+
+	model_name="test-deploy-not-default-series-cs"
+	file="${TEST_DIR}/${model_name}.log"
+
+	ensure "${model_name}" "${file}"
+
+	juju model-config default-series=bionic
+	juju deploy cs:ubuntu --storage "files=tmpfs" --series focal
+	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	series=$(juju status --format=json | jq ".applications.ubuntu.series")
+	echo "$series" | check "focal"
 
 	destroy_model "${model_name}"
 }
@@ -52,6 +78,8 @@ test_deploy_default_series() {
 		cd .. || exit
 
 		run "run_deploy_default_series"
+		run "run_deploy_default_series_cs"
 		run "run_deploy_not_default_series"
+		run "run_deploy_not_default_series_cs"
 	)
 }

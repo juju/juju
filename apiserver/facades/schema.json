@@ -31850,6 +31850,15 @@
                     },
                     "description": "SetStatusMessage sets a human readable status message containing\ninformation about the migration's progress. This will be shown in\nstatus output shown to the end user."
                 },
+                "SourceControllerInfo": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/MigrationSourceInfo"
+                        }
+                    },
+                    "description": "SourceControllerInfo returns the details required to connect to\nthe source controller for model migration."
+                },
                 "Watch": {
                     "type": "object",
                     "properties": {
@@ -31946,6 +31955,39 @@
                         "owner-tag",
                         "agent-version",
                         "controller-agent-version"
+                    ]
+                },
+                "MigrationSourceInfo": {
+                    "type": "object",
+                    "properties": {
+                        "addrs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "ca-cert": {
+                            "type": "string"
+                        },
+                        "controller-alias": {
+                            "type": "string"
+                        },
+                        "controller-tag": {
+                            "type": "string"
+                        },
+                        "local-related-models": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "local-related-models",
+                        "controller-tag",
+                        "addrs",
+                        "ca-cert"
                     ]
                 },
                 "MigrationSpec": {
@@ -32448,7 +32490,7 @@
     {
         "Name": "MigrationTarget",
         "Description": "API implements the API required for the model migration\nmaster worker when communicating with the target controller.",
-        "Version": 1,
+        "Version": 2,
         "AvailableTo": [
             "controller-user"
         ],
@@ -32468,10 +32510,10 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/ModelArgs"
+                            "$ref": "#/definitions/ActivateModelArgs"
                         }
                     },
-                    "description": "Activate sets the migration mode of the model to \"none\", meaning it\nis ready for use. It is an error to attempt to Abort a model that\nhas a migration mode other than importing."
+                    "description": "Activate sets the migration mode of the model to \"none\", meaning it\nis ready for use. It is an error to attempt to Abort a model that\nhas a migration mode other than importing. It also adds any required\nexternal controller records for those controllers hosting offers used\nby the model."
                 },
                 "AdoptResources": {
                     "type": "object",
@@ -32536,6 +32578,43 @@
                 }
             },
             "definitions": {
+                "ActivateModelArgs": {
+                    "type": "object",
+                    "properties": {
+                        "controller-alias": {
+                            "type": "string"
+                        },
+                        "controller-tag": {
+                            "type": "string"
+                        },
+                        "cross-model-uuids": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "model-tag": {
+                            "type": "string"
+                        },
+                        "source-api-addrs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "source-ca-cert": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "model-tag",
+                        "controller-tag",
+                        "source-api-addrs",
+                        "source-ca-cert",
+                        "cross-model-uuids"
+                    ]
+                },
                 "AdoptResourcesArgs": {
                     "type": "object",
                     "properties": {

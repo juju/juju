@@ -4301,7 +4301,6 @@ func (s *upgradesSuite) TestAddBakeryConfig(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestReplaceNeverSetWithUnset(c *gc.C) {
-	const bakeryConfigKey = "bakeryConfig"
 	coll, closer := s.state.db().GetCollection(statusesC)
 	defer closer()
 

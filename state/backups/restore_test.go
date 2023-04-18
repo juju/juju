@@ -32,8 +32,7 @@ var _ = gc.Suite(&RestoreSuite{})
 
 type RestoreSuite struct {
 	coretesting.BaseSuite
-	cwd       string
-	testFiles []string
+	cwd string
 }
 
 func (r *RestoreSuite) SetUpSuite(c *gc.C) {

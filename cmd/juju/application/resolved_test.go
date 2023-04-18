@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/rpc/params"
 )
 
 type ResolvedSuite struct {
@@ -117,8 +116,7 @@ func (s *ResolvedSuite) TestResolved(c *gc.C) {
 
 type mockResolveAPI struct {
 	*testing.Stub
-	version         int
-	addRelationFunc func(endpoints, viaCIDRs []string) (*params.AddRelationResults, error)
+	version int
 }
 
 func (s mockResolveAPI) Close() error {

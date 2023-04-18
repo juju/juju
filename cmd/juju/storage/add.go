@@ -202,14 +202,15 @@ type StorageAddAPI interface {
 
 func (c *addCommand) createStorageAddParams() []params.StorageAddParams {
 	all := make([]params.StorageAddParams, 0, len(c.storageCons))
-	for one, cons := range c.storageCons {
+	for one, sc := range c.storageCons {
+		cons := sc
 		all = append(all, params.StorageAddParams{
 			UnitTag:     c.unitTag.String(),
 			StorageName: one,
 			Constraints: params.StorageConstraints{
-				cons.Pool,
-				&cons.Size,
-				&cons.Count,
+				Pool:  cons.Pool,
+				Size:  &cons.Size,
+				Count: &cons.Count,
 			},
 		})
 	}

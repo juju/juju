@@ -69,7 +69,6 @@ type RunListener struct {
 
 	mu sync.Mutex
 
-	socket *sockets.Socket
 	// commandRunners holds the CommandRunner that will run commands
 	// for each unit name.
 	commandRunners map[string]CommandRunner

@@ -5,7 +5,6 @@ package modelmanager
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
@@ -90,7 +89,6 @@ func (s statePoolShim) Get(uuid string) (State, error) {
 
 type stateShim struct {
 	*state.PooledState
-	mgosession *mgo.Session
 }
 
 func (s stateShim) Model() (Model, error) {

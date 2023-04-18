@@ -9,34 +9,13 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
 	jtesting "github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/facades/client/application"
-	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 )
-
-type mockStorage struct {
-	state.StorageInstance
-	jtesting.Stub
-	tag   names.StorageTag
-	owner names.Tag
-}
-
-func (a *mockStorage) Kind() state.StorageKind {
-	return state.StorageKindFilesystem
-}
-
-func (a *mockStorage) StorageTag() names.StorageTag {
-	return a.tag
-}
-
-func (a *mockStorage) Owner() (names.Tag, bool) {
-	return a.owner, a.owner != nil
-}
 
 type blobs struct {
 	sync.Mutex

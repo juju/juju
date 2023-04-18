@@ -68,20 +68,6 @@ func (s *unitWorkersStub) waitForStart(c *gc.C, unitName string) {
 	}
 }
 
-func (s *unitWorkersStub) waitForStop(c *gc.C, unitName string) {
-	for {
-		select {
-		case unit := <-s.stopped:
-			if unit == unitName {
-				return
-			}
-			c.Logf("unexpected stop %q", unit)
-		case <-time.After(testing.LongWait):
-			c.Fatalf("unit %q didn't stop", unitName)
-		}
-	}
-}
-
 type unitWorker struct {
 	logger  loggo.Logger
 	stop    chan struct{}

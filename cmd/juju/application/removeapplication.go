@@ -7,13 +7,11 @@ import (
 	"time"
 
 	"github.com/juju/cmd/v3"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/client/application"
-	"github.com/juju/juju/api/client/storage"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -117,11 +115,6 @@ type RemoveApplicationAPI interface {
 	BestAPIVersion() int
 }
 
-type storageAPI interface {
-	Close() error
-	ListStorageDetails() ([]params.StorageDetails, error)
-}
-
 func (c *removeApplicationCommand) getAPI() (RemoveApplicationAPI, int, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
@@ -129,48 +122,6 @@ func (c *removeApplicationCommand) getAPI() (RemoveApplicationAPI, int, error) {
 	}
 	version := root.BestFacadeVersion("Application")
 	return application.NewClient(root), version, nil
-}
-
-func (c *removeApplicationCommand) getStorageAPI() (storageAPI, error) {
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return storage.NewClient(root), nil
-}
-
-func (c *removeApplicationCommand) applicationsHaveStorage(appNames []string) (bool, error) {
-	client, err := c.getStorageAPI()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	defer client.Close()
-
-	storages, err := client.ListStorageDetails()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	namesSet := set.NewStrings(appNames...)
-	for _, s := range storages {
-		if s.OwnerTag == "" {
-			continue
-		}
-		owner, err := names.ParseTag(s.OwnerTag)
-		if err != nil {
-			return false, errors.Trace(err)
-		}
-		if owner.Kind() != names.UnitTagKind {
-			continue
-		}
-		appName, err := names.UnitApplication(owner.Id())
-		if err != nil {
-			return false, errors.Trace(err)
-		}
-		if namesSet.Contains(appName) {
-			return true, nil
-		}
-	}
-	return false, nil
 }
 
 func (c *removeApplicationCommand) Run(ctx *cmd.Context) error {

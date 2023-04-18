@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testcharms"
@@ -1701,18 +1700,6 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleExistingMachines(c *gc.C) 
 		"django/1": "1",
 		"django/2": "3",
 	})
-}
-
-type mockAllWatcher struct {
-	next func() []params.Delta
-}
-
-func (w mockAllWatcher) Next() ([]params.Delta, error) {
-	return w.next(), nil
-}
-
-func (mockAllWatcher) Stop() error {
-	return nil
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundlePassesSequences(c *gc.C) {

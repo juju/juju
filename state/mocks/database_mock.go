@@ -127,6 +127,20 @@ func (mr *MockDatabaseMockRecorder) Run(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockDatabase)(nil).Run), arg0)
 }
 
+// RunRaw mocks base method.
+func (m *MockDatabase) RunRaw(arg0 txn0.TransactionSource) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RunRaw", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RunRaw indicates an expected call of RunRaw.
+func (mr *MockDatabaseMockRecorder) RunRaw(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunRaw", reflect.TypeOf((*MockDatabase)(nil).RunRaw), arg0)
+}
+
 // RunRawTransaction mocks base method.
 func (m *MockDatabase) RunRawTransaction(arg0 []txn.Op) error {
 	m.ctrl.T.Helper()

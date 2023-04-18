@@ -71,7 +71,11 @@ run_refresh_local_resources() {
 	ensure "${model_name}" "${file}"
 
 	juju download juju-qa-test --no-progress - >"${charm_name}"
-	juju deploy "${charm_name}" juju-qa-test --resource foo-file="./tests/suites/resources/foo-file.txt"
+	# In 2.9 this charm is deploying with xenial. However there's
+	# a bug in charm, opening the resource file throws:
+	# TypeError: invalid file
+	# The charm is using python 3. No error in ubuntu 20.04.
+	juju deploy "${charm_name}" juju-qa-test --series focal --resource foo-file="./tests/suites/resources/foo-file.txt"
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 
 	juju refresh juju-qa-test --path "${charm_name}"

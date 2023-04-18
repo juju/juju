@@ -29,8 +29,6 @@ type TxnWatcherSuite struct {
 	log          *mgo.Collection
 	stash        *mgo.Collection
 	runner       *txn.Runner
-	w            *watcher.TxnWatcher
-	ch           chan watcher.Change
 	iteratorFunc func(collection *mgo.Collection) mongo.Iterator
 	clock        *testclock.Clock
 }
