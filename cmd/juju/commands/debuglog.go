@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/ansiterm"
+	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/loggo/loggocolor"
 	"github.com/juju/names/v4"
+	"github.com/juju/retry"
 	"github.com/mattn/go-isatty"
 
 	"github.com/juju/juju/api/common"
@@ -142,8 +144,11 @@ type debugLogCommand struct {
 	ms       bool
 
 	tail   bool
-	notail bool
+	noTail bool
 	color  bool
+
+	retry      bool
+	retryDelay time.Duration
 
 	format string
 	tz     *time.Location
@@ -168,7 +173,7 @@ func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.UintVar(&c.params.Limit, "limit", 0, "Exit once this many of the most recent (possibly filtered) lines are shown")
 	f.BoolVar(&c.params.Replay, "replay", false, "Show the entire (possibly filtered) log and continue to append")
 
-	f.BoolVar(&c.notail, "no-tail", false, "Stop after returning existing log messages")
+	f.BoolVar(&c.noTail, "no-tail", false, "Stop after returning existing log messages")
 	f.BoolVar(&c.tail, "tail", false, "Wait for new logs")
 	f.BoolVar(&c.color, "color", false, "Force use of ANSI color codes")
 
@@ -176,6 +181,9 @@ func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.location, "location", false, "Show filename and line numbers")
 	f.BoolVar(&c.date, "date", false, "Show dates as well as times")
 	f.BoolVar(&c.ms, "ms", false, "Show times to millisecond precision")
+
+	f.BoolVar(&c.retry, "retry", false, "Retry connection on failure")
+	f.DurationVar(&c.retryDelay, "retry-delay", 1*time.Second, "Retry delay between connection failure retries")
 }
 
 func (c *debugLogCommand) Init(args []string) error {
@@ -187,8 +195,11 @@ func (c *debugLogCommand) Init(args []string) error {
 		}
 		c.params.Level = level
 	}
-	if c.tail && c.notail {
+	if c.tail && c.noTail {
 		return errors.NotValidf("setting --tail and --no-tail")
+	}
+	if c.retryDelay < 0 {
+		return errors.NotValidf("negative retry delay")
 	}
 	if c.utc {
 		c.tz = time.UTC
@@ -270,10 +281,10 @@ func isTerminal(f interface{}) bool {
 }
 
 // Run retrieves the debug log via the API.
-func (c *debugLogCommand) Run(ctx *cmd.Context) (err error) {
+func (c *debugLogCommand) Run(ctx *cmd.Context) error {
 	if c.tail {
 		c.params.NoTail = false
-	} else if c.notail {
+	} else if c.noTail {
 		c.params.NoTail = true
 	} else {
 		// Set the default tail option to true if the caller is
@@ -281,29 +292,64 @@ func (c *debugLogCommand) Run(ctx *cmd.Context) (err error) {
 		c.params.NoTail = !isTerminal(ctx.Stdout)
 	}
 
-	client, err := getDebugLogAPI(c)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-	messages, err := client.WatchDebugLog(c.params)
-	if err != nil {
-		return err
-	}
 	writer := ansiterm.NewWriter(ctx.Stdout)
 	if c.color {
 		writer.SetColorCapable(true)
 	}
-	for {
-		msg, ok := <-messages
-		if !ok {
-			break
-		}
-		c.writeLogRecord(writer, msg)
+
+	err := retry.Call(retry.CallArgs{
+		Func: func() error {
+			client, err := getDebugLogAPI(c)
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+
+			messages, err := client.WatchDebugLog(c.params)
+			if err != nil {
+				return err
+			}
+
+			for {
+				msg, ok := <-messages
+				if !ok {
+					return ErrConnectionClosed
+				}
+				c.writeLogRecord(writer, msg)
+			}
+		},
+		IsFatalError: func(err error) bool {
+			if !c.retry {
+				return true
+			}
+			if errors.Is(err, ErrConnectionClosed) {
+				return false
+			}
+			return true
+		},
+		NotifyFunc: func(err error, attempt int) {
+			logger.Debugf("retrying to connect to debug log")
+		},
+		Attempts: -1,
+		Clock:    clock.WallClock,
+		Delay:    c.retryDelay,
+		Stop:     ctx.Done(),
+	})
+
+	// Ensure that any sentinel ErrConnectionClosed errors are not shown to the
+	// user. As this is a synthetic error that is used to signal that the
+	// connection is retried, we don't want to show this to the user.
+	if errors.Is(err, ErrConnectionClosed) {
+		return nil
 	}
 
-	return nil
+	// Unwrap the retry call error trace for all errors. We don't want to show
+	// that to the user as part of the error message.
+	return errors.Cause(err)
 }
+
+// Sentinel error used to signal that the connection is closed.
+var ErrConnectionClosed = errors.New("connection closed")
 
 var SeverityColor = map[string]*ansiterm.Context{
 	"TRACE":   ansiterm.Foreground(ansiterm.Default),
