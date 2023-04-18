@@ -262,7 +262,7 @@ func (p EnvironProvider) Ping(ctx context.ProviderCallContext, endpoint string) 
 	c := p.ClientFromEndpoint(endpoint)
 	if _, err := c.IdentityAuthOptions(); err != nil {
 		handleCredentialError(err, ctx)
-		return errors.Wrap(err, errors.Errorf("No Openstack server running at %s", endpoint))
+		return errors.Annotatef(err, "No Openstack server running at %s", endpoint)
 	}
 	return nil
 }
