@@ -87,3 +87,7 @@ func (f *testOptFactory) WithLogFuncOption() app.Option {
 		f.c.Logf(msg, args...)
 	})
 }
+
+func (f *testOptFactory) WithTracingOption() app.Option {
+	return app.WithTracing(client.LogNone)
+}

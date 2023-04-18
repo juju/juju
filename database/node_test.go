@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"time"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -305,4 +306,110 @@ func (cfg fakeAgentConfig) StateServingInfo() (controller.StateServingInfo, bool
 // APIAddresses implements agent.Config.
 func (cfg fakeAgentConfig) APIAddresses() ([]string, error) {
 	return cfg.apiAddrs, nil
+}
+
+type slowQuerySuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&slowQuerySuite{})
+
+func (s *slowQuerySuite) TestSlowQueryParsing(c *gc.C) {
+	tests := []struct {
+		name      string
+		msg       string
+		args      []any
+		threshold time.Duration
+		expected  queryType
+	}{
+		{
+			name:     "empty",
+			msg:      "",
+			expected: normalQuery,
+		},
+		{
+			name:     "normal query",
+			msg:      "hello world",
+			expected: normalQuery,
+		},
+		{
+			name: "wrong args",
+			msg:  "%.3fs request query: %q",
+			args: []any{
+				time.Second.Seconds(),
+			},
+			threshold: time.Millisecond,
+			expected:  normalQuery,
+		},
+		{
+			name:      "no args",
+			msg:       "%.3fs request query: %q",
+			args:      []any{},
+			threshold: time.Millisecond,
+			expected:  normalQuery,
+		},
+		{
+			name:      "too many args",
+			msg:       "%.3fs request query: %q",
+			args:      []any{1, 2, 3, 4},
+			threshold: time.Millisecond,
+			expected:  normalQuery,
+		},
+		{
+			name: "request slow query",
+			msg:  "%.3fs request query: %q",
+			args: []any{
+				time.Second.Seconds(),
+				"SELECT * FROM foo",
+			},
+			threshold: time.Millisecond,
+			expected:  slowQuery,
+		},
+		{
+			name: "request slow exec",
+			msg:  "%.3fs request exec: %q",
+			args: []any{
+				time.Second.Seconds(),
+				"INSERT INTO foo (bar) VALUES (666)",
+			},
+			threshold: time.Millisecond,
+			expected:  slowQuery,
+		},
+		{
+			name: "request slow exec",
+			msg:  "%.3fs request exec: %q",
+			args: []any{
+				time.Second.Seconds(),
+				"INSERT INTO foo (bar) VALUES (666)",
+			},
+			threshold: time.Millisecond,
+			expected:  slowQuery,
+		},
+		{
+			name: "request slow exec - ignored",
+			msg:  "%.3fs request exec: %q",
+			args: []any{
+				time.Second.Seconds(),
+				"INSERT INTO foo (bar) VALUES (666)",
+			},
+			threshold: time.Second * 2,
+			expected:  ignoreSlowQuery,
+		},
+		{
+			name: "request slow exec - ignored",
+			msg:  "%.3fs request exec: %q",
+			args: []any{
+				time.Second.Seconds(),
+				"INSERT INTO foo (bar) VALUES (666)",
+			},
+			threshold: time.Second * 2,
+			expected:  ignoreSlowQuery,
+		},
+	}
+
+	for _, test := range tests {
+		c.Logf("test %q", test.name)
+		queryType := parseSlowQuery(test.msg, test.args, test.threshold)
+		c.Assert(queryType, jc.DeepEquals, test.expected)
+	}
 }

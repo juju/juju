@@ -72,6 +72,7 @@ func FakeControllerConfig() controller.Config {
 		"audit-log-capture-args":    true,
 		"audit-log-max-size":        "200M",
 		"audit-log-max-backups":     5,
+		"query-tracing-threshold":   "1s",
 	}
 }
 

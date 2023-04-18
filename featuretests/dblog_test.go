@@ -73,7 +73,10 @@ func (s *dblogSuite) TestControllerAgentLogsGoToDBCAAS(c *gc.C) {
 	// Ensure controller config matches agent config so the agent worker
 	// does not exist with ErrRestartAgent.
 	err = s.State.UpdateControllerConfig(map[string]interface{}{
-		controller.MongoMemoryProfile: controller.MongoProfLow}, nil)
+		controller.MongoMemoryProfile:    controller.MongoProfLow,
+		controller.QueryTracingEnabled:   controller.DefaultQueryTracingEnabled,
+		controller.QueryTracingThreshold: controller.DefaultQueryTracingThreshold.String(),
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	vers := version.Binary{
 		Number:  jujuversion.Current,

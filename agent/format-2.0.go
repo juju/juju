@@ -6,6 +6,7 @@ package agent
 import (
 	"net"
 	"strconv"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -53,16 +54,18 @@ type format_2_0Serialization struct {
 	AgentLogfileMaxBackups int `yaml:"agent-logfile-max-backups"`
 
 	// Only controller machines have these next items set.
-	ControllerCert     string `yaml:"controllercert,omitempty"`
-	ControllerKey      string `yaml:"controllerkey,omitempty"`
-	CAPrivateKey       string `yaml:"caprivatekey,omitempty"`
-	APIPort            int    `yaml:"apiport,omitempty"`
-	ControllerAPIPort  int    `yaml:"controllerapiport,omitempty"`
-	StatePort          int    `yaml:"stateport,omitempty"`
-	SharedSecret       string `yaml:"sharedsecret,omitempty"`
-	SystemIdentity     string `yaml:"systemidentity,omitempty"`
-	MongoMemoryProfile string `yaml:"mongomemoryprofile,omitempty"`
-	JujuDBSnapChannel  string `yaml:"juju-db-snap-channel,omitempty"`
+	ControllerCert        string        `yaml:"controllercert,omitempty"`
+	ControllerKey         string        `yaml:"controllerkey,omitempty"`
+	CAPrivateKey          string        `yaml:"caprivatekey,omitempty"`
+	APIPort               int           `yaml:"apiport,omitempty"`
+	ControllerAPIPort     int           `yaml:"controllerapiport,omitempty"`
+	StatePort             int           `yaml:"stateport,omitempty"`
+	SharedSecret          string        `yaml:"sharedsecret,omitempty"`
+	SystemIdentity        string        `yaml:"systemidentity,omitempty"`
+	MongoMemoryProfile    string        `yaml:"mongomemoryprofile,omitempty"`
+	JujuDBSnapChannel     string        `yaml:"juju-db-snap-channel,omitempty"`
+	QueryTracingEnabled   bool          `yaml:"querytracingenabled,omitempty"`
+	QueryTracingThreshold time.Duration `yaml:"querytracingthreshold,omitempty"`
 }
 
 func init() {
@@ -113,6 +116,9 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 
 		agentLogfileMaxSizeMB:  format.AgentLogfileMaxSizeMB,
 		agentLogfileMaxBackups: format.AgentLogfileMaxBackups,
+
+		queryTracingEnabled:   format.QueryTracingEnabled,
+		queryTracingThreshold: format.QueryTracingThreshold,
 	}
 	if len(format.APIAddresses) > 0 {
 		config.apiDetails = &apiDetails{
@@ -180,6 +186,9 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 
 		AgentLogfileMaxSizeMB:  config.agentLogfileMaxSizeMB,
 		AgentLogfileMaxBackups: config.agentLogfileMaxBackups,
+
+		QueryTracingEnabled:   config.queryTracingEnabled,
+		QueryTracingThreshold: config.queryTracingThreshold,
 	}
 	if config.servingInfo != nil {
 		format.ControllerCert = config.servingInfo.Cert
