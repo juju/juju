@@ -10,6 +10,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
+	"github.com/juju/juju/api/agent/secretsdrain"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	jujusecrets "github.com/juju/juju/secrets"
@@ -32,10 +33,8 @@ type Logger interface {
 type SecretsDrainFacade interface {
 	WatchSecretBackendChanged() (watcher.NotifyWatcher, error)
 	GetSecretsToDrain() ([]coresecrets.SecretMetadataForDrain, error)
-	ChangeSecretBackend(uri *coresecrets.URI, revision int, valueRef *coresecrets.ValueRef, val coresecrets.SecretData) error
+	ChangeSecretBackend([]secretsdrain.ChangeSecretBackendArg) (secretsdrain.ChangeSecretBackendResult, error)
 }
-
-// jujusecrets.JujuAPIClient
 
 // Config defines the operation of the Worker.
 type Config struct {
@@ -138,10 +137,13 @@ func (w *Worker) drainSecret(
 	client jujusecrets.BackendsClient,
 	activeBackendID string,
 ) error {
-	for _, rev := range md.Revisions {
+	var args []secretsdrain.ChangeSecretBackendArg
+	var cleanUpInExternalBackendFuncs []func() error
+	for _, revisionMeta := range md.Revisions {
+		rev := revisionMeta
 		if rev.ValueRef != nil && rev.ValueRef.BackendID == activeBackendID {
 			// This should never happen.
-			w.config.Logger.Warningf("secret %q revision %d is already drained to the active backend %q", md.Metadata.URI, rev.Revision, activeBackendID)
+			w.config.Logger.Warningf("secret %q revision %d has already been drained to the active backend %q", md.Metadata.URI, rev.Revision, activeBackendID)
 			continue
 		}
 
@@ -163,7 +165,7 @@ func (w *Worker) drainSecret(
 			data = nil
 		}
 
-		var cleanUpExternalBackend func() error
+		cleanUpInExternalBackend := func() error { return nil }
 		if rev.ValueRef != nil {
 			// The old backend is an external backend.
 			// Note: we have to get the old backend before we make ChangeSecretBackend facade call.
@@ -172,7 +174,7 @@ func (w *Worker) drainSecret(
 			if err != nil {
 				return errors.Trace(err)
 			}
-			cleanUpExternalBackend = func() error {
+			cleanUpInExternalBackend = func() error {
 				err := oldBackend.DeleteContent(context.TODO(), rev.ValueRef.RevisionID)
 				if errors.Is(err, errors.NotFound) {
 					// This should never happen, but if it does, we can just ignore.
@@ -181,15 +183,55 @@ func (w *Worker) drainSecret(
 				return errors.Trace(err)
 			}
 		}
-		if err := w.config.SecretsDrainFacade.ChangeSecretBackend(md.Metadata.URI, rev.Revision, newValueRef, data); err != nil {
-			return errors.Trace(err)
-		}
+		cleanUpInExternalBackendFuncs = append(cleanUpInExternalBackendFuncs, cleanUpInExternalBackend)
+		args = append(args, secretsdrain.ChangeSecretBackendArg{
+			URI:      md.Metadata.URI,
+			Revision: rev.Revision,
+			ValueRef: newValueRef,
+			Data:     data,
+		})
+	}
+	if len(args) == 0 {
+		return nil
+	}
 
-		if cleanUpExternalBackend != nil {
-			if err := cleanUpExternalBackend(); err != nil {
-				return errors.Trace(err)
+	results, err := w.config.SecretsDrainFacade.ChangeSecretBackend(args)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for i, err := range results.Results {
+		arg := args[i]
+		backend := getBackend(arg.ValueRef)
+		w.config.Logger.Warningf("%v %v, %v", i, arg.Revision, err)
+		if err == nil {
+			// We have already changed the secret to the active backend, so we
+			// can clean up the secret content in the old backend now.
+			if err := cleanUpInExternalBackendFuncs[i](); err != nil {
+				w.config.Logger.Warningf(
+					"failed to clean up secret %q-%d in the external backend %q: %v", arg.URI, arg.Revision, backend, err,
+				)
 			}
+		} else {
+			// If any of the ChangeSecretBackend calls failed, we will
+			// bounce the agent to retry those failed tasks.
+			w.config.Logger.Warningf(
+				"failed to change secret backend for %q-%d to backend %q: %v", arg.URI, arg.Revision, activeBackendID, err,
+			)
 		}
 	}
+	if results.ErrorCount() > 0 {
+		// We got failed tasks, so we have to bounce the agent to retry those failed tasks.
+		return errors.Errorf(
+			"failed to drain secret revisions for %q to the active backend %q", md.Metadata.URI, activeBackendID,
+		)
+	}
 	return nil
+}
+
+func getBackend(ref *coresecrets.ValueRef) string {
+	if ref == nil {
+		return "internal"
+	}
+	return ref.BackendID
 }

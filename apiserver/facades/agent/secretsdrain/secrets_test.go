@@ -96,10 +96,6 @@ func (s *SecretsDrainSuite) expectSecretAccessQuery(n int) {
 	).Times(n)
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (s *SecretsDrainSuite) assertGetSecretsToDrain(
 	c *gc.C, modelType state.ModelType, secretBackend string,
 	expectedRevions ...params.SecretRevision,

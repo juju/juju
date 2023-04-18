@@ -78,30 +78,59 @@ func (c *Client) GetSecretsToDrain() ([]coresecrets.SecretMetadataForDrain, erro
 	return out, nil
 }
 
-// ChangeSecretBackend updates the backend for the specified secret after migration done.
-func (c *Client) ChangeSecretBackend(uri *coresecrets.URI, revision int, valueRef *coresecrets.ValueRef, data coresecrets.SecretData) error {
-	var results params.ErrorResults
-	arg := params.ChangeSecretBackendArg{
-		URI:      uri.String(),
-		Revision: revision,
-		Content:  params.SecretContentParams{Data: data},
-	}
-	if valueRef != nil {
-		arg.Content.ValueRef = &params.SecretValueRef{
-			BackendID:  valueRef.BackendID,
-			RevisionID: valueRef.RevisionID,
+// ChangeSecretBackendArg is the argument for ChangeSecretBackend.
+type ChangeSecretBackendArg struct {
+	URI      *coresecrets.URI
+	Revision int
+	Data     map[string]string
+	ValueRef *coresecrets.ValueRef
+}
+
+// ChangeSecretBackendResult is the result for ChangeSecretBackend.
+type ChangeSecretBackendResult struct {
+	Results []error
+}
+
+// ErrorCount returns the number of errors in the result.
+func (r ChangeSecretBackendResult) ErrorCount() (out int) {
+	for _, err := range r.Results {
+		if err != nil {
+			out++
 		}
 	}
-	args := params.ChangeSecretBackendArgs{Args: []params.ChangeSecretBackendArg{arg}}
+	return out
+}
+
+// ChangeSecretBackend updates the backend for the specified secret after migration done.
+func (c *Client) ChangeSecretBackend(metaRevisions []ChangeSecretBackendArg) (ChangeSecretBackendResult, error) {
+	var results params.ErrorResults
+	out := ChangeSecretBackendResult{Results: make([]error, len(metaRevisions))}
+	args := params.ChangeSecretBackendArgs{Args: make([]params.ChangeSecretBackendArg, len(metaRevisions))}
+	for i, mdr := range metaRevisions {
+		arg := params.ChangeSecretBackendArg{
+			URI:      mdr.URI.String(),
+			Revision: mdr.Revision,
+			Content:  params.SecretContentParams{Data: mdr.Data},
+		}
+		if mdr.ValueRef != nil {
+			arg.Content.ValueRef = &params.SecretValueRef{
+				BackendID:  mdr.ValueRef.BackendID,
+				RevisionID: mdr.ValueRef.RevisionID,
+			}
+		}
+		args.Args[i] = arg
+	}
 	err := c.facade.FacadeCall("ChangeSecretBackend", args, &results)
 	if err != nil {
-		return errors.Trace(err)
+		return out, errors.Trace(err)
 	}
-	if len(results.Results) != 1 {
-		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	if len(results.Results) != len(metaRevisions) {
+		return out, errors.Errorf("expected %d result, got %d", len(metaRevisions), len(results.Results))
 	}
-	result := results.Results[0]
-	return apiservererrors.RestoreError(result.Error)
+	for i, result := range results.Results {
+		out.Results[i] = apiservererrors.RestoreError(result.Error)
+	}
+	return out, nil
 }
 
 // WatchSecretBackendChanged sets up a watcher to notify of changes to the secret backend.

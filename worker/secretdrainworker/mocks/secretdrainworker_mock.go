@@ -8,6 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	secretsdrain "github.com/juju/juju/api/agent/secretsdrain"
 	secrets "github.com/juju/juju/core/secrets"
 	watcher "github.com/juju/juju/core/watcher"
 )
@@ -110,17 +111,18 @@ func (m *MockSecretsDrainFacade) EXPECT() *MockSecretsDrainFacadeMockRecorder {
 }
 
 // ChangeSecretBackend mocks base method.
-func (m *MockSecretsDrainFacade) ChangeSecretBackend(arg0 *secrets.URI, arg1 int, arg2 *secrets.ValueRef, arg3 secrets.SecretData) error {
+func (m *MockSecretsDrainFacade) ChangeSecretBackend(arg0 []secretsdrain.ChangeSecretBackendArg) (secretsdrain.ChangeSecretBackendResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ChangeSecretBackend", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret := m.ctrl.Call(m, "ChangeSecretBackend", arg0)
+	ret0, _ := ret[0].(secretsdrain.ChangeSecretBackendResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // ChangeSecretBackend indicates an expected call of ChangeSecretBackend.
-func (mr *MockSecretsDrainFacadeMockRecorder) ChangeSecretBackend(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockSecretsDrainFacadeMockRecorder) ChangeSecretBackend(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeSecretBackend", reflect.TypeOf((*MockSecretsDrainFacade)(nil).ChangeSecretBackend), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeSecretBackend", reflect.TypeOf((*MockSecretsDrainFacade)(nil).ChangeSecretBackend), arg0)
 }
 
 // GetSecretsToDrain mocks base method.

@@ -127,9 +127,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			downloader := charms.NewCharmDownloader(apiConn)
 
 			jujuSecretsAPI := secretsmanager.NewClient(apiConn)
-			secretsBackendGetter := func() (secrets.BackendsClient, error) {
-				return secrets.NewClient(jujuSecretsAPI)
-			}
 			secretRotateWatcherFunc := func(unitTag names.UnitTag, isLeader bool, rotateSecrets chan []string) (worker.Worker, error) {
 				owners := []names.Tag{unitTag}
 				if isLeader {
@@ -173,6 +170,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			payloadFacade := uniter.NewPayloadFacadeClient(apiConn)
 
+			secretsBackendGetter := func() (secrets.BackendsClient, error) {
+				return secrets.NewClient(jujuSecretsAPI)
+			}
 			uniter, err := NewUniter(&UniterParams{
 				UniterFacade:                 uniter.NewState(apiConn, unitTag),
 				ResourcesFacade:              resourcesFacade,

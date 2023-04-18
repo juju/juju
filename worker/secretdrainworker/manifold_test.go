@@ -83,10 +83,11 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	facade := mocks.NewMockFacade(ctrl)
+	facade := mocks.NewMockSecretsDrainFacade(ctrl)
 	s.config.NewSecretsDrainFacade = func(base.APICaller) secretdrainworker.SecretsDrainFacade {
 		return facade
 	}
+
 	backendClients := mocks.NewMockBackendsClient(ctrl)
 	s.config.NewBackendsClient = func(jujusecrets.JujuAPIClient) (jujusecrets.BackendsClient, error) {
 		return backendClients, nil

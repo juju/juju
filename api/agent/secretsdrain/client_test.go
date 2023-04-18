@@ -117,8 +117,21 @@ func (s *secretsDrainSuite) TestChangeSecretBackend(c *gc.C) {
 		return nil
 	})
 	client := secretsdrain.NewClient(apiCaller)
-	err := client.ChangeSecretBackend(uri, 666, &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "rev-id"}, nil)
+	result, err := client.ChangeSecretBackend(
+		[]secretsdrain.ChangeSecretBackendArg{
+			{
+				URI:      uri,
+				Revision: 666,
+				ValueRef: &coresecrets.ValueRef{
+					BackendID:  "backend-id",
+					RevisionID: "rev-id",
+				},
+			},
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0], jc.ErrorIsNil)
 }
 
 func (s *secretsDrainSuite) TestWatchSecretBackendChanged(c *gc.C) {
