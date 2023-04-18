@@ -186,13 +186,19 @@ func (d *deployBundle) checkExplicitSeries(bundleData *charm.BundleData) error {
 		// has the image-id constraint
 		machineHasImageID := false
 		for _, to := range applicationSpec.To {
-			machineCons, err := constraints.Parse(bundleData.Machines[to].Constraints)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if machineCons.HasImageID() {
-				machineHasImageID = true
-				break
+			// TODO(nvinuesa): here we only check for the image-id
+			// constraint when the placement directive is explicitly
+			// defined in the bundle. Find a way to check indirect
+			// placements like lxd:0 and ubuntu:0.
+			if machine, ok := bundleData.Machines[to]; ok {
+				machineCons, err := constraints.Parse(machine.Constraints)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if machineCons.HasImageID() {
+					machineHasImageID = true
+					break
+				}
 			}
 		}
 		// Then we check if the constraints declared on the app have

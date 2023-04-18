@@ -370,6 +370,30 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 			},
 			deployBundle: deployBundle{},
 		},
+		{
+			title: "application targetting non existing machine in bundle -> no error",
+			bundleData: &charm.BundleData{
+				Series: "focal",
+				Applications: map[string]*charm.ApplicationSpec{
+					"prometheus2": {
+						Charm:       "ch:prometheus2",
+						Constraints: "cpu-cores=2",
+						To:          []string{"ubuntu:0"},
+					},
+					"ubuntu": {
+						Charm:       "ch:ubuntu",
+						Constraints: "mem=2G",
+						To:          []string{"lxd:0"},
+					},
+				},
+				Machines: map[string]*charm.MachineSpec{
+					"0": {
+						Constraints: "image-id=ubuntu-bf2",
+					},
+				},
+			},
+			deployBundle: deployBundle{},
+		},
 	}
 	for i, test := range testCases {
 		c.Logf("test %d [%s]", i, test.title)
