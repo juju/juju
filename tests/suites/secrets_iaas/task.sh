@@ -11,13 +11,11 @@ test_secrets_iaas() {
 
 	file="${TEST_DIR}/test-secrets-iaas.log"
 
-	# TODO: remove feature flag when secret is fully ready.
-	export JUJU_DEV_FEATURE_FLAGS=developer-mode
-
 	bootstrap "test-secrets-iaas" "${file}"
 
 	test_secrets_vault
 	test_secrets_juju
+	test_secrets_cmr
 
 	destroy_controller "test-secrets-iaas"
 }
