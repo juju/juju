@@ -81,7 +81,7 @@ func DeployApplication(st ApplicationDeployer, model Model, args DeployApplicati
 		}
 	}
 
-	// Enforce "assumes" requirements if the feature flag is enabled.
+	// Enforce "assumes" requirements.
 	if err := assertCharmAssumptions(args.Charm.Meta().Assumes, model, st.ControllerConfig); err != nil {
 		if !errors.IsNotSupported(err) || !args.Force {
 			return nil, errors.Trace(err)
