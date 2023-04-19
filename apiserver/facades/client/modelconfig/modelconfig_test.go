@@ -4,19 +4,24 @@
 package modelconfig_test
 
 import (
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	"github.com/juju/juju/apiserver/facades/client/modelconfig"
+	"github.com/juju/juju/apiserver/facades/client/modelconfig/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/constraints"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
+	secretsprovider "github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -46,6 +51,14 @@ func (s *modelconfigSuite) SetUpTest(c *gc.C) {
 			"ftp-proxy":       {Value: "http://proxy", Source: "model"},
 			"authorized-keys": {Value: coretesting.FakeAuthKeys, Source: "model"},
 			"charmhub-url":    {Value: "http://meshuggah.rocks", Source: "model"},
+		},
+		secretBackend: &coresecrets.SecretBackend{
+			ID:          "backend-1",
+			Name:        "backend-1",
+			BackendType: "vault",
+			Config: map[string]interface{}{
+				"endpoint": "http://0.0.0.0:8200",
+			},
 		},
 	}
 	var err error
@@ -283,20 +296,76 @@ func (s *modelconfigSuite) TestUserCannotSetLogTrace(c *gc.C) {
 
 func (s *modelconfigSuite) TestSetSecretBackend(c *gc.C) {
 	args := params.ModelSet{
-		map[string]interface{}{"secret-backend": "invalid"},
+		Config: map[string]interface{}{"secret-backend": 1},
 	}
 	err := s.api.ModelSet(args)
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, `"secret-backend" config value is not a string`)
 
-	for _, v := range []string{"valid", "auto"} {
-		args.Config["secret-backend"] = v
-		err = s.api.ModelSet(args)
-		c.Assert(err, jc.ErrorIsNil)
+	args.Config = map[string]interface{}{"secret-backend": ""}
+	err = s.api.ModelSet(args)
+	c.Assert(err, gc.ErrorMatches, `empty "secret-backend" config value not valid`)
 
-		result, err := s.api.ModelGet()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(result.Config["secret-backend"].Value, gc.Equals, v)
+	args.Config = map[string]interface{}{"secret-backend": "auto"}
+	err = s.api.ModelSet(args)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := s.api.ModelGet()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Config["secret-backend"].Value, gc.Equals, "auto")
+}
+
+func (s *modelconfigSuite) TestSetSecretBackendExternal(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	vaultProvider := mocks.NewMockSecretBackendProvider(ctrl)
+	s.PatchValue(&commonsecrets.GetProvider, func(string) (secretsprovider.SecretBackendProvider, error) { return vaultProvider, nil })
+	vaultBackend := mocks.NewMockSecretsBackend(ctrl)
+
+	gomock.InOrder(
+		vaultProvider.EXPECT().Type().Return("vault"),
+		vaultProvider.EXPECT().NewBackend(&secretsprovider.ModelBackendConfig{
+			BackendConfig: secretsprovider.BackendConfig{
+				BackendType: "vault",
+				Config:      s.backend.secretBackend.Config,
+			},
+		}).Return(vaultBackend, nil),
+		vaultBackend.EXPECT().Ping().Return(nil),
+	)
+
+	args := params.ModelSet{
+		Config: map[string]interface{}{"secret-backend": "backend-1"},
 	}
+	err := s.api.ModelSet(args)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := s.api.ModelGet()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Config["secret-backend"].Value, gc.Equals, "backend-1")
+}
+
+func (s *modelconfigSuite) TestSetSecretBackendExternalValidationFailed(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	vaultProvider := mocks.NewMockSecretBackendProvider(ctrl)
+	s.PatchValue(&commonsecrets.GetProvider, func(string) (secretsprovider.SecretBackendProvider, error) { return vaultProvider, nil })
+	vaultBackend := mocks.NewMockSecretsBackend(ctrl)
+
+	gomock.InOrder(
+		vaultProvider.EXPECT().Type().Return("vault"),
+		vaultProvider.EXPECT().NewBackend(&secretsprovider.ModelBackendConfig{
+			BackendConfig: secretsprovider.BackendConfig{
+				BackendType: "vault",
+				Config:      s.backend.secretBackend.Config,
+			},
+		}).Return(vaultBackend, nil),
+		vaultBackend.EXPECT().Ping().Return(errors.New("not reachable")),
+	)
+
+	args := params.ModelSet{
+		Config: map[string]interface{}{"secret-backend": "backend-1"},
+	}
+	err := s.api.ModelSet(args)
+	c.Assert(err, gc.ErrorMatches, `cannot ping backend "backend-1": not reachable`)
 }
 
 func (s *modelconfigSuite) TestModelUnset(c *gc.C) {
@@ -373,11 +442,12 @@ func (s *modelconfigSuite) TestClientGetModelConstraints(c *gc.C) {
 }
 
 type mockBackend struct {
-	cfg  config.ConfigValues
-	old  *config.Config
-	b    state.BlockType
-	msg  string
-	cons constraints.Value
+	cfg           config.ConfigValues
+	old           *config.Config
+	b             state.BlockType
+	msg           string
+	cons          constraints.Value
+	secretBackend *coresecrets.SecretBackend
 }
 
 func (m *mockBackend) SetModelConstraints(value constraints.Value) error {
@@ -441,11 +511,11 @@ func (m *mockBackend) SpaceByName(string) error {
 	return nil
 }
 
-func (m *mockBackend) GetSecretBackend(name string) error {
+func (m *mockBackend) GetSecretBackend(name string) (*coresecrets.SecretBackend, error) {
 	if name == "invalid" {
-		return errors.NotFoundf("invalid")
+		return nil, errors.NotFoundf("invalid")
 	}
-	return nil
+	return m.secretBackend, nil
 }
 
 type mockBlock struct {
