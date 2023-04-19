@@ -370,6 +370,97 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 			},
 			deployBundle: deployBundle{},
 		},
+		{
+			title: "application targeting new container, no series -> error",
+			bundleData: &charm.BundleData{
+				Applications: map[string]*charm.ApplicationSpec{
+					"prometheus2": {
+						Charm:       "ch:prometheus2",
+						Constraints: "cpu-cores=2",
+					},
+					"ubuntu": {
+						Charm:       "ch:ubuntu",
+						Constraints: "mem=2G",
+						To:          []string{"lxc:new"},
+					},
+				},
+				Machines: map[string]*charm.MachineSpec{
+					"0": {
+						Constraints: "image-id=ubuntu-bf2",
+					},
+				},
+			},
+			deployBundle: deployBundle{},
+		},
+		{
+			title: "application targeting new machine, no series -> error",
+			bundleData: &charm.BundleData{
+				Applications: map[string]*charm.ApplicationSpec{
+					"prometheus2": {
+						Charm:       "ch:prometheus2",
+						Constraints: "cpu-cores=2",
+					},
+					"ubuntu": {
+						Charm:       "ch:ubuntu",
+						Constraints: "mem=2G",
+						To:          []string{"new"},
+					},
+				},
+				Machines: map[string]*charm.MachineSpec{
+					"0": {
+						Constraints: "image-id=ubuntu-bf2",
+					},
+				},
+			},
+			deployBundle: deployBundle{},
+		},
+		{
+			title: "application targeting container in bundle, no series -> error",
+			bundleData: &charm.BundleData{
+				Applications: map[string]*charm.ApplicationSpec{
+					"prometheus2": {
+						Charm:       "ch:prometheus2",
+						Constraints: "cpu-cores=2",
+					},
+					"ubuntu": {
+						Charm:       "ch:ubuntu",
+						Constraints: "mem=2G",
+						To:          []string{"lxd:0"},
+					},
+				},
+				Machines: map[string]*charm.MachineSpec{
+					"0": {
+						Constraints: "image-id=ubuntu-bf2",
+					},
+				},
+			},
+			deployBundle:  deployBundle{},
+			expectedError: explicitSeriesErrorUbuntu,
+		},
+		{
+			title: "application targeting container in bundle, series in bundle -> no error",
+			bundleData: &charm.BundleData{
+				Series: "focal",
+				Applications: map[string]*charm.ApplicationSpec{
+					"prometheus2": {
+						Charm:       "ch:prometheus2",
+						Constraints: "cpu-cores=2",
+						To:          []string{"ubuntu:0"},
+					},
+					"ubuntu": {
+						Charm:       "ch:ubuntu",
+						Constraints: "mem=2G",
+						To:          []string{"lxd:0"},
+					},
+				},
+				Machines: map[string]*charm.MachineSpec{
+					"0": {
+						Constraints: "image-id=ubuntu-bf2",
+					},
+				},
+			},
+			deployBundle: deployBundle{},
+		},
 	}
 	for i, test := range testCases {
 		c.Logf("test %d [%s]", i, test.title)
