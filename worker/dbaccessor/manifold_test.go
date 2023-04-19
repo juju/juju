@@ -4,13 +4,11 @@
 package dbaccessor
 
 import (
-	clock "github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/database/app"
-	"github.com/juju/juju/database/logger"
 )
 
 type manifoldSuite struct {
@@ -26,6 +24,9 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
 
 	cfg.AgentName = ""
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+
+	cfg.QueryLoggerName = ""
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	cfg.Clock = nil
@@ -58,15 +59,12 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg = s.getConfig()
 	cfg.NewMetricsCollector = nil
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
-
-	cfg = s.getConfig()
-	cfg.NewSlowQueryLogger = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
 		AgentName:            "agent",
+		QueryLoggerName:      "query-logger",
 		Clock:                s.clock,
 		Hub:                  s.hub,
 		Logger:               s.logger,
@@ -80,9 +78,6 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		},
 		NewMetricsCollector: func() *Collector {
 			return &Collector{}
-		},
-		NewSlowQueryLogger: func(string, clock.Clock, logger.Logger) *logger.SlowQueryLogger {
-			return nil
 		},
 	}
 }

@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
-	databaselogger "github.com/juju/juju/database/logger"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/upgrades"
 	proxyconfig "github.com/juju/juju/utils/proxy"
@@ -82,6 +81,7 @@ import (
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/proxyupdater"
 	psworker "github.com/juju/juju/worker/pubsub"
+	"github.com/juju/juju/worker/querylogger"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/secretbackendrotate"
 	"github.com/juju/juju/worker/singular"
@@ -693,6 +693,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
 			AgentName:            agentName,
+			QueryLoggerName:      queryLoggerName,
 			Clock:                config.Clock,
 			Hub:                  config.CentralHub,
 			Logger:               loggo.GetLogger("juju.worker.dbaccessor"),
@@ -701,7 +702,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewApp:               dbaccessor.NewApp,
 			NewDBWorker:          dbaccessor.NewTrackedDBWorker,
 			NewMetricsCollector:  dbaccessor.NewMetricsCollector,
-			NewSlowQueryLogger:   databaselogger.NewSlowQueryLogger,
+		})),
+
+		queryLoggerName: ifController(querylogger.Manifold(querylogger.ManifoldConfig{
+			LogDir: agentConfig.LogDir(),
+			Clock:  config.Clock,
+			Logger: loggo.GetLogger("juju.worker.querylogger"),
 		})),
 
 		fileNotifyWatcherName: ifController(filenotifywatcher.Manifold(filenotifywatcher.ManifoldConfig{
@@ -1123,6 +1129,7 @@ const (
 	multiwatcherName              = "multiwatcher"
 	peergrouperName               = "peer-grouper"
 	dbAccessorName                = "db-accessor"
+	queryLoggerName               = "query-logger"
 	fileNotifyWatcherName         = "file-notify-watcher"
 	changeStreamName              = "change-stream"
 	certificateUpdaterName        = "certificate-updater"

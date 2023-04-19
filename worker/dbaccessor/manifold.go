@@ -15,7 +15,6 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database"
 	"github.com/juju/juju/database/app"
-	"github.com/juju/juju/database/logger"
 	"github.com/juju/juju/worker/common"
 )
 
@@ -45,6 +44,7 @@ type Hub interface {
 // - Other dependencies from ManifoldsConfig required by the worker.
 type ManifoldConfig struct {
 	AgentName            string
+	QueryLoggerName      string
 	Clock                clock.Clock
 	Hub                  Hub
 	Logger               Logger
@@ -53,12 +53,14 @@ type ManifoldConfig struct {
 	NewApp               func(string, ...app.Option) (DBApp, error)
 	NewDBWorker          func(DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
 	NewMetricsCollector  func() *Collector
-	NewSlowQueryLogger   func(string, clock.Clock, logger.Logger) *logger.SlowQueryLogger
 }
 
 func (cfg ManifoldConfig) Validate() error {
 	if cfg.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
+	}
+	if cfg.QueryLoggerName == "" {
+		return errors.NotValidf("empty QueryLoggerName")
 	}
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -84,9 +86,6 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.NewMetricsCollector == nil {
 		return errors.NotValidf("nil NewMetricsCollector")
 	}
-	if cfg.NewSlowQueryLogger == nil {
-		return errors.NotValidf("nil NewSlowQueryLogger")
-	}
 	return nil
 }
 
@@ -96,6 +95,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
+			config.QueryLoggerName,
 		},
 		Output: dbAccessorOutput,
 		Start: func(context dependency.Context) (worker.Worker, error) {
@@ -115,7 +115,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			slowQueryLogger := config.NewSlowQueryLogger(config.LogDir, config.Clock, config.Logger)
+			var slowQueryLogger coredatabase.SlowQueryLogger
+			if err := context.Get(config.QueryLoggerName, &slowQueryLogger); err != nil {
+				config.PrometheusRegisterer.Unregister(metricsCollector)
+				return nil, err
+			}
 
 			cfg := WorkerConfig{
 				NodeManager:      database.NewNodeManager(agentConfig, config.Logger, slowQueryLogger),
@@ -130,8 +134,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			w, err := newWorker(cfg)
 			if err != nil {
-				// Unregister the metrics collector if we fail to start the
-				// worker, so that we can safely register the metrics again.
 				config.PrometheusRegisterer.Unregister(metricsCollector)
 				return nil, errors.Trace(err)
 			}
@@ -139,10 +141,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				// Clean up the metrics for the worker, so the next time a
 				// worker is created we can safely register the metrics again.
 				config.PrometheusRegisterer.Unregister(metricsCollector)
-
-				if err := slowQueryLogger.Close(); err != nil {
-					config.Logger.Errorf("error closing slow query logger: %v", err)
-				}
 			}), nil
 		},
 	}
@@ -162,7 +160,7 @@ func dbAccessorOutput(in worker.Worker, out interface{}) error {
 		var target coredatabase.DBGetter = w
 		*out = target
 	default:
-		return errors.Errorf("expected output of *dbaccessor.DBGetter, got %T", out)
+		return errors.Errorf("expected output of *database.DBGetter, got %T", out)
 	}
 	return nil
 }

@@ -12,7 +12,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime/debug"
 	"strings"
 	"time"
 
@@ -22,6 +21,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/agent"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/client"
 	"github.com/juju/juju/database/dqlite"
@@ -34,12 +34,6 @@ const (
 	dqliteClusterFileName = "cluster.yaml"
 )
 
-// SlowQueryLogger is a logger that can be used to log slow operations.
-type SlowQueryLogger interface {
-	// Log the slow query, with the given arguments.
-	Log(msg string, duration float64, stmt string, stack []byte) error
-}
-
 // NodeManager is responsible for interrogating a single Dqlite node,
 // and emitting configuration for starting its Dqlite `App` based on
 // operational requirements and controller agent config.
@@ -47,14 +41,14 @@ type NodeManager struct {
 	cfg             agent.Config
 	port            int
 	logger          Logger
-	slowQueryLogger SlowQueryLogger
+	slowQueryLogger coredatabase.SlowQueryLogger
 
 	dataDir string
 }
 
 // NewNodeManager returns a new NodeManager reference
 // based on the input agent configuration.
-func NewNodeManager(cfg agent.Config, logger Logger, slowQueryLogger SlowQueryLogger) *NodeManager {
+func NewNodeManager(cfg agent.Config, logger Logger, slowQueryLogger coredatabase.SlowQueryLogger) *NodeManager {
 	return &NodeManager{
 		cfg:             cfg,
 		port:            dqlitePort,
@@ -256,13 +250,7 @@ func (m *NodeManager) slowQueryLogFunc(threshold time.Duration) client.LogFunc {
 		queryType, duration, stmt := parseSlowQuery(msg, args, threshold)
 		switch queryType {
 		case slowQuery:
-			if err := m.slowQueryLogger.Log(msg, duration, stmt, debug.Stack()); err != nil {
-				// Failed to log the slow query, log it to the main logger.
-				m.logger.Warningf("failed to log slow query: %v", err)
-				m.logger.Warningf("slow query: "+msg+"\n%s", append(args, debug.Stack())...)
-			} else {
-				m.logger.Warningf("slow query: "+msg, args...)
-			}
+			m.slowQueryLogger.RecordSlowQuery(msg, stmt, args, duration)
 		case normalQuery:
 			m.appLogFunc(level, msg, args...)
 		default:
