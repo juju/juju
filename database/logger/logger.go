@@ -44,6 +44,7 @@ func NewSlowQueryLogger(logDir string, clock clock.Clock, logger Logger) *SlowQu
 	l := &SlowQueryLogger{
 		logDir: logDir,
 		clock:  clock,
+		logger: logger,
 		logs:   make(chan payload),
 	}
 	l.tomb.Go(l.loop)
