@@ -203,7 +203,6 @@ func (w *Worker) drainSecret(
 	for i, err := range results.Results {
 		arg := args[i]
 		backend := getBackend(arg.ValueRef)
-		w.config.Logger.Warningf("%v %v, %v", i, arg.Revision, err)
 		if err == nil {
 			// We have already changed the secret to the active backend, so we
 			// can clean up the secret content in the old backend now.

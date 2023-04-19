@@ -423,3 +423,71 @@ func PingBackend(p provider.SecretBackendProvider, cfg provider.ConfigAttrs) err
 	}
 	return b.Ping()
 }
+
+// GetSecretMetadata returns the secrets metadata for the given filter.
+func GetSecretMetadata(
+	authTag names.Tag, secretsState SecretsMetaState, leadershipChecker leadership.Checker,
+	filter func(*secrets.SecretMetadata, *secrets.SecretRevisionMetadata) bool,
+) (params.ListSecretResults, error) {
+	var result params.ListSecretResults
+	listFilter := state.SecretsFilter{
+		// TODO: there is a bug that operator agents can't get any unit owned secrets!
+		// Because the authTag here is the application tag, but not unit tag.
+		OwnerTags: []names.Tag{authTag},
+	}
+	// Unit leaders can also get metadata for secrets owned by the app.
+	// TODO(wallyworld) - temp fix for old podspec charms
+	isLeader, err := IsLeaderUnit(authTag, leadershipChecker)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if isLeader {
+		appOwner := names.NewApplicationTag(AuthTagApp(authTag))
+		listFilter.OwnerTags = append(listFilter.OwnerTags, appOwner)
+	}
+
+	secrets, err := secretsState.ListSecrets(listFilter)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	for _, md := range secrets {
+		secretResult := params.ListSecretResult{
+			URI:              md.URI.String(),
+			Version:          md.Version,
+			OwnerTag:         md.OwnerTag,
+			RotatePolicy:     md.RotatePolicy.String(),
+			NextRotateTime:   md.NextRotateTime,
+			Description:      md.Description,
+			Label:            md.Label,
+			LatestRevision:   md.LatestRevision,
+			LatestExpireTime: md.LatestExpireTime,
+			CreateTime:       md.CreateTime,
+			UpdateTime:       md.UpdateTime,
+		}
+		revs, err := secretsState.ListSecretRevisions(md.URI)
+		if err != nil {
+			return params.ListSecretResults{}, errors.Trace(err)
+		}
+		for _, r := range revs {
+			if filter != nil && !filter(md, r) {
+				continue
+			}
+			var valueRef *params.SecretValueRef
+			if r.ValueRef != nil {
+				valueRef = &params.SecretValueRef{
+					BackendID:  r.ValueRef.BackendID,
+					RevisionID: r.ValueRef.RevisionID,
+				}
+			}
+			secretResult.Revisions = append(secretResult.Revisions, params.SecretRevision{
+				Revision: r.Revision,
+				ValueRef: valueRef,
+			})
+		}
+		if len(secretResult.Revisions) == 0 {
+			continue
+		}
+		result.Results = append(result.Results, secretResult)
+	}
+	return result, nil
+}

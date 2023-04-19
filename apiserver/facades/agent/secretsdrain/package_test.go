@@ -12,7 +12,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/leadership"
-	coresecrets "github.com/juju/juju/core/secrets"
 )
 
 func TestPackage(t *testing.T) {
@@ -47,10 +46,6 @@ func NewTestAPI(
 		model:             model,
 		secretsConsumer:   consumer,
 	}, nil
-}
-
-func (s *SecretsDrainAPI) CanManage(uri *coresecrets.URI) (leadership.Token, error) {
-	return s.canManage(uri)
 }
 
 var (

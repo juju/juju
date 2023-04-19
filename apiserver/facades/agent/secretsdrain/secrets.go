@@ -8,6 +8,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
+	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/leadership"
@@ -36,72 +37,6 @@ type SecretsDrainAPI struct {
 	model Model
 }
 
-func (s *SecretsDrainAPI) getSecretMetadata(
-	filter func(*coresecrets.SecretMetadata, *coresecrets.SecretRevisionMetadata) bool,
-) (params.ListSecretResults, error) {
-	var result params.ListSecretResults
-	listFilter := state.SecretsFilter{
-		// TODO: there is a bug that operator agents can't get any unit owned secrets!
-		// Because the authTag here is the application tag, but not unit tag.
-		OwnerTags: []names.Tag{s.authTag},
-	}
-	// Unit leaders can also get metadata for secrets owned by the app.
-	// TODO(wallyworld) - temp fix for old podspec charms
-	isLeader, err := s.isLeaderUnit()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if isLeader {
-		appOwner := names.NewApplicationTag(authTagApp(s.authTag))
-		listFilter.OwnerTags = append(listFilter.OwnerTags, appOwner)
-	}
-
-	secrets, err := s.secretsState.ListSecrets(listFilter)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	for _, md := range secrets {
-		secretResult := params.ListSecretResult{
-			URI:              md.URI.String(),
-			Version:          md.Version,
-			OwnerTag:         md.OwnerTag,
-			RotatePolicy:     md.RotatePolicy.String(),
-			NextRotateTime:   md.NextRotateTime,
-			Description:      md.Description,
-			Label:            md.Label,
-			LatestRevision:   md.LatestRevision,
-			LatestExpireTime: md.LatestExpireTime,
-			CreateTime:       md.CreateTime,
-			UpdateTime:       md.UpdateTime,
-		}
-		revs, err := s.secretsState.ListSecretRevisions(md.URI)
-		if err != nil {
-			return params.ListSecretResults{}, errors.Trace(err)
-		}
-		for _, r := range revs {
-			if filter != nil && !filter(md, r) {
-				continue
-			}
-			var valueRef *params.SecretValueRef
-			if r.ValueRef != nil {
-				valueRef = &params.SecretValueRef{
-					BackendID:  r.ValueRef.BackendID,
-					RevisionID: r.ValueRef.RevisionID,
-				}
-			}
-			secretResult.Revisions = append(secretResult.Revisions, params.SecretRevision{
-				Revision: r.Revision,
-				ValueRef: valueRef,
-			})
-		}
-		if len(secretResult.Revisions) == 0 {
-			continue
-		}
-		result.Results = append(result.Results, secretResult)
-	}
-	return result, nil
-}
-
 // GetSecretsToDrain returns metadata for the secrets that need to be drained.
 func (s *SecretsDrainAPI) GetSecretsToDrain() (params.ListSecretResults, error) {
 	modelConfig, err := s.model.ModelConfig()
@@ -119,19 +54,22 @@ func (s *SecretsDrainAPI) GetSecretsToDrain() (params.ListSecretResults, error) 
 			activeBackend = modelUUID
 		}
 	}
-	return s.getSecretMetadata(func(md *coresecrets.SecretMetadata, rev *coresecrets.SecretRevisionMetadata) bool {
-		if rev.ValueRef == nil {
-			// Only internal backend secrets have nil ValueRef.
-			if activeBackend == secretsprovider.Internal {
-				return false
+	return commonsecrets.GetSecretMetadata(
+		s.authTag, s.secretsState, s.leadershipChecker,
+		func(md *coresecrets.SecretMetadata, rev *coresecrets.SecretRevisionMetadata) bool {
+			if rev.ValueRef == nil {
+				// Only internal backend secrets have nil ValueRef.
+				if activeBackend == secretsprovider.Internal {
+					return false
+				}
+				if activeBackend == controllerUUID {
+					return false
+				}
+				return true
 			}
-			if activeBackend == controllerUUID {
-				return false
-			}
-			return true
-		}
-		return rev.ValueRef.BackendID != activeBackend
-	})
+			return rev.ValueRef.BackendID != activeBackend
+		},
+	)
 }
 
 // ChangeSecretBackend updates the backend for the specified secret after migration done.
@@ -151,7 +89,7 @@ func (s *SecretsDrainAPI) changeSecretBackendForOne(arg params.ChangeSecretBacke
 	if err != nil {
 		return errors.Trace(err)
 	}
-	token, err := s.canManage(uri)
+	token, err := commonsecrets.CanManage(s.secretsConsumer, s.leadershipChecker, s.authTag, uri)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -172,17 +110,6 @@ func toChangeSecretBackendParams(token leadership.Token, uri *coresecrets.URI, a
 		}
 	}
 	return params
-}
-
-func (s *SecretsDrainAPI) isLeaderUnit() (bool, error) {
-	if s.authTag.Kind() != names.UnitTagKind {
-		return false, nil
-	}
-	_, err := s.leadershipToken()
-	if err != nil && !leadership.IsNotLeaderError(err) {
-		return false, errors.Trace(err)
-	}
-	return err == nil, nil
 }
 
 // WatchSecretBackendChanged sets up a watcher to notify of changes to the secret backend.

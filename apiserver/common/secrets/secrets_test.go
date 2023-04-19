@@ -4,6 +4,8 @@
 package secrets_test
 
 import (
+	"time"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v4"
@@ -16,6 +18,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/leadership"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
 	_ "github.com/juju/juju/secrets/provider/all"
 	"github.com/juju/juju/secrets/provider/juju"
@@ -566,4 +569,66 @@ func (s *secretsSuite) TestBackendConfigInfoFailedInvalidAuthTag(c *gc.C) {
 
 	_, err := secrets.BackendConfigInfo(model, badTag, leadershipChecker)
 	c.Assert(err, gc.ErrorMatches, `login as "user-foo" not supported`)
+}
+
+func (s *secretsSuite) TestGetSecretMetadata(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	leadershipChecker := mocks.NewMockChecker(ctrl)
+	token := mocks.NewMockToken(ctrl)
+	secretsMetaState := mocks.NewMockSecretsMetaState(ctrl)
+
+	leadershipChecker.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(token)
+	token.EXPECT().Check().Return(nil)
+
+	now := time.Now()
+	uri := coresecrets.NewURI()
+	authTag := names.NewUnitTag("mariadb/0")
+	secretsMetaState.EXPECT().ListSecrets(
+		state.SecretsFilter{
+			OwnerTags: []names.Tag{names.NewUnitTag("mariadb/0"), names.NewApplicationTag("mariadb")},
+		}).Return([]*coresecrets.SecretMetadata{{
+		URI:              uri,
+		OwnerTag:         "application-mariadb",
+		Description:      "description",
+		Label:            "label",
+		RotatePolicy:     coresecrets.RotateHourly,
+		LatestRevision:   666,
+		LatestExpireTime: &now,
+		NextRotateTime:   &now,
+	}}, nil)
+	secretsMetaState.EXPECT().ListSecretRevisions(uri).Return([]*coresecrets.SecretRevisionMetadata{{
+		Revision: 666,
+		ValueRef: &coresecrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "rev-id",
+		},
+	}, {
+		Revision: 667,
+	}}, nil)
+
+	results, err := secrets.GetSecretMetadata(authTag, secretsMetaState, leadershipChecker, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ListSecretResults{
+		Results: []params.ListSecretResult{{
+			URI:              uri.String(),
+			OwnerTag:         "application-mariadb",
+			Description:      "description",
+			Label:            "label",
+			RotatePolicy:     coresecrets.RotateHourly.String(),
+			LatestRevision:   666,
+			LatestExpireTime: &now,
+			NextRotateTime:   &now,
+			Revisions: []params.SecretRevision{{
+				Revision: 666,
+				ValueRef: &params.SecretValueRef{
+					BackendID:  "backend-id",
+					RevisionID: "rev-id",
+				},
+			}, {
+				Revision: 667,
+			}},
+		}},
+	})
 }
