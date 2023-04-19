@@ -186,11 +186,18 @@ func (d *deployBundle) checkExplicitSeries(bundleData *charm.BundleData) error {
 		// has the image-id constraint
 		machineHasImageID := false
 		for _, to := range applicationSpec.To {
-			// TODO(nvinuesa): here we only check for the image-id
-			// constraint when the placement directive is explicitly
-			// defined in the bundle. Find a way to check indirect
-			// placements like lxd:0 and ubuntu:0.
-			if machine, ok := bundleData.Machines[to]; ok {
+
+			// This error can be ignored since the bundle has
+			// already been validated at this point, and it's not
+			// this method's responsibility to validate it.
+			placement, _ := charm.ParsePlacement(to)
+			// Only check for explicit series when image-id
+			// constraint *if* the placement machine is defined
+			// in the bundle. In the case of 'new' it does pass
+			// bundle validation but it won't be defined since it's
+			// a new machine, so don't perform any check in that
+			// case.
+			if machine, ok := bundleData.Machines[placement.Machine]; ok {
 				machineCons, err := constraints.Parse(machine.Constraints)
 				if err != nil {
 					return errors.Trace(err)
