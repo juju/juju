@@ -70,6 +70,7 @@ func (d *deployCharm) deploy(
 	if err != nil {
 		return err
 	}
+	checkPodspec(charmInfo.Charm(), ctx)
 
 	// storage cannot be added to a container.
 	if len(d.storage) > 0 || len(d.attachStorage) > 0 {
@@ -275,6 +276,7 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 		return errors.Trace(err)
 	}
 	ctx.Infof(formatLocatedText(d.userCharmURL, commoncharm.Origin{}))
+	checkPodspec(charmInfo.Charm(), ctx)
 
 	if err := d.validateResourcesNeededForLocalDeploy(charmInfo.Meta); err != nil {
 		return errors.Trace(err)
