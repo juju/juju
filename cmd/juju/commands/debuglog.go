@@ -198,6 +198,9 @@ func (c *debugLogCommand) Init(args []string) error {
 	if c.tail && c.noTail {
 		return errors.NotValidf("setting --tail and --no-tail")
 	}
+	if c.noTail && c.retry {
+		return errors.NotValidf("setting --no-tail and --retry")
+	}
 	if c.retryDelay < 0 {
 		return errors.NotValidf("negative retry delay")
 	}
@@ -348,8 +351,9 @@ func (c *debugLogCommand) Run(ctx *cmd.Context) error {
 	return errors.Cause(err)
 }
 
-// Sentinel error used to signal that the connection is closed.
-var ErrConnectionClosed = errors.New("connection closed")
+// ErrConnectionClosed is a sentinel error used to signal that the connection
+// is closed.
+var ErrConnectionClosed = errors.ConstError("connection closed")
 
 var SeverityColor = map[string]*ansiterm.Context{
 	"TRACE":   ansiterm.Foreground(ansiterm.Default),
