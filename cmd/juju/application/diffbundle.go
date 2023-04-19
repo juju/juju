@@ -279,9 +279,9 @@ func missingRelationEndpoint(rel string) bool {
 func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context, apiRoot base.APICallCloser) (charm.BundleDataSource, error) {
 	ds, err := charm.LocalBundleDataSource(c.bundle)
 
-	// NotValid/NotFound means we should try interpreting it as a charm store
-	// bundle URL.
-	if err != nil && !errors.IsNotValid(err) && !errors.IsNotFound(err) {
+	// NotFound means that the provided local file is not found, and
+	// therefore we should try interpreting it as a charm store bundle URL.
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 	if ds != nil {
