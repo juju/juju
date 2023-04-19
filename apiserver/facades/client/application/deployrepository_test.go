@@ -472,10 +472,84 @@ func (s *validatorSuite) TestGetCharm(c *gc.C) {
 		CharmName: "testcharm",
 	}
 	obtainedURL, obtainedOrigin, obtainedCharm, err := s.getValidator().getCharm(arg)
-	c.Assert(err, gc.HasLen, 0)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedOrigin, gc.DeepEquals, resolvedOrigin)
 	c.Assert(obtainedCharm, gc.DeepEquals, corecharm.NewCharmInfoAdapter(essMeta))
 	c.Assert(obtainedURL.String(), gc.Equals, resultURL.String())
+}
+
+func (s *validatorSuite) TestGetCharmFindsBundle(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectSimpleValidate()
+	s.state.EXPECT().ModelConstraints().Return(constraints.Value{}, nil)
+	// resolveCharm
+	curl := charm.MustParseURL("testcharm")
+	resultURL := charm.MustParseURL("ch:amd64/jammy/testcharm-4")
+	origin := corecharm.Origin{
+		Source:   "charm-hub",
+		Channel:  &charm.Channel{Risk: "stable"},
+		Platform: corecharm.Platform{Architecture: "amd64"},
+	}
+	resolvedOrigin := corecharm.Origin{
+		Source:   "charm-hub",
+		Type:     "bundle",
+		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
+		Revision: intptr(4),
+	}
+	supportedSeries := []string{"jammy", "focal"}
+	s.repo.EXPECT().ResolveWithPreferredChannel(curl, origin).Return(resultURL, resolvedOrigin, supportedSeries, nil)
+
+	arg := params.DeployFromRepositoryArg{
+		CharmName: "testcharm",
+	}
+	_, _, _, err := s.getValidator().getCharm(arg)
+	c.Assert(errors.Is(err, errors.BadRequest), jc.IsTrue)
+}
+
+func (s *validatorSuite) TestGetCharmNoJujuControllerCharm(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectSimpleValidate()
+	s.state.EXPECT().ModelConstraints().Return(constraints.Value{}, nil)
+	// resolveCharm
+	curl := charm.MustParseURL("testcharm")
+	resultURL := charm.MustParseURL("ch:amd64/jammy/juju-qa-test-4")
+	origin := corecharm.Origin{
+		Source:   "charm-hub",
+		Channel:  &charm.Channel{Risk: "stable"},
+		Platform: corecharm.Platform{Architecture: "amd64"},
+	}
+	resolvedOrigin := corecharm.Origin{
+		Source:   "charm-hub",
+		Type:     "charm",
+		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
+		Revision: intptr(4),
+	}
+	supportedSeries := []string{"jammy", "focal"}
+	s.repo.EXPECT().ResolveWithPreferredChannel(curl, origin).Return(resultURL, resolvedOrigin, supportedSeries, nil)
+	// getCharm
+	expMeta := &charm.Meta{
+		Name: "juju-controller",
+	}
+	expManifest := new(charm.Manifest)
+	expConfig := new(charm.Config)
+	essMeta := corecharm.EssentialMetadata{
+		Meta:           expMeta,
+		Manifest:       expManifest,
+		Config:         expConfig,
+		ResolvedOrigin: resolvedOrigin,
+	}
+	s.repo.EXPECT().GetEssentialMetadata(corecharm.MetadataRequest{
+		CharmURL: resultURL,
+		Origin:   resolvedOrigin,
+	}).Return([]corecharm.EssentialMetadata{essMeta}, nil)
+
+	arg := params.DeployFromRepositoryArg{
+		CharmName: "testcharm",
+	}
+	_, _, _, err := s.getValidator().getCharm(arg)
+	c.Assert(errors.Is(err, errors.NotSupported), jc.IsTrue)
 }
 
 func (s *validatorSuite) TestDeducePlatformSimple(c *gc.C) {
@@ -932,6 +1006,7 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 				Channel:      "22.04",
 			},
 		},
+		Devices:          map[string]state.DeviceConstraints{},
 		EndpointBindings: map[string]string{"to": "from"},
 		NumUnits:         1,
 		Placement:        []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
@@ -1056,6 +1131,7 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 				Channel:      "22.04",
 			},
 		},
+		Devices:          map[string]state.DeviceConstraints{},
 		EndpointBindings: map[string]string{"to": "from"},
 		NumUnits:         1,
 		Placement:        []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
@@ -1146,6 +1222,7 @@ func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc
 				Channel:      "22.04",
 			},
 		},
+		Devices:          map[string]state.DeviceConstraints{},
 		EndpointBindings: map[string]string{"to": "from"},
 		NumUnits:         1,
 		Placement:        []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
