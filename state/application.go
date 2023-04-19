@@ -2518,6 +2518,17 @@ func incApplicationOffersRefOp(mb modelBackend, appName string) (txn.Op, error) 
 	return incRefOp, errors.Trace(err)
 }
 
+// newApplicationOffersRefOp returns a txn.Op that creates a new reference
+// count for an application offer, starting at the count supplied. Used in
+// model migration, where offers are created in bulk.
+func newApplicationOffersRefOp(mb modelBackend, appName string, startCount int) (txn.Op, error) {
+	refcounts, closer := mb.db().GetCollection(refcountsC)
+	defer closer()
+	offerRefCountKey := applicationOffersRefCountKey(appName)
+	incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, offerRefCountKey, startCount)
+	return incRefOp, errors.Trace(err)
+}
+
 // countApplicationOffersRefOp returns the number of offers for an application,
 // along with a txn.Op that ensures that that does not change.
 func countApplicationOffersRefOp(mb modelBackend, appName string) (txn.Op, int, error) {
