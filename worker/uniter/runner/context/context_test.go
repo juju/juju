@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
-	// "github.com/juju/juju/secrets/provider/juju"
 	"github.com/juju/juju/secrets/provider/vault"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/common/charmrunner"

@@ -94,11 +94,3 @@ type SecretsGetter interface {
 	GetSecret(*secrets.URI) (*secrets.SecretMetadata, error)
 	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, *secrets.ValueRef, error)
 }
-
-// SecretsConsumer instances provide secret consumer apis.
-type SecretsConsumer interface {
-	GetSecretConsumer(*secrets.URI, names.Tag) (*secrets.SecretConsumerMetadata, error)
-	GetURIByConsumerLabel(string, names.Tag) (*secrets.URI, error)
-	SaveSecretConsumer(*secrets.URI, names.Tag, *secrets.SecretConsumerMetadata) error
-	SecretAccess(uri *secrets.URI, subject names.Tag) (secrets.SecretRole, error)
-}

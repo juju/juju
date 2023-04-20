@@ -294,20 +294,41 @@ func (s *backendSuite) TestGetBackend(c *gc.C) {
 
 	client, err := secrets.NewClient(jujuapi)
 	c.Assert(err, jc.ErrorIsNil)
+	backendID := "backend-id1"
 
 	gomock.InOrder(
-		jujuapi.EXPECT().GetSecretBackendConfig().Return(&provider.ModelBackendConfigInfo{
+		jujuapi.EXPECT().GetSecretBackendConfig(nil).Return(&provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id2",
-			Configs: map[string]provider.BackendConfig{
-				"backend-id1": {BackendType: "somebackend1"},
-				"backend-id2": {BackendType: "somebackend2"},
+			Configs: map[string]provider.ModelBackendConfig{
+				"backend-id1": {
+					ControllerUUID: "controller-uuid1",
+					ModelUUID:      "model-uuid1",
+					ModelName:      "model1",
+					BackendConfig:  provider.BackendConfig{BackendType: "somebackend1"},
+				},
+				"backend-id2": {
+					ControllerUUID: "controller-uuid2",
+					ModelUUID:      "model-uuid2",
+					ModelName:      "model2",
+					BackendConfig:  provider.BackendConfig{BackendType: "somebackend2"},
+				},
 			},
 		}, nil),
-		jujuapi.EXPECT().GetSecretBackendConfig().Return(&provider.ModelBackendConfigInfo{
+		jujuapi.EXPECT().GetSecretBackendConfig(&backendID).Return(&provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id2",
-			Configs: map[string]provider.BackendConfig{
-				"backend-id1": {BackendType: "somebackend1"},
-				"backend-id2": {BackendType: "somebackend2"},
+			Configs: map[string]provider.ModelBackendConfig{
+				"backend-id1": {
+					ControllerUUID: "controller-uuid1",
+					ModelUUID:      "model-uuid1",
+					ModelName:      "model1",
+					BackendConfig:  provider.BackendConfig{BackendType: "somebackend1"},
+				},
+				"backend-id2": {
+					ControllerUUID: "controller-uuid2",
+					ModelUUID:      "model-uuid2",
+					ModelName:      "model2",
+					BackendConfig:  provider.BackendConfig{BackendType: "somebackend2"},
+				},
 			},
 		}, nil),
 	)
@@ -316,7 +337,6 @@ func (s *backendSuite) TestGetBackend(c *gc.C) {
 	c.Assert(activeBackendID, gc.Equals, "backend-id2")
 	c.Assert(result, gc.Equals, backend)
 
-	backendID := "backend-id1"
 	result, activeBackendID, err = client.GetBackend(&backendID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activeBackendID, gc.Equals, "backend-id2")
@@ -347,12 +367,27 @@ func (s *backendSuite) TestGetRevisionContent(c *gc.C) {
 				BackendID:  "backend-id2",
 				RevisionID: "rev-id",
 			},
-		}, nil),
-		jujuapi.EXPECT().GetSecretBackendConfig().Return(&provider.ModelBackendConfigInfo{
+		}, &provider.ModelBackendConfig{
+			ControllerUUID: "controller-uuid1",
+			ModelUUID:      "model-uuid2",
+			ModelName:      "model2",
+			BackendConfig:  provider.BackendConfig{BackendType: "somebackend2"},
+		}, false, nil),
+		jujuapi.EXPECT().GetSecretBackendConfig(ptr("backend-id2")).Return(&provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id2",
-			Configs: map[string]provider.BackendConfig{
-				"backend-id1": {BackendType: "somebackend1"},
-				"backend-id2": {BackendType: "somebackend2"},
+			Configs: map[string]provider.ModelBackendConfig{
+				"backend-id1": {
+					ControllerUUID: "controller-uuid1",
+					ModelUUID:      "model-uuid1",
+					ModelName:      "model1",
+					BackendConfig:  provider.BackendConfig{BackendType: "somebackend1"},
+				},
+				"backend-id2": {
+					ControllerUUID: "controller-uuid1",
+					ModelUUID:      "model-uuid2",
+					ModelName:      "model2",
+					BackendConfig:  provider.BackendConfig{BackendType: "somebackend2"},
+				},
 			},
 		}, nil),
 		backend.EXPECT().GetContent(gomock.Any(), "rev-id").Return(secretValue, nil),
@@ -361,4 +396,8 @@ func (s *backendSuite) TestGetRevisionContent(c *gc.C) {
 	val, err := client.GetRevisionContent(uri, 666)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(val, gc.Equals, secretValue)
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

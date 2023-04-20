@@ -481,7 +481,7 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(uri *coresecrets.URI, refresh
 	if err != nil {
 		return nil, nil, false, errors.Annotate(err, "creating remote secret client")
 	}
-	consumerApp := authTagApp(s.authTag)
+	consumerApp := commonsecrets.AuthTagApp(s.authTag)
 	token, err := s.crossModelState.GetToken(names.NewApplicationTag(consumerApp))
 	if err != nil {
 		return nil, nil, false, errors.Annotatef(err, "getting remote token for %q", consumerApp)
