@@ -1,3 +1,8 @@
+.PHONY: help
+help:
+	@echo "Usage: \n"
+	@sed -n 's/^##//p' ${MAKEFILE_LIST} | sort | column -t -s ':' |  sed -e 's/^/ /'
+
 # Export this first, incase we want to change it in the included makefiles.
 export CGO_ENABLED=0
 
@@ -265,11 +270,6 @@ define run_cgo_install
 endef
 
 default: build
-
-.PHONY: help
-help:
-	@echo "Usage: \n"
-	@sed -n 's/^##//p' ${MAKEFILE_LIST} | sort | column -t -s ':' |  sed -e 's/^/ /'
 
 .PHONY: juju
 juju: PACKAGE = github.com/juju/juju/cmd/juju
