@@ -305,6 +305,30 @@ type deployFromRepositoryValidator struct {
 	newStateBindings func(st state.EndpointBinding, givenMap map[string]string) (Bindings, error)
 }
 
+// Validating arguments to deploy a charm.
+// General (see deployFromRepositoryValidator)
+//   - Resolve the charm and ensure it exists in a repository
+//   - Ensure supplied resources exist
+//   - Find repository resources to be used.
+//   - Check machine placement against current deployment - does not include
+//     the caas check below.
+//   - Find a charm to match the provided name and architecture at a minimum,
+//     and base, revision, and channel if provided.
+//   - Does the charm already exist in juju? If so use it, rather than
+//     attempting downloading.
+//   - Check endpoint bindings against existing
+//   - Subordinates may not have constraints nor numunits specified
+//   - Supplied charm config must validate against config defined in the charm.
+//   - Check charm assumptions against the controller config, defined in core
+//     assumes featureset.
+//   - Check minimum juju version against current as defined in charm.
+//   - NumUnits must be 1 if AttachedStorage used
+//   - CharmOrigin validation, see common.ValidateCharmOrigin
+//   - Manual deploy of juju-controller charm not allowed.
+//
+// IAAS specific (see iaasDeployFromRepositoryValidator)
+// CAAS specific (see caasDeployFromRepositoryValidator)
+//
 // validateDeployFromRepositoryArgs does validation of all provided
 // arguments. Returned is a deployTemplate which contains validated
 // data necessary to deploy the application.
@@ -442,11 +466,20 @@ type caasDeployFromRepositoryValidator struct {
 	registry           storage.ProviderRegistry
 	storagePoolManager poolmanager.PoolManager
 
-	// Needed for testing. caasDeployTemplate precheck funcationality tested
+	// Needed for testing. caasDeployTemplate precheck functionality tested
 	// elsewhere
 	caasPrecheckFunc func(deployTemplate) error
 }
 
+// CAAS specific validation of arguments to deploy a charm
+//   - Storage is not allowed
+//   - Only 1 value placement allowed
+//   - Block storage is not allowed
+//   - Check the ServiceTypeConfigKey value is valid and find a translation
+//     of types
+//   - Check kubernetes model config values against the kubernetes cluster
+//     in use
+//   - Check the charm's min version against the caasVersion
 func (v caasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
 	dt, errs := v.validator.validate(arg)
 	if corecharm.IsKubernetes(dt.charm) && charm.MetaFormat(dt.charm) == charm.FormatV1 {
@@ -467,7 +500,6 @@ type iaasDeployFromRepositoryValidator struct {
 }
 
 func (v *iaasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
-	// TODO: Storage
 	return v.validator.validate(arg)
 }
 

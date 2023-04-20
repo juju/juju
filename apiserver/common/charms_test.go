@@ -16,7 +16,11 @@ type charmOriginSuite struct{}
 var _ = gc.Suite(&charmOriginSuite{})
 
 func (s *charmOriginSuite) TestValidateCharmOriginSuccessCharmHub(c *gc.C) {
-	err := ValidateCharmOrigin(&params.CharmOrigin{Source: "charm-hub"})
+	err := ValidateCharmOrigin(&params.CharmOrigin{
+		Hash:   "myHash",
+		ID:     "myID",
+		Source: "charm-hub",
+	})
 	c.Assert(errors.Is(err, errors.BadRequest), jc.IsFalse)
 }
 
@@ -25,7 +29,7 @@ func (s *charmOriginSuite) TestValidateCharmOriginSuccessLocal(c *gc.C) {
 	c.Assert(errors.Is(err, errors.BadRequest), jc.IsFalse)
 }
 
-func (s *charmOriginSuite) TestValidateCharmOrigin(c *gc.C) {
+func (s *charmOriginSuite) TestValidateCharmOriginNil(c *gc.C) {
 	err := ValidateCharmOrigin(nil)
 	c.Assert(errors.Is(err, errors.BadRequest), jc.IsTrue)
 }
@@ -37,5 +41,21 @@ func (s *charmOriginSuite) TestValidateCharmOriginNilSource(c *gc.C) {
 
 func (s *charmOriginSuite) TestValidateCharmOriginBadSource(c *gc.C) {
 	err := ValidateCharmOrigin(&params.CharmOrigin{Source: "charm-store"})
+	c.Assert(errors.Is(err, errors.BadRequest), jc.IsTrue)
+}
+
+func (s *charmOriginSuite) TestValidateCharmOriginCharmHubIDNoHash(c *gc.C) {
+	err := ValidateCharmOrigin(&params.CharmOrigin{
+		ID:     "myID",
+		Source: "charm-hub",
+	})
+	c.Assert(errors.Is(err, errors.BadRequest), jc.IsTrue)
+}
+
+func (s *charmOriginSuite) TestValidateCharmOriginCharmHubHashNoID(c *gc.C) {
+	err := ValidateCharmOrigin(&params.CharmOrigin{
+		Hash:   "myHash",
+		Source: "charm-hub",
+	})
 	c.Assert(errors.Is(err, errors.BadRequest), jc.IsTrue)
 }

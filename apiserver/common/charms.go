@@ -87,8 +87,16 @@ func ValidateCharmOrigin(o *params.CharmOrigin) error {
 	switch {
 	case o == nil:
 		return errors.BadRequestf("charm origin source required")
-	case corecharm.CharmHub.Matches(o.Source), corecharm.Local.Matches(o.Source):
-		// Valid charm origin sources
+	case corecharm.CharmHub.Matches(o.Source):
+		// If either the charm origin ID or Hash is set before a charm is
+		// downloaded, charm download will fail for charms with a forced series.
+		// The logic (refreshConfig) in sending the correct request to charmhub
+		// will break.
+		if (o.ID != "" && o.Hash == "") ||
+			(o.ID == "" && o.Hash != "") {
+			return errors.BadRequestf("programming error, both CharmOrigin ID and Hash must be set or neither. See CharmHubRepository GetDownloadURL.")
+		}
+	case corecharm.Local.Matches(o.Source):
 	default:
 		return errors.BadRequestf("%q not a valid charm origin source", o.Source)
 	}
