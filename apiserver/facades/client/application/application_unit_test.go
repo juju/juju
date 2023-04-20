@@ -18,6 +18,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
+	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
 	apitesting "github.com/juju/juju/api/testing"
@@ -189,7 +190,8 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		s.model,
 		s.leadershipReader,
 		func(application.Charm) *state.Charm {
-			return &state.Charm{}
+			//return &state.Charm{}
+			return nil
 		},
 		func(_ application.ApplicationDeployer, _ application.Model, p application.DeployApplicationParams) (application.Application, error) {
 			s.deployParams[p.ApplicationName] = p
@@ -380,8 +382,7 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 	s.backend.EXPECT().Charm(curl).Return(ch, nil)
 
 	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().SetCharm(state.SetCharmConfig{
-		Charm: &state.Charm{},
+	cfg := state.SetCharmConfig{
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
 			Platform: &state.Platform{OS: "ubuntu", Series: "bionic"},
@@ -392,7 +393,8 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 			"c": {Size: 123},
 			"d": {Count: 456},
 		},
-	}).Return(nil)
+	}
+	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg}).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	toUint64Ptr := func(v uint64) *uint64 {
@@ -407,7 +409,7 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 			"c": {Size: toUint64Ptr(123)},
 			"d": {Count: toUint64Ptr(456)},
 		},
-		CharmOrigin: &params.CharmOrigin{Series: "bionic"},
+		CharmOrigin: &params.CharmOrigin{Source: "charm-store", Series: "bionic"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -434,6 +436,52 @@ func (s *ApplicationSuite) TestSetCAASCharmInvalid(c *gc.C) {
 	c.Assert(msg, gc.Matches, "Juju on containers does not support updating deployment info.*")
 }
 
+func (s *ApplicationSuite) TestApplicationSetCharmV12(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	ch := s.expectDefaultCharm(ctrl)
+	curl := charm.MustParseURL("cs:postgresql")
+	s.backend.EXPECT().Charm(curl).Return(ch, nil)
+
+	app := s.expectDefaultApplication(ctrl)
+	cfg := state.SetCharmConfig{
+		CharmOrigin: &state.CharmOrigin{
+			Type:     "charm",
+			Source:   "charm-store",
+			Platform: &state.Platform{OS: "ubuntu", Series: "quantal"},
+		},
+	}
+	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg}).Return(nil)
+	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+	api := &application.APIv12{&application.APIv13{&application.APIv14{s.api}}}
+	err := api.SetCharm(params.ApplicationSetCharmV12{
+		ApplicationName: "postgresql",
+		CharmURL:        "cs:postgresql",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type setCharmConfigMatcher struct {
+	c        *gc.C
+	expected state.SetCharmConfig
+}
+
+func (m setCharmConfigMatcher) Matches(x interface{}) bool {
+	req, ok := x.(state.SetCharmConfig)
+	if !ok {
+		return false
+	}
+	m.c.Logf("req.CharmOrigin %s", pretty.Sprint(req.CharmOrigin))
+	m.c.Logf("m.expected.CharmOrigin %s", pretty.Sprint(m.expected.CharmOrigin))
+	m.c.Check(req, gc.DeepEquals, m.expected)
+	return true
+}
+
+func (setCharmConfigMatcher) String() string {
+	return "matches set charm configrequests"
+}
+
 func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
@@ -443,21 +491,21 @@ func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 	s.backend.EXPECT().Charm(curl).Return(ch, nil)
 
 	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().SetCharm(state.SetCharmConfig{
-		Charm: &state.Charm{},
+	cfg := state.SetCharmConfig{
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
 			Platform: &state.Platform{OS: "ubuntu", Series: "bionic"},
 		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
-	})
+	}
+	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg}).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "cs:postgresql",
 		ConfigSettings:  map[string]string{"stringOption": "value"},
-		CharmOrigin:     &params.CharmOrigin{OS: "ubuntu", Series: "bionic"},
+		CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Series: "bionic"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -503,14 +551,14 @@ func (s *ApplicationSuite) TestSetCharmUpgradeFormat(c *gc.C) {
 	s.backend.EXPECT().Charm(curl).Return(ch, nil)
 
 	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().SetCharm(state.SetCharmConfig{
-		Charm: &state.Charm{},
+	cfg := state.SetCharmConfig{
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-hub",
 			Platform: &state.Platform{OS: "ubuntu", Series: "bionic"},
 		},
 		Series: "focal",
-	}).Return(nil)
+	}
+	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg}).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	attrs := coretesting.FakeConfig().Merge(map[string]interface{}{
@@ -537,20 +585,20 @@ func (s *ApplicationSuite) TestSetCharmConfigSettingsYAML(c *gc.C) {
 	s.backend.EXPECT().Charm(curl).Return(ch, nil)
 
 	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().SetCharm(state.SetCharmConfig{
-		Charm: &state.Charm{},
+	cfg := state.SetCharmConfig{
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
 			Platform: &state.Platform{OS: "ubuntu", Series: "bionic"},
 		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
-	}).Return(nil)
+	}
+	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg}).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "cs:postgresql",
-		CharmOrigin:     &params.CharmOrigin{Series: "bionic"},
+		CharmOrigin:     &params.CharmOrigin{Source: "charm-store", Series: "bionic"},
 		ConfigSettingsYAML: `
 postgresql:
   stringOption: value
@@ -578,14 +626,14 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 	currentCh := s.expectDefaultLxdProfilerCharm(ctrl)
 	app := s.expectApplicationWithCharm(ctrl, currentCh, "postgresql")
 	app.EXPECT().AgentTools().Return(&agentTools, nil)
-	app.EXPECT().SetCharm(state.SetCharmConfig{
-		Charm: &state.Charm{},
+	cfg := state.SetCharmConfig{
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
 			Platform: &state.Platform{OS: "ubuntu", Series: "bionic"},
 		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
-	}).Return(nil)
+	}
+	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg}).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	s.model.EXPECT().AgentVersion().Return(version.Number{Major: 2, Minor: 6, Patch: 0}, nil)
@@ -593,7 +641,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "cs:postgresql",
-		CharmOrigin:     &params.CharmOrigin{Series: "bionic"},
+		CharmOrigin:     &params.CharmOrigin{Source: "charm-store", Series: "bionic"},
 		ConfigSettings:  map[string]string{"stringOption": "value"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -635,14 +683,14 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
 	currentCh := s.expectDefaultLxdProfilerCharm(ctrl)
 	app := s.expectApplicationWithCharm(ctrl, currentCh, "postgresql")
 	app.EXPECT().AgentTools().Return(&agentTools, nil)
-	app.EXPECT().SetCharm(state.SetCharmConfig{
-		Charm: &state.Charm{},
+	cfg := state.SetCharmConfig{
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
 			Platform: &state.Platform{OS: "ubuntu", Series: "bionic"},
 		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
-	}).Return(nil)
+	}
+	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg}).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	s.model.EXPECT().AgentVersion().Return(version.Number{Major: 2, Minor: 6, Patch: 0}, nil)
@@ -651,7 +699,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
 		ApplicationName: "postgresql",
 		CharmURL:        "cs:postgresql",
 		ConfigSettings:  map[string]string{"stringOption": "value"},
-		CharmOrigin:     &params.CharmOrigin{Series: "bionic"},
+		CharmOrigin:     &params.CharmOrigin{Source: "charm-store", Series: "bionic"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
