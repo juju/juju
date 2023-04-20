@@ -1,7 +1,7 @@
 .PHONY: help
 help:
 	@echo "Usage: \n"
-	@sed -n 's/^##//p' ${MAKEFILE_LIST} | sort | column -t -s ':' |  sed -e 's/^/ /'
+	@sed -n 's/^## //p' ${MAKEFILE_LIST} | sort | column -t -s ':' |  sed -e 's/^/ /'
 
 # Export this first, incase we want to change it in the included makefiles.
 export CGO_ENABLED=0
@@ -309,17 +309,16 @@ pebble:
 
 .PHONY: phony_explicit
 phony_explicit:
-## phone_explicit is a dummy target that can be added to pattern targets to
-## them phony make.
+# phone_explicit: is a dummy target that can be added to pattern targets to phony make.
 
 ${BUILD_DIR}/%/bin/juju: PACKAGE = github.com/juju/juju/cmd/juju
 ${BUILD_DIR}/%/bin/juju: phony_explicit
-## build for juju
+# build for juju
 	$(run_go_build)
 
 ${BUILD_DIR}/%/bin/jujuc: PACKAGE = github.com/juju/juju/cmd/jujuc
 ${BUILD_DIR}/%/bin/jujuc: phony_explicit
-## build for jujuc
+# build for jujuc
 	$(run_go_build)
 
 ${BUILD_DIR}/%/bin/jujud: PACKAGE = github.com/juju/juju/cmd/jujud
@@ -354,8 +353,7 @@ simplestreams: juju juju-metadata ${SIMPLESTREAMS_TARGETS}
 
 .PHONY: build
 build: rebuild-schema go-build
-## build builds all the targets specified by BUILD_AGENT_TARGETS and
-## BUILD_CLIENT_TARGETS while also rebuilding a new schema.
+## build: builds all the targets including rebuilding a new schema.
 
 .PHONY: go-agent-build
 go-agent-build: $(BUILD_AGENT_TARGETS) $(BUILD_CGO_AGENT_TARGETS)
@@ -368,8 +366,7 @@ go-client-build: $(BUILD_CLIENT_TARGETS)
 
 .PHONY: go-build
 go-build: go-agent-build go-client-build
-## build builds all the targets specified by BUILD_AGENT_TARGETS and
-## BUILD_CLIENT_TARGETS.
+## build: builds all the targets withouth rebuilding a new schema.
 
 .PHONY: release-build
 release-build: go-agent-build
@@ -572,8 +569,7 @@ image-check-build-skip:
 
 .PHONY: docker-builder
 docker-builder:
-## docker-builder: Makes sure that there is a buildx context for building the
-## oci images
+## docker-builder: Makes sure that there is a buildx context for building the oci images
 	-@docker buildx create --name ${DOCKER_BUILDX_CONTEXT}
 
 .PHONY: image-check
@@ -607,7 +603,7 @@ push-release-operator-image: operator-image
 
 .PHONY: host-install
 host-install:
-## install juju for host os/architecture
+## host-install: installs juju for host os/architecture
 	+GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) make juju
 
 .PHONY: minikube-operator-update
