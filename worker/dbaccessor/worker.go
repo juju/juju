@@ -266,6 +266,13 @@ func (w *dbWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
+// Report provides information for the engine report.
+func (w *dbWorker) Report() map[string]any {
+	// We need to guard against attempting to report when setting up or dying,
+	// so we don't end up panic'ing with missing information.
+	return w.dbRunner.Report()
+}
+
 // GetDB returns a TrackedDB reference for the dqlite-backed
 // database that contains the data for the specified namespace.
 // TODO (stickupkid): Before handing out any DB for any namespace,

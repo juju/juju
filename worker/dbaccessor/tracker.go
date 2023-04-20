@@ -81,6 +81,12 @@ type trackedDBWorker struct {
 	metrics *Collector
 
 	pingDBFunc func(context.Context, *sql.DB) error
+
+	// Metrics for the engine report.
+	pingDuration    time.Duration
+	pingAttempts    uint32
+	maxPingDuration time.Duration
+	dbReplacements  uint32
 }
 
 // NewTrackedDBWorker creates a new TrackedDBWorker
@@ -171,6 +177,19 @@ func (w *trackedDBWorker) Wait() error {
 	return w.tomb.Wait()
 }
 
+// Report provides information for the engine report.
+func (w *trackedDBWorker) Report() map[string]any {
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
+
+	return map[string]any{
+		"ping-duration":     w.pingDuration.String(),
+		"ping-attempts":     w.pingAttempts,
+		"max-ping-duration": w.maxPingDuration.String(),
+		"db-replacements":   w.dbReplacements,
+	}
+}
+
 func (w *trackedDBWorker) loop() error {
 	timer := w.clock.NewTimer(PollInterval)
 	defer timer.Stop()
@@ -212,6 +231,7 @@ func (w *trackedDBWorker) loop() error {
 					w.logger.Errorf("error closing database: %v", err)
 				}
 				w.db = newDB
+				w.dbReplacements++
 				w.err = nil
 				w.mutex.Unlock()
 			}
@@ -247,12 +267,27 @@ func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(db *sql.DB) (*sql.DB, e
 			return nil, errors.NotFoundf("database")
 		}
 
+		// Record the total ping.
+		pingStart := w.clock.Now()
+		var pingAttempts uint32 = 0
 		err := database.Retry(ctx, func() error {
 			if w.logger.IsTraceEnabled() {
 				w.logger.Tracef("pinging database %q", w.namespace)
 			}
+			pingAttempts++
 			return w.pingDBFunc(ctx, db)
 		})
+		pingDur := w.clock.Now().Sub(pingStart)
+
+		// Record the ping attempt and duration.
+		w.mutex.Lock()
+		w.pingAttempts = pingAttempts
+		w.pingDuration = pingDur
+		if pingDur > w.maxPingDuration {
+			w.maxPingDuration = pingDur
+		}
+		w.mutex.Unlock()
+
 		// We were successful at requesting the schema, so we can bail out
 		// early.
 		if err == nil {

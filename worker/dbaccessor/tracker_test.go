@@ -44,6 +44,31 @@ func (s *trackedDBWorkerSuite) TestWorkerStartup(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
+func (s *trackedDBWorkerSuite) TestWorkerReport(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectClock()
+	s.expectTimer(0)
+
+	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
+
+	w, err := NewTrackedDBWorker(s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer workertest.DirtyKill(c, w)
+
+	report := w.(interface{ Report() map[string]any }).Report()
+	c.Assert(report, MapHasKeys, []string{
+		"db-replacements",
+		"max-ping-duration",
+		"ping-attempts",
+		"ping-duration",
+	})
+
+	workertest.CleanKill(c, w)
+}
+
 func (s *trackedDBWorkerSuite) TestWorkerDBIsNotNil(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -396,4 +421,33 @@ func (checker *sliceContainsChecker[T]) Check(params []interface{}, names []stri
 		}
 	}
 	return false, ""
+}
+
+type hasKeysChecker[T comparable] struct {
+	*gc.CheckerInfo
+}
+
+var MapHasKeys gc.Checker = &hasKeysChecker[string]{
+	&gc.CheckerInfo{Name: "hasKeysChecker", Params: []string{"obtained", "expected"}},
+}
+
+func (checker *hasKeysChecker[T]) Check(params []interface{}, names []string) (result bool, error string) {
+	expected, ok := params[1].([]T)
+	if !ok {
+		var t T
+		return false, fmt.Sprintf("expected must be %T", t)
+	}
+
+	obtained, ok := params[0].(map[T]any)
+	if !ok {
+		var t T
+		return false, fmt.Sprintf("Obtained value is not a map[%T]any", t)
+	}
+
+	for _, k := range expected {
+		if _, ok := obtained[k]; !ok {
+			return false, fmt.Sprintf("expected key %v not found", k)
+		}
+	}
+	return true, ""
 }
