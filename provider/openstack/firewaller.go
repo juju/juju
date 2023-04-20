@@ -219,90 +219,6 @@ func deleteSecurityGroup(
 	}
 }
 
-func (c *firewallerBase) openPorts(
-	ctx context.ProviderCallContext,
-	openPortsInGroup func(context.ProviderCallContext, string, firewall.IngressRules) error,
-	rules firewall.IngressRules,
-) error {
-	if c.environ.Config().FirewallMode() != config.FwGlobal {
-		return errors.Errorf("invalid firewall mode %q for opening ports on model",
-			c.environ.Config().FirewallMode())
-	}
-	if err := openPortsInGroup(ctx, c.globalGroupRegexp(), rules); err != nil {
-		return errors.Trace(err)
-	}
-	logger.Infof("opened ports in global group: %v", rules)
-	return nil
-}
-
-func (c *firewallerBase) closePorts(
-	ctx context.ProviderCallContext,
-	closePortsInGroup func(context.ProviderCallContext, string, firewall.IngressRules) error,
-	rules firewall.IngressRules,
-) error {
-	if c.environ.Config().FirewallMode() != config.FwGlobal {
-		return errors.Errorf("invalid firewall mode %q for closing ports on model",
-			c.environ.Config().FirewallMode())
-	}
-	if err := closePortsInGroup(ctx, c.globalGroupRegexp(), rules); err != nil {
-		return errors.Trace(err)
-	}
-	logger.Infof("closed ports in global group: %v", rules)
-	return nil
-}
-
-func (c *firewallerBase) ingressRules(
-	ctx context.ProviderCallContext,
-	ingressRulesInGroup func(context.ProviderCallContext, string) (firewall.IngressRules, error),
-) (firewall.IngressRules, error) {
-	if c.environ.Config().FirewallMode() != config.FwGlobal {
-		return nil, errors.Errorf("invalid firewall mode %q for retrieving ingress rules from model",
-			c.environ.Config().FirewallMode())
-	}
-	return ingressRulesInGroup(ctx, c.globalGroupRegexp())
-}
-
-func (c *firewallerBase) openInstancePorts(
-	ctx context.ProviderCallContext,
-	openPortsInGroup func(context.ProviderCallContext, string, firewall.IngressRules) error,
-	machineID string,
-	rules firewall.IngressRules,
-) error {
-	nameRegexp := c.machineGroupRegexp(machineID)
-	if err := openPortsInGroup(ctx, nameRegexp, rules); err != nil {
-		return errors.Trace(err)
-	}
-	logger.Infof("opened ports in security group %s-%s: %v", c.environ.Config().UUID(), machineID, rules)
-	return nil
-}
-
-func (c *firewallerBase) closeInstancePorts(
-	ctx context.ProviderCallContext,
-	closePortsInGroup func(context.ProviderCallContext, string, firewall.IngressRules) error,
-	machineID string,
-	rules firewall.IngressRules,
-) error {
-	nameRegexp := c.machineGroupRegexp(machineID)
-	if err := closePortsInGroup(ctx, nameRegexp, rules); err != nil {
-		return errors.Trace(err)
-	}
-	logger.Infof("closed ports in security group %s-%s: %v", c.environ.Config().UUID(), machineID, rules)
-	return nil
-}
-
-func (c *firewallerBase) instanceIngressRules(
-	ctx context.ProviderCallContext,
-	ingressRulesInGroup func(context.ProviderCallContext, string) (firewall.IngressRules, error),
-	machineID string,
-) (firewall.IngressRules, error) {
-	nameRegexp := c.machineGroupRegexp(machineID)
-	portRanges, err := ingressRulesInGroup(ctx, nameRegexp)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return portRanges, nil
-}
-
 func (c *firewallerBase) globalGroupName(controllerUUID string) string {
 	return fmt.Sprintf("%s-global", c.jujuGroupName(controllerUUID))
 }
@@ -672,27 +588,39 @@ func (c *neutronFirewaller) updateGroupControllerUUID(group *neutron.SecurityGro
 
 // OpenPorts implements Firewaller interface.
 func (c *neutronFirewaller) OpenPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
-	err := c.openPorts(ctx, c.openPortsInGroup, rules)
-	if err != nil {
+	if c.environ.Config().FirewallMode() != config.FwGlobal {
+		return errors.Errorf("invalid firewall mode %q for opening ports on model",
+			c.environ.Config().FirewallMode())
+	}
+	if err := c.openPortsInGroup(ctx, c.globalGroupRegexp(), rules); err != nil {
 		handleCredentialError(err, ctx)
 		return errors.Trace(err)
 	}
+	logger.Infof("opened ports in global group: %v", rules)
 	return nil
 }
 
 // ClosePorts implements Firewaller interface.
 func (c *neutronFirewaller) ClosePorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
-	err := c.closePorts(ctx, c.closePortsInGroup, rules)
-	if err != nil {
+	if c.environ.Config().FirewallMode() != config.FwGlobal {
+		return errors.Errorf("invalid firewall mode %q for closing ports on model",
+			c.environ.Config().FirewallMode())
+	}
+	if err := c.closePortsInGroup(ctx, c.globalGroupRegexp(), rules); err != nil {
 		handleCredentialError(err, ctx)
 		return errors.Trace(err)
 	}
+	logger.Infof("closed ports in global group: %v", rules)
 	return nil
 }
 
 // IngressRules implements Firewaller interface.
 func (c *neutronFirewaller) IngressRules(ctx context.ProviderCallContext) (firewall.IngressRules, error) {
-	rules, err := c.ingressRules(ctx, c.ingressRulesInGroup)
+	if c.environ.Config().FirewallMode() != config.FwGlobal {
+		return nil, errors.Errorf("invalid firewall mode %q for retrieving ingress rules from model",
+			c.environ.Config().FirewallMode())
+	}
+	rules, err := c.ingressRulesInGroup(ctx, c.globalGroupRegexp())
 	if err != nil {
 		handleCredentialError(err, ctx)
 		return rules, errors.Trace(err)
@@ -713,11 +641,12 @@ func (c *neutronFirewaller) OpenInstancePorts(ctx context.ProviderCallContext, i
 	if securityGroups := inst.(*openstackInstance).getServerDetail().Groups; securityGroups == nil {
 		return nil
 	}
-	err := c.openInstancePorts(ctx, c.openPortsInGroup, machineID, ports)
-	if err != nil {
+	nameRegexp := c.machineGroupRegexp(machineID)
+	if err := c.openPortsInGroup(ctx, nameRegexp, ports); err != nil {
 		handleCredentialError(err, ctx)
 		return errors.Trace(err)
 	}
+	logger.Infof("opened ports in security group %s-%s: %v", c.environ.Config().UUID(), machineID, ports)
 	return nil
 }
 
@@ -734,11 +663,12 @@ func (c *neutronFirewaller) CloseInstancePorts(ctx context.ProviderCallContext, 
 	if securityGroups := inst.(*openstackInstance).getServerDetail().Groups; securityGroups == nil {
 		return nil
 	}
-	err := c.closeInstancePorts(ctx, c.closePortsInGroup, machineID, ports)
-	if err != nil {
+	nameRegexp := c.machineGroupRegexp(machineID)
+	if err := c.closePortsInGroup(ctx, nameRegexp, ports); err != nil {
 		handleCredentialError(err, ctx)
 		return errors.Trace(err)
 	}
+	logger.Infof("closed ports in security group %s-%s: %v", c.environ.Config().UUID(), machineID, ports)
 	return nil
 }
 
@@ -755,7 +685,8 @@ func (c *neutronFirewaller) InstanceIngressRules(ctx context.ProviderCallContext
 	if securityGroups := inst.(*openstackInstance).getServerDetail().Groups; securityGroups == nil {
 		return firewall.IngressRules{}, nil
 	}
-	rules, err := c.instanceIngressRules(ctx, c.ingressRulesInGroup, machineID)
+	nameRegexp := c.machineGroupRegexp(machineID)
+	rules, err := c.ingressRulesInGroup(ctx, nameRegexp)
 	if err != nil {
 		handleCredentialError(err, ctx)
 		return rules, errors.Trace(err)
