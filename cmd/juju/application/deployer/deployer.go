@@ -14,6 +14,7 @@ import (
 	"github.com/juju/charm/v10"
 	charmresource "github.com/juju/charm/v10/resource"
 	jujuclock "github.com/juju/clock"
+	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -775,4 +776,14 @@ func CharmOnlyFlags() []string {
 	}
 
 	return charmOnlyFlags
+}
+
+// checkPodspec checks if the given charm is a podspec charm, and if so, prints
+// a deprecation warning.
+func checkPodspec(cm charm.CharmMeta, ctx *cmd.Context) bool {
+	isPodspec := corecharm.IsKubernetes(cm) && charm.MetaFormat(cm) == charm.FormatV1
+	if isPodspec {
+		ctx.Warningf("deploying podspec charm %q: podspec charms are deprecated. Support for them will be removed soon.", cm.Meta().Name)
+	}
+	return isPodspec
 }
