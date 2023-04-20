@@ -46,8 +46,8 @@ func getSecretBackendsState(m Model) state.SecretBackendsStorage {
 type BackendConfigGetter func() (*provider.ModelBackendConfigInfo, error)
 
 // backendsForModel returns the secret backends is use by the specified model.
-// If no backend is configured, the "internal" backend is used for machine models and
-// a k8s backend with the same namespace is used for k8s models.
+// If external backend is configured, it returns the external backend together with the "internal" backend and
+// the k8s backend for k8s models.
 func backendsForModel(model Model) (configs map[string]provider.BackendConfig, activeID string, _ error) {
 	cfg, err := model.Config()
 	if err != nil {
@@ -55,37 +55,32 @@ func backendsForModel(model Model) (configs map[string]provider.BackendConfig, a
 	}
 	backendName := cfg.SecretBackend()
 
-	var backendType string
-	switch backendName {
-	case provider.Auto:
-		backendType = juju.BackendType
-		if model.Type() == state.ModelTypeCAAS {
-			backendType = kubernetes.BackendType
-		}
-	case provider.Internal:
-		backendType = juju.BackendType
-	}
-
-	configs = make(map[string]provider.BackendConfig)
-	if backendType != "" {
-		if backendType == juju.BackendType {
-			activeID = model.ControllerUUID()
-			configs[activeID] = juju.BuiltInConfig()
-		} else {
-			spec, err := cloudSpecForModel(model)
-			if err != nil {
-				return nil, "", errors.Trace(err)
-			}
-			k8sConfig, err := kubernetes.BuiltInConfig(spec)
-			if err != nil {
-				return nil, "", errors.Trace(err)
-			}
-			activeID = model.UUID()
-			configs[activeID] = *k8sConfig
-		}
-	}
+	// We need to include builtin backends for secret draining and accessing those secrets while drain is in progress.
 	// TODO(secrets) - only use those in use by model
 	// For now, we'll return all backends on the controller.
+	configs = make(map[string]provider.BackendConfig)
+	jujuBackendID := model.ControllerUUID()
+	configs[jujuBackendID] = juju.BuiltInConfig()
+	if backendName == provider.Auto || backendName == provider.Internal {
+		activeID = jujuBackendID
+	}
+
+	if model.Type() == state.ModelTypeCAAS {
+		spec, err := cloudSpecForModel(model)
+		if err != nil {
+			return nil, "", errors.Trace(err)
+		}
+		k8sConfig, err := kubernetes.BuiltInConfig(spec)
+		if err != nil {
+			return nil, "", errors.Trace(err)
+		}
+		k8sBackendID := model.UUID()
+		configs[k8sBackendID] = *k8sConfig
+		if backendName == provider.Auto {
+			activeID = k8sBackendID
+		}
+	}
+
 	backendState := GetSecretBackendsState(model)
 	backends, err := backendState.ListSecretBackends()
 	if err != nil {
@@ -427,4 +422,72 @@ func PingBackend(p provider.SecretBackendProvider, cfg provider.ConfigAttrs) err
 		return errors.Annotate(err, "checking backend")
 	}
 	return b.Ping()
+}
+
+// GetSecretMetadata returns the secrets metadata for the given filter.
+func GetSecretMetadata(
+	authTag names.Tag, secretsState SecretsMetaState, leadershipChecker leadership.Checker,
+	filter func(*secrets.SecretMetadata, *secrets.SecretRevisionMetadata) bool,
+) (params.ListSecretResults, error) {
+	var result params.ListSecretResults
+	listFilter := state.SecretsFilter{
+		// TODO: there is a bug that operator agents can't get any unit owned secrets!
+		// Because the authTag here is the application tag, but not unit tag.
+		OwnerTags: []names.Tag{authTag},
+	}
+	// Unit leaders can also get metadata for secrets owned by the app.
+	// TODO(wallyworld) - temp fix for old podspec charms
+	isLeader, err := IsLeaderUnit(authTag, leadershipChecker)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if isLeader {
+		appOwner := names.NewApplicationTag(AuthTagApp(authTag))
+		listFilter.OwnerTags = append(listFilter.OwnerTags, appOwner)
+	}
+
+	secrets, err := secretsState.ListSecrets(listFilter)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	for _, md := range secrets {
+		secretResult := params.ListSecretResult{
+			URI:              md.URI.String(),
+			Version:          md.Version,
+			OwnerTag:         md.OwnerTag,
+			RotatePolicy:     md.RotatePolicy.String(),
+			NextRotateTime:   md.NextRotateTime,
+			Description:      md.Description,
+			Label:            md.Label,
+			LatestRevision:   md.LatestRevision,
+			LatestExpireTime: md.LatestExpireTime,
+			CreateTime:       md.CreateTime,
+			UpdateTime:       md.UpdateTime,
+		}
+		revs, err := secretsState.ListSecretRevisions(md.URI)
+		if err != nil {
+			return params.ListSecretResults{}, errors.Trace(err)
+		}
+		for _, r := range revs {
+			if filter != nil && !filter(md, r) {
+				continue
+			}
+			var valueRef *params.SecretValueRef
+			if r.ValueRef != nil {
+				valueRef = &params.SecretValueRef{
+					BackendID:  r.ValueRef.BackendID,
+					RevisionID: r.ValueRef.RevisionID,
+				}
+			}
+			secretResult.Revisions = append(secretResult.Revisions, params.SecretRevision{
+				Revision: r.Revision,
+				ValueRef: valueRef,
+			})
+		}
+		if len(secretResult.Revisions) == 0 {
+			continue
+		}
+		result.Results = append(result.Results, secretResult)
+	}
+	return result, nil
 }

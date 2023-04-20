@@ -4,6 +4,8 @@
 package secrets_test
 
 import (
+	"time"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v4"
@@ -16,6 +18,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/leadership"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
 	_ "github.com/juju/juju/secrets/provider/all"
 	"github.com/juju/juju/secrets/provider/juju"
@@ -37,15 +40,127 @@ func (s *secretsSuite) SetUpTest(c *gc.C) {
 	s.JujuOSEnvSuite.SetUpTest(c)
 }
 
+var (
+	jujuBackendID  = coretesting.ControllerTag.Id()
+	k8sBackendID   = coretesting.ModelTag.Id()
+	vaultBackendID = "vault-backend-id"
+
+	jujuBackendConfig = provider.BackendConfig{
+		BackendType: juju.BackendType,
+	}
+	k8sBackendConfig = provider.BackendConfig{
+		BackendType: kubernetes.BackendType,
+		Config: provider.ConfigAttrs{
+			"endpoint":            "http://nowhere",
+			"ca-certs":            []string{"cert-data"},
+			"credential":          `{"auth-type":"access-key","Attributes":{"foo":"bar"}}`,
+			"is-controller-cloud": true,
+		},
+	}
+	vaultBackendConfig = provider.BackendConfig{
+		BackendType: vault.BackendType,
+		Config: provider.ConfigAttrs{
+			"endpoint": "http://vault",
+		},
+	}
+)
+
 func (s *secretsSuite) TestAdminBackendConfigInfoDefaultIAAS(c *gc.C) {
-	s.assertAdminBackendConfigInfoDefault(c, state.ModelTypeIAAS)
+	s.assertAdminBackendConfigInfoDefault(c, state.ModelTypeIAAS, "auto",
+		&provider.ModelBackendConfigInfo{
+			ControllerUUID: coretesting.ControllerTag.Id(),
+			ModelUUID:      coretesting.ModelTag.Id(),
+			ModelName:      "fred",
+			ActiveID:       jujuBackendID,
+			Configs: map[string]provider.BackendConfig{
+				jujuBackendID:  jujuBackendConfig,
+				vaultBackendID: vaultBackendConfig,
+			},
+		},
+	)
 }
 
 func (s *secretsSuite) TestAdminBackendConfigInfoDefaultCAAS(c *gc.C) {
-	s.assertAdminBackendConfigInfoDefault(c, state.ModelTypeCAAS)
+	s.assertAdminBackendConfigInfoDefault(c, state.ModelTypeCAAS, "auto",
+		&provider.ModelBackendConfigInfo{
+			ControllerUUID: coretesting.ControllerTag.Id(),
+			ModelUUID:      coretesting.ModelTag.Id(),
+			ModelName:      "fred",
+			ActiveID:       k8sBackendID,
+			Configs: map[string]provider.BackendConfig{
+				k8sBackendID:   k8sBackendConfig,
+				jujuBackendID:  jujuBackendConfig,
+				vaultBackendID: vaultBackendConfig,
+			},
+		},
+	)
 }
 
-func (s *secretsSuite) assertAdminBackendConfigInfoDefault(c *gc.C, modelType state.ModelType) {
+func (s *secretsSuite) TestAdminBackendConfigInfoInternalIAAS(c *gc.C) {
+	s.assertAdminBackendConfigInfoDefault(c, state.ModelTypeIAAS, "internal",
+		&provider.ModelBackendConfigInfo{
+			ControllerUUID: coretesting.ControllerTag.Id(),
+			ModelUUID:      coretesting.ModelTag.Id(),
+			ModelName:      "fred",
+			ActiveID:       jujuBackendID,
+			Configs: map[string]provider.BackendConfig{
+				jujuBackendID:  jujuBackendConfig,
+				vaultBackendID: vaultBackendConfig,
+			},
+		},
+	)
+}
+
+func (s *secretsSuite) TestAdminBackendConfigInfoInternalCAAS(c *gc.C) {
+	s.assertAdminBackendConfigInfoDefault(c, state.ModelTypeCAAS, "internal",
+		&provider.ModelBackendConfigInfo{
+			ControllerUUID: coretesting.ControllerTag.Id(),
+			ModelUUID:      coretesting.ModelTag.Id(),
+			ModelName:      "fred",
+			ActiveID:       jujuBackendID,
+			Configs: map[string]provider.BackendConfig{
+				k8sBackendID:   k8sBackendConfig,
+				jujuBackendID:  jujuBackendConfig,
+				vaultBackendID: vaultBackendConfig,
+			},
+		},
+	)
+}
+
+func (s *secretsSuite) TestAdminBackendConfigInfoExternalIAAS(c *gc.C) {
+	s.assertAdminBackendConfigInfoDefault(c, state.ModelTypeIAAS, "myvault",
+		&provider.ModelBackendConfigInfo{
+			ControllerUUID: coretesting.ControllerTag.Id(),
+			ModelUUID:      coretesting.ModelTag.Id(),
+			ModelName:      "fred",
+			ActiveID:       vaultBackendID,
+			Configs: map[string]provider.BackendConfig{
+				jujuBackendID:  jujuBackendConfig,
+				vaultBackendID: vaultBackendConfig,
+			},
+		},
+	)
+}
+
+func (s *secretsSuite) TestAdminBackendConfigInfoExternalCAAS(c *gc.C) {
+	s.assertAdminBackendConfigInfoDefault(c, state.ModelTypeCAAS, "myvault",
+		&provider.ModelBackendConfigInfo{
+			ControllerUUID: coretesting.ControllerTag.Id(),
+			ModelUUID:      coretesting.ModelTag.Id(),
+			ModelName:      "fred",
+			ActiveID:       vaultBackendID,
+			Configs: map[string]provider.BackendConfig{
+				k8sBackendID:   k8sBackendConfig,
+				jujuBackendID:  jujuBackendConfig,
+				vaultBackendID: vaultBackendConfig,
+			},
+		},
+	)
+}
+
+func (s *secretsSuite) assertAdminBackendConfigInfoDefault(
+	c *gc.C, modelType state.ModelType, backendName string, expected *provider.ModelBackendConfigInfo,
+) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -56,9 +171,7 @@ func (s *secretsSuite) assertAdminBackendConfigInfoDefault(c *gc.C, modelType st
 	s.PatchValue(&secrets.GetSecretBackendsState, func(secrets.Model) state.SecretBackendsStorage { return backendState })
 	s.PatchValue(&secrets.GetSecretsState, func(secrets.Model) state.SecretsStore { return secretsState })
 
-	cfg := coretesting.CustomModelConfig(c, coretesting.Attrs{
-		"secret-backend": "auto",
-	})
+	cfg := coretesting.CustomModelConfig(c, coretesting.Attrs{"secret-backend": backendName})
 	model.EXPECT().ControllerUUID().Return(coretesting.ControllerTag.Id()).AnyTimes()
 	model.EXPECT().UUID().Return(coretesting.ModelTag.Id()).AnyTimes()
 	model.EXPECT().Name().Return("fred").AnyTimes()
@@ -80,45 +193,17 @@ func (s *secretsSuite) assertAdminBackendConfigInfoDefault(c *gc.C, modelType st
 	}
 
 	backendState.EXPECT().ListSecretBackends().Return([]*coresecrets.SecretBackend{{
-		ID:          "some-id",
+		ID:          vaultBackendID,
 		Name:        "myvault",
 		BackendType: vault.BackendType,
 		Config: map[string]interface{}{
 			"endpoint": "http://vault",
 		},
 	}}, nil)
-	expectedConfigs := map[string]provider.BackendConfig{
-		"some-id": {BackendType: vault.BackendType,
-			Config: map[string]interface{}{
-				"endpoint": "http://vault",
-			},
-		},
-	}
-	var activeID string
-	if modelType == state.ModelTypeIAAS {
-		activeID = coretesting.ControllerTag.Id()
-		expectedConfigs[coretesting.ControllerTag.Id()] = provider.BackendConfig{BackendType: juju.BackendType}
-	} else {
-		activeID = coretesting.ModelTag.Id()
-		expectedConfigs[coretesting.ModelTag.Id()] = provider.BackendConfig{
-			BackendType: kubernetes.BackendType,
-			Config: provider.ConfigAttrs{
-				"endpoint":            "http://nowhere",
-				"ca-certs":            []string{"cert-data"},
-				"credential":          `{"auth-type":"access-key","Attributes":{"foo":"bar"}}`,
-				"is-controller-cloud": true,
-			},
-		}
-	}
+
 	info, err := secrets.AdminBackendConfigInfo(model)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
-		ControllerUUID: coretesting.ControllerTag.Id(),
-		ModelUUID:      coretesting.ModelTag.Id(),
-		ModelName:      "fred",
-		ActiveID:       activeID,
-		Configs:        expectedConfigs,
-	})
+	c.Assert(info, jc.DeepEquals, expected)
 }
 
 func (s *secretsSuite) TestBackendConfigInfoLeaderUnit(c *gc.C) {
@@ -152,6 +237,14 @@ func (s *secretsSuite) TestBackendConfigInfoLeaderUnit(c *gc.C) {
 	modelCfg := coretesting.CustomModelConfig(c, coretesting.Attrs{
 		"secret-backend": "backend-name",
 	})
+	controllerCfg := provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "controller",
+		},
+	}
 	adminCfg := provider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
@@ -165,6 +258,7 @@ func (s *secretsSuite) TestBackendConfigInfoLeaderUnit(c *gc.C) {
 	model.EXPECT().Name().Return("fred").AnyTimes()
 	gomock.InOrder(
 		model.EXPECT().Config().Return(modelCfg, nil),
+		model.EXPECT().Type().Return(state.ModelTypeIAAS),
 		backendState.EXPECT().ListSecretBackends().Return([]*coresecrets.SecretBackend{{
 			ID:          "backend-id",
 			Name:        "backend-name",
@@ -195,8 +289,9 @@ func (s *secretsSuite) TestBackendConfigInfoLeaderUnit(c *gc.C) {
 				Revision: 1,
 				ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "read-rev-1"},
 			}}, nil),
-		p.EXPECT().RestrictedConfig(&adminCfg, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil),
 	)
+	p.EXPECT().RestrictedConfig(&controllerCfg, unitTag, nil, nil).Return(&controllerCfg.BackendConfig, nil)
+	p.EXPECT().RestrictedConfig(&adminCfg, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
 	info, err := secrets.BackendConfigInfo(model, unitTag, leadershipChecker)
 	c.Assert(err, jc.ErrorIsNil)
@@ -208,6 +303,9 @@ func (s *secretsSuite) TestBackendConfigInfoLeaderUnit(c *gc.C) {
 		Configs: map[string]provider.BackendConfig{
 			"backend-id": {
 				BackendType: "some-backend",
+			},
+			coretesting.ControllerTag.Id(): {
+				BackendType: "controller",
 			},
 		},
 	})
@@ -248,6 +346,14 @@ func (s *secretsSuite) TestBackendConfigInfoNonLeaderUnit(c *gc.C) {
 	modelCfg := coretesting.CustomModelConfig(c, coretesting.Attrs{
 		"secret-backend": "backend-name",
 	})
+	controllerCfg := provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "controller",
+		},
+	}
 	adminCfg := provider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
@@ -261,6 +367,7 @@ func (s *secretsSuite) TestBackendConfigInfoNonLeaderUnit(c *gc.C) {
 	model.EXPECT().Name().Return("fred").AnyTimes()
 	gomock.InOrder(
 		model.EXPECT().Config().Return(modelCfg, nil),
+		model.EXPECT().Type().Return(state.ModelTypeIAAS),
 		backendState.EXPECT().ListSecretBackends().Return([]*coresecrets.SecretBackend{{
 			ID:          "backend-id",
 			Name:        "backend-name",
@@ -303,8 +410,9 @@ func (s *secretsSuite) TestBackendConfigInfoNonLeaderUnit(c *gc.C) {
 				Revision: 3,
 				ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "app-owned-rev-3"},
 			}}, nil),
-		p.EXPECT().RestrictedConfig(&adminCfg, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil),
 	)
+	p.EXPECT().RestrictedConfig(&controllerCfg, unitTag, nil, nil).Return(&controllerCfg.BackendConfig, nil)
+	p.EXPECT().RestrictedConfig(&adminCfg, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
 	info, err := secrets.BackendConfigInfo(model, unitTag, leadershipChecker)
 	c.Assert(err, jc.ErrorIsNil)
@@ -316,6 +424,9 @@ func (s *secretsSuite) TestBackendConfigInfoNonLeaderUnit(c *gc.C) {
 		Configs: map[string]provider.BackendConfig{
 			"backend-id": {
 				BackendType: "some-backend",
+			},
+			coretesting.ControllerTag.Id(): {
+				BackendType: "controller",
 			},
 		},
 	})
@@ -351,6 +462,14 @@ func (s *secretsSuite) TestBackendConfigInfoAppTagLogin(c *gc.C) {
 	modelCfg := coretesting.CustomModelConfig(c, coretesting.Attrs{
 		"secret-backend": "backend-name",
 	})
+	controllerCfg := provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "controller",
+		},
+	}
 	adminCfg := provider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
@@ -364,6 +483,7 @@ func (s *secretsSuite) TestBackendConfigInfoAppTagLogin(c *gc.C) {
 	model.EXPECT().Name().Return("fred").AnyTimes()
 	gomock.InOrder(
 		model.EXPECT().Config().Return(modelCfg, nil),
+		model.EXPECT().Type().Return(state.ModelTypeIAAS),
 		backendState.EXPECT().ListSecretBackends().Return([]*coresecrets.SecretBackend{{
 			ID:          "backend-id",
 			Name:        "backend-name",
@@ -390,8 +510,9 @@ func (s *secretsSuite) TestBackendConfigInfoAppTagLogin(c *gc.C) {
 				Revision: 1,
 				ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "read-rev-1"},
 			}}, nil),
-		p.EXPECT().RestrictedConfig(&adminCfg, appTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil),
 	)
+	p.EXPECT().RestrictedConfig(&controllerCfg, appTag, nil, nil).Return(&controllerCfg.BackendConfig, nil)
+	p.EXPECT().RestrictedConfig(&adminCfg, appTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
 	info, err := secrets.BackendConfigInfo(model, appTag, leadershipChecker)
 	c.Assert(err, jc.ErrorIsNil)
@@ -403,6 +524,9 @@ func (s *secretsSuite) TestBackendConfigInfoAppTagLogin(c *gc.C) {
 		Configs: map[string]provider.BackendConfig{
 			"backend-id": {
 				BackendType: "some-backend",
+			},
+			coretesting.ControllerTag.Id(): {
+				BackendType: "controller",
 			},
 		},
 	})
@@ -431,6 +555,7 @@ func (s *secretsSuite) TestBackendConfigInfoFailedInvalidAuthTag(c *gc.C) {
 	model.EXPECT().Name().Return("fred").AnyTimes()
 	gomock.InOrder(
 		model.EXPECT().Config().Return(cfg, nil),
+		model.EXPECT().Type().Return(state.ModelTypeIAAS),
 		backendState.EXPECT().ListSecretBackends().Return([]*coresecrets.SecretBackend{{
 			ID:          "some-id",
 			Name:        "myvault",
@@ -444,4 +569,66 @@ func (s *secretsSuite) TestBackendConfigInfoFailedInvalidAuthTag(c *gc.C) {
 
 	_, err := secrets.BackendConfigInfo(model, badTag, leadershipChecker)
 	c.Assert(err, gc.ErrorMatches, `login as "user-foo" not supported`)
+}
+
+func (s *secretsSuite) TestGetSecretMetadata(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	leadershipChecker := mocks.NewMockChecker(ctrl)
+	token := mocks.NewMockToken(ctrl)
+	secretsMetaState := mocks.NewMockSecretsMetaState(ctrl)
+
+	leadershipChecker.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(token)
+	token.EXPECT().Check().Return(nil)
+
+	now := time.Now()
+	uri := coresecrets.NewURI()
+	authTag := names.NewUnitTag("mariadb/0")
+	secretsMetaState.EXPECT().ListSecrets(
+		state.SecretsFilter{
+			OwnerTags: []names.Tag{names.NewUnitTag("mariadb/0"), names.NewApplicationTag("mariadb")},
+		}).Return([]*coresecrets.SecretMetadata{{
+		URI:              uri,
+		OwnerTag:         "application-mariadb",
+		Description:      "description",
+		Label:            "label",
+		RotatePolicy:     coresecrets.RotateHourly,
+		LatestRevision:   666,
+		LatestExpireTime: &now,
+		NextRotateTime:   &now,
+	}}, nil)
+	secretsMetaState.EXPECT().ListSecretRevisions(uri).Return([]*coresecrets.SecretRevisionMetadata{{
+		Revision: 666,
+		ValueRef: &coresecrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "rev-id",
+		},
+	}, {
+		Revision: 667,
+	}}, nil)
+
+	results, err := secrets.GetSecretMetadata(authTag, secretsMetaState, leadershipChecker, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ListSecretResults{
+		Results: []params.ListSecretResult{{
+			URI:              uri.String(),
+			OwnerTag:         "application-mariadb",
+			Description:      "description",
+			Label:            "label",
+			RotatePolicy:     coresecrets.RotateHourly.String(),
+			LatestRevision:   666,
+			LatestExpireTime: &now,
+			NextRotateTime:   &now,
+			Revisions: []params.SecretRevision{{
+				Revision: 666,
+				ValueRef: &params.SecretValueRef{
+					BackendID:  "backend-id",
+					RevisionID: "rev-id",
+				},
+			}, {
+				Revision: 667,
+			}},
+		}},
+	})
 }

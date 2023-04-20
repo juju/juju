@@ -1138,34 +1138,35 @@ func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
 			c.Assert(objType, gc.Equals, "SecretsManager")
 			c.Assert(version, gc.Equals, 0)
 			c.Assert(id, gc.Equals, "")
-			c.Assert(request, gc.Equals, "GetSecretBackendConfig")
-			c.Assert(arg, gc.IsNil)
-			c.Assert(result, gc.FitsTypeOf, &params.SecretBackendConfigResults{})
-			*(result.(*params.SecretBackendConfigResults)) = params.SecretBackendConfigResults{
-				ActiveID: coretesting.ControllerTag.Id(),
-				Configs: map[string]params.SecretBackendConfig{
-					coretesting.ControllerTag.Id(): {BackendType: juju.BackendType},
-				},
+			c.Assert(request, gc.Equals, "GetSecretContentInfo")
+			c.Assert(arg, gc.DeepEquals, params.GetSecretContentArgs{
+				Args: []params.GetSecretContentArg{{
+					URI:     uri.String(),
+					Label:   "label",
+					Refresh: true,
+					Peek:    true,
+				}},
+			})
+			c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
+			*(result.(*params.SecretContentResults)) = params.SecretContentResults{
+				[]params.SecretContentResult{{
+					Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
+				}},
 			}
 			return nil
 		}
+
 		c.Assert(objType, gc.Equals, "SecretsManager")
 		c.Assert(version, gc.Equals, 0)
 		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "GetSecretContentInfo")
-		c.Assert(arg, gc.DeepEquals, params.GetSecretContentArgs{
-			Args: []params.GetSecretContentArg{{
-				URI:     uri.String(),
-				Label:   "label",
-				Refresh: true,
-				Peek:    true,
-			}},
-		})
-		c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
-		*(result.(*params.SecretContentResults)) = params.SecretContentResults{
-			[]params.SecretContentResult{{
-				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
-			}},
+		c.Assert(request, gc.Equals, "GetSecretBackendConfig")
+		c.Assert(arg, gc.IsNil)
+		c.Assert(result, gc.FitsTypeOf, &params.SecretBackendConfigResults{})
+		*(result.(*params.SecretBackendConfigResults)) = params.SecretBackendConfigResults{
+			ActiveID: coretesting.ControllerTag.Id(),
+			Configs: map[string]params.SecretBackendConfig{
+				coretesting.ControllerTag.Id(): {BackendType: juju.BackendType},
+			},
 		}
 		return nil
 	})
@@ -1224,32 +1225,32 @@ func (s *mockHookContextSuite) assertSecretGetOwnedSecretURILookup(
 			c.Assert(objType, gc.Equals, "SecretsManager")
 			c.Assert(version, gc.Equals, 0)
 			c.Assert(id, gc.Equals, "")
-			c.Assert(request, gc.Equals, "GetSecretBackendConfig")
-			c.Assert(arg, gc.IsNil)
-			*(result.(*params.SecretBackendConfigResults)) = params.SecretBackendConfigResults{
-				ActiveID: coretesting.ControllerTag.Id(),
-				Configs: map[string]params.SecretBackendConfig{
-					coretesting.ControllerTag.Id(): {BackendType: juju.BackendType},
-				},
+			c.Assert(request, gc.Equals, "GetSecretContentInfo")
+			c.Assert(arg, gc.DeepEquals, params.GetSecretContentArgs{
+				Args: []params.GetSecretContentArg{{
+					URI:     uri.String(),
+					Refresh: false,
+					Peek:    false,
+				}},
+			})
+			c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
+			*(result.(*params.SecretContentResults)) = params.SecretContentResults{
+				[]params.SecretContentResult{{
+					Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
+				}},
 			}
 			return nil
 		}
 		c.Assert(objType, gc.Equals, "SecretsManager")
 		c.Assert(version, gc.Equals, 0)
 		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "GetSecretContentInfo")
-		c.Assert(arg, gc.DeepEquals, params.GetSecretContentArgs{
-			Args: []params.GetSecretContentArg{{
-				URI:     uri.String(),
-				Refresh: false,
-				Peek:    false,
-			}},
-		})
-		c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
-		*(result.(*params.SecretContentResults)) = params.SecretContentResults{
-			[]params.SecretContentResult{{
-				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
-			}},
+		c.Assert(request, gc.Equals, "GetSecretBackendConfig")
+		c.Assert(arg, gc.IsNil)
+		*(result.(*params.SecretBackendConfigResults)) = params.SecretBackendConfigResults{
+			ActiveID: coretesting.ControllerTag.Id(),
+			Configs: map[string]params.SecretBackendConfig{
+				coretesting.ControllerTag.Id(): {BackendType: juju.BackendType},
+			},
 		}
 		return nil
 	})

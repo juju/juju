@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/juju/worker/retrystrategy"
+	"github.com/juju/juju/worker/secretdrainworker"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgrader"
 )
@@ -276,6 +277,15 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			Logger:        config.LoggingContext.GetLogger("juju.worker.upgrader"),
 			Clock:         config.Clock,
 		}),
+
+		// The secretDrainWorker is the worker that drains secrets from the inactive backend to the current active backend.
+		secretDrainWorker: ifNotMigrating(secretdrainworker.Manifold(secretdrainworker.ManifoldConfig{
+			APICallerName:         apiCallerName,
+			Logger:                loggo.GetLogger("juju.worker.secretdrainworker"),
+			NewSecretsDrainFacade: secretdrainworker.NewSecretsDrainFacade,
+			NewWorker:             secretdrainworker.NewWorker,
+			NewBackendsClient:     secretdrainworker.NewBackendsClient,
+		})),
 	}
 }
 
@@ -309,4 +319,6 @@ const (
 	meterStatusName   = "meter-status"
 	metricCollectName = "metric-collect"
 	metricSenderName  = "metric-sender"
+
+	secretDrainWorker = "secret-drain-worker"
 )

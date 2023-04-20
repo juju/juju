@@ -108,6 +108,7 @@ var facadeVersions = map[string]int{
 	"SecretBackendsRotateWatcher":  1,
 	"Secrets":                      1,
 	"SecretsManager":               1,
+	"SecretsDrain":                 1,
 	"Singular":                     2,
 	"Spaces":                       6,
 	"SSHClient":                    4,
