@@ -26,7 +26,7 @@ type dummySecretsAccessor struct {
 	remotestate.SecretsClient
 }
 
-func (a *dummySecretsAccessor) SecretMetadata(filter secrets.Filter) ([]secrets.SecretOwnerMetadata, error) {
+func (a *dummySecretsAccessor) SecretMetadata() ([]secrets.SecretOwnerMetadata, error) {
 	return nil, nil
 }
 

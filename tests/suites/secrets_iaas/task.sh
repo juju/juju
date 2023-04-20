@@ -17,5 +17,7 @@ test_secrets_iaas() {
 	test_secrets_juju
 	test_secrets_cmr
 
+	# Takes too long to tear down, so forcibly destroy it
+	export KILL_CONTROLLER=true
 	destroy_controller "test-secrets-iaas"
 }

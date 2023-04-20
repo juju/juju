@@ -64,7 +64,3 @@ func NewTestAPI(
 		modelUUID:           coretesting.ModelTag.Id(),
 	}, nil
 }
-
-func (s *SecretsManagerAPI) CanManage(uri *coresecrets.URI) (leadership.Token, error) {
-	return s.canManage(uri)
-}
