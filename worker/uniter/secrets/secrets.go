@@ -19,7 +19,7 @@ import (
 // SecretsClient is used by the secrets tracker to access the Juju model.
 type SecretsClient interface {
 	remotestate.SecretsClient
-	SecretMetadata(filter coresecrets.Filter) ([]coresecrets.SecretOwnerMetadata, error)
+	SecretMetadata() ([]coresecrets.SecretOwnerMetadata, error)
 }
 
 // Secrets generates storage hooks in response to changes to
@@ -83,10 +83,7 @@ func (s *Secrets) init() error {
 			s.secretsState.ConsumedSecretInfo = updated
 		}
 	}
-	owner := s.unitTag.String()
-	metadata, err := s.client.SecretMetadata(coresecrets.Filter{
-		OwnerTag: &owner,
-	})
+	metadata, err := s.client.SecretMetadata()
 	if err != nil {
 		return errors.Annotate(err, "reading secret metadata")
 	}

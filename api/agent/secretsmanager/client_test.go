@@ -341,7 +341,7 @@ func (s *SecretsSuite) TestGetRevisionContentInfoError(c *gc.C) {
 	c.Assert(backendConfig, gc.IsNil)
 }
 
-func (s *SecretsSuite) TestGetSecretMetadata(c *gc.C) {
+func (s *SecretsSuite) TestSecretMetadata(c *gc.C) {
 	uri := coresecrets.NewURI()
 	now := time.Now()
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -349,9 +349,7 @@ func (s *SecretsSuite) TestGetSecretMetadata(c *gc.C) {
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "GetSecretMetadata")
-		c.Check(arg, jc.DeepEquals, params.ListSecretsArgs{
-			Filter: params.SecretsFilter{OwnerTag: ptr("application-mariadb")},
-		})
+		c.Check(arg, gc.IsNil)
 		c.Assert(result, gc.FitsTypeOf, &params.ListSecretResults{})
 		*(result.(*params.ListSecretResults)) = params.ListSecretResults{
 			Results: []params.ListSecretResult{{
@@ -375,9 +373,7 @@ func (s *SecretsSuite) TestGetSecretMetadata(c *gc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	result, err := client.SecretMetadata(coresecrets.Filter{
-		OwnerTag: ptr("application-mariadb"),
-	})
+	result, err := client.SecretMetadata()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	for _, info := range result {

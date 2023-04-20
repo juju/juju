@@ -156,7 +156,7 @@ func (s SecretsContextAccessor) CreateSecretURIs(int) ([]*secrets.URI, error) {
 	}}, nil
 }
 
-func (s SecretsContextAccessor) SecretMetadata(filter secrets.Filter) ([]secrets.SecretOwnerMetadata, error) {
+func (s SecretsContextAccessor) SecretMetadata() ([]secrets.SecretOwnerMetadata, error) {
 	uri, _ := secrets.ParseURI("secret:9m4e2mr0ui3e8a215n4g")
 	return []secrets.SecretOwnerMetadata{{
 		Metadata: secrets.SecretMetadata{

@@ -7,8 +7,10 @@ run_secrets() {
 	wait_for "active" '.applications["hello"] | ."application-status".current'
 	wait_for "hello" "$(idle_condition "hello" 0)"
 
-	secret_owned_by_hello_0=$(juju exec --unit hello/0 -- secret-add --owner unit owned-by=hello/0 | cut -d: -f2)
-	secret_owned_by_hello=$(juju exec --unit hello/0 -- secret-add owned-by=hello-app | cut -d: -f2)
+	secret_owned_by_hello_0=$(juju exec --unit hello/0 -- secret-add --owner unit owned-by=hello/0)
+	secret_owned_by_hello_0_id=$(echo $secret_owned_by_hello_0 | awk '{n=split($0,a,"/"); print a[n]}')
+	secret_owned_by_hello=$(juju exec --unit hello/0 -- secret-add owned-by=hello-app)
+	secret_owned_by_hello_id=$(echo $secret_owned_by_hello | awk '{n=split($0,a,"/"); print a[n]}')
 
 	juju exec --unit hello/0 -- secret-ids | grep "$secret_owned_by_hello"
 	juju exec --unit hello/0 -- secret-ids | grep "$secret_owned_by_hello_0"
@@ -23,15 +25,15 @@ run_secrets() {
 	juju exec --unit hello/0 -- secret-get "$secret_owned_by_hello" | grep 'owned-by: hello-app'
 
 	# secret-get by URI - metadata.
-	juju exec --unit hello/0 -- secret-info-get "$secret_owned_by_hello_0" --format json | jq ".${secret_owned_by_hello_0}.owner" | grep unit
-	juju exec --unit hello/0 -- secret-info-get "$secret_owned_by_hello" --format json | jq ".${secret_owned_by_hello}.owner" | grep application
+	juju exec --unit hello/0 -- secret-info-get "$secret_owned_by_hello_0" --format json | jq ".${secret_owned_by_hello_0_id}.owner" | grep unit
+	juju exec --unit hello/0 -- secret-info-get "$secret_owned_by_hello" --format json | jq ".${secret_owned_by_hello_id}.owner" | grep application
 
 	# secret-get by label or consumer label - content.
 	juju exec --unit hello/0 -- secret-get --label=hello_0 | grep 'owned-by: hello/0'
 	juju exec --unit hello/0 -- secret-get --label=hello-app | grep 'owned-by: hello-app'
 
 	# secret-get by label - metadata.
-	juju exec --unit hello/0 -- secret-info-get --label=hello_0 --format json | jq ".${secret_owned_by_hello_0}.label" | grep hello_0
+	juju exec --unit hello/0 -- secret-info-get --label=hello_0 --format json | jq ".${secret_owned_by_hello_0_id}.label" | grep hello_0
 
 	juju --show-log deploy nginx-ingress-integrator nginx
 	juju --show-log integrate nginx hello

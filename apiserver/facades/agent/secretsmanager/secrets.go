@@ -63,6 +63,14 @@ type SecretsManagerAPIV1 struct {
 	*SecretsManagerAPI
 }
 
+func (s *SecretsManagerAPI) canRead(uri *coresecrets.URI, entity names.Tag) bool {
+	return commonsecrets.CanRead(s.secretsConsumer, s.authTag, uri, entity)
+}
+
+func (s *SecretsManagerAPI) canManage(uri *coresecrets.URI) (leadership.Token, error) {
+	return commonsecrets.CanManage(s.secretsConsumer, s.leadershipChecker, s.authTag, uri)
+}
+
 // GetSecretStoreConfig is for 3.0.x agents.
 // TODO - drop when we no longer support juju 3.0.x
 func (s *SecretsManagerAPIV1) GetSecretStoreConfig() (params.SecretBackendConfig, error) {
@@ -203,7 +211,7 @@ func (s *SecretsManagerAPI) createSecret(arg params.CreateSecretArg) (string, er
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	token, err := s.ownerToken(secretOwner)
+	token, err := commonsecrets.OwnerToken(s.authTag, secretOwner, s.leadershipChecker)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -425,59 +433,7 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(consumerTag names.Tag, uriStr 
 
 // GetSecretMetadata returns metadata for the caller's secrets.
 func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretResults, error) {
-	var result params.ListSecretResults
-	filter := state.SecretsFilter{
-		OwnerTags: []names.Tag{s.authTag},
-	}
-	// Unit leaders can also get metadata for secrets owned by the app.
-	// TODO(wallyworld) - temp fix for old podspec charms
-	isLeader, err := s.isLeaderUnit()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if isLeader {
-		appOwner := names.NewApplicationTag(authTagApp(s.authTag))
-		filter.OwnerTags = append(filter.OwnerTags, appOwner)
-	}
-
-	secrets, err := s.secretsState.ListSecrets(filter)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	result.Results = make([]params.ListSecretResult, len(secrets))
-	for i, md := range secrets {
-		result.Results[i] = params.ListSecretResult{
-			URI:              md.URI.String(),
-			Version:          md.Version,
-			OwnerTag:         md.OwnerTag,
-			RotatePolicy:     md.RotatePolicy.String(),
-			NextRotateTime:   md.NextRotateTime,
-			Description:      md.Description,
-			Label:            md.Label,
-			LatestRevision:   md.LatestRevision,
-			LatestExpireTime: md.LatestExpireTime,
-			CreateTime:       md.CreateTime,
-			UpdateTime:       md.UpdateTime,
-		}
-		revs, err := s.secretsState.ListSecretRevisions(md.URI)
-		if err != nil {
-			return params.ListSecretResults{}, errors.Trace(err)
-		}
-		for _, r := range revs {
-			var valueRef *params.SecretValueRef
-			if r.ValueRef != nil {
-				valueRef = &params.SecretValueRef{
-					BackendID:  r.ValueRef.BackendID,
-					RevisionID: r.ValueRef.RevisionID,
-				}
-			}
-			result.Results[i].Revisions = append(result.Results[i].Revisions, params.SecretRevision{
-				Revision: r.Revision,
-				ValueRef: valueRef,
-			})
-		}
-	}
-	return result, nil
+	return commonsecrets.GetSecretMetadata(s.authTag, s.secretsState, s.leadershipChecker, nil)
 }
 
 // GetSecretContentInfo returns the secret values for the specified secrets.
@@ -638,17 +594,6 @@ func (s *SecretsManagerAPI) GetSecretRevisionContentInfo(arg params.SecretRevisi
 	return result, nil
 }
 
-func (s *SecretsManagerAPI) isLeaderUnit() (bool, error) {
-	if s.authTag.Kind() != names.UnitTagKind {
-		return false, nil
-	}
-	_, err := s.leadershipToken()
-	if err != nil && !leadership.IsNotLeaderError(err) {
-		return false, errors.Trace(err)
-	}
-	return err == nil, nil
-}
-
 // For the application owned secret, if the caller is a peer unit, we create a fake consumer doc for triggering events to notify the uniters.
 // The peer units should get the secret using owner label but should not set a consumer label.
 func (s *SecretsManagerAPI) ensureConsumerMetadataForAppOwnedSecretsForPeerUnits(md *coresecrets.SecretMetadata) (*coresecrets.SecretMetadata, error) {
@@ -686,7 +631,7 @@ func (s *SecretsManagerAPI) getAppOwnedOrUnitOwnedSecretMetadata(uri *coresecret
 	}
 	if s.authTag.Kind() == names.UnitTagKind {
 		// Units can access application owned secrets.
-		appOwner := names.NewApplicationTag(authTagApp(s.authTag))
+		appOwner := names.NewApplicationTag(commonsecrets.AuthTagApp(s.authTag))
 		filter.OwnerTags = append(filter.OwnerTags, appOwner)
 	}
 	mds, err := s.secretsState.ListSecrets(filter)
@@ -837,7 +782,7 @@ func (s *SecretsManagerAPI) WatchConsumedSecretsChanges(args params.Entities) (p
 		if err != nil {
 			return "", nil, errors.Trace(err)
 		}
-		if !s.isSameApplication(tag) {
+		if !commonsecrets.IsSameApplication(s.authTag, tag) {
 			return "", nil, apiservererrors.ErrPerm
 		}
 		w, err := s.secretsConsumer.WatchConsumedSecretsChanges(tag)
@@ -878,13 +823,13 @@ func (s *SecretsManagerAPI) WatchObsolete(args params.Entities) (params.StringsW
 		if err != nil {
 			return result, errors.Trace(err)
 		}
-		if !s.isSameApplication(ownerTag) {
+		if !commonsecrets.IsSameApplication(s.authTag, ownerTag) {
 			return result, apiservererrors.ErrPerm
 		}
 		// Only unit leaders can watch application secrets.
 		// TODO(wallyworld) - temp fix for old podspec charms
 		if ownerTag.Kind() == names.ApplicationTagKind && s.authTag.Kind() != names.ApplicationTagKind {
-			_, err := s.leadershipToken()
+			_, err := commonsecrets.LeadershipToken(s.authTag, s.leadershipChecker)
 			if err != nil {
 				return result, errors.Trace(err)
 			}
@@ -914,13 +859,13 @@ func (s *SecretsManagerAPI) WatchSecretsRotationChanges(args params.Entities) (p
 		if err != nil {
 			return result, errors.Trace(err)
 		}
-		if !s.isSameApplication(ownerTag) {
+		if !commonsecrets.IsSameApplication(s.authTag, ownerTag) {
 			return result, apiservererrors.ErrPerm
 		}
 		// Only unit leaders can watch application secrets.
 		// TODO(wallyworld) - temp fix for old podspec charms
 		if ownerTag.Kind() == names.ApplicationTagKind && s.authTag.Kind() != names.ApplicationTagKind {
-			_, err := s.leadershipToken()
+			_, err := commonsecrets.LeadershipToken(s.authTag, s.leadershipChecker)
 			if err != nil {
 				return result, errors.Trace(err)
 			}
@@ -966,7 +911,7 @@ func (s *SecretsManagerAPI) SecretsRotated(args params.SecretRotatedArgs) (param
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if authTagApp(s.authTag) != owner.Id() {
+		if commonsecrets.AuthTagApp(s.authTag) != owner.Id() {
 			return apiservererrors.ErrPerm
 		}
 		if !md.RotatePolicy.WillRotate() {
@@ -1010,13 +955,13 @@ func (s *SecretsManagerAPI) WatchSecretRevisionsExpiryChanges(args params.Entiti
 		if err != nil {
 			return result, errors.Trace(err)
 		}
-		if !s.isSameApplication(ownerTag) {
+		if !commonsecrets.IsSameApplication(s.authTag, ownerTag) {
 			return result, apiservererrors.ErrPerm
 		}
 		// Only unit leaders can watch application secrets.
 		// TODO(wallyworld) - temp fix for old podspec charms
 		if ownerTag.Kind() == names.ApplicationTagKind && s.authTag.Kind() != names.ApplicationTagKind {
-			_, err := s.leadershipToken()
+			_, err := commonsecrets.LeadershipToken(s.authTag, s.leadershipChecker)
 			if err != nil {
 				return result, errors.Trace(err)
 			}

@@ -7,10 +7,13 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/secrets/provider"
 )
+
+var logger = loggo.GetLogger("juju.secrets")
 
 // PermissionDenied is returned when an api fails due to a permission issue.
 const PermissionDenied = errors.ConstError("permission denied")
@@ -44,7 +47,8 @@ func NewClient(jujuAPI JujuAPIClient) (*secretsClient, error) {
 	return c, nil
 }
 
-func (c *secretsClient) getBackend(backendID *string) (provider.SecretsBackend, string, error) {
+// GetBackend returns the secrets backend for the specified ID and the model's current active backend ID.
+func (c *secretsClient) GetBackend(backendID *string) (provider.SecretsBackend, string, error) {
 	info, err := c.jujuAPI.GetSecretBackendConfig(backendID)
 	if err != nil {
 		return nil, "", errors.Trace(err)
@@ -94,9 +98,30 @@ func (c *secretsClient) GetContent(uri *secrets.URI, label string, refresh, peek
 	}
 }
 
+// GetRevisionContent implements Client.
+func (c *secretsClient) GetRevisionContent(uri *secrets.URI, revision int) (secrets.SecretValue, error) {
+	content, _, _, err := c.jujuAPI.GetRevisionContentInfo(uri, revision, false)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err = content.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if content.ValueRef == nil {
+		return content.SecretValue, nil
+	}
+
+	backendID := content.ValueRef.BackendID
+	backend, _, err := c.GetBackend(&backendID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return backend.GetContent(context.TODO(), content.ValueRef.RevisionID)
+}
+
 // SaveContent implements Client.
 func (c *secretsClient) SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (secrets.ValueRef, error) {
-	activeBackend, activeBackendID, err := c.getBackend(nil)
+	activeBackend, activeBackendID, err := c.GetBackend(nil)
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
 			return secrets.ValueRef{}, errors.NotSupportedf("saving secret content to external backend")
@@ -148,7 +173,7 @@ func (c *secretsClient) DeleteContent(uri *secrets.URI, revision int) error {
 
 // DeleteExternalContent implements Client.
 func (c *secretsClient) DeleteExternalContent(ref secrets.ValueRef) error {
-	backend, _, err := c.getBackend(&ref.BackendID)
+	backend, _, err := c.GetBackend(&ref.BackendID)
 	if err != nil {
 		return errors.Trace(err)
 	}
