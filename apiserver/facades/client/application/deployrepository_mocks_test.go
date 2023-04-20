@@ -158,6 +158,21 @@ func (mr *MockDeployFromRepositoryStateMockRecorder) AllSpaceInfos() *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSpaceInfos", reflect.TypeOf((*MockDeployFromRepositoryState)(nil).AllSpaceInfos))
 }
 
+// Charm mocks base method.
+func (m *MockDeployFromRepositoryState) Charm(arg0 *v10.URL) (Charm, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Charm", arg0)
+	ret0, _ := ret[0].(Charm)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Charm indicates an expected call of Charm.
+func (mr *MockDeployFromRepositoryStateMockRecorder) Charm(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Charm", reflect.TypeOf((*MockDeployFromRepositoryState)(nil).Charm), arg0)
+}
+
 // ControllerConfig mocks base method.
 func (m *MockDeployFromRepositoryState) ControllerConfig() (controller.Config, error) {
 	m.ctrl.T.Helper()

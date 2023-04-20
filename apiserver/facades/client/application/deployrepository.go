@@ -55,6 +55,7 @@ type DeployFromRepositoryState interface {
 	AddPendingResource(string, resource.Resource) (string, error)
 	RemovePendingResources(applicationID string, pendingIDs map[string]string) error
 	AddCharmMetadata(info state.CharmInfo) (Charm, error)
+	Charm(*charm.URL) (Charm, error)
 	ControllerConfig() (controller.Config, error)
 	Machine(string) (Machine, error)
 	ModelConstraints() (constraints.Value, error)
@@ -147,7 +148,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 			// Remove the pending resources that are added before the AddApplication is called
 			removeResourcesErr := api.state.RemovePendingResources(dt.applicationName, pendingIDs)
 			if removeResourcesErr != nil {
-				logger.Errorf("unable to remove pending resources for %q", dt.applicationName)
+				deployRepoLogger.Errorf("unable to remove pending resources for %q", dt.applicationName)
 			}
 		}
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
@@ -354,7 +355,6 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 		// validation if we cannot find the charm.
 		return deployTemplate{}, errs
 	}
-	deployRepoLogger.Tracef("from getCharm: %s", charmURL, pretty.Sprint(resolvedOrigin))
 
 	// Various checks of the resolved charm against the arg provided.
 	dt, rcErrs := v.resolvedCharmValidation(resolvedCharm, arg)
@@ -384,7 +384,9 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 	dt.pendingResourceUploads = pendingResourceUploads
 	dt.resolvedResources = resources
 
-	deployRepoLogger.Tracef("validateDeployFromRepositoryArgs returning: %s", pretty.Sprint(dt))
+	if deployRepoLogger.IsTraceEnabled() {
+		deployRepoLogger.Tracef("validateDeployFromRepositoryArgs returning: %s", pretty.Sprint(dt))
+	}
 	return dt, errs
 }
 
@@ -787,7 +789,7 @@ func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedO
 func (v *deployFromRepositoryValidator) getCharm(arg params.DeployFromRepositoryArg) (*charm.URL, corecharm.Origin, charm.Charm, error) {
 	initialCurl, requestedOrigin, usedModelDefaultBase, err := v.createOrigin(arg)
 	if err != nil {
-		return nil, corecharm.Origin{}, nil, err
+		return nil, corecharm.Origin{}, nil, errors.Trace(err)
 	}
 	deployRepoLogger.Tracef("from createOrigin: %s, %s", initialCurl, pretty.Sprint(requestedOrigin))
 	// TODO:
@@ -819,13 +821,16 @@ func (v *deployFromRepositoryValidator) getCharm(arg params.DeployFromRepository
 	// We need to use GetDownloadURL instead of ResolveWithPreferredChannel
 	// to ensure that the resolved origin has the ID/Hash fields correctly
 	// populated.
-	// TODO: Handle already deployed charm.
-	//deployedCharm, err := api.backend.Charm(charmURL)
-	//if err == nil {
-	//	_, resolvedOrigin, err = repo.GetDownloadURL(charmURL, resolvedOrigin)
-	//	if err != nil {
-	//	}
-	//}
+	deployedCharm, err := v.state.Charm(charmURL)
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return nil, corecharm.Origin{}, nil, errors.Trace(err)
+	} else if err == nil {
+		_, resolvedOrigin, err = repo.GetDownloadURL(charmURL, resolvedOrigin)
+		if err != nil {
+			return nil, corecharm.Origin{}, nil, errors.Trace(err)
+		}
+		return charmURL, resolvedOrigin, deployedCharm, nil
+	}
 
 	// Fetch the essential metadata that we require to deploy the charm
 	// without downloading the full archive. The remaining metadata will
