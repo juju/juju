@@ -277,6 +277,7 @@ func (w *dbWorker) Report() map[string]any {
 
 	if w.dbApp == nil {
 		result["leader"] = ""
+		result["leader-id"] = uint64(0)
 		result["leader-role"] = ""
 		return result
 	}
@@ -287,14 +288,17 @@ func (w *dbWorker) Report() map[string]any {
 	var (
 		leader     string
 		leaderRole string
+		leaderID   uint64
 	)
 	if client, err := w.dbApp.Client(ctx); err == nil {
 		if nodeInfo, err := client.Leader(ctx); err == nil {
+			leaderID = nodeInfo.ID
 			leader = nodeInfo.Address
 			leaderRole = nodeInfo.Role.String()
 		}
 	}
 
+	result["leader-id"] = leaderID
 	result["leader"] = leader
 	result["leader-role"] = leaderRole
 

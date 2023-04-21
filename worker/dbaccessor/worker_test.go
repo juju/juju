@@ -113,6 +113,7 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 	report := w.(interface{ Report() map[string]any }).Report()
 	c.Assert(report, MapHasKeys, []string{
 		"leader",
+		"leader-id",
 		"leader-role",
 	})
 

@@ -313,12 +313,20 @@ func defaultPingDBFunc(ctx context.Context, db *sql.DB) error {
 type report struct {
 	sync.Mutex
 
-	pingDuration    time.Duration
-	pingAttempts    uint32
+	// pingDuration is the duration of the last ping.
+	pingDuration time.Duration
+	// pingAttempts is the number of attempts to ping the database for the
+	// last ping.
+	pingAttempts uint32
+	// maxPingDuration is the maximum duration of a ping for a given lifetime
+	// of the worker.
 	maxPingDuration time.Duration
-	dbReplacements  uint32
+	// dbReplacements is the number of times the database has been replaced
+	// due to a failed ping.
+	dbReplacements uint32
 }
 
+// Report provides information for the engine report.
 func (r *report) Report() map[string]any {
 	r.Lock()
 	defer r.Unlock()
