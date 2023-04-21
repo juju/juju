@@ -191,6 +191,7 @@ var (
 		"hook-retry-strategy",
 		"operator",
 		"proxy-config-updater",
+		"secret-drain-worker",
 	}
 )
 

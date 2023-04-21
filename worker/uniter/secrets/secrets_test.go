@@ -59,7 +59,7 @@ func (s *secretsSuite) TestCommitSecretChanged(c *gc.C) {
 		[]string{"secret:666e2mr0ui3e8a215n4g", "secret:9m4e2mr0ui3e8a215n4g"}).Return(
 		map[string]coresecrets.SecretRevisionInfo{"secret:9m4e2mr0ui3e8a215n4g": {Revision: 667}}, nil,
 	)
-	s.secretsClient.EXPECT().SecretMetadata(coresecrets.Filter{OwnerTag: ptr("unit-foo-0")}).Return(nil, nil)
+	s.secretsClient.EXPECT().SecretMetadata().Return(nil, nil)
 
 	s.stateReadWriter.EXPECT().SetState(params.SetUnitStateArg{SecretState: ptr(s.yamlString(c,
 		&secrets.State{
@@ -99,7 +99,7 @@ func (s *secretsSuite) TestCommitSecretRemove(c *gc.C) {
 			},
 		},
 	)}, nil)
-	s.secretsClient.EXPECT().SecretMetadata(coresecrets.Filter{OwnerTag: ptr("unit-foo-0")}).Return(
+	s.secretsClient.EXPECT().SecretMetadata().Return(
 		[]coresecrets.SecretOwnerMetadata{{Metadata: coresecrets.SecretMetadata{URI: &coresecrets.URI{ID: "9m4e2mr0ui3e8a215n4g"}}}}, nil)
 	s.stateReadWriter.EXPECT().SetState(params.SetUnitStateArg{SecretState: ptr(s.yamlString(c,
 		&secrets.State{
@@ -152,7 +152,7 @@ func (s *secretsSuite) TestCommitNoOpSecretsRemoved(c *gc.C) {
 			"secret:9m4e2mr0ui3e8a215n4g": {Revision: 667},
 		}, nil,
 	)
-	s.secretsClient.EXPECT().SecretMetadata(coresecrets.Filter{OwnerTag: ptr("unit-foo-0")}).Return(
+	s.secretsClient.EXPECT().SecretMetadata().Return(
 		[]coresecrets.SecretOwnerMetadata{
 			{Metadata: coresecrets.SecretMetadata{URI: &coresecrets.URI{ID: "9m4e2mr0ui3e8a215n4g"}}},
 			{Metadata: coresecrets.SecretMetadata{URI: &coresecrets.URI{ID: "666e2mr0ui3e8a215n4g"}}},

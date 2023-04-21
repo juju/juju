@@ -55,6 +55,10 @@ type NodeManager interface {
 	// log output via this factory's logger where the level is recognised.
 	WithLogFuncOption() app.Option
 
+	// WithTracingOption returns a Dqlite application Option
+	// that will enable tracing of Dqlite operations.
+	WithTracingOption() app.Option
+
 	// WithAddressOption returns a Dqlite application Option
 	// for specifying the local address:port to use.
 	WithAddressOption(string) app.Option
@@ -345,7 +349,11 @@ func (w *dbWorker) initialiseDqlite(options ...app.Option) error {
 		return errors.Trace(err)
 	}
 
-	if w.dbApp, err = w.cfg.NewApp(dataDir, append(options, mgr.WithLogFuncOption())...); err != nil {
+	dqliteOptions := append(options,
+		mgr.WithLogFuncOption(),
+		mgr.WithTracingOption(),
+	)
+	if w.dbApp, err = w.cfg.NewApp(dataDir, dqliteOptions...); err != nil {
 		return errors.Trace(err)
 	}
 

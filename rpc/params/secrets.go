@@ -160,6 +160,19 @@ type GetSecretContentArg struct {
 	Peek    bool   `json:"peek,omitempty"`
 }
 
+// ChangeSecretBackendArgs holds a slice of args for updating secret backend IDs.
+type ChangeSecretBackendArgs struct {
+	Args []ChangeSecretBackendArg `json:"args"`
+}
+
+// ChangeSecretBackendArg holds the arg for updating a secret backend for a secret.
+// It holds the secret contents as well if the new backend is the internal backend.
+type ChangeSecretBackendArg struct {
+	URI      string              `json:"uri"`
+	Revision int                 `json:"revision"`
+	Content  SecretContentParams `json:"content,omitempty"`
+}
+
 // SecretContentResults holds secret value results.
 type SecretContentResults struct {
 	Results []SecretContentResult `json:"results"`

@@ -20,11 +20,13 @@ import (
 // WorkerConfig contains the information necessary to run
 // the agent config updater worker.
 type WorkerConfig struct {
-	Agent             coreagent.Agent
-	Hub               *pubsub.StructuredHub
-	MongoProfile      mongo.MemoryProfile
-	JujuDBSnapChannel string
-	Logger            Logger
+	Agent                 coreagent.Agent
+	Hub                   *pubsub.StructuredHub
+	MongoProfile          mongo.MemoryProfile
+	JujuDBSnapChannel     string
+	QueryTracingEnabled   bool
+	QueryTracingThreshold time.Duration
+	Logger                Logger
 }
 
 // Validate ensures that the required values are set in the structure.
@@ -44,9 +46,11 @@ func (c *WorkerConfig) Validate() error {
 type agentConfigUpdater struct {
 	config WorkerConfig
 
-	tomb              tomb.Tomb
-	mongoProfile      mongo.MemoryProfile
-	jujuDBSnapChannel string
+	tomb                  tomb.Tomb
+	mongoProfile          mongo.MemoryProfile
+	jujuDBSnapChannel     string
+	queryTracingEnabled   bool
+	queryTracingThreshold time.Duration
 }
 
 // NewWorker creates a new agent config updater worker.
@@ -57,9 +61,11 @@ func NewWorker(config WorkerConfig) (worker.Worker, error) {
 
 	started := make(chan struct{})
 	w := &agentConfigUpdater{
-		config:            config,
-		mongoProfile:      config.MongoProfile,
-		jujuDBSnapChannel: config.JujuDBSnapChannel,
+		config:                config,
+		mongoProfile:          config.MongoProfile,
+		jujuDBSnapChannel:     config.JujuDBSnapChannel,
+		queryTracingEnabled:   config.QueryTracingEnabled,
+		queryTracingThreshold: config.QueryTracingThreshold,
 	}
 	w.tomb.Go(func() error {
 		return w.loop(started)
@@ -99,7 +105,13 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 	jujuDBSnapChannel := data.Config.JujuDBSnapChannel()
 	jujuDBSnapChannelChanged := jujuDBSnapChannel != w.jujuDBSnapChannel
 
-	changeDetected := mongoProfileChanged || jujuDBSnapChannelChanged
+	queryTracingEnabled := data.Config.QueryTracingEnabled()
+	queryTracingEnabledChanged := queryTracingEnabled != w.queryTracingEnabled
+
+	queryTracingThreshold := data.Config.QueryTracingThreshold()
+	queryTracingThresholdChanged := queryTracingThreshold != w.queryTracingThreshold
+
+	changeDetected := mongoProfileChanged || jujuDBSnapChannelChanged || queryTracingEnabledChanged || queryTracingThresholdChanged
 	if !changeDetected {
 		// Nothing to do, all good.
 		return
@@ -113,6 +125,14 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 		if jujuDBSnapChannelChanged {
 			w.config.Logger.Debugf("setting agent config mongo snap channel: %q => %q", w.jujuDBSnapChannel, jujuDBSnapChannel)
 			setter.SetJujuDBSnapChannel(jujuDBSnapChannel)
+		}
+		if queryTracingEnabledChanged {
+			w.config.Logger.Debugf("setting agent config query tracing enabled: %v => %v", w.queryTracingEnabled, queryTracingEnabled)
+			setter.SetQueryTracingEnabled(queryTracingEnabled)
+		}
+		if queryTracingThresholdChanged {
+			w.config.Logger.Debugf("setting agent config query tracing threshold: %v => %v", w.queryTracingThreshold, queryTracingThreshold)
+			setter.SetQueryTracingThreshold(queryTracingThreshold)
 		}
 		return nil
 	})

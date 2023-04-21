@@ -926,6 +926,44 @@ func (s *SecretsSuite) TestUpdateConcurrent(c *gc.C) {
 	})
 }
 
+func (s *SecretsSuite) TestChangeSecretBackend(c *gc.C) {
+	uri := secrets.NewURI()
+	p := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := s.store.CreateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	val, valRef, err := s.store.GetSecretValue(uri, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(val, jc.DeepEquals, secrets.NewSecretValue(map[string]string{"foo": "bar"}))
+	c.Assert(valRef, gc.IsNil)
+
+	err = s.store.ChangeSecretBackend(state.ChangeSecretBackendParams{
+		URI:      uri,
+		Token:    &fakeToken{},
+		Revision: 1,
+		ValueRef: &secrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "rev-id",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	val, valRef, err = s.store.GetSecretValue(uri, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(val.IsEmpty(), jc.IsTrue)
+	c.Assert(valRef, jc.DeepEquals, &secrets.ValueRef{
+		BackendID:  "backend-id",
+		RevisionID: "rev-id",
+	})
+}
+
 func (s *SecretsSuite) TestGetSecret(c *gc.C) {
 	uri := secrets.NewURI()
 

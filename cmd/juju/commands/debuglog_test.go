@@ -111,11 +111,17 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 			args:     []string{"--no-tail", "--tail"},
 			errMatch: `setting --tail and --no-tail not valid`,
 		}, {
+			args:     []string{"--no-tail", "--retry"},
+			errMatch: `setting --no-tail and --retry not valid`,
+		}, {
 			args: []string{"--limit", "100"},
 			expected: common.DebugLogParams{
 				Backlog: 10,
 				Limit:   100,
 			},
+		}, {
+			args:     []string{"--retry-delay", "-1s"},
+			errMatch: `negative retry delay not valid`,
 		},
 	} {
 		c.Logf("test %v", i)

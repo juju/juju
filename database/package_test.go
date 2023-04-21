@@ -17,5 +17,6 @@ func Test(t *testing.T) {
 type stubLogger struct{}
 
 func (stubLogger) Errorf(string, ...interface{})            {}
+func (stubLogger) Warningf(string, ...interface{})          {}
 func (stubLogger) Debugf(string, ...interface{})            {}
 func (stubLogger) Logf(loggo.Level, string, ...interface{}) {}

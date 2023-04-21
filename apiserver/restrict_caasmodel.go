@@ -61,6 +61,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"RetryStrategy",
 	"Secrets",
 	"SecretsManager",
+	"SecretsDrain",
 	"SecretBackendsManager",
 	"SecretBackendsRotateWatcher",
 	"SecretsRevisionWatcher",

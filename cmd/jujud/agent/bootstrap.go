@@ -270,13 +270,17 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	if err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		agentConfig.SetStateServingInfo(info)
+
 		mmprof, err := mongo.NewMemoryProfile(args.ControllerConfig.MongoMemoryProfile())
 		if err != nil {
 			logger.Errorf("could not set requested memory profile: %v", err)
 		} else {
 			agentConfig.SetMongoMemoryProfile(mmprof)
 		}
+
 		agentConfig.SetJujuDBSnapChannel(args.ControllerConfig.JujuDBSnapChannel())
+		agentConfig.SetQueryTracingEnabled(args.ControllerConfig.QueryTracingEnabled())
+		agentConfig.SetQueryTracingThreshold(args.ControllerConfig.QueryTracingThreshold())
 		return nil
 	}); err != nil {
 		return fmt.Errorf("cannot write agent config: %v", err)

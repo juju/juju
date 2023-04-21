@@ -4,10 +4,13 @@
 package modelconfig
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/common"
+	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
@@ -345,7 +348,7 @@ func (c *ModelConfigAPI) checkSecretBackend() state.ValidateConfigFunc {
 		}
 		backendName, ok := v.(string)
 		if !ok {
-			return errors.NotValidf("%q is not a string", config.SecretBackendKey)
+			return errors.NewNotValid(nil, fmt.Sprintf("%q config value is not a string", config.SecretBackendKey))
 		}
 		if backendName == "" {
 			return errors.NotValidf("empty %q config value", config.SecretBackendKey)
@@ -353,7 +356,16 @@ func (c *ModelConfigAPI) checkSecretBackend() state.ValidateConfigFunc {
 		if backendName == config.DefaultSecretBackend {
 			return nil
 		}
-		return c.backend.GetSecretBackend(backendName)
+		backend, err := c.backend.GetSecretBackend(backendName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		p, err := commonsecrets.GetProvider(backend.BackendType)
+		if err != nil {
+			return errors.Annotatef(err, "cannot get backend for provider type %q", backend.BackendType)
+		}
+		err = commonsecrets.PingBackend(p, backend.Config)
+		return errors.Annotatef(err, "cannot ping backend %q", backend.Name)
 	}
 }
 

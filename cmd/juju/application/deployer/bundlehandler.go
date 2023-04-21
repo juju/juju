@@ -859,6 +859,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	if err != nil {
 		return errors.Trace(err)
 	}
+	checkPodspec(charmInfo.Charm(), h.ctx)
 
 	resMap := h.makeResourceMap(charmInfo.Meta.Resources, p.Resources, p.LocalResources)
 

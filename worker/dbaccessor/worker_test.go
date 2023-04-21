@@ -42,6 +42,7 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 	mgrExp.WithClusterOption([]string{"10.6.6.7"}).Return(nil)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTLSOption().Return(nil, nil)
+	mgrExp.WithTracingOption().Return(nil)
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
@@ -125,6 +126,7 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 	mgrExp.IsBootstrappedNode(gomock.Any()).Return(false, nil)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTLSOption().Return(nil, nil)
+	mgrExp.WithTracingOption().Return(nil)
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
@@ -160,6 +162,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 	mgrExp.IsExistingNode().Return(true, nil).Times(3)
 	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(3)
 	mgrExp.WithLogFuncOption().Return(nil)
+	mgrExp.WithTracingOption().Return(nil)
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
@@ -222,6 +225,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	mgrExp.IsExistingNode().Return(true, nil).Times(2)
 	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(2)
 	mgrExp.WithLogFuncOption().Return(nil)
+	mgrExp.WithTracingOption().Return(nil)
 
 	// These are the expectations around reconfiguring
 	// the cluster and local node.

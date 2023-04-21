@@ -6,6 +6,7 @@ package initialize
 import (
 	"os"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -127,6 +128,14 @@ func (c *configFromEnv) AgentLogfileMaxSizeMB() int {
 }
 
 func (c *configFromEnv) AgentLogfileMaxBackups() int {
+	panic("not implemented")
+}
+
+func (c *configFromEnv) QueryTracingEnabled() bool {
+	panic("not implemented")
+}
+
+func (c *configFromEnv) QueryTracingThreshold() time.Duration {
 	panic("not implemented")
 }
 
