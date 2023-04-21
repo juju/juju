@@ -431,6 +431,20 @@ func (mr *MockNodeManagerMockRecorder) WithTLSOption() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithTLSOption", reflect.TypeOf((*MockNodeManager)(nil).WithTLSOption))
 }
 
+// WithTracingOption mocks base method.
+func (m *MockNodeManager) WithTracingOption() app.Option {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WithTracingOption")
+	ret0, _ := ret[0].(app.Option)
+	return ret0
+}
+
+// WithTracingOption indicates an expected call of WithTracingOption.
+func (mr *MockNodeManagerMockRecorder) WithTracingOption() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithTracingOption", reflect.TypeOf((*MockNodeManager)(nil).WithTracingOption))
+}
+
 // MockTrackedDB is a mock of TrackedDB interface.
 type MockTrackedDB struct {
 	ctrl     *gomock.Controller

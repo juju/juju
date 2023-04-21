@@ -269,18 +269,36 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDiffer
 		c.Fatal("timed out waiting for DB callback")
 	}
 
-	// The db should have changed to the new db.
+	// Wait for the clean database to have been returned.
 	select {
 	case <-dbChange:
 	case <-time.After(testing.ShortWait):
 		c.Fatal("timed out waiting for DB callback")
 	}
 
+	// There is a race potential race with the composition here, because
+	// although the ping func may return a new database, it is not instantly
+	// set as the worker's DB reference. We need to give it a chance.
+	// In-theatre this will be OK, because a DB in an error state recoverable
+	// by reconnecting will be replaced within the default retry strategy's
+	// backoff/repeat loop.
+	timeout := time.After(testing.ShortWait)
 	tables := readTableNames(c, w)
-	c.Assert(tables, gc.Not(SliceContains), "lease")
+loop:
+	for {
+		select {
+		case <-timeout:
+			c.Fatal("did not reach expected clean DB state")
+		default:
+			if set.NewStrings(tables...).Contains("lease") {
+				tables = readTableNames(c, w)
+			} else {
+				break loop
+			}
+		}
+	}
 
 	workertest.CleanKill(c, w)
-
 	c.Assert(w.Err(), jc.ErrorIsNil)
 }
 

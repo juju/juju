@@ -66,6 +66,12 @@ func WithLogFunc(log client.LogFunc) Option {
 	return app.WithLogFunc(log)
 }
 
+// WithTracing will emit a log message at the given level every time a
+// statement gets executed.
+func WithTracing(level client.LogLevel) Option {
+	return app.WithTracing(level)
+}
+
 // App is a high-level helper for initializing a typical dqlite-based Go
 // application.
 //

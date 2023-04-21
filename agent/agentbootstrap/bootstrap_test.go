@@ -226,6 +226,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		"audit-log-capture-args":    true,
 		"audit-log-max-size":        "200M",
 		"audit-log-max-backups":     5,
+		"query-tracing-threshold":   "1s",
 	})
 
 	// Check that controller model configuration has been added, and

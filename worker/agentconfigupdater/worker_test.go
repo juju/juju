@@ -40,21 +40,27 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	})
 	s.agent = &mockAgent{
 		conf: mockConfig{
-			profile:     controller.DefaultMongoMemoryProfile,
-			snapChannel: controller.DefaultJujuDBSnapChannel,
+			profile:               controller.DefaultMongoMemoryProfile,
+			snapChannel:           controller.DefaultJujuDBSnapChannel,
+			queryTracingEnabled:   controller.DefaultQueryTracingEnabled,
+			queryTracingThreshold: controller.DefaultQueryTracingThreshold,
 		},
 	}
 	s.config = agentconfigupdater.WorkerConfig{
-		Agent:             s.agent,
-		Hub:               s.hub,
-		MongoProfile:      controller.DefaultMongoMemoryProfile,
-		JujuDBSnapChannel: controller.DefaultJujuDBSnapChannel,
-		Logger:            s.logger,
+		Agent:                 s.agent,
+		Hub:                   s.hub,
+		MongoProfile:          controller.DefaultMongoMemoryProfile,
+		JujuDBSnapChannel:     controller.DefaultJujuDBSnapChannel,
+		QueryTracingEnabled:   controller.DefaultQueryTracingEnabled,
+		QueryTracingThreshold: controller.DefaultQueryTracingThreshold,
+		Logger:                s.logger,
 	}
 	s.initialConfigMsg = controllermsg.ConfigChangedMessage{
 		Config: controller.Config{
-			controller.MongoMemoryProfile: controller.DefaultMongoMemoryProfile,
-			controller.JujuDBSnapChannel:  controller.DefaultJujuDBSnapChannel,
+			controller.MongoMemoryProfile:    controller.DefaultMongoMemoryProfile,
+			controller.JujuDBSnapChannel:     controller.DefaultJujuDBSnapChannel,
+			controller.QueryTracingEnabled:   controller.DefaultQueryTracingEnabled,
+			controller.QueryTracingThreshold: controller.DefaultQueryTracingThreshold,
 		},
 	}
 }
@@ -170,6 +176,69 @@ func (s *WorkerSuite) TestUpdateJujuDBSnapChannel(c *gc.C) {
 	workertest.CheckAlive(c, w)
 
 	newConfig.Config[controller.JujuDBSnapChannel] = "latest/candidate"
+	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-pubsub.Wait(handled):
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not handled")
+	}
+
+	err = workertest.CheckKilled(c, w)
+
+	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
+}
+
+func (s *WorkerSuite) TestUpdateQueryTracingEnabled(c *gc.C) {
+	w, err := agentconfigupdater.NewWorker(s.config)
+	c.Assert(w, gc.NotNil)
+	c.Check(err, jc.ErrorIsNil)
+
+	newConfig := s.initialConfigMsg
+	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-pubsub.Wait(handled):
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not handled")
+	}
+
+	// Query tracing enabled is the same, worker still alive.
+	workertest.CheckAlive(c, w)
+
+	newConfig.Config[controller.QueryTracingEnabled] = true
+	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-pubsub.Wait(handled):
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not handled")
+	}
+
+	err = workertest.CheckKilled(c, w)
+
+	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
+}
+
+func (s *WorkerSuite) TestUpdateQueryTracingThreshold(c *gc.C) {
+	w, err := agentconfigupdater.NewWorker(s.config)
+	c.Assert(w, gc.NotNil)
+	c.Check(err, jc.ErrorIsNil)
+
+	newConfig := s.initialConfigMsg
+	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-pubsub.Wait(handled):
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not handled")
+	}
+
+	// Query tracing threshold is the same, worker still alive.
+	workertest.CheckAlive(c, w)
+
+	d := time.Second * 2
+	newConfig.Config[controller.QueryTracingThreshold] = d.String()
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	select {

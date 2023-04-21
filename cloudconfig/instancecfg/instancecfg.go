@@ -498,6 +498,8 @@ func (cfg *InstanceConfig) AgentConfig(
 	if cfg.ControllerConfig != nil {
 		configParams.AgentLogfileMaxBackups = cfg.ControllerConfig.AgentLogfileMaxBackups()
 		configParams.AgentLogfileMaxSizeMB = cfg.ControllerConfig.AgentLogfileMaxSizeMB()
+		configParams.QueryTracingEnabled = cfg.ControllerConfig.QueryTracingEnabled()
+		configParams.QueryTracingThreshold = cfg.ControllerConfig.QueryTracingThreshold()
 	}
 	if cfg.Bootstrap == nil {
 		return agent.NewAgentConfig(configParams)

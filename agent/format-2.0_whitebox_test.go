@@ -10,6 +10,7 @@ package agent
 
 import (
 	"path/filepath"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -55,6 +56,7 @@ func (*format_2_0Suite) TestMarshalUnmarshal(c *gc.C) {
 	config := newTestConfig(c)
 	// configFilePath is not serialized as it is the location of the file.
 	config.configFilePath = ""
+
 	config.SetLoggingConfig(loggingConfig)
 
 	data, err := format_2_0.marshal(config)
@@ -64,6 +66,24 @@ func (*format_2_0Suite) TestMarshalUnmarshal(c *gc.C) {
 
 	c.Check(newConfig, gc.DeepEquals, config)
 	c.Check(newConfig.LoggingConfig(), gc.Equals, loggingConfig)
+}
+
+func (*format_2_0Suite) TestQueryTracing(c *gc.C) {
+	config := newTestConfig(c)
+	// configFilePath is not serialized as it is the location of the file.
+	config.configFilePath = ""
+
+	config.SetQueryTracingEnabled(true)
+	config.SetQueryTracingThreshold(time.Second)
+
+	data, err := format_2_0.marshal(config)
+	c.Assert(err, jc.ErrorIsNil)
+	newConfig, err := format_2_0.unmarshal(data)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(newConfig, gc.DeepEquals, config)
+	c.Check(newConfig.QueryTracingEnabled(), jc.IsTrue)
+	c.Check(newConfig.QueryTracingThreshold(), gc.Equals, time.Second)
 }
 
 var agentConfig2_0Contents = `

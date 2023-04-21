@@ -6,6 +6,7 @@ package mocks
 
 import (
 	reflect "reflect"
+	time "time"
 
 	gomock "github.com/golang/mock/gomock"
 	agent "github.com/juju/juju/agent"
@@ -345,6 +346,34 @@ func (m *MockConfig) OldPassword() string {
 func (mr *MockConfigMockRecorder) OldPassword() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OldPassword", reflect.TypeOf((*MockConfig)(nil).OldPassword))
+}
+
+// QueryTracingEnabled mocks base method.
+func (m *MockConfig) QueryTracingEnabled() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryTracingEnabled")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// QueryTracingEnabled indicates an expected call of QueryTracingEnabled.
+func (mr *MockConfigMockRecorder) QueryTracingEnabled() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryTracingEnabled", reflect.TypeOf((*MockConfig)(nil).QueryTracingEnabled))
+}
+
+// QueryTracingThreshold mocks base method.
+func (m *MockConfig) QueryTracingThreshold() time.Duration {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryTracingThreshold")
+	ret0, _ := ret[0].(time.Duration)
+	return ret0
+}
+
+// QueryTracingThreshold indicates an expected call of QueryTracingThreshold.
+func (mr *MockConfigMockRecorder) QueryTracingThreshold() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryTracingThreshold", reflect.TypeOf((*MockConfig)(nil).QueryTracingThreshold))
 }
 
 // StateServingInfo mocks base method.

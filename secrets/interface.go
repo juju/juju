@@ -93,6 +93,10 @@ type BackendsClient interface {
 	// one is configured, or from Juju.
 	GetContent(uri *secrets.URI, label string, refresh, peek bool) (secrets.SecretValue, error)
 
+	// GetRevisionContent returns the content of a secret revision, either from an external backend if
+	// one is configured, or from Juju.
+	GetRevisionContent(uri *secrets.URI, revision int) (secrets.SecretValue, error)
+
 	// SaveContent saves the content of a secret to an external backend returning the backend id.
 	SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (secrets.ValueRef, error)
 
@@ -102,4 +106,7 @@ type BackendsClient interface {
 
 	// DeleteExternalContent deletes a secret from an external backend.
 	DeleteExternalContent(ref secrets.ValueRef) error
+
+	// GetBackend returns the secret client for the provided backend ID.
+	GetBackend(backendID *string) (provider.SecretsBackend, string, error)
 }

@@ -192,6 +192,12 @@ type SecretOwnerMetadata struct {
 	Revisions []int
 }
 
+// SecretMetadataForDrain holds a secret metadata and any backend references of revisions for drain.
+type SecretMetadataForDrain struct {
+	Metadata  SecretMetadata
+	Revisions []SecretRevisionMetadata
+}
+
 // SecretConsumerMetadata holds metadata about a secret
 // for a consumer of the secret.
 type SecretConsumerMetadata struct {

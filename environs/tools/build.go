@@ -273,6 +273,14 @@ func buildJujus(dir string) error {
 		return lastErr
 	}
 
+	// When using integration tests, you can't build jujud from outside of the
+	// root package. So if the GOPATH is set, we'll use that as the working
+	// directory to rebuild jujud.
+	var cmdDir string
+	if path, ok := os.LookupEnv("GOPATH"); ok && path != "" {
+		cmdDir = filepath.Join(path, "src", "github.com", "juju", "juju")
+	}
+
 	// Build binaries.
 	cmds := [][]string{
 		{"make", "jujud"},
@@ -280,6 +288,7 @@ func buildJujus(dir string) error {
 	for _, args := range cmds {
 		cmd := exec.Command(args[0], args[1:]...)
 		cmd.Env = append(os.Environ(), "GOBIN="+dir)
+		cmd.Dir = cmdDir
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("build command %q failed: %v; %s", args[0], err, out)

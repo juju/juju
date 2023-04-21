@@ -36,8 +36,20 @@ type SecretsBackendState interface {
 	ListSecretBackends() ([]*secrets.SecretBackend, error)
 }
 
+// SecretsConsumer instances provide secret consumer apis.
+type SecretsConsumer interface {
+	SecretAccess(uri *secrets.URI, subject names.Tag) (secrets.SecretRole, error)
+}
+
+// SecretsState instances provide secret apis.
 type SecretsState interface {
 	ListModelSecrets(all bool) (map[string]set.Strings, error)
+}
+
+// SecretsMetaState instances provide secret metadata apis.
+type SecretsMetaState interface {
+	ListSecrets(state.SecretsFilter) ([]*secrets.SecretMetadata, error)
+	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
 }
 
 // Credential represents a cloud credential.
@@ -81,12 +93,4 @@ func (c *credentialShim) Attributes() map[string]string {
 type SecretsGetter interface {
 	GetSecret(*secrets.URI) (*secrets.SecretMetadata, error)
 	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, *secrets.ValueRef, error)
-}
-
-// SecretsConsumer instances provide secret consumer apis.
-type SecretsConsumer interface {
-	GetSecretConsumer(*secrets.URI, names.Tag) (*secrets.SecretConsumerMetadata, error)
-	GetURIByConsumerLabel(string, names.Tag) (*secrets.URI, error)
-	SaveSecretConsumer(*secrets.URI, names.Tag, *secrets.SecretConsumerMetadata) error
-	SecretAccess(uri *secrets.URI, subject names.Tag) (secrets.SecretRole, error)
 }

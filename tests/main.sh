@@ -53,10 +53,10 @@ TEST_NAMES="agents \
             deploy \
             deploy_aks \
             deploy_caas \
-            expose_ec2 \
+            firewall \
             hooks \
             hooktools \
-			kubeflow \
+            kubeflow \
             machine \
             magma \
             manual \
@@ -188,8 +188,9 @@ while getopts "hH?vAs:a:x:rl:p:c:R:S:" opt; do
 	l)
 		export BOOTSTRAP_REUSE_LOCAL="${OPTARG}"
 		export BOOTSTRAP_REUSE="true"
+
 		CLOUD=$(juju show-controller "${OPTARG}" --format=json 2>/dev/null | jq -r ".[\"${OPTARG}\"] | .details | .cloud")
-		PROVIDER=$(juju clouds --client 2>/dev/null | grep "${CLOUD}" | awk '{print $4}' | head -n 1)
+		PROVIDER=$(juju clouds --client --all --format=json 2>/dev/null | jq -r ".[\"${CLOUD}\"] | .type")
 		if [[ -z ${PROVIDER} ]]; then
 			PROVIDER="${CLOUD}"
 		fi
