@@ -44,7 +44,7 @@ configure_multi_nic_netplan() {
 	echo "[+] Reconfiguring netplan:"
 	juju ssh ${juju_machine_id} 'sudo cat /etc/netplan/50-cloud-init.yaml'
 	# shellcheck disable=SC2086,SC2016
-	juju ssh ${juju_machine_id} 'sudo netplan apply'
+	juju ssh ${juju_machine_id} 'sudo netplan apply' || true
 	echo "[+] Applied"
 	# shellcheck disable=SC2086,SC2016
 	juju ssh ${juju_machine_id} 'sudo systemctl restart jujud-machine-*'
