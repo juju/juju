@@ -573,7 +573,7 @@ func deployApplication(
 // from the provided data. It is used in both deploying and refreshing
 // charms, including from old clients which aren't charm origin aware.
 // MaybeSeries is a fallback if the origin is not provided.
-func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreChannel string) (corecharm.Origin, error) {
+func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL) (corecharm.Origin, error) {
 	if origin == nil {
 		return corecharm.Origin{}, errors.NotValidf("nil charm origin")
 	}
