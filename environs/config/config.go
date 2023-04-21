@@ -1549,7 +1549,7 @@ func (c *Config) validateMode() error {
 func (c *Config) SSHAllow() []string {
 	allowList, ok := c.defined[SSHAllowKey].(string)
 	if !ok {
-		return []string{"0.0.0.0/0"}
+		return []string{"0.0.0.0/0", "::/0"}
 	}
 	if allowList == "" {
 		return []string{}
@@ -2359,7 +2359,7 @@ potentially valuable resources.
 	SSHAllowKey: {
 		Description: `SSH allowlist is a comma-separated list of CIDRs from
 which machines in this model will accept connections to the SSH service.
-Currently only the aws provider supports ssh-allow`,
+Currently only the aws & openstack providers supports ssh-allow`,
 		Type:  environschema.Tstring,
 		Group: environschema.EnvironGroup,
 	},

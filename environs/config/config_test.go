@@ -662,6 +662,10 @@ var configTests = []configTest{
 		}),
 		err: `cidr "blah" not valid`,
 	}, {
+		about:       "Absent ssh-allow entry",
+		useDefaults: config.NoDefaults,
+		attrs:       minimalConfigAttrs,
+	}, {
 		about:       "Invalid saas-ingress-allow cidr",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
@@ -832,8 +836,7 @@ func (test configTest) check(c *gc.C) {
 		c.Assert(cfg.ContainerImageStream(), gc.Equals, "released")
 	}
 
-	resourceTags, cfgHasResourceTags := cfg.ResourceTags()
-	c.Assert(cfgHasResourceTags, jc.IsTrue)
+	resourceTags, _ := cfg.ResourceTags()
 	if tags, ok := test.attrs["resource-tags"]; ok {
 		switch tags := tags.(type) {
 		case []string:
@@ -864,6 +867,7 @@ func (test configTest) check(c *gc.C) {
 	if val, ok := test.attrs[config.ContainerInheritPropertiesKey].(string); ok && val != "" {
 		c.Assert(cfg.ContainerInheritProperties(), gc.Equals, val)
 	}
+	c.Assert(cfg.SSHAllow(), gc.DeepEquals, []string{"0.0.0.0/0", "::/0"})
 }
 
 func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {

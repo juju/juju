@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/models"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
@@ -617,6 +618,79 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 
 	_, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "global" for retrieving ingress rules from instance`)
+}
+
+func (t *LiveTests) TestModelPorts(c *gc.C) {
+	t.BootstrapOnce(c)
+
+	fwModelEnv, ok := t.Env.(models.ModelFirewaller)
+	c.Assert(ok, gc.Equals, true)
+
+	rules, err := fwModelEnv.ModelIngressRules(t.ProviderCallContext)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+		},
+	)
+
+	err = fwModelEnv.OpenModelPorts(t.ProviderCallContext,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp")),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	rules, err = fwModelEnv.ModelIngressRules(t.ProviderCallContext)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+		},
+	)
+
+	// Check closing some ports.
+	err = fwModelEnv.CloseModelPorts(t.ProviderCallContext,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	rules, err = fwModelEnv.ModelIngressRules(t.ProviderCallContext)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+		},
+	)
+
+	// Check that we can close ports that aren't there.
+	err = fwModelEnv.CloseModelPorts(t.ProviderCallContext,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("111/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("222/udp")),
+			firewall.NewIngressRule(network.MustParsePortRange("2000-2500/tcp")),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	rules, err = fwModelEnv.ModelIngressRules(t.ProviderCallContext)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+		},
+	)
 }
 
 func (t *LiveTests) TestBootstrapMultiple(c *gc.C) {

@@ -13,7 +13,6 @@ import (
 	gooseerrors "github.com/go-goose/goose/v5/errors"
 	"github.com/go-goose/goose/v5/neutron"
 	"github.com/juju/clock"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 
@@ -54,6 +53,20 @@ type Firewaller interface {
 	// address rules for that port range.
 	IngressRules(ctx context.ProviderCallContext) (firewall.IngressRules, error)
 
+	// OpenModelPorts opens the given port ranges on the model firewall
+	OpenModelPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error
+
+	// CloseModelPorts Closes the given port ranges on the model firewall
+	CloseModelPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error
+
+	// ModelIngressRules returns the set of ingress rules on the model firewall.
+	// The rules are returned as sorted by network.SortIngressRules().
+	// It is expected that there be only one ingress rule result for a given
+	// port range - the rule's SourceCIDRs will contain all applicable source
+	// address rules for that port range.
+	// If the model security group doesn't exist, return a NotFound error
+	ModelIngressRules(ctx context.ProviderCallContext) (firewall.IngressRules, error)
+
 	// DeleteAllModelGroups deletes all security groups for the
 	// model.
 	DeleteAllModelGroups(ctx context.ProviderCallContext) error
@@ -77,7 +90,7 @@ type Firewaller interface {
 
 	// SetUpGroups sets up initial security groups, if any, and returns
 	// their names.
-	SetUpGroups(ctx context.ProviderCallContext, controllerUUID, machineID string, apiPort int) ([]string, error)
+	SetUpGroups(ctx context.ProviderCallContext, controllerUUID, machineID string) ([]string, error)
 
 	// OpenInstancePorts opens the given port ranges for the specified  instance.
 	OpenInstancePorts(ctx context.ProviderCallContext, inst instances.Instance, machineID string, rules firewall.IngressRules) error
@@ -236,18 +249,22 @@ func (c *firewallerBase) jujuControllerGroupPrefix(controllerUUID string) string
 	return fmt.Sprintf("juju-%v-", controllerUUID)
 }
 
-func (c *firewallerBase) jujuGroupRegexp() string {
+func (c *firewallerBase) jujuGroupPrefixRegexp() string {
 	cfg := c.environ.Config()
 	return fmt.Sprintf("juju-.*-%v", cfg.UUID())
 }
 
+func (c *firewallerBase) jujuGroupRegexp() string {
+	return fmt.Sprintf("%s$", c.jujuGroupPrefixRegexp())
+}
+
 func (c *firewallerBase) globalGroupRegexp() string {
-	return fmt.Sprintf("%s-global", c.jujuGroupRegexp())
+	return fmt.Sprintf("%s-global", c.jujuGroupPrefixRegexp())
 }
 
 func (c *firewallerBase) machineGroupRegexp(machineID string) string {
 	// we are only looking to match 1 machine
-	return fmt.Sprintf("%s-%s$", c.jujuGroupRegexp(), machineID)
+	return fmt.Sprintf("%s-%s$", c.jujuGroupPrefixRegexp(), machineID)
 }
 
 type neutronFirewaller struct {
@@ -265,17 +282,17 @@ type neutronFirewaller struct {
 // Note: ideally we'd have a better way to determine group membership so that 2
 // people that happen to share an openstack account and name their environment
 // "openstack" don't end up destroying each other's machines.
-func (c *neutronFirewaller) SetUpGroups(ctx context.ProviderCallContext, controllerUUID, machineID string, apiPort int) ([]string, error) {
-	jujuGroup, err := c.setUpGlobalGroup(c.jujuGroupName(controllerUUID), apiPort)
+func (c *neutronFirewaller) SetUpGroups(ctx context.ProviderCallContext, controllerUUID, machineID string) ([]string, error) {
+	jujuGroup, err := c.ensureGroup(c.jujuGroupName(controllerUUID), true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	var machineGroup neutron.SecurityGroupV2
 	switch c.environ.Config().FirewallMode() {
 	case config.FwInstance:
-		machineGroup, err = c.ensureGroup(c.machineGroupName(controllerUUID, machineID), nil)
+		machineGroup, err = c.ensureGroup(c.machineGroupName(controllerUUID, machineID), false)
 	case config.FwGlobal:
-		machineGroup, err = c.ensureGroup(c.globalGroupName(controllerUUID), nil)
+		machineGroup, err = c.ensureGroup(c.globalGroupName(controllerUUID), false)
 	}
 	if err != nil {
 		handleCredentialError(err, ctx)
@@ -288,84 +305,13 @@ func (c *neutronFirewaller) SetUpGroups(ctx context.ProviderCallContext, control
 	return groups, nil
 }
 
-func (c *neutronFirewaller) setUpGlobalGroup(groupName string, apiPort int) (neutron.SecurityGroupV2, error) {
-	return c.ensureGroup(groupName,
-		[]neutron.RuleInfoV2{
-			{
-				Direction:      "ingress",
-				IPProtocol:     "tcp",
-				PortRangeMax:   22,
-				PortRangeMin:   22,
-				RemoteIPPrefix: "::/0",
-				EthernetType:   "IPv6",
-			},
-			{
-				Direction:      "ingress",
-				IPProtocol:     "tcp",
-				PortRangeMax:   22,
-				PortRangeMin:   22,
-				RemoteIPPrefix: "0.0.0.0/0",
-			},
-			{
-				Direction:      "ingress",
-				IPProtocol:     "tcp",
-				PortRangeMax:   apiPort,
-				PortRangeMin:   apiPort,
-				RemoteIPPrefix: "::/0",
-				EthernetType:   "IPv6",
-			},
-			{
-				Direction:      "ingress",
-				IPProtocol:     "tcp",
-				PortRangeMax:   apiPort,
-				PortRangeMin:   apiPort,
-				RemoteIPPrefix: "0.0.0.0/0",
-			},
-			{
-				Direction:    "ingress",
-				IPProtocol:   "tcp",
-				PortRangeMin: 1,
-				PortRangeMax: 65535,
-				EthernetType: "IPv6",
-			},
-			{
-				Direction:    "ingress",
-				IPProtocol:   "tcp",
-				PortRangeMin: 1,
-				PortRangeMax: 65535,
-			},
-			{
-				Direction:    "ingress",
-				IPProtocol:   "udp",
-				PortRangeMin: 1,
-				PortRangeMax: 65535,
-				EthernetType: "IPv6",
-			},
-			{
-				Direction:    "ingress",
-				IPProtocol:   "udp",
-				PortRangeMin: 1,
-				PortRangeMax: 65535,
-			},
-			{
-				Direction:    "ingress",
-				IPProtocol:   "icmp",
-				EthernetType: "IPv6",
-			},
-			{
-				Direction:  "ingress",
-				IPProtocol: "icmp",
-			},
-		})
-}
-
 // zeroGroup holds the zero security group.
 var zeroGroup neutron.SecurityGroupV2
 
 // ensureGroup returns the security group with name and rules.
 // If a group with name does not exist, one will be created.
 // If it exists, its permissions are set to rules.
-func (c *neutronFirewaller) ensureGroup(name string, rules []neutron.RuleInfoV2) (neutron.SecurityGroupV2, error) {
+func (c *neutronFirewaller) ensureGroup(name string, isModelGroup bool) (neutron.SecurityGroupV2, error) {
 	// Due to parallelization of the provisioner, it's possible that we try
 	// to create the model security group a second time before the first time
 	// is complete causing failures.
@@ -397,111 +343,82 @@ func (c *neutronFirewaller) ensureGroup(name string, rules []neutron.RuleInfoV2)
 		return zeroGroup, err
 	}
 
-	have := newRuleInfoSetFromRules(group.Rules)
-	want := newRuleInfoSetFromRuleInfo(rules)
-
-	// Find rules we want to delete, that we have but don't want, and
-	// delete them.
-	// Define a removal set to ensure that we only ever delete a ruleID once.
-	remove := set.NewStrings()
-	for k := range have {
-		// Neutron creates 2 egress rules with any new Security Group.
-		// Keep them.
-		if _, ok := want[k]; !ok && k.Direction != "egress" {
-			remove.Add(have[k])
+	if isModelGroup {
+		if err := c.ensureInternalRules(neutronClient, group); err != nil {
+			return zeroGroup, errors.Annotate(err, "failed to enable internal model rules")
 		}
-	}
-	for _, ruleID := range remove.SortedValues() {
-		if err = neutronClient.DeleteSecurityGroupRuleV2(ruleID); err != nil {
-			if gooseerrors.IsNotFound(err) {
-				continue
-			}
+		// Since we may have done a few add or delete rules, get a new
+		// copy of the security group to return containing the end
+		// list of rules.
+		groupsFound, err = neutronClient.SecurityGroupByNameV2(name)
+		if err != nil {
 			return zeroGroup, err
+		} else if len(groupsFound) > 1 {
+			// TODO(hml): Add unit test for this case
+			return zeroGroup, errors.New(fmt.Sprintf("More than one security group named %s was found after group was ensured", name))
 		}
+		group = groupsFound[0]
 	}
 
-	// Find rules we want to add, that we want but don't have, and add
-	// them.
-	add := make(ruleInfoSet)
-	for k := range want {
-		if _, ok := have[k]; !ok {
-			add[k] = want[k]
-		}
-	}
-	for rule := range add {
-		rule.ParentGroupId = group.Id
-		// Neutron translates empty RemoteIPPrefix into
-		// 0.0.0.0/0 or ::/0 instead of ParentGroupId
-		// when EthernetType is set
-		if rule.RemoteIPPrefix == "" {
-			rule.RemoteGroupId = group.Id
-		}
-		if _, err := neutronClient.CreateSecurityGroupRuleV2(rule); err != nil {
-			return zeroGroup, err
-		}
-	}
-
-	// Since we may have done a few add or delete rules, get a new
-	// copy of the security group to return containing the end
-	// list of rules.
-	groupsFound, err = neutronClient.SecurityGroupByNameV2(name)
-	if err != nil {
-		return zeroGroup, err
-	} else if len(groupsFound) > 1 {
-		// TODO(hml): Add unit test for this case
-		return zeroGroup, errors.New(fmt.Sprintf("More than one security group named %s was found after group was ensured", name))
-	}
-	return groupsFound[0], nil
+	return group, nil
 }
 
-// ruleInfoSet represents a Security Group Rule created for a Security Group.
-// The string will be the Security Group Rule Id, if the rule has previously been
-// created.
-type ruleInfoSet map[neutron.RuleInfoV2]string
-
-// newRuleSetForGroup returns a set of all of the permissions in a given
-// slice of SecurityGroupRules.  It ignores the group id, the
-// remove group id, and tenant id.  Keep the rule id to delete the rule if
-// necessary.
-func newRuleInfoSetFromRules(rules []neutron.SecurityGroupRuleV2) ruleInfoSet {
-	m := make(ruleInfoSet)
-	for _, r := range rules {
-		k := neutron.RuleInfoV2{
-			Direction:      r.Direction,
-			EthernetType:   r.EthernetType,
-			RemoteIPPrefix: r.RemoteIPPrefix,
-		}
-		if r.IPProtocol != nil {
-			k.IPProtocol = *r.IPProtocol
-		}
-		if r.PortRangeMax != nil {
-			k.PortRangeMax = *r.PortRangeMax
-		}
-		if r.PortRangeMin != nil {
-			k.PortRangeMin = *r.PortRangeMin
-		}
-		m[k] = r.Id
+func (c *neutronFirewaller) ensureInternalRules(neutronClient *neutron.Client, group neutron.SecurityGroupV2) error {
+	rules := []neutron.RuleInfoV2{
+		{
+			Direction:     "ingress",
+			IPProtocol:    "tcp",
+			PortRangeMin:  1,
+			PortRangeMax:  65535,
+			EthernetType:  "IPv6",
+			ParentGroupId: group.Id,
+			RemoteGroupId: group.Id,
+		},
+		{
+			Direction:     "ingress",
+			IPProtocol:    "tcp",
+			PortRangeMin:  1,
+			PortRangeMax:  65535,
+			ParentGroupId: group.Id,
+			RemoteGroupId: group.Id,
+		},
+		{
+			Direction:     "ingress",
+			IPProtocol:    "udp",
+			PortRangeMin:  1,
+			PortRangeMax:  65535,
+			EthernetType:  "IPv6",
+			ParentGroupId: group.Id,
+			RemoteGroupId: group.Id,
+		},
+		{
+			Direction:     "ingress",
+			IPProtocol:    "udp",
+			PortRangeMin:  1,
+			PortRangeMax:  65535,
+			ParentGroupId: group.Id,
+			RemoteGroupId: group.Id,
+		},
+		{
+			Direction:     "ingress",
+			IPProtocol:    "icmp",
+			EthernetType:  "IPv6",
+			ParentGroupId: group.Id,
+			RemoteGroupId: group.Id,
+		},
+		{
+			Direction:     "ingress",
+			IPProtocol:    "icmp",
+			ParentGroupId: group.Id,
+			RemoteGroupId: group.Id,
+		},
 	}
-	return m
-}
-
-// newRuleSetForGroup returns a set of all of the permissions in a given
-// slice of RuleInfo.  It ignores the rule id, the group id, the
-// remove group id, and tenant id.
-func newRuleInfoSetFromRuleInfo(rules []neutron.RuleInfoV2) ruleInfoSet {
-	m := make(ruleInfoSet)
-	for _, r := range rules {
-		k := neutron.RuleInfoV2{
-			Direction:      r.Direction,
-			IPProtocol:     r.IPProtocol,
-			PortRangeMin:   r.PortRangeMin,
-			PortRangeMax:   r.PortRangeMax,
-			EthernetType:   r.EthernetType,
-			RemoteIPPrefix: r.RemoteIPPrefix,
+	for _, rule := range rules {
+		if _, err := neutronClient.CreateSecurityGroupRuleV2(rule); err != nil && !gooseerrors.IsDuplicateValue(err) {
+			return err
 		}
-		m[k] = ""
 	}
-	return m
+	return nil
 }
 
 func (c *neutronFirewaller) deleteSecurityGroups(ctx context.ProviderCallContext, match func(name string) bool) error {
@@ -537,7 +454,7 @@ func (c *neutronFirewaller) DeleteAllControllerGroups(ctx context.ProviderCallCo
 
 // DeleteAllModelGroups implements Firewaller interface.
 func (c *neutronFirewaller) DeleteAllModelGroups(ctx context.ProviderCallContext) error {
-	return deleteSecurityGroupsMatchingName(ctx, c.deleteSecurityGroups, c.jujuGroupRegexp())
+	return deleteSecurityGroupsMatchingName(ctx, c.deleteSecurityGroups, c.jujuGroupPrefixRegexp())
 }
 
 // UpdateGroupController implements Firewaller interface.
@@ -548,7 +465,7 @@ func (c *neutronFirewaller) UpdateGroupController(ctx context.ProviderCallContex
 		handleCredentialError(err, ctx)
 		return errors.Trace(err)
 	}
-	re, err := regexp.Compile(c.jujuGroupRegexp())
+	re, err := regexp.Compile(c.jujuGroupPrefixRegexp())
 	if err != nil {
 		handleCredentialError(err, ctx)
 		return errors.Trace(err)
@@ -621,6 +538,36 @@ func (c *neutronFirewaller) IngressRules(ctx context.ProviderCallContext) (firew
 			c.environ.Config().FirewallMode())
 	}
 	rules, err := c.ingressRulesInGroup(ctx, c.globalGroupRegexp())
+	if err != nil {
+		handleCredentialError(err, ctx)
+		return rules, errors.Trace(err)
+	}
+	return rules, nil
+}
+
+// OpenModelPorts implements Firewaller interface
+func (c *neutronFirewaller) OpenModelPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
+	if err := c.openPortsInGroup(ctx, c.jujuGroupRegexp(), rules); err != nil {
+		handleCredentialError(err, ctx)
+		return errors.Trace(err)
+	}
+	logger.Infof("opened ports in model group: %v", rules)
+	return nil
+}
+
+// CloseModelPorts implements Firewaller interface
+func (c *neutronFirewaller) CloseModelPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
+	if err := c.closePortsInGroup(ctx, c.jujuGroupRegexp(), rules); err != nil {
+		handleCredentialError(err, ctx)
+		return errors.Trace(err)
+	}
+	logger.Infof("closed ports in global group: %v", rules)
+	return nil
+}
+
+// ModelIngressRules implements Firewaller interface
+func (c *neutronFirewaller) ModelIngressRules(ctx context.ProviderCallContext) (firewall.IngressRules, error) {
+	rules, err := c.ingressRulesInGroup(ctx, c.jujuGroupRegexp())
 	if err != nil {
 		handleCredentialError(err, ctx)
 		return rules, errors.Trace(err)
@@ -809,9 +756,18 @@ func (c *neutronFirewaller) ingressRulesInGroup(ctx context.ProviderCallContext,
 		if p.Direction == "egress" {
 			continue
 		}
+		// Skip internal security group rules
+		if p.RemoteGroupID != "" {
+			continue
+		}
+
 		portRange := corenetwork.PortRange{
 			Protocol: *p.IPProtocol,
 		}
+		if portRange.Protocol == "ipv6-icmp" {
+			portRange.Protocol = "icmp"
+		}
+
 		// NOTE: Juju firewall rule validation expects that icmp rules have port
 		// values set to -1
 		if p.PortRangeMin != nil {

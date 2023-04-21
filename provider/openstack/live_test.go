@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	"sort"
 
 	"github.com/go-goose/goose/v5/client"
 	"github.com/go-goose/goose/v5/identity"
@@ -125,65 +124,6 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 func (t *LiveTests) TearDownTest(c *gc.C) {
 	t.LiveTests.TearDownTest(c)
 	t.BaseSuite.TearDownTest(c)
-}
-
-func (t *LiveTests) TestSetupGlobalGroupExposesCorrectPorts(c *gc.C) {
-	t.PrepareOnce(c)
-	groupName := "juju-test-group-" + randomName()
-	// Make sure things are clean before we start, and will be clean when we finish
-	cleanup := func() {
-		c.Check(openstack.DiscardSecurityGroup(t.Env, groupName), gc.IsNil)
-	}
-	cleanup()
-	defer cleanup()
-	apiPort := 34567 // Default 17070
-	group, err := openstack.SetUpGlobalGroup(t.Env, t.ProviderCallContext, groupName, apiPort)
-	c.Assert(err, jc.ErrorIsNil)
-	// We default to exporting 22, apiPort, and icmp/udp/tcp on
-	// all ports to other machines inside the same group
-	// TODO(jam): 2013-09-18 http://pad.lv/1227142
-	// We shouldn't be exposing the API port on all the machines
-	// that *aren't* hosting the controller.
-	stringRules := make([]string, 0, len(group.Rules))
-	for _, rule := range group.Rules {
-		// Skip the default Security Group Rules created by Neutron
-		if rule.Direction == "egress" {
-			continue
-		}
-		var minInt int
-		if rule.PortRangeMin != nil {
-			minInt = *rule.PortRangeMin
-		}
-		var maxInt int
-		if rule.PortRangeMax != nil {
-			maxInt = *rule.PortRangeMax
-		}
-		ruleStr := fmt.Sprintf("%s %s %d %d %s %s %s",
-			rule.Direction,
-			*rule.IPProtocol,
-			minInt, maxInt,
-			rule.RemoteIPPrefix,
-			rule.EthernetType,
-			rule.ParentGroupId,
-		)
-		stringRules = append(stringRules, ruleStr)
-	}
-	// We don't care about the ordering, so we sort the result, and compare it.
-	expectedRules := []string{
-		fmt.Sprintf(`ingress tcp 22 22 ::/0 IPv6 %s`, group.Id),
-		fmt.Sprintf(`ingress tcp 22 22 0.0.0.0/0 IPv4 %s`, group.Id),
-		fmt.Sprintf(`ingress tcp %d %d ::/0 IPv6 %s`, apiPort, apiPort, group.Id),
-		fmt.Sprintf(`ingress tcp %d %d 0.0.0.0/0 IPv4 %s`, apiPort, apiPort, group.Id),
-		fmt.Sprintf(`ingress tcp 1 65535  IPv6 %s`, group.Id),
-		fmt.Sprintf(`ingress tcp 1 65535  IPv4 %s`, group.Id),
-		fmt.Sprintf(`ingress udp 1 65535  IPv6 %s`, group.Id),
-		fmt.Sprintf(`ingress udp 1 65535  IPv4 %s`, group.Id),
-		fmt.Sprintf(`ingress icmp 0 0  IPv6 %s`, group.Id),
-		fmt.Sprintf(`ingress icmp 0 0  IPv4 %s`, group.Id),
-	}
-	sort.Strings(stringRules)
-	sort.Strings(expectedRules)
-	c.Check(stringRules, gc.DeepEquals, expectedRules)
 }
 
 func (s *LiveTests) assertStartInstanceDefaultSecurityGroup(c *gc.C, useDefault bool) {
