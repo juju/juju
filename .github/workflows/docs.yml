@@ -1,0 +1,46 @@
+name: "Docs"
+on:
+  push:
+    branches:
+      - 'develop'
+  workflow_dispatch:
+
+jobs:
+  cli:
+    name: Sync CLI docs
+    runs-on: ubuntu-latest
+    env:
+      TOPIC_IDS: './.github/discourse-topic-ids.yaml'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Build Juju client
+        run: |
+          go install -v ./cmd/juju
+
+      - name: Generate docs
+        id: gen
+        shell: bash
+        run: |
+          # Create temp dir to hold docs
+          DOCS_DIR=$(mktemp -d)
+          echo "dir=${DOCS_DIR}" >> $GITHUB_OUTPUT
+          juju documentation --split --out=$DOCS_DIR --discourse-ids $TOPIC_IDS
+        # TODO: save $DOCS_DIR as an artifact
+
+      - name: Sync docs to Discourse
+        env:
+          DISCOURSE_API_USERNAME: ${{ secrets.DISCOURSE_API_USERNAME }}
+          DISCOURSE_API_KEY: ${{ secrets.DISCOURSE_API_KEY }}
+          DOCS_DIR: ${{ steps.gen.outputs.dir }}
+        run: |
+          python3 -m pip install -r ./scripts/discourse-sync/requirements.txt
+          python3 ./scripts/discourse-sync/main.py
