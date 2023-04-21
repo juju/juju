@@ -13,7 +13,7 @@ run_bundle_with_exposed_endpoints() {
 assert_deploy_bundle_with_expose_flag_and_exposed_endpoints_fails() {
 	echo "==> Checking that deploying a bundle with both the expose flag and exposed endpoint sections is not allowed"
 
-	bundle=./tests/suites/expose_ec2/bundles/invalid.yaml
+	bundle=./tests/suites/firewall/bundles/invalid.yaml
 	got=$(juju deploy ${bundle} 2>&1 || true)
 	check_contains "${got}" 'exposed-endpoints cannot be specified together with "exposed:true" in application "ubuntu-lite" as this poses a security risk when deploying bundles to older controllers'
 }
