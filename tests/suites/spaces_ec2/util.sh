@@ -31,6 +31,17 @@ configure_multi_nic_netplan() {
 	local juju_machine_id hotplug_iface
 	juju_machine_id=$1
 	hotplug_iface=$2
+}
+
+# configure_multi_mic_netplan()
+#
+# Patch the netplan settings for the new interface, apply the new plan,
+# restart the machine agent and wait for juju to detect the new interface
+# before returning.
+configure_multi_nic_netplan() {
+	local juju_machine_id hotplug_iface
+	juju_machine_id=$1
+	hotplug_iface=$2
 
 	# Add an entry to netplan and apply it so the second interface comes online
 	echo "[+] updating netplan and restarting machine agent"

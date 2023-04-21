@@ -585,34 +585,25 @@ func deployApplication(
 	return errors.Trace(err)
 }
 
+// convertCharmOrigin converts a params CharmOrigin to a core charm
+// Origin. If the input origin is nil, a core charm Origin is deduced
+// from the provided data. It is used in both deploying and refreshing
+// charms, including from old clients which aren't charm origin aware.
+// MaybeSeries is a fallback if the origin is not provided.
 func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL) (corecharm.Origin, error) {
-	var (
-		originType string
-		platform   corecharm.Platform
-	)
-	if origin != nil {
-		originType = origin.Type
-		base, err := series.ParseBase(origin.Base.Name, origin.Base.Channel)
-		if err != nil {
-			return corecharm.Origin{}, errors.Trace(err)
-		}
-		platform = corecharm.Platform{
-			Architecture: origin.Architecture,
-			OS:           base.OS,
-			Channel:      base.Channel.Track,
-		}
+	if origin == nil {
+		return corecharm.Origin{}, errors.NotValidf("nil charm origin")
 	}
 
-	switch {
-	case origin.Source == "local":
-		return corecharm.Origin{
-			Type:     originType,
-			Source:   corecharm.Local,
-			Revision: &curl.Revision,
-			Platform: platform,
-		}, nil
-	case origin.Source != "charm-hub":
-		return corecharm.Origin{}, errors.NotValidf("origin source not local nor charm-hub")
+	originType := origin.Type
+	base, err := series.ParseBase(origin.Base.Name, origin.Base.Channel)
+	if err != nil {
+		return corecharm.Origin{}, errors.Trace(err)
+	}
+	platform := corecharm.Platform{
+		Architecture: origin.Architecture,
+		OS:           base.OS,
+		Channel:      base.Channel.Track,
 	}
 
 	var track string

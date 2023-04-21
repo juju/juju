@@ -135,6 +135,12 @@ machines:
 `[1:])
 }
 
+func (s *diffSuite) TestLocalBundleInvalidYaml(c *gc.C) {
+	_, err := s.runDiffBundle(c, s.writeLocalBundle(c, invalidYaml))
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, gc.ErrorMatches, `.*cannot unmarshal bundle contents.*`[1:])
+}
+
 func (s *diffSuite) TestIncludeAnnotations(c *gc.C) {
 	ctx, err := s.runDiffBundle(c, "--annotations", s.writeLocalBundle(c, testCharmHubBundle))
 	c.Assert(err, jc.ErrorIsNil)
@@ -686,6 +692,13 @@ machines:
 	invalidBundle = `
 machines:
   0:
+`
+	invalidYaml = `
+applications:
+  prometheus:
+    options:
+      admin-user: lovecraft
+va
 `
 	overlay1 = `
 applications:
