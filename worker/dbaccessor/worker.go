@@ -268,9 +268,37 @@ func (w *dbWorker) Wait() error {
 
 // Report provides information for the engine report.
 func (w *dbWorker) Report() map[string]any {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
 	// We need to guard against attempting to report when setting up or dying,
 	// so we don't end up panic'ing with missing information.
-	return w.dbRunner.Report()
+	result := w.dbRunner.Report()
+
+	if w.dbApp == nil {
+		result["leader"] = ""
+		result["leader-role"] = ""
+		return result
+	}
+
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	var (
+		leader     string
+		leaderRole string
+	)
+	if client, err := w.dbApp.Client(ctx); err == nil {
+		if nodeInfo, err := client.Leader(ctx); err == nil {
+			leader = nodeInfo.Address
+			leaderRole = nodeInfo.Role.String()
+		}
+	}
+
+	result["leader"] = leader
+	result["leader-role"] = leaderRole
+
+	return result
 }
 
 // GetDB returns a TrackedDB reference for the dqlite-backed

@@ -106,6 +106,16 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 		c.Fatal("timed out waiting for Dqlite node start")
 	}
 
+	s.client.EXPECT().Leader(gomock.Any()).Return(&dqlite.NodeInfo{
+		ID:      1,
+		Address: "10.10.1.1",
+	}, nil)
+	report := w.(interface{ Report() map[string]any }).Report()
+	c.Assert(report, MapHasKeys, []string{
+		"leader",
+		"leader-role",
+	})
+
 	workertest.CleanKill(c, w)
 }
 
@@ -293,7 +303,7 @@ func (s *workerSuite) expectNodeStartupAndShutdown() chan struct{} {
 
 	appExp := s.dbApp.EXPECT()
 	appExp.Ready(gomock.Any()).Return(nil)
-	appExp.Client(gomock.Any()).Return(s.client, nil)
+	appExp.Client(gomock.Any()).Return(s.client, nil).MinTimes(1)
 	appExp.ID().DoAndReturn(func() uint64 {
 		close(sync)
 		return uint64(666)

@@ -62,8 +62,8 @@ func (s *trackedDBWorkerSuite) TestWorkerReport(c *gc.C) {
 	c.Assert(report, MapHasKeys, []string{
 		"db-replacements",
 		"max-ping-duration",
-		"ping-attempts",
-		"ping-duration",
+		"last-ping-attempts",
+		"last-ping-duration",
 	})
 
 	workertest.CleanKill(c, w)

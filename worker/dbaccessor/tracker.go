@@ -82,11 +82,7 @@ type trackedDBWorker struct {
 
 	pingDBFunc func(context.Context, *sql.DB) error
 
-	// Metrics for the engine report.
-	pingDuration    time.Duration
-	pingAttempts    uint32
-	maxPingDuration time.Duration
-	dbReplacements  uint32
+	report *report
 }
 
 // NewTrackedDBWorker creates a new TrackedDBWorker
@@ -96,6 +92,7 @@ func NewTrackedDBWorker(dbApp DBApp, namespace string, opts ...TrackedDBWorkerOp
 		namespace:  namespace,
 		clock:      clock.WallClock,
 		pingDBFunc: defaultPingDBFunc,
+		report:     &report{},
 	}
 
 	for _, opt := range opts {
@@ -179,15 +176,7 @@ func (w *trackedDBWorker) Wait() error {
 
 // Report provides information for the engine report.
 func (w *trackedDBWorker) Report() map[string]any {
-	w.mutex.RLock()
-	defer w.mutex.RUnlock()
-
-	return map[string]any{
-		"ping-duration":     w.pingDuration.String(),
-		"ping-attempts":     w.pingAttempts,
-		"max-ping-duration": w.maxPingDuration.String(),
-		"db-replacements":   w.dbReplacements,
-	}
+	return w.report.Report()
 }
 
 func (w *trackedDBWorker) loop() error {
@@ -231,7 +220,9 @@ func (w *trackedDBWorker) loop() error {
 					w.logger.Errorf("error closing database: %v", err)
 				}
 				w.db = newDB
-				w.dbReplacements++
+				w.report.Set(func(r *report) {
+					r.dbReplacements++
+				})
 				w.err = nil
 				w.mutex.Unlock()
 			}
@@ -280,13 +271,13 @@ func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(db *sql.DB) (*sql.DB, e
 		pingDur := w.clock.Now().Sub(pingStart)
 
 		// Record the ping attempt and duration.
-		w.mutex.Lock()
-		w.pingAttempts = pingAttempts
-		w.pingDuration = pingDur
-		if pingDur > w.maxPingDuration {
-			w.maxPingDuration = pingDur
-		}
-		w.mutex.Unlock()
+		w.report.Set(func(r *report) {
+			r.pingAttempts = pingAttempts
+			r.pingDuration = pingDur
+			if pingDur > r.maxPingDuration {
+				r.maxPingDuration = pingDur
+			}
+		})
 
 		// We were successful at requesting the schema, so we can bail out
 		// early.
@@ -316,4 +307,34 @@ func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(db *sql.DB) (*sql.DB, e
 
 func defaultPingDBFunc(ctx context.Context, db *sql.DB) error {
 	return db.PingContext(ctx)
+}
+
+// report fields for the engine report.
+type report struct {
+	sync.Mutex
+
+	pingDuration    time.Duration
+	pingAttempts    uint32
+	maxPingDuration time.Duration
+	dbReplacements  uint32
+}
+
+func (r *report) Report() map[string]any {
+	r.Lock()
+	defer r.Unlock()
+
+	return map[string]any{
+		"last-ping-duration": r.pingDuration.String(),
+		"last-ping-attempts": r.pingAttempts,
+		"max-ping-duration":  r.maxPingDuration.String(),
+		"db-replacements":    r.dbReplacements,
+	}
+}
+
+// Set allows to set the report fields, guarded by a mutex.
+func (r *report) Set(f func(*report)) {
+	r.Lock()
+	defer r.Unlock()
+
+	f(r)
 }
