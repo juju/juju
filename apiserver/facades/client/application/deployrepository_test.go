@@ -4,6 +4,8 @@
 package application
 
 import (
+	"reflect"
+
 	"github.com/golang/mock/gomock"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
@@ -674,6 +676,40 @@ func (s *validatorSuite) TestAppCharmSettings(c *gc.C) {
 	c.Assert(charmConfig["optionTwo"], gc.DeepEquals, int64(8))
 }
 
+// The purpose of the resolveResourcesArgsMatcher is
+// to compare the slices of resource.Resource, b/c the
+// order is non-deterministic.
+type resolveResourcesArgsMatcher struct {
+	c        *gc.C
+	expected *[]resource.Resource
+}
+
+func (m resolveResourcesArgsMatcher) String() string {
+	return "match ResolveResources arg map"
+}
+
+func (m resolveResourcesArgsMatcher) Matches(x interface{}) bool {
+	obtainedSlice, ok := x.([]resource.Resource)
+	if !ok {
+		return false
+	}
+
+	m.c.Assert(obtainedSlice, gc.HasLen, len(*m.expected))
+	// Unfortunately the jc.SameContents don't work here
+	// because resource.Resource is unhashable
+	for _, r := range obtainedSlice {
+		found := false
+		for _, exR := range *m.expected {
+			if reflect.DeepEqual(r, exR) {
+				found = true
+				break
+			}
+		}
+		m.c.Assert(found, gc.Equals, true)
+	}
+	return true
+}
+
 func (s *validatorSuite) TestResolveResourcesSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	curl := charm.MustParseURL("testcharm")
@@ -732,7 +768,7 @@ func (s *validatorSuite) TestResolveResourcesSuccess(c *gc.C) {
 	// First one of below is the file upload for Resource 1, the second is the revision for Resource 2e
 	deployResArg := map[string]string{"foo-file": "bar", "foo-file2": "3"}
 
-	s.repo.EXPECT().ResolveResources(resArgs, corecharm.CharmID{URL: curl, Origin: origin}).Return(resResult, nil)
+	s.repo.EXPECT().ResolveResources(resolveResourcesArgsMatcher{c: c, expected: &resArgs}, corecharm.CharmID{URL: curl, Origin: origin}).Return(resResult, nil)
 	resources, pendingResourceUploads, resolveResErr := s.getValidator().resolveResources(curl, origin, deployResArg, resMeta)
 	pendUp := &params.PendingResourceUpload{
 		Name:     "foo-resource",
