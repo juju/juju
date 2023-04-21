@@ -22,7 +22,6 @@ add_multi_nic_machine() {
 		--instance-id $(juju show-machine --format json | jq -r ".[\"machines\"] | .[\"${juju_machine_id}\"] | .[\"instance-id\"]")
 }
 
-
 # configure_multi_mic_netplan()
 #
 # Patch the netplan settings for the new interface, apply the new plan,
