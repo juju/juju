@@ -79,22 +79,22 @@ Use --client option to add cloud to the current client.
 
 A cloud definition file has the following YAML format:
 
-clouds:                           # mandatory
-  mycloud:                        # <cloud name> argument
-    type: openstack               # <cloud type>, see below
-    auth-types: [ userpass ]
-    regions:
-      london:
-        endpoint: https://london.mycloud.com:35574/v3.0/
+    clouds:                           # mandatory
+      mycloud:                        # <cloud name> argument
+        type: openstack               # <cloud type>, see below
+        auth-types: [ userpass ]
+        regions:
+          london:
+            endpoint: https://london.mycloud.com:35574/v3.0/
 
-<cloud types> for private clouds: 
+Cloud types for private clouds: 
  - lxd
  - maas
  - manual
  - openstack
  - vsphere
 
-<cloud types> for public clouds:
+Cloud types for public clouds:
  - azure
  - ec2
  - gce
