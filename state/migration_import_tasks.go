@@ -68,8 +68,8 @@ func (s stateApplicationOfferDocumentFactoryShim) MakeApplicationOfferDoc(app de
 	}), nil
 }
 
-func (s stateApplicationOfferDocumentFactoryShim) MakeIncApplicationOffersRefOp(name string) (txn.Op, error) {
-	return incApplicationOffersRefOp(s.importer.st, name)
+func (s stateApplicationOfferDocumentFactoryShim) MakeApplicationOffersRefOp(name string, startCnt int) (txn.Op, error) {
+	return newApplicationOffersRefOp(s.importer.st, name, startCnt)
 }
 
 type applicationDescriptionShim struct {
@@ -88,7 +88,7 @@ type ApplicationDescription interface {
 // Note: we need public methods here because gomock doesn't mock private methods
 type ApplicationOfferStateDocumentFactory interface {
 	MakeApplicationOfferDoc(description.ApplicationOffer) (applicationOfferDoc, error)
-	MakeIncApplicationOffersRefOp(string) (txn.Op, error)
+	MakeApplicationOffersRefOp(string, int) (txn.Op, error)
 }
 
 // ApplicationOfferDescription defines an in-place usage for reading
@@ -119,20 +119,37 @@ func (i ImportApplicationOffer) Execute(src ApplicationOfferInput,
 	if len(offers) == 0 {
 		return nil
 	}
+	refCounts := make(map[string]int, len(offers))
 	ops := make([]txn.Op, 0)
 	for _, offer := range offers {
 		appDoc, err := src.MakeApplicationOfferDoc(offer)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		appOps, err := i.addApplicationOfferOps(src, addApplicationOfferOpsArgs{
-			applicationOfferDoc: appDoc,
-			acl:                 offer.ACL(),
-		})
+		appOps, err := i.addApplicationOfferOps(src,
+			addApplicationOfferOpsArgs{
+				applicationOfferDoc: appDoc,
+				acl:                 offer.ACL(),
+			})
 		if err != nil {
 			return errors.Trace(err)
 		}
 		ops = append(ops, appOps...)
+		appName := offer.ApplicationName()
+		if appCnt, ok := refCounts[appName]; ok {
+			refCounts[appName] = appCnt + 1
+		} else {
+			refCounts[appName] = 1
+		}
+	}
+	// range the offers again to create refcount docs, an application
+	// may have more than one offer.
+	for appName, cnt := range refCounts {
+		refCntOpps, err := src.MakeApplicationOffersRefOp(appName, cnt)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ops = append(ops, refCntOpps)
 	}
 	if err := runner.RunTransaction(ops); err != nil {
 		return errors.Trace(err)
@@ -148,25 +165,19 @@ type addApplicationOfferOpsArgs struct {
 func (i ImportApplicationOffer) addApplicationOfferOps(src ApplicationOfferInput,
 	args addApplicationOfferOpsArgs,
 ) ([]txn.Op, error) {
-	appName := args.applicationOfferDoc.ApplicationName
-	incRefOp, err := src.MakeIncApplicationOffersRefOp(appName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	docID := src.DocID(appName)
 	ops := []txn.Op{
 		{
 			C:      applicationOffersC,
-			Id:     docID,
+			Id:     src.DocID(args.applicationOfferDoc.OfferName),
 			Assert: txn.DocMissing,
 			Insert: args.applicationOfferDoc,
 		},
-		incRefOp,
 	}
 	for userName, access := range args.acl {
 		user := names.NewUserTag(userName)
-		ops = append(ops, createPermissionOp(applicationOfferKey(
-			args.applicationOfferDoc.OfferUUID), userGlobalKey(userAccessID(user)), permission.Access(access)))
+		h := createPermissionOp(applicationOfferKey(
+			args.applicationOfferDoc.OfferUUID), userGlobalKey(userAccessID(user)), permission.Access(access))
+		ops = append(ops, h)
 	}
 	return ops, nil
 }
