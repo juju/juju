@@ -118,7 +118,7 @@ func VolumeInfo(pv *resources.PersistentVolume, now time.Time) caas.VolumeInfo {
 	return caas.VolumeInfo{
 		VolumeId:   pv.Name,
 		Size:       size,
-		Persistent: pv.Spec.PersistentVolumeReclaimPolicy == corev1.PersistentVolumeReclaimRetain,
+		Persistent: true,
 		Status: status.StatusInfo{
 			Status:  VolumeStatus(pv.Status.Phase),
 			Message: pv.Status.Message,

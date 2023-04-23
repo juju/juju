@@ -1167,6 +1167,25 @@ func (sb *storageBackend) attachStorageOps(
 		}
 		ops = append(ops, machineStorageOps...)
 	}
+
+	// Attach volumes and filesystems for reattached storage on CAAS.
+	if sb.modelType == ModelTypeCAAS {
+		storageParams, err := storageParamsForStorageInstance(
+			sb, charmMeta, unitTag, unitSeries, si,
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// we should never be creating these here, but just to be sure.
+		storageParams.filesystems = nil
+		storageParams.volumes = nil
+		hostStorageOps, _, _, err := sb.hostStorageOps(unitTag.Id(), storageParams)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, hostStorageOps...)
+	}
+
 	return ops, nil
 }
 

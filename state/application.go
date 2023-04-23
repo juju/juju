@@ -2672,6 +2672,13 @@ type UpsertCAASUnitParams struct {
 
 	OrderedScale bool
 	OrderedId    int
+
+	ObservedAttachments []CAASFilesystemAttachment
+}
+
+type CAASFilesystemAttachment struct {
+	FilesystemId string
+	VolumeId     string
 }
 
 func (a *Application) UpsertCAASUnit(args UpsertCAASUnitParams) (*Unit, error) {
@@ -2688,8 +2695,13 @@ func (a *Application) UpsertCAASUnit(args UpsertCAASUnitParams) (*Unit, error) {
 		return nil, errors.NotValidf("unit name")
 	}
 
+	sb, err := NewStorageBackend(a.st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var unit *Unit
-	err := a.st.db().Run(func(attempt int) ([]txn.Op, error) {
+	err = a.st.db().Run(func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			err := a.Refresh()
 			if err != nil {
@@ -2709,6 +2721,43 @@ func (a *Application) UpsertCAASUnit(args UpsertCAASUnitParams) (*Unit, error) {
 			} else if err != nil {
 				return nil, err
 			}
+		}
+
+		// Try to reattach the storage that k8s has observed attached to this pod.
+		for _, attachment := range args.ObservedAttachments {
+			fs, err := sb.filesystem(bson.D{{"info.filesystemid", attachment.FilesystemId}}, "")
+			if errors.Is(err, errors.NotFound) {
+				continue
+			} else if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			fsStorageId, err := fs.Storage()
+			if errors.Is(err, errors.NotAssigned) {
+				continue
+			} else if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			volume, err := sb.volume(bson.D{{"info.volumeid", attachment.VolumeId}}, "")
+			if errors.Is(err, errors.NotFound) {
+				continue
+			} else if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			volumeStorageId, err := volume.StorageInstance()
+			if errors.Is(err, errors.NotAssigned) {
+				continue
+			} else if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			if fsStorageId != volumeStorageId {
+				// TODO: handle this inconsistency?
+				continue
+			}
+			args.AddUnitParams.AttachStorage = append(args.AddUnitParams.AttachStorage, volumeStorageId)
 		}
 
 		if unit == nil {

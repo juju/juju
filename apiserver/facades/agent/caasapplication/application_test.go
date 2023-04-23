@@ -77,6 +77,12 @@ func (s *CAASApplicationSuite) TestAddUnit(c *gc.C) {
 			Id:      "gitlab-0",
 			Address: "1.2.3.4",
 			Ports:   []string{"80"},
+			FilesystemInfo: []caas.FilesystemInfo{{
+				FilesystemId: "fsid",
+				Volume: caas.VolumeInfo{
+					VolumeId: "vid",
+				},
+			}},
 		}},
 	}
 
@@ -101,6 +107,9 @@ func (s *CAASApplicationSuite) TestAddUnit(c *gc.C) {
 		},
 		OrderedScale: true,
 		OrderedId:    0,
+		ObservedAttachments: []state.CAASFilesystemAttachment{
+			{FilesystemId: "fsid", VolumeId: "vid"},
+		},
 	})
 }
 

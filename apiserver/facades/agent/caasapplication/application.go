@@ -141,6 +141,12 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 	if len(pod.Ports) != 0 {
 		upsert.Ports = &pod.Ports
 	}
+	for _, fs := range pod.FilesystemInfo {
+		upsert.ObservedAttachments = append(upsert.ObservedAttachments, state.CAASFilesystemAttachment{
+			FilesystemId: fs.FilesystemId,
+			VolumeId:     fs.Volume.VolumeId,
+		})
+	}
 
 	password, err := utils.RandomPassword()
 	if err != nil {
