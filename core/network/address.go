@@ -918,7 +918,7 @@ func ConvertToSpaceAddress(addr SpaceAddressCandidate, lookup SubnetLookup) (Spa
 
 	// If this is not a loopback device, attempt to
 	// set the space ID based on the subnet.
-	if addr.ConfigMethod() != ConfigLoopback && cidr != "" {
+	if cidr != "" {
 		allMatching, err := subnets.GetByCIDR(cidr)
 		if err != nil {
 			return SpaceAddress{}, errors.Trace(err)
