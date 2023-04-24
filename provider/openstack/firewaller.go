@@ -343,24 +343,24 @@ func (c *neutronFirewaller) ensureGroup(name string, isModelGroup bool) (neutron
 		return zeroGroup, err
 	}
 
-	if isModelGroup {
-		if err := c.ensureInternalRules(neutronClient, group); err != nil {
-			return zeroGroup, errors.Annotate(err, "failed to enable internal model rules")
-		}
-		// Since we may have done a few add or delete rules, get a new
-		// copy of the security group to return containing the end
-		// list of rules.
-		groupsFound, err = neutronClient.SecurityGroupByNameV2(name)
-		if err != nil {
-			return zeroGroup, err
-		} else if len(groupsFound) > 1 {
-			// TODO(hml): Add unit test for this case
-			return zeroGroup, errors.New(fmt.Sprintf("More than one security group named %s was found after group was ensured", name))
-		}
-		group = groupsFound[0]
+	if !isModelGroup {
+		return group, nil
 	}
 
-	return group, nil
+	if err := c.ensureInternalRules(neutronClient, group); err != nil {
+		return zeroGroup, errors.Annotate(err, "failed to enable internal model rules")
+	}
+	// Since we may have done a few add or delete rules, get a new
+	// copy of the security group to return containing the end
+	// list of rules.
+	groupsFound, err = neutronClient.SecurityGroupByNameV2(name)
+	if err != nil {
+		return zeroGroup, err
+	} else if len(groupsFound) > 1 {
+		// TODO(hml): Add unit test for this case
+		return zeroGroup, errors.New(fmt.Sprintf("More than one security group named %s was found after group was ensured", name))
+	}
+	return groupsFound[0], nil
 }
 
 func (c *neutronFirewaller) ensureInternalRules(neutronClient *neutron.Client, group neutron.SecurityGroupV2) error {
