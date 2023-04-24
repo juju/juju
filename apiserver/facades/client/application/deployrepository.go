@@ -362,12 +362,6 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 		errs = append(errs, rcErrs...)
 	}
 
-	attachStorage, attachStorageErrs := validateAndParseAttachStorage(arg.AttachStorage, dt.numUnits)
-	if len(attachStorageErrs) > 0 {
-		errs = append(errs, attachStorageErrs...)
-	}
-
-	dt.attachStorage = attachStorage
 	dt.charmURL = charmURL
 	dt.dryRun = arg.DryRun
 	dt.force = arg.Force
@@ -404,15 +398,14 @@ func validateAndParseAttachStorage(input []string, numUnits int) ([]names.Storag
 	}
 	attachStorage := make([]names.StorageTag, len(input))
 	errs := make([]error, 0)
-	for i, tagString := range input {
-		tag, err := names.ParseStorageTag(tagString)
-		if err != nil {
-			errs = append(errs, errors.Trace(err))
-			continue
+	for i, stor := range input {
+		if names.IsValidStorage(stor) {
+			attachStorage[i] = names.NewStorageTag(stor)
+		} else {
+			errs = append(errs, errors.NotValidf("storage name %q", stor))
 		}
-		attachStorage[i] = tag
 	}
-	return attachStorage, nil
+	return attachStorage, errs
 }
 
 func (v *deployFromRepositoryValidator) resolvedCharmValidation(resolvedCharm charm.Charm, arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
@@ -508,6 +501,7 @@ type caasDeployFromRepositoryValidator struct {
 //   - Check the charm's min version against the caasVersion
 func (v caasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
 	dt, errs := v.validator.validate(arg)
+
 	if corecharm.IsKubernetes(dt.charm) && charm.MetaFormat(dt.charm) == charm.FormatV1 {
 		deployRepoLogger.Debugf("DEPRECATED: %q is a podspec charm, which will be removed in a future release", arg.CharmName)
 	}
@@ -528,8 +522,14 @@ type iaasDeployFromRepositoryValidator struct {
 // ValidateArg validates DeployFromRepositoryArg from a iaas perspective.
 // First checking the common validation, then any validation specific to
 // iaas charms.
-func (v *iaasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
-	return v.validator.validate(arg)
+func (v iaasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
+	dt, errs := v.validator.validate(arg)
+	attachStorage, attachStorageErrs := validateAndParseAttachStorage(arg.AttachStorage, dt.numUnits)
+	if len(attachStorageErrs) > 0 {
+		errs = append(errs, attachStorageErrs...)
+	}
+	dt.attachStorage = attachStorage
+	return dt, errs
 }
 
 func (v *deployFromRepositoryValidator) createOrigin(arg params.DeployFromRepositoryArg) (*charm.URL, corecharm.Origin, bool, error) {
