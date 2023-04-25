@@ -1994,19 +1994,20 @@ func (k *kubernetesClient) AnnotateUnit(appName string, mode caas.DeploymentMode
 		return nil
 	}
 
-	patch := &core.Pod{
-		ObjectMeta: v1.ObjectMeta{
-			Annotations: map[string]string{
-				utils.AnnotationUnitKey(k.IsLegacyLabels()): unitID,
-			},
-		},
+	patch := struct {
+		ObjectMeta struct {
+			Annotations map[string]string `json:"annotations"`
+		} `json:"metadata"`
+	}{}
+	patch.ObjectMeta.Annotations = map[string]string{
+		utils.AnnotationUnitKey(k.IsLegacyLabels()): unitID,
 	}
 	jsonPatch, err := json.Marshal(patch)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	_, err = pods.Patch(context.TODO(), pod.Name, types.JSONPatchType, jsonPatch, v1.PatchOptions{})
+	_, err = pods.Patch(context.TODO(), pod.Name, types.MergePatchType, jsonPatch, v1.PatchOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NotFoundf("pod %q", podName)
 	}

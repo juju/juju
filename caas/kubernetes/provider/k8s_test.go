@@ -7460,11 +7460,11 @@ func (s *K8sBrokerSuite) TestAnnotateUnit(c *gc.C) {
 		},
 	}
 
-	patch := []byte(`{"metadata":{"creationTimestamp":null,"annotations":{"unit.juju.is/id":"appname/0"}},"spec":{"containers":null},"status":{}}`)
+	patch := []byte(`{"metadata":{"annotations":{"unit.juju.is/id":"appname/0"}}}`)
 
 	gomock.InOrder(
 		s.mockPods.EXPECT().Get(gomock.Any(), "pod-name", v1.GetOptions{}).Return(pod, nil),
-		s.mockPods.EXPECT().Patch(gomock.Any(), "pod-name", types.JSONPatchType, patch, v1.PatchOptions{}).Return(updatePod, nil),
+		s.mockPods.EXPECT().Patch(gomock.Any(), "pod-name", types.MergePatchType, patch, v1.PatchOptions{}).Return(updatePod, nil),
 	)
 
 	err := s.broker.AnnotateUnit("appname", caas.ModeWorkload, "pod-name", names.NewUnitTag("appname/0"))
@@ -7496,7 +7496,7 @@ func (s *K8sBrokerSuite) assertAnnotateUnitByUID(c *gc.C, mode caas.DeploymentMo
 		},
 	}
 
-	patch := []byte(`{"metadata":{"creationTimestamp":null,"annotations":{"unit.juju.is/id":"appname/0"}},"spec":{"containers":null},"status":{}}`)
+	patch := []byte(`{"metadata":{"annotations":{"unit.juju.is/id":"appname/0"}}}`)
 
 	labelSelector := "app.kubernetes.io/name=appname"
 	if mode == caas.ModeOperator {
@@ -7505,7 +7505,7 @@ func (s *K8sBrokerSuite) assertAnnotateUnitByUID(c *gc.C, mode caas.DeploymentMo
 	gomock.InOrder(
 		s.mockPods.EXPECT().Get(gomock.Any(), "uuid", v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
 		s.mockPods.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: labelSelector}).Return(podList, nil),
-		s.mockPods.EXPECT().Patch(gomock.Any(), "pod-name", types.JSONPatchType, patch, v1.PatchOptions{}).Return(updatePod, nil),
+		s.mockPods.EXPECT().Patch(gomock.Any(), "pod-name", types.MergePatchType, patch, v1.PatchOptions{}).Return(updatePod, nil),
 	)
 
 	err := s.broker.AnnotateUnit("appname", mode, "uuid", names.NewUnitTag("appname/0"))
