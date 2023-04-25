@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -214,7 +215,7 @@ func (a *API) getDefaultArch() (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return arch.ConstraintArch(cons, nil), nil
+	return constraints.ConstraintArch(cons, nil), nil
 }
 
 func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string) (params.CharmOrigin, error) {
@@ -409,7 +410,7 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel) params.Resolve
 			result.Error = apiservererrors.ServerError(err)
 			return result
 		}
-		archOrigin.Architecture = arch.ConstraintArch(cons, nil)
+		archOrigin.Architecture = constraints.ConstraintArch(cons, nil)
 	}
 
 	result.Origin = archOrigin

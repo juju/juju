@@ -15,10 +15,10 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
 	"github.com/juju/retry"
 	"github.com/juju/schema"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	"github.com/packethost/packngo"
 	"gopkg.in/juju/environschema.v1"
@@ -105,7 +105,7 @@ func (e *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
 	validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
-	validator.RegisterVocabulary(constraints.Arch, []string{arch.AMD64, arch.ARM64, arch.I386, arch.PPC64EL})
+	validator.RegisterVocabulary(constraints.Arch, []string{arch.AMD64, arch.ARM64, arch.PPC64EL})
 	return validator, nil
 }
 

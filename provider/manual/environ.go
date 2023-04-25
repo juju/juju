@@ -14,9 +14,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v3"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/utils/v3/ssh"
 	"github.com/juju/version/v2"
 

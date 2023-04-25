@@ -7,9 +7,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/arch"
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/state"

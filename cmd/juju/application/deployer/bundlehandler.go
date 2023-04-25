@@ -30,7 +30,6 @@ import (
 	appbundle "github.com/juju/juju/cmd/juju/application/bundle"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/arch"
 	bundlechanges "github.com/juju/juju/core/bundle/changes"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -1718,7 +1717,7 @@ func (b bundleArchConstraint) Arch() (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return arch.ConstraintArch(cons, &b.defaultConstraints), nil
+	return constraints.ConstraintArch(cons, &b.defaultConstraints), nil
 }
 
 func verifyEndpointBindings(endpointBindings map[string]string, knownSpaceNames set.Strings) error {

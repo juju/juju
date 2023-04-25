@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/retry"
-	"github.com/juju/utils/v3/arch"
 	"github.com/lxc/lxd/shared/api"
 	"github.com/lxc/lxd/shared/units"
 

@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/arch"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"

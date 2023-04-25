@@ -25,7 +25,6 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
@@ -1213,7 +1212,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		a := arch.ConstraintArch(cons, &modelConstraints)
+		a := constraints.ConstraintArch(cons, &modelConstraints)
 		cons.Arch = &a
 		args.Constraints = cons
 	}

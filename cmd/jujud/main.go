@@ -19,10 +19,10 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	proxyutils "github.com/juju/proxy"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/utils/v3/exec"
 	"github.com/juju/version/v2"
 

@@ -8,7 +8,7 @@ import (
 	"path"
 
 	"github.com/juju/errors"
-	jujuarch "github.com/juju/utils/v3/arch"
+	jujuarch "github.com/juju/juju/core/arch"
 	lxd "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
 

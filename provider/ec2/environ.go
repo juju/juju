@@ -23,9 +23,9 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 

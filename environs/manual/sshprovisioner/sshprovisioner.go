@@ -12,8 +12,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/utils/v3"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/utils/v3/shell"
 	"github.com/juju/utils/v3/ssh"
 

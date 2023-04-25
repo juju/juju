@@ -10,7 +10,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3/arch"
+	"github.com/juju/juju/core/arch"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/context"

@@ -10,13 +10,10 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-
-	"github.com/juju/utils/v3/arch"
 )
 
 var (
-	runtimeGOOS  = runtime.GOOS
-	hostWordSize = arch.Info[arch.HostArch()].WordSize
+	runtimeGOOS = runtime.GOOS
 
 	smallOplogSizeMB   = 512
 	regularOplogSizeMB = 1024
@@ -33,12 +30,6 @@ var (
 // MongoDB formula but simply using 512MB for small disks and 1GB
 // for larger ones.
 func defaultOplogSize(dir string) (int, error) {
-	if hostWordSize == 32 {
-		// "For 32-bit systems, MongoDB allocates about 48 megabytes
-		// of space to the oplog."
-		return 48, nil
-	}
-
 	// "For 64-bit OS X systems, MongoDB allocates 183 megabytes of
 	// space to the oplog."
 	if runtimeGOOS == "darwin" {

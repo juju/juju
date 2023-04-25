@@ -12,9 +12,9 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/series"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 

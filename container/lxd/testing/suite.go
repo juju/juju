@@ -5,7 +5,7 @@ package testing
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/utils/v3/arch"
+	"github.com/juju/juju/core/arch"
 	lxdapi "github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 

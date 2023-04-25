@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 

@@ -12,8 +12,8 @@ import (
 	"github.com/Azure/go-autorest/autorest/mocks"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/arch"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/arch"
 
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/context"

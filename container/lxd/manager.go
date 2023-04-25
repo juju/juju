@@ -9,8 +9,8 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
+	jujuarch "github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
-	jujuarch "github.com/juju/utils/v3/arch"
 	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"

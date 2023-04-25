@@ -20,6 +20,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	jujuos "github.com/juju/os/v2"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 
 	gc "gopkg.in/check.v1"

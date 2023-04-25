@@ -8,10 +8,10 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 

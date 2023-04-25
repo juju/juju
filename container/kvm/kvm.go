@@ -12,8 +12,8 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/v3/arch"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/cloudinit"

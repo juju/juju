@@ -12,7 +12,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3/arch"
+	"github.com/juju/juju/core/arch"
 	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/container/lxd"

@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v3"
-	"github.com/juju/utils/v3/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/context"
