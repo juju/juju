@@ -188,13 +188,13 @@ func (u *fakeToolsUploader) UploadTools(_, _ string, tools *coretools.Tools, _ [
 
 var (
 	v100u64 = version.MustParseBinary("1.0.0-ubuntu-amd64")
-	v100u32 = version.MustParseBinary("1.0.0-ubuntu-i386")
+	v100u32 = version.MustParseBinary("1.0.0-ubuntu-arm64")
 	v100all = []version.Binary{v100u64, v100u32}
 	v180u64 = version.MustParseBinary("1.8.0-ubuntu-amd64")
-	v180u32 = version.MustParseBinary("1.8.0-ubuntu-i386")
+	v180u32 = version.MustParseBinary("1.8.0-ubuntu-arm64")
 	v180all = []version.Binary{v180u64, v180u32}
 	v190u64 = version.MustParseBinary("1.9.0-ubuntu-amd64")
-	v190u32 = version.MustParseBinary("1.9.0-ubuntu-i386")
+	v190u32 = version.MustParseBinary("1.9.0-ubuntu-arm64")
 	v190all = []version.Binary{v190u64, v190u32}
 	v1all   = append(append(v100all, v180all...), v190all...)
 	v200u64 = version.MustParseBinary("2.0.0-ubuntu-amd64")

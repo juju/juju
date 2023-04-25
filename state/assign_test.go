@@ -5,12 +5,10 @@ package state_test
 
 import (
 	"fmt"
-	"runtime"
 	"sort"
 	"strconv"
 	"time"
 
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
@@ -1449,10 +1447,7 @@ func (s *assignCleanSuite) TestAssignUnitPolicyConcurrently(c *gc.C) {
 	_, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel) // bootstrap machine
 	c.Assert(err, jc.ErrorIsNil)
 	unitCount := 50
-	// On arm with 50 concurrent attempts, this test takes over 90s.
-	if arch.NormaliseArch(runtime.GOARCH) == arch.ARM {
-		unitCount = 5
-	} else if raceDetector {
+	if raceDetector {
 		unitCount = 10
 	}
 	us := make([]*state.Unit, unitCount)

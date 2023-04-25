@@ -306,11 +306,11 @@ func RemoveTools(c *gc.C, stor storage.Storage, toolsDir string) {
 var (
 	V100    = version.MustParse("1.0.0")
 	V100u64 = version.MustParseBinary("1.0.0-ubuntu-amd64")
-	V100u32 = version.MustParseBinary("1.0.0-ubuntu-i386")
+	V100u32 = version.MustParseBinary("1.0.0-ubuntu-arm64")
 	V100p   = []version.Binary{V100u64, V100u32}
 
 	V100c64 = version.MustParseBinary("1.0.0-centos-amd64")
-	V100c32 = version.MustParseBinary("1.0.0-centos-i386")
+	V100c32 = version.MustParseBinary("1.0.0-centos-arm64")
 	V100q   = []version.Binary{V100c64, V100c32}
 	V100all = append(V100p, V100q...)
 
@@ -320,23 +320,23 @@ var (
 
 	V110    = version.MustParse("1.1.0")
 	V110u64 = version.MustParseBinary("1.1.0-ubuntu-amd64")
-	V110u32 = version.MustParseBinary("1.1.0-ubuntu-i386")
+	V110u32 = version.MustParseBinary("1.1.0-ubuntu-arm64")
 	V110p   = []version.Binary{V110u64, V110u32}
 
 	V110c64 = version.MustParseBinary("1.1.0-centos-amd64")
-	V110c32 = version.MustParseBinary("1.1.0-centos-i386")
+	V110c32 = version.MustParseBinary("1.1.0-centos-arm64")
 	V110c   = []version.Binary{V110c64, V110c32}
 	V110all = append(V110p, V110c...)
 
 	V120    = version.MustParse("1.2.0")
 	V120u64 = version.MustParseBinary("1.2.0-ubuntu-amd64")
-	V120u32 = version.MustParseBinary("1.2.0-ubuntu-i386")
+	V120u32 = version.MustParseBinary("1.2.0-ubuntu-arm64")
 	V120all = []version.Binary{V120u64, V120u32}
 
 	V1all = append(V100Xall, append(V110all, V120all...)...)
 
 	V220    = version.MustParse("2.2.0")
-	V220u32 = version.MustParseBinary("2.2.0-ubuntu-i386")
+	V220u32 = version.MustParseBinary("2.2.0-ubuntu-arm64")
 	V220u64 = version.MustParseBinary("2.2.0-ubuntu-amd64")
 	V220all = []version.Binary{V220u64, V220u32}
 	VAll    = append(V1all, V220all...)
