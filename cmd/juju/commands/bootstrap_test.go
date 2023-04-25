@@ -2364,24 +2364,18 @@ func checkTools(c *gc.C, env environs.Environ, expected []version.Binary) {
 
 var (
 	v100u64 = version.MustParseBinary("1.0.0-ubuntu-amd64")
-	v100u32 = version.MustParseBinary("1.0.0-ubuntu-i386")
 	v120u64 = version.MustParseBinary("1.2.0-ubuntu-amd64")
-	v120u32 = version.MustParseBinary("1.2.0-ubuntu-i386")
-	v190u32 = version.MustParseBinary("1.9.0-ubuntu-i386")
 	v200u64 = version.MustParseBinary("2.0.0-ubuntu-amd64")
 	v100All = []version.Binary{
-		v100u64, v100u32,
+		v100u64,
 	}
 	v120All = []version.Binary{
-		v120u64, v120u32,
-	}
-	v190All = []version.Binary{
-		v190u32,
+		v120u64,
 	}
 	v200All = []version.Binary{
 		v200u64,
 	}
-	vAll = joinBinaryVersions(v100All, v120All, v190All, v200All)
+	vAll = joinBinaryVersions(v100All, v120All, v200All)
 )
 
 func joinBinaryVersions(versions ...[]version.Binary) []version.Binary {
