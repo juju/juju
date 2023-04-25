@@ -405,6 +405,10 @@ type ModelUpdate struct {
 	Status         StatusInfo             `json:"status"`
 	Constraints    constraints.Value      `json:"constraints"`
 	SLA            ModelSLAInfo           `json:"sla"`
+	Type           string                 `json:"type"`
+	Cloud          string                 `json:"cloud"`
+	CloudRegion    string                 `json:"cloud-region"`
+	Version        string                 `json:"version"`
 }
 
 // EntityId returns a unique identifier for a model.

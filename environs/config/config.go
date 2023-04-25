@@ -439,6 +439,8 @@ const (
 //	~/.local/share/juju/<name>-private-key.pem
 //
 // if $XDG_DATA_HOME is defined it will be used instead of ~/.local/share
+//
+// The attrs map can not be nil, otherwise a panic is raised.
 func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error) {
 	initSchema.Do(func() {
 		allFields = fields()
