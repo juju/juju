@@ -557,6 +557,20 @@ func (m *MockCharm) EXPECT() *MockCharmMockRecorder {
 	return m.recorder
 }
 
+// Actions mocks base method.
+func (m *MockCharm) Actions() *v10.Actions {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Actions")
+	ret0, _ := ret[0].(*v10.Actions)
+	return ret0
+}
+
+// Actions indicates an expected call of Actions.
+func (mr *MockCharmMockRecorder) Actions() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Actions", reflect.TypeOf((*MockCharm)(nil).Actions))
+}
+
 // Config mocks base method.
 func (m *MockCharm) Config() *v10.Config {
 	m.ctrl.T.Helper()
@@ -611,6 +625,34 @@ func (m *MockCharm) Meta() *v10.Meta {
 func (mr *MockCharmMockRecorder) Meta() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Meta", reflect.TypeOf((*MockCharm)(nil).Meta))
+}
+
+// Metrics mocks base method.
+func (m *MockCharm) Metrics() *v10.Metrics {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Metrics")
+	ret0, _ := ret[0].(*v10.Metrics)
+	return ret0
+}
+
+// Metrics indicates an expected call of Metrics.
+func (mr *MockCharmMockRecorder) Metrics() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Metrics", reflect.TypeOf((*MockCharm)(nil).Metrics))
+}
+
+// Revision mocks base method.
+func (m *MockCharm) Revision() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Revision")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// Revision indicates an expected call of Revision.
+func (mr *MockCharmMockRecorder) Revision() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Revision", reflect.TypeOf((*MockCharm)(nil).Revision))
 }
 
 // String mocks base method.

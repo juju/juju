@@ -129,6 +129,9 @@ type Bindings interface {
 type Charm interface {
 	CharmMeta
 	Config() *charm.Config
+	Metrics() *charm.Metrics
+	Actions() *charm.Actions
+	Revision() int
 	URL() *charm.URL
 	String() string
 	IsUploaded() bool
