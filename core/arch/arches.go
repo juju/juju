@@ -69,7 +69,7 @@ var AllSupportedArches = []string{
 // UnsupportedArches records the machine architectures not supported by Juju.
 // Note: don't make const to prevent referencing it.
 var UnsupportedArches = []string{
-	"i386",
+	"i386", "armhf",
 }
 
 // archREs maps regular expressions for matching
