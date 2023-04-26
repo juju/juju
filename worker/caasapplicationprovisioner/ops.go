@@ -583,11 +583,7 @@ func ReconcileDeadUnitScale(appName string, app caas.Application,
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if ps == nil {
-		ps = &params.CAASApplicationProvisioningState{}
-	}
-
-	if !ps.Scaling {
+	if ps == nil || !ps.Scaling {
 		return nil
 	}
 
