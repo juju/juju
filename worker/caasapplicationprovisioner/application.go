@@ -261,7 +261,7 @@ func (a *appWorker) loop() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			err = AppDead(a.name, app, a.broker, a.facade, a.unitFacade, a.clock, a.logger)
+			err = a.ops.AppDead(a.name, app, a.broker, a.facade, a.unitFacade, a.clock, a.logger)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -311,6 +311,20 @@ func (a *appWorker) loop() error {
 				trustChan = a.clock.After(0)
 			}
 			shouldRefresh = false
+		case <-trustChan:
+			err := a.ops.EnsureTrust(a.name, app, a.unitFacade, a.logger)
+			if errors.Is(err, errors.NotFound) {
+				if trustTries >= maxRetries {
+					return errors.Annotatef(err, "more than %d retries ensuring trust", maxRetries)
+				}
+				trustTries++
+				trustChan = a.clock.After(retryDelay)
+				shouldRefresh = false
+			} else if err != nil {
+				return errors.Trace(err)
+			} else {
+				trustChan = nil
+			}
 		case _, ok := <-appUnitsWatcher.Changes():
 			if !ok {
 				return fmt.Errorf("application %q units watcher closed channel", a.name)
@@ -331,20 +345,6 @@ func (a *appWorker) loop() error {
 				return fmt.Errorf("reconciling dead unit scale: %w", err)
 			} else {
 				reconcileDeadChan = nil
-			}
-		case <-trustChan:
-			err := a.ops.EnsureTrust(a.name, app, a.unitFacade, a.logger)
-			if errors.Is(err, errors.NotFound) {
-				if trustTries >= maxRetries {
-					return errors.Annotatef(err, "more than %d retries ensuring trust", maxRetries)
-				}
-				trustTries++
-				trustChan = a.clock.After(retryDelay)
-				shouldRefresh = false
-			} else if err != nil {
-				return errors.Trace(err)
-			} else {
-				trustChan = nil
 			}
 		case <-a.catacomb.Dying():
 			return a.catacomb.ErrDying()

@@ -20,6 +20,9 @@ import (
 	"github.com/juju/juju/caas"
 	caasmocks "github.com/juju/juju/caas/mocks"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasapplicationprovisioner"
 	"github.com/juju/juju/worker/caasapplicationprovisioner/mocks"
@@ -44,13 +47,9 @@ func (s *ApplicationWorkerSuite) SetUpTest(c *gc.C) {
 func (s *ApplicationWorkerSuite) waitDone(c *gc.C, done chan struct{}) {
 	select {
 	case <-done:
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(coretesting.LongWait):
 		c.Errorf("timed out waiting for worker")
 	}
-}
-
-func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
-
 }
 
 func (s *ApplicationWorkerSuite) startAppWorker(
@@ -135,4 +134,112 @@ func (s *ApplicationWorkerSuite) TestUpgradePodSpec(c *gc.C) {
 
 	s.waitDone(c, done)
 	workertest.DirtyKill(c, appWorker)
+}
+
+func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	broker := mocks.NewMockCAASBroker(ctrl)
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	unitFacade := mocks.NewMockCAASUnitProvisionerFacade(ctrl)
+	ops := mocks.NewMockApplicationOps(ctrl)
+	done := make(chan struct{})
+
+	clk := testclock.NewDilatedWallClock(time.Millisecond)
+
+	scaleChan := make(chan struct{})
+	trustChan := make(chan []string, 1)
+	provisioningInfoChan := make(chan struct{}, 1)
+	appUnitsChan := make(chan []string, 1)
+	appChan := make(chan struct{}, 1)
+	appReplicasChan := make(chan struct{}, 1)
+
+	ops.EXPECT().RefreshApplicationStatus("test", app, gomock.Any(), facade, s.logger).Return(nil).AnyTimes()
+
+	gomock.InOrder(
+		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
+		facade.EXPECT().Life("test").Return(life.Alive, nil),
+
+		ops.EXPECT().VerifyCharmUpgraded("test", gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil),
+		ops.EXPECT().UpgradePodSpec("test", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+
+		facade.EXPECT().SetPassword("test", gomock.Any()).Return(nil),
+
+		unitFacade.EXPECT().WatchApplicationScale("test").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
+		unitFacade.EXPECT().WatchApplicationTrustHash("test").Return(watchertest.NewMockStringsWatcher(trustChan), nil),
+		facade.EXPECT().WatchUnits("test").Return(watchertest.NewMockStringsWatcher(appUnitsChan), nil),
+
+		// handleChange
+		facade.EXPECT().Life("test").Return(life.Alive, nil),
+		facade.EXPECT().ProvisioningState("test").Return(nil, nil),
+		facade.EXPECT().WatchProvisioningInfo("test").Return(watchertest.NewMockNotifyWatcher(provisioningInfoChan), nil),
+		ops.EXPECT().AppAlive("test", app, gomock.Any(), gomock.Any(), facade, clk, s.logger).Return(nil),
+		app.EXPECT().Watch().Return(watchertest.NewMockNotifyWatcher(appChan), nil),
+		app.EXPECT().WatchReplicas().Return(watchertest.NewMockNotifyWatcher(appReplicasChan), nil),
+
+		// scaleChan fired
+		ops.EXPECT().EnsureScale("test", app, life.Alive, facade, unitFacade, s.logger).Return(errors.NotFound),
+		ops.EXPECT().EnsureScale("test", app, life.Alive, facade, unitFacade, s.logger).Return(errors.ConstError("try again")),
+		ops.EXPECT().EnsureScale("test", app, life.Alive, facade, unitFacade, s.logger).DoAndReturn(func(_, _, _, _, _, _ any) error {
+			trustChan <- nil
+			return nil
+		}),
+
+		// trustChan fired
+		ops.EXPECT().EnsureTrust("test", app, unitFacade, s.logger).Return(errors.NotFound),
+		ops.EXPECT().EnsureTrust("test", app, unitFacade, s.logger).DoAndReturn(func(_, _, _, _ any) error {
+			appUnitsChan <- nil
+			return nil
+		}),
+
+		// appUnitsChan fired
+		ops.EXPECT().ReconcileDeadUnitScale("test", app, facade, s.logger).Return(errors.NotFound),
+		ops.EXPECT().ReconcileDeadUnitScale("test", app, facade, s.logger).Return(errors.ConstError("try again")),
+		ops.EXPECT().ReconcileDeadUnitScale("test", app, facade, s.logger).DoAndReturn(func(_, _, _, _ any) error {
+			appChan <- struct{}{}
+			return nil
+		}),
+
+		// appChan fired
+		ops.EXPECT().UpdateState("test", app, gomock.Any(), broker, facade, unitFacade, s.logger).DoAndReturn(func(_, _, _, _, _, _, _ any) (map[string]status.StatusInfo, error) {
+			appReplicasChan <- struct{}{}
+			return nil, nil
+		}),
+		// appReplicasChan fired
+		ops.EXPECT().UpdateState("test", app, gomock.Any(), broker, facade, unitFacade, s.logger).DoAndReturn(func(_, _, _, _, _, _, _ any) (map[string]status.StatusInfo, error) {
+			provisioningInfoChan <- struct{}{}
+			return nil, nil
+		}),
+
+		// provisioningInfoChan fired
+		facade.EXPECT().Life("test").Return(life.Alive, nil),
+		ops.EXPECT().AppAlive("test", app, gomock.Any(), gomock.Any(), facade, clk, s.logger).DoAndReturn(func(_, _, _, _, _, _, _ any) error {
+			provisioningInfoChan <- struct{}{}
+			return nil
+		}),
+		facade.EXPECT().Life("test").Return(life.Dying, nil),
+		ops.EXPECT().AppDying("test", app, life.Dying, facade, unitFacade, s.logger).DoAndReturn(func(_, _, _, _, _, _ any) error {
+			provisioningInfoChan <- struct{}{}
+			return nil
+		}),
+		facade.EXPECT().Life("test").Return(life.Dead, nil),
+		ops.EXPECT().AppDying("test", app, life.Dead, facade, unitFacade, s.logger).Return(nil),
+		ops.EXPECT().AppDead("test", app, broker, facade, unitFacade, clk, s.logger).DoAndReturn(func(_, _, _, _, _, _, _ any) error {
+			close(done)
+			return nil
+		}),
+	)
+
+	appWorker := s.startAppWorker(c, clk, facade, broker, unitFacade, ops)
+	appWorker.(appNotifyWorker).Notify()
+	select {
+	case scaleChan <- struct{}{}:
+	case <-time.After(testing.ShortWait):
+		c.Fatal("waiting to send on scaleChan")
+	}
+
+	s.waitDone(c, done)
+	workertest.CheckKill(c, appWorker)
 }
