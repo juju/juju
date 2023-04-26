@@ -635,27 +635,39 @@ func (c *bootstrapCommand) initializeFirstModel(
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
 func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
-	var initialModel *jujuclient.ModelDetails
-	var isCAASController bool
+	var (
+		initialModel     *jujuclient.ModelDetails
+		isCAASController bool
+
+		// The stdCtx is used as a placeholder for the defer below. This will
+		// be replaced with a context that can be cancelled later on.
+		stdCtx = context.TODO()
+	)
+
 	defer func() {
+		// If the context is an error state, then don't continue on processing
+		// the bootstrap command.
+		if stdCtx.Err() != nil {
+			return
+		}
+
 		resultErr = handleChooseCloudRegionError(ctx, resultErr)
 		if !c.showClouds && resultErr == nil {
-			var msg string
-			if initialModel == nil {
-				workloadType := ""
-				if isCAASController {
-					workloadType = "k8s "
-				}
-				msg = fmt.Sprintf(`
+			if initialModel != nil {
+				ctx.Infof("Initial model %q added", c.initialModelName)
+				return
+			}
+
+			workloadType := ""
+			if isCAASController {
+				workloadType = "k8s "
+			}
+
+			ctx.Infof(`
 Now you can run
 	juju add-model <model-name>
 to create a new model to deploy %sworkloads.
 `, workloadType)
-
-			} else {
-				msg = fmt.Sprintf("Initial model %q added", c.initialModelName)
-			}
-			ctx.Infof(msg)
 		}
 	}()
 
@@ -827,19 +839,24 @@ to create a new model to deploy %sworkloads.
 	// early (and the above will then clean up resources).
 	interrupted := make(chan os.Signal, 1)
 	defer close(interrupted)
+
 	ctx.InterruptNotify(interrupted)
 	defer ctx.StopInterruptNotify(interrupted)
-	stdCtx, cancel := context.WithTimeout(context.Background(), bootstrapCfg.bootstrap.BootstrapTimeout)
+
+	var cancel context.CancelFunc
+	stdCtx, cancel = context.WithTimeout(context.Background(), bootstrapCfg.bootstrap.BootstrapTimeout)
+
 	go func() {
 		for range interrupted {
 			select {
 			case <-stdCtx.Done():
 				// Ctrl-C already pressed
 				return
+
 			default:
 				// Newline prefix is intentional, so output appears as
 				// "^C\nCtrl-C pressed" instead of "^CCtrl-C pressed".
-				_, _ = fmt.Fprintln(ctx.GetStderr(), "\nCtrl-C pressed, stopping bootstrap and cleaning up resources")
+				_, _ = fmt.Fprintln(ctx.GetStderr(), "\nCtrl-C pressed, attempting to stop bootstrap and clean up resources")
 				cancel()
 			}
 		}
@@ -867,7 +884,6 @@ to create a new model to deploy %sworkloads.
 	environ, err := bootstrapPrepareController(
 		isCAASController, bootstrapCtx, store, bootstrapPrepareParams,
 	)
-
 	if err != nil {
 		return errors.Trace(err)
 	}
