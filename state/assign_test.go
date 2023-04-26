@@ -855,7 +855,7 @@ var assignUsingConstraintsTests = []struct {
 	}, {
 		// 3
 		unitConstraints:         "",
-		hardwareCharacteristics: "arch=i386",
+		hardwareCharacteristics: "arch=s390x",
 		assignOk:                false,
 	}, {
 		// 4
