@@ -86,13 +86,9 @@ var parseHardwareTests = []parseHardwareTestSpec{
 		args:    []string{"arch=amd64"},
 		hc:      &HC{Arch: stringPtr("amd64")},
 	}, {
-		summary: "set arch i386",
-		args:    []string{"arch=i386"},
-		hc:      &HC{Arch: stringPtr("i386")},
-	}, {
-		summary: "set arch armhf",
-		args:    []string{"arch=armhf"},
-		hc:      &HC{Arch: stringPtr("armhf")},
+		summary: "set arch arm64",
+		args:    []string{"arch=arm64"},
+		hc:      &HC{Arch: stringPtr("arm64")},
 	}, {
 		summary: "set arch amd64 quoted",
 		args:    []string{`arch="amd64"`},
@@ -111,7 +107,7 @@ var parseHardwareTests = []parseHardwareTestSpec{
 		err:     `bad "arch" characteristic: already set`,
 	}, {
 		summary: "double set arch separately",
-		args:    []string{"arch=armhf", "arch="},
+		args:    []string{"arch=arm64", "arch="},
 		err:     `bad "arch" characteristic: already set`,
 	},
 
@@ -434,11 +430,11 @@ var parseHardwareTests = []parseHardwareTestSpec{
 	// Everything at once.
 	{
 		summary: "kitchen sink together",
-		args:    []string{" root-disk=4G mem=2T  arch=i386  cores=4096 cpu-power=9001 availability-zone=a_zone virt-type=container"},
+		args:    []string{" root-disk=4G mem=2T  arch=arm64  cores=4096 cpu-power=9001 availability-zone=a_zone virt-type=container"},
 		hc: &HC{
 			RootDisk:         uint64Ptr(4096),
 			Mem:              uint64Ptr(2097152),
-			Arch:             stringPtr("i386"),
+			Arch:             stringPtr("arm64"),
 			CpuCores:         uint64Ptr(4096),
 			CpuPower:         uint64Ptr(9001),
 			AvailabilityZone: stringPtr("a_zone"),
@@ -446,11 +442,11 @@ var parseHardwareTests = []parseHardwareTestSpec{
 		},
 	}, {
 		summary: "kitchen sink separately",
-		args:    []string{"root-disk=4G", "mem=2T", "cores=4096", "cpu-power=9001", "arch=armhf", "availability-zone=a_zone", "virt-type=container"},
+		args:    []string{"root-disk=4G", "mem=2T", "cores=4096", "cpu-power=9001", "arch=arm64", "availability-zone=a_zone", "virt-type=container"},
 		hc: &HC{
 			RootDisk:         uint64Ptr(4096),
 			Mem:              uint64Ptr(2097152),
-			Arch:             stringPtr("armhf"),
+			Arch:             stringPtr("arm64"),
 			CpuCores:         uint64Ptr(4096),
 			CpuPower:         uint64Ptr(9001),
 			AvailabilityZone: stringPtr("a_zone"),
@@ -458,11 +454,11 @@ var parseHardwareTests = []parseHardwareTestSpec{
 		},
 	}, {
 		summary: "kitchen sink together quoted",
-		args:    []string{`root-disk=4G mem=2T arch=i386 cores=4096 cpu-power=9001 availability-zone="A Zone" tags="a b" virt-type="container"`},
+		args:    []string{`root-disk=4G mem=2T arch=arm64 cores=4096 cpu-power=9001 availability-zone="A Zone" tags="a b" virt-type="container"`},
 		hc: &HC{
 			RootDisk:         uint64Ptr(4096),
 			Mem:              uint64Ptr(2097152),
-			Arch:             stringPtr("i386"),
+			Arch:             stringPtr("arm64"),
 			CpuCores:         uint64Ptr(4096),
 			CpuPower:         uint64Ptr(9001),
 			AvailabilityZone: stringPtr("A Zone"),
@@ -485,7 +481,7 @@ func (s *HardwareSuite) TestParseHardware(c *gc.C) {
 func (s HardwareSuite) TestClone(c *gc.C) {
 	var hcNil *instance.HardwareCharacteristics
 	c.Assert(hcNil.Clone(), gc.IsNil)
-	hc := instance.MustParseHardware("root-disk=4G", "mem=2T", "cores=4096", "cpu-power=9001", "arch=armhf", "availability-zone=a_zone", "virt-type=virtual-machine")
+	hc := instance.MustParseHardware("root-disk=4G", "mem=2T", "cores=4096", "cpu-power=9001", "arch=arm64", "availability-zone=a_zone", "virt-type=virtual-machine")
 	hc2 := hc.Clone()
 	c.Assert(hc, jc.DeepEquals, *hc2)
 }

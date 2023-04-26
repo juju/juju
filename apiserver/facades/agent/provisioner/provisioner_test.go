@@ -548,7 +548,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	}
 	err = s.machines[4].SetInstanceStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
+	hwChars := instance.MustParseHardware("arch=arm64", "mem=4G")
 	err = s.machines[4].SetProvisioned("i-am", "", "fake_nonce", &hwChars)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1251,7 +1251,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Provision machine 0 first.
-	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
+	hwChars := instance.MustParseHardware("arch=arm64", "mem=4G")
 	err = s.machines[0].SetInstanceInfo("i-am", "", "fake_nonce", &hwChars, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1358,7 +1358,7 @@ func (s *withoutControllerSuite) TestInstanceId(c *gc.C) {
 	// Provision 2 machines first.
 	err := s.machines[0].SetProvisioned("i-am", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
+	hwChars := instance.MustParseHardware("arch=arm64", "mem=4G")
 	err = s.machines[1].SetProvisioned("i-am-not", "", "fake_nonce", &hwChars)
 	c.Assert(err, jc.ErrorIsNil)
 

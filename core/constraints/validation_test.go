@@ -82,7 +82,7 @@ var validationTests = []struct {
 	{
 		desc:  "arch vocab",
 		cons:  "arch=amd64 mem=4G cores=4",
-		vocab: map[string][]interface{}{"arch": {"amd64", "i386"}},
+		vocab: map[string][]interface{}{"arch": {"amd64", "arm64"}},
 	},
 	{
 		desc:  "cores vocab",
@@ -101,9 +101,9 @@ var validationTests = []struct {
 	},
 	{
 		desc:  "invalid arch vocab",
-		cons:  "arch=i386 mem=4G cores=4",
+		cons:  "arch=arm64 mem=4G cores=4",
 		vocab: map[string][]interface{}{"arch": {"amd64"}},
-		err:   "invalid constraint value: arch=i386\nvalid values are:.*",
+		err:   "invalid constraint value: arch=arm64\nvalid values are:.*",
 	},
 	{
 		desc:  "invalid cores vocab",
@@ -125,10 +125,10 @@ var validationTests = []struct {
 	},
 	{
 		desc: "instance-type and arch",
-		cons: "arch=i386 mem=4G instance-type=foo",
+		cons: "arch=arm64 mem=4G instance-type=foo",
 		vocab: map[string][]interface{}{
 			"instance-type": {"foo", "bar"},
-			"arch":          {"amd64", "i386"}},
+			"arch":          {"amd64", "arm64"}},
 	},
 	{
 		desc:  "virt-type",
@@ -203,12 +203,12 @@ var mergeTests = []struct {
 	}, {
 		desc:         "arch with ignored fallback",
 		cons:         "arch=amd64",
-		consFallback: "arch=i386",
+		consFallback: "arch=arm64",
 		expected:     "arch=amd64",
 	}, {
 		desc:         "arch from fallback",
-		consFallback: "arch=i386",
-		expected:     "arch=i386",
+		consFallback: "arch=arm64",
+		expected:     "arch=arm64",
 	}, {
 		desc:     "instance type with empty fallback",
 		cons:     "instance-type=foo",

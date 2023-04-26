@@ -1880,9 +1880,9 @@ func (s *environSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 
 func (s *environSuite) TestConstraintsValidatorVocabulary(c *gc.C) {
 	validator := s.constraintsValidator(c)
-	_, err := validator.Validate(constraints.MustParse("arch=armhf"))
+	_, err := validator.Validate(constraints.MustParse("arch=s390x"))
 	c.Assert(err, gc.ErrorMatches,
-		"invalid constraint value: arch=armhf\nvalid values are: \\[amd64\\]",
+		"invalid constraint value: arch=s390x\nvalid values are: \\[amd64\\]",
 	)
 	_, err = validator.Validate(constraints.MustParse("instance-type=t1.micro"))
 	c.Assert(err, gc.ErrorMatches,

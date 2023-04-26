@@ -219,8 +219,7 @@ type ConstraintsSuite struct {
 var _ = gc.Suite(&ConstraintsSuite{})
 
 func (s *ConstraintsSuite) TestDefaults(c *gc.C) {
-
-	for _, test := range []struct {
+	testCases := []struct {
 		cons     string
 		expected kvm.StartParams
 		infoLog  []string
@@ -273,14 +272,14 @@ func (s *ConstraintsSuite) TestDefaults(c *gc.C) {
 			RootDisk: 4,
 		},
 	}, {
-		cons: "arch=armhf",
+		cons: "arch=arm64",
 		expected: kvm.StartParams{
 			Memory:   kvm.DefaultMemory,
 			CpuCores: kvm.DefaultCpu,
 			RootDisk: kvm.DefaultDisk,
 		},
 		infoLog: []string{
-			`arch constraint of "armhf" being ignored as not supported`,
+			`arch constraint of "arm64" being ignored as not supported`,
 		},
 	}, {
 		cons: "container=lxd",
@@ -313,19 +312,23 @@ func (s *ConstraintsSuite) TestDefaults(c *gc.C) {
 			`tags constraint of "foo,bar" being ignored as not supported`,
 		},
 	}, {
-		cons: "mem=4G cores=4 root-disk=20G arch=armhf cpu-power=100 container=lxd tags=foo,bar",
+		cons: "mem=4G cores=4 root-disk=20G arch=arm64 cpu-power=100 container=lxd tags=foo,bar",
 		expected: kvm.StartParams{
 			Memory:   4 * 1024,
 			CpuCores: 4,
 			RootDisk: 20,
 		},
 		infoLog: []string{
-			`arch constraint of "armhf" being ignored as not supported`,
+			`arch constraint of "arm64" being ignored as not supported`,
 			`container constraint of "lxd" being ignored as not supported`,
 			`cpu-power constraint of 100 being ignored as not supported`,
 			`tags constraint of "foo,bar" being ignored as not supported`,
 		},
-	}} {
+	}}
+
+	for _, test := range testCases {
+		c.Logf("testing %q", test.cons)
+
 		var tw loggo.TestWriter
 		c.Assert(loggo.RegisterWriter("constraint-tester", &tw), gc.IsNil)
 		cons := constraints.MustParse(test.cons)
