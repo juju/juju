@@ -165,19 +165,23 @@ func WaitForAgentInitialisation(
 	return errors.Annotatef(err, "unable to contact api server after %d attempts", apiAttempts)
 }
 
+// unknownError is used to wrap errors that we don't know how to handle.
 type unknownError struct {
 	err error
 }
 
+// Is implements errors.Is, so that we can identify this error type.
 func (e *unknownError) Is(other error) bool {
 	_, ok := other.(*unknownError)
 	return ok
 }
 
+// Cause implements errors.Cause, so that we can unwrap this error type.
 func (e *unknownError) Cause() error {
 	return e.err
 }
 
+// Error implements error.Error.
 func (e *unknownError) Error() string {
 	return e.err.Error()
 }
