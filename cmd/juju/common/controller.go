@@ -4,6 +4,7 @@
 package common
 
 import (
+	stdcontext "context"
 	"fmt"
 	"io"
 	"strings"
@@ -75,8 +76,12 @@ func WaitForAgentInitialisation(
 	isCAASController bool,
 	controllerName string,
 ) (err error) {
+	if ctx.Context().Err() != nil {
+		return errors.Errorf("unable to contact api server: (%v)", ctx.Context().Err())
+	}
+
 	// Make a best effort to find the new controller address so we can print it.
-	addressInfo := ""
+	var addressInfo string
 	controller, err := c.ClientStore().ControllerByName(controllerName)
 	if err == nil && len(controller.APIEndpoints) > 0 {
 		addr, err := network.ParseMachineHostPort(controller.APIEndpoints[0])
@@ -86,17 +91,23 @@ func WaitForAgentInitialisation(
 	}
 
 	ctx.Infof("Contacting Juju controller%s to verify accessibility...", addressInfo)
-	apiAttempts := 0
-	stop := make(chan struct{}, 1)
-	defer close(stop)
+
+	var apiAttempts int
 	err = retry.Call(retry.CallArgs{
 		Clock:    clock.WallClock,
 		Attempts: bootstrapReadyPollCount,
 		Delay:    bootstrapReadyPollDelay,
-		Stop:     stop,
+		Stop:     ctx.Context().Done(),
+		NotifyFunc: func(lastErr error, attempts int) {
+			apiAttempts = attempts
+		},
+		IsFatalError: func(err error) bool {
+			return errors.Is(err, &unknownError{}) ||
+				retry.IsRetryStopped(err) ||
+				errors.Is(err, stdcontext.Canceled) ||
+				errors.Is(err, stdcontext.DeadlineExceeded)
+		},
 		Func: func() error {
-			apiAttempts++
-
 			retryErr := tryAPI(c)
 			if retryErr == nil {
 				msg := fmt.Sprintf("\nBootstrap complete, controller %q is now available", controllerName)
@@ -109,15 +120,6 @@ func WaitForAgentInitialisation(
 				return nil
 			}
 
-			// Check whether context is cancelled after each attempt (as context
-			// isn't fully threaded through yet).
-			select {
-			case <-ctx.Context().Done():
-				stop <- struct{}{}
-				return errors.Annotatef(err, "contacting controller (cancelled)")
-			default:
-			}
-
 			// As the API server is coming up, it goes through a number of steps.
 			// Initially the upgrade steps run, but the api server allows some
 			// calls to be processed during the upgrade, but not the list blocks.
@@ -127,9 +129,10 @@ func WaitForAgentInitialisation(
 			// lead to EOF or "connection is shut down" error messages. We skip
 			// these too, hoping that things come back up before the end of the
 			// retry poll count.
-			errorMessage := errors.Cause(retryErr).Error()
+			cause := errors.Cause(retryErr)
+			errorMessage := cause.Error()
 			switch {
-			case errors.Cause(retryErr) == io.EOF,
+			case cause == io.EOF,
 				strings.HasSuffix(errorMessage, "no such host"), // wait for dns getting resolvable, aws elb for example.
 				strings.HasSuffix(errorMessage, "connection refused"),
 				strings.HasSuffix(errorMessage, "target machine actively refused it."), // Winsock message for connection refused
@@ -143,16 +146,40 @@ func WaitForAgentInitialisation(
 			case params.ErrCode(retryErr) == params.CodeUpgradeInProgress:
 				ctx.Verbosef("Still waiting for API to become available: %v", retryErr)
 				return retryErr
+			default:
+				return &unknownError{
+					err: retryErr,
+				}
 			}
-			stop <- struct{}{}
-			return retryErr
 		},
 	})
-	if err != nil {
+
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, &unknownError{}):
+		err = errors.Cause(err)
+	default:
 		err = retry.LastError(err)
-		return errors.Annotatef(err, "unable to contact api server after %d attempts", apiAttempts)
 	}
-	return nil
+	return errors.Annotatef(err, "unable to contact api server after %d attempts", apiAttempts)
+}
+
+type unknownError struct {
+	err error
+}
+
+func (e *unknownError) Is(other error) bool {
+	_, ok := other.(*unknownError)
+	return ok
+}
+
+func (e *unknownError) Cause() error {
+	return e.err
+}
+
+func (e *unknownError) Error() string {
+	return e.err.Error()
 }
 
 // BootstrapEndpointAddresses returns the addresses of the bootstrapped instance.
