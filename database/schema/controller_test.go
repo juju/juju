@@ -74,7 +74,7 @@ func (s *schemaSuite) TestDDLApply(c *gc.C) {
 		// External controller
 		"external_controller",
 		"external_controller_address",
-		"external_controller_model",
+		"external_model",
 	)
 	c.Assert(readTableNames(c, s.db), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }

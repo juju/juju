@@ -231,27 +231,22 @@ CREATE TABLE external_controller (
     uuid            TEXT PRIMARY KEY,
     alias           TEXT,
     ca_cert_uuid    TEXT NOT NULL
-
-    -- TODO (stickupkid): There should be a foreign key constraint on the uuid
-    -- column to a controller(uuid) column. That's not possible because the
-    -- controller table is not created yet.
 );
 
 CREATE TABLE external_controller_address (
-    uuid                        TEXT PRIMARY KEY,
-    address                     TEXT,
-    external_controller_uuid    TEXT NOT NULL,
-    CONSTRAINT          fk_external_controller_address_external_controller
-        FOREIGN KEY         (external_controller_uuid)
+    uuid               TEXT PRIMARY KEY,
+    address            TEXT,
+    controller_uuid    TEXT NOT NULL,
+    CONSTRAINT         fk_external_controller_address_external_controller_uuid
+        FOREIGN KEY         (controller_uuid)
         REFERENCES          external_controller(uuid)
 );
 
-CREATE TABLE external_controller_model (
-    uuid                        TEXT PRIMARY KEY,
-    model_uuid                  TEXT NOT NULL,
-    external_controller_uuid    TEXT NOT NULL,
-    CONSTRAINT          fk_external_controller_model_external_controller
-        FOREIGN KEY         (external_controller_uuid)
+CREATE TABLE external_model (
+    uuid                TEXT PRIMARY KEY,
+    controller_uuid     TEXT NOT NULL,
+    CONSTRAINT          fk_external_model_external_controller_uuid
+        FOREIGN KEY         (controller_uuid)
         REFERENCES          external_controller(uuid)
 );
     `[1:]
