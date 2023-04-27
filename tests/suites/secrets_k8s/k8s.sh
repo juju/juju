@@ -89,6 +89,57 @@ run_secrets() {
 	# destroy_model "model-secrets-k8s"
 }
 
+run_secret_drain() {
+	model_name='model-secrets-k8s-drain'
+	juju --show-log add-model "$model_name"
+
+	prepare_vault
+	vault_backend_name='myvault'
+	juju add-secret-backend "$vault_backend_name" vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN"
+
+	juju --show-log deploy hello-kubecon hello
+	wait_for "active" '.applications["hello"] | ."application-status".current'
+	wait_for "hello" "$(idle_condition "hello" 0)"
+
+	secret_owned_by_hello_0=$(juju exec --unit hello/0 -- secret-add --owner unit owned-by=hello/0 | cut -d: -f 2)
+	secret_owned_by_hello=$(juju exec --unit hello/0 -- secret-add owned-by=hello-app | cut -d: -f 2)
+
+	juju show-secret --reveal "$secret_owned_by_hello_0"
+	juju show-secret --reveal "$secret_owned_by_hello"
+
+	mkubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' | grep "$secret_owned_by_hello_0-1"
+	mkubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' | grep "$secret_owned_by_hello-1"
+
+	juju model-config secret-backend="$vault_backend_name"
+	sleep 20
+
+	check_contains $(mkubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' -o json | jq '.items | length') 0
+
+	model_uuid=$(juju show-model $model_name --format json | jq -r ".[\"${model_name}\"][\"model-uuid\"]")
+	check_contains $(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length) 2
+
+	juju model-config secret-backend=auto
+	sleep 20
+
+	mkubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' | grep "$secret_owned_by_hello_0-1"
+	mkubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' | grep "$secret_owned_by_hello-1"
+
+	check_contains $(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length) 0
+}
+
+prepare_vault() {
+	if ! which "vault" >/dev/null 2>&1; then
+		sudo snap install vault
+	fi
+
+	ip=$(hostname -I | awk '{print $1}')
+	root_token='root'
+	vault server -dev -dev-listen-address="${ip}:8200" -dev-root-token-id="$root_token" > /dev/null 2>&1 &
+
+	export VAULT_ADDR="http://${ip}:8200"
+	export VAULT_TOKEN="$root_token"
+}
+
 test_secrets() {
 	if [ "$(skip 'test_secrets')" ]; then
 		echo "==> TEST SKIPPED: test_secrets"
@@ -101,5 +152,20 @@ test_secrets() {
 		cd .. || exit
 
 		run "run_secrets"
+	)
+}
+
+test_secret_drain() {
+	if [ "$(skip 'test_secret_drain')" ]; then
+		echo "==> TEST SKIPPED: test_secret_drain"
+		return
+	fi
+
+	(
+		set_verbosity
+
+		cd .. || exit
+
+		run "run_secret_drain"
 	)
 }
