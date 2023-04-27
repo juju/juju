@@ -10,6 +10,7 @@ func ControllerDDL() []string {
 		changeLogSchema,
 		cloudSchema,
 		externalControllerSchema,
+		modelListSchema,
 	}
 
 	var deltas []string
@@ -271,4 +272,11 @@ BEGIN
     VALUES (4, 1, OLD.uuid, DATETIME('now'));
 END;
 `[1:]
+}
+
+func modelListSchema() string {
+	return `
+CREATE TABLE model_list (
+    uuid        TEXT PRIMARY KEY
+);`[1:]
 }

@@ -5,6 +5,7 @@ package modelmanager
 
 import (
 	stdcontext "context"
+	"database/sql"
 	"fmt"
 	"sort"
 	"time"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/caas"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/series"
@@ -51,16 +53,17 @@ type newCaasBrokerFunc func(_ stdcontext.Context, args environs.OpenParams) (caa
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
-	state       common.ModelManagerBackend
-	ctlrState   common.ModelManagerBackend
-	check       common.BlockCheckerInterface
-	authorizer  facade.Authorizer
-	toolsFinder common.ToolsFinder
-	apiUser     names.UserTag
-	isAdmin     bool
-	model       common.Model
-	getBroker   newCaasBrokerFunc
-	callContext context.ProviderCallContext
+	controllerDB coredatabase.TrackedDB
+	state        common.ModelManagerBackend
+	ctlrState    common.ModelManagerBackend
+	check        common.BlockCheckerInterface
+	authorizer   facade.Authorizer
+	toolsFinder  common.ToolsFinder
+	apiUser      names.UserTag
+	isAdmin      bool
+	model        common.Model
+	getBroker    newCaasBrokerFunc
+	callContext  context.ProviderCallContext
 }
 
 // NewModelManagerAPI creates a new api server endpoint for managing
@@ -68,6 +71,7 @@ type ModelManagerAPI struct {
 func NewModelManagerAPI(
 	st common.ModelManagerBackend,
 	ctlrSt common.ModelManagerBackend,
+	controllerDB coredatabase.TrackedDB,
 	toolsFinder common.ToolsFinder,
 	getBroker newCaasBrokerFunc,
 	blockChecker common.BlockCheckerInterface,
@@ -90,6 +94,7 @@ func NewModelManagerAPI(
 
 	return &ModelManagerAPI{
 		ModelStatusAPI: common.NewModelStatusAPI(st, authorizer, apiUser),
+		controllerDB:   controllerDB,
 		state:          st,
 		ctlrState:      ctlrSt,
 		getBroker:      getBroker,
@@ -198,7 +203,7 @@ func (m *ModelManagerAPI) checkAddModelPermission(cloud string, userTag names.Us
 
 // CreateModel creates a new model using the account and
 // model config specified in the args.
-func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error) {
+func (m *ModelManagerAPI) CreateModel(ctx stdcontext.Context, args params.ModelCreateArgs) (params.ModelInfo, error) {
 	result := params.ModelInfo{}
 
 	// Get the controller model first. We need it both for the state
@@ -361,6 +366,26 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 	if err != nil {
 		return result, errors.Trace(err)
 	}
+
+	// Ensure that we place the model in the known model list table on the
+	// controller.
+	// TODO (stickupkid): Find a better location for this.
+	if err := m.controllerDB.Txn(ctx, func(ctx stdcontext.Context, txn *sql.Tx) error {
+		stmt := "INSERT INTO model_list (uuid) VALUES (?);"
+		result, err := txn.ExecContext(ctx, stmt, model.UUID())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if num, err := result.RowsAffected(); err != nil {
+			return errors.Trace(err)
+		} else if num != 1 {
+			return errors.Errorf("expected 1 row to be inserted, got %d", num)
+		}
+		return nil
+	}); err != nil {
+		return result, errors.Trace(err)
+	}
+
 	return m.getModelInfo(model.ModelTag(), false)
 }
 

@@ -275,7 +275,7 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		CloudRegion:        "qux",
 		CloudCredentialTag: "cloudcred-some-cloud_admin_some-credential",
 	}
-	_, err := s.api.CreateModel(args)
+	_, err := s.api.CreateModel(stdcontext.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCallNames(c,
 		"ControllerTag",
@@ -352,7 +352,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *gc.C) {
 		CloudRegion:        "qux",
 		CloudCredentialTag: "cloudcred-some-cloud_admin_some-credential",
 	}
-	_, err := s.api.CreateModel(args)
+	_, err := s.api.CreateModel(stdcontext.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newModelArgs := s.getModelArgs(c)
@@ -366,7 +366,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloudNotFound(c *gc.C) {
 		OwnerTag: "user-admin",
 		CloudTag: "cloud-some-unknown-cloud",
 	}
-	_, err := s.api.CreateModel(args)
+	_, err := s.api.CreateModel(stdcontext.TODO(), args)
 	c.Assert(err, gc.ErrorMatches, `cloud "some-unknown-cloud" not found, expected one of \["some-cloud"\]`)
 }
 
@@ -375,7 +375,7 @@ func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *gc.C) {
 		Name:     "foo",
 		OwnerTag: "user-admin",
 	}
-	_, err := s.api.CreateModel(args)
+	_, err := s.api.CreateModel(stdcontext.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newModelArgs := s.getModelArgs(c)
@@ -396,7 +396,7 @@ func (s *modelManagerSuite) testCreateModelDefaultCredentialAdmin(c *gc.C, owner
 		Name:     "foo",
 		OwnerTag: ownerTag,
 	}
-	_, err := s.api.CreateModel(args)
+	_, err := s.api.CreateModel(stdcontext.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newModelArgs := s.getModelArgs(c)
@@ -410,7 +410,7 @@ func (s *modelManagerSuite) TestCreateModelEmptyCredentialNonAdmin(c *gc.C) {
 		Name:     "foo",
 		OwnerTag: "user-bob",
 	}
-	_, err := s.api.CreateModel(args)
+	_, err := s.api.CreateModel(stdcontext.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newModelArgs := s.getModelArgs(c)
@@ -423,7 +423,7 @@ func (s *modelManagerSuite) TestCreateModelNoDefaultCredentialNonAdmin(c *gc.C) 
 		Name:     "foo",
 		OwnerTag: "user-bob",
 	}
-	_, err := s.api.CreateModel(args)
+	_, err := s.api.CreateModel(stdcontext.TODO(), args)
 	c.Assert(err, gc.ErrorMatches, "no credential specified")
 }
 
@@ -434,7 +434,7 @@ func (s *modelManagerSuite) TestCreateModelUnknownCredential(c *gc.C) {
 		OwnerTag:           "user-admin",
 		CloudCredentialTag: "cloudcred-some-cloud_admin_bar",
 	}
-	_, err := s.api.CreateModel(args)
+	_, err := s.api.CreateModel(stdcontext.TODO(), args)
 	c.Assert(err, gc.ErrorMatches, `getting credential: credential not found`)
 }
 
@@ -446,7 +446,7 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 		CloudTag:           "cloud-k8s-cloud",
 		CloudCredentialTag: "cloudcred-k8s-cloud_admin_some-credential",
 	}
-	_, err := s.caasApi.CreateModel(args)
+	_, err := s.caasApi.CreateModel(stdcontext.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	s.caasSt.CheckCallNames(c,
 		"ControllerTag",
@@ -519,7 +519,7 @@ func (s *modelManagerSuite) TestCreateCAASModelNamespaceClash(c *gc.C) {
 		CloudTag:           "cloud-k8s-cloud",
 		CloudCredentialTag: "cloudcred-k8s-cloud_admin_some-credential",
 	}
-	_, err := s.caasApi.CreateModel(args)
+	_, err := s.caasApi.CreateModel(stdcontext.TODO(), args)
 	s.caasBroker.CheckCallNames(c, "Create")
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }
@@ -962,7 +962,7 @@ func (s *modelManagerStateSuite) TestCreateModelValidatesConfig(c *gc.C) {
 	s.setAPIUser(c, admin)
 	args := createArgs(admin)
 	args.Config["controller"] = "maybe"
-	_, err := s.modelmanager.CreateModel(args)
+	_, err := s.modelmanager.CreateModel(stdcontext.TODO(), args)
 	c.Assert(err, gc.ErrorMatches,
 		"failed to create config: provider config preparation failed: controller: expected bool, got string\\(\"maybe\"\\)",
 	)
@@ -985,7 +985,7 @@ func (s *modelManagerStateSuite) TestCreateModelBadConfig(c *gc.C) {
 		c.Logf("%d: %s", i, test.key)
 		args := createArgs(owner)
 		args.Config[test.key] = test.value
-		_, err := s.modelmanager.CreateModel(args)
+		_, err := s.modelmanager.CreateModel(stdcontext.TODO(), args)
 		c.Assert(err, gc.ErrorMatches, test.errMatch)
 
 	}
@@ -995,7 +995,7 @@ func (s *modelManagerStateSuite) TestCreateModelSameAgentVersion(c *gc.C) {
 	admin := s.AdminUserTag(c)
 	s.setAPIUser(c, admin)
 	args := s.createArgsForVersion(c, admin, jujuversion.Current.String())
-	_, err := s.modelmanager.CreateModel(args)
+	_, err := s.modelmanager.CreateModel(stdcontext.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1032,7 +1032,7 @@ func (s *modelManagerStateSuite) TestCreateModelBadAgentVersion(c *gc.C) {
 	} {
 		c.Logf("test %d", i)
 		args := s.createArgsForVersion(c, admin, test.value)
-		_, err := s.modelmanager.CreateModel(args)
+		_, err := s.modelmanager.CreateModel(stdcontext.TODO(), args)
 		c.Check(err, gc.ErrorMatches, test.errMatch)
 	}
 }

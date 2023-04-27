@@ -5,6 +5,7 @@ package dbaccessor
 
 import (
 	"context"
+	"database/sql"
 	"net"
 	"sync"
 	"time"
@@ -22,9 +23,14 @@ import (
 	"github.com/juju/juju/pubsub/apiserver"
 )
 
-// nodeShutdownTimeout is the timeout that we add to the context passed
-// handoff/shutdown calls when shutting down the Dqlite node.
-const nodeShutdownTimeout = 30 * time.Second
+const (
+	// nodeShutdownTimeout is the timeout that we add to the context passed
+	// handoff/shutdown calls when shutting down the Dqlite node.
+	nodeShutdownTimeout = 30 * time.Second
+
+	// How often to flush the namespace cache.
+	defaultNamespaceCacheFlushInterval = time.Second * 30
+)
 
 // NodeManager creates Dqlite `App` initialisation arguments and options.
 type NodeManager interface {
@@ -85,14 +91,14 @@ type DBGetter interface {
 // instances into the worker loop.
 type dbRequest struct {
 	namespace string
-	done      chan struct{}
+	done      chan error
 }
 
 // makeDBRequest creates a new TrackedDB request for the input namespace.
 func makeDBRequest(namespace string) dbRequest {
 	return dbRequest{
 		namespace: namespace,
-		done:      make(chan struct{}),
+		done:      make(chan error),
 	}
 }
 
@@ -108,7 +114,7 @@ type WorkerConfig struct {
 	Hub         Hub
 	Logger      Logger
 	NewApp      func(string, ...app.Option) (DBApp, error)
-	NewDBWorker func(DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
+	NewDBWorker func(context.Context, DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
 
 	// ControllerID uniquely identifies the controller that this
 	// worker is running on. It is equivalent to the machine ID.
@@ -160,6 +166,10 @@ type dbWorker struct {
 	// apiServerChanges is used to handle incoming changes
 	// to API server details within the worker loop.
 	apiServerChanges chan apiserver.Details
+
+	// namespaceCache is used to validate that a namespace exists before
+	// we attempt to create a TrackedDB for it.
+	namespaceCache *nsCache
 }
 
 func newWorker(cfg WorkerConfig) (*dbWorker, error) {
@@ -181,6 +191,7 @@ func newWorker(cfg WorkerConfig) (*dbWorker, error) {
 		dbReady:          make(chan struct{}),
 		dbRequests:       make(chan dbRequest),
 		apiServerChanges: make(chan apiserver.Details),
+		namespaceCache:   newNSCache(defaultNamespaceExpiry, cfg.Clock),
 	}
 
 	if err = catacomb.Invoke(catacomb.Plan{
@@ -239,19 +250,40 @@ func (w *dbWorker) loop() (err error) {
 		}
 	}
 
+	timer := w.cfg.Clock.NewTimer(defaultNamespaceCacheFlushInterval)
+	defer timer.Stop()
+
 	for {
 		select {
 		case req := <-w.dbRequests:
-			if err := w.openDatabase(req.namespace); err != nil {
-				w.cfg.Logger.Errorf("opening database %q: %s", req.namespace, err.Error())
+			// Ensure the namespace exists or is allowed to open a new one
+			// before we attempt to open the database.
+			// Note: this is done outside of openDatabase, as another location
+			// opens the database for the controller and that doesn't need
+			// to go through this check.
+			if err := w.ensureNamespace(req.namespace); err != nil {
+				req.done <- err
+				continue
 			}
-			close(req.done)
+			if err := w.openDatabase(req.namespace); err != nil {
+				req.done <- err
+				continue
+			}
+			req.done <- nil
+
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
+
 		case apiDetails := <-w.apiServerChanges:
 			if err := w.processAPIServerChange(apiDetails); err != nil {
 				return errors.Trace(err)
 			}
+
+		case <-timer.Chan():
+			// Prune the cache at a regular interval.
+			w.namespaceCache.Flush()
+
+			timer.Reset(defaultNamespaceCacheFlushInterval)
 		}
 	}
 }
@@ -289,7 +321,12 @@ func (w *dbWorker) GetDB(namespace string) (coredatabase.TrackedDB, error) {
 
 	// Wait for the worker loop to indicate it's done.
 	select {
-	case <-req.done:
+	case err := <-req.done:
+		// If we know we've got an error, just return that error before
+		// attempting to ask the dbRunnerWorker.
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	case <-w.catacomb.Dying():
 		return nil, w.catacomb.ErrDying()
 	}
@@ -366,6 +403,10 @@ func (w *dbWorker) initialiseDqlite(options ...app.Option) error {
 
 	// Open up the default controller database. Other database namespaces can
 	// be opened up in a more lazy fashion.
+	//
+	// Note: we don't need to verify the database schema here, since the
+	// controller database is created by the controller itself, and we know
+	// it's allowed to create it lazily.
 	if err := w.openDatabase(coredatabase.ControllerNS); err != nil {
 		return errors.Annotate(err, "opening initial databases")
 	}
@@ -401,7 +442,10 @@ func (w *dbWorker) openDatabase(namespace string) error {
 			return nil, tomb.ErrDying
 		}
 
-		return w.cfg.NewDBWorker(w.dbApp, namespace,
+		ctx, cancel := w.scopedContext()
+		defer cancel()
+
+		return w.cfg.NewDBWorker(ctx, w.dbApp, namespace,
 			WithClock(w.cfg.Clock),
 			WithLogger(w.cfg.Logger),
 			WithMetricsCollector(w.cfg.MetricsCollector),
@@ -622,4 +666,138 @@ func (w *dbWorker) shutdownDqlite(ctx context.Context) {
 func (w *dbWorker) scopedContext() (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 	return w.catacomb.Context(ctx), cancel
+}
+
+// ensureNamespace ensures that a given namespace is allowed to exists in
+// the database. If the namespace is not allowed, it returns an error.
+func (w *dbWorker) ensureNamespace(namespace string) error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	// If the worker is shutting down, we don't need to validate the namespace,
+	// just return with tomb.ErrDying. This preserves the error that the worker
+	// is exiting with, including nil.
+	if w.dbApp == nil {
+		return tomb.ErrDying
+	}
+
+	// If the namespace is the controller namespace, we don't need to
+	// validate it. It exists by the very nature of the controller.
+	if namespace == coredatabase.ControllerNS {
+		return nil
+	}
+
+	// If the namespace cache is already populated with the namespace and it's
+	// not expired, we don't need to validate it.
+	if w.namespaceCache.Exists(namespace) {
+		return nil
+	}
+
+	// Otherwise, we need to validate that the namespace exists.
+	controllerWorker, err := w.dbRunner.Worker(coredatabase.ControllerNS, w.catacomb.Dying())
+	if err != nil {
+		return errors.Annotatef(err, "getting controller worker")
+	}
+
+	dbGetter, ok := controllerWorker.(coredatabase.TrackedDB)
+	if !ok {
+		return errors.Errorf("programmatic error: worker is not a DBGetter")
+	}
+
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	return dbGetter.Txn(ctx, func(ctx context.Context, db *sql.Tx) error {
+		rows, err := db.QueryContext(ctx, "SELECT uuid FROM model_list WHERE uuid=?", namespace)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer rows.Close()
+
+		var values []string
+		for rows.Next() {
+			var uuid string
+			if err := rows.Scan(&uuid); err != nil {
+				return errors.Trace(err)
+			}
+			values = append(values, uuid)
+		}
+
+		if err := rows.Err(); err != nil {
+			return errors.Trace(err)
+		}
+
+		// Validate that the namespace exists.
+		if num := len(values); num == 1 && values[0] == namespace {
+			w.namespaceCache.Set(namespace)
+			return nil
+		} else if num > 1 {
+			return errors.Errorf("expected only one namespace %q, but multiple ones found", namespace)
+		}
+
+		return errors.NotFoundf("namespace %q", namespace)
+	})
+}
+
+const (
+	// defaultNamespaceExpiry holds the duration for how long a namespace
+	// should be cached for.
+	defaultNamespaceExpiry = time.Minute
+)
+
+// nsCache holds a cache of namespaces that have been validated to exist.
+type nsCache struct {
+	mutex      sync.RWMutex
+	namespaces map[string]time.Time
+	clock      clock.Clock
+	expiry     time.Duration
+}
+
+func newNSCache(expiry time.Duration, clock clock.Clock) *nsCache {
+	return &nsCache{
+		namespaces: make(map[string]time.Time),
+		clock:      clock,
+		expiry:     expiry,
+	}
+}
+
+// Set adds the given namespace to the cache.
+func (c *nsCache) Set(namespace string) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.namespaces[namespace] = c.clock.Now().Add(c.expiry)
+}
+
+// Exists returns whether the given namespace exists in the cache.
+func (c *nsCache) Exists(namespace string) bool {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	expiry, ok := c.namespaces[namespace]
+	if !ok {
+		return false
+	}
+	return c.clock.Now().Before(expiry)
+}
+
+func (c *nsCache) Remove(namespace string) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	delete(c.namespaces, namespace)
+}
+
+// Flush removes all namespaces from the cache that have expired. This just
+// ensures that we keep a nice and clean cache.
+func (c *nsCache) Flush() {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	now := c.clock.Now()
+	for namespace, expiry := range c.namespaces {
+		if now.After(expiry) {
+			delete(c.namespaces, namespace)
+		}
+	}
 }

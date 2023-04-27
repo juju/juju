@@ -34,6 +34,12 @@ func newFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
 	}
 	auth := ctx.Auth()
 
+	// Since we know this is a user tag (because AuthClient is true),
+	// we just do the type assertion to the UserTag.
+	if !auth.AuthClient() {
+		return nil, apiservererrors.ErrPerm
+	}
+
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -50,21 +56,22 @@ func newFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
 
 	ctrlModel, err := ctlrSt.Model()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
 	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
 
-	// Since we know this is a user tag (because AuthClient is true),
-	// we just do the type assertion to the UserTag.
-	if !auth.AuthClient() {
-		return nil, apiservererrors.ErrPerm
+	controllerDB, err := ctx.ControllerDB()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)
 	backend := common.NewUserAwareModelManagerBackend(model, pool, apiUser)
 	return NewModelManagerAPI(
 		backend,
 		common.NewModelManagerBackend(ctrlModel, pool),
+		controllerDB,
 		toolsFinder,
 		caas.New,
 		common.NewBlockChecker(backend),

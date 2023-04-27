@@ -4,16 +4,21 @@
 package dbaccessor
 
 import (
-	"errors"
+	"context"
+	sql "database/sql"
 	"time"
 
 	"github.com/golang/mock/gomock"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/tomb.v2"
 
+	"github.com/juju/errors"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/dqlite"
 	"github.com/juju/juju/pubsub/apiserver"
@@ -21,7 +26,7 @@ import (
 )
 
 type workerSuite struct {
-	baseSuite
+	dbBaseSuite
 
 	nodeManager *MockNodeManager
 }
@@ -33,6 +38,7 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 
 	s.expectAnyLogs()
 	s.expectClock()
+	s.setupTimer(defaultNamespaceCacheFlushInterval)
 	s.expectTrackedDBKill()
 
 	mgrExp := s.nodeManager.EXPECT()
@@ -114,6 +120,7 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 
 	s.expectAnyLogs()
 	s.expectClock()
+	s.setupTimer(defaultNamespaceCacheFlushInterval)
 	s.expectTrackedDBKill()
 
 	mgrExp := s.nodeManager.EXPECT()
@@ -151,6 +158,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 
 	s.expectAnyLogs()
 	s.expectClock()
+	s.setupTimer(defaultNamespaceCacheFlushInterval)
 	s.expectTrackedDBKill()
 
 	dataDir := c.MkDir()
@@ -214,6 +222,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 
 	s.expectAnyLogs()
 	s.expectClock()
+	s.setupTimer(defaultNamespaceCacheFlushInterval)
 	s.expectTrackedDBKill()
 
 	dataDir := c.MkDir()
@@ -282,6 +291,288 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	c.Assert(errors.Is(err, dependency.ErrBounce), jc.IsTrue)
 }
 
+func (s *workerSuite) TestEnsureNamespaceForNilApp(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	w := &dbWorker{
+		namespaceCache: newNSCache(time.Second, s.clock),
+	}
+
+	err := w.ensureNamespace(coredatabase.ControllerNS)
+	c.Assert(err, gc.ErrorMatches, tomb.ErrDying.Error())
+}
+
+func (s *workerSuite) TestEnsureNamespaceForController(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	w := &dbWorker{
+		dbApp:          s.dbApp,
+		namespaceCache: newNSCache(time.Second, s.clock),
+	}
+
+	err := w.ensureNamespace(coredatabase.ControllerNS)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *workerSuite) TestEnsureNamespaceForModelNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectClock()
+	s.setupTimer(defaultNamespaceCacheFlushInterval)
+
+	dataDir := c.MkDir()
+	mgrExp := s.nodeManager.EXPECT()
+	mgrExp.EnsureDataDir().Return(dataDir, nil).MinTimes(1)
+
+	// If this is an existing node, we do not
+	// invoke the address or cluster options.
+	mgrExp.IsExistingNode().Return(true, nil).Times(3)
+	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(3)
+	mgrExp.WithLogFuncOption().Return(nil)
+	mgrExp.WithTracingOption().Return(nil)
+
+	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
+
+	sync := s.expectNodeStartupAndShutdown()
+
+	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+
+	trackedWorkerDB := newWorkerTrackedDB(s.TrackedDB())
+
+	w := s.newWorkerWithDB(c, trackedWorkerDB)
+	defer workertest.DirtyKill(c, w)
+
+	dbw := w.(*dbWorker)
+	s.ensureStartup(c, dbw, sync)
+
+	err := dbw.ensureNamespace("foo")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestEnsureNamespaceForModel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectClock()
+	s.setupTimer(defaultNamespaceCacheFlushInterval)
+
+	dataDir := c.MkDir()
+	mgrExp := s.nodeManager.EXPECT()
+	mgrExp.EnsureDataDir().Return(dataDir, nil).MinTimes(1)
+
+	// If this is an existing node, we do not
+	// invoke the address or cluster options.
+	mgrExp.IsExistingNode().Return(true, nil).Times(3)
+	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(3)
+	mgrExp.WithLogFuncOption().Return(nil)
+	mgrExp.WithTracingOption().Return(nil)
+
+	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
+
+	sync := s.expectNodeStartupAndShutdown()
+
+	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+
+	trackedWorkerDB := newWorkerTrackedDB(s.TrackedDB())
+
+	w := s.newWorkerWithDB(c, trackedWorkerDB)
+	defer workertest.DirtyKill(c, w)
+
+	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
+	defer cancel()
+
+	err := s.TrackedDB().Txn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		stmt := "INSERT INTO model_list (uuid) VALUES (?);"
+		result, err := tx.ExecContext(ctx, stmt, "foo")
+		c.Assert(err, jc.ErrorIsNil)
+
+		num, err := result.RowsAffected()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(num, gc.Equals, int64(1))
+
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	dbw := w.(*dbWorker)
+	s.ensureStartup(c, dbw, sync)
+
+	err = dbw.ensureNamespace("foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestEnsureNamespaceForModelWithCache(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectClock()
+	s.setupTimer(defaultNamespaceCacheFlushInterval)
+
+	dataDir := c.MkDir()
+	mgrExp := s.nodeManager.EXPECT()
+	mgrExp.EnsureDataDir().Return(dataDir, nil).MinTimes(1)
+
+	// If this is an existing node, we do not
+	// invoke the address or cluster options.
+	mgrExp.IsExistingNode().Return(true, nil).Times(3)
+	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(3)
+	mgrExp.WithLogFuncOption().Return(nil)
+	mgrExp.WithTracingOption().Return(nil)
+
+	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
+
+	sync := s.expectNodeStartupAndShutdown()
+
+	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+
+	trackedWorkerDB := newWorkerTrackedDB(s.TrackedDB())
+
+	w := s.newWorkerWithDB(c, trackedWorkerDB)
+	defer workertest.DirtyKill(c, w)
+
+	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
+	defer cancel()
+
+	var attempt int
+	err := s.TrackedDB().Txn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		attempt++
+
+		stmt := "INSERT INTO model_list (uuid) VALUES (?);"
+		result, err := tx.ExecContext(ctx, stmt, "foo")
+		c.Assert(err, jc.ErrorIsNil)
+
+		num, err := result.RowsAffected()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(num, gc.Equals, int64(1))
+
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	dbw := w.(*dbWorker)
+	s.ensureStartup(c, dbw, sync)
+
+	err = dbw.ensureNamespace("foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The second query will be cached.
+	err = dbw.ensureNamespace("foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(attempt, gc.Equals, 1)
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestEnsureNamespaceForModelWithCacheExpiry(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectClock()
+	s.setupTimer(defaultNamespaceCacheFlushInterval)
+
+	dataDir := c.MkDir()
+	mgrExp := s.nodeManager.EXPECT()
+	mgrExp.EnsureDataDir().Return(dataDir, nil).MinTimes(1)
+
+	// If this is an existing node, we do not
+	// invoke the address or cluster options.
+	mgrExp.IsExistingNode().Return(true, nil).Times(3)
+	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(3)
+	mgrExp.WithLogFuncOption().Return(nil)
+	mgrExp.WithTracingOption().Return(nil)
+
+	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
+
+	sync := s.expectNodeStartupAndShutdown()
+
+	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+
+	trackedWorkerDB := newWorkerTrackedDB(s.TrackedDB())
+
+	w := s.newWorkerWithDB(c, trackedWorkerDB)
+	defer workertest.DirtyKill(c, w)
+
+	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
+	defer cancel()
+
+	var attempt int
+	err := s.TrackedDB().Txn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		attempt++
+
+		stmt := "INSERT INTO model_list (uuid) VALUES (?);"
+		result, err := tx.ExecContext(ctx, stmt, "foo")
+		c.Assert(err, jc.ErrorIsNil)
+
+		num, err := result.RowsAffected()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(num, gc.Equals, int64(1))
+
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	dbw := w.(*dbWorker)
+	s.ensureStartup(c, dbw, sync)
+
+	err = dbw.ensureNamespace("foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The second query will be cached.
+	err = dbw.ensureNamespace("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(attempt, gc.Equals, 1)
+
+	// Flush the cache.
+	dbw.namespaceCache.Remove("foo")
+
+	err = dbw.ensureNamespace("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(attempt, gc.Equals, 1)
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) ensureStartup(c *gc.C, w *dbWorker, sync <-chan struct{}) {
+	select {
+	case <-sync:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for Dqlite node start")
+	}
+
+	// At this point we have started successfully.
+	// Push a message onto the API details channel.
+	// A single server does not cause a binding change.
+	select {
+	case w.apiServerChanges <- apiserver.Details{
+		Servers: map[string]apiserver.APIServer{
+			"0": {ID: "0", InternalAddress: "10.6.6.6:1234"},
+		},
+	}:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for cluster change to be processed")
+	}
+
+	// Multiple servers still do not cause a binding change
+	// if there is no internal address to bind to.
+	select {
+	case w.apiServerChanges <- apiserver.Details{
+		Servers: map[string]apiserver.APIServer{
+			"0": {ID: "0"},
+			"1": {ID: "1", InternalAddress: "10.6.6.7:1234"},
+			"2": {ID: "2", InternalAddress: "10.6.6.8:1234"},
+		},
+	}:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for cluster change to be processed")
+	}
+}
+
 func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 	s.nodeManager = NewMockNodeManager(ctrl)
@@ -305,6 +596,10 @@ func (s *workerSuite) expectNodeStartupAndShutdown() chan struct{} {
 }
 
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
+	return s.newWorkerWithDB(c, s.trackedDB)
+}
+
+func (s *workerSuite) newWorkerWithDB(c *gc.C, db TrackedDB) worker.Worker {
 	cfg := WorkerConfig{
 		NodeManager:  s.nodeManager,
 		Clock:        s.clock,
@@ -314,8 +609,8 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		NewApp: func(string, ...app.Option) (DBApp, error) {
 			return s.dbApp, nil
 		},
-		NewDBWorker: func(DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error) {
-			return s.trackedDB, nil
+		NewDBWorker: func(context.Context, DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error) {
+			return db, nil
 		},
 		MetricsCollector: &Collector{},
 	}
@@ -323,4 +618,80 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	w, err := newWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	return w
+}
+
+type nsCacheSuite struct {
+	jujutesting.IsolationSuite
+
+	clock *MockClock
+}
+
+var _ = gc.Suite(&nsCacheSuite{})
+
+func (s *nsCacheSuite) TestCacheSet(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.clock.EXPECT().Now().Return(time.Now()).Times(2)
+
+	cache := newNSCache(time.Second, s.clock)
+	cache.Set("foo")
+
+	c.Assert(cache.Exists("foo"), jc.IsTrue)
+}
+
+func (s *nsCacheSuite) TestCacheExistsNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cache := newNSCache(time.Second, s.clock)
+
+	c.Assert(cache.Exists("foo"), jc.IsFalse)
+}
+
+func (s *nsCacheSuite) TestCacheExistsExpired(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	gomock.InOrder(
+		s.clock.EXPECT().Now().Return(time.Now()),
+		s.clock.EXPECT().Now().Return(time.Now().Add(time.Second*2)),
+	)
+
+	cache := newNSCache(time.Second, s.clock)
+	cache.Set("foo")
+
+	c.Assert(cache.Exists("foo"), jc.IsFalse)
+}
+
+func (s *nsCacheSuite) TestCacheFlush(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.clock.EXPECT().Now().Return(time.Now()).Times(3)
+
+	cache := newNSCache(time.Second, s.clock)
+	cache.Set("foo")
+
+	cache.Flush()
+
+	c.Assert(cache.Exists("foo"), jc.IsTrue)
+}
+
+func (s *nsCacheSuite) TestCacheFlushExpired(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	gomock.InOrder(
+		s.clock.EXPECT().Now().Return(time.Now()),
+		s.clock.EXPECT().Now().Return(time.Now().Add(time.Second*2)),
+	)
+
+	cache := newNSCache(time.Second, s.clock)
+	cache.Set("foo")
+
+	cache.Flush()
+
+	c.Assert(cache.Exists("foo"), jc.IsFalse)
+}
+
+func (s *nsCacheSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.clock = NewMockClock(ctrl)
+	return ctrl
 }

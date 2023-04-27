@@ -4,6 +4,8 @@
 package dbaccessor
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -64,7 +66,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewApp: func(string, ...app.Option) (DBApp, error) {
 			return s.dbApp, nil
 		},
-		NewDBWorker: func(DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error) {
+		NewDBWorker: func(context.Context, DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error) {
 			return nil, nil
 		},
 		NewMetricsCollector: func() *Collector {
