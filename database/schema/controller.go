@@ -9,6 +9,7 @@ func ControllerDDL() []string {
 		leaseSchema,
 		changeLogSchema,
 		cloudSchema,
+		externalControllerSchema,
 	}
 
 	var deltas []string
@@ -222,4 +223,31 @@ CREATE TABLE cloud (
     storage_endpoint    TEXT,
     skip_tls_verify     BOOLEAN NOT NULL
 );`[1:]
+}
+
+func externalControllerSchema() string {
+	return `
+CREATE TABLE external_controller (
+    uuid            TEXT PRIMARY KEY,
+    alias           TEXT,
+    ca_cert_uuid    TEXT NOT NULL
+);
+
+CREATE TABLE external_controller_address (
+    uuid               TEXT PRIMARY KEY,
+    address            TEXT,
+    controller_uuid    TEXT NOT NULL,
+    CONSTRAINT         fk_external_controller_address_external_controller_uuid
+        FOREIGN KEY         (controller_uuid)
+        REFERENCES          external_controller(uuid)
+);
+
+CREATE TABLE external_model (
+    uuid                TEXT PRIMARY KEY,
+    controller_uuid     TEXT NOT NULL,
+    CONSTRAINT          fk_external_model_external_controller_uuid
+        FOREIGN KEY         (controller_uuid)
+        REFERENCES          external_controller(uuid)
+);
+    `[1:]
 }
