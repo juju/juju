@@ -32,7 +32,7 @@ func (s *AuthKeysSuite) SetUpTest(c *gc.C) {
 	newhome := c.MkDir()
 	err := utils.SetHome(newhome)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) {
+	s.AddCleanup(func(c *gc.C) {
 		ssh.ClearClientKeys()
 		err := utils.SetHome(old)
 		c.Assert(err, jc.ErrorIsNil)

@@ -41,7 +41,6 @@ func (t *mockTomb) ErrDying() error {
 	}
 }
 
-
 type appNotifyWorker interface {
 	worker.Worker
 	Notify()

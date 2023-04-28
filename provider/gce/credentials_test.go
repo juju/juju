@@ -116,7 +116,7 @@ func (s *credentialsSuite) TestDetectCredentialsKnownLocationUnix(c *gc.C) {
 	dir := c.MkDir()
 	err := utils.SetHome(dir)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) {
+	s.AddCleanup(func(c *gc.C) {
 		err := utils.SetHome(home)
 		c.Assert(err, jc.ErrorIsNil)
 	})

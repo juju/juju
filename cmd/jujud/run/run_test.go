@@ -387,7 +387,7 @@ func (s *RunTestSuite) runListenerForAgent(c *gc.C, agent string) {
 	listener, err := uniter.NewRunListener(socket, loggo.GetLogger("test"))
 	c.Assert(err, jc.ErrorIsNil)
 	listener.RegisterRunner("foo/1", &mockRunner{c})
-	s.AddCleanup(func(*gc.C) {
+	s.AddCleanup(func(c *gc.C) {
 		c.Assert(listener.Close(), jc.ErrorIsNil)
 	})
 }

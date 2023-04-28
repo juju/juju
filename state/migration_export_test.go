@@ -518,6 +518,14 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 		addr := network.NewSpaceAddress("192.168.1.1", network.WithScope(network.ScopeCloudLocal))
 		err = application.UpdateCloudService("provider-id", []network.SpaceAddress{addr})
 		c.Assert(err, jc.ErrorIsNil)
+
+		if isSidecar {
+			err = application.SetProvisioningState(state.ApplicationProvisioningState{
+				Scaling:     true,
+				ScaleTarget: 3,
+			})
+			c.Assert(err, jc.ErrorIsNil)
+		}
 	}
 
 	agentVer, err := version.ParseBinary("2.9.1-ubuntu-amd64")
@@ -623,6 +631,15 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 		c.Assert(exported.CloudService(), gc.IsNil)
 		_, err := application.AgentTools()
 		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	}
+
+	if dbModel.Type() == state.ModelTypeCAAS && isSidecar {
+		ps := exported.ProvisioningState()
+		c.Assert(ps, gc.NotNil)
+		c.Assert(ps.Scaling(), jc.IsTrue)
+		c.Assert(ps.ScaleTarget(), gc.Equals, 3)
+	} else {
+		c.Assert(exported.ProvisioningState(), gc.IsNil)
 	}
 }
 

@@ -1340,7 +1340,7 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		}
 	}
 
-	return &applicationDoc{
+	appDoc := &applicationDoc{
 		Name:                 a.Name(),
 		Series:               appSeries,
 		Subordinate:          a.Subordinate(),
@@ -1361,7 +1361,16 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		DesiredScale:         a.DesiredScale(),
 		Placement:            a.Placement(),
 		HasResources:         a.HasResources(),
-	}, nil
+	}
+
+	if ps := a.ProvisioningState(); ps != nil {
+		appDoc.ProvisioningState = &ApplicationProvisioningState{
+			Scaling:     ps.Scaling(),
+			ScaleTarget: ps.ScaleTarget(),
+		}
+	}
+
+	return appDoc, nil
 }
 
 func (i *importer) loadInstanceHardwareFromUnits(units []description.Unit) ([]instance.HardwareCharacteristics, error) {
