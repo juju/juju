@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -18,6 +17,7 @@ import (
 
 	"github.com/juju/juju/container/kvm/mock"
 	kvmtesting "github.com/juju/juju/container/kvm/testing"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"

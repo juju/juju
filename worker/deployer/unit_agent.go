@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
 	"github.com/juju/lumberjack/v2"
 	"github.com/juju/names/v4"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/machinelock"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/paths"

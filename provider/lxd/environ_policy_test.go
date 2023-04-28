@@ -7,11 +7,11 @@ import (
 	"strings"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/juju/core/arch"
 	jc "github.com/juju/testing/checkers"
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"

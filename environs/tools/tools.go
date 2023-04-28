@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"

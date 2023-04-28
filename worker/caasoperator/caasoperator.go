@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jujusymlink "github.com/juju/utils/v3/symlink"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/caas"
 	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"

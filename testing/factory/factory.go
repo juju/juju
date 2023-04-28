@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/charm/v10"
 	charmresource "github.com/juju/charm/v10/resource"
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -21,7 +20,7 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
-	corearch "github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/arch"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -286,7 +285,7 @@ func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *Mach
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	if params.Characteristics == nil {
-		arch := corearch.DefaultArchitecture
+		arch := arch.DefaultArchitecture
 		mem := uint64(64 * 1024 * 1024 * 1024)
 		hardware := instance.HardwareCharacteristics{
 			Arch: &arch,

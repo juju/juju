@@ -11,9 +11,9 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/os"
 	jujuos "github.com/juju/juju/core/os"
 	jujuseries "github.com/juju/juju/core/series"

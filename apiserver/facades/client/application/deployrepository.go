@@ -531,7 +531,7 @@ func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedO
 	// default arch, it means use any arch which isn't quite the same. So if we
 	// do get "all" we should see if there is a clean way to resolve it.
 	if resolvedOrigin.Platform.Architecture == "all" {
-		resolvedOrigin.Platform.Architecture = constraints.ConstraintArch(modelCons, nil)
+		resolvedOrigin.Platform.Architecture = constraints.ArchOrDefault(modelCons, nil)
 	}
 
 	var seriesFlag string

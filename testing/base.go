@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/featureflag"
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/testing"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/model"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/juju/osenv"

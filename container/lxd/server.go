@@ -9,9 +9,10 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/arch"
 	lxd "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
+
+	"github.com/juju/juju/core/arch"
 )
 
 // Server extends the upstream LXD container server.

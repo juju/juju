@@ -9,8 +9,8 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/arch"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"

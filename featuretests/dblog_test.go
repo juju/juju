@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3/bson"
 	mgotesting "github.com/juju/mgo/v3/testing"
@@ -28,6 +27,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/arch"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/database"
 	"github.com/juju/juju/state"

@@ -25,11 +25,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/utils/v3"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/container/kvm/libvirt"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/paths"
 )
 

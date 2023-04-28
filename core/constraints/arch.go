@@ -5,9 +5,9 @@ package constraints
 
 import "github.com/juju/juju/core/arch"
 
-// ConstraintArch returns the arch for the constraint if there is one,
+// ArchOrDefault returns the arch for the constraint if there is one,
 // else it returns the default arch.
-func ConstraintArch(cons Value, defaultCons *Value) string {
+func ArchOrDefault(cons Value, defaultCons *Value) string {
 	if cons.HasArch() {
 		return *cons.Arch
 	}

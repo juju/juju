@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	jujuarch "github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
 	"github.com/lxc/lxd/shared/api"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
+	jujuarch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"

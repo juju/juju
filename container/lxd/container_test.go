@@ -9,7 +9,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/arch"
 	jc "github.com/juju/testing/checkers"
 	"github.com/lxc/lxd/shared/api"
 	"github.com/lxc/lxd/shared/osarch"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/container/lxd/mocks"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"

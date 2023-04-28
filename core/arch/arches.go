@@ -69,7 +69,7 @@ var AllSupportedArches = []string{
 // UnsupportedArches records the machine architectures not supported by Juju.
 // Note: don't make const to prevent referencing it.
 var UnsupportedArches = []string{
-	"i386", "armhf",
+	"i386", "armhf", "ppc",
 }
 
 // archREs maps regular expressions for matching
@@ -80,7 +80,7 @@ var archREs = []struct {
 }{
 	{Regexp: regexp.MustCompile("amd64|x86_64"), arch: AMD64},
 	{Regexp: regexp.MustCompile("aarch64"), arch: ARM64},
-	{Regexp: regexp.MustCompile("ppc64el|ppc64le"), arch: PPC64EL},
+	{Regexp: regexp.MustCompile("ppc64|ppc64el|ppc64le"), arch: PPC64EL},
 	{Regexp: regexp.MustCompile("s390x"), arch: S390X},
 	{Regexp: regexp.MustCompile("riscv64|risc$|risc-[vV]64"), arch: RISCV64},
 }

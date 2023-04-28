@@ -215,7 +215,7 @@ func (a *API) getDefaultArch() (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return constraints.ConstraintArch(cons, nil), nil
+	return constraints.ArchOrDefault(cons, nil), nil
 }
 
 func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string) (params.CharmOrigin, error) {
@@ -410,7 +410,7 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel) params.Resolve
 			result.Error = apiservererrors.ServerError(err)
 			return result
 		}
-		archOrigin.Architecture = constraints.ConstraintArch(cons, nil)
+		archOrigin.Architecture = constraints.ArchOrDefault(cons, nil)
 	}
 
 	result.Origin = archOrigin

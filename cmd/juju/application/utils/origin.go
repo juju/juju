@@ -82,7 +82,7 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 // constraints and a base.
 func MakePlatform(cons constraints.Value, base series.Base, modelCons constraints.Value) corecharm.Platform {
 	return corecharm.Platform{
-		Architecture: constraints.ConstraintArch(cons, &modelCons),
+		Architecture: constraints.ArchOrDefault(cons, &modelCons),
 		OS:           base.OS,
 		Channel:      base.Channel.Track,
 	}

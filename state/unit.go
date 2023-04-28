@@ -2072,7 +2072,7 @@ func (u *Unit) Constraints() (*constraints.Value, error) {
 			}
 		}
 		if !cons.HasArch() {
-			a := constraints.ConstraintArch(cons, nil)
+			a := constraints.ArchOrDefault(cons, nil)
 			cons.Arch = &a
 		}
 	}

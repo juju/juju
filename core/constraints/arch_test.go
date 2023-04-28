@@ -14,14 +14,14 @@ type archSuite struct {
 
 var _ = gc.Suite(&archSuite{})
 
-func (s archSuite) TestConstraintArch(c *gc.C) {
-	a := ConstraintArch(MustParse("mem=4G"), nil)
+func (s archSuite) TestArchOrDefault(c *gc.C) {
+	a := ArchOrDefault(MustParse("mem=4G"), nil)
 	c.Assert(a, gc.Equals, "amd64")
-	a = ConstraintArch(MustParse("arch=arm64"), nil)
+	a = ArchOrDefault(MustParse("arch=arm64"), nil)
 	c.Assert(a, gc.Equals, "arm64")
 	defaultCons := MustParse("arch=arm64")
-	a = ConstraintArch(MustParse("mem=4G"), &defaultCons)
+	a = ArchOrDefault(MustParse("mem=4G"), &defaultCons)
 	c.Assert(a, gc.Equals, "arm64")
-	a = ConstraintArch(MustParse("arch=s390x"), &defaultCons)
+	a = ArchOrDefault(MustParse("arch=s390x"), &defaultCons)
 	c.Assert(a, gc.Equals, "s390x")
 }

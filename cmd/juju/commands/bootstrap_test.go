@@ -20,7 +20,6 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	jujuos "github.com/juju/os/v2"
@@ -30,12 +29,10 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
-	gc "gopkg.in/check.v1"
-	k8scmd "k8s.io/client-go/tools/clientcmd"
-
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	coreos "github.com/juju/juju/core/os"
@@ -64,6 +61,8 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
+	gc "gopkg.in/check.v1"
+	k8scmd "k8s.io/client-go/tools/clientcmd"
 )
 
 type BootstrapSuite struct {

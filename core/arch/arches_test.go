@@ -4,10 +4,11 @@
 package arch_test
 
 import (
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/arch"
 )
 
 type archSuite struct {
@@ -42,7 +43,6 @@ func (s *archSuite) TestNormaliseArch(c *gc.C) {
 		raw  string
 		arch string
 	}{
-		{"windows", "windows"},
 		{"amd64", "amd64"},
 		{"x86_64", "amd64"},
 		{"aarch64", "arm64"},

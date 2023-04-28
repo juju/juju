@@ -15,7 +15,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
@@ -31,7 +30,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
-	corearch "github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/arch"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -1293,7 +1292,7 @@ func (s *StateSuite) TestInjectMachineErrors(c *gc.C) {
 
 func (s *StateSuite) TestInjectMachine(c *gc.C) {
 	cons := constraints.MustParse("mem=4G")
-	arch := corearch.DefaultArchitecture
+	arch := arch.DefaultArchitecture
 	mem := uint64(1024)
 	disk := uint64(1024)
 	source := "loveshack"
@@ -1758,7 +1757,7 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	c.Assert(outconfig, gc.DeepEquals, inconfig.Attributes())
 	cons, err := wordpress.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	a := corearch.DefaultArchitecture
+	a := arch.DefaultArchitecture
 	c.Assert(cons, jc.DeepEquals, constraints.Value{
 		Arch: &a,
 	})
@@ -1853,7 +1852,7 @@ func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
 
 	cons, err := gitlab.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	a := corearch.DefaultArchitecture
+	a := arch.DefaultArchitecture
 	c.Assert(cons, jc.DeepEquals, constraints.Value{
 		Arch: &a,
 	})

@@ -5,8 +5,8 @@ package dependency
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/arch"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/packaging"
 )
 

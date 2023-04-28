@@ -1212,7 +1212,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		a := constraints.ConstraintArch(cons, &modelConstraints)
+		a := constraints.ArchOrDefault(cons, &modelConstraints)
 		cons.Arch = &a
 		args.Constraints = cons
 	}

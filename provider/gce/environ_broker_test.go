@@ -6,11 +6,11 @@ package gce_test
 import (
 	"errors"
 
-	"github.com/juju/juju/core/arch"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/instance"
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/series"

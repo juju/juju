@@ -8,7 +8,6 @@ import (
 	"reflect"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/juju/core/arch"
 	jc "github.com/juju/testing/checkers"
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	containerlxd "github.com/juju/juju/container/lxd"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/series"

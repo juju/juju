@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/shell"
 	"github.com/juju/utils/v3/ssh"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/sshinit"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/series"

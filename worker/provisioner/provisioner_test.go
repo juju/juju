@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -27,6 +26,7 @@ import (
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	apiserverprovisioner "github.com/juju/juju/apiserver/facades/agent/provisioner"
 	"github.com/juju/juju/controller/authentication"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"

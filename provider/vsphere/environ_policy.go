@@ -5,8 +5,8 @@ package vsphere
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/arch"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"

@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/core/arch"
 )
 

@@ -13,7 +13,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -26,7 +25,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	corearch "github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/os"
@@ -386,9 +385,9 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceCustomConstraintsApplied(c *
 	res, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	arch := corearch.DefaultArchitecture
+	defaultArch := arch.DefaultArchitecture
 	c.Assert(res.Hardware, jc.DeepEquals, &instance.HardwareCharacteristics{
-		Arch:           &arch,
+		Arch:           &defaultArch,
 		CpuCores:       &cpuCores,
 		CpuPower:       &cpuPower,
 		Mem:            &mem,

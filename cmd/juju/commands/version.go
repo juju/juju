@@ -6,9 +6,9 @@ package commands
 import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/gnuflag"
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	jujuversion "github.com/juju/juju/version"
 )

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -23,6 +22,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"

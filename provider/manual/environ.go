@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/ssh"
@@ -22,6 +21,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	coreseries "github.com/juju/juju/core/series"

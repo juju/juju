@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/juju/core/arch"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
