@@ -14,7 +14,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/utils/v3/ssh"
 	"github.com/juju/version/v2"
 
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	corecontext "github.com/juju/juju/core/context"
 	"github.com/juju/juju/core/series"
@@ -397,10 +397,6 @@ func bootstrapIAAS(
 		bootstrapArchForImageSearch = *args.ModelConstraints.Arch
 	} else {
 		bootstrapArchForImageSearch = arch.HostArch()
-		// We no longer support i386.
-		if bootstrapArchForImageSearch == arch.I386 {
-			bootstrapArchForImageSearch = arch.AMD64
-		}
 	}
 
 	ctx.Verbosef("Loading image metadata")
@@ -458,13 +454,6 @@ func bootstrapIAAS(
 		// auto-discover the arch from the provider, we'll fall back
 		// to bootstrapping on the same arch as the CLI client.
 		bootstrapArch = localToolsArch()
-
-		// We no longer support controllers on i386. If we are
-		// bootstrapping from an i386 client, we'll look for amd64
-		// tools.
-		if bootstrapArch == arch.I386 {
-			bootstrapArch = arch.AMD64
-		}
 	}
 
 	agentVersion := jujuversion.Current

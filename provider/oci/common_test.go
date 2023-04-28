@@ -9,26 +9,23 @@ import (
 	"fmt"
 	"time"
 
+	gomock "github.com/golang/mock/gomock"
 	"github.com/juju/clock/testclock"
 	gitjujutesting "github.com/juju/testing"
-	"github.com/juju/utils/v3/arch"
-	"github.com/juju/version/v2"
-
-	gomock "github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
-
-	ocitesting "github.com/juju/juju/provider/oci/testing"
-	jujutesting "github.com/juju/juju/testing"
-
+	"github.com/juju/version/v2"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	ociIdentity "github.com/oracle/oci-go-sdk/v65/identity"
+	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/provider/oci"
+	ocitesting "github.com/juju/juju/provider/oci/testing"
+	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
 

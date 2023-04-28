@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	jujuos "github.com/juju/juju/core/os"
@@ -510,9 +510,9 @@ func (s *bootstrapSuite) setupProviderWithSomeSupportedArches(c *gc.C) bootstrap
 	// test provider constraints only has amd64 and arm64 as supported architectures
 	consBefore, err := env.ConstraintsValidator(envcontext.NewEmptyCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
-	desiredArch := constraints.MustParse("arch=i386")
+	desiredArch := constraints.MustParse("arch=s390x")
 	unsupported, err := consBefore.Validate(desiredArch)
-	c.Assert(err.Error(), jc.Contains, `invalid constraint value: arch=i386`)
+	c.Assert(err.Error(), jc.Contains, `invalid constraint value: arch=s390x`)
 	c.Assert(unsupported, gc.HasLen, 0)
 
 	return env
@@ -558,7 +558,7 @@ func (s *bootstrapSuite) setupProviderWithNoSupportedArches(c *gc.C) bootstrapEn
 	consBefore, err := env.ConstraintsValidator(envcontext.NewEmptyCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 	// test provider constraints only has amd64 and arm64 as supported architectures
-	desiredArch := constraints.MustParse("arch=i386")
+	desiredArch := constraints.MustParse("arch=s390x")
 	unsupported, err := consBefore.Validate(desiredArch)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unsupported, gc.HasLen, 0)
@@ -745,9 +745,6 @@ func (s *bootstrapSuite) assertBootstrapPackagedToolsAvailable(c *gc.C, clientAr
 	// such as s390.
 	s.PatchValue(&arch.HostArch, func() string { return clientArch })
 	toolsArch := clientArch
-	if toolsArch == "i386" {
-		toolsArch = "amd64"
-	}
 	findToolsOk := false
 	s.PatchValue(bootstrap.FindTools, func(_ envtools.SimplestreamsFetcher, _ environs.BootstrapEnviron, _ int, _ int, _ []string, filter tools.Filter) (tools.List, error) {
 		c.Assert(filter.Arch, gc.Equals, toolsArch)

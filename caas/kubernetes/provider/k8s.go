@@ -18,7 +18,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 	apps "k8s.io/api/apps/v1"
@@ -39,12 +38,10 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/pointer"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	jujuversion "github.com/juju/juju/version"
-
 	"github.com/juju/juju/caas"
 	k8sapplication "github.com/juju/juju/caas/kubernetes/provider/application"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	k8sstorage "github.com/juju/juju/caas/kubernetes/provider/storage"
@@ -53,6 +50,7 @@ import (
 	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	k8sannotations "github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/assumes"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/devices"
@@ -66,6 +64,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.kubernetes.provider")

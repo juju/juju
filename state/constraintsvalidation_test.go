@@ -135,9 +135,9 @@ var setConstraintsTests = []struct {
 }, {
 	about:        "non-empty constraints always override set fallbacks",
 	consToSet:    "cores=42 root-disk=20G arch=amd64 tags=foo,bar",
-	consFallback: "cores=12 root-disk=10G arch=i386  tags=bar",
+	consFallback: "cores=12 root-disk=10G arch=s390x  tags=bar",
 
-	effectiveModelCons:       "cores=12 root-disk=10G arch=i386  tags=bar",
+	effectiveModelCons:       "cores=12 root-disk=10G arch=s390x  tags=bar",
 	effectiveApplicationCons: "cores=42 root-disk=20G arch=amd64 tags=foo,bar",
 	effectiveUnitCons:        "cores=42 root-disk=20G arch=amd64 tags=foo,bar",
 	effectiveMachineCons:     "cores=42 root-disk=20G arch=amd64 tags=foo,bar",

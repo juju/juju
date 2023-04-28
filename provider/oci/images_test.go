@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/utils/v3/arch"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/oci"

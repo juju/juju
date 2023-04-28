@@ -28,7 +28,6 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
@@ -540,7 +539,7 @@ func makeStartInstanceParams(c *gc.C, controllerUUID string, base coreseries.Bas
 func makeToolsList(osType string) tools.List {
 	var toolsVersion version.Binary
 	toolsVersion.Number = version.MustParse("1.26.0")
-	toolsVersion.Arch = arch.AMD64
+	toolsVersion.Arch = corearch.AMD64
 	toolsVersion.Release = osType
 	return tools.List{{
 		Version: toolsVersion,
@@ -1595,11 +1594,11 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	)
 	// If we aren't on amd64, this should correctly fail. See also:
 	// lp#1638706: environSuite.TestBootstrapInstanceConstraints fails on rare archs and series
-	if arch.HostArch() != "amd64" {
+	if corearch.HostArch() != "amd64" {
 		wantErr := fmt.Sprintf("model %q of type %s does not support instances running on %q",
 			env.Config().Name(),
 			env.Config().Type(),
-			arch.HostArch())
+			corearch.HostArch())
 		c.Assert(err, gc.ErrorMatches, wantErr)
 		c.SucceedNow()
 	}
@@ -1646,11 +1645,11 @@ func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
 	)
 	// If we aren't on amd64, this should correctly fail. See also:
 	// lp#1638706: environSuite.TestBootstrapInstanceConstraints fails on rare archs and series
-	if arch.HostArch() != "amd64" {
+	if corearch.HostArch() != "amd64" {
 		wantErr := fmt.Sprintf("model %q of type %s does not support instances running on %q",
 			env.Config().Name(),
 			env.Config().Type(),
-			arch.HostArch())
+			corearch.HostArch())
 		c.Assert(err, gc.ErrorMatches, wantErr)
 		c.SucceedNow()
 	}
@@ -1880,9 +1879,9 @@ func (s *environSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 
 func (s *environSuite) TestConstraintsValidatorVocabulary(c *gc.C) {
 	validator := s.constraintsValidator(c)
-	_, err := validator.Validate(constraints.MustParse("arch=armhf"))
+	_, err := validator.Validate(constraints.MustParse("arch=s390x"))
 	c.Assert(err, gc.ErrorMatches,
-		"invalid constraint value: arch=armhf\nvalid values are: \\[amd64\\]",
+		"invalid constraint value: arch=s390x\nvalid values are: \\[amd64\\]",
 	)
 	_, err = validator.Validate(constraints.MustParse("instance-type=t1.micro"))
 	c.Assert(err, gc.ErrorMatches,

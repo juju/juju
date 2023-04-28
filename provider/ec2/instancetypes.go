@@ -14,8 +14,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3/arch"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -119,7 +119,6 @@ func supportsClassic(instanceType string) bool {
 }
 
 var archNames = map[types.ArchitectureType]string{
-	types.ArchitectureTypeI386:  arch.I386,
 	types.ArchitectureTypeX8664: arch.AMD64,
 	types.ArchitectureTypeArm64: arch.ARM64,
 }
@@ -296,13 +295,15 @@ func convertEC2InstanceType(
 		instType.Mem = uint64(*info.MemoryInfo.SizeInMiB)
 	}
 	if info.ProcessorInfo != nil {
+		unsupportedSet := set.NewStrings(arch.UnsupportedArches...)
 		for _, instArch := range info.ProcessorInfo.SupportedArchitectures {
 			// Should never be empty.
 			if instArch == "" {
 				continue
 			}
-			// We no longer support i386
-			if instArch == arch.I386 {
+			// Ensure that we're not attempting to use an unsupported
+			// architecture (i386).
+			if unsupportedSet.Contains(string(instArch)) {
 				continue
 			}
 			instType.Arch = archName(instArch)

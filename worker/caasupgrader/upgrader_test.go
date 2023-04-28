@@ -6,11 +6,11 @@ package caasupgrader_test
 import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/watcher/watchertest"
 	coretesting "github.com/juju/juju/testing"

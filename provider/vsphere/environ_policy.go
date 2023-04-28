@@ -5,8 +5,8 @@ package vsphere
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3/arch"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -88,7 +88,7 @@ func (env *environ) ConstraintsValidator(ctx context.ProviderCallContext) (const
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
 	validator.RegisterVocabulary(constraints.Arch, []string{
-		arch.AMD64, arch.I386,
+		arch.AMD64,
 	})
 	return validator, nil
 }

@@ -9,11 +9,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3/arch"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 )
 

@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/arch"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"

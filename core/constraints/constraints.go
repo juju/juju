@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3/arch"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/instance"
 )
 

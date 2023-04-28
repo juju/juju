@@ -78,11 +78,8 @@ var parseConstraintsTests = []struct {
 		summary: "set arch amd64",
 		args:    []string{"arch=amd64"},
 	}, {
-		summary: "set arch i386",
-		args:    []string{"arch=i386"},
-	}, {
-		summary: "set arch armhf",
-		args:    []string{"arch=armhf"},
+		summary: "set arch arm64",
+		args:    []string{"arch=arm64"},
 	}, {
 		summary: "set nonsense arch 1",
 		args:    []string{"arch=cheese"},
@@ -97,7 +94,7 @@ var parseConstraintsTests = []struct {
 		err:     `bad "arch" constraint: already set`,
 	}, {
 		summary: "double set arch separately",
-		args:    []string{"arch=armhf", "arch="},
+		args:    []string{"arch=arm64", "arch="},
 		err:     `bad "arch" constraint: already set`,
 	},
 
@@ -397,12 +394,12 @@ var parseConstraintsTests = []struct {
 	{
 		summary: "kitchen sink together",
 		args: []string{
-			"root-disk=8G mem=2T  arch=i386  cores=4096 cpu-power=9001 container=lxd " +
+			"root-disk=8G mem=2T  arch=arm64  cores=4096 cpu-power=9001 container=lxd " +
 				"tags=foo,bar spaces=space1,^space2 instance-type=foo " +
 				"instance-role=foo1",
 			"virt-type=kvm zones=az1,az2 allocate-public-ip=true root-disk-source=sourcename image-id=ubuntu-bf2"},
 		result: &constraints.Value{
-			Arch:             strp("i386"),
+			Arch:             strp("arm64"),
 			Container:        (*instance.ContainerType)(strp("lxd")),
 			CpuCores:         uint64p(4096),
 			CpuPower:         uint64p(9001),
@@ -421,12 +418,12 @@ var parseConstraintsTests = []struct {
 	}, {
 		summary: "kitchen sink separately",
 		args: []string{
-			"root-disk=8G", "mem=2T", "cores=4096", "cpu-power=9001", "arch=armhf",
+			"root-disk=8G", "mem=2T", "cores=4096", "cpu-power=9001", "arch=arm64",
 			"container=lxd", "tags=foo,bar", "spaces=space1,^space2",
 			"instance-type=foo", "virt-type=kvm", "zones=az1,az2", "allocate-public-ip=false",
 			"instance-role=foo2"},
 		result: &constraints.Value{
-			Arch:             strp("armhf"),
+			Arch:             strp("arm64"),
 			Container:        (*instance.ContainerType)(strp("lxd")),
 			CpuCores:         uint64p(4096),
 			CpuPower:         uint64p(9001),
@@ -443,11 +440,11 @@ var parseConstraintsTests = []struct {
 	}, {
 		summary: "kitchen sink together with spaced zones",
 		args: []string{
-			`root-disk=8G mem=2T  arch=i386  cores=4096 zones=Availability\ zone\ 1 cpu-power=9001 container=lxd ` +
+			`root-disk=8G mem=2T  arch=arm64  cores=4096 zones=Availability\ zone\ 1 cpu-power=9001 container=lxd ` +
 				"tags=foo,bar spaces=space1,^space2 instance-type=foo instance-role=foo3",
 			"virt-type=kvm"},
 		result: &constraints.Value{
-			Arch:         strp("i386"),
+			Arch:         strp("arm64"),
 			Container:    (*instance.ContainerType)(strp("lxd")),
 			CpuCores:     uint64p(4096),
 			CpuPower:     uint64p(9001),
@@ -736,7 +733,7 @@ var constraintsRoundtripTests = []roundTrip{
 	{"ImageID1", constraints.Value{ImageID: strp("")}},
 	{"ImageID1", constraints.Value{ImageID: strp("ubuntu-bf2")}},
 	{"All", constraints.Value{
-		Arch:             strp("i386"),
+		Arch:             strp("arm64"),
 		Container:        ctypep("lxd"),
 		CpuCores:         uint64p(4096),
 		CpuPower:         uint64p(9001),

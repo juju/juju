@@ -18,10 +18,10 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/model"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/juju/osenv"
@@ -107,13 +107,6 @@ func SkipIfPPC64EL(c *gc.C, bugID string) {
 	if runtime.Compiler == "gccgo" &&
 		arch.NormaliseArch(runtime.GOARCH) == arch.PPC64EL {
 		c.Skip(fmt.Sprintf("Test disabled on PPC64EL until fixed - see bug %s", bugID))
-	}
-}
-
-// SkipIfI386 skips the test if the arch is I386.
-func SkipIfI386(c *gc.C, bugID string) {
-	if arch.NormaliseArch(runtime.GOARCH) == arch.I386 {
-		c.Skip(fmt.Sprintf("Test disabled on I386 until fixed - see bug %s", bugID))
 	}
 }
 

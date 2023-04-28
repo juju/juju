@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
@@ -28,6 +27,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/arch"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/database"
 	"github.com/juju/juju/state"
