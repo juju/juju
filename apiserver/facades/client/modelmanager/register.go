@@ -61,17 +61,12 @@ func newFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
 	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
 
-	controllerDB, err := ctx.ControllerDB()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)
 	backend := common.NewUserAwareModelManagerBackend(model, pool, apiUser)
 	return NewModelManagerAPI(
 		backend,
 		common.NewModelManagerBackend(ctrlModel, pool),
-		controllerDB,
+		NewDBState(ctx),
 		toolsFinder,
 		caas.New,
 		common.NewBlockChecker(backend),

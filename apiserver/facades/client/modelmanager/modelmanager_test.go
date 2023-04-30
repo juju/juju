@@ -214,13 +214,13 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	}
 
 	api, err := modelmanager.NewModelManagerAPI(
-		s.st, s.ctlrSt, nil, newBroker, common.NewBlockChecker(s.st),
+		s.st, s.ctlrSt, &mockModelDBState{}, nil, newBroker, common.NewBlockChecker(s.st),
 		s.authoriser, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 	caasApi, err := modelmanager.NewModelManagerAPI(
-		s.caasSt, s.ctlrSt, nil, newBroker, common.NewBlockChecker(s.caasSt),
+		s.caasSt, s.ctlrSt, &mockModelDBState{}, nil, newBroker, common.NewBlockChecker(s.caasSt),
 		s.authoriser, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -241,7 +241,7 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		return s.caasBroker, nil
 	}
 	mm, err := modelmanager.NewModelManagerAPI(
-		s.st, s.ctlrSt, nil, newBroker, common.NewBlockChecker(s.st),
+		s.st, s.ctlrSt, &mockModelDBState{}, nil, newBroker, common.NewBlockChecker(s.st),
 		s.authoriser, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -814,7 +814,7 @@ func (s *modelManagerSuite) TestAddModelCanCreateModel(c *gc.C) {
 	addModelUser := names.NewUserTag("add-model")
 	s.ctlrSt.cloudUsers[addModelUser.Id()] = permission.AddModelAccess
 	s.setAPIUser(c, addModelUser)
-	_, err := s.api.CreateModel(createArgs(addModelUser))
+	_, err := s.api.CreateModel(stdcontext.TODO(), createArgs(addModelUser))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -823,7 +823,7 @@ func (s *modelManagerSuite) TestAddModelCantCreateModelForSomeoneElse(c *gc.C) {
 	s.ctlrSt.cloudUsers[addModelUser.Id()] = permission.AddModelAccess
 	s.setAPIUser(c, addModelUser)
 	nonAdminUser := names.NewUserTag("non-admin")
-	_, err := s.api.CreateModel(createArgs(nonAdminUser))
+	_, err := s.api.CreateModel(stdcontext.TODO(), createArgs(nonAdminUser))
 	c.Assert(err, gc.ErrorMatches, "\"add-model\" permission does not permit creation of models for different owners: permission denied")
 }
 
@@ -865,6 +865,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		st, ctlrSt,
+		&mockModelDBState{},
 		toolsFinder,
 		nil,
 		common.NewBlockChecker(st),
@@ -883,6 +884,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		st,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
+		&mockModelDBState{},
 		nil, nil, common.NewBlockChecker(st), anAuthoriser,
 		s.Model,
 		s.callContext,
@@ -898,6 +900,7 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		st,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
+		&mockModelDBState{},
 		nil, nil, common.NewBlockChecker(st), anAuthoriser, s.Model,
 		s.callContext,
 	)
@@ -914,7 +917,7 @@ func (s *modelManagerStateSuite) createArgsForVersion(c *gc.C, owner names.UserT
 func (s *modelManagerStateSuite) TestUserCanCreateModel(c *gc.C) {
 	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
-	model, err := s.modelmanager.CreateModel(createArgs(owner))
+	model, err := s.modelmanager.CreateModel(stdcontext.TODO(), createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.OwnerTag, gc.Equals, owner.String())
 	c.Assert(model.Name, gc.Equals, "test-model")
@@ -925,7 +928,7 @@ func (s *modelManagerStateSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) 
 	s.setAPIUser(c, s.AdminUserTag(c))
 	owner := names.NewUserTag("external@remote")
 
-	model, err := s.modelmanager.CreateModel(createArgs(owner))
+	model, err := s.modelmanager.CreateModel(stdcontext.TODO(), createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.OwnerTag, gc.Equals, owner.String())
 	c.Assert(model.Name, gc.Equals, "test-model")
@@ -946,14 +949,14 @@ func (s *modelManagerStateSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) 
 func (s *modelManagerStateSuite) TestNonAdminCannotCreateModelForSomeoneElse(c *gc.C) {
 	s.setAPIUser(c, names.NewUserTag("non-admin@remote"))
 	owner := names.NewUserTag("external@remote")
-	_, err := s.modelmanager.CreateModel(createArgs(owner))
+	_, err := s.modelmanager.CreateModel(stdcontext.TODO(), createArgs(owner))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *modelManagerStateSuite) TestNonAdminCannotCreateModelForSelf(c *gc.C) {
 	owner := names.NewUserTag("non-admin@remote")
 	s.setAPIUser(c, owner)
-	_, err := s.modelmanager.CreateModel(createArgs(owner))
+	_, err := s.modelmanager.CreateModel(stdcontext.TODO(), createArgs(owner))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -1089,7 +1092,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	// can create models are controller admins.
 	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
-	m, err := s.modelmanager.CreateModel(createArgs(owner))
+	m, err := s.modelmanager.CreateModel(stdcontext.TODO(), createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
 
 	st, err := s.StatePool.Get(m.UUID)
@@ -1101,6 +1104,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		backend,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
+		&mockModelDBState{},
 		nil, nil, common.NewBlockChecker(backend), s.authoriser,
 		s.Model,
 		s.callContext,
@@ -1135,7 +1139,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	// usefulness until proper controller permissions are in place.
 	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
-	m, err := s.modelmanager.CreateModel(createArgs(owner))
+	m, err := s.modelmanager.CreateModel(stdcontext.TODO(), createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
 
 	st, err := s.StatePool.Get(m.UUID)
@@ -1149,6 +1153,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		backend,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
+		&mockModelDBState{},
 		nil, nil, common.NewBlockChecker(backend), s.authoriser,
 		s.Model,
 		s.callContext,
@@ -1173,7 +1178,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
-	m, err := s.modelmanager.CreateModel(createArgs(owner))
+	m, err := s.modelmanager.CreateModel(stdcontext.TODO(), createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
 
 	st, err := s.StatePool.Get(m.UUID)
@@ -1186,6 +1191,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		backend,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
+		&mockModelDBState{},
 		nil, nil, common.NewBlockChecker(backend), s.authoriser, s.Model,
 		s.callContext,
 	)
@@ -1617,6 +1623,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		st,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
+		&mockModelDBState{},
 		nil, nil, common.NewBlockChecker(st), anAuthoriser,
 		s.Model,
 		s.callContext,

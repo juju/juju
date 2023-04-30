@@ -4,6 +4,7 @@
 package modelmanager_test
 
 import (
+	stdcontext "context"
 	"strings"
 	"time"
 
@@ -178,7 +179,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		s.st, s.ctlrSt, nil, nil, common.NewBlockChecker(s.st),
+		s.st, s.ctlrSt, &mockModelDBState{}, nil, nil, common.NewBlockChecker(s.st),
 		&s.authorizer, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -196,7 +197,7 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	var err error
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		s.st, s.ctlrSt, nil, nil,
+		s.st, s.ctlrSt, &mockModelDBState{}, nil, nil,
 		common.NewBlockChecker(s.st), s.authorizer, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1337,4 +1338,10 @@ func (m *mockMigration) StartTime() time.Time {
 
 func (m *mockMigration) EndTime() time.Time {
 	return m.end
+}
+
+type mockModelDBState struct{}
+
+func (mockModelDBState) Create(ctx stdcontext.Context, uuid string) error {
+	return nil
 }

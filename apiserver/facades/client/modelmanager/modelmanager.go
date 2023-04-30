@@ -5,7 +5,6 @@ package modelmanager
 
 import (
 	stdcontext "context"
-	"database/sql"
 	"fmt"
 	"sort"
 	"time"
@@ -24,7 +23,6 @@ import (
 	"github.com/juju/juju/caas"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
-	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/series"
@@ -53,17 +51,17 @@ type newCaasBrokerFunc func(_ stdcontext.Context, args environs.OpenParams) (caa
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
-	controllerDB coredatabase.TrackedDB
-	state        common.ModelManagerBackend
-	ctlrState    common.ModelManagerBackend
-	check        common.BlockCheckerInterface
-	authorizer   facade.Authorizer
-	toolsFinder  common.ToolsFinder
-	apiUser      names.UserTag
-	isAdmin      bool
-	model        common.Model
-	getBroker    newCaasBrokerFunc
-	callContext  context.ProviderCallContext
+	dbState     ModelManagerState
+	state       common.ModelManagerBackend
+	ctlrState   common.ModelManagerBackend
+	check       common.BlockCheckerInterface
+	authorizer  facade.Authorizer
+	toolsFinder common.ToolsFinder
+	apiUser     names.UserTag
+	isAdmin     bool
+	model       common.Model
+	getBroker   newCaasBrokerFunc
+	callContext context.ProviderCallContext
 }
 
 // NewModelManagerAPI creates a new api server endpoint for managing
@@ -71,7 +69,7 @@ type ModelManagerAPI struct {
 func NewModelManagerAPI(
 	st common.ModelManagerBackend,
 	ctlrSt common.ModelManagerBackend,
-	controllerDB coredatabase.TrackedDB,
+	dbState ModelManagerState,
 	toolsFinder common.ToolsFinder,
 	getBroker newCaasBrokerFunc,
 	blockChecker common.BlockCheckerInterface,
@@ -94,7 +92,7 @@ func NewModelManagerAPI(
 
 	return &ModelManagerAPI{
 		ModelStatusAPI: common.NewModelStatusAPI(st, authorizer, apiUser),
-		controllerDB:   controllerDB,
+		dbState:        dbState,
 		state:          st,
 		ctlrState:      ctlrSt,
 		getBroker:      getBroker,
@@ -370,19 +368,7 @@ func (m *ModelManagerAPI) CreateModel(ctx stdcontext.Context, args params.ModelC
 	// Ensure that we place the model in the known model list table on the
 	// controller.
 	// TODO (stickupkid): Find a better location for this.
-	if err := m.controllerDB.Txn(ctx, func(ctx stdcontext.Context, txn *sql.Tx) error {
-		stmt := "INSERT INTO model_list (uuid) VALUES (?);"
-		result, err := txn.ExecContext(ctx, stmt, model.UUID())
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if num, err := result.RowsAffected(); err != nil {
-			return errors.Trace(err)
-		} else if num != 1 {
-			return errors.Errorf("expected 1 row to be inserted, got %d", num)
-		}
-		return nil
-	}); err != nil {
+	if err := m.dbState.Create(ctx, model.UUID()); err != nil {
 		return result, errors.Trace(err)
 	}
 
