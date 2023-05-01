@@ -101,30 +101,30 @@ run_secret_drain() {
 	wait_for "active" '.applications["hello"] | ."application-status".current'
 	wait_for "hello" "$(idle_condition "hello" 0)"
 
-	secret_owned_by_hello_0=$(juju exec --unit hello/0 -- secret-add --owner unit owned-by=hello/0 | cut -d: -f 2)
-	secret_owned_by_hello=$(juju exec --unit hello/0 -- secret-add owned-by=hello-app | cut -d: -f 2)
+	secret_owned_by_unit=$(juju exec --unit hello/0 -- secret-add --owner unit owned-by=hello/0 | cut -d: -f 2)
+	secret_owned_by_app=$(juju exec --unit hello/0 -- secret-add owned-by=hello-app | cut -d: -f 2)
 
-	juju show-secret --reveal "$secret_owned_by_hello_0"
-	juju show-secret --reveal "$secret_owned_by_hello"
+	juju show-secret --reveal "$secret_owned_by_unit"
+	juju show-secret --reveal "$secret_owned_by_app"
 
-	mkubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' | grep "$secret_owned_by_hello_0-1"
-	mkubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' | grep "$secret_owned_by_hello-1"
+	mkubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' | grep "$secret_owned_by_unit-1"
+	mkubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' | grep "$secret_owned_by_app-1"
 
 	juju model-config secret-backend="$vault_backend_name"
 	sleep 20
 
-	check_contains $(mkubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' -o json | jq '.items | length') 0
+	check_contains "$(mkubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' -o json | jq '.items | length')" 0
 
 	model_uuid=$(juju show-model $model_name --format json | jq -r ".[\"${model_name}\"][\"model-uuid\"]")
-	check_contains $(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length) 2
+	check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length)" 2
 
 	juju model-config secret-backend=auto
 	sleep 20
 
-	mkubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' | grep "$secret_owned_by_hello_0-1"
-	mkubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' | grep "$secret_owned_by_hello-1"
+	mkubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' | grep "$secret_owned_by_unit-1"
+	mkubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' | grep "$secret_owned_by_app-1"
 
-	check_contains $(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length) 0
+	check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length)" 0
 }
 
 prepare_vault() {
@@ -134,7 +134,7 @@ prepare_vault() {
 
 	ip=$(hostname -I | awk '{print $1}')
 	root_token='root'
-	vault server -dev -dev-listen-address="${ip}:8200" -dev-root-token-id="$root_token" > /dev/null 2>&1 &
+	vault server -dev -dev-listen-address="${ip}:8200" -dev-root-token-id="$root_token" >/dev/null 2>&1 &
 
 	export VAULT_ADDR="http://${ip}:8200"
 	export VAULT_TOKEN="$root_token"

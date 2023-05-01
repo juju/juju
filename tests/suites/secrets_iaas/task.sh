@@ -15,6 +15,7 @@ test_secrets_iaas() {
 
 	test_secrets_juju
 	test_secrets_vault
+	test_secret_drain
 
 	# Takes too long to tear down, so forcibly destroy it
 	export KILL_CONTROLLER=true
