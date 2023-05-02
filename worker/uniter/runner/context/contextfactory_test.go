@@ -63,7 +63,6 @@ func (s *ContextFactorySuite) SetUpTest(c *gc.C) {
 		Unit:             s.apiUnit,
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
-		Storage:          s.storage,
 		Payloads:         s.payloads,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
@@ -258,6 +257,22 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
+	err = sb.CreateVolumeAttachmentPlan(machineTag, volumeTag, state.VolumeAttachmentPlanInfo{
+		DeviceType:       storage.DeviceTypeLocal,
+		DeviceAttributes: nil,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = sb.SetVolumeAttachmentPlanBlockInfo(machineTag, volumeTag, state.BlockDeviceInfo{
+		DeviceName: "sdb",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.SetMachineBlockDevices(state.BlockDeviceInfo{
+		DeviceName: "sdb",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetPassword(password)
@@ -274,7 +289,6 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 		Unit:             apiUnit,
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
-		Storage:          s.storage,
 		Payloads:         s.payloads,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
@@ -350,7 +364,6 @@ func (s *ContextFactorySuite) setupPodSpec(c *gc.C) (*state.State, context.Conte
 			AllowClaimLeader: true,
 		},
 		GetRelationInfos: s.getRelationInfos,
-		Storage:          s.storage,
 		Payloads:         s.payloads,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
@@ -559,7 +572,6 @@ func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {
 			AllowClaimLeader: true,
 		},
 		GetRelationInfos: s.getRelationInfos,
-		Storage:          s.storage,
 		Payloads:         s.payloads,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),

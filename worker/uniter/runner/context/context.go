@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/runner/context/payloads"
@@ -115,6 +116,7 @@ type HookProcess interface {
 }
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/hookunit_mock.go github.com/juju/juju/worker/uniter/runner/context HookUnit
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/worker/uniter/runner/context State
 
 // HookUnit represents the functions needed by a unit in a hook context to
 // call into state.
@@ -135,6 +137,21 @@ type HookUnit interface {
 	PublicAddress() (string, error)
 }
 
+// State exposes required state functions needed by the HookContext.
+type State interface {
+	UnitStorageAttachments(unitTag names.UnitTag) ([]params.StorageAttachmentId, error)
+	StorageAttachment(storageTag names.StorageTag, unitTag names.UnitTag) (params.StorageAttachment, error)
+	GoalState() (application.GoalState, error)
+	GetPodSpec(appName string) (string, error)
+	GetRawK8sSpec(appName string) (string, error)
+	CloudSpec() (*params.CloudSpec, error)
+	ActionBegin(tag names.ActionTag) error
+	ActionFinish(tag names.ActionTag, status string, results map[string]interface{}, message string) error
+	UnitWorkloadVersion(tag names.UnitTag) (string, error)
+	SetUnitWorkloadVersion(tag names.UnitTag, version string) error
+	OpenedMachinePortRangesByEndpoint(machineTag names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error)
+}
+
 // HookContext is the implementation of runner.Context.
 type HookContext struct {
 	*resources.ResourcesHookContext
@@ -146,7 +163,7 @@ type HookContext struct {
 	// NOTE: We would like to be rid of the fake-remote-Unit and switch
 	// over fully to API calls on State.  This adds that ability, but we're
 	// not fully there yet.
-	state *uniter.State
+	state State
 
 	// LeadershipContext supplies several hooks.Context methods.
 	LeadershipContext
@@ -248,10 +265,6 @@ type HookContext struct {
 	// rebootPriority tells us when the hook wants to reboot. If rebootPriority
 	// is hooks.RebootNow the hook will be killed and requeued.
 	rebootPriority jujuc.RebootPriority
-
-	// storage provides access to the information about storage
-	// attached to the unit.
-	storage StorageContextAccessor
 
 	// storageId is the tag of the storage instance associated
 	// with the running hook.
@@ -644,7 +657,19 @@ func (ctx *HookContext) AvailabilityZone() (string, error) {
 // attached to the unit or an error if they are not available.
 // Implements jujuc.HookContext.ContextStorage, part of runner.Context.
 func (ctx *HookContext) StorageTags() ([]names.StorageTag, error) {
-	return ctx.storage.StorageTags()
+	attachmentIds, err := ctx.state.UnitStorageAttachments(ctx.unit.Tag())
+	if err != nil {
+		return nil, err
+	}
+	var storageTags []names.StorageTag
+	for _, attachmentId := range attachmentIds {
+		storageTag, err := names.ParseStorageTag(attachmentId.StorageTag)
+		if err != nil {
+			return nil, err
+		}
+		storageTags = append(storageTags, storageTag)
+	}
+	return storageTags, nil
 }
 
 // HookStorage returns the storage attachment associated
@@ -652,6 +677,10 @@ func (ctx *HookContext) StorageTags() ([]names.StorageTag, error) {
 // was not found or is not available.
 // Implements jujuc.HookContext.ContextStorage, part of runner.Context.
 func (ctx *HookContext) HookStorage() (jujuc.ContextStorageAttachment, error) {
+	emptyTag := names.StorageTag{}
+	if ctx.storageTag == emptyTag {
+		return nil, errors.NotFound
+	}
 	return ctx.Storage(ctx.storageTag)
 }
 
@@ -660,10 +689,15 @@ func (ctx *HookContext) HookStorage() (jujuc.ContextStorageAttachment, error) {
 // available to the context.
 // Implements jujuc.HookContext.ContextStorage, part of runner.Context.
 func (ctx *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, error) {
-	if ctx.storage == nil {
-		return nil, errors.NotFoundf("storage %s", tag)
+	attachment, err := ctx.state.StorageAttachment(tag, ctx.unit.Tag())
+	if err != nil {
+		return nil, err
 	}
-	return ctx.storage.Storage(tag)
+	return &contextStorage{
+		tag:      tag,
+		kind:     storage.StorageKind(attachment.Kind),
+		location: attachment.Location,
+	}, nil
 }
 
 // AddUnitStorage saves storage constraints in the context.
@@ -1289,39 +1323,14 @@ func (ctx *HookContext) killCharmHook() error {
 // the current unit.
 // Implements jujuc.HookContext.ContextVersion, part of runner.Context.
 func (ctx *HookContext) UnitWorkloadVersion() (string, error) {
-	var results params.StringResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: ctx.unit.Tag().String()}},
-	}
-	err := ctx.state.Facade().FacadeCall("WorkloadVersion", args, &results)
-	if err != nil {
-		return "", err
-	}
-	if len(results.Results) != 1 {
-		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return "", result.Error
-	}
-	return result.Result, nil
+	return ctx.state.UnitWorkloadVersion(ctx.unit.Tag())
 }
 
 // SetUnitWorkloadVersion sets the current unit's workload version to
 // the specified value.
 // Implements jujuc.HookContext.ContextVersion, part of runner.Context.
 func (ctx *HookContext) SetUnitWorkloadVersion(version string) error {
-	var result params.ErrorResults
-	args := params.EntityWorkloadVersions{
-		Entities: []params.EntityWorkloadVersion{
-			{Tag: ctx.unit.Tag().String(), WorkloadVersion: version},
-		},
-	}
-	err := ctx.state.Facade().FacadeCall("SetWorkloadVersion", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
+	return ctx.state.SetUnitWorkloadVersion(ctx.unit.Tag(), version)
 }
 
 // NetworkInfo returns the network info for the given bindings on the given relation.

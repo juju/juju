@@ -54,10 +54,10 @@ func (s *FlushContextSuite) TestRunHookRelationFlushingError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "blam pow")
 
 	// Check that the changes have not been written to state.
-	settings0, err := s.relunits[0].ReadSettings("u/0")
+	settings0, err := s.relUnits[0].ReadSettings("u/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings0, gc.DeepEquals, map[string]interface{}{"relation-name": "db0"})
-	settings1, err := s.relunits[1].ReadSettings("u/0")
+	settings1, err := s.relUnits[1].ReadSettings("u/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings1, gc.DeepEquals, map[string]interface{}{"relation-name": "db1"})
 }
@@ -82,13 +82,13 @@ func (s *FlushContextSuite) TestRunHookRelationFlushingSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the changes have been written to state.
-	settings0, err := s.relunits[0].ReadSettings("u/0")
+	settings0, err := s.relUnits[0].ReadSettings("u/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings0, gc.DeepEquals, map[string]interface{}{
 		"relation-name": "db0",
 		"baz":           "3",
 	})
-	settings1, err := s.relunits[1].ReadSettings("u/0")
+	settings1, err := s.relUnits[1].ReadSettings("u/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings1, gc.DeepEquals, map[string]interface{}{
 		"relation-name": "db1",

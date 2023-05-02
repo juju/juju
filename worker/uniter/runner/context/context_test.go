@@ -48,14 +48,6 @@ func (s *InterfaceSuite) TestHookRelation(c *gc.C) {
 	c.Assert(r, gc.IsNil)
 }
 
-func (s *InterfaceSuite) TestHookStorage(c *gc.C) {
-	ctx := s.GetContext(c, -1, "", names.NewStorageTag("data/0"))
-	storage, err := ctx.HookStorage()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storage, gc.NotNil)
-	c.Assert(storage.Tag().Id(), gc.Equals, "data/0")
-}
-
 func (s *InterfaceSuite) TestRemoteUnitName(c *gc.C) {
 	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	name, err := ctx.RemoteUnitName()
@@ -918,4 +910,21 @@ func (s *mockHookContextSuite) TestMissingAction(c *gc.C) {
 	context.WithActionContext(hookContext, nil, nil)
 	err := hookContext.Flush("action", charmrunner.NewMissingHookError("noaction"))
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *mockHookContextSuite) TestHookStorage(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	st := mocks.NewMockState(ctrl)
+	st.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("wordpress/0")).Return(params.StorageAttachment{
+		StorageTag: "data/0",
+	}, nil)
+	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).AnyTimes()
+	ctx := context.NewMockUnitHookContextWithStateAndStorage("wordpress/0", s.mockUnit, st, names.NewStorageTag("data/0"))
+
+	storage, err := ctx.HookStorage()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storage, gc.NotNil)
+	c.Assert(storage.Tag().Id(), gc.Equals, "data/0")
 }

@@ -40,9 +40,8 @@ type HookContextSuite struct {
 	application *state.Application
 	unit        *state.Unit
 	machine     *state.Machine
-	relch       *state.Charm
-	relunits    map[int]*state.RelationUnit
-	storage     *runnertesting.StorageContextAccessor
+	relCh       *state.Charm
+	relUnits    map[int]*state.RelationUnit
 	clock       *testclock.Clock
 
 	st             api.Connection
@@ -106,22 +105,11 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	err = s.meteredAPIUnit.SetCharmURL(s.meteredCharm.String())
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.relch = s.AddTestingCharm(c, "mysql")
-	s.relunits = map[int]*state.RelationUnit{}
+	s.relCh = s.AddTestingCharm(c, "mysql")
+	s.relUnits = map[int]*state.RelationUnit{}
 	s.apiRelunits = map[int]*uniter.RelationUnit{}
 	s.AddContextRelation(c, "db0")
 	s.AddContextRelation(c, "db1")
-
-	storageData0 := names.NewStorageTag("data/0")
-	s.storage = &runnertesting.StorageContextAccessor{
-		CStorage: map[names.StorageTag]*runnertesting.ContextStorage{
-			storageData0: {
-				storageData0,
-				storage.StorageKindBlock,
-				"/dev/sdb",
-			},
-		},
-	}
 
 	s.clock = testclock.NewClock(time.Time{})
 }
@@ -166,7 +154,7 @@ func (s *HookContextSuite) AddUnit(c *gc.C, app *state.Application) *state.Unit 
 }
 
 func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
-	s.AddTestingApplication(c, name, s.relch)
+	s.AddTestingApplication(c, name, s.relCh)
 	eps, err := s.State.InferEndpoints("u", name)
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -175,7 +163,7 @@ func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = ru.EnterScope(map[string]interface{}{"relation-name": name})
 	c.Assert(err, jc.ErrorIsNil)
-	s.relunits[rel.Id()] = ru
+	s.relUnits[rel.Id()] = ru
 	apiRel, err := s.uniter.Relation(rel.Tag().(names.RelationTag))
 	c.Assert(err, jc.ErrorIsNil)
 	apiRelUnit, err := apiRel.Unit(s.apiUnit.Tag())
@@ -216,7 +204,6 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int, remot
 		CharmMetrics:        nil,
 		ActionData:          nil,
 		AssignedMachineTag:  s.machine.Tag().(names.MachineTag),
-		Storage:             s.storage,
 		StorageTag:          storageTag,
 		Paths:               runnertesting.NewRealPaths(c),
 		Clock:               s.clock,

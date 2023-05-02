@@ -810,7 +810,6 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		Payloads:         u.payloads,
 		Tracker:          u.leadershipTracker,
 		GetRelationInfos: u.relationStateTracker.GetInfo,
-		Storage:          u.storage,
 		Paths:            u.paths,
 		Clock:            u.clock,
 		Logger:           u.logger.Child("context"),
