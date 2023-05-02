@@ -8,12 +8,12 @@ run_secrets() {
 	wait_for "hello" "$(idle_condition "hello" 0)"
 
 	secret_owned_by_hello_0=$(juju exec --unit hello/0 -- secret-add --owner unit owned-by=hello/0)
-	secret_owned_by_hello_0_id=$(echo $secret_owned_by_hello_0 | awk '{n=split($0,a,"/"); print a[n]}')
+	secret_owned_by_hello_0_id=$(echo $secret_owned_by_hello_0 | cut -d: -f 2)
 	secret_owned_by_hello=$(juju exec --unit hello/0 -- secret-add owned-by=hello-app)
-	secret_owned_by_hello_id=$(echo $secret_owned_by_hello | awk '{n=split($0,a,"/"); print a[n]}')
+	secret_owned_by_hello_id=$(echo $secret_owned_by_hello | cut -d: -f 2)
 
-	juju exec --unit hello/0 -- secret-ids | grep "$secret_owned_by_hello"
-	juju exec --unit hello/0 -- secret-ids | grep "$secret_owned_by_hello_0"
+	juju exec --unit hello/0 -- secret-ids | grep "$secret_owned_by_hello_id"
+	juju exec --unit hello/0 -- secret-ids | grep "$secret_owned_by_hello_0_id"
 
 	echo "Set a label for the unit owned secret $secret_owned_by_hello_0."
 	juju exec --unit hello/0 -- secret-set "$secret_owned_by_hello_0" --label=hello_0
