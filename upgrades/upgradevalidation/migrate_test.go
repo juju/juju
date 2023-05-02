@@ -128,7 +128,7 @@ func (s *migrateSuite) setupJuju3Target(c *gc.C) (*gomock.Controller, environscl
 	server := mocks.NewMockServer(ctrl)
 	serverFactory := mocks.NewMockServerFactory(ctrl)
 	// - check LXD version.
-	cloudSpec := environscloudspec.CloudSpec{Type: "lxd"}
+	cloudSpec := lxd.CloudSpec{CloudSpec: environscloudspec.CloudSpec{Type: "lxd"}}
 	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("5.2")
 
@@ -145,5 +145,5 @@ func (s *migrateSuite) setupJuju3Target(c *gc.C) (*gomock.Controller, environscl
 	s.st.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
 	s.st.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
 
-	return ctrl, cloudSpec
+	return ctrl, cloudSpec.CloudSpec
 }

@@ -95,7 +95,7 @@ func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 			return serverFactory
 		},
 	)
-	cloudSpec := environscloudspec.CloudSpec{Type: "lxd"}
+	cloudSpec := lxd.CloudSpec{CloudSpec: environscloudspec.CloudSpec{Type: "lxd"}}
 
 	backend := newFakeBackend()
 	hasUpgradeSeriesLocks := true
@@ -114,7 +114,7 @@ func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 	err := migration.SourcePrecheck(
 		backend, version.MustParse("3.0.0"), allAlivePresence(), allAlivePresence(),
 		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
-			return cloudSpec, nil
+			return cloudSpec.CloudSpec, nil
 		},
 	)
 	c.Assert(err.Error(), gc.Equals, `

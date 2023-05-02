@@ -411,8 +411,6 @@ func (s *environCloudProfileSuite) TestSetCloudSpecUsesConfiguredProject(c *gc.C
 	s.expectHasProfileFalse("juju-controller")
 	s.expectCreateProfile("juju-controller", nil)
 
-	s.svr.EXPECT().UseProject("my-project")
-
 	err := s.cloudSpecEnv.SetCloudSpec(stdcontext.TODO(), lxdCloudSpec())
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -421,8 +419,14 @@ func (s *environCloudProfileSuite) setup(c *gc.C, cfgEdit map[string]interface{}
 	ctrl := gomock.NewController(c)
 	s.svr = lxd.NewMockServer(ctrl)
 
+	project, _ := cfgEdit["project"].(string)
+	cloudSpec := lxd.CloudSpec{
+		CloudSpec: lxdCloudSpec(),
+		Project:   project,
+	}
+
 	svrFactory := lxd.NewMockServerFactory(ctrl)
-	svrFactory.EXPECT().RemoteServer(lxdCloudSpec()).Return(s.svr, nil)
+	svrFactory.EXPECT().RemoteServer(cloudSpec).Return(s.svr, nil)
 
 	env, ok := s.NewEnvironWithServerFactory(c, svrFactory, cfgEdit).(environs.CloudSpecSetter)
 	c.Assert(ok, jc.IsTrue)

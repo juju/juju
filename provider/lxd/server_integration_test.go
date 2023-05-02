@@ -314,9 +314,7 @@ func (s *serverIntegrationSuite) TestLocalServerWithStorageNotSupported(c *gc.C)
 		server.EXPECT().ServerVersion().Return("5.2"),
 	)
 
-	svr, err := factory.RemoteServer(environscloudspec.CloudSpec{
-		Endpoint: "",
-	})
+	svr, err := factory.RemoteServer(lxd.CloudSpec{})
 	c.Assert(svr, gc.Not(gc.IsNil))
 	c.Assert(err, gc.IsNil)
 }
@@ -350,9 +348,7 @@ func (s *serverIntegrationSuite) TestRemoteServerWithEmptyEndpointYieldsLocalSer
 		server.EXPECT().ServerVersion().Return("5.2"),
 	)
 
-	svr, err := factory.RemoteServer(environscloudspec.CloudSpec{
-		Endpoint: "",
-	})
+	svr, err := factory.RemoteServer(lxd.CloudSpec{})
 	c.Assert(svr, gc.Not(gc.IsNil))
 	c.Assert(err, gc.IsNil)
 }
@@ -378,10 +374,13 @@ func (s *serverIntegrationSuite) TestRemoteServer(c *gc.C) {
 		"client-key":  "client-key",
 		"server-cert": "server-cert",
 	})
-	svr, err := factory.RemoteServer(environscloudspec.CloudSpec{
-		Endpoint:   "https://10.0.0.9:8443",
-		Credential: &creds,
-	})
+	svr, err := factory.RemoteServer(
+		lxd.CloudSpec{
+			CloudSpec: environscloudspec.CloudSpec{
+				Endpoint:   "https://10.0.0.9:8443",
+				Credential: &creds,
+			},
+		})
 	c.Assert(svr, gc.Not(gc.IsNil))
 	c.Assert(svr, gc.Equals, server)
 	c.Assert(err, gc.IsNil)
@@ -403,10 +402,13 @@ func (s *serverIntegrationSuite) TestRemoteServerWithNoStorage(c *gc.C) {
 		"client-key":  "client-key",
 		"server-cert": "server-cert",
 	})
-	svr, err := factory.RemoteServer(environscloudspec.CloudSpec{
-		Endpoint:   "https://10.0.0.9:8443",
-		Credential: &creds,
-	})
+	svr, err := factory.RemoteServer(
+		lxd.CloudSpec{
+			CloudSpec: environscloudspec.CloudSpec{
+				Endpoint:   "https://10.0.0.9:8443",
+				Credential: &creds,
+			},
+		})
 	c.Assert(svr, gc.Not(gc.IsNil))
 	c.Assert(svr, gc.Equals, server)
 	c.Assert(err, gc.IsNil)
@@ -423,10 +425,13 @@ func (s *serverIntegrationSuite) TestInsecureRemoteServerDoesNotCallGetServer(c 
 		"client-key":  "client-key",
 		"server-cert": "server-cert",
 	})
-	svr, err := factory.InsecureRemoteServer(environscloudspec.CloudSpec{
-		Endpoint:   "https://10.0.0.9:8443",
-		Credential: &creds,
-	})
+	svr, err := factory.InsecureRemoteServer(
+		lxd.CloudSpec{
+			CloudSpec: environscloudspec.CloudSpec{
+				Endpoint:   "https://10.0.0.9:8443",
+				Credential: &creds,
+			},
+		})
 	c.Assert(svr, gc.Not(gc.IsNil))
 	c.Assert(svr, gc.Equals, server)
 	c.Assert(err, gc.IsNil)
@@ -439,10 +444,13 @@ func (s *serverIntegrationSuite) TestRemoteServerMissingCertificates(c *gc.C) {
 	factory, _ := lxd.NewRemoteServerFactory(ctrl)
 
 	creds := cloud.NewCredential("any", map[string]string{})
-	svr, err := factory.RemoteServer(environscloudspec.CloudSpec{
-		Endpoint:   "https://10.0.0.9:8443",
-		Credential: &creds,
-	})
+	svr, err := factory.RemoteServer(
+		lxd.CloudSpec{
+			CloudSpec: environscloudspec.CloudSpec{
+				Endpoint:   "https://10.0.0.9:8443",
+				Credential: &creds,
+			},
+		})
 	c.Assert(svr, gc.IsNil)
 	c.Assert(errors.Cause(err).Error(), gc.Equals, "credentials not valid")
 }
@@ -463,10 +471,13 @@ func (s *serverIntegrationSuite) TestRemoteServerWithUnSupportedAPIVersion(c *gc
 		"client-key":  "client-key",
 		"server-cert": "server-cert",
 	})
-	_, err := factory.RemoteServer(environscloudspec.CloudSpec{
-		Endpoint:   "https://10.0.0.9:8443",
-		Credential: &creds,
-	})
+	_, err := factory.RemoteServer(
+		lxd.CloudSpec{
+			CloudSpec: environscloudspec.CloudSpec{
+				Endpoint:   "https://10.0.0.9:8443",
+				Credential: &creds,
+			},
+		})
 	c.Assert(errors.Cause(err).Error(), gc.Equals, `LXD version has to be at least "5.0.0", but current version is only "4.0.0"`)
 }
 
