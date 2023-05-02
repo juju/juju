@@ -3,6 +3,9 @@ on:
   push:
     branches:
       - 'develop'
+  pull_request:
+    branches:
+      - 'develop'
   workflow_dispatch:
 
 jobs:
@@ -36,11 +39,22 @@ jobs:
           juju documentation --split --out=$DOCS_DIR --discourse-ids $TOPIC_IDS
         # TODO: save $DOCS_DIR as an artifact
 
+      - name: pip install requirements
+        run: |
+          python3 -m pip install -r ./scripts/discourse-sync/requirements.txt
+
+      - name: Check docs on Discourse
+        if: github.event_name == 'pull_request'
+        env:
+          DOCS_DIR: ${{ steps.gen.outputs.dir }}
+        run: |
+          python3 ./scripts/discourse-sync/main.py check
+
       - name: Sync docs to Discourse
+        if: github.event_name == 'push'
         env:
           DISCOURSE_API_USERNAME: ${{ secrets.DISCOURSE_API_USERNAME }}
           DISCOURSE_API_KEY: ${{ secrets.DISCOURSE_API_KEY }}
           DOCS_DIR: ${{ steps.gen.outputs.dir }}
         run: |
-          python3 -m pip install -r ./scripts/discourse-sync/requirements.txt
-          python3 ./scripts/discourse-sync/main.py
+          python3 ./scripts/discourse-sync/main.py sync
