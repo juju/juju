@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/juju/api/common/lifeflag"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/worker"
 )
 
 type FacadeSuite struct {
@@ -200,20 +202,31 @@ func (*FacadeSuite) TestWatchNotFoundError(c *gc.C) {
 }
 
 func (*FacadeSuite) TestWatchSuccess(c *gc.C) {
-	caller := apiCaller(c, func(_ string, _, results interface{}) error {
-		typed, ok := results.(*params.NotifyWatchResults)
-		c.Assert(ok, jc.IsTrue)
-		*typed = params.NotifyWatchResults{
-			Results: []params.NotifyWatchResult{{
-				NotifyWatcherId: "123",
-			}},
+	caller := apitesting.APICallerFunc(func(facade string, version int, id, request string, arg, result interface{}) error {
+		switch facade {
+		case "LifeFlag":
+			c.Check(request, gc.Equals, "Watch")
+			c.Check(version, gc.Equals, 0)
+			c.Check(id, gc.Equals, "")
+			typed, ok := result.(*params.NotifyWatchResults)
+			c.Assert(ok, jc.IsTrue)
+			*typed = params.NotifyWatchResults{
+				Results: []params.NotifyWatchResult{{
+					NotifyWatcherId: "123",
+				}},
+			}
+			return nil
+		case "NotifyWatcher":
+			return worker.ErrKilled
+		default:
+			c.Fatalf("unknown facade %q", facade)
+			return nil
 		}
-		return nil
 	})
 	facade := lifeflag.NewClient(caller, "LifeFlag")
-
-	_, err := facade.Watch(names.NewApplicationTag("blah"))
+	watcher, err := facade.Watch(names.NewApplicationTag("blah"))
 	c.Check(err, jc.ErrorIsNil)
+	workertest.CheckKilled(c, watcher)
 }
 
 func apiCaller(c *gc.C, check func(request string, arg, result interface{}) error) base.APICaller {
