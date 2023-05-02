@@ -21,8 +21,8 @@ import (
 	caasmocks "github.com/juju/juju/caas/mocks"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasapplicationprovisioner"
 	"github.com/juju/juju/worker/caasapplicationprovisioner/mocks"
@@ -149,7 +149,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 
 	clk := testclock.NewDilatedWallClock(time.Millisecond)
 
-	scaleChan := make(chan struct{})
+	scaleChan := make(chan struct{}, 1)
 	trustChan := make(chan []string, 1)
 	provisioningInfoChan := make(chan struct{}, 1)
 	appUnitsChan := make(chan []string, 1)
@@ -177,7 +177,10 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		facade.EXPECT().WatchProvisioningInfo("test").Return(watchertest.NewMockNotifyWatcher(provisioningInfoChan), nil),
 		ops.EXPECT().AppAlive("test", app, gomock.Any(), gomock.Any(), facade, clk, s.logger).Return(nil),
 		app.EXPECT().Watch().Return(watchertest.NewMockNotifyWatcher(appChan), nil),
-		app.EXPECT().WatchReplicas().Return(watchertest.NewMockNotifyWatcher(appReplicasChan), nil),
+		app.EXPECT().WatchReplicas().DoAndReturn(func() (watcher.NotifyWatcher, error) {
+			scaleChan <- struct{}{}
+			return watchertest.NewMockNotifyWatcher(appReplicasChan), nil
+		}),
 
 		// scaleChan fired
 		ops.EXPECT().EnsureScale("test", app, life.Alive, facade, unitFacade, s.logger).Return(errors.NotFound),
@@ -234,11 +237,6 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 
 	appWorker := s.startAppWorker(c, clk, facade, broker, unitFacade, ops)
 	appWorker.(appNotifyWorker).Notify()
-	select {
-	case scaleChan <- struct{}{}:
-	case <-time.After(testing.ShortWait):
-		c.Fatal("waiting to send on scaleChan")
-	}
 
 	s.waitDone(c, done)
 	workertest.CheckKill(c, appWorker)
