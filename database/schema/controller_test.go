@@ -107,7 +107,7 @@ func readTableNames(c *gc.C, db *sql.DB) []string {
 
 	rows, err := tx.QueryContext(ctx, "SELECT tbl_name FROM sqlite_master")
 	c.Assert(err, jc.ErrorIsNil)
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var tables []string
 	for rows.Next() {

@@ -97,9 +97,8 @@ CREATE TABLE change_log_namespace (
 CREATE UNIQUE INDEX idx_change_log_namespace_namespace
 ON change_log_namespace (namespace);
 
--- TODO (stickupkid): Add the namespaces we want to track.
--- INSERT INTO change_log_namespace VALUES
---    (1, 'foo');
+INSERT INTO change_log_namespace VALUES
+    (1, 'external_controller');
 
 CREATE TABLE change_log (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -242,6 +241,9 @@ CREATE TABLE external_controller_address (
         REFERENCES          external_controller(uuid)
 );
 
+CREATE UNIQUE INDEX idx_external_controller_address
+ON external_controller_address (uuid, address);
+
 CREATE TABLE external_model (
     uuid                TEXT PRIMARY KEY,
     controller_uuid     TEXT NOT NULL,
@@ -249,5 +251,24 @@ CREATE TABLE external_model (
         FOREIGN KEY         (controller_uuid)
         REFERENCES          external_controller(uuid)
 );
-    `[1:]
+
+CREATE TRIGGER trg_log_external_controller_insert
+AFTER INSERT ON external_controller FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
+    VALUES (1, 1, NEW.uuid, DATETIME('now'));
+END;
+CREATE TRIGGER trg_log_external_controller_update
+AFTER UPDATE ON external_controller FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
+    VALUES (2, 1, OLD.uuid, DATETIME('now'));
+END;
+CREATE TRIGGER trg_log_external_controller_delete
+AFTER DELETE ON external_controller FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
+    VALUES (4, 1, OLD.uuid, DATETIME('now'));
+END;
+`[1:]
 }

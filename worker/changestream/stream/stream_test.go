@@ -80,10 +80,10 @@ func (s *streamSuite) TestOneChange(c *gc.C) {
 	s.expectFileNotifyWatcher()
 	done := s.expectTimer(1)
 
-	s.insertNamespace(c, 1, "foo")
+	s.insertNamespace(c, 1000, "foo")
 
 	first := change{
-		id:   1,
+		id:   1000,
 		uuid: utils.MustNewUUID().String(),
 	}
 	s.insertChange(c, first)
@@ -121,12 +121,12 @@ func (s *streamSuite) TestMultipleChanges(c *gc.C) {
 	s.expectFileNotifyWatcher()
 	done := s.expectTimer(1)
 
-	s.insertNamespace(c, 1, "foo")
+	s.insertNamespace(c, 1000, "foo")
 
 	var inserts []change
 	for i := 0; i < 10; i++ {
 		ch := change{
-			id:   1,
+			id:   1000,
 			uuid: utils.MustNewUUID().String(),
 		}
 		s.insertChange(c, ch)
@@ -171,12 +171,12 @@ func (s *streamSuite) TestMultipleChangesWithSameUUIDCoalesce(c *gc.C) {
 	s.expectFileNotifyWatcher()
 	done := s.expectTimer(1)
 
-	s.insertNamespace(c, 1, "foo")
+	s.insertNamespace(c, 1000, "foo")
 
 	var inserts []change
 	for i := 0; i < 4; i++ {
 		ch := change{
-			id:   1,
+			id:   1000,
 			uuid: utils.MustNewUUID().String(),
 		}
 		s.insertChange(c, ch)
@@ -191,7 +191,7 @@ func (s *streamSuite) TestMultipleChangesWithSameUUIDCoalesce(c *gc.C) {
 
 	for i := 0; i < 4; i++ {
 		ch := change{
-			id:   1,
+			id:   1000,
 			uuid: utils.MustNewUUID().String(),
 		}
 		s.insertChange(c, ch)
@@ -236,13 +236,13 @@ func (s *streamSuite) TestMultipleChangesWithNamespaces(c *gc.C) {
 	s.expectFileNotifyWatcher()
 	done := s.expectTimer(1)
 
-	s.insertNamespace(c, 1, "foo")
-	s.insertNamespace(c, 2, "bar")
+	s.insertNamespace(c, 1000, "foo")
+	s.insertNamespace(c, 2000, "bar")
 
 	var inserts []change
 	for i := 0; i < 10; i++ {
 		ch := change{
-			id:   (i % 2) + 1,
+			id:   ((i % 2) + 1) * 1000,
 			uuid: utils.MustNewUUID().String(),
 		}
 		s.insertChange(c, ch)
@@ -274,7 +274,7 @@ func (s *streamSuite) TestMultipleChangesWithNamespaces(c *gc.C) {
 	for i, result := range results {
 		idx := len(results) - 1 - i
 		namespace := "foo"
-		if inserts[idx].id == 2 {
+		if inserts[idx].id == 2000 {
 			namespace = "bar"
 		}
 		c.Assert(result.Namespace(), gc.Equals, namespace)
@@ -291,13 +291,13 @@ func (s *streamSuite) TestMultipleChangesWithNamespacesCoalesce(c *gc.C) {
 	s.expectFileNotifyWatcher()
 	done := s.expectTimer(1)
 
-	s.insertNamespace(c, 1, "foo")
-	s.insertNamespace(c, 2, "bar")
+	s.insertNamespace(c, 1000, "foo")
+	s.insertNamespace(c, 2000, "bar")
 
 	var inserts []change
 	for i := 0; i < 4; i++ {
 		ch := change{
-			id:   (i % 2) + 1,
+			id:   ((i % 2) + 1) * 1000,
 			uuid: utils.MustNewUUID().String(),
 		}
 		s.insertChange(c, ch)
@@ -312,7 +312,7 @@ func (s *streamSuite) TestMultipleChangesWithNamespacesCoalesce(c *gc.C) {
 
 	for i := 0; i < 4; i++ {
 		ch := change{
-			id:   (i % 2) + 1,
+			id:   ((i % 2) + 1) * 1000,
 			uuid: utils.MustNewUUID().String(),
 		}
 		s.insertChange(c, ch)
@@ -344,7 +344,7 @@ func (s *streamSuite) TestMultipleChangesWithNamespacesCoalesce(c *gc.C) {
 	for i, result := range results {
 		idx := len(results) - 1 - i
 		namespace := "foo"
-		if inserts[idx].id == 2 {
+		if inserts[idx].id == 2000 {
 			namespace = "bar"
 		}
 		c.Assert(result.Namespace(), gc.Equals, namespace)
@@ -361,14 +361,14 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *gc.C) 
 	s.expectFileNotifyWatcher()
 	done := s.expectTimer(1)
 
-	s.insertNamespace(c, 1, "foo")
-	s.insertNamespace(c, 2, "bar")
-	s.insertNamespace(c, 3, "baz")
+	s.insertNamespace(c, 1000, "foo")
+	s.insertNamespace(c, 2000, "bar")
+	s.insertNamespace(c, 3000, "baz")
 
 	var inserts []change
 	for i := 0; i < 4; i++ {
 		ch := change{
-			id:   (i % 2) + 1,
+			id:   ((i % 2) + 1) * 1000,
 			uuid: utils.MustNewUUID().String(),
 		}
 		s.insertChange(c, ch)
@@ -378,7 +378,7 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *gc.C) 
 	// Force a non coalesced change through. It has the same UUID, but not
 	// the same namespace, so should come through as another change.
 	ch := change{
-		id:   3,
+		id:   3000,
 		uuid: inserts[len(inserts)-1].uuid,
 	}
 	s.insertChange(c, ch)
@@ -390,7 +390,7 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *gc.C) 
 
 	for i := 0; i < 4; i++ {
 		ch := change{
-			id:   (i % 2) + 1,
+			id:   ((i % 2) + 1) * 1000,
 			uuid: utils.MustNewUUID().String(),
 		}
 		s.insertChange(c, ch)
@@ -422,9 +422,9 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *gc.C) 
 	for i, result := range results {
 		idx := len(results) - 1 - i
 		namespace := "foo"
-		if inserts[idx].id == 2 {
+		if inserts[idx].id == 2000 {
 			namespace = "bar"
-		} else if inserts[idx].id == 3 {
+		} else if inserts[idx].id == 3000 {
 			namespace = "baz"
 		}
 		c.Assert(result.Namespace(), gc.Equals, namespace)
@@ -442,7 +442,7 @@ func (s *streamSuite) TestOneChangeIsBlockedByFile(c *gc.C) {
 	tick := s.setupTimer()
 	done := s.expectTick(tick, 1)
 
-	s.insertNamespace(c, 1, "foo")
+	s.insertNamespace(c, 1000, "foo")
 
 	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
@@ -471,7 +471,7 @@ func (s *streamSuite) TestOneChangeIsBlockedByFile(c *gc.C) {
 	expectNotifyBlock(true)
 
 	first := change{
-		id:   1,
+		id:   1000,
 		uuid: utils.MustNewUUID().String(),
 	}
 	s.insertChange(c, first)
@@ -511,7 +511,7 @@ func (s *streamSuite) TestReadChangesWithNoChanges(c *gc.C) {
 		db: s.TrackedDB(),
 	}
 
-	s.insertNamespace(c, 1, "foo")
+	s.insertNamespace(c, 1000, "foo")
 
 	results, err := stream.readChanges()
 	c.Assert(err, jc.ErrorIsNil)
@@ -524,10 +524,10 @@ func (s *streamSuite) TestReadChangesWithOneChange(c *gc.C) {
 		db: s.TrackedDB(),
 	}
 
-	s.insertNamespace(c, 1, "foo")
+	s.insertNamespace(c, 1000, "foo")
 
 	first := change{
-		id:   1,
+		id:   1000,
 		uuid: utils.MustNewUUID().String(),
 	}
 	s.insertChange(c, first)
@@ -545,12 +545,12 @@ func (s *streamSuite) TestReadChangesWithMultipleSameChange(c *gc.C) {
 		db: s.TrackedDB(),
 	}
 
-	s.insertNamespace(c, 1, "foo")
+	s.insertNamespace(c, 1000, "foo")
 
 	uuid := utils.MustNewUUID().String()
 	for i := 0; i < 10; i++ {
 		ch := change{
-			id:   1,
+			id:   1000,
 			uuid: uuid,
 		}
 		s.insertChange(c, ch)
@@ -569,12 +569,12 @@ func (s *streamSuite) TestReadChangesWithMultipleChanges(c *gc.C) {
 		db: s.TrackedDB(),
 	}
 
-	s.insertNamespace(c, 1, "foo")
+	s.insertNamespace(c, 1000, "foo")
 
 	changes := make([]change, 10)
 	for i := 0; i < 10; i++ {
 		ch := change{
-			id:   1,
+			id:   1000,
 			uuid: utils.MustNewUUID().String(),
 		}
 		s.insertChange(c, ch)
@@ -596,7 +596,7 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesGroupsCorrectly(c *gc.C)
 		db: s.TrackedDB(),
 	}
 
-	s.insertNamespace(c, 1, "foo")
+	s.insertNamespace(c, 1000, "foo")
 
 	changes := make([]change, 10)
 	for i := 0; i < 10; i++ {
@@ -608,7 +608,7 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesGroupsCorrectly(c *gc.C)
 		// when grouping them.
 		for j := 0; j < 10; j++ {
 			ch = change{
-				id:   1,
+				id:   1000,
 				uuid: uuid,
 			}
 			s.insertChange(c, ch)
@@ -631,8 +631,8 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesInterweavedGroupsCorrect
 		db: s.TrackedDB(),
 	}
 
-	s.insertNamespace(c, 1, "foo")
-	s.insertNamespace(c, 2, "bar")
+	s.insertNamespace(c, 1000, "foo")
+	s.insertNamespace(c, 2000, "bar")
 
 	// Setup for this test is a bit more complicated to ensure that interweaving
 	// correctly groups the changes.
@@ -646,47 +646,47 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesInterweavedGroupsCorrect
 	)
 
 	{
-		ch := change{id: 1, uuid: uuid0}
+		ch := change{id: 1000, uuid: uuid0}
 		s.insertChangeForType(c, changestream.Create, ch)
 		changes[0] = ch
 	}
 	{
-		ch := change{id: 2, uuid: uuid0}
+		ch := change{id: 2000, uuid: uuid0}
 		s.insertChangeForType(c, changestream.Update, ch)
 		changes[1] = ch
 	}
 	{
-		ch := change{id: 1, uuid: uuid1}
+		ch := change{id: 1000, uuid: uuid1}
 		s.insertChangeForType(c, changestream.Update, ch)
 		changes[2] = ch
 	}
 	{
-		ch := change{id: 1, uuid: uuid1}
+		ch := change{id: 1000, uuid: uuid1}
 		s.insertChangeForType(c, changestream.Update, ch)
 		// no witness changed.
 	}
 	{
-		ch := change{id: 2, uuid: uuid0}
+		ch := change{id: 2000, uuid: uuid0}
 		s.insertChangeForType(c, changestream.Update, ch)
 		// no witness changed.
 	}
 	{
-		ch := change{id: 1, uuid: uuid2}
+		ch := change{id: 1000, uuid: uuid2}
 		s.insertChangeForType(c, changestream.Update, ch)
 		changes[3] = ch
 	}
 	{
-		ch := change{id: 1, uuid: uuid2}
+		ch := change{id: 1000, uuid: uuid2}
 		s.insertChangeForType(c, changestream.Update, ch)
 		// no witness changed.
 	}
 	{
-		ch := change{id: 2, uuid: uuid0}
+		ch := change{id: 2000, uuid: uuid0}
 		s.insertChangeForType(c, changestream.Update, ch)
 		// no witness changed.
 	}
 	{
-		ch := change{id: 1, uuid: uuid1}
+		ch := change{id: 1000, uuid: uuid1}
 		s.insertChangeForType(c, changestream.Create, ch)
 		changes[4] = ch
 	}
