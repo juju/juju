@@ -277,7 +277,7 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 		Scale:            application.Scale,
 		ProviderId:       application.ProviderId,
 		Address:          application.PublicAddress,
-		Relations:        application.Relations,
+		Relations:        sf.processApplicationRelations(name, application.Relations),
 		CanUpgradeTo:     application.CanUpgradeTo,
 		SubordinateTo:    application.SubordinateTo,
 		Units:            make(map[string]unitStatus),
@@ -297,6 +297,61 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 	}
 
 	return out
+}
+
+func (sf *statusFormatter) processApplicationRelations(appName string, rels map[string][]string) map[string][]applicationStatusRelation {
+	out := make(map[string][]applicationStatusRelation)
+	for relName, theOtherSideAppNames := range rels {
+		out[relName] = []applicationStatusRelation{}
+		for _, endpointAppName := range theOtherSideAppNames {
+			relStatus := sf.findRelationStatus(appName, relName, endpointAppName)
+			if relStatus == nil {
+				continue
+			}
+			out[relName] = append(out[relName], applicationStatusRelation{
+				RelatedApplicationName: endpointAppName,
+				Interface:              relStatus.Interface,
+				Scope:                  relStatus.Scope,
+			})
+		}
+	}
+	return out
+}
+
+func (sf *statusFormatter) findRelationStatus(appName, relName, theOtherSideAppName string) *params.RelationStatus {
+	for _, rel := range sf.relations {
+		if appName == theOtherSideAppName {
+			// peer relation.
+			if len(rel.Endpoints) != 1 {
+				continue
+			}
+			ep := rel.Endpoints[0]
+			if ep.Name != relName || ep.ApplicationName != appName {
+				continue
+			}
+			return &rel
+		} else {
+			if endpointsMactch(appName, relName, theOtherSideAppName, rel.Endpoints) {
+				return &rel
+			}
+		}
+	}
+	return nil
+}
+
+func endpointsMactch(appName, relName, theOtherSideAppName string, eps []params.EndpointStatus) (equal bool) {
+	if len(eps) != 2 {
+		return false
+	}
+	for idx, ep := range eps {
+		if ep.ApplicationName == appName && ep.Name == relName {
+			if idx == 0 {
+				return eps[1].ApplicationName == theOtherSideAppName
+			}
+			return eps[0].ApplicationName == theOtherSideAppName
+		}
+	}
+	return false
 }
 
 func (sf *statusFormatter) formatRemoteApplication(name string, application params.RemoteApplicationStatus) remoteApplicationStatus {
