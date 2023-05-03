@@ -107,13 +107,13 @@ run_secret_drain() {
 	juju show-secret --reveal "$secret_owned_by_unit"
 	juju show-secret --reveal "$secret_owned_by_app"
 
-	mkubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' | grep "$secret_owned_by_unit-1"
-	mkubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' | grep "$secret_owned_by_app-1"
+	microk8s kubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' | grep "$secret_owned_by_unit-1"
+	microk8s kubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' | grep "$secret_owned_by_app-1"
 
 	juju model-config secret-backend="$vault_backend_name"
 	sleep 20
 
-	check_contains "$(mkubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' -o json | jq '.items | length')" 0
+	check_contains "$(microk8s kubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' -o json | jq '.items | length')" 0
 
 	model_uuid=$(juju show-model $model_name --format json | jq -r ".[\"${model_name}\"][\"model-uuid\"]")
 	check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length)" 2
@@ -121,8 +121,8 @@ run_secret_drain() {
 	juju model-config secret-backend=auto
 	sleep 20
 
-	mkubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' | grep "$secret_owned_by_unit-1"
-	mkubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' | grep "$secret_owned_by_app-1"
+	microk8s kubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' | grep "$secret_owned_by_unit-1"
+	microk8s kubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' | grep "$secret_owned_by_app-1"
 
 	check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length)" 0
 }
