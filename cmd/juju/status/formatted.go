@@ -21,7 +21,7 @@ type formattedStatus struct {
 	Applications       map[string]applicationStatus       `json:"applications"`
 	RemoteApplications map[string]remoteApplicationStatus `json:"application-endpoints,omitempty" yaml:"application-endpoints,omitempty"`
 	Offers             map[string]offerStatus             `json:"offers,omitempty" yaml:"offers,omitempty"`
-	Relations          []relationStatus                   `json:"-" yaml:"-"`
+	Relations          []relationStatus                   `json:"relations,omitempty" yaml:"relations,omitempty"`
 	Storage            *storage.CombinedStorage           `json:"storage,omitempty" yaml:"storage,omitempty"`
 	Controller         *controllerStatus                  `json:"controller,omitempty" yaml:"controller,omitempty"`
 	Branches           map[string]branchStatus            `json:"branches,omitempty" yaml:"branches,omitempty"`
