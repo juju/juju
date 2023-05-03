@@ -21,6 +21,5 @@ type ModelFirewaller interface {
 	// It is expected that there be only one ingress rule result for a given
 	// port range - the rule's SourceCIDRs will contain all applicable source
 	// address rules for that port range.
-	// If the model security group doesn't exist, return a NotFound error
 	ModelIngressRules(ctx context.ProviderCallContext) (firewall.IngressRules, error)
 }

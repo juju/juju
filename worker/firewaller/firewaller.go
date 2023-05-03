@@ -1076,10 +1076,6 @@ func (fw *Firewaller) flushModel() error {
 
 	ctx := stdcontext.Background()
 	curr, err := fw.environModelFirewaller.ModelIngressRules(fw.cloudCallContextFunc(ctx))
-	if errors.IsNotFound(err) {
-		fw.logger.Warningf("Model firewall not found so cannot re-write firewall rule %q. Ignoring", want)
-		return nil
-	}
 	if err != nil {
 		return errors.Trace(err)
 	}

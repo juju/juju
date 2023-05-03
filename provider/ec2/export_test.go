@@ -30,6 +30,10 @@ func MachineGroupName(e environs.Environ, machineId string) string {
 	return e.(*environ).machineGroupName(machineId)
 }
 
+func GlobalGroupName(e environs.Environ) string {
+	return e.(*environ).globalGroupName()
+}
+
 func EnvironEC2Client(e environs.Environ) Client {
 	return e.(*environ).ec2Client
 }

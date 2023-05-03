@@ -2177,6 +2177,21 @@ func (t *localServerSuite) TestControllerInstances(c *gc.C) {
 	c.Assert(insts, gc.DeepEquals, []instance.Id{bootstrapInstId})
 }
 
+func (t *localServerSuite) TestCreateEnvironCreatesGroups(c *gc.C) {
+	t.prepareAndBootstrapWithConfig(c, coretesting.Attrs{
+		"firewall-mode": config.FwGlobal,
+	})
+	t.Env.Create(t.callCtx, environs.CreateParams{})
+
+	ec2conn := ec2.EnvironEC2Client(t.Env)
+
+	groupResp, err := ec2conn.DescribeSecurityGroups(t.callCtx, &awsec2.DescribeSecurityGroupsInput{
+		GroupNames: []string{ec2.JujuGroupName(t.Env), ec2.GlobalGroupName(t.Env)},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(groupResp.SecurityGroups, gc.HasLen, 2)
+}
+
 func (t *localServerSuite) TestInstanceGroups(c *gc.C) {
 	t.prepareAndBootstrap(c)
 	allInsts, err := t.Env.AllRunningInstances(t.callCtx)
