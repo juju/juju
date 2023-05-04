@@ -60,8 +60,8 @@ run_secrets_vault() {
 	juju exec --unit etcd/0 -- secret-get --label=consumer_label_secret_owned_by_easyrsa | grep 'owned-by: easyrsa-app'
 
 	model_uuid=$(juju models --format json | jq -r '.models[] | select(.name == "admin/model-secrets-vault") | ."model-uuid"')
-	vault kv get -format json "${model_name}-${model_uuid: -6}/${secret_owned_by_easyrsa_0}-1" | jq -r '.data."owned-by"' | base64 -d | grep "easyrsa/0"
-	vault kv get -format json "${model_name}-${model_uuid: -6}/${secret_owned_by_easyrsa}-1" | jq -r '.data."owned-by"' | base64 -d | grep "easyrsa-app"
+	vault kv get -format json "${model_name}-${model_uuid: -6}/${secret_owned_by_easyrsa_0_id}-1" | jq -r '.data."owned-by"' | base64 -d | grep "easyrsa/0"
+	vault kv get -format json "${model_name}-${model_uuid: -6}/${secret_owned_by_easyrsa_id}-1" | jq -r '.data."owned-by"' | base64 -d | grep "easyrsa-app"
 
 	# secret-revoke by relation ID.
 	juju exec --unit easyrsa/0 -- secret-revoke "$secret_owned_by_easyrsa" --relation "$relation_id"
