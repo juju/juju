@@ -1918,22 +1918,30 @@ func rulesToIPPerms(rules firewall.IngressRules) []types.IpPermission {
 			ToPort:     aws.Int32(int32(r.PortRange.ToPort)),
 		}
 		if len(r.SourceCIDRs) == 0 {
-			ipPerms[i].IpRanges = []types.IpRange{{CidrIp: aws.String(defaultRouteCIDRBlock)}}
-			ipPerms[i].Ipv6Ranges = []types.Ipv6Range{{CidrIpv6: aws.String(defaultRouteIPv6CIDRBlock)}}
+			ipPerms[i].IpRanges = []types.IpRange{{CidrIp: aws.String(defaultRouteCIDRBlock), Description: ipRangeDescription(r, defaultRouteCIDRBlock)}}
+			ipPerms[i].Ipv6Ranges = []types.Ipv6Range{{CidrIpv6: aws.String(defaultRouteIPv6CIDRBlock), Description: ipRangeDescription(r, defaultRouteIPv6CIDRBlock)}}
 		} else {
 			for _, cidr := range r.SourceCIDRs.SortedValues() {
 				// CIDRs are pre-validated; if an invalid CIDR
 				// reaches this loop, it will be skipped.
 				addrType, _ := network.CIDRAddressType(cidr)
 				if addrType == network.IPv4Address {
-					ipPerms[i].IpRanges = append(ipPerms[i].IpRanges, types.IpRange{CidrIp: aws.String(cidr)})
+					ipPerms[i].IpRanges = append(ipPerms[i].IpRanges, types.IpRange{CidrIp: aws.String(cidr), Description: ipRangeDescription(r, cidr)})
 				} else if addrType == network.IPv6Address {
-					ipPerms[i].Ipv6Ranges = append(ipPerms[i].Ipv6Ranges, types.Ipv6Range{CidrIpv6: aws.String(cidr)})
+					ipPerms[i].Ipv6Ranges = append(ipPerms[i].Ipv6Ranges, types.Ipv6Range{CidrIpv6: aws.String(cidr), Description: ipRangeDescription(r, cidr)})
 				}
 			}
 		}
 	}
 	return ipPerms
+}
+
+func ipRangeDescription(rule firewall.IngressRule, cidr string) *string {
+	if cidr == "" || cidr == firewall.AllNetworksIPV4CIDR || cidr == firewall.AllNetworksIPV6CIDR {
+		return aws.String(fmt.Sprintf("juju ingress to %s", rule.PortRange))
+	}
+	return aws.String(fmt.Sprintf("juju ingress to %s from %s", rule.PortRange, cidr))
+
 }
 
 func (e *environ) openPortsInGroup(ctx context.ProviderCallContext, name string, rules firewall.IngressRules) error {
@@ -2496,22 +2504,24 @@ func (e *environ) ensureGroup(ctx context.ProviderCallContext, name string, isMo
 	return group, nil
 }
 
+var internalPermissionDescription = aws.String("juju internal model rule")
+
 func (e *environ) ensureInternalRules(ctx context.ProviderCallContext, group types.SecurityGroup) error {
 	perms := []types.IpPermission{{
 		IpProtocol:       aws.String("tcp"),
 		FromPort:         aws.Int32(0),
 		ToPort:           aws.Int32(65535),
-		UserIdGroupPairs: []types.UserIdGroupPair{{GroupId: group.GroupId}},
+		UserIdGroupPairs: []types.UserIdGroupPair{{GroupId: group.GroupId, Description: internalPermissionDescription}},
 	}, {
 		IpProtocol:       aws.String("udp"),
 		FromPort:         aws.Int32(0),
 		ToPort:           aws.Int32(65535),
-		UserIdGroupPairs: []types.UserIdGroupPair{{GroupId: group.GroupId}},
+		UserIdGroupPairs: []types.UserIdGroupPair{{GroupId: group.GroupId, Description: internalPermissionDescription}},
 	}, {
 		IpProtocol:       aws.String("icmp"),
 		FromPort:         aws.Int32(-1),
 		ToPort:           aws.Int32(-1),
-		UserIdGroupPairs: []types.UserIdGroupPair{{GroupId: group.GroupId}},
+		UserIdGroupPairs: []types.UserIdGroupPair{{GroupId: group.GroupId, Description: internalPermissionDescription}},
 	}}
 	for _, perm := range perms {
 		_, err := e.ec2Client.AuthorizeSecurityGroupIngress(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
