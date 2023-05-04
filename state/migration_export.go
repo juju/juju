@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/series"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state/migrations"
 	"github.com/juju/juju/storage/poolmanager"
@@ -121,6 +122,11 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 	modelConfig, found := export.modelSettings[modelGlobalKey]
 	if !found && !cfg.SkipSettings {
 		return nil, errors.New("missing model config")
+	}
+	// Ensure mode is set so importing model doesn't
+	// default to a value not valid in 2.9
+	if _, ok := modelConfig.Settings[config.ModeKey]; !ok {
+		modelConfig.Settings[config.ModeKey] = ""
 	}
 	delete(export.modelSettings, modelGlobalKey)
 

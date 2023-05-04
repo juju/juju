@@ -198,6 +198,7 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	dbModelCfg, err := s.Model.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	modelAttrs := dbModelCfg.AllAttrs()
+	modelAttrs["mode"] = ""
 	modelCfg := model.Config()
 	// Config as read from state has resources tags coerced to a map.
 	modelCfg["resource-tags"] = map[string]string{}
