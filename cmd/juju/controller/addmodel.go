@@ -254,10 +254,11 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 				fmt.Sprintf("%v\nSee `juju add-credential %s --help` for instructions", err, cloudTag.Id()))
 			return errors.Trace(err)
 		}
-		if params.IsCodeUnauthorized(err) {
+		err = params.TranslateWellKnownError(err)
+		switch {
+		case errors.Is(err, errors.Unauthorized):
 			common.PermissionsMessage(ctx.Stderr, "add a model")
-		}
-		if params.IsCodeNotValid(err) && cloud.Type == caasconstants.CAASProviderType {
+		case errors.Is(err, errors.NotValid) && cloud.Type == caasconstants.CAASProviderType:
 			// Workaround for https://bugs.launchpad.net/juju/+bug/1994454
 			return errors.Errorf("cannot create model %[1]q: a namespace called %[1]q already exists on this k8s cluster. Please pick a different model name.", c.Name)
 		}
