@@ -1090,6 +1090,7 @@ func (s *AddressSuite) TestConvertToSpaceAddresses(c *gc.C) {
 	subs := network.SubnetInfos{
 		{ID: "1", CIDR: "192.168.0.0/24", SpaceID: "666"},
 		{ID: "2", CIDR: "252.80.0.0/12", SpaceID: "999"},
+		{ID: "3", CIDR: "10.0.0.10/32", SpaceID: "333"},
 	}
 
 	candidates := []network.SpaceAddressCandidate{
@@ -1104,6 +1105,13 @@ func (s *AddressSuite) TestConvertToSpaceAddresses(c *gc.C) {
 			configMethod: network.ConfigDHCP,
 			subnetCIDR:   "192.168.0.0/24",
 		},
+		// This simulates an address added to the loopback device,
+		// such as done by BGP.
+		spaceAddressCandidate{
+			value:        "10.0.0.10",
+			configMethod: network.ConfigLoopback,
+			subnetCIDR:   "10.0.0.10/32",
+		},
 	}
 
 	addrs := make(network.SpaceAddresses, len(candidates))
@@ -1115,6 +1123,16 @@ func (s *AddressSuite) TestConvertToSpaceAddresses(c *gc.C) {
 
 	sort.Sort(addrs)
 	c.Check(addrs, gc.DeepEquals, network.SpaceAddresses{
+		{
+			MachineAddress: network.MachineAddress{
+				Value:      "10.0.0.10",
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeCloudLocal,
+				ConfigType: network.ConfigLoopback,
+				CIDR:       "10.0.0.10/32",
+			},
+			SpaceID: "333",
+		},
 		{
 			MachineAddress: network.MachineAddress{
 				Value:      "192.168.0.66",
