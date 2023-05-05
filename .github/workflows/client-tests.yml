@@ -60,4 +60,4 @@ jobs:
       shell: bash
       run: |
         go test -race -v ./cmd/juju/... -check.v -coverprofile=coverage.txt -covermode=atomic -timeout=15m
-        go test -race -v ./cmd/plugins/... -check.v
+        go test -race -v ./cmd/plugins/... -check.v -coverprofile=coverage.txt -covermode=atomic -timeout=15m
