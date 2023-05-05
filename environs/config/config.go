@@ -275,6 +275,8 @@ const (
 	// The lack of a mode means it will default into compatibility mode.
 	//
 	//  - strict mode ensures that we handle any fallbacks as errors.
+	//  - requires-prompts mode has no effect and is only supported for
+	//    forwards compatibility
 	ModeKey = "mode"
 
 	//
@@ -1404,8 +1406,9 @@ func (c *Config) validateCharmHubURL() error {
 }
 
 // Mode returns the mode type for the configuration.
-// Only two modes exist at the moment (strict or ""). Empty string
-// implies compatible mode.
+// Only three modes are supported at the moment (requires-prompts, strict or "").
+// Empty string implies compatible mode.
+// "requires-prompts" has no effect and is only supported for forwards compatibility.
 func (c *Config) Mode() ([]string, bool) {
 	modes, ok := c.defined[ModeKey]
 	if !ok {
@@ -1432,6 +1435,7 @@ func (c *Config) validateMode() error {
 	for _, mode := range modes {
 		switch strings.TrimSpace(mode) {
 		case "strict":
+		case "requires-prompts":
 		default:
 			return errors.NotValidf("mode %q", mode)
 		}
