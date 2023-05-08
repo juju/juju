@@ -549,3 +549,65 @@ func (s *provisionerSuite) TestSetProvisioningStateError(c *gc.C) {
 	c.Check(params.IsCodeTryAgain(err), jc.IsTrue)
 	c.Check(called, jc.IsTrue)
 }
+
+func (s *provisionerSuite) TestDestroyUnits(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		called = true
+		c.Check(objType, gc.Equals, "CAASApplicationProvisioner")
+		c.Check(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "DestroyUnits")
+		c.Assert(a, jc.DeepEquals, params.DestroyUnitsParams{
+			Units: []params.DestroyUnitParams{
+				{
+					UnitTag: "unit-foo-0",
+				},
+			},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.DestroyUnitResults{})
+		*(result.(*params.DestroyUnitResults)) = params.DestroyUnitResults{
+			Results: []params.DestroyUnitResult{
+				{
+					Info: &params.DestroyUnitInfo{},
+				},
+			},
+		}
+		return nil
+	})
+	err := client.DestroyUnits([]string{"foo/0"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *provisionerSuite) TestDestroyUnitsMismatchResults(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		called = true
+		c.Check(objType, gc.Equals, "CAASApplicationProvisioner")
+		c.Check(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "DestroyUnits")
+		c.Assert(a, jc.DeepEquals, params.DestroyUnitsParams{
+			Units: []params.DestroyUnitParams{
+				{
+					UnitTag: "unit-foo-0",
+				},
+			},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.DestroyUnitResults{})
+		*(result.(*params.DestroyUnitResults)) = params.DestroyUnitResults{
+			Results: []params.DestroyUnitResult{
+				{
+					Info: &params.DestroyUnitInfo{},
+				},
+				{
+					Info: &params.DestroyUnitInfo{},
+				},
+			},
+		}
+		return nil
+	})
+	err := client.DestroyUnits([]string{"foo/0"})
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.Equals, "expected 1 results got 2")
+	c.Assert(called, jc.IsTrue)
+}
