@@ -45,7 +45,7 @@ func (config Config) Validate() error {
 const (
 	// ErrNotFound indicates that the worker cannot run because
 	// the configured entity does not exist.
-	ErrNotFound = apilifeflag.ErrNotFound
+	ErrNotFound = apilifeflag.ErrEntityNotFound
 
 	// ErrValueChanged indicates that the result of Check is
 	// outdated, and the worker should be restarted.

@@ -29,7 +29,7 @@ func NewClient(caller base.APICaller, facadeName string) *Client {
 	}
 }
 
-// ErrNotFound indicates that the requested entity no longer exists.
+// ErrEntityNotFound indicates that the requested entity no longer exists.
 //
 // We avoid errors.NotFound, because errors.NotFound is non-specific, and
 // it's our job to communicate *this specific condition*. There are many
@@ -40,10 +40,10 @@ func NewClient(caller base.APICaller, facadeName string) *Client {
 // We're still vulnerable to apiservers returning unjustified CodeNotFound
 // but at least we're safe from accidental errors.NotFound injection in
 // the api client mechanism.
-const ErrNotFound = errors.ConstError("entity not found")
+const ErrEntityNotFound = errors.ConstError("entity not found")
 
 // Watch returns a NotifyWatcher that sends a value whenever the
-// entity's life value may have changed; or ErrNotFound; or some
+// entity's life value may have changed; or ErrEntityNotFound; or some
 // other error.
 func (c *Client) Watch(entity names.Tag) (watcher.NotifyWatcher, error) {
 	args := params.Entities{
@@ -60,7 +60,7 @@ func (c *Client) Watch(entity names.Tag) (watcher.NotifyWatcher, error) {
 	result := results.Results[0]
 	if err := result.Error; err != nil {
 		if params.IsCodeNotFound(err) {
-			return nil, ErrNotFound
+			return nil, ErrEntityNotFound
 		}
 		return nil, errors.Trace(result.Error)
 	}
@@ -68,7 +68,7 @@ func (c *Client) Watch(entity names.Tag) (watcher.NotifyWatcher, error) {
 	return w, nil
 }
 
-// Life returns the entity's life value; or ErrNotFound; or some
+// Life returns the entity's life value; or ErrEntityNotFound; or some
 // other error.
 func (c *Client) Life(entity names.Tag) (life.Value, error) {
 	args := params.Entities{
@@ -85,7 +85,7 @@ func (c *Client) Life(entity names.Tag) (life.Value, error) {
 	result := results.Results[0]
 	if err := result.Error; err != nil {
 		if params.IsCodeNotFound(err) {
-			return "", ErrNotFound
+			return "", ErrEntityNotFound
 		}
 		return "", errors.Trace(result.Error)
 	}

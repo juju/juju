@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	ErrNotFound = lifeflag.ErrNotFound
+	ErrNotFound = lifeflag.ErrEntityNotFound
 )
 
 // Client is the client used for connecting to the life flag facade.

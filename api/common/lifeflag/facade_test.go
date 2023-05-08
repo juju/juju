@@ -93,7 +93,7 @@ func (*FacadeSuite) TestLifeNotFoundError(c *gc.C) {
 	facade := lifeflag.NewClient(caller, "LifeFlag")
 
 	result, err := facade.Life(names.NewApplicationTag("blah"))
-	c.Check(err, gc.Equals, lifeflag.ErrNotFound)
+	c.Check(err, gc.Equals, lifeflag.ErrEntityNotFound)
 	c.Check(result, gc.Equals, life.Value(""))
 }
 
@@ -197,7 +197,7 @@ func (*FacadeSuite) TestWatchNotFoundError(c *gc.C) {
 	facade := lifeflag.NewClient(caller, "LifeFlag")
 
 	watcher, err := facade.Watch(names.NewApplicationTag("blah"))
-	c.Check(err, gc.Equals, lifeflag.ErrNotFound)
+	c.Check(err, gc.Equals, lifeflag.ErrEntityNotFound)
 	c.Check(watcher, gc.IsNil)
 }
 
