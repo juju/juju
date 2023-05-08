@@ -13,7 +13,10 @@ import (
 )
 
 const (
-	ErrNotFound = lifeflag.ErrEntityNotFound
+	// ErrEntityNotFound is a convenience define of the
+	// lifeflag.ErrEntityNotFound error. This define makes it so users are not
+	// bound to the internal implementation details of this api client.
+	ErrEntityNotFound = lifeflag.ErrEntityNotFound
 )
 
 // Client is the client used for connecting to the life flag facade.
