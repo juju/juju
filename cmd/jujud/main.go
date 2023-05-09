@@ -22,7 +22,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	proxyutils "github.com/juju/proxy"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/utils/v3/exec"
 	"github.com/juju/version/v2"
 
@@ -36,6 +35,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/dumplogs"
 	"github.com/juju/juju/cmd/jujud/introspect"
 	"github.com/juju/juju/cmd/jujud/run"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/machinelock"
 	coreos "github.com/juju/juju/core/os"
 	jujunames "github.com/juju/juju/juju/names"

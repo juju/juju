@@ -69,7 +69,7 @@ var marshalTestCases = []struct {
 			Life:        life.Dying,
 			OwnerTag:    "test-owner",
 			MinUnits:    42,
-			Constraints: constraints.MustParse("arch=armhf mem=1024M"),
+			Constraints: constraints.MustParse("arch=s390x mem=1024M"),
 			Config: charm.Settings{
 				"hello": "goodbye",
 				"foo":   false,
@@ -81,7 +81,7 @@ var marshalTestCases = []struct {
 			WorkloadVersion: "42.47",
 		},
 	},
-	json: `["application","change",{"model-uuid": "uuid", "charm-url": "ch:quantal/name","name":"Benji","exposed":true,"life":"dying","owner-tag":"test-owner","workload-version":"42.47","min-units":42,"constraints":{"arch":"armhf", "mem": 1024},"config": {"hello":"goodbye","foo":false},"subordinate":false,"status":{"current":"active", "message":"all good", "version": ""}}]`,
+	json: `["application","change",{"model-uuid": "uuid", "charm-url": "ch:quantal/name","name":"Benji","exposed":true,"life":"dying","owner-tag":"test-owner","workload-version":"42.47","min-units":42,"constraints":{"arch":"s390x", "mem": 1024},"config": {"hello":"goodbye","foo":false},"subordinate":false,"status":{"current":"active", "message":"all good", "version": ""}}]`,
 }, {
 	about: "CharmInfo Delta",
 	value: params.Delta{

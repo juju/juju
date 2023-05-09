@@ -378,7 +378,7 @@ func (s *productSpecSuite) TestId(c *gc.C) {
 func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		Releases: []string{"12.04"},
-		Arches:   []string{"amd64", "i386"},
+		Arches:   []string{"amd64", "arm64"},
 		Stream:   "daily",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -386,7 +386,7 @@ func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ids, gc.DeepEquals, []string{
 		"com.ubuntu.cloud.daily:server:12.04:amd64",
-		"com.ubuntu.cloud.daily:server:12.04:i386"})
+		"com.ubuntu.cloud.daily:server:12.04:arm64"})
 }
 
 type signedSuite struct {

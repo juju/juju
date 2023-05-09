@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/v3/arch"
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/core/constraints"
@@ -134,15 +133,6 @@ func (a byArch) Len() int {
 func (a byArch) Less(i, j int) bool {
 	iArchName := a[i].Image.Arch
 	jArchName := a[j].Image.Arch
-	iArch := arch.Info[iArchName]
-	jArch := arch.Info[jArchName]
-	// Wider word-size first.
-	switch {
-	case iArch.WordSize > jArch.WordSize:
-		return true
-	case iArch.WordSize < jArch.WordSize:
-		return false
-	}
 	// Alphabetically by arch name.
 	switch {
 	case iArchName < jArchName:

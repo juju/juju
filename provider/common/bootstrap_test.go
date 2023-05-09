@@ -18,7 +18,6 @@ import (
 	"github.com/juju/os/v2/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/utils/v3/ssh"
 	"github.com/juju/version/v2"
 	cryptossh "golang.org/x/crypto/ssh"
@@ -26,6 +25,7 @@ import (
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"

@@ -14,7 +14,6 @@ var (
 	InstallMongo = &installMongo
 	SupportsIPv6 = &supportsIPv6
 
-	HostWordSize     = &hostWordSize
 	RuntimeGOOS      = &runtimeGOOS
 	AvailSpace       = &availSpace
 	SmallOplogSizeMB = &smallOplogSizeMB

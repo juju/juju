@@ -8,10 +8,10 @@ import (
 
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/arch"
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -64,7 +64,7 @@ func (s *environPolicySuite) TestPrecheckInstanceDiskSize(c *gc.C) {
 func (s *environPolicySuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cons := constraints.MustParse("arch=i386")
+	cons := constraints.MustParse("arch=arm64")
 	err := s.env.PrecheckInstance(
 		s.callCtx, environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase(), Constraints: cons})
 

@@ -20,11 +20,11 @@ import (
 	jujuhttp "github.com/juju/http/v2"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/utils/v3/tar"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/filestorage"
@@ -188,13 +188,13 @@ func (u *fakeToolsUploader) UploadTools(_, _ string, tools *coretools.Tools, _ [
 
 var (
 	v100u64 = version.MustParseBinary("1.0.0-ubuntu-amd64")
-	v100u32 = version.MustParseBinary("1.0.0-ubuntu-i386")
+	v100u32 = version.MustParseBinary("1.0.0-ubuntu-arm64")
 	v100all = []version.Binary{v100u64, v100u32}
 	v180u64 = version.MustParseBinary("1.8.0-ubuntu-amd64")
-	v180u32 = version.MustParseBinary("1.8.0-ubuntu-i386")
+	v180u32 = version.MustParseBinary("1.8.0-ubuntu-arm64")
 	v180all = []version.Binary{v180u64, v180u32}
 	v190u64 = version.MustParseBinary("1.9.0-ubuntu-amd64")
-	v190u32 = version.MustParseBinary("1.9.0-ubuntu-i386")
+	v190u32 = version.MustParseBinary("1.9.0-ubuntu-arm64")
 	v190all = []version.Binary{v190u64, v190u32}
 	v1all   = append(append(v100all, v180all...), v190all...)
 	v200u64 = version.MustParseBinary("2.0.0-ubuntu-amd64")

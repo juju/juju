@@ -417,7 +417,7 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(consumerTag names.Tag, uriStr 
 	if consumer.Label != "" {
 		return consumer, nil
 	}
-	md, err := s.getAppOwnedOrUnitOwnedSecretMetadata(uri, "", false)
+	md, err := s.getAppOwnedOrUnitOwnedSecretMetadata(uri, "", false, false)
 	if errors.Is(err, errors.NotFound) {
 		// The secret is owned by a different application.
 		return consumer, nil
@@ -613,14 +613,51 @@ func (s *SecretsManagerAPI) ensureConsumerMetadataForAppOwnedSecretsForPeerUnits
 	return md, nil
 }
 
-func (s *SecretsManagerAPI) getAppOwnedOrUnitOwnedSecretMetadata(uri *coresecrets.URI, label string, ensureConsumerMetaData bool) (md *coresecrets.SecretMetadata, err error) {
+func (s *SecretsManagerAPI) updateLabelForAppOwnedOrUnitOwnedSecret(uri *coresecrets.URI, label string, md *coresecrets.SecretMetadata) error {
+	if uri == nil || label == "" {
+		// We have done this check before, but it doesn't hurt to do it again.
+		return nil
+	}
+
+	ownerTag, err := names.ParseTag(md.OwnerTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	isLeaderUnit, err := commonsecrets.IsLeaderUnit(s.authTag, s.leadershipChecker)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if ownerTag == s.authTag || commonsecrets.IsSameApplication(ownerTag, s.authTag) && isLeaderUnit {
+		// The secret is owned by the caller or the caller is the leader unit of the application owning the secret.
+		token, err := commonsecrets.LeadershipToken(s.authTag, s.leadershipChecker)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		// Update the label.
+		_, err = s.secretsState.UpdateSecret(uri, state.UpdateSecretParams{
+			LeaderToken: token,
+			Label:       &label,
+		})
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (s *SecretsManagerAPI) getAppOwnedOrUnitOwnedSecretMetadata(uri *coresecrets.URI, label string, ensureConsumerMetaData, updateLabel bool) (md *coresecrets.SecretMetadata, err error) {
 	notFoundErr := errors.NotFoundf("secret %q", uri)
 	if label != "" {
 		notFoundErr = errors.NotFoundf("secret with label %q", label)
 	}
 	defer func() {
-		if md == nil || md.OwnerTag == s.authTag.String() || !ensureConsumerMetaData {
-			// Either errored out or found a secret owned by the caller.
+		if md == nil {
+			return
+		}
+		if updateLabel {
+			if err = s.updateLabelForAppOwnedOrUnitOwnedSecret(uri, label, md); err != nil {
+				return
+			}
+		}
+		if md.OwnerTag == s.authTag.String() || !ensureConsumerMetaData {
 			return
 		}
 		md, err = s.ensureConsumerMetadataForAppOwnedSecretsForPeerUnits(md)
@@ -671,10 +708,13 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (
 		}
 	}
 
+	// arg.Label could be the consumer label for consumers or the owner label for owners.
+	possibleUpdateLabel := arg.Label != "" && uri != nil
+
 	// For local secrets, check those which may be owned by the caller.
 	if uri == nil || uri.IsLocal(s.modelUUID) {
 		// Owner units should always have the URI because we resolved the label to URI on uniter side already.
-		md, err := s.getAppOwnedOrUnitOwnedSecretMetadata(uri, arg.Label, true)
+		md, err := s.getAppOwnedOrUnitOwnedSecretMetadata(uri, arg.Label, true, possibleUpdateLabel)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, nil, false, errors.Trace(err)
 		}
@@ -693,9 +733,6 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (
 			return content, backend, draining, errors.Trace(err)
 		}
 	}
-
-	// arg.Label is the consumer label for consumers.
-	possibleUpdateLabel := arg.Label != "" && uri != nil
 
 	if uri == nil {
 		var err error

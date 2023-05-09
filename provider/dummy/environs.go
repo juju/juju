@@ -27,7 +27,6 @@ import (
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3"
 	"github.com/prometheus/client_golang/prometheus"
@@ -42,7 +41,7 @@ import (
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	corearch "github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/constraints"
@@ -1179,7 +1178,7 @@ func (e *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
 	validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
-	validator.RegisterVocabulary(constraints.Arch, []string{arch.AMD64, arch.ARM64, arch.I386, arch.PPC64EL, arch.S390X})
+	validator.RegisterVocabulary(constraints.Arch, []string{arch.AMD64, arch.ARM64, arch.PPC64EL, arch.S390X, arch.RISCV64})
 	return validator, nil
 }
 
@@ -1261,8 +1260,8 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		}
 		// Fill in some expected instance hardware characteristics if constraints not specified.
 		if hc.Arch == nil {
-			arch := corearch.DefaultArchitecture
-			hc.Arch = &arch
+			defaultArch := arch.DefaultArchitecture
+			hc.Arch = &defaultArch
 		}
 		if hc.Mem == nil {
 			mem := uint64(1024)

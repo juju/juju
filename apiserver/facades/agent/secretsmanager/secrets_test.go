@@ -716,6 +716,97 @@ func (s *SecretsManagerSuite) TestGetSecretContentForOwnerSecretLabelArg(c *gc.C
 	})
 }
 
+func (s *SecretsManagerSuite) TestGetSecretContentForUnitOwnedSecretUpdateLabel(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	data := map[string]string{"foo": "bar"}
+	val := coresecrets.NewSecretValue(data)
+	uri := coresecrets.NewURI()
+	s.secretsState.EXPECT().ListSecrets(state.SecretsFilter{
+		OwnerTags: []names.Tag{
+			names.NewUnitTag("mariadb/0"),
+			names.NewApplicationTag("mariadb"),
+		},
+	}).Return([]*coresecrets.SecretMetadata{
+		{
+			URI:            uri,
+			LatestRevision: 668,
+			Label:          "foo",
+			OwnerTag:       s.authTag.String(),
+		},
+	}, nil)
+	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token).Times(2)
+	s.token.EXPECT().Check().Return(nil).Times(2)
+	s.secretsState.EXPECT().UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: s.token,
+		Label:       ptr("foo"),
+	}).Return(nil, nil)
+
+	s.secretsState.EXPECT().GetSecretValue(uri, 668).Return(
+		val, nil, nil,
+	)
+
+	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
+		Args: []params.GetSecretContentArg{
+			{URI: uri.String(), Label: "foo"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+		Results: []params.SecretContentResult{{
+			Content: params.SecretContentParams{Data: data},
+		}},
+	})
+}
+
+func (s *SecretsManagerSuite) TestGetSecretContentForAppSecretUpdateLabel(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	data := map[string]string{"foo": "bar"}
+	val := coresecrets.NewSecretValue(data)
+	uri := coresecrets.NewURI()
+	s.secretsState.EXPECT().ListSecrets(state.SecretsFilter{
+		OwnerTags: []names.Tag{
+			names.NewUnitTag("mariadb/0"),
+			names.NewApplicationTag("mariadb"),
+		},
+	}).Return([]*coresecrets.SecretMetadata{
+		{
+			URI:            uri,
+			LatestRevision: 668,
+			Label:          "foo",
+			OwnerTag:       names.NewApplicationTag("mariadb").String(),
+		},
+	}, nil)
+	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token).Times(2)
+	s.token.EXPECT().Check().Return(nil).Times(2)
+	s.secretsState.EXPECT().UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: s.token,
+		Label:       ptr("foo"),
+	}).Return(nil, nil)
+
+	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, s.authTag).
+		Return(nil, errors.NotFoundf("secret consumer"))
+	s.secretsConsumer.EXPECT().SaveSecretConsumer(
+		uri, names.NewUnitTag("mariadb/0"), &coresecrets.SecretConsumerMetadata{}).Return(nil)
+
+	s.secretsState.EXPECT().GetSecretValue(uri, 668).Return(
+		val, nil, nil,
+	)
+
+	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
+		Args: []params.GetSecretContentArg{
+			{URI: uri.String(), Label: "foo"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+		Results: []params.SecretContentResult{{
+			Content: params.SecretContentParams{Data: data},
+		}},
+	})
+}
+
 func (s *SecretsManagerSuite) TestGetSecretContentForUnitAccessApplicationOwnedSecret(c *gc.C) {
 	defer s.setup(c).Finish()
 

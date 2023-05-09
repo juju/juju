@@ -14,9 +14,9 @@ run_secrets_juju() {
 	wait_for "active" "$(workload_status "etcd" 0).current"
 
 	secret_owned_by_easyrsa_0=$(juju exec --unit easyrsa/0 -- secret-add --owner unit owned-by=easyrsa/0)
-	secret_owned_by_easyrsa_0_id=$(echo $secret_owned_by_easyrsa_0 | awk '{n=split($0,a,"/"); print a[n]}')
+	secret_owned_by_easyrsa_0_id=$(echo $secret_owned_by_easyrsa_0 | cut -d: -f 2)
 	secret_owned_by_easyrsa=$(juju exec --unit easyrsa/0 -- secret-add owned-by=easyrsa-app)
-	secret_owned_by_easyrsa_id=$(echo $secret_owned_by_easyrsa | awk '{n=split($0,a,"/"); print a[n]}')
+	secret_owned_by_easyrsa_id=$(echo $secret_owned_by_easyrsa | cut -d: -f 2)
 
 	juju exec --unit easyrsa/0 -- secret-ids | grep $secret_owned_by_easyrsa_id
 	juju exec --unit easyrsa/0 -- secret-ids | grep $secret_owned_by_easyrsa_0_id

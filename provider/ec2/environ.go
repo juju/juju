@@ -25,7 +25,6 @@ import (
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	corecontext "github.com/juju/juju/core/context"
 	"github.com/juju/juju/core/instance"

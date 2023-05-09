@@ -165,7 +165,7 @@ func (s *firewallerBaseSuite) testInstanceId(
 	// Provision 2 machines first.
 	err := s.machines[0].SetProvisioned("i-am", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
+	hwChars := instance.MustParseHardware("arch=s390x", "mem=4G")
 	err = s.machines[1].SetProvisioned("i-am-not", "", "fake_nonce", &hwChars)
 	c.Assert(err, jc.ErrorIsNil)
 

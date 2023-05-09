@@ -14,6 +14,7 @@ test_secrets_k8s() {
 	bootstrap "test-secrets-k8s" "${file}"
 
 	test_secrets
+	test_secret_drain
 
 	destroy_controller "test-secrets-k8s"
 }

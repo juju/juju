@@ -12,8 +12,10 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type allWatcherSuite struct {
@@ -110,4 +112,35 @@ func (s *allWatcherSuite) TestTranslate(c *gc.C) {
 		newDelta(&multiwatcher.ApplicationOfferInfo{}),
 	}
 	_ = translate(dt, deltas)
+}
+
+func (s *allWatcherSuite) TestTranslateModelEmpty(c *gc.C) {
+	translator := newAllWatcherDeltaTranslater()
+	entityInfo := translator.TranslateModel(&multiwatcher.ModelInfo{
+		Config: map[string]any{},
+	})
+	c.Assert(entityInfo, gc.NotNil)
+
+	modelUpdate := entityInfo.(*params.ModelUpdate)
+	c.Assert(modelUpdate, gc.NotNil)
+}
+
+func (s *allWatcherSuite) TestTranslateModelAgentVersion(c *gc.C) {
+	current := coretesting.CurrentVersion()
+	configAttrs := map[string]any{
+		"name":                 "some-name",
+		"type":                 "some-type",
+		"uuid":                 coretesting.ModelTag.Id(),
+		config.AgentVersionKey: current.Number.String(),
+	}
+
+	translator := newAllWatcherDeltaTranslater()
+	entityInfo := translator.TranslateModel(&multiwatcher.ModelInfo{
+		Config: configAttrs,
+	})
+	c.Assert(entityInfo, gc.NotNil)
+
+	modelUpdate := entityInfo.(*params.ModelUpdate)
+	c.Assert(modelUpdate, gc.NotNil)
+	c.Assert(modelUpdate.Version, gc.Equals, current.Number.String())
 }

@@ -12,6 +12,10 @@ const (
 
 type NodeRole int
 
+func (NodeRole) String() string {
+	return ""
+}
+
 type NodeInfo struct {
 	ID      uint64   `yaml:"ID"`
 	Address string   `yaml:"Address"`

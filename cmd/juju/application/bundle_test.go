@@ -46,7 +46,7 @@ type BundleDeployCharmStoreSuite struct {
 var _ = gc.Suite(&BundleDeployCharmStoreSuite{})
 
 func (s *BundleDeployCharmStoreSuite) SetUpSuite(c *gc.C) {
-	c.Skip("this is a badly written e2e test that is invoking external APIs which we cannot mock0")
+	c.Skip("this is a badly written e2e test that is invoking external APIs which we cannot mock")
 
 	s.DeploySuiteBase.SetUpSuite(c)
 	s.PatchValue(&watcher.Period, 10*time.Millisecond)
@@ -560,7 +560,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationDefaultArchCons
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstraints(c *gc.C) {
 	wpch := s.setupCharm(c, "ch:xenial/wordpress-42", "wordpress", "bionic")
-	dch := s.setupCharmWithArch(c, "ch:bionic/dummy-0", "dummy", "bionic", "i386")
+	dch := s.setupCharmWithArch(c, "ch:bionic/dummy-0", "dummy", "bionic", "s390x")
 
 	err := s.DeployBundleYAML(c, `
        applications:
@@ -574,14 +574,14 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstraints(c *
                channel: stable
                series: xenial
                num_units: 1
-               constraints: arch=i386
+               constraints: arch=s390x
    `)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "ch:bionic/dummy-0", "ch:xenial/wordpress-42")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"customized": {
 			charm:       "ch:bionic/dummy-0",
-			constraints: constraints.MustParse("arch=i386"),
+			constraints: constraints.MustParse("arch=s390x"),
 			config:      dch.Config().DefaultSettings(),
 		},
 		"wordpress": {

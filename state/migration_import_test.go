@@ -16,14 +16,13 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
 
-	corearch "github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -649,7 +648,7 @@ func (s *MigrationImportSuite) assertImportedApplication(
 
 func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 mem=8G root-disk-source=tralfamadore")
-	platform := &state.Platform{Architecture: corearch.DefaultArchitecture, OS: "ubuntu", Channel: "12.10/stable"}
+	platform := &state.Platform{Architecture: arch.DefaultArchitecture, OS: "ubuntu", Channel: "12.10/stable"}
 	testCharm, application, pwd := s.setupSourceApplications(c, s.State, cons, platform, true)
 
 	allApplications, err := s.State.AllApplications()
@@ -674,7 +673,7 @@ func (s *MigrationImportSuite) TestApplicationsUpdateSeriesNotPlatform(c *gc.C) 
 	// be focal.  After migration, the platform series should be quantal as well.
 	cons := constraints.MustParse("arch=amd64 mem=8G root-disk-source=tralfamadore")
 	platform := &state.Platform{
-		Architecture: corearch.DefaultArchitecture,
+		Architecture: arch.DefaultArchitecture,
 		OS:           "ubuntu",
 		Channel:      "20.04/stable",
 	}
@@ -696,14 +695,14 @@ func (s *MigrationImportSuite) TestApplicationsUpdateSeriesNotPlatform(c *gc.C) 
 	obtainedOrigin := obtainedApp.CharmOrigin()
 	c.Assert(obtainedOrigin, gc.NotNil)
 	c.Assert(obtainedOrigin.Platform, gc.NotNil)
-	c.Assert(obtainedOrigin.Platform.Architecture, gc.Equals, corearch.DefaultArchitecture)
+	c.Assert(obtainedOrigin.Platform.Architecture, gc.Equals, arch.DefaultArchitecture)
 	c.Assert(obtainedOrigin.Platform.OS, gc.Equals, "ubuntu")
 	c.Assert(obtainedOrigin.Platform.Channel, gc.Equals, "20.04/stable")
 }
 
 func (s *MigrationImportSuite) TestApplicationStatus(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 mem=8G")
-	platform := &state.Platform{Architecture: corearch.DefaultArchitecture, OS: "ubuntu", Channel: "12.10/stable"}
+	platform := &state.Platform{Architecture: arch.DefaultArchitecture, OS: "ubuntu", Channel: "12.10/stable"}
 	testCharm, application, pwd := s.setupSourceApplications(c, s.State, cons, platform, false)
 
 	s.Factory.MakeUnit(c, &factory.UnitParams{
@@ -743,7 +742,7 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 
 	cons := constraints.MustParse("arch=amd64 mem=8G")
-	platform := &state.Platform{Architecture: corearch.DefaultArchitecture, OS: "ubuntu", Channel: "20.04/stable"}
+	platform := &state.Platform{Architecture: arch.DefaultArchitecture, OS: "ubuntu", Channel: "20.04/stable"}
 	charm, application, pwd := s.setupSourceApplications(c, caasSt, cons, platform, true)
 
 	model, err := caasSt.Model()
@@ -795,7 +794,7 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 
 	cons := constraints.MustParse("arch=amd64 mem=8G")
-	platform := &state.Platform{Architecture: corearch.DefaultArchitecture, OS: "ubuntu", Channel: "20.04"}
+	platform := &state.Platform{Architecture: arch.DefaultArchitecture, OS: "ubuntu", Channel: "20.04"}
 	testCharm, application, _ := s.setupSourceApplications(c, caasSt, cons, platform, false)
 	ss, err := application.Status()
 	c.Assert(err, jc.ErrorIsNil)

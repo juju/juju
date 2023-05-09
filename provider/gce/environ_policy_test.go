@@ -89,7 +89,7 @@ func (s *environPolSuite) TestPrecheckInstanceDiskSize(c *gc.C) {
 }
 
 func (s *environPolSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
-	cons := constraints.MustParse("instance-type=n1-standard-2 arch=i386")
+	cons := constraints.MustParse("instance-type=n1-standard-2 arch=arm64")
 	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase(), Constraints: cons})
 

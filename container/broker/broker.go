@@ -10,11 +10,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3/arch"
 
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/series"

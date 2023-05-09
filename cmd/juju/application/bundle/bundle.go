@@ -311,7 +311,12 @@ func verifyBaseBundle(base BundleDataSource) error {
 		return nil
 	}
 
-	return verifyBundle(base.Parts()[0].Data, base.BasePath(), verifyBaseConstraints)
+	parts := base.Parts()
+	if len(parts) == 0 {
+		return nil
+	}
+
+	return verifyBundle(parts[0].Data, base.BasePath(), verifyBaseConstraints)
 }
 
 func verifyBundle(data *charm.BundleData, bundleDir string, verifyConstraints func(string) error) error {

@@ -31,11 +31,6 @@ func (s *preallocSuite) TestOplogSize(c *gc.C) {
 		availSpace:   99999,
 		expected:     183,
 	}, {
-		hostWordSize: 32,
-		runtimeGOOS:  "linux",
-		availSpace:   48,
-		expected:     48,
-	}, {
 		hostWordSize: 64,
 		runtimeGOOS:  "linux",
 		availSpace:   1024,
@@ -58,7 +53,6 @@ func (s *preallocSuite) TestOplogSize(c *gc.C) {
 	s.PatchValue(mongo.AvailSpace, getAvailSpace)
 	for i, test := range tests {
 		c.Logf("test %d: %+v", i, test)
-		s.PatchValue(mongo.HostWordSize, test.hostWordSize)
 		s.PatchValue(mongo.RuntimeGOOS, test.runtimeGOOS)
 		availSpace = test.availSpace
 		size, err := mongo.DefaultOplogSize("")
