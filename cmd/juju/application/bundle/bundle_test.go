@@ -209,6 +209,16 @@ type composeAndVerifyRepSuite struct {
 
 var _ = gc.Suite(&composeAndVerifyRepSuite{})
 
+func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleEmpty(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectEmptyParts()
+	s.expectBasePath()
+
+	obtained, _, err := ComposeAndVerifyBundle(s.bundleDataSource, nil)
+	c.Assert(err, gc.ErrorMatches, ".*bundle is empty not valid")
+	c.Assert(obtained, gc.IsNil)
+}
+
 func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleUnsupportedConstraints(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	bundleData, err := charm.ReadBundleData(strings.NewReader(unsupportedConstraintBundle))
@@ -379,6 +389,11 @@ func (s *composeAndVerifyRepSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *composeAndVerifyRepSuite) expectParts(part *charm.BundleDataPart) {
 	retVal := []*charm.BundleDataPart{part}
+	s.bundleDataSource.EXPECT().Parts().Return(retVal).AnyTimes()
+}
+
+func (s *composeAndVerifyRepSuite) expectEmptyParts() {
+	retVal := []*charm.BundleDataPart{}
 	s.bundleDataSource.EXPECT().Parts().Return(retVal).AnyTimes()
 }
 

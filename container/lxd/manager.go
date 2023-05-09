@@ -10,13 +10,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	jujuarch "github.com/juju/utils/v3/arch"
 	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
+	jujuarch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"

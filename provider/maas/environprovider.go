@@ -78,19 +78,21 @@ func (p EnvironProvider) CloudSchema() *jsonschema.Schema {
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
 func (p EnvironProvider) Ping(ctx context.ProviderCallContext, endpoint string) error {
+	var err error
 	base, version, includesVersion := gomaasapi.SplitVersionedURL(endpoint)
 	if includesVersion {
-		err := p.checkMaas(base, version)
+		err = p.checkMaas(base, version)
 		if err == nil {
 			return nil
 		}
 	} else {
-		err := p.checkMaas(endpoint, apiVersion2)
+		// No version info in the endpoint - try both in preference order.
+		err = p.checkMaas(endpoint, apiVersion2)
 		if err == nil {
 			return nil
 		}
 	}
-	return errors.Errorf("No MAAS server running at %s", endpoint)
+	return errors.Annotatef(err, "No MAAS server running at %s", endpoint)
 }
 
 func (p EnvironProvider) checkMaas(endpoint, ver string) error {

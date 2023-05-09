@@ -9,13 +9,13 @@ import (
 
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/arch"
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	containerlxd "github.com/juju/juju/container/lxd"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/series"

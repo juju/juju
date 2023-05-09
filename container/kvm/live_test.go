@@ -9,19 +9,18 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/series"
-
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"

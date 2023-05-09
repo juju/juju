@@ -5,7 +5,6 @@ package state_test
 
 import (
 	"fmt"
-	"runtime"
 	"sort"
 	"strconv"
 	"time"
@@ -13,7 +12,6 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/utils/v3/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
@@ -857,7 +855,7 @@ var assignUsingConstraintsTests = []struct {
 	}, {
 		// 3
 		unitConstraints:         "",
-		hardwareCharacteristics: "arch=i386",
+		hardwareCharacteristics: "arch=s390x",
 		assignOk:                false,
 	}, {
 		// 4
@@ -1449,10 +1447,7 @@ func (s *assignCleanSuite) TestAssignUnitPolicyConcurrently(c *gc.C) {
 	_, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel) // bootstrap machine
 	c.Assert(err, jc.ErrorIsNil)
 	unitCount := 50
-	// On arm with 50 concurrent attempts, this test takes over 90s.
-	if arch.NormaliseArch(runtime.GOARCH) == arch.ARM {
-		unitCount = 5
-	} else if raceDetector {
+	if raceDetector {
 		unitCount = 10
 	}
 	us := make([]*state.Unit, unitCount)

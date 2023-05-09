@@ -197,7 +197,7 @@ func (d *deployBundle) checkExplicitSeries(bundleData *charm.BundleData) error {
 			// bundle validation but it won't be defined since it's
 			// a new machine, so don't perform any check in that
 			// case.
-			if machine, ok := bundleData.Machines[placement.Machine]; ok {
+			if machine, ok := bundleData.Machines[placement.Machine]; ok && machine != nil {
 				machineCons, err := constraints.Parse(machine.Constraints)
 				if err != nil {
 					return errors.Trace(err)

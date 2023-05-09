@@ -17,7 +17,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/utils/v3/ssh"
 	"github.com/juju/version/v2"
 
@@ -32,6 +31,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"

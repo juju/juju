@@ -6,6 +6,15 @@ PROJECT_DIR=$(pwd)
 
 DEBUG_MODE=${DEBUG_MODE:-false}
 
+is_darwin() {
+	OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+	if [[ "${OS}" =~ ^darwin* ]]; then
+		echo true
+	else
+		echo false
+	fi
+}
+
 current_arch() {
 	case $(uname -m) in
 		x86_64) echo amd64 ;;
@@ -13,8 +22,32 @@ current_arch() {
 		s390x) echo s390x ;;
 		ppc64le) echo ppc64le ;;
 		riscv64) echo riscv64 ;;
+		arm64)
+			if [[ $(is_darwin) = true  ]]; then
+				echo "arm64"
+			else
+				echo "Unsupported OS: ${OS}" && exit 1
+			fi
+			;;
 		*) echo "Unsupported architecture $(uname -m)" && exit 1 ;;
 	esac
+}
+
+check_dependencies() {
+	local dep missing
+	missing=""
+
+	for dep in "$@"; do
+		if ! which "$dep" >/dev/null 2>&1; then
+			[[ "$missing" ]] && missing="$missing, $dep" || missing="$dep"
+		fi
+	done
+
+	if [[ "$missing" ]]; then
+		echo "Missing dependencies: $missing" >&2
+		echo ""
+		exit 1
+	fi
 }
 
 CURRENT_ARCH=$(current_arch)

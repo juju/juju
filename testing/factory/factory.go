@@ -15,13 +15,12 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
-	corearch "github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/arch"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -286,7 +285,7 @@ func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *Mach
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	if params.Characteristics == nil {
-		arch := corearch.DefaultArchitecture
+		arch := arch.DefaultArchitecture
 		mem := uint64(64 * 1024 * 1024 * 1024)
 		hardware := instance.HardwareCharacteristics{
 			Arch: &arch,

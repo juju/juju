@@ -9,11 +9,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/api/agent/agent"
+	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/watcher"
 	jujuversion "github.com/juju/juju/version"

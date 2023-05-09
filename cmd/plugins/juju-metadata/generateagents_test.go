@@ -80,13 +80,12 @@ func (s *GenerateAgentsSuite) SetUpTest(c *gc.C) {
 var currentVersionStrings = []string{
 	// only these ones will make it into the JSON files.
 	jujuversion.Current.String() + "-ubuntu-amd64",
-	jujuversion.Current.String() + "-ubuntu-armhf",
-	jujuversion.Current.String() + "-ubuntu-i386",
+	jujuversion.Current.String() + "-ubuntu-arm64",
 }
 
 var versionStrings = append([]string{
 	fmt.Sprintf("%d.12.0-ubuntu-amd64", jujuversion.Current.Major),
-	fmt.Sprintf("%d.12.0-ubuntu-i386", jujuversion.Current.Major),
+	fmt.Sprintf("%d.12.0-ubuntu-arm64", jujuversion.Current.Major),
 	fmt.Sprintf("%d.13.0-ubuntu-amd64", jujuversion.Current.Major+1),
 }, currentVersionStrings...)
 

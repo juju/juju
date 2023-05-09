@@ -261,6 +261,8 @@ define run_cgo_install
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
 		CGO_ENABLED=1 \
+		GOOS=${GOOS} \
+		GOARCH=${GOARCH} \
 		go install \
 			-mod=$(JUJU_GOMOD_MODE) \
 			-tags=$(BUILD_TAGS) \

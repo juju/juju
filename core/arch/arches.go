@@ -4,18 +4,17 @@
 package arch
 
 import (
+	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/utils/v3/arch"
-
-	"github.com/juju/juju/core/constraints"
 )
 
 const (
 	// DefaultArchitecture represents the default architecture we expect to use
 	// if none is present.
-	DefaultArchitecture = arch.AMD64
+	DefaultArchitecture = AMD64
 )
 
 // Arch represents a platform architecture.
@@ -29,7 +28,7 @@ type Arches struct {
 // AllArches creates a series of arches to compare against.
 func AllArches() Arches {
 	return Arches{
-		set: set.NewStrings(arch.AllSupportedArches...),
+		set: set.NewStrings(AllSupportedArches...),
 	}
 }
 
@@ -49,14 +48,70 @@ func (a Arches) String() string {
 	return strings.Join(a.set.SortedValues(), ",")
 }
 
-// ConstraintArch returns the arch for the constraint if there is one,
-// else it returns the default arch.
-func ConstraintArch(cons constraints.Value, defaultCons *constraints.Value) string {
-	if cons.HasArch() {
-		return *cons.Arch
+// The following constants define the machine architectures supported by Juju.
+const (
+	AMD64   = "amd64"
+	ARM64   = "arm64"
+	PPC64EL = "ppc64el"
+	S390X   = "s390x"
+	RISCV64 = "riscv64"
+)
+
+// AllSupportedArches records the machine architectures recognised by Juju.
+var AllSupportedArches = []string{
+	AMD64,
+	ARM64,
+	PPC64EL,
+	S390X,
+	RISCV64,
+}
+
+// UnsupportedArches records the machine architectures not supported by Juju.
+// Note: don't make const to prevent referencing it.
+var UnsupportedArches = []string{
+	"i386", "armhf", "ppc",
+}
+
+// archREs maps regular expressions for matching
+// `uname -m` to architectures recognised by Juju.
+var archREs = []struct {
+	*regexp.Regexp
+	arch string
+}{
+	{Regexp: regexp.MustCompile("amd64|x86_64"), arch: AMD64},
+	{Regexp: regexp.MustCompile("aarch64"), arch: ARM64},
+	{Regexp: regexp.MustCompile("ppc64|ppc64el|ppc64le"), arch: PPC64EL},
+	{Regexp: regexp.MustCompile("s390x"), arch: S390X},
+	{Regexp: regexp.MustCompile("riscv64|risc$|risc-[vV]64"), arch: RISCV64},
+}
+
+// Override for testing.
+var HostArch = hostArch
+
+// hostArch returns the Juju architecture of the machine on which it is run.
+func hostArch() string {
+	return NormaliseArch(runtime.GOARCH)
+}
+
+// NormaliseArch returns the Juju architecture corresponding to a machine's
+// reported architecture. The Juju architecture is used to filter simple
+// streams lookup of tools and images.
+func NormaliseArch(rawArch string) string {
+	rawArch = strings.TrimSpace(rawArch)
+	for _, re := range archREs {
+		if re.Match([]byte(rawArch)) {
+			return re.arch
+		}
 	}
-	if defaultCons != nil && defaultCons.HasArch() {
-		return *defaultCons.Arch
+	return rawArch
+}
+
+// IsSupportedArch returns true if arch is one supported by Juju.
+func IsSupportedArch(arch string) bool {
+	for _, a := range AllSupportedArches {
+		if a == arch {
+			return true
+		}
 	}
-	return DefaultArchitecture
+	return false
 }

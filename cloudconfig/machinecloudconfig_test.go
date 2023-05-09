@@ -234,7 +234,7 @@ reporting:
     type: webhook}
 system_info:
   package_mirrors:
-  - arches: [i386, amd64]
+  - arches: [s390x, amd64]
     failsafe: {primary: 'http://archive.ubuntu.com/ubuntu', security: 'http://security.ubuntu.com/ubuntu'}
     search:
       primary: ['http://archive.ubuntu.com/ubuntu']
@@ -374,7 +374,7 @@ var expectedResult = map[string]interface{}{
 
 var expectedSystemInfoCommon = map[interface{}]interface{}{
 	"package_mirrors": []interface{}{map[interface{}]interface{}{
-		"arches": []interface{}{"i386", "amd64"},
+		"arches": []interface{}{"s390x", "amd64"},
 		"failsafe": map[interface{}]interface{}{
 			"primary":  "http://archive.ubuntu.com/ubuntu",
 			"security": "http://security.ubuntu.com/ubuntu",

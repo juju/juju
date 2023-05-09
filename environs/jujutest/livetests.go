@@ -14,7 +14,6 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
@@ -22,6 +21,7 @@ import (
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"

@@ -694,6 +694,18 @@ func (s *AddModelSuite) TestNoEnvCacheOtherUser(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *AddModelSuite) TestNamespaceAnnotationsErr(c *gc.C) {
+	s.fakeCloudAPI.cloud = &cloud.Cloud{
+		Type: "kubernetes",
+	}
+	s.fakeAddModelAPI.err = &params.Error{
+		Message: `failed to open kubernetes client: annotations map[controller.juju.is/id:e911779d-c210-4207-8a37-586029693d85 model.juju.is/id:b36d5a71-fe97-48cb-87f7-479c98a741df] for namespace "borked" must include map[model.juju.is/id:f58485c2-4f08-4571-88c4-2e6b9ece955c]`,
+		Code:    params.CodeNotValid,
+	}
+	_, err := s.run(c, "foobar")
+	c.Assert(err, gc.ErrorMatches, `cannot create model "foobar": a namespace called "foobar" already exists on this k8s cluster. Please pick a different model name.`)
+}
+
 // fakeAddClient is used to mock out the behavior of the real
 // AddModel command.
 type fakeAddClient struct {
@@ -727,6 +739,7 @@ func (f *fakeAddClient) CreateModel(name, owner, cloudName, cloudRegion string, 
 // TODO(wallyworld) - improve this stub and add test asserts
 type fakeCloudAPI struct {
 	clouds map[names.CloudTag]cloud.Cloud
+	cloud  *cloud.Cloud
 	controller.CloudAPI
 	gitjujutesting.Stub
 	authTypes   []cloud.AuthType
@@ -750,6 +763,9 @@ func (c *fakeCloudAPI) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
 
 func (c *fakeCloudAPI) Cloud(tag names.CloudTag) (cloud.Cloud, error) {
 	c.MethodCall(c, "Cloud", tag)
+	if c.cloud != nil {
+		return *c.cloud, nil
+	}
 	if tag.Id() != "aws" {
 		return cloud.Cloud{}, &params.Error{Code: params.CodeNotFound}
 	}

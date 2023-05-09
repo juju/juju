@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3/catacomb"
 
@@ -21,6 +20,7 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/agent/upgrader"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
+	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/upgrades"
