@@ -504,8 +504,16 @@ install-mongo-dependencies:
 	@$(WAIT_FOR_DPKG)
 	@sudo apt-get --yes install  $(strip $(DEPENDENCIES))
 
+.PHONY: install-sqlite3-dependencies
+install-sqlite3-dependencies:
+## install-sqlite3-dependencies: Install libsqlite3-dev
+	@echo Installing libsqlite3-dev
+	@$(WAIT_FOR_DPKG)
+	@sudo apt-get update
+	@sudo apt-get --yes install libsqlite3-dev
+
 .PHONY: install-dependencies
-install-dependencies: install-snap-dependencies install-mongo-dependencies
+install-dependencies: install-snap-dependencies install-mongo-dependencies install-sqlite3-dependencies
 ## install-dependencies: Install all the dependencies
 	@echo "Installing dependencies"
 
