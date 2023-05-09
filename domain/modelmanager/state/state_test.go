@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/database/testing"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/modelmanager/service"
 	"github.com/juju/juju/domain/modelmanager/state"
 )
 
@@ -23,14 +24,14 @@ var _ = gc.Suite(&stateSuite{})
 
 func (s *stateSuite) TestServiceCreate(c *gc.C) {
 	st := state.NewState(domain.TrackedDBFactory(s.TrackedDB()))
-	err := st.Create(context.TODO(), utils.MustNewUUID().String())
+	err := st.Create(context.TODO(), mustUUID(c))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *stateSuite) TestServiceCreateCalledTwice(c *gc.C) {
 	st := state.NewState(domain.TrackedDBFactory(s.TrackedDB()))
 
-	uuid := utils.MustNewUUID().String()
+	uuid := mustUUID(c)
 
 	err := st.Create(context.TODO(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
@@ -50,14 +51,14 @@ func (s *stateSuite) TestServiceCreateWithInvalidUUID(c *gc.C) {
 
 func (s *stateSuite) TestServiceDeleteWithNoMatchingUUID(c *gc.C) {
 	st := state.NewState(domain.TrackedDBFactory(s.TrackedDB()))
-	err := st.Delete(context.TODO(), utils.MustNewUUID().String())
+	err := st.Delete(context.TODO(), mustUUID(c))
 	c.Assert(err, gc.ErrorMatches, domain.ErrNoRecord.Error()+".*")
 }
 
 func (s *stateSuite) TestServiceDelete(c *gc.C) {
 	st := state.NewState(domain.TrackedDBFactory(s.TrackedDB()))
 
-	uuid := utils.MustNewUUID().String()
+	uuid := mustUUID(c)
 
 	err := st.Create(context.TODO(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
@@ -69,7 +70,7 @@ func (s *stateSuite) TestServiceDelete(c *gc.C) {
 func (s *stateSuite) TestServiceDeleteCalledTwice(c *gc.C) {
 	st := state.NewState(domain.TrackedDBFactory(s.TrackedDB()))
 
-	uuid := utils.MustNewUUID().String()
+	uuid := mustUUID(c)
 
 	err := st.Create(context.TODO(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
@@ -79,4 +80,8 @@ func (s *stateSuite) TestServiceDeleteCalledTwice(c *gc.C) {
 
 	err = st.Delete(context.TODO(), uuid)
 	c.Assert(err, gc.ErrorMatches, domain.ErrNoRecord.Error()+".*")
+}
+
+func mustUUID(c *gc.C) service.UUID {
+	return service.UUID(utils.MustNewUUID().String())
 }

@@ -11,8 +11,8 @@ import (
 
 // State defines a interface for interacting with the underlying state.
 type State interface {
-	Create(context.Context, string) error
-	Delete(context.Context, string) error
+	Create(context.Context, UUID) error
+	Delete(context.Context, UUID) error
 }
 
 // Service defines a service for interacting with the underlying state.
@@ -33,7 +33,7 @@ func (s *Service) Create(ctx context.Context, uuid UUID) error {
 		return errors.Annotatef(err, "validating model uuid %q", uuid)
 	}
 
-	err := s.st.Create(ctx, uuid.String())
+	err := s.st.Create(ctx, uuid)
 	return errors.Annotatef(err, "creating model %q", uuid)
 }
 
@@ -43,6 +43,6 @@ func (s *Service) Delete(ctx context.Context, uuid UUID) error {
 		return errors.Annotatef(err, "validating model uuid %q", uuid)
 	}
 
-	err := s.st.Delete(ctx, uuid.String())
+	err := s.st.Delete(ctx, uuid)
 	return errors.Annotatef(err, "deleting model %q", uuid)
 }

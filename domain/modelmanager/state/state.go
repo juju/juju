@@ -9,8 +9,10 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/domain"
 	"github.com/juju/utils/v3"
+
+	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/modelmanager/service"
 )
 
 // State represents a type for interacting with the underlying state.
@@ -28,7 +30,7 @@ func NewState(factory domain.DBFactory) *State {
 // Create takes a model UUID and creates a new model.
 // Note: no validation is performed on the UUID, as that is performed at the
 // service layer.
-func (s *State) Create(ctx context.Context, uuid string) error {
+func (s *State) Create(ctx context.Context, uuid service.UUID) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -52,7 +54,7 @@ func (s *State) Create(ctx context.Context, uuid string) error {
 // Delete takes a model UUID and deletes a new model.
 // Note: no validation is performed on the UUID, as that is performed at the
 // service layer.
-func (s *State) Delete(ctx context.Context, uuid string) error {
+func (s *State) Delete(ctx context.Context, uuid service.UUID) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)

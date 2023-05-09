@@ -26,7 +26,7 @@ func (s *serviceSuite) TestServiceCreate(c *gc.C) {
 
 	uuid := mustUUID(c)
 
-	s.state.EXPECT().Create(gomock.Any(), uuid.String())
+	s.state.EXPECT().Create(gomock.Any(), uuid)
 
 	svc := NewService(s.state)
 	err := svc.Create(context.TODO(), uuid)
@@ -46,7 +46,7 @@ func (s *serviceSuite) TestServiceDelete(c *gc.C) {
 
 	uuid := mustUUID(c)
 
-	s.state.EXPECT().Delete(gomock.Any(), uuid.String())
+	s.state.EXPECT().Delete(gomock.Any(), uuid)
 
 	svc := NewService(s.state)
 	err := svc.Delete(context.TODO(), uuid)

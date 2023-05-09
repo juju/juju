@@ -35,7 +35,7 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // Create mocks base method.
-func (m *MockState) Create(arg0 context.Context, arg1 string) error {
+func (m *MockState) Create(arg0 context.Context, arg1 UUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -49,7 +49,7 @@ func (mr *MockStateMockRecorder) Create(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // Delete mocks base method.
-func (m *MockState) Delete(arg0 context.Context, arg1 string) error {
+func (m *MockState) Delete(arg0 context.Context, arg1 UUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete", arg0, arg1)
 	ret0, _ := ret[0].(error)
