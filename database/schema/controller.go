@@ -277,6 +277,11 @@ END;
 func modelListSchema() string {
 	return `
 CREATE TABLE model_list (
-    uuid        TEXT PRIMARY KEY
-);`[1:]
+    uuid        TEXT PRIMARY KEY,
+    model_uuid  TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_model_list_model_uuid
+ON model_list (model_uuid);
+`[1:]
 }

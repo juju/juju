@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -1342,6 +1343,10 @@ func (m *mockMigration) EndTime() time.Time {
 
 type mockModelDBState struct{}
 
-func (mockModelDBState) Create(ctx stdcontext.Context, uuid string) error {
+func (mockModelDBState) Create(ctx stdcontext.Context, uuid modelmanagerservice.UUID) error {
+	return nil
+}
+
+func (mockModelDBState) Delete(ctx stdcontext.Context, uuid modelmanagerservice.UUID) error {
 	return nil
 }

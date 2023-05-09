@@ -4,6 +4,7 @@
 package database
 
 import (
+	"database/sql"
 	"strings"
 
 	"github.com/juju/errors"
@@ -31,4 +32,14 @@ func IsErrConstraintUnique(err error) bool {
 	}
 
 	return false
+}
+
+// IsErrNotFound returns true if the input error was returned by SQLite due
+// to a missing record.
+func IsErrNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	return errors.Is(err, sql.ErrNoRows)
 }

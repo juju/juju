@@ -1113,7 +1113,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 
 	force := true
 	timeout := time.Minute
-	results, err := s.modelmanager.DestroyModels(params.DestroyModelsParams{
+	results, err := s.modelmanager.DestroyModels(stdcontext.TODO(), params.DestroyModelsParams{
 		Models: []params.DestroyModelParams{{
 			ModelTag: "model-" + m.UUID,
 			Force:    &force,
@@ -1160,7 +1160,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.modelmanager.DestroyModels(params.DestroyModelsParams{
+	results, err := s.modelmanager.DestroyModels(stdcontext.TODO(), params.DestroyModelsParams{
 		Models: []params.DestroyModelParams{{
 			ModelTag: "model-" + m.UUID,
 		}},
@@ -1200,7 +1200,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	user := names.NewUserTag("other@remote")
 	s.setAPIUser(c, user)
 
-	results, err := s.modelmanager.DestroyModels(params.DestroyModelsParams{
+	results, err := s.modelmanager.DestroyModels(stdcontext.TODO(), params.DestroyModelsParams{
 		Models: []params.DestroyModelParams{
 			{ModelTag: "model-" + m.UUID},
 			{ModelTag: "model-9f484882-2f18-4fd2-967d-db9663db7bea"},
