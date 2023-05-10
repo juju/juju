@@ -4,8 +4,7 @@
 package database
 
 import (
-	"strings"
-
+	dqlite "github.com/canonical/go-dqlite/driver"
 	"github.com/juju/errors"
 	"github.com/mattn/go-sqlite3"
 )
@@ -22,11 +21,8 @@ func IsErrConstraintUnique(err error) bool {
 		return true
 	}
 
-	// TODO (manadart 2022-12-16): The logic above works in unit tests using an
-	// in-memory SQLite DB, but appears to fail when running with Dqlite.
-	// Extended error codes can be enabled via PRAGMA, but we need to
-	// investigate further.
-	if strings.Contains(strings.ToLower(err.Error()), "unique constraint failed") {
+	var dqliteErr dqlite.Error
+	if errors.As(err, &dqliteErr) && dqliteErr.Code == int(sqlite3.ErrConstraintUnique) {
 		return true
 	}
 
