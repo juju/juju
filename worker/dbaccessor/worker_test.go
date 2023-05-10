@@ -4,6 +4,7 @@
 package dbaccessor
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -329,7 +330,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		NewApp: func(string, ...app.Option) (DBApp, error) {
 			return s.dbApp, nil
 		},
-		NewDBWorker: func(DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error) {
+		NewDBWorker: func(context.Context, DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error) {
 			return s.trackedDB, nil
 		},
 		MetricsCollector: &Collector{},

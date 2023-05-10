@@ -4,6 +4,8 @@
 package dbaccessor
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -51,7 +53,7 @@ type ManifoldConfig struct {
 	LogDir               string
 	PrometheusRegisterer prometheus.Registerer
 	NewApp               func(string, ...app.Option) (DBApp, error)
-	NewDBWorker          func(DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
+	NewDBWorker          func(context.Context, DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
 	NewMetricsCollector  func() *Collector
 }
 
