@@ -169,12 +169,7 @@ func (s *SecretsAPI) getBackendInfo() error {
 		return errors.Trace(err)
 	}
 	for id, cfg := range info.Configs {
-		s.backends[id], err = s.backendGetter(&provider.ModelBackendConfig{
-			ControllerUUID: info.ControllerUUID,
-			ModelUUID:      info.ModelUUID,
-			ModelName:      info.ModelName,
-			BackendConfig:  cfg,
-		})
+		s.backends[id], err = s.backendGetter(&cfg)
 		if err != nil {
 			return errors.Trace(err)
 		}

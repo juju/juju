@@ -12,7 +12,9 @@ import (
 	"github.com/juju/juju/api/controller/remoterelations"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -473,4 +475,37 @@ func (s *remoteRelationsSuite) TestUpdateControllerForModelResultSuccess(c *gc.C
 	client := remoterelations.NewClient(apiCaller)
 	err := client.UpdateControllerForModel(crossmodel.ControllerInfo{}, "some-model-uuid")
 	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *remoteRelationsSuite) TestConsumeRemoteSecretChange(c *gc.C) {
+	var callCount int
+	uri := secrets.NewURI()
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "RemoteRelations")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "ConsumeRemoteSecretChanges")
+		c.Check(arg, jc.DeepEquals, params.LatestSecretRevisionChanges{
+			Changes: []params.SecretRevisionChange{{
+				URI:      uri.String(),
+				Revision: 666,
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}}}
+		callCount++
+		return nil
+	})
+
+	changes := []watcher.SecretRevisionChange{{
+		URI:      uri,
+		Revision: 666,
+	}}
+	client := remoterelations.NewClient(apiCaller)
+	err := client.ConsumeRemoteSecretChanges(changes)
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
 }

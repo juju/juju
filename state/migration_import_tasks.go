@@ -520,12 +520,28 @@ func (ImportExternalControllers) Execute(src ExternalControllersInput, runner Tr
 // SecretsDescription defines an in-place usage for reading secrets.
 type SecretsDescription interface {
 	Secrets() []description.Secret
+	RemoteSecrets() []description.RemoteSecret
+}
+
+// SecretConsumersState is used to create secret consumer keys
+// for use in the state model.
+type SecretConsumersState interface {
+	SecretConsumerKey(uri *secrets.URI, subject string) string
 }
 
 // SecretsInput describes the input used for migrating secrets.
 type SecretsInput interface {
 	DocModelNamespace
+	SecretConsumersState
 	SecretsDescription
+}
+
+type secretConsumersStateShim struct {
+	stateModelNamspaceShim
+}
+
+func (s *secretConsumersStateShim) SecretConsumerKey(uri *secrets.URI, subject string) string {
+	return s.st.secretConsumerKey(uri, subject)
 }
 
 // ImportSecrets describes a way to import secrets from a
@@ -621,7 +637,7 @@ func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner, knownSe
 			})
 		}
 		for subject, access := range secret.ACL() {
-			key := secretConsumerKey(uri.ID, subject)
+			key := src.SecretConsumerKey(uri, subject)
 			ops = append(ops, txn.Op{
 				C:      secretPermissionsC,
 				Id:     key,
@@ -639,7 +655,7 @@ func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner, knownSe
 			if err != nil {
 				return errors.Annotatef(err, "invalid consumer for secret %q", secret.Id())
 			}
-			key := secretConsumerKey(uri.ID, consumer.String())
+			key := src.SecretConsumerKey(uri, consumer.String())
 			ops = append(ops, txn.Op{
 				C:      secretConsumersC,
 				Id:     key,
@@ -653,6 +669,70 @@ func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner, knownSe
 				},
 			})
 		}
+		for _, info := range secret.RemoteConsumers() {
+			consumer, err := info.Consumer()
+			if err != nil {
+				return errors.Annotatef(err, "invalid consumer for secret %q", secret.Id())
+			}
+			key := src.SecretConsumerKey(uri, consumer.String())
+			ops = append(ops, txn.Op{
+				C:      secretRemoteConsumersC,
+				Id:     key,
+				Assert: txn.DocMissing,
+				Insert: secretRemoteConsumerDoc{
+					DocID:           key,
+					ConsumerTag:     consumer.String(),
+					CurrentRevision: info.CurrentRevision(),
+					LatestRevision:  info.LatestRevision(),
+				},
+			})
+		}
+	}
+
+	if err := runner.RunTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// RemoteSecretsInput describes the input used for migrating remote secret consumer info.
+type RemoteSecretsInput interface {
+	DocModelNamespace
+	SecretConsumersState
+	SecretsDescription
+}
+
+// ImportRemoteSecrets describes a way to import remote
+// secrets from a description.
+type ImportRemoteSecrets struct{}
+
+// Execute the import on the remote secrets description.
+func (ImportRemoteSecrets) Execute(src RemoteSecretsInput, runner TransactionRunner) error {
+	allRemoteSecrets := src.RemoteSecrets()
+	if len(allRemoteSecrets) == 0 {
+		return nil
+	}
+
+	var ops []txn.Op
+	for _, info := range allRemoteSecrets {
+		uri := &secrets.URI{ID: info.ID(), SourceUUID: info.SourceUUID()}
+		consumer, err := info.Consumer()
+		if err != nil {
+			return errors.Annotatef(err, "invalid consumer for remote secret %q", uri)
+		}
+		key := src.SecretConsumerKey(uri, consumer.String())
+		ops = append(ops, txn.Op{
+			C:      secretConsumersC,
+			Id:     key,
+			Assert: txn.DocMissing,
+			Insert: secretConsumerDoc{
+				DocID:           key,
+				ConsumerTag:     consumer.String(),
+				Label:           info.Label(),
+				CurrentRevision: info.CurrentRevision(),
+				LatestRevision:  info.LatestRevision(),
+			},
+		})
 	}
 
 	if err := runner.RunTransaction(ops); err != nil {

@@ -89,3 +89,8 @@ func (c *credentialShim) AuthType() string {
 func (c *credentialShim) Attributes() map[string]string {
 	return c.Credential.Attributes
 }
+
+type SecretsGetter interface {
+	GetSecret(*secrets.URI) (*secrets.SecretMetadata, error)
+	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, *secrets.ValueRef, error)
+}

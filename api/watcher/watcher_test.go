@@ -719,6 +719,144 @@ func (s *watcherSuite) TestSecretsExpiryWatcher(c *gc.C) {
 	assertNoChange()
 }
 
+func (s *watcherSuite) setupSecretsRevisionWatcher(
+	c *gc.C,
+) (*secrets.URI, func(uri *secrets.URI, rev int), func(), func()) {
+	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "foo", OfferUUID: "offer-uuid", URL: "me/model.foo", SourceModel: s.Model.ModelTag()})
+	c.Assert(err, jc.ErrorIsNil)
+	// Export the remoteApp so it can be found with a token.
+	re := s.State.RemoteEntities()
+	token, err := re.ExportLocalEntity(remoteApp.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Set up the offer.
+	app := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	unit, password := s.Factory.MakeUnitReturningPassword(c, &factory.UnitParams{
+		Application: app,
+	})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred"})
+	offers := state.NewApplicationOffers(s.State)
+	offer, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "hosted-mysql",
+		ApplicationName: "mysql",
+		Owner:           "admin",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add the consume permission for the offer so the macaroon
+	// discharge can occur.
+	err = s.State.CreateOfferAccess(
+		names.NewApplicationOfferTag("hosted-mysql"),
+		names.NewUserTag("fred"), permission.ConsumeAccess)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create a macaroon for authorisation.
+	bStore, err := s.State.NewBakeryStorage()
+	c.Assert(err, jc.ErrorIsNil)
+	b := bakery.New(bakery.BakeryParams{
+		RootKeyStore: bStore,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	mac, err := b.Oven.NewMacaroon(
+		context.Background(),
+		bakery.LatestVersion,
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("source-model-uuid", s.State.ModelUUID()),
+			checkers.DeclaredCaveat("offer-uuid", offer.OfferUUID),
+			checkers.DeclaredCaveat("username", "fred"),
+		}, bakery.Op{
+			Entity: "offer-uuid",
+			Action: "consume",
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create a secret to watch.
+	store := state.NewSecrets(s.State)
+	uri := secrets.NewURI()
+	_, err = store.CreateSecret(uri, state.CreateSecretParams{
+		Owner: unit.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:  &fakeToken{},
+			RotatePolicy: ptr(secrets.RotateDaily),
+			Data:         map[string]string{"foo": "bar"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+
+	apiInfo := s.APIInfo(c)
+	apiInfo.Tag = unit.Tag()
+	apiInfo.Password = password
+	apiInfo.ModelTag = s.Model.ModelTag()
+
+	apiConn, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	client := crossmodelrelations.NewClient(apiConn)
+	w, err := client.WatchConsumedSecretsChanges(token, mac.M())
+	if !c.Check(err, jc.ErrorIsNil) {
+		_ = apiConn.Close()
+		c.FailNow()
+	}
+	stop := func() {
+		workertest.CleanKill(c, w)
+		_ = apiConn.Close()
+	}
+
+	assertNoChange := func() {
+		select {
+		case _, ok := <-w.Changes():
+			c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
+		case <-time.After(coretesting.ShortWait):
+		}
+	}
+
+	assertChange := func(uri *secrets.URI, rev int) {
+		select {
+		case changes, ok := <-w.Changes():
+			c.Check(ok, jc.IsTrue)
+			if uri == nil {
+				c.Assert(changes, gc.HasLen, 0)
+				break
+			}
+			c.Assert(changes, gc.HasLen, 1)
+			c.Assert(changes[0].URI.String(), gc.Equals, uri.String())
+			c.Assert(changes[0].Revision, gc.Equals, rev)
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("watcher didn't emit an event")
+		}
+	}
+	return uri, assertChange, assertNoChange, stop
+}
+
+func (s *watcherSuite) TestCrossModelSecretsRevisionWatcher(c *gc.C) {
+	uri, assertChange, assertNoChange, stop := s.setupSecretsRevisionWatcher(c)
+	defer stop()
+
+	store := state.NewSecrets(s.State)
+
+	// Initial event - no changes since we're at rev 1 still.
+	assertChange(nil, 0)
+
+	err := s.State.SaveSecretRemoteConsumer(uri, names.NewUnitTag("foo/0"), &secrets.SecretConsumerMetadata{
+		CurrentRevision: 1,
+		LatestRevision:  1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	assertNoChange()
+
+	_, err = store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        secrets.SecretData{"foo": "bar2"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertChange(uri, 2)
+	assertNoChange()
+}
+
 type migrationSuite struct {
 	testing.JujuConnSuite
 }

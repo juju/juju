@@ -95,6 +95,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		secretRevisionsC,
 		secretRotateC,
 		secretConsumersC,
+		secretRemoteConsumersC,
 		secretPermissionsC,
 	)
 

@@ -67,6 +67,10 @@ func (st stateShim) KeyRelation(key string) (Relation, error) {
 	return relationShim{r, st.State}, nil
 }
 
+func (st stateShim) OfferConnectionForRelation(relationKey string) (OfferConnection, error) {
+	return st.State.OfferConnectionForRelation(relationKey)
+}
+
 // ControllerTag returns the tag of the controller in which we are operating.
 // This is a temporary transitional step. Eventually code using
 // crossmodel.Backend will only need to be passed a state.Model.

@@ -833,9 +833,6 @@ func (s *RelationSuite) setupRelationStatus(c *gc.C) *state.Relation {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "fred", Access: permission.WriteAccess})
-	err = s.State.CreateOfferAccess(
-		names.NewApplicationOfferTag("hosted-mysql"), user.UserTag(), permission.ConsumeAccess)
-	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
 		SourceModelUUID: utils.MustNewUUID().String(),
 		OfferUUID:       offer.OfferUUID,
@@ -901,34 +898,6 @@ func (s *RelationSuite) TestSetSuspendFalse(c *gc.C) {
 	rel, err = s.State.Relation(rel.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rel.Suspended(), jc.IsFalse)
-}
-
-func (s *RelationSuite) TestResumeRelationNoConsumeAccess(c *gc.C) {
-	rel := s.setupRelationStatus(c)
-	err := rel.SetSuspended(true, "reason")
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.UpdateOfferAccess(
-		names.NewApplicationOfferTag("hosted-mysql"), names.NewUserTag("fred"), permission.ReadAccess)
-	c.Assert(err, jc.ErrorIsNil)
-	err = rel.SetSuspended(false, "")
-	c.Assert(err, gc.ErrorMatches,
-		`cannot resume relation "wordpress:db mysql:server" where user "fred" does not have consume permission`)
-}
-
-func (s *RelationSuite) TestResumeRelationNoConsumeAccessRace(c *gc.C) {
-	rel := s.setupRelationStatus(c)
-	err := rel.SetSuspended(true, "reason")
-	c.Assert(err, jc.ErrorIsNil)
-
-	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.State.UpdateOfferAccess(
-			names.NewApplicationOfferTag("hosted-mysql"), names.NewUserTag("fred"), permission.ReadAccess)
-		c.Assert(err, jc.ErrorIsNil)
-	}).Check()
-
-	err = rel.SetSuspended(false, "")
-	c.Assert(err, gc.ErrorMatches,
-		`cannot resume relation "wordpress:db mysql:server" where user "fred" does not have consume permission`)
 }
 
 func (s *RelationSuite) TestApplicationSettings(c *gc.C) {

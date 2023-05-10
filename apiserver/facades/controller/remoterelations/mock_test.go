@@ -119,6 +119,19 @@ func (r *mockRelation) ApplicationSettings(appName string) (map[string]interface
 	return settings, nil
 }
 
+type mockOfferConnection struct {
+	offerUUID string
+	username  string
+}
+
+func (o *mockOfferConnection) OfferUUID() string {
+	return o.offerUUID
+}
+
+func (o *mockOfferConnection) UserName() string {
+	return o.username
+}
+
 type mockRemoteApplication struct {
 	common.RemoteApplication
 	testing.Stub

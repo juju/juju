@@ -7,14 +7,17 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"gopkg.in/macaroon.v2"
 
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/leadership"
+	corelogger "github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
@@ -23,12 +26,18 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.secretsmanager")
+var logger = loggo.GetLoggerWithLabels("juju.apiserver.secretsmanager", corelogger.SECRETS)
 
 // For testing.
 var (
 	GetProvider = secretsprovider.Provider
 )
+
+// CrossModelSecretsClient gets secret content from a cross model controller.
+type CrossModelSecretsClient interface {
+	GetRemoteSecretContentInfo(uri *coresecrets.URI, revision int, refresh, peek bool, appToken string, unitId int, macs macaroon.Slice) (*secrets.ContentParams, *secretsprovider.ModelBackendConfig, int, bool, error)
+	GetSecretAccessScope(uri *coresecrets.URI, appToken string, unitId int) (string, error)
+}
 
 // SecretsManagerAPI is the implementation for the SecretsManager facade.
 type SecretsManagerAPI struct {
@@ -39,9 +48,19 @@ type SecretsManagerAPI struct {
 	secretsConsumer   SecretsConsumer
 	authTag           names.Tag
 	clock             clock.Clock
+	modelUUID         string
 
 	backendConfigGetter commonsecrets.BackendConfigGetter
-	adminConfigGetter   commonsecrets.BackendConfigGetter
+	adminConfigGetter   commonsecrets.BackendAdminConfigGetter
+	remoteClientGetter  func(uri *coresecrets.URI) (CrossModelSecretsClient, error)
+
+	crossModelState CrossModelState
+}
+
+// SecretsManagerAPIV1 the secrets manager facade v1.
+// TODO - drop when we no longer support juju 3.1.0
+type SecretsManagerAPIV1 struct {
+	*SecretsManagerAPI
 }
 
 func (s *SecretsManagerAPI) canRead(uri *coresecrets.URI, entity names.Tag) bool {
@@ -53,8 +72,8 @@ func (s *SecretsManagerAPI) canManage(uri *coresecrets.URI) (leadership.Token, e
 }
 
 // GetSecretStoreConfig is for 3.0.x agents.
-// TODO(wallyworld) - remove when we auto upgrade migrated models.
-func (s *SecretsManagerAPI) GetSecretStoreConfig() (params.SecretBackendConfig, error) {
+// TODO - drop when we no longer support juju 3.0.x
+func (s *SecretsManagerAPIV1) GetSecretStoreConfig() (params.SecretBackendConfig, error) {
 	cfgInfo, err := s.GetSecretBackendConfig()
 	if err != nil {
 		return params.SecretBackendConfig{}, errors.Trace(err)
@@ -63,25 +82,93 @@ func (s *SecretsManagerAPI) GetSecretStoreConfig() (params.SecretBackendConfig, 
 }
 
 // GetSecretBackendConfig gets the config needed to create a client to secret backends.
-func (s *SecretsManagerAPI) GetSecretBackendConfig() (params.SecretBackendConfigResults, error) {
-	cfgInfo, err := s.backendConfigGetter()
+// TODO - drop when we no longer support juju 3.1.x
+func (s *SecretsManagerAPIV1) GetSecretBackendConfig() (params.SecretBackendConfigResultsV1, error) {
+	cfgInfo, err := s.backendConfigGetter(nil, true)
 	if err != nil {
-		return params.SecretBackendConfigResults{}, errors.Trace(err)
+		return params.SecretBackendConfigResultsV1{}, errors.Trace(err)
 	}
-	result := params.SecretBackendConfigResults{
-		ControllerUUID: cfgInfo.ControllerUUID,
-		ModelUUID:      cfgInfo.ModelUUID,
-		ModelName:      cfgInfo.ModelName,
-		ActiveID:       cfgInfo.ActiveID,
-		Configs:        make(map[string]params.SecretBackendConfig),
+	result := params.SecretBackendConfigResultsV1{
+		ActiveID: cfgInfo.ActiveID,
+		Configs:  make(map[string]params.SecretBackendConfig),
 	}
 	for id, cfg := range cfgInfo.Configs {
+		result.ControllerUUID = cfg.ControllerUUID
+		result.ModelUUID = cfg.ModelUUID
+		result.ModelName = cfg.ModelName
 		result.Configs[id] = params.SecretBackendConfig{
 			BackendType: cfg.BackendType,
 			Params:      cfg.Config,
 		}
 	}
 	return result, nil
+}
+
+// GetSecretBackendConfigs isn't on the V1 API.
+func (*SecretsManagerAPIV1) GetSecretBackendConfigs(_ struct{}) {}
+
+// GetSecretBackendConfigs gets the config needed to create a client to secret backends.
+func (s *SecretsManagerAPI) GetSecretBackendConfigs(arg params.SecretBackendArgs) (params.SecretBackendConfigResults, error) {
+	results := params.SecretBackendConfigResults{
+		Results: make(map[string]params.SecretBackendConfigResult, len(arg.BackendIDs)),
+	}
+	result, activeID, err := s.getSecretBackendConfig(arg.BackendIDs)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	results.ActiveID = activeID
+	results.Results = result
+	return results, nil
+}
+
+// GetSecretBackendConfig gets the config needed to create a client to secret backends.
+func (s *SecretsManagerAPI) getSecretBackendConfig(backendIDs []string) (map[string]params.SecretBackendConfigResult, string, error) {
+	cfgInfo, err := s.backendConfigGetter(backendIDs, false)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	result := make(map[string]params.SecretBackendConfigResult)
+	wanted := set.NewStrings(backendIDs...)
+	for id, cfg := range cfgInfo.Configs {
+		if len(wanted) > 0 {
+			if !wanted.Contains(id) {
+				continue
+			}
+		} else if id != cfgInfo.ActiveID {
+			continue
+		}
+		result[id] = params.SecretBackendConfigResult{
+			ControllerUUID: cfg.ControllerUUID,
+			ModelUUID:      cfg.ModelUUID,
+			ModelName:      cfg.ModelName,
+			Draining:       id != cfgInfo.ActiveID,
+			Config: params.SecretBackendConfig{
+				BackendType: cfg.BackendType,
+				Params:      cfg.Config,
+			},
+		}
+	}
+	return result, cfgInfo.ActiveID, nil
+}
+
+func (s *SecretsManagerAPI) getBackend(backendID string) (*secretsprovider.ModelBackendConfig, bool, error) {
+	cfgInfo, err := s.backendConfigGetter([]string{backendID}, false)
+	if err != nil {
+		return nil, false, errors.Trace(err)
+	}
+	cfg, ok := cfgInfo.Configs[backendID]
+	if ok {
+		return &secretsprovider.ModelBackendConfig{
+			ControllerUUID: cfg.ControllerUUID,
+			ModelUUID:      cfg.ModelUUID,
+			ModelName:      cfg.ModelName,
+			BackendConfig: secretsprovider.BackendConfig{
+				BackendType: cfg.BackendType,
+				Config:      cfg.Config,
+			},
+		}, backendID != cfgInfo.ActiveID, nil
+	}
+	return nil, false, errors.NotFoundf("secret backend %q", backendID)
 }
 
 // CreateSecretURIs creates new secret URIs.
@@ -93,7 +180,8 @@ func (s *SecretsManagerAPI) CreateSecretURIs(arg params.CreateSecretURIsArg) (pa
 		Results: make([]params.StringResult, arg.Count),
 	}
 	for i := 0; i < arg.Count; i++ {
-		result.Results[i] = params.StringResult{Result: coresecrets.NewURI().String()}
+		uri := coresecrets.NewURI().WithSource(s.modelUUID)
+		result.Results[i] = params.StringResult{Result: uri.String()}
 	}
 	return result, nil
 }
@@ -273,12 +361,7 @@ func (s *SecretsManagerAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.
 		if err != nil {
 			return params.ErrorResults{}, errors.Trace(err)
 		}
-		if err := provider.CleanupSecrets(&secretsprovider.ModelBackendConfig{
-			ControllerUUID: cfgInfo.ControllerUUID,
-			ModelUUID:      cfgInfo.ModelUUID,
-			ModelName:      cfgInfo.ModelName,
-			BackendConfig:  backendCfg,
-		}, s.authTag, r); err != nil {
+		if err := provider.CleanupSecrets(&backendCfg, s.authTag, r); err != nil {
 			return params.ErrorResults{}, errors.Trace(err)
 		}
 	}
@@ -322,7 +405,9 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(consumerTag names.Tag, uriStr 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if !s.canRead(uri, consumerTag) {
+	// We only check read permissions for local secrets.
+	// For CMR secrets, the remote model manages the permissions.
+	if uri.IsLocal(s.modelUUID) && !s.canRead(uri, consumerTag) {
 		return nil, apiservererrors.ErrPerm
 	}
 	consumer, err := s.secretsConsumer.GetSecretConsumer(uri, consumerTag)
@@ -357,7 +442,7 @@ func (s *SecretsManagerAPI) GetSecretContentInfo(args params.GetSecretContentArg
 		Results: make([]params.SecretContentResult, len(args.Args)),
 	}
 	for i, arg := range args.Args {
-		content, err := s.getSecretContent(arg)
+		content, backend, draining, err := s.getSecretContent(arg)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -373,11 +458,97 @@ func (s *SecretsManagerAPI) GetSecretContentInfo(args params.GetSecretContentArg
 			contentParams.Data = content.SecretValue.EncodedValues()
 		}
 		result.Results[i].Content = contentParams
+		if backend != nil {
+			result.Results[i].BackendConfig = &params.SecretBackendConfigResult{
+				ControllerUUID: backend.ControllerUUID,
+				ModelUUID:      backend.ModelUUID,
+				ModelName:      backend.ModelName,
+				Draining:       draining,
+				Config: params.SecretBackendConfig{
+					BackendType: backend.BackendType,
+					Params:      backend.Config,
+				},
+			}
+		}
 	}
 	return result, nil
 }
 
+func (s *SecretsManagerAPI) getRemoteSecretContent(uri *coresecrets.URI, refresh, peek bool, label string, updateLabel bool) (
+	*secrets.ContentParams, *secretsprovider.ModelBackendConfig, bool, error,
+) {
+	extClient, err := s.remoteClientGetter(uri)
+	if err != nil {
+		return nil, nil, false, errors.Annotate(err, "creating remote secret client")
+	}
+	consumerApp := commonsecrets.AuthTagApp(s.authTag)
+	token, err := s.crossModelState.GetToken(names.NewApplicationTag(consumerApp))
+	if err != nil {
+		return nil, nil, false, errors.Annotatef(err, "getting remote token for %q", consumerApp)
+	}
+	var unitId int
+	if unitTag, ok := s.authTag.(names.UnitTag); ok {
+		unitId = unitTag.Number()
+	} else {
+		return nil, nil, false, errors.NotSupportedf("getting cross model secret for consumer %q", s.authTag)
+	}
+
+	consumerInfo, err := s.secretsConsumer.GetSecretConsumer(uri, s.authTag)
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return nil, nil, false, errors.Trace(err)
+	}
+	var wantRevision int
+	if err == nil {
+		wantRevision = consumerInfo.CurrentRevision
+	} else {
+		// Not found so need to create a new record and populate
+		// with latest revision.
+		refresh = true
+		consumerInfo = &coresecrets.SecretConsumerMetadata{}
+	}
+
+	scopeToken, err := extClient.GetSecretAccessScope(uri, token, unitId)
+	if err != nil {
+		if errors.Is(err, errors.NotFound) {
+			return nil, nil, false, apiservererrors.ErrPerm
+		}
+		return nil, nil, false, errors.Trace(err)
+	}
+	logger.Debugf("secret %q scope token for %v: %s", uri.String(), token, scopeToken)
+
+	scopeEntity, err := s.crossModelState.GetRemoteEntity(scopeToken)
+	if err != nil {
+		return nil, nil, false, errors.Annotatef(err, "getting remote entity for %q", scopeToken)
+	}
+	logger.Debugf("secret %q scope for %v: %s", uri.String(), scopeToken, scopeEntity)
+
+	mac, err := s.crossModelState.GetMacaroon(scopeEntity)
+	if err != nil {
+		return nil, nil, false, errors.Annotatef(err, "getting remote mac for %q", scopeEntity)
+	}
+
+	macs := macaroon.Slice{mac}
+	content, backend, latestRevision, draining, err := extClient.GetRemoteSecretContentInfo(uri, wantRevision, refresh, peek, token, unitId, macs)
+	if err != nil {
+		return nil, nil, false, errors.Trace(err)
+	}
+	if refresh || updateLabel {
+		if refresh {
+			consumerInfo.LatestRevision = latestRevision
+			consumerInfo.CurrentRevision = latestRevision
+		}
+		if label != "" {
+			consumerInfo.Label = label
+		}
+		if err := s.secretsConsumer.SaveSecretConsumer(uri, s.authTag, consumerInfo); err != nil {
+			return nil, nil, false, errors.Trace(err)
+		}
+	}
+	return content, backend, draining, nil
+}
+
 // GetSecretRevisionContentInfo returns the secret values for the specified secret revisions.
+// Used when deleting a secret; only returns external revision info.
 func (s *SecretsManagerAPI) GetSecretRevisionContentInfo(arg params.SecretRevisionArg) (params.SecretContentResults, error) {
 	result := params.SecretContentResults{
 		Results: make([]params.SecretContentResult, len(arg.Revisions)),
@@ -386,12 +557,12 @@ func (s *SecretsManagerAPI) GetSecretRevisionContentInfo(arg params.SecretRevisi
 	if err != nil {
 		return params.SecretContentResults{}, errors.Trace(err)
 	}
-	if !s.canRead(uri, s.authTag) {
-		return params.SecretContentResults{}, errors.Trace(apiservererrors.ErrPerm)
+	if _, err = s.canManage(uri); err != nil {
+		return params.SecretContentResults{}, errors.Trace(err)
 	}
 	for i, rev := range arg.Revisions {
 		// TODO(wallworld) - if pendingDelete is true, mark the revision for deletion
-		val, valueRef, err := s.secretsState.GetSecretValue(uri, rev)
+		_, valueRef, err := s.secretsState.GetSecretValue(uri, rev)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -402,9 +573,21 @@ func (s *SecretsManagerAPI) GetSecretRevisionContentInfo(arg params.SecretRevisi
 				BackendID:  valueRef.BackendID,
 				RevisionID: valueRef.RevisionID,
 			}
-		}
-		if val != nil {
-			contentParams.Data = val.EncodedValues()
+			backend, draining, err := s.getBackend(valueRef.BackendID)
+			if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+			result.Results[i].BackendConfig = &params.SecretBackendConfigResult{
+				ControllerUUID: backend.ControllerUUID,
+				ModelUUID:      backend.ModelUUID,
+				ModelName:      backend.ModelName,
+				Draining:       draining,
+				Config: params.SecretBackendConfig{
+					BackendType: backend.BackendType,
+					Params:      backend.Config,
+				},
+			}
 		}
 		result.Results[i].Content = contentParams
 	}
@@ -503,26 +686,16 @@ func (s *SecretsManagerAPI) getAppOwnedOrUnitOwnedSecretMetadata(uri *coresecret
 	return nil, notFoundErr
 }
 
-func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*secrets.ContentParams, error) {
+func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (
+	*secrets.ContentParams, *secretsprovider.ModelBackendConfig, bool, error,
+) {
 	// Only the owner can access secrets via the secret metadata label added by the owner.
 	// (Note: the leader unit is not the owner of the application secrets).
 	// Consumers get to use their own label.
 	// Both owners and consumers can also just use the secret URI.
 
 	if arg.URI == "" && arg.Label == "" {
-		return nil, errors.NewNotValid(nil, "both uri and label are empty")
-	}
-
-	getSecretValue := func(uri *coresecrets.URI, revision int) (*secrets.ContentParams, error) {
-		if !s.canRead(uri, s.authTag) {
-			return nil, apiservererrors.ErrPerm
-		}
-
-		val, valueRef, err := s.secretsState.GetSecretValue(uri, revision)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return &secrets.ContentParams{SecretValue: val, ValueRef: valueRef}, nil
+		return nil, nil, false, errors.NewNotValid(nil, "both uri and label are empty")
 	}
 
 	var uri *coresecrets.URI
@@ -531,65 +704,109 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 	if arg.URI != "" {
 		uri, err = coresecrets.ParseURI(arg.URI)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, nil, false, errors.Trace(err)
 		}
 	}
 
 	// arg.Label could be the consumer label for consumers or the owner label for owners.
 	possibleUpdateLabel := arg.Label != "" && uri != nil
 
-	// Owner units should always have the URI because we resolved the label to URI on uniter side already.
-	md, err := s.getAppOwnedOrUnitOwnedSecretMetadata(uri, arg.Label, true, possibleUpdateLabel)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return nil, errors.Trace(err)
-	}
-	if md != nil {
-		// 1. secrets can be accessed by the owner;
-		// 2. application owned secrets can be accessed by all the units of the application using owner label or URI.
-		return getSecretValue(md.URI, md.LatestRevision)
+	// For local secrets, check those which may be owned by the caller.
+	if uri == nil || uri.IsLocal(s.modelUUID) {
+		// Owner units should always have the URI because we resolved the label to URI on uniter side already.
+		md, err := s.getAppOwnedOrUnitOwnedSecretMetadata(uri, arg.Label, true, possibleUpdateLabel)
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			return nil, nil, false, errors.Trace(err)
+		}
+		if md != nil {
+			// 1. secrets can be accessed by the owner;
+			// 2. application owned secrets can be accessed by all the units of the application using owner label or URI.
+			val, valueRef, err := s.secretsState.GetSecretValue(md.URI, md.LatestRevision)
+			if err != nil {
+				return nil, nil, false, errors.Trace(err)
+			}
+			content := &secrets.ContentParams{SecretValue: val, ValueRef: valueRef}
+			if err != nil || content.ValueRef == nil {
+				return content, nil, false, errors.Trace(err)
+			}
+			backend, draining, err := s.getBackend(content.ValueRef.BackendID)
+			return content, backend, draining, errors.Trace(err)
+		}
 	}
 
 	if uri == nil {
 		var err error
 		uri, err = s.secretsConsumer.GetURIByConsumerLabel(arg.Label, s.authTag)
 		if errors.Is(err, errors.NotFound) {
-			return nil, errors.NotFoundf("consumer label %q", arg.Label)
+			return nil, nil, false, errors.NotFoundf("consumer label %q", arg.Label)
 		}
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, nil, false, errors.Trace(err)
 		}
 	}
+	logger.Debugf("getting secret content for: %s", uri)
 
-	consumer, err := s.secretsConsumer.GetSecretConsumer(uri, s.authTag)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return nil, errors.Trace(err)
+	if !uri.IsLocal(s.modelUUID) {
+		return s.getRemoteSecretContent(uri, arg.Refresh, arg.Peek, arg.Label, possibleUpdateLabel)
 	}
-	refresh := arg.Refresh ||
+
+	if !s.canRead(uri, s.authTag) {
+		return nil, nil, false, apiservererrors.ErrPerm
+	}
+
+	// arg.Label is the consumer label for consumers.
+	consumedRevision, err := s.getConsumedRevision(uri, arg.Refresh, arg.Peek, arg.Label, possibleUpdateLabel)
+	if err != nil {
+		return nil, nil, false, errors.Annotate(err, "getting latest secret revision")
+	}
+
+	val, valueRef, err := s.secretsState.GetSecretValue(uri, consumedRevision)
+	content := &secrets.ContentParams{SecretValue: val, ValueRef: valueRef}
+	if err != nil || content.ValueRef == nil {
+		return content, nil, false, errors.Trace(err)
+	}
+	backend, draining, err := s.getBackend(content.ValueRef.BackendID)
+	return content, backend, draining, errors.Trace(err)
+}
+
+func (s *SecretsManagerAPI) getConsumedRevision(uri *coresecrets.URI, refresh, peek bool, label string, possibleUpdateLabel bool) (int, error) {
+	consumerInfo, err := s.secretsConsumer.GetSecretConsumer(uri, s.authTag)
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return 0, errors.Trace(err)
+	}
+	refresh = refresh ||
 		err != nil // Not found, so need to create one.
-	peek := arg.Peek
+
+	var wantRevision int
+	if err == nil {
+		wantRevision = consumerInfo.CurrentRevision
+	}
 
 	// Use the latest revision as the current one if --refresh or --peek.
 	if refresh || peek {
 		md, err := s.secretsState.GetSecret(uri)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return 0, errors.Trace(err)
 		}
-		if consumer == nil {
-			consumer = &coresecrets.SecretConsumerMetadata{
-				LatestRevision: md.LatestRevision,
-			}
+		if consumerInfo == nil {
+			consumerInfo = &coresecrets.SecretConsumerMetadata{}
 		}
-		consumer.CurrentRevision = md.LatestRevision
+		consumerInfo.LatestRevision = md.LatestRevision
+		if refresh {
+			consumerInfo.CurrentRevision = md.LatestRevision
+		}
+		wantRevision = md.LatestRevision
 	}
+	// Save the latest consumer info if required.
 	if refresh || possibleUpdateLabel {
-		if arg.Label != "" {
-			consumer.Label = arg.Label
+		if label != "" {
+			consumerInfo.Label = label
 		}
-		if err := s.secretsConsumer.SaveSecretConsumer(uri, s.authTag, consumer); err != nil {
-			return nil, errors.Trace(err)
+		if err := s.secretsConsumer.SaveSecretConsumer(uri, s.authTag, consumerInfo); err != nil {
+			return 0, errors.Trace(err)
 		}
 	}
-	return getSecretValue(uri, consumer.CurrentRevision)
+	return wantRevision, nil
 }
 
 // WatchConsumedSecretsChanges sets up a watcher to notify of changes to secret revisions for the specified consumers.
@@ -700,7 +917,7 @@ func (s *SecretsManagerAPI) WatchSecretsRotationChanges(args params.Entities) (p
 		changes := make([]params.SecretTriggerChange, len(secretChanges))
 		for i, c := range secretChanges {
 			changes[i] = params.SecretTriggerChange{
-				URI:             c.URI.String(),
+				URI:             c.URI.ID,
 				NextTriggerTime: c.NextTriggerTime,
 			}
 		}
@@ -744,18 +961,18 @@ func (s *SecretsManagerAPI) SecretsRotated(args params.SecretRotatedArgs) (param
 			lastRotateTime = &now
 		}
 		nextRotateTime := *md.RotatePolicy.NextRotateTime(*lastRotateTime)
-		logger.Debugf("secret %q was rotated: rev was %d, now %d", uri.String(), arg.OriginalRevision, md.LatestRevision)
+		logger.Debugf("secret %q was rotated: rev was %d, now %d", uri.ID, arg.OriginalRevision, md.LatestRevision)
 		// If the secret will expire before it is due to be next rotated, rotate sooner to allow
 		// the charm a chance to update it before it expires.
 		willExpire := md.LatestExpireTime != nil && md.LatestExpireTime.Before(nextRotateTime)
 		forcedRotateTime := lastRotateTime.Add(coresecrets.RotateRetryDelay)
 		if willExpire {
-			logger.Warningf("secret %q rev %d will expire before next scheduled rotation", uri.String(), md.LatestRevision)
+			logger.Warningf("secret %q rev %d will expire before next scheduled rotation", uri.ID, md.LatestRevision)
 		}
 		if willExpire && forcedRotateTime.Before(*md.LatestExpireTime) || !arg.Skip && md.LatestRevision == arg.OriginalRevision {
 			nextRotateTime = forcedRotateTime
 		}
-		logger.Debugf("secret %q next rotate time is now: %s", uri.String(), nextRotateTime.UTC().Format(time.RFC3339))
+		logger.Debugf("secret %q next rotate time is now: %s", uri.ID, nextRotateTime.UTC().Format(time.RFC3339))
 		return s.secretsTriggers.SecretRotated(uri, nextRotateTime)
 	}
 	for i, arg := range args.Args {
@@ -796,7 +1013,7 @@ func (s *SecretsManagerAPI) WatchSecretRevisionsExpiryChanges(args params.Entiti
 		changes := make([]params.SecretTriggerChange, len(secretChanges))
 		for i, c := range secretChanges {
 			changes[i] = params.SecretTriggerChange{
-				URI:             c.URI.String(),
+				URI:             c.URI.ID,
 				Revision:        c.Revision,
 				NextTriggerTime: c.NextTriggerTime,
 			}

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
@@ -356,7 +357,7 @@ func (api *API) ConsumeRemoteRelationChanges(changes params.RemoteRelationsChang
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if err := commoncrossmodel.PublishRelationChange(api.st, relationTag, change); err != nil {
+		if err := commoncrossmodel.PublishRelationChange(api.authorizer, api.st, relationTag, change); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -430,4 +431,28 @@ func (api *API) UpdateControllersForModels(args params.UpdateControllersForModel
 	}
 
 	return result, nil
+}
+
+// ConsumeRemoteSecretChanges updates the local model with secret revision changes
+// originating from the remote/offering model.
+func (api *API) ConsumeRemoteSecretChanges(args params.LatestSecretRevisionChanges) (params.ErrorResults, error) {
+	var result params.ErrorResults
+	result.Results = make([]params.ErrorResult, len(args.Changes))
+	for i, arg := range args.Changes {
+		err := api.consumeOneRemoteSecretChange(arg)
+		result.Results[i].Error = apiservererrors.ServerError(err)
+	}
+	return result, nil
+}
+
+func (api *API) consumeOneRemoteSecretChange(arg params.SecretRevisionChange) error {
+	uri, err := coresecrets.ParseURI(arg.URI)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	op, err := api.st.UpdateSecretConsumerOperation(uri, arg.Revision)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return api.st.ApplyOperation(op)
 }

@@ -1120,6 +1120,41 @@ func (s *SecretsSuite) TestGetSecretConsumerAndGetSecretConsumerURI(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *SecretsSuite) TestGetSecretConsumerCrossModelURI(c *gc.C) {
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+			Label:       strPtr("owner-label"),
+		},
+	}
+	uri := secrets.NewURI().WithSource("deadbeef-1bad-500d-9000-4b1d0d06f00d")
+	_, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	md := &secrets.SecretConsumerMetadata{
+		Label:           "consumer-label",
+		CurrentRevision: 666,
+	}
+	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), md)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.GetSecretConsumer(nil, names.NewUnitTag("mariadb/0"))
+	c.Check(err, gc.ErrorMatches, `empty URI`)
+
+	md2, err := s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(md2, jc.DeepEquals, md)
+
+	uri3, err := s.State.GetURIByConsumerLabel("consumer-label", names.NewUnitTag("mariadb/0"))
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(uri3, jc.DeepEquals, uri)
+}
+
 func (s *SecretsSuite) TestSaveSecretConsumer(c *gc.C) {
 	cp := state.CreateSecretParams{
 		Version: 1,
@@ -1176,6 +1211,25 @@ func (s *SecretsSuite) TestSaveSecretConsumerConcurrent(c *gc.C) {
 	c.Assert(md2, jc.DeepEquals, md)
 }
 
+func (s *SecretsSuite) TestSaveSecretConsumerDifferentModel(c *gc.C) {
+	uri := secrets.NewURI().WithSource("some-uuid")
+	md := &secrets.SecretConsumerMetadata{
+		Label:           "foobar",
+		CurrentRevision: 666,
+	}
+	err := s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), md)
+	c.Assert(err, jc.ErrorIsNil)
+	md2, err := s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(md2, jc.DeepEquals, md)
+	md.CurrentRevision = 668
+	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), md)
+	c.Assert(err, jc.ErrorIsNil)
+	md2, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(md2, jc.DeepEquals, md)
+}
+
 func (s *SecretsSuite) TestSecretGrantAccess(c *gc.C) {
 	uri := secrets.NewURI()
 	subject := names.NewApplicationTag("wordpress")
@@ -1210,11 +1264,27 @@ func (s *SecretsSuite) TestSecretGrantAccess(c *gc.C) {
 	c.Assert(access, gc.Equals, secrets.RoleView)
 }
 
-func (s *SecretsSuite) TestSecretGrantCrossModel(c *gc.C) {
+func (s *SecretsSuite) TestSecretGrantCrossModelOffer(c *gc.C) {
+	s.assertSecretGrantCrossModelOffer(c, true, false)
+}
+
+func (s *SecretsSuite) TestSecretGrantCrossModelConsumer(c *gc.C) {
+	s.assertSecretGrantCrossModelOffer(c, false, false)
+}
+
+func (s *SecretsSuite) TestSecretGrantCrossModelConsumerUnit(c *gc.C) {
+	s.assertSecretGrantCrossModelOffer(c, false, true)
+}
+
+func (s *SecretsSuite) TestSecretGrantCrossModelUnit(c *gc.C) {
+	s.assertSecretGrantCrossModelOffer(c, true, true)
+}
+
+func (s *SecretsSuite) assertSecretGrantCrossModelOffer(c *gc.C, offer, unit bool) {
 	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:            "remote-wordpress",
 		SourceModel:     names.NewModelTag("source-model"),
-		IsConsumerProxy: true,
+		IsConsumerProxy: offer,
 		OfferUUID:       "offer-uuid",
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
@@ -1244,13 +1314,24 @@ func (s *SecretsSuite) TestSecretGrantCrossModel(c *gc.C) {
 	_, err = s.store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
 
+	subject := rwordpress.Tag()
+	if unit {
+		subject = names.NewUnitTag(rwordpress.Name() + "/0")
+	}
 	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
 		LeaderToken: &fakeToken{},
 		Scope:       relation.Tag(),
-		Subject:     rwordpress.Tag(),
+		Subject:     subject,
 		Role:        secrets.RoleView,
 	})
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	if offer && !unit {
+		c.Assert(err, jc.ErrorIsNil)
+		access, err := s.State.SecretAccess(uri, rwordpress.Tag())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(access, gc.Equals, secrets.RoleView)
+	} else {
+		c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	}
 }
 
 func (s *SecretsSuite) TestSecretGrantAccessDyingScope(c *gc.C) {
@@ -1362,6 +1443,33 @@ func (s *SecretsSuite) TestSecretRevokeAccess(c *gc.C) {
 		Subject:     subject,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *SecretsSuite) TestSecretAccessScope(c *gc.C) {
+	uri := secrets.NewURI()
+	subject := names.NewApplicationTag("wordpress")
+
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
+		LeaderToken: &fakeToken{},
+		Scope:       s.relation.Tag(),
+		Subject:     subject,
+		Role:        secrets.RoleView,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	scope, err := s.State.SecretAccessScope(uri, subject)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(scope, jc.DeepEquals, s.relation.Tag())
 }
 
 func (s *SecretsSuite) TestDelete(c *gc.C) {
@@ -2253,6 +2361,163 @@ func (s *SecretsConsumedWatcherSuite) TestWatchConsumedDeleted(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 	err = s.State.SaveSecretConsumer(uri, names.NewApplicationTag("baz"), &secrets.SecretConsumerMetadata{
+		CurrentRevision: 1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	_, err = s.store.DeleteSecret(uri)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(uri.String())
+	wc.AssertNoChange()
+}
+
+type SecretsRemoteConsumerWatcherSuite struct {
+	testing.StateSuite
+	store state.SecretsStore
+
+	owner *state.Application
+}
+
+var _ = gc.Suite(&SecretsRemoteConsumerWatcherSuite{})
+
+func (s *SecretsRemoteConsumerWatcherSuite) SetUpTest(c *gc.C) {
+	s.StateSuite.SetUpTest(c)
+	s.store = state.NewSecrets(s.State)
+	s.owner = s.Factory.MakeApplication(c, nil)
+}
+
+func (s *SecretsRemoteConsumerWatcherSuite) TestWatcherInitialEvent(c *gc.C) {
+	w, err := s.State.WatchRemoteConsumedSecretsChanges("remote-app")
+	c.Assert(err, jc.ErrorIsNil)
+	wc := testing.NewStringsWatcherC(c, w)
+	wc.AssertChange()
+
+	testing.AssertStop(c, w)
+}
+
+func (s *SecretsRemoteConsumerWatcherSuite) setupWatcher(c *gc.C) (state.StringsWatcher, *secrets.URI) {
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri2 := secrets.NewURI()
+	cp = state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err = s.store.CreateSecret(uri2, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.store.UpdateSecret(uri2, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        secrets.SecretData{"foo": "bar2"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.SaveSecretRemoteConsumer(uri, names.NewUnitTag("remote-app/0"), &secrets.SecretConsumerMetadata{
+		CurrentRevision: 1,
+		LatestRevision:  1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SaveSecretRemoteConsumer(uri2, names.NewUnitTag("remote-app/0"), &secrets.SecretConsumerMetadata{
+		CurrentRevision: 1,
+		LatestRevision:  2,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	w, err := s.State.WatchRemoteConsumedSecretsChanges("remote-app")
+	c.Assert(err, jc.ErrorIsNil)
+	wc := testing.NewStringsWatcherC(c, w)
+
+	// No event until rev > 1, so just the one change.
+	wc.AssertChange(uri2.String())
+	return w, uri
+}
+
+func (s *SecretsRemoteConsumerWatcherSuite) TestWatcherStartStop(c *gc.C) {
+	w, _ := s.setupWatcher(c)
+	testing.AssertStop(c, w)
+}
+
+func (s *SecretsRemoteConsumerWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewStringsWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	_, err := s.store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        secrets.SecretData{"foo": "bar2"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange(uri.String())
+	wc.AssertNoChange()
+}
+
+func (s *SecretsRemoteConsumerWatcherSuite) TestWatchMultipleSecrets(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewStringsWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	uri2 := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo2": "bar"},
+		},
+	}
+	_, err := s.store.CreateSecret(uri2, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.SaveSecretRemoteConsumer(uri2, names.NewUnitTag("remote-app/0"), &secrets.SecretConsumerMetadata{CurrentRevision: 1})
+	c.Assert(err, jc.ErrorIsNil)
+	// No event until rev > 1.
+	wc.AssertNoChange()
+
+	_, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        secrets.SecretData{"foo": "bar2"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange(uri.String())
+	wc.AssertNoChange()
+
+	_, err = s.store.UpdateSecret(uri2, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        secrets.SecretData{"foo2": "bar2"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange(uri2.String())
+	wc.AssertNoChange()
+}
+
+func (s *SecretsRemoteConsumerWatcherSuite) TestWatchConsumedDeleted(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewStringsWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	err := s.State.SaveSecretRemoteConsumer(uri, names.NewApplicationTag("foo"), &secrets.SecretConsumerMetadata{
+		CurrentRevision: 1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+	err = s.State.SaveSecretRemoteConsumer(uri, names.NewApplicationTag("baz"), &secrets.SecretConsumerMetadata{
 		CurrentRevision: 1,
 	})
 	c.Assert(err, jc.ErrorIsNil)

@@ -5,6 +5,7 @@ package application
 
 import (
 	stderrors "errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -769,7 +770,20 @@ func (c *Client) SetRelationSuspended(relationIds []int, suspended bool, message
 	if len(results.Results) != len(args.Args) {
 		return errors.Errorf("expected %d results, got %d", len(args.Args), len(results.Results))
 	}
-	return results.Combine()
+	var errorStrings []string
+	for i, r := range results.Results {
+		if r.Error != nil {
+			if r.Error.Code == params.CodeUnauthorized {
+				errorStrings = append(errorStrings, fmt.Sprintf("cannot resume relation %d without consume permission", relationIds[i]))
+			} else {
+				errorStrings = append(errorStrings, r.Error.Error())
+			}
+		}
+	}
+	if errorStrings != nil {
+		return errors.New(strings.Join(errorStrings, "\n"))
+	}
+	return nil
 }
 
 // Consume adds a remote application to the model.

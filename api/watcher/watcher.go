@@ -1067,3 +1067,95 @@ func (w *secretBackendRotateWatcher) loop(initialChanges []params.SecretBackendR
 func (w *secretBackendRotateWatcher) Changes() watcher.SecretBackendRotateChannel {
 	return w.out
 }
+
+// SecretsRevisionWatcher will send notifications of changes to secret revisions.
+type SecretsRevisionWatcher struct {
+	commonWatcher
+	caller    base.APICaller
+	watcherId string
+	out       chan []watcher.SecretRevisionChange
+}
+
+// NewSecretsRevisionWatcher returns a watcher notifying of changes to
+// secret revisions.
+func NewSecretsRevisionWatcher(
+	caller base.APICaller, result params.SecretRevisionWatchResult,
+) watcher.SecretsRevisionWatcher {
+	w := &SecretsRevisionWatcher{
+		caller:    caller,
+		watcherId: result.WatcherId,
+		out:       make(chan []watcher.SecretRevisionChange),
+	}
+	w.tomb.Go(func() error {
+		return w.loop(result.Changes)
+	})
+	return w
+}
+
+// mergeChanges combines the revision in current and new, such that we end up with
+// only one change per secret in the result; the most recent change wins.
+func (w *SecretsRevisionWatcher) mergeChanges(current, new []watcher.SecretRevisionChange) []watcher.SecretRevisionChange {
+	chMap := make(map[string]watcher.SecretRevisionChange)
+	for _, c := range current {
+		chMap[c.URI.ID] = c
+	}
+	for _, c := range new {
+		chMap[c.URI.ID] = c
+	}
+	var result []watcher.SecretRevisionChange
+	for _, c := range chMap {
+		result = append(result, c)
+	}
+	return result
+}
+
+func (w *SecretsRevisionWatcher) loop(initialChanges []params.SecretRevisionChange) error {
+	w.newResult = func() interface{} { return new(params.SecretRevisionWatchResult) }
+	w.call = makeWatcherAPICaller(w.caller, "SecretsRevisionWatcher", w.watcherId)
+	w.commonWatcher.init()
+	go w.commonLoop()
+
+	copyChanges := func(changes []params.SecretRevisionChange) []watcher.SecretRevisionChange {
+		var result []watcher.SecretRevisionChange
+		for _, ch := range changes {
+			uri, err := secrets.ParseURI(ch.URI)
+			if err != nil {
+				logger.Warningf("invalid secret URI: %v", ch.URI)
+				continue
+			}
+			result = append(result, watcher.SecretRevisionChange{
+				URI:      uri,
+				Revision: ch.Revision,
+			})
+		}
+		return result
+	}
+	out := w.out
+	changes := copyChanges(initialChanges)
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		// Read the next change.
+		case data, ok := <-w.in:
+			if !ok {
+				// The tomb is already killed with the correct error
+				// at this point, so just return.
+				return nil
+			}
+			newChanges := copyChanges(data.(*params.SecretRevisionWatchResult).Changes)
+			changes = w.mergeChanges(changes, newChanges)
+			out = w.out
+		case out <- changes:
+			out = nil
+			changes = nil
+		}
+	}
+}
+
+// Changes returns a channel that will receive the changes to
+// a secret revision. The first event reflects the current
+// values of these attributes.
+func (w *SecretsRevisionWatcher) Changes() watcher.SecretRevisionChannel {
+	return w.out
+}

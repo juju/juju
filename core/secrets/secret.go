@@ -40,18 +40,22 @@ func (c *SecretConfig) Validate() error {
 
 // URI represents a reference to a secret.
 type URI struct {
-	ID string
+	SourceUUID string
+	ID         string
 }
 
 const (
-	idSnippet = `[0-9a-z]{20}`
+	idSnippet   = `[0-9a-z]{20}`
+	uuidSnippet = `[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`
 
 	// SecretScheme is the URL prefix for a secret.
 	SecretScheme = "secret"
 )
 
+var validUUID = regexp.MustCompile(uuidSnippet)
+
 var secretURIParse = regexp.MustCompile(`^` +
-	fmt.Sprintf(`(?P<id>%s)`, idSnippet) +
+	fmt.Sprintf(`((?P<source>%s)/)?(?P<id>%s)`, uuidSnippet, idSnippet) +
 	`$`)
 
 // ParseURI parses the specified string into a URI.
@@ -65,21 +69,30 @@ func ParseURI(str string) (*URI, error) {
 	} else if u.Scheme != SecretScheme {
 		return nil, errors.NotValidf("secret URI scheme %q", u.Scheme)
 	}
-	spec := fmt.Sprintf("%s%s", u.Host, u.Opaque)
-	if spec == "" {
-		spec = u.Path
+	if u.Host != "" && !validUUID.MatchString(u.Host) {
+		return nil, errors.NotValidf("host controller UUID %q", u.Host)
 	}
 
-	matches := secretURIParse.FindStringSubmatch(spec)
-	if matches == nil {
+	idStr := strings.TrimLeft(u.Path, "/")
+	if idStr == "" {
+		idStr = u.Opaque
+	}
+	valid := secretURIParse.MatchString(idStr)
+	if !valid {
 		return nil, errors.NotValidf("secret URI %q", str)
 	}
-	id, err := xid.FromString(matches[1])
+	sourceUUID := secretURIParse.ReplaceAllString(idStr, "$source")
+	if sourceUUID == "" {
+		sourceUUID = u.Host
+	}
+	idPart := secretURIParse.ReplaceAllString(idStr, "$id")
+	id, err := xid.FromString(idPart)
 	if err != nil {
 		return nil, errors.NotValidf("secret URI %q", str)
 	}
 	result := &URI{
-		ID: id.String(),
+		SourceUUID: sourceUUID,
+		ID:         id.String(),
 	}
 	return result, nil
 }
@@ -89,6 +102,18 @@ func NewURI() *URI {
 	return &URI{
 		ID: xid.New().String(),
 	}
+}
+
+// WithSource returns a secret URI with the source.
+func (u *URI) WithSource(uuid string) *URI {
+	u.SourceUUID = uuid
+	return u
+}
+
+// IsLocal returns true if this URI is local
+// to the specified uuid.
+func (u *URI) IsLocal(sourceUUID string) bool {
+	return u.SourceUUID == "" || u.SourceUUID == sourceUUID
 }
 
 // Name generates the secret name.
@@ -104,9 +129,17 @@ func (u *URI) String() string {
 	var fullPath []string
 	fullPath = append(fullPath, u.ID)
 	str := strings.Join(fullPath, "/")
+	if u.SourceUUID == "" {
+		urlValue := url.URL{
+			Scheme: SecretScheme,
+			Opaque: str,
+		}
+		return urlValue.String()
+	}
 	urlValue := url.URL{
 		Scheme: SecretScheme,
-		Opaque: str,
+		Host:   u.SourceUUID,
+		Path:   str,
 	}
 	return urlValue.String()
 }

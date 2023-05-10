@@ -16,11 +16,13 @@ import (
 var anonymousFacadeNames = set.NewStrings(
 	"CrossController",
 	"CrossModelRelations",
+	"CrossModelSecrets",
 	"NotifyWatcher",
 	"OfferStatusWatcher",
 	"RelationStatusWatcher",
 	"RelationUnitsWatcher",
 	"RemoteRelationWatcher",
+	"SecretsRevisionWatcher",
 	"StringsWatcher",
 )
 

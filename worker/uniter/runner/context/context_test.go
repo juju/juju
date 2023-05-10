@@ -4,6 +4,7 @@
 package context_test
 
 import (
+	stdcontext "context"
 	"strings"
 	"time"
 
@@ -26,7 +27,8 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
-	"github.com/juju/juju/secrets/provider/juju"
+	"github.com/juju/juju/secrets/provider"
+	"github.com/juju/juju/secrets/provider/vault"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -636,6 +638,7 @@ func (p *mockProcess) Pid() int {
 var _ = gc.Suite(&mockHookContextSuite{})
 
 type mockHookContextSuite struct {
+	testing.IsolationSuite
 	mockUnit       *mocks.MockHookUnit
 	mockLeadership *mocks.MockLeadershipContext
 	mockCache      params.UnitStateResult
@@ -1127,46 +1130,58 @@ func (s *mockHookContextSuite) TestSecretGetFromPendingUpdateChanges(c *gc.C) {
 	)
 }
 
-func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+type mockBackend struct {
+	provider.SecretsBackend
+}
 
-	call := 0
+func (mockBackend) GetContent(_ stdcontext.Context, revisionId string) (coresecrets.SecretValue, error) {
+	if revisionId != "rev-id" {
+		return nil, errors.NotFoundf("revision %q", revisionId)
+	}
+	return coresecrets.NewSecretValue(map[string]string{"foo": "bar"}), nil
+}
+
+func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.PatchValue(&secrets.GetBackend, func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+		c.Assert(cfg.BackendConfig.BackendType, gc.Equals, "vault")
+		return mockBackend{}, nil
+	})
+
 	uri := coresecrets.NewURI()
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		if call == 0 {
-			call++
-			c.Assert(objType, gc.Equals, "SecretsManager")
-			c.Assert(version, gc.Equals, 0)
-			c.Assert(id, gc.Equals, "")
-			c.Assert(request, gc.Equals, "GetSecretContentInfo")
-			c.Assert(arg, gc.DeepEquals, params.GetSecretContentArgs{
-				Args: []params.GetSecretContentArg{{
-					URI:     uri.String(),
-					Label:   "label",
-					Refresh: true,
-					Peek:    true,
-				}},
-			})
-			c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
-			*(result.(*params.SecretContentResults)) = params.SecretContentResults{
-				[]params.SecretContentResult{{
-					Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
-				}},
-			}
-			return nil
-		}
-
 		c.Assert(objType, gc.Equals, "SecretsManager")
 		c.Assert(version, gc.Equals, 0)
 		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "GetSecretBackendConfig")
-		c.Assert(arg, gc.IsNil)
-		c.Assert(result, gc.FitsTypeOf, &params.SecretBackendConfigResults{})
-		*(result.(*params.SecretBackendConfigResults)) = params.SecretBackendConfigResults{
-			ActiveID: coretesting.ControllerTag.Id(),
-			Configs: map[string]params.SecretBackendConfig{
-				coretesting.ControllerTag.Id(): {BackendType: juju.BackendType},
-			},
+		c.Assert(request, gc.Equals, "GetSecretContentInfo")
+		c.Assert(arg, jc.DeepEquals, params.GetSecretContentArgs{
+			Args: []params.GetSecretContentArg{{
+				URI:     uri.String(),
+				Label:   "label",
+				Refresh: true,
+				Peek:    true,
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
+		*(result.(*params.SecretContentResults)) = params.SecretContentResults{
+			Results: []params.SecretContentResult{{
+				Content: params.SecretContentParams{
+					ValueRef: &params.SecretValueRef{
+						BackendID:  "backend-id",
+						RevisionID: "rev-id",
+					},
+				},
+				BackendConfig: &params.SecretBackendConfigResult{
+					ControllerUUID: coretesting.ControllerTag.Id(),
+					ModelUUID:      coretesting.ModelTag.Id(),
+					ModelName:      "fred",
+					Config: params.SecretBackendConfig{
+						BackendType: vault.BackendType,
+					},
+				},
+			}},
 		}
 		return nil
 	})
@@ -1217,40 +1232,24 @@ func (s *mockHookContextSuite) assertSecretGetOwnedSecretURILookup(
 ) {
 	defer s.setupMocks(c).Finish()
 
-	call := 0
 	uri := coresecrets.NewURI()
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		if call == 0 {
-			call++
-			c.Assert(objType, gc.Equals, "SecretsManager")
-			c.Assert(version, gc.Equals, 0)
-			c.Assert(id, gc.Equals, "")
-			c.Assert(request, gc.Equals, "GetSecretContentInfo")
-			c.Assert(arg, gc.DeepEquals, params.GetSecretContentArgs{
-				Args: []params.GetSecretContentArg{{
-					URI:     uri.String(),
-					Refresh: false,
-					Peek:    false,
-				}},
-			})
-			c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
-			*(result.(*params.SecretContentResults)) = params.SecretContentResults{
-				[]params.SecretContentResult{{
-					Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
-				}},
-			}
-			return nil
-		}
 		c.Assert(objType, gc.Equals, "SecretsManager")
 		c.Assert(version, gc.Equals, 0)
 		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "GetSecretBackendConfig")
-		c.Assert(arg, gc.IsNil)
-		*(result.(*params.SecretBackendConfigResults)) = params.SecretBackendConfigResults{
-			ActiveID: coretesting.ControllerTag.Id(),
-			Configs: map[string]params.SecretBackendConfig{
-				coretesting.ControllerTag.Id(): {BackendType: juju.BackendType},
-			},
+		c.Assert(request, gc.Equals, "GetSecretContentInfo")
+		c.Assert(arg, gc.DeepEquals, params.GetSecretContentArgs{
+			Args: []params.GetSecretContentArg{{
+				URI:     uri.String(),
+				Refresh: false,
+				Peek:    false,
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
+		*(result.(*params.SecretContentResults)) = params.SecretContentResults{
+			[]params.SecretContentResult{{
+				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
+			}},
 		}
 		return nil
 	})

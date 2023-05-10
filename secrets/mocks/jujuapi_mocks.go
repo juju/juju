@@ -37,12 +37,14 @@ func (m *MockJujuAPIClient) EXPECT() *MockJujuAPIClientMockRecorder {
 }
 
 // GetContentInfo mocks base method.
-func (m *MockJujuAPIClient) GetContentInfo(arg0 *secrets.URI, arg1 string, arg2, arg3 bool) (*secrets0.ContentParams, error) {
+func (m *MockJujuAPIClient) GetContentInfo(arg0 *secrets.URI, arg1 string, arg2, arg3 bool) (*secrets0.ContentParams, *provider.ModelBackendConfig, bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetContentInfo", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*secrets0.ContentParams)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(*provider.ModelBackendConfig)
+	ret2, _ := ret[2].(bool)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
 }
 
 // GetContentInfo indicates an expected call of GetContentInfo.
@@ -52,12 +54,14 @@ func (mr *MockJujuAPIClientMockRecorder) GetContentInfo(arg0, arg1, arg2, arg3 i
 }
 
 // GetRevisionContentInfo mocks base method.
-func (m *MockJujuAPIClient) GetRevisionContentInfo(arg0 *secrets.URI, arg1 int, arg2 bool) (*secrets0.ContentParams, error) {
+func (m *MockJujuAPIClient) GetRevisionContentInfo(arg0 *secrets.URI, arg1 int, arg2 bool) (*secrets0.ContentParams, *provider.ModelBackendConfig, bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRevisionContentInfo", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*secrets0.ContentParams)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(*provider.ModelBackendConfig)
+	ret2, _ := ret[2].(bool)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
 }
 
 // GetRevisionContentInfo indicates an expected call of GetRevisionContentInfo.
@@ -67,16 +71,16 @@ func (mr *MockJujuAPIClientMockRecorder) GetRevisionContentInfo(arg0, arg1, arg2
 }
 
 // GetSecretBackendConfig mocks base method.
-func (m *MockJujuAPIClient) GetSecretBackendConfig() (*provider.ModelBackendConfigInfo, error) {
+func (m *MockJujuAPIClient) GetSecretBackendConfig(arg0 *string) (*provider.ModelBackendConfigInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecretBackendConfig")
+	ret := m.ctrl.Call(m, "GetSecretBackendConfig", arg0)
 	ret0, _ := ret[0].(*provider.ModelBackendConfigInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetSecretBackendConfig indicates an expected call of GetSecretBackendConfig.
-func (mr *MockJujuAPIClientMockRecorder) GetSecretBackendConfig() *gomock.Call {
+func (mr *MockJujuAPIClientMockRecorder) GetSecretBackendConfig(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretBackendConfig", reflect.TypeOf((*MockJujuAPIClient)(nil).GetSecretBackendConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretBackendConfig", reflect.TypeOf((*MockJujuAPIClient)(nil).GetSecretBackendConfig), arg0)
 }
