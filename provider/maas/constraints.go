@@ -33,8 +33,8 @@ func (env *maasEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (c
 
 	// Only consume supported juju architectures for this release. This will
 	// also remove any duplicate architectures.
-	lxdArches := set.NewStrings(supportedArches...)
-	supported := set.NewStrings(arch.AllSupportedArches...).Intersection(lxdArches)
+	maasArches := set.NewStrings(supportedArches...)
+	supported := set.NewStrings(arch.AllSupportedArches...).Intersection(maasArches)
 
 	validator.RegisterVocabulary(constraints.Arch, supported.SortedValues())
 
