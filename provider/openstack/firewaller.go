@@ -33,6 +33,12 @@ const (
 
 var extractControllerRe = regexp.MustCompile(GroupControllerPattern)
 
+var shortRetryStrategy = retry.CallArgs{
+	Clock:       clock.WallClock,
+	MaxDuration: 5 * time.Second,
+	Delay:       200 * time.Millisecond,
+}
+
 // FirewallerFactory for obtaining firewaller object.
 type FirewallerFactory interface {
 	GetFirewaller(env environs.Environ) Firewaller
@@ -650,24 +656,42 @@ func (c *neutronFirewaller) matchingGroup(ctx context.ProviderCallContext, nameR
 		return neutron.SecurityGroupV2{}, err
 	}
 	neutronClient := c.environ.neutron()
-	allGroups, err := neutronClient.ListSecurityGroupsV2()
-	if err != nil {
-		handleCredentialError(err, ctx)
-		return neutron.SecurityGroupV2{}, err
+
+	// If the security group has just been created, it might not be available
+	// yet. If we get not matching groups, we will retry the request using
+	// shortRetryStrategy before giving up
+	var matchingGroup neutron.SecurityGroupV2
+
+	retryStrategy := shortRetryStrategy
+	retryStrategy.IsFatalError = func(err error) bool {
+		return !errors.IsNotFound(err)
 	}
-	var matchingGroups []neutron.SecurityGroupV2
-	for _, group := range allGroups {
-		if re.MatchString(group.Name) {
-			matchingGroups = append(matchingGroups, group)
+	retryStrategy.Func = func() error {
+		allGroups, err := neutronClient.ListSecurityGroupsV2()
+		if err != nil {
+			handleCredentialError(err, ctx)
+			return err
 		}
+		var matchingGroups []neutron.SecurityGroupV2
+		for _, group := range allGroups {
+			if re.MatchString(group.Name) {
+				matchingGroups = append(matchingGroups, group)
+			}
+		}
+		numMatching := len(matchingGroups)
+		if numMatching == 0 {
+			return errors.NotFoundf("security groups matching %q", nameRegExp)
+		} else if numMatching > 1 {
+			return errors.New(fmt.Sprintf("%d security groups found matching %q, expected 1", numMatching, nameRegExp))
+		}
+		matchingGroup = matchingGroups[0]
+		return nil
 	}
-	numMatching := len(matchingGroups)
-	if numMatching == 0 {
-		return neutron.SecurityGroupV2{}, errors.NotFoundf("security groups matching %q", nameRegExp)
-	} else if numMatching > 1 {
-		return neutron.SecurityGroupV2{}, errors.New(fmt.Sprintf("%d security groups found matching %q, expected 1", numMatching, nameRegExp))
+	err = retry.Call(retryStrategy)
+	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
+		err = retry.LastError(err)
 	}
-	return matchingGroups[0], nil
+	return matchingGroup, err
 }
 
 func (c *neutronFirewaller) openPortsInGroup(ctx context.ProviderCallContext, nameRegExp string, rules firewall.IngressRules) error {
