@@ -19,6 +19,7 @@ import (
 // logger.
 type Logger interface {
 	Warningf(string, ...interface{})
+	Errorf(string, ...interface{})
 }
 
 // ManifoldConfig contains:

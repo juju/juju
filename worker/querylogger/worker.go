@@ -137,10 +137,10 @@ func (l *loggerWorker) loop() error {
 	defer func() {
 		// Don't return early, just log and continue.
 		if err := file.Sync(); err != nil {
-			l.logger.Warningf("failed to sync slow query log: %v", err)
+			l.logger.Errorf("failed to sync slow query log: %v", err)
 		}
 		if err := file.Close(); err != nil {
-			l.logger.Warningf("failed to close slow query log: %v", err)
+			l.logger.Errorf("failed to close slow query log: %v", err)
 		}
 	}()
 
@@ -165,7 +165,7 @@ func (l *loggerWorker) loop() error {
 		case <-timer.Chan():
 			if syncRequired {
 				if err := file.Sync(); err != nil {
-					return errors.Trace(err)
+					return errors.Annotatef(err, "failed to sync slow query log")
 				}
 			}
 			syncRequired = false
