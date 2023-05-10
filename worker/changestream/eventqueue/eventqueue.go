@@ -34,7 +34,7 @@ type subscription struct {
 
 	topics map[string]struct{}
 
-	changes chan changestream.ChangeEvent
+	changes chan []changestream.ChangeEvent
 	active  chan struct{}
 
 	unsubscribeFn func()
@@ -43,7 +43,7 @@ type subscription struct {
 func newSubscription(id uint64, unsubscribeFn func()) *subscription {
 	sub := &subscription{
 		id:            id,
-		changes:       make(chan changestream.ChangeEvent),
+		changes:       make(chan []changestream.ChangeEvent),
 		topics:        make(map[string]struct{}),
 		active:        make(chan struct{}),
 		unsubscribeFn: unsubscribeFn,
@@ -64,7 +64,7 @@ func (s *subscription) Unsubscribe() {
 }
 
 // Changes returns the channel that the subscription will receive events on.
-func (s *subscription) Changes() <-chan changestream.ChangeEvent {
+func (s *subscription) Changes() <-chan []changestream.ChangeEvent {
 	return s.changes
 }
 
@@ -102,7 +102,7 @@ func (s *subscription) signal(change changestream.ChangeEvent) {
 		return
 	case <-s.active:
 		return
-	case s.changes <- change:
+	case s.changes <- []changestream.ChangeEvent{change}:
 	}
 }
 
