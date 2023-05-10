@@ -4,6 +4,8 @@
 package database
 
 import (
+	"database/sql"
+
 	dqlite "github.com/canonical/go-dqlite/driver"
 	"github.com/juju/errors"
 	"github.com/mattn/go-sqlite3"
@@ -27,4 +29,14 @@ func IsErrConstraintUnique(err error) bool {
 	}
 
 	return false
+}
+
+// IsErrNotFound returns true if the input error was returned by SQLite due
+// to a missing record.
+func IsErrNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	return errors.Is(err, sql.ErrNoRows)
 }
