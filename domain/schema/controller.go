@@ -277,12 +277,11 @@ END;
 func modelListSchema() string {
 	return `
 CREATE TABLE model_list (
-    uuid        TEXT PRIMARY KEY,
-    model_uuid  TEXT NOT NULL
+    uuid  TEXT NOT NULL
 );
 
--- This will also act as a constraint against the model_uuid column.
-CREATE UNIQUE INDEX idx_model_list_model_uuid
-ON model_list (model_uuid);
+-- This will also act as a unique constraint against the uuid column.
+CREATE UNIQUE INDEX idx_model_list_uuid
+ON model_list (uuid);
 `[1:]
 }
