@@ -180,7 +180,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		s.st, s.ctlrSt, &mockModelDBState{}, nil, nil, common.NewBlockChecker(s.st),
+		s.st, s.ctlrSt, &mockModelManagerService{}, nil, nil, common.NewBlockChecker(s.st),
 		&s.authorizer, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -198,7 +198,7 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	var err error
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		s.st, s.ctlrSt, &mockModelDBState{}, nil, nil,
+		s.st, s.ctlrSt, &mockModelManagerService{}, nil, nil,
 		common.NewBlockChecker(s.st), s.authorizer, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1341,12 +1341,12 @@ func (m *mockMigration) EndTime() time.Time {
 	return m.end
 }
 
-type mockModelDBState struct{}
+type mockModelManagerService struct{}
 
-func (mockModelDBState) Create(ctx stdcontext.Context, uuid modelmanagerservice.UUID) error {
+func (mockModelManagerService) Create(ctx stdcontext.Context, uuid modelmanagerservice.UUID) error {
 	return nil
 }
 
-func (mockModelDBState) Delete(ctx stdcontext.Context, uuid modelmanagerservice.UUID) error {
+func (mockModelManagerService) Delete(ctx stdcontext.Context, uuid modelmanagerservice.UUID) error {
 	return nil
 }

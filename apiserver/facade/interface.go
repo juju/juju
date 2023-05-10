@@ -65,7 +65,7 @@ type Context interface {
 	// Context should have a single responsibility, and that's access to other
 	// types/objects.
 	LeadershipContext
-	ConterollerDBGetter
+	ControllerDBGetter
 
 	// Cancel channel represents an indication from the API server that
 	// all interruptable calls should stop. The channel is only ever
@@ -150,8 +150,8 @@ type Context interface {
 	HTTPClient(purpose HTTPClientPurpose) HTTPClient
 }
 
-// ConterollerDBGetter defines an interface for getting the controller DB.
-type ConterollerDBGetter interface {
+// ControllerDBGetter defines an interface for getting the controller DB.
+type ControllerDBGetter interface {
 	// ControllerDB returns a TrackedDB reference for the controller database.
 	ControllerDB() (coredatabase.TrackedDB, error)
 }

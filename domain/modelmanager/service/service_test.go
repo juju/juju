@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/testing"
@@ -26,11 +27,23 @@ func (s *serviceSuite) TestServiceCreate(c *gc.C) {
 
 	uuid := mustUUID(c)
 
-	s.state.EXPECT().Create(gomock.Any(), uuid)
+	s.state.EXPECT().Create(gomock.Any(), uuid).Return(nil)
 
 	svc := NewService(s.state)
 	err := svc.Create(context.TODO(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestServiceCreateError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := mustUUID(c)
+
+	s.state.EXPECT().Create(gomock.Any(), uuid).Return(fmt.Errorf("boom"))
+
+	svc := NewService(s.state)
+	err := svc.Create(context.TODO(), uuid)
+	c.Assert(err, gc.ErrorMatches, `creating model ".*": boom`)
 }
 
 func (s *serviceSuite) TestServiceCreateInvalidUUID(c *gc.C) {
@@ -46,11 +59,23 @@ func (s *serviceSuite) TestServiceDelete(c *gc.C) {
 
 	uuid := mustUUID(c)
 
-	s.state.EXPECT().Delete(gomock.Any(), uuid)
+	s.state.EXPECT().Delete(gomock.Any(), uuid).Return(nil)
 
 	svc := NewService(s.state)
 	err := svc.Delete(context.TODO(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestServiceDeleteError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := mustUUID(c)
+
+	s.state.EXPECT().Delete(gomock.Any(), uuid).Return(fmt.Errorf("boom"))
+
+	svc := NewService(s.state)
+	err := svc.Delete(context.TODO(), uuid)
+	c.Assert(err, gc.ErrorMatches, `deleting model ".*": boom`)
 }
 
 func (s *serviceSuite) TestServiceDeleteInvalidUUID(c *gc.C) {

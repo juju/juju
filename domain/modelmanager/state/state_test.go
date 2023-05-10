@@ -22,13 +22,13 @@ type stateSuite struct {
 
 var _ = gc.Suite(&stateSuite{})
 
-func (s *stateSuite) TestServiceCreate(c *gc.C) {
+func (s *stateSuite) TestStateCreate(c *gc.C) {
 	st := state.NewState(domain.TrackedDBFactory(s.TrackedDB()))
 	err := st.Create(context.TODO(), mustUUID(c))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) TestServiceCreateCalledTwice(c *gc.C) {
+func (s *stateSuite) TestStateCreateCalledTwice(c *gc.C) {
 	st := state.NewState(domain.TrackedDBFactory(s.TrackedDB()))
 
 	uuid := mustUUID(c)
@@ -42,20 +42,20 @@ func (s *stateSuite) TestServiceCreateCalledTwice(c *gc.C) {
 
 // Note: This will pass as we don't validate the UUID at this level, and we
 // don't compile UUID module into sqlite3 either.
-func (s *stateSuite) TestServiceCreateWithInvalidUUID(c *gc.C) {
+func (s *stateSuite) TestStateCreateWithInvalidUUID(c *gc.C) {
 	st := state.NewState(domain.TrackedDBFactory(s.TrackedDB()))
 
 	err := st.Create(context.TODO(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) TestServiceDeleteWithNoMatchingUUID(c *gc.C) {
+func (s *stateSuite) TestStateDeleteWithNoMatchingUUID(c *gc.C) {
 	st := state.NewState(domain.TrackedDBFactory(s.TrackedDB()))
 	err := st.Delete(context.TODO(), mustUUID(c))
 	c.Assert(err, gc.ErrorMatches, domain.ErrNoRecord.Error()+".*")
 }
 
-func (s *stateSuite) TestServiceDelete(c *gc.C) {
+func (s *stateSuite) TestStateDelete(c *gc.C) {
 	st := state.NewState(domain.TrackedDBFactory(s.TrackedDB()))
 
 	uuid := mustUUID(c)
@@ -67,7 +67,7 @@ func (s *stateSuite) TestServiceDelete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) TestServiceDeleteCalledTwice(c *gc.C) {
+func (s *stateSuite) TestStateDeleteCalledTwice(c *gc.C) {
 	st := state.NewState(domain.TrackedDBFactory(s.TrackedDB()))
 
 	uuid := mustUUID(c)

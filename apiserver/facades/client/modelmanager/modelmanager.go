@@ -48,9 +48,9 @@ var (
 
 type newCaasBrokerFunc func(_ stdcontext.Context, args environs.OpenParams) (caas.Broker, error)
 
-// ModelManagerState defines a interface for interacting with the underlying
+// ModelManagerService defines a interface for interacting with the underlying
 // state.
-type ModelManagerState interface {
+type ModelManagerService interface {
 	Create(stdcontext.Context, modelmanagerservice.UUID) error
 	Delete(stdcontext.Context, modelmanagerservice.UUID) error
 }
@@ -59,17 +59,17 @@ type ModelManagerState interface {
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
-	dbState     ModelManagerState
-	state       common.ModelManagerBackend
-	ctlrState   common.ModelManagerBackend
-	check       common.BlockCheckerInterface
-	authorizer  facade.Authorizer
-	toolsFinder common.ToolsFinder
-	apiUser     names.UserTag
-	isAdmin     bool
-	model       common.Model
-	getBroker   newCaasBrokerFunc
-	callContext context.ProviderCallContext
+	modelManagerService ModelManagerService
+	state               common.ModelManagerBackend
+	ctlrState           common.ModelManagerBackend
+	check               common.BlockCheckerInterface
+	authorizer          facade.Authorizer
+	toolsFinder         common.ToolsFinder
+	apiUser             names.UserTag
+	isAdmin             bool
+	model               common.Model
+	getBroker           newCaasBrokerFunc
+	callContext         context.ProviderCallContext
 }
 
 // NewModelManagerAPI creates a new api server endpoint for managing
@@ -77,7 +77,7 @@ type ModelManagerAPI struct {
 func NewModelManagerAPI(
 	st common.ModelManagerBackend,
 	ctlrSt common.ModelManagerBackend,
-	dbState ModelManagerState,
+	modelManagerService ModelManagerService,
 	toolsFinder common.ToolsFinder,
 	getBroker newCaasBrokerFunc,
 	blockChecker common.BlockCheckerInterface,
@@ -99,18 +99,18 @@ func NewModelManagerAPI(
 	}
 
 	return &ModelManagerAPI{
-		ModelStatusAPI: common.NewModelStatusAPI(st, authorizer, apiUser),
-		state:          st,
-		ctlrState:      ctlrSt,
-		dbState:        dbState,
-		getBroker:      getBroker,
-		check:          blockChecker,
-		authorizer:     authorizer,
-		toolsFinder:    toolsFinder,
-		apiUser:        apiUser,
-		isAdmin:        isAdmin,
-		model:          m,
-		callContext:    callCtx,
+		ModelStatusAPI:      common.NewModelStatusAPI(st, authorizer, apiUser),
+		state:               st,
+		ctlrState:           ctlrSt,
+		modelManagerService: modelManagerService,
+		getBroker:           getBroker,
+		check:               blockChecker,
+		authorizer:          authorizer,
+		toolsFinder:         toolsFinder,
+		apiUser:             apiUser,
+		isAdmin:             isAdmin,
+		model:               m,
+		callContext:         callCtx,
 	}, nil
 }
 
@@ -375,7 +375,7 @@ func (m *ModelManagerAPI) CreateModel(ctx stdcontext.Context, args params.ModelC
 
 	// Ensure that we place the model in the known model list table on the
 	// controller.
-	if err := m.dbState.Create(ctx, modelmanagerservice.UUID(model.UUID())); err != nil {
+	if err := m.modelManagerService.Create(ctx, modelmanagerservice.UUID(model.UUID())); err != nil {
 		return result, errors.Trace(err)
 	}
 
@@ -816,7 +816,7 @@ func (m *ModelManagerAPI) DestroyModels(ctx stdcontext.Context, args params.Dest
 		// cause too much fallout. If we're unable to delete the model from the
 		// database, then we won't be able to create a new model with the same
 		// model uuid as there is a UNIQUE constraint on the model uuid column.
-		err = m.dbState.Delete(ctx, modelmanagerservice.UUID(model.UUID()))
+		err = m.modelManagerService.Delete(ctx, modelmanagerservice.UUID(model.UUID()))
 		return errors.Trace(err)
 	}
 

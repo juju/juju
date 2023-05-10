@@ -277,7 +277,7 @@ END;
 func modelListSchema() string {
 	return `
 CREATE TABLE model_list (
-    uuid  TEXT PRIMARY KEY
+    uuid    TEXT PRIMARY KEY
 );
 `[1:]
 }

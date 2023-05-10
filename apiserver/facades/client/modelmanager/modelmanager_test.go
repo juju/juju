@@ -214,13 +214,13 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	}
 
 	api, err := modelmanager.NewModelManagerAPI(
-		s.st, s.ctlrSt, &mockModelDBState{}, nil, newBroker, common.NewBlockChecker(s.st),
+		s.st, s.ctlrSt, &mockModelManagerService{}, nil, newBroker, common.NewBlockChecker(s.st),
 		s.authoriser, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 	caasApi, err := modelmanager.NewModelManagerAPI(
-		s.caasSt, s.ctlrSt, &mockModelDBState{}, nil, newBroker, common.NewBlockChecker(s.caasSt),
+		s.caasSt, s.ctlrSt, &mockModelManagerService{}, nil, newBroker, common.NewBlockChecker(s.caasSt),
 		s.authoriser, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -241,7 +241,7 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		return s.caasBroker, nil
 	}
 	mm, err := modelmanager.NewModelManagerAPI(
-		s.st, s.ctlrSt, &mockModelDBState{}, nil, newBroker, common.NewBlockChecker(s.st),
+		s.st, s.ctlrSt, &mockModelManagerService{}, nil, newBroker, common.NewBlockChecker(s.st),
 		s.authoriser, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -865,7 +865,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		st, ctlrSt,
-		&mockModelDBState{},
+		&mockModelManagerService{},
 		toolsFinder,
 		nil,
 		common.NewBlockChecker(st),
@@ -884,7 +884,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		st,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		&mockModelDBState{},
+		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(st), anAuthoriser,
 		s.Model,
 		s.callContext,
@@ -900,7 +900,7 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		st,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		&mockModelDBState{},
+		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(st), anAuthoriser, s.Model,
 		s.callContext,
 	)
@@ -1104,7 +1104,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		backend,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		&mockModelDBState{},
+		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(backend), s.authoriser,
 		s.Model,
 		s.callContext,
@@ -1153,7 +1153,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		backend,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		&mockModelDBState{},
+		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(backend), s.authoriser,
 		s.Model,
 		s.callContext,
@@ -1191,7 +1191,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		backend,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		&mockModelDBState{},
+		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(backend), s.authoriser, s.Model,
 		s.callContext,
 	)
@@ -1623,7 +1623,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		st,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		&mockModelDBState{},
+		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(st), anAuthoriser,
 		s.Model,
 		s.callContext,

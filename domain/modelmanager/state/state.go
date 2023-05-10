@@ -9,7 +9,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/modelmanager/service"
@@ -37,8 +36,8 @@ func (s *State) Create(ctx context.Context, uuid service.UUID) error {
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		stmt := "INSERT INTO model_list (uuid, model_uuid) VALUES (?, ?);"
-		result, err := tx.ExecContext(ctx, stmt, utils.MustNewUUID().String(), uuid)
+		stmt := "INSERT INTO model_list (uuid) VALUES (?);"
+		result, err := tx.ExecContext(ctx, stmt, uuid)
 		if err != nil {
 			return domain.CoerceError(err)
 		}
@@ -61,7 +60,7 @@ func (s *State) Delete(ctx context.Context, uuid service.UUID) error {
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		stmt := "DELETE FROM model_list WHERE model_uuid = ?;"
+		stmt := "DELETE FROM model_list WHERE uuid = ?;"
 		result, err := tx.ExecContext(ctx, stmt, uuid)
 		if err != nil {
 			return domain.CoerceError(err)
