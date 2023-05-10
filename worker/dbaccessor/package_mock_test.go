@@ -626,3 +626,18 @@ func (mr *MockClientMockRecorder) Cluster(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cluster", reflect.TypeOf((*MockClient)(nil).Cluster), arg0)
 }
+
+// Leader mocks base method.
+func (m *MockClient) Leader(arg0 context.Context) (*dqlite.NodeInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Leader", arg0)
+	ret0, _ := ret[0].(*dqlite.NodeInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Leader indicates an expected call of Leader.
+func (mr *MockClientMockRecorder) Leader(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Leader", reflect.TypeOf((*MockClient)(nil).Leader), arg0)
+}

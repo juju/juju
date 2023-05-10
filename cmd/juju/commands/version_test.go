@@ -11,10 +11,10 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/arch"
 	jujuversion "github.com/juju/juju/version"
 )
 

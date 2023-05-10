@@ -21,6 +21,7 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	corewatcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -179,6 +180,13 @@ func (aw allWatcherDeltaTranslater) TranslateModel(info multiwatcher.EntityInfo)
 		logger.Criticalf("consistency error: %s", pretty.Sprint(info))
 		return nil
 	}
+
+	var version string
+	if cfg, err := config.New(config.NoDefaults, orig.Config); err == nil {
+		versionNumber, _ := cfg.AgentVersion()
+		version = versionNumber.String()
+	}
+
 	return &params.ModelUpdate{
 		ModelUUID:      orig.ModelUUID,
 		Name:           orig.Name,
@@ -193,6 +201,10 @@ func (aw allWatcherDeltaTranslater) TranslateModel(info multiwatcher.EntityInfo)
 			Level: orig.SLA.Level,
 			Owner: orig.SLA.Owner,
 		},
+		Type:        orig.Type.String(),
+		Cloud:       orig.Cloud,
+		CloudRegion: orig.CloudRegion,
+		Version:     version,
 	}
 }
 

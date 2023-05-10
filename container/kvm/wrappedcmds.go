@@ -26,10 +26,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
-	"github.com/juju/utils/v3/arch"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/container/kvm/libvirt"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/paths"
 )
 

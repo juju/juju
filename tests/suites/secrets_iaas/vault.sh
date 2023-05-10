@@ -3,8 +3,9 @@ run_secrets_vault() {
 
 	prepare_vault
 
+	model_name='model-secrets-vault'
 	juju add-secret-backend myvault vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN"
-	juju add-model "model-secrets-vault" --config secret-backend=myvault
+	juju --show-log add-model "$model_name" --config secret-backend=myvault
 
 	juju --show-log deploy easyrsa
 	juju --show-log deploy etcd
@@ -17,9 +18,9 @@ run_secrets_vault() {
 	wait_for "active" "$(workload_status "etcd" 0).current"
 
 	secret_owned_by_easyrsa_0=$(juju exec --unit easyrsa/0 -- secret-add --owner unit owned-by=easyrsa/0)
-	secret_owned_by_easyrsa_0_id=$(echo $secret_owned_by_easyrsa_0 | awk '{n=split($0,a,"/"); print a[n]}')
+	secret_owned_by_easyrsa_0_id=$(echo $secret_owned_by_easyrsa_0 | cut -d: -f 2)
 	secret_owned_by_easyrsa=$(juju exec --unit easyrsa/0 -- secret-add owned-by=easyrsa-app)
-	secret_owned_by_easyrsa_id=$(echo $secret_owned_by_easyrsa | awk '{n=split($0,a,"/"); print a[n]}')
+	secret_owned_by_easyrsa_id=$(echo $secret_owned_by_easyrsa | cut -d: -f 2)
 
 	juju exec --unit easyrsa/0 -- secret-ids | grep $secret_owned_by_easyrsa_id
 	juju exec --unit easyrsa/0 -- secret-ids | grep $secret_owned_by_easyrsa_0_id
@@ -59,8 +60,8 @@ run_secrets_vault() {
 	juju exec --unit etcd/0 -- secret-get --label=consumer_label_secret_owned_by_easyrsa | grep 'owned-by: easyrsa-app'
 
 	model_uuid=$(juju models --format json | jq -r '.models[] | select(.name == "admin/model-secrets-vault") | ."model-uuid"')
-	vault kv get -format json "${model_uuid}/${secret_owned_by_easyrsa_0}-1" | jq -r '.data."owned-by"' | base64 -d | grep "easyrsa/0"
-	vault kv get -format json "${model_uuid}/${secret_owned_by_easyrsa}-1" | jq -r '.data."owned-by"' | base64 -d | grep "easyrsa-app"
+	vault kv get -format json "${model_name}-${model_uuid: -6}/${secret_owned_by_easyrsa_0_id}-1" | jq -r '.data."owned-by"' | base64 -d | grep "easyrsa/0"
+	vault kv get -format json "${model_name}-${model_uuid: -6}/${secret_owned_by_easyrsa_id}-1" | jq -r '.data."owned-by"' | base64 -d | grep "easyrsa-app"
 
 	# secret-revoke by relation ID.
 	juju exec --unit easyrsa/0 -- secret-revoke "$secret_owned_by_easyrsa" --relation "$relation_id"
@@ -78,6 +79,42 @@ run_secrets_vault() {
 
 	destroy_model "model-secrets-vault"
 	destroy_model "model-vault-provider"
+}
+
+run_secret_drain() {
+	echo
+
+	prepare_vault
+
+	model_name='model-secrets-drain'
+	juju --show-log add-model "$model_name"
+
+	vault_backend_name='myvault'
+	juju add-secret-backend "$vault_backend_name" vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN"
+
+	juju --show-log deploy easyrsa
+	wait_for "active" '.applications["easyrsa"] | ."application-status".current'
+	wait_for "easyrsa" "$(idle_condition "easyrsa" 0 0)"
+
+	secret_owned_by_unit=$(juju exec --unit easyrsa/0 -- secret-add --owner unit owned-by=easyrsa/0 | cut -d: -f 2)
+	secret_owned_by_app=$(juju exec --unit easyrsa/0 -- secret-add owned-by=easyrsa-app | cut -d: -f 2)
+
+	juju show-secret --reveal "$secret_owned_by_unit"
+	juju show-secret --reveal "$secret_owned_by_app"
+
+	juju model-config secret-backend="$vault_backend_name"
+	sleep 20
+
+	model_uuid=$(juju show-model $model_name --format json | jq -r ".[\"${model_name}\"][\"model-uuid\"]")
+	check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length)" 2
+
+	juju model-config secret-backend=auto
+	sleep 20
+
+	check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length)" 0
+
+	juju show-secret --reveal "$secret_owned_by_unit"
+	juju show-secret --reveal "$secret_owned_by_app"
 }
 
 prepare_vault() {
@@ -110,6 +147,21 @@ prepare_vault() {
 	vault operator unseal "$unseal_key0"
 	vault operator unseal "$unseal_key1"
 	vault operator unseal "$unseal_key2"
+}
+
+test_secret_drain() {
+	if [ "$(skip 'test_secret_drain')" ]; then
+		echo "==> TEST SKIPPED: test_secret_drain"
+		return
+	fi
+
+	(
+		set_verbosity
+
+		cd .. || exit
+
+		run "run_secret_drain"
+	)
 }
 
 test_secrets_vault() {

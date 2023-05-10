@@ -12,7 +12,7 @@ import (
 	"unicode"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3/arch"
+	"github.com/juju/juju/core/arch"
 )
 
 // HardwareCharacteristics represents the characteristics of the instance (if known).

@@ -152,7 +152,30 @@ musl_install_precompiled_cross_arch() {
     tar -xjf ${FILE} -C ${EXTRACTED_DEPS_PATH} || { echo "Failed to extract musl"; exit 1; }
 }
 
+post_musl_install_cross_darwin() {
+    echo "Symlinking darwin musl-gcc for ${BUILD_ARCH}"
+    mkdir -p ${MUSL_LOCAL_PATH}/output/bin || { echo "Failed to create ${MUSL_LOCAL_PATH}/output/bin"; exit 1; }
+    BREW_PATH=$(brew --prefix)
+    BREW_BIN_PATH=${BREW_PATH}/bin
+    case ${BUILD_ARCH} in
+		amd64) ln -s "${BREW_BIN_PATH}/x86_64-linux-musl-gcc" ${MUSL_LOCAL_PATH}/output/bin/musl-gcc || { echo "Failed to link musl-gcc"; exit 1; } ;;
+		arm64) ln -s "${BREW_BIN_PATH}/aarch64-linux-musl-gcc" ${MUSL_LOCAL_PATH}/output/bin/musl-gcc || { echo "Failed to link musl-gcc"; exit 1; } ;;
+		*) { echo "Unsupported arch ${BUILD_ARCH}."; exit 1; } ;;
+	esac
+}
+
+musl_install_cross_darwin() {
+    echo "Installing musl-cross for darwin"
+    brew --version >/dev/null || { echo "homebrew not installed"; exit 1; }
+    brew install -q filosottile/musl-cross/musl-cross --with-aarch64 --with-x86_64 || { echo "Failed to install musl-cross"; exit 1; }
+
+    post_musl_install_cross_darwin
+}
+
 install() {
+    if [[ $(is_darwin) = true ]]; then
+        musl_install_cross_darwin && exit 0
+    fi
     if [ "${MUSL_PRECOMPILED}" = "1" ]; then
         echo "Installing precompiled musl"
         musl_install_precompiled_cross_arch

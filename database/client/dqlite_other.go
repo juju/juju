@@ -18,6 +18,11 @@ func (c *Client) Cluster(context.Context) ([]dqlite.NodeInfo, error) {
 	return nil, nil
 }
 
+// Leader returns information about the current leader, if any.
+func (c *Client) Leader(ctx context.Context) (*dqlite.NodeInfo, error) {
+	return nil, nil
+}
+
 type YamlNodeStore struct {
 }
 

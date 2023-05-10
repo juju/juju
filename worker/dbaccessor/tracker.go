@@ -81,6 +81,8 @@ type trackedDBWorker struct {
 	metrics *Collector
 
 	pingDBFunc func(context.Context, *sql.DB) error
+
+	report *report
 }
 
 // NewTrackedDBWorker creates a new TrackedDBWorker
@@ -90,6 +92,7 @@ func NewTrackedDBWorker(dbApp DBApp, namespace string, opts ...TrackedDBWorkerOp
 		namespace:  namespace,
 		clock:      clock.WallClock,
 		pingDBFunc: defaultPingDBFunc,
+		report:     &report{},
 	}
 
 	for _, opt := range opts {
@@ -171,6 +174,11 @@ func (w *trackedDBWorker) Wait() error {
 	return w.tomb.Wait()
 }
 
+// Report provides information for the engine report.
+func (w *trackedDBWorker) Report() map[string]any {
+	return w.report.Report()
+}
+
 func (w *trackedDBWorker) loop() error {
 	timer := w.clock.NewTimer(PollInterval)
 	defer timer.Stop()
@@ -212,6 +220,9 @@ func (w *trackedDBWorker) loop() error {
 					w.logger.Errorf("error closing database: %v", err)
 				}
 				w.db = newDB
+				w.report.Set(func(r *report) {
+					r.dbReplacements++
+				})
 				w.err = nil
 				w.mutex.Unlock()
 			}
@@ -247,12 +258,27 @@ func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(db *sql.DB) (*sql.DB, e
 			return nil, errors.NotFoundf("database")
 		}
 
+		// Record the total ping.
+		pingStart := w.clock.Now()
+		var pingAttempts uint32 = 0
 		err := database.Retry(ctx, func() error {
 			if w.logger.IsTraceEnabled() {
 				w.logger.Tracef("pinging database %q", w.namespace)
 			}
+			pingAttempts++
 			return w.pingDBFunc(ctx, db)
 		})
+		pingDur := w.clock.Now().Sub(pingStart)
+
+		// Record the ping attempt and duration.
+		w.report.Set(func(r *report) {
+			r.pingAttempts = pingAttempts
+			r.pingDuration = pingDur
+			if pingDur > r.maxPingDuration {
+				r.maxPingDuration = pingDur
+			}
+		})
+
 		// We were successful at requesting the schema, so we can bail out
 		// early.
 		if err == nil {
@@ -281,4 +307,42 @@ func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(db *sql.DB) (*sql.DB, e
 
 func defaultPingDBFunc(ctx context.Context, db *sql.DB) error {
 	return db.PingContext(ctx)
+}
+
+// report fields for the engine report.
+type report struct {
+	sync.Mutex
+
+	// pingDuration is the duration of the last ping.
+	pingDuration time.Duration
+	// pingAttempts is the number of attempts to ping the database for the
+	// last ping.
+	pingAttempts uint32
+	// maxPingDuration is the maximum duration of a ping for a given lifetime
+	// of the worker.
+	maxPingDuration time.Duration
+	// dbReplacements is the number of times the database has been replaced
+	// due to a failed ping.
+	dbReplacements uint32
+}
+
+// Report provides information for the engine report.
+func (r *report) Report() map[string]any {
+	r.Lock()
+	defer r.Unlock()
+
+	return map[string]any{
+		"last-ping-duration": r.pingDuration.String(),
+		"last-ping-attempts": r.pingAttempts,
+		"max-ping-duration":  r.maxPingDuration.String(),
+		"db-replacements":    r.dbReplacements,
+	}
+}
+
+// Set allows to set the report fields, guarded by a mutex.
+func (r *report) Set(f func(*report)) {
+	r.Lock()
+	defer r.Unlock()
+
+	f(r)
 }

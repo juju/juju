@@ -263,8 +263,8 @@ func (s *instanceTypeSuite) TestGetMatchingInstanceTypesErrors(c *gc.C) {
 	_, err := MatchingInstanceTypes(nil, "test", constraints.MustParse("cpu-power=9001"))
 	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "cpu-power=9001"`)
 
-	_, err = MatchingInstanceTypes(instanceTypes, "test", constraints.MustParse("arch=i386 mem=8G"))
-	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "arch=i386 mem=8192M"`)
+	_, err = MatchingInstanceTypes(instanceTypes, "test", constraints.MustParse("arch=arm64 mem=8G"))
+	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "arch=arm64 mem=8192M"`)
 
 	_, err = MatchingInstanceTypes(instanceTypes, "test", constraints.MustParse("cores=9000"))
 	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "cores=9000"`)
@@ -292,7 +292,7 @@ var instanceTypeMatchTests = []struct {
 	{"cpu-power=2001", "cc1.4xlarge", "amd64"},
 	{"mem=2G", "m1.medium", "amd64"},
 
-	{"arch=i386", "m1.small", ""},
+	{"arch=arm64", "m1.small", ""},
 	{"cpu-power=100", "t1.micro", ""},
 	{"cpu-power=9001", "cc2.8xlarge", ""},
 	{"mem=1G", "t1.micro", ""},

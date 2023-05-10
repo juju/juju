@@ -266,6 +266,45 @@ func (w *dbWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
+// Report provides information for the engine report.
+func (w *dbWorker) Report() map[string]any {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	// We need to guard against attempting to report when setting up or dying,
+	// so we don't end up panic'ing with missing information.
+	result := w.dbRunner.Report()
+
+	if w.dbApp == nil {
+		result["leader"] = ""
+		result["leader-id"] = uint64(0)
+		result["leader-role"] = ""
+		return result
+	}
+
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	var (
+		leader     string
+		leaderRole string
+		leaderID   uint64
+	)
+	if client, err := w.dbApp.Client(ctx); err == nil {
+		if nodeInfo, err := client.Leader(ctx); err == nil {
+			leaderID = nodeInfo.ID
+			leader = nodeInfo.Address
+			leaderRole = nodeInfo.Role.String()
+		}
+	}
+
+	result["leader-id"] = leaderID
+	result["leader"] = leader
+	result["leader-role"] = leaderRole
+
+	return result
+}
+
 // GetDB returns a TrackedDB reference for the dqlite-backed
 // database that contains the data for the specified namespace.
 // TODO (stickupkid): Before handing out any DB for any namespace,

@@ -259,19 +259,19 @@ func (mr *MockApplicationOfferStateDocumentFactoryMockRecorder) MakeApplicationO
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeApplicationOfferDoc", reflect.TypeOf((*MockApplicationOfferStateDocumentFactory)(nil).MakeApplicationOfferDoc), arg0)
 }
 
-// MakeIncApplicationOffersRefOp mocks base method.
-func (m *MockApplicationOfferStateDocumentFactory) MakeIncApplicationOffersRefOp(arg0 string) (txn.Op, error) {
+// MakeApplicationOffersRefOp mocks base method.
+func (m *MockApplicationOfferStateDocumentFactory) MakeApplicationOffersRefOp(arg0 string, arg1 int) (txn.Op, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MakeIncApplicationOffersRefOp", arg0)
+	ret := m.ctrl.Call(m, "MakeApplicationOffersRefOp", arg0, arg1)
 	ret0, _ := ret[0].(txn.Op)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// MakeIncApplicationOffersRefOp indicates an expected call of MakeIncApplicationOffersRefOp.
-func (mr *MockApplicationOfferStateDocumentFactoryMockRecorder) MakeIncApplicationOffersRefOp(arg0 interface{}) *gomock.Call {
+// MakeApplicationOffersRefOp indicates an expected call of MakeApplicationOffersRefOp.
+func (mr *MockApplicationOfferStateDocumentFactoryMockRecorder) MakeApplicationOffersRefOp(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeIncApplicationOffersRefOp", reflect.TypeOf((*MockApplicationOfferStateDocumentFactory)(nil).MakeIncApplicationOffersRefOp), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeApplicationOffersRefOp", reflect.TypeOf((*MockApplicationOfferStateDocumentFactory)(nil).MakeApplicationOffersRefOp), arg0, arg1)
 }
 
 // MockApplicationOfferInput is a mock of ApplicationOfferInput interface.
@@ -326,19 +326,19 @@ func (mr *MockApplicationOfferInputMockRecorder) MakeApplicationOfferDoc(arg0 in
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeApplicationOfferDoc", reflect.TypeOf((*MockApplicationOfferInput)(nil).MakeApplicationOfferDoc), arg0)
 }
 
-// MakeIncApplicationOffersRefOp mocks base method.
-func (m *MockApplicationOfferInput) MakeIncApplicationOffersRefOp(arg0 string) (txn.Op, error) {
+// MakeApplicationOffersRefOp mocks base method.
+func (m *MockApplicationOfferInput) MakeApplicationOffersRefOp(arg0 string, arg1 int) (txn.Op, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MakeIncApplicationOffersRefOp", arg0)
+	ret := m.ctrl.Call(m, "MakeApplicationOffersRefOp", arg0, arg1)
 	ret0, _ := ret[0].(txn.Op)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// MakeIncApplicationOffersRefOp indicates an expected call of MakeIncApplicationOffersRefOp.
-func (mr *MockApplicationOfferInputMockRecorder) MakeIncApplicationOffersRefOp(arg0 interface{}) *gomock.Call {
+// MakeApplicationOffersRefOp indicates an expected call of MakeApplicationOffersRefOp.
+func (mr *MockApplicationOfferInputMockRecorder) MakeApplicationOffersRefOp(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeIncApplicationOffersRefOp", reflect.TypeOf((*MockApplicationOfferInput)(nil).MakeIncApplicationOffersRefOp), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeApplicationOffersRefOp", reflect.TypeOf((*MockApplicationOfferInput)(nil).MakeApplicationOffersRefOp), arg0, arg1)
 }
 
 // Offers mocks base method.

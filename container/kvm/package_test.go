@@ -7,8 +7,9 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/juju/utils/v3/arch"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/arch"
 )
 
 func Test(t *testing.T) {

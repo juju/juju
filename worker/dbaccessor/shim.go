@@ -17,6 +17,8 @@ import (
 type Client interface {
 	// Cluster returns the current state of the Dqlite cluster.
 	Cluster(context.Context) ([]dqlite.NodeInfo, error)
+	// Leader returns information about the current leader, if any.
+	Leader(ctx context.Context) (*dqlite.NodeInfo, error)
 }
 
 // DBApp describes methods of a Dqlite database application,
