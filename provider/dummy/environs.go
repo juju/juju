@@ -6,6 +6,7 @@ package dummy
 import (
 	stdcontext "context"
 	"crypto/tls"
+	"database/sql"
 	"fmt"
 	"net"
 	"net/http/httptest"
@@ -57,6 +58,8 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/database/txn"
+	domainschema "github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -233,6 +236,7 @@ type environProvider struct {
 	apiPort                    int
 	controllerState            *environState
 	state                      map[string]*environState
+	db                         coredatabase.TrackedDB
 }
 
 // APIPort returns the random api port used by the given provider instance.
@@ -317,6 +321,9 @@ func Reset(c *gc.C) {
 	dummy.ops = discardOperations
 	oldState := dummy.state
 	dummy.controllerState = nil
+	if dummy.db != nil {
+		dummy.db.(*trackedDB).db.Close()
+	}
 	dummy.state = make(map[string]*environState)
 	dummy.newStatePolicy = stateenvirons.GetNewPolicyFunc()
 	dummy.supportsSpaces = true
@@ -640,9 +647,9 @@ func (*environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialS
 		cloud.EmptyAuthType: {},
 		cloud.UserPassAuthType: {
 			{
-				"username", cloud.CredentialAttr{Description: "The username to authenticate with."},
+				Name: "username", CredentialAttr: cloud.CredentialAttr{Description: "The username to authenticate with."},
 			}, {
-				"password", cloud.CredentialAttr{
+				Name: "password", CredentialAttr: cloud.CredentialAttr{
 					Description: "The password for the specified username.",
 					Hidden:      true,
 				},
@@ -789,6 +796,14 @@ func (e *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerN
 		dummy.controllerState = envState
 	}
 	dummy.state[e.modelUUID] = envState
+
+	// Create a new sqlite3 database for the environment.
+	db, err := e.newCleanDB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	dummy.db = db
+
 	return nil
 }
 
@@ -990,6 +1005,10 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				return errors.Trace(err)
 			}
 
+			dummy.mu.Lock()
+			db := dummy.db
+			dummy.mu.Unlock()
+
 			estate.apiServer, err = apiserver.NewServer(apiserver.ServerConfig{
 				StatePool:           statePool,
 				Controller:          estate.controller,
@@ -1019,7 +1038,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				},
 				MetricsCollector: apiserver.NewMetricsCollector(),
 				SysLogger:        noopSysLogger{},
-				DBGetter:         stubDBGetter{},
+				DBGetter:         stubDBGetter{db: db},
 			})
 			if err != nil {
 				panic(err)
@@ -1053,13 +1072,15 @@ type noopSysLogger struct{}
 
 func (noopSysLogger) Log([]corelogger.LogRecord) error { return nil }
 
-type stubDBGetter struct{}
+type stubDBGetter struct {
+	db coredatabase.TrackedDB
+}
 
 func (s stubDBGetter) GetDB(namespace string) (coredatabase.TrackedDB, error) {
 	if namespace != "controller" {
 		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, namespace)
 	}
-	return nil, nil
+	return s.db, nil
 }
 
 func leaseManager(controllerUUID string, st *state.State) (*lease.Manager, error) {
@@ -2131,4 +2152,58 @@ func (noopRegisterer) Register(prometheus.Collector) error {
 
 func (noopRegisterer) Unregister(prometheus.Collector) bool {
 	return true
+}
+
+// NewCleanDB returns a new sql.DB reference.
+func (e *environ) newCleanDB() (coredatabase.TrackedDB, error) {
+	dir, err := os.MkdirTemp("", "dummy")
+	if err != nil {
+		return nil, err
+	}
+
+	url := fmt.Sprintf("file:%s/db.sqlite3?_foreign_keys=1", dir)
+
+	db, err := sql.Open("sqlite3", url)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, stmt := range domainschema.ControllerDDL() {
+		_, err := tx.Exec(stmt)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
+	}
+	return &trackedDB{db: db}, nil
+}
+
+var defaultTransactionRunner = txn.NewTransactionRunner()
+
+// trackedDB is used for testing purposes.
+type trackedDB struct {
+	db *sql.DB
+}
+
+func (t *trackedDB) Txn(ctx stdcontext.Context, fn func(stdcontext.Context, *sql.Tx) error) error {
+	return defaultTransactionRunner.Retry(ctx, func() error {
+		return errors.Trace(t.TxnNoRetry(ctx, fn))
+	})
+}
+func (t *trackedDB) TxnNoRetry(ctx stdcontext.Context, fn func(stdcontext.Context, *sql.Tx) error) error {
+	return errors.Trace(defaultTransactionRunner.Txn(ctx, t.db, fn))
+}
+
+func (t *trackedDB) Err() error {
+	return nil
 }
