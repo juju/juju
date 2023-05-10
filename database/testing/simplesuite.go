@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/database/schema"
+	"github.com/juju/juju/domain/schema"
 )
 
 // ControllerSuite is used to provide an in-memory sql.DB reference to tests.

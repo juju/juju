@@ -10,6 +10,7 @@ func ControllerDDL() []string {
 		changeLogSchema,
 		cloudSchema,
 		externalControllerSchema,
+		modelListSchema,
 	}
 
 	var deltas []string
@@ -270,5 +271,18 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
     VALUES (4, 1, OLD.uuid, DATETIME('now'));
 END;
+`[1:]
+}
+
+func modelListSchema() string {
+	return `
+CREATE TABLE model_list (
+    uuid        TEXT PRIMARY KEY,
+    model_uuid  TEXT NOT NULL
+);
+
+-- This will also act as a constraint against the model_uuid column.
+CREATE UNIQUE INDEX idx_model_list_model_uuid
+ON model_list (model_uuid);
 `[1:]
 }
