@@ -13,6 +13,8 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
+	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
+	modelmanagerstate "github.com/juju/juju/domain/modelmanager/state"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -34,6 +36,12 @@ func newFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
 	}
 	auth := ctx.Auth()
 
+	// Since we know this is a user tag (because AuthClient is true),
+	// we just do the type assertion to the UserTag.
+	if !auth.AuthClient() {
+		return nil, apiservererrors.ErrPerm
+	}
+
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -50,21 +58,17 @@ func newFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
 
 	ctrlModel, err := ctlrSt.Model()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
 	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
 
-	// Since we know this is a user tag (because AuthClient is true),
-	// we just do the type assertion to the UserTag.
-	if !auth.AuthClient() {
-		return nil, apiservererrors.ErrPerm
-	}
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)
 	backend := common.NewUserAwareModelManagerBackend(model, pool, apiUser)
 	return NewModelManagerAPI(
 		backend,
 		common.NewModelManagerBackend(ctrlModel, pool),
+		modelmanagerservice.NewService(modelmanagerstate.NewState(ctx.ControllerDB)),
 		toolsFinder,
 		caas.New,
 		common.NewBlockChecker(backend),

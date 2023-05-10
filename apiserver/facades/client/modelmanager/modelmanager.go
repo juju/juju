@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/series"
+	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -47,10 +48,18 @@ var (
 
 type newCaasBrokerFunc func(_ stdcontext.Context, args environs.OpenParams) (caas.Broker, error)
 
+// ModelManagerState defines a interface for interacting with the underlying
+// state.
+type ModelManagerState interface {
+	Create(stdcontext.Context, modelmanagerservice.UUID) error
+	Delete(stdcontext.Context, modelmanagerservice.UUID) error
+}
+
 // ModelManagerAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
+	dbState     ModelManagerState
 	state       common.ModelManagerBackend
 	ctlrState   common.ModelManagerBackend
 	check       common.BlockCheckerInterface
@@ -68,6 +77,7 @@ type ModelManagerAPI struct {
 func NewModelManagerAPI(
 	st common.ModelManagerBackend,
 	ctlrSt common.ModelManagerBackend,
+	dbState ModelManagerState,
 	toolsFinder common.ToolsFinder,
 	getBroker newCaasBrokerFunc,
 	blockChecker common.BlockCheckerInterface,
@@ -92,6 +102,7 @@ func NewModelManagerAPI(
 		ModelStatusAPI: common.NewModelStatusAPI(st, authorizer, apiUser),
 		state:          st,
 		ctlrState:      ctlrSt,
+		dbState:        dbState,
 		getBroker:      getBroker,
 		check:          blockChecker,
 		authorizer:     authorizer,
@@ -198,7 +209,7 @@ func (m *ModelManagerAPI) checkAddModelPermission(cloud string, userTag names.Us
 
 // CreateModel creates a new model using the account and
 // model config specified in the args.
-func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error) {
+func (m *ModelManagerAPI) CreateModel(ctx stdcontext.Context, args params.ModelCreateArgs) (params.ModelInfo, error) {
 	result := params.ModelInfo{}
 
 	// Get the controller model first. We need it both for the state
@@ -361,6 +372,13 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 	if err != nil {
 		return result, errors.Trace(err)
 	}
+
+	// Ensure that we place the model in the known model list table on the
+	// controller.
+	if err := m.dbState.Create(ctx, modelmanagerservice.UUID(model.UUID())); err != nil {
+		return result, errors.Trace(err)
+	}
+
 	return m.getModelInfo(model.ModelTag(), false)
 }
 
@@ -762,7 +780,7 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 // DestroyModels will try to destroy the specified models.
 // If there is a block on destruction, this method will return an error.
 // From ModelManager v7 onwards, DestroyModels gains 'force' and 'max-wait' parameters.
-func (m *ModelManagerAPI) DestroyModels(args params.DestroyModelsParams) (params.ErrorResults, error) {
+func (m *ModelManagerAPI) DestroyModels(ctx stdcontext.Context, args params.DestroyModelsParams) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Models)),
 	}
@@ -788,7 +806,18 @@ func (m *ModelManagerAPI) DestroyModels(args params.DestroyModelsParams) (params
 			}
 		}
 
-		return errors.Trace(common.DestroyModel(st, destroyStorage, force, maxWait, timeout))
+		err = errors.Trace(common.DestroyModel(st, destroyStorage, force, maxWait, timeout))
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		// TODO (stickupkid): There are consequences to this failing after the
+		// model has been deleted. Although in it's current guise this shouldn't
+		// cause too much fallout. If we're unable to delete the model from the
+		// database, then we won't be able to create a new model with the same
+		// model uuid as there is a UNIQUE constraint on the model uuid column.
+		err = m.dbState.Delete(ctx, modelmanagerservice.UUID(model.UUID()))
+		return errors.Trace(err)
 	}
 
 	for i, arg := range args.Models {
