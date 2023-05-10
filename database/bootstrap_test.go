@@ -62,7 +62,6 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *gc.C) {
 type testOptFactory struct {
 	c       *gc.C
 	dataDir string
-	port    int
 }
 
 func (f *testOptFactory) EnsureDataDir() (string, error) {
@@ -72,14 +71,8 @@ func (f *testOptFactory) EnsureDataDir() (string, error) {
 	return f.dataDir, nil
 }
 
-func (f *testOptFactory) WithLoopbackAddressOption() app.Option {
-	if f.port == 0 {
-		l, err := net.Listen("tcp", ":0")
-		f.c.Assert(err, jc.ErrorIsNil)
-		f.c.Assert(l.Close(), jc.ErrorIsNil)
-		f.port = l.Addr().(*net.TCPAddr).Port
-	}
-	return app.WithAddress(fmt.Sprintf("127.0.0.1:%d", f.port))
+func (f *testOptFactory) WithLocalAddressOption() app.Option {
+	return app.WithAddress("@")
 }
 
 func (f *testOptFactory) WithLogFuncOption() app.Option {

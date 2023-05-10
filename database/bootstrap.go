@@ -18,9 +18,9 @@ type bootstrapOptFactory interface {
 	// a path determined by the agent config, then returns that path.
 	EnsureDataDir() (string, error)
 
-	// WithLoopbackAddressOption returns a Dqlite application
-	// Option that will bind Dqlite to the loopback IP.
-	WithLoopbackAddressOption() app.Option
+	// WithLocalAddressOption returns a Dqlite application
+	// Option that will bind Dqlite to a local abstract Unix socket.
+	WithLocalAddressOption() app.Option
 
 	// WithLogFuncOption returns a Dqlite application Option
 	// that will proxy Dqlite log output via this factory's
