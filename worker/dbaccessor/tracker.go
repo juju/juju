@@ -86,7 +86,7 @@ type trackedDBWorker struct {
 }
 
 // NewTrackedDBWorker creates a new TrackedDBWorker
-func NewTrackedDBWorker(dbApp DBApp, namespace string, opts ...TrackedDBWorkerOption) (TrackedDB, error) {
+func NewTrackedDBWorker(ctx context.Context, dbApp DBApp, namespace string, opts ...TrackedDBWorkerOption) (TrackedDB, error) {
 	w := &trackedDBWorker{
 		dbApp:      dbApp,
 		namespace:  namespace,
@@ -100,7 +100,7 @@ func NewTrackedDBWorker(dbApp DBApp, namespace string, opts ...TrackedDBWorkerOp
 	}
 
 	var err error
-	w.db, err = w.dbApp.Open(context.TODO(), w.namespace)
+	w.db, err = w.dbApp.Open(ctx, w.namespace)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

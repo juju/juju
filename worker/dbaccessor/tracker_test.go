@@ -36,7 +36,7 @@ func (s *trackedDBWorkerSuite) TestWorkerStartup(c *gc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := NewTrackedDBWorker(s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
+	w, err := NewTrackedDBWorker(context.TODO(), s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
@@ -53,7 +53,7 @@ func (s *trackedDBWorkerSuite) TestWorkerReport(c *gc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := NewTrackedDBWorker(s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
+	w, err := NewTrackedDBWorker(context.TODO(), s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
@@ -364,7 +364,8 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
 
 func (s *trackedDBWorkerSuite) newTrackedDBWorker(pingFn func(context.Context, *sql.DB) error) (TrackedDB, error) {
 	collector := NewMetricsCollector()
-	return NewTrackedDBWorker(s.dbApp, "controller",
+	return NewTrackedDBWorker(context.TODO(),
+		s.dbApp, "controller",
 		WithClock(s.clock),
 		WithLogger(s.logger),
 		WithPingDBFunc(pingFn),
