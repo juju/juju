@@ -69,13 +69,11 @@ var singletonErrorCodes = map[errors.ConstError]string{
 }
 
 func singletonCode(err error) (string, bool) {
-	switch e := err.(type) {
-	case errors.ConstError:
+	if e, is := errors.AsType[errors.ConstError](err); is {
 		code, ok := singletonErrorCodes[e]
 		return code, ok
-	default:
-		return "", false
 	}
+	return "", false
 }
 
 func singletonError(err error) (bool, error) {

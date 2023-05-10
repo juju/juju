@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
 )
@@ -15,12 +16,14 @@ import (
 // all external users.
 const EveryoneTagName = "everyone@external"
 
-type userAccessFunc func(names.UserTag, names.Tag) (permission.Access, error)
+// UserAccessFunc represents a func that can answer the question about what
+// level of access a user entity has for a given subject tag.
+type UserAccessFunc func(names.UserTag, names.Tag) (permission.Access, error)
 
 // HasPermission returns true if the specified user has the specified
 // permission on target.
 func HasPermission(
-	accessGetter userAccessFunc, utag names.Tag,
+	accessGetter UserAccessFunc, utag names.Tag,
 	requestedPermission permission.Access, target names.Tag,
 ) (bool, error) {
 	var validate func(permission.Access) error
@@ -66,7 +69,7 @@ func HasPermission(
 }
 
 // GetPermission returns the permission a user has on the specified target.
-func GetPermission(accessGetter userAccessFunc, userTag names.UserTag, target names.Tag) (permission.Access, error) {
+func GetPermission(accessGetter UserAccessFunc, userTag names.UserTag, target names.Tag) (permission.Access, error) {
 	userAccess, err := accessGetter(userTag, target)
 	if err != nil && !errors.IsNotFound(err) {
 		return permission.NoAccess, errors.Annotatef(err, "while obtaining %s user", target.Kind())
@@ -100,8 +103,15 @@ func HasModelAdmin(
 	modelTag names.ModelTag,
 ) (bool, error) {
 	// superusers have admin for all models.
-	if isSuperUser, err := authorizer.HasPermission(permission.SuperuserAccess, controllerTag); err != nil || isSuperUser {
-		return isSuperUser, err
+	err := authorizer.HasPermission(permission.SuperuserAccess, controllerTag)
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		return false, err
 	}
-	return authorizer.HasPermission(permission.AdminAccess, modelTag)
+
+	if err == nil {
+		return true, nil
+	}
+
+	err = authorizer.HasPermission(permission.AdminAccess, modelTag)
+	return err == nil, err
 }

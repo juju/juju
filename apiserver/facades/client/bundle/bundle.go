@@ -82,14 +82,7 @@ func NewBundleAPI(
 }
 
 func (b *BundleAPI) checkCanRead() error {
-	canRead, err := b.authorizer.HasPermission(permission.ReadAccess, b.modelTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !canRead {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+	return b.authorizer.HasPermission(permission.ReadAccess, b.modelTag)
 }
 
 type validators struct {

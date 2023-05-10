@@ -52,14 +52,8 @@ func (api *KeyManagerAPI) checkCanRead(sshUser string) error {
 		// At the moment this is handled by using `internalComments`
 		return apiservererrors.ErrPerm
 	}
-	ok, err := api.authorizer.HasPermission(permission.ReadAccess, api.model.ModelTag())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !ok {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+	err := api.authorizer.HasPermission(permission.ReadAccess, api.model.ModelTag())
+	return err
 }
 
 func (api *KeyManagerAPI) checkCanWrite(sshUser string) error {

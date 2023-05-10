@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
@@ -53,19 +54,16 @@ func internalFacade(
 }
 
 func (facade *Facade) checkIsModelAdmin() error {
-	isSuperUser, err := facade.authorizer.HasPermission(permission.SuperuserAccess, facade.backend.ControllerTag())
-	if err != nil {
+	err := facade.authorizer.HasPermission(permission.SuperuserAccess, facade.backend.ControllerTag())
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
 
-	isModelAdmin, err := facade.authorizer.HasPermission(permission.AdminAccess, facade.backend.ModelTag())
-	if err != nil {
-		return errors.Trace(err)
+	if err == nil {
+		return nil
 	}
-	if !isModelAdmin && !isSuperUser {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+
+	return facade.authorizer.HasPermission(permission.AdminAccess, facade.backend.ModelTag())
 }
 
 // PublicAddress reports the preferred public network address for one
@@ -224,16 +222,8 @@ func (facade *Facade) Proxy() (params.SSHProxyResult, error) {
 func (facade *Facade) ModelCredentialForSSH() (params.CloudSpecResult, error) {
 	var result params.CloudSpecResult
 
-	isModelAdmin, err := facade.authorizer.HasPermission(permission.AdminAccess, facade.backend.ModelTag())
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	isSuperUser, err := facade.authorizer.HasPermission(permission.SuperuserAccess, facade.backend.ControllerTag())
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if !isModelAdmin && !isSuperUser {
-		return result, apiservererrors.ErrPerm
+	if err := facade.checkIsModelAdmin(); err != nil {
+		return result, err
 	}
 
 	model, err := facade.backend.Model()

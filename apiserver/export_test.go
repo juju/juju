@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"context"
 	"sync"
 
 	"github.com/juju/clock"
@@ -12,10 +11,11 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
-	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/authentication"
+	authjwt "github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/stateauthenticator"
@@ -32,7 +32,11 @@ var (
 )
 
 func APIHandlerWithEntity(entity state.Entity) *apiHandler {
-	return &apiHandler{entity: entity}
+	return &apiHandler{
+		authInfo: authentication.AuthInfo{
+			Entity: entity,
+		},
+	}
 }
 
 func NewErrRoot(err error) *errRoot {
@@ -78,10 +82,11 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State) (*apiHan
 	offerAuthCtxt, err := newOfferAuthContext(pool, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	srv := &Server{
-		authenticator: authenticator,
-		offerAuthCtxt: offerAuthCtxt,
-		shared:        &sharedServerContext{statePool: pool},
-		tag:           names.NewMachineTag("0"),
+		httpAuthenticators:  []authentication.HTTPAuthenticator{authenticator},
+		loginAuthenticators: []authentication.LoginAuthenticator{authenticator},
+		offerAuthCtxt:       offerAuthCtxt,
+		shared:              &sharedServerContext{statePool: pool},
+		tag:                 names.NewMachineTag("0"),
 	}
 	h, err := newAPIHandler(srv, st, nil, st.ModelUUID(), 6543, "testing.invalid:1234")
 	c.Assert(err, jc.ErrorIsNil)
@@ -93,27 +98,27 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State) (*apiHan
 // entity.
 func TestingAPIHandlerWithEntity(c *gc.C, pool *state.StatePool, st *state.State, entity state.Entity) (*apiHandler, *common.Resources) {
 	h, hr := TestingAPIHandler(c, pool, st)
-	h.entity = entity
+	h.authInfo.Entity = entity
+	h.authInfo.Delegator = &stateauthenticator.PermissionDelegator{st}
 	return h, hr
 }
 
 // TestingAPIHandlerWithToken gives you the sane kind of APIHandler as
 // TestingAPIHandler but sets the passed token as the apiHandler
 // login token.
-func TestingAPIHandlerWithToken(c *gc.C, pool *state.StatePool, st *state.State, jwt jwt.Token) (*apiHandler, *common.Resources) {
+func TestingAPIHandlerWithToken(
+	c *gc.C,
+	pool *state.StatePool,
+	st *state.State,
+	jwt jwt.Token,
+	delegator authentication.PermissionDelegator,
+) (*apiHandler, *common.Resources) {
 	h, hr := TestingAPIHandler(c, pool, st)
 	user, err := names.ParseUserTag(jwt.Subject())
 	c.Assert(err, jc.ErrorIsNil)
-	h.entity = tokenEntity{user: user}
-	h.authToken = jwt
+	h.authInfo.Entity = authjwt.TokenEntity{User: user}
+	h.authInfo.Delegator = delegator
 	return h, hr
-}
-
-// TokenPublicKey returns the login token public key for the given url.
-func TokenPublicKey(c *gc.C, srv *Server, url string) jwk.Set {
-	set, err := srv.jwtTokenService.cache.Get(context.TODO(), url)
-	c.Assert(err, jc.ErrorIsNil)
-	return set
 }
 
 // TestingUpgradingRoot returns a resricted srvRoot in an upgrade
@@ -203,9 +208,11 @@ type Patcher interface {
 }
 
 func AssertHasPermission(c *gc.C, handler *apiHandler, access permission.Access, tag names.Tag, expect bool) {
-	hasPermission, err := handler.HasPermission(access, tag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hasPermission, gc.Equals, expect)
+	err := handler.HasPermission(access, tag)
+	c.Assert(err == nil, gc.Equals, expect)
+	if expect {
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }
 
 func CheckHasPermission(st *state.State, entity names.Tag, operation permission.Access, target names.Tag) (bool, error) {

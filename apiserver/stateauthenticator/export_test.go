@@ -13,7 +13,7 @@ import (
 
 // TODO update the tests moved from apiserver to test via the public
 // interface, and then get rid of these.
-func EntityAuthenticator(authenticator *Authenticator, tag names.Tag) (authentication.Authenticator, error) {
+func EntityAuthenticator(authenticator *Authenticator, tag names.Tag) (authentication.EntityAuthenticator, error) {
 	return authenticator.authContext.authenticator("testing.invalid:1234").authenticatorForTag(tag)
 }
 

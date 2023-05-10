@@ -232,8 +232,8 @@ func (a authorizer) AuthController() bool {
 	return a.kind == kindControllerMachine
 }
 
-func (a authorizer) HasPermission(operation permission.Access, target names.Tag) (bool, error) {
-	return true, nil
+func (a authorizer) HasPermission(operation permission.Access, target names.Tag) error {
+	return nil
 }
 
 func (a authorizer) AuthMachineAgent() bool {
