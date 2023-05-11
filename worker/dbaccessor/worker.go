@@ -163,7 +163,7 @@ type dbWorker struct {
 	apiServerChanges chan apiserver.Details
 }
 
-func newWorker(cfg WorkerConfig) (*dbWorker, error) {
+func NewWorker(cfg WorkerConfig) (*dbWorker, error) {
 	var err error
 	if err = cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -249,16 +249,15 @@ func (w *dbWorker) loop() (err error) {
 				req.done <- errors.Annotatef(err, "ensuring namespace %q", req.namespace)
 				continue
 			}
-
 			if err := w.openDatabase(req.namespace); err != nil {
 				req.done <- errors.Annotatef(err, "opening database for namespace %q", req.namespace)
 				continue
 			}
-
 			req.done <- nil
 
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
+
 		case apiDetails := <-w.apiServerChanges:
 			if err := w.processAPIServerChange(apiDetails); err != nil {
 				return errors.Trace(err)

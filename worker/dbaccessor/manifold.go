@@ -134,7 +134,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				NewDBWorker:      config.NewDBWorker,
 			}
 
-			w, err := newWorker(cfg)
+			w, err := NewWorker(cfg)
 			if err != nil {
 				config.PrometheusRegisterer.Unregister(metricsCollector)
 				return nil, errors.Trace(err)

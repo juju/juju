@@ -171,6 +171,19 @@ func (w *trackedDBWorker) Report() map[string]any {
 }
 
 func (w *trackedDBWorker) loop() error {
+	defer func() {
+		w.mutex.Lock()
+		defer w.mutex.Unlock()
+
+		if w.db == nil {
+			return
+		}
+		err := w.db.Close()
+		if err != nil {
+			w.logger.Debugf("Closed database connection: %v", err)
+		}
+	}()
+
 	timer := w.clock.NewTimer(PollInterval)
 	defer timer.Stop()
 
