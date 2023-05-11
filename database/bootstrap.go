@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/domain/schema"
 )
@@ -64,7 +65,7 @@ func BootstrapDqlite(ctx context.Context, opt bootstrapOptFactory, logger Logger
 		return errors.Annotatef(err, "waiting for Dqlite readiness")
 	}
 
-	db, err := dqlite.Open(ctx, "controller")
+	db, err := dqlite.Open(ctx, coredatabase.ControllerNS)
 	if err != nil {
 		return errors.Annotatef(err, "opening controller database")
 	}
