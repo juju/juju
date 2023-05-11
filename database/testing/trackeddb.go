@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/txn"
 )
 
@@ -30,4 +31,14 @@ func (t *trackedDB) TxnNoRetry(ctx context.Context, fn func(context.Context, *sq
 
 func (t *trackedDB) Err() error {
 	return nil
+}
+
+// TrackedDBFactory returns a DBFactory that returns the given database.
+func TrackedDBFactory(db coredatabase.TrackedDB) func() (coredatabase.TrackedDB, error) {
+	return func() (coredatabase.TrackedDB, error) {
+		if db == nil {
+			return nil, errors.New("nil db")
+		}
+		return db, nil
+	}
 }

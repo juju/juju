@@ -15,13 +15,6 @@ import (
 // database cannot be returned.
 type DBFactory = func() (database.TrackedDB, error)
 
-// TrackingDBFactory returns a DBFactory that returns the given database.
-func TrackedDBFactory(db database.TrackedDB) DBFactory {
-	return func() (database.TrackedDB, error) {
-		return db, nil
-	}
-}
-
 // StateBase defines a base struct for requesting a database. This will cache
 // the database for the lifetime of the struct.
 type StateBase struct {
