@@ -475,7 +475,6 @@ func (c *defaultsCommand) getAllDefaults(client defaultsCommandAPI, ctx *cmd.Con
 func (c *defaultsCommand) getFilteredDefaults(client defaultsCommandAPI) (envconfig.ModelDefaultAttributes, error) {
 	attrs, err := client.ModelDefaults(c.cloud)
 	if err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 
