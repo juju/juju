@@ -23,9 +23,15 @@ import (
 	"github.com/juju/juju/pubsub/apiserver"
 )
 
-// nodeShutdownTimeout is the timeout that we add to the context passed
-// handoff/shutdown calls when shutting down the Dqlite node.
-const nodeShutdownTimeout = 30 * time.Second
+const (
+	// nodeShutdownTimeout is the timeout that we add to the context passed
+	// handoff/shutdown calls when shutting down the Dqlite node.
+	nodeShutdownTimeout = 30 * time.Second
+
+	// defaultNamespaceCacheFlushInterval defines how often to flush the
+	// namespace cache.
+	defaultNamespaceCacheFlushInterval = defaultNamespaceExpiry / 2
+)
 
 // NodeManager creates Dqlite `App` initialisation arguments and options.
 type NodeManager interface {
@@ -161,6 +167,10 @@ type dbWorker struct {
 	// apiServerChanges is used to handle incoming changes
 	// to API server details within the worker loop.
 	apiServerChanges chan apiserver.Details
+
+	// namespaceCache is used to validate that a namespace exists before
+	// we attempt to create a TrackedDB for it.
+	namespaceCache *nsCache
 }
 
 func NewWorker(cfg WorkerConfig) (*dbWorker, error) {
@@ -182,6 +192,7 @@ func NewWorker(cfg WorkerConfig) (*dbWorker, error) {
 		dbReady:          make(chan error),
 		dbRequests:       make(chan dbRequest),
 		apiServerChanges: make(chan apiserver.Details),
+		namespaceCache:   newNSCache(defaultNamespaceExpiry, cfg.Clock),
 	}
 
 	if err = catacomb.Invoke(catacomb.Plan{
@@ -240,6 +251,9 @@ func (w *dbWorker) loop() (err error) {
 		}
 	}
 
+	timer := w.cfg.Clock.NewTimer(defaultNamespaceCacheFlushInterval)
+	defer timer.Stop()
+
 	for {
 		select {
 		case req := <-w.dbRequests:
@@ -262,6 +276,12 @@ func (w *dbWorker) loop() (err error) {
 			if err := w.processAPIServerChange(apiDetails); err != nil {
 				return errors.Trace(err)
 			}
+
+		case <-timer.Chan():
+			// Prune the cache at a regular interval.
+			w.namespaceCache.Flush()
+
+			timer.Reset(defaultNamespaceCacheFlushInterval)
 		}
 	}
 }
@@ -694,6 +714,12 @@ func (w *dbWorker) ensureNamespace(namespace string) error {
 		return nil
 	}
 
+	// If the namespace cache is already populated with the namespace and it's
+	// not expired, we don't need to validate it.
+	if w.namespaceCache.Exists(namespace) {
+		return nil
+	}
+
 	// Otherwise, we need to validate that the namespace exists.
 	controllerWorker, err := w.dbRunner.Worker(coredatabase.ControllerNS, w.catacomb.Dying())
 	if err != nil {
@@ -712,6 +738,13 @@ func (w *dbWorker) ensureNamespace(namespace string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// Update the cache even if the namespace is unknown. If it is unknown, we
+	// should attempt to remove it from the cache. This could happen
+	// during a model deletion and another request to GetDB could have been
+	// requested.
+	w.namespaceCache.Set(namespace, known)
+
 	if !known {
 		return errors.NotFoundf("namespace %q", namespace)
 	}
