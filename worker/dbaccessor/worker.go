@@ -5,6 +5,7 @@ package dbaccessor
 
 import (
 	"context"
+	"database/sql"
 	"net"
 	"sync"
 	"time"
@@ -85,14 +86,14 @@ type DBGetter interface {
 // instances into the worker loop.
 type dbRequest struct {
 	namespace string
-	done      chan struct{}
+	done      chan error
 }
 
 // makeDBRequest creates a new TrackedDB request for the input namespace.
 func makeDBRequest(namespace string) dbRequest {
 	return dbRequest{
 		namespace: namespace,
-		done:      make(chan struct{}),
+		done:      make(chan error),
 	}
 }
 
@@ -151,7 +152,7 @@ type dbWorker struct {
 
 	// dbReady is used to signal that we can
 	// begin processing GetDB requests.
-	dbReady chan struct{}
+	dbReady chan error
 
 	// dbRequests is used to synchronise GetDB
 	// requests into this worker's event loop.
@@ -178,7 +179,7 @@ func newWorker(cfg WorkerConfig) (*dbWorker, error) {
 			IsFatal:      func(err error) bool { return true },
 			RestartDelay: time.Second * 30,
 		}),
-		dbReady:          make(chan struct{}),
+		dbReady:          make(chan error),
 		dbRequests:       make(chan dbRequest),
 		apiServerChanges: make(chan apiserver.Details),
 	}
@@ -242,10 +243,20 @@ func (w *dbWorker) loop() (err error) {
 	for {
 		select {
 		case req := <-w.dbRequests:
-			if err := w.openDatabase(req.namespace); err != nil {
-				w.cfg.Logger.Errorf("opening database %q: %s", req.namespace, err.Error())
+			// Ensure the namespace exists or is allowed to open a new one
+			// before we attempt to open the database.
+			if err := w.ensureNamespace(req.namespace); err != nil {
+				req.done <- errors.Annotatef(err, "ensuring namespace %q", req.namespace)
+				continue
 			}
-			close(req.done)
+
+			if err := w.openDatabase(req.namespace); err != nil {
+				req.done <- errors.Annotatef(err, "opening database for namespace %q", req.namespace)
+				continue
+			}
+
+			req.done <- nil
+
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case apiDetails := <-w.apiServerChanges:
@@ -307,9 +318,6 @@ func (w *dbWorker) Report() map[string]any {
 
 // GetDB returns a TrackedDB reference for the dqlite-backed
 // database that contains the data for the specified namespace.
-// TODO (stickupkid): Before handing out any DB for any namespace,
-// we should first validate it exists in the controller list.
-// This should only be required if it's not the controller DB.
 func (w *dbWorker) GetDB(namespace string) (coredatabase.TrackedDB, error) {
 	// Ensure Dqlite is initialised.
 	select {
@@ -328,7 +336,12 @@ func (w *dbWorker) GetDB(namespace string) (coredatabase.TrackedDB, error) {
 
 	// Wait for the worker loop to indicate it's done.
 	select {
-	case <-req.done:
+	case err := <-req.done:
+		// If we know we've got an error, just return that error before
+		// attempting to ask the dbRunnerWorker.
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	case <-w.catacomb.Dying():
 		return nil, w.catacomb.ErrDying()
 	}
@@ -405,6 +418,10 @@ func (w *dbWorker) initialiseDqlite(options ...app.Option) error {
 
 	// Open up the default controller database. Other database namespaces can
 	// be opened up in a more lazy fashion.
+	//
+	// Note: we don't need to verify the database schema here, since the
+	// controller database is created by the controller itself, and we know
+	// it's allowed to access it.
 	if err := w.openDatabase(coredatabase.ControllerNS); err != nil {
 		return errors.Annotate(err, "opening initial databases")
 	}
@@ -665,4 +682,67 @@ func (w *dbWorker) shutdownDqlite(ctx context.Context) {
 func (w *dbWorker) scopedContext() (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 	return w.catacomb.Context(ctx), cancel
+}
+
+// ensureNamespace ensures that a given namespace is allowed to exists in
+// the database. If the namespace is not within the allowed namespaces, it
+// will return a not found error. For any other error it will return the
+// underlying error. If it is allowed, then it will return nil.
+func (w *dbWorker) ensureNamespace(namespace string) error {
+	// If the namespace is the controller namespace, we don't need to
+	// validate it. It exists by the very nature of the controller.
+	if namespace == coredatabase.ControllerNS {
+		return nil
+	}
+
+	// Otherwise, we need to validate that the namespace exists.
+	controllerWorker, err := w.dbRunner.Worker(coredatabase.ControllerNS, w.catacomb.Dying())
+	if err != nil {
+		return errors.Annotatef(err, "getting controller worker")
+	}
+
+	dbGetter, ok := controllerWorker.(coredatabase.TrackedDB)
+	if !ok {
+		return errors.Errorf("worker is not a DBGetter")
+	}
+
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	known, err := isKnownToController(ctx, dbGetter, namespace)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !known {
+		return errors.NotFoundf("namespace %q", namespace)
+	}
+	return nil
+}
+
+func isKnownToController(ctx context.Context, db coredatabase.TrackedDB, namespace string) (bool, error) {
+	var known bool
+	err := db.Txn(ctx, func(ctx context.Context, db *sql.Tx) error {
+		row := db.QueryRowContext(ctx, "SELECT uuid FROM model_list WHERE uuid=?", namespace)
+
+		var uuid string
+		if err := row.Scan(&uuid); err != nil {
+			// No rows means the namespace is not known to the controller.
+			// We return a NotFound error to the caller.
+			if errors.Is(err, sql.ErrNoRows) {
+				return errors.NotFoundf("namespace %q", namespace)
+			}
+			return errors.Trace(err)
+		}
+
+		if err := row.Err(); err != nil {
+			return errors.Trace(err)
+		}
+
+		known = uuid == namespace
+		return nil
+	})
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return known, nil
 }
