@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/domain"
 )
 
 // State defines a interface for interacting with the underlying state.
@@ -34,7 +35,7 @@ func (s *Service) Create(ctx context.Context, uuid UUID) error {
 	}
 
 	err := s.st.Create(ctx, uuid)
-	return errors.Annotatef(err, "creating model %q", uuid)
+	return errors.Annotatef(domain.CoerceError(err), "creating model %q", uuid)
 }
 
 // Delete takes a model UUID and deletes the model if it exists.
@@ -44,5 +45,5 @@ func (s *Service) Delete(ctx context.Context, uuid UUID) error {
 	}
 
 	err := s.st.Delete(ctx, uuid)
-	return errors.Annotatef(err, "deleting model %q", uuid)
+	return errors.Annotatef(domain.CoerceError(err), "deleting model %q", uuid)
 }

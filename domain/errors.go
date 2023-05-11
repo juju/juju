@@ -18,10 +18,11 @@ var (
 
 // CoerceError converts an error to a domain error.
 func CoerceError(err error) error {
-	if database.IsErrConstraintUnique(err) {
+	cause := errors.Cause(err)
+	if database.IsErrConstraintUnique(cause) {
 		return errors.Wrap(err, ErrDuplicate)
 	}
-	if database.IsErrNotFound(err) {
+	if database.IsErrNotFound(cause) {
 		return errors.Wrap(err, ErrNoRecord)
 	}
 	return errors.Trace(err)

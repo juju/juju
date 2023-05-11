@@ -37,7 +37,7 @@ func (s *stateSuite) TestStateCreateCalledTwice(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.Create(context.TODO(), uuid)
-	c.Assert(err, gc.ErrorMatches, domain.ErrDuplicate.Error())
+	c.Assert(err, gc.ErrorMatches, `UNIQUE constraint failed: model_list.uuid`)
 }
 
 // Note: This will pass as we don't validate the UUID at this level, and we

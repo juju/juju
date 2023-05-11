@@ -39,7 +39,7 @@ func (s *State) Create(ctx context.Context, uuid service.UUID) error {
 		stmt := "INSERT INTO model_list (uuid) VALUES (?);"
 		result, err := tx.ExecContext(ctx, stmt, uuid)
 		if err != nil {
-			return domain.CoerceError(err)
+			return errors.Trace(err)
 		}
 		if num, err := result.RowsAffected(); err != nil {
 			return errors.Trace(err)
@@ -63,7 +63,7 @@ func (s *State) Delete(ctx context.Context, uuid service.UUID) error {
 		stmt := "DELETE FROM model_list WHERE uuid = ?;"
 		result, err := tx.ExecContext(ctx, stmt, uuid)
 		if err != nil {
-			return domain.CoerceError(err)
+			return errors.Trace(err)
 		}
 		if num, err := result.RowsAffected(); err != nil {
 			return errors.Trace(err)
