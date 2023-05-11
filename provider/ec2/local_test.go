@@ -1684,6 +1684,18 @@ func (t *localServerSuite) TestPartialInterfacesForMultipleInstances(c *gc.C) {
 	c.Assert(infoLists[1], gc.IsNil, gc.Commentf("expected slot for unknown instance to be nil"))
 }
 
+func (t *localServerSuite) TestStartInstanceIsAtomic(c *gc.C) {
+	env := t.prepareEnviron(c)
+	_, _ = testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")
+	callCounts := t.srv.ec2srv.GetMutatingCallCount()
+
+	// Allow only 1 mutating call to instances and 0 to tags
+	// We don't care about volumes or groups
+	c.Assert(callCounts.Instances, gc.Equals, 1)
+	c.Assert(callCounts.Tags, gc.Equals, 0)
+
+}
+
 func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
 	_, _ = t.addTestingNetworkInterfaceToInstance(c, instId)

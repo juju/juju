@@ -18,6 +18,8 @@ import (
 
 // CreateVolume implements ec2.Client.
 func (srv *Server) CreateVolume(ctx context.Context, in *ec2.CreateVolumeInput, opts ...func(*ec2.Options)) (*ec2.CreateVolumeOutput, error) {
+	srv.volumeMutatingCalls.next()
+
 	if err, ok := srv.apiCallErrors["CreateVolume"]; ok {
 		return nil, err
 	}
@@ -54,6 +56,8 @@ func (srv *Server) CreateVolume(ctx context.Context, in *ec2.CreateVolumeInput, 
 
 // DeleteVolume implements ec2.Client.
 func (srv *Server) DeleteVolume(ctx context.Context, in *ec2.DeleteVolumeInput, opts ...func(*ec2.Options)) (*ec2.DeleteVolumeOutput, error) {
+	srv.volumeMutatingCalls.next()
+
 	if err, ok := srv.apiCallErrors["DeleteVolume"]; ok {
 		return nil, err
 	}

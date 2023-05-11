@@ -1717,37 +1717,9 @@ func (e *environ) AllRunningInstances(ctx context.ProviderCallContext) ([]instan
 // allInstancesByState returns all instances in the environment
 // with one of the specified instance states.
 func (e *environ) allInstancesByState(ctx context.ProviderCallContext, states ...string) ([]instances.Instance, error) {
-	// NOTE(axw) we use security group filtering here because instances
-	// start out untagged. If Juju were to abort after starting an instance,
-	// but before tagging it, it would be leaked. We only need to do this
-	// for AllRunningInstances, as it is the result of AllRunningInstances that is used
-	// in "harvesting" unknown instances by the provisioner.
-	//
-	// One possible alternative is to modify ec2.RunInstances to allow the
-	// caller to specify ClientToken, and then format it like
-	//     <controller-uuid>:<model-uuid>:<machine-id>
-	//     (with base64-encoding to keep the size under the 64-byte limit)
-	//
-	// It is possible to filter on "client-token", and specify wildcards;
-	// therefore we could use client-token filters everywhere in the ec2
-	// provider instead of tags or security groups. The only danger is if
-	// we need to make non-idempotent calls to RunInstances for the machine
-	// ID. I don't think this is needed, but I am not confident enough to
-	// change this fundamental right now.
-	//
-	// An EC2 API call is required to resolve the group name to an id, as
-	// VPC enabled accounts do not support name based filtering.
-	groupName := e.jujuGroupName()
-	group, err := e.groupByName(ctx, groupName)
-	if isNotFoundError(err) {
-		// If there's no group, then there cannot be any instances.
-		return nil, nil
-	} else if err != nil {
-		return nil, errors.Trace(maybeConvertCredentialError(err, ctx))
-	}
 	filters := []types.Filter{
 		makeFilter("instance-state-name", states...),
-		makeFilter("instance.group-id", aws.ToString(group.GroupId)),
+		makeModelFilter(e.uuid()),
 	}
 	return e.allInstances(ctx, filters)
 }
