@@ -5,6 +5,7 @@ package domain
 
 import (
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/database"
 )
 
