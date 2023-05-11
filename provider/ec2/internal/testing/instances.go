@@ -54,6 +54,7 @@ type Instance struct {
 
 // TerminateInstances implements ec2.Client.
 func (srv *Server) TerminateInstances(ctx context.Context, in *ec2.TerminateInstancesInput, opts ...func(*ec2.Options)) (*ec2.TerminateInstancesOutput, error) {
+	srv.instanceMutatingCalls.next()
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 
@@ -92,6 +93,8 @@ func (srv *Server) instance(id string) (*Instance, error) {
 
 // RunInstances implements ec2.Client.
 func (srv *Server) RunInstances(ctx context.Context, in *ec2.RunInstancesInput, opts ...func(*ec2.Options)) (*ec2.RunInstancesOutput, error) {
+	srv.instanceMutatingCalls.next()
+
 	min := aws.ToInt32(in.MinCount)
 	max := aws.ToInt32(in.MaxCount)
 	if min < 0 || max < 1 {
@@ -197,6 +200,7 @@ func (srv *Server) AssociateIamInstanceProfile(
 	params *ec2.AssociateIamInstanceProfileInput,
 	opts ...func(*ec2.Options),
 ) (*ec2.AssociateIamInstanceProfileOutput, error) {
+	srv.instanceMutatingCalls.next()
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 
