@@ -38,11 +38,11 @@ run_refresh_local() {
 
 	ensure "${model_name}" "${file}"
 
-	juju download ubuntu --no-progress - >"${charm_name}"
-	juju deploy "${charm_name}" ubuntu
-	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	juju download jameinel-ubuntu-lite --no-progress - >"${charm_name}"
+	juju deploy "${charm_name}" ubuntu-lite
+	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
-	OUT=$(juju refresh ubuntu --path "${charm_name}" 2>&1 || true)
+	OUT=$(juju refresh ubuntu-lite --path "${charm_name}" 2>&1 || true)
 	if echo "${OUT}" | grep -E -vq "Added local charm"; then
 		# shellcheck disable=SC2046
 		echo $(red "failed refreshing charm: ${OUT}")
@@ -54,8 +54,8 @@ run_refresh_local() {
 	# format: Added charm-store charm "ubuntu", revision 21 in channel stable, to the model
 	revision=$(echo "${OUT}" | awk 'BEGIN{FS=","} {print $2}' | awk 'BEGIN{FS=" "} {print $2}')
 
-	wait_for "ubuntu" "$(charm_rev "ubuntu" "${revision}")"
-	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	wait_for "ubuntu-lite" "$(charm_rev "ubuntu-lite" "${revision}")"
+	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
 	destroy_model "${model_name}"
 }
@@ -127,16 +127,16 @@ run_refresh_channel_no_new_revision() {
 
 	ensure "${model_name}" "${file}"
 
-	juju deploy ubuntu
-	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	juju deploy jameinel-ubuntu-lite
+	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 	# get revision to ensure it doesn't change
-	cs_revision=$(juju status --format json | jq -S '.applications | .["ubuntu"] | .["charm-rev"]')
+	cs_revision=$(juju status --format json | jq -S '.applications | .["ubuntu-lite"] | .["charm-rev"]')
 
-	juju refresh ubuntu --channel edge
+	juju refresh ubuntu-lite --channel edge
 
-	wait_for "ubuntu" "$(charm_channel "ubuntu" "edge")"
-	wait_for "ubuntu" "$(charm_rev "ubuntu" "${cs_revision}")"
-	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	wait_for "ubuntu-lite" "$(charm_channel "ubuntu-lite" "edge")"
+	wait_for "ubuntu-lite" "$(charm_rev "ubuntu-lite" "${cs_revision}")"
+	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
 	destroy_model "${model_name}"
 }
