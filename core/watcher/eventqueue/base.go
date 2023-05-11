@@ -18,9 +18,9 @@ type BaseWatcher struct {
 	logger     Logger
 }
 
-// MakeBaseWatcher returns a BaseWatcher constructed from the arguments.
-func MakeBaseWatcher(eq EventQueue, db TrackedDB, l Logger) BaseWatcher {
-	return BaseWatcher{
+// NewBaseWatcher returns a BaseWatcher constructed from the arguments.
+func NewBaseWatcher(eq EventQueue, db TrackedDB, l Logger) *BaseWatcher {
+	return &BaseWatcher{
 		eventQueue: eq,
 		db:         db,
 		logger:     l,

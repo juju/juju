@@ -59,7 +59,7 @@ func (s *uuidSuite) TestInitialStateSent(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	w := NewUUIDWatcher(s.makeBaseWatcher(), "random_namespace")
+	w := NewUUIDWatcher(s.newBaseWatcher(), "random_namespace")
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -101,7 +101,7 @@ func (s *uuidSuite) TestDeltasSent(c *gc.C) {
 		)},
 	).Return(s.sub, nil)
 
-	w := NewUUIDWatcher(s.makeBaseWatcher(), "external_controller")
+	w := NewUUIDWatcher(s.newBaseWatcher(), "external_controller")
 	defer workertest.DirtyKill(c, w)
 
 	// No initial data.
@@ -153,7 +153,7 @@ func (s *uuidSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 		)},
 	).Return(s.sub, nil)
 
-	w := NewUUIDWatcher(s.makeBaseWatcher(), "external_controller")
+	w := NewUUIDWatcher(s.newBaseWatcher(), "external_controller")
 	defer workertest.DirtyKill(c, w)
 
 	err := workertest.CheckKilled(c, w)

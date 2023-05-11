@@ -18,7 +18,7 @@ import (
 // UUIDWatcher watches for changes to a database table.
 // Any time rows change in the watched table, the changed UUIDs are emitted.
 type UUIDWatcher struct {
-	BaseWatcher
+	*BaseWatcher
 
 	out       chan []string
 	tableName string
@@ -27,7 +27,7 @@ type UUIDWatcher struct {
 
 // NewUUIDWatcher returns a new watcher that receives changes from the
 // input base watcher's db/queue when rows in the input table change.
-func NewUUIDWatcher(base BaseWatcher, tableName string) *UUIDWatcher {
+func NewUUIDWatcher(base *BaseWatcher, tableName string) *UUIDWatcher {
 	w := &UUIDWatcher{
 		BaseWatcher: base,
 		out:         make(chan []string),
