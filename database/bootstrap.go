@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/database/app"
-	"github.com/juju/juju/database/schema"
+	"github.com/juju/juju/domain/schema"
 )
 
 type bootstrapOptFactory interface {
