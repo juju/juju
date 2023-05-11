@@ -225,7 +225,7 @@ func externalControllerSchema() string {
 CREATE TABLE external_controller (
     uuid            TEXT PRIMARY KEY,
     alias           TEXT,
-    ca_cert_uuid    TEXT NOT NULL
+    ca_cert         TEXT NOT NULL
 );
 
 CREATE TABLE external_controller_address (
