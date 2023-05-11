@@ -6,6 +6,7 @@ package eventqueue
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -25,13 +26,19 @@ var _ = gc.Suite(&uuidSuite{})
 func (s *uuidSuite) TestInitialStateSent(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
+	subExp := s.sub.EXPECT()
+
 	// We go through the worker loop twice; once to dispatch initial events,
 	// then to pick up tomb.Dying(). Done() is read each time.
 	done := make(chan struct{})
-	s.sub.EXPECT().Done().Return(done).Times(2)
+	subExp.Done().Return(done).Times(2)
 
-	changes := make(chan []changestream.ChangeEvent)
-	s.sub.EXPECT().Changes().Return(changes)
+	// When we tick over from the initial dispatch mode to
+	// read mode, we will have the in channel assigned.
+	deltas := make(chan []changestream.ChangeEvent)
+	subExp.Changes().Return(deltas)
+
+	subExp.Unsubscribe()
 
 	s.queue.EXPECT().Subscribe(
 		subscriptionOptionMatcher{changestream.Namespace(
@@ -40,6 +47,8 @@ func (s *uuidSuite) TestInitialStateSent(c *gc.C) {
 		)},
 	).Return(s.sub, nil)
 
+	// The EventQueue is mocked, but we use a real Sqlite DB from which the
+	// initial state is read. Insert some data to verify.
 	err := s.TrackedDB().TxnNoRetry(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, "CREATE TABLE random_namespace (uuid TEXT PRIMARY KEY)"); err != nil {
 			return err
@@ -62,4 +71,109 @@ func (s *uuidSuite) TestInitialStateSent(c *gc.C) {
 	}
 
 	workertest.CleanKill(c, w)
+}
+
+func (s *uuidSuite) TestDeltasSent(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	subExp := s.sub.EXPECT()
+
+	// We go through the worker loop 4 times:
+	// - Dispatch initial events.
+	// - Read deltas.
+	// - Dispatch deltas.
+	// - Pick up tomb.Dying()
+	done := make(chan struct{})
+	subExp.Done().Return(done).Times(4)
+
+	// Tick-tock-tick-tock. 2 assignments of the in channel.
+	deltas := make(chan []changestream.ChangeEvent)
+	subExp.Changes().Return(deltas).Times(2)
+
+	subExp.Unsubscribe()
+
+	// The specific table doesn't matter here. Only that exists to read from.
+	// We don't need any initial data.
+	s.queue.EXPECT().Subscribe(
+		subscriptionOptionMatcher{changestream.Namespace(
+			"external_controller",
+			changestream.Create|changestream.Update|changestream.Delete,
+		)},
+	).Return(s.sub, nil)
+
+	w := NewUUIDWatcher(s.makeBaseWatcher(), "external_controller")
+	defer workertest.DirtyKill(c, w)
+
+	// No initial data.
+	select {
+	case changes := <-w.Changes():
+		c.Assert(changes, gc.HasLen, 0)
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for initial watcher changes")
+	}
+
+	select {
+	case deltas <- []changestream.ChangeEvent{changeEvent{
+		changeType: 0,
+		namespace:  "external_controller",
+		uuid:       "some-ec-uuid",
+	}}:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out dispatching change event")
+	}
+
+	select {
+	case changes := <-w.Changes():
+		c.Assert(changes, gc.HasLen, 1)
+		c.Check(changes[0], gc.Equals, "some-ec-uuid")
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for watcher delta")
+	}
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *uuidSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	subExp := s.sub.EXPECT()
+
+	done := make(chan struct{})
+	close(done)
+	subExp.Done().Return(done)
+
+	subExp.Unsubscribe()
+
+	// The specific table doesn't matter here. Only that exists to read from.
+	// We don't need any initial data.
+	s.queue.EXPECT().Subscribe(
+		subscriptionOptionMatcher{changestream.Namespace(
+			"external_controller",
+			changestream.Create|changestream.Update|changestream.Delete,
+		)},
+	).Return(s.sub, nil)
+
+	w := NewUUIDWatcher(s.makeBaseWatcher(), "external_controller")
+	defer workertest.DirtyKill(c, w)
+
+	err := workertest.CheckKilled(c, w)
+	c.Check(errors.Is(err, ErrSubscriptionClosed), jc.IsTrue)
+}
+
+type changeEvent struct {
+	changeType changestream.ChangeType
+	namespace  string
+	uuid       string
+}
+
+func (e changeEvent) Type() changestream.ChangeType {
+	return e.changeType
+}
+
+func (e changeEvent) Namespace() string {
+	return e.namespace
+}
+
+func (e changeEvent) ChangedUUID() string {
+	return e.uuid
 }

@@ -51,6 +51,7 @@ func (w *UUIDWatcher) loop() error {
 	if err != nil {
 		return errors.Annotatef(err, "subscribing to namespace %q", w.tableName)
 	}
+	defer subscription.Unsubscribe()
 
 	changes, err := w.getInitialState()
 	if err != nil {
@@ -91,6 +92,7 @@ func (w *UUIDWatcher) loop() error {
 
 // getInitialState retrieves the current state of the world from the database,
 // as it concerns this watcher. It must be called after we are subscribed.
+// Note that killing the worker via its tomb cancels the context used here.
 func (w *UUIDWatcher) getInitialState() ([]string, error) {
 	parentCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
