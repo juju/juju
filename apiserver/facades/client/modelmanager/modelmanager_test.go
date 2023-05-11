@@ -214,13 +214,13 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	}
 
 	api, err := modelmanager.NewModelManagerAPI(
-		s.st, s.ctlrSt, nil, newBroker, common.NewBlockChecker(s.st),
+		s.st, s.ctlrSt, &mockModelManagerService{}, nil, newBroker, common.NewBlockChecker(s.st),
 		s.authoriser, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 	caasApi, err := modelmanager.NewModelManagerAPI(
-		s.caasSt, s.ctlrSt, nil, newBroker, common.NewBlockChecker(s.caasSt),
+		s.caasSt, s.ctlrSt, &mockModelManagerService{}, nil, newBroker, common.NewBlockChecker(s.caasSt),
 		s.authoriser, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -241,7 +241,7 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		return s.caasBroker, nil
 	}
 	mm, err := modelmanager.NewModelManagerAPI(
-		s.st, s.ctlrSt, nil, newBroker, common.NewBlockChecker(s.st),
+		s.st, s.ctlrSt, &mockModelManagerService{}, nil, newBroker, common.NewBlockChecker(s.st),
 		s.authoriser, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -275,7 +275,7 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		CloudRegion:        "qux",
 		CloudCredentialTag: "cloudcred-some-cloud_admin_some-credential",
 	}
-	_, err := s.api.CreateModel(args)
+	_, err := s.api.CreateModel(stdcontext.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCallNames(c,
 		"ControllerTag",
@@ -352,7 +352,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *gc.C) {
 		CloudRegion:        "qux",
 		CloudCredentialTag: "cloudcred-some-cloud_admin_some-credential",
 	}
-	_, err := s.api.CreateModel(args)
+	_, err := s.api.CreateModel(stdcontext.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newModelArgs := s.getModelArgs(c)
@@ -366,7 +366,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloudNotFound(c *gc.C) {
 		OwnerTag: "user-admin",
 		CloudTag: "cloud-some-unknown-cloud",
 	}
-	_, err := s.api.CreateModel(args)
+	_, err := s.api.CreateModel(stdcontext.TODO(), args)
 	c.Assert(err, gc.ErrorMatches, `cloud "some-unknown-cloud" not found, expected one of \["some-cloud"\]`)
 }
 
@@ -375,7 +375,7 @@ func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *gc.C) {
 		Name:     "foo",
 		OwnerTag: "user-admin",
 	}
-	_, err := s.api.CreateModel(args)
+	_, err := s.api.CreateModel(stdcontext.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newModelArgs := s.getModelArgs(c)
@@ -396,7 +396,7 @@ func (s *modelManagerSuite) testCreateModelDefaultCredentialAdmin(c *gc.C, owner
 		Name:     "foo",
 		OwnerTag: ownerTag,
 	}
-	_, err := s.api.CreateModel(args)
+	_, err := s.api.CreateModel(stdcontext.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newModelArgs := s.getModelArgs(c)
@@ -410,7 +410,7 @@ func (s *modelManagerSuite) TestCreateModelEmptyCredentialNonAdmin(c *gc.C) {
 		Name:     "foo",
 		OwnerTag: "user-bob",
 	}
-	_, err := s.api.CreateModel(args)
+	_, err := s.api.CreateModel(stdcontext.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newModelArgs := s.getModelArgs(c)
@@ -423,7 +423,7 @@ func (s *modelManagerSuite) TestCreateModelNoDefaultCredentialNonAdmin(c *gc.C) 
 		Name:     "foo",
 		OwnerTag: "user-bob",
 	}
-	_, err := s.api.CreateModel(args)
+	_, err := s.api.CreateModel(stdcontext.TODO(), args)
 	c.Assert(err, gc.ErrorMatches, "no credential specified")
 }
 
@@ -434,7 +434,7 @@ func (s *modelManagerSuite) TestCreateModelUnknownCredential(c *gc.C) {
 		OwnerTag:           "user-admin",
 		CloudCredentialTag: "cloudcred-some-cloud_admin_bar",
 	}
-	_, err := s.api.CreateModel(args)
+	_, err := s.api.CreateModel(stdcontext.TODO(), args)
 	c.Assert(err, gc.ErrorMatches, `getting credential: credential not found`)
 }
 
@@ -446,7 +446,7 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 		CloudTag:           "cloud-k8s-cloud",
 		CloudCredentialTag: "cloudcred-k8s-cloud_admin_some-credential",
 	}
-	_, err := s.caasApi.CreateModel(args)
+	_, err := s.caasApi.CreateModel(stdcontext.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	s.caasSt.CheckCallNames(c,
 		"ControllerTag",
@@ -519,7 +519,7 @@ func (s *modelManagerSuite) TestCreateCAASModelNamespaceClash(c *gc.C) {
 		CloudTag:           "cloud-k8s-cloud",
 		CloudCredentialTag: "cloudcred-k8s-cloud_admin_some-credential",
 	}
-	_, err := s.caasApi.CreateModel(args)
+	_, err := s.caasApi.CreateModel(stdcontext.TODO(), args)
 	s.caasBroker.CheckCallNames(c, "Create")
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }
@@ -725,8 +725,8 @@ func (s *modelManagerSuite) TestDumpModelMissingModel(c *gc.C) {
 	models := params.DumpModelRequest{Entities: []params.Entity{{Tag: tag.String()}}}
 	results := s.api.DumpModels(models)
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
-		{"ControllerTag", nil},
-		{"GetBackend", []interface{}{tag.Id()}},
+		{FuncName: "ControllerTag", Args: nil},
+		{FuncName: "GetBackend", Args: []interface{}{tag.Id()}},
 	})
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
@@ -753,7 +753,7 @@ func (s *modelManagerSuite) TestDumpModelUsers(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestDumpModelsDB(c *gc.C) {
-	results := s.api.DumpModelsDB(params.Entities{[]params.Entity{{
+	results := s.api.DumpModelsDB(params.Entities{Entities: []params.Entity{{
 		Tag: "bad-tag",
 	}, {
 		Tag: "application-foo",
@@ -778,13 +778,13 @@ func (s *modelManagerSuite) TestDumpModelsDB(c *gc.C) {
 func (s *modelManagerSuite) TestDumpModelsDBMissingModel(c *gc.C) {
 	s.st.SetErrors(errors.NotFoundf("boom"))
 	tag := names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f000")
-	models := params.Entities{[]params.Entity{{Tag: tag.String()}}}
+	models := params.Entities{Entities: []params.Entity{{Tag: tag.String()}}}
 	results := s.api.DumpModelsDB(models)
 
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
-		{"ControllerTag", nil},
-		{"ModelTag", nil},
-		{"GetBackend", []interface{}{tag.Id()}},
+		{FuncName: "ControllerTag", Args: nil},
+		{FuncName: "ModelTag", Args: nil},
+		{FuncName: "GetBackend", Args: []interface{}{tag.Id()}},
 	})
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
@@ -795,7 +795,7 @@ func (s *modelManagerSuite) TestDumpModelsDBMissingModel(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestDumpModelsDBUsers(c *gc.C) {
-	models := params.Entities{[]params.Entity{{Tag: s.st.ModelTag().String()}}}
+	models := params.Entities{Entities: []params.Entity{{Tag: s.st.ModelTag().String()}}}
 	for _, user := range []names.UserTag{
 		names.NewUserTag("otheruser"),
 		names.NewUserTag("unknown"),
@@ -814,7 +814,7 @@ func (s *modelManagerSuite) TestAddModelCanCreateModel(c *gc.C) {
 	addModelUser := names.NewUserTag("add-model")
 	s.ctlrSt.cloudUsers[addModelUser.Id()] = permission.AddModelAccess
 	s.setAPIUser(c, addModelUser)
-	_, err := s.api.CreateModel(createArgs(addModelUser))
+	_, err := s.api.CreateModel(stdcontext.TODO(), createArgs(addModelUser))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -823,7 +823,7 @@ func (s *modelManagerSuite) TestAddModelCantCreateModelForSomeoneElse(c *gc.C) {
 	s.ctlrSt.cloudUsers[addModelUser.Id()] = permission.AddModelAccess
 	s.setAPIUser(c, addModelUser)
 	nonAdminUser := names.NewUserTag("non-admin")
-	_, err := s.api.CreateModel(createArgs(nonAdminUser))
+	_, err := s.api.CreateModel(stdcontext.TODO(), createArgs(nonAdminUser))
 	c.Assert(err, gc.ErrorMatches, "\"add-model\" permission does not permit creation of models for different owners: permission denied")
 }
 
@@ -865,6 +865,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		st, ctlrSt,
+		&mockModelManagerService{},
 		toolsFinder,
 		nil,
 		common.NewBlockChecker(st),
@@ -883,6 +884,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		st,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
+		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(st), anAuthoriser,
 		s.Model,
 		s.callContext,
@@ -898,6 +900,7 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		st,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
+		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(st), anAuthoriser, s.Model,
 		s.callContext,
 	)
@@ -914,7 +917,7 @@ func (s *modelManagerStateSuite) createArgsForVersion(c *gc.C, owner names.UserT
 func (s *modelManagerStateSuite) TestUserCanCreateModel(c *gc.C) {
 	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
-	model, err := s.modelmanager.CreateModel(createArgs(owner))
+	model, err := s.modelmanager.CreateModel(stdcontext.TODO(), createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.OwnerTag, gc.Equals, owner.String())
 	c.Assert(model.Name, gc.Equals, "test-model")
@@ -925,7 +928,7 @@ func (s *modelManagerStateSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) 
 	s.setAPIUser(c, s.AdminUserTag(c))
 	owner := names.NewUserTag("external@remote")
 
-	model, err := s.modelmanager.CreateModel(createArgs(owner))
+	model, err := s.modelmanager.CreateModel(stdcontext.TODO(), createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.OwnerTag, gc.Equals, owner.String())
 	c.Assert(model.Name, gc.Equals, "test-model")
@@ -946,14 +949,14 @@ func (s *modelManagerStateSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) 
 func (s *modelManagerStateSuite) TestNonAdminCannotCreateModelForSomeoneElse(c *gc.C) {
 	s.setAPIUser(c, names.NewUserTag("non-admin@remote"))
 	owner := names.NewUserTag("external@remote")
-	_, err := s.modelmanager.CreateModel(createArgs(owner))
+	_, err := s.modelmanager.CreateModel(stdcontext.TODO(), createArgs(owner))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *modelManagerStateSuite) TestNonAdminCannotCreateModelForSelf(c *gc.C) {
 	owner := names.NewUserTag("non-admin@remote")
 	s.setAPIUser(c, owner)
-	_, err := s.modelmanager.CreateModel(createArgs(owner))
+	_, err := s.modelmanager.CreateModel(stdcontext.TODO(), createArgs(owner))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -962,7 +965,7 @@ func (s *modelManagerStateSuite) TestCreateModelValidatesConfig(c *gc.C) {
 	s.setAPIUser(c, admin)
 	args := createArgs(admin)
 	args.Config["controller"] = "maybe"
-	_, err := s.modelmanager.CreateModel(args)
+	_, err := s.modelmanager.CreateModel(stdcontext.TODO(), args)
 	c.Assert(err, gc.ErrorMatches,
 		"failed to create config: provider config preparation failed: controller: expected bool, got string\\(\"maybe\"\\)",
 	)
@@ -985,7 +988,7 @@ func (s *modelManagerStateSuite) TestCreateModelBadConfig(c *gc.C) {
 		c.Logf("%d: %s", i, test.key)
 		args := createArgs(owner)
 		args.Config[test.key] = test.value
-		_, err := s.modelmanager.CreateModel(args)
+		_, err := s.modelmanager.CreateModel(stdcontext.TODO(), args)
 		c.Assert(err, gc.ErrorMatches, test.errMatch)
 
 	}
@@ -995,7 +998,7 @@ func (s *modelManagerStateSuite) TestCreateModelSameAgentVersion(c *gc.C) {
 	admin := s.AdminUserTag(c)
 	s.setAPIUser(c, admin)
 	args := s.createArgsForVersion(c, admin, jujuversion.Current.String())
-	_, err := s.modelmanager.CreateModel(args)
+	_, err := s.modelmanager.CreateModel(stdcontext.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1032,7 +1035,7 @@ func (s *modelManagerStateSuite) TestCreateModelBadAgentVersion(c *gc.C) {
 	} {
 		c.Logf("test %d", i)
 		args := s.createArgsForVersion(c, admin, test.value)
-		_, err := s.modelmanager.CreateModel(args)
+		_, err := s.modelmanager.CreateModel(stdcontext.TODO(), args)
 		c.Check(err, gc.ErrorMatches, test.errMatch)
 	}
 }
@@ -1089,7 +1092,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	// can create models are controller admins.
 	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
-	m, err := s.modelmanager.CreateModel(createArgs(owner))
+	m, err := s.modelmanager.CreateModel(stdcontext.TODO(), createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
 
 	st, err := s.StatePool.Get(m.UUID)
@@ -1101,6 +1104,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		backend,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
+		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(backend), s.authoriser,
 		s.Model,
 		s.callContext,
@@ -1109,7 +1113,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 
 	force := true
 	timeout := time.Minute
-	results, err := s.modelmanager.DestroyModels(params.DestroyModelsParams{
+	results, err := s.modelmanager.DestroyModels(stdcontext.TODO(), params.DestroyModelsParams{
 		Models: []params.DestroyModelParams{{
 			ModelTag: "model-" + m.UUID,
 			Force:    &force,
@@ -1135,7 +1139,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	// usefulness until proper controller permissions are in place.
 	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
-	m, err := s.modelmanager.CreateModel(createArgs(owner))
+	m, err := s.modelmanager.CreateModel(stdcontext.TODO(), createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
 
 	st, err := s.StatePool.Get(m.UUID)
@@ -1149,13 +1153,14 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		backend,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
+		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(backend), s.authoriser,
 		s.Model,
 		s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.modelmanager.DestroyModels(params.DestroyModelsParams{
+	results, err := s.modelmanager.DestroyModels(stdcontext.TODO(), params.DestroyModelsParams{
 		Models: []params.DestroyModelParams{{
 			ModelTag: "model-" + m.UUID,
 		}},
@@ -1173,7 +1178,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
-	m, err := s.modelmanager.CreateModel(createArgs(owner))
+	m, err := s.modelmanager.CreateModel(stdcontext.TODO(), createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
 
 	st, err := s.StatePool.Get(m.UUID)
@@ -1186,6 +1191,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		backend,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
+		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(backend), s.authoriser, s.Model,
 		s.callContext,
 	)
@@ -1194,7 +1200,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	user := names.NewUserTag("other@remote")
 	s.setAPIUser(c, user)
 
-	results, err := s.modelmanager.DestroyModels(params.DestroyModelsParams{
+	results, err := s.modelmanager.DestroyModels(stdcontext.TODO(), params.DestroyModelsParams{
 		Models: []params.DestroyModelParams{
 			{ModelTag: "model-" + m.UUID},
 			{ModelTag: "model-9f484882-2f18-4fd2-967d-db9663db7bea"},
@@ -1204,17 +1210,17 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{{
 		// we don't have admin access to the model
-		&params.Error{
+		Error: &params.Error{
 			Message: "permission denied",
 			Code:    params.CodeUnauthorized,
 		},
 	}, {
-		&params.Error{
+		Error: &params.Error{
 			Message: `model "9f484882-2f18-4fd2-967d-db9663db7bea" not found`,
 			Code:    params.CodeNotFound,
 		},
 	}, {
-		&params.Error{
+		Error: &params.Error{
 			Message: `"machine-42" is not a valid model tag`,
 		},
 	}})
@@ -1617,6 +1623,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		st,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
+		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(st), anAuthoriser,
 		s.Model,
 		s.callContext,
@@ -1657,7 +1664,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 
 func (s *modelManagerSuite) TestModelStatus(c *gc.C) {
 	// Check that we don't err out immediately if a model errs.
-	results, err := s.api.ModelStatus(params.Entities{[]params.Entity{{
+	results, err := s.api.ModelStatus(params.Entities{Entities: []params.Entity{{
 		Tag: "bad-tag",
 	}, {
 		Tag: s.st.ModelTag().String(),
@@ -1667,7 +1674,7 @@ func (s *modelManagerSuite) TestModelStatus(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
 
 	// Check that we don't err out if a model errs even if some firsts in collection pass.
-	results, err = s.api.ModelStatus(params.Entities{[]params.Entity{{
+	results, err = s.api.ModelStatus(params.Entities{Entities: []params.Entity{{
 		Tag: s.st.ModelTag().String(),
 	}, {
 		Tag: "bad-tag",
@@ -1677,7 +1684,7 @@ func (s *modelManagerSuite) TestModelStatus(c *gc.C) {
 	c.Assert(results.Results[1].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
 
 	// Check that we return successfully if no errors.
-	results, err = s.api.ModelStatus(params.Entities{[]params.Entity{{
+	results, err = s.api.ModelStatus(params.Entities{Entities: []params.Entity{{
 		Tag: s.st.ModelTag().String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1688,7 +1695,7 @@ func (s *modelManagerSuite) TestChangeModelCredential(c *gc.C) {
 	s.st.model.setCloudCredentialF = func(tag names.CloudCredentialTag) (bool, error) { return true, nil }
 	credentialTag := names.NewCloudCredentialTag("foo/bob/bar").String()
 	results, err := s.api.ChangeModelCredential(params.ChangeModelCredentialsParams{
-		[]params.ChangeModelCredentialParams{
+		Models: []params.ChangeModelCredentialParams{
 			{ModelTag: s.st.ModelTag().String(), CloudCredentialTag: credentialTag},
 		},
 	})
@@ -1702,7 +1709,7 @@ func (s *modelManagerSuite) TestChangeModelCredentialBulkUninterrupted(c *gc.C) 
 	credentialTag := names.NewCloudCredentialTag("foo/bob/bar").String()
 	// Check that we don't err out immediately if a model errs.
 	results, err := s.api.ChangeModelCredential(params.ChangeModelCredentialsParams{
-		[]params.ChangeModelCredentialParams{
+		Models: []params.ChangeModelCredentialParams{
 			{ModelTag: "bad-model-tag"},
 			{ModelTag: s.st.ModelTag().String(), CloudCredentialTag: credentialTag},
 		},
@@ -1715,7 +1722,7 @@ func (s *modelManagerSuite) TestChangeModelCredentialBulkUninterrupted(c *gc.C) 
 
 	// Check that we don't err out if a model errs even if some firsts in collection pass.
 	results, err = s.api.ChangeModelCredential(params.ChangeModelCredentialsParams{
-		[]params.ChangeModelCredentialParams{
+		Models: []params.ChangeModelCredentialParams{
 			{ModelTag: s.st.ModelTag().String()},
 			{ModelTag: s.st.ModelTag().String(), CloudCredentialTag: "bad-credential-tag"},
 		},
@@ -1731,7 +1738,7 @@ func (s *modelManagerSuite) TestChangeModelCredentialUnauthorisedUser(c *gc.C) {
 	s.setAPIUser(c, apiUser)
 
 	results, err := s.api.ChangeModelCredential(params.ChangeModelCredentialsParams{
-		[]params.ChangeModelCredentialParams{
+		Models: []params.ChangeModelCredentialParams{
 			{ModelTag: s.st.ModelTag().String(), CloudCredentialTag: credentialTag},
 		},
 	})
@@ -1745,7 +1752,7 @@ func (s *modelManagerSuite) TestChangeModelCredentialGetModelFail(c *gc.C) {
 	credentialTag := names.NewCloudCredentialTag("foo/bob/bar").String()
 
 	results, err := s.api.ChangeModelCredential(params.ChangeModelCredentialsParams{
-		[]params.ChangeModelCredentialParams{
+		Models: []params.ChangeModelCredentialParams{
 			{ModelTag: s.st.ModelTag().String(), CloudCredentialTag: credentialTag},
 		},
 	})
@@ -1759,7 +1766,7 @@ func (s *modelManagerSuite) TestChangeModelCredentialNotUpdated(c *gc.C) {
 	s.st.model.setCloudCredentialF = func(tag names.CloudCredentialTag) (bool, error) { return false, nil }
 	credentialTag := names.NewCloudCredentialTag("foo/bob/bar").String()
 	results, err := s.api.ChangeModelCredential(params.ChangeModelCredentialsParams{
-		[]params.ChangeModelCredentialParams{
+		Models: []params.ChangeModelCredentialParams{
 			{ModelTag: s.st.ModelTag().String(), CloudCredentialTag: credentialTag},
 		},
 	})

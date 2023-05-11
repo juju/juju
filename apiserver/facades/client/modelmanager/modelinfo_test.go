@@ -4,6 +4,7 @@
 package modelmanager_test
 
 import (
+	stdcontext "context"
 	"strings"
 	"time"
 
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -178,7 +180,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		s.st, s.ctlrSt, nil, nil, common.NewBlockChecker(s.st),
+		s.st, s.ctlrSt, &mockModelManagerService{}, nil, nil, common.NewBlockChecker(s.st),
 		&s.authorizer, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -196,7 +198,7 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	var err error
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		s.st, s.ctlrSt, nil, nil,
+		s.st, s.ctlrSt, &mockModelManagerService{}, nil, nil,
 		common.NewBlockChecker(s.st), s.authorizer, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1337,4 +1339,14 @@ func (m *mockMigration) StartTime() time.Time {
 
 func (m *mockMigration) EndTime() time.Time {
 	return m.end
+}
+
+type mockModelManagerService struct{}
+
+func (mockModelManagerService) Create(ctx stdcontext.Context, uuid modelmanagerservice.UUID) error {
+	return nil
+}
+
+func (mockModelManagerService) Delete(ctx stdcontext.Context, uuid modelmanagerservice.UUID) error {
+	return nil
 }
