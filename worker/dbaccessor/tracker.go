@@ -116,7 +116,7 @@ func NewTrackedDBWorker(ctx context.Context, dbApp DBApp, namespace string, opts
 // This is the function that almost all downstream database consumers
 // should use.
 func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
-	return database.Retry(ctx, func() error {
+	return database.Retry(w.tomb.Context(ctx), func() error {
 		return errors.Trace(w.TxnNoRetry(ctx, fn))
 	})
 }
@@ -141,7 +141,7 @@ func (w *trackedDBWorker) TxnNoRetry(ctx context.Context, fn func(context.Contex
 	db := w.db
 	w.mutex.RUnlock()
 
-	return errors.Trace(database.Txn(ctx, db, fn))
+	return errors.Trace(database.Txn(w.tomb.Context(ctx), db, fn))
 }
 
 // meterDBOpResults decrements the active DB operation count,
