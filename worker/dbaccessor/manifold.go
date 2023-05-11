@@ -119,7 +119,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				NewDBWorker:      config.NewDBWorker,
 			}
 
-			w, err := newWorker(cfg)
+			w, err := NewWorker(cfg)
 			if err != nil {
 				// Unregister the metrics collector if we fail to start the
 				// worker, so that we can safely register the metrics again.

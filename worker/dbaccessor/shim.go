@@ -72,5 +72,10 @@ func NewApp(dataDir string, options ...app.Option) (DBApp, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &dbApp{dqliteApp}, nil
+	return WrapApp(dqliteApp), nil
+}
+
+// WrapApp wraps a Dqlite App reference, so that we can shim out Client.
+func WrapApp(dqliteApp *app.App) DBApp {
+	return &dbApp{dqliteApp}
 }

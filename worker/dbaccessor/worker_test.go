@@ -474,7 +474,7 @@ func (s *workerSuite) newWorkerWithDB(c *gc.C, db TrackedDB) worker.Worker {
 		MetricsCollector: &Collector{},
 	}
 
-	w, err := newWorker(cfg)
+	w, err := NewWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	return w
 }
