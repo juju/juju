@@ -40244,7 +40244,7 @@
                             "$ref": "#/definitions/SecretContentResults"
                         }
                     },
-                    "description": "GetSecretRevisionContentInfo returns the secret values for the specified secret revisions.\nUsed when deleting a secret; only returns external revision info."
+                    "description": "GetSecretRevisionContentInfo returns the secret values for the specified secret revisions."
                 },
                 "RemoveSecrets": {
                     "type": "object",
@@ -46129,7 +46129,7 @@
                             "$ref": "#/definitions/SecretContentResults"
                         }
                     },
-                    "description": "GetSecretRevisionContentInfo returns the secret values for the specified secret revisions.\nUsed when deleting a secret; only returns external revision info."
+                    "description": "GetSecretRevisionContentInfo returns the secret values for the specified secret revisions."
                 },
                 "GoalStates": {
                     "type": "object",

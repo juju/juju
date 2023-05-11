@@ -107,14 +107,17 @@ func (w *Worker) loop() (err error) {
 			if !ok {
 				return errors.New("secret backend changed watch closed")
 			}
+			w.config.Logger.Debugf("got new secret backend")
 
 			secrets, err := w.config.SecretsDrainFacade.GetSecretsToDrain()
 			if err != nil {
 				return errors.Trace(err)
 			}
 			if len(secrets) == 0 {
+				w.config.Logger.Debugf("no secrets to drain")
 				continue
 			}
+			w.config.Logger.Debugf("got %d secrets to drain", len(secrets))
 			backends, err := w.config.SecretsBackendGetter()
 			if err != nil {
 				return errors.Trace(err)
@@ -146,6 +149,7 @@ func (w *Worker) drainSecret(
 			w.config.Logger.Warningf("secret %q revision %d has already been drained to the active backend %q", md.Metadata.URI, rev.Revision, activeBackendID)
 			continue
 		}
+		w.config.Logger.Debugf("draining %s/%d", md.Metadata.URI.ID, rev.Revision)
 
 		secretVal, err := client.GetRevisionContent(md.Metadata.URI, rev.Revision)
 		if err != nil {
@@ -195,6 +199,7 @@ func (w *Worker) drainSecret(
 		return nil
 	}
 
+	w.config.Logger.Debugf("content moved, updating backend info")
 	results, err := w.config.SecretsDrainFacade.ChangeSecretBackend(args)
 	if err != nil {
 		return errors.Trace(err)
