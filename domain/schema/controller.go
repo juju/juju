@@ -164,6 +164,19 @@ INSERT INTO auth_type VALUES
     (10, 'certificate'),
     (11, 'oauth2withcert');
 
+CREATE TABLE cloud (
+    uuid                TEXT PRIMARY KEY,
+    name                TEXT NOT NULL,
+    cloud_type_id       INT NOT NULL,
+    endpoint            TEXT NOT NULL,
+    identity_endpoint   TEXT,
+    storage_endpoint    TEXT,
+    skip_tls_verify     BOOLEAN NOT NULL,
+    CONSTRAINT          fk_cloud_type
+        FOREIGN KEY       (cloud_type_id)
+        REFERENCES        cloud_type(id)
+);
+
 CREATE TABLE cloud_auth_type (
     uuid              TEXT PRIMARY KEY,
     cloud_uuid        TEXT NOT NULL,
@@ -191,38 +204,20 @@ CREATE TABLE cloud_region (
         REFERENCES          cloud(uuid)
 );
 
-CREATE UNIQUE INDEX idx_cloud_region_cloud_uuid
+CREATE INDEX idx_cloud_region_cloud_uuid
 ON cloud_region (cloud_uuid);
-
-CREATE TABLE ca_cert (
-    uuid        TEXT PRIMARY KEY,
-    ca_cert     TEXT
-);
 
 CREATE TABLE cloud_ca_cert (
     uuid              TEXT PRIMARY KEY,
     cloud_uuid        TEXT NOT NULL,
-    ca_cert_uuid      TEXT NOT NULL,
+    ca_cert           TEXT NOT NULL,
     CONSTRAINT        fk_cloud_ca_cert_cloud
         FOREIGN KEY       (cloud_uuid)
-        REFERENCES        cloud(uuid),
-    CONSTRAINT        fk_cloud_ca_cert_ca_cert
-                          FOREIGN KEY (ca_cert_uuid)
-                          REFERENCES ca_cert(uuid)
+        REFERENCES        cloud(uuid)
 );
 
-CREATE UNIQUE INDEX idx_cloud_ca_cert_cloud_uuid_ca_cert_uuid
-ON cloud_ca_cert (cloud_uuid, ca_cert_uuid);
-
-CREATE TABLE cloud (
-    uuid                TEXT PRIMARY KEY,
-    name                TEXT NOT NULL,
-    cloud_type_id       INT NOT NULL,
-    endpoint            TEXT NOT NULL,
-    identity_endpoint   TEXT,
-    storage_endpoint    TEXT,
-    skip_tls_verify     BOOLEAN NOT NULL
-);`[1:]
+CREATE UNIQUE INDEX idx_cloud_ca_cert_cloud_uuid_ca_cert
+ON cloud_ca_cert (cloud_uuid, ca_cert);`[1:]
 }
 
 func externalControllerSchema() string {
