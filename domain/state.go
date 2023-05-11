@@ -15,19 +15,6 @@ import (
 // database cannot be returned.
 type DBFactory = func() (database.TrackedDB, error)
 
-// NamespaceDBFactory returns a DBFactory that returns a database from the
-// given getter function.
-func NamespaceDBFactory(getter func(string) (database.TrackedDB, error), namespace string) DBFactory {
-	return func() (database.TrackedDB, error) {
-		if getter == nil {
-			return nil, errors.New("nil getter")
-		}
-
-		db, err := getter(namespace)
-		return db, errors.Trace(err)
-	}
-}
-
 // TrackingDBFactory returns a DBFactory that returns the given database.
 func TrackedDBFactory(db database.TrackedDB) DBFactory {
 	return func() (database.TrackedDB, error) {
