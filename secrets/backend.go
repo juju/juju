@@ -143,9 +143,6 @@ func (c *secretsClient) DeleteContent(uri *secrets.URI, revision int) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if err = content.Validate(); err != nil {
-			return errors.Trace(err)
-		}
 		if content.ValueRef == nil {
 			return nil
 		}

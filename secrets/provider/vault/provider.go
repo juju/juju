@@ -48,7 +48,6 @@ func modelPathPrefix(name, modelUUID string) string {
 
 // Initialise sets up a kv store mounted on the model uuid.
 func (p vaultProvider) Initialise(cfg *provider.ModelBackendConfig) error {
-	logger.Criticalf("INIT")
 	client, err := p.newBackendNoMount(&cfg.BackendConfig)
 	if err != nil {
 		return errors.Trace(err)
