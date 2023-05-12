@@ -5,14 +5,14 @@ run_show_clouds() {
 	echo "" >>"${TEST_DIR}/juju/public-clouds.yaml"
 	echo "" >>"${TEST_DIR}/juju/credentials.yaml"
 
-	OUT=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --local --format=json 2>/dev/null | jq '.[] | select(.defined != "built-in")')
+	OUT=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json 2>/dev/null | jq '.[] | select(.defined != "built-in")')
 	if [ -n "${OUT}" ]; then
 		echo "expected empty, got ${OUT}"
 		exit 1
 	fi
 
 	cp ./tests/suites/cli/clouds/public-clouds.yaml "${TEST_DIR}"/juju/public-clouds.yaml
-	OUT=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --local --format=json 2>/dev/null | jq '.[] | select(.defined != "built-in")')
+	OUT=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json 2>/dev/null | jq '.[] | select(.defined != "built-in")')
 	if [ -n "${OUT}" ]; then
 		echo "expected empty, got ${OUT}"
 		exit 1
@@ -24,7 +24,7 @@ run_show_clouds() {
   "defined": "public",
   "type": "ec2",
   "auth-types": [
-    "userpass"
+    "access-key"
   ],
   "regions": {
     "us-east-1": {
@@ -69,7 +69,7 @@ run_assess_clouds() {
      type: maas
    vsphere:
      auth-types:
-     - userpass
+     - access-key
      endpoint: 10.247.0.3
      regions:
        QA:
@@ -82,7 +82,7 @@ EOF
 	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json 2>/dev/null | jq -S 'with_entries(select(
 	                                                  .value.defined != "built-in")) | with_entries((select(.value.defined == "local")
 	                                                  | del(.value.defined) |  del(.value.description)))')
-	EXPECTED=$(echo "${CLOUDS}" | yq -I0 -oj | jq -S '.[] | del(.clouds) | .[] |= ({endpoint} as $endpoint | .[] |= walk(
+	EXPECTED=$(echo "${CLOUDS}" | yq -j | jq -S '.[] | del(.clouds) | .[] |= ({endpoint} as $endpoint | .[] |= walk(
                                                   (objects | select(contains($endpoint))) |= del(.endpoint)
                                                 ))')
 	if [ "${CLOUD_LIST}" != "${EXPECTED}" ]; then
@@ -90,7 +90,7 @@ EOF
 		exit 1
 	fi
 
-	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju show-cloud finfolk-vmaas --format yaml --client 2>/dev/null | yq -I0 -oj | jq -S 'with_entries((select(.value!= null)))')
+	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju show-cloud finfolk-vmaas --format yaml --client 2>/dev/null | yq -j | jq -S 'with_entries((select(.value!= null)))')
 	EXPECTED=$(
 		cat <<'EOF' | jq -S
 	{
@@ -111,6 +111,44 @@ EOF
 	fi
 }
 
+run_controller_clouds() {
+	echo
+
+	juju add-cloud my-ec2 -f "./tests/suites/cli/clouds/myclouds.yaml" --force --controller ${BOOTSTRAPPED_JUJU_CTRL_NAME}
+	OUT=$(juju clouds --controller ${BOOTSTRAPPED_JUJU_CTRL_NAME} --format=json 2>/dev/null | jq '.[]')
+
+	EXPECTED=$(
+		cat <<'EOF'
+{
+  "defined": "public",
+  "type": "ec2",
+  "auth-types": [
+    "access-key"
+  ],
+  "regions": {
+    "us-west-1": {
+      "endpoint": "https://ec2.us-west-1.amazonaws.com"
+    },
+    "us-west-2": {
+      "endpoint": "https://ec2.us-west-2.amazonaws.com"
+    }
+  },
+  "users": {
+    "admin": {
+      "display-name": "admin",
+      "access": "admin"
+    }
+  }
+}
+EOF
+	)
+	# Controller has more than one cloud, just check the one we added.
+	if [[ ${OUT} != *"${EXPECTED}"* ]]; then
+		echo "expected ${EXPECTED}, got ${OUT}"
+		exit 1
+	fi
+}
+
 test_display_clouds() {
 	if [ "$(skip 'test_display_clouds')" ]; then
 		echo "==> TEST SKIPPED: display clouds"
@@ -124,5 +162,6 @@ test_display_clouds() {
 
 		run "run_show_clouds"
 		run "run_assess_clouds"
+		run "run_controller_clouds"
 	)
 }
