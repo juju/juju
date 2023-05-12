@@ -46,8 +46,7 @@ func (w *UUIDWatcher) Changes() <-chan []string {
 }
 
 func (w *UUIDWatcher) loop() error {
-	subscription, err := w.eventQueue.Subscribe(
-		changestream.Namespace(w.tableName, changestream.Create|changestream.Update|changestream.Delete))
+	subscription, err := w.eventQueue.Subscribe(changestream.Namespace(w.tableName, changestream.All))
 	if err != nil {
 		return errors.Annotatef(err, "subscribing to namespace %q", w.tableName)
 	}

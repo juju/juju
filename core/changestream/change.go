@@ -14,6 +14,8 @@ const (
 	Update
 	// Delete represents a row that has been deleted from the database.
 	Delete
+	// All represents any change to the namespace of interest.
+	All = Create | Update | Delete
 )
 
 // ChangeEvent represents a new change set via the changestream.
