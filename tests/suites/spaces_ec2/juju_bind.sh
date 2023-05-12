@@ -15,7 +15,8 @@ run_juju_bind() {
 	hotplug_nic_id=$2
 	add_multi_nic_machine "$hotplug_nic_id"
 	juju_machine_id=$(juju show-machine --format json | jq -r '.["machines"] | keys[0]')
-	ifaces=$(juju ssh ${juju_machine_id} 'ip -j link' | jq -r '.[].ifname | select(. | startswith("ens"))')
+	ifaces=$(juju ssh ${juju_machine_id} 'ip -j link' | jq -r '.[].ifname | select(. | startswith("enp") or startswith("ens"))')
+	echo "debug -- ifaces: $ifaces"
 	primary_iface=$(echo $ifaces | cut -d " " -f1)
 	hotplug_iface=$(echo $ifaces | cut -d " " -f2)
 	configure_multi_nic_netplan "$juju_machine_id" "$hotplug_iface"
