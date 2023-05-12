@@ -9,10 +9,11 @@ import (
 
 	common "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/core/crossmodel"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/state"
 )
 
-// RemoteRelationState provides the subset of global state required by the
+// CrossModelRelationsState provides the subset of global state required by the
 // remote relations facade.
 type CrossModelRelationsState interface {
 	common.Backend
@@ -22,14 +23,22 @@ type CrossModelRelationsState interface {
 
 	// AddOfferConnection creates a new offer connection record, which records details about a
 	// relation made from a remote model to an offer in the local model.
-	AddOfferConnection(state.AddOfferConnectionParams) (OfferConnection, error)
-
-	// OfferConnectionForRelation returns the offer connection details for the given relation key.
-	OfferConnectionForRelation(string) (OfferConnection, error)
+	AddOfferConnection(state.AddOfferConnectionParams) (common.OfferConnection, error)
 
 	// IsMigrationActive returns true if the current model is
 	// in the process of being migrated to another controller.
 	IsMigrationActive() (bool, error)
+
+	// GetSecretConsumerInfo returns the remote app tag and offer uuid
+	// for the specified consumer app token.
+	GetSecretConsumerInfo(string) (names.Tag, string, error)
+
+	// GetSecret gets the secret metadata for the given secret URI.
+	GetSecret(*coresecrets.URI) (*coresecrets.SecretMetadata, error)
+
+	// WatchConsumedSecretsChanges returns a watcher for secrets
+	// consumed by the specified remote consumer.
+	WatchConsumedSecretsChanges(string) (state.StringsWatcher, error)
 }
 
 // TODO - CAAS(ericclaudejones): This should contain state alone, model will be
@@ -44,11 +53,11 @@ func (st stateShim) ApplicationOfferForUUID(offerUUID string) (*crossmodel.Appli
 	return oa.ApplicationOfferForUUID(offerUUID)
 }
 
-func (st stateShim) AddOfferConnection(arg state.AddOfferConnectionParams) (OfferConnection, error) {
+func (st stateShim) AddOfferConnection(arg state.AddOfferConnectionParams) (common.OfferConnection, error) {
 	return st.st.AddOfferConnection(arg)
 }
 
-func (st stateShim) OfferConnectionForRelation(relationKey string) (OfferConnection, error) {
+func (st stateShim) OfferConnectionForRelation(relationKey string) (common.OfferConnection, error) {
 	return st.st.OfferConnectionForRelation(relationKey)
 }
 
@@ -59,6 +68,27 @@ func (st stateShim) IsMigrationActive() (bool, error) {
 	return migrating, errors.Trace(err)
 }
 
+func (s stateShim) GetSecretConsumerInfo(token string) (names.Tag, string, error) {
+	appTag, err := s.Backend.GetRemoteEntity(token)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	app, err := s.Backend.RemoteApplication(appTag.Id())
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	return appTag, app.OfferUUID(), nil
+}
+
+func (s stateShim) GetSecret(uri *coresecrets.URI) (*coresecrets.SecretMetadata, error) {
+	store := state.NewSecrets(s.st)
+	return store.GetSecret(uri)
+}
+
+func (s stateShim) WatchConsumedSecretsChanges(consumerApp string) (state.StringsWatcher, error) {
+	return s.st.WatchRemoteConsumedSecretsChanges(consumerApp)
+}
+
 type Model interface {
 	Name() string
 	Owner() names.UserTag
@@ -66,8 +96,4 @@ type Model interface {
 
 func (st stateShim) Model() (Model, error) {
 	return st.st.Model()
-}
-
-type OfferConnection interface {
-	OfferUUID() string
 }

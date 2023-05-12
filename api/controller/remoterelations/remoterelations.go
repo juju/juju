@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -262,7 +263,7 @@ func (c *Client) ControllerAPIInfoForModel(modelUUID string) (*api.Info, error) 
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, apiservererrors.RestoreError(result.Error)
 	}
 	return &api.Info{
 		Addrs:    result.Addresses,
@@ -312,4 +313,27 @@ func (c *Client) UpdateControllerForModel(controller crossmodel.ControllerInfo, 
 		return result.Error
 	}
 	return nil
+}
+
+// ConsumeRemoteSecretChanges updates the local model with secret revision  changes
+// originating from the remote/offering model.
+func (c *Client) ConsumeRemoteSecretChanges(changes []watcher.SecretRevisionChange) error {
+	if len(changes) == 0 {
+		return nil
+	}
+	args := params.LatestSecretRevisionChanges{
+		Changes: make([]params.SecretRevisionChange, len(changes)),
+	}
+	for i, c := range changes {
+		args.Changes[i] = params.SecretRevisionChange{
+			URI:      c.URI.String(),
+			Revision: c.Revision,
+		}
+	}
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("ConsumeRemoteSecretChanges", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.Combine()
 }

@@ -81,18 +81,25 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withBackend bool) {
 	facade, err := apisecrets.NewTestAPI(s.secretsState,
 		func() (*provider.ModelBackendConfigInfo, error) {
 			return &provider.ModelBackendConfigInfo{
-				ControllerUUID: coretesting.ControllerTag.Id(),
-				ModelUUID:      coretesting.ModelTag.Id(),
-				ModelName:      "some-model",
-				ActiveID:       "backend-id",
-				Configs: map[string]provider.BackendConfig{
+				ActiveID: "backend-id",
+				Configs: map[string]provider.ModelBackendConfig{
 					"backend-id": {
-						BackendType: "active-type",
-						Config:      map[string]interface{}{"foo": "active-type"},
+						ControllerUUID: coretesting.ControllerTag.Id(),
+						ModelUUID:      coretesting.ModelTag.Id(),
+						ModelName:      "some-model",
+						BackendConfig: provider.BackendConfig{
+							BackendType: "active-type",
+							Config:      map[string]interface{}{"foo": "active-type"},
+						},
 					},
 					"other-backend-id": {
-						BackendType: "other-type",
-						Config:      map[string]interface{}{"foo": "other-type"},
+						ControllerUUID: coretesting.ControllerTag.Id(),
+						ModelUUID:      coretesting.ModelTag.Id(),
+						ModelName:      "some-model",
+						BackendConfig: provider.BackendConfig{
+							BackendType: "other-type",
+							Config:      map[string]interface{}{"foo": "other-type"},
+						},
 					},
 				},
 			}, nil

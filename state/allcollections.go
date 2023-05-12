@@ -548,6 +548,12 @@ func allCollections() CollectionSchema {
 			}},
 		},
 
+		secretRemoteConsumersC: {
+			indexes: []mgo.Index{{
+				Key: []string{"consumer-tag", "model-uuid"},
+			}},
+		},
+
 		secretPermissionsC: {
 			indexes: []mgo.Index{{
 				Key: []string{"subject-tag", "scope-tag", "model-uuid"},
@@ -682,13 +688,14 @@ const (
 	firewallRulesC       = "firewallRules"
 
 	// Secrets
-	secretMetadataC       = "secretMetadata"
-	secretRevisionsC      = "secretRevisions"
-	secretConsumersC      = "secretConsumers"
-	secretPermissionsC    = "secretPermissions"
-	secretRotateC         = "secretRotate"
-	secretBackendsC       = "secretBackends"
-	secretBackendsRotateC = "secretBackendsRotate"
+	secretMetadataC        = "secretMetadata"
+	secretRevisionsC       = "secretRevisions"
+	secretConsumersC       = "secretConsumers"
+	secretRemoteConsumersC = "secretRemoteConsumers"
+	secretPermissionsC     = "secretPermissions"
+	secretRotateC          = "secretRotate"
+	secretBackendsC        = "secretBackends"
+	secretBackendsRotateC  = "secretBackendsRotate"
 )
 
 // watcherIgnoreList contains all the collections in mongo that should not be watched by the

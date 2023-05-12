@@ -618,7 +618,7 @@ func (op *DestroyUnitOperation) deleteSecrets() error {
 	if _, err := op.unit.st.deleteSecrets(ownedURIs); err != nil {
 		return errors.Annotatef(err, "deleting owned secrets for %q", op.unit.Name())
 	}
-	if err := op.unit.st.removeSecretConsumer(op.unit.Tag()); err != nil {
+	if err := op.unit.st.RemoveSecretConsumer(op.unit.Tag()); err != nil {
 		return errors.Annotatef(err, "deleting secret consumer records for %q", op.unit.Name())
 	}
 	return nil

@@ -7,13 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/secrets/provider"
 )
-
-var logger = loggo.GetLogger("juju.secrets")
 
 // PermissionDenied is returned when an api fails due to a permission issue.
 const PermissionDenied = errors.ConstError("permission denied")
@@ -22,8 +19,7 @@ const PermissionDenied = errors.ConstError("permission denied")
 // If a backend is specified, the secret content is managed
 // by the backend instead of being stored in the Juju database.
 type secretsClient struct {
-	jujuAPI         JujuAPIClient
-	activeBackendID string
+	jujuAPI JujuAPIClient
 }
 
 // For testing.
@@ -50,7 +46,7 @@ func NewClient(jujuAPI JujuAPIClient) (*secretsClient, error) {
 
 // GetBackend returns the secrets backend for the specified ID and the model's current active backend ID.
 func (c *secretsClient) GetBackend(backendID *string) (provider.SecretsBackend, string, error) {
-	info, err := c.jujuAPI.GetSecretBackendConfig()
+	info, err := c.jujuAPI.GetSecretBackendConfig(backendID)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
@@ -62,12 +58,7 @@ func (c *secretsClient) GetBackend(backendID *string) (provider.SecretsBackend, 
 	if !ok {
 		return nil, "", errors.Errorf("secret backend %q missing from config", want)
 	}
-	b, err := GetBackend(&provider.ModelBackendConfig{
-		ControllerUUID: info.ControllerUUID,
-		ModelUUID:      info.ModelUUID,
-		ModelName:      info.ModelName,
-		BackendConfig:  cfg,
-	})
+	b, err := GetBackend(&cfg)
 	return b, info.ActiveID, errors.Trace(err)
 }
 
@@ -75,7 +66,7 @@ func (c *secretsClient) GetBackend(backendID *string) (provider.SecretsBackend, 
 func (c *secretsClient) GetContent(uri *secrets.URI, label string, refresh, peek bool) (secrets.SecretValue, error) {
 	lastBackendID := ""
 	for {
-		content, err := c.jujuAPI.GetContentInfo(uri, label, refresh, peek)
+		content, backendCfg, wasDraining, err := c.jujuAPI.GetContentInfo(uri, label, refresh, peek)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -87,7 +78,7 @@ func (c *secretsClient) GetContent(uri *secrets.URI, label string, refresh, peek
 		}
 
 		backendID := content.ValueRef.BackendID
-		backend, _, err := c.GetBackend(&backendID)
+		backend, err := GetBackend(backendCfg)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -97,8 +88,7 @@ func (c *secretsClient) GetContent(uri *secrets.URI, label string, refresh, peek
 		}
 		lastBackendID = backendID
 		// Secret may have been drained to the active backend.
-		if backendID != c.activeBackendID {
-			logger.Tracef("secret %q revisionID %q may be draining from %q to %q", uri, content.ValueRef.RevisionID, backendID, c.activeBackendID)
+		if wasDraining {
 			continue
 		}
 		return nil, errors.Trace(err)
@@ -107,7 +97,7 @@ func (c *secretsClient) GetContent(uri *secrets.URI, label string, refresh, peek
 
 // GetRevisionContent implements Client.
 func (c *secretsClient) GetRevisionContent(uri *secrets.URI, revision int) (secrets.SecretValue, error) {
-	content, err := c.jujuAPI.GetRevisionContentInfo(uri, revision, false)
+	content, _, _, err := c.jujuAPI.GetRevisionContentInfo(uri, revision, false)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -149,11 +139,8 @@ func (c *secretsClient) SaveContent(uri *secrets.URI, revision int, value secret
 func (c *secretsClient) DeleteContent(uri *secrets.URI, revision int) error {
 	lastBackendID := ""
 	for {
-		content, err := c.jujuAPI.GetRevisionContentInfo(uri, revision, true)
+		content, backendCfg, wasDraining, err := c.jujuAPI.GetRevisionContentInfo(uri, revision, true)
 		if err != nil {
-			return errors.Trace(err)
-		}
-		if err = content.Validate(); err != nil {
 			return errors.Trace(err)
 		}
 		if content.ValueRef == nil {
@@ -161,7 +148,7 @@ func (c *secretsClient) DeleteContent(uri *secrets.URI, revision int) error {
 		}
 
 		backendID := content.ValueRef.BackendID
-		backend, _, err := c.GetBackend(&backendID)
+		backend, err := GetBackend(backendCfg)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -171,7 +158,7 @@ func (c *secretsClient) DeleteContent(uri *secrets.URI, revision int) error {
 		}
 		lastBackendID = backendID
 		// Secret may have been drained to the active backend.
-		if backendID != c.activeBackendID {
+		if wasDraining {
 			continue
 		}
 		return errors.Trace(err)

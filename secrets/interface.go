@@ -75,13 +75,16 @@ func (p *UpdateParams) Validate() error {
 
 // JujuAPIClient provides access to the SecretsManager facade.
 type JujuAPIClient interface {
-	// GetContentInfo returns info about the content of a secret.
-	GetContentInfo(uri *secrets.URI, label string, refresh, peek bool) (*ContentParams, error)
-	// GetRevisionContentInfo returns info about the content of a secret revision.
+	// GetContentInfo returns info about the content of a secret and the backend config
+	// needed to make a backend client if necessary.
+	GetContentInfo(uri *secrets.URI, label string, refresh, peek bool) (*ContentParams, *provider.ModelBackendConfig, bool, error)
+	// GetRevisionContentInfo returns info about the content of a secret revision and the backend config
+	// needed to make a backend client if necessary.
 	// If pendingDelete is true, the revision is marked for deletion.
-	GetRevisionContentInfo(uri *secrets.URI, revision int, pendingDelete bool) (*ContentParams, error)
+	GetRevisionContentInfo(uri *secrets.URI, revision int, pendingDelete bool) (*ContentParams, *provider.ModelBackendConfig, bool, error)
 	// GetSecretBackendConfig fetches the config needed to make secret backend clients.
-	GetSecretBackendConfig() (*provider.ModelBackendConfigInfo, error)
+	// If backendID is nil, return the current active backend (if any).
+	GetSecretBackendConfig(backendID *string) (*provider.ModelBackendConfigInfo, error)
 }
 
 // BackendsClient provides access to a client which can access secret backends.

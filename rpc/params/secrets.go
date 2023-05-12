@@ -6,17 +6,42 @@ package params
 import (
 	"time"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"gopkg.in/macaroon.v2"
+
 	"github.com/juju/juju/core/secrets"
 )
 
-// SecretBackendConfigResults holds config info for creating
+// SecretBackendConfigResultsV1 holds config info for creating
 // secret backend clients for a specific model.
-type SecretBackendConfigResults struct {
+type SecretBackendConfigResultsV1 struct {
 	ControllerUUID string                         `json:"model-controller"`
 	ModelUUID      string                         `json:"model-uuid"`
 	ModelName      string                         `json:"model-name"`
 	ActiveID       string                         `json:"active-id"`
 	Configs        map[string]SecretBackendConfig `json:"configs,omitempty"`
+}
+
+// SecretBackendArgs holds args for querying secret backends.
+type SecretBackendArgs struct {
+	BackendIDs []string `json:"backend-ids"`
+}
+
+// SecretBackendConfigResults holds config info for creating
+// secret backend clients for a specific model.
+type SecretBackendConfigResults struct {
+	ActiveID string                               `json:"active-id"`
+	Results  map[string]SecretBackendConfigResult `json:"results,omitempty"`
+}
+
+// SecretBackendConfigResult holds config info for creating
+// secret backend clients for a specific model.
+type SecretBackendConfigResult struct {
+	ControllerUUID string              `json:"model-controller"`
+	ModelUUID      string              `json:"model-uuid"`
+	ModelName      string              `json:"model-name"`
+	Draining       bool                `json:"draining"`
+	Config         SecretBackendConfig `json:"config,omitempty"`
 }
 
 // SecretBackendConfig holds config for creating a secret backend client.
@@ -155,8 +180,10 @@ type SecretContentResults struct {
 
 // SecretContentResult is the result of getting secret content.
 type SecretContentResult struct {
-	Content SecretContentParams `json:"content"`
-	Error   *Error              `json:"error,omitempty"`
+	Content        SecretContentParams        `json:"content"`
+	BackendConfig  *SecretBackendConfigResult `json:"backend-config,omitempty"`
+	LatestRevision *int                       `json:"latest-revision,omitempty"`
+	Error          *Error                     `json:"error,omitempty"`
 }
 
 // SecretValueResult is the result of getting a secret value.
@@ -369,4 +396,100 @@ type SecretBackendRotateWatchResult struct {
 	WatcherId string                      `json:"watcher-id"`
 	Changes   []SecretBackendRotateChange `json:"changes"`
 	Error     *Error                      `json:"error,omitempty"`
+}
+
+// GetRemoteSecretContentArgs holds args for fetching remote secret contents.
+type GetRemoteSecretContentArgs struct {
+	Args []GetRemoteSecretContentArg `json:"relations"`
+}
+
+// GetRemoteSecretContentArg holds ares for fetching a remote secret.
+type GetRemoteSecretContentArg struct {
+	// ApplicationToken is the application token on the remote model.
+	ApplicationToken string `json:"application-token"`
+
+	// UnitId uniquely identifies the remote unit.
+	UnitId int `json:"unit-id"`
+
+	// Revision, if specified, is the secret revision to fetch.
+	Revision *int `json:"revision,omitempty"`
+
+	// Macaroons are used for authentication.
+	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
+
+	// BakeryVersion is the version of the bakery used to mint macaroons.
+	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
+
+	// URI is the secret URI.
+	URI string `json:"uri"`
+
+	// Refresh is true if the latest revision should be used from here on.
+	Refresh bool `json:"refresh,omitempty"`
+
+	// Peek is true if we want the latest revision just this once.
+	Peek bool `json:"peek,omitempty"`
+}
+
+// GetRemoteSecretAccessArgs holds args for fetching info
+// about access to a remote secret.
+type GetRemoteSecretAccessArgs struct {
+	Args []GetRemoteSecretAccessArg `json:"relations"`
+}
+
+// GetRemoteSecretAccessArg holds args for fetching info
+// about access to a remote secret.
+type GetRemoteSecretAccessArg struct {
+	// ApplicationToken is the application token on the remote model.
+	ApplicationToken string `json:"application-token"`
+
+	// UnitId uniquely identifies the remote unit.
+	UnitId int `json:"unit-id"`
+
+	// URI is the secret URI.
+	URI string `json:"uri"`
+}
+
+// WatchRemoteSecretChangesArgs holds args for watching
+// changes to a remote secret.
+type WatchRemoteSecretChangesArgs struct {
+	Args []WatchRemoteSecretChangesArg `json:"relations"`
+}
+
+// WatchRemoteSecretChangesArg holds info for watching
+// changes to a remote secret.
+type WatchRemoteSecretChangesArg struct {
+	// ApplicationToken is the application token on the remote model.
+	ApplicationToken string `json:"application-token"`
+
+	// Macaroons are used for authentication.
+	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
+
+	// BakeryVersion is the version of the bakery used to mint macaroons.
+	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
+}
+
+// LatestSecretRevisionChanges holds a collection of secret revision changes
+// for updating consumers when secrets get new revisions added.
+type LatestSecretRevisionChanges struct {
+	Changes []SecretRevisionChange `json:"changes"`
+}
+
+// SecretRevisionChange describes a secret revision change.
+type SecretRevisionChange struct {
+	URI      string `json:"uri"`
+	Revision int    `json:"revision"`
+}
+
+// SecretRevisionWatchResult holds a SecretRevisionWatcher id, baseline state
+// (in the Changes field), and an error (if any).
+type SecretRevisionWatchResult struct {
+	WatcherId string                 `json:"watcher-id"`
+	Changes   []SecretRevisionChange `json:"changes"`
+	Error     *Error                 `json:"error,omitempty"`
+}
+
+// SecretRevisionWatchResults holds the results for any API call which ends up
+// returning a list of SecretRevisionWatchers.
+type SecretRevisionWatchResults struct {
+	Results []SecretRevisionWatchResult `json:"results"`
 }

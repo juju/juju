@@ -40,5 +40,6 @@ func newStateCrossModelRelationsAPI(ctx facade.Context) (*CrossModelRelationsAPI
 		firewall.WatchEgressAddressesForRelations,
 		watchRelationLifeSuspendedStatus,
 		watchOfferStatus,
+		watchConsumedSecrets,
 	)
 }

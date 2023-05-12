@@ -12,6 +12,7 @@ import (
 	crossmodel0 "github.com/juju/juju/core/crossmodel"
 	firewall "github.com/juju/juju/core/network/firewall"
 	permission "github.com/juju/juju/core/permission"
+	secrets "github.com/juju/juju/core/secrets"
 	params "github.com/juju/juju/rpc/params"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
@@ -314,6 +315,21 @@ func (mr *MockRemoteRelationsStateMockRecorder) ModelUUID() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelUUID", reflect.TypeOf((*MockRemoteRelationsState)(nil).ModelUUID))
 }
 
+// OfferConnectionForRelation mocks base method.
+func (m *MockRemoteRelationsState) OfferConnectionForRelation(arg0 string) (crossmodel.OfferConnection, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OfferConnectionForRelation", arg0)
+	ret0, _ := ret[0].(crossmodel.OfferConnection)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// OfferConnectionForRelation indicates an expected call of OfferConnectionForRelation.
+func (mr *MockRemoteRelationsStateMockRecorder) OfferConnectionForRelation(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OfferConnectionForRelation", reflect.TypeOf((*MockRemoteRelationsState)(nil).OfferConnectionForRelation), arg0)
+}
+
 // OfferNameForRelation mocks base method.
 func (m *MockRemoteRelationsState) OfferNameForRelation(arg0 string) (string, error) {
 	m.ctrl.T.Helper()
@@ -358,6 +374,20 @@ func (mr *MockRemoteRelationsStateMockRecorder) RemoveRemoteEntity(arg0 interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveRemoteEntity", reflect.TypeOf((*MockRemoteRelationsState)(nil).RemoveRemoteEntity), arg0)
 }
 
+// RemoveSecretConsumer mocks base method.
+func (m *MockRemoteRelationsState) RemoveSecretConsumer(arg0 names.Tag) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveSecretConsumer", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveSecretConsumer indicates an expected call of RemoveSecretConsumer.
+func (mr *MockRemoteRelationsStateMockRecorder) RemoveSecretConsumer(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSecretConsumer", reflect.TypeOf((*MockRemoteRelationsState)(nil).RemoveSecretConsumer), arg0)
+}
+
 // SaveIngressNetworks mocks base method.
 func (m *MockRemoteRelationsState) SaveIngressNetworks(arg0 string, arg1 []string) (state.RelationNetworks, error) {
 	m.ctrl.T.Helper()
@@ -399,6 +429,21 @@ func (m *MockRemoteRelationsState) UpdateControllerForModel(arg0 crossmodel0.Con
 func (mr *MockRemoteRelationsStateMockRecorder) UpdateControllerForModel(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateControllerForModel", reflect.TypeOf((*MockRemoteRelationsState)(nil).UpdateControllerForModel), arg0, arg1)
+}
+
+// UpdateSecretConsumerOperation mocks base method.
+func (m *MockRemoteRelationsState) UpdateSecretConsumerOperation(arg0 *secrets.URI, arg1 int) (state.ModelOperation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateSecretConsumerOperation", arg0, arg1)
+	ret0, _ := ret[0].(state.ModelOperation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateSecretConsumerOperation indicates an expected call of UpdateSecretConsumerOperation.
+func (mr *MockRemoteRelationsStateMockRecorder) UpdateSecretConsumerOperation(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecretConsumerOperation", reflect.TypeOf((*MockRemoteRelationsState)(nil).UpdateSecretConsumerOperation), arg0, arg1)
 }
 
 // UserPermission mocks base method.

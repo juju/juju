@@ -3130,6 +3130,15 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "remote-app", SourceModel: s.Model.ModelTag(), IsConsumerProxy: true})
+	c.Assert(err, jc.ErrorIsNil)
+	remoteConsumer := names.NewApplicationTag("remote-app")
+	err = s.State.SaveSecretRemoteConsumer(uri, remoteConsumer, &secrets.SecretConsumerMetadata{
+		CurrentRevision: 667,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	_, newSt := s.importModel(c, s.State)
 
 	store = state.NewSecrets(newSt)
@@ -3169,6 +3178,13 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 	c.Assert(info, jc.DeepEquals, &secrets.SecretConsumerMetadata{
 		Label:           "consumer label",
 		CurrentRevision: 666,
+		LatestRevision:  2,
+	})
+
+	info, err = newSt.GetSecretRemoteConsumer(uri, remoteConsumer)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, &secrets.SecretConsumerMetadata{
+		CurrentRevision: 667,
 		LatestRevision:  2,
 	})
 }

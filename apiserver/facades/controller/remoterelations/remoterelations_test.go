@@ -20,6 +20,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -416,6 +417,45 @@ func (s *remoteRelationsSuite) TestConsumeRemoteRelationChange(c *gc.C) {
 	c.Assert(settings, jc.DeepEquals, map[string]interface{}{"foo": "bar"})
 }
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
+func (s *remoteRelationsSuite) TestConsumeRelationResumePermission(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.authorizer.Tag = names.NewUserTag("mary")
+	djangoRelationUnit := newMockRelationUnit()
+	djangoRelationUnit.settings["key"] = "value"
+	db2Relation := newMockRelation(123)
+	db2Relation.suspended = true
+	db2Relation.key = "db2:db django:db"
+	db2Relation.remoteUnits["django/0"] = djangoRelationUnit
+	offerConn := &mockOfferConnection{offerUUID: "offer-uuid", username: "fred"}
+
+	change := params.RemoteRelationChangeEvent{
+		RelationToken:    "rel-token",
+		ApplicationToken: "app-token",
+		Life:             life.Alive,
+		Suspended:        ptr(false),
+	}
+	changes := params.RemoteRelationsChanges{
+		Changes: []params.RemoteRelationChangeEvent{change},
+	}
+
+	s.st.EXPECT().GetRemoteEntity("rel-token").Return(names.NewRelationTag(db2Relation.key), nil)
+	s.st.EXPECT().KeyRelation(db2Relation.key).Return(db2Relation, nil)
+	s.st.EXPECT().ModelUUID().AnyTimes()
+	s.st.EXPECT().ControllerTag().Return(coretesting.ControllerTag)
+	s.st.EXPECT().ModelTag().Return(coretesting.ModelTag)
+	s.st.EXPECT().OfferConnectionForRelation(db2Relation.key).Return(offerConn, nil)
+	s.st.EXPECT().ApplicationOfferForUUID("offer-uuid").Return(&crossmodel.ApplicationOffer{ApplicationName: "django"}, nil)
+
+	result, err := s.api.ConsumeRemoteRelationChanges(changes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), gc.ErrorMatches, "permission denied")
+}
+
 func (s *remoteRelationsSuite) TestSetRemoteApplicationsStatus(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -504,4 +544,25 @@ func (s *remoteRelationsSuite) TestUpdateControllersForModels(c *gc.C) {
 	c.Assert(res.Results, gc.HasLen, 2)
 	c.Assert(res.Results[0].Error.Message, gc.Equals, "whack")
 	c.Assert(res.Results[1].Error, gc.IsNil)
+}
+
+func (s *remoteRelationsSuite) TestConsumeRemoteSecretChanges(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	uri := secrets.NewURI()
+	change := params.SecretRevisionChange{
+		URI:      uri.String(),
+		Revision: 666,
+	}
+	changes := params.LatestSecretRevisionChanges{
+		Changes: []params.SecretRevisionChange{change},
+	}
+
+	op := &mockOperation{message: "killer whales"}
+	s.st.EXPECT().UpdateSecretConsumerOperation(uri, 666).Return(op, nil)
+	s.st.EXPECT().ApplyOperation(op).Return(nil)
+
+	result, err := s.api.ConsumeRemoteSecretChanges(changes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), gc.IsNil)
 }

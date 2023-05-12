@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -33,6 +34,7 @@ var logger = loggo.GetLoggerWithLabels("juju.apiserver.crossmodelrelations", cor
 type egressAddressWatcherFunc func(facade.Resources, firewall.State, params.Entities) (params.StringsWatchResults, error)
 type relationStatusWatcherFunc func(CrossModelRelationsState, names.RelationTag) (state.StringsWatcher, error)
 type offerStatusWatcherFunc func(CrossModelRelationsState, string) (OfferWatcher, error)
+type consumedSecretsWatcherFunc func(CrossModelRelationsState, string) (state.StringsWatcher, error)
 
 // CrossModelRelationsAPI provides access to the CrossModelRelations API facade.
 type CrossModelRelationsAPI struct {
@@ -46,9 +48,10 @@ type CrossModelRelationsAPI struct {
 	authCtxt        *commoncrossmodel.AuthContext
 	relationToOffer map[string]string
 
-	egressAddressWatcher  egressAddressWatcherFunc
-	relationStatusWatcher relationStatusWatcherFunc
-	offerStatusWatcher    offerStatusWatcherFunc
+	egressAddressWatcher   egressAddressWatcherFunc
+	relationStatusWatcher  relationStatusWatcherFunc
+	offerStatusWatcher     offerStatusWatcherFunc
+	consumedSecretsWatcher consumedSecretsWatcherFunc
 }
 
 // NewCrossModelRelationsAPI returns a new server-side CrossModelRelationsAPI facade.
@@ -61,18 +64,20 @@ func NewCrossModelRelationsAPI(
 	egressAddressWatcher egressAddressWatcherFunc,
 	relationStatusWatcher relationStatusWatcherFunc,
 	offerStatusWatcher offerStatusWatcherFunc,
+	consumedSecretsWatcher consumedSecretsWatcherFunc,
 ) (*CrossModelRelationsAPI, error) {
 	return &CrossModelRelationsAPI{
-		ctx:                   context.Background(),
-		st:                    st,
-		fw:                    fw,
-		resources:             resources,
-		authorizer:            authorizer,
-		authCtxt:              authCtxt,
-		egressAddressWatcher:  egressAddressWatcher,
-		relationStatusWatcher: relationStatusWatcher,
-		offerStatusWatcher:    offerStatusWatcher,
-		relationToOffer:       make(map[string]string),
+		ctx:                    context.Background(),
+		st:                     st,
+		fw:                     fw,
+		resources:              resources,
+		authorizer:             authorizer,
+		authCtxt:               authCtxt,
+		egressAddressWatcher:   egressAddressWatcher,
+		relationStatusWatcher:  relationStatusWatcher,
+		offerStatusWatcher:     offerStatusWatcher,
+		consumedSecretsWatcher: consumedSecretsWatcher,
+		relationToOffer:        make(map[string]string),
 	}, nil
 }
 
@@ -115,7 +120,7 @@ func (api *CrossModelRelationsAPI) PublishRelationChanges(
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if err := commoncrossmodel.PublishRelationChange(api.st, relationTag, change); err != nil {
+		if err := commoncrossmodel.PublishRelationChange(api.authorizer, api.st, relationTag, change); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -455,6 +460,10 @@ func watchOfferStatus(st CrossModelRelationsState, offerUUID string) (OfferWatch
 	return &offerWatcher{mw, offerUUID, offer.OfferName}, nil
 }
 
+func watchConsumedSecrets(st CrossModelRelationsState, appName string) (state.StringsWatcher, error) {
+	return st.WatchConsumedSecretsChanges(appName)
+}
+
 // WatchOfferStatus starts an OfferStatusWatcher for
 // watching the status of an offer.
 func (api *CrossModelRelationsAPI) WatchOfferStatus(
@@ -487,12 +496,77 @@ func (api *CrossModelRelationsAPI) WatchOfferStatus(
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			_ = w.Stop()
-			break
+			continue
 		}
 		results.Results[i].Changes = []params.OfferStatusChange{*change}
 		results.Results[i].OfferStatusWatcherId = api.resources.Register(w)
 	}
 	return results, nil
+}
+
+// WatchConsumedSecretsChanges returns a watcher which notifies of changes to any secrets
+// for the specified remote consumers.
+func (api *CrossModelRelationsAPI) WatchConsumedSecretsChanges(args params.WatchRemoteSecretChangesArgs) (params.SecretRevisionWatchResults, error) {
+	results := params.SecretRevisionWatchResults{
+		Results: make([]params.SecretRevisionWatchResult, len(args.Args)),
+	}
+
+	for i, arg := range args.Args {
+		appTag, offerUUID, err := api.st.GetSecretConsumerInfo(arg.ApplicationToken)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		// Ensure the supplied macaroon allows access.
+		auth := api.authCtxt.Authenticator(api.st.ModelUUID(), offerUUID)
+		_, err = auth.CheckOfferMacaroons(api.ctx, offerUUID, arg.Macaroons, arg.BakeryVersion)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		w, err := api.consumedSecretsWatcher(api.st, appTag.Id())
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		uris, ok := <-w.Changes()
+		if !ok {
+			return results, apiservererrors.ServerError(watcher.EnsureErr(w))
+		}
+		changes, err := api.getSecretChanges(uris)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			_ = w.Stop()
+			continue
+		}
+		results.Results[i] = params.SecretRevisionWatchResult{
+			WatcherId: api.resources.Register(w),
+			Changes:   changes,
+		}
+	}
+	return results, nil
+}
+
+func (api *CrossModelRelationsAPI) getSecretChanges(uris []string) ([]params.SecretRevisionChange, error) {
+	changes := make([]params.SecretRevisionChange, len(uris))
+	for i, uriStr := range uris {
+		uri, err := secrets.ParseURI(uriStr)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		md, err := api.st.GetSecret(uri)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		changes[i] = params.SecretRevisionChange{
+			URI:      uri.String(),
+			Revision: md.LatestRevision,
+		}
+	}
+	return changes, nil
 }
 
 // PublishIngressNetworkChanges publishes changes to the required

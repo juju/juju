@@ -28,10 +28,10 @@ type UndertakerAPI struct {
 	resources facade.Resources
 	*common.StatusSetter
 
-	secretBackendConfigGetter commonsecrets.BackendConfigGetter
+	secretBackendConfigGetter commonsecrets.BackendAdminConfigGetter
 }
 
-func newUndertakerAPI(st State, resources facade.Resources, authorizer facade.Authorizer, secretBackendConfigGetter commonsecrets.BackendConfigGetter) (*UndertakerAPI, error) {
+func newUndertakerAPI(st State, resources facade.Resources, authorizer facade.Authorizer, secretBackendConfigGetter commonsecrets.BackendAdminConfigGetter) (*UndertakerAPI, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -95,12 +95,7 @@ func (u *UndertakerAPI) RemoveModel() error {
 		return errors.Annotate(err, "getting secrets backends config")
 	}
 	for _, cfg := range secretBackendCfg.Configs {
-		if err := u.removeModelSecrets(&provider.ModelBackendConfig{
-			ControllerUUID: secretBackendCfg.ControllerUUID,
-			ModelUUID:      secretBackendCfg.ModelUUID,
-			ModelName:      secretBackendCfg.ModelName,
-			BackendConfig:  cfg,
-		}); err != nil {
+		if err := u.removeModelSecrets(&cfg); err != nil {
 			return errors.Annotatef(err, "cleaning model from inactive secrets provider %q", cfg.BackendType)
 		}
 	}

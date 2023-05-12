@@ -12,11 +12,13 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc/params"
@@ -28,7 +30,7 @@ var (
 )
 
 // PublishRelationChange applies the relation change event to the specified backend.
-func PublishRelationChange(backend Backend, relationTag names.Tag, change params.RemoteRelationChangeEvent) error {
+func PublishRelationChange(auth authoriser, backend Backend, relationTag names.Tag, change params.RemoteRelationChangeEvent) error {
 	logger.Debugf("publish into model %v change for %v: %#v", backend.ModelUUID(), relationTag, &change)
 
 	dyingOrDead := change.Life != "" && change.Life != life.Alive
@@ -43,7 +45,7 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 		return errors.Trace(err)
 	}
 
-	if err := handleSuspendedRelation(change, rel, dyingOrDead); err != nil {
+	if err := handleSuspendedRelation(auth, backend, change, rel, dyingOrDead); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -104,14 +106,41 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 		}
 	}
 
-	if err := handleDepartedUnits(change, applicationTag, rel); err != nil {
+	if err := handleDepartedUnits(backend, change, applicationTag, rel); err != nil {
 		return errors.Trace(err)
 	}
 
 	return errors.Trace(handleChangedUnits(change, applicationTag, rel))
 }
 
-func handleSuspendedRelation(change params.RemoteRelationChangeEvent, rel Relation, dyingOrDead bool) error {
+type authoriser interface {
+	UserHasPermission(entity names.UserTag, operation permission.Access, target names.Tag) (bool, error)
+}
+
+type offerBackend interface {
+	ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error)
+}
+
+// CheckCanConsume checks consume permission for a user on an offer connection.
+func CheckCanConsume(auth authoriser, backend offerBackend, controllerTag, modelTag names.Tag, oc OfferConnection) (bool, error) {
+	user := names.NewUserTag(oc.UserName())
+	ok, err := auth.UserHasPermission(user, permission.SuperuserAccess, controllerTag)
+	if ok || err != nil {
+		return ok, errors.Trace(err)
+	}
+	ok, err = auth.UserHasPermission(user, permission.AdminAccess, modelTag)
+	if ok || err != nil {
+		return ok, errors.Trace(err)
+	}
+
+	offer, err := backend.ApplicationOfferForUUID(oc.OfferUUID())
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return auth.UserHasPermission(user, permission.ConsumeAccess, names.NewApplicationOfferTag(offer.ApplicationName))
+}
+
+func handleSuspendedRelation(auth authoriser, backend Backend, change params.RemoteRelationChangeEvent, rel Relation, dyingOrDead bool) error {
 	// Update the relation suspended status.
 	currentStatus := rel.Suspended()
 	if !dyingOrDead && change.Suspended != nil && currentStatus != *change.Suspended {
@@ -124,6 +153,20 @@ func handleSuspendedRelation(change params.RemoteRelationChangeEvent, rel Relati
 			message = change.SuspendedReason
 			if message == "" {
 				message = "suspending after update from remote model"
+			}
+		} else {
+			oc, err := backend.OfferConnectionForRelation(rel.Tag().Id())
+			if err != nil && !errors.Is(err, errors.NotFound) {
+				return errors.Trace(err)
+			}
+			if err == nil {
+				ok, err := CheckCanConsume(auth, backend, backend.ControllerTag(), backend.ModelTag(), oc)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if !ok {
+					return apiservererrors.ErrPerm
+				}
 			}
 		}
 		if err := rel.SetSuspended(*change.Suspended, message); err != nil {
@@ -143,7 +186,7 @@ func handleSuspendedRelation(change params.RemoteRelationChangeEvent, rel Relati
 	return nil
 }
 
-func handleDepartedUnits(change params.RemoteRelationChangeEvent, applicationTag names.Tag, rel Relation) error {
+func handleDepartedUnits(backend Backend, change params.RemoteRelationChangeEvent, applicationTag names.Tag, rel Relation) error {
 	for _, id := range change.DepartedUnits {
 		unitTag := names.NewUnitTag(fmt.Sprintf("%s/%v", applicationTag.Id(), id))
 		logger.Debugf("unit %v has departed relation %v", unitTag.Id(), rel.Tag().Id())
@@ -153,6 +196,9 @@ func handleDepartedUnits(change params.RemoteRelationChangeEvent, applicationTag
 		}
 		logger.Debugf("%s leaving scope", unitTag.Id())
 		if err := ru.LeaveScope(); err != nil {
+			return errors.Trace(err)
+		}
+		if err := backend.RemoveSecretConsumer(unitTag); err != nil {
 			return errors.Trace(err)
 		}
 	}

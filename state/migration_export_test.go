@@ -2709,6 +2709,15 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "remote-app", SourceModel: s.Model.ModelTag(), IsConsumerProxy: true})
+	c.Assert(err, jc.ErrorIsNil)
+	remoteConsumer := names.NewApplicationTag("remote-app")
+	err = s.State.SaveSecretRemoteConsumer(uri, remoteConsumer, &secrets.SecretConsumerMetadata{
+		CurrentRevision: 666,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	model, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2737,5 +2746,64 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 	entity, err = info.Consumer()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(entity.Id(), gc.Equals, "wordpress")
+	c.Assert(info.Label(), gc.Equals, "consumer label")
 	c.Assert(info.CurrentRevision(), gc.Equals, 666)
+	remoteConsumers := secret.RemoteConsumers()
+	c.Assert(remoteConsumers, gc.HasLen, 1)
+	rInfo := remoteConsumers[0]
+	entity, err = rInfo.Consumer()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(entity.Id(), gc.Equals, "remote-app")
+	c.Assert(rInfo.CurrentRevision(), gc.Equals, 666)
+}
+
+func (s *MigrationExportSuite) TestRemoteSecrets(c *gc.C) {
+	store := state.NewSecrets(s.State)
+	owner := s.Factory.MakeApplication(c, nil)
+	consumer := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "wordpress",
+		}),
+	})
+	localURI := secrets.NewURI()
+	p := state.CreateSecretParams{
+		Version: 1,
+		Owner:   owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := store.CreateSecret(localURI, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create a local consumer to be sure it is excluded.
+	err = s.State.SaveSecretConsumer(localURI, consumer.Tag(), &secrets.SecretConsumerMetadata{
+		CurrentRevision: 666,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	remoteUUID := "deadbeef-0bad-400d-8000-4b1d0d06f666"
+	remoteURI := secrets.NewURI().WithSource(remoteUUID)
+	err = s.State.SaveSecretConsumer(remoteURI, consumer.Tag(), &secrets.SecretConsumerMetadata{
+		Label:           "consumer label",
+		CurrentRevision: 667,
+		LatestRevision:  668,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export(map[string]string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	remote := model.RemoteSecrets()
+	c.Assert(remote, gc.HasLen, 1)
+	info := remote[0]
+	c.Assert(info.ID(), gc.Equals, remoteURI.ID)
+	c.Assert(info.SourceUUID(), gc.Equals, remoteURI.SourceUUID)
+	entity, err := info.Consumer()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(entity.Id(), gc.Equals, "wordpress")
+	c.Assert(info.Label(), gc.Equals, "consumer label")
+	c.Assert(info.CurrentRevision(), gc.Equals, 667)
+	c.Assert(info.LatestRevision(), gc.Equals, 668)
 }

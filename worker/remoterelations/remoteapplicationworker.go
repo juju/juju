@@ -43,6 +43,8 @@ type remoteApplicationWorker struct {
 	consumeVersion            int
 	localRelationUnitChanges  chan RelationUnitChangeEvent
 	remoteRelationUnitChanges chan RelationUnitChangeEvent
+	secretChangesWatcher      watcher.SecretsRevisionWatcher
+	secretChanges             watcher.SecretRevisionChannel
 
 	// relations is stored here for the engine report.
 	relations map[string]*relation
@@ -160,7 +162,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 			if err := w.localModelFacade.SetRemoteApplicationStatus(w.applicationName, status.Error, msg); err != nil {
 				return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.remoteModelUUID)
 			}
-			return errors.Trace(err)
+			return errors.Annotate(err, "cannot connect to external controller")
 		}
 		defer func() {
 			if err := w.remoteModelFacade.Close(); err != nil {
@@ -271,6 +273,15 @@ func (w *remoteApplicationWorker) loop() (err error) {
 					break
 				}
 			}
+		case changes := <-w.secretChanges:
+			err := w.localModelFacade.ConsumeRemoteSecretChanges(changes)
+			if err != nil {
+				if isNotFound(err) {
+					w.logger.Debugf("secrets %v changed but local side already removed", changes)
+					continue
+				}
+				return errors.Annotatef(err, "consuming secrets change %#v from remote model %v", changes, w.remoteModelUUID)
+			}
 		}
 	}
 }
@@ -283,7 +294,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 func (w *remoteApplicationWorker) newRemoteRelationsFacadeWithRedirect() error {
 	apiInfo, err := w.localModelFacade.ControllerAPIInfoForModel(w.remoteModelUUID)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "cannot get controller api info for remote model")
 	}
 	w.logger.Debugf("remote controller API addresses: %v", apiInfo.Addrs)
 
@@ -648,6 +659,22 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 		}
 		r.localRuw = localUnitsWorker
 		r.remoteRuw = remoteUnitsWorker
+	}
+
+	if w.secretChangesWatcher == nil {
+		w.secretChangesWatcher, err = w.remoteModelFacade.WatchConsumedSecretsChanges(applicationToken, w.offerMacaroon)
+		if err != nil && !errors.IsNotFound(err) {
+			w.checkOfferPermissionDenied(err, "", "")
+			if !isNotFound(err) {
+				return errors.Annotate(err, "watching consumed secret changes")
+			}
+		}
+		if err == nil {
+			if err := w.catacomb.Add(w.secretChangesWatcher); err != nil {
+				return errors.Trace(err)
+			}
+			w.secretChanges = w.secretChangesWatcher.Changes()
+		}
 	}
 
 	// If the relation is dying, stop the watcher.

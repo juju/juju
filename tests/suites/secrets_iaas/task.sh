@@ -14,6 +14,7 @@ test_secrets_iaas() {
 	bootstrap "test-secrets-iaas" "${file}"
 
 	test_secrets_juju
+	test_secrets_cmr
 	test_secrets_vault
 	test_secret_drain
 

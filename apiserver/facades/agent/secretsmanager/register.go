@@ -8,19 +8,38 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/controller/crossmodelsecrets"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/apicaller"
 )
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("SecretsManager", 1, func(ctx facade.Context) (facade.Facade, error) {
+		return NewSecretManagerAPIV1(ctx)
+	}, reflect.TypeOf((*SecretsManagerAPIV1)(nil)))
+	registry.MustRegister("SecretsManager", 2, func(ctx facade.Context) (facade.Facade, error) {
 		return NewSecretManagerAPI(ctx)
 	}, reflect.TypeOf((*SecretsManagerAPI)(nil)))
+}
+
+// NewSecretManagerAPIV1 creates a SecretsManagerAPIV1.
+func NewSecretManagerAPIV1(context facade.Context) (*SecretsManagerAPIV1, error) {
+	api, err := NewSecretManagerAPI(context)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &SecretsManagerAPIV1{SecretsManagerAPI: api}, nil
 }
 
 // NewSecretManagerAPI creates a SecretsManagerAPI.
@@ -32,12 +51,12 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	secretBackendConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+	secretBackendConfigGetter := func(backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
 		model, err := context.State().Model()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return secrets.BackendConfigInfo(secrets.SecretsModel(model), context.Auth().GetAuthTag(), leadershipChecker)
+		return secrets.BackendConfigInfo(secrets.SecretsModel(model), backendIDs, wantAll, context.Auth().GetAuthTag(), leadershipChecker)
 	}
 	secretBackendAdminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
 		model, err := context.State().Model()
@@ -46,6 +65,30 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		}
 		return secrets.AdminBackendConfigInfo(secrets.SecretsModel(model))
 	}
+	controllerAPI := common.NewStateControllerConfig(context.State())
+	remoteClientGetter := func(uri *coresecrets.URI) (CrossModelSecretsClient, error) {
+		info, err := controllerAPI.ControllerAPIInfoForModels(params.Entities{Entities: []params.Entity{{
+			Tag: names.NewModelTag(uri.SourceUUID).String(),
+		}}})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if len(info.Results) < 1 {
+			return nil, errors.Errorf("no controller api for model %q", uri.SourceUUID)
+		}
+		apiInfo := api.Info{
+			Addrs:    info.Results[0].Addresses,
+			CACert:   info.Results[0].CACert,
+			ModelTag: names.NewModelTag(uri.SourceUUID),
+		}
+		apiInfo.Tag = names.NewUserTag(api.AnonymousUsername)
+		conn, err := apicaller.NewExternalControllerConnection(&apiInfo)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return crossmodelsecrets.NewClient(conn), nil
+	}
+
 	return &SecretsManagerAPI{
 		authTag:             context.Auth().GetAuthTag(),
 		leadershipChecker:   leadershipChecker,
@@ -54,7 +97,10 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		secretsTriggers:     context.State(),
 		secretsConsumer:     context.State(),
 		clock:               clock.WallClock,
+		modelUUID:           context.State().ModelUUID(),
 		backendConfigGetter: secretBackendConfigGetter,
 		adminConfigGetter:   secretBackendAdminConfigGetter,
+		remoteClientGetter:  remoteClientGetter,
+		crossModelState:     context.State().RemoteEntities(),
 	}, nil
 }

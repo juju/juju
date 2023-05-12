@@ -166,6 +166,13 @@ func (m *mockRelationsFacade) RemoteApplications(names []string) ([]params.Remot
 	return result, nil
 }
 
+func (m *mockRelationsFacade) ConsumeRemoteSecretChanges(changes []watcher.SecretRevisionChange) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stub.MethodCall(m, "ConsumeRemoteSecretChanges", changes)
+	return nil
+}
+
 type relationEndpointInfo struct {
 	localApplicationName string
 	localEndpoint        params.RemoteEndpoint
@@ -253,6 +260,7 @@ type mockRemoteRelationsFacade struct {
 	remoteRelationWatchers  map[string]*mockRemoteRelationWatcher
 	relationsStatusWatchers map[string]*mockRelationStatusWatcher
 	offersStatusWatchers    map[string]*mockOfferStatusWatcher
+	secretsRevisionWatchers map[string]*mockSecretsRevisionWatcher
 }
 
 func newMockRemoteRelationsFacade(stub *testing.Stub) *mockRemoteRelationsFacade {
@@ -261,6 +269,7 @@ func newMockRemoteRelationsFacade(stub *testing.Stub) *mockRemoteRelationsFacade
 		remoteRelationWatchers:  make(map[string]*mockRemoteRelationWatcher),
 		relationsStatusWatchers: make(map[string]*mockRelationStatusWatcher),
 		offersStatusWatchers:    make(map[string]*mockOfferStatusWatcher),
+		secretsRevisionWatchers: make(map[string]*mockSecretsRevisionWatcher),
 	}
 }
 
@@ -321,6 +330,13 @@ func (m *mockRemoteRelationsFacade) relationsStatusWatcher(key string) (*mockRel
 	return w, ok
 }
 
+func (m *mockRemoteRelationsFacade) secretsRevisionWatcher(key string) (*mockSecretsRevisionWatcher, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	w, ok := m.secretsRevisionWatchers[key]
+	return w, ok
+}
+
 func (m *mockRemoteRelationsFacade) WatchRelationSuspendedStatus(arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -358,6 +374,17 @@ func (m *mockRemoteRelationsFacade) RelationUnitSettings(relationUnits []params.
 		}
 	}
 	return result, nil
+}
+
+func (m *mockRemoteRelationsFacade) WatchConsumedSecretsChanges(appToken string, mac *macaroon.Macaroon) (watcher.SecretsRevisionWatcher, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stub.MethodCall(m, "WatchConsumedSecretsChanges", appToken, mac)
+	if err := m.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	m.secretsRevisionWatchers[appToken] = newMockSecretsRevisionWatcher()
+	return m.secretsRevisionWatchers[appToken], nil
 }
 
 type mockWatcher struct {
@@ -405,6 +432,27 @@ func newMockStringsWatcher() *mockStringsWatcher {
 }
 
 func (w *mockStringsWatcher) Changes() watcher.StringsChannel {
+	w.MethodCall(w, "Changes")
+	return w.changes
+}
+
+type mockSecretsRevisionWatcher struct {
+	mockWatcher
+	changes chan []watcher.SecretRevisionChange
+}
+
+func newMockSecretsRevisionWatcher() *mockSecretsRevisionWatcher {
+	w := &mockSecretsRevisionWatcher{
+		changes: make(chan []watcher.SecretRevisionChange, 1),
+	}
+	w.Tomb.Go(func() error {
+		<-w.Tomb.Dying()
+		return nil
+	})
+	return w
+}
+
+func (w *mockSecretsRevisionWatcher) Changes() watcher.SecretRevisionChannel {
 	w.MethodCall(w, "Changes")
 	return w.changes
 }

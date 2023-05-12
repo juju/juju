@@ -46,6 +46,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/client/modelupgrader"
 	"github.com/juju/juju/apiserver/facades/client/secretbackends"
+	"github.com/juju/juju/apiserver/facades/controller/crossmodelsecrets"
 
 	// ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
@@ -148,6 +149,7 @@ func AllFacades() *facade.Registry {
 
 	controller.Register(registry)
 	crossmodelrelations.Register(registry)
+	crossmodelsecrets.Register(registry)
 	crosscontroller.Register(registry)
 	credentialmanager.Register(registry)
 	credentialvalidator.Register(registry)
@@ -241,6 +243,7 @@ func AllFacades() *facade.Registry {
 	registry.MustRegister("ModelSummaryWatcher", 1, newModelSummaryWatcher, reflect.TypeOf((*SrvModelSummaryWatcher)(nil)))
 	registry.MustRegister("SecretsTriggerWatcher", 1, newSecretsTriggerWatcher, reflect.TypeOf((*srvSecretTriggerWatcher)(nil)))
 	registry.MustRegister("SecretBackendsRotateWatcher", 1, newSecretBackendsRotateWatcher, reflect.TypeOf((*srvSecretBackendsRotateWatcher)(nil)))
+	registry.MustRegister("SecretsRevisionWatcher", 1, newSecretsRevisionWatcher, reflect.TypeOf((*srvSecretsRevisionWatcher)(nil)))
 
 	return registry
 }

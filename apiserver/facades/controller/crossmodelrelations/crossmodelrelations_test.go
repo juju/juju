@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
 	corefirewall "github.com/juju/juju/core/network/firewall"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -48,8 +49,9 @@ type crossmodelRelationsSuite struct {
 	authContext   *commoncrossmodel.AuthContext
 	api           *crossmodelrelations.CrossModelRelationsAPI
 
-	watchedRelations params.Entities
-	watchedOffers    []string
+	watchedRelations       params.Entities
+	watchedOffers          []string
+	watchedSecretConsumers []string
 }
 
 func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
@@ -86,6 +88,13 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 		w.changes <- struct{}{}
 		return w, nil
 	}
+	consumedSecretsWatcher := func(st crossmodelrelations.CrossModelRelationsState, appName string) (state.StringsWatcher, error) {
+		c.Assert(s.st, gc.Equals, st)
+		s.watchedSecretConsumers = []string{appName}
+		w := &mockSecretsWatcher{changes: make(chan []string, 1)}
+		w.changes <- []string{"9m4e2mr0ui3e8a215n4g"}
+		return w, nil
+	}
 	var err error
 	thirdPartyKey := bakery.MustGenerateKey()
 	s.authContext, err = commoncrossmodel.NewAuthContext(s.mockStatePool, thirdPartyKey, s.bakery)
@@ -93,7 +102,7 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 	api, err := crossmodelrelations.NewCrossModelRelationsAPI(
 		s.st, fw, s.resources, s.authorizer,
 		s.authContext, egressAddressWatcher, relationStatusWatcher,
-		offerStatusWatcher)
+		offerStatusWatcher, consumedSecretsWatcher)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
@@ -664,6 +673,56 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettings(c *
 	})
 }
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
+func (s *crossmodelRelationsSuite) TestResumeRelationPermissionCheck(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("fred")
+	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
+	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
+	rel := newMockRelation(1)
+	rel.suspended = true
+	ru1 := newMockRelationUnit()
+	ru2 := newMockRelationUnit()
+	rel.units["db2/1"] = ru1
+	rel.units["db2/2"] = ru2
+	s.st.relations["db2:db django:db"] = rel
+	s.st.offers["hosted-db2-uuid"] = &crossmodel.ApplicationOffer{ApplicationName: "db2"}
+	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
+		offerUUID:       "hosted-db2-uuid",
+		username:        "mary",
+		sourcemodelUUID: "source-model-uuid",
+		relationKey:     "db2:db django:db",
+		relationId:      1,
+	}
+	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
+	mac, err := s.bakery.NewMacaroon(
+		context.TODO(),
+		bakery.LatestVersion,
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
+			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
+			checkers.DeclaredCaveat("username", "mary"),
+		}, bakery.Op{"db2:db django:db", "relate"})
+
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.api.PublishRelationChanges(params.RemoteRelationsChanges{
+		Changes: []params.RemoteRelationChangeEvent{
+			{
+				Suspended:        ptr(false),
+				Life:             life.Alive,
+				ApplicationToken: "token-db2",
+				RelationToken:    "token-db2:db django:db",
+				Macaroons:        macaroon.Slice{mac.M()},
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = results.Combine()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
 func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
@@ -781,4 +840,54 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out receiving change event")
 	}
+}
+
+func (s *crossmodelRelationsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
+	s.st.secrets["9m4e2mr0ui3e8a215n4g"] = coresecrets.SecretMetadata{LatestRevision: 666}
+	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
+	s.st.remoteEntities[names.NewApplicationTag("postgresql")] = "token-postgresql"
+
+	mac, err := s.bakery.NewMacaroon(
+		context.TODO(),
+		bakery.LatestVersion,
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
+			checkers.DeclaredCaveat("offer-uuid", "db2-uuid"),
+			checkers.DeclaredCaveat("username", "mary"),
+		}, bakery.Op{"db2-uuid", "consume"})
+
+	c.Assert(err, jc.ErrorIsNil)
+	args := params.WatchRemoteSecretChangesArgs{
+		Args: []params.WatchRemoteSecretChangesArg{
+			{
+				ApplicationToken: "token-db2",
+				Macaroons:        macaroon.Slice{mac.M()},
+			},
+			{
+				ApplicationToken: "token-mysql",
+				Macaroons:        macaroon.Slice{mac.M()},
+			},
+			{
+				ApplicationToken: "token-postgresql",
+				Macaroons:        macaroon.Slice{mac.M()},
+			},
+		},
+	}
+	results, err := s.api.WatchConsumedSecretsChanges(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, len(args.Args))
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[0].Changes, jc.DeepEquals, []params.SecretRevisionChange{{
+		URI:      "secret:9m4e2mr0ui3e8a215n4g",
+		Revision: 666,
+	}})
+	c.Assert(results.Results[1].Error.ErrorCode(), gc.Equals, params.CodeNotFound)
+	c.Assert(results.Results[2].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
+	c.Assert(s.watchedSecretConsumers, jc.DeepEquals, []string{"db2"})
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"GetSecretConsumerInfo", []interface{}{"token-db2"}},
+		{"GetSecret", []interface{}{&coresecrets.URI{ID: "9m4e2mr0ui3e8a215n4g"}}},
+		{"GetSecretConsumerInfo", []interface{}{"token-mysql"}},
+		{"GetSecretConsumerInfo", []interface{}{"token-postgresql"}},
+	})
 }
