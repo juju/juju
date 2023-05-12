@@ -8,11 +8,11 @@ run_refresh_local() {
 
 	ensure "${model_name}" "${file}"
 
-	juju download jameinel-ubuntu-lite --no-progress - >"${charm_name}"
-	juju deploy "${charm_name}" ubuntu-lite
-	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
+	juju download ubuntu --no-progress - >"${charm_name}"
+	juju deploy "${charm_name}" ubuntu
+	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
-	OUT=$(juju refresh ubuntu-lite --path "${charm_name}" 2>&1 || true)
+	OUT=$(juju refresh ubuntu --path "${charm_name}" 2>&1 || true)
 	if echo "${OUT}" | grep -E -vq "Added local charm"; then
 		# shellcheck disable=SC2046
 		echo $(red "failed refreshing charm: ${OUT}")
@@ -24,8 +24,8 @@ run_refresh_local() {
 	# format: Added charm-store charm "ubuntu", revision 21 in channel stable, to the model
 	revision=$(echo "${OUT}" | awk 'BEGIN{FS=","} {print $2}' | awk 'BEGIN{FS=" "} {print $2}')
 
-	wait_for "ubuntu-lite" "$(charm_rev "ubuntu-lite" "${revision}")"
-	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
+	wait_for "ubuntu" "$(charm_rev "ubuntu" "${revision}")"
+	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
 	destroy_model "${model_name}"
 }
