@@ -356,6 +356,86 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
+func (s *trackedDBWorkerSuite) TestWorkerCancelsTxn(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectClock()
+	s.expectTimer(0)
+
+	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
+
+	w, err := s.newTrackedDBWorker(defaultPingDBFunc)
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer workertest.DirtyKill(c, w)
+
+	sync := make(chan struct{})
+	go func() {
+		select {
+		case <-sync:
+		case <-time.After(testing.ShortWait):
+			c.Fatal("timed out waiting for sync")
+		}
+		workertest.CheckKill(c, w)
+	}()
+
+	// Ensure that the DB is dead.
+	err = w.Txn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		close(sync)
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(testing.LongWait):
+			c.Fatal("timed out waiting for context to be canceled")
+		}
+		return nil
+	})
+
+	c.Assert(err, gc.ErrorMatches, "context canceled")
+}
+
+func (s *trackedDBWorkerSuite) TestWorkerCancelsTxnNoRetry(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectClock()
+	s.expectTimer(0)
+
+	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
+
+	w, err := s.newTrackedDBWorker(defaultPingDBFunc)
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer workertest.DirtyKill(c, w)
+
+	sync := make(chan struct{})
+	go func() {
+		select {
+		case <-sync:
+		case <-time.After(testing.ShortWait):
+			c.Fatal("timed out waiting for sync")
+		}
+		workertest.CheckKill(c, w)
+	}()
+
+	// Ensure that the DB is dead.
+	err = w.TxnNoRetry(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		close(sync)
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(testing.LongWait):
+			c.Fatal("timed out waiting for context to be canceled")
+		}
+		return nil
+	})
+
+	c.Assert(err, gc.ErrorMatches, "context canceled")
+}
+
 func (s *trackedDBWorkerSuite) newTrackedDBWorker(pingFn func(context.Context, *sql.DB) error) (TrackedDB, error) {
 	collector := NewMetricsCollector()
 	return NewTrackedDBWorker(context.Background(),
