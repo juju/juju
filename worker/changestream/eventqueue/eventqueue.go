@@ -4,6 +4,7 @@
 package eventqueue
 
 import (
+	"fmt"
 	"sync/atomic"
 
 	"gopkg.in/tomb.v2"
@@ -22,8 +23,8 @@ type Logger interface {
 
 // Stream represents a way to get change events.
 type Stream interface {
-	// Changes returns a channel for a given namespace (database).
-	Changes() <-chan changestream.ChangeEvent
+	// Terms returns a channel for a given namespace (database).
+	Terms() <-chan changestream.Term
 }
 
 // subscription represents a subscriber in the event queue. It holds a tomb, so
@@ -229,19 +230,23 @@ func (q *EventQueue) loop() error {
 		case <-q.catacomb.Dying():
 			return q.catacomb.ErrDying()
 
-		case event, ok := <-q.stream.Changes():
+		case term, ok := <-q.stream.Terms():
 			// If the stream is closed, we expect that a new worker will come
 			// again using the change stream worker infrastructure. In this case
 			// just ignore and close out.
 			if !ok {
-				q.logger.Infof("change stream change channel is closed")
+				q.logger.Infof("change stream term channel is closed")
 				return nil
 			}
 
-			subs := q.gatherSubscriptions(event)
-			for _, sub := range subs {
-				sub.signal(event)
-			}
+			fmt.Println(term)
+
+			/*
+				subs := q.gatherSubscriptions(event)
+				for _, sub := range subs {
+					sub.signal(event)
+				}
+			*/
 
 		case subOpt := <-q.subscriptionCh:
 			sub := subOpt.subscription

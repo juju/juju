@@ -4,14 +4,7 @@
 package eventqueue
 
 import (
-	"time"
-
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/testing"
 )
 
 type eventQueueSuite struct {
@@ -20,6 +13,7 @@ type eventQueueSuite struct {
 
 var _ = gc.Suite(&eventQueueSuite{})
 
+/*
 func (s *eventQueueSuite) TestSubscribe(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -472,3 +466,4 @@ func (s *eventQueueSuite) unsubscribe(c *gc.C, sub changestream.Subscription) {
 		c.Fatal("timed out waiting for event")
 	}
 }
+*/

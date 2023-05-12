@@ -48,32 +48,22 @@ func (s *baseSuite) expectAnyLogs() {
 	s.logger.EXPECT().IsTraceEnabled().Return(false).AnyTimes()
 }
 
-func (s *baseSuite) setupTimer() chan<- time.Time {
-	s.timer.EXPECT().Stop().MinTimes(1)
-	s.timer.EXPECT().Reset(gomock.Any()).AnyTimes()
-
-	s.clock.EXPECT().NewTimer(PollInterval).Return(s.timer)
-
+func (s *baseSuite) expectAfter() chan<- time.Time {
 	ch := make(chan time.Time)
-	s.timer.EXPECT().Chan().Return(ch).AnyTimes()
+
+	s.clock.EXPECT().After(gomock.Any()).Return(ch)
+
 	return ch
 }
 
-func (s *baseSuite) expectTick(ch chan<- time.Time, ticks int) <-chan struct{} {
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-
-		for i := 0; i < ticks; i++ {
+func (s *baseSuite) expectAfterAnyTimes() {
+	s.clock.EXPECT().After(gomock.Any()).DoAndReturn(func(time.Duration) <-chan time.Time {
+		ch := make(chan time.Time)
+		go func() {
 			ch <- time.Now()
-		}
-	}()
-	return done
-}
-
-func (s *baseSuite) expectTimer(ticks int) <-chan struct{} {
-	ch := s.setupTimer()
-	return s.expectTick(ch, ticks)
+		}()
+		return ch
+	}).AnyTimes()
 }
 
 func (s *baseSuite) expectFileNotifyWatcher() chan bool {

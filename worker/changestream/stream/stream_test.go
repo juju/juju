@@ -19,7 +19,8 @@ const (
 	// We need to ensure that we never witness a change event. We've picked
 	// an arbitrary timeout of 1 second, which should be more than enough
 	// time for the worker to process the change.
-	witnessChangeDuration = time.Second
+	witnessChangeLongDuration  = time.Second
+	witnessChangeShortDuration = witnessChangeLongDuration / 2
 )
 
 type streamSuite struct {
@@ -28,18 +29,21 @@ type streamSuite struct {
 
 var _ = gc.Suite(&streamSuite{})
 
-func (s *streamSuite) TestLoopWithNoTicks(c *gc.C) {
+func (s *streamSuite) TestWithNoNamespace(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
-	s.expectTimer(0)
+	s.expectAfter()
 
 	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
-	changes := stream.Changes()
-	c.Assert(changes, gc.HasLen, 0)
+	select {
+	case <-stream.Terms():
+		c.Fatal("timed out waiting for term")
+	case <-time.After(testing.ShortWait):
+	}
 
 	workertest.CleanKill(c, stream)
 }
@@ -49,25 +53,17 @@ func (s *streamSuite) TestNoData(c *gc.C) {
 
 	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
-	done := s.expectTimer(1)
+	s.expectAfter()
+
+	s.insertNamespace(c, 1000, "foo")
 
 	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
-	changes := stream.Changes()
-
 	select {
-	case <-done:
+	case <-stream.Terms():
+		c.Fatal("timed out waiting for term")
 	case <-time.After(testing.ShortWait):
-		c.Fatal("timed out waiting for timer to fire")
-	}
-
-	// Synchronization block to ensure that we don't witness any changes.
-	select {
-	case <-time.After(witnessChangeDuration):
-		c.Assert(changes, gc.HasLen, 0)
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for changes")
 	}
 
 	workertest.CleanKill(c, stream)
@@ -78,88 +74,220 @@ func (s *streamSuite) TestOneChange(c *gc.C) {
 
 	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
-	done := s.expectTimer(1)
+	s.expectAfterAnyTimes()
 
 	s.insertNamespace(c, 1000, "foo")
 
-	first := change{
+	chg := change{
 		id:   1000,
 		uuid: utils.MustNewUUID().String(),
 	}
-	s.insertChange(c, first)
+	s.insertChange(c, chg)
 
 	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
-	select {
-	case <-done:
-	case <-time.After(testing.ShortWait):
-		c.Fatal("timed out waiting for timer to fire")
-	}
-
-	changes := stream.Changes()
-
 	var results []changestream.ChangeEvent
 	select {
-	case change := <-changes:
-		results = append(results, change)
+	case term := <-stream.Terms():
+		results = term.Changes()
+		term.Done()
+
 	case <-time.After(testing.ShortWait):
 		c.Fatal("timed out waiting for change")
 	}
 
-	c.Assert(results, gc.HasLen, 1)
-	c.Assert(results[0].Namespace(), gc.Equals, "foo")
-	c.Assert(results[0].ChangedUUID(), gc.Equals, first.uuid)
+	expectChanges(c, []change{chg}, results)
 
 	workertest.CleanKill(c, stream)
 }
 
-func (s *streamSuite) TestMultipleChanges(c *gc.C) {
+func (s *streamSuite) TestOneChangeWithDelayedTermDone(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
-	done := s.expectTimer(1)
+	s.expectAfterAnyTimes()
 
 	s.insertNamespace(c, 1000, "foo")
 
-	var inserts []change
-	for i := 0; i < 10; i++ {
-		ch := change{
-			id:   1000,
-			uuid: utils.MustNewUUID().String(),
-		}
-		s.insertChange(c, ch)
-		inserts = append(inserts, ch)
+	chg := change{
+		id:   1000,
+		uuid: utils.MustNewUUID().String(),
 	}
+	s.insertChange(c, chg)
 
 	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
+	var (
+		results []changestream.ChangeEvent
+		term    changestream.Term
+	)
 	select {
-	case <-done:
+	case term = <-stream.Terms():
+		results = term.Changes()
+
 	case <-time.After(testing.ShortWait):
-		c.Fatal("timed out waiting for timer to fire")
+		c.Fatal("timed out waiting for change")
 	}
 
-	changes := stream.Changes()
+	expectChanges(c, []change{chg}, results)
 
-	var results []changestream.ChangeEvent
+	term.Done()
+
+	workertest.CleanKill(c, stream)
+}
+
+func (s *streamSuite) TestOneChangeWithTermDoneAfterKill(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectFileNotifyWatcher()
+	s.expectAfterAnyTimes()
+
+	s.insertNamespace(c, 1000, "foo")
+
+	chg := change{
+		id:   1000,
+		uuid: utils.MustNewUUID().String(),
+	}
+	s.insertChange(c, chg)
+
+	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
+	defer workertest.DirtyKill(c, stream)
+
+	var (
+		results []changestream.ChangeEvent
+		term    changestream.Term
+	)
+	select {
+	case term = <-stream.Terms():
+		results = term.Changes()
+
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for change")
+	}
+
+	expectChanges(c, []change{chg}, results)
+
+	workertest.CleanKill(c, stream)
+
+	// Ensure that we don't panic after the stream has been killed.
+	term.Done()
+}
+
+func (s *streamSuite) TestMultipleTerms(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectFileNotifyWatcher()
+	s.expectAfterAnyTimes()
+
+	s.insertNamespace(c, 1000, "foo")
+
+	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
+	defer workertest.DirtyKill(c, stream)
+
 	for i := 0; i < 10; i++ {
+		// Insert a change and wait for it to be streamed.
+		chg := change{
+			id:   1000,
+			uuid: utils.MustNewUUID().String(),
+		}
+		s.insertChange(c, chg)
+
+		var (
+			results []changestream.ChangeEvent
+			term    changestream.Term
+		)
 		select {
-		case change := <-changes:
-			results = append(results, change)
+		case term = <-stream.Terms():
+			results = term.Changes()
+			term.Done()
+
 		case <-time.After(testing.ShortWait):
 			c.Fatal("timed out waiting for change")
 		}
+
+		expectChanges(c, []change{chg}, results)
 	}
 
-	c.Assert(results, gc.HasLen, 10)
-	for i, result := range results {
-		idx := len(results) - 1 - i
-		c.Assert(result.Namespace(), gc.Equals, "foo")
-		c.Assert(result.ChangedUUID(), gc.Equals, inserts[idx].uuid)
+	workertest.CleanKill(c, stream)
+}
+
+// Ensure that we don't attempt to read any more terms until after the first
+// term has been done.
+func (s *streamSuite) TestSecondTermDoesNotStartUntilFirstTermDone(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectFileNotifyWatcher()
+	s.expectAfterAnyTimes()
+
+	s.insertNamespace(c, 1000, "foo")
+
+	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
+	defer workertest.DirtyKill(c, stream)
+
+	// Insert a change and wait for it to be streamed.
+	chg := change{
+		id:   1000,
+		uuid: utils.MustNewUUID().String(),
 	}
+	s.insertChange(c, chg)
+
+	var (
+		results []changestream.ChangeEvent
+		term    changestream.Term
+	)
+	select {
+	case term = <-stream.Terms():
+		results = term.Changes()
+
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for change")
+	}
+
+	expectChanges(c, []change{chg}, results)
+
+	// We should never witness the following change until the term is done.
+	chg = change{
+		id:   1000,
+		uuid: utils.MustNewUUID().String(),
+	}
+	s.insertChange(c, chg)
+
+	// Wait to ensure that the loop has been given enough time to read the
+	// changes. Even though know we're blocked on the term.Done() call below,
+	// we still need to wait for the possibility the loop to read the change.
+	<-time.After(witnessChangeLongDuration)
+
+	// Now attempt to locate the second change, even though it should always
+	// fail.
+	select {
+	case <-stream.Terms():
+		c.Fatal("unexpected term")
+	case <-time.After(witnessChangeShortDuration):
+	}
+
+	// Finish the term.
+	term.Done()
+
+	// Wait to ensure that the loop has been given enough time to read the
+	// changes.
+	<-time.After(witnessChangeShortDuration)
+
+	// Now the term is done, we should be able to witness the second change.
+	select {
+	case term = <-stream.Terms():
+		results = term.Changes()
+
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for change")
+	}
+
+	expectChanges(c, []change{chg}, results)
 
 	workertest.CleanKill(c, stream)
 }
@@ -168,8 +296,8 @@ func (s *streamSuite) TestMultipleChangesWithSameUUIDCoalesce(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
+	s.expectAfterAnyTimes()
 	s.expectFileNotifyWatcher()
-	done := s.expectTimer(1)
 
 	s.insertNamespace(c, 1000, "foo")
 
@@ -201,29 +329,22 @@ func (s *streamSuite) TestMultipleChangesWithSameUUIDCoalesce(c *gc.C) {
 	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
-	select {
-	case <-done:
-	case <-time.After(testing.ShortWait):
-		c.Fatal("timed out waiting for timer to fire")
-	}
-
-	changes := stream.Changes()
+	// Wait to ensure that the loop has been given enough time to read the
+	// changes.
+	<-time.After(witnessChangeShortDuration)
 
 	var results []changestream.ChangeEvent
-	for i := 0; i < 8; i++ {
-		select {
-		case change := <-changes:
-			results = append(results, change)
-		case <-time.After(testing.ShortWait):
-			c.Fatal("timed out waiting for change")
-		}
+	select {
+	case term := <-stream.Terms():
+		results = append(results, term.Changes()...)
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for change")
 	}
 
 	c.Assert(results, gc.HasLen, 8)
 	for i, result := range results {
-		idx := len(results) - 1 - i
-		c.Assert(result.Namespace(), gc.Equals, "foo")
-		c.Assert(result.ChangedUUID(), gc.Equals, inserts[idx].uuid)
+		c.Check(result.Namespace(), gc.Equals, "foo")
+		c.Check(result.ChangedUUID(), gc.Equals, inserts[i].uuid)
 	}
 
 	workertest.CleanKill(c, stream)
@@ -233,8 +354,8 @@ func (s *streamSuite) TestMultipleChangesWithNamespaces(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
+	s.expectAfterAnyTimes()
 	s.expectFileNotifyWatcher()
-	done := s.expectTimer(1)
 
 	s.insertNamespace(c, 1000, "foo")
 	s.insertNamespace(c, 2000, "bar")
@@ -252,33 +373,26 @@ func (s *streamSuite) TestMultipleChangesWithNamespaces(c *gc.C) {
 	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
-	select {
-	case <-done:
-	case <-time.After(testing.ShortWait):
-		c.Fatal("timed out waiting for timer to fire")
-	}
-
-	changes := stream.Changes()
+	// Wait to ensure that the loop has been given enough time to read the
+	// changes.
+	<-time.After(witnessChangeShortDuration)
 
 	var results []changestream.ChangeEvent
-	for i := 0; i < 10; i++ {
-		select {
-		case change := <-changes:
-			results = append(results, change)
-		case <-time.After(testing.ShortWait):
-			c.Fatal("timed out waiting for change")
-		}
+	select {
+	case term := <-stream.Terms():
+		results = append(results, term.Changes()...)
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for change")
 	}
 
 	c.Assert(results, gc.HasLen, 10)
 	for i, result := range results {
-		idx := len(results) - 1 - i
 		namespace := "foo"
-		if inserts[idx].id == 2000 {
+		if inserts[i].id == 2000 {
 			namespace = "bar"
 		}
-		c.Assert(result.Namespace(), gc.Equals, namespace)
-		c.Assert(result.ChangedUUID(), gc.Equals, inserts[idx].uuid)
+		c.Check(result.Namespace(), gc.Equals, namespace)
+		c.Check(result.ChangedUUID(), gc.Equals, inserts[i].uuid)
 	}
 
 	workertest.CleanKill(c, stream)
@@ -288,8 +402,8 @@ func (s *streamSuite) TestMultipleChangesWithNamespacesCoalesce(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
+	s.expectAfterAnyTimes()
 	s.expectFileNotifyWatcher()
-	done := s.expectTimer(1)
 
 	s.insertNamespace(c, 1000, "foo")
 	s.insertNamespace(c, 2000, "bar")
@@ -322,33 +436,26 @@ func (s *streamSuite) TestMultipleChangesWithNamespacesCoalesce(c *gc.C) {
 	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
-	select {
-	case <-done:
-	case <-time.After(testing.ShortWait):
-		c.Fatal("timed out waiting for timer to fire")
-	}
-
-	changes := stream.Changes()
+	// Wait to ensure that the loop has been given enough time to read the
+	// changes.
+	<-time.After(witnessChangeShortDuration)
 
 	var results []changestream.ChangeEvent
-	for i := 0; i < 8; i++ {
-		select {
-		case change := <-changes:
-			results = append(results, change)
-		case <-time.After(testing.ShortWait):
-			c.Fatal("timed out waiting for change")
-		}
+	select {
+	case term := <-stream.Terms():
+		results = append(results, term.Changes()...)
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for change")
 	}
 
 	c.Assert(results, gc.HasLen, 8)
 	for i, result := range results {
-		idx := len(results) - 1 - i
 		namespace := "foo"
-		if inserts[idx].id == 2000 {
+		if inserts[i].id == 2000 {
 			namespace = "bar"
 		}
-		c.Assert(result.Namespace(), gc.Equals, namespace)
-		c.Assert(result.ChangedUUID(), gc.Equals, inserts[idx].uuid)
+		c.Check(result.Namespace(), gc.Equals, namespace)
+		c.Check(result.ChangedUUID(), gc.Equals, inserts[i].uuid)
 	}
 
 	workertest.CleanKill(c, stream)
@@ -358,8 +465,8 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *gc.C) 
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
+	s.expectAfterAnyTimes()
 	s.expectFileNotifyWatcher()
-	done := s.expectTimer(1)
 
 	s.insertNamespace(c, 1000, "foo")
 	s.insertNamespace(c, 2000, "bar")
@@ -400,35 +507,28 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *gc.C) 
 	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
-	select {
-	case <-done:
-	case <-time.After(testing.ShortWait):
-		c.Fatal("timed out waiting for timer to fire")
-	}
-
-	changes := stream.Changes()
+	// Wait to ensure that the loop has been given enough time to read the
+	// changes.
+	<-time.After(witnessChangeShortDuration)
 
 	var results []changestream.ChangeEvent
-	for i := 0; i < 9; i++ {
-		select {
-		case change := <-changes:
-			results = append(results, change)
-		case <-time.After(testing.ShortWait):
-			c.Fatal("timed out waiting for change")
-		}
+	select {
+	case term := <-stream.Terms():
+		results = append(results, term.Changes()...)
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for change")
 	}
 
 	c.Assert(results, gc.HasLen, 9)
 	for i, result := range results {
-		idx := len(results) - 1 - i
 		namespace := "foo"
-		if inserts[idx].id == 2000 {
+		if inserts[i].id == 2000 {
 			namespace = "bar"
-		} else if inserts[idx].id == 3000 {
+		} else if inserts[i].id == 3000 {
 			namespace = "baz"
 		}
-		c.Assert(result.Namespace(), gc.Equals, namespace)
-		c.Assert(result.ChangedUUID(), gc.Equals, inserts[idx].uuid)
+		c.Check(result.Namespace(), gc.Equals, namespace)
+		c.Check(result.ChangedUUID(), gc.Equals, inserts[i].uuid)
 	}
 
 	workertest.CleanKill(c, stream)
@@ -438,22 +538,13 @@ func (s *streamSuite) TestOneChangeIsBlockedByFile(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
+	s.expectAfterAnyTimes()
 	notify := s.expectFileNotifyWatcher()
-	tick := s.setupTimer()
-	done := s.expectTick(tick, 1)
 
 	s.insertNamespace(c, 1000, "foo")
 
 	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
-
-	select {
-	case <-done:
-	case <-time.After(testing.ShortWait):
-		c.Fatal("timed out waiting for timer to fire")
-	}
-
-	changes := stream.Changes()
 
 	expectNotifyBlock := func(block bool) {
 		notified := make(chan bool)
@@ -477,31 +568,24 @@ func (s *streamSuite) TestOneChangeIsBlockedByFile(c *gc.C) {
 	s.insertChange(c, first)
 
 	select {
-	case change := <-changes:
-		c.Fatalf("unexpected change %v", change)
-	case <-time.After(witnessChangeDuration):
+	case term := <-stream.Terms():
+		c.Fatalf("unexpected term %+v", term)
+	case <-time.After(witnessChangeLongDuration):
 	}
 
 	expectNotifyBlock(false)
 
-	done = s.expectTick(tick, 1)
-	select {
-	case <-done:
-	case <-time.After(testing.ShortWait):
-		c.Fatal("timed out waiting for timer to fire")
-	}
-
 	var results []changestream.ChangeEvent
 	select {
-	case change := <-changes:
-		results = append(results, change)
+	case term := <-stream.Terms():
+		results = append(results, term.Changes()...)
 	case <-time.After(testing.ShortWait):
 		c.Fatal("timed out waiting for change")
 	}
 
 	c.Assert(results, gc.HasLen, 1)
-	c.Assert(results[0].Namespace(), gc.Equals, "foo")
-	c.Assert(results[0].ChangedUUID(), gc.Equals, first.uuid)
+	c.Check(results[0].Namespace(), gc.Equals, "foo")
+	c.Check(results[0].ChangedUUID(), gc.Equals, first.uuid)
 
 	workertest.CleanKill(c, stream)
 }
@@ -536,8 +620,8 @@ func (s *streamSuite) TestReadChangesWithOneChange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results, gc.HasLen, 1)
-	c.Assert(results[0].Namespace(), gc.Equals, "foo")
-	c.Assert(results[0].ChangedUUID(), gc.Equals, first.uuid)
+	c.Check(results[0].Namespace(), gc.Equals, "foo")
+	c.Check(results[0].ChangedUUID(), gc.Equals, first.uuid)
 }
 
 func (s *streamSuite) TestReadChangesWithMultipleSameChange(c *gc.C) {
@@ -586,8 +670,8 @@ func (s *streamSuite) TestReadChangesWithMultipleChanges(c *gc.C) {
 
 	c.Assert(results, gc.HasLen, 10)
 	for i := range results {
-		c.Assert(results[i].Namespace(), gc.Equals, "foo")
-		c.Assert(results[i].ChangedUUID(), gc.Equals, changes[len(results)-1-i].uuid)
+		c.Check(results[i].Namespace(), gc.Equals, "foo")
+		c.Check(results[i].ChangedUUID(), gc.Equals, changes[i].uuid)
 	}
 }
 
@@ -621,8 +705,8 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesGroupsCorrectly(c *gc.C)
 
 	c.Assert(results, gc.HasLen, 10)
 	for i := range results {
-		c.Assert(results[i].Namespace(), gc.Equals, "foo")
-		c.Assert(results[i].ChangedUUID(), gc.Equals, changes[len(results)-1-i].uuid)
+		c.Check(results[i].Namespace(), gc.Equals, "foo")
+		c.Check(results[i].ChangedUUID(), gc.Equals, changes[i].uuid)
 	}
 }
 
@@ -645,56 +729,57 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesInterweavedGroupsCorrect
 		uuid2 = utils.MustNewUUID().String()
 	)
 
-	{
+	{ // Group ID: 0, Row ID: 1
 		ch := change{id: 1000, uuid: uuid0}
 		s.insertChangeForType(c, changestream.Create, ch)
 		changes[0] = ch
 	}
-	{
+	{ // Group ID: 1, Row ID: 2
 		ch := change{id: 2000, uuid: uuid0}
+		s.insertChangeForType(c, changestream.Update, ch)
+		// no witness changed.
+	}
+	{ // Group ID: 2, Row ID: 3
+		ch := change{id: 1000, uuid: uuid1}
+		s.insertChangeForType(c, changestream.Update, ch)
+	}
+	{ // Group ID: 2, Row ID: 4
+		ch := change{id: 1000, uuid: uuid1}
+		s.insertChangeForType(c, changestream.Update, ch)
+		// no witness changed.
+	}
+	{ // Group ID: 1, Row ID: 5
+		ch := change{id: 2000, uuid: uuid0}
+		s.insertChangeForType(c, changestream.Update, ch)
+		// no witness changed.
+	}
+	{ // Group ID: 3, Row ID: 6
+		ch := change{id: 1000, uuid: uuid2}
+		s.insertChangeForType(c, changestream.Update, ch)
+	}
+	{ // Group ID: 3, Row ID: 7
+		ch := change{id: 1000, uuid: uuid2}
 		s.insertChangeForType(c, changestream.Update, ch)
 		changes[1] = ch
 	}
-	{
-		ch := change{id: 1000, uuid: uuid1}
+	{ // Group ID: 1, Row ID: 8
+		ch := change{id: 2000, uuid: uuid0}
 		s.insertChangeForType(c, changestream.Update, ch)
 		changes[2] = ch
 	}
-	{
+	{ // Group ID: 2, Row ID: 9
 		ch := change{id: 1000, uuid: uuid1}
-		s.insertChangeForType(c, changestream.Update, ch)
-		// no witness changed.
-	}
-	{
-		ch := change{id: 2000, uuid: uuid0}
-		s.insertChangeForType(c, changestream.Update, ch)
-		// no witness changed.
-	}
-	{
-		ch := change{id: 1000, uuid: uuid2}
-		s.insertChangeForType(c, changestream.Update, ch)
-		changes[3] = ch
-	}
-	{
-		ch := change{id: 1000, uuid: uuid2}
-		s.insertChangeForType(c, changestream.Update, ch)
-		// no witness changed.
-	}
-	{
-		ch := change{id: 2000, uuid: uuid0}
-		s.insertChangeForType(c, changestream.Update, ch)
-		// no witness changed.
-	}
-	{
-		ch := change{id: 1000, uuid: uuid1}
+		// In theory this should never happen because we're using transactions,
+		// so we should always witness a create before an update. However, this
+		// part of the tests states that we will still witness the create
+		// after an update if something goes wrong.
 		s.insertChangeForType(c, changestream.Create, ch)
-		changes[4] = ch
+		changes[3] = ch
 	}
 
 	results, err := stream.readChanges()
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(results, gc.HasLen, 5)
+	c.Assert(results, gc.HasLen, 4, gc.Commentf("expected 4, received %v", len(results)))
 
 	type changeResults struct {
 		changeType changestream.ChangeType
@@ -703,19 +788,18 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesInterweavedGroupsCorrect
 	}
 
 	expected := []changeResults{
-		{changeType: changestream.Create, namespace: "foo", uuid: uuid1},
-		{changeType: changestream.Update, namespace: "bar", uuid: uuid0},
-		{changeType: changestream.Update, namespace: "foo", uuid: uuid2},
-		{changeType: changestream.Update, namespace: "foo", uuid: uuid1},
 		{changeType: changestream.Create, namespace: "foo", uuid: uuid0},
+		{changeType: changestream.Update, namespace: "foo", uuid: uuid2},
+		{changeType: changestream.Update, namespace: "bar", uuid: uuid0},
+		{changeType: changestream.Create, namespace: "foo", uuid: uuid1},
 	}
 
 	c.Logf("result %v", results)
 	for i := range results {
 		c.Logf("expected %v", expected[i])
-		c.Assert(results[i].Type(), gc.Equals, expected[i].changeType)
-		c.Assert(results[i].Namespace(), gc.Equals, expected[i].namespace)
-		c.Assert(results[i].ChangedUUID(), gc.Equals, expected[i].uuid)
+		c.Check(results[i].Type(), gc.Equals, expected[i].changeType)
+		c.Check(results[i].Namespace(), gc.Equals, expected[i].namespace)
+		c.Check(results[i].ChangedUUID(), gc.Equals, expected[i].uuid)
 	}
 }
 
@@ -758,4 +842,13 @@ VALUES (?, ?, ?)
 	err = tx.Commit()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("Committed insert change")
+}
+
+func expectChanges(c *gc.C, expected []change, obtained []changestream.ChangeEvent) {
+	c.Assert(obtained, gc.HasLen, len(expected))
+
+	for i, chg := range expected {
+		c.Check(obtained[i].Namespace(), gc.Equals, "foo")
+		c.Check(obtained[i].ChangedUUID(), gc.Equals, chg.uuid)
+	}
 }

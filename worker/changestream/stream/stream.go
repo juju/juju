@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/retry"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
@@ -31,11 +32,26 @@ type FileNotifier interface {
 	Changes() (<-chan bool, error)
 }
 
-const (
-	// PollInterval is the amount of time to wait between polling the database
-	// for new stream events.
-	PollInterval = time.Millisecond * 100
-)
+// Term represents a set of changes that are bounded by a coalesced set.
+// The notion of a term are a set of changes that can be run one at a time
+// asynchronously. Allowing changes within a given term to be signaled of a
+// change independently from one another.
+// Once a change within a term has been completed, only at that point
+// is another change processed, until all changes are exhausted.
+type Term struct {
+	changes []changestream.ChangeEvent
+	done    chan struct{}
+}
+
+// Changes returns the changes that are part of the term.
+func (t *Term) Changes() []changestream.ChangeEvent {
+	return t.changes
+}
+
+// Done signals that the term has been completed.
+func (t *Term) Done() {
+	close(t.done)
+}
 
 // Stream defines a worker that will poll the database for change events.
 type Stream struct {
@@ -46,8 +62,8 @@ type Stream struct {
 	clock        clock.Clock
 	logger       Logger
 
-	changes chan changestream.ChangeEvent
-	lastID  int64
+	terms  chan changestream.Term
+	lastID int64
 }
 
 // New creates a new Stream.
@@ -57,7 +73,7 @@ func New(db coredatabase.TrackedDB, fileNotifier FileNotifier, clock clock.Clock
 		fileNotifier: fileNotifier,
 		clock:        clock,
 		logger:       logger,
-		changes:      make(chan changestream.ChangeEvent),
+		terms:        make(chan changestream.Term),
 	}
 
 	stream.tomb.Go(stream.loop)
@@ -65,15 +81,14 @@ func New(db coredatabase.TrackedDB, fileNotifier FileNotifier, clock clock.Clock
 	return stream
 }
 
-// Changes returns a channel for a given namespace (database).
-// The channel will return events represented by change log rows
-// from the database.
-// The change event IDs will be monotonically increasing
-// (though not necessarily sequential).
-// Events will be coalesced into a single change if they are
-// for the same entity and edit type.
-func (s *Stream) Changes() <-chan changestream.ChangeEvent {
-	return s.changes
+// Terms returns a channel for a given namespace (database) that returns
+// a set of terms. The notion of terms are a set of changes that can be
+// run one at a time asynchronously. Allowing changes within a given
+// term to be signaled of a change independently from one another.
+// Once a change within a term has been completed, only at that point
+// is another change processed, until all changes are exhausted.
+func (s *Stream) Terms() <-chan changestream.Term {
+	return s.terms
 }
 
 // Kill is part of the worker.Worker interface.
@@ -92,9 +107,10 @@ func (s *Stream) loop() error {
 		return errors.Annotate(err, "getting file notifier")
 	}
 
-	timer := s.clock.NewTimer(PollInterval)
-	defer timer.Stop()
-
+	var (
+		attempt         int
+		backOffStrategy = retry.ExpBackoff(time.Millisecond*10, time.Millisecond*250, 1.5, true)
+	)
 	for {
 		select {
 		case <-s.tomb.Dying():
@@ -137,42 +153,95 @@ func (s *Stream) loop() error {
 
 			s.logger.Infof("Change stream has been unblocked")
 
-		case <-timer.Chan():
+		default:
 			changes, err := s.readChanges()
 			if err != nil {
+				// If the context was canceled, we're unsure if it's because
+				// the worker is dying, or if the context was canceled because
+				// the db was slow. In any case, continue and let the worker
+				// die if it's dying.
+				if errors.Is(errors.Cause(err), context.Canceled) {
+					continue
+				}
 				// If we get an error attempting to read the changes, the Txn
 				// will have retried multiple times. There just isn't anything
 				// we can do, so we just return an error.
 				return errors.Annotate(err, "reading change")
 			}
 
+			if len(changes) == 0 {
+				// The following uses the back-off strategy for polling the
+				// database for changes. If we repeatedly get no changes, then
+				// we back=off exponentially. This should prevent us from
+				// stuttering and should allow use to coalesce in the large
+				// case when nothing is happening.
+				attempt++
+				select {
+				case <-s.tomb.Dying():
+					return tomb.ErrDying
+				case <-s.clock.After(backOffStrategy(0, attempt)):
+				}
+				continue
+			}
+
+			// Reset the attempt counter if we get changes, so the back=off
+			// strategy is reset.
+			attempt = 0
+
+			// Term encapsulates a set of changes that are bounded by a
+			// coalesced set.
+			term := &Term{
+				done: make(chan struct{}),
+			}
+
+			traceEnabled := s.logger.IsTraceEnabled()
 			for _, change := range changes {
-				if s.logger.IsTraceEnabled() {
+				if traceEnabled {
 					s.logger.Tracef("change event: %v", change)
 				}
-				s.changes <- change
+				term.changes = append(term.changes, change)
 				s.lastID = change.id
 			}
 
-			// TODO (stickupkid): Adaptive polling based on the number of
-			// changes that are returned.
-			timer.Reset(PollInterval)
+			// Send the term to the terms channel, and wait for it to be
+			// completed. This will block the outer loop until the term has
+			// been completed. It is the responsibility of the consumer of the
+			// terms channel to ensure that the term is completed in the
+			// fastest possible time.
+			select {
+			case <-s.tomb.Dying():
+				return tomb.ErrDying
+			case s.terms <- term:
+			}
+
+			select {
+			case <-s.tomb.Dying():
+				return tomb.ErrDying
+			case <-term.done:
+			}
 		}
 	}
 }
 
 const (
+	// Ordering of create, update and delete are in that order, based on the
+	// transactions are inserted in that order.
+	// If the namespace is later deleted, you'll no longer locate that during
+	// a select.
 	query = `
 SELECT MAX(c.id), c.edit_type_id, n.namespace, changed_uuid, created_at
 	FROM change_log c
 		JOIN change_log_edit_type t ON c.edit_type_id = t.id
 		JOIN change_log_namespace n ON c.namespace_id = n.id
 	WHERE c.id > ?
-	GROUP BY c.edit_type_id, c.namespace_id, c.changed_uuid 
-	ORDER BY c.id DESC;
+	GROUP BY c.namespace_id, c.changed_uuid 
+	ORDER BY c.id;
 `
 )
 
+// Note: changestream.ChangeEvent could be optimized in the future to be a
+// struct instead of an interface. We should work out if this is a good idea
+// or not.
 type changeEvent struct {
 	id          int64
 	changeType  int
