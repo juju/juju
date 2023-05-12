@@ -204,6 +204,9 @@ CREATE TABLE cloud_region (
         REFERENCES          cloud(uuid)
 );
 
+CREATE UNIQUE INDEX idx_cloud_region_cloud_uuid_name
+ON cloud_region (cloud_uuid, name);
+
 CREATE INDEX idx_cloud_region_cloud_uuid
 ON cloud_region (cloud_uuid);
 
