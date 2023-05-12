@@ -70,6 +70,11 @@ func (a *Application) CharmURL() string {
 	return a.details.CharmURL
 }
 
+// OperatorStatus returns the operator status for this application.
+func (a *Application) OperatorStatus() status.StatusInfo {
+	return a.details.OperatorStatus
+}
+
 // Config returns a copy of the current application config.
 func (a *Application) Config() map[string]interface{} {
 	a.metrics.ApplicationConfigReads.Inc()

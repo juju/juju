@@ -388,10 +388,16 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 				return noStatus, errors.Annotate(err, "could not filter applications")
 			}
 
+			var operatorStatus status.Status
+			cachedApp, err := context.cachedModel.Application(appName)
+			if err == nil {
+				operatorStatus = cachedApp.OperatorStatus().Status
+			}
 			// There are matched units for this application
-			// or the application matched the given criteria.
+			// or the application matched the given criteria,
+			// or the operator status is in error state
 			deleted := false
-			if !matchedApps.Contains(appName) && !matches {
+			if !matchedApps.Contains(appName) && !matches && operatorStatus != status.Error {
 				delete(context.allAppsUnitsCharmBindings.applications, appName)
 				deleted = true
 			}
