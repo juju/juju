@@ -165,7 +165,7 @@ func handleSuspendedRelation(auth authoriser, backend Backend, change params.Rem
 			if err != nil && !errors.Is(err, errors.NotFound) {
 				return errors.Trace(err)
 			}
-			if oc != nil {
+			if err == nil {
 				ok, err := CheckCanConsume(auth, backend, backend.ControllerTag(), backend.ModelTag(), oc)
 				if err != nil {
 					return errors.Trace(err)
