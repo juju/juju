@@ -36,7 +36,7 @@ func (s *trackedDBWorkerSuite) TestWorkerStartup(c *gc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := NewTrackedDBWorker(context.TODO(), s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
+	w, err := NewTrackedDBWorker(context.Background(), s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
@@ -53,7 +53,7 @@ func (s *trackedDBWorkerSuite) TestWorkerReport(c *gc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := NewTrackedDBWorker(context.TODO(), s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
+	w, err := NewTrackedDBWorker(context.Background(), s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
@@ -109,7 +109,7 @@ func (s *trackedDBWorkerSuite) TestWorkerTxnIsNotNil(c *gc.C) {
 	defer workertest.DirtyKill(c, w)
 
 	done := make(chan struct{})
-	err = w.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+	err = w.Txn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		defer close(done)
 
 		c.Assert(tx, gc.NotNil)
@@ -349,7 +349,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
 	c.Assert(w.Wait(), gc.ErrorMatches, "boom")
 
 	// Ensure that the DB is dead.
-	err = w.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+	err = w.Txn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		c.Fatal("failed if called")
 		return nil
 	})
@@ -358,7 +358,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
 
 func (s *trackedDBWorkerSuite) newTrackedDBWorker(pingFn func(context.Context, *sql.DB) error) (TrackedDB, error) {
 	collector := NewMetricsCollector()
-	return NewTrackedDBWorker(context.TODO(),
+	return NewTrackedDBWorker(context.Background(),
 		s.dbApp, "controller",
 		WithClock(s.clock),
 		WithLogger(s.logger),
@@ -371,7 +371,7 @@ func readTableNames(c *gc.C, w coredatabase.TrackedDB) []string {
 	// Attempt to use the new db, note there shouldn't be any leases in this
 	// db.
 	var tables []string
-	err := w.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+	err := w.Txn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.Query("SELECT tbl_name FROM sqlite_schema")
 		c.Assert(err, jc.ErrorIsNil)
 		defer rows.Close()

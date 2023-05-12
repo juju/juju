@@ -686,7 +686,7 @@ func (w *dbWorker) scopedContext() (context.Context, context.CancelFunc) {
 	return w.catacomb.Context(ctx), cancel
 }
 
-// ensureNamespace ensures that a given namespace is allowed to exists in
+// ensureNamespace ensures that a given namespace is allowed to exist in
 // the database. If the namespace is not within the allowed namespaces, it
 // will return a not found error. For any other error it will return the
 // underlying error. If it is allowed, then it will return nil.
