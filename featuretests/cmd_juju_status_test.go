@@ -75,9 +75,13 @@ func (s *StatusSuite) TestMultipleRelationsInYamlFormat(c *gc.C) {
 	c.Assert(out, jc.Contains, `
     relations:
       info:
-      - wordpress
+      - related-application: wordpress
+        interface: juju-info
+        scope: container
       logging-directory:
-      - wordpress
+      - related-application: wordpress
+        interface: logging
+        scope: container
     subordinate-to:
     - wordpress
 `)
@@ -85,9 +89,13 @@ func (s *StatusSuite) TestMultipleRelationsInYamlFormat(c *gc.C) {
 	c.Assert(out, jc.Contains, `
     relations:
       juju-info:
-      - logging
+      - related-application: logging
+        interface: juju-info
+        scope: container
       logging-dir:
-      - logging
+      - related-application: logging
+        interface: logging
+        scope: container
 `)
 }
 
