@@ -220,6 +220,13 @@ func buildApplicationMatcherShims(a *state.Application, patterns ...string) (shi
 	}
 	shims = append(shims, unitShims...)
 
+	// Match on application status
+	statusInfo, err := a.Status()
+	if err != nil {
+		return nil, err
+	}
+	shims = append(shims, func() (bool, bool, error) { return matchApplicationStatus(patterns, statusInfo.Status) })
+
 	// Units may be able to match the pattern. Ultimately defer to
 	// that logic, and guard against breaking the predicate-chain.
 	if len(unitShims) <= 0 {
@@ -356,6 +363,15 @@ func matchExposure(patterns []string, s *state.Application) (bool, bool, error) 
 		return !s.IsExposed(), true, nil
 	}
 	return false, false, nil
+}
+
+func matchApplicationStatus(patterns []string, applicationStatus status.Status) (bool, bool, error) {
+	for _, p := range patterns {
+		if applicationStatus.Matches(status.Status(p)) {
+			return true, true, nil
+		}
+	}
+	return false, true, nil
 }
 
 func matchWorkloadStatus(patterns []string, workloadStatus status.Status, agentStatus status.Status) (bool, bool, error) {
