@@ -114,6 +114,9 @@ func (w *UUIDWatcher) getInitialState() ([]string, error) {
 			}
 		}
 
+		if err := rows.Err(); err != nil {
+			return errors.Trace(err)
+		}
 		return errors.Trace(rows.Close())
 	})
 
