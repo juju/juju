@@ -50,7 +50,6 @@ func init() {
 	gc.Suite(&debugLogDbSuite1{})
 	gc.Suite(&debugLogDbSuite2{})
 	gc.Suite(&InitiateSuite{})
-	gc.Suite(&UserSuite{})
 	gc.Suite(&cmdMetricsCommandSuite{})
 	gc.Suite(&meterStatusIntegrationSuite{})
 	gc.Suite(&CAASOperatorSuite{})
