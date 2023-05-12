@@ -66,7 +66,6 @@ func (s *schemaSuite) TestDDLApply(c *gc.C) {
 		"cloud",
 		"auth_type",
 		"cloud_auth_type",
-		"ca_cert",
 		"cloud_ca_cert",
 		"cloud_region",
 		"cloud_type",
