@@ -325,7 +325,18 @@ func (w *dbWorker) GetDB(namespace string) (coredatabase.TrackedDB, error) {
 		return nil, w.catacomb.ErrDying()
 	}
 
-	// Enqueue the request.
+	// First check if we've already got the db worker already running. If
+	// we have, then return out quickly. The dbRunner is the cache, so there
+	// is no need to have a in-memory cache here.
+	if tracked, err := w.dbRunner.Worker(namespace, w.catacomb.Dying()); err == nil {
+		return tracked.(coredatabase.TrackedDB), nil
+	} else if errors.Is(errors.Cause(err), worker.ErrDead) {
+		// Handle the case where the db runner is dead.
+		return nil, errors.Trace(err)
+	}
+
+	// Enqueue the request as it's either starting up and we need to wait longer
+	// or it's not running and we need to start it.
 	req := makeDBRequest(namespace)
 	select {
 	case w.dbRequests <- req:
