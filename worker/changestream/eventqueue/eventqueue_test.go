@@ -63,9 +63,10 @@ func (s *eventQueueSuite) TestDispatch(c *gc.C) {
 	s.dispatchEvent(c, changes)
 
 	select {
-	case event := <-sub.Changes():
-		c.Assert(event.Type(), jc.DeepEquals, changestream.Create)
-		c.Assert(event.Namespace(), jc.DeepEquals, "topic")
+	case events := <-sub.Changes():
+		c.Assert(events, gc.HasLen, 1)
+		c.Check(events[0].Type(), jc.DeepEquals, changestream.Create)
+		c.Check(events[0].Namespace(), jc.DeepEquals, "topic")
 	case <-time.After(testing.ShortWait):
 		c.Fatal("timed out waiting for event")
 	}
@@ -176,9 +177,10 @@ func (s *eventQueueSuite) testMultipleDispatch(c *gc.C, opts ...changestream.Sub
 			defer wg.Done()
 
 			select {
-			case event := <-sub.Changes():
-				c.Assert(event.Type(), jc.DeepEquals, changestream.Update)
-				c.Assert(event.Namespace(), jc.DeepEquals, "topic")
+			case events := <-sub.Changes():
+				c.Assert(events, gc.HasLen, 1)
+				c.Check(events[0].Type(), jc.DeepEquals, changestream.Update)
+				c.Check(events[0].Namespace(), jc.DeepEquals, "topic")
 			case <-time.After(testing.ShortWait):
 				c.Fatalf("timed out waiting for sub %d event", i)
 			}

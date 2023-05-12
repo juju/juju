@@ -3,11 +3,11 @@
 
 package changestream
 
-// Subscription is an interface that can be used to receive events from the
-// event queue and unsubscribe from the queue.
+// Subscription describes the ability to receive events
+// from the event queue and unsubscribe from the queue.
 type Subscription interface {
 	// Changes returns the channel that the subscription will receive events on.
-	Changes() <-chan ChangeEvent
+	Changes() <-chan []ChangeEvent
 
 	// Unsubscribe removes the subscription from the event queue.
 	Unsubscribe()
