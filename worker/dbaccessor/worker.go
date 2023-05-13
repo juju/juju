@@ -332,7 +332,12 @@ func (w *dbWorker) GetDB(namespace string) (coredatabase.TrackedDB, error) {
 		return tracked.(coredatabase.TrackedDB), nil
 	} else if errors.Is(errors.Cause(err), worker.ErrDead) {
 		// Handle the case where the db runner is dead.
-		return nil, errors.Trace(err)
+		select {
+		case <-w.catacomb.Dying():
+			return nil, w.catacomb.ErrDying()
+		default:
+			return nil, errors.Trace(err)
+		}
 	}
 
 	// Enqueue the request as it's either starting up and we need to wait longer
