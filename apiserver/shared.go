@@ -45,7 +45,7 @@ type sharedServerContext struct {
 	logger              loggo.Logger
 	cancel              <-chan struct{}
 	charmhubHTTPClient  facade.HTTPClient
-	dbGetter            coredatabase.DBGetter
+	dbManager           coredatabase.DBManager
 
 	configMutex      sync.RWMutex
 	controllerConfig jujucontroller.Config
@@ -63,7 +63,7 @@ type sharedServerConfig struct {
 	controllerConfig    jujucontroller.Config
 	logger              loggo.Logger
 	charmhubHTTPClient  facade.HTTPClient
-	dbGetter            coredatabase.DBGetter
+	dbManager           coredatabase.DBManager
 }
 
 func (c *sharedServerConfig) validate() error {
@@ -85,8 +85,8 @@ func (c *sharedServerConfig) validate() error {
 	if c.controllerConfig == nil {
 		return errors.NotValidf("nil controllerConfig")
 	}
-	if c.dbGetter == nil {
-		return errors.NotValidf("nil dbGetter")
+	if c.dbManager == nil {
+		return errors.NotValidf("nil dbManager")
 	}
 	return nil
 }
@@ -104,7 +104,7 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		logger:              config.logger,
 		controllerConfig:    config.controllerConfig,
 		charmhubHTTPClient:  config.charmhubHTTPClient,
-		dbGetter:            config.dbGetter,
+		dbManager:           config.dbManager,
 	}
 	ctx.features = config.controllerConfig.Features()
 	// We are able to get the current controller config before subscribing to changes

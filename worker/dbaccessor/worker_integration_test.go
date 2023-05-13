@@ -32,7 +32,7 @@ import (
 type integrationSuite struct {
 	dqliteAppIntegrationSuite
 
-	dbGettter coredatabase.DBGetter
+	dbManager coredatabase.DBManager
 	worker    worker.Worker
 }
 
@@ -74,7 +74,7 @@ func (s *integrationSuite) SetUpSuite(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.dbGettter = w
+	s.dbManager = w
 	s.worker = w
 
 	db, err := s.DBApp().Open(context.TODO(), coredatabase.ControllerNS)
@@ -93,18 +93,18 @@ func (s *integrationSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *integrationSuite) TestWorkerAccessingControllerDB(c *gc.C) {
-	db, err := s.dbGettter.GetDB(coredatabase.ControllerNS)
+	db, err := s.dbManager.GetDB(coredatabase.ControllerNS)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(db, gc.NotNil)
 }
 
 func (s *integrationSuite) TestWorkerAccessingUnknownDB(c *gc.C) {
-	_, err := s.dbGettter.GetDB("foo")
+	_, err := s.dbManager.GetDB("foo")
 	c.Assert(err, gc.ErrorMatches, `.*namespace "foo" not found`)
 }
 
 func (s *integrationSuite) TestWorkerAccessingKnownDB(c *gc.C) {
-	db, err := s.dbGettter.GetDB(coredatabase.ControllerNS)
+	db, err := s.dbManager.GetDB(coredatabase.ControllerNS)
 	c.Assert(err, jc.ErrorIsNil)
 	err = db.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO model_list (uuid) VALUES ("bar")`)
@@ -112,9 +112,39 @@ func (s *integrationSuite) TestWorkerAccessingKnownDB(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	db, err = s.dbGettter.GetDB("bar")
+	db, err = s.dbManager.GetDB("bar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(db, gc.NotNil)
+}
+
+func (s *integrationSuite) TestWorkerDeletingControllerDB(c *gc.C) {
+	err := s.dbManager.DeleteDB(coredatabase.ControllerNS)
+	c.Assert(err, gc.ErrorMatches, `.*cannot close controller database`)
+}
+
+func (s *integrationSuite) TestWorkerDeletingUnknownDB(c *gc.C) {
+	_, err := s.dbManager.GetDB("foo")
+	c.Assert(err, gc.ErrorMatches, `.*namespace "foo" not found`)
+}
+
+func (s *integrationSuite) TestWorkerDeletingKnownDB(c *gc.C) {
+	db, err := s.dbManager.GetDB(coredatabase.ControllerNS)
+	c.Assert(err, jc.ErrorIsNil)
+	err = db.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO model_list (uuid) VALUES ("baz")`)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	db, err = s.dbManager.GetDB("baz")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(db, gc.NotNil)
+
+	err = s.dbManager.DeleteDB("baz")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.dbManager.GetDB("baz")
+	c.Assert(err, gc.ErrorMatches, `.*namespace "baz" not found`)
 }
 
 // integrationSuite defines a base suite for running integration tests against

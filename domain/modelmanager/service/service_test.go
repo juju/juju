@@ -20,7 +20,8 @@ import (
 type serviceSuite struct {
 	testing.IsolationSuite
 
-	state *MockState
+	state     *MockState
+	dbManager *MockDBManager
 }
 
 var _ = gc.Suite(&serviceSuite{})
@@ -32,7 +33,7 @@ func (s *serviceSuite) TestServiceCreate(c *gc.C) {
 
 	s.state.EXPECT().Create(gomock.Any(), uuid).Return(nil)
 
-	svc := NewService(s.state)
+	svc := NewService(s.state, s.dbManager)
 	err := svc.Create(context.TODO(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -44,7 +45,7 @@ func (s *serviceSuite) TestServiceCreateError(c *gc.C) {
 
 	s.state.EXPECT().Create(gomock.Any(), uuid).Return(fmt.Errorf("boom"))
 
-	svc := NewService(s.state)
+	svc := NewService(s.state, s.dbManager)
 	err := svc.Create(context.TODO(), uuid)
 	c.Assert(err, gc.ErrorMatches, `creating model ".*": boom`)
 }
@@ -58,7 +59,7 @@ func (s *serviceSuite) TestServiceCreateDuplicateError(c *gc.C) {
 		ExtendedCode: sqlite3.ErrConstraintUnique,
 	})
 
-	svc := NewService(s.state)
+	svc := NewService(s.state, s.dbManager)
 	err := svc.Create(context.TODO(), uuid)
 	c.Assert(err, gc.ErrorMatches, ".*"+domain.ErrDuplicate.Error())
 }
@@ -66,7 +67,7 @@ func (s *serviceSuite) TestServiceCreateDuplicateError(c *gc.C) {
 func (s *serviceSuite) TestServiceCreateInvalidUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	svc := NewService(s.state)
+	svc := NewService(s.state, s.dbManager)
 	err := svc.Create(context.TODO(), "invalid")
 	c.Assert(err, gc.ErrorMatches, "validating model uuid.*")
 }
@@ -76,9 +77,9 @@ func (s *serviceSuite) TestServiceDelete(c *gc.C) {
 
 	uuid := mustUUID(c)
 
-	s.state.EXPECT().Delete(gomock.Any(), uuid).Return(nil)
+	s.dbManager.EXPECT().DeleteDB(uuid.String()).Return(nil)
 
-	svc := NewService(s.state)
+	svc := NewService(s.state, s.dbManager)
 	err := svc.Delete(context.TODO(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -88,9 +89,9 @@ func (s *serviceSuite) TestServiceDeleteError(c *gc.C) {
 
 	uuid := mustUUID(c)
 
-	s.state.EXPECT().Delete(gomock.Any(), uuid).Return(fmt.Errorf("boom"))
+	s.dbManager.EXPECT().DeleteDB(uuid.String()).Return(fmt.Errorf("boom"))
 
-	svc := NewService(s.state)
+	svc := NewService(s.state, s.dbManager)
 	err := svc.Delete(context.TODO(), uuid)
 	c.Assert(err, gc.ErrorMatches, `deleting model ".*": boom`)
 }
@@ -98,7 +99,7 @@ func (s *serviceSuite) TestServiceDeleteError(c *gc.C) {
 func (s *serviceSuite) TestServiceDeleteInvalidUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	svc := NewService(s.state)
+	svc := NewService(s.state, s.dbManager)
 	err := svc.Delete(context.TODO(), "invalid")
 	c.Assert(err, gc.ErrorMatches, "validating model uuid.*")
 }
@@ -107,6 +108,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockState(ctrl)
+	s.dbManager = NewMockDBManager(ctrl)
 
 	return ctrl
 }

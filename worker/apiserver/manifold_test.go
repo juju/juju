@@ -58,7 +58,7 @@ type ManifoldSuite struct {
 	upgradeGate          stubGateWaiter
 	sysLogger            syslogger.SysLogger
 	charmhubHTTPClient   *http.Client
-	dbGetter             stubDBGetter
+	dbManager            stubDBManager
 
 	stub testing.Stub
 }
@@ -118,7 +118,7 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"lease-manager":        s.leaseManager,
 		"syslog":               s.sysLogger,
 		"charmhub-http-client": s.charmhubHTTPClient,
-		"db-accessor":          s.dbGetter,
+		"db-accessor":          s.dbManager,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -217,7 +217,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		Hub:                        &s.hub,
 		SysLogger:                  s.sysLogger,
 		CharmhubHTTPClient:         s.charmhubHTTPClient,
-		DBGetter:                   s.dbGetter,
+		DBManager:                  s.dbManager,
 	})
 }
 
@@ -367,11 +367,18 @@ type fakeMultiwatcherFactory struct {
 	multiwatcher.Factory
 }
 
-type stubDBGetter struct{}
+type stubDBManager struct{}
 
-func (s stubDBGetter) GetDB(namespace string) (coredatabase.TrackedDB, error) {
+func (s stubDBManager) GetDB(namespace string) (coredatabase.TrackedDB, error) {
 	if namespace != "controller" {
 		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, namespace)
 	}
 	return nil, nil
+}
+
+func (s stubDBManager) DeleteDB(namespace string) error {
+	if namespace == "controller" {
+		return errors.Forbiddenf(`cannot delete "controller" DB`)
+	}
+	return nil
 }

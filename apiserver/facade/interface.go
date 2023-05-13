@@ -142,6 +142,12 @@ type ControllerDBGetter interface {
 	ControllerDB() (coredatabase.TrackedDB, error)
 }
 
+// DBManager defines an interface for managing the database.
+type DBManager interface {
+	// DBManager returns a DBManager reference for the controller database.
+	DBManager() coredatabase.DBManager
+}
+
 // RequestRecorder is implemented by types that can record information about
 // successful and unsuccessful http requests.
 type RequestRecorder interface {

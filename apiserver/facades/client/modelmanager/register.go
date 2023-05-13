@@ -42,6 +42,13 @@ func newFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
+	var dbManager facade.DBManager
+	if m, ok := ctx.(facade.DBManager); ok {
+		dbManager = m
+	} else {
+		return nil, errors.New("invalid DBManager")
+	}
+
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -68,7 +75,7 @@ func newFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
 	return NewModelManagerAPI(
 		backend,
 		common.NewModelManagerBackend(ctrlModel, pool),
-		modelmanagerservice.NewService(modelmanagerstate.NewState(ctx.ControllerDB)),
+		modelmanagerservice.NewService(modelmanagerstate.NewState(ctx.ControllerDB), dbManager.DBManager()),
 		toolsFinder,
 		caas.New,
 		common.NewBlockChecker(backend),

@@ -47,8 +47,8 @@ type Config struct {
 	MetricsCollector                  *apiserver.Collector
 	EmbeddedCommand                   apiserver.ExecEmbeddedCommandFunc
 	CharmhubHTTPClient                HTTPClient
-	// DBGetter supplies sql.DB references on request, for named databases.
-	DBGetter coredatabase.DBGetter
+	// DBManager supplies sql.DB references on request, for named databases.
+	DBManager coredatabase.DBManager
 }
 
 type HTTPClient interface {
@@ -106,8 +106,8 @@ func (config Config) Validate() error {
 	if config.CharmhubHTTPClient == nil {
 		return errors.NotValidf("nil CharmhubHTTPClient")
 	}
-	if config.DBGetter == nil {
-		return errors.NotValidf("nil DBGetter")
+	if config.DBManager == nil {
+		return errors.NotValidf("nil DBManager")
 	}
 	return nil
 }
@@ -172,7 +172,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		ExecEmbeddedCommand:           config.EmbeddedCommand,
 		SysLogger:                     config.SysLogger,
 		CharmhubHTTPClient:            config.CharmhubHTTPClient,
-		DBGetter:                      config.DBGetter,
+		DBManager:                     config.DBManager,
 	}
 	return config.NewServer(serverConfig)
 }

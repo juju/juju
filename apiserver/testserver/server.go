@@ -11,9 +11,9 @@ import (
 	"net/http/httptest"
 
 	"github.com/juju/clock"
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -54,7 +54,7 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		MetricsCollector:    apiserver.NewMetricsCollector(),
 		SysLogger:           noopSysLogger{},
 		CharmhubHTTPClient:  &http.Client{},
-		DBGetter:            stubDBGetter{},
+		DBManager:           stubDBManager{},
 	}
 }
 
@@ -142,11 +142,18 @@ type fakeMultiwatcherFactory struct {
 	multiwatcher.Factory
 }
 
-type stubDBGetter struct{}
+type stubDBManager struct{}
 
-func (s stubDBGetter) GetDB(namespace string) (coredatabase.TrackedDB, error) {
+func (s stubDBManager) GetDB(namespace string) (coredatabase.TrackedDB, error) {
 	if namespace != "controller" {
 		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, namespace)
 	}
 	return nil, nil
+}
+
+func (s stubDBManager) DeleteDB(namespace string) error {
+	if namespace == "controller" {
+		return errors.Forbiddenf(`cannot delete "controller" DB`)
+	}
+	return nil
 }

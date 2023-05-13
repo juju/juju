@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package service -destination state_mock_test.go github.com/juju/juju/domain/modelmanager/service State
+//go:generate go run github.com/golang/mock/mockgen -package service -destination state_mock_test.go github.com/juju/juju/domain/modelmanager/service State,DBManager
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

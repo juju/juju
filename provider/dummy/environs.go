@@ -985,7 +985,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				},
 				MetricsCollector: apiserver.NewMetricsCollector(),
 				SysLogger:        noopSysLogger{},
-				DBGetter:         stubDBGetter{db: db},
+				DBManager:        stubDBManager{db: db},
 			})
 			if err != nil {
 				panic(err)
@@ -1019,15 +1019,22 @@ type noopSysLogger struct{}
 
 func (noopSysLogger) Log([]corelogger.LogRecord) error { return nil }
 
-type stubDBGetter struct {
+type stubDBManager struct {
 	db coredatabase.TrackedDB
 }
 
-func (s stubDBGetter) GetDB(namespace string) (coredatabase.TrackedDB, error) {
+func (s stubDBManager) GetDB(namespace string) (coredatabase.TrackedDB, error) {
 	if namespace != "controller" {
 		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, namespace)
 	}
 	return s.db, nil
+}
+
+func (s stubDBManager) DeleteDB(namespace string) error {
+	if namespace == "controller" {
+		return errors.Forbiddenf(`cannot delete "controller" DB`)
+	}
+	return nil
 }
 
 func leaseManager(controllerUUID string, st *state.State) (*lease.Manager, error) {

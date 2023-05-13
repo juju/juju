@@ -571,8 +571,13 @@ func (ctx *facadeContext) HTTPClient(purpose facade.HTTPClientPurpose) facade.HT
 
 // ControllerDB returns a TrackedDB reference for the controller database.
 func (ctx *facadeContext) ControllerDB() (coredatabase.TrackedDB, error) {
-	db, err := ctx.r.shared.dbGetter.GetDB(coredatabase.ControllerNS)
+	db, err := ctx.r.shared.dbManager.GetDB(coredatabase.ControllerNS)
 	return db, errors.Trace(err)
+}
+
+// DBManager returns the DBManager for the controller.
+func (ctx *facadeContext) DBManager() coredatabase.DBManager {
+	return ctx.r.shared.dbManager
 }
 
 // adminRoot dispatches API calls to those available to an anonymous connection

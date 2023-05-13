@@ -214,8 +214,8 @@ type ServerConfig struct {
 	// CharmhubHTTPClient is the HTTP client used for Charmhub API requests.
 	CharmhubHTTPClient facade.HTTPClient
 
-	// DBGetter supplies sql.DB references on request, for named databases.
-	DBGetter coredatabase.DBGetter
+	// DBManager supplies sql.DB references on request, for named databases.
+	DBManager coredatabase.DBManager
 }
 
 // Validate validates the API server configuration.
@@ -309,7 +309,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		controllerConfig:    controllerConfig,
 		logger:              loggo.GetLogger("juju.apiserver"),
 		charmhubHTTPClient:  cfg.CharmhubHTTPClient,
-		dbGetter:            cfg.DBGetter,
+		dbManager:           cfg.DBManager,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -200,8 +200,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	var dbGetter coredatabase.DBGetter
-	if err := context.Get(config.DBAccessorName, &dbGetter); err != nil {
+	var dbManager coredatabase.DBManager
+	if err := context.Get(config.DBAccessorName, &dbManager); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -241,7 +241,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		EmbeddedCommand:                   execEmbeddedCommand,
 		SysLogger:                         sysLogger,
 		CharmhubHTTPClient:                charmhubHTTPClient,
-		DBGetter:                          dbGetter,
+		DBManager:                         dbManager,
 	})
 	if err != nil {
 		// Ensure we clean up the resources we've registered with. This includes

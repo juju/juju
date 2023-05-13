@@ -152,7 +152,7 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 			return 0
 		},
 		SysLogger: noopSysLogger{},
-		DBGetter:  apiserver.StubDBGetter{},
+		DBManager: apiserver.StubDBManager{},
 	}
 }
 
