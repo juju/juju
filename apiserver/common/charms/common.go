@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
@@ -56,14 +55,7 @@ func checkCanRead(authorizer facade.Authorizer, state State) error {
 	if authorizer.AuthController() {
 		return nil
 	}
-	canRead, err := authorizer.HasPermission(permission.ReadAccess, model.ModelTag())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !canRead {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+	return errors.Trace(authorizer.HasPermission(permission.ReadAccess, model.ModelTag()))
 }
 
 // NewCharmInfoAPI provides the signature required for facade registration.

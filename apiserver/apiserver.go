@@ -29,6 +29,9 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/apiserver/authentication/jwt"
+	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/apiserver/common/crossmodel"
@@ -71,16 +74,18 @@ type Server struct {
 
 	shared *sharedServerContext
 
-	// jwtTokenService manages the refresh of the login
-	// token public key.
-	jwtTokenService *jwtService
-
 	// tag of the machine where the API server is running.
-	tag                    names.Tag
-	dataDir                string
-	logDir                 string
-	facades                *facade.Registry
-	authenticator          httpcontext.LocalMacaroonAuthenticator
+	tag     names.Tag
+	dataDir string
+	logDir  string
+	facades *facade.Registry
+
+	localMacaroonAuthenticator macaroon.LocalMacaroonAuthenticator
+	jwtAuthenticator           jwt.Authenticator
+
+	httpAuthenticators  []authentication.HTTPAuthenticator
+	loginAuthenticators []authentication.LoginAuthenticator
+
 	offerAuthCtxt          *crossmodel.AuthContext
 	lastConnectionID       uint64
 	newObserver            observer.ObserverFactory
@@ -128,15 +133,23 @@ type Server struct {
 
 // ServerConfig holds parameters required to set up an API server.
 type ServerConfig struct {
-	Clock         clock.Clock
-	PingClock     clock.Clock
-	Tag           names.Tag
-	DataDir       string
-	LogDir        string
-	Hub           *pubsub.StructuredHub
-	Presence      presence.Recorder
-	Mux           *apiserverhttp.Mux
-	Authenticator httpcontext.LocalMacaroonAuthenticator
+	Clock     clock.Clock
+	PingClock clock.Clock
+	Tag       names.Tag
+	DataDir   string
+	LogDir    string
+	Hub       *pubsub.StructuredHub
+	Presence  presence.Recorder
+	Mux       *apiserverhttp.Mux
+
+	// LocalMacaroonAuthenticator is the request authenticator used for verifying
+	// local user macaroons.
+	LocalMacaroonAuthenticator macaroon.LocalMacaroonAuthenticator
+
+	// JWTAuthenticator is the request authenticator used for validating jwt
+	// tokens when the controller has been bootstrapped with a trusted token
+	// provider.
+	JWTAuthenticator jwt.Authenticator
 
 	// MultiwatcherFactory is used by the API server to create
 	// multiwatchers. The real factory is managed by the multiwatcher
@@ -209,9 +222,6 @@ type ServerConfig struct {
 
 	// DBGetter supplies sql.DB references on request, for named databases.
 	DBGetter coredatabase.DBGetter
-
-	// EntityHasPermissionFunc checks whether a target has the required permission.
-	EntityHasPermissionFunc entityHasPermissionFunc
 }
 
 // Validate validates the API server configuration.
@@ -234,8 +244,8 @@ func (c ServerConfig) Validate() error {
 	if c.Mux == nil {
 		return errors.NotValidf("missing Mux")
 	}
-	if c.Authenticator == nil {
-		return errors.NotValidf("missing Authenticator")
+	if c.LocalMacaroonAuthenticator == nil {
+		return errors.NotValidf("missing local macaroon authenticator")
 	}
 	if c.Clock == nil {
 		return errors.NotValidf("missing Clock")
@@ -310,7 +320,6 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		logger:              loggo.GetLogger("juju.apiserver"),
 		charmhubHTTPClient:  cfg.CharmhubHTTPClient,
 		dbGetter:            cfg.DBGetter,
-		entityHasPermission: cfg.EntityHasPermissionFunc,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -331,6 +340,14 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 	}
 	loggingOutputs, _ := modelConfig.LoggingOutput()
 
+	httpAuthenticators := []authentication.HTTPAuthenticator{cfg.LocalMacaroonAuthenticator}
+	loginAuthenticators := []authentication.LoginAuthenticator{cfg.LocalMacaroonAuthenticator}
+	// We only want to add the jwt authenticator if it's not nil
+	if cfg.JWTAuthenticator != nil {
+		httpAuthenticators = append(httpAuthenticators, cfg.JWTAuthenticator)
+		loginAuthenticators = append(loginAuthenticators, cfg.JWTAuthenticator)
+	}
+
 	srv := &Server{
 		clock:                         cfg.Clock,
 		pingClock:                     cfg.pingClock(),
@@ -342,7 +359,10 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		upgradeComplete:               cfg.UpgradeComplete,
 		facades:                       AllFacades(),
 		mux:                           cfg.Mux,
-		authenticator:                 cfg.Authenticator,
+		localMacaroonAuthenticator:    cfg.LocalMacaroonAuthenticator,
+		jwtAuthenticator:              cfg.JWTAuthenticator,
+		httpAuthenticators:            httpAuthenticators,
+		loginAuthenticators:           loginAuthenticators,
 		allowModelAccess:              cfg.AllowModelAccess,
 		publicDNSName_:                cfg.PublicDNSName,
 		registerIntrospectionHandlers: cfg.RegisterIntrospectionHandlers,
@@ -363,24 +383,6 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		execEmbeddedCommand: cfg.ExecEmbeddedCommand,
 
 		healthStatus: "starting",
-	}
-	if refreshURL := controllerConfig.LoginTokenRefreshURL(); refreshURL != "" {
-		if !strings.Contains(refreshURL, "wellknown") {
-			refreshURL = strings.Trim(refreshURL, "/") + "/.well-known/jwks.json"
-		}
-		srv.jwtTokenService = &jwtService{
-			refreshURL: refreshURL,
-		}
-
-		httpClient := &http.Client{
-			Timeout: 30 * time.Second,
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				return http.ErrUseLastResponse
-			},
-		}
-		if err := srv.jwtTokenService.RegisterJWKSCache(context.TODO(), httpClient); err != nil {
-			logger.Warningf("failed to refresh jwt cache: %v", err)
-		}
 	}
 	srv.updateAgentRateLimiter(controllerConfig)
 	srv.updateResourceDownloadLimiters(controllerConfig)
@@ -406,7 +408,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 	srv.shared.cancel = srv.tomb.Dying()
 
 	// The auth context for authenticating access to application offers.
-	srv.offerAuthCtxt, err = newOfferAuthContext(cfg.StatePool, srv.jwtTokenService)
+	srv.offerAuthCtxt, err = newOfferAuthContext(cfg.StatePool, srv.jwtAuthenticator)
 	if err != nil {
 		unsubscribeControllerConfig()
 		return nil, errors.Trace(err)
@@ -651,7 +653,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		methods         []string
 		handler         http.Handler
 		unauthenticated bool
-		authorizer      httpcontext.Authorizer
+		authorizer      authentication.Authorizer
 		tracked         bool
 		noModelUUID     bool
 	}
@@ -661,6 +663,9 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		return nil, errors.Trace(err)
 	}
 	controllerModelUUID := systemState.ModelUUID()
+
+	httpAuthenticator := authentication.HTTPStrategicAuthenticator(srv.httpAuthenticators)
+
 	addHandler := func(handler handler) {
 		methods := handler.methods
 		if methods == nil {
@@ -671,11 +676,10 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			h = srv.trackRequests(h)
 		}
 		if !handler.unauthenticated {
-			h = &httpcontext.BasicAuthHandler{
-				Handler:       h,
-				Authenticator: srv.authenticator,
+			h = &httpcontext.AuthHandler{
+				NextHandler:   h,
+				Authenticator: httpAuthenticator,
 				Authorizer:    handler.authorizer,
-				TokenParser:   srv.jwtTokenService,
 			}
 		}
 		if !handler.noModelUUID {
@@ -711,10 +715,15 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	logStreamHandler := newLogStreamEndpointHandler(httpCtxt)
 	embeddedCLIHandler := newEmbeddedCLIHandler(httpCtxt)
 	debugLogHandler := newDebugLogDBHandler(
-		httpCtxt, srv.authenticator,
-		tagKindAuthorizer{names.MachineTagKind, names.ControllerAgentTagKind, names.UserTagKind,
-			names.ApplicationTagKind},
-		srv.jwtTokenService)
+		httpCtxt,
+		httpAuthenticator,
+		tagKindAuthorizer{
+			names.MachineTagKind,
+			names.ControllerAgentTagKind,
+			names.UserTagKind,
+			names.ApplicationTagKind,
+		},
+	)
 	pubsubHandler := newPubSubHandler(httpCtxt, srv.shared.centralHub)
 	logSinkHandler := logsink.NewHTTPHandler(
 		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, &srv.apiServerLoggers),
@@ -809,9 +818,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 
 	controllerAdminAuthorizer := controllerAdminAuthorizer{
 		controllerTag: systemState.ControllerTag(),
-		entityHasPermission: func() entityHasPermissionFunc {
-			return srv.shared.entityHasPermission
-		},
 	}
 	migrateCharmsHandler := &charmsHandler{
 		ctxt:          httpCtxt,
@@ -1108,14 +1114,13 @@ func (srv *Server) serveConn(
 		defer st.Release()
 		h, err = newAPIHandler(srv, st.State, conn, modelUUID, connectionID, host)
 	}
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, resolvedModelUUID)
 	}
 
 	if err != nil {
 		conn.ServeRoot(&errRoot{errors.Trace(err)}, recorderFactory, serverError)
 	} else {
-		srv.shared.entityHasPermission = h.EntityHasPermission
 		// Set up the admin apis used to accept logins and direct
 		// requests to the relevant business facade.
 		// There may be more than one since we need a new API each

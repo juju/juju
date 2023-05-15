@@ -7,10 +7,13 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/authentication"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	apisecrets "github.com/juju/juju/apiserver/facades/client/secrets"
 	"github.com/juju/juju/apiserver/facades/client/secrets/mocks"
@@ -71,11 +74,9 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withBackend bool) {
 
 	s.expectAuthClient()
 	if reveal {
-		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
-			true, nil)
+		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(nil)
 	} else {
-		s.authorizer.EXPECT().HasPermission(permission.ReadAccess, coretesting.ModelTag).Return(
-			true, nil)
+		s.authorizer.EXPECT().HasPermission(permission.ReadAccess, coretesting.ModelTag).Return(nil)
 	}
 
 	facade, err := apisecrets.NewTestAPI(s.secretsState,
@@ -204,7 +205,7 @@ func (s *SecretsSuite) TestListSecretsPermissionDenied(c *gc.C) {
 
 	s.expectAuthClient()
 	s.authorizer.EXPECT().HasPermission(permission.ReadAccess, coretesting.ModelTag).Return(
-		false, nil)
+		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
 	facade, err := apisecrets.NewTestAPI(s.secretsState, nil, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
@@ -218,9 +219,9 @@ func (s *SecretsSuite) TestListSecretsPermissionDeniedShow(c *gc.C) {
 
 	s.expectAuthClient()
 	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
-		false, nil)
+		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(
-		false, nil)
+		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
 	facade, err := apisecrets.NewTestAPI(s.secretsState, nil, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)

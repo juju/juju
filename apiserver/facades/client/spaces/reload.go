@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
@@ -93,12 +92,9 @@ func DefaultReloadSpacesAuthorizer(auth facade.Authorizer,
 	state AuthorizerState,
 ) ReloadSpacesAuthorizer {
 	return func() error {
-		canWrite, err := auth.HasPermission(permission.WriteAccess, state.ModelTag())
-		if err != nil && !errors.IsNotFound(err) {
-			return errors.Trace(err)
-		}
-		if !canWrite {
-			return apiservererrors.ServerError(apiservererrors.ErrPerm)
+		err := auth.HasPermission(permission.WriteAccess, state.ModelTag())
+		if err != nil {
+			return err
 		}
 		if err := check.ChangeAllowed(); err != nil {
 			return errors.Trace(err)

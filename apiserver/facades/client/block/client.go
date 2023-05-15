@@ -39,25 +39,13 @@ var getState = func(st *state.State, m *state.Model) blockAccess {
 }
 
 func (a *API) checkCanRead() error {
-	canRead, err := a.authorizer.HasPermission(permission.ReadAccess, a.access.ModelTag())
-	if err != nil && !errors.IsNotFound(err) {
-		return errors.Trace(err)
-	}
-	if !canRead {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+	err := a.authorizer.HasPermission(permission.ReadAccess, a.access.ModelTag())
+	return err
 }
 
 func (a *API) checkCanWrite() error {
-	canWrite, err := a.authorizer.HasPermission(permission.WriteAccess, a.access.ModelTag())
-	if err != nil && !errors.IsNotFound(err) {
-		return errors.Trace(err)
-	}
-	if !canWrite {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+	err := a.authorizer.HasPermission(permission.WriteAccess, a.access.ModelTag())
+	return err
 }
 
 // List implements Block.List().

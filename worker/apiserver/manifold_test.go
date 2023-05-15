@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/agent"
 	coreapiserver "github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/apiserver/httpcontext"
+	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
@@ -215,19 +215,19 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config.EmbeddedCommand = nil
 
 	c.Assert(config, jc.DeepEquals, apiserver.Config{
-		AgentConfig:         &s.agent.conf,
-		Authenticator:       s.authenticator,
-		Clock:               s.clock,
-		Controller:          s.controller,
-		Mux:                 s.mux,
-		MultiwatcherFactory: s.multiwatcherFactory,
-		StatePool:           &s.state.pool,
-		LeaseManager:        s.leaseManager,
-		MetricsCollector:    s.metricsCollector,
-		Hub:                 &s.hub,
-		SysLogger:           s.sysLogger,
-		CharmhubHTTPClient:  s.charmhubHTTPClient,
-		DBGetter:            s.dbGetter,
+		AgentConfig:                &s.agent.conf,
+		LocalMacaroonAuthenticator: s.authenticator,
+		Clock:                      s.clock,
+		Controller:                 s.controller,
+		Mux:                        s.mux,
+		MultiwatcherFactory:        s.multiwatcherFactory,
+		StatePool:                  &s.state.pool,
+		LeaseManager:               s.leaseManager,
+		MetricsCollector:           s.metricsCollector,
+		Hub:                        &s.hub,
+		SysLogger:                  s.sysLogger,
+		CharmhubHTTPClient:         s.charmhubHTTPClient,
+		DBGetter:                   s.dbGetter,
 	})
 }
 
@@ -370,7 +370,7 @@ func (c *stubAuditConfig) get() auditlog.Config {
 }
 
 type mockAuthenticator struct {
-	httpcontext.LocalMacaroonAuthenticator
+	macaroon.LocalMacaroonAuthenticator
 }
 
 type fakeMultiwatcherFactory struct {

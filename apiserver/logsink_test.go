@@ -194,7 +194,7 @@ func (s *logsinkSuite) TestNewServerValidatesLogSinkConfig(c *gc.C) {
 	// Make a fake-ish state pool.
 	cfg.StatePool = &state.StatePool{}
 	cfg.Mux = apiserverhttp.NewMux()
-	cfg.Authenticator = &mockAuthenticator{}
+	cfg.LocalMacaroonAuthenticator = &mockAuthenticator{}
 
 	cfg.LogSinkConfig = &apiserver.LogSinkConfig{}
 

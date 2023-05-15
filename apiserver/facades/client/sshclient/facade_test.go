@@ -13,6 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/sshclient"
 	"github.com/juju/juju/apiserver/facades/client/sshclient/mocks"
@@ -256,8 +257,8 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedNotAuthorized(c *gc.C) {
 
 	gomock.InOrder(
 		authorizer.EXPECT().AuthClient().Return(true),
-		authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(false, nil),
-		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(false, nil),
+		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
+		authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(apiservererrors.ErrPerm),
 	)
 	facade, err := sshclient.InternalFacade(backend, nil, authorizer, s.callContext,
 		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
@@ -284,8 +285,8 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedNonCAASModel(c *gc.C) {
 
 	gomock.InOrder(
 		authorizer.EXPECT().AuthClient().Return(true),
-		authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(true, nil),
-		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(true, nil),
+		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
+		authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(nil),
 		backend.EXPECT().Model().Return(model, nil),
 		model.EXPECT().Type().Return(state.ModelTypeIAAS),
 	)
@@ -325,8 +326,8 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedBadCredential(c *gc.C) {
 
 	gomock.InOrder(
 		authorizer.EXPECT().AuthClient().Return(true),
-		authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(true, nil),
-		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(true, nil),
+		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
+		authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(nil),
 		backend.EXPECT().Model().Return(model, nil),
 		model.EXPECT().Type().Return(state.ModelTypeCAAS),
 		backend.EXPECT().CloudSpec().Return(cloudSpec, nil),
@@ -346,8 +347,8 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedBadCredential(c *gc.C) {
 func (s *facadeSuite) TestModelCredentialForSSH(c *gc.C) {
 	s.assertModelCredentialForSSH(c,
 		func(authorizer *mocks.MockAuthorizer) {
-			authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(true, nil)
-			authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(true, nil)
+			authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission)
+			authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(nil)
 		},
 	)
 }
@@ -355,8 +356,8 @@ func (s *facadeSuite) TestModelCredentialForSSH(c *gc.C) {
 func (s *facadeSuite) TestModelCredentialForSSHAdminAccess(c *gc.C) {
 	s.assertModelCredentialForSSH(c,
 		func(authorizer *mocks.MockAuthorizer) {
-			authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(true, nil)
-			authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(false, nil)
+			authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(nil)
+			authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission)
 		},
 	)
 }
@@ -364,8 +365,7 @@ func (s *facadeSuite) TestModelCredentialForSSHAdminAccess(c *gc.C) {
 func (s *facadeSuite) TestModelCredentialForSSHSuperuserAccess(c *gc.C) {
 	s.assertModelCredentialForSSH(c,
 		func(authorizer *mocks.MockAuthorizer) {
-			authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(false, nil)
-			authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(true, nil)
+			authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(nil)
 		},
 	)
 }
@@ -398,7 +398,7 @@ func (s *facadeSuite) assertModelCredentialForSSH(c *gc.C, f func(authorizer *mo
 		SkipTLSVerify:    true,
 	}
 
-	backend.EXPECT().ModelTag().Return(testing.ModelTag)
+	backend.EXPECT().ModelTag().Return(testing.ModelTag).AnyTimes()
 	backend.EXPECT().ControllerTag().Return(testing.ControllerTag)
 	model.EXPECT().ControllerUUID().Return(testing.ControllerTag.Id())
 

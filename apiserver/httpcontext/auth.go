@@ -5,154 +5,59 @@ package httpcontext
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
-	"github.com/lestrrat-go/jwx/v2/jwt"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/rpc/params"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.httpcontext")
+// StrategicAuthenticator is responsible for trying multiple Authenticators
+// until one succeeds or an error is returned that is not equal to NotFound.
+type HTTPStrategicAuthenticator []authentication.HTTPAuthenticator
 
-// LocalMacaroonAuthenticator extends Authenticator with a method of
-// creating a local login macaroon. The authenticator is expected to
-// honour the resulting macaroon.
-type LocalMacaroonAuthenticator interface {
-	Authenticator
-
-	// CreateLocalLoginMacaroon creates a macaroon that may be
-	// provided to a user as proof that they have logged in with
-	// a valid username and password. This macaroon may then be
-	// used to obtain a discharge macaroon so that the user can
-	// log in without presenting their password for a set amount
-	// of time.
-	CreateLocalLoginMacaroon(context.Context, names.UserTag, bakery.Version) (*macaroon.Macaroon, error)
-}
-
-// Authenticator provides an interface for authenticating a request.
-//
-// TODO(axw) contract should include macaroon discharge error.
-//
-// If this returns an error, the handler should return StatusUnauthorized.
-type Authenticator interface {
-	// Authenticate authenticates the given request, returning the
-	// auth info.
-	//
-	// If the request does not contain any authentication details,
-	// then an error satisfying errors.IsNotFound will be returned.
-	Authenticate(req *http.Request, tokenParser authentication.TokenParser) (AuthInfo, error)
-
-	// AuthenticateLoginRequest authenticates a LoginRequest.
-	AuthenticateLoginRequest(
-		ctx context.Context,
-		serverHost string,
-		modelUUID string,
-		authParams authentication.AuthParams,
-	) (AuthInfo, error)
-}
-
-// Authorizer is a function type for authorizing a request.
-//
-// If this returns an error, the handler should return StatusForbidden.
-type Authorizer interface {
-	Authorize(AuthInfo) error
-}
-
-// Entity represents a user, machine, or unit that might be
-// authenticated.
-type Entity interface {
-	Tag() names.Tag
-}
-
-// AuthInfo is returned by Authenticator and RequestAuthInfo.
-type AuthInfo struct {
-	// Entity is the user/machine/unit/etc that has authenticated.
-	Entity Entity
-
-	// Token is the token included with the login request.
-	Token jwt.Token
-
-	// Controller reports whether or not the authenticated
-	// entity is a controller agent.
-	Controller bool
-}
-
-// BasicAuthHandler is an http.Handler that authenticates requests that
-// it handles with a specified Authenticator. The auth details can later
-// be retrieved using the top-level RequestAuthInfo function in this package.
-type BasicAuthHandler struct {
-	http.Handler
+// AuthHandler is a http handler responsible for handling authz and authn for
+// http requests coming into Juju. If a request both authenticates and authorizes
+// then the authentication info is also padded into the http context and the
+// next http handler is called.
+type AuthHandler struct {
+	// NextHandler is the http handler to call after authentication has been
+	// completed.
+	NextHandler http.Handler
 
 	// Authenticator is the Authenticator used for authenticating
 	// the HTTP requests handled by this handler.
-	Authenticator Authenticator
-
-	// TokenParser parses login tokens.
-	TokenParser authentication.TokenParser
+	Authenticator authentication.HTTPAuthenticator
 
 	// Authorizer, if non-nil, will be called with the auth info
 	// returned by the Authenticator, to validate it for the route.
-	Authorizer Authorizer
+	Authorizer authentication.Authorizer
 }
 
-// sendStatusAndJSON sends an HTTP status code and
-// a JSON-encoded response to a client.
-func sendStatusAndJSON(w http.ResponseWriter, statusCode int, response interface{}) error {
-	body, err := json.Marshal(response)
+var logger = loggo.GetLogger("juju.apiserver.httpcontext")
+
+// ServeHTTP is part of the http.Handler interface and is responsible for
+// performing AuthN and AuthZ on the subsequent http request.
+func (h *AuthHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	authInfo, err := h.Authenticator.Authenticate(req)
 	if err != nil {
-		return errors.Errorf("cannot marshal JSON result %#v: %v", response, err)
-	}
-
-	if statusCode == http.StatusUnauthorized {
-		w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
-	}
-	w.Header().Set("Content-Type", params.ContentTypeJSON)
-	w.Header().Set("Content-Length", fmt.Sprint(len(body)))
-	w.WriteHeader(statusCode)
-	if _, err := w.Write(body); err != nil {
-		return errors.Annotate(err, "cannot write response")
-	}
-	return nil
-}
-
-// sendError sends a JSON-encoded error response
-// for errors encountered during processing.
-func sendError(w http.ResponseWriter, errToSend error) error {
-	paramsErr, statusCode := apiservererrors.ServerErrorAndStatus(errToSend)
-	logger.Debugf("sending error: %d %v", statusCode, paramsErr)
-	return errors.Trace(sendStatusAndJSON(w, statusCode, &params.ErrorResult{
-		Error: paramsErr,
-	}))
-}
-
-// ServeHTTP is part of the http.Handler interface.
-func (h *BasicAuthHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	authInfo, err := h.Authenticator.Authenticate(req, h.TokenParser)
-	if err != nil {
-		w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
-		var dischargeError *apiservererrors.DischargeRequiredError
-		if errors.As(err, &dischargeError) {
-			sendErr := sendError(w, err)
-			if sendErr != nil {
-				logger.Errorf("%v", sendErr)
+		var httpError apiservererrors.HTTPWritableError
+		if errors.As(err, &httpError) {
+			if err := httpError.SendError(w); err != nil {
+				logger.Warningf("failed sending http error %v", err)
 			}
-			return
+		} else {
+			http.Error(w,
+				fmt.Sprintf("authentication failed: %s", err),
+				http.StatusUnauthorized,
+			)
 		}
-		http.Error(w,
-			fmt.Sprintf("authentication failed: %s", err),
-			http.StatusUnauthorized,
-		)
 		return
 	}
+
 	if h.Authorizer != nil {
 		if err := h.Authorizer.Authorize(authInfo); err != nil {
 			http.Error(w,
@@ -164,7 +69,7 @@ func (h *BasicAuthHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	ctx := context.WithValue(req.Context(), authInfoKey{}, authInfo)
 	req = req.WithContext(ctx)
-	h.Handler.ServeHTTP(w, req)
+	h.NextHandler.ServeHTTP(w, req)
 }
 
 type authInfoKey struct{}
@@ -172,7 +77,7 @@ type authInfoKey struct{}
 // RequestAuthInfo returns the AuthInfo associated with the request,
 // if any, and a boolean indicating whether or not the request was
 // authenticated.
-func RequestAuthInfo(req *http.Request) (AuthInfo, bool) {
-	authInfo, ok := req.Context().Value(authInfoKey{}).(AuthInfo)
+func RequestAuthInfo(req *http.Request) (authentication.AuthInfo, bool) {
+	authInfo, ok := req.Context().Value(authInfoKey{}).(authentication.AuthInfo)
 	return authInfo, ok
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v3"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -165,10 +166,11 @@ func (api *OffersAPI) ModifyOfferAccess(args params.ModifyOfferAccessRequest) (r
 		return result, nil
 	}
 
-	isControllerAdmin, err := api.Authorizer.HasPermission(permission.SuperuserAccess, api.ControllerModel.ControllerTag())
-	if err != nil {
+	err := api.Authorizer.HasPermission(permission.SuperuserAccess, api.ControllerModel.ControllerTag())
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return result, errors.Trace(err)
 	}
+	isControllerAdmin := err == nil
 
 	offerURLs := make([]string, len(args.Changes))
 	for i, arg := range args.Changes {
@@ -211,7 +213,8 @@ func (api *OffersAPI) modifyOneOfferAccess(user names.UserTag, modelUUID string,
 
 	canModifyOffer := isControllerAdmin
 	if !canModifyOffer {
-		if canModifyOffer, err = api.Authorizer.HasPermission(permission.AdminAccess, backend.ModelTag()); err != nil {
+		err = api.Authorizer.HasPermission(permission.AdminAccess, backend.ModelTag())
+		if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 			return errors.Trace(err)
 		}
 	}
@@ -473,34 +476,26 @@ func (api *OffersAPI) getConsumeDetails(user names.UserTag, urls params.OfferURL
 		defer releaser()
 
 		err = api.checkAdmin(user, backend)
-		if err != nil && errors.Cause(err) != apiservererrors.ErrPerm {
+		if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		isAdmin := err == nil
 		if !isAdmin {
 			appOffer := names.NewApplicationOfferTag(offer.OfferUUID)
-			ok, err := api.Authorizer.EntityHasPermission(user, permission.ConsumeAccess, appOffer)
+			err := api.Authorizer.EntityHasPermission(user, permission.ConsumeAccess, appOffer)
 			if err != nil {
 				results[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-			if !ok {
-				results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 				continue
 			}
 		}
 
-		if authToken := api.Authorizer.AuthTokenString(); authToken == "" {
-			offerMacaroon, err := api.authContext.CreateConsumeOfferMacaroon(api.ctx, offerDetails, user.Id(), urls.BakeryVersion)
-			if err != nil {
-				results[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-			results[i].Macaroon = offerMacaroon.M()
-		} else {
-			results[i].AuthToken = authToken
+		offerMacaroon, err := api.authContext.CreateConsumeOfferMacaroon(api.ctx, offerDetails, user.Id(), urls.BakeryVersion)
+		if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
 		}
+		results[i].Macaroon = offerMacaroon.M()
 	}
 	consumeResults.Results = results
 	return consumeResults, nil

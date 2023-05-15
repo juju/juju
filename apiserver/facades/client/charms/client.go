@@ -17,6 +17,7 @@ import (
 
 	apiresources "github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
+	"github.com/juju/juju/apiserver/authentication"
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -70,30 +71,21 @@ func (a *API) CharmInfo(args params.CharmURL) (params.Charm, error) {
 }
 
 func (a *API) checkCanRead() error {
-	canRead, err := a.authorizer.HasPermission(permission.ReadAccess, a.tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !canRead {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+	err := a.authorizer.HasPermission(permission.ReadAccess, a.tag)
+	return err
 }
 
 func (a *API) checkCanWrite() error {
-	isAdmin, err := a.authorizer.HasPermission(permission.SuperuserAccess, a.backendState.ControllerTag())
-	if err != nil {
+	err := a.authorizer.HasPermission(permission.SuperuserAccess, a.backendState.ControllerTag())
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
 
-	canWrite, err := a.authorizer.HasPermission(permission.WriteAccess, a.tag)
-	if err != nil {
-		return errors.Trace(err)
+	if err == nil {
+		return nil
 	}
-	if !canWrite && !isAdmin {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+
+	return a.authorizer.HasPermission(permission.WriteAccess, a.tag)
 }
 
 // NewCharmsAPI is only used for testing.

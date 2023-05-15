@@ -44,9 +44,11 @@ type Hub interface {
 // - Other dependencies from ManifoldsConfig required by the worker.
 type ManifoldConfig struct {
 	AgentName            string
+	QueryLoggerName      string
 	Clock                clock.Clock
 	Hub                  Hub
 	Logger               Logger
+	LogDir               string
 	PrometheusRegisterer prometheus.Registerer
 	NewApp               func(string, ...app.Option) (DBApp, error)
 	NewDBWorker          func(DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
@@ -57,6 +59,9 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
 	}
+	if cfg.QueryLoggerName == "" {
+		return errors.NotValidf("empty QueryLoggerName")
+	}
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
 	}
@@ -65,6 +70,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if cfg.LogDir == "" {
+		return errors.NotValidf("empty LogDir")
 	}
 	if cfg.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
@@ -87,6 +95,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
+			config.QueryLoggerName,
 		},
 		Output: dbAccessorOutput,
 		Start: func(context dependency.Context) (worker.Worker, error) {
@@ -106,8 +115,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			var slowQueryLogger coredatabase.SlowQueryLogger
+			if err := context.Get(config.QueryLoggerName, &slowQueryLogger); err != nil {
+				config.PrometheusRegisterer.Unregister(metricsCollector)
+				return nil, err
+			}
+
 			cfg := WorkerConfig{
-				NodeManager:      database.NewNodeManager(agentConfig, config.Logger),
+				NodeManager:      database.NewNodeManager(agentConfig, config.Logger, slowQueryLogger),
 				Clock:            config.Clock,
 				Hub:              config.Hub,
 				ControllerID:     agentConfig.Tag().Id(),
@@ -119,8 +134,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			w, err := newWorker(cfg)
 			if err != nil {
-				// Unregister the metrics collector if we fail to start the
-				// worker, so that we can safely register the metrics again.
 				config.PrometheusRegisterer.Unregister(metricsCollector)
 				return nil, errors.Trace(err)
 			}
@@ -147,7 +160,7 @@ func dbAccessorOutput(in worker.Worker, out interface{}) error {
 		var target coredatabase.DBGetter = w
 		*out = target
 	default:
-		return errors.Errorf("expected output of *dbaccessor.DBGetter, got %T", out)
+		return errors.Errorf("expected output of *database.DBGetter, got %T", out)
 	}
 	return nil
 }

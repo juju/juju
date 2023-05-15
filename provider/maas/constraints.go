@@ -10,6 +10,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/gomaasapi/v2"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/context"
 )
@@ -29,7 +30,14 @@ func (env *maasEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (c
 	if err != nil {
 		return nil, err
 	}
-	validator.RegisterVocabulary(constraints.Arch, supportedArches)
+
+	// Only consume supported juju architectures for this release. This will
+	// also remove any duplicate architectures.
+	maasArches := set.NewStrings(supportedArches...)
+	supported := set.NewStrings(arch.AllSupportedArches...).Intersection(maasArches)
+
+	validator.RegisterVocabulary(constraints.Arch, supported.SortedValues())
+
 	return validator, nil
 }
 

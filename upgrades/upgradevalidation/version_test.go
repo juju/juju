@@ -95,17 +95,17 @@ func (s *versionSuite) TestMigrateToAllowed(c *gc.C) {
 			from:    "2.8.0",
 			to:      "3.0.0",
 			allowed: false,
-			minVers: "2.9.36",
+			minVers: "2.9.43",
 		}, {
-			from:    "2.9.36",
+			from:    "2.9.43",
 			to:      "3.0.0",
 			allowed: true,
-			minVers: "2.9.36",
+			minVers: "2.9.43",
 		}, {
-			from:    "2.9.37",
+			from:    "2.9.44",
 			to:      "3.0.0",
 			allowed: true,
-			minVers: "2.9.36",
+			minVers: "2.9.43",
 		},
 		{
 			from:    "2.9.0",
