@@ -67,13 +67,7 @@ func checkAuth(authorizer facade.Authorizer, st *state.State) error {
 		return errors.Trace(apiservererrors.ErrPerm)
 	}
 
-	if isAdmin, err := authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag()); err != nil {
-		return errors.Trace(err)
-	} else if !isAdmin {
-		// The entire facade is only accessible to controller administrators.
-		return errors.Trace(apiservererrors.ErrPerm)
-	}
-	return nil
+	return authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag())
 }
 
 // Prechecks ensure that the target controller is ready to accept a

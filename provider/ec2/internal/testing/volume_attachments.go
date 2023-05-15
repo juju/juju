@@ -14,6 +14,8 @@ import (
 
 // AttachVolume implements ec2.Client.
 func (srv *Server) AttachVolume(ctx context.Context, in *ec2.AttachVolumeInput, opts ...func(*ec2.Options)) (*ec2.AttachVolumeOutput, error) {
+	srv.volumeMutatingCalls.next()
+
 	if err, ok := srv.apiCallErrors["AttachVolume"]; ok {
 		return nil, err
 	}
@@ -77,6 +79,8 @@ func (srv *Server) AttachVolume(ctx context.Context, in *ec2.AttachVolumeInput, 
 
 // DetachVolume implements ec2.Client.
 func (srv *Server) DetachVolume(ctx context.Context, in *ec2.DetachVolumeInput, opts ...func(*ec2.Options)) (*ec2.DetachVolumeOutput, error) {
+	srv.volumeMutatingCalls.next()
+
 	if err, ok := srv.apiCallErrors["DetachVolume"]; ok {
 		return nil, err
 	}

@@ -13,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common/crossmodel"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
@@ -35,40 +35,21 @@ type BaseAPI struct {
 	ctx                  context.Context
 }
 
-// checkPermission ensures that the logged in user holds the given permission on an entity.
-func (api *BaseAPI) checkPermission(user names.UserTag, tag names.Tag, perm permission.Access) error {
-	allowed, err := api.Authorizer.EntityHasPermission(user, perm, tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !allowed {
-		return apiservererrors.ErrPerm
-	}
-	return nil
-}
-
 // checkAdmin ensures that the specified in user is a model or controller admin.
 func (api *BaseAPI) checkAdmin(user names.UserTag, backend Backend) error {
-	err := api.checkPermission(user, backend.ModelTag(), permission.AdminAccess)
-	if err != nil && err != apiservererrors.ErrPerm {
+	err := api.Authorizer.EntityHasPermission(user, permission.SuperuserAccess, backend.ControllerTag())
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
+	} else if err == nil {
+		return nil
 	}
-	if err != nil {
-		err = api.checkPermission(user, backend.ControllerTag(), permission.SuperuserAccess)
-	}
-	return errors.Trace(err)
+
+	return api.Authorizer.EntityHasPermission(user, permission.AdminAccess, backend.ModelTag())
 }
 
 // checkControllerAdmin ensures that the logged in user is a controller admin.
 func (api *BaseAPI) checkControllerAdmin() error {
-	isControllerAdmin, err := api.Authorizer.HasPermission(permission.SuperuserAccess, api.ControllerModel.ControllerTag())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !isControllerAdmin {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+	return api.Authorizer.HasPermission(permission.SuperuserAccess, api.ControllerModel.ControllerTag())
 }
 
 // modelForName looks up the model details for the named model and returns
@@ -124,12 +105,12 @@ func (api *BaseAPI) applicationOffersFromModel(
 	// or model admin to proceed.
 	var isAdmin bool
 	err = api.checkAdmin(user, backend)
-	if err != nil && errors.Cause(err) != apiservererrors.ErrPerm {
-		return nil, errors.Trace(err)
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		return nil, err
 	}
 	isAdmin = err == nil
 	if requiredAccess == permission.AdminAccess && !isAdmin {
-		return nil, apiservererrors.ErrPerm
+		return nil, err
 	}
 
 	offers, err := api.GetApplicationOffers(backend).ListOffers(filters...)

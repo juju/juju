@@ -17,6 +17,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
+	authjwt "github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coremacaroon "github.com/juju/juju/core/macaroon"
@@ -68,7 +69,7 @@ type tokenPermissionFunc func(token jwt.Token, subject names.Tag) (permission.Ac
 type AuthContext struct {
 	systemState     Backend
 	tokenPermission tokenPermissionFunc
-	tokenParser     authentication.TokenParser
+	tokenParser     authjwt.TokenParser
 
 	clock              clock.Clock
 	offerThirdPartyKey *bakery.KeyPair
@@ -83,7 +84,7 @@ func NewAuthContext(
 	systemState Backend,
 	offerThirdPartyKey *bakery.KeyPair,
 	offerBakery authentication.ExpirableStorageBakery,
-	tokenParser authentication.TokenParser,
+	tokenParser authjwt.TokenParser,
 	tokenPermission tokenPermissionFunc,
 ) (*AuthContext, error) {
 	ctxt := &AuthContext{
@@ -175,24 +176,26 @@ type userAccessFunc func(names.UserTag, names.Tag) (permission.Access, error)
 func (a *AuthContext) checkOfferAccess(userAccess userAccessFunc, username, offerUUID string) error {
 	userTag := names.NewUserTag(username)
 	isAdmin, err := a.hasAccess(userAccess, userTag, permission.SuperuserAccess, a.systemState.ControllerTag())
-	if err != nil && !errors.Is(err, &apiservererrors.AccessRequiredError{}) {
+	if is := errors.Is(err, authentication.ErrorEntityMissingPermission); err != nil && !is {
 		return apiservererrors.ErrPerm
 	}
 	if isAdmin {
 		return nil
 	}
 	isAdmin, err = a.hasAccess(userAccess, userTag, permission.AdminAccess, a.systemState.ModelTag())
-	if err != nil && !errors.Is(err, &apiservererrors.AccessRequiredError{}) {
+	if is := errors.Is(err, authentication.ErrorEntityMissingPermission); err != nil && !is {
 		return apiservererrors.ErrPerm
 	}
 	if isAdmin {
 		return nil
 	}
-	ok, err := a.hasAccess(userAccess, userTag, permission.ConsumeAccess, names.NewApplicationOfferTag(offerUUID))
-	if errors.Is(err, &apiservererrors.AccessRequiredError{}) {
+	isConsume, err := a.hasAccess(userAccess, userTag, permission.ConsumeAccess, names.NewApplicationOfferTag(offerUUID))
+	if is := errors.Is(err, authentication.ErrorEntityMissingPermission); err != nil && !is {
 		return err
 	}
-	if !ok || err != nil {
+	if err != nil {
+		return err
+	} else if !isConsume {
 		return apiservererrors.ErrPerm
 	}
 	return nil
@@ -200,7 +203,7 @@ func (a *AuthContext) checkOfferAccess(userAccess userAccessFunc, username, offe
 
 func (a *AuthContext) hasAccess(userAccess func(names.UserTag, names.Tag) (permission.Access, error), userTag names.UserTag, access permission.Access, target names.Tag) (bool, error) {
 	has, err := common.HasPermission(userAccess, userTag, access, target)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return false, nil
 	}
 	return has, err

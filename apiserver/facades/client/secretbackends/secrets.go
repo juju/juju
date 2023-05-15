@@ -34,14 +34,7 @@ type SecretBackendsAPI struct {
 }
 
 func (s *SecretBackendsAPI) checkCanAdmin() error {
-	canAdmin, err := s.authorizer.HasPermission(permission.SuperuserAccess, names.NewControllerTag(s.controllerUUID))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !canAdmin {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+	return s.authorizer.HasPermission(permission.SuperuserAccess, names.NewControllerTag(s.controllerUUID))
 }
 
 // AddSecretBackends adds new secret backends.

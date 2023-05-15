@@ -35,7 +35,7 @@ type authContext struct {
 	st *state.State
 
 	clock     clock.Clock
-	agentAuth authentication.EntityAuthenticator
+	agentAuth authentication.AgentAuthenticator
 
 	// localUserBakery is the bakery.Bakery used by the controller
 	// for authenticating local users. In time, we may want to use this for
@@ -90,7 +90,7 @@ func newAuthContext(
 	checker.Register("is-authenticated-user", macaroon.MacaroonURI,
 		// Having a macaroon with an is-authenticated-user
 		// caveat is proof that the user is "logged in".
-		//"is-authenticated-user",
+		// "is-authenticated-user",
 		func(ctx context.Context, cond, arg string) error { return nil },
 	)
 
@@ -193,7 +193,7 @@ func (a authenticator) Authenticate(
 
 // authenticatorForTag returns the authenticator appropriate
 // to use for a login with the given possibly-nil tag.
-func (a authenticator) authenticatorForTag(tag names.Tag) (authentication.Authenticator, error) {
+func (a authenticator) authenticatorForTag(tag names.Tag) (authentication.EntityAuthenticator, error) {
 	if tag == nil {
 		auth, err := a.ctxt.externalMacaroonAuth(nil)
 		if errors.Cause(err) == errMacaroonAuthNotConfigured {
@@ -232,7 +232,7 @@ func (a authenticator) localUserAuth() *authentication.LocalUserAuthenticator {
 
 // externalMacaroonAuth returns an authenticator that can authenticate macaroon-based
 // logins for external users. If it fails once, it will always fail.
-func (ctxt *authContext) externalMacaroonAuth(identClient identchecker.IdentityClient) (authentication.Authenticator, error) {
+func (ctxt *authContext) externalMacaroonAuth(identClient identchecker.IdentityClient) (authentication.EntityAuthenticator, error) {
 	ctxt.macaroonAuthOnce.Do(func() {
 		ctxt._macaroonAuth, ctxt._macaroonAuthError = newExternalMacaroonAuth(ctxt.st, ctxt.clock, externalLoginExpiryTime, identClient)
 	})

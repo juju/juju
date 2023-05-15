@@ -548,7 +548,6 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(uri *coresecrets.URI, refresh
 }
 
 // GetSecretRevisionContentInfo returns the secret values for the specified secret revisions.
-// Used when deleting a secret; only returns external revision info.
 func (s *SecretsManagerAPI) GetSecretRevisionContentInfo(arg params.SecretRevisionArg) (params.SecretContentResults, error) {
 	result := params.SecretContentResults{
 		Results: make([]params.SecretContentResult, len(arg.Revisions)),
@@ -562,7 +561,7 @@ func (s *SecretsManagerAPI) GetSecretRevisionContentInfo(arg params.SecretRevisi
 	}
 	for i, rev := range arg.Revisions {
 		// TODO(wallworld) - if pendingDelete is true, mark the revision for deletion
-		_, valueRef, err := s.secretsState.GetSecretValue(uri, rev)
+		val, valueRef, err := s.secretsState.GetSecretValue(uri, rev)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -588,6 +587,9 @@ func (s *SecretsManagerAPI) GetSecretRevisionContentInfo(arg params.SecretRevisi
 					Params:      backend.Config,
 				},
 			}
+		}
+		if val != nil {
+			contentParams.Data = val.EncodedValues()
 		}
 		result.Results[i].Content = contentParams
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -64,51 +65,42 @@ type Client struct {
 }
 
 func (c *Client) checkCanRead() error {
-	isAdmin, err := c.api.auth.HasPermission(permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
-	if err != nil {
+	err := c.api.auth.HasPermission(permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
 
-	canRead, err := c.api.auth.HasPermission(permission.ReadAccess, c.api.stateAccessor.ModelTag())
-	if err != nil {
-		return errors.Trace(err)
+	if err == nil {
+		return nil
 	}
-	if !canRead && !isAdmin {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+
+	return c.api.auth.HasPermission(permission.ReadAccess, c.api.stateAccessor.ModelTag())
 }
 
 func (c *Client) checkCanWrite() error {
-	isAdmin, err := c.api.auth.HasPermission(permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
-	if err != nil {
+	err := c.api.auth.HasPermission(permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
 
-	canWrite, err := c.api.auth.HasPermission(permission.WriteAccess, c.api.stateAccessor.ModelTag())
-	if err != nil {
-		return errors.Trace(err)
+	if err == nil {
+		return nil
 	}
-	if !canWrite && !isAdmin {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+
+	return c.api.auth.HasPermission(permission.WriteAccess, c.api.stateAccessor.ModelTag())
 }
 
 func (c *Client) checkIsAdmin() error {
-	isAdmin, err := c.api.auth.HasPermission(permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
-	if err != nil {
+	err := c.api.auth.HasPermission(permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
 
-	isModelAdmin, err := c.api.auth.HasPermission(permission.AdminAccess, c.api.stateAccessor.ModelTag())
-	if err != nil {
-		return errors.Trace(err)
+	if err == nil {
+		return nil
 	}
-	if !isModelAdmin && !isAdmin {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+
+	return c.api.auth.HasPermission(permission.AdminAccess, c.api.stateAccessor.ModelTag())
 }
 
 // NewFacade creates a Client facade to handle API requests.

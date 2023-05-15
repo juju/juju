@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/jujuclient"
 	psapiserver "github.com/juju/juju/pubsub/apiserver"
@@ -126,21 +125,21 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.config = apiserver.ServerConfig{
-		StatePool:           s.StatePool,
-		Controller:          controller,
-		MultiwatcherFactory: multiWatcherWorker,
-		Authenticator:       s.authenticator,
-		Clock:               clock.WallClock,
-		GetAuditConfig:      func() auditlog.Config { return auditlog.Config{} },
-		Tag:                 machineTag,
-		DataDir:             c.MkDir(),
-		LogDir:              c.MkDir(),
-		Hub:                 hub,
-		Presence:            presence.New(clock.WallClock),
-		LeaseManager:        apitesting.StubLeaseManager{},
-		Mux:                 s.mux,
-		NewObserver:         func() observer.Observer { return &fakeobserver.Instance{} },
-		UpgradeComplete:     func() bool { return true },
+		StatePool:                  s.StatePool,
+		Controller:                 controller,
+		MultiwatcherFactory:        multiWatcherWorker,
+		LocalMacaroonAuthenticator: s.authenticator,
+		Clock:                      clock.WallClock,
+		GetAuditConfig:             func() auditlog.Config { return auditlog.Config{} },
+		Tag:                        machineTag,
+		DataDir:                    c.MkDir(),
+		LogDir:                     c.MkDir(),
+		Hub:                        hub,
+		Presence:                   presence.New(clock.WallClock),
+		LeaseManager:               apitesting.StubLeaseManager{},
+		Mux:                        s.mux,
+		NewObserver:                func() observer.Observer { return &fakeobserver.Instance{} },
+		UpgradeComplete:            func() bool { return true },
 		RegisterIntrospectionHandlers: func(f func(path string, h http.Handler)) {
 			f("navel", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				io.WriteString(w, "gazing")
@@ -178,9 +177,6 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 				fmt.Fprintf(ctx.Stdout, "\n")
 			}
 			return 0
-		},
-		EntityHasPermissionFunc: func(user names.Tag, operation permission.Access, target names.Tag) (bool, error) {
-			return apiserver.CheckHasPermission(s.State, user, operation, target)
 		},
 		SysLogger: noopSysLogger{},
 		DBGetter:  apiserver.StubDBGetter{},
@@ -285,21 +281,6 @@ func (s *apiserverBaseSuite) openAPIAs(c *gc.C, srv *apiserver.Server, tag names
 	apiInfo.Tag = tag
 	apiInfo.Password = password
 	apiInfo.Nonce = nonce
-	if !controllerOnly {
-		apiInfo.ModelTag = s.Model.ModelTag()
-	}
-	conn, err := api.Open(apiInfo, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conn, gc.NotNil)
-	s.AddCleanup(func(c *gc.C) {
-		conn.Close()
-	})
-	return conn
-}
-
-func (s *apiserverBaseSuite) openAPINoLogin(c *gc.C, srv *apiserver.Server, controllerOnly bool) api.Connection {
-	apiInfo := s.APIInfo(srv)
-	apiInfo.SkipLogin = true
 	if !controllerOnly {
 		apiInfo.ModelTag = s.Model.ModelTag()
 	}

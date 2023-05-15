@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/model"
@@ -19,12 +20,11 @@ import (
 
 // API is the concrete implementation of the API endpoint.
 type API struct {
-	authorizer        facade.Authorizer
-	apiUser           names.UserTag
-	isControllerAdmin bool
-	st                State
-	model             Model
-	modelCache        ModelCache
+	authorizer facade.Authorizer
+	apiUser    names.UserTag
+	st         State
+	model      Model
+	modelCache ModelCache
 }
 
 // NewModelGenerationAPI creates a new API endpoint for dealing with model generations.
@@ -40,40 +40,37 @@ func NewModelGenerationAPI(
 	// Since we know this is a user tag (because AuthClient is true),
 	// we just do the type assertion to the UserTag.
 	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
-	// Pretty much all of the user manager methods have special casing for admin
-	// users, so look once when we start and remember if the user is an admin.
-	isAdmin, err := authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	return &API{
-		authorizer:        authorizer,
-		isControllerAdmin: isAdmin,
-		apiUser:           apiUser,
-		st:                st,
-		model:             m,
-		modelCache:        mc,
+		authorizer: authorizer,
+		apiUser:    apiUser,
+		st:         st,
+		model:      m,
+		modelCache: mc,
 	}, nil
 }
 
-func (api *API) hasAdminAccess() (bool, error) {
-	canWrite, err := api.authorizer.HasPermission(permission.AdminAccess, api.model.ModelTag())
-	if errors.IsNotFound(err) {
-		return false, nil
+func (api *API) hasAdminAccess() error {
+	// We used to cache the result on the api object if the user was a superuser.
+	// We don't do that anymore as permission caching could become invalid
+	// for long lived connections.
+	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.st.ControllerTag())
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		return err
 	}
-	return canWrite, err
+
+	if err == nil {
+		return nil
+	}
+
+	return api.authorizer.HasPermission(permission.AdminAccess, api.model.ModelTag())
 }
 
 // AddBranch adds a new branch with the input name to the model.
 func (api *API) AddBranch(arg params.BranchArg) (params.ErrorResult, error) {
 	result := params.ErrorResult{}
-	isModelAdmin, err := api.hasAdminAccess()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if !isModelAdmin && !api.isControllerAdmin {
-		return result, apiservererrors.ErrPerm
+	if err := api.hasAdminAccess(); err != nil {
+		return result, err
 	}
 
 	if err := model.ValidateBranchName(arg.BranchName); err != nil {
@@ -87,13 +84,10 @@ func (api *API) AddBranch(arg params.BranchArg) (params.ErrorResult, error) {
 // TrackBranch marks the input units and/or applications as tracking the input
 // branch, causing them to realise changes made under that branch.
 func (api *API) TrackBranch(arg params.BranchTrackArg) (params.ErrorResults, error) {
-	isModelAdmin, err := api.hasAdminAccess()
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
+	if err := api.hasAdminAccess(); err != nil {
+		return params.ErrorResults{}, err
 	}
-	if !isModelAdmin && !api.isControllerAdmin {
-		return params.ErrorResults{}, apiservererrors.ErrPerm
-	}
+
 	// Ensure we guard against the numUnits being greater than 0 and the number
 	// units/applications greater than 1. This is because we don't know how to
 	// topographically distribute between all the applications and units,
@@ -134,12 +128,8 @@ func (api *API) TrackBranch(arg params.BranchTrackArg) (params.ErrorResults, err
 func (api *API) CommitBranch(arg params.BranchArg) (params.IntResult, error) {
 	result := params.IntResult{}
 
-	isModelAdmin, err := api.hasAdminAccess()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if !isModelAdmin && !api.isControllerAdmin {
-		return result, apiservererrors.ErrPerm
+	if err := api.hasAdminAccess(); err != nil {
+		return result, err
 	}
 
 	branch, err := api.model.Branch(arg.BranchName)
@@ -161,12 +151,8 @@ func (api *API) CommitBranch(arg params.BranchArg) (params.IntResult, error) {
 func (api *API) AbortBranch(arg params.BranchArg) (params.ErrorResult, error) {
 	result := params.ErrorResult{}
 
-	isModelAdmin, err := api.hasAdminAccess()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if !isModelAdmin && !api.isControllerAdmin {
-		return result, apiservererrors.ErrPerm
+	if err := api.hasAdminAccess(); err != nil {
+		return result, err
 	}
 
 	branch, err := api.model.Branch(arg.BranchName)
@@ -189,17 +175,14 @@ func (api *API) BranchInfo(
 	args params.BranchInfoArgs) (params.BranchResults, error) {
 	result := params.BranchResults{}
 
-	isModelAdmin, err := api.hasAdminAccess()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if !isModelAdmin && !api.isControllerAdmin {
-		return result, apiservererrors.ErrPerm
+	if err := api.hasAdminAccess(); err != nil {
+		return result, err
 	}
 
 	// From clients, we expect a single branch name or none,
 	// but we accommodate any number - they all must exist to avoid an error.
 	// If no branch is supplied, get them all.
+	var err error
 	var branches []Generation
 	if len(args.BranchNames) > 0 {
 		branches = make([]Generation, len(args.BranchNames))
@@ -230,13 +213,10 @@ func (api *API) BranchInfo(
 func (api *API) ShowCommit(arg params.GenerationId) (params.GenerationResult, error) {
 	result := params.GenerationResult{}
 
-	isModelAdmin, err := api.hasAdminAccess()
-	if err != nil {
-		return result, errors.Trace(err)
+	if err := api.hasAdminAccess(); err != nil {
+		return result, err
 	}
-	if !isModelAdmin && !api.isControllerAdmin {
-		return result, apiservererrors.ErrPerm
-	}
+
 	if arg.GenerationId < 1 {
 		err := errors.Errorf("supplied generation id has to be higher than 0")
 		return generationResultError(err)
@@ -262,14 +242,11 @@ func (api *API) ShowCommit(arg params.GenerationId) (params.GenerationResult, er
 func (api *API) ListCommits() (params.BranchResults, error) {
 	var result params.BranchResults
 
-	isModelAdmin, err := api.hasAdminAccess()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if !isModelAdmin && !api.isControllerAdmin {
-		return result, apiservererrors.ErrPerm
+	if err := api.hasAdminAccess(); err != nil {
+		return result, err
 	}
 
+	var err error
 	var branches []Generation
 	if branches, err = api.model.Generations(); err != nil {
 		return branchResultsError(err)
@@ -358,12 +335,8 @@ func (api *API) getGenerationCommit(branch Generation) (params.Generation, error
 // branch matching the input name.
 func (api *API) HasActiveBranch(arg params.BranchArg) (params.BoolResult, error) {
 	result := params.BoolResult{}
-	isModelAdmin, err := api.hasAdminAccess()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if !isModelAdmin && !api.isControllerAdmin {
-		return result, apiservererrors.ErrPerm
+	if err := api.hasAdminAccess(); err != nil {
+		return result, err
 	}
 
 	if _, err := api.modelCache.Branch(arg.BranchName); err != nil {

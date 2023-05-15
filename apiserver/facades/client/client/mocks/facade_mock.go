@@ -119,20 +119,6 @@ func (mr *MockAuthorizerMockRecorder) AuthOwner(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthOwner", reflect.TypeOf((*MockAuthorizer)(nil).AuthOwner), arg0)
 }
 
-// AuthTokenString mocks base method.
-func (m *MockAuthorizer) AuthTokenString() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AuthTokenString")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// AuthTokenString indicates an expected call of AuthTokenString.
-func (mr *MockAuthorizerMockRecorder) AuthTokenString() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthTokenString", reflect.TypeOf((*MockAuthorizer)(nil).AuthTokenString))
-}
-
 // AuthUnitAgent mocks base method.
 func (m *MockAuthorizer) AuthUnitAgent() bool {
 	m.ctrl.T.Helper()
@@ -162,12 +148,11 @@ func (mr *MockAuthorizerMockRecorder) ConnectedModel() *gomock.Call {
 }
 
 // EntityHasPermission mocks base method.
-func (m *MockAuthorizer) EntityHasPermission(arg0 names.Tag, arg1 permission.Access, arg2 names.Tag) (bool, error) {
+func (m *MockAuthorizer) EntityHasPermission(arg0 names.Tag, arg1 permission.Access, arg2 names.Tag) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EntityHasPermission", arg0, arg1, arg2)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // EntityHasPermission indicates an expected call of EntityHasPermission.
@@ -191,12 +176,11 @@ func (mr *MockAuthorizerMockRecorder) GetAuthTag() *gomock.Call {
 }
 
 // HasPermission mocks base method.
-func (m *MockAuthorizer) HasPermission(arg0 permission.Access, arg1 names.Tag) (bool, error) {
+func (m *MockAuthorizer) HasPermission(arg0 permission.Access, arg1 names.Tag) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HasPermission", arg0, arg1)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // HasPermission indicates an expected call of HasPermission.

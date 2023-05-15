@@ -14,6 +14,8 @@ import (
 
 // CreateTags implements ec2.Client.
 func (srv *Server) CreateTags(ctx context.Context, in *ec2.CreateTagsInput, opts ...func(*ec2.Options)) (*ec2.CreateTagsOutput, error) {
+	srv.tagsMutatingCalls.next()
+
 	if err, ok := srv.apiCallErrors["CreateTags"]; ok {
 		return nil, err
 	}

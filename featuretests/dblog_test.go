@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
+	coredatabase "github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/database"
 	"github.com/juju/juju/state"
@@ -87,7 +88,7 @@ func (s *dblogSuite) TestControllerAgentLogsGoToDBCAAS(c *gc.C) {
 	cfg, _ := s.PrimeAgentVersion(c, node.Tag(), password, vers)
 
 	logger := loggo.GetLogger("juju.featuretests")
-	err = database.BootstrapDqlite(context.TODO(), database.NewNodeManager(cfg, logger), logger, s.InitialDBOps...)
+	err = database.BootstrapDqlite(context.TODO(), database.NewNodeManager(cfg, logger, coredatabase.NoopSlowQueryLogger{}), logger, s.InitialDBOps...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertAgentLogsGoToDB(c, node.Tag(), true)

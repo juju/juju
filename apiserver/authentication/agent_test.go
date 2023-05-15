@@ -102,7 +102,7 @@ func (s *agentAuthenticatorSuite) TestValidLogins(c *gc.C) {
 
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
-		var authenticator authentication.EntityAuthenticator
+		var authenticator authentication.AgentAuthenticator
 		entity, err := authenticator.Authenticate(context.TODO(), s.State, authentication.AuthParams{
 			AuthTag:     t.entity.Tag(),
 			Credentials: t.credentials,
@@ -139,7 +139,7 @@ func (s *agentAuthenticatorSuite) TestInvalidLogins(c *gc.C) {
 
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
-		var authenticator authentication.EntityAuthenticator
+		var authenticator authentication.AgentAuthenticator
 		entity, err := authenticator.Authenticate(context.TODO(), s.State, authentication.AuthParams{
 			AuthTag:     t.entity.Tag(),
 			Credentials: t.credentials,

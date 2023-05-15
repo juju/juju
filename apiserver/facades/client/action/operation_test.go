@@ -495,7 +495,7 @@ func (s *enqueueSuite) TestEnqueueOperationLeadership(c *gc.C) {
 func (s *enqueueSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.Authorizer = facademocks.NewMockAuthorizer(ctrl)
-	s.Authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any()).Return(true, nil).AnyTimes()
+	s.Authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	s.Authorizer.EXPECT().AuthClient().Return(true)
 
 	s.model = action.NewMockModel(ctrl)

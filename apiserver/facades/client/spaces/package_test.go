@@ -64,7 +64,7 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 	s.blockChecker.EXPECT().ChangeAllowed().Return(nil).AnyTimes()
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
-	s.authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any()).Return(true, nil).AnyTimes()
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	s.authorizer.EXPECT().AuthClient().Return(true)
 
 	cloudSpec := environscloudspec.CloudSpec{

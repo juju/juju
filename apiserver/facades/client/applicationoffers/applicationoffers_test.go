@@ -1200,11 +1200,6 @@ func (s *consumeSuite) TestConsumeDetailsSpecifiedUser(c *gc.C) {
 	s.assertConsumeDetailsWithPermission(c, true, "")
 }
 
-func (s *consumeSuite) TestConsumeDetailsWithAuthToken(c *gc.C) {
-	s.authorizer.AuthToken = "auth-token"
-	s.assertConsumeDetailsWithPermission(c, true, "auth-token")
-}
-
 func (s *consumeSuite) assertConsumeDetailsWithPermission(c *gc.C, specifiedUser bool, authToken string) {
 	s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
@@ -1286,7 +1281,7 @@ func (s *consumeSuite) TestConsumeDetailsNonAdminSpecifiedUser(c *gc.C) {
 		OfferURLs: params.OfferURLs{
 			OfferURLs: []string{"fred@external/prod.hosted-mysql"},
 		}})
-	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
+	c.Assert(errors.Is(err, apiservererrors.ErrPerm), jc.IsTrue)
 }
 
 func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {

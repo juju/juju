@@ -810,12 +810,5 @@ func (a ModelAuthorizer) AuthClient() bool {
 }
 
 func (a ModelAuthorizer) checkAccess(access permission.Access) error {
-	canAccess, err := a.Authorizer.HasPermission(access, a.ModelTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !canAccess {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+	return a.Authorizer.HasPermission(access, a.ModelTag)
 }

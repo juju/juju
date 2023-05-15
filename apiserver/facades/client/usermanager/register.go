@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -35,10 +36,11 @@ func newUserManagerAPI(ctx facade.Context) (*UserManagerAPI, error) {
 	// Pretty much all of the user manager methods have special casing for admin
 	// users, so look once when we start and remember if the user is an admin.
 	st := ctx.State()
-	isAdmin, err := authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag())
-	if err != nil {
+	err := authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag())
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return nil, errors.Trace(err)
 	}
+	isAdmin := err == nil
 
 	return &UserManagerAPI{
 		state:      st,
