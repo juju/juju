@@ -178,7 +178,7 @@ func (f fileNotifyWatcher) Changes() (<-chan bool, error) {
 func NewEventMultiplexerWorker(db coredatabase.TrackedDB, fileNotifier FileNotifier, clock clock.Clock, logger Logger) (EventMultiplexerWorker, error) {
 	stream := stream.New(db, fileNotifier, clock, logger)
 
-	mux, err := eventmultiplexer.New(stream, logger)
+	mux, err := eventmultiplexer.New(stream, clock, logger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
