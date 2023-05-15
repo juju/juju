@@ -331,6 +331,13 @@ type Environ struct {
 	keystoneToolsDataSourceMutex sync.Mutex
 	keystoneToolsDataSource      simplestreams.DataSource
 
+	// usingSecurityGroups tracks whether this model is using security groups
+	// for firewalling. This will be false if a network has port_security disabled,
+	// true otherwise.
+	// However, once a model security group is created, it is not removed if such a model
+	// is added, this option sticks to true
+	usingSecurityGroups bool
+
 	firewaller   Firewaller
 	networking   Networking
 	configurator ProviderConfigurator
@@ -1152,6 +1159,7 @@ func (e *Environ) startInstance(
 			}
 		}
 	}
+	e.usingSecurityGroups = e.usingSecurityGroups || createSecurityGroups
 
 	var novaGroupNames []nova.SecurityGroupName
 	if createSecurityGroups {

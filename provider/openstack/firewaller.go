@@ -553,7 +553,12 @@ func (c *neutronFirewaller) IngressRules(ctx context.ProviderCallContext) (firew
 
 // OpenModelPorts implements Firewaller interface
 func (c *neutronFirewaller) OpenModelPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
-	if err := c.openPortsInGroup(ctx, c.jujuGroupRegexp(), rules); err != nil {
+	err := c.openPortsInGroup(ctx, c.jujuGroupRegexp(), rules)
+	if errors.IsNotFound(err) && !c.environ.usingSecurityGroups {
+		logger.Warningf("attempted to open %v but network port security is disabled. Already open", rules)
+		return nil
+	}
+	if err != nil {
 		handleCredentialError(err, ctx)
 		return errors.Trace(err)
 	}
