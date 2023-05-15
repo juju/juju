@@ -108,7 +108,11 @@ func (s *Stream) loop() error {
 	}
 
 	var (
-		attempt         int
+		attempt int
+		// The backoff strategy is used to back-off when we get no changes
+		// from the database. This is used to prevent the worker from polling
+		// the database too frequently and allow us to attempt to coalesce
+		// changes when there is less activity.
 		backOffStrategy = retry.ExpBackoff(time.Millisecond*10, time.Millisecond*250, 1.5, true)
 	)
 	for {

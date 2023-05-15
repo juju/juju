@@ -120,12 +120,8 @@ func newWorker(cfg WorkerConfig) (*changeStreamWorker, error) {
 func (w *changeStreamWorker) loop() (err error) {
 	defer w.runner.Kill()
 
-	for {
-		select {
-		case <-w.catacomb.Dying():
-			return w.catacomb.ErrDying()
-		}
-	}
+	<-w.catacomb.Dying()
+	return w.catacomb.ErrDying()
 }
 
 // Kill is part of the worker.Worker interface.
@@ -229,8 +225,6 @@ func (w *eventQueueWorker) EventQueue() EventQueue {
 }
 
 func (w *eventQueueWorker) loop() error {
-	select {
-	case <-w.catacomb.Dying():
-		return w.catacomb.ErrDying()
-	}
+	<-w.catacomb.Dying()
+	return w.catacomb.ErrDying()
 }
