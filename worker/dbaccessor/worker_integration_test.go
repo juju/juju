@@ -147,6 +147,25 @@ func (s *integrationSuite) TestWorkerDeletingKnownDB(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.*namespace "baz" not found`)
 }
 
+// The following ensures that we can delete a db without having to call GetDB
+// first. This ensures that we don't have to have an explicit db worker for
+// each model.
+func (s *integrationSuite) TestWorkerDeletingKnownDBWithoutGetFirst(c *gc.C) {
+	db, err := s.dbManager.GetDB(coredatabase.ControllerNS)
+	c.Assert(err, jc.ErrorIsNil)
+	err = db.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO model_list (uuid) VALUES ("baz")`)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.dbManager.DeleteDB("baz")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.dbManager.GetDB("baz")
+	c.Assert(err, gc.ErrorMatches, `.*namespace "baz" not found`)
+}
+
 // integrationSuite defines a base suite for running integration tests against
 // the dqlite database. It overrides the various methods to prevent the creation
 // of a new database for each test.

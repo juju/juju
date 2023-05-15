@@ -260,6 +260,8 @@ func (w *dbWorker) loop() (err error) {
 
 	for {
 		select {
+		// The following ensures that all dbRequests are serialised and
+		// processed in order.
 		case req := <-w.dbRequests:
 			if req.op == getOp {
 				// Ensure the namespace exists or is allowed to open a new one
@@ -575,13 +577,20 @@ func (w *dbWorker) closeDatabase(namespace string) error {
 	defer cancel()
 
 	if err := removeKnownNamespaceFromController(ctx, dbGetter, namespace); err != nil {
-		return errors.Annotatef(err, "removing namespace %q from controller", namespace)
+		return errors.Annotatef(err, "removing namespace %q", namespace)
 	}
 
-	// Once we've remove the namespace from the controller, shut the worker
-	// down.
+	// Stop and remove the worker. If the worker is not found, we don't
+	// consider it an error.
+	// This will wait for the worker to stop, which will potentially block
+	// any requests to access a new db. This should be ok, as there isn't
+	// currently any heavy loop logic in the model workers.
 	if err := w.dbRunner.StopAndRemoveWorker(namespace, w.catacomb.Dying()); err != nil {
-		return errors.Annotatef(err, "stopping worker for namespace %q", namespace)
+		if errors.Is(err, errors.NotFound) {
+			w.cfg.Logger.Errorf("worker for namespace %q not found.", namespace)
+			return nil
+		}
+		return errors.Annotatef(err, "stopping worker")
 	}
 
 	return nil

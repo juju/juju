@@ -55,7 +55,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *baseSuite) expectAnyLogs() {
-	s.logger.EXPECT().Errorf(gomock.Any()).AnyTimes()
+	s.logger.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()
 	s.logger.EXPECT().Warningf(gomock.Any(), gomock.Any()).AnyTimes()
 	s.logger.EXPECT().Infof(gomock.Any(), gomock.Any()).AnyTimes()
 	s.logger.EXPECT().Debugf(gomock.Any(), gomock.Any()).AnyTimes()
