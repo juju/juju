@@ -27,8 +27,8 @@ type modelConfig interface {
 	DefaultBase() (string, bool)
 }
 
-// Logger defines the logging methods needed
-type SeriesSelectorLogger interface {
+// SelectorLogger defines the logging methods needed
+type SelectorLogger interface {
 	Infof(string, ...interface{})
 	Tracef(string, ...interface{})
 }
@@ -52,7 +52,7 @@ type SeriesSelector struct {
 	Force bool
 	// from bundle specifies the deploy request comes from a bundle spec.
 	FromBundle bool
-	Logger     SeriesSelectorLogger
+	Logger     SelectorLogger
 	// UsingImageID is true when the user is using the image-id constraint
 	// when deploying the charm. This is needed to validate that in that
 	// case the user is also explicitly providing a base.
