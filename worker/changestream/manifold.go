@@ -23,9 +23,9 @@ type Logger interface {
 	IsTraceEnabled() bool
 }
 
-// EventQueueWorkerFn is an alias function that allows the creation of
+// EventMultiplexerWorkerFn is an alias function that allows the creation of
 // EventQueueWorker.
-type EventQueueWorkerFn = func(coredatabase.TrackedDB, FileNotifier, clock.Clock, Logger) (EventQueueWorker, error)
+type EventMultiplexerWorkerFn = func(coredatabase.TrackedDB, FileNotifier, clock.Clock, Logger) (EventMultiplexerWorker, error)
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.
@@ -33,9 +33,9 @@ type ManifoldConfig struct {
 	DBAccessor        string
 	FileNotifyWatcher string
 
-	Clock               clock.Clock
-	Logger              Logger
-	NewEventQueueWorker EventQueueWorkerFn
+	Clock                     clock.Clock
+	Logger                    Logger
+	NewEventMultiplexerWorker EventMultiplexerWorkerFn
 }
 
 func (cfg ManifoldConfig) Validate() error {
@@ -51,8 +51,8 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if cfg.NewEventQueueWorker == nil {
-		return errors.NotValidf("nil NewEventQueueWorker")
+	if cfg.NewEventMultiplexerWorker == nil {
+		return errors.NotValidf("nil NewEventMultiplexerWorker")
 	}
 	return nil
 }
@@ -82,11 +82,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			cfg := WorkerConfig{
-				DBGetter:            dbGetter,
-				FileNotifyWatcher:   fileNotifyWatcher,
-				Clock:               config.Clock,
-				Logger:              config.Logger,
-				NewEventQueueWorker: config.NewEventQueueWorker,
+				DBGetter:                  dbGetter,
+				FileNotifyWatcher:         fileNotifyWatcher,
+				Clock:                     config.Clock,
+				Logger:                    config.Logger,
+				NewEventMultiplexerWorker: config.NewEventMultiplexerWorker,
 			}
 
 			w, err := newWorker(cfg)

@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package eventqueue
+package eventmultiplexer
 
 import (
 	"fmt"
@@ -124,15 +124,15 @@ type eventFilter struct {
 	filter         func(changestream.ChangeEvent) bool
 }
 
-// EventQueue defines an event listener and dispatcher for db changes that can
-// be multiplexed to subscriptions. The event queue allows consumers to
+// EventMultiplexer defines an event listener and dispatcher for db changes that
+// can be multiplexed to subscriptions. The event queue allows consumers to
 // subscribe via callbacks to the event queue. This is a lockless
 // implementation, all subscriptions and changes are serialized in the main
 // loop. Dispatching is randomized to ensure that subscriptions don't depend on
 // ordering. The subscriptions can be associated with different subscription
 // options, which provide filtering when dispatching. Unsubscribing is provided
 // per subscription, which is done asynchronously.
-type EventQueue struct {
+type EventMultiplexer struct {
 	catacomb catacomb.Catacomb
 	stream   Stream
 	logger   Logger
@@ -148,9 +148,9 @@ type EventQueue struct {
 	unsubscriptionCh chan uint64
 }
 
-// New creates a new EventQueue that will use the Stream for events.
-func New(stream Stream, logger Logger) (*EventQueue, error) {
-	queue := &EventQueue{
+// New creates a new EventMultiplexer that will use the Stream for events.
+func New(stream Stream, logger Logger) (*EventMultiplexer, error) {
+	queue := &EventMultiplexer{
 		stream:             stream,
 		logger:             logger,
 		subscriptions:      make(map[uint64]*subscription),
@@ -174,7 +174,7 @@ func New(stream Stream, logger Logger) (*EventQueue, error) {
 
 // Subscribe creates a new subscription to the event queue. Options can be
 // provided to allow filter during the dispatching phase.
-func (q *EventQueue) Subscribe(opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
+func (q *EventMultiplexer) Subscribe(opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
 	// Get a new subscription count without using any mutexes.
 	subID := atomic.AddUint64(&q.subscriptionsCount, 1)
 
@@ -196,16 +196,16 @@ func (q *EventQueue) Subscribe(opts ...changestream.SubscriptionOption) (changes
 }
 
 // Kill stops the event queue.
-func (q *EventQueue) Kill() {
+func (q *EventMultiplexer) Kill() {
 	q.catacomb.Kill(nil)
 }
 
 // Wait waits for the event queue to stop.
-func (q *EventQueue) Wait() error {
+func (q *EventMultiplexer) Wait() error {
 	return q.catacomb.Wait()
 }
 
-func (q *EventQueue) unsubscribe(subscriptionID uint64) {
+func (q *EventMultiplexer) unsubscribe(subscriptionID uint64) {
 	select {
 	case <-q.catacomb.Dying():
 		return
@@ -213,7 +213,7 @@ func (q *EventQueue) unsubscribe(subscriptionID uint64) {
 	}
 }
 
-func (q *EventQueue) loop() error {
+func (q *EventMultiplexer) loop() error {
 	defer func() {
 		for _, sub := range q.subscriptions {
 			sub.close()
@@ -298,7 +298,7 @@ func (q *EventQueue) loop() error {
 	}
 }
 
-func (q *EventQueue) gatherSubscriptions(ch changestream.ChangeEvent) []*subscription {
+func (q *EventMultiplexer) gatherSubscriptions(ch changestream.ChangeEvent) []*subscription {
 	subs := make(map[uint64]*subscription)
 
 	for id := range q.subscriptionsAll {

@@ -43,7 +43,7 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	cfg = s.getConfig()
-	cfg.NewEventQueueWorker = nil
+	cfg.NewEventMultiplexerWorker = nil
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 }
 
@@ -53,22 +53,22 @@ func (s *workerSuite) getConfig() WorkerConfig {
 		FileNotifyWatcher: s.fileNotifyWatcher,
 		Clock:             s.clock,
 		Logger:            s.logger,
-		NewEventQueueWorker: func(coredatabase.TrackedDB, FileNotifier, clock.Clock, Logger) (EventQueueWorker, error) {
+		NewEventMultiplexerWorker: func(coredatabase.TrackedDB, FileNotifier, clock.Clock, Logger) (EventMultiplexerWorker, error) {
 			return nil, nil
 		},
 	}
 }
 
-func (s *workerSuite) TestEventQueue(c *gc.C) {
+func (s *workerSuite) TestEventMux(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
 	s.expectClock()
 
 	s.dbGetter.EXPECT().GetDB("controller").Return(s.TrackedDB(), nil)
-	s.eventQueueWorker.EXPECT().EventQueue().Return(s.eventQueue)
-	s.eventQueueWorker.EXPECT().Kill().AnyTimes()
-	s.eventQueueWorker.EXPECT().Wait().MinTimes(1)
+	s.eventMuxWorker.EXPECT().EventMux().Return(s.eventMux)
+	s.eventMuxWorker.EXPECT().Kill().AnyTimes()
+	s.eventMuxWorker.EXPECT().Wait().MinTimes(1)
 
 	w := s.newWorker(c, 1)
 	defer workertest.DirtyKill(c, w)
@@ -76,13 +76,13 @@ func (s *workerSuite) TestEventQueue(c *gc.C) {
 	stream, ok := w.(ChangeStream)
 	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement ChangeStream"))
 
-	_, err := stream.EventQueue("controller")
+	_, err := stream.NamespacedEventMux("controller")
 	c.Assert(err, jc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestEventQueueCalledTwice(c *gc.C) {
+func (s *workerSuite) TestEventMuxCalledTwice(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -91,9 +91,9 @@ func (s *workerSuite) TestEventQueueCalledTwice(c *gc.C) {
 	done := make(chan struct{})
 
 	s.dbGetter.EXPECT().GetDB("controller").Return(s.TrackedDB(), nil)
-	s.eventQueueWorker.EXPECT().EventQueue().Return(s.eventQueue).Times(2)
-	s.eventQueueWorker.EXPECT().Kill().AnyTimes()
-	s.eventQueueWorker.EXPECT().Wait().DoAndReturn(func() error {
+	s.eventMuxWorker.EXPECT().EventMux().Return(s.eventMux).Times(2)
+	s.eventMuxWorker.EXPECT().Kill().AnyTimes()
+	s.eventMuxWorker.EXPECT().Wait().DoAndReturn(func() error {
 		select {
 		case <-done:
 		case <-time.After(testing.LongWait):
@@ -109,10 +109,10 @@ func (s *workerSuite) TestEventQueueCalledTwice(c *gc.C) {
 	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement ChangeStream"))
 
 	// Ensure that the event queue is only created once.
-	_, err := stream.EventQueue("controller")
+	_, err := stream.NamespacedEventMux("controller")
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = stream.EventQueue("controller")
+	_, err = stream.NamespacedEventMux("controller")
 	c.Assert(err, jc.ErrorIsNil)
 
 	close(done)
@@ -126,12 +126,12 @@ func (s *workerSuite) newWorker(c *gc.C, attempts int) worker.Worker {
 		FileNotifyWatcher: s.fileNotifyWatcher,
 		Clock:             s.clock,
 		Logger:            s.logger,
-		NewEventQueueWorker: func(coredatabase.TrackedDB, FileNotifier, clock.Clock, Logger) (EventQueueWorker, error) {
+		NewEventMultiplexerWorker: func(coredatabase.TrackedDB, FileNotifier, clock.Clock, Logger) (EventMultiplexerWorker, error) {
 			attempts--
 			if attempts < 0 {
-				c.Fatal("NewEventQueueWorker called too many times")
+				c.Fatal("NewEventMultiplexerWorker called too many times")
 			}
-			return s.eventQueueWorker, nil
+			return s.eventMuxWorker, nil
 		},
 	}
 

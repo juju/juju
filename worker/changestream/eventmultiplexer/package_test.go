@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package eventqueue
+package eventmultiplexer
 
 import (
 	"sync/atomic"
@@ -15,9 +15,9 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package eventqueue -destination change_mock_test.go github.com/juju/juju/core/changestream ChangeEvent
-//go:generate go run github.com/golang/mock/mockgen -package eventqueue -destination stream_mock_test.go github.com/juju/juju/worker/changestream/eventqueue Stream
-//go:generate go run github.com/golang/mock/mockgen -package eventqueue -destination logger_mock_test.go github.com/juju/juju/worker/changestream/eventqueue Logger
+//go:generate go run github.com/golang/mock/mockgen -package eventmultiplexer -destination change_mock_test.go github.com/juju/juju/core/changestream ChangeEvent
+//go:generate go run github.com/golang/mock/mockgen -package eventmultiplexer -destination stream_mock_test.go github.com/juju/juju/worker/changestream/eventmultiplexer Stream
+//go:generate go run github.com/golang/mock/mockgen -package eventmultiplexer -destination logger_mock_test.go github.com/juju/juju/worker/changestream/eventmultiplexer Logger
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

@@ -40,7 +40,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	cfg = s.getConfig()
-	cfg.NewEventQueueWorker = nil
+	cfg.NewEventMultiplexerWorker = nil
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 }
 
@@ -50,7 +50,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		FileNotifyWatcher: "filenotifywatcher",
 		Clock:             s.clock,
 		Logger:            s.logger,
-		NewEventQueueWorker: func(coredatabase.TrackedDB, FileNotifier, clock.Clock, Logger) (EventQueueWorker, error) {
+		NewEventMultiplexerWorker: func(coredatabase.TrackedDB, FileNotifier, clock.Clock, Logger) (EventMultiplexerWorker, error) {
 			return nil, nil
 		},
 	}
