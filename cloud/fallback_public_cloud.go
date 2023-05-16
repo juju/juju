@@ -60,14 +60,14 @@ clouds:
         endpoint: https://ec2.ap-northeast-2.amazonaws.com
       ap-northeast-3:
         endpoint: https://ec2.ap-northeast-3.amazonaws.com
+      il-central-1:
+        endpoint: https://ec2.il-central-1.amazonaws.com
       me-south-1:
         endpoint: https://ec2.me-south-1.amazonaws.com
       me-central-1:
         endpoint: https://ec2.me-central-1.amazonaws.com
       sa-east-1:
         endpoint: https://ec2.sa-east-1.amazonaws.com
-      il-central-1:
-        endpoint: https://ec2.il-central-1.amazonaws.com
   aws-china:
     type: ec2
     description: Amazon China
