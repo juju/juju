@@ -4,23 +4,27 @@
 package eventmultiplexer
 
 import (
+	"context"
 	"sync/atomic"
 	"time"
-
-	"gopkg.in/tomb.v2"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/worker/v3/catacomb"
+	"golang.org/x/sync/errgroup"
 )
 
 // Logger represents the logging methods called.
 type Logger interface {
+	Errorf(message string, args ...interface{})
 	Infof(message string, args ...interface{})
 	Tracef(message string, args ...interface{})
 	IsTraceEnabled() bool
 }
+
+// ChangeSet represents a set of changes.
+type ChangeSet = []changestream.ChangeEvent
 
 // Stream represents a way to get change events as set of terms.
 type Stream interface {
@@ -31,106 +35,6 @@ type Stream interface {
 	// Once a change within a term has been completed, only at that point
 	// is another change processed, until all changes are exhausted.
 	Terms() <-chan changestream.Term
-}
-
-// subscription represents a subscriber in the event queue. It holds a tomb, so
-// that we can tie the lifecycle of a subscription to the event queue.
-type subscription struct {
-	tomb  tomb.Tomb
-	clock clock.Clock
-	id    uint64
-
-	topics        map[string]struct{}
-	changes       chan []changestream.ChangeEvent
-	unsubscribeFn func()
-}
-
-func newSubscription(id uint64, unsubscribeFn func(), clock clock.Clock) *subscription {
-	sub := &subscription{
-		id:            id,
-		clock:         clock,
-		changes:       make(chan []changestream.ChangeEvent),
-		topics:        make(map[string]struct{}),
-		unsubscribeFn: unsubscribeFn,
-	}
-
-	sub.tomb.Go(sub.loop)
-
-	return sub
-}
-
-// Unsubscribe removes the subscription from the event queue asynchronously.
-// This ensures that all unsubscriptions can be serialized. No unsubscribe will
-// actually never happen inside a dispatch call. If you attempt to unsubscribe
-// whilst the dispatch signalling, the unsubscribe will happen after all
-// dispatches have been called.
-func (s *subscription) Unsubscribe() {
-	s.unsubscribeFn()
-}
-
-// Changes returns the channel that the subscription will receive events on.
-func (s *subscription) Changes() <-chan []changestream.ChangeEvent {
-	return s.changes
-}
-
-// Done provides a way to know from the consumer side if the underlying
-// subscription has been terminated. This is useful to know if the event queue
-// has been closed.
-func (s *subscription) Done() <-chan struct{} {
-	return s.tomb.Dying()
-}
-
-// Kill implements worker.Worker.
-func (s *subscription) Kill() {
-	s.tomb.Kill(nil)
-}
-
-// Wait implements worker.Worker.
-func (s *subscription) Wait() error {
-	return s.tomb.Wait()
-}
-
-func (s *subscription) loop() error {
-	<-s.tomb.Dying()
-	return tomb.ErrDying
-}
-
-// Signal will dispatch a change event to the subscription. If the subscription
-// is not active, the change will be dropped.
-func (s *subscription) Signal(changes []changestream.ChangeEvent) {
-	// A subscription has exactly 10 seconds to process a set of change events.
-	// If they don't process the changes within that time, we will drop the
-	// changes and close the subscription. This subscription is then considered
-	// dead and will be removed from the event mux.
-	timer := s.clock.NewTimer(time.Second * 10)
-	defer timer.Stop()
-
-	select {
-	case <-s.tomb.Dying():
-		return
-	case <-timer.Chan():
-		// The context was timed out, which means that nothing was pulling the
-		// change off from the channel. In this scenario it better that the
-		// listener is unsubscribed from any future events and will be notified
-		// via the done channel. The listener will sill have the operatunity
-		// to resubscribe in the future. They're just no longer par-taking in
-		// this term whilst they're unresponsive.
-		s.Unsubscribe()
-		return
-	case s.changes <- changes:
-	}
-}
-
-// close closes the active channel, which will signal to the consumer that the
-// subscription is no longer active.
-func (s *subscription) close() error {
-	s.Kill()
-	return s.Wait()
-}
-
-type subscriptionOpts struct {
-	*subscription
-	opts []changestream.SubscriptionOption
 }
 
 type eventFilter struct {
@@ -362,22 +266,26 @@ func (q *EventMultiplexer) gatherSubscriptions(ch changestream.ChangeEvent) []*s
 	return results
 }
 
-// Dispatch fans out the subscription requests against a given term of changes.
+// dispatchSet fans out the subscription requests against a given term of changes.
 // Each subscription signals the change in a asynchronous fashion, allowing
 // a subscription to not block another change within a given term.
-func (q *EventMultiplexer) dispatchSet(changeSet map[*subscription][]changestream.ChangeEvent) error {
-	w := newNotifyWorker(int64(len(changeSet)))
+func (q *EventMultiplexer) dispatchSet(changeSet map[*subscription]ChangeSet) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
 
-	// Tie the notify worker to the catacomb, so it will be killed when the
-	// catacomb dies. Thus preventing a non-cancellable mux signalling.
-	if err := q.catacomb.Add(w); err != nil {
-		return errors.Trace(err)
-	}
+	grp, grpCtx := errgroup.WithContext(q.catacomb.Context(ctx))
+	grp.SetLimit(len(changeSet))
 
 	for sub, changes := range changeSet {
-		w.Notify(sub, changes)
+		sub, changes := sub, changes
+
+		grp.Go(func() error {
+			// Pass the context of the catacomb with the deadline to the
+			// subscription. This allows the subscription to be cancelled
+			// if the catacomb is dying or if the deadline is reached.
+			return sub.signal(changes, grpCtx.Done(), ctx.Done())
+		})
 	}
 
-	// Wait for the worker to have sent all subscriptions.
-	return w.Wait()
+	return grp.Wait()
 }
