@@ -332,6 +332,17 @@ func (st *State) ensureSecretBackendRevisionCountOp(backendID string) (txn.Op, i
 	return nsRefcounts.CurrentOp(refCountCollection, secretBackendRefCountKey(backendID))
 }
 
+func (st *State) dyingDecBackendRevisionCountOp(backendID string) (txn.Op, error) {
+	refCountCollection, ccloser := st.db().GetCollection(globalRefcountsC)
+	defer ccloser()
+
+	op, _, err := nsRefcounts.DyingDecRefOp(refCountCollection, secretBackendRefCountKey(backendID))
+	if errors.Is(err, errors.NotFound) {
+		return txn.Op{}, nil
+	}
+	return op, errors.Trace(err)
+}
+
 func (st *State) removeBackendRevisionCountOp(backendID string) txn.Op {
 	return nsRefcounts.JustRemoveOp(globalRefcountsC, secretBackendRefCountKey(backendID), -1)
 }

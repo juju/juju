@@ -156,6 +156,7 @@ func (w *Worker) drainSecret(
 			return errors.Trace(err)
 		}
 		valueRef, err := client.SaveContent(md.Metadata.URI, rev.Revision, secretVal)
+		w.config.Logger.Debugf("saved %s/%d, %#v, %#v", md.Metadata.URI.ID, rev.Revision, valueRef, err)
 		if err != nil && !errors.Is(err, errors.NotSupported) {
 			return errors.Trace(err)
 		}
@@ -178,7 +179,10 @@ func (w *Worker) drainSecret(
 			if err != nil {
 				return errors.Trace(err)
 			}
+			// revID := rev.ValueRef.RevisionID
 			cleanUpInExternalBackend = func() error {
+				w.config.Logger.Debugf("cleanup secret %s/%d from old backend %q", md.Metadata.URI.ID, rev.Revision, rev.ValueRef.BackendID)
+				// err := oldBackend.DeleteContent(context.TODO(), revID)
 				err := oldBackend.DeleteContent(context.TODO(), rev.ValueRef.RevisionID)
 				if errors.Is(err, errors.NotFound) {
 					// This should never happen, but if it does, we can just ignore.
