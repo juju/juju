@@ -2213,11 +2213,11 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 			}
 			return &deployAPIAdapter{
 				Connection:        apiRoot,
-				legacyClient:      &apiClient{Client: apiclient.NewClient(apiRoot)},
-				charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
-				applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
-				modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
-				annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
+				legacyClient:      apiclient.NewClient(apiRoot),
+				charmsClient:      apicharms.NewClient(apiRoot),
+				applicationClient: application.NewClient(apiRoot),
+				modelConfigClient: modelconfig.NewClient(apiRoot),
+				annotationsClient: annotations.NewClient(apiRoot),
 			}, nil
 		}
 		deployCmd.NewResolver = func(charmsAPI store.CharmsAPI, downloadClientFn store.DownloadBundleClientFunc) deployer.Resolver {
