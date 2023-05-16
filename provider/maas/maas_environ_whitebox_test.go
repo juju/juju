@@ -2597,6 +2597,21 @@ func (suite *maasEnvironSuite) TestConstraintsValidator(c *gc.C) {
 	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type", "virt-type"})
 }
 
+func (suite *maasEnvironSuite) TestConstraintsValidatorWithUnsupportedArch(c *gc.C) {
+	controller := newFakeController()
+	controller.bootResources = []gomaasapi.BootResource{
+		&fakeBootResource{name: "jammy", architecture: "i386"},
+		&fakeBootResource{name: "jammy", architecture: "amd64"},
+	}
+	env := suite.makeEnviron(c, controller)
+	validator, err := env.ConstraintsValidator(suite.callCtx)
+	c.Assert(err, jc.ErrorIsNil)
+	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo virt-type=kvm")
+	unsupported, err := validator.Validate(cons)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type", "virt-type"})
+}
+
 func (suite *maasEnvironSuite) TestConstraintsValidatorInvalidCredential(c *gc.C) {
 	controller := &fakeController{
 		bootResources:      []gomaasapi.BootResource{&fakeBootResource{name: "jammy", architecture: "amd64"}},

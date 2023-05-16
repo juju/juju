@@ -30,7 +30,7 @@ require (
 	github.com/canonical/pebble v0.0.0-20230307221844-5842ea68c9c7
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.3.2
-	github.com/docker/distribution v2.8.0+incompatible
+	github.com/docker/distribution v2.8.2+incompatible
 	github.com/dustin/go-humanize v1.0.1
 	github.com/go-goose/goose/v5 v5.0.0-20220707165353-781664254fe4
 	github.com/go-logr/logr v1.2.2

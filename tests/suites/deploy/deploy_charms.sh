@@ -18,9 +18,11 @@ run_deploy_specific_series() {
 
 	ensure "test-deploy-specific-series" "${file}"
 
-	juju deploy postgresql --base ubuntu@20.04
-	base_name=$(juju status --format=json | jq ".applications.postgresql.base.name")
-	base_channel=$(juju status --format=json | jq ".applications.postgresql.base.channel")
+	juju deploy jameinel-ubuntu-lite --base ubuntu@20.04
+	base_name=$(juju status --format=json | jq '.applications."ubuntu-lite".base.name')
+	base_channel=$(juju status --format=json | jq '.applications."ubuntu-lite".base.channel')
+
+	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
 	destroy_model "test-deploy-specific-series"
 

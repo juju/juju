@@ -75,7 +75,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 
 	s.config = apiserver.Config{
 		AgentConfig:                       &s.agentConfig,
-		Authenticator:                     s.authenticator,
+		LocalMacaroonAuthenticator:        s.authenticator,
 		Clock:                             s.clock,
 		Controller:                        s.controller,
 		Hub:                               &s.hub,
@@ -119,8 +119,8 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 		func(cfg *apiserver.Config) { cfg.AgentConfig = nil },
 		"nil AgentConfig not valid",
 	}, {
-		func(cfg *apiserver.Config) { cfg.Authenticator = nil },
-		"nil Authenticator not valid",
+		func(cfg *apiserver.Config) { cfg.LocalMacaroonAuthenticator = nil },
+		"nil LocalMacaroonAuthenticator not valid",
 	}, {
 		func(cfg *apiserver.Config) { cfg.Clock = nil },
 		"nil Clock not valid",

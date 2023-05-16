@@ -17,7 +17,6 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/authentication"
-	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -30,10 +29,9 @@ import (
 // requests.
 type debugLogHandler struct {
 	ctxt          httpContext
-	authenticator httpcontext.Authenticator
-	authorizer    httpcontext.Authorizer
+	authenticator authentication.HTTPAuthenticator
+	authorizer    authentication.Authorizer
 	handle        debugLogHandlerFunc
-	tokenParser   authentication.TokenParser
 }
 
 type debugLogHandlerFunc func(
@@ -47,17 +45,15 @@ type debugLogHandlerFunc func(
 
 func newDebugLogHandler(
 	ctxt httpContext,
-	authenticator httpcontext.Authenticator,
-	authorizer httpcontext.Authorizer,
+	authenticator authentication.HTTPAuthenticator,
+	authorizer authentication.Authorizer,
 	handle debugLogHandlerFunc,
-	tokenParser authentication.TokenParser,
 ) *debugLogHandler {
 	return &debugLogHandler{
 		ctxt:          ctxt,
 		authenticator: authenticator,
 		authorizer:    authorizer,
 		handle:        handle,
-		tokenParser:   tokenParser,
 	}
 }
 
@@ -97,7 +93,7 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		// Authentication and authorization has to be done after the http
 		// connection has been upgraded to a websocket.
 
-		authInfo, err := h.authenticator.Authenticate(req, h.tokenParser)
+		authInfo, err := h.authenticator.Authenticate(req)
 		if err != nil {
 			socket.sendError(errors.Annotate(err, "authentication failed"))
 			return

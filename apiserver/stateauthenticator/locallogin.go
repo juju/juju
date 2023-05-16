@@ -23,17 +23,19 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var (
-	logger = loggo.GetLogger("juju.apiserver.stateauthenticator")
-)
-
 type localLoginHandlers struct {
 	authCtxt   *authContext
 	finder     state.EntityFinder
 	userTokens map[string]string
 }
 
-var formURL = "/form"
+const (
+	formURL = "/form"
+)
+
+var (
+	logger = loggo.GetLogger("juju.apiserver.stateauthenticator")
+)
 
 // AddHandlers adds the local login handlers to the given mux.
 func (h *localLoginHandlers) AddHandlers(mux *apiserverhttp.Mux) {
@@ -60,54 +62,54 @@ func (h *localLoginHandlers) bakeryError(w http.ResponseWriter, err error) {
 }
 
 func (h *localLoginHandlers) formHandler(w http.ResponseWriter, req *http.Request) {
-	switch req.Method {
-	case "POST":
-		ctx := req.Context()
-		reqParams := httprequest.Params{
-			Response: w,
-			Request:  req,
-			Context:  ctx,
-		}
-		loginRequest := form.LoginRequest{}
-		if err := httprequest.Unmarshal(reqParams, &loginRequest); err != nil {
-			h.bakeryError(w, errors.Annotate(err, "can't unmarshal login request"))
-			return
-		}
-
-		username := loginRequest.Body.Form["user"].(string)
-		password := loginRequest.Body.Form["password"].(string)
-		userTag := names.NewUserTag(username)
-		if !userTag.IsLocal() {
-			h.bakeryError(w, errors.NotValidf("non-local username %q", username))
-			return
-		}
-
-		authenticator := h.authCtxt.authenticator(req.Host)
-		if _, err := authenticator.Authenticate(ctx, h.finder, authentication.AuthParams{
-			AuthTag:     userTag,
-			Credentials: password,
-		}); err != nil {
-			h.bakeryError(w, err)
-			return
-		}
-
-		token, err := newID()
-		if err != nil {
-			h.bakeryError(w, errors.Annotate(err, "cannot generate token"))
-			return
-		}
-		h.userTokens[token] = username
-
-		loginResponse := form.LoginResponse{
-			Token: &httpbakery.DischargeToken{
-				Kind:  "juju_userpass",
-				Value: []byte(token),
-			},
-		}
-		_ = httprequest.WriteJSON(w, http.StatusOK, loginResponse)
-	default:
+	if req.Method != http.MethodPost {
 		http.Error(w, fmt.Sprintf("%s method not allowed", req.Method), http.StatusMethodNotAllowed)
+		return
 	}
+
+	ctx := req.Context()
+	reqParams := httprequest.Params{
+		Response: w,
+		Request:  req,
+		Context:  ctx,
+	}
+	loginRequest := form.LoginRequest{}
+	if err := httprequest.Unmarshal(reqParams, &loginRequest); err != nil {
+		h.bakeryError(w, errors.Annotate(err, "can't unmarshal login request"))
+		return
+	}
+
+	username := loginRequest.Body.Form["user"].(string)
+	password := loginRequest.Body.Form["password"].(string)
+	userTag := names.NewUserTag(username)
+	if !userTag.IsLocal() {
+		h.bakeryError(w, errors.NotValidf("non-local username %q", username))
+		return
+	}
+
+	authenticator := h.authCtxt.authenticator(req.Host)
+	if _, err := authenticator.Authenticate(ctx, h.finder, authentication.AuthParams{
+		AuthTag:     userTag,
+		Credentials: password,
+	}); err != nil {
+		h.bakeryError(w, err)
+		return
+	}
+
+	token, err := newID()
+	if err != nil {
+		h.bakeryError(w, errors.Annotate(err, "cannot generate token"))
+		return
+	}
+	h.userTokens[token] = username
+
+	loginResponse := form.LoginResponse{
+		Token: &httpbakery.DischargeToken{
+			Kind:  "juju_userpass",
+			Value: []byte(token),
+		},
+	}
+	_ = httprequest.WriteJSON(w, http.StatusOK, loginResponse)
 }
 
 func newID() (string, error) {

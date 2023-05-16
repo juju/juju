@@ -62,7 +62,7 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 
 	// Set a short-lived macaroon as a cookie on the response,
 	// which the client can use to obtain a discharge macaroon.
-	m, err := h.ctxt.srv.authenticator.CreateLocalLoginMacaroon(req.Context(), userTag, httpbakery.RequestVersion(req))
+	m, err := h.ctxt.srv.localMacaroonAuthenticator.CreateLocalLoginMacaroon(req.Context(), userTag, httpbakery.RequestVersion(req))
 	if err != nil {
 		if err := sendError(w, err); err != nil {
 			logger.Errorf("%v", err)

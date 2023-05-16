@@ -17,8 +17,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/client/secretbackends"
 	"github.com/juju/juju/apiserver/facades/client/secretbackends/mocks"
@@ -126,8 +128,7 @@ func (s *SecretsSuite) assertListSecretBackends(c *gc.C, modelType state.ModelTy
 
 	s.expectAuthClient()
 	if reveal {
-		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
-			true, nil)
+		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(nil)
 	}
 
 	p := mocks.NewMockSecretBackendProvider(ctrl)
@@ -234,7 +235,7 @@ func (s *SecretsSuite) TestListSecretBackendsPermissionDeniedReveal(c *gc.C) {
 
 	s.expectAuthClient()
 	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
-		false, nil)
+		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
 	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -248,8 +249,7 @@ func (s *SecretsSuite) TestAddSecretBackends(c *gc.C) {
 	defer ctrl.Finish()
 
 	s.expectAuthClient()
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
-		true, nil)
+	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(nil)
 
 	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -328,7 +328,7 @@ func (s *SecretsSuite) TestAddSecretBackendsPermissionDenied(c *gc.C) {
 
 	s.expectAuthClient()
 	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
-		false, nil)
+		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
 	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -341,8 +341,7 @@ func (s *SecretsSuite) TestRemoveSecretBackends(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
-		true, nil)
+	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(nil)
 
 	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -372,7 +371,7 @@ func (s *SecretsSuite) TestRemoveSecretBackendsPermissionDenied(c *gc.C) {
 
 	s.expectAuthClient()
 	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
-		false, nil)
+		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
 	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -386,8 +385,7 @@ func (s *SecretsSuite) TestUpdateSecretBackends(c *gc.C) {
 	defer ctrl.Finish()
 
 	s.expectAuthClient()
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
-		true, nil)
+	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(nil)
 
 	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -451,7 +449,7 @@ func (s *SecretsSuite) TestUpdateSecretBackendsPermissionDenied(c *gc.C) {
 
 	s.expectAuthClient()
 	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
-		false, nil)
+		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
 	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer, s.clock)
 	c.Assert(err, jc.ErrorIsNil)

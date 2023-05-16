@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v3"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -67,10 +68,11 @@ func NewCloudAPI(backend, ctlrBackend Backend, pool ModelPoolBackend, authorizer
 		return nil, apiservererrors.ErrPerm
 	}
 
-	isAdmin, err := authorizer.HasPermission(permission.SuperuserAccess, backend.ControllerTag())
-	if err != nil && !errors.IsNotFound(err) {
+	err := authorizer.HasPermission(permission.SuperuserAccess, backend.ControllerTag())
+	if err != nil && !errors.Is(err, errors.NotFound) && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return nil, err
 	}
+	isAdmin := err == nil
 	authUser, _ := authorizer.GetAuthTag().(names.UserTag)
 	getUserAuthFunc := func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
@@ -111,10 +113,13 @@ func (api *CloudAPI) Clouds() (params.CloudsResult, error) {
 	if err != nil {
 		return result, err
 	}
-	isAdmin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
-	if err != nil && !errors.IsNotFound(err) {
+	err = api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
+	if err != nil &&
+		!errors.Is(err, authentication.ErrorEntityMissingPermission) &&
+		!errors.Is(err, errors.NotFound) {
 		return result, errors.Trace(err)
 	}
+	isAdmin := err == nil
 	result.Clouds = make(map[string]params.Cloud)
 	for tag, aCloud := range clouds {
 		// Ensure user has permission to see the cloud.
@@ -138,10 +143,13 @@ func (api *CloudAPI) Cloud(args params.Entities) (params.CloudResults, error) {
 	results := params.CloudResults{
 		Results: make([]params.CloudResult, len(args.Entities)),
 	}
-	isAdmin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
-	if err != nil && !errors.IsNotFound(err) {
+	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
+	if err != nil &&
+		!errors.Is(err, authentication.ErrorEntityMissingPermission) &&
+		!errors.Is(err, errors.NotFound) {
 		return results, errors.Trace(err)
 	}
+	isAdmin := err == nil
 	one := func(arg params.Entity) (*params.Cloud, error) {
 		tag, err := names.ParseCloudTag(arg.Tag)
 		if err != nil {
@@ -225,10 +233,11 @@ func cloudToParams(cloud cloud.Cloud) params.CloudDetails {
 }
 
 func (api *CloudAPI) getCloudInfo(tag names.CloudTag) (*params.CloudInfo, error) {
-	isAdmin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
-	if err != nil && !errors.IsNotFound(err) {
+	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
+	if err != nil && !errors.Is(err, errors.NotFound) && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return nil, errors.Trace(err)
 	}
+	isAdmin := err == nil
 	// If not a controller admin, check for cloud admin.
 	if !isAdmin {
 		perm, err := api.ctlrBackend.GetCloudAccess(tag.Id(), api.apiUser)
@@ -418,11 +427,11 @@ func (api *CloudAPI) UpdateCredentialsCheckModels(args params.UpdateCredentialAr
 func (api *CloudAPI) commonUpdateCredentials(update bool, force, legacy bool, args params.TaggedCredentials) (params.UpdateCredentialResults, error) {
 	if force {
 		// Only controller admins can ask for an update to be forced.
-		isControllerAdmin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
-		if err != nil && !errors.IsNotFound(err) {
+		err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
+		if err != nil && !errors.Is(err, errors.NotFound) && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 			return params.UpdateCredentialResults{}, errors.Trace(err)
 		}
-		if !isControllerAdmin {
+		if err != nil {
 			return params.UpdateCredentialResults{}, errors.Annotatef(apiservererrors.ErrBadRequest, "unexpected force specified")
 		}
 	}
@@ -716,11 +725,9 @@ func (api *CloudAPI) Credential(args params.Entities) (params.CloudCredentialRes
 
 // AddCloud adds a new cloud, different from the one managed by the controller.
 func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
-	isAdmin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
-	if err != nil && !errors.IsNotFound(err) {
-		return errors.Trace(err)
-	} else if !isAdmin {
-		return apiservererrors.ServerError(apiservererrors.ErrPerm)
+	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
+	if err != nil {
+		return err
 	}
 
 	if cloudArgs.Cloud.Type != k8sconstants.CAASProviderType {
@@ -756,11 +763,11 @@ func (api *CloudAPI) UpdateCloud(cloudArgs params.UpdateCloudArgs) (params.Error
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(cloudArgs.Clouds)),
 	}
-	isAdmin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
-	if err != nil && !errors.IsNotFound(err) {
+	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
+	if err != nil && !errors.Is(err, errors.NotFound) && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return results, errors.Trace(err)
-	} else if !isAdmin {
-		return results, apiservererrors.ServerError(apiservererrors.ErrPerm)
+	} else if err != nil {
+		return results, apiservererrors.ServerError(err)
 	}
 	for i, aCloud := range cloudArgs.Clouds {
 		err := api.backend.UpdateCloud(common.CloudFromParams(aCloud.Name, aCloud.Cloud))
@@ -775,10 +782,11 @@ func (api *CloudAPI) RemoveClouds(args params.Entities) (params.ErrorResults, er
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
-	isAdmin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
-	if err != nil && !errors.IsNotFound(err) {
+	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
+	if err != nil && !errors.Is(err, errors.NotFound) && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return result, errors.Trace(err)
 	}
+	isAdmin := err == nil
 	for i, entity := range args.Entities {
 		tag, err := names.ParseCloudTag(entity.Tag)
 		if err != nil {
@@ -948,12 +956,12 @@ func (c *CloudAPI) ModifyCloudAccess(args params.ModifyCloudAccessRequest) (para
 			continue
 		}
 
-		isAdmin, err := c.authorizer.HasPermission(permission.SuperuserAccess, c.backend.ControllerTag())
+		err = c.authorizer.HasPermission(permission.SuperuserAccess, c.backend.ControllerTag())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if !isAdmin {
+		if err != nil {
 			callerAccess, err := c.backend.GetCloudAccess(cloudTag.Id(), c.apiUser)
 			if err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/api/client/usermanager"
 	controllerclient "github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/api/controller/migrationtarget"
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -122,14 +123,7 @@ func NewControllerAPI(
 }
 
 func (c *ControllerAPI) checkIsSuperUser() error {
-	isAdmin, err := c.authorizer.HasPermission(permission.SuperuserAccess, c.state.ControllerTag())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !isAdmin {
-		return apiservererrors.ServerError(apiservererrors.ErrPerm)
-	}
-	return nil
+	return c.authorizer.HasPermission(permission.SuperuserAccess, c.state.ControllerTag())
 }
 
 // ControllerVersion returns the version information associated with this
@@ -562,10 +556,11 @@ func (c *ControllerAPI) WatchModelSummaries() (params.SummaryWatcherID, error) {
 // have on the controller.
 func (c *ControllerAPI) GetControllerAccess(req params.Entities) (params.UserAccessResults, error) {
 	results := params.UserAccessResults{}
-	isAdmin, err := c.authorizer.HasPermission(permission.SuperuserAccess, c.state.ControllerTag())
-	if err != nil {
+	err := c.authorizer.HasPermission(permission.SuperuserAccess, c.state.ControllerTag())
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return results, errors.Trace(err)
 	}
+	isAdmin := err == nil
 
 	users := req.Entities
 	results.Results = make([]params.UserAccessResult, len(users))
@@ -693,10 +688,11 @@ func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAcces
 		return result, nil
 	}
 
-	hasPermission, err := c.authorizer.HasPermission(permission.SuperuserAccess, c.state.ControllerTag())
-	if err != nil {
+	err := c.authorizer.HasPermission(permission.SuperuserAccess, c.state.ControllerTag())
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return result, errors.Trace(err)
 	}
+	hasPermission := err == nil
 
 	for i, arg := range args.Changes {
 		if !hasPermission {

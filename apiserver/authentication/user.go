@@ -28,7 +28,7 @@ var logger = loggo.GetLogger("juju.apiserver.authentication")
 
 // LocalUserAuthenticator performs authentication for local users. If a password
 type LocalUserAuthenticator struct {
-	EntityAuthenticator
+	AgentAuthenticator
 
 	// Bakery holds the bakery that is used to mint and verify macaroons.
 	Bakery ExpirableStorageBakery
@@ -60,7 +60,7 @@ const (
 	externalLoginExpiryTime = 1 * time.Hour
 )
 
-var _ Authenticator = (*LocalUserAuthenticator)(nil)
+var _ EntityAuthenticator = (*LocalUserAuthenticator)(nil)
 
 // Authenticate authenticates the entity with the specified tag, and returns an
 // error on authentication failure.
@@ -80,7 +80,7 @@ func (u *LocalUserAuthenticator) Authenticate(
 	if authParams.Credentials == "" {
 		return u.authenticateMacaroons(ctx, entityFinder, userTag, authParams)
 	}
-	return u.EntityAuthenticator.Authenticate(ctx, entityFinder, authParams)
+	return u.AgentAuthenticator.Authenticate(ctx, entityFinder, authParams)
 }
 
 // CreateLocalLoginMacaroon creates a macaroon that may be provided to a
@@ -243,7 +243,7 @@ type ExternalMacaroonAuthenticator struct {
 	Clock clock.Clock
 }
 
-var _ Authenticator = (*ExternalMacaroonAuthenticator)(nil)
+var _ EntityAuthenticator = (*ExternalMacaroonAuthenticator)(nil)
 
 // Authenticate authenticates the provided entity. If there is no macaroon provided, it will
 // return a *DischargeRequiredError containing a macaroon that can be used to grant access.

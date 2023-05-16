@@ -16,18 +16,27 @@ type Server struct {
 	apiCallErrors    map[string]error
 	apiCallModifiers map[string][]func(interface{})
 
-	attributes                  map[string][]types.AccountAttributeValue // attr name -> values
-	instances                   map[string]*Instance                     // id -> instance
-	reservations                map[string]*reservation                  // id -> reservation
-	groups                      map[string]*securityGroup                // id -> group
-	zones                       map[string]availabilityZone              // name -> availabilityZone
-	vpcs                        map[string]*vpc                          // id -> vpc
-	internetGateways            map[string]*internetGateway              // id -> igw
-	routeTables                 map[string]*routeTable                   // id -> table
-	subnets                     map[string]*subnet                       // id -> subnet
-	ifaces                      map[string]*iface                        // id -> iface
-	volumes                     map[string]*volume                       // id -> volume
-	volumeAttachments           map[string]*volumeAttachment             // id -> volumeAttachment
+	attributes       map[string][]types.AccountAttributeValue // attr name -> values
+	reservations     map[string]*reservation                  // id -> reservation
+	zones            map[string]availabilityZone              // name -> availabilityZone
+	vpcs             map[string]*vpc                          // id -> vpc
+	internetGateways map[string]*internetGateway              // id -> igw
+	routeTables      map[string]*routeTable                   // id -> table
+	subnets          map[string]*subnet                       // id -> subnet
+	ifaces           map[string]*iface                        // id -> iface
+
+	instances             map[string]*Instance // id -> instance
+	instanceMutatingCalls counter
+
+	groups             map[string]*securityGroup // id -> group
+	groupMutatingCalls counter
+
+	volumes             map[string]*volume           // id -> volume
+	volumeAttachments   map[string]*volumeAttachment // id -> volumeAttachment
+	volumeMutatingCalls counter
+
+	tagsMutatingCalls counter
+
 	maxId                       counter
 	reqId                       counter
 	reservationId               counter
@@ -84,6 +93,11 @@ func (srv *Server) Reset(withoutZonesOrGroups bool) {
 	srv.ifaceId.reset()
 	srv.attachId.reset()
 
+	srv.instanceMutatingCalls.reset()
+	srv.groupMutatingCalls.reset()
+	srv.volumeMutatingCalls.reset()
+	srv.tagsMutatingCalls.reset()
+
 	srv.apiCallErrors = make(map[string]error)
 	srv.apiCallModifiers = make(map[string][]func(interface{}))
 	srv.attributes = make(map[string][]types.AccountAttributeValue)
@@ -103,5 +117,24 @@ func (srv *Server) Reset(withoutZonesOrGroups bool) {
 
 	if !withoutZonesOrGroups {
 		srv.addDefaultZonesAndGroups()
+	}
+}
+
+type CallCounts struct {
+	Instances int
+	Groups    int
+	Volumes   int
+	Tags      int
+}
+
+// GetMutatingCallCount returns a struct breaking down how many
+// mutating calls the server has received endpoint type from
+// the client
+func (srv *Server) GetMutatingCallCount() CallCounts {
+	return CallCounts{
+		Instances: srv.instanceMutatingCalls.get(),
+		Groups:    srv.groupMutatingCalls.get(),
+		Volumes:   srv.volumeMutatingCalls.get(),
+		Tags:      srv.tagsMutatingCalls.get(),
 	}
 }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/gorilla/websocket"
+	jujuerrors "github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -24,8 +25,8 @@ import (
 	apimachiner "github.com/juju/juju/api/agent/machiner"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/httpcontext"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/testserver"
 	"github.com/juju/juju/core/network"
@@ -286,7 +287,8 @@ func (s *serverSuite) TestAPIHandlerHasPermissionLoginToken(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	handler, _ := apiserver.TestingAPIHandlerWithToken(c, s.StatePool, s.State, token)
+	delegator := &jwt.PermissionDelegator{token}
+	handler, _ := apiserver.TestingAPIHandlerWithToken(c, s.StatePool, s.State, token, delegator)
 	defer handler.Kill()
 
 	apiserver.AssertHasPermission(c, handler, permission.LoginAccess, coretesting.ControllerTag, true)
@@ -306,12 +308,13 @@ func (s *serverSuite) TestAPIHandlerMissingPermissionLoginToken(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	handler, _ := apiserver.TestingAPIHandlerWithToken(c, s.StatePool, s.State, token)
+	delegator := &jwt.PermissionDelegator{token}
+	handler, _ := apiserver.TestingAPIHandlerWithToken(c, s.StatePool, s.State, token, delegator)
 	defer handler.Kill()
-
-	hasPermission, err := handler.HasPermission(permission.AdminAccess, coretesting.ModelTag)
-	c.Assert(hasPermission, jc.IsFalse)
-	c.Assert(err, jc.DeepEquals, &errors.AccessRequiredError{
+	err = handler.HasPermission(permission.AdminAccess, coretesting.ModelTag)
+	var reqError *errors.AccessRequiredError
+	c.Assert(jujuerrors.As(err, &reqError), jc.IsTrue)
+	c.Assert(reqError, jc.DeepEquals, &errors.AccessRequiredError{
 		RequiredAccess: map[names.Tag]permission.Access{
 			coretesting.ModelTag: permission.AdminAccess,
 		},
@@ -404,17 +407,17 @@ func assertStop(c *gc.C, stopper stopper) {
 type mockAuthenticator struct {
 }
 
-func (a *mockAuthenticator) Authenticate(req *http.Request, tokenParser authentication.TokenParser) (httpcontext.AuthInfo, error) {
-	return httpcontext.AuthInfo{}, nil
+func (a *mockAuthenticator) Authenticate(req *http.Request) (authentication.AuthInfo, error) {
+	return authentication.AuthInfo{}, nil
 }
 
 func (a *mockAuthenticator) AuthenticateLoginRequest(
-	ctx context.Context,
-	serverHost string,
-	modelUUID string,
+	_ context.Context,
+	_,
+	_ string,
 	authParams authentication.AuthParams,
-) (httpcontext.AuthInfo, error) {
-	return httpcontext.AuthInfo{
+) (authentication.AuthInfo, error) {
+	return authentication.AuthInfo{
 		Entity: &mockEntity{tag: authParams.AuthTag},
 	}, nil
 }

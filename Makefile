@@ -224,7 +224,7 @@ define run_cgo_build
 	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
 	@@mkdir -p ${BBIN_DIR}
 	@echo "Building ${PACKAGE} for ${OS}/${ARCH}"
-	@env PATH=${MUSL_BIN_PATH}:${PATH} \
+	@env PATH="${MUSL_BIN_PATH}:${PATH}" \
 		CC="musl-gcc" \
 		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
 		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -lraft -ldqlite -llz4 -lsqlite3" \
@@ -254,7 +254,7 @@ endef
 
 define run_cgo_install
 	@echo "Installing ${PACKAGE}"
-	@env PATH=${MUSL_BIN_PATH}:${PATH} \
+	@env PATH="${MUSL_BIN_PATH}:${PATH}" \
 		CC="musl-gcc" \
 		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
 		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -lraft -ldqlite -llz4 -lsqlite3" \
@@ -408,7 +408,7 @@ run-tests: musl-install-if-missing dqlite-install-if-missing
 	$(eval TEST_PACKAGES := $(shell go list $(PROJECT)/... | sort | ([ -f "$(TEST_PACKAGE_LIST)" ] && comm -12 "$(TEST_PACKAGE_LIST)" - || cat) | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/acceptancetests/ | grep -v $(PROJECT)/generate/ | grep -v mocks))
 	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v'
 	@TMPDIR=$(TMP) \
-		PATH=${MUSL_BIN_PATH}:${PATH} \
+		PATH="${MUSL_BIN_PATH}:${PATH}" \
 		CC="musl-gcc" \
 		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
 		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -lraft -ldqlite -llz4 -lsqlite3" \
@@ -426,7 +426,7 @@ run-go-tests: musl-install-if-missing dqlite-install-if-missing
 	$(eval TEST_PACKAGES ?= "./...")
 	$(eval TEST_FILTER ?= "")
 	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v -check.f $(TEST_FILTER)'
-	@PATH=${MUSL_BIN_PATH}:${PATH} \
+	@PATH="${MUSL_BIN_PATH}:${PATH}" \
 		CC="musl-gcc" \
 		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
 		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -lraft -ldqlite -llz4 -lsqlite3" \

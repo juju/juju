@@ -50,7 +50,6 @@ func BootstrapDqlite(ctx context.Context, opt bootstrapOptFactory, logger Logger
 	dqlite, err := app.New(dir,
 		opt.WithLoopbackAddressOption(),
 		opt.WithLogFuncOption(),
-		opt.WithTracingOption(),
 	)
 	if err != nil {
 		return errors.Annotate(err, "creating Dqlite app")

@@ -4,8 +4,10 @@
 package lxd
 
 import (
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -32,8 +34,14 @@ func (env *environ) ConstraintsValidator(ctx context.ProviderCallContext) (const
 	validator := constraints.NewValidator()
 
 	validator.RegisterUnsupported(unsupportedConstraints)
-	validator.RegisterVocabulary(constraints.Arch, env.server().SupportedArches())
 	validator.RegisterVocabulary(constraints.VirtType, []string{"", "container", "virtual-machine"})
+
+	// Only consume supported juju architectures for this release. This will
+	// also remove any duplicate architectures.
+	lxdArches := set.NewStrings(env.server().SupportedArches()...)
+	supported := set.NewStrings(arch.AllSupportedArches...).Intersection(lxdArches)
+
+	validator.RegisterVocabulary(constraints.Arch, supported.SortedValues())
 
 	return validator, nil
 }

@@ -22,8 +22,8 @@ import (
 type BasicAuthHandlerSuite struct {
 	testing.IsolationSuite
 	stub     testing.Stub
-	handler  *httpcontext.BasicAuthHandler
-	authInfo httpcontext.AuthInfo
+	handler  *httpcontext.AuthHandler
+	authInfo authentication.AuthInfo
 	server   *httptest.Server
 }
 
@@ -32,12 +32,12 @@ var _ = gc.Suite(&BasicAuthHandlerSuite{})
 func (s *BasicAuthHandlerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.stub.ResetCalls()
-	s.handler = &httpcontext.BasicAuthHandler{
+	s.handler = &httpcontext.AuthHandler{
 		Authenticator: s,
 		Authorizer:    s,
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		NextHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authInfo, ok := httpcontext.RequestAuthInfo(r)
-			if !ok || authInfo != s.authInfo {
+			if !ok || authInfo.Entity != s.authInfo.Entity {
 				w.WriteHeader(http.StatusBadRequest)
 			} else {
 				w.WriteHeader(http.StatusOK)
@@ -46,26 +46,29 @@ func (s *BasicAuthHandlerSuite) SetUpTest(c *gc.C) {
 		}),
 	}
 	s.server = httptest.NewServer(s.handler)
-	s.authInfo = httpcontext.AuthInfo{
+	s.authInfo = authentication.AuthInfo{
 		Entity: &mockEntity{tag: names.NewUserTag("bob")},
 	}
 }
 
-func (s *BasicAuthHandlerSuite) Authenticate(req *http.Request, tokenParser authentication.TokenParser) (httpcontext.AuthInfo, error) {
+func (s *BasicAuthHandlerSuite) Authenticate(req *http.Request) (authentication.AuthInfo, error) {
 	s.stub.MethodCall(s, "Authenticate", req)
 	if err := s.stub.NextErr(); err != nil {
-		return httpcontext.AuthInfo{}, err
+		return authentication.AuthInfo{}, err
 	}
 	return s.authInfo, nil
 }
 
 func (s *BasicAuthHandlerSuite) AuthenticateLoginRequest(
-	ctx context.Context, serverHost, modelUUID string, authParams authentication.AuthParams,
-) (httpcontext.AuthInfo, error) {
+	_ context.Context,
+	_,
+	_ string,
+	_ authentication.AuthParams,
+) (authentication.AuthInfo, error) {
 	panic("should not be called")
 }
 
-func (s *BasicAuthHandlerSuite) Authorize(authInfo httpcontext.AuthInfo) error {
+func (s *BasicAuthHandlerSuite) Authorize(authInfo authentication.AuthInfo) error {
 	s.stub.MethodCall(s, "Authorize", authInfo)
 	return s.stub.NextErr()
 }
@@ -97,7 +100,6 @@ func (s *BasicAuthHandlerSuite) TestAuthenticationFailure(c *gc.C) {
 	out, err := io.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, "authentication failed: username/password invalid\n")
-	c.Assert(resp.Header.Get("WWW-Authenticate"), gc.Equals, `Basic realm="juju"`)
 	s.stub.CheckCallNames(c, "Authenticate")
 }
 

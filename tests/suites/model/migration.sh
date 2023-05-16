@@ -8,7 +8,7 @@ run_model_migration() {
 	juju switch "alt-model-migration"
 	juju add-model "model-migration"
 
-	juju deploy ubuntu
+	juju deploy jameinel-ubuntu-lite ubuntu
 
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 

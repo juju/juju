@@ -18,7 +18,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/apiserver/httpcontext"
+	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/httpserverargs"
 )
@@ -72,7 +73,7 @@ func (s *ManifoldSuite) newStateAuthenticator(
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
 	abort <-chan struct{},
-) (httpcontext.LocalMacaroonAuthenticator, error) {
+) (macaroon.LocalMacaroonAuthenticator, error) {
 	s.stub.MethodCall(s, "NewStateAuthenticator", statePool, mux, clock, abort)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
@@ -110,8 +111,8 @@ func (s *ManifoldSuite) TestAuthenticatorOutput(c *gc.C) {
 	w := s.startWorkerClean(c)
 	defer workertest.CleanKill(c, w)
 
-	var auth1 httpcontext.Authenticator
-	var auth2 httpcontext.LocalMacaroonAuthenticator
+	var auth1 authentication.RequestAuthenticator
+	var auth2 macaroon.LocalMacaroonAuthenticator
 	for _, out := range []interface{}{&auth1, &auth2} {
 		err := s.manifold.Output(w, out)
 		c.Assert(err, jc.ErrorIsNil)
@@ -189,7 +190,7 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 }
 
 type mockLocalMacaroonAuthenticator struct {
-	httpcontext.LocalMacaroonAuthenticator
+	macaroon.LocalMacaroonAuthenticator
 }
 
 type stubStateTracker struct {
