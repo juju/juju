@@ -79,8 +79,6 @@ type toolsDownloadSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-var _ = gc.Suite(&toolsDownloadSuite{})
-
 func (s *toolsDownloadSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	apiInfo := s.APIInfo(c)
@@ -193,8 +191,6 @@ type toolsWithMacaroonsSuite struct {
 	apitesting.MacaroonSuite
 	userTag names.Tag
 }
-
-var _ = gc.Suite(&toolsWithMacaroonsSuite{})
 
 func (s *toolsWithMacaroonsSuite) SetUpTest(c *gc.C) {
 	s.MacaroonSuite.SetUpTest(c)
