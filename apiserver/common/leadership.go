@@ -88,12 +88,9 @@ type LeadershipPinning struct {
 func (a *LeadershipPinning) PinnedLeadership() (params.PinnedLeadershipResult, error) {
 	result := params.PinnedLeadershipResult{}
 
-	canAccess, err := a.authorizer.HasPermission(permission.ReadAccess, a.modelTag)
+	err := a.authorizer.HasPermission(permission.ReadAccess, a.modelTag)
 	if err != nil {
 		return result, errors.Trace(err)
-	}
-	if !canAccess {
-		return result, apiservererrors.ErrPerm
 	}
 
 	result.Result, err = a.pinner.PinnedLeadership()

@@ -166,8 +166,8 @@ func (*Suite) TestPortsToIPPerms(c *gc.C) {
 				IpProtocol: aws.String("tcp"),
 				FromPort:   aws.Int32(80),
 				ToPort:     aws.Int32(80),
-				IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}},
-				Ipv6Ranges: []types.Ipv6Range{{CidrIpv6: aws.String("::/0")}},
+				IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0"), Description: aws.String("juju ingress to 80/tcp")}},
+				Ipv6Ranges: []types.Ipv6Range{{CidrIpv6: aws.String("::/0"), Description: aws.String("juju ingress to 80/tcp")}},
 			},
 		},
 	}, {
@@ -178,8 +178,8 @@ func (*Suite) TestPortsToIPPerms(c *gc.C) {
 				IpProtocol: aws.String("tcp"),
 				FromPort:   aws.Int32(80),
 				ToPort:     aws.Int32(82),
-				IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}},
-				Ipv6Ranges: []types.Ipv6Range{{CidrIpv6: aws.String("::/0")}},
+				IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0"), Description: aws.String("juju ingress to 80-82/tcp")}},
+				Ipv6Ranges: []types.Ipv6Range{{CidrIpv6: aws.String("::/0"), Description: aws.String("juju ingress to 80-82/tcp")}},
 			},
 		},
 	}, {
@@ -193,14 +193,14 @@ func (*Suite) TestPortsToIPPerms(c *gc.C) {
 				IpProtocol: aws.String("tcp"),
 				FromPort:   aws.Int32(80),
 				ToPort:     aws.Int32(82),
-				IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}},
-				Ipv6Ranges: []types.Ipv6Range{{CidrIpv6: aws.String("::/0")}},
+				IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0"), Description: aws.String("juju ingress to 80-82/tcp")}},
+				Ipv6Ranges: []types.Ipv6Range{{CidrIpv6: aws.String("::/0"), Description: aws.String("juju ingress to 80-82/tcp")}},
 			}, {
 				IpProtocol: aws.String("tcp"),
 				FromPort:   aws.Int32(100),
 				ToPort:     aws.Int32(120),
-				IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}},
-				Ipv6Ranges: []types.Ipv6Range{{CidrIpv6: aws.String("::/0")}},
+				IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0"), Description: aws.String("juju ingress to 100-120/tcp")}},
+				Ipv6Ranges: []types.Ipv6Range{{CidrIpv6: aws.String("::/0"), Description: aws.String("juju ingress to 100-120/tcp")}},
 			},
 		},
 	}, {
@@ -210,7 +210,10 @@ func (*Suite) TestPortsToIPPerms(c *gc.C) {
 			IpProtocol: aws.String("tcp"),
 			FromPort:   aws.Int32(80),
 			ToPort:     aws.Int32(82),
-			IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}, {CidrIp: aws.String("192.168.1.0/24")}},
+			IpRanges: []types.IpRange{
+				{CidrIp: aws.String("0.0.0.0/0"), Description: aws.String("juju ingress to 80-82/tcp")},
+				{CidrIp: aws.String("192.168.1.0/24"), Description: aws.String("juju ingress to 80-82/tcp from 192.168.1.0/24")},
+			},
 		}},
 	}, {
 		about: "mixed IPV4 and IPV6 CIDRs",
@@ -219,8 +222,11 @@ func (*Suite) TestPortsToIPPerms(c *gc.C) {
 			IpProtocol: aws.String("tcp"),
 			FromPort:   aws.Int32(80),
 			ToPort:     aws.Int32(82),
-			IpRanges:   []types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}, {CidrIp: aws.String("192.168.1.0/24")}},
-			Ipv6Ranges: []types.Ipv6Range{{CidrIpv6: aws.String("::/0")}},
+			IpRanges: []types.IpRange{
+				{CidrIp: aws.String("0.0.0.0/0"), Description: aws.String("juju ingress to 80-82/tcp")},
+				{CidrIp: aws.String("192.168.1.0/24"), Description: aws.String("juju ingress to 80-82/tcp from 192.168.1.0/24")},
+			},
+			Ipv6Ranges: []types.Ipv6Range{{CidrIpv6: aws.String("::/0"), Description: aws.String("juju ingress to 80-82/tcp")}},
 		}},
 	}}
 

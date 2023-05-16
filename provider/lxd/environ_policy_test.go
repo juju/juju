@@ -4,6 +4,7 @@
 package lxd_test
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/golang/mock/gomock"
@@ -109,6 +110,29 @@ func (s *environPolicySuite) TestConstraintsValidatorArch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(unsupported, gc.HasLen, 0)
+}
+
+func (s *environPolicySuite) TestConstraintsValidatorArchWithUnsupportedArches(c *gc.C) {
+	// Don't use setupMocks because we need to mock SupportedArches
+	// to return a list of unsupported arches.
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.svr = lxd.NewMockServer(ctrl)
+	s.svr.EXPECT().SupportedArches().Return([]string{arch.AMD64, arch.ARM64, "i386", "armhf", "ppc64"}).MaxTimes(1)
+
+	s.env = s.NewEnviron(c, s.svr, nil, environscloudspec.CloudSpec{})
+
+	validator, err := s.env.ConstraintsValidator(s.callCtx)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, arches := range []string{"arm64", "amd64"} {
+		cons := constraints.MustParse(fmt.Sprintf("arch=%s", arches))
+		unsupported, err := validator.Validate(cons)
+		c.Assert(err, jc.ErrorIsNil)
+
+		c.Check(unsupported, gc.HasLen, 0)
+	}
 }
 
 func (s *environPolicySuite) TestConstraintsValidatorVirtType(c *gc.C) {

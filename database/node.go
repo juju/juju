@@ -12,7 +12,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime/debug"
 	"strings"
 	"time"
 
@@ -22,6 +21,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/agent"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/client"
 	"github.com/juju/juju/database/dqlite"
@@ -38,20 +38,22 @@ const (
 // and emitting configuration for starting its Dqlite `App` based on
 // operational requirements and controller agent config.
 type NodeManager struct {
-	cfg    agent.Config
-	port   int
-	logger Logger
+	cfg             agent.Config
+	port            int
+	logger          Logger
+	slowQueryLogger coredatabase.SlowQueryLogger
 
 	dataDir string
 }
 
 // NewNodeManager returns a new NodeManager reference
 // based on the input agent configuration.
-func NewNodeManager(cfg agent.Config, logger Logger) *NodeManager {
+func NewNodeManager(cfg agent.Config, logger Logger, slowQueryLogger coredatabase.SlowQueryLogger) *NodeManager {
 	return &NodeManager{
-		cfg:    cfg,
-		port:   dqlitePort,
-		logger: logger,
+		cfg:             cfg,
+		port:            dqlitePort,
+		logger:          logger,
+		slowQueryLogger: slowQueryLogger,
 	}
 }
 
@@ -245,10 +247,10 @@ func (m *NodeManager) slowQueryLogFunc(threshold time.Duration) client.LogFunc {
 
 		// If we're tracing the dqlite logs we only want to log slow queries
 		// and not all the debug messages.
-		queryType := parseSlowQuery(msg, args, threshold)
+		queryType, duration, stmt := parseSlowQuery(msg, args, threshold)
 		switch queryType {
 		case slowQuery:
-			m.logger.Warningf("slow query: "+msg+"\n%s", append(args, debug.Stack())...)
+			m.slowQueryLogger.RecordSlowQuery(msg, stmt, args, duration)
 		case normalQuery:
 			m.appLogFunc(level, msg, args...)
 		default:
@@ -299,14 +301,14 @@ const (
 // It is expected that each log message will have 2 arguments, the first being
 // the duration of the query in seconds as a float64. The second being the query
 // performed as a string.
-func parseSlowQuery(msg string, args []any, slowQueryThreshold time.Duration) queryType {
+func parseSlowQuery(msg string, args []any, slowQueryThreshold time.Duration) (queryType, float64, string) {
 	if len(args) != 2 {
-		return normalQuery
+		return normalQuery, 0, ""
 	}
 
 	// We're not a slow query if the message doesn't match the expected format.
 	if !strings.HasPrefix(msg, "%.3fs request ") {
-		return normalQuery
+		return normalQuery, 0, ""
 	}
 
 	// Validate that the first argument is a float64.
@@ -315,12 +317,20 @@ func parseSlowQuery(msg string, args []any, slowQueryThreshold time.Duration) qu
 	case float64:
 		duration = t
 	default:
-		return normalQuery
+		return normalQuery, 0, ""
+	}
+
+	var stmt string
+	switch t := args[1].(type) {
+	case string:
+		stmt = t
+	default:
+		return normalQuery, 0, ""
 	}
 
 	if duration >= slowQueryThreshold.Seconds() {
-		return slowQuery
+		return slowQuery, duration, stmt
 	}
 
-	return ignoreSlowQuery
+	return ignoreSlowQuery, duration, stmt
 }

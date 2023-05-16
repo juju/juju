@@ -138,7 +138,7 @@ func (s *migrateSuite) setupJuju3Target(c *gc.C) (*gomock.Controller, environscl
 		},
 	)
 	// - check agent version;
-	s.model.EXPECT().AgentVersion().Return(version.MustParse("2.9.36"), nil)
+	s.model.EXPECT().AgentVersion().Return(version.MustParse("2.9.43"), nil)
 	// - check no upgrade series in process.
 	s.st.EXPECT().HasUpgradeSeriesLocks().Return(false, nil)
 	// - check if the model has win machines;

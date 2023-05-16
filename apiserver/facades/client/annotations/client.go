@@ -32,25 +32,11 @@ type API struct {
 }
 
 func (api *API) checkCanRead() error {
-	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, api.access.ModelTag())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !canRead {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+	return api.authorizer.HasPermission(permission.ReadAccess, api.access.ModelTag())
 }
 
 func (api *API) checkCanWrite() error {
-	canWrite, err := api.authorizer.HasPermission(permission.WriteAccess, api.access.ModelTag())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !canWrite {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+	return api.authorizer.HasPermission(permission.WriteAccess, api.access.ModelTag())
 }
 
 // Get returns annotations for given entities.

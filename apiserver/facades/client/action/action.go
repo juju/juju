@@ -68,36 +68,15 @@ func newActionAPI(
 }
 
 func (a *ActionAPI) checkCanRead() error {
-	canRead, err := a.authorizer.HasPermission(permission.ReadAccess, a.model.ModelTag())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !canRead {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+	return a.authorizer.HasPermission(permission.ReadAccess, a.model.ModelTag())
 }
 
 func (a *ActionAPI) checkCanWrite() error {
-	canWrite, err := a.authorizer.HasPermission(permission.WriteAccess, a.model.ModelTag())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !canWrite {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+	return a.authorizer.HasPermission(permission.WriteAccess, a.model.ModelTag())
 }
 
 func (a *ActionAPI) checkCanAdmin() error {
-	canAdmin, err := a.authorizer.HasPermission(permission.AdminAccess, a.model.ModelTag())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !canAdmin {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+	return a.authorizer.HasPermission(permission.AdminAccess, a.model.ModelTag())
 }
 
 // Actions takes a list of ActionTags, and returns the full Action for

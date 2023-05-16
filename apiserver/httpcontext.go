@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/httpcontext"
@@ -201,7 +202,7 @@ func sendError(w http.ResponseWriter, errToSend error) error {
 type tagKindAuthorizer []string
 
 // Authorize is part of the httpcontext.Authorizer interface.
-func (a tagKindAuthorizer) Authorize(authInfo httpcontext.AuthInfo) error {
+func (a tagKindAuthorizer) Authorize(authInfo authentication.AuthInfo) error {
 	tagKind := authInfo.Entity.Tag().Kind()
 	for _, kind := range a {
 		if tagKind == kind {
@@ -214,7 +215,7 @@ func (a tagKindAuthorizer) Authorize(authInfo httpcontext.AuthInfo) error {
 type controllerAuthorizer struct{}
 
 // Authorize is part of the httpcontext.Authorizer interface.
-func (controllerAuthorizer) Authorize(authInfo httpcontext.AuthInfo) error {
+func (controllerAuthorizer) Authorize(authInfo authentication.AuthInfo) error {
 	if authInfo.Controller {
 		return nil
 	}
@@ -222,33 +223,29 @@ func (controllerAuthorizer) Authorize(authInfo httpcontext.AuthInfo) error {
 }
 
 type controllerAdminAuthorizer struct {
-	entityHasPermission func() entityHasPermissionFunc
-	controllerTag       names.Tag
+	controllerTag names.Tag
 }
 
 // Authorize is part of the httpcontext.Authorizer interface.
-func (a controllerAdminAuthorizer) Authorize(authInfo httpcontext.AuthInfo) error {
-	if authInfo.Token != nil {
-		access, err := permissionFromToken(authInfo.Token, a.controllerTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if access != permission.SuperuserAccess {
-			return errors.Errorf("%s is not a controller admin", names.ReadableString(authInfo.Entity.Tag()))
-		}
-	}
-	if a.entityHasPermission == nil {
-		return errors.New("no permission checker configured")
-	}
+func (a controllerAdminAuthorizer) Authorize(authInfo authentication.AuthInfo) error {
 	userTag, ok := authInfo.Entity.Tag().(names.UserTag)
 	if !ok {
 		return errors.Errorf("%s is not a user", names.ReadableString(authInfo.Entity.Tag()))
 	}
-	isControllerAdmin, err := a.entityHasPermission()(userTag, permission.SuperuserAccess, a.controllerTag)
+
+	has, err := common.HasPermission(
+		common.UserAccessFunc(func(entity names.UserTag, subject names.Tag) (permission.Access, error) {
+			if entity.String() != userTag.String() {
+				return permission.NoAccess, fmt.Errorf("expected entity %q got %q", userTag.String(), entity.String())
+			}
+			return authInfo.SubjectPermissions(subject)
+		}),
+		userTag, permission.SuperuserAccess, a.controllerTag,
+	)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if !isControllerAdmin {
+	if !has {
 		return errors.Errorf("%s is not a controller admin", names.ReadableString(authInfo.Entity.Tag()))
 	}
 	return nil

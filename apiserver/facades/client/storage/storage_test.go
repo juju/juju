@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facadestorage "github.com/juju/juju/apiserver/facades/client/storage"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -699,12 +700,10 @@ func (s *storageSuite) TestListStorageAsAdminOnNotOwnedModel(c *gc.C) {
 	// Sanity check before running test:
 	// Ensure that the user has NO read access to the model but SuperuserAccess
 	// to the controller it belongs to.
-	res, err := s.authorizer.HasPermission(permission.ReadAccess, s.state.ModelTag())
+	err := s.authorizer.HasPermission(permission.ReadAccess, s.state.ModelTag())
+	c.Assert(errors.Is(err, authentication.ErrorEntityMissingPermission), jc.IsTrue)
+	err = s.authorizer.HasPermission(permission.SuperuserAccess, s.state.ControllerTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.Equals, false)
-	res, err = s.authorizer.HasPermission(permission.SuperuserAccess, s.state.ControllerTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.Equals, true)
 
 	// ListStorageDetails should not fail
 	_, err = s.api.ListStorageDetails(params.StorageFilters{})
@@ -721,16 +720,14 @@ func (s *storageSuite) TestListStorageAsNonAdminOnNotOwnedModel(c *gc.C) {
 	// Sanity check before running test:
 	// Ensure that the user has NO read access to the model and NO SuperuserAccess
 	// to the controller it belongs to.
-	res, err := s.authorizer.HasPermission(permission.ReadAccess, s.state.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.Equals, false)
-	res, err = s.authorizer.HasPermission(permission.SuperuserAccess, s.state.ControllerTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.Equals, false)
+	err := s.authorizer.HasPermission(permission.ReadAccess, s.state.ModelTag())
+	c.Assert(errors.Is(err, authentication.ErrorEntityMissingPermission), jc.IsTrue)
+	err = s.authorizer.HasPermission(permission.SuperuserAccess, s.state.ControllerTag())
+	c.Assert(errors.Is(err, authentication.ErrorEntityMissingPermission), jc.IsTrue)
 
 	// ListStorageDetails should fail with perm error
 	_, err = s.api.ListStorageDetails(params.StorageFilters{})
-	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
+	c.Assert(errors.Is(err, apiservererrors.ErrPerm), jc.IsTrue)
 }
 
 type filesystemImporter struct {

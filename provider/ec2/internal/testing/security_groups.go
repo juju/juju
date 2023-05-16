@@ -16,6 +16,7 @@ import (
 
 // CreateSecurityGroup implements ec2.Client.
 func (srv *Server) CreateSecurityGroup(ctx context.Context, in *ec2.CreateSecurityGroupInput, opts ...func(*ec2.Options)) (*ec2.CreateSecurityGroupOutput, error) {
+	srv.groupMutatingCalls.next()
 	name := aws.ToString(in.GroupName)
 	if name == "" {
 		return nil, apiError("InvalidParameterValue", "empty security group name")
@@ -48,8 +49,10 @@ func (srv *Server) CreateSecurityGroup(ctx context.Context, in *ec2.CreateSecuri
 
 // DeleteSecurityGroup implements ec2.Client.
 func (srv *Server) DeleteSecurityGroup(ctx context.Context, in *ec2.DeleteSecurityGroupInput, opts ...func(*ec2.Options)) (*ec2.DeleteSecurityGroupOutput, error) {
+	srv.groupMutatingCalls.next()
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
+
 	if in.GroupName != nil {
 		return nil, apiError("InvalidParameterValue", "group should only be accessed by id")
 	}
@@ -97,8 +100,10 @@ func (srv *Server) group(group types.GroupIdentifier) *securityGroup {
 
 // AuthorizeSecurityGroupIngress implements ec2.Client.
 func (srv *Server) AuthorizeSecurityGroupIngress(ctx context.Context, in *ec2.AuthorizeSecurityGroupIngressInput, opts ...func(*ec2.Options)) (*ec2.AuthorizeSecurityGroupIngressOutput, error) {
+	srv.groupMutatingCalls.next()
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
+
 	if in.GroupName != nil {
 		return nil, apiError("InvalidParameterValue", "group should only be accessed by id")
 	}
@@ -127,8 +132,10 @@ func (srv *Server) AuthorizeSecurityGroupIngress(ctx context.Context, in *ec2.Au
 
 // RevokeSecurityGroupIngress implements ec2.Client.
 func (srv *Server) RevokeSecurityGroupIngress(ctx context.Context, in *ec2.RevokeSecurityGroupIngressInput, opts ...func(*ec2.Options)) (*ec2.RevokeSecurityGroupIngressOutput, error) {
+	srv.groupMutatingCalls.next()
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
+
 	if in.GroupName != nil {
 		return nil, apiError("InvalidParameterValue", "group should only be accessed by id")
 	}

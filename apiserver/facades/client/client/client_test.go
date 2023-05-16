@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	apiclient "github.com/juju/juju/api/client/client"
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
@@ -452,9 +453,9 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 	gomock.InOrder(
 		authorizer.EXPECT().AuthClient().Return(true),
 		backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag),
-		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(true, nil),
+		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
 		backend.EXPECT().ModelTag().Return(coretesting.ModelTag),
-		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(true, nil),
+		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil),
 
 		backend.EXPECT().Model().Return(model, nil),
 		toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{MajorVersion: 2}).
@@ -508,9 +509,9 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 	gomock.InOrder(
 		authorizer.EXPECT().AuthClient().Return(true),
 		backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag),
-		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(true, nil),
+		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
 		backend.EXPECT().ModelTag().Return(coretesting.ModelTag),
-		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(true, nil),
+		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil),
 
 		backend.EXPECT().Model().Return(model, nil),
 		toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{MajorVersion: 2}).
@@ -589,9 +590,9 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 	gomock.InOrder(
 		authorizer.EXPECT().AuthClient().Return(true),
 		backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag),
-		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(true, nil),
+		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
 		backend.EXPECT().ModelTag().Return(coretesting.ModelTag),
-		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(true, nil),
+		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil),
 
 		backend.EXPECT().Model().Return(model, nil),
 		toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{MajorVersion: 2, AgentStream: envtools.DevelStream}).

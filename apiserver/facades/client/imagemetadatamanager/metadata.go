@@ -34,12 +34,9 @@ func createAPI(
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
-	admin, err := authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag())
+	err := authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag())
 	if err != nil {
-		return nil, apiservererrors.ErrPerm
-	}
-	if !admin {
-		return nil, apiservererrors.ErrPerm
+		return nil, err
 	}
 
 	return &API{

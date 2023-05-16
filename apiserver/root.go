@@ -16,10 +16,9 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/rpcreflect"
 	"github.com/juju/version/v2"
-	"github.com/lestrrat-go/jwx/v2/jwt"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/cache"
 	coredatabase "github.com/juju/juju/core/database"
@@ -31,14 +30,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	jujuversion "github.com/juju/juju/version"
-)
-
-var (
-	// maxClientPingInterval defines the timeframe until the ping timeout
-	// closes the monitored connection. TODO(mue): Idea by Roger:
-	// Move to API (e.g. params) so that the pinging there may
-	// depend on the interval.
-	maxClientPingInterval = 3 * time.Minute
 )
 
 type objectKey struct {
@@ -56,11 +47,10 @@ type apiHandler struct {
 	rpcConn   *rpc.Conn
 	resources *common.Resources
 	shared    *sharedServerContext
-	entity    state.Entity
 
-	// A JWT may be used for auth.
-	authTokenString string
-	authToken       jwt.Token
+	// authInfo represents the authentication info established with this client
+	// connection.
+	authInfo authentication.AuthInfo
 
 	// An empty modelUUID means that the user has logged in through the
 	// root of the API server rather than the /model/:model-uuid/api
@@ -78,6 +68,14 @@ type apiHandler struct {
 }
 
 var _ = (*apiHandler)(nil)
+
+var (
+	// maxClientPingInterval defines the timeframe until the ping timeout
+	// closes the monitored connection. TODO(mue): Idea by Roger:
+	// Move to API (e.g. params) so that the pinging there may
+	// depend on the interval.
+	maxClientPingInterval = 3 * time.Minute
+)
 
 // newAPIHandler returns a new apiHandler.
 func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID string, connectionID uint64, serverHost string) (*apiHandler, error) {
@@ -676,7 +674,7 @@ func (r *apiHandler) AuthUnitAgent() bool {
 // AuthOwner returns whether the authenticated user's tag matches the
 // given entity tag.
 func (r *apiHandler) AuthOwner(tag names.Tag) bool {
-	return r.entity.Tag() == tag
+	return r.GetAuthTag() == tag
 }
 
 // AuthController returns whether the authenticated user is a
@@ -685,7 +683,7 @@ func (r *apiHandler) AuthController() bool {
 	type hasIsManager interface {
 		IsManager() bool
 	}
-	m, ok := r.entity.(hasIsManager)
+	m, ok := r.authInfo.Entity.(hasIsManager)
 	return ok && m.IsManager()
 }
 
@@ -698,10 +696,10 @@ func (r *apiHandler) AuthClient() bool {
 
 // GetAuthTag returns the tag of the authenticated entity, if any.
 func (r *apiHandler) GetAuthTag() names.Tag {
-	if r.entity == nil {
+	if r.authInfo.Entity == nil {
 		return nil
 	}
-	return r.entity.Tag()
+	return r.authInfo.Entity.Tag()
 }
 
 // ConnectedModel returns the UUID of the model authenticated
@@ -712,38 +710,43 @@ func (r *apiHandler) ConnectedModel() string {
 	return r.modelUUID
 }
 
-func (r *apiHandler) userPermission(subject names.UserTag, target names.Tag) (permission.Access, error) {
-	if r.authToken == nil {
-		return r.state.UserPermission(subject, target)
-	}
-	return permissionFromToken(r.authToken, target)
+// HasPermission is responsible for reporting if the logged in user is
+// able to perform operation x on target y. It uses the authentication mechanism
+// of the user to interrogate their permissions. If the entity does not have
+// permission to perform the operation then the authentication provider is asked
+// to provide a permission error. All permissions errors returned satisfy
+// errors.Is(err, ErrorEntityMissingPermission) to distinguish before errors and
+// no permissions errors. If error is nil then the user has permission.
+func (r *apiHandler) HasPermission(operation permission.Access, target names.Tag) error {
+	return r.EntityHasPermission(r.GetAuthTag(), operation, target)
 }
 
-type entityHasPermissionFunc func(entity names.Tag, operation permission.Access, target names.Tag) (bool, error)
-
-// HasPermission returns true if the logged in user can perform <operation> on <target>.
-// If a login token is used to specify user and access, and the operaton is not allowed, an
-// AccessRequiredError is returned with the required permissions.
-func (r *apiHandler) HasPermission(operation permission.Access, target names.Tag) (bool, error) {
-	return r.EntityHasPermission(r.entity.Tag(), operation, target)
-}
-
-// EntityHasPermission returns true if the passed in entity can perform <operation> on <target>.
-func (r *apiHandler) EntityHasPermission(entity names.Tag, operation permission.Access, target names.Tag) (bool, error) {
-	has, err := common.HasPermission(r.userPermission, entity, operation, target)
-	if r.authToken == nil || err != nil || has {
-		return has, err
+// EntityHasPermission is responsible for reporting if the supplied entity is
+// able to perform operation x on target y. It uses the authentication mechanism
+// of the user to interrogate their permissions. If the entity does not have
+// permission to perform the operation then the authentication provider is asked
+// to provide a permission error. All permissions errors returned satisfy
+// errors.Is(err, ErrorEntityMissingPermission) to distinguish before errors and
+// no permissions errors. If error is nil then the user has permission.
+func (r *apiHandler) EntityHasPermission(entity names.Tag, operation permission.Access, target names.Tag) error {
+	var userAccessFunc common.UserAccessFunc = func(entity names.UserTag, subject names.Tag) (permission.Access, error) {
+		if r.authInfo.Delegator == nil {
+			return permission.NoAccess, fmt.Errorf("permissions %w for auth info", errors.NotImplemented)
+		}
+		return r.authInfo.Delegator.SubjectPermissions(authentication.TagToEntity(entity), subject)
 	}
-	return false, &apiservererrors.AccessRequiredError{
-		RequiredAccess: map[names.Tag]permission.Access{
-			target: operation,
-		},
+	has, err := common.HasPermission(userAccessFunc, entity, operation, target)
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return fmt.Errorf("checking entity %q has permission: %w", entity, err)
 	}
-}
+	if !has && r.authInfo.Delegator != nil {
+		err = r.authInfo.Delegator.PermissionError(target, operation)
+	}
+	if !has {
+		return errors.WithType(err, authentication.ErrorEntityMissingPermission)
+	}
 
-// AuthTokenString returns the jwt passed to login.
-func (r *apiHandler) AuthTokenString() string {
-	return r.authTokenString
+	return nil
 }
 
 // DescribeFacades returns the list of available Facades and their Versions

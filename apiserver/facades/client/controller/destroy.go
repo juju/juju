@@ -30,13 +30,11 @@ func destroyController(
 	authorizer facade.Authorizer,
 	args params.DestroyControllerArgs,
 ) error {
-	hasPermission, err := authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag())
+	err := authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if !hasPermission {
-		return errors.Trace(apiservererrors.ErrPerm)
-	}
+
 	if err := ensureNotBlocked(st); err != nil {
 		return errors.Trace(err)
 	}

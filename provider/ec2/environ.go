@@ -1708,37 +1708,9 @@ func (e *environ) AllRunningInstances(ctx context.ProviderCallContext) ([]instan
 // allInstancesByState returns all instances in the environment
 // with one of the specified instance states.
 func (e *environ) allInstancesByState(ctx context.ProviderCallContext, states ...string) ([]instances.Instance, error) {
-	// NOTE(axw) we use security group filtering here because instances
-	// start out untagged. If Juju were to abort after starting an instance,
-	// but before tagging it, it would be leaked. We only need to do this
-	// for AllRunningInstances, as it is the result of AllRunningInstances that is used
-	// in "harvesting" unknown instances by the provisioner.
-	//
-	// One possible alternative is to modify ec2.RunInstances to allow the
-	// caller to specify ClientToken, and then format it like
-	//     <controller-uuid>:<model-uuid>:<machine-id>
-	//     (with base64-encoding to keep the size under the 64-byte limit)
-	//
-	// It is possible to filter on "client-token", and specify wildcards;
-	// therefore we could use client-token filters everywhere in the ec2
-	// provider instead of tags or security groups. The only danger is if
-	// we need to make non-idempotent calls to RunInstances for the machine
-	// ID. I don't think this is needed, but I am not confident enough to
-	// change this fundamental right now.
-	//
-	// An EC2 API call is required to resolve the group name to an id, as
-	// VPC enabled accounts do not support name based filtering.
-	groupName := e.jujuGroupName()
-	group, err := e.groupByName(ctx, groupName)
-	if isNotFoundError(err) {
-		// If there's no group, then there cannot be any instances.
-		return nil, nil
-	} else if err != nil {
-		return nil, errors.Trace(maybeConvertCredentialError(err, ctx))
-	}
 	filters := []types.Filter{
 		makeFilter("instance-state-name", states...),
-		makeFilter("instance.group-id", aws.ToString(group.GroupId)),
+		makeModelFilter(e.uuid()),
 	}
 	return e.allInstances(ctx, filters)
 }
@@ -1918,22 +1890,30 @@ func rulesToIPPerms(rules firewall.IngressRules) []types.IpPermission {
 			ToPort:     aws.Int32(int32(r.PortRange.ToPort)),
 		}
 		if len(r.SourceCIDRs) == 0 {
-			ipPerms[i].IpRanges = []types.IpRange{{CidrIp: aws.String(defaultRouteCIDRBlock)}}
-			ipPerms[i].Ipv6Ranges = []types.Ipv6Range{{CidrIpv6: aws.String(defaultRouteIPv6CIDRBlock)}}
+			ipPerms[i].IpRanges = []types.IpRange{{CidrIp: aws.String(defaultRouteCIDRBlock), Description: ipRangeDescription(r, defaultRouteCIDRBlock)}}
+			ipPerms[i].Ipv6Ranges = []types.Ipv6Range{{CidrIpv6: aws.String(defaultRouteIPv6CIDRBlock), Description: ipRangeDescription(r, defaultRouteIPv6CIDRBlock)}}
 		} else {
 			for _, cidr := range r.SourceCIDRs.SortedValues() {
 				// CIDRs are pre-validated; if an invalid CIDR
 				// reaches this loop, it will be skipped.
 				addrType, _ := network.CIDRAddressType(cidr)
 				if addrType == network.IPv4Address {
-					ipPerms[i].IpRanges = append(ipPerms[i].IpRanges, types.IpRange{CidrIp: aws.String(cidr)})
+					ipPerms[i].IpRanges = append(ipPerms[i].IpRanges, types.IpRange{CidrIp: aws.String(cidr), Description: ipRangeDescription(r, cidr)})
 				} else if addrType == network.IPv6Address {
-					ipPerms[i].Ipv6Ranges = append(ipPerms[i].Ipv6Ranges, types.Ipv6Range{CidrIpv6: aws.String(cidr)})
+					ipPerms[i].Ipv6Ranges = append(ipPerms[i].Ipv6Ranges, types.Ipv6Range{CidrIpv6: aws.String(cidr), Description: ipRangeDescription(r, cidr)})
 				}
 			}
 		}
 	}
 	return ipPerms
+}
+
+func ipRangeDescription(rule firewall.IngressRule, cidr string) *string {
+	if cidr == "" || cidr == firewall.AllNetworksIPV4CIDR || cidr == firewall.AllNetworksIPV6CIDR {
+		return aws.String(fmt.Sprintf("juju ingress to %s", rule.PortRange))
+	}
+	return aws.String(fmt.Sprintf("juju ingress to %s from %s", rule.PortRange, cidr))
+
 }
 
 func (e *environ) openPortsInGroup(ctx context.ProviderCallContext, name string, rules firewall.IngressRules) error {
@@ -2496,22 +2476,24 @@ func (e *environ) ensureGroup(ctx context.ProviderCallContext, name string, isMo
 	return group, nil
 }
 
+var internalPermissionDescription = aws.String("juju internal model rule")
+
 func (e *environ) ensureInternalRules(ctx context.ProviderCallContext, group types.SecurityGroup) error {
 	perms := []types.IpPermission{{
 		IpProtocol:       aws.String("tcp"),
 		FromPort:         aws.Int32(0),
 		ToPort:           aws.Int32(65535),
-		UserIdGroupPairs: []types.UserIdGroupPair{{GroupId: group.GroupId}},
+		UserIdGroupPairs: []types.UserIdGroupPair{{GroupId: group.GroupId, Description: internalPermissionDescription}},
 	}, {
 		IpProtocol:       aws.String("udp"),
 		FromPort:         aws.Int32(0),
 		ToPort:           aws.Int32(65535),
-		UserIdGroupPairs: []types.UserIdGroupPair{{GroupId: group.GroupId}},
+		UserIdGroupPairs: []types.UserIdGroupPair{{GroupId: group.GroupId, Description: internalPermissionDescription}},
 	}, {
 		IpProtocol:       aws.String("icmp"),
 		FromPort:         aws.Int32(-1),
 		ToPort:           aws.Int32(-1),
-		UserIdGroupPairs: []types.UserIdGroupPair{{GroupId: group.GroupId}},
+		UserIdGroupPairs: []types.UserIdGroupPair{{GroupId: group.GroupId, Description: internalPermissionDescription}},
 	}}
 	for _, perm := range perms {
 		_, err := e.ec2Client.AuthorizeSecurityGroupIngress(ctx, &ec2.AuthorizeSecurityGroupIngressInput{

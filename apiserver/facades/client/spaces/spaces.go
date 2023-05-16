@@ -68,12 +68,9 @@ func newAPIWithBacking(cfg apiConfig) (*API, error) {
 // CreateSpaces creates a new Juju network space, associating the
 // specified subnets with it (optional; can be empty).
 func (api *API) CreateSpaces(args params.CreateSpacesParams) (results params.ErrorResults, err error) {
-	isAdmin, err := api.auth.HasPermission(permission.AdminAccess, api.backing.ModelTag())
-	if err != nil && !errors.IsNotFound(err) {
-		return results, errors.Trace(err)
-	}
-	if !isAdmin {
-		return results, apiservererrors.ServerError(apiservererrors.ErrPerm)
+	err = api.auth.HasPermission(permission.AdminAccess, api.backing.ModelTag())
+	if err != nil {
+		return results, err
 	}
 	if err := api.check.ChangeAllowed(); err != nil {
 		return results, errors.Trace(err)
@@ -126,12 +123,9 @@ func (api *API) createOneSpace(args params.CreateSpaceParams) error {
 
 // ListSpaces lists all the available spaces and their associated subnets.
 func (api *API) ListSpaces() (results params.ListSpacesResults, err error) {
-	canRead, err := api.auth.HasPermission(permission.ReadAccess, api.backing.ModelTag())
-	if err != nil && !errors.IsNotFound(err) {
-		return results, errors.Trace(err)
-	}
-	if !canRead {
-		return results, apiservererrors.ServerError(apiservererrors.ErrPerm)
+	err = api.auth.HasPermission(permission.ReadAccess, api.backing.ModelTag())
+	if err != nil {
+		return results, err
 	}
 
 	err = api.checkSupportsSpaces()
@@ -170,12 +164,9 @@ func (api *API) ListSpaces() (results params.ListSpacesResults, err error) {
 
 // ShowSpace shows the spaces for a set of given entities.
 func (api *API) ShowSpace(entities params.Entities) (params.ShowSpaceResults, error) {
-	canRead, err := api.auth.HasPermission(permission.ReadAccess, api.backing.ModelTag())
-	if err != nil && !errors.IsNotFound(err) {
-		return params.ShowSpaceResults{}, errors.Trace(err)
-	}
-	if !canRead {
-		return params.ShowSpaceResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
+	err := api.auth.HasPermission(permission.ReadAccess, api.backing.ModelTag())
+	if err != nil {
+		return params.ShowSpaceResults{}, err
 	}
 
 	err = api.checkSupportsSpaces()
@@ -290,12 +281,9 @@ func (api *API) applicationsBoundToSpace(spaceID string) ([]string, error) {
 // ensureSpacesAreMutable checks that the current user
 // is allowed to edit the Space topology.
 func (api *API) ensureSpacesAreMutable() error {
-	isAdmin, err := api.auth.HasPermission(permission.AdminAccess, api.backing.ModelTag())
-	if err != nil && !errors.IsNotFound(err) {
-		return errors.Trace(err)
-	}
-	if !isAdmin {
-		return apiservererrors.ServerError(apiservererrors.ErrPerm)
+	err := api.auth.HasPermission(permission.AdminAccess, api.backing.ModelTag())
+	if err != nil {
+		return err
 	}
 	if err := api.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)

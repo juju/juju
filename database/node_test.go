@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/dqlite"
 	dqlitetesting "github.com/juju/juju/database/testing"
@@ -43,7 +44,7 @@ func (s *nodeManagerSuite) TestEnsureDataDirSuccess(c *gc.C) {
 	subDir := strconv.Itoa(rand.Intn(10))
 
 	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
-	m := NewNodeManager(cfg, stubLogger{})
+	m := NewNodeManager(cfg, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
 
 	expected := fmt.Sprintf("/tmp/%s/%s", subDir, dqliteDataDir)
 	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
@@ -70,7 +71,7 @@ func (s *nodeManagerSuite) TestIsExistingNode(c *gc.C) {
 	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
 	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
-	m := NewNodeManager(cfg, stubLogger{})
+	m := NewNodeManager(cfg, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
 
 	// Empty directory indicates we've never started.
 	extant, err := m.IsExistingNode()
@@ -96,7 +97,7 @@ func (s *nodeManagerSuite) TestIsBootstrappedNode(c *gc.C) {
 	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
 	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
-	m := NewNodeManager(cfg, stubLogger{})
+	m := NewNodeManager(cfg, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
 	ctx := context.TODO()
 
 	// Empty directory indicates we are not the bootstrapped node.
@@ -161,7 +162,7 @@ func (s *nodeManagerSuite) TestSetClusterServersSuccess(c *gc.C) {
 	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
 	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
-	m := NewNodeManager(cfg, stubLogger{})
+	m := NewNodeManager(cfg, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
 	ctx := context.TODO()
 
 	dataDir, err := m.EnsureDataDir()
@@ -206,7 +207,7 @@ func (s *nodeManagerSuite) TestSetNodeInfoSuccess(c *gc.C) {
 	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
 	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
-	m := NewNodeManager(cfg, stubLogger{})
+	m := NewNodeManager(cfg, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
 	dataDir, err := m.EnsureDataDir()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -242,7 +243,7 @@ Role: 0
 }
 
 func (s *nodeManagerSuite) TestWithAddressOptionSuccess(c *gc.C) {
-	m := NewNodeManager(nil, stubLogger{})
+	m := NewNodeManager(nil, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
 	m.port = dqlitetesting.FindTCPPort(c)
 
 	dqliteApp, err := app.New(c.MkDir(), m.WithAddressOption("127.0.0.1"))
@@ -254,7 +255,7 @@ func (s *nodeManagerSuite) TestWithAddressOptionSuccess(c *gc.C) {
 
 func (s *nodeManagerSuite) TestWithTLSOptionSuccess(c *gc.C) {
 	cfg := fakeAgentConfig{}
-	m := NewNodeManager(cfg, stubLogger{})
+	m := NewNodeManager(cfg, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
 
 	withTLS, err := m.WithTLSOption()
 	c.Assert(err, jc.ErrorIsNil)
@@ -268,7 +269,7 @@ func (s *nodeManagerSuite) TestWithTLSOptionSuccess(c *gc.C) {
 
 func (s *nodeManagerSuite) TestWithClusterOptionSuccess(c *gc.C) {
 	cfg := fakeAgentConfig{}
-	m := NewNodeManager(cfg, stubLogger{})
+	m := NewNodeManager(cfg, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
 
 	dqliteApp, err := app.New(c.MkDir(), m.WithClusterOption([]string{"10.6.6.6"}))
 	c.Assert(err, jc.ErrorIsNil)
@@ -316,21 +317,23 @@ var _ = gc.Suite(&slowQuerySuite{})
 
 func (s *slowQuerySuite) TestSlowQueryParsing(c *gc.C) {
 	tests := []struct {
-		name      string
-		msg       string
-		args      []any
-		threshold time.Duration
-		expected  queryType
+		name              string
+		msg               string
+		args              []any
+		threshold         time.Duration
+		expectedQueryType queryType
+		expectedDuration  float64
+		expectedStmt      string
 	}{
 		{
-			name:     "empty",
-			msg:      "",
-			expected: normalQuery,
+			name:              "empty",
+			msg:               "",
+			expectedQueryType: normalQuery,
 		},
 		{
-			name:     "normal query",
-			msg:      "hello world",
-			expected: normalQuery,
+			name:              "normal query",
+			msg:               "hello world",
+			expectedQueryType: normalQuery,
 		},
 		{
 			name: "wrong args",
@@ -338,22 +341,22 @@ func (s *slowQuerySuite) TestSlowQueryParsing(c *gc.C) {
 			args: []any{
 				time.Second.Seconds(),
 			},
-			threshold: time.Millisecond,
-			expected:  normalQuery,
+			threshold:         time.Millisecond,
+			expectedQueryType: normalQuery,
 		},
 		{
-			name:      "no args",
-			msg:       "%.3fs request query: %q",
-			args:      []any{},
-			threshold: time.Millisecond,
-			expected:  normalQuery,
+			name:              "no args",
+			msg:               "%.3fs request query: %q",
+			args:              []any{},
+			threshold:         time.Millisecond,
+			expectedQueryType: normalQuery,
 		},
 		{
-			name:      "too many args",
-			msg:       "%.3fs request query: %q",
-			args:      []any{1, 2, 3, 4},
-			threshold: time.Millisecond,
-			expected:  normalQuery,
+			name:              "too many args",
+			msg:               "%.3fs request query: %q",
+			args:              []any{1, 2, 3, 4},
+			threshold:         time.Millisecond,
+			expectedQueryType: normalQuery,
 		},
 		{
 			name: "request slow query",
@@ -362,8 +365,10 @@ func (s *slowQuerySuite) TestSlowQueryParsing(c *gc.C) {
 				time.Second.Seconds(),
 				"SELECT * FROM foo",
 			},
-			threshold: time.Millisecond,
-			expected:  slowQuery,
+			threshold:         time.Millisecond,
+			expectedQueryType: slowQuery,
+			expectedDuration:  time.Second.Seconds(),
+			expectedStmt:      "SELECT * FROM foo",
 		},
 		{
 			name: "request slow exec",
@@ -372,8 +377,10 @@ func (s *slowQuerySuite) TestSlowQueryParsing(c *gc.C) {
 				time.Second.Seconds(),
 				"INSERT INTO foo (bar) VALUES (666)",
 			},
-			threshold: time.Millisecond,
-			expected:  slowQuery,
+			threshold:         time.Millisecond,
+			expectedQueryType: slowQuery,
+			expectedDuration:  time.Second.Seconds(),
+			expectedStmt:      "INSERT INTO foo (bar) VALUES (666)",
 		},
 		{
 			name: "request slow exec",
@@ -382,8 +389,10 @@ func (s *slowQuerySuite) TestSlowQueryParsing(c *gc.C) {
 				time.Second.Seconds(),
 				"INSERT INTO foo (bar) VALUES (666)",
 			},
-			threshold: time.Millisecond,
-			expected:  slowQuery,
+			threshold:         time.Millisecond,
+			expectedDuration:  time.Second.Seconds(),
+			expectedQueryType: slowQuery,
+			expectedStmt:      "INSERT INTO foo (bar) VALUES (666)",
 		},
 		{
 			name: "request slow exec - ignored",
@@ -392,8 +401,10 @@ func (s *slowQuerySuite) TestSlowQueryParsing(c *gc.C) {
 				time.Second.Seconds(),
 				"INSERT INTO foo (bar) VALUES (666)",
 			},
-			threshold: time.Second * 2,
-			expected:  ignoreSlowQuery,
+			threshold:         time.Second * 2,
+			expectedQueryType: ignoreSlowQuery,
+			expectedDuration:  time.Second.Seconds(),
+			expectedStmt:      "INSERT INTO foo (bar) VALUES (666)",
 		},
 		{
 			name: "request slow exec - ignored",
@@ -402,14 +413,18 @@ func (s *slowQuerySuite) TestSlowQueryParsing(c *gc.C) {
 				time.Second.Seconds(),
 				"INSERT INTO foo (bar) VALUES (666)",
 			},
-			threshold: time.Second * 2,
-			expected:  ignoreSlowQuery,
+			threshold:         time.Second * 2,
+			expectedQueryType: ignoreSlowQuery,
+			expectedDuration:  time.Second.Seconds(),
+			expectedStmt:      "INSERT INTO foo (bar) VALUES (666)",
 		},
 	}
 
 	for _, test := range tests {
 		c.Logf("test %q", test.name)
-		queryType := parseSlowQuery(test.msg, test.args, test.threshold)
-		c.Assert(queryType, jc.DeepEquals, test.expected)
+		queryType, duration, stmt := parseSlowQuery(test.msg, test.args, test.threshold)
+		c.Assert(queryType, jc.DeepEquals, test.expectedQueryType)
+		c.Assert(duration, gc.Equals, test.expectedDuration)
+		c.Assert(stmt, gc.Equals, test.expectedStmt)
 	}
 }
