@@ -6,8 +6,11 @@ package testing
 import (
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/apiserver/authentication"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/permission"
 )
 
@@ -69,21 +72,26 @@ func (fa FakeAuthorizer) GetAuthTag() names.Tag {
 
 // HasPermission returns true if the logged in user is admin or has a name equal to
 // the pre-set admin tag.
-func (fa FakeAuthorizer) HasPermission(operation permission.Access, target names.Tag) (bool, error) {
+func (fa FakeAuthorizer) HasPermission(operation permission.Access, target names.Tag) error {
 	if fa.Tag.Kind() == names.UserTagKind {
 		ut := fa.Tag.(names.UserTag)
 		emptyTag := names.UserTag{}
 		if fa.AdminTag != emptyTag && ut == fa.AdminTag {
-			return true, nil
+			return nil
 		}
 		if ut == fa.HasWriteTag && (operation == permission.WriteAccess || operation == permission.ReadAccess) {
-			return true, nil
+			return nil
 		}
 
 		uTag := fa.Tag.(names.UserTag)
-		return nameBasedHasPermission(uTag.Name(), operation, target), nil
+		var err error
+		res := nameBasedHasPermission(uTag.Name(), operation, target)
+		if !res {
+			err = errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission)
+		}
+		return err
 	}
-	return false, nil
+	return errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission)
 }
 
 // nameBasedHasPermission provides a way for tests to fake the expected outcomes of the
@@ -136,18 +144,18 @@ func (fa FakeAuthorizer) ConnectedModel() string {
 
 // EntityHasPermission returns true if the passed entity is admin or has a name equal to
 // the pre-set admin tag.
-func (fa FakeAuthorizer) EntityHasPermission(entity names.Tag, operation permission.Access, target names.Tag) (bool, error) {
+func (fa FakeAuthorizer) EntityHasPermission(entity names.Tag, operation permission.Access, _ names.Tag) error {
 	if entity.Kind() == names.UserTagKind && entity.Id() == "admin" {
-		return true, nil
+		return nil
 	}
 	emptyTag := names.UserTag{}
 	if fa.AdminTag != emptyTag && entity == fa.AdminTag {
-		return true, nil
+		return nil
 	}
 	if operation == permission.ConsumeAccess && fa.HasConsumeTag != emptyTag && entity == fa.HasConsumeTag {
-		return true, nil
+		return nil
 	}
-	return false, nil
+	return errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission)
 }
 
 // AuthTokenString returns the jwt passed to login.

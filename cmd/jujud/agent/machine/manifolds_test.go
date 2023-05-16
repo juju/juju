@@ -107,6 +107,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"presence",
 			"proxy-config-updater",
 			"pubsub-forwarder",
+			"query-logger",
 			"reboot-executor",
 			"secret-backend-rotate",
 			"ssh-authkeys-updater",
@@ -175,6 +176,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"presence",
 			"proxy-config-updater",
 			"pubsub-forwarder",
+			"query-logger",
 			"secret-backend-rotate",
 			"ssh-identity-writer",
 			"state",
@@ -249,6 +251,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"peer-grouper",
 		"presence",
 		"pubsub-forwarder",
+		"query-logger",
 		"state",
 		"state-config-watcher",
 		"syslog",
@@ -299,6 +302,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"upgrade-database-gate",
 		"upgrade-database-runner",
 		"db-accessor",
+		"query-logger",
 		"change-stream",
 		"file-notify-watcher",
 	)
@@ -475,6 +479,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"model-cache-initialized-flag",
 		"model-cache-initialized-gate",
 		"multiwatcher",
+		"query-logger",
 		"state",
 		"state-config-watcher",
 		"syslog",
@@ -527,6 +532,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"db-accessor",
 		"file-notify-watcher",
 		"is-controller-flag",
+		"query-logger",
 		"state-config-watcher",
 	},
 
@@ -544,6 +550,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	"db-accessor": {
 		"agent",
 		"is-controller-flag",
+		"query-logger",
 		"state-config-watcher",
 	},
 
@@ -631,6 +638,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"model-cache-initialized-flag",
 		"model-cache-initialized-gate",
 		"multiwatcher",
+		"query-logger",
 		"state",
 		"state-config-watcher",
 		"syslog",
@@ -678,6 +686,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"clock",
 		"db-accessor",
 		"is-controller-flag",
+		"query-logger",
 		"state-config-watcher",
 	},
 
@@ -686,6 +695,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"clock",
 		"db-accessor",
 		"is-controller-flag",
+		"query-logger",
 		"state-config-watcher",
 	},
 
@@ -879,6 +889,12 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	"pubsub-forwarder": {
 		"agent",
 		"central-hub",
+		"state-config-watcher",
+	},
+
+	"query-logger": {
+		"agent",
+		"is-controller-flag",
 		"state-config-watcher",
 	},
 
@@ -1079,6 +1095,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"model-cache-initialized-flag",
 		"model-cache-initialized-gate",
 		"multiwatcher",
+		"query-logger",
 		"state",
 		"state-config-watcher",
 		"syslog",
@@ -1107,6 +1124,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"db-accessor",
 		"file-notify-watcher",
 		"is-controller-flag",
+		"query-logger",
 		"state-config-watcher",
 	},
 
@@ -1124,6 +1142,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"db-accessor": {
 		"agent",
 		"is-controller-flag",
+		"query-logger",
 		"state-config-watcher",
 	},
 
@@ -1165,6 +1184,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"model-cache-initialized-flag",
 		"model-cache-initialized-gate",
 		"multiwatcher",
+		"query-logger",
 		"state",
 		"state-config-watcher",
 		"syslog",
@@ -1197,6 +1217,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"clock",
 		"db-accessor",
 		"is-controller-flag",
+		"query-logger",
 		"state-config-watcher",
 	},
 
@@ -1205,6 +1226,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"clock",
 		"db-accessor",
 		"is-controller-flag",
+		"query-logger",
 		"state-config-watcher",
 	},
 
@@ -1337,6 +1359,12 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"pubsub-forwarder": {
 		"agent",
 		"central-hub",
+		"state-config-watcher",
+	},
+
+	"query-logger": {
+		"agent",
+		"is-controller-flag",
 		"state-config-watcher",
 	},
 

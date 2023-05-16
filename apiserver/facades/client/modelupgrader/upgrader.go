@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -30,14 +31,14 @@ var logger = loggo.GetLogger("juju.apiserver.modelupgrader")
 // ModelUpgraderAPI implements the model upgrader interface and is
 // the concrete implementation of the api end point.
 type ModelUpgraderAPI struct {
-	statePool   StatePool
-	check       common.BlockCheckerInterface
-	authorizer  facade.Authorizer
-	toolsFinder common.ToolsFinder
-	apiUser     names.UserTag
-	isAdmin     bool
-	callContext context.ProviderCallContext
-	newEnviron  common.NewEnvironFunc
+	controllerTag names.ControllerTag
+	statePool     StatePool
+	check         common.BlockCheckerInterface
+	authorizer    facade.Authorizer
+	toolsFinder   common.ToolsFinder
+	apiUser       names.UserTag
+	callContext   context.ProviderCallContext
+	newEnviron    common.NewEnvironFunc
 
 	registryAPIFunc         func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
 	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error)
@@ -63,18 +64,13 @@ func NewModelUpgraderAPI(
 	// we just do the type assertion to the UserTag.
 	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
 
-	isAdmin, err := authorizer.HasPermission(permission.SuperuserAccess, controllerTag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	return &ModelUpgraderAPI{
+		controllerTag:           controllerTag,
 		statePool:               stPool,
 		check:                   blockChecker,
 		authorizer:              authorizer,
 		toolsFinder:             toolsFinder,
 		apiUser:                 apiUser,
-		isAdmin:                 isAdmin,
 		callContext:             callCtx,
 		newEnviron:              newEnviron,
 		registryAPIFunc:         registryAPIFunc,
@@ -82,12 +78,19 @@ func NewModelUpgraderAPI(
 	}, nil
 }
 
-func (m *ModelUpgraderAPI) hasWriteAccess(modelTag names.ModelTag) (bool, error) {
-	canWrite, err := m.authorizer.HasPermission(permission.WriteAccess, modelTag)
-	if errors.Is(err, errors.NotFound) {
-		return false, nil
+func (m *ModelUpgraderAPI) canUpgrade(model names.ModelTag) error {
+	err := m.authorizer.HasPermission(
+		permission.SuperuserAccess,
+		m.controllerTag,
+	)
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		return errors.Trace(err)
 	}
-	return canWrite, err
+	if err == nil {
+		return nil
+	}
+
+	return m.authorizer.HasPermission(permission.WriteAccess, model)
 }
 
 // ConfigSource describes a type that is able to provide config.
@@ -103,10 +106,8 @@ func (m *ModelUpgraderAPI) AbortModelUpgrade(arg params.ModelParam) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if canWrite, err := m.hasWriteAccess(modelTag); err != nil {
+	if err := m.canUpgrade(modelTag); err != nil {
 		return errors.Trace(err)
-	} else if !canWrite && !m.isAdmin {
-		return apiservererrors.ErrPerm
 	}
 
 	if err := m.check.ChangeAllowed(); err != nil {
@@ -134,10 +135,8 @@ func (m *ModelUpgraderAPI) UpgradeModel(arg params.UpgradeModelParams) (result p
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	if canWrite, err := m.hasWriteAccess(modelTag); err != nil {
-		return result, errors.Trace(err)
-	} else if !canWrite && !m.isAdmin {
-		return result, apiservererrors.ErrPerm
+	if err := m.canUpgrade(modelTag); err != nil {
+		return result, err
 	}
 
 	if err := m.check.ChangeAllowed(); err != nil {

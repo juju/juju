@@ -5,6 +5,7 @@ package errors
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -32,6 +33,20 @@ const (
 	UnknownModelError = errors.ConstError("unknown model")
 )
 
+// HTTPWritableError is an error that understands how to write itself onto a
+// http response.
+type HTTPWritableError interface {
+	// Error must at least implement basic error mechanics
+	Error() string
+
+	// SendError is responsible for taking a http ResponseWriter and writing an
+	// appropriate response to communicate the error back to the client. It's
+	// expected that any errors occurred in writing the response are returned to
+	// the caller to deal with. After SendError has run successfully is expected
+	// that no more writes be performed to the ResponseWriter.
+	SendError(http.ResponseWriter) error
+}
+
 func NotSupportedError(tag names.Tag, operation string) error {
 	return errors.Errorf("entity %q does not support %s", tag, operation)
 }
@@ -55,6 +70,16 @@ type DischargeRequiredError struct {
 // Error implements the error interface.
 func (e *DischargeRequiredError) Error() string {
 	return e.Cause.Error()
+}
+
+// Unwrap implements errors Unwrap signature.
+func (e *DischargeRequiredError) Unwrap() error {
+	return e.Cause
+}
+
+func (e *DischargeRequiredError) SendError(w http.ResponseWriter) error {
+	w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
+	return SendError(w, e)
 }
 
 // UpgradeSeriesValidationError is the error returns when an upgrade-machine
@@ -122,12 +147,6 @@ func (e *NotLeaderError) Error() string {
 func (e *NotLeaderError) ServerAddress() string {
 	return e.serverAddress
 }
-
-// Is returns true if the target is the NotLeaderError.
-//func (e *NotLeaderError) Is(target error) bool {
-//	_, ok := target.(*NotLeaderError)
-//	return ok
-//}
 
 // ServerID returns the server ID from the raft state. This should align with
 // the controller machine ID of Juju.

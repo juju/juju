@@ -120,7 +120,7 @@ func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, `
 cannot migrate to controller ("3.0.0") due to issues:
 "foo/model-1":
-- current model ("2.9.35") has to be upgraded to "2.9.36" at least
+- current model ("2.9.35") has to be upgraded to "2.9.43" at least
 - unexpected upgrade series lock found
 - the model hosts deprecated windows machine(s): win10(1) win7(2)
 - the model hosts deprecated ubuntu machine(s): trusty(3) vivid(2) xenial(1)
@@ -524,9 +524,9 @@ func (s *TargetPrecheckSuite) TestModelMinimumVersion(c *gc.C) {
 	s.modelInfo.AgentVersion = version.MustParse("2.8.0")
 	err := s.runPrecheck(backend)
 	c.Assert(err.Error(), gc.Equals,
-		`model must be upgraded to at least version 2.9.36 before being migrated to a controller with version 3.0.0`)
+		`model must be upgraded to at least version 2.9.43 before being migrated to a controller with version 3.0.0`)
 
-	s.modelInfo.AgentVersion = version.MustParse("2.9.36")
+	s.modelInfo.AgentVersion = version.MustParse("2.9.43")
 	err = s.runPrecheck(backend)
 	c.Assert(err, jc.ErrorIsNil)
 }

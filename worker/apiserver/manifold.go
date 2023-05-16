@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/apiserver/httpcontext"
+	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
@@ -166,8 +166,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	var authenticator httpcontext.LocalMacaroonAuthenticator
-	if err := context.Get(config.AuthenticatorName, &authenticator); err != nil {
+	var macaroonAuthenticator macaroon.LocalMacaroonAuthenticator
+	if err := context.Get(config.AuthenticatorName, &macaroonAuthenticator); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -246,7 +246,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		UpgradeComplete:                   upgradeLock.IsUnlocked,
 		Hub:                               config.Hub,
 		Presence:                          config.Presence,
-		Authenticator:                     authenticator,
+		LocalMacaroonAuthenticator:        macaroonAuthenticator,
 		GetAuditConfig:                    getAuditConfig,
 		NewServer:                         newServerShim,
 		MetricsCollector:                  metricsCollector,

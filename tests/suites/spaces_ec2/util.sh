@@ -20,6 +20,22 @@ add_multi_nic_machine() {
 	aws ec2 attach-network-interface --device-index 1 \
 		--network-interface-id ${hotplug_nic_id} \
 		--instance-id $(juju show-machine --format json | jq -r ".[\"machines\"] | .[\"${juju_machine_id}\"] | .[\"instance-id\"]")
+
+	# Wait until the new NIC is UP
+	juju ssh ${juju_machine_id} 'timeout=${3:-600} # default timeout: 600s = 10m
+	start_time="$(date -u +%s)"
+	while [[ ! $(echo $ifaces) -eq 2 ]]
+	do
+		ifaces=$(ls /sys/class/net | grep "ens\|enp\|eth" | wc -l)
+
+		elapsed=$(date -u +%s)-$start_time
+		if [[ ${elapsed} -ge ${timeout} ]]; then
+			echo "[-] $(red timed out waiting for new NIC)"
+			exit 1
+		fi
+		
+		sleep 1
+	done'
 }
 
 # configure_multi_mic_netplan()

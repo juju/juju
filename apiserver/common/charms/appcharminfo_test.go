@@ -6,11 +6,14 @@ package charms_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v10"
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/apiserver/common/charms/mocks"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
@@ -71,7 +74,8 @@ func (s *appCharmInfoSuite) TestPermissionDenied(c *gc.C) {
 
 	authorizer := facademocks.NewMockAuthorizer(ctrl)
 	authorizer.EXPECT().AuthController().Return(false)
-	authorizer.EXPECT().HasPermission(permission.ReadAccess, modelTag).Return(false, nil)
+	authorizer.EXPECT().HasPermission(permission.ReadAccess, modelTag).
+		Return(errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
 	// Make the ApplicationCharmInfo call
 	api, err := charms.NewApplicationCharmInfoAPI(st, authorizer)

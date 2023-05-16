@@ -47,11 +47,8 @@ var _ HighAvailability = (*HighAvailabilityAPI)(nil)
 func (api *HighAvailabilityAPI) EnableHA(args params.ControllersSpecs) (params.ControllersChangeResults, error) {
 	results := params.ControllersChangeResults{}
 
-	admin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.state.ControllerTag())
-	if err != nil && !errors.IsNotFound(err) {
-		return results, errors.Trace(err)
-	}
-	if !admin {
+	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.state.ControllerTag())
+	if err != nil {
 		return results, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
 

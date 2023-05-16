@@ -199,7 +199,7 @@ func (a *admin) getAuditRecorder(req params.LoginRequest, authResult *authResult
 		observer.NewAuditLogFilter(cfg.Target, filter),
 		a.srv.clock,
 		auditlog.ConversationArgs{
-			Who:          a.root.entity.Tag().Id(),
+			Who:          a.root.authInfo.Entity.Tag().Id(),
 			What:         req.CLIArgs,
 			ModelName:    a.root.model.Name(),
 			ModelUUID:    a.root.model.UUID(),
@@ -281,40 +281,46 @@ func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*aut
 	// information for them.
 	startPinger := !result.anonymousLogin
 
+	var authInfo authentication.AuthInfo
+
 	// controllerConn is used to indicate a connection from
 	// the controller to a non-controller model.
 	controllerConn := false
 	if !result.anonymousLogin {
-		// Only attempt to login with credentials if we are not doing an anonymous login.
-		if req.Token != "" {
-			tok, entity, err := a.srv.jwtTokenService.Parse(ctx, req.Token)
-			if err != nil {
-				return nil, a.handleAuthError(errors.Annotate(err, "parsing request authToken"))
-			}
-			a.root.entity = entity
-			a.root.authTokenString = req.Token
-			a.root.authToken = tok
-		} else {
-			authParams := authentication.AuthParams{
-				AuthTag:       result.tag,
-				Credentials:   req.Credentials,
-				Nonce:         req.Nonce,
-				Macaroons:     req.Macaroons,
-				BakeryVersion: req.BakeryVersion,
-			}
-			authInfo, err := a.srv.authenticator.AuthenticateLoginRequest(ctx, a.root.serverHost, modelUUID, authParams)
-			if err != nil {
+		authParams := authentication.AuthParams{
+			AuthTag:       result.tag,
+			Credentials:   req.Credentials,
+			Nonce:         req.Nonce,
+			Token:         req.Token,
+			Macaroons:     req.Macaroons,
+			BakeryVersion: req.BakeryVersion,
+		}
+
+		authenticated := false
+		for _, authenticator := range a.srv.loginAuthenticators {
+			var err error
+			authInfo, err = authenticator.AuthenticateLoginRequest(ctx, a.root.serverHost, modelUUID, authParams)
+			if errors.Is(err, errors.NotFound) || errors.Is(err, errors.NotImplemented) {
+				continue
+			} else if err != nil {
 				return nil, a.handleAuthError(err)
 			}
 
+			authenticated = true
+			a.root.authInfo = authInfo
 			result.controllerMachineLogin = authInfo.Controller
-			if authInfo.Controller && !a.root.state.IsController() {
-				// We only need to run a pinger for controller machine
-				// agents when logging into the controller model.
-				startPinger = false
-				controllerConn = true
-			}
-			a.root.entity = authInfo.Entity
+			break
+		}
+
+		if !authenticated {
+			return nil, fmt.Errorf("failed to authenticate request: %w", errors.Unauthorized)
+		}
+
+		if result.controllerMachineLogin && !a.root.state.IsController() {
+			// We only need to run a pinger for controller machine
+			// agents when logging into the controller model.
+			startPinger = false
+			controllerConn = true
 		}
 	} else if a.root.model == nil {
 		// Anonymous login to unknown model.
@@ -323,18 +329,18 @@ func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*aut
 	}
 	// TODO(wallyworld) - we can't yet observe anonymous logins as entity must be non-nil
 	if !result.anonymousLogin {
-		a.apiObserver.Login(a.root.entity.Tag(), a.root.model.ModelTag(), controllerConn, req.UserData)
+		a.apiObserver.Login(a.root.authInfo.Entity.Tag(), a.root.model.ModelTag(), controllerConn, req.UserData)
 	}
 	a.loggedIn = true
 
 	if startPinger {
-		if err := setupPingTimeoutDisconnect(a.srv.pingClock, a.root, a.root.entity); err != nil {
+		if err := setupPingTimeoutDisconnect(a.srv.pingClock, a.root, a.root.authInfo.Entity); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
 
 	var lastConnection *time.Time
-	if err := a.fillLoginDetails(result, lastConnection); err != nil {
+	if err := a.fillLoginDetails(authInfo, result, lastConnection); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return result, nil
@@ -405,37 +411,13 @@ func (a *admin) handleAuthError(err error) error {
 	return err
 }
 
-func (a *admin) fillLoginDetails(result *authResult, lastConnection *time.Time) error {
+func (a *admin) fillLoginDetails(authInfo authentication.AuthInfo, result *authResult, lastConnection *time.Time) error {
 	// Send back user info if user
 	if result.userLogin {
-		userTag := a.root.entity.Tag().(names.UserTag)
-		if token := a.root.authToken; token != nil {
-			// We're passing in known valid tag kinds here, so we'll not get an error.
-			controllerAccess, err := permissionFromToken(token, a.root.state.ControllerTag())
-			if err != nil {
-				return errors.Trace(err)
-			}
-			result.userInfo = &params.AuthUserInfo{
-				Identity:         userTag.String(),
-				ControllerAccess: string(controllerAccess),
-			}
-			if !result.controllerOnlyLogin {
-				if controllerAccess == permission.SuperuserAccess {
-					result.userInfo.ModelAccess = string(permission.AdminAccess)
-				} else {
-					modelAccess, err := permissionFromToken(token, a.root.model.Tag())
-					if err != nil {
-						return errors.Trace(err)
-					}
-					result.userInfo.ModelAccess = string(modelAccess)
-				}
-			}
-		} else {
-			var err error
-			result.userInfo, err = a.checkUserPermissions(userTag, result.controllerOnlyLogin)
-			if err != nil {
-				return errors.Trace(err)
-			}
+		var err error
+		result.userInfo, err = a.checkUserPermissions(authInfo, result.controllerOnlyLogin)
+		if err != nil {
+			return errors.Trace(err)
 		}
 		result.userInfo.LastConnection = lastConnection
 	}
@@ -443,19 +425,23 @@ func (a *admin) fillLoginDetails(result *authResult, lastConnection *time.Time) 
 		if result.anonymousLogin {
 			logger.Debugf(" anonymous controller login")
 		} else {
-			logger.Debugf("controller login: %s", a.root.entity.Tag())
+			logger.Debugf("controller login: %s", a.root.authInfo.Entity.Tag())
 		}
 	} else {
 		if result.anonymousLogin {
 			logger.Debugf("anonymous model login")
 		} else {
-			logger.Debugf("model login: %s for %s", a.root.entity.Tag(), a.root.model.ModelTag().Id())
+			logger.Debugf("model login: %s for %s", a.root.authInfo.Entity.Tag(), a.root.model.ModelTag().Id())
 		}
 	}
 	return nil
 }
 
-func (a *admin) checkUserPermissions(userTag names.UserTag, controllerOnlyLogin bool) (*params.AuthUserInfo, error) {
+func (a *admin) checkUserPermissions(authInfo authentication.AuthInfo, controllerOnlyLogin bool) (*params.AuthUserInfo, error) {
+	userTag, ok := authInfo.Entity.Tag().(names.UserTag)
+	if !ok {
+		return nil, fmt.Errorf("establishing user tag from authenticated user entity")
+	}
 
 	modelAccess := permission.NoAccess
 
@@ -474,14 +460,13 @@ func (a *admin) checkUserPermissions(userTag names.UserTag, controllerOnlyLogin 
 		everyoneGroupAccess = everyoneGroupUser.Access
 	}
 
-	var controllerAccess permission.Access
-	if controllerUser, err := state.ControllerAccess(a.root.state, userTag); err == nil {
-		controllerAccess = controllerUser.Access
-	} else if errors.IsNotFound(err) {
+	controllerAccess, err := authInfo.SubjectPermissions(a.root.state.ControllerTag())
+	if errors.Is(err, errors.NotFound) {
 		controllerAccess = everyoneGroupAccess
-	} else {
+	} else if err != nil {
 		return nil, errors.Annotatef(err, "obtaining ControllerUser for logged in user %s", userTag.Id())
 	}
+
 	if !controllerOnlyLogin {
 		// Only grab modelUser permissions if this is not a controller only
 		// login. In all situations, if the model user is not found, they have
@@ -489,7 +474,7 @@ func (a *admin) checkUserPermissions(userTag names.UserTag, controllerOnlyLogin 
 		// admin.
 
 		var err error
-		modelAccess, err = a.root.state.UserPermission(userTag, a.root.model.ModelTag())
+		modelAccess, err = authInfo.SubjectPermissions(a.root.model.ModelTag())
 		if err != nil && controllerAccess != permission.SuperuserAccess {
 			return nil, errors.Wrap(err, apiservererrors.ErrPerm)
 		}

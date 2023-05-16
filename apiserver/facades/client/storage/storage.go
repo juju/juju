@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -57,32 +58,19 @@ func NewStorageAPI(
 }
 
 func (a *StorageAPI) checkCanRead() error {
-	canRead, err := a.authorizer.HasPermission(permission.ReadAccess, a.backend.ModelTag())
-	if err != nil {
+	err := a.authorizer.HasPermission(permission.SuperuserAccess, a.backend.ControllerTag())
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
 
-	// Controller admins should have implicit read access to all models
-	// in the controller, even the ones they do not own.
-	if !canRead {
-		canRead, _ = a.authorizer.HasPermission(permission.SuperuserAccess, a.backend.ControllerTag())
+	if err == nil {
+		return nil
 	}
-
-	if !canRead {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+	return a.authorizer.HasPermission(permission.ReadAccess, a.backend.ModelTag())
 }
 
 func (a *StorageAPI) checkCanWrite() error {
-	canWrite, err := a.authorizer.HasPermission(permission.WriteAccess, a.backend.ModelTag())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !canWrite {
-		return apiservererrors.ErrPerm
-	}
-	return nil
+	return a.authorizer.HasPermission(permission.WriteAccess, a.backend.ModelTag())
 }
 
 // StorageDetails retrieves and returns detailed information about desired

@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/httpcontext"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -44,6 +45,10 @@ var AgentTags = []string{
 type Authenticator struct {
 	statePool   *state.StatePool
 	authContext *authContext
+}
+
+type PermissionDelegator struct {
+	State *state.State
 }
 
 // NewAuthenticator returns a new Authenticator using the given StatePool.
@@ -102,14 +107,14 @@ func (a *Authenticator) AddHandlers(mux *apiserverhttp.Mux) error {
 }
 
 // Authenticate is part of the httpcontext.Authenticator interface.
-func (a *Authenticator) Authenticate(req *http.Request, tokenParser authentication.TokenParser) (httpcontext.AuthInfo, error) {
+func (a *Authenticator) Authenticate(req *http.Request) (authentication.AuthInfo, error) {
 	modelUUID := httpcontext.RequestModelUUID(req)
 	if modelUUID == "" {
-		return httpcontext.AuthInfo{}, errors.New("model UUID not found")
+		return authentication.AuthInfo{}, errors.New("model UUID not found")
 	}
 	loginRequest, err := LoginRequest(req)
 	if err != nil {
-		return httpcontext.AuthInfo{}, errors.Trace(err)
+		return authentication.AuthInfo{}, errors.Trace(err)
 	}
 	authParams := authentication.AuthParams{
 		Credentials:   loginRequest.Credentials,
@@ -120,18 +125,8 @@ func (a *Authenticator) Authenticate(req *http.Request, tokenParser authenticati
 	if loginRequest.AuthTag != "" {
 		authParams.AuthTag, err = names.ParseTag(loginRequest.AuthTag)
 		if err != nil {
-			return httpcontext.AuthInfo{}, errors.Trace(err)
+			return authentication.AuthInfo{}, errors.Trace(err)
 		}
-	}
-	if tokenParser != nil && loginRequest.Token != "" {
-		token, entity, err := tokenParser.Parse(req.Context(), loginRequest.Token)
-		if err != nil {
-			return httpcontext.AuthInfo{}, errors.Trace(err)
-		}
-		return httpcontext.AuthInfo{
-			Entity: entity,
-			Token:  token,
-		}, nil
 	}
 	return a.AuthenticateLoginRequest(req.Context(), req.Host, modelUUID, authParams)
 }
@@ -142,10 +137,10 @@ func (a *Authenticator) AuthenticateLoginRequest(
 	serverHost string,
 	modelUUID string,
 	authParams authentication.AuthParams,
-) (httpcontext.AuthInfo, error) {
+) (authentication.AuthInfo, error) {
 	st, err := a.statePool.Get(modelUUID)
 	if err != nil {
-		return httpcontext.AuthInfo{}, errors.Trace(err)
+		return authentication.AuthInfo{}, errors.Trace(err)
 	}
 	defer st.Release()
 
@@ -154,16 +149,18 @@ func (a *Authenticator) AuthenticateLoginRequest(
 	if err == nil {
 		return authInfo, err
 	}
+
 	var dischargeRequired *apiservererrors.DischargeRequiredError
 	if errors.As(err, &dischargeRequired) || errors.Is(err, errors.NotProvisioned) {
 		// TODO(axw) move out of common?
-		return httpcontext.AuthInfo{}, errors.Trace(err)
+		return authentication.AuthInfo{}, errors.Trace(err)
 	}
+
 	_, isMachineTag := authParams.AuthTag.(names.MachineTag)
 	_, isControllerAgentTag := authParams.AuthTag.(names.ControllerAgentTag)
 	systemState, errS := a.statePool.SystemState()
 	if errS != nil {
-		return httpcontext.AuthInfo{}, errors.Trace(err)
+		return authentication.AuthInfo{}, errors.Trace(err)
 	}
 	if (isMachineTag || isControllerAgentTag) && !st.IsController() {
 		// Controller agents are allowed to log into any model.
@@ -178,9 +175,30 @@ func (a *Authenticator) AuthenticateLoginRequest(
 		}
 	}
 	if err != nil {
-		return httpcontext.AuthInfo{}, errors.NewUnauthorized(err, "")
+		return authentication.AuthInfo{}, errors.NewUnauthorized(err, "")
 	}
+	authInfo.Delegator = &PermissionDelegator{systemState}
 	return authInfo, nil
+}
+
+// SubjectPermissions implements PermissionDelegator
+func (p *PermissionDelegator) SubjectPermissions(
+	e authentication.Entity,
+	s names.Tag,
+) (permission.Access, error) {
+	userTag, ok := e.Tag().(names.UserTag)
+	if !ok {
+		return permission.NoAccess, errors.Errorf("%s is not a user", names.ReadableString(e.Tag()))
+	}
+
+	return p.State.UserPermission(userTag, s)
+}
+
+func (p *PermissionDelegator) PermissionError(
+	_ names.Tag,
+	_ permission.Access,
+) error {
+	return apiservererrors.ErrPerm
 }
 
 func (a *Authenticator) checkCreds(
@@ -188,8 +206,8 @@ func (a *Authenticator) checkCreds(
 	st *state.State,
 	authParams authentication.AuthParams,
 	userLogin bool,
-	authenticator authentication.Authenticator,
-) (httpcontext.AuthInfo, error) {
+	authenticator authentication.EntityAuthenticator,
+) (authentication.AuthInfo, error) {
 	var entityFinder authentication.EntityFinder = st
 	if userLogin {
 		// When looking up model users, use a custom
@@ -199,10 +217,13 @@ func (a *Authenticator) checkCreds(
 	}
 	entity, err := authenticator.Authenticate(ctx, entityFinder, authParams)
 	if err != nil {
-		return httpcontext.AuthInfo{}, errors.Trace(err)
+		return authentication.AuthInfo{}, errors.Trace(err)
 	}
 
-	authInfo := httpcontext.AuthInfo{Entity: entity}
+	authInfo := authentication.AuthInfo{
+		Delegator: &PermissionDelegator{st},
+		Entity:    entity,
+	}
 	type withIsManager interface {
 		IsManager() bool
 	}

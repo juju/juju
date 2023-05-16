@@ -14,7 +14,7 @@ var logger = loggo.GetLogger("juju.upgrades.validations")
 // MinAgentVersions defines the minimum agent version
 // allowed to make a call to a controller with the major version.
 var MinAgentVersions = map[int]version.Number{
-	3: version.MustParse("2.9.36"),
+	3: version.MustParse("2.9.43"),
 }
 
 // MinClientVersions defines the minimum user client version

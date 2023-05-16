@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/environs/context"
 	environmocks "github.com/juju/juju/environs/mocks"
@@ -101,7 +102,7 @@ func (s *ReloadSpacesAuthorizerSuite) TestDefaultAuthorizer(c *gc.C) {
 	tag := names.NewModelTag("123")
 
 	authorizer := facademocks.NewMockAuthorizer(ctrl)
-	authorizer.EXPECT().HasPermission(gomock.Any(), names.NewModelTag("123")).Return(true, nil)
+	authorizer.EXPECT().HasPermission(gomock.Any(), names.NewModelTag("123")).Return(nil)
 
 	blockChecker := NewMockBlockChecker(ctrl)
 	blockChecker.EXPECT().ChangeAllowed().Return(nil)
@@ -121,7 +122,7 @@ func (s *ReloadSpacesAuthorizerSuite) TestDefaultAuthorizerCannotWrite(c *gc.C) 
 	tag := names.NewModelTag("123")
 
 	authorizer := facademocks.NewMockAuthorizer(ctrl)
-	authorizer.EXPECT().HasPermission(gomock.Any(), names.NewModelTag("123")).Return(false, nil)
+	authorizer.EXPECT().HasPermission(gomock.Any(), names.NewModelTag("123")).Return(apiservererrors.ErrPerm)
 
 	blockChecker := NewMockBlockChecker(ctrl)
 
@@ -142,7 +143,7 @@ func (s *ReloadSpacesAuthorizerSuite) TestDefaultAuthorizerNotFound(c *gc.C) {
 	tag := names.NewModelTag("123")
 
 	authorizer := facademocks.NewMockAuthorizer(ctrl)
-	authorizer.EXPECT().HasPermission(gomock.Any(), names.NewModelTag("123")).Return(true, errors.NotFoundf("boom"))
+	authorizer.EXPECT().HasPermission(gomock.Any(), names.NewModelTag("123")).Return(nil)
 
 	blockChecker := NewMockBlockChecker(ctrl)
 	blockChecker.EXPECT().ChangeAllowed().Return(nil)
