@@ -30,7 +30,7 @@
 //	        │       │  │       │  │       │  │       │
 //	        └───────┘  └───────┘  └───────┘  └───────┘
 //
-// In it's simplest form the stream worker will poll the database change log for
+// In its simplest form the stream worker will poll the database change log for
 // changes and send them to the event multiplexer. The event multiplexer will
 // then send the changes to the appropriate subscription.
 //
@@ -74,16 +74,16 @@
 // This involves grouping changes into terms. Terms are a set of changes that
 // are sent to the subscriber in a single batch. Terms are used to ensure that
 // that there is a consistent view of the database at the subscriber.
-// The event multiplexer will wait for all terms to be read by subscribers
+// The event multiplexer will wait for all the terms to be read by subscribers
 // before attempting to send the next term. All terms will be sent in a
-// async manner, allowing all subscribers to worker on the same term at the same
+// async manner, allowing all subscribers to work on the same term at the same
 // time. Once a term is marked as done, then and only then is another term
 // expected to be worked on.
 //
 // Terms are expected to be consumed as fast as possible. If a term can not be
-// processed or is taking to long to consume by a subscriber then the subscriber
-// will be unsubscribed from the next term. This is to ensure that the event
-// multiplexer does not get blocked by a slow subscriber.
+// processed or is taking too long to consume by a subscriber then the
+// subscriber will be unsubscribed from the next term. This is to ensure that
+// the event multiplexer does not get blocked by a slow subscriber.
 //
 //	┌───────────┐ ┌───────────┐ ┌───────────────────────────┐ ┌───────────┐
 //	│           │ │           │ │                           │ │           │
@@ -93,7 +93,7 @@
 //
 // In the above example, the event multiplexer will wait for all subscribers to
 // consume TERM 1 before sending TERM 2. If a subscriber is slow to consume TERM
-// 3, then the subscriber will be unsubscribed from consecutive terms. The
+// 3, then the subscriber will be unsubscribed from subsequent terms. The
 // subscriber will be notified of the unsubscribe event. They can then decide
 // to either resubscribe or start from a fresh state and try and keep up.
 // This model will ensure that one subscriber doesn't attempt to bring down the
@@ -101,6 +101,6 @@
 //
 // If a subscriber can't consume or process a term fast enough, it is then
 // up to the subscriber to delegate that to another channel or worker in an
-// async fashion. Allowing the subscriber to continue to consume terms.
+// async fashion, thus allowing the subscriber to continue to consume terms.
 
 package changestream
