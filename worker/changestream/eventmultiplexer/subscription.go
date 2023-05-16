@@ -1,10 +1,24 @@
+// Copyright 2023 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package eventmultiplexer
 
 import (
-	"github.com/juju/clock"
+	"context"
+	"errors"
+	"time"
+
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
+)
+
+const (
+	// DefaultSignalTimeout is the default timeout for signalling a change to a
+	// subscriber.
+	// Failure to consume the changes within this time will result in the
+	// subscriber being unsubscribed.
+	DefaultSignalTimeout = time.Second * 10
 )
 
 type subscriptionOpts struct {
@@ -15,19 +29,17 @@ type subscriptionOpts struct {
 // subscription represents a subscriber in the event queue. It holds a tomb, so
 // that we can tie the lifecycle of a subscription to the event queue.
 type subscription struct {
-	tomb  tomb.Tomb
-	clock clock.Clock
-	id    uint64
+	tomb tomb.Tomb
+	id   uint64
 
 	topics        map[string]struct{}
 	changes       chan ChangeSet
 	unsubscribeFn func()
 }
 
-func newSubscription(id uint64, unsubscribeFn func(), clock clock.Clock) *subscription {
+func newSubscription(id uint64, unsubscribeFn func()) *subscription {
 	sub := &subscription{
 		id:            id,
-		clock:         clock,
 		changes:       make(chan ChangeSet),
 		topics:        make(map[string]struct{}),
 		unsubscribeFn: unsubscribeFn,
@@ -74,23 +86,27 @@ func (s *subscription) loop() error {
 	return tomb.ErrDying
 }
 
-func (s *subscription) signal(changes ChangeSet, abort, unsub <-chan struct{}) error {
+func (s *subscription) signal(ctx context.Context, changes ChangeSet) error {
+	ctx, cancel := context.WithTimeout(ctx, DefaultSignalTimeout)
+	defer cancel()
+
 	select {
 	case <-s.tomb.Dying():
 		return tomb.ErrDying
-	case <-abort:
-		// The parent event multiplexer was killed, so we should stop pr
-		// processing any more changes. We'll let the parent event multiplexer
-		// deal with the unsubscription.
-	case <-unsub:
-		// The context was timed out, which means that nothing was pulling the
-		// change off from the channel. In this scenario it better that the
-		// listener is unsubscribed from any future events and will be notified
-		// via the done channel. The listener will sill have the opportunity
-		// to resubscribe in the future. They're just no longer par-taking in
-		// this term whilst they're unresponsive.
-		s.Unsubscribe()
+
+	case <-ctx.Done():
+		// If the context was timed out, which means that nothing was pulling
+		// the change off from the channel. Then in this scenario it better that
+		// the listener is unsubscribed from any future events and will be
+		// notified via the done channel. The listener will still have the
+		// opportunity to resubscribe in the future. They're just no longer
+		// par-taking in this term whilst they're unresponsive.
+		if err := ctx.Err(); err != nil && errors.Is(err, context.DeadlineExceeded) {
+			s.Unsubscribe()
+		}
+
 	case s.changes <- changes:
+
 	}
 	return nil
 }

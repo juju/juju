@@ -4,27 +4,39 @@
 package eventmultiplexer
 
 import (
+	time "time"
+
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
+
+	changestream "github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/testing"
 )
 
-type eventQueueSuite struct {
+const (
+	// We need to ensure that we never witness a change term. We've picked
+	// an arbitrary timeout of 1 second, which should be more than enough
+	// time for the worker to process the change.
+	witnessChangeLongDuration  = time.Second
+	witnessChangeShortDuration = witnessChangeLongDuration / 2
+)
+
+type eventMultiplexerSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&eventQueueSuite{})
+var _ = gc.Suite(&eventMultiplexerSuite{})
 
-/*
-func (s *eventQueueSuite) TestSubscribe(c *gc.C) {
+func (s *eventMultiplexerSuite) TestSubscribe(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
 
-	changes := make(chan changestream.ChangeEvent)
-	defer close(changes)
+	terms := make(chan changestream.Term)
+	s.stream.EXPECT().Terms().Return(terms).AnyTimes()
 
-	s.stream.EXPECT().Changes().Return(changes).AnyTimes()
-
-	queue, err := New(s.stream, s.logger)
+	queue, err := New(s.stream, s.clock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, queue)
 
@@ -36,117 +48,88 @@ func (s *eventQueueSuite) TestSubscribe(c *gc.C) {
 	workertest.CleanKill(c, queue)
 }
 
-func (s *eventQueueSuite) TestDispatch(c *gc.C) {
+func (s *eventMultiplexerSuite) TestDispatch(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
 
-	changes := make(chan changestream.ChangeEvent)
-	defer close(changes)
+	terms := make(chan changestream.Term)
+	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	s.stream.EXPECT().Changes().Return(changes).MinTimes(1)
-
-	queue, err := New(s.stream, s.logger)
+	queue, err := New(s.stream, s.clock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, queue)
 
 	sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.expectChangeEvent(changestream.Create, "topic")
-	s.dispatchEvent(c, changes)
+	s.expectTerm(c, changeEvent{
+		ctype: changestream.Create,
+		ns:    "topic",
+		uuid:  "1",
+	})
+	s.dispatchTerm(c, terms)
 
+	var changes []changestream.ChangeEvent
 	select {
-	case events := <-sub.Changes():
-		c.Assert(events, gc.HasLen, 1)
-		c.Check(events[0].Type(), jc.DeepEquals, changestream.Create)
-		c.Check(events[0].Namespace(), jc.DeepEquals, "topic")
+	case changes = <-sub.Changes():
 	case <-time.After(testing.ShortWait):
 		c.Fatal("timed out waiting for event")
 	}
+
+	c.Assert(changes, gc.HasLen, 1)
+	c.Check(changes[0].Type(), jc.DeepEquals, changestream.Create)
+	c.Check(changes[0].Namespace(), jc.DeepEquals, "topic")
+	c.Check(changes[0].ChangedUUID(), gc.Equals, "1")
 
 	s.unsubscribe(c, sub)
 
 	workertest.CleanKill(c, queue)
 }
 
-func (s *eventQueueSuite) TestUnsubscribeDuringDispatch(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.expectAnyLogs()
-
-	changes := make(chan changestream.ChangeEvent)
-	defer close(changes)
-
-	s.stream.EXPECT().Changes().Return(changes).MinTimes(1)
-
-	queue, err := New(s.stream, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, queue)
-
-	sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.expectChangeEvent(changestream.Create, "topic")
-	s.dispatchEvent(c, changes)
-
-	select {
-	case <-sub.Changes():
-		s.unsubscribe(c, sub)
-	case <-time.After(testing.ShortWait):
-		c.Fatal("timed out waiting for event")
-	}
-
-	select {
-	case <-sub.Done():
-	case <-time.After(testing.ShortWait):
-		c.Fatal("timed out waiting for event")
-	}
-
-	workertest.CleanKill(c, queue)
-}
-
-func (s *eventQueueSuite) TestMultipleDispatch(c *gc.C) {
+func (s *eventMultiplexerSuite) TestMultipleDispatch(c *gc.C) {
 	s.testMultipleDispatch(c, changestream.Namespace("topic", changestream.Update))
 }
 
-func (s *eventQueueSuite) TestDispatchWithNoOptions(c *gc.C) {
+func (s *eventMultiplexerSuite) TestDispatchWithNoOptions(c *gc.C) {
 	s.testMultipleDispatch(c)
 }
 
-func (s *eventQueueSuite) TestMultipleDispatchWithMultipleMasks(c *gc.C) {
+func (s *eventMultiplexerSuite) TestMultipleDispatchWithMultipleMasks(c *gc.C) {
 	s.testMultipleDispatch(c, changestream.Namespace("topic", changestream.Create|changestream.Update))
 }
 
-func (s *eventQueueSuite) TestMultipleDispatchWithMultipleOptions(c *gc.C) {
+func (s *eventMultiplexerSuite) TestMultipleDispatchWithMultipleOptions(c *gc.C) {
 	s.testMultipleDispatch(c, changestream.Namespace("topic", changestream.Update), changestream.Namespace("topic", changestream.Create))
 }
 
-func (s *eventQueueSuite) TestMultipleDispatchWithOverlappingOptions(c *gc.C) {
+func (s *eventMultiplexerSuite) TestMultipleDispatchWithOverlappingOptions(c *gc.C) {
 	s.testMultipleDispatch(c, changestream.Namespace("topic", changestream.Update), changestream.Namespace("topic", changestream.Update|changestream.Create))
 }
 
-func (s *eventQueueSuite) TestSubscribeWithMatchingFilter(c *gc.C) {
+func (s *eventMultiplexerSuite) TestSubscribeWithMatchingFilter(c *gc.C) {
 	s.testMultipleDispatch(c, changestream.FilteredNamespace("topic", changestream.Update, func(event changestream.ChangeEvent) bool {
 		return event.Namespace() == "topic"
 	}))
 }
 
-func (s *eventQueueSuite) testMultipleDispatch(c *gc.C, opts ...changestream.SubscriptionOption) {
+func (s *eventMultiplexerSuite) testMultipleDispatch(c *gc.C, opts ...changestream.SubscriptionOption) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
 
-	changes := make(chan changestream.ChangeEvent)
-	defer close(changes)
+	terms := make(chan changestream.Term)
+	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	s.stream.EXPECT().Changes().Return(changes).MinTimes(1)
-
-	queue, err := New(s.stream, s.logger)
+	queue, err := New(s.stream, s.clock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, queue)
 
-	s.expectChangeEvent(changestream.Update, "topic")
+	s.expectTerm(c, changeEvent{
+		ctype: changestream.Update,
+		ns:    "topic",
+		uuid:  "1",
+	})
 
 	subs := make([]changestream.Subscription, 10)
 	for i := 0; i < len(subs); i++ {
@@ -156,7 +139,7 @@ func (s *eventQueueSuite) testMultipleDispatch(c *gc.C, opts ...changestream.Sub
 		subs[i] = sub
 	}
 
-	done := s.dispatchEvent(c, changes)
+	done := s.dispatchTerm(c, terms)
 	select {
 	case <-done:
 	case <-time.After(testing.ShortWait):
@@ -167,7 +150,7 @@ func (s *eventQueueSuite) testMultipleDispatch(c *gc.C, opts ...changestream.Sub
 	// wait on them all, and then check that they all got the event.
 	wg := newWaitGroup(uint64(len(subs)))
 	for i, sub := range subs {
-		go func(sub changestream.Subscription, i int) {
+		go func(i int, sub changestream.Subscription) {
 			defer wg.Done()
 
 			select {
@@ -178,7 +161,7 @@ func (s *eventQueueSuite) testMultipleDispatch(c *gc.C, opts ...changestream.Sub
 			case <-time.After(testing.ShortWait):
 				c.Fatalf("timed out waiting for sub %d event", i)
 			}
-		}(sub, i)
+		}(i, sub)
 	}
 
 	select {
@@ -194,25 +177,27 @@ func (s *eventQueueSuite) testMultipleDispatch(c *gc.C, opts ...changestream.Sub
 	workertest.CleanKill(c, queue)
 }
 
-func (s *eventQueueSuite) TestUnsubscribeTwice(c *gc.C) {
+func (s *eventMultiplexerSuite) TestUnsubscribeTwice(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
 
-	changes := make(chan changestream.ChangeEvent)
-	defer close(changes)
+	terms := make(chan changestream.Term)
+	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	s.stream.EXPECT().Changes().Return(changes).MinTimes(1)
-
-	queue, err := New(s.stream, s.logger)
+	queue, err := New(s.stream, s.clock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, queue)
 
 	sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.expectChangeEvent(changestream.Create, "topic")
-	s.dispatchEvent(c, changes)
+	s.expectTerm(c, changeEvent{
+		ctype: changestream.Create,
+		ns:    "topic",
+		uuid:  "1",
+	})
+	s.dispatchTerm(c, terms)
 
 	select {
 	case <-sub.Changes():
@@ -226,30 +211,37 @@ func (s *eventQueueSuite) TestUnsubscribeTwice(c *gc.C) {
 	workertest.CleanKill(c, queue)
 }
 
-func (s *eventQueueSuite) TestTopicDoesNotMatch(c *gc.C) {
+func (s *eventMultiplexerSuite) TestTopicDoesNotMatch(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
 
-	changes := make(chan changestream.ChangeEvent)
-	defer close(changes)
+	terms := make(chan changestream.Term)
+	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	s.stream.EXPECT().Changes().Return(changes).MinTimes(1)
-
-	queue, err := New(s.stream, s.logger)
+	queue, err := New(s.stream, s.clock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, queue)
 
 	sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.changeEvent.EXPECT().Namespace().Return("foo").MinTimes(1)
-
-	done := s.dispatchEvent(c, changes)
+	s.expectTerm(c, changeEvent{
+		ctype: changestream.Create,
+		ns:    "foo",
+		uuid:  "1",
+	})
+	done := s.dispatchTerm(c, terms)
 	select {
 	case <-done:
 	case <-time.After(testing.ShortWait):
 		c.Fatal("timed out waiting for event")
+	}
+
+	select {
+	case <-sub.Changes():
+		c.Fatal("witnessed change when expected none")
+	case <-time.After(witnessChangeShortDuration):
 	}
 
 	s.unsubscribe(c, sub)
@@ -257,17 +249,15 @@ func (s *eventQueueSuite) TestTopicDoesNotMatch(c *gc.C) {
 	workertest.CleanKill(c, queue)
 }
 
-func (s *eventQueueSuite) TestTopicMatchesOne(c *gc.C) {
+func (s *eventMultiplexerSuite) TestTopicMatchesOne(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
 
-	changes := make(chan changestream.ChangeEvent)
-	defer close(changes)
+	terms := make(chan changestream.Term)
+	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	s.stream.EXPECT().Changes().Return(changes).MinTimes(1)
-
-	queue, err := New(s.stream, s.logger)
+	queue, err := New(s.stream, s.clock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, queue)
 
@@ -277,9 +267,12 @@ func (s *eventQueueSuite) TestTopicMatchesOne(c *gc.C) {
 	sub1, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.expectChangeEvent(changestream.Create, "topic")
-	done := s.dispatchEvent(c, changes)
-
+	s.expectTerm(c, changeEvent{
+		ctype: changestream.Create,
+		ns:    "topic",
+		uuid:  "1",
+	})
+	done := s.dispatchTerm(c, terms)
 	select {
 	case <-done:
 	case <-time.After(testing.ShortWait):
@@ -294,8 +287,8 @@ func (s *eventQueueSuite) TestTopicMatchesOne(c *gc.C) {
 
 	select {
 	case <-sub0.Changes():
-		c.Fatal("unexpected event on sub0")
-	case <-time.After(time.Second):
+		c.Fatal("witnessed change on sub0 when expected none")
+	case <-time.After(witnessChangeShortDuration):
 	}
 
 	s.unsubscribe(c, sub0)
@@ -304,32 +297,32 @@ func (s *eventQueueSuite) TestTopicMatchesOne(c *gc.C) {
 	workertest.CleanKill(c, queue)
 }
 
-func (s *eventQueueSuite) TestSubscriptionDoneWhenEventQueueKilled(c *gc.C) {
+func (s *eventMultiplexerSuite) TestSubscriptionDoneWhenEventQueueKilled(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
 
-	changes := make(chan changestream.ChangeEvent)
-	defer close(changes)
+	terms := make(chan changestream.Term)
+	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	s.stream.EXPECT().Changes().Return(changes).MinTimes(1)
-
-	queue, err := New(s.stream, s.logger)
+	queue, err := New(s.stream, s.clock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, queue)
 
 	sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.expectChangeEvent(changestream.Create, "topic")
-	done := s.dispatchEvent(c, changes)
-
+	s.expectTerm(c, changeEvent{
+		ctype: changestream.Create,
+		ns:    "topic",
+		uuid:  "1",
+	})
+	done := s.dispatchTerm(c, terms)
 	select {
 	case <-done:
 	case <-time.After(testing.ShortWait):
 		c.Fatal("timed out waiting for event")
 	}
-
 	workertest.CleanKill(c, queue)
 
 	select {
@@ -339,36 +332,37 @@ func (s *eventQueueSuite) TestSubscriptionDoneWhenEventQueueKilled(c *gc.C) {
 	}
 }
 
-func (s *eventQueueSuite) TestUnsubscribeOfOtherSubscription(c *gc.C) {
+func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
 
-	changes := make(chan changestream.ChangeEvent)
-	defer close(changes)
+	terms := make(chan changestream.Term)
+	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	s.stream.EXPECT().Changes().Return(changes).MinTimes(1)
-
-	queue, err := New(s.stream, s.logger)
+	queue, err := New(s.stream, s.clock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, queue)
 
 	subs := make([]changestream.Subscription, 2)
 	for i := 0; i < len(subs); i++ {
-
 		sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
 		c.Assert(err, jc.ErrorIsNil)
 		subs[i] = sub
 	}
 
-	s.expectChangeEvent(changestream.Create, "topic")
-	s.dispatchEvent(c, changes)
+	s.expectTerm(c, changeEvent{
+		ctype: changestream.Create,
+		ns:    "topic",
+		uuid:  "1",
+	})
+	s.dispatchTerm(c, terms)
 
 	// The subscriptions are guaranteed to be out of order, so we need to just
 	// wait on them all, and then check that they all got the event.
 	wg := newWaitGroup(uint64(len(subs)))
 	for i, sub := range subs {
-		go func(sub changestream.Subscription, i int) {
+		go func(i int, sub changestream.Subscription) {
 			defer wg.Done()
 
 			select {
@@ -377,7 +371,7 @@ func (s *eventQueueSuite) TestUnsubscribeOfOtherSubscription(c *gc.C) {
 			case <-time.After(testing.ShortWait):
 				c.Fatalf("timed out waiting for sub %d event", i)
 			}
-		}(sub, i)
+		}(i, sub)
 	}
 
 	select {
@@ -397,17 +391,15 @@ func (s *eventQueueSuite) TestUnsubscribeOfOtherSubscription(c *gc.C) {
 	workertest.CleanKill(c, queue)
 }
 
-func (s *eventQueueSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGoroutine(c *gc.C) {
+func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGoroutine(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
 
-	changes := make(chan changestream.ChangeEvent)
-	defer close(changes)
+	terms := make(chan changestream.Term)
+	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	s.stream.EXPECT().Changes().Return(changes).MinTimes(1)
-
-	queue, err := New(s.stream, s.logger)
+	queue, err := New(s.stream, s.clock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, queue)
 
@@ -419,8 +411,12 @@ func (s *eventQueueSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGoroutine(c
 		subs[i] = sub
 	}
 
-	s.expectChangeEvent(changestream.Create, "topic")
-	s.dispatchEvent(c, changes)
+	s.expectTerm(c, changeEvent{
+		ctype: changestream.Create,
+		ns:    "topic",
+		uuid:  "1",
+	})
+	s.dispatchTerm(c, terms)
 
 	// The subscriptions are guaranteed to be out of order, so we need to just
 	// wait on them all, and then check that they all got the event.
@@ -457,7 +453,7 @@ func (s *eventQueueSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGoroutine(c
 	workertest.CleanKill(c, queue)
 }
 
-func (s *eventQueueSuite) unsubscribe(c *gc.C, sub changestream.Subscription) {
+func (s *eventMultiplexerSuite) unsubscribe(c *gc.C, sub changestream.Subscription) {
 	sub.Unsubscribe()
 
 	select {
@@ -466,4 +462,3 @@ func (s *eventQueueSuite) unsubscribe(c *gc.C, sub changestream.Subscription) {
 		c.Fatal("timed out waiting for event")
 	}
 }
-*/

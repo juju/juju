@@ -6,13 +6,13 @@ package eventmultiplexer
 import (
 	"context"
 	"sync/atomic"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/changestream"
 	"github.com/juju/worker/v3/catacomb"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/juju/juju/core/changestream"
 )
 
 // Logger represents the logging methods called.
@@ -95,19 +95,19 @@ func New(stream Stream, clock clock.Clock, logger Logger) (*EventMultiplexer, er
 
 // Subscribe creates a new subscription to the event queue. Options can be
 // provided to allow filter during the dispatching phase.
-func (q *EventMultiplexer) Subscribe(opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
+func (e *EventMultiplexer) Subscribe(opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
 	// Get a new subscription count without using any mutexes.
-	subID := atomic.AddUint64(&q.subscriptionsCount, 1)
+	subID := atomic.AddUint64(&e.subscriptionsCount, 1)
 
-	sub := newSubscription(subID, func() { q.unsubscribe(subID) }, q.clock)
-	if err := q.catacomb.Add(sub); err != nil {
+	sub := newSubscription(subID, func() { e.unsubscribe(subID) })
+	if err := e.catacomb.Add(sub); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	select {
-	case <-q.catacomb.Dying():
-		return nil, q.catacomb.ErrDying()
-	case q.subscriptionCh <- subscriptionOpts{
+	case <-e.catacomb.Dying():
+		return nil, e.catacomb.ErrDying()
+	case e.subscriptionCh <- subscriptionOpts{
 		subscription: sub,
 		opts:         opts,
 	}:
@@ -117,74 +117,78 @@ func (q *EventMultiplexer) Subscribe(opts ...changestream.SubscriptionOption) (c
 }
 
 // Kill stops the event queue.
-func (q *EventMultiplexer) Kill() {
-	q.catacomb.Kill(nil)
+func (e *EventMultiplexer) Kill() {
+	e.catacomb.Kill(nil)
 }
 
 // Wait waits for the event queue to stop.
-func (q *EventMultiplexer) Wait() error {
-	return q.catacomb.Wait()
+func (e *EventMultiplexer) Wait() error {
+	return e.catacomb.Wait()
 }
 
-func (q *EventMultiplexer) unsubscribe(subscriptionID uint64) {
+func (e *EventMultiplexer) unsubscribe(subscriptionID uint64) {
 	select {
-	case <-q.catacomb.Dying():
+	case <-e.catacomb.Dying():
 		return
-	case q.unsubscriptionCh <- subscriptionID:
+	case e.unsubscriptionCh <- subscriptionID:
 	}
 }
 
-func (q *EventMultiplexer) loop() error {
+func (e *EventMultiplexer) loop() error {
 	defer func() {
-		for _, sub := range q.subscriptions {
+		for _, sub := range e.subscriptions {
 			sub.close()
 		}
-		q.subscriptions = nil
-		q.subscriptionsByNS = nil
+		e.subscriptions = nil
+		e.subscriptionsByNS = nil
 
-		close(q.subscriptionCh)
-		close(q.unsubscriptionCh)
+		close(e.subscriptionCh)
+		close(e.unsubscriptionCh)
 	}()
 
 	for {
 		select {
-		case <-q.catacomb.Dying():
-			return q.catacomb.ErrDying()
+		case <-e.catacomb.Dying():
+			return e.catacomb.ErrDying()
 
-		case term, ok := <-q.stream.Terms():
+		case term, ok := <-e.stream.Terms():
 			// If the stream is closed, we expect that a new worker will come
 			// again using the change stream worker infrastructure. In this case
 			// just ignore and close out.
 			if !ok {
-				q.logger.Infof("change stream term channel is closed")
+				e.logger.Infof("change stream term channel is closed")
 				return nil
 			}
 
-			changeSet := make(map[*subscription][]changestream.ChangeEvent)
+			changeSet := make(map[*subscription]ChangeSet)
 			for _, change := range term.Changes() {
-				subs := q.gatherSubscriptions(change)
-				if len(subs) == 0 {
-					continue
-				}
-				for _, sub := range subs {
+				for _, sub := range e.gatherSubscriptions(change) {
 					changeSet[sub] = append(changeSet[sub], change)
 				}
 			}
 
-			q.dispatchSet(changeSet)
+			// Dispatch the set of changes, but do not cause the worker to
+			// exit. Just log out the error and then mark the term as done.
+			// There isn't anything we can do in this case.
+			if err := e.dispatchSet(changeSet); err != nil {
+				// TODO (stickupkid): We should expose this as either a metric
+				// or some sort of feedback so we can see how ofter this is
+				// actually happening?
+				e.logger.Errorf("dispatching set: %v", err)
+			}
 
 			term.Done()
 
-		case subOpt := <-q.subscriptionCh:
+		case subOpt := <-e.subscriptionCh:
 			sub := subOpt.subscription
 
 			// Create a new subscription and assign a unique ID to it.
-			q.subscriptions[sub.id] = sub
+			e.subscriptions[sub.id] = sub
 
 			// No options were supplied, just add it to the all bucket, so
 			// they'll be included in every dispatch.
 			if len(subOpt.opts) == 0 {
-				q.subscriptionsAll[sub.id] = struct{}{}
+				e.subscriptionsAll[sub.id] = struct{}{}
 				continue
 			}
 
@@ -192,7 +196,7 @@ func (q *EventMultiplexer) loop() error {
 			// the newly created subscription.
 			for _, opt := range subOpt.opts {
 				namespace := opt.Namespace()
-				q.subscriptionsByNS[namespace] = append(q.subscriptionsByNS[namespace], &eventFilter{
+				e.subscriptionsByNS[namespace] = append(e.subscriptionsByNS[namespace], &eventFilter{
 					subscriptionID: sub.id,
 					changeMask:     opt.ChangeMask(),
 					filter:         opt.Filter(),
@@ -200,40 +204,40 @@ func (q *EventMultiplexer) loop() error {
 				sub.topics[namespace] = struct{}{}
 			}
 
-		case subscriptionID := <-q.unsubscriptionCh:
-			sub, found := q.subscriptions[subscriptionID]
+		case subscriptionID := <-e.unsubscriptionCh:
+			sub, found := e.subscriptions[subscriptionID]
 			if !found {
 				continue
 			}
 
 			for topic := range sub.topics {
 				var updatedFilters []*eventFilter
-				for _, filter := range q.subscriptionsByNS[topic] {
+				for _, filter := range e.subscriptionsByNS[topic] {
 					if filter.subscriptionID == subscriptionID {
 						continue
 					}
 					updatedFilters = append(updatedFilters, filter)
 				}
-				q.subscriptionsByNS[topic] = updatedFilters
+				e.subscriptionsByNS[topic] = updatedFilters
 			}
 
-			delete(q.subscriptions, subscriptionID)
-			delete(q.subscriptionsAll, subscriptionID)
+			delete(e.subscriptions, subscriptionID)
+			delete(e.subscriptionsAll, subscriptionID)
 
 			sub.close()
 		}
 	}
 }
 
-func (q *EventMultiplexer) gatherSubscriptions(ch changestream.ChangeEvent) []*subscription {
+func (e *EventMultiplexer) gatherSubscriptions(ch changestream.ChangeEvent) []*subscription {
 	subs := make(map[uint64]*subscription)
 
-	for id := range q.subscriptionsAll {
-		subs[id] = q.subscriptions[id]
+	for id := range e.subscriptionsAll {
+		subs[id] = e.subscriptions[id]
 	}
 
-	traceEnabled := q.logger.IsTraceEnabled()
-	for _, subOpt := range q.subscriptionsByNS[ch.Namespace()] {
+	traceEnabled := e.logger.IsTraceEnabled()
+	for _, subOpt := range e.subscriptionsByNS[ch.Namespace()] {
 		if _, ok := subs[subOpt.subscriptionID]; ok {
 			continue
 		}
@@ -244,16 +248,16 @@ func (q *EventMultiplexer) gatherSubscriptions(ch changestream.ChangeEvent) []*s
 
 		if !subOpt.filter(ch) {
 			if traceEnabled {
-				q.logger.Tracef("filtering out change: %v", ch)
+				e.logger.Tracef("filtering out change: %v", ch)
 			}
 			continue
 		}
 
 		if traceEnabled {
-			q.logger.Tracef("dispatching change: %v", ch)
+			e.logger.Tracef("dispatching change: %v", ch)
 		}
 
-		subs[subOpt.subscriptionID] = q.subscriptions[subOpt.subscriptionID]
+		subs[subOpt.subscriptionID] = e.subscriptions[subOpt.subscriptionID]
 	}
 
 	// By collecting the subs within a map to ensure that a sub can be only
@@ -269,12 +273,8 @@ func (q *EventMultiplexer) gatherSubscriptions(ch changestream.ChangeEvent) []*s
 // dispatchSet fans out the subscription requests against a given term of changes.
 // Each subscription signals the change in a asynchronous fashion, allowing
 // a subscription to not block another change within a given term.
-func (q *EventMultiplexer) dispatchSet(changeSet map[*subscription]ChangeSet) error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-	defer cancel()
-
-	grp, grpCtx := errgroup.WithContext(q.catacomb.Context(ctx))
-	grp.SetLimit(len(changeSet))
+func (e *EventMultiplexer) dispatchSet(changeSet map[*subscription]ChangeSet) error {
+	grp, ctx := errgroup.WithContext(e.catacomb.Context(context.Background()))
 
 	for sub, changes := range changeSet {
 		sub, changes := sub, changes
@@ -283,7 +283,7 @@ func (q *EventMultiplexer) dispatchSet(changeSet map[*subscription]ChangeSet) er
 			// Pass the context of the catacomb with the deadline to the
 			// subscription. This allows the subscription to be cancelled
 			// if the catacomb is dying or if the deadline is reached.
-			return sub.signal(changes, grpCtx.Done(), ctx.Done())
+			return sub.signal(ctx, changes)
 		})
 	}
 
