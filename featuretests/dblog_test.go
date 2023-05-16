@@ -93,6 +93,10 @@ func (s *dblogSuite) TestMachineAgentLogsGoToDBIAAS(c *gc.C) {
 	s.assertAgentLogsGoToDB(c, m.Tag(), false)
 }
 
+func noPreUpgradeSteps(_ *state.StatePool, _ agent.Config, isController, isCaas bool) error {
+	return nil
+}
+
 func (s *dblogSuite) assertAgentLogsGoToDB(c *gc.C, tag names.Tag, isCaas bool) {
 	aCfg := agentconf.NewAgentConf(s.DataDir())
 	err := aCfg.ReadConfig(tag.String())

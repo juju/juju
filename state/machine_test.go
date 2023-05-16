@@ -850,6 +850,27 @@ func (s *MachineSuite) TestMachineAvailabilityZone(c *gc.C) {
 	c.Check(zone, gc.Equals, "a_zone")
 }
 
+func (s *MachineSuite) TestContainerAvailabilityZone(c *gc.C) {
+	zone := "a_zone"
+	hwc := &instance.HardwareCharacteristics{
+		AvailabilityZone: &zone,
+	}
+	err := s.machine.SetProvisioned("umbrella/0", "", "fake_nonce", hwc)
+	c.Assert(err, jc.ErrorIsNil)
+
+	zone, err = s.machine.AvailabilityZone()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(zone, gc.Equals, "a_zone")
+
+	// now add a container to that machine
+	container := s.Factory.MakeMachineNested(c, s.machine.Id(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	containerAvailabilityZone, err := container.AvailabilityZone()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(containerAvailabilityZone, gc.Equals, "")
+}
+
 func (s *MachineSuite) TestMachineAvailabilityZoneEmpty(c *gc.C) {
 	zone := ""
 	hwc := &instance.HardwareCharacteristics{
