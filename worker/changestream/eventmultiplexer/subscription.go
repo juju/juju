@@ -86,7 +86,7 @@ func (s *subscription) loop() error {
 	return tomb.ErrDying
 }
 
-func (s *subscription) signal(ctx context.Context, changes ChangeSet) error {
+func (s *subscription) dispatch(ctx context.Context, changes ChangeSet) error {
 	ctx, cancel := context.WithTimeout(ctx, DefaultSignalTimeout)
 	defer cancel()
 

@@ -162,9 +162,20 @@ func (e *EventMultiplexer) loop() error {
 
 			changeSet := make(map[*subscription]ChangeSet)
 			for _, change := range term.Changes() {
-				for _, sub := range e.gatherSubscriptions(change) {
+				subs := e.gatherSubscriptions(change)
+				if len(subs) == 0 {
+					continue
+				}
+
+				for _, sub := range subs {
 					changeSet[sub] = append(changeSet[sub], change)
 				}
+			}
+
+			// Nothing to do here, just mark the term as done.
+			if len(changeSet) == 0 {
+				term.Done()
+				continue
 			}
 
 			// Dispatch the set of changes, but do not cause the worker to
@@ -283,7 +294,7 @@ func (e *EventMultiplexer) dispatchSet(changeSet map[*subscription]ChangeSet) er
 			// Pass the context of the catacomb with the deadline to the
 			// subscription. This allows the subscription to be cancelled
 			// if the catacomb is dying or if the deadline is reached.
-			return sub.signal(ctx, changes)
+			return sub.dispatch(ctx, changes)
 		})
 	}
 

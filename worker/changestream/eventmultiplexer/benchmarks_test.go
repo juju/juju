@@ -36,7 +36,7 @@ func benchmarkSignal(c *gc.C, changes ChangeSet) {
 	c.ResetTimer()
 
 	for i := 0; i < c.N; i++ {
-		sub.signal(ctx, changes)
+		sub.dispatch(ctx, changes)
 	}
 
 	workertest.CleanKill(c, sub)

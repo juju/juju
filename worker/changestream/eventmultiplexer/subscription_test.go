@@ -65,7 +65,7 @@ func (s *subscriptionSuite) TestSubscriptionWitnessChanges(c *gc.C) {
 	}}
 
 	go func() {
-		err := sub.signal(context.TODO(), changes)
+		err := sub.dispatch(context.TODO(), changes)
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
@@ -103,7 +103,7 @@ func (s *subscriptionSuite) TestSubscriptionDoesNoteWitnessChangesWithCancelledC
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 
-		err := sub.signal(ctx, changes)
+		err := sub.dispatch(ctx, changes)
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
@@ -146,7 +146,7 @@ func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithUnsub(c *gc
 
 		time.Sleep(time.Millisecond)
 
-		err := sub.signal(ctx, changes)
+		err := sub.dispatch(ctx, changes)
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
@@ -189,7 +189,7 @@ func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithDying(c *gc
 		err := sub.close()
 		c.Assert(err, jc.ErrorIsNil)
 
-		err = sub.signal(context.Background(), changes)
+		err = sub.dispatch(context.Background(), changes)
 		c.Assert(err, gc.ErrorMatches, "tomb: dying")
 	}()
 
