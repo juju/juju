@@ -117,27 +117,33 @@ type lxdProfileContents struct {
 }
 
 type applicationStatus struct {
-	Err              error                 `json:"-" yaml:",omitempty"`
-	Charm            string                `json:"charm" yaml:"charm"`
-	Base             *formattedBase        `json:"base,omitempty" yaml:"base,omitempty"`
-	CharmOrigin      string                `json:"charm-origin" yaml:"charm-origin"`
-	CharmName        string                `json:"charm-name" yaml:"charm-name"`
-	CharmRev         int                   `json:"charm-rev" yaml:"charm-rev"`
-	CharmChannel     string                `json:"charm-channel,omitempty" yaml:"charm-channel,omitempty"`
-	CharmVersion     string                `json:"charm-version,omitempty" yaml:"charm-version,omitempty"`
-	CharmProfile     string                `json:"charm-profile,omitempty" yaml:"charm-profile,omitempty"`
-	CanUpgradeTo     string                `json:"can-upgrade-to,omitempty" yaml:"can-upgrade-to,omitempty"`
-	Scale            int                   `json:"scale,omitempty" yaml:"scale,omitempty"`
-	ProviderId       string                `json:"provider-id,omitempty" yaml:"provider-id,omitempty"`
-	Address          string                `json:"address,omitempty" yaml:"address,omitempty"`
-	Exposed          bool                  `json:"exposed" yaml:"exposed"`
-	Life             string                `json:"life,omitempty" yaml:"life,omitempty"`
-	StatusInfo       statusInfoContents    `json:"application-status,omitempty" yaml:"application-status"`
-	Relations        map[string][]string   `json:"relations,omitempty" yaml:"relations,omitempty"`
-	SubordinateTo    []string              `json:"subordinate-to,omitempty" yaml:"subordinate-to,omitempty"`
-	Units            map[string]unitStatus `json:"units,omitempty" yaml:"units,omitempty"`
-	Version          string                `json:"version,omitempty" yaml:"version,omitempty"`
-	EndpointBindings map[string]string     `json:"endpoint-bindings,omitempty" yaml:"endpoint-bindings,omitempty"`
+	Err              error                                  `json:"-" yaml:",omitempty"`
+	Charm            string                                 `json:"charm" yaml:"charm"`
+	Base             *formattedBase                         `json:"base,omitempty" yaml:"base,omitempty"`
+	CharmOrigin      string                                 `json:"charm-origin" yaml:"charm-origin"`
+	CharmName        string                                 `json:"charm-name" yaml:"charm-name"`
+	CharmRev         int                                    `json:"charm-rev" yaml:"charm-rev"`
+	CharmChannel     string                                 `json:"charm-channel,omitempty" yaml:"charm-channel,omitempty"`
+	CharmVersion     string                                 `json:"charm-version,omitempty" yaml:"charm-version,omitempty"`
+	CharmProfile     string                                 `json:"charm-profile,omitempty" yaml:"charm-profile,omitempty"`
+	CanUpgradeTo     string                                 `json:"can-upgrade-to,omitempty" yaml:"can-upgrade-to,omitempty"`
+	Scale            int                                    `json:"scale,omitempty" yaml:"scale,omitempty"`
+	ProviderId       string                                 `json:"provider-id,omitempty" yaml:"provider-id,omitempty"`
+	Address          string                                 `json:"address,omitempty" yaml:"address,omitempty"`
+	Exposed          bool                                   `json:"exposed" yaml:"exposed"`
+	Life             string                                 `json:"life,omitempty" yaml:"life,omitempty"`
+	StatusInfo       statusInfoContents                     `json:"application-status,omitempty" yaml:"application-status"`
+	Relations        map[string][]applicationStatusRelation `json:"relations,omitempty" yaml:"relations,omitempty"`
+	SubordinateTo    []string                               `json:"subordinate-to,omitempty" yaml:"subordinate-to,omitempty"`
+	Units            map[string]unitStatus                  `json:"units,omitempty" yaml:"units,omitempty"`
+	Version          string                                 `json:"version,omitempty" yaml:"version,omitempty"`
+	EndpointBindings map[string]string                      `json:"endpoint-bindings,omitempty" yaml:"endpoint-bindings,omitempty"`
+}
+
+type applicationStatusRelation struct {
+	RelatedApplicationName string `json:"related-application,omitempty" yaml:"related-application,omitempty"`
+	Interface              string `json:"interface,omitempty" yaml:"interface,omitempty"`
+	Scope                  string `json:"scope,omitempty" yaml:"scope,omitempty"`
 }
 
 type formattedBase struct {
