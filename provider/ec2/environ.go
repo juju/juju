@@ -257,7 +257,6 @@ var unsupportedConstraints = []string{
 	// use virt-type in StartInstances
 	constraints.VirtType,
 	constraints.AllocatePublicIP,
-	constraints.ImageID,
 }
 
 // ConstraintsValidator is defined on the Environs interface.
@@ -666,6 +665,11 @@ func (e *environ) StartInstance(
 	rootVolumeTags[tagName] = instanceName + "-root"
 	volumeTags := CreateTagSpecification(types.ResourceTypeVolume, rootVolumeTags)
 
+	imageID := aws.String(spec.Image.Id)
+	if args.Constraints.HasImageID() {
+		imageID = aws.String(*args.Constraints.ImageID)
+	}
+
 	var instResp *ec2.RunInstancesOutput
 	commonRunArgs := &ec2.RunInstancesInput{
 		MinCount:            aws.Int32(1),
@@ -674,7 +678,7 @@ func (e *environ) StartInstance(
 		InstanceType:        types.InstanceType(spec.InstanceType.Name),
 		SecurityGroupIds:    groupIDs,
 		BlockDeviceMappings: blockDeviceMappings,
-		ImageId:             aws.String(spec.Image.Id),
+		ImageId:             imageID,
 		MetadataOptions: &types.InstanceMetadataOptionsRequest{
 			HttpEndpoint: types.InstanceMetadataEndpointStateEnabled,
 			// By forcing HTTP tokens here we move all created instances over to

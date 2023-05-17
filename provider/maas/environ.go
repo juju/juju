@@ -832,7 +832,7 @@ func (env *maasEnviron) tagInstance(inst *maasInstance, instanceConfig *instance
 }
 
 func (env *maasEnviron) distroSeries(args environs.StartInstanceParams) (string, error) {
-	if args.Constraints.ImageID != nil && *args.Constraints.ImageID != "" {
+	if args.Constraints.HasImageID() {
 		return *args.Constraints.ImageID, nil
 	}
 	return coreseries.GetSeriesFromBase(args.InstanceConfig.Base)
