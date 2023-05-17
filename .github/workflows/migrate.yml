@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   migrate:
-    name: 2.9 -> 3.1
+    name: 2.9 -> 3.X
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     strategy:
@@ -33,13 +33,13 @@ jobs:
         uses: canonical/setup-lxd@90d76101915da56a42a562ba766b1a77019242fd
 
       - name: Install Juju 2.9
-        run: sudo snap install juju --classic --channel 2.9/stable
+        run: sudo snap install juju_29 --classic --channel 2.9/stable
 
       - name: Bootstrap a 2.9 controller and model
         run: |
-          juju bootstrap lxd test29
-          juju add-model test-migrate
-          juju deploy ubuntu
+          juju_29 bootstrap lxd test29
+          juju_29 add-model test-migrate
+          juju_29 deploy ubuntu
           
           # TODO: use juju-restore
           # TODO: add users/permissions/models and test that those migrate over
@@ -65,36 +65,18 @@ jobs:
 
         # TODO: create backup and juju restore
 
-      - name: Reset Go env
-        run: |
-          echo "GOPATH=" >> $GITHUB_ENV
-          echo "" >> $GITHUB_PATH
-
-      - name: Again Install Juju 2.9
-        run: sudo snap install juju --classic --channel 2.9/stable
-
       - name: Migrate default model to 3.1 controller
         run: |
-          juju switch test29
+          juju_29 switch test29
           
           # Ensure application is fully deployed
-          juju wait-for application ubuntu
+          juju_29 wait-for application ubuntu
           
           # Wait a few secs for the machine status to update
           # so that migration prechecks pass.
           sleep 10
           
-          juju migrate test-migrate test31
-
-      - name: Set up Go env
-        run: |
-          echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
-          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-
-      - name: Again Upgrade client to 3.1
-        run: |
-          sudo snap remove juju --purge
-          make go-install &>/dev/null
+          juju_29 migrate test-migrate test31
 
       - name: Check the migration was successful
         run: |
