@@ -65,6 +65,11 @@ jobs:
 
         # TODO: create backup and juju restore
 
+      - name: Reset Go env
+        run: |
+          echo "GOPATH=" >> $GITHUB_ENV
+          echo "" >> $GITHUB_PATH
+
       - name: Again Install Juju 2.9
         run: sudo snap install juju --classic --channel 2.9/stable
 
@@ -80,6 +85,11 @@ jobs:
           sleep 10
           
           juju migrate test-migrate test31
+
+      - name: Set up Go env
+        run: |
+          echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
       - name: Again Upgrade client to 3.1
         run: |
