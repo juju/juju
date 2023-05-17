@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 )
 
@@ -46,6 +47,21 @@ func ParseBaseFromString(b string) (Base, error) {
 		return Base{}, errors.Trace(err)
 	}
 	return Base{OS: parts[0], Channel: channel}, nil
+}
+
+func ParseManifestBases(manifestBases []charm.Base) ([]Base, error) {
+	if len(manifestBases) == 0 {
+		return nil, errors.BadRequestf("base len zero")
+	}
+	bases := make([]Base, len(manifestBases))
+	for i, m := range manifestBases {
+		base, err := ParseBase(m.Name, m.Channel.String())
+		if err != nil {
+			return nil, err
+		}
+		bases[i] = base
+	}
+	return bases, nil
 }
 
 // MustParseBaseFromString is like ParseBaseFromString but panics if the string
