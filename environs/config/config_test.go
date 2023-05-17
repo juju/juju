@@ -453,6 +453,12 @@ var configTests = []configTest{
 			"mode": "strict",
 		}),
 	}, {
+		about:       "Mode flag includes requires-prompts",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"mode": "strict,requires-prompts",
+		}),
+	}, {
 		about:       "Logging output flag specified",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{

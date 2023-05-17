@@ -23,8 +23,6 @@ type ControllerSuite struct {
 	client *controller.Client
 }
 
-var _ = gc.Suite(&ControllerSuite{})
-
 func (s *ControllerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 

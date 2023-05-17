@@ -139,6 +139,10 @@ bootstrap() {
 
 		add_model "${model}" "${cloud}" "${bootstrapped_name}" "${output}"
 		name="${bootstrapped_name}"
+		BOOTSTRAPPED_CLOUD=$(juju show-model controller | yq -j | jq -r '.[] | .cloud')
+		export BOOTSTRAPPED_CLOUD
+		BOOTSTRAPPED_CLOUD_REGION=$(juju show-model controller | yq -j | jq -r '.[] | (.cloud + "/" + .region)')
+		export BOOTSTRAPPED_CLOUD_REGION
 	else
 		local cloud_region
 		if [[ -n ${BOOTSTRAP_REGION:-} ]]; then
@@ -148,6 +152,8 @@ bootstrap() {
 		fi
 		echo "====> Bootstrapping juju ($(green "${version}:${cloud_region}"))"
 		juju_bootstrap "${cloud_region}" "${name}" "${model}" "${output}"
+		export BOOTSTRAPPED_CLOUD="${cloud}"
+		export BOOTSTRAPPED_CLOUD_REGION="${cloud_region}"
 	fi
 
 	END_TIME=$(date +%s)
