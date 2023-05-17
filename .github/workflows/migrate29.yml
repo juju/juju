@@ -1,4 +1,4 @@
-name: "Migrate 2.9"
+name: "Migrate"
 on:
   push:
   pull_request:
@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   migrate:
-    name: Migrate
+    name: 2.9 -> 3.1
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     strategy:
@@ -38,7 +38,7 @@ jobs:
       - name: Bootstrap a 2.9 controller and model
         run: |
           juju bootstrap lxd test29
-          juju add-model default
+          juju add-model test-migrate
           juju deploy ubuntu
           
           # TODO: use juju-restore
@@ -76,7 +76,7 @@ jobs:
           # so that migration prechecks pass.
           sleep 10
           
-          juju migrate default test31
+          juju migrate test-migrate test31
 
       - name: Check the migration was successful
         run: |
