@@ -495,8 +495,20 @@ var (
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"relations": M{
-			"logging-directory": L{"wordpress"},
-			"info":              L{"mysql"},
+			"logging-directory": L{
+				M{
+					"interface":           "logging",
+					"related-application": "wordpress",
+					"scope":               "container",
+				},
+			},
+			"info": L{
+				M{
+					"interface":           "juju-info",
+					"related-application": "mysql",
+					"scope":               "container",
+				},
+			},
 		},
 		"endpoint-bindings": M{
 			"":                  network.AlphaSpaceName,
@@ -1437,7 +1449,13 @@ var statusTests = []testCase{
 				"applications": M{
 					"wordpress": wordpressCharm(M{
 						"relations": M{
-							"db": L{"mysql"},
+							"db": L{
+								M{
+									"interface":           "mysql",
+									"related-application": "mysql",
+									"scope":               "global",
+								},
+							},
 						},
 						"application-status": M{
 							"current": "error",
@@ -1473,7 +1491,13 @@ var statusTests = []testCase{
 					}),
 					"mysql": mysqlCharm(M{
 						"relations": M{
-							"server": L{"wordpress"},
+							"server": L{
+								M{
+									"interface":           "mysql",
+									"related-application": "wordpress",
+									"scope":               "global",
+								},
+							},
 						},
 						"application-status": M{
 							"current": "waiting",
@@ -1548,7 +1572,13 @@ var statusTests = []testCase{
 				"applications": M{
 					"wordpress": wordpressCharm(M{
 						"relations": M{
-							"db": L{"mysql"},
+							"db": L{
+								M{
+									"interface":           "mysql",
+									"related-application": "mysql",
+									"scope":               "global",
+								},
+							},
 						},
 						"application-status": M{
 							"current": "error",
@@ -1584,7 +1614,13 @@ var statusTests = []testCase{
 					}),
 					"mysql": mysqlCharm(M{
 						"relations": M{
-							"server": L{"wordpress"},
+							"server": L{
+								M{
+									"interface":           "mysql",
+									"related-application": "wordpress",
+									"scope":               "global",
+								},
+							},
 						},
 						"application-status": M{
 							"current": "waiting",
@@ -1844,8 +1880,20 @@ var statusTests = []testCase{
 							"cache":           network.AlphaSpaceName,
 						},
 						"relations": M{
-							"db":    L{"mysql"},
-							"cache": L{"varnish"},
+							"db": L{
+								M{
+									"interface":           "mysql",
+									"related-application": "mysql",
+									"scope":               "global",
+								},
+							},
+							"cache": L{
+								M{
+									"interface":           "varnish",
+									"related-application": "varnish",
+									"scope":               "global",
+								},
+							},
 						},
 					}),
 					"mysql": mysqlCharm(M{
@@ -1875,7 +1923,18 @@ var statusTests = []testCase{
 							"metrics-client": network.AlphaSpaceName,
 						},
 						"relations": M{
-							"server": L{"private", "project"},
+							"server": L{
+								M{
+									"interface":           "mysql",
+									"related-application": "private",
+									"scope":               "global",
+								},
+								M{
+									"interface":           "mysql",
+									"related-application": "project",
+									"scope":               "global",
+								},
+							},
 						},
 					}),
 					"varnish": M{
@@ -1910,7 +1969,13 @@ var statusTests = []testCase{
 							"webcache": network.AlphaSpaceName,
 						},
 						"relations": M{
-							"webcache": L{"project"},
+							"webcache": L{
+								M{
+									"interface":           "varnish",
+									"related-application": "project",
+									"scope":               "global",
+								},
+							},
 						},
 					},
 					"private": wordpressCharm(M{
@@ -1947,7 +2012,13 @@ var statusTests = []testCase{
 							"foo-bar":         network.AlphaSpaceName,
 						},
 						"relations": M{
-							"db": L{"mysql"},
+							"db": L{
+								M{
+									"interface":           "mysql",
+									"related-application": "mysql",
+									"scope":               "global",
+								},
+							},
 						},
 					}),
 				},
@@ -2064,7 +2135,13 @@ var statusTests = []testCase{
 							"ring":     network.AlphaSpaceName,
 						},
 						"relations": M{
-							"ring": L{"riak"},
+							"ring": L{
+								M{
+									"interface":           "riak",
+									"related-application": "riak",
+									"scope":               "global",
+								},
+							},
 						},
 					},
 				},
@@ -2188,8 +2265,20 @@ var statusTests = []testCase{
 							"logging-dir":     network.AlphaSpaceName,
 						},
 						"relations": M{
-							"db":          L{"mysql"},
-							"logging-dir": L{"logging"},
+							"db": L{
+								M{
+									"interface":           "mysql",
+									"related-application": "mysql",
+									"scope":               "global",
+								},
+							},
+							"logging-dir": L{
+								M{
+									"interface":           "logging",
+									"related-application": "logging",
+									"scope":               "container",
+								},
+							},
 						},
 					}),
 					"mysql": mysqlCharm(M{
@@ -2236,8 +2325,20 @@ var statusTests = []testCase{
 							"metrics-client": network.AlphaSpaceName,
 						},
 						"relations": M{
-							"server":    L{"wordpress"},
-							"juju-info": L{"logging"},
+							"server": L{
+								M{
+									"interface":           "mysql",
+									"related-application": "wordpress",
+									"scope":               "global",
+								},
+							},
+							"juju-info": L{
+								M{
+									"interface":           "juju-info",
+									"related-application": "logging",
+									"scope":               "container",
+								},
+							},
 						},
 					}),
 					"logging": loggingCharm,
@@ -2317,8 +2418,20 @@ var statusTests = []testCase{
 							"logging-dir":     network.AlphaSpaceName,
 						},
 						"relations": M{
-							"db":          L{"mysql"},
-							"logging-dir": L{"logging"},
+							"db": L{
+								M{
+									"interface":           "mysql",
+									"related-application": "mysql",
+									"scope":               "global",
+								},
+							},
+							"logging-dir": L{
+								M{
+									"interface":           "logging",
+									"related-application": "logging",
+									"scope":               "container",
+								},
+							},
 						},
 					}),
 					"mysql": mysqlCharm(M{
@@ -2365,8 +2478,20 @@ var statusTests = []testCase{
 							"metrics-client": network.AlphaSpaceName,
 						},
 						"relations": M{
-							"server":    L{"wordpress"},
-							"juju-info": L{"logging"},
+							"server": L{
+								M{
+									"interface":           "mysql",
+									"related-application": "wordpress",
+									"scope":               "global",
+								},
+							},
+							"juju-info": L{
+								M{
+									"interface":           "juju-info",
+									"related-application": "logging",
+									"scope":               "container",
+								},
+							},
 						},
 					}),
 					"logging": loggingCharm,
@@ -2445,8 +2570,20 @@ var statusTests = []testCase{
 							"url":             network.AlphaSpaceName,
 						},
 						"relations": M{
-							"db":          L{"mysql"},
-							"logging-dir": L{"logging"},
+							"db": L{
+								M{
+									"interface":           "mysql",
+									"related-application": "mysql",
+									"scope":               "global",
+								},
+							},
+							"logging-dir": L{
+								M{
+									"interface":           "logging",
+									"related-application": "logging",
+									"scope":               "container",
+								},
+							},
 						},
 					}),
 					"logging": loggingCharm,
@@ -3394,7 +3531,13 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"relations": M{
-							"db": L{"hosted-mysql"},
+							"db": L{
+								M{
+									"interface":           "mysql",
+									"related-application": "hosted-mysql",
+									"scope":               "global",
+								},
+							},
 						},
 						"units": M{
 							"wordpress/0": M{

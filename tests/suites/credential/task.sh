@@ -10,4 +10,6 @@ test_credential() {
 	check_dependencies juju
 
 	test_add_remove_credential
+	test_controller_credentials
+	# TODO - test set-credential
 }
