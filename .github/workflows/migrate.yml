@@ -7,7 +7,7 @@ on:
       - '**.go'
       - 'go.mod'
       - 'snap/**'
-      - '.github/workflows/migrate29.yml'
+      - '.github/workflows/migrate.yml'
   workflow_dispatch:
 
 permissions:
@@ -65,6 +65,9 @@ jobs:
 
         # TODO: create backup and juju restore
 
+      - name: Again Install Juju 2.9
+        run: sudo snap install juju --classic --channel 2.9/stable
+
       - name: Migrate default model to 3.1 controller
         run: |
           juju switch test29
@@ -78,15 +81,20 @@ jobs:
           
           juju migrate test-migrate test31
 
+      - name: Again Upgrade client to 3.1
+        run: |
+          sudo snap remove juju --purge
+          make go-install &>/dev/null
+
       - name: Check the migration was successful
         run: |
           set -x
           juju switch test31
           
-          # Wait for 'default' model to come through
+          # Wait for 'test-migrate' model to come through
           attempt=0
           while true; do
-            RES=$(juju models | grep 'default' || true)
+            RES=$(juju models | grep 'test-migrate' || true)
             if [[ -n $RES ]]; then
               break
             fi
@@ -98,5 +106,5 @@ jobs:
             fi
           done
           
-          juju switch default
+          juju switch test-migrate
           juju wait-for application ubuntu
