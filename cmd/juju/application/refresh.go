@@ -573,16 +573,16 @@ func newCharmAdder(
 	conn api.Connection,
 ) store.CharmAdder {
 	return &charmAdderShim{
-		api:               &apiClient{Client: apiclient.NewClient(conn)},
-		charmsClient:      &charmsClient{Client: apicharms.NewClient(conn)},
-		modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(conn)},
+		api:               apiclient.NewClient(conn),
+		charmsClient:      apicharms.NewClient(conn),
+		modelConfigClient: modelconfig.NewClient(conn),
 	}
 }
 
 type charmAdderShim struct {
 	*charmsClient
 	*modelConfigClient
-	api *apiClient
+	api *apiclient.Client
 }
 
 func (c *charmAdderShim) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool) (*charm.URL, error) {

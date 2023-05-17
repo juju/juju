@@ -7,7 +7,7 @@
 - [ ] Code style: imports ordered, good names, simple structure, etc
 - [ ] Comments saying why design decisions were made
 - [ ] Go unit tests, with comments saying what you're testing
-- [ ] [Integration tests](https://github.com/juju/juju/tree/develop/tests), with comments saying what you're testing
+- [ ] [Integration tests](https://github.com/juju/juju/tree/main/tests), with comments saying what you're testing
 - [ ] [doc.go](https://discourse.charmhub.io/t/readme-in-packages/451) added or updated in changed packages
 
 ## QA steps

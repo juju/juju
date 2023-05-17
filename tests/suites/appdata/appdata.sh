@@ -12,6 +12,31 @@ run_appdata_basic() {
 	wait_for "blocked" "$(workload_status appdata-source 0).current"
 
 	juju config appdata-source token=test-value
+	output=$(juju config appdata-source)
+	expected=$(
+		cat <<'EOF'
+application: appdata-source
+application-config:
+  trust:
+    default: false
+    description: Does this application have access to trusted credentials
+    source: default
+    type: bool
+    value: false
+charm: appdata-source
+settings:
+  token:
+    default: ""
+    description: Token used to prove that the relation is working
+    source: user
+    type: string
+    value: test-value
+EOF
+	)
+	if [[ ${output} != "${expected}" ]]; then
+		echo "expected ${expected}, got ${output}"
+		exit 1
+	fi
 
 	# Wait for the token to arrive on each of the sink units.
 	wait_for "test-value" "$(workload_status appdata-sink 0).message"
@@ -39,6 +64,33 @@ run_appdata_basic() {
 
 	output=$(juju ssh appdata-sink/1 cat /var/run/appdata-sink/token)
 	check_contains "$output" "appdata-source/1 value2"
+
+	juju config appdata-source --reset token
+	output=$(juju config appdata-source)
+	expected=$(
+		cat <<'EOF'
+application: appdata-source
+application-config:
+  trust:
+    default: false
+    description: Does this application have access to trusted credentials
+    source: default
+    type: bool
+    value: false
+charm: appdata-source
+settings:
+  token:
+    default: ""
+    description: Token used to prove that the relation is working
+    source: default
+    type: string
+    value: ""
+EOF
+	)
+	if [[ ${output} != "${expected}" ]]; then
+		echo "expected ${expected}, got ${output}"
+		exit 1
+	fi
 
 	destroy_model "appdata-basic"
 }

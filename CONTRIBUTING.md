@@ -44,7 +44,11 @@ Building Juju
 `juju` is written in [Go](https://go.dev/), a modern, compiled, statically typed,
 concurrent language.
 
-Generally, Juju is built against the most recent version of Go, with the caveat that Go versions are not incremented during a release cycle. This means that `develop` will typically be using the latest version of Go, but any given release branch may lag by one version or so.  Check the `go.mod` file at the root of the project for the targeted version of Go, as this is authoritative.
+Generally, Juju is built against the most recent version of Go, with the caveat
+that Go versions are not incremented during a release cycle. This means that
+`main` will typically be using the latest version of Go, but any given release
+branch may lag by one version or so.  Check the `go.mod` file at the root of
+the project for the targeted version of Go, as this is authoritative.
 
 For example, the following indicates that Go 1.20 is targeted:
 
@@ -237,10 +241,10 @@ Generally there are multiple versions of Juju in development concurrently,
 and so we keep a separate Git branch for each version. When submitting a
 patch, please make sure your changes are targeted to the correct branch.
 
-The currently active branches are:
-- `2.9` - bug fixes for Juju 2.9.x
-- `3.0` - bug fixes for Juju 3.0.x
-- `develop` - bug fixes and new features for Juju 3.1.x
+We keep a branch for each minor version of Juju in active development (e.g.
+`2.9`, `3.1`) - bug fixes should go into the relevant branch. We also keep a
+`main` branch, which will become the next minor version of Juju. All new
+features should go into `main`.
 
 If a bug affects multiple Juju versions, please target the **lowest version**
 of Juju which is affected. All patches in earlier versions are eventually
@@ -251,10 +255,10 @@ Creating a new branch
 
 All development should be done on a new branch, based on the correct branch
 determined above. Pull the latest version of this branch, then create and
-checkout a new branch for your changes - e.g. for a patch targeting `develop`:
+checkout a new branch for your changes - e.g. for a patch targeting `main`:
 ```
-git pull upstream develop
-git checkout -b new_feature develop
+git pull upstream main
+git checkout -b new_feature main
 ```
 
 Testing
@@ -338,12 +342,12 @@ When ready for feedback, push your feature branch to github, optionally after
 collapsing multiple commits into discrete changes:
 
 ```bash
-git rebase -i --autosquash develop
+git rebase -i --autosquash main
 git push origin new_feature
 ```
 
 Go to the web page (https://github.com/$YOUR_GITHUB_USERNAME/juju) and hit the
-"Pull Request" button, selecting `develop` as the target.
+"Pull Request" button, selecting `main` as the target.
 
 This creates a numbered pull request on the github site, where members of the
 Juju project can see and comment on the changes.
