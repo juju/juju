@@ -13,6 +13,8 @@ test_controller() {
 
 	bootstrap "test-controller" "${file}"
 
+	test_metrics
+
 	test_enable_ha
 	test_query_tracing
 

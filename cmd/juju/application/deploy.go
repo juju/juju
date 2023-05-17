@@ -51,45 +51,15 @@ type CharmsAPI interface {
 	store.CharmsAPI
 }
 
-// The following structs exist purely because Go cannot create a
-// struct with a field named the same as a method name. The DeployAPI
-// needs to both embed a *<package>.Client and provide the
-// api.Connection Client method.
-//
-// Once we pair down DeployAPI, this will not longer be a problem.
-
-// TODO(juju3) - remove when methods are migrated away
-type apiClient struct {
-	*apiclient.Client
-}
-
-type charmsClient struct {
-	*apicharms.Client
-}
-
-type applicationClient struct {
-	*application.Client
-}
-
-type modelConfigClient struct {
-	*modelconfig.Client
-}
-
-type machineManagerClient struct {
-	*machinemanager.Client
-}
-
-type annotationsClient struct {
-	*annotations.Client
-}
-
-type offerClient struct {
-	*applicationoffers.Client
-}
-
-type spacesClient struct {
-	*spaces.API
-}
+type (
+	charmsClient         = apicharms.Client
+	applicationClient    = application.Client
+	modelConfigClient    = modelconfig.Client
+	annotationsClient    = annotations.Client
+	offerClient          = applicationoffers.Client
+	spacesClient         = spaces.API
+	machineManagerClient = machinemanager.Client
+)
 
 type deployAPIAdapter struct {
 	api.Connection
@@ -100,7 +70,7 @@ type deployAPIAdapter struct {
 	*offerClient
 	*spacesClient
 	*machineManagerClient
-	legacyClient *apiClient
+	legacyClient *apiclient.Client
 }
 
 func (a *deployAPIAdapter) ModelUUID() (string, bool) {
@@ -213,14 +183,14 @@ func newDeployCommand() *DeployCommand {
 		}
 		return &deployAPIAdapter{
 			Connection:           apiRoot,
-			legacyClient:         &apiClient{Client: apiclient.NewClient(apiRoot)},
-			charmsClient:         &charmsClient{Client: apicharms.NewClient(apiRoot)},
-			applicationClient:    &applicationClient{Client: application.NewClient(apiRoot)},
-			machineManagerClient: &machineManagerClient{Client: machinemanager.NewClient(apiRoot)},
-			modelConfigClient:    &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
-			annotationsClient:    &annotationsClient{Client: annotations.NewClient(apiRoot)},
-			offerClient:          &offerClient{Client: applicationoffers.NewClient(controllerAPIRoot)},
-			spacesClient:         &spacesClient{API: spaces.NewAPI(apiRoot)},
+			legacyClient:         apiclient.NewClient(apiRoot),
+			charmsClient:         apicharms.NewClient(apiRoot),
+			applicationClient:    application.NewClient(apiRoot),
+			machineManagerClient: machinemanager.NewClient(apiRoot),
+			modelConfigClient:    modelconfig.NewClient(apiRoot),
+			annotationsClient:    annotations.NewClient(apiRoot),
+			offerClient:          applicationoffers.NewClient(controllerAPIRoot),
+			spacesClient:         spaces.NewAPI(apiRoot),
 		}, nil
 	}
 	deployCmd.NewConsumeDetailsAPI = func(url *charm.OfferURL) (deployer.ConsumeDetails, error) {

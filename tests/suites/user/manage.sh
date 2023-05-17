@@ -11,15 +11,15 @@ run_user_grant_revoke() {
 	juju whoami --format=json | jq -r '."user"' | check "admin"
 
 	echo "Add user with read rights"
-	juju add-user readuser
+	juju show-user readuser 2>/dev/null || juju add-user readuser
 	juju grant readuser read "user-grant-revoke"
 
 	echo "Add user with write rights"
-	juju add-user writeuser
+	juju show-user writeuser 2>/dev/null || juju add-user writeuser
 	juju grant writeuser write "user-grant-revoke"
 
 	echo "Add user with admin rights"
-	juju add-user adminuser
+	juju show-user adminuser 2>/dev/null || juju add-user adminuser
 	juju grant adminuser admin "user-grant-revoke"
 
 	echo "Check rights for added users"
@@ -53,7 +53,7 @@ run_user_disable_enable() {
 	juju whoami --format=json | jq -r '."user"' | check "admin"
 
 	echo "Add testuser"
-	juju add-user testuser
+	juju show-user testuser 2>/dev/null || juju add-user testuser
 	juju grant testuser read "user-disable-enable"
 
 	echo "Disable testuser"
@@ -84,10 +84,10 @@ run_user_controller_access() {
 	juju whoami --format=json | jq -r '."user"' | check "admin"
 
 	echo "Add user with login rights"
-	juju add-user junioradmin
+	juju show-user junioradmin 2>/dev/null || juju add-user junioradmin
 
 	echo "Add user with superuser rights"
-	juju add-user senioradmin
+	juju show-user senioradmin 2>/dev/null || juju add-user senioradmin
 	juju grant senioradmin superuser
 
 	echo "Check rights for added users"
@@ -105,6 +105,31 @@ run_user_controller_access() {
 	destroy_model "user-controller-access"
 }
 
+# Removing users.
+run_user_remove() {
+	# Echo out to ensure nice output to the test suite.
+	echo
+
+	# The following ensures that a bootstrap juju exists.
+	file="${TEST_DIR}/test-user-remove.log"
+	ensure "user-remove" "${file}"
+
+	echo "Check that current user is admin"
+	juju whoami --format=json | jq -r '."user"' | check "admin"
+
+	echo "Add testuser2"
+	juju show-user testuser2 2>/dev/null || juju add-user testuser2
+	check_contains "${users}" testuser2
+
+	echo "Remove testuser2"
+	juju remove-user -y testuser2
+
+	users=$(juju users)
+	check_not_contains "${users}" testuser2
+
+	destroy_model "user-remove"
+}
+
 test_user_manage() {
 	if [ -n "$(skip 'test_user_manage')" ]; then
 		echo "==> SKIP: Asked to skip user manage tests"
@@ -119,5 +144,6 @@ test_user_manage() {
 		run "run_user_grant_revoke"
 		run "run_user_disable_enable"
 		run "run_user_controller_access"
+		run "run_user_remove"
 	)
 }

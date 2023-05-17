@@ -272,7 +272,6 @@ func (c *statusCommand) close() {
 	if c.storageAPI != nil {
 		c.storageAPI.Close()
 	}
-	return
 }
 
 func (c *statusCommand) getStatus() (*params.FullStatus, error) {

@@ -16,6 +16,7 @@ test_user() {
 	# Tests that need to be run are added here.
 	test_user_manage
 	test_user_login_password
+	test_user_register
 
 	destroy_controller "test-user"
 }
