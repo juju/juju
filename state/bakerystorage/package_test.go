@@ -4,11 +4,11 @@
 package bakerystorage
 
 import (
-	stdtesting "testing"
+	"testing"
 
-	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
-func TestPackage(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+func TestPackage(t *testing.T) {
+	coretesting.MgoSSLTestPackage(t)
 }
