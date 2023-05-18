@@ -8,9 +8,9 @@ run_relation_list_app() {
 	ensure "${model_name}" "${file}"
 
 	echo "Deploy 2 departer instances"
+	juju deploy mysql --channel=8.0/stable --force --series jammy
 	juju deploy wordpress --force --series bionic
-	# mysql charm does not have stable channel, so we use edge channel
-	juju deploy mysql --channel=edge --force --series focal
+
 	juju relate wordpress mysql
 	wait_for "wordpress" "$(idle_condition "wordpress" 1 0)"
 	wait_for "mysql" "$(idle_condition "mysql" 0 0)"
