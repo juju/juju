@@ -557,7 +557,6 @@ func (dt *localBundleDeployerKind) Read(d factory) (Deployer, error) {
 func (d *factory) newDeployBundle(_ charm.Schema, ds charm.BundleDataSource) deployBundle {
 	return deployBundle{
 		model:                d.model,
-		steps:                d.steps,
 		dryRun:               d.dryRun,
 		force:                d.force,
 		trust:                d.trust,

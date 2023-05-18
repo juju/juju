@@ -12,19 +12,15 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/client/application"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/cmd/juju/application/bundle"
-	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/storage"
 )
 
 type deployBundle struct {
 	model ModelCommand
-	steps []DeployStep
 
 	dryRun bool
 	force  bool
@@ -66,11 +62,7 @@ func (d *deployBundle) deploy(
 	resolver Resolver,
 ) (rErr error) {
 	d.resolver = resolver
-	bakeryClient, err := d.model.BakeryClient()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
+	var err error
 	var ok bool
 	if d.targetModelUUID, ok = deployAPI.ModelUUID(); !ok {
 		return errors.New("API connection is controller-only (should never happen)")
@@ -91,8 +83,7 @@ func (d *deployBundle) deploy(
 	}
 	d.accountUser = accountDetails.User
 
-	// Compose bundle to be deployed and check its validity before running
-	// any pre/post checks.
+	// Compose bundle to be deployed and check its validity.
 	bundleData, unmarshalErrors, err := bundle.ComposeAndVerifyBundle(d.bundleDataSource, d.bundleOverlayFile)
 	if err != nil {
 		return errors.Annotatef(err, "cannot deploy bundle")
@@ -115,56 +106,6 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 		}
 	}
 
-	for app, applicationSpec := range bundleData.Applications {
-		if applicationSpec.Plan != "" {
-			for _, step := range d.steps {
-				s := step
-
-				charmURL, err := resolveCharmURL(applicationSpec.Charm, d.defaultCharmSchema)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				cons, err := constraints.Parse(applicationSpec.Constraints)
-				if err != nil {
-					return errors.Trace(err)
-				}
-
-				base, err := series.GetBaseFromSeries(applicationSpec.Series)
-				if err != nil {
-					return errors.Trace(err)
-				}
-
-				platform := utils.MakePlatform(cons, base, d.modelConstraints)
-				origin, err := utils.DeduceOrigin(charmURL, d.origin.CharmChannel(), platform)
-				if err != nil {
-					return errors.Trace(err)
-				}
-
-				deployInfo := DeploymentInfo{
-					CharmID: application.CharmID{
-						URL:    charmURL,
-						Origin: origin,
-					},
-					ApplicationName: app,
-					ApplicationPlan: applicationSpec.Plan,
-					ModelUUID:       d.targetModelUUID,
-					Force:           d.force,
-				}
-
-				err = s.RunPre(deployAPI, bakeryClient, ctx, deployInfo)
-				if err != nil {
-					return errors.Trace(err)
-				}
-
-				defer func() {
-					err = errors.Trace(s.RunPost(deployAPI, bakeryClient, ctx, deployInfo, rErr))
-					if err != nil {
-						rErr = err
-					}
-				}()
-			}
-		}
-	}
 	spec, err := d.makeBundleDeploySpec(ctx, deployAPI)
 	if err != nil {
 		return errors.Trace(err)
