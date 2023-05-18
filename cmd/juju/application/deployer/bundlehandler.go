@@ -862,12 +862,6 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 
 	resMap := h.makeResourceMap(charmInfo.Meta.Resources, p.Resources, p.LocalResources)
 
-	if err := lxdprofile.ValidateLXDProfile(lxdCharmInfoProfiler{
-		CharmInfo: charmInfo,
-	}); err != nil && !h.force {
-		return errors.Trace(err)
-	}
-
 	resNames2IDs, err := h.deployResources(
 		p.Application,
 		resources.CharmID{
