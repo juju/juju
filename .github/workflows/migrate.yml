@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   migrate:
-    name: 2.9 -> 3.X
+    name: 2.9-to-3.x
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     strategy:
