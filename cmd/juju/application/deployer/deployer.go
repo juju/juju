@@ -520,7 +520,6 @@ func (d *factory) newDeployCharm() deployCharm {
 		placementSpec:    d.placementSpec,
 		resources:        d.resources,
 		baseFlag:         d.base,
-		steps:            d.steps,
 		storage:          d.storage,
 		trust:            d.trust,
 
