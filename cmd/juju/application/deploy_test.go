@@ -106,7 +106,6 @@ func (s *DeploySuiteBase) deployCommand() *DeployCommand {
 // charm repository but writes data to the juju database.
 func (s *DeploySuiteBase) deployCommandForState() *DeployCommand {
 	deploy := newDeployCommand()
-	deploy.Steps = nil
 	deploy.DeployResources = s.DeployResources
 	deploy.NewResolver = func(charmsAPI store.CharmsAPI, downloadFn store.DownloadBundleClientFunc) deployer.Resolver {
 		return s.fakeAPI
@@ -124,7 +123,6 @@ func (s *DeploySuiteBase) runDeploy(c *gc.C, args ...string) error {
 
 func (s *DeploySuiteBase) runDeployForState(c *gc.C, args ...string) error {
 	deploy := newDeployCommand()
-	deploy.Steps = nil
 	deploy.DeployResources = s.DeployResources
 	deploy.NewResolver = func(charmsAPI store.CharmsAPI, downloadFn store.DownloadBundleClientFunc) deployer.Resolver {
 		return s.fakeAPI
