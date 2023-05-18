@@ -49,6 +49,8 @@ func ParseBaseFromString(b string) (Base, error) {
 	return Base{OS: parts[0], Channel: channel}, nil
 }
 
+// ParseManifestBases transforms charm.Bases to Bases. This
+// format comes out of a charm.Manifest.
 func ParseManifestBases(manifestBases []charm.Base) ([]Base, error) {
 	if len(manifestBases) == 0 {
 		return nil, errors.BadRequestf("base len zero")

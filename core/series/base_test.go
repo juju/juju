@@ -4,6 +4,7 @@
 package series
 
 import (
+	"github.com/juju/charm/v10"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -63,4 +64,33 @@ func (s *BaseSuite) TestDisplayString(c *gc.C) {
 	c.Check(b.DisplayString(), gc.Equals, "kubuntu@20.04")
 	b = Base{OS: "qubuntu", Channel: Channel{Track: "22.04", Risk: "edge"}}
 	c.Check(b.DisplayString(), gc.Equals, "qubuntu@22.04/edge")
+}
+
+func (s *BaseSuite) TestParseManifestBases(c *gc.C) {
+	manifestBases := []charm.Base{{
+		Name: "ubuntu", Channel: charm.Channel{
+			Track: "18.04",
+			Risk:  "stable",
+		},
+		Architectures: []string{"amd64"},
+	}, {
+		Name: "ubuntu", Channel: charm.Channel{
+			Track: "20.04",
+			Risk:  "edge",
+		},
+	}, {
+		Name: "centos", Channel: charm.Channel{
+			Track: "9",
+			Risk:  "candidate",
+		},
+	}}
+	obtained, err := ParseManifestBases(manifestBases)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.HasLen, 3)
+	expected := []Base{
+		{OS: "ubuntu", Channel: Channel{Track: "18.04", Risk: "stable"}},
+		{OS: "ubuntu", Channel: Channel{Track: "20.04", Risk: "edge"}},
+		{OS: "centos", Channel: Channel{Track: "9", Risk: "candidate"}},
+	}
+	c.Assert(obtained, jc.DeepEquals, expected)
 }
