@@ -104,3 +104,6 @@ jobs:
           
           juju switch test-migrate
           juju wait-for application ubuntu
+          
+          juju deploy ubuntu yet-another-ubuntu
+          juju wait-for application yet-another-ubuntu
