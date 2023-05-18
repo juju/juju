@@ -125,6 +125,18 @@ CREATE TABLE change_log (
     CONSTRAINT          fk_change_log_namespace
             FOREIGN KEY (namespace_id)
             REFERENCES  change_log_namespace(id)
+);
+
+-- The change log witness table is used to track which nodes have seen
+-- which change log entries. This is used to determine when a change log entry
+-- can be deleted.
+-- We'll delete all change log entries that are older than the oldest change
+-- log entry that has been seen by all controllers.
+CREATE TABLE change_log_witness (
+    tag                 TEXT PRIMARY KEY,
+    change_log_id       INT NOT NULL,
+    last_seen_at        DATETIME NOT NULL DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
+    last_deleted_at     DATETIME
 );`)
 }
 

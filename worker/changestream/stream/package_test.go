@@ -48,6 +48,16 @@ func (s *baseSuite) expectAnyLogs() {
 	s.logger.EXPECT().IsTraceEnabled().Return(false).AnyTimes()
 }
 
+func (s *baseSuite) expectTimer() chan<- time.Time {
+	ch := make(chan time.Time)
+
+	s.clock.EXPECT().NewTimer(gomock.Any()).Return(s.timer).AnyTimes()
+	s.timer.EXPECT().Chan().Return(ch).AnyTimes()
+	s.timer.EXPECT().Stop().MinTimes(1)
+
+	return ch
+}
+
 func (s *baseSuite) expectAfter() chan<- time.Time {
 	ch := make(chan time.Time)
 

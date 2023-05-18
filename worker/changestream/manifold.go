@@ -9,6 +9,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/worker/common"
@@ -26,11 +27,12 @@ type Logger interface {
 
 // EventMultiplexerWorkerFn is an alias function that allows the creation of
 // EventQueueWorker.
-type EventMultiplexerWorkerFn = func(coredatabase.TxnRunner, FileNotifier, clock.Clock, Logger) (EventMultiplexerWorker, error)
+type EventMultiplexerWorkerFn = func(string, coredatabase.TxnRunner, FileNotifier, clock.Clock, Logger) (EventMultiplexerWorker, error)
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.
 type ManifoldConfig struct {
+	AgentName         string
 	DBAccessor        string
 	FileNotifyWatcher string
 
@@ -40,6 +42,9 @@ type ManifoldConfig struct {
 }
 
 func (cfg ManifoldConfig) Validate() error {
+	if cfg.AgentName == "" {
+		return errors.NotValidf("empty AgentName")
+	}
 	if cfg.DBAccessor == "" {
 		return errors.NotValidf("empty DBAccessorName")
 	}
@@ -63,6 +68,7 @@ func (cfg ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
+			config.AgentName,
 			config.DBAccessor,
 			config.FileNotifyWatcher,
 		},
@@ -71,6 +77,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
 			}
+
+			var agent agent.Agent
+			if err := context.Get(config.AgentName, &agent); err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			agentConfig := agent.CurrentConfig()
 
 			var dbGetter DBGetter
 			if err := context.Get(config.DBAccessor, &dbGetter); err != nil {
@@ -83,6 +96,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			cfg := WorkerConfig{
+				AgentTag:                  agentConfig.Tag().Id(),
 				DBGetter:                  dbGetter,
 				FileNotifyWatcher:         fileNotifyWatcher,
 				Clock:                     config.Clock,

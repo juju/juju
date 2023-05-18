@@ -32,6 +32,10 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	cfg = s.getConfig()
+	cfg.AgentName = ""
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+
+	cfg = s.getConfig()
 	cfg.DBAccessor = ""
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
@@ -46,11 +50,12 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
+		AgentName:         "agent",
 		DBAccessor:        "dbaccessor",
 		FileNotifyWatcher: "filenotifywatcher",
 		Clock:             s.clock,
 		Logger:            s.logger,
-		NewEventMultiplexerWorker: func(coredatabase.TxnRunner, FileNotifier, clock.Clock, Logger) (EventMultiplexerWorker, error) {
+		NewEventMultiplexerWorker: func(string, coredatabase.TxnRunner, FileNotifier, clock.Clock, Logger) (EventMultiplexerWorker, error) {
 			return nil, nil
 		},
 	}

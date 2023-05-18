@@ -41,6 +41,7 @@ type EventMultiplexerWorker interface {
 // WorkerConfig encapsulates the configuration options for the
 // changestream worker.
 type WorkerConfig struct {
+	AgentTag                  string
 	DBGetter                  DBGetter
 	FileNotifyWatcher         FileNotifyWatcher
 	Clock                     clock.Clock
@@ -50,6 +51,9 @@ type WorkerConfig struct {
 
 // Validate ensures that the config values are valid.
 func (c *WorkerConfig) Validate() error {
+	if c.AgentTag == "" {
+		return errors.NotValidf("missing AgentTag")
+	}
 	if c.DBGetter == nil {
 		return errors.NotValidf("missing DBGetter")
 	}
@@ -128,7 +132,7 @@ func (w *changeStreamWorker) GetWatchableDB(namespace string) (changestream.Watc
 	}
 
 	if err := w.runner.StartWorker(namespace, func() (worker.Worker, error) {
-		mux, err := w.cfg.NewEventMultiplexerWorker(db, fileNotifyWatcher{
+		mux, err := w.cfg.NewEventMultiplexerWorker(w.cfg.AgentTag, db, fileNotifyWatcher{
 			fileNotifier: w.cfg.FileNotifyWatcher,
 			fileName:     namespace,
 		}, w.cfg.Clock, w.cfg.Logger)
@@ -161,9 +165,12 @@ func (f fileNotifyWatcher) Changes() (<-chan bool, error) {
 
 // NewEventMultiplexerWorker creates a new EventMultiplexerWorker.
 func NewEventMultiplexerWorker(
-	db coredatabase.TxnRunner, fileNotifier FileNotifier, clock clock.Clock, logger Logger,
+	tag string,
+	db coredatabase.TxnRunner,
+	fileNotifier FileNotifier,
+	clock clock.Clock, logger Logger,
 ) (EventMultiplexerWorker, error) {
-	stream := stream.New(db, fileNotifier, clock, logger)
+	stream := stream.New(tag, db, fileNotifier, clock, logger)
 
 	mux, err := eventmultiplexer.New(stream, clock, logger)
 	if err != nil {

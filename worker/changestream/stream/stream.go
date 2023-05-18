@@ -22,6 +22,10 @@ const (
 	// to be completed. If the term is not completed within this time, then
 	// the worker will return an error and restart.
 	defaultWaitTermTimeout = time.Second * 30
+
+	// defaultWatermarkInterval is the default interval to wait before
+	// updating the watermark.
+	defaultWatermarkInterval = 5 * time.Second
 )
 
 var (
@@ -78,6 +82,7 @@ func (t *Term) Done(empty bool, abort <-chan struct{}) {
 type Stream struct {
 	tomb tomb.Tomb
 
+	tag          string
 	db           coredatabase.TxnRunner
 	fileNotifier FileNotifier
 	clock        clock.Clock
@@ -88,8 +93,9 @@ type Stream struct {
 }
 
 // New creates a new Stream.
-func New(db coredatabase.TxnRunner, fileNotifier FileNotifier, clock clock.Clock, logger Logger) *Stream {
+func New(tag string, db coredatabase.TxnRunner, fileNotifier FileNotifier, clock clock.Clock, logger Logger) *Stream {
 	stream := &Stream{
+		tag:          tag,
 		db:           db,
 		fileNotifier: fileNotifier,
 		clock:        clock,
@@ -123,6 +129,9 @@ func (w *Stream) Wait() error {
 }
 
 func (s *Stream) loop() error {
+	watermarkTimer := s.clock.NewTimer(defaultWatermarkInterval)
+	defer watermarkTimer.Stop()
+
 	fileNotifier, err := s.fileNotifier.Changes()
 	if err != nil {
 		return errors.Annotate(err, "getting file notifier")
@@ -170,6 +179,20 @@ func (s *Stream) loop() error {
 			}
 
 			s.logger.Infof("Change stream has been unblocked")
+
+		case <-watermarkTimer.Chan():
+			// Every interval we'll write the last ID to the database. This
+			// allows us to prune the change files that are no longer needed.
+			// This is a best effort, so if we fail to write the last ID, we
+			// just continue. As long as at least one write happens in the
+			// time between now and the pruning of the change log.
+			// The addition of a witness_at timestamp allows us to see how
+			// far each controller is behind the current time.
+			if err := s.recordWatermark(); err != nil {
+				s.logger.Infof("failed to record last ID: %v", err)
+			}
+
+			watermarkTimer.Reset(defaultWatermarkInterval)
 
 		default:
 			changes, err := s.readChanges()
@@ -278,7 +301,7 @@ const (
 	// transactions are inserted in that order.
 	// If the namespace is later deleted, you'll no longer locate that during
 	// a select.
-	query = `
+	selectQuery = `
 SELECT MAX(c.id), c.edit_type_id, n.namespace, changed_uuid, created_at
 	FROM change_log c
 		JOIN change_log_edit_type t ON c.edit_type_id = t.id
@@ -324,7 +347,7 @@ func (s *Stream) readChanges() ([]changeEvent, error) {
 
 	var changes []changeEvent
 	err := s.db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, query, s.lastID)
+		rows, err := tx.QueryContext(ctx, selectQuery, s.lastID)
 		if err != nil {
 			return errors.Annotate(err, "querying for changes")
 		}
@@ -348,6 +371,42 @@ func (s *Stream) readChanges() ([]changeEvent, error) {
 		return nil
 	})
 	return changes, errors.Trace(err)
+}
+
+const (
+	// Attempt insert the watermark for a given controller. If the controller
+	// already exists, then update the change log ID and the witness time, only
+	// if the change log ID is greater than the current change log ID.
+	watermarkQuery = `
+INSERT INTO change_log_witness (tag, change_log_id, last_seen_at) VALUES (?, ?, datetime())
+	ON CONFLICT (tag) DO UPDATE SET 
+		change_log_id = EXCLUDED.change_log_id, 
+		last_seen_at = EXCLUDED.last_seen_at
+	WHERE EXCLUDED.change_log_id > change_log_witness.change_log_id;
+`
+)
+
+// recordWatermark records the last ID that was processed. This is used to
+// ensure that we can prune the change log table.
+func (s *Stream) recordWatermark() error {
+	ctx, cancel := s.scopedContext()
+	defer cancel()
+
+	return s.db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		result, err := tx.ExecContext(ctx, watermarkQuery, s.tag, s.lastID)
+		if err != nil {
+			return errors.Annotate(err, "recording watermark")
+		}
+
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return errors.Annotate(err, "recording watermark")
+		}
+		if affected != 1 {
+			return errors.Errorf("expected to affect 1 row, affected %d", affected)
+		}
+		return nil
+	})
 }
 
 // scopedContext returns a context that is in the scope of the worker lifetime.
