@@ -57,11 +57,11 @@ jobs:
           echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
           echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
-      - name: Upgrade client to 3.1
+      - name: Upgrade client to 3.x
         run: |
           make go-install &>/dev/null
 
-      - name: Bootstrap 3.1 controller
+      - name: Bootstrap 3.x controller
         run: |
           juju bootstrap lxd test31
           juju switch controller
@@ -69,7 +69,7 @@ jobs:
 
         # TODO: create backup and juju restore
 
-      - name: Migrate default model to 3.1 controller
+      - name: Migrate default model to 3.x controller
         run: |
           juju_29 switch test29
           
