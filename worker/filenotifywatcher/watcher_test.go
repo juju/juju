@@ -24,6 +24,7 @@ var _ = gc.Suite(&watcherSuite{})
 func (s *watcherSuite) TestWatching(c *gc.C) {
 	dir, err := os.MkdirTemp("", "inotify")
 	c.Assert(err, jc.ErrorIsNil)
+	defer os.RemoveAll(dir)
 
 	w, err := NewWatcher("controller", WithPath(dir))
 	c.Assert(err, jc.ErrorIsNil)
