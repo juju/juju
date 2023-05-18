@@ -94,16 +94,6 @@ func (s *serverSuite) clientForState(c *gc.C, st *state.State) *client.Client {
 	})
 }
 
-func (s *serverSuite) TestNewFacadeWaitsForCachedModel(c *gc.C) {
-	setGenerationsControllerConfig(c, s.State)
-	state := s.Factory.MakeModel(c, nil)
-	defer state.Close()
-	// When run in a stress situation, we should hit the race where
-	// the model exists in the database but the cache hasn't been updated
-	// before we ask for the client.
-	_ = s.clientForState(c, state)
-}
-
 type clientSuite struct {
 	baseSuite
 
@@ -467,7 +457,7 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 		backend,
 		nil, nil,
 		authorizer, nil, toolsFinder,
-		nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil,
 		func(docker.ImageRepoDetails) (registry.Registry, error) {
 			return registryProvider, nil
 		},
@@ -546,7 +536,7 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 		backend,
 		nil, nil,
 		authorizer, nil, toolsFinder,
-		nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil,
 		func(repo docker.ImageRepoDetails) (registry.Registry, error) {
 			c.Assert(repo, gc.DeepEquals, docker.ImageRepoDetails{
 				Repository:    "test-account",
@@ -630,7 +620,7 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 		backend,
 		nil, nil,
 		authorizer, nil, toolsFinder,
-		nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil,
 		func(repo docker.ImageRepoDetails) (registry.Registry, error) {
 			c.Assert(repo, gc.DeepEquals, docker.ImageRepoDetails{
 				Repository:    "test-account",

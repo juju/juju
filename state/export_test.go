@@ -1101,10 +1101,6 @@ func UnitsHaveChanged(m *Machine, unitNames []string) (bool, error) {
 	return m.unitsHaveChanged(unitNames)
 }
 
-func GetCloudContainerStatus(st *State, name string) (status.StatusInfo, error) {
-	return getStatus(st.db(), globalCloudContainerKey(name), "unit")
-}
-
 func GetCloudContainerStatusHistory(st *State, name string, filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	args := &statusHistoryArgs{
 		db:        st.db(),
@@ -1113,10 +1109,6 @@ func GetCloudContainerStatusHistory(st *State, name string, filter status.Status
 		clock:     st.clock(),
 	}
 	return statusHistory(args)
-}
-
-func ApplicationOperatorStatus(st *State, appName string) (status.StatusInfo, error) {
-	return getStatus(st.db(), applicationGlobalOperatorKey(appName), "operator")
 }
 
 func NewInstanceCharmProfileDataCompatibilityWatcher(backend ModelBackendShim, memberId string) StringsWatcher {

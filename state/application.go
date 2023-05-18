@@ -3482,6 +3482,11 @@ func (a *Application) SetOperatorStatus(sInfo status.StatusInfo) error {
 	return nil
 }
 
+// OperatorStatus returns the operator status for an application.
+func (a *Application) OperatorStatus() (status.StatusInfo, error) {
+	return getStatus(a.st.db(), applicationGlobalOperatorKey(a.Name()), "application operator")
+}
+
 // StatusHistory returns a slice of at most filter.Size StatusInfo items
 // or items as old as filter.Date or items newer than now - filter.Delta time
 // representing past statuses for this application.

@@ -43,12 +43,6 @@ const (
 // RunCmdFunc allows tests to override calls to mongo db.Run.
 type RunCmdFunc func(db *mgo.Database, cmd any, resp any) error
 
-var (
-	// TxnPollNotifyFunc allows tests to be able to specify
-	// callbacks each time the database has been polled and processed.
-	TxnPollNotifyFunc func()
-)
-
 // A TxnWatcher watches a mongo change stream and publishes all change events
 // to the hub.
 type TxnWatcher struct {
@@ -59,10 +53,6 @@ type TxnWatcher struct {
 	tomb       tomb.Tomb
 	session    *mgo.Session
 	jujuDBName string
-
-	// notifySync is copied from the package variable when the watcher
-	// is created.
-	notifySync func()
 
 	reportRequest chan chan map[string]interface{}
 
@@ -161,7 +151,6 @@ func NewTxnWatcher(config TxnWatcherConfig) (*TxnWatcher, error) {
 		logger:            config.Logger,
 		session:           config.Session,
 		jujuDBName:        config.JujuDBName,
-		notifySync:        TxnPollNotifyFunc,
 		reportRequest:     make(chan chan map[string]interface{}),
 		readyChan:         make(chan any),
 		pollInterval:      config.PollInterval,
@@ -302,13 +291,12 @@ func (w *TxnWatcher) loop() error {
 			continue
 		}
 
-		var added bool
 		var err error
 		if errorOccurred || first {
 			if !first {
 				w.killCursor()
 			}
-			added, err = w.init()
+			err = w.init()
 			if err != nil {
 				err = errors.Wrap(FatalChangeStreamError, err)
 			}
@@ -319,10 +307,9 @@ func (w *TxnWatcher) loop() error {
 				first = false
 			}
 		} else {
-			added, err = w.sync()
+			err = w.sync()
 		}
 		if w.logger.IsTraceEnabled() && wrench.IsActive("txnwatcher", "sync-error") {
-			added = false
 			err = errors.New("test sync watcher error")
 		}
 		if err == nil {
@@ -331,9 +318,6 @@ func (w *TxnWatcher) loop() error {
 			}
 			errorOccurred = false
 			w.flush()
-			if !added && w.notifySync != nil {
-				w.notifySync()
-			}
 		} else {
 			w.logger.Warningf("txn watcher sync error: %v", err)
 			// If didn't get a resumable error and either we have already had one error resuming
@@ -346,9 +330,6 @@ func (w *TxnWatcher) loop() error {
 			w.logger.Warningf("txn watcher resume queued")
 			errorOccurred = true
 			next = w.clock.After(txnWatcherErrorWait)
-			if w.notifySync != nil {
-				w.notifySync()
-			}
 		}
 	}
 }
@@ -374,7 +355,7 @@ func (w *TxnWatcher) killCursor() {
 	w.cursorId = 0
 }
 
-func (w *TxnWatcher) init() (bool, error) {
+func (w *TxnWatcher) init() error {
 	db := w.session.DB(w.jujuDBName)
 
 	cs := bson.M{
@@ -411,30 +392,28 @@ func (w *TxnWatcher) init() (bool, error) {
 	resp := aggregateResponse{}
 	err := w.runCmd(db, cmd, &resp)
 	if err != nil {
-		return false, errors.Annotate(err, "starting change stream")
+		return errors.Annotate(err, "starting change stream")
 	}
 	w.cursorId = resp.Cursor.Id
-	added, err := w.process(resp.Cursor.FirstBatch)
+	err = w.process(resp.Cursor.FirstBatch)
 	if err != nil {
-		return false, errors.Annotate(err, "processing first change stream batch")
+		return errors.Annotate(err, "processing first change stream batch")
 	}
 	w.resumeToken = resp.Cursor.PostBatchResumeToken
 
-	return added, nil
+	return nil
 }
 
-func (w *TxnWatcher) process(changes []bson.Raw) (bool, error) {
-	added := false
-
+func (w *TxnWatcher) process(changes []bson.Raw) error {
 	for i := len(changes) - 1; i >= 0; i-- {
 		changeRaw := changes[i]
 		change := changeStreamDocument{}
 		err := bson.Unmarshal(changeRaw.Data, &change)
 		if err != nil {
-			return added, errors.Trace(err)
+			return errors.Trace(err)
 		}
 		if len(change.Id.Data) == 0 {
-			return added, errors.Annotate(FatalChangeStreamError, "missing change id in change")
+			return errors.Annotate(FatalChangeStreamError, "missing change id in change")
 		}
 		revno := int64(0)
 		switch change.OperationType {
@@ -451,11 +430,11 @@ func (w *TxnWatcher) process(changes []bson.Raw) (bool, error) {
 				a := bson.M{}
 				err := bson.Unmarshal(changeRaw.Data, &a)
 				if err != nil {
-					return added, errors.Trace(err)
+					return errors.Trace(err)
 				}
 				j, err := bson.MarshalJSON(a)
 				if err != nil {
-					return added, errors.Trace(err)
+					return errors.Trace(err)
 				}
 				// If you get this message then a document was updated outside a mongo multi-doc transaction
 				// and wasn't involved in a jujutxn (incrementing txn-revno).
@@ -492,11 +471,10 @@ func (w *TxnWatcher) process(changes []bson.Raw) (bool, error) {
 			Revno: revno,
 		})
 		w.changesCount++
-		added = true
 		w.resumeToken = change.Id
 	}
 
-	return added, nil
+	return nil
 }
 
 // flush sends all pending events to their respective channels.
@@ -515,7 +493,7 @@ func (w *TxnWatcher) flush() {
 
 // sync updates the watcher knowledge from the database, and
 // queues events to observing channels.
-func (w *TxnWatcher) sync() (bool, error) {
+func (w *TxnWatcher) sync() error {
 	w.logger.Tracef("txn watcher %p starting sync", w)
 
 	db := w.session.DB(w.jujuDBName)
@@ -524,7 +502,7 @@ func (w *TxnWatcher) sync() (bool, error) {
 	for i := 0; i < 2; i++ {
 		select {
 		case <-w.tomb.Dying():
-			return false, tomb.ErrDying
+			return tomb.ErrDying
 		default:
 		}
 		err = w.runCmd(db, bson.D{
@@ -535,24 +513,24 @@ func (w *TxnWatcher) sync() (bool, error) {
 			{"readConcern", bson.D{{"level", "majority"}}},
 		}, &resp)
 		if isCursorNotFoundError(err) {
-			return false, errors.Wrap(ResumableChangeStreamError, err)
+			return errors.Wrap(ResumableChangeStreamError, err)
 		} else if isFatalGetMoreError(err) {
-			return false, errors.Wrap(FatalChangeStreamError, err)
+			return errors.Wrap(FatalChangeStreamError, err)
 		} else if err == nil {
 			break
 		}
 	}
 	if err != nil {
-		return false, errors.Wrap(ResumableChangeStreamError, err)
+		return errors.Wrap(ResumableChangeStreamError, err)
 	}
 
-	added, err := w.process(resp.Cursor.NextBatch)
+	err = w.process(resp.Cursor.NextBatch)
 	if err != nil {
-		return added, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	w.resumeToken = resp.Cursor.PostBatchResumeToken
 
-	return added, nil
+	return nil
 }
 
 func (w *TxnWatcher) runCmdImpl(db *mgo.Database, cmd any, resp any) error {

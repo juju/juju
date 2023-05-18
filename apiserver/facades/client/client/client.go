@@ -15,7 +15,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/cloudconfig/podcfg"
-	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/multiwatcher"
 	coreos "github.com/juju/juju/core/os"
@@ -44,7 +43,6 @@ type API struct {
 
 	toolsFinder      common.ToolsFinder
 	leadershipReader leadership.Reader
-	modelCache       *cache.Model
 }
 
 // TODO(wallyworld) - remove this method
@@ -134,11 +132,6 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 		return nil, errors.Trace(err)
 	}
 
-	modelCache, err := ctx.CachedModel(modelUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	return NewClient(
 		&stateShim{st, model, nil},
 		&poolShim{ctx.StatePool()},
@@ -150,7 +143,6 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 		blockChecker,
 		context.CallContext(st),
 		leadershipReader,
-		modelCache,
 		factory,
 		registry.New,
 	)
@@ -168,7 +160,6 @@ func NewClient(
 	blockChecker *common.BlockChecker,
 	callCtx context.ProviderCallContext,
 	leadershipReader leadership.Reader,
-	modelCache *cache.Model,
 	factory multiwatcher.Factory,
 	registryAPIFunc func(docker.ImageRepoDetails) (registry.Registry, error),
 ) (*Client, error) {
@@ -184,7 +175,6 @@ func NewClient(
 			presence:            presence,
 			toolsFinder:         toolsFinder,
 			leadershipReader:    leadershipReader,
-			modelCache:          modelCache,
 			multiwatcherFactory: factory,
 		},
 		newEnviron:      newEnviron,
