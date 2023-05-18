@@ -4825,7 +4825,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.Waiting)
 	c.Assert(statusInfo.Message, gc.Equals, "installing agent")
-	statusInfo, err = state.GetCloudContainerStatus(s.caasSt, u.Name())
+	statusInfo, err = u.ContainerStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.Running)
 	c.Assert(statusInfo.Message, gc.Equals, "existing container running")
@@ -4881,7 +4881,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.Waiting)
 	c.Assert(statusInfo.Message, gc.Equals, status.MessageInstallingAgent)
-	statusInfo, err = state.GetCloudContainerStatus(s.caasSt, u.Name())
+	statusInfo, err = u.ContainerStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.Running)
 	c.Assert(statusInfo.Message, gc.Equals, "new container running")
@@ -5388,7 +5388,7 @@ func (s *CAASApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestSetOperatorStatusNonCAAS(c *gc.C) {
-	_, err := state.ApplicationOperatorStatus(s.State, s.mysql.Name())
+	_, err := s.mysql.OperatorStatus()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -5411,7 +5411,7 @@ func (s *ApplicationSuite) TestSetOperatorStatus(c *gc.C) {
 	err := app.SetOperatorStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
-	appStatus, err := state.ApplicationOperatorStatus(st, app.Name())
+	appStatus, err := app.OperatorStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appStatus.Status, gc.DeepEquals, status.Error)
 	c.Assert(appStatus.Message, gc.DeepEquals, "broken")

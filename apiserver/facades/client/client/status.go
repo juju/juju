@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
-	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
@@ -222,7 +221,6 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 
 	var noStatus params.FullStatus
 	var context statusContext
-	context.cachedModel = c.api.modelCache
 
 	m, err := c.api.stateAccessor.Model()
 	if err != nil {
@@ -296,7 +294,9 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	if context.controllerTimestamp, err = c.api.stateAccessor.ControllerTimestamp(); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch controller timestamp")
 	}
-	context.branches = fetchBranches(c.api.modelCache)
+	if context.branches, err = fetchBranches(context.model); err != nil {
+		return noStatus, errors.Annotate(err, "could not fetch branches")
+	}
 
 	logger.Tracef("Applications: %v", context.allAppsUnitsCharmBindings.applications)
 	logger.Tracef("Remote applications: %v", context.consumerRemoteApplications)
@@ -469,8 +469,8 @@ func resolveLeaderUnits(patterns []string, leaders map[string]string) []string {
 	return patterns
 }
 
-func filterBranches(ctxBranches map[string]cache.Branch,
-	matchedApps, matchedForBranches set.Strings) map[string]cache.Branch {
+func filterBranches(ctxBranches map[string]*state.Generation,
+	matchedApps, matchedForBranches set.Strings) map[string]*state.Generation {
 	// Filter branches based on matchedApps which contains
 	// the application name if matching on application or unit.
 	unmatchedBranches := set.NewStrings()
@@ -577,7 +577,6 @@ type applicationStatusInfo struct {
 
 type statusContext struct {
 	providerType string
-	cachedModel  *cache.Model
 	model        *state.Model
 	status       *state.ModelStatus
 	presence     common.ModelPresenceContext
@@ -619,7 +618,7 @@ type statusContext struct {
 	relations                 map[string][]*state.Relation
 	relationsById             map[int]*state.Relation
 	leaders                   map[string]string
-	branches                  map[string]cache.Branch
+	branches                  map[string]*state.Generation
 
 	// Information about all spaces.
 	spaceInfos network.SpaceInfos
@@ -980,20 +979,17 @@ func fetchRelations(st Backend) (map[string][]*state.Relation, map[int]*state.Re
 	return out, outById, nil
 }
 
-func fetchBranches(m *cache.Model) map[string]cache.Branch {
-	// Unless you're using the generations feature flag,
-	// the model cache model will be nil.  See note in
-	// newFacade().
-	if m == nil {
-		return make(map[string]cache.Branch)
-	}
+func fetchBranches(m *state.Model) (map[string]*state.Generation, error) {
 	// m.Branches() returns only active branches.
-	b := m.Branches()
-	branches := make(map[string]cache.Branch, len(b))
-	for _, branch := range b {
-		branches[branch.Name()] = branch
+	b, err := m.Branches()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return branches
+	branches := make(map[string]*state.Generation, len(b))
+	for _, branch := range b {
+		branches[branch.BranchName()] = branch
+	}
+	return branches, nil
 }
 
 func (c *statusContext) processMachines() map[string]params.MachineStatus {
@@ -1306,12 +1302,10 @@ func (context *statusContext) processApplication(application *state.Application)
 		processedStatus.Units = context.processUnits(units, applicationCharm.String(), expectWorkload)
 	}
 
-	// If for whatever reason the application isn't yet in the cache,
-	// we have an unknown status.
 	applicationStatus := status.StatusInfo{Status: status.Unknown}
-	cachedApp, err := context.cachedModel.Application(application.Name())
+	statusCtx, err := context.appStatusContext(application, units)
 	if err == nil {
-		applicationStatus = cachedApp.DisplayStatus()
+		applicationStatus = status.DisplayApplicationStatus(*statusCtx)
 	}
 	processedStatus.Status.Status = applicationStatus.Status.String()
 	processedStatus.Status.Info = applicationStatus.Message
@@ -1377,6 +1371,42 @@ func (context *statusContext) processApplication(application *state.Application)
 	}
 	processedStatus.EndpointBindings = context.allAppsUnitsCharmBindings.endpointBindings[application.Name()]
 	return processedStatus
+}
+
+func (context *statusContext) appStatusContext(application *state.Application, units map[string]*state.Unit) (*status.AppContext, error) {
+	var (
+		statusCtx status.AppContext
+		err       error
+	)
+	statusCtx.AppStatus, err = application.Status()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	statusCtx.OperatorStatus, err = application.OperatorStatus()
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return nil, errors.Trace(err)
+	}
+	statusCtx.IsCaas = context.model.Type() == state.ModelTypeCAAS
+	expectsWorkload, err := state.CheckApplicationExpectsWorkload(context.model, application.Name())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	statusCtx.ExpectWorkload = expectsWorkload
+	for _, u := range units {
+		workloadStatus, err := u.Status()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		containerStatus, err := u.ContainerStatus()
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			return nil, errors.Trace(err)
+		}
+		statusCtx.UnitCtx = append(statusCtx.UnitCtx, status.UnitContext{
+			WorkloadStatus:  workloadStatus,
+			ContainerStatus: containerStatus,
+		})
+	}
+	return &statusCtx, nil
 }
 
 func (context *statusContext) mapExposedEndpointsFromState(exposedEndpoints map[string]state.ExposedEndpoint) (map[string]params.ExposedEndpoint,

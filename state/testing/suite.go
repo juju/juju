@@ -44,7 +44,6 @@ type StateSuite struct {
 	ControllerModelType       state.ModelType
 	RegionConfig              cloud.RegionConfig
 	Clock                     testclock.AdvanceableClock
-	txnSyncNotify             chan struct{}
 	modelWatcherIdle          chan string
 	modelWatcherMutex         *sync.Mutex
 }
@@ -63,10 +62,8 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.BaseSuite.SetUpTest(c)
 
-	s.txnSyncNotify = make(chan struct{})
 	s.modelWatcherIdle = nil
 	s.modelWatcherMutex = &sync.Mutex{}
-	s.PatchValue(&statewatcher.TxnPollNotifyFunc, s.txnNotifyFunc)
 	s.PatchValue(&statewatcher.HubWatcherIdleFunc, s.hubWatcherIdleFunc)
 
 	s.Owner = names.NewLocalUserTag("test-admin")
@@ -89,7 +86,6 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 	})
 	s.AddCleanup(func(*gc.C) {
 		_ = s.Controller.Close()
-		close(s.txnSyncNotify)
 	})
 	s.StatePool = s.Controller.StatePool()
 	var err error
@@ -105,15 +101,6 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 func (s *StateSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
-}
-
-func (s *StateSuite) txnNotifyFunc() {
-	select {
-	case s.txnSyncNotify <- struct{}{}:
-		// Try to send something down the channel.
-	default:
-		// However don't get stressed if no one is listening.
-	}
 }
 
 func (s *StateSuite) hubWatcherIdleFunc(modelUUID string) {
@@ -134,26 +121,6 @@ func (s *StateSuite) hubWatcherIdleFunc(modelUUID string) {
 	}
 }
 
-// WaitForNextSync repeatedly advances the testing clock
-// with short waits between until the txn poller doesn't find
-// any more changes.
-func (s *StateSuite) WaitForNextSync(c *gc.C) {
-	done := make(chan struct{})
-	go func() {
-		<-s.txnSyncNotify
-		close(done)
-	}()
-	timeout := time.After(jujutesting.LongWait)
-	for {
-		select {
-		case <-done:
-			return
-		case <-timeout:
-			c.Fatal("no sync event sent, is the watcher dead?")
-		}
-	}
-}
-
 // WaitForModelWatchersIdle firstly waits for the txn poller to process
 // all pending changes, then waits for the hub watcher on the state object
 // to have finished processing all those events.
@@ -161,7 +128,6 @@ func (s *StateSuite) WaitForModelWatchersIdle(c *gc.C, modelUUID string) {
 	// Use a logger rather than c.Log so we get timestamps.
 	logger := loggo.GetLogger("test")
 	logger.Infof("waiting for model %s to be idle", modelUUID)
-	s.WaitForNextSync(c)
 	// Create idle channel after the sync so as to be sure that at least
 	// one sync is complete before signalling the idle timer.
 	s.modelWatcherMutex.Lock()
