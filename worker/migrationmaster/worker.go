@@ -527,6 +527,7 @@ func (w *Worker) doVALIDATION(status coremigration.MigrationStatus) (coremigrati
 	// Once all agents have validated, activate the model in the
 	// target controller.
 	err = w.activateModel(client, status.ModelUUID)
+	w.logger.Criticalf("activateModel returned %#v", err)
 	if err != nil {
 		w.setErrorStatus("model activation failed, %v", err)
 		return coremigration.ABORT, nil

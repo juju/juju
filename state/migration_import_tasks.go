@@ -529,19 +529,29 @@ type SecretConsumersState interface {
 	SecretConsumerKey(uri *secrets.URI, subject string) string
 }
 
+// BackendRevisionCountProcesser is used to create a backend revision reference count.
+type BackendRevisionCountProcesser interface {
+	IncBackendRevisionCountOps(backendID string) ([]txn.Op, error)
+}
+
 // SecretsInput describes the input used for migrating secrets.
 type SecretsInput interface {
 	DocModelNamespace
 	SecretConsumersState
+	BackendRevisionCountProcesser
 	SecretsDescription
 }
 
-type secretConsumersStateShim struct {
+type secretStateShim struct {
 	stateModelNamspaceShim
 }
 
-func (s *secretConsumersStateShim) SecretConsumerKey(uri *secrets.URI, subject string) string {
+func (s *secretStateShim) SecretConsumerKey(uri *secrets.URI, subject string) string {
 	return s.st.secretConsumerKey(uri, subject)
+}
+
+func (s *secretStateShim) IncBackendRevisionCountOps(backendID string) ([]txn.Op, error) {
+	return s.st.incBackendRevisionCountOps(backendID)
 }
 
 // ImportSecrets describes a way to import secrets from a
@@ -608,6 +618,7 @@ func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner, knownSe
 				}
 				if !utils.IsValidUUIDString(valueRef.BackendID) && !seenBackendIds.Contains(valueRef.BackendID) {
 					if !knownSecretBackends.Contains(valueRef.BackendID) {
+						logger.Criticalf("target controller does not have secret backend %q, seenBackendIds %v", valueRef.BackendID, seenBackendIds.Values())
 						return errors.New("target controller does not have all required secret backends set up")
 					}
 					ops = append(ops, txn.Op{
@@ -615,6 +626,12 @@ func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner, knownSe
 						Id:     valueRef.BackendID,
 						Assert: txn.DocExists,
 					})
+
+					refOps, err := src.IncBackendRevisionCountOps(valueRef.BackendID)
+					if err != nil {
+						return errors.Trace(err)
+					}
+					ops = append(ops, refOps...)
 				}
 				seenBackendIds.Add(valueRef.BackendID)
 			}

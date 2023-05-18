@@ -332,7 +332,7 @@ func (st *State) ensureSecretBackendRevisionCountOp(backendID string) (txn.Op, i
 	return nsRefcounts.CurrentOp(refCountCollection, secretBackendRefCountKey(backendID))
 }
 
-func (st *State) dyingDecBackendRevisionCountOp(backendID string) (txn.Op, error) {
+func (st *State) decSecretBackendRefCountOp(backendID string) (txn.Op, error) {
 	refCountCollection, ccloser := st.db().GetCollection(globalRefcountsC)
 	defer ccloser()
 

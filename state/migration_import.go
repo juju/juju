@@ -2484,7 +2484,7 @@ func (i *importer) addVolume(volume description.Volume, sb *storageBackend) erro
 		ops = append(ops, i.addVolumeAttachmentOp(tag.Id(), attachment, attachment.VolumePlanInfo()))
 	}
 
-	if attachmentPlans != nil && len(attachmentPlans) > 0 {
+	if len(attachmentPlans) > 0 {
 		for _, val := range attachmentPlans {
 			ops = append(ops, i.addVolumeAttachmentPlanOp(tag.Id(), val))
 		}
@@ -2704,6 +2704,7 @@ func (i *importer) secrets() error {
 	}
 	knownBackends := set.NewStrings()
 	for _, b := range allBackends {
+		logger.Criticalf("known backend: %s", b.ID)
 		knownBackends.Add(b.ID)
 	}
 
@@ -2714,7 +2715,7 @@ func (i *importer) secrets() error {
 	}
 	migration.Add(func() error {
 		m := ImportSecrets{}
-		return m.Execute(&secretConsumersStateShim{
+		return m.Execute(&secretStateShim{
 			stateModelNamspaceShim: stateModelNamspaceShim{
 				Model: migration.src,
 				st:    i.st,
@@ -2736,7 +2737,7 @@ func (i *importer) remoteSecrets() error {
 	}
 	migration.Add(func() error {
 		m := ImportRemoteSecrets{}
-		return m.Execute(&secretConsumersStateShim{
+		return m.Execute(&secretStateShim{
 			stateModelNamspaceShim: stateModelNamspaceShim{
 				Model: migration.src,
 				st:    i.st,
