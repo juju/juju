@@ -22,8 +22,8 @@ type watcherSuite struct {
 var _ = gc.Suite(&watcherSuite{})
 
 func (s *watcherSuite) TestWatching(c *gc.C) {
-	dir := os.TempDir()
-	defer os.RemoveAll(dir)
+	dir, err := os.MkdirTemp("", "inotify")
+	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := NewWatcher("controller", WithPath(dir))
 	c.Assert(err, jc.ErrorIsNil)
@@ -56,7 +56,8 @@ func (s *watcherSuite) TestWatching(c *gc.C) {
 }
 
 func (s *watcherSuite) TestNotWatching(c *gc.C) {
-	dir := os.TempDir()
+	dir, err := os.MkdirTemp("", "inotify")
+	c.Assert(err, jc.ErrorIsNil)
 	defer os.RemoveAll(dir)
 
 	w, err := NewWatcher("controller", WithPath(dir))
