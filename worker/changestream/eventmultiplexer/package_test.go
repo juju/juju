@@ -54,6 +54,10 @@ func (s *baseSuite) expectAnyLogs() {
 	s.logger.EXPECT().IsTraceEnabled().Return(true).AnyTimes()
 }
 
+func (s *baseSuite) expectAfter() {
+	s.clock.EXPECT().After(gomock.Any()).AnyTimes()
+}
+
 func (s *baseSuite) expectTerm(c *gc.C, evts ...changestream.ChangeEvent) {
 	// The order is important here. We always expect done to be called once
 	// all the changes have been read.

@@ -107,6 +107,10 @@ func (s *eventMultiplexerSuite) TestMultipleDispatchWithOverlappingOptions(c *gc
 	s.testMultipleDispatch(c, changestream.Namespace("topic", changestream.Update), changestream.Namespace("topic", changestream.Update|changestream.Create))
 }
 
+func (s *eventMultiplexerSuite) TestMultipleDispatchWithDuplicateOptions(c *gc.C) {
+	s.testMultipleDispatch(c, changestream.Namespace("topic", changestream.Update), changestream.Namespace("topic", changestream.Update))
+}
+
 func (s *eventMultiplexerSuite) TestSubscribeWithMatchingFilter(c *gc.C) {
 	s.testMultipleDispatch(c, changestream.FilteredNamespace("topic", changestream.Update, func(event changestream.ChangeEvent) bool {
 		return event.Namespace() == "topic"
@@ -449,6 +453,275 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGorou
 			c.Fatal("timed out waiting for event")
 		}
 	}
+
+	workertest.CleanKill(c, queue)
+}
+
+func (s *eventMultiplexerSuite) TestReportWithAllSubscriptions(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectAfter()
+
+	terms := make(chan changestream.Term)
+	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
+
+	queue, err := New(s.stream, s.clock, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, queue)
+
+	var subs []changestream.Subscription
+	for i := 0; i < 10; i++ {
+		sub, err := queue.Subscribe()
+		c.Assert(err, jc.ErrorIsNil)
+
+		subs = append(subs, sub)
+	}
+
+	// Sync point. Wait for sometime to let the subscriptions be registered.
+	time.Sleep(time.Millisecond * 100)
+
+	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
+		"subscriptions":      10,
+		"subscriptionsByNS":  0,
+		"subscriptionsAll":   10,
+		"dispatchErrorCount": 0,
+	})
+
+	for _, sub := range subs {
+		s.unsubscribe(c, sub)
+	}
+
+	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
+		"subscriptions":      0,
+		"subscriptionsByNS":  0,
+		"subscriptionsAll":   0,
+		"dispatchErrorCount": 0,
+	})
+
+	workertest.CleanKill(c, queue)
+}
+
+func (s *eventMultiplexerSuite) TestReportWithTopicSubscriptions(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectAfter()
+
+	terms := make(chan changestream.Term)
+	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
+
+	queue, err := New(s.stream, s.clock, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, queue)
+
+	var subs []changestream.Subscription
+	for i := 0; i < 10; i++ {
+		sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
+		c.Assert(err, jc.ErrorIsNil)
+
+		subs = append(subs, sub)
+	}
+
+	// Sync point. Wait for sometime to let the subscriptions be registered.
+	time.Sleep(time.Millisecond * 100)
+
+	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
+		"subscriptions":      10,
+		"subscriptionsByNS":  1,
+		"subscriptionsAll":   0,
+		"dispatchErrorCount": 0,
+	})
+
+	for _, sub := range subs {
+		s.unsubscribe(c, sub)
+	}
+
+	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
+		"subscriptions":      0,
+		"subscriptionsByNS":  0,
+		"subscriptionsAll":   0,
+		"dispatchErrorCount": 0,
+	})
+
+	workertest.CleanKill(c, queue)
+}
+
+func (s *eventMultiplexerSuite) TestReportWithMultipleTopicSubscriptions(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectAfter()
+
+	terms := make(chan changestream.Term)
+	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
+
+	queue, err := New(s.stream, s.clock, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, queue)
+
+	var subs []changestream.Subscription
+	for i := 0; i < 10; i++ {
+		sub, err := queue.Subscribe(
+			changestream.Namespace("topic", changestream.Create),
+			changestream.Namespace("foo", changestream.Update),
+		)
+		c.Assert(err, jc.ErrorIsNil)
+
+		subs = append(subs, sub)
+	}
+
+	// Sync point. Wait for sometime to let the subscriptions be registered.
+	time.Sleep(time.Millisecond * 100)
+
+	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
+		"subscriptions":      10,
+		"subscriptionsByNS":  2,
+		"subscriptionsAll":   0,
+		"dispatchErrorCount": 0,
+	})
+
+	for _, sub := range subs {
+		s.unsubscribe(c, sub)
+	}
+
+	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
+		"subscriptions":      0,
+		"subscriptionsByNS":  0,
+		"subscriptionsAll":   0,
+		"dispatchErrorCount": 0,
+	})
+
+	workertest.CleanKill(c, queue)
+}
+
+func (s *eventMultiplexerSuite) TestReportWithDuplicateTopicSubscriptions(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectAfter()
+
+	terms := make(chan changestream.Term)
+	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
+
+	queue, err := New(s.stream, s.clock, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, queue)
+
+	var subs []changestream.Subscription
+	for i := 0; i < 10; i++ {
+		sub, err := queue.Subscribe(
+			changestream.Namespace("topic", changestream.Update),
+			changestream.Namespace("topic", changestream.Update),
+		)
+		c.Assert(err, jc.ErrorIsNil)
+
+		subs = append(subs, sub)
+	}
+
+	// Sync point. Wait for sometime to let the subscriptions be registered.
+	time.Sleep(time.Millisecond * 100)
+
+	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
+		"subscriptions":      10,
+		"subscriptionsByNS":  1,
+		"subscriptionsAll":   0,
+		"dispatchErrorCount": 0,
+	})
+
+	for _, sub := range subs {
+		s.unsubscribe(c, sub)
+	}
+
+	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
+		"subscriptions":      0,
+		"subscriptionsByNS":  0,
+		"subscriptionsAll":   0,
+		"dispatchErrorCount": 0,
+	})
+
+	workertest.CleanKill(c, queue)
+}
+
+func (s *eventMultiplexerSuite) TestReportWithMultipleDuplicateTopicSubscriptions(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectAfter()
+
+	terms := make(chan changestream.Term)
+	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
+
+	queue, err := New(s.stream, s.clock, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, queue)
+
+	var subs []changestream.Subscription
+	for i := 0; i < 10; i++ {
+		sub, err := queue.Subscribe(
+			changestream.Namespace("topic", changestream.Create),
+			changestream.Namespace("topic", changestream.Update),
+		)
+		c.Assert(err, jc.ErrorIsNil)
+
+		subs = append(subs, sub)
+	}
+
+	// Sync point. Wait for sometime to let the subscriptions be registered.
+	time.Sleep(time.Millisecond * 100)
+
+	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
+		"subscriptions":      10,
+		"subscriptionsByNS":  1,
+		"subscriptionsAll":   0,
+		"dispatchErrorCount": 0,
+	})
+
+	for _, sub := range subs {
+		s.unsubscribe(c, sub)
+	}
+
+	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
+		"subscriptions":      0,
+		"subscriptionsByNS":  0,
+		"subscriptionsAll":   0,
+		"dispatchErrorCount": 0,
+	})
+
+	workertest.CleanKill(c, queue)
+}
+
+func (s *eventMultiplexerSuite) TestReportWithTopicRemovalAfterUnsubscribe(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectAfter()
+
+	terms := make(chan changestream.Term)
+	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
+
+	queue, err := New(s.stream, s.clock, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, queue)
+
+	sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
+		"subscriptions":      1,
+		"subscriptionsByNS":  1,
+		"subscriptionsAll":   0,
+		"dispatchErrorCount": 0,
+	})
+
+	s.unsubscribe(c, sub)
+
+	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
+		"subscriptions":      0,
+		"subscriptionsByNS":  0,
+		"subscriptionsAll":   0,
+		"dispatchErrorCount": 0,
+	})
 
 	workertest.CleanKill(c, queue)
 }

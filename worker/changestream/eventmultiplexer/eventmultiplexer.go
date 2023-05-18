@@ -6,6 +6,7 @@ package eventmultiplexer
 import (
 	"context"
 	"sync/atomic"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -43,6 +44,11 @@ type eventFilter struct {
 	filter         func(changestream.ChangeEvent) bool
 }
 
+type reportRequest struct {
+	data map[string]any
+	done chan struct{}
+}
+
 // EventMultiplexer defines an event listener and dispatcher for db changes that
 // can be multiplexed to subscriptions. The event queue allows consumers to
 // subscribe via callbacks to the event queue. This is a lockless
@@ -61,11 +67,14 @@ type EventMultiplexer struct {
 	subscriptionsByNS  map[string][]*eventFilter
 	subscriptionsAll   map[uint64]struct{}
 	subscriptionsCount uint64
+	dispatchErrorCount int
 
 	// (un)subscription related channels to serialize adding and removing
 	// subscriptions. This allows the queue to be lock less.
 	subscriptionCh   chan subscriptionOpts
 	unsubscriptionCh chan uint64
+
+	reportsCh chan reportRequest
 }
 
 // New creates a new EventMultiplexer that will use the Stream for events.
@@ -78,9 +87,12 @@ func New(stream Stream, clock clock.Clock, logger Logger) (*EventMultiplexer, er
 		subscriptionsByNS:  make(map[string][]*eventFilter),
 		subscriptionsAll:   make(map[uint64]struct{}),
 		subscriptionsCount: 0,
+		dispatchErrorCount: 0,
 
 		subscriptionCh:   make(chan subscriptionOpts),
 		unsubscriptionCh: make(chan uint64),
+
+		reportsCh: make(chan reportRequest),
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -124,6 +136,28 @@ func (e *EventMultiplexer) Kill() {
 // Wait waits for the event queue to stop.
 func (e *EventMultiplexer) Wait() error {
 	return e.catacomb.Wait()
+}
+
+func (e *EventMultiplexer) Report() map[string]any {
+	r := reportRequest{
+		data: make(map[string]any),
+		done: make(chan struct{}),
+	}
+	select {
+	case <-e.catacomb.Dying():
+		return nil
+	case <-e.clock.After(time.Second):
+		e.logger.Errorf("report request timed out")
+		return nil
+	case e.reportsCh <- r:
+	}
+
+	select {
+	case <-e.catacomb.Dying():
+		return nil
+	case <-r.done:
+		return r.data
+	}
 }
 
 func (e *EventMultiplexer) unsubscribe(subscriptionID uint64) {
@@ -182,10 +216,8 @@ func (e *EventMultiplexer) loop() error {
 			// exit. Just log out the error and then mark the term as done.
 			// There isn't anything we can do in this case.
 			if err := e.dispatchSet(changeSet); err != nil {
-				// TODO (stickupkid): We should expose this as either a metric
-				// or some sort of feedback so we can see how ofter this is
-				// actually happening?
 				e.logger.Errorf("dispatching set: %v", err)
+				e.dispatchErrorCount++
 			}
 
 			term.Done()
@@ -229,6 +261,14 @@ func (e *EventMultiplexer) loop() error {
 					}
 					updatedFilters = append(updatedFilters, filter)
 				}
+
+				// If we don't have any more filters for this topic, remove it
+				// otherwise we'll keep iterating over it.
+				if len(updatedFilters) == 0 {
+					delete(e.subscriptionsByNS, topic)
+					continue
+				}
+
 				e.subscriptionsByNS[topic] = updatedFilters
 			}
 
@@ -236,6 +276,13 @@ func (e *EventMultiplexer) loop() error {
 			delete(e.subscriptionsAll, subscriptionID)
 
 			sub.close()
+
+		case r := <-e.reportsCh:
+			r.data["subscriptions"] = len(e.subscriptions)
+			r.data["subscriptionsByNS"] = len(e.subscriptionsByNS)
+			r.data["subscriptionsAll"] = len(e.subscriptionsAll)
+			r.data["dispatchErrorCount"] = e.dispatchErrorCount
+			close(r.done)
 		}
 	}
 }
