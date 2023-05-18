@@ -888,7 +888,6 @@ func (c *DeployCommand) getDeployerFactory(base series.Base, defaultCharmSchema 
 		FileSystem:           c.ModelCommandBase.Filesystem(),
 		CharmReader:          defaultCharmReader{},
 		NewConsumeDetailsAPI: c.NewConsumeDetailsAPI, // only used here
-		Steps:                c.Steps,
 	}
 	cfg := deployer.DeployerConfig{
 		ApplicationName:    c.ApplicationName,

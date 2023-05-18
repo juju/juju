@@ -84,7 +84,6 @@ func NewDeployerFactory(dep DeployerDependencies) DeployerFactory {
 		fileSystem:           dep.FileSystem,
 		charmReader:          dep.CharmReader,
 		newConsumeDetailsAPI: dep.NewConsumeDetailsAPI,
-		steps:                dep.Steps,
 	}
 	if dep.DeployResources == nil {
 		d.deployResources = DeployResources
@@ -415,7 +414,6 @@ type DeployerDependencies struct {
 	FileSystem           modelcmd.Filesystem
 	CharmReader          CharmReader
 	NewConsumeDetailsAPI func(url *charm.OfferURL) (ConsumeDetails, error)
-	Steps                []DeployStep
 	DeployKind           DeployerFactory
 }
 
@@ -488,7 +486,6 @@ type factory struct {
 	bundleDevices      map[string]map[string]devices.Constraints
 	resources          map[string]string
 	bindings           map[string]string
-	steps              []DeployStep
 	useExisting        bool
 	bundleMachines     map[string]string
 	trust              bool
