@@ -104,6 +104,10 @@ define BUILD_CGO_AGENT_TARGETS
 	$(call tool_platform_paths,jujud,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
 endef
 
+define BUILD_CGO_BENCH_TARGETS
+	$(call tool_platform_paths,dqlite-bench,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
+endef
+
 # BUILD_CLIENT_TARGETS is a list of make targets that get built that fall under
 # the category of Juju clients. These targets are also less likely to be cross
 # compiled
@@ -273,6 +277,9 @@ endef
 
 default: build
 
+.PHONY: dqlite-bench
+dqlite-bench: $(BUILD_CGO_BENCH_TARGETS)
+
 .PHONY: juju
 juju: PACKAGE = github.com/juju/juju/cmd/juju
 juju:
@@ -312,6 +319,11 @@ pebble:
 .PHONY: phony_explicit
 phony_explicit:
 # phone_explicit: is a dummy target that can be added to pattern targets to phony make.
+
+${BUILD_DIR}/%/bin/dqlite-bench: PACKAGE = github.com/juju/juju/scripts/dqlite-bench
+${BUILD_DIR}/%/bin/dqlite-bench: phony_explicit musl-install-if-missing dqlite-install-if-missing
+# build for dqlite-bench
+	$(run_cgo_build)
 
 ${BUILD_DIR}/%/bin/juju: PACKAGE = github.com/juju/juju/cmd/juju
 ${BUILD_DIR}/%/bin/juju: phony_explicit
