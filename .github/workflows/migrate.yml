@@ -34,14 +34,13 @@ jobs:
 
       - name: Install Juju 2.9
         run: |
-          sudo snap set system experimental.parallel-instances=true
-          sudo snap install juju --classic --channel 2.9/stable
+          sudo snap install juju_29 --classic --channel 2.9/stable
 
       - name: Bootstrap a 2.9 controller and model
         run: |
-          juju bootstrap lxd test29
-          juju add-model test-migrate
-          juju deploy ubuntu
+          juju_29 bootstrap lxd test29
+          juju_29 add-model test-migrate
+          juju_29 deploy ubuntu
           
           # TODO: use juju-restore
           # TODO: add users/permissions/models and test that those migrate over
@@ -67,28 +66,18 @@ jobs:
 
         # TODO: create backup and juju restore
 
-      - name: Set up Snap env
-        run: |
-          echo "GOPATH=/snap" >> $GITHUB_ENV
-          echo "snap/bin" >> $GITHUB_PATH
-
       - name: Migrate default model to 3.1 controller
         run: |
-          juju switch test29
+          juju_29 switch test29
           
           # Ensure application is fully deployed
-          juju wait-for application ubuntu
+          juju_29 wait-for application ubuntu
           
           # Wait a few secs for the machine status to update
           # so that migration prechecks pass.
           sleep 10
           
           juju_29 migrate test-migrate test31
-
-      - name: Set up Go env
-        run: |
-          echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
-          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
       - name: Check the migration was successful
         run: |
