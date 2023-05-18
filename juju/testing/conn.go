@@ -58,7 +58,6 @@ import (
 	"github.com/juju/juju/state/binarystorage"
 	statestorage "github.com/juju/juju/state/storage"
 	statetesting "github.com/juju/juju/state/testing"
-	statewatcher "github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -132,8 +131,6 @@ type JujuConnSuite struct {
 	ProviderCallContext envcontext.ProviderCallContext
 
 	idleFuncMutex       *sync.Mutex
-	txnSyncNotify       chan struct{}
-	modelWatcherIdle    chan string
 	controllerIdle      chan struct{}
 	controllerIdleCount int
 }
@@ -163,11 +160,7 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 	// that copy the lock otherwise. Yet another reason to move away from
 	// the glorious JujuConnSuite.
 	s.idleFuncMutex = &sync.Mutex{}
-	s.txnSyncNotify = make(chan struct{})
-	s.modelWatcherIdle = nil
 	s.controllerIdle = nil
-	s.PatchValue(&statewatcher.TxnPollNotifyFunc, s.txnNotifyFunc)
-	s.PatchValue(&statewatcher.HubWatcherIdleFunc, s.hubWatcherIdleFunc)
 	s.PatchValue(&cache.IdleFunc, s.controllerIdleFunc)
 	s.setUpConn(c)
 	s.Factory = factory.NewFactory(s.State, s.StatePool)
@@ -185,33 +178,6 @@ func (s *JujuConnSuite) TearDownTest(c *gc.C) {
 func (s *JujuConnSuite) Reset(c *gc.C) {
 	s.tearDownConn(c)
 	s.setUpConn(c)
-}
-
-func (s *JujuConnSuite) txnNotifyFunc() {
-	select {
-	case s.txnSyncNotify <- struct{}{}:
-		// Try to send something down the channel.
-	default:
-		// However don't get stressed if noone is listening.
-	}
-}
-
-func (s *JujuConnSuite) hubWatcherIdleFunc(modelUUID string) {
-	s.idleFuncMutex.Lock()
-	idleChan := s.modelWatcherIdle
-	s.idleFuncMutex.Unlock()
-	if idleChan == nil {
-		return
-	}
-	// There is a very small race condition between when the
-	// idle channel is cleared and when the function exits.
-	// Under normal circumstances, there is a goroutine in a tight loop
-	// reading off the idle channel. If the channel isn't read
-	// within a short wait, we don't send the message.
-	select {
-	case idleChan <- modelUUID:
-	case <-time.After(testing.ShortWait):
-	}
 }
 
 func (s *JujuConnSuite) controllerIdleFunc() {
@@ -240,52 +206,23 @@ func (s *JujuConnSuite) controllerIdleFunc() {
 	}
 }
 
-func (s *JujuConnSuite) WaitForNextSync(c *gc.C) {
-	select {
-	case <-s.txnSyncNotify:
-	case <-time.After(jujutesting.LongWait):
-		c.Fatal("no sync event sent, is the watcher dead?")
-	}
-	// It is possible that the previous sync was in progress
-	// while we were waiting, so wait for a second sync to make sure
-	// that the changes in the test goroutine have been processed by
-	// the txnwatcher.
-	select {
-	case <-s.txnSyncNotify:
-	case <-time.After(jujutesting.LongWait):
-		c.Fatal("no sync event sent, is the watcher dead?")
-	}
-}
-
 func (s *JujuConnSuite) WaitForModelWatchersIdle(c *gc.C, modelUUID string) {
 	// Use a logger rather than c.Log so we get timestamps.
 	logger := loggo.GetLogger("test")
 	logger.Infof("waiting for model %s to be idle", modelUUID)
-	s.WaitForNextSync(c)
-	watcherIdleChan := make(chan string)
 	controllerIdleChan := make(chan struct{})
-	// Now, in theory we shouldn't start waiting for the controller to be idle until
-	// we have noticed that the model watcher is idle. In practice, if the model watcher
-	// isn't idle, the controller won't yet be idle. Once the watcher is idle, it is also
-	// very likely that the controller will become idle very soon after. We do it this way
-	// so we don't add 50ms to every call of this function. In practice that time without
-	// events should be shared across both the things we are waiting on, so that idle time
-	// happens in parallel.
 	s.idleFuncMutex.Lock()
-	s.modelWatcherIdle = watcherIdleChan
 	s.controllerIdleCount = 0
 	s.controllerIdle = controllerIdleChan
 	s.idleFuncMutex.Unlock()
 
 	defer func() {
 		s.idleFuncMutex.Lock()
-		s.modelWatcherIdle = nil
 		s.controllerIdle = nil
 		s.idleFuncMutex.Unlock()
 		// Clear out any pending events.
 		for {
 			select {
-			case <-watcherIdleChan:
 			case <-controllerIdleChan:
 			default:
 				logger.Infof("WaitForModelWatchersIdle(%q) done", modelUUID)
@@ -294,19 +231,6 @@ func (s *JujuConnSuite) WaitForModelWatchersIdle(c *gc.C, modelUUID string) {
 		}
 	}()
 
-	timeout := time.After(jujutesting.LongWait)
-watcher:
-	for {
-		select {
-		case uuid := <-watcherIdleChan:
-			logger.Infof("model %s is idle", uuid)
-			if uuid == modelUUID {
-				break watcher
-			}
-		case <-timeout:
-			c.Fatal("no idle event sent, is the watcher dead?")
-		}
-	}
 	select {
 	case <-controllerIdleChan:
 		// done

@@ -234,21 +234,6 @@ func (mr *MockContextMockRecorder) Auth() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Auth", reflect.TypeOf((*MockContext)(nil).Auth))
 }
 
-// CachedModel mocks base method.
-func (m *MockContext) CachedModel(arg0 string) (*cache.Model, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CachedModel", arg0)
-	ret0, _ := ret[0].(*cache.Model)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CachedModel indicates an expected call of CachedModel.
-func (mr *MockContextMockRecorder) CachedModel(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CachedModel", reflect.TypeOf((*MockContext)(nil).CachedModel), arg0)
-}
-
 // Cancel mocks base method.
 func (m *MockContext) Cancel() <-chan struct{} {
 	m.ctrl.T.Helper()

@@ -1391,6 +1391,11 @@ func (u *Unit) Status() (status.StatusInfo, error) {
 	return info, nil
 }
 
+// ContainerStatus returns the container status for a unit.
+func (u *Unit) ContainerStatus() (status.StatusInfo, error) {
+	return getStatus(u.st.db(), u.globalCloudContainerKey(), "cloud container")
+}
+
 // SetStatus sets the status of the unit agent. The optional values
 // allow to pass additional helpful status data.
 // This method relies on globalKey instead of globalAgentKey since it is part of

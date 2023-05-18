@@ -25,10 +25,6 @@ const (
 	modelRemovedTopic = "model-removed"
 	// A model summary has changed
 	modelSummaryUpdatedTopic = "model-summary-changed"
-
-	// modelAppearingTimeout is how long the controller will wait for a model to
-	// exist before it either times out or returns a not found.
-	modelAppearingTimeout = 5 * time.Second
 )
 
 var (
@@ -297,29 +293,6 @@ func (c *Controller) Model(uuid string) (*Model, error) {
 		return nil, errors.NotFoundf("model %q", uuid)
 	}
 	return model, nil
-}
-
-// WaitForModel waits for a time for the specified model to appear in the cache.
-func (c *Controller) WaitForModel(uuid string, clock Clock) (*Model, error) {
-	watcher := c.modelWatcher(uuid)
-	defer watcher.Kill()
-	select {
-	case <-clock.After(modelAppearingTimeout):
-		return nil, errors.Timeoutf("model %q did not appear in cache", uuid)
-	case model := <-watcher.Changes():
-		return model, nil
-	}
-}
-
-// modelWatcher creates a watcher that will pass the Model
-// down the changes channel when it becomes available. It may
-// be immediately available.
-func (c *Controller) modelWatcher(uuid string) ModelWatcher {
-	c.modelsMu.Lock()
-	defer c.modelsMu.Unlock()
-
-	model, _ := c.models[uuid]
-	return newModelWatcher(uuid, c.hub, model)
 }
 
 // updateModel will add or update the model details as

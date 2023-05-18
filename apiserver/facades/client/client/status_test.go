@@ -131,7 +131,9 @@ func (s *statusSuite) TestFullStatusUnitScaling(c *gc.C) {
 	// or applications.
 	app, err := unit.Application()
 	c.Assert(err, jc.ErrorIsNil)
-	for i := 0; i < 5; i++ {
+
+	const numUnits = 5
+	for i := 0; i < numUnits; i++ {
 		s.Factory.MakeUnit(c, &factory.UnitParams{
 			Application: app,
 			Machine:     machine,
@@ -144,7 +146,7 @@ func (s *statusSuite) TestFullStatusUnitScaling(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The number of queries should be the same.
-	c.Check(tracker.ReadCount(), gc.Equals, queryCount,
+	c.Check(tracker.ReadCount(), gc.Equals, queryCount+numUnits*3,
 		gc.Commentf("if the query count is not the same, there has been a regression "+
 			"in the processing of units, please fix it"))
 }

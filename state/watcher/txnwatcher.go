@@ -71,10 +71,6 @@ var (
 		Factor:   2.0,
 		MaxDelay: 30 * time.Second,
 	}
-
-	// TxnPollNotifyFunc allows tests to be able to specify
-	// callbacks each time the database has been polled and processed.
-	TxnPollNotifyFunc func()
 )
 
 type outOfSyncError struct {
@@ -100,10 +96,6 @@ type TxnWatcher struct {
 	session        *mgo.Session
 	jujuDBName     string
 	collectionName string
-
-	// notifySync is copied from the package variable when the watcher
-	// is created.
-	notifySync func()
 
 	reportRequest chan chan map[string]interface{}
 
@@ -185,7 +177,6 @@ func NewTxnWatcher(config TxnWatcherConfig) (*TxnWatcher, error) {
 		jujuDBName:     config.JujuDBName,
 		collectionName: config.CollectionName,
 		iteratorFunc:   config.IteratorFunc,
-		notifySync:     TxnPollNotifyFunc,
 		reportRequest:  make(chan chan map[string]interface{}),
 	}
 	if w.iteratorFunc == nil {
@@ -343,9 +334,6 @@ func (w *TxnWatcher) loop() error {
 			}
 			syncRetryCount = 0
 			w.flush()
-			if !added && w.notifySync != nil {
-				w.notifySync()
-			}
 		} else {
 			w.logger.Warningf("txn watcher sync error: %v\ncurrent retry count %d", err, syncRetryCount)
 			_, isSyncError := errors.Cause(err).(outOfSyncError)
@@ -359,9 +347,6 @@ func (w *TxnWatcher) loop() error {
 				// An error occurred so set up the error retry strategy.
 				backoff = ErrorStrategy.NewTimer(w.clock.Now())
 				next = w.clock.After(txnWatcherErrorShortWait)
-			}
-			if w.notifySync != nil {
-				w.notifySync()
 			}
 		}
 	}

@@ -308,13 +308,16 @@ func (s *TxnWatcherSuite) TestDoubleUpdate(c *gc.C) {
 }
 
 func (s *TxnWatcherSuite) TestErrorRetry(c *gc.C) {
-	syncCh := make(chan struct{}, 1)
-	s.PatchValue(&watcher.TxnPollNotifyFunc, func() {
-		syncCh <- struct{}{}
-	})
+	syncCh := make(chan struct{})
 
-	fakeIter := &fakeIterator{err: errors.New("boom")}
+	fakeIter := &fakeIterator{err: errors.New("boom"), closed: syncCh}
+	first := true
 	s.iteratorFunc = func(collection *mgo.Collection) mongo.Iterator {
+		if !first {
+			fakeIter.err = nil
+			fakeIter.closed = make(chan struct{})
+		}
+		first = false
 		fakeIter.iter = s.log.Find(nil).Batch(10).Sort("-$natural").Iter()
 		return fakeIter
 	}
@@ -337,7 +340,7 @@ func (s *TxnWatcherSuite) TestErrorRetry(c *gc.C) {
 }
 
 func (s *TxnWatcherSuite) TestOutOfSyncError(c *gc.C) {
-	fakeIter := &fakeIterator{err: watcher.OutOfSyncError}
+	fakeIter := &fakeIterator{err: watcher.OutOfSyncError, closed: make(chan struct{})}
 	s.iteratorFunc = func(collection *mgo.Collection) mongo.Iterator {
 		fakeIter.iter = s.log.Find(nil).Batch(10).Sort("-$natural").Iter()
 		return fakeIter
@@ -350,8 +353,9 @@ func (s *TxnWatcherSuite) TestOutOfSyncError(c *gc.C) {
 }
 
 type fakeIterator struct {
-	iter mongo.Iterator
-	err  error
+	iter   mongo.Iterator
+	err    error
+	closed chan struct{}
 }
 
 func (i *fakeIterator) Next(result interface{}) bool {
@@ -363,6 +367,7 @@ func (i *fakeIterator) Timeout() bool {
 }
 
 func (i *fakeIterator) Close() error {
+	close(i.closed)
 	err := i.iter.Close()
 	if i.err != nil {
 		err = i.err

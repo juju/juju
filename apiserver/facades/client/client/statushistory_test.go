@@ -44,7 +44,6 @@ func (s *statusHistoryTestSuite) SetUpTest(c *gc.C) {
 		nil,                                // blockChecker
 		context.NewEmptyCloudCallContext(), // ProviderCallContext
 		nil,
-		nil,
 		nil, // multiwatcher.Factory
 		nil,
 		nil,
