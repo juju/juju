@@ -18,7 +18,7 @@ run_deploy_specific_series() {
 
 	ensure "test-deploy-specific-series" "${file}"
 
-	juju deploy postgresql --series focal
+	juju deploy postgresql --series jammy
 	series=$(juju status --format=json | jq ".applications.postgresql.series")
 
 	destroy_model "test-deploy-specific-series"
