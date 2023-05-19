@@ -65,10 +65,19 @@ func (s *workerSuite) TestEventMux(c *gc.C) {
 	s.expectAnyLogs()
 	s.expectClock()
 
+	done := make(chan struct{})
+
 	s.dbGetter.EXPECT().GetDB("controller").Return(s.TrackedDB(), nil)
 	s.eventMuxWorker.EXPECT().EventMux().Return(s.eventMux)
 	s.eventMuxWorker.EXPECT().Kill().AnyTimes()
-	s.eventMuxWorker.EXPECT().Wait().MinTimes(1)
+	s.eventMuxWorker.EXPECT().Wait().DoAndReturn(func() error {
+		select {
+		case <-done:
+		case <-time.After(testing.LongWait):
+			c.Fatal("timed out waiting for Wait to be called")
+		}
+		return nil
+	})
 
 	w := s.newWorker(c, 1)
 	defer workertest.DirtyKill(c, w)
@@ -78,6 +87,8 @@ func (s *workerSuite) TestEventMux(c *gc.C) {
 
 	_, err := stream.NamespacedEventMux("controller")
 	c.Assert(err, jc.ErrorIsNil)
+
+	close(done)
 
 	workertest.CleanKill(c, w)
 }

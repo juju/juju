@@ -137,30 +137,29 @@ func (w *changeStreamWorker) Wait() error {
 // NamespacedEventMux returns a new EventMultiplexer for the given namespace.
 // The EventMultiplexer will be subscribed to the given options.
 func (w *changeStreamWorker) NamespacedEventMux(namespace string) (EventMultiplexer, error) {
-	if e, err := w.runner.Worker(namespace, w.catacomb.Dying()); err == nil {
-		return e.(EventMultiplexerWorker).EventMux(), nil
-	}
-
-	db, err := w.cfg.DBGetter.GetDB(namespace)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	mux, err := w.cfg.NewEventMultiplexerWorker(db, fileNotifyWatcher{
-		fileNotifier: w.cfg.FileNotifyWatcher,
-		fileName:     namespace,
-	}, w.cfg.Clock, w.cfg.Logger)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	if err := w.runner.StartWorker(namespace, func() (worker.Worker, error) {
+		db, err := w.cfg.DBGetter.GetDB(namespace)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		mux, err := w.cfg.NewEventMultiplexerWorker(db, fileNotifyWatcher{
+			fileNotifier: w.cfg.FileNotifyWatcher,
+			fileName:     namespace,
+		}, w.cfg.Clock, w.cfg.Logger)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		return mux, nil
-	}); err != nil {
+	}); err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return nil, errors.Trace(err)
 	}
 
-	return mux.EventMux(), nil
+	mux, err := w.runner.Worker(namespace, w.catacomb.Dying())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return mux.(EventMultiplexerWorker).EventMux(), nil
 }
 
 // fileNotifyWatcher is a wrapper around the FileNotifyWatcher that is used to
