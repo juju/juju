@@ -9,8 +9,7 @@ run_relation_data_exchange() {
 
 	echo "Deploy 2 wordpress instances and one mysql instance"
 	juju deploy wordpress -n 2 --force --series bionic
-	# mysql charm does not have stable channel, so we use edge channel
-	juju deploy mysql --channel=edge --force --series focal
+	juju deploy mysql --channel=8.0/stable --force --series jammy
 
 	echo "Establish relation"
 	juju relate wordpress mysql
