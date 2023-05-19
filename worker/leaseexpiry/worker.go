@@ -125,10 +125,8 @@ func (w *expiryWorker) expireLeases(ctx context.Context) error {
 
 		return nil
 	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return errors.Trace(w.trackedDB.Err())
+
+	return errors.Trace(err)
 }
 
 // Kill is part of the worker.Worker interface.

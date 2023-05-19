@@ -35,20 +35,6 @@ func (m *MockTrackedDB) EXPECT() *MockTrackedDBMockRecorder {
 	return m.recorder
 }
 
-// Err mocks base method.
-func (m *MockTrackedDB) Err() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Err")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Err indicates an expected call of Err.
-func (mr *MockTrackedDBMockRecorder) Err() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Err", reflect.TypeOf((*MockTrackedDB)(nil).Err))
-}
-
 // Txn mocks base method.
 func (m *MockTrackedDB) Txn(arg0 context.Context, arg1 func(context.Context, *sql.Tx) error) error {
 	m.ctrl.T.Helper()
