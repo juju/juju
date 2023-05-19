@@ -45,8 +45,6 @@ func (s *applicationSuite) TestTag(c *gc.C) {
 }
 
 func (s *applicationSuite) TestWatch(c *gc.C) {
-	s.WaitForModelWatchersIdle(c, s.Model.UUID())
-
 	w, err := s.apiApplication.Watch()
 	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewNotifyWatcherC(c, w)

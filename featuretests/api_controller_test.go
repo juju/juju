@@ -4,7 +4,6 @@
 package featuretests
 
 import (
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/controller/controller"
@@ -61,7 +60,6 @@ func (s *ControllerSuite) TestWatchAllModelSummaries(c *gc.C) {
 
 	// TODO(dqlite) - implement me
 	watcher, err := s.client.WatchAllModelSummaries()
-	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(watcher, gc.IsNil)
 	c.Assert(err, gc.NotNil)
 	//defer func() {

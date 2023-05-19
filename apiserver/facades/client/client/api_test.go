@@ -527,6 +527,5 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		setDefaultPassword(c, lu)
 		add(lu)
 	}
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 	return
 }

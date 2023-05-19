@@ -52,7 +52,6 @@ var _ = gc.Suite(&watcherSuite{})
 func (s *watcherSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c, state.JobManageModel, state.JobHostUnits)
-	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 }
 
 func (s *watcherSuite) TestWatchInitialEventConsumed(c *gc.C) {
@@ -131,8 +130,6 @@ func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
 	subordinate, err := s.State.Unit("logging/0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Call the Deployer facade's WatchUnits for machine-0.
-	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	var results params.StringsWatchResults
 	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}}}
 	err = s.stateAPI.APICall("Deployer", s.stateAPI.BestFacadeVersion("Deployer"), "", "WatchUnits", args, &results)
@@ -315,9 +312,7 @@ func (s *watcherSuite) assertSetupRelationStatusWatch(
 	stop := func() {
 		workertest.CleanKill(c, w)
 	}
-	modelUUID := s.BackingState.ModelUUID()
 	assertNoChange := func() {
-		s.WaitForModelWatchersIdle(c, modelUUID)
 		select {
 		case _, ok := <-w.Changes():
 			c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
@@ -326,7 +321,6 @@ func (s *watcherSuite) assertSetupRelationStatusWatch(
 	}
 
 	assertChange := func(life life.Value, suspended bool, reason string) {
-		s.WaitForModelWatchersIdle(c, modelUUID)
 		select {
 		case changes, ok := <-w.Changes():
 			c.Check(ok, jc.IsTrue)
@@ -364,9 +358,6 @@ func (s *watcherSuite) TestRelationStatusWatcher(c *gc.C) {
 	err = relUnit.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Ensure that all the creation events have flowed through the system.
-	s.WaitForModelWatchersIdle(c, s.Model.UUID())
-
 	assertChange, stop := s.assertSetupRelationStatusWatch(c, rel)
 	defer stop()
 
@@ -393,9 +384,6 @@ func (s *watcherSuite) TestRelationStatusWatcherDeadRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure that all the creation events have flowed through the system.
-	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	assertChange, stop := s.assertSetupRelationStatusWatch(c, rel)
 	defer stop()
@@ -442,7 +430,6 @@ func (s *watcherSuite) setupOfferStatusWatch(
 		}, bakery.NoOp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	// Start watching for a relation change.
 	client := crossmodelrelations.NewClient(s.stateAPI)
 	w, err := client.WatchOfferStatus(params.OfferArg{
@@ -531,8 +518,6 @@ func (s *watcherSuite) setupSecretRotationWatcher(
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	apiInfo := s.APIInfo(c)
 	apiInfo.Tag = unit.Tag()
@@ -638,8 +623,6 @@ func (s *watcherSuite) setupSecretExpiryWatcher(
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	apiInfo := s.APIInfo(c)
 	apiInfo.Tag = unit.Tag()
@@ -783,8 +766,6 @@ func (s *watcherSuite) setupSecretsRevisionWatcher(
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	apiInfo := s.APIInfo(c)
 	apiInfo.Tag = unit.Tag()

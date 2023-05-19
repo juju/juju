@@ -292,7 +292,6 @@ func (s *firewallerSuite) TestWatchSubnets(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	watchSubnetTags := []names.SubnetTag{

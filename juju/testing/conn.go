@@ -165,13 +165,6 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 	s.setUpConn(c)
 }
 
-func (s *JujuConnSuite) WaitForModelWatchersIdle(c *gc.C, modelUUID string) {
-	// TODO(dqlite) - remove me
-	// Use a logger rather than c.Log so we get timestamps.
-	logger := loggo.GetLogger("test")
-	logger.Infof("waiting for model %s to be idle", modelUUID)
-}
-
 func (s *JujuConnSuite) AdminUserTag(c *gc.C) names.UserTag {
 	owner, err := s.State.ControllerOwner()
 	c.Assert(err, jc.ErrorIsNil)

@@ -45,7 +45,6 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/multiwatcher"
 )
 
@@ -98,14 +97,6 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 
 	machineTag := names.NewMachineTag("0")
 	hub := centralhub.New(machineTag, centralhub.PubsubNoOpMetrics{})
-
-	initialized := gate.NewLock()
-
-	select {
-	case <-initialized.Unlocked():
-	case <-time.After(10 * time.Second):
-		c.Error("model cache not initialized after 10 seconds")
-	}
 
 	s.config = apiserver.ServerConfig{
 		StatePool:                  s.StatePool,

@@ -39,9 +39,6 @@ func (s *meterStatusIntegrationSuite) SetUpTest(c *gc.C) {
 	// document is created before any of the tests care.
 	_, err = s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure that all the creation events have flowed through the system.
-	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 }
 
 func (s *meterStatusIntegrationSuite) TestMeterStatus(c *gc.C) {
