@@ -758,14 +758,16 @@ func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedO
 	}
 	// Get the base to use.
 	base, err := selector.CharmBase()
-	deployRepoLogger.Tracef("Using base %q from %v to deploy %v", base, supportedBases, curl)
-	if charm.IsUnsupportedSeriesError(err) {
+	if corecharm.IsUnsupportedBaseError(err) {
 		msg := fmt.Sprintf("%v. Use --force to deploy the charm anyway.", err)
 		if usedModelDefaultBase {
 			msg += " Used the default-base."
 		}
 		return corecharm.ResolvedDataForDeploy{}, errors.Errorf(msg)
+	} else if err != nil {
+		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
 	}
+	deployRepoLogger.Tracef("Using base %q from %v to deploy %v", base, supportedBases, curl)
 
 	resolvedOrigin.Platform.OS = base.OS
 	// Avoid using Channel.String() here instead of Channel.Track for the Platform.Channel,
