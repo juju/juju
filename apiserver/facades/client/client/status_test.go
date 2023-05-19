@@ -623,14 +623,9 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 	model2, err := state2.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.WaitForModelWatchersIdle(c, model2.UUID())
-
 	// Get API connection to hosted model.
 	apiInfo := s.APIInfo(c)
 	apiInfo.ModelTag = model2.ModelTag()
-	// To avoid the race between the cache on the model creation,
-	// make sure the cache has the model before progressing.
-	s.EnsureCachedModel(c, model2.UUID())
 
 	conn, err := api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1001,7 +996,6 @@ func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 		Charm: ch,
 	})
 	s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.app})
-	s.WaitForModelWatchersIdle(c, st.ModelUUID())
 }
 
 func (s *CAASStatusSuite) TestStatusOperatorNotReady(c *gc.C) {
@@ -1018,7 +1012,6 @@ func (s *CAASStatusSuite) TestStatusPodSpecNotSet(c *gc.C) {
 	client := apiclient.NewClient(s.APIState)
 	err := s.app.SetOperatorStatus(status.StatusInfo{Status: status.Active})
 	c.Assert(err, jc.ErrorIsNil)
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1041,7 +1034,6 @@ containers:
 `[1:]
 	err = cm.SetPodSpec(nil, s.app.ApplicationTag(), &spec)
 	c.Assert(err, jc.ErrorIsNil)
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1065,7 +1057,6 @@ func (s *CAASStatusSuite) TestStatusCloudContainerSet(c *gc.C) {
 		})}
 	err = s.app.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1189,7 +1180,6 @@ func (s *filteringBranchesSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = ru.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 }
 
 func (s *filteringBranchesSuite) TestFullStatusBranchNoFilter(c *gc.C) {
@@ -1303,12 +1293,9 @@ func (s *filteringBranchesSuite) TestFullStatusBranchFilterTwoBranchesSubordinat
 }
 
 func (s *filteringBranchesSuite) clientForTest(c *gc.C) *client.Client {
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-
 	ctx := &facadetest.Context{
-		Controller_: s.Controller,
-		State_:      s.State,
-		StatePool_:  s.StatePool,
+		State_:     s.State,
+		StatePool_: s.StatePool,
 		Auth_: apiservertesting.FakeAuthorizer{
 			Tag:        s.AdminUserTag(c),
 			Controller: true,

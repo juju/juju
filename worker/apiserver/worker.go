@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
-	"github.com/juju/juju/core/cache"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
@@ -39,7 +38,6 @@ type Config struct {
 	MultiwatcherFactory               multiwatcher.Factory
 	LocalMacaroonAuthenticator        macaroon.LocalMacaroonAuthenticator
 	StatePool                         *state.StatePool
-	Controller                        *cache.Controller
 	LeaseManager                      lease.Manager
 	SysLogger                         syslogger.SysLogger
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -77,9 +75,6 @@ func (config Config) Validate() error {
 	}
 	if config.StatePool == nil {
 		return errors.NotValidf("nil StatePool")
-	}
-	if config.Controller == nil {
-		return errors.NotValidf("nil Controller")
 	}
 	if config.Mux == nil {
 		return errors.NotValidf("nil Mux")
@@ -155,7 +150,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 	serverConfig := apiserver.ServerConfig{
 		StatePool:                     config.StatePool,
-		Controller:                    config.Controller,
 		Clock:                         config.Clock,
 		Tag:                           config.AgentConfig.Tag(),
 		DataDir:                       config.AgentConfig.DataDir(),

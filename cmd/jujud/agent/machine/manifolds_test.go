@@ -98,9 +98,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"migration-fortress",
 			"migration-minion",
 			"migration-inactive-flag",
-			"model-cache",
-			"model-cache-initialized-flag",
-			"model-cache-initialized-gate",
 			"model-worker-manager",
 			"multiwatcher",
 			"peer-grouper",
@@ -167,9 +164,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"migration-fortress",
 			"migration-minion",
 			"migration-inactive-flag",
-			"model-cache",
-			"model-cache-initialized-flag",
-			"model-cache-initialized-gate",
 			"model-worker-manager",
 			"multiwatcher",
 			"peer-grouper",
@@ -243,9 +237,6 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"lease-expiry",
 		"lease-manager",
 		"log-forwarder",
-		"model-cache",
-		"model-cache-initialized-flag",
-		"model-cache-initialized-gate",
 		"model-worker-manager",
 		"multiwatcher",
 		"peer-grouper",
@@ -294,8 +285,6 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"certificate-watcher",
 		"audit-config-updater",
 		"is-primary-controller-flag",
-		"model-cache-initialized-flag",
-		"model-cache-initialized-gate",
 		"lease-expiry",
 		"lease-manager",
 		"upgrade-database-flag",
@@ -316,7 +305,6 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 	// Guarded by ifDatabaseUpgradeComplete,
 	// which implies running on a controller.
 	dbUpgradedWorkers := set.NewStrings(
-		"model-cache",
 		"multiwatcher",
 	)
 
@@ -475,9 +463,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"http-server-args",
 		"is-controller-flag",
 		"lease-manager",
-		"model-cache",
-		"model-cache-initialized-flag",
-		"model-cache-initialized-gate",
 		"multiwatcher",
 		"query-logger",
 		"state",
@@ -634,9 +619,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"http-server-args",
 		"is-controller-flag",
 		"lease-manager",
-		"model-cache",
-		"model-cache-initialized-flag",
-		"model-cache-initialized-gate",
 		"multiwatcher",
 		"query-logger",
 		"state",
@@ -806,31 +788,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
-	},
-
-	"model-cache": {
-		"agent",
-		"central-hub",
-		"is-controller-flag",
-		"model-cache-initialized-gate",
-		"multiwatcher",
-		"state",
-		"state-config-watcher",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
-	},
-
-	"model-cache-initialized-flag": {
-		"agent",
-		"is-controller-flag",
-		"model-cache-initialized-gate",
-		"state-config-watcher",
-	},
-
-	"model-cache-initialized-gate": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
 	},
 
 	"model-worker-manager": {
@@ -1091,9 +1048,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"http-server-args",
 		"is-controller-flag",
 		"lease-manager",
-		"model-cache",
-		"model-cache-initialized-flag",
-		"model-cache-initialized-gate",
 		"multiwatcher",
 		"query-logger",
 		"state",
@@ -1180,9 +1134,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"http-server-args",
 		"is-controller-flag",
 		"lease-manager",
-		"model-cache",
-		"model-cache-initialized-flag",
-		"model-cache-initialized-gate",
 		"multiwatcher",
 		"query-logger",
 		"state",
@@ -1276,31 +1227,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
-	},
-
-	"model-cache": {
-		"agent",
-		"central-hub",
-		"is-controller-flag",
-		"model-cache-initialized-gate",
-		"multiwatcher",
-		"state",
-		"state-config-watcher",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
-	},
-
-	"model-cache-initialized-flag": {
-		"agent",
-		"is-controller-flag",
-		"model-cache-initialized-gate",
-		"state-config-watcher",
-	},
-
-	"model-cache-initialized-gate": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
 	},
 
 	"model-worker-manager": {

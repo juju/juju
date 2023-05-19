@@ -73,7 +73,6 @@ import (
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationminion"
-	"github.com/juju/juju/worker/modelcache"
 	"github.com/juju/juju/worker/modelworkermanager"
 	"github.com/juju/juju/worker/multiwatcher"
 	"github.com/juju/juju/worker/peergrouper"
@@ -398,29 +397,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewAllWatcher:        state.NewAllWatcherBacking,
 		})),
 
-		// The model cache initialized gate is used to make sure the api server
-		// isn't created before the model cache has been initialized with the
-		// initial state of the world.
-		modelCacheInitializedGateName: ifController(gate.Manifold()),
-		modelCacheInitializedFlagName: ifController(gate.FlagManifold(gate.FlagManifoldConfig{
-			GateName:  modelCacheInitializedGateName,
-			NewWorker: gate.NewFlagWorker,
-		})),
-
-		// The modelcache manifold creates a cache.Controller and keeps
-		// it up to date using an all model watcher. The controller is then
-		// used by the apiserver.
-		// Note: ifDatabaseUpgradeComplete implies running on a controller.
-		modelCacheName: ifDatabaseUpgradeComplete(modelcache.Manifold(modelcache.ManifoldConfig{
-			StateName:            stateName,
-			CentralHubName:       centralHubName,
-			MultiwatcherName:     multiwatcherName,
-			InitializedGateName:  modelCacheInitializedGateName,
-			Logger:               loggo.GetLogger("juju.worker.modelcache"),
-			PrometheusRegisterer: config.PrometheusRegisterer,
-			NewWorker:            modelcache.NewWorker,
-		})),
-
 		// The api-config-watcher manifold monitors the API server
 		// addresses in the agent config and bounces when they
 		// change. It's required as part of model migrations.
@@ -638,13 +614,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:            httpserver.NewWorkerShim,
 		}),
 
-		apiServerName: ifModelCacheInitialized(apiserver.Manifold(apiserver.ManifoldConfig{
+		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
 			AgentName:              agentName,
 			AuthenticatorName:      httpServerArgsName,
 			ClockName:              clockName,
 			StateName:              stateName,
 			SyslogName:             syslogName,
-			ModelCacheName:         modelCacheName,
 			MultiwatcherName:       multiwatcherName,
 			MuxName:                httpServerArgsName,
 			LeaseManagerName:       leaseManagerName,
@@ -659,7 +634,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Presence:                          config.PresenceRecorder,
 			NewWorker:                         apiserver.NewWorker,
 			NewMetricsCollector:               apiserver.NewMetricsCollector,
-		})),
+		}),
 
 		charmhubHTTPClientName: dependency.Manifold{
 			Start: func(_ dependency.Context) (worker.Worker, error) {
@@ -1058,12 +1033,6 @@ var ifCredentialValid = engine.Housing{
 	},
 }.Decorate
 
-var ifModelCacheInitialized = engine.Housing{
-	Flags: []string{
-		modelCacheInitializedFlagName,
-	},
-}.Decorate
-
 var ifDatabaseUpgradeComplete = engine.Housing{
 	Flags: []string{
 		upgradeDatabaseFlagName,
@@ -1122,9 +1091,6 @@ const (
 	isNotControllerFlagName       = "is-not-controller-flag"
 	instanceMutaterName           = "instance-mutater"
 	certificateWatcherName        = "certificate-watcher"
-	modelCacheName                = "model-cache"
-	modelCacheInitializedFlagName = "model-cache-initialized-flag"
-	modelCacheInitializedGateName = "model-cache-initialized-gate"
 	modelWorkerManagerName        = "model-worker-manager"
 	multiwatcherName              = "multiwatcher"
 	peergrouperName               = "peer-grouper"

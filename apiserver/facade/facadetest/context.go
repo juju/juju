@@ -5,7 +5,6 @@ package facadetest
 
 import (
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/cache"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
@@ -21,7 +20,6 @@ type Context struct {
 	Resources_           facade.Resources
 	State_               *state.State
 	StatePool_           *state.StatePool
-	Controller_          *cache.Controller
 	MultiwatcherFactory_ multiwatcher.Factory
 	ID_                  string
 	RequestRecorder_     facade.RequestRecorder
@@ -58,11 +56,6 @@ func (context Context) Dispose() {
 // Hub is part of the facade.Context interface.
 func (context Context) Hub() facade.Hub {
 	return context.Hub_
-}
-
-// Controller is part of the facade.Context interface.
-func (context Context) Controller() *cache.Controller {
-	return context.Controller_
 }
 
 // MultiwatcherFactory is part of the facade.Context interface.

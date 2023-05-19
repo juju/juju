@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
@@ -27,10 +26,9 @@ import (
 )
 
 type watcherCommon struct {
-	id         string
-	resources  facade.Resources
-	dispose    func()
-	controller *cache.Controller
+	id        string
+	resources facade.Resources
+	dispose   func()
 }
 
 func newWatcherCommon(context facade.Context) watcherCommon {
@@ -38,7 +36,6 @@ func newWatcherCommon(context facade.Context) watcherCommon {
 		context.ID(),
 		context.Resources(),
 		context.Dispose,
-		context.Controller(),
 	}
 }
 
@@ -567,7 +564,7 @@ func newNotifyWatcher(context facade.Context) (facade.Facade, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	watcher, ok := resources.Get(id).(cache.NotifyWatcher)
+	watcher, ok := resources.Get(id).(state.NotifyWatcher)
 	if !ok {
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
@@ -582,7 +579,7 @@ func newNotifyWatcher(context facade.Context) (facade.Facade, error) {
 // Each client has its own current set of watchers, stored in resources.
 type srvNotifyWatcher struct {
 	watcherCommon
-	watcher cache.NotifyWatcher
+	watcher state.NotifyWatcher
 }
 
 // state watchers have an Err method, but cache watchers do not.
@@ -614,7 +611,7 @@ func (w *srvNotifyWatcher) Next() error {
 // sending the changes as a list of strings.
 type srvStringsWatcher struct {
 	watcherCommon
-	watcher cache.StringsWatcher
+	watcher state.StringsWatcher
 }
 
 func newStringsWatcher(context facade.Context) (facade.Facade, error) {
@@ -627,7 +624,7 @@ func newStringsWatcher(context facade.Context) (facade.Facade, error) {
 	if auth.GetAuthTag() != nil && !isAgentOrUser(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
-	watcher, ok := resources.Get(id).(cache.StringsWatcher)
+	watcher, ok := resources.Get(id).(state.StringsWatcher)
 	if !ok {
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
@@ -1170,7 +1167,7 @@ func NewModelSummaryWatcher(context facade.Context) (*SrvModelSummaryWatcher, er
 		// rights) API calls.
 		return nil, apiservererrors.ErrPerm
 	}
-	watcher, ok := resources.Get(id).(cache.ModelSummaryWatcher)
+	watcher, ok := resources.Get(id).(corewatcher.ModelSummaryWatcher)
 	if !ok {
 		return nil, errors.Annotatef(apiservererrors.ErrUnknownWatcher, "watcher id: %s", id)
 	}
@@ -1183,7 +1180,7 @@ func NewModelSummaryWatcher(context facade.Context) (*SrvModelSummaryWatcher, er
 // SrvModelSummaryWatcher defines the API methods on a ModelSummaryWatcher.
 type SrvModelSummaryWatcher struct {
 	watcherCommon
-	watcher cache.ModelSummaryWatcher
+	watcher corewatcher.ModelSummaryWatcher
 }
 
 // Next will return the current state of everything on the first call
@@ -1198,7 +1195,7 @@ func (w *SrvModelSummaryWatcher) Next() (params.SummaryWatcherNextResults, error
 	return params.SummaryWatcherNextResults{}, apiservererrors.ErrStoppedWatcher
 }
 
-func (w *SrvModelSummaryWatcher) translate(summaries []cache.ModelSummary) []params.ModelAbstract {
+func (w *SrvModelSummaryWatcher) translate(summaries []corewatcher.ModelSummary) []params.ModelAbstract {
 	response := make([]params.ModelAbstract, 0, len(summaries))
 	for _, summary := range summaries {
 		if summary.Removed {
@@ -1233,7 +1230,7 @@ func (w *SrvModelSummaryWatcher) translate(summaries []cache.ModelSummary) []par
 	return response
 }
 
-func (w *SrvModelSummaryWatcher) translateMessages(messages []cache.ModelSummaryMessage) []params.ModelSummaryMessage {
+func (w *SrvModelSummaryWatcher) translateMessages(messages []corewatcher.ModelSummaryMessage) []params.ModelSummaryMessage {
 	if messages == nil {
 		return nil
 	}

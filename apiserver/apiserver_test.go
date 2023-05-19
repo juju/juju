@@ -36,7 +36,6 @@ import (
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/websocket/websockettest"
 	"github.com/juju/juju/core/auditlog"
-	"github.com/juju/juju/core/cache"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/jujuclient"
@@ -46,8 +45,6 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/worker/modelcache"
 	"github.com/juju/juju/worker/multiwatcher"
 )
 
@@ -101,32 +98,8 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 	machineTag := names.NewMachineTag("0")
 	hub := centralhub.New(machineTag, centralhub.PubsubNoOpMetrics{})
 
-	initialized := gate.NewLock()
-	modelCache, err := modelcache.NewWorker(modelcache.Config{
-		StatePool:            s.StatePool,
-		Hub:                  hub,
-		InitializedGate:      initialized,
-		Logger:               loggo.GetLogger("test"),
-		WatcherFactory:       multiWatcherWorker.WatchController,
-		PrometheusRegisterer: noopRegisterer{},
-		Cleanup:              func() {},
-	}.WithDefaultRestartStrategy())
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, modelCache) })
-
-	select {
-	case <-initialized.Unlocked():
-	case <-time.After(10 * time.Second):
-		c.Error("model cache not initialized after 10 seconds")
-	}
-
-	var controller *cache.Controller
-	err = modelcache.ExtractCacheController(modelCache, &controller)
-	c.Assert(err, jc.ErrorIsNil)
-
 	s.config = apiserver.ServerConfig{
 		StatePool:                  s.StatePool,
-		Controller:                 controller,
 		MultiwatcherFactory:        multiWatcherWorker,
 		LocalMacaroonAuthenticator: s.authenticator,
 		Clock:                      clock.WallClock,

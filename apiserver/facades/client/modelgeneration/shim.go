@@ -7,8 +7,6 @@ import (
 	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/cache"
-
 	"github.com/juju/juju/state"
 )
 
@@ -92,8 +90,4 @@ func (st *stateShim) Application(name string) (Application, error) {
 		return nil, errors.Trace(err)
 	}
 	return &applicationShim{Application: app}, nil
-}
-
-type modelCacheShim struct {
-	*cache.Model
 }

@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/cache"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	coredatabase "github.com/juju/juju/core/database"
@@ -60,7 +59,6 @@ func (ctx *charmsSuiteContext) ID() string                                { retu
 func (ctx *charmsSuiteContext) RequestRecorder() facade.RequestRecorder   { return nil }
 func (ctx *charmsSuiteContext) Presence() facade.Presence                 { return nil }
 func (ctx *charmsSuiteContext) Hub() facade.Hub                           { return nil }
-func (ctx *charmsSuiteContext) Controller() *cache.Controller             { return nil }
 func (ctx *charmsSuiteContext) MultiwatcherFactory() multiwatcher.Factory { return nil }
 
 func (ctx *charmsSuiteContext) LeadershipClaimer(string) (leadership.Claimer, error)  { return nil, nil }

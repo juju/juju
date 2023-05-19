@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -25,9 +26,5 @@ func newModelGenerationFacadeV4(ctx facade.Context) (*API, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	mc, err := ctx.Controller().Model(st.ModelUUID())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return NewModelGenerationAPI(st, authorizer, m, &modelCacheShim{Model: mc})
+	return NewModelGenerationAPI(st, authorizer, m)
 }

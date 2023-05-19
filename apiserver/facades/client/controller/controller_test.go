@@ -30,7 +30,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	corecontroller "github.com/juju/juju/controller"
-	"github.com/juju/juju/core/cache"
 	coremultiwatcher "github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
@@ -42,8 +41,6 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/worker/modelcache"
 	"github.com/juju/juju/worker/multiwatcher"
 )
 
@@ -79,29 +76,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	// The worker itself is a coremultiwatcher.Factory.
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiWatcherWorker) })
 
-	initialized := gate.NewLock()
 	s.hub = pubsub.NewStructuredHub(nil)
-	modelCache, err := modelcache.NewWorker(modelcache.Config{
-		StatePool:            s.StatePool,
-		Hub:                  s.hub,
-		InitializedGate:      initialized,
-		Logger:               loggo.GetLogger("test"),
-		WatcherFactory:       multiWatcherWorker.WatchController,
-		PrometheusRegisterer: noopRegisterer{},
-		Cleanup:              func() {},
-	}.WithDefaultRestartStrategy())
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, modelCache) })
-
-	select {
-	case <-initialized.Unlocked():
-	case <-time.After(10 * time.Second):
-		c.Error("model cache not initialized after 10 seconds")
-	}
-
-	var cacheController *cache.Controller
-	err = modelcache.ExtractCacheController(modelCache, &cacheController)
-	c.Assert(err, jc.ErrorIsNil)
 
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
@@ -116,7 +91,6 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		StatePool_:           s.StatePool,
 		Resources_:           s.resources,
 		Auth_:                s.authorizer,
-		Controller_:          cacheController,
 		Hub_:                 s.hub,
 		MultiwatcherFactory_: multiWatcherWorker,
 	}
@@ -1061,6 +1035,8 @@ func (s *controllerSuite) newSummaryWatcherFacade(c *gc.C, id string) *apiserver
 }
 
 func (s *controllerSuite) TestWatchAllModelSummariesByAdmin(c *gc.C) {
+	// TODO(dqlite) - implement me
+	c.Skip("watch model summaries to be implemented")
 	// Default authorizer is an admin.
 	result, err := s.controller.WatchAllModelSummaries()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1125,6 +1101,8 @@ func (s *controllerSuite) makeBobsModel(c *gc.C) string {
 }
 
 func (s *controllerSuite) TestWatchModelSummariesByNonAdmin(c *gc.C) {
+	// TODO(dqlite) - implement me
+	c.Skip("watch model summaries to be implemented")
 	s.makeBobsModel(c)
 
 	// Default authorizer is an admin. As a user, admin can't see

@@ -158,7 +158,6 @@ func (s *uniterSuiteBase) facadeContext() facadetest.Context {
 		Resources_:         s.resources,
 		Auth_:              s.authorizer,
 		LeadershipChecker_: s.leadershipChecker,
-		Controller_:        s.Controller,
 	}
 }
 
@@ -1037,8 +1036,6 @@ func (s *uniterSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
@@ -1237,7 +1234,6 @@ func (s *uniterSuite) TestWatchPreexistingActions(c *gc.C) {
 		{Tag: "unit-wordpress-0"},
 	}}
 
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 	results, err := s.uniter.WatchActionNotifications(args)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2818,7 +2814,6 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: "relation-42", Unit: "unit-foo-0"},
 		{Relation: rel.Tag().String(), Unit: "unit-wordpress-0"},

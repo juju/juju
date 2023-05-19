@@ -16,15 +16,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corecontroller "github.com/juju/juju/controller"
-	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/lease"
-	"github.com/juju/juju/worker/modelcache"
 	"github.com/juju/juju/worker/multiwatcher"
 )
 
@@ -52,29 +49,13 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 	// The worker itself is a coremultiwatcher.Factory.
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiWatcherWorker) })
 
-	initialized := gate.NewLock()
 	s.hub = pubsub.NewStructuredHub(nil)
-	modelCache, err := modelcache.NewWorker(modelcache.Config{
-		StatePool:            s.StatePool,
-		Hub:                  s.hub,
-		InitializedGate:      initialized,
-		Logger:               loggo.GetLogger("test"),
-		WatcherFactory:       multiWatcherWorker.WatchController,
-		PrometheusRegisterer: noopRegisterer{},
-		Cleanup:              func() {},
-	}.WithDefaultRestartStrategy())
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, modelCache) })
-	c.Assert(err, jc.ErrorIsNil)
-	var controller *cache.Controller
-	err = modelcache.ExtractCacheController(modelCache, &controller)
-	c.Assert(err, jc.ErrorIsNil)
 
 	controllerConfig, err := s.State.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.config = sharedServerConfig{
 		statePool:           s.StatePool,
-		controller:          controller,
 		multiwatcherFactory: multiWatcherWorker,
 		centralHub:          s.hub,
 		presence:            presence.New(clock.WallClock),
@@ -90,13 +71,6 @@ func (s *sharedServerContextSuite) TestConfigNoStatePool(c *gc.C) {
 	err := s.config.validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "nil statePool not valid")
-}
-
-func (s *sharedServerContextSuite) TestConfigNoController(c *gc.C) {
-	s.config.controller = nil
-	err := s.config.validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "nil controller not valid")
 }
 
 func (s *sharedServerContextSuite) TestConfigNoMultiwatcherFactory(c *gc.C) {

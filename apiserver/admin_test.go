@@ -47,7 +47,6 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
@@ -702,27 +701,6 @@ func (s *loginSuite) TestInvalidModel(c *gc.C) {
 	c.Assert(st, gc.IsNil)
 }
 
-func (s *loginSuite) ensureCachedModel(c *gc.C, uuid string) {
-	timeout := time.After(testing.LongWait)
-	retry := time.After(0)
-	for {
-		s.WaitForModelWatchersIdle(c, uuid)
-		select {
-		case <-retry:
-			_, err := s.controller.Model(uuid)
-			if err == nil {
-				return
-			}
-			if !errors.IsNotFound(err) {
-				c.Fatalf("problem getting model from cache: %v", err)
-			}
-			retry = time.After(testing.ShortWait)
-		case <-timeout:
-			c.Fatalf("model %v not seen in cache after %v", uuid, testing.LongWait)
-		}
-	}
-}
-
 func (s *loginSuite) TestOtherModel(c *gc.C) {
 	info := s.newServer(c).Info
 
@@ -734,11 +712,6 @@ func (s *loginSuite) TestOtherModel(c *gc.C) {
 	model, err := modelState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	info.ModelTag = model.ModelTag()
-
-	// Ensure that the model has been added to the cache before
-	// we try to log in. Otherwise we get stuck waiting for the model
-	// to exist, and time isn't moving as we have a test clock.
-	s.ensureCachedModel(c, model.UUID())
 
 	st := s.openAPIWithoutLogin(c, info)
 
@@ -770,10 +743,6 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 
 	model, err := modelState.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	// Ensure that the model has been added to the cache before
-	// we try to log in. Otherwise we get stuck waiting for the model
-	// to exist, and time isn't moving as we have a test clock.
-	s.ensureCachedModel(c, model.UUID())
 
 	info.ModelTag = model.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
@@ -799,10 +768,6 @@ func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
 
 	model, err := modelState.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	// Ensure that the model has been added to the cache before
-	// we try to log in. Otherwise we get stuck waiting for the model
-	// to exist, and time isn't moving as we have a test clock.
-	s.ensureCachedModel(c, model.UUID())
 
 	info.ModelTag = model.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
@@ -826,11 +791,6 @@ func (s *loginSuite) TestOtherModelFromController(c *gc.C) {
 	defer modelState.Close()
 	model, err := modelState.Model()
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure that the model has been added to the cache before
-	// we try to log in. Otherwise we get stuck waiting for the model
-	// to exist, and time isn't moving as we have a test clock.
-	s.ensureCachedModel(c, model.UUID())
 
 	info.ModelTag = model.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
@@ -856,10 +816,6 @@ func (s *loginSuite) TestOtherModelFromControllerOtherNotProvisioned(c *gc.C) {
 
 	hostedModel, err := hostedModelState.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	// Ensure that the model has been added to the cache before
-	// we try to log in. Otherwise we get stuck waiting for the model
-	// to exist, and time isn't moving as we have a test clock.
-	s.ensureCachedModel(c, hostedModel.UUID())
 
 	info.ModelTag = hostedModel.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
@@ -881,10 +837,6 @@ func (s *loginSuite) TestOtherModelWhenNotController(c *gc.C) {
 
 	model, err := modelState.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	// Ensure that the model has been added to the cache before
-	// we try to log in. Otherwise we get stuck waiting for the model
-	// to exist, and time isn't moving as we have a test clock.
-	s.ensureCachedModel(c, model.UUID())
 
 	info.ModelTag = model.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
@@ -1182,7 +1134,7 @@ func (s *macaroonLoginSuite) TestPublicKeyLocatorErrorIsNotPersistent(c *gc.C) {
 	s.DischargerLogin = func() string {
 		return "test@somewhere"
 	}
-	srv := testserver.NewServer(c, s.StatePool, s.Controller)
+	srv := testserver.NewServer(c, s.StatePool)
 	defer assertStop(c, srv)
 	workingTransport := http.DefaultTransport
 	failingTransport := errorTransport{
@@ -1343,7 +1295,6 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithExplicitAccessAndAllo
 func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.C, allowModelAccess bool) {
 	cfg := testserver.DefaultServerConfig(c, nil)
 	cfg.AllowModelAccess = allowModelAccess
-	cfg.Controller = s.Controller
 	srv := testserver.NewServerWithConfig(c, s.StatePool, cfg)
 	defer assertStop(c, srv)
 	srv.Info.ModelTag = s.Model.ModelTag()

@@ -1303,9 +1303,13 @@ func (context *statusContext) processApplication(application *state.Application)
 	}
 
 	applicationStatus := status.StatusInfo{Status: status.Unknown}
-	statusCtx, err := context.appStatusContext(application, units)
+	var appUnits []*state.Unit
+	for _, u := range units {
+		appUnits = append(appUnits, u)
+	}
+	displayStatus, err := common.ApplicationDisplayStatus(context.model, application, appUnits)
 	if err == nil {
-		applicationStatus = status.DisplayApplicationStatus(*statusCtx)
+		applicationStatus = displayStatus
 	}
 	processedStatus.Status.Status = applicationStatus.Status.String()
 	processedStatus.Status.Info = applicationStatus.Message
@@ -1371,42 +1375,6 @@ func (context *statusContext) processApplication(application *state.Application)
 	}
 	processedStatus.EndpointBindings = context.allAppsUnitsCharmBindings.endpointBindings[application.Name()]
 	return processedStatus
-}
-
-func (context *statusContext) appStatusContext(application *state.Application, units map[string]*state.Unit) (*status.AppContext, error) {
-	var (
-		statusCtx status.AppContext
-		err       error
-	)
-	statusCtx.AppStatus, err = application.Status()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	statusCtx.OperatorStatus, err = application.OperatorStatus()
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return nil, errors.Trace(err)
-	}
-	statusCtx.IsCaas = context.model.Type() == state.ModelTypeCAAS
-	expectsWorkload, err := state.CheckApplicationExpectsWorkload(context.model, application.Name())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	statusCtx.ExpectWorkload = expectsWorkload
-	for _, u := range units {
-		workloadStatus, err := u.Status()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		containerStatus, err := u.ContainerStatus()
-		if err != nil && !errors.Is(err, errors.NotFound) {
-			return nil, errors.Trace(err)
-		}
-		statusCtx.UnitCtx = append(statusCtx.UnitCtx, status.UnitContext{
-			WorkloadStatus:  workloadStatus,
-			ContainerStatus: containerStatus,
-		})
-	}
-	return &statusCtx, nil
 }
 
 func (context *statusContext) mapExposedEndpointsFromState(exposedEndpoints map[string]state.ExposedEndpoint) (map[string]params.ExposedEndpoint,
