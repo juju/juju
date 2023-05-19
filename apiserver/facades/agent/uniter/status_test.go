@@ -35,11 +35,10 @@ func (s *statusBaseSuite) authFunc(tag names.Tag) bool {
 }
 
 func (s *statusBaseSuite) newStatusAPI() *uniter.StatusAPI {
-	st := s.StateSuite.State
 	auth := func() (common.AuthFunc, error) {
 		return s.authFunc, nil
 	}
-	return uniter.NewStatusAPI(st, auth, s.leadershipChecker)
+	return uniter.NewStatusAPI(s.StateSuite.Model, auth, s.leadershipChecker)
 }
 
 type ApplicationStatusAPISuite struct {

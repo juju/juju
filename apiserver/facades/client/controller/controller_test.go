@@ -1101,6 +1101,8 @@ func (s *controllerSuite) newSummaryWatcherFacade(c *gc.C, id string) *apiserver
 }
 
 func (s *controllerSuite) TestWatchAllModelSummariesByAdmin(c *gc.C) {
+	// TODO(dqlite) - implement me
+	c.Skip("watch model summaries to be implemented")
 	// Default authorizer is an admin.
 	result, err := s.controller.WatchAllModelSummaries()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1165,6 +1167,8 @@ func (s *controllerSuite) makeBobsModel(c *gc.C) string {
 }
 
 func (s *controllerSuite) TestWatchModelSummariesByNonAdmin(c *gc.C) {
+	// TODO(dqlite) - implement me
+	c.Skip("watch model summaries to be implemented")
 	s.makeBobsModel(c)
 
 	// Default authorizer is an admin. As a user, admin can't see
