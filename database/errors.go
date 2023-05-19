@@ -18,17 +18,13 @@ func IsErrConstraintUnique(err error) bool {
 		return false
 	}
 
-	var sqliteErr sqlite3.Error
-	if errors.As(err, &sqliteErr) && sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
-		return true
-	}
-
 	var dqliteErr dqlite.Error
-	if errors.As(err, &dqliteErr) && dqliteErr.Code == int(sqlite3.ErrConstraintUnique) {
-		return true
+	if errors.As(err, &dqliteErr) {
+		return dqliteErr.Code == int(sqlite3.ErrConstraintUnique)
 	}
 
-	return false
+	var sqliteErr sqlite3.Error
+	return errors.As(err, &sqliteErr) && sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique
 }
 
 // IsErrNotFound returns true if the input error was returned by SQLite due
