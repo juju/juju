@@ -5,10 +5,12 @@ package firewaller_test
 
 import (
 	"sort"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -22,6 +24,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing"
 )
 
 type firewallerSuite struct {
@@ -237,12 +240,14 @@ func (s *firewallerSuite) TestWatchSubnets(c *gc.C) {
 	// Set up a spaces with two subnets
 	sp, err := s.State.AddSpace("outer-space", network.Id("outer-1"), nil, true)
 	c.Assert(err, jc.ErrorIsNil)
+
 	_, err = s.State.AddSubnet(network.SubnetInfo{
 		CIDR:      "192.168.0.0/24",
 		SpaceID:   sp.Id(),
 		SpaceName: sp.Name(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
+
 	sub2, err := s.State.AddSubnet(network.SubnetInfo{
 		CIDR:      "192.168.42.0/24",
 		SpaceID:   sp.Id(),
@@ -257,6 +262,36 @@ func (s *firewallerSuite) TestWatchSubnets(c *gc.C) {
 				ControllerConfigAPI: s.cc,
 			},
 		},
+	}
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	// This accommodates a race that was exposed after the removal of the
+	// model cache and an accompanying test composition aid that had the
+	// serendipitous effect of a short wait.
+	// What can happen is that we can get 2 watch events if we watch an
+	// entity right after its creation. We get the initial event upon
+	// watching, but this can be *before* the change stream has sent the
+	// creation event, meaning we get another unexpected one subsequently.
+	// To work around this we drain the collection's events for a short time.
+	raw := s.State.WatchSubnets(nil)
+	defer workertest.DirtyKill(c, raw)
+drain:
+	for {
+		select {
+		case <-raw.Changes():
+		case <-time.After(testing.ShortWait):
+			break drain
+		}
+	}
+
+	watchSubnetTags := []names.SubnetTag{
+		names.NewSubnetTag(sub2.ID()),
+	}
+	entities := params.Entities{
+		Entities: make([]params.Entity, len(watchSubnetTags)),
+	}
+	for i, tag := range watchSubnetTags {
+		entities.Entities[i].Tag = tag.String()
 	}
 
 	s.testWatchSubnets(
