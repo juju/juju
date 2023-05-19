@@ -6,6 +6,8 @@ package logger
 import (
 	"reflect"
 
+	"github.com/juju/errors"
+
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
@@ -19,7 +21,10 @@ func Register(registry facade.FacadeRegistry) {
 
 // newLoggerAPI creates a new server-side logger API end point.
 func newLoggerAPI(ctx facade.Context) (*LoggerAPI, error) {
-	st := ctx.State()
+	model, err := ctx.State().Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	resources := ctx.Resources()
 	authorizer := ctx.Auth()
 
@@ -29,14 +34,9 @@ func newLoggerAPI(ctx facade.Context) (*LoggerAPI, error) {
 		!authorizer.AuthModelAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
-	m, err := ctx.Controller().Model(st.ModelUUID())
-	if err != nil {
-		return nil, err
-	}
 
 	return &LoggerAPI{
-		controller: ctx.Controller(),
-		model:      m,
+		model:      model,
 		resources:  resources,
 		authorizer: authorizer,
 	}, nil

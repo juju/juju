@@ -25,7 +25,6 @@ func newControllerAPIv11(ctx facade.Context) (*ControllerAPI, error) {
 	presence := ctx.Presence()
 	hub := ctx.Hub()
 	factory := ctx.MultiwatcherFactory()
-	controller := ctx.Controller()
 
 	return NewControllerAPI(
 		st,
@@ -35,6 +34,5 @@ func newControllerAPIv11(ctx facade.Context) (*ControllerAPI, error) {
 		presence,
 		hub,
 		factory,
-		controller,
 	)
 }

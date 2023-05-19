@@ -66,11 +66,10 @@ func (s *serverSuite) SetUpTest(c *gc.C) {
 
 func (s *serverSuite) authClientForState(c *gc.C, st *state.State, auth facade.Authorizer) *client.Client {
 	context := &facadetest.Context{
-		Controller_: s.Controller,
-		State_:      st,
-		StatePool_:  s.StatePool,
-		Auth_:       auth,
-		Resources_:  common.NewResources(),
+		State_:     st,
+		StatePool_: s.StatePool,
+		Auth_:      auth,
+		Resources_: common.NewResources(),
 	}
 	apiserverClient, err := client.NewFacade(context)
 	c.Assert(err, jc.ErrorIsNil)

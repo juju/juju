@@ -4,12 +4,8 @@
 package apiserver_test
 
 import (
-	"time"
-
 	"github.com/juju/clock"
 	"github.com/juju/loggo"
-	"github.com/juju/pubsub/v2"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	"github.com/prometheus/client_golang/prometheus"
@@ -18,18 +14,13 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/testserver"
-	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/worker/modelcache"
 	"github.com/juju/juju/worker/multiwatcher"
 )
 
 type baseSuite struct {
 	statetesting.StateSuite
-
-	controller *cache.Controller
 
 	cfg apiserver.ServerConfig
 }
@@ -50,29 +41,7 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 	// The worker itself is a coremultiwatcher.Factory.
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiWatcherWorker) })
 
-	initialized := gate.NewLock()
-	modelCache, err := modelcache.NewWorker(modelcache.Config{
-		StatePool:            s.StatePool,
-		Hub:                  pubsub.NewStructuredHub(nil),
-		InitializedGate:      initialized,
-		Logger:               loggo.GetLogger("modelcache"),
-		WatcherFactory:       multiWatcherWorker.WatchController,
-		PrometheusRegisterer: noopRegisterer{},
-		Cleanup:              func() {},
-	}.WithDefaultRestartStrategy())
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, modelCache) })
-
-	select {
-	case <-initialized.Unlocked():
-	case <-time.After(testing.LongWait):
-		c.Fatalf("model cache not initialized after %s", testing.LongWait)
-	}
-	err = modelcache.ExtractCacheController(modelCache, &s.controller)
-	c.Assert(err, jc.ErrorIsNil)
-
 	s.cfg = testserver.DefaultServerConfig(c, s.Clock)
-	s.cfg.Controller = s.controller
 }
 
 func (s *baseSuite) newServer(c *gc.C) *testserver.Server {

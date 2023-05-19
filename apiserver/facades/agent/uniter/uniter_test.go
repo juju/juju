@@ -158,7 +158,6 @@ func (s *uniterSuiteBase) facadeContext() facadetest.Context {
 		Resources_:         s.resources,
 		Auth_:              s.authorizer,
 		LeadershipChecker_: s.leadershipChecker,
-		Controller_:        s.Controller,
 	}
 }
 

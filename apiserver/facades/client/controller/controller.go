@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	corecontroller "github.com/juju/juju/controller"
-	"github.com/juju/juju/core/cache"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
@@ -57,7 +56,6 @@ type ControllerAPI struct {
 	resources  facade.Resources
 	presence   facade.Presence
 	hub        facade.Hub
-	controller *cache.Controller
 
 	multiwatcherFactory multiwatcher.Factory
 }
@@ -81,7 +79,6 @@ func NewControllerAPI(
 	presence facade.Presence,
 	hub facade.Hub,
 	factory multiwatcher.Factory,
-	controller *cache.Controller,
 ) (*ControllerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
@@ -118,7 +115,6 @@ func NewControllerAPI(
 		presence:            presence,
 		hub:                 hub,
 		multiwatcherFactory: factory,
-		controller:          controller,
 	}, nil
 }
 
@@ -536,20 +532,24 @@ func (c *ControllerAPI) WatchAllModelSummaries() (params.SummaryWatcherID, error
 	if err := c.checkIsSuperUser(); err != nil {
 		return params.SummaryWatcherID{}, errors.Trace(err)
 	}
-	w := c.controller.WatchAllModels()
-	return params.SummaryWatcherID{
-		WatcherID: c.resources.Register(w),
-	}, nil
+	// TODO(dqlite) - implement me
+	//w := c.controller.WatchAllModels()
+	//return params.SummaryWatcherID{
+	//	WatcherID: c.resources.Register(w),
+	//}, nil
+	return params.SummaryWatcherID{}, errors.NotSupportedf("WatchAllModelSummaries")
 }
 
 // WatchModelSummaries starts watching the summary updates from the cache.
 // Only models that the user has access to are returned.
 func (c *ControllerAPI) WatchModelSummaries() (params.SummaryWatcherID, error) {
-	user := c.apiUser.Id()
-	w := c.controller.WatchModelsAsUser(user)
-	return params.SummaryWatcherID{
-		WatcherID: c.resources.Register(w),
-	}, nil
+	// TODO(dqlite) - implement me
+	return params.SummaryWatcherID{}, errors.NotSupportedf("WatchModelSummaries")
+	//user := c.apiUser.Id()
+	//w := c.controller.WatchModelsAsUser(user)
+	//return params.SummaryWatcherID{
+	//	WatcherID: c.resources.Register(w),
+	//}, nil
 }
 
 // GetControllerAccess returns the level of access the specified users

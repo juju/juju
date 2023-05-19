@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/cache"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
@@ -114,10 +113,6 @@ type Context interface {
 
 	// MultiwatcherFactory returns the factory to create multiwatchers.
 	MultiwatcherFactory() multiwatcher.Factory
-
-	// Controller returns the in-memory representation of the models
-	// in the database.
-	Controller() *cache.Controller
 
 	// Presence returns an instance that is able to be asked for
 	// the current model presence.

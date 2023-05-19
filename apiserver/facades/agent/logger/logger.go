@@ -9,9 +9,8 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/cache"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/state"
 )
 
 // Logger defines the methods on the logger API end point.  Unfortunately, the
@@ -26,8 +25,7 @@ type Logger interface {
 // LoggerAPI implements the Logger interface and is the concrete
 // implementation of the api end point.
 type LoggerAPI struct {
-	controller *cache.Controller
-	model      *cache.Model
+	model      *state.Model
 	resources  facade.Resources
 	authorizer facade.Authorizer
 }
@@ -48,7 +46,8 @@ func (api *LoggerAPI) WatchLoggingConfig(arg params.Entities) params.NotifyWatch
 		}
 		err = apiservererrors.ErrPerm
 		if api.authorizer.AuthOwner(tag) {
-			watch := api.model.WatchConfig("logging-config")
+			// TODO(wallyworld) - only trigger on logging change
+			watch := api.model.WatchForModelConfigChanges()
 			// Consume the initial event. Technically, API calls to Watch
 			// 'transmit' the initial event in the Watch response. But
 			// NotifyWatchers have no state to transmit.
@@ -70,8 +69,7 @@ func (api *LoggerAPI) LoggingConfig(arg params.Entities) params.StringResults {
 		return params.StringResults{}
 	}
 	results := make([]params.StringResult, len(arg.Entities))
-	// TODO: ensure that the cache model can return a proper config object.
-	config, configErr := config.New(config.NoDefaults, api.model.Config())
+	config, configErr := api.model.ModelConfig()
 	for i, entity := range arg.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {

@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/core/auditlog"
-	"github.com/juju/juju/core/cache"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
@@ -39,7 +38,6 @@ type ManifoldConfig struct {
 	AgentName              string
 	AuthenticatorName      string
 	ClockName              string
-	ModelCacheName         string
 	MultiwatcherName       string
 	MuxName                string
 	StateName              string
@@ -69,9 +67,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.ClockName == "" {
 		return errors.NotValidf("empty ClockName")
-	}
-	if config.ModelCacheName == "" {
-		return errors.NotValidf("empty ModelCacheName")
 	}
 	if config.MultiwatcherName == "" {
 		return errors.NotValidf("empty MultiwatcherName")
@@ -130,7 +125,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.AuthenticatorName,
 			config.ClockName,
-			config.ModelCacheName,
 			config.MultiwatcherName,
 			config.MuxName,
 			config.StateName,
@@ -178,11 +172,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	var factory multiwatcher.Factory
 	if err := context.Get(config.MultiwatcherName, &factory); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var controller *cache.Controller
-	if err := context.Get(config.ModelCacheName, &controller); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -239,7 +228,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Clock:                             clock,
 		Mux:                               mux,
 		StatePool:                         statePool,
-		Controller:                        controller,
 		MultiwatcherFactory:               factory,
 		LeaseManager:                      leaseManager,
 		RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,

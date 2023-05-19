@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
-	"github.com/juju/juju/core/cache"
 	coredatabase "github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
@@ -49,7 +48,6 @@ type ManifoldSuite struct {
 	authenticator        *mockAuthenticator
 	clock                *testclock.Clock
 	context              dependency.Context
-	controller           *cache.Controller
 	hub                  pubsub.StructuredHub
 	leaseManager         *lease.Manager
 	metricsCollector     *coreapiserver.Collector
@@ -73,11 +71,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.agent = &mockAgent{}
 	s.authenticator = &mockAuthenticator{}
 	s.clock = testclock.NewClock(time.Time{})
-	controller, err := cache.NewController(cache.ControllerConfig{
-		Changes: make(chan interface{}),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.controller = controller
 	s.mux = apiserverhttp.NewMux()
 	s.state = stubStateTracker{}
 	s.metricsCollector = coreapiserver.NewMetricsCollector()
@@ -95,7 +88,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		AuthenticatorName:                 "authenticator",
 		ClockName:                         "clock",
 		MuxName:                           "mux",
-		ModelCacheName:                    "modelcache",
 		MultiwatcherName:                  "multiwatcher",
 		StateName:                         "state",
 		UpgradeGateName:                   "upgrade",
@@ -119,7 +111,6 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"authenticator":        s.authenticator,
 		"clock":                s.clock,
 		"mux":                  s.mux,
-		"modelcache":           s.controller,
 		"multiwatcher":         s.multiwatcherFactory,
 		"state":                &s.state,
 		"upgrade":              &s.upgradeGate,
@@ -156,7 +147,7 @@ func (s *ManifoldSuite) newMetricsCollector() *coreapiserver.Collector {
 }
 
 var expectedInputs = []string{
-	"agent", "authenticator", "clock", "modelcache", "multiwatcher", "mux",
+	"agent", "authenticator", "clock", "multiwatcher", "mux",
 	"state", "upgrade", "auditconfig-updater", "lease-manager",
 	"syslog", "charmhub-http-client", "db-accessor",
 }
@@ -218,7 +209,6 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		AgentConfig:                &s.agent.conf,
 		LocalMacaroonAuthenticator: s.authenticator,
 		Clock:                      s.clock,
-		Controller:                 s.controller,
 		Mux:                        s.mux,
 		MultiwatcherFactory:        s.multiwatcherFactory,
 		StatePool:                  &s.state.pool,

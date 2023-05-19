@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
@@ -20,7 +19,6 @@ import (
 // base is because we have a shim to support unit/agent split.
 type StatusAPI struct {
 	st                *state.State
-	model             CachedModel
 	leadershipChecker leadership.Checker
 
 	agentSetter       *common.StatusSetter
@@ -30,20 +28,8 @@ type StatusAPI struct {
 	getCanModify      common.GetAuthFunc
 }
 
-// CachedModel represents the methods that the StatusAPI needs on a
-// model from the model cache.
-type CachedModel interface {
-	Application(string) (CachedApplication, error)
-}
-
-// CachedApplication represents the methods that the StatusAPI needs on
-// an application from the model cache.
-type CachedApplication interface {
-	Status() status.StatusInfo
-}
-
 // NewStatusAPI creates a new server-side Status setter API facade.
-func NewStatusAPI(st *state.State, model CachedModel, getCanModify common.GetAuthFunc, leadershipChecker leadership.Checker) *StatusAPI {
+func NewStatusAPI(st *state.State, getCanModify common.GetAuthFunc, leadershipChecker leadership.Checker) *StatusAPI {
 	// TODO(fwereade): so *all* of these have exactly the same auth
 	// characteristics? I think not.
 	unitSetter := common.NewStatusSetter(st, getCanModify)
@@ -52,7 +38,6 @@ func NewStatusAPI(st *state.State, model CachedModel, getCanModify common.GetAut
 	agentSetter := common.NewStatusSetter(&common.UnitAgentFinder{st}, getCanModify)
 	return &StatusAPI{
 		st:                st,
-		model:             model,
 		leadershipChecker: leadershipChecker,
 		agentSetter:       agentSetter,
 		unitSetter:        unitSetter,
@@ -170,17 +155,15 @@ func (s *StatusAPI) toStatusResult(i status.StatusInfo) params.StatusResult {
 }
 
 func (s *StatusAPI) getAppAndUnitStatus(application *state.Application) params.ApplicationStatusResult {
-	// If for some reason the application isn't yet in the cache, then
-	// it has an unknown status.
 	result := params.ApplicationStatusResult{
 		Units: make(map[string]params.StatusResult),
 	}
 	appStatus := status.StatusInfo{
 		Status: status.Unknown,
 	}
-	app, err := s.model.Application(application.Name())
+	aStatus, err := application.Status()
 	if err == nil {
-		appStatus = app.Status()
+		appStatus = aStatus
 	}
 	result.Application = s.toStatusResult(appStatus)
 
@@ -193,16 +176,4 @@ func (s *StatusAPI) getAppAndUnitStatus(application *state.Application) params.A
 		}
 	}
 	return result
-}
-
-type cacheShim struct {
-	model *cache.Model
-}
-
-func (c cacheShim) Application(name string) (CachedApplication, error) {
-	app, err := c.model.Application(name)
-	if err != nil {
-		return nil, err
-	}
-	return &app, nil
 }

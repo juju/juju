@@ -44,7 +44,6 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/auditlog"
-	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/container"
 	coredatabase "github.com/juju/juju/core/database"
@@ -73,9 +72,7 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/lease"
-	"github.com/juju/juju/worker/modelcache"
 	"github.com/juju/juju/worker/multiwatcher"
 )
 
@@ -269,9 +266,6 @@ type environState struct {
 	creator        string
 
 	multiWatcherWorker worker.Worker
-	modelCacheWorker   worker.Worker
-
-	controller *cache.Controller
 }
 
 // environ represents a client's connection to a given environment's
@@ -376,16 +370,13 @@ func (s *environState) destroyLocked() {
 	apiStatePool := s.apiStatePool
 	leaseManager := s.leaseManager
 	multiWatcherWorker := s.multiWatcherWorker
-	modelCacheWorker := s.modelCacheWorker
 	s.apiServer = nil
 	s.apiStatePool = nil
 	s.apiState = nil
-	s.controller = nil
 	s.leaseManager = nil
 	s.bootstrapped = false
 	s.hub = nil
 	s.multiWatcherWorker = nil
-	s.modelCacheWorker = nil
 
 	// Release the lock while we close resources. In particular,
 	// we must not hold the lock while the API server is being
@@ -394,17 +385,9 @@ func (s *environState) destroyLocked() {
 	s.mu.Unlock()
 	defer s.mu.Lock()
 
-	// The apiServer depends on the modelCache, so stop the apiserver first.
 	if apiServer != nil {
 		logger.Debugf("stopping apiServer")
 		if err := apiServer.Stop(); err != nil && mongoAlive() {
-			panic(err)
-		}
-	}
-
-	if modelCacheWorker != nil {
-		logger.Debugf("stopping modelCache worker")
-		if err := worker.Stop(modelCacheWorker); err != nil {
 			panic(err)
 		}
 	}
@@ -482,15 +465,6 @@ func (e *environ) GetLeaseManagerInAPIServer() corelease.Manager {
 		panic(err)
 	}
 	return st.leaseManager
-}
-
-// GetController returns the cache.Controller used by the API server.
-func (e *environ) GetController() *cache.Controller {
-	st, err := e.state()
-	if err != nil {
-		panic(err)
-	}
-	return st.controller
 }
 
 // newState creates the state for a new environment with the given name.
@@ -979,39 +953,12 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			}
 			estate.multiWatcherWorker = multiWatcherWorker
 
-			initialized := gate.NewLock()
-			modelCache, err := modelcache.NewWorker(modelcache.Config{
-				StatePool:            statePool,
-				Hub:                  estate.hub,
-				InitializedGate:      initialized,
-				Logger:               loggo.GetLogger("dummy.modelcache"),
-				WatcherFactory:       multiWatcherWorker.WatchController,
-				PrometheusRegisterer: noopRegisterer{},
-				Cleanup:              func() {},
-			}.WithDefaultRestartStrategy())
-			if err != nil {
-				return errors.Trace(err)
-			}
-			select {
-			case <-initialized.Unlocked():
-			case <-time.After(10 * time.Second):
-				return errors.New("model cache not initialized after 10 seconds")
-			}
-			estate.modelCacheWorker = modelCache
-			err = modelcache.ExtractCacheController(modelCache, &estate.controller)
-			if err != nil {
-				_ = worker.Stop(modelCache)
-				_ = worker.Stop(multiWatcherWorker)
-				return errors.Trace(err)
-			}
-
 			dummy.mu.Lock()
 			db := dummy.db
 			dummy.mu.Unlock()
 
 			estate.apiServer, err = apiserver.NewServer(apiserver.ServerConfig{
 				StatePool:                  statePool,
-				Controller:                 estate.controller,
 				MultiwatcherFactory:        multiWatcherWorker,
 				LocalMacaroonAuthenticator: stateAuthenticator,
 				Clock:                      clock.WallClock,

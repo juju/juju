@@ -9,8 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/juju/charm/v10"
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -20,7 +18,6 @@ import (
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
@@ -32,7 +29,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/lxdprofile"
@@ -120,7 +116,6 @@ type JujuConnSuite struct {
 	ControllerStore     jujuclient.ClientStore
 	BackingState        *state.State          // The State being used by the API server.
 	Hub                 *pubsub.StructuredHub // The central hub being used by the API server.
-	Controller          *cache.Controller     // The cache.Controller used by the API server.
 	LeaseManager        lease.Manager         // The lease manager being used by the API server.
 	RootDir             string                // The faked-up root directory.
 	LogDir              string
@@ -129,10 +124,6 @@ type JujuConnSuite struct {
 	DummyConfig         testing.Attrs
 	Factory             *factory.Factory
 	ProviderCallContext envcontext.ProviderCallContext
-
-	idleFuncMutex       *sync.Mutex
-	controllerIdle      chan struct{}
-	controllerIdleCount int
 }
 
 const AdminSecret = "dummy-secret"
@@ -156,12 +147,6 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 		_ = loggo.ConfigureLoggers(s.InitialLoggingConfig)
 	}
 
-	// This needs to be a pointer as there are other Mixin structures
-	// that copy the lock otherwise. Yet another reason to move away from
-	// the glorious JujuConnSuite.
-	s.idleFuncMutex = &sync.Mutex{}
-	s.controllerIdle = nil
-	s.PatchValue(&cache.IdleFunc, s.controllerIdleFunc)
 	s.setUpConn(c)
 	s.Factory = factory.NewFactory(s.State, s.StatePool)
 }
@@ -180,87 +165,11 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 	s.setUpConn(c)
 }
 
-func (s *JujuConnSuite) controllerIdleFunc() {
-	s.idleFuncMutex.Lock()
-	idleChan := s.controllerIdle
-	s.idleFuncMutex.Unlock()
-	if idleChan == nil {
-		return
-	}
-	// Here we have a similar condition to the txn watcher idle.
-	// Between test start and when we listen, there may be an idle event.
-	// So when we have an idleChan set, we wait for the second idle before
-	// we signal that we're idle.
-	if s.controllerIdleCount == 0 {
-		s.controllerIdleCount++
-		return
-	}
-	// There is a very small race condition between when the
-	// idle channel is cleared and when the function exits.
-	// Under normal circumstances, there is a goroutine in a tight loop
-	// reading off the idle channel. If the channel isn't read
-	// within a short wait, we don't send the message.
-	select {
-	case idleChan <- struct{}{}:
-	case <-time.After(testing.ShortWait):
-	}
-}
-
 func (s *JujuConnSuite) WaitForModelWatchersIdle(c *gc.C, modelUUID string) {
+	// TODO(dqlite) - remove me
 	// Use a logger rather than c.Log so we get timestamps.
 	logger := loggo.GetLogger("test")
 	logger.Infof("waiting for model %s to be idle", modelUUID)
-	controllerIdleChan := make(chan struct{})
-	s.idleFuncMutex.Lock()
-	s.controllerIdleCount = 0
-	s.controllerIdle = controllerIdleChan
-	s.idleFuncMutex.Unlock()
-
-	defer func() {
-		s.idleFuncMutex.Lock()
-		s.controllerIdle = nil
-		s.idleFuncMutex.Unlock()
-		// Clear out any pending events.
-		for {
-			select {
-			case <-controllerIdleChan:
-			default:
-				logger.Infof("WaitForModelWatchersIdle(%q) done", modelUUID)
-				return
-			}
-		}
-	}()
-
-	select {
-	case <-controllerIdleChan:
-		// done
-	case <-time.After(jujutesting.LongWait):
-		c.Fatal("no controller idle event sent, is the controller dead?")
-	}
-}
-
-// EnsureCachedModel is used to ensure that the model specified is
-// in the model cache. This is used when tests create models and then
-// want to do things with those models where the actions may touch
-// the model cache.
-func (s *JujuConnSuite) EnsureCachedModel(c *gc.C, uuid string) {
-	timeout := time.After(testing.LongWait)
-	retry := time.After(0)
-	for {
-		select {
-		case <-retry:
-			_, err := s.Controller.Model(uuid)
-			if err == nil {
-				return
-			}
-			if !errors.IsNotFound(err) {
-				c.Fatalf("problem getting model from cache: %v", err)
-			}
-			retry = time.After(testing.ShortWait)
-		case <-timeout:
-			c.Fatalf("model %v not seen in cache after %v", uuid, testing.LongWait)
-		}
-	}
 }
 
 func (s *JujuConnSuite) AdminUserTag(c *gc.C) names.UserTag {
@@ -519,7 +428,6 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.StatePool = getStater.GetStatePoolInAPIServer()
 	s.Hub = getStater.GetHubInAPIServer()
 	s.LeaseManager = getStater.GetLeaseManagerInAPIServer()
-	s.Controller = getStater.GetController()
 
 	s.State, err = s.StatePool.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
@@ -695,7 +603,6 @@ type GetStater interface {
 	GetStatePoolInAPIServer() *state.StatePool
 	GetHubInAPIServer() *pubsub.StructuredHub
 	GetLeaseManagerInAPIServer() lease.Manager
-	GetController() *cache.Controller
 }
 
 func (s *JujuConnSuite) tearDownConn(c *gc.C) {
