@@ -46,7 +46,7 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	sync := s.expectNodeStartupAndShutdown()
+	sync := s.expectNodeStartupAndShutdown(true)
 
 	// When we are starting up as a new node,
 	// we request details immediately.
@@ -141,7 +141,7 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	sync := s.expectNodeStartupAndShutdown()
+	sync := s.expectNodeStartupAndShutdown(true)
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -177,7 +177,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	sync := s.expectNodeStartupAndShutdown()
+	sync := s.expectNodeStartupAndShutdown(true)
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -262,7 +262,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	sync := s.expectNodeStartupAndShutdown()
+	sync := s.expectNodeStartupAndShutdown(false)
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -299,7 +299,7 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *workerSuite) expectNodeStartupAndShutdown() chan struct{} {
+func (s *workerSuite) expectNodeStartupAndShutdown(handover bool) chan struct{} {
 	sync := make(chan struct{})
 
 	appExp := s.dbApp.EXPECT()
@@ -309,7 +309,11 @@ func (s *workerSuite) expectNodeStartupAndShutdown() chan struct{} {
 		close(sync)
 		return uint64(666)
 	})
-	appExp.Handover(gomock.Any()).Return(nil)
+
+	if handover {
+		appExp.Handover(gomock.Any()).Return(nil)
+	}
+
 	appExp.Close().Return(nil)
 
 	return sync
