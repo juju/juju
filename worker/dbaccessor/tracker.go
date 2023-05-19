@@ -155,15 +155,6 @@ func (w *trackedDBWorker) meterDBOpResult(begin time.Time, err error) {
 	w.metrics.DBDuration.WithLabelValues(w.namespace, result).Observe(w.clock.Now().Sub(begin).Seconds())
 }
 
-// Err will return any fatal errors that have occurred on the worker, trying
-// to acquire the database.
-func (w *trackedDBWorker) Err() error {
-	w.mutex.RLock()
-	defer w.mutex.RUnlock()
-
-	return w.err
-}
-
 // Kill implements worker.Worker
 func (w *trackedDBWorker) Kill() {
 	w.tomb.Kill(nil)

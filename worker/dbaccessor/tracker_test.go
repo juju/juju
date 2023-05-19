@@ -160,7 +160,6 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDB(c *gc.C) {
 	workertest.CleanKill(c, w)
 
 	c.Assert(count, gc.Equals, uint64(1))
-	c.Assert(w.Err(), jc.ErrorIsNil)
 }
 
 func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *gc.C) {
@@ -211,8 +210,6 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *gc.C) 
 	c.Assert(tables, SliceContains, "lease")
 
 	workertest.CleanKill(c, w)
-
-	c.Assert(w.Err(), jc.ErrorIsNil)
 }
 
 func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBRepeatedly(c *gc.C) {
@@ -250,7 +247,6 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBRepeatedly(c *gc.C) {
 	workertest.CleanKill(c, w)
 
 	c.Assert(count, gc.Equals, uint64(2))
-	c.Assert(w.Err(), jc.ErrorIsNil)
 }
 
 func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDifferentDB(c *gc.C) {
@@ -324,7 +320,6 @@ loop:
 	}
 
 	workertest.CleanKill(c, w)
-	c.Assert(w.Err(), jc.ErrorIsNil)
 }
 
 func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
@@ -352,7 +347,6 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
 	}
 
 	c.Assert(w.Wait(), gc.ErrorMatches, "boom")
-	c.Assert(w.Err(), gc.ErrorMatches, "boom")
 
 	// Ensure that the DB is dead.
 	err = w.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {

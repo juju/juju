@@ -2203,7 +2203,3 @@ func (t *trackedDB) Txn(ctx stdcontext.Context, fn func(stdcontext.Context, *sql
 func (t *trackedDB) TxnNoRetry(ctx stdcontext.Context, fn func(stdcontext.Context, *sql.Tx) error) error {
 	return errors.Trace(defaultTransactionRunner.Txn(ctx, t.db, fn))
 }
-
-func (t *trackedDB) Err() error {
-	return nil
-}

@@ -29,10 +29,6 @@ func (t *trackedDB) TxnNoRetry(ctx context.Context, fn func(context.Context, *sq
 	return errors.Trace(defaultTransactionRunner.Txn(ctx, t.db, fn))
 }
 
-func (t *trackedDB) Err() error {
-	return nil
-}
-
 // TrackedDBFactory returns a DBFactory that returns the given database.
 func TrackedDBFactory(db coredatabase.TrackedDB) func() (coredatabase.TrackedDB, error) {
 	return func() (coredatabase.TrackedDB, error) {

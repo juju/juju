@@ -22,9 +22,4 @@ type TrackedDB interface {
 	// within a transaction that depends on the input context.
 	// No retries are attempted.
 	TxnNoRetry(context.Context, func(context.Context, *sql.Tx) error) error
-
-	// Err returns an error if the underlying tracked DB is in an error
-	// condition. Depending on the error, determines of the tracked DB can be
-	// requested again, or should be given up and thrown away.
-	Err() error
 }
