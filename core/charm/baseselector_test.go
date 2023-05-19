@@ -4,6 +4,7 @@
 package charm
 
 import (
+	"github.com/juju/collections/set"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -53,7 +54,7 @@ func (s *baseSelectorSuite) TestCharmBase(c *gc.C) {
 				requestedBase:  precise,
 				supportedBases: []series.Base{bionic, cosmic},
 			},
-			err: `base "ubuntu@14.04" not supported by charm, the charm supported bases are: ubuntu@18.04, ubuntu@18.10`,
+			err: `base: ubuntu@14.04/stable`,
 		},
 		{
 			title: "juju deploy simple --base=ubuntu@18.04   # user provided base takes precedence over default base ",
@@ -82,7 +83,7 @@ func (s *baseSelectorSuite) TestCharmBase(c *gc.C) {
 				defaultBase:         precise,
 				explicitDefaultBase: true,
 			},
-			err: `base "ubuntu@14.04" not supported by charm, the charm supported bases are: ubuntu@18.04, ubuntu@18.10`,
+			err: `base: ubuntu@14.04/stable`,
 		},
 		{
 			title: "juju deploy multiseries   # use model base defaults if supported by charm",
@@ -107,7 +108,7 @@ func (s *baseSelectorSuite) TestCharmBase(c *gc.C) {
 				requestedBase:  bionic,
 				supportedBases: []series.Base{utopic, vivid},
 			},
-			err: `base "ubuntu@18.04" not supported by charm, the charm supported bases are: ubuntu@16.10, ubuntu@17.04`,
+			err: `base: ubuntu@18.04/stable`,
 		},
 		{
 			title: "juju deploy multiseries    # fallback to series.LatestLTSBase()",
@@ -133,7 +134,7 @@ func (s *baseSelectorSuite) TestCharmBase(c *gc.C) {
 	}
 
 	// Use bionic for LTS for all calls.
-	previous := series.SetLatestLtsForTesting("bionic")
+	previous := series.SetLatestLtsForTesting("focal")
 	defer series.SetLatestLtsForTesting(previous)
 
 	for i, test := range deployBasesTests {
@@ -199,6 +200,7 @@ func (s *baseSelectorSuite) TestValidate(c *gc.C) {
 	for i, test := range deploySeriesTests {
 		c.Logf("test %d [%s]", i, test.title)
 		test.selector.logger = &noOpLogger{}
+		test.selector.jujuSupportedBases = set.NewStrings()
 		_, err := test.selector.validate(test.supportedCharmBases, test.supportedJujuBases)
 		if test.err != "" {
 			c.Check(err, gc.ErrorMatches, test.err)
@@ -255,9 +257,33 @@ func (s *baseSelectorSuite) TestConfigureBaseSelectorDefaultBase(c *gc.C) {
 		UsingImageID:        false,
 	}
 
-	obtained, err := ConfigureBaseSelector(cfg)
+	baseSelector, err := ConfigureBaseSelector(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtained.supportedBases, jc.SameContents, []series.Base{jammy, focal})
-	c.Check(obtained.defaultBase, gc.DeepEquals, focal)
-	c.Check(obtained.explicitDefaultBase, jc.IsTrue)
+	c.Check(baseSelector.supportedBases, jc.SameContents, []series.Base{jammy, focal})
+	c.Check(baseSelector.defaultBase, gc.DeepEquals, focal)
+	c.Check(baseSelector.explicitDefaultBase, jc.IsTrue)
+
+	obtained, err := baseSelector.CharmBase()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedBase := series.MustParseBaseFromString("ubuntu@20.04")
+	c.Check(obtained.IsCompatible(expectedBase), jc.IsTrue, gc.Commentf("obtained: %q, expected %q", obtained, expectedBase))
+}
+
+func (s *baseSelectorSuite) TestConfigureBaseSelectorDefaultBaseFail(c *gc.C) {
+	cfg := SelectorConfig{
+		Config: mockModelCfg{
+			base:     "ubuntu@18.04",
+			explicit: true,
+		},
+		Force:               false,
+		Logger:              &noOpLogger{},
+		RequestedBase:       series.Base{},
+		SupportedCharmBases: []series.Base{jammy, focal, bionic},
+		UsingImageID:        false,
+	}
+
+	baseSelector, err := ConfigureBaseSelector(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = baseSelector.CharmBase()
+	c.Assert(err, gc.ErrorMatches, `base: ubuntu@18.04/stable`)
 }
