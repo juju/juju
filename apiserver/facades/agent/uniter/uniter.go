@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/caas"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
-	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
@@ -67,11 +66,6 @@ type UniterAPI struct {
 	accessMachine       common.GetAuthFunc
 	containerBrokerFunc caas.NewContainerBrokerFunc
 	*StorageAPI
-
-	// cacheModel is used to access data from the cache in lieu of going
-	// to the database.
-	// TODO (manadart 2019-06-20): Use cache to watch and retrieve model config.
-	cacheModel *cache.Model
 
 	// A cloud spec can only be accessed for the model of the unit or
 	// application that is authorised for this API facade.

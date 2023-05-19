@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
-	"github.com/juju/juju/core/cache"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
@@ -45,7 +44,6 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		Tag:                 names.NewMachineTag("0"),
 		LogDir:              c.MkDir(),
 		Hub:                 hub,
-		Controller:          &cache.Controller{}, // Not useful for anything except providing a default.
 		MultiwatcherFactory: &fakeMultiwatcherFactory{},
 		Presence:            presence.New(testclock),
 		LeaseManager:        apitesting.StubLeaseManager{},
@@ -72,9 +70,8 @@ func (noopSysLogger) Log([]corelogger.LogRecord) error { return nil }
 // It returns information suitable for connecting to the state
 // without any authentication information or model tag, and the server
 // that's been started.
-func NewServer(c *gc.C, statePool *state.StatePool, controller *cache.Controller) *Server {
+func NewServer(c *gc.C, statePool *state.StatePool) *Server {
 	config := DefaultServerConfig(c, nil)
-	config.Controller = controller
 	return NewServerWithConfig(c, statePool, config)
 }
 

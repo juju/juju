@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/core/auditlog"
-	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
@@ -39,7 +38,6 @@ type ManifoldConfig struct {
 	AgentName              string
 	AuthenticatorName      string
 	ClockName              string
-	ModelCacheName         string
 	MultiwatcherName       string
 	MuxName                string
 	RestoreStatusName      string
@@ -70,9 +68,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.ClockName == "" {
 		return errors.NotValidf("empty ClockName")
-	}
-	if config.ModelCacheName == "" {
-		return errors.NotValidf("empty ModelCacheName")
 	}
 	if config.MultiwatcherName == "" {
 		return errors.NotValidf("empty MultiwatcherName")
@@ -134,7 +129,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.AuthenticatorName,
 			config.ClockName,
-			config.ModelCacheName,
 			config.MultiwatcherName,
 			config.MuxName,
 			config.RestoreStatusName,
@@ -190,11 +184,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	var controller *cache.Controller
-	if err := context.Get(config.ModelCacheName, &controller); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	var upgradeLock gate.Waiter
 	if err := context.Get(config.UpgradeGateName, &upgradeLock); err != nil {
 		return nil, errors.Trace(err)
@@ -245,7 +234,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Clock:                             clock,
 		Mux:                               mux,
 		StatePool:                         statePool,
-		Controller:                        controller,
 		MultiwatcherFactory:               factory,
 		LeaseManager:                      leaseManager,
 		RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,

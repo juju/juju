@@ -12,7 +12,6 @@ import (
 	"github.com/juju/loggo"
 
 	jujucontroller "github.com/juju/juju/controller"
-	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
@@ -37,7 +36,6 @@ type SharedHub interface {
 // presence, or protected and only accessed through methods on this context object.
 type sharedServerContext struct {
 	statePool           *state.StatePool
-	controller          *cache.Controller
 	multiwatcherFactory multiwatcher.Factory
 	centralHub          SharedHub
 	presence            presence.Recorder
@@ -55,7 +53,6 @@ type sharedServerContext struct {
 
 type sharedServerConfig struct {
 	statePool           *state.StatePool
-	controller          *cache.Controller
 	multiwatcherFactory multiwatcher.Factory
 	centralHub          SharedHub
 	presence            presence.Recorder
@@ -68,9 +65,6 @@ type sharedServerConfig struct {
 func (c *sharedServerConfig) validate() error {
 	if c.statePool == nil {
 		return errors.NotValidf("nil statePool")
-	}
-	if c.controller == nil {
-		return errors.NotValidf("nil controller")
 	}
 	if c.multiwatcherFactory == nil {
 		return errors.NotValidf("nil multiwatcherFactory")
@@ -99,7 +93,6 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 	}
 	ctx := &sharedServerContext{
 		statePool:           config.statePool,
-		controller:          config.controller,
 		multiwatcherFactory: config.multiwatcherFactory,
 		centralHub:          config.centralHub,
 		presence:            config.presence,

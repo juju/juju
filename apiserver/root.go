@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
@@ -473,11 +472,6 @@ func (ctx *facadeContext) ModelPresence(modelUUID string) facade.ModelPresence {
 // Hub implements facade.Context.
 func (ctx *facadeContext) Hub() facade.Hub {
 	return ctx.r.shared.centralHub
-}
-
-// Controller implements facade.Context.
-func (ctx *facadeContext) Controller() *cache.Controller {
-	return ctx.r.shared.controller
 }
 
 // State is part of the facade.Context interface.

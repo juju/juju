@@ -631,9 +631,6 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 	// Get API connection to hosted model.
 	apiInfo := s.APIInfo(c)
 	apiInfo.ModelTag = model2.ModelTag()
-	// To avoid the race between the cache on the model creation,
-	// make sure the cache has the model before progressing.
-	s.EnsureCachedModel(c, model2.UUID())
 
 	conn, err := api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1332,9 +1329,8 @@ func (s *filteringBranchesSuite) clientForTest(c *gc.C) *client.Client {
 	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	ctx := &facadetest.Context{
-		Controller_: s.Controller,
-		State_:      s.State,
-		StatePool_:  s.StatePool,
+		State_:     s.State,
+		StatePool_: s.StatePool,
 		Auth_: apiservertesting.FakeAuthorizer{
 			Tag:        s.AdminUserTag(c),
 			Controller: true,

@@ -9,7 +9,6 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	facade "github.com/juju/juju/apiserver/facade"
-	cache "github.com/juju/juju/core/cache"
 	leadership "github.com/juju/juju/core/leadership"
 	lease "github.com/juju/juju/core/lease"
 	multiwatcher "github.com/juju/juju/core/multiwatcher"
@@ -246,20 +245,6 @@ func (m *MockContext) Cancel() <-chan struct{} {
 func (mr *MockContextMockRecorder) Cancel() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cancel", reflect.TypeOf((*MockContext)(nil).Cancel))
-}
-
-// Controller mocks base method.
-func (m *MockContext) Controller() *cache.Controller {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Controller")
-	ret0, _ := ret[0].(*cache.Controller)
-	return ret0
-}
-
-// Controller indicates an expected call of Controller.
-func (mr *MockContextMockRecorder) Controller() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Controller", reflect.TypeOf((*MockContext)(nil).Controller))
 }
 
 // Dispose mocks base method.

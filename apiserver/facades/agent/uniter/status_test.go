@@ -20,7 +20,6 @@ type statusBaseSuite struct {
 	testing.StateSuite
 	leadershipChecker *fakeLeadershipChecker
 	badTag            names.Tag
-	model             *fakeCachedModel
 	api               *uniter.StatusAPI
 }
 
@@ -28,7 +27,6 @@ func (s *statusBaseSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.badTag = nil
 	s.leadershipChecker = &fakeLeadershipChecker{true}
-	s.model = &fakeCachedModel{info: status.StatusInfo{Status: status.Unset}}
 	s.api = s.newStatusAPI()
 }
 
@@ -41,7 +39,7 @@ func (s *statusBaseSuite) newStatusAPI() *uniter.StatusAPI {
 	auth := func() (common.AuthFunc, error) {
 		return s.authFunc, nil
 	}
-	return uniter.NewStatusAPI(st, s.model, auth, s.leadershipChecker)
+	return uniter.NewStatusAPI(st, auth, s.leadershipChecker)
 }
 
 type ApplicationStatusAPISuite struct {
@@ -120,7 +118,6 @@ func (s *ApplicationStatusAPISuite) TestGetUnitStatusIsLeader(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Status: &status.StatusInfo{
 		Status: status.Maintenance,
 	}})
-	s.model.info.Status = status.Maintenance
 	// No need to claim leadership - the checker passed in in setup
 	// always returns true.
 	result, err := s.api.ApplicationStatus(params.Entities{[]params.Entity{{
@@ -155,20 +152,4 @@ func (s *ApplicationStatusAPISuite) TestBulk(c *gc.C) {
 	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(result.Results[1].Error, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(result.Results[2].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
-}
-
-type fakeCachedModel struct {
-	err  error
-	info status.StatusInfo
-}
-
-func (f *fakeCachedModel) Application(name string) (uniter.CachedApplication, error) {
-	if f.err != nil {
-		return nil, f.err
-	}
-	return f, nil
-}
-
-func (f *fakeCachedModel) Status() status.StatusInfo {
-	return f.info
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
@@ -19,7 +18,6 @@ import (
 	coreapiserver "github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
@@ -34,7 +32,6 @@ type workerFixture struct {
 	agentConfig          mockAgentConfig
 	authenticator        *mockAuthenticator
 	clock                *testclock.Clock
-	controller           *cache.Controller
 	hub                  pubsub.StructuredHub
 	mux                  *apiserverhttp.Mux
 	prometheusRegisterer stubPrometheusRegisterer
@@ -59,11 +56,6 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	}
 	s.authenticator = &mockAuthenticator{}
 	s.clock = testclock.NewClock(time.Time{})
-	controller, err := cache.NewController(cache.ControllerConfig{
-		Changes: make(chan interface{}),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.controller = controller
 	s.mux = apiserverhttp.NewMux()
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
 	s.leaseManager = &struct{ lease.Manager }{}
@@ -77,7 +69,6 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		AgentConfig:                       &s.agentConfig,
 		Authenticator:                     s.authenticator,
 		Clock:                             s.clock,
-		Controller:                        s.controller,
 		Hub:                               &s.hub,
 		Presence:                          presence.New(s.clock),
 		Mux:                               s.mux,

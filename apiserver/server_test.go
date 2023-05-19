@@ -46,7 +46,7 @@ var _ = gc.Suite(&serverSuite{})
 func (s *serverSuite) TestStop(c *gc.C) {
 	// Start our own instance of the server so we have
 	// a handle on it to stop it.
-	srv := testserver.NewServer(c, s.StatePool, s.Controller)
+	srv := testserver.NewServer(c, s.StatePool)
 	defer assertStop(c, srv)
 
 	machine, password := s.Factory.MakeMachineReturningPassword(
@@ -86,7 +86,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 
 	// Start our own instance of the server listening on
 	// both IPv4 and IPv6 localhost addresses and an ephemeral port.
-	srv := testserver.NewServer(c, s.StatePool, s.Controller)
+	srv := testserver.NewServer(c, s.StatePool)
 	defer assertStop(c, srv)
 
 	machine, password := s.Factory.MakeMachineReturningPassword(
@@ -195,7 +195,7 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	// We expose the API at '/api', '/' (controller-only), and at '/ModelUUID/api'
 	// for the correct location, but other paths should fail.
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	srv := testserver.NewServer(c, s.StatePool, s.Controller)
+	srv := testserver.NewServer(c, s.StatePool)
 	defer assertStop(c, srv)
 
 	// We have to use 'localhost' because that is what the TLS cert says.
@@ -292,7 +292,6 @@ func (s *serverSuite) TestAPIHandlerConnectedModel(c *gc.C) {
 
 func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 	cfg := testserver.DefaultServerConfig(c, nil)
-	cfg.Controller = s.Controller
 	server := testserver.NewServerWithConfig(c, s.StatePool, cfg)
 	defer assertStop(c, server)
 

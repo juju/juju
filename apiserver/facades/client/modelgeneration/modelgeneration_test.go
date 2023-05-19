@@ -26,10 +26,9 @@ type modelGenerationSuite struct {
 
 	api *modelgeneration.API
 
-	mockState      *mocks.MockState
-	mockModel      *mocks.MockModel
-	mockGen        *mocks.MockGeneration
-	mockModelCache *mocks.MockModelCache
+	mockState *mocks.MockState
+	mockModel *mocks.MockModel
+	mockGen   *mocks.MockGeneration
 }
 
 var _ = gc.Suite(&modelGenerationSuite{})
@@ -246,10 +245,8 @@ func (s *modelGenerationSuite) setupModelGenerationAPI(c *gc.C) *gomock.Controll
 	aExp.GetAuthTag().Return(names.NewUserTag("test-user"))
 	aExp.AuthClient().Return(true)
 
-	s.mockModelCache = mocks.NewMockModelCache(ctrl)
-
 	var err error
-	s.api, err = modelgeneration.NewModelGenerationAPI(s.mockState, mockAuthorizer, s.mockModel, s.mockModelCache)
+	s.api, err = modelgeneration.NewModelGenerationAPI(s.mockState, mockAuthorizer, s.mockModel)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
@@ -272,7 +269,7 @@ func (s *modelGenerationSuite) expectBranch() {
 }
 
 func (s *modelGenerationSuite) expectHasActiveBranch(err error) {
-	s.mockModelCache.EXPECT().Branch(s.newBranchName).Return(cache.Branch{}, err)
+	s.mockModel.EXPECT().Branch(s.newBranchName).Return(s.mockGen, err)
 }
 
 func (s *modelGenerationSuite) expectAssignUnits(appName string, numUnits int) {

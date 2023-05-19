@@ -24,7 +24,6 @@ type API struct {
 	isControllerAdmin bool
 	st                State
 	model             Model
-	modelCache        ModelCache
 }
 
 type APIV3 struct {
@@ -44,7 +43,6 @@ func NewModelGenerationAPI(
 	st State,
 	authorizer facade.Authorizer,
 	m Model,
-	mc ModelCache,
 ) (*API, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -65,7 +63,6 @@ func NewModelGenerationAPI(
 		apiUser:           apiUser,
 		st:                st,
 		model:             m,
-		modelCache:        mc,
 	}, nil
 }
 
@@ -386,7 +383,7 @@ func (api *API) HasActiveBranch(arg params.BranchArg) (params.BoolResult, error)
 		return result, apiservererrors.ErrPerm
 	}
 
-	if _, err := api.modelCache.Branch(arg.BranchName); err != nil {
+	if _, err := api.model.Branch(arg.BranchName); err != nil {
 		if errors.IsNotFound(err) {
 			result.Result = false
 		} else {
