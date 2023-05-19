@@ -202,7 +202,7 @@ func (w *dbWorker) loop() (err error) {
 	// Dqlite app to shut down gracefully.
 	// There is a timeout in shutdownDqlite to ensure that we don't wait
 	// forever.
-	defer w.shutdownDqlite(context.Background())
+	defer w.shutdownDqlite(context.Background(), true)
 
 	extant, err := w.cfg.NodeManager.IsExistingNode()
 	if err != nil {
@@ -532,7 +532,10 @@ func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
 // It should be called only for a cluster constituted by a single node
 // bound to the loopback IP address.
 func (w *dbWorker) rebindAddress(ctx context.Context, addr string) error {
-	w.shutdownDqlite(ctx)
+	// We only rebind the address when going into HA from a single node.
+	// Therefore, we do not have to worry about handing over responsibilities.
+	// Passing false ensures we come back up in the shortest time possible.
+	w.shutdownDqlite(ctx, false)
 
 	mgr := w.cfg.NodeManager
 	servers, err := mgr.ClusterServers(ctx)
@@ -625,13 +628,12 @@ func (w *dbWorker) bindAddrFromServerDetails(apiDetails apiserver.Details) (stri
 	return addr, nil
 }
 
-// shutdownDqlite makes a best-effort attempt to hand off and shut
-// down the local Dqlite node.
-// We reassign the dbReady channel, which blocks GetDB requests.
+// shutdownDqlite shuts down the local Dqlite node, making a best-effort
+// attempt at graceful handover when the input boolean is true.
 // If the worker is not shutting down permanently, Dqlite should be
 // reinitialised either directly or by bouncing the agent reasonably
 // soon after calling this method.
-func (w *dbWorker) shutdownDqlite(ctx context.Context) {
+func (w *dbWorker) shutdownDqlite(ctx context.Context, handover bool) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -639,13 +641,14 @@ func (w *dbWorker) shutdownDqlite(ctx context.Context) {
 		return
 	}
 
-	// Ensure that we don't block forever and bound the shutdown time for
-	// handing over a dqlite node.
-	ctx, cancel := context.WithTimeout(ctx, nodeShutdownTimeout)
-	defer cancel()
+	if handover {
+		// Set a bound on the time that we allow for hand off.
+		ctx, cancel := context.WithTimeout(ctx, nodeShutdownTimeout)
+		defer cancel()
 
-	if err := w.dbApp.Handover(ctx); err != nil {
-		w.cfg.Logger.Errorf("handing off Dqlite responsibilities: %v", err)
+		if err := w.dbApp.Handover(ctx); err != nil {
+			w.cfg.Logger.Errorf("handing off Dqlite responsibilities: %v", err)
+		}
 	}
 
 	if err := w.dbApp.Close(); err != nil {
