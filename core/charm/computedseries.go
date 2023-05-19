@@ -17,7 +17,7 @@ import (
 var logger = loggo.GetLogger("juju.core.charm")
 
 // ComputedSeries of a charm, preserving legacy behavior.  If the charm has
-// no manifest, return series from the metadata. Otherwise return the series
+// no manifest, return series from the metadata. Otherwise, return the series
 // listed in the manifest Bases as channels.
 func ComputedSeries(c charm.CharmMeta) (seriesSlice []string, _ error) {
 	format := charm.MetaFormat(c)
@@ -27,16 +27,11 @@ func ComputedSeries(c charm.CharmMeta) (seriesSlice []string, _ error) {
 		logger.Debugf("series %q for charm %q with format %v, Kubernetes %v", strings.Join(*s, ", "), meta.Name, format, isKubernetes)
 	}(&seriesSlice)
 
-	if format < charm.FormatV2 {
-		return meta.Series, nil
-	}
-
-	// We use a set to ensure uniqueness and a slice to ensure that we
-	// preserve the order of elements as they appear in the manifest.
-	seriesSet := set.NewStrings()
-
 	manifest := c.Manifest()
 	if manifest != nil {
+		// We use a set to ensure uniqueness and a slice to ensure that we
+		// preserve the order of elements as they appear in the manifest.
+		seriesSet := set.NewStrings()
 		for _, base := range manifest.Bases {
 			version := base.Channel.Track
 			series, err := coreseries.VersionSeries(version)
@@ -48,9 +43,8 @@ func ComputedSeries(c charm.CharmMeta) (seriesSlice []string, _ error) {
 				seriesSlice = append(seriesSlice, series)
 			}
 		}
-	}
-	if isKubernetes && !seriesSet.Contains(coreseries.Kubernetes.String()) {
-		seriesSlice = append(seriesSlice, coreseries.Kubernetes.String())
+	} else if manifest == nil && format < charm.FormatV2 {
+		seriesSlice = meta.Series
 	}
 
 	return seriesSlice, nil

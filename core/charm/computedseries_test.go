@@ -18,22 +18,6 @@ type computedSeriesSuite struct {
 
 var _ = gc.Suite(&computedSeriesSuite{})
 
-func (s *computedSeriesSuite) TestComputedSeriesLegacy(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	cm := NewMockCharmMeta(ctrl)
-	cm.EXPECT().Meta().Return(&charm.Meta{
-		Name:        "a",
-		Summary:     "b",
-		Description: "c",
-		Series:      []string{"bionic"},
-	}).AnyTimes()
-	cm.EXPECT().Manifest().Return(nil).AnyTimes()
-	series, err := ComputedSeries(cm)
-	c.Assert(err, gc.IsNil)
-	c.Assert(series, jc.DeepEquals, []string{"bionic"})
-}
-
 func (s *computedSeriesSuite) TestComputedSeriesNilManifest(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -103,7 +87,7 @@ func (s *computedSeriesSuite) TestComputedSeriesKubernetes(c *gc.C) {
 	}).AnyTimes()
 	series, err := ComputedSeries(cm)
 	c.Assert(err, gc.IsNil)
-	c.Assert(series, jc.DeepEquals, []string{"bionic", "kubernetes"})
+	c.Assert(series, jc.DeepEquals, []string{"bionic"})
 }
 
 func (s *computedSeriesSuite) TestComputedSeriesError(c *gc.C) {
