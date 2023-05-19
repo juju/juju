@@ -103,6 +103,21 @@ func (mr *MockRepositoryMockRecorder) ListResources(arg0, arg1 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListResources", reflect.TypeOf((*MockRepository)(nil).ListResources), arg0, arg1)
 }
 
+// ResolveForDeploy mocks base method.
+func (m *MockRepository) ResolveForDeploy(arg0 charm0.CharmID) (charm0.ResolvedDataForDeploy, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResolveForDeploy", arg0)
+	ret0, _ := ret[0].(charm0.ResolvedDataForDeploy)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ResolveForDeploy indicates an expected call of ResolveForDeploy.
+func (mr *MockRepositoryMockRecorder) ResolveForDeploy(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveForDeploy", reflect.TypeOf((*MockRepository)(nil).ResolveForDeploy), arg0)
+}
+
 // ResolveResources mocks base method.
 func (m *MockRepository) ResolveResources(arg0 []resource.Resource, arg1 charm0.CharmID) ([]resource.Resource, error) {
 	m.ctrl.T.Helper()
