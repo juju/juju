@@ -326,7 +326,7 @@ func (s *workerSuite) TestEnsureNamespaceForModelNotFound(c *gc.C) {
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	sync := s.expectNodeStartupAndShutdown()
+	sync := s.expectNodeStartupAndShutdown(true)
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -363,7 +363,7 @@ func (s *workerSuite) TestEnsureNamespaceForModel(c *gc.C) {
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	sync := s.expectNodeStartupAndShutdown()
+	sync := s.expectNodeStartupAndShutdown(true)
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -416,7 +416,7 @@ func (s *workerSuite) TestEnsureNamespaceForModelWithCache(c *gc.C) {
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	sync := s.expectNodeStartupAndShutdown()
+	sync := s.expectNodeStartupAndShutdown(true)
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 

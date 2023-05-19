@@ -139,7 +139,3 @@ func (w *workerTrackedDB) Txn(ctx context.Context, fn func(context.Context, *sql
 func (w *workerTrackedDB) TxnNoRetry(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
 	return w.db.TxnNoRetry(ctx, fn)
 }
-
-func (w *workerTrackedDB) Err() error {
-	return w.db.Err()
-}
