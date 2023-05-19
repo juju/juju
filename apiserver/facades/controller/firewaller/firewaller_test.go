@@ -250,8 +250,6 @@ func (s *firewallerSuite) TestWatchSubnets(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-
 	apiv6 := &firewaller.FirewallerAPIV6{
 		&firewaller.FirewallerAPIV5{
 			&firewaller.FirewallerAPIV4{

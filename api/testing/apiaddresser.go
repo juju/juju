@@ -14,18 +14,16 @@ import (
 )
 
 type APIAddresserTests struct {
-	ctrlSt                   *state.State
-	state                    *state.State
-	facade                   APIAddresserFacade
-	waitForModelWatchersIdle func(c *gc.C)
+	ctrlSt *state.State
+	state  *state.State
+	facade APIAddresserFacade
 }
 
-func NewAPIAddresserTests(facade APIAddresserFacade, ctrlSt, st *state.State, waitForModelWatchersIdle func(c *gc.C)) *APIAddresserTests {
+func NewAPIAddresserTests(facade APIAddresserFacade, ctrlSt, st *state.State) *APIAddresserTests {
 	return &APIAddresserTests{
-		ctrlSt:                   ctrlSt,
-		state:                    st,
-		facade:                   facade,
-		waitForModelWatchersIdle: waitForModelWatchersIdle,
+		ctrlSt: ctrlSt,
+		state:  st,
+		facade: facade,
 	}
 }
 
@@ -79,7 +77,6 @@ func (s *APIAddresserTests) TestWatchAPIHostPorts(c *gc.C) {
 	}
 	// Make sure we are changing the value
 	c.Assert(hostports, gc.Not(gc.DeepEquals), expectServerAddrs)
-	s.waitForModelWatchersIdle(c)
 
 	c.Logf("starting api host port watcher")
 	w, err := s.facade.WatchAPIHostPorts()

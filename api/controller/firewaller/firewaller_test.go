@@ -89,8 +89,6 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(firewallerClient, gc.NotNil)
 	s.firewaller = firewallerClient
-	// Before we get into the tests, ensure that all the creation events have flowed through the system.
-	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 }
 
 func (s *firewallerSuite) TestWatchEgressAddressesForRelation(c *gc.C) {

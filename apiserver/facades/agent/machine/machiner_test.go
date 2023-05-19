@@ -271,9 +271,6 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 		{Tag: "machine-0"},
 		{Tag: "machine-42"},
 	}}
-	// We just set up the machiner, make sure there aren't pending events
-	// before we set up the watcher.
-	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	result, err := s.machiner.Watch(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
