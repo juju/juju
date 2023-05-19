@@ -66,9 +66,6 @@ func (c *CharmHubRepository) ResolveForDeploy(arg corecharm.CharmID) (corecharm.
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(resolveErr)
 	}
 
-	if resp.Entity.Type != "charm" {
-
-	}
 	essMeta, err := transformRefreshResult(resultURL, resp)
 	if err != nil {
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(resolveErr)
@@ -336,18 +333,19 @@ func (c *CharmHubRepository) retryResolveWithPreferredChannel(charmURL *charm.UR
 
 func transformRefreshResult(curl *charm.URL, refreshResult transport.RefreshResponse) (corecharm.EssentialMetadata, error) {
 	if refreshResult.Entity.MetadataYAML == "" {
-		return corecharm.EssentialMetadata{}, errors.Errorf("charmhub refresh response for %q does not include the contents of metadata.yaml", curl)
+		return corecharm.EssentialMetadata{}, errors.NotValidf("charmhub refresh response for %q does not include the contents of metadata.yaml", curl)
 	}
 	chMeta, err := charm.ReadMeta(strings.NewReader(refreshResult.Entity.MetadataYAML))
 	if err != nil {
 		return corecharm.EssentialMetadata{}, errors.Annotatef(err, "parsing metadata.yaml for %q", curl)
 	}
 
-	// It's okay for a charm not to have a config.yaml. But the CharmHub
-	// API currently returns "{}\n" for charms that have no config.yaml,
-	// so handle that as no config as well.
-	var chConfig *charm.Config
 	configYAML := refreshResult.Entity.ConfigYAML
+	var chConfig *charm.Config
+	// NOTE: Charmhub returns a "{}\n" when no config.yaml exists for
+	// the charm, e.g. postgreql. However, this will fail the charm
+	// config validation which happens in ReadConfig. Valid config
+	// are nil and "Options: {}"
 	if configYAML == "" || strings.TrimSpace(configYAML) == "{}" {
 		chConfig = charm.NewConfig()
 	} else {
