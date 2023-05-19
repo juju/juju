@@ -331,7 +331,8 @@ func (w *dbWorker) GetDB(namespace string) (coredatabase.TrackedDB, error) {
 	if tracked, err := w.dbRunner.Worker(namespace, w.catacomb.Dying()); err == nil {
 		return tracked.(coredatabase.TrackedDB), nil
 	} else if errors.Is(errors.Cause(err), worker.ErrDead) {
-		// Handle the case where the db runner is dead.
+		// Handle the case where the DB runner is dead due to this worker is
+		// dying.
 		select {
 		case <-w.catacomb.Dying():
 			return nil, w.catacomb.ErrDying()

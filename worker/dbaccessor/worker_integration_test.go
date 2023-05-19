@@ -7,8 +7,6 @@ import (
 	"context"
 	sql "database/sql"
 
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/clock"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -16,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
@@ -59,7 +58,7 @@ func (s *integrationSuite) SetUpSuite(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	logger := loggo.GetLogger("worker.dbaccessor.test")
-	nodeManager := database.NewNodeManager(agentConfig, logger)
+	nodeManager := database.NewNodeManager(agentConfig, logger, coredatabase.NoopSlowQueryLogger{})
 
 	w, err := dbaccessor.NewWorker(dbaccessor.WorkerConfig{
 		NewApp: func(string, ...app.Option) (dbaccessor.DBApp, error) {
