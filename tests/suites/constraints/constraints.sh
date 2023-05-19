@@ -13,6 +13,9 @@ test_constraints_common() {
 		"lxd" | "lxd-remote" | "localhost")
 			run "run_constraints_lxd"
 			;;
+		"ec2")
+			run "run_constraints_aws"
+			;;
 		"microk8s")
 			echo "==> TEST SKIPPED: constraints - there are no test for k8s cloud"
 			;;
