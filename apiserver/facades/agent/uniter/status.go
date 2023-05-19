@@ -18,7 +18,7 @@ import (
 // status from different entities, this particular separation from
 // base is because we have a shim to support unit/agent split.
 type StatusAPI struct {
-	st                *state.State
+	model             *state.Model
 	leadershipChecker leadership.Checker
 
 	agentSetter       *common.StatusSetter
@@ -29,15 +29,16 @@ type StatusAPI struct {
 }
 
 // NewStatusAPI creates a new server-side Status setter API facade.
-func NewStatusAPI(st *state.State, getCanModify common.GetAuthFunc, leadershipChecker leadership.Checker) *StatusAPI {
+func NewStatusAPI(model *state.Model, getCanModify common.GetAuthFunc, leadershipChecker leadership.Checker) *StatusAPI {
 	// TODO(fwereade): so *all* of these have exactly the same auth
 	// characteristics? I think not.
+	st := model.State()
 	unitSetter := common.NewStatusSetter(st, getCanModify)
 	unitGetter := common.NewStatusGetter(st, getCanModify)
 	applicationSetter := common.NewApplicationStatusSetter(st, getCanModify, leadershipChecker)
 	agentSetter := common.NewStatusSetter(&common.UnitAgentFinder{st}, getCanModify)
 	return &StatusAPI{
-		st:                st,
+		model:             model,
 		leadershipChecker: leadershipChecker,
 		agentSetter:       agentSetter,
 		unitSetter:        unitSetter,
@@ -124,7 +125,7 @@ func (s *StatusAPI) ApplicationStatus(args params.Entities) (params.ApplicationS
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		application, err := s.st.Application(applicationId)
+		application, err := s.model.State().Application(applicationId)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -158,10 +159,8 @@ func (s *StatusAPI) getAppAndUnitStatus(application *state.Application) params.A
 	result := params.ApplicationStatusResult{
 		Units: make(map[string]params.StatusResult),
 	}
-	appStatus := status.StatusInfo{
-		Status: status.Unknown,
-	}
-	aStatus, err := application.Status()
+	appStatus := status.StatusInfo{Status: status.Unknown}
+	aStatus, err := common.ApplicationDisplayStatus(s.model, application, nil)
 	if err == nil {
 		appStatus = aStatus
 	}

@@ -98,7 +98,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"migration-fortress",
 			"migration-minion",
 			"migration-inactive-flag",
-			"model-cache",
 			"model-worker-manager",
 			"multiwatcher",
 			"peer-grouper",
@@ -165,7 +164,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"migration-fortress",
 			"migration-minion",
 			"migration-inactive-flag",
-			"model-cache",
 			"model-worker-manager",
 			"multiwatcher",
 			"peer-grouper",
@@ -239,7 +237,6 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"lease-expiry",
 		"lease-manager",
 		"log-forwarder",
-		"model-cache",
 		"model-worker-manager",
 		"multiwatcher",
 		"peer-grouper",
@@ -308,7 +305,6 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 	// Guarded by ifDatabaseUpgradeComplete,
 	// which implies running on a controller.
 	dbUpgradedWorkers := set.NewStrings(
-		"model-cache",
 		"multiwatcher",
 	)
 
@@ -467,7 +463,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"http-server-args",
 		"is-controller-flag",
 		"lease-manager",
-		"model-cache",
 		"multiwatcher",
 		"query-logger",
 		"state",
@@ -624,7 +619,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"http-server-args",
 		"is-controller-flag",
 		"lease-manager",
-		"model-cache",
 		"multiwatcher",
 		"query-logger",
 		"state",
@@ -1054,7 +1048,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"http-server-args",
 		"is-controller-flag",
 		"lease-manager",
-		"model-cache",
 		"multiwatcher",
 		"query-logger",
 		"state",
@@ -1141,7 +1134,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"http-server-args",
 		"is-controller-flag",
 		"lease-manager",
-		"model-cache",
 		"multiwatcher",
 		"query-logger",
 		"state",

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/logger"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -111,7 +110,7 @@ func (s *loggerSuite) TestWatchLoggingConfig(c *gc.C) {
 	resource := s.resources.Get(results.Results[0].NotifyWatcherId)
 	c.Assert(resource, gc.NotNil)
 
-	_, ok := resource.(corewatcher.NotifyWatcher)
+	_, ok := resource.(state.NotifyWatcher)
 	c.Assert(ok, jc.IsTrue)
 	// The watcher implementation is tested in the cache package.
 }
