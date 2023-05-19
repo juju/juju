@@ -79,6 +79,12 @@ func (s *BaseSuite) TestParseManifestBases(c *gc.C) {
 			Risk:  "edge",
 		},
 	}, {
+		Name: "ubuntu", Channel: charm.Channel{
+			Track: "18.04",
+			Risk:  "stable",
+		},
+		Architectures: []string{"arm64"},
+	}, {
 		Name: "centos", Channel: charm.Channel{
 			Track: "9",
 			Risk:  "candidate",

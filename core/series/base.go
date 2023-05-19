@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v10"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 )
 
@@ -50,18 +51,32 @@ func ParseBaseFromString(b string) (Base, error) {
 }
 
 // ParseManifestBases transforms charm.Bases to Bases. This
-// format comes out of a charm.Manifest.
+// format comes out of a charm.Manifest and contains architectures
+// which Base does not. Only unique non architecture Bases
+// will be returned.
 func ParseManifestBases(manifestBases []charm.Base) ([]Base, error) {
 	if len(manifestBases) == 0 {
 		return nil, errors.BadRequestf("base len zero")
 	}
-	bases := make([]Base, len(manifestBases))
-	for i, m := range manifestBases {
+	bases := make([]Base, 0)
+	unique := set.NewStrings()
+	for _, m := range manifestBases {
+		// The data actually comes over the wire as an operating system
+		// with a single architecture, not multiple ones.
+		// TODO - (hml) 2023-05-18
+		// There is no guarantee that every architecture has
+		// the same operating systems. This logic should be
+		// investigated.
+		m.Architectures = []string{}
+		if unique.Contains(m.String()) {
+			continue
+		}
 		base, err := ParseBase(m.Name, m.Channel.String())
 		if err != nil {
 			return nil, err
 		}
-		bases[i] = base
+		bases = append(bases, base)
+		unique.Add(m.String())
 	}
 	return bases, nil
 }
