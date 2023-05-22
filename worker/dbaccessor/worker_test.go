@@ -478,7 +478,7 @@ func (s *workerSuite) TestCloseDatabaseForController(c *gc.C) {
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	sync := s.expectNodeStartupAndShutdown()
+	sync := s.expectNodeStartupAndShutdown(true)
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -531,7 +531,7 @@ func (s *workerSuite) TestCloseDatabaseForModel(c *gc.C) {
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	sync := s.expectNodeStartupAndShutdown()
+	sync := s.expectNodeStartupAndShutdown(true)
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -584,7 +584,7 @@ func (s *workerSuite) TestCloseDatabaseForUnknownModel(c *gc.C) {
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	sync := s.expectNodeStartupAndShutdown()
+	sync := s.expectNodeStartupAndShutdown(true)
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
