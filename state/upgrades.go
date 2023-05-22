@@ -3896,28 +3896,32 @@ func EnsureCharmOriginRisk(pool *StatePool) error {
 
 func RemoveOrphanedCrossModelProxies(pool *StatePool) error {
 	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
-		col, closer := st.db().GetCollection(applicationOffersC)
-		defer closer()
-
 		// Ideally we'd manipulate the collection data directly, but the
 		// operations to remove remotes apps are too complex to craft by hand.
 		allRemoteApps, err := st.AllRemoteApplications()
 		if err != nil {
 			return errors.Trace(err)
 		}
+		allRelations, err := st.AllRelations()
+		if err != nil {
+			return errors.Trace(err)
+		}
 
-		var appsToRemove []*RemoteApplication
+		appsToRemove := make(map[string]*RemoteApplication)
 		for _, app := range allRemoteApps {
 			// We only want this for the offering side.
 			if !app.IsConsumerProxy() {
 				continue
 			}
-			num, err := col.Find(bson.D{{"offer-uuid", app.OfferUUID()}}).Count()
+			appsToRemove[app.Name()] = app
+		}
+		for _, rel := range allRelations {
+			remoteApp, isCrossModel, err := rel.RemoteApplication()
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if num == 0 {
-				appsToRemove = append(appsToRemove, app)
+			if isCrossModel {
+				delete(appsToRemove, remoteApp.Name())
 			}
 		}
 

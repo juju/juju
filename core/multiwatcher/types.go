@@ -312,7 +312,6 @@ func (i *CharmInfo) Clone() EntityInfo {
 type RemoteApplicationUpdate struct {
 	ModelUUID string
 	Name      string
-	OfferUUID string
 	OfferURL  string
 	Life      life.Value
 	Status    StatusInfo
