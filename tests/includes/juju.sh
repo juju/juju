@@ -290,7 +290,7 @@ pre_bootstrap() {
 		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --config caas-image-repo=${OPERATOR_IMAGE_ACCOUNT}"
 	fi
 
-	echo "BOOTSTRAP_ADDITIONAL_ARGS => ${BOOTSTRAP_ADDITIONAL_ARGS}"
+	echo "====> BOOTSTRAP_ADDITIONAL_ARGS => ${BOOTSTRAP_ADDITIONAL_ARGS}"
 }
 
 # post_bootstrap contains actions required after bootstrap specific to providers
