@@ -482,10 +482,10 @@ func (s *eventMultiplexerSuite) TestReportWithAllSubscriptions(c *gc.C) {
 	time.Sleep(time.Millisecond * 100)
 
 	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
-		"subscriptions":      10,
-		"subscriptionsByNS":  0,
-		"subscriptionsAll":   10,
-		"dispatchErrorCount": 0,
+		"subscriptions":        10,
+		"subscriptions-by-ns":  0,
+		"subscriptions-all":    10,
+		"dispatch-error-count": 0,
 	})
 
 	for _, sub := range subs {
@@ -493,10 +493,10 @@ func (s *eventMultiplexerSuite) TestReportWithAllSubscriptions(c *gc.C) {
 	}
 
 	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
-		"subscriptions":      0,
-		"subscriptionsByNS":  0,
-		"subscriptionsAll":   0,
-		"dispatchErrorCount": 0,
+		"subscriptions":        0,
+		"subscriptions-by-ns":  0,
+		"subscriptions-all":    0,
+		"dispatch-error-count": 0,
 	})
 
 	workertest.CleanKill(c, queue)
@@ -527,10 +527,10 @@ func (s *eventMultiplexerSuite) TestReportWithTopicSubscriptions(c *gc.C) {
 	time.Sleep(time.Millisecond * 100)
 
 	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
-		"subscriptions":      10,
-		"subscriptionsByNS":  1,
-		"subscriptionsAll":   0,
-		"dispatchErrorCount": 0,
+		"subscriptions":        10,
+		"subscriptions-by-ns":  1,
+		"subscriptions-all":    0,
+		"dispatch-error-count": 0,
 	})
 
 	for _, sub := range subs {
@@ -538,10 +538,10 @@ func (s *eventMultiplexerSuite) TestReportWithTopicSubscriptions(c *gc.C) {
 	}
 
 	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
-		"subscriptions":      0,
-		"subscriptionsByNS":  0,
-		"subscriptionsAll":   0,
-		"dispatchErrorCount": 0,
+		"subscriptions":        0,
+		"subscriptions-by-ns":  0,
+		"subscriptions-all":    0,
+		"dispatch-error-count": 0,
 	})
 
 	workertest.CleanKill(c, queue)
@@ -575,10 +575,10 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleTopicSubscriptions(c *gc.C
 	time.Sleep(time.Millisecond * 100)
 
 	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
-		"subscriptions":      10,
-		"subscriptionsByNS":  2,
-		"subscriptionsAll":   0,
-		"dispatchErrorCount": 0,
+		"subscriptions":        10,
+		"subscriptions-by-ns":  2,
+		"subscriptions-all":    0,
+		"dispatch-error-count": 0,
 	})
 
 	for _, sub := range subs {
@@ -586,10 +586,10 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleTopicSubscriptions(c *gc.C
 	}
 
 	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
-		"subscriptions":      0,
-		"subscriptionsByNS":  0,
-		"subscriptionsAll":   0,
-		"dispatchErrorCount": 0,
+		"subscriptions":        0,
+		"subscriptions-by-ns":  0,
+		"subscriptions-all":    0,
+		"dispatch-error-count": 0,
 	})
 
 	workertest.CleanKill(c, queue)
@@ -623,10 +623,10 @@ func (s *eventMultiplexerSuite) TestReportWithDuplicateTopicSubscriptions(c *gc.
 	time.Sleep(time.Millisecond * 100)
 
 	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
-		"subscriptions":      10,
-		"subscriptionsByNS":  1,
-		"subscriptionsAll":   0,
-		"dispatchErrorCount": 0,
+		"subscriptions":        10,
+		"subscriptions-by-ns":  1,
+		"subscriptions-all":    0,
+		"dispatch-error-count": 0,
 	})
 
 	for _, sub := range subs {
@@ -634,10 +634,10 @@ func (s *eventMultiplexerSuite) TestReportWithDuplicateTopicSubscriptions(c *gc.
 	}
 
 	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
-		"subscriptions":      0,
-		"subscriptionsByNS":  0,
-		"subscriptionsAll":   0,
-		"dispatchErrorCount": 0,
+		"subscriptions":        0,
+		"subscriptions-by-ns":  0,
+		"subscriptions-all":    0,
+		"dispatch-error-count": 0,
 	})
 
 	workertest.CleanKill(c, queue)
@@ -671,10 +671,10 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleDuplicateTopicSubscription
 	time.Sleep(time.Millisecond * 100)
 
 	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
-		"subscriptions":      10,
-		"subscriptionsByNS":  1,
-		"subscriptionsAll":   0,
-		"dispatchErrorCount": 0,
+		"subscriptions":        10,
+		"subscriptions-by-ns":  1,
+		"subscriptions-all":    0,
+		"dispatch-error-count": 0,
 	})
 
 	for _, sub := range subs {
@@ -682,10 +682,10 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleDuplicateTopicSubscription
 	}
 
 	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
-		"subscriptions":      0,
-		"subscriptionsByNS":  0,
-		"subscriptionsAll":   0,
-		"dispatchErrorCount": 0,
+		"subscriptions":        0,
+		"subscriptions-by-ns":  0,
+		"subscriptions-all":    0,
+		"dispatch-error-count": 0,
 	})
 
 	workertest.CleanKill(c, queue)
@@ -708,19 +708,19 @@ func (s *eventMultiplexerSuite) TestReportWithTopicRemovalAfterUnsubscribe(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
-		"subscriptions":      1,
-		"subscriptionsByNS":  1,
-		"subscriptionsAll":   0,
-		"dispatchErrorCount": 0,
+		"subscriptions":        1,
+		"subscriptions-by-ns":  1,
+		"subscriptions-all":    0,
+		"dispatch-error-count": 0,
 	})
 
 	s.unsubscribe(c, sub)
 
 	c.Check(queue.Report(), gc.DeepEquals, map[string]any{
-		"subscriptions":      0,
-		"subscriptionsByNS":  0,
-		"subscriptionsAll":   0,
-		"dispatchErrorCount": 0,
+		"subscriptions":        0,
+		"subscriptions-by-ns":  0,
+		"subscriptions-all":    0,
+		"dispatch-error-count": 0,
 	})
 
 	workertest.CleanKill(c, queue)

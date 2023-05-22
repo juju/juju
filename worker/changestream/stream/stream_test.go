@@ -774,6 +774,93 @@ func (s *streamSuite) TestOneChangeIsBlockedByFile(c *gc.C) {
 	workertest.CleanKill(c, stream)
 }
 
+func (s *streamSuite) TestReport(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectAfterAnyTimes()
+	s.expectFileNotifyWatcher()
+
+	s.insertNamespace(c, 1000, "foo")
+
+	ch := make(chan time.Time)
+
+	s.clock.EXPECT().NewTimer(gomock.Any()).Return(s.timer).AnyTimes()
+	s.timer.EXPECT().Chan().DoAndReturn(func() <-chan time.Time {
+		return ch
+	}).AnyTimes()
+	s.timer.EXPECT().Stop()
+
+	tag := utils.MustNewUUID().String()
+	stream := New(tag, s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	defer workertest.DirtyKill(c, stream)
+
+	first := change{
+		id:   1000,
+		uuid: utils.MustNewUUID().String(),
+	}
+	s.insertChange(c, first)
+
+	select {
+	case term := <-stream.Terms():
+		c.Assert(term.Changes(), gc.HasLen, 1)
+
+		// A report during a term, shouldn't be blocked. This test proves that
+		// case.
+		data := stream.Report()
+		c.Check(data["last-id"], gc.Equals, int64(0))
+		c.Check(data["recorded-last-id"], gc.Equals, int64(-1))
+
+		term.Done(false, make(chan struct{}))
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for change")
+	}
+
+	// We need to force a synchronization point, so that we actually witness
+	// the change. This is because we wait until after the done channel is
+	// closed before we update the watermark.
+	syncPoint := func(c *gc.C) map[string]any {
+		for i := 0; i < 3; i++ {
+			data := stream.Report()
+			if data["last-id"].(int64) > 0 {
+				return data
+			}
+			<-time.After(testing.ShortWait)
+		}
+		c.Fatalf("timed out waiting for sync point")
+		return nil
+	}
+	data := syncPoint(c)
+	c.Check(data["last-id"], gc.Equals, int64(1))
+	c.Check(data["recorded-last-id"], gc.Equals, int64(-1))
+
+	select {
+	case ch <- time.Now():
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for timer")
+	}
+
+	sync := make(chan struct{})
+	s.timer.EXPECT().Reset(gomock.Any()).DoAndReturn(func(d time.Duration) bool {
+		defer close(sync)
+		return true
+	})
+
+	select {
+	case <-sync:
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for timer")
+	}
+
+	s.expectWaterMark(c, tag, 1)
+
+	data = stream.Report()
+	c.Check(data["last-id"], gc.Equals, int64(1))
+	c.Check(data["recorded-last-id"], gc.Equals, int64(1))
+
+	workertest.CleanKill(c, stream)
+}
+
 func (s *streamSuite) TestWatermarkWrite(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

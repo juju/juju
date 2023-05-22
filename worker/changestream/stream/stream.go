@@ -6,6 +6,7 @@ package stream
 import (
 	"context"
 	"database/sql"
+	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -38,6 +39,7 @@ var (
 
 // Logger represents the logging methods called.
 type Logger interface {
+	Errorf(message string, args ...interface{})
 	Infof(message string, args ...interface{})
 	Debugf(message string, args ...interface{})
 	Tracef(message string, args ...interface{})
@@ -78,6 +80,11 @@ func (t *Term) Done(empty bool, abort <-chan struct{}) {
 	}
 }
 
+type reportRequest struct {
+	data map[string]any
+	done chan struct{}
+}
+
 // Stream defines a worker that will poll the database for change events.
 type Stream struct {
 	tomb tomb.Tomb
@@ -88,24 +95,38 @@ type Stream struct {
 	clock        clock.Clock
 	logger       Logger
 
-	terms  chan changestream.Term
-	lastID int64
+	terms chan changestream.Term
+
+	idMutex                sync.Mutex
+	lastID, recordedLastID int64
 }
 
 // New creates a new Stream.
 func New(tag string, db coredatabase.TxnRunner, fileNotifier FileNotifier, clock clock.Clock, logger Logger) *Stream {
 	stream := &Stream{
-		tag:          tag,
-		db:           db,
-		fileNotifier: fileNotifier,
-		clock:        clock,
-		logger:       logger,
-		terms:        make(chan changestream.Term),
+		tag:            tag,
+		db:             db,
+		fileNotifier:   fileNotifier,
+		clock:          clock,
+		logger:         logger,
+		terms:          make(chan changestream.Term),
+		recordedLastID: -1,
 	}
 
 	stream.tomb.Go(stream.loop)
 
 	return stream
+}
+
+// Report returns
+func (s *Stream) Report() map[string]any {
+	s.idMutex.Lock()
+	defer s.idMutex.Unlock()
+
+	return map[string]any{
+		"last-id":          s.lastID,
+		"recorded-last-id": s.recordedLastID,
+	}
 }
 
 // Terms returns a channel for a given namespace (database) that returns
@@ -231,13 +252,14 @@ func (s *Stream) loop() error {
 				done: make(chan bool),
 			}
 
+			var lastID int64
 			traceEnabled := s.logger.IsTraceEnabled()
 			for _, change := range changes {
 				if traceEnabled {
 					s.logger.Tracef("change event: %v", change)
 				}
 				term.changes = append(term.changes, change)
-				s.lastID = change.id
+				lastID = change.id
 			}
 
 			// Send the term to the terms channel, and wait for it to be
@@ -291,6 +313,14 @@ func (s *Stream) loop() error {
 				// Reset the attempt counter if we get changes, so the
 				// back=off strategy is reset.
 				attempt = 0
+
+				// Only when the term is completed, do we update the last ID
+				// for the watermark. This ensures that all changes are read
+				// and processed from the term and that we don't prematurely
+				// update the watermark.
+				s.idMutex.Lock()
+				s.lastID = lastID
+				s.idMutex.Unlock()
 			}
 		}
 	}
@@ -389,6 +419,16 @@ INSERT INTO change_log_witness (tag, change_log_id, last_seen_at) VALUES (?, ?, 
 // recordWatermark records the last ID that was processed. This is used to
 // ensure that we can prune the change log table.
 func (s *Stream) recordWatermark() error {
+	// We only need to record the watermark if it has changed. This should
+	// prevent unnecessary writes to the database, when we know that nothing
+	// has changed.
+	s.idMutex.Lock()
+	if s.lastID == s.recordedLastID {
+		s.idMutex.Unlock()
+		return nil
+	}
+	s.idMutex.Unlock()
+
 	ctx, cancel := s.scopedContext()
 	defer cancel()
 
@@ -405,6 +445,11 @@ func (s *Stream) recordWatermark() error {
 		if affected != 1 {
 			return errors.Errorf("expected to affect 1 row, affected %d", affected)
 		}
+
+		s.idMutex.Lock()
+		s.recordedLastID = s.lastID
+		s.idMutex.Unlock()
+
 		return nil
 	})
 }

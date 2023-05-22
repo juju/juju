@@ -124,6 +124,11 @@ func (w *changeStreamWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
+// Report returns a map of the worker's status.
+func (w *changeStreamWorker) Report() map[string]any {
+	return w.runner.Report()
+}
+
 // GetWatchableDB returns a new WatchableDB for the given namespace.
 func (w *changeStreamWorker) GetWatchableDB(namespace string) (changestream.WatchableDB, error) {
 	db, err := w.cfg.DBGetter.GetDB(namespace)
