@@ -117,7 +117,6 @@ func (s *OSCallTest) parseDir(fset *token.FileSet, calls map[string]set.Strings,
 		return !strings.HasSuffix(fi.Name(), "_test.go")
 	}, 0)
 	if err != nil {
-		fmt.Println(err)
 		return
 	}
 

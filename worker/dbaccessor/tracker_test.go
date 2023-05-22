@@ -36,7 +36,7 @@ func (s *trackedDBWorkerSuite) TestWorkerStartup(c *gc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := NewTrackedDBWorker(s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
+	w, err := NewTrackedDBWorker(context.Background(), s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
@@ -53,7 +53,7 @@ func (s *trackedDBWorkerSuite) TestWorkerReport(c *gc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := NewTrackedDBWorker(s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
+	w, err := NewTrackedDBWorker(context.Background(), s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
@@ -109,7 +109,7 @@ func (s *trackedDBWorkerSuite) TestWorkerTxnIsNotNil(c *gc.C) {
 	defer workertest.DirtyKill(c, w)
 
 	done := make(chan struct{})
-	err = w.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+	err = w.Txn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		defer close(done)
 
 		c.Assert(tx, gc.NotNil)
@@ -349,16 +349,97 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
 	c.Assert(w.Wait(), gc.ErrorMatches, "boom")
 
 	// Ensure that the DB is dead.
-	err = w.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+	err = w.Txn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		c.Fatal("failed if called")
 		return nil
 	})
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
+func (s *trackedDBWorkerSuite) TestWorkerCancelsTxn(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectClock()
+	s.expectTimer(0)
+
+	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
+
+	w, err := s.newTrackedDBWorker(defaultPingDBFunc)
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer workertest.DirtyKill(c, w)
+
+	sync := make(chan struct{})
+	go func() {
+		select {
+		case <-sync:
+		case <-time.After(testing.ShortWait):
+			c.Fatal("timed out waiting for sync")
+		}
+		workertest.CheckKill(c, w)
+	}()
+
+	// Ensure that the DB is dead.
+	err = w.Txn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		close(sync)
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(testing.LongWait):
+			c.Fatal("timed out waiting for context to be canceled")
+		}
+		return nil
+	})
+
+	c.Assert(err, gc.ErrorMatches, "context canceled")
+}
+
+func (s *trackedDBWorkerSuite) TestWorkerCancelsTxnNoRetry(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectClock()
+	s.expectTimer(0)
+
+	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
+
+	w, err := s.newTrackedDBWorker(defaultPingDBFunc)
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer workertest.DirtyKill(c, w)
+
+	sync := make(chan struct{})
+	go func() {
+		select {
+		case <-sync:
+		case <-time.After(testing.ShortWait):
+			c.Fatal("timed out waiting for sync")
+		}
+		workertest.CheckKill(c, w)
+	}()
+
+	// Ensure that the DB is dead.
+	err = w.TxnNoRetry(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		close(sync)
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(testing.LongWait):
+			c.Fatal("timed out waiting for context to be canceled")
+		}
+		return nil
+	})
+
+	c.Assert(err, gc.ErrorMatches, "context canceled")
+}
+
 func (s *trackedDBWorkerSuite) newTrackedDBWorker(pingFn func(context.Context, *sql.DB) error) (TrackedDB, error) {
 	collector := NewMetricsCollector()
-	return NewTrackedDBWorker(s.dbApp, "controller",
+	return NewTrackedDBWorker(context.Background(),
+		s.dbApp, "controller",
 		WithClock(s.clock),
 		WithLogger(s.logger),
 		WithPingDBFunc(pingFn),
@@ -370,7 +451,7 @@ func readTableNames(c *gc.C, w coredatabase.TrackedDB) []string {
 	// Attempt to use the new db, note there shouldn't be any leases in this
 	// db.
 	var tables []string
-	err := w.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+	err := w.Txn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.Query("SELECT tbl_name FROM sqlite_schema")
 		c.Assert(err, jc.ErrorIsNil)
 		defer rows.Close()

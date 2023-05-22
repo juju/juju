@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/juju/testing"
@@ -23,6 +25,9 @@ import (
 type DBSuite struct {
 	testing.IsolationSuite
 
+	dbPath   string
+	rootPath string
+
 	dqlite    *app.App
 	db        *sql.DB
 	trackedDB coredatabase.TrackedDB
@@ -32,14 +37,19 @@ type DBSuite struct {
 func (s *DBSuite) SetUpSuite(c *gc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 
-	dbPath := c.MkDir()
+	s.rootPath = c.MkDir()
+
+	path := filepath.Join(s.rootPath, "dqlite")
+	err := os.Mkdir(path, 0700)
+	c.Assert(err, jc.ErrorIsNil)
+	s.dbPath = path
+
 	port := FindTCPPort(c)
 
 	url := fmt.Sprintf("%s:%d", "127.0.0.1", port)
 	c.Logf("Opening sqlite3 db with: %v", url)
 
-	var err error
-	s.dqlite, err = app.New(dbPath, app.WithAddress(url))
+	s.dqlite, err = app.New(s.dbPath, app.WithAddress(url))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.dqlite.Ready(context.TODO())
@@ -82,12 +92,29 @@ func (s *DBSuite) TearDownTest(c *gc.C) {
 	s.IsolationSuite.TearDownTest(c)
 }
 
+// DB returns the database for the current test.
 func (s *DBSuite) DB() *sql.DB {
 	return s.db
 }
 
+// TrackDB returns the tracked database for the current test.
 func (s *DBSuite) TrackedDB() coredatabase.TrackedDB {
 	return s.trackedDB
+}
+
+// DBApp returns the dqlite application.
+func (s *DBSuite) DBApp() *app.App {
+	return s.dqlite
+}
+
+// DBPath returns the path to the dqlite database.
+func (s *DBSuite) DBPath() string {
+	return s.dbPath
+}
+
+// RootPath returns the path to the root directory, where the DBPath is located.
+func (s *DBSuite) RootPath() string {
+	return s.rootPath
 }
 
 // FindTCPPort finds an unused TCP port and returns it.

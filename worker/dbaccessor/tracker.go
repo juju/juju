@@ -86,7 +86,7 @@ type trackedDBWorker struct {
 }
 
 // NewTrackedDBWorker creates a new TrackedDBWorker
-func NewTrackedDBWorker(dbApp DBApp, namespace string, opts ...TrackedDBWorkerOption) (TrackedDB, error) {
+func NewTrackedDBWorker(ctx context.Context, dbApp DBApp, namespace string, opts ...TrackedDBWorkerOption) (TrackedDB, error) {
 	w := &trackedDBWorker{
 		dbApp:      dbApp,
 		namespace:  namespace,
@@ -100,7 +100,7 @@ func NewTrackedDBWorker(dbApp DBApp, namespace string, opts ...TrackedDBWorkerOp
 	}
 
 	var err error
-	w.db, err = w.dbApp.Open(context.TODO(), w.namespace)
+	w.db, err = w.dbApp.Open(ctx, w.namespace)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -116,7 +116,7 @@ func NewTrackedDBWorker(dbApp DBApp, namespace string, opts ...TrackedDBWorkerOp
 // This is the function that almost all downstream database consumers
 // should use.
 func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
-	return database.Retry(ctx, func() error {
+	return database.Retry(w.tomb.Context(ctx), func() error {
 		return errors.Trace(w.TxnNoRetry(ctx, fn))
 	})
 }
@@ -141,7 +141,7 @@ func (w *trackedDBWorker) TxnNoRetry(ctx context.Context, fn func(context.Contex
 	db := w.db
 	w.mutex.RUnlock()
 
-	return errors.Trace(database.Txn(ctx, db, fn))
+	return errors.Trace(database.Txn(w.tomb.Context(ctx), db, fn))
 }
 
 // meterDBOpResults decrements the active DB operation count,
@@ -171,6 +171,19 @@ func (w *trackedDBWorker) Report() map[string]any {
 }
 
 func (w *trackedDBWorker) loop() error {
+	defer func() {
+		w.mutex.Lock()
+		defer w.mutex.Unlock()
+
+		if w.db == nil {
+			return
+		}
+		err := w.db.Close()
+		if err != nil {
+			w.logger.Debugf("Closed database connection: %v", err)
+		}
+	}()
+
 	timer := w.clock.NewTimer(PollInterval)
 	defer timer.Stop()
 
