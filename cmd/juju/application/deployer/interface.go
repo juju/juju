@@ -49,13 +49,6 @@ type ModelAPI interface {
 	GetModelConstraints() (constraints.Value, error)
 }
 
-// MeteredDeployAPI represents the methods of the API the deploy
-// command needs for metered charms.
-type MeteredDeployAPI interface {
-	IsMetered(charmURL string) (bool, error)
-	SetMetricCredentials(application string, credentials []byte) error
-}
-
 // CharmDeployAPI represents the methods of the API the deploy
 // command needs for charms.
 type CharmDeployAPI interface {

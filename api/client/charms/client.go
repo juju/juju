@@ -41,16 +41,6 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, CharmInfoClient: commonClient, facade: backend}
 }
 
-// IsMetered returns whether or not the charm is metered.
-func (c *Client) IsMetered(charmURL string) (bool, error) {
-	args := params.CharmURL{URL: charmURL}
-	var metered params.IsMeteredResult
-	if err := c.facade.FacadeCall("IsMetered", args, &metered); err != nil {
-		return false, errors.Trace(err)
-	}
-	return metered.Metered, nil
-}
-
 // CharmToResolve holds the charm url and it's channel to be resolved.
 type CharmToResolve struct {
 	URL         *charm.URL
