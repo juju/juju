@@ -559,6 +559,9 @@ func (s *workerSuite) TestCloseDatabaseForModel(c *gc.C) {
 	dbw := w.(*dbWorker)
 	s.ensureStartup(c, dbw, sync)
 
+	_, err = dbw.GetDB("foo")
+	c.Assert(err, jc.ErrorIsNil)
+
 	err = dbw.closeDatabase("foo")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -597,7 +600,7 @@ func (s *workerSuite) TestCloseDatabaseForUnknownModel(c *gc.C) {
 	s.ensureStartup(c, dbw, sync)
 
 	err := dbw.closeDatabase("foo")
-	c.Assert(err, gc.ErrorMatches, `removing namespace "foo".*`)
+	c.Assert(err, gc.ErrorMatches, `stopping worker: worker "foo" not found`)
 
 	workertest.CleanKill(c, w)
 }

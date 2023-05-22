@@ -48,6 +48,20 @@ func (mr *MockStateMockRecorder) Create(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockState)(nil).Create), arg0, arg1)
 }
 
+// Delete mocks base method.
+func (m *MockState) Delete(arg0 context.Context, arg1 UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Delete", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Delete indicates an expected call of Delete.
+func (mr *MockStateMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockState)(nil).Delete), arg0, arg1)
+}
+
 // MockDBManager is a mock of DBManager interface.
 type MockDBManager struct {
 	ctrl     *gomock.Controller

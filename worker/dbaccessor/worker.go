@@ -431,6 +431,9 @@ func (w *dbWorker) DeleteDB(namespace string) error {
 	select {
 	case err := <-req.done:
 		if err != nil {
+			if errors.Is(err, errors.NotFound) {
+				return nil
+			}
 			return errors.Trace(err)
 		}
 	case <-w.catacomb.Dying():
@@ -562,34 +565,11 @@ func (w *dbWorker) closeDatabase(namespace string) error {
 		return errors.Forbiddenf("cannot close controller database")
 	}
 
-	// Otherwise, we need to validate that the namespace exists.
-	controllerWorker, err := w.dbRunner.Worker(coredatabase.ControllerNS, w.catacomb.Dying())
-	if err != nil {
-		return errors.Annotatef(err, "getting controller worker")
-	}
-
-	dbGetter, ok := controllerWorker.(coredatabase.TrackedDB)
-	if !ok {
-		return errors.Errorf("worker is not a DBGetter")
-	}
-
-	ctx, cancel := w.scopedContext()
-	defer cancel()
-
-	if err := removeKnownNamespaceFromController(ctx, dbGetter, namespace); err != nil {
-		return errors.Annotatef(err, "removing namespace %q", namespace)
-	}
-
-	// Stop and remove the worker. If the worker is not found, we don't
-	// consider it an error.
+	// Stop and remove the worker.
 	// This will wait for the worker to stop, which will potentially block
 	// any requests to access a new db. This should be ok, as there isn't
 	// currently any heavy loop logic in the model workers.
 	if err := w.dbRunner.StopAndRemoveWorker(namespace, w.catacomb.Dying()); err != nil {
-		if errors.Is(err, errors.NotFound) {
-			w.cfg.Logger.Errorf("worker for namespace %q not found.", namespace)
-			return nil
-		}
 		return errors.Annotatef(err, "stopping worker")
 	}
 
@@ -871,23 +851,4 @@ func isNamespaceKnownToController(ctx context.Context, db coredatabase.TrackedDB
 		return false, errors.Trace(err)
 	}
 	return known, nil
-}
-
-func removeKnownNamespaceFromController(ctx context.Context, db coredatabase.TrackedDB, namespace string) error {
-	return db.Txn(ctx, func(ctx context.Context, db *sql.Tx) error {
-		result, err := db.ExecContext(ctx, "DELETE FROM model_list WHERE uuid=?", namespace)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return errors.NotFoundf("namespace %q", namespace)
-			}
-			return errors.Trace(err)
-		}
-
-		if affected, err := result.RowsAffected(); err != nil {
-			return errors.Trace(err)
-		} else if affected != 1 {
-			return errors.NotFoundf("namespace %q", namespace)
-		}
-		return nil
-	})
 }

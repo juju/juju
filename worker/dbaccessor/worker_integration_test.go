@@ -8,6 +8,7 @@ import (
 	sql "database/sql"
 
 	"github.com/juju/clock"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
@@ -128,17 +129,25 @@ func (s *integrationSuite) TestWorkerDeletingUnknownDB(c *gc.C) {
 }
 
 func (s *integrationSuite) TestWorkerDeletingKnownDB(c *gc.C) {
-	db, err := s.dbManager.GetDB(coredatabase.ControllerNS)
+	ctrlDB, err := s.dbManager.GetDB(coredatabase.ControllerNS)
 	c.Assert(err, jc.ErrorIsNil)
-	err = db.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+	err = ctrlDB.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO model_list (uuid) VALUES ("baz")`)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	db, err = s.dbManager.GetDB("baz")
+	db, err := s.dbManager.GetDB("baz")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(db, gc.NotNil)
+
+	// We need to unsure that we remove the namespace from the model list.
+	// Otherwise, the db will be recreated on the next call to GetDB.
+	err = ctrlDB.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `DELETE FROM model_list WHERE uuid = "baz"`)
+		return errors.Cause(err)
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.dbManager.DeleteDB("baz")
 	c.Assert(err, jc.ErrorIsNil)
@@ -151,19 +160,27 @@ func (s *integrationSuite) TestWorkerDeletingKnownDB(c *gc.C) {
 // first. This ensures that we don't have to have an explicit db worker for
 // each model.
 func (s *integrationSuite) TestWorkerDeletingKnownDBWithoutGetFirst(c *gc.C) {
-	db, err := s.dbManager.GetDB(coredatabase.ControllerNS)
+	ctrlDB, err := s.dbManager.GetDB(coredatabase.ControllerNS)
 	c.Assert(err, jc.ErrorIsNil)
-	err = db.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO model_list (uuid) VALUES ("baz")`)
+	err = ctrlDB.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO model_list (uuid) VALUES ("fred")`)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.dbManager.DeleteDB("baz")
+	// We need to unsure that we remove the namespace from the model list.
+	// Otherwise, the db will be recreated on the next call to GetDB.
+	err = ctrlDB.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `DELETE FROM model_list WHERE uuid = "fred"`)
+		return err
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.dbManager.GetDB("baz")
-	c.Assert(err, gc.ErrorMatches, `.*namespace "baz" not found`)
+	err = s.dbManager.DeleteDB("fred")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.dbManager.GetDB("fred")
+	c.Assert(err, gc.ErrorMatches, `.*namespace "fred" not found`)
 }
 
 // integrationSuite defines a base suite for running integration tests against
