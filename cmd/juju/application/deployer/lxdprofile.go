@@ -5,6 +5,7 @@ package deployer
 
 import (
 	"github.com/juju/charm/v10"
+	apicharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/core/lxdprofile"
 )
 
@@ -27,4 +28,21 @@ func (p lxdCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
 		return profile
 	}
 	return nil
+}
+
+// ValidateLXDProfileCharm implements the DeployStep interface.
+type ValidateLXDProfileCharm struct{}
+
+// lxdCharmInfoProfiler massages a *apicharms.CharmInfo into a LXDProfiler
+// inside of the core package.
+type lxdCharmInfoProfiler struct {
+	CharmInfo *apicharms.CharmInfo
+}
+
+// LXDProfile implements core.lxdprofile.LXDProfiler
+func (p lxdCharmInfoProfiler) LXDProfile() lxdprofile.LXDProfile {
+	if p.CharmInfo == nil || p.CharmInfo.LXDProfile == nil {
+		return nil
+	}
+	return p.CharmInfo.LXDProfile
 }
