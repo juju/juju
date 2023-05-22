@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"github.com/juju/errors"
+	jujucontroller "github.com/juju/juju/controller"
 
 	"github.com/juju/juju/domain"
 )
@@ -14,6 +15,11 @@ import (
 type State interface {
 	Add(context.Context, string, string) error
 	Delete(context.Context, string) error
+
+	ControllerConfig(context.Context) (jujucontroller.Config, error)
+	UpdateControllerConfig(ctx context.Context, updateAttrs map[string]interface{}, removeAttrs []string) error
+	checkValidControllerConfig(ctx context.Context, updateAttrs map[string]interface{}, removeAttrs []string) error
+	checkUpdateControllerConfig(ctx context.Context, name string) error
 }
 
 // Service defines a service for interacting with the underlying state.
@@ -39,4 +45,10 @@ func (s *Service) Add(ctx context.Context, key string, value string) error {
 func (s *Service) Delete(ctx context.Context, key string) error {
 	err := s.st.Delete(ctx, key)
 	return errors.Annotatef(domain.CoerceError(err), "deleting controller config key %q", key)
+}
+
+// ControllerConfig returns the controller config.
+func (s *Service) ControllerConfig(ctx context.Context) (jujucontroller.Config, error) {
+	config, err := s.st.ControllerConfig(ctx)
+	return config, errors.Annotate(err, "getting controller config")
 }

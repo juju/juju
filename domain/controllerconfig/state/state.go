@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	jujucontroller "github.com/juju/juju/controller"
 
 	"github.com/juju/errors"
 
@@ -63,8 +64,26 @@ func (s *State) Delete(ctx context.Context, key string) error {
 		if num, err := result.RowsAffected(); err != nil {
 			return errors.Trace(err)
 		} else if num != 1 {
-			return fmt.Errorf("%w %q; expected 1 row to be deleted, got %d", domain.ErrNoRecord, uuid, num)
+			return fmt.Errorf("%w; expected 1 row to be deleted, got %d", domain.ErrNoRecord, num)
 		}
 		return nil
 	})
+}
+
+// ControllerConfig ...
+func (s *State) ControllerConfig(ctx context.Context) (jujucontroller.Config, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return nil, db.Txn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		stmt := "SELECT * FROM controller_config;"
+		result, err := tx.ExecContext(ctx, stmt)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+
 }
