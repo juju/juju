@@ -15,9 +15,9 @@ import (
 	"github.com/juju/juju/core/changestream"
 )
 
-// UUIDWatcher watches for changes to a database table.
+// UUIDsWatcher watches for changes to a database table.
 // Any time rows change in the watched table, the changed UUIDs are emitted.
-type UUIDWatcher struct {
+type UUIDsWatcher struct {
 	*BaseWatcher
 
 	out       chan []string
@@ -25,10 +25,10 @@ type UUIDWatcher struct {
 	selectAll string
 }
 
-// NewUUIDWatcher returns a new watcher that receives changes from the
+// NewUUIDsWatcher returns a new watcher that receives changes from the
 // input base watcher's db/queue when rows in the input table change.
-func NewUUIDWatcher(base *BaseWatcher, tableName string) *UUIDWatcher {
-	w := &UUIDWatcher{
+func NewUUIDsWatcher(base *BaseWatcher, tableName string) *UUIDsWatcher {
+	w := &UUIDsWatcher{
 		BaseWatcher: base,
 		out:         make(chan []string),
 		tableName:   tableName,
@@ -41,11 +41,11 @@ func NewUUIDWatcher(base *BaseWatcher, tableName string) *UUIDWatcher {
 
 // Changes returns the channel on which the UUIDs for
 // changed rows are sent to downstream consumers.
-func (w *UUIDWatcher) Changes() <-chan []string {
+func (w *UUIDsWatcher) Changes() <-chan []string {
 	return w.out
 }
 
-func (w *UUIDWatcher) loop() error {
+func (w *UUIDsWatcher) loop() error {
 	subscription, err := w.eventQueue.Subscribe(changestream.Namespace(w.tableName, changestream.All))
 	if err != nil {
 		return errors.Annotatef(err, "subscribing to namespace %q", w.tableName)
@@ -92,7 +92,7 @@ func (w *UUIDWatcher) loop() error {
 // getInitialState retrieves the current state of the world from the database,
 // as it concerns this watcher. It must be called after we are subscribed.
 // Note that killing the worker via its tomb cancels the context used here.
-func (w *UUIDWatcher) getInitialState() ([]string, error) {
+func (w *UUIDsWatcher) getInitialState() ([]string, error) {
 	parentCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -125,12 +125,12 @@ func (w *UUIDWatcher) getInitialState() ([]string, error) {
 }
 
 // Kill (worker.Worker) kills the watcher via its tomb.
-func (w *UUIDWatcher) Kill() {
+func (w *UUIDsWatcher) Kill() {
 	w.tomb.Kill(nil)
 }
 
 // Wait (worker.Worker) waits for the watcher's tomb to die,
 // and returns the error with which it was killed.
-func (w *UUIDWatcher) Wait() error {
+func (w *UUIDsWatcher) Wait() error {
 	return w.tomb.Wait()
 }

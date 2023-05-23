@@ -17,13 +17,13 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type uuidSuite struct {
+type uuidsSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&uuidSuite{})
+var _ = gc.Suite(&uuidsSuite{})
 
-func (s *uuidSuite) TestInitialStateSent(c *gc.C) {
+func (s *uuidsSuite) TestInitialStateSent(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -59,7 +59,7 @@ func (s *uuidSuite) TestInitialStateSent(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	w := NewUUIDWatcher(s.newBaseWatcher(), "random_namespace")
+	w := NewUUIDsWatcher(s.newBaseWatcher(), "random_namespace")
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -73,7 +73,7 @@ func (s *uuidSuite) TestInitialStateSent(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *uuidSuite) TestDeltasSent(c *gc.C) {
+func (s *uuidsSuite) TestDeltasSent(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -101,7 +101,7 @@ func (s *uuidSuite) TestDeltasSent(c *gc.C) {
 		)},
 	).Return(s.sub, nil)
 
-	w := NewUUIDWatcher(s.newBaseWatcher(), "external_controller")
+	w := NewUUIDsWatcher(s.newBaseWatcher(), "external_controller")
 	defer workertest.DirtyKill(c, w)
 
 	// No initial data.
@@ -133,7 +133,7 @@ func (s *uuidSuite) TestDeltasSent(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *uuidSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
+func (s *uuidsSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -153,7 +153,7 @@ func (s *uuidSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 		)},
 	).Return(s.sub, nil)
 
-	w := NewUUIDWatcher(s.newBaseWatcher(), "external_controller")
+	w := NewUUIDsWatcher(s.newBaseWatcher(), "external_controller")
 	defer workertest.DirtyKill(c, w)
 
 	err := workertest.CheckKilled(c, w)
