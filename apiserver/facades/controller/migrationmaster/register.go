@@ -60,6 +60,7 @@ func newMigrationMasterFacade(ctx facade.Context) (*API, error) {
 
 	environscloudspecGetter := cloudspec.MakeCloudSpecGetter(ctx.StatePool())
 	return NewAPI(
+		controllerState,
 		newBacked(ctx.State()),
 		precheckBackend,
 		migration.PoolShim(ctx.StatePool()),
