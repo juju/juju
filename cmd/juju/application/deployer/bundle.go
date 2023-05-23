@@ -62,12 +62,12 @@ func (d *deployBundle) deploy(
 	resolver Resolver,
 ) (rErr error) {
 	d.resolver = resolver
-	var err error
 	var ok bool
 	if d.targetModelUUID, ok = deployAPI.ModelUUID(); !ok {
 		return errors.New("API connection is controller-only (should never happen)")
 	}
 
+	var err error
 	if d.targetModelName, _, err = d.model.ModelDetails(); err != nil {
 		return errors.Annotatef(err, "could not retrieve model name")
 	}
