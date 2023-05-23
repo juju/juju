@@ -1,3 +1,6 @@
+# NOTE: when making changes, remember that all the tests here need to be able
+# to run on amd64 AND arm64.
+
 run_deploy_bundle() {
 	echo
 

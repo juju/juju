@@ -1,3 +1,6 @@
+# NOTE: when making changes, remember that all the tests here need to be able
+# to run on amd64 AND arm64.
+
 run_deploy_charm() {
 	echo
 
@@ -18,12 +21,21 @@ run_deploy_specific_series() {
 
 	ensure "test-deploy-specific-series" "${file}"
 
-	juju deploy postgresql --series jammy
-	series=$(juju status --format=json | jq ".applications.postgresql.series")
+	charm_name="juju-qa-refresher"
+	# Have to check against default series, to avoid false positives.
+	# These two series should be different.
+	default_series="jammy"
+	specific_series="focal"
+
+	juju deploy "$charm_name" app1
+	juju deploy "$charm_name" app2 --series "$specific_series"
+	series1=$(juju status --format=json | jq ".applications.app1.series")
+	series2=$(juju status --format=json | jq ".applications.app2.series")
 
 	destroy_model "test-deploy-specific-series"
 
-	echo "$series" | check "focal"
+	echo "$series1" | check "$default_series"
+	echo "$series2" | check "$specific_series"
 }
 
 run_deploy_lxd_profile_charm() {
