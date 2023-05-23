@@ -223,7 +223,6 @@ func (i *CharmInfo) EntityId() EntityId {
 type RemoteApplicationUpdate struct {
 	ModelUUID string     `json:"model-uuid"`
 	Name      string     `json:"name"`
-	OfferUUID string     `json:"offer-uuid"`
 	OfferURL  string     `json:"offer-url"`
 	Life      life.Value `json:"life"`
 	Status    StatusInfo `json:"status"`

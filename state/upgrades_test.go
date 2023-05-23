@@ -5630,9 +5630,13 @@ func (s *upgradesSuite) TestRemoveOrphanedCrossModelProxies(c *gc.C) {
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
 			Name:      "server",
-			Role:      charm.RoleProvider,
+			Role:      charm.RoleRequirer,
 			Scope:     charm.ScopeGlobal,
 		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	eps, err := s.state.InferEndpoints("good", "test")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.state.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.state.AddRemoteApplication(AddRemoteApplicationParams{
