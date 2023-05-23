@@ -13,6 +13,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/watcher"
 )
 
 // UUIDsWatcher watches for changes to a database table.
@@ -41,7 +42,7 @@ func NewUUIDsWatcher(base *BaseWatcher, tableName string) *UUIDsWatcher {
 
 // Changes returns the channel on which the UUIDs for
 // changed rows are sent to downstream consumers.
-func (w *UUIDsWatcher) Changes() <-chan []string {
+func (w *UUIDsWatcher) Changes() watcher.StringsChannel {
 	return w.out
 }
 

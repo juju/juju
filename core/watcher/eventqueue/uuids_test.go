@@ -9,6 +9,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/juju/juju/core/watcher"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
@@ -16,6 +18,8 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/testing"
 )
+
+var _ watcher.StringsWatcher = &UUIDsWatcher{}
 
 type uuidsSuite struct {
 	baseSuite
