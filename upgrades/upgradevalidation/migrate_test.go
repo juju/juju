@@ -54,6 +54,7 @@ func (s *upgradeValidationSuite) TestValidatorsForModelMigrationSourceJuju3(c *g
 			"hirsute",
 			"impish",
 			"kinetic",
+			"lunar",
 			"precise",
 			"quantal",
 			"raring",
