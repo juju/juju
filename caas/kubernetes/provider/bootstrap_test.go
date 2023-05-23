@@ -1151,12 +1151,12 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
 	ctxDoneChan := make(chan struct{}, 1)
 
 	gomock.InOrder(
-		mockStdCtx.EXPECT().Done().Return(ctxDoneChan),
+		mockStdCtx.EXPECT().Err().Return(nil),
 		mockStdCtx.EXPECT().Done().DoAndReturn(func() <-chan struct{} {
 			ctxDoneChan <- struct{}{}
 			return ctxDoneChan
 		}),
-		mockStdCtx.EXPECT().Err().Return(context.DeadlineExceeded),
+		mockStdCtx.EXPECT().Err().Return(context.DeadlineExceeded).MinTimes(1),
 	)
 
 	errChan := make(chan error)

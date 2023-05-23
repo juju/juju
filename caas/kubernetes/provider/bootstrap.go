@@ -403,17 +403,7 @@ func (c *controllerStack) Deploy() (err error) {
 		return errors.Annotate(err, "creating namespace for controller stack")
 	}
 
-	// Check context manually for cancellation between each step (not ideal,
-	// but it avoids wiring context absolutely everywhere).
-	isDone := func() bool {
-		select {
-		case <-c.ctx.Context().Done():
-			return true
-		default:
-			return false
-		}
-	}
-	if isDone() {
+	if environsbootstrap.IsContextDone(c.ctx.Context()) {
 		return environsbootstrap.Cancelled()
 	}
 
@@ -427,7 +417,7 @@ func (c *controllerStack) Deploy() (err error) {
 	if err = c.createControllerService(c.ctx.Context()); err != nil {
 		return errors.Annotate(err, "creating service for controller")
 	}
-	if isDone() {
+	if environsbootstrap.IsContextDone(c.ctx.Context()) {
 		return environsbootstrap.Cancelled()
 	}
 
@@ -440,7 +430,7 @@ func (c *controllerStack) Deploy() (err error) {
 	if err = c.createControllerSecretSharedSecret(); err != nil {
 		return errors.Annotate(err, "creating shared-secret secret for controller")
 	}
-	if isDone() {
+	if environsbootstrap.IsContextDone(c.ctx.Context()) {
 		return environsbootstrap.Cancelled()
 	}
 
@@ -448,7 +438,7 @@ func (c *controllerStack) Deploy() (err error) {
 	if err = c.createControllerSecretServerPem(); err != nil {
 		return errors.Annotate(err, "creating server.pem secret for controller")
 	}
-	if isDone() {
+	if environsbootstrap.IsContextDone(c.ctx.Context()) {
 		return environsbootstrap.Cancelled()
 	}
 
@@ -456,7 +446,7 @@ func (c *controllerStack) Deploy() (err error) {
 	if err = c.ensureControllerConfigmapBootstrapParams(); err != nil {
 		return errors.Annotate(err, "creating bootstrap-params configmap for controller")
 	}
-	if isDone() {
+	if environsbootstrap.IsContextDone(c.ctx.Context()) {
 		return environsbootstrap.Cancelled()
 	}
 
@@ -464,14 +454,14 @@ func (c *controllerStack) Deploy() (err error) {
 	if err = c.ensureControllerConfigmapAgentConf(); err != nil {
 		return errors.Annotate(err, "creating agent config configmap for controller")
 	}
-	if isDone() {
+	if environsbootstrap.IsContextDone(c.ctx.Context()) {
 		return environsbootstrap.Cancelled()
 	}
 
 	if err = c.ensureControllerApplicationSecret(); err != nil {
 		return errors.Annotate(err, "creating secret for controller application")
 	}
-	if isDone() {
+	if environsbootstrap.IsContextDone(c.ctx.Context()) {
 		return environsbootstrap.Cancelled()
 	}
 
@@ -492,14 +482,14 @@ func (c *controllerStack) Deploy() (err error) {
 	if err != nil {
 		return errors.Annotate(err, "creating service account for controller")
 	}
-	if isDone() {
+	if environsbootstrap.IsContextDone(c.ctx.Context()) {
 		return environsbootstrap.Cancelled()
 	}
 
 	if err = c.patchServiceAccountForImagePullSecret(saName); err != nil {
 		return errors.Annotate(err, "patching image pull secret for controller service account")
 	}
-	if isDone() {
+	if environsbootstrap.IsContextDone(c.ctx.Context()) {
 		return environsbootstrap.Cancelled()
 	}
 
@@ -507,7 +497,7 @@ func (c *controllerStack) Deploy() (err error) {
 	if err = c.createControllerStatefulset(); err != nil {
 		return errors.Annotate(err, "creating statefulset for controller")
 	}
-	if isDone() {
+	if environsbootstrap.IsContextDone(c.ctx.Context()) {
 		return environsbootstrap.Cancelled()
 	}
 
