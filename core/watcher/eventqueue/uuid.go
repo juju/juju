@@ -108,10 +108,11 @@ func (w *UUIDWatcher) getInitialState() ([]string, error) {
 		defer func() { _ = rows.Close() }()
 
 		for i := 0; rows.Next(); i++ {
-			uuids = append(uuids, "")
-			if err := rows.Scan(&uuids[i]); err != nil {
+			var uuid string
+			if err := rows.Scan(&uuid); err != nil {
 				return errors.Trace(err)
 			}
+			uuids = append(uuids, uuid)
 		}
 
 		if err := rows.Err(); err != nil {
