@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v10"
 	charmresource "github.com/juju/charm/v10/resource"
@@ -42,7 +41,6 @@ type deployerSuite struct {
 	consumeDetails    *mocks.MockConsumeDetails
 	resolver          *mocks.MockResolver
 	deployerAPI       *mocks.MockDeployerAPI
-	deployStep        *fakeDeployStep
 	modelCommand      *mocks.MockModelCommand
 	filesystem        *mocks.MockFilesystem
 	bundle            *mocks.MockBundle
@@ -458,7 +456,6 @@ func (s *deployerSuite) newDeployerFactory() DeployerFactory {
 		NewConsumeDetailsAPI: func(url *charm.OfferURL) (ConsumeDetails, error) { return s.consumeDetails, nil },
 		FileSystem:           s.filesystem,
 		CharmReader:          fsCharmReader{},
-		Steps:                []DeployStep{s.deployStep},
 	}
 	return NewDeployerFactory(dep)
 }
@@ -501,7 +498,6 @@ func (s *deployerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.modelCommand = mocks.NewMockModelCommand(ctrl)
 	s.filesystem = mocks.NewMockFilesystem(ctrl)
 	s.modelConfigGetter = mocks.NewMockModelConfigGetter(ctrl)
-	s.deployStep = &fakeDeployStep{}
 	s.charmReader = mocks.NewMockCharmReader(ctrl)
 	s.charm = mocks.NewMockCharm(ctrl)
 	return ctrl
@@ -550,24 +546,6 @@ func (s *deployerSuite) expectGetBundle(err error) {
 
 func (s *deployerSuite) expectData() {
 	s.bundle.EXPECT().Data().Return(&charm.BundleData{})
-}
-
-// fakeDeployStep implements the DeployStep interface.  Using gomock
-// creates an import cycle.
-type fakeDeployStep struct {
-}
-
-func (f *fakeDeployStep) SetFlags(*gnuflag.FlagSet) {}
-
-// RunPre runs before the call is made to add the charm to the environment.
-func (f *fakeDeployStep) RunPre(DeployStepAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo) error {
-	return nil
-}
-
-// RunPost runs after the call is made to add the charm to the environment.
-// The error parameter is used to notify the step of a previously occurred error.
-func (f *fakeDeployStep) RunPost(DeployStepAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo, error) error {
-	return nil
 }
 
 // TODO (stickupkid): Remove this in favour of better unit tests with mocks.

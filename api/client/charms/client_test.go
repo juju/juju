@@ -38,25 +38,6 @@ type charmsMockSuite struct {
 
 var _ = gc.Suite(&charmsMockSuite{})
 
-func (s *charmsMockSuite) TestIsMeteredFalse(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-
-	url := "local:quantal/dummy-1"
-	args := params.CharmURL{URL: url}
-	metered := new(params.IsMeteredResult)
-	p := params.IsMeteredResult{Metered: true}
-
-	mockFacadeCaller.EXPECT().FacadeCall("IsMetered", args, metered).SetArg(2, p).Return(nil)
-
-	client := charms.NewClientWithFacade(mockFacadeCaller)
-	got, err := client.IsMetered(url)
-	c.Assert(err, gc.IsNil)
-	c.Assert(got, jc.IsTrue)
-}
-
 func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

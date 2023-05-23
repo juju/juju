@@ -8,7 +8,6 @@ import (
 	"github.com/juju/charm/v10"
 	charmresource "github.com/juju/charm/v10/resource"
 	"github.com/juju/cmd/v3"
-	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api"
@@ -43,37 +42,11 @@ type Deployer interface {
 	String() string
 }
 
-// DeployStepAPI represents a API required for deploying using the step
-// deployment code.
-type DeployStepAPI interface {
-	MeteredDeployAPI
-}
-
-// DeployStep is an action that needs to be taken during charm deployment.
-type DeployStep interface {
-	// SetFlags sets flags necessary for the deploy step.
-	SetFlags(*gnuflag.FlagSet)
-
-	// RunPre runs before the call is made to add the charm to the environment.
-	RunPre(DeployStepAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo) error
-
-	// RunPost runs after the call is made to add the charm to the environment.
-	// The error parameter is used to notify the step of a previously occurred error.
-	RunPost(DeployStepAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo, error) error
-}
-
 type ModelAPI interface {
 	ModelUUID() (string, bool)
 	ModelGet() (map[string]interface{}, error)
 	Sequences() (map[string]int, error)
 	GetModelConstraints() (constraints.Value, error)
-}
-
-// MeteredDeployAPI represents the methods of the API the deploy
-// command needs for metered charms.
-type MeteredDeployAPI interface {
-	IsMetered(charmURL string) (bool, error)
-	SetMetricCredentials(application string, credentials []byte) error
 }
 
 // CharmDeployAPI represents the methods of the API the deploy
@@ -106,7 +79,6 @@ type DeployerAPI interface {
 
 	ApplicationAPI
 	store.CharmAdder
-	DeployStepAPI
 	CharmDeployAPI
 	ModelAPI
 	OfferAPI
