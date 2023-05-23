@@ -175,12 +175,7 @@ func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 	defer close(flockCh)
 
 	// Look for the debug hooks temporary dir, inside $TMPDIR.
-	tmpdir, err := os.Open(s.tmpdir)
-	if err != nil {
-		c.Fatalf("Failed to open $TMPDIR: %s", err)
-	}
-	defer func() { _ = tmpdir.Close() }()
-	entries, err := tmpdir.Readdir(-1)
+	entries, err := os.ReadDir(s.tmpdir)
 	if err != nil {
 		c.Fatalf("Failed to read $TMPDIR: %s", err)
 	}

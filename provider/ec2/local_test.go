@@ -1358,6 +1358,45 @@ func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, run
 	c.Assert(azArgs, gc.DeepEquals, []string{"test-available", "test-available2"})
 }
 
+func (t *localServerSuite) TestStartInstanceWithImageIDErr(c *gc.C) {
+	env := t.prepareAndBootstrap(c)
+
+	expectedImageID := aws.String("ami-1234567890")
+	params := environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		Constraints:    constraints.Value{ImageID: expectedImageID},
+	}
+
+	t.PatchValue(ec2.RunInstances, func(e ec2.Client, ctx context.ProviderCallContext, ri *awsec2.RunInstancesInput, callback environs.StatusCallbackFunc) (resp *awsec2.RunInstancesOutput, err error) {
+		return nil, &smithy.GenericAPIError{
+			Code:    "InvalisAMIID",
+			Message: fmt.Sprintf("The image id '[%s]' does not exist", *ri.ImageId),
+		}
+	})
+
+	_, err := testing.StartInstanceWithParams(env, t.callCtx, "1", params)
+	c.Assert(err, gc.ErrorMatches, ".*The image id (.)* does not exist")
+}
+
+func (t *localServerSuite) TestStartInstanceWithImageID(c *gc.C) {
+	env := t.prepareAndBootstrap(c)
+
+	expectedImageID := aws.String("ami-1234567890")
+	params := environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		Constraints:    constraints.Value{ImageID: expectedImageID},
+	}
+
+	instance, err := testing.StartInstanceWithParams(env, t.callCtx, "1", params)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var instanceID string
+	instanceID = string(instance.Instance.Id())
+	instanceDesc, err := t.client.DescribeInstances(nil, &awsec2.DescribeInstancesInput{InstanceIds: []string{instanceID}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(expectedImageID, gc.DeepEquals, instanceDesc.Reservations[0].Instances[0].ImageId)
+}
+
 func (t *localServerSuite) TestAddresses(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
 	inst, _ := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")

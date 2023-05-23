@@ -179,13 +179,8 @@ func FindAgents(dataDir string) (string, []string, []string, error) {
 	)
 
 	agentDir := filepath.Join(dataDir, "agents")
-	dir, err := os.Open(agentDir)
-	if err != nil {
-		return "", nil, nil, errors.Annotate(err, "opening agents dir")
-	}
-	defer func() { _ = dir.Close() }()
 
-	entries, err := dir.Readdir(-1)
+	entries, err := os.ReadDir(agentDir)
 	if err != nil {
 		return "", nil, nil, errors.Annotate(err, "reading agents dir")
 	}

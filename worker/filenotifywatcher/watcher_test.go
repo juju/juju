@@ -5,7 +5,6 @@ package filenotifywatcher
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	time "time"
@@ -23,7 +22,7 @@ type watcherSuite struct {
 var _ = gc.Suite(&watcherSuite{})
 
 func (s *watcherSuite) TestWatching(c *gc.C) {
-	dir, err := ioutil.TempDir("", "inotify")
+	dir, err := os.MkdirTemp("", "inotify")
 	c.Assert(err, jc.ErrorIsNil)
 	defer os.RemoveAll(dir)
 
@@ -58,7 +57,7 @@ func (s *watcherSuite) TestWatching(c *gc.C) {
 }
 
 func (s *watcherSuite) TestNotWatching(c *gc.C) {
-	dir, err := ioutil.TempDir("", "inotify")
+	dir, err := os.MkdirTemp("", "inotify")
 	c.Assert(err, jc.ErrorIsNil)
 	defer os.RemoveAll(dir)
 

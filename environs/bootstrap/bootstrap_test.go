@@ -9,11 +9,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/juju/charm/v10"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/os/v2/series"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -1573,4 +1575,51 @@ func bootstrapContext(c *gc.C) (environs.BootstrapContext, *simplestreams.Simple
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	ctx := context.WithValue(context.TODO(), bootstrap.SimplestreamsFetcherContextKey, ss)
 	return envtesting.BootstrapContext(ctx, c), ss
+}
+
+type BootstrapContextSuite struct {
+	jujutesting.IsolationSuite
+}
+
+var _ = gc.Suite(&BootstrapContextSuite{})
+
+func (s *BootstrapContextSuite) TestContextDone(c *gc.C) {
+	testCases := []struct {
+		name string
+		ctx  context.Context
+		done bool
+	}{{
+		name: "todo context",
+		ctx:  context.TODO(),
+		done: false,
+	}, {
+		name: "background context",
+		ctx:  context.Background(),
+		done: false,
+	}, {
+		name: "cancel context",
+		ctx: func() context.Context {
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			return ctx
+		}(),
+		done: true,
+	}, {
+		name: "timeout context",
+		ctx: func() context.Context {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Nanosecond)
+			time.Sleep(time.Millisecond)
+			// Cancel is called here to not leak the context. In reality it
+			// will still be trapped as "context deadline exceeded"
+			cancel()
+			return ctx
+		}(),
+		done: true,
+	}}
+	for _, t := range testCases {
+		c.Logf("test %q", t.name)
+		done := bootstrap.IsContextDone(t.ctx)
+		c.Assert(done, jc.DeepEquals, t.done)
+	}
 }
