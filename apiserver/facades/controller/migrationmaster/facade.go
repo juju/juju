@@ -27,6 +27,7 @@ import (
 // API implements the API required for the model migration
 // master worker.
 type API struct {
+	controllerState         ControllerState
 	backend                 Backend
 	precheckBackend         migration.PrecheckBackend
 	pool                    migration.Pool
@@ -48,6 +49,7 @@ type APIV2 struct {
 // NewAPI creates a new API server endpoint for the model migration
 // master worker.
 func NewAPI(
+	controllerState ControllerState,
 	backend Backend,
 	precheckBackend migration.PrecheckBackend,
 	pool migration.Pool,
@@ -60,6 +62,7 @@ func NewAPI(
 		return nil, apiservererrors.ErrPerm
 	}
 	return &API{
+		controllerState:         controllerState,
 		backend:                 backend,
 		precheckBackend:         precheckBackend,
 		pool:                    pool,
@@ -168,7 +171,7 @@ func (api *API) SourceControllerInfo() (params.MigrationSourceInfo, error) {
 	}
 	cacert, _ := cfg.CACert()
 
-	hostports, err := api.backend.APIHostPortsForClients()
+	hostports, err := api.controllerState.APIHostPortsForClients()
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
