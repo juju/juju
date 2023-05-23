@@ -179,13 +179,8 @@ func (c *IntrospectCommand) getAgentTag() (names.Tag, error) {
 		return names.ParseTag(c.agent)
 	}
 	agentsDir := filepath.Join(c.dataDir, "agents")
-	dir, err := os.Open(agentsDir)
-	if err != nil {
-		return nil, errors.Annotate(err, "opening agents dir")
-	}
-	defer dir.Close()
 
-	entries, err := dir.Readdir(-1)
+	entries, err := os.ReadDir(agentsDir)
 	if err != nil {
 		return nil, errors.Annotate(err, "reading agents dir")
 	}
