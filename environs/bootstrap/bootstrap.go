@@ -4,6 +4,7 @@
 package bootstrap
 
 import (
+	stdcontext "context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -730,6 +731,11 @@ func Bootstrap(
 	if err := doBootstrap(ctx, environ, callCtx, args, bootstrapParams); err != nil {
 		return errors.Trace(err)
 	}
+	if IsContextDone(ctx.Context()) {
+		ctx.Infof("Bootstrap cancelled, you may need to manually remove the bootstrap instance")
+		return Cancelled()
+	}
+
 	ctx.Infof("Bootstrap agent now started")
 	return nil
 }
@@ -1144,4 +1150,9 @@ func setPrivateMetadataSources(fetcher imagemetadata.SimplestreamsFetcher, metad
 // Cancelled returns an error that satisfies IsCancelled.
 func Cancelled() error {
 	return errCancelled
+}
+
+// IsContextDone returns true if the context is done.
+func IsContextDone(ctx stdcontext.Context) bool {
+	return ctx.Err() != nil
 }
