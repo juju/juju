@@ -8,10 +8,10 @@ run_charmstore_charmrevisionupdater() {
 	ensure "${model_name}" "${file}"
 
 	# Deploy an old revision of postgresql
-	juju deploy cs:postgresql-288 --series jammy
+	juju deploy cs:jameinel-ubuntu-lite-9
 
 	# Wait for revision update worker to update the available revision.
-	wait_for "cs:postgresql-" '.applications["postgresql"] | ."can-upgrade-to"'
+	wait_for "cs:jameinel-ubuntu-lite-" '.applications["ubuntu-lite"] | ."can-upgrade-to"'
 
 	destroy_model "${model_name}"
 }
