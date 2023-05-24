@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/worker/changestream/eventqueue"
+	"github.com/juju/juju/worker/changestream/eventmultiplexer"
 	"github.com/juju/juju/worker/changestream/stream"
 	"github.com/juju/juju/worker/filenotifywatcher"
 )
@@ -34,32 +34,32 @@ type FileNotifier interface {
 // ChangeStream represents an interface for getting an event queue for
 // a particular namespace.
 type ChangeStream interface {
-	EventQueue(string) (EventQueue, error)
+	NamespacedEventMux(string) (EventMultiplexer, error)
 }
 
-// EventQueue represents an interface for managing subscriptions to listen to
+// EventMultiplexer represents an interface for managing subscriptions to listen to
 // changes from the database change log.
-type EventQueue interface {
+type EventMultiplexer interface {
 	// Subscribe returns a new subscription to listen to changes from the
 	// database change log.
 	Subscribe(...changestream.SubscriptionOption) (changestream.Subscription, error)
 }
 
-// EventQueueWorker represents a worker for subscribing to events from the
-// database change log.
-type EventQueueWorker interface {
+// EventMultiplexer represents a worker for subscribing to events that will be
+// multiplexer to subscribers from the database change log.
+type EventMultiplexerWorker interface {
 	worker.Worker
-	EventQueue() EventQueue
+	EventMux() EventMultiplexer
 }
 
 // WorkerConfig encapsulates the configuration options for the
 // changestream worker.
 type WorkerConfig struct {
-	DBGetter            DBGetter
-	FileNotifyWatcher   FileNotifyWatcher
-	Clock               clock.Clock
-	Logger              Logger
-	NewEventQueueWorker EventQueueWorkerFn
+	DBGetter                  DBGetter
+	FileNotifyWatcher         FileNotifyWatcher
+	Clock                     clock.Clock
+	Logger                    Logger
+	NewEventMultiplexerWorker EventMultiplexerWorkerFn
 }
 
 // Validate ensures that the config values are valid.
@@ -76,8 +76,8 @@ func (c *WorkerConfig) Validate() error {
 	if c.Logger == nil {
 		return errors.NotValidf("missing logger")
 	}
-	if c.NewEventQueueWorker == nil {
-		return errors.NotValidf("missing NewEventQueueWorker")
+	if c.NewEventMultiplexerWorker == nil {
+		return errors.NotValidf("missing NewEventMultiplexerWorker")
 	}
 	return nil
 }
@@ -120,12 +120,8 @@ func newWorker(cfg WorkerConfig) (*changeStreamWorker, error) {
 func (w *changeStreamWorker) loop() (err error) {
 	defer w.runner.Kill()
 
-	for {
-		select {
-		case <-w.catacomb.Dying():
-			return w.catacomb.ErrDying()
-		}
-	}
+	<-w.catacomb.Dying()
+	return w.catacomb.ErrDying()
 }
 
 // Kill is part of the worker.Worker interface.
@@ -138,33 +134,32 @@ func (w *changeStreamWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-// EventQueue returns a new EventQueue for the given namespace. The EventQueue
-// will be subscribed to the given options.
-func (w *changeStreamWorker) EventQueue(namespace string) (EventQueue, error) {
-	if e, err := w.runner.Worker(namespace, w.catacomb.Dying()); err == nil {
-		return e.(EventQueueWorker).EventQueue(), nil
-	}
-
-	db, err := w.cfg.DBGetter.GetDB(namespace)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	eqWorker, err := w.cfg.NewEventQueueWorker(db, fileNotifyWatcher{
-		fileNotifier: w.cfg.FileNotifyWatcher,
-		fileName:     namespace,
-	}, w.cfg.Clock, w.cfg.Logger)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
+// NamespacedEventMux returns a new EventMultiplexer for the given namespace.
+// The EventMultiplexer will be subscribed to the given options.
+func (w *changeStreamWorker) NamespacedEventMux(namespace string) (EventMultiplexer, error) {
 	if err := w.runner.StartWorker(namespace, func() (worker.Worker, error) {
-		return eqWorker, nil
-	}); err != nil {
+		db, err := w.cfg.DBGetter.GetDB(namespace)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		mux, err := w.cfg.NewEventMultiplexerWorker(db, fileNotifyWatcher{
+			fileNotifier: w.cfg.FileNotifyWatcher,
+			fileName:     namespace,
+		}, w.cfg.Clock, w.cfg.Logger)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return mux, nil
+	}); err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return nil, errors.Trace(err)
 	}
 
-	return eqWorker.EventQueue(), nil
+	mux, err := w.runner.Worker(namespace, w.catacomb.Dying())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return mux.(EventMultiplexerWorker).EventMux(), nil
 }
 
 // fileNotifyWatcher is a wrapper around the FileNotifyWatcher that is used to
@@ -178,17 +173,17 @@ func (f fileNotifyWatcher) Changes() (<-chan bool, error) {
 	return f.fileNotifier.Changes(f.fileName)
 }
 
-// NewEventQueueWorker creates a new EventQueueWorker.
-func NewEventQueueWorker(db coredatabase.TrackedDB, fileNotifier FileNotifier, clock clock.Clock, logger Logger) (EventQueueWorker, error) {
+// NewEventMultiplexerWorker creates a new EventMultiplexerWorker.
+func NewEventMultiplexerWorker(db coredatabase.TrackedDB, fileNotifier FileNotifier, clock clock.Clock, logger Logger) (EventMultiplexerWorker, error) {
 	stream := stream.New(db, fileNotifier, clock, logger)
 
-	eventQueue, err := eventqueue.New(stream, logger)
+	mux, err := eventmultiplexer.New(stream, clock, logger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	w := &eventQueueWorker{
-		eventQueue: eventQueue,
+	w := &eventMultiplexerWorker{
+		mux: mux,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -196,7 +191,7 @@ func NewEventQueueWorker(db coredatabase.TrackedDB, fileNotifier FileNotifier, c
 		Work: w.loop,
 		Init: []worker.Worker{
 			stream,
-			eventQueue,
+			mux,
 		},
 	}); err != nil {
 		return nil, errors.Trace(err)
@@ -205,32 +200,30 @@ func NewEventQueueWorker(db coredatabase.TrackedDB, fileNotifier FileNotifier, c
 	return w, nil
 }
 
-// eventQueueWorker is a worker that is responsible for managing the lifecycle
+// eventMultiplexerWorker is a worker that is responsible for managing the lifecycle
 // of both the DBStream and the EventQueue.
-type eventQueueWorker struct {
+type eventMultiplexerWorker struct {
 	catacomb catacomb.Catacomb
 
-	eventQueue *eventqueue.EventQueue
+	mux *eventmultiplexer.EventMultiplexer
 }
 
 // Kill is part of the worker.Worker interface.
-func (w *eventQueueWorker) Kill() {
+func (w *eventMultiplexerWorker) Kill() {
 	w.catacomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (w *eventQueueWorker) Wait() error {
+func (w *eventMultiplexerWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-// EventQueue returns the event queue for this worker.
-func (w *eventQueueWorker) EventQueue() EventQueue {
-	return w.eventQueue
+// EventMux returns the event queue for this worker.
+func (w *eventMultiplexerWorker) EventMux() EventMultiplexer {
+	return w.mux
 }
 
-func (w *eventQueueWorker) loop() error {
-	select {
-	case <-w.catacomb.Dying():
-		return w.catacomb.ErrDying()
-	}
+func (w *eventMultiplexerWorker) loop() error {
+	<-w.catacomb.Dying()
+	return w.catacomb.ErrDying()
 }
