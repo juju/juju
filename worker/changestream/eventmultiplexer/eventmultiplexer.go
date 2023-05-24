@@ -49,7 +49,7 @@ type reportRequest struct {
 	done chan struct{}
 }
 
-// EventMultiplexer defines an event listener and dispatcher for db changes that
+// EventMultiplexer defines a way to receive streamed terms for changes that
 // can be multiplexed to subscriptions. The event queue allows consumers to
 // subscribe via callbacks to the event queue. This is a lockless
 // implementation, all subscriptions and changes are serialized in the main
@@ -138,6 +138,8 @@ func (e *EventMultiplexer) Wait() error {
 	return e.catacomb.Wait()
 }
 
+// Report returns a map of the current state of the event queue. This is
+// used by the engine report.
 func (e *EventMultiplexer) Report() map[string]any {
 	r := reportRequest{
 		data: make(map[string]any),
@@ -146,6 +148,10 @@ func (e *EventMultiplexer) Report() map[string]any {
 	select {
 	case <-e.catacomb.Dying():
 		return nil
+
+	// We can't block the engine report, so we timeout after a second.
+	// This can happen if we're in the middle of a dispatch and the term
+	// channel is blocked.
 	case <-e.clock.After(time.Second):
 		e.logger.Errorf("report request timed out")
 		return nil
@@ -275,7 +281,12 @@ func (e *EventMultiplexer) loop() error {
 			delete(e.subscriptions, subscriptionID)
 			delete(e.subscriptionsAll, subscriptionID)
 
-			sub.close()
+			// If the subscription errors out on a close, we don't want that
+			// to bring down the entire multiplexer. Instead, just log it out
+			// and continue.
+			if err := sub.close(); err != nil {
+				e.logger.Infof("error closing subscription: %v", err)
+			}
 
 		case r := <-e.reportsCh:
 			r.data["subscriptions"] = len(e.subscriptions)

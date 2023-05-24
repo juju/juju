@@ -25,8 +25,8 @@ type Logger interface {
 	IsTraceEnabled() bool
 }
 
-// FileNotifyWatcher represents a way to watch for changes in a namespace folder
-// directory.
+// FileNotifyWatcher notifies when a file has been created or deleted within
+// a given directory.
 type FileNotifier interface {
 	// Changes returns a channel if a file was created or deleted.
 	Changes() (<-chan bool, error)
