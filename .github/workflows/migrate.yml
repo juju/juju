@@ -41,7 +41,8 @@ jobs:
 
       - name: Install Juju 2.9
         run: |
-          sudo snap install juju_29 --classic --channel 2.9/stable
+          # TODO(anvial): change to stable channel once juju 2.9.43 is released
+          sudo snap install juju_29 --classic --channel 2.9/edge
 
       - name: Bootstrap a 2.9 controller and model
         run: |
