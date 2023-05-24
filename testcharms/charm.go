@@ -44,6 +44,11 @@ func RepoWithSeries(series string) *testing.Repo {
 	return testing.NewRepo(localCharmRepo, series)
 }
 
+// CharmRepo returns a new charm repository.
+func CharmRepo() *testing.Repo {
+	return testing.NewRepo("charms", "")
+}
+
 // CheckCharmReady ensures that a desired charm archive exists and
 // has some content.
 func CheckCharmReady(c *gc.C, charmArchive *charm.CharmArchive) {

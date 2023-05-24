@@ -1598,7 +1598,7 @@ func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
 	defer server.Close()
 
 	meteredCharmURL := charm.MustParseURL("cs:bionic/metered-1")
-	charmDir := testcharms.RepoWithSeries("bionic").CharmDir("metered")
+	charmDir := testcharms.CharmRepo().CharmDir("metered")
 
 	s.fakeAPI.planURL = server.URL
 	withCharmRepoResolvable(s.fakeAPI, meteredCharmURL, "")
@@ -1648,7 +1648,7 @@ func (s *DeploySuite) TestAddMetricCredentials(c *gc.C) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
-	charmDir := testcharms.RepoWithSeries("bionic").CharmDir("metered")
+	charmDir := testcharms.CharmRepo().CharmDir("metered")
 	meteredURL := charm.MustParseURL("cs:bionic/metered-1")
 	s.fakeAPI.planURL = server.URL
 	withCharmDeployable(s.fakeAPI, meteredURL, "bionic", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
@@ -1701,7 +1701,7 @@ func (s *DeploySuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
-	charmDir := testcharms.RepoWithSeries("bionic").CharmDir("metered")
+	charmDir := testcharms.CharmRepo().CharmDir("metered")
 
 	meteredURL := charm.MustParseURL("cs:bionic/metered-1")
 	s.fakeAPI.planURL = server.URL
@@ -1790,7 +1790,7 @@ pings:
   type: gauge		
   description: ping pongs		
 `
-	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "metered")
+	charmDir := testcharms.CharmRepo().ClonedDir(c.MkDir(), "metered")
 	metadataPath := filepath.Join(charmDir.Path, "metrics.yaml")
 	file, err := os.OpenFile(metadataPath, os.O_TRUNC|os.O_RDWR, 0666)
 	if err != nil {
@@ -1840,7 +1840,7 @@ pings:
   type: gauge		
   description: ping pongs		
 `
-	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "metered")
+	charmDir := testcharms.CharmRepo().ClonedDir(c.MkDir(), "metered")
 	metadataPath := filepath.Join(charmDir.Path, "metrics.yaml")
 	file, err := os.OpenFile(metadataPath, os.O_TRUNC|os.O_RDWR, 0666)
 	if err != nil {
