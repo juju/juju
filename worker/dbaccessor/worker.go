@@ -431,9 +431,6 @@ func (w *dbWorker) DeleteDB(namespace string) error {
 	select {
 	case err := <-req.done:
 		if err != nil {
-			if errors.Is(err, errors.NotFound) {
-				return nil
-			}
 			return errors.Trace(err)
 		}
 	case <-w.catacomb.Dying():

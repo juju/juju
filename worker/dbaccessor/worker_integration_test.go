@@ -102,6 +102,7 @@ func (s *integrationSuite) TestWorkerAccessingControllerDB(c *gc.C) {
 func (s *integrationSuite) TestWorkerAccessingUnknownDB(c *gc.C) {
 	_, err := s.dbManager.GetDB("foo")
 	c.Assert(err, gc.ErrorMatches, `.*namespace "foo" not found`)
+	c.Assert(errors.Is(err, errors.NotFound), jc.IsTrue)
 }
 
 func (s *integrationSuite) TestWorkerAccessingKnownDB(c *gc.C) {
@@ -124,8 +125,9 @@ func (s *integrationSuite) TestWorkerDeletingControllerDB(c *gc.C) {
 }
 
 func (s *integrationSuite) TestWorkerDeletingUnknownDB(c *gc.C) {
-	_, err := s.dbManager.GetDB("foo")
-	c.Assert(err, gc.ErrorMatches, `.*namespace "foo" not found`)
+	err := s.dbManager.DeleteDB("foo")
+	c.Assert(err, gc.ErrorMatches, `.*"foo" not found`)
+	c.Assert(errors.Is(err, errors.NotFound), jc.IsTrue)
 }
 
 func (s *integrationSuite) TestWorkerDeletingKnownDB(c *gc.C) {
@@ -177,10 +179,10 @@ func (s *integrationSuite) TestWorkerDeletingKnownDBWithoutGetFirst(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.dbManager.DeleteDB("fred")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.ErrorMatches, `.*"fred" not found`)
 
 	_, err = s.dbManager.GetDB("fred")
-	c.Assert(err, gc.ErrorMatches, `.*namespace "fred" not found`)
+	c.Assert(err, gc.ErrorMatches, `.*"fred" not found`)
 }
 
 // integrationSuite defines a base suite for running integration tests against
