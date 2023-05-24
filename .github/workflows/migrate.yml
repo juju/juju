@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   migrate:
-    name: Migrate
+    name: 2.9-to-3.x
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     strategy:
@@ -31,18 +31,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Enable Snap parallel-instances
+        run: |
+          sudo snap set system experimental.parallel-instances=true
+
       - name: Setup LXD
         if: matrix.cloud == 'lxd'
         uses: canonical/setup-lxd@ea57509243d3cf39f8ab926e021bb353947b01b5
 
-      - name: Install Juju 3.0
-        run: sudo snap install juju --channel 3.0/stable
-
-      - name: Bootstrap a 3.0 controller and model
+      - name: Install Juju 2.9
         run: |
-          juju bootstrap lxd test30
-          juju add-model default
-          juju deploy ubuntu
+          sudo snap install juju_29 --classic --channel 2.9/stable
+
+      - name: Bootstrap a 2.9 controller and model
+        run: |
+          juju_29 bootstrap lxd test29
+          juju_29 add-model test-migrate
+          juju_29 deploy ubuntu
           
           # TODO: use juju-restore
           # TODO: add users/permissions/models and test that those migrate over
@@ -55,12 +60,11 @@ jobs:
           echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
           echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
-      - name: Upgrade client to 3.1
+      - name: Upgrade client to 3.x
         run: |
-          sudo snap remove juju --purge
           make go-install &>/dev/null
 
-      - name: Bootstrap 3.1 controller
+      - name: Bootstrap 3.x controller
         run: |
           juju bootstrap lxd test31
           juju switch controller
@@ -68,28 +72,28 @@ jobs:
 
         # TODO: create backup and juju restore
 
-      - name: Migrate default model to 3.1 controller
+      - name: Migrate default model to 3.x controller
         run: |
-          juju switch test30
-
+          juju_29 switch test29
+          
           # Ensure application is fully deployed
-          juju wait-for application ubuntu || juju status
+          juju_29 wait-for application ubuntu
           
           # Wait a few secs for the machine status to update
           # so that migration prechecks pass.
           sleep 10
           
-          juju migrate default test31
+          juju_29 migrate test-migrate test31
 
       - name: Check the migration was successful
         run: |
           set -x
           juju switch test31
           
-          # Wait for 'default' model to come through
+          # Wait for 'test-migrate' model to come through
           attempt=0
           while true; do
-            RES=$(juju models | grep 'default' || true)
+            RES=$(juju models | grep 'test-migrate' || true)
             if [[ -n $RES ]]; then
               break
             fi
@@ -101,5 +105,8 @@ jobs:
             fi
           done
           
-          juju switch default
-          juju wait-for application ubuntu || juju status
+          juju switch test-migrate
+          juju wait-for application ubuntu
+          
+          juju deploy ubuntu yet-another-ubuntu
+          juju wait-for application yet-another-ubuntu
