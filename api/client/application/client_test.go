@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/api/client/application"
 	apicharm "github.com/juju/juju/api/common/charm"
 	apitesting "github.com/juju/juju/api/testing"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -33,59 +32,6 @@ const newBranchName = "new-branch"
 type applicationSuite struct{}
 
 var _ = gc.Suite(&applicationSuite{})
-
-func (s *applicationSuite) TestSetApplicationMetricCredentials(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	args := params.ApplicationMetricCredentials{
-		Creds: []params.ApplicationMetricCredential{
-			{
-				ApplicationName:   "applicationA",
-				MetricCredentials: []byte("creds 1"),
-			},
-		},
-	}
-	result := new(params.ErrorResults)
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, 1),
-	}
-
-	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("SetMetricCredentials", args, result).SetArg(2, results).Return(nil)
-	client := application.NewClientFromCaller(mockFacadeCaller)
-
-	err := client.SetMetricCredentials("applicationA", []byte("creds 1"))
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *applicationSuite) TestSetApplicationMetricCredentialsFails(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	args := params.ApplicationMetricCredentials{
-		Creds: []params.ApplicationMetricCredential{
-			{
-				ApplicationName:   "application",
-				MetricCredentials: []byte("creds"),
-			},
-		},
-	}
-	result := new(params.ErrorResults)
-	results := params.ErrorResults{
-		Results: []params.ErrorResult{
-			{
-				Error: apiservererrors.ServerError(apiservererrors.ErrPerm),
-			},
-		},
-	}
-
-	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("SetMetricCredentials", args, result).SetArg(2, results).Return(nil)
-	client := application.NewClientFromCaller(mockFacadeCaller)
-	err := client.SetMetricCredentials("application", []byte("creds"))
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-}
 
 func (s *applicationSuite) TestDeploy(c *gc.C) {
 	ctrl := gomock.NewController(c)

@@ -41,20 +41,6 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, st: st, facade: backend}
 }
 
-// SetMetricCredentials sets the metric credentials for the application specified.
-func (c *Client) SetMetricCredentials(application string, credentials []byte) error {
-	creds := []params.ApplicationMetricCredential{
-		{application, credentials},
-	}
-	p := params.ApplicationMetricCredentials{Creds: creds}
-	results := new(params.ErrorResults)
-	err := c.facade.FacadeCall("SetMetricCredentials", p, results)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return errors.Trace(results.OneError())
-}
-
 // ModelUUID returns the model UUID from the client connection.
 func (c *Client) ModelUUID() string {
 	tag, ok := c.st.ModelTag()

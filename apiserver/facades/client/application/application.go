@@ -247,6 +247,8 @@ func (api *APIBase) checkCanWrite() error {
 }
 
 // SetMetricCredentials sets credentials on the application.
+// TODO (cderici) only used for metered charms in cmd MeteredDeployAPI,
+// kept for client compatibility, remove in juju 4.0
 func (api *APIBase) SetMetricCredentials(args params.ApplicationMetricCredentials) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)

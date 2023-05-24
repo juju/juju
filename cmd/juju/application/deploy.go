@@ -147,9 +147,7 @@ func NewDeployCommand() modelcmd.ModelCommand {
 }
 
 func newDeployCommand() *DeployCommand {
-	deployCmd := &DeployCommand{
-		Steps: deployer.Steps(),
-	}
+	deployCmd := &DeployCommand{}
 	deployCmd.NewModelConfigAPI = func(api base.APICallCloser) ModelConfigGetter {
 		return modelconfig.NewClient(api)
 	}
@@ -294,7 +292,6 @@ type DeployCommand struct {
 	Resources map[string]string
 
 	Bindings map[string]string
-	Steps    []deployer.DeployStep
 
 	// UseExisting machines when deploying the bundle.
 	UseExisting bool
@@ -617,9 +614,6 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.BindToSpaces, "bind", "", "Configure application endpoint bindings to spaces")
 	f.StringVar(&c.machineMap, "map-machines", "", "Specify the existing machines to use for bundle deployments")
 
-	for _, step := range c.Steps {
-		step.SetFlags(f)
-	}
 	c.flagSet = f
 }
 
@@ -858,7 +852,6 @@ func (c *DeployCommand) getDeployerFactory(base series.Base, defaultCharmSchema 
 		FileSystem:           c.ModelCommandBase.Filesystem(),
 		CharmReader:          defaultCharmReader{},
 		NewConsumeDetailsAPI: c.NewConsumeDetailsAPI, // only used here
-		Steps:                c.Steps,
 	}
 	cfg := deployer.DeployerConfig{
 		ApplicationName:    c.ApplicationName,

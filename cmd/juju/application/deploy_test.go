@@ -106,7 +106,6 @@ func (s *DeploySuiteBase) deployCommand() *DeployCommand {
 // charm repository but writes data to the juju database.
 func (s *DeploySuiteBase) deployCommandForState() *DeployCommand {
 	deploy := newDeployCommand()
-	deploy.Steps = nil
 	deploy.DeployResources = s.DeployResources
 	deploy.NewResolver = func(charmsAPI store.CharmsAPI, downloadFn store.DownloadBundleClientFunc) deployer.Resolver {
 		return s.fakeAPI
@@ -124,7 +123,6 @@ func (s *DeploySuiteBase) runDeploy(c *gc.C, args ...string) error {
 
 func (s *DeploySuiteBase) runDeployForState(c *gc.C, args ...string) error {
 	deploy := newDeployCommand()
-	deploy.Steps = nil
 	deploy.DeployResources = s.DeployResources
 	deploy.NewResolver = func(charmsAPI store.CharmsAPI, downloadFn store.DownloadBundleClientFunc) deployer.Resolver {
 		return s.fakeAPI
@@ -1597,39 +1595,6 @@ func (s *DeploySuite) TestDeployWithChannel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *DeploySuite) TestSetMetricCredentialsNotCalledForUnmeteredCharm(c *gc.C) {
-	charmDir := testcharms.RepoWithSeries("bionic").CharmDir("dummy")
-	charmURL := charm.MustParseURL("ch:jammy/dummy")
-	withCharmRepoResolvable(s.fakeAPI, charmURL, "")
-	withCharmDeployable(s.fakeAPI, charmURL, defaultBase, charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
-
-	s.fakeAPI.Call("Deploy", application.DeployArgs{
-		CharmID: application.CharmID{
-			URL: charmURL,
-			Origin: commoncharm.Origin{
-				Source:       commoncharm.OriginCharmHub,
-				Architecture: arch.DefaultArchitecture,
-			},
-		},
-		CharmOrigin: commoncharm.Origin{
-			Source:       commoncharm.OriginCharmHub,
-			Architecture: arch.DefaultArchitecture,
-		},
-		ApplicationName: charmURL.Name,
-		NumUnits:        1,
-	}).Returns(error(nil))
-
-	deploy := s.deployCommand()
-	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "ch:jammy/dummy")
-	c.Assert(err, jc.ErrorIsNil)
-
-	for _, call := range s.fakeAPI.Calls() {
-		if call.FuncName == "SetMetricCredentials" {
-			c.Fatal("call to SetMetricCredentials was not supposed to happen")
-		}
-	}
-}
-
 type FakeStoreStateSuite struct {
 	DeploySuiteBase
 }
@@ -2251,16 +2216,6 @@ type fakeDeployAPI struct {
 	modelCons           constraints.Value
 }
 
-func (f *fakeDeployAPI) IsMetered(charmURL string) (bool, error) {
-	results := f.MethodCall(f, "IsMetered", charmURL)
-	return results[0].(bool), jujutesting.TypeAssertError(results[1])
-}
-
-func (f *fakeDeployAPI) SetMetricCredentials(application string, credentials []byte) error {
-	results := f.MethodCall(f, "SetMetricCredentials", application, credentials)
-	return jujutesting.TypeAssertError(results[0])
-}
-
 func (f *fakeDeployAPI) Close() error {
 	results := f.MethodCall(f, "Close")
 	return jujutesting.TypeAssertError(results[0])
@@ -2677,14 +2632,6 @@ func withCharmDeployableWithDevicesAndStorage(
 	stableOrigin.Risk = "stable"
 	fakeAPI.Call("AddCharm", &deployURL, stableOrigin, force).Returns(origin, error(nil))
 	fakeAPI.Call("Deploy", stableArgs).Returns(error(nil))
-
-	fakeAPI.Call("IsMetered", deployURL.String()).Returns(metered, error(nil))
-
-	// `"hello registration"\n` (quotes and newline from json
-	// encoding) is returned by the fake http server. This is binary64
-	// encoded before the call into SetMetricCredentials.
-	creds := append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA)
-	fakeAPI.Call("SetMetricCredentials", deployURL.Name, creds).Returns(error(nil))
 }
 
 func withCharmRepoResolvable(
