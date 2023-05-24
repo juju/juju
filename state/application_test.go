@@ -5443,15 +5443,12 @@ func (s *CAASApplicationSuite) TestUpsertCAASUnit(c *gc.C) {
 			Ports:        &ports,
 			PasswordHash: &passwordHash,
 		},
-		OrderedScale: true,
-		OrderedId:    0,
-		ObservedAttachments: []state.CAASFilesystemAttachment{{
-			FilesystemId: "filesystem-0",
-			VolumeId:     "pv-database-0",
-		}},
+		OrderedScale:              true,
+		OrderedId:                 0,
+		ObservedAttachedVolumeIDs: []string{"pv-database-0"},
 	}
 	unit, err := cockroachdb.UpsertCAASUnit(p)
-	c.Assert(err, gc.ErrorMatches, `unrequired unit not assigned`)
+	c.Assert(err, gc.ErrorMatches, `unrequired unit cockroachdb/0 is not assigned`)
 	c.Assert(unit, gc.IsNil)
 
 	err = cockroachdb.SetScale(1, 0, true)

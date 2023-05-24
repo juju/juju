@@ -8,5 +8,7 @@ import (
 )
 
 const (
+	// ProvisioningStateInconsistent is returned by SetProvisioningState when the provisioning state
+	// is inconsistent with the application scale.
 	ProvisioningStateInconsistent = errors.ConstError("provisioning state is inconsistent")
 )

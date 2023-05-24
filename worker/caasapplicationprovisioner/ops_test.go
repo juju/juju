@@ -81,7 +81,7 @@ func (s *OpsSuite) TestVerifyCharmUpgraded(c *gc.C) {
 		facade.EXPECT().ApplicationCharmInfo("test").Return(charmInfoV2, nil),
 	)
 
-	shouldExit, err := caasapplicationprovisioner.VerifyCharmUpgraded("test", facade, tomb, s.logger)
+	shouldExit, err := caasapplicationprovisioner.AppOps.VerifyCharmUpgraded("test", facade, tomb, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(shouldExit, jc.IsFalse)
 }
@@ -111,7 +111,7 @@ func (s *OpsSuite) TestVerifyCharmUpgradeLifeDead(c *gc.C) {
 		}),
 	)
 
-	shouldExit, err := caasapplicationprovisioner.VerifyCharmUpgraded("test", facade, tomb, s.logger)
+	shouldExit, err := caasapplicationprovisioner.AppOps.VerifyCharmUpgraded("test", facade, tomb, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(shouldExit, jc.IsTrue)
 }
@@ -141,7 +141,7 @@ func (s *OpsSuite) TestVerifyCharmUpgradeLifeNotFound(c *gc.C) {
 		}),
 	)
 
-	shouldExit, err := caasapplicationprovisioner.VerifyCharmUpgraded("test", facade, tomb, s.logger)
+	shouldExit, err := caasapplicationprovisioner.AppOps.VerifyCharmUpgraded("test", facade, tomb, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(shouldExit, jc.IsTrue)
 }
@@ -166,7 +166,7 @@ func (s *OpsSuite) TestVerifyCharmUpgradeInfoNotFound(c *gc.C) {
 		}),
 	)
 
-	shouldExit, err := caasapplicationprovisioner.VerifyCharmUpgraded("test", facade, tomb, s.logger)
+	shouldExit, err := caasapplicationprovisioner.AppOps.VerifyCharmUpgraded("test", facade, tomb, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(shouldExit, jc.IsTrue)
 }
@@ -191,7 +191,7 @@ func (s *OpsSuite) TestUpgradePodSpec(c *gc.C) {
 		broker.EXPECT().OperatorExists("test").Return(caas.DeploymentState{Exists: false}, nil),
 	)
 
-	err := caasapplicationprovisioner.UpgradePodSpec("test", broker, clk, tomb, s.logger)
+	err := caasapplicationprovisioner.AppOps.UpgradePodSpec("test", broker, clk, tomb, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -207,7 +207,7 @@ func (s *OpsSuite) TestEnsureTrust(c *gc.C) {
 		app.EXPECT().Trust(true).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.EnsureTrust("test", app, unitFacade, s.logger)
+	err := caasapplicationprovisioner.AppOps.EnsureTrust("test", app, unitFacade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -327,7 +327,7 @@ func (s *OpsSuite) TestUpdateState(c *gc.C) {
 			Message: "same",
 		},
 	}
-	currentReportedStatus, err := caasapplicationprovisioner.UpdateState("test", app, lastReportedStatus, broker, facade, unitFacade, s.logger)
+	currentReportedStatus, err := caasapplicationprovisioner.AppOps.UpdateState("test", app, lastReportedStatus, broker, facade, unitFacade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(currentReportedStatus, jc.DeepEquals, map[string]status.StatusInfo{
 		"a": {Status: "active", Message: "different"},
@@ -357,7 +357,7 @@ func (s *OpsSuite) TestRefreshApplicationStatus(c *gc.C) {
 		facade.EXPECT().SetOperatorStatus("test", status.Waiting, "waiting for units to settle down", nil).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.RefreshApplicationStatus("test", app, appLife, facade, s.logger)
+	err := caasapplicationprovisioner.AppOps.RefreshApplicationStatus("test", app, appLife, facade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -373,7 +373,7 @@ func (s *OpsSuite) TestWaitForTerminated(c *gc.C) {
 			Exists: true,
 		}, nil),
 	)
-	err := caasapplicationprovisioner.WaitForTerminated("test", app, clk)
+	err := caasapplicationprovisioner.AppOps.WaitForTerminated("test", app, clk)
 	c.Assert(err, gc.ErrorMatches, `application "test" should be terminating but is now running`)
 
 	gomock.InOrder(
@@ -383,7 +383,7 @@ func (s *OpsSuite) TestWaitForTerminated(c *gc.C) {
 		}, nil),
 		app.EXPECT().Exists().Return(caas.DeploymentState{}, nil),
 	)
-	err = caasapplicationprovisioner.WaitForTerminated("test", app, clk)
+	err = caasapplicationprovisioner.AppOps.WaitForTerminated("test", app, clk)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -423,7 +423,7 @@ func (s *OpsSuite) TestReconcileDeadUnitScale(c *gc.C) {
 		facade.EXPECT().SetProvisioningState("test", newPs).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.ReconcileDeadUnitScale("test", app, facade, s.logger)
+	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app, facade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -454,7 +454,7 @@ func (s *OpsSuite) TestEnsureScaleAlive(c *gc.C) {
 		facade.EXPECT().DestroyUnits(unitsToDestroy).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.EnsureScale("test", app, life.Alive, facade, unitFacade, s.logger)
+	err := caasapplicationprovisioner.AppOps.EnsureScale("test", app, life.Alive, facade, unitFacade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -484,7 +484,7 @@ func (s *OpsSuite) TestEnsureScaleAliveRetry(c *gc.C) {
 		facade.EXPECT().DestroyUnits(unitsToDestroy).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.EnsureScale("test", app, life.Alive, facade, unitFacade, s.logger)
+	err := caasapplicationprovisioner.AppOps.EnsureScale("test", app, life.Alive, facade, unitFacade, s.logger)
 	c.Assert(err, gc.ErrorMatches, `try again`)
 }
 
@@ -514,7 +514,7 @@ func (s *OpsSuite) TestEnsureScaleDyingDead(c *gc.C) {
 		facade.EXPECT().DestroyUnits(unitsToDestroy).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.EnsureScale("test", app, life.Dead, facade, unitFacade, s.logger)
+	err := caasapplicationprovisioner.AppOps.EnsureScale("test", app, life.Dead, facade, unitFacade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -624,7 +624,7 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 		app.EXPECT().Ensure(ensureParams).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.AppAlive("test", app, password, &lastApplied, facade, clk, s.logger)
+	err := caasapplicationprovisioner.AppOps.AppAlive("test", app, password, &lastApplied, facade, clk, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -651,7 +651,7 @@ func (s *OpsSuite) TestAppDying(c *gc.C) {
 		facade.EXPECT().ProvisioningState("test").Return(nil, nil),
 	)
 
-	err := caasapplicationprovisioner.AppDying("test", app, life.Dying, facade, unitFacade, s.logger)
+	err := caasapplicationprovisioner.AppOps.AppDying("test", app, life.Dying, facade, unitFacade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -673,12 +673,12 @@ func (s *OpsSuite) TestAppDead(c *gc.C) {
 	gomock.InOrder(
 		app.EXPECT().Delete().Return(nil),
 		app.EXPECT().Exists().Return(caas.DeploymentState{}, nil),
-		facade.EXPECT().ClearApplicationResources("test").Return(nil),
 		app.EXPECT().Service().Return(nil, errors.NotFound),
 		app.EXPECT().Units().Return(nil, nil),
 		facade.EXPECT().UpdateUnits(updateUnitsArgs).Return(nil, nil),
+		facade.EXPECT().ClearApplicationResources("test").Return(nil),
 	)
 
-	err := caasapplicationprovisioner.AppDead("test", app, broker, facade, unitFacade, clk, s.logger)
+	err := caasapplicationprovisioner.AppOps.AppDead("test", app, broker, facade, unitFacade, clk, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }

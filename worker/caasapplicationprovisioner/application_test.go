@@ -101,6 +101,34 @@ func (s *ApplicationWorkerSuite) TestLifeNotFound(c *gc.C) {
 	workertest.CleanKill(c, appWorker)
 }
 
+func (s *ApplicationWorkerSuite) TestLifeDead(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	broker := mocks.NewMockCAASBroker(ctrl)
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	unitFacade := mocks.NewMockCAASUnitProvisionerFacade(ctrl)
+	ops := mocks.NewMockApplicationOps(ctrl)
+	clk := testclock.NewDilatedWallClock(time.Millisecond)
+
+	done := make(chan struct{})
+
+	gomock.InOrder(
+		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
+		facade.EXPECT().Life("test").Return(life.Dead, nil),
+		ops.EXPECT().AppDying("test", app, life.Dead, facade, unitFacade, s.logger).Return(nil),
+		ops.EXPECT().AppDead("test", app, broker, facade, unitFacade, clk, s.logger).DoAndReturn(func(_, _, _, _, _, _, _ any) error {
+			close(done)
+			return nil
+		}),
+	)
+	appWorker := s.startAppWorker(c, clk, facade, broker, unitFacade, ops)
+
+	s.waitDone(c, done)
+	workertest.CleanKill(c, appWorker)
+}
+
 func (s *ApplicationWorkerSuite) TestUpgradePodSpec(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

@@ -256,6 +256,7 @@ func (a *Application) SetAgentVersion(v version.Binary) (err error) {
 
 // SetProvisioningState sets the provisioning state for the application.
 func (a *Application) SetProvisioningState(ps ApplicationProvisioningState) error {
+	// TODO: Treat dying/dead scale to 0 as a seperate call.
 	life := a.Life()
 	assertions := bson.D{
 		{"life", life},
@@ -2667,18 +2668,19 @@ func (a *Application) AddUnit(args AddUnitParams) (unit *Unit, err error) {
 	return a.st.Unit(name)
 }
 
+// UpsertCAASUnitParams is passed to UpsertCAASUnit to describe how to create or how to find and
+// update an existing unit for sidecar CAAS application.
 type UpsertCAASUnitParams struct {
 	AddUnitParams
 
+	// OrderedScale is always true. It represents a mapping of OrderedId to Unit ID.
 	OrderedScale bool
-	OrderedId    int
+	// OrderedId is the stable ordinal index of the "pod".
+	OrderedId int
 
-	ObservedAttachments []CAASFilesystemAttachment
-}
-
-type CAASFilesystemAttachment struct {
-	FilesystemId string
-	VolumeId     string
+	// ObservedAttachedVolumeIDs is the filesystem attachments observed to be attached by the infrastructure,
+	// used to map existing attachments.
+	ObservedAttachedVolumeIDs []string
 }
 
 func (a *Application) UpsertCAASUnit(args UpsertCAASUnitParams) (*Unit, error) {
@@ -2689,10 +2691,10 @@ func (a *Application) UpsertCAASUnit(args UpsertCAASUnitParams) (*Unit, error) {
 		return nil, errors.NotValidf("provider id")
 	}
 	if !args.OrderedScale {
-		return nil, errors.NotImplementedf("upserting CAAS units not supported without ordered unit IDs")
+		return nil, errors.NewNotImplemented(nil, "upserting CAAS units not supported without ordered unit IDs")
 	}
 	if args.UnitName == nil {
-		return nil, errors.NotValidf("unit name")
+		return nil, errors.NotValidf("nil unit name")
 	}
 
 	sb, err := NewStorageBackend(a.st)
@@ -2705,7 +2707,7 @@ func (a *Application) UpsertCAASUnit(args UpsertCAASUnitParams) (*Unit, error) {
 		if attempt > 0 {
 			err := a.Refresh()
 			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 		}
 
@@ -2719,27 +2721,13 @@ func (a *Application) UpsertCAASUnit(args UpsertCAASUnitParams) (*Unit, error) {
 			if errors.Is(err, errors.NotFound) {
 				unit = nil
 			} else if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 		}
 
 		// Try to reattach the storage that k8s has observed attached to this pod.
-		for _, attachment := range args.ObservedAttachments {
-			fs, err := sb.filesystem(bson.D{{"info.filesystemid", attachment.FilesystemId}}, "")
-			if errors.Is(err, errors.NotFound) {
-				continue
-			} else if err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			fsStorageId, err := fs.Storage()
-			if errors.Is(err, errors.NotAssigned) {
-				continue
-			} else if err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			volume, err := sb.volume(bson.D{{"info.volumeid", attachment.VolumeId}}, "")
+		for _, volumeId := range args.ObservedAttachedVolumeIDs {
+			volume, err := sb.volume(bson.D{{"info.volumeid", volumeId}}, "")
 			if errors.Is(err, errors.NotFound) {
 				continue
 			} else if err != nil {
@@ -2753,35 +2741,11 @@ func (a *Application) UpsertCAASUnit(args UpsertCAASUnitParams) (*Unit, error) {
 				return nil, errors.Trace(err)
 			}
 
-			if fsStorageId != volumeStorageId {
-				// TODO: handle this inconsistency?
-				continue
-			}
 			args.AddUnitParams.AttachStorage = append(args.AddUnitParams.AttachStorage, volumeStorageId)
 		}
 
 		if unit == nil {
-			if ps := a.ProvisioningState(); args.OrderedId >= a.GetScale() ||
-				(ps != nil && ps.Scaling && args.OrderedId >= ps.ScaleTarget) {
-				return nil, errors.NotAssignedf("unrequired unit")
-			}
-
-			_, addOps, err := a.addUnitOps("", args.AddUnitParams, nil)
-			if err != nil {
-				return nil, err
-			}
-
-			ops := []txn.Op{{
-				C:  applicationsC,
-				Id: a.doc.DocID,
-				Assert: bson.D{
-					{"life", Alive},
-					{"scale", a.GetScale()},
-					{"provisioning-state", a.ProvisioningState()},
-				},
-			}}
-			ops = append(ops, addOps...)
-			return ops, nil
+			return a.insertCAASUnitOps(args)
 		}
 
 		if unit.Life() == Dead {
@@ -2794,11 +2758,19 @@ func (a *Application) UpsertCAASUnit(args UpsertCAASUnitParams) (*Unit, error) {
 			Ports:      args.Ports,
 		}).Build(attempt)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 
 		var ops []txn.Op
-		ops = append(ops, unit.setPasswordHashOps(*args.PasswordHash)...) // setPasswordHashOps asserts notDead
+		if args.PasswordHash != nil {
+			ops = append(ops, unit.setPasswordHashOps(*args.PasswordHash)...) // setPasswordHashOps asserts notDead
+		} else {
+			ops = append(ops, txn.Op{
+				C:      unitsC,
+				Id:     unit.doc.DocID,
+				Assert: notDeadDoc,
+			})
+		}
 		ops = append(ops, updateOps...)
 		return ops, nil
 	})
@@ -2817,6 +2789,34 @@ func (a *Application) UpsertCAASUnit(args UpsertCAASUnitParams) (*Unit, error) {
 		}
 	}
 	return unit, nil
+}
+
+func (a *Application) insertCAASUnitOps(args UpsertCAASUnitParams) ([]txn.Op, error) {
+	if args.UnitName == nil {
+		return nil, errors.NotValidf("nil unit name")
+	}
+
+	if ps := a.ProvisioningState(); args.OrderedId >= a.GetScale() ||
+		(ps != nil && ps.Scaling && args.OrderedId >= ps.ScaleTarget) {
+		return nil, errors.NotAssignedf("unrequired unit %s is", *args.UnitName)
+	}
+
+	_, addOps, err := a.addUnitOps("", args.AddUnitParams, nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ops := []txn.Op{{
+		C:  applicationsC,
+		Id: a.doc.DocID,
+		Assert: bson.D{
+			{"life", Alive},
+			{"scale", a.GetScale()},
+			{"provisioning-state", a.ProvisioningState()},
+		},
+	}}
+	ops = append(ops, addOps...)
+	return ops, nil
 }
 
 // removeUnitOps returns the operations necessary to remove the supplied unit,

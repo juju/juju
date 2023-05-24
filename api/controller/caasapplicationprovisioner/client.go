@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/common"
 	charmscommon "github.com/juju/juju/api/common/charms"
 	apiwatcher "github.com/juju/juju/api/watcher"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/life"
@@ -434,7 +435,7 @@ func (c *Client) DestroyUnits(unitNames []string) error {
 
 	err := c.facade.FacadeCall("DestroyUnits", args, &result)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	if len(result.Results) != len(unitNames) {
@@ -443,7 +444,7 @@ func (c *Client) DestroyUnits(unitNames []string) error {
 
 	for _, res := range result.Results {
 		if res.Error != nil {
-			return errors.Trace(res.Error)
+			return errors.Trace(apiservererrors.RestoreError(res.Error))
 		}
 	}
 

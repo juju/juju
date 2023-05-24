@@ -59,4 +59,8 @@ func (s *applicationSuite) TestCurrentScale(c *gc.C) {
 	units, err := app.UnitsToRemove(context.Background(), 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, jc.SameContents, []string{"gitlab/1", "gitlab/2"})
+
+	units, err = app.UnitsToRemove(context.Background(), 3)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 0)
 }

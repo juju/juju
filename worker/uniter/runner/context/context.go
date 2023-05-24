@@ -270,6 +270,13 @@ type HookContext struct {
 	// with the running hook.
 	storageTag names.StorageTag
 
+	// storageTags contains a list of all storage tags.
+	storageTags []names.StorageTag
+
+	// storageAttachmentCache holds cached storage attachments so that hook
+	// calls are consistent.
+	storageAttachmentCache map[names.StorageTag]jujuc.ContextStorageAttachment
+
 	// hasRunSetStatus is true if a call to the status-set was made during the
 	// invocation of a hook.
 	// This attribute is persisted to local uniter state at the end of the hook
@@ -657,19 +664,24 @@ func (ctx *HookContext) AvailabilityZone() (string, error) {
 // attached to the unit or an error if they are not available.
 // Implements jujuc.HookContext.ContextStorage, part of runner.Context.
 func (ctx *HookContext) StorageTags() ([]names.StorageTag, error) {
+	// Comparing to nil on purpose here to cache an empty slice.
+	if ctx.storageTags != nil {
+		return ctx.storageTags, nil
+	}
 	attachmentIds, err := ctx.state.UnitStorageAttachments(ctx.unit.Tag())
 	if err != nil {
 		return nil, err
 	}
-	var storageTags []names.StorageTag
+	// N.B. zero-length non-nil slice on purpose.
+	ctx.storageTags = make([]names.StorageTag, 0)
 	for _, attachmentId := range attachmentIds {
 		storageTag, err := names.ParseStorageTag(attachmentId.StorageTag)
 		if err != nil {
 			return nil, err
 		}
-		storageTags = append(storageTags, storageTag)
+		ctx.storageTags = append(ctx.storageTags, storageTag)
 	}
-	return storageTags, nil
+	return ctx.storageTags, nil
 }
 
 // HookStorage returns the storage attachment associated
@@ -689,15 +701,20 @@ func (ctx *HookContext) HookStorage() (jujuc.ContextStorageAttachment, error) {
 // available to the context.
 // Implements jujuc.HookContext.ContextStorage, part of runner.Context.
 func (ctx *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, error) {
+	if ctxStorageAttachment, ok := ctx.storageAttachmentCache[tag]; ok {
+		return ctxStorageAttachment, nil
+	}
 	attachment, err := ctx.state.StorageAttachment(tag, ctx.unit.Tag())
 	if err != nil {
 		return nil, err
 	}
-	return &contextStorage{
+	ctxStorageAttachment := &contextStorage{
 		tag:      tag,
 		kind:     storage.StorageKind(attachment.Kind),
 		location: attachment.Location,
-	}, nil
+	}
+	ctx.storageAttachmentCache[tag] = ctxStorageAttachment
+	return ctxStorageAttachment, nil
 }
 
 // AddUnitStorage saves storage constraints in the context.

@@ -116,12 +116,7 @@ func (s stateShim) Resources() Resources {
 }
 
 func (s stateShim) Unit(unitTag string) (Unit, error) {
-	unit, err := s.State.Unit(unitTag)
-	if err != nil {
-		return nil, err
-	}
-
-	return unit, nil
+	return s.State.Unit(unitTag)
 }
 
 type applicationShim struct {

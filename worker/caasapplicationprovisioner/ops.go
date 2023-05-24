@@ -1,4 +1,4 @@
-// Copyright 2020 Canonical Ltd.
+// Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package caasapplicationprovisioner
@@ -23,6 +23,8 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// ApplicationOps defines all the operations the application worker can perform.
+// This is exported for testing only.
 type ApplicationOps interface {
 	AppAlive(appName string, app caas.Application, password string, lastApplied *caas.ApplicationConfig,
 		facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error
@@ -63,57 +65,57 @@ type applicationOps struct {
 
 func (applicationOps) AppAlive(appName string, app caas.Application, password string, lastApplied *caas.ApplicationConfig,
 	facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error {
-	return AppAlive(appName, app, password, lastApplied, facade, clk, logger)
+	return appAlive(appName, app, password, lastApplied, facade, clk, logger)
 }
 
 func (applicationOps) AppDying(appName string, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) error {
-	return AppDying(appName, app, appLife, facade, unitFacade, logger)
+	return appDying(appName, app, appLife, facade, unitFacade, logger)
 }
 
 func (applicationOps) AppDead(appName string, app caas.Application,
 	broker CAASBroker, facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, clk clock.Clock, logger Logger) error {
-	return AppDead(appName, app, broker, facade, unitFacade, clk, logger)
+	return appDead(appName, app, broker, facade, unitFacade, clk, logger)
 }
 
 func (applicationOps) VerifyCharmUpgraded(appName string,
 	facade CAASProvisionerFacade, tomb Tomb, logger Logger) (shouldExit bool, err error) {
-	return VerifyCharmUpgraded(appName, facade, tomb, logger)
+	return verifyCharmUpgraded(appName, facade, tomb, logger)
 }
 
 func (applicationOps) UpgradePodSpec(appName string,
 	broker CAASBroker, clk clock.Clock, tomb Tomb, logger Logger) error {
-	return UpgradePodSpec(appName, broker, clk, tomb, logger)
+	return upgradePodSpec(appName, broker, clk, tomb, logger)
 }
 
 func (applicationOps) EnsureTrust(appName string, app caas.Application,
 	unitFacade CAASUnitProvisionerFacade, logger Logger) error {
-	return EnsureTrust(appName, app, unitFacade, logger)
+	return ensureTrust(appName, app, unitFacade, logger)
 }
 
 func (applicationOps) UpdateState(appName string, app caas.Application, lastReportedStatus map[string]status.StatusInfo,
 	broker CAASBroker, facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) (map[string]status.StatusInfo, error) {
-	return UpdateState(appName, app, lastReportedStatus, broker, facade, unitFacade, logger)
+	return updateState(appName, app, lastReportedStatus, broker, facade, unitFacade, logger)
 }
 
 func (applicationOps) RefreshApplicationStatus(appName string, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade, logger Logger) error {
-	return RefreshApplicationStatus(appName, app, appLife, facade, logger)
+	return refreshApplicationStatus(appName, app, appLife, facade, logger)
 }
 
 func (applicationOps) WaitForTerminated(appName string, app caas.Application,
 	clk clock.Clock) error {
-	return WaitForTerminated(appName, app, clk)
+	return waitForTerminated(appName, app, clk)
 }
 
 func (applicationOps) ReconcileDeadUnitScale(appName string, app caas.Application,
 	facade CAASProvisionerFacade, logger Logger) error {
-	return ReconcileDeadUnitScale(appName, app, facade, logger)
+	return reconcileDeadUnitScale(appName, app, facade, logger)
 }
 
 func (applicationOps) EnsureScale(appName string, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) error {
-	return EnsureScale(appName, app, appLife, facade, unitFacade, logger)
+	return ensureScale(appName, app, appLife, facade, unitFacade, logger)
 }
 
 type Tomb interface {
@@ -121,7 +123,9 @@ type Tomb interface {
 	ErrDying() error
 }
 
-func AppAlive(appName string, app caas.Application, password string, lastApplied *caas.ApplicationConfig,
+// appAlive handles the life.Alive state for the CAAS application. It handles invoking the
+// CAAS broker to create the resources in the k8s cluster for this application.
+func appAlive(appName string, app caas.Application, password string, lastApplied *caas.ApplicationConfig,
 	facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error {
 	logger.Debugf("ensuring application %q exists", appName)
 
@@ -144,7 +148,7 @@ func AppAlive(appName string, app caas.Application, password string, lastApplied
 	}
 
 	if appState.Exists && appState.Terminating {
-		if err := WaitForTerminated(appName, app, clk); err != nil {
+		if err := waitForTerminated(appName, app, clk); err != nil {
 			return errors.Annotatef(err, "%q was terminating and there was an error waiting for it to stop", appName)
 		}
 	}
@@ -223,28 +227,36 @@ func AppAlive(appName string, app caas.Application, password string, lastApplied
 	return nil
 }
 
-func AppDying(appName string, app caas.Application, appLife life.Value,
+// appDying handles the life.Dying state for the CAAS application. It deals with scaling down
+// the application and removing units.
+func appDying(appName string, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) error {
 	logger.Debugf("application %q dying", appName)
-	err := EnsureScale(appName, app, appLife, facade, unitFacade, logger)
+	err := ensureScale(appName, app, appLife, facade, unitFacade, logger)
 	if err != nil {
 		return errors.Annotate(err, "cannot scale dying application to 0")
 	}
-	err = ReconcileDeadUnitScale(appName, app, facade, logger)
+	err = reconcileDeadUnitScale(appName, app, facade, logger)
 	if err != nil {
 		return errors.Annotate(err, "cannot reconcile dead units in dying application")
 	}
 	return nil
 }
 
-func AppDead(appName string, app caas.Application,
+// appDead handles the life.Dead state for the CAAS application. It ensures the application
+// is removed from the k8s cluster and unblocks the cleanup of the application in state.
+func appDead(appName string, app caas.Application,
 	broker CAASBroker, facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, clk clock.Clock, logger Logger) error {
 	logger.Debugf("application %q dead", appName)
 	err := app.Delete()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = WaitForTerminated(appName, app, clk)
+	err = waitForTerminated(appName, app, clk)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	_, err = updateState(appName, app, nil, broker, facade, unitFacade, logger)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -253,15 +265,11 @@ func AppDead(appName string, app caas.Application,
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = UpdateState(appName, app, nil, broker, facade, unitFacade, logger)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	return nil
 }
 
-// VerifyCharmUpgraded waits till the charm is upgraded to a v2 charm.
-func VerifyCharmUpgraded(appName string,
+// verifyCharmUpgraded waits till the charm is upgraded to a v2 charm.
+func verifyCharmUpgraded(appName string,
 	facade CAASProvisionerFacade, tomb Tomb, logger Logger) (shouldExit bool, err error) {
 	appStateWatcher, err := facade.WatchApplication(appName)
 	if err != nil {
@@ -305,7 +313,9 @@ func VerifyCharmUpgraded(appName string,
 	}
 }
 
-func UpgradePodSpec(appName string,
+// upgradePodSpec checks to see if the application used to be a podspec statefulset charm
+// and then to trigger an upgrade and wait for it to complete.
+func upgradePodSpec(appName string,
 	broker CAASBroker, clk clock.Clock, tomb Tomb, logger Logger) error {
 	// If the application has an operator pod due to upgrading the charm from a pod-spec charm
 	// to a sidecar charm, delete it. Also delete workload pod.
@@ -366,7 +376,9 @@ func UpgradePodSpec(appName string,
 	return nil
 }
 
-func EnsureTrust(appName string, app caas.Application,
+// ensureTrust updates the applications Trust status on the CAAS broker, giving it
+// access to the k8s api via a service account.
+func ensureTrust(appName string, app caas.Application,
 	unitFacade CAASUnitProvisionerFacade, logger Logger) error {
 	desiredTrust, err := unitFacade.ApplicationTrust(appName)
 	if err != nil {
@@ -385,7 +397,9 @@ func EnsureTrust(appName string, app caas.Application,
 	return nil
 }
 
-func UpdateState(appName string, app caas.Application, lastReportedStatus map[string]status.StatusInfo,
+// updateState reports back information about the CAAS application into state, such as
+// status, IP addresses and volume info.
+func updateState(appName string, app caas.Application, lastReportedStatus map[string]status.StatusInfo,
 	broker CAASBroker, facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) (map[string]status.StatusInfo, error) {
 	appTag := names.NewApplicationTag(appName).String()
 	appStatus := params.EntityStatus{}
@@ -504,7 +518,7 @@ func UpdateState(appName string, app caas.Application, lastReportedStatus map[st
 	return reportedStatus, nil
 }
 
-func RefreshApplicationStatus(appName string, app caas.Application, appLife life.Value,
+func refreshApplicationStatus(appName string, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade, logger Logger) error {
 	if appLife != life.Alive {
 		return nil
@@ -539,7 +553,7 @@ func RefreshApplicationStatus(appName string, app caas.Application, appLife life
 	return setApplicationStatus(appName, status.Active, "", nil, facade, logger)
 }
 
-func WaitForTerminated(appName string, app caas.Application,
+func waitForTerminated(appName string, app caas.Application,
 	clk clock.Clock) error {
 	existsFunc := func() error {
 		appState, err := app.Exists()
@@ -567,12 +581,12 @@ func WaitForTerminated(appName string, app caas.Application,
 	return errors.Trace(retry.Call(retryCallArgs))
 }
 
-// ReconcileDeadUnitScale is setup to respond to CAAS sidecard units that become
+// reconcileDeadUnitScale is setup to respond to CAAS sidecard units that become
 // dead. It takes stock of what the current desired scale is for the application
 // and the number of dead units in the application. Once the number of dead units
 // has reached the a point where the desired scale has been achieved this func
 // can go ahead and removed the units from CAAS provider.
-func ReconcileDeadUnitScale(appName string, app caas.Application,
+func reconcileDeadUnitScale(appName string, app caas.Application,
 	facade CAASProvisionerFacade, logger Logger) error {
 	units, err := facade.Units(appName)
 	if err != nil {
@@ -640,7 +654,9 @@ func ReconcileDeadUnitScale(appName string, app caas.Application,
 	return updateProvisioningState(appName, false, 0, facade)
 }
 
-func EnsureScale(appName string, app caas.Application, appLife life.Value,
+// ensureScale determines how and when to scale up or down based on
+// current scale targets that have yet to be met.
+func ensureScale(appName string, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) error {
 	var err error
 	var desiredScale int
@@ -697,7 +713,7 @@ func EnsureScale(appName string, app caas.Application, appLife life.Value,
 
 	if len(unitsToDestroy) > 0 {
 		if err := facade.DestroyUnits(unitsToDestroy); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 

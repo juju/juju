@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3/catacomb"
-	"github.com/lxc/lxd/shared/logger"
 )
 
 // SignalHandlerFunc is func definition for returning an error based on a
@@ -80,7 +79,6 @@ func (s *SignalWatcher) watch() error {
 	select {
 	case sig, ok := <-s.sigCh:
 		if !ok {
-			logger.Errorf("signal channel closed unexpectedly")
 			return errors.New("signal channel closed unexpectedly")
 		}
 		return s.handler(sig)

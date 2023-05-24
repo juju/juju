@@ -19,6 +19,8 @@ var (
 	ErrCannotAcceptLeadership = errors.New("cannot accept leadership")
 )
 
+// DeployConflictError is returned by the deploy operation when the charm cannot be
+// deployed.
 type DeployConflictError struct {
 	charmURL string
 }

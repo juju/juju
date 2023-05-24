@@ -39,23 +39,24 @@ type HookContextParams struct {
 
 func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	ctx := &HookContext{
-		unit:                hcParams.Unit,
-		state:               hcParams.State,
-		id:                  hcParams.ID,
-		uuid:                hcParams.UUID,
-		modelName:           hcParams.ModelName,
-		unitName:            hcParams.Unit.Name(),
-		relationId:          hcParams.RelationID,
-		remoteUnitName:      hcParams.RemoteUnitName,
-		relations:           hcParams.Relations,
-		apiAddrs:            hcParams.APIAddrs,
-		legacyProxySettings: hcParams.LegacyProxySettings,
-		jujuProxySettings:   hcParams.JujuProxySettings,
-		actionData:          hcParams.ActionData,
-		assignedMachineTag:  hcParams.AssignedMachineTag,
-		storageTag:          hcParams.StorageTag,
-		clock:               hcParams.Clock,
-		logger:              loggo.GetLogger("test"),
+		unit:                   hcParams.Unit,
+		state:                  hcParams.State,
+		id:                     hcParams.ID,
+		uuid:                   hcParams.UUID,
+		modelName:              hcParams.ModelName,
+		unitName:               hcParams.Unit.Name(),
+		relationId:             hcParams.RelationID,
+		remoteUnitName:         hcParams.RemoteUnitName,
+		relations:              hcParams.Relations,
+		apiAddrs:               hcParams.APIAddrs,
+		legacyProxySettings:    hcParams.LegacyProxySettings,
+		jujuProxySettings:      hcParams.JujuProxySettings,
+		actionData:             hcParams.ActionData,
+		assignedMachineTag:     hcParams.AssignedMachineTag,
+		storageTag:             hcParams.StorageTag,
+		clock:                  hcParams.Clock,
+		logger:                 loggo.GetLogger("test"),
+		storageAttachmentCache: make(map[names.StorageTag]jujuc.ContextStorageAttachment),
 	}
 	// Get and cache the addresses.
 	var err error
@@ -91,32 +92,35 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 func NewMockUnitHookContext(unitName string, unit HookUnit) *HookContext {
 	logger := loggo.GetLogger("test")
 	return &HookContext{
-		unit:             unit,
-		logger:           logger,
-		portRangeChanges: newPortRangeChangeRecorder(logger, names.NewUnitTag(unitName), nil),
+		unit:                   unit,
+		logger:                 logger,
+		portRangeChanges:       newPortRangeChangeRecorder(logger, names.NewUnitTag(unitName), nil),
+		storageAttachmentCache: make(map[names.StorageTag]jujuc.ContextStorageAttachment),
 	}
 }
 
 func NewMockUnitHookContextWithState(unitName string, unit HookUnit, state State) *HookContext {
 	logger := loggo.GetLogger("test")
 	return &HookContext{
-		unitName:         unit.Tag().Id(), //unitName used by the action finaliser method.
-		unit:             unit,
-		state:            state,
-		logger:           logger,
-		portRangeChanges: newPortRangeChangeRecorder(logger, names.NewUnitTag(unitName), nil),
+		unitName:               unit.Tag().Id(), //unitName used by the action finaliser method.
+		unit:                   unit,
+		state:                  state,
+		logger:                 logger,
+		portRangeChanges:       newPortRangeChangeRecorder(logger, names.NewUnitTag(unitName), nil),
+		storageAttachmentCache: make(map[names.StorageTag]jujuc.ContextStorageAttachment),
 	}
 }
 
 func NewMockUnitHookContextWithStateAndStorage(unitName string, unit HookUnit, state State, storageTag names.StorageTag) *HookContext {
 	logger := loggo.GetLogger("test")
 	return &HookContext{
-		unitName:         unit.Tag().Id(), //unitName used by the action finaliser method.
-		unit:             unit,
-		state:            state,
-		logger:           logger,
-		portRangeChanges: newPortRangeChangeRecorder(logger, names.NewUnitTag(unitName), nil),
-		storageTag:       storageTag,
+		unitName:               unit.Tag().Id(), //unitName used by the action finaliser method.
+		unit:                   unit,
+		state:                  state,
+		logger:                 logger,
+		portRangeChanges:       newPortRangeChangeRecorder(logger, names.NewUnitTag(unitName), nil),
+		storageTag:             storageTag,
+		storageAttachmentCache: make(map[names.StorageTag]jujuc.ContextStorageAttachment),
 	}
 }
 
@@ -214,15 +218,16 @@ func NewModelHookContext(p ModelHookContextParams) *HookContext {
 			code: p.MeterCode,
 			info: p.MeterInfo,
 		},
-		relationId:         -1,
-		assignedMachineTag: p.MachineTag,
-		availabilityZone:   p.AvailZone,
-		slaLevel:           p.SLALevel,
-		principal:          p.UnitName,
-		cloudAPIVersion:    "6.66",
-		logger:             loggo.GetLogger("test"),
-		state:              p.State,
-		unit:               p.Unit,
+		relationId:             -1,
+		assignedMachineTag:     p.MachineTag,
+		availabilityZone:       p.AvailZone,
+		slaLevel:               p.SLALevel,
+		principal:              p.UnitName,
+		cloudAPIVersion:        "6.66",
+		logger:                 loggo.GetLogger("test"),
+		state:                  p.State,
+		unit:                   p.Unit,
+		storageAttachmentCache: make(map[names.StorageTag]jujuc.ContextStorageAttachment),
 	}
 }
 

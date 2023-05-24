@@ -78,7 +78,6 @@ func (s *CAASApplicationSuite) TestAddUnit(c *gc.C) {
 			Address: "1.2.3.4",
 			Ports:   []string{"80"},
 			FilesystemInfo: []caas.FilesystemInfo{{
-				FilesystemId: "fsid",
 				Volume: caas.VolumeInfo{
 					VolumeId: "vid",
 				},
@@ -105,11 +104,9 @@ func (s *CAASApplicationSuite) TestAddUnit(c *gc.C) {
 			Address:    strPtr("1.2.3.4"),
 			Ports:      &[]string{"80"},
 		},
-		OrderedScale: true,
-		OrderedId:    0,
-		ObservedAttachments: []state.CAASFilesystemAttachment{
-			{FilesystemId: "fsid", VolumeId: "vid"},
-		},
+		OrderedScale:              true,
+		OrderedId:                 0,
+		ObservedAttachedVolumeIDs: []string{"vid"},
 	})
 }
 

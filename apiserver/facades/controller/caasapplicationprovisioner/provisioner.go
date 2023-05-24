@@ -1294,11 +1294,7 @@ func (a *API) DestroyUnits(args params.DestroyUnitsParams) (params.DestroyUnitRe
 	results := make([]params.DestroyUnitResult, 0, len(args.Units))
 
 	for _, unit := range args.Units {
-		res, err := a.destroyUnit(params.DestroyUnitParams{
-			DestroyStorage: false,
-			UnitTag:        unit.UnitTag,
-			Force:          false,
-		})
+		res, err := a.destroyUnit(unit)
 		if err != nil {
 			res = params.DestroyUnitResult{
 				Error: apiservererrors.ServerError(err),
@@ -1326,6 +1322,11 @@ func (a *API) destroyUnit(args params.DestroyUnitParams) (params.DestroyUnitResu
 	}
 
 	op := unit.DestroyOperation()
+	op.DestroyStorage = args.DestroyStorage
+	op.Force = args.Force
+	if args.MaxWait != nil {
+		op.MaxWait = *args.MaxWait
+	}
 
 	if err := a.state.ApplyOperation(op); err != nil {
 		return params.DestroyUnitResult{}, fmt.Errorf("destroying unit %q: %w", unitTag, err)

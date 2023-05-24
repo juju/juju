@@ -114,11 +114,11 @@ func (a *appWorker) loop() error {
 	}
 	a.life = appLife
 	if appLife == life.Dead {
-		err = AppDying(a.name, app, a.life, a.facade, a.unitFacade, a.logger)
+		err = a.ops.AppDying(a.name, app, a.life, a.facade, a.unitFacade, a.logger)
 		if err != nil {
 			return errors.Annotatef(err, "deleting application %q", a.name)
 		}
-		err = AppDead(a.name, app, a.broker, a.facade, a.unitFacade, a.clock, a.logger)
+		err = a.ops.AppDead(a.name, app, a.broker, a.facade, a.unitFacade, a.clock, a.logger)
 		if err != nil {
 			return errors.Annotatef(err, "deleting application %q", a.name)
 		}

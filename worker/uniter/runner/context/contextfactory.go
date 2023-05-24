@@ -191,6 +191,7 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 			ResourcesDir: f.paths.GetResourcesDir(),
 			Logger:       f.logger,
 		},
+		storageAttachmentCache: make(map[names.StorageTag]jujuc.ContextStorageAttachment),
 	}
 	payloadCtx, err := payloads.NewContext(f.payloads)
 	if err != nil {
@@ -250,6 +251,11 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 			return nil, errors.Trace(err)
 		}
 		hookName = fmt.Sprintf("%s-%s", storageName, hookName)
+		// Cache the storage this hook context is for.
+		_, err = ctx.Storage(ctx.storageTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	if hookInfo.Kind.IsWorkload() {
 		ctx.workloadName = hookInfo.WorkloadName
@@ -365,6 +371,10 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	}
 
 	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, f.unit.Tag(), machPortRanges)
+
+	if ctx.storageTag != (names.StorageTag{}) {
+
+	}
 	return nil
 }
 
