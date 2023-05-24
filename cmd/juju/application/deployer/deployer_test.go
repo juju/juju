@@ -363,7 +363,7 @@ func (s *deployerSuite) TestMaybeReadLocalCharmErrorWithApplicationName(c *gc.C)
 	s.expectModelGet(c)
 
 	s.charmReader.EXPECT().ReadCharm("meshuggah").Return(s.charm, nil)
-	s.charm.EXPECT().Manifest().Return(&charm.Manifest{}).AnyTimes()
+	s.charm.EXPECT().Manifest().Return(nil).AnyTimes()
 	s.charm.EXPECT().Meta().Return(&charm.Meta{Series: []string{"focal"}}).AnyTimes()
 
 	f := &factory{
@@ -383,7 +383,7 @@ func (s *deployerSuite) TestMaybeReadLocalCharmErrorWithoutApplicationName(c *gc
 	s.expectModelGet(c)
 
 	s.charmReader.EXPECT().ReadCharm("meshuggah").Return(s.charm, nil)
-	s.charm.EXPECT().Manifest().Return(&charm.Manifest{}).AnyTimes()
+	s.charm.EXPECT().Manifest().Return(nil).AnyTimes()
 	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "meshuggah", Series: []string{"focal"}}).AnyTimes()
 
 	f := &factory{

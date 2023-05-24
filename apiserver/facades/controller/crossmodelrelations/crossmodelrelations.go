@@ -234,7 +234,6 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 
 	_, err = api.st.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:            uniqueRemoteApplicationName,
-		OfferUUID:       relation.OfferUUID,
 		SourceModel:     sourceModelTag,
 		Token:           relation.ApplicationToken,
 		Endpoints:       []charm.Relation{remoteEndpoint.Relation},

@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/wrench"
 )
 
 const (
@@ -132,6 +133,10 @@ func socketName(baseDir, unitTag string) string {
 }
 
 func newCollect(config ManifoldConfig, context dependency.Context) (*collect, error) {
+	if wrench.IsActive("metricscollector", "short-interval") {
+		defaultPeriod = 10 * time.Second
+	}
+
 	period := defaultPeriod
 	if config.Period != nil {
 		period = *config.Period

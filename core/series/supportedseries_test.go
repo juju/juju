@@ -39,7 +39,7 @@ func (s *SupportedSeriesSuite) TestSeriesForTypes(c *gc.C) {
 	c.Assert(ctrlSeries, jc.DeepEquals, []string{"jammy", "focal"})
 
 	wrkSeries := info.workloadSeries(false)
-	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "centos9", "centos8", "centos7", "genericlinux", "kubernetes", "opensuseleap"})
+	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "centos9", "centos8", "centos7", "genericlinux", "kubernetes", "lunar", "opensuseleap"})
 }
 
 func (s *SupportedSeriesSuite) TestSeriesForTypesUsingImageStream(c *gc.C) {
@@ -55,7 +55,7 @@ func (s *SupportedSeriesSuite) TestSeriesForTypesUsingImageStream(c *gc.C) {
 	c.Assert(ctrlSeries, jc.DeepEquals, []string{"jammy", "focal"})
 
 	wrkSeries := info.workloadSeries(false)
-	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "centos9", "centos8", "centos7", "genericlinux", "kubernetes", "opensuseleap"})
+	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "centos9", "centos8", "centos7", "genericlinux", "kubernetes", "lunar", "opensuseleap"})
 }
 
 func (s *SupportedSeriesSuite) TestSeriesForTypesUsingInvalidImageStream(c *gc.C) {
@@ -71,7 +71,7 @@ func (s *SupportedSeriesSuite) TestSeriesForTypesUsingInvalidImageStream(c *gc.C
 	c.Assert(ctrlSeries, jc.DeepEquals, []string{"jammy", "focal"})
 
 	wrkSeries := info.workloadSeries(false)
-	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "centos9", "centos8", "centos7", "genericlinux", "kubernetes", "opensuseleap"})
+	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "centos9", "centos8", "centos7", "genericlinux", "kubernetes", "lunar", "opensuseleap"})
 }
 
 func (s *SupportedSeriesSuite) TestSeriesForTypesUsingInvalidSeries(c *gc.C) {
@@ -87,7 +87,7 @@ func (s *SupportedSeriesSuite) TestSeriesForTypesUsingInvalidSeries(c *gc.C) {
 	c.Assert(ctrlSeries, jc.DeepEquals, []string{"jammy", "focal"})
 
 	wrkSeries := info.workloadSeries(false)
-	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "centos9", "centos8", "centos7", "genericlinux", "kubernetes", "opensuseleap"})
+	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "centos9", "centos8", "centos7", "genericlinux", "kubernetes", "lunar", "opensuseleap"})
 }
 
 var getOSFromSeriesTests = []struct {

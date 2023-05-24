@@ -26,6 +26,10 @@ type Backend interface {
 	AgentVersion() (version.Number, error)
 	RemoveExportingModelDocs() error
 	ControllerConfig() (controller.Config, error)
-	APIHostPortsForClients() ([]network.SpaceHostPorts, error)
 	AllLocalRelatedModels() ([]string, error)
+}
+
+// ControllerState defines the state functionality for controller model.
+type ControllerState interface {
+	APIHostPortsForClients() ([]network.SpaceHostPorts, error)
 }
