@@ -16,37 +16,49 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-// UUIDsWatcher watches for changes to a database table.
-// Any time rows change in the watched table, the changed UUIDs are emitted.
-type UUIDsWatcher struct {
+// KeysWatcher watches for changes to a database table.
+// Any time rows change in the watched table, the changed
+// values from the column specified by keyName are emitted.
+type KeysWatcher struct {
 	*BaseWatcher
 
-	out       chan []string
+	out chan []string
+
+	// TODO (manadart 2023-05-24): Consider making this plural (composite key)
+	// if/when it is supported by the change log table structure and stream.
+	keyName   string
 	tableName string
 	selectAll string
 }
 
-// NewUUIDsWatcher returns a new watcher that receives changes from the
+// NewUUIDsWatcher is a convenience method for creating a new
+// KeysWatcher for the "uuid" column of the input table name.
+func NewUUIDsWatcher(base *BaseWatcher, tableName string) *KeysWatcher {
+	return NewKeysWatcher(base, tableName, "uuid")
+}
+
+// NewKeysWatcher returns a new watcher that receives changes from the
 // input base watcher's db/queue when rows in the input table change.
-func NewUUIDsWatcher(base *BaseWatcher, tableName string) *UUIDsWatcher {
-	w := &UUIDsWatcher{
+func NewKeysWatcher(base *BaseWatcher, tableName, keyName string) *KeysWatcher {
+	w := &KeysWatcher{
 		BaseWatcher: base,
 		out:         make(chan []string),
 		tableName:   tableName,
-		selectAll:   fmt.Sprintf("SELECT uuid FROM %s", tableName),
+		keyName:     keyName,
+		selectAll:   fmt.Sprintf("SELECT %s FROM %s", keyName, tableName),
 	}
 
 	w.tomb.Go(w.loop)
 	return w
 }
 
-// Changes returns the channel on which the UUIDs for
+// Changes returns the channel on which the keys for
 // changed rows are sent to downstream consumers.
-func (w *UUIDsWatcher) Changes() watcher.StringsChannel {
+func (w *KeysWatcher) Changes() watcher.StringsChannel {
 	return w.out
 }
 
-func (w *UUIDsWatcher) loop() error {
+func (w *KeysWatcher) loop() error {
 	subscription, err := w.eventQueue.Subscribe(changestream.Namespace(w.tableName, changestream.All))
 	if err != nil {
 		return errors.Annotatef(err, "subscribing to namespace %q", w.tableName)
@@ -55,7 +67,8 @@ func (w *UUIDsWatcher) loop() error {
 
 	changes, err := w.getInitialState()
 	if err != nil {
-		return errors.Annotate(err, "retrieving initial watcher state")
+		return errors.Annotatef(
+			err, "retrieving initial watcher state for namespace %q and key %q", w.tableName, w.keyName)
 	}
 
 	// By reassigning the in and out channels, we effectively ticktock between
@@ -93,11 +106,11 @@ func (w *UUIDsWatcher) loop() error {
 // getInitialState retrieves the current state of the world from the database,
 // as it concerns this watcher. It must be called after we are subscribed.
 // Note that killing the worker via its tomb cancels the context used here.
-func (w *UUIDsWatcher) getInitialState() ([]string, error) {
+func (w *KeysWatcher) getInitialState() ([]string, error) {
 	parentCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	var uuids []string
+	var keys []string
 	err := w.db.Txn(w.tomb.Context(parentCtx), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, w.selectAll)
 		if err != nil {
@@ -109,11 +122,11 @@ func (w *UUIDsWatcher) getInitialState() ([]string, error) {
 		defer func() { _ = rows.Close() }()
 
 		for i := 0; rows.Next(); i++ {
-			var uuid string
-			if err := rows.Scan(&uuid); err != nil {
+			var key string
+			if err := rows.Scan(&key); err != nil {
 				return errors.Trace(err)
 			}
-			uuids = append(uuids, uuid)
+			keys = append(keys, key)
 		}
 
 		if err := rows.Err(); err != nil {
@@ -122,16 +135,16 @@ func (w *UUIDsWatcher) getInitialState() ([]string, error) {
 		return errors.Trace(rows.Close())
 	})
 
-	return uuids, errors.Trace(err)
+	return keys, errors.Trace(err)
 }
 
 // Kill (worker.Worker) kills the watcher via its tomb.
-func (w *UUIDsWatcher) Kill() {
+func (w *KeysWatcher) Kill() {
 	w.tomb.Kill(nil)
 }
 
 // Wait (worker.Worker) waits for the watcher's tomb to die,
 // and returns the error with which it was killed.
-func (w *UUIDsWatcher) Wait() error {
+func (w *KeysWatcher) Wait() error {
 	return w.tomb.Wait()
 }
