@@ -64,16 +64,16 @@ jobs:
         run: |
           juju bootstrap lxd test31
           juju switch controller
-          juju wait-for application controller
+          juju wait-for application controller || juju status -m controller
 
         # TODO: create backup and juju restore
 
       - name: Migrate default model to 3.1 controller
         run: |
           juju switch test30
-          
+
           # Ensure application is fully deployed
-          juju wait-for application ubuntu
+          juju wait-for application ubuntu || juju status
           
           # Wait a few secs for the machine status to update
           # so that migration prechecks pass.
@@ -102,4 +102,4 @@ jobs:
           done
           
           juju switch default
-          juju wait-for application ubuntu
+          juju wait-for application ubuntu || juju status

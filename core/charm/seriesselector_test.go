@@ -29,13 +29,13 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 
 			title: "juju deploy simple   # no default series, no supported series",
 			SeriesSelector: SeriesSelector{
-				Conf: defaultBase{},
+				Conf: mockModelCfg{},
 			},
 			err: "series not specified and charm does not define any",
 		}, {
 			title: "juju deploy simple   # default series set, no supported series",
 			SeriesSelector: SeriesSelector{
-				Conf:                defaultBase{"ubuntu@18.04", true},
+				Conf:                mockModelCfg{"ubuntu@18.04", true},
 				SupportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
 			expectedSeries: "bionic",
@@ -43,7 +43,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 		{
 			title: "juju deploy simple with old series  # default series set, no supported series",
 			SeriesSelector: SeriesSelector{
-				Conf:                defaultBase{"ubuntu@15.10", true},
+				Conf:                mockModelCfg{"ubuntu@15.10", true},
 				SupportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
 			err: "series: wily not supported",
@@ -52,7 +52,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			title: "juju deploy simple --series=precise   # default series set, no supported series",
 			SeriesSelector: SeriesSelector{
 				SeriesFlag:          "precise",
-				Conf:                defaultBase{"ubuntu@15.10", true},
+				Conf:                mockModelCfg{"ubuntu@15.10", true},
 				SupportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
 			err: "series: precise not supported",
@@ -60,7 +60,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			title: "juju deploy simple --series=bionic   # default series set, no supported series, no supported juju series",
 			SeriesSelector: SeriesSelector{
 				SeriesFlag: "bionic",
-				Conf:       defaultBase{"ubuntu@15.10", true},
+				Conf:       mockModelCfg{"ubuntu@15.10", true},
 			},
 			err: "expected supported juju series to exist",
 		},
@@ -68,7 +68,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			title: "juju deploy simple --series=bionic   # default series set, no supported series",
 			SeriesSelector: SeriesSelector{
 				SeriesFlag:          "bionic",
-				Conf:                defaultBase{"ubuntu@15.10", true},
+				Conf:                mockModelCfg{"ubuntu@15.10", true},
 				SupportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
 			expectedSeries: "bionic",
@@ -77,7 +77,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			title: "juju deploy trusty/simple   # charm series set, default series set, no supported series",
 			SeriesSelector: SeriesSelector{
 				CharmURLSeries:      "trusty",
-				Conf:                defaultBase{"ubuntu@15.10", true},
+				Conf:                mockModelCfg{"ubuntu@15.10", true},
 				SupportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
 			err: "series: trusty not supported",
@@ -86,7 +86,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			title: "juju deploy bionic/simple   # charm series set, default series set, no supported series",
 			SeriesSelector: SeriesSelector{
 				CharmURLSeries:      "bionic",
-				Conf:                defaultBase{"ubuntu@15.10", true},
+				Conf:                mockModelCfg{"ubuntu@15.10", true},
 				SupportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
 			expectedSeries: "bionic",
@@ -96,16 +96,16 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			SeriesSelector: SeriesSelector{
 				SeriesFlag:          "bionic",
 				CharmURLSeries:      "cosmic",
-				Conf:                defaultBase{"ubuntu@15.10", true},
+				Conf:                mockModelCfg{"ubuntu@15.10", true},
 				SupportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
 			expectedSeries: "bionic",
 		},
 		{
-			title: "juju deploy simple --Force   # no default series, no supported series, use LTS (jammy)",
+			title: "juju deploy simple --force   # no default series, no supported series, use LTS (jammy)",
 			SeriesSelector: SeriesSelector{
 				Force: true,
-				Conf:  defaultBase{},
+				Conf:  mockModelCfg{},
 			},
 			expectedSeries: "jammy",
 		},
@@ -116,7 +116,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			title: "juju deploy multiseries   # use charm default, nothing specified, no default series",
 			SeriesSelector: SeriesSelector{
 				SupportedSeries:     []string{"bionic", "cosmic"},
-				Conf:                defaultBase{},
+				Conf:                mockModelCfg{},
 				SupportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
 			expectedSeries: "bionic",
@@ -125,7 +125,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			title: "juju deploy multiseries with invalid series  # use charm default, nothing specified, no default series",
 			SeriesSelector: SeriesSelector{
 				SupportedSeries:     []string{"precise", "bionic", "cosmic"},
-				Conf:                defaultBase{},
+				Conf:                mockModelCfg{},
 				SupportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
 			expectedSeries: "bionic",
@@ -134,7 +134,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			title: "juju deploy multiseries with invalid serie  # use charm default, nothing specified, no default series",
 			SeriesSelector: SeriesSelector{
 				SupportedSeries:     []string{"precise"},
-				Conf:                defaultBase{},
+				Conf:                mockModelCfg{},
 				SupportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
 			err: `the charm defined series "precise" not supported`,
@@ -143,7 +143,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			title: "juju deploy multiseries   # use charm defaults used if default series doesn't match, nothing specified",
 			SeriesSelector: SeriesSelector{
 				SupportedSeries:     []string{"bionic", "cosmic"},
-				Conf:                defaultBase{"ubuntu@15.10", true},
+				Conf:                mockModelCfg{"ubuntu@15.10", true},
 				SupportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
 			err: `series "wily" is not supported, supported series are: bionic,cosmic`,
@@ -152,7 +152,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			title: "juju deploy multiseries   # use model series defaults if supported by charm",
 			SeriesSelector: SeriesSelector{
 				SupportedSeries:     []string{"bionic", "cosmic", "disco"},
-				Conf:                defaultBase{"ubuntu@19.04", true},
+				Conf:                mockModelCfg{"ubuntu@19.04", true},
 				SupportedJujuSeries: set.NewStrings("bionic", "cosmic", "disco"),
 			},
 			expectedSeries: "disco",
@@ -161,7 +161,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			title: "juju deploy multiseries   # use model series defaults if supported by charm",
 			SeriesSelector: SeriesSelector{
 				SupportedSeries:     []string{"bionic", "cosmic", "disco"},
-				Conf:                defaultBase{"ubuntu@19.04", true},
+				Conf:                mockModelCfg{"ubuntu@19.04", true},
 				SupportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
 			err: "series: disco not supported",
@@ -171,7 +171,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			SeriesSelector: SeriesSelector{
 				SeriesFlag:          "bionic",
 				SupportedSeries:     []string{"utopic", "vivid", "bionic"},
-				Conf:                defaultBase{},
+				Conf:                mockModelCfg{},
 				SupportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
 			expectedSeries: "bionic",
@@ -181,7 +181,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			SeriesSelector: SeriesSelector{
 				SeriesFlag:          "bionic",
 				SupportedSeries:     []string{"cosmic", "bionic"},
-				Conf:                defaultBase{},
+				Conf:                mockModelCfg{},
 				SupportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
 			expectedSeries: "bionic",
@@ -191,18 +191,18 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			SeriesSelector: SeriesSelector{
 				SeriesFlag:          "bionic",
 				SupportedSeries:     []string{"utopic", "vivid"},
-				Conf:                defaultBase{},
+				Conf:                mockModelCfg{},
 				SupportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
 			err: `series: bionic`,
 		},
 		{
-			title: "juju deploy multiseries --series=bionic --Force   # unsupported forced",
+			title: "juju deploy multiseries --series=bionic --force   # unsupported forced",
 			SeriesSelector: SeriesSelector{
 				SeriesFlag:      "bionic",
 				SupportedSeries: []string{"utopic", "vivid"},
 				Force:           true,
-				Conf:            defaultBase{},
+				Conf:            mockModelCfg{},
 			},
 			err: "expected supported juju series to exist",
 		},
@@ -211,7 +211,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			SeriesSelector: SeriesSelector{
 				CharmURLSeries:      "bionic",
 				SupportedSeries:     []string{"utopic", "vivid", "bionic"},
-				Conf:                defaultBase{},
+				Conf:                mockModelCfg{},
 				SupportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
 			expectedSeries: "bionic",
@@ -221,7 +221,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			SeriesSelector: SeriesSelector{
 				CharmURLSeries:  "bionic",
 				SupportedSeries: []string{"utopic", "vivid", "bionic"},
-				Conf:            defaultBase{},
+				Conf:            mockModelCfg{},
 			},
 			err: "expected supported juju series to exist",
 		},
@@ -231,7 +231,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 				SeriesFlag:          "cosmic",
 				CharmURLSeries:      "bionic",
 				SupportedSeries:     []string{"utopic", "vivid", "bionic", "cosmic"},
-				Conf:                defaultBase{},
+				Conf:                mockModelCfg{},
 				SupportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
 			expectedSeries: "cosmic",
@@ -242,7 +242,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 				SeriesFlag:      "cosmic",
 				CharmURLSeries:  "bionic",
 				SupportedSeries: []string{"bionic", "utopic", "vivid"},
-				Conf:            defaultBase{},
+				Conf:            mockModelCfg{},
 			},
 			err: `series: cosmic`,
 		},
@@ -252,19 +252,19 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 				SeriesFlag:          "cosmic",
 				CharmURLSeries:      "bionic",
 				SupportedSeries:     []string{"bionic", "utopic", "vivid", "cosmic"},
-				Conf:                defaultBase{},
+				Conf:                mockModelCfg{},
 				SupportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
 			expectedSeries: "cosmic",
 		},
 		{
-			title: "juju deploy bionic/multiseries --series=precise --Force  # unsupported series forced",
+			title: "juju deploy bionic/multiseries --series=precise --force  # unsupported series forced",
 			SeriesSelector: SeriesSelector{
 				SeriesFlag:      "precise",
 				CharmURLSeries:  "bionic",
 				SupportedSeries: []string{"bionic", "utopic", "vivid"},
 				Force:           true,
-				Conf:            defaultBase{},
+				Conf:            mockModelCfg{},
 			},
 			err: "expected supported juju series to exist",
 		},
@@ -296,7 +296,7 @@ func (s *SeriesSelectorSuite) TestValidate(c *gc.C) {
 		{
 			title: "should fail when image-id constraint is used and no base is explicitly set",
 			selector: SeriesSelector{
-				Conf: defaultBase{
+				Conf: mockModelCfg{
 					explicit: false,
 				},
 				UsingImageID: true,
@@ -306,7 +306,7 @@ func (s *SeriesSelectorSuite) TestValidate(c *gc.C) {
 		{
 			title: "should return no errors when using image-id and series flag",
 			selector: SeriesSelector{
-				Conf: defaultBase{
+				Conf: mockModelCfg{
 					explicit: false,
 				},
 				SeriesFlag:   "jammy",
@@ -316,7 +316,7 @@ func (s *SeriesSelectorSuite) TestValidate(c *gc.C) {
 		{
 			title: "should return no errors when using image-id and charms url series is set",
 			selector: SeriesSelector{
-				Conf: defaultBase{
+				Conf: mockModelCfg{
 					explicit: false,
 				},
 				CharmURLSeries: "jammy",
@@ -326,7 +326,7 @@ func (s *SeriesSelectorSuite) TestValidate(c *gc.C) {
 		{
 			title: "should return no errors when using image-id and explicit base from conf",
 			selector: SeriesSelector{
-				Conf: defaultBase{
+				Conf: mockModelCfg{
 					explicit: true,
 				},
 				UsingImageID: true,
@@ -346,13 +346,17 @@ func (s *SeriesSelectorSuite) TestValidate(c *gc.C) {
 	}
 }
 
-type defaultBase struct {
+type mockModelCfg struct {
 	base     string
 	explicit bool
 }
 
-func (d defaultBase) DefaultBase() (string, bool) {
+func (d mockModelCfg) DefaultBase() (string, bool) {
 	return d.base, d.explicit
+}
+
+func (d mockModelCfg) ImageStream() string {
+	return "released"
 }
 
 type noOpLogger struct{}
