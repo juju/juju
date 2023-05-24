@@ -11,6 +11,7 @@ func ControllerDDL() []string {
 		cloudSchema,
 		externalControllerSchema,
 		modelListSchema,
+		controllerConfigSchema,
 	}
 
 	var deltas []string
@@ -277,5 +278,32 @@ func modelListSchema() string {
 CREATE TABLE model_list (
     uuid    TEXT PRIMARY KEY
 );
+`[1:]
+}
+
+func controllerConfigSchema() string {
+	return `
+CREATE TABLE controller_config (
+    key     TEXT PRIMARY KEY
+    value   TEXT
+);
+CREATE TRIGGER trg_log_controller_config_insert
+AFTER INSERT ON controller_config FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed_identifier, created_at) 
+    VALUES (1, 1, NEW.key, DATETIME('now'));
+END;
+CREATE TRIGGER trg_log_controller_config_update
+AFTER UPDATE ON controller_config FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed_identifier, created_at) 
+    VALUES (2, 1, OLD.key, DATETIME('now'));
+END;
+CREATE TRIGGER trg_log_controller_config_delete
+AFTER DELETE ON controller_config FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed_identifier, created_at) 
+    VALUES (4, 1, OLD.key, DATETIME('now'));
+END;
 `[1:]
 }
