@@ -43,8 +43,8 @@ func RepoWithSeries(series string) *repo.CharmRepo {
 }
 
 // CharmRepo returns a new charm repository.
-func CharmRepo() *testing.Repo {
-	return testing.NewRepo("charms", "")
+func CharmRepo() *repo.CharmRepo {
+	return repo.NewRepo("charms", "")
 }
 
 // CheckCharmReady ensures that a desired charm archive exists and
