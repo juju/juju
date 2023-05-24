@@ -179,8 +179,6 @@ func (e *environ) Create(ctx context.ProviderCallContext, args environs.CreatePa
 	if err := validateModelVPC(e.ec2Client, ctx, e.name, vpcID); err != nil {
 		return errors.Trace(maybeConvertCredentialError(err, ctx))
 	}
-	// TODO(axw) 2016-08-04 #1609643
-	// Create global security group(s) here.
 	return nil
 }
 
@@ -2015,11 +2013,7 @@ func (e *environ) OpenPorts(ctx context.ProviderCallContext, rules firewall.Ingr
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return errors.Errorf("invalid firewall mode %q for opening ports on model", e.Config().FirewallMode())
 	}
-	groupName := e.globalGroupName()
-	if _, err := e.ensureGroup(ctx, groupName, false); err != nil {
-		return errors.Trace(err)
-	}
-	if err := e.openPortsInGroup(ctx, groupName, rules); err != nil {
+	if err := e.openPortsInGroup(ctx, e.globalGroupName(), rules); err != nil {
 		return errors.Trace(err)
 	}
 	logger.Infof("opened ports in global group: %v", rules)
@@ -2045,11 +2039,7 @@ func (e *environ) IngressRules(ctx context.ProviderCallContext) (firewall.Ingres
 }
 
 func (e *environ) OpenModelPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
-	groupName := e.jujuGroupName()
-	if _, err := e.ensureGroup(ctx, groupName, true); err != nil {
-		return errors.Trace(err)
-	}
-	if err := e.openPortsInGroup(ctx, groupName, rules); err != nil {
+	if err := e.openPortsInGroup(ctx, e.jujuGroupName(), rules); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -2404,7 +2394,7 @@ func (e *environ) securityGroupsByNameOrID(ctx stdcontext.Context, groupName str
 	}
 	err := retry.Call(retryStrategy)
 	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
-		err = retry.LastError(err)
+		err = errors.NewNotFound(retry.LastError(err), fmt.Sprintf("security group %s not found", groupName))
 	}
 	if err != nil {
 		return nil, err
