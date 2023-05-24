@@ -29,10 +29,10 @@ run_deploy_specific_series() {
 
 	juju deploy "$charm_name" app1
 	juju deploy "$charm_name" app2 --base "$specific_base"
-	base_name1=$(juju status --format=json | jq ".applications.app1.base.name")
-  base_chan1=$(juju status --format=json | jq ".applications.app1.base.channel")
-	base_name2=$(juju status --format=json | jq ".applications.app2.base.name")
-  base_chan2=$(juju status --format=json | jq ".applications.app2.base.channel")
+	base_name1=$(juju status --format=json | jq -r ".applications.app1.base.name")
+  base_chan1=$(juju status --format=json | jq -r ".applications.app1.base.channel")
+	base_name2=$(juju status --format=json | jq -r ".applications.app2.base.name")
+  base_chan2=$(juju status --format=json | jq -r ".applications.app2.base.channel")
 
 	destroy_model "test-deploy-specific-series"
 
