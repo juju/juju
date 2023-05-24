@@ -8,6 +8,7 @@ import (
 	sql "database/sql"
 
 	"github.com/juju/clock"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
@@ -32,7 +33,7 @@ import (
 type integrationSuite struct {
 	dqliteAppIntegrationSuite
 
-	dbGettter coredatabase.DBGetter
+	dbManager coredatabase.DBManager
 	worker    worker.Worker
 }
 
@@ -74,7 +75,7 @@ func (s *integrationSuite) SetUpSuite(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.dbGettter = w
+	s.dbManager = w
 	s.worker = w
 
 	db, err := s.DBApp().Open(context.TODO(), coredatabase.ControllerNS)
@@ -93,18 +94,19 @@ func (s *integrationSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *integrationSuite) TestWorkerAccessingControllerDB(c *gc.C) {
-	db, err := s.dbGettter.GetDB(coredatabase.ControllerNS)
+	db, err := s.dbManager.GetDB(coredatabase.ControllerNS)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(db, gc.NotNil)
 }
 
 func (s *integrationSuite) TestWorkerAccessingUnknownDB(c *gc.C) {
-	_, err := s.dbGettter.GetDB("foo")
+	_, err := s.dbManager.GetDB("foo")
 	c.Assert(err, gc.ErrorMatches, `.*namespace "foo" not found`)
+	c.Assert(errors.Is(err, errors.NotFound), jc.IsTrue)
 }
 
 func (s *integrationSuite) TestWorkerAccessingKnownDB(c *gc.C) {
-	db, err := s.dbGettter.GetDB(coredatabase.ControllerNS)
+	db, err := s.dbManager.GetDB(coredatabase.ControllerNS)
 	c.Assert(err, jc.ErrorIsNil)
 	err = db.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO model_list (uuid) VALUES ("bar")`)
@@ -112,9 +114,75 @@ func (s *integrationSuite) TestWorkerAccessingKnownDB(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	db, err = s.dbGettter.GetDB("bar")
+	db, err = s.dbManager.GetDB("bar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(db, gc.NotNil)
+}
+
+func (s *integrationSuite) TestWorkerDeletingControllerDB(c *gc.C) {
+	err := s.dbManager.DeleteDB(coredatabase.ControllerNS)
+	c.Assert(err, gc.ErrorMatches, `.*cannot close controller database`)
+}
+
+func (s *integrationSuite) TestWorkerDeletingUnknownDB(c *gc.C) {
+	err := s.dbManager.DeleteDB("foo")
+	c.Assert(err, gc.ErrorMatches, `.*"foo" not found`)
+	c.Assert(errors.Is(err, errors.NotFound), jc.IsTrue)
+}
+
+func (s *integrationSuite) TestWorkerDeletingKnownDB(c *gc.C) {
+	ctrlDB, err := s.dbManager.GetDB(coredatabase.ControllerNS)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ctrlDB.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO model_list (uuid) VALUES ("baz")`)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	db, err := s.dbManager.GetDB("baz")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(db, gc.NotNil)
+
+	// We need to unsure that we remove the namespace from the model list.
+	// Otherwise, the db will be recreated on the next call to GetDB.
+	err = ctrlDB.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `DELETE FROM model_list WHERE uuid = "baz"`)
+		return errors.Cause(err)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.dbManager.DeleteDB("baz")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.dbManager.GetDB("baz")
+	c.Assert(err, gc.ErrorMatches, `.*namespace "baz" not found`)
+}
+
+// The following ensures that we can delete a db without having to call GetDB
+// first. This ensures that we don't have to have an explicit db worker for
+// each model.
+func (s *integrationSuite) TestWorkerDeletingKnownDBWithoutGetFirst(c *gc.C) {
+	ctrlDB, err := s.dbManager.GetDB(coredatabase.ControllerNS)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ctrlDB.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO model_list (uuid) VALUES ("fred")`)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We need to unsure that we remove the namespace from the model list.
+	// Otherwise, the db will be recreated on the next call to GetDB.
+	err = ctrlDB.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `DELETE FROM model_list WHERE uuid = "fred"`)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.dbManager.DeleteDB("fred")
+	c.Assert(err, gc.ErrorMatches, `.*"fred" not found`)
+
+	_, err = s.dbManager.GetDB("fred")
+	c.Assert(err, gc.ErrorMatches, `.*"fred" not found`)
 }
 
 // integrationSuite defines a base suite for running integration tests against

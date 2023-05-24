@@ -13,6 +13,21 @@ type DBGetter interface {
 	GetDB(namespace string) (TrackedDB, error)
 }
 
+// DBManager describes the ability to create and delete databases.
+type DBManager interface {
+	DBGetter
+
+	// DeleteDB deletes the dqlite-backed database that contains the data for
+	// the specified namespace.
+	// There are currently a set of limitations on the namespaces that can be
+	// deleted:
+	//  - It's not possible to delete the controller database.
+	//  - It currently doesn't support the actual deletion of the database
+	//    just the removal of the worker. Deletion of the database will be
+	//    handled once it's supported by dqlite.
+	DeleteDB(namespace string) error
+}
+
 const (
 	// ControllerNS is the namespace for the controller database.
 	ControllerNS = "controller"

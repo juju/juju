@@ -82,16 +82,34 @@ type DBGetter interface {
 	GetDB(namespace string) (coredatabase.TrackedDB, error)
 }
 
+type opType int
+
+const (
+	getOp opType = iota
+	delOp
+)
+
 // dbRequest is used to pass requests for TrackedDB
 // instances into the worker loop.
 type dbRequest struct {
+	op        opType
 	namespace string
 	done      chan error
 }
 
-// makeDBRequest creates a new TrackedDB request for the input namespace.
-func makeDBRequest(namespace string) dbRequest {
+// makeDBGetRequest creates a new TrackedDB request for the input namespace.
+func makeDBGetRequest(namespace string) dbRequest {
 	return dbRequest{
+		op:        getOp,
+		namespace: namespace,
+		done:      make(chan error),
+	}
+}
+
+// makeDBDelRequest creates a new request for the deletion of a namespace.
+func makeDBDelRequest(namespace string) dbRequest {
+	return dbRequest{
+		op:        delOp,
 		namespace: namespace,
 		done:      make(chan error),
 	}
@@ -242,17 +260,31 @@ func (w *dbWorker) loop() (err error) {
 
 	for {
 		select {
+		// The following ensures that all dbRequests are serialised and
+		// processed in order.
 		case req := <-w.dbRequests:
-			// Ensure the namespace exists or is allowed to open a new one
-			// before we attempt to open the database.
-			if err := w.ensureNamespace(req.namespace); err != nil {
-				req.done <- errors.Annotatef(err, "ensuring namespace %q", req.namespace)
+			if req.op == getOp {
+				// Ensure the namespace exists or is allowed to open a new one
+				// before we attempt to open the database.
+				if err := w.ensureNamespace(req.namespace); err != nil {
+					req.done <- errors.Annotatef(err, "ensuring namespace %q", req.namespace)
+					continue
+				}
+				if err := w.openDatabase(req.namespace); err != nil {
+					req.done <- errors.Annotatef(err, "opening database for namespace %q", req.namespace)
+					continue
+				}
+			} else if req.op == delOp {
+				// Close the database for the namespace.
+				if err := w.closeDatabase(req.namespace); err != nil {
+					req.done <- errors.Annotatef(err, "closing database for namespace %q", req.namespace)
+					continue
+				}
+			} else {
+				req.done <- errors.Errorf("unknown op %q", req.op)
 				continue
 			}
-			if err := w.openDatabase(req.namespace); err != nil {
-				req.done <- errors.Annotatef(err, "opening database for namespace %q", req.namespace)
-				continue
-			}
+
 			req.done <- nil
 
 		case <-w.catacomb.Dying():
@@ -343,7 +375,7 @@ func (w *dbWorker) GetDB(namespace string) (coredatabase.TrackedDB, error) {
 
 	// Enqueue the request as it's either starting up and we need to wait longer
 	// or it's not running and we need to start it.
-	req := makeDBRequest(namespace)
+	req := makeDBGetRequest(namespace)
 	select {
 	case w.dbRequests <- req:
 	case <-w.catacomb.Dying():
@@ -369,6 +401,42 @@ func (w *dbWorker) GetDB(namespace string) (coredatabase.TrackedDB, error) {
 		return nil, errors.Trace(err)
 	}
 	return tracked.(coredatabase.TrackedDB), nil
+}
+
+// DeleteDB deletes the dqlite-backed database that contains the data for
+// the specified namespace.
+// There are currently a set of limitations on the namespaces that can be
+// deleted:
+//   - It's not possible to delete the controller database.
+//   - It currently doesn't support the actual deletion of the database
+//     just the removal of the worker. Deletion of the database will be
+//     handled once it's supported by dqlite.
+func (w *dbWorker) DeleteDB(namespace string) error {
+	// Ensure Dqlite is initialised.
+	select {
+	case <-w.dbReady:
+	case <-w.catacomb.Dying():
+		return w.catacomb.ErrDying()
+	}
+
+	// Enqueue the request.
+	req := makeDBDelRequest(namespace)
+	select {
+	case w.dbRequests <- req:
+	case <-w.catacomb.Dying():
+		return w.catacomb.ErrDying()
+	}
+
+	// Wait for the worker loop to indicate it's done.
+	select {
+	case err := <-req.done:
+		if err != nil {
+			return errors.Trace(err)
+		}
+	case <-w.catacomb.Dying():
+		return w.catacomb.ErrDying()
+	}
+	return nil
 }
 
 // startExistingDqliteNode takes care of starting Dqlite
@@ -487,6 +555,22 @@ func (w *dbWorker) openDatabase(namespace string) error {
 		return nil
 	}
 	return errors.Trace(err)
+}
+
+func (w *dbWorker) closeDatabase(namespace string) error {
+	if namespace == coredatabase.ControllerNS {
+		return errors.Forbiddenf("cannot close controller database")
+	}
+
+	// Stop and remove the worker.
+	// This will wait for the worker to stop, which will potentially block
+	// any requests to access a new db. This should be ok, as there isn't
+	// currently any heavy loop logic in the model workers.
+	if err := w.dbRunner.StopAndRemoveWorker(namespace, w.catacomb.Dying()); err != nil {
+		return errors.Annotatef(err, "stopping worker")
+	}
+
+	return nil
 }
 
 // handleAPIServerChangeMsg is the callback supplied to the pub/sub
@@ -728,7 +812,7 @@ func (w *dbWorker) ensureNamespace(namespace string) error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	known, err := isKnownToController(ctx, dbGetter, namespace)
+	known, err := isNamespaceKnownToController(ctx, dbGetter, namespace)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -738,7 +822,7 @@ func (w *dbWorker) ensureNamespace(namespace string) error {
 	return nil
 }
 
-func isKnownToController(ctx context.Context, db coredatabase.TrackedDB, namespace string) (bool, error) {
+func isNamespaceKnownToController(ctx context.Context, db coredatabase.TrackedDB, namespace string) (bool, error) {
 	var known bool
 	err := db.Txn(ctx, func(ctx context.Context, db *sql.Tx) error {
 		row := db.QueryRowContext(ctx, "SELECT uuid FROM model_list WHERE uuid=?", namespace)

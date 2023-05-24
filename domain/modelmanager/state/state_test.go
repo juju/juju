@@ -8,6 +8,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
+	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/database/testing"
@@ -53,6 +54,7 @@ func (s *stateSuite) TestStateDeleteWithNoMatchingUUID(c *gc.C) {
 	st := state.NewState(testing.TrackedDBFactory(s.TrackedDB()))
 	err := st.Delete(context.TODO(), mustUUID(c))
 	c.Assert(err, gc.ErrorMatches, domain.ErrNoRecord.Error()+".*")
+	c.Assert(errors.Is(errors.Cause(err), domain.ErrNoRecord), jc.IsTrue)
 }
 
 func (s *stateSuite) TestStateDelete(c *gc.C) {

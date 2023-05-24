@@ -17,15 +17,23 @@ type State interface {
 	Delete(context.Context, UUID) error
 }
 
+// DBManager defines a interface for interacting with the underlying database
+// management.
+type DBManager interface {
+	DeleteDB(string) error
+}
+
 // Service defines a service for interacting with the underlying state.
 type Service struct {
-	st State
+	st        State
+	dbManager DBManager
 }
 
 // NewService returns a new Service for interacting with the underlying state.
-func NewService(st State) *Service {
+func NewService(st State, dbManager DBManager) *Service {
 	return &Service{
-		st: st,
+		st:        st,
+		dbManager: dbManager,
 	}
 }
 
@@ -45,6 +53,15 @@ func (s *Service) Delete(ctx context.Context, uuid UUID) error {
 		return errors.Annotatef(err, "validating model uuid %q", uuid)
 	}
 
-	err := s.st.Delete(ctx, uuid)
-	return errors.Annotatef(domain.CoerceError(err), "deleting model %q", uuid)
+	// Deletion of the model in state should prevent any future requests to
+	// acquire the tracked db from the db manager.
+	if err := s.st.Delete(ctx, uuid); err != nil {
+		if errors.Is(err, domain.ErrNoRecord) {
+			return nil
+		}
+		return errors.Annotatef(domain.CoerceError(err), "deleting model %q", uuid)
+	}
+
+	err := s.dbManager.DeleteDB(uuid.String())
+	return errors.Annotatef(err, "stopping model %q", uuid)
 }

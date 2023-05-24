@@ -20,11 +20,18 @@ func TestPackage(t *testing.T) {
 	coretesting.MgoTestPackage(t)
 }
 
-type StubDBGetter struct{}
+type StubDBManager struct{}
 
-func (s StubDBGetter) GetDB(name string) (coredatabase.TrackedDB, error) {
-	if name != "controller" {
-		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, name)
+func (s StubDBManager) GetDB(namespace string) (coredatabase.TrackedDB, error) {
+	if namespace != "controller" {
+		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, namespace)
 	}
 	return nil, nil
+}
+
+func (s StubDBManager) DeleteDB(namespace string) error {
+	if namespace == "controller" {
+		return errors.Forbiddenf(`cannot delete "controller" DB`)
+	}
+	return nil
 }

@@ -459,6 +459,152 @@ func (s *workerSuite) TestEnsureNamespaceForModelWithCache(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
+func (s *workerSuite) TestCloseDatabaseForController(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectClock()
+
+	dataDir := c.MkDir()
+	mgrExp := s.nodeManager.EXPECT()
+	mgrExp.EnsureDataDir().Return(dataDir, nil).MinTimes(1)
+
+	// If this is an existing node, we do not
+	// invoke the address or cluster options.
+	mgrExp.IsExistingNode().Return(true, nil).Times(3)
+	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(3)
+	mgrExp.WithLogFuncOption().Return(nil)
+	mgrExp.WithTracingOption().Return(nil)
+
+	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
+
+	sync := s.expectNodeStartupAndShutdown(true)
+
+	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+
+	trackedWorkerDB := newWorkerTrackedDB(s.TrackedDB())
+
+	w := s.newWorkerWithDB(c, trackedWorkerDB)
+	defer workertest.DirtyKill(c, w)
+
+	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
+	defer cancel()
+
+	err := s.TrackedDB().Txn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		stmt := "INSERT INTO model_list (uuid) VALUES (?);"
+		result, err := tx.ExecContext(ctx, stmt, "foo")
+		c.Assert(err, jc.ErrorIsNil)
+
+		num, err := result.RowsAffected()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(num, gc.Equals, int64(1))
+
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	dbw := w.(*dbWorker)
+	s.ensureStartup(c, dbw, sync)
+
+	err = dbw.closeDatabase(coredatabase.ControllerNS)
+	c.Assert(err, gc.ErrorMatches, "cannot close controller database")
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestCloseDatabaseForModel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectClock()
+
+	dataDir := c.MkDir()
+	mgrExp := s.nodeManager.EXPECT()
+	mgrExp.EnsureDataDir().Return(dataDir, nil).MinTimes(1)
+
+	// If this is an existing node, we do not
+	// invoke the address or cluster options.
+	mgrExp.IsExistingNode().Return(true, nil).Times(3)
+	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(3)
+	mgrExp.WithLogFuncOption().Return(nil)
+	mgrExp.WithTracingOption().Return(nil)
+
+	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
+
+	sync := s.expectNodeStartupAndShutdown(true)
+
+	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+
+	trackedWorkerDB := newWorkerTrackedDB(s.TrackedDB())
+
+	w := s.newWorkerWithDB(c, trackedWorkerDB)
+	defer workertest.DirtyKill(c, w)
+
+	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
+	defer cancel()
+
+	err := s.TrackedDB().Txn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		stmt := "INSERT INTO model_list (uuid) VALUES (?);"
+		result, err := tx.ExecContext(ctx, stmt, "foo")
+		c.Assert(err, jc.ErrorIsNil)
+
+		num, err := result.RowsAffected()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(num, gc.Equals, int64(1))
+
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	dbw := w.(*dbWorker)
+	s.ensureStartup(c, dbw, sync)
+
+	_, err = dbw.GetDB("foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = dbw.closeDatabase("foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestCloseDatabaseForUnknownModel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectClock()
+
+	dataDir := c.MkDir()
+	mgrExp := s.nodeManager.EXPECT()
+	mgrExp.EnsureDataDir().Return(dataDir, nil).MinTimes(1)
+
+	// If this is an existing node, we do not
+	// invoke the address or cluster options.
+	mgrExp.IsExistingNode().Return(true, nil).Times(3)
+	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(3)
+	mgrExp.WithLogFuncOption().Return(nil)
+	mgrExp.WithTracingOption().Return(nil)
+
+	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
+
+	sync := s.expectNodeStartupAndShutdown(true)
+
+	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+
+	trackedWorkerDB := newWorkerTrackedDB(s.TrackedDB())
+
+	w := s.newWorkerWithDB(c, trackedWorkerDB)
+	defer workertest.DirtyKill(c, w)
+
+	dbw := w.(*dbWorker)
+	s.ensureStartup(c, dbw, sync)
+
+	err := dbw.closeDatabase("foo")
+	c.Assert(err, gc.ErrorMatches, `stopping worker: worker "foo" not found`)
+
+	workertest.CleanKill(c, w)
+}
+
 func (s *workerSuite) ensureStartup(c *gc.C, w *dbWorker, sync <-chan struct{}) {
 	select {
 	case <-sync:

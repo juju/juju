@@ -808,6 +808,9 @@ func (m *ModelManagerAPI) DestroyModels(ctx stdcontext.Context, args params.Dest
 		// database, then we won't be able to create a new model with the same
 		// model uuid as there is a UNIQUE constraint on the model uuid column.
 		err = m.modelManagerService.Delete(ctx, modelmanagerservice.UUID(model.UUID()))
+		if err != nil && errors.Is(err, errors.NotFound) {
+			return nil
+		}
 		return errors.Trace(err)
 	}
 
