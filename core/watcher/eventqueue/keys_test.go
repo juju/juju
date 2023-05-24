@@ -14,16 +14,19 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/testing"
 )
 
-type uuidSuite struct {
+var _ watcher.StringsWatcher = &KeysWatcher{}
+
+type keysSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&uuidSuite{})
+var _ = gc.Suite(&keysSuite{})
 
-func (s *uuidSuite) TestInitialStateSent(c *gc.C) {
+func (s *keysSuite) TestInitialStateSent(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -50,22 +53,22 @@ func (s *uuidSuite) TestInitialStateSent(c *gc.C) {
 	// The EventQueue is mocked, but we use a real Sqlite DB from which the
 	// initial state is read. Insert some data to verify.
 	err := s.TrackedDB().TxnNoRetry(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, "CREATE TABLE random_namespace (uuid TEXT PRIMARY KEY)"); err != nil {
+		if _, err := tx.ExecContext(ctx, "CREATE TABLE random_namespace (key_name TEXT PRIMARY KEY)"); err != nil {
 			return err
 		}
 
-		_, err := tx.ExecContext(ctx, "INSERT INTO random_namespace(uuid) VALUES ('some-uuid')")
+		_, err := tx.ExecContext(ctx, "INSERT INTO random_namespace(key_name) VALUES ('some-key')")
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	w := NewUUIDWatcher(s.newBaseWatcher(), "random_namespace")
+	w := NewKeysWatcher(s.newBaseWatcher(), "random_namespace", "key_name")
 	defer workertest.DirtyKill(c, w)
 
 	select {
 	case changes := <-w.Changes():
 		c.Assert(changes, gc.HasLen, 1)
-		c.Check(changes[0], gc.Equals, "some-uuid")
+		c.Check(changes[0], gc.Equals, "some-key")
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for initial watcher changes")
 	}
@@ -73,7 +76,7 @@ func (s *uuidSuite) TestInitialStateSent(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *uuidSuite) TestDeltasSent(c *gc.C) {
+func (s *keysSuite) TestDeltasSent(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -101,7 +104,7 @@ func (s *uuidSuite) TestDeltasSent(c *gc.C) {
 		)},
 	).Return(s.sub, nil)
 
-	w := NewUUIDWatcher(s.newBaseWatcher(), "external_controller")
+	w := NewUUIDsWatcher(s.newBaseWatcher(), "external_controller")
 	defer workertest.DirtyKill(c, w)
 
 	// No initial data.
@@ -133,7 +136,7 @@ func (s *uuidSuite) TestDeltasSent(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *uuidSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
+func (s *keysSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -153,7 +156,7 @@ func (s *uuidSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 		)},
 	).Return(s.sub, nil)
 
-	w := NewUUIDWatcher(s.newBaseWatcher(), "external_controller")
+	w := NewUUIDsWatcher(s.newBaseWatcher(), "external_controller")
 	defer workertest.DirtyKill(c, w)
 
 	err := workertest.CheckKilled(c, w)
