@@ -22,20 +22,22 @@ run_deploy_specific_series() {
 	ensure "test-deploy-specific-series" "${file}"
 
 	charm_name="juju-qa-refresher"
-	# Have to check against default series, to avoid false positives.
-	# These two series should be different.
-	default_series="jammy"
-	specific_series="focal"
+	# Have to check against default base, to avoid false positives.
+	# These two bases should be different.
+	default_base="ubuntu@22.04"
+	specific_base="ubuntu@20.04"
 
 	juju deploy "$charm_name" app1
-	juju deploy "$charm_name" app2 --series "$specific_series"
-	series1=$(juju status --format=json | jq ".applications.app1.series")
-	series2=$(juju status --format=json | jq ".applications.app2.series")
+	juju deploy "$charm_name" app2 --base "$specific_base"
+	base_name1=$(juju status --format=json | jq ".applications.app1.base.name")
+  base_chan1=$(juju status --format=json | jq ".applications.app1.base.channel")
+	base_name2=$(juju status --format=json | jq ".applications.app2.base.name")
+  base_chan2=$(juju status --format=json | jq ".applications.app2.base.channel")
 
 	destroy_model "test-deploy-specific-series"
 
-	echo "$series1" | check "$default_series"
-	echo "$series2" | check "$specific_series"
+	echo "$base_name1@$base_chan1" | check "$default_base"
+	echo "$base_name2@$base_chan2" | check "$specific_base"
 }
 
 run_deploy_lxd_profile_charm() {
