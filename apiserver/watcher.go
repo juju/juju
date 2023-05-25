@@ -322,7 +322,6 @@ func (aw allWatcherDeltaTranslater) TranslateRemoteApplication(info multiwatcher
 	return &params.RemoteApplicationUpdate{
 		ModelUUID: orig.ModelUUID,
 		Name:      orig.Name,
-		OfferUUID: orig.OfferUUID,
 		OfferURL:  orig.OfferURL,
 		Life:      orig.Life,
 		Status:    aw.translateStatus(orig.Status),

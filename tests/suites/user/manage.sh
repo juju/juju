@@ -119,6 +119,8 @@ run_user_remove() {
 
 	echo "Add testuser2"
 	juju show-user testuser2 2>/dev/null || juju add-user testuser2
+
+	users=$(juju users)
 	check_contains "${users}" testuser2
 
 	echo "Remove testuser2"

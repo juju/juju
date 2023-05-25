@@ -656,20 +656,6 @@ func (s *BundleDeployRepositorySuite) expectCharmhubK8sCharm(curl *charm.URL) *c
 		Meta: &charm.Meta{
 			Series: []string{"kubernetes"},
 		},
-		Manifest: &charm.Manifest{
-			Bases: []charm.Base{
-				{
-					Name:          "ubuntu",
-					Channel:       charm.Channel{Track: "20.04", Risk: "stable", Branch: ""},
-					Architectures: []string{"amd64"},
-				},
-				{
-					Name:          "ubuntu",
-					Channel:       charm.Channel{Track: "22.04", Risk: "stable", Branch: ""},
-					Architectures: []string{"amd64"},
-				},
-			},
-		},
 	}
 	s.expectCharmInfo(fullCurl.String(), charmInfo)
 	s.expectDeploy()

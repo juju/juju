@@ -1589,13 +1589,15 @@ func (i *importer) firewallRules() error {
 func (i *importer) makeRemoteApplicationDoc(app description.RemoteApplication) *remoteApplicationDoc {
 	doc := &remoteApplicationDoc{
 		Name:            app.Name(),
-		OfferUUID:       app.OfferUUID(),
 		URL:             app.URL(),
 		SourceModelUUID: app.SourceModelTag().Id(),
 		IsConsumerProxy: app.IsConsumerProxy(),
 		Bindings:        app.Bindings(),
 		Macaroon:        app.Macaroon(),
 		Version:         app.ConsumeVersion(),
+	}
+	if !doc.IsConsumerProxy {
+		doc.OfferUUID = app.OfferUUID()
 	}
 	descEndpoints := app.Endpoints()
 	eps := make([]remoteEndpointDoc, len(descEndpoints))
