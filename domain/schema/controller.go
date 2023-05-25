@@ -284,7 +284,7 @@ CREATE TABLE model_list (
 func controllerConfigSchema() string {
 	return `
 CREATE TABLE controller_config (
-    key     TEXT PRIMARY KEY
+    key     TEXT PRIMARY KEY,
     value   TEXT
 );
 CREATE TRIGGER trg_log_controller_config_insert
