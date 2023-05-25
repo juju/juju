@@ -6,6 +6,7 @@ package state
 import (
 	"testing"
 
+	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 	jc "github.com/juju/testing/checkers"
@@ -104,4 +105,13 @@ func MustCloseUnitPortRanges(c *gc.C, st *State, machine *Machine, unitName, end
 		unitPortRanges.Close(endpointName, pr)
 	}
 	c.Assert(st.ApplyOperation(machPortRanges.Changes()), jc.ErrorIsNil)
+}
+
+func (st *State) ReadBackendRevisionCount(backendID string) (int, error) {
+	refCountCollection, ccloser := st.db().GetCollection(globalRefcountsC)
+	defer ccloser()
+
+	key := secretBackendRefCountKey(backendID)
+	_, count, err := nsRefcounts.CurrentOp(refCountCollection, key)
+	return count, errors.Trace(err)
 }

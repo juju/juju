@@ -2704,7 +2704,6 @@ func (i *importer) secrets() error {
 	}
 	knownBackends := set.NewStrings()
 	for _, b := range allBackends {
-		logger.Criticalf("known backend: %s", b.ID)
 		knownBackends.Add(b.ID)
 	}
 

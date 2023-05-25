@@ -807,8 +807,6 @@ func (s *secretsStore) ChangeSecretBackend(arg ChangeSecretBackendParams) error 
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		// !!!!!!
-
 		var ops []txn.Op
 		if doc.ValueRef != nil {
 			op, err := s.st.decSecretBackendRefCountOp(doc.ValueRef.BackendID)

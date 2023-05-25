@@ -137,14 +137,13 @@ func (w *Worker) drainSecret(md coresecrets.SecretMetadataForDrain, client jujus
 	for _, revisionMeta := range md.Revisions {
 		rev := revisionMeta
 		// We have to get the active backend for each drain operation because the active backend
-		// might have jsut changed during the draining process.
+		// could be changed during the draining process.
 		_, activeBackendID, err := client.GetBackend(nil)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if rev.ValueRef != nil && rev.ValueRef.BackendID == activeBackendID {
-			// This should never happen.
-			w.config.Logger.Warningf("secret %q revision %d has already been drained to the active backend %q", md.Metadata.URI, rev.Revision, activeBackendID)
+			w.config.Logger.Debugf("secret %q revision %d is already on the active backend %q", md.Metadata.URI, rev.Revision, activeBackendID)
 			continue
 		}
 		w.config.Logger.Debugf("draining %s/%d", md.Metadata.URI.ID, rev.Revision)
@@ -154,10 +153,10 @@ func (w *Worker) drainSecret(md coresecrets.SecretMetadataForDrain, client jujus
 			return errors.Trace(err)
 		}
 		valueRef, err := client.SaveContent(md.Metadata.URI, rev.Revision, secretVal)
-		w.config.Logger.Debugf("saved %s/%d, %#v, %#v", md.Metadata.URI.ID, rev.Revision, valueRef, err)
 		if err != nil && !errors.Is(err, errors.NotSupported) {
 			return errors.Trace(err)
 		}
+		w.config.Logger.Debugf("saved secret %s/%d to the new backend %q, %#v", md.Metadata.URI.ID, rev.Revision, valueRef.BackendID, err)
 		var newValueRef *coresecrets.ValueRef
 		data := secretVal.EncodedValues()
 		if err == nil {
@@ -172,16 +171,15 @@ func (w *Worker) drainSecret(md coresecrets.SecretMetadataForDrain, client jujus
 		if rev.ValueRef != nil {
 			// The old backend is an external backend.
 			// Note: we have to get the old backend before we make ChangeSecretBackend facade call.
-			// Because the token policy(for the vault backend) will be changed after we changed the secret's backend.
+			// Because the token policy(for the vault backend especially) will be changed after we changed the secret's backend.
 			oldBackend, _, err := client.GetBackend(&rev.ValueRef.BackendID)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			// revID := rev.ValueRef.RevisionID
 			cleanUpInExternalBackend = func() error {
 				w.config.Logger.Debugf("cleanup secret %s/%d from old backend %q", md.Metadata.URI.ID, rev.Revision, rev.ValueRef.BackendID)
 				if valueRef.BackendID == rev.ValueRef.BackendID {
-					// Ideally, We should have done all these drain steps in the controller via transaction but we decided to only allow
+					// Ideally, We should have done all these drain steps in the controller via transaction, but by design, we only allow
 					// uniters to be able to access secret content. So we have to do these extra checks to avoid
 					// secret gets deleted wrongly when the model's secret backend is changed back to
 					// the old backend while the secret is being drained.

@@ -3111,6 +3111,7 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
 		LeaderToken: &fakeToken{},
 		Scope:       owner.Tag(),
@@ -3139,7 +3140,15 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	backendRefCount, err := s.State.ReadBackendRevisionCount(backendID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendRefCount, gc.Equals, 1)
+
 	_, newSt := s.importModel(c, s.State)
+
+	backendRefCount, err = s.State.ReadBackendRevisionCount(backendID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendRefCount, gc.Equals, 2)
 
 	store = state.NewSecrets(newSt)
 	all, err := store.ListSecrets(state.SecretsFilter{})
@@ -3187,6 +3196,10 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 		CurrentRevision: 667,
 		LatestRevision:  2,
 	})
+
+	backendRefCount, err = newSt.ReadBackendRevisionCount(backendID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendRefCount, gc.Equals, 2)
 }
 
 func (s *MigrationImportSuite) TestSecretsMissingBackend(c *gc.C) {

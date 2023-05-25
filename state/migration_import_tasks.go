@@ -617,7 +617,6 @@ func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner, knownSe
 				}
 				if !utils.IsValidUUIDString(valueRef.BackendID) && !seenBackendIds.Contains(valueRef.BackendID) {
 					if !knownSecretBackends.Contains(valueRef.BackendID) {
-						logger.Criticalf("target controller does not have secret backend %q, seenBackendIds %v", valueRef.BackendID, seenBackendIds.Values())
 						return errors.New("target controller does not have all required secret backends set up")
 					}
 					ops = append(ops, txn.Op{

@@ -24,7 +24,6 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
-	"github.com/kr/pretty"
 
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
@@ -268,7 +267,6 @@ func cleanupSecretBackendRefCountAfterModelMigrationDone(st *State) error {
 	}
 
 	var ops []txn.Op
-	logger.Criticalf("cleanupSecretBackendRefCountAfterModelMigrationDone: %s", pretty.Sprint(result))
 	for _, r := range result {
 		for i := r.Count; i > 0; i-- {
 			refCountOps, err := st.decSecretBackendRefCountOp(r.ID)
@@ -278,7 +276,6 @@ func cleanupSecretBackendRefCountAfterModelMigrationDone(st *State) error {
 			ops = append(ops, refCountOps)
 		}
 	}
-	logger.Criticalf("cleanupSecretBackendRefCountAfterModelMigrationDone: ops %s", pretty.Sprint(ops))
 	return st.db().RunTransaction(ops)
 }
 
