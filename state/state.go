@@ -263,10 +263,13 @@ func cleanupSecretBackendRefCountAfterModelMigrationDone(st *State) error {
 	if err := pipe.All(&result); err != nil {
 		return errors.Trace(err)
 	}
+	if len(result) == 0 {
+		return nil
+	}
+
 	var ops []txn.Op
 	logger.Criticalf("cleanupSecretBackendRefCountAfterModelMigrationDone: %s", pretty.Sprint(result))
 	for _, r := range result {
-		// TODO: change decSecretBackendRefCountOp can increment the refcount more than one!
 		for i := r.Count; i > 0; i-- {
 			refCountOps, err := st.decSecretBackendRefCountOp(r.ID)
 			if err != nil {

@@ -5,12 +5,11 @@ package state
 
 import (
 	"github.com/juju/collections/set"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3"
-
-	"github.com/juju/description/v4"
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/permission"
@@ -626,12 +625,6 @@ func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner, knownSe
 						Id:     valueRef.BackendID,
 						Assert: txn.DocExists,
 					})
-
-					refOps, err := src.IncBackendRevisionCountOps(valueRef.BackendID)
-					if err != nil {
-						return errors.Trace(err)
-					}
-					ops = append(ops, refOps...)
 				}
 				seenBackendIds.Add(valueRef.BackendID)
 			}
@@ -652,6 +645,16 @@ func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner, knownSe
 					OwnerTag:      owner.String(),
 				},
 			})
+			if valueRef != nil {
+				refOps, err := src.IncBackendRevisionCountOps(valueRef.BackendID)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				// We have to commit the backend revision count for each revision.
+				if err := runner.RunTransaction(refOps); err != nil {
+					return errors.Trace(err)
+				}
+			}
 		}
 		for subject, access := range secret.ACL() {
 			key := src.SecretConsumerKey(uri, subject)
