@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/common/cloudspec"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc/params"
@@ -79,18 +78,6 @@ func (st *State) StateServingInfo() (controller.StateServingInfo, error) {
 	}, nil
 }
 
-// IsMaster reports whether the connected machine
-// agent lives at the same network address as the primary
-// mongo server for the replica set.
-// This call will return an error if the connected
-// agent is not a machine agent with model-manager
-// privileges.
-func (st *State) IsMaster() (bool, error) {
-	var results params.IsMasterResult
-	err := st.facade.FacadeCall("IsMaster", nil, &results)
-	return results.Master, err
-}
-
 type Entity struct {
 	st  *State
 	tag names.Tag
@@ -125,43 +112,6 @@ func (m *Entity) Life() life.Value {
 // the empty list.
 func (m *Entity) Jobs() []model.MachineJob {
 	return m.doc.Jobs
-}
-
-// ContainerType returns the type of container hosting this entity.
-// If the entity is not a machine, it returns an empty string.
-func (m *Entity) ContainerType() instance.ContainerType {
-	return m.doc.ContainerType
-}
-
-// SetPassword sets the password associated with the agent's entity.
-func (m *Entity) SetPassword(password string) error {
-	var results params.ErrorResults
-	args := params.EntityPasswords{
-		Changes: []params.EntityPassword{{
-			Tag:      m.tag.String(),
-			Password: password,
-		}},
-	}
-	err := m.st.facade.FacadeCall("SetPasswords", args, &results)
-	if err != nil {
-		return err
-	}
-	return results.OneError()
-}
-
-// ClearReboot clears the reboot flag of the machine.
-func (m *Entity) ClearReboot() error {
-	var result params.ErrorResults
-	args := params.SetStatus{
-		Entities: []params.EntityStatusArgs{
-			{Tag: m.tag.String()},
-		},
-	}
-	err := m.st.facade.FacadeCall("ClearReboot", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
 }
 
 // IsAllowedControllerTag returns true if the tag kind can be for a controller.
