@@ -77,6 +77,9 @@ func (s *schemaSuite) TestDDLApply(c *gc.C) {
 
 		// Model list
 		"model_list",
+
+		// Controller config
+		"controller_config",
 	)
 	c.Assert(readTableNames(c, s.db), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }
