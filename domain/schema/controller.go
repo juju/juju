@@ -287,6 +287,7 @@ CREATE TABLE controller_config (
     key     TEXT PRIMARY KEY,
     value   TEXT
 );
+
 CREATE TRIGGER trg_log_controller_config_insert
 AFTER INSERT ON controller_config FOR EACH ROW
 BEGIN
