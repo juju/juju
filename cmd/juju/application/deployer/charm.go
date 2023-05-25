@@ -51,7 +51,6 @@ type deployCharm struct {
 	placementSpec    string
 	resources        map[string]string
 	baseFlag         series.Base
-	steps            []DeployStep
 	storage          map[string]storage.Constraints
 	trust            bool
 
@@ -106,40 +105,6 @@ func (d *deployCharm) deploy(
 	if !d.trust {
 		delete(appConfig, app.TrustConfigOptionName)
 	}
-
-	bakeryClient, err := d.model.BakeryClient()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	uuid, ok := deployAPI.ModelUUID()
-	if !ok {
-		return errors.New("API connection is controller-only (should never happen)")
-	}
-
-	deployInfo := DeploymentInfo{
-		CharmID:         id,
-		ApplicationName: applicationName,
-		ModelUUID:       uuid,
-		CharmInfo:       charmInfo,
-		Force:           d.force,
-	}
-
-	for _, step := range d.steps {
-		err = step.RunPre(deployAPI, bakeryClient, ctx, deployInfo)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	defer func() {
-		for _, step := range d.steps {
-			err = errors.Trace(step.RunPost(deployAPI, bakeryClient, ctx, deployInfo, rErr))
-			if err != nil {
-				rErr = err
-			}
-		}
-	}()
 
 	if id.URL != nil && id.URL.Schema != "local" && len(charmInfo.Meta.Terms) > 0 {
 		ctx.Infof("Deployment under prior agreement to terms: %s",

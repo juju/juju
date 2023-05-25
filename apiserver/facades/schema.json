@@ -2133,7 +2133,7 @@
                             "$ref": "#/definitions/ErrorResults"
                         }
                     },
-                    "description": "SetMetricCredentials sets credentials on the application."
+                    "description": "SetMetricCredentials sets credentials on the application.\nTODO (cderici) only used for metered charms in cmd MeteredDeployAPI,\nkept for client compatibility, remove in juju 4.0"
                 },
                 "SetRelationsSuspended": {
                     "type": "object",
@@ -14781,7 +14781,7 @@
                             "$ref": "#/definitions/IsMeteredResult"
                         }
                     },
-                    "description": "IsMetered returns whether or not the charm is metered."
+                    "description": "IsMetered returns whether or not the charm is metered.\nTODO (cderici) only used for metered charms in cmd MeteredDeployAPI,\nkept for client compatibility, remove in juju 4.0"
                 },
                 "List": {
                     "type": "object",
