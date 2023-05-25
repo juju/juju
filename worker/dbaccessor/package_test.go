@@ -9,6 +9,7 @@ import (
 	"testing"
 	time "time"
 
+	"github.com/canonical/sqlair"
 	"github.com/golang/mock/gomock"
 	jujutesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
@@ -132,10 +133,10 @@ func (w *workerTrackedDB) Wait() error {
 	return w.tomb.Wait()
 }
 
-func (w *workerTrackedDB) Txn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
+func (w *workerTrackedDB) Txn(ctx context.Context, fn func(context.Context, *sqlair.TX) error) error {
 	return w.db.Txn(ctx, fn)
 }
 
-func (w *workerTrackedDB) TxnNoRetry(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
-	return w.db.TxnNoRetry(ctx, fn)
+func (w *workerTrackedDB) StdTxn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
+	return w.db.StdTxn(ctx, fn)
 }

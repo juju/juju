@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
@@ -2149,8 +2150,15 @@ type trackedDB struct {
 	db *sql.DB
 }
 
-func (t *trackedDB) Txn(ctx stdcontext.Context, fn func(stdcontext.Context, *sql.Tx) error) error {
+func (t *trackedDB) Txn(ctx stdcontext.Context, fn func(stdcontext.Context, *sqlair.TX) error) error {
+	db := sqlair.NewDB(t.db)
 	return defaultTransactionRunner.Retry(ctx, func() error {
-		return errors.Trace(defaultTransactionRunner.Txn(ctx, t.db, fn))
+		return errors.Trace(defaultTransactionRunner.Txn(ctx, db, fn))
+	})
+}
+
+func (t *trackedDB) StdTxn(ctx stdcontext.Context, fn func(stdcontext.Context, *sql.Tx) error) error {
+	return defaultTransactionRunner.Retry(ctx, func() error {
+		return errors.Trace(defaultTransactionRunner.StdTxn(ctx, t.db, fn))
 	})
 }

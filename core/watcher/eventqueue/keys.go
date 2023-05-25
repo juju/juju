@@ -111,7 +111,7 @@ func (w *KeysWatcher) getInitialState() ([]string, error) {
 	defer cancel()
 
 	var keys []string
-	err := w.db.Txn(w.tomb.Context(parentCtx), func(ctx context.Context, tx *sql.Tx) error {
+	err := w.db.StdTxn(w.tomb.Context(parentCtx), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, w.selectAll)
 		if err != nil {
 			if err == sql.ErrNoRows {

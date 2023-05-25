@@ -25,7 +25,7 @@ var _ = gc.Suite(&transactionRunnerSuite{})
 func (s *transactionRunnerSuite) TestTxn(c *gc.C) {
 	runner := txn.NewTransactionRunner()
 
-	err := runner.Txn(context.TODO(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
+	err := runner.StdTxn(context.TODO(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, "SELECT 1")
 		if err != nil {
 			return errors.Trace(err)
@@ -42,7 +42,7 @@ func (s *transactionRunnerSuite) TestTxnWithCancelledContext(c *gc.C) {
 
 	runner := txn.NewTransactionRunner()
 
-	err := runner.Txn(ctx, s.DB(), func(ctx context.Context, tx *sql.Tx) error {
+	err := runner.StdTxn(ctx, s.DB(), func(ctx context.Context, tx *sql.Tx) error {
 		c.Fatal("should not be called")
 		return nil
 	})
@@ -54,7 +54,7 @@ func (s *transactionRunnerSuite) TestTxnInserts(c *gc.C) {
 
 	s.createTable(c)
 
-	err := runner.Txn(context.TODO(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
+	err := runner.StdTxn(context.TODO(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "INSERT INTO foo (id, name) VALUES (1, 'test')")
 		if err != nil {
 			return errors.Trace(err)
@@ -82,7 +82,7 @@ func (s *transactionRunnerSuite) TestTxnRollback(c *gc.C) {
 
 	s.createTable(c)
 
-	err := runner.Txn(context.TODO(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
+	err := runner.StdTxn(context.TODO(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "INSERT INTO foo (id, name) VALUES (1, 'test')")
 		if err != nil {
 			return errors.Trace(err)

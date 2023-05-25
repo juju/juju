@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -97,14 +98,47 @@ func NewTransactionRunner(opts ...Option) *TransactionRunner {
 	}
 }
 
-// Txn defines a generic txn function for applying transactions on a given
-// database. It expects that no individual transaction function should take
-// longer than the default timeout.
-// There are no retry semantics for running the function.
+// Txn executes the input function against the tracked database, using
+// the sqlair package. The sqlair package provides a mapping library for
+// SQL queries and statements.
+// Retry semantics are applied automatically based on transient failures.
+// This is the function that almost all downstream database consumers
+// should use.
 //
 // This should not be used directly, instead the TrackedDB should be used to
 // handle transactions.
-func (t *TransactionRunner) Txn(ctx context.Context, db *sql.DB, fn func(context.Context, *sql.Tx) error) error {
+func (t *TransactionRunner) Txn(ctx context.Context, db *sqlair.DB, fn func(context.Context, *sqlair.TX) error) error {
+	ctx, cancel := context.WithTimeout(ctx, t.timeout)
+	defer cancel()
+
+	tx, err := db.Begin(ctx, nil)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := fn(ctx, tx); err != nil {
+		if rErr := t.retryStrategy(ctx, tx.Rollback); rErr != nil {
+			t.logger.Warningf("failed to rollback transaction: %v", rErr)
+		}
+		return errors.Trace(err)
+	}
+
+	if err := tx.Commit(); err != nil && err != sql.ErrTxDone {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+// StdTxn executes the input function against the tracked database,
+// within a transaction that depends on the input context.
+// Retry semantics are applied automatically based on transient failures.
+// This is the function that almost all downstream database consumers
+// should use.
+//
+// This should not be used directly, instead the TrackedDB should be used to
+// handle transactions.
+func (t *TransactionRunner) StdTxn(ctx context.Context, db *sql.DB, fn func(context.Context, *sql.Tx) error) error {
 	ctx, cancel := context.WithTimeout(ctx, t.timeout)
 	defer cancel()
 

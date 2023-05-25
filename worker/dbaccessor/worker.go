@@ -824,7 +824,7 @@ func (w *dbWorker) ensureNamespace(namespace string) error {
 
 func isNamespaceKnownToController(ctx context.Context, db coredatabase.TrackedDB, namespace string) (bool, error) {
 	var known bool
-	err := db.Txn(ctx, func(ctx context.Context, db *sql.Tx) error {
+	err := db.StdTxn(ctx, func(ctx context.Context, db *sql.Tx) error {
 		row := db.QueryRowContext(ctx, "SELECT uuid FROM model_list WHERE uuid=?", namespace)
 
 		var uuid string

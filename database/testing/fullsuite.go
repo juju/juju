@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -76,7 +77,7 @@ func (s *DBSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.trackedDB = &trackedDB{
-		db: s.db,
+		db: sqlair.NewDB(s.db),
 	}
 }
 

@@ -285,7 +285,6 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"certificate-watcher",
 		"audit-config-updater",
 		"is-primary-controller-flag",
-		"lease-expiry",
 		"lease-manager",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
@@ -299,6 +298,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 	// Explicitly guarded by ifPrimaryController.
 	primaryControllerWorkers := set.NewStrings(
 		"external-controller-updater",
+		"lease-expiry",
 		"secret-backend-rotate",
 	)
 
@@ -665,9 +665,12 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"lease-expiry": {
 		"agent",
+		"api-caller",
+		"api-config-watcher",
 		"clock",
 		"db-accessor",
 		"is-controller-flag",
+		"is-primary-controller-flag",
 		"query-logger",
 		"state-config-watcher",
 	},
@@ -1165,9 +1168,12 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"lease-expiry": {
 		"agent",
+		"api-caller",
+		"api-config-watcher",
 		"clock",
 		"db-accessor",
 		"is-controller-flag",
+		"is-primary-controller-flag",
 		"query-logger",
 		"state-config-watcher",
 	},

@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 
 	coredatabase "github.com/juju/juju/core/database"
@@ -17,12 +18,27 @@ var defaultTransactionRunner = txn.NewTransactionRunner()
 
 // trackedDB is used for testing purposes.
 type trackedDB struct {
-	db *sql.DB
+	db *sqlair.DB
 }
 
-func (t *trackedDB) Txn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
+// Txn executes the input function against the tracked database, using
+// the sqlair package. The sqlair package provides a mapping library for
+// SQL queries and statements.
+// Retry semantics are applied automatically based on transient failures.
+// This is the function that almost all downstream database consumers
+// should use.
+func (t *trackedDB) Txn(ctx context.Context, fn func(context.Context, *sqlair.TX) error) error {
+	return errors.Trace(defaultTransactionRunner.Txn(ctx, t.db, fn))
+}
+
+// StdTxn executes the input function against the tracked database,
+// within a transaction that depends on the input context.
+// Retry semantics are applied automatically based on transient failures.
+// This is the function that almost all downstream database consumers
+// should use.
+func (t *trackedDB) StdTxn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
 	return defaultTransactionRunner.Retry(ctx, func() error {
-		return errors.Trace(defaultTransactionRunner.Txn(ctx, t.db, fn))
+		return errors.Trace(defaultTransactionRunner.StdTxn(ctx, t.db.PlainDB(), fn))
 	})
 }
 
