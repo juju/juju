@@ -22,7 +22,7 @@ func TestPackage(t *testing.T) {
 }
 
 type baseSuite struct {
-	dbtesting.ControllerSuite
+	dbtesting.DBSuite
 
 	clock        *MockClock
 	timer        *MockTimer

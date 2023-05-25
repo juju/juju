@@ -6,6 +6,9 @@ package stream
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"math"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,6 +30,10 @@ const (
 	// defaultWatermarkInterval is the default interval to wait before
 	// updating the watermark.
 	defaultWatermarkInterval = 5 * time.Second
+
+	// defaultNumTermWatermarks is the default number of terms (watermarks) to
+	// keep before removing the oldest one.
+	defaultNumTermWatermarks = 10
 )
 
 var (
@@ -80,16 +87,26 @@ func (t *Term) Done(empty bool, abort <-chan struct{}) {
 	}
 }
 
-type reportRequest struct {
-	data map[string]any
-	done chan struct{}
+// termView represents a time window of change log IDs for a given term.
+type termView struct {
+	lower, upper int64
+}
+
+// Equals returns true if the termView is equal to the other termView.
+func (v *termView) Equals(other *termView) bool {
+	return v.lower == other.lower && v.upper == other.upper
+}
+
+// String returns the string representation of the termView.
+func (v *termView) String() string {
+	return fmt.Sprintf("(lower: %d, upper: %d)", v.lower, v.upper)
 }
 
 // Stream defines a worker that will poll the database for change events.
 type Stream struct {
 	tomb tomb.Tomb
 
-	tag          string
+	id           string
 	db           coredatabase.TxnRunner
 	fileNotifier FileNotifier
 	clock        clock.Clock
@@ -97,20 +114,21 @@ type Stream struct {
 
 	terms chan changestream.Term
 
-	idMutex                sync.Mutex
-	lastID, recordedLastID int64
+	watermarksMutex       sync.Mutex
+	watermarks            []*termView
+	lastRecordedWatermark *termView
 }
 
 // New creates a new Stream.
-func New(tag string, db coredatabase.TxnRunner, fileNotifier FileNotifier, clock clock.Clock, logger Logger) *Stream {
+func New(id string, db coredatabase.TxnRunner, fileNotifier FileNotifier, clock clock.Clock, logger Logger) *Stream {
 	stream := &Stream{
-		tag:            tag,
-		db:             db,
-		fileNotifier:   fileNotifier,
-		clock:          clock,
-		logger:         logger,
-		terms:          make(chan changestream.Term),
-		recordedLastID: -1,
+		id:           id,
+		db:           db,
+		fileNotifier: fileNotifier,
+		clock:        clock,
+		logger:       logger,
+		terms:        make(chan changestream.Term),
+		watermarks:   make([]*termView, defaultNumTermWatermarks),
 	}
 
 	stream.tomb.Go(stream.loop)
@@ -120,13 +138,28 @@ func New(tag string, db coredatabase.TxnRunner, fileNotifier FileNotifier, clock
 
 // Report returns
 func (s *Stream) Report() map[string]any {
-	s.idMutex.Lock()
-	defer s.idMutex.Unlock()
+	s.watermarksMutex.Lock()
+	defer s.watermarksMutex.Unlock()
 
-	return map[string]any{
-		"last-id":          s.lastID,
-		"recorded-last-id": s.recordedLastID,
+	m := map[string]any{
+		"id":                      s.id,
+		"last-recorded-watermark": "",
 	}
+
+	if s.lastRecordedWatermark != nil {
+		m["last-recorded-watermark"] = s.lastRecordedWatermark.String()
+	}
+
+	termViews := make([]string, 0)
+	for _, termView := range s.watermarks {
+		if termView == nil {
+			continue
+		}
+		termViews = append(termViews, termView.String())
+	}
+	m["watermarks"] = strings.Join(termViews, ", ")
+
+	return m
 }
 
 // Terms returns a channel for a given namespace (database) that returns
@@ -140,13 +173,13 @@ func (s *Stream) Terms() <-chan changestream.Term {
 }
 
 // Kill is part of the worker.Worker interface.
-func (w *Stream) Kill() {
-	w.tomb.Kill(nil)
+func (s *Stream) Kill() {
+	s.tomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (w *Stream) Wait() error {
-	return w.tomb.Wait()
+func (s *Stream) Wait() error {
+	return s.tomb.Wait()
 }
 
 func (s *Stream) loop() error {
@@ -156,6 +189,11 @@ func (s *Stream) loop() error {
 	fileNotifier, err := s.fileNotifier.Changes()
 	if err != nil {
 		return errors.Annotate(err, "getting file notifier")
+	}
+
+	// Insert the initial watermark into the table for the given id.
+	if err := s.createWatermark(); err != nil {
+		return errors.Trace(err)
 	}
 
 	var attempt int
@@ -209,7 +247,7 @@ func (s *Stream) loop() error {
 			// time between now and the pruning of the change log.
 			// The addition of a witness_at timestamp allows us to see how
 			// far each controller is behind the current time.
-			if err := s.recordWatermark(); err != nil {
+			if err := s.updateWatermark(); err != nil {
 				s.logger.Infof("failed to record last ID: %v", err)
 			}
 
@@ -246,20 +284,34 @@ func (s *Stream) loop() error {
 				}
 			}
 
-			// Term encapsulates a set of changes that are bounded by a
-			// coalesced set.
-			term := &Term{
-				done: make(chan bool),
-			}
+			var (
+				// Term encapsulates a set of changes that are bounded by a
+				// coalesced set.
+				term = &Term{
+					done: make(chan bool),
+				}
 
-			var lastID int64
-			traceEnabled := s.logger.IsTraceEnabled()
+				lower        = int64(math.MaxInt64)
+				upper        = int64(math.MinInt64)
+				traceEnabled = s.logger.IsTraceEnabled()
+			)
 			for _, change := range changes {
 				if traceEnabled {
 					s.logger.Tracef("change event: %v", change)
 				}
 				term.changes = append(term.changes, change)
-				lastID = change.id
+
+				if change.id < lower {
+					lower = change.id
+				}
+				if change.id > upper {
+					upper = change.id
+				}
+			}
+			if lower == math.MaxInt64 || upper == math.MinInt64 {
+				// This should never happen, but if it does, just continue.
+				s.logger.Infof("invalid lower or upper bound: lower: %d, upper: %d", lower, upper)
+				continue
 			}
 
 			// Send the term to the terms channel, and wait for it to be
@@ -294,6 +346,15 @@ func (s *Stream) loop() error {
 					continue
 				}
 
+				// Only when the term is completed, do we update the lower
+				// and upper bounds of the watermark. This ensures that all
+				// changes are read and processed from the term and that we
+				// don't prematurely update the watermark.
+				s.recordTermView(&termView{
+					lower: lower,
+					upper: upper,
+				})
+
 				// If the resulting term change set is empty, then wait for
 				// the back-off strategy to complete before attempting to
 				// read changes again.
@@ -313,14 +374,6 @@ func (s *Stream) loop() error {
 				// Reset the attempt counter if we get changes, so the
 				// back=off strategy is reset.
 				attempt = 0
-
-				// Only when the term is completed, do we update the last ID
-				// for the watermark. This ensures that all changes are read
-				// and processed from the term and that we don't prematurely
-				// update the watermark.
-				s.idMutex.Lock()
-				s.lastID = lastID
-				s.idMutex.Unlock()
 			}
 		}
 	}
@@ -377,7 +430,7 @@ func (s *Stream) readChanges() ([]changeEvent, error) {
 
 	var changes []changeEvent
 	err := s.db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, selectQuery, s.lastID)
+		rows, err := tx.QueryContext(ctx, selectQuery, s.upperBound())
 		if err != nil {
 			return errors.Annotate(err, "querying for changes")
 		}
@@ -404,60 +457,156 @@ func (s *Stream) readChanges() ([]changeEvent, error) {
 }
 
 const (
-	// Attempt insert the watermark for a given controller. If the controller
-	// already exists, then update the change log ID and the witness time, only
-	// if the change log ID is greater than the current change log ID.
-	watermarkQuery = `
-INSERT INTO change_log_witness (tag, change_log_id, last_seen_at) VALUES (?, ?, datetime())
-	ON CONFLICT (tag) DO UPDATE SET 
-		change_log_id = EXCLUDED.change_log_id, 
-		last_seen_at = EXCLUDED.last_seen_at
-	WHERE EXCLUDED.change_log_id > change_log_witness.change_log_id;
+	watermarkCreateQuery = `
+INSERT INTO change_log_witness
+	(id, lower_bound, upper_bound, updated_at)
+VALUES
+	(?, -1, -1, datetime())
+ON CONFLICT (id) DO NOTHING;
 `
 )
 
-// recordWatermark records the last ID that was processed. This is used to
-// ensure that we can prune the change log table.
-func (s *Stream) recordWatermark() error {
-	// We only need to record the watermark if it has changed. This should
-	// prevent unnecessary writes to the database, when we know that nothing
-	// has changed.
-	s.idMutex.Lock()
-	if s.lastID == s.recordedLastID {
-		s.idMutex.Unlock()
-		return nil
-	}
-	s.idMutex.Unlock()
-
+func (s *Stream) createWatermark() error {
 	ctx, cancel := s.scopedContext()
 	defer cancel()
 
 	return s.db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		result, err := tx.ExecContext(ctx, watermarkQuery, s.tag, s.lastID)
+		result, err := tx.ExecContext(ctx, watermarkCreateQuery, s.id)
 		if err != nil {
 			return errors.Annotate(err, "recording watermark")
 		}
-
-		affected, err := result.RowsAffected()
-		if err != nil {
+		if _, err := result.RowsAffected(); err != nil {
 			return errors.Annotate(err, "recording watermark")
 		}
-		if affected != 1 {
-			return errors.Errorf("expected to affect 1 row, affected %d", affected)
-		}
-
-		s.idMutex.Lock()
-		s.recordedLastID = s.lastID
-		s.idMutex.Unlock()
-
 		return nil
+	})
+}
+
+const (
+	// Update the watermark for a given controller.
+	watermarkUpdateQuery = `
+UPDATE change_log_witness
+SET
+	lower_bound = ?,
+	upper_bound = ?,
+	updated_at = datetime()
+WHERE id = ?;
+`
+)
+
+// updateWatermark records the last ID that was processed. This is used to
+// ensure that we can prune the change log table.
+func (s *Stream) updateWatermark() error {
+	ctx, cancel := s.scopedContext()
+	defer cancel()
+
+	return s.db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		// Run this per transaction, so that we're using the latest lower bound
+		// and upper bound.
+		// We do this inside of the transaction that is retryable, so that we
+		// don't end up blocking the updating of the term during the term
+		// completion.
+		return s.processWatermark(func(view *termView) error {
+			result, err := tx.ExecContext(ctx, watermarkUpdateQuery, view.lower, view.upper, s.id)
+			if err != nil {
+				return errors.Annotate(err, "recording watermark")
+			}
+
+			// TODO (stickupkid): We should check if the number of affected rows
+			// is equal to 1. Unfortunately, the dqlite driver doesn't return
+			// the correct number of affected rows. So we can't check this.
+			// https://github.com/canonical/go-dqlite/issues/254
+			if _, err := result.RowsAffected(); err != nil {
+				return errors.Annotate(err, "recording watermark")
+			}
+			return nil
+		})
 	})
 }
 
 // scopedContext returns a context that is in the scope of the worker lifetime.
 // It returns a cancellable context that is cancelled when the action has
 // completed.
-func (w *Stream) scopedContext() (context.Context, context.CancelFunc) {
+func (s *Stream) scopedContext() (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
-	return w.tomb.Context(ctx), cancel
+	return s.tomb.Context(ctx), cancel
+}
+
+func (s *Stream) upperBound() int64 {
+	s.watermarksMutex.Lock()
+	defer s.watermarksMutex.Unlock()
+
+	if len(s.watermarks) == 0 {
+		if s.lastRecordedWatermark == nil {
+			return -1
+		}
+		return s.lastRecordedWatermark.upper
+	}
+
+	tail := s.watermarks[len(s.watermarks)-1]
+	if tail == nil {
+		return -1
+	}
+
+	return tail.upper
+}
+
+func (s *Stream) recordTermView(v *termView) {
+	s.watermarksMutex.Lock()
+	defer s.watermarksMutex.Unlock()
+
+	// Insert the latest termView into the watermark list.
+	s.watermarks = append(s.watermarks, v)
+
+	// To prevent unbounded growth of the watermark list, we prune the list
+	// to the default number of term watermarks.
+	// It is safe to do this, because the change log table is pruned at best
+	// effort. We guarantee that the change log pruning will not prune any
+	// changes that are still in the watermark list or are in the future,
+	// because they've not actually been persisted to the database yet. They're
+	// just in memory per worker.
+	// If a watermark list termView is pruned from the front and it's not yet been
+	// written to the change log table, then another write will be attempted
+	// with a higher lower bound. The pruner will not prune the change log
+	// table until the lower bound is greater than the lower bound of the
+	// change log table.
+	// We can only guarantee this because the change log id is monotonically
+	// increasing. Pruning will only ever see a higher number, missing writes
+	// to the witness table will just see a lower bound number from the pruner
+	// perspective. Once a write is made, the pruner will just remove the lower
+	// bound from the witness tables.
+	if num := len(s.watermarks); num > defaultNumTermWatermarks {
+		s.watermarks = s.watermarks[num-defaultNumTermWatermarks:]
+	}
+}
+
+// processWatermark runs the given function on the head of the watermark list.
+// If the function succeeds, then the head of the watermark list is removed.
+// If the function fails, then the watermark list is not modified and the
+// error is returned.
+// Note: this acts like a transaction, either if succeeds or it doesn't.
+func (s *Stream) processWatermark(fn func(*termView) error) error {
+	s.watermarksMutex.Lock()
+	defer s.watermarksMutex.Unlock()
+
+	// Nothing to do if there are no watermarks.
+	if len(s.watermarks) < defaultNumTermWatermarks {
+		return nil
+	}
+
+	// If the buffer isn't full, then we don't need to process the watermark.
+	head := s.watermarks[0]
+	if head == nil {
+		return nil
+	}
+
+	// Run the function on the head of the watermark list.
+	if err := fn(head); err != nil {
+		return errors.Trace(err)
+	}
+
+	// If that succeeded, then we can remove the head of the watermark list.
+	s.watermarks = s.watermarks[1:]
+	s.lastRecordedWatermark = head
+	return nil
 }

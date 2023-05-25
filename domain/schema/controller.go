@@ -130,13 +130,16 @@ CREATE TABLE change_log (
 -- The change log witness table is used to track which nodes have seen
 -- which change log entries. This is used to determine when a change log entry
 -- can be deleted.
--- We'll delete all change log entries that are older than the oldest change
--- log entry that has been seen by all controllers.
+-- We'll delete all change log entries that are older than the lower_bound
+-- change log entry that has been seen by all controllers.
 CREATE TABLE change_log_witness (
-    tag                 TEXT PRIMARY KEY,
-    change_log_id       INT NOT NULL,
-    last_seen_at        DATETIME NOT NULL DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
-    last_deleted_at     DATETIME
+    id                  TEXT PRIMARY KEY,
+    lower_bound         INT NOT NULL DEFAULT(-1),
+    upper_bound         INT NOT NULL DEFAULT(-1),
+    updated_at          DATETIME NOT NULL DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
+    pruned_lower_bound  INT
+    pruned_upper_bound  INT
+    pruned_at           DATETIME
 );`)
 }
 
