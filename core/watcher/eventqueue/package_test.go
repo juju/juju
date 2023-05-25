@@ -65,3 +65,21 @@ func (m subscriptionOptionMatcher) Matches(arg interface{}) bool {
 func (m subscriptionOptionMatcher) String() string {
 	return fmt.Sprintf("%s %d", m.opt.Namespace(), m.opt.ChangeMask())
 }
+
+type changeEvent struct {
+	changeType changestream.ChangeType
+	namespace  string
+	uuid       string
+}
+
+func (e changeEvent) Type() changestream.ChangeType {
+	return e.changeType
+}
+
+func (e changeEvent) Namespace() string {
+	return e.namespace
+}
+
+func (e changeEvent) ChangedUUID() string {
+	return e.uuid
+}
