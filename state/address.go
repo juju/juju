@@ -280,9 +280,9 @@ func (st *State) apiHostPortsForCAAS(public bool) (addresses []network.SpaceHost
 		logger.Debugf("getting api hostports for CAAS: public %t, addresses %v", public, addresses)
 	}()
 
-	// if st.ModelUUID() != st.controllerModelTag.Id() {
-	// 	return nil, errors.Errorf("CAAS API host ports only available on the controller model, not %q", st.ModelUUID())
-	// }
+	if st.ModelUUID() != st.controllerModelTag.Id() {
+		return nil, errors.Errorf("CAAS API host ports only available on the controller model, not %q", st.ModelUUID())
+	}
 
 	controllerConfig, err := st.ControllerConfig()
 	if err != nil {
