@@ -22,11 +22,8 @@ type trackedDB struct {
 
 func (t *trackedDB) Txn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
 	return defaultTransactionRunner.Retry(ctx, func() error {
-		return errors.Trace(t.TxnNoRetry(ctx, fn))
+		return errors.Trace(defaultTransactionRunner.Txn(ctx, t.db, fn))
 	})
-}
-func (t *trackedDB) TxnNoRetry(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
-	return errors.Trace(defaultTransactionRunner.Txn(ctx, t.db, fn))
 }
 
 // TrackedDBFactory returns a DBFactory that returns the given database.

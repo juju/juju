@@ -17,9 +17,4 @@ type TrackedDB interface {
 	// This is the function that almost all downstream database consumers
 	// should use.
 	Txn(context.Context, func(context.Context, *sql.Tx) error) error
-
-	// TxnNoRetry executes the input function against the tracked database,
-	// within a transaction that depends on the input context.
-	// No retries are attempted.
-	TxnNoRetry(context.Context, func(context.Context, *sql.Tx) error) error
 }

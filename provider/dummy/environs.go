@@ -2151,9 +2151,6 @@ type trackedDB struct {
 
 func (t *trackedDB) Txn(ctx stdcontext.Context, fn func(stdcontext.Context, *sql.Tx) error) error {
 	return defaultTransactionRunner.Retry(ctx, func() error {
-		return errors.Trace(t.TxnNoRetry(ctx, fn))
+		return errors.Trace(defaultTransactionRunner.Txn(ctx, t.db, fn))
 	})
-}
-func (t *trackedDB) TxnNoRetry(ctx stdcontext.Context, fn func(stdcontext.Context, *sql.Tx) error) error {
-	return errors.Trace(defaultTransactionRunner.Txn(ctx, t.db, fn))
 }

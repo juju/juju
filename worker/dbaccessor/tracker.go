@@ -116,32 +116,25 @@ func NewTrackedDBWorker(ctx context.Context, dbApp DBApp, namespace string, opts
 // This is the function that almost all downstream database consumers
 // should use.
 func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
-	return database.Retry(w.tomb.Context(ctx), func() error {
-		return errors.Trace(w.TxnNoRetry(ctx, fn))
-	})
-}
+	return database.Retry(w.tomb.Context(ctx), func() (err error) {
+		begin := w.clock.Now()
+		w.metrics.TxnRequests.WithLabelValues(w.namespace).Inc()
+		w.metrics.DBRequests.WithLabelValues(w.namespace).Inc()
+		defer w.meterDBOpResult(begin, err)
 
-// TxnNoRetry executes the input function against the tracked database,
-// within a transaction that depends on the input context.
-// We meter both the total transaction count and active operations.
-func (w *trackedDBWorker) TxnNoRetry(ctx context.Context, fn func(context.Context, *sql.Tx) error) (err error) {
-	begin := w.clock.Now()
-	w.metrics.TxnRequests.WithLabelValues(w.namespace).Inc()
-	w.metrics.DBRequests.WithLabelValues(w.namespace).Inc()
-	defer w.meterDBOpResult(begin, err)
+		// If the DB health check failed, the worker's error will be set,
+		// and we will be without a usable database reference. Return the error.
+		w.mutex.RLock()
+		if w.err != nil {
+			w.mutex.RUnlock()
+			return errors.Trace(w.err)
+		}
 
-	// If the DB health check failed, the worker's error will be set,
-	// and we will be without a usable database reference. Return the error.
-	w.mutex.RLock()
-	if w.err != nil {
+		db := w.db
 		w.mutex.RUnlock()
-		return errors.Trace(w.err)
-	}
 
-	db := w.db
-	w.mutex.RUnlock()
-
-	return errors.Trace(database.Txn(w.tomb.Context(ctx), db, fn))
+		return errors.Trace(database.Txn(w.tomb.Context(ctx), db, fn))
+	})
 }
 
 // meterDBOpResults decrements the active DB operation count,
