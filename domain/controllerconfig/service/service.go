@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"github.com/juju/errors"
 	jujucontroller "github.com/juju/juju/controller"
 )
 
@@ -12,7 +13,6 @@ import (
 type State interface {
 	ControllerConfig(context.Context) (jujucontroller.Config, error)
 	UpdateControllerConfig(ctx context.Context, updateAttrs map[string]interface{}, removeAttrs []string) error
-	checkUpdateControllerConfig(ctx context.Context, name string) error
 }
 
 // Service defines a service for interacting with the underlying state.
@@ -27,17 +27,13 @@ func NewService(st State) *Service {
 	}
 }
 
-// ControllerConfig returns the controller config.
+// ControllerConfig returns the config values for the controller.
 func (s *Service) ControllerConfig(ctx context.Context) (jujucontroller.Config, error) {
 	return nil, nil
 }
 
 // UpdateControllerConfig updates the controller config.
 func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs map[string]interface{}, removeAttrs []string) error {
-	return nil
-}
-
-// checkUpdateControllerConfig checks the update controller config.
-func (s *Service) checkUpdateControllerConfig(ctx context.Context, name string) error {
-	return nil
+	err := s.st.UpdateControllerConfig(ctx, updateAttrs, removeAttrs)
+	return errors.Annotate(err, "updating controller config state")
 }
