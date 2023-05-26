@@ -83,7 +83,7 @@ func (s *trackedDBWorkerSuite) TestWorkerDBIsNotNil(c *gc.C) {
 
 	defer workertest.DirtyKill(c, w)
 
-	err = w.TxnNoRetry(context.Background(), func(_ context.Context, tx *sql.Tx) error {
+	err = w.StdTxn(context.Background(), func(_ context.Context, tx *sql.Tx) error {
 		if tx == nil {
 			return errors.New("nil transaction")
 		}
@@ -109,7 +109,7 @@ func (s *trackedDBWorkerSuite) TestWorkerTxnIsNotNil(c *gc.C) {
 	defer workertest.DirtyKill(c, w)
 
 	done := make(chan struct{})
-	err = w.Txn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = w.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		defer close(done)
 
 		c.Assert(tx, gc.NotNil)
@@ -349,7 +349,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
 	c.Assert(w.Wait(), gc.ErrorMatches, "boom")
 
 	// Ensure that the DB is dead.
-	err = w.Txn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = w.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		c.Fatal("failed if called")
 		return nil
 	})
@@ -381,7 +381,7 @@ func (s *trackedDBWorkerSuite) TestWorkerCancelsTxn(c *gc.C) {
 	}()
 
 	// Ensure that the DB is dead.
-	err = w.Txn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = w.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		close(sync)
 
 		select {
@@ -421,7 +421,7 @@ func (s *trackedDBWorkerSuite) TestWorkerCancelsTxnNoRetry(c *gc.C) {
 	}()
 
 	// Ensure that the DB is dead.
-	err = w.TxnNoRetry(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = w.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		close(sync)
 
 		select {
@@ -451,7 +451,7 @@ func readTableNames(c *gc.C, w coredatabase.TrackedDB) []string {
 	// Attempt to use the new db, note there shouldn't be any leases in this
 	// db.
 	var tables []string
-	err := w.Txn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := w.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.Query("SELECT tbl_name FROM sqlite_schema")
 		c.Assert(err, jc.ErrorIsNil)
 		defer rows.Close()

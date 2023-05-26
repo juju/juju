@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	_ "github.com/mattn/go-sqlite3"
@@ -36,7 +37,7 @@ func (s *ControllerSuite) SetUpTest(c *gc.C) {
 	s.db = s.NewCleanDB(c)
 
 	s.trackedDB = &trackedDB{
-		db: s.db,
+		db: sqlair.NewDB(s.db),
 	}
 
 	s.ApplyControllerDDL(c, s.db)

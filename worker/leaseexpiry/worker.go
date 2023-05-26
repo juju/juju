@@ -99,7 +99,7 @@ func (w *expiryWorker) loop() error {
 }
 
 func (w *expiryWorker) expireLeases(ctx context.Context) error {
-	err := w.trackedDB.TxnNoRetry(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err := w.trackedDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		res, err := tx.ExecContext(ctx, w.dml)
 		if err != nil {
 			// TODO (manadart 2022-12-15): This incarnation of the worker runs on

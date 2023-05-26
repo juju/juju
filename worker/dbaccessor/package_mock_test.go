@@ -9,6 +9,7 @@ import (
 	sql "database/sql"
 	reflect "reflect"
 
+	sqlair "github.com/canonical/sqlair"
 	gomock "github.com/golang/mock/gomock"
 	app "github.com/juju/juju/database/app"
 	dqlite "github.com/juju/juju/database/dqlite"
@@ -480,8 +481,22 @@ func (mr *MockTrackedDBMockRecorder) Kill() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Kill", reflect.TypeOf((*MockTrackedDB)(nil).Kill))
 }
 
+// StdTxn mocks base method.
+func (m *MockTrackedDB) StdTxn(arg0 context.Context, arg1 func(context.Context, *sql.Tx) error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StdTxn", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StdTxn indicates an expected call of StdTxn.
+func (mr *MockTrackedDBMockRecorder) StdTxn(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StdTxn", reflect.TypeOf((*MockTrackedDB)(nil).StdTxn), arg0, arg1)
+}
+
 // Txn mocks base method.
-func (m *MockTrackedDB) Txn(arg0 context.Context, arg1 func(context.Context, *sql.Tx) error) error {
+func (m *MockTrackedDB) Txn(arg0 context.Context, arg1 func(context.Context, *sqlair.TX) error) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Txn", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -492,20 +507,6 @@ func (m *MockTrackedDB) Txn(arg0 context.Context, arg1 func(context.Context, *sq
 func (mr *MockTrackedDBMockRecorder) Txn(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Txn", reflect.TypeOf((*MockTrackedDB)(nil).Txn), arg0, arg1)
-}
-
-// TxnNoRetry mocks base method.
-func (m *MockTrackedDB) TxnNoRetry(arg0 context.Context, arg1 func(context.Context, *sql.Tx) error) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TxnNoRetry", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// TxnNoRetry indicates an expected call of TxnNoRetry.
-func (mr *MockTrackedDBMockRecorder) TxnNoRetry(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TxnNoRetry", reflect.TypeOf((*MockTrackedDB)(nil).TxnNoRetry), arg0, arg1)
 }
 
 // Wait mocks base method.

@@ -277,7 +277,7 @@ func (s *Stream) readChanges() ([]changeEvent, error) {
 	defer cancel()
 
 	var changes []changeEvent
-	err := s.db.Txn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err := s.db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, query, s.lastID)
 		if err != nil {
 			return errors.Annotate(err, "querying for changes")

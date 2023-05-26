@@ -4,18 +4,12 @@
 package eventqueue
 
 import (
-	"context"
-	"database/sql"
-
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 )
 
 // TrackedDB describes the ability to run database transactions.
-type TrackedDB interface {
-	// Txn runs the input function in a new transaction, guarded with
-	// the input context, and using a default retry strategy.
-	Txn(context.Context, func(context.Context, *sql.Tx) error) error
-}
+type TrackedDB = database.TrackedDB
 
 // EventQueue describes the ability to subscribe
 // to a subset of events from a change stream.

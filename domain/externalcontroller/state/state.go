@@ -41,7 +41,7 @@ func (st *State) UpdateExternalController(ctx context.Context, ci crossmodel.Con
 		return errors.Trace(err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		q := `
 INSERT INTO external_controller (uuid, alias, ca_cert)
 VALUES (?, ?, ?)

@@ -35,7 +35,7 @@ func (s *State) Create(ctx context.Context, uuid service.UUID) error {
 		return errors.Trace(err)
 	}
 
-	return db.Txn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		stmt := "INSERT INTO model_list (uuid) VALUES (?);"
 		result, err := tx.ExecContext(ctx, stmt, uuid)
 		if err != nil {
@@ -59,7 +59,7 @@ func (s *State) Delete(ctx context.Context, uuid service.UUID) error {
 		return errors.Trace(err)
 	}
 
-	return db.Txn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		stmt := "DELETE FROM model_list WHERE uuid = ?;"
 		result, err := tx.ExecContext(ctx, stmt, uuid)
 		if err != nil {

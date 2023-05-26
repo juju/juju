@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
@@ -73,7 +74,7 @@ type trackedDBWorker struct {
 	namespace string
 
 	mutex sync.RWMutex
-	db    *sql.DB
+	db    *sqlair.DB
 	err   error
 
 	clock   clock.Clock
@@ -99,11 +100,11 @@ func NewTrackedDBWorker(ctx context.Context, dbApp DBApp, namespace string, opts
 		opt(w)
 	}
 
-	var err error
-	w.db, err = w.dbApp.Open(ctx, w.namespace)
+	db, err := w.dbApp.Open(ctx, w.namespace)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	w.db = sqlair.NewDB(db)
 
 	w.tomb.Go(w.loop)
 
@@ -115,33 +116,43 @@ func NewTrackedDBWorker(ctx context.Context, dbApp DBApp, namespace string, opts
 // Retry semantics are applied automatically based on transient failures.
 // This is the function that almost all downstream database consumers
 // should use.
-func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
-	return database.Retry(w.tomb.Context(ctx), func() error {
-		return errors.Trace(w.TxnNoRetry(ctx, fn))
+func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sqlair.TX) error) error {
+	return w.run(ctx, func(db *sqlair.DB) error {
+		return errors.Trace(database.Txn(w.tomb.Context(ctx), db, fn))
 	})
 }
 
-// TxnNoRetry executes the input function against the tracked database,
+// StdTxn executes the input function against the tracked database,
 // within a transaction that depends on the input context.
-// We meter both the total transaction count and active operations.
-func (w *trackedDBWorker) TxnNoRetry(ctx context.Context, fn func(context.Context, *sql.Tx) error) (err error) {
-	begin := w.clock.Now()
-	w.metrics.TxnRequests.WithLabelValues(w.namespace).Inc()
-	w.metrics.DBRequests.WithLabelValues(w.namespace).Inc()
-	defer w.meterDBOpResult(begin, err)
+// Retry semantics are applied automatically based on transient failures.
+// This is the function that almost all downstream database consumers
+// should use.
+func (w *trackedDBWorker) StdTxn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
+	return w.run(ctx, func(db *sqlair.DB) error {
+		return errors.Trace(database.StdTxn(w.tomb.Context(ctx), db.PlainDB(), fn))
+	})
+}
 
-	// If the DB health check failed, the worker's error will be set,
-	// and we will be without a usable database reference. Return the error.
-	w.mutex.RLock()
-	if w.err != nil {
+func (w *trackedDBWorker) run(ctx context.Context, fn func(*sqlair.DB) error) error {
+	return database.Retry(w.tomb.Context(ctx), func() (err error) {
+		begin := w.clock.Now()
+		w.metrics.TxnRequests.WithLabelValues(w.namespace).Inc()
+		w.metrics.DBRequests.WithLabelValues(w.namespace).Inc()
+		defer w.meterDBOpResult(begin, err)
+
+		// If the DB health check failed, the worker's error will be set,
+		// and we will be without a usable database reference. Return the error.
+		w.mutex.RLock()
+		if w.err != nil {
+			w.mutex.RUnlock()
+			return errors.Trace(w.err)
+		}
+
+		db := w.db
 		w.mutex.RUnlock()
-		return errors.Trace(w.err)
-	}
 
-	db := w.db
-	w.mutex.RUnlock()
-
-	return errors.Trace(database.Txn(w.tomb.Context(ctx), db, fn))
+		return fn(db)
+	})
 }
 
 // meterDBOpResults decrements the active DB operation count,
@@ -178,7 +189,7 @@ func (w *trackedDBWorker) loop() error {
 		if w.db == nil {
 			return
 		}
-		err := w.db.Close()
+		err := w.db.PlainDB().Close()
 		if err != nil {
 			w.logger.Debugf("Closed database connection: %v", err)
 		}
@@ -196,17 +207,17 @@ func (w *trackedDBWorker) loop() error {
 			// error returning here, we've either exhausted the number of
 			// retries or the error was fatal.
 			w.mutex.RLock()
-			currentDB := w.db
+			currentDB := w.db.PlainDB()
 			w.mutex.RUnlock()
 
 			newDB, err := w.ensureDBAliveAndOpenIfRequired(currentDB)
 			if err != nil {
 				// If we get an error, ensure we close the underlying db and
 				// mark the tracked db in an error state.
-				w.mutex.Lock()
-				if err := w.db.Close(); err != nil {
+				if err := currentDB.Close(); err != nil {
 					w.logger.Errorf("error closing database: %v", err)
 				}
+				w.mutex.Lock()
 				w.err = errors.Trace(err)
 				w.mutex.Unlock()
 
@@ -220,10 +231,10 @@ func (w *trackedDBWorker) loop() error {
 			// new one, if they're not the same.
 			if newDB != currentDB {
 				w.mutex.Lock()
-				if err := w.db.Close(); err != nil {
+				if err := currentDB.Close(); err != nil {
 					w.logger.Errorf("error closing database: %v", err)
 				}
-				w.db = newDB
+				w.db = sqlair.NewDB(newDB)
 				w.report.Set(func(r *report) {
 					r.dbReplacements++
 				})

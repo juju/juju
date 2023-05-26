@@ -108,7 +108,7 @@ func (s *integrationSuite) TestWorkerAccessingUnknownDB(c *gc.C) {
 func (s *integrationSuite) TestWorkerAccessingKnownDB(c *gc.C) {
 	db, err := s.dbManager.GetDB(coredatabase.ControllerNS)
 	c.Assert(err, jc.ErrorIsNil)
-	err = db.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+	err = db.StdTxn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO model_list (uuid) VALUES ("bar")`)
 		return err
 	})
@@ -133,7 +133,7 @@ func (s *integrationSuite) TestWorkerDeletingUnknownDB(c *gc.C) {
 func (s *integrationSuite) TestWorkerDeletingKnownDB(c *gc.C) {
 	ctrlDB, err := s.dbManager.GetDB(coredatabase.ControllerNS)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctrlDB.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+	err = ctrlDB.StdTxn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO model_list (uuid) VALUES ("baz")`)
 		return err
 	})
@@ -145,7 +145,7 @@ func (s *integrationSuite) TestWorkerDeletingKnownDB(c *gc.C) {
 
 	// We need to unsure that we remove the namespace from the model list.
 	// Otherwise, the db will be recreated on the next call to GetDB.
-	err = ctrlDB.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+	err = ctrlDB.StdTxn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `DELETE FROM model_list WHERE uuid = "baz"`)
 		return errors.Cause(err)
 	})
@@ -164,7 +164,7 @@ func (s *integrationSuite) TestWorkerDeletingKnownDB(c *gc.C) {
 func (s *integrationSuite) TestWorkerDeletingKnownDBWithoutGetFirst(c *gc.C) {
 	ctrlDB, err := s.dbManager.GetDB(coredatabase.ControllerNS)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctrlDB.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+	err = ctrlDB.StdTxn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO model_list (uuid) VALUES ("fred")`)
 		return err
 	})
@@ -172,7 +172,7 @@ func (s *integrationSuite) TestWorkerDeletingKnownDBWithoutGetFirst(c *gc.C) {
 
 	// We need to unsure that we remove the namespace from the model list.
 	// Otherwise, the db will be recreated on the next call to GetDB.
-	err = ctrlDB.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+	err = ctrlDB.StdTxn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `DELETE FROM model_list WHERE uuid = "fred"`)
 		return err
 	})
