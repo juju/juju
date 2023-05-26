@@ -71,7 +71,7 @@ WHERE key = ?`[1:]
 INSERT INTO controller_config (key, value)
 VALUES (?, ?)
   ON CONFLICT(key) DO UPDATE SET value=?`[1:]
-			if _, err := tx.ExecContext(ctx, q, k, updateAttrs[k]); err != nil {
+			if _, err := tx.ExecContext(ctx, q, k, updateAttrs[k], updateAttrs[k]); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -80,15 +80,4 @@ VALUES (?, ?)
 	})
 
 	return errors.Trace(err)
-}
-
-// checkUpdateControllerConfig checks that the given name is a valid.
-func checkUpdateControllerConfig(name string) error {
-	if !jujucontroller.ControllerOnlyAttribute(name) {
-		return errors.Errorf("unknown controller config setting %q", name)
-	}
-	if !jujucontroller.AllowedUpdateConfigAttributes.Contains(name) {
-		return errors.Errorf("can't change %q after bootstrap", name)
-	}
-	return nil
 }

@@ -37,3 +37,14 @@ func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs map[st
 	err := s.st.UpdateControllerConfig(ctx, updateAttrs, removeAttrs)
 	return errors.Annotate(err, "updating controller config state")
 }
+
+// checkUpdateControllerConfig checks that the given name is a valid.
+func checkUpdateControllerConfig(name string) error {
+	if !jujucontroller.ControllerOnlyAttribute(name) {
+		return errors.Errorf("unknown controller config setting %q", name)
+	}
+	if !jujucontroller.AllowedUpdateConfigAttributes.Contains(name) {
+		return errors.Errorf("can't change %q after bootstrap", name)
+	}
+	return nil
+}
