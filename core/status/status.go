@@ -119,8 +119,6 @@ const (
 	// state of the software itself.
 
 	// Unset is only for applications, and is a placeholder status.
-	// The core/cache package deals with aggregating the unit status
-	// to the application level.
 	Unset Status = "unset"
 
 	// Maintenance is set when:
