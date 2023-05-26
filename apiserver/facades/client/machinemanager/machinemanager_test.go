@@ -937,7 +937,7 @@ func (s *UpgradeSeriesMachineManagerSuite) expectValidateMachine(ctrl *gomock.Co
 func (s *UpgradeSeriesMachineManagerSuite) expectValidateApplicationOnMachine(ctrl *gomock.Controller) *mocks.MockApplication {
 	app := mocks.NewMockApplication(ctrl)
 	ch := mocks.NewMockCharm(ctrl)
-	ch.EXPECT().Manifest().Return(&charm.Manifest{}).AnyTimes()
+	ch.EXPECT().Manifest().Return(nil).AnyTimes()
 	ch.EXPECT().Meta().Return(&charm.Meta{Series: []string{"jammy"}}).AnyTimes()
 	app.EXPECT().Charm().Return(ch, true, nil)
 	app.EXPECT().CharmOrigin().Return(&state.CharmOrigin{})

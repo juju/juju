@@ -317,10 +317,11 @@ func (s *CleanupSuite) TestCleanupModelOffers(c *gc.C) {
 		},
 	}
 	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        "remote-wordpress",
-		SourceModel: s.Model.ModelTag(),
-		Token:       "t0",
-		Endpoints:   wordpressEps,
+		Name:            "remote-wordpress",
+		SourceModel:     s.Model.ModelTag(),
+		IsConsumerProxy: true,
+		Token:           "t0",
+		Endpoints:       wordpressEps,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -383,14 +384,12 @@ func (s *CleanupSuite) TestCleanupModelOffers(c *gc.C) {
 		c.Assert(unit.Life(), gc.Equals, state.Alive)
 	}
 
-	s.assertCleanupCount(c, 2)
-
+	s.assertCleanupCount(c, 3)
 	allOffers, err := offers.ListOffers()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allOffers, gc.HasLen, 0)
-	wordpress, err := s.State.RemoteApplication("remote-wordpress")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(wordpress.Life(), gc.Equals, state.Dying)
+	_, err = s.State.RemoteApplication("remote-wordpress")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {

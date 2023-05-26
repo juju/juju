@@ -42,6 +42,7 @@ func newMigrationMasterFacade(ctx facade.Context) (*API, error) {
 	}
 
 	return NewAPI(
+		controllerState,
 		newBacked(modelState),
 		preCheckBackend,
 		migration.PoolShim(pool),

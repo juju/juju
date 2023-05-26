@@ -38,8 +38,9 @@ import (
 type Suite struct {
 	coretesting.BaseSuite
 
-	backend         *mocks.MockBackend
-	precheckBackend *mocks.MockPrecheckBackend
+	controllerBackend *mocks.MockControllerState
+	backend           *mocks.MockBackend
+	precheckBackend   *mocks.MockPrecheckBackend
 
 	controllerUUID string
 	modelUUID      string
@@ -193,7 +194,7 @@ func (s *Suite) TestSourceControllerInfo(c *gc.C) {
 		},
 		NetPort: 666,
 	}}}
-	s.backend.EXPECT().APIHostPortsForClients().Return(apiAddr, nil)
+	s.controllerBackend.EXPECT().APIHostPortsForClients().Return(apiAddr, nil)
 
 	info, err := s.mustMakeAPI(c).SourceControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
@@ -574,6 +575,7 @@ func (s *Suite) TestMinionReportTimeout(c *gc.C) {
 func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.controllerBackend = mocks.NewMockControllerState(ctrl)
 	s.backend = mocks.NewMockBackend(ctrl)
 	s.precheckBackend = mocks.NewMockPrecheckBackend(ctrl)
 	return ctrl
@@ -587,6 +589,7 @@ func (s *Suite) mustMakeAPI(c *gc.C) *migrationmaster.API {
 
 func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 	return migrationmaster.NewAPI(
+		s.controllerBackend,
 		s.backend,
 		s.precheckBackend,
 		nil, // pool
