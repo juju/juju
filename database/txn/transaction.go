@@ -6,6 +6,7 @@ package txn
 import (
 	"context"
 	"database/sql"
+	"runtime"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/retry"
+	"golang.org/x/sync/semaphore"
 )
 
 // Logger describes methods for emitting log output.
@@ -60,10 +62,27 @@ func WithRetryStrategy(retryStrategy RetryStrategy) Option {
 	}
 }
 
+// WithNumParallelTxns defines the number of parallel transactions that can
+// be executed at any given time. This is useful for limiting the number of
+// transactions that can be executed at any given time.
+//
+// If the value is less than 1, then no semaphore will be used.
+func WithNumParallelTxns(v int) Option {
+	return func(o *option) {
+		if v < 1 {
+			o.semaphore = noopSemaphore{}
+			return
+		}
+
+		o.semaphore = semaphore.NewWeighted(int64(runtime.GOMAXPROCS(0)))
+	}
+}
+
 type option struct {
 	timeout       time.Duration
 	logger        Logger
 	retryStrategy RetryStrategy
+	semaphore     Semaphore
 }
 
 func newOptions() *option {
@@ -72,7 +91,15 @@ func newOptions() *option {
 		timeout:       DefaultTimeout,
 		logger:        logger,
 		retryStrategy: defaultRetryStrategy(clock.WallClock, logger),
+		semaphore:     semaphore.NewWeighted(int64(runtime.GOMAXPROCS(0))),
 	}
+}
+
+// Semaphore defines a semaphore interface for limiting the number of
+// transactions that can be executed at any given time.
+type Semaphore interface {
+	Acquire(context.Context, int64) error
+	Release(int64)
 }
 
 // TransactionRunner defines a generic transactioner for applying transactions
@@ -82,6 +109,7 @@ type TransactionRunner struct {
 	timeout       time.Duration
 	logger        Logger
 	retryStrategy RetryStrategy
+	semaphore     Semaphore
 }
 
 // NewTransactionRunner returns a new TransactionRunner.
@@ -95,6 +123,7 @@ func NewTransactionRunner(opts ...Option) *TransactionRunner {
 		timeout:       o.timeout,
 		logger:        o.logger,
 		retryStrategy: o.retryStrategy,
+		semaphore:     o.semaphore,
 	}
 }
 
@@ -111,23 +140,25 @@ func (t *TransactionRunner) Txn(ctx context.Context, db *sqlair.DB, fn func(cont
 	ctx, cancel := context.WithTimeout(ctx, t.timeout)
 	defer cancel()
 
-	tx, err := db.Begin(ctx, nil)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := fn(ctx, tx); err != nil {
-		if rErr := t.retryStrategy(ctx, tx.Rollback); rErr != nil {
-			t.logger.Warningf("failed to rollback transaction: %v", rErr)
+	return t.run(ctx, func(ctx context.Context) error {
+		tx, err := db.Begin(ctx, nil)
+		if err != nil {
+			return errors.Trace(err)
 		}
-		return errors.Trace(err)
-	}
 
-	if err := tx.Commit(); err != nil && err != sql.ErrTxDone {
-		return errors.Trace(err)
-	}
+		if err := fn(ctx, tx); err != nil {
+			if rErr := t.retryStrategy(ctx, tx.Rollback); rErr != nil {
+				t.logger.Warningf("failed to rollback transaction: %v", rErr)
+			}
+			return errors.Trace(err)
+		}
 
-	return nil
+		if err := tx.Commit(); err != nil && err != sql.ErrTxDone {
+			return errors.Trace(err)
+		}
+
+		return nil
+	})
 }
 
 // StdTxn executes the input function against the tracked database,
@@ -142,23 +173,25 @@ func (t *TransactionRunner) StdTxn(ctx context.Context, db *sql.DB, fn func(cont
 	ctx, cancel := context.WithTimeout(ctx, t.timeout)
 	defer cancel()
 
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := fn(ctx, tx); err != nil {
-		if rErr := t.retryStrategy(ctx, tx.Rollback); rErr != nil {
-			t.logger.Warningf("failed to rollback transaction: %v", rErr)
+	return t.run(ctx, func(ctx context.Context) error {
+		tx, err := db.BeginTx(ctx, nil)
+		if err != nil {
+			return errors.Trace(err)
 		}
-		return errors.Trace(err)
-	}
 
-	if err := tx.Commit(); err != nil && err != sql.ErrTxDone {
-		return errors.Trace(err)
-	}
+		if err := fn(ctx, tx); err != nil {
+			if rErr := t.retryStrategy(ctx, tx.Rollback); rErr != nil {
+				t.logger.Warningf("failed to rollback transaction: %v", rErr)
+			}
+			return errors.Trace(err)
+		}
 
-	return nil
+		if err := tx.Commit(); err != nil && err != sql.ErrTxDone {
+			return errors.Trace(err)
+		}
+
+		return nil
+	})
 }
 
 // Retry defines a generic retry function for applying a function that
@@ -166,6 +199,25 @@ func (t *TransactionRunner) StdTxn(ctx context.Context, db *sql.DB, fn func(cont
 // database errors.
 func (t *TransactionRunner) Retry(ctx context.Context, fn func() error) error {
 	return t.retryStrategy(ctx, fn)
+}
+
+// run will execute the input function if there is a semaphore slot available.
+func (t *TransactionRunner) run(ctx context.Context, fn func(context.Context) error) error {
+	if err := t.semaphore.Acquire(ctx, 1); err != nil {
+		return errors.Trace(err)
+	}
+	defer t.semaphore.Release(1)
+
+	// If the context is already done then return early. This is because the
+	// semaphore.Acquire call above will only cancel and return if it's waiting.
+	// Otherwise it will just allow the function to continue. So check here
+	// early before we start the function.
+	// https://pkg.go.dev/golang.org/x/sync/semaphore#Weighted.Acquire
+	if err := ctx.Err(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return fn(ctx)
 }
 
 // defaultRetryStrategy returns a function that can be used to apply a default
@@ -202,3 +254,11 @@ func defaultRetryStrategy(clock clock.Clock, logger Logger) func(context.Context
 		return errors.Trace(err)
 	}
 }
+
+type noopSemaphore struct{}
+
+func (s noopSemaphore) Acquire(ctx context.Context, n int64) error {
+	return nil
+}
+
+func (s noopSemaphore) Release(n int64) {}
