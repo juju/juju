@@ -55,7 +55,7 @@ func (st *State) UpdateControllerConfig(ctx context.Context, updateAttrs map[str
 	}
 
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		// Remove the attributes first, so that we don't end up with
+		// Remove the attributes
 		for _, r := range removeAttrs {
 			q := `
 DELETE FROM controller_config
@@ -65,6 +65,7 @@ WHERE key = ?`[1:]
 			}
 		}
 
+		// Update the attributes.
 		for k := range updateAttrs {
 			q := `
 INSERT INTO controller_config (key, value)
@@ -81,6 +82,7 @@ VALUES (?, ?)
 	return errors.Trace(err)
 }
 
+// checkUpdateControllerConfig checks that the given name is a valid.
 func checkUpdateControllerConfig(name string) error {
 	if !jujucontroller.ControllerOnlyAttribute(name) {
 		return errors.Errorf("unknown controller config setting %q", name)
