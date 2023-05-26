@@ -18,7 +18,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/websocket/websockettest"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -26,7 +28,7 @@ import (
 )
 
 type pubsubSuite struct {
-	apiserverBaseSuite
+	jujutesting.ApiServerSuite
 	machineTag names.Tag
 	password   string
 	nonce      string
@@ -37,23 +39,20 @@ type pubsubSuite struct {
 var _ = gc.Suite(&pubsubSuite{})
 
 func (s *pubsubSuite) SetUpTest(c *gc.C) {
-	s.apiserverBaseSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
 	s.nonce = "nonce"
-	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+	m, password := f.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce: s.nonce,
 		Jobs:  []state.MachineJob{state.JobManageModel},
 	})
 	s.machineTag = m.Tag()
 	s.password = password
-	s.hub = s.config.Hub
+	s.hub = apiserver.CentralHub(s.Server)
 
-	address := s.server.Listener.Addr().String()
-	path := fmt.Sprintf("/model/%s/pubsub", s.State.ModelUUID())
-	pubsubURL := &url.URL{
-		Scheme: "wss",
-		Host:   address,
-		Path:   path,
-	}
+	pubsubURL := s.URL(fmt.Sprintf("/model/%s/pubsub", s.ControllerModelUUID()), url.Values{})
+	pubsubURL.Scheme = "wss"
 	s.pubsubURL = pubsubURL.String()
 }
 
@@ -62,13 +61,17 @@ func (s *pubsubSuite) TestNoAuth(c *gc.C) {
 }
 
 func (s *pubsubSuite) TestRejectsUserLogins(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "sekrit"})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	user := f.MakeUser(c, &factory.UserParams{Password: "sekrit"})
 	header := jujuhttp.BasicAuthHeader(user.Tag().String(), "sekrit")
 	s.checkAuthFails(c, header, http.StatusForbidden, "authorization failed: user username-.* is not a controller")
 }
 
 func (s *pubsubSuite) TestRejectsNonServerMachineLogins(c *gc.C) {
-	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	m, password := f.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce: "a-nonce",
 		Jobs:  []state.MachineJob{state.JobHostUnits},
 	})

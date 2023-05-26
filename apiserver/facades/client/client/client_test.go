@@ -19,11 +19,8 @@ import (
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/facades/client/client/mocks"
-	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
@@ -36,62 +33,15 @@ import (
 	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/docker/registry/image"
 	registrymocks "github.com/juju/juju/docker/registry/mocks"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/rpc"
+	jjtesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/tools"
 )
-
-type serverSuite struct {
-	baseSuite
-	client     *client.Client
-	newEnviron func() (environs.BootstrapEnviron, error)
-}
-
-var _ = gc.Suite(&serverSuite{})
-
-func (s *serverSuite) SetUpTest(c *gc.C) {
-	s.ConfigAttrs = map[string]interface{}{
-		"authorized-keys": coretesting.FakeAuthKeys,
-	}
-	s.baseSuite.SetUpTest(c)
-	s.client = s.clientForState(c, s.State)
-}
-
-func (s *serverSuite) authClientForState(c *gc.C, st *state.State, auth facade.Authorizer) *client.Client {
-	context := &facadetest.Context{
-		State_:     st,
-		StatePool_: s.StatePool,
-		Auth_:      auth,
-		Resources_: common.NewResources(),
-	}
-	apiserverClient, err := client.NewFacade(context)
-	c.Assert(err, jc.ErrorIsNil)
-
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.newEnviron = func() (environs.BootstrapEnviron, error) {
-		return environs.GetEnviron(stateenvirons.EnvironConfigGetter{Model: m}, environs.New)
-	}
-	client.SetNewEnviron(apiserverClient, func() (environs.BootstrapEnviron, error) {
-		return s.newEnviron()
-	})
-	return apiserverClient
-}
-
-func (s *serverSuite) clientForState(c *gc.C, st *state.State) *client.Client {
-	return s.authClientForState(c, st, testing.FakeAuthorizer{
-		Tag:        s.AdminUserTag(c),
-		Controller: true,
-	})
-}
 
 type clientSuite struct {
 	baseSuite
@@ -102,11 +52,12 @@ type clientSuite struct {
 func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
 
+	st := s.ControllerModel(c).State()
 	var err error
-	s.mgmtSpace, err = s.State.AddSpace("mgmt01", "", nil, false)
+	s.mgmtSpace, err = st.AddSpace("mgmt01", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.UpdateControllerConfig(map[string]interface{}{controller.JujuManagementSpace: "mgmt01"}, nil)
+	err = st.UpdateControllerConfig(map[string]interface{}{controller.JujuManagementSpace: "mgmt01"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -191,7 +142,8 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 	loggo.GetLogger("juju.core.cache").SetLogLevel(loggo.TRACE)
 	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
 	s.setUpScenario(c)
-	status, err := apiclient.NewClient(s.APIState).Status(nil)
+	conn := s.OpenModelAPIAs(c, s.ControllerModelUUID(), jjtesting.AdminUser, defaultPassword(jjtesting.AdminUser), "")
+	status, err := apiclient.NewClient(conn).Status(nil)
 	clearSinceTimes(status)
 	clearContollerTimestamp(status)
 	c.Assert(err, jc.ErrorIsNil)
@@ -200,26 +152,41 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 
 func (s *clientSuite) TestClientStatusControllerTimestamp(c *gc.C) {
 	s.setUpScenario(c)
-	status, err := apiclient.NewClient(s.APIState).Status(nil)
+	conn := s.OpenModelAPIAs(c, s.ControllerModelUUID(), jjtesting.AdminUser, defaultPassword(jjtesting.AdminUser), "")
+	status, err := apiclient.NewClient(conn).Status(nil)
 	clearSinceTimes(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.ControllerTimestamp, gc.NotNil)
 }
 
-func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
+var _ = gc.Suite(&clientWatchSuite{})
+
+type clientWatchSuite struct {
+	clientSuite
+}
+
+func (s *clientWatchSuite) SetUpTest(c *gc.C) {
+	s.ApiServerSuite.WithMultiWatcher = true
+	s.clientSuite.SetUpTest(c)
+}
+
+func (s *clientWatchSuite) TestClientWatchAllReadPermission(c *gc.C) {
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	// A very simple end-to-end test, because
 	// all the logic is tested elsewhere.
-	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
+	m, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetProvisioned("i-0", "", agent.BootstrapNonce, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	user := s.Factory.MakeUser(c, &factory.UserParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	user := f.MakeUser(c, &factory.UserParams{
 		Password: "ro-password",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	roClient := apiclient.NewClient(s.OpenAPIAs(c, user.UserTag(), "ro-password"))
+	conn := s.OpenModelAPIAs(c, s.ControllerModelUUID(), user.UserTag(), "ro-password", "")
+	roClient := apiclient.NewClient(conn)
 	defer roClient.Close()
 
 	watcher, err := roClient.WatchAll()
@@ -242,7 +209,7 @@ func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
 
 	machineReady := func(got *params.MachineInfo) bool {
 		equal, _ := jc.DeepEqual(got, &params.MachineInfo{
-			ModelUUID:  s.State.ModelUUID(),
+			ModelUUID:  s.ControllerModelUUID(),
 			Id:         m.Id(),
 			InstanceId: "i-0",
 			AgentStatus: params.StatusInfo{
@@ -291,18 +258,19 @@ func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
 	}
 }
 
-func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
+func (s *clientWatchSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
 	// A very simple end-to-end test, because
 	// all the logic is tested elsewhere.
-	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
+	st := s.ControllerModel(c).State()
+	m, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetProvisioned("i-0", "", agent.BootstrapNonce, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Include a remote app that needs admin access to see.
 
-	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+	_, err = st.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "remote-db2",
 		OfferUUID:   "offer-uuid",
 		URL:         "admin/prod.db2",
@@ -318,7 +286,8 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	watcher, err := apiclient.NewClient(s.APIState).WatchAll()
+	conn := s.OpenControllerModelAPI(c)
+	watcher, err := apiclient.NewClient(conn).WatchAll()
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		err := watcher.Stop()
@@ -338,7 +307,7 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 
 	machineReady := func(got *params.MachineInfo) bool {
 		equal, _ := jc.DeepEqual(got, &params.MachineInfo{
-			ModelUUID:  s.State.ModelUUID(),
+			ModelUUID:  st.ModelUUID(),
 			Id:         m.Id(),
 			InstanceId: "i-0",
 			AgentStatus: params.StatusInfo{
@@ -361,7 +330,7 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	appReady := func(got *params.RemoteApplicationUpdate) bool {
 		equal, _ := jc.DeepEqual(got, &params.RemoteApplicationUpdate{
 			Name:      "remote-db2",
-			ModelUUID: s.State.ModelUUID(),
+			ModelUUID: st.ModelUUID(),
 			OfferUUID: "offer-uuid",
 			OfferURL:  "admin/prod.db2",
 			Life:      "alive",
@@ -408,14 +377,6 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 			c.Fatal("timed out waiting for watcher deltas to be ready")
 		}
 	}
-}
-
-func (s *clientSuite) AssertBlocked(c *gc.C, err error, msg string) {
-	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, gc.Commentf("error: %#v", err))
-	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: msg,
-		Code:    "operation is blocked",
-	})
 }
 
 type findToolsSuite struct {

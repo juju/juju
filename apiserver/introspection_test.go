@@ -6,17 +6,19 @@ package apiserver_test
 import (
 	"io"
 	"net/http"
+	"net/url"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
 
 type introspectionSuite struct {
-	apiserverBaseSuite
+	testing.ApiServerSuite
 	bob *state.User
 	url string
 }
@@ -24,22 +26,24 @@ type introspectionSuite struct {
 var _ = gc.Suite(&introspectionSuite{})
 
 func (s *introspectionSuite) SetUpTest(c *gc.C) {
-	s.apiserverBaseSuite.SetUpTest(c)
-	bob, err := s.State.AddUser("bob", "", "hunter2", "admin")
+	s.WithIntrospection = func(f func(path string, h http.Handler)) {
+		f("navel", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			io.WriteString(w, "gazing")
+		}))
+	}
+	s.ApiServerSuite.SetUpTest(c)
+	bob, err := s.ControllerModel(c).State().AddUser("bob", "", "hunter2", "admin")
 	c.Assert(err, jc.ErrorIsNil)
 	s.bob = bob
-	s.url = s.server.URL + "/introspection/navel"
+	s.url = s.URL("/introspection/navel", url.Values{}).String()
 }
 
 func (s *introspectionSuite) TestAccess(c *gc.C) {
-	s.testAccess(c, s.Owner.String(), ownerPassword)
-
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = model.AddUser(
+	s.testAccess(c, testing.AdminUser.String(), testing.AdminSecret)
+	_, err := s.ControllerModel(c).AddUser(
 		state.UserAccessSpec{
 			User:      s.bob.UserTag(),
-			CreatedBy: s.Owner,
+			CreatedBy: testing.AdminUser,
 			Access:    permission.ReadAccess,
 		},
 	)

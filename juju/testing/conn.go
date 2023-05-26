@@ -126,8 +126,6 @@ type JujuConnSuite struct {
 	ProviderCallContext envcontext.ProviderCallContext
 }
 
-const AdminSecret = "dummy-secret"
-
 func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)

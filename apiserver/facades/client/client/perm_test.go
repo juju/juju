@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -55,6 +56,17 @@ func (s *permSuite) SetUpTest(c *gc.C) {
 	client.SkipReplicaCheck(s)
 }
 
+type watcherPermSuite struct {
+	permSuite
+}
+
+var _ = gc.Suite(&watcherPermSuite{})
+
+func (s *watcherPermSuite) SetUpTest(c *gc.C) {
+	s.ApiServerSuite.WithMultiWatcher = true
+	s.permSuite.SetUpTest(c)
+}
+
 func (s *permSuite) TestOperationPermClientSetApplicationConstraints(c *gc.C) {
 	s.testOperationPerm(c, opClientSetApplicationConstraints)
 }
@@ -71,7 +83,7 @@ func (s *permSuite) TestOperationPermClientModelSet(c *gc.C) {
 	s.testOperationPerm(c, opClientModelSet)
 }
 
-func (s *permSuite) TestOperationPermClientWatchAll(c *gc.C) {
+func (s *watcherPermSuite) TestOperationPermClientWatchAll(c *gc.C) {
 	s.testOperationPerm(c, opClientWatchAll)
 }
 
@@ -143,11 +155,11 @@ func (s *permSuite) testOperationPerm(
 	c *gc.C,
 	op func(c *gc.C, st api.Connection, mst *state.State) (reset func(), err error),
 ) {
-	allow := allowed([]names.Tag{s.AdminUserTag(c), names.NewLocalUserTag("other")})
+	allow := allowed([]names.Tag{testing.AdminUser, names.NewLocalUserTag("other")})
 	for j, e := range s.setUpScenario(c) {
 		c.Logf("\n------\ntest %d; entity %q", j, e)
 		st := s.openAs(c, e)
-		reset, err := op(c, st, s.State)
+		reset, err := op(c, st, s.ControllerModel(c).State())
 		if allow[e] {
 			c.Check(err, jc.ErrorIsNil)
 		} else {

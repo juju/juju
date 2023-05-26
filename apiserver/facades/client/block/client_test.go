@@ -17,23 +17,23 @@ import (
 )
 
 type blockSuite struct {
-	// TODO(anastasiamac) mock to remove JujuConnSuite
-	jujutesting.JujuConnSuite
+	// TODO(anastasiamac) mock to remove ApiServerSuite
+	jujutesting.ApiServerSuite
 	api *block.API
 }
 
 var _ = gc.Suite(&blockSuite{})
 
 func (s *blockSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 
 	var err error
 	auth := testing.FakeAuthorizer{
-		Tag:        s.AdminUserTag(c),
+		Tag:        jujutesting.AdminUser,
 		Controller: true,
 	}
 	s.api, err = block.NewAPI(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: common.NewResources(),
 		Auth_:      auth,
 	})

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"github.com/lestrrat-go/jwx/v2/jwt"
@@ -199,6 +200,21 @@ func PatchGetControllerCACert(p Patcher, caCert string) {
 // to allow tests to hold a server open.
 func ServerWaitGroup(server *Server) *sync.WaitGroup {
 	return &server.wg
+}
+
+// SetAllowModelAccess updates the server's allowModelAccess attribute.
+func SetAllowModelAccess(server *Server, allow bool) {
+	server.allowModelAccess = allow
+}
+
+// DataDir exposes the server data dir.
+func DataDir(server *Server) string {
+	return server.dataDir
+}
+
+// CentralHub exposes the server central hub.
+func CentralHub(server *Server) *pubsub.StructuredHub {
+	return server.shared.centralHub.(*pubsub.StructuredHub)
 }
 
 // Patcher defines an interface that matches the PatchValue method on

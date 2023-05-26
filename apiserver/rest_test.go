@@ -14,12 +14,14 @@ import (
 	"runtime"
 
 	"github.com/juju/charm/v10"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -27,7 +29,7 @@ import (
 )
 
 type restCommonSuite struct {
-	apiserverBaseSuite
+	jujutesting.ApiServerSuite
 }
 
 func (s *restCommonSuite) restURL(modelUUID, path string) *url.URL {
@@ -70,7 +72,7 @@ func (s *restSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *restSuite) TestRestServedSecurely(c *gc.C) {
-	url := s.restURL(s.State.ModelUUID(), "")
+	url := s.restURL(s.ControllerModelUUID(), "")
 	url.Scheme = "http"
 	apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:       "GET",
@@ -80,19 +82,19 @@ func (s *restSuite) TestRestServedSecurely(c *gc.C) {
 }
 
 func (s *restSuite) TestGETRequiresAuth(c *gc.C) {
-	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: s.restURI(s.State.ModelUUID(), "entity/name/attribute")})
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: s.restURI(s.ControllerModelUUID(), "entity/name/attribute")})
 	body := apitesting.AssertResponse(c, resp, http.StatusUnauthorized, "text/plain; charset=utf-8")
 	c.Assert(string(body), gc.Equals, "authentication failed: no credentials provided\n")
 }
 
 func (s *restSuite) TestRequiresGET(c *gc.C) {
-	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.restURI(s.State.ModelUUID(), "entity/name/attribute")})
+	resp := sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.restURI(s.ControllerModelUUID(), "entity/name/attribute")})
 	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "POST"`)
 }
 
 func (s *restSuite) TestGetReturnsNotFoundWhenMissing(c *gc.C) {
-	uri := s.restURI(s.State.ModelUUID(), "remote-application/foo/attribute")
-	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
+	uri := s.restURI(s.ControllerModelUUID(), "remote-application/foo/attribute")
+	resp := sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
 	s.assertErrorResponse(
 		c, resp, http.StatusNotFound,
 		`cannot retrieve model data: saas application "foo" not found`,
@@ -100,7 +102,7 @@ func (s *restSuite) TestGetReturnsNotFoundWhenMissing(c *gc.C) {
 }
 
 func (s *restSuite) charmsURI(query string) string {
-	url := s.URL(fmt.Sprintf("/model/%s/charms", s.State.ModelUUID()), nil)
+	url := s.URL(fmt.Sprintf("/model/%s/charms", s.ControllerModelUUID()), nil)
 	url.RawQuery = query
 	return url.String()
 }
@@ -112,7 +114,7 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 	file, err := os.Open(ch.Path)
 	c.Assert(err, jc.ErrorIsNil)
 	defer file.Close()
-	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{
+	resp := sendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:      "POST",
 		URL:         s.charmsURI("series=quantal"),
 		ContentType: "application/zip",
@@ -122,9 +124,9 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 
 	curl, err := charm.ParseURL(fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()))
 	c.Assert(err, jc.ErrorIsNil)
-	mysqlCh, err := s.State.Charm(curl)
+	mysqlCh, err := s.ControllerModel(c).State().Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddApplication(state.AddApplicationArgs{
+	_, err = s.ControllerModel(c).State().AddApplication(state.AddApplicationArgs{
 		Name:        "mysql",
 		Charm:       mysqlCh,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
@@ -132,19 +134,21 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add an offer for the application.
-	offers := state.NewApplicationOffers(s.State)
+	offers := state.NewApplicationOffers(s.ControllerModel(c).State())
 	offer, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "remote-app-offer",
 		ApplicationName: "mysql",
-		Owner:           s.Owner.Id(),
+		Owner:           "admin",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	// Set up a charm entry for dummy app with no charm in storage.
-	dummyCh := s.Factory.MakeCharm(c, &factory.CharmParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	release()
+	dummyCh := f.MakeCharm(c, &factory.CharmParams{
 		Name: "dummy",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddApplication(state.AddApplicationArgs{
+	_, err = s.ControllerModel(c).State().AddApplication(state.AddApplicationArgs{
 		Name:        "dummy",
 		Charm:       dummyCh,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
@@ -153,22 +157,22 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 	offer2, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "notfound-remote-app-offer",
 		ApplicationName: "dummy",
-		Owner:           s.Owner.Id(),
+		Owner:           "admin",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add remote applications to other model which we will query below.
-	otherModelState := s.Factory.MakeModel(c, nil)
+	otherModelState := f.MakeModel(c, nil)
 	defer otherModelState.Close()
 	_, err = otherModelState.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "remote-app",
-		SourceModel: s.Model.ModelTag(),
+		SourceModel: names.NewModelTag(s.ControllerModelUUID()),
 		OfferUUID:   offer.OfferUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = otherModelState.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "notfound-remote-app",
-		SourceModel: s.Model.ModelTag(),
+		SourceModel: names.NewModelTag(s.ControllerModelUUID()),
 		OfferUUID:   offer2.OfferUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -196,7 +200,7 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("\ntest %d: %s", i, test.about)
 		uri := s.restURI(otherModelState.ModelUUID(), test.query)
-		resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
+		resp := sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
 		if test.expectType == "" {
 			test.expectType = svgMimeType
 		}

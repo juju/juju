@@ -20,8 +20,8 @@ import (
 )
 
 type annotationSuite struct {
-	// TODO(anastasiamac) mock to remove JujuConnSuite
-	jujutesting.JujuConnSuite
+	// TODO(anastasiamac) mock to remove ApiServerSuite
+	jujutesting.ApiServerSuite
 
 	annotationsAPI *annotations.API
 	authorizer     apiservertesting.FakeAuthorizer
@@ -30,26 +30,26 @@ type annotationSuite struct {
 var _ = gc.Suite(&annotationSuite{})
 
 func (s *annotationSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: s.AdminUserTag(c),
+		Tag: jujutesting.AdminUser,
 	}
 	var err error
 	s.annotationsAPI, err = annotations.NewAPI(facadetest.Context{
-		State_: s.State,
+		State_: s.ControllerModel(c).State(),
 		Auth_:  s.authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *annotationSuite) TestModelAnnotations(c *gc.C) {
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	s.testSetGetEntitiesAnnotations(c, model.Tag())
+	s.testSetGetEntitiesAnnotations(c, s.ControllerModel(c).ModelTag())
 }
 
 func (s *annotationSuite) TestMachineAnnotations(c *gc.C) {
-	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	machine := f.MakeMachine(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
 	s.testSetGetEntitiesAnnotations(c, machine.Tag())
@@ -63,13 +63,17 @@ func (s *annotationSuite) TestMachineAnnotations(c *gc.C) {
 }
 
 func (s *annotationSuite) TestCharmAnnotations(c *gc.C) {
-	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress", URL: "local:wordpress-1"})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	charm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", URL: "local:wordpress-1"})
 	s.testSetGetEntitiesAnnotations(c, charm.Tag())
 }
 
 func (s *annotationSuite) TestApplicationAnnotations(c *gc.C) {
-	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	wordpress := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	charm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	wordpress := f.MakeApplication(c, &factory.ApplicationParams{
 		Charm: charm,
 	})
 	s.testSetGetEntitiesAnnotations(c, wordpress.Tag())
@@ -109,14 +113,16 @@ func (s *annotationSuite) TestInvalidEntityAnnotations(c *gc.C) {
 }
 
 func (s *annotationSuite) TestUnitAnnotations(c *gc.C) {
-	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	machine := f.MakeMachine(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
-	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	wordpress := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+	charm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	wordpress := f.MakeApplication(c, &factory.ApplicationParams{
 		Charm: charm,
 	})
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
+	unit := f.MakeUnit(c, &factory.UnitParams{
 		Application: wordpress,
 		Machine:     machine,
 	})
@@ -131,25 +137,27 @@ func (s *annotationSuite) TestUnitAnnotations(c *gc.C) {
 }
 
 func (s *annotationSuite) makeRelation(c *gc.C) (*state.Application, *state.Relation) {
-	s1 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	s1 := f.MakeApplication(c, &factory.ApplicationParams{
 		Name: "application1",
-		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+		Charm: f.MakeCharm(c, &factory.CharmParams{
 			Name: "wordpress",
 		}),
 	})
 	e1, err := s1.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s2 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+	s2 := f.MakeApplication(c, &factory.ApplicationParams{
 		Name: "application2",
-		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+		Charm: f.MakeCharm(c, &factory.CharmParams{
 			Name: "mysql",
 		}),
 	})
 	e2, err := s2.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
 
-	relation := s.Factory.MakeRelation(c, &factory.RelationParams{
+	relation := f.MakeRelation(c, &factory.RelationParams{
 		Endpoints: []state.Endpoint{e1, e2},
 	})
 	c.Assert(relation, gc.NotNil)

@@ -4,13 +4,11 @@
 package featuretests
 
 import (
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
@@ -18,22 +16,13 @@ import (
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	apiauthentication "github.com/juju/juju/api/authentication"
 	apitesting "github.com/juju/juju/api/testing"
 	servertesting "github.com/juju/juju/apiserver/testing"
-	envtesting "github.com/juju/juju/environs/testing"
-	envtools "github.com/juju/juju/environs/tools"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/binarystorage"
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	coretools "github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type toolsCommonSuite struct {
@@ -74,110 +63,6 @@ func (s *toolsCommonSuite) URL(path string, queryParams url.Values) *url.URL {
 	return &url
 }
 
-type toolsDownloadSuite struct {
-	toolsCommonSuite
-	jujutesting.JujuConnSuite
-}
-
-func (s *toolsDownloadSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	apiInfo := s.APIInfo(c)
-	baseURL, err := url.Parse(fmt.Sprintf("https://%s/", apiInfo.Addrs[0]))
-	c.Assert(err, jc.ErrorIsNil)
-	s.baseURL = baseURL
-	s.modelUUID = s.Model.UUID()
-}
-
-func (s *toolsDownloadSuite) TestDownloadFetchesAndCaches(c *gc.C) {
-	// The tools are not in binarystorage, so the download request causes
-	// the API server to search for the tools in simplestreams, fetch
-	// them, and then cache them in binarystorage.
-	vers := version.MustParseBinary("1.23.0-ubuntu-amd64")
-	stor := s.DefaultToolsStorage
-	envtesting.RemoveTools(c, stor, "released")
-	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", vers)[0]
-	data := s.testDownload(c, tools, "")
-
-	metadata, cachedData := s.getToolsFromStorage(c, s.State, tools.Version.String())
-	c.Assert(metadata.Size, gc.Equals, tools.Size)
-	c.Assert(metadata.SHA256, gc.Equals, tools.SHA256)
-	c.Assert(string(cachedData), gc.Equals, string(data))
-}
-
-func (s *toolsDownloadSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
-	// Upload fake tools, then upload over the top so the SHA256 hash does not match.
-	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
-	stor := s.DefaultToolsStorage
-	envtesting.RemoveTools(c, stor, "released")
-	current := testing.CurrentVersion()
-	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", current)[0]
-	err := stor.Put(envtools.StorageName(tools.Version, "released"), strings.NewReader("!"), 1)
-	c.Assert(err, jc.ErrorIsNil)
-
-	resp := s.downloadRequest(c, tools.Version, "")
-	s.assertJSONErrorResponse(c, resp, http.StatusBadRequest, "error fetching agent binaries: size mismatch for .*")
-	s.assertToolsNotStored(c, tools.Version.String())
-}
-
-func (s *toolsDownloadSuite) TestDownloadFetchesAndVerifiesHash(c *gc.C) {
-	// Upload fake tools, then upload over the top so the SHA256 hash does not match.
-	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
-	stor := s.DefaultToolsStorage
-	envtesting.RemoveTools(c, stor, "released")
-	current := testing.CurrentVersion()
-	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", current)[0]
-	sameSize := strings.Repeat("!", int(tools.Size))
-	err := stor.Put(envtools.StorageName(tools.Version, "released"), strings.NewReader(sameSize), tools.Size)
-	c.Assert(err, jc.ErrorIsNil)
-
-	resp := s.downloadRequest(c, tools.Version, "")
-	s.assertJSONErrorResponse(c, resp, http.StatusBadRequest, "error fetching agent binaries: hash mismatch for .*")
-	s.assertToolsNotStored(c, tools.Version.String())
-}
-
-func (s *toolsDownloadSuite) testDownload(c *gc.C, tools *coretools.Tools, uuid string) []byte {
-	resp := s.downloadRequest(c, tools.Version, uuid)
-	defer resp.Body.Close()
-	data, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.HasLen, int(tools.Size))
-
-	hash := sha256.New()
-	hash.Write(data)
-	c.Assert(fmt.Sprintf("%x", hash.Sum(nil)), gc.Equals, tools.SHA256)
-	return data
-}
-
-func (s *toolsDownloadSuite) downloadRequest(c *gc.C, version version.Binary, uuid string) *http.Response {
-	url := s.toolsURL("")
-	if uuid == "" {
-		url.Path = fmt.Sprintf("/tools/%s", version)
-	} else {
-		url.Path = fmt.Sprintf("/model/%s/tools/%s", uuid, version)
-	}
-	return servertesting.SendHTTPRequest(c, servertesting.HTTPRequestParams{Method: "GET", URL: url.String()})
-}
-
-func (s *toolsDownloadSuite) getToolsFromStorage(c *gc.C, st *state.State, vers string) (binarystorage.Metadata, []byte) {
-	storage, err := st.ToolsStorage()
-	c.Assert(err, jc.ErrorIsNil)
-	defer storage.Close()
-	metadata, r, err := storage.Open(vers)
-	c.Assert(err, jc.ErrorIsNil)
-	data, err := io.ReadAll(r)
-	r.Close()
-	c.Assert(err, jc.ErrorIsNil)
-	return metadata, data
-}
-
-func (s *toolsDownloadSuite) assertToolsNotStored(c *gc.C, vers string) {
-	storage, err := s.State.ToolsStorage()
-	c.Assert(err, jc.ErrorIsNil)
-	defer storage.Close()
-	_, err = storage.Metadata(vers)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
 func assertResponse(c *gc.C, resp *http.Response, expStatus int) params.ToolsResult {
 	body := servertesting.AssertResponse(c, resp, expStatus, params.ContentTypeJSON)
 	var toolsResponse params.ToolsResult
@@ -200,7 +85,7 @@ func (s *toolsWithMacaroonsSuite) SetUpTest(c *gc.C) {
 	baseURL, err := url.Parse(fmt.Sprintf("https://%s/", apiInfo.Addrs[0]))
 	c.Assert(err, jc.ErrorIsNil)
 	s.baseURL = baseURL
-	s.modelUUID = s.Model.UUID()
+	s.modelUUID = s.ControllerModelUUID()
 }
 
 func (s *toolsWithMacaroonsSuite) TestWithNoBasicAuthReturnsDischargeRequiredError(c *gc.C) {
@@ -236,7 +121,9 @@ func (s *toolsWithMacaroonsSuite) TestCanPostWithLocalLogin(c *gc.C) {
 	// Create a new local user that we can log in as
 	// using macaroon authentication.
 	const password = "hunter2"
-	user := s.Factory.MakeUser(c, &factory.UserParams{Password: password})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	user := f.MakeUser(c, &factory.UserParams{Password: password})
 
 	// Install a "web-page" visitor that deals with the interaction
 	// method that Juju controllers support for authenticating local

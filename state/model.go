@@ -308,9 +308,6 @@ func (m ModelArgs) Validate() error {
 	if m.Owner == (names.UserTag{}) {
 		return errors.NotValidf("empty Owner")
 	}
-	if m.StorageProviderRegistry == nil {
-		return errors.NotValidf("nil StorageProviderRegistry")
-	}
 	switch m.MigrationMode {
 	case MigrationModeNone, MigrationModeImporting:
 	default:

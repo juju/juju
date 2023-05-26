@@ -14,7 +14,7 @@ import (
 )
 
 type apiLoggerSuite struct {
-	jujutesting.JujuConnSuite
+	jujutesting.ApiServerSuite
 }
 
 func (s *apiLoggerSuite) TestLoggingConfig(c *gc.C) {
@@ -38,8 +38,7 @@ func (s *apiLoggerSuite) TestWatchLoggingConfig(c *gc.C) {
 	// Initial event.
 	wc.AssertOneChange()
 
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	model := s.ControllerModel(c)
 	err = model.UpdateModelConfig(
 		map[string]interface{}{
 			"logging-config": "juju=INFO;test=TRACE",

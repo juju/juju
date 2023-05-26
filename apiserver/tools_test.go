@@ -30,6 +30,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
@@ -39,11 +40,11 @@ import (
 )
 
 type baseToolsSuite struct {
-	apiserverBaseSuite
+	jujutesting.ApiServerSuite
 }
 
 func (s *baseToolsSuite) toolsURL(query string) *url.URL {
-	return s.modelToolsURL(s.Model.UUID(), query)
+	return s.modelToolsURL(s.ControllerModelUUID(), query)
 }
 
 func (s *baseToolsSuite) modelToolsURL(model, query string) *url.URL {
@@ -60,7 +61,7 @@ func (s *baseToolsSuite) toolsURI(query string) string {
 }
 
 func (s *baseToolsSuite) uploadRequest(c *gc.C, url, contentType string, content io.Reader) *http.Response {
-	return s.sendHTTPRequest(c, apitesting.HTTPRequestParams{
+	return sendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:      "POST",
 		URL:         url,
 		ContentType: contentType,
@@ -173,13 +174,13 @@ func (s *toolsSuite) TestRequiresAuth(c *gc.C) {
 }
 
 func (s *toolsSuite) TestRequiresPOST(c *gc.C) {
-	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "PUT", URL: s.toolsURI("")})
+	resp := sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "PUT", URL: s.toolsURI("")})
 	s.assertJSONErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "PUT"`)
 }
 
 func (s *toolsSuite) TestAuthRequiresUser(c *gc.C) {
 	// Add a machine and try to login.
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("foo", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -201,12 +202,12 @@ func (s *toolsSuite) TestAuthRequiresUser(c *gc.C) {
 	)
 
 	// Now try a user login.
-	resp = s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.toolsURI("")})
+	resp = sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.toolsURI("")})
 	s.assertJSONErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
 }
 
 func (s *toolsSuite) TestUploadRequiresVersion(c *gc.C) {
-	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.toolsURI("")})
+	resp := sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.toolsURI("")})
 	s.assertJSONErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
 }
 
@@ -252,9 +253,9 @@ func (s *toolsSuite) TestUpload(c *gc.C) {
 	s.assertUploadResponse(c, resp, expectedTools[0])
 
 	// Check the contents.
-	metadata, uploadedData := s.getToolsFromStorage(c, s.State, vers)
+	metadata, uploadedData := s.getToolsFromStorage(c, s.ControllerModel(c).State(), vers)
 	c.Assert(uploadedData, gc.DeepEquals, toolsContent)
-	allMetadata := s.getToolsMetadataFromStorage(c, s.State)
+	allMetadata := s.getToolsMetadataFromStorage(c, s.ControllerModel(c).State())
 	c.Assert(allMetadata, jc.DeepEquals, []binarystorage.Metadata{metadata})
 }
 
@@ -263,7 +264,9 @@ func (s *toolsSuite) TestMigrateTools(c *gc.C) {
 	expectedTools, v, toolsContent := s.setupToolsForUpload(c)
 	vers := v.String()
 
-	newSt := s.Factory.MakeModel(c, nil)
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	newSt := f.MakeModel(c, nil)
 	defer newSt.Close()
 	importedModel, err := newSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -272,7 +275,7 @@ func (s *toolsSuite) TestMigrateTools(c *gc.C) {
 
 	// Now try uploading them.
 	uri := s.URL("/migrate/tools", url.Values{"binaryVersion": {vers}})
-	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{
+	resp := sendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:      "POST",
 		URL:         uri.String(),
 		ContentType: "application/x-tar-gz",
@@ -283,7 +286,7 @@ func (s *toolsSuite) TestMigrateTools(c *gc.C) {
 	})
 
 	// Check the response.
-	expectedTools[0].URL = s.modelToolsURL(s.State.ControllerModelUUID(), "").String() + "/" + vers
+	expectedTools[0].URL = s.modelToolsURL(s.ControllerModel(c).State().ControllerModelUUID(), "").String() + "/" + vers
 	s.assertUploadResponse(c, resp, expectedTools[0])
 
 	// Check the contents.
@@ -298,11 +301,13 @@ func (s *toolsSuite) TestMigrateToolsNotMigrating(c *gc.C) {
 	_, v, toolsContent := s.setupToolsForUpload(c)
 	vers := v.String()
 
-	newSt := s.Factory.MakeModel(c, nil)
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	newSt := f.MakeModel(c, nil)
 	defer newSt.Close()
 
 	uri := s.URL("/migrate/tools", url.Values{"binaryVersion": {vers}})
-	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{
+	resp := sendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:      "POST",
 		URL:         uri.String(),
 		ContentType: "application/x-tar-gz",
@@ -321,8 +326,10 @@ func (s *toolsSuite) TestMigrateToolsNotMigrating(c *gc.C) {
 
 func (s *toolsSuite) TestMigrateToolsUnauth(c *gc.C) {
 	// Try uploading as a non controller admin.
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
 	url := s.URL("/migrate/tools", nil).String()
-	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "hunter2"})
+	user := f.MakeUser(c, &factory.UserParams{Password: "hunter2"})
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:   "POST",
 		URL:      url,
@@ -341,7 +348,7 @@ func (s *toolsSuite) TestBlockUpload(c *gc.C) {
 	vers := v.String()
 
 	// Block all changes.
-	err := s.State.SwitchBlockOn(state.ChangeBlock, "TestUpload")
+	err := s.ControllerModel(c).State().SwitchBlockOn(state.ChangeBlock, "TestUpload")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now try uploading them.
@@ -358,7 +365,7 @@ func (s *toolsSuite) TestBlockUpload(c *gc.C) {
 	})
 
 	// Check the contents.
-	storage, err := s.State.ToolsStorage()
+	storage, err := s.ControllerModel(c).State().ToolsStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 	_, _, err = storage.Open(vers)
@@ -372,7 +379,7 @@ func (s *toolsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 	url := s.toolsURL("binaryVersion=" + vers.String())
 	url.Path = "/tools"
 	resp := s.uploadRequest(c, url.String(), "application/x-tar-gz", bytes.NewReader(toolsContent))
-	expectedTools[0].URL = s.modelToolsURL(s.State.ControllerModelUUID(), "").String() + "/" + vers.String()
+	expectedTools[0].URL = s.modelToolsURL(s.ControllerModel(c).State().ControllerModelUUID(), "").String() + "/" + vers.String()
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
@@ -387,7 +394,9 @@ func (s *toolsSuite) TestUploadAllowsModelUUIDPath(c *gc.C) {
 }
 
 func (s *toolsSuite) TestUploadAllowsOtherModelUUIDPath(c *gc.C) {
-	newSt := s.Factory.MakeModel(c, nil)
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	newSt := f.MakeModel(c, nil)
 	defer newSt.Close()
 
 	// Check that we can upload tools to https://host:port/ModelUUID/tools
@@ -401,16 +410,18 @@ func (s *toolsSuite) TestUploadAllowsOtherModelUUIDPath(c *gc.C) {
 }
 
 func (s *toolsSuite) TestDownloadModelUUIDPath(c *gc.C) {
-	tools := s.storeFakeTools(c, s.State, "abc", binarystorage.Metadata{
+	tools := s.storeFakeTools(c, s.ControllerModel(c).State(), "abc", binarystorage.Metadata{
 		Version: testing.CurrentVersion().String(),
 		Size:    3,
 		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
 	})
-	s.testDownload(c, tools, s.State.ModelUUID())
+	s.testDownload(c, tools, s.ControllerModel(c).State().ModelUUID())
 }
 
 func (s *toolsSuite) TestDownloadOtherModelUUIDPath(c *gc.C) {
-	newSt := s.Factory.MakeModel(c, nil)
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	newSt := f.MakeModel(c, nil)
 	defer newSt.Close()
 
 	tools := s.storeFakeTools(c, newSt, "abc", binarystorage.Metadata{
@@ -422,7 +433,7 @@ func (s *toolsSuite) TestDownloadOtherModelUUIDPath(c *gc.C) {
 }
 
 func (s *toolsSuite) TestDownloadTopLevelPath(c *gc.C) {
-	tools := s.storeFakeTools(c, s.State, "abc", binarystorage.Metadata{
+	tools := s.storeFakeTools(c, s.ControllerModel(c).State(), "abc", binarystorage.Metadata{
 		Version: testing.CurrentVersion().String(),
 		Size:    3,
 		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
@@ -446,6 +457,9 @@ func (s *toolsSuite) TestDownloadMissingConcurrent(c *gc.C) {
 	})
 	defer envtools.UnregisterToolsDataSourceFunc("local storage")
 
+	unreg := environs.RegisterProvider(jujutesting.DefaultCloud.Type, apitesting.ProviderInstance)
+	defer unreg()
+
 	toolsBinaries := []version.Binary{
 		version.MustParseBinary("2.9.98-ubuntu-amd64"),
 		version.MustParseBinary("2.9.99-ubuntu-amd64"),
@@ -461,7 +475,7 @@ func (s *toolsSuite) TestDownloadMissingConcurrent(c *gc.C) {
 		tool := tools[i%len(toolsBinaries)]
 		go func() {
 			defer wg.Done()
-			s.testDownload(c, tool, s.State.ModelUUID())
+			s.testDownload(c, tool, s.ControllerModelUUID())
 		}()
 	}
 	wg.Wait()
@@ -476,7 +490,7 @@ type caasToolsSuite struct {
 var _ = gc.Suite(&caasToolsSuite{})
 
 func (s *caasToolsSuite) SetUpTest(c *gc.C) {
-	s.ControllerModelType = state.ModelTypeCAAS
+	s.WithControllerModelType = state.ModelTypeCAAS
 	s.baseToolsSuite.SetUpTest(c)
 }
 
@@ -484,10 +498,13 @@ func (s *caasToolsSuite) TestToolDownloadNotSharedCAASController(c *gc.C) {
 	closer, testStorage, _ := envtesting.CreateLocalTestStorage(c)
 	defer closer.Close()
 
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
 	const n = 8
 	states := []*state.State{}
 	for i := 0; i < n; i++ {
-		testState := s.Factory.MakeModel(c, nil)
+		testState := f.MakeModel(c, nil)
 		defer testState.Close()
 		states = append(states, testState)
 	}
@@ -503,6 +520,9 @@ func (s *caasToolsSuite) TestToolDownloadNotSharedCAASController(c *gc.C) {
 		return storage.NewStorageSimpleStreamsDataSource("test datasource", testStorage, "tools", simplestreams.CUSTOM_CLOUD_DATA, false), nil
 	})
 	defer envtools.UnregisterToolsDataSourceFunc("local storage")
+
+	unreg := environs.RegisterProvider(jujutesting.DefaultCloud.Type, apitesting.ProviderInstance)
+	defer unreg()
 
 	tool := version.MustParseBinary("2.9.99-ubuntu-amd64")
 	stream := "released"

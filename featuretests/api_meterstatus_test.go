@@ -17,27 +17,30 @@ import (
 )
 
 type meterStatusIntegrationSuite struct {
-	jujutesting.JujuConnSuite
+	jujutesting.ApiServerSuite
 
 	status meterstatus.MeterStatusClient
+	mm     *state.MetricsManager
 	unit   *state.Unit
 }
 
 func (s *meterStatusIntegrationSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.unit = s.Factory.MakeUnit(c, nil)
+	s.ApiServerSuite.SetUpTest(c)
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	s.unit = f.MakeUnit(c, nil)
 
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
-	state := s.OpenAPIAs(c, s.unit.UnitTag(), password)
+	state := s.OpenModelAPIAs(c, s.ControllerModelUUID(), s.unit.UnitTag(), password, "")
 	s.status = meterstatus.NewClient(state, s.unit.UnitTag())
 	c.Assert(s.status, gc.NotNil)
 
 	// Ask for the MetricsManager as part of setup, so the metrics
 	// document is created before any of the tests care.
-	_, err = s.State.MetricsManager()
+	s.mm, err = s.ControllerModel(c).State().MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -74,22 +77,20 @@ func (s *meterStatusIntegrationSuite) TestWatchMeterStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	mm, err := s.State.MetricsManager()
-	c.Assert(err, jc.ErrorIsNil)
-	err = mm.SetLastSuccessfulSend(time.Now())
+	err = s.mm.SetLastSuccessfulSend(time.Now())
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// meter status does not change on every failed
 	// attempt to send metrics - on three consecutive
 	// fails, we get a meter status change
-	err = mm.IncrementConsecutiveErrors()
+	err = s.mm.IncrementConsecutiveErrors()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = mm.IncrementConsecutiveErrors()
+	err = s.mm.IncrementConsecutiveErrors()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = mm.IncrementConsecutiveErrors()
+	err = s.mm.IncrementConsecutiveErrors()
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertOneChange()
