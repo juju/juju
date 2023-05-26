@@ -6,12 +6,16 @@ package txn_test
 import (
 	"context"
 	"database/sql"
-
-	jc "github.com/juju/testing/checkers"
-	"github.com/mattn/go-sqlite3"
-	gc "gopkg.in/check.v1"
+	"sync"
+	"time"
 
 	"github.com/juju/errors"
+	jujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	"github.com/mattn/go-sqlite3"
+	"golang.org/x/sync/semaphore"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/database/testing"
 	"github.com/juju/juju/database/txn"
 )
@@ -47,6 +51,71 @@ func (s *transactionRunnerSuite) TestTxnWithCancelledContext(c *gc.C) {
 		return nil
 	})
 	c.Assert(err, gc.ErrorMatches, "context canceled")
+}
+
+func (s *transactionRunnerSuite) TestTxnParallelCancelledContext(c *gc.C) {
+	runner := txn.NewTransactionRunner(txn.WithSemaphore(semaphore.NewWeighted(1)))
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// The following two goroutines will attempt to start a transaction
+	// concurrently. The first one will start, and the second one will be
+	// blocked until the first one has completed. We can then ensure that
+	// the second one is cancelled, because the context is cancelled.
+	sync := make(chan struct{})
+	step := make(chan struct{})
+	go func() {
+		defer wg.Done()
+
+		err := runner.StdTxn(context.Background(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
+			close(sync)
+
+			select {
+			case <-time.After(jujutesting.ShortWait):
+			case <-step:
+			}
+			return nil
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		// Wait until the first transaction has started, before attempting a
+		// second one.
+		select {
+		case <-sync:
+		case <-time.After(jujutesting.ShortWait):
+			c.Fatal("should not be called")
+		}
+
+		ctx, cancel := context.WithCancel(context.Background())
+
+		// Force the cancel to happen after the transaction has started.
+		cancel()
+		err := runner.StdTxn(ctx, s.DB(), func(ctx context.Context, tx *sql.Tx) error {
+			c.Fatal("should not be called")
+			return nil
+		})
+		c.Assert(err, gc.ErrorMatches, "context canceled")
+
+		close(step)
+	}()
+
+	// The following ensures that we don't block whilst waiting for the tests
+	// to complete.
+	wait := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(wait)
+	}()
+	select {
+	case <-wait:
+	case <-time.After(jujutesting.LongWait):
+		c.Fatal("failed waiting to complete")
+	}
 }
 
 func (s *transactionRunnerSuite) TestTxnInserts(c *gc.C) {
