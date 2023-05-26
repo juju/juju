@@ -62,19 +62,17 @@ func WithRetryStrategy(retryStrategy RetryStrategy) Option {
 	}
 }
 
-// WithNumParallelTxns defines the number of parallel transactions that can
-// be executed at any given time. This is useful for limiting the number of
-// transactions that can be executed at any given time.
+// WithSemaphore defines a semaphore for limiting the number of transactions
+// that can be executed at any given time.
 //
-// If the value is less than 1, then no semaphore will be used.
-func WithNumParallelTxns(v int) Option {
+// If nill is used, then no semaphore is used.
+func WithSemaphore(sem Semaphore) Option {
 	return func(o *option) {
-		if v < 1 {
+		if sem == nil {
 			o.semaphore = noopSemaphore{}
 			return
 		}
-
-		o.semaphore = semaphore.NewWeighted(int64(v))
+		o.semaphore = sem
 	}
 }
 

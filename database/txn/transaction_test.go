@@ -13,6 +13,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/mattn/go-sqlite3"
+	"golang.org/x/sync/semaphore"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/database/testing"
@@ -53,7 +54,7 @@ func (s *transactionRunnerSuite) TestTxnWithCancelledContext(c *gc.C) {
 }
 
 func (s *transactionRunnerSuite) TestTxnParallelCancelledContext(c *gc.C) {
-	runner := txn.NewTransactionRunner(txn.WithNumParallelTxns(1))
+	runner := txn.NewTransactionRunner(txn.WithSemaphore(semaphore.NewWeighted(1)))
 
 	var wg sync.WaitGroup
 	wg.Add(2)
