@@ -74,7 +74,7 @@ func WithNumParallelTxns(v int) Option {
 			return
 		}
 
-		o.semaphore = semaphore.NewWeighted(int64(runtime.GOMAXPROCS(0)))
+		o.semaphore = semaphore.NewWeighted(int64(v))
 	}
 }
 
