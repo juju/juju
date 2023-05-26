@@ -105,14 +105,15 @@ func GetOSFromSeries(series string) (coreos.OSType, error) {
 	if series == "" {
 		return coreos.Unknown, errors.NotValidf("series %q", series)
 	}
+
+	seriesVersionsMutex.Lock()
+	defer seriesVersionsMutex.Unlock()
+
 	seriesName := SeriesName(series)
 	osType, err := getOSFromSeries(seriesName)
 	if err == nil {
 		return osType, nil
 	}
-
-	seriesVersionsMutex.Lock()
-	defer seriesVersionsMutex.Unlock()
 
 	updateSeriesVersionsOnce()
 	return getOSFromSeries(seriesName)
@@ -433,15 +434,15 @@ func UpdateSeriesVersions() error {
 	return nil
 }
 
-var updatedseriesVersions bool
+var updatedSeriesVersions bool
 
 func updateSeriesVersionsOnce() {
-	if !updatedseriesVersions {
+	if !updatedSeriesVersions {
 		if err := updateSeriesVersions(); err != nil {
 			logger.Warningf("failed to update distro info: %v", err)
 		}
 		updateVersionSeries()
-		updatedseriesVersions = true
+		updatedSeriesVersions = true
 	}
 }
 
