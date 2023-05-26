@@ -1,7 +1,0 @@
-name: metered-multi-series
-summary: "A metered charm with custom metrics"
-description: ""
-series:
-  - bionic
-  - xenial
-  - trusty
