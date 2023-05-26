@@ -26,26 +26,28 @@ type KeysWatcher struct {
 
 	// TODO (manadart 2023-05-24): Consider making this plural (composite key)
 	// if/when it is supported by the change log table structure and stream.
-	keyName   string
-	tableName string
-	selectAll string
+	keyName    string
+	tableName  string
+	selectAll  string
+	changeMask changestream.ChangeType
 }
 
 // NewUUIDsWatcher is a convenience method for creating a new
 // KeysWatcher for the "uuid" column of the input table name.
-func NewUUIDsWatcher(base *BaseWatcher, tableName string) *KeysWatcher {
-	return NewKeysWatcher(base, tableName, "uuid")
+func NewUUIDsWatcher(base *BaseWatcher, changeMask changestream.ChangeType, tableName string) *KeysWatcher {
+	return NewKeysWatcher(base, changeMask, tableName, "uuid")
 }
 
 // NewKeysWatcher returns a new watcher that receives changes from the
 // input base watcher's db/queue when rows in the input table change.
-func NewKeysWatcher(base *BaseWatcher, tableName, keyName string) *KeysWatcher {
+func NewKeysWatcher(base *BaseWatcher, changeMask changestream.ChangeType, tableName, keyName string) *KeysWatcher {
 	w := &KeysWatcher{
 		BaseWatcher: base,
 		out:         make(chan []string),
 		tableName:   tableName,
 		keyName:     keyName,
 		selectAll:   fmt.Sprintf("SELECT %s FROM %s", keyName, tableName),
+		changeMask:  changeMask,
 	}
 
 	w.tomb.Go(w.loop)
@@ -59,7 +61,10 @@ func (w *KeysWatcher) Changes() watcher.StringsChannel {
 }
 
 func (w *KeysWatcher) loop() error {
-	subscription, err := w.eventSource.Subscribe(changestream.Namespace(w.tableName, changestream.All))
+	if w.changeMask == 0 {
+		return errors.NotValidf("changeMask value: 0")
+	}
+	subscription, err := w.eventSource.Subscribe(changestream.Namespace(w.tableName, w.changeMask))
 	if err != nil {
 		return errors.Annotatef(err, "subscribing to namespace %q", w.tableName)
 	}

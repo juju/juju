@@ -3,6 +3,10 @@
 
 package changestream
 
+import (
+	"fmt"
+)
+
 // Subscription describes the ability to receive events
 // from the event queue and unsubscribe from the queue.
 type Subscription interface {
@@ -43,6 +47,9 @@ func (o SubscriptionOption) Filter() func(ChangeEvent) bool {
 // Namespace returns a SubscriptionOption that will subscribe to the given
 // namespace.
 func Namespace(namespace string, changeMask ChangeType) SubscriptionOption {
+	if changeMask == 0 {
+		panic(fmt.Errorf("unexpected changeMask value: 0"))
+	}
 	return SubscriptionOption{
 		namespace:  namespace,
 		changeMask: changeMask,
