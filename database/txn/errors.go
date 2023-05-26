@@ -28,19 +28,21 @@ func IsErrRetryable(err error) bool {
 
 	// Unwrap errors one at a time.
 	for ; err != nil; err = errors.Unwrap(err) {
-		if strings.Contains(err.Error(), "database is locked") {
+		errStr := err.Error()
+
+		if strings.Contains(errStr, "database is locked") {
 			return true
 		}
 
-		if strings.Contains(err.Error(), "cannot start a transaction within a transaction") {
+		if strings.Contains(errStr, "cannot start a transaction within a transaction") {
 			return true
 		}
 
-		if strings.Contains(err.Error(), "bad connection") {
+		if strings.Contains(errStr, "bad connection") {
 			return true
 		}
 
-		if strings.Contains(err.Error(), "checkpoint in progress") {
+		if strings.Contains(errStr, "checkpoint in progress") {
 			return true
 		}
 	}
