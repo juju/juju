@@ -1,3 +1,5 @@
+# Simple test to check if branches work with application configuration
+# and can be created, set, read back and commited.
 run_branch() {
 	# Echo out to ensure nice output to the test suite.
 	echo
@@ -8,19 +10,19 @@ run_branch() {
 
 	juju branch | check 'Active branch is "master"'
 
-	juju deploy mongodb --channel 3.6/stable
+	juju deploy juju-qa-dummy-source --series jammy --config token=a
 
-	wait_for "mongodb" "$(idle_condition "mongodb")"
+	wait_for "dummy-source" "$(idle_condition "dummy-source")"
 
 	juju add-branch test-branch
 	juju branch | check 'Active branch is "test-branch"'
 
-	juju config mongodb replicaset=newset --branch test-branch
-	check_config_command "juju config mongodb replicaset --branch test-branch" "newset"
-	check_config_command "juju config mongodb replicaset --branch master" "myset"
+	juju config dummy-source token=b --branch test-branch
+	check_config_command "juju config dummy-source token --branch test-branch" "b"
+	check_config_command "juju config dummy-source token --branch master" "a"
 
 	juju commit test-branch | check 'Active branch set to "master"'
-	check_config_command "juju config mongodb replicaset" "newset"
+	check_config_command "juju config dummy-source token" "b"
 
 	# Clean up!
 	destroy_model "branches"
