@@ -253,7 +253,7 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 		hookName = fmt.Sprintf("%s-%s", storageName, hookName)
 		// Cache the storage this hook context is for.
 		_, err = ctx.Storage(ctx.storageTag)
-		if err != nil {
+		if err != nil && !errors.Is(err, errors.NotProvisioned) {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -371,10 +371,6 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	}
 
 	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, f.unit.Tag(), machPortRanges)
-
-	if ctx.storageTag != (names.StorageTag{}) {
-
-	}
 	return nil
 }
 

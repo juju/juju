@@ -196,6 +196,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertPaths(c, rnr)
 	ctx := rnr.Context()
+	c.Assert(ctx, gc.NotNil)
 	c.Assert(ctx.UnitName(), gc.Equals, "storage-block/0")
 }
 

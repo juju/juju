@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
@@ -115,7 +116,7 @@ func (sa *StorageAccessor) StorageAttachment(storageTag names.StorageTag, unitTa
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return params.StorageAttachment{}, result.Error
+		return params.StorageAttachment{}, apiservererrors.RestoreError(result.Error)
 	}
 	return result.Result, nil
 }
