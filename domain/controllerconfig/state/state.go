@@ -25,9 +25,27 @@ func NewState(factory domain.DBFactory) *State {
 	}
 }
 
-// ControllerConfig ...
+// ControllerConfig returns the current configuration in the database.
 func (st *State) ControllerConfig(ctx context.Context) (jujucontroller.Config, error) {
-	return nil, nil
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	q := `
+SELECT key,value FROM controller_config`[1:]
+
+	var result jujucontroller.Config
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, q)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		result, err = controllerConfigFromRows(rows)
+		return errors.Trace(err)
+	})
+	return result, err
 }
 
 // UpdateControllerConfig allows changing some of the configuration
@@ -82,4 +100,36 @@ VALUES (?, ?)
 	})
 
 	return errors.Trace(err)
+}
+
+// controllerConfigFromRows returns controller config info from rows returned from the backing DB.
+func controllerConfigFromRows(rows *sql.Rows) (jujucontroller.Config, error) {
+	result := jujucontroller.Config{}
+
+	// Get ValidationSchema to coerce values.
+	fields, _, err := jujucontroller.ConfigSchema.ValidationSchema()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	for rows.Next() {
+		var key string
+		var value interface{}
+
+		if err := rows.Scan(&key, &value); err != nil {
+			_ = rows.Close()
+			return nil, errors.Trace(err)
+		}
+
+		// Coerce the value to the correct type.
+		if field, ok := fields[key]; ok {
+			v, err := field.Coerce(value, []string{key})
+			if err != nil {
+				return nil, err
+			}
+			result[key] = v
+		}
+	}
+
+	return result, errors.Trace(rows.Err())
 }

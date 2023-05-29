@@ -19,8 +19,28 @@ type stateSuite struct {
 
 var _ = gc.Suite(&stateSuite{})
 
+func (s *stateSuite) TestControllerConfigRead(c *gc.C) {
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+
+	cc := jujucontroller.Config{
+		jujucontroller.AuditingEnabled:     true,
+		jujucontroller.AuditLogCaptureArgs: false,
+		jujucontroller.AuditLogMaxBackups:  "10",
+		jujucontroller.PublicDNSAddress:    "controller.test.com:1234",
+		jujucontroller.APIPortOpenDelay:    "100ms",
+	}
+
+	err := st.UpdateControllerConfig(ctx.Background(), cc, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerConfig, err := st.ControllerConfig(ctx.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(controllerConfig, jc.DeepEquals, cc)
+
+}
+
 func (s *stateSuite) TestUpdateControllerConfigNewData(c *gc.C) {
-	st := NewState(testing.TrackedDBFactory(s.TrackedDB()))
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
 
 	err := st.UpdateControllerConfig(ctx.Background(), jujucontroller.Config{
 		jujucontroller.AuditingEnabled:     true,
@@ -45,7 +65,7 @@ func (s *stateSuite) TestUpdateControllerConfigNewData(c *gc.C) {
 }
 
 func (s *stateSuite) TestUpdateExternalControllerUpsertAndReplace(c *gc.C) {
-	st := NewState(testing.TrackedDBFactory(s.TrackedDB()))
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
 
 	cc := jujucontroller.Config{
 		jujucontroller.AuditingEnabled:     true,

@@ -5,7 +5,9 @@ package service
 
 import (
 	"context"
+
 	"github.com/juju/errors"
+
 	jujucontroller "github.com/juju/juju/controller"
 )
 
@@ -29,7 +31,8 @@ func NewService(st State) *Service {
 
 // ControllerConfig returns the config values for the controller.
 func (s *Service) ControllerConfig(ctx context.Context) (jujucontroller.Config, error) {
-	return nil, nil
+	cc, err := s.st.ControllerConfig(ctx)
+	return cc, errors.Annotate(err, "getting controller config state")
 }
 
 // UpdateControllerConfig updates the controller config.
