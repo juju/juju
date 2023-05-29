@@ -22,7 +22,7 @@ var (
 // This is the function that almost all downstream database consumers
 // should use.
 //
-// This should not be used directly, instead the TrackedDB should be used to
+// This should not be used directly, instead the TxnRunner should be used to
 // handle transactions.
 func Txn(ctx context.Context, db *sqlair.DB, fn func(context.Context, *sqlair.TX) error) error {
 	return defaultTransactionRunner.Txn(ctx, db, fn)
@@ -33,7 +33,7 @@ func Txn(ctx context.Context, db *sqlair.DB, fn func(context.Context, *sqlair.TX
 // longer than the default timeout.
 // There are no retry semantics for running the function.
 //
-// This should not be used directly, instead the TrackedDB should be used to
+// This should not be used directly, instead the TxnRunner should be used to
 // handle transactions.
 func StdTxn(ctx context.Context, db *sql.DB, fn func(context.Context, *sql.Tx) error) error {
 	return defaultTransactionRunner.StdTxn(ctx, db, fn)
@@ -43,7 +43,7 @@ func StdTxn(ctx context.Context, db *sql.DB, fn func(context.Context, *sql.Tx) e
 // database. It expects that no individual transaction function should take
 // longer than the default timeout.
 //
-// This should not be used directly, instead the TrackedDB should be used to
+// This should not be used directly, instead the TxnRunner should be used to
 // handle transactions.
 func Retry(ctx context.Context, fn func() error) error {
 	return defaultTransactionRunner.Retry(ctx, fn)

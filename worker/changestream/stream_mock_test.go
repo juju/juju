@@ -74,10 +74,10 @@ func (m *MockDBGetter) EXPECT() *MockDBGetterMockRecorder {
 }
 
 // GetDB mocks base method.
-func (m *MockDBGetter) GetDB(arg0 string) (database.TrackedDB, error) {
+func (m *MockDBGetter) GetDB(arg0 string) (database.TxnRunner, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetDB", arg0)
-	ret0, _ := ret[0].(database.TrackedDB)
+	ret0, _ := ret[0].(database.TxnRunner)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

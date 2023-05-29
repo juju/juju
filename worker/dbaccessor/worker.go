@@ -79,7 +79,7 @@ type DBGetter interface {
 	// GetDB returns a sql.DB reference for the dqlite-backed database that
 	// contains the data for the specified namespace.
 	// A NotFound error is returned if the worker is unaware of the requested DB.
-	GetDB(namespace string) (coredatabase.TrackedDB, error)
+	GetDB(namespace string) (coredatabase.TxnRunner, error)
 }
 
 type opType int
@@ -347,9 +347,9 @@ func (w *dbWorker) Report() map[string]any {
 	return result
 }
 
-// GetDB returns a TrackedDB reference for the dqlite-backed
+// GetDB returns a transaction runner for the dqlite-backed
 // database that contains the data for the specified namespace.
-func (w *dbWorker) GetDB(namespace string) (coredatabase.TrackedDB, error) {
+func (w *dbWorker) GetDB(namespace string) (coredatabase.TxnRunner, error) {
 	// Ensure Dqlite is initialised.
 	select {
 	case <-w.dbReady:
@@ -361,7 +361,7 @@ func (w *dbWorker) GetDB(namespace string) (coredatabase.TrackedDB, error) {
 	// we have, then return out quickly. The dbRunner is the cache, so there
 	// is no need to have a in-memory cache here.
 	if tracked, err := w.dbRunner.Worker(namespace, w.catacomb.Dying()); err == nil {
-		return tracked.(coredatabase.TrackedDB), nil
+		return tracked.(coredatabase.TxnRunner), nil
 	} else if errors.Is(errors.Cause(err), worker.ErrDead) {
 		// Handle the case where the DB runner is dead due to this worker is
 		// dying.
@@ -400,7 +400,7 @@ func (w *dbWorker) GetDB(namespace string) (coredatabase.TrackedDB, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return tracked.(coredatabase.TrackedDB), nil
+	return tracked.(coredatabase.TxnRunner), nil
 }
 
 // DeleteDB deletes the dqlite-backed database that contains the data for
@@ -804,7 +804,7 @@ func (w *dbWorker) ensureNamespace(namespace string) error {
 		return errors.Annotatef(err, "getting controller worker")
 	}
 
-	dbGetter, ok := controllerWorker.(coredatabase.TrackedDB)
+	dbGetter, ok := controllerWorker.(coredatabase.TxnRunner)
 	if !ok {
 		return errors.Errorf("worker is not a DBGetter")
 	}
@@ -822,7 +822,7 @@ func (w *dbWorker) ensureNamespace(namespace string) error {
 	return nil
 }
 
-func isNamespaceKnownToController(ctx context.Context, db coredatabase.TrackedDB, namespace string) (bool, error) {
+func isNamespaceKnownToController(ctx context.Context, db coredatabase.TxnRunner, namespace string) (bool, error) {
 	var known bool
 	err := db.StdTxn(ctx, func(ctx context.Context, db *sql.Tx) error {
 		row := db.QueryRowContext(ctx, "SELECT uuid FROM model_list WHERE uuid=?", namespace)

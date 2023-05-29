@@ -53,7 +53,7 @@ func (s *workerSuite) getConfig() WorkerConfig {
 		FileNotifyWatcher: s.fileNotifyWatcher,
 		Clock:             s.clock,
 		Logger:            s.logger,
-		NewEventMultiplexerWorker: func(coredatabase.TrackedDB, FileNotifier, clock.Clock, Logger) (EventMultiplexerWorker, error) {
+		NewEventMultiplexerWorker: func(coredatabase.TxnRunner, FileNotifier, clock.Clock, Logger) (EventMultiplexerWorker, error) {
 			return nil, nil
 		},
 	}
@@ -67,7 +67,7 @@ func (s *workerSuite) TestEventMux(c *gc.C) {
 
 	done := make(chan struct{})
 
-	s.dbGetter.EXPECT().GetDB("controller").Return(s.TrackedDB(), nil)
+	s.dbGetter.EXPECT().GetDB("controller").Return(s.TxnRunner(), nil)
 	s.eventMuxWorker.EXPECT().EventMux().Return(s.eventMux)
 	s.eventMuxWorker.EXPECT().Kill().AnyTimes()
 	s.eventMuxWorker.EXPECT().Wait().DoAndReturn(func() error {
@@ -101,7 +101,7 @@ func (s *workerSuite) TestEventMuxCalledTwice(c *gc.C) {
 
 	done := make(chan struct{})
 
-	s.dbGetter.EXPECT().GetDB("controller").Return(s.TrackedDB(), nil)
+	s.dbGetter.EXPECT().GetDB("controller").Return(s.TxnRunner(), nil)
 	s.eventMuxWorker.EXPECT().EventMux().Return(s.eventMux).Times(2)
 	s.eventMuxWorker.EXPECT().Kill().AnyTimes()
 	s.eventMuxWorker.EXPECT().Wait().DoAndReturn(func() error {
@@ -137,7 +137,7 @@ func (s *workerSuite) newWorker(c *gc.C, attempts int) worker.Worker {
 		FileNotifyWatcher: s.fileNotifyWatcher,
 		Clock:             s.clock,
 		Logger:            s.logger,
-		NewEventMultiplexerWorker: func(coredatabase.TrackedDB, FileNotifier, clock.Clock, Logger) (EventMultiplexerWorker, error) {
+		NewEventMultiplexerWorker: func(coredatabase.TxnRunner, FileNotifier, clock.Clock, Logger) (EventMultiplexerWorker, error) {
 			attempts--
 			if attempts < 0 {
 				c.Fatal("NewEventMultiplexerWorker called too many times")

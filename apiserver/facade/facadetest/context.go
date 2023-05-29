@@ -32,7 +32,7 @@ type Context struct {
 	LeadershipReader_   leadership.Reader
 	SingularClaimer_    lease.Claimer
 	CharmhubHTTPClient_ facade.HTTPClient
-	ControllerDB_       coredatabase.TrackedDB
+	ControllerDB_       coredatabase.TxnRunner
 	// Identity is not part of the facade.Context interface, but is instead
 	// used to make sure that the context objects are the same.
 	Identity string
@@ -138,6 +138,6 @@ func (context Context) HTTPClient(purpose facade.HTTPClientPurpose) facade.HTTPC
 	}
 }
 
-func (context Context) ControllerDB() (coredatabase.TrackedDB, error) {
+func (context Context) ControllerDB() (coredatabase.TxnRunner, error) {
 	return context.ControllerDB_, nil
 }

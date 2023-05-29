@@ -5,6 +5,8 @@ package eventqueue
 
 import (
 	"gopkg.in/tomb.v2"
+
+	"github.com/juju/juju/core/database"
 )
 
 // BaseWatcher encapsulates members common to all EventQueue-based watchers.
@@ -14,12 +16,12 @@ type BaseWatcher struct {
 	tomb tomb.Tomb
 
 	eventQueue EventQueue
-	db         TrackedDB
+	db         database.TxnRunner
 	logger     Logger
 }
 
 // NewBaseWatcher returns a BaseWatcher constructed from the arguments.
-func NewBaseWatcher(eq EventQueue, db TrackedDB, l Logger) *BaseWatcher {
+func NewBaseWatcher(eq EventQueue, db database.TxnRunner, l Logger) *BaseWatcher {
 	return &BaseWatcher{
 		eventQueue: eq,
 		db:         db,

@@ -4,7 +4,7 @@
 package changestream
 
 import (
-	clock "github.com/juju/clock"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -50,7 +50,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		FileNotifyWatcher: "filenotifywatcher",
 		Clock:             s.clock,
 		Logger:            s.logger,
-		NewEventMultiplexerWorker: func(coredatabase.TrackedDB, FileNotifier, clock.Clock, Logger) (EventMultiplexerWorker, error) {
+		NewEventMultiplexerWorker: func(coredatabase.TxnRunner, FileNotifier, clock.Clock, Logger) (EventMultiplexerWorker, error) {
 			return nil, nil
 		},
 	}

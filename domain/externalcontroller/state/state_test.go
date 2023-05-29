@@ -24,7 +24,7 @@ type stateSuite struct {
 var _ = gc.Suite(&stateSuite{})
 
 func (s *stateSuite) TestUpdateExternalControllerNewData(c *gc.C) {
-	st := NewState(testing.TrackedDBFactory(s.TrackedDB()))
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
 
 	ecUUID := utils.MustNewUUID().String()
 	ec := crossmodel.ControllerInfo{
@@ -77,7 +77,7 @@ func (s *stateSuite) TestUpdateExternalControllerNewData(c *gc.C) {
 }
 
 func (s *stateSuite) TestUpdateExternalControllerUpsertAndReplace(c *gc.C) {
-	st := NewState(testing.TrackedDBFactory(s.TrackedDB()))
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
 
 	ecUUID := utils.MustNewUUID().String()
 	ec := crossmodel.ControllerInfo{
@@ -126,7 +126,7 @@ func (s *stateSuite) TestUpdateExternalControllerUpsertAndReplace(c *gc.C) {
 }
 
 func (s *stateSuite) TestUpdateExternalControllerUpdateModel(c *gc.C) {
-	st := NewState(testing.TrackedDBFactory(s.TrackedDB()))
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
 
 	// This is an existing controller with a model reference.
 	ec := crossmodel.ControllerInfo{

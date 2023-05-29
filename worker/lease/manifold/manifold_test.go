@@ -43,7 +43,7 @@ type manifoldSuite struct {
 	metrics prometheus.Registerer
 
 	worker    worker.Worker
-	trackedDB coredatabase.TrackedDB
+	txnRunner coredatabase.TxnRunner
 	store     *lease.Store
 
 	stub testing.Stub
@@ -59,14 +59,14 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 
 	s.stub.ResetCalls()
 
-	s.trackedDB = NewMockTrackedDB(ctrl)
+	s.txnRunner = NewMockTxnRunner(ctrl)
 
 	s.agent = &mockAgent{conf: mockAgentConfig{
 		uuid:    "controller-uuid",
 		apiInfo: &api.Info{},
 	}}
 	s.clock = testclock.NewClock(time.Now())
-	s.dbAccessor = stubDBGetter{s.trackedDB}
+	s.dbAccessor = stubDBGetter{s.txnRunner}
 
 	s.logger = loggo.GetLogger("lease.manifold_test")
 	registerer := struct{ prometheus.Registerer }{}
@@ -143,7 +143,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	storeConfig := args[0].(lease.StoreConfig)
 
 	c.Assert(storeConfig, gc.DeepEquals, lease.StoreConfig{
-		TrackedDB: s.trackedDB,
+		TxnRunner: s.txnRunner,
 		Logger:    &s.logger,
 	})
 
@@ -215,10 +215,10 @@ func (*mockWorker) Wait() error {
 }
 
 type stubDBGetter struct {
-	trackedDB coredatabase.TrackedDB
+	trackedDB coredatabase.TxnRunner
 }
 
-func (s stubDBGetter) GetDB(name string) (coredatabase.TrackedDB, error) {
+func (s stubDBGetter) GetDB(name string) (coredatabase.TxnRunner, error) {
 	if name != "controller" {
 		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, name)
 	}

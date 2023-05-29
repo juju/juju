@@ -25,7 +25,7 @@ type Logger interface {
 
 // EventMultiplexerWorkerFn is an alias function that allows the creation of
 // EventQueueWorker.
-type EventMultiplexerWorkerFn = func(coredatabase.TrackedDB, FileNotifier, clock.Clock, Logger) (EventMultiplexerWorker, error)
+type EventMultiplexerWorkerFn = func(coredatabase.TxnRunner, FileNotifier, clock.Clock, Logger) (EventMultiplexerWorker, error)
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.

@@ -22,7 +22,7 @@ func TestPackage(t *testing.T) {
 
 type StubDBManager struct{}
 
-func (s StubDBManager) GetDB(namespace string) (coredatabase.TrackedDB, error) {
+func (s StubDBManager) GetDB(namespace string) (coredatabase.TxnRunner, error) {
 	if namespace != "controller" {
 		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, namespace)
 	}

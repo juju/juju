@@ -138,8 +138,8 @@ type Context interface {
 
 // ControllerDBGetter defines an interface for getting the controller DB.
 type ControllerDBGetter interface {
-	// ControllerDB returns a TrackedDB reference for the controller database.
-	ControllerDB() (coredatabase.TrackedDB, error)
+	// ControllerDB returns a transaction runner for the controller database.
+	ControllerDB() (coredatabase.TxnRunner, error)
 }
 
 // DBManager defines an interface for managing the database.

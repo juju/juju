@@ -3,14 +3,14 @@
 
 package database
 
-// DBGetter describes the ability to supply a TrackedDB reference for a
+// DBGetter describes the ability to supply a transaction runner
 // particular database.
 type DBGetter interface {
-	// GetDB returns a TrackedDB reference for the dqlite-backed database that
-	// contains the data for the specified namespace.
-	// A NotFound error is returned if the worker is unaware of the requested
-	// DB.
-	GetDB(namespace string) (TrackedDB, error)
+	// GetDB returns a TransactionRunner for the dqlite-backed database
+	// that contains the data for the specified namespace.
+	// A NotFound error is returned if the worker is unaware of the
+	// requested DB.
+	GetDB(namespace string) (TxnRunner, error)
 }
 
 // DBManager describes the ability to create and delete databases.

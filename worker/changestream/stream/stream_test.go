@@ -36,7 +36,7 @@ func (s *streamSuite) TestWithNoNamespace(c *gc.C) {
 	s.expectFileNotifyWatcher()
 	s.expectAfter()
 
-	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
+	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	select {
@@ -57,7 +57,7 @@ func (s *streamSuite) TestNoData(c *gc.C) {
 
 	s.insertNamespace(c, 1000, "foo")
 
-	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
+	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	select {
@@ -84,7 +84,7 @@ func (s *streamSuite) TestOneChange(c *gc.C) {
 	}
 	s.insertChange(c, chg)
 
-	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
+	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	var results []changestream.ChangeEvent
@@ -117,7 +117,7 @@ func (s *streamSuite) TestOneChangeWithDelayedTermDone(c *gc.C) {
 	}
 	s.insertChange(c, chg)
 
-	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
+	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	var (
@@ -154,7 +154,7 @@ func (s *streamSuite) TestOneChangeWithTermDoneAfterKill(c *gc.C) {
 	}
 	s.insertChange(c, chg)
 
-	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
+	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	var (
@@ -186,7 +186,7 @@ func (s *streamSuite) TestMultipleTerms(c *gc.C) {
 
 	s.insertNamespace(c, 1000, "foo")
 
-	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
+	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	for i := 0; i < 10; i++ {
@@ -227,7 +227,7 @@ func (s *streamSuite) TestSecondTermDoesNotStartUntilFirstTermDone(c *gc.C) {
 
 	s.insertNamespace(c, 1000, "foo")
 
-	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
+	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	// Insert a change and wait for it to be streamed.
@@ -326,7 +326,7 @@ func (s *streamSuite) TestMultipleChangesWithSameUUIDCoalesce(c *gc.C) {
 		inserts = append(inserts, ch)
 	}
 
-	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
+	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	// Wait to ensure that the loop has been given enough time to read the
@@ -370,7 +370,7 @@ func (s *streamSuite) TestMultipleChangesWithNamespaces(c *gc.C) {
 		inserts = append(inserts, ch)
 	}
 
-	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
+	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	// Wait to ensure that the loop has been given enough time to read the
@@ -433,7 +433,7 @@ func (s *streamSuite) TestMultipleChangesWithNamespacesCoalesce(c *gc.C) {
 		inserts = append(inserts, ch)
 	}
 
-	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
+	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	// Wait to ensure that the loop has been given enough time to read the
@@ -504,7 +504,7 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *gc.C) 
 		inserts = append(inserts, ch)
 	}
 
-	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
+	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	// Wait to ensure that the loop has been given enough time to read the
@@ -543,7 +543,7 @@ func (s *streamSuite) TestOneChangeIsBlockedByFile(c *gc.C) {
 
 	s.insertNamespace(c, 1000, "foo")
 
-	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
+	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	expectNotifyBlock := func(block bool) {
@@ -592,7 +592,7 @@ func (s *streamSuite) TestOneChangeIsBlockedByFile(c *gc.C) {
 
 func (s *streamSuite) TestReadChangesWithNoChanges(c *gc.C) {
 	stream := &Stream{
-		db: s.TrackedDB(),
+		db: s.TxnRunner(),
 	}
 
 	s.insertNamespace(c, 1000, "foo")
@@ -605,7 +605,7 @@ func (s *streamSuite) TestReadChangesWithNoChanges(c *gc.C) {
 
 func (s *streamSuite) TestReadChangesWithOneChange(c *gc.C) {
 	stream := &Stream{
-		db: s.TrackedDB(),
+		db: s.TxnRunner(),
 	}
 
 	s.insertNamespace(c, 1000, "foo")
@@ -626,7 +626,7 @@ func (s *streamSuite) TestReadChangesWithOneChange(c *gc.C) {
 
 func (s *streamSuite) TestReadChangesWithMultipleSameChange(c *gc.C) {
 	stream := &Stream{
-		db: s.TrackedDB(),
+		db: s.TxnRunner(),
 	}
 
 	s.insertNamespace(c, 1000, "foo")
@@ -650,7 +650,7 @@ func (s *streamSuite) TestReadChangesWithMultipleSameChange(c *gc.C) {
 
 func (s *streamSuite) TestReadChangesWithMultipleChanges(c *gc.C) {
 	stream := &Stream{
-		db: s.TrackedDB(),
+		db: s.TxnRunner(),
 	}
 
 	s.insertNamespace(c, 1000, "foo")
@@ -677,7 +677,7 @@ func (s *streamSuite) TestReadChangesWithMultipleChanges(c *gc.C) {
 
 func (s *streamSuite) TestReadChangesWithMultipleChangesGroupsCorrectly(c *gc.C) {
 	stream := &Stream{
-		db: s.TrackedDB(),
+		db: s.TxnRunner(),
 	}
 
 	s.insertNamespace(c, 1000, "foo")
@@ -712,7 +712,7 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesGroupsCorrectly(c *gc.C)
 
 func (s *streamSuite) TestReadChangesWithMultipleChangesInterweavedGroupsCorrectly(c *gc.C) {
 	stream := &Stream{
-		db: s.TrackedDB(),
+		db: s.TxnRunner(),
 	}
 
 	s.insertNamespace(c, 1000, "foo")
@@ -770,9 +770,9 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesInterweavedGroupsCorrect
 	{ // Group ID: 2, Row ID: 9
 		ch := change{id: 1000, uuid: uuid1}
 		// In theory this should never happen because we're using transactions,
-		// so we should always witness a create before an update. However, this
-		// part of the tests states that we will still witness the create
-		// after an update if something goes wrong.
+		// so we should always witness a creation before an update. However,
+		// this part of the tests states that we will still witness the
+		// creation  after an update if something goes wrong.
 		s.insertChangeForType(c, changestream.Create, ch)
 		changes[3] = ch
 	}

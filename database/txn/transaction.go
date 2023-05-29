@@ -133,7 +133,7 @@ func NewRetryingTxnRunner(opts ...Option) *RetryingTxnRunner {
 // This is the function that almost all downstream database consumers
 // should use.
 //
-// This should not be used directly, instead the TrackedDB should be used to
+// This should not be used directly, instead the TxnRunner should be used to
 // handle transactions.
 func (t *RetryingTxnRunner) Txn(ctx context.Context, db *sqlair.DB, fn func(context.Context, *sqlair.TX) error) error {
 	ctx, cancel := context.WithTimeout(ctx, t.timeout)
@@ -166,7 +166,7 @@ func (t *RetryingTxnRunner) Txn(ctx context.Context, db *sqlair.DB, fn func(cont
 // This is the function that almost all downstream database consumers
 // should use.
 //
-// This should not be used directly, instead the TrackedDB should be used to
+// This should not be used directly, instead the TxnRunner should be used to
 // handle transactions.
 func (t *RetryingTxnRunner) StdTxn(ctx context.Context, db *sql.DB, fn func(context.Context, *sql.Tx) error) error {
 	ctx, cancel := context.WithTimeout(ctx, t.timeout)

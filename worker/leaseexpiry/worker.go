@@ -22,7 +22,7 @@ import (
 type Config struct {
 	Clock     clock.Clock
 	Logger    Logger
-	TrackedDB coredatabase.TrackedDB
+	TxnRunner coredatabase.TxnRunner
 }
 
 // Validate checks whether the worker configuration settings are valid.
@@ -33,8 +33,8 @@ func (cfg Config) Validate() error {
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if cfg.TrackedDB == nil {
-		return errors.NotValidf("nil TrackedDB")
+	if cfg.TxnRunner == nil {
+		return errors.NotValidf("nil TxnRunner")
 	}
 
 	return nil
@@ -45,7 +45,7 @@ type expiryWorker struct {
 
 	clock     clock.Clock
 	logger    Logger
-	trackedDB coredatabase.TrackedDB
+	trackedDB coredatabase.TxnRunner
 	dml       string
 }
 
@@ -61,7 +61,7 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 	w := &expiryWorker{
 		clock:     cfg.Clock,
 		logger:    cfg.Logger,
-		trackedDB: cfg.TrackedDB,
+		trackedDB: cfg.TxnRunner,
 		dml: `
 DELETE FROM lease WHERE uuid in (
     SELECT l.uuid 

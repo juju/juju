@@ -5,11 +5,7 @@ package eventqueue
 
 import (
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/database"
 )
-
-// TrackedDB describes the ability to run database transactions.
-type TrackedDB = database.TrackedDB
 
 // EventQueue describes the ability to subscribe
 // to a subset of events from a change stream.

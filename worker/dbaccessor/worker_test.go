@@ -330,7 +330,7 @@ func (s *workerSuite) TestEnsureNamespaceForModelNotFound(c *gc.C) {
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
-	trackedWorkerDB := newWorkerTrackedDB(s.TrackedDB())
+	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
 
 	w := s.newWorkerWithDB(c, trackedWorkerDB)
 	defer workertest.DirtyKill(c, w)
@@ -367,7 +367,7 @@ func (s *workerSuite) TestEnsureNamespaceForModel(c *gc.C) {
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
-	trackedWorkerDB := newWorkerTrackedDB(s.TrackedDB())
+	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
 
 	w := s.newWorkerWithDB(c, trackedWorkerDB)
 	defer workertest.DirtyKill(c, w)
@@ -375,7 +375,7 @@ func (s *workerSuite) TestEnsureNamespaceForModel(c *gc.C) {
 	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
 	defer cancel()
 
-	err := s.TrackedDB().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		stmt := "INSERT INTO model_list (uuid) VALUES (?);"
 		result, err := tx.ExecContext(ctx, stmt, "foo")
 		c.Assert(err, jc.ErrorIsNil)
@@ -420,7 +420,7 @@ func (s *workerSuite) TestEnsureNamespaceForModelWithCache(c *gc.C) {
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
-	trackedWorkerDB := newWorkerTrackedDB(s.TrackedDB())
+	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
 
 	w := s.newWorkerWithDB(c, trackedWorkerDB)
 	defer workertest.DirtyKill(c, w)
@@ -429,7 +429,7 @@ func (s *workerSuite) TestEnsureNamespaceForModelWithCache(c *gc.C) {
 	defer cancel()
 
 	var attempt int
-	err := s.TrackedDB().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		attempt++
 
 		stmt := "INSERT INTO model_list (uuid) VALUES (?);"
@@ -482,7 +482,7 @@ func (s *workerSuite) TestCloseDatabaseForController(c *gc.C) {
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
-	trackedWorkerDB := newWorkerTrackedDB(s.TrackedDB())
+	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
 
 	w := s.newWorkerWithDB(c, trackedWorkerDB)
 	defer workertest.DirtyKill(c, w)
@@ -490,7 +490,7 @@ func (s *workerSuite) TestCloseDatabaseForController(c *gc.C) {
 	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
 	defer cancel()
 
-	err := s.TrackedDB().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		stmt := "INSERT INTO model_list (uuid) VALUES (?);"
 		result, err := tx.ExecContext(ctx, stmt, "foo")
 		c.Assert(err, jc.ErrorIsNil)
@@ -535,7 +535,7 @@ func (s *workerSuite) TestCloseDatabaseForModel(c *gc.C) {
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
-	trackedWorkerDB := newWorkerTrackedDB(s.TrackedDB())
+	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
 
 	w := s.newWorkerWithDB(c, trackedWorkerDB)
 	defer workertest.DirtyKill(c, w)
@@ -543,7 +543,7 @@ func (s *workerSuite) TestCloseDatabaseForModel(c *gc.C) {
 	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
 	defer cancel()
 
-	err := s.TrackedDB().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		stmt := "INSERT INTO model_list (uuid) VALUES (?);"
 		result, err := tx.ExecContext(ctx, stmt, "foo")
 		c.Assert(err, jc.ErrorIsNil)
@@ -591,7 +591,7 @@ func (s *workerSuite) TestCloseDatabaseForUnknownModel(c *gc.C) {
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
-	trackedWorkerDB := newWorkerTrackedDB(s.TrackedDB())
+	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
 
 	w := s.newWorkerWithDB(c, trackedWorkerDB)
 	defer workertest.DirtyKill(c, w)

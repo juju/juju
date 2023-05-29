@@ -31,7 +31,7 @@ type DBSuite struct {
 
 	dqlite    *app.App
 	db        *sql.DB
-	trackedDB coredatabase.TrackedDB
+	trackedDB coredatabase.TxnRunner
 }
 
 // SetUpSuite creates a new Dqlite application and waits for it to be ready.
@@ -76,7 +76,7 @@ func (s *DBSuite) SetUpTest(c *gc.C) {
 	s.db, err = s.dqlite.Open(context.TODO(), strconv.Itoa(rand.Intn(10)))
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.trackedDB = &trackedDB{
+	s.trackedDB = &txnRunner{
 		db: sqlair.NewDB(s.db),
 	}
 }
@@ -98,8 +98,8 @@ func (s *DBSuite) DB() *sql.DB {
 	return s.db
 }
 
-// TrackDB returns the tracked database for the current test.
-func (s *DBSuite) TrackedDB() coredatabase.TrackedDB {
+// TxnRunner returns the tracked database for the current test.
+func (s *DBSuite) TxnRunner() coredatabase.TxnRunner {
 	return s.trackedDB
 }
 
