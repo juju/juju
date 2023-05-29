@@ -6,7 +6,9 @@ package state
 import (
 	"context"
 	"database/sql"
+
 	"github.com/juju/errors"
+
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/domain"
 )
@@ -33,7 +35,7 @@ func (st *State) ControllerConfig(ctx context.Context) (jujucontroller.Config, e
 // to the current config, and keys in removeAttrs will be unset (and
 // so revert to their defaults). Only a subset of keys can be changed
 // after bootstrapping.
-func (st *State) UpdateControllerConfig(ctx context.Context, updateAttrs map[string]interface{}, removeAttrs []string) error {
+func (st *State) UpdateControllerConfig(ctx context.Context, updateAttrs jujucontroller.Config, removeAttrs []string) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)

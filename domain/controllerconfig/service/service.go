@@ -12,7 +12,7 @@ import (
 // State defines an interface for interacting with the underlying state.
 type State interface {
 	ControllerConfig(context.Context) (jujucontroller.Config, error)
-	UpdateControllerConfig(ctx context.Context, updateAttrs map[string]interface{}, removeAttrs []string) error
+	UpdateControllerConfig(ctx context.Context, updateAttrs jujucontroller.Config, removeAttrs []string) error
 }
 
 // Service defines a service for interacting with the underlying state.
@@ -33,7 +33,7 @@ func (s *Service) ControllerConfig(ctx context.Context) (jujucontroller.Config, 
 }
 
 // UpdateControllerConfig updates the controller config.
-func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs map[string]interface{}, removeAttrs []string) error {
+func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs jujucontroller.Config, removeAttrs []string) error {
 	err := s.st.UpdateControllerConfig(ctx, updateAttrs, removeAttrs)
 	return errors.Annotate(err, "updating controller config state")
 }
