@@ -11,8 +11,8 @@ import (
 	"github.com/juju/names/v4"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/charm/v10"
-	"github.com/juju/charm/v10/resource"
+	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v11/resource"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 

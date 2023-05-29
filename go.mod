@@ -30,6 +30,7 @@ require (
 	github.com/canonical/pebble v0.0.0-20230307221844-5842ea68c9c7
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.3.2
+	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/distribution v2.8.2+incompatible
 	github.com/dustin/go-humanize v1.0.1
 	github.com/go-goose/goose/v5 v5.0.0-20230421180421-abaee9096e3a
@@ -48,10 +49,10 @@ require (
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v1.0.0
 	github.com/juju/blobstore/v3 v3.0.2
-	github.com/juju/charm/v10 v10.0.0
+	github.com/juju/charm/v11 v11.0.0-20230525115724-1b98af243110
 	github.com/juju/clock v1.0.3
 	github.com/juju/cmd/v3 v3.0.10
-	github.com/juju/collections v1.0.2
+	github.com/juju/collections v1.0.3
 	github.com/juju/description/v4 v4.0.10
 	github.com/juju/errors v1.0.0
 	github.com/juju/featureflag v1.0.0
@@ -164,7 +165,6 @@ require (
 	github.com/cenkalti/backoff/v3 v3.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/creack/pty v1.1.15 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0 // indirect
 	github.com/dnaeon/go-vcr v1.2.0 // indirect
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect

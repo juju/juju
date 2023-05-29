@@ -6,7 +6,7 @@ package application
 import (
 	"time"
 
-	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v11"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	gc "gopkg.in/check.v1"

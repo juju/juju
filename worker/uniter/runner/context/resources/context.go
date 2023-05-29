@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	charmresource "github.com/juju/charm/v10/resource"
+	charmresource "github.com/juju/charm/v11/resource"
 	"github.com/juju/errors"
 )
 
