@@ -254,7 +254,7 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 		// Cache the storage this hook context is for.
 		_, err = ctx.Storage(ctx.storageTag)
 		if err != nil && !errors.Is(err, errors.NotProvisioned) {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err, "could not retrieve storage for id: %v", hookInfo.StorageId)
 		}
 	}
 	if hookInfo.Kind.IsWorkload() {

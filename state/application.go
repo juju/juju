@@ -256,7 +256,7 @@ func (a *Application) SetAgentVersion(v version.Binary) (err error) {
 
 // SetProvisioningState sets the provisioning state for the application.
 func (a *Application) SetProvisioningState(ps ApplicationProvisioningState) error {
-	// TODO: Treat dying/dead scale to 0 as a seperate call.
+	// TODO: Treat dying/dead scale to 0 as a separate call.
 	life := a.Life()
 	assertions := bson.D{
 		{"life", life},

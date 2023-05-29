@@ -35,8 +35,7 @@ type StorageAccessor interface {
 }
 
 // Attachments generates storage hooks in response to changes to
-// storage attachments, and provides access to information about
-// storage attachments to hooks.
+// storage attachments.
 type Attachments struct {
 	st      StorageAccessor
 	unitTag names.UnitTag

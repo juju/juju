@@ -1118,7 +1118,7 @@ func (w *RemoteStateWatcher) watchStorageAttachment(
 		}
 		var err error
 		storageSnapshot, err = getStorageSnapshot(w.st, tag, w.unit.Tag())
-		if params.IsCodeNotProvisioned(err) {
+		if errors.Is(err, errors.NotProvisioned) {
 			// If the storage is unprovisioned, we still want to
 			// record the attachment, but we'll mark it as
 			// unattached. This allows the uniter to wait for

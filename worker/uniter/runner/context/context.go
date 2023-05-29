@@ -270,7 +270,7 @@ type HookContext struct {
 	// with the running hook.
 	storageTag names.StorageTag
 
-	// storageTags contains a list of all storage tags.
+	// storageTags returns the tags of storage instances attached to the unit
 	storageTags []names.StorageTag
 
 	// storageAttachmentCache holds cached storage attachments so that hook
@@ -1077,7 +1077,7 @@ func (ctx *HookContext) HookVars(
 			"JUJU_STORAGE_LOCATION="+storage.Location(),
 			"JUJU_STORAGE_KIND="+storage.Kind().String(),
 		)
-	} else if !errors.IsNotFound(err) {
+	} else if !errors.Is(err, errors.NotFound) && !errors.Is(err, errors.NotProvisioned) {
 		return nil, errors.Trace(err)
 	}
 
