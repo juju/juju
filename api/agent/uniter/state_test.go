@@ -118,3 +118,40 @@ func (s *stateSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 		},
 	})
 }
+
+func (s *stateSuite) TestUnitWorkloadVersion(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "WorkloadVersion")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		*(result.(*params.StringResults)) = params.StringResults{
+			Results: []params.StringResult{{Result: "mysql-1.2.3"}},
+		}
+		return nil
+	})
+	caller := testing.BestVersionCaller{apiCaller, 17}
+	client := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
+
+	workloadVersion, err := client.UnitWorkloadVersion(names.NewUnitTag("mysql/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(workloadVersion, gc.Equals, "mysql-1.2.3")
+}
+
+func (s *stateSuite) TestSetUnitWorkloadVersion(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "SetWorkloadVersion")
+		c.Assert(arg, gc.DeepEquals, params.EntityWorkloadVersions{Entities: []params.EntityWorkloadVersion{{Tag: "unit-mysql-0", WorkloadVersion: "mysql-1.2.3"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{}},
+		}
+		return nil
+	})
+	caller := testing.BestVersionCaller{apiCaller, 17}
+	client := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
+
+	err := client.SetUnitWorkloadVersion(names.NewUnitTag("mysql/0"), "mysql-1.2.3")
+	c.Assert(err, jc.ErrorIsNil)
+}

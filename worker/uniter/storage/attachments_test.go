@@ -6,7 +6,6 @@ package storage_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8/hooks"
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -15,7 +14,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc/params"
-	corestorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -55,12 +53,6 @@ func (s *caasAttachmentsSuite) SetUpTest(c *gc.C) {
 func (s *iaasAttachmentsSuite) SetUpTest(c *gc.C) {
 	s.modelType = model.IAAS
 	s.attachmentsSuite.SetUpTest(c)
-}
-
-func assertStorageTags(c *gc.C, a *storage.Attachments, tags ...names.StorageTag) {
-	sTags, err := a.StorageTags()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sTags, jc.SameContents, tags)
 }
 
 func (s *attachmentsSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -132,7 +124,6 @@ func (s *attachmentsSuite) TestNewAttachmentsInitHavePending(c *gc.C) {
 		StorageId: storageTag.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	assertStorageTags(c, att) // no active attachment
 }
 
 func (s *attachmentsSuite) TestNewAttachmentsInit(c *gc.C) {
@@ -147,19 +138,7 @@ func (s *attachmentsSuite) TestNewAttachmentsInit(c *gc.C) {
 	s.expectState(c)
 
 	att := s.assertNewAttachments(c, storageTag)
-	// We should be able to get the initial storage context
-	// for existing storage immediately, without having to
-	// wait for any hooks to fire.
-	ctx, err := att.Storage(storageTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx, gc.NotNil)
-	c.Assert(ctx.Tag(), gc.Equals, storageTag)
-	c.Assert(ctx.Tag(), gc.Equals, storageTag)
-	c.Assert(ctx.Kind(), gc.Equals, corestorage.StorageKindBlock)
-	c.Assert(ctx.Location(), gc.Equals, "/dev/sdb")
-
 	c.Assert(att.Pending(), gc.Equals, 0)
-	assertStorageTags(c, att, storageTag)
 }
 
 func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
@@ -250,9 +229,6 @@ func (s *attachmentsSuite) testAttachmentsStorage(c *gc.C, opState operation.Sta
 	r := storage.NewResolver(loggo.GetLogger("test"), att, s.modelType)
 
 	storageTag := names.NewStorageTag("data/0")
-	_, err = att.Storage(storageTag)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	assertStorageTags(c, att)
 
 	// Inform the resolver of an attachment.
 	localState := resolver.LocalState{State: opState}
@@ -269,14 +245,6 @@ func (s *attachmentsSuite) testAttachmentsStorage(c *gc.C, opState operation.Sta
 	}, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run hook storage-attached")
-	assertStorageTags(c, att, storageTag)
-
-	ctx, err := att.Storage(storageTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx, gc.NotNil)
-	c.Assert(ctx.Tag(), gc.Equals, storageTag)
-	c.Assert(ctx.Kind(), gc.Equals, corestorage.StorageKindBlock)
-	c.Assert(ctx.Location(), gc.Equals, "/dev/sdb")
 }
 
 func (s *caasAttachmentsSuite) TestAttachmentsStorageNotStarted(c *gc.C) {
@@ -296,9 +264,6 @@ func (s *caasAttachmentsSuite) TestAttachmentsStorageNotStarted(c *gc.C) {
 	r := storage.NewResolver(loggo.GetLogger("test"), att, s.modelType)
 
 	storageTag := names.NewStorageTag("data/0")
-	_, err = att.Storage(storageTag)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	assertStorageTags(c, att)
 
 	// Inform the resolver of an attachment.
 	localState := resolver.LocalState{State: operation.State{

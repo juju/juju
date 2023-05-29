@@ -32,7 +32,6 @@ type ControllerState interface {
 // Model provides the subset of CAAS model state required
 // by the CAAS application facade.
 type Model interface {
-	Containers(providerIds ...string) ([]state.CloudContainer, error)
 	AgentVersion() (version.Number, error)
 	ControllerTag() names.ControllerTag
 	Tag() names.Tag
@@ -42,11 +41,8 @@ type Model interface {
 // required by the CAAS application facade.
 type Application interface {
 	Life() state.Life
-	Charm() (Charm, bool, error)
 	Name() string
-	AllUnits() ([]Unit, error)
-	UpdateUnits(unitsOp *state.UpdateUnitsOperation) error
-	AddUnit(args state.AddUnitParams) (unit Unit, err error)
+	UpsertCAASUnit(args state.UpsertCAASUnitParams) (Unit, error)
 	GetScale() int
 }
 
@@ -104,8 +100,8 @@ func (a applicationShim) AllUnits() ([]Unit, error) {
 	return result, nil
 }
 
-func (a applicationShim) AddUnit(args state.AddUnitParams) (unit Unit, err error) {
-	u, err := a.Application.AddUnit(args)
+func (a applicationShim) UpsertCAASUnit(args state.UpsertCAASUnitParams) (Unit, error) {
+	u, err := a.Application.UpsertCAASUnit(args)
 	if err != nil {
 		return nil, err
 	}
@@ -117,8 +113,6 @@ type Unit interface {
 	ContainerInfo() (state.CloudContainer, error)
 	Life() state.Life
 	Refresh() error
-	UpdateOperation(props state.UnitUpdateProperties) *state.UpdateUnitOperation
-	SetPassword(string) error
 	ApplicationName() string
 }
 

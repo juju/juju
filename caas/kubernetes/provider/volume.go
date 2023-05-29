@@ -113,6 +113,7 @@ func (k *kubernetesClient) deletePVC(name string, uid types.UID) error {
 	if k.namespace == "" {
 		return errNoNamespace
 	}
+	logger.Infof("deleting PVC %s due to call to kubernetesClient.deletePVC", name)
 	err := k.client().CoreV1().PersistentVolumeClaims(k.namespace).Delete(context.TODO(), name, utils.NewPreconditionDeleteOptions(uid))
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -391,7 +392,7 @@ func (k *kubernetesClient) volumeInfoForPVC(vol core.Volume, volMount core.Volum
 		Volume: caas.VolumeInfo{
 			VolumeId:   pv.Name,
 			Size:       uint64(pv.Size()),
-			Persistent: pv.Spec.PersistentVolumeReclaimPolicy == core.PersistentVolumeReclaimRetain,
+			Persistent: true,
 			Status: status.StatusInfo{
 				Status:  storage.VolumeStatus(pv.Status.Phase),
 				Message: pv.Status.Message,

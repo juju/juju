@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"sort"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/names/v4"
 	osseries "github.com/juju/os/v2/series"
 	"github.com/juju/proxy"
@@ -17,11 +18,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujuos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter/runner/context"
-	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
+	"github.com/juju/juju/worker/uniter/runner/context/mocks"
 )
 
 type EnvSuite struct {
@@ -50,7 +51,7 @@ func (s *EnvSuite) getPaths() (paths context.Paths, expectVars []string) {
 	}
 }
 
-func (s *EnvSuite) getContext(newProxyOnly bool) (ctx *context.HookContext, expectVars []string) {
+func (s *EnvSuite) getContext(newProxyOnly bool, state context.State, unit context.HookUnit) (ctx *context.HookContext, expectVars []string) {
 	var (
 		legacyProxy proxy.Settings
 		jujuProxy   proxy.Settings
@@ -125,6 +126,8 @@ func (s *EnvSuite) getContext(newProxyOnly bool) (ctx *context.HookContext, expe
 		LegacyProxySettings: legacyProxy,
 		JujuProxySettings:   jujuProxy,
 		MachineTag:          names.NewMachineTag("42"),
+		State:               state,
+		Unit:                unit,
 	}), expected
 }
 
@@ -151,15 +154,7 @@ func (s *EnvSuite) setDepartingRelation(ctx *context.HookContext) (expectVars []
 
 func (s *EnvSuite) setStorage(ctx *context.HookContext) (expectVars []string) {
 	tag := names.NewStorageTag("data/0")
-	context.SetEnvironmentHookContextStorage(ctx, &runnertesting.StorageContextAccessor{
-		map[names.StorageTag]*runnertesting.ContextStorage{
-			tag: {
-				tag,
-				storage.StorageKindBlock,
-				"/dev/sdb",
-			},
-		},
-	}, tag)
+	context.SetEnvironmentHookContextStorage(ctx, tag)
 	return []string{
 		"JUJU_STORAGE_ID=data/0",
 		"JUJU_STORAGE_KIND=block",
@@ -180,6 +175,17 @@ func (s *EnvSuite) TestEnvSetsPath(c *gc.C) {
 }
 
 func (s *EnvSuite) TestEnvWindows(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	state := mocks.NewMockState(ctrl)
+	state.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("this-unit/123")).Return(params.StorageAttachment{
+		Kind:     params.StorageKindBlock,
+		Location: "/dev/sdb",
+	}, nil).AnyTimes()
+	unit := mocks.NewMockHookUnit(ctrl)
+	unit.EXPECT().Tag().Return(names.NewUnitTag("this-unit/123")).AnyTimes()
+
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Windows })
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
 	windowsVars := []string{
@@ -209,7 +215,7 @@ func (s *EnvSuite) TestEnvWindows(c *gc.C) {
 		},
 	)
 
-	ctx, contextVars := s.getContext(false)
+	ctx, contextVars := s.getContext(false, state, unit)
 	paths, pathsVars := s.getPaths()
 	actualVars, err := ctx.HookVars(paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
@@ -223,6 +229,17 @@ func (s *EnvSuite) TestEnvWindows(c *gc.C) {
 }
 
 func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	state := mocks.NewMockState(ctrl)
+	state.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("this-unit/123")).Return(params.StorageAttachment{
+		Kind:     params.StorageKindBlock,
+		Location: "/dev/sdb",
+	}, nil).AnyTimes()
+	unit := mocks.NewMockHookUnit(ctrl)
+	unit.EXPECT().Tag().Return(names.NewUnitTag("this-unit/123")).AnyTimes()
+
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
 
@@ -260,7 +277,7 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 			},
 		)
 
-		ctx, contextVars := s.getContext(false)
+		ctx, contextVars := s.getContext(false, state, unit)
 		paths, pathsVars := s.getPaths()
 		actualVars, err := ctx.HookVars(paths, false, environmenter)
 		c.Assert(err, jc.ErrorIsNil)
@@ -275,6 +292,17 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 }
 
 func (s *EnvSuite) TestEnvCentos(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	state := mocks.NewMockState(ctrl)
+	state.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("this-unit/123")).Return(params.StorageAttachment{
+		Kind:     params.StorageKindBlock,
+		Location: "/dev/sdb",
+	}, nil).AnyTimes()
+	unit := mocks.NewMockHookUnit(ctrl)
+	unit.EXPECT().Tag().Return(names.NewUnitTag("this-unit/123")).AnyTimes()
+
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.CentOS })
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
 
@@ -310,7 +338,7 @@ func (s *EnvSuite) TestEnvCentos(c *gc.C) {
 			},
 		)
 
-		ctx, contextVars := s.getContext(false)
+		ctx, contextVars := s.getContext(false, state, unit)
 		paths, pathsVars := s.getPaths()
 		actualVars, err := ctx.HookVars(paths, false, environmenter)
 		c.Assert(err, jc.ErrorIsNil)
@@ -324,6 +352,17 @@ func (s *EnvSuite) TestEnvCentos(c *gc.C) {
 }
 
 func (s *EnvSuite) TestEnvOpenSUSE(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	state := mocks.NewMockState(ctrl)
+	state.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("this-unit/123")).Return(params.StorageAttachment{
+		Kind:     params.StorageKindBlock,
+		Location: "/dev/sdb",
+	}, nil).AnyTimes()
+	unit := mocks.NewMockHookUnit(ctrl)
+	unit.EXPECT().Tag().Return(names.NewUnitTag("this-unit/123")).AnyTimes()
+
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.OpenSUSE })
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
 
@@ -359,7 +398,7 @@ func (s *EnvSuite) TestEnvOpenSUSE(c *gc.C) {
 			},
 		)
 
-		ctx, contextVars := s.getContext(false)
+		ctx, contextVars := s.getContext(false, state, unit)
 		paths, pathsVars := s.getPaths()
 		actualVars, err := ctx.HookVars(paths, false, environmenter)
 		c.Assert(err, jc.ErrorIsNil)
@@ -373,6 +412,17 @@ func (s *EnvSuite) TestEnvOpenSUSE(c *gc.C) {
 }
 
 func (s *EnvSuite) TestEnvGenericLinux(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	state := mocks.NewMockState(ctrl)
+	state.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("this-unit/123")).Return(params.StorageAttachment{
+		Kind:     params.StorageKindBlock,
+		Location: "/dev/sdb",
+	}, nil).AnyTimes()
+	unit := mocks.NewMockHookUnit(ctrl)
+	unit.EXPECT().Tag().Return(names.NewUnitTag("this-unit/123")).AnyTimes()
+
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.GenericLinux })
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
 
@@ -400,7 +450,7 @@ func (s *EnvSuite) TestEnvGenericLinux(c *gc.C) {
 		},
 	)
 
-	ctx, contextVars := s.getContext(false)
+	ctx, contextVars := s.getContext(false, state, unit)
 	paths, pathsVars := s.getPaths()
 	actualVars, err := ctx.HookVars(paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
@@ -413,6 +463,17 @@ func (s *EnvSuite) TestEnvGenericLinux(c *gc.C) {
 }
 
 func (s *EnvSuite) TestHostEnv(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	state := mocks.NewMockState(ctrl)
+	state.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("this-unit/123")).Return(params.StorageAttachment{
+		Kind:     params.StorageKindBlock,
+		Location: "/dev/sdb",
+	}, nil).AnyTimes()
+	unit := mocks.NewMockHookUnit(ctrl)
+	unit.EXPECT().Tag().Return(names.NewUnitTag("this-unit/123")).AnyTimes()
+
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.GenericLinux })
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
 
@@ -442,7 +503,7 @@ func (s *EnvSuite) TestHostEnv(c *gc.C) {
 		},
 	)
 
-	ctx, contextVars := s.getContext(false)
+	ctx, contextVars := s.getContext(false, state, unit)
 	paths, pathsVars := s.getPaths()
 	actualVars, err := ctx.HookVars(paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)

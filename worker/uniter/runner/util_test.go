@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -50,7 +49,6 @@ type ContextSuite struct {
 	uniter      *uniter.State
 	apiUnit     *uniter.Unit
 	payloads    *uniter.PayloadFacadeClient
-	storage     *runnertesting.StorageContextAccessor
 
 	apiRelunits map[int]*uniter.RelationUnit
 	relch       *state.Charm
@@ -65,17 +63,6 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 	ch := s.AddTestingCharm(c, "wordpress-nolimit")
 	s.application = s.AddTestingApplication(c, "u", ch)
 	s.unit = s.AddUnit(c, s.application)
-
-	storageData0 := names.NewStorageTag("data/0")
-	s.storage = &runnertesting.StorageContextAccessor{
-		map[names.StorageTag]*runnertesting.ContextStorage{
-			storageData0: {
-				storageData0,
-				storage.StorageKindBlock,
-				"/dev/sdb",
-			},
-		},
-	}
 
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -111,7 +98,6 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 		Payloads:         s.payloads,
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
-		Storage:          s.storage,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
 		Logger:           loggo.GetLogger("test"),

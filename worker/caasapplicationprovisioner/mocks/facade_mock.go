@@ -15,7 +15,6 @@ import (
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
 	params "github.com/juju/juju/rpc/params"
-	names "github.com/juju/names/v4"
 )
 
 // MockCAASProvisionerFacade is a mock of CAASProvisionerFacade interface.
@@ -100,18 +99,18 @@ func (mr *MockCAASProvisionerFacadeMockRecorder) ClearApplicationResources(arg0 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearApplicationResources", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).ClearApplicationResources), arg0)
 }
 
-// GarbageCollect mocks base method.
-func (m *MockCAASProvisionerFacade) GarbageCollect(arg0 string, arg1 []names.Tag, arg2 int, arg3 []string, arg4 bool) error {
+// DestroyUnits mocks base method.
+func (m *MockCAASProvisionerFacade) DestroyUnits(arg0 []string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GarbageCollect", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "DestroyUnits", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// GarbageCollect indicates an expected call of GarbageCollect.
-func (mr *MockCAASProvisionerFacadeMockRecorder) GarbageCollect(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+// DestroyUnits indicates an expected call of DestroyUnits.
+func (mr *MockCAASProvisionerFacadeMockRecorder) DestroyUnits(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GarbageCollect", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).GarbageCollect), arg0, arg1, arg2, arg3, arg4)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyUnits", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).DestroyUnits), arg0)
 }
 
 // Life mocks base method.
@@ -142,6 +141,21 @@ func (m *MockCAASProvisionerFacade) ProvisioningInfo(arg0 string) (caasapplicati
 func (mr *MockCAASProvisionerFacadeMockRecorder) ProvisioningInfo(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProvisioningInfo", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).ProvisioningInfo), arg0)
+}
+
+// ProvisioningState mocks base method.
+func (m *MockCAASProvisionerFacade) ProvisioningState(arg0 string) (*params.CAASApplicationProvisioningState, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProvisioningState", arg0)
+	ret0, _ := ret[0].(*params.CAASApplicationProvisioningState)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ProvisioningState indicates an expected call of ProvisioningState.
+func (mr *MockCAASProvisionerFacadeMockRecorder) ProvisioningState(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProvisioningState", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).ProvisioningState), arg0)
 }
 
 // RemoveUnit mocks base method.
@@ -184,6 +198,20 @@ func (m *MockCAASProvisionerFacade) SetPassword(arg0, arg1 string) error {
 func (mr *MockCAASProvisionerFacadeMockRecorder) SetPassword(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPassword", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).SetPassword), arg0, arg1)
+}
+
+// SetProvisioningState mocks base method.
+func (m *MockCAASProvisionerFacade) SetProvisioningState(arg0 string, arg1 params.CAASApplicationProvisioningState) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetProvisioningState", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetProvisioningState indicates an expected call of SetProvisioningState.
+func (mr *MockCAASProvisionerFacadeMockRecorder) SetProvisioningState(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetProvisioningState", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).SetProvisioningState), arg0, arg1)
 }
 
 // Units mocks base method.

@@ -108,14 +108,23 @@ type applicationDoc struct {
 	ExposedEndpoints map[string]ExposedEndpoint `bson:"exposed-endpoints,omitempty"`
 
 	// CAAS related attributes.
-	DesiredScale int    `bson:"scale"`
-	PasswordHash string `bson:"passwordhash"`
+	DesiredScale      int                           `bson:"scale"`
+	PasswordHash      string                        `bson:"passwordhash"`
+	ProvisioningState *ApplicationProvisioningState `bson:"provisioning-state"`
+
 	// Placement is the placement directive that should be used allocating units/pods.
 	Placement string `bson:"placement,omitempty"`
 	// HasResources is set to false after an application has been removed
 	// and any k8s cluster resources have been fully cleaned up.
 	// Until then, the application must not be removed from the Juju model.
 	HasResources bool `bson:"has-resources,omitempty"`
+}
+
+// ApplicationProvisioningState is the CAAS application provisioning state for an
+// application.
+type ApplicationProvisioningState struct {
+	Scaling     bool `bson:"scaling"`
+	ScaleTarget int  `bson:"scale-target"`
 }
 
 func newApplication(st *State, doc *applicationDoc) *Application {
@@ -243,7 +252,60 @@ func (a *Application) SetAgentVersion(v version.Binary) (err error) {
 	}
 	a.doc.Tools = versionedTool
 	return nil
+}
 
+// SetProvisioningState sets the provisioning state for the application.
+func (a *Application) SetProvisioningState(ps ApplicationProvisioningState) error {
+	// TODO: Treat dying/dead scale to 0 as a separate call.
+	life := a.Life()
+	assertions := bson.D{
+		{"life", life},
+		{"provisioning-state", a.doc.ProvisioningState},
+	}
+	sets := bson.D{{"provisioning-state", ps}}
+	if ps.Scaling {
+		switch life {
+		case Alive:
+			alreadyScaling := false
+			if a.doc.ProvisioningState != nil && a.doc.ProvisioningState.Scaling {
+				alreadyScaling = true
+			}
+			if !alreadyScaling && ps.Scaling {
+				// if starting a scale, ensure we are scaling to the same target.
+				assertions = append(assertions, bson.DocElem{
+					"scale", ps.ScaleTarget,
+				})
+			}
+		case Dying, Dead:
+			// force scale to the scale target when dying/dead.
+			sets = append(sets, bson.DocElem{
+				"scale", ps.ScaleTarget,
+			})
+		}
+	}
+
+	ops := []txn.Op{{
+		C:      applicationsC,
+		Id:     a.doc.DocID,
+		Assert: assertions,
+		Update: bson.D{{"$set", sets}},
+	}}
+	if err := a.st.db().RunTransaction(ops); errors.Is(err, txn.ErrAborted) {
+		return stateerrors.ProvisioningStateInconsistent
+	} else if err != nil {
+		return errors.Annotatef(err, "failed to set provisioning-state for application %q", a)
+	}
+	a.doc.ProvisioningState = &ps
+	return nil
+}
+
+// ProvisioningState returns the provisioning state for the application.
+func (a *Application) ProvisioningState() *ApplicationProvisioningState {
+	if a.doc.ProvisioningState == nil {
+		return nil
+	}
+	ps := *a.doc.ProvisioningState
+	return &ps
 }
 
 var errRefresh = stderrors.New("state seems inconsistent, refresh and try again")
@@ -2257,6 +2319,7 @@ func (a *Application) addUnitOps(
 		address:            args.Address,
 		ports:              args.Ports,
 		unitName:           args.UnitName,
+		passwordHash:       args.PasswordHash,
 	})
 	if err != nil {
 		return uNames, ops, errors.Trace(err)
@@ -2276,10 +2339,11 @@ type applicationAddUnitOpsArgs struct {
 	attachStorage []names.StorageTag
 
 	// These optional attributes are relevant to CAAS models.
-	providerId *string
-	address    *string
-	ports      *[]string
-	unitName   *string
+	providerId   *string
+	address      *string
+	ports        *[]string
+	unitName     *string
+	passwordHash *string
 }
 
 // addUnitOpsWithCons is a helper method for returning addUnitOps.
@@ -2324,6 +2388,9 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		Principal:              args.principalName,
 		MachineId:              args.principalMachineID,
 		StorageAttachmentCount: numStorageAttachments,
+	}
+	if args.passwordHash != nil {
+		udoc.PasswordHash = *args.passwordHash
 	}
 	now := a.st.clock().Now()
 	agentStatusDoc := statusDoc{
@@ -2586,6 +2653,9 @@ type AddUnitParams struct {
 	// machineID is only passed in if the unit being created is
 	// a subordinate and refers to the machine that is hosting the principal.
 	machineID string
+
+	// PasswordHash is only passed for CAAS sidecar units on creation.
+	PasswordHash *string
 }
 
 // AddUnit adds a new principal unit to the application.
@@ -2607,6 +2677,157 @@ func (a *Application) AddUnit(args AddUnitParams) (unit *Unit, err error) {
 		return nil, err
 	}
 	return a.st.Unit(name)
+}
+
+// UpsertCAASUnitParams is passed to UpsertCAASUnit to describe how to create or how to find and
+// update an existing unit for sidecar CAAS application.
+type UpsertCAASUnitParams struct {
+	AddUnitParams
+
+	// OrderedScale is always true. It represents a mapping of OrderedId to Unit ID.
+	OrderedScale bool
+	// OrderedId is the stable ordinal index of the "pod".
+	OrderedId int
+
+	// ObservedAttachedVolumeIDs is the filesystem attachments observed to be attached by the infrastructure,
+	// used to map existing attachments.
+	ObservedAttachedVolumeIDs []string
+}
+
+func (a *Application) UpsertCAASUnit(args UpsertCAASUnitParams) (*Unit, error) {
+	if args.PasswordHash == nil {
+		return nil, errors.NotValidf("password hash")
+	}
+	if args.ProviderId == nil {
+		return nil, errors.NotValidf("provider id")
+	}
+	if !args.OrderedScale {
+		return nil, errors.NewNotImplemented(nil, "upserting CAAS units not supported without ordered unit IDs")
+	}
+	if args.UnitName == nil {
+		return nil, errors.NotValidf("nil unit name")
+	}
+
+	sb, err := NewStorageBackend(a.st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var unit *Unit
+	err = a.st.db().Run(func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			err := a.Refresh()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+
+		if args.UnitName != nil {
+			var err error
+			if unit == nil {
+				unit, err = a.st.Unit(*args.UnitName)
+			} else {
+				err = unit.Refresh()
+			}
+			if errors.Is(err, errors.NotFound) {
+				unit = nil
+			} else if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+
+		// Try to reattach the storage that k8s has observed attached to this pod.
+		for _, volumeId := range args.ObservedAttachedVolumeIDs {
+			volume, err := sb.volume(bson.D{{"info.volumeid", volumeId}}, "")
+			if errors.Is(err, errors.NotFound) {
+				continue
+			} else if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			volumeStorageId, err := volume.StorageInstance()
+			if errors.Is(err, errors.NotAssigned) {
+				continue
+			} else if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			args.AddUnitParams.AttachStorage = append(args.AddUnitParams.AttachStorage, volumeStorageId)
+		}
+
+		if unit == nil {
+			return a.insertCAASUnitOps(args)
+		}
+
+		if unit.Life() == Dead {
+			return nil, errors.AlreadyExistsf("dead unit %q", unit.Tag().Id())
+		}
+
+		updateOps, err := unit.UpdateOperation(UnitUpdateProperties{
+			ProviderId: args.ProviderId,
+			Address:    args.Address,
+			Ports:      args.Ports,
+		}).Build(attempt)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		if args.PasswordHash != nil {
+			ops = append(ops, unit.setPasswordHashOps(*args.PasswordHash)...) // setPasswordHashOps asserts notDead
+		} else {
+			ops = append(ops, txn.Op{
+				C:      unitsC,
+				Id:     unit.doc.DocID,
+				Assert: notDeadDoc,
+			})
+		}
+		ops = append(ops, updateOps...)
+		return ops, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if unit == nil {
+		unit, err = a.st.Unit(*args.UnitName)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		err = unit.Refresh()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return unit, nil
+}
+
+func (a *Application) insertCAASUnitOps(args UpsertCAASUnitParams) ([]txn.Op, error) {
+	if args.UnitName == nil {
+		return nil, errors.NotValidf("nil unit name")
+	}
+
+	if ps := a.ProvisioningState(); args.OrderedId >= a.GetScale() ||
+		(ps != nil && ps.Scaling && args.OrderedId >= ps.ScaleTarget) {
+		return nil, errors.NotAssignedf("unrequired unit %s is", *args.UnitName)
+	}
+
+	_, addOps, err := a.addUnitOps("", args.AddUnitParams, nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ops := []txn.Op{{
+		C:  applicationsC,
+		Id: a.doc.DocID,
+		Assert: bson.D{
+			{"life", Alive},
+			{"scale", a.GetScale()},
+			{"provisioning-state", a.ProvisioningState()},
+		},
+	}}
+	ops = append(ops, addOps...)
+	return ops, nil
 }
 
 // removeUnitOps returns the operations necessary to remove the supplied unit,

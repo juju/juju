@@ -7,6 +7,7 @@
 package initialize
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 
 	"github.com/juju/juju/cmd/containeragent/utils"
@@ -20,12 +21,16 @@ var (
 	DefaultIdentity = defaultIdentity
 )
 
-func NewInitCommandForTest(applicationAPI ApplicationAPI, fileReaderWriter utils.FileReaderWriter, environment utils.Environment) cmd.Command {
+func NewInitCommandForTest(applicationAPI ApplicationAPI,
+	fileReaderWriter utils.FileReaderWriter,
+	environment utils.Environment,
+	clock clock.Clock) cmd.Command {
 	return &initCommand{
 		config:           defaultConfig,
 		identity:         defaultIdentity,
 		applicationAPI:   applicationAPI,
 		fileReaderWriter: fileReaderWriter,
 		environment:      environment,
+		clock:            clock,
 	}
 }

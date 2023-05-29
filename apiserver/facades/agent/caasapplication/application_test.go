@@ -8,7 +8,6 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/charm/v8"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -63,7 +62,7 @@ func (s *CAASApplicationSuite) TestAddUnit(c *gc.C) {
 		PodUUID: "gitlab-uuid",
 	}
 
-	s.st.app.newUnit = &mockUnit{
+	s.st.app.unit = &mockUnit{
 		life: state.Alive,
 		containerInfo: &mockCloudContainer{
 			providerID: "gitlab-0",
@@ -71,12 +70,18 @@ func (s *CAASApplicationSuite) TestAddUnit(c *gc.C) {
 		},
 		updateOp: nil,
 	}
+	s.st.app.scale = 1
 
 	s.broker.app = &mockCAASApplication{
 		units: []caas.Unit{{
 			Id:      "gitlab-0",
 			Address: "1.2.3.4",
 			Ports:   []string{"80"},
+			FilesystemInfo: []caas.FilesystemInfo{{
+				Volume: caas.VolumeInfo{
+					VolumeId: "vid",
+				},
+			}},
 		}},
 	}
 
@@ -86,15 +91,49 @@ func (s *CAASApplicationSuite) TestAddUnit(c *gc.C) {
 	c.Assert(results.Result.UnitName, gc.Equals, "gitlab/0")
 	c.Assert(results.Result.AgentConf, gc.NotNil)
 
-	s.st.CheckCallNames(c, "Model", "Application", "Unit", "ControllerConfig", "APIHostPortsForAgents")
+	s.st.CheckCallNames(c, "Model", "Application", "ControllerConfig", "APIHostPortsForAgents")
 	s.st.CheckCall(c, 1, "Application", "gitlab")
-	s.st.app.CheckCallNames(c, "Life", "Name", "Name", "AddUnit")
-	c.Assert(s.st.app.Calls()[3].Args[0], gc.DeepEquals, state.AddUnitParams{
-		ProviderId: strPtr("gitlab-0"),
-		UnitName:   strPtr("gitlab/0"),
-		Address:    strPtr("1.2.3.4"),
-		Ports:      &[]string{"80"},
+	s.st.app.CheckCallNames(c, "Life", "Name", "Name", "UpsertCAASUnit")
+
+	mc := jc.NewMultiChecker()
+	mc.AddExpr("_.AddUnitParams.PasswordHash", gc.Not(gc.IsNil))
+	c.Assert(s.st.app.Calls()[3].Args[0], mc, state.UpsertCAASUnitParams{
+		AddUnitParams: state.AddUnitParams{
+			ProviderId: strPtr("gitlab-0"),
+			UnitName:   strPtr("gitlab/0"),
+			Address:    strPtr("1.2.3.4"),
+			Ports:      &[]string{"80"},
+		},
+		OrderedScale:              true,
+		OrderedId:                 0,
+		ObservedAttachedVolumeIDs: []string{"vid"},
 	})
+}
+
+func (s *CAASApplicationSuite) TestAddUnitNotNeeded(c *gc.C) {
+	args := params.CAASUnitIntroductionArgs{
+		PodName: "gitlab-0",
+		PodUUID: "gitlab-uuid",
+	}
+
+	s.st.app.scale = 0
+
+	s.broker.app = &mockCAASApplication{
+		units: []caas.Unit{{
+			Id:      "gitlab-0",
+			Address: "1.2.3.4",
+			Ports:   []string{"80"},
+		}},
+	}
+	s.st.app.SetErrors(errors.NotAssignedf("unrequired unit"))
+
+	results, err := s.facade.UnitIntroduction(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Error, gc.ErrorMatches, "unrequired unit not assigned")
+
+	s.st.CheckCallNames(c, "Model", "Application")
+	s.st.CheckCall(c, 1, "Application", "gitlab")
+	s.st.app.CheckCallNames(c, "Life", "Name", "Name", "UpsertCAASUnit")
 }
 
 func (s *CAASApplicationSuite) TestReuseUnitByName(c *gc.C) {
@@ -103,7 +142,7 @@ func (s *CAASApplicationSuite) TestReuseUnitByName(c *gc.C) {
 		PodUUID: "gitlab-uuid",
 	}
 
-	s.st.units["gitlab/0"] = &mockUnit{
+	s.st.app.unit = &mockUnit{
 		life: state.Alive,
 		containerInfo: &mockCloudContainer{
 			providerID: "gitlab-0",
@@ -125,18 +164,47 @@ func (s *CAASApplicationSuite) TestReuseUnitByName(c *gc.C) {
 	c.Assert(results.Result.UnitName, gc.Equals, "gitlab/0")
 	c.Assert(results.Result.AgentConf, gc.NotNil)
 
-	s.st.CheckCallNames(c, "Model", "Application", "Unit", "ControllerConfig", "APIHostPortsForAgents")
+	s.st.CheckCallNames(c, "Model", "Application", "ControllerConfig", "APIHostPortsForAgents")
 	s.st.CheckCall(c, 1, "Application", "gitlab")
-	s.st.units["gitlab/0"].CheckCallNames(c, "Life", "UpdateOperation", "SetPassword")
-	c.Assert(s.st.units["gitlab/0"].Calls()[1].Args[0], gc.DeepEquals, state.UnitUpdateProperties{
-		ProviderId: strPtr("gitlab-0"),
-		Address:    strPtr("1.2.3.4"),
-		Ports:      &[]string{"80"},
+	s.st.app.CheckCallNames(c, "Life", "Name", "Name", "UpsertCAASUnit")
+
+	mc := jc.NewMultiChecker()
+	mc.AddExpr("_.AddUnitParams.PasswordHash", gc.Not(gc.IsNil))
+	c.Assert(s.st.app.Calls()[3].Args[0], mc, state.UpsertCAASUnitParams{
+		AddUnitParams: state.AddUnitParams{
+			ProviderId: strPtr("gitlab-0"),
+			UnitName:   strPtr("gitlab/0"),
+			Address:    strPtr("1.2.3.4"),
+			Ports:      &[]string{"80"},
+		},
+		OrderedScale: true,
+		OrderedId:    0,
 	})
-	s.st.app.CheckCallNames(c, "Life", "Name", "Name", "UpdateUnits")
-	c.Assert(s.st.app.Calls()[3].Args[0], gc.DeepEquals, &state.UpdateUnitsOperation{
-		Updates: []*state.UpdateUnitOperation{nil},
-	})
+}
+
+func (s *CAASApplicationSuite) TestDontReuseDeadUnitByName(c *gc.C) {
+	args := params.CAASUnitIntroductionArgs{
+		PodName: "gitlab-0",
+		PodUUID: "gitlab-uuid",
+	}
+
+	s.st.app.SetErrors(errors.AlreadyExistsf("dead unit \"gitlab/0\""))
+
+	s.broker.app = &mockCAASApplication{
+		units: []caas.Unit{{
+			Id:      "gitlab-0",
+			Address: "1.2.3.4",
+			Ports:   []string{"80"},
+		}},
+	}
+
+	results, err := s.facade.UnitIntroduction(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Error, gc.ErrorMatches, `dead unit "gitlab/0" already exists`)
+
+	s.st.CheckCallNames(c, "Model", "Application")
+	s.st.CheckCall(c, 1, "Application", "gitlab")
+	s.st.app.CheckCallNames(c, "Life", "Name", "Name", "UpsertCAASUnit")
 }
 
 func (s *CAASApplicationSuite) TestFindByProviderID(c *gc.C) {
@@ -147,11 +215,10 @@ func (s *CAASApplicationSuite) TestFindByProviderID(c *gc.C) {
 		PodUUID: "gitlab-uuid",
 	}
 
-	s.st.app.charm.meta.Deployment.DeploymentType = charm.DeploymentStateless
-	s.st.units["gitlab/0"] = &mockUnit{
+	s.st.app.unit = &mockUnit{
 		life: state.Alive,
 	}
-	s.st.units["gitlab/0"].SetErrors(errors.NotFoundf("cloud container"))
+	s.st.app.unit.SetErrors(errors.NotFoundf("cloud container"))
 
 	results, err := s.facade.UnitIntroduction(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -173,7 +240,7 @@ func (s *CAASApplicationSuite) TestAgentConf(c *gc.C) {
 		PodUUID: "gitlab-uuid",
 	}
 
-	s.st.app.newUnit = &mockUnit{
+	s.st.app.unit = &mockUnit{
 		life: state.Alive,
 		containerInfo: &mockCloudContainer{
 			providerID: "gitlab-0",
@@ -181,6 +248,7 @@ func (s *CAASApplicationSuite) TestAgentConf(c *gc.C) {
 		},
 		updateOp: nil,
 	}
+	s.st.app.scale = 1
 
 	s.broker.app = &mockCAASApplication{
 		units: []caas.Unit{{

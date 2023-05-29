@@ -905,7 +905,7 @@ func (s *MigrationSuite) createMigAndWatchReports(c *gc.C, st *state.State) (
 
 	w, err := mig.WatchMinionReports()
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { statetesting.AssertStop(c, w) })
+	s.AddCleanup(func(c *gc.C) { statetesting.AssertStop(c, w) })
 	wc := statetesting.NewNotifyWatcherC(c, st, w)
 
 	return mig, wc

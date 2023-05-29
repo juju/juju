@@ -49,10 +49,10 @@ import (
 	"github.com/juju/juju/worker/uniter/verifycharmprofile"
 )
 
-var (
+const (
 	// ErrCAASUnitDead is the error returned from terminate or init
 	// if the unit is Dead.
-	ErrCAASUnitDead = errors.New("unit dead")
+	ErrCAASUnitDead = errors.ConstError("unit dead")
 )
 
 // A UniterExecutionObserver gets the appropriate methods called when a hook
@@ -297,7 +297,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		if err != nil {
 			errorString = err.Error()
 		}
-		if errors.Cause(err) == ErrCAASUnitDead {
+		if errors.Is(err, ErrCAASUnitDead) {
 			errorString = err.Error()
 			err = nil
 		}
@@ -521,34 +521,34 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 
 			err = u.translateResolverErr(err)
 
-			switch cause := errors.Cause(err); cause {
-			case nil:
+			switch {
+			case err == nil:
 				// Loop back around.
-			case resolver.ErrLoopAborted:
+			case errors.Is(err, resolver.ErrLoopAborted):
 				err = u.catacomb.ErrDying()
-			case operation.ErrNeedsReboot:
+			case errors.Is(err, operation.ErrNeedsReboot):
 				err = jworker.ErrRebootMachine
-			case operation.ErrHookFailed:
+			case errors.Is(err, operation.ErrHookFailed):
 				// Loop back around. The resolver can tell that it is in
 				// an error state by inspecting the operation state.
 				err = nil
-			case runner.ErrTerminated:
+			case errors.Is(err, runner.ErrTerminated):
 				localState.HookWasShutdown = true
 				err = nil
-			case resolver.ErrTerminate:
+			case errors.Is(err, resolver.ErrUnitDead):
 				err = u.terminate()
-			case resolver.ErrRestart:
+			case errors.Is(err, resolver.ErrRestart):
 				// make sure we update the two values used above in
 				// creating LocalState.
 				charmURL = localState.CharmURL
 				charmModifiedVersion = localState.CharmModifiedVersion
 				// leave err assigned, causing loop to break
-			case jworker.ErrTerminateAgent:
+			case errors.Is(err, jworker.ErrTerminateAgent):
 				// terminate agent
 			default:
 				// We need to set conflicted from here, because error
 				// handling is outside of the resolver's control.
-				if operation.IsDeployConflictError(cause) {
+				if _, is := errors.AsType[*operation.DeployConflictError](err); is {
 					localState.Conflicted = true
 					err = setAgentStatus(u, status.Error, "upgrade failed", nil)
 				} else {
@@ -557,7 +557,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			}
 		}
 
-		if errors.Cause(err) != resolver.ErrRestart {
+		if !errors.Is(err, resolver.ErrRestart) {
 			break
 		}
 	}
@@ -711,7 +711,10 @@ func (u *Uniter) terminate() error {
 // an individual agent for that unit.
 func (u *Uniter) stopUnitError() error {
 	u.logger.Debugf("u.modelType: %s", u.modelType)
-	if u.modelType == model.CAAS && !u.sidecar {
+	if u.modelType == model.CAAS {
+		if u.sidecar {
+			return errors.WithType(jworker.ErrTerminateAgent, ErrCAASUnitDead)
+		}
 		return ErrCAASUnitDead
 	}
 	return jworker.ErrTerminateAgent
@@ -807,7 +810,6 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		Payloads:         u.payloads,
 		Tracker:          u.leadershipTracker,
 		GetRelationInfos: u.relationStateTracker.GetInfo,
-		Storage:          u.storage,
 		Paths:            u.paths,
 		Clock:            u.clock,
 		Logger:           u.logger.Child("context"),

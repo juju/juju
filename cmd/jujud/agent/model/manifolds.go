@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/api/base"
 	caasfirewallerapi "github.com/juju/juju/api/controller/caasfirewaller"
 	caasunitprovisionerapi "github.com/juju/juju/api/controller/caasunitprovisioner"
+	controllerlifeflag "github.com/juju/juju/api/controller/lifeflag"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
@@ -174,7 +175,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Result:        life.IsNotDead,
 			Filter:        LifeFilter,
 
-			NewFacade: lifeflag.NewFacade,
+			NewFacade: func(b base.APICaller) (lifeflag.Facade, error) {
+				return controllerlifeflag.NewClient(b), nil
+			},
 			NewWorker: lifeflag.NewWorker,
 			// No Logger defined in lifeflag package.
 		}),
@@ -184,7 +187,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Result:        life.IsNotAlive,
 			Filter:        LifeFilter,
 
-			NewFacade: lifeflag.NewFacade,
+			NewFacade: func(b base.APICaller) (lifeflag.Facade, error) {
+				return controllerlifeflag.NewClient(b), nil
+			},
 			NewWorker: lifeflag.NewWorker,
 			// No Logger defined in lifeflag package.
 		}),

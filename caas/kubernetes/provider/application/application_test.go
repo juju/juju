@@ -2193,7 +2193,7 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 					Volume: caas.VolumeInfo{
 						VolumeId:   "pv-0",
 						Size:       1024,
-						Persistent: false,
+						Persistent: true,
 						Status: status.StatusInfo{
 							Status:  "attached",
 							Message: "volume bound",
@@ -2225,7 +2225,7 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 					Volume: caas.VolumeInfo{
 						VolumeId:   "pv-1",
 						Size:       1024,
-						Persistent: false,
+						Persistent: true,
 						Status: status.StatusInfo{
 							Status:  "attached",
 							Message: "volume bound",
@@ -2256,7 +2256,7 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 					Volume: caas.VolumeInfo{
 						VolumeId:   "pv-2",
 						Size:       1024,
-						Persistent: false,
+						Persistent: true,
 						Status: status.StatusInfo{
 							Status:  "attached",
 							Message: "volume bound",
@@ -2287,7 +2287,7 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 					Volume: caas.VolumeInfo{
 						VolumeId:   "pv-3",
 						Size:       1024,
-						Persistent: false,
+						Persistent: true,
 						Status: status.StatusInfo{
 							Status:  "attached",
 							Message: "volume bound",
@@ -2319,7 +2319,7 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 					Volume: caas.VolumeInfo{
 						VolumeId:   "pv-4",
 						Size:       1024,
-						Persistent: false,
+						Persistent: true,
 						Status: status.StatusInfo{
 							Status:  "attached",
 							Message: "volume bound",
@@ -2351,7 +2351,7 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 					Volume: caas.VolumeInfo{
 						VolumeId:   "pv-5",
 						Size:       1024,
-						Persistent: false,
+						Persistent: true,
 						Status: status.StatusInfo{
 							Status:  "attached",
 							Message: "volume bound",
@@ -2383,7 +2383,7 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 					Volume: caas.VolumeInfo{
 						VolumeId:   "pv-6",
 						Size:       1024,
-						Persistent: false,
+						Persistent: true,
 						Status: status.StatusInfo{
 							Status:  "attached",
 							Message: "volume bound",
@@ -2415,7 +2415,7 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 					Volume: caas.VolumeInfo{
 						VolumeId:   "pv-7",
 						Size:       1024,
-						Persistent: false,
+						Persistent: true,
 						Status: status.StatusInfo{
 							Status:  "attached",
 							Message: "volume bound",
@@ -2446,7 +2446,7 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 					Volume: caas.VolumeInfo{
 						VolumeId:   "pv-8",
 						Size:       1024,
-						Persistent: false,
+						Persistent: true,
 						Status: status.StatusInfo{
 							Status:  "attached",
 							Message: "volume bound",

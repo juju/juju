@@ -7,13 +7,11 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/retry"
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/agent"
@@ -101,8 +99,9 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 	// }
 	deploymentType := caas.DeploymentStateful
 
+	upsert := state.UpsertCAASUnitParams{}
+
 	containerID := args.PodName
-	var unitName *string
 	switch deploymentType {
 	case caas.DeploymentStateful:
 		splitPodName := strings.Split(args.PodName, "-")
@@ -111,92 +110,11 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 			return errResp(err)
 		}
 		n := fmt.Sprintf("%s/%d", application.Name(), ord)
-		unitName = &n
-	case caas.DeploymentStateless, caas.DeploymentDaemon:
-		// Both handled the same way.
+		upsert.UnitName = &n
+		upsert.OrderedId = ord
+		upsert.OrderedScale = true
 	default:
 		return errResp(errors.NotSupportedf("unknown deployment type"))
-	}
-
-	var unit Unit = nil
-	if unitName != nil {
-		unit, err = f.state.Unit(*unitName)
-		if err != nil && !errors.IsNotFound(err) {
-			return errResp(err)
-		}
-	} else {
-		containers, err := f.model.Containers(containerID)
-		if err != nil {
-			return errResp(err)
-		}
-
-		if len(containers) != 0 {
-			container := containers[0]
-			unit, err = f.state.Unit(container.Unit())
-			if err != nil {
-				return errResp(err)
-			}
-			logger.Debugf("pod %q matched unit %q", args.PodName, unit.Tag().String())
-		}
-
-		// Find an existing unit that isn't yet assigned.
-		if unit == nil {
-			units, err := application.AllUnits()
-			if err != nil {
-				return errResp(err)
-			}
-			for _, existingUnit := range units {
-				info, err := existingUnit.ContainerInfo()
-				if errors.IsNotFound(err) {
-					unit = existingUnit
-					break
-				} else if err != nil {
-					return errResp(err)
-				}
-				if info.ProviderId() == "" {
-					unit = existingUnit
-					break
-				}
-			}
-			if unit != nil {
-				logger.Debugf("pod %q matched unused unit %q", args.PodName, unit.Tag().String())
-			}
-		}
-	}
-
-	if unit != nil && unit.Life() != state.Alive {
-		retryErr := errors.New("retry")
-		call := retry.CallArgs{
-			Clock:    f.clock,
-			Delay:    5 * time.Second,
-			Attempts: 12,
-			IsFatalError: func(err error) bool {
-				return err != retryErr
-			},
-			Func: func() error {
-				err := unit.Refresh()
-				if errors.IsNotFound(err) {
-					unit = nil
-					return nil
-				} else if err != nil {
-					return retryErr
-				}
-				switch unit.Life() {
-				case state.Alive:
-					return nil
-				case state.Dying, state.Dead:
-					logger.Debugf("still waiting for old unit %q to cleanup", unit.Tag().String())
-					return retryErr
-				default:
-					return errors.Errorf("unknown life state")
-				}
-			},
-		}
-		err := retry.Call(call)
-		if err != nil {
-			return errResp(errors.Annotatef(err,
-				"failed waiting for old unit %q to cleanup", unit.Tag().String()))
-		}
 	}
 
 	// Find the pod/unit in the provider.
@@ -216,43 +134,25 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 	if pod == nil {
 		return errResp(errors.NotFoundf("pod %s in provider", args.PodName))
 	}
-
-	// Force update of provider-id.
-	if unit != nil {
-		update := unit.UpdateOperation(state.UnitUpdateProperties{
-			ProviderId: &containerID,
-			Address:    &pod.Address,
-			Ports:      &pod.Ports,
-		})
-		var unitUpdate state.UpdateUnitsOperation
-		unitUpdate.Updates = append(unitUpdate.Updates, update)
-		err = application.UpdateUnits(&unitUpdate)
-		if err != nil {
-			return errResp(err)
-		}
-		logger.Debugf("unit %q updated provider id to %q", unit.Tag().String(), containerID)
+	upsert.ProviderId = &containerID
+	if pod.Address != "" {
+		upsert.Address = &pod.Address
 	}
-
-	// Create a new unit if we never found one.
-	if unit == nil {
-		unit, err = application.AddUnit(state.AddUnitParams{
-			UnitName:   unitName,
-			ProviderId: &containerID,
-			Address:    &pod.Address,
-			Ports:      &pod.Ports,
-		})
-		if err != nil {
-			return errResp(err)
-		}
-		logger.Debugf("created new unit %q for pod %s/%s", unit.Tag().String(), args.PodName, containerID)
+	if len(pod.Ports) != 0 {
+		upsert.Ports = &pod.Ports
+	}
+	for _, fs := range pod.FilesystemInfo {
+		upsert.ObservedAttachedVolumeIDs = append(upsert.ObservedAttachedVolumeIDs, fs.Volume.VolumeId)
 	}
 
 	password, err := utils.RandomPassword()
 	if err != nil {
 		return errResp(err)
 	}
+	passwordHash := utils.AgentPasswordHash(password)
+	upsert.PasswordHash = &passwordHash
 
-	err = unit.SetPassword(password)
+	unit, err := application.UpsertCAASUnit(upsert)
 	if err != nil {
 		return errResp(err)
 	}
@@ -261,12 +161,10 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 	if err != nil {
 		return errResp(err)
 	}
-
 	apiHostPorts, err := f.ctrlSt.APIHostPortsForAgents()
 	if err != nil {
 		return errResp(err)
 	}
-
 	addrs := []string(nil)
 	for _, hostPorts := range apiHostPorts {
 		ordered := hostPorts.HostPorts().PrioritizedForScope(network.ScopeMatchCloudLocal)
@@ -281,7 +179,6 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 	version, _ := f.model.AgentVersion()
 	dataDir := paths.DataDir(paths.OSUnixLike)
 	logDir := paths.LogDir(paths.OSUnixLike)
-
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			Paths: agent.Paths{
@@ -300,7 +197,6 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 	if err != nil {
 		return errResp(errors.Annotatef(err, "creating new agent config"))
 	}
-
 	agentConfBytes, err := conf.Render()
 	if err != nil {
 		return errResp(err)

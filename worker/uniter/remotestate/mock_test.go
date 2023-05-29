@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/charm/v8"
-
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/leadership"
@@ -140,17 +140,17 @@ func (st *mockState) StorageAttachment(
 	storageTag names.StorageTag, unitTag names.UnitTag,
 ) (params.StorageAttachment, error) {
 	if unitTag != st.unit.tag {
-		return params.StorageAttachment{}, &params.Error{Code: params.CodeNotFound}
+		return params.StorageAttachment{}, errors.NewNotFound(&params.Error{Code: params.CodeNotFound}, "")
 	}
 	attachment, ok := st.storageAttachment[params.StorageAttachmentId{
 		UnitTag:    unitTag.String(),
 		StorageTag: storageTag.String(),
 	}]
 	if !ok {
-		return params.StorageAttachment{}, &params.Error{Code: params.CodeNotFound}
+		return params.StorageAttachment{}, errors.NewNotFound(&params.Error{Code: params.CodeNotFound}, "")
 	}
 	if attachment.Kind == params.StorageKindUnknown {
-		return params.StorageAttachment{}, &params.Error{Code: params.CodeNotProvisioned}
+		return params.StorageAttachment{}, errors.NewNotProvisioned(&params.Error{Code: params.CodeNotProvisioned}, "")
 	}
 	return attachment, nil
 }

@@ -31,6 +31,10 @@ type ProbeProvider interface {
 	SupportedProbes() SupportedProbes
 }
 
+type probeProvider struct {
+	Probes SupportedProbes
+}
+
 // ProbeType is an alias type to describe the type of probe in question.
 type ProbeType string
 
@@ -54,6 +58,11 @@ const (
 type ProberFn func() (bool, error)
 
 var (
+	// Failure is a convenience wrapper probe that always evaluates to failure.
+	Failure Prober = ProberFn(func() (bool, error) {
+		return false, nil
+	})
+
 	// NotImplemented is a convenience wrapper for supplying a probe that
 	// indiciates to it's caller that it's not implemented. Resulting error
 	// should hold true with errors.IsNotImplemented(err)
@@ -61,15 +70,39 @@ var (
 		return false, errors.NotImplementedf("probe not implemented")
 	})
 
-	// Success is a convenience wrapper probe that always evalutates to success.
+	// Success is a convenience wrapper probe that always evaluates to success.
 	Success Prober = ProberFn(func() (bool, error) {
 		return true, nil
 	})
 )
 
+// LivenessProvider is a utility function for returning a ProbeProvider for the
+// provided liveness probe.
+func LivenessProvider(probe Prober) ProbeProvider {
+	return Provider(SupportedProbes{
+		ProbeLiveness: probe,
+	})
+}
+
+// ReadinessProvider is a utility function for returning a ProbeProvider for the
+// provided readiness probe.
+func ReadinessProvider(probe Prober) ProbeProvider {
+	return Provider(SupportedProbes{
+		ProbeReadiness: probe,
+	})
+}
+
 // Probe implements Prober interface
 func (p ProberFn) Probe() (bool, error) {
 	return p()
+}
+
+// Provider is a utility function for returning a ProbeProvider based on the
+// SupportedProbes passed in.
+func Provider(supported SupportedProbes) ProbeProvider {
+	return &probeProvider{
+		Probes: supported,
+	}
 }
 
 // Supports indicates if the supplied ProbeType is in the map of supported
@@ -77,4 +110,9 @@ func (p ProberFn) Probe() (bool, error) {
 func (s SupportedProbes) Supports(t ProbeType) bool {
 	_, has := s[t]
 	return has
+}
+
+// SupportedProbes implements ProbeProvider interface.
+func (p *probeProvider) SupportedProbes() SupportedProbes {
+	return p.Probes
 }
