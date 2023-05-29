@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/mongo"
 )
 
@@ -212,4 +213,43 @@ func MigrateApplicationOpenedPortsToUnitScope(pool *StatePool) error {
 		}
 		return nil
 	}))
+}
+
+// EnsureInitalRefCountForExternalSecretBackends creates an intial refcount for each
+// external secret backend if there is no one found.
+func EnsureInitalRefCountForExternalSecretBackends(pool *StatePool) error {
+	st, err := pool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	backends := NewSecretBackends(st)
+	allBackends, err := backends.ListSecretBackends()
+	if err != nil {
+		return errors.Annotate(err, "loading secret backends")
+	}
+	refCountCollection, ccloser := st.db().GetCollection(globalRefcountsC)
+	defer ccloser()
+	var ops []txn.Op
+	for _, backend := range allBackends {
+		if secrets.IsInternalSecretBackendID(backend.ID) {
+			continue
+		}
+		_, err := nsRefcounts.read(refCountCollection, secretBackendRefCountKey(backend.ID))
+		if err == nil {
+			continue
+		}
+		if !errors.IsNotFound(err) {
+			return errors.Annotatef(err, "reading refcount for backend %q", backend.ID)
+		}
+		refOps, err := st.createSecretBackendRefCountOp(backend.ID)
+		if err != nil {
+			return errors.Annotatef(err, "cannot get creating refcount op for backend %q", backend.ID)
+		}
+		ops = append(ops, refOps...)
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
+	return nil
 }

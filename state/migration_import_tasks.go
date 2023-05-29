@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/permission"
@@ -550,7 +549,7 @@ func (s *secretStateShim) SecretConsumerKey(uri *secrets.URI, subject string) st
 }
 
 func (s *secretStateShim) IncBackendRevisionCountOps(backendID string) ([]txn.Op, error) {
-	return s.st.incBackendRevisionCountOps(backendID)
+	return s.st.incBackendRevisionCountOps(backendID, nil)
 }
 
 // ImportSecrets describes a way to import secrets from a
@@ -615,7 +614,7 @@ func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner, knownSe
 					BackendID:  rev.ValueRef().BackendID(),
 					RevisionID: rev.ValueRef().RevisionID(),
 				}
-				if !utils.IsValidUUIDString(valueRef.BackendID) && !seenBackendIds.Contains(valueRef.BackendID) {
+				if !secrets.IsInternalSecretBackendID(valueRef.BackendID) && !seenBackendIds.Contains(valueRef.BackendID) {
 					if !knownSecretBackends.Contains(valueRef.BackendID) {
 						return errors.New("target controller does not have all required secret backends set up")
 					}
@@ -649,10 +648,7 @@ func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner, knownSe
 				if err != nil {
 					return errors.Trace(err)
 				}
-				// We have to commit the backend revision count for each revision.
-				if err := runner.RunTransaction(refOps); err != nil {
-					return errors.Trace(err)
-				}
+				ops = append(ops, refOps...)
 			}
 		}
 		for subject, access := range secret.ACL() {
