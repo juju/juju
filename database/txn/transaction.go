@@ -65,7 +65,7 @@ func WithRetryStrategy(retryStrategy RetryStrategy) Option {
 // WithSemaphore defines a semaphore for limiting the number of transactions
 // that can be executed at any given time.
 //
-// If nill is used, then no semaphore is used.
+// If nil is passed, then no semaphore is used.
 func WithSemaphore(sem Semaphore) Option {
 	return func(o *option) {
 		if sem == nil {
@@ -100,24 +100,25 @@ type Semaphore interface {
 	Release(int64)
 }
 
-// TransactionRunner defines a generic transactioner for applying transactions
-// on a given database. It expects that no individual transaction function
+// RetryingTxnRunner defines a generic runner for applying transactions
+// to a given database. It expects that no individual transaction function
 // should take longer than the default timeout.
-type TransactionRunner struct {
+// Transient errors are retried based on the defined retry strategy.
+type RetryingTxnRunner struct {
 	timeout       time.Duration
 	logger        Logger
 	retryStrategy RetryStrategy
 	semaphore     Semaphore
 }
 
-// NewTransactionRunner returns a new TransactionRunner.
-func NewTransactionRunner(opts ...Option) *TransactionRunner {
+// NewRetryingTxnRunner returns a new RetryingTxnRunner.
+func NewRetryingTxnRunner(opts ...Option) *RetryingTxnRunner {
 	o := newOptions()
 	for _, opt := range opts {
 		opt(o)
 	}
 
-	return &TransactionRunner{
+	return &RetryingTxnRunner{
 		timeout:       o.timeout,
 		logger:        o.logger,
 		retryStrategy: o.retryStrategy,
@@ -134,7 +135,7 @@ func NewTransactionRunner(opts ...Option) *TransactionRunner {
 //
 // This should not be used directly, instead the TrackedDB should be used to
 // handle transactions.
-func (t *TransactionRunner) Txn(ctx context.Context, db *sqlair.DB, fn func(context.Context, *sqlair.TX) error) error {
+func (t *RetryingTxnRunner) Txn(ctx context.Context, db *sqlair.DB, fn func(context.Context, *sqlair.TX) error) error {
 	ctx, cancel := context.WithTimeout(ctx, t.timeout)
 	defer cancel()
 
@@ -167,7 +168,7 @@ func (t *TransactionRunner) Txn(ctx context.Context, db *sqlair.DB, fn func(cont
 //
 // This should not be used directly, instead the TrackedDB should be used to
 // handle transactions.
-func (t *TransactionRunner) StdTxn(ctx context.Context, db *sql.DB, fn func(context.Context, *sql.Tx) error) error {
+func (t *RetryingTxnRunner) StdTxn(ctx context.Context, db *sql.DB, fn func(context.Context, *sql.Tx) error) error {
 	ctx, cancel := context.WithTimeout(ctx, t.timeout)
 	defer cancel()
 
@@ -195,12 +196,12 @@ func (t *TransactionRunner) StdTxn(ctx context.Context, db *sql.DB, fn func(cont
 // Retry defines a generic retry function for applying a function that
 // interacts with the database. It will retry in cases of transient known
 // database errors.
-func (t *TransactionRunner) Retry(ctx context.Context, fn func() error) error {
+func (t *RetryingTxnRunner) Retry(ctx context.Context, fn func() error) error {
 	return t.retryStrategy(ctx, fn)
 }
 
 // run will execute the input function if there is a semaphore slot available.
-func (t *TransactionRunner) run(ctx context.Context, fn func(context.Context) error) error {
+func (t *RetryingTxnRunner) run(ctx context.Context, fn func(context.Context) error) error {
 	if err := t.semaphore.Acquire(ctx, 1); err != nil {
 		return errors.Trace(err)
 	}
@@ -255,8 +256,8 @@ func defaultRetryStrategy(clock clock.Clock, logger Logger) func(context.Context
 
 type noopSemaphore struct{}
 
-func (s noopSemaphore) Acquire(ctx context.Context, n int64) error {
+func (s noopSemaphore) Acquire(context.Context, int64) error {
 	return nil
 }
 
-func (s noopSemaphore) Release(n int64) {}
+func (s noopSemaphore) Release(int64) {}

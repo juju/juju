@@ -2143,7 +2143,7 @@ func (e *environ) newCleanDB() (coredatabase.TrackedDB, error) {
 	return &trackedDB{db: db}, nil
 }
 
-var defaultTransactionRunner = txn.NewTransactionRunner()
+var defaultTransactionRunner = txn.NewRetryingTxnRunner()
 
 // trackedDB is used for testing purposes.
 type trackedDB struct {

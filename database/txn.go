@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	defaultTransactionRunner = txn.NewTransactionRunner()
+	defaultTransactionRunner = txn.NewRetryingTxnRunner()
 )
 
 // Txn executes the input function against the tracked database, using

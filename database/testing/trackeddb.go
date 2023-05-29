@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/database/txn"
 )
 
-var defaultTransactionRunner = txn.NewTransactionRunner()
+var defaultTransactionRunner = txn.NewRetryingTxnRunner()
 
 // trackedDB is used for testing purposes.
 type trackedDB struct {
