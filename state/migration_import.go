@@ -30,9 +30,11 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	secretsprovider "github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -217,7 +219,8 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 	if err := restore.storage(); err != nil {
 		return nil, nil, errors.Annotate(err, "storage")
 	}
-	if err := restore.secrets(); err != nil {
+	activeSecretBackend := cfg.SecretBackend()
+	if err := restore.secrets(activeSecretBackend); err != nil {
 		return nil, nil, errors.Annotate(err, "secrets")
 	}
 	if err := restore.remoteSecrets(); err != nil {
@@ -2695,12 +2698,27 @@ func (i *importer) storagePools() error {
 	return nil
 }
 
-func (i *importer) secrets() error {
+func checkActiveSecretBackendExist(backends []*secrets.SecretBackend, activeSecretBackendName string) error {
+	if activeSecretBackendName == secretsprovider.Auto || activeSecretBackendName == secretsprovider.Internal {
+		return nil
+	}
+	for _, backend := range backends {
+		if backend.Name == activeSecretBackendName {
+			return nil
+		}
+	}
+	return errors.NotFoundf("active secret backend %q", activeSecretBackendName)
+}
+
+func (i *importer) secrets(activeSecretBackendName string) error {
 	i.logger.Debugf("importing secrets")
 	backends := NewSecretBackends(i.st)
 	allBackends, err := backends.ListSecretBackends()
 	if err != nil {
 		return errors.Annotate(err, "loading secret backends")
+	}
+	if err := checkActiveSecretBackendExist(allBackends, activeSecretBackendName); err != nil {
+		return errors.Trace(err)
 	}
 	knownBackends := set.NewStrings()
 	for _, b := range allBackends {
