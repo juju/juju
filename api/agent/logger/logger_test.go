@@ -8,69 +8,61 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/agent/logger"
-	"github.com/juju/juju/core/watcher/watchertest"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/rpc/params"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type loggerSuite struct {
-	jujutesting.JujuConnSuite
-
-	// These are raw State objects. Use them for setup and assertions, but
-	// should never be touched by the API calls themselves
-	rawMachine *state.Machine
-
-	logger *logger.State
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&loggerSuite{})
 
-func (s *loggerSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	var stateAPI api.Connection
-	stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c)
-	// Create the logger facade.
-	s.logger = logger.NewState(stateAPI)
-	c.Assert(s.logger, gc.NotNil)
-}
-
-func (s *loggerSuite) TestLoggingConfigWrongMachine(c *gc.C) {
-	config, err := s.logger.LoggingConfig(names.NewMachineTag("42"))
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(config, gc.Equals, "")
-}
-
 func (s *loggerSuite) TestLoggingConfig(c *gc.C) {
-	config, err := s.logger.LoggingConfig(s.rawMachine.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(config, gc.Not(gc.Equals), "")
-}
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Logger")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "LoggingConfig")
+		c.Check(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{
+			Tag: "machine-666",
+		}}})
+		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		*(result.(*params.StringResults)) = params.StringResults{
+			Results: []params.StringResult{{Result: "juju.worker=TRACE"}},
+		}
+		return nil
+	})
 
-func (s *loggerSuite) setLoggingConfig(c *gc.C, loggingConfig string) {
-	err := s.Model.UpdateModelConfig(map[string]interface{}{"logging-config": loggingConfig}, nil)
+	client := logger.NewClient(apiCaller)
+	tag := names.NewMachineTag("666")
+	result, err := client.LoggingConfig(tag)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.Equals, "juju.worker=TRACE")
 }
 
 func (s *loggerSuite) TestWatchLoggingConfig(c *gc.C) {
-	watcher, err := s.logger.WatchLoggingConfig(s.rawMachine.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, watcher)
-	defer wc.AssertStops()
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Logger")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchLoggingConfig")
+		c.Check(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{
+			Tag: "machine-666",
+		}}})
+		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
+		*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
+			Results: []params.NotifyWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		return nil
+	})
 
-	// Initial event
-	wc.AssertOneChange()
-
-	loggingConfig := "<root>=WARN;juju.log.test=DEBUG"
-	s.setLoggingConfig(c, loggingConfig)
-	// One change noticing the new version
-	wc.AssertOneChange()
-	// Setting the version to the same value doesn't trigger a change
-	s.setLoggingConfig(c, loggingConfig)
-	wc.AssertNoChange()
-
-	loggingConfig = loggingConfig + ";wibble=DEBUG"
-	s.setLoggingConfig(c, loggingConfig)
-	wc.AssertOneChange()
+	client := logger.NewClient(apiCaller)
+	tag := names.NewMachineTag("666")
+	_, err := client.WatchLoggingConfig(tag)
+	c.Assert(err, gc.ErrorMatches, "FAIL")
 }

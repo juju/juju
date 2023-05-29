@@ -4,18 +4,19 @@
 package deployer
 
 import (
+	"github.com/juju/names/v4"
+
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/names/v4"
 )
 
 // Unit represents a juju unit as seen by the deployer worker.
 type Unit struct {
-	tag  names.UnitTag
-	life life.Value
-	st   *State
+	tag    names.UnitTag
+	life   life.Value
+	client *Client
 }
 
 // Tag returns the unit's tag.
@@ -35,7 +36,7 @@ func (u *Unit) Life() life.Value {
 
 // Refresh updates the cached local copy of the unit's data.
 func (u *Unit) Refresh() error {
-	life, err := common.OneLife(u.st.facade, u.tag)
+	life, err := common.OneLife(u.client.facade, u.tag)
 	if err != nil {
 		return err
 	}
@@ -50,7 +51,7 @@ func (u *Unit) Remove() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall("Remove", args, &result)
+	err := u.client.facade.FacadeCall("Remove", args, &result)
 	if err != nil {
 		return err
 	}
@@ -65,7 +66,7 @@ func (u *Unit) SetPassword(password string) error {
 			{Tag: u.tag.String(), Password: password},
 		},
 	}
-	err := u.st.facade.FacadeCall("SetPasswords", args, &result)
+	err := u.client.facade.FacadeCall("SetPasswords", args, &result)
 	if err != nil {
 		return err
 	}
@@ -80,7 +81,7 @@ func (u *Unit) SetStatus(unitStatus status.Status, info string, data map[string]
 			{Tag: u.tag.String(), Status: unitStatus.String(), Info: info, Data: data},
 		},
 	}
-	err := u.st.facade.FacadeCall("SetStatus", args, &result)
+	err := u.client.facade.FacadeCall("SetStatus", args, &result)
 	if err != nil {
 		return err
 	}

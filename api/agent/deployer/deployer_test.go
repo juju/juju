@@ -10,233 +10,225 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/agent/deployer"
+	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
 func TestAll(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+	gc.TestingT(t)
 }
 
 type deployerSuite struct {
-	testing.JujuConnSuite
-
-	stateAPI api.Connection
-
-	// These are raw State objects. Use them for setup and assertions, but
-	// should never be touched by the API calls themselves
-	machine     *state.Machine
-	app0        *state.Application
-	app1        *state.Application
-	principal   *state.Unit
-	subordinate *state.Unit
-
-	st *deployer.State
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&deployerSuite{})
 
-func (s *deployerSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.stateAPI, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageModel, state.JobHostUnits)
-	err := s.machine.SetProviderAddresses(network.NewSpaceAddress("0.1.2.3"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Create the needed applications and relate them.
-	s.app0 = s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	s.app1 = s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err := s.State.InferEndpoints("mysql", "logging")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Create principal and subordinate units and assign them.
-	s.principal, err = s.app0.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.principal.AssignToMachine(s.machine)
-	c.Assert(err, jc.ErrorIsNil)
-	relUnit, err := rel.Unit(s.principal)
-	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.subordinate, err = s.State.Unit("logging/0")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Create the deployer facade.
-	s.st = deployer.NewState(s.stateAPI)
-	c.Assert(s.st, gc.NotNil)
-}
-
-// Note: This is really meant as a unit-test, this isn't a test that
-// should need all of the setup we have for this test suite
-func (s *deployerSuite) TestNew(c *gc.C) {
-	deployer := deployer.NewState(s.stateAPI)
-	c.Assert(deployer, gc.NotNil)
-}
-
-func (s *deployerSuite) assertUnauthorized(c *gc.C, err error) {
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
-}
-
-func (s *deployerSuite) TestWatchUnitsWrongMachine(c *gc.C) {
-	// Try with a non-existent machine tag.
-	machine, err := s.st.Machine(names.NewMachineTag("42"))
-	c.Assert(err, jc.ErrorIsNil)
-	w, err := machine.WatchUnits()
-	s.assertUnauthorized(c, err)
-	c.Assert(w, gc.IsNil)
-}
-
 func (s *deployerSuite) TestWatchUnits(c *gc.C) {
-	// TODO(dfc) fix state.Machine to return a MachineTag
-	machine, err := s.st.Machine(s.machine.Tag().(names.MachineTag))
-	c.Assert(err, jc.ErrorIsNil)
-	w, err := machine.WatchUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w)
-	defer wc.AssertStops()
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Deployer")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchUnits")
+		c.Check(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{
+			Tag: "machine-666",
+		}}})
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+			Results: []params.StringsWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		return nil
+	})
 
-	// Initial event.
-	wc.AssertChange("mysql/0", "logging/0")
-	wc.AssertNoChange()
-
-	// Change something other than the lifecycle and make sure it's
-	// not detected.
-	err = s.subordinate.SetPassword("foo")
-	c.Assert(err, gc.ErrorMatches, "password is only 3 bytes long, and is not a valid Agent password")
-	wc.AssertNoChange()
-
-	err = s.subordinate.SetPassword("foo-12345678901234567890")
+	client := deployer.NewClient(apiCaller)
+	machineTag := names.NewMachineTag("666")
+	machine, err := client.Machine(machineTag)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Make the subordinate dead and check it's detected.
-	err = s.subordinate.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("logging/0")
-	wc.AssertNoChange()
+	_, err = machine.WatchUnits()
+	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
 func (s *deployerSuite) TestUnit(c *gc.C) {
-	// Try getting a missing unit and an invalid tag.
-	unit, err := s.st.Unit(names.NewUnitTag("foo/42"))
-	s.assertUnauthorized(c, err)
-	c.Assert(unit, gc.IsNil)
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Deployer")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "Life")
+		c.Check(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{
+			Tag: "unit-mysql-666",
+		}}})
+		c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+		*(result.(*params.LifeResults)) = params.LifeResults{
+			Results: []params.LifeResult{{
+				Life: life.Alive,
+			}},
+		}
+		return nil
+	})
 
-	// Try getting a unit we're not responsible for.
-	// First create a new machine and deploy another unit there.
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	client := deployer.NewClient(apiCaller)
+	unitTag := names.NewUnitTag("mysql/666")
+	unit, err := client.Unit(unitTag)
 	c.Assert(err, jc.ErrorIsNil)
-	principal1, err := s.app0.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = principal1.AssignToMachine(machine)
-	c.Assert(err, jc.ErrorIsNil)
-	unit, err = s.st.Unit(principal1.Tag().(names.UnitTag))
-	s.assertUnauthorized(c, err)
-	c.Assert(unit, gc.IsNil)
-
-	// Get the principal and subordinate we're responsible for.
-	unit, err = s.st.Unit(s.principal.Tag().(names.UnitTag))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unit.Name(), gc.Equals, "mysql/0")
-	unit, err = s.st.Unit(s.subordinate.Tag().(names.UnitTag))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unit.Name(), gc.Equals, "logging/0")
+	c.Assert(unit.Life(), gc.Equals, life.Alive)
 }
 
 func (s *deployerSuite) TestUnitLifeRefresh(c *gc.C) {
-	unit, err := s.st.Unit(s.subordinate.Tag().(names.UnitTag))
-	c.Assert(err, jc.ErrorIsNil)
+	calls := 0
+	lifeResult := life.Alive
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Deployer")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "Life")
+		c.Check(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{
+			Tag: "unit-mysql-666",
+		}}})
+		c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+		if calls > 0 {
+			lifeResult = life.Dying
+		}
+		calls++
+		*(result.(*params.LifeResults)) = params.LifeResults{
+			Results: []params.LifeResult{{
+				Life: lifeResult,
+			}},
+		}
+		return nil
+	})
 
-	c.Assert(unit.Life(), gc.Equals, life.Alive)
-
-	// Now make it dead and check again, then refresh and check.
-	err = s.subordinate.EnsureDead()
+	client := deployer.NewClient(apiCaller)
+	unitTag := names.NewUnitTag("mysql/666")
+	unit, err := client.Unit(unitTag)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.subordinate.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.subordinate.Life(), gc.Equals, state.Dead)
-	c.Assert(unit.Life(), gc.Equals, life.Alive)
 	err = unit.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unit.Life(), gc.Equals, life.Dead)
+	c.Assert(unit.Life(), gc.Equals, life.Dying)
+	c.Assert(calls, gc.Equals, 2)
 }
 
 func (s *deployerSuite) TestUnitRemove(c *gc.C) {
-	unit, err := s.st.Unit(s.principal.Tag().(names.UnitTag))
-	c.Assert(err, jc.ErrorIsNil)
+	calls := 0
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Deployer")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{
+			Tag: "unit-mysql-666",
+		}}})
+		if calls > 0 {
+			c.Check(request, gc.Equals, "Remove")
+			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			*(result.(*params.ErrorResults)) = params.ErrorResults{
+				Results: []params.ErrorResult{{}},
+			}
+		} else {
+			c.Check(request, gc.Equals, "Life")
+			c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+			*(result.(*params.LifeResults)) = params.LifeResults{
+				Results: []params.LifeResult{{
+					Life: life.Alive,
+				}},
+			}
+		}
+		calls++
+		return nil
+	})
 
-	// It fails because the entity is still alive.
-	// And EnsureDead will fail because there is a subordinate.
+	client := deployer.NewClient(apiCaller)
+	unitTag := names.NewUnitTag("mysql/666")
+	unit, err := client.Unit(unitTag)
+	c.Assert(err, jc.ErrorIsNil)
 	err = unit.Remove()
-	c.Assert(err, gc.ErrorMatches, `cannot remove entity "unit-mysql-0": still alive`)
-	c.Assert(params.ErrCode(err), gc.Equals, "")
-
-	// With the subordinate it also fails due to it being alive.
-	unit, err = s.st.Unit(s.subordinate.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove()
-	c.Assert(err, gc.ErrorMatches, `cannot remove entity "unit-logging-0": still alive`)
-	c.Assert(params.ErrCode(err), gc.Equals, "")
-
-	// Make it dead first and try again.
-	err = s.subordinate.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Verify it's gone.
-	err = unit.Refresh()
-	s.assertUnauthorized(c, err)
-	unit, err = s.st.Unit(s.subordinate.Tag().(names.UnitTag))
-	s.assertUnauthorized(c, err)
-	c.Assert(unit, gc.IsNil)
+	c.Assert(calls, gc.Equals, 2)
 }
 
 func (s *deployerSuite) TestUnitSetPassword(c *gc.C) {
-	unit, err := s.st.Unit(s.principal.Tag().(names.UnitTag))
-	c.Assert(err, jc.ErrorIsNil)
+	calls := 0
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Deployer")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		if calls > 0 {
+			c.Check(arg, jc.DeepEquals, params.EntityPasswords{
+				Changes: []params.EntityPassword{
+					{Tag: "unit-mysql-666", Password: "secret"},
+				},
+			})
+			c.Check(request, gc.Equals, "SetPasswords")
+			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			*(result.(*params.ErrorResults)) = params.ErrorResults{
+				Results: []params.ErrorResult{{}},
+			}
+		} else {
+			c.Check(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{
+				Tag: "unit-mysql-666",
+			}}})
+			c.Check(request, gc.Equals, "Life")
+			c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+			*(result.(*params.LifeResults)) = params.LifeResults{
+				Results: []params.LifeResult{{
+					Life: life.Alive,
+				}},
+			}
+		}
+		calls++
+		return nil
+	})
 
-	// Change the principal's password and verify.
-	err = unit.SetPassword("foobar-12345678901234567890")
+	client := deployer.NewClient(apiCaller)
+	unitTag := names.NewUnitTag("mysql/666")
+	unit, err := client.Unit(unitTag)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.principal.Refresh()
+	err = unit.SetPassword("secret")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.principal.PasswordValid("foobar-12345678901234567890"), jc.IsTrue)
-
-	// Then the subordinate.
-	unit, err = s.st.Unit(s.subordinate.Tag().(names.UnitTag))
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.SetPassword("phony-12345678901234567890")
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.subordinate.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.subordinate.PasswordValid("phony-12345678901234567890"), jc.IsTrue)
+	c.Assert(calls, gc.Equals, 2)
 }
 
 func (s *deployerSuite) TestUnitSetStatus(c *gc.C) {
-	unit, err := s.st.Unit(s.principal.Tag().(names.UnitTag))
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.SetStatus(status.Blocked, "waiting", map[string]interface{}{"foo": "bar"})
-	c.Assert(err, jc.ErrorIsNil)
-
-	stateUnit, err := s.BackingState.Unit(unit.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	sInfo, err := stateUnit.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	sInfo.Since = nil
-	c.Assert(sInfo, jc.DeepEquals, status.StatusInfo{
-		Status:  status.Blocked,
-		Message: "waiting",
-		Data:    map[string]interface{}{"foo": "bar"},
+	calls := 0
+	data := map[string]interface{}{"foo": "bar"}
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Deployer")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		if calls > 0 {
+			c.Check(arg, jc.DeepEquals, params.SetStatus{
+				Entities: []params.EntityStatusArgs{{Tag: "unit-mysql-666", Status: "active", Info: "is active", Data: data}},
+			})
+			c.Check(request, gc.Equals, "SetStatus")
+			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			*(result.(*params.ErrorResults)) = params.ErrorResults{
+				Results: []params.ErrorResult{{}},
+			}
+		} else {
+			c.Check(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{
+				Tag: "unit-mysql-666",
+			}}})
+			c.Check(request, gc.Equals, "Life")
+			c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+			*(result.(*params.LifeResults)) = params.LifeResults{
+				Results: []params.LifeResult{{
+					Life: life.Alive,
+				}},
+			}
+		}
+		calls++
+		return nil
 	})
+
+	client := deployer.NewClient(apiCaller)
+	unitTag := names.NewUnitTag("mysql/666")
+	unit, err := client.Unit(unitTag)
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.SetStatus(status.Active, "is active", data)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(calls, gc.Equals, 2)
 }

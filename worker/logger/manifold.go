@@ -53,7 +53,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 
-			loggerFacade := logger.NewState(apiCaller)
+			loggerFacade := logger.NewClient(apiCaller)
 			workerConfig := WorkerConfig{
 				Context:  config.LoggingContext,
 				API:      loggerFacade,

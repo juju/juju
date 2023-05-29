@@ -7,6 +7,6 @@ import (
 	apideployer "github.com/juju/juju/api/agent/deployer"
 )
 
-func MakeAPIShim(st *apideployer.State) API {
+func MakeAPIShim(st *apideployer.Client) API {
 	return &apiShim{st}
 }
