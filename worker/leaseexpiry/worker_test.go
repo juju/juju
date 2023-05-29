@@ -30,7 +30,7 @@ func (s *workerSuite) TestConfigValidate(c *gc.C) {
 	validCfg := leaseexpiry.Config{
 		Clock:     clock.WallClock,
 		Logger:    leaseexpiry.StubLogger{},
-		TrackedDB: s.TrackedDB(),
+		TxnRunner: s.TxnRunner(),
 	}
 
 	cfg := validCfg
@@ -42,7 +42,7 @@ func (s *workerSuite) TestConfigValidate(c *gc.C) {
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	cfg = validCfg
-	cfg.TrackedDB = nil
+	cfg.TxnRunner = nil
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 }
 
@@ -89,7 +89,7 @@ VALUES (?, 1, 'some-model-uuid', ?, ?, datetime('now'), datetime('now', ?))`[1:]
 	w, err = leaseexpiry.NewWorker(leaseexpiry.Config{
 		Clock:     clk,
 		Logger:    leaseexpiry.StubLogger{},
-		TrackedDB: s.TrackedDB(),
+		TxnRunner: s.TxnRunner(),
 	})
 	wmutex.Unlock()
 	c.Assert(err, jc.ErrorIsNil)

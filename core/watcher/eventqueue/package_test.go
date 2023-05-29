@@ -40,7 +40,7 @@ func (s *baseSuite) setUpMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *baseSuite) newBaseWatcher() *BaseWatcher {
-	return NewBaseWatcher(s.queue, s.TrackedDB(), s.logger)
+	return NewBaseWatcher(s.queue, s.TxnRunner(), s.logger)
 }
 
 // subscriptionOptionMatcher is a gomock.Matcher that can be used to check

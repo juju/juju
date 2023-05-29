@@ -5,9 +5,9 @@ package dbaccessor
 
 import (
 	"context"
-	sql "database/sql"
+	"database/sql"
 	"testing"
-	time "time"
+	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/golang/mock/gomock"
@@ -109,10 +109,10 @@ type dbBaseSuite struct {
 
 type workerTrackedDB struct {
 	tomb tomb.Tomb
-	db   coredatabase.TrackedDB
+	db   coredatabase.TxnRunner
 }
 
-func newWorkerTrackedDB(db coredatabase.TrackedDB) *workerTrackedDB {
+func newWorkerTrackedDB(db coredatabase.TxnRunner) *workerTrackedDB {
 	w := &workerTrackedDB{
 		db: db,
 	}

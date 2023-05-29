@@ -62,7 +62,7 @@ func (c ManifoldConfig) start(ctx dependency.Context) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	trackedDB, err := dbGetter.GetDB(coredatabase.ControllerNS)
+	db, err := dbGetter.GetDB(coredatabase.ControllerNS)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -70,7 +70,7 @@ func (c ManifoldConfig) start(ctx dependency.Context) (worker.Worker, error) {
 	w, err := NewWorker(Config{
 		Clock:     clk,
 		Logger:    c.Logger,
-		TrackedDB: trackedDB,
+		TxnRunner: db,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

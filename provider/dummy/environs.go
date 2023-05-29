@@ -234,7 +234,7 @@ type environProvider struct {
 	apiPort                    int
 	controllerState            *environState
 	state                      map[string]*environState
-	db                         coredatabase.TrackedDB
+	db                         coredatabase.TxnRunner
 }
 
 // APIPort returns the random api port used by the given provider instance.
@@ -1021,10 +1021,10 @@ type noopSysLogger struct{}
 func (noopSysLogger) Log([]corelogger.LogRecord) error { return nil }
 
 type stubDBManager struct {
-	db coredatabase.TrackedDB
+	db coredatabase.TxnRunner
 }
 
-func (s stubDBManager) GetDB(namespace string) (coredatabase.TrackedDB, error) {
+func (s stubDBManager) GetDB(namespace string) (coredatabase.TxnRunner, error) {
 	if namespace != "controller" {
 		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, namespace)
 	}
@@ -2110,7 +2110,7 @@ func (noopRegisterer) Unregister(prometheus.Collector) bool {
 }
 
 // NewCleanDB returns a new sql.DB reference.
-func (e *environ) newCleanDB() (coredatabase.TrackedDB, error) {
+func (e *environ) newCleanDB() (coredatabase.TxnRunner, error) {
 	dir, err := os.MkdirTemp("", "dummy")
 	if err != nil {
 		return nil, err
@@ -2143,7 +2143,7 @@ func (e *environ) newCleanDB() (coredatabase.TrackedDB, error) {
 	return &trackedDB{db: db}, nil
 }
 
-var defaultTransactionRunner = txn.NewTransactionRunner()
+var defaultTransactionRunner = txn.NewRetryingTxnRunner()
 
 // trackedDB is used for testing purposes.
 type trackedDB struct {

@@ -23,7 +23,7 @@ type ControllerSuite struct {
 	testing.IsolationSuite
 
 	db        *sql.DB
-	trackedDB coredatabase.TrackedDB
+	txnRunner coredatabase.TxnRunner
 }
 
 // SetUpTest creates a new sql.DB reference and ensures that the
@@ -36,7 +36,7 @@ func (s *ControllerSuite) SetUpTest(c *gc.C) {
 	// completely goroutine safe.
 	s.db = s.NewCleanDB(c)
 
-	s.trackedDB = &trackedDB{
+	s.txnRunner = &txnRunner{
 		db: sqlair.NewDB(s.db),
 	}
 
@@ -58,9 +58,9 @@ func (s *ControllerSuite) DB() *sql.DB {
 	return s.db
 }
 
-// TrackedDB returns a TrackedDB reference.
-func (s *ControllerSuite) TrackedDB() coredatabase.TrackedDB {
-	return s.trackedDB
+// TxnRunner returns the suite's transaction runner.
+func (s *ControllerSuite) TxnRunner() coredatabase.TxnRunner {
+	return s.txnRunner
 }
 
 // NewCleanDB returns a new sql.DB reference.

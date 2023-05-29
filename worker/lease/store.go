@@ -25,8 +25,8 @@ type StoreLogger interface {
 
 // StoreConfig encapsulates data required to construct a lease store instance.
 type StoreConfig struct {
-	// TrackedDB is the SQL database that backs this lease store.
-	TrackedDB coredatabase.TrackedDB
+	// TxnRunner is the SQL database that backs this lease store.
+	TxnRunner coredatabase.TxnRunner
 
 	// Logger is used to emit store-specific diagnostics.
 	Logger StoreLogger
@@ -35,14 +35,14 @@ type StoreConfig struct {
 // Store implements lease.Store using a database
 // supporting SQLite-compatible dialects.
 type Store struct {
-	trackedDB coredatabase.TrackedDB
+	txnRunner coredatabase.TxnRunner
 	logger    StoreLogger
 }
 
 // NewStore returns a reference to a new database-backed lease store.
 func NewStore(cfg StoreConfig) *Store {
 	return &Store{
-		trackedDB: cfg.TrackedDB,
+		txnRunner: cfg.TxnRunner,
 		logger:    cfg.Logger,
 	}
 }
@@ -76,7 +76,7 @@ AND    l.name = ?`
 	}
 
 	var result map[lease.Key]lease.Info
-	err := s.trackedDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err := s.txnRunner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, q, args...)
 		if err != nil {
 			return errors.Trace(err)
@@ -104,7 +104,7 @@ WHERE  type = ?;`[1:]
 
 	uuid := utils.MustNewUUID().String()
 
-	err := s.trackedDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err := s.txnRunner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		d := fmt.Sprintf("+%d seconds", int64(math.Ceil(req.Duration.Seconds())))
 
 		_, err := tx.ExecContext(ctx, q, uuid, key.ModelUUID, key.Lease, req.Holder, d, key.Namespace)
@@ -136,7 +136,7 @@ WHERE  uuid = (
     AND    l.holder = ?
 )`[1:]
 
-	err := s.trackedDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err := s.txnRunner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		d := fmt.Sprintf("+%d seconds", int64(math.Ceil(req.Duration.Seconds())))
 		result, err := tx.ExecContext(ctx, q, d, key.Namespace, key.ModelUUID, key.Lease, req.Holder)
 
@@ -169,7 +169,7 @@ WHERE  uuid = (
     AND    l.holder = ?
 );`[1:]
 
-	err := s.trackedDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err := s.txnRunner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 
 		result, err := tx.ExecContext(ctx, q, key.Namespace, key.ModelUUID, key.Lease, holder)
 		if err == nil {
@@ -194,7 +194,7 @@ WHERE  t.type = ?
 AND    l.model_uuid = ?;`[1:]
 
 	var result map[lease.Key]lease.Info
-	err := s.trackedDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err := s.txnRunner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, q, namespace, modelUUID)
 		if err != nil {
 			return errors.Trace(err)
@@ -218,7 +218,7 @@ WHERE  t.type = ?
 AND    l.model_uuid = ?
 AND    l.name = ?;`[1:]
 
-	err := s.trackedDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err := s.txnRunner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, q, utils.MustNewUUID().String(), entity, key.Namespace, key.ModelUUID, key.Lease)
 		return errors.Trace(err)
 	})
@@ -246,7 +246,7 @@ WHERE  uuid = (
     AND    l.name = ?
     AND    p.entity_id = ?   
 );`[1:]
-	err := s.trackedDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err := s.txnRunner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, q, key.Namespace, key.ModelUUID, key.Lease, entity)
 		return errors.Trace(err)
 	})
@@ -264,7 +264,7 @@ FROM     lease l
 ORDER BY l.uuid;`[1:]
 
 	var result map[lease.Key][]string
-	err := s.trackedDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err := s.txnRunner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, q)
 		if err != nil {
 			return errors.Trace(err)

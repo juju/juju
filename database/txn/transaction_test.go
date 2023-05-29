@@ -27,7 +27,7 @@ type transactionRunnerSuite struct {
 var _ = gc.Suite(&transactionRunnerSuite{})
 
 func (s *transactionRunnerSuite) TestTxn(c *gc.C) {
-	runner := txn.NewTransactionRunner()
+	runner := txn.NewRetryingTxnRunner()
 
 	err := runner.StdTxn(context.TODO(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, "SELECT 1")
@@ -44,7 +44,7 @@ func (s *transactionRunnerSuite) TestTxnWithCancelledContext(c *gc.C) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	runner := txn.NewTransactionRunner()
+	runner := txn.NewRetryingTxnRunner()
 
 	err := runner.StdTxn(ctx, s.DB(), func(ctx context.Context, tx *sql.Tx) error {
 		c.Fatal("should not be called")
@@ -54,7 +54,7 @@ func (s *transactionRunnerSuite) TestTxnWithCancelledContext(c *gc.C) {
 }
 
 func (s *transactionRunnerSuite) TestTxnParallelCancelledContext(c *gc.C) {
-	runner := txn.NewTransactionRunner(txn.WithSemaphore(semaphore.NewWeighted(1)))
+	runner := txn.NewRetryingTxnRunner(txn.WithSemaphore(semaphore.NewWeighted(1)))
 
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -119,7 +119,7 @@ func (s *transactionRunnerSuite) TestTxnParallelCancelledContext(c *gc.C) {
 }
 
 func (s *transactionRunnerSuite) TestTxnInserts(c *gc.C) {
-	runner := txn.NewTransactionRunner()
+	runner := txn.NewRetryingTxnRunner()
 
 	s.createTable(c)
 
@@ -147,7 +147,7 @@ func (s *transactionRunnerSuite) TestTxnInserts(c *gc.C) {
 }
 
 func (s *transactionRunnerSuite) TestTxnRollback(c *gc.C) {
-	runner := txn.NewTransactionRunner()
+	runner := txn.NewRetryingTxnRunner()
 
 	s.createTable(c)
 
@@ -175,7 +175,7 @@ func (s *transactionRunnerSuite) TestTxnRollback(c *gc.C) {
 }
 
 func (s *transactionRunnerSuite) TestRetryForNonRetryableError(c *gc.C) {
-	runner := txn.NewTransactionRunner()
+	runner := txn.NewRetryingTxnRunner()
 
 	var count int
 	err := runner.Retry(context.TODO(), func() error {
@@ -189,7 +189,7 @@ func (s *transactionRunnerSuite) TestRetryForNonRetryableError(c *gc.C) {
 func (s *transactionRunnerSuite) TestRetryWithACancelledContext(c *gc.C) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	runner := txn.NewTransactionRunner()
+	runner := txn.NewRetryingTxnRunner()
 
 	var count int
 	err := runner.Retry(ctx, func() error {
@@ -203,7 +203,7 @@ func (s *transactionRunnerSuite) TestRetryWithACancelledContext(c *gc.C) {
 }
 
 func (s *transactionRunnerSuite) TestRetryForRetryableError(c *gc.C) {
-	runner := txn.NewTransactionRunner()
+	runner := txn.NewRetryingTxnRunner()
 
 	var count int
 	err := runner.Retry(context.TODO(), func() error {

@@ -16,14 +16,14 @@ type dbFactorySuite struct {
 var _ = gc.Suite(&dbFactorySuite{})
 
 func (s *dbFactorySuite) TestDBFactory(c *gc.C) {
-	f := testing.TrackedDBFactory(s.TrackedDB())
+	f := testing.TxnRunnerFactory(s.TxnRunner())
 	db, err := f()
 	c.Assert(err, gc.IsNil)
 	c.Assert(db, gc.NotNil)
 }
 
 func (s *dbFactorySuite) TestStateBaseGetDB(c *gc.C) {
-	f := testing.TrackedDBFactory(s.TrackedDB())
+	f := testing.TxnRunnerFactory(s.TxnRunner())
 	base := NewStateBase(f)
 	db, err := base.DB()
 	c.Assert(err, gc.IsNil)
@@ -38,7 +38,7 @@ func (s *dbFactorySuite) TestStateBaseGetDBNilFactory(c *gc.C) {
 }
 
 func (s *dbFactorySuite) TestStateBaseGetDBNilDB(c *gc.C) {
-	f := testing.TrackedDBFactory(nil)
+	f := testing.TxnRunnerFactory(nil)
 	base := NewStateBase(f)
 	_, err := base.DB()
 	c.Assert(err, gc.ErrorMatches, `invoking getDB: nil db`)

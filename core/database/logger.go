@@ -5,7 +5,7 @@ package database
 
 // SlowQueryLogger is a logger that can be used to log slow operations.
 type SlowQueryLogger interface {
-	// Log the slow query, with the given arguments.
+	// RecordSlowQuery logs the slow query, with the given arguments.
 	RecordSlowQuery(msg, stmt string, args []any, duration float64)
 }
 
@@ -13,5 +13,5 @@ type SlowQueryLogger interface {
 // when slow query logging is not desired.
 type NoopSlowQueryLogger struct{}
 
-// Log the slow query, with the given arguments.
-func (NoopSlowQueryLogger) RecordSlowQuery(msg, stmt string, args []any, duration float64) {}
+// RecordSlowQuery logs the slow query, with the given arguments.
+func (NoopSlowQueryLogger) RecordSlowQuery(string, string, []any, float64) {}

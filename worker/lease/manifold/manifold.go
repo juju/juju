@@ -3,6 +3,8 @@
 
 package manifold
 
+// TODO (manadart 2023-05-29) This is no longer true. Put it back.
+//
 // This needs to be in a different package from the lease manager
 // because it uses state (to construct the raftlease store), but the
 // lease manager also runs as a worker in state, so the state package
@@ -97,13 +99,13 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 		return nil, errors.Trace(err)
 	}
 
-	trackedDB, err := dbGetter.GetDB(coredatabase.ControllerNS)
+	db, err := dbGetter.GetDB(coredatabase.ControllerNS)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	s.store = s.config.NewStore(lease.StoreConfig{
-		TrackedDB: trackedDB,
+		TxnRunner: db,
 		Logger:    s.config.Logger,
 	})
 

@@ -28,11 +28,11 @@ const (
 	DefaultVerifyAttempts = 3
 )
 
-// TrackedDB defines the union of a TrackedDB and a worker.Worker interface.
+// TrackedDB defines the union of a TxnRunner and a worker.Worker interface.
 // This is local to the package, allowing for better testing of the underlying
 // trackerDB worker.
 type TrackedDB interface {
-	coredatabase.TrackedDB
+	coredatabase.TxnRunner
 	worker.Worker
 }
 

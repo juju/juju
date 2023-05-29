@@ -247,10 +247,10 @@ func (mr *MockContextMockRecorder) Cancel() *gomock.Call {
 }
 
 // ControllerDB mocks base method.
-func (m *MockContext) ControllerDB() (database.TrackedDB, error) {
+func (m *MockContext) ControllerDB() (database.TxnRunner, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerDB")
-	ret0, _ := ret[0].(database.TrackedDB)
+	ret0, _ := ret[0].(database.TxnRunner)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

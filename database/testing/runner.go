@@ -14,10 +14,10 @@ import (
 	"github.com/juju/juju/database/txn"
 )
 
-var defaultTransactionRunner = txn.NewTransactionRunner()
+var defaultTransactionRunner = txn.NewRetryingTxnRunner()
 
 // trackedDB is used for testing purposes.
-type trackedDB struct {
+type txnRunner struct {
 	db *sqlair.DB
 }
 
@@ -27,7 +27,7 @@ type trackedDB struct {
 // Retry semantics are applied automatically based on transient failures.
 // This is the function that almost all downstream database consumers
 // should use.
-func (t *trackedDB) Txn(ctx context.Context, fn func(context.Context, *sqlair.TX) error) error {
+func (t *txnRunner) Txn(ctx context.Context, fn func(context.Context, *sqlair.TX) error) error {
 	return errors.Trace(defaultTransactionRunner.Txn(ctx, t.db, fn))
 }
 
@@ -36,15 +36,15 @@ func (t *trackedDB) Txn(ctx context.Context, fn func(context.Context, *sqlair.TX
 // Retry semantics are applied automatically based on transient failures.
 // This is the function that almost all downstream database consumers
 // should use.
-func (t *trackedDB) StdTxn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
+func (t *txnRunner) StdTxn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
 	return defaultTransactionRunner.Retry(ctx, func() error {
 		return errors.Trace(defaultTransactionRunner.StdTxn(ctx, t.db.PlainDB(), fn))
 	})
 }
 
-// TrackedDBFactory returns a DBFactory that returns the given database.
-func TrackedDBFactory(db coredatabase.TrackedDB) func() (coredatabase.TrackedDB, error) {
-	return func() (coredatabase.TrackedDB, error) {
+// TxnRunnerFactory returns a DBFactory that returns the given database.
+func TxnRunnerFactory(db coredatabase.TxnRunner) func() (coredatabase.TxnRunner, error) {
+	return func() (coredatabase.TxnRunner, error) {
 		if db == nil {
 			return nil, errors.New("nil db")
 		}

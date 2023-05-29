@@ -369,7 +369,7 @@ type fakeMultiwatcherFactory struct {
 
 type stubDBManager struct{}
 
-func (s stubDBManager) GetDB(namespace string) (coredatabase.TrackedDB, error) {
+func (s stubDBManager) GetDB(namespace string) (coredatabase.TxnRunner, error) {
 	if namespace != "controller" {
 		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, namespace)
 	}

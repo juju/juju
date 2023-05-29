@@ -57,7 +57,7 @@ func (t *Term) Done() {
 type Stream struct {
 	tomb tomb.Tomb
 
-	db           coredatabase.TrackedDB
+	db           coredatabase.TxnRunner
 	fileNotifier FileNotifier
 	clock        clock.Clock
 	logger       Logger
@@ -67,7 +67,7 @@ type Stream struct {
 }
 
 // New creates a new Stream.
-func New(db coredatabase.TrackedDB, fileNotifier FileNotifier, clock clock.Clock, logger Logger) *Stream {
+func New(db coredatabase.TxnRunner, fileNotifier FileNotifier, clock clock.Clock, logger Logger) *Stream {
 	stream := &Stream{
 		db:           db,
 		fileNotifier: fileNotifier,

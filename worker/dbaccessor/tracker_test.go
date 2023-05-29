@@ -447,7 +447,7 @@ func (s *trackedDBWorkerSuite) newTrackedDBWorker(pingFn func(context.Context, *
 	)
 }
 
-func readTableNames(c *gc.C, w coredatabase.TrackedDB) []string {
+func readTableNames(c *gc.C, w coredatabase.TxnRunner) []string {
 	// Attempt to use the new db, note there shouldn't be any leases in this
 	// db.
 	var tables []string

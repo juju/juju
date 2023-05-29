@@ -569,8 +569,8 @@ func (ctx *facadeContext) HTTPClient(purpose facade.HTTPClientPurpose) facade.HT
 	}
 }
 
-// ControllerDB returns a TrackedDB reference for the controller database.
-func (ctx *facadeContext) ControllerDB() (coredatabase.TrackedDB, error) {
+// ControllerDB returns a transaction runner for the controller database.
+func (ctx *facadeContext) ControllerDB() (coredatabase.TxnRunner, error) {
 	db, err := ctx.r.shared.dbManager.GetDB(coredatabase.ControllerNS)
 	return db, errors.Trace(err)
 }

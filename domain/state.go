@@ -13,14 +13,14 @@ import (
 
 // DBFactory defines a function that returns a database or an error if a
 // database cannot be returned.
-type DBFactory = func() (database.TrackedDB, error)
+type DBFactory = func() (database.TxnRunner, error)
 
 // StateBase defines a base struct for requesting a database. This will cache
 // the database for the lifetime of the struct.
 type StateBase struct {
 	mu    sync.Mutex
 	getDB DBFactory
-	db    database.TrackedDB
+	db    database.TxnRunner
 }
 
 // NewStateBase returns a new StateBase.
@@ -31,7 +31,7 @@ func NewStateBase(getDB DBFactory) *StateBase {
 }
 
 // DB returns the database for a given namespace.
-func (st *StateBase) DB() (database.TrackedDB, error) {
+func (st *StateBase) DB() (database.TxnRunner, error) {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 

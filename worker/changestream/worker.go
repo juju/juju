@@ -45,8 +45,8 @@ type EventMultiplexer interface {
 	Subscribe(...changestream.SubscriptionOption) (changestream.Subscription, error)
 }
 
-// EventMultiplexer represents a worker for subscribing to events that will be
-// multiplexer to subscribers from the database change log.
+// EventMultiplexerWorker represents a worker for subscribing to events that
+// will be multiplexer to subscribers from the database change log.
 type EventMultiplexerWorker interface {
 	worker.Worker
 	EventMux() EventMultiplexer
@@ -174,7 +174,9 @@ func (f fileNotifyWatcher) Changes() (<-chan bool, error) {
 }
 
 // NewEventMultiplexerWorker creates a new EventMultiplexerWorker.
-func NewEventMultiplexerWorker(db coredatabase.TrackedDB, fileNotifier FileNotifier, clock clock.Clock, logger Logger) (EventMultiplexerWorker, error) {
+func NewEventMultiplexerWorker(
+	db coredatabase.TxnRunner, fileNotifier FileNotifier, clock clock.Clock, logger Logger,
+) (EventMultiplexerWorker, error) {
 	stream := stream.New(db, fileNotifier, clock, logger)
 
 	mux, err := eventmultiplexer.New(stream, clock, logger)

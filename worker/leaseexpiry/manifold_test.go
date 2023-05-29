@@ -70,17 +70,17 @@ func newManifoldConfig() leaseexpiry.ManifoldConfig {
 func (s *manifoldSuite) newStubContext() *dt.Context {
 	return dt.StubContext(nil, map[string]interface{}{
 		"clock-name":       clock.WallClock,
-		"db-accessor-name": stubDBGetter{s.TrackedDB()},
+		"db-accessor-name": stubDBGetter{s.TxnRunner()},
 	})
 }
 
 type stubDBGetter struct {
-	trackedDB coredatabase.TrackedDB
+	runner coredatabase.TxnRunner
 }
 
-func (s stubDBGetter) GetDB(name string) (coredatabase.TrackedDB, error) {
+func (s stubDBGetter) GetDB(name string) (coredatabase.TxnRunner, error) {
 	if name != "controller" {
 		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, name)
 	}
-	return s.trackedDB, nil
+	return s.runner, nil
 }
