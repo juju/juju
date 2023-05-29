@@ -68,7 +68,7 @@ func (s *workerSuite) TestEventMux(c *gc.C) {
 	done := make(chan struct{})
 
 	s.dbGetter.EXPECT().GetDB("controller").Return(s.TxnRunner(), nil)
-	s.eventMuxWorker.EXPECT().EventMux().Return(s.eventMux)
+	s.eventMuxWorker.EXPECT().EventMux().Return(s.eventSource)
 	s.eventMuxWorker.EXPECT().Kill().AnyTimes()
 	s.eventMuxWorker.EXPECT().Wait().DoAndReturn(func() error {
 		select {
@@ -102,7 +102,7 @@ func (s *workerSuite) TestEventMuxCalledTwice(c *gc.C) {
 	done := make(chan struct{})
 
 	s.dbGetter.EXPECT().GetDB("controller").Return(s.TxnRunner(), nil)
-	s.eventMuxWorker.EXPECT().EventMux().Return(s.eventMux).Times(2)
+	s.eventMuxWorker.EXPECT().EventMux().Return(s.eventSource).Times(2)
 	s.eventMuxWorker.EXPECT().Kill().AnyTimes()
 	s.eventMuxWorker.EXPECT().Wait().DoAndReturn(func() error {
 		select {

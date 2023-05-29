@@ -12,9 +12,9 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package changestream -destination stream_mock_test.go github.com/juju/juju/worker/changestream ChangeStream,DBGetter,EventMultiplexer,EventMultiplexerWorker,FileNotifyWatcher
-//go:generate go run github.com/golang/mock/mockgen -package changestream -destination logger_mock_test.go github.com/juju/juju/worker/changestream Logger
+//go:generate go run github.com/golang/mock/mockgen -package changestream -destination stream_mock_test.go github.com/juju/juju/worker/changestream ChangeStream,DBGetter,Logger,EventMultiplexerWorker,FileNotifyWatcher
 //go:generate go run github.com/golang/mock/mockgen -package changestream -destination clock_mock_test.go github.com/juju/clock Clock,Timer
+//go:generate go run github.com/golang/mock/mockgen -package changestream -destination source_mock_test.go github.com/juju/juju/core/changestream EventSource
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -28,7 +28,7 @@ type baseSuite struct {
 	timer             *MockTimer
 	logger            *MockLogger
 	fileNotifyWatcher *MockFileNotifyWatcher
-	eventMux          *MockEventMultiplexer
+	eventSource       *MockEventSource
 	eventMuxWorker    *MockEventMultiplexerWorker
 }
 
@@ -40,7 +40,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.timer = NewMockTimer(ctrl)
 	s.logger = NewMockLogger(ctrl)
 	s.fileNotifyWatcher = NewMockFileNotifyWatcher(ctrl)
-	s.eventMux = NewMockEventMultiplexer(ctrl)
+	s.eventSource = NewMockEventSource(ctrl)
 	s.eventMuxWorker = NewMockEventMultiplexerWorker(ctrl)
 
 	return ctrl

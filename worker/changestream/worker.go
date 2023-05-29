@@ -34,22 +34,14 @@ type FileNotifier interface {
 // ChangeStream represents an interface for getting an event queue for
 // a particular namespace.
 type ChangeStream interface {
-	NamespacedEventMux(string) (EventMultiplexer, error)
-}
-
-// EventMultiplexer represents an interface for managing subscriptions to listen to
-// changes from the database change log.
-type EventMultiplexer interface {
-	// Subscribe returns a new subscription to listen to changes from the
-	// database change log.
-	Subscribe(...changestream.SubscriptionOption) (changestream.Subscription, error)
+	NamespacedEventMux(string) (changestream.EventSource, error)
 }
 
 // EventMultiplexerWorker represents a worker for subscribing to events that
 // will be multiplexer to subscribers from the database change log.
 type EventMultiplexerWorker interface {
 	worker.Worker
-	EventMux() EventMultiplexer
+	EventMux() changestream.EventSource
 }
 
 // WorkerConfig encapsulates the configuration options for the
@@ -136,7 +128,7 @@ func (w *changeStreamWorker) Wait() error {
 
 // NamespacedEventMux returns a new EventMultiplexer for the given namespace.
 // The EventMultiplexer will be subscribed to the given options.
-func (w *changeStreamWorker) NamespacedEventMux(namespace string) (EventMultiplexer, error) {
+func (w *changeStreamWorker) NamespacedEventMux(namespace string) (changestream.EventSource, error) {
 	if err := w.runner.StartWorker(namespace, func() (worker.Worker, error) {
 		db, err := w.cfg.DBGetter.GetDB(namespace)
 		if err != nil {
@@ -221,7 +213,7 @@ func (w *eventMultiplexerWorker) Wait() error {
 }
 
 // EventMux returns the event queue for this worker.
-func (w *eventMultiplexerWorker) EventMux() EventMultiplexer {
+func (w *eventMultiplexerWorker) EventMux() changestream.EventSource {
 	return w.mux
 }
 
