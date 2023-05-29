@@ -269,11 +269,11 @@ func cleanupSecretBackendRefCountAfterModelMigrationDone(st *State) error {
 	var ops []txn.Op
 	for _, r := range result {
 		for i := r.Count; i > 0; i-- {
-			refCountOps, err := st.decSecretBackendRefCountOp(r.ID)
+			refOps, err := st.decSecretBackendRefCountOp(r.ID)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			ops = append(ops, refCountOps)
+			ops = append(ops, refOps...)
 		}
 	}
 	return st.db().RunTransaction(ops)

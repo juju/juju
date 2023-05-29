@@ -305,7 +305,7 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 			}, isOwnerAliveOp,
 		}...)
 		if valueDoc.ValueRef != nil {
-			refOps, err := s.st.incBackendRevisionCountOps(valueDoc.ValueRef.BackendID)
+			refOps, err := s.st.incBackendRevisionCountOps(valueDoc.ValueRef.BackendID, nil)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -414,7 +414,7 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 				Insert: *revisionDoc,
 			})
 			if p.ValueRef != nil {
-				refOps, err := s.st.incBackendRevisionCountOps(p.ValueRef.BackendID)
+				refOps, err := s.st.incBackendRevisionCountOps(p.ValueRef.BackendID, nil)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -608,6 +608,9 @@ func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (external 
 			globalRefCountsCollection, closer := st.db().GetCollection(globalRefcountsC)
 			defer closer()
 			for backendID, count := range externalRevisionCounts {
+				if secrets.IsInternalSecretBackendID(backendID) {
+					continue
+				}
 				err = globalRefCountsCollection.Writeable().UpdateId(
 					secretBackendRefCountKey(backendID),
 					bson.D{{"$inc", bson.D{{"refcount", -1 * count}}}})
@@ -719,6 +722,9 @@ func (st *State) deleteOne(uri *secrets.URI) (external []secrets.ValueRef, _ err
 	globalRefCountsCollection, closer := st.db().GetCollection(globalRefcountsC)
 	defer closer()
 	for backendID, count := range externalRevisionCounts {
+		if secrets.IsInternalSecretBackendID(backendID) {
+			continue
+		}
 		err = globalRefCountsCollection.Writeable().UpdateId(
 			secretBackendRefCountKey(backendID),
 			bson.D{{"$inc", bson.D{{"refcount", -1 * count}}}})
@@ -809,14 +815,14 @@ func (s *secretsStore) ChangeSecretBackend(arg ChangeSecretBackendParams) error 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		var ops []txn.Op
 		if doc.ValueRef != nil {
-			op, err := s.st.decSecretBackendRefCountOp(doc.ValueRef.BackendID)
+			refOps, err := s.st.decSecretBackendRefCountOp(doc.ValueRef.BackendID)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			ops = append(ops, op)
+			ops = append(ops, refOps...)
 		}
 		if valRefDoc != nil {
-			refOps, err := s.st.incBackendRevisionCountOps(valRefDoc.BackendID)
+			refOps, err := s.st.incBackendRevisionCountOps(valRefDoc.BackendID, nil)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
