@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"io"
 
-	charmresource "github.com/juju/charm/v10/resource"
+	charmresource "github.com/juju/charm/v11/resource"
 	"github.com/juju/errors"
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/yaml.v2"

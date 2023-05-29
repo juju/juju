@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	v10 "github.com/juju/charm/v10"
+	v10 "github.com/juju/charm/v11"
 	charmhub "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
 	config "github.com/juju/juju/core/config"

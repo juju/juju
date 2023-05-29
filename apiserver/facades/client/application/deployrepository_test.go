@@ -6,13 +6,13 @@ package application
 import (
 	"reflect"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/mock/gomock"
 	"github.com/juju/names/v4"
+	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/charm/v10"
-	"github.com/juju/charm/v10/resource"
+	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v11/resource"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 
@@ -69,7 +69,7 @@ func (s *validatorSuite) TestValidateSuccess(c *gc.C) {
 		CharmName: "testcharm",
 	}
 	dt, errs := s.getValidator().validate(arg)
-	c.Assert(errs, gc.HasLen, 0, gc.Commentf("%s", spew.Sdump(errs)))
+	c.Assert(errs, gc.HasLen, 0, gc.Commentf("%s", pretty.Sprint(errs)))
 	c.Assert(dt, gc.DeepEquals, deployTemplate{
 		applicationName: "test-charm",
 		charm:           corecharm.NewCharmInfoAdapter(resolvedData.EssentialMetadata),

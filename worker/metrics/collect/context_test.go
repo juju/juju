@@ -6,7 +6,7 @@ package collect_test
 import (
 	"time"
 
-	corecharm "github.com/juju/charm/v10"
+	corecharm "github.com/juju/charm/v11"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/keyvalues"
 	gc "gopkg.in/check.v1"

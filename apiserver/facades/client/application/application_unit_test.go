@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v10"
-	"github.com/juju/charm/v10/assumes"
+	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v11/assumes"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
