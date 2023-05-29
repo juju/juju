@@ -31,7 +31,7 @@ type deployerSuite struct {
 
 	machine       *state.Machine
 	stateAPI      api.Connection
-	deployerState *apideployer.State
+	deployerState *apideployer.Client
 }
 
 var _ = gc.Suite(&deployerSuite{})
@@ -40,7 +40,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.stateAPI, s.machine = s.OpenAPIAsNewMachine(c)
 	// Create the deployer facade.
-	s.deployerState = apideployer.NewState(s.stateAPI)
+	s.deployerState = apideployer.NewClient(s.stateAPI)
 	c.Assert(s.deployerState, gc.NotNil)
 	loggo.GetLogger("test.deployer").SetLogLevel(loggo.TRACE)
 }

@@ -7,67 +7,56 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/metricsmanager"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type metricsManagerSuite struct {
-	jujutesting.JujuConnSuite
-
-	manager *metricsmanager.Client
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&metricsManagerSuite{})
 
-func (s *metricsManagerSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	manager, err := metricsmanager.NewClient(s.APIState)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(manager, gc.NotNil)
-	s.manager = manager
-}
-
 func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {
-	var called bool
-	metricsmanager.PatchFacadeCall(s, s.manager, func(request string, args, response interface{}) error {
-		called = true
-		c.Assert(request, gc.Equals, "CleanupOldMetrics")
-		result := response.(*params.ErrorResults)
-		result.Results = make([]params.ErrorResult, 1)
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "MetricsManager")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "CleanupOldMetrics")
+		c.Check(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{
+			Tag: coretesting.ModelTag.String(),
+		}}})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{Error: &params.Error{Message: "FAIL"}}},
+		}
 		return nil
 	})
-	err := s.manager.CleanupOldMetrics()
+	client, err := metricsmanager.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	err = client.CleanupOldMetrics()
+	c.Assert(err, jc.DeepEquals, &params.Error{Message: "FAIL"})
 }
 
 func (s *metricsManagerSuite) TestSendMetrics(c *gc.C) {
-	var called bool
-	metricsmanager.PatchFacadeCall(s, s.manager, func(request string, args, response interface{}) error {
-		called = true
-		c.Assert(request, gc.Equals, "SendMetrics")
-		result := response.(*params.ErrorResults)
-		result.Results = make([]params.ErrorResult, 1)
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "MetricsManager")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "SendMetrics")
+		c.Check(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{
+			Tag: coretesting.ModelTag.String(),
+		}}})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{Error: &params.Error{Message: "FAIL"}}},
+		}
 		return nil
 	})
-	err := s.manager.SendMetrics()
+	client, err := metricsmanager.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
-}
-
-func (s *metricsManagerSuite) TestSendMetricsFails(c *gc.C) {
-	var called bool
-	metricsmanager.PatchFacadeCall(s, s.manager, func(request string, args, response interface{}) error {
-		called = true
-		c.Assert(request, gc.Equals, "SendMetrics")
-		result := response.(*params.ErrorResults)
-		result.Results = make([]params.ErrorResult, 1)
-		result.Results[0].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-		return result.OneError()
-	})
-	err := s.manager.SendMetrics()
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(called, jc.IsTrue)
+	err = client.SendMetrics()
+	c.Assert(err, jc.DeepEquals, &params.Error{Message: "FAIL"})
 }

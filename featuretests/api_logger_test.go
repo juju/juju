@@ -19,7 +19,7 @@ type apiLoggerSuite struct {
 
 func (s *apiLoggerSuite) TestLoggingConfig(c *gc.C) {
 	root, machine := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	logging := logger.NewState(root)
+	logging := logger.NewClient(root)
 
 	obtained, err := logging.LoggingConfig(machine.Tag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -28,7 +28,7 @@ func (s *apiLoggerSuite) TestLoggingConfig(c *gc.C) {
 
 func (s *apiLoggerSuite) TestWatchLoggingConfig(c *gc.C) {
 	root, machine := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	logging := logger.NewState(root)
+	logging := logger.NewClient(root)
 
 	watcher, err := logging.WatchLoggingConfig(machine.Tag())
 	c.Assert(err, jc.ErrorIsNil)

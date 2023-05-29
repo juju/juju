@@ -59,7 +59,7 @@ func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) 
 	if cfg.Tag().Kind() != names.MachineTagKind {
 		return nil, errors.New("agent's tag is not a machine tag")
 	}
-	deployerFacade := apideployer.NewState(apiCaller)
+	deployerFacade := apideployer.NewClient(apiCaller)
 	contextConfig := ContextConfig{
 		Agent:            a,
 		Clock:            config.Clock,
@@ -83,7 +83,7 @@ func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) 
 }
 
 type apiShim struct {
-	st *apideployer.State
+	st *apideployer.Client
 }
 
 func (s *apiShim) Machine(tag names.MachineTag) (Machine, error) {
