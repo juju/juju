@@ -1372,23 +1372,6 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 	}
 	cURLStr := a.CharmURL()
 
-	platform, err := corecharm.ParsePlatform(a.CharmOrigin().Platform())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var appSeries string
-	cURL, err := charm.ParseURL(cURLStr)
-	if err == nil {
-		appSeries = cURL.Series
-	}
-	if appSeries != "kubernetes" {
-		appSeries, err = series.GetSeriesFromChannel(platform.OS, platform.Channel)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-
 	appDoc := &applicationDoc{
 		Name:                 a.Name(),
 		Subordinate:          a.Subordinate(),
