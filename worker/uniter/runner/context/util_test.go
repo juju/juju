@@ -41,8 +41,8 @@ type HookContextSuite struct {
 	application    *state.Application
 	unit           *state.Unit
 	machine        *state.Machine
-	relch          *state.Charm
-	relunits       map[int]*state.RelationUnit
+	relCh          *state.Charm
+	relUnits       map[int]*state.RelationUnit
 	secretMetadata map[string]jujuc.SecretMetadata
 	secrets        *runnertesting.SecretsContextAccessor
 	clock          *testclock.Clock

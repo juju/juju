@@ -155,6 +155,7 @@ type State interface {
 	UnitWorkloadVersion(tag names.UnitTag) (string, error)
 	SetUnitWorkloadVersion(tag names.UnitTag, version string) error
 	OpenedMachinePortRangesByEndpoint(machineTag names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error)
+	OpenedPortRangesByEndpoint() (map[names.UnitTag]network.GroupedPortRanges, error)
 }
 
 // HookContext is the implementation of runner.Context.

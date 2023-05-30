@@ -3250,7 +3250,7 @@ func (s *MigrationImportSuite) TestApplicationWithProvisioningState(c *gc.C) {
 	platform := &state.Platform{
 		Architecture: corearch.DefaultArchitecture,
 		OS:           "ubuntu",
-		Series:       "focal",
+		Channel:      "20.04",
 	}
 	testCharm, application, _ := s.setupSourceApplications(c, caasSt, cons, platform, false)
 

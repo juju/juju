@@ -18,7 +18,6 @@ import (
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -182,6 +181,17 @@ func (s *EnvSuite) TestEnvSetsPath(c *gc.C) {
 }
 
 func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	state := mocks.NewMockState(ctrl)
+	state.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("this-unit/123")).Return(params.StorageAttachment{
+		Kind:     params.StorageKindBlock,
+		Location: "/dev/sdb",
+	}, nil).AnyTimes()
+	unit := mocks.NewMockHookUnit(ctrl)
+	unit.EXPECT().Tag().Return(names.NewUnitTag("this-unit/123")).AnyTimes()
+
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
 

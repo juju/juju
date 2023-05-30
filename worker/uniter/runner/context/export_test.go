@@ -70,7 +70,6 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 		jujuProxySettings:      hcParams.JujuProxySettings,
 		actionData:             hcParams.ActionData,
 		assignedMachineTag:     hcParams.AssignedMachineTag,
-		storage:                hcParams.Storage,
 		storageTag:             hcParams.StorageTag,
 		secretsClient:          hcParams.SecretsClient,
 		secretsBackendGetter:   func() (jujusecrets.BackendsClient, error) { return hcParams.SecretsStore, nil },
@@ -159,7 +158,7 @@ func NewMockUnitHookContextWithStateAndStorage(unitName string, unit HookUnit, s
 		unit:                   unit,
 		state:                  state,
 		logger:                 logger,
-		portRangeChanges:       newPortRangeChangeRecorder(logger, names.NewUnitTag(unitName), nil),
+		portRangeChanges:       newPortRangeChangeRecorder(logger, names.NewUnitTag(unitName), model.IAAS, nil, nil),
 		storageTag:             storageTag,
 		storageAttachmentCache: make(map[names.StorageTag]jujuc.ContextStorageAttachment),
 	}

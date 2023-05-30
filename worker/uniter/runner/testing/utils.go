@@ -6,6 +6,7 @@ package testing
 import (
 	"path/filepath"
 
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
@@ -16,7 +17,6 @@ import (
 	jujusecrets "github.com/juju/juju/secrets"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/uniter/runner/context"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 // RealPaths implements Paths for tests that do touch the filesystem.

@@ -124,9 +124,9 @@ checks:
         threshold: 3
         http:
             url: http://localhost:65301/readiness
-`)
+`
 	var y any
-	err := yaml.Unmarshal(expectedCAPebbleService, &y)
+	err := yaml.Unmarshal([]byte(expectedCAPebbleService), &y)
 	c.Assert(err, jc.ErrorIsNil)
 
 	pebbleWritten := bytes.NewBuffer(nil)
@@ -191,8 +191,11 @@ services:
         command: /charm/bin/containeragent unit --data-dir /var/lib/juju --append-env "PATH=$PATH:/charm/bin" --show-log --controller
         environment:
             HTTP_PROBE_PORT: "65301"
+        kill-delay: 30m0s
+        on-success: ignore
+        on-failure: restart
         on-check-failure:
-            liveness: restart
+            liveness: ignore
             readiness: ignore
 checks:
     liveness:

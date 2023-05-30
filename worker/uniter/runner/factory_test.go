@@ -172,7 +172,6 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 		Unit:             apiUnit,
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
-		Storage:          s.storage,
 		SecretsClient:    s.secrets,
 		Payloads:         s.payloads,
 		Paths:            s.paths,

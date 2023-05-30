@@ -52,7 +52,6 @@ type ContextSuite struct {
 	uniter      *uniter.State
 	apiUnit     *uniter.Unit
 	payloads    *uniter.PayloadFacadeClient
-	storage     *runnertesting.StorageContextAccessor
 	secrets     *runnertesting.SecretsContextAccessor
 
 	apiRelunits map[int]*uniter.RelationUnit
@@ -69,16 +68,6 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 	s.application = s.AddTestingApplication(c, "u", ch)
 	s.unit = s.AddUnit(c, s.application)
 
-	storageData0 := names.NewStorageTag("data/0")
-	s.storage = &runnertesting.StorageContextAccessor{
-		map[names.StorageTag]*runnertesting.ContextStorage{
-			storageData0: {
-				storageData0,
-				storage.StorageKindBlock,
-				"/dev/sdb",
-			},
-		},
-	}
 	s.secrets = &runnertesting.SecretsContextAccessor{}
 
 	password, err := utils.RandomPassword()
@@ -115,7 +104,6 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 		Payloads:         s.payloads,
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
-		Storage:          s.storage,
 		SecretsClient:    s.secrets,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),

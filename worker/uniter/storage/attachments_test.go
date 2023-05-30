@@ -6,7 +6,6 @@ package storage_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v10/hooks"
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"

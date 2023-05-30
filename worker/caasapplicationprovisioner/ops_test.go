@@ -539,7 +539,7 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 			},
 		},
 		Base: series.Base{
-			Name: "ubuntu",
+			OS: "ubuntu",
 			Channel: series.Channel{
 				Track: "22.04",
 				Risk:  series.Stable,

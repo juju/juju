@@ -140,6 +140,21 @@ func (mr *MockStateMockRecorder) OpenedMachinePortRangesByEndpoint(arg0 interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenedMachinePortRangesByEndpoint", reflect.TypeOf((*MockState)(nil).OpenedMachinePortRangesByEndpoint), arg0)
 }
 
+// OpenedPortRangesByEndpoint mocks base method.
+func (m *MockState) OpenedPortRangesByEndpoint() (map[names.UnitTag]network.GroupedPortRanges, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OpenedPortRangesByEndpoint")
+	ret0, _ := ret[0].(map[names.UnitTag]network.GroupedPortRanges)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// OpenedPortRangesByEndpoint indicates an expected call of OpenedPortRangesByEndpoint.
+func (mr *MockStateMockRecorder) OpenedPortRangesByEndpoint() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenedPortRangesByEndpoint", reflect.TypeOf((*MockState)(nil).OpenedPortRangesByEndpoint))
+}
+
 // SetUnitWorkloadVersion mocks base method.
 func (m *MockState) SetUnitWorkloadVersion(arg0 names.UnitTag, arg1 string) error {
 	m.ctrl.T.Helper()
