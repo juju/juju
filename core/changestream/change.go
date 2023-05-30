@@ -32,7 +32,7 @@ type ChangeEvent interface {
 // Term represents a set of changes that are bounded by a coalesced set.
 // The notion of a term are a set of changes that can be run one at a time
 // asynchronously. Allowing changes within a given term to be signaled of a
-// change independently from one another.
+// change independently of one another.
 // Once a change within a term has been completed, only at that point
 // is another change processed, until all changes are exhausted.
 type Term interface {
