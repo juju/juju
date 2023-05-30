@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package eventqueue
+package eventsource
 
 import (
 	"fmt"
@@ -14,8 +14,8 @@ import (
 	dbtesting "github.com/juju/juju/database/testing"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package eventqueue -destination package_mock_test.go github.com/juju/juju/core/watcher/eventqueue EventQueue,Logger
-//go:generate go run github.com/golang/mock/mockgen -package eventqueue -destination changestream_mock_test.go github.com/juju/juju/core/changestream Subscription
+//go:generate go run github.com/golang/mock/mockgen -package eventsource -destination package_mock_test.go github.com/juju/juju/core/watcher/eventsource Logger
+//go:generate go run github.com/golang/mock/mockgen -package eventsource -destination changestream_mock_test.go github.com/juju/juju/core/changestream Subscription,EventSource
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -24,7 +24,7 @@ func TestPackage(t *testing.T) {
 type baseSuite struct {
 	dbtesting.ControllerSuite
 
-	queue  *MockEventQueue
+	events *MockEventSource
 	logger *MockLogger
 	sub    *MockSubscription
 }
@@ -32,7 +32,7 @@ type baseSuite struct {
 func (s *baseSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.queue = NewMockEventQueue(ctrl)
+	s.events = NewMockEventSource(ctrl)
 	s.logger = NewMockLogger(ctrl)
 	s.sub = NewMockSubscription(ctrl)
 
@@ -40,7 +40,7 @@ func (s *baseSuite) setUpMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *baseSuite) newBaseWatcher() *BaseWatcher {
-	return NewBaseWatcher(s.queue, s.TxnRunner(), s.logger)
+	return NewBaseWatcher(s.events, s.TxnRunner(), s.logger)
 }
 
 // subscriptionOptionMatcher is a gomock.Matcher that can be used to check

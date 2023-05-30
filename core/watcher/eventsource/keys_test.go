@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package eventqueue
+package eventsource
 
 import (
 	"context"
@@ -43,7 +43,7 @@ func (s *keysSuite) TestInitialStateSent(c *gc.C) {
 
 	subExp.Unsubscribe()
 
-	s.queue.EXPECT().Subscribe(
+	s.events.EXPECT().Subscribe(
 		subscriptionOptionMatcher{changestream.Namespace(
 			"random_namespace",
 			changestream.Create|changestream.Update|changestream.Delete,
@@ -97,7 +97,7 @@ func (s *keysSuite) TestDeltasSent(c *gc.C) {
 
 	// The specific table doesn't matter here. Only that exists to read from.
 	// We don't need any initial data.
-	s.queue.EXPECT().Subscribe(
+	s.events.EXPECT().Subscribe(
 		subscriptionOptionMatcher{changestream.Namespace(
 			"external_controller",
 			changestream.Create|changestream.Update|changestream.Delete,
@@ -149,7 +149,7 @@ func (s *keysSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 
 	// The specific table doesn't matter here. Only that exists to read from.
 	// We don't need any initial data.
-	s.queue.EXPECT().Subscribe(
+	s.events.EXPECT().Subscribe(
 		subscriptionOptionMatcher{changestream.Namespace(
 			"external_controller",
 			changestream.Create|changestream.Update|changestream.Delete,

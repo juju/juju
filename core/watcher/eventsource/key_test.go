@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package eventqueue
+package eventsource
 
 import (
 	"time"
@@ -43,7 +43,7 @@ func (s *keysSuite) TestNotificationsSent(c *gc.C) {
 
 	subExp.Unsubscribe()
 
-	s.queue.EXPECT().Subscribe(
+	s.events.EXPECT().Subscribe(
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
@@ -89,7 +89,7 @@ func (s *keySuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 
 	subExp.Unsubscribe()
 
-	s.queue.EXPECT().Subscribe(
+	s.events.EXPECT().Subscribe(
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 

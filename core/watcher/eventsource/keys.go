@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package eventqueue
+package eventsource
 
 import (
 	"context"
@@ -59,7 +59,7 @@ func (w *KeysWatcher) Changes() watcher.StringsChannel {
 }
 
 func (w *KeysWatcher) loop() error {
-	subscription, err := w.eventQueue.Subscribe(changestream.Namespace(w.tableName, changestream.All))
+	subscription, err := w.eventSource.Subscribe(changestream.Namespace(w.tableName, changestream.All))
 	if err != nil {
 		return errors.Annotatef(err, "subscribing to namespace %q", w.tableName)
 	}

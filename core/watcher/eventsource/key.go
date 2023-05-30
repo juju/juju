@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package eventqueue
+package eventsource
 
 import (
 	"github.com/juju/errors"
@@ -45,7 +45,7 @@ func (w *KeyWatcher) loop() error {
 	opt := changestream.FilteredNamespace(w.tableName, changestream.All, func(e changestream.ChangeEvent) bool {
 		return e.ChangedUUID() == w.keyValue
 	})
-	subscription, err := w.eventQueue.Subscribe(opt)
+	subscription, err := w.eventSource.Subscribe(opt)
 	if err != nil {
 		return errors.Annotatef(err, "subscribing to entity %q in namespace %q", w.keyValue, w.tableName)
 	}
