@@ -13,8 +13,8 @@ import (
 
 // State defines an interface for interacting with the underlying state.
 type State interface {
-	ControllerConfig(context.Context) (jujucontroller.Config, error)
-	UpdateControllerConfig(ctx context.Context, updateAttrs jujucontroller.Config, removeAttrs []string) error
+	ControllerConfig(context.Context) (map[string]interface{}, error)
+	UpdateControllerConfig(ctx context.Context, updateAttrs map[string]interface{}, removeAttrs []string) error
 }
 
 // Service defines a service for interacting with the underlying state.
@@ -31,8 +31,10 @@ func NewService(st State) *Service {
 
 // ControllerConfig returns the config values for the controller.
 func (s *Service) ControllerConfig(ctx context.Context) (jujucontroller.Config, error) {
+	coercedControllerConfig := make(jujucontroller.Config)
 	cc, err := s.st.ControllerConfig(ctx)
-	return cc, errors.Annotate(err, "getting controller config state")
+	coercedControllerConfig, err = coerceControllerConfigMap(cc)
+	return coercedControllerConfig, errors.Annotate(err, "getting controller config state")
 }
 
 // UpdateControllerConfig updates the controller config.
@@ -50,4 +52,24 @@ func checkUpdateControllerConfig(name string) error {
 		return errors.Errorf("can't change %q after bootstrap", name)
 	}
 	return nil
+}
+
+// coerceControllerConfigMap converts a map[string]interface{} to a controller config.
+func coerceControllerConfigMap(m map[string]interface{}) (map[string]interface{}, error) {
+	result := make(map[string]interface{})
+	// Validate the updateAttrs.
+	fields, _, err := jujucontroller.ConfigSchema.ValidationSchema()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for k := range m {
+		if field, ok := fields[k]; ok {
+			v, err := field.Coerce(m[k], []string{k})
+			if err != nil {
+				return nil, err
+			}
+			result[k] = v
+		}
+	}
+	return result, nil
 }

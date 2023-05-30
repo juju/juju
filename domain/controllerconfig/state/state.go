@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 
-	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/domain"
 )
 
@@ -26,16 +25,15 @@ func NewState(factory domain.DBFactory) *State {
 }
 
 // ControllerConfig returns the current configuration in the database.
-func (st *State) ControllerConfig(ctx context.Context) (jujucontroller.Config, error) {
+func (st *State) ControllerConfig(ctx context.Context) (map[string]interface{}, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	q := `
-SELECT key,value FROM controller_config`[1:]
+	q := `SELECT key,value FROM controller_config`
 
-	var result jujucontroller.Config
+	var result map[string]interface{}
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, q)
 		if err != nil {
@@ -53,25 +51,10 @@ SELECT key,value FROM controller_config`[1:]
 // to the current config, and keys in removeAttrs will be unset (and
 // so revert to their defaults). Only a subset of keys can be changed
 // after bootstrapping.
-func (st *State) UpdateControllerConfig(ctx context.Context, updateAttrs jujucontroller.Config, removeAttrs []string) error {
+func (st *State) UpdateControllerConfig(ctx context.Context, updateAttrs map[string]interface{}, removeAttrs []string) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
-	}
-
-	// Validate the updateAttrs.
-	fields, _, err := jujucontroller.ConfigSchema.ValidationSchema()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for k := range updateAttrs {
-		if field, ok := fields[k]; ok {
-			v, err := field.Coerce(updateAttrs[k], []string{k})
-			if err != nil {
-				return err
-			}
-			updateAttrs[k] = v
-		}
 	}
 
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -103,14 +86,8 @@ VALUES (?, ?)
 }
 
 // controllerConfigFromRows returns controller config info from rows returned from the backing DB.
-func controllerConfigFromRows(rows *sql.Rows) (jujucontroller.Config, error) {
-	result := jujucontroller.Config{}
-
-	// Get ValidationSchema to coerce values.
-	fields, _, err := jujucontroller.ConfigSchema.ValidationSchema()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func controllerConfigFromRows(rows *sql.Rows) (map[string]interface{}, error) {
+	result := make(map[string]interface{})
 
 	for rows.Next() {
 		var key string
@@ -121,14 +98,7 @@ func controllerConfigFromRows(rows *sql.Rows) (jujucontroller.Config, error) {
 			return nil, errors.Trace(err)
 		}
 
-		// Coerce the value to the correct type.
-		if field, ok := fields[key]; ok {
-			v, err := field.Coerce(value, []string{key})
-			if err != nil {
-				return nil, err
-			}
-			result[key] = v
-		}
+		result[key] = value
 	}
 
 	return result, errors.Trace(rows.Err())

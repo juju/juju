@@ -22,9 +22,9 @@ var _ = gc.Suite(&stateSuite{})
 func (s *stateSuite) TestControllerConfigRead(c *gc.C) {
 	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
 
-	cc := jujucontroller.Config{
-		jujucontroller.AuditingEnabled:     true,
-		jujucontroller.AuditLogCaptureArgs: false,
+	cc := map[string]interface{}{
+		jujucontroller.AuditingEnabled:     "1",
+		jujucontroller.AuditLogCaptureArgs: "0",
 		jujucontroller.AuditLogMaxBackups:  "10",
 		jujucontroller.PublicDNSAddress:    "controller.test.com:1234",
 		jujucontroller.APIPortOpenDelay:    "100ms",
@@ -43,24 +43,26 @@ func (s *stateSuite) TestUpdateControllerConfigNewData(c *gc.C) {
 	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
 
 	err := st.UpdateControllerConfig(ctx.Background(), jujucontroller.Config{
-		jujucontroller.AuditingEnabled:     true,
-		jujucontroller.AuditLogCaptureArgs: false,
-		jujucontroller.AuditLogMaxBackups:  "10",
-		jujucontroller.PublicDNSAddress:    "controller.test.com:1234",
-		jujucontroller.APIPortOpenDelay:    "100ms",
+		jujucontroller.PublicDNSAddress: "controller.test.com:1234",
+		jujucontroller.APIPortOpenDelay: "100ms",
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.UpdateControllerConfig(ctx.Background(), jujucontroller.Config{
+		jujucontroller.AuditLogMaxBackups: "10",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	db := s.DB()
 
 	// Check the controller record.
-	row := db.QueryRow("SELECT value FROM controller_config WHERE key = ?", jujucontroller.PublicDNSAddress)
+	row := db.QueryRow("SELECT value FROM controller_config WHERE key = ?", jujucontroller.AuditLogMaxBackups)
 	c.Assert(row.Err(), jc.ErrorIsNil)
 
-	var dnsAddress string
-	err = row.Scan(&dnsAddress)
+	var auditLogMaxBackups string
+	err = row.Scan(&auditLogMaxBackups)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(dnsAddress, gc.Equals, "controller.test.com:1234")
+	c.Check(auditLogMaxBackups, gc.Equals, "10")
 
 }
 
@@ -68,11 +70,8 @@ func (s *stateSuite) TestUpdateExternalControllerUpsertAndReplace(c *gc.C) {
 	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
 
 	cc := jujucontroller.Config{
-		jujucontroller.AuditingEnabled:     true,
-		jujucontroller.AuditLogCaptureArgs: false,
-		jujucontroller.AuditLogMaxBackups:  "10",
-		jujucontroller.PublicDNSAddress:    "controller.test.com:1234",
-		jujucontroller.APIPortOpenDelay:    "100ms",
+		jujucontroller.PublicDNSAddress: "controller.test.com:1234",
+		jujucontroller.APIPortOpenDelay: "100ms",
 	}
 
 	// Initial values.

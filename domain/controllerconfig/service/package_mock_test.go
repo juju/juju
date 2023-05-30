@@ -9,7 +9,6 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	controller "github.com/juju/juju/controller"
 )
 
 // MockState is a mock of State interface.
@@ -36,10 +35,10 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // ControllerConfig mocks base method.
-func (m *MockState) ControllerConfig(arg0 context.Context) (controller.Config, error) {
+func (m *MockState) ControllerConfig(arg0 context.Context) (map[string]interface{}, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerConfig", arg0)
-	ret0, _ := ret[0].(controller.Config)
+	ret0, _ := ret[0].(map[string]interface{})
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -51,7 +50,7 @@ func (mr *MockStateMockRecorder) ControllerConfig(arg0 interface{}) *gomock.Call
 }
 
 // UpdateControllerConfig mocks base method.
-func (m *MockState) UpdateControllerConfig(arg0 context.Context, arg1 controller.Config, arg2 []string) error {
+func (m *MockState) UpdateControllerConfig(arg0 context.Context, arg1 map[string]interface{}, arg2 []string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateControllerConfig", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
