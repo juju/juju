@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/testing"
@@ -26,18 +27,10 @@ var _ = gc.Suite(&serviceSuite{})
 func (s *serviceSuite) TestUpdateControllerConfigSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	//rawControllerConfig := map[string]interface{}{
-	//	jujucontroller.AuditingEnabled:     "1",
-	//	jujucontroller.AuditLogCaptureArgs: "0",
-	//	jujucontroller.AuditLogMaxBackups:  "10",
-	//	jujucontroller.PublicDNSAddress:    "controller.test.com:1234",
-	//	jujucontroller.APIPortOpenDelay:    "100ms",
-	//}
-
-	coercedControllerConfig := jujucontroller.Config{
+	cc := jujucontroller.Config{
 		jujucontroller.AuditingEnabled:     true,
 		jujucontroller.AuditLogCaptureArgs: false,
-		jujucontroller.AuditLogMaxBackups:  "10",
+		jujucontroller.AuditLogMaxBackups:  100 * time.Millisecond,
 		jujucontroller.PublicDNSAddress:    "controller.test.com:1234",
 		jujucontroller.APIPortOpenDelay:    "100ms",
 	}
@@ -45,9 +38,9 @@ func (s *serviceSuite) TestUpdateControllerConfigSuccess(c *gc.C) {
 	k1 := jujucontroller.AuditingEnabled
 	k2 := jujucontroller.APIPortOpenDelay
 
-	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), coercedControllerConfig, []string{k1, k2}).Return(nil)
+	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), cc, []string{k1, k2}).Return(nil)
 
-	err := NewService(s.state).UpdateControllerConfig(context.Background(), coercedControllerConfig, []string{k1, k2})
+	err := NewService(s.state).UpdateControllerConfig(context.Background(), cc, []string{k1, k2})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
