@@ -23,11 +23,6 @@ func checkClientVersion(userLogin bool, callerVersion version.Number) func(facad
 		if callerVersion.Major < serverVersion.Major-1 || callerVersion.Major > serverVersion.Major+1 {
 			return incompatibleClientError
 		}
-		// If the client major version is greater and the minor version is not 0, reject.
-		if callerVersion.Major > serverVersion.Major && callerVersion.Minor != 0 {
-			return incompatibleClientError
-		}
-
 		// Connection pings always need to be allowed.
 		if facadeName == "Pinger" && methodName == "Ping" {
 			return nil
@@ -52,29 +47,44 @@ func checkClientVersion(userLogin bool, callerVersion version.Number) func(facad
 			return nil
 		}
 
-		// Check whitelisted client versions.
-		if minClientVersion, ok := upgradevalidation.MinClientVersions[serverVersion.Major]; ok && callerVersion.Compare(minClientVersion) >= 0 {
+		// The migration worker makes calls masquerading as a user
+		// so we need to treat those separately.
+		if isMethodAllowedForMigrate(facadeName, methodName) {
 			return nil
 		}
 
-		// Check whitelisted server versions.
+		// Older clients can only connect to the next 0 version minor release,
+		// and then only if the client version is recent enough.
+		olderClient := callerVersion.Major < serverVersion.Major
+		if olderClient {
+			if serverVersion.Minor > 0 {
+				return incompatibleClientError
+			}
+			// Check whitelisted client versions.
+			if minClientVersion, ok := upgradevalidation.MinClientVersions[serverVersion.Major]; ok && callerVersion.Compare(minClientVersion) >= 0 {
+				return nil
+			}
+			return incompatibleClientError
+		}
+
+		// Some calls are needed for upgrades.
+		if isMethodAllowedForUpgrade(facadeName, methodName) {
+			return nil
+		}
+
+		// Very new clients are rejected outright if not otherwise whitelisted above.
+		veryNewCaller := callerVersion.Major > serverVersion.Major && callerVersion.Minor != 0
+		if veryNewCaller {
+			return incompatibleClientError
+		}
+
+		// Newer clients with a 0 minor version can only connect to a server if it
+		// is recent enough.
 		if minServerVersion, ok := upgradevalidation.MinClientVersions[callerVersion.Major]; ok && serverVersion.Compare(minServerVersion) >= 0 {
 			return nil
 		}
 
-		// The migration worker makes calls masquerading as a user
-		// so we need to treat those separately.
-		olderClient := callerVersion.Major < serverVersion.Major
-		validMigrationCall := isMethodAllowedForMigrate(facadeName, methodName)
-		if olderClient && !validMigrationCall {
-			return incompatibleClientError
-		}
-
-		// Only allow calls to facilitate upgrades or migrations.
-		if !validMigrationCall && !isMethodAllowedForUpgrade(facadeName, methodName) {
-			return incompatibleClientError
-		}
-		return nil
+		return incompatibleClientError
 	}
 }
 
