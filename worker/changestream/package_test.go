@@ -5,14 +5,14 @@ package changestream
 
 import (
 	"testing"
-	time "time"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	dbtesting "github.com/juju/juju/database/testing"
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package changestream -destination stream_mock_test.go github.com/juju/juju/worker/changestream ChangeStream,DBGetter,Logger,EventMultiplexerWorker,FileNotifyWatcher
+//go:generate go run github.com/golang/mock/mockgen -package changestream -destination stream_mock_test.go github.com/juju/juju/worker/changestream DBGetter,Logger,EventMultiplexerWorker,FileNotifyWatcher
 //go:generate go run github.com/golang/mock/mockgen -package changestream -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 //go:generate go run github.com/golang/mock/mockgen -package changestream -destination source_mock_test.go github.com/juju/juju/core/changestream EventSource
 

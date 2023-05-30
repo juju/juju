@@ -7,12 +7,13 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
+
+	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/testing"
 )
 
 type workerSuite struct {
@@ -59,7 +60,7 @@ func (s *workerSuite) getConfig() WorkerConfig {
 	}
 }
 
-func (s *workerSuite) TestEventMux(c *gc.C) {
+func (s *workerSuite) TestEventSource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -68,7 +69,7 @@ func (s *workerSuite) TestEventMux(c *gc.C) {
 	done := make(chan struct{})
 
 	s.dbGetter.EXPECT().GetDB("controller").Return(s.TxnRunner(), nil)
-	s.eventMuxWorker.EXPECT().EventMux().Return(s.eventSource)
+	s.eventMuxWorker.EXPECT().EventSource().Return(s.eventSource)
 	s.eventMuxWorker.EXPECT().Kill().AnyTimes()
 	s.eventMuxWorker.EXPECT().Wait().DoAndReturn(func() error {
 		select {
@@ -82,10 +83,10 @@ func (s *workerSuite) TestEventMux(c *gc.C) {
 	w := s.newWorker(c, 1)
 	defer workertest.DirtyKill(c, w)
 
-	stream, ok := w.(ChangeStream)
+	stream, ok := w.(WatchableDBGetter)
 	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement ChangeStream"))
 
-	_, err := stream.NamespacedEventMux("controller")
+	_, err := stream.GetWatchableDB("controller")
 	c.Assert(err, jc.ErrorIsNil)
 
 	close(done)
@@ -93,7 +94,7 @@ func (s *workerSuite) TestEventMux(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestEventMuxCalledTwice(c *gc.C) {
+func (s *workerSuite) TestEventSourceCalledTwice(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -101,8 +102,8 @@ func (s *workerSuite) TestEventMuxCalledTwice(c *gc.C) {
 
 	done := make(chan struct{})
 
-	s.dbGetter.EXPECT().GetDB("controller").Return(s.TxnRunner(), nil)
-	s.eventMuxWorker.EXPECT().EventMux().Return(s.eventSource).Times(2)
+	s.dbGetter.EXPECT().GetDB("controller").Return(s.TxnRunner(), nil).Times(2)
+	s.eventMuxWorker.EXPECT().EventSource().Return(s.eventSource).Times(2)
 	s.eventMuxWorker.EXPECT().Kill().AnyTimes()
 	s.eventMuxWorker.EXPECT().Wait().DoAndReturn(func() error {
 		select {
@@ -116,14 +117,14 @@ func (s *workerSuite) TestEventMuxCalledTwice(c *gc.C) {
 	w := s.newWorker(c, 1)
 	defer workertest.DirtyKill(c, w)
 
-	stream, ok := w.(ChangeStream)
+	stream, ok := w.(WatchableDBGetter)
 	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement ChangeStream"))
 
 	// Ensure that the event queue is only created once.
-	_, err := stream.NamespacedEventMux("controller")
+	_, err := stream.GetWatchableDB("controller")
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = stream.NamespacedEventMux("controller")
+	_, err = stream.GetWatchableDB("controller")
 	c.Assert(err, jc.ErrorIsNil)
 
 	close(done)
