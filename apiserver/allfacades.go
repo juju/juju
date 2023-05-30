@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/instancemutater"
 	"github.com/juju/juju/apiserver/facades/agent/keyupdater"
 	"github.com/juju/juju/apiserver/facades/agent/leadership"
+	agentlifeflag "github.com/juju/juju/apiserver/facades/agent/lifeflag"
 	loggerapi "github.com/juju/juju/apiserver/facades/agent/logger"
 	"github.com/juju/juju/apiserver/facades/agent/machine"
 	"github.com/juju/juju/apiserver/facades/agent/machineactions"
@@ -133,6 +134,7 @@ func AllFacades() *facade.Registry {
 	cleaner.Register(registry)
 	client.Register(registry)
 	cloud.Register(registry)
+	agentlifeflag.Register(registry)
 
 	// CAAS related facades.
 	caasadmission.Register(registry)

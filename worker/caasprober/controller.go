@@ -31,6 +31,7 @@ const (
 	PathStartupProbe         = "/startup"
 )
 
+// NewController constructs a new caas prober Controller.
 func NewController(probes *CAASProbes, mux Mux) (*Controller, error) {
 	c := &Controller{}
 
@@ -44,10 +45,13 @@ func NewController(probes *CAASProbes, mux Mux) (*Controller, error) {
 	return c, nil
 }
 
+// Kill implements worker.Kill
 func (c *Controller) Kill() {
 	c.catacomb.Kill(nil)
 }
 
+// makeLoop is responsible for producing the loop needed to run as part of the
+// controller worker.
 func (c *Controller) makeLoop(
 	probes *CAASProbes,
 	mux Mux,
@@ -157,6 +161,7 @@ func ProbeHandler(name string, aggProbe *probe.Aggregate) http.Handler {
 	})
 }
 
+// Wait implements worker.Wait
 func (c *Controller) Wait() error {
 	return c.catacomb.Wait()
 }

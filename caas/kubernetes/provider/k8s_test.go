@@ -7424,6 +7424,7 @@ func (s *K8sBrokerSuite) TestUnits(c *gc.C) {
 					Message: "vol-mounted",
 					Since:   &now,
 				},
+				Persistent: true,
 			},
 		}},
 	}})
@@ -7501,9 +7502,11 @@ func (s *K8sBrokerSuite) TestAnnotateUnit(c *gc.C) {
 		},
 	}
 
+	patch := []byte(`{"metadata":{"annotations":{"unit.juju.is/id":"appname/0"}}}`)
+
 	gomock.InOrder(
 		s.mockPods.EXPECT().Get(gomock.Any(), "pod-name", v1.GetOptions{}).Return(pod, nil),
-		s.mockPods.EXPECT().Update(gomock.Any(), updatePod, v1.UpdateOptions{}).Return(updatePod, nil),
+		s.mockPods.EXPECT().Patch(gomock.Any(), "pod-name", types.MergePatchType, patch, v1.PatchOptions{}).Return(updatePod, nil),
 	)
 
 	err := s.broker.AnnotateUnit("appname", caas.ModeWorkload, "pod-name", names.NewUnitTag("appname/0"))
@@ -7535,6 +7538,8 @@ func (s *K8sBrokerSuite) assertAnnotateUnitByUID(c *gc.C, mode caas.DeploymentMo
 		},
 	}
 
+	patch := []byte(`{"metadata":{"annotations":{"unit.juju.is/id":"appname/0"}}}`)
+
 	labelSelector := "app.kubernetes.io/name=appname"
 	if mode == caas.ModeOperator {
 		labelSelector = "operator.juju.is/name=appname,operator.juju.is/target=application"
@@ -7542,7 +7547,7 @@ func (s *K8sBrokerSuite) assertAnnotateUnitByUID(c *gc.C, mode caas.DeploymentMo
 	gomock.InOrder(
 		s.mockPods.EXPECT().Get(gomock.Any(), "uuid", v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
 		s.mockPods.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: labelSelector}).Return(podList, nil),
-		s.mockPods.EXPECT().Update(gomock.Any(), updatePod, v1.UpdateOptions{}).Return(updatePod, nil),
+		s.mockPods.EXPECT().Patch(gomock.Any(), "pod-name", types.MergePatchType, patch, v1.PatchOptions{}).Return(updatePod, nil),
 	)
 
 	err := s.broker.AnnotateUnit("appname", mode, "uuid", names.NewUnitTag("appname/0"))

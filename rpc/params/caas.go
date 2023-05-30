@@ -62,22 +62,6 @@ type CAASApplicationProvisioningInfo struct {
 	Error                *Error                       `json:"error,omitempty"`
 }
 
-// CAASApplicationGarbageCollectArg holds info needed to cleanup units that have
-// gone away permanently.
-type CAASApplicationGarbageCollectArg struct {
-	Application     Entity   `json:"application"`
-	ObservedUnits   Entities `json:"observed-units"`
-	DesiredReplicas int      `json:"desired-replicas"`
-	ActivePodNames  []string `json:"active-pod-names"`
-	Force           bool     `json:"force"`
-}
-
-// CAASApplicationGarbageCollectArgs holds info needed to cleanup units that have
-// gone away permanently.
-type CAASApplicationGarbageCollectArgs struct {
-	Args []CAASApplicationGarbageCollectArg `json:"args"`
-}
-
 // DockerImageInfo holds the details for a Docker resource type.
 type DockerImageInfo struct {
 	// RegistryPath holds the path of the Docker image (including host and sha256) in a docker registry.
@@ -180,4 +164,24 @@ type CAASUnitsResult struct {
 // CAASUnitsResults contains multiple CAAS units result.
 type CAASUnitsResults struct {
 	Results []CAASUnitsResult `json:"results"`
+}
+
+// CAASApplicationProvisioningState represents the provisioning state for a CAAS application.
+type CAASApplicationProvisioningState struct {
+	Scaling     bool `json:"scaling"`
+	ScaleTarget int  `json:"scale-target"`
+}
+
+// CAASApplicationProvisioningStateResult represents the result of getting the
+// provisioning state for a CAAS application.
+type CAASApplicationProvisioningStateResult struct {
+	ProvisioningState *CAASApplicationProvisioningState `json:"provisioning-state,omitempty"`
+	Error             *Error                            `json:"error,omitempty"`
+}
+
+// CAASApplicationProvisioningStateArg holds the arguments for setting a CAAS application's
+// provisioning state.
+type CAASApplicationProvisioningStateArg struct {
+	Application       Entity                           `json:"application"`
+	ProvisioningState CAASApplicationProvisioningState `json:"provisioning-state"`
 }

@@ -17,21 +17,34 @@ run_relation_departing_unit() {
 
 	echo "Remove departer/1"
 	juju remove-unit departer/1
-	sleep 5
 
-	echo "Check departer/1 is departing the relation"
-	got=$(juju debug-log --replay --include unit-departer-0 | grep 'Remote unit departer/1 is departing the relation' || true)
-	if [ -z "${got}" ]; then
-		# shellcheck disable=SC2046
-		echo $(red "expected departer/0 to be notified that departer/1 went away")
-		exit 1
-	fi
-	got=$(juju debug-log --replay --include unit-departer-1 | grep 'Local unit is departing the relation' || true)
-	if [ -z "${got}" ]; then
-		# shellcheck disable=SC2046
-		echo $(red "expected departer/1 to be notified that it is going away")
-		exit 1
-	fi
+	attempt=10
+	while [[ ${attempt} -gt 0 ]]; do
+		attempt=$((attempt - 1))
+		sleep 10
+		echo "Check departer/1 is departing the relation"
+		got=$(juju debug-log --replay --include unit-departer-0 | grep 'Remote unit departer/1 is departing the relation' || true)
+		if [ -z "${got}" ]; then
+			# shellcheck disable=SC2046
+			echo $(red "expected departer/0 to be notified that departer/1 went away")
+			if [[ ${attempt} -eq 0 ]]; then
+				exit 1
+			else
+				continue
+			fi
+		fi
+		got=$(juju debug-log --replay --include unit-departer-1 | grep 'Local unit is departing the relation' || true)
+		if [ -z "${got}" ]; then
+			# shellcheck disable=SC2046
+			echo $(red "expected departer/1 to be notified that it is going away")
+			if [[ ${attempt} -eq 0 ]]; then
+				exit 1
+			else
+				continue
+			fi
+		fi
+		break
+	done
 
 	destroy_model "${model_name}"
 }

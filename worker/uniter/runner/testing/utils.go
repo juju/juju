@@ -6,7 +6,6 @@ package testing
 import (
 	"path/filepath"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
@@ -70,30 +69,6 @@ func (p RealPaths) GetJujucServerSocket(remote bool) sockets.Socket {
 
 func (p RealPaths) GetResourcesDir() string {
 	return filepath.Join(p.base, "resources")
-}
-
-type StorageContextAccessor struct {
-	CStorage map[names.StorageTag]*ContextStorage
-}
-
-func (s *StorageContextAccessor) StorageTags() ([]names.StorageTag, error) {
-	tags := names.NewSet()
-	for tag := range s.CStorage {
-		tags.Add(tag)
-	}
-	storageTags := make([]names.StorageTag, len(tags))
-	for i, tag := range tags.SortedValues() {
-		storageTags[i] = tag.(names.StorageTag)
-	}
-	return storageTags, nil
-}
-
-func (s *StorageContextAccessor) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, error) {
-	storage, ok := s.CStorage[tag]
-	if !ok {
-		return nil, errors.NotFoundf("storage")
-	}
-	return storage, nil
 }
 
 type ContextStorage struct {

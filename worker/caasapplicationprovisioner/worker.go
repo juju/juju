@@ -54,7 +54,6 @@ type CAASProvisionerFacade interface {
 	ApplicationCharmInfo(string) (*charmscommon.CharmInfo, error)
 	SetOperatorStatus(appName string, status status.Status, message string, data map[string]interface{}) error
 	Units(appName string) ([]params.CAASUnit, error)
-	GarbageCollect(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error
 	ApplicationOCIResources(appName string) (map[string]resources.DockerImageDetails, error)
 	UpdateUnits(arg params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error)
 	WatchApplication(appName string) (watcher.NotifyWatcher, error)
@@ -62,6 +61,9 @@ type CAASProvisionerFacade interface {
 	WatchUnits(application string) (watcher.StringsWatcher, error)
 	RemoveUnit(unitName string) error
 	WatchProvisioningInfo(string) (watcher.NotifyWatcher, error)
+	DestroyUnits(unitNames []string) error
+	ProvisioningState(string) (*params.CAASApplicationProvisioningState, error)
+	SetProvisioningState(string, params.CAASApplicationProvisioningState) error
 }
 
 // CAASBroker exposes CAAS broker functionality to a worker.

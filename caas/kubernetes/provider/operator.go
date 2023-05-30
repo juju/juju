@@ -640,6 +640,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 		// Just in case the volume reclaim policy is retain, we force deletion
 		// for operators as the volume is an inseparable part of the operator.
 		for _, volName := range volumeNames {
+			logger.Infof("deleting operator PV %s for application %s due to call to kubernetesClient.DeleteOperator", volName, appName)
 			err = pvs.Delete(context.TODO(), volName, v1.DeleteOptions{
 				PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 			})

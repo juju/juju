@@ -4,6 +4,7 @@
 package unit
 
 import (
+	"os"
 	"time"
 
 	"github.com/juju/clock"
@@ -17,14 +18,19 @@ import (
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	agentlifeflag "github.com/juju/juju/api/agent/lifeflag"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
+	cmdmodel "github.com/juju/juju/cmd/jujud/agent/model"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/observability/probe"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/utils/proxy"
+	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
@@ -36,6 +42,7 @@ import (
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/leadership"
+	"github.com/juju/juju/worker/lifeflag"
 	wlogger "github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/migrationflag"
@@ -44,6 +51,7 @@ import (
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/retrystrategy"
 	"github.com/juju/juju/worker/secretdrainworker"
+	"github.com/juju/juju/worker/simplesignalhandler"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgradesteps"
 )
@@ -123,7 +131,31 @@ type manifoldsConfig struct {
 	// the same machine/pod as a Juju controller, where they share the same
 	// networking namespace in linux.
 	ColocatedWithController bool
+
+	// SignalCh is os.Signal channel to receive signals on.
+	SignalCh chan os.Signal
 }
+
+var (
+	ifDead = engine.Housing{
+		Flags: []string{
+			deadFlagName,
+		},
+	}.Decorate
+
+	ifNotDead = engine.Housing{
+		Flags: []string{
+			notDeadFlagName,
+		},
+	}.Decorate
+
+	ifNotMigrating = engine.Housing{
+		Flags: []string{
+			migrationInactiveFlagName,
+		},
+		Occupy: migrationFortressName,
+	}.Decorate
+)
 
 // Manifolds returns a set of co-configured manifolds covering the various
 // responsibilities of a k8s agent unit command. It also accepts the logSource
@@ -155,13 +187,36 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			Logger:               loggo.GetLogger("juju.worker.apicaller"),
 		}),
 
+		deadFlagName: lifeflag.Manifold(lifeflag.ManifoldConfig{
+			APICallerName:  apiCallerName,
+			AgentName:      agentName,
+			Result:         life.IsDead,
+			Filter:         cmdmodel.LifeFilter,
+			NotFoundIsDead: true,
+			NewFacade: func(b base.APICaller) (lifeflag.Facade, error) {
+				return agentlifeflag.NewClient(b), nil
+			},
+			NewWorker: lifeflag.NewWorker,
+		}),
+
+		notDeadFlagName: lifeflag.Manifold(lifeflag.ManifoldConfig{
+			APICallerName: apiCallerName,
+			AgentName:     agentName,
+			Result:        life.IsNotDead,
+			Filter:        cmdmodel.LifeFilter,
+			NewFacade: func(b base.APICaller) (lifeflag.Facade, error) {
+				return agentlifeflag.NewClient(b), nil
+			},
+			NewWorker: lifeflag.NewWorker,
+		}),
+
 		// The log sender is a leaf worker that sends log messages to some
 		// API server, when configured so to do. We should only need one of
 		// these in a consolidated agent.
-		logSenderName: logsender.Manifold(logsender.ManifoldConfig{
+		logSenderName: ifNotDead(logsender.Manifold(logsender.ManifoldConfig{
 			APICallerName: apiCallerName,
 			LogSource:     config.LogSource,
-		}),
+		})),
 
 		// The upgrade steps gate is used to coordinate workers which
 		// shouldn't do anything until the upgrade-steps worker has
@@ -174,18 +229,18 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			NewWorker: gate.NewFlagWorker,
 		}),
 
-		upgraderName: caasupgrader.Manifold(caasupgrader.ManifoldConfig{
+		upgraderName: ifNotDead(caasupgrader.Manifold(caasupgrader.ManifoldConfig{
 			AgentName:            agentName,
 			APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
 			PreviousAgentVersion: config.PreviousAgentVersion,
-		}),
+		})),
 
 		// The upgradesteps worker runs soon after the unit agent
 		// starts and runs any steps required to upgrade to the
 		// running jujud version. Once upgrade steps have run, the
 		// upgradesteps gate is unlocked and the worker exits.
-		upgradeStepsName: upgradesteps.Manifold(upgradesteps.ManifoldConfig{
+		upgradeStepsName: ifNotDead(upgradesteps.Manifold(upgradesteps.ManifoldConfig{
 			AgentName:            agentName,
 			APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
@@ -197,7 +252,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			NewAgentStatusSetter: func(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
 				return &noopStatusSetter{}, nil
 			},
-		}),
+		})),
 
 		// The migration workers collaborate to run migrations;
 		// and to create a mechanism for running other workers
@@ -262,12 +317,19 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 
 		// Kubernetes probe handler responsible for reporting status for
 		// Kubernetes probes
-		caasProberName: caasprober.Manifold(caasprober.ManifoldConfig{
+		caasProberName: ifNotDead(caasprober.Manifold(caasprober.ManifoldConfig{
 			MuxName: probeHTTPServerName,
 			Providers: []string{
 				uniterName,
 			},
-		}),
+		})),
+
+		caasZombieProberName: ifDead(caasprober.Manifold(caasprober.ManifoldConfig{
+			MuxName: probeHTTPServerName,
+			DefaultProviders: map[string]probe.ProbeProvider{
+				"zombie-readiness": probe.ReadinessProvider(probe.Failure),
+			},
+		})),
 
 		// The charmdir resource coordinates whether the charm directory is
 		// available or not; after 'start' hook and before 'stop' hook
@@ -300,7 +362,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		// metrics; etc etc etc. We expect to break it up further in the
 		// coming weeks, and to need one per unit in a consolidated agent
 		// (and probably one for each component broken out).
-		uniterName: ifNotMigrating(uniter.Manifold(uniter.ManifoldConfig{
+		uniterName: ifNotMigrating(ifNotDead(uniter.Manifold(uniter.ManifoldConfig{
 			AgentName:                    agentName,
 			ModelType:                    model.CAAS,
 			APICallerName:                apiCallerName,
@@ -314,25 +376,25 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			Sidecar:                      true,
 			EnforcedCharmModifiedVersion: config.CharmModifiedVersion,
 			ContainerNames:               config.ContainerNames,
-		})),
+		}))),
 
 		// The CAAS unit termination worker handles SIGTERM from the container runtime.
-		caasUnitTerminationWorker: ifNotMigrating(caasunitterminationworker.Manifold(caasunitterminationworker.ManifoldConfig{
+		caasUnitTerminationWorker: ifNotMigrating(ifNotDead(caasunitterminationworker.Manifold(caasunitterminationworker.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			Clock:         config.Clock,
 			Logger:        loggo.GetLogger("juju.worker.caasunitterminationworker"),
 			UniterName:    uniterName,
-		})),
+		}))),
 
 		// The CAAS units manager worker runs on CAAS agent and subscribes and handles unit topics on the localhub.
-		caasUnitsManager: caasunitsmanager.Manifold(caasunitsmanager.ManifoldConfig{
+		caasUnitsManager: ifNotDead(caasunitsmanager.Manifold(caasunitsmanager.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			Clock:         config.Clock,
 			Logger:        loggo.GetLogger("juju.worker.caasunitsmanager"),
 			Hub:           config.LocalHub,
-		}),
+		})),
 
 		// The secretDrainWorker is the worker that drains secrets from the inactive backend to the current active backend.
 		secretDrainWorker: ifNotMigrating(secretdrainworker.Manifold(secretdrainworker.ManifoldConfig{
@@ -341,6 +403,14 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			NewSecretsDrainFacade: secretdrainworker.NewSecretsDrainFacade,
 			NewWorker:             secretdrainworker.NewWorker,
 			NewBackendsClient:     secretdrainworker.NewBackendsClient,
+		})),
+
+		// Signal handler for handling SIGTERM to shut this agent down when in
+		// placed in zombie mode.
+		signalHandlerName: ifDead(simplesignalhandler.Manifold(simplesignalhandler.ManifoldConfig{
+			Logger:              loggo.GetLogger("juju.worker.simplesignalhandler"),
+			DefaultHandlerError: jworker.ErrTerminateAgent,
+			SignalCh:            config.SignalCh,
 		})),
 	}
 
@@ -360,13 +430,6 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 
 	return dp
 }
-
-var ifNotMigrating = engine.Housing{
-	Flags: []string{
-		migrationInactiveFlagName,
-	},
-	Occupy: migrationFortressName,
-}.Decorate
 
 const (
 	agentName            = "agent"
@@ -388,8 +451,9 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
 
-	caasProberName      = "caas-prober"
-	probeHTTPServerName = "probe-http-server"
+	caasProberName       = "caas-prober"
+	caasZombieProberName = "caas-zombie-prober"
+	probeHTTPServerName  = "probe-http-server"
 
 	proxyConfigUpdaterName   = "proxy-config-updater"
 	loggingConfigUpdaterName = "logging-config-updater"
@@ -399,6 +463,11 @@ const (
 	caasUnitsManager          = "caas-units-manager"
 
 	secretDrainWorker = "secret-drain-worker"
+
+	signalHandlerName = "signal-handler"
+
+	deadFlagName    = "dead-flag"
+	notDeadFlagName = "not-dead-flag"
 )
 
 type noopStatusSetter struct{}

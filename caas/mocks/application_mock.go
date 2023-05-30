@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -165,6 +166,21 @@ func (m *MockApplication) Units() ([]caas.Unit, error) {
 func (mr *MockApplicationMockRecorder) Units() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Units", reflect.TypeOf((*MockApplication)(nil).Units))
+}
+
+// UnitsToRemove mocks base method.
+func (m *MockApplication) UnitsToRemove(arg0 context.Context, arg1 int) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UnitsToRemove", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UnitsToRemove indicates an expected call of UnitsToRemove.
+func (mr *MockApplicationMockRecorder) UnitsToRemove(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitsToRemove", reflect.TypeOf((*MockApplication)(nil).UnitsToRemove), arg0, arg1)
 }
 
 // UpdatePorts mocks base method.

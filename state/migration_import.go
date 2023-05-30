@@ -1370,11 +1370,29 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cURL := a.CharmURL()
-	return &applicationDoc{
+	cURLStr := a.CharmURL()
+
+	platform, err := corecharm.ParsePlatform(a.CharmOrigin().Platform())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var appSeries string
+	cURL, err := charm.ParseURL(cURLStr)
+	if err == nil {
+		appSeries = cURL.Series
+	}
+	if appSeries != "kubernetes" {
+		appSeries, err = series.GetSeriesFromChannel(platform.OS, platform.Channel)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	appDoc := &applicationDoc{
 		Name:                 a.Name(),
 		Subordinate:          a.Subordinate(),
-		CharmURL:             &cURL,
+		CharmURL:             &cURLStr,
 		CharmModifiedVersion: a.CharmModifiedVersion(),
 		CharmOrigin:          *origin,
 		ForceCharm:           a.ForceCharm(),
@@ -1390,7 +1408,16 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		DesiredScale:         a.DesiredScale(),
 		Placement:            a.Placement(),
 		HasResources:         a.HasResources(),
-	}, nil
+	}
+
+	if ps := a.ProvisioningState(); ps != nil {
+		appDoc.ProvisioningState = &ApplicationProvisioningState{
+			Scaling:     ps.Scaling(),
+			ScaleTarget: ps.ScaleTarget(),
+		}
+	}
+
+	return appDoc, nil
 }
 
 func (i *importer) makeCharmOrigin(a description.Application) (*CharmOrigin, error) {
