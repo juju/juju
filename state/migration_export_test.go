@@ -2678,6 +2678,7 @@ func (s *MigrationExportSuite) TestRemoteRelationSettingsForUnitsInCMR(c *gc.C) 
 
 func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 	store := state.NewSecrets(s.State)
+	backendStore := state.NewSecretBackends(s.State)
 	owner := s.Factory.MakeApplication(c, nil)
 	uri := secrets.NewURI()
 	createTime := time.Now().UTC().Round(time.Second)
@@ -2699,7 +2700,14 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 	}
 	md, err := store.CreateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
-	md, err = store.UpdateSecret(md.URI, state.UpdateSecretParams{
+
+	_, err = backendStore.CreateSecretBackend(state.CreateSecretBackendParams{
+		ID:          "backend-id",
+		Name:        "foo",
+		BackendType: "vault",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = store.UpdateSecret(md.URI, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		ValueRef: &secrets.ValueRef{
 			BackendID:  "backend-id",
@@ -2707,6 +2715,11 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+
+	backendRefCount, err := s.State.ReadBackendRefCount("backend-id")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendRefCount, gc.Equals, 1)
+
 	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
 		LeaderToken: &fakeToken{},
 		Scope:       owner.Tag(),

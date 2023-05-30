@@ -103,6 +103,17 @@ func (s *SecretsSuite) TestCreate(c *gc.C) {
 }
 
 func (s *SecretsSuite) TestCreateBackendRef(c *gc.C) {
+	backendStore := state.NewSecretBackends(s.State)
+	_, err := backendStore.CreateSecretBackend(state.CreateSecretBackendParams{
+		ID:          "backend-id",
+		Name:        "foo",
+		BackendType: "vault",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	backendRefCount, err := s.State.ReadBackendRefCount("backend-id")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendRefCount, gc.Equals, 0)
+
 	uri := secrets.NewURI()
 	p := state.CreateSecretParams{
 		Version: 1,
@@ -115,8 +126,11 @@ func (s *SecretsSuite) TestCreateBackendRef(c *gc.C) {
 			},
 		},
 	}
-	_, err := s.store.CreateSecret(uri, p)
+	_, err = s.store.CreateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
+	backendRefCount, err = s.State.ReadBackendRefCount("backend-id")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendRefCount, gc.Equals, 1)
 	v, valueRef, err := s.store.GetSecretValue(uri, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(v.EncodedValues(), gc.HasLen, 0)
@@ -478,6 +492,17 @@ func (s *SecretsSuite) TestListByConsumer(c *gc.C) {
 }
 
 func (s *SecretsSuite) TestListModelSecrets(c *gc.C) {
+	backendStore := state.NewSecretBackends(s.State)
+	_, err := backendStore.CreateSecretBackend(state.CreateSecretBackendParams{
+		ID:          "backend-id",
+		Name:        "foo",
+		BackendType: "vault",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	backendRefCount, err := s.State.ReadBackendRefCount("backend-id")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendRefCount, gc.Equals, 0)
+
 	uri := secrets.NewURI()
 	p := state.CreateSecretParams{
 		Version: 1,
@@ -487,7 +512,7 @@ func (s *SecretsSuite) TestListModelSecrets(c *gc.C) {
 			Data:        map[string]string{"foo": "bar"},
 		},
 	}
-	_, err := s.store.CreateSecret(uri, p)
+	_, err = s.store.CreateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri2 := secrets.NewURI()
@@ -501,6 +526,9 @@ func (s *SecretsSuite) TestListModelSecrets(c *gc.C) {
 	}
 	_, err = s.store.CreateSecret(uri2, p2)
 	c.Assert(err, jc.ErrorIsNil)
+	backendRefCount, err = s.State.ReadBackendRefCount("backend-id")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendRefCount, gc.Equals, 1)
 
 	caasSt := s.newCAASState(c)
 	caasSecrets := state.NewSecrets(caasSt)
@@ -927,6 +955,27 @@ func (s *SecretsSuite) TestUpdateConcurrent(c *gc.C) {
 }
 
 func (s *SecretsSuite) TestChangeSecretBackend(c *gc.C) {
+	backendStore := state.NewSecretBackends(s.State)
+	_, err := backendStore.CreateSecretBackend(state.CreateSecretBackendParams{
+		ID:          "old-backend-id",
+		Name:        "foo",
+		BackendType: "vault",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	backendRefCount, err := s.State.ReadBackendRefCount("old-backend-id")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendRefCount, gc.Equals, 0)
+
+	_, err = backendStore.CreateSecretBackend(state.CreateSecretBackendParams{
+		ID:          "new-backend-id",
+		Name:        "bar",
+		BackendType: "vault",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	backendRefCount, err = s.State.ReadBackendRefCount("new-backend-id")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendRefCount, gc.Equals, 0)
+
 	uri := secrets.NewURI()
 	p := state.CreateSecretParams{
 		Version: 1,
@@ -940,15 +989,12 @@ func (s *SecretsSuite) TestChangeSecretBackend(c *gc.C) {
 			},
 		},
 	}
-	_, err := s.store.CreateSecret(uri, p)
+	_, err = s.store.CreateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
 
-	backendRefCount, err := s.State.ReadBackendRevisionCount("old-backend-id")
+	backendRefCount, err = s.State.ReadBackendRefCount("old-backend-id")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(backendRefCount, gc.Equals, 1)
-	backendRefCount, err = s.State.ReadBackendRevisionCount("new-backend-id")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(backendRefCount, gc.Equals, 0)
 
 	val, valRef, err := s.store.GetSecretValue(uri, 1)
 	c.Assert(err, jc.ErrorIsNil)
@@ -969,11 +1015,11 @@ func (s *SecretsSuite) TestChangeSecretBackend(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	backendRefCount, err = s.State.ReadBackendRevisionCount("old-backend-id")
+	backendRefCount, err = s.State.ReadBackendRefCount("old-backend-id")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(backendRefCount, gc.Equals, 0)
 
-	backendRefCount, err = s.State.ReadBackendRevisionCount("new-backend-id")
+	backendRefCount, err = s.State.ReadBackendRefCount("new-backend-id")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(backendRefCount, gc.Equals, 1)
 
@@ -1528,6 +1574,17 @@ func (s *SecretsSuite) TestDelete(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		return uri
 	}
+	backendStore := state.NewSecretBackends(s.State)
+	_, err := backendStore.CreateSecretBackend(state.CreateSecretBackendParams{
+		ID:          "backend-id",
+		Name:        "foo",
+		BackendType: "vault",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	backendRefCount, err := s.State.ReadBackendRefCount("backend-id")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendRefCount, gc.Equals, 0)
+
 	uri1 := create("label1")
 	up := state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
@@ -1536,8 +1593,12 @@ func (s *SecretsSuite) TestDelete(c *gc.C) {
 			RevisionID: "rev-id",
 		},
 	}
-	_, err := s.store.UpdateSecret(uri1, up)
+	_, err = s.store.UpdateSecret(uri1, up)
 	c.Assert(err, jc.ErrorIsNil)
+
+	backendRefCount, err = s.State.ReadBackendRefCount("backend-id")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendRefCount, gc.Equals, 1)
 
 	uri2 := create("label2")
 
@@ -1547,6 +1608,10 @@ func (s *SecretsSuite) TestDelete(c *gc.C) {
 		BackendID:  "backend-id",
 		RevisionID: "rev-id",
 	}})
+	backendRefCount, err = s.State.ReadBackendRefCount("backend-id")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendRefCount, gc.Equals, 0)
+
 	_, _, err = s.store.GetSecretValue(uri1, 1)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	external, err = s.store.DeleteSecret(uri1)
@@ -1604,6 +1669,17 @@ func (s *SecretsSuite) TestDelete(c *gc.C) {
 }
 
 func (s *SecretsSuite) TestDeleteRevisions(c *gc.C) {
+	backendStore := state.NewSecretBackends(s.State)
+	_, err := backendStore.CreateSecretBackend(state.CreateSecretBackendParams{
+		ID:          "backend-id",
+		Name:        "foo",
+		BackendType: "vault",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	backendRefCount, err := s.State.ReadBackendRefCount("backend-id")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendRefCount, gc.Equals, 0)
+
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
 		Version: 1,
@@ -1613,7 +1689,7 @@ func (s *SecretsSuite) TestDeleteRevisions(c *gc.C) {
 			Data:        map[string]string{"foo": "bar"},
 		},
 	}
-	_, err := s.store.CreateSecret(uri, cp)
+	_, err = s.store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
@@ -1628,6 +1704,9 @@ func (s *SecretsSuite) TestDeleteRevisions(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	backendRefCount, err = s.State.ReadBackendRefCount("backend-id")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendRefCount, gc.Equals, 1)
 
 	external, err := s.store.DeleteSecret(uri, 1)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1655,6 +1734,10 @@ func (s *SecretsSuite) TestDeleteRevisions(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	_, err = s.store.GetSecret(uri)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	backendRefCount, err = s.State.ReadBackendRefCount("backend-id")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendRefCount, gc.Equals, 0)
 }
 
 func (s *SecretsSuite) TestSecretRotated(c *gc.C) {

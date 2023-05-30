@@ -3140,13 +3140,13 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	backendRefCount, err := s.State.ReadBackendRevisionCount(backendID)
+	backendRefCount, err := s.State.ReadBackendRefCount(backendID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(backendRefCount, gc.Equals, 1)
 
 	_, newSt := s.importModel(c, s.State)
 
-	backendRefCount, err = s.State.ReadBackendRevisionCount(backendID)
+	backendRefCount, err = s.State.ReadBackendRefCount(backendID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(backendRefCount, gc.Equals, 2)
 
@@ -3197,7 +3197,7 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 		LatestRevision:  2,
 	})
 
-	backendRefCount, err = newSt.ReadBackendRevisionCount(backendID)
+	backendRefCount, err = newSt.ReadBackendRefCount(backendID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(backendRefCount, gc.Equals, 2)
 }
@@ -3206,21 +3206,33 @@ func (s *MigrationImportSuite) TestSecretsMissingBackend(c *gc.C) {
 	store := state.NewSecrets(s.State)
 	owner := s.Factory.MakeApplication(c, nil)
 	uri := secrets.NewURI()
+
+	backendStore := state.NewSecretBackends(s.State)
+	_, err := backendStore.CreateSecretBackend(state.CreateSecretBackendParams{
+		ID:          "backend-id",
+		Name:        "foo",
+		BackendType: "vault",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	p := state.CreateSecretParams{
 		Version: 1,
 		Owner:   owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			ValueRef: &secrets.ValueRef{
-				BackendID:  "missing-id",
+				BackendID:  "backend-id",
 				RevisionID: "rev-id",
 			},
 		},
 	}
-	_, err := store.CreateSecret(uri, p)
+	_, err = store.CreateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
 
 	out, err := s.State.Export(map[string]string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = backendStore.DeleteSecretBackend("foo", true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid := utils.MustNewUUID().String()

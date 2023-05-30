@@ -215,7 +215,7 @@ func MigrateApplicationOpenedPortsToUnitScope(pool *StatePool) error {
 	}))
 }
 
-// EnsureInitalRefCountForExternalSecretBackends creates an intial refcount for each
+// EnsureInitalRefCountForExternalSecretBackends creates an initial refcount for each
 // external secret backend if there is no one found.
 func EnsureInitalRefCountForExternalSecretBackends(pool *StatePool) error {
 	st, err := pool.SystemState()
@@ -239,8 +239,8 @@ func EnsureInitalRefCountForExternalSecretBackends(pool *StatePool) error {
 		if err == nil {
 			continue
 		}
-		if !errors.IsNotFound(err) {
-			return errors.Annotatef(err, "reading refcount for backend %q", backend.ID)
+		if !errors.Is(err, errors.NotFound) {
+			return errors.Annotatef(err, "cannot read refcount for backend %q", backend.ID)
 		}
 		refOps, err := st.createSecretBackendRefCountOp(backend.ID)
 		if err != nil {

@@ -310,7 +310,7 @@ func (s *secretBackendsStorage) DeleteSecretBackend(name string, force bool) err
 			Remove: true,
 		}
 
-		refCountOp, err := s.st.removeBackendRevisionCountOp(b.ID, force)
+		refCountOp, err := s.st.removeBackendRefCountOp(b.ID, force)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -324,7 +324,7 @@ func secretBackendRefCountKey(backendID string) string {
 	return fmt.Sprintf("secretbackend#revisions#%s", backendID)
 }
 
-func (st *State) removeBackendRevisionCountOp(backendID string, force bool) ([]txn.Op, error) {
+func (st *State) removeBackendRefCountOp(backendID string, force bool) ([]txn.Op, error) {
 	if secrets.IsInternalSecretBackendID(backendID) {
 		return nil, nil
 	}
