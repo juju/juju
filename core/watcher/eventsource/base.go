@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package eventqueue
+package eventsource
 
 import (
 	"gopkg.in/tomb.v2"

@@ -2,7 +2,7 @@
 // Source: github.com/juju/juju/core/watcher/eventqueue (interfaces: EventQueue,Logger)
 
 // Package eventqueue is a generated GoMock package.
-package eventqueue
+package eventsource
 
 import (
 	reflect "reflect"

@@ -2,7 +2,7 @@
 // Source: github.com/juju/juju/core/changestream (interfaces: Subscription)
 
 // Package eventqueue is a generated GoMock package.
-package eventqueue
+package eventsource
 
 import (
 	reflect "reflect"
