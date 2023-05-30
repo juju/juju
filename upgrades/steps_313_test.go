@@ -12,20 +12,15 @@ import (
 	"github.com/juju/juju/upgrades"
 )
 
-var v311 = version.MustParse("3.1.1")
+var v313 = version.MustParse("3.1.3")
 
-type steps311Suite struct {
+type steps313Suite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&steps311Suite{})
+var _ = gc.Suite(&steps313Suite{})
 
-func (s *steps311Suite) TestRemoveOrphanedSecretRevisions(c *gc.C) {
-	step := findStateStep(c, v311, "remove orphaned secret permissions")
-	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
-}
-
-func (s *steps311Suite) TestMigrateApplicationOpenedPortsToUnitScope(c *gc.C) {
-	step := findStateStep(c, v311, "moves the opened ports for an application for all its units")
+func (s *steps313Suite) TestEnsureInitalRefCountForExternalSecretBackends(c *gc.C) {
+	step := findStateStep(c, v313, "ensure initial refCount for external secret backends")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
