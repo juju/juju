@@ -233,18 +233,18 @@ func (m *MockEventMultiplexerWorker) EXPECT() *MockEventMultiplexerWorkerMockRec
 	return m.recorder
 }
 
-// EventMux mocks base method.
-func (m *MockEventMultiplexerWorker) EventMux() changestream.EventSource {
+// EventSource mocks base method.
+func (m *MockEventMultiplexerWorker) EventSource() changestream.EventSource {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EventMux")
+	ret := m.ctrl.Call(m, "EventSource")
 	ret0, _ := ret[0].(changestream.EventSource)
 	return ret0
 }
 
-// EventMux indicates an expected call of EventMux.
-func (mr *MockEventMultiplexerWorkerMockRecorder) EventMux() *gomock.Call {
+// EventSource indicates an expected call of EventSource.
+func (mr *MockEventMultiplexerWorkerMockRecorder) EventSource() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EventMux", reflect.TypeOf((*MockEventMultiplexerWorker)(nil).EventMux))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EventSource", reflect.TypeOf((*MockEventMultiplexerWorker)(nil).EventSource))
 }
 
 // Kill mocks base method.

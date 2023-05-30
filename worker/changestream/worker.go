@@ -41,7 +41,7 @@ type ChangeStream interface {
 // will be multiplexer to subscribers from the database change log.
 type EventMultiplexerWorker interface {
 	worker.Worker
-	EventMux() changestream.EventSource
+	EventSource() changestream.EventSource
 }
 
 // WorkerConfig encapsulates the configuration options for the
@@ -151,7 +151,7 @@ func (w *changeStreamWorker) NamespacedEventMux(namespace string) (changestream.
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return mux.(EventMultiplexerWorker).EventMux(), nil
+	return mux.(EventMultiplexerWorker).EventSource(), nil
 }
 
 // fileNotifyWatcher is a wrapper around the FileNotifyWatcher that is used to
@@ -212,8 +212,8 @@ func (w *eventMultiplexerWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-// EventMux returns the event queue for this worker.
-func (w *eventMultiplexerWorker) EventMux() changestream.EventSource {
+// EventSource returns the event source for this worker.
+func (w *eventMultiplexerWorker) EventSource() changestream.EventSource {
 	return w.mux
 }
 

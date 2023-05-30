@@ -59,7 +59,7 @@ func (s *workerSuite) getConfig() WorkerConfig {
 	}
 }
 
-func (s *workerSuite) TestEventMux(c *gc.C) {
+func (s *workerSuite) TestEventSource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -68,7 +68,7 @@ func (s *workerSuite) TestEventMux(c *gc.C) {
 	done := make(chan struct{})
 
 	s.dbGetter.EXPECT().GetDB("controller").Return(s.TxnRunner(), nil)
-	s.eventMuxWorker.EXPECT().EventMux().Return(s.eventSource)
+	s.eventMuxWorker.EXPECT().EventSource().Return(s.eventSource)
 	s.eventMuxWorker.EXPECT().Kill().AnyTimes()
 	s.eventMuxWorker.EXPECT().Wait().DoAndReturn(func() error {
 		select {
@@ -93,7 +93,7 @@ func (s *workerSuite) TestEventMux(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestEventMuxCalledTwice(c *gc.C) {
+func (s *workerSuite) TestEventSourceCalledTwice(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -102,7 +102,7 @@ func (s *workerSuite) TestEventMuxCalledTwice(c *gc.C) {
 	done := make(chan struct{})
 
 	s.dbGetter.EXPECT().GetDB("controller").Return(s.TxnRunner(), nil)
-	s.eventMuxWorker.EXPECT().EventMux().Return(s.eventSource).Times(2)
+	s.eventMuxWorker.EXPECT().EventSource().Return(s.eventSource).Times(2)
 	s.eventMuxWorker.EXPECT().Kill().AnyTimes()
 	s.eventMuxWorker.EXPECT().Wait().DoAndReturn(func() error {
 		select {
