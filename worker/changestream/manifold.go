@@ -108,8 +108,8 @@ func changeStreamOutput(in worker.Worker, out interface{}) error {
 	}
 
 	switch out := out.(type) {
-	case *ChangeStream:
-		var target ChangeStream = w
+	case *WatchableDBGetter:
+		var target WatchableDBGetter = w
 		*out = target
 	default:
 		return errors.Errorf("out should be a *changestream.ChangeStream; got %T", out)

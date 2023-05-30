@@ -31,10 +31,10 @@ type FileNotifier interface {
 	Changes() (<-chan bool, error)
 }
 
-// ChangeStream represents an interface for getting an event queue for
-// a particular namespace.
-type ChangeStream interface {
-	NamespacedEventMux(string) (changestream.EventSource, error)
+// WatchableDBGetter describes the ability to get
+// a WatchableDB for a particular namespace.
+type WatchableDBGetter interface {
+	GetWatchableDB(string) (changestream.WatchableDB, error)
 }
 
 // EventMultiplexerWorker represents a worker for subscribing to events that
@@ -126,15 +126,14 @@ func (w *changeStreamWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-// NamespacedEventMux returns a new EventMultiplexer for the given namespace.
-// The EventMultiplexer will be subscribed to the given options.
-func (w *changeStreamWorker) NamespacedEventMux(namespace string) (changestream.EventSource, error) {
-	if err := w.runner.StartWorker(namespace, func() (worker.Worker, error) {
-		db, err := w.cfg.DBGetter.GetDB(namespace)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+// GetWatchableDB returns a new WatchableDB for the given namespace.
+func (w *changeStreamWorker) GetWatchableDB(namespace string) (changestream.WatchableDB, error) {
+	db, err := w.cfg.DBGetter.GetDB(namespace)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
+	if err := w.runner.StartWorker(namespace, func() (worker.Worker, error) {
 		mux, err := w.cfg.NewEventMultiplexerWorker(db, fileNotifyWatcher{
 			fileNotifier: w.cfg.FileNotifyWatcher,
 			fileName:     namespace,
@@ -151,7 +150,8 @@ func (w *changeStreamWorker) NamespacedEventMux(namespace string) (changestream.
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return mux.(EventMultiplexerWorker).EventSource(), nil
+
+	return newWatchableDB(db, mux.(EventMultiplexerWorker).EventSource()), nil
 }
 
 // fileNotifyWatcher is a wrapper around the FileNotifyWatcher that is used to
