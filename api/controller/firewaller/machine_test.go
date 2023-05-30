@@ -4,7 +4,6 @@
 package firewaller_test
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -14,198 +13,211 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
-const allEndpoints = ""
-
 type machineSuite struct {
-	firewallerSuite
-
-	apiMachine *firewaller.Machine
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&machineSuite{})
 
-func (s *machineSuite) SetUpTest(c *gc.C) {
-	s.firewallerSuite.SetUpTest(c)
-
-	var err error
-	s.apiMachine, err = s.firewaller.Machine(s.machines[0].Tag().(names.MachineTag))
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *machineSuite) TearDownTest(c *gc.C) {
-	s.firewallerSuite.TearDownTest(c)
-}
-
 func (s *machineSuite) TestMachine(c *gc.C) {
-	apiMachine42, err := s.firewaller.Machine(names.NewMachineTag("42"))
-	c.Assert(err, gc.ErrorMatches, "machine 42 not found")
-	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
-	c.Assert(apiMachine42, gc.IsNil)
-
-	apiMachine0, err := s.firewaller.Machine(s.machines[0].Tag().(names.MachineTag))
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Firewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "Life")
+		c.Assert(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "machine-666"}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+		*(result.(*params.LifeResults)) = params.LifeResults{
+			Results: []params.LifeResult{{Life: "alive"}},
+		}
+		return nil
+	})
+	tag := names.NewMachineTag("666")
+	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiMachine0, gc.NotNil)
-}
-
-func (s *machineSuite) TestTag(c *gc.C) {
-	c.Assert(s.apiMachine.Tag(), gc.Equals, names.NewMachineTag(s.machines[0].Id()))
+	m, err := client.Machine(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.Life(), gc.Equals, life.Alive)
+	c.Assert(m.Tag(), jc.DeepEquals, tag)
 }
 
 func (s *machineSuite) TestInstanceId(c *gc.C) {
-	// Add another, not provisioned machine to test
-	// CodeNotProvisioned.
-	newMachine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	calls := 0
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Firewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Assert(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "machine-666"}},
+		})
+		if calls == 0 {
+			c.Check(request, gc.Equals, "Life")
+			c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+			*(result.(*params.LifeResults)) = params.LifeResults{
+				Results: []params.LifeResult{{Life: "alive"}},
+			}
+		} else {
+			c.Check(request, gc.Equals, "InstanceId")
+			c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+			*(result.(*params.StringResults)) = params.StringResults{
+				Results: []params.StringResult{{Result: "inst-666"}},
+			}
+		}
+		calls++
+		return nil
+	})
+	tag := names.NewMachineTag("666")
+	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	apiNewMachine, err := s.firewaller.Machine(newMachine.Tag().(names.MachineTag))
+	m, err := client.Machine(tag)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = apiNewMachine.InstanceId()
-	c.Assert(err, gc.ErrorMatches, "machine 3 not provisioned")
-	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
-
-	instanceId, err := s.apiMachine.InstanceId()
+	id, err := m.InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instanceId, gc.Equals, instance.Id("i-manager"))
+	c.Assert(m.Life(), gc.Equals, life.Alive)
+	c.Assert(id, gc.Equals, instance.Id("inst-666"))
+	c.Assert(calls, gc.Equals, 2)
 }
 
 func (s *machineSuite) TestWatchUnits(c *gc.C) {
-	w, err := s.apiMachine.WatchUnits()
+	calls := 0
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Firewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Assert(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "machine-666"}},
+		})
+		if calls > 0 {
+			c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+			c.Check(request, gc.Equals, "WatchUnits")
+			*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+				Results: []params.StringsWatchResult{{Error: &params.Error{Message: "FAIL"}}},
+			}
+		} else {
+			c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+			c.Check(request, gc.Equals, "Life")
+			*(result.(*params.LifeResults)) = params.LifeResults{
+				Results: []params.LifeResult{{Life: life.Alive}},
+			}
+		}
+		calls++
+		return nil
+	})
+	tag := names.NewMachineTag("666")
+	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w)
-	defer wc.AssertStops()
-
-	// Initial event.
-	wc.AssertChange("wordpress/0")
-	wc.AssertNoChange()
-
-	// Change something other than the life cycle and make sure it's
-	// not detected.
-	err = s.machines[0].SetPassword("foo")
-	c.Assert(err, gc.ErrorMatches, "password is only 3 bytes long, and is not a valid Agent password")
-	wc.AssertNoChange()
-
-	err = s.machines[0].SetPassword("foo-12345678901234567890")
+	m, err := client.Machine(tag)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Unassign unit 0 from the machine and check it's detected.
-	err = s.units[0].UnassignFromMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("wordpress/0")
-	wc.AssertNoChange()
+	_, err = m.WatchUnits()
+	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(calls, gc.Equals, 2)
 }
 
 func (s *machineSuite) TestIsManual(c *gc.C) {
-	answer, err := s.machines[0].IsManual()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(answer, jc.IsFalse)
-
-	m, err := s.State.AddOneMachine(state.MachineTemplate{
-		Base:       state.UbuntuBase("12.10"),
-		Jobs:       []state.MachineJob{state.JobHostUnits},
-		InstanceId: "2",
-		Nonce:      "manual:",
+	calls := 0
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Firewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Assert(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "machine-666"}},
+		})
+		if calls > 0 {
+			c.Assert(result, gc.FitsTypeOf, &params.BoolResults{})
+			c.Check(request, gc.Equals, "AreManuallyProvisioned")
+			*(result.(*params.BoolResults)) = params.BoolResults{
+				Results: []params.BoolResult{{Result: true}},
+			}
+		} else {
+			c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+			c.Check(request, gc.Equals, "Life")
+			*(result.(*params.LifeResults)) = params.LifeResults{
+				Results: []params.LifeResult{{Life: life.Alive}},
+			}
+		}
+		calls++
+		return nil
 	})
+	tag := names.NewMachineTag("666")
+	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	answer, err = m.IsManual()
+	m, err := client.Machine(tag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(answer, jc.IsTrue)
-
-}
-
-func mustOpenPortRanges(c *gc.C, st *state.State, u *state.Unit, endpointName string, portRanges []network.PortRange) {
-	unitPortRanges, err := u.OpenedPortRanges()
+	result, err := m.IsManual()
 	c.Assert(err, jc.ErrorIsNil)
-
-	for _, pr := range portRanges {
-		unitPortRanges.Open(endpointName, pr)
-	}
-
-	c.Assert(st.ApplyOperation(unitPortRanges.Changes()), jc.ErrorIsNil)
-}
-
-func mustClosePortRanges(c *gc.C, st *state.State, u *state.Unit, endpointName string, portRanges []network.PortRange) {
-	unitPortRanges, err := u.OpenedPortRanges()
-	c.Assert(err, jc.ErrorIsNil)
-
-	for _, pr := range portRanges {
-		unitPortRanges.Close(endpointName, pr)
-	}
-
-	c.Assert(st.ApplyOperation(unitPortRanges.Changes()), jc.ErrorIsNil)
+	c.Assert(result, jc.IsTrue)
+	c.Assert(calls, gc.Equals, 2)
 }
 
 func (s *machineSuite) TestOpenedPortRanges(c *gc.C) {
-	mockResponse := params.OpenMachinePortRangesResults{
-		Results: []params.OpenMachinePortRangesResult{
+	results := map[string][]params.OpenUnitPortRanges{
+		"unit-mysql-0": {
 			{
-				UnitPortRanges: map[string][]params.OpenUnitPortRanges{
-					"unit-mysql-0": {
-						{
-							Endpoint:    "server",
-							SubnetCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
-							PortRanges: []params.PortRange{
-								params.FromNetworkPortRange(network.MustParsePortRange("3306/tcp")),
-							},
-						},
-					},
-					"unit-wordpress-0": {
-						{
-							Endpoint:    "website",
-							SubnetCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
-							PortRanges: []params.PortRange{
-								params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
-							},
-						},
-						{
-							Endpoint:    "metrics",
-							SubnetCIDRs: []string{"10.0.0.0/24", "10.0.1.0/24", "192.168.0.0/24", "192.168.1.0/24"},
-							PortRanges: []params.PortRange{
-								params.FromNetworkPortRange(network.MustParsePortRange("1337/tcp")),
-							},
-						},
-					},
+				Endpoint:    "server",
+				SubnetCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
+				PortRanges: []params.PortRange{
+					params.FromNetworkPortRange(network.MustParsePortRange("3306/tcp")),
+				},
+			},
+		},
+		"unit-wordpress-0": {
+			{
+				Endpoint:    "website",
+				SubnetCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
+				PortRanges: []params.PortRange{
+					params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
+				},
+			},
+			{
+				Endpoint:    "metrics",
+				SubnetCIDRs: []string{"10.0.0.0/24", "10.0.1.0/24", "192.168.0.0/24", "192.168.1.0/24"},
+				PortRanges: []params.PortRange{
+					params.FromNetworkPortRange(network.MustParsePortRange("1337/tcp")),
 				},
 			},
 		},
 	}
 
-	apiCaller := basetesting.BestVersionCaller{
-		BestVersion: 6, // we need V6+ to use this API
-		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
-			c.Assert(objType, gc.Equals, "Firewaller")
-
-			// When we access the machine, the client checks that it's alive
-			if request == "Life" {
-				c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
-				*(result.(*params.LifeResults)) = params.LifeResults{
-					Results: []params.LifeResult{
-						{Life: life.Alive},
-					},
-				}
-				return nil
-			}
-
-			// This is the actual call we are testing.
-			c.Assert(request, gc.Equals, "OpenedMachinePortRanges")
-			c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: s.machines[0].MachineTag().String()}}})
+	calls := 0
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Firewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Assert(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "machine-666"}},
+		})
+		if calls > 0 {
 			c.Assert(result, gc.FitsTypeOf, &params.OpenMachinePortRangesResults{})
-			*(result.(*params.OpenMachinePortRangesResults)) = mockResponse
-			return nil
-		},
-	}
+			c.Check(request, gc.Equals, "OpenedMachinePortRanges")
+			*(result.(*params.OpenMachinePortRangesResults)) = params.OpenMachinePortRangesResults{
+				Results: []params.OpenMachinePortRangesResult{{
+					UnitPortRanges: results,
+				}},
+			}
+		} else {
+			c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+			c.Check(request, gc.Equals, "Life")
+			*(result.(*params.LifeResults)) = params.LifeResults{
+				Results: []params.LifeResult{{Life: life.Alive}},
+			}
+		}
+		calls++
+		return nil
+	})
 
+	tag := names.NewMachineTag("666")
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-
-	mach, err := client.Machine(s.machines[0].MachineTag())
+	m, err := client.Machine(tag)
 	c.Assert(err, jc.ErrorIsNil)
 
-	byUnitAndCIDR, byUnitAndEndpoint, err := mach.OpenedMachinePortRanges()
+	byUnitAndCIDR, byUnitAndEndpoint, err := m.OpenedMachinePortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(byUnitAndCIDR, jc.DeepEquals, map[names.UnitTag]network.GroupedPortRanges{
@@ -250,4 +262,5 @@ func (s *machineSuite) TestOpenedPortRanges(c *gc.C) {
 			},
 		},
 	})
+	c.Assert(calls, gc.Equals, 2)
 }

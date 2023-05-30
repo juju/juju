@@ -41,7 +41,7 @@ type converter struct {
 // wrapper is a wrapper around api/machiner.State to match the (local) machiner
 // interface.
 type wrapper struct {
-	m *machiner.State
+	m *machiner.Client
 }
 
 // Machine implements machiner.Machine and returns a machine from the wrapper

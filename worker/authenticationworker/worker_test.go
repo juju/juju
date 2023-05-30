@@ -26,7 +26,7 @@ import (
 type workerSuite struct {
 	jujutesting.JujuConnSuite
 	machine       *state.Machine
-	keyupdaterAPI *keyupdater.State
+	keyupdaterAPI *keyupdater.Client
 
 	existingEnvKey string
 	existingKeys   []string
@@ -55,7 +55,7 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	var apiRoot api.Connection
 	apiRoot, s.machine = s.OpenAPIAsNewMachine(c)
 	c.Assert(apiRoot, gc.NotNil)
-	s.keyupdaterAPI = keyupdater.NewState(apiRoot)
+	s.keyupdaterAPI = keyupdater.NewClient(apiRoot)
 	c.Assert(s.keyupdaterAPI, gc.NotNil)
 }
 

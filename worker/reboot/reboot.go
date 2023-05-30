@@ -26,13 +26,13 @@ var logger = loggo.GetLogger("juju.worker.reboot")
 // up by the machine agent as a fatal error and will do the
 // right thing (reboot or shutdown)
 type Reboot struct {
-	st          reboot.State
+	st          reboot.Client
 	tag         names.MachineTag
 	machineLock machinelock.Lock
 	clock       clock.Clock
 }
 
-func NewReboot(st reboot.State, agentConfig agent.Config, machineLock machinelock.Lock, clock clock.Clock) (worker.Worker, error) {
+func NewReboot(st reboot.Client, agentConfig agent.Config, machineLock machinelock.Lock, clock clock.Clock) (worker.Worker, error) {
 	tag, ok := agentConfig.Tag().(names.MachineTag)
 	if !ok {
 		return nil, errors.Errorf("Expected names.MachineTag, got %T: %v", agentConfig.Tag(), agentConfig.Tag())

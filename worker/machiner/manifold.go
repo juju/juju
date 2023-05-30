@@ -85,7 +85,7 @@ func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	if ignoreMachineAddresses {
 		logger.Infof("machine addresses not used, only addresses from provider")
 	}
-	accessor := APIMachineAccessor{apimachiner.NewState(apiCaller)}
+	accessor := APIMachineAccessor{apimachiner.NewClient(apiCaller)}
 	w, err := NewMachiner(Config{
 		MachineAccessor:              accessor,
 		Tag:                          tag.(names.MachineTag),

@@ -15,10 +15,8 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// State provides access to an reboot worker's view of the state.
-// NOTE: This is defined as an interface due to PPC64 bug #1533469 -
-// if it were a type build errors happen (due to a linker bug).
-type State interface {
+// Client provides access to an reboot worker's client facade.
+type Client interface {
 	// WatchForRebootEvent returns a watcher.NotifyWatcher that
 	// reacts to reboot flag changes.
 	WatchForRebootEvent() (watcher.NotifyWatcher, error)
@@ -33,56 +31,56 @@ type State interface {
 	GetRebootAction() (params.RebootAction, error)
 }
 
-var _ State = (*state)(nil)
+var _ Client = (*client)(nil)
 
-// state implements State.
-type state struct {
+// client implements Client.
+type client struct {
 	machineTag names.Tag
 	facade     base.FacadeCaller
 }
 
-// NewState returns a version of the state that provides functionality
+// NewClient returns a version of the client that provides functionality
 // required by the reboot worker.
-func NewState(caller base.APICaller, machineTag names.MachineTag) State {
-	return &state{
+func NewClient(caller base.APICaller, machineTag names.MachineTag) Client {
+	return &client{
 		facade:     base.NewFacadeCaller(caller, "Reboot"),
 		machineTag: machineTag,
 	}
 }
 
-// ConnectionReboot returns access to the Reboot API
-func NewFromConnection(c api.Connection) (State, error) {
+// NewFromConnection returns access to the Reboot API
+func NewFromConnection(c api.Connection) (Client, error) {
 	switch tag := c.AuthTag().(type) {
 	case names.MachineTag:
-		return NewState(c, tag), nil
+		return NewClient(c, tag), nil
 	default:
 		return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
 	}
 }
 
-// WatchForRebootEvent implements State.WatchForRebootEvent
-func (st *state) WatchForRebootEvent() (watcher.NotifyWatcher, error) {
+// WatchForRebootEvent implements Client.WatchForRebootEvent
+func (c *client) WatchForRebootEvent() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
 
-	if err := st.facade.FacadeCall("WatchForRebootEvent", nil, &result); err != nil {
+	if err := c.facade.FacadeCall("WatchForRebootEvent", nil, &result); err != nil {
 		return nil, err
 	}
 	if result.Error != nil {
 		return nil, result.Error
 	}
 
-	w := apiwatcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewNotifyWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
 }
 
-// RequestReboot implements State.RequestReboot
-func (st *state) RequestReboot() error {
+// RequestReboot implements Client.RequestReboot
+func (c *client) RequestReboot() error {
 	var results params.ErrorResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: st.machineTag.String()}},
+		Entities: []params.Entity{{Tag: c.machineTag.String()}},
 	}
 
-	err := st.facade.FacadeCall("RequestReboot", args, &results)
+	err := c.facade.FacadeCall("RequestReboot", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -96,14 +94,14 @@ func (st *state) RequestReboot() error {
 	return nil
 }
 
-// ClearReboot implements State.ClearReboot
-func (st *state) ClearReboot() error {
+// ClearReboot implements Client.ClearReboot
+func (c *client) ClearReboot() error {
 	var results params.ErrorResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: st.machineTag.String()}},
+		Entities: []params.Entity{{Tag: c.machineTag.String()}},
 	}
 
-	err := st.facade.FacadeCall("ClearReboot", args, &results)
+	err := c.facade.FacadeCall("ClearReboot", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -119,14 +117,14 @@ func (st *state) ClearReboot() error {
 	return nil
 }
 
-// GetRebootAction implements State.GetRebootAction
-func (st *state) GetRebootAction() (params.RebootAction, error) {
+// GetRebootAction implements Client.GetRebootAction
+func (c *client) GetRebootAction() (params.RebootAction, error) {
 	var results params.RebootActionResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: st.machineTag.String()}},
+		Entities: []params.Entity{{Tag: c.machineTag.String()}},
 	}
 
-	err := st.facade.FacadeCall("GetRebootAction", args, &results)
+	err := c.facade.FacadeCall("GetRebootAction", args, &results)
 	if err != nil {
 		return params.ShouldDoNothing, err
 	}

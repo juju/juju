@@ -6,17 +6,13 @@ package firewaller_test
 import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/firewaller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -24,72 +20,10 @@ import (
 // so common code can be reused. Do not add test cases to it,
 // otherwise they'll be run by each other suite that embeds it.
 type firewallerSuite struct {
-	jujutesting.JujuConnSuite
-
-	st          api.Connection
-	machines    []*state.Machine
-	application *state.Application
-	charm       *state.Charm
-	units       []*state.Unit
-	relations   []*state.Relation
-
-	firewaller *firewaller.Client
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&firewallerSuite{})
-
-func (s *firewallerSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-
-	// Reset previous machines and units (if any) and create 3
-	// machines for the tests. The first one is a manager node.
-	s.machines = make([]*state.Machine, 3)
-	s.units = make([]*state.Unit, 3)
-
-	var err error
-	s.machines[0], err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.machines[0].SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.machines[0].SetProvisioned("i-manager", "", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.st = s.OpenAPIAsMachine(c, s.machines[0].Tag(), password, "fake_nonce")
-	c.Assert(s.st, gc.NotNil)
-
-	// Note that the specific machine ids allocated are assumed
-	// to be numerically consecutive from zero.
-	for i := 1; i <= 2; i++ {
-		s.machines[i], err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-		c.Check(err, jc.ErrorIsNil)
-	}
-	// Create an application and three units for these machines.
-	s.charm = s.AddTestingCharm(c, "wordpress")
-	s.application = s.AddTestingApplication(c, "wordpress", s.charm)
-	// Add the rest of the units and assign them.
-	for i := 0; i <= 2; i++ {
-		s.units[i], err = s.application.AddUnit(state.AddUnitParams{})
-		c.Check(err, jc.ErrorIsNil)
-		err = s.units[i].AssignToMachine(s.machines[i])
-		c.Check(err, jc.ErrorIsNil)
-	}
-
-	// Create a relation.
-	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	eps, err := s.State.InferEndpoints("wordpress", "mysql")
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.relations = make([]*state.Relation, 1)
-	s.relations[0], err = s.State.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Create the firewaller API facade.
-	firewallerClient, err := firewaller.NewClient(s.st)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(firewallerClient, gc.NotNil)
-	s.firewaller = firewallerClient
-}
 
 func (s *firewallerSuite) TestModelFirewallRules(c *gc.C) {
 	var callCount int
@@ -131,6 +65,52 @@ func (s *firewallerSuite) TestWatchModelFirewallRules(c *gc.C) {
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.WatchModelFirewallRules()
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
+}
+
+func (s *firewallerSuite) TestWatchModelMachines(c *gc.C) {
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Firewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchModelMachines")
+		c.Assert(arg, gc.IsNil)
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResult{})
+		*(result.(*params.StringsWatchResult)) = params.StringsWatchResult{
+			Error: &params.Error{Message: "FAIL"},
+		}
+		callCount++
+		return nil
+	})
+	client, err := firewaller.NewClient(apiCaller)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = client.WatchModelMachines()
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
+}
+
+func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Firewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchOpenedPorts")
+		c.Assert(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: coretesting.ModelTag.String()}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+			Results: []params.StringsWatchResult{{Error: &params.Error{Message: "FAIL"}}},
+		}
+		callCount++
+		return nil
+	})
+	client, err := firewaller.NewClient(apiCaller)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = client.WatchOpenedPorts()
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }

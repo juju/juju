@@ -14,35 +14,35 @@ import (
 
 const machinerFacade = "Machiner"
 
-// State provides access to the Machiner API facade.
-type State struct {
+// Client provides access to the Machiner API facade.
+type Client struct {
 	facade base.FacadeCaller
 	*common.APIAddresser
 }
 
-// NewState creates a new client-side Machiner facade.
-func NewState(caller base.APICaller) *State {
+// NewClient creates a new client-side Machiner facade.
+func NewClient(caller base.APICaller) *Client {
 	facadeCaller := base.NewFacadeCaller(caller, machinerFacade)
-	return &State{
+	return &Client{
 		facade:       facadeCaller,
 		APIAddresser: common.NewAPIAddresser(facadeCaller),
 	}
 }
 
 // machineLife requests the lifecycle of the given machine from the server.
-func (st *State) machineLife(tag names.MachineTag) (life.Value, error) {
-	return common.OneLife(st.facade, tag)
+func (c *Client) machineLife(tag names.MachineTag) (life.Value, error) {
+	return common.OneLife(c.facade, tag)
 }
 
-// Machine provides access to methods of a state.Machine through the facade.
-func (st *State) Machine(tag names.MachineTag) (*Machine, error) {
-	life, err := st.machineLife(tag)
+// Machine provides access to methods of a machine through the facade.
+func (c *Client) Machine(tag names.MachineTag) (*Machine, error) {
+	life, err := c.machineLife(tag)
 	if err != nil {
 		return nil, errors.Annotate(err, "can't get life for machine")
 	}
 	return &Machine{
-		tag:  tag,
-		life: life,
-		st:   st,
+		tag:    tag,
+		life:   life,
+		client: c,
 	}, nil
 }

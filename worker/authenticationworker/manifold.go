@@ -26,7 +26,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
-	w, err := NewWorker(keyupdater.NewState(apiCaller), a.CurrentConfig())
+	w, err := NewWorker(keyupdater.NewClient(apiCaller), a.CurrentConfig())
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot start ssh auth-keys updater worker")
 	}

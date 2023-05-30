@@ -56,7 +56,7 @@ func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) 
 	case names.ApplicationTag:
 		facade = caasoperator.NewClient(apiCaller)
 	case names.MachineTag:
-		facade = machiner.NewState(apiCaller)
+		facade = machiner.NewClient(apiCaller)
 	default:
 		return nil, errors.Errorf("expected a unit or machine tag; got %q", tag)
 	}

@@ -25,7 +25,7 @@ var SSHUser = "ubuntu"
 var logger = loggo.GetLogger("juju.worker.authenticationworker")
 
 type keyupdaterWorker struct {
-	st  *keyupdater.State
+	st  *keyupdater.Client
 	tag names.MachineTag
 	// jujuKeys are the most recently retrieved keys from state.
 	jujuKeys set.Strings
@@ -37,7 +37,7 @@ type keyupdaterWorker struct {
 // NewWorker returns a worker that keeps track of
 // the machine's authorised ssh keys and ensures the
 // ~/.ssh/authorized_keys file is up to date.
-func NewWorker(st *keyupdater.State, agentConfig agent.Config) (worker.Worker, error) {
+func NewWorker(st *keyupdater.Client, agentConfig agent.Config) (worker.Worker, error) {
 	machineTag, ok := agentConfig.Tag().(names.MachineTag)
 	if !ok {
 		return nil, errors.NotValidf("machine tag %v", agentConfig.Tag())

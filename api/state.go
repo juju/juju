@@ -297,8 +297,8 @@ func addAddress(servers []network.MachineHostPorts, addr string) ([]network.Mach
 }
 
 // KeyUpdater returns access to the KeyUpdater API
-func (st *state) KeyUpdater() *keyupdater.State {
-	return keyupdater.NewState(st)
+func (st *state) KeyUpdater() *keyupdater.Client {
+	return keyupdater.NewClient(st)
 }
 
 // ServerVersion holds the version of the API server that we are connected to.
