@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	ctx "context"
 
 	"github.com/juju/collections/set"
@@ -22,6 +23,78 @@ type stateSuite struct {
 }
 
 var _ = gc.Suite(&stateSuite{})
+
+func (s *stateSuite) TestRetrieveExternalController(c *gc.C) {
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	db := s.DB()
+
+	// Insert a single external controller.
+	_, err := db.Exec(`INSERT INTO external_controller VALUES
+("ctrl1", "my-controller", "test-cert")`)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
+("addr1", "ctrl1", "192.168.1.1")`)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
+("addr2", "ctrl1", "10.0.0.1")`)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Retrieve the created external controller.
+	controllerInfo, err := st.Controller(context.Background(), "ctrl1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(controllerInfo.ControllerTag.Id(), gc.Equals, "ctrl1")
+	c.Assert(controllerInfo.Alias, gc.Equals, "my-controller")
+	c.Assert(controllerInfo.CACert, gc.Equals, "test-cert")
+	c.Assert(controllerInfo.Addrs, gc.DeepEquals, []string{"192.168.1.1", "10.0.0.1"})
+}
+
+func (s *stateSuite) TestRetrieveExternalControllerWithoutAddresses(c *gc.C) {
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	db := s.DB()
+
+	// Insert a single external controller.
+	_, err := db.Exec(`INSERT INTO external_controller VALUES
+("ctrl1", "my-controller", "test-cert")`)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Retrieve the created external controller.
+	controllerInfo, err := st.Controller(context.Background(), "ctrl1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(controllerInfo.ControllerTag.Id(), gc.Equals, "ctrl1")
+	c.Assert(controllerInfo.Alias, gc.Equals, "my-controller")
+	c.Assert(controllerInfo.CACert, gc.Equals, "test-cert")
+	c.Assert(controllerInfo.Addrs, gc.HasLen, 0)
+}
+
+func (s *stateSuite) TestRetrieveExternalControllerWithoutAlias(c *gc.C) {
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	db := s.DB()
+
+	// Insert a single external controller.
+	_, err := db.Exec(`INSERT INTO external_controller(uuid,ca_cert) VALUES	
+("ctrl1", "test-cert")`)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Retrieve the created external controller.
+	controllerInfo, err := st.Controller(context.Background(), "ctrl1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(controllerInfo.ControllerTag.Id(), gc.Equals, "ctrl1")
+	// Empty Alias => zero value
+	c.Assert(controllerInfo.Alias, gc.Equals, "")
+	c.Assert(controllerInfo.CACert, gc.Equals, "test-cert")
+	c.Assert(controllerInfo.Addrs, gc.HasLen, 0)
+}
+
+func (s *stateSuite) TestRetrieveExternalControllerNotFound(c *gc.C) {
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+
+	// Retrieve a not-existant controller.
+	_, err := st.Controller(context.Background(), "ctrl1")
+	c.Assert(err.Error(), jc.Contains, "external controller with UUID ctrl1")
+}
 
 func (s *stateSuite) TestUpdateExternalControllerNewData(c *gc.C) {
 	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))

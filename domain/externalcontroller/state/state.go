@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/core/crossmodel"
@@ -27,7 +28,81 @@ func NewState(factory domain.DBFactory) *State {
 	}
 }
 
-func (st *State) UpdateExternalController(ctx context.Context, ci crossmodel.ControllerInfo, modelUUIDs []string) error {
+func (st *State) Controller(
+	ctx context.Context,
+	controllerUUID string,
+) (*crossmodel.ControllerInfo, error) {
+
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var (
+		controllerInfo        crossmodel.ControllerInfo
+		controllerRow         *sql.Row
+		controllerAddressRows *sql.Rows
+	)
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		controllerQuery := `
+SELECT alias, ca_cert FROM external_controller WHERE uuid=?`[1:]
+		controllerAdressQuery := `
+SELECT address FROM external_controller_address WHERE controller_uuid=? ORDER BY uuid`[1:]
+
+		controllerRow = tx.QueryRowContext(ctx, controllerQuery, controllerUUID)
+		controllerAddressRows, err = tx.QueryContext(ctx, controllerAdressQuery, controllerUUID)
+
+		controllerInfo, err = controllerInfoFromRows(controllerUUID, controllerRow, controllerAddressRows)
+		return err
+	})
+
+	return &controllerInfo, err
+}
+
+func controllerInfoFromRows(
+	controllerUUID string,
+	controllerRow *sql.Row,
+	controllerAddressRows *sql.Rows,
+) (crossmodel.ControllerInfo, error) {
+	defer controllerAddressRows.Close()
+
+	var (
+		controllerInfo      crossmodel.ControllerInfo
+		controllerAddresses []string
+		// Only Alias can be NULL in the external_controller table as
+		// defined in schema.
+		controllerAlias sql.NullString
+	)
+
+	controllerInfo.ControllerTag = names.NewControllerTag(controllerUUID)
+
+	for controllerAddressRows.Next() {
+		var controllerAddress string
+		if err := controllerAddressRows.Scan(&controllerAddress); err != nil {
+			return crossmodel.ControllerInfo{}, errors.Trace(err)
+		}
+		controllerAddresses = append(controllerAddresses, controllerAddress)
+	}
+	controllerInfo.Addrs = controllerAddresses
+
+	if err := controllerRow.Scan(&controllerAlias, &controllerInfo.CACert); err != nil {
+		if database.IsErrNotFound(err) {
+			return crossmodel.ControllerInfo{}, errors.NotFoundf("external controller with UUID %v", controllerUUID)
+		}
+		return crossmodel.ControllerInfo{}, errors.Trace(err)
+	}
+	if controllerAlias.Valid {
+		controllerInfo.Alias = controllerAlias.String
+	}
+
+	return controllerInfo, nil
+}
+
+func (st *State) UpdateExternalController(
+	ctx context.Context,
+	ci crossmodel.ControllerInfo,
+	modelUUIDs []string,
+) error {
 	ec := ExternalController{
 		ID:     ci.ControllerTag.Id(),
 		Alias:  ci.Alias,

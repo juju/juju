@@ -13,6 +13,9 @@ import (
 
 // State describes retrieval and persistence methods for storage.
 type State interface {
+	// Controller returns the controller record.
+	Controller(ctx context.Context, controllerUUID string) (*crossmodel.ControllerInfo, error)
+
 	// UpdateExternalController persists the input controller
 	// record and associates it with the input model UUIDs.
 	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo, modelUUIDs []string) error
@@ -26,6 +29,15 @@ type Service struct {
 // NewService returns a new service reference wrapping the input state.
 func NewService(st State) *Service {
 	return &Service{st}
+}
+
+// Controller returns the controller record.
+func (s *Service) Controller(
+	ctx context.Context,
+	controllerUUID string,
+) (*crossmodel.ControllerInfo, error) {
+
+	return nil, nil
 }
 
 // UpdateExternalController persists the input controller
