@@ -62,7 +62,7 @@ func (s *keysSuite) TestInitialStateSent(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	w := NewKeysWatcher(s.newBaseWatcher(), "random_namespace", "key_name")
+	w := NewKeysWatcher(s.newBaseWatcher(), changestream.All, "random_namespace", "key_name")
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -104,7 +104,7 @@ func (s *keysSuite) TestDeltasSent(c *gc.C) {
 		)},
 	).Return(s.sub, nil)
 
-	w := NewUUIDsWatcher(s.newBaseWatcher(), "external_controller")
+	w := NewUUIDsWatcher(s.newBaseWatcher(), changestream.All, "external_controller")
 	defer workertest.DirtyKill(c, w)
 
 	// No initial data.
@@ -156,9 +156,17 @@ func (s *keysSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 		)},
 	).Return(s.sub, nil)
 
-	w := NewUUIDsWatcher(s.newBaseWatcher(), "external_controller")
+	w := NewUUIDsWatcher(s.newBaseWatcher(), changestream.All, "external_controller")
 	defer workertest.DirtyKill(c, w)
 
 	err := workertest.CheckKilled(c, w)
 	c.Check(errors.Is(err, ErrSubscriptionClosed), jc.IsTrue)
+}
+
+func (s *keysSuite) TestInvalidChangeMask(c *gc.C) {
+	w := NewUUIDsWatcher(s.newBaseWatcher(), 0, "external_controller")
+	defer workertest.DirtyKill(c, w)
+
+	err := workertest.CheckKilled(c, w)
+	c.Assert(err, gc.ErrorMatches, "changeMask value: 0 not valid")
 }
