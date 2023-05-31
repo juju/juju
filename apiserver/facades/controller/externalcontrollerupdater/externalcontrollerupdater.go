@@ -4,6 +4,8 @@
 package externalcontrollerupdater
 
 import (
+	"context"
+
 	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -14,8 +16,13 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+type EcService interface {
+	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo, modelUUIDs ...string) error
+}
+
 // ExternalControllerUpdaterAPI provides access to the CrossModelRelations API facade.
 type ExternalControllerUpdaterAPI struct {
+	ecService           EcService
 	externalControllers state.ExternalControllers
 	resources           facade.Resources
 }
@@ -26,11 +33,13 @@ func NewAPI(
 	auth facade.Authorizer,
 	resources facade.Resources,
 	externalControllers state.ExternalControllers,
+	ecService EcService,
 ) (*ExternalControllerUpdaterAPI, error) {
 	if !auth.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
 	return &ExternalControllerUpdaterAPI{
+		ecService,
 		externalControllers,
 		resources,
 	}, nil
@@ -94,7 +103,7 @@ func (s *ExternalControllerUpdaterAPI) SetExternalControllerInfo(args params.Set
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if _, err := s.externalControllers.Save(crossmodel.ControllerInfo{
+		if err := s.ecService.UpdateExternalController(context.TODO(), crossmodel.ControllerInfo{
 			ControllerTag: controllerTag,
 			Alias:         arg.Info.Alias,
 			Addrs:         arg.Info.Addrs,
