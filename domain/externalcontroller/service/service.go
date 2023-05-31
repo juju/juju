@@ -36,8 +36,8 @@ func (s *Service) Controller(
 	ctx context.Context,
 	controllerUUID string,
 ) (*crossmodel.ControllerInfo, error) {
-
-	return nil, nil
+	controllerInfo, err := s.st.Controller(ctx, controllerUUID)
+	return controllerInfo, errors.Annotate(err, "retrieving external controller")
 }
 
 // UpdateExternalController persists the input controller

@@ -35,6 +35,21 @@ func (m *MockEcService) EXPECT() *MockEcServiceMockRecorder {
 	return m.recorder
 }
 
+// Controller mocks base method.
+func (m *MockEcService) Controller(arg0 context.Context, arg1 string) (*crossmodel.ControllerInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Controller", arg0, arg1)
+	ret0, _ := ret[0].(*crossmodel.ControllerInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Controller indicates an expected call of Controller.
+func (mr *MockEcServiceMockRecorder) Controller(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Controller", reflect.TypeOf((*MockEcService)(nil).Controller), arg0, arg1)
+}
+
 // UpdateExternalController mocks base method.
 func (m *MockEcService) UpdateExternalController(arg0 context.Context, arg1 crossmodel.ControllerInfo, arg2 ...string) error {
 	m.ctrl.T.Helper()

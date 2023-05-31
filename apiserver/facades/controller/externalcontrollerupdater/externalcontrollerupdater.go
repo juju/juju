@@ -17,6 +17,7 @@ import (
 )
 
 type EcService interface {
+	Controller(ctx context.Context, controllerUUID string) (*crossmodel.ControllerInfo, error)
 	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo, modelUUIDs ...string) error
 }
 
@@ -76,17 +77,16 @@ func (s *ExternalControllerUpdaterAPI) ExternalControllerInfo(args params.Entiti
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		controller, err := s.externalControllers.Controller(controllerTag.Id())
+		controllerInfo, err := s.ecService.Controller(context.TODO(), controllerTag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		info := controller.ControllerInfo()
 		result.Results[i].Result = &params.ExternalControllerInfo{
 			ControllerTag: controllerTag.String(),
-			Alias:         info.Alias,
-			Addrs:         info.Addrs,
-			CACert:        info.CACert,
+			Alias:         controllerInfo.Alias,
+			Addrs:         controllerInfo.Addrs,
+			CACert:        controllerInfo.CACert,
 		}
 	}
 	return result, nil

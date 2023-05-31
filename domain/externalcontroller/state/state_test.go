@@ -4,7 +4,6 @@
 package state
 
 import (
-	"context"
 	ctx "context"
 
 	"github.com/juju/collections/set"
@@ -40,13 +39,13 @@ func (s *stateSuite) TestRetrieveExternalController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Retrieve the created external controller.
-	controllerInfo, err := st.Controller(context.Background(), "ctrl1")
+	controllerInfo, err := st.Controller(ctx.Background(), "ctrl1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(controllerInfo.ControllerTag.Id(), gc.Equals, "ctrl1")
 	c.Assert(controllerInfo.Alias, gc.Equals, "my-controller")
 	c.Assert(controllerInfo.CACert, gc.Equals, "test-cert")
-	c.Assert(controllerInfo.Addrs, gc.DeepEquals, []string{"192.168.1.1", "10.0.0.1"})
+	c.Assert(controllerInfo.Addrs, jc.SameContents, []string{"192.168.1.1", "10.0.0.1"})
 }
 
 func (s *stateSuite) TestRetrieveExternalControllerWithoutAddresses(c *gc.C) {
@@ -59,7 +58,7 @@ func (s *stateSuite) TestRetrieveExternalControllerWithoutAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Retrieve the created external controller.
-	controllerInfo, err := st.Controller(context.Background(), "ctrl1")
+	controllerInfo, err := st.Controller(ctx.Background(), "ctrl1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(controllerInfo.ControllerTag.Id(), gc.Equals, "ctrl1")
@@ -78,7 +77,7 @@ func (s *stateSuite) TestRetrieveExternalControllerWithoutAlias(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Retrieve the created external controller.
-	controllerInfo, err := st.Controller(context.Background(), "ctrl1")
+	controllerInfo, err := st.Controller(ctx.Background(), "ctrl1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(controllerInfo.ControllerTag.Id(), gc.Equals, "ctrl1")
@@ -91,8 +90,8 @@ func (s *stateSuite) TestRetrieveExternalControllerWithoutAlias(c *gc.C) {
 func (s *stateSuite) TestRetrieveExternalControllerNotFound(c *gc.C) {
 	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
 
-	// Retrieve a not-existant controller.
-	_, err := st.Controller(context.Background(), "ctrl1")
+	// Retrieve a not-existent controller.
+	_, err := st.Controller(ctx.Background(), "ctrl1")
 	c.Assert(err.Error(), jc.Contains, "external controller with UUID ctrl1")
 }
 

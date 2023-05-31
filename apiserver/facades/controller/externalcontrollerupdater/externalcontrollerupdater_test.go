@@ -50,17 +50,25 @@ func (s *CrossControllerSuite) TestNewAPINonController(c *gc.C) {
 }
 
 func (s *CrossControllerSuite) TestExternalControllerInfo(c *gc.C) {
-	s.externalControllers.controllers = append(s.externalControllers.controllers, &mockExternalController{
-		id: coretesting.ControllerTag.Id(),
-		info: crossmodel.ControllerInfo{
-			ControllerTag: coretesting.ControllerTag,
-			Alias:         "foo",
-			Addrs:         []string{"bar"},
-			CACert:        "baz",
-		},
-	})
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	api, err := externalcontrollerupdater.NewAPI(s.auth, s.resources, s.externalControllers, nil)
+	ecService := NewMockEcService(ctrl)
+
+	ctrlTag, err := names.ParseControllerTag(coretesting.ControllerTag.String())
+	c.Assert(err, jc.ErrorIsNil)
+	ecService.EXPECT().Controller(gomock.Any(), ctrlTag.Id()).Return(&crossmodel.ControllerInfo{
+		ControllerTag: coretesting.ControllerTag,
+		Alias:         "foo",
+		Addrs:         []string{"bar"},
+		CACert:        "baz",
+	}, nil)
+
+	modelTag, err := names.ParseControllerTag("controller-" + coretesting.ModelTag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	ecService.EXPECT().Controller(gomock.Any(), modelTag.Id()).Return(nil, errors.NotFoundf("external controller with UUID deadbeef-0bad-400d-8000-4b1d0d06f00d"))
+
+	api, err := externalcontrollerupdater.NewAPI(s.auth, s.resources, s.externalControllers, ecService)
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.ExternalControllerInfo(params.Entities{
 		Entities: []params.Entity{
@@ -81,7 +89,7 @@ func (s *CrossControllerSuite) TestExternalControllerInfo(c *gc.C) {
 		}, {
 			Error: &params.Error{
 				Code:    "not found",
-				Message: `external controller "deadbeef-0bad-400d-8000-4b1d0d06f00d" not found`,
+				Message: `external controller with UUID deadbeef-0bad-400d-8000-4b1d0d06f00d not found`,
 			},
 		}, {
 			Error: &params.Error{Message: `"machine-42" is not a valid controller tag`},

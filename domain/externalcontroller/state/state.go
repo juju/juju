@@ -39,60 +39,59 @@ func (st *State) Controller(
 	}
 
 	var (
-		controllerInfo        crossmodel.ControllerInfo
-		controllerRow         *sql.Row
-		controllerAddressRows *sql.Rows
+		controllerInfo crossmodel.ControllerInfo
+		controllerRow  *sql.Rows
 	)
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		controllerQuery := `
-SELECT alias, ca_cert FROM external_controller WHERE uuid=?`[1:]
-		controllerAdressQuery := `
-SELECT address FROM external_controller_address WHERE controller_uuid=? ORDER BY uuid`[1:]
+		q := `
+SELECT 	alias, ca_cert, address  
+FROM 	external_controller AS ctrl
+	LEFT JOIN external_controller_address AS addrs
+	ON ctrl.uuid = addrs.controller_uuid
+WHERE 	ctrl.uuid=?`[1:]
 
-		controllerRow = tx.QueryRowContext(ctx, controllerQuery, controllerUUID)
-		controllerAddressRows, err = tx.QueryContext(ctx, controllerAdressQuery, controllerUUID)
-
-		controllerInfo, err = controllerInfoFromRows(controllerUUID, controllerRow, controllerAddressRows)
+		controllerRow, err = tx.QueryContext(ctx, q, controllerUUID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		controllerInfo, err = controllerInfoFromRow(controllerUUID, controllerRow)
 		return err
 	})
 
 	return &controllerInfo, err
 }
 
-func controllerInfoFromRows(
+func controllerInfoFromRow(
 	controllerUUID string,
-	controllerRow *sql.Row,
-	controllerAddressRows *sql.Rows,
+	rows *sql.Rows,
 ) (crossmodel.ControllerInfo, error) {
-	defer controllerAddressRows.Close()
 
 	var (
-		controllerInfo      crossmodel.ControllerInfo
-		controllerAddresses []string
+		controllerInfo crossmodel.ControllerInfo
 		// Only Alias can be NULL in the external_controller table as
 		// defined in schema.
 		controllerAlias sql.NullString
+		// If the controller has no addresses, then it could be NULL
+		controllerAddress sql.NullString
 	)
 
 	controllerInfo.ControllerTag = names.NewControllerTag(controllerUUID)
 
-	for controllerAddressRows.Next() {
-		var controllerAddress string
-		if err := controllerAddressRows.Scan(&controllerAddress); err != nil {
+	next := rows.Next()
+	if !next {
+		return crossmodel.ControllerInfo{}, errors.NotFoundf("external controller with UUID %v", controllerUUID)
+	}
+	for next {
+		if err := rows.Scan(&controllerAlias, &controllerInfo.CACert, &controllerAddress); err != nil {
 			return crossmodel.ControllerInfo{}, errors.Trace(err)
 		}
-		controllerAddresses = append(controllerAddresses, controllerAddress)
-	}
-	controllerInfo.Addrs = controllerAddresses
-
-	if err := controllerRow.Scan(&controllerAlias, &controllerInfo.CACert); err != nil {
-		if database.IsErrNotFound(err) {
-			return crossmodel.ControllerInfo{}, errors.NotFoundf("external controller with UUID %v", controllerUUID)
+		if controllerAlias.Valid {
+			controllerInfo.Alias = controllerAlias.String
 		}
-		return crossmodel.ControllerInfo{}, errors.Trace(err)
-	}
-	if controllerAlias.Valid {
-		controllerInfo.Alias = controllerAlias.String
+		if controllerAddress.Valid {
+			controllerInfo.Addrs = append(controllerInfo.Addrs, controllerAddress.String)
+		}
+		next = rows.Next()
 	}
 
 	return controllerInfo, nil
