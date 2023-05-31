@@ -626,7 +626,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeGateName:        upgradeStepsGateName,
 			AuditConfigUpdaterName: auditConfigUpdaterName,
 			CharmhubHTTPClientName: charmhubHTTPClientName,
-			DBAccessorName:         dbAccessorName,
+
+			// Note that although there is a transient dependency on dbaccessor
+			// via changestream, the direct dependency supplies the capability
+			// to remove databases corresponding to destroyed/migrated models.
+			DBAccessorName:   dbAccessorName,
+			ChangeStreamName: changeStreamName,
 
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,

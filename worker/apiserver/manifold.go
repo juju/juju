@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/worker/changestream"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/gate"
 	workerstate "github.com/juju/juju/worker/state"
@@ -47,6 +48,7 @@ type ManifoldConfig struct {
 	SyslogName             string
 	CharmhubHTTPClientName string
 	DBAccessorName         string
+	ChangeStreamName       string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -101,6 +103,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.DBAccessorName == "" {
 		return errors.NotValidf("empty DBAccessorName")
 	}
+	if config.ChangeStreamName == "" {
+		return errors.NotValidf("empty ChangeStreamName")
+	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
 	}
@@ -134,6 +139,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.SyslogName,
 			config.CharmhubHTTPClientName,
 			config.DBAccessorName,
+			config.ChangeStreamName,
 		},
 		Start: config.start,
 	}
@@ -202,6 +208,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	var dbManager coredatabase.DBManager
 	if err := context.Get(config.DBAccessorName, &dbManager); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var dbGetter changestream.WatchableDBGetter
+	if err := context.Get(config.ChangeStreamName, &dbGetter); err != nil {
 		return nil, errors.Trace(err)
 	}
 

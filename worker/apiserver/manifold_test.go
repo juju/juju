@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
@@ -59,6 +60,7 @@ type ManifoldSuite struct {
 	sysLogger            syslogger.SysLogger
 	charmhubHTTPClient   *http.Client
 	dbManager            stubDBManager
+	dbGetter             stubWatchableDBGetter
 
 	stub testing.Stub
 }
@@ -96,6 +98,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		SyslogName:                        "syslog",
 		CharmhubHTTPClientName:            "charmhub-http-client",
 		DBAccessorName:                    "db-accessor",
+		ChangeStreamName:                  "change-stream",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		Hub:                               &s.hub,
@@ -119,6 +122,7 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"syslog":               s.sysLogger,
 		"charmhub-http-client": s.charmhubHTTPClient,
 		"db-accessor":          s.dbManager,
+		"change-stream":        s.dbGetter,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -149,7 +153,7 @@ func (s *ManifoldSuite) newMetricsCollector() *coreapiserver.Collector {
 var expectedInputs = []string{
 	"agent", "authenticator", "clock", "multiwatcher", "mux",
 	"state", "upgrade", "auditconfig-updater", "lease-manager",
-	"syslog", "charmhub-http-client", "db-accessor",
+	"syslog", "charmhub-http-client", "db-accessor", "change-stream",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -381,4 +385,13 @@ func (s stubDBManager) DeleteDB(namespace string) error {
 		return errors.Forbiddenf(`cannot delete "controller" DB`)
 	}
 	return nil
+}
+
+type stubWatchableDBGetter struct{}
+
+func (s stubWatchableDBGetter) GetWatchableDB(namespace string) (changestream.WatchableDB, error) {
+	if namespace != "controller" {
+		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, namespace)
+	}
+	return nil, nil
 }
