@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/feature"
+	secretsprovider "github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state/migrations"
 	"github.com/juju/juju/storage/poolmanager"
 )
@@ -140,6 +141,9 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string) (descri
 		LatestToolsVersion: dbModel.LatestToolsVersion(),
 		EnvironVersion:     dbModel.EnvironVersion(),
 		Blocks:             blocks,
+	}
+	if args.SecretBackendID, err = export.secretBackendID(); err != nil {
+		return nil, errors.Trace(err)
 	}
 	export.model = description.NewModel(args)
 	if credsTag, credsSet := dbModel.CloudCredentialTag(); credsSet && !cfg.SkipCredentials {
@@ -1820,6 +1824,23 @@ func (e *exporter) operations() error {
 		e.model.AddOperation(arg)
 	}
 	return nil
+}
+
+func (e *exporter) secretBackendID() (string, error) {
+	mCfg, err := e.dbModel.Config()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	backendName := mCfg.SecretBackend()
+	if backendName == "" || backendName == secretsprovider.Auto || backendName == secretsprovider.Internal {
+		return "", nil
+	}
+	store := NewSecretBackends(e.st)
+	backend, err := store.GetSecretBackend(backendName)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return backend.ID, nil
 }
 
 func (e *exporter) secrets() error {

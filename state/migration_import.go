@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -219,8 +218,10 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 	if err := restore.storage(); err != nil {
 		return nil, nil, errors.Annotate(err, "storage")
 	}
-	activeSecretBackend := cfg.SecretBackend()
-	if err := restore.secrets(activeSecretBackend); err != nil {
+	if err := restore.secretBackend(); err != nil {
+		return nil, nil, errors.Annotate(err, "secret backend")
+	}
+	if err := restore.secrets(); err != nil {
 		return nil, nil, errors.Annotate(err, "secrets")
 	}
 	if err := restore.remoteSecrets(); err != nil {
@@ -2698,28 +2699,40 @@ func (i *importer) storagePools() error {
 	return nil
 }
 
-func checkActiveSecretBackendExist(backends []*secrets.SecretBackend, activeSecretBackendName string) error {
-	if activeSecretBackendName == secretsprovider.Auto || activeSecretBackendName == secretsprovider.Internal {
+func (i *importer) secretBackend() error {
+	mCfg, err := i.dbModel.ModelConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	mSecretBackendName := mCfg.SecretBackend()
+	if mSecretBackendName == "" || mSecretBackendName == secretsprovider.Auto || mSecretBackendName == secretsprovider.Internal {
 		return nil
 	}
-	for _, backend := range backends {
-		if backend.Name == activeSecretBackendName {
-			return nil
-		}
+
+	backendID := i.model.SecretBackendID()
+	if backendID == "" {
+		// We reject if no backend ID is set, because we don't want to accidentally drain secrets to the wrong backend.
+		// So we suggest to upgrade the source controller if no backend ID in the exported data(because the source model is too old).
+		return errors.NotFoundf("secret backend config %q in model export", mSecretBackendName)
 	}
-	return errors.NotFoundf("active secret backend %q", activeSecretBackendName)
+	i.logger.Debugf("importing secret backend")
+	backends := NewSecretBackends(i.st)
+	mBackend, err := backends.GetSecretBackendByID(backendID)
+	if err != nil {
+		return errors.Annotatef(err, "cannot load secret backend %q", backendID)
+	}
+	err = i.dbModel.UpdateModelConfig(map[string]interface{}{config.SecretBackendKey: mBackend.Name}, nil)
+	return errors.Trace(err)
 }
 
-func (i *importer) secrets(activeSecretBackendName string) error {
+func (i *importer) secrets() error {
 	i.logger.Debugf("importing secrets")
 	backends := NewSecretBackends(i.st)
 	allBackends, err := backends.ListSecretBackends()
 	if err != nil {
 		return errors.Annotate(err, "loading secret backends")
 	}
-	if err := checkActiveSecretBackendExist(allBackends, activeSecretBackendName); err != nil {
-		return errors.Trace(err)
-	}
+
 	knownBackends := set.NewStrings()
 	for _, b := range allBackends {
 		knownBackends.Add(b.ID)
