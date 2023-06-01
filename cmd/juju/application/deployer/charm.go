@@ -364,6 +364,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		if c.applicationName != "" {
 			appName = c.applicationName
 		}
+
 		configYAML, err := utils.CombinedConfig(ctx, c.model.Filesystem(), c.configOptions, appName)
 		if err != nil {
 			return errors.Trace(err)
@@ -371,7 +372,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 
 		info, localPendingResources, errs := deployAPI.DeployFromRepository(application.DeployFromRepositoryArg{
 			CharmName:        c.userRequestedURL.Name,
-			ApplicationName:  c.applicationName,
+			ApplicationName:  appName,
 			AttachStorage:    c.attachStorage,
 			Base:             base,
 			Channel:          channel,
@@ -389,9 +390,9 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 			Trust:            c.trust,
 		})
 
-		uploadErr := c.uploadExistingPendingResources(c.applicationName, localPendingResources, deployAPI, c.model.Filesystem())
+		uploadErr := c.uploadExistingPendingResources(appName, localPendingResources, deployAPI, c.model.Filesystem())
 		if uploadErr != nil {
-			ctx.Errorf("Unable to upload resources for %v, consider using --attach-resource. \n %v", c.applicationName, uploadErr)
+			ctx.Errorf("Unable to upload resources for %v, consider using --attach-resource. \n %v", appName, uploadErr)
 		}
 
 		ctx.Infof("%s", pretty.Sprint(info))
