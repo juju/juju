@@ -426,7 +426,6 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel) params.Resolve
 	default:
 		result.SupportedBases = transform.Slice(resolvableBases, convertCharmBase)
 	}
-
 	return result
 }
 

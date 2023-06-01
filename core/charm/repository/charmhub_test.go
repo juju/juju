@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/charm/repository/mocks"
+	"github.com/juju/juju/core/series"
 )
 
 var (
@@ -370,7 +371,11 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
 
 	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
+<<<<<<< HEAD
 	c.Assert(obtainedBases, jc.SameContents, []corecharm.Platform{{OS: "ubuntu", Channel: "20.04", Architecture: "amd64"}})
+=======
+	c.Assert(obtainedBases, jc.SameContents, []series.Base{{OS: "ubuntu", Channel: series.Channel{Track: "20.04", Risk: "stable"}}})
+>>>>>>> 35d3aa23c2 (ResolveCharms now returns SupportedBases along with SupportedSeries)
 }
 
 func (s *charmHubRepositorySuite) TestDownloadCharm(c *gc.C) {

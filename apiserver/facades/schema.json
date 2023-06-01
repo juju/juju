@@ -16117,7 +16117,13 @@
                     "additionalProperties": false,
                     "required": [
                         "url",
+<<<<<<< HEAD
                         "charm-origin"
+=======
+                        "charm-origin",
+                        "supported-series",
+                        "supported-bases"
+>>>>>>> 35d3aa23c2 (ResolveCharms now returns SupportedBases along with SupportedSeries)
                     ]
                 },
                 "ResolveCharmWithChannelResults": {
