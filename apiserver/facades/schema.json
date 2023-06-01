@@ -16098,6 +16098,12 @@
                         "error": {
                             "$ref": "#/definitions/Error"
                         },
+                        "supported-bases": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Base"
+                            }
+                        },
                         "supported-series": {
                             "type": "array",
                             "items": {
@@ -16112,7 +16118,8 @@
                     "required": [
                         "url",
                         "charm-origin",
-                        "supported-series"
+                        "supported-series",
+                        "supported-bases"
                     ]
                 },
                 "ResolveCharmWithChannelResults": {

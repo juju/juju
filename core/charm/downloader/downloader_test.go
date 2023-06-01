@@ -20,6 +20,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/charm/downloader"
 	"github.com/juju/juju/core/charm/downloader/mocks"
+	"github.com/juju/juju/core/series"
 )
 
 var _ = gc.Suite(&downloaderSuite{})
@@ -281,7 +282,7 @@ func (r repoAdapter) DownloadCharm(charmURL *charm.URL, requestedOrigin corechar
 	return r.repo.DownloadCharm(charmURL, requestedOrigin, archivePath)
 }
 
-func (r repoAdapter) ResolveWithPreferredChannel(charmURL *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []string, error) {
+func (r repoAdapter) ResolveWithPreferredChannel(charmURL *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []series.Base, error) {
 	return r.repo.ResolveWithPreferredChannel(charmURL, requestedOrigin)
 }
 

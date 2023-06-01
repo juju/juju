@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/charm/v11"
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -27,6 +28,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -378,7 +380,7 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel) params.Resolve
 		return result
 	}
 
-	resultURL, origin, supportedSeries, err := repo.ResolveWithPreferredChannel(curl, requestedOrigin)
+	resultURL, origin, supportedBases, err := repo.ResolveWithPreferredChannel(curl, requestedOrigin)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
@@ -408,13 +410,32 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel) params.Resolve
 	result.Origin = archOrigin
 
 	switch {
-	case resultURL.Series != "" && len(supportedSeries) == 0:
+	case resultURL.Series != "" && len(supportedBases) == 0:
+		base, err := series.GetBaseFromSeries(resultURL.Series)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+			return result
+		}
 		result.SupportedSeries = []string{resultURL.Series}
+		result.SupportedBases = []params.Base{convertCharmBase(base)}
 	default:
+		supportedSeries, err := transform.SliceOrErr(supportedBases, series.GetSeriesFromBase)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+			return result
+		}
 		result.SupportedSeries = supportedSeries
+		result.SupportedBases = transform.Slice(supportedBases, convertCharmBase)
 	}
 
 	return result
+}
+
+func convertCharmBase(in series.Base) params.Base {
+	return params.Base{
+		Name:    in.OS,
+		Channel: in.Channel.String(),
+	}
 }
 
 func validateOrigin(origin corecharm.Origin, curl *charm.URL, switchCharm bool) error {

@@ -675,10 +675,12 @@ type ResolveCharmsWithChannel struct {
 
 // ResolveCharmWithChannelResult is the result of a single charm resolution.
 type ResolveCharmWithChannelResult struct {
-	URL             string      `json:"url"`
-	Origin          CharmOrigin `json:"charm-origin"`
-	SupportedSeries []string    `json:"supported-series"`
-	Error           *Error      `json:"error,omitempty"`
+	URL    string      `json:"url"`
+	Origin CharmOrigin `json:"charm-origin"`
+	// TODO (jack-w-shaw) drop SupportedSeries in juju 4
+	SupportedSeries []string `json:"supported-series"`
+	SupportedBases  []Base   `json:"supported-bases"`
+	Error           *Error   `json:"error,omitempty"`
 }
 
 // ResolveCharmWithChannelResults holds the results of ResolveCharmsWithChannel.
