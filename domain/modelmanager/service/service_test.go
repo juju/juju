@@ -22,7 +22,7 @@ type serviceSuite struct {
 	testing.IsolationSuite
 
 	state     *MockState
-	dbManager *MockDBManager
+	dbDeleter *MockDBDeleter
 }
 
 var _ = gc.Suite(&serviceSuite{})
@@ -34,7 +34,7 @@ func (s *serviceSuite) TestServiceCreate(c *gc.C) {
 
 	s.state.EXPECT().Create(gomock.Any(), uuid).Return(nil)
 
-	svc := NewService(s.state, s.dbManager)
+	svc := NewService(s.state, s.dbDeleter)
 	err := svc.Create(context.TODO(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -46,7 +46,7 @@ func (s *serviceSuite) TestServiceCreateError(c *gc.C) {
 
 	s.state.EXPECT().Create(gomock.Any(), uuid).Return(fmt.Errorf("boom"))
 
-	svc := NewService(s.state, s.dbManager)
+	svc := NewService(s.state, s.dbDeleter)
 	err := svc.Create(context.TODO(), uuid)
 	c.Assert(err, gc.ErrorMatches, `creating model ".*": boom`)
 }
@@ -60,7 +60,7 @@ func (s *serviceSuite) TestServiceCreateDuplicateError(c *gc.C) {
 		ExtendedCode: sqlite3.ErrConstraintUnique,
 	})
 
-	svc := NewService(s.state, s.dbManager)
+	svc := NewService(s.state, s.dbDeleter)
 	err := svc.Create(context.TODO(), uuid)
 	c.Assert(err, gc.ErrorMatches, "creating model .*: record already exists")
 	c.Assert(errors.Is(errors.Cause(err), domain.ErrDuplicate), jc.IsTrue)
@@ -69,7 +69,7 @@ func (s *serviceSuite) TestServiceCreateDuplicateError(c *gc.C) {
 func (s *serviceSuite) TestServiceCreateInvalidUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	svc := NewService(s.state, s.dbManager)
+	svc := NewService(s.state, s.dbDeleter)
 	err := svc.Create(context.TODO(), "invalid")
 	c.Assert(err, gc.ErrorMatches, "validating model uuid.*")
 }
@@ -80,9 +80,9 @@ func (s *serviceSuite) TestServiceDelete(c *gc.C) {
 	uuid := mustUUID(c)
 
 	s.state.EXPECT().Delete(gomock.Any(), uuid).Return(nil)
-	s.dbManager.EXPECT().DeleteDB(uuid.String()).Return(nil)
+	s.dbDeleter.EXPECT().DeleteDB(uuid.String()).Return(nil)
 
-	svc := NewService(s.state, s.dbManager)
+	svc := NewService(s.state, s.dbDeleter)
 	err := svc.Delete(context.TODO(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -94,7 +94,7 @@ func (s *serviceSuite) TestServiceDeleteStateError(c *gc.C) {
 
 	s.state.EXPECT().Delete(gomock.Any(), uuid).Return(fmt.Errorf("boom"))
 
-	svc := NewService(s.state, s.dbManager)
+	svc := NewService(s.state, s.dbDeleter)
 	err := svc.Delete(context.TODO(), uuid)
 	c.Assert(err, gc.ErrorMatches, `deleting model ".*": boom`)
 }
@@ -106,7 +106,7 @@ func (s *serviceSuite) TestServiceDeleteNoRecordsError(c *gc.C) {
 
 	s.state.EXPECT().Delete(gomock.Any(), uuid).Return(domain.ErrNoRecord)
 
-	svc := NewService(s.state, s.dbManager)
+	svc := NewService(s.state, s.dbDeleter)
 	err := svc.Delete(context.TODO(), uuid)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("no records should be idempotent"))
 }
@@ -121,7 +121,7 @@ func (s *serviceSuite) TestServiceDeleteStateSqliteError(c *gc.C) {
 		ExtendedCode: sqlite3.ErrCorruptVTab,
 	})
 
-	svc := NewService(s.state, s.dbManager)
+	svc := NewService(s.state, s.dbDeleter)
 	err := svc.Delete(context.TODO(), uuid)
 	c.Assert(err, gc.ErrorMatches, `deleting model ".*": access permission denied`)
 }
@@ -132,9 +132,9 @@ func (s *serviceSuite) TestServiceDeleteManagerError(c *gc.C) {
 	uuid := mustUUID(c)
 
 	s.state.EXPECT().Delete(gomock.Any(), uuid).Return(nil)
-	s.dbManager.EXPECT().DeleteDB(uuid.String()).Return(fmt.Errorf("boom"))
+	s.dbDeleter.EXPECT().DeleteDB(uuid.String()).Return(fmt.Errorf("boom"))
 
-	svc := NewService(s.state, s.dbManager)
+	svc := NewService(s.state, s.dbDeleter)
 	err := svc.Delete(context.TODO(), uuid)
 	c.Assert(err, gc.ErrorMatches, `stopping model ".*": boom`)
 }
@@ -142,7 +142,7 @@ func (s *serviceSuite) TestServiceDeleteManagerError(c *gc.C) {
 func (s *serviceSuite) TestServiceDeleteInvalidUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	svc := NewService(s.state, s.dbManager)
+	svc := NewService(s.state, s.dbDeleter)
 	err := svc.Delete(context.TODO(), "invalid")
 	c.Assert(err, gc.ErrorMatches, "validating model uuid.*")
 }
@@ -151,7 +151,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockState(ctrl)
-	s.dbManager = NewMockDBManager(ctrl)
+	s.dbDeleter = NewMockDBDeleter(ctrl)
 
 	return ctrl
 }

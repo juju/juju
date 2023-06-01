@@ -9,6 +9,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	facade "github.com/juju/juju/apiserver/facade"
+	changestream "github.com/juju/juju/core/changestream"
 	database "github.com/juju/juju/core/database"
 	leadership "github.com/juju/juju/core/leadership"
 	lease "github.com/juju/juju/core/lease"
@@ -247,10 +248,10 @@ func (mr *MockContextMockRecorder) Cancel() *gomock.Call {
 }
 
 // ControllerDB mocks base method.
-func (m *MockContext) ControllerDB() (database.TxnRunner, error) {
+func (m *MockContext) ControllerDB() (changestream.WatchableDB, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerDB")
-	ret0, _ := ret[0].(database.TxnRunner)
+	ret0, _ := ret[0].(changestream.WatchableDB)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -259,6 +260,20 @@ func (m *MockContext) ControllerDB() (database.TxnRunner, error) {
 func (mr *MockContextMockRecorder) ControllerDB() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerDB", reflect.TypeOf((*MockContext)(nil).ControllerDB))
+}
+
+// DBDeleter mocks base method.
+func (m *MockContext) DBDeleter() database.DBDeleter {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DBDeleter")
+	ret0, _ := ret[0].(database.DBDeleter)
+	return ret0
+}
+
+// DBDeleter indicates an expected call of DBDeleter.
+func (mr *MockContextMockRecorder) DBDeleter() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DBDeleter", reflect.TypeOf((*MockContext)(nil).DBDeleter))
 }
 
 // Dispose mocks base method.

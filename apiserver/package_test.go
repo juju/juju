@@ -4,10 +4,10 @@
 package apiserver
 
 import (
-	"github.com/juju/juju/core/changestream"
 	"testing"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/changestream"
 	coretesting "github.com/juju/juju/testing"
 )
 

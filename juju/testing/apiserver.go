@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
@@ -266,7 +267,8 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config) {
 	cfg := DefaultServerConfig(c, s.Clock)
 	cfg.Mux = s.mux
-	cfg.DBManager = stubDBManager{db: s.TxnRunner()}
+	cfg.DBGetter = stubDBGetter{db: stubWatchableDB{s.TxnRunner()}}
+	cfg.DBDeleter = stubDBDeleter{}
 	cfg.StatePool = s.controller.StatePool()
 	cfg.PublicDNSName = controllerCfg.AutocertDNSName()
 
@@ -513,7 +515,8 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		UpgradeComplete:            func() bool { return true },
 		SysLogger:                  noopSysLogger{},
 		CharmhubHTTPClient:         &http.Client{},
-		DBManager:                  stubDBManager{},
+		DBGetter:                   stubDBGetter{},
+		DBDeleter:                  stubDBDeleter{},
 		StatePool:                  &state.StatePool{},
 		Mux:                        &apiserverhttp.Mux{},
 		LocalMacaroonAuthenticator: &mockAuthenticator{},
@@ -521,22 +524,32 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 	}
 }
 
-type stubDBManager struct {
-	db coredatabase.TxnRunner
+type stubDBGetter struct {
+	db changestream.WatchableDB
 }
 
-func (s stubDBManager) GetDB(namespace string) (coredatabase.TxnRunner, error) {
+func (s stubDBGetter) GetWatchableDB(namespace string) (changestream.WatchableDB, error) {
 	if namespace != "controller" {
 		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, namespace)
 	}
 	return s.db, nil
 }
 
-func (s stubDBManager) DeleteDB(namespace string) error {
+type stubDBDeleter struct{}
+
+func (s stubDBDeleter) DeleteDB(namespace string) error {
 	if namespace == "controller" {
 		return errors.Forbiddenf(`cannot delete "controller" DB`)
 	}
 	return nil
+}
+
+type stubWatchableDB struct {
+	coredatabase.TxnRunner
+}
+
+func (stubWatchableDB) Subscribe(...changestream.SubscriptionOption) (changestream.Subscription, error) {
+	return nil, nil
 }
 
 // These mocks are used in place of real components when creating server config.

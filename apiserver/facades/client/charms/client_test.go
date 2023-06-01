@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	coredatabase "github.com/juju/juju/core/database"
@@ -72,7 +73,8 @@ func (ctx *charmsSuiteContext) LeadershipPinner(string) (leadership.Pinner, erro
 func (ctx *charmsSuiteContext) LeadershipReader(string) (leadership.Reader, error)    { return nil, nil }
 func (ctx *charmsSuiteContext) SingularClaimer() (lease.Claimer, error)               { return nil, nil }
 func (ctx *charmsSuiteContext) HTTPClient(facade.HTTPClientPurpose) facade.HTTPClient { return nil }
-func (ctx *charmsSuiteContext) ControllerDB() (coredatabase.TxnRunner, error)         { return nil, nil }
+func (ctx *charmsSuiteContext) ControllerDB() (changestream.WatchableDB, error)       { return nil, nil }
+func (ctx *charmsSuiteContext) DBDeleter() coredatabase.DBDeleter                     { return nil }
 
 func (s *charmsSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
