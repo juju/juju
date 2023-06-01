@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -2684,6 +2685,15 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 	createTime := time.Now().UTC().Round(time.Second)
 	next := createTime.Add(time.Minute).Round(time.Second).UTC()
 	expire := createTime.Add(2 * time.Hour).Round(time.Second).UTC()
+
+	backendID, err := backendStore.CreateSecretBackend(state.CreateSecretBackendParams{
+		Name:                "myvault",
+		BackendType:         "vault",
+		TokenRotateInterval: ptr(666 * time.Second),
+		NextRotateTime:      ptr(next),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	p := state.CreateSecretParams{
 		Version: 1,
 		Owner:   owner.Tag(),
@@ -2701,22 +2711,16 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 	md, err := store.CreateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = backendStore.CreateSecretBackend(state.CreateSecretBackendParams{
-		ID:          "backend-id",
-		Name:        "foo",
-		BackendType: "vault",
-	})
-	c.Assert(err, jc.ErrorIsNil)
 	_, err = store.UpdateSecret(md.URI, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		ValueRef: &secrets.ValueRef{
-			BackendID:  "backend-id",
+			BackendID:  backendID,
 			RevisionID: "rev-id",
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	backendRefCount, err := s.State.ReadBackendRefCount("backend-id")
+	backendRefCount, err := s.State.ReadBackendRefCount(backendID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(backendRefCount, gc.Equals, 1)
 
@@ -2748,10 +2752,16 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	err = s.Model.UpdateModelConfig(map[string]interface{}{config.SecretBackendKey: "myvault"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	mCfg, err := s.Model.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mCfg.SecretBackend(), jc.DeepEquals, "myvault")
+
 	model, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(model.SecretBackendID(), gc.Equals, "backend-id")
+	c.Assert(model.SecretBackendID(), gc.Equals, backendID)
 
 	allSecrets := model.Secrets()
 	c.Assert(allSecrets, gc.HasLen, 1)
@@ -2770,7 +2780,7 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 	c.Assert(revisions[0].Content(), jc.DeepEquals, map[string]string{"foo": "bar"})
 	c.Assert(revisions[0].ExpireTime(), jc.DeepEquals, ptr(expire))
 	c.Assert(revisions[1].ValueRef(), gc.NotNil)
-	c.Assert(revisions[1].ValueRef().BackendID(), jc.DeepEquals, "backend-id")
+	c.Assert(revisions[1].ValueRef().BackendID(), jc.DeepEquals, backendID)
 	c.Assert(revisions[1].ValueRef().RevisionID(), jc.DeepEquals, "rev-id")
 	consumers := secret.Consumers()
 	c.Assert(consumers, gc.HasLen, 1)
