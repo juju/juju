@@ -12,6 +12,7 @@ import (
 	charm "github.com/juju/charm/v11"
 	resource "github.com/juju/charm/v11/resource"
 	charm0 "github.com/juju/juju/core/charm"
+	series "github.com/juju/juju/core/series"
 )
 
 // MockRepository is a mock of Repository interface.
@@ -134,12 +135,12 @@ func (mr *MockRepositoryMockRecorder) ResolveResources(arg0, arg1 interface{}) *
 }
 
 // ResolveWithPreferredChannel mocks base method.
-func (m *MockRepository) ResolveWithPreferredChannel(arg0 *charm.URL, arg1 charm0.Origin) (*charm.URL, charm0.Origin, []string, error) {
+func (m *MockRepository) ResolveWithPreferredChannel(arg0 *charm.URL, arg1 charm0.Origin) (*charm.URL, charm0.Origin, []series.Base, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveWithPreferredChannel", arg0, arg1)
 	ret0, _ := ret[0].(*charm.URL)
 	ret1, _ := ret[1].(charm0.Origin)
-	ret2, _ := ret[2].([]string)
+	ret2, _ := ret[2].([]series.Base)
 	ret3, _ := ret[3].(error)
 	return ret0, ret1, ret2, ret3
 }
