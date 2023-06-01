@@ -198,8 +198,12 @@ func (s *charmSuite) expectResolveChannel() {
 		false,
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, requestedOrigin commoncharm.Origin, _ bool) (*charm.URL, commoncharm.Origin, []string, error) {
-			return curl, requestedOrigin, []string{"bionic", "focal", "xenial"}, nil
+		func(curl *charm.URL, requestedOrigin commoncharm.Origin, _ bool) (*charm.URL, commoncharm.Origin, []series.Base, error) {
+			return curl, requestedOrigin, []series.Base{
+				series.MustParseBaseFromString("ubuntu@18.04"),
+				series.MustParseBaseFromString("ubuntu@20.04"),
+				series.MustParseBaseFromString("ubuntu@16.04"),
+			}, nil
 		}).AnyTimes()
 }
 

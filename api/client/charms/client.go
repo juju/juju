@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/charm/v11"
 	charmresource "github.com/juju/charm/v11/resource"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
@@ -23,6 +24,7 @@ import (
 	commoncharms "github.com/juju/juju/api/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -50,10 +52,10 @@ type CharmToResolve struct {
 
 // ResolvedCharm holds resolved charm data.
 type ResolvedCharm struct {
-	URL             *charm.URL
-	Origin          apicharm.Origin
-	SupportedSeries []string
-	Error           error
+	URL            *charm.URL
+	Origin         apicharm.Origin
+	SupportedBases []series.Base
+	Error          error
 }
 
 // ResolveCharms resolves the given charm URLs with an optionally specified
@@ -89,10 +91,29 @@ func (c *Client) ResolveCharms(charms []CharmToResolve) ([]ResolvedCharm, error)
 			resolvedCharms[i] = ResolvedCharm{Error: err}
 			continue
 		}
+
+		var supportedBases []series.Base
+		if r.SupportedBases != nil {
+			supportedBases, err = transform.SliceOrErr(r.SupportedBases, func(in params.CharmBase) (series.Base, error) {
+				return series.ParseBase(in.Name, in.Channel)
+			})
+			if err != nil {
+				resolvedCharms[i] = ResolvedCharm{Error: err}
+				continue
+			}
+		} else {
+			// Support legacy api controllers that only return supported series
+			// TODO (jack-w-shaw) drop this case in juju 4
+			supportedBases, err = transform.SliceOrErr(r.SupportedSeries, series.GetBaseFromSeries)
+			if err != nil {
+				resolvedCharms[i] = ResolvedCharm{Error: err}
+				continue
+			}
+		}
 		resolvedCharms[i] = ResolvedCharm{
-			URL:             curl,
-			Origin:          origin,
-			SupportedSeries: r.SupportedSeries,
+			URL:            curl,
+			Origin:         origin,
+			SupportedBases: supportedBases,
 		}
 	}
 	return resolvedCharms, nil
