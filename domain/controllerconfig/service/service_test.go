@@ -6,7 +6,6 @@ package service
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/testing"
@@ -32,7 +31,7 @@ func (s *serviceSuite) TestUpdateControllerConfigSuccess(c *gc.C) {
 		jujucontroller.AuditLogCaptureArgs: false,
 		jujucontroller.AuditLogMaxBackups:  10,
 		jujucontroller.PublicDNSAddress:    "controller.test.com:1234",
-		jujucontroller.APIPortOpenDelay:    100 * time.Millisecond,
+		jujucontroller.APIPortOpenDelay:    "100ms",
 	}
 
 	k1 := jujucontroller.AuditingEnabled
@@ -47,10 +46,10 @@ func (s *serviceSuite) TestUpdateControllerConfigSuccess(c *gc.C) {
 func (s *serviceSuite) TestUpdateExternalControllerError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cc := map[string]interface{}{
-		jujucontroller.AuditingEnabled:     "1",
-		jujucontroller.AuditLogCaptureArgs: "0",
-		jujucontroller.AuditLogMaxBackups:  "10",
+	cc := jujucontroller.Config{
+		jujucontroller.AuditingEnabled:     true,
+		jujucontroller.AuditLogCaptureArgs: false,
+		jujucontroller.AuditLogMaxBackups:  10,
 		jujucontroller.PublicDNSAddress:    "controller.test.com:1234",
 		jujucontroller.APIPortOpenDelay:    "100ms",
 	}

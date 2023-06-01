@@ -5,9 +5,10 @@ package controllerconfig
 
 import (
 	ctx "context"
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"time"
 
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/database/testing"
@@ -30,7 +31,7 @@ func (s *controllerconfigSuite) TestControllerConfigRoundTrips(c *gc.C) {
 		jujucontroller.AuditLogCaptureArgs: false,
 		jujucontroller.AuditLogMaxBackups:  10,
 		jujucontroller.PublicDNSAddress:    "controller.test.com:1234",
-		jujucontroller.APIPortOpenDelay:    100 * time.Millisecond,
+		jujucontroller.APIPortOpenDelay:    "100ms",
 	}
 
 	err := srv.UpdateControllerConfig(ctx.Background(), cfgIn, nil)

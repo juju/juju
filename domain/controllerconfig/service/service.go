@@ -31,11 +31,11 @@ func NewService(st State) *Service {
 
 // ControllerConfig returns the config values for the controller.
 func (s *Service) ControllerConfig(ctx context.Context) (jujucontroller.Config, error) {
-	coercedControllerConfig := make(jujucontroller.Config)
 	cc, err := s.st.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	var coercedControllerConfig jujucontroller.Config
 	coercedControllerConfig, err = coerceControllerConfigMap(cc)
 	return coercedControllerConfig, errors.Annotate(err, "getting controller config state")
 }
