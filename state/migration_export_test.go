@@ -2751,6 +2751,8 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 	model, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
+	c.Assert(model.SecretBackendID(), gc.Equals, "backend-id")
+
 	allSecrets := model.Secrets()
 	c.Assert(allSecrets, gc.HasLen, 1)
 	secret := allSecrets[0]

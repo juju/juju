@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/mocks"
@@ -3073,19 +3074,22 @@ func (s *MigrationImportSuite) TestApplicationFillInCharmOriginID(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
+	now := time.Now().UTC().Round(time.Second)
+	next := now.Add(time.Minute).Round(time.Second).UTC()
+
 	backendStore := state.NewSecretBackends(s.State)
 	backendID, err := backendStore.CreateSecretBackend(state.CreateSecretBackendParams{
-		Name:        "myvault",
-		BackendType: "vault",
+		Name:                "myvault",
+		BackendType:         "vault",
+		TokenRotateInterval: ptr(666 * time.Second),
+		NextRotateTime:      ptr(next),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	store := state.NewSecrets(s.State)
 	owner := s.Factory.MakeApplication(c, nil)
 	uri := secrets.NewURI()
-	createTime := time.Now().UTC().Round(time.Second)
-	next := createTime.Add(time.Minute).Round(time.Second).UTC()
-	expire := createTime.Add(2 * time.Hour).Round(time.Second).UTC()
+	expire := now.Add(2 * time.Hour).Round(time.Second).UTC()
 	p := state.CreateSecretParams{
 		Version: 1,
 		Owner:   owner.Tag(),
@@ -3144,7 +3148,25 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(backendRefCount, gc.Equals, 1)
 
-	_, newSt := s.importModel(c, s.State)
+	err = s.Model.UpdateModelConfig(map[string]interface{}{config.SecretBackendKey: "myvault"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	mCfg, err := s.Model.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mCfg.SecretBackend(), jc.DeepEquals, "myvault")
+
+	newModel, newSt := s.importModel(c, s.State, func(map[string]interface{}) {
+		// Rename the backend.
+		err := backendStore.UpdateSecretBackend(state.UpdateSecretBackendParams{
+			ID:         backendID,
+			NameChange: ptr("myvault-1"),
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	})
+
+	// After import, the backend should be changed to "myvault-1".
+	mCfg, err = newModel.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mCfg.SecretBackend(), jc.DeepEquals, "myvault-1")
 
 	backendRefCount, err = s.State.ReadBackendRefCount(backendID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3164,7 +3186,7 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 	c.Assert(revs, mc, []*secrets.SecretRevisionMetadata{{
 		Revision:   1,
 		ValueRef:   nil,
-		CreateTime: createTime,
+		CreateTime: now,
 		UpdateTime: updateTime,
 		ExpireTime: &expire,
 	}, {
@@ -3173,9 +3195,9 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 			BackendID:  backendID,
 			RevisionID: "rev-id",
 		},
-		BackendName: ptr("myvault"),
-		CreateTime:  createTime,
-		UpdateTime:  createTime,
+		BackendName: ptr("myvault-1"),
+		CreateTime:  now,
+		UpdateTime:  now,
 	}})
 
 	access, err := newSt.SecretAccess(uri, owner.Tag())
