@@ -30,9 +30,9 @@ func (s *serviceSuite) TestUpdateControllerConfigSuccess(c *gc.C) {
 	cc := jujucontroller.Config{
 		jujucontroller.AuditingEnabled:     true,
 		jujucontroller.AuditLogCaptureArgs: false,
-		jujucontroller.AuditLogMaxBackups:  100 * time.Millisecond,
+		jujucontroller.AuditLogMaxBackups:  10,
 		jujucontroller.PublicDNSAddress:    "controller.test.com:1234",
-		jujucontroller.APIPortOpenDelay:    "100ms",
+		jujucontroller.APIPortOpenDelay:    100 * time.Millisecond,
 	}
 
 	k1 := jujucontroller.AuditingEnabled

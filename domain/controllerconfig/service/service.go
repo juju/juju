@@ -42,12 +42,35 @@ func (s *Service) ControllerConfig(ctx context.Context) (jujucontroller.Config, 
 
 // UpdateControllerConfig updates the controller config.
 func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs jujucontroller.Config, removeAttrs []string) error {
-	err := s.st.UpdateControllerConfig(ctx, updateAttrs, removeAttrs)
+	coercedUpdateAttrs, err := coerceControllerConfigMap(updateAttrs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = validateConfig(updateAttrs, removeAttrs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = s.st.UpdateControllerConfig(ctx, coercedUpdateAttrs, removeAttrs)
 	return errors.Annotate(err, "updating controller config state")
 }
 
-// checkUpdateControllerConfig checks that the given name is a valid.
-func checkUpdateControllerConfig(name string) error {
+// validateConfig validates the given updateAttrs and removeAttrs.
+func validateConfig(updateAttrs map[string]interface{}, removeAttrs []string) error {
+	for k := range updateAttrs {
+		if err := validateConfigField(k); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	for _, r := range removeAttrs {
+		if err := validateConfigField(r); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// validateConfigField checks that the given field is a valid controller config.
+func validateConfigField(name string) error {
 	if !jujucontroller.ControllerOnlyAttribute(name) {
 		return errors.Errorf("unknown controller config setting %q", name)
 	}
