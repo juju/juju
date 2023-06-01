@@ -6,6 +6,7 @@ package apiserver
 import (
 	"context"
 	"fmt"
+	"github.com/juju/juju/core/changestream"
 	"net/url"
 	"reflect"
 	"sync"
@@ -569,15 +570,15 @@ func (ctx *facadeContext) HTTPClient(purpose facade.HTTPClientPurpose) facade.HT
 	}
 }
 
-// ControllerDB returns a transaction runner for the controller database.
-func (ctx *facadeContext) ControllerDB() (coredatabase.TxnRunner, error) {
-	db, err := ctx.r.shared.dbManager.GetDB(coredatabase.ControllerNS)
+// ControllerDB returns a watchable database for the controller database.
+func (ctx *facadeContext) ControllerDB() (changestream.WatchableDB, error) {
+	db, err := ctx.r.shared.dbGetter.GetWatchableDB(coredatabase.ControllerNS)
 	return db, errors.Trace(err)
 }
 
-// DBManager returns the DBManager for the controller.
-func (ctx *facadeContext) DBManager() coredatabase.DBManager {
-	return ctx.r.shared.dbManager
+// DBDeleter returns a database deleter.
+func (ctx *facadeContext) DBDeleter() coredatabase.DBDeleter {
+	return ctx.r.shared.dbDeleter
 }
 
 // adminRoot dispatches API calls to those available to an anonymous connection

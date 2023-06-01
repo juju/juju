@@ -138,8 +138,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.LeaseManagerName,
 			config.SyslogName,
 			config.CharmhubHTTPClientName,
-			config.DBAccessorName,
 			config.ChangeStreamName,
+			config.DBAccessorName,
 		},
 		Start: config.start,
 	}
@@ -206,13 +206,13 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	var dbManager coredatabase.DBManager
-	if err := context.Get(config.DBAccessorName, &dbManager); err != nil {
+	var dbGetter changestream.WatchableDBGetter
+	if err := context.Get(config.ChangeStreamName, &dbGetter); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var dbGetter changestream.WatchableDBGetter
-	if err := context.Get(config.ChangeStreamName, &dbGetter); err != nil {
+	var dbDeleter coredatabase.DBDeleter
+	if err := context.Get(config.DBAccessorName, &dbDeleter); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -252,7 +252,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		EmbeddedCommand:                   execEmbeddedCommand,
 		SysLogger:                         sysLogger,
 		CharmhubHTTPClient:                charmhubHTTPClient,
-		DBManager:                         dbManager,
+		DBGetter:                          dbGetter,
+		DBDeleter:                         dbDeleter,
 	})
 	if err != nil {
 		// Ensure we clean up the resources we've registered with. This includes

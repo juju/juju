@@ -4,6 +4,7 @@
 package externalcontrollerupdater
 
 import (
+	"github.com/juju/juju/domain"
 	"reflect"
 
 	"github.com/juju/juju/apiserver/facade"
@@ -26,6 +27,6 @@ func newStateAPI(ctx facade.Context) (*ExternalControllerUpdaterAPI, error) {
 		ctx.Auth(),
 		ctx.Resources(),
 		state.NewExternalControllers(ctx.State()),
-		ecservice.NewService(ecstate.NewState(ctx.ControllerDB)),
+		ecservice.NewService(ecstate.NewState(domain.NewDBFactory(ctx.ControllerDB))),
 	)
 }

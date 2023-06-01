@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
 )
 
@@ -17,23 +18,17 @@ type State interface {
 	Delete(context.Context, UUID) error
 }
 
-// DBManager defines a interface for interacting with the underlying database
-// management.
-type DBManager interface {
-	DeleteDB(string) error
-}
-
 // Service defines a service for interacting with the underlying state.
 type Service struct {
 	st        State
-	dbManager DBManager
+	dbDeleter database.DBDeleter
 }
 
 // NewService returns a new Service for interacting with the underlying state.
-func NewService(st State, dbManager DBManager) *Service {
+func NewService(st State, dbDeleter database.DBDeleter) *Service {
 	return &Service{
 		st:        st,
-		dbManager: dbManager,
+		dbDeleter: dbDeleter,
 	}
 }
 
@@ -62,6 +57,6 @@ func (s *Service) Delete(ctx context.Context, uuid UUID) error {
 		return errors.Annotatef(domain.CoerceError(err), "deleting model %q", uuid)
 	}
 
-	err := s.dbManager.DeleteDB(uuid.String())
+	err := s.dbDeleter.DeleteDB(uuid.String())
 	return errors.Annotatef(err, "stopping model %q", uuid)
 }
