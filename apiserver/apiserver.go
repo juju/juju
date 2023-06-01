@@ -312,6 +312,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		logger:              loggo.GetLogger("juju.apiserver"),
 		charmhubHTTPClient:  cfg.CharmhubHTTPClient,
 		dbGetter:            cfg.DBGetter,
+		dbDeleter:           cfg.DBDeleter,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

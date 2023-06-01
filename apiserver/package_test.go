@@ -4,10 +4,10 @@
 package apiserver
 
 import (
+	"github.com/juju/juju/core/changestream"
 	"testing"
 
 	"github.com/juju/errors"
-	coredatabase "github.com/juju/juju/core/database"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -20,16 +20,18 @@ func TestPackage(t *testing.T) {
 	coretesting.MgoTestPackage(t)
 }
 
-type StubDBManager struct{}
+type StubDBGetter struct{}
 
-func (s StubDBManager) GetDB(namespace string) (coredatabase.TxnRunner, error) {
+func (s StubDBGetter) GetWatchableDB(namespace string) (changestream.WatchableDB, error) {
 	if namespace != "controller" {
 		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, namespace)
 	}
 	return nil, nil
 }
 
-func (s StubDBManager) DeleteDB(namespace string) error {
+type StubDBDeleter struct{}
+
+func (s StubDBDeleter) DeleteDB(namespace string) error {
 	if namespace == "controller" {
 		return errors.Forbiddenf(`cannot delete "controller" DB`)
 	}

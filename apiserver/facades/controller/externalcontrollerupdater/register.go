@@ -4,10 +4,10 @@
 package externalcontrollerupdater
 
 import (
-	"github.com/juju/juju/domain"
 	"reflect"
 
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/domain"
 	ecservice "github.com/juju/juju/domain/externalcontroller/service"
 	ecstate "github.com/juju/juju/domain/externalcontroller/state"
 	"github.com/juju/juju/state"

@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"github.com/juju/juju/core/database"
 	"sync"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
@@ -32,7 +32,7 @@ type SharedHub interface {
 
 // sharedServerContext contains a number of components that are unchangeable in the API server.
 // These components need to be exposed through the facade.Context. Instead of having the methods
-// of newAPIHandler and newAPIRoot take ever increasing numbers of parameters, they will instead
+// of newAPIHandler and newAPIRoot take ever-increasing numbers of parameters, they will instead
 // have a pointer to the sharedServerContext.
 //
 // All attributes in the context should be goroutine aware themselves, like the state pool, hub, and

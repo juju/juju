@@ -6,7 +6,6 @@ package apiserver
 import (
 	"context"
 	"fmt"
-	"github.com/juju/juju/core/changestream"
 	"net/url"
 	"reflect"
 	"sync"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"

@@ -62,7 +62,8 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 		leaseManager:        &lease.Manager{},
 		controllerConfig:    controllerConfig,
 		logger:              loggo.GetLogger("test"),
-		dbManager:           StubDBManager{},
+		dbGetter:            StubDBGetter{},
+		dbDeleter:           StubDBDeleter{},
 	}
 }
 
