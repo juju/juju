@@ -3,20 +3,16 @@ run_controller_credentials() {
 
 	juju show-cloud --controller "${BOOTSTRAPPED_JUJU_CTRL_NAME}" aws 2>/dev/null || juju add-cloud --controller "${BOOTSTRAPPED_JUJU_CTRL_NAME}" aws --force
 	juju add-credential aws -f "./tests/suites/credential/credentials-data/fake-credentials.yaml" --controller "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
-	OUT=$(juju credentials --controller "${BOOTSTRAPPED_JUJU_CTRL_NAME}" --format=json 2>/dev/null | jq '.[] ."my-ec2"')
+	OUT=$(juju credentials --controller "${BOOTSTRAPPED_JUJU_CTRL_NAME}" --format=json 2>/dev/null | jq '.[].aws."cloud-credentials"')
 
 	EXPECTED=$(
 		cat <<'EOF'
-{
-  "cloud-credentials": {
-    "mine": {
-      "auth-type": "access-key",
-      "details": {
-        "access-key": "my-key"
-      }
+  "fake-credential-name": {
+    "auth-type": "access-key",
+    "details": {
+      "access-key": "fake-access-key"
     }
   }
-}
 EOF
 	)
 	# Controller has more than one credential, just check the one we added.
@@ -25,20 +21,17 @@ EOF
 		exit 1
 	fi
 
-	OUT=$(juju credentials --controller ${BOOTSTRAPPED_JUJU_CTRL_NAME} --show-secrets --format=json 2>/dev/null | jq '.[] ."my-ec2"')
+	OUT=$(juju credentials --controller ${BOOTSTRAPPED_JUJU_CTRL_NAME} --show-secrets --format=json 2>/dev/null | jq '.[].aws."cloud-credentials"')
 	EXPECTED=$(
 		cat <<'EOF'
-{
-  "cloud-credentials": {
-    "mine": {
-      "auth-type": "access-key",
-      "details": {
-        "access-key": "my-key",
-        "secret-key": "my-secret"
-      }
+  "fake-credential-name": {
+    "auth-type": "access-key",
+    "details": {
+      "access-key": "fake-access-key",
+      "secret-key": "fake-secret-key"
     }
   }
-}
+
 EOF
 	)
 	# Controller has more than one credential, just check the one we added.
@@ -63,6 +56,8 @@ test_controller_credentials() {
 		bootstrap "test-credential" "${file}"
 
 		run "run_controller_credentials"
+		# TODO: remove credential afterwards - even if test fails
+		# juju remove-credential aws fake-credential-name || true
 
 		destroy_controller "test-credential"
 	)
