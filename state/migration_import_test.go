@@ -3252,7 +3252,7 @@ func (s *MigrationImportSuite) TestApplicationWithProvisioningState(c *gc.C) {
 
 	cons := constraints.MustParse("arch=amd64 mem=8G")
 	platform := &state.Platform{
-		Architecture: corearch.DefaultArchitecture,
+		Architecture: arch.DefaultArchitecture,
 		OS:           "ubuntu",
 		Channel:      "20.04",
 	}
