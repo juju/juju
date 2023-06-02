@@ -663,3 +663,18 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningState(c *gc.C) {
 
 	s.st.app.Stub.CheckCallNames(c, "ProvisioningState", "SetProvisioningState", "ProvisioningState")
 }
+
+func (s *CAASApplicationProvisionerSuite) TestProvisionerConfig(c *gc.C) {
+	result, err := s.api.ProvisionerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.ProvisionerConfig, gc.NotNil)
+	c.Assert(result.ProvisionerConfig.UnmanagedApplications.Entities, gc.HasLen, 0)
+
+	s.st.isController = true
+	result, err = s.api.ProvisionerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.ProvisionerConfig, gc.NotNil)
+	c.Assert(result.ProvisionerConfig.UnmanagedApplications.Entities, gc.DeepEquals, []params.Entity{{Tag: "application-controller"}})
+}

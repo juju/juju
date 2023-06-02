@@ -6485,6 +6485,15 @@
                     },
                     "description": "Life returns the life status of every supplied entity, where available."
                 },
+                "ProvisionerConfig": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/CAASApplicationProvisionerConfigResult"
+                        }
+                    },
+                    "description": "ProvisionerConfig returns the provisioner's configuration."
+                },
                 "ProvisioningInfo": {
                     "type": "object",
                     "properties": {
@@ -6756,6 +6765,27 @@
                     "required": [
                         "images"
                     ]
+                },
+                "CAASApplicationProvisionerConfig": {
+                    "type": "object",
+                    "properties": {
+                        "unmanaged-applications": {
+                            "$ref": "#/definitions/Entities"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "CAASApplicationProvisionerConfigResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "provisioner-config": {
+                            "$ref": "#/definitions/CAASApplicationProvisionerConfig"
+                        }
+                    },
+                    "additionalProperties": false
                 },
                 "CAASApplicationProvisioningInfo": {
                     "type": "object",

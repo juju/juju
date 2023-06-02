@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
@@ -64,6 +65,7 @@ type CAASProvisionerFacade interface {
 	DestroyUnits(unitNames []string) error
 	ProvisioningState(string) (*params.CAASApplicationProvisioningState, error)
 	SetProvisioningState(string, params.CAASApplicationProvisioningState) error
+	ProvisionerConfig() (params.CAASApplicationProvisionerConfig, error)
 }
 
 // CAASBroker exposes CAAS broker functionality to a worker.
@@ -159,6 +161,19 @@ func (p *provisioner) loop() error {
 		return errors.Trace(err)
 	}
 
+	config, err := p.facade.ProvisionerConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	unmanagedApps := set.NewStrings()
+	for _, v := range config.UnmanagedApplications.Entities {
+		app, err := names.ParseApplicationTag(v.Tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		unmanagedApps.Add(app.Name)
+	}
+
 	for {
 		select {
 		case <-p.catacomb.Dying():
@@ -168,6 +183,9 @@ func (p *provisioner) loop() error {
 				return errors.New("app watcher closed channel")
 			}
 			for _, appName := range apps {
+				if unmanagedApps.Contains(appName) {
+					continue
+				}
 				_, err := p.facade.Life(appName)
 				if err != nil && !errors.IsNotFound(err) {
 					return errors.Trace(err)

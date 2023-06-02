@@ -611,3 +611,27 @@ func (s *provisionerSuite) TestDestroyUnitsMismatchResults(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, "expected 1 results got 2")
 	c.Assert(called, jc.IsTrue)
 }
+
+func (s *provisionerSuite) TestProvisionerConfig(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		called = true
+		c.Check(objType, gc.Equals, "CAASApplicationProvisioner")
+		c.Check(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "ProvisionerConfig")
+		c.Assert(a, gc.IsNil)
+		c.Assert(result, gc.FitsTypeOf, &params.CAASApplicationProvisionerConfigResult{})
+		*(result.(*params.CAASApplicationProvisionerConfigResult)) = params.CAASApplicationProvisionerConfigResult{
+			ProvisionerConfig: &params.CAASApplicationProvisionerConfig{
+				UnmanagedApplications: params.Entities{Entities: []params.Entity{{Tag: "application-controller"}}},
+			},
+		}
+		return nil
+	})
+	result, err := client.ProvisionerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+	c.Assert(result, gc.DeepEquals, params.CAASApplicationProvisionerConfig{
+		UnmanagedApplications: params.Entities{Entities: []params.Entity{{Tag: "application-controller"}}},
+	})
+}

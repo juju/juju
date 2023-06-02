@@ -190,7 +190,7 @@ func (o *OperatorUpgraderSuite) TestOperatorUpgradeToBaseCharm(c *gc.C) {
 		MountPath: "/opt/juju",
 	}})
 	c.Assert(operatorSS.Spec.Template.Spec.Containers[0].Image, gc.Equals, focalCharmBase)
-	c.Assert(operatorSS.Spec.Template.Spec.Containers[0].Args, gc.DeepEquals, []string{"-c", "export JUJU_DATA_DIR=/var/lib/juju\nexport JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools\n\nmkdir -p $JUJU_TOOLS_DIR\ncp /opt/juju/jujud $JUJU_TOOLS_DIR/jujud\n\n$JUJU_TOOLS_DIR/jujud caasoperator --application-name=testinitss --debug\n"})
+	c.Assert(operatorSS.Spec.Template.Spec.Containers[0].Args, gc.DeepEquals, []string{"-c", "export JUJU_DATA_DIR=/var/lib/juju\nexport JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools\n\nmkdir -p $JUJU_TOOLS_DIR\ncp /opt/juju/jujud $JUJU_TOOLS_DIR/jujud\n\nexec $JUJU_TOOLS_DIR/jujud caasoperator --application-name=testinitss --debug\n"})
 	c.Assert(operatorSS.Spec.Template.Spec.Containers[0].VolumeMounts, gc.DeepEquals, []v1.VolumeMount{{
 		Name:      "juju-bins",
 		MountPath: "/opt/juju",

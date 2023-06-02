@@ -128,6 +128,21 @@ func (mr *MockCAASProvisionerFacadeMockRecorder) Life(arg0 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Life", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).Life), arg0)
 }
 
+// ProvisionerConfig mocks base method.
+func (m *MockCAASProvisionerFacade) ProvisionerConfig() (params.CAASApplicationProvisionerConfig, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProvisionerConfig")
+	ret0, _ := ret[0].(params.CAASApplicationProvisionerConfig)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ProvisionerConfig indicates an expected call of ProvisionerConfig.
+func (mr *MockCAASProvisionerFacadeMockRecorder) ProvisionerConfig() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProvisionerConfig", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).ProvisionerConfig))
+}
+
 // ProvisioningInfo mocks base method.
 func (m *MockCAASProvisionerFacade) ProvisioningInfo(arg0 string) (caasapplicationprovisioner.ProvisioningInfo, error) {
 	m.ctrl.T.Helper()

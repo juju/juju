@@ -801,7 +801,7 @@ func operatorPod(
 	}
 
 	appTag := names.NewApplicationTag(appName)
-	jujudCmd := fmt.Sprintf("$JUJU_TOOLS_DIR/jujud caasoperator --application-name=%s --debug", appName)
+	jujudCmd := fmt.Sprintf("exec $JUJU_TOOLS_DIR/jujud caasoperator --application-name=%s --debug", appName)
 	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 	mountToken := true
 	env := []core.EnvVar{

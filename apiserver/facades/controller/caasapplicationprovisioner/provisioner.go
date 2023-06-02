@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/resource"
@@ -1388,5 +1389,19 @@ func (a *API) SetProvisioningState(args params.CAASApplicationProvisioningStateA
 		return result, nil
 	}
 
+	return result, nil
+}
+
+// ProvisionerConfig returns the provisioner's configuration.
+func (a *API) ProvisionerConfig() (params.CAASApplicationProvisionerConfigResult, error) {
+	result := params.CAASApplicationProvisionerConfigResult{
+		ProvisionerConfig: &params.CAASApplicationProvisionerConfig{},
+	}
+	if a.state.IsController() {
+		result.ProvisionerConfig.UnmanagedApplications.Entities = append(
+			result.ProvisionerConfig.UnmanagedApplications.Entities,
+			params.Entity{Tag: names.NewApplicationTag(bootstrap.ControllerApplicationName).String()},
+		)
+	}
 	return result, nil
 }

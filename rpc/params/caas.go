@@ -185,3 +185,15 @@ type CAASApplicationProvisioningStateArg struct {
 	Application       Entity                           `json:"application"`
 	ProvisioningState CAASApplicationProvisioningState `json:"provisioning-state"`
 }
+
+// CAASApplicationProvisionerConfig holds the configuration for the caasapplicationprovisioner worker.
+type CAASApplicationProvisionerConfig struct {
+	UnmanagedApplications Entities `json:"unmanaged-applications,omitempty"`
+}
+
+// CAASApplicationProvisionerConfigResult is the result of getting the caasapplicationprovisioner worker's
+// configuration for the current model.
+type CAASApplicationProvisionerConfigResult struct {
+	ProvisionerConfig *CAASApplicationProvisionerConfig `json:"provisioner-config,omitempty"`
+	Error             *Error                            `json:"error,omitempty"`
+}

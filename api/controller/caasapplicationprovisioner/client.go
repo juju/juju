@@ -473,3 +473,19 @@ func (c *Client) SetProvisioningState(appName string, state params.CAASApplicati
 	}
 	return nil
 }
+
+// ProvisionerConfig returns the provisoner's configuration.
+func (c *Client) ProvisionerConfig() (params.CAASApplicationProvisionerConfig, error) {
+	var result params.CAASApplicationProvisionerConfigResult
+	err := c.facade.FacadeCall("ProvisionerConfig", nil, &result)
+	if err != nil {
+		return params.CAASApplicationProvisionerConfig{}, err
+	}
+	if result.Error != nil {
+		return params.CAASApplicationProvisionerConfig{}, result.Error
+	}
+	if result.ProvisionerConfig == nil {
+		return params.CAASApplicationProvisionerConfig{}, nil
+	}
+	return *result.ProvisionerConfig, nil
+}

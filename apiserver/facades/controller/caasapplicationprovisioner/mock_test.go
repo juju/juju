@@ -43,6 +43,7 @@ type mockState struct {
 	resource                *mockResources
 	operatorRepo            string
 	controllerConfigWatcher *statetesting.MockNotifyWatcher
+	isController            bool
 }
 
 func newMockState() *mockState {
@@ -118,6 +119,11 @@ func (st *mockState) ResolveConstraints(cons constraints.Value) (constraints.Val
 func (st *mockState) Resources() caasapplicationprovisioner.Resources {
 	st.MethodCall(st, "Resources")
 	return st.resource
+}
+
+func (st *mockState) IsController() bool {
+	st.MethodCall(st, "IsController")
+	return st.isController
 }
 
 type mockResources struct {

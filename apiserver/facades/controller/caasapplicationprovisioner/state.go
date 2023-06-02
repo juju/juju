@@ -30,6 +30,7 @@ type CAASApplicationProvisionerState interface {
 	Resources() Resources
 	Unit(string) (Unit, error)
 	WatchApplications() state.StringsWatcher
+	IsController() bool
 }
 
 // CAASApplicationControllerState provides the subset of controller state
