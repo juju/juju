@@ -287,17 +287,17 @@ func (st *mockState) Application(id string) (commoncrossmodel.Application, error
 	return a, nil
 }
 
-func (st *mockState) GetSecretConsumerInfo(token string) (names.Tag, string, error) {
-	st.MethodCall(st, "GetSecretConsumerInfo", token)
+func (st *mockState) GetSecretConsumerInfo(appToken, relToken string) (names.Tag, string, error) {
+	st.MethodCall(st, "GetSecretConsumerInfo", appToken, relToken)
 	if err := st.NextErr(); err != nil {
 		return nil, "", err
 	}
 	for e, t := range st.remoteEntities {
-		if t == token {
-			return e, e.Id() + "-uuid", nil
+		if t == appToken {
+			return e, relToken + "-uuid", nil
 		}
 	}
-	return nil, "", errors.NotFoundf("token %v", token)
+	return nil, "", errors.NotFoundf("token %v", appToken)
 }
 
 func (st *mockState) GetSecret(uri *coresecrets.URI) (*coresecrets.SecretMetadata, error) {

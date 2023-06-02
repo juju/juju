@@ -245,9 +245,9 @@ func (s *authSuite) TestCheckOfferMacaroons(c *gc.C) {
 		}, bakery.Op{"consume", "mysql-uuid"})
 
 	c.Assert(err, jc.ErrorIsNil)
-	attr, err := s.authContext.Authenticator(
-		coretesting.ModelTag.Id(), "mysql-uuid").CheckOfferMacaroons(
+	attr, err := s.authContext.Authenticator().CheckOfferMacaroons(
 		context.TODO(),
+		coretesting.ModelTag.Id(),
 		"mysql-uuid",
 		macaroon.Slice{mac.M()},
 		bakery.LatestVersion,
@@ -272,9 +272,9 @@ func (s *authSuite) TestCheckOfferMacaroonsWrongOffer(c *gc.C) {
 		}, bakery.Op{"consume", "mysql-uuid"})
 
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.authContext.Authenticator(
-		coretesting.ModelTag.Id(), "mysql-uuid").CheckOfferMacaroons(
+	_, err = s.authContext.Authenticator().CheckOfferMacaroons(
 		context.TODO(),
+		coretesting.ModelTag.Id(),
 		"prod.another",
 		macaroon.Slice{mac.M()},
 		bakery.LatestVersion,
@@ -295,9 +295,9 @@ func (s *authSuite) TestCheckOfferMacaroonsNoUser(c *gc.C) {
 		}, bakery.Op{"consume", "mysql-uuid"})
 
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.authContext.Authenticator(
-		coretesting.ModelTag.Id(), "mysql-uuid").CheckOfferMacaroons(
+	_, err = s.authContext.Authenticator().CheckOfferMacaroons(
 		context.TODO(),
+		coretesting.ModelTag.Id(),
 		"mysql-uuid",
 		macaroon.Slice{mac.M()},
 		bakery.LatestVersion,
@@ -316,9 +316,9 @@ func (s *authSuite) TestCheckOfferMacaroonsDischargeRequired(c *gc.C) {
 	mac, err := authContext.CreateConsumeOfferMacaroon(context.TODO(), offer, "mary", bakery.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = authContext.Authenticator(
-		coretesting.ModelTag.Id(), "mysql-uuid").CheckOfferMacaroons(
+	_, err = authContext.Authenticator().CheckOfferMacaroons(
 		context.TODO(),
+		coretesting.ModelTag.Id(),
 		"mysql-uuid",
 		macaroon.Slice{mac.M()},
 		bakery.LatestVersion,
@@ -342,9 +342,10 @@ func (s *authSuite) TestCheckRelationMacaroons(c *gc.C) {
 		}, bakery.Op{"relate", relationTag.Id()})
 
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.authContext.Authenticator(
-		coretesting.ModelTag.Id(), "mysql-uuid").CheckRelationMacaroons(
+	err = s.authContext.Authenticator().CheckRelationMacaroons(
 		context.TODO(),
+		coretesting.ModelTag.Id(),
+		"mysql-uuid",
 		relationTag,
 		macaroon.Slice{mac.M()},
 		bakery.LatestVersion,
@@ -364,9 +365,10 @@ func (s *authSuite) TestCheckRelationMacaroonsWrongRelation(c *gc.C) {
 		}, bakery.Op{"relate", relationTag.Id()})
 
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.authContext.Authenticator(
-		coretesting.ModelTag.Id(), "mysql-uuid").CheckRelationMacaroons(
+	err = s.authContext.Authenticator().CheckRelationMacaroons(
 		context.TODO(),
+		coretesting.ModelTag.Id(),
+		"mysql-uuid",
 		names.NewRelationTag("app:db offer:db"),
 		macaroon.Slice{mac.M()},
 		bakery.LatestVersion,
@@ -388,9 +390,10 @@ func (s *authSuite) TestCheckRelationMacaroonsNoUser(c *gc.C) {
 		}, bakery.Op{"relate", relationTag.Id()})
 
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.authContext.Authenticator(
-		coretesting.ModelTag.Id(), "mysql-uuid").CheckRelationMacaroons(
+	err = s.authContext.Authenticator().CheckRelationMacaroons(
 		context.TODO(),
+		coretesting.ModelTag.Id(),
+		"mysql-uuid",
 		relationTag,
 		macaroon.Slice{mac.M()},
 		bakery.LatestVersion,
@@ -408,9 +411,10 @@ func (s *authSuite) TestCheckRelationMacaroonsDischargeRequired(c *gc.C) {
 		coretesting.ModelTag.Id(), "mysql-uuid", "mary", relationTag, bakery.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = authContext.Authenticator(
-		coretesting.ModelTag.Id(), "mysql-uuid").CheckRelationMacaroons(
+	err = authContext.Authenticator().CheckRelationMacaroons(
 		context.TODO(),
+		coretesting.ModelTag.Id(),
+		"mysql-uuid",
 		relationTag,
 		macaroon.Slice{mac.M()},
 		bakery.LatestVersion,
