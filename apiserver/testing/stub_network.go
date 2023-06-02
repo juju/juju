@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -630,8 +631,12 @@ func (sp *StubProvider) Open(_ stdcontext.Context, args environs.OpenParams) (en
 	if err := sp.NextErr(); err != nil {
 		return nil, err
 	}
-	switch args.Config.Name() {
-	case StubEnvironName:
+	name := args.Config.Name()
+	if strings.HasPrefix(name, "testmodel-") {
+		return EnvironInstance, nil
+	}
+	switch name {
+	case StubEnvironName, bootstrap.ControllerModelName:
 		return EnvironInstance, nil
 	case StubZonedEnvironName:
 		return ZonedEnvironInstance, nil
@@ -656,6 +661,15 @@ type StubEnviron struct {
 }
 
 var _ environs.Environ = (*StubEnviron)(nil)
+
+func (se *StubEnviron) Config() *config.Config {
+	attrs := coretesting.FakeConfig()
+	cfg, err := config.New(config.UseDefaults, attrs)
+	if err != nil {
+		panic(err)
+	}
+	return cfg
+}
 
 // GoString implements fmt.GoStringer.
 func (se *StubEnviron) GoString() string {

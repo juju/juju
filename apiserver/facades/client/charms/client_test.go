@@ -4,6 +4,7 @@
 package charms_test
 
 import (
+	"fmt"
 	"net/url"
 
 	"github.com/golang/mock/gomock"
@@ -37,8 +38,8 @@ import (
 )
 
 type charmsSuite struct {
-	// TODO(anastasiamac) mock to remove JujuConnSuite
-	jujutesting.JujuConnSuite
+	// TODO(anastasiamac) mock to remove ApiServerSuite
+	jujutesting.ApiServerSuite
 	api  *charms.API
 	auth facade.Authorizer
 }
@@ -46,14 +47,17 @@ type charmsSuite struct {
 var _ = gc.Suite(&charmsSuite{})
 
 // charmsSuiteContext implements the facade.Context interface.
-type charmsSuiteContext struct{ cs *charmsSuite }
+type charmsSuiteContext struct {
+	auth facade.Authorizer
+	st   *state.State
+}
 
 func (ctx *charmsSuiteContext) Abort() <-chan struct{}                    { return nil }
-func (ctx *charmsSuiteContext) Auth() facade.Authorizer                   { return ctx.cs.auth }
+func (ctx *charmsSuiteContext) Auth() facade.Authorizer                   { return ctx.auth }
 func (ctx *charmsSuiteContext) Cancel() <-chan struct{}                   { return nil }
 func (ctx *charmsSuiteContext) Dispose()                                  {}
 func (ctx *charmsSuiteContext) Resources() facade.Resources               { return common.NewResources() }
-func (ctx *charmsSuiteContext) State() *state.State                       { return ctx.cs.State }
+func (ctx *charmsSuiteContext) State() *state.State                       { return ctx.st }
 func (ctx *charmsSuiteContext) StatePool() *state.StatePool               { return nil }
 func (ctx *charmsSuiteContext) ID() string                                { return "" }
 func (ctx *charmsSuiteContext) RequestRecorder() facade.RequestRecorder   { return nil }
@@ -71,20 +75,25 @@ func (ctx *charmsSuiteContext) HTTPClient(facade.HTTPClientPurpose) facade.HTTPC
 func (ctx *charmsSuiteContext) ControllerDB() (coredatabase.TxnRunner, error)         { return nil, nil }
 
 func (s *charmsSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 
 	s.auth = apiservertesting.FakeAuthorizer{
-		Tag:        s.AdminUserTag(c),
+		Tag:        jujutesting.AdminUser,
 		Controller: true,
 	}
 
 	var err error
-	s.api, err = charms.NewFacade(&charmsSuiteContext{cs: s})
+	s.api, err = charms.NewFacade(&charmsSuiteContext{
+		auth: s.auth,
+		st:   s.ControllerModel(c).State(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *charmsSuite) TestMeteredCharmInfo(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	meteredCharm := f.MakeCharm(
 		c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/xenial/metered"})
 	info, err := s.api.CharmInfo(params.CharmURL{
 		URL: meteredCharm.String(),
@@ -120,8 +129,12 @@ func (s *charmsSuite) TestListCharmsFilteredOnly(c *gc.C) {
 }
 
 func (s *charmsSuite) assertListCharms(c *gc.C, someCharms, args, expected []string) {
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
 	for _, aCharm := range someCharms {
-		s.AddTestingCharm(c, aCharm)
+		f.MakeCharm(c, &factory.CharmParams{
+			Name: aCharm, URL: fmt.Sprintf("local:quantal/%s-1", aCharm),
+		})
 	}
 	found, err := s.api.List(params.CharmsList{Names: args})
 	c.Assert(err, jc.ErrorIsNil)
@@ -130,7 +143,9 @@ func (s *charmsSuite) assertListCharms(c *gc.C, someCharms, args, expected []str
 }
 
 func (s *charmsSuite) TestIsMeteredFalse(c *gc.C) {
-	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	charm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 	metered, err := s.api.IsMetered(params.CharmURL{
 		URL: charm.String(),
 	})
@@ -139,7 +154,9 @@ func (s *charmsSuite) TestIsMeteredFalse(c *gc.C) {
 }
 
 func (s *charmsSuite) TestIsMeteredTrue(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered"})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered"})
 	metered, err := s.api.IsMetered(params.CharmURL{
 		URL: meteredCharm.String(),
 	})

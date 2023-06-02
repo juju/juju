@@ -49,17 +49,24 @@ import (
 )
 
 type apiclientSuite struct {
-	jjtesting.JujuConnSuite
+	jjtesting.ApiServerSuite
 }
 
 var _ = gc.Suite(&apiclientSuite{})
+
+func (s *apiclientSuite) APIInfo(c *gc.C) *api.Info {
+	info := s.ControllerModelApiInfo()
+	info.Tag = jjtesting.AdminUser
+	info.Password = jjtesting.AdminSecret
+	return info
+}
 
 func (s *apiclientSuite) TestDialAPIToModel(c *gc.C) {
 	info := s.APIInfo(c)
 	conn, location, err := api.DialAPI(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
-	assertConnAddrForModel(c, location, info.Addrs[0], s.State.ModelUUID())
+	assertConnAddrForModel(c, location, info.Addrs[0], info.ModelTag.Id())
 }
 
 func (s *apiclientSuite) TestDialAPIToRoot(c *gc.C) {
@@ -83,7 +90,7 @@ func (s *apiclientSuite) TestDialAPIMultiple(c *gc.C) {
 	conn, location, err := api.DialAPI(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
-	assertConnAddrForModel(c, location, proxy.Addr(), s.State.ModelUUID())
+	assertConnAddrForModel(c, location, proxy.Addr(), info.ModelTag.Id())
 
 	// Now break Addrs[0], and ensure that Addrs[1]
 	// is successfully connected to.
@@ -93,7 +100,7 @@ func (s *apiclientSuite) TestDialAPIMultiple(c *gc.C) {
 	conn, location, err = api.DialAPI(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
-	assertConnAddrForModel(c, location, serverAddr, s.State.ModelUUID())
+	assertConnAddrForModel(c, location, serverAddr, info.ModelTag.Id())
 }
 
 func (s *apiclientSuite) TestDialAPIWithProxy(c *gc.C) {
@@ -259,20 +266,19 @@ func (s *apiclientSuite) TestVerifyCA(c *gc.C) {
 
 func (s *apiclientSuite) TestOpen(c *gc.C) {
 	info := s.APIInfo(c)
-	st, err := api.Open(info, api.DialOpts{})
+
+	conn, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-
-	c.Assert(st.Addr(), gc.Equals, info.Addrs[0])
-	modelTag, ok := st.ModelTag()
+	c.Assert(conn.Addr(), gc.Equals, info.Addrs[0])
+	modelTag, ok := conn.ModelTag()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(modelTag, gc.Equals, s.Model.ModelTag())
+	c.Assert(modelTag, gc.Equals, info.ModelTag)
 
-	remoteVersion, versionSet := st.ServerVersion()
+	remoteVersion, versionSet := conn.ServerVersion()
 	c.Assert(versionSet, jc.IsTrue)
 	c.Assert(remoteVersion, gc.Equals, jujuversion.Current)
 
-	c.Assert(api.CookieURL(st).String(), gc.Equals, "https://deadbeef-1bad-500d-9000-4b1d0d06f00d/")
+	c.Assert(api.CookieURL(conn).String(), gc.Equals, "https://deadbeef-1bad-500d-9000-4b1d0d06f00d/")
 }
 
 func (s *apiclientSuite) TestOpenCookieURLUsesSNIHost(c *gc.C) {
@@ -288,6 +294,7 @@ func (s *apiclientSuite) TestOpenCookieURLUsesSNIHost(c *gc.C) {
 func (s *apiclientSuite) TestOpenCookieURLDefaultsToAddress(c *gc.C) {
 	info := s.APIInfo(c)
 	info.ControllerUUID = ""
+
 	st, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -314,7 +321,7 @@ func (s *apiclientSuite) TestOpenHonorsModelTag(c *gc.C) {
 	c.Check(params.ErrCode(err), gc.Equals, params.CodeModelNotFound)
 
 	// Now set it to the right tag, and we should succeed.
-	info.ModelTag = s.Model.ModelTag()
+	info.ModelTag = s.ControllerModel(c).ModelTag()
 	st, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
@@ -328,7 +335,8 @@ func (s *apiclientSuite) TestOpenHonorsModelTag(c *gc.C) {
 }
 
 func (s *apiclientSuite) TestServerRoot(c *gc.C) {
-	url := api.ServerRoot(s.APIState)
+	conn := s.OpenControllerAPI(c)
+	url := api.ServerRoot(conn)
 	c.Assert(url, gc.Matches, "https://localhost:[0-9]+")
 }
 
@@ -1167,7 +1175,7 @@ func (s *apiclientSuite) TestLoginCapturesCLIArgs(c *gc.C) {
 	info := s.APIInfo(c)
 	conn := newRPCConnection()
 	conn.response = &params.LoginResult{
-		ControllerTag: "controller-" + s.ControllerConfig.ControllerUUID(),
+		ControllerTag: jtesting.ControllerTag.String(),
 		ServerVersion: "2.3-rc2",
 	}
 	// Pass an already-closed channel so we don't wait for the monitor
@@ -1213,7 +1221,8 @@ func (s *apiclientSuite) TestLoginIncompatibleClient(c *gc.C) {
 }
 
 func (s *apiclientSuite) TestConnectStreamRequiresSlashPathPrefix(c *gc.C) {
-	reader, err := s.APIState.ConnectStream("foo", nil)
+	conn := s.OpenControllerAPI(c)
+	reader, err := conn.ConnectStream("foo", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot make API path from non-slash-prefixed path "foo"`)
 	c.Assert(reader, gc.Equals, nil)
 }
@@ -1222,7 +1231,8 @@ func (s *apiclientSuite) TestConnectStreamErrorBadConnection(c *gc.C) {
 	s.PatchValue(&api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
 		return nil, fmt.Errorf("bad connection")
 	})
-	reader, err := s.APIState.ConnectStream("/", nil)
+	conn := s.OpenControllerAPI(c)
+	reader, err := conn.ConnectStream("/", nil)
 	c.Assert(err, gc.ErrorMatches, "bad connection")
 	c.Assert(reader, gc.IsNil)
 }
@@ -1231,7 +1241,8 @@ func (s *apiclientSuite) TestConnectStreamErrorNoData(c *gc.C) {
 	s.PatchValue(&api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
 		return api.NewFakeStreamReader(&bytes.Buffer{}), nil
 	})
-	reader, err := s.APIState.ConnectStream("/", nil)
+	api := s.OpenControllerAPI(c)
+	reader, err := api.ConnectStream("/", nil)
 	c.Assert(err, gc.ErrorMatches, "unable to read initial response: EOF")
 	c.Assert(reader, gc.IsNil)
 }
@@ -1240,7 +1251,8 @@ func (s *apiclientSuite) TestConnectStreamErrorBadData(c *gc.C) {
 	s.PatchValue(&api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
 		return api.NewFakeStreamReader(strings.NewReader("junk\n")), nil
 	})
-	reader, err := s.APIState.ConnectStream("/", nil)
+	conn := s.OpenControllerAPI(c)
+	reader, err := conn.ConnectStream("/", nil)
 	c.Assert(err, gc.ErrorMatches, "unable to unmarshal initial response: .*")
 	c.Assert(reader, gc.IsNil)
 }
@@ -1250,7 +1262,8 @@ func (s *apiclientSuite) TestConnectStreamErrorReadError(c *gc.C) {
 		err := fmt.Errorf("bad read")
 		return api.NewFakeStreamReader(&badReader{err}), nil
 	})
-	reader, err := s.APIState.ConnectStream("/", nil)
+	conn := s.OpenControllerAPI(c)
+	reader, err := conn.ConnectStream("/", nil)
 	c.Assert(err, gc.ErrorMatches, "unable to read initial response: bad read")
 	c.Assert(reader, gc.IsNil)
 }
@@ -1265,13 +1278,15 @@ func (r *badReader) Read(p []byte) (n int, err error) {
 }
 
 func (s *apiclientSuite) TestConnectControllerStreamRejectsRelativePaths(c *gc.C) {
-	reader, err := s.APIState.ConnectControllerStream("foo", nil, nil)
+	conn := s.OpenControllerAPI(c)
+	reader, err := conn.ConnectControllerStream("foo", nil, nil)
 	c.Assert(err, gc.ErrorMatches, `path "foo" is not absolute`)
 	c.Assert(reader, gc.IsNil)
 }
 
 func (s *apiclientSuite) TestConnectControllerStreamRejectsModelPaths(c *gc.C) {
-	reader, err := s.APIState.ConnectControllerStream("/model/foo", nil, nil)
+	conn := s.OpenControllerAPI(c)
+	reader, err := conn.ConnectControllerStream("/model/foo", nil, nil)
 	c.Assert(err, gc.ErrorMatches, `path "/model/foo" is model-specific`)
 	c.Assert(reader, gc.IsNil)
 }
@@ -1283,7 +1298,8 @@ func (s *apiclientSuite) TestConnectControllerStreamAppliesHeaders(c *gc.C) {
 	headers.Add("anne", "boleyn")
 	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
 
-	_, err := s.APIState.ConnectControllerStream("/something", nil, headers)
+	conn := s.OpenControllerAPI(c)
+	_, err := conn.ConnectControllerStream("/something", nil, headers)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(catcher.Headers().Get("thomas"), gc.Equals, "cromwell")
 	c.Assert(catcher.Headers().Get("anne"), gc.Equals, "boleyn")
@@ -1323,7 +1339,8 @@ func (s *apiclientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 		"startTime":     {"2016-11-30T11:48:00.0000001Z"},
 	}
 
-	client := apiclient.NewClient(s.APIState)
+	conn := s.OpenControllerAPI(c)
+	client := apiclient.NewClient(conn)
 	_, err := client.WatchDebugLog(params)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1335,7 +1352,8 @@ func (s *apiclientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 }
 
 func (s *apiclientSuite) TestWatchDebugLogConnected(c *gc.C) {
-	cl := apiclient.NewClient(s.APIState)
+	conn := s.OpenControllerAPI(c)
+	cl := apiclient.NewClient(conn)
 	// Use the no tail option so we don't try to start a tailing cursor
 	// on the oplog when there is no oplog configured in mongo as the tests
 	// don't set up mongo in replicaset mode.
@@ -1347,44 +1365,36 @@ func (s *apiclientSuite) TestWatchDebugLogConnected(c *gc.C) {
 func (s *apiclientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
 	catcher := api.UrlCatcher{}
 	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
 	info := s.APIInfo(c)
-	info.ModelTag = model.ModelTag()
-	apistate, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	defer apistate.Close()
-	_, err = apistate.ConnectStream("/path", nil)
+	conn := s.OpenControllerModelAPI(c)
+	_, err := conn.ConnectStream("/path", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	connectURL, err := url.Parse(catcher.Location())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(connectURL.Path, gc.Matches, fmt.Sprintf("/model/%s/path", model.UUID()))
+	c.Assert(connectURL.Path, gc.Matches, fmt.Sprintf("/model/%s/path", info.ModelTag.Id()))
 }
 
 func (s *apiclientSuite) TestOpenUsesModelUUIDPaths(c *gc.C) {
 	info := s.APIInfo(c)
 
 	// Passing in the correct model UUID should work
-	model, err := s.State.Model()
+	conn, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
-	info.ModelTag = model.ModelTag()
-	apistate, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	apistate.Close()
+	conn.Close()
 
 	// Passing in an unknown model UUID should fail with a known error
 	info.ModelTag = names.NewModelTag("1eaf1e55-70ad-face-b007-70ad57001999")
-	apistate, err = api.Open(info, api.DialOpts{})
+	conn, err = api.Open(info, api.DialOpts{})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown model: "1eaf1e55-70ad-face-b007-70ad57001999"`,
 		Code:    "model not found",
 	})
 	c.Check(err, jc.Satisfies, params.IsCodeModelNotFound)
-	c.Assert(apistate, gc.IsNil)
+	c.Assert(conn, gc.IsNil)
 }
 
 type clientDNSNameSuite struct {
-	jjtesting.JujuConnSuite
+	jjtesting.ApiServerSuite
 }
 
 var _ = gc.Suite(&clientDNSNameSuite{})
@@ -1397,13 +1407,11 @@ func (s *clientDNSNameSuite) SetUpTest(c *gc.C) {
 		s.ControllerConfigAttrs = make(map[string]interface{})
 	}
 	s.ControllerConfigAttrs[controller.AutocertDNSNameKey] = "somewhere.example.com"
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 }
 
 func (s *clientDNSNameSuite) TestPublicDNSName(c *gc.C) {
-	apiInfo := s.APIInfo(c)
-	conn, err := api.Open(apiInfo, api.DialOpts{})
-	c.Assert(err, gc.IsNil)
+	conn := s.OpenControllerAPI(c)
 	c.Assert(conn.PublicDNSName(), gc.Equals, "somewhere.example.com")
 }
 

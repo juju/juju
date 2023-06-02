@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/golang/mock/gomock"
@@ -21,6 +22,7 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/environs"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -28,7 +30,7 @@ import (
 )
 
 type registrationSuite struct {
-	apiserverBaseSuite
+	jujutesting.ApiServerSuite
 	bob             *state.User
 	registrationURL string
 }
@@ -36,11 +38,11 @@ type registrationSuite struct {
 var _ = gc.Suite(&registrationSuite{})
 
 func (s *registrationSuite) SetUpTest(c *gc.C) {
-	s.apiserverBaseSuite.SetUpTest(c)
-	bob, err := s.State.AddUserWithSecretKey("bob", "", "admin")
+	s.ApiServerSuite.SetUpTest(c)
+	bob, err := s.ControllerModel(c).State().AddUserWithSecretKey("bob", "", "admin")
 	c.Assert(err, jc.ErrorIsNil)
 	s.bob = bob
-	s.registrationURL = s.server.URL + "/register"
+	s.registrationURL = s.URL("/register", url.Values{}).String()
 }
 
 func (s *registrationSuite) assertRegisterNoProxy(c *gc.C, hasProxy bool) {
@@ -112,9 +114,7 @@ func (s *registrationSuite) assertRegisterNoProxy(c *gc.C, hasProxy bool) {
 	err = json.Unmarshal(plaintext, &responsePayload)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(responsePayload.CACert, gc.Equals, coretesting.CACert)
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(responsePayload.ControllerUUID, gc.Equals, model.ControllerUUID())
+	c.Assert(responsePayload.ControllerUUID, gc.Equals, s.ControllerModel(c).ControllerUUID())
 	if hasProxy {
 		c.Assert(responsePayload.ProxyConfig, gc.DeepEquals, &params.Proxy{
 			Type: "kubernetes-port-forward", Config: rawConfig,

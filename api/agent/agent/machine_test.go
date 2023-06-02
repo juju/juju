@@ -29,7 +29,7 @@ func TestAll(t *stdtesting.T) {
 }
 
 type servingInfoSuite struct {
-	testing.JujuConnSuite
+	testing.ApiServerSuite
 }
 
 var _ = gc.Suite(&servingInfoSuite{})
@@ -44,7 +44,7 @@ func (s *servingInfoSuite) TestStateServingInfo(c *gc.C) {
 		APIPort:      33,
 		StatePort:    44,
 	}
-	err := s.State.SetStateServingInfo(ssi)
+	err := s.ControllerModel(c).State().SetStateServingInfo(ssi)
 	c.Assert(err, jc.ErrorIsNil)
 	apiSt, err := apiagent.NewState(st)
 	c.Assert(err, jc.ErrorIsNil)
@@ -65,7 +65,7 @@ func (s *servingInfoSuite) TestStateServingInfoPermission(c *gc.C) {
 }
 
 type machineSuite struct {
-	testing.JujuConnSuite
+	testing.ApiServerSuite
 	machine *state.Machine
 	st      api.Connection
 }
@@ -73,7 +73,7 @@ type machineSuite struct {
 var _ = gc.Suite(&machineSuite{})
 
 func (s *machineSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 	s.st, s.machine = s.OpenAPIAsNewMachine(c)
 }
 

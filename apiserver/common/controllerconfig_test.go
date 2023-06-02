@@ -103,7 +103,7 @@ func (s *controllerConfigSuite) TestControllerInfo(c *gc.C) {
 }
 
 type controllerInfoSuite struct {
-	jujutesting.JujuConnSuite
+	jujutesting.ApiServerSuite
 
 	localState *state.State
 	localModel *state.Model
@@ -112,8 +112,10 @@ type controllerInfoSuite struct {
 var _ = gc.Suite(&controllerInfoSuite{})
 
 func (s *controllerInfoSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.localState = s.Factory.MakeModel(c, nil)
+	s.ApiServerSuite.SetUpTest(c)
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	s.localState = f.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) {
 		s.localState.Close()
 	})
@@ -123,13 +125,12 @@ func (s *controllerInfoSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *controllerInfoSuite) TestControllerInfoLocalModel(c *gc.C) {
-	cc := common.NewStateControllerConfig(s.State)
+	cc := common.NewStateControllerConfig(s.localState)
 	results, err := cc.ControllerAPIInfoForModels(params.Entities{
 		Entities: []params.Entity{{Tag: s.localModel.ModelTag().String()}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	systemState, err := s.StatePool.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
+	systemState := s.ControllerModel(c).State()
 	apiAddr, err := systemState.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0].Addresses, gc.HasLen, 1)
@@ -138,7 +139,7 @@ func (s *controllerInfoSuite) TestControllerInfoLocalModel(c *gc.C) {
 }
 
 func (s *controllerInfoSuite) TestControllerInfoExternalModel(c *gc.C) {
-	ec := state.NewExternalControllers(s.State)
+	ec := state.NewExternalControllers(s.localState)
 	modelUUID := utils.MustNewUUID().String()
 	info := crossmodel.ControllerInfo{
 		ControllerTag: testing.ControllerTag,
@@ -147,7 +148,7 @@ func (s *controllerInfoSuite) TestControllerInfoExternalModel(c *gc.C) {
 	}
 	_, err := ec.Save(info, modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	cc := common.NewStateControllerConfig(s.State)
+	cc := common.NewStateControllerConfig(s.localState)
 	results, err := cc.ControllerAPIInfoForModels(params.Entities{
 		Entities: []params.Entity{{Tag: names.NewModelTag(modelUUID).String()}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -157,8 +158,10 @@ func (s *controllerInfoSuite) TestControllerInfoExternalModel(c *gc.C) {
 }
 
 func (s *controllerInfoSuite) TestControllerInfoMigratedController(c *gc.C) {
-	cc := common.NewStateControllerConfig(s.State)
-	modelState := s.Factory.MakeModel(c, &factory.ModelParams{})
+	cc := common.NewStateControllerConfig(s.localState)
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	modelState := f.MakeModel(c, &factory.ModelParams{})
 	model, err := modelState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 

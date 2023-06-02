@@ -26,10 +26,10 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-// MacaroonSuite wraps a JujuConnSuite with macaroon authentication
+// MacaroonSuite wraps a ApiServerSuite with macaroon authentication
 // enabled.
 type MacaroonSuite struct {
-	jujutesting.JujuConnSuite
+	jujutesting.ApiServerSuite
 
 	// discharger holds the third-party discharger used
 	// for authentication.
@@ -63,15 +63,15 @@ func (s *MacaroonSuite) SetUpTest(c *gc.C) {
 		}
 		return []checkers.Caveat{checkers.DeclaredCaveat("username", username)}, nil
 	})
-	s.JujuConnSuite.ControllerConfigAttrs = map[string]interface{}{
+	s.ApiServerSuite.ControllerConfigAttrs = map[string]interface{}{
 		controller.IdentityURL: s.discharger.Location(),
 	}
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 }
 
 func (s *MacaroonSuite) TearDownTest(c *gc.C) {
 	s.discharger.Close()
-	s.JujuConnSuite.TearDownTest(c)
+	s.ApiServerSuite.TearDownTest(c)
 }
 
 // DischargerLocation returns the URL of the third party caveat
@@ -87,7 +87,9 @@ func (s *MacaroonSuite) AddModelUser(c *gc.C, username string) {
 	if names.NewUserTag(username).IsLocal() {
 		panic("cannot use MacaroonSuite.AddModelUser to add a local name")
 	}
-	s.Factory.MakeModelUser(c, &factory.ModelUserParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	f.MakeModelUser(c, &factory.ModelUserParams{
 		User: username,
 	})
 }
@@ -95,9 +97,9 @@ func (s *MacaroonSuite) AddModelUser(c *gc.C, username string) {
 // AddControllerUser is a convenience funcation that adds
 // a controller user with the specified access.
 func (s *MacaroonSuite) AddControllerUser(c *gc.C, username string, access permission.Access) {
-	_, err := s.State.AddControllerUser(state.UserAccessSpec{
+	_, err := s.ControllerModel(c).State().AddControllerUser(state.UserAccessSpec{
 		User:      names.NewUserTag(username),
-		CreatedBy: s.AdminUserTag(c),
+		CreatedBy: jujutesting.AdminUser,
 		Access:    access,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -125,7 +127,7 @@ func (s *MacaroonSuite) OpenAPI(c *gc.C, info *api.Info, jar http.CookieJar) api
 // APIInfo returns API connection info suitable for
 // connecting to the API using macaroon authentication.
 func (s *MacaroonSuite) APIInfo(c *gc.C) *api.Info {
-	info := s.JujuConnSuite.APIInfo(c)
+	info := s.ApiServerSuite.ControllerModelApiInfo()
 	info.Tag = nil
 	info.Password = ""
 	// Fill in any old macaroon to ensure we don't attempt

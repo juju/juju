@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -23,24 +24,20 @@ import (
 // API server to ensure that the server shuts down the API connection
 // as expected once there's been no pings within the timeout period.
 type pingerSuite struct {
-	apiserverBaseSuite
+	jujutesting.ApiServerSuite
 }
 
 var _ = gc.Suite(&pingerSuite{})
 
-func (s *pingerSuite) newServerWithTestClock(c *gc.C) (*apiserver.Server, *testclock.Clock) {
-	clock := testclock.NewClock(time.Now())
-	config := s.config
-	config.PingClock = clock
-	server := s.newServer(c, config)
-	return server, clock
+func (s *pingerSuite) SetUpTest(c *gc.C) {
+	s.Clock = testclock.NewDilatedWallClock(time.Millisecond)
+	s.ApiServerSuite.SetUpTest(c)
 }
 
 func (s *pingerSuite) TestConnectionBrokenDetection(c *gc.C) {
-	server, clock := s.newServerWithTestClock(c)
-	conn, _ := s.OpenAPIAsNewMachine(c, server)
+	conn, _ := s.OpenAPIAsNewMachine(c)
 
-	clock.Advance(api.PingPeriod)
+	s.Clock.Advance(api.PingPeriod)
 	// Connection still alive
 	select {
 	case <-conn.Broken():
@@ -51,7 +48,7 @@ func (s *pingerSuite) TestConnectionBrokenDetection(c *gc.C) {
 
 	conn.Close()
 
-	clock.Advance(api.PingPeriod + time.Second)
+	s.Clock.Advance(api.PingPeriod + time.Second)
 	// Check it's detected
 	select {
 	case <-time.After(coretesting.ShortWait):
@@ -65,8 +62,7 @@ func (s *pingerSuite) TestPing(c *gc.C) {
 	tw := &loggo.TestWriter{}
 	c.Assert(loggo.RegisterWriter("ping-tester", tw), gc.IsNil)
 
-	server, _ := s.newServerWithTestClock(c)
-	conn, _ := s.OpenAPIAsNewMachine(c, server)
+	conn, _ := s.OpenAPIAsNewMachine(c)
 
 	c.Assert(pingConn(conn), jc.ErrorIsNil)
 	c.Assert(conn.Close(), jc.ErrorIsNil)
@@ -80,67 +76,50 @@ func (s *pingerSuite) TestPing(c *gc.C) {
 }
 
 func (s *pingerSuite) TestClientNoNeedToPing(c *gc.C) {
-	server, clock := s.newServerWithTestClock(c)
-	conn := s.OpenAPIAsAdmin(c, server)
+	conn := s.OpenControllerModelAPI(c)
 
 	// Here we have a conundrum, we can't wait for a clock alarm because
 	// one isn't set because we don't have pingers for clients. So just
 	// a short wait then.
 	time.Sleep(coretesting.ShortWait)
 
-	clock.Advance(apiserver.MaxClientPingInterval * 2)
+	s.Clock.Advance(apiserver.MaxClientPingInterval * 2)
 	time.Sleep(coretesting.ShortWait)
 	c.Assert(pingConn(conn), jc.ErrorIsNil)
 }
 
 func (s *pingerSuite) TestAgentConnectionShutsDownWithNoPing(c *gc.C) {
 	coretesting.SkipFlaky(c, "lp:1627086")
-	server, clock := s.newServerWithTestClock(c)
-	conn, _ := s.OpenAPIAsNewMachine(c, server)
+	conn, _ := s.OpenAPIAsNewMachine(c)
 
-	waitAndAdvance(c, clock, apiserver.MaxClientPingInterval*2)
+	s.Clock.Advance(apiserver.MaxClientPingInterval * 2)
 	checkConnectionDies(c, conn)
 }
 
 func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
 	coretesting.SkipFlaky(c, "lp:1632485")
-	server, clock := s.newServerWithTestClock(c)
-	conn, _ := s.OpenAPIAsNewMachine(c, server)
+	conn, _ := s.OpenAPIAsNewMachine(c)
 
 	// As long as we don't wait too long, the connection stays open
 	attemptDelay := apiserver.MaxClientPingInterval / 2
 	for i := 0; i < 10; i++ {
-		waitAndAdvance(c, clock, attemptDelay)
+		s.Clock.Advance(attemptDelay)
 		c.Assert(pingConn(conn), jc.ErrorIsNil)
 	}
 
 	// However, once we stop pinging for too long, the connection dies
-	waitAndAdvance(c, clock, apiserver.MaxClientPingInterval*2)
+	s.Clock.Advance(apiserver.MaxClientPingInterval * 2)
 	checkConnectionDies(c, conn)
 }
 
 func (s *pingerSuite) TestAgentConnectionsShutDownWhenAPIServerDies(c *gc.C) {
-	server := s.newServerDirtyKill(c, s.config)
-	conn, _ := s.OpenAPIAsNewMachine(c, server)
+	conn, _ := s.OpenAPIAsNewMachine(c)
 
 	err := pingConn(conn)
 	c.Assert(err, jc.ErrorIsNil)
-	server.Kill()
+	s.Server.Kill()
 
 	checkConnectionDies(c, conn)
-}
-
-func waitAndAdvance(c *gc.C, clock *testclock.Clock, delta time.Duration) {
-	waitForClock(c, clock)
-	clock.Advance(delta)
-}
-
-func waitForClock(c *gc.C, clock *testclock.Clock) {
-	select {
-	case <-clock.Alarms():
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for clock")
-	}
 }
 
 func checkConnectionDies(c *gc.C, conn api.Connection) {

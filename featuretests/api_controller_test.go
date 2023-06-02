@@ -17,15 +17,15 @@ import (
 // the Go API.
 
 type ControllerSuite struct {
-	testing.JujuConnSuite
+	testing.ApiServerSuite
 	client *controller.Client
 }
 
 func (s *ControllerSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 
-	userConn := s.OpenControllerAPI(c)
-	s.client = controller.NewClient(userConn)
+	api := s.OpenControllerAPI(c)
+	s.client = controller.NewClient(api)
 	s.AddCleanup(func(*gc.C) { s.client.Close() })
 }
 

@@ -35,19 +35,6 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
-/*
-TODO(wallyworld)
-DO NOT COPY THE METHODOLOGY USED IN THE relationResolverSuite.
-We want to write unit tests without resorting to JujuConnSuite.
-However, the current api/uniter code uses structs instead of
-interfaces for its component model, and it's not possible to
-implement a stub uniter api at the model level due to the way
-the domain objects reference each other.
-
-The best we can do for now is to stub out the facade caller and
-return curated values for each API call.
-*/
-
 type relationResolverSuite struct {
 	coretesting.BaseSuite
 

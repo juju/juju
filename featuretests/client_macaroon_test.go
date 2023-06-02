@@ -56,7 +56,7 @@ func (s *clientMacaroonSuite) TestAddLocalCharmWithFailedDischarge(c *gc.C) {
 }
 
 func (s *clientMacaroonSuite) TestAddLocalCharmSuccess(c *gc.C) {
-	charmClient := charms.NewClient(s.APIState)
+	charmClient := charms.NewClient(s.OpenControllerModelAPI(c))
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),

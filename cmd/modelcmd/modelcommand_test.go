@@ -12,7 +12,6 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -483,13 +482,12 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 
 	s.controllerName = "my-controller"
 	s.modelName = testUser + "/my-model"
-	modelTag := names.NewModelTag(s.State.ModelUUID())
 	apiInfo := s.APIInfo(c)
 
 	s.store = jujuclient.NewMemStore()
 	s.store.Controllers[s.controllerName] = jujuclient.ControllerDetails{
 		APIEndpoints:   apiInfo.Addrs,
-		ControllerUUID: s.State.ControllerUUID(),
+		ControllerUUID: s.ControllerModel(c).ControllerUUID(),
 		CACert:         apiInfo.CACert,
 	}
 	s.store.Accounts[s.controllerName] = jujuclient.AccountDetails{
@@ -498,7 +496,7 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	}
 	s.store.Models[s.controllerName] = &jujuclient.ControllerModels{
 		Models: map[string]jujuclient.ModelDetails{
-			s.modelName: {ModelUUID: modelTag.Id(), ModelType: model.IAAS},
+			s.modelName: {ModelUUID: s.ControllerModelUUID(), ModelType: model.IAAS},
 		},
 	}
 	s.apiOpen = func(info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {

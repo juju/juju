@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	apitesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
@@ -26,15 +28,15 @@ import (
 var _ = gc.Suite(&backupsSuite{})
 
 type backupsSuite struct {
-	apiserverBaseSuite
+	testing.ApiServerSuite
 	backupURL string
 	fake      *backupstesting.FakeBackups
 }
 
 func (s *backupsSuite) SetUpTest(c *gc.C) {
-	s.apiserverBaseSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 
-	s.backupURL = s.server.URL + fmt.Sprintf("/model/%s/backups", s.State.ModelUUID())
+	s.backupURL = s.URL(fmt.Sprintf("/model/%s/backups", s.ControllerModelUUID()), url.Values{}).String()
 	s.fake = &backupstesting.FakeBackups{}
 	s.PatchValue(apiserver.NewBackups,
 		func(path *backups.Paths) backups.Backups {
@@ -68,7 +70,7 @@ func (s *backupsSuite) TestRequiresAuth(c *gc.C) {
 }
 
 func (s *backupsSuite) checkInvalidMethod(c *gc.C, method, url string) {
-	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: method, URL: url})
+	resp := sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: method, URL: url})
 	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "`+method+`"`)
 }
 
@@ -82,7 +84,7 @@ func (s *backupsSuite) TestInvalidHTTPMethods(c *gc.C) {
 
 func (s *backupsSuite) TestAuthRequiresClientNotMachine(c *gc.C) {
 	// Add a machine and try to login.
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("foo", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -104,7 +106,7 @@ func (s *backupsSuite) TestAuthRequiresClientNotMachine(c *gc.C) {
 	c.Assert(string(body), gc.Equals, "authorization failed: machine 0 is not a user\n")
 
 	// Now try a user login.
-	resp = s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.backupURL})
+	resp = sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.backupURL})
 	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "POST"`)
 }
 
@@ -119,7 +121,7 @@ func (s *backupsSuite) sendValidGet(c *gc.C) (resp *http.Response, archiveBytes 
 	s.fake.Meta = meta
 	s.fake.Archive = io.NopCloser(archive)
 
-	return s.sendHTTPRequest(c, apitesting.HTTPRequestParams{
+	return sendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:      "GET",
 		URL:         s.backupURL,
 		ContentType: params.ContentTypeJSON,

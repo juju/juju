@@ -22,13 +22,14 @@ import (
 	"github.com/juju/juju/apiserver/mocks"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/resources"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
 
 type resourcesUploadSuite struct {
-	apiserverBaseSuite
+	jujutesting.ApiServerSuite
 	appName        string
 	unit           *state.Unit
 	importingState *state.State
@@ -38,16 +39,19 @@ type resourcesUploadSuite struct {
 var _ = gc.Suite(&resourcesUploadSuite{})
 
 func (s *resourcesUploadSuite) SetUpTest(c *gc.C) {
-	s.apiserverBaseSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 
 	// Create an importing model to work with.
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	release()
 	var err error
-	s.importingState = s.Factory.MakeModel(c, nil)
+	s.importingState = f.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { s.importingState.Close() })
 	s.importingModel, err = s.importingState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	newFactory := factory.NewFactory(s.importingState, s.StatePool)
+	newFactory, release := s.NewFactory(c, s.importingModel.UUID())
+	defer release()
 	app := newFactory.MakeApplication(c, nil)
 	s.appName = app.Name()
 
@@ -63,7 +67,7 @@ func (s *resourcesUploadSuite) sendHTTPRequest(c *gc.C, p apitesting.HTTPRequest
 	p.ExtraHeaders = map[string]string{
 		params.MigrationModelHTTPHeader: s.importingModel.UUID(),
 	}
-	return s.apiserverBaseSuite.sendHTTPRequest(c, p)
+	return sendHTTPRequest(c, p)
 }
 
 func (s *resourcesUploadSuite) TestServedSecurely(c *gc.C) {
@@ -94,7 +98,9 @@ func (s *resourcesUploadSuite) TestPOSTRequiresAuth(c *gc.C) {
 
 func (s *resourcesUploadSuite) TestPOSTRequiresUserAuth(c *gc.C) {
 	// Add a machine and try to login.
-	machine, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	release()
+	machine, password := f.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce: "noncy",
 	})
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
@@ -121,7 +127,7 @@ func (s *resourcesUploadSuite) TestRejectsInvalidModel(c *gc.C) {
 			params.MigrationModelHTTPHeader: "dead-beef-123456",
 		},
 	}
-	resp := s.apiserverBaseSuite.sendHTTPRequest(c, params)
+	resp := sendHTTPRequest(c, params)
 	s.assertErrorResponse(c, resp, http.StatusNotFound, `.*unknown model: "dead-beef-123456"`)
 }
 

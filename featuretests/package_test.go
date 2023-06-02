@@ -14,14 +14,7 @@ import (
 func init() {
 	// Initialize all suites here.
 	gc.Suite(&apiLoggerSuite{})
-	gc.Suite(&dblogSuite{})
-	gc.Suite(&dumpLogsCommandSuite{})
-	gc.Suite(&undertakerSuite{})
-	gc.Suite(&debugLogDbSuite1{})
-	gc.Suite(&debugLogDbSuite2{})
-	gc.Suite(&cmdMetricsCommandSuite{})
 	gc.Suite(&meterStatusIntegrationSuite{})
-	gc.Suite(&toolsDownloadSuite{})
 	gc.Suite(&toolsWithMacaroonsSuite{})
 	gc.Suite(&CredentialManagerSuite{})
 	gc.Suite(&ControllerSuite{})

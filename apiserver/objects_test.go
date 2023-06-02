@@ -13,21 +13,22 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apitesting "github.com/juju/juju/apiserver/testing"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
 type objectsSuite struct {
-	apiserverBaseSuite
+	jujutesting.ApiServerSuite
 }
 
 var _ = gc.Suite(&objectsSuite{})
 
 func (s *objectsSuite) SetUpSuite(c *gc.C) {
-	s.apiserverBaseSuite.SetUpSuite(c)
+	s.ApiServerSuite.SetUpSuite(c)
 }
 
 func (s *objectsSuite) objectsCharmsURL(charmurl string) *url.URL {
-	return s.URL(fmt.Sprintf("/model-%s/charms/%s", s.State.ModelUUID(), charmurl), nil)
+	return s.URL(fmt.Sprintf("/model-%s/charms/%s", s.ControllerModelUUID(), charmurl), nil)
 }
 
 func (s *objectsSuite) objectsCharmsURI(charmurl string) string {
@@ -64,14 +65,14 @@ func (s *objectsSuite) TestGETRequiresAuth(c *gc.C) {
 }
 
 func (s *objectsSuite) TestOnlyMethodGET(c *gc.C) {
-	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "PUT", URL: s.objectsCharmsURI("somecharm-abcd0123")})
+	resp := sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "PUT", URL: s.objectsCharmsURI("somecharm-abcd0123")})
 	body := apitesting.AssertResponse(c, resp, http.StatusMethodNotAllowed, "text/plain; charset=utf-8")
 	c.Assert(string(body), gc.Equals, "Method Not Allowed\n")
 }
 
 func (s *objectsSuite) TestGetFailsWithInvalidObjectSha256(c *gc.C) {
 	uri := s.objectsCharmsURI("invalidsha256")
-	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
+	resp := sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
 	s.assertErrorResponse(
 		c, resp, http.StatusBadRequest,
 		`.*wrong charms object path "invalidsha256"$`,
@@ -80,20 +81,20 @@ func (s *objectsSuite) TestGetFailsWithInvalidObjectSha256(c *gc.C) {
 
 func (s *objectsSuite) TestInvalidBucket(c *gc.C) {
 	wrongURL := s.URL("modelwrongbucket/charms/somecharm-abcd0123", nil)
-	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: wrongURL.String()})
+	resp := sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: wrongURL.String()})
 	body := apitesting.AssertResponse(c, resp, http.StatusBadRequest, "text/plain; charset=utf-8")
 	c.Assert(string(body), gc.Equals, "invalid bucket format \"modelwrongbucket\"\n")
 }
 
 func (s *objectsSuite) TestInvalidModel(c *gc.C) {
 	wrongURL := s.URL("model-wrongbucket/charms/somecharm-abcd0123", nil)
-	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: wrongURL.String()})
+	resp := sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: wrongURL.String()})
 	body := apitesting.AssertResponse(c, resp, http.StatusBadRequest, "text/plain; charset=utf-8")
 	c.Assert(string(body), gc.Equals, "invalid model UUID \"wrongbucket\"\n")
 }
 
 func (s *objectsSuite) TestInvalidObject(c *gc.C) {
-	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: s.objectsCharmsURI("invalidcharm")})
+	resp := sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: s.objectsCharmsURI("invalidcharm")})
 	body := apitesting.AssertResponse(c, resp, http.StatusBadRequest, "application/json")
 	c.Assert(string(body), gc.Equals, "{\"error\":\"cannot retrieve charm: wrong charms object path \\\"invalidcharm\\\"\",\"error-code\":\"bad request\"}")
 }

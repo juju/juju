@@ -29,13 +29,15 @@ import (
 )
 
 type baseSuite struct {
-	testing.JujuConnSuite
+	testing.ApiServerSuite
 	commontesting.BlockHelper
 }
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
+	s.ApiServerSuite.WithLeaseManager = true
+	s.ApiServerSuite.SetUpTest(c)
+	conn := s.OpenControllerModelAPI(c)
+	s.BlockHelper = commontesting.NewBlockHelper(conn)
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 }
 
@@ -50,12 +52,12 @@ type apiAuthenticator interface {
 }
 
 func setDefaultPassword(c *gc.C, e apiAuthenticator) {
-	err := e.SetPassword(defaultPassword(e))
+	err := e.SetPassword(defaultPassword(e.Tag()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func defaultPassword(e apiAuthenticator) string {
-	return e.Tag().String() + " password-1234567890"
+func defaultPassword(tag names.Tag) string {
+	return tag.String() + " password-1234567890"
 }
 
 type setStatuser interface {
@@ -76,7 +78,7 @@ func setDefaultStatus(c *gc.C, entity setStatuser) {
 // openAs connects to the API state as the given entity
 // with the default password for that entity.
 func (s *baseSuite) openAs(c *gc.C, tag names.Tag) api.Connection {
-	info := s.APIInfo(c)
+	info := s.ControllerModelApiInfo()
 	info.Tag = tag
 	// Must match defaultPassword()
 	info.Password = fmt.Sprintf("%s password-1234567890", tag)
@@ -96,8 +98,8 @@ var scenarioStatus = &params.FullStatus{
 	Model: params.ModelStatusInfo{
 		Name:        "controller",
 		Type:        "iaas",
-		CloudTag:    "cloud-dummy",
-		CloudRegion: "dummy-region",
+		CloudTag:    "cloud-" + testing.DefaultCloud.Name,
+		CloudRegion: testing.DefaultCloudRegion,
 		Version:     "2.0.0",
 		ModelStatus: params.DetailedStatus{
 			Status: "available",
@@ -392,19 +394,22 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	add := func(e state.Entity) {
 		entities = append(entities, e.Tag())
 	}
-	u, err := s.State.User(s.AdminUserTag(c))
+	st := s.ControllerModel(c).State()
+	u, err := st.User(testing.AdminUser)
 	c.Assert(err, jc.ErrorIsNil)
 	setDefaultPassword(c, u)
 	add(u)
-	err = s.Model.UpdateModelConfig(map[string]interface{}{
+	err = s.ControllerModel(c).UpdateModelConfig(map[string]interface{}{
 		config.AgentVersionKey: "2.0.0"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	u = s.Factory.MakeUser(c, &factory.UserParams{Name: "other"})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	u = f.MakeUser(c, &factory.UserParams{Name: "other"})
 	setDefaultPassword(c, u)
 	add(u)
 
-	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
+	m, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
 	err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "", "fake_nonce", nil)
@@ -412,15 +417,28 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	setDefaultPassword(c, m)
 	setDefaultStatus(c, m)
 	add(m)
-	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err := s.State.InferEndpoints("logging", "wordpress")
+
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql", URL: "local:quantal/mysql-1"})
+	f.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "mysql",
+		Charm: ch,
+	})
+	wpch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", URL: "local:quantal/wordpress-3"})
+	wordpress := f.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "wordpress",
+		Charm: wpch,
+	})
+	loggingch := f.MakeCharm(c, &factory.CharmParams{Name: "logging", URL: "local:quantal/logging-1"})
+	f.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "logging",
+		Charm: loggingch,
+	})
+	eps, err := st.InferEndpoints("logging", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.State.AddRelation(eps...)
+	rel, err := st.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+	_, err = st.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "remote-db2",
 		OfferUUID:   "offer-uuid",
 		URL:         "admin/prod.db2",
@@ -435,7 +453,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+	_, err = st.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:            "mediawiki",
 		SourceModel:     coretesting.ModelTag,
 		IsConsumerProxy: true,
@@ -449,11 +467,11 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	eps, err = s.State.InferEndpoints("mediawiki", "mysql")
+	eps, err = st.InferEndpoints("mediawiki", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	mwRel, err := s.State.AddRelation(eps...)
+	mwRel, err := st.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
-	offers := state.NewApplicationOffers(s.State)
+	offers := state.NewApplicationOffers(st)
 	offer, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
 		ApplicationName: "mysql",
@@ -461,7 +479,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		Endpoints:       map[string]string{"database": "server"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
+	_, err = st.AddOfferConnection(state.AddOfferConnectionParams{
 		SourceModelUUID: coretesting.ModelTag.Id(),
 		Username:        "fred",
 		OfferUUID:       offer.OfferUUID,
@@ -477,7 +495,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		setDefaultPassword(c, wu)
 		add(wu)
 
-		m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+		m, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(m.Tag(), gc.Equals, names.NewMachineTag(fmt.Sprintf("%d", i+1)))
 		if i == 1 {
@@ -521,7 +539,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		err = wru.EnterScope(nil)
 		c.Assert(err, jc.ErrorIsNil)
 
-		lu, err := s.State.Unit(fmt.Sprintf("logging/%d", i))
+		lu, err := st.Unit(fmt.Sprintf("logging/%d", i))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(lu.IsPrincipal(), jc.IsFalse)
 		setDefaultPassword(c, lu)

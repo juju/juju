@@ -31,7 +31,7 @@ func TestAll(t *stdtesting.T) {
 }
 
 type stateSuite struct {
-	jujutesting.JujuConnSuite
+	jujutesting.ApiServerSuite
 }
 
 var _ = gc.Suite(&stateSuite{})
@@ -42,51 +42,54 @@ type slideSuite struct {
 
 var _ = gc.Suite(&slideSuite{})
 
-func (s *stateSuite) TestCloseMultipleOk(c *gc.C) {
-	c.Assert(s.APIState.Close(), gc.IsNil)
-	c.Assert(s.APIState.Close(), gc.IsNil)
-	c.Assert(s.APIState.Close(), gc.IsNil)
+func (s *stateSuite) openAPI(c *gc.C) api.Connection {
+	apiInfo := s.ControllerModelApiInfo()
+	apiInfo.Tag = jujutesting.AdminUser
+	apiInfo.Password = jujutesting.AdminSecret
+	conn, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, gc.IsNil)
+	return conn
 }
 
-// OpenAPIWithoutLogin connects to the API and returns an api.State without
-// actually calling st.Login already. The returned strings are the "tag" and
-// "password" that we would have used to login.
-func (s *stateSuite) OpenAPIWithoutLogin(c *gc.C) (api.Connection, names.Tag, string) {
-	info := s.APIInfo(c)
-	tag := info.Tag
-	password := info.Password
+func (s *stateSuite) TestCloseMultipleOk(c *gc.C) {
+	conn := s.openAPI(c)
+	c.Assert(conn.Close(), gc.IsNil)
+	c.Assert(conn.Close(), gc.IsNil)
+	c.Assert(conn.Close(), gc.IsNil)
+}
+
+// openAPIWithoutLogin connects to the API and returns an api.State without
+// actually calling st.Login already.
+func (s *stateSuite) openAPIWithoutLogin(c *gc.C) api.Connection {
+	info := s.ControllerModelApiInfo()
 	info.Tag = nil
 	info.Password = ""
 	info.Macaroons = nil
 	info.SkipLogin = true
-	apistate, err := api.Open(info, api.DialOpts{})
+	conn, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
-	return apistate, tag, password
+	return conn
 }
 
 func (s *stateSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
-	hostportslist := s.APIState.APIHostPorts()
+	conn := s.openAPI(c)
+	hostportslist := conn.APIHostPorts()
 	c.Check(hostportslist, gc.HasLen, 1)
 	serverhostports := hostportslist[0]
 	c.Check(serverhostports, gc.HasLen, 1)
 
-	info := s.APIInfo(c)
-
 	// We intentionally set this to invalid values
 	badServers := network.NewSpaceHostPorts(1234, "0.1.2.3")
 	badServers[0].Scope = network.ScopeMachineLocal
-	err := s.State.SetAPIHostPorts([]network.SpaceHostPorts{badServers})
+	err := s.ControllerModel(c).State().SetAPIHostPorts([]network.SpaceHostPorts{badServers})
 	c.Assert(err, jc.ErrorIsNil)
 
-	apistate, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { _ = apistate.Close() }()
-
+	conn2 := s.openAPI(c)
 	hp, err := network.ParseMachineHostPort(badServers[0].String())
 	c.Assert(err, jc.ErrorIsNil)
 	hp.Scope = badServers[0].Scope
 
-	hostports := apistate.APIHostPorts()
+	hostports := conn2.APIHostPorts()
 	c.Check(hostports, gc.DeepEquals, []network.MachineHostPorts{
 		serverhostports,
 		{*hp},
@@ -94,10 +97,9 @@ func (s *stateSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
 }
 
 func (s *stateSuite) TestAPIHostPortsDoesNotIncludeConnectionProxy(c *gc.C) {
-	info := s.APIInfo(c)
 	conn := newRPCConnection()
 	conn.response = &params.LoginResult{
-		ControllerTag: "controller-" + s.ControllerConfig.ControllerUUID(),
+		ControllerTag: coretesting.ControllerTag.String(),
 		ServerVersion: "2.3-rc2",
 		Servers: [][]params.HostPort{
 			{
@@ -122,7 +124,7 @@ func (s *stateSuite) TestAPIHostPortsDoesNotIncludeConnectionProxy(c *gc.C) {
 		Closed:        make(chan struct{}),
 		Proxier:       proxytest.NewMockTunnelProxier(),
 	})
-	err := testState.Login(info.Tag, info.Password, "", nil)
+	err := testState.Login(names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	hostPortList := testState.APIHostPorts()
@@ -133,28 +135,28 @@ func (s *stateSuite) TestAPIHostPortsDoesNotIncludeConnectionProxy(c *gc.C) {
 }
 
 func (s *stateSuite) TestTags(c *gc.C) {
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	apistate, tag, password := s.OpenAPIWithoutLogin(c)
-	defer apistate.Close()
+	conn := s.openAPIWithoutLogin(c)
+	defer conn.Close()
 	// Even though we haven't called Login, the model tag should
 	// still be set.
-	modelTag, ok := apistate.ModelTag()
+	modelTag, ok := conn.ModelTag()
 	c.Check(ok, jc.IsTrue)
+	model := s.ControllerModel(c)
 	c.Check(modelTag, gc.Equals, model.ModelTag())
-	err = apistate.Login(tag, password, "", nil)
+	err := conn.Login(jujutesting.AdminUser, jujutesting.AdminSecret, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Now that we've logged in, ModelTag should still be the same.
-	modelTag, ok = apistate.ModelTag()
+	modelTag, ok = conn.ModelTag()
 	c.Check(ok, jc.IsTrue)
 	c.Check(modelTag, gc.Equals, model.ModelTag())
-	controllerTag := apistate.ControllerTag()
+	controllerTag := conn.ControllerTag()
 	c.Check(controllerTag, gc.Equals, coretesting.ControllerTag)
 }
 
 func (s *stateSuite) TestLoginSetsControllerAccess(c *gc.C) {
 	// The default user has admin access.
-	c.Assert(s.APIState.ControllerAccess(), gc.Equals, "superuser")
+	conn := s.OpenControllerModelAPI(c)
+	c.Assert(conn.ControllerAccess(), gc.Equals, "superuser")
 
 	manager := usermanager.NewClient(s.OpenControllerAPI(c))
 	defer manager.Close()
@@ -162,19 +164,21 @@ func (s *stateSuite) TestLoginSetsControllerAccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	mmanager := modelmanager.NewClient(s.OpenControllerAPI(c))
 	defer mmanager.Close()
-	modeltag, ok := s.APIState.ModelTag()
+	modeltag, ok := conn.ModelTag()
 	c.Assert(ok, jc.IsTrue)
 	err = mmanager.GrantModel(usertag.Id(), "read", modeltag.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	conn := s.OpenAPIAs(c, usertag, "ro-password")
+	conn = s.OpenControllerAPIAs(c, usertag, "ro-password")
 	c.Assert(conn.ControllerAccess(), gc.Equals, "login")
 }
 
 func (s *stateSuite) TestLoginToMigratedModel(c *gc.C) {
-	modelOwner := s.Factory.MakeUser(c, &factory.UserParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	modelOwner := f.MakeUser(c, &factory.UserParams{
 		Password: "secret",
 	})
-	modelState := s.Factory.MakeModel(c, &factory.ModelParams{
+	modelState := f.MakeModel(c, &factory.ModelParams{
 		Owner: modelOwner.UserTag(),
 	})
 	defer modelState.Close()
@@ -203,8 +207,7 @@ func (s *stateSuite) TestLoginToMigratedModel(c *gc.C) {
 
 	// Attempt to open an API connection to the migrated model as a user
 	// that had access to the model before it got migrated.
-	info := s.APIInfo(c)
-	info.ModelTag = model.ModelTag()
+	info := s.ModelApiInfo(model.UUID())
 	info.Tag = modelOwner.Tag()
 	info.Password = "secret"
 	_, err = api.Open(info, api.DialOpts{})
@@ -220,26 +223,26 @@ func (s *stateSuite) TestLoginToMigratedModel(c *gc.C) {
 }
 
 func (s *stateSuite) TestLoginMacaroonInvalidId(c *gc.C) {
-	apistate, tag, _ := s.OpenAPIWithoutLogin(c)
-	defer apistate.Close()
+	conn := s.openAPIWithoutLogin(c)
+	defer conn.Close()
 	mac, err := macaroon.New([]byte("root-key"), []byte("id"), "juju", macaroon.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
-	err = apistate.Login(tag, "", "", []macaroon.Slice{{mac}})
+	err = conn.Login(jujutesting.AdminUser, "", "", []macaroon.Slice{{mac}})
 	c.Assert(err, gc.ErrorMatches, "interaction required but not possible")
 }
 
 func (s *stateSuite) TestBestFacadeVersion(c *gc.C) {
-	c.Check(s.APIState.BestFacadeVersion("Client"), gc.Equals, 6)
+	conn := s.OpenControllerModelAPI(c)
+	c.Check(conn.BestFacadeVersion("Client"), gc.Equals, 6)
 }
 
 func (s *stateSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
-	hostPortsList := s.APIState.APIHostPorts()
+	conn := s.OpenControllerAPI(c)
+	hostPortsList := conn.APIHostPorts()
 	c.Check(hostPortsList, gc.HasLen, 1)
 	serverHostPorts := hostPortsList[0]
 	c.Check(serverHostPorts, gc.HasLen, 1)
 	goodAddress := serverHostPorts[0]
-
-	info := s.APIInfo(c)
 
 	// We intentionally set this to invalid values
 	badValue := network.MachineHostPort{
@@ -279,14 +282,11 @@ func (s *stateSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
 			},
 		},
 	}
-	err := s.State.SetAPIHostPorts(current)
+	err := s.ControllerModel(c).State().SetAPIHostPorts(current)
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiState, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { _ = apiState.Close() }()
-
-	hostPorts := apiState.APIHostPorts()
+	conn2 := s.OpenControllerAPI(c)
+	hostPorts := conn2.APIHostPorts()
 	// We should have rotate the server we connected to as the first item,
 	// and the address of that server as the first address
 	sortedServer := []network.MachineHostPort{

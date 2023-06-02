@@ -27,7 +27,7 @@ import (
 )
 
 type httpSuite struct {
-	jujutesting.JujuConnSuite
+	jujutesting.ApiServerSuite
 
 	client *httprequest.Client
 }
@@ -35,9 +35,10 @@ type httpSuite struct {
 var _ = gc.Suite(&httpSuite{})
 
 func (s *httpSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 
-	client, err := s.APIState.HTTPClient()
+	conn := s.OpenControllerAPI(c)
+	client, err := conn.HTTPClient()
 	c.Assert(err, gc.IsNil)
 	s.client = client
 }
@@ -177,17 +178,20 @@ func (s *httpSuite) TestHTTPClient(c *gc.C) {
 
 func (s *httpSuite) TestControllerMachineAuthForHostedModel(c *gc.C) {
 	// Create a controller machine & hosted model.
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
 	const nonce = "gary"
-	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+	m, password := f.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Jobs:  []state.MachineJob{state.JobManageModel},
 		Nonce: nonce,
 	})
-	hostedState := s.Factory.MakeModel(c, nil)
+	hostedState := f.MakeModel(c, nil)
 	defer hostedState.Close()
 
 	// Connect to the hosted model using the credentials of the
 	// controller machine.
-	apiInfo := s.APIInfo(c)
+	apiInfo := s.ControllerModelApiInfo()
 	apiInfo.Tag = m.Tag()
 	apiInfo.Password = password
 	hostedModel, err := hostedState.Model()

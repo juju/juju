@@ -11,7 +11,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller/controller"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/core/life"
@@ -19,7 +18,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -27,25 +25,35 @@ import (
 )
 
 // legacySuite has the tests for the controller client-side facade
-// which use JujuConnSuite. The plan is to gradually move these tests
+// which use ApiServerSuite. The plan is to gradually move these tests
 // to Suite in controller_test.go.
 type legacySuite struct {
-	jujutesting.JujuConnSuite
+	jujutesting.ApiServerSuite
 	commontesting.BlockHelper
 }
 
 var _ = gc.Suite(&legacySuite{})
+
+func (s *legacySuite) SetUpTest(c *gc.C) {
+	s.ApiServerSuite.WithMultiWatcher = true
+	s.ApiServerSuite.SetUpTest(c)
+}
 
 func (s *legacySuite) OpenAPI(c *gc.C) *controller.Client {
 	return controller.NewClient(s.OpenControllerAPI(c))
 }
 
 func (s *legacySuite) TestAllModels(c *gc.C) {
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
 	owner := names.NewUserTag("user@remote")
-	s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "first", Owner: owner}).Close()
-	s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "second", Owner: owner}).Close()
+
+	f.MakeModel(c, &factory.ModelParams{
+		Name: "first", Owner: owner,
+	}).Close()
+	f.MakeModel(c, &factory.ModelParams{
+		Name: "second", Owner: owner,
+	}).Close()
 
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()
@@ -79,7 +87,8 @@ func (s *legacySuite) TestControllerConfig(c *gc.C) {
 	defer sysManager.Close()
 	cfg, err := sysManager.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	cfgFromDB, err := s.State.ControllerConfig()
+	st := s.ControllerModel(c).State()
+	cfgFromDB, err := st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg["controller-uuid"], gc.Equals, cfgFromDB.ControllerUUID())
 	c.Assert(int(cfg["state-port"].(float64)), gc.Equals, cfgFromDB.StatePort())
@@ -87,9 +96,14 @@ func (s *legacySuite) TestControllerConfig(c *gc.C) {
 }
 
 func (s *legacySuite) TestDestroyController(c *gc.C) {
-	st := s.Factory.MakeModel(c, &factory.ModelParams{Name: "foo"})
-	factory.NewFactory(st, s.StatePool).MakeMachine(c, nil) // make it non-empty
-	st.Close()
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	model := f.MakeModel(c, &factory.ModelParams{Name: "foo"})
+	f, release = s.NewFactory(c, model.ModelUUID())
+	defer release()
+	f.MakeMachine(c, nil) // make it non-empty
+	model.Close()
 
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()
@@ -98,9 +112,10 @@ func (s *legacySuite) TestDestroyController(c *gc.C) {
 }
 
 func (s *legacySuite) TestListBlockedModels(c *gc.C) {
-	err := s.State.SwitchBlockOn(state.ChangeBlock, "change block for controller")
+	st := s.ControllerModel(c).State()
+	err := st.SwitchBlockOn(state.ChangeBlock, "change block for controller")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.SwitchBlockOn(state.DestroyBlock, "destroy block for controller")
+	err = st.SwitchBlockOn(state.DestroyBlock, "destroy block for controller")
 	c.Assert(err, jc.ErrorIsNil)
 
 	sysManager := s.OpenAPI(c)
@@ -110,8 +125,8 @@ func (s *legacySuite) TestListBlockedModels(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, []params.ModelBlockInfo{
 		{
 			Name:     "controller",
-			UUID:     s.State.ModelUUID(),
-			OwnerTag: s.AdminUserTag(c).String(),
+			UUID:     st.ModelUUID(),
+			OwnerTag: jujutesting.AdminUser.String(),
 			Blocks: []string{
 				"BlockChange",
 				"BlockDestroy",
@@ -121,15 +136,16 @@ func (s *legacySuite) TestListBlockedModels(c *gc.C) {
 }
 
 func (s *legacySuite) TestRemoveBlocks(c *gc.C) {
-	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
-	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
+	st := s.ControllerModel(c).State()
+	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
+	st.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()
 	err := sysManager.RemoveBlocks()
 	c.Assert(err, jc.ErrorIsNil)
 
-	blocks, err := s.State.AllBlocksForController()
+	blocks, err := st.AllBlocksForController()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blocks, gc.HasLen, 0)
 }
@@ -159,8 +175,7 @@ func (s *legacySuite) TestWatchAllModels(c *gc.C) {
 		c.Assert(deltas, gc.HasLen, 1)
 		modelInfo := deltas[0].Entity.(*params.ModelUpdate)
 
-		model, err := s.State.Model()
-		c.Assert(err, jc.ErrorIsNil)
+		model := s.ControllerModel(c)
 		cfg, err := model.Config()
 		c.Assert(err, jc.ErrorIsNil)
 		status, err := model.Status()
@@ -211,11 +226,8 @@ func (s *legacySuite) TestWatchAllModels(c *gc.C) {
 }
 
 func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
-	apiInfo := s.APIInfo(c)
-	apiInfo.ModelTag = names.ModelTag{}
-	apiState, err := api.Open(apiInfo, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	sysManager := controller.NewClient(apiState)
+	conn := s.OpenControllerAPI(c)
+	sysManager := controller.NewClient(conn)
 	defer sysManager.Close()
 
 	w, err := sysManager.WatchAllModels()
@@ -246,11 +258,12 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 	// even when there's an outstanding Next call.
 	srvStopped := make(chan struct{})
 	go func() {
-		// Resetting the dummy environment will call Stop on the
-		// embedded API server.
 		start := time.Now()
-		dummy.Reset(c)
-		c.Logf("dummy.Reset() took %v", time.Since(start))
+		err = s.Server.Stop()
+		if err != nil {
+			return
+		}
+		c.Logf("stop took %v", time.Since(start))
 		close(srvStopped)
 	}()
 

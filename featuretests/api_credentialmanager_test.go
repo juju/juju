@@ -17,34 +17,33 @@ import (
 // we should drop this suite and write a new command-based one.
 
 type CredentialManagerSuite struct {
-	testing.JujuConnSuite
+	testing.ApiServerSuite
 	client *credentialmanager.Client
 }
 
 func (s *CredentialManagerSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 
-	info := s.APIInfo(c)
-	userConn := s.OpenAPIAs(c, info.Tag, info.Password)
-
+	userConn := s.OpenControllerModelAPI(c)
 	s.client = credentialmanager.NewClient(userConn)
 }
 
 func (s *CredentialManagerSuite) TearDownTest(c *gc.C) {
 	s.client.Close()
-	s.JujuConnSuite.TearDownTest(c)
+	s.ApiServerSuite.TearDownTest(c)
 }
 
 func (s *CredentialManagerSuite) TestInvalidateModelCredential(c *gc.C) {
-	tag, set := s.Model.CloudCredentialTag()
+	model := s.ControllerModel(c)
+	tag, set := model.CloudCredentialTag()
 	c.Assert(set, jc.IsTrue)
-	credential, err := s.State.CloudCredential(tag)
+	credential, err := model.State().CloudCredential(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credential.IsValid(), jc.IsTrue)
 
 	c.Assert(s.client.InvalidateModelCredential("no reason really"), jc.ErrorIsNil)
 
-	credential, err = s.State.CloudCredential(tag)
+	credential, err = model.State().CloudCredential(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credential.IsValid(), jc.IsFalse)
 }

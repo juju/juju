@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -18,7 +17,6 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -32,15 +30,12 @@ import (
 	machineclient "github.com/juju/juju/api/client/machinemanager"
 	"github.com/juju/juju/api/client/modelconfig"
 	apitesting "github.com/juju/juju/api/testing"
+	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/controller"
-	servertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/apiserver/testserver"
 	corecontroller "github.com/juju/juju/controller"
-	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -63,42 +58,52 @@ const (
 )
 
 type baseLoginSuite struct {
-	jujutesting.JujuConnSuite
+	jujutesting.ApiServerSuite
 	mgmtSpace *state.Space
 }
 
 func (s *baseLoginSuite) SetUpTest(c *gc.C) {
-	if s.ControllerConfigAttrs == nil {
-		s.ControllerConfigAttrs = make(map[string]interface{})
-	}
-
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 
 	var err error
-	s.mgmtSpace, err = s.State.AddSpace("mgmt01", "", nil, false)
+	s.mgmtSpace, err = s.ControllerModel(c).State().AddSpace("mgmt01", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.UpdateControllerConfig(map[string]interface{}{corecontroller.JujuManagementSpace: "mgmt01"}, nil)
+	err = s.ControllerModel(c).State().UpdateControllerConfig(map[string]interface{}{corecontroller.JujuManagementSpace: "mgmt01"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// loginSuite is built on statetesting.StateSuite not JujuConnSuite.
-// It also uses a testing clock, not a wall clock.
 type loginSuite struct {
-	baseSuite
+	jujutesting.ApiServerSuite
 }
 
 var _ = gc.Suite(&loginSuite{})
 
 func (s *loginSuite) SetUpTest(c *gc.C) {
 	s.Clock = testclock.NewDilatedWallClock(time.Second)
-	s.baseSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
+}
+
+// openAPIWithoutLogin connects to the API and returns an api connection
+// without actually calling st.Login already.
+func (s *loginSuite) openAPIWithoutLogin(c *gc.C) api.Connection {
+	return s.openModelAPIWithoutLogin(c, s.ControllerModelUUID())
+}
+
+func (s *loginSuite) openModelAPIWithoutLogin(c *gc.C, modelUUID string) api.Connection {
+	info := s.ModelApiInfo(modelUUID)
+	info.Tag = nil
+	info.Password = ""
+	info.Macaroons = nil
+	info.SkipLogin = true
+	conn, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	return conn
 }
 
 func (s *loginSuite) TestLoginWithInvalidTag(c *gc.C) {
-	info := s.newServer(c).Info
-	st := s.openAPIWithoutLogin(c, info)
+	st := s.openAPIWithoutLogin(c)
 
 	request := &params.LoginRequest{
 		AuthTag:       "bar",
@@ -112,15 +117,13 @@ func (s *loginSuite) TestLoginWithInvalidTag(c *gc.C) {
 }
 
 func (s *loginSuite) TestBadLogin(c *gc.C) {
-	info := s.newServer(c).Info
-
 	for i, t := range []struct {
 		tag      names.Tag
 		password string
 		err      error
 		code     string
 	}{{
-		tag:      s.Owner,
+		tag:      jujutesting.AdminUser,
 		password: "wrong password",
 		err: &rpc.RequestError{
 			Message: "invalid entity name or password",
@@ -140,7 +143,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 		func() {
 			// Open the API without logging in, so we can perform
 			// operations on the connection before calling Login.
-			st := s.openAPIWithoutLogin(c, info)
+			st := s.openAPIWithoutLogin(c)
 
 			_, err := apimachiner.NewState(st).Machine(names.NewMachineTag("0"))
 			c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
@@ -163,11 +166,12 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 }
 
 func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
-	info := s.newServer(c).Info
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
 
-	st := s.openAPIWithoutLogin(c, info)
+	st := s.openAPIWithoutLogin(c)
 	password := "password"
-	u := s.Factory.MakeUser(c, &factory.UserParams{Password: password, Disabled: true})
+	u := f.MakeUser(c, &factory.UserParams{Password: password, Disabled: true})
 
 	_, err := apiclient.NewClient(st).Status([]string{})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
@@ -190,11 +194,12 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 }
 
 func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
-	info := s.newServer(c).Info
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
 
-	st := s.openAPIWithoutLogin(c, info)
+	st := s.openAPIWithoutLogin(c)
 	password := "password"
-	u := s.Factory.MakeUser(c, &factory.UserParams{Password: password})
+	u := f.MakeUser(c, &factory.UserParams{Password: password})
 
 	_, err := apiclient.NewClient(st).Status([]string{})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
@@ -202,7 +207,7 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 		Code:    "not implemented",
 	})
 
-	err = s.State.RemoveUser(u.UserTag())
+	err = s.ControllerModel(c).State().RemoveUser(u.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Since these are user login tests, the nonce is empty.
@@ -220,16 +225,16 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 }
 
 func (s *loginSuite) setupManagementSpace(c *gc.C) *state.Space {
-	mgmtSpace, err := s.State.AddSpace("mgmt01", "", nil, false)
+	mgmtSpace, err := s.ControllerModel(c).State().AddSpace("mgmt01", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.UpdateControllerConfig(map[string]interface{}{corecontroller.JujuManagementSpace: "mgmt01"}, nil)
+	err = s.ControllerModel(c).State().UpdateControllerConfig(map[string]interface{}{corecontroller.JujuManagementSpace: "mgmt01"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return mgmtSpace
 }
 
 func (s *loginSuite) addController(c *gc.C) (state.ControllerNode, string) {
-	node, err := s.State.AddControllerNode()
+	node, err := s.ControllerModel(c).State().AddControllerNode()
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -241,7 +246,7 @@ func (s *loginSuite) addController(c *gc.C) (state.ControllerNode, string) {
 func (s *loginSuite) TestControllerAgentLogin(c *gc.C) {
 	// The agent login tests also check the management space.
 	mgmtSpace := s.setupManagementSpace(c)
-	info := s.newServer(c).Info
+	info := s.ControllerModelApiInfo()
 
 	node, password := s.addController(c)
 	info.Tag = node.Tag()
@@ -255,7 +260,7 @@ func (s *loginSuite) TestLoginAddressesForAgents(c *gc.C) {
 	// The agent login tests also check the management space.
 	mgmtSpace := s.setupManagementSpace(c)
 
-	info := s.newServer(c).Info
+	info := s.ControllerModelApiInfo()
 	machine := s.infoForNewMachine(c, info)
 
 	s.assertAgentLogin(c, machine, mgmtSpace)
@@ -271,7 +276,7 @@ func (s *loginSuite) loginHostPorts(
 }
 
 func (s *loginSuite) assertAgentLogin(c *gc.C, info *api.Info, mgmtSpace *state.Space) {
-	err := s.State.SetAPIHostPorts(nil)
+	err := s.ControllerModel(c).State().SetAPIHostPorts(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Initially just the address we connect with is returned by the helper
@@ -300,7 +305,7 @@ func (s *loginSuite) assertAgentLogin(c *gc.C, info *api.Info, mgmtSpace *state.
 		network.NewSpaceAddress("::1", network.WithScope(network.ScopeMachineLocal)),
 	}
 
-	err = s.State.SetAPIHostPorts([]network.SpaceHostPorts{
+	err = s.ControllerModel(c).State().SetAPIHostPorts([]network.SpaceHostPorts{
 		network.SpaceAddressesWithPort(server1Addresses, 123),
 		network.SpaceAddressesWithPort(server2Addresses, 456),
 	})
@@ -322,7 +327,7 @@ func (s *loginSuite) assertAgentLogin(c *gc.C, info *api.Info, mgmtSpace *state.
 func (s *loginSuite) TestLoginAddressesForClients(c *gc.C) {
 	mgmtSpace := s.setupManagementSpace(c)
 
-	info := s.newServer(c).Info
+	info := s.ControllerModelApiInfo()
 	info = s.infoForNewUser(c, info)
 
 	server1Addresses := network.SpaceAddresses{
@@ -339,7 +344,7 @@ func (s *loginSuite) TestLoginAddressesForClients(c *gc.C) {
 		network.SpaceAddressesWithPort(server1Addresses, 123),
 		network.SpaceAddressesWithPort(server2Addresses, 456),
 	}
-	err := s.State.SetAPIHostPorts(newAPIHostPorts)
+	err := s.ControllerModel(c).State().SetAPIHostPorts(newAPIHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := []network.MachineHostPorts{
@@ -366,21 +371,13 @@ func (s *loginSuite) TestLoginAddressesForClients(c *gc.C) {
 	c.Assert(hostPorts[1:], gc.DeepEquals, exp)
 }
 
-func (s *loginSuite) setupRateLimiting(c *gc.C) {
-	// Instead of the defaults, we'll be explicit in our ratelimit setup.
-	err := s.State.UpdateControllerConfig(
-		map[string]interface{}{
-			corecontroller.AgentRateLimitMax:  1,
-			corecontroller.AgentRateLimitRate: (60 * time.Second).String(),
-		}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *loginSuite) infoForNewMachine(c *gc.C, info *api.Info) *api.Info {
 	// Make a copy
 	newInfo := *info
 
-	machine, password := s.Factory.MakeMachineReturningPassword(
+	f, release := s.NewFactory(c, info.ModelTag.Id())
+	defer release()
+	machine, password := f.MakeMachineReturningPassword(
 		c, &factory.MachineParams{Nonce: "fake_nonce"})
 
 	newInfo.Tag = machine.Tag()
@@ -393,8 +390,10 @@ func (s *loginSuite) infoForNewUser(c *gc.C, info *api.Info) *api.Info {
 	// Make a copy
 	newInfo := *info
 
+	f, release := s.NewFactory(c, info.ModelTag.Id())
+	defer release()
 	password := "shhh..."
-	user := s.Factory.MakeUser(c, &factory.UserParams{
+	user := f.MakeUser(c, &factory.UserParams{
 		Password: password,
 	})
 
@@ -403,67 +402,13 @@ func (s *loginSuite) infoForNewUser(c *gc.C, info *api.Info) *api.Info {
 	return &newInfo
 }
 
-func (s *loginSuite) TestRateLimitAgents(c *gc.C) {
-	s.setupRateLimiting(c)
-
-	server := s.newServer(c)
-	info := server.Info
-
-	c.Assert(server.APIServer.Report(), jc.DeepEquals, map[string]interface{}{
-		"agent-ratelimit-max":  1,
-		"agent-ratelimit-rate": 60 * time.Second,
-	})
-
-	// First agent connection is fine.
-	machine1 := s.infoForNewMachine(c, info)
-	conn1, err := api.Open(machine1, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
-	defer conn1.Close()
-
-	// Second machine in the same minute gets told to go away and try again.
-	machine2 := s.infoForNewMachine(c, info)
-	_, err = api.Open(machine2, fastDialOpts)
-	c.Assert(err, gc.ErrorMatches, `try again \(try again\)`)
-
-	// If we wait a minute and try again, it is fine.
-	s.Clock.Advance(time.Minute)
-	conn2, err := api.Open(machine2, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
-	defer conn2.Close()
-
-	// And the next one is limited.
-	machine3 := s.infoForNewMachine(c, info)
-	_, err = api.Open(machine3, fastDialOpts)
-	c.Assert(err, gc.ErrorMatches, `try again \(try again\)`)
-}
-
-func (s *loginSuite) TestRateLimitNotApplicableToUsers(c *gc.C) {
-	s.setupRateLimiting(c)
-	info := s.newServer(c).Info
-
-	// First agent connection is fine.
-	machine1 := s.infoForNewMachine(c, info)
-	conn1, err := api.Open(machine1, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
-	defer conn1.Close()
-
-	// User connections are fine.
-	user := s.infoForNewUser(c, info)
-	conn2, err := api.Open(user, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
-	defer conn2.Close()
-
-	user2 := s.infoForNewUser(c, info)
-	conn3, err := api.Open(user2, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
-	defer conn3.Close()
-}
-
 func (s *loginSuite) TestNonModelUserLoginFails(c *gc.C) {
-	info := s.newServer(c).Info
-	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "dummy-password", NoModelUser: true})
-	ctag := names.NewControllerTag(s.State.ControllerUUID())
-	err := s.State.RemoveUserAccess(user.UserTag(), ctag)
+	info := s.ControllerModelApiInfo()
+	f, release := s.NewFactory(c, info.ModelTag.Id())
+	defer release()
+	user := f.MakeUser(c, &factory.UserParams{Password: "dummy-password", NoModelUser: true})
+	ctag := names.NewControllerTag(s.ControllerModel(c).State().ControllerUUID())
+	err := s.ControllerModel(c).State().RemoveUserAccess(user.UserTag(), ctag)
 	c.Assert(err, jc.ErrorIsNil)
 	info.Password = "dummy-password"
 	info.Tag = user.UserTag()
@@ -472,10 +417,7 @@ func (s *loginSuite) TestNonModelUserLoginFails(c *gc.C) {
 }
 
 func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
-	s.cfg.UpgradeComplete = func() bool {
-		// upgrade is in progress
-		return false
-	}
+	s.WithUpgrading = true
 	s.testLoginDuringMaintenance(c, func(st api.Connection) {
 		var statusResult params.FullStatus
 		err := st.APICall("Client", clientFacadeVersion, "", "FullStatus", params.StatusParams{}, &statusResult)
@@ -487,34 +429,28 @@ func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 }
 
 func (s *loginSuite) testLoginDuringMaintenance(c *gc.C, check func(api.Connection)) {
-	info := s.newServer(c).Info
-
-	st := s.openAPIWithoutLogin(c, info)
-	err := st.Login(s.Owner, s.AdminPassword, "", nil)
+	st := s.openAPIWithoutLogin(c)
+	err := st.Login(jujutesting.AdminUser, jujutesting.AdminSecret, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	check(st)
 }
 
 func (s *loginSuite) TestMachineLoginDuringMaintenance(c *gc.C) {
-	s.cfg.UpgradeComplete = func() bool {
-		// upgrade is in progress
-		return false
-	}
-	info := s.newServer(c).Info
+	s.WithUpgrading = true
+	info := s.ControllerModelApiInfo()
 	machine := s.infoForNewMachine(c, info)
 	_, err := api.Open(machine, fastDialOpts)
 	c.Assert(err, gc.ErrorMatches, `login for machine \d+ blocked because upgrade is in progress`)
 }
 
 func (s *loginSuite) TestControllerMachineLoginDuringMaintenance(c *gc.C) {
-	s.cfg.UpgradeComplete = func() bool {
-		// upgrade is in progress
-		return false
-	}
-	info := s.newServer(c).Info
+	s.WithUpgrading = true
+	info := s.ControllerModelApiInfo()
 
-	machine, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+	f, release := s.NewFactory(c, info.ModelTag.Id())
+	defer release()
+	machine, password := f.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageModel},
 	})
 	info.Tag = machine.Tag()
@@ -527,11 +463,8 @@ func (s *loginSuite) TestControllerMachineLoginDuringMaintenance(c *gc.C) {
 }
 
 func (s *loginSuite) TestControllerAgentLoginDuringMaintenance(c *gc.C) {
-	s.cfg.UpgradeComplete = func() bool {
-		// upgrade is in progress
-		return false
-	}
-	info := s.newServer(c).Info
+	s.WithUpgrading = true
+	info := s.ControllerModelApiInfo()
 
 	node, password := s.addController(c)
 	info.Tag = node.Tag()
@@ -543,10 +476,13 @@ func (s *loginSuite) TestControllerAgentLoginDuringMaintenance(c *gc.C) {
 }
 
 func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
-	modelOwner := s.Factory.MakeUser(c, &factory.UserParams{
+	info := s.ControllerModelApiInfo()
+	f, release := s.NewFactory(c, info.ModelTag.Id())
+	defer release()
+	modelOwner := f.MakeUser(c, &factory.UserParams{
 		Password: "secret",
 	})
-	modelState := s.Factory.MakeModel(c, &factory.ModelParams{
+	modelState := f.MakeModel(c, &factory.ModelParams{
 		Owner: modelOwner.UserTag(),
 	})
 	defer modelState.Close()
@@ -574,7 +510,6 @@ func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
 	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 	c.Assert(modelState.RemoveDyingModel(), jc.ErrorIsNil)
 
-	info := s.newServer(c).Info
 	info.ModelTag = model.ModelTag()
 
 	// Attempt to open an API connection to the migrated model as a user
@@ -610,8 +545,7 @@ func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
 }
 
 func (s *loginSuite) TestAnonymousModelLogin(c *gc.C) {
-	info := s.newServer(c).Info
-	conn := s.openAPIWithoutLogin(c, info)
+	conn := s.openAPIWithoutLogin(c)
 
 	var result params.LoginResult
 	request := &params.LoginRequest{
@@ -620,8 +554,8 @@ func (s *loginSuite) TestAnonymousModelLogin(c *gc.C) {
 	err := conn.APICall("Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.IsNil)
-	c.Assert(result.ControllerTag, gc.Equals, s.State.ControllerTag().String())
-	c.Assert(result.ModelTag, gc.Equals, s.Model.ModelTag().String())
+	c.Assert(result.ControllerTag, gc.Equals, s.ControllerModel(c).State().ControllerTag().String())
+	c.Assert(result.ModelTag, gc.Equals, s.ControllerModel(c).Tag().String())
 	c.Assert(result.Facades, jc.DeepEquals, []params.FacadeVersions{
 		{Name: "CrossModelRelations", Versions: []int{2}},
 		{Name: "CrossModelSecrets", Versions: []int{1}},
@@ -636,11 +570,7 @@ func (s *loginSuite) TestAnonymousModelLogin(c *gc.C) {
 }
 
 func (s *loginSuite) TestAnonymousControllerLogin(c *gc.C) {
-	info := s.newServer(c).Info
-	// Zero the model tag so that we log into the controller
-	// not the model.
-	info.ModelTag = names.ModelTag{}
-	conn := s.openAPIWithoutLogin(c, info)
+	conn := s.openModelAPIWithoutLogin(c, "")
 
 	var result params.LoginResult
 	request := &params.LoginRequest{
@@ -650,7 +580,7 @@ func (s *loginSuite) TestAnonymousControllerLogin(c *gc.C) {
 	err := conn.APICall("Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.IsNil)
-	c.Assert(result.ControllerTag, gc.Equals, s.State.ControllerTag().String())
+	c.Assert(result.ControllerTag, gc.Equals, s.ControllerModel(c).State().ControllerTag().String())
 	c.Assert(result.Facades, jc.DeepEquals, []params.FacadeVersions{
 		{Name: "CrossController", Versions: []int{1}},
 		{Name: "NotifyWatcher", Versions: []int{1}},
@@ -658,35 +588,27 @@ func (s *loginSuite) TestAnonymousControllerLogin(c *gc.C) {
 }
 
 func (s *loginSuite) TestControllerModel(c *gc.C) {
-	info := s.newServer(c).Info
-	st := s.openAPIWithoutLogin(c, info)
+	st := s.openAPIWithoutLogin(c)
 
-	adminUser := s.Owner
-	err := st.Login(adminUser, s.AdminPassword, "", nil)
+	err := st.Login(jujutesting.AdminUser, jujutesting.AdminSecret, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertRemoteModel(c, st, s.Model.ModelTag())
+	s.assertRemoteModel(c, st, s.ControllerModel(c).ModelTag())
 }
 
 func (s *loginSuite) TestControllerModelBadCreds(c *gc.C) {
-	info := s.newServer(c).Info
-	st := s.openAPIWithoutLogin(c, info)
+	st := s.openAPIWithoutLogin(c)
 
-	adminUser := s.Owner
-	err := st.Login(adminUser, "bad-password", "", nil)
+	err := st.Login(jujutesting.AdminUser, "bad-password", "", nil)
 	assertInvalidEntityPassword(c, err)
 }
 
 func (s *loginSuite) TestNonExistentModel(c *gc.C) {
-	info := s.newServer(c).Info
-
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	info.ModelTag = names.NewModelTag(uuid.String())
-	st := s.openAPIWithoutLogin(c, info)
+	st := s.openModelAPIWithoutLogin(c, uuid.String())
 
-	adminUser := s.Owner
-	err = st.Login(adminUser, s.AdminPassword, "", nil)
+	err = st.Login(jujutesting.AdminUser, jujutesting.AdminSecret, "", nil)
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: fmt.Sprintf("unknown model: %q", uuid),
 		Code:    "model not found",
@@ -694,7 +616,7 @@ func (s *loginSuite) TestNonExistentModel(c *gc.C) {
 }
 
 func (s *loginSuite) TestInvalidModel(c *gc.C) {
-	info := s.newServer(c).Info
+	info := s.ControllerModelApiInfo()
 	info.ModelTag = names.NewModelTag("rubbish")
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.ErrorMatches, `unable to connect to API: invalid model UUID "rubbish" \(Bad Request\)`)
@@ -702,18 +624,17 @@ func (s *loginSuite) TestInvalidModel(c *gc.C) {
 }
 
 func (s *loginSuite) TestOtherModel(c *gc.C) {
-	info := s.newServer(c).Info
-
-	modelOwner := s.Factory.MakeUser(c, nil)
-	modelState := s.Factory.MakeModel(c, &factory.ModelParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	modelOwner := f.MakeUser(c, nil)
+	modelState := f.MakeModel(c, &factory.ModelParams{
 		Owner: modelOwner.UserTag(),
 	})
 	defer modelState.Close()
 	model, err := modelState.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	info.ModelTag = model.ModelTag()
 
-	st := s.openAPIWithoutLogin(c, info)
+	st := s.openModelAPIWithoutLogin(c, model.UUID())
 
 	err = st.Login(modelOwner.UserTag(), "password", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -725,10 +646,10 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 	// Machine credentials are checked against model specific
 	// machines, so this makes sure that the credential checking is
 	// using the correct state connection.
-	info := s.newServer(c).Info
-
-	modelOwner := s.Factory.MakeUser(c, nil)
-	modelState := s.Factory.MakeModel(c, &factory.ModelParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	modelOwner := f.MakeUser(c, nil)
+	modelState := f.MakeModel(c, &factory.ModelParams{
 		Owner: modelOwner.UserTag(),
 		ConfigAttrs: map[string]interface{}{
 			"controller": false,
@@ -736,7 +657,8 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 	})
 	defer modelState.Close()
 
-	f2 := factory.NewFactory(modelState, s.StatePool)
+	f2, release := s.NewFactory(c, modelState.ModelUUID())
+	defer release()
 	machine, password := f2.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce: "test-nonce",
 	})
@@ -744,18 +666,17 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 	model, err := modelState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	info.ModelTag = model.ModelTag()
-	st := s.openAPIWithoutLogin(c, info)
+	st := s.openModelAPIWithoutLogin(c, model.UUID())
 
 	err = st.Login(machine.Tag(), password, "test-nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
-	info := s.newServer(c).Info
-
-	modelOwner := s.Factory.MakeUser(c, nil)
-	modelState := s.Factory.MakeModel(c, &factory.ModelParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	modelOwner := f.MakeUser(c, nil)
+	modelState := f.MakeModel(c, &factory.ModelParams{
 		Owner: modelOwner.UserTag(),
 		ConfigAttrs: map[string]interface{}{
 			"controller": false,
@@ -763,14 +684,14 @@ func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
 	})
 	defer modelState.Close()
 
-	f2 := factory.NewFactory(modelState, s.StatePool)
+	f2, release := s.NewFactory(c, modelState.ModelUUID())
+	defer release()
 	machine, password := f2.MakeUnprovisionedMachineReturningPassword(c, &factory.MachineParams{})
 
 	model, err := modelState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	info.ModelTag = model.ModelTag()
-	st := s.openAPIWithoutLogin(c, info)
+	st := s.openModelAPIWithoutLogin(c, model.UUID())
 
 	// If the agent attempts Login before the provisioner has recorded
 	// the machine's nonce in state, then the agent should get back an
@@ -781,36 +702,45 @@ func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
 }
 
 func (s *loginSuite) TestOtherModelFromController(c *gc.C) {
-	info := s.newServer(c).Info
-
-	machine, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	machine, password := f.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageModel},
 	})
 
-	modelState := s.Factory.MakeModel(c, nil)
+	defer release()
+	modelState := f.MakeModel(c, nil)
 	defer modelState.Close()
 	model, err := modelState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	info.ModelTag = model.ModelTag()
-	st := s.openAPIWithoutLogin(c, info)
+	info := s.ModelApiInfo(model.UUID())
+	info.Tag = nil
+	info.Password = ""
+	info.Macaroons = nil
+	info.SkipLogin = true
+	conn, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.Login(machine.Tag(), password, "nonce", nil)
+	err = conn.Login(machine.Tag(), password, "nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *loginSuite) TestOtherModelFromControllerOtherNotProvisioned(c *gc.C) {
-	info := s.newServer(c).Info
+	info := s.ControllerModelApiInfo()
 
-	managerMachine, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+	f, release := s.NewFactory(c, info.ModelTag.Id())
+	defer release()
+	managerMachine, password := f.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageModel},
 	})
 
 	// Create a hosted model with an unprovisioned machine that has the
 	// same tag as the manager machine.
-	hostedModelState := s.Factory.MakeModel(c, nil)
+	hostedModelState := f.MakeModel(c, nil)
 	defer hostedModelState.Close()
-	f2 := factory.NewFactory(hostedModelState, s.StatePool)
+	f2, release := s.NewFactory(c, hostedModelState.ModelUUID())
+	defer release()
 	workloadMachine, _ := f2.MakeUnprovisionedMachineReturningPassword(c, &factory.MachineParams{})
 	c.Assert(managerMachine.Tag(), gc.Equals, workloadMachine.Tag())
 
@@ -818,7 +748,7 @@ func (s *loginSuite) TestOtherModelFromControllerOtherNotProvisioned(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	info.ModelTag = hostedModel.ModelTag()
-	st := s.openAPIWithoutLogin(c, info)
+	st := s.openAPIWithoutLogin(c)
 
 	// The fact that the machine with the same tag in the hosted
 	// model is unprovisioned should not cause the login to fail
@@ -828,29 +758,30 @@ func (s *loginSuite) TestOtherModelFromControllerOtherNotProvisioned(c *gc.C) {
 }
 
 func (s *loginSuite) TestOtherModelWhenNotController(c *gc.C) {
-	info := s.newServer(c).Info
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	machine, password := f.MakeMachineReturningPassword(c, nil)
 
-	machine, password := s.Factory.MakeMachineReturningPassword(c, nil)
-
-	modelState := s.Factory.MakeModel(c, nil)
+	modelState := f.MakeModel(c, nil)
 	defer modelState.Close()
 
 	model, err := modelState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	info.ModelTag = model.ModelTag()
-	st := s.openAPIWithoutLogin(c, info)
+	st := s.openModelAPIWithoutLogin(c, model.UUID())
 
 	err = st.Login(machine.Tag(), password, "nonce", nil)
 	assertInvalidEntityPassword(c, err)
 }
 
 func (s *loginSuite) loginLocalUser(c *gc.C, info *api.Info) (*state.User, params.LoginResult) {
+	f, release := s.NewFactory(c, info.ModelTag.Id())
+	defer release()
 	password := "shhh..."
-	user := s.Factory.MakeUser(c, &factory.UserParams{
+	user := f.MakeUser(c, &factory.UserParams{
 		Password: password,
 	})
-	conn := s.openAPIWithoutLogin(c, info)
+	conn := s.openAPIWithoutLogin(c)
 
 	var result params.LoginResult
 	request := &params.LoginRequest{
@@ -865,7 +796,7 @@ func (s *loginSuite) loginLocalUser(c *gc.C, info *api.Info) (*state.User, param
 }
 
 func (s *loginSuite) TestLoginResultLocalUser(c *gc.C) {
-	info := s.newServer(c).Info
+	info := s.ControllerModelApiInfo()
 
 	user, result := s.loginLocalUser(c, info)
 	c.Check(result.UserInfo.Identity, gc.Equals, user.Tag().String())
@@ -874,9 +805,9 @@ func (s *loginSuite) TestLoginResultLocalUser(c *gc.C) {
 }
 
 func (s *loginSuite) TestLoginResultLocalUserEveryoneCreateOnlyNonLocal(c *gc.C) {
-	info := s.newServer(c).Info
+	info := s.ControllerModelApiInfo()
 
-	setEveryoneAccess(c, s.State, s.Owner, permission.SuperuserAccess)
+	setEveryoneAccess(c, s.ControllerModel(c).State(), jujutesting.AdminUser, permission.SuperuserAccess)
 
 	user, result := s.loginLocalUser(c, info)
 	c.Check(result.UserInfo.Identity, gc.Equals, user.Tag().String())
@@ -896,12 +827,11 @@ func (s *loginSuite) assertRemoteModel(c *gc.C, conn api.Connection, expected na
 	// the expected model. We make a change in state on that model, and
 	// then check that it is picked up by a call to the API.
 
-	st, err := s.StatePool.Get(tag.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Release()
+	m, release := s.ApiServerSuite.Model(c, tag.Id())
+	defer release()
 
 	expectedCons := constraints.MustParse("mem=8G")
-	err = st.SetModelConstraints(expectedCons)
+	err := m.State().SetModelConstraints(expectedCons)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons, err := client.GetModelConstraints()
@@ -910,15 +840,16 @@ func (s *loginSuite) assertRemoteModel(c *gc.C, conn api.Connection, expected na
 }
 
 func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
-	info := s.newServer(c).Info
-
 	now := s.Clock.Now().UTC()
 
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
 	password := "shhh..."
-	user := s.Factory.MakeUser(c, &factory.UserParams{
+	user := f.MakeUser(c, &factory.UserParams{
 		Password: password,
 	})
 
+	info := s.ControllerModelApiInfo()
 	info.Tag = user.Tag()
 	info.Password = password
 	apiState, err := api.Open(info, api.DialOpts{})
@@ -933,192 +864,12 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	c.Assert(lastLogin, jc.Almost, now)
 
 	// The model user is also updated.
-	modelUser, err := s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
+	model := s.ControllerModel(c)
+	modelUser, err := model.State().UserAccess(user.UserTag(), model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	when, err := s.Model.LastModelConnection(modelUser.UserTag)
+	when, err := model.LastModelConnection(modelUser.UserTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(when, jc.Almost, now)
-}
-
-func (s *loginSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
-	log := &servertesting.FakeAuditLog{}
-	s.cfg.GetAuditConfig = func() auditlog.Config {
-		return auditlog.Config{
-			Enabled: true,
-			Target:  log,
-		}
-	}
-	info := s.newServer(c).Info
-
-	password := "shhh..."
-	user := s.Factory.MakeUser(c, &factory.UserParams{
-		Password: password,
-	})
-	conn := s.openAPIWithoutLogin(c, info)
-
-	var result params.LoginResult
-	request := &params.LoginRequest{
-		AuthTag:       user.Tag().String(),
-		Credentials:   password,
-		CLIArgs:       "hey you guys",
-		ClientVersion: jujuversion.Current.String(),
-	}
-	loginTime := s.Clock.Now()
-	err := conn.APICall("Admin", 3, "", "Login", request, &result)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.UserInfo, gc.NotNil)
-	// Nothing's logged at this point because there haven't been any
-	// interesting requests.
-	log.CheckCallNames(c)
-
-	var addResults params.AddMachinesResults
-	addReq := &params.AddMachines{
-		MachineParams: []params.AddMachineParams{{
-			Jobs: []model.MachineJob{"JobHostUnits"},
-		}},
-	}
-	addMachinesTime := s.Clock.Now()
-	err = conn.APICall("MachineManager", machineManagerFacadeVersion, "", "AddMachines", addReq, &addResults)
-	c.Assert(err, jc.ErrorIsNil)
-
-	log.CheckCallNames(c, "AddConversation", "AddRequest", "AddResponse")
-
-	convo := log.Calls()[0].Args[0].(auditlog.Conversation)
-	mc := jc.NewMultiChecker()
-	mc.AddExpr("_.ConversationID", gc.HasLen, 16)
-	mc.AddExpr("_.ConnectionID", jc.Ignore)
-	mc.AddExpr("_.When", jc.Satisfies, func(s string) bool {
-		t, err := time.Parse(time.RFC3339, s)
-		if err != nil {
-			return false
-		}
-		return math.Abs(t.Sub(loginTime).Seconds()) < 1.0
-	})
-	c.Assert(convo, mc, auditlog.Conversation{
-		Who:       user.Tag().Id(),
-		What:      "hey you guys",
-		ModelName: s.Model.Name(),
-		ModelUUID: s.Model.UUID(),
-	})
-
-	auditReq := log.Calls()[1].Args[0].(auditlog.Request)
-	mc = jc.NewMultiChecker()
-	mc.AddExpr("_.ConversationID", jc.Ignore)
-	mc.AddExpr("_.ConnectionID", jc.Ignore)
-	mc.AddExpr("_.RequestID", jc.Ignore)
-	mc.AddExpr("_.When", jc.Satisfies, func(s string) bool {
-		t, err := time.Parse(time.RFC3339, s)
-		if err != nil {
-			return false
-		}
-		return math.Abs(t.Sub(addMachinesTime).Seconds()) < 1.0
-	})
-	c.Assert(auditReq, mc, auditlog.Request{
-		Facade:  "MachineManager",
-		Method:  "AddMachines",
-		Version: machineManagerFacadeVersion,
-	})
-}
-
-func (s *loginSuite) TestAuditLoggingFailureOnInterestingRequest(c *gc.C) {
-	log := &servertesting.FakeAuditLog{}
-	log.SetErrors(errors.Errorf("bad news bears"))
-	s.cfg.GetAuditConfig = func() auditlog.Config {
-		return auditlog.Config{
-			Enabled: true,
-			Target:  log,
-		}
-	}
-	info := s.newServer(c).Info
-
-	password := "shhh..."
-	user := s.Factory.MakeUser(c, &factory.UserParams{
-		Password: password,
-	})
-	conn := s.openAPIWithoutLogin(c, info)
-
-	var result params.LoginResult
-	request := &params.LoginRequest{
-		AuthTag:       user.Tag().String(),
-		Credentials:   password,
-		CLIArgs:       "hey you guys",
-		ClientVersion: jujuversion.Current.String(),
-	}
-	err := conn.APICall("Admin", 3, "", "Login", request, &result)
-	// No error yet since logging the conversation is deferred until
-	// something happens.
-	c.Assert(err, jc.ErrorIsNil)
-
-	var addResults params.AddMachinesResults
-	addReq := &params.AddMachines{
-		MachineParams: []params.AddMachineParams{{
-			Jobs: []model.MachineJob{"JobHostUnits"},
-		}},
-	}
-	err = conn.APICall("MachineManager", machineManagerFacadeVersion, "", "AddMachines", addReq, &addResults)
-	c.Assert(err, gc.ErrorMatches, "bad news bears")
-}
-
-func (s *loginSuite) TestAuditLoggingUsesExcludeMethods(c *gc.C) {
-	log := &servertesting.FakeAuditLog{}
-	s.cfg.GetAuditConfig = func() auditlog.Config {
-		return auditlog.Config{
-			Enabled:        true,
-			ExcludeMethods: set.NewStrings("MachineManager.AddMachines"),
-			Target:         log,
-		}
-	}
-	info := s.newServer(c).Info
-
-	password := "shhh..."
-	user := s.Factory.MakeUser(c, &factory.UserParams{
-		Password: password,
-	})
-	conn := s.openAPIWithoutLogin(c, info)
-
-	var result params.LoginResult
-	request := &params.LoginRequest{
-		AuthTag:       user.Tag().String(),
-		Credentials:   password,
-		CLIArgs:       "hey you guys",
-		ClientVersion: jujuversion.Current.String(),
-	}
-	err := conn.APICall("Admin", 3, "", "Login", request, &result)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.UserInfo, gc.NotNil)
-	// Nothing's logged at this point because there haven't been any
-	// interesting requests.
-	log.CheckCallNames(c)
-
-	var addResults params.AddMachinesResults
-	addReq := &params.AddMachines{
-		MachineParams: []params.AddMachineParams{{
-			Jobs: []model.MachineJob{"JobHostUnits"},
-		}},
-	}
-	err = conn.APICall("MachineManager", machineManagerFacadeVersion, "", "AddMachines", addReq, &addResults)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Still nothing logged - the AddMachines call has been filtered out.
-	log.CheckCallNames(c)
-
-	// Call something else.
-	destroyReq := &params.DestroyMachinesParams{
-		MachineTags: []string{addResults.Machines[0].Machine},
-	}
-	err = conn.APICall("MachineManager", machineManagerFacadeVersion, "", "DestroyMachineWithParams", destroyReq, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Now the conversation and both requests are logged.
-	log.CheckCallNames(c, "AddConversation", "AddRequest", "AddResponse", "AddRequest", "AddResponse")
-
-	req1 := log.Calls()[1].Args[0].(auditlog.Request)
-	c.Assert(req1.Facade, gc.Equals, "MachineManager")
-	c.Assert(req1.Method, gc.Equals, "AddMachines")
-
-	req2 := log.Calls()[3].Args[0].(auditlog.Request)
-	c.Assert(req2.Facade, gc.Equals, "MachineManager")
-	c.Assert(req2.Method, gc.Equals, "DestroyMachineWithParams")
 }
 
 var _ = gc.Suite(&macaroonLoginSuite{})
@@ -1134,8 +885,6 @@ func (s *macaroonLoginSuite) TestPublicKeyLocatorErrorIsNotPersistent(c *gc.C) {
 	s.DischargerLogin = func() string {
 		return "test@somewhere"
 	}
-	srv := testserver.NewServer(c, s.StatePool)
-	defer assertStop(c, srv)
 	workingTransport := http.DefaultTransport
 	failingTransport := errorTransport{
 		fallback: workingTransport,
@@ -1143,19 +892,20 @@ func (s *macaroonLoginSuite) TestPublicKeyLocatorErrorIsNotPersistent(c *gc.C) {
 		err:      errors.New("some error"),
 	}
 	s.PatchValue(&http.DefaultTransport, failingTransport)
-	_, err := s.login(c, srv.Info)
+	info := s.ControllerModelApiInfo()
+	_, err := s.login(c, info)
 	c.Assert(err, gc.ErrorMatches, `.*: some error .*`)
 
 	http.DefaultTransport = workingTransport
 
 	// The error doesn't stick around.
-	_, err = s.login(c, srv.Info)
+	_, err = s.login(c, info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Once we've succeeded, we shouldn't try again.
 	http.DefaultTransport = failingTransport
 
-	_, err = s.login(c, srv.Info)
+	_, err = s.login(c, info)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1220,7 +970,7 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerNoAccess(c *gc.C) {
 }
 
 func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerLoginAccess(c *gc.C) {
-	setEveryoneAccess(c, s.State, s.AdminUserTag(c), permission.LoginAccess)
+	setEveryoneAccess(c, s.ControllerModel(c).State(), jujutesting.AdminUser, permission.LoginAccess)
 	const remoteUser = "test@somewhere"
 	var remoteUserTag = names.NewUserTag(remoteUser)
 
@@ -1251,7 +1001,7 @@ func parseHostPortsFromAddress(c *gc.C, addresses ...string) []network.ProviderH
 }
 
 func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerSuperuserAccess(c *gc.C) {
-	setEveryoneAccess(c, s.State, s.AdminUserTag(c), permission.SuperuserAccess)
+	setEveryoneAccess(c, s.ControllerModel(c).State(), jujutesting.AdminUser, permission.SuperuserAccess)
 	const remoteUser = "test@somewhere"
 	var remoteUserTag = names.NewUserTag(remoteUser)
 
@@ -1274,7 +1024,7 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToModelNoExplicitAccess(c *gc.C)
 	// If we have a remote user which the controller knows nothing about,
 	// and the macaroon is discharged successfully, and the user is attempting
 	// to log into a model, that is permission denied.
-	setEveryoneAccess(c, s.State, s.AdminUserTag(c), permission.LoginAccess)
+	setEveryoneAccess(c, s.ControllerModel(c).State(), jujutesting.AdminUser, permission.LoginAccess)
 	s.DischargerLogin = func() string {
 		return "test@somewhere"
 	}
@@ -1293,17 +1043,15 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithExplicitAccessAndAllo
 }
 
 func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.C, allowModelAccess bool) {
-	cfg := testserver.DefaultServerConfig(c, nil)
-	cfg.AllowModelAccess = allowModelAccess
-	srv := testserver.NewServerWithConfig(c, s.StatePool, cfg)
-	defer assertStop(c, srv)
-	srv.Info.ModelTag = s.Model.ModelTag()
+	apiserver.SetAllowModelAccess(s.Server, allowModelAccess)
 
 	// If we have a remote user which has explicit model access, but neither
 	// controller access nor 'everyone' access, the user will have access
 	// only if the AllowModelAccess configuration flag is true.
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
 	const remoteUser = "test@somewhere"
-	s.Factory.MakeModelUser(c, &factory.ModelUserParams{
+	f.MakeModelUser(c, &factory.ModelUserParams{
 		User: remoteUser,
 
 		Access: permission.WriteAccess,
@@ -1312,7 +1060,7 @@ func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.
 		return remoteUser
 	}
 
-	_, err := s.login(c, srv.Info)
+	_, err := s.login(c, s.ControllerModelApiInfo())
 	if allowModelAccess {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
@@ -1321,9 +1069,11 @@ func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.
 }
 
 func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithControllerAccess(c *gc.C) {
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
 	const remoteUser = "test@somewhere"
 	var remoteUserTag = names.NewUserTag(remoteUser)
-	s.Factory.MakeModelUser(c, &factory.ModelUserParams{
+	f.MakeModelUser(c, &factory.ModelUserParams{
 		User:   remoteUser,
 		Access: permission.WriteAccess,
 	})
@@ -1395,37 +1145,35 @@ type migrationSuite struct {
 }
 
 func (s *migrationSuite) TestImportingModel(c *gc.C) {
-	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
-		Nonce: "nonce",
-	})
-	model, err := s.State.Model()
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	m, password := f.MakeMachineReturningPassword(c, &factory.MachineParams{Nonce: "nonce"})
+
+	model, err := s.ControllerModel(c).State().Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = model.SetMigrationMode(state.MigrationModeImporting)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Users should be able to log in but RPC requests should fail.
-	info := s.APIInfo(c)
-	userConn := s.OpenAPIAs(c, info.Tag, info.Password)
+	userConn := s.OpenControllerModelAPI(c)
 	defer userConn.Close()
 	_, err = apiclient.NewClient(userConn).Status(nil)
 	c.Check(err, gc.ErrorMatches, "migration in progress, model is importing")
 
 	// Machines should be able to use the API.
-	machineConn := s.OpenAPIAsMachine(c, m.Tag(), password, "nonce")
-	defer machineConn.Close()
+	machineConn := s.OpenModelAPIAs(c, s.ControllerModelUUID(), m.Tag(), password, "nonce")
 	_, err = apimachiner.NewState(machineConn).Machine(m.MachineTag())
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *migrationSuite) TestExportingModel(c *gc.C) {
-	model, err := s.State.Model()
+	model, err := s.ControllerModel(c).State().Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = model.SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Users should be able to log in but RPC requests should fail.
-	info := s.APIInfo(c)
-	userConn := s.OpenAPIAs(c, info.Tag, info.Password)
+	userConn := s.OpenControllerModelAPI(c)
 	defer userConn.Close()
 
 	// Status is fine.
@@ -1444,25 +1192,16 @@ type loginV3Suite struct {
 var _ = gc.Suite(&loginV3Suite{})
 
 func (s *loginV3Suite) TestClientLoginToModel(c *gc.C) {
-	info := s.APIInfo(c)
-	apiState, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	defer apiState.Close()
-
+	apiState := s.OpenControllerModelAPI(c)
 	client := modelconfig.NewClient(apiState)
-	_, err = client.GetModelConstraints()
+	_, err := client.GetModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *loginV3Suite) TestClientLoginToController(c *gc.C) {
-	info := s.APIInfo(c)
-	info.ModelTag = names.ModelTag{}
-	apiState, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	defer apiState.Close()
-
+	apiState := s.OpenControllerAPI(c)
 	client := machineclient.NewClient(apiState)
-	_, err = client.RetryProvisioning(false, names.NewMachineTag("machine-0"))
+	_, err := client.RetryProvisioning(false, names.NewMachineTag("machine-0"))
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `facade "MachineManager" not supported for controller API connection`,
 		Code:    "not supported",
@@ -1470,21 +1209,17 @@ func (s *loginV3Suite) TestClientLoginToController(c *gc.C) {
 }
 
 func (s *loginV3Suite) TestClientLoginToControllerNoAccessToControllerModel(c *gc.C) {
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
 	password := "shhh..."
-	user := s.Factory.MakeUser(c, &factory.UserParams{
+	user := f.MakeUser(c, &factory.UserParams{
 		NoModelUser: true,
 		Password:    password,
 	})
 
-	info := s.APIInfo(c)
-	info.Tag = user.Tag()
-	info.Password = password
-	info.ModelTag = names.ModelTag{}
-	apiState, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	defer apiState.Close()
+	s.OpenControllerAPIAs(c, user.Tag(), password)
 	// The user now has last login updated.
-	err = user.Refresh()
+	err := user.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	lastLogin, err := user.LastLogin()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1492,10 +1227,10 @@ func (s *loginV3Suite) TestClientLoginToControllerNoAccessToControllerModel(c *g
 }
 
 func (s *loginV3Suite) TestClientLoginToRootOldClient(c *gc.C) {
-	info := s.APIInfo(c)
+	info := s.ControllerModelApiInfo()
 	info.Tag = nil
 	info.Password = ""
-	info.ModelTag = names.ModelTag{}
+	info.Macaroons = nil
 	info.SkipLogin = true
 	apiState, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
