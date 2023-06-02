@@ -280,9 +280,6 @@ type authenticator struct {
 	bakery authentication.ExpirableStorageBakery
 	ctxt   *AuthContext
 
-	sourceModelUUID string
-	offerUUID       string
-
 	// offerAccessEndpoint holds the URL of the trusted third party
 	// that is used to address the has-offer-permission third party caveat.
 	offerAccessEndpoint string
@@ -307,26 +304,26 @@ func crossModelRelateOp(relationID string) bakery.Op {
 	}
 }
 
-// Authenticator returns an instance used to authenticate macaroons used to
-// access the specified offer.
-func (a *AuthContext) Authenticator(sourceModelUUID, offerUUID string) *authenticator {
+// Authenticator returns an instance used to authenticate macaroons used to access offers.
+func (a *AuthContext) Authenticator() *authenticator {
 	auth := &authenticator{
 		clock:               a.clock,
 		bakery:              a.offerBakery,
 		ctxt:                a,
-		sourceModelUUID:     sourceModelUUID,
-		offerUUID:           offerUUID,
 		offerAccessEndpoint: a.offerAccessEndpoint,
 	}
 	return auth
 }
 
-func (a *authenticator) checkMacaroonCaveats(op bakery.Op, relationId, offerUUID string) error {
+func (a *authenticator) checkMacaroonCaveats(op bakery.Op, relationId, sourceModelUUID, offerUUID string) error {
 	var entity string
 	switch op.Action {
 	case consumeOp:
+		if sourceModelUUID == "" {
+			return &bakery.VerificationError{Reason: errors.New("missing source model UUID")}
+		}
 		if offerUUID == "" {
-			return &bakery.VerificationError{Reason: errors.New("missing offer")}
+			return &bakery.VerificationError{Reason: errors.New("missing offer UUID")}
 		}
 		entity = offerUUID
 	case relateOp:
@@ -361,12 +358,13 @@ func (a *authenticator) checkMacaroons(
 		return nil, apiservererrors.ErrPerm
 	}
 	relation := declared[relationKey]
-	offer := declared[offeruuidKey]
+	sourceModelUUID := declared[sourcemodelKey]
+	offerUUID := declared[offeruuidKey]
 
 	auth := a.bakery.Auth(mac)
 	ai, err := auth.Allow(ctx, op)
 	if err == nil && len(ai.Conditions()) > 0 {
-		if err = a.checkMacaroonCaveats(op, relation, offer); err == nil {
+		if err = a.checkMacaroonCaveats(op, relation, sourceModelUUID, offerUUID); err == nil {
 			authlogger.Debugf("ok macaroon check ok, attr: %v, conditions: %v", declared, ai.Conditions())
 			return declared, nil
 		}
@@ -382,7 +380,9 @@ func (a *authenticator) checkMacaroons(
 	authlogger.Debugf("generating discharge macaroon because: %v", cause)
 
 	requiredRelation := requiredValues[relationKey]
-	authYaml, err := a.ctxt.offerPermissionYaml(a.sourceModelUUID, username, a.offerUUID, requiredRelation, permission.ConsumeAccess)
+	requiredOffer := requiredValues[offeruuidKey]
+	requiredSourceModelUUID := requiredValues[sourcemodelKey]
+	authYaml, err := a.ctxt.offerPermissionYaml(requiredSourceModelUUID, username, requiredOffer, requiredRelation, permission.ConsumeAccess)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -421,18 +421,19 @@ func (a *authenticator) checkMacaroons(
 }
 
 // CheckOfferMacaroons verifies that the specified macaroons allow access to the offer.
-func (a *authenticator) CheckOfferMacaroons(ctx context.Context, offerUUID string, mac macaroon.Slice, version bakery.Version) (map[string]string, error) {
+func (a *authenticator) CheckOfferMacaroons(ctx context.Context, sourceModelUUID, offerUUID string, mac macaroon.Slice, version bakery.Version) (map[string]string, error) {
 	requiredValues := map[string]string{
-		sourcemodelKey: a.sourceModelUUID,
+		sourcemodelKey: sourceModelUUID,
 		offeruuidKey:   offerUUID,
 	}
 	return a.checkMacaroons(ctx, mac, version, requiredValues, crossModelConsumeOp(offerUUID))
 }
 
 // CheckRelationMacaroons verifies that the specified macaroons allow access to the relation.
-func (a *authenticator) CheckRelationMacaroons(ctx context.Context, relationTag names.Tag, mac macaroon.Slice, version bakery.Version) error {
+func (a *authenticator) CheckRelationMacaroons(ctx context.Context, sourceModelUUID, offerUUID string, relationTag names.Tag, mac macaroon.Slice, version bakery.Version) error {
 	requiredValues := map[string]string{
-		sourcemodelKey: a.sourceModelUUID,
+		sourcemodelKey: sourceModelUUID,
+		offeruuidKey:   offerUUID,
 		relationKey:    relationTag.Id(),
 	}
 	_, err := a.checkMacaroons(ctx, mac, version, requiredValues, crossModelRelateOp(relationTag.Id()))

@@ -560,7 +560,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 		{"WatchRelationSuspendedStatus", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
 		{"WatchLocalRelationChanges", []interface{}{"db2:db django:db"}},
 		{"WatchRelationChanges", []interface{}{"token-db2:db django:db", "token-offer-db2-uuid", macaroon.Slice{apiMac}}},
-		{"WatchConsumedSecretsChanges", []interface{}{"token-django", mac}},
+		{"WatchConsumedSecretsChanges", []interface{}{"token-django", "token-db2:db django:db", mac}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
 
@@ -1049,7 +1049,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *gc.C, dying 
 		{"WatchRelationSuspendedStatus", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
 		{"WatchLocalRelationChanges", []interface{}{"db2:db django:db"}},
 		{"WatchRelationChanges", []interface{}{"token-db2:db django:db", "token-offer-db2-uuid", macaroon.Slice{apiMac}}},
-		{"WatchConsumedSecretsChanges", []interface{}{"token-django", mac}},
+		{"WatchConsumedSecretsChanges", []interface{}{"token-django", "token-db2:db django:db", mac}},
 	}
 
 	// If a relation is dying and there's been an error, when processing resumes

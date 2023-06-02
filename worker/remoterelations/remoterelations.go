@@ -69,7 +69,7 @@ type RemoteModelRelationsFacade interface {
 
 	// WatchConsumedSecretsChanges starts a watcher for any changes to secrets
 	// consumed by the specified application.
-	WatchConsumedSecretsChanges(applicationToken string, mac *macaroon.Macaroon) (watcher.SecretsRevisionWatcher, error)
+	WatchConsumedSecretsChanges(applicationToken, relationToken string, mac *macaroon.Macaroon) (watcher.SecretsRevisionWatcher, error)
 }
 
 // RemoteRelationsFacade exposes remote relation functionality to a worker.

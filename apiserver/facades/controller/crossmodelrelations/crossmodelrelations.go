@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
+	coremacaroon "github.com/juju/juju/core/macaroon"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -93,8 +95,8 @@ func (api *CrossModelRelationsAPI) checkMacaroonsForRelation(relationTag names.T
 		}
 		offerUUID = oc.OfferUUID()
 	}
-	auth := api.authCtxt.Authenticator(api.st.ModelUUID(), offerUUID)
-	return auth.CheckRelationMacaroons(api.ctx, relationTag, mac, version)
+	auth := api.authCtxt.Authenticator()
+	return auth.CheckRelationMacaroons(api.ctx, api.st.ModelUUID(), offerUUID, relationTag, mac, version)
 }
 
 // PublishRelationChanges publishes relation changes to the
@@ -159,8 +161,8 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 	}
 
 	// Check that the supplied macaroon allows access.
-	auth := api.authCtxt.Authenticator(api.st.ModelUUID(), appOffer.OfferUUID)
-	attr, err := auth.CheckOfferMacaroons(api.ctx, appOffer.OfferUUID, relation.Macaroons, relation.BakeryVersion)
+	auth := api.authCtxt.Authenticator()
+	attr, err := auth.CheckOfferMacaroons(api.ctx, api.st.ModelUUID(), appOffer.OfferUUID, relation.Macaroons, relation.BakeryVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -472,10 +474,10 @@ func (api *CrossModelRelationsAPI) WatchOfferStatus(
 		Results: make([]params.OfferStatusWatchResult, len(offerArgs.Args)),
 	}
 
+	auth := api.authCtxt.Authenticator()
 	for i, arg := range offerArgs.Args {
 		// Ensure the supplied macaroon allows access.
-		auth := api.authCtxt.Authenticator(api.st.ModelUUID(), arg.OfferUUID)
-		_, err := auth.CheckOfferMacaroons(api.ctx, arg.OfferUUID, arg.Macaroons, arg.BakeryVersion)
+		_, err := auth.CheckOfferMacaroons(api.ctx, api.st.ModelUUID(), arg.OfferUUID, arg.Macaroons, arg.BakeryVersion)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -510,16 +512,23 @@ func (api *CrossModelRelationsAPI) WatchConsumedSecretsChanges(args params.Watch
 		Results: make([]params.SecretRevisionWatchResult, len(args.Args)),
 	}
 
+	auth := api.authCtxt.Authenticator()
 	for i, arg := range args.Args {
-		appTag, offerUUID, err := api.st.GetSecretConsumerInfo(arg.ApplicationToken)
+		appTag, offerUUID, err := api.st.GetSecretConsumerInfo(arg.ApplicationToken, arg.RelationToken)
 		if err != nil {
+			if errors.Is(err, errors.NotFound) {
+				err = apiservererrors.ErrPerm
+			}
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+		if offerUUID == "" {
+			declared := checkers.InferDeclared(coremacaroon.MacaroonNamespace, arg.Macaroons)
+			offerUUID = declared["offer-uuid"]
+		}
 
 		// Ensure the supplied macaroon allows access.
-		auth := api.authCtxt.Authenticator(api.st.ModelUUID(), offerUUID)
-		_, err = auth.CheckOfferMacaroons(api.ctx, offerUUID, arg.Macaroons, arg.BakeryVersion)
+		_, err = auth.CheckOfferMacaroons(api.ctx, api.st.ModelUUID(), offerUUID, arg.Macaroons, arg.BakeryVersion)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue

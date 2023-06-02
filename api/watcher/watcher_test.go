@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
+	"github.com/juju/charm/v10"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -722,14 +723,6 @@ func (s *watcherSuite) TestSecretsExpiryWatcher(c *gc.C) {
 func (s *watcherSuite) setupSecretsRevisionWatcher(
 	c *gc.C,
 ) (*secrets.URI, func(uri *secrets.URI, rev int), func(), func()) {
-	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "foo", OfferUUID: "offer-uuid", URL: "me/model.foo", SourceModel: s.Model.ModelTag()})
-	c.Assert(err, jc.ErrorIsNil)
-	// Export the remoteApp so it can be found with a token.
-	re := s.State.RemoteEntities()
-	token, err := re.ExportLocalEntity(remoteApp.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Set up the offer.
 	app := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	unit, password := s.Factory.MakeUnitReturningPassword(c, &factory.UnitParams{
@@ -771,6 +764,31 @@ func (s *watcherSuite) setupSecretsRevisionWatcher(
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
+	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "foo", OfferUUID: offer.OfferUUID, URL: "me/model.foo", SourceModel: s.Model.ModelTag()})
+	c.Assert(err, jc.ErrorIsNil)
+	remoteRel, err := s.State.AddRelation(
+		state.Endpoint{"mysql", charm.Relation{Name: "server", Interface: "mysql", Role: charm.RoleProvider, Scope: charm.ScopeGlobal}},
+		state.Endpoint{"foo", charm.Relation{Name: "db", Interface: "mysql", Role: charm.RoleRequirer, Scope: charm.ScopeGlobal}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
+		SourceModelUUID: utils.MustNewUUID().String(),
+		OfferUUID:       offer.OfferUUID,
+		Username:        "fred",
+		RelationId:      remoteRel.Id(),
+		RelationKey:     remoteRel.Tag().Id(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Export the remote entities so they can be found with a token.
+	re := s.State.RemoteEntities()
+	appToken, err := re.ExportLocalEntity(remoteApp.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	relToken, err := re.ExportLocalEntity(remoteRel.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Create a secret to watch.
 	store := state.NewSecrets(s.State)
 	uri := secrets.NewURI()
@@ -795,7 +813,7 @@ func (s *watcherSuite) setupSecretsRevisionWatcher(
 	c.Assert(err, jc.ErrorIsNil)
 
 	client := crossmodelrelations.NewClient(apiConn)
-	w, err := client.WatchConsumedSecretsChanges(token, mac.M())
+	w, err := client.WatchConsumedSecretsChanges(appToken, relToken, mac.M())
 	if !c.Check(err, jc.ErrorIsNil) {
 		_ = apiConn.Close()
 		c.FailNow()

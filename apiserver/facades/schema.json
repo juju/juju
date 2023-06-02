@@ -20432,11 +20432,15 @@
                             "items": {
                                 "$ref": "#/definitions/Macaroon"
                             }
+                        },
+                        "relation-token": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "application-token"
+                        "application-token",
+                        "relation-token"
                     ]
                 },
                 "WatchRemoteSecretChangesArgs": {

@@ -852,23 +852,26 @@ func (s *crossmodelRelationsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
-			checkers.DeclaredCaveat("offer-uuid", "db2-uuid"),
+			checkers.DeclaredCaveat("offer-uuid", "token-rel-db2-uuid"),
 			checkers.DeclaredCaveat("username", "mary"),
-		}, bakery.Op{"db2-uuid", "consume"})
+		}, bakery.Op{"token-rel-db2-uuid", "consume"})
 
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.WatchRemoteSecretChangesArgs{
 		Args: []params.WatchRemoteSecretChangesArg{
 			{
 				ApplicationToken: "token-db2",
+				RelationToken:    "token-rel-db2",
 				Macaroons:        macaroon.Slice{mac.M()},
 			},
 			{
 				ApplicationToken: "token-mysql",
+				RelationToken:    "token-rel-mysql",
 				Macaroons:        macaroon.Slice{mac.M()},
 			},
 			{
 				ApplicationToken: "token-postgresql",
+				RelationToken:    "token-rel-postgresql",
 				Macaroons:        macaroon.Slice{mac.M()},
 			},
 		},
@@ -881,13 +884,13 @@ func (s *crossmodelRelationsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 		URI:      "secret:9m4e2mr0ui3e8a215n4g",
 		Revision: 666,
 	}})
-	c.Assert(results.Results[1].Error.ErrorCode(), gc.Equals, params.CodeNotFound)
+	c.Assert(results.Results[1].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
 	c.Assert(results.Results[2].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
 	c.Assert(s.watchedSecretConsumers, jc.DeepEquals, []string{"db2"})
 	s.st.CheckCalls(c, []testing.StubCall{
-		{"GetSecretConsumerInfo", []interface{}{"token-db2"}},
+		{"GetSecretConsumerInfo", []interface{}{"token-db2", "token-rel-db2"}},
 		{"GetSecret", []interface{}{&coresecrets.URI{ID: "9m4e2mr0ui3e8a215n4g"}}},
-		{"GetSecretConsumerInfo", []interface{}{"token-mysql"}},
-		{"GetSecretConsumerInfo", []interface{}{"token-postgresql"}},
+		{"GetSecretConsumerInfo", []interface{}{"token-mysql", "token-rel-mysql"}},
+		{"GetSecretConsumerInfo", []interface{}{"token-postgresql", "token-rel-postgresql"}},
 	})
 }
