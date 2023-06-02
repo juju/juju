@@ -954,7 +954,7 @@ func (s *SecretsSuite) TestUpdateConcurrent(c *gc.C) {
 	})
 }
 
-func (s *SecretsSuite) TestChangeSecretBackend(c *gc.C) {
+func (s *SecretsSuite) TestChangeSecretBackendExternalToExternal(c *gc.C) {
 	backendStore := state.NewSecretBackends(s.State)
 	_, err := backendStore.CreateSecretBackend(state.CreateSecretBackendParams{
 		ID:          "old-backend-id",
@@ -982,7 +982,6 @@ func (s *SecretsSuite) TestChangeSecretBackend(c *gc.C) {
 		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
-			Data:        map[string]string{"foo": "bar"},
 			ValueRef: &secrets.ValueRef{
 				BackendID:  "old-backend-id",
 				RevisionID: "rev-id",
@@ -998,7 +997,7 @@ func (s *SecretsSuite) TestChangeSecretBackend(c *gc.C) {
 
 	val, valRef, err := s.store.GetSecretValue(uri, 1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(val, jc.DeepEquals, secrets.NewSecretValue(map[string]string{"foo": "bar"}))
+	c.Assert(val.IsEmpty(), jc.IsTrue)
 	c.Assert(valRef, gc.DeepEquals, &secrets.ValueRef{
 		BackendID:  "old-backend-id",
 		RevisionID: "rev-id",
@@ -1030,6 +1029,138 @@ func (s *SecretsSuite) TestChangeSecretBackend(c *gc.C) {
 		BackendID:  "new-backend-id",
 		RevisionID: "rev-id",
 	})
+}
+
+func (s *SecretsSuite) TestChangeSecretBackendInternalToExternal(c *gc.C) {
+	backendStore := state.NewSecretBackends(s.State)
+
+	_, err := backendStore.CreateSecretBackend(state.CreateSecretBackendParams{
+		ID:          "new-backend-id",
+		Name:        "bar",
+		BackendType: "vault",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri := secrets.NewURI()
+	p := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err = s.store.CreateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.ReadBackendRefCount(s.Model.UUID())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = s.State.ReadBackendRefCount(s.State.ControllerUUID())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	backendRefCount, err := s.State.ReadBackendRefCount("new-backend-id")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendRefCount, gc.Equals, 0)
+
+	val, valRef, err := s.store.GetSecretValue(uri, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(val, jc.DeepEquals, secrets.NewSecretValue(map[string]string{"foo": "bar"}))
+	c.Assert(valRef, gc.IsNil)
+
+	err = s.store.ChangeSecretBackend(state.ChangeSecretBackendParams{
+		URI:      uri,
+		Token:    &fakeToken{},
+		Revision: 1,
+		ValueRef: &secrets.ValueRef{
+			BackendID:  "new-backend-id",
+			RevisionID: "rev-id",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.ReadBackendRefCount(s.Model.UUID())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = s.State.ReadBackendRefCount(s.State.ControllerUUID())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	backendRefCount, err = s.State.ReadBackendRefCount("new-backend-id")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendRefCount, gc.Equals, 1)
+
+	val, valRef, err = s.store.GetSecretValue(uri, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(val.IsEmpty(), jc.IsTrue)
+	c.Assert(valRef, jc.DeepEquals, &secrets.ValueRef{
+		BackendID:  "new-backend-id",
+		RevisionID: "rev-id",
+	})
+}
+
+func (s *SecretsSuite) TestChangeSecretBackendExternalToInternal(c *gc.C) {
+	backendStore := state.NewSecretBackends(s.State)
+	_, err := backendStore.CreateSecretBackend(state.CreateSecretBackendParams{
+		ID:          "backend-id",
+		Name:        "foo",
+		BackendType: "vault",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	backendRefCount, err := s.State.ReadBackendRefCount("backend-id")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendRefCount, gc.Equals, 0)
+
+	uri := secrets.NewURI()
+	p := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			ValueRef: &secrets.ValueRef{
+				BackendID:  "backend-id",
+				RevisionID: "rev-id",
+			},
+		},
+	}
+	_, err = s.store.CreateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.ReadBackendRefCount(s.Model.UUID())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = s.State.ReadBackendRefCount(s.State.ControllerUUID())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	backendRefCount, err = s.State.ReadBackendRefCount("backend-id")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendRefCount, gc.Equals, 1)
+
+	val, valRef, err := s.store.GetSecretValue(uri, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(val.IsEmpty(), jc.IsTrue)
+	c.Assert(valRef, gc.DeepEquals, &secrets.ValueRef{
+		BackendID:  "backend-id",
+		RevisionID: "rev-id",
+	})
+
+	err = s.store.ChangeSecretBackend(state.ChangeSecretBackendParams{
+		URI:      uri,
+		Token:    &fakeToken{},
+		Data:     map[string]string{"foo": "bar"},
+		Revision: 1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.ReadBackendRefCount(s.Model.UUID())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = s.State.ReadBackendRefCount(s.State.ControllerUUID())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	backendRefCount, err = s.State.ReadBackendRefCount("backend-id")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendRefCount, gc.Equals, 0)
+
+	val, valRef, err = s.store.GetSecretValue(uri, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(val, jc.DeepEquals, secrets.NewSecretValue(map[string]string{"foo": "bar"}))
+	c.Assert(valRef, gc.IsNil)
 }
 
 func (s *SecretsSuite) TestGetSecret(c *gc.C) {

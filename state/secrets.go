@@ -305,7 +305,7 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 			}, isOwnerAliveOp,
 		}...)
 		if valueDoc.ValueRef != nil {
-			refOps, err := s.st.incBackendRevisionCountOps(valueDoc.ValueRef.BackendID, nil)
+			refOps, err := s.st.incBackendRevisionCountOps(valueDoc.ValueRef.BackendID, 1)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -414,7 +414,7 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 				Insert: *revisionDoc,
 			})
 			if p.ValueRef != nil {
-				refOps, err := s.st.incBackendRevisionCountOps(p.ValueRef.BackendID, nil)
+				refOps, err := s.st.incBackendRevisionCountOps(p.ValueRef.BackendID, 1)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -822,7 +822,7 @@ func (s *secretsStore) ChangeSecretBackend(arg ChangeSecretBackendParams) error 
 			ops = append(ops, refOps...)
 		}
 		if valRefDoc != nil {
-			refOps, err := s.st.incBackendRevisionCountOps(valRefDoc.BackendID, nil)
+			refOps, err := s.st.incBackendRevisionCountOps(valRefDoc.BackendID, 1)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

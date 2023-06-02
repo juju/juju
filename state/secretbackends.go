@@ -377,7 +377,7 @@ func (st *State) decSecretBackendRefCountOp(backendID string) ([]txn.Op, error) 
 
 // incBackendRevisionCountOps returns the ops needed to change the secret revision ref count
 // for the specified backend. Used to ensure backends with revisions cannot be deleted without force.
-func (st *State) incBackendRevisionCountOps(backendID string, count *int) ([]txn.Op, error) {
+func (st *State) incBackendRevisionCountOps(backendID string, count int) ([]txn.Op, error) {
 	if secrets.IsInternalSecretBackendID(backendID) {
 		return nil, nil
 	}
@@ -389,11 +389,7 @@ func (st *State) incBackendRevisionCountOps(backendID string, count *int) ([]txn
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	toInc := 1
-	if count != nil {
-		toInc = *count
-	}
-	incOp, err := nsRefcounts.StrictIncRefOp(refCountCollection, key, toInc)
+	incOp, err := nsRefcounts.StrictIncRefOp(refCountCollection, key, count)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -334,8 +334,7 @@ func (s *upgradesSuite) TestEnsureInitalRefCountForExternalSecretBackends(c *gc.
 		BackendType: "vault",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	count := 3
-	ops, err := s.state.incBackendRevisionCountOps("backend-id-2", &count)
+	ops, err := s.state.incBackendRevisionCountOps("backend-id-2", 3)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.state.db().RunTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)

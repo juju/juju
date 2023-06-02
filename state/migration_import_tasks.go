@@ -549,7 +549,7 @@ func (s *secretStateShim) SecretConsumerKey(uri *secrets.URI, subject string) st
 }
 
 func (s *secretStateShim) IncBackendRevisionCountOps(backendID string) ([]txn.Op, error) {
-	return s.st.incBackendRevisionCountOps(backendID, nil)
+	return s.st.incBackendRevisionCountOps(backendID, 1)
 }
 
 // ImportSecrets describes a way to import secrets from a
