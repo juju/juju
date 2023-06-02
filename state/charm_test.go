@@ -960,9 +960,9 @@ func (s *CharmTestHelperSuite) TestManifestCharm(c *gc.C) {
 }
 
 func (s *CharmTestHelperSuite) TestTestingCharm(c *gc.C) {
-	added := s.AddTestingCharm(c, "metered")
+	added := state.AddTestingCharmFromRepo(c, s.State, "metered", testcharms.CharmRepo())
 	c.Assert(added.Metrics(), gc.NotNil)
 
-	chd := testcharms.Repo.CharmDir("metered")
-	c.Assert(chd.Metrics(), gc.DeepEquals, added.Metrics())
+	charmDir := testcharms.CharmRepo().CharmDir("metered")
+	c.Assert(charmDir.Metrics(), gc.DeepEquals, added.Metrics())
 }

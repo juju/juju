@@ -861,7 +861,6 @@ func (app *backingRemoteApplication) updated(ctx *allWatcherContext) error {
 	info := &multiwatcher.RemoteApplicationUpdate{
 		ModelUUID: ctx.modelUUID, // ModelUUID not part of the remoteApplicationDoc
 		Name:      app.Name,
-		OfferUUID: app.OfferUUID,
 		OfferURL:  app.URL,
 		Life:      life.Value(app.Life.String()),
 	}
@@ -890,41 +889,39 @@ func (app *backingRemoteApplication) updated(ctx *allWatcherContext) error {
 }
 
 func (app *backingRemoteApplication) updateOfferInfo(ctx *allWatcherContext) error {
-	// Remote Applications reference an offer using the offer UUID.
-	// Offers in the store use offer name as the id key, so we need
-	// to look through the store entities to find any matching offer.
-	var offerInfo *multiwatcher.ApplicationOfferInfo
 	entities := ctx.store.All()
 	for _, e := range entities {
-		var ok bool
-		if offerInfo, ok = e.(*multiwatcher.ApplicationOfferInfo); ok {
-			if offerInfo.OfferUUID != app.OfferUUID {
-				offerInfo = nil
-				continue
-			}
-			break
+		var (
+			offerInfo *multiwatcher.ApplicationOfferInfo
+			ok        bool
+		)
+		if offerInfo, ok = e.(*multiwatcher.ApplicationOfferInfo); !ok {
+			continue
 		}
+		if offerInfo.ModelUUID != ctx.modelUUID {
+			continue
+		}
+		// TODO: be smarter about reading status.
+		// We should only read offers relevant to the remote app that has been updated,
+		// but there would be more db reads to do the filtering than just reading the
+		// connection info for each offer, even if it might not have changed.
+		remoteConnection, err := ctx.state.RemoteConnectionStatus(offerInfo.OfferUUID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		offerInfo.TotalConnectedCount = remoteConnection.TotalConnectionCount()
+		offerInfo.ActiveConnectedCount = remoteConnection.ActiveConnectionCount()
+		ctx.store.Update(offerInfo)
 	}
-	// If we have an existing remote application,
-	// adjust any offer info also.
-	if offerInfo == nil {
-		return nil
-	}
-	// TODO: be smarter about reading status.
-	remoteConnection, err := ctx.state.RemoteConnectionStatus(offerInfo.OfferUUID)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	offerInfo.TotalConnectedCount = remoteConnection.TotalConnectionCount()
-	offerInfo.ActiveConnectedCount = remoteConnection.ActiveConnectionCount()
-	ctx.store.Update(offerInfo)
 	return nil
 }
 
 func (app *backingRemoteApplication) removed(ctx *allWatcherContext) (err error) {
 	allWatcherLogger.Tracef(`remote application "%s:%s" removed`, ctx.modelUUID, ctx.id)
 	// TODO: see if we need the check of consumer proxy like in the change
-	err = app.updateOfferInfo(ctx)
+	if app.IsConsumerProxy {
+		err = app.updateOfferInfo(ctx)
+	}
 	if err != nil {
 		// We log the error but don't prevent the remote app removal.
 		allWatcherLogger.Errorf("updating application offer info: %v", err)

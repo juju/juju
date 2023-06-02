@@ -1,7 +1,0 @@
-plan:
-  required: true
-metrics:
-  pings:
-    type: gauge
-    description: Description of the metric.
-  juju-units:
