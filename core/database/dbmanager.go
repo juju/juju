@@ -4,7 +4,7 @@
 package database
 
 // DBGetter describes the ability to supply a transaction runner
-// particular database.
+// for a particular database.
 type DBGetter interface {
 	// GetDB returns a TransactionRunner for the dqlite-backed database
 	// that contains the data for the specified namespace.
@@ -13,15 +13,13 @@ type DBGetter interface {
 	GetDB(namespace string) (TxnRunner, error)
 }
 
-// DBManager describes the ability to create and delete databases.
-type DBManager interface {
-	DBGetter
-
+// DBDeleter describes the ability to delete a database.
+type DBDeleter interface {
 	// DeleteDB deletes the dqlite-backed database that contains the data for
 	// the specified namespace.
 	// There are currently a set of limitations on the namespaces that can be
 	// deleted:
-	//  - It's not possible to delete the controller database.
+	//  - It is not possible to delete the controller database.
 	//  - It currently doesn't support the actual deletion of the database
 	//    just the removal of the worker. Deletion of the database will be
 	//    handled once it's supported by dqlite.

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
@@ -47,8 +48,12 @@ type Config struct {
 	MetricsCollector                  *apiserver.Collector
 	EmbeddedCommand                   apiserver.ExecEmbeddedCommandFunc
 	CharmhubHTTPClient                HTTPClient
-	// DBManager supplies sql.DB references on request, for named databases.
-	DBManager coredatabase.DBManager
+
+	// DBDeleter is used to delete databases.
+	DBDeleter coredatabase.DBDeleter
+
+	// DBGetter supplies WatchableDB implementations by namespace.
+	DBGetter changestream.WatchableDBGetter
 }
 
 type HTTPClient interface {
@@ -106,8 +111,11 @@ func (config Config) Validate() error {
 	if config.CharmhubHTTPClient == nil {
 		return errors.NotValidf("nil CharmhubHTTPClient")
 	}
-	if config.DBManager == nil {
-		return errors.NotValidf("nil DBManager")
+	if config.DBDeleter == nil {
+		return errors.NotValidf("nil DBDeleter")
+	}
+	if config.DBGetter == nil {
+		return errors.NotValidf("nil DBGetter")
 	}
 	return nil
 }
@@ -172,7 +180,8 @@ func NewWorker(config Config) (worker.Worker, error) {
 		ExecEmbeddedCommand:           config.EmbeddedCommand,
 		SysLogger:                     config.SysLogger,
 		CharmhubHTTPClient:            config.CharmhubHTTPClient,
-		DBManager:                     config.DBManager,
+		DBDeleter:                     config.DBDeleter,
+		DBGetter:                      config.DBGetter,
 	}
 	return config.NewServer(serverConfig)
 }

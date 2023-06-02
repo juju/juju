@@ -33,7 +33,8 @@ import (
 type integrationSuite struct {
 	dqliteAppIntegrationSuite
 
-	dbManager coredatabase.DBManager
+	dbGetter  coredatabase.DBGetter
+	dbDeleter coredatabase.DBDeleter
 	worker    worker.Worker
 }
 
@@ -75,7 +76,8 @@ func (s *integrationSuite) SetUpSuite(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.dbManager = w
+	s.dbGetter = w
+	s.dbDeleter = w
 	s.worker = w
 
 	db, err := s.DBApp().Open(context.TODO(), coredatabase.ControllerNS)
@@ -94,19 +96,19 @@ func (s *integrationSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *integrationSuite) TestWorkerAccessingControllerDB(c *gc.C) {
-	db, err := s.dbManager.GetDB(coredatabase.ControllerNS)
+	db, err := s.dbGetter.GetDB(coredatabase.ControllerNS)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(db, gc.NotNil)
 }
 
 func (s *integrationSuite) TestWorkerAccessingUnknownDB(c *gc.C) {
-	_, err := s.dbManager.GetDB("foo")
+	_, err := s.dbGetter.GetDB("foo")
 	c.Assert(err, gc.ErrorMatches, `.*namespace "foo" not found`)
 	c.Assert(errors.Is(err, errors.NotFound), jc.IsTrue)
 }
 
 func (s *integrationSuite) TestWorkerAccessingKnownDB(c *gc.C) {
-	db, err := s.dbManager.GetDB(coredatabase.ControllerNS)
+	db, err := s.dbGetter.GetDB(coredatabase.ControllerNS)
 	c.Assert(err, jc.ErrorIsNil)
 	err = db.StdTxn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO model_list (uuid) VALUES ("bar")`)
@@ -114,24 +116,24 @@ func (s *integrationSuite) TestWorkerAccessingKnownDB(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	db, err = s.dbManager.GetDB("bar")
+	db, err = s.dbGetter.GetDB("bar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(db, gc.NotNil)
 }
 
 func (s *integrationSuite) TestWorkerDeletingControllerDB(c *gc.C) {
-	err := s.dbManager.DeleteDB(coredatabase.ControllerNS)
+	err := s.dbDeleter.DeleteDB(coredatabase.ControllerNS)
 	c.Assert(err, gc.ErrorMatches, `.*cannot close controller database`)
 }
 
 func (s *integrationSuite) TestWorkerDeletingUnknownDB(c *gc.C) {
-	err := s.dbManager.DeleteDB("foo")
+	err := s.dbDeleter.DeleteDB("foo")
 	c.Assert(err, gc.ErrorMatches, `.*"foo" not found`)
 	c.Assert(errors.Is(err, errors.NotFound), jc.IsTrue)
 }
 
 func (s *integrationSuite) TestWorkerDeletingKnownDB(c *gc.C) {
-	ctrlDB, err := s.dbManager.GetDB(coredatabase.ControllerNS)
+	ctrlDB, err := s.dbGetter.GetDB(coredatabase.ControllerNS)
 	c.Assert(err, jc.ErrorIsNil)
 	err = ctrlDB.StdTxn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO model_list (uuid) VALUES ("baz")`)
@@ -139,7 +141,7 @@ func (s *integrationSuite) TestWorkerDeletingKnownDB(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	db, err := s.dbManager.GetDB("baz")
+	db, err := s.dbGetter.GetDB("baz")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(db, gc.NotNil)
 
@@ -151,10 +153,10 @@ func (s *integrationSuite) TestWorkerDeletingKnownDB(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.dbManager.DeleteDB("baz")
+	err = s.dbDeleter.DeleteDB("baz")
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.dbManager.GetDB("baz")
+	_, err = s.dbGetter.GetDB("baz")
 	c.Assert(err, gc.ErrorMatches, `.*namespace "baz" not found`)
 }
 
@@ -162,7 +164,7 @@ func (s *integrationSuite) TestWorkerDeletingKnownDB(c *gc.C) {
 // first. This ensures that we don't have to have an explicit db worker for
 // each model.
 func (s *integrationSuite) TestWorkerDeletingKnownDBWithoutGetFirst(c *gc.C) {
-	ctrlDB, err := s.dbManager.GetDB(coredatabase.ControllerNS)
+	ctrlDB, err := s.dbGetter.GetDB(coredatabase.ControllerNS)
 	c.Assert(err, jc.ErrorIsNil)
 	err = ctrlDB.StdTxn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO model_list (uuid) VALUES ("fred")`)
@@ -178,10 +180,10 @@ func (s *integrationSuite) TestWorkerDeletingKnownDBWithoutGetFirst(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.dbManager.DeleteDB("fred")
+	err = s.dbDeleter.DeleteDB("fred")
 	c.Assert(err, gc.ErrorMatches, `.*"fred" not found`)
 
-	_, err = s.dbManager.GetDB("fred")
+	_, err = s.dbGetter.GetDB("fred")
 	c.Assert(err, gc.ErrorMatches, `.*"fred" not found`)
 }
 

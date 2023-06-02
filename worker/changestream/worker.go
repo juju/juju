@@ -31,12 +31,6 @@ type FileNotifier interface {
 	Changes() (<-chan bool, error)
 }
 
-// WatchableDBGetter describes the ability to get
-// a WatchableDB for a particular namespace.
-type WatchableDBGetter interface {
-	GetWatchableDB(string) (changestream.WatchableDB, error)
-}
-
 // EventMultiplexerWorker represents a worker for subscribing to events that
 // will be multiplexer to subscribers from the database change log.
 type EventMultiplexerWorker interface {

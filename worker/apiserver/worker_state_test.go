@@ -119,6 +119,7 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		MetricsCollector:           s.metricsCollector,
 		SysLogger:                  s.sysLogger,
 		CharmhubHTTPClient:         s.charmhubHTTPClient,
-		DBManager:                  s.dbManager,
+		DBGetter:                   s.dbGetter,
+		DBDeleter:                  s.dbDeleter,
 	})
 }

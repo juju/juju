@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
@@ -47,6 +48,7 @@ type ManifoldConfig struct {
 	SyslogName             string
 	CharmhubHTTPClientName string
 	DBAccessorName         string
+	ChangeStreamName       string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -101,6 +103,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.DBAccessorName == "" {
 		return errors.NotValidf("empty DBAccessorName")
 	}
+	if config.ChangeStreamName == "" {
+		return errors.NotValidf("empty ChangeStreamName")
+	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
 	}
@@ -133,6 +138,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.LeaseManagerName,
 			config.SyslogName,
 			config.CharmhubHTTPClientName,
+			config.ChangeStreamName,
 			config.DBAccessorName,
 		},
 		Start: config.start,
@@ -200,8 +206,13 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	var dbManager coredatabase.DBManager
-	if err := context.Get(config.DBAccessorName, &dbManager); err != nil {
+	var dbGetter changestream.WatchableDBGetter
+	if err := context.Get(config.ChangeStreamName, &dbGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var dbDeleter coredatabase.DBDeleter
+	if err := context.Get(config.DBAccessorName, &dbDeleter); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -241,7 +252,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		EmbeddedCommand:                   execEmbeddedCommand,
 		SysLogger:                         sysLogger,
 		CharmhubHTTPClient:                charmhubHTTPClient,
-		DBManager:                         dbManager,
+		DBGetter:                          dbGetter,
+		DBDeleter:                         dbDeleter,
 	})
 	if err != nil {
 		// Ensure we clean up the resources we've registered with. This includes

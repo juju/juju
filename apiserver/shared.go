@@ -13,7 +13,8 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	jujucontroller "github.com/juju/juju/controller"
-	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
@@ -31,7 +32,7 @@ type SharedHub interface {
 
 // sharedServerContext contains a number of components that are unchangeable in the API server.
 // These components need to be exposed through the facade.Context. Instead of having the methods
-// of newAPIHandler and newAPIRoot take ever increasing numbers of parameters, they will instead
+// of newAPIHandler and newAPIRoot take ever-increasing numbers of parameters, they will instead
 // have a pointer to the sharedServerContext.
 //
 // All attributes in the context should be goroutine aware themselves, like the state pool, hub, and
@@ -45,7 +46,8 @@ type sharedServerContext struct {
 	logger              loggo.Logger
 	cancel              <-chan struct{}
 	charmhubHTTPClient  facade.HTTPClient
-	dbManager           coredatabase.DBManager
+	dbGetter            changestream.WatchableDBGetter
+	dbDeleter           database.DBDeleter
 
 	configMutex      sync.RWMutex
 	controllerConfig jujucontroller.Config
@@ -63,7 +65,8 @@ type sharedServerConfig struct {
 	controllerConfig    jujucontroller.Config
 	logger              loggo.Logger
 	charmhubHTTPClient  facade.HTTPClient
-	dbManager           coredatabase.DBManager
+	dbGetter            changestream.WatchableDBGetter
+	dbDeleter           database.DBDeleter
 }
 
 func (c *sharedServerConfig) validate() error {
@@ -85,8 +88,11 @@ func (c *sharedServerConfig) validate() error {
 	if c.controllerConfig == nil {
 		return errors.NotValidf("nil controllerConfig")
 	}
-	if c.dbManager == nil {
-		return errors.NotValidf("nil dbManager")
+	if c.dbGetter == nil {
+		return errors.NotValidf("nil dbGetter")
+	}
+	if c.dbDeleter == nil {
+		return errors.NotValidf("nil dbDeleter")
 	}
 	return nil
 }
@@ -104,7 +110,8 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		logger:              config.logger,
 		controllerConfig:    config.controllerConfig,
 		charmhubHTTPClient:  config.charmhubHTTPClient,
-		dbManager:           config.dbManager,
+		dbGetter:            config.dbGetter,
+		dbDeleter:           config.dbDeleter,
 	}
 	ctx.features = config.controllerConfig.Features()
 	// We are able to get the current controller config before subscribing to changes

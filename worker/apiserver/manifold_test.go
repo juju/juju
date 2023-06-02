@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
-	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/changestream"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
@@ -58,7 +58,8 @@ type ManifoldSuite struct {
 	upgradeGate          stubGateWaiter
 	sysLogger            syslogger.SysLogger
 	charmhubHTTPClient   *http.Client
-	dbManager            stubDBManager
+	dbGetter             stubWatchableDBGetter
+	dbDeleter            stubDBDeleter
 
 	stub testing.Stub
 }
@@ -96,6 +97,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		SyslogName:                        "syslog",
 		CharmhubHTTPClientName:            "charmhub-http-client",
 		DBAccessorName:                    "db-accessor",
+		ChangeStreamName:                  "change-stream",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		Hub:                               &s.hub,
@@ -118,7 +120,8 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"lease-manager":        s.leaseManager,
 		"syslog":               s.sysLogger,
 		"charmhub-http-client": s.charmhubHTTPClient,
-		"db-accessor":          s.dbManager,
+		"change-stream":        s.dbGetter,
+		"db-accessor":          s.dbDeleter,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -149,7 +152,7 @@ func (s *ManifoldSuite) newMetricsCollector() *coreapiserver.Collector {
 var expectedInputs = []string{
 	"agent", "authenticator", "clock", "multiwatcher", "mux",
 	"state", "upgrade", "auditconfig-updater", "lease-manager",
-	"syslog", "charmhub-http-client", "db-accessor",
+	"syslog", "charmhub-http-client", "change-stream", "db-accessor",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -217,7 +220,8 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		Hub:                        &s.hub,
 		SysLogger:                  s.sysLogger,
 		CharmhubHTTPClient:         s.charmhubHTTPClient,
-		DBManager:                  s.dbManager,
+		DBGetter:                   s.dbGetter,
+		DBDeleter:                  s.dbDeleter,
 	})
 }
 
@@ -367,18 +371,20 @@ type fakeMultiwatcherFactory struct {
 	multiwatcher.Factory
 }
 
-type stubDBManager struct{}
+type stubDBDeleter struct{}
 
-func (s stubDBManager) GetDB(namespace string) (coredatabase.TxnRunner, error) {
-	if namespace != "controller" {
-		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, namespace)
-	}
-	return nil, nil
-}
-
-func (s stubDBManager) DeleteDB(namespace string) error {
+func (s stubDBDeleter) DeleteDB(namespace string) error {
 	if namespace == "controller" {
 		return errors.Forbiddenf(`cannot delete "controller" DB`)
 	}
 	return nil
+}
+
+type stubWatchableDBGetter struct{}
+
+func (s stubWatchableDBGetter) GetWatchableDB(namespace string) (changestream.WatchableDB, error) {
+	if namespace != "controller" {
+		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, namespace)
+	}
+	return nil, nil
 }

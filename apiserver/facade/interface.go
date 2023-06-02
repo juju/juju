@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
@@ -65,6 +66,7 @@ type Context interface {
 	// types/objects.
 	LeadershipContext
 	ControllerDBGetter
+	DBManager
 
 	// Cancel channel represents an indication from the API server that
 	// all interruptable calls should stop. The channel is only ever
@@ -139,13 +141,13 @@ type Context interface {
 // ControllerDBGetter defines an interface for getting the controller DB.
 type ControllerDBGetter interface {
 	// ControllerDB returns a transaction runner for the controller database.
-	ControllerDB() (coredatabase.TxnRunner, error)
+	ControllerDB() (changestream.WatchableDB, error)
 }
 
-// DBManager defines an interface for managing the database.
+// DBManager describes the ability to acquire a database deleter.
 type DBManager interface {
-	// DBManager returns a DBManager reference for the controller database.
-	DBManager() coredatabase.DBManager
+	// DBDeleter returns an a deleter for databases based on namespace.
+	DBDeleter() coredatabase.DBDeleter
 }
 
 // RequestRecorder is implemented by types that can record information about

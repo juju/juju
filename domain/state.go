@@ -8,12 +8,26 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 )
 
 // DBFactory defines a function that returns a database or an error if a
 // database cannot be returned.
 type DBFactory = func() (database.TxnRunner, error)
+
+// NewDBFactory returns a DBFactory for the input function that returns a
+// WatchableDB.
+// This ensures that we never pass the ability to access the change-stream
+// into a state object.
+// State objects should only be concerned with persistence and retrieval.
+// Watchers are the concern of the service layer.
+func NewDBFactory(f func() (changestream.WatchableDB, error)) DBFactory {
+	return func() (database.TxnRunner, error) {
+		db, err := f()
+		return db, errors.Trace(err)
+	}
+}
 
 // StateBase defines a base struct for requesting a database. This will cache
 // the database for the lifetime of the struct.

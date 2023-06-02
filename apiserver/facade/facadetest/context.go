@@ -5,7 +5,8 @@ package facadetest
 
 import (
 	"github.com/juju/juju/apiserver/facade"
-	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
@@ -32,7 +33,9 @@ type Context struct {
 	LeadershipReader_   leadership.Reader
 	SingularClaimer_    lease.Claimer
 	CharmhubHTTPClient_ facade.HTTPClient
-	ControllerDB_       coredatabase.TxnRunner
+	ControllerDB_       changestream.WatchableDB
+	DBDeleter_          database.DBDeleter
+
 	// Identity is not part of the facade.Context interface, but is instead
 	// used to make sure that the context objects are the same.
 	Identity string
@@ -73,7 +76,7 @@ func (context Context) State() *state.State {
 	return context.State_
 }
 
-// StatePool is part of of the facade.Context interface.
+// StatePool is part of the facade.Context interface.
 func (context Context) StatePool() *state.StatePool {
 	return context.StatePool_
 }
@@ -138,6 +141,10 @@ func (context Context) HTTPClient(purpose facade.HTTPClientPurpose) facade.HTTPC
 	}
 }
 
-func (context Context) ControllerDB() (coredatabase.TxnRunner, error) {
+func (context Context) ControllerDB() (changestream.WatchableDB, error) {
 	return context.ControllerDB_, nil
+}
+
+func (context Context) DBDeleter() database.DBDeleter {
+	return context.DBDeleter_
 }

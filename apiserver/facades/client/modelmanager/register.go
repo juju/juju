@@ -13,6 +13,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/domain"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	modelmanagerstate "github.com/juju/juju/domain/modelmanager/state"
 	"github.com/juju/juju/environs/context"
@@ -42,13 +43,6 @@ func newFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	var dbManager facade.DBManager
-	if m, ok := ctx.(facade.DBManager); ok {
-		dbManager = m
-	} else {
-		return nil, errors.New("invalid DBManager")
-	}
-
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -75,7 +69,9 @@ func newFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
 	return NewModelManagerAPI(
 		backend,
 		common.NewModelManagerBackend(ctrlModel, pool),
-		modelmanagerservice.NewService(modelmanagerstate.NewState(ctx.ControllerDB), dbManager.DBManager()),
+		modelmanagerservice.NewService(
+			modelmanagerstate.NewState(domain.NewDBFactory(ctx.ControllerDB)),
+			ctx.DBDeleter()),
 		toolsFinder,
 		caas.New,
 		common.NewBlockChecker(backend),

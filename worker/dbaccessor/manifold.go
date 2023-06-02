@@ -161,11 +161,11 @@ func dbAccessorOutput(in worker.Worker, out interface{}) error {
 	case *coredatabase.DBGetter:
 		var target coredatabase.DBGetter = w
 		*out = target
-	case *coredatabase.DBManager:
-		var target coredatabase.DBManager = w
+	case *coredatabase.DBDeleter:
+		var target coredatabase.DBDeleter = w
 		*out = target
 	default:
-		return errors.Errorf("expected output of *database.DBGetter, got %T", out)
+		return errors.Errorf("expected output of *database.DBGetter or *database.DBDeleter, got %T", out)
 	}
 	return nil
 }

@@ -44,13 +44,12 @@ import (
 	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
-
 	"github.com/juju/juju/core/resources"
-
-	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/pubsub/apiserver"
 	controllermsg "github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/resource"
@@ -214,8 +213,11 @@ type ServerConfig struct {
 	// CharmhubHTTPClient is the HTTP client used for Charmhub API requests.
 	CharmhubHTTPClient facade.HTTPClient
 
-	// DBManager supplies sql.DB references on request, for named databases.
-	DBManager coredatabase.DBManager
+	// DBDeleter deletes databases based on namespace.
+	DBDeleter database.DBDeleter
+
+	// DBGetter returns WatchableDB implementations based on namespace.
+	DBGetter changestream.WatchableDBGetter
 }
 
 // Validate validates the API server configuration.
@@ -309,7 +311,8 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		controllerConfig:    controllerConfig,
 		logger:              loggo.GetLogger("juju.apiserver"),
 		charmhubHTTPClient:  cfg.CharmhubHTTPClient,
-		dbManager:           cfg.DBManager,
+		dbGetter:            cfg.DBGetter,
+		dbDeleter:           cfg.DBDeleter,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

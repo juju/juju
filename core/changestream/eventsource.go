@@ -19,3 +19,9 @@ type WatchableDB interface {
 	database.TxnRunner
 	EventSource
 }
+
+// WatchableDBGetter describes the ability to get
+// a WatchableDB for a particular namespace.
+type WatchableDBGetter interface {
+	GetWatchableDB(string) (WatchableDB, error)
+}

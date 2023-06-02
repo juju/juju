@@ -9,6 +9,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
+	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/worker/common"
 )
@@ -108,8 +109,8 @@ func changeStreamOutput(in worker.Worker, out interface{}) error {
 	}
 
 	switch out := out.(type) {
-	case *WatchableDBGetter:
-		var target WatchableDBGetter = w
+	case *changestream.WatchableDBGetter:
+		var target changestream.WatchableDBGetter = w
 		*out = target
 	default:
 		return errors.Errorf("out should be a *changestream.ChangeStream; got %T", out)

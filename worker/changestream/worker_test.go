@@ -12,6 +12,7 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/testing"
 )
@@ -83,7 +84,7 @@ func (s *workerSuite) TestEventSource(c *gc.C) {
 	w := s.newWorker(c, 1)
 	defer workertest.DirtyKill(c, w)
 
-	stream, ok := w.(WatchableDBGetter)
+	stream, ok := w.(changestream.WatchableDBGetter)
 	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement ChangeStream"))
 
 	_, err := stream.GetWatchableDB("controller")
@@ -117,7 +118,7 @@ func (s *workerSuite) TestEventSourceCalledTwice(c *gc.C) {
 	w := s.newWorker(c, 1)
 	defer workertest.DirtyKill(c, w)
 
-	stream, ok := w.(WatchableDBGetter)
+	stream, ok := w.(changestream.WatchableDBGetter)
 	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement ChangeStream"))
 
 	// Ensure that the event queue is only created once.
