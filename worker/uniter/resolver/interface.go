@@ -11,23 +11,24 @@ import (
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
-// ErrNoOperation is used to indicate that there are no
-// currently pending operations to run.
-var ErrNoOperation = errors.New("no operations")
+const (
+	// ErrNoOperation is used to indicate that there are no
+	// currently pending operations to run.
+	ErrNoOperation = errors.ConstError("no operations")
 
-// ErrWaiting indicates that the resolver loop should
-// not execute any more operations until a remote state
-// event has occurred.
-var ErrWaiting = errors.New("waiting for remote state change")
+	// ErrRestart indicates that the resolver loop should
+	// be restarted with a new remote state watcher.
+	ErrRestart = errors.ConstError("restarting resolver")
 
-// ErrRestart indicates that the resolver loop should
-// be restarted with a new remote state watcher.
-var ErrRestart = errors.New("restarting resolver")
+	// ErrUnitDead indicates that the unit has been marked as dead and there
+	// will be no more units to run after that.
+	ErrUnitDead = errors.ConstError("unit dead")
 
-// ErrTerminate is used when the unit has been marked
-// as dead and so there will never be any more
-// operations to run for that unit.
-var ErrTerminate = errors.New("terminate resolver")
+	// ErrWaiting indicates that the resolver loop should
+	// not execute any more operations until a remote state
+	// event has occurred.
+	ErrWaiting = errors.ConstError("waiting for remote state change")
+)
 
 // Resolver instances use local (as is) and remote (to be) state
 // to provide operations to run in order to progress towards

@@ -686,18 +686,22 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocal(c *gc.C) {
 		"client-key":     coretesting.CAKey,
 		"trust-password": "fred",
 	})
-	insecureSpec := environscloudspec.CloudSpec{
-		Endpoint:   "8.8.8.8",
-		Credential: &insecureCred,
+	insecureSpec := lxd.CloudSpec{
+		CloudSpec: environscloudspec.CloudSpec{
+			Endpoint:   "8.8.8.8",
+			Credential: &insecureCred,
+		},
 	}
 	secureCred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
 		"client-cert": coretesting.CACert,
 		"client-key":  coretesting.CAKey,
 		"server-cert": coretesting.ServerCert,
 	})
-	secureSpec := environscloudspec.CloudSpec{
-		Endpoint:   "8.8.8.8",
-		Credential: &secureCred,
+	secureSpec := lxd.CloudSpec{
+		CloudSpec: environscloudspec.CloudSpec{
+			Endpoint:   "8.8.8.8",
+			Credential: &secureCred,
+		},
 	}
 	params := environs.FinalizeCredentialParams{
 		CloudEndpoint: "8.8.8.8",
@@ -750,18 +754,22 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocalWithCertAlreadyExists(c
 		"client-key":     coretesting.CAKey,
 		"trust-password": "fred",
 	})
-	insecureSpec := environscloudspec.CloudSpec{
-		Endpoint:   "8.8.8.8",
-		Credential: &insecureCred,
+	insecureSpec := lxd.CloudSpec{
+		CloudSpec: environscloudspec.CloudSpec{
+			Endpoint:   "8.8.8.8",
+			Credential: &insecureCred,
+		},
 	}
 	secureCred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
 		"client-cert": coretesting.CACert,
 		"client-key":  coretesting.CAKey,
 		"server-cert": coretesting.ServerCert,
 	})
-	secureSpec := environscloudspec.CloudSpec{
-		Endpoint:   "8.8.8.8",
-		Credential: &secureCred,
+	secureSpec := lxd.CloudSpec{
+		CloudSpec: environscloudspec.CloudSpec{
+			Endpoint:   "8.8.8.8",
+			Credential: &secureCred,
+		},
 	}
 	params := environs.FinalizeCredentialParams{
 		CloudEndpoint: "8.8.8.8",
@@ -803,9 +811,11 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithInsecureError(c *gc.C
 		"client-key":     coretesting.CAKey,
 		"trust-password": "fred",
 	})
-	insecureSpec := environscloudspec.CloudSpec{
-		Endpoint:   "8.8.8.8",
-		Credential: &insecureCred,
+	insecureSpec := lxd.CloudSpec{
+		CloudSpec: environscloudspec.CloudSpec{
+			Endpoint:   "8.8.8.8",
+			Credential: &insecureCred,
+		},
 	}
 	params := environs.FinalizeCredentialParams{
 		CloudEndpoint: "8.8.8.8",
@@ -829,9 +839,11 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithCreateCertificateErro
 		"client-key":     coretesting.CAKey,
 		"trust-password": "fred",
 	})
-	insecureSpec := environscloudspec.CloudSpec{
-		Endpoint:   "8.8.8.8",
-		Credential: &insecureCred,
+	insecureSpec := lxd.CloudSpec{
+		CloudSpec: environscloudspec.CloudSpec{
+			Endpoint:   "8.8.8.8",
+			Credential: &insecureCred,
+		},
 	}
 	params := environs.FinalizeCredentialParams{
 		CloudEndpoint: "8.8.8.8",
@@ -870,9 +882,11 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoveWithGetServerError(c *gc.
 		"client-key":     coretesting.CAKey,
 		"trust-password": "fred",
 	})
-	insecureSpec := environscloudspec.CloudSpec{
-		Endpoint:   "8.8.8.8",
-		Credential: &insecureCred,
+	insecureSpec := lxd.CloudSpec{
+		CloudSpec: environscloudspec.CloudSpec{
+			Endpoint:   "8.8.8.8",
+			Credential: &insecureCred,
+		},
 	}
 	params := environs.FinalizeCredentialParams{
 		CloudEndpoint: "8.8.8.8",
@@ -912,18 +926,22 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithNewRemoteServerError(
 		"client-key":     coretesting.CAKey,
 		"trust-password": "fred",
 	})
-	insecureSpec := environscloudspec.CloudSpec{
-		Endpoint:   "8.8.8.8",
-		Credential: &insecureCred,
+	insecureSpec := lxd.CloudSpec{
+		CloudSpec: environscloudspec.CloudSpec{
+			Endpoint:   "8.8.8.8",
+			Credential: &insecureCred,
+		},
 	}
 	secureCred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
 		"client-cert": coretesting.CACert,
 		"client-key":  coretesting.CAKey,
 		"server-cert": coretesting.ServerCert,
 	})
-	secureSpec := environscloudspec.CloudSpec{
-		Endpoint:   "8.8.8.8",
-		Credential: &secureCred,
+	secureSpec := lxd.CloudSpec{
+		CloudSpec: environscloudspec.CloudSpec{
+			Endpoint:   "8.8.8.8",
+			Credential: &secureCred,
+		},
 	}
 	params := environs.FinalizeCredentialParams{
 		CloudEndpoint: "8.8.8.8",

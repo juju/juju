@@ -86,6 +86,7 @@ func (pv *PersistentVolume) Get(ctx context.Context, client kubernetes.Interface
 // Delete removes the resource.
 func (pv *PersistentVolume) Delete(ctx context.Context, client kubernetes.Interface) error {
 	api := client.CoreV1().PersistentVolumes()
+	logger.Infof("deleting PV %s due to call to PersistentVolume.Delete", pv.Name)
 	err := api.Delete(ctx, pv.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})

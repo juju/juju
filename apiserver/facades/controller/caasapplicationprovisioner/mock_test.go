@@ -43,6 +43,7 @@ type mockState struct {
 	resource                *mockResources
 	operatorRepo            string
 	controllerConfigWatcher *statetesting.MockNotifyWatcher
+	isController            bool
 }
 
 func newMockState() *mockState {
@@ -51,6 +52,16 @@ func newMockState() *mockState {
 	}
 	st.model = &mockModel{state: st}
 	return st
+}
+
+func (st *mockState) ApplyOperation(op state.ModelOperation) error {
+	st.MethodCall(st, "AppyOperation")
+	return nil
+}
+
+func (st *mockState) Unit(unit string) (caasapplicationprovisioner.Unit, error) {
+	st.MethodCall(st, "Unit")
+	return nil, nil
 }
 
 func (st *mockState) WatchControllerConfig() state.NotifyWatcher {
@@ -108,6 +119,11 @@ func (st *mockState) ResolveConstraints(cons constraints.Value) (constraints.Val
 func (st *mockState) Resources() caasapplicationprovisioner.Resources {
 	st.MethodCall(st, "Resources")
 	return st.resource
+}
+
+func (st *mockState) IsController() bool {
+	st.MethodCall(st, "IsController")
+	return st.isController
 }
 
 type mockResources struct {
@@ -209,6 +225,7 @@ type mockApplication struct {
 	unitsChanges         chan []string
 	watcher              *statetesting.MockNotifyWatcher
 	charmPending         bool
+	provisioningState    *state.ApplicationProvisioningState
 }
 
 func (a *mockApplication) CharmPendingToBeDownloaded() bool {
@@ -338,6 +355,20 @@ func (a *mockApplication) WatchUnits() state.StringsWatcher {
 func (a *mockApplication) Watch() state.NotifyWatcher {
 	a.MethodCall(a, "Watch")
 	return a.watcher
+}
+
+func (a *mockApplication) SetProvisioningState(ps state.ApplicationProvisioningState) error {
+	a.MethodCall(a, "SetProvisioningState", ps)
+	err := a.NextErr()
+	if err == nil {
+		a.provisioningState = &ps
+	}
+	return err
+}
+
+func (a *mockApplication) ProvisioningState() *state.ApplicationProvisioningState {
+	a.MethodCall(a, "ProvisioningState")
+	return a.provisioningState
 }
 
 type mockCharm struct {

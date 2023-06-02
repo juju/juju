@@ -98,11 +98,11 @@ func (s *storageAttachmentWatcher) loop() error {
 			snapshot, err := getStorageSnapshot(
 				s.st, s.storageTag, s.unitTag,
 			)
-			if params.IsCodeNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				// The storage attachment was removed
 				// from state, so we can stop watching.
 				return nil
-			} else if params.IsCodeNotProvisioned(err) {
+			} else if errors.Is(err, errors.NotProvisioned) {
 				// We do not care about unattached
 				// storage here.
 				continue

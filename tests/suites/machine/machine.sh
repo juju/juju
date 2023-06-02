@@ -6,12 +6,12 @@ test_log_permissions() {
 	file="${TEST_DIR}/test_log_permissions.log"
 	ensure "correct-log" "${file}"
 
-	juju deploy jameinel-ubuntu-lite --base ubuntu@20.04
+	juju deploy juju-qa-test source --series focal
 
 	wait_for "started" '.machines."0"."juju-status".current'
 
-	check_contains "$(juju ssh 0 -- stat -c '%G' /var/log/juju/unit-ubuntu-lite-0.log)" adm
-	check_contains "$(juju ssh 0 -- stat -c '%a' /var/log/juju/unit-ubuntu-lite-0.log)" 640
+	check_contains "$(juju ssh 0 -- stat -c '%G' /var/log/juju/unit-source-0.log)" adm
+	check_contains "$(juju ssh 0 -- stat -c '%a' /var/log/juju/unit-source-0.log)" 640
 
 	check_contains "$(juju ssh 0 -- stat -c '%a' /var/log/juju/machine-0.log)" 640
 	check_contains "$(juju ssh 0 -- stat -c '%G' /var/log/juju/machine-0.log)" adm

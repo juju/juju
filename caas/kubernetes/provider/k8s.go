@@ -6,6 +6,7 @@ package provider
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -30,6 +31,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/dynamic"
@@ -1386,7 +1388,7 @@ func getJujuInitContainerAndStorageInfo(operatorImagePath string) (container cor
 	jujudCmd := `
 initCmd=$($JUJU_TOOLS_DIR/jujud help commands | grep caas-unit-init)
 if test -n "$initCmd"; then
-$JUJU_TOOLS_DIR/jujud caas-unit-init --debug --wait;
+exec $JUJU_TOOLS_DIR/jujud caas-unit-init --debug --wait;
 else
 exit 0
 fi`[1:]
@@ -1771,6 +1773,7 @@ func (k *kubernetesClient) deleteVolumeClaims(appName string, p *core.Pod) ([]st
 			continue
 		}
 		pvClaims := k.client().CoreV1().PersistentVolumeClaims(k.namespace)
+		logger.Infof("deleting operator PVC %s for application %s due to call to kubernetesClient.deleteVolumeClaims", vol.PersistentVolumeClaim.ClaimName, appName)
 		err := pvClaims.Delete(context.TODO(), vol.PersistentVolumeClaim.ClaimName, v1.DeleteOptions{
 			PropagationPolicy: constants.DefaultPropagationPolicy(),
 		})
@@ -2027,16 +2030,25 @@ func (k *kubernetesClient) AnnotateUnit(appName string, mode caas.DeploymentMode
 		return errors.NotFoundf("pod %q", podName)
 	}
 
-	if pod.Annotations == nil {
-		pod.Annotations = make(map[string]string)
-	}
 	unitID := unit.Id()
-	if pod.Annotations[utils.AnnotationUnitKey(k.IsLegacyLabels())] == unitID {
+	if pod.Annotations != nil && pod.Annotations[utils.AnnotationUnitKey(k.IsLegacyLabels())] == unitID {
 		return nil
 	}
-	pod.Annotations[utils.AnnotationUnitKey(k.IsLegacyLabels())] = unitID
 
-	_, err = pods.Update(context.TODO(), pod, v1.UpdateOptions{})
+	patch := struct {
+		ObjectMeta struct {
+			Annotations map[string]string `json:"annotations"`
+		} `json:"metadata"`
+	}{}
+	patch.ObjectMeta.Annotations = map[string]string{
+		utils.AnnotationUnitKey(k.IsLegacyLabels()): unitID,
+	}
+	jsonPatch, err := json.Marshal(patch)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	_, err = pods.Patch(context.TODO(), pod.Name, types.MergePatchType, jsonPatch, v1.PatchOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NotFoundf("pod %q", podName)
 	}

@@ -93,6 +93,14 @@ type Server interface {
 	UseProject(string)
 }
 
+// CloudSpec describes the cloud configuration for use with the LXD provider.
+type CloudSpec struct {
+	environscloudspec.CloudSpec
+
+	// Project specifies the LXD project to target.
+	Project string
+}
+
 // ServerFactory creates a new factory for creating servers that are required
 // by the server.
 type ServerFactory interface {
@@ -106,13 +114,13 @@ type ServerFactory interface {
 	// RemoteServer creates a new server that connects to a remote lxd server.
 	// If the cloudSpec endpoint is nil or empty, it will assume that you want
 	// to connection to a local server and will instead use that one.
-	RemoteServer(environscloudspec.CloudSpec) (Server, error)
+	RemoteServer(CloudSpec) (Server, error)
 
 	// InsecureRemoteServer creates a new server that connect to a remote lxd
 	// server in a insecure manner.
 	// If the cloudSpec endpoint is nil or empty, it will assume that you want
 	// to connection to a local server and will instead use that one.
-	InsecureRemoteServer(environscloudspec.CloudSpec) (Server, error)
+	InsecureRemoteServer(CloudSpec) (Server, error)
 }
 
 // InterfaceAddress groups methods that is required to find addresses
@@ -201,7 +209,7 @@ func (s *serverFactory) LocalServerAddress() (string, error) {
 	return s.localServerAddress, nil
 }
 
-func (s *serverFactory) RemoteServer(spec environscloudspec.CloudSpec) (Server, error) {
+func (s *serverFactory) RemoteServer(spec CloudSpec) (Server, error) {
 	if spec.Endpoint == "" {
 		return s.LocalServer()
 	}
@@ -221,13 +229,17 @@ func (s *serverFactory) RemoteServer(spec environscloudspec.CloudSpec) (Server, 
 		WithHTTPClient(s.newHTTPClientFunc())
 
 	svr, err := s.newRemoteServerFunc(serverSpec)
+	if spec.Project != "" {
+		svr.UseProject(spec.Project)
+	}
+
 	if err == nil {
 		err = s.bootstrapRemoteServer(svr)
 	}
 	return svr, errors.Trace(err)
 }
 
-func (s *serverFactory) InsecureRemoteServer(spec environscloudspec.CloudSpec) (Server, error) {
+func (s *serverFactory) InsecureRemoteServer(spec CloudSpec) (Server, error) {
 	if spec.Endpoint == "" {
 		return s.LocalServer()
 	}
@@ -248,6 +260,10 @@ func (s *serverFactory) InsecureRemoteServer(spec environscloudspec.CloudSpec) (
 		WithHTTPClient(s.newHTTPClientFunc())
 
 	svr, err := s.newRemoteServerFunc(serverSpec)
+	if spec.Project != "" {
+		svr.UseProject(spec.Project)
+	}
+
 	return svr, errors.Trace(err)
 }
 
