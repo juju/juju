@@ -32,7 +32,7 @@ test_spaces_ec2() {
 	# We don't really care if this fails; stale NICs will be auto-purged the
 	# next time we run the test-suite
 	# shellcheck disable=SC2086
-	aws ec2 delete-network-interface --network-interface-id "$hotplug_nic_id" 2>/dev/null
+	aws ec2 delete-network-interface --network-interface-id "$hotplug_nic_id" 2>/dev/null || true
 }
 
 ensure_subnet() {

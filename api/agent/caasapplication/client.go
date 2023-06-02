@@ -4,6 +4,7 @@
 package caasapplication
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
@@ -42,6 +43,11 @@ func (c *Client) UnitIntroduction(podName string, podUUID string) (*UnitConfig, 
 		return nil, err
 	}
 	if err := result.Error; err != nil {
+		if params.IsCodeAlreadyExists(err) {
+			return nil, errors.AlreadyExists
+		} else if params.IsCodeNotAssigned(err) {
+			return nil, errors.NotAssigned
+		}
 		return nil, err
 	}
 	return &UnitConfig{

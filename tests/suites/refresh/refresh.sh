@@ -97,16 +97,16 @@ run_refresh_channel_no_new_revision() {
 
 	ensure "${model_name}" "${file}"
 
-	juju deploy jameinel-ubuntu-lite
-	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
+	juju deploy juju-qa-fixed-rev
+	wait_for "juju-qa-fixed-rev" "$(idle_condition "juju-qa-fixed-rev")"
 	# get revision to ensure it doesn't change
-	cs_revision=$(juju status --format json | jq -S '.applications | .["ubuntu-lite"] | .["charm-rev"]')
+	cs_revision=$(juju status --format json | jq -S '.applications | .["juju-qa-fixed-rev"] | .["charm-rev"]')
 
-	juju refresh ubuntu-lite --channel edge
+	juju refresh juju-qa-fixed-rev --channel edge
 
-	wait_for "ubuntu-lite" "$(charm_channel "ubuntu-lite" "edge")"
-	wait_for "ubuntu-lite" "$(charm_rev "ubuntu-lite" "${cs_revision}")"
-	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
+	wait_for "juju-qa-fixed-rev" "$(charm_channel "juju-qa-fixed-rev" "edge")"
+	wait_for "juju-qa-fixed-rev" "$(charm_rev "juju-qa-fixed-rev" "${cs_revision}")"
+	wait_for "juju-qa-fixed-rev" "$(idle_condition "juju-qa-fixed-rev")"
 
 	destroy_model "${model_name}"
 }

@@ -5,7 +5,4 @@ peers:
   self:
     interface: dummy
 series:
-  - xenial
-  - bionic
-  - focal
   - jammy

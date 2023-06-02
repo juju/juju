@@ -12,7 +12,6 @@ import (
 	network "github.com/juju/juju/core/network"
 	series "github.com/juju/juju/core/series"
 	environs "github.com/juju/juju/environs"
-	cloudspec "github.com/juju/juju/environs/cloudspec"
 	lxd0 "github.com/juju/juju/provider/lxd"
 	lxd1 "github.com/lxc/lxd/client"
 	api "github.com/lxc/lxd/shared/api"
@@ -42,7 +41,7 @@ func (m *MockServerFactory) EXPECT() *MockServerFactoryMockRecorder {
 }
 
 // InsecureRemoteServer mocks base method.
-func (m *MockServerFactory) InsecureRemoteServer(arg0 cloudspec.CloudSpec) (lxd0.Server, error) {
+func (m *MockServerFactory) InsecureRemoteServer(arg0 lxd0.CloudSpec) (lxd0.Server, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InsecureRemoteServer", arg0)
 	ret0, _ := ret[0].(lxd0.Server)
@@ -87,7 +86,7 @@ func (mr *MockServerFactoryMockRecorder) LocalServerAddress() *gomock.Call {
 }
 
 // RemoteServer mocks base method.
-func (m *MockServerFactory) RemoteServer(arg0 cloudspec.CloudSpec) (lxd0.Server, error) {
+func (m *MockServerFactory) RemoteServer(arg0 lxd0.CloudSpec) (lxd0.Server, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoteServer", arg0)
 	ret0, _ := ret[0].(lxd0.Server)

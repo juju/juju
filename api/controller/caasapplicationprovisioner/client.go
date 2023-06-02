@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/common"
 	charmscommon "github.com/juju/juju/api/common/charms"
 	apiwatcher "github.com/juju/juju/api/watcher"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/life"
@@ -285,32 +286,6 @@ func (c *Client) Units(appName string) ([]params.CAASUnit, error) {
 	return out, nil
 }
 
-// GarbageCollect cleans up units that have gone away permanently.
-// Only observed units will be deleted as new units could have surfaced between
-// the capturing of kubernetes pod state/application state and this call.
-func (c *Client) GarbageCollect(
-	appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error {
-	var result params.ErrorResults
-	observedEntities := params.Entities{
-		Entities: make([]params.Entity, len(observedUnits)),
-	}
-	for i, v := range observedUnits {
-		observedEntities.Entities[i].Tag = v.String()
-	}
-	args := params.CAASApplicationGarbageCollectArgs{Args: []params.CAASApplicationGarbageCollectArg{{
-		Application:     params.Entity{Tag: names.NewApplicationTag(appName).String()},
-		ObservedUnits:   observedEntities,
-		DesiredReplicas: desiredReplicas,
-		ActivePodNames:  activePodNames,
-		Force:           force,
-	}}}
-	err := c.facade.FacadeCall("CAASApplicationGarbageCollect", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
-}
-
 // ApplicationOCIResources returns all the OCI image resources for an application.
 func (c *Client) ApplicationOCIResources(appName string) (map[string]resources.DockerImageDetails, error) {
 	args := params.Entities{Entities: []params.Entity{{
@@ -432,4 +407,85 @@ func (c *Client) RemoveUnit(unitName string) error {
 		return nil
 	}
 	return resultErr
+}
+
+// DestroyUnits is responsible for starting the process of destroying units
+// associated with this application.
+func (c *Client) DestroyUnits(unitNames []string) error {
+	args := params.DestroyUnitsParams{}
+	args.Units = make([]params.DestroyUnitParams, 0, len(unitNames))
+
+	fmt.Println(unitNames)
+	for _, unitName := range unitNames {
+		tag := names.NewUnitTag(unitName)
+		args.Units = append(args.Units, params.DestroyUnitParams{
+			UnitTag: tag.String(),
+		})
+	}
+	result := params.DestroyUnitResults{}
+
+	err := c.facade.FacadeCall("DestroyUnits", args, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if len(result.Results) != len(unitNames) {
+		return fmt.Errorf("expected %d results got %d", len(unitNames), len(result.Results))
+	}
+
+	for _, res := range result.Results {
+		if res.Error != nil {
+			return errors.Trace(apiservererrors.RestoreError(res.Error))
+		}
+	}
+
+	return nil
+}
+
+// ProvisioningState returns the current provisioning state for the CAAS application.
+// The result can be nil.
+func (c *Client) ProvisioningState(appName string) (*params.CAASApplicationProvisioningState, error) {
+	var result params.CAASApplicationProvisioningStateResult
+	args := params.Entity{Tag: names.NewApplicationTag(appName).String()}
+	err := c.facade.FacadeCall("ProvisioningState", args, &result)
+	if err != nil {
+		return nil, err
+	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return result.ProvisioningState, nil
+}
+
+// SetProvisioningState sets the provisioning state for the CAAS application.
+func (c *Client) SetProvisioningState(appName string, state params.CAASApplicationProvisioningState) error {
+	var result params.ErrorResult
+	args := params.CAASApplicationProvisioningStateArg{
+		Application:       params.Entity{Tag: names.NewApplicationTag(appName).String()},
+		ProvisioningState: state,
+	}
+	err := c.facade.FacadeCall("SetProvisioningState", args, &result)
+	if err != nil {
+		return err
+	}
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}
+
+// ProvisionerConfig returns the provisoner's configuration.
+func (c *Client) ProvisionerConfig() (params.CAASApplicationProvisionerConfig, error) {
+	var result params.CAASApplicationProvisionerConfigResult
+	err := c.facade.FacadeCall("ProvisionerConfig", nil, &result)
+	if err != nil {
+		return params.CAASApplicationProvisionerConfig{}, err
+	}
+	if result.Error != nil {
+		return params.CAASApplicationProvisionerConfig{}, result.Error
+	}
+	if result.ProvisionerConfig == nil {
+		return params.CAASApplicationProvisionerConfig{}, nil
+	}
+	return *result.ProvisionerConfig, nil
 }
