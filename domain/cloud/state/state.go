@@ -67,13 +67,13 @@ func (st *State) ListClouds(ctx context.Context, filter *Filter) ([]cloud.Cloud,
 	var result []cloud.Cloud
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		var err error
-		result, err = loadClouds(tx, filter)
+		result, err = loadClouds(ctx, tx, filter)
 		return errors.Trace(err)
 	})
 	return result, errors.Trace(err)
 }
 
-func loadClouds(tx *sql.Tx, filter *Filter) ([]cloud.Cloud, error) {
+func loadClouds(ctx context.Context, tx *sql.Tx, filter *Filter) ([]cloud.Cloud, error) {
 	where := ""
 	if !filter.isEmpty() {
 		where = "WHERE " + filter.condition()
@@ -91,7 +91,7 @@ func loadClouds(tx *sql.Tx, filter *Filter) ([]cloud.Cloud, error) {
 			JOIN cloud_type ON cloud_type.id = cloud.cloud_type_id
 		%s`, where)[1:]
 
-	rows, err := tx.Query(q, transform.Slice(filter.parameters(), func(s string) any { return s })...)
+	rows, err := tx.QueryContext(ctx, q, transform.Slice(filter.parameters(), func(s string) any { return s })...)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.Trace(err)
 	}
@@ -140,7 +140,7 @@ func loadClouds(tx *sql.Tx, filter *Filter) ([]cloud.Cloud, error) {
 	}
 
 	// Add in the ca certs and regions.
-	caCerts, err := loadCACerts(tx, uuids)
+	caCerts, err := loadCACerts(ctx, tx, uuids)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -148,7 +148,7 @@ func loadClouds(tx *sql.Tx, filter *Filter) ([]cloud.Cloud, error) {
 		clouds[uuid].CACertificates = certs
 	}
 
-	cloudRegions, err := loadRegions(tx, uuids)
+	cloudRegions, err := loadRegions(ctx, tx, uuids)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -165,14 +165,14 @@ func loadClouds(tx *sql.Tx, filter *Filter) ([]cloud.Cloud, error) {
 
 // loadCACerts loads the ca certs for the specified clouds, returning
 // a map of results keyed on cloud uuid.
-func loadCACerts(tx *sql.Tx, cloudUUIDS []string) (map[string][]string, error) {
+func loadCACerts(ctx context.Context, tx *sql.Tx, cloudUUIDS []string) (map[string][]string, error) {
 	q := fmt.Sprintf(`
 		SELECT
 			cloud_uuid, ca_cert
 		FROM cloud_ca_cert
 		WHERE cloud_uuid IN (%s)`, database.SliceToPlaceholder(cloudUUIDS))[1:]
 
-	rows, err := tx.Query(q, transform.Slice(cloudUUIDS, func(s string) any { return s })...)
+	rows, err := tx.QueryContext(ctx, q, transform.Slice(cloudUUIDS, func(s string) any { return s })...)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.Trace(err)
 	}
@@ -198,14 +198,14 @@ func loadCACerts(tx *sql.Tx, cloudUUIDS []string) (map[string][]string, error) {
 
 // loadRegions loads the regions for the specified clouds, returning
 // a map of results keyed on cloud uuid.
-func loadRegions(tx *sql.Tx, cloudUUIDS []string) (map[string][]cloud.Region, error) {
+func loadRegions(ctx context.Context, tx *sql.Tx, cloudUUIDS []string) (map[string][]cloud.Region, error) {
 	q := fmt.Sprintf(`
 		SELECT
 			cloud_uuid, name, endpoint, identity_endpoint, storage_endpoint
 		FROM cloud_region
 		WHERE cloud_uuid IN (%s)`, database.SliceToPlaceholder(cloudUUIDS))[1:]
 
-	rows, err := tx.Query(q, transform.Slice(cloudUUIDS, func(s string) any { return s })...)
+	rows, err := tx.QueryContext(ctx, q, transform.Slice(cloudUUIDS, func(s string) any { return s })...)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.Trace(err)
 	}
@@ -299,10 +299,10 @@ func upsertCloud(ctx context.Context, tx *sql.Tx, cloudUUID string, cloud cloud.
 
 // loadAuthTypes reads the cloud auth type values and ids
 // into a map for easy lookup.
-func loadAuthTypes(tx *sql.Tx) (map[string]int, error) {
+func loadAuthTypes(ctx context.Context, tx *sql.Tx) (map[string]int, error) {
 	var dbAuthTypes = map[string]int{}
 
-	rows, err := tx.Query("SELECT id, type FROM auth_type")
+	rows, err := tx.QueryContext(ctx, "SELECT id, type FROM auth_type")
 	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.Trace(err)
 	}
@@ -322,7 +322,7 @@ func loadAuthTypes(tx *sql.Tx) (map[string]int, error) {
 }
 
 func updateAuthTypes(ctx context.Context, tx *sql.Tx, cloudUUID string, authTypes cloud.AuthTypes) error {
-	dbAuthTypes, err := loadAuthTypes(tx)
+	dbAuthTypes, err := loadAuthTypes(ctx, tx)
 	if err != nil {
 		return errors.Trace(err)
 	}
