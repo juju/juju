@@ -105,3 +105,11 @@ func MustCloseUnitPortRanges(c *gc.C, st *State, machine *Machine, unitName, end
 	}
 	c.Assert(st.ApplyOperation(machPortRanges.Changes()), jc.ErrorIsNil)
 }
+
+func (st *State) ReadBackendRefCount(backendID string) (int, error) {
+	refCountCollection, ccloser := st.db().GetCollection(globalRefcountsC)
+	defer ccloser()
+
+	key := secretBackendRefCountKey(backendID)
+	return nsRefcounts.read(refCountCollection, key)
+}

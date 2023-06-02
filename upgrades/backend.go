@@ -13,6 +13,7 @@ import (
 type StateBackend interface {
 	RemoveOrphanedSecretPermissions() error
 	MigrateApplicationOpenedPortsToUnitScope() error
+	EnsureInitalRefCountForExternalSecretBackends() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -37,4 +38,8 @@ func (s stateBackend) RemoveOrphanedSecretPermissions() error {
 
 func (s stateBackend) MigrateApplicationOpenedPortsToUnitScope() error {
 	return state.MigrateApplicationOpenedPortsToUnitScope(s.pool)
+}
+
+func (s stateBackend) EnsureInitalRefCountForExternalSecretBackends() error {
+	return state.EnsureInitalRefCountForExternalSecretBackends(s.pool)
 }

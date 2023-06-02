@@ -5,12 +5,10 @@ package state
 
 import (
 	"github.com/juju/collections/set"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3"
-
-	"github.com/juju/description/v4"
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/permission"
@@ -529,19 +527,29 @@ type SecretConsumersState interface {
 	SecretConsumerKey(uri *secrets.URI, subject string) string
 }
 
+// BackendRevisionCountProcesser is used to create a backend revision reference count.
+type BackendRevisionCountProcesser interface {
+	IncBackendRevisionCountOps(backendID string) ([]txn.Op, error)
+}
+
 // SecretsInput describes the input used for migrating secrets.
 type SecretsInput interface {
 	DocModelNamespace
 	SecretConsumersState
+	BackendRevisionCountProcesser
 	SecretsDescription
 }
 
-type secretConsumersStateShim struct {
+type secretStateShim struct {
 	stateModelNamspaceShim
 }
 
-func (s *secretConsumersStateShim) SecretConsumerKey(uri *secrets.URI, subject string) string {
+func (s *secretStateShim) SecretConsumerKey(uri *secrets.URI, subject string) string {
 	return s.st.secretConsumerKey(uri, subject)
+}
+
+func (s *secretStateShim) IncBackendRevisionCountOps(backendID string) ([]txn.Op, error) {
+	return s.st.incBackendRevisionCountOps(backendID, 1)
 }
 
 // ImportSecrets describes a way to import secrets from a
@@ -606,7 +614,7 @@ func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner, knownSe
 					BackendID:  rev.ValueRef().BackendID(),
 					RevisionID: rev.ValueRef().RevisionID(),
 				}
-				if !utils.IsValidUUIDString(valueRef.BackendID) && !seenBackendIds.Contains(valueRef.BackendID) {
+				if !secrets.IsInternalSecretBackendID(valueRef.BackendID) && !seenBackendIds.Contains(valueRef.BackendID) {
 					if !knownSecretBackends.Contains(valueRef.BackendID) {
 						return errors.New("target controller does not have all required secret backends set up")
 					}
@@ -635,6 +643,13 @@ func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner, knownSe
 					OwnerTag:      owner.String(),
 				},
 			})
+			if valueRef != nil {
+				refOps, err := src.IncBackendRevisionCountOps(valueRef.BackendID)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				ops = append(ops, refOps...)
+			}
 		}
 		for subject, access := range secret.ACL() {
 			key := src.SecretConsumerKey(uri, subject)
