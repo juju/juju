@@ -14,6 +14,7 @@ var facadeVersions = map[string]int{
 	"Action":                       7,
 	"ActionPruner":                 1,
 	"Agent":                        3,
+	"AgentLifeFlag":                1,
 	"AgentTools":                   1,
 	"AllModelWatcher":              4,
 	"AllWatcher":                   3,

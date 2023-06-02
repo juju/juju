@@ -14,3 +14,4 @@ func TestPackage(t *stdtesting.T) {
 }
 
 var NewProvisionerWorkerForTest = newProvisionerWorker
+var AppOps = &applicationOps{}

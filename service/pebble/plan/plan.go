@@ -34,6 +34,7 @@ type Service struct {
 	Group       string            `yaml:"group,omitempty"`
 
 	// Auto-restart and backoff functionality
+	KillDelay      OptionalDuration         `yaml:"kill-delay,omitempty"`
 	OnSuccess      ServiceAction            `yaml:"on-success,omitempty"`
 	OnFailure      ServiceAction            `yaml:"on-failure,omitempty"`
 	OnCheckFailure map[string]ServiceAction `yaml:"on-check-failure,omitempty"`

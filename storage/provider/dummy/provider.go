@@ -82,7 +82,10 @@ func (p *StorageProvider) ValidateConfig(providerConfig *storage.Config) error {
 
 func (p *StorageProvider) ValidateForK8s(attributes map[string]any) error {
 	p.MethodCall(p, "ValidateForK8s", attributes)
-	return p.ValidateForK8sFunc(attributes)
+	if p.ValidateForK8sFunc != nil {
+		return p.ValidateForK8sFunc(attributes)
+	}
+	return nil
 }
 
 // Supports is defined on storage.Provider.

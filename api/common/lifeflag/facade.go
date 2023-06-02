@@ -1,4 +1,4 @@
-// Copyright 2016 Canonical Ltd.
+// Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package lifeflag
@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -16,21 +17,19 @@ import (
 // NewWatcherFunc exists to let us test Watch properly.
 type NewWatcherFunc func(base.APICaller, params.NotifyWatchResult) watcher.NotifyWatcher
 
-// Facade makes calls to the LifeFlag facade.
-type Facade struct {
-	caller     base.FacadeCaller
-	newWatcher NewWatcherFunc
+// Client makes calls to the LifeFlag facade.
+type Client struct {
+	caller base.FacadeCaller
 }
 
-// NewFacade returns a new Facade using the supplied caller.
-func NewFacade(caller base.APICaller, newWatcher NewWatcherFunc) *Facade {
-	return &Facade{
-		caller:     base.NewFacadeCaller(caller, "LifeFlag"),
-		newWatcher: newWatcher,
+// NewClient returns a new Facade using the supplied caller.
+func NewClient(caller base.APICaller, facadeName string) *Client {
+	return &Client{
+		caller: base.NewFacadeCaller(caller, facadeName),
 	}
 }
 
-// ErrNotFound indicates that the requested entity no longer exists.
+// ErrEntityNotFound indicates that the requested entity no longer exists.
 //
 // We avoid errors.NotFound, because errors.NotFound is non-specific, and
 // it's our job to communicate *this specific condition*. There are many
@@ -41,17 +40,17 @@ func NewFacade(caller base.APICaller, newWatcher NewWatcherFunc) *Facade {
 // We're still vulnerable to apiservers returning unjustified CodeNotFound
 // but at least we're safe from accidental errors.NotFound injection in
 // the api client mechanism.
-var ErrNotFound = errors.New("entity not found")
+const ErrEntityNotFound = errors.ConstError("entity not found")
 
 // Watch returns a NotifyWatcher that sends a value whenever the
-// entity's life value may have changed; or ErrNotFound; or some
+// entity's life value may have changed; or ErrEntityNotFound; or some
 // other error.
-func (facade *Facade) Watch(entity names.Tag) (watcher.NotifyWatcher, error) {
+func (c *Client) Watch(entity names.Tag) (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: entity.String()}},
 	}
 	var results params.NotifyWatchResults
-	err := facade.caller.FacadeCall("Watch", args, &results)
+	err := c.caller.FacadeCall("Watch", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -61,22 +60,22 @@ func (facade *Facade) Watch(entity names.Tag) (watcher.NotifyWatcher, error) {
 	result := results.Results[0]
 	if err := result.Error; err != nil {
 		if params.IsCodeNotFound(err) {
-			return nil, ErrNotFound
+			return nil, ErrEntityNotFound
 		}
 		return nil, errors.Trace(result.Error)
 	}
-	w := facade.newWatcher(facade.caller.RawAPICaller(), result)
+	w := apiwatcher.NewNotifyWatcher(c.caller.RawAPICaller(), result)
 	return w, nil
 }
 
-// Life returns the entity's life value; or ErrNotFound; or some
+// Life returns the entity's life value; or ErrEntityNotFound; or some
 // other error.
-func (facade *Facade) Life(entity names.Tag) (life.Value, error) {
+func (c *Client) Life(entity names.Tag) (life.Value, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: entity.String()}},
 	}
 	var results params.LifeResults
-	err := facade.caller.FacadeCall("Life", args, &results)
+	err := c.caller.FacadeCall("Life", args, &results)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -86,7 +85,7 @@ func (facade *Facade) Life(entity names.Tag) (life.Value, error) {
 	result := results.Results[0]
 	if err := result.Error; err != nil {
 		if params.IsCodeNotFound(err) {
-			return "", ErrNotFound
+			return "", ErrEntityNotFound
 		}
 		return "", errors.Trace(result.Error)
 	}

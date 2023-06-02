@@ -4,8 +4,7 @@
 package caasapplication_test
 
 import (
-	"errors"
-
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -73,6 +72,50 @@ func (s *provisionerSuite) TestUnitIntroductionFail(c *gc.C) {
 	})
 	_, err := client.UnitIntroduction("pod-name", "pod-uuid")
 	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *provisionerSuite) TestUnitIntroductionFailAlreadyExists(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		called = true
+		c.Assert(objType, gc.Equals, "CAASApplication")
+		c.Assert(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "UnitIntroduction")
+		c.Assert(a, gc.FitsTypeOf, params.CAASUnitIntroductionArgs{})
+		args := a.(params.CAASUnitIntroductionArgs)
+		c.Assert(args.PodName, gc.Equals, "pod-name")
+		c.Assert(args.PodUUID, gc.Equals, "pod-uuid")
+		c.Assert(result, gc.FitsTypeOf, &params.CAASUnitIntroductionResult{})
+		*(result.(*params.CAASUnitIntroductionResult)) = params.CAASUnitIntroductionResult{
+			Error: &params.Error{Code: params.CodeAlreadyExists},
+		}
+		return nil
+	})
+	_, err := client.UnitIntroduction("pod-name", "pod-uuid")
+	c.Assert(errors.Is(err, errors.AlreadyExists), jc.IsTrue)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *provisionerSuite) TestUnitIntroductionFailNotAssigned(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		called = true
+		c.Assert(objType, gc.Equals, "CAASApplication")
+		c.Assert(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "UnitIntroduction")
+		c.Assert(a, gc.FitsTypeOf, params.CAASUnitIntroductionArgs{})
+		args := a.(params.CAASUnitIntroductionArgs)
+		c.Assert(args.PodName, gc.Equals, "pod-name")
+		c.Assert(args.PodUUID, gc.Equals, "pod-uuid")
+		c.Assert(result, gc.FitsTypeOf, &params.CAASUnitIntroductionResult{})
+		*(result.(*params.CAASUnitIntroductionResult)) = params.CAASUnitIntroductionResult{
+			Error: &params.Error{Code: params.CodeNotAssigned},
+		}
+		return nil
+	})
+	_, err := client.UnitIntroduction("pod-name", "pod-uuid")
+	c.Assert(errors.Is(err, errors.NotAssigned), jc.IsTrue)
 	c.Assert(called, jc.IsTrue)
 }
 

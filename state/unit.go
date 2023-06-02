@@ -300,18 +300,22 @@ func (u *Unit) SetPassword(password string) error {
 // to the value supplied. This is split out from SetPassword to allow direct
 // manipulation in tests (to check for backwards compatibility).
 func (u *Unit) setPasswordHash(passwordHash string) error {
-	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     u.doc.DocID,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$set", bson.D{{"passwordhash", passwordHash}}}},
-	}}
+	ops := u.setPasswordHashOps(passwordHash)
 	err := u.st.db().RunTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot set password of unit %q: %v", u, onAbort(err, stateerrors.ErrDead))
 	}
 	u.doc.PasswordHash = passwordHash
 	return nil
+}
+
+func (u *Unit) setPasswordHashOps(passwordHash string) []txn.Op {
+	return []txn.Op{{
+		C:      unitsC,
+		Id:     u.doc.DocID,
+		Assert: notDeadDoc,
+		Update: bson.D{{"$set", bson.D{{"passwordhash", passwordHash}}}},
+	}}
 }
 
 // PasswordValid returns whether the given password is valid

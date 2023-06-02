@@ -1502,6 +1502,160 @@
         }
     },
     {
+        "Name": "AgentLifeFlag",
+        "Description": "",
+        "Version": 1,
+        "AvailableTo": [
+            "controller-machine-agent",
+            "machine-agent",
+            "unit-agent",
+            "model-user"
+        ],
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "Life": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/LifeResults"
+                        }
+                    },
+                    "description": "Life returns the life status of every supplied entity, where available."
+                },
+                "Watch": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResults"
+                        }
+                    },
+                    "description": "Watch starts an NotifyWatcher for each given entity."
+                }
+            },
+            "definitions": {
+                "Entities": {
+                    "type": "object",
+                    "properties": {
+                        "entities": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Entity"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "entities"
+                    ]
+                },
+                "Entity": {
+                    "type": "object",
+                    "properties": {
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag"
+                    ]
+                },
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                },
+                "LifeResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "life": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "life"
+                    ]
+                },
+                "LifeResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/LifeResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "NotifyWatchResult": {
+                    "type": "object",
+                    "properties": {
+                        "NotifyWatcherId": {
+                            "type": "string"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "NotifyWatcherId"
+                    ]
+                },
+                "NotifyWatchResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/NotifyWatchResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                }
+            }
+        }
+    },
+    {
         "Name": "AgentTools",
         "Description": "AgentToolsAPI implements the API used by the machine model worker.",
         "Version": 1,
@@ -6283,18 +6437,6 @@
                     },
                     "description": "ApplicationOCIResources returns the OCI image resources for an application."
                 },
-                "CAASApplicationGarbageCollect": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/CAASApplicationGarbageCollectArgs"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "CAASApplicationGarbageCollect cleans up units that have gone away permanently.\nOnly observed units will be deleted as new units could have surfaced between\nthe capturing of kuberentes pod state/application state and this call."
-                },
                 "CharmInfo": {
                     "type": "object",
                     "properties": {
@@ -6319,6 +6461,18 @@
                     },
                     "description": "ClearApplicationsResources clears the flags which indicate\napplications still have resources in the cluster."
                 },
+                "DestroyUnits": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/DestroyUnitsParams"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/DestroyUnitResults"
+                        }
+                    },
+                    "description": "DestroyUnits is responsible for scaling down a set of units on the this\nApplication."
+                },
                 "Life": {
                     "type": "object",
                     "properties": {
@@ -6331,6 +6485,15 @@
                     },
                     "description": "Life returns the life status of every supplied entity, where available."
                 },
+                "ProvisionerConfig": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/CAASApplicationProvisionerConfigResult"
+                        }
+                    },
+                    "description": "ProvisionerConfig returns the provisioner's configuration."
+                },
                 "ProvisioningInfo": {
                     "type": "object",
                     "properties": {
@@ -6342,6 +6505,18 @@
                         }
                     },
                     "description": "ProvisioningInfo returns the info needed to provision a caas application."
+                },
+                "ProvisioningState": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/CAASApplicationProvisioningStateResult"
+                        }
+                    },
+                    "description": "ProvisioningState returns the provisioning state for the application."
                 },
                 "Remove": {
                     "type": "object",
@@ -6378,6 +6553,18 @@
                         }
                     },
                     "description": "SetPasswords sets the given password for each supplied entity, if possible."
+                },
+                "SetProvisioningState": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/CAASApplicationProvisioningStateArg"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResult"
+                        }
+                    },
+                    "description": "SetProvisioningState sets the provisioning state for the application."
                 },
                 "Units": {
                     "type": "object",
@@ -6535,52 +6722,6 @@
                         "channel"
                     ]
                 },
-                "CAASApplicationGarbageCollectArg": {
-                    "type": "object",
-                    "properties": {
-                        "active-pod-names": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "application": {
-                            "$ref": "#/definitions/Entity"
-                        },
-                        "desired-replicas": {
-                            "type": "integer"
-                        },
-                        "force": {
-                            "type": "boolean"
-                        },
-                        "observed-units": {
-                            "$ref": "#/definitions/Entities"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "application",
-                        "observed-units",
-                        "desired-replicas",
-                        "active-pod-names",
-                        "force"
-                    ]
-                },
-                "CAASApplicationGarbageCollectArgs": {
-                    "type": "object",
-                    "properties": {
-                        "args": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/CAASApplicationGarbageCollectArg"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "args"
-                    ]
-                },
                 "CAASApplicationOCIResourceResult": {
                     "type": "object",
                     "properties": {
@@ -6624,6 +6765,27 @@
                     "required": [
                         "images"
                     ]
+                },
+                "CAASApplicationProvisionerConfig": {
+                    "type": "object",
+                    "properties": {
+                        "unmanaged-applications": {
+                            "$ref": "#/definitions/Entities"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "CAASApplicationProvisionerConfigResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "provisioner-config": {
+                            "$ref": "#/definitions/CAASApplicationProvisionerConfig"
+                        }
+                    },
+                    "additionalProperties": false
                 },
                 "CAASApplicationProvisioningInfo": {
                     "type": "object",
@@ -6713,6 +6875,50 @@
                     "required": [
                         "results"
                     ]
+                },
+                "CAASApplicationProvisioningState": {
+                    "type": "object",
+                    "properties": {
+                        "scale-target": {
+                            "type": "integer"
+                        },
+                        "scaling": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "scaling",
+                        "scale-target"
+                    ]
+                },
+                "CAASApplicationProvisioningStateArg": {
+                    "type": "object",
+                    "properties": {
+                        "application": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "provisioning-state": {
+                            "$ref": "#/definitions/CAASApplicationProvisioningState"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "application",
+                        "provisioning-state"
+                    ]
+                },
+                "CAASApplicationProvisioningStateResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "provisioning-state": {
+                            "$ref": "#/definitions/CAASApplicationProvisioningState"
+                        }
+                    },
+                    "additionalProperties": false
                 },
                 "CAASUnitInfo": {
                     "type": "object",
@@ -7307,6 +7513,87 @@
                     "additionalProperties": false,
                     "required": [
                         "url"
+                    ]
+                },
+                "DestroyUnitInfo": {
+                    "type": "object",
+                    "properties": {
+                        "destroyed-storage": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Entity"
+                            }
+                        },
+                        "detached-storage": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Entity"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "DestroyUnitParams": {
+                    "type": "object",
+                    "properties": {
+                        "destroy-storage": {
+                            "type": "boolean"
+                        },
+                        "dry-run": {
+                            "type": "boolean"
+                        },
+                        "force": {
+                            "type": "boolean"
+                        },
+                        "max-wait": {
+                            "type": "integer"
+                        },
+                        "unit-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "unit-tag"
+                    ]
+                },
+                "DestroyUnitResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "info": {
+                            "$ref": "#/definitions/DestroyUnitInfo"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "DestroyUnitResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/DestroyUnitResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "DestroyUnitsParams": {
+                    "type": "object",
+                    "properties": {
+                        "units": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/DestroyUnitParams"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "units"
                     ]
                 },
                 "DetailedStatus": {

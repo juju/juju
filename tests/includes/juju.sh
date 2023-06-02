@@ -139,9 +139,9 @@ bootstrap() {
 
 		add_model "${model}" "${cloud}" "${bootstrapped_name}" "${output}"
 		name="${bootstrapped_name}"
-		BOOTSTRAPPED_CLOUD=$(juju show-model controller | yq -j | jq -r '.[] | .cloud')
+		BOOTSTRAPPED_CLOUD=$(juju show-model controller | yq -o=j | jq -r '.[] | .cloud')
 		export BOOTSTRAPPED_CLOUD
-		BOOTSTRAPPED_CLOUD_REGION=$(juju show-model controller | yq -j | jq -r '.[] | (.cloud + "/" + .region)')
+		BOOTSTRAPPED_CLOUD_REGION=$(juju show-model controller | yq -o=j | jq -r '.[] | (.cloud + "/" + .region)')
 		export BOOTSTRAPPED_CLOUD_REGION
 	else
 		local cloud_region
@@ -404,9 +404,9 @@ destroy_controller() {
 
 	echo "====> Destroying juju ($(green "${name}"))"
 	if [[ ${KILL_CONTROLLER:-} != "true" ]]; then
-		echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models --no-prompt % >"${output}" 2>&1
+		echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models --no-prompt % 2>&1 | OUTPUT "${output}"
 	else
-		echo "${name}" | xargs -I % juju kill-controller -t 0 --no-prompt % >"${output}" 2>&1
+		echo "${name}" | xargs -I % juju kill-controller -t 0 --no-prompt % 2>&1 | OUTPUT "${output}"
 	fi
 
 	set +e

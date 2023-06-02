@@ -25,7 +25,7 @@ var _ = gc.Suite(&WorkerSuite{})
 
 func (*WorkerSuite) TestCreateNotFoundError(c *gc.C) {
 	stub := &testing.Stub{}
-	stub.SetErrors(apilifeflag.ErrNotFound)
+	stub.SetErrors(apilifeflag.ErrEntityNotFound)
 	config := lifeflag.Config{
 		Facade: newMockFacade(stub),
 		Entity: testEntity,
@@ -34,7 +34,7 @@ func (*WorkerSuite) TestCreateNotFoundError(c *gc.C) {
 
 	worker, err := lifeflag.New(config)
 	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.Equals, lifeflag.ErrNotFound)
+	c.Check(errors.Is(err, apilifeflag.ErrEntityNotFound), jc.IsTrue)
 	checkCalls(c, stub, "Life")
 }
 
@@ -55,7 +55,7 @@ func (*WorkerSuite) TestCreateRandomError(c *gc.C) {
 
 func (*WorkerSuite) TestWatchNotFoundError(c *gc.C) {
 	stub := &testing.Stub{}
-	stub.SetErrors(nil, apilifeflag.ErrNotFound)
+	stub.SetErrors(nil, apilifeflag.ErrEntityNotFound)
 	config := lifeflag.Config{
 		Facade: newMockFacade(stub, life.Alive),
 		Entity: testEntity,
@@ -67,7 +67,7 @@ func (*WorkerSuite) TestWatchNotFoundError(c *gc.C) {
 	c.Check(worker.Check(), jc.IsFalse)
 
 	err = workertest.CheckKilled(c, worker)
-	c.Check(err, gc.Equals, lifeflag.ErrNotFound)
+	c.Check(errors.Is(err, apilifeflag.ErrEntityNotFound), jc.IsTrue)
 	checkCalls(c, stub, "Life", "Watch")
 }
 
@@ -91,7 +91,7 @@ func (*WorkerSuite) TestWatchRandomError(c *gc.C) {
 
 func (*WorkerSuite) TestLifeNotFoundError(c *gc.C) {
 	stub := &testing.Stub{}
-	stub.SetErrors(nil, nil, apilifeflag.ErrNotFound)
+	stub.SetErrors(nil, nil, apilifeflag.ErrEntityNotFound)
 	config := lifeflag.Config{
 		Facade: newMockFacade(stub, life.Alive),
 		Entity: testEntity,
@@ -103,7 +103,7 @@ func (*WorkerSuite) TestLifeNotFoundError(c *gc.C) {
 	c.Check(worker.Check(), jc.IsFalse)
 
 	err = workertest.CheckKilled(c, worker)
-	c.Check(err, gc.Equals, lifeflag.ErrNotFound)
+	c.Check(errors.Is(err, apilifeflag.ErrEntityNotFound), jc.IsTrue)
 	checkCalls(c, stub, "Life", "Watch", "Life")
 }
 
