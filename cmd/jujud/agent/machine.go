@@ -776,12 +776,12 @@ func (a *MachineAgent) statusSetter(apiConn api.Connection) (upgradesteps.Status
 		// TODO - support set status for controller agents
 		return &noopStatusSetter{}, nil
 	}
-	machinerAPI := apimachiner.NewState(apiConn)
+	machinerAPI := apimachiner.NewClient(apiConn)
 	return machinerAPI.Machine(a.Tag().(names.MachineTag))
 }
 
 func (a *MachineAgent) machine(apiConn api.Connection) (*apimachiner.Machine, error) {
-	machinerAPI := apimachiner.NewState(apiConn)
+	machinerAPI := apimachiner.NewClient(apiConn)
 	agentConfig := a.CurrentConfig()
 
 	tag, ok := agentConfig.Tag().(names.MachineTag)
@@ -875,7 +875,7 @@ func (a *MachineAgent) validateMigration(apiCaller base.APICaller) error {
 	var err error
 	// TODO(controlleragent) - add k8s controller check.
 	if !a.isCaasAgent {
-		facade := apimachiner.NewState(apiCaller)
+		facade := apimachiner.NewClient(apiCaller)
 		_, err = facade.Machine(a.agentTag.(names.MachineTag))
 	}
 	return errors.Trace(err)

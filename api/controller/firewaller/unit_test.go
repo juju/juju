@@ -8,75 +8,133 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/firewaller"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/rpc/params"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type unitSuite struct {
-	firewallerSuite
-
-	apiUnit *firewaller.Unit
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&unitSuite{})
 
-func (s *unitSuite) SetUpTest(c *gc.C) {
-	s.firewallerSuite.SetUpTest(c)
-
-	var err error
-	s.apiUnit, err = s.firewaller.Unit(s.units[0].Tag().(names.UnitTag))
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *unitSuite) TearDownTest(c *gc.C) {
-	s.firewallerSuite.TearDownTest(c)
-}
-
 func (s *unitSuite) TestUnit(c *gc.C) {
-	apiUnitFoo, err := s.firewaller.Unit(names.NewUnitTag("foo/42"))
-	c.Assert(err, gc.ErrorMatches, `unit "foo/42" not found`)
-	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
-	c.Assert(apiUnitFoo, gc.IsNil)
-
-	apiUnit0, err := s.firewaller.Unit(s.units[0].Tag().(names.UnitTag))
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Firewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "Life")
+		c.Assert(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "unit-mysql-666"}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+		*(result.(*params.LifeResults)) = params.LifeResults{
+			Results: []params.LifeResult{{Life: "alive"}},
+		}
+		return nil
+	})
+	tag := names.NewUnitTag("mysql/666")
+	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiUnit0, gc.NotNil)
-	c.Assert(apiUnit0.Name(), gc.Equals, s.units[0].Name())
-	c.Assert(apiUnit0.Tag(), gc.Equals, names.NewUnitTag(s.units[0].Name()))
+	u, err := client.Unit(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u.Life(), gc.Equals, life.Alive)
+	c.Assert(u.Name(), jc.DeepEquals, "mysql/666")
+	c.Assert(u.Tag(), jc.DeepEquals, tag)
 }
 
 func (s *unitSuite) TestRefresh(c *gc.C) {
-	c.Assert(s.apiUnit.Life(), gc.Equals, life.Alive)
-
-	err := s.units[0].EnsureDead()
+	calls := 0
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Firewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "Life")
+		c.Assert(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "unit-mysql-666"}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+		lifeVal := life.Alive
+		if calls > 0 {
+			lifeVal = life.Dead
+		}
+		calls++
+		*(result.(*params.LifeResults)) = params.LifeResults{
+			Results: []params.LifeResult{{Life: lifeVal}},
+		}
+		return nil
+	})
+	tag := names.NewUnitTag("mysql/666")
+	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.apiUnit.Life(), gc.Equals, life.Alive)
-
-	err = s.apiUnit.Refresh()
+	u, err := client.Unit(tag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.apiUnit.Life(), gc.Equals, life.Dead)
+	err = u.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u.Life(), gc.Equals, life.Dead)
+	c.Assert(calls, gc.Equals, 2)
 }
 
 func (s *unitSuite) TestAssignedMachine(c *gc.C) {
-	machineTag, err := s.apiUnit.AssignedMachine()
+	calls := 0
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Firewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Assert(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "unit-mysql-666"}},
+		})
+		if calls > 0 {
+			c.Check(request, gc.Equals, "GetAssignedMachine")
+			c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+			*(result.(*params.StringResults)) = params.StringResults{
+				Results: []params.StringResult{{Result: "machine-666"}},
+			}
+		} else {
+			c.Check(request, gc.Equals, "Life")
+			c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+			*(result.(*params.LifeResults)) = params.LifeResults{
+				Results: []params.LifeResult{{Life: life.Alive}},
+			}
+		}
+		calls++
+		return nil
+	})
+	tag := names.NewUnitTag("mysql/666")
+	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineTag, gc.Equals, names.NewMachineTag(s.machines[0].Id()))
-
-	// Unassign now and check CodeNotAssigned is reported.
-	err = s.units[0].UnassignFromMachine()
+	u, err := client.Unit(tag)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.apiUnit.AssignedMachine()
-	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" is not assigned to a machine`)
-	c.Assert(err, jc.Satisfies, params.IsCodeNotAssigned)
+	m, err := u.AssignedMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.Id(), gc.Equals, "666")
+	c.Assert(calls, gc.Equals, 2)
 }
 
 func (s *unitSuite) TestApplication(c *gc.C) {
-	application, err := s.apiUnit.Application()
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Firewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Assert(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "unit-mysql-666"}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+		c.Check(request, gc.Equals, "Life")
+		*(result.(*params.LifeResults)) = params.LifeResults{
+			Results: []params.LifeResult{{Life: life.Alive}},
+		}
+		return nil
+	})
+	tag := names.NewUnitTag("mysql/666")
+	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(application.Name(), gc.Equals, s.application.Name())
-}
-
-func (s *unitSuite) TestName(c *gc.C) {
-	c.Assert(s.apiUnit.Name(), gc.Equals, s.units[0].Name())
+	u, err := client.Unit(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	app, err := u.Application()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(app.Name(), gc.Equals, "mysql")
 }

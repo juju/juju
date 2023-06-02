@@ -145,7 +145,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 			// operations on the connection before calling Login.
 			st := s.openAPIWithoutLogin(c)
 
-			_, err := apimachiner.NewState(st).Machine(names.NewMachineTag("0"))
+			_, err := apimachiner.NewClient(st).Machine(names.NewMachineTag("0"))
 			c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 				Message: `unknown object type "Machiner"`,
 				Code:    "not implemented",
@@ -156,7 +156,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 			c.Assert(errors.Cause(err), gc.DeepEquals, t.err)
 			c.Assert(params.ErrCode(err), gc.Equals, t.code)
 
-			_, err = apimachiner.NewState(st).Machine(names.NewMachineTag("0"))
+			_, err = apimachiner.NewClient(st).Machine(names.NewMachineTag("0"))
 			c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 				Message: `unknown object type "Machiner"`,
 				Code:    "not implemented",
@@ -1162,7 +1162,7 @@ func (s *migrationSuite) TestImportingModel(c *gc.C) {
 
 	// Machines should be able to use the API.
 	machineConn := s.OpenModelAPIAs(c, s.ControllerModelUUID(), m.Tag(), password, "nonce")
-	_, err = apimachiner.NewState(machineConn).Machine(m.MachineTag())
+	_, err = apimachiner.NewClient(machineConn).Machine(m.MachineTag())
 	c.Check(err, jc.ErrorIsNil)
 }
 

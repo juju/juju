@@ -27,10 +27,10 @@ type rebootSuite struct {
 
 	machine     *state.Machine
 	stateAPI    api.Connection
-	rebootState apireboot.State
+	rebootState apireboot.Client
 
 	ct            *state.Machine
-	ctRebootState apireboot.State
+	ctRebootState apireboot.Client
 
 	clock clock.Clock
 }

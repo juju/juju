@@ -30,7 +30,7 @@ type Machine interface {
 }
 
 type APIMachineAccessor struct {
-	State *machiner.State
+	State *machiner.Client
 }
 
 func (a APIMachineAccessor) Machine(tag names.MachineTag) (Machine, error) {

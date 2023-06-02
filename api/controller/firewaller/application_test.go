@@ -8,86 +8,110 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/firewaller"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type applicationSuite struct {
-	firewallerSuite
-
-	apiApplication *firewaller.Application
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&applicationSuite{})
 
-func (s *applicationSuite) SetUpTest(c *gc.C) {
-	s.firewallerSuite.SetUpTest(c)
-
-	apiUnit, err := s.firewaller.Unit(s.units[0].Tag().(names.UnitTag))
-	c.Assert(err, jc.ErrorIsNil)
-	s.apiApplication, err = apiUnit.Application()
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *applicationSuite) TearDownTest(c *gc.C) {
-	s.firewallerSuite.TearDownTest(c)
-}
-
-func (s *applicationSuite) TestName(c *gc.C) {
-	c.Assert(s.apiApplication.Name(), gc.Equals, s.application.Name())
-}
-
-func (s *applicationSuite) TestTag(c *gc.C) {
-	c.Assert(s.apiApplication.Tag(), gc.Equals, names.NewApplicationTag(s.application.Name()))
-}
-
 func (s *applicationSuite) TestWatch(c *gc.C) {
-	w, err := s.apiApplication.Watch()
+	calls := 0
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Firewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		if calls > 0 {
+			c.Assert(arg, jc.DeepEquals, params.Entities{
+				Entities: []params.Entity{{Tag: "application-mysql"}},
+			})
+			c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
+			c.Check(request, gc.Equals, "Watch")
+			*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
+				Results: []params.NotifyWatchResult{{Error: &params.Error{Message: "FAIL"}}},
+			}
+		} else {
+			c.Assert(arg, jc.DeepEquals, params.Entities{
+				Entities: []params.Entity{{Tag: "unit-mysql-666"}},
+			})
+			c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+			c.Check(request, gc.Equals, "Life")
+			*(result.(*params.LifeResults)) = params.LifeResults{
+				Results: []params.LifeResult{{Life: life.Alive}},
+			}
+		}
+		calls++
+		return nil
+	})
+	tag := names.NewUnitTag("mysql/666")
+	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, w)
-	defer wc.AssertStops()
-
-	// Initial event.
-	wc.AssertOneChange()
-
-	// Change something and check it's detected.
-	err = s.application.MergeExposeSettings(nil)
+	u, err := client.Unit(tag)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	// Destroy the application and check it's detected.
-	err = s.application.Destroy()
+	app, err := u.Application()
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
+	_, err = app.Watch()
+	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(calls, gc.Equals, 2)
 }
 
 func (s *applicationSuite) TestExposeInfo(c *gc.C) {
-	err := s.application.MergeExposeSettings(map[string]state.ExposedEndpoint{
-		"": {
-			ExposeToSpaceIDs: []string{network.AlphaSpaceId},
-			ExposeToCIDRs:    []string{"10.0.0.0/16", "192.168.0.0/24"},
+	calls := 0
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Firewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		if calls > 0 {
+			c.Assert(arg, jc.DeepEquals, params.Entities{
+				Entities: []params.Entity{{Tag: "application-mysql"}},
+			})
+			c.Assert(result, gc.FitsTypeOf, &params.ExposeInfoResults{})
+			c.Check(request, gc.Equals, "GetExposeInfo")
+			*(result.(*params.ExposeInfoResults)) = params.ExposeInfoResults{
+				Results: []params.ExposeInfoResult{{
+					Exposed: true,
+					ExposedEndpoints: map[string]params.ExposedEndpoint{
+						"database": {
+							ExposeToSpaces: []string{"space"},
+							ExposeToCIDRs:  []string{"cidr"},
+						},
+					},
+				}},
+			}
+		} else {
+			c.Assert(arg, jc.DeepEquals, params.Entities{
+				Entities: []params.Entity{{Tag: "unit-mysql-666"}},
+			})
+			c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+			c.Check(request, gc.Equals, "Life")
+			*(result.(*params.LifeResults)) = params.LifeResults{
+				Results: []params.LifeResult{{Life: life.Alive}},
+			}
+		}
+		calls++
+		return nil
+	})
+	tag := names.NewUnitTag("mysql/666")
+	client, err := firewaller.NewClient(apiCaller)
+	c.Assert(err, jc.ErrorIsNil)
+	u, err := client.Unit(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	app, err := u.Application()
+	c.Assert(err, jc.ErrorIsNil)
+	exposed, info, err := app.ExposeInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exposed, jc.IsTrue)
+	c.Assert(info, jc.DeepEquals, map[string]params.ExposedEndpoint{
+		"database": {
+			ExposeToSpaces: []string{"space"},
+			ExposeToCIDRs:  []string{"cidr"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	isExposed, exposedEndpoints, err := s.apiApplication.ExposeInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(isExposed, jc.IsTrue)
-	c.Assert(exposedEndpoints, gc.DeepEquals, map[string]params.ExposedEndpoint{
-		"": {
-			ExposeToSpaces: []string{network.AlphaSpaceId},
-			ExposeToCIDRs:  []string{"10.0.0.0/16", "192.168.0.0/24"},
-		},
-	})
-
-	err = s.application.ClearExposed()
-	c.Assert(err, jc.ErrorIsNil)
-
-	isExposed, exposedEndpoints, err = s.apiApplication.ExposeInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(isExposed, jc.IsFalse)
-	c.Assert(exposedEndpoints, gc.HasLen, 0)
+	c.Assert(calls, gc.Equals, 2)
 }

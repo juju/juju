@@ -531,7 +531,7 @@ func (s *MachineSuite) TestManageModelServesAPI(c *gc.C) {
 		st, err := api.Open(apiInfo, fastDialOpts)
 		c.Assert(err, jc.ErrorIsNil)
 		defer st.Close()
-		m, err := apimachiner.NewState(st).Machine(conf.Tag().(names.MachineTag))
+		m, err := apimachiner.NewClient(st).Machine(conf.Tag().(names.MachineTag))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(m.Life(), gc.Equals, life.Alive)
 	})

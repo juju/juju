@@ -13,9 +13,9 @@ import (
 
 // Unit represents a juju unit as seen by a firewaller worker.
 type Unit struct {
-	st   *Client
-	tag  names.UnitTag
-	life life.Value
+	client *Client
+	tag    names.UnitTag
+	life   life.Value
 }
 
 // Name returns the name of the unit.
@@ -35,7 +35,7 @@ func (u *Unit) Life() life.Value {
 
 // Refresh updates the cached local copy of the unit's data.
 func (u *Unit) Refresh() error {
-	life, err := u.st.life(u.tag)
+	life, err := u.client.life(u.tag)
 	if err != nil {
 		return err
 	}
@@ -51,8 +51,8 @@ func (u *Unit) Application() (*Application, error) {
 	}
 	applicationTag := names.NewApplicationTag(appName)
 	app := &Application{
-		st:  u.st,
-		tag: applicationTag,
+		client: u.client,
+		tag:    applicationTag,
 	}
 	return app, nil
 }
@@ -65,7 +65,7 @@ func (u *Unit) AssignedMachine() (names.MachineTag, error) {
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 	emptyTag := names.NewMachineTag("")
-	err := u.st.facade.FacadeCall("GetAssignedMachine", args, &results)
+	err := u.client.facade.FacadeCall("GetAssignedMachine", args, &results)
 	if err != nil {
 		return emptyTag, err
 	}

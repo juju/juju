@@ -17,9 +17,9 @@ import (
 
 // Machine represents a juju machine as seen by a machiner worker.
 type Machine struct {
-	tag  names.MachineTag
-	life life.Value
-	st   *State
+	tag    names.MachineTag
+	life   life.Value
+	client *Client
 }
 
 // Tag returns the machine's tag.
@@ -34,7 +34,7 @@ func (m *Machine) Life() life.Value {
 
 // Refresh updates the cached local copy of the machine's data.
 func (m *Machine) Refresh() error {
-	l, err := m.st.machineLife(m.tag)
+	l, err := m.client.machineLife(m.tag)
 	if err != nil {
 		return err
 	}
@@ -50,7 +50,7 @@ func (m *Machine) SetStatus(status status.Status, info string, data map[string]i
 			{Tag: m.tag.String(), Status: status.String(), Info: info, Data: data},
 		},
 	}
-	err := m.st.facade.FacadeCall("SetStatus", args, &result)
+	err := m.client.facade.FacadeCall("SetStatus", args, &result)
 	if err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func (m *Machine) SetMachineAddresses(addresses []network.MachineAddress) error 
 			{Tag: m.Tag().String(), Addresses: params.FromMachineAddresses(addresses...)},
 		},
 	}
-	err := m.st.facade.FacadeCall("SetMachineAddresses", args, &result)
+	err := m.client.facade.FacadeCall("SetMachineAddresses", args, &result)
 	if err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func (m *Machine) EnsureDead() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.st.facade.FacadeCall("EnsureDead", args, &result)
+	err := m.client.facade.FacadeCall("EnsureDead", args, &result)
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func (m *Machine) EnsureDead() error {
 
 // Watch returns a watcher for observing changes to the machine.
 func (m *Machine) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(m.st.facade, "Watch", m.tag)
+	return common.Watch(m.client.facade, "Watch", m.tag)
 }
 
 // Jobs returns a list of jobs for the machine.
@@ -97,7 +97,7 @@ func (m *Machine) Jobs() (*params.JobsResult, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.Tag().String()}},
 	}
-	err := m.st.facade.FacadeCall("Jobs", args, &results)
+	err := m.client.facade.FacadeCall("Jobs", args, &results)
 	if err != nil {
 		return nil, errors.Annotate(err, "error from FacadeCall")
 	}
@@ -118,7 +118,7 @@ func (m *Machine) SetObservedNetworkConfig(netConfig []params.NetworkConfig) err
 		Tag:    m.Tag().String(),
 		Config: netConfig,
 	}
-	err := m.st.facade.FacadeCall("SetObservedNetworkConfig", args, nil)
+	err := m.client.facade.FacadeCall("SetObservedNetworkConfig", args, nil)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -137,7 +137,7 @@ func (m *Machine) RecordAgentStartInformation(hostname string) error {
 			},
 		},
 	}
-	err := m.st.facade.FacadeCall("RecordAgentStartInformation", args, &result)
+	err := m.client.facade.FacadeCall("RecordAgentStartInformation", args, &result)
 
 	if err != nil {
 		return err

@@ -67,17 +67,17 @@ var _ = gc.Suite(&serverSuite{})
 
 func (s *serverSuite) TestStop(c *gc.C) {
 	conn, machine := s.OpenAPIAsNewMachine(c, state.JobManageModel)
-	//st, err := api.Open(info, fastDialOpts)
-	//c.Assert(err, jc.ErrorIsNil)
-	//defer st.Close()
 
-	_, err := apimachiner.NewState(conn).Machine(machine.MachineTag())
+	_, err := apimachiner.NewClient(conn).Machine(machine.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = apimachiner.NewClient(conn).Machine(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.Server.Stop()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = apimachiner.NewState(conn).Machine(machine.MachineTag())
+	_, err = apimachiner.NewClient(conn).Machine(machine.MachineTag())
 	// The client has not necessarily seen the server shutdown yet, so there
 	// are multiple possible errors. All we should care about is that there is
 	// an error, not what the error actually is.
@@ -114,7 +114,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 		network.NewMachineHostPorts(port, "localhost"),
 	})
 
-	_, err = apimachiner.NewState(ipv4Conn).Machine(machine.MachineTag())
+	_, err = apimachiner.NewClient(ipv4Conn).Machine(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	info.Addrs = []string{net.JoinHostPort("::1", portString)}
@@ -126,7 +126,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 		network.NewMachineHostPorts(port, "::1"),
 	})
 
-	_, err = apimachiner.NewState(ipv6Conn).Machine(machine.MachineTag())
+	_, err = apimachiner.NewClient(ipv6Conn).Machine(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 }
 

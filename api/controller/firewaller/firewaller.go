@@ -63,9 +63,9 @@ func (c *Client) Unit(tag names.UnitTag) (*Unit, error) {
 		return nil, err
 	}
 	return &Unit{
-		tag:  tag,
-		life: life,
-		st:   c,
+		tag:    tag,
+		life:   life,
+		client: c,
 	}, nil
 }
 
@@ -77,9 +77,9 @@ func (c *Client) Machine(tag names.MachineTag) (*Machine, error) {
 		return nil, err
 	}
 	return &Machine{
-		tag:  tag,
-		life: life,
-		st:   c,
+		tag:    tag,
+		life:   life,
+		client: c,
 	}, nil
 }
 

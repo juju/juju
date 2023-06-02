@@ -53,7 +53,7 @@ func (s *APIAddressUpdaterSuite) TestStartStop(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	worker, err := apiaddressupdater.NewAPIAddressUpdater(
 		apiaddressupdater.Config{
-			Addresser: apimachiner.NewState(st),
+			Addresser: apimachiner.NewClient(st),
 			Setter:    &apiAddressSetter{},
 			Logger:    loggo.GetLogger("test"),
 		})
@@ -71,7 +71,7 @@ func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	updater, err := apiaddressupdater.NewAPIAddressUpdater(
 		apiaddressupdater.Config{
-			Addresser: apimachiner.NewState(st),
+			Addresser: apimachiner.NewClient(st),
 			Setter:    setter,
 			Logger:    loggo.GetLogger("test"),
 		})
@@ -105,7 +105,7 @@ func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	worker, err := apiaddressupdater.NewAPIAddressUpdater(
 		apiaddressupdater.Config{
-			Addresser: apimachiner.NewState(st),
+			Addresser: apimachiner.NewClient(st),
 			Setter:    setter,
 			Logger:    loggo.GetLogger("test"),
 		})
@@ -142,7 +142,7 @@ func (s *APIAddressUpdaterSuite) TestAddressChangeEmpty(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	worker, err := apiaddressupdater.NewAPIAddressUpdater(
 		apiaddressupdater.Config{
-			Addresser: apimachiner.NewState(st),
+			Addresser: apimachiner.NewClient(st),
 			Setter:    setter,
 			Logger:    loggo.GetLogger("test"),
 		})
@@ -224,7 +224,7 @@ func (s *APIAddressUpdaterSuite) TestBridgeAddressesFiltering(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	w, err := apiaddressupdater.NewAPIAddressUpdater(
 		apiaddressupdater.Config{
-			Addresser: apimachiner.NewState(st),
+			Addresser: apimachiner.NewClient(st),
 			Setter:    setter,
 			Logger:    loggo.GetLogger("test"),
 		})

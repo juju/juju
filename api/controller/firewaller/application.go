@@ -16,8 +16,8 @@ import (
 
 // Application represents the state of an application.
 type Application struct {
-	st  *Client
-	tag names.ApplicationTag
+	client *Client
+	tag    names.ApplicationTag
 }
 
 // Name returns the application name.
@@ -32,7 +32,7 @@ func (s *Application) Tag() names.ApplicationTag {
 
 // Watch returns a watcher for observing changes to an application.
 func (s *Application) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(s.st.facade, "Watch", s.tag)
+	return common.Watch(s.client.facade, "Watch", s.tag)
 }
 
 // ExposeInfo returns a flag to indicate whether an application is exposed
@@ -42,7 +42,7 @@ func (s *Application) ExposeInfo() (bool, map[string]params.ExposedEndpoint, err
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag.String()}},
 	}
-	err := s.st.facade.FacadeCall("GetExposeInfo", args, &results)
+	err := s.client.facade.FacadeCall("GetExposeInfo", args, &results)
 	if err != nil {
 		return false, nil, err
 	}

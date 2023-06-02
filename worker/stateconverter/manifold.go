@@ -100,5 +100,5 @@ func (cfg ManifoldConfig) newMachiner(context dependency.Context) (Machiner, err
 	if err := context.Get(cfg.APICallerName, &apiConn); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return wrapper{m: apimachiner.NewState(apiConn)}, nil
+	return wrapper{m: apimachiner.NewClient(apiConn)}, nil
 }

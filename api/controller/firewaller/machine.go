@@ -19,9 +19,9 @@ import (
 
 // Machine represents a juju machine as seen by the firewaller worker.
 type Machine struct {
-	st   *Client
-	tag  names.MachineTag
-	life life.Value
+	client *Client
+	tag    names.MachineTag
+	life   life.Value
 }
 
 // Tag returns the machine tag.
@@ -36,7 +36,7 @@ func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.st.facade.FacadeCall("WatchUnits", args, &results)
+	err := m.client.facade.FacadeCall("WatchUnits", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := apiwatcher.NewStringsWatcher(m.st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewStringsWatcher(m.client.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -58,7 +58,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.st.facade.FacadeCall("InstanceId", args, &results)
+	err := m.client.facade.FacadeCall("InstanceId", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -86,7 +86,7 @@ func (m *Machine) IsManual() (bool, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.st.facade.FacadeCall("AreManuallyProvisioned", args, &results)
+	err := m.client.facade.FacadeCall("AreManuallyProvisioned", args, &results)
 	if err != nil {
 		return false, err
 	}
@@ -108,7 +108,7 @@ func (m *Machine) OpenedMachinePortRanges() (byUnitAndCIDR map[names.UnitTag]net
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	if err = m.st.facade.FacadeCall("OpenedMachinePortRanges", args, &results); err != nil {
+	if err = m.client.facade.FacadeCall("OpenedMachinePortRanges", args, &results); err != nil {
 		return nil, nil, err
 	}
 	if len(results.Results) != 1 {
