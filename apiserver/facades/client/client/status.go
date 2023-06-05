@@ -1585,6 +1585,8 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 		result.Machine, _ = unit.AssignedMachineId()
 	}
 	unitCharm := unit.CharmURL()
+	// Set the Charm field for the unit; if we have both the principle application's Charm and
+	// the unit's Charm (not nil), and either they're not the same, or this is a subordinate unit
 	if applicationCharm != "" && unitCharm != nil && (*unitCharm != applicationCharm || isSubordinate) {
 		result.Charm = *unitCharm
 	}
