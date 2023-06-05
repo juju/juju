@@ -4,6 +4,7 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/juju/errors"
@@ -28,28 +29,16 @@ func NewDBMigration(db *sql.DB, logger Logger, deltas ...[]string) *DBMigration 
 }
 
 // Apply executes all deltas against the database inside a transaction.
-func (m *DBMigration) Apply() error {
-	tx, err := m.db.Begin()
-	if err != nil {
-		return errors.Annotatef(err, "beginning migration transaction")
-	}
-
-	for _, delta := range m.deltas {
-		for _, stmt := range delta {
-			if _, err := tx.Exec(stmt); err != nil {
-				if rbErr := tx.Rollback(); rbErr != nil {
-					m.logger.Errorf("rolling back transaction: %v", rbErr)
+func (m *DBMigration) Apply(ctx context.Context) error {
+	return StdTxn(ctx, m.db, func(ctx context.Context, tx *sql.Tx) error {
+		for _, delta := range m.deltas {
+			for _, stmt := range delta {
+				_, err := tx.ExecContext(ctx, stmt)
+				if err != nil {
+					return errors.Trace(err)
 				}
-				return errors.Trace(err)
 			}
 		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		if rbErr := tx.Rollback(); rbErr != nil {
-			m.logger.Errorf("rolling back transaction: %v", rbErr)
-		}
-		return errors.Trace(err)
-	}
-	return nil
+		return nil
+	})
 }

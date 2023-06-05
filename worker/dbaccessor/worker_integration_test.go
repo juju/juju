@@ -83,7 +83,7 @@ func (s *integrationSuite) SetUpSuite(c *gc.C) {
 	db, err := s.DBApp().Open(context.TODO(), coredatabase.ControllerNS)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = database.NewDBMigration(db, logger, schema.ControllerDDL()).Apply()
+	err = database.NewDBMigration(db, logger, schema.ControllerDDL()).Apply(context.TODO())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
