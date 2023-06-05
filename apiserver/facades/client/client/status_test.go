@@ -526,7 +526,7 @@ func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
 	c.Assert(status, gc.NotNil)
 	unitStatus, ok := status.Applications["principal"].Units["principal/0"].Subordinates["subord/0"]
 	c.Assert(ok, gc.Equals, true)
-	c.Assert(unitStatus.Charm, gc.Equals, "")
+	c.Assert(unitStatus.Charm, gc.Equals, "cs:quantal/logging-1")
 
 	err = subordApp.SetCharm(state.SetCharmConfig{
 		Charm: subordCharmNew,
