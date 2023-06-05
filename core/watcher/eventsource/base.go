@@ -6,8 +6,6 @@ package eventsource
 import (
 	"github.com/juju/juju/core/changestream"
 	"gopkg.in/tomb.v2"
-
-	"github.com/juju/juju/core/database"
 )
 
 // BaseWatcher encapsulates members common to all EventQueue-based watchers.
@@ -16,16 +14,14 @@ import (
 type BaseWatcher struct {
 	tomb tomb.Tomb
 
-	eventSource changestream.EventSource
-	db          database.TxnRunner
+	watchableDB changestream.WatchableDB
 	logger      Logger
 }
 
 // NewBaseWatcher returns a BaseWatcher constructed from the arguments.
-func NewBaseWatcher(eq changestream.EventSource, db database.TxnRunner, l Logger) *BaseWatcher {
+func NewBaseWatcher(watchableDB changestream.WatchableDB, l Logger) *BaseWatcher {
 	return &BaseWatcher{
-		eventSource: eq,
-		db:          db,
+		watchableDB: watchableDB,
 		logger:      l,
 	}
 }

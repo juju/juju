@@ -6,11 +6,11 @@ package externalcontrollerupdater
 import (
 	"reflect"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/domain"
 	ecservice "github.com/juju/juju/domain/externalcontroller/service"
 	ecstate "github.com/juju/juju/domain/externalcontroller/state"
-	"github.com/juju/juju/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -20,13 +20,20 @@ func Register(registry facade.FacadeRegistry) {
 	}, reflect.TypeOf((*ExternalControllerUpdaterAPI)(nil)))
 }
 
-// newStateAPI creates a new server-side CrossModelRelationsAPI API facade
+// newStateAPI creates a new server-side ExternalControllerUpdaterAPI API facade
 // backed by global state.
 func newStateAPI(ctx facade.Context) (*ExternalControllerUpdaterAPI, error) {
+	if !ctx.Auth().AuthController() {
+		return nil, apiservererrors.ErrPerm
+	}
 	return NewAPI(
-		ctx.Auth(),
 		ctx.Resources(),
-		state.NewExternalControllers(ctx.State()),
-		ecservice.NewService(ecstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB))),
+		ecservice.NewService(
+			ecstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
+			domain.NewWatcherFactory(
+				ctx.ControllerDB,
+				ctx.Logger().Child("externalcontrollerupdater"),
+			),
+		),
 	)
 }

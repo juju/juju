@@ -10,6 +10,7 @@ import (
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package externalcontrollerupdater_test -destination domain_mock_test.go github.com/juju/juju/apiserver/facades/controller/externalcontrollerupdater EcService
+//go:generate go run github.com/golang/mock/mockgen -package externalcontrollerupdater_test -destination watcher_mock_test.go github.com/juju/juju/core/watcher StringsWatcher
 
 func TestAll(t *testing.T) {
 	gc.TestingT(t)
