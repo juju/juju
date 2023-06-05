@@ -15,8 +15,8 @@ import (
 	"github.com/juju/juju/core/life"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/watcher"
 )
 
 // API provides access to the remote relations API facade.

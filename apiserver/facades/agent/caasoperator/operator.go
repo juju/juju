@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/status"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/watcher"
 )
 
 // TODO (manadart 2020-10-21): Remove the ModelUUID method
@@ -224,7 +223,7 @@ func (f *Facade) watchUnits(tagString string) (string, []string, error) {
 	if changes, ok := <-w.Changes(); ok {
 		return f.resources.Register(w), changes, nil
 	}
-	return "", nil, watcher.EnsureErr(w)
+	return "", nil, corewatcher.EnsureErr(w)
 }
 
 // WatchContainerStart starts a StringWatcher to watch for container start events
@@ -261,7 +260,7 @@ func (f *Facade) watchContainerStart(tagString string, containerName string) (st
 	if changes, ok := <-uw.Changes(); ok {
 		return f.resources.Register(uw), changes, nil
 	}
-	return "", nil, watcher.EnsureErr(uw)
+	return "", nil, corewatcher.EnsureErr(uw)
 }
 
 // ModelUUID returns the model UUID that this facade is used to operate.

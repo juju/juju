@@ -12,10 +12,10 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/core/watcher"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
 )
 
 // CloudSpecer defines the CloudSpec api interface

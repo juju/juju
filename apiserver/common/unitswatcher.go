@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/core/watcher"
 )
 
 // UnitsWatcher implements a common WatchUnits method for use by

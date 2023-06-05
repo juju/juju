@@ -1423,7 +1423,7 @@ func remove(strs []string, s string) []string {
 }
 
 func (w *relationUnitsWatcher) finish() {
-	watcher.Stop(w.sw, &w.tomb)
+	corewatcher.Stop(w.sw, &w.tomb)
 	for _, watchedValue := range w.watching.Values() {
 		w.watcher.Unwatch(settingsC, watchedValue, w.updates)
 	}
@@ -1457,7 +1457,7 @@ func (w *relationUnitsWatcher) loop() (err error) {
 			return tomb.ErrDying
 		case c, ok := <-w.sw.Changes():
 			if !ok {
-				return watcher.EnsureErr(w.sw)
+				return corewatcher.EnsureErr(w.sw)
 			}
 			gotInitialScopeWatcher = true
 			if w.logger.IsTraceEnabled() {
@@ -2337,7 +2337,7 @@ func (m *Machine) WatchUpgradeSeriesNotifications() (NotifyWatcher, error) {
 		return watch, nil
 	}
 
-	return nil, watcher.EnsureErr(watch)
+	return nil, corewatcher.EnsureErr(watch)
 }
 
 func newEntityWatcher(backend modelBackend, collName string, key interface{}) NotifyWatcher {

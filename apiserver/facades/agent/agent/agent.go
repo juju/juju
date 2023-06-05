@@ -16,10 +16,10 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
 )
 
 // AgentAPI implements the version 3 of the API provided to an agent.

@@ -1986,7 +1986,7 @@ func newObsoleteSecretsWatcher(st modelBackend, owners []string) *obsoleteSecret
 }
 
 func (w *obsoleteSecretsWatcher) finish() {
-	watcher.Stop(w.obsoleteRevisionsWatcher, &w.tomb)
+	corewatcher.Stop(w.obsoleteRevisionsWatcher, &w.tomb)
 	close(w.out)
 }
 
