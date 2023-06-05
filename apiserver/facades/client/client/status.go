@@ -1523,7 +1523,7 @@ func (context *statusContext) processUnits(units map[string]*state.Unit, applica
 	expectWorkload bool) map[string]params.UnitStatus {
 	unitsMap := make(map[string]params.UnitStatus)
 	for _, unit := range units {
-		unitsMap[unit.Name()] = context.processUnit(unit, applicationCharm, expectWorkload)
+		unitsMap[unit.Name()] = context.processUnit(unit, applicationCharm, expectWorkload, false)
 	}
 	return unitsMap
 }
@@ -1554,7 +1554,7 @@ func (context *statusContext) unitPublicAddress(unit *state.Unit) string {
 }
 
 func (context *statusContext) processUnit(unit *state.Unit, applicationCharm string,
-	expectWorkload bool) params.UnitStatus {
+	expectWorkload bool, isSubordinate bool) params.UnitStatus {
 	var result params.UnitStatus
 	if context.model.Type() == state.ModelTypeIAAS {
 		result.PublicAddress = context.unitPublicAddress(unit)
@@ -1585,7 +1585,7 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 		result.Machine, _ = unit.AssignedMachineId()
 	}
 	unitCharm := unit.CharmURL()
-	if applicationCharm != "" && unitCharm != nil && *unitCharm != applicationCharm {
+	if applicationCharm != "" && unitCharm != nil && (*unitCharm != applicationCharm || isSubordinate) {
 		result.Charm = *unitCharm
 	}
 	workloadVersion, err := context.status.UnitWorkloadVersion(unit.Name())
@@ -1614,7 +1614,7 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 				} else {
 					logger.Debugf("error fetching subordinate application charm for %q", subUnit.ApplicationName())
 				}
-				result.Subordinates[name] = context.processUnit(subUnit, subUnitAppCharm, true)
+				result.Subordinates[name] = context.processUnit(subUnit, subUnitAppCharm, true, true)
 			}
 		}
 	}
