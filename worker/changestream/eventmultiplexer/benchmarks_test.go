@@ -226,4 +226,4 @@ func (t term) Changes() ChangeSet {
 	return t.changes
 }
 
-func (t term) Done() {}
+func (t term) Done(empty bool, abort <-chan struct{}) {}

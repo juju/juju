@@ -214,7 +214,7 @@ func (e *EventMultiplexer) loop() error {
 
 			// Nothing to do here, just mark the term as done.
 			if len(changeSet) == 0 {
-				term.Done()
+				term.Done(true, e.catacomb.Dying())
 				continue
 			}
 
@@ -226,7 +226,9 @@ func (e *EventMultiplexer) loop() error {
 				e.dispatchErrorCount++
 			}
 
-			term.Done()
+			// We should guarantee that the change set is not empty, so we
+			// can force false here.
+			term.Done(false, e.catacomb.Dying())
 
 		case subOpt := <-e.subscriptionCh:
 			sub := subOpt.subscription

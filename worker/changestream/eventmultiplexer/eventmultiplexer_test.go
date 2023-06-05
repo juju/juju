@@ -230,7 +230,7 @@ func (s *eventMultiplexerSuite) TestTopicDoesNotMatch(c *gc.C) {
 	sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.expectTerm(c, changeEvent{
+	s.expectEmptyTerm(c, changeEvent{
 		ctype: changestream.Create,
 		ns:    "foo",
 		uuid:  "1",

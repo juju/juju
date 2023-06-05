@@ -59,11 +59,19 @@ func (s *baseSuite) expectAfter() {
 }
 
 func (s *baseSuite) expectTerm(c *gc.C, evts ...changestream.ChangeEvent) {
+	s.expectTermInOrder(c, false, evts...)
+}
+
+func (s *baseSuite) expectEmptyTerm(c *gc.C, evts ...changestream.ChangeEvent) {
+	s.expectTermInOrder(c, true, evts...)
+}
+
+func (s *baseSuite) expectTermInOrder(c *gc.C, empty bool, evts ...changestream.ChangeEvent) {
 	// The order is important here. We always expect done to be called once
 	// all the changes have been read.
 	gomock.InOrder(
 		s.term.EXPECT().Changes().Return(evts),
-		s.term.EXPECT().Done(),
+		s.term.EXPECT().Done(empty, gomock.Any()),
 	)
 }
 

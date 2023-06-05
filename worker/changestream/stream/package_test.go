@@ -57,7 +57,8 @@ func (s *baseSuite) expectAfter() chan<- time.Time {
 }
 
 func (s *baseSuite) expectAfterAnyTimes() {
-	s.clock.EXPECT().After(gomock.Any()).DoAndReturn(func(time.Duration) <-chan time.Time {
+	s.clock.EXPECT().After(defaultWaitTermTimeout).Return(make(chan time.Time)).AnyTimes()
+	s.clock.EXPECT().After(gomock.Any()).DoAndReturn(func(d time.Duration) <-chan time.Time {
 		ch := make(chan time.Time)
 		go func() {
 			ch <- time.Now()

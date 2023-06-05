@@ -4,8 +4,10 @@
 package stream
 
 import (
+	"sync/atomic"
 	"time"
 
+	gomock "github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v3/workertest"
@@ -91,7 +93,77 @@ func (s *streamSuite) TestOneChange(c *gc.C) {
 	select {
 	case term := <-stream.Terms():
 		results = term.Changes()
-		term.Done()
+		term.Done(false, make(chan struct{}))
+
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for change")
+	}
+
+	expectChanges(c, []change{chg}, results)
+
+	workertest.CleanKill(c, stream)
+}
+
+func (s *streamSuite) TestOneChangeWithEmptyResults(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectFileNotifyWatcher()
+	s.expectAfterAnyTimes()
+
+	s.insertNamespace(c, 1000, "foo")
+
+	chg := change{
+		id:   1000,
+		uuid: utils.MustNewUUID().String(),
+	}
+	s.insertChange(c, chg)
+
+	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	defer workertest.DirtyKill(c, stream)
+
+	var results []changestream.ChangeEvent
+	select {
+	case term := <-stream.Terms():
+		results = term.Changes()
+		term.Done(true, make(chan struct{}))
+
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for change")
+	}
+
+	expectChanges(c, []change{chg}, results)
+
+	workertest.CleanKill(c, stream)
+}
+
+func (s *streamSuite) TestOneChangeWithClosedAbort(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectFileNotifyWatcher()
+	s.expectAfterAnyTimes()
+
+	s.insertNamespace(c, 1000, "foo")
+
+	chg := change{
+		id:   1000,
+		uuid: utils.MustNewUUID().String(),
+	}
+	s.insertChange(c, chg)
+
+	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	defer workertest.DirtyKill(c, stream)
+
+	var results []changestream.ChangeEvent
+	select {
+	case term := <-stream.Terms():
+		results = term.Changes()
+
+		// Force the close of the abort channel.
+		ch := make(chan struct{})
+		close(ch)
+		term.Done(false, ch)
 
 	case <-time.After(testing.ShortWait):
 		c.Fatal("timed out waiting for change")
@@ -134,7 +206,7 @@ func (s *streamSuite) TestOneChangeWithDelayedTermDone(c *gc.C) {
 
 	expectChanges(c, []change{chg}, results)
 
-	term.Done()
+	term.Done(false, make(chan struct{}))
 
 	workertest.CleanKill(c, stream)
 }
@@ -174,7 +246,48 @@ func (s *streamSuite) TestOneChangeWithTermDoneAfterKill(c *gc.C) {
 	workertest.CleanKill(c, stream)
 
 	// Ensure that we don't panic after the stream has been killed.
-	term.Done()
+	ch := make(chan struct{})
+	close(ch)
+	term.Done(false, ch)
+}
+
+func (s *streamSuite) TestOneChangeWithTimeoutCausesWorkerToBounce(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectFileNotifyWatcher()
+
+	s.clock.EXPECT().After(gomock.Any()).DoAndReturn(func(d time.Duration) <-chan time.Time {
+		ch := make(chan time.Time)
+		go func() {
+			ch <- time.Now()
+		}()
+		return ch
+	}).AnyTimes()
+
+	s.insertNamespace(c, 1000, "foo")
+
+	chg := change{
+		id:   1000,
+		uuid: utils.MustNewUUID().String(),
+	}
+	s.insertChange(c, chg)
+
+	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	defer workertest.DirtyKill(c, stream)
+
+	select {
+	case <-stream.Terms():
+		// Normally we'd call term.Done() here, but we want to ensure that
+		// the worker is bounced, so we'll just let the term timeout.
+		<-time.After(witnessChangeShortDuration)
+
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for change")
+	}
+
+	err := workertest.CheckKill(c, stream)
+	c.Assert(err, gc.ErrorMatches, `term has not been completed in time`)
 }
 
 func (s *streamSuite) TestMultipleTerms(c *gc.C) {
@@ -204,7 +317,60 @@ func (s *streamSuite) TestMultipleTerms(c *gc.C) {
 		select {
 		case term = <-stream.Terms():
 			results = term.Changes()
-			term.Done()
+			term.Done(false, make(chan struct{}))
+
+		case <-time.After(testing.ShortWait):
+			c.Fatal("timed out waiting for change")
+		}
+
+		expectChanges(c, []change{chg}, results)
+	}
+
+	workertest.CleanKill(c, stream)
+}
+
+func (s *streamSuite) TestMultipleTermsAllEmpty(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectFileNotifyWatcher()
+
+	var duration int64
+	s.clock.EXPECT().After(defaultWaitTermTimeout).Return(make(chan time.Time)).AnyTimes()
+	s.clock.EXPECT().After(gomock.Any()).DoAndReturn(func(d time.Duration) <-chan time.Time {
+		if atomic.LoadInt64(&duration) > d.Microseconds() {
+			c.Fatalf("expected duration %d to be greater than %d", d.Microseconds(), atomic.LoadInt64(&duration))
+		}
+		atomic.SwapInt64(&duration, d.Microseconds())
+
+		ch := make(chan time.Time)
+		go func() {
+			ch <- time.Now()
+		}()
+		return ch
+	}).AnyTimes()
+
+	s.insertNamespace(c, 1000, "foo")
+
+	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	defer workertest.DirtyKill(c, stream)
+
+	for i := 0; i < 10; i++ {
+		// Insert a change and wait for it to be streamed.
+		chg := change{
+			id:   1000,
+			uuid: utils.MustNewUUID().String(),
+		}
+		s.insertChange(c, chg)
+
+		var (
+			results []changestream.ChangeEvent
+			term    changestream.Term
+		)
+		select {
+		case term = <-stream.Terms():
+			results = term.Changes()
+			term.Done(true, make(chan struct{}))
 
 		case <-time.After(testing.ShortWait):
 			c.Fatal("timed out waiting for change")
@@ -272,7 +438,7 @@ func (s *streamSuite) TestSecondTermDoesNotStartUntilFirstTermDone(c *gc.C) {
 	}
 
 	// Finish the term.
-	term.Done()
+	term.Done(false, make(chan struct{}))
 
 	// Wait to ensure that the loop has been given enough time to read the
 	// changes.

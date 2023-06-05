@@ -38,6 +38,11 @@ type ChangeEvent interface {
 type Term interface {
 	// Changes returns the changes that are part of the term.
 	Changes() []ChangeEvent
-	// Done signals that the term has been completed.
-	Done()
+
+	// Done signals that the term has been completed. Empty signals that
+	// the term was empty and no changes were processed. This is useful to
+	// help determine if more changes are available to be processed.
+	// Abort is used to signal that setting the empty value should be aborted
+	// and the term should be considered incomplete and done.
+	Done(empty bool, abort <-chan struct{})
 }
