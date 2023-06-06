@@ -47,35 +47,33 @@ func OperationBlockedError(msg string) error {
 	}
 }
 
-var singletonErrorCodes = map[error]string{
-	stateerrors.ErrCannotEnterScopeYet: params.CodeCannotEnterScopeYet,
-	stateerrors.ErrCannotEnterScope:    params.CodeCannotEnterScope,
-	stateerrors.ErrUnitHasSubordinates: params.CodeUnitHasSubordinates,
-	stateerrors.ErrDead:                params.CodeDead,
-	txn.ErrExcessiveContention:         params.CodeExcessiveContention,
-	leadership.ErrClaimDenied:          params.CodeLeadershipClaimDenied,
-	lease.ErrClaimDenied:               params.CodeLeaseClaimDenied,
-	ErrBadId:                           params.CodeNotFound,
-	ErrBadCreds:                        params.CodeUnauthorized,
-	ErrNoCreds:                         params.CodeNoCreds,
-	ErrLoginExpired:                    params.CodeLoginExpired,
-	ErrPerm:                            params.CodeUnauthorized,
-	ErrNotLoggedIn:                     params.CodeUnauthorized,
-	ErrUnknownWatcher:                  params.CodeNotFound,
-	ErrStoppedWatcher:                  params.CodeStopped,
-	ErrTryAgain:                        params.CodeTryAgain,
-	ErrActionNotAvailable:              params.CodeActionNotAvailable,
+var singletonErrorCodes = map[errors.ConstError]string{
+	stateerrors.ErrCannotEnterScopeYet:           params.CodeCannotEnterScopeYet,
+	stateerrors.ErrCannotEnterScope:              params.CodeCannotEnterScope,
+	stateerrors.ErrUnitHasSubordinates:           params.CodeUnitHasSubordinates,
+	stateerrors.ErrDead:                          params.CodeDead,
+	stateerrors.ErrApplicationShouldNotHaveUnits: params.CodeAppShouldNotHaveUnits,
+	txn.ErrExcessiveContention:                   params.CodeExcessiveContention,
+	leadership.ErrClaimDenied:                    params.CodeLeadershipClaimDenied,
+	lease.ErrClaimDenied:                         params.CodeLeaseClaimDenied,
+	ErrBadId:                                     params.CodeNotFound,
+	ErrBadCreds:                                  params.CodeUnauthorized,
+	ErrNoCreds:                                   params.CodeNoCreds,
+	ErrLoginExpired:                              params.CodeLoginExpired,
+	ErrPerm:                                      params.CodeUnauthorized,
+	ErrNotLoggedIn:                               params.CodeUnauthorized,
+	ErrUnknownWatcher:                            params.CodeNotFound,
+	ErrStoppedWatcher:                            params.CodeStopped,
+	ErrTryAgain:                                  params.CodeTryAgain,
+	ErrActionNotAvailable:                        params.CodeActionNotAvailable,
 }
 
 func singletonCode(err error) (string, bool) {
-	// All error types may not be hashable; deal with
-	// that by catching the panic if we try to look up
-	// a non-hashable type.
-	defer func() {
-		_ = recover()
-	}()
-	code, ok := singletonErrorCodes[err]
-	return code, ok
+	if e, is := errors.AsType[errors.ConstError](err); is {
+		code, ok := singletonErrorCodes[e]
+		return code, ok
+	}
+	return "", false
 }
 
 func singletonError(err error) (bool, error) {
