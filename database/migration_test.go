@@ -4,6 +4,8 @@
 package database
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -24,7 +26,7 @@ func (s *migrationSuite) TestMigrationSuccess(c *gc.C) {
 
 	db := s.DB()
 	m := NewDBMigration(db, stubLogger{}, delta)
-	c.Assert(m.Apply(), jc.ErrorIsNil)
+	c.Assert(m.Apply(context.Background()), jc.ErrorIsNil)
 
 	rows, err := db.Query("SELECT * from band;")
 	c.Assert(err, jc.ErrorIsNil)
