@@ -76,4 +76,6 @@ type resourcesShim struct {
 	facade.Resources
 }
 
-func (r resourcesShim) Register(res StoppableResource) string { return r.Resources.Register(res) }
+func (r resourcesShim) Register(res StoppableResource) string {
+	return r.Resources.Register(res)
+}

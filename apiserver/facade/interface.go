@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/names/v4"
+	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
@@ -212,8 +213,8 @@ type Authorizer interface {
 // The lack of error returns are in deference to the existing
 // implementation, not because they're a good idea.
 type Resources interface {
-	Register(Resource) string
-	Get(string) Resource
+	Register(worker.Worker) string
+	Get(string) worker.Worker
 	Stop(string) error
 }
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/facade"
@@ -26,15 +27,16 @@ func NewPinger(ctx facade.Context) (Pinger, error) {
 
 // pinger describes a resource that can be pinged and stopped.
 type Pinger interface {
+	worker.Worker
 	Ping()
-	Stop() error
 }
 
 // pingTimeout listens for pings and will call the
 // passed action in case of a timeout. This way broken
 // or inactive connections can be closed.
 type pingTimeout struct {
-	tomb    tomb.Tomb
+	tomb tomb.Tomb
+	worker.Worker
 	action  func()
 	clock   clock.Clock
 	timeout time.Duration
@@ -65,9 +67,11 @@ func (pt *pingTimeout) Ping() {
 	}
 }
 
-// Stop terminates the ping timeout.
-func (pt *pingTimeout) Stop() error {
+func (pt *pingTimeout) Kill() {
 	pt.tomb.Kill(nil)
+}
+
+func (pt *pingTimeout) Wait() error {
 	return pt.tomb.Wait()
 }
 
@@ -89,5 +93,10 @@ func (pt *pingTimeout) loop() error {
 // nullPinger implements the pinger interface but just does nothing
 type nullPinger struct{}
 
-func (nullPinger) Ping()       {}
-func (nullPinger) Stop() error { return nil }
+func (nullPinger) Ping() {}
+
+func (nullPinger) Kill() {}
+
+func (nullPinger) Wait() error {
+	return nil
+}

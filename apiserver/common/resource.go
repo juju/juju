@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/worker/v3"
 )
 
 // Resources holds all the resources for a connection.
@@ -17,7 +17,7 @@ import (
 type Resources struct {
 	mu        sync.Mutex
 	maxId     uint64
-	resources map[string]facade.Resource
+	resources map[string]worker.Worker
 
 	// The stack is used to control the order of destruction.
 	// last registered, first stopped.
@@ -29,13 +29,13 @@ type Resources struct {
 
 func NewResources() *Resources {
 	return &Resources{
-		resources: make(map[string]facade.Resource),
+		resources: make(map[string]worker.Worker),
 	}
 }
 
 // Get returns the resource for the given id, or
 // nil if there is no such resource.
-func (rs *Resources) Get(id string) facade.Resource {
+func (rs *Resources) Get(id string) worker.Worker {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	return rs.resources[id]
@@ -44,7 +44,7 @@ func (rs *Resources) Get(id string) facade.Resource {
 // Register registers the given resource. It returns a unique
 // identifier for the resource which can then be used in
 // subsequent API requests to refer to the resource.
-func (rs *Resources) Register(r facade.Resource) string {
+func (rs *Resources) Register(r worker.Worker) string {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	rs.maxId++
@@ -62,7 +62,7 @@ func (rs *Resources) Register(r facade.Resource) string {
 // replaced, but we don't have a need for that yet.)
 // It is also an error to supply a name that is an integer string, since that
 // collides with the auto-naming from Register.
-func (rs *Resources) RegisterNamed(name string, r facade.Resource) error {
+func (rs *Resources) RegisterNamed(name string, r worker.Worker) error {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	if _, err := strconv.Atoi(name); err == nil {
@@ -95,7 +95,8 @@ func (rs *Resources) Stop(id string) error {
 	}
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
-	err := r.Stop()
+	r.Kill()
+	err := r.Wait()
 	delete(rs.resources, id)
 	for pos := 0; pos < len(rs.stack); pos++ {
 		if rs.stack[pos] == id {
@@ -114,11 +115,12 @@ func (rs *Resources) StopAll() {
 		id := rs.stack[i-1]
 		r := rs.resources[id]
 		logger.Tracef("stopping resource: %s", id)
-		if err := r.Stop(); err != nil {
+		r.Kill()
+		if err := r.Wait(); err != nil {
 			logger.Errorf("error stopping %T resource: %v", r, err)
 		}
 	}
-	rs.resources = make(map[string]facade.Resource)
+	rs.resources = make(map[string]worker.Worker)
 	rs.stack = nil
 }
 
@@ -129,9 +131,18 @@ func (rs *Resources) Count() int {
 	return len(rs.resources)
 }
 
+// FIXME(nvinuesa): This `StringResource` should be removed and they should not
+// be registered.
 // StringResource is just a regular 'string' that matches the Resource
 // interface.
 type StringResource string
+
+func (StringResource) Kill() {
+}
+
+func (StringResource) Wait() error {
+	return nil
+}
 
 func (StringResource) Stop() error {
 	return nil
@@ -141,10 +152,19 @@ func (s StringResource) String() string {
 	return string(s)
 }
 
+// FIXME(nvinuesa): This `ValueResource` should be removed and they should not
+// be registered.
 // ValueResource is a Resource with a no-op Stop method, containing an
 // interface{} value.
 type ValueResource struct {
 	Value interface{}
+}
+
+func (ValueResource) Kill() {
+}
+
+func (ValueResource) Wait() error {
+	return nil
 }
 
 func (r ValueResource) Stop() error {

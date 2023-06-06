@@ -5,6 +5,7 @@ package charmdownloader
 
 import (
 	"github.com/juju/charm/v10"
+	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/controller"
@@ -63,5 +64,5 @@ type ResourcesBackend interface {
 
 // StoppableResource is implemented by resources that can be stopped.
 type StoppableResource interface {
-	Stop() error
+	worker.Worker
 }

@@ -33970,11 +33970,16 @@
         "Schema": {
             "type": "object",
             "properties": {
+                "Kill": {
+                    "type": "object",
+                    "description": "Kill asks the worker to stop and returns immediately."
+                },
                 "Ping": {
                     "type": "object"
                 },
-                "Stop": {
-                    "type": "object"
+                "Wait": {
+                    "type": "object",
+                    "description": "Wait waits for the worker to complete and returns any\nerror encountered when it was running or stopping."
                 }
             }
         }

@@ -31,8 +31,11 @@ type Watcher struct {
 	used bool
 }
 
-// Stop stops the watcher.
-func (w *Watcher) Stop() error {
+func (w *Watcher) Wait() error {
+	return nil
+}
+
+func (w *Watcher) Kill() {
 	select {
 	case w.request <- &request{watcher: w}:
 		// We asked to be stopped, and this is processed.
@@ -48,7 +51,6 @@ func (w *Watcher) Stop() error {
 	}
 	// In all of the above cases, we're fine, and don't need to return an
 	// error that would be logged.
-	return nil
 }
 
 // Next retrieves all changes that have happened since the last
