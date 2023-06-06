@@ -26,7 +26,6 @@ import (
 )
 
 var (
-	NewPingTimeout        = newPingTimeout
 	MaxClientPingInterval = maxClientPingInterval
 	NewBackups            = &newBackups
 	SetResource           = setResource

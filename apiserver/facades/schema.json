@@ -33958,7 +33958,7 @@
     },
     {
         "Name": "Pinger",
-        "Description": "pinger describes a resource that can be pinged and stopped.",
+        "Description": "API serves pinger-specific API methods.",
         "Version": 1,
         "AvailableTo": [
             "controller-machine-agent",
@@ -33970,16 +33970,13 @@
         "Schema": {
             "type": "object",
             "properties": {
-                "Kill": {
-                    "type": "object",
-                    "description": "Kill asks the worker to stop and returns immediately."
-                },
                 "Ping": {
-                    "type": "object"
-                },
-                "Wait": {
                     "type": "object",
-                    "description": "Wait waits for the worker to complete and returns any\nerror encountered when it was running or stopping."
+                    "description": "Ping is used by the client heartbeat monitor and resets."
+                },
+                "Stop": {
+                    "type": "object",
+                    "description": "Stop stops the pinger."
                 }
             }
         }

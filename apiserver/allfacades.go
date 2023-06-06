@@ -46,6 +46,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/annotations" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/client/modelupgrader"
+	"github.com/juju/juju/apiserver/facades/client/pinger"
 	"github.com/juju/juju/apiserver/facades/client/secretbackends"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelsecrets"
 
@@ -189,6 +190,7 @@ func AllFacades() *facade.Registry {
 	modelupgrader.Register(registry)
 	payloads.Register(registry)
 	payloadshookcontext.Register(registry)
+	pinger.Register(registry)
 	provisioner.Register(registry)
 	proxyupdater.Register(registry)
 	reboot.Register(registry)
@@ -215,11 +217,6 @@ func AllFacades() *facade.Registry {
 	upgradeseries.Register(registry)
 	upgradesteps.Register(registry)
 	usermanager.Register(registry)
-
-	// TODO (stickupkid): The following should be moved into a package.
-	registry.MustRegister("Pinger", 1, func(ctx facade.Context) (facade.Facade, error) {
-		return NewPinger(ctx)
-	}, reflect.TypeOf((*Pinger)(nil)).Elem())
 
 	registry.MustRegister("AllWatcher", 3, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
 	// Note: AllModelWatcher uses the same infrastructure as AllWatcher

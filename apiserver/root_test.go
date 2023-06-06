@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/pinger"
 	"github.com/juju/juju/testing"
 )
 
@@ -33,7 +34,7 @@ func (r *pingSuite) TestPingTimeout(c *gc.C) {
 		close(triggered)
 	}
 	clock := testclock.NewClock(time.Now())
-	timeout := apiserver.NewPingTimeout(action, clock, 50*time.Millisecond)
+	timeout := pinger.NewPinger(action, clock, 50*time.Millisecond)
 	for i := 0; i < 2; i++ {
 		waitAlarm(c, clock)
 		clock.Advance(10 * time.Millisecond)
@@ -62,10 +63,12 @@ func (r *pingSuite) TestPingTimeoutStopped(c *gc.C) {
 		close(triggered)
 	}
 	clock := testclock.NewClock(time.Now())
-	timeout := apiserver.NewPingTimeout(action, clock, 20*time.Millisecond)
+	timeout := pinger.NewPinger(action, clock, 20*time.Millisecond)
 
 	waitAlarm(c, clock)
-	timeout.Stop()
+	timeout.Kill()
+	err := timeout.Wait()
+	c.Assert(err, jc.ErrorIsNil)
 	clock.Advance(time.Hour)
 
 	// The action should never trigger
