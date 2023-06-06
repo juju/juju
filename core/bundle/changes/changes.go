@@ -14,6 +14,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/series"
+	"github.com/juju/loggo"
 )
 
 // Logger defines the logging methods needed
@@ -34,7 +35,7 @@ type ConstraintGetter func(string) ArchConstraint
 
 // CharmResolver resolves the channel and revision of a charm from the list of
 // parameters.
-type CharmResolver func(charm string, series series.Base, channel, arch string, revision int) (string, int, error)
+type CharmResolver func(charm string, base series.Base, channel, arch string, revision int) (string, int, error)
 
 // ChangesConfig is used to provide the required data for determining changes.
 type ChangesConfig struct {
@@ -94,7 +95,11 @@ func FromData(config ChangesConfig) ([]Change, error) {
 
 	var addedMachines map[string]*AddMachineChange
 	if resolver.bundle.Type != kubernetes {
-		addedMachines = resolver.handleMachines()
+		var err error
+		addedMachines, err = resolver.handleMachines()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	deployedBundleApps := alreadyDeployedApplicationsFromBundle(model, config.Bundle.Applications)
@@ -145,6 +150,8 @@ func existingOffersFromModel(ctrlModel *Model) map[string]set.Strings {
 	return existingOffers
 }
 
+var logger = loggo.GetLogger("juju.core.bundle.changes")
+
 // Change holds a single change required to deploy a bundle.
 type Change interface {
 	// Id returns the unique identifier for this change.
@@ -156,6 +163,9 @@ type Change interface {
 	Method() string
 	// GUIArgs returns positional arguments to pass to the method, suitable for
 	// being JSON-serialized and sent to the Juju GUI.
+	// TODO (jack-w-shaw): GUIArgs returns it's args in a magic order, making it very
+	// very brittle. All this information is included in map form in Args. In Juju 4
+	// we should remove GUIArgs and the corresponding GetChanges facade
 	GUIArgs() []interface{}
 	// Description returns a human readable, potentially multi-line summary
 	// of the change.
@@ -219,7 +229,12 @@ type AddCharmChange struct {
 
 // GUIArgs implements Change.GUIArgs.
 func (ch *AddCharmChange) GUIArgs() []interface{} {
-	return []interface{}{ch.Params.Charm, ch.Params.Series, ch.Params.Channel}
+	series, err := baseToSeries(ch.Params.Base)
+	if err != nil {
+		// params base is has already been parsed, so this should be impossible.
+		logger.Errorf("Cannot parse base to series: %v", ch.Params.Base)
+	}
+	return []interface{}{ch.Params.Charm, series, ch.Params.Channel}
 }
 
 // Args implements Change.Args.
@@ -230,9 +245,9 @@ func (ch *AddCharmChange) Args() (map[string]interface{}, error) {
 // Description implements Change.
 func (ch *AddCharmChange) Description() []string {
 	p := ch.Params
-	var series, channel string
-	if p.Series != "" {
-		series = " for series " + p.Series
+	var base, channel string
+	if p.Base != "" {
+		base = " for base " + p.Base
 	}
 	if p.Revision != nil && *p.Revision >= 0 {
 		channel = fmt.Sprintf(" with revision %d", *p.Revision)
@@ -257,7 +272,7 @@ func (ch *AddCharmChange) Description() []string {
 		arch = fmt.Sprintf(" with architecture=%s", p.Architecture)
 	}
 
-	return []string{fmt.Sprintf("upload charm %s%s%s%s%s", name, location, series, channel, arch)}
+	return []string{fmt.Sprintf("upload charm %s%s%s%s%s", name, location, base, channel, arch)}
 }
 
 // AddCharmParams holds parameters for adding a charm to the environment.
@@ -266,9 +281,9 @@ type AddCharmParams struct {
 	Charm string `json:"charm"`
 	// Revision holds the revision of the charm to be added.
 	Revision *int `json:"revision,omitempty"`
-	// Series holds the series of the charm to be added
+	// Base holds the base of the charm to be added
 	// if the charm default is not sufficient.
-	Series string `json:"series,omitempty"`
+	Base string `json:"base,omitempty"`
 	// Channel holds the preferred channel for obtaining the charm.
 	// Channel was added to 2.7 release, use omitempty so we're backwards
 	// compatible with older clients.
@@ -298,10 +313,15 @@ type UpgradeCharmChange struct {
 
 // GUIArgs implements Change.GUIArgs.
 func (ch *UpgradeCharmChange) GUIArgs() []interface{} {
+	series, err := baseToSeries(ch.Params.Base)
+	if err != nil {
+		// params base is has already been parsed, so this should be impossible.
+		logger.Errorf("Cannot parse base to series: %v", ch.Params.Base)
+	}
 	return []interface{}{
 		ch.Params.Charm,
 		ch.Params.Application,
-		ch.Params.Series,
+		series,
 		ch.Params.Channel,
 	}
 }
@@ -313,9 +333,9 @@ func (ch *UpgradeCharmChange) Args() (map[string]interface{}, error) {
 
 // Description implements Change.
 func (ch *UpgradeCharmChange) Description() []string {
-	var series string
-	if ch.Params.Series != "" {
-		series = " for series " + ch.Params.Series
+	var base string
+	if ch.Params.Base != "" {
+		base = " for base " + ch.Params.Base
 	}
 	var channel string
 	if ch.Params.Channel != "" {
@@ -333,7 +353,7 @@ func (ch *UpgradeCharmChange) Description() []string {
 			location = fmt.Sprintf(" from %s ", location)
 		}
 	}
-	return []string{fmt.Sprintf("upgrade %s%susing charm %s%s%s", ch.Params.Application, location, name, series, channel)}
+	return []string{fmt.Sprintf("upgrade %s%susing charm %s%s%s", ch.Params.Application, location, name, base, channel)}
 }
 
 // UpgradeCharmParams holds parameters for adding a charm to the environment.
@@ -342,9 +362,9 @@ type UpgradeCharmParams struct {
 	Charm string `json:"charm"`
 	// Application refers to the application that is being upgraded.
 	Application string `json:"application"`
-	// Series holds the series of the charm to be added
+	// Base holds the base of the charm to be added
 	// if the charm default is not sufficient.
-	Series string `json:"series"`
+	Base string `json:"base"`
 	// Resources identifies the revision to use for each resource
 	// of the application's charm.
 	Resources map[string]int `json:"resources,omitempty"`
@@ -377,8 +397,14 @@ type AddMachineChange struct {
 
 // GUIArgs implements Change.GUIArgs.
 func (ch *AddMachineChange) GUIArgs() []interface{} {
+	series, err := baseToSeries(ch.Params.Base)
+	if err != nil {
+		// params base is has already been parsed, so this should be impossible.
+		logger.Errorf("Cannot parse base to series: %v", ch.Params.Base)
+	}
 	options := AddMachineOptions{
-		Series:        ch.Params.Series,
+		Base:          ch.Params.Base,
+		Series:        series,
 		Constraints:   ch.Params.Constraints,
 		ContainerType: ch.Params.ContainerType,
 		ParentId:      ch.Params.ParentId,
@@ -410,7 +436,10 @@ func (ch *AddMachineChange) Description() []string {
 
 // AddMachineOptions holds GUI options for adding a machine or container.
 type AddMachineOptions struct {
-	// Series holds the machine OS series.
+	// Base holds the machine OS base.
+	Base string `json:"base,omitempty"`
+	// Series holds the optional machine OS series.
+	// DEPRECATED
 	Series string `json:"series,omitempty"`
 	// Constraints holds the machine constraints.
 	Constraints string `json:"constraints,omitempty"`
@@ -422,8 +451,8 @@ type AddMachineOptions struct {
 
 // AddMachineParams holds parameters for adding a machine or container.
 type AddMachineParams struct {
-	// Series holds the optional machine OS series.
-	Series string `json:"series,omitempty"`
+	// Base holds the optional machine OS base.
+	Base string `json:"base,omitempty"`
 	// Constraints holds the optional machine constraints.
 	Constraints string `json:"constraints,omitempty"`
 	// ContainerType optionally holds the type of the container (for instance
@@ -526,6 +555,8 @@ func (ch *AddApplicationChange) Args() (map[string]interface{}, error) {
 	return paramsToArgs(ch.Params)
 }
 
+// TODO: since GUIArgs are returned in a magical order, replacing series with base
+// would be a breaking change. Remove GetChanges facade endpoint in Juju 4
 func (ch *AddApplicationChange) buildArgs(includeDevices bool) []interface{} {
 	options := ch.Params.Options
 	if options == nil {
@@ -547,9 +578,14 @@ func (ch *AddApplicationChange) buildArgs(includeDevices bool) []interface{} {
 	if resources == nil {
 		resources = make(map[string]int, 0)
 	}
+	series, err := baseToSeries(ch.Params.Base)
+	if err != nil {
+		// params base is has already been parsed, so this should be impossible.
+		logger.Errorf("Cannot parse base to series: %v", ch.Params.Base)
+	}
 	args := []interface{}{
 		ch.Params.Charm,
-		ch.Params.Series,
+		series,
 		ch.Params.Application,
 		options,
 		ch.Params.Constraints,
@@ -574,9 +610,9 @@ func (ch *AddApplicationChange) GUIArgs() []interface{} {
 
 // Description implements Change.
 func (ch *AddApplicationChange) Description() []string {
-	var series string
-	if ch.Params.Series != "" {
-		series = " on " + ch.Params.Series
+	var base string
+	if ch.Params.Base != "" {
+		base = " on " + ch.Params.Base
 	}
 	var channel string
 	if ch.Params.Channel != "" {
@@ -604,16 +640,16 @@ func (ch *AddApplicationChange) Description() []string {
 		}
 	}
 
-	return []string{fmt.Sprintf("deploy application %s%s%s%s%s%s", ch.Params.Application, location, unitsInfo, series, channel, using)}
+	return []string{fmt.Sprintf("deploy application %s%s%s%s%s%s", ch.Params.Application, location, unitsInfo, base, channel, using)}
 }
 
 // AddApplicationParams holds parameters for deploying a Juju application.
 type AddApplicationParams struct {
 	// Charm holds the URL of the charm to be used to deploy this application.
 	Charm string `json:"charm"`
-	// Series holds the series of the application to be deployed
+	// Base holds the base of the application to be deployed
 	// if the charm default is not sufficient.
-	Series string `json:"series,omitempty"`
+	Base string `json:"base,omitempty"`
 	// Application holds the application name.
 	Application string `json:"application,omitempty"`
 	// NumUnits holds the number of units required.
@@ -1218,7 +1254,38 @@ func paramsToArgs(params interface{}) (map[string]interface{}, error) {
 	if err := json.Unmarshal(bytes, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
+	// For backwards compatibility, ensure series is included along with base
+	// TODO: remove in Juju 4
+	if b, ok := result["base"]; ok {
+		series, err := baseToSeries(b)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result["series"] = series
+	}
 	return result, nil
+}
+
+// baseToSeries converts a base from Args into a series
+// We wish to move entirely to bases, but must keep series
+// in Args and GUIArgs for backwards compatibility.
+func baseToSeries(b interface{}) (string, error) {
+	bStr, ok := b.(string)
+	if !ok {
+		return "", errors.Errorf("Failed to parse base arg as string")
+	}
+	if bStr == "" {
+		return "", nil
+	}
+	base, err := series.ParseBaseFromString(bStr)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	series, err := series.GetSeriesFromBase(base)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return series, nil
 }
 
 // GrantOfferAccessParams holds the parameters for granting access to a user.
