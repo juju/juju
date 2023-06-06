@@ -111,7 +111,7 @@ func (s *rebootSuite) TearDownTest(c *gc.C) {
 		s.machine.resources.StopAll()
 	}
 	if s.machine.w != nil {
-		statetesting.AssertStop(c, s.machine.w)
+		statetesting.AssertKillAndWait(c, s.machine.w)
 		s.machine.wc.AssertClosed()
 	}
 
@@ -119,7 +119,7 @@ func (s *rebootSuite) TearDownTest(c *gc.C) {
 		s.container.resources.StopAll()
 	}
 	if s.container.w != nil {
-		statetesting.AssertStop(c, s.container.w)
+		statetesting.AssertKillAndWait(c, s.container.w)
 		s.container.wc.AssertClosed()
 	}
 
@@ -127,7 +127,7 @@ func (s *rebootSuite) TearDownTest(c *gc.C) {
 		s.nestedContainer.resources.StopAll()
 	}
 	if s.nestedContainer.w != nil {
-		statetesting.AssertStop(c, s.nestedContainer.w)
+		statetesting.AssertKillAndWait(c, s.nestedContainer.w)
 		s.nestedContainer.wc.AssertClosed()
 	}
 	s.JujuConnSuite.TearDownTest(c)

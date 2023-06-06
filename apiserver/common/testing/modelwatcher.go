@@ -67,7 +67,7 @@ func (s *ModelWatcherTest) TestWatchForModelConfigChanges(c *gc.C) {
 	// Verify the resources were registered and stop them when done.
 	c.Assert(s.res.Count(), gc.Equals, 1)
 	resource := s.res.Get("1")
-	defer statetesting.AssertStop(c, resource)
+	defer statetesting.AssertKillAndWait(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)

@@ -552,7 +552,7 @@ func (s *MigrationSuite) TestWatchForMigration(c *gc.C) {
 	c.Check(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
 	wc.AssertOneChange()
 
-	statetesting.AssertStop(c, w)
+	statetesting.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }
 
@@ -598,7 +598,7 @@ func (s *MigrationSuite) createMigrationWatcher(c *gc.C, st *state.State) (
 	state.NotifyWatcher, statetesting.NotifyWatcherC,
 ) {
 	w := st.WatchForMigration()
-	s.AddCleanup(func(c *gc.C) { statetesting.AssertStop(c, w) })
+	s.AddCleanup(func(c *gc.C) { statetesting.AssertKillAndWait(c, w) })
 	return w, statetesting.NewNotifyWatcherC(c, w)
 }
 
@@ -630,7 +630,7 @@ func (s *MigrationSuite) TestWatchMigrationStatus(c *gc.C) {
 	c.Assert(mig2.SetPhase(migration.ABORT), jc.ErrorIsNil)
 	wc.AssertOneChange()
 
-	statetesting.AssertStop(c, w)
+	statetesting.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }
 
@@ -901,7 +901,7 @@ func (s *MigrationSuite) createStatusWatcher(c *gc.C, st *state.State) (
 ) {
 	s.WaitForModelWatchersIdle(c, st.ModelUUID())
 	w := st.WatchMigrationStatus()
-	s.AddCleanup(func(c *gc.C) { statetesting.AssertStop(c, w) })
+	s.AddCleanup(func(c *gc.C) { statetesting.AssertKillAndWait(c, w) })
 	return w, statetesting.NewNotifyWatcherC(c, w)
 }
 
@@ -915,7 +915,7 @@ func (s *MigrationSuite) createMigAndWatchReports(c *gc.C, st *state.State) (
 
 	w, err := mig.WatchMinionReports()
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { statetesting.AssertStop(c, w) })
+	s.AddCleanup(func(*gc.C) { statetesting.AssertKillAndWait(c, w) })
 	wc := statetesting.NewNotifyWatcherC(c, w)
 
 	return mig, wc

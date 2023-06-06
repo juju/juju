@@ -398,7 +398,7 @@ func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
 	// Verify the resource was registered and stop when done
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
+	defer statetesting.AssertKillAndWait(c, resource)
 
 	// Check that the Watch has consumed the initial event
 	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))

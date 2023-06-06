@@ -156,7 +156,7 @@ func (s *externalControllerSuite) TestWatchController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	w := s.externalControllers.WatchController(testing.ControllerTag.Id())
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 
 	// Initial event.
 	wc := statetesting.NewNotifyWatcherC(c, w)
@@ -187,7 +187,7 @@ func (s *externalControllerSuite) TestWatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	w := s.externalControllers.Watch()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 
 	// Initial event.
 	wc := statetesting.NewStringsWatcherC(c, w)

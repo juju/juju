@@ -579,7 +579,7 @@ func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w, err := s.unit.WatchConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 
 	// Initial event.
 	wc := testing.NewNotifyWatcherC(c, w)
@@ -633,7 +633,7 @@ func (s *UnitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w, err := s.unit.WatchConfigSettingsHash()
 	c.Assert(err, jc.ErrorIsNil)
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 
 	// Initial event.
 	wc := testing.NewStringsWatcherC(c, w)
@@ -708,7 +708,7 @@ func (s *UnitSuite) TestConfigHashesDifferentForDifferentCharms(c *gc.C) {
 
 	w1, err := s.unit.WatchConfigSettingsHash()
 	c.Assert(err, jc.ErrorIsNil)
-	defer testing.AssertStop(c, w1)
+	defer testing.AssertKillAndWait(c, w1)
 
 	wc1 := testing.NewStringsWatcherC(c, w1)
 	wc1.AssertChange("2e1f49c3e8b53892b822558401af33589522094681276a98458595114e04c0c1")
@@ -724,7 +724,7 @@ func (s *UnitSuite) TestConfigHashesDifferentForDifferentCharms(c *gc.C) {
 
 	w3, err := s.unit.WatchConfigSettingsHash()
 	c.Assert(err, jc.ErrorIsNil)
-	defer testing.AssertStop(c, w3)
+	defer testing.AssertKillAndWait(c, w3)
 
 	wc3 := testing.NewStringsWatcherC(c, w3)
 	wc3.AssertChange("35412457529c9e0b64b7642ad0f76137ee13b104c94136d0c18b2fe54ddf5d36")
@@ -733,7 +733,7 @@ func (s *UnitSuite) TestConfigHashesDifferentForDifferentCharms(c *gc.C) {
 func (s *UnitSuite) TestWatchApplicationConfigSettingsHash(c *gc.C) {
 	w, err := s.unit.WatchApplicationConfigSettingsHash()
 	c.Assert(err, jc.ErrorIsNil)
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("92652ce7679e295c6567a3891c562dcab727c71543f8c1c3a38c3626ce064019")
@@ -2487,7 +2487,7 @@ func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
 	// identically named units and ensure there's no leakage.
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := s.unit.WatchSubordinateUnits()
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
@@ -2540,12 +2540,12 @@ func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Stop watcher, check closed.
-	testing.AssertStop(c, w)
+	testing.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 
 	// Start a new watch, check Dead unit is reported.
 	w = s.unit.WatchSubordinateUnits()
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 	wc = testing.NewStringsWatcherC(c, w)
 	wc.AssertChange(subUnits[0].Name())
 	wc.AssertNoChange()
@@ -2562,7 +2562,7 @@ func (s *UnitSuite) TestWatchUnits(c *gc.C) {
 
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := s.State.WatchUnits()
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 
 	// Initial event for unit created in test setup.
 	wc := testing.NewStringsWatcherC(c, w)
@@ -2580,7 +2580,7 @@ func (s *UnitSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertChange(u.Name())
 
 	// Stop, check closed.
-	testing.AssertStop(c, w)
+	testing.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }
 
@@ -2590,7 +2590,7 @@ func (s *UnitSuite) TestWatchUnit(c *gc.C) {
 
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := s.unit.Watch()
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 
 	// Initial event.
 	wc := testing.NewNotifyWatcherC(c, w)
@@ -2613,7 +2613,7 @@ func (s *UnitSuite) TestWatchUnit(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Stop, check closed.
-	testing.AssertStop(c, w)
+	testing.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 
 	// Remove unit, start new watch, check single event.
@@ -2623,7 +2623,7 @@ func (s *UnitSuite) TestWatchUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w = s.unit.Watch()
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 	testing.NewNotifyWatcherC(c, w).AssertOneChange()
 }
 

@@ -136,7 +136,7 @@ func (s *ApplicationLeaderSuite) TestWriteRemoved(c *gc.C) {
 
 func (s *ApplicationLeaderSuite) TestWatchInitialEvent(c *gc.C) {
 	w := s.application.WatchLeaderSettings()
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 
 	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
@@ -144,7 +144,7 @@ func (s *ApplicationLeaderSuite) TestWatchInitialEvent(c *gc.C) {
 
 func (s *ApplicationLeaderSuite) TestWatchDetectChange(c *gc.C) {
 	w := s.application.WatchLeaderSettings()
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
@@ -157,7 +157,7 @@ func (s *ApplicationLeaderSuite) TestWatchDetectChange(c *gc.C) {
 
 func (s *ApplicationLeaderSuite) TestWatchIgnoreNullChange(c *gc.C) {
 	w := s.application.WatchLeaderSettings()
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 	err := s.application.UpdateLeaderSettings(&fakeToken{}, map[string]string{
@@ -175,7 +175,7 @@ func (s *ApplicationLeaderSuite) TestWatchIgnoreNullChange(c *gc.C) {
 
 func (s *ApplicationLeaderSuite) TestWatchCoalesceChanges(c *gc.C) {
 	w := s.application.WatchLeaderSettings()
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 

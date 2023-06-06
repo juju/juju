@@ -194,7 +194,7 @@ func (s *ModelCredentialSuite) TestWatchModelCredential(c *gc.C) {
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	w := m.WatchModelCredential()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, w)
 
 	// Initial event.

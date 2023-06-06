@@ -745,9 +745,9 @@ func (tw *TestWatcherC) AssertNoChange() {
 func (tw *TestWatcherC) Stop() {
 	switch wc := tw.Watcher.(type) {
 	case statetesting.StringsWatcherC:
-		statetesting.AssertStop(tw.c, wc.Watcher)
+		statetesting.AssertKillAndWait(tw.c, wc.Watcher)
 	case statetesting.NotifyWatcherC:
-		statetesting.AssertStop(tw.c, wc.Watcher)
+		statetesting.AssertKillAndWait(tw.c, wc.Watcher)
 	default:
 		tw.c.Fatalf("unknown watcher type %T", wc)
 	}
@@ -2662,7 +2662,7 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 
 	// All except the removed model are reported in initial event.
 	w := s.State.WatchModels()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChange(alive.UUID(), dying.UUID())
 
@@ -2681,7 +2681,7 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	// Initial event reports the controller model.
 	w := s.State.WatchModelLives()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChange(s.State.ModelUUID())
 	wc.AssertNoChange()
@@ -2730,7 +2730,7 @@ func (s *StateSuite) TestWatchApplicationsBulkEvents(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	// All except gone are reported in initial event.
 	w := s.State.WatchApplications()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChange(alive.Name(), dying.Name())
 	wc.AssertNoChange()
@@ -2748,7 +2748,7 @@ func (s *StateSuite) TestWatchApplicationsBulkEvents(c *gc.C) {
 func (s *StateSuite) TestWatchApplicationsLifecycle(c *gc.C) {
 	// Initial event is empty when no applications.
 	w := s.State.WatchApplications()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
@@ -2825,7 +2825,7 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	// All except gone machine are reported in initial event.
 	w := s.State.WatchModelMachines()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChange(alive.Id(), dying.Id(), dead.Id())
 	wc.AssertNoChange()
@@ -2846,7 +2846,7 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *gc.C) {
 func (s *StateSuite) TestWatchMachinesLifecycle(c *gc.C) {
 	// Initial event is empty when no machines.
 	w := s.State.WatchModelMachines()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
@@ -2892,7 +2892,7 @@ func (s *StateSuite) TestWatchMachinesIncludesOldMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	w := s.State.WatchModelMachines()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChange(machine.Id())
 	wc.AssertNoChange()
@@ -2901,7 +2901,7 @@ func (s *StateSuite) TestWatchMachinesIncludesOldMachines(c *gc.C) {
 func (s *StateSuite) TestWatchMachinesIgnoresContainers(c *gc.C) {
 	// Initial event is empty when no machines.
 	w := s.State.WatchModelMachines()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
@@ -2953,9 +2953,9 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 
 	// Initial event is empty when no containers.
 	w := machine.WatchContainers(instance.LXD)
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wAll := machine.WatchAllContainers()
-	defer statetesting.AssertStop(c, wAll)
+	defer statetesting.AssertKillAndWait(c, wAll)
 
 	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChange()
@@ -2991,15 +2991,15 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	m2, err := s.State.AddMachineInsideMachine(template, otherMachine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
-	statetesting.AssertStop(c, w)
+	statetesting.AssertKillAndWait(c, w)
 	wcAll.AssertNoChange()
-	statetesting.AssertStop(c, wAll)
+	statetesting.AssertKillAndWait(c, wAll)
 
 	w = machine.WatchContainers(instance.LXD)
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc = statetesting.NewStringsWatcherC(c, w)
 	wAll = machine.WatchAllContainers()
-	defer statetesting.AssertStop(c, wAll)
+	defer statetesting.AssertKillAndWait(c, wAll)
 	wcAll = statetesting.NewStringsWatcherC(c, wAll)
 	wc.AssertChange("0/lxd/0")
 	wc.AssertNoChange()
@@ -3064,7 +3064,7 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := machine.WatchInstanceData()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 
 	// Initial event.
 	wc := statetesting.NewNotifyWatcherC(c, w)
@@ -3084,7 +3084,7 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {
 
 func (s *StateSuite) TestWatchControllerConfig(c *gc.C) {
 	w := s.State.WatchControllerConfig()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 
 	// Initial event.
 	wc := statetesting.NewNotifyWatcherC(c, w)
@@ -3560,7 +3560,7 @@ func (s *StateSuite) TestWatchForModelConfigChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := s.Model.WatchForModelConfigChanges()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 
 	wc := statetesting.NewNotifyWatcherC(c, w)
 	// Initially we get one change notification
@@ -3589,7 +3589,7 @@ func (s *StateSuite) TestWatchForModelConfigChanges(c *gc.C) {
 
 func (s *StateSuite) TestWatchForModelConfigControllerChanges(c *gc.C) {
 	w := s.Model.WatchForModelConfigChanges()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 
 	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
@@ -3597,7 +3597,7 @@ func (s *StateSuite) TestWatchForModelConfigControllerChanges(c *gc.C) {
 
 func (s *StateSuite) TestWatchCloudSpecChanges(c *gc.C) {
 	w := s.Model.WatchCloudSpecChanges()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 
 	wc := statetesting.NewNotifyWatcherC(c, w)
 	// Initially we get one change notification
@@ -3905,7 +3905,7 @@ func (s *StateSuite) TestParseModelTag(c *gc.C) {
 func (s *StateSuite) TestWatchCleanups(c *gc.C) {
 	// Check initial event.
 	w := s.State.WatchCleanups()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
@@ -3944,7 +3944,7 @@ func (s *StateSuite) TestWatchCleanups(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Stop watcher, check closed.
-	statetesting.AssertStop(c, w)
+	statetesting.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }
 
@@ -3959,7 +3959,7 @@ func (s *StateSuite) TestWatchCleanupsDiesOnStateClose(c *gc.C) {
 func (s *StateSuite) TestWatchCleanupsBulk(c *gc.C) {
 	// Check initial event.
 	w := s.State.WatchCleanups()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
@@ -3990,7 +3990,7 @@ func (s *StateSuite) TestWatchCleanupsBulk(c *gc.C) {
 func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	// Check initial event.
 	w := s.State.WatchMinUnits()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
@@ -4069,7 +4069,7 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Stop watcher, check closed.
-	statetesting.AssertStop(c, w)
+	statetesting.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }
 
@@ -4086,7 +4086,7 @@ func (s *StateSuite) TestWatchSubnets(c *gc.C) {
 		return id != "0"
 	}
 	w := s.State.WatchSubnets(filter)
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 
 	// Check initial event.
@@ -4144,7 +4144,7 @@ func (s *StateSuite) TestWatchRemoteRelationsIgnoresLocal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	w := s.State.WatchRemoteRelations()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	// Check initial event.
 	wc.AssertChange()
@@ -4154,7 +4154,7 @@ func (s *StateSuite) TestWatchRemoteRelationsIgnoresLocal(c *gc.C) {
 
 func (s *StateSuite) TestWatchRemoteRelationsDestroyRelation(c *gc.C) {
 	w := s.State.WatchRemoteRelations()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 
 	_, _, rel := s.setupWatchRemoteRelations(c, wc)
@@ -4167,13 +4167,13 @@ func (s *StateSuite) TestWatchRemoteRelationsDestroyRelation(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Stop watcher, check closed.
-	statetesting.AssertStop(c, w)
+	statetesting.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }
 
 func (s *StateSuite) TestWatchRemoteRelationsDestroyRemoteApplication(c *gc.C) {
 	w := s.State.WatchRemoteRelations()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 
 	remoteApp, _, _ := s.setupWatchRemoteRelations(c, wc)
@@ -4186,13 +4186,13 @@ func (s *StateSuite) TestWatchRemoteRelationsDestroyRemoteApplication(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Stop watcher, check closed.
-	statetesting.AssertStop(c, w)
+	statetesting.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }
 
 func (s *StateSuite) TestWatchRemoteRelationsDestroyLocalApplication(c *gc.C) {
 	w := s.State.WatchRemoteRelations()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 
 	_, app, _ := s.setupWatchRemoteRelations(c, wc)
@@ -4205,7 +4205,7 @@ func (s *StateSuite) TestWatchRemoteRelationsDestroyLocalApplication(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Stop watcher, check closed.
-	statetesting.AssertStop(c, w)
+	statetesting.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }
 
@@ -5046,7 +5046,7 @@ func (s *StateSuite) TestWatchRelationIngressNetworks(c *gc.C) {
 	rel := s.setUpWatchRelationNetworkScenario(c)
 	// Check initial event.
 	w := rel.WatchRelationIngressNetworks()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
@@ -5082,7 +5082,7 @@ func (s *StateSuite) TestWatchRelationIngressNetworks(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Stop watcher, check closed.
-	statetesting.AssertStop(c, w)
+	statetesting.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }
 
@@ -5090,7 +5090,7 @@ func (s *StateSuite) TestWatchRelationIngressNetworksIgnoresEgress(c *gc.C) {
 	rel := s.setUpWatchRelationNetworkScenario(c)
 	// Check initial event.
 	w := rel.WatchRelationIngressNetworks()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
@@ -5101,7 +5101,7 @@ func (s *StateSuite) TestWatchRelationIngressNetworksIgnoresEgress(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Stop watcher, check closed.
-	statetesting.AssertStop(c, w)
+	statetesting.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }
 
@@ -5109,7 +5109,7 @@ func (s *StateSuite) TestWatchRelationEgressNetworks(c *gc.C) {
 	rel := s.setUpWatchRelationNetworkScenario(c)
 	// Check initial event.
 	w := rel.WatchRelationEgressNetworks()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
@@ -5145,7 +5145,7 @@ func (s *StateSuite) TestWatchRelationEgressNetworks(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Stop watcher, check closed.
-	statetesting.AssertStop(c, w)
+	statetesting.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }
 
@@ -5153,7 +5153,7 @@ func (s *StateSuite) TestWatchRelationEgressNetworksIgnoresIngress(c *gc.C) {
 	rel := s.setUpWatchRelationNetworkScenario(c)
 	// Check initial event.
 	w := rel.WatchRelationEgressNetworks()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
@@ -5164,7 +5164,7 @@ func (s *StateSuite) TestWatchRelationEgressNetworksIgnoresIngress(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Stop watcher, check closed.
-	statetesting.AssertStop(c, w)
+	statetesting.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }
 

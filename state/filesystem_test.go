@@ -351,7 +351,7 @@ func (s *FilesystemIAASModelSuite) TestWatchFilesystemAttachment(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := s.storageBackend.WatchFilesystemAttachment(machineTag, filesystemTag)
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
@@ -432,7 +432,7 @@ func (s *FilesystemIAASModelSuite) TestWatchModelFilesystems(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := s.storageBackend.WatchModelFilesystems()
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("0", "1") // initial
 	wc.AssertNoChange()
@@ -476,7 +476,7 @@ func (s *FilesystemIAASModelSuite) TestWatchModelFilesystemAttachments(c *gc.C) 
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := s.storageBackend.WatchModelFilesystemAttachments()
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("0:0", "0:1") // initial
 	wc.AssertNoChange()
@@ -520,7 +520,7 @@ func (s *FilesystemIAASModelSuite) TestWatchMachineFilesystems(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := s.storageBackend.WatchMachineFilesystems(names.NewMachineTag("0"))
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("0/2", "0/3") // initial
 	wc.AssertNoChange()
@@ -577,7 +577,7 @@ func (s *FilesystemIAASModelSuite) TestWatchMachineFilesystemAttachments(c *gc.C
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := s.storageBackend.WatchMachineFilesystemAttachments(names.NewMachineTag("0"))
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("0:0/0", "0:0/1") // initial
 	wc.AssertNoChange()
@@ -635,7 +635,7 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystems(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := s.storageBackend.WatchUnitFilesystems(app.ApplicationTag())
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("mariadb/0/0") // initial
 	wc.AssertNoChange()
@@ -707,7 +707,7 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystemAttachments(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := s.storageBackend.WatchUnitFilesystemAttachments(app.ApplicationTag())
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 
 	wc.AssertChange("mariadb/0:mariadb/0/0") // initial

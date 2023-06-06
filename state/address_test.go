@@ -318,7 +318,7 @@ func (s *ControllerAddressesSuite) TestAPIHostPortsForAgentsNoDocument(c *gc.C) 
 
 func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForClients(c *gc.C) {
 	w := s.State.WatchAPIHostPortsForClients()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 
 	// Initial event.
 	wc := statetesting.NewNotifyWatcherC(c, w)
@@ -330,7 +330,7 @@ func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForClients(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Stop, check closed.
-	statetesting.AssertStop(c, w)
+	statetesting.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }
 
@@ -341,7 +341,7 @@ func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForAgents(c *gc.C) {
 	s.SetJujuManagementSpace(c, "mgmt01")
 
 	w := s.State.WatchAPIHostPortsForAgents()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 
 	// Initial event.
 	wc := statetesting.NewNotifyWatcherC(c, w)
@@ -376,7 +376,7 @@ func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForAgents(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Stop, check closed.
-	statetesting.AssertStop(c, w)
+	statetesting.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }
 

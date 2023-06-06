@@ -20,8 +20,11 @@ type fakeResource struct {
 	stopped bool
 }
 
-func (r *fakeResource) Stop() error {
+func (r *fakeResource) Kill() {
 	r.stopped = true
+}
+
+func (r *fakeResource) Wait() error {
 	return nil
 }
 

@@ -100,7 +100,7 @@ func (*multiNotifyWatcherSuite) TestMultiNotifyWatcher(c *gc.C) {
 	w1 := apiservertesting.NewFakeNotifyWatcher()
 
 	mw := common.NewMultiNotifyWatcher(w0, w1)
-	defer statetesting.AssertStop(c, mw)
+	defer statetesting.AssertKillAndWait(c, mw)
 
 	wc := statetesting.NewNotifyWatcherC(c, mw)
 	wc.AssertOneChange()

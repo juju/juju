@@ -545,9 +545,9 @@ func (s *uniterSuite) TestWatch(c *gc.C) {
 	// Verify the resource was registered and stop when done
 	c.Assert(s.resources.Count(), gc.Equals, 2)
 	resource1 := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource1)
+	defer statetesting.AssertKillAndWait(c, resource1)
 	resource2 := s.resources.Get("2")
-	defer statetesting.AssertStop(c, resource2)
+	defer statetesting.AssertKillAndWait(c, resource2)
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
@@ -1057,7 +1057,7 @@ func (s *uniterSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	// Verify the resource was registered and stop when done.
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
+	defer statetesting.AssertKillAndWait(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
@@ -1097,7 +1097,7 @@ func (s *uniterSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
 	// Verify the resource was registered and stop when done
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
+	defer statetesting.AssertKillAndWait(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
@@ -1193,7 +1193,7 @@ func (s *uniterSuite) TestWatchActionNotifications(c *gc.C) {
 	// Verify the resource was registered and stop when done
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
+	defer statetesting.AssertKillAndWait(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
@@ -1242,7 +1242,7 @@ func (s *uniterSuite) TestWatchPreexistingActions(c *gc.C) {
 	// Verify the resource was registered and stop when done
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
+	defer statetesting.AssertKillAndWait(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
@@ -1364,7 +1364,7 @@ func (s *uniterSuite) TestWatchUnitRelations(c *gc.C) {
 	// Verify the resource was registered and stop when done
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
+	defer statetesting.AssertKillAndWait(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
@@ -1402,7 +1402,7 @@ func (s *uniterSuite) TestWatchSubordinateUnitRelations(c *gc.C) {
 
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
+	defer statetesting.AssertKillAndWait(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
@@ -1467,7 +1467,7 @@ func (s *uniterSuite) TestWatchUnitRelationsSubordinateWithGlobalEndpoint(c *gc.
 
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
+	defer statetesting.AssertKillAndWait(c, resource)
 
 	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
@@ -1526,7 +1526,7 @@ func (s *uniterSuite) TestWatchUnitRelationsWithSubSubRelation(c *gc.C) {
 
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
+	defer statetesting.AssertKillAndWait(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
@@ -2867,7 +2867,7 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 	// Verify the resource was registered and stop when done
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
+	defer statetesting.AssertKillAndWait(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
@@ -2965,7 +2965,7 @@ func (s *uniterSuite) TestWatchUnitAddressesHash(c *gc.C) {
 	// Verify the resource was registered and stop when done
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
+	defer statetesting.AssertKillAndWait(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
@@ -3006,7 +3006,7 @@ func (s *uniterSuite) TestWatchCAASUnitAddressesHash(c *gc.C) {
 	// Verify the resource was registered and stop when done
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
+	defer statetesting.AssertKillAndWait(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)

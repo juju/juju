@@ -419,7 +419,7 @@ func (s *MachinePortsDocSuite) TestWatchMachinePorts(c *gc.C) {
 	w := s.State.WatchOpenedPorts()
 	c.Assert(w, gc.NotNil)
 
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	// The first change we get is an empty one, as there are no ports
 	// opened yet and we need an initial event for the API watcher to

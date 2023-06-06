@@ -164,7 +164,7 @@ func (s *BlockDevicesSuite) TestWatchBlockDevices(c *gc.C) {
 	sb, err := state.NewStorageBackend(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	w := sb.WatchBlockDevices(s.machine.MachineTag())
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 

@@ -177,7 +177,7 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	c.Assert(result.Results[0].StringsWatcherId, gc.Equals, "1")
 	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
+	defer statetesting.AssertKillAndWait(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
@@ -340,7 +340,7 @@ drain:
 	// Verify the resources were registered and stop them when done.
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
+	defer statetesting.AssertKillAndWait(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)

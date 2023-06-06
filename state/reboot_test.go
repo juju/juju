@@ -89,16 +89,16 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 
 func (s *RebootSuite) TearDownSuit(c *gc.C) {
 	if s.w != nil {
-		statetesting.AssertStop(c, s.w)
+		statetesting.AssertKillAndWait(c, s.w)
 	}
 	if s.wC1 != nil {
-		statetesting.AssertStop(c, s.wC1)
+		statetesting.AssertKillAndWait(c, s.wC1)
 	}
 	if s.wC2 != nil {
-		statetesting.AssertStop(c, s.wC2)
+		statetesting.AssertKillAndWait(c, s.wC2)
 	}
 	if s.wC3 != nil {
-		statetesting.AssertStop(c, s.wC3)
+		statetesting.AssertKillAndWait(c, s.wC3)
 	}
 }
 
@@ -135,13 +135,13 @@ func (s *RebootSuite) TestWatchForRebootEvent(c *gc.C) {
 	s.wc.AssertOneChange()
 
 	// Stop all watchers and check they are closed
-	statetesting.AssertStop(c, s.w)
+	statetesting.AssertKillAndWait(c, s.w)
 	s.wc.AssertClosed()
-	statetesting.AssertStop(c, s.wC1)
+	statetesting.AssertKillAndWait(c, s.wC1)
 	s.wcC1.AssertClosed()
-	statetesting.AssertStop(c, s.wC2)
+	statetesting.AssertKillAndWait(c, s.wC2)
 	s.wcC2.AssertClosed()
-	statetesting.AssertStop(c, s.wC3)
+	statetesting.AssertKillAndWait(c, s.wC3)
 	s.wcC3.AssertClosed()
 }
 
@@ -155,13 +155,13 @@ func (s *RebootSuite) TestWatchRebootHappensOnMachine(c *gc.C) {
 	s.wcC2.AssertOneChange()
 	s.wcC3.AssertOneChange()
 
-	statetesting.AssertStop(c, s.w)
+	statetesting.AssertKillAndWait(c, s.w)
 	s.wc.AssertClosed()
-	statetesting.AssertStop(c, s.wC1)
+	statetesting.AssertKillAndWait(c, s.wC1)
 	s.wcC1.AssertClosed()
-	statetesting.AssertStop(c, s.wC2)
+	statetesting.AssertKillAndWait(c, s.wC2)
 	s.wcC2.AssertClosed()
-	statetesting.AssertStop(c, s.wC3)
+	statetesting.AssertKillAndWait(c, s.wC3)
 	s.wcC3.AssertClosed()
 }
 
@@ -177,13 +177,13 @@ func (s *RebootSuite) TestWatchRebootHappensOnContainer1(c *gc.C) {
 	s.wcC3.AssertNoChange()
 
 	// Stop all watchers and check they are closed
-	statetesting.AssertStop(c, s.w)
+	statetesting.AssertKillAndWait(c, s.w)
 	s.wc.AssertClosed()
-	statetesting.AssertStop(c, s.wC1)
+	statetesting.AssertKillAndWait(c, s.wC1)
 	s.wcC1.AssertClosed()
-	statetesting.AssertStop(c, s.wC2)
+	statetesting.AssertKillAndWait(c, s.wC2)
 	s.wcC2.AssertClosed()
-	statetesting.AssertStop(c, s.wC3)
+	statetesting.AssertKillAndWait(c, s.wC3)
 	s.wcC3.AssertClosed()
 }
 
@@ -198,13 +198,13 @@ func (s *RebootSuite) TestWatchRebootHappensOnContainer2(c *gc.C) {
 	s.wcC3.AssertNoChange()
 
 	// Stop all watchers and check they are closed
-	statetesting.AssertStop(c, s.w)
+	statetesting.AssertKillAndWait(c, s.w)
 	s.wc.AssertClosed()
-	statetesting.AssertStop(c, s.wC1)
+	statetesting.AssertKillAndWait(c, s.wC1)
 	s.wcC1.AssertClosed()
-	statetesting.AssertStop(c, s.wC2)
+	statetesting.AssertKillAndWait(c, s.wC2)
 	s.wcC2.AssertClosed()
-	statetesting.AssertStop(c, s.wC3)
+	statetesting.AssertKillAndWait(c, s.wC3)
 	s.wcC3.AssertClosed()
 }
 
@@ -219,12 +219,12 @@ func (s *RebootSuite) TestWatchRebootHappensOnContainer3(c *gc.C) {
 	s.wcC3.AssertOneChange()
 
 	// Stop all watchers and check they are closed
-	statetesting.AssertStop(c, s.w)
+	statetesting.AssertKillAndWait(c, s.w)
 	s.wc.AssertClosed()
-	statetesting.AssertStop(c, s.wC1)
+	statetesting.AssertKillAndWait(c, s.wC1)
 	s.wcC1.AssertClosed()
-	statetesting.AssertStop(c, s.wC2)
+	statetesting.AssertKillAndWait(c, s.wC2)
 	s.wcC2.AssertClosed()
-	statetesting.AssertStop(c, s.wC3)
+	statetesting.AssertKillAndWait(c, s.wC3)
 	s.wcC3.AssertClosed()
 }

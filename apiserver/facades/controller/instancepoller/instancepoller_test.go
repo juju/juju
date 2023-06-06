@@ -156,7 +156,7 @@ func (s *InstancePollerSuite) TestWatchForModelConfigChangesSuccess(c *gc.C) {
 	// Verify the watcher resource was registered.
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
+	defer statetesting.AssertKillAndWait(c, resource)
 
 	// Check that the watcher has consumed the initial event
 	wc := statetesting.NewNotifyWatcherC(c, resource.(state.NotifyWatcher))
@@ -218,7 +218,7 @@ func (s *InstancePollerSuite) assertMachineWatcherSucceeds(c *gc.C, watchFacadeN
 	resource1 := s.resources.Get("1")
 	defer func() {
 		if resource1 != nil {
-			statetesting.AssertStop(c, resource1)
+			statetesting.AssertKillAndWait(c, resource1)
 		}
 	}()
 
@@ -236,7 +236,7 @@ func (s *InstancePollerSuite) assertMachineWatcherSucceeds(c *gc.C, watchFacadeN
 	s.st.CheckCallNames(c, watchFacadeName, watchFacadeName)
 	c.Assert(s.resources.Count(), gc.Equals, 2)
 	resource2 := s.resources.Get("2")
-	defer statetesting.AssertStop(c, resource2)
+	defer statetesting.AssertKillAndWait(c, resource2)
 	wc2 := statetesting.NewStringsWatcherC(c, resource2.(state.StringsWatcher))
 	wc2.AssertNoChange()
 
@@ -252,7 +252,8 @@ func (s *InstancePollerSuite) assertMachineWatcherSucceeds(c *gc.C, watchFacadeN
 	wc2.AssertChangeInSingleEvent("1", "2", "3")
 
 	// Stop the first watcher and assert its changes chan is closed.
-	c.Assert(resource1.Stop(), jc.ErrorIsNil)
+	resource1.Kill()
+	c.Assert(resource1.Wait(), jc.ErrorIsNil)
 	wc1.AssertClosed()
 	resource1 = nil
 }

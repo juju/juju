@@ -122,7 +122,7 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *gc.C) {
 	s.setAuthorizedKeys(c, "key1\nkey2")
 
 	wc.AssertOneChange()
-	statetesting.AssertStop(c, w)
+	statetesting.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }
 

@@ -231,7 +231,7 @@ func (s *PodSpecSuite) TestWatchPodSpec(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
-	statetesting.AssertStop(c, w)
+	statetesting.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }
 
@@ -263,6 +263,6 @@ func (s *PodSpecSuite) TestWatchRawK8sSpec(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
-	statetesting.AssertStop(c, w)
+	statetesting.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }

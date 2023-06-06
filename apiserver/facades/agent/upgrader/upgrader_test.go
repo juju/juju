@@ -95,7 +95,7 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	err = statetesting.SetAgentVersion(s.State, version.MustParse("3.4.567.8"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-	statetesting.AssertStop(c, w)
+	statetesting.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }
 
@@ -126,7 +126,7 @@ func (s *upgraderSuite) TestWatchAPIVersionApplication(c *gc.C) {
 	err = statetesting.SetAgentVersion(s.State, version.MustParse("3.4.567.8"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-	statetesting.AssertStop(c, w)
+	statetesting.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }
 
@@ -160,7 +160,7 @@ func (s *upgraderSuite) TestWatchAPIVersionUnit(c *gc.C) {
 	err = statetesting.SetAgentVersion(s.State, version.MustParse("3.4.567.8"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-	statetesting.AssertStop(c, w)
+	statetesting.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }
 
@@ -193,7 +193,7 @@ func (s *upgraderSuite) TestWatchAPIVersionControllerAgent(c *gc.C) {
 	err = statetesting.SetAgentVersion(s.State, version.MustParse("3.4.567.8"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-	statetesting.AssertStop(c, w)
+	statetesting.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }
 

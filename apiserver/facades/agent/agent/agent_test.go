@@ -292,7 +292,7 @@ func (s *agentSuite) TestWatchCredentials(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 
 	w := s.resources.Get("1")
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 
 	// Check that the Watch has consumed the initial events ("returned" in the Watch call)
 	wc := statetesting.NewNotifyWatcherC(c, w.(state.NotifyWatcher))

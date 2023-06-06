@@ -943,7 +943,7 @@ func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
 	w, err := s.State.WatchOfferStatus(offer.OfferUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, w)
 	// Initial event.
 	wc.AssertOneChange()
@@ -1000,7 +1000,7 @@ func (s *applicationOffersSuite) TestWatchOffer(c *gc.C) {
 
 	w := s.State.WatchOffer(offer.OfferName)
 
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, w)
 	// Initial event.
 	wc.AssertOneChange()

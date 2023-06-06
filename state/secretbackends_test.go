@@ -520,13 +520,13 @@ func (s *SecretBackendWatcherSuite) setupWatcher(c *gc.C) (state.SecretBackendRo
 
 func (s *SecretBackendWatcherSuite) TestWatchInitialEvent(c *gc.C) {
 	w, _ := s.setupWatcher(c)
-	testing.AssertStop(c, w)
+	testing.AssertKillAndWait(c, w)
 }
 
 func (s *SecretBackendWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
 	w, id := s.setupWatcher(c)
 	wc := testing.NewSecretBackendRotateWatcherC(c, w)
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 
 	now := s.Clock.Now().Round(time.Second).UTC()
 	next := now.Add(2 * time.Hour).Round(time.Second).UTC()
@@ -544,7 +544,7 @@ func (s *SecretBackendWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
 func (s *SecretBackendWatcherSuite) TestWatchDelete(c *gc.C) {
 	w, id := s.setupWatcher(c)
 	wc := testing.NewSecretBackendRotateWatcherC(c, w)
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 
 	err := s.storage.UpdateSecretBackend(state.UpdateSecretBackendParams{
 		ID:                  id,
@@ -562,7 +562,7 @@ func (s *SecretBackendWatcherSuite) TestWatchDelete(c *gc.C) {
 func (s *SecretBackendWatcherSuite) TestWatchMultipleUpdatesSameBackend(c *gc.C) {
 	w, id := s.setupWatcher(c)
 	wc := testing.NewSecretBackendRotateWatcherC(c, w)
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 
 	// TODO(quiescence): these two changes should be one event.
 	now := s.Clock.Now().Round(time.Second).UTC()
@@ -589,7 +589,7 @@ func (s *SecretBackendWatcherSuite) TestWatchMultipleUpdatesSameBackend(c *gc.C)
 func (s *SecretBackendWatcherSuite) TestWatchMultipleUpdatesSameBackendDeleted(c *gc.C) {
 	w, id := s.setupWatcher(c)
 	wc := testing.NewSecretBackendRotateWatcherC(c, w)
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 
 	// TODO(quiescence): these two changes should be one event.
 	now := s.Clock.Now().Round(time.Second).UTC()
@@ -617,7 +617,7 @@ func (s *SecretBackendWatcherSuite) TestWatchMultipleUpdatesSameBackendDeleted(c
 func (s *SecretBackendWatcherSuite) TestWatchMultipleUpdates(c *gc.C) {
 	w, id := s.setupWatcher(c)
 	wc := testing.NewSecretBackendRotateWatcherC(c, w)
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 
 	// TODO(quiescence): these two changes should be one event.
 	now := s.Clock.Now().Round(time.Second).UTC()

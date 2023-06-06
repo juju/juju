@@ -560,7 +560,7 @@ func (s *ContextFactorySuite) TestHookContextCAASNilPodSpecNilRawPodSpecButUpgra
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rps, gc.Equals, "")
 
-	statetesting.AssertStop(c, w)
+	statetesting.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }
 

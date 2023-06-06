@@ -152,7 +152,8 @@ func (s *watcherSuite) TestWatcherStop(c *gc.C) {
 	mw := s.startWorker(c, testbacking.New(nil))
 	w := mw.WatchController()
 
-	err := w.Stop()
+	w.Kill()
+	err := w.Wait()
 	c.Assert(err, jc.ErrorIsNil)
 	checkNext(c, w, nil, multiwatcher.NewErrStopped().Error())
 }

@@ -59,7 +59,7 @@ func TestWatchMeterStatus(c *gc.C, status meterstatus.MeterStatus, unit *jujusta
 	// Verify the resource was registered and stop when done
 	c.Assert(resources.Count(), gc.Equals, 1)
 	resource := resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
+	defer statetesting.AssertKillAndWait(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)

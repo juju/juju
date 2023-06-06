@@ -112,7 +112,7 @@ func (s *MachineRemovalSuite) TestWatchMachineRemovals(c *gc.C) {
 	s.State.CompleteMachineRemovals(m1.Id(), m2.Id())
 	wc.AssertOneChange()
 
-	testing.AssertStop(c, w)
+	testing.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }
 

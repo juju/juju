@@ -1262,7 +1262,7 @@ func (s *remoteApplicationSuite) TestAddApplicationModelDiesAfterInitial(c *gc.C
 
 func (s *remoteApplicationSuite) TestWatchRemoteApplications(c *gc.C) {
 	w := s.State.WatchRemoteApplications()
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("mysql") // initial
 	wc.AssertNoChange()
@@ -1283,7 +1283,7 @@ func (s *remoteApplicationSuite) TestWatchRemoteApplications(c *gc.C) {
 
 func (s *remoteApplicationSuite) TestWatchRemoteApplicationsDying(c *gc.C) {
 	w := s.State.WatchRemoteApplications()
-	defer testing.AssertStop(c, w)
+	defer testing.AssertKillAndWait(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("mysql") // initial
 	wc.AssertNoChange()

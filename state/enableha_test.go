@@ -461,7 +461,7 @@ func (s *EnableHASuite) TestWatchControllerInfo(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := s.State.WatchControllerInfo()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 
 	// Initial event.
 	wc := statetesting.NewStringsWatcherC(c, w)

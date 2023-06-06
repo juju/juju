@@ -107,7 +107,7 @@ func (s *unitUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	err = s.rawMachine.SetAgentVersion(version.MustParseBinary("3.4.567.8-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-	statetesting.AssertStop(c, w)
+	statetesting.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }
 

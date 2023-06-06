@@ -1046,9 +1046,9 @@ func (s *iaasProvisionerSuite) TestWatchVolumes(c *gc.C) {
 	// Verify the resources were registered and stop them when done.
 	c.Assert(s.resources.Count(), gc.Equals, 2)
 	v0Watcher := s.resources.Get("1")
-	defer statetesting.AssertStop(c, v0Watcher)
+	defer statetesting.AssertKillAndWait(c, v0Watcher)
 	v1Watcher := s.resources.Get("2")
-	defer statetesting.AssertStop(c, v1Watcher)
+	defer statetesting.AssertKillAndWait(c, v1Watcher)
 
 	// Check that the Watch has consumed the initial events ("returned" in
 	// the Watch call)
@@ -1109,9 +1109,9 @@ func (s *iaasProvisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 	// Verify the resources were registered and stop them when done.
 	c.Assert(s.resources.Count(), gc.Equals, 2)
 	v0Watcher := s.resources.Get("1")
-	defer statetesting.AssertStop(c, v0Watcher)
+	defer statetesting.AssertKillAndWait(c, v0Watcher)
 	v1Watcher := s.resources.Get("2")
-	defer statetesting.AssertStop(c, v1Watcher)
+	defer statetesting.AssertKillAndWait(c, v1Watcher)
 
 	// Check that the Watch has consumed the initial events ("returned" in
 	// the Watch call)
@@ -1154,9 +1154,9 @@ func (s *iaasProvisionerSuite) TestWatchFilesystems(c *gc.C) {
 	// Verify the resources were registered and stop them when done.
 	c.Assert(s.resources.Count(), gc.Equals, 2)
 	v0Watcher := s.resources.Get("1")
-	defer statetesting.AssertStop(c, v0Watcher)
+	defer statetesting.AssertKillAndWait(c, v0Watcher)
 	v1Watcher := s.resources.Get("2")
-	defer statetesting.AssertStop(c, v1Watcher)
+	defer statetesting.AssertKillAndWait(c, v1Watcher)
 
 	// Check that the Watch has consumed the initial events ("returned" in
 	// the Watch call)
@@ -1212,9 +1212,9 @@ func (s *iaasProvisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 	// Verify the resources were registered and stop them when done.
 	c.Assert(s.resources.Count(), gc.Equals, 2)
 	v0Watcher := s.resources.Get("1")
-	defer statetesting.AssertStop(c, v0Watcher)
+	defer statetesting.AssertKillAndWait(c, v0Watcher)
 	v1Watcher := s.resources.Get("2")
-	defer statetesting.AssertStop(c, v1Watcher)
+	defer statetesting.AssertKillAndWait(c, v1Watcher)
 
 	// Check that the Watch has consumed the initial events ("returned" in
 	// the Watch call)
@@ -1248,7 +1248,7 @@ func (s *iaasProvisionerSuite) TestWatchBlockDevices(c *gc.C) {
 	// Verify the resources were registered and stop them when done.
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	watcher := s.resources.Get("1")
-	defer statetesting.AssertStop(c, watcher)
+	defer statetesting.AssertKillAndWait(c, watcher)
 
 	// Check that the Watch has consumed the initial event.
 	wc := statetesting.NewNotifyWatcherC(c, watcher.(state.NotifyWatcher))
@@ -1674,9 +1674,9 @@ func (s *caasProvisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 	// Verify the resources were registered and stop them when done.
 	c.Assert(s.resources.Count(), gc.Equals, 2)
 	v0Watcher := s.resources.Get("1")
-	defer statetesting.AssertStop(c, v0Watcher)
+	defer statetesting.AssertKillAndWait(c, v0Watcher)
 	v1Watcher := s.resources.Get("2")
-	defer statetesting.AssertStop(c, v1Watcher)
+	defer statetesting.AssertKillAndWait(c, v1Watcher)
 
 	// Check that the Watch has consumed the initial events ("returned" in
 	// the Watch call)

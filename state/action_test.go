@@ -882,7 +882,7 @@ func (s *ActionSuite) TestActionsWatcherEmitsInitialChanges(c *gc.C) {
 
 	// start watcher but don't consume Changes() yet
 	w := u.WatchPendingActionNotifications()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 
 	// remove actions
@@ -918,7 +918,7 @@ func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 
 	// set up watcher on first unit
 	w := unit1.WatchPendingActionNotifications()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	// make sure the previously pending actions are sent on the watcher
 	expect := expectActionIds(fa1, fa2)
@@ -927,7 +927,7 @@ func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 
 	// add watcher on unit2
 	w2 := unit2.WatchPendingActionNotifications()
-	defer statetesting.AssertStop(c, w2)
+	defer statetesting.AssertKillAndWait(c, w2)
 	wc2 := statetesting.NewStringsWatcherC(c, w2)
 	wc2.AssertChange()
 	wc2.AssertNoChange()
@@ -1075,7 +1075,7 @@ func (s *ActionSuite) TestWatchActionNotifications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	w := u.WatchPendingActionNotifications()
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
@@ -1172,7 +1172,7 @@ func (s *ActionSuite) TestWatchActionLogs(c *gc.C) {
 	}
 
 	w := s.State.WatchActionLogs(fa1.Id())
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	// make sure the previously pending actions are sent on the watcher
 	expected := []actions.ActionMessage{{
@@ -1209,7 +1209,7 @@ func (s *ActionSuite) TestWatchActionLogs(c *gc.C) {
 
 	// But on a new watcher we see all 3 events.
 	w2 := s.State.WatchActionLogs(fa1.Id())
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc2 := statetesting.NewStringsWatcherC(c, w2)
 	// Make sure the previously pending actions are sent on the watcher.
 	expected = []actions.ActionMessage{{

@@ -9,11 +9,11 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
+	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -215,7 +215,7 @@ func (s *actionsSuite) TestWatchActionNotifications(c *gc.C) {
 
 func (s *actionsSuite) TestWatchOneActionReceiverNotifications(c *gc.C) {
 	expectErr := errors.New("zwoosh")
-	registerFunc := func(facade.Resource) string { return "bambalam" }
+	registerFunc := func(worker.Worker) string { return "bambalam" }
 	tagToActionReceiver := common.TagToActionReceiverFn(makeFindEntity(map[string]state.Entity{
 		"machine-1": &fakeActionReceiver{watcher: &fakeWatcher{}},
 		"machine-2": &fakeActionReceiver{watcher: &fakeWatcher{err: expectErr}},
@@ -252,7 +252,7 @@ func (s *actionsSuite) TestWatchOneActionReceiverNotifications(c *gc.C) {
 
 func (s *actionsSuite) TestWatchPendingActionsForReceiver(c *gc.C) {
 	expectErr := errors.New("zwoosh")
-	registerFunc := func(facade.Resource) string { return "bambalam" }
+	registerFunc := func(worker.Worker) string { return "bambalam" }
 	tagToActionReceiver := common.TagToActionReceiverFn(makeFindEntity(map[string]state.Entity{
 		"machine-1": &fakeActionReceiver{watcher: &fakeWatcher{}},
 		"machine-2": &fakeActionReceiver{watcher: &fakeWatcher{err: expectErr}},

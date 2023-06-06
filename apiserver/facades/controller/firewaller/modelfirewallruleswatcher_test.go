@@ -57,7 +57,7 @@ func (s *ModelFirewallRulesWatcherSuite) TestInitial(c *gc.C) {
 
 	w, err := firewaller.NewModelFirewallRulesWatcher(s.st)
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, w)
 
 	// Initial event
@@ -79,7 +79,7 @@ func (s *ModelFirewallRulesWatcherSuite) TestConfigChange(c *gc.C) {
 
 	w, err := firewaller.NewModelFirewallRulesWatcher(s.st)
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, w)
 
 	// Initial event
@@ -105,7 +105,7 @@ func (s *ModelFirewallRulesWatcherSuite) TestIrrelevantConfigChange(c *gc.C) {
 
 	w, err := firewaller.NewModelFirewallRulesWatcher(s.st)
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, w)
 
 	// Initial event
