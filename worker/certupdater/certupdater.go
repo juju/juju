@@ -12,9 +12,8 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/pki"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/watcher/legacy"
 )
 
 var (
@@ -36,7 +35,7 @@ type CertificateUpdater struct {
 // AddressWatcher is an interface that is provided to NewCertificateUpdater
 // which can be used to watch for machine address changes.
 type AddressWatcher interface {
-	WatchAddresses() state.NotifyWatcher
+	WatchAddresses() watcher.NotifyWatcher
 	Addresses() (addresses network.SpaceAddresses)
 }
 
@@ -62,16 +61,18 @@ type Config struct {
 // NewCertificateUpdater returns a worker.Worker that watches for changes to
 // machine addresses and then generates a new controller certificate with those
 // addresses in the certificate's SAN value.
-func NewCertificateUpdater(config Config) worker.Worker {
-	return legacy.NewNotifyWorker(&CertificateUpdater{
-		addressWatcher:  config.AddressWatcher,
-		authority:       config.Authority,
-		hostPortsGetter: config.APIHostPortsGetter,
+func NewCertificateUpdater(config Config) (worker.Worker, error) {
+	return watcher.NewNotifyWorker(watcher.NotifyConfig{
+		Handler: &CertificateUpdater{
+			addressWatcher:  config.AddressWatcher,
+			authority:       config.Authority,
+			hostPortsGetter: config.APIHostPortsGetter,
+		},
 	})
 }
 
 // SetUp is defined on the NotifyWatchHandler interface.
-func (c *CertificateUpdater) SetUp() (state.NotifyWatcher, error) {
+func (c *CertificateUpdater) SetUp() (watcher.NotifyWatcher, error) {
 	// Populate certificate SAN with any addresses we know about now.
 	apiHostPorts, err := c.hostPortsGetter.APIHostPortsForClients()
 	if err != nil {
@@ -98,7 +99,7 @@ func (c *CertificateUpdater) Handle(done <-chan struct{}) error {
 	if reflect.DeepEqual(addresses, c.addresses) {
 		// Sometimes the watcher will tell us things have changed, when they
 		// haven't as far as we can tell.
-		logger.Debugf("addresses haven't really changed since last updated cert")
+		logger.Debugf("addresses have not changed since last updated cert")
 		return nil
 	}
 	return c.updateCertificate(addresses)

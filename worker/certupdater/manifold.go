@@ -9,6 +9,8 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	jujuagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/pki"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
@@ -21,7 +23,7 @@ type ManifoldConfig struct {
 	AgentName                string
 	AuthorityName            string
 	StateName                string
-	NewWorker                func(Config) worker.Worker
+	NewWorker                func(Config) (worker.Worker, error)
 	NewMachineAddressWatcher func(st *state.State, machineId string) (AddressWatcher, error)
 }
 
@@ -94,16 +96,56 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	w := config.NewWorker(Config{
+	w, err := config.NewWorker(Config{
 		AddressWatcher:     addressWatcher,
 		Authority:          authority,
 		APIHostPortsGetter: st,
 	})
+	if err != nil {
+		_ = stTracker.Done()
+		return nil, errors.Trace(err)
+	}
 	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
 }
 
 // NewMachineAddressWatcher is the function that non-test code should
 // pass into ManifoldConfig.NewMachineAddressWatcher.
 func NewMachineAddressWatcher(st *state.State, machineId string) (AddressWatcher, error) {
-	return st.Machine(machineId)
+	machine, err := st.Machine(machineId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return machineShim{
+		machine: machine,
+	}, nil
+}
+
+type machineShim struct {
+	machine *state.Machine
+}
+
+func (s machineShim) WatchAddresses() watcher.NotifyWatcher {
+	return watcherShim{
+		watcher: s.machine.WatchAddresses(),
+	}
+}
+
+func (s machineShim) Addresses() network.SpaceAddresses {
+	return s.machine.Addresses()
+}
+
+type watcherShim struct {
+	watcher state.NotifyWatcher
+}
+
+func (s watcherShim) Changes() watcher.NotifyChannel {
+	return s.watcher.Changes()
+}
+
+func (s watcherShim) Kill() {
+	s.watcher.Kill()
+}
+
+func (s watcherShim) Wait() error {
+	return s.watcher.Wait()
 }
