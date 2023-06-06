@@ -59,10 +59,5 @@ type AuthChecker interface {
 // ResourcesBackend handles the registration of a stoppable resource and
 // controls its lifecycle.
 type ResourcesBackend interface {
-	Register(StoppableResource) string
-}
-
-// StoppableResource is implemented by resources that can be stopped.
-type StoppableResource interface {
-	worker.Worker
+	Register(worker.Worker) string
 }

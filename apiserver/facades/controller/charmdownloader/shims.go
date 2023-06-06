@@ -6,6 +6,7 @@ package charmdownloader
 import (
 	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
+	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
@@ -76,6 +77,6 @@ type resourcesShim struct {
 	facade.Resources
 }
 
-func (r resourcesShim) Register(res StoppableResource) string {
+func (r resourcesShim) Register(res worker.Worker) string {
 	return r.Resources.Register(res)
 }

@@ -218,16 +218,6 @@ type Resources interface {
 	Stop(string) error
 }
 
-// Resource should almost certainly be worker.Worker: the current
-// implementation renders the apiserver vulnerable to deadlock when
-// shutting down. (See common.Resources.StopAll -- *that* should be a
-// Kill() and a Wait(), so that connection cleanup can kill the
-// resources early, along with everything else, and then just wait for
-// all those things to finish.)
-type Resource interface {
-	Stop() error
-}
-
 // Presence represents the current known state of API connections from agents
 // to any of the API servers.
 type Presence interface {

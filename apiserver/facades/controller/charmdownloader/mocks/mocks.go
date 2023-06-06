@@ -16,6 +16,7 @@ import (
 	status "github.com/juju/juju/core/status"
 	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
+	worker "github.com/juju/worker/v3"
 )
 
 // MockStateBackend is a mock of StateBackend interface.
@@ -398,7 +399,7 @@ func (m *MockResourcesBackend) EXPECT() *MockResourcesBackendMockRecorder {
 }
 
 // Register mocks base method.
-func (m *MockResourcesBackend) Register(arg0 charmdownloader.StoppableResource) string {
+func (m *MockResourcesBackend) Register(arg0 worker.Worker) string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Register", arg0)
 	ret0, _ := ret[0].(string)
