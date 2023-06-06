@@ -24,9 +24,6 @@ func ControllerDDL(nodeID uint64) []database.Delta {
 		controllerNodeEntry(nodeID),
 		controllerNodeTriggers,
 		modelMigrationSchema,
-		modelMigrationStatusSchema,
-		modelMigrationUserSchema,
-		modelMigrationMinionSyncSchema,
 		controllerNodeSchema,
 	}
 
@@ -146,7 +143,9 @@ func changeLogControllerNamespaces() database.Delta {
 INSERT INTO change_log_namespace VALUES
     (1, 'external_controller'),
     (2, 'controller_node'),
-    (3, 'controller_config');`)
+    (3, 'controller_config'),
+    (4, 'model_migration_status'),
+    (5, 'model_migration_minion_sync');`)
 }
 
 func cloudSchema() database.Delta {
@@ -393,154 +392,95 @@ END;`)
 func modelMigrationSchema() string {
 	return `
 CREATE TABLE model_migration (
-	uuid					TEXT PRIMARY KEY,
-	model_uuid				TEXT NOT NULL,
-	attempt					INT,
-	initiated_by_user_uuid	TEXT NOT NULL,
-	target_controller_uuid	TEXT NOT NULL,
-	target_cacert			TEXT,
-	target_entity			TEXT,
-	target_password			TEXT,
-	target_macaroons		TEXT,
-	active					BOOLEAN,
-	start_time				TIMESTAMP,
-	success_time			TIMESTAMP,
-	end_time				TIMESTAMP,
-	phase					TEXT,
-	phase_changed_time		TIMESTAMP,
-	status_message			TEXT
-	-- target_controller_alias
-	-- target_addresses
-	
-	-- TODO(anvial): Add foreign key constraints after corresponding tables are added.
-	-- 	CONSTRAINT				fk_migration_model
-	-- 		FOREIGN KEY			(model_uuid)
-	-- 		REFERENCES			model(uuid),
-	-- 	CONSTRAINT				fk_migration_initiated_by_user
-	-- 		FOREIGN KEY			(initiated_by_user_uuid)
-	-- 		REFERENCES			user(uuid),
-	-- 	CONSTRAINT				fk_migration_target_controller
-	-- 		FOREIGN KEY			(target_controller_uuid)
-	-- 		REFERENCES			controller(uuid)
+    uuid                    TEXT PRIMARY KEY,
+    attempt                 INT,
+    target_controller_uuid  TEXT NOT NULL,
+    target_entity           TEXT,
+    target_password         TEXT,
+    target_macaroons        TEXT,
+    active                  BOOLEAN,
+    start_time              TIMESTAMP,
+    success_time            TIMESTAMP,
+    end_time                TIMESTAMP,
+    phase                   TEXT,
+    phase_changed_time      TIMESTAMP,
+    status_message          TEXT,
+    CONSTRAINT              fk_model_migration_target_controller
+        FOREIGN KEY         (target_controller_uuid)
+        REFERENCES          external_controller(uuid)
 );
 
-CREATE TRIGGER trg_log_model_migration_insert
-AFTER INSERT ON model_migration FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (1, 1, NEW.key, DATETIME('now'));
-END;
-CREATE TRIGGER trg_log_model_migration_update
-AFTER UPDATE ON model_migration FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (2, 1, OLD.key, DATETIME('now'));
-END;
-CREATE TRIGGER trg_log_model_migration_delete
-AFTER DELETE ON model_migration FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (4, 1, OLD.key, DATETIME('now'));
-END;
-`[1:]
-}
-
-func modelMigrationStatusSchema() string {
-	return `
 CREATE TABLE model_migration_status (
-	uuid				TEXT PRIMARY KEY,
-	start_time			TIMESTAMP,
-	success_time		TIMESTAMP,
-	end_time			TIMESTAMP,
-	phase				TEXT,
-	phase_changed_time	TIMESTAMP,
-	status				TEXT
+    uuid                TEXT PRIMARY KEY,
+    start_time          TIMESTAMP,
+    success_time        TIMESTAMP,
+    end_time            TIMESTAMP,
+    phase               TEXT,
+    phase_changed_time  TIMESTAMP,
+    status              TEXT
 );
 
 CREATE TRIGGER trg_log_model_migration_status_insert
 AFTER INSERT ON model_migration_status FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (1, 1, NEW.key, DATETIME('now'));
+    VALUES (1, 4, NEW.key, DATETIME('now'));
 END;
 CREATE TRIGGER trg_log_model_migration_status_update
 AFTER UPDATE ON model_migration_status FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (2, 1, OLD.key, DATETIME('now'));
+    VALUES (2, 4, OLD.key, DATETIME('now'));
 END;
 CREATE TRIGGER trg_log_model_migration_status_delete
 AFTER DELETE ON model_migration_status FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (4, 1, OLD.key, DATETIME('now'));
+    VALUES (4, 4, OLD.key, DATETIME('now'));
 END;
-`[1:]
-}
 
-func modelMigrationUserSchema() string {
-	return `
 CREATE TABLE model_migration_user (
-	user_uuid		TEXT PRIMARY KEY,
-	permission		TEXT
-    -- TODO(anvial): Add foreign key constraints after permissions tables are added.     
-	-- CONSTRAINT		fk_model_migration_user_permission
-	-- 		FOREIGN KEY	(permission_access)
-	-- 		REFERENCES	permission(access)                              
+    uuid            TEXT PRIMARY KEY,
+--     user_uuid       TEXT NOT NULL,
+    migration_uuid  TEXT NOT NULL,
+    permission      TEXT,
+--     CONSTRAINT      fk_model_migration_user_XXX
+--         FOREIGN KEY (user_uuid)
+--         REFERENCES  XXX(uuid)
+    CONSTRAINT      fk_model_migration_user_model_migration
+        FOREIGN KEY (migration_uuid)
+        REFERENCES  model_migration(uuid)    
 );
 
-CREATE TRIGGER trg_log_model_migration_user_insert
-AFTER INSERT ON model_migration_user FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (1, 1, NEW.key, DATETIME('now'));
-END;
-CREATE TRIGGER trg_log_model_migration_user_update
-AFTER UPDATE ON model_migration_user FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (2, 1, OLD.key, DATETIME('now'));
-END;
-CREATE TRIGGER trg_log_model_migration_user_delete
-AFTER DELETE ON model_migration_user FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (4, 1, OLD.key, DATETIME('now'));
-END;
-`[1:]
-}
-
-func modelMigrationMinionSyncSchema() string {
-	return `
 CREATE TABLE model_migration_minion_sync (
-	uuid			TEXT PRIMARY KEY,
-	migration_uuid	TEXT NOT NULL,
-	phase			TEXT,
-	entity_key		TEXT,
-	time			TIMESTAMP,
-	success			BOOLEAN,
-	CONSTRAINT		fk_model_migration_minion_sync_model_migration
-		FOREIGN KEY	(migration_uuid)
-		REFERENCES	model_migration(uuid)
+    uuid            TEXT PRIMARY KEY,
+    migration_uuid  TEXT NOT NULL,
+    phase           TEXT,
+    entity_key      TEXT,
+    time            TIMESTAMP,
+    success         BOOLEAN,
+    CONSTRAINT      fk_model_migration_minion_sync_model_migration
+        FOREIGN KEY (migration_uuid)
+        REFERENCES  model_migration(uuid)
 );
 
 CREATE TRIGGER trg_log_model_migration_minion_sync_insert
 AFTER INSERT ON model_migration_minion_sync FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (1, 1, NEW.key, DATETIME('now'));
+    VALUES (1, 5, NEW.key, DATETIME('now'));
 END;
 CREATE TRIGGER trg_log_model_migration_minion_sync_update
 AFTER UPDATE ON model_migration_minion_sync FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (2, 1, OLD.key, DATETIME('now'));
+    VALUES (2, 5, OLD.key, DATETIME('now'));
 END;
 CREATE TRIGGER trg_log_model_migration_minion_sync_delete
 AFTER DELETE ON model_migration_minion_sync FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (4, 1, OLD.key, DATETIME('now'));
+    VALUES (4, 5, OLD.key, DATETIME('now'));
 END;
 `[1:]
 }
