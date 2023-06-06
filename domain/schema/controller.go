@@ -12,6 +12,7 @@ func ControllerDDL() []string {
 		externalControllerSchema,
 		modelListSchema,
 		controllerConfigSchema,
+		controllerNodeSchema,
 	}
 
 	var deltas []string
@@ -100,7 +101,8 @@ CREATE UNIQUE INDEX idx_change_log_namespace_namespace
 ON change_log_namespace (namespace);
 
 INSERT INTO change_log_namespace VALUES
-    (1, 'external_controller');
+    (1, 'external_controller'),
+    (2, 'controller_node');
 
 CREATE TABLE change_log (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -307,4 +309,40 @@ BEGIN
     VALUES (4, 1, OLD.key, DATETIME('now'));
 END;
 `[1:]
+}
+
+func controllerNodeSchema() string {
+	return `
+CREATE TABLE controller_node (
+    controller_id  TEXT PRIMARY KEY, 
+    dqlite_node_id INT,               -- This is the uint64 from Dqlite NodeInfo.
+    bind_address   TEXT               -- IP address (no port) that Dqlite is bound to. 
+);
+
+CREATE UNIQUE INDEX idx_controller_node_dqlite_node
+ON controller_node (dqlite_node_id);
+
+CREATE UNIQUE INDEX idx_controller_node_bind_address
+ON controller_node (bind_address);
+
+CREATE TRIGGER trg_changelog_controller_node_insert
+AFTER INSERT ON controller_node FOR EACH ROW
+BEGIN
+	INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
+    VALUES (1, 2, NEW.controller_id, DATETIME('now'));
+END;
+
+CREATE TRIGGER trg_changelog_controller_node_update
+AFTER UPDATE ON controller_node FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
+    VALUES (2, 2, OLD.controller_id, DATETIME('now'));
+END;
+
+CREATE TRIGGER trg_changelog_controller_node_delete
+AFTER DELETE ON controller_node FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
+    VALUES (4, 2, OLD.controller_id, DATETIME('now'));
+END;`[1:]
 }
