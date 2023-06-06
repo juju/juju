@@ -102,7 +102,8 @@ ON change_log_namespace (namespace);
 
 INSERT INTO change_log_namespace VALUES
     (1, 'external_controller'),
-    (2, 'controller_node');
+    (2, 'controller_node'),
+    (3, 'controller_config');
 
 CREATE TABLE change_log (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -294,19 +295,19 @@ CREATE TRIGGER trg_log_controller_config_insert
 AFTER INSERT ON controller_config FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (1, 1, NEW.key, DATETIME('now'));
+    VALUES (1, 3, NEW.key, DATETIME('now'));
 END;
 CREATE TRIGGER trg_log_controller_config_update
 AFTER UPDATE ON controller_config FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (2, 1, OLD.key, DATETIME('now'));
+    VALUES (2, 3, OLD.key, DATETIME('now'));
 END;
 CREATE TRIGGER trg_log_controller_config_delete
 AFTER DELETE ON controller_config FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (4, 1, OLD.key, DATETIME('now'));
+    VALUES (4, 3, OLD.key, DATETIME('now'));
 END;
 `[1:]
 }
