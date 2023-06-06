@@ -55,6 +55,8 @@ type unexposeCommand struct {
 	modelcmd.ModelCommandBase
 	ApplicationName      string
 	ExposedEndpointsList string
+
+	api ApplicationExposeAPI
 }
 
 func (c *unexposeCommand) Info() *cmd.Info {
@@ -79,7 +81,10 @@ func (c *unexposeCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args[1:])
 }
 
-func (c *unexposeCommand) getAPI() (applicationExposeAPI, error) {
+func (c *unexposeCommand) getAPI() (ApplicationExposeAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)

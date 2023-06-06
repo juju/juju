@@ -76,8 +76,7 @@ var deployTests = []struct {
 func (s *CmdSuite) TestDeployCommandInit(c *gc.C) {
 	for i, t := range deployTests {
 		c.Logf("\ntest %d: %s", i, t.about)
-		wrappedDeployCmd := newWrappedDeployCommandForTest(nil)
-		wrappedDeployCmd.SetClientStore(jujuclienttesting.MinimalStore())
+		wrappedDeployCmd := newDeployCommandForTest(nil)
 		err := cmdtesting.InitCommand(wrappedDeployCmd, t.args)
 		if t.expectError != "" {
 			c.Assert(err, gc.ErrorMatches, t.expectError)
