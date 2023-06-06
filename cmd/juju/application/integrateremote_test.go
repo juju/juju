@@ -12,9 +12,8 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
-	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
@@ -45,7 +44,7 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationToOneRemoteApplication(c *
 		crossmodel.ConsumeApplicationArgs{
 			Offer: params.ApplicationOfferDetails{
 				OfferName: "hosted-mysql",
-				OfferURL:  "kontroll:bob/prod.hosted-mysql",
+				OfferURL:  "arthur:bob/prod.hosted-mysql",
 			},
 			ApplicationAlias: "applicationname2",
 			Macaroon:         s.mac,
@@ -53,7 +52,7 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationToOneRemoteApplication(c *
 			ControllerInfo: &crossmodel.ControllerInfo{
 				ControllerTag: testing.ControllerTag,
 				Addrs:         []string{"192.168.1.0"},
-				Alias:         "kontroll",
+				Alias:         "arthur",
 				CACert:        testing.CACert,
 			},
 		})
@@ -67,7 +66,7 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationAnyRemoteApplication(c *gc
 		crossmodel.ConsumeApplicationArgs{
 			Offer: params.ApplicationOfferDetails{
 				OfferName: "hosted-mysql",
-				OfferURL:  "kontroll:bob/prod.hosted-mysql",
+				OfferURL:  "arthur:bob/prod.hosted-mysql",
 			},
 			ApplicationAlias: "applicationname2",
 			Macaroon:         s.mac,
@@ -75,7 +74,7 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationAnyRemoteApplication(c *gc
 			ControllerInfo: &crossmodel.ControllerInfo{
 				ControllerTag: testing.ControllerTag,
 				Addrs:         []string{"192.168.1.0"},
-				Alias:         "kontroll",
+				Alias:         "arthur",
 				CACert:        testing.CACert,
 			},
 		})
@@ -172,14 +171,13 @@ func (s *AddRelationValidationSuite) assertInvalidEndpoint(c *gc.C, endpoint, ms
 // baseAddRemoteRelationSuite contains common functionality for integrate cmd tests
 // that mock out api client.
 type baseAddRemoteRelationSuite struct {
-	jujutesting.RepoSuite
-
+	testing.BaseSuite
 	mockAPI *mockAddRelationAPI
 	mac     *macaroon.Macaroon
 }
 
 func (s *baseAddRemoteRelationSuite) SetUpTest(c *gc.C) {
-	s.RepoSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	var err error
 	s.mac, err = apitesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
@@ -191,15 +189,10 @@ func (s *baseAddRemoteRelationSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *baseAddRemoteRelationSuite) TearDownTest(c *gc.C) {
-	s.RepoSuite.TearDownTest(c)
-}
-
 func (s *baseAddRemoteRelationSuite) runAddRelation(c *gc.C, args ...string) error {
-	addRelationCmd := &addRelationCommand{}
-	addRelationCmd.addRelationAPI = s.mockAPI
-	addRelationCmd.consumeDetailsAPI = s.mockAPI
-	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(addRelationCmd), args...)
+	cmd := NewAddRelationCommandForTest(s.mockAPI, s.mockAPI)
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
+	_, err := cmdtesting.RunCommand(c, cmd, args...)
 	return err
 }
 

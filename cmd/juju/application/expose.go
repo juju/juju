@@ -74,6 +74,9 @@ func NewExposeCommand() modelcmd.ModelCommand {
 // exposeCommand is responsible exposing applications.
 type exposeCommand struct {
 	modelcmd.ModelCommandBase
+
+	api ApplicationExposeAPI
+
 	ApplicationName      string
 	ExposedEndpointsList string
 	ExposeToSpacesList   string
@@ -107,13 +110,17 @@ func (c *exposeCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args[1:])
 }
 
-type applicationExposeAPI interface {
+// ApplicationExposeAPI is used to expose and unexpose applicatios.
+type ApplicationExposeAPI interface {
 	Close() error
 	Expose(applicationName string, exposedEndpoints map[string]params.ExposedEndpoint) error
 	Unexpose(applicationName string, exposedEndpoints []string) error
 }
 
-func (c *exposeCommand) getAPI() (applicationExposeAPI, error) {
+func (c *exposeCommand) getAPI() (ApplicationExposeAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -4,96 +4,67 @@
 package application
 
 import (
-	"runtime"
-	"time"
+	"strings"
 
-	"github.com/juju/charm/v10"
+	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/application/deployer"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/testcharms"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/cmd/juju/application/mocks"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
 type UnexposeSuite struct {
-	jujutesting.RepoSuite
-	testing.CmdBlockHelper
-}
-
-func (s *UnexposeSuite) SetUpTest(c *gc.C) {
-	if runtime.GOOS == "darwin" {
-		c.Skip("Mongo failures on macOS")
-	}
-	s.RepoSuite.SetUpTest(c)
-
-	// TODO: remove this patch once we removed all the old series from tests in current package.
-	s.PatchValue(&deployer.SupportedJujuSeries,
-		func(time.Time, string, string) (set.Strings, error) {
-			return set.NewStrings(
-				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
-				"jammy", "focal", "bionic", "xenial",
-			), nil
-		},
-	)
-
-	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)
-	c.Assert(s.CmdBlockHelper, gc.NotNil)
-	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&UnexposeSuite{})
 
-func runUnexpose(c *gc.C, args ...string) error {
-	_, err := cmdtesting.RunCommand(c, NewUnexposeCommand(), args...)
+func runUnexpose(c *gc.C, api ApplicationExposeAPI, args ...string) error {
+	unexposeCmd := &unexposeCommand{api: api}
+	unexposeCmd.SetClientStore(jujuclienttesting.MinimalStore())
+
+	_, err := cmdtesting.RunCommand(c, modelcmd.WrapBase(unexposeCmd), args...)
 	return err
 }
 
-func (s *UnexposeSuite) assertExposed(c *gc.C, application string, expected bool) {
-	svc, err := s.State.Application(application)
+func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	api := mocks.NewMockApplicationExposeAPI(ctrl)
+	api.EXPECT().Unexpose("some-application-name", []string(nil)).Return(nil)
+	api.EXPECT().Close().Return(nil)
+
+	err := runUnexpose(c, api, "some-application-name")
 	c.Assert(err, jc.ErrorIsNil)
-	actual := svc.IsExposed()
-	c.Assert(actual, gc.Equals, expected)
 }
 
-func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
-	ch := testcharms.RepoWithSeries("bionic").CharmArchivePath(c.MkDir(), "multi-series")
-	err := runDeploy(c, ch, "some-application-name", "--series", "jammy")
+func (s *UnexposeSuite) TestUnexposeEndpoints(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
+	api := mocks.NewMockApplicationExposeAPI(ctrl)
+	api.EXPECT().Unexpose("some-application-name", []string{"ep1", "ep2"}).Return(nil)
+	api.EXPECT().Close().Return(nil)
+
+	err := runUnexpose(c, api, "some-application-name", "--endpoints", "ep1,ep2")
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:jammy/multi-series-1")
-	s.AssertApplication(c, "some-application-name", curl, 1, 0)
-
-	err = runExpose(c, "some-application-name")
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertExposed(c, "some-application-name", true)
-
-	err = runUnexpose(c, "some-application-name")
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertExposed(c, "some-application-name", false)
-
-	err = runUnexpose(c, "nonexistent-application")
-	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: `application "nonexistent-application" not found`,
-		Code:    "not found",
-	})
 }
 
 func (s *UnexposeSuite) TestBlockUnexpose(c *gc.C) {
-	ch := testcharms.RepoWithSeries("bionic").CharmArchivePath(c.MkDir(), "multi-series")
-	err := runDeploy(c, ch, "some-application-name", "--series", "jammy")
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:jammy/multi-series-1")
-	s.AssertApplication(c, "some-application-name", curl, 1, 0)
+	api := mocks.NewMockApplicationExposeAPI(ctrl)
+	api.EXPECT().Unexpose("some-application-name", []string(nil)).Return(apiservererrors.OperationBlockedError("unexpose"))
+	api.EXPECT().Close().Return(nil)
 
-	// Block operation
-	s.BlockAllChanges(c, "TestBlockUnexpose")
-	err = runExpose(c, "some-application-name")
-	s.AssertBlocked(c, err, ".*TestBlockUnexpose.*")
+	err := runUnexpose(c, api, "some-application-name")
+	c.Assert(err, gc.NotNil)
+	c.Assert(strings.Contains(err.Error(), "All operations that change model have been disabled for the current model"), jc.IsTrue)
 }
