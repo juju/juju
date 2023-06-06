@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// DBAccessor is a worker that provides access to the Juju database.
+// Package DBAccessor is a worker that provides access to the Juju database.
 // It is responsible for accessing the individual databases. One database per
 // model and an additional model for a controller.
 //
