@@ -34,7 +34,7 @@ type ConstraintGetter func(string) ArchConstraint
 
 // CharmResolver resolves the channel and revision of a charm from the list of
 // parameters.
-type CharmResolver func(charm string, series series.Base, channel, arch string, revision int) (string, int, error)
+type CharmResolver func(charm string, base series.Base, channel, arch string, revision int) (string, int, error)
 
 // ChangesConfig is used to provide the required data for determining changes.
 type ChangesConfig struct {
@@ -94,7 +94,11 @@ func FromData(config ChangesConfig) ([]Change, error) {
 
 	var addedMachines map[string]*AddMachineChange
 	if resolver.bundle.Type != kubernetes {
-		addedMachines = resolver.handleMachines()
+		var err error
+		addedMachines, err = resolver.handleMachines()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	deployedBundleApps := alreadyDeployedApplicationsFromBundle(model, config.Bundle.Applications)
@@ -218,6 +222,8 @@ type AddCharmChange struct {
 }
 
 // GUIArgs implements Change.GUIArgs.
+// TODO: since GUIArgs are returned in a magical order, replacing series with base
+// would be a breaking change. Remove GetChanges facade endpoint in Juju 4
 func (ch *AddCharmChange) GUIArgs() []interface{} {
 	return []interface{}{ch.Params.Charm, ch.Params.Series, ch.Params.Channel}
 }
@@ -230,9 +236,9 @@ func (ch *AddCharmChange) Args() (map[string]interface{}, error) {
 // Description implements Change.
 func (ch *AddCharmChange) Description() []string {
 	p := ch.Params
-	var series, channel string
-	if p.Series != "" {
-		series = " for series " + p.Series
+	var base, channel string
+	if p.Base != "" {
+		base = " for base " + p.Base
 	}
 	if p.Revision != nil && *p.Revision >= 0 {
 		channel = fmt.Sprintf(" with revision %d", *p.Revision)
@@ -257,7 +263,7 @@ func (ch *AddCharmChange) Description() []string {
 		arch = fmt.Sprintf(" with architecture=%s", p.Architecture)
 	}
 
-	return []string{fmt.Sprintf("upload charm %s%s%s%s%s", name, location, series, channel, arch)}
+	return []string{fmt.Sprintf("upload charm %s%s%s%s%s", name, location, base, channel, arch)}
 }
 
 // AddCharmParams holds parameters for adding a charm to the environment.
@@ -266,8 +272,12 @@ type AddCharmParams struct {
 	Charm string `json:"charm"`
 	// Revision holds the revision of the charm to be added.
 	Revision *int `json:"revision,omitempty"`
+	// Base holds the base of the charm to be added
+	// if the charm default is not sufficient.
+	Base string `json:"base,omitempty"`
 	// Series holds the series of the charm to be added
 	// if the charm default is not sufficient.
+	// DEPRECTAED
 	Series string `json:"series,omitempty"`
 	// Channel holds the preferred channel for obtaining the charm.
 	// Channel was added to 2.7 release, use omitempty so we're backwards
@@ -313,9 +323,9 @@ func (ch *UpgradeCharmChange) Args() (map[string]interface{}, error) {
 
 // Description implements Change.
 func (ch *UpgradeCharmChange) Description() []string {
-	var series string
-	if ch.Params.Series != "" {
-		series = " for series " + ch.Params.Series
+	var base string
+	if ch.Params.Base != "" {
+		base = " for base " + ch.Params.Base
 	}
 	var channel string
 	if ch.Params.Channel != "" {
@@ -333,7 +343,7 @@ func (ch *UpgradeCharmChange) Description() []string {
 			location = fmt.Sprintf(" from %s ", location)
 		}
 	}
-	return []string{fmt.Sprintf("upgrade %s%susing charm %s%s%s", ch.Params.Application, location, name, series, channel)}
+	return []string{fmt.Sprintf("upgrade %s%susing charm %s%s%s", ch.Params.Application, location, name, base, channel)}
 }
 
 // UpgradeCharmParams holds parameters for adding a charm to the environment.
@@ -342,8 +352,12 @@ type UpgradeCharmParams struct {
 	Charm string `json:"charm"`
 	// Application refers to the application that is being upgraded.
 	Application string `json:"application"`
+	// Base holds the base of the charm to be added
+	// if the charm default is not sufficient.
+	Base string `json:"base"`
 	// Series holds the series of the charm to be added
 	// if the charm default is not sufficient.
+	// DEPRECATED
 	Series string `json:"series"`
 	// Resources identifies the revision to use for each resource
 	// of the application's charm.
@@ -378,6 +392,7 @@ type AddMachineChange struct {
 // GUIArgs implements Change.GUIArgs.
 func (ch *AddMachineChange) GUIArgs() []interface{} {
 	options := AddMachineOptions{
+		Base:          ch.Params.Base,
 		Series:        ch.Params.Series,
 		Constraints:   ch.Params.Constraints,
 		ContainerType: ch.Params.ContainerType,
@@ -410,7 +425,10 @@ func (ch *AddMachineChange) Description() []string {
 
 // AddMachineOptions holds GUI options for adding a machine or container.
 type AddMachineOptions struct {
-	// Series holds the machine OS series.
+	// Base holds the machine OS base.
+	Base string `json:"base,omitempty"`
+	// Series holds the optional machine OS series.
+	// DEPRECATED
 	Series string `json:"series,omitempty"`
 	// Constraints holds the machine constraints.
 	Constraints string `json:"constraints,omitempty"`
@@ -422,7 +440,10 @@ type AddMachineOptions struct {
 
 // AddMachineParams holds parameters for adding a machine or container.
 type AddMachineParams struct {
+	// Base holds the optional machine OS base.
+	Base string `json:"base,omitempty"`
 	// Series holds the optional machine OS series.
+	// DEPRECATED
 	Series string `json:"series,omitempty"`
 	// Constraints holds the optional machine constraints.
 	Constraints string `json:"constraints,omitempty"`
@@ -526,6 +547,8 @@ func (ch *AddApplicationChange) Args() (map[string]interface{}, error) {
 	return paramsToArgs(ch.Params)
 }
 
+// TODO: since GUIArgs are returned in a magical order, replacing series with base
+// would be a breaking change. Remove GetChanges facade endpoint in Juju 4
 func (ch *AddApplicationChange) buildArgs(includeDevices bool) []interface{} {
 	options := ch.Params.Options
 	if options == nil {
@@ -574,9 +597,9 @@ func (ch *AddApplicationChange) GUIArgs() []interface{} {
 
 // Description implements Change.
 func (ch *AddApplicationChange) Description() []string {
-	var series string
-	if ch.Params.Series != "" {
-		series = " on " + ch.Params.Series
+	var base string
+	if ch.Params.Base != "" {
+		base = " on " + ch.Params.Base
 	}
 	var channel string
 	if ch.Params.Channel != "" {
@@ -604,15 +627,19 @@ func (ch *AddApplicationChange) Description() []string {
 		}
 	}
 
-	return []string{fmt.Sprintf("deploy application %s%s%s%s%s%s", ch.Params.Application, location, unitsInfo, series, channel, using)}
+	return []string{fmt.Sprintf("deploy application %s%s%s%s%s%s", ch.Params.Application, location, unitsInfo, base, channel, using)}
 }
 
 // AddApplicationParams holds parameters for deploying a Juju application.
 type AddApplicationParams struct {
 	// Charm holds the URL of the charm to be used to deploy this application.
 	Charm string `json:"charm"`
+	// Base holds the base of the application to be deployed
+	// if the charm default is not sufficient.
+	Base string `json:"base,omitempty"`
 	// Series holds the series of the application to be deployed
 	// if the charm default is not sufficient.
+	// DEPRECATED
 	Series string `json:"series,omitempty"`
 	// Application holds the application name.
 	Application string `json:"application,omitempty"`

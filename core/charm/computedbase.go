@@ -4,6 +4,8 @@
 package charm
 
 import (
+	"github.com/juju/charm/v11"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/series"
@@ -34,11 +36,35 @@ func BaseForCharm(requestedBase series.Base, supportedBases []series.Base) (seri
 	return series.Base{}, NewUnsupportedBaseError(requestedBase, supportedBases)
 }
 
-// errMissingSeries is used to denote that BaseForCharm could not determine
-// a series because a legacy charm did not declare any.
+// errMissingBase is used to denote that BaseForCharm could not determine
+// a base because a legacy charm did not declare any.
 var errMissingBase = errors.New("base not specified and charm does not define any")
 
-// IsMissingSeriesError returns true if err is an errMissingBase.
+// IsMissingBaseError returns true if err is an errMissingBase.
 func IsMissingBaseError(err error) bool {
 	return err == errMissingBase
+}
+
+// ComputedBases of a charm, preserving legacy behaviour. If a charm has
+// no manifest, fall back to ComputedSeries and attempt to convert to a
+// base
+func ComputedBases(c charm.CharmMeta) ([]series.Base, error) {
+	manifest := c.Manifest()
+	if manifest != nil {
+		computedBases := make([]series.Base, len(manifest.Bases))
+		for i, base := range manifest.Bases {
+			computedBase, err := series.ParseBase(base.Name, base.Channel.String())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			computedBases[i] = computedBase
+		}
+		return computedBases, nil
+	}
+
+	computedSeries, err := ComputedSeries(c)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return transform.SliceOrErr(computedSeries, series.GetBaseFromSeries)
 }

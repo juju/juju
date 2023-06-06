@@ -16,7 +16,6 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
-	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/kr/pretty"
@@ -340,11 +339,13 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 
 		var base series.Base
 		if spec.Series != "" {
-			var err error
 			base, err = series.GetBaseFromSeries(spec.Series)
-			if err != nil {
-				return errors.Trace(err)
-			}
+		}
+		if spec.Base != "" {
+			base, err = series.ParseBaseFromString(spec.Base)
+		}
+		if err != nil {
+			return errors.Trace(err)
 		}
 
 		channel, origin, err := h.constructChannelAndOrigin(ch, base, spec.Channel, cons)
@@ -589,16 +590,20 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	id := change.Id()
 	chParams := change.Params
 
-	// Use the chSeries specified for this charm in the bundle,
-	// fallback to the chSeries specified for the bundle.
-	chSeries := chParams.Series
-	if chSeries == "" {
-		chSeries = h.data.Series
+	var (
+		base series.Base
+		err  error
+	)
+	if chParams.Base != "" {
+		base, err = series.ParseBaseFromString(chParams.Base)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	// First attempt to interpret as a local path.
 	if h.isLocalCharm(chParams.Charm) {
-		return h.addLocalCharm(chParams, chSeries, id)
+		return h.addLocalCharm(chParams, base, id)
 	}
 
 	// Not a local charm, so grab from the store.
@@ -617,15 +622,6 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	if change.Params.Architecture != "" {
 		cons = constraints.Value{
 			Arch: &change.Params.Architecture,
-		}
-	}
-
-	var base series.Base
-	if chSeries != "" {
-		var err error
-		base, err = series.GetBaseFromSeries(chSeries)
-		if err != nil {
-			return errors.Trace(err)
 		}
 	}
 
@@ -657,42 +653,28 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	case url.Series == "bundle" || resolvedOrigin.Type == "bundle":
 		return errors.Errorf("expected charm, got bundle %q %v", ch.Name, resolvedOrigin)
 	case resolvedOrigin.Base.Channel.Empty():
-		modelCfg, workloadSeries, err := seriesSelectorRequirements(h.deployAPI, h.clock, url)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		supportedSeries, err := transform.SliceOrErr(supportedBases, series.GetSeriesFromBase)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		selector := corecharm.SeriesSelector{
-			CharmURLSeries:      url.Series,
-			SeriesFlag:          change.Params.Series,
-			SupportedSeries:     supportedSeries,
-			SupportedJujuSeries: workloadSeries,
-			Conf:                modelCfg,
-			FromBundle:          true,
+		selector, err := corecharm.ConfigureBaseSelector(corecharm.SelectorConfig{
+			Config:              h.modelConfig,
+			Force:               h.force,
 			Logger:              logger,
-		}
-		err = selector.Validate()
+			RequestedBase:       base,
+			SupportedCharmBases: supportedBases,
+		})
 		if err != nil {
 			return errors.Trace(err)
 		}
 
-		// Get the series to use.
-		chSeries, err := selector.CharmSeries()
+		selectedBase, err := selector.CharmBase()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		url = url.WithSeries(chSeries)
-
-		// TODO(juju3) - use os/channel, not series
-		base, err := series.GetBaseFromSeries(chSeries)
+		selectedSeries, err := series.GetSeriesFromBase(selectedBase)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		resolvedOrigin.Base = base
-		logger.Tracef("Using channel %s from %v to deploy %v", resolvedOrigin.Base.String(), supportedSeries, url)
+		url = url.WithSeries(selectedSeries)
+		resolvedOrigin.Base = selectedBase
+		logger.Tracef("Using channel %s from %v to deploy %v", resolvedOrigin.Base, supportedBases, url)
 	}
 
 	var charmOrigin commoncharm.Origin
@@ -704,13 +686,14 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	}
 
 	logger.Debugf("added charm %s for channel %s", url, channel)
+	fmt.Printf("added charm %s for channel %s\n", url, channel)
 	charmAlias := url.String()
 	h.results[id] = charmAlias
 	h.addOrigin(*url, channel, charmOrigin)
 	return nil
 }
 
-func (h *bundleHandler) addLocalCharm(chParams bundlechanges.AddCharmParams, chSeries, id string) error {
+func (h *bundleHandler) addLocalCharm(chParams bundlechanges.AddCharmParams, chBase series.Base, id string) error {
 	// The charm path could contain the local schema prefix. If that's the
 	// case we should remove that before attempting to join with the bundle
 	// directory.
@@ -726,6 +709,10 @@ func (h *bundleHandler) addLocalCharm(chParams bundlechanges.AddCharmParams, chS
 		charmPath = filepath.Join(h.bundleDir, charmPath)
 	}
 
+	chSeries, err := series.GetSeriesFromBase(chBase)
+	if err != nil {
+		return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
+	}
 	ch, curl, err := corecharm.NewCharmAtPathForceSeries(charmPath, chSeries, h.force)
 	if err != nil {
 		return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
@@ -896,18 +883,23 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	}
 
 	if charm.Local.Matches(chID.URL.Schema) {
+		var (
+			base series.Base
+			err  error
+		)
+		if p.Base != "" {
+			base, err = series.ParseBaseFromString(p.Base)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
 		// Figure out what series we need to deploy with. For Local charms,
 		// this was determined when addcharm was called.
-		selectedSeries, err := h.selectedSeries(charmInfo.Charm(), chID, curl, p.Series)
+		selectedBase, err := h.selectedBase(charmInfo.Charm(), base)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		// TODO(juju3) - use os/channel, not series
-		base, err := series.GetBaseFromSeries(selectedSeries)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		origin.Base = base
+		origin.Base = selectedBase
 	}
 
 	args := application.DeployArgs{
@@ -988,40 +980,23 @@ func (h *bundleHandler) deviceConstraints(application string, deviceMap map[stri
 	return deviceConstraints, nil
 }
 
-func (h *bundleHandler) selectedSeries(ch charm.CharmMeta, chID application.CharmID, curl *charm.URL, chSeries string) (string, error) {
-	if corecharm.IsKubernetes(ch) && charm.MetaFormat(ch) == charm.FormatV1 {
-		chSeries = series.Kubernetes.String()
-	}
-
-	supportedSeries, err := corecharm.ComputedSeries(ch)
+func (h *bundleHandler) selectedBase(ch charm.CharmMeta, chBase series.Base) (series.Base, error) {
+	supportedBases, err := corecharm.ComputedBases(ch)
 	if err != nil {
-		return "", errors.Trace(err)
+		return series.Base{}, errors.Trace(err)
 	}
-	if len(supportedSeries) == 0 && chID.URL.Series != "" {
-		supportedSeries = []string{chID.URL.Series}
-	}
-
-	workloadSeries, err := SupportedJujuSeries(h.clock.Now(), chSeries, h.modelConfig.ImageStream())
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	selector := corecharm.SeriesSelector{
-		SeriesFlag:          chSeries,
-		CharmURLSeries:      chID.URL.Series,
-		SupportedSeries:     supportedSeries,
-		SupportedJujuSeries: workloadSeries,
-		Conf:                h.modelConfig,
+	selector, err := corecharm.ConfigureBaseSelector(corecharm.SelectorConfig{
+		Config:              h.modelConfig,
 		Force:               h.force,
-		FromBundle:          true,
 		Logger:              logger,
-	}
-	err = selector.Validate()
+		RequestedBase:       chBase,
+		SupportedCharmBases: supportedBases,
+	})
 	if err != nil {
-		return "", errors.Trace(err)
+		return series.Base{}, errors.Trace(err)
 	}
-	selectedSeries, err := selector.CharmSeries()
-	return selectedSeries, charmValidationError(curl.Name, errors.Trace(err))
+	selectedBase, err := selector.CharmBase()
+	return selectedBase, errors.Trace(err)
 }
 
 // scaleApplication updates the number of units for an application.
@@ -1048,9 +1023,19 @@ func (h *bundleHandler) scaleApplication(change *bundlechanges.ScaleChange) erro
 // addMachine creates a new top-level machine or container in the environment.
 func (h *bundleHandler) addMachine(change *bundlechanges.AddMachineChange) error {
 	p := change.Params
-	var verbose []string
-	if p.Series != "" {
-		verbose = append(verbose, fmt.Sprintf("with series %q", p.Series))
+	var (
+		verbose []string
+		base    series.Base
+		err     error
+	)
+	if p.Base != "" {
+		base, err = series.ParseBaseFromString(p.Base)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if !base.Empty() {
+		verbose = append(verbose, fmt.Sprintf("with base %q", base))
 	}
 	if p.Constraints != "" {
 		verbose = append(verbose, fmt.Sprintf("with constraints %q", p.Constraints))
@@ -1084,21 +1069,16 @@ func (h *bundleHandler) addMachine(change *bundlechanges.AddMachineChange) error
 		// This should never happen, as the bundle is already verified.
 		return errors.Annotate(err, "invalid constraints for machine")
 	}
-	var base *params.Base
-	if p.Series != "" {
-		info, err := series.GetBaseFromSeries(p.Series)
-		if err != nil {
-			return errors.NotValidf("machine series %q", p.Series)
-		}
-		p.Series = ""
-		base = &params.Base{
-			Name:    info.OS,
-			Channel: info.Channel.String(),
+	var pBase *params.Base
+	if !base.Empty() {
+		pBase = &params.Base{
+			Name:    base.OS,
+			Channel: base.Channel.String(),
 		}
 	}
 	machineParams := params.AddMachineParams{
 		Constraints: cons,
-		Base:        base,
+		Base:        pBase,
 		Jobs:        []model.MachineJob{model.JobHostUnits},
 	}
 	if ct := p.ContainerType; ct != "" {

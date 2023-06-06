@@ -34,6 +34,7 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 	add := r.changes.add
 	applications := r.bundle.Applications
 	defaultSeries := r.bundle.Series
+	defaultBase := r.bundle.DefaultBase
 	existing := r.model
 
 	charms := make(map[string]string, len(applications))
@@ -56,6 +57,17 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 		computedSeries, err := getSeries(application, defaultSeries)
 		if err != nil {
 			return nil, errors.Trace(err)
+		}
+		computedBase, err := getBase(application.Base, defaultBase, computedSeries)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// Ensure computedSeries and base match
+		if !computedBase.Empty() {
+			computedSeries, err = series.GetSeriesFromBase(computedBase)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		// Only parse the architecture constraint once and only if we give
@@ -92,15 +104,7 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 			// The case of upgrade charmhub charm with by channel... need the correct revision,
 			// or we will not have an addCharmChange corresponding to the upgradeCharmChange.
 			if r.charmResolver != nil {
-				var base series.Base
-				if application.Series != "" {
-					var err error
-					base, err = series.GetBaseFromSeries(application.Series)
-					if err != nil {
-						return nil, errors.Trace(err)
-					}
-				}
-				_, rev, err := r.charmResolver(application.Charm, base, channel, arch, revision)
+				_, rev, err := r.charmResolver(application.Charm, computedBase, channel, arch, revision)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -109,13 +113,14 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 		}
 
 		// Add the addCharm record if one hasn't been added yet, this means
-		// if the arch and series differ from an existing charm, then we create
+		// if the arch and base differ from an existing charm, then we create
 		// a new charm.
-		key := applicationKey(application.Charm, arch, computedSeries, channel, revision)
-		if charms[key] == "" && !existing.matchesCharmPermutation(application.Charm, arch, computedSeries, channel, revision, r.constraintGetter) {
+		key := applicationKey(application.Charm, arch, computedBase, channel, revision)
+		if charms[key] == "" && !existing.matchesCharmPermutation(application.Charm, arch, computedBase, channel, revision, r.constraintGetter) {
 			change = newAddCharmChange(AddCharmParams{
 				Charm:        application.Charm,
 				Revision:     application.Revision,
+				Base:         computedBase.String(),
 				Series:       computedSeries,
 				Channel:      application.Channel,
 				Architecture: arch,
@@ -158,6 +163,7 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 			// Add the addApplication record for this application.
 			change = newAddApplicationChange(AddApplicationParams{
 				Charm:            charmOrChange,
+				Base:             computedBase.String(),
 				Series:           computedSeries,
 				Application:      name,
 				NumUnits:         numUnits,
@@ -198,6 +204,7 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 				change = newUpgradeCharm(UpgradeCharmParams{
 					Charm:          charmOrChange,
 					Application:    name,
+					Base:           computedBase.String(),
 					Series:         computedSeries,
 					Channel:        application.Channel,
 					Resources:      resources,
@@ -326,6 +333,12 @@ func (r *resolver) allowCharmUpgrade(existingApp *Application, bundleApp *charm.
 				return false, errors.Trace(err)
 			}
 		}
+		if bundleApp.Base != "" {
+			base, err = series.ParseBaseFromString(bundleApp.Base)
+			if err != nil {
+				return false, errors.Trace(err)
+			}
+		}
 		resolvedChan, resolvedRev, err = r.charmResolver(bundleApp.Charm, base, bundleApp.Channel, bundleArch, rev)
 		if err != nil {
 			return false, errors.Trace(err)
@@ -405,10 +418,11 @@ func equalStringSlice(a, b []string) bool {
 
 // handleMachines populates the change set with "addMachines" records.
 // This function also handles adding machine annotations.
-func (r *resolver) handleMachines() map[string]*AddMachineChange {
+func (r *resolver) handleMachines() (map[string]*AddMachineChange, error) {
 	add := r.changes.add
 	machines := r.bundle.Machines
 	defaultSeries := r.bundle.Series
+	defaultBase := r.bundle.DefaultBase
 	existing := r.model
 
 	addedMachines := make(map[string]*AddMachineChange, len(machines))
@@ -427,9 +441,20 @@ func (r *resolver) handleMachines() map[string]*AddMachineChange {
 		if machine == nil {
 			machine = &charm.MachineSpec{}
 		}
-		series := machine.Series
-		if series == "" {
-			series = defaultSeries
+		computedSeries := machine.Series
+		if computedSeries == "" {
+			computedSeries = defaultSeries
+		}
+		computedBase, err := getBase(machine.Base, defaultBase, computedSeries)
+		if err != nil {
+			return nil, err
+		}
+		// Ensure computedSeries and base match
+		if !computedBase.Empty() {
+			computedSeries, err = series.GetSeriesFromBase(computedBase)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		var id string
@@ -441,7 +466,8 @@ func (r *resolver) handleMachines() map[string]*AddMachineChange {
 			// Add the addMachines record for this machine.
 			machineID := existing.nextMachine()
 			change := newAddMachineChange(AddMachineParams{
-				Series:          series,
+				Base:            computedBase.String(),
+				Series:          computedSeries,
 				Constraints:     machine.Constraints,
 				machineID:       machineID,
 				bundleMachineID: name,
@@ -469,7 +495,7 @@ func (r *resolver) handleMachines() map[string]*AddMachineChange {
 			}, requires...))
 		}
 	}
-	return addedMachines
+	return addedMachines, nil
 }
 
 // handleRelations populates the change set with "addRelation" records.
@@ -589,6 +615,7 @@ type unitProcessor struct {
 	existing      *Model
 	bundle        *charm.BundleData
 	defaultSeries string
+	defaultBase   string
 	logger        Logger
 
 	// The added applications and machines are maps from names to
@@ -1006,13 +1033,25 @@ func (p *unitProcessor) addNewMachine(application *charm.ApplicationSpec, contai
 	if err != nil {
 		return unitPlacement{}, err
 	}
-	series, err := getSeries(application, p.defaultSeries)
+	computedSeries, err := getSeries(application, p.defaultSeries)
 	if err != nil {
 		return unitPlacement{}, err
 	}
+	computedBase, err := getBase(application.Base, p.defaultBase, computedSeries)
+	if err != nil {
+		return unitPlacement{}, err
+	}
+	// Ensure computedSeries and base match
+	if !computedBase.Empty() {
+		computedSeries, err = series.GetSeriesFromBase(computedBase)
+		if err != nil {
+			return unitPlacement{}, err
+		}
+	}
 	change := newAddMachineChange(AddMachineParams{
 		ContainerType:      containerType,
-		Series:             series,
+		Base:               computedBase.String(),
+		Series:             computedSeries,
 		Constraints:        constraints,
 		machineID:          machineID,
 		containerMachineID: placeholderContainer,
@@ -1098,14 +1137,26 @@ func (p *unitProcessor) addContainer(up unitPlacement, application *charm.Applic
 	if err != nil {
 		return unitPlacement{}, err
 	}
-	series, err := getSeries(application, p.defaultSeries)
+	computedSeries, err := getSeries(application, p.defaultSeries)
 	if err != nil {
 		return unitPlacement{}, err
+	}
+	computedBase, err := getBase(application.Base, p.defaultBase, computedSeries)
+	if err != nil {
+		return unitPlacement{}, err
+	}
+	// Ensure computedSeries and base match
+	if !computedBase.Empty() {
+		computedSeries, err = series.GetSeriesFromBase(computedBase)
+		if err != nil {
+			return unitPlacement{}, err
+		}
 	}
 	params := AddMachineParams{
 		ContainerType:      containerType,
 		ParentId:           up.target,
-		Series:             series,
+		Base:               computedBase.String(),
+		Series:             computedSeries,
 		Constraints:        constraints,
 		existing:           existing,
 		machineID:          up.baseMachine,
@@ -1145,6 +1196,7 @@ func (r *resolver) handleUnits(addedApplications map[string]string, addedMachine
 		existing:                   r.model,
 		bundle:                     r.bundle,
 		defaultSeries:              r.bundle.Series,
+		defaultBase:                r.bundle.DefaultBase,
 		logger:                     r.logger,
 		addedApplications:          addedApplications,
 		addedMachines:              addedMachines,
@@ -1248,8 +1300,8 @@ func placeholder(changeID string) string {
 	return "$" + changeID
 }
 
-func applicationKey(charm, arch, series, channel string, revision int) string {
-	return fmt.Sprintf("%s:%s:%s:%s:%d", charm, arch, series, channel, revision)
+func applicationKey(charm, arch string, base series.Base, channel string, revision int) string {
+	return fmt.Sprintf("%s:%s:%s:%s:%d", charm, arch, base, channel, revision)
 }
 
 // getSeries retrieves the series of a application from the ApplicationSpec or from the
@@ -1257,6 +1309,13 @@ func applicationKey(charm, arch, series, channel string, revision int) string {
 //
 // DEPRECATED: This should be all about bases.
 func getSeries(application *charm.ApplicationSpec, defaultSeries string) (string, error) {
+	if application.Base != "" {
+		base, err := series.ParseBaseFromString(application.Base)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		return series.GetSeriesFromBase(base)
+	}
 	if application.Series != "" {
 		return application.Series, nil
 	}
@@ -1293,6 +1352,21 @@ func getSeries(application *charm.ApplicationSpec, defaultSeries string) (string
 		return charmURL.Series, nil
 	}
 	return defaultSeries, nil
+}
+
+// getBase calculates the base to use for a resource. If none is provided, we will fall back to
+// the specified series and convert to a base
+func getBase(base string, defaultBase string, computedSeries string) (series.Base, error) {
+	if base != "" {
+		return series.ParseBaseFromString(base)
+	}
+	if defaultBase != "" {
+		return series.ParseBaseFromString(defaultBase)
+	}
+	if computedSeries != "" {
+		return series.GetBaseFromSeries(computedSeries)
+	}
+	return series.Base{}, nil
 }
 
 // parseEndpoint creates an endpoint from its string representation.
