@@ -80,6 +80,9 @@ func (s *schemaSuite) TestDDLApply(c *gc.C) {
 
 		// Controller config
 		"controller_config",
+
+		// Controller nodes
+		"controller_node",
 	)
 	c.Assert(readTableNames(c, s.db), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }
