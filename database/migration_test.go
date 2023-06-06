@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/testing"
 )
 
@@ -19,13 +20,13 @@ type migrationSuite struct {
 var _ = gc.Suite(&migrationSuite{})
 
 func (s *migrationSuite) TestMigrationSuccess(c *gc.C) {
-	delta := []string{
-		"CREATE TABLE band(name TEXT PRIMARY KEY);",
-		"INSERT INTO band VALUES ('Blood Incantation');",
+	deltas := []database.Delta{
+		database.MakeDelta("CREATE TABLE band(name TEXT PRIMARY KEY);"),
+		database.MakeDelta("INSERT INTO band VALUES (?);", "Blood Incantation"),
 	}
 
 	db := s.DB()
-	m := NewDBMigration(db, stubLogger{}, delta)
+	m := NewDBMigration(db, stubLogger{}, deltas)
 	c.Assert(m.Apply(context.Background()), jc.ErrorIsNil)
 
 	rows, err := db.Query("SELECT * from band;")

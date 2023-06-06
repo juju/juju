@@ -40,9 +40,9 @@ func (s *schemaSuite) TestDDLApply(c *gc.C) {
 	tx, err := s.db.Begin()
 	c.Assert(err, jc.ErrorIsNil)
 
-	for idx, stmt := range ControllerDDL() {
+	for idx, delta := range ControllerDDL() {
 		c.Logf("Executing schema DDL index: %v", idx)
-		_, err := tx.Exec(stmt)
+		_, err := tx.Exec(delta.Stmt(), delta.Args()...)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
