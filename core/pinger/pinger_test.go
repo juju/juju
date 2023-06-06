@@ -84,7 +84,7 @@ func (s *suite) TestPingTimeout(c *gc.C) {
 	select {
 	case <-sync:
 	case <-time.After(testing.ShortWait):
-		c.Fatal("timed out waiting for ping")
+		c.Fatal("timed out waiting for action")
 	}
 
 	err := p.Wait()

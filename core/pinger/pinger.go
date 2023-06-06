@@ -24,7 +24,7 @@ type Pinger struct {
 	reset   chan struct{}
 }
 
-// newPingTimeout returns a new Pinger instance
+// NewPinger returns a new Pinger instance
 // that invokes the given action asynchronously if there
 // is more than the given timeout interval between calls
 // to its Ping method.
