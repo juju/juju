@@ -282,7 +282,7 @@ func (s *changeSecretsSuite) TestNextOpNoneExisting(c *gc.C) {
 	}
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "run secret-changed (secret:9m4e2mr0ui3e8a215n4g/666) hook")
+	c.Assert(op.String(), gc.Equals, "run secret-changed (secret:9m4e2mr0ui3e8a215n4g) hook")
 }
 
 func (s *changeSecretsSuite) TestNextOpUpdatedRevision(c *gc.C) {
@@ -302,7 +302,7 @@ func (s *changeSecretsSuite) TestNextOpUpdatedRevision(c *gc.C) {
 	}
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "run secret-changed (secret:9m4e2mr0ui3e8a215n4g/666) hook")
+	c.Assert(op.String(), gc.Equals, "run secret-changed (secret:9m4e2mr0ui3e8a215n4g) hook")
 }
 
 func (s *changeSecretsSuite) TestNextOpNone(c *gc.C) {
