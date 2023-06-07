@@ -607,10 +607,26 @@ func (s *ApplicationSuite) TestSetCharmUpgradeFormat(c *gc.C) {
 	curl := charm.MustParseURL("ch:postgresql")
 	s.backend.EXPECT().Charm(curl).Return(ch, nil)
 
-	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().SetCharm(state.SetCharmConfig{
-		CharmOrigin: createStateCharmOriginFromURL(curl),
-	}).Return(nil)
+	oldCharm := s.expectCharm(ctrl,
+		&charm.Meta{
+			Name:   "charm-postgresql",
+			Series: []string{"kubernetes"},
+		},
+		&charm.Manifest{},
+		&charm.Config{
+			Options: map[string]charm.Option{
+				"stringOption": {Type: "string"},
+				"intOption":    {Type: "int", Default: int(123)},
+			},
+		},
+	)
+
+	app := s.expectApplicationWithCharm(ctrl, oldCharm, "postgresql")
+	cfg := state.SetCharmConfig{
+		CharmOrigin:    createStateCharmOriginFromURL(curl),
+		RequireNoUnits: true,
+	}
+	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg}).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	err := s.api.SetCharm(params.ApplicationSetCharm{

@@ -130,6 +130,21 @@ func (s *applicationOffersSuite) TestAddApplicationOffer(c *gc.C) {
 	c.Assert(access, gc.Equals, permission.ReadAccess)
 }
 
+func (s *applicationOffersSuite) TestAddApplicationOfferInvalidApplication(c *gc.C) {
+	sd := state.NewApplicationOffers(s.State)
+	owner := s.Factory.MakeUser(c, nil)
+	args := crossmodel.AddApplicationOfferArgs{
+		OfferName:              "hosted-mysql",
+		ApplicationName:        "invalid",
+		ApplicationDescription: "mysql is a db server",
+		Endpoints:              map[string]string{"db": "server", "db-admin": "server-admin"},
+		Owner:                  owner.Name(),
+		HasRead:                []string{"everyone@external"},
+	}
+	_, err := sd.AddOffer(args)
+	c.Assert(err, gc.ErrorMatches, `cannot add application offer "hosted-mysql": application "invalid" not found`)
+}
+
 func (s *applicationOffersSuite) TestAddApplicationOfferBadEndpoints(c *gc.C) {
 	eps := map[string]string{"db": "server", "db-admin": "admin"}
 	sd := state.NewApplicationOffers(s.State)
@@ -476,7 +491,7 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferNotFound(c *gc.C) {
 	owner := s.Factory.MakeUser(c, nil)
 	_, err := sd.UpdateOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
-		ApplicationName: "foo",
+		ApplicationName: "mysql",
 		Owner:           owner.Name(),
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot update application offer "hosted-mysql": offer "hosted-mysql" not found`)
@@ -570,6 +585,91 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovingEndpointsInUs
 		},
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot update application offer "hosted-mysql": application endpoint "server" has active consumers`)
+}
+
+func (s *applicationOffersSuite) TestUpdateApplicationOfferInvalidApplication(c *gc.C) {
+	owner := s.Factory.MakeUser(c, nil).Name()
+	sd := state.NewApplicationOffers(s.State)
+
+	originalOffer, err := sd.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "myoffer",
+		Owner:           owner,
+		ApplicationName: "mysql",
+		Endpoints: map[string]string{
+			"db": "server",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(originalOffer, jc.DeepEquals, &crossmodel.ApplicationOffer{
+		OfferName:       "myoffer",
+		OfferUUID:       originalOffer.OfferUUID,
+		ApplicationName: "mysql",
+		Endpoints: map[string]charm.Relation{
+			"db": {
+				Name:      "server",
+				Role:      "provider",
+				Interface: "mysql",
+				Scope:     "global",
+			},
+		},
+	})
+
+	_, err = sd.UpdateOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "myoffer",
+		Owner:           owner,
+		ApplicationName: "invalid",
+		Endpoints: map[string]string{
+			"invalid-endpoint": "invalid-endpoint",
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot update application offer "myoffer": application "invalid" not found`)
+
+	newOffer, err := sd.ApplicationOffer("myoffer")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(newOffer, jc.DeepEquals, originalOffer)
+}
+
+// regression test for https://bugs.launchpad.net/juju/+bug/1954830
+func (s *applicationOffersSuite) TestUpdateApplicationOfferInvalidEndpoint(c *gc.C) {
+	owner := s.Factory.MakeUser(c, nil).Name()
+	sd := state.NewApplicationOffers(s.State)
+
+	originalOffer, err := sd.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "myoffer",
+		Owner:           owner,
+		ApplicationName: "mysql",
+		Endpoints: map[string]string{
+			"db": "server",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(originalOffer, jc.DeepEquals, &crossmodel.ApplicationOffer{
+		OfferName:       "myoffer",
+		OfferUUID:       originalOffer.OfferUUID,
+		ApplicationName: "mysql",
+		Endpoints: map[string]charm.Relation{
+			"db": {
+				Name:      "server",
+				Role:      "provider",
+				Interface: "mysql",
+				Scope:     "global",
+			},
+		},
+	})
+
+	_, err = sd.UpdateOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "myoffer",
+		Owner:           owner,
+		ApplicationName: "mysql",
+		Endpoints: map[string]string{
+			"invalid-endpoint": "invalid-endpoint",
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot update application offer "myoffer": getting relation endpoint for relation "invalid-endpoint" and application "mysql": application "mysql" has no "invalid-endpoint" relation`)
+
+	newOffer, err := sd.ApplicationOffer("myoffer")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(newOffer, jc.DeepEquals, originalOffer)
 }
 
 func (s *applicationOffersSuite) TestRemoveOffersSucceedsWithZeroConnections(c *gc.C) {

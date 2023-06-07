@@ -22,7 +22,7 @@ var MinAgentVersions = map[int]version.Number{
 // or the minimum controller version needed to accept a call from a
 // client with the major version.
 var MinClientVersions = map[int]version.Number{
-	3: version.MustParse("2.9.36"),
+	3: version.MustParse("2.9.42"),
 }
 
 // MinMajorMigrateVersions defines the minimum version the model

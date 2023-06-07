@@ -1237,52 +1237,41 @@ func isX509Error(err error) bool {
 	}
 }
 
-var apiCallRetryStrategy = retry.LimitTime(10*time.Second,
-	retry.Exponential{
-		Initial:  100 * time.Millisecond,
-		Factor:   2,
-		MaxDelay: 1500 * time.Millisecond,
-	},
-)
-
 // APICall places a call to the remote machine.
 //
 // This fills out the rpc.Request on the given facade, version for a given
 // object id, and the specific RPC method. It marshalls the Arguments, and will
 // unmarshall the result into the response object that is supplied.
 func (s *state) APICall(facade string, vers int, id, method string, args, response interface{}) error {
-	for a := retry.Start(apiCallRetryStrategy, s.clock); a.Next(); {
-		err := s.client.Call(rpc.Request{
-			Type:    facade,
-			Version: vers,
-			Id:      id,
-			Action:  method,
-		}, args, response)
-		if err == nil {
-			return nil
-		}
-		code := params.ErrCode(err)
-		if code != params.CodeIncompatibleClient {
-			return errors.Trace(err)
-		}
-		// Default to major version 2 for older servers.
-		serverMajorVersion := 2
-		err = errors.Cause(err)
-		apiErr, ok := err.(*rpc.RequestError)
-		if ok {
-			if serverVersion, ok := apiErr.Info["server-version"]; ok {
-				serverVers, err := version.Parse(fmt.Sprintf("%v", serverVersion))
-				if err == nil {
-					serverMajorVersion = serverVers.Major
-				}
+	err := s.client.Call(rpc.Request{
+		Type:    facade,
+		Version: vers,
+		Id:      id,
+		Action:  method,
+	}, args, response)
+	if err == nil {
+		return nil
+	}
+	code := params.ErrCode(err)
+	if code != params.CodeIncompatibleClient {
+		return errors.Trace(err)
+	}
+	// Default to major version 2 for older servers.
+	serverMajorVersion := 2
+	err = errors.Cause(err)
+	apiErr, ok := err.(*rpc.RequestError)
+	if ok {
+		if serverVersion, ok := apiErr.Info["server-version"]; ok {
+			serverVers, err := version.Parse(fmt.Sprintf("%v", serverVersion))
+			if err == nil {
+				serverMajorVersion = serverVers.Major
 			}
 		}
-		logger.Debugf("%v.%v API call not supported", facade, method)
-		return errors.NewNotSupported(nil, fmt.Sprintf(
-			"juju client with major version %d used with a controller having major version %d not supported\nupdate your juju client to match the version running on the controller",
-			jujuversion.Current.Major, serverMajorVersion))
 	}
-	panic("unreachable")
+	logger.Debugf("%v.%v API call not supported", facade, method)
+	return errors.NewNotSupported(nil, fmt.Sprintf(
+		"juju client with version %d.%d used with a controller having major version %d not supported\nre-install your juju client to match the version running on the controller",
+		jujuversion.Current.Major, jujuversion.Current.Minor, serverMajorVersion))
 }
 
 func (s *state) Close() error {
