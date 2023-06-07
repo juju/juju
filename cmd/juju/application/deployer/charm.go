@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
-	"github.com/kr/pretty"
 
 	"github.com/juju/juju/api/client/application"
 	applicationapi "github.com/juju/juju/api/client/application"
@@ -373,8 +372,9 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		return errors.Trace(err)
 	}
 
+	charmName := c.userRequestedURL.Name
 	info, localPendingResources, errs := deployAPI.DeployFromRepository(application.DeployFromRepositoryArg{
-		CharmName:        c.userRequestedURL.Name,
+		CharmName:        charmName,
 		ApplicationName:  appName,
 		AttachStorage:    c.attachStorage,
 		Base:             base,
@@ -398,11 +398,24 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		ctx.Errorf("Unable to upload resources for %v, consider using --attach-resource. \n %v", appName, uploadErr)
 	}
 
-	ctx.Infof("%s", pretty.Sprint(info))
+	if len(errs) == 0 {
+		ctx.Infof(formatDeployedText(c.dryRun, charmName, info))
+		return nil
+	}
+
 	for _, err := range errs {
 		ctx.Errorf(err.Error())
 	}
-	return nil
+	return errors.Errorf("failed to deploy charm %q", charmName)
+}
+
+func formatDeployedText(dryRun bool, charmName string, info application.DeployInfo) string {
+	if dryRun {
+		return fmt.Sprintf("%q from charm-hub charm %q, revision %d in channel %s on %s would be deployed",
+			info.Name, charmName, info.Revision, info.Channel, info.Base.String())
+	}
+	return fmt.Sprintf("Deployed %q from charm-hub charm %q, revision %d in channel %s on %s",
+		info.Name, charmName, info.Revision, info.Channel, info.Base.String())
 }
 
 // compatibilityPrepareAndDeploy deploys repository charms to controllers
