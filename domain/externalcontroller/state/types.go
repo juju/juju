@@ -3,22 +3,22 @@
 
 package state
 
+import "database/sql"
+
+// ExternalController represents a single row from the database when
+// external_controller is joined with external_controller_address.
 type ExternalController struct {
-	// Id holds external controller document key.
 	// ID is the controller UUID.
 	ID string `db:"uuid"`
 
-	// Alias holds an alias (human friendly) name for the controller.
-	Alias string `db:"alias"`
-
-	// Addrs holds the host:port values for the external
-	// controller's API server.
-	Addrs []string `db:"addresses"`
+	// Alias holds is a human-friendly name for the controller.
+	Alias sql.NullString `db:"alias"`
 
 	// CACert holds the certificate to validate the external
-	// controller's target API server's TLS certificate.
-	CACert string `db:"cacert"`
+	// controller's API server TLS certificate.
+	CACert string `db:"ca_cert"`
 
-	// Models holds model UUIDs hosted on this controller.
-	Models []string `db:"models"`
+	// Addr holds a single host:port value for
+	// the external controller's API server.
+	Addr sql.NullString `db:"address"`
 }
