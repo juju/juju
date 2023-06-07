@@ -38,12 +38,16 @@ func (st *State) Controller(
 		return nil, errors.Trace(err)
 	}
 
-	s := sqlair.MustPrepare(`
+	q := `
 SELECT (alias, ca_cert, address) as &ExternalController.* 
 FROM   external_controller AS ctrl
        LEFT JOIN external_controller_address AS addrs
        ON ctrl.uuid = addrs.controller_uuid
-WHERE  ctrl.uuid=$M.id`, ExternalController{}, sqlair.M{})
+WHERE  ctrl.uuid=$M.id`
+	s, err := sqlair.Prepare(q, ExternalController{}, sqlair.M{})
+	if err != nil {
+		return nil, errors.Annotatef(err, "preparing %q", q)
+	}
 
 	var rows []ExternalController
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
