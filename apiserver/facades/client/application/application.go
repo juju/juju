@@ -1096,6 +1096,13 @@ func (api *APIBase) applicationSetCharm(
 		return errors.New("cannot downgrade from v2 charm format to v1")
 	}
 
+	// If upgrading from a pod-spec (v1) charm to sidecar (v2), force the application
+	// to have no units.
+	if charm.MetaFormat(oldCharm) == charm.FormatV1 && corecharm.IsKubernetes(oldCharm) &&
+		charm.MetaFormat(newCharm) >= charm.FormatV2 && corecharm.IsKubernetes(newCharm) {
+		cfg.RequireNoUnits = true
+	}
+
 	// TODO(wallyworld) - do in a single transaction
 	if err := params.Application.SetCharm(cfg); err != nil {
 		return errors.Annotate(err, "updating charm config")

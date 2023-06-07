@@ -7,13 +7,9 @@ description: This dummy-storage charm is used for testing persistent storage.
 categories:
   - misc
 series:
-  - trusty
-  - xenial
-  - artful
-  - bionic
-  - eoan
-  - focal
   - jammy
+  - focal
+  - bionic
 
 storage:
   single-fs:

@@ -1200,8 +1200,8 @@ func (s *apiclientSuite) TestLoginIncompatibleClient(c *gc.C) {
 	err := conn.APICall("facade", 1, "id", "method", nil, nil)
 	c.Check(clock.waits, gc.HasLen, 0)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
-		"juju client with major version %d used with a controller having major version %d not supported\\n.*",
-		jujuversion.Current.Major, 99,
+		"juju client with version %d.%d used with a controller having major version %d not supported\\n.*",
+		jujuversion.Current.Major, jujuversion.Current.Minor, 99,
 	))
 }
 

@@ -61,7 +61,7 @@ func (r *restrictNewerClientSuite) TestRecentClientAllowedAll(c *gc.C) {
 
 func (r *restrictNewerClientSuite) TestRecentNewerClientAllowedMethods(c *gc.C) {
 	r.assertNewerClientAllowedMethods(c, 0, true)
-	r.assertNewerClientAllowedMethods(c, 1, false)
+	r.assertNewerClientAllowedMethods(c, 1, true)
 }
 
 func (r *restrictNewerClientSuite) assertNewerClientAllowedMethods(c *gc.C, minor int, allowed bool) {
@@ -120,8 +120,8 @@ func (r *restrictNewerClientSuite) TestAlwaysDisallowedMethod(c *gc.C) {
 }
 
 func (r *restrictNewerClientSuite) TestWhitelistedClient(c *gc.C) {
-	r.assertWhitelistedClient(c, "2.9.32", false)
-	r.assertWhitelistedClient(c, "2.9.36", true)
+	r.assertWhitelistedClient(c, "2.9.41", false)
+	r.assertWhitelistedClient(c, "2.9.42", true)
 }
 
 func (r *restrictNewerClientSuite) assertWhitelistedClient(c *gc.C, serverVers string, allowed bool) {
