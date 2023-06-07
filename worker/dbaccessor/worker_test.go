@@ -34,7 +34,7 @@ var _ = gc.Suite(&workerSuite{})
 func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 	s.expectClock()
 	s.expectTrackedDBKill()
 
@@ -46,6 +46,7 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTLSOption().Return(nil, nil)
 	mgrExp.WithTracingOption().Return(nil)
+	mgrExp.IsBootstrappedNode(gomock.Any()).Return(false, nil)
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
@@ -126,7 +127,7 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 	s.expectClock()
 	s.expectTrackedDBKill()
 
@@ -136,8 +137,10 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 	// If this is an existing node, we do not invoke the address or cluster
 	// options, but if the node is not as bootstrapped, we do assume it is
 	// part of a cluster, and uses the TLS option.
+	// IsBootstrapped node is called twice - once to check the startup
+	// conditions and then again upon worker shutdown.
 	mgrExp.IsExistingNode().Return(true, nil)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(false, nil)
+	mgrExp.IsBootstrappedNode(gomock.Any()).Return(false, nil).Times(2)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTLSOption().Return(nil, nil)
 	mgrExp.WithTracingOption().Return(nil)
@@ -163,7 +166,7 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 	s.expectClock()
 	s.expectTrackedDBKill()
 
@@ -174,13 +177,13 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil).Times(3)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(3)
+	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(4)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	sync := s.expectNodeStartupAndShutdown(true)
+	sync := s.expectNodeStartupAndShutdown(false)
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -226,7 +229,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 	s.expectClock()
 	s.expectTrackedDBKill()
 
@@ -237,7 +240,10 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil).Times(2)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(2)
+	gomock.InOrder(
+		mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(2),
+		// This is the check at shutdown.
+		mgrExp.IsBootstrappedNode(gomock.Any()).Return(false, nil))
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 
@@ -265,6 +271,9 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
+	// Although the shut-down check for IsBootstrappedNode returns false,
+	// this call to shut-down is actually run before reconfiguring the node.
+	// When the loop exits, the node is already set to nil.
 	sync := s.expectNodeStartupAndShutdown(false)
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
@@ -310,7 +319,7 @@ func (s *workerSuite) TestEnsureNamespaceForController(c *gc.C) {
 func (s *workerSuite) TestEnsureNamespaceForModelNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 	s.expectClock()
 
 	dataDir := c.MkDir()
@@ -320,13 +329,13 @@ func (s *workerSuite) TestEnsureNamespaceForModelNotFound(c *gc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil).Times(3)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(3)
+	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(4)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	sync := s.expectNodeStartupAndShutdown(true)
+	sync := s.expectNodeStartupAndShutdown(false)
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -347,7 +356,7 @@ func (s *workerSuite) TestEnsureNamespaceForModelNotFound(c *gc.C) {
 func (s *workerSuite) TestEnsureNamespaceForModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 	s.expectClock()
 
 	dataDir := c.MkDir()
@@ -357,13 +366,13 @@ func (s *workerSuite) TestEnsureNamespaceForModel(c *gc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil).Times(3)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(3)
+	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(4)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	sync := s.expectNodeStartupAndShutdown(true)
+	sync := s.expectNodeStartupAndShutdown(false)
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -400,7 +409,7 @@ func (s *workerSuite) TestEnsureNamespaceForModel(c *gc.C) {
 func (s *workerSuite) TestEnsureNamespaceForModelWithCache(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 	s.expectClock()
 
 	dataDir := c.MkDir()
@@ -410,13 +419,13 @@ func (s *workerSuite) TestEnsureNamespaceForModelWithCache(c *gc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil).Times(3)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(3)
+	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(4)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	sync := s.expectNodeStartupAndShutdown(true)
+	sync := s.expectNodeStartupAndShutdown(false)
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -462,7 +471,7 @@ func (s *workerSuite) TestEnsureNamespaceForModelWithCache(c *gc.C) {
 func (s *workerSuite) TestCloseDatabaseForController(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 	s.expectClock()
 
 	dataDir := c.MkDir()
@@ -472,13 +481,13 @@ func (s *workerSuite) TestCloseDatabaseForController(c *gc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil).Times(3)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(3)
+	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(4)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	sync := s.expectNodeStartupAndShutdown(true)
+	sync := s.expectNodeStartupAndShutdown(false)
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -515,7 +524,7 @@ func (s *workerSuite) TestCloseDatabaseForController(c *gc.C) {
 func (s *workerSuite) TestCloseDatabaseForModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 	s.expectClock()
 
 	dataDir := c.MkDir()
@@ -525,13 +534,13 @@ func (s *workerSuite) TestCloseDatabaseForModel(c *gc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil).Times(3)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(3)
+	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(4)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	sync := s.expectNodeStartupAndShutdown(true)
+	sync := s.expectNodeStartupAndShutdown(false)
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -571,7 +580,7 @@ func (s *workerSuite) TestCloseDatabaseForModel(c *gc.C) {
 func (s *workerSuite) TestCloseDatabaseForUnknownModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 	s.expectClock()
 
 	dataDir := c.MkDir()
@@ -581,13 +590,13 @@ func (s *workerSuite) TestCloseDatabaseForUnknownModel(c *gc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil).Times(3)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(3)
+	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(4)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	sync := s.expectNodeStartupAndShutdown(true)
+	sync := s.expectNodeStartupAndShutdown(false)
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
