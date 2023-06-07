@@ -52,7 +52,7 @@ func (rh *runHook) String() string {
 	case rh.info.Kind.IsStorage():
 		suffix = fmt.Sprintf(" (%s)", rh.info.StorageId)
 	case rh.info.Kind.IsSecret():
-		if rh.info.SecretRevision == 0 {
+		if rh.info.SecretRevision == 0 || !hook.SecretHookRequiresRevision(rh.info.Kind) {
 			suffix = fmt.Sprintf(" (%s)", rh.info.SecretURI)
 		} else {
 			suffix = fmt.Sprintf(" (%s/%d)", rh.info.SecretURI, rh.info.SecretRevision)
@@ -121,7 +121,7 @@ func RunningHookMessage(hookName string, info hook.Info) string {
 	}
 	if info.Kind.IsSecret() {
 		revMsg := ""
-		if info.SecretRevision > 0 {
+		if info.SecretRevision > 0 && hook.SecretHookRequiresRevision(info.Kind) {
 			revMsg = fmt.Sprintf("/%d", info.SecretRevision)
 		}
 		return fmt.Sprintf("running %s hook for %s%s", hookName, info.SecretURI, revMsg)

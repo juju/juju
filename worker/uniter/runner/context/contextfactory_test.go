@@ -317,14 +317,18 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 
 func (s *ContextFactorySuite) TestSecretHookContext(c *gc.C) {
 	hi := hook.Info{
-		Kind:        hooks.SecretRotate,
-		SecretURI:   "secret:9m4e2mr0ui3e8a215n4g",
-		SecretLabel: "label",
+		// Kind can be any secret hook kind.
+		// Whatever attributes are set below will
+		// be added to the context.
+		Kind:           hooks.SecretExpired,
+		SecretURI:      "secret:9m4e2mr0ui3e8a215n4g",
+		SecretLabel:    "label",
+		SecretRevision: 666,
 	}
 	ctx, err := s.factory.HookContext(hi)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertCoreContext(c, ctx)
-	s.AssertSecretContext(c, ctx, hi.SecretURI, hi.SecretLabel)
+	s.AssertSecretContext(c, ctx, hi.SecretURI, hi.SecretLabel, hi.SecretRevision)
 	s.AssertNotWorkloadContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)
