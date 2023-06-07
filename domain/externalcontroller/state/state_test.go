@@ -92,7 +92,7 @@ func (s *stateSuite) TestRetrieveExternalControllerNotFound(c *gc.C) {
 
 	// Retrieve a not-existent controller.
 	_, err := st.Controller(ctx.Background(), "ctrl1")
-	c.Assert(err.Error(), jc.Contains, "external controller with UUID ctrl1")
+	c.Assert(err, gc.ErrorMatches, `external controller "ctrl1" not found`)
 }
 
 func (s *stateSuite) TestUpdateExternalControllerNewData(c *gc.C) {
