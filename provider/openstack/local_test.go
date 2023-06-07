@@ -2683,6 +2683,28 @@ type novaInstaceStartedWithOpts interface {
 	NovaInstanceStartedWithOpts() *nova.RunServerOpts
 }
 
+func (s *localServerSuite) TestStartInstanceWithImageIDConstraint(c *gc.C) {
+	env := s.ensureAMDImages(c)
+
+	err := bootstrapEnv(c, env)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons, err := constraints.Parse("image-id=ubuntu-bf2")
+	c.Assert(err, jc.ErrorIsNil)
+
+	res, err := testing.StartInstanceWithParams(env, s.callCtx, "1", environs.StartInstanceParams{
+		ControllerUUID: s.ControllerUUID,
+		Constraints:    cons,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.NotNil)
+
+	runOpts := res.Instance.(novaInstaceStartedWithOpts).NovaInstanceStartedWithOpts()
+	c.Assert(runOpts, gc.NotNil)
+	c.Assert(runOpts.ImageId, gc.NotNil)
+	c.Assert(runOpts.ImageId, gc.Equals, "ubuntu-bf2")
+}
+
 func (s *localServerSuite) TestStartInstanceVolumeRootBlockDevice(c *gc.C) {
 	// diskSizeGiB should be equal to the openstack.defaultRootDiskSize
 	diskSizeGiB := 30
