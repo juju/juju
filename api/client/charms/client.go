@@ -93,7 +93,7 @@ func (c *Client) ResolveCharms(charms []CharmToResolve) ([]ResolvedCharm, error)
 		}
 
 		var supportedBases []series.Base
-		if r.SupportedBases != nil {
+		if c.BestAPIVersion() >= 7 {
 			supportedBases, err = transform.SliceOrErr(r.SupportedBases, func(in params.CharmBase) (series.Base, error) {
 				return series.ParseBase(in.Name, in.Channel)
 			})

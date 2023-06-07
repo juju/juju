@@ -677,9 +677,9 @@ type ResolveCharmsWithChannel struct {
 type ResolveCharmWithChannelResult struct {
 	URL    string      `json:"url"`
 	Origin CharmOrigin `json:"charm-origin"`
-	// TODO (jack-w-shaw) drop SupportedSeries in juju 4
-	SupportedSeries []string    `json:"supported-series"`
-	SupportedBases  []CharmBase `json:"supported-bases"`
+	// TODO (jack-w-shaw) drop SupportedSeries when we drop charms facade v6
+	SupportedSeries []string    `json:"supported-series,omitempty"`
+	SupportedBases  []CharmBase `json:"supported-bases,omitempty"`
 	Error           *Error      `json:"error,omitempty"`
 }
 

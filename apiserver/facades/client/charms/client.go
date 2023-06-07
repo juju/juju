@@ -35,11 +35,17 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.charms")
 
+// APIv7 provides the Charms API facade for version 7.
+// v7 guarantees SupportedBases will be provided in ResolveCharms
+type APIv7 struct {
+	*API
+}
+
 // APIv6 provides the Charms API facade for version 6.
 // It removes the AddCharmWithAuthorization function, as
 // we no longer support macaroons.
 type APIv6 struct {
-	*API
+	*APIv7
 }
 
 // APIv5 provides the Charms API facade for version 5.
@@ -416,19 +422,33 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel) params.Resolve
 			result.Error = apiservererrors.ServerError(err)
 			return result
 		}
-		result.SupportedSeries = []string{resultURL.Series}
 		result.SupportedBases = []params.CharmBase{convertCharmBase(base)}
 	default:
-		supportedSeries, err := transform.SliceOrErr(supportedBases, series.GetSeriesFromBase)
-		if err != nil {
-			result.Error = apiservererrors.ServerError(err)
-			return result
-		}
-		result.SupportedSeries = supportedSeries
 		result.SupportedBases = transform.Slice(supportedBases, convertCharmBase)
 	}
 
 	return result
+}
+
+// ResolveCharms resolves the given charm URLs with an optionally specified
+// preferred channel.  Channel provided via CharmOrigin.
+// We need to include SupportedSeries in facade version 6
+func (a *APIv6) ResolveCharms(args params.ResolveCharmsWithChannel) (params.ResolveCharmWithChannelResults, error) {
+	res, err := a.API.ResolveCharms(args)
+	if err != nil {
+		return params.ResolveCharmWithChannelResults{}, errors.Trace(err)
+	}
+	res.Results, err = transform.SliceOrErr(res.Results, func(result params.ResolveCharmWithChannelResult) (params.ResolveCharmWithChannelResult, error) {
+		result.SupportedSeries, err = transform.SliceOrErr(result.SupportedBases, func(pBase params.CharmBase) (string, error) {
+			base, err := series.ParseBase(pBase.Name, pBase.Channel)
+			if err != nil {
+				return "", err
+			}
+			return series.GetSeriesFromBase(base)
+		})
+		return result, err
+	})
+	return res, err
 }
 
 func convertCharmBase(in series.Base) params.CharmBase {

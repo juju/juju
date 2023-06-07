@@ -42,6 +42,7 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	mockClientFacade := basemocks.NewMockClientFacade(ctrl)
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 
 	curl := charm.MustParseURL("ch:a-charm")
@@ -90,9 +91,10 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 			},
 		}}
 
+	mockClientFacade.EXPECT().BestAPIVersion().Return(7).AnyTimes()
 	mockFacadeCaller.EXPECT().FacadeCall("ResolveCharms", facadeArgs, resolve).SetArg(2, p).Return(nil)
 
-	client := charms.NewClientWithFacade(mockFacadeCaller)
+	client := charms.NewClientWithFacade(mockFacadeCaller, mockClientFacade)
 
 	noChannelOrigin := apicharm.Origin{Source: apicharm.OriginCharmHub, Risk: no}
 	edgeChannelOrigin := apicharm.Origin{Source: apicharm.OriginCharmHub, Risk: edge}
@@ -137,6 +139,7 @@ func (s *charmsMockSuite) TestResolveCharmsLegacy(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	mockClientFacade := basemocks.NewMockClientFacade(ctrl)
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 
 	curl := charm.MustParseURL("ch:a-charm")
@@ -175,9 +178,10 @@ func (s *charmsMockSuite) TestResolveCharmsLegacy(c *gc.C) {
 			},
 		}}
 
+	mockClientFacade.EXPECT().BestAPIVersion().Return(6).AnyTimes()
 	mockFacadeCaller.EXPECT().FacadeCall("ResolveCharms", facadeArgs, resolve).SetArg(2, p).Return(nil)
 
-	client := charms.NewClientWithFacade(mockFacadeCaller)
+	client := charms.NewClientWithFacade(mockFacadeCaller, mockClientFacade)
 
 	noChannelOrigin := apicharm.Origin{Source: apicharm.OriginCharmHub, Risk: no}
 	edgeChannelOrigin := apicharm.Origin{Source: apicharm.OriginCharmHub, Risk: edge}
@@ -244,7 +248,7 @@ func (s *charmsMockSuite) TestGetDownloadInfo(c *gc.C) {
 
 	mockFacadeCaller.EXPECT().FacadeCall("GetDownloadInfos", facadeArgs, &resolve).SetArg(2, p).Return(nil)
 
-	client := charms.NewClientWithFacade(mockFacadeCaller)
+	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 	origin, err := apicharm.APICharmOrigin(noChannelParamsOrigin)
 	c.Assert(err, jc.ErrorIsNil)
 	got, err := client.GetDownloadInfo(curl, origin)
@@ -285,7 +289,7 @@ func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall("AddCharm", facadeArgs, result).SetArg(2, actualResult).Return(nil)
 
-	client := charms.NewClientWithFacade(mockFacadeCaller)
+	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 	got, err := client.AddCharm(curl, origin, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, gc.DeepEquals, origin)
@@ -310,7 +314,7 @@ func (s charmsMockSuite) TestCheckCharmPlacement(c *gc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall("CheckCharmPlacement", facadeArgs, &result).SetArg(2, actualResult).Return(nil)
 
-	client := charms.NewClientWithFacade(mockFacadeCaller)
+	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 	err := client.CheckCharmPlacement("winnie", charm.MustParseURL("poo"))
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -330,7 +334,7 @@ func (s charmsMockSuite) TestCheckCharmPlacementError(c *gc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall("CheckCharmPlacement", facadeArgs, &result).Return(errors.Errorf("trap"))
 
-	client := charms.NewClientWithFacade(mockFacadeCaller)
+	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 	err := client.CheckCharmPlacement("winnie", charm.MustParseURL("poo"))
 	c.Assert(err, gc.ErrorMatches, "trap")
 }
@@ -367,7 +371,7 @@ func (s *charmsMockSuite) TestListCharmResources(c *gc.C) {
 
 	mockFacadeCaller.EXPECT().FacadeCall("ListCharmResources", facadeArgs, &resolve).SetArg(2, p).Return(nil)
 
-	client := charms.NewClientWithFacade(mockFacadeCaller)
+	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 	origin, err := apicharm.APICharmOrigin(noChannelParamsOrigin)
 	c.Assert(err, jc.ErrorIsNil)
 	got, err := client.ListCharmResources(curl, origin)
@@ -475,7 +479,7 @@ func (s *charmsMockSuite) TestAddLocalCharm(c *gc.C) {
 		&charmUploadMatcher{"http://somewhere.invalid/charms?revision=1&schema=local&series=quantal"},
 	).Return(resp, nil).MinTimes(1)
 
-	client := charms.NewClientWithFacade(mockFacadeCaller)
+	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 	vers := version.MustParse("2.6.6")
 	// Test the sanity checks first.
 	_, err := client.AddLocalCharm(charm.MustParseURL("ch:wordpress-1"), nil, false, vers)
@@ -544,7 +548,7 @@ func (s *charmsMockSuite) TestAddLocalCharmWithLXDProfile(c *gc.C) {
 		&charmUploadMatcher{"http://somewhere.invalid/charms?revision=0&schema=local&series=quantal"},
 	).Return(resp, nil).MinTimes(1)
 
-	client := charms.NewClientWithFacade(mockFacadeCaller)
+	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "lxd-profile")
 	curl := charm.MustParseURL(
@@ -562,7 +566,7 @@ func (s *charmsMockSuite) TestAddLocalCharmWithInvalidLXDProfile(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	client := charms.NewClientWithFacade(mockFacadeCaller)
+	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "lxd-profile-fail")
 	curl := charm.MustParseURL(
@@ -608,7 +612,7 @@ func (s *charmsMockSuite) testAddLocalCharmWithForceSucceeds(name string, c *gc.
 		&charmUploadMatcher{"http://somewhere.invalid/charms?revision=0&schema=local&series=quantal"},
 	).Return(resp, nil).MinTimes(1)
 
-	client := charms.NewClientWithFacade(mockFacadeCaller)
+	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "lxd-profile")
 	curl := charm.MustParseURL(
@@ -629,7 +633,7 @@ func (s *charmsMockSuite) assertAddLocalCharmFailed(c *gc.C, f func(string) (boo
 	s.PatchValue(charms.HasHooksOrDispatch, f)
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	client := charms.NewClientWithFacade(mockFacadeCaller)
+	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 	vers := version.MustParse("2.6.6")
 	_, err := client.AddLocalCharm(curl, ch, false, vers)
 	c.Assert(err, gc.ErrorMatches, msg)
@@ -665,7 +669,7 @@ func (s *charmsMockSuite) TestAddLocalCharmDefinitelyWithHooks(c *gc.C) {
 		&charmUploadMatcher{"http://somewhere.invalid/charms?revision=1&schema=local&series=quantal"},
 	).Return(resp, nil).MinTimes(1)
 
-	client := charms.NewClientWithFacade(mockFacadeCaller)
+	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 
 	vers := version.MustParse("2.6.6")
 	savedCURL, err := client.AddLocalCharm(curl, ch, false, vers)
@@ -711,7 +715,7 @@ func (s *charmsMockSuite) TestAddLocalCharmError(c *gc.C) {
 		&charmUploadMatcher{"http://somewhere.invalid/charms?revision=1&schema=local&series=quantal"},
 	).Return(nil, errors.New("boom")).MinTimes(1)
 
-	client := charms.NewClientWithFacade(mockFacadeCaller)
+	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 
 	vers := version.MustParse("2.6.6")
 	_, err := client.AddLocalCharm(curl, charmArchive, false, vers)
@@ -777,7 +781,7 @@ func testMinVer(t minverTest, c *gc.C) {
 		&charmUploadMatcher{"http://somewhere.invalid/charms?revision=1&schema=local&series=quantal"},
 	).Return(resp, nil).AnyTimes()
 
-	client := charms.NewClientWithFacade(mockFacadeCaller)
+	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 
 	charmMinVer := version.MustParse(t.charm)
 	jujuVer := version.MustParse(t.juju)
