@@ -325,18 +325,26 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	}
 	u.logger.Infof("unit %q started", u.unit)
 
+	// Check we are running the correct charm version.
+	if u.sidecar && u.enforcedCharmModifiedVersion != -1 {
+		app, err := u.unit.Application()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		appCharmModifiedVersion, err := app.CharmModifiedVersion()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if appCharmModifiedVersion != u.enforcedCharmModifiedVersion {
+			u.logger.Infof("remote charm modified version (%d) does not match agent's (%d)",
+				appCharmModifiedVersion, u.enforcedCharmModifiedVersion)
+			return u.stopUnitError()
+		}
+	}
+
 	canApplyCharmProfile, charmURL, charmModifiedVersion, err := u.charmState()
 	if err != nil {
 		return errors.Trace(err)
-	}
-
-	// Check we are running the correct charm version.
-	if u.sidecar && u.enforcedCharmModifiedVersion != -1 {
-		if charmModifiedVersion != u.enforcedCharmModifiedVersion {
-			u.logger.Infof("remote charm modified version (%d) does not match agent's (%d)",
-				charmModifiedVersion, u.enforcedCharmModifiedVersion)
-			return u.stopUnitError()
-		}
 	}
 
 	var watcher *remotestate.RemoteStateWatcher

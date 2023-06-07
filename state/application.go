@@ -1599,6 +1599,10 @@ type SetCharmConfig struct {
 	// EndpointBindings is an operator-defined map of endpoint names to
 	// space names that should be merged with any existing bindings.
 	EndpointBindings map[string]string
+
+	// RequireNoUnits is set when upgrading from podspec to sidecar charm to ensure
+	// the application is scaled to 0 units first.
+	RequireNoUnits bool
 }
 
 // SetCharm changes the charm for the application.
@@ -1776,6 +1780,17 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 				Update: bson.D{{"$set", bson.D{
 					{"series", cfg.Series},
 				}}},
+			})
+		}
+
+		if cfg.RequireNoUnits {
+			if a.UnitCount()+a.GetScale() > 0 {
+				return nil, stateerrors.ErrApplicationShouldNotHaveUnits
+			}
+			ops = append(ops, txn.Op{
+				C:      applicationsC,
+				Id:     a.doc.DocID,
+				Assert: bson.D{{"scale", 0}, {"unitcount", 0}},
 			})
 		}
 

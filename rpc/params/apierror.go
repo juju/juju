@@ -212,6 +212,7 @@ const (
 	CodeLeaseError                = "lease error"
 	CodeNotYetAvailable           = "not yet available; try again later"
 	CodeNotValid                  = "not valid"
+	CodeAppShouldNotHaveUnits     = "application should not have units"
 )
 
 // ErrCode returns the error code associated with
@@ -414,4 +415,8 @@ func IsCodeDeadlineExceeded(err error) bool {
 
 func IsLeaseError(err error) bool {
 	return ErrCode(err) == CodeLeaseError
+}
+
+func IsCodeAppShouldNotHaveUnits(err error) bool {
+	return ErrCode(err) == CodeAppShouldNotHaveUnits
 }

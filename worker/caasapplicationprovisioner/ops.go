@@ -340,7 +340,7 @@ func upgradePodSpec(appName string,
 			break
 		}
 
-		logger.Infof("app %q has just been upgraded from a podspec charm to sidecar, now deleting workload and operator pods %q", appName)
+		logger.Infof("app %q has just been upgraded from a podspec charm to sidecar, now deleting workload and operator pods", appName)
 		err = broker.DeleteService(appName)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Annotatef(err, "deleting workload pod for application %q", appName)

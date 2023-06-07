@@ -86,7 +86,7 @@ require (
 	github.com/juju/schema v1.0.1
 	github.com/juju/terms-client/v2 v2.0.0
 	github.com/juju/testing v1.0.2
-	github.com/juju/txn/v2 v2.0.0
+	github.com/juju/txn/v2 v2.1.1
 	github.com/juju/utils/v3 v3.0.0
 	github.com/juju/version/v2 v2.0.0
 	github.com/juju/webbrowser v1.0.0
