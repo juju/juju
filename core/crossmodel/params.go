@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/core/relation"
 )
 
-// ApplicationOfferAdminDetails represents the details about an
+// ApplicationOfferDetails represents the details about an
 // application offer. Depending on the access permission of the
 // user making the API call, and whether the call is "find" or "list",
 // not all fields will be populated.
