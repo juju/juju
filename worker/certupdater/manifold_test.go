@@ -73,11 +73,11 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 	return dt.StubContext(nil, resources)
 }
 
-func (s *ManifoldSuite) newWorker(config certupdater.Config) worker.Worker {
+func (s *ManifoldSuite) newWorker(config certupdater.Config) (worker.Worker, error) {
 	s.stub.MethodCall(s, "NewWorker", config)
 	w := worker.NewRunner(worker.RunnerParams{})
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
-	return w
+	return w, nil
 }
 
 func (s *ManifoldSuite) newMachineAddressWatcher(st *state.State, machineId string) (certupdater.AddressWatcher, error) {

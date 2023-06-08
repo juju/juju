@@ -13,9 +13,9 @@ import (
 
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/pki"
 	pkitest "github.com/juju/juju/pki/test"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/certupdater"
 )
@@ -47,7 +47,7 @@ type mockNotifyWatcher struct {
 	changes <-chan struct{}
 }
 
-func (w *mockNotifyWatcher) Changes() <-chan struct{} {
+func (w *mockNotifyWatcher) Changes() watcher.NotifyChannel {
 	return w.changes
 }
 
@@ -65,7 +65,7 @@ func (*mockNotifyWatcher) Err() error {
 	return nil
 }
 
-func newMockNotifyWatcher(changes <-chan struct{}) state.NotifyWatcher {
+func newMockNotifyWatcher(changes <-chan struct{}) watcher.NotifyWatcher {
 	return &mockNotifyWatcher{changes}
 }
 
@@ -73,7 +73,7 @@ type mockMachine struct {
 	changes chan struct{}
 }
 
-func (m *mockMachine) WatchAddresses() state.NotifyWatcher {
+func (m *mockMachine) WatchAddresses() watcher.NotifyWatcher {
 	return newMockNotifyWatcher(m.changes)
 }
 
@@ -99,11 +99,12 @@ func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	changes := make(chan struct{})
-	worker := certupdater.NewCertificateUpdater(certupdater.Config{
+	worker, err := certupdater.NewCertificateUpdater(certupdater.Config{
 		AddressWatcher:     &mockMachine{changes},
 		APIHostPortsGetter: &mockAPIHostGetter{},
 		Authority:          authority,
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, worker)
 
 	leaf, err := authority.LeafForGroup(pki.ControllerIPLeafGroup)
@@ -117,11 +118,12 @@ func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	changes := make(chan struct{})
-	worker := certupdater.NewCertificateUpdater(certupdater.Config{
+	worker, err := certupdater.NewCertificateUpdater(certupdater.Config{
 		AddressWatcher:     &mockMachine{changes},
 		APIHostPortsGetter: &mockAPIHostGetter{},
 		Authority:          authority,
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	changes <- struct{}{}
 	// Certificate should be updated with the address value.
