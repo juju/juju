@@ -17,6 +17,21 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 )
 
+const (
+	// defaultWaitTermTimeout is the default timeout for waiting for a term
+	// to be completed. If the term is not completed within this time, then
+	// the worker will return an error and restart.
+	defaultWaitTermTimeout = time.Second * 30
+)
+
+var (
+	// The backoff strategy is used to back-off when we get no changes
+	// from the database. This is used to prevent the worker from polling
+	// the database too frequently and allow us to attempt to coalesce
+	// changes when there is less activity.
+	backOffStrategy = retry.ExpBackoff(time.Millisecond*10, time.Millisecond*250, 1.5, false)
+)
+
 // Logger represents the logging methods called.
 type Logger interface {
 	Infof(message string, args ...interface{})
@@ -40,7 +55,7 @@ type FileNotifier interface {
 // is another change processed, until all changes are exhausted.
 type Term struct {
 	changes []changestream.ChangeEvent
-	done    chan struct{}
+	done    chan bool
 }
 
 // Changes returns the changes that are part of the term.
@@ -49,8 +64,14 @@ func (t *Term) Changes() []changestream.ChangeEvent {
 }
 
 // Done signals that the term has been completed.
-func (t *Term) Done() {
-	close(t.done)
+func (t *Term) Done(empty bool, abort <-chan struct{}) {
+	select {
+	case t.done <- empty:
+	case <-abort:
+		// We need to signal that the term has been aborted, so we don't
+		// block the change stream.
+		close(t.done)
+	}
 }
 
 // Stream defines a worker that will poll the database for change events.
@@ -107,14 +128,7 @@ func (s *Stream) loop() error {
 		return errors.Annotate(err, "getting file notifier")
 	}
 
-	var (
-		attempt int
-		// The backoff strategy is used to back-off when we get no changes
-		// from the database. This is used to prevent the worker from polling
-		// the database too frequently and allow us to attempt to coalesce
-		// changes when there is less activity.
-		backOffStrategy = retry.ExpBackoff(time.Millisecond*10, time.Millisecond*250, 1.5, true)
-	)
+	var attempt int
 	for {
 		select {
 		case <-s.tomb.Dying():
@@ -184,18 +198,14 @@ func (s *Stream) loop() error {
 				case <-s.tomb.Dying():
 					return tomb.ErrDying
 				case <-s.clock.After(backOffStrategy(0, attempt)):
+					continue
 				}
-				continue
 			}
-
-			// Reset the attempt counter if we get changes, so the back=off
-			// strategy is reset.
-			attempt = 0
 
 			// Term encapsulates a set of changes that are bounded by a
 			// coalesced set.
 			term := &Term{
-				done: make(chan struct{}),
+				done: make(chan bool),
 			}
 
 			traceEnabled := s.logger.IsTraceEnabled()
@@ -221,7 +231,43 @@ func (s *Stream) loop() error {
 			select {
 			case <-s.tomb.Dying():
 				return tomb.ErrDying
-			case <-term.done:
+
+			case <-s.clock.After(defaultWaitTermTimeout):
+				// This is a critical error, we should never get here if juju
+				// is humming along. This is a sign that something is wrong
+				// with the dependencies of the worker. We have no choice but
+				// to return an error and to bounce the world.
+				return errors.Errorf("term has not been completed in time")
+
+			case empty, ok := <-term.done:
+				if !ok {
+					// If the event mux has been killed, then the term has been
+					// aborted, so we just continue. This is likely the case
+					// when the worker is dying. We don't want to block the
+					// change stream, so we just continue.
+					s.logger.Infof("term has been aborted")
+					continue
+				}
+
+				// If the resulting term change set is empty, then wait for
+				// the back-off strategy to complete before attempting to
+				// read changes again.
+				// This is to prevent the worker from polling the database
+				// too frequently and allow us to attempt to coalesce changes
+				// when there is less activity.
+				if empty {
+					attempt++
+					select {
+					case <-s.tomb.Dying():
+						return tomb.ErrDying
+					case <-s.clock.After(backOffStrategy(0, attempt)):
+						continue
+					}
+				}
+
+				// Reset the attempt counter if we get changes, so the
+				// back=off strategy is reset.
+				attempt = 0
 			}
 		}
 	}

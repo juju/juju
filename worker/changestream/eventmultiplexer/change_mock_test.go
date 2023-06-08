@@ -49,13 +49,13 @@ func (mr *MockTermMockRecorder) Changes() *gomock.Call {
 }
 
 // Done mocks base method.
-func (m *MockTerm) Done() {
+func (m *MockTerm) Done(arg0 bool, arg1 <-chan struct{}) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Done")
+	m.ctrl.Call(m, "Done", arg0, arg1)
 }
 
 // Done indicates an expected call of Done.
-func (mr *MockTermMockRecorder) Done() *gomock.Call {
+func (mr *MockTermMockRecorder) Done(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Done", reflect.TypeOf((*MockTerm)(nil).Done))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Done", reflect.TypeOf((*MockTerm)(nil).Done), arg0, arg1)
 }
