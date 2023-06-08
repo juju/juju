@@ -39,16 +39,14 @@ jobs:
         if: matrix.cloud == 'lxd'
         uses: canonical/setup-lxd@4e959f8e0d9c5feb27d44c5e4d9a330a782edee0
 
-      - name: Install Juju 2.9
-        run: |
-          # TODO(anvial): change to stable channel once juju 2.9.43 is released
-          sudo snap install juju_29 --classic --channel 2.9/edge
+      - name: Install Juju 3.1
+        run: sudo snap install juju --channel 3.1/stable
 
-      - name: Bootstrap a 2.9 controller and model
+      - name: Bootstrap a 3.1 controller and model
         run: |
-          juju_29 bootstrap lxd test29
-          juju_29 add-model test-migrate
-          juju_29 deploy ubuntu
+          juju bootstrap lxd test31
+          juju add-model test-migrate
+          juju deploy ubuntu
           
           # TODO: use juju-restore
           # TODO: add users/permissions/models and test that those migrate over
@@ -61,22 +59,22 @@ jobs:
           echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
           echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
-      - name: Upgrade client to 3.x
+      - name: Upgrade client to 4.0
         run: |
           make go-install &>/dev/null
 
-      - name: Bootstrap 3.x controller
+      - name: Bootstrap 4.0 controller
         run: |
-          juju bootstrap lxd test31
+          juju bootstrap lxd test40
           juju switch controller
           juju wait-for application controller || juju status -m controller
 
         # TODO: create backup and juju restore
 
-      - name: Migrate default model to 3.x controller
+      - name: Migrate default model to 4.0 controller
         run: |
-          juju_29 switch test29
-          
+          juju switch test31
+
           # Ensure application is fully deployed
           juju_29 wait-for application ubuntu
           
@@ -84,12 +82,12 @@ jobs:
           # so that migration prechecks pass.
           sleep 10
           
-          juju_29 migrate test-migrate test31
+          juju migrate test-migrate test40
 
       - name: Check the migration was successful
         run: |
           set -x
-          juju switch test31
+          juju switch test40
           
           # Wait for 'test-migrate' model to come through
           attempt=0
