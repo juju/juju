@@ -17,15 +17,13 @@ func ValidatorsForModelMigrationSource(
 		getCheckTargetVersionForModel(targetVersion, MigrateToAllowed),
 		getCheckUpgradeSeriesLockForModel(false),
 	}
-	if targetVersion.Major == 3 {
+	if targetVersion.Major == 4 {
 		validators = append(validators,
 			checkNoWinMachinesForModel,
 			checkForDeprecatedUbuntuSeriesForModel,
 			getCheckForLXDVersion(cloudspec),
+			checkForCharmStoreCharms,
 		)
-		if targetVersion.Minor >= 1 {
-			validators = append(validators, checkForCharmStoreCharms)
-		}
 	}
 	return validators
 }

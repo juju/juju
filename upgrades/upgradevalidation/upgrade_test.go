@@ -25,7 +25,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	defer ctrl.Finish()
 
 	s.PatchValue(&upgradevalidation.MinAgentVersions, map[int]version.Number{
-		3: version.MustParse("2.9.1"),
+		4: version.MustParse("3.1.1"),
 	})
 
 	ctrlModelTag := names.NewModelTag("deadpork-0bad-400d-8000-4b1d0d06f00d")
@@ -49,7 +49,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 
 	// 1. Check controller model.
 	// - check agent version;
-	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.666.1"), nil)
+	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("4.666.1"), nil)
 	// - check mongo status;
 	ctrlState.EXPECT().MongoCurrentStatus().Return(&replicaset.Status{
 		Members: []replicaset.MemberStatus{
@@ -82,7 +82,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	server.EXPECT().ServerVersion().Return("5.2")
 	// 2. Check hosted models.
 	// - check agent version;
-	model1.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
+	model1.EXPECT().AgentVersion().Return(version.MustParse("3.1.1"), nil)
 	//  - check if model migration is ongoing;
 	model1.EXPECT().MigrationMode().Return(state.MigrationModeNone)
 	// - check if the model has win machines;
@@ -94,7 +94,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("5.2")
 
-	targetVersion := version.MustParse("3.666.2")
+	targetVersion := version.MustParse("4.666.2")
 	validators := upgradevalidation.ValidatorsForControllerUpgrade(true, targetVersion, cloudSpec.CloudSpec)
 	checker := upgradevalidation.NewModelUpgradeCheck(ctrlModelTag.Id(), statePool, ctrlState, ctrlModel, validators...)
 	blockers, err := checker.Validate()
@@ -108,7 +108,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	c.Assert(blockers, gc.IsNil)
 }
 
-func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
+func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju4(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -126,6 +126,7 @@ func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
 	)
 	cloudSpec := lxd.CloudSpec{CloudSpec: environscloudspec.CloudSpec{Type: "lxd"}}
 
+	state.EXPECT().AllCharmURLs().Return(nil, errors.NotFoundf("no charms"))
 	// - check no upgrade series in process.
 	state.EXPECT().HasUpgradeSeriesLocks().Return(false, nil)
 	// - check if the model has win machines.
@@ -135,7 +136,7 @@ func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
 	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("5.2")
 
-	targetVersion := version.MustParse("3.0.0")
+	targetVersion := version.MustParse("4.0.0")
 	validators := upgradevalidation.ValidatorsForModelUpgrade(false, targetVersion, cloudSpec.CloudSpec)
 	checker := upgradevalidation.NewModelUpgradeCheck(modelTag.Id(), statePool, state, model, validators...)
 	blockers, err := checker.Validate()

@@ -24,42 +24,65 @@ type versionCheckTC struct {
 	allowed bool
 	minVers string
 	err     string
-	patch   bool
 }
 
 func (s *versionSuite) TestUpgradeControllerAllowed(c *gc.C) {
 	for i, t := range []versionCheckTC{
 		{
 			from:    "2.8.0",
-			to:      "3.0.0",
+			to:      "4.0.0",
 			allowed: false,
-			minVers: "2.9.36",
-			patch:   true,
-		}, {
-			from:    "2.9.65",
-			to:      "3.0.0",
-			allowed: true,
-			minVers: "2.9.36",
-			patch:   true,
-		}, {
-			from:    "2.9.37",
-			to:      "3.0.0",
-			allowed: true,
-			minVers: "2.9.36",
-			patch:   true,
+			minVers: "0.0.0",
+			err:     `upgrading controller to "4.0.0" is not supported from "2.8.0"`,
 		}, {
 			from:    "2.9.0",
 			to:      "4.0.0",
 			allowed: false,
 			minVers: "0.0.0",
-			patch:   true,
-			err:     `upgrading controller to \"4.0.0\" is not supported from \"2.9.0\"`,
+			err:     `upgrading controller to "4.0.0" is not supported from "2.9.0"`,
 		}, {
-			from:    "3.0.0",
-			to:      "2.0.0",
+			from:    "2.9.65",
+			to:      "4.0.0",
 			allowed: false,
 			minVers: "0.0.0",
-			patch:   true,
+			err:     `upgrading controller to "4.0.0" is not supported from "2.9.65"`,
+		}, {
+			from:    "2.9.37",
+			to:      "3.0.0",
+			allowed: false,
+			minVers: "0.0.0",
+			err:     `upgrading controller to "3.0.0" is not supported from "2.9.37"`,
+		}, {
+			from:    "3.0.0",
+			to:      "4.0.0",
+			allowed: false,
+			minVers: "3.1.0",
+		}, {
+			from:    "3.0.1",
+			to:      "4.0.0",
+			allowed: false,
+			minVers: "3.1.0",
+		}, {
+			from:    "3.1.0",
+			to:      "4.0.0",
+			allowed: true,
+			minVers: "3.1.0",
+		}, {
+			from:    "3.3.0",
+			to:      "4.0.0",
+			allowed: true,
+			minVers: "3.1.0",
+		}, {
+			from:    "4.0.0",
+			to:      "3.1.0",
+			allowed: false,
+			minVers: "0.0.0",
+			err:     `downgrade is not allowed`,
+		}, {
+			from:    "5.0.0",
+			to:      "4.0.0",
+			allowed: false,
+			minVers: "0.0.0",
 			err:     `downgrade is not allowed`,
 		},
 	} {
@@ -69,12 +92,6 @@ func (s *versionSuite) TestUpgradeControllerAllowed(c *gc.C) {
 
 func (s *versionSuite) assertUpgradeControllerAllowed(c *gc.C, i int, t versionCheckTC) {
 	c.Logf("testing %d", i)
-	if t.patch {
-		restore := jujutesting.PatchValue(&upgradevalidation.MinAgentVersions, map[int]version.Number{
-			3: version.MustParse("2.9.36"),
-		})
-		defer restore()
-	}
 
 	from := version.MustParse(t.from)
 	to := version.MustParse(t.to)
@@ -93,30 +110,57 @@ func (s *versionSuite) TestMigrateToAllowed(c *gc.C) {
 	for i, t := range []versionCheckTC{
 		{
 			from:    "2.8.0",
-			to:      "3.0.0",
+			to:      "4.0.0",
 			allowed: false,
-			minVers: "2.9.43",
+			minVers: "0.0.0",
+			err:     `migrate to "4.0.0" is not supported from "2.8.0"`,
 		}, {
-			from:    "2.9.43",
-			to:      "3.0.0",
-			allowed: true,
-			minVers: "2.9.43",
-		}, {
-			from:    "2.9.44",
-			to:      "3.0.0",
-			allowed: true,
-			minVers: "2.9.43",
-		},
-		{
 			from:    "2.9.0",
 			to:      "4.0.0",
 			allowed: false,
 			minVers: "0.0.0",
-			err:     `migrate to \"4.0.0\" is not supported from \"2.9.0\"`,
-		},
-		{
+			err:     `migrate to "4.0.0" is not supported from "2.9.0"`,
+		}, {
+			from:    "2.9.65",
+			to:      "4.0.0",
+			allowed: false,
+			minVers: "0.0.0",
+			err:     `migrate to "4.0.0" is not supported from "2.9.65"`,
+		}, {
+			from:    "2.9.37",
+			to:      "3.0.0",
+			allowed: false,
+			minVers: "0.0.0",
+			err:     `migrate to "3.0.0" is not supported from "2.9.37"`,
+		}, {
 			from:    "3.0.0",
-			to:      "2.0.0",
+			to:      "4.0.0",
+			allowed: false,
+			minVers: "3.1.0",
+		}, {
+			from:    "3.0.1",
+			to:      "4.0.0",
+			allowed: false,
+			minVers: "3.1.0",
+		}, {
+			from:    "3.1.0",
+			to:      "4.0.0",
+			allowed: true,
+			minVers: "3.1.0",
+		}, {
+			from:    "3.3.0",
+			to:      "4.0.0",
+			allowed: true,
+			minVers: "3.1.0",
+		}, {
+			from:    "4.0.0",
+			to:      "3.1.0",
+			allowed: false,
+			minVers: "0.0.0",
+			err:     `downgrade is not allowed`,
+		}, {
+			from:    "5.0.0",
+			to:      "4.0.0",
 			allowed: false,
 			minVers: "0.0.0",
 			err:     `downgrade is not allowed`,
@@ -128,6 +172,7 @@ func (s *versionSuite) TestMigrateToAllowed(c *gc.C) {
 
 func (s *versionSuite) assertMigrateToAllowed(c *gc.C, i int, t versionCheckTC) {
 	c.Logf("testing %d", i)
+
 	from := version.MustParse(t.from)
 	to := version.MustParse(t.to)
 	minVers := version.MustParse(t.minVers)

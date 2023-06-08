@@ -18,16 +18,14 @@ func ValidatorsForControllerUpgrade(
 			getCheckTargetVersionForControllerModel(targetVersion),
 			checkMongoStatusForControllerUpgrade,
 		}
-		if targetVersion.Major == 3 {
+		if targetVersion.Major == 4 {
 			validators = append(validators,
 				checkMongoVersionForControllerModel,
 				checkNoWinMachinesForModel,
 				checkForDeprecatedUbuntuSeriesForModel,
 				getCheckForLXDVersion(cloudspec),
+				checkForCharmStoreCharms,
 			)
-			if targetVersion.Minor >= 1 {
-				validators = append(validators, checkForCharmStoreCharms)
-			}
 		}
 		return validators
 	}
@@ -35,17 +33,14 @@ func ValidatorsForControllerUpgrade(
 		getCheckTargetVersionForModel(targetVersion, UpgradeControllerAllowed),
 		checkModelMigrationModeForControllerUpgrade,
 	}
-	if targetVersion.Major >= 3 {
+	if targetVersion.Major >= 4 {
 		validators = append(validators,
 			checkNoWinMachinesForModel,
 			checkForDeprecatedUbuntuSeriesForModel,
 			getCheckForLXDVersion(cloudspec),
+			checkForCharmStoreCharms,
 		)
 	}
-	if targetVersion.Major >= 3 && targetVersion.Minor >= 1 {
-		validators = append(validators, checkForCharmStoreCharms)
-	}
-
 	return validators
 }
 
@@ -56,15 +51,13 @@ func ValidatorsForModelUpgrade(
 	validators := []Validator{
 		getCheckUpgradeSeriesLockForModel(force),
 	}
-	if targetVersion.Major == 3 {
+	if targetVersion.Major == 4 {
 		validators = append(validators,
 			checkNoWinMachinesForModel,
 			checkForDeprecatedUbuntuSeriesForModel,
 			getCheckForLXDVersion(cloudspec),
+			checkForCharmStoreCharms,
 		)
-		if targetVersion.Minor >= 1 {
-			validators = append(validators, checkForCharmStoreCharms)
-		}
 	}
 	return validators
 }

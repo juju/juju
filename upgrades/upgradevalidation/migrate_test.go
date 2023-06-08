@@ -66,49 +66,16 @@ type migrateSuite struct {
 	model     *mocks.MockModel
 }
 
-func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju3(c *gc.C) {
-	ctrl, cloudSpec := s.setupJuju3Target(c)
+func (s *migrateSuite) TestValidatorsForModelMigrationTargetJuju4(c *gc.C) {
+	ctrl, cloudSpec := s.setupJuju3Source(c)
 	defer ctrl.Finish()
 
+	s.st.EXPECT().AllCharmURLs().Return(nil, errors.NotFoundf("no charms"))
+
 	modelTag := coretesting.ModelTag
-	targetVersion := version.MustParse("3.0.0")
+	targetVersion := version.MustParse("4.0.0")
 	validators := upgradevalidation.ValidatorsForModelMigrationSource(targetVersion, cloudSpec)
 
-	checker := upgradevalidation.NewModelUpgradeCheck(modelTag.Id(), s.statePool, s.st, s.model, validators...)
-	blockers, err := checker.Validate()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockers, gc.IsNil)
-}
-
-func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju31(c *gc.C) {
-	ctrl, cloudSpec := s.setupJuju3Target(c)
-	defer ctrl.Finish()
-
-	// - check no charm store charms
-	s.st.EXPECT().AllCharmURLs().Return([]*string{}, errors.NotFoundf("charm urls"))
-
-	modelTag := coretesting.ModelTag
-	targetVersion := version.MustParse("3.1.0")
-	validators := upgradevalidation.ValidatorsForModelMigrationSource(targetVersion, cloudSpec)
-
-	checker := upgradevalidation.NewModelUpgradeCheck(modelTag.Id(), s.statePool, s.st, s.model, validators...)
-	blockers, err := checker.Validate()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockers, gc.IsNil)
-}
-
-func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju2(c *gc.C) {
-	defer s.initializeMocks(c).Finish()
-
-	modelTag := coretesting.ModelTag
-
-	// - check agent version;
-	s.model.EXPECT().AgentVersion().Return(version.MustParse("2.9.32"), nil)
-	// - check no upgrade series in process.
-	s.st.EXPECT().HasUpgradeSeriesLocks().Return(false, nil)
-
-	targetVersion := version.MustParse("2.9.99")
-	validators := upgradevalidation.ValidatorsForModelMigrationSource(targetVersion, environscloudspec.CloudSpec{Type: "foo"})
 	checker := upgradevalidation.NewModelUpgradeCheck(modelTag.Id(), s.statePool, s.st, s.model, validators...)
 	blockers, err := checker.Validate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -123,7 +90,11 @@ func (s *migrateSuite) initializeMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *migrateSuite) setupJuju3Target(c *gc.C) (*gomock.Controller, environscloudspec.CloudSpec) {
+func (s *migrateSuite) setupJuju3Source(c *gc.C) (*gomock.Controller, environscloudspec.CloudSpec) {
+	return s.setupJujuSource(c, version.MustParse("3.2.0"))
+}
+
+func (s *migrateSuite) setupJujuSource(c *gc.C, version version.Number) (*gomock.Controller, environscloudspec.CloudSpec) {
 	ctrl := s.initializeMocks(c)
 	server := mocks.NewMockServer(ctrl)
 	serverFactory := mocks.NewMockServerFactory(ctrl)
@@ -138,7 +109,7 @@ func (s *migrateSuite) setupJuju3Target(c *gc.C) (*gomock.Controller, environscl
 		},
 	)
 	// - check agent version;
-	s.model.EXPECT().AgentVersion().Return(version.MustParse("2.9.43"), nil)
+	s.model.EXPECT().AgentVersion().Return(version, nil)
 	// - check no upgrade series in process.
 	s.st.EXPECT().HasUpgradeSeriesLocks().Return(false, nil)
 	// - check if the model has win machines;
