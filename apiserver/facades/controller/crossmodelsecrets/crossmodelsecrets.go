@@ -137,8 +137,8 @@ func (s *CrossModelSecretsAPI) checkRelationMacaroons(consumerTag names.Tag, mac
 
 	// A cross model secret can only be accessed if the corresponding cross model relation
 	// it is scoped to is accessible by the supplied macaroon.
-	auth := s.authCtxt.Authenticator(s.modelUUID, offerUUID)
-	return auth.CheckRelationMacaroons(s.ctx, names.NewRelationTag(relKey), mac, version)
+	auth := s.authCtxt.Authenticator()
+	return auth.CheckRelationMacaroons(s.ctx, s.modelUUID, offerUUID, names.NewRelationTag(relKey), mac, version)
 }
 
 // GetSecretContentInfo returns the secret values for the specified secrets.

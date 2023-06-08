@@ -178,6 +178,18 @@ func (st *mockState) OfferNameForRelation(key string) (string, error) {
 	return st.offerNames[key], nil
 }
 
+func (st *mockState) AppNameForOffer(offerName string) (string, error) {
+	st.MethodCall(st, "AppNameForOffer", offerName)
+	if err := st.NextErr(); err != nil {
+		return "", err
+	}
+	offer, ok := st.offers[offerName]
+	if !ok {
+		return "", errors.NotFoundf("offer %q", offerName)
+	}
+	return offer.ApplicationName, nil
+}
+
 func (st *mockState) ImportRemoteEntity(entity names.Tag, token string) error {
 	st.MethodCall(st, "ImportRemoteEntity", entity, token)
 	if err := st.NextErr(); err != nil {
@@ -273,17 +285,17 @@ func (st *mockState) Application(id string) (commoncrossmodel.Application, error
 	return a, nil
 }
 
-func (st *mockState) GetSecretConsumerInfo(token string) (names.Tag, string, error) {
-	st.MethodCall(st, "GetSecretConsumerInfo", token)
+func (st *mockState) GetSecretConsumerInfo(appToken, relToken string) (names.Tag, string, error) {
+	st.MethodCall(st, "GetSecretConsumerInfo", appToken, relToken)
 	if err := st.NextErr(); err != nil {
 		return nil, "", err
 	}
 	for e, t := range st.remoteEntities {
-		if t == token {
-			return e, e.Id() + "-uuid", nil
+		if t == appToken {
+			return e, relToken + "-uuid", nil
 		}
 	}
-	return nil, "", errors.NotFoundf("token %v", token)
+	return nil, "", errors.NotFoundf("token %v", appToken)
 }
 
 func (st *mockState) GetSecret(uri *coresecrets.URI) (*coresecrets.SecretMetadata, error) {

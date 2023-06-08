@@ -277,16 +277,19 @@ func (s *workerSuite) TestDrainPartiallyFailed(c *gc.C) {
 				},
 			},
 		}, nil),
+
+		// revision 1
 		s.backendClient.EXPECT().GetBackend(nil).DoAndReturn(func(_ *string) (*provider.SecretsBackend, string, error) {
 			return nil, "backend-3", nil
 		}),
-
-		// revision 1
 		s.backendClient.EXPECT().GetRevisionContent(uri, 1).Return(secretValue, nil),
 		s.backendClient.EXPECT().SaveContent(uri, 1, secretValue).Return(coresecrets.ValueRef{}, errors.NotSupportedf("")),
 		s.backendClient.EXPECT().GetBackend(ptr("backend-1")).Return(oldBackend, "", nil),
 
 		// revision 2
+		s.backendClient.EXPECT().GetBackend(nil).DoAndReturn(func(_ *string) (*provider.SecretsBackend, string, error) {
+			return nil, "backend-3", nil
+		}),
 		s.backendClient.EXPECT().GetRevisionContent(uri, 2).Return(secretValue, nil),
 		s.backendClient.EXPECT().SaveContent(uri, 2, secretValue).Return(coresecrets.ValueRef{}, errors.NotSupportedf("")),
 		s.backendClient.EXPECT().GetBackend(ptr("backend-2")).Return(oldBackend, "", nil),
@@ -314,7 +317,7 @@ func (s *workerSuite) TestDrainPartiallyFailed(c *gc.C) {
 			return nil
 		}),
 	)
-	start(`failed to drain secret revisions for "secret:.*" to the active backend "backend-3"`)
+	start(`failed to drain secret revisions for "secret:.*" to the active backend`)
 }
 
 func ptr[T any](v T) *T {

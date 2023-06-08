@@ -7,6 +7,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
+
+	"github.com/juju/juju/core/secrets"
 )
 
 // Until we add 3.0 upgrade steps, keep static analysis happy.
@@ -88,6 +90,45 @@ func applyToAllModelSettings(st *State, change func(*settingsDoc) (bool, error))
 	}
 	if err := iter.Close(); err != nil {
 		return errors.Trace(err)
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
+	return nil
+}
+
+// EnsureInitalRefCountForExternalSecretBackends creates an initial refcount for each
+// external secret backend if there is no one found.
+func EnsureInitalRefCountForExternalSecretBackends(pool *StatePool) error {
+	st, err := pool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	backends := NewSecretBackends(st)
+	allBackends, err := backends.ListSecretBackends()
+	if err != nil {
+		return errors.Annotate(err, "loading secret backends")
+	}
+	refCountCollection, ccloser := st.db().GetCollection(globalRefcountsC)
+	defer ccloser()
+	var ops []txn.Op
+	for _, backend := range allBackends {
+		if secrets.IsInternalSecretBackendID(backend.ID) {
+			continue
+		}
+		_, err := nsRefcounts.read(refCountCollection, secretBackendRefCountKey(backend.ID))
+		if err == nil {
+			continue
+		}
+		if !errors.Is(err, errors.NotFound) {
+			return errors.Annotatef(err, "cannot read refcount for backend %q", backend.ID)
+		}
+		refOps, err := st.createSecretBackendRefCountOp(backend.ID)
+		if err != nil {
+			return errors.Annotatef(err, "cannot get creating refcount op for backend %q", backend.ID)
+		}
+		ops = append(ops, refOps...)
 	}
 	if len(ops) > 0 {
 		return errors.Trace(st.runRawTransaction(ops))

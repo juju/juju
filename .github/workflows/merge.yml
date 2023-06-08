@@ -1,0 +1,82 @@
+name: Merge
+on:
+  push:
+    branches: ['2.9', '3.1', '3.2', '3.3']
+
+jobs:
+  check-merge:
+    name: Check for conflicts
+    runs-on: ubuntu-latest
+    env:
+      MERGE_TARGETS: |
+        2.9: 3.1
+        3.1: 3.2
+        3.2: 3.3
+        3.3: main
+
+    steps:
+      - name: Determine source/target branches
+        id: branch
+        run: |
+          set -x
+          SOURCE_BRANCH=${{ github.ref_name }}
+          echo "source=$SOURCE_BRANCH" >> "$GITHUB_OUTPUT"
+          TARGET_BRANCH=$(echo "$MERGE_TARGETS" | yq ".\"$SOURCE_BRANCH\"")
+          echo "target=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          ref: ${{ steps.branch.outputs.target }}
+
+      - name: Attempt to merge
+        id: merge
+        run: |
+          set -x
+          # Need to set Git username/email to do the merge (yawn)
+          git config user.name 'jujubot'
+          git config user.email 'fake@address.me'
+          
+          set +e
+          git merge origin/${{ steps.branch.outputs.source }}
+          case $? in
+          0)
+            echo "conflicts=false" >> "$GITHUB_OUTPUT"
+            ;;
+          1)
+            echo "conflicts=true" >> "$GITHUB_OUTPUT"
+            ;;
+          *)
+            exit $?
+            ;;
+          esac
+
+      - name: Notify if merge has conflicts
+        if: steps.merge.outputs.conflicts == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MM_TOKEN: ${{ secrets.MM_TOKEN }}
+          MM_USERS: ${{ secrets.MM_USERS }}
+        run: |
+          set -ex
+          SOURCE_BRANCH=${{ steps.branch.outputs.source }}
+          TARGET_BRANCH=${{ steps.branch.outputs.target }}
+          
+          # Get PR info
+          PR_INFO=$(gh pr list --search="${{ github.sha }}" --state=merged --base="$SOURCE_BRANCH" --json='number,author')
+          PR_NUMBER=$(echo "$PR_INFO" | jq '.[].number')
+          
+          PR_AUTHOR=$(echo "$PR_INFO" | jq -r '.[].author.login')
+          MM_USER=$(echo "$MM_USERS" | jq -r ".\"$PR_AUTHOR\"")
+          if [[ $MM_USER == '' || $MM_USER == null ]]; then
+            MM_USER=$PR_AUTHOR
+          fi
+          
+          MESSAGE="@$MM_USER your PR [#$PR_NUMBER](https://github.com/juju/juju/pull/$PR_NUMBER) has created merge conflicts - please merge $SOURCE_BRANCH into $TARGET_BRANCH and resolve the conflicts. Thanks! :)"
+          
+          # install mmctl
+          curl https://github.com/mattermost/mmctl/releases/download/v7.8.5/linux_amd64.tar -Lo mmctl.tar
+          tar -xvf mmctl.tar
+          ./mmctl auth login 'https://chat.charmhub.io' --name Charmhub --access-token $MM_TOKEN
+          ./mmctl post create Charmhub:juju-watercooler --message "$MESSAGE"
