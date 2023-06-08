@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/charm/repository/mocks"
-	"github.com/juju/juju/core/series"
 )
 
 var (
@@ -101,7 +100,7 @@ func (s *charmHubRepositorySuite) testResolve(c *gc.C, id string) {
 
 	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
-	c.Assert(obtainedBases, jc.SameContents, []series.Base{{OS: "ubuntu", Channel: series.Channel{Track: "20.04", Risk: "stable"}}})
+	c.Assert(obtainedBases, jc.SameContents, []corecharm.Platform{{OS: "ubuntu", Channel: "20.04", Architecture: "amd64"}})
 }
 
 func (s *charmHubRepositorySuite) TestResolveWithChannel(c *gc.C) {
@@ -141,7 +140,7 @@ func (s *charmHubRepositorySuite) TestResolveWithChannel(c *gc.C) {
 
 	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
-	c.Assert(obtainedBases, jc.SameContents, []series.Base{{OS: "ubuntu", Channel: series.Channel{Track: "20.04", Risk: "stable"}}})
+	c.Assert(obtainedBases, jc.SameContents, []corecharm.Platform{{OS: "ubuntu", Channel: "20.04", Architecture: "amd64"}})
 }
 
 func (s *charmHubRepositorySuite) TestResolveWithoutBase(c *gc.C) {
@@ -173,7 +172,7 @@ func (s *charmHubRepositorySuite) TestResolveWithoutBase(c *gc.C) {
 
 	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
-	c.Assert(obtainedBases, jc.SameContents, []series.Base{{}})
+	c.Assert(obtainedBases, jc.SameContents, []corecharm.Platform{})
 }
 
 func (s *charmHubRepositorySuite) TestResolveForDeployWithRevisionSuccess(c *gc.C) {
@@ -280,7 +279,7 @@ func (s *charmHubRepositorySuite) TestResolveWithBundles(c *gc.C) {
 
 	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
-	c.Assert(obtainedBases, jc.SameContents, []series.Base{{}})
+	c.Assert(obtainedBases, jc.SameContents, []corecharm.Platform{})
 }
 
 func (s *charmHubRepositorySuite) TestResolveInvalidPlatformError(c *gc.C) {
@@ -315,7 +314,7 @@ func (s *charmHubRepositorySuite) TestResolveInvalidPlatformError(c *gc.C) {
 
 	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
-	c.Assert(obtainedBases, jc.SameContents, []series.Base{{OS: "ubuntu", Channel: series.Channel{Track: "20.04", Risk: "stable"}}})
+	c.Assert(obtainedBases, jc.SameContents, []corecharm.Platform{{OS: "ubuntu", Channel: "20.04", Architecture: "amd64"}})
 }
 
 func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundErrorWithNoSeries(c *gc.C) {
@@ -371,7 +370,7 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
 
 	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
-	c.Assert(obtainedBases, jc.SameContents, []series.Base{{OS: "ubuntu", Channel: series.Channel{Track: "20.04", Risk: "stable"}}})
+	c.Assert(obtainedBases, jc.SameContents, []corecharm.Platform{{OS: "ubuntu", Channel: "20.04", Architecture: "amd64"}})
 }
 
 func (s *charmHubRepositorySuite) TestDownloadCharm(c *gc.C) {

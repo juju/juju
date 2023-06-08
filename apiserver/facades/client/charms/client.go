@@ -386,7 +386,7 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel) params.Resolve
 		return result
 	}
 
-	resultURL, origin, supportedBases, err := repo.ResolveWithPreferredChannel(curl, requestedOrigin)
+	resultURL, origin, resolvableBases, err := repo.ResolveWithPreferredChannel(curl, requestedOrigin)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
@@ -416,15 +416,15 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel) params.Resolve
 	result.Origin = archOrigin
 
 	switch {
-	case resultURL.Series != "" && len(supportedBases) == 0:
+	case resultURL.Series != "" && len(resolvableBases) == 0:
 		base, err := series.GetBaseFromSeries(resultURL.Series)
 		if err != nil {
 			result.Error = apiservererrors.ServerError(err)
 			return result
 		}
-		result.SupportedBases = []params.CharmBase{convertCharmBase(base)}
+		result.SupportedBases = []params.CharmBase{{Name: base.OS, Channel: base.Channel.String()}}
 	default:
-		result.SupportedBases = transform.Slice(supportedBases, convertCharmBase)
+		result.SupportedBases = transform.Slice(resolvableBases, convertCharmBase)
 	}
 
 	return result
@@ -451,10 +451,10 @@ func (a *APIv6) ResolveCharms(args params.ResolveCharmsWithChannel) (params.Reso
 	return res, err
 }
 
-func convertCharmBase(in series.Base) params.CharmBase {
+func convertCharmBase(in corecharm.Platform) params.CharmBase {
 	return params.CharmBase{
 		Name:    in.OS,
-		Channel: in.Channel.String(),
+		Channel: in.Channel,
 	}
 }
 

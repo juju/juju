@@ -44,15 +44,15 @@ func NewCharmHubRepository(logger Logger, chClient CharmHubClient) *CharmHubRepo
 // ResolveWithPreferredChannel defines a way using the given charm URL and
 // charm origin (platform and channel) to locate a matching charm against the
 // Charmhub API.
-func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, argOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []coreseries.Base, error) {
+func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, argOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error) {
 	c.logger.Tracef("Resolving CharmHub charm %q with origin %+v", charmURL, argOrigin)
 
 	requestedOrigin, err := c.validateOrigin(argOrigin)
 	if err != nil {
 		return nil, corecharm.Origin{}, nil, err
 	}
-	resCurl, outputOrigin, supportedBases, _, err := c.resolveWithPreferredChannel(charmURL, requestedOrigin)
-	return resCurl, outputOrigin, supportedBases, err
+	resCurl, outputOrigin, resolvableBases, _, err := c.resolveWithPreferredChannel(charmURL, requestedOrigin)
+	return resCurl, outputOrigin, resolvableBases, err
 }
 
 // ResolveForDeploy combines ResolveWithPreferredChannel, GetEssentialMetadata
@@ -108,7 +108,7 @@ func (c *CharmHubRepository) ResolveForDeploy(arg corecharm.CharmID) (corecharm.
 //  3. In theory we could just return most of this information without the
 //     re-request, but we end up with missing data and potential incorrect
 //     charm downloads later.
-func (c *CharmHubRepository) resolveWithPreferredChannel(charmURL *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []coreseries.Base, transport.RefreshResponse, error) {
+func (c *CharmHubRepository) resolveWithPreferredChannel(charmURL *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, transport.RefreshResponse, error) {
 	// First attempt to find the charm based on the only input provided.
 	response, err := c.refreshOne(charmURL, requestedOrigin)
 	if err != nil {
@@ -222,28 +222,10 @@ func (c *CharmHubRepository) resolveWithPreferredChannel(charmURL *charm.URL, re
 	// have to ask the API to give us back a potential base. The supported
 	// bases can be passed back. The callee can then determine which base they
 	// want to use and deploy that accordingly without another API request.
-	var base coreseries.Base
-	if outputOrigin.Platform.Channel != "" {
-		base, err = coreseries.ParseBase(outputOrigin.Platform.OS, outputOrigin.Platform.Channel)
-		if err != nil {
-			return nil, corecharm.Origin{}, nil, transport.RefreshResponse{}, errors.Trace(err)
-		}
+	if len(resolvableBases) == 0 && outputOrigin.Platform.Channel != "" {
+		resolvableBases = []corecharm.Platform{outputOrigin.Platform}
 	}
-	supportedBases := []coreseries.Base{
-		base,
-	}
-	if len(resolvableBases) > 0 {
-		supportedBases = make([]coreseries.Base, len(resolvableBases))
-		for k, resolvableBase := range resolvableBases {
-			base, err = coreseries.ParseBase(resolvableBase.OS, resolvableBase.Channel)
-			if err != nil {
-				return nil, corecharm.Origin{}, nil, transport.RefreshResponse{}, errors.Trace(err)
-			}
-			supportedBases[k] = base
-		}
-	}
-
-	return resCurl, outputOrigin, supportedBases, response, nil
+	return resCurl, outputOrigin, resolvableBases, response, nil
 }
 
 // validateOrigin, validate the origin and maybe fix as follows:
