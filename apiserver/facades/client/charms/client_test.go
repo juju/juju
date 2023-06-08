@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
-	"github.com/juju/juju/core/series"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -207,26 +206,26 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 			URL:    curl.String(),
 			Origin: stableOrigin,
 			SupportedBases: []params.Base{
-				{Name: "ubuntu", Channel: "18.04/stable"},
-				{Name: "ubuntu", Channel: "20.04/stable"},
-				{Name: "ubuntu", Channel: "16.04/stable"},
+				{Name: "ubuntu", Channel: "18.04"},
+				{Name: "ubuntu", Channel: "20.04"},
+				{Name: "ubuntu", Channel: "16.04"},
 			},
 		}, {
 			URL:    curl.String(),
 			Origin: stableOrigin,
 			SupportedBases: []params.Base{
-				{Name: "ubuntu", Channel: "18.04/stable"},
-				{Name: "ubuntu", Channel: "20.04/stable"},
-				{Name: "ubuntu", Channel: "16.04/stable"},
+				{Name: "ubuntu", Channel: "18.04"},
+				{Name: "ubuntu", Channel: "20.04"},
+				{Name: "ubuntu", Channel: "16.04"},
 			},
 		},
 		{
 			URL:    seriesCurl.String(),
 			Origin: edgeOrigin,
 			SupportedBases: []params.Base{
-				{Name: "ubuntu", Channel: "18.04/stable"},
-				{Name: "ubuntu", Channel: "20.04/stable"},
-				{Name: "ubuntu", Channel: "16.04/stable"},
+				{Name: "ubuntu", Channel: "18.04"},
+				{Name: "ubuntu", Channel: "20.04"},
+				{Name: "ubuntu", Channel: "16.04"},
 			},
 		},
 	}
@@ -704,7 +703,7 @@ func (s *charmsMockSuite) expectResolveWithPreferredChannel(times int, err error
 		gomock.AssignableToTypeOf(corecharm.Origin{}),
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []series.Base, error) {
+		func(curl *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error) {
 			resolvedOrigin := requestedOrigin
 			resolvedOrigin.Type = "charm"
 
@@ -715,10 +714,10 @@ func (s *charmsMockSuite) expectResolveWithPreferredChannel(times int, err error
 
 				resolvedOrigin.Channel.Risk = "stable"
 			}
-			bases := []series.Base{
-				series.MustParseBaseFromString("ubuntu@18.04"),
-				series.MustParseBaseFromString("ubuntu@20.04"),
-				series.MustParseBaseFromString("ubuntu@16.04"),
+			bases := []corecharm.Platform{
+				{OS: "ubuntu", Channel: "18.04"},
+				{OS: "ubuntu", Channel: "20.04"},
+				{OS: "ubuntu", Channel: "16.04"},
 			}
 			return curl, resolvedOrigin, bases, err
 		}).Times(times)

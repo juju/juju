@@ -11,7 +11,6 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v11"
 	charm0 "github.com/juju/juju/core/charm"
-	series "github.com/juju/juju/core/series"
 )
 
 // MockCharmArchive is a mock of CharmArchive interface.
@@ -205,12 +204,12 @@ func (mr *MockCharmRepositoryMockRecorder) GetDownloadURL(arg0, arg1 interface{}
 }
 
 // ResolveWithPreferredChannel mocks base method.
-func (m *MockCharmRepository) ResolveWithPreferredChannel(arg0 *charm.URL, arg1 charm0.Origin) (*charm.URL, charm0.Origin, []series.Base, error) {
+func (m *MockCharmRepository) ResolveWithPreferredChannel(arg0 *charm.URL, arg1 charm0.Origin) (*charm.URL, charm0.Origin, []charm0.Platform, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveWithPreferredChannel", arg0, arg1)
 	ret0, _ := ret[0].(*charm.URL)
 	ret1, _ := ret[1].(charm0.Origin)
-	ret2, _ := ret[2].([]series.Base)
+	ret2, _ := ret[2].([]charm0.Platform)
 	ret3, _ := ret[3].(error)
 	return ret0, ret1, ret2, ret3
 }

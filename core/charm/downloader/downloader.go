@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/version"
 )
 
@@ -35,7 +34,7 @@ type CharmArchive interface {
 // CharmRepository provides an API for downloading charms/bundles.
 type CharmRepository interface {
 	GetDownloadURL(*charm.URL, corecharm.Origin) (*url.URL, corecharm.Origin, error)
-	ResolveWithPreferredChannel(charmURL *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []series.Base, error)
+	ResolveWithPreferredChannel(charmURL *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error)
 	DownloadCharm(charmURL *charm.URL, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, error)
 }
 
