@@ -443,6 +443,7 @@ func (s *remoteRelationsSuite) TestConsumeRelationResumePermission(c *gc.C) {
 		Changes: []params.RemoteRelationChangeEvent{change},
 	}
 
+	s.st.EXPECT().GetRemoteEntity("app-token").Return(names.NewApplicationTag("db2"), nil)
 	s.st.EXPECT().GetRemoteEntity("rel-token").Return(names.NewRelationTag(db2Relation.key), nil)
 	s.st.EXPECT().KeyRelation(db2Relation.key).Return(db2Relation, nil)
 	s.st.EXPECT().ModelUUID().AnyTimes()
