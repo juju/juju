@@ -30,8 +30,8 @@ type CrossModelRelationsState interface {
 	IsMigrationActive() (bool, error)
 
 	// GetSecretConsumerInfo returns the remote app tag and offer uuid
-	// for the specified consumer app token.
-	GetSecretConsumerInfo(string) (names.Tag, string, error)
+	// for the specified consumer app and relation tokens.
+	GetSecretConsumerInfo(string, string) (names.Tag, string, error)
 
 	// GetSecret gets the secret metadata for the given secret URI.
 	GetSecret(*coresecrets.URI) (*coresecrets.SecretMetadata, error)
@@ -68,16 +68,28 @@ func (st stateShim) IsMigrationActive() (bool, error) {
 	return migrating, errors.Trace(err)
 }
 
-func (s stateShim) GetSecretConsumerInfo(token string) (names.Tag, string, error) {
-	appTag, err := s.Backend.GetRemoteEntity(token)
+func (s stateShim) GetSecretConsumerInfo(appToken, relToken string) (names.Tag, string, error) {
+	appTag, err := s.Backend.GetRemoteEntity(appToken)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
-	app, err := s.Backend.RemoteApplication(appTag.Id())
+
+	// TODO(juju4) - remove
+	// For compatibility with older clients which do not
+	// provide a relation tag.
+	if relToken == "" {
+		return appTag, "", nil
+	}
+
+	relTag, err := s.Backend.GetRemoteEntity(relToken)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
-	return appTag, app.OfferUUID(), nil
+	conn, err := s.Backend.OfferConnectionForRelation(relTag.Id())
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	return appTag, conn.OfferUUID(), nil
 }
 
 func (s stateShim) GetSecret(uri *coresecrets.URI) (*coresecrets.SecretMetadata, error) {

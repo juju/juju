@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/juju/cmd/v3"
@@ -56,7 +57,7 @@ func (c *checkConnectionCommand) Info() *cmd.Info {
 // Init is part of cmd.Command.
 func (c *checkConnectionCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return &agenterrors.FatalError{"agent-name argument is required"}
+		return fmt.Errorf("agent-name argument is required%w", errors.Hide(agenterrors.FatalError))
 	}
 	agentName, args := args[0], args[1:]
 	if err := cmd.CheckEmpty(args); err != nil {
@@ -67,7 +68,7 @@ func (c *checkConnectionCommand) Init(args []string) error {
 		return errors.Annotatef(err, "agent-name")
 	}
 	if tag.Kind() != "machine" && tag.Kind() != "unit" {
-		return &agenterrors.FatalError{"agent-name must be a machine or unit tag"}
+		return fmt.Errorf("agent-name must be a machine or unit tag%w", errors.Hide(agenterrors.FatalError))
 	}
 	err = c.config.ReadConfig(agentName)
 	if err != nil {

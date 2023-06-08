@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -211,14 +210,6 @@ func (s *storageResolver) nextHookOp(
 		// The storage is dying, but we haven't previously run the
 		// "storage-detached" hook. Do so now.
 		hookInfo.Kind = hooks.StorageDetaching
-	}
-
-	// Update the local State to reflect what we're about to report
-	// to a hook.
-	s.storage.storageAttachments[tag] = &contextStorage{
-		tag:      tag,
-		kind:     storage.StorageKind(snap.Kind),
-		location: snap.Location,
 	}
 
 	return opFactory.NewRunHook(hookInfo)

@@ -5,6 +5,7 @@ package errors_test
 
 import (
 	stderrors "errors"
+	"fmt"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -76,7 +77,7 @@ var isFatalTests = []struct {
 		},
 		isFatal: false,
 	}, {
-		err:     &agenterrors.FatalError{"some fatal error"},
+		err:     fmt.Errorf("some %w error", agenterrors.FatalError),
 		isFatal: true,
 	}, {
 		err:     stderrors.New("foo"),

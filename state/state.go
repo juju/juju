@@ -236,11 +236,58 @@ func (st *State) RemoveExportingModelDocs() error {
 	return errors.Trace(err)
 }
 
+func cleanupSecretBackendRefCountAfterModelMigrationDone(st *State) error {
+	col, closer := st.db().GetCollection(secretRevisionsC)
+	defer closer()
+	pipe := col.Pipe([]bson.M{
+		{
+			"$match": bson.M{
+				"value-reference.backend-id": bson.M{
+					"$exists": true,
+					"$ne":     "",
+				},
+			},
+		},
+		{
+			"$group": bson.M{
+				"_id": "$value-reference.backend-id", "count": bson.M{"$sum": 1},
+			},
+		},
+	})
+	var result []struct {
+		ID    string `bson:"_id"`
+		Count int    `bson:"count"`
+	}
+	if err := pipe.All(&result); err != nil {
+		return errors.Trace(err)
+	}
+	if len(result) == 0 {
+		return nil
+	}
+
+	var ops []txn.Op
+	for _, r := range result {
+		for i := r.Count; i > 0; i-- {
+			refOps, err := st.decSecretBackendRefCountOp(r.ID)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			ops = append(ops, refOps...)
+		}
+	}
+	return st.db().RunTransaction(ops)
+}
+
 func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 	// Remove permissions first, because we potentially
 	// remove parent documents in the following stage.
 	if err := st.removeAllModelPermissions(); err != nil {
 		return errors.Annotate(err, "removing permissions")
+	}
+
+	if err := cleanupSecretBackendRefCountAfterModelMigrationDone(st); err != nil {
+		// We have to do this before secrets get removed.
+		return errors.Trace(err)
 	}
 
 	// Remove each collection in its own transaction.

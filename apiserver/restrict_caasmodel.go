@@ -17,6 +17,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"ActionPruner",
 	"AllWatcher",
 	"Agent",
+	"AgentLifeFlag",
 	"Annotations",
 	"Application",
 	"Block",

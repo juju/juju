@@ -32,7 +32,7 @@ require (
 	github.com/coreos/go-systemd/v22 v22.3.2
 	github.com/docker/distribution v2.8.2+incompatible
 	github.com/dustin/go-humanize v1.0.1
-	github.com/go-goose/goose/v5 v5.0.0-20220707165353-781664254fe4
+	github.com/go-goose/goose/v5 v5.0.0-20230421180421-abaee9096e3a
 	github.com/go-logr/logr v1.2.2
 	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.1
 	github.com/gofrs/uuid v4.2.0+incompatible
@@ -52,7 +52,7 @@ require (
 	github.com/juju/clock v1.0.3
 	github.com/juju/cmd/v3 v3.0.10
 	github.com/juju/collections v1.0.2
-	github.com/juju/description/v4 v4.0.8
+	github.com/juju/description/v4 v4.0.10
 	github.com/juju/errors v1.0.0
 	github.com/juju/featureflag v1.0.0
 	github.com/juju/gnuflag v1.0.0

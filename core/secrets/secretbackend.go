@@ -8,7 +8,13 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/v3"
 )
+
+// IsInternalSecretBackendID returns true if the supplied backend ID is the internal backend ID.
+func IsInternalSecretBackendID(backendID string) bool {
+	return utils.IsValidUUIDString(backendID)
+}
 
 // SecretBackend defines a secrets backend.
 type SecretBackend struct {

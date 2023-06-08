@@ -413,6 +413,7 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 		"DesiredScale",
 		"Placement",
 		"HasResources",
+		"ProvisioningState",
 	)
 	s.AssertExportedFields(c, applicationDoc{}, migrated.Union(ignored))
 }

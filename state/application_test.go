@@ -15,6 +15,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/version/v2"
@@ -36,6 +37,9 @@ import (
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/testing"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider/dummy"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -294,6 +298,28 @@ func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, sch.URL())
 	c.Assert(force, jc.IsTrue)
+}
+
+func (s *ApplicationSuite) TestCAASSetCharmRequireNoUnits(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS,
+	})
+	defer st.Close()
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql", Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch, DesiredScale: 1})
+
+	// Add a compatible charm and force it.
+	sch := state.AddCustomCharm(c, st, "mysql", "metadata.yaml", metaBaseCAAS, "kubernetes", 2)
+
+	cfg := state.SetCharmConfig{
+		Charm:          sch,
+		ForceUnits:     true,
+		RequireNoUnits: true,
+	}
+	err := app.SetCharm(cfg)
+	c.Assert(err, gc.ErrorMatches, `.*application should not have units`)
 }
 
 func (s *ApplicationSuite) TestCAASSetCharmNewDeploymentFails(c *gc.C) {
@@ -5626,4 +5652,163 @@ func (s *ApplicationSuite) TestWatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertChange("e1471e8a7299da0ac2150445ffc6d08d9d801194037d88416c54b01899b8a9b2")
+}
+
+func (s *ApplicationSuite) TestProvisioningState(c *gc.C) {
+	ps := s.mysql.ProvisioningState()
+	c.Assert(ps, gc.IsNil)
+
+	err := s.mysql.SetProvisioningState(state.ApplicationProvisioningState{
+		Scaling:     true,
+		ScaleTarget: 10,
+	})
+	c.Assert(errors.Is(err, stateerrors.ProvisioningStateInconsistent), jc.IsTrue)
+
+	err = s.mysql.SetScale(10, 0, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.mysql.SetProvisioningState(state.ApplicationProvisioningState{
+		Scaling:     true,
+		ScaleTarget: 10,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ps = s.mysql.ProvisioningState()
+	c.Assert(ps, jc.DeepEquals, &state.ApplicationProvisioningState{
+		Scaling:     true,
+		ScaleTarget: 10,
+	})
+}
+
+func (s *CAASApplicationSuite) TestUpsertCAASUnit(c *gc.C) {
+	registry := &storage.StaticProviderRegistry{
+		Providers: map[storage.ProviderType]storage.Provider{
+			"kubernetes": &dummy.StorageProvider{
+				StorageScope: storage.ScopeEnviron,
+				IsDynamic:    true,
+				IsReleasable: true,
+				SupportsFunc: func(k storage.StorageKind) bool {
+					return k == storage.StorageKindBlock
+				},
+			},
+		},
+	}
+
+	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{
+		CloudName: "caascloud",
+	})
+	s.AddCleanup(func(_ *gc.C) { _ = st.Close() })
+
+	pm := poolmanager.New(state.NewStateSettings(st), registry)
+	_, err := pm.Create("kubernetes", "kubernetes", map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	s.policy = testing.MockPolicy{
+		GetStorageProviderRegistry: func() (storage.ProviderRegistry, error) {
+			return registry, nil
+		},
+	}
+
+	sb, err := state.NewStorageBackend(st)
+	c.Assert(err, jc.ErrorIsNil)
+
+	fsInfo := state.FilesystemInfo{
+		Size: 100,
+		Pool: "kubernetes",
+	}
+	volumeInfo := state.VolumeInfo{
+		VolumeId:   "pv-database-0",
+		Size:       100,
+		Pool:       "kubernetes",
+		Persistent: true,
+	}
+	storageTag, err := sb.AddExistingFilesystem(fsInfo, &volumeInfo, "database")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageTag.Id(), gc.Equals, "database/0")
+
+	ch := state.AddTestingCharmForSeries(c, st, "quantal", "cockroachdb")
+	cockroachdb := state.AddTestingApplicationWithStorage(c, st, "cockroachdb", ch, map[string]state.StorageConstraints{
+		"database": {
+			Pool:  "kubernetes",
+			Size:  100,
+			Count: 0,
+		},
+	})
+
+	unitName := "cockroachdb/0"
+	providerId := "cockroachdb-0"
+	address := "1.2.3.4"
+	ports := []string{"80", "443"}
+
+	// output of utils.AgentPasswordHash("juju")
+	passwordHash := "v+jK3ht5NEdKeoQBfyxmlYe0"
+
+	p := state.UpsertCAASUnitParams{
+		AddUnitParams: state.AddUnitParams{
+			UnitName:     &unitName,
+			ProviderId:   &providerId,
+			Address:      &address,
+			Ports:        &ports,
+			PasswordHash: &passwordHash,
+		},
+		OrderedScale:              true,
+		OrderedId:                 0,
+		ObservedAttachedVolumeIDs: []string{"pv-database-0"},
+	}
+	unit, err := cockroachdb.UpsertCAASUnit(p)
+	c.Assert(err, gc.ErrorMatches, `unrequired unit cockroachdb/0 is not assigned`)
+	c.Assert(unit, gc.IsNil)
+
+	err = cockroachdb.SetScale(1, 0, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	unit, err = cockroachdb.UpsertCAASUnit(p)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit, gc.NotNil)
+	c.Assert(unit.UnitTag().Id(), gc.Equals, "cockroachdb/0")
+	c.Assert(unit.Life(), gc.Equals, state.Alive)
+	containerInfo, err := unit.ContainerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(containerInfo.ProviderId(), gc.Equals, "cockroachdb-0")
+	c.Assert(containerInfo.Ports(), jc.SameContents, []string{"80", "443"})
+	c.Assert(containerInfo.Address().Value, gc.Equals, "1.2.3.4")
+
+	err = unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = sb.DetachStorage(storageTag, unit.UnitTag(), false, 0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = sb.DetachFilesystem(unit.UnitTag(), names.NewFilesystemTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = sb.RemoveFilesystemAttachment(unit.UnitTag(), names.NewFilesystemTag("0"), false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = sb.DetachVolume(unit.Tag(), names.NewVolumeTag("0"), false)
+	c.Assert(err, jc.ErrorIsNil)
+	err = sb.RemoveVolumeAttachment(unit.Tag(), names.NewVolumeTag("0"), false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = unit.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	unit2, err := cockroachdb.UpsertCAASUnit(p)
+	c.Assert(err, gc.ErrorMatches, `dead unit "cockroachdb/0" already exists`)
+	c.Assert(unit2, gc.IsNil)
+
+	err = unit.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.Cleanup()
+	c.Assert(err, jc.ErrorIsNil)
+
+	unit, err = cockroachdb.UpsertCAASUnit(p)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit, gc.NotNil)
+	c.Assert(unit.UnitTag().Id(), gc.Equals, "cockroachdb/0")
+	c.Assert(unit.Life(), gc.Equals, state.Alive)
+	containerInfo, err = unit.ContainerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(containerInfo.ProviderId(), gc.Equals, "cockroachdb-0")
+	c.Assert(containerInfo.Ports(), jc.SameContents, []string{"80", "443"})
+	c.Assert(containerInfo.Address().Value, gc.Equals, "1.2.3.4")
 }

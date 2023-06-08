@@ -7,12 +7,12 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3"
-
-	"github.com/juju/description/v4"
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network/firewall"
@@ -371,10 +371,16 @@ type RemoteEntitiesDescription interface {
 	RemoteEntities() []description.RemoteEntity
 }
 
+// ApplicationOffersState is used to look up all application offers.
+type ApplicationOffersState interface {
+	OfferNameForApp(appName string) (string, error)
+}
+
 // RemoteEntitiesInput describes the input used for migrating remote entities.
 type RemoteEntitiesInput interface {
 	DocModelNamespace
 	RemoteEntitiesDescription
+	ApplicationOffersState
 }
 
 // ImportRemoteEntities describes a way to import remote entities from a
@@ -383,14 +389,18 @@ type ImportRemoteEntities struct{}
 
 // Execute the import on the remote entities description, carefully modelling
 // the dependencies we have.
-func (ImportRemoteEntities) Execute(src RemoteEntitiesInput, runner TransactionRunner) error {
+func (im *ImportRemoteEntities) Execute(src RemoteEntitiesInput, runner TransactionRunner) error {
 	remoteEntities := src.RemoteEntities()
 	if len(remoteEntities) == 0 {
 		return nil
 	}
 	ops := make([]txn.Op, len(remoteEntities))
 	for i, entity := range remoteEntities {
-		docID := src.DocID(entity.ID())
+		id, err := im.legacyAppToOffer(entity.ID(), src.OfferNameForApp)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		docID := src.DocID(id)
 		ops[i] = txn.Op{
 			C:      remoteEntitiesC,
 			Id:     docID,
@@ -405,6 +415,37 @@ func (ImportRemoteEntities) Execute(src RemoteEntitiesInput, runner TransactionR
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func (im *ImportRemoteEntities) legacyAppToOffer(id string, offerNameForApp func(string) (string, error)) (string, error) {
+	tag, err := names.ParseTag(id)
+	if err != nil || tag.Kind() != names.ApplicationTagKind || strings.HasPrefix(tag.Id(), "remote-") {
+		return id, err
+	}
+	offerName, err := offerNameForApp(tag.Id())
+	if errors.Is(err, errors.NotFound) {
+		return id, nil
+	}
+	return names.NewApplicationOfferTag(offerName).String(), err
+}
+
+type applicationOffersStateShim struct {
+	stateModelNamspaceShim
+}
+
+func (a applicationOffersStateShim) OfferNameForApp(appName string) (string, error) {
+	applicationOffersCollection, closer := a.st.db().GetCollection(applicationOffersC)
+	defer closer()
+
+	var doc applicationOfferDoc
+	err := applicationOffersCollection.Find(bson.D{{"application-name", appName}}).One(&doc)
+	if err == mgo.ErrNotFound {
+		return "", errors.NotFoundf("offer for app %q", appName)
+	}
+	if err != nil {
+		return "", errors.Annotate(err, "getting application offer documents")
+	}
+	return doc.OfferName, nil
 }
 
 // RelationNetworksDescription defines an in-place usage for reading relation networks.
@@ -540,19 +581,29 @@ type SecretConsumersState interface {
 	SecretConsumerKey(uri *secrets.URI, subject string) string
 }
 
+// BackendRevisionCountProcesser is used to create a backend revision reference count.
+type BackendRevisionCountProcesser interface {
+	IncBackendRevisionCountOps(backendID string) ([]txn.Op, error)
+}
+
 // SecretsInput describes the input used for migrating secrets.
 type SecretsInput interface {
 	DocModelNamespace
 	SecretConsumersState
+	BackendRevisionCountProcesser
 	SecretsDescription
 }
 
-type secretConsumersStateShim struct {
+type secretStateShim struct {
 	stateModelNamspaceShim
 }
 
-func (s *secretConsumersStateShim) SecretConsumerKey(uri *secrets.URI, subject string) string {
+func (s *secretStateShim) SecretConsumerKey(uri *secrets.URI, subject string) string {
 	return s.st.secretConsumerKey(uri, subject)
+}
+
+func (s *secretStateShim) IncBackendRevisionCountOps(backendID string) ([]txn.Op, error) {
+	return s.st.incBackendRevisionCountOps(backendID, 1)
 }
 
 // ImportSecrets describes a way to import secrets from a
@@ -617,7 +668,7 @@ func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner, knownSe
 					BackendID:  rev.ValueRef().BackendID(),
 					RevisionID: rev.ValueRef().RevisionID(),
 				}
-				if !utils.IsValidUUIDString(valueRef.BackendID) && !seenBackendIds.Contains(valueRef.BackendID) {
+				if !secrets.IsInternalSecretBackendID(valueRef.BackendID) && !seenBackendIds.Contains(valueRef.BackendID) {
 					if !knownSecretBackends.Contains(valueRef.BackendID) {
 						return errors.New("target controller does not have all required secret backends set up")
 					}
@@ -646,6 +697,13 @@ func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner, knownSe
 					OwnerTag:      owner.String(),
 				},
 			})
+			if valueRef != nil {
+				refOps, err := src.IncBackendRevisionCountOps(valueRef.BackendID)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				ops = append(ops, refOps...)
+			}
 		}
 		for subject, access := range secret.ACL() {
 			key := src.SecretConsumerKey(uri, subject)

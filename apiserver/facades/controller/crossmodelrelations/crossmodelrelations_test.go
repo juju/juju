@@ -107,7 +107,9 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 
 func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeValue life.Value, suspendedReason string, forceCleanup bool) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
-	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
+	s.st.remoteEntities[names.NewApplicationOfferTag("db2-offer")] = "token-db2"
+	s.st.offers["db2-offer"] = &crossmodel.ApplicationOffer{
+		OfferName: "db2-offer", ApplicationName: "db2"}
 	rel := newMockRelation(1)
 	ru1 := newMockRelationUnit()
 	ru2 := newMockRelationUnit()
@@ -155,8 +157,9 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeVa
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []testing.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
-		{"KeyRelation", []interface{}{"db2:db django:db"}},
 		{"GetRemoteEntity", []interface{}{"token-db2"}},
+		{"AppNameForOffer", []interface{}{"db2-offer"}},
+		{"KeyRelation", []interface{}{"db2:db django:db"}},
 	}
 	if lifeValue == life.Alive {
 		c.Assert(rel.status, gc.Equals, status.Suspending)
@@ -292,7 +295,7 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 	expectedRel.Stub = testing.Stub{} // don't care about api calls
 	c.Check(expectedRel, jc.DeepEquals, &mockRelation{id: 0, key: "offeredapp:local remote-apptoken:remote"})
 	c.Check(s.st.remoteEntities, gc.HasLen, 2)
-	c.Check(s.st.remoteEntities[names.NewApplicationTag("offered")], gc.Equals, "token-offered")
+	c.Check(s.st.remoteEntities[names.NewApplicationOfferTag("offered")], gc.Equals, "token-offered")
 	c.Check(s.st.remoteEntities[names.NewRelationTag("offeredapp:local remote-apptoken:remote")], gc.Equals, "rel-token")
 	c.Assert(s.st.offerConnections, gc.HasLen, 1)
 	offerConnection := s.st.offerConnections[0]
@@ -340,10 +343,9 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
 	results, err := s.api.PublishIngressNetworkChanges(params.IngressNetworksChanges{
 		Changes: []params.IngressNetworksChangeEvent{
 			{
-				ApplicationToken: "token-db2",
-				RelationToken:    "token-db2:db django:db",
-				Networks:         []string{"1.2.3.4/32"},
-				Macaroons:        macaroon.Slice{mac.M()},
+				RelationToken: "token-db2:db django:db",
+				Networks:      []string{"1.2.3.4/32"},
+				Macaroons:     macaroon.Slice{mac.M()},
 			},
 		},
 	})
@@ -384,10 +386,9 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChangesRejected(c *g
 	results, err := s.api.PublishIngressNetworkChanges(params.IngressNetworksChanges{
 		Changes: []params.IngressNetworksChangeEvent{
 			{
-				ApplicationToken: "token-db2",
-				RelationToken:    "token-db2:db django:db",
-				Networks:         []string{"1.2.3.4/32"},
-				Macaroons:        macaroon.Slice{mac.M()},
+				RelationToken: "token-db2:db django:db",
+				Networks:      []string{"1.2.3.4/32"},
+				Macaroons:     macaroon.Slice{mac.M()},
 			},
 		},
 	})
@@ -608,7 +609,9 @@ func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 
 func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettings(c *gc.C) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
-	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
+	s.st.remoteEntities[names.NewApplicationOfferTag("db2-offer")] = "token-db2"
+	s.st.offers["db2-offer"] = &crossmodel.ApplicationOffer{
+		OfferName: "db2-offer", ApplicationName: "db2"}
 	rel := newMockRelation(1)
 	ru1 := newMockRelationUnit()
 	ru2 := newMockRelationUnit()
@@ -655,8 +658,9 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettings(c *
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []testing.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
-		{"KeyRelation", []interface{}{"db2:db django:db"}},
 		{"GetRemoteEntity", []interface{}{"token-db2"}},
+		{"AppNameForOffer", []interface{}{"db2-offer"}},
+		{"KeyRelation", []interface{}{"db2:db django:db"}},
 	}
 	s.st.CheckCalls(c, expected)
 	ru1.CheckCalls(c, []testing.StubCall{
@@ -851,23 +855,26 @@ func (s *crossmodelRelationsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
-			checkers.DeclaredCaveat("offer-uuid", "db2-uuid"),
+			checkers.DeclaredCaveat("offer-uuid", "token-rel-db2-uuid"),
 			checkers.DeclaredCaveat("username", "mary"),
-		}, bakery.Op{"db2-uuid", "consume"})
+		}, bakery.Op{"token-rel-db2-uuid", "consume"})
 
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.WatchRemoteSecretChangesArgs{
 		Args: []params.WatchRemoteSecretChangesArg{
 			{
 				ApplicationToken: "token-db2",
+				RelationToken:    "token-rel-db2",
 				Macaroons:        macaroon.Slice{mac.M()},
 			},
 			{
 				ApplicationToken: "token-mysql",
+				RelationToken:    "token-rel-mysql",
 				Macaroons:        macaroon.Slice{mac.M()},
 			},
 			{
 				ApplicationToken: "token-postgresql",
+				RelationToken:    "token-rel-postgresql",
 				Macaroons:        macaroon.Slice{mac.M()},
 			},
 		},
@@ -880,13 +887,13 @@ func (s *crossmodelRelationsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 		URI:      "secret:9m4e2mr0ui3e8a215n4g",
 		Revision: 666,
 	}})
-	c.Assert(results.Results[1].Error.ErrorCode(), gc.Equals, params.CodeNotFound)
+	c.Assert(results.Results[1].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
 	c.Assert(results.Results[2].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
 	c.Assert(s.watchedSecretConsumers, jc.DeepEquals, []string{"db2"})
 	s.st.CheckCalls(c, []testing.StubCall{
-		{"GetSecretConsumerInfo", []interface{}{"token-db2"}},
+		{"GetSecretConsumerInfo", []interface{}{"token-db2", "token-rel-db2"}},
 		{"GetSecret", []interface{}{&coresecrets.URI{ID: "9m4e2mr0ui3e8a215n4g"}}},
-		{"GetSecretConsumerInfo", []interface{}{"token-mysql"}},
-		{"GetSecretConsumerInfo", []interface{}{"token-postgresql"}},
+		{"GetSecretConsumerInfo", []interface{}{"token-mysql", "token-rel-mysql"}},
+		{"GetSecretConsumerInfo", []interface{}{"token-postgresql", "token-rel-postgresql"}},
 	})
 }

@@ -715,7 +715,8 @@ func (s *CrossModelRelationsSuite) TestWatchOfferStatusDischargeRequired(c *gc.C
 }
 
 func (s *CrossModelRelationsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
-	appToken := "token"
+	appToken := "app-token"
+	relToken := "rel-token"
 	mac, err := apitesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	var callCount int
@@ -724,7 +725,7 @@ func (s *CrossModelRelationsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
 		c.Check(arg, jc.DeepEquals, params.WatchRemoteSecretChangesArgs{Args: []params.WatchRemoteSecretChangesArg{{
-			ApplicationToken: appToken, Macaroons: macaroon.Slice{mac},
+			ApplicationToken: appToken, RelationToken: relToken, Macaroons: macaroon.Slice{mac},
 			BakeryVersion: bakery.LatestVersion,
 		}}})
 		c.Check(request, gc.Equals, "WatchConsumedSecretsChanges")
@@ -738,14 +739,14 @@ func (s *CrossModelRelationsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 		return nil
 	})
 	client := crossmodelrelations.NewClientWithCache(apiCaller, s.cache)
-	_, err = client.WatchConsumedSecretsChanges(appToken, mac)
+	_, err = client.WatchConsumedSecretsChanges(appToken, relToken, mac)
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	// Call again with a different macaroon but the first one will be
 	// cached and override the passed in macaroon.
 	different, err := apitesting.NewMacaroon("different")
 	c.Assert(err, jc.ErrorIsNil)
-	s.cache.Upsert(appToken, macaroon.Slice{mac})
-	_, err = client.WatchConsumedSecretsChanges(appToken, different)
+	s.cache.Upsert(relToken, macaroon.Slice{mac})
+	_, err = client.WatchConsumedSecretsChanges(appToken, relToken, different)
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 2)
 }
@@ -782,13 +783,13 @@ func (s *CrossModelRelationsSuite) TestWatchConsumedSecretsChangesDischargeRequi
 	acquirer := &mockDischargeAcquirer{}
 	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
 	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
-	_, err := client.WatchConsumedSecretsChanges("token", nil)
+	_, err := client.WatchConsumedSecretsChanges("app-token", "rel-token", nil)
 	c.Check(callCount, gc.Equals, 2)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(dischargeMac, gc.HasLen, 1)
 	c.Assert(dischargeMac[0].Id(), jc.DeepEquals, []byte("discharge mac"))
 	// Macaroon has been cached.
-	ms, ok := s.cache.Get("token")
+	ms, ok := s.cache.Get("rel-token")
 	c.Assert(ok, jc.IsTrue)
 	apitesting.MacaroonEquals(c, ms[0], dischargeMac[0])
 }

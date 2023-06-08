@@ -65,14 +65,9 @@ func (fakeNamespace) Value(s string) string {
 	return "juju-" + s
 }
 
-func SetUpGlobalGroup(e environs.Environ, ctx context.ProviderCallContext, name string, apiPort int) (neutron.SecurityGroupV2, error) {
+func EnsureGroup(e environs.Environ, ctx context.ProviderCallContext, name string, isModelGroup bool) (neutron.SecurityGroupV2, error) {
 	switching := &neutronFirewaller{firewallerBase: firewallerBase{environ: e.(*Environ)}}
-	return switching.setUpGlobalGroup(name, apiPort)
-}
-
-func EnsureGroup(e environs.Environ, ctx context.ProviderCallContext, name string, rules []neutron.RuleInfoV2) (neutron.SecurityGroupV2, error) {
-	switching := &neutronFirewaller{firewallerBase: firewallerBase{environ: e.(*Environ)}}
-	return switching.ensureGroup(name, rules)
+	return switching.ensureGroup(name, isModelGroup)
 }
 
 func MachineGroupRegexp(e environs.Environ, machineId string) string {
@@ -155,7 +150,7 @@ func GetModelGroupNames(e environs.Environ) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	modelPattern, err := regexp.Compile(neutronFw.jujuGroupRegexp())
+	modelPattern, err := regexp.Compile(neutronFw.jujuGroupPrefixRegexp())
 	if err != nil {
 		return nil, err
 	}

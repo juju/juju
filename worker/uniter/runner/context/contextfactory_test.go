@@ -63,7 +63,6 @@ func (s *ContextFactorySuite) SetUpTest(c *gc.C) {
 		Unit:             s.apiUnit,
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
-		Storage:          s.storage,
 		SecretsClient:    s.secrets,
 		Payloads:         s.payloads,
 		Paths:            s.paths,
@@ -261,6 +260,22 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
+	err = sb.CreateVolumeAttachmentPlan(machineTag, volumeTag, state.VolumeAttachmentPlanInfo{
+		DeviceType:       storage.DeviceTypeLocal,
+		DeviceAttributes: nil,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = sb.SetVolumeAttachmentPlanBlockInfo(machineTag, volumeTag, state.BlockDeviceInfo{
+		DeviceName: "sdb",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.SetMachineBlockDevices(state.BlockDeviceInfo{
+		DeviceName: "sdb",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetPassword(password)
@@ -277,7 +292,6 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 		Unit:             apiUnit,
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
-		Storage:          s.storage,
 		SecretsClient:    s.secrets,
 		Payloads:         s.payloads,
 		Paths:            s.paths,
@@ -303,14 +317,18 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 
 func (s *ContextFactorySuite) TestSecretHookContext(c *gc.C) {
 	hi := hook.Info{
-		Kind:        hooks.SecretRotate,
-		SecretURI:   "secret:9m4e2mr0ui3e8a215n4g",
-		SecretLabel: "label",
+		// Kind can be any secret hook kind.
+		// Whatever attributes are set below will
+		// be added to the context.
+		Kind:           hooks.SecretExpired,
+		SecretURI:      "secret:9m4e2mr0ui3e8a215n4g",
+		SecretLabel:    "label",
+		SecretRevision: 666,
 	}
 	ctx, err := s.factory.HookContext(hi)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertCoreContext(c, ctx)
-	s.AssertSecretContext(c, ctx, hi.SecretURI, hi.SecretLabel)
+	s.AssertSecretContext(c, ctx, hi.SecretURI, hi.SecretLabel, hi.SecretRevision)
 	s.AssertNotWorkloadContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)
@@ -371,7 +389,6 @@ func (s *ContextFactorySuite) setupPodSpec(c *gc.C) (*state.State, context.Conte
 			AllowClaimLeader: true,
 		},
 		GetRelationInfos: s.getRelationInfos,
-		Storage:          s.storage,
 		SecretsClient:    s.secrets,
 		Payloads:         s.payloads,
 		Paths:            s.paths,
@@ -581,7 +598,6 @@ func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {
 			AllowClaimLeader: true,
 		},
 		GetRelationInfos: s.getRelationInfos,
-		Storage:          s.storage,
 		SecretsClient:    s.secrets,
 		Payloads:         s.payloads,
 		Paths:            s.paths,
