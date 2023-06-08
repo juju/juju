@@ -30,7 +30,6 @@ import (
 )
 
 type charmSuite struct {
-	osEnvSuite   coretesting.JujuOSEnvSuite
 	deployerAPI  *mocks.MockDeployerAPI
 	modelCommand *mocks.MockModelCommand
 	configFlag   *mocks.MockDeployConfigFlag
@@ -56,11 +55,6 @@ func (s *charmSuite) SetUpTest(c *gc.C) {
 			Name: s.url.Name,
 		},
 	}
-	s.osEnvSuite.SetUpTest(c)
-}
-
-func (s *charmSuite) TearDownTest(c *gc.C) {
-	s.osEnvSuite.TearDownTest(c)
 }
 
 func (s *charmSuite) TestSimpleCharmDeploy(c *gc.C) {
@@ -74,7 +68,7 @@ func (s *charmSuite) TestSimpleCharmDeploy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *charmSuite) TestRepositoryCharmDeployDryRun(c *gc.C) {
+func (s *charmSuite) TestRepositoryCharmDeployDryRunCompatibility(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(17).AnyTimes()
@@ -167,10 +161,7 @@ func (s *charmSuite) TestDeployFromRepositoryCharmAppNameVSCharmName(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.osEnvSuite.SetFeatureFlags("server-side-charm-deploy")
-
 	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(18).AnyTimes()
-	s.resolver = mocks.NewMockResolver(ctrl)
 	s.modelCommand.EXPECT().Filesystem().Return(s.filesystem).AnyTimes()
 	s.configFlag.EXPECT().AbsoluteFileNames(gomock.Any()).Return(nil, nil)
 	s.configFlag.EXPECT().ReadConfigPairs(gomock.Any()).Return(nil, nil)
@@ -217,7 +208,7 @@ func (s *charmSuite) TestDeployFromRepositoryCharmAppNameVSCharmName(c *gc.C) {
 
 	s.deployerAPI.EXPECT().DeployFromRepository(gomock.Any()).Return(dInfo, nil, nil)
 
-	err := repoCharm.PrepareAndDeploy(ctx, s.deployerAPI, s.resolver)
+	err := repoCharm.PrepareAndDeploy(ctx, s.deployerAPI, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(output.String(), gc.Equals,
 		"Deployed \"differentThanCharmName\" from charm-hub charm \"testme\", "+

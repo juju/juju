@@ -13,7 +13,6 @@ import (
 	"github.com/juju/charm/v11"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
@@ -48,7 +47,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -2980,10 +2978,6 @@ func (api *APIBase) Leader(entity params.Entity) (params.StringResult, error) {
 // local resource is provided, details required for uploading the validated
 // resource will be returned.
 func (api *APIBase) DeployFromRepository(args params.DeployFromRepositoryArgs) (params.DeployFromRepositoryResults, error) {
-	if !featureflag.Enabled(feature.ServerSideCharmDeploy) {
-		return params.DeployFromRepositoryResults{}, errors.NotImplementedf("this facade method is under develop")
-	}
-
 	if err := api.checkCanWrite(); err != nil {
 		return params.DeployFromRepositoryResults{}, errors.Trace(err)
 	}

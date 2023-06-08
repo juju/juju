@@ -12,7 +12,6 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api/client/application"
@@ -28,7 +27,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/series"
 	coreseries "github.com/juju/juju/core/series"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/storage"
 )
 
@@ -344,8 +342,7 @@ func (c *repositoryCharm) String() string {
 // PrepareAndDeploy finishes preparing to deploy a repository charm,
 // then deploys it.
 func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver) error {
-	if (!featureflag.Enabled(feature.ServerSideCharmDeploy) && deployAPI.BestFacadeVersion("Application") >= 18) ||
-		deployAPI.BestFacadeVersion("Application") < 18 {
+	if deployAPI.BestFacadeVersion("Application") < 18 {
 		return c.compatibilityPrepareAndDeploy(ctx, deployAPI, resolver)
 	}
 	var base *series.Base
