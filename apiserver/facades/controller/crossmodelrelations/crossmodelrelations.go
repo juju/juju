@@ -122,7 +122,37 @@ func (api *CrossModelRelationsAPI) PublishRelationChanges(
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if err := commoncrossmodel.PublishRelationChange(api.authorizer, api.st, relationTag, change); err != nil {
+		// Look up the application on the remote side of this relation
+		// ie from the model which published this change.
+		appOrOfferTag, err := api.st.GetRemoteEntity(change.ApplicationToken)
+		if err != nil && !errors.IsNotFound(err) {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		// The tag is either an application tag (legacy), or an offer tag.
+		var applicationTag names.Tag
+		if err == nil {
+			switch k := appOrOfferTag.Kind(); k {
+			case names.ApplicationTagKind:
+				applicationTag = appOrOfferTag
+			case names.ApplicationOfferTagKind:
+				// For an offer tag, load the offer and get the offered app from that.
+				appName, err := api.st.AppNameForOffer(appOrOfferTag.Id())
+				if err != nil && !errors.IsNotFound(err) {
+					results.Results[i].Error = apiservererrors.ServerError(err)
+					continue
+				}
+				if err == nil {
+					applicationTag = names.NewApplicationTag(appName)
+				}
+			default:
+				// Should never happen.
+				results.Results[i].Error = apiservererrors.ServerError(errors.NotValidf("offer app tag kind %q", k))
+				continue
+			}
+		}
+
+		if err := commoncrossmodel.PublishRelationChange(api.authorizer, api.st, relationTag, applicationTag, change); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -288,7 +318,7 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 	// This allows > 1 offers off the one application to be made.
 	// NB we need to export the application last so that everything else is in place when the worker is
 	// woken up by the watcher.
-	token, err := api.st.ExportLocalEntity(names.NewApplicationTag(appOffer.OfferName))
+	token, err := api.st.ExportLocalEntity(names.NewApplicationOfferTag(appOffer.OfferName))
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return nil, errors.Annotatef(err, "exporting local application offer %q", appOffer.OfferName)
 	}

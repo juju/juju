@@ -839,15 +839,9 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	// Set up the consuming model - create the remote app.
 	offeringModelTag := names.NewModelTag(utils.MustNewUUID().String())
-	appToken := utils.MustNewUUID().String()
-	app, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "mysql", SourceModel: offeringModelTag,
-		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
 	// Create the external controller info.
 	ec := state.NewExternalControllers(s.State)
-	_, err = ec.Save(crossmodel.ControllerInfo{
+	_, err := ec.Save(crossmodel.ControllerInfo{
 		ControllerTag: coretesting.ControllerTag,
 		Addrs:         []string{"1.2.3.4:1234"},
 		CACert:        coretesting.CACert}, offeringModelTag.Id())
@@ -864,8 +858,7 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 		c.Check(request, gc.Equals, "PublishIngressNetworkChanges")
 		expected := params.IngressNetworksChanges{
 			Changes: []params.IngressNetworksChangeEvent{{
-				RelationToken:    relToken,
-				ApplicationToken: appToken,
+				RelationToken: relToken,
 			}},
 		}
 
@@ -916,6 +909,11 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 	// Create the firewaller facade on the consuming model.
 	fw := s.newFirewallerWithClock(c, clock)
 
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "mysql", SourceModel: offeringModelTag,
+		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -926,8 +924,6 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 	relToken, err = re.ExportLocalEntity(rel.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = re.SaveMacaroon(rel.Tag(), mac)
-	c.Assert(err, jc.ErrorIsNil)
-	err = re.ImportRemoteEntity(app.Tag(), appToken)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We should not have published any ingress events yet - no unit has entered scope.
