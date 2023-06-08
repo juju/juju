@@ -5,7 +5,6 @@ package upgradevalidation_test
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -69,8 +68,6 @@ type migrateSuite struct {
 func (s *migrateSuite) TestValidatorsForModelMigrationTargetJuju4(c *gc.C) {
 	ctrl, cloudSpec := s.setupJuju3Source(c)
 	defer ctrl.Finish()
-
-	s.st.EXPECT().AllCharmURLs().Return(nil, errors.NotFoundf("no charms"))
 
 	modelTag := coretesting.ModelTag
 	targetVersion := version.MustParse("4.0.0")

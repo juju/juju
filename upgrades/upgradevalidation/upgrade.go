@@ -24,7 +24,6 @@ func ValidatorsForControllerUpgrade(
 				checkNoWinMachinesForModel,
 				checkForDeprecatedUbuntuSeriesForModel,
 				getCheckForLXDVersion(cloudspec),
-				checkForCharmStoreCharms,
 			)
 		}
 		return validators
@@ -38,7 +37,6 @@ func ValidatorsForControllerUpgrade(
 			checkNoWinMachinesForModel,
 			checkForDeprecatedUbuntuSeriesForModel,
 			getCheckForLXDVersion(cloudspec),
-			checkForCharmStoreCharms,
 		)
 	}
 	return validators
@@ -56,7 +54,6 @@ func ValidatorsForModelUpgrade(
 			checkNoWinMachinesForModel,
 			checkForDeprecatedUbuntuSeriesForModel,
 			getCheckForLXDVersion(cloudspec),
-			checkForCharmStoreCharms,
 		)
 	}
 	return validators
