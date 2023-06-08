@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
@@ -546,7 +547,7 @@ func (s *RelationUnitSuite) TestPeerWatchScope(c *gc.C) {
 
 	// Test empty initial event.
 	w0 := pr.ru0.WatchScope()
-	defer testing.AssertKillAndWait(c, w0)
+	defer workertest.CleanKill(c, w0)
 	s.assertScopeChange(c, w0, nil, nil)
 	s.assertNoScopeChange(c, w0)
 
@@ -575,7 +576,7 @@ func (s *RelationUnitSuite) TestPeerWatchScope(c *gc.C) {
 	assertJoined(c, pr.ru1)
 
 	// Stop watching; ru2 enters.
-	testing.AssertKillAndWait(c, w0)
+	workertest.CleanKill(c, w0)
 	assertNotInScope(c, pr.ru2)
 	err = pr.ru2.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -583,7 +584,7 @@ func (s *RelationUnitSuite) TestPeerWatchScope(c *gc.C) {
 
 	// Start watch again, check initial event.
 	w0 = pr.ru0.WatchScope()
-	defer testing.AssertKillAndWait(c, w0)
+	defer workertest.CleanKill(c, w0)
 	s.assertScopeChange(c, w0, []string{"riak/1", "riak/2"}, nil)
 	s.assertNoScopeChange(c, w0)
 
@@ -614,7 +615,7 @@ func (s *RelationUnitSuite) TestRemoteProReqWatchScope(c *gc.C) {
 
 func stopAllRelationScope(c *gc.C, ws []*state.RelationScopeWatcher) {
 	for _, w := range ws {
-		testing.AssertKillAndWait(c, w)
+		workertest.CleanKill(c, w)
 	}
 }
 
@@ -658,7 +659,7 @@ func (s *RelationUnitSuite) testProReqWatchScope(
 
 	// Stop watches; remaining RUs enter.
 	for _, w := range ws {
-		testing.AssertKillAndWait(c, w)
+		workertest.CleanKill(c, w)
 	}
 	assertNotInScope(c, pru1)
 	err = pru1.EnterScope(nil)
@@ -707,7 +708,7 @@ func (s *RelationUnitSuite) TestContainerWatchScope(c *gc.C) {
 	// Test empty initial events for all RUs.
 	ws := prr.watches()
 	for _, w := range ws {
-		defer testing.AssertKillAndWait(c, w)
+		defer workertest.CleanKill(c, w)
 	}
 	for _, w := range ws {
 		s.assertScopeChange(c, w, nil, nil)
@@ -732,7 +733,7 @@ func (s *RelationUnitSuite) TestContainerWatchScope(c *gc.C) {
 
 	// Stop watches; remaining RUs enter scope.
 	for _, w := range ws {
-		testing.AssertKillAndWait(c, w)
+		workertest.CleanKill(c, w)
 	}
 	assertNotInScope(c, prr.pru1)
 	err = prr.pru1.EnterScope(nil)
@@ -744,7 +745,7 @@ func (s *RelationUnitSuite) TestContainerWatchScope(c *gc.C) {
 	// Start new watches, check initial events.
 	ws = prr.watches()
 	for _, w := range ws {
-		defer testing.AssertKillAndWait(c, w)
+		defer workertest.CleanKill(c, w)
 	}
 	s.assertScopeChange(c, ws[0], []string{"logging/0"}, nil)
 	s.assertScopeChange(c, ws[1], []string{"logging/1"}, nil)
@@ -778,7 +779,7 @@ func (s *RelationUnitSuite) TestCoalesceWatchScope(c *gc.C) {
 
 	// Test empty initial event.
 	w0 := pr.ru0.WatchScope()
-	defer testing.AssertKillAndWait(c, w0)
+	defer workertest.CleanKill(c, w0)
 	s.assertScopeChange(c, w0, nil, nil)
 	s.assertNoScopeChange(c, w0)
 
@@ -820,7 +821,7 @@ func (s *RelationUnitSuite) TestPrepareLeaveScopeRemote(c *gc.C) {
 func (s *RelationUnitSuite) testPrepareLeaveScope(c *gc.C, rel *state.Relation, pru0, pru1, rru0, rru1 *state.RelationUnit) {
 	// Test empty initial event.
 	w0 := pru0.WatchScope()
-	defer testing.AssertKillAndWait(c, w0)
+	defer workertest.CleanKill(c, w0)
 	s.assertScopeChange(c, w0, nil, nil)
 	s.assertNoScopeChange(c, w0)
 
@@ -1217,7 +1218,7 @@ func (s *WatchRelationUnitsSuite) TestPeer(c *gc.C) {
 
 	// Start watching the relation from the perspective of the first unit.
 	w0 := ru0.Watch()
-	defer testing.AssertKillAndWait(c, w0)
+	defer workertest.CleanKill(c, w0)
 	w0c := testing.NewRelationUnitsWatcherC(c, w0)
 	w0c.AssertChange(nil, []string{"riak"}, nil)
 	w0c.AssertNoChange()
@@ -1253,7 +1254,7 @@ func (s *WatchRelationUnitsSuite) TestPeer(c *gc.C) {
 	// Start watching the relation from the perspective of the second unit,
 	// and check that it sees the right state.
 	w1 := ru1.Watch()
-	defer testing.AssertKillAndWait(c, w1)
+	defer workertest.CleanKill(c, w1)
 	w1c := testing.NewRelationUnitsWatcherC(c, w1)
 	expectChanged = []string{"riak/0"}
 	w1c.AssertChange(expectChanged, []string{"riak"}, nil)
@@ -1263,7 +1264,7 @@ func (s *WatchRelationUnitsSuite) TestPeer(c *gc.C) {
 
 	// Whoa, it works. Ok, check the third unit's opinion of the state.
 	w2 := ru2.Watch()
-	defer testing.AssertKillAndWait(c, w2)
+	defer workertest.CleanKill(c, w2)
 	w2c := testing.NewRelationUnitsWatcherC(c, w2)
 	expectChanged = []string{"riak/0", "riak/1"}
 	w2c.AssertChange(expectChanged, []string{"riak"}, nil)
@@ -1316,7 +1317,7 @@ func (s *WatchRelationUnitsSuite) TestPeer(c *gc.C) {
 	// Check no spurious events showed up on the second unit's watch, and check
 	// it closes cleanly.
 	w1c.AssertNoChange()
-	testing.AssertKillAndWait(c, w1)
+	workertest.CleanKill(c, w1)
 
 	// OK, we're done here. Cleanup, and error detection during same,
 	// will be handled by the deferred kill/stop calls. Phew.
@@ -1331,7 +1332,7 @@ func (s *WatchRelationUnitsSuite) TestWatchAppSettings(c *gc.C) {
 	// Watch from the perspective of the requiring unit, and see that a change to the
 	// providing application is seen
 	watcher := prr.rru0.Watch()
-	defer testing.AssertKillAndWait(c, watcher)
+	defer workertest.CleanKill(c, watcher)
 	w0c := testing.NewRelationUnitsWatcherC(c, watcher)
 	w0c.AssertChange([]string{"mysql/0", "mysql/1"}, []string{"mysql"}, nil)
 	w0c.AssertNoChange()
@@ -1371,7 +1372,7 @@ func (s *WatchRelationUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	// Watch the relation from the perspective of the first provider unit and
 	// check initial event.
 	msw0 := msru0.Watch()
-	defer testing.AssertKillAndWait(c, msw0)
+	defer workertest.CleanKill(c, msw0)
 	msw0c := testing.NewRelationUnitsWatcherC(c, msw0)
 	msw0c.AssertChange(nil, []string{"wordpress"}, nil)
 	msw0c.AssertNoChange()
@@ -1388,7 +1389,7 @@ func (s *WatchRelationUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	err = msru1.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	msw1 := msru1.Watch()
-	defer testing.AssertKillAndWait(c, msw1)
+	defer workertest.CleanKill(c, msw1)
 	msw1c := testing.NewRelationUnitsWatcherC(c, msw1)
 	msw1c.AssertChange(nil, []string{"wordpress"}, nil)
 	msw1c.AssertNoChange()
@@ -1405,12 +1406,12 @@ func (s *WatchRelationUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	// they see the provider units.
 	expectChanged := []string{"mysql/0", "mysql/1"}
 	wpw0 := wpru0.Watch()
-	defer testing.AssertKillAndWait(c, wpw0)
+	defer workertest.CleanKill(c, wpw0)
 	wpw0c := testing.NewRelationUnitsWatcherC(c, wpw0)
 	wpw0c.AssertChange(expectChanged, []string{"mysql"}, nil)
 	wpw0c.AssertNoChange()
 	wpw1 := wpru1.Watch()
-	defer testing.AssertKillAndWait(c, wpw1)
+	defer workertest.CleanKill(c, wpw1)
 	wpw1c := testing.NewRelationUnitsWatcherC(c, wpw1)
 	wpw1c.AssertChange(expectChanged, []string{"mysql"}, nil)
 	wpw1c.AssertNoChange()
@@ -1521,7 +1522,7 @@ func (s *WatchRelationUnitsSuite) TestProviderRequirerContainer(c *gc.C) {
 	// Start watching the relation from the perspective of the first unit, and
 	// check the initial event.
 	msw0 := msru0.Watch()
-	defer testing.AssertKillAndWait(c, msw0)
+	defer workertest.CleanKill(c, msw0)
 	msw0c := testing.NewRelationUnitsWatcherC(c, msw0)
 	msw0c.AssertChange(nil, []string{"logging"}, nil)
 	msw0c.AssertNoChange()
@@ -1536,7 +1537,7 @@ func (s *WatchRelationUnitsSuite) TestProviderRequirerContainer(c *gc.C) {
 	// Watch the relation from the perspective of the second provider, and
 	// check initial event.
 	msw1 := msru1.Watch()
-	defer testing.AssertKillAndWait(c, msw1)
+	defer workertest.CleanKill(c, msw1)
 	msw1c := testing.NewRelationUnitsWatcherC(c, msw1)
 	msw1c.AssertChange(nil, []string{"logging"}, nil)
 	msw1c.AssertNoChange()
@@ -1558,7 +1559,7 @@ func (s *WatchRelationUnitsSuite) TestProviderRequirerContainer(c *gc.C) {
 	// Start a watch from the first requirer unit's perspective, and check it
 	// only sees the first provider (with which it shares a container).
 	lgw0 := lgru0.Watch()
-	defer testing.AssertKillAndWait(c, lgw0)
+	defer workertest.CleanKill(c, lgw0)
 	lgw0c := testing.NewRelationUnitsWatcherC(c, lgw0)
 	expectChanged := []string{"mysql/0"}
 	lgw0c.AssertChange(expectChanged, []string{"mysql"}, nil)
@@ -1577,7 +1578,7 @@ func (s *WatchRelationUnitsSuite) TestProviderRequirerContainer(c *gc.C) {
 	// Watch from the second requirer's perspective, and check it only sees the
 	// second provider.
 	lgw1 := lgru1.Watch()
-	defer testing.AssertKillAndWait(c, lgw1)
+	defer workertest.CleanKill(c, lgw1)
 	lgw1c := testing.NewRelationUnitsWatcherC(c, lgw1)
 	expectChanged = []string{"mysql/1"}
 	lgw1c.AssertChange(expectChanged, []string{"mysql"}, nil)
@@ -1667,7 +1668,7 @@ func (s *WatchUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 
 	wordpressWatcher, err := rel.WatchUnits("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
-	defer testing.AssertKillAndWait(c, wordpressWatcher)
+	defer workertest.CleanKill(c, wordpressWatcher)
 	wordpressWatcherC := testing.NewRelationUnitsWatcherC(c, wordpressWatcher)
 	wordpressWatcherC.AssertChange(nil, []string{"wordpress"}, nil)
 	wordpressWatcherC.AssertNoChange()
@@ -1682,7 +1683,7 @@ func (s *WatchUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	c.Logf("watching just mysql")
 	mysqlWatcher, err := rel.WatchUnits("mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	defer testing.AssertKillAndWait(c, mysqlWatcher)
+	defer workertest.CleanKill(c, mysqlWatcher)
 	mysqlWatcherC := testing.NewRelationUnitsWatcherC(c, mysqlWatcher)
 	mysqlWatcherC.AssertChange([]string{"mysql/0"}, []string{"mysql"}, nil)
 	mysqlWatcherC.AssertNoChange()

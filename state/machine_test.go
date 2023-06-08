@@ -18,6 +18,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/version/v2"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
@@ -1284,7 +1285,7 @@ func (s *MachineSuite) TestMachineDirtyAfterRemovingUnit(c *gc.C) {
 func (s *MachineSuite) TestWatchMachine(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := s.machine.Watch()
-	defer testing.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 
 	// Initial event.
 	wc := testing.NewNotifyWatcherC(c, w)
@@ -1307,7 +1308,7 @@ func (s *MachineSuite) TestWatchMachine(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Stop, check closed.
-	testing.AssertKillAndWait(c, w)
+	workertest.CleanKill(c, w)
 	wc.AssertClosed()
 
 	// Remove machine, start new watch, check single event.
@@ -1317,7 +1318,7 @@ func (s *MachineSuite) TestWatchMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w = s.machine.Watch()
-	defer testing.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	testing.NewNotifyWatcherC(c, w).AssertOneChange()
 }
 
@@ -1349,7 +1350,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	// Start a watch on an empty machine; check no units reported.
 	w := s.machine.WatchPrincipalUnits()
-	defer testing.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
@@ -1424,13 +1425,13 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Stop watcher; check Changes chan closed.
-	testing.AssertKillAndWait(c, w)
+	workertest.CleanKill(c, w)
 	wc.AssertClosed()
 
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	// Start a fresh watcher; check both principals reported.
 	w = s.machine.WatchPrincipalUnits()
-	defer testing.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc = testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("mysql/0", "mysql/1")
 	wc.AssertNoChange()
@@ -1468,7 +1469,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	// Start a watch on an empty machine; check no units reported.
 	w := s.machine.WatchUnits()
-	defer testing.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
@@ -1548,13 +1549,13 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Stop watcher; check Changes chan closed.
-	testing.AssertKillAndWait(c, w)
+	workertest.CleanKill(c, w)
 	wc.AssertClosed()
 
 	// Start a fresh watcher; check all units reported.
 	c.Logf("starting new watcher")
 	w = s.machine.WatchUnits()
-	defer testing.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc = testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("mysql/0", "mysql/1", "logging/0")
 	wc.AssertNoChange()
@@ -1583,7 +1584,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 func (s *MachineSuite) TestWatchUnitsHandlesDeletedEntries(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := s.machine.WatchUnits()
-	defer testing.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
@@ -1658,7 +1659,7 @@ func (s *MachineSuite) TestWatchMachineStartTimes(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := s.State.WatchModelMachineStartTimes(quiesceInterval)
 
-	defer testing.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 
 	// Get initial set of changes

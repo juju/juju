@@ -28,7 +28,7 @@ func (s *watcherSuite) TestWatching(c *gc.C) {
 
 	w, err := NewWatcher("controller", WithPath(dir))
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	file := filepath.Join(dir, "controller")
 	_, err = os.OpenFile(file, os.O_WRONLY|os.O_CREATE, 0666)
@@ -63,7 +63,7 @@ func (s *watcherSuite) TestNotWatching(c *gc.C) {
 
 	w, err := NewWatcher("controller", WithPath(dir))
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	file := filepath.Join(dir, "controller")
 	f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE, 0666)

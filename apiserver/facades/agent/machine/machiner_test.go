@@ -9,6 +9,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -285,7 +286,7 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	c.Assert(result.Results[0].NotifyWatcherId, gc.Equals, "1")
 	resource := s.resources.Get("1")
-	defer statetesting.AssertKillAndWait(c, resource)
+	defer workertest.CleanKill(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)

@@ -255,7 +255,7 @@ func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirectControllerUpd
 
 	w, err := remoterelations.New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
 	expected := []jujutesting.StubCall{

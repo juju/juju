@@ -5,6 +5,7 @@ package testing
 
 import (
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -67,7 +68,7 @@ func (s *ModelWatcherTest) TestWatchForModelConfigChanges(c *gc.C) {
 	// Verify the resources were registered and stop them when done.
 	c.Assert(s.res.Count(), gc.Equals, 1)
 	resource := s.res.Get("1")
-	defer statetesting.AssertKillAndWait(c, resource)
+	defer workertest.CleanKill(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)

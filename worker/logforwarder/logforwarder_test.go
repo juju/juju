@@ -104,7 +104,7 @@ func (s *LogForwarderSuite) TestOne(c *gc.C) {
 	s.stream.addRecords(c, s.rec)
 	lf, err := logforwarder.NewLogForwarder(s.newLogForwarderArgs(c, s.stream, s.sender))
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, lf)
+	defer workertest.CleanKill(c, lf)
 
 	s.sender.waitForSend(c)
 	workertest.CleanKill(c, lf)
@@ -125,7 +125,7 @@ func (s *LogForwarderSuite) TestConfigChange(c *gc.C) {
 	}
 	lf, err := logforwarder.NewLogForwarder(s.newLogForwarderArgsWithAPI(c, api, s.stream, s.sender))
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, lf)
+	defer workertest.CleanKill(c, lf)
 
 	// Send the first record.
 	s.stream.addRecords(c, rec0)

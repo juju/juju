@@ -38,7 +38,7 @@ func (s *eventMultiplexerSuite) TestSubscribe(c *gc.C) {
 
 	queue, err := New(s.stream, s.clock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, queue)
+	defer workertest.CleanKill(c, queue)
 
 	sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
 	c.Assert(err, jc.ErrorIsNil)
@@ -58,7 +58,7 @@ func (s *eventMultiplexerSuite) TestDispatch(c *gc.C) {
 
 	queue, err := New(s.stream, s.clock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, queue)
+	defer workertest.CleanKill(c, queue)
 
 	sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
 	c.Assert(err, jc.ErrorIsNil)
@@ -127,7 +127,7 @@ func (s *eventMultiplexerSuite) testMultipleDispatch(c *gc.C, opts ...changestre
 
 	queue, err := New(s.stream, s.clock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, queue)
+	defer workertest.CleanKill(c, queue)
 
 	s.expectTerm(c, changeEvent{
 		ctype: changestream.Update,
@@ -191,7 +191,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeTwice(c *gc.C) {
 
 	queue, err := New(s.stream, s.clock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, queue)
+	defer workertest.CleanKill(c, queue)
 
 	sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
 	c.Assert(err, jc.ErrorIsNil)
@@ -225,7 +225,7 @@ func (s *eventMultiplexerSuite) TestTopicDoesNotMatch(c *gc.C) {
 
 	queue, err := New(s.stream, s.clock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, queue)
+	defer workertest.CleanKill(c, queue)
 
 	sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
 	c.Assert(err, jc.ErrorIsNil)
@@ -263,7 +263,7 @@ func (s *eventMultiplexerSuite) TestTopicMatchesOne(c *gc.C) {
 
 	queue, err := New(s.stream, s.clock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, queue)
+	defer workertest.CleanKill(c, queue)
 
 	sub0, err := queue.Subscribe(changestream.Namespace("foo", changestream.Create))
 	c.Assert(err, jc.ErrorIsNil)
@@ -311,7 +311,7 @@ func (s *eventMultiplexerSuite) TestSubscriptionDoneWhenEventQueueKilled(c *gc.C
 
 	queue, err := New(s.stream, s.clock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, queue)
+	defer workertest.CleanKill(c, queue)
 
 	sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
 	c.Assert(err, jc.ErrorIsNil)
@@ -346,7 +346,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *gc.C) {
 
 	queue, err := New(s.stream, s.clock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, queue)
+	defer workertest.CleanKill(c, queue)
 
 	subs := make([]changestream.Subscription, 2)
 	for i := 0; i < len(subs); i++ {
@@ -405,7 +405,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGorou
 
 	queue, err := New(s.stream, s.clock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, queue)
+	defer workertest.CleanKill(c, queue)
 
 	subs := make([]changestream.Subscription, 2)
 	for i := 0; i < len(subs); i++ {
@@ -468,7 +468,7 @@ func (s *eventMultiplexerSuite) TestReportWithAllSubscriptions(c *gc.C) {
 
 	queue, err := New(s.stream, s.clock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, queue)
+	defer workertest.CleanKill(c, queue)
 
 	var subs []changestream.Subscription
 	for i := 0; i < 10; i++ {
@@ -513,7 +513,7 @@ func (s *eventMultiplexerSuite) TestReportWithTopicSubscriptions(c *gc.C) {
 
 	queue, err := New(s.stream, s.clock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, queue)
+	defer workertest.CleanKill(c, queue)
 
 	var subs []changestream.Subscription
 	for i := 0; i < 10; i++ {
@@ -558,7 +558,7 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleTopicSubscriptions(c *gc.C
 
 	queue, err := New(s.stream, s.clock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, queue)
+	defer workertest.CleanKill(c, queue)
 
 	var subs []changestream.Subscription
 	for i := 0; i < 10; i++ {
@@ -606,7 +606,7 @@ func (s *eventMultiplexerSuite) TestReportWithDuplicateTopicSubscriptions(c *gc.
 
 	queue, err := New(s.stream, s.clock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, queue)
+	defer workertest.CleanKill(c, queue)
 
 	var subs []changestream.Subscription
 	for i := 0; i < 10; i++ {
@@ -654,7 +654,7 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleDuplicateTopicSubscription
 
 	queue, err := New(s.stream, s.clock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, queue)
+	defer workertest.CleanKill(c, queue)
 
 	var subs []changestream.Subscription
 	for i := 0; i < 10; i++ {
@@ -702,7 +702,7 @@ func (s *eventMultiplexerSuite) TestReportWithTopicRemovalAfterUnsubscribe(c *gc
 
 	queue, err := New(s.stream, s.clock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, queue)
+	defer workertest.CleanKill(c, queue)
 
 	sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
 	c.Assert(err, jc.ErrorIsNil)

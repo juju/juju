@@ -177,7 +177,7 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	c.Assert(result.Results[0].StringsWatcherId, gc.Equals, "1")
 	resource := s.resources.Get("1")
-	defer statetesting.AssertKillAndWait(c, resource)
+	defer workertest.CleanKill(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
@@ -308,7 +308,7 @@ func (s *firewallerSuite) TestWatchSubnets(c *gc.C) {
 	// creation event, meaning we get another unexpected one subsequently.
 	// To work around this we drain the collection's events for a short time.
 	raw := s.State.WatchSubnets(nil)
-	defer workertest.DirtyKill(c, raw)
+	defer workertest.CleanKill(c, raw)
 drain:
 	for {
 		select {
@@ -340,7 +340,7 @@ drain:
 	// Verify the resources were registered and stop them when done.
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	resource := s.resources.Get("1")
-	defer statetesting.AssertKillAndWait(c, resource)
+	defer workertest.CleanKill(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)

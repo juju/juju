@@ -6,6 +6,7 @@ package firewall_test
 import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -62,7 +63,7 @@ func (s *addressWatcherSuite) TestInitial(c *gc.C) {
 	rel := s.setupRelation(c, "54.1.2.3")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	// django/0 is initially in scope
 	rel.ruw.changes <- watcher.RelationUnitsChange{
@@ -79,7 +80,7 @@ func (s *addressWatcherSuite) TestUnitEntersScope(c *gc.C) {
 	rel := s.setupRelation(c, "54.1.2.3")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	rel.ruw.changes <- watcher.RelationUnitsChange{}
 
@@ -108,7 +109,7 @@ func (s *addressWatcherSuite) TestTwoUnitsEntersScope(c *gc.C) {
 	rel := s.setupRelation(c, "54.1.2.3")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	rel.ruw.changes <- watcher.RelationUnitsChange{}
 
@@ -136,7 +137,7 @@ func (s *addressWatcherSuite) TestAnotherUnitsEntersScope(c *gc.C) {
 	rel := s.setupRelation(c, "54.1.2.3")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	rel.ruw.changes <- watcher.RelationUnitsChange{}
 
@@ -170,7 +171,7 @@ func (s *addressWatcherSuite) TestUnitEntersScopeNoPublicAddress(c *gc.C) {
 	rel := s.setupRelation(c, "")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	rel.ruw.changes <- watcher.RelationUnitsChange{
 		Changed: map[string]watcher.UnitSettings{
@@ -197,7 +198,7 @@ func (s *addressWatcherSuite) TestUnitEntersScopeNotAssigned(c *gc.C) {
 	s.st.units["django/0"].assigned = false
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 
 	rel.ruw.changes <- watcher.RelationUnitsChange{
@@ -224,7 +225,7 @@ func (s *addressWatcherSuite) TestUnitLeavesScopeInitial(c *gc.C) {
 	rel := s.setupRelation(c, "54.1.2.3")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 
 	rel.ruw.changes <- watcher.RelationUnitsChange{
@@ -241,7 +242,7 @@ func (s *addressWatcherSuite) TestUnitLeavesScope(c *gc.C) {
 	rel := s.setupRelation(c, "54.1.2.3")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	rel.ruw.changes <- watcher.RelationUnitsChange{}
 
@@ -276,7 +277,7 @@ func (s *addressWatcherSuite) TestTwoUnitsSameAddressOneLeaves(c *gc.C) {
 	rel := s.setupRelation(c, "54.1.2.3")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	rel.ruw.changes <- watcher.RelationUnitsChange{}
 
@@ -318,7 +319,7 @@ func (s *addressWatcherSuite) TestSecondUnitJoinsOnSameMachine(c *gc.C) {
 	rel := s.setupRelation(c, "55.1.2.3")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	// django/0 is initially in scope
 	rel.ruw.changes <- watcher.RelationUnitsChange{
@@ -356,7 +357,7 @@ func (s *addressWatcherSuite) TestSeesMachineAddressChanges(c *gc.C) {
 	rel := s.setupRelation(c, "2.3.4.5")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	// django/0 is initially in scope
 	rel.ruw.changes <- watcher.RelationUnitsChange{
@@ -379,7 +380,7 @@ func (s *addressWatcherSuite) TestHandlesMachineAddressChangesWithNoEffect(c *gc
 	rel := s.setupRelation(c, "2.3.4.5")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	// django/0 is initially in scope
 	rel.ruw.changes <- watcher.RelationUnitsChange{
@@ -412,7 +413,7 @@ func (s *addressWatcherSuite) TestHandlesUnitGoneWhenMachineAddressChanges(c *gc
 
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 
 	wc.AssertChange("2.3.4.5/32")
@@ -433,7 +434,7 @@ func (s *addressWatcherSuite) TestModelEgressAddressUsed(c *gc.C) {
 	rel := s.setupRelation(c, "54.1.2.3")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	rel.ruw.changes <- watcher.RelationUnitsChange{}
 
@@ -476,7 +477,7 @@ func (s *addressWatcherSuite) TestRelationEgressAddressUsed(c *gc.C) {
 	rel := s.setupRelation(c, "54.1.2.3")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	rel.ruw.changes <- watcher.RelationUnitsChange{}
 

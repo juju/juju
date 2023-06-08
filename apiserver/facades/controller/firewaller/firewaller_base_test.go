@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -216,7 +217,7 @@ func (s *firewallerBaseSuite) testWatchModelMachines(
 	// Verify the resources were registered and stop them when done.
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	resource := s.resources.Get("1")
-	defer statetesting.AssertKillAndWait(c, resource)
+	defer workertest.CleanKill(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)
@@ -282,12 +283,12 @@ func (s *firewallerBaseSuite) testWatch(
 	}
 	c.Assert(result.Results[1].NotifyWatcherId, gc.Equals, "1")
 	watcher1 := s.resources.Get("1")
-	defer statetesting.AssertKillAndWait(c, watcher1)
+	defer workertest.CleanKill(c, watcher1)
 	var watcher2 worker.Worker
 	if allowUnits {
 		c.Assert(result.Results[2].NotifyWatcherId, gc.Equals, "2")
 		watcher2 = s.resources.Get("2")
-		defer statetesting.AssertKillAndWait(c, watcher2)
+		defer workertest.CleanKill(c, watcher2)
 	}
 
 	// Check that the Watch has consumed the initial event ("returned" in
@@ -333,7 +334,7 @@ func (s *firewallerBaseSuite) testWatchUnits(
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	c.Assert(result.Results[0].StringsWatcherId, gc.Equals, "1")
 	resource := s.resources.Get("1")
-	defer statetesting.AssertKillAndWait(c, resource)
+	defer workertest.CleanKill(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)

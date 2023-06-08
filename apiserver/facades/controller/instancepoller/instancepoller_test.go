@@ -13,6 +13,7 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -156,7 +157,7 @@ func (s *InstancePollerSuite) TestWatchForModelConfigChangesSuccess(c *gc.C) {
 	// Verify the watcher resource was registered.
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	resource := s.resources.Get("1")
-	defer statetesting.AssertKillAndWait(c, resource)
+	defer workertest.CleanKill(c, resource)
 
 	// Check that the watcher has consumed the initial event
 	wc := statetesting.NewNotifyWatcherC(c, resource.(state.NotifyWatcher))
@@ -218,7 +219,7 @@ func (s *InstancePollerSuite) assertMachineWatcherSucceeds(c *gc.C, watchFacadeN
 	resource1 := s.resources.Get("1")
 	defer func() {
 		if resource1 != nil {
-			statetesting.AssertKillAndWait(c, resource1)
+			workertest.CleanKill(c, resource1)
 		}
 	}()
 
@@ -236,7 +237,7 @@ func (s *InstancePollerSuite) assertMachineWatcherSucceeds(c *gc.C, watchFacadeN
 	s.st.CheckCallNames(c, watchFacadeName, watchFacadeName)
 	c.Assert(s.resources.Count(), gc.Equals, 2)
 	resource2 := s.resources.Get("2")
-	defer statetesting.AssertKillAndWait(c, resource2)
+	defer workertest.CleanKill(c, resource2)
 	wc2 := statetesting.NewStringsWatcherC(c, resource2.(state.StringsWatcher))
 	wc2.AssertNoChange()
 

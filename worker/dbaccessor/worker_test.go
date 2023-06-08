@@ -58,7 +58,7 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 	s.hub.EXPECT().Publish(apiserver.DetailsRequestTopic, gomock.Any()).Return(func() {}, nil)
 
 	w := s.newWorker(c)
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	// Without a bind address for ourselves we keep waiting.
 	select {
@@ -152,7 +152,7 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
 	w := s.newWorker(c)
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	select {
 	case <-sync:
@@ -188,7 +188,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
 	w := s.newWorker(c)
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	select {
 	case <-sync:
@@ -342,7 +342,7 @@ func (s *workerSuite) TestEnsureNamespaceForModelNotFound(c *gc.C) {
 	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
 
 	w := s.newWorkerWithDB(c, trackedWorkerDB)
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	dbw := w.(*dbWorker)
 	s.ensureStartup(c, dbw, sync)
@@ -379,7 +379,7 @@ func (s *workerSuite) TestEnsureNamespaceForModel(c *gc.C) {
 	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
 
 	w := s.newWorkerWithDB(c, trackedWorkerDB)
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
 	defer cancel()
@@ -432,7 +432,7 @@ func (s *workerSuite) TestEnsureNamespaceForModelWithCache(c *gc.C) {
 	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
 
 	w := s.newWorkerWithDB(c, trackedWorkerDB)
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
 	defer cancel()
@@ -494,7 +494,7 @@ func (s *workerSuite) TestCloseDatabaseForController(c *gc.C) {
 	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
 
 	w := s.newWorkerWithDB(c, trackedWorkerDB)
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
 	defer cancel()
@@ -547,7 +547,7 @@ func (s *workerSuite) TestCloseDatabaseForModel(c *gc.C) {
 	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
 
 	w := s.newWorkerWithDB(c, trackedWorkerDB)
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
 	defer cancel()
@@ -603,7 +603,7 @@ func (s *workerSuite) TestCloseDatabaseForUnknownModel(c *gc.C) {
 	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
 
 	w := s.newWorkerWithDB(c, trackedWorkerDB)
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	dbw := w.(*dbWorker)
 	s.ensureStartup(c, dbw, sync)

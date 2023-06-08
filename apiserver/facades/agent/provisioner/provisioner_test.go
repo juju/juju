@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -714,9 +715,9 @@ func (s *withoutControllerSuite) TestWatchContainers(c *gc.C) {
 	// Verify the resources were registered and stop them when done.
 	c.Assert(s.resources.Count(), gc.Equals, 2)
 	m0Watcher := s.resources.Get("1")
-	defer statetesting.AssertKillAndWait(c, m0Watcher)
+	defer workertest.CleanKill(c, m0Watcher)
 	m1Watcher := s.resources.Get("2")
-	defer statetesting.AssertKillAndWait(c, m1Watcher)
+	defer workertest.CleanKill(c, m1Watcher)
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)
@@ -751,9 +752,9 @@ func (s *withoutControllerSuite) TestWatchAllContainers(c *gc.C) {
 	// Verify the resources were registered and stop them when done.
 	c.Assert(s.resources.Count(), gc.Equals, 2)
 	m0Watcher := s.resources.Get("1")
-	defer statetesting.AssertKillAndWait(c, m0Watcher)
+	defer workertest.CleanKill(c, m0Watcher)
 	m1Watcher := s.resources.Get("2")
-	defer statetesting.AssertKillAndWait(c, m1Watcher)
+	defer workertest.CleanKill(c, m1Watcher)
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)
@@ -1399,7 +1400,7 @@ func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
 	// Verify the resources were registered and stop them when done.
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	resource := s.resources.Get("1")
-	defer statetesting.AssertKillAndWait(c, resource)
+	defer workertest.CleanKill(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)
@@ -1449,7 +1450,7 @@ func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 	// Verify the resources were registered and stop them when done.
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	resource := s.resources.Get("1")
-	defer statetesting.AssertKillAndWait(c, resource)
+	defer workertest.CleanKill(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)

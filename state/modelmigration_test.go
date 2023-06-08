@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
@@ -552,7 +553,7 @@ func (s *MigrationSuite) TestWatchForMigration(c *gc.C) {
 	c.Check(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
 	wc.AssertOneChange()
 
-	statetesting.AssertKillAndWait(c, w)
+	workertest.CleanKill(c, w)
 	wc.AssertClosed()
 }
 
@@ -598,7 +599,7 @@ func (s *MigrationSuite) createMigrationWatcher(c *gc.C, st *state.State) (
 	state.NotifyWatcher, statetesting.NotifyWatcherC,
 ) {
 	w := st.WatchForMigration()
-	s.AddCleanup(func(c *gc.C) { statetesting.AssertKillAndWait(c, w) })
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, w) })
 	return w, statetesting.NewNotifyWatcherC(c, w)
 }
 
@@ -630,7 +631,7 @@ func (s *MigrationSuite) TestWatchMigrationStatus(c *gc.C) {
 	c.Assert(mig2.SetPhase(migration.ABORT), jc.ErrorIsNil)
 	wc.AssertOneChange()
 
-	statetesting.AssertKillAndWait(c, w)
+	workertest.CleanKill(c, w)
 	wc.AssertClosed()
 }
 
@@ -901,7 +902,7 @@ func (s *MigrationSuite) createStatusWatcher(c *gc.C, st *state.State) (
 ) {
 	s.WaitForModelWatchersIdle(c, st.ModelUUID())
 	w := st.WatchMigrationStatus()
-	s.AddCleanup(func(c *gc.C) { statetesting.AssertKillAndWait(c, w) })
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, w) })
 	return w, statetesting.NewNotifyWatcherC(c, w)
 }
 
@@ -915,7 +916,7 @@ func (s *MigrationSuite) createMigAndWatchReports(c *gc.C, st *state.State) (
 
 	w, err := mig.WatchMinionReports()
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { statetesting.AssertKillAndWait(c, w) })
+	s.AddCleanup(func(*gc.C) { workertest.CleanKill(c, w) })
 	wc := statetesting.NewNotifyWatcherC(c, w)
 
 	return mig, wc

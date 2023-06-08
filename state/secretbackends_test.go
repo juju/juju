@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/secrets"
@@ -520,13 +521,13 @@ func (s *SecretBackendWatcherSuite) setupWatcher(c *gc.C) (state.SecretBackendRo
 
 func (s *SecretBackendWatcherSuite) TestWatchInitialEvent(c *gc.C) {
 	w, _ := s.setupWatcher(c)
-	testing.AssertKillAndWait(c, w)
+	workertest.CleanKill(c, w)
 }
 
 func (s *SecretBackendWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
 	w, id := s.setupWatcher(c)
 	wc := testing.NewSecretBackendRotateWatcherC(c, w)
-	defer testing.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 
 	now := s.Clock.Now().Round(time.Second).UTC()
 	next := now.Add(2 * time.Hour).Round(time.Second).UTC()
@@ -544,7 +545,7 @@ func (s *SecretBackendWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
 func (s *SecretBackendWatcherSuite) TestWatchDelete(c *gc.C) {
 	w, id := s.setupWatcher(c)
 	wc := testing.NewSecretBackendRotateWatcherC(c, w)
-	defer testing.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 
 	err := s.storage.UpdateSecretBackend(state.UpdateSecretBackendParams{
 		ID:                  id,
@@ -562,7 +563,7 @@ func (s *SecretBackendWatcherSuite) TestWatchDelete(c *gc.C) {
 func (s *SecretBackendWatcherSuite) TestWatchMultipleUpdatesSameBackend(c *gc.C) {
 	w, id := s.setupWatcher(c)
 	wc := testing.NewSecretBackendRotateWatcherC(c, w)
-	defer testing.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 
 	// TODO(quiescence): these two changes should be one event.
 	now := s.Clock.Now().Round(time.Second).UTC()
@@ -589,7 +590,7 @@ func (s *SecretBackendWatcherSuite) TestWatchMultipleUpdatesSameBackend(c *gc.C)
 func (s *SecretBackendWatcherSuite) TestWatchMultipleUpdatesSameBackendDeleted(c *gc.C) {
 	w, id := s.setupWatcher(c)
 	wc := testing.NewSecretBackendRotateWatcherC(c, w)
-	defer testing.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 
 	// TODO(quiescence): these two changes should be one event.
 	now := s.Clock.Now().Round(time.Second).UTC()
@@ -617,7 +618,7 @@ func (s *SecretBackendWatcherSuite) TestWatchMultipleUpdatesSameBackendDeleted(c
 func (s *SecretBackendWatcherSuite) TestWatchMultipleUpdates(c *gc.C) {
 	w, id := s.setupWatcher(c)
 	wc := testing.NewSecretBackendRotateWatcherC(c, w)
-	defer testing.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 
 	// TODO(quiescence): these two changes should be one event.
 	now := s.Clock.Now().Round(time.Second).UTC()

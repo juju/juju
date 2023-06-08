@@ -32,7 +32,7 @@ func (s *suite) TestPing(c *gc.C) {
 	}
 
 	p := NewPinger(action, s.clock, time.Second)
-	defer workertest.DirtyKill(c, p)
+	defer workertest.CleanKill(c, p)
 
 	for i := 0; i < 10; i++ {
 		p.Ping()

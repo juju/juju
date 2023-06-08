@@ -9,6 +9,7 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -194,7 +195,7 @@ func (s *ModelCredentialSuite) TestWatchModelCredential(c *gc.C) {
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	w := m.WatchModelCredential()
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, w)
 
 	// Initial event.

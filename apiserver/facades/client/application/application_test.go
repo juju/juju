@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	unitassignerapi "github.com/juju/juju/api/agent/unitassigner"
@@ -1553,7 +1554,7 @@ func (s *applicationSuite) TestAddRemoteRelationVia(c *gc.C) {
 	rel, err := s.State.KeyRelation("wordpress:db hosted-mysql:server")
 	c.Assert(err, jc.ErrorIsNil)
 	w := rel.WatchRelationEgressNetworks()
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChange("192.168.0.0/16")
 	wc.AssertNoChange()

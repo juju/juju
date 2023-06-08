@@ -144,10 +144,6 @@ func (StringResource) Wait() error {
 	return nil
 }
 
-func (StringResource) Stop() error {
-	return nil
-}
-
 func (s StringResource) String() string {
 	return string(s)
 }
@@ -164,9 +160,5 @@ func (ValueResource) Kill() {
 }
 
 func (ValueResource) Wait() error {
-	return nil
-}
-
-func (r ValueResource) Stop() error {
 	return nil
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/crossmodel"
@@ -156,7 +157,7 @@ func (s *externalControllerSuite) TestWatchController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	w := s.externalControllers.WatchController(testing.ControllerTag.Id())
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 
 	// Initial event.
 	wc := statetesting.NewNotifyWatcherC(c, w)
@@ -187,7 +188,7 @@ func (s *externalControllerSuite) TestWatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	w := s.externalControllers.Watch()
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 
 	// Initial event.
 	wc := statetesting.NewStringsWatcherC(c, w)

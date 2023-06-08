@@ -48,7 +48,7 @@ func (s *keysSuite) TestNotificationsSent(c *gc.C) {
 	).Return(s.sub, nil)
 
 	w := NewKeyWatcher(s.newBaseWatcher(), "random_namespace", "key_value")
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	// Initial notification.
 	select {

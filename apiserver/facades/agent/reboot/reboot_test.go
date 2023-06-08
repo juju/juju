@@ -6,6 +6,7 @@ package reboot_test
 
 import (
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -111,7 +112,7 @@ func (s *rebootSuite) TearDownTest(c *gc.C) {
 		s.machine.resources.StopAll()
 	}
 	if s.machine.w != nil {
-		statetesting.AssertKillAndWait(c, s.machine.w)
+		workertest.CleanKill(c, s.machine.w)
 		s.machine.wc.AssertClosed()
 	}
 
@@ -119,7 +120,7 @@ func (s *rebootSuite) TearDownTest(c *gc.C) {
 		s.container.resources.StopAll()
 	}
 	if s.container.w != nil {
-		statetesting.AssertKillAndWait(c, s.container.w)
+		workertest.CleanKill(c, s.container.w)
 		s.container.wc.AssertClosed()
 	}
 
@@ -127,7 +128,7 @@ func (s *rebootSuite) TearDownTest(c *gc.C) {
 		s.nestedContainer.resources.StopAll()
 	}
 	if s.nestedContainer.w != nil {
-		statetesting.AssertKillAndWait(c, s.nestedContainer.w)
+		workertest.CleanKill(c, s.nestedContainer.w)
 		s.nestedContainer.wc.AssertClosed()
 	}
 	s.JujuConnSuite.TearDownTest(c)

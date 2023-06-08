@@ -16,11 +16,6 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-func AssertKillAndWait(c *gc.C, w worker.Worker) {
-	w.Kill()
-	c.Assert(w.Wait(), jc.ErrorIsNil)
-}
-
 // AssertCanStopWhenSending ensures even when there are changes
 // pending to be delivered by the watcher it can still stop
 // cleanly. This is necessary to check for deadlocks in case the
@@ -33,7 +28,8 @@ func AssertCanStopWhenSending(c *gc.C, w worker.Worker) {
 	stopped := make(chan bool)
 	// Stop() blocks, so we need to call it in a separate goroutine.
 	go func() {
-		AssertKillAndWait(c, w)
+		w.Kill()
+		c.Assert(w.Wait(), jc.ErrorIsNil)
 		stopped <- true
 	}()
 	select {

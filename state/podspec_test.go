@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/leadership"
@@ -231,7 +232,7 @@ func (s *PodSpecSuite) TestWatchPodSpec(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
-	statetesting.AssertKillAndWait(c, w)
+	workertest.CleanKill(c, w)
 	wc.AssertClosed()
 }
 
@@ -263,6 +264,6 @@ func (s *PodSpecSuite) TestWatchRawK8sSpec(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
-	statetesting.AssertKillAndWait(c, w)
+	workertest.CleanKill(c, w)
 	wc.AssertClosed()
 }

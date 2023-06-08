@@ -8,6 +8,7 @@ import (
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
@@ -271,7 +272,7 @@ func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := s.storageBackend.WatchVolumeAttachment(machineTag, volumeTag)
-	defer testing.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
@@ -305,7 +306,7 @@ func (s *VolumeStateSuite) TestWatchModelVolumes(c *gc.C) {
 	addUnit()
 
 	w := s.storageBackend.WatchModelVolumes()
-	defer testing.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("0", "1") // initial
 	wc.AssertNoChange()
@@ -346,7 +347,7 @@ func (s *VolumeStateSuite) TestWatchModelVolumeAttachments(c *gc.C) {
 	addUnit()
 
 	w := s.storageBackend.WatchModelVolumeAttachments()
-	defer testing.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("0:0", "0:1") // initial
 	wc.AssertNoChange()
@@ -377,7 +378,7 @@ func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
 	addUnit()
 
 	w := s.storageBackend.WatchMachineVolumes(names.NewMachineTag("0"))
-	defer testing.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("0/0", "0/1") // initial
 	wc.AssertNoChange()
@@ -425,7 +426,7 @@ func (s *VolumeStateSuite) TestWatchMachineVolumeAttachments(c *gc.C) {
 	_, m0 := addUnit(nil)
 
 	w := s.storageBackend.WatchMachineVolumeAttachments(names.NewMachineTag("0"))
-	defer testing.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("0:0/0", "0:0/1") // initial
 	wc.AssertNoChange()

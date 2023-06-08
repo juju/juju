@@ -42,7 +42,7 @@ func (s *workerSuite) TestChanges(c *gc.C) {
 	s.watcher.EXPECT().Kill().AnyTimes()
 
 	w := s.newWorker(c)
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	watcher, ok := w.(FileNotifyWatcher)
 	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement FileNotifyWatcher"))

@@ -20,6 +20,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -42,7 +43,6 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/firewaller"
@@ -300,12 +300,12 @@ func (s *InstanceModeSuite) newFirewallerWithoutModelFirewaller(c *gc.C) worker.
 
 func (s *InstanceModeSuite) TestStartStop(c *gc.C) {
 	fw := s.newFirewaller(c)
-	statetesting.AssertKillAndWait(c, fw)
+	workertest.CleanKill(c, fw)
 }
 
 func (s *InstanceModeSuite) TestStartStopWithoutModelFirewaller(c *gc.C) {
 	fw := s.newFirewallerWithoutModelFirewaller(c)
-	statetesting.AssertKillAndWait(c, fw)
+	workertest.CleanKill(c, fw)
 }
 
 func (s *InstanceModeSuite) testNotExposedApplication(c *gc.C, fw worker.Worker) {
@@ -329,19 +329,19 @@ func (s *InstanceModeSuite) testNotExposedApplication(c *gc.C, fw worker.Worker)
 
 func (s *InstanceModeSuite) TestNotExposedApplication(c *gc.C) {
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 	s.testNotExposedApplication(c, fw)
 }
 
 func (s *InstanceModeSuite) TestNotExposedApplicationWithoutModelFirewaller(c *gc.C) {
 	fw := s.newFirewallerWithoutModelFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 	s.testNotExposedApplication(c, fw)
 }
 
 func (s *InstanceModeSuite) TestExposedApplication(c *gc.C) {
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
 
@@ -373,7 +373,7 @@ func (s *InstanceModeSuite) TestExposedApplication(c *gc.C) {
 
 func (s *InstanceModeSuite) TestMultipleExposedApplications(c *gc.C) {
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	app1 := s.AddTestingApplication(c, "wordpress", s.charm)
 	err := app1.MergeExposeSettings(map[string]state.ExposedEndpoint{
@@ -424,7 +424,7 @@ func (s *InstanceModeSuite) TestMultipleExposedApplications(c *gc.C) {
 
 func (s *InstanceModeSuite) TestMachineWithoutInstanceId(c *gc.C) {
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
 	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
@@ -456,7 +456,7 @@ func (s *InstanceModeSuite) TestMachineWithoutInstanceId(c *gc.C) {
 
 func (s *InstanceModeSuite) TestMultipleUnits(c *gc.C) {
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
 	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
@@ -513,7 +513,7 @@ func (s *InstanceModeSuite) TestStartWithState(c *gc.C) {
 
 	// Starting the firewaller opens the ports.
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	s.assertIngressRules(c, inst, m.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
@@ -537,7 +537,7 @@ func (s *InstanceModeSuite) TestStartWithPartialState(c *gc.C) {
 
 	// Starting the firewaller, no open ports.
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	s.assertIngressRules(c, inst, m.Id(), nil)
 
@@ -571,7 +571,7 @@ func (s *InstanceModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
 
 	// Starting the firewaller, no open ports.
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	s.assertIngressRules(c, inst, m.Id(), nil)
 
@@ -600,7 +600,7 @@ func (s *InstanceModeSuite) TestStartMachineWithManualMachine(c *gc.C) {
 	}
 
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	// Wait for manager machine (started by setUpTest)
 	assertWatching(names.NewMachineTag("0"))
@@ -633,7 +633,7 @@ func (s *InstanceModeSuite) TestFlushModelAfterFirstMachineOnly(c *gc.C) {
 	}
 
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	// Initial event from machine watcher
 	select {
@@ -666,7 +666,7 @@ func (s *InstanceModeSuite) TestFlushModelAfterFirstMachineOnly(c *gc.C) {
 
 func (s *InstanceModeSuite) TestSetClearExposedApplication(c *gc.C) {
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
 
@@ -700,7 +700,7 @@ func (s *InstanceModeSuite) TestSetClearExposedApplication(c *gc.C) {
 
 func (s *InstanceModeSuite) TestRemoveUnit(c *gc.C) {
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
 	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
@@ -741,7 +741,7 @@ func (s *InstanceModeSuite) TestRemoveUnit(c *gc.C) {
 
 func (s *InstanceModeSuite) TestRemoveApplication(c *gc.C) {
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
 	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
@@ -771,7 +771,7 @@ func (s *InstanceModeSuite) TestRemoveApplication(c *gc.C) {
 
 func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *gc.C) {
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	app1 := s.AddTestingApplication(c, "wordpress", s.charm)
 	err := app1.MergeExposeSettings(map[string]state.ExposedEndpoint{
@@ -825,7 +825,7 @@ func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *gc.C) {
 
 func (s *InstanceModeSuite) TestDeadMachine(c *gc.C) {
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
 	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
@@ -941,7 +941,7 @@ func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *gc.C) {
 
 func (s *InstanceModeSuite) TestDefaultModelFirewall(c *gc.C) {
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	ctrlCfg, err := s.State.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -955,7 +955,7 @@ func (s *InstanceModeSuite) TestDefaultModelFirewall(c *gc.C) {
 
 func (s *InstanceModeSuite) TestConfigureModelFirewall(c *gc.C) {
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1099,7 +1099,7 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 	ingressRequired := true
 	apiErr := false
 	fw, ru := s.setupRemoteRelationRequirerRoleConsumingSide(c, published, &apiErr, &ingressRequired, &mockClock{c: c})
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	// Add a unit on the consuming app and have it enter the relation scope.
 	// This will trigger the firewaller to publish the changes.
@@ -1131,7 +1131,7 @@ func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *gc.C) {
 	apiErr := true
 	fw, ru := s.setupRemoteRelationRequirerRoleConsumingSide(c, published, &apiErr, &ingressRequired,
 		testclock.NewClock(time.Time{}))
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	// Add a unit on the consuming app and have it enter the relation scope.
 	// This will trigger the firewaller to try and publish the changes.
@@ -1215,7 +1215,7 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *gc.C)
 
 	// Create the firewaller facade on the consuming model.
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1286,7 +1286,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 
 	// Create the firewaller facade on the consuming model.
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1358,7 +1358,7 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ingress []string, expect
 
 	// Create the firewaller facade on the offering model.
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1483,7 +1483,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpoints(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
 
@@ -1577,7 +1577,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceT
 	c.Assert(err, jc.ErrorIsNil)
 
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
 
@@ -1637,7 +1637,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceD
 	c.Assert(err, jc.ErrorIsNil)
 
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
 
@@ -1685,7 +1685,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceH
 	c.Assert(err, jc.ErrorIsNil)
 
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
 
@@ -1729,7 +1729,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceH
 func (s *InstanceModeSuite) TestExposeToIPV6CIDRsOnIPV4OnlyProvider(c *gc.C) {
 	supportsIPV6CIDRs := false
 	fw := s.newFirewallerWithClockAndIPV6CIDRSupport(c, &mockClock{c: c}, supportsIPV6CIDRs)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
 
@@ -1808,13 +1808,13 @@ func (s *GlobalModeSuite) newFirewallerWithIPV6CIDRSupport(c *gc.C, supportIPV6C
 
 func (s *GlobalModeSuite) TestStartStop(c *gc.C) {
 	fw := s.newFirewaller(c)
-	statetesting.AssertKillAndWait(c, fw)
+	workertest.CleanKill(c, fw)
 }
 
 func (s *GlobalModeSuite) TestGlobalMode(c *gc.C) {
 	// Start firewaller and open ports.
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	app1 := s.AddTestingApplication(c, "wordpress", s.charm)
 	err := app1.MergeExposeSettings(map[string]state.ExposedEndpoint{
@@ -1887,7 +1887,7 @@ func (s *GlobalModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
 
 	// Starting the firewaller, no open ports.
 	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	s.assertEnvironPorts(c, nil)
 
@@ -1937,7 +1937,7 @@ func (s *GlobalModeSuite) TestRestart(c *gc.C) {
 
 	// Start firewaller and check port.
 	fw = s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	s.assertEnvironPorts(c, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80-90/tcp"), firewall.AllNetworksIPV4CIDR),
@@ -1976,7 +1976,7 @@ func (s *GlobalModeSuite) TestRestartUnexposedApplication(c *gc.C) {
 
 	// Start firewaller and check port.
 	fw = s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	s.assertEnvironPorts(c, nil)
 }
@@ -2021,7 +2021,7 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 
 	// Start firewaller and check port.
 	fw = s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	s.assertEnvironPorts(c, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
@@ -2055,7 +2055,7 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 func (s *GlobalModeSuite) TestExposeToIPV6CIDRsOnIPV4OnlyProvider(c *gc.C) {
 	supportsIPV6CIDRs := false
 	fw := s.newFirewallerWithIPV6CIDRSupport(c, supportsIPV6CIDRs)
-	defer statetesting.AssertKillAndWait(c, fw)
+	defer workertest.CleanKill(c, fw)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
 	u, _ := s.addUnit(c, app)

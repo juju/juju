@@ -6,6 +6,7 @@ package firewaller_test
 import (
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
@@ -57,7 +58,7 @@ func (s *ModelFirewallRulesWatcherSuite) TestInitial(c *gc.C) {
 
 	w, err := firewaller.NewModelFirewallRulesWatcher(s.st)
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, w)
 
 	// Initial event
@@ -79,7 +80,7 @@ func (s *ModelFirewallRulesWatcherSuite) TestConfigChange(c *gc.C) {
 
 	w, err := firewaller.NewModelFirewallRulesWatcher(s.st)
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, w)
 
 	// Initial event
@@ -105,7 +106,7 @@ func (s *ModelFirewallRulesWatcherSuite) TestIrrelevantConfigChange(c *gc.C) {
 
 	w, err := firewaller.NewModelFirewallRulesWatcher(s.st)
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, w)
 
 	// Initial event

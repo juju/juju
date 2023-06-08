@@ -927,7 +927,7 @@ func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {
 func (s *WorkerSuite) TestUnitsChange(c *gc.C) {
 	w, err := caasunitprovisioner.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	s.sendApplicationChanges(c, "gitlab")
 	defer workertest.CleanKill(c, w)
@@ -956,7 +956,7 @@ func (s *WorkerSuite) TestOperatorChange(c *gc.C) {
 
 	w, err := caasunitprovisioner.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	s.sendApplicationChanges(c, "gitlab")
 
@@ -1057,7 +1057,7 @@ func (s *WorkerSuite) TestV2CharmExitsApplicationWorker(c *gc.C) {
 
 	w, err := caasunitprovisioner.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	waitCharmGetterCalls := func(names ...string) {
 		retryCallArgs := coretesting.LongRetryStrategy

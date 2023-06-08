@@ -6,6 +6,7 @@ package state_test
 
 import (
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
@@ -89,16 +90,16 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 
 func (s *RebootSuite) TearDownSuit(c *gc.C) {
 	if s.w != nil {
-		statetesting.AssertKillAndWait(c, s.w)
+		workertest.CleanKill(c, s.w)
 	}
 	if s.wC1 != nil {
-		statetesting.AssertKillAndWait(c, s.wC1)
+		workertest.CleanKill(c, s.wC1)
 	}
 	if s.wC2 != nil {
-		statetesting.AssertKillAndWait(c, s.wC2)
+		workertest.CleanKill(c, s.wC2)
 	}
 	if s.wC3 != nil {
-		statetesting.AssertKillAndWait(c, s.wC3)
+		workertest.CleanKill(c, s.wC3)
 	}
 }
 
@@ -135,13 +136,13 @@ func (s *RebootSuite) TestWatchForRebootEvent(c *gc.C) {
 	s.wc.AssertOneChange()
 
 	// Stop all watchers and check they are closed
-	statetesting.AssertKillAndWait(c, s.w)
+	workertest.CleanKill(c, s.w)
 	s.wc.AssertClosed()
-	statetesting.AssertKillAndWait(c, s.wC1)
+	workertest.CleanKill(c, s.wC1)
 	s.wcC1.AssertClosed()
-	statetesting.AssertKillAndWait(c, s.wC2)
+	workertest.CleanKill(c, s.wC2)
 	s.wcC2.AssertClosed()
-	statetesting.AssertKillAndWait(c, s.wC3)
+	workertest.CleanKill(c, s.wC3)
 	s.wcC3.AssertClosed()
 }
 
@@ -155,13 +156,13 @@ func (s *RebootSuite) TestWatchRebootHappensOnMachine(c *gc.C) {
 	s.wcC2.AssertOneChange()
 	s.wcC3.AssertOneChange()
 
-	statetesting.AssertKillAndWait(c, s.w)
+	workertest.CleanKill(c, s.w)
 	s.wc.AssertClosed()
-	statetesting.AssertKillAndWait(c, s.wC1)
+	workertest.CleanKill(c, s.wC1)
 	s.wcC1.AssertClosed()
-	statetesting.AssertKillAndWait(c, s.wC2)
+	workertest.CleanKill(c, s.wC2)
 	s.wcC2.AssertClosed()
-	statetesting.AssertKillAndWait(c, s.wC3)
+	workertest.CleanKill(c, s.wC3)
 	s.wcC3.AssertClosed()
 }
 
@@ -177,13 +178,13 @@ func (s *RebootSuite) TestWatchRebootHappensOnContainer1(c *gc.C) {
 	s.wcC3.AssertNoChange()
 
 	// Stop all watchers and check they are closed
-	statetesting.AssertKillAndWait(c, s.w)
+	workertest.CleanKill(c, s.w)
 	s.wc.AssertClosed()
-	statetesting.AssertKillAndWait(c, s.wC1)
+	workertest.CleanKill(c, s.wC1)
 	s.wcC1.AssertClosed()
-	statetesting.AssertKillAndWait(c, s.wC2)
+	workertest.CleanKill(c, s.wC2)
 	s.wcC2.AssertClosed()
-	statetesting.AssertKillAndWait(c, s.wC3)
+	workertest.CleanKill(c, s.wC3)
 	s.wcC3.AssertClosed()
 }
 
@@ -198,13 +199,13 @@ func (s *RebootSuite) TestWatchRebootHappensOnContainer2(c *gc.C) {
 	s.wcC3.AssertNoChange()
 
 	// Stop all watchers and check they are closed
-	statetesting.AssertKillAndWait(c, s.w)
+	workertest.CleanKill(c, s.w)
 	s.wc.AssertClosed()
-	statetesting.AssertKillAndWait(c, s.wC1)
+	workertest.CleanKill(c, s.wC1)
 	s.wcC1.AssertClosed()
-	statetesting.AssertKillAndWait(c, s.wC2)
+	workertest.CleanKill(c, s.wC2)
 	s.wcC2.AssertClosed()
-	statetesting.AssertKillAndWait(c, s.wC3)
+	workertest.CleanKill(c, s.wC3)
 	s.wcC3.AssertClosed()
 }
 
@@ -219,12 +220,12 @@ func (s *RebootSuite) TestWatchRebootHappensOnContainer3(c *gc.C) {
 	s.wcC3.AssertOneChange()
 
 	// Stop all watchers and check they are closed
-	statetesting.AssertKillAndWait(c, s.w)
+	workertest.CleanKill(c, s.w)
 	s.wc.AssertClosed()
-	statetesting.AssertKillAndWait(c, s.wC1)
+	workertest.CleanKill(c, s.wC1)
 	s.wcC1.AssertClosed()
-	statetesting.AssertKillAndWait(c, s.wC2)
+	workertest.CleanKill(c, s.wC2)
 	s.wcC2.AssertClosed()
-	statetesting.AssertKillAndWait(c, s.wC3)
+	workertest.CleanKill(c, s.wC3)
 	s.wcC3.AssertClosed()
 }

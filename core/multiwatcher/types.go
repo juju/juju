@@ -43,7 +43,6 @@ type Factory interface {
 // on one or more models.
 type Watcher interface {
 	worker.Worker
-	// Stop() error
 	Next() ([]Delta, error)
 }
 
