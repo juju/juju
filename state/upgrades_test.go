@@ -4,6 +4,9 @@
 package state
 
 import (
+	"sort"
+
+	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	jc "github.com/juju/testing/checkers"
@@ -80,4 +83,69 @@ func (s *upgradesSuite) makeModel(c *gc.C, name string, attr coretesting.Attrs) 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return st
+}
+
+type bsonMById []bson.M
+
+func (x bsonMById) Len() int { return len(x) }
+
+func (x bsonMById) Swap(i, j int) { x[i], x[j] = x[j], x[i] }
+
+func (x bsonMById) Less(i, j int) bool {
+	return x[i]["_id"].(string) < x[j]["_id"].(string)
+}
+
+func (s *upgradesSuite) TestEnsureInitalRefCountForExternalSecretBackends(c *gc.C) {
+	backendStore := NewSecretBackends(s.state)
+	_, err := backendStore.CreateSecretBackend(CreateSecretBackendParams{
+		ID:          "backend-id-1",
+		Name:        "foo",
+		BackendType: "vault",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	backendRefCount, err := s.state.ReadBackendRefCount("backend-id-1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendRefCount, gc.Equals, 0)
+
+	_, err = backendStore.CreateSecretBackend(CreateSecretBackendParams{
+		ID:          "backend-id-2",
+		Name:        "bar",
+		BackendType: "vault",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	ops, err := s.state.incBackendRevisionCountOps("backend-id-2", 3)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.db().RunTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+	backendRefCount, err = s.state.ReadBackendRefCount("backend-id-2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendRefCount, gc.Equals, 3)
+
+	ops, err = s.state.removeBackendRefCountOp("backend-id-1", true)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.db().RunTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.state.ReadBackendRefCount("backend-id-1")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	expected := bsonMById{
+		{
+			// created by EnsureInitalRefCountForExternalSecretBackends
+			"_id":      secretBackendRefCountKey("backend-id-1"),
+			"refcount": 0,
+		},
+		{
+			// no touch existing records.
+			"_id":      secretBackendRefCountKey("backend-id-2"),
+			"refcount": 3,
+		},
+	}
+	sort.Sort(expected)
+
+	refCountCollection, closer := s.state.db().GetRawCollection(globalRefcountsC)
+	defer closer()
+
+	expectedData := upgradedData(refCountCollection, expected)
+	expectedData.filter = bson.D{{"_id", bson.M{"$regex": "secretbackend#revisions#.*"}}}
+	s.assertUpgradedData(c, EnsureInitalRefCountForExternalSecretBackends, expectedData)
 }

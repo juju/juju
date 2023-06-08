@@ -300,6 +300,28 @@ func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
 	c.Assert(force, jc.IsTrue)
 }
 
+func (s *ApplicationSuite) TestCAASSetCharmRequireNoUnits(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS,
+	})
+	defer st.Close()
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql", Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch, DesiredScale: 1})
+
+	// Add a compatible charm and force it.
+	sch := state.AddCustomCharm(c, st, "mysql", "metadata.yaml", metaBaseCAAS, "kubernetes", 2)
+
+	cfg := state.SetCharmConfig{
+		Charm:          sch,
+		ForceUnits:     true,
+		RequireNoUnits: true,
+	}
+	err := app.SetCharm(cfg)
+	c.Assert(err, gc.ErrorMatches, `.*application should not have units`)
+}
+
 func (s *ApplicationSuite) TestCAASSetCharmNewDeploymentFails(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",

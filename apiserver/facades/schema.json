@@ -20284,9 +20284,6 @@
                 "IngressNetworksChangeEvent": {
                     "type": "object",
                     "properties": {
-                        "application-token": {
-                            "type": "string"
-                        },
                         "bakery-version": {
                             "type": "integer"
                         },
@@ -20312,7 +20309,6 @@
                     "additionalProperties": false,
                     "required": [
                         "relation-token",
-                        "application-token",
                         "ingress-required"
                     ]
                 },
@@ -20963,11 +20959,15 @@
                             "items": {
                                 "$ref": "#/definitions/Macaroon"
                             }
+                        },
+                        "relation-token": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "application-token"
+                        "application-token",
+                        "relation-token"
                     ]
                 },
                 "WatchRemoteSecretChangesArgs": {

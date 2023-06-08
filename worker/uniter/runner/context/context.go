@@ -1795,3 +1795,10 @@ func (ctx *HookContext) SecretURI() (string, error) {
 func (ctx *HookContext) SecretLabel() string {
 	return ctx.secretLabel
 }
+
+// SecretRevision returns the secret revision for secret hooks.
+// This is not yet used by any hook commands - it is exported
+// for tests to use.
+func (ctx *HookContext) SecretRevision() int {
+	return ctx.secretRevision
+}
