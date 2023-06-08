@@ -28,8 +28,8 @@ var (
 )
 
 // PublishRelationChange applies the relation change event to the specified backend.
-func PublishRelationChange(backend Backend, relationTag names.Tag, change params.RemoteRelationChangeEvent) error {
-	logger.Debugf("publish into model %v change for %v: %#v", backend.ModelUUID(), relationTag, &change)
+func PublishRelationChange(backend Backend, relationTag, applicationTag names.Tag, change params.RemoteRelationChangeEvent) error {
+	logger.Debugf("publish into model %v change for %v on %v: %#v", backend.ModelUUID(), relationTag, applicationTag, &change)
 
 	dyingOrDead := change.Life != "" && change.Life != life.Alive
 	// Ensure the relation exists.
@@ -46,14 +46,6 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 	if err := handleSuspendedRelation(change, rel, dyingOrDead); err != nil {
 		return errors.Trace(err)
 	}
-
-	// Look up the application on the remote side of this relation
-	// ie from the model which published this change.
-	applicationTag, err := backend.GetRemoteEntity(change.ApplicationToken)
-	if err != nil && !errors.IsNotFound(err) {
-		return errors.Trace(err)
-	}
-	logger.Debugf("application tag for token %v is %v in model %v", change.ApplicationToken, applicationTag, backend.ModelUUID())
 
 	// If the remote model has destroyed the relation, do it here also.
 	forceCleanUp := change.ForceCleanup != nil && *change.ForceCleanup
@@ -200,9 +192,9 @@ func GetOfferingRelationTokens(backend Backend, tag names.RelationTag) (string, 
 	if err != nil {
 		return "", "", errors.Annotatef(err, "getting token for relation %q", tag.Id())
 	}
-	appToken, err := backend.GetToken(names.NewApplicationTag(offerName))
+	appToken, err := backend.GetToken(names.NewApplicationOfferTag(offerName))
 	if err != nil {
-		return "", "", errors.Annotatef(err, "getting token for application %q", offerName)
+		return "", "", errors.Annotatef(err, "getting token for application offer %q", offerName)
 	}
 	return relationToken, appToken, nil
 }

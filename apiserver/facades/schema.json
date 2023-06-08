@@ -22167,9 +22167,6 @@
                 "IngressNetworksChangeEvent": {
                     "type": "object",
                     "properties": {
-                        "application-token": {
-                            "type": "string"
-                        },
                         "bakery-version": {
                             "type": "integer"
                         },
@@ -22195,7 +22192,6 @@
                     "additionalProperties": false,
                     "required": [
                         "relation-token",
-                        "application-token",
                         "ingress-required"
                     ]
                 },
