@@ -331,7 +331,6 @@ func (s *clientWatchSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 		equal, _ := jc.DeepEqual(got, &params.RemoteApplicationUpdate{
 			Name:      "remote-db2",
 			ModelUUID: st.ModelUUID(),
-			OfferUUID: "offer-uuid",
 			OfferURL:  "admin/prod.db2",
 			Life:      "alive",
 			Status: params.StatusInfo{

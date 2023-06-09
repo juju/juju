@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cloud"
@@ -355,8 +354,7 @@ func getSecretBackendInfo(statePool StatePool, backendState SecretsBackendState,
 		b   *coresecrets.SecretBackend
 		err error
 	)
-	// Check for external backends where the id is not a UUID.
-	if !utils.IsValidUUIDString(id) {
+	if !coresecrets.IsInternalSecretBackendID(id) {
 		b, err = backendState.GetSecretBackendByID(id)
 		if err != nil {
 			return nil, errors.Trace(err)

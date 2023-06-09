@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
-	"github.com/kr/pretty"
 
 	"github.com/juju/juju/api/client/application"
 	applicationapi "github.com/juju/juju/api/client/application"
@@ -344,63 +343,84 @@ func (c *repositoryCharm) String() string {
 // PrepareAndDeploy finishes preparing to deploy a repository charm,
 // then deploys it.
 func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver) error {
-	if featureflag.Enabled(feature.ServerSideCharmDeploy) && deployAPI.BestFacadeVersion("Application") >= 18 {
-		var base *series.Base
-		if !c.baseFlag.Empty() {
-			base = &c.baseFlag
-		}
-		if err := c.validateCharmFlags(); err != nil {
-			return errors.Trace(err)
-		}
+	if (!featureflag.Enabled(feature.ServerSideCharmDeploy) && deployAPI.BestFacadeVersion("Application") >= 18) ||
+		deployAPI.BestFacadeVersion("Application") < 18 {
+		return c.compatibilityPrepareAndDeploy(ctx, deployAPI, resolver)
+	}
+	var base *series.Base
+	if !c.baseFlag.Empty() {
+		base = &c.baseFlag
+	}
+	if err := c.validateCharmFlags(); err != nil {
+		return errors.Trace(err)
+	}
 
-		var channel *string
-		if c.id.Origin.CharmChannel().String() != "" {
-			str := c.id.Origin.CharmChannel().String()
-			channel = &str
-		}
+	var channel *string
+	if c.id.Origin.CharmChannel().String() != "" {
+		str := c.id.Origin.CharmChannel().String()
+		channel = &str
+	}
 
-		// Process the --config args.
-		appName := c.userRequestedURL.Name
-		if c.applicationName != "" {
-			appName = c.applicationName
-		}
-		configYAML, err := utils.CombinedConfig(ctx, c.model.Filesystem(), c.configOptions, appName)
-		if err != nil {
-			return errors.Trace(err)
-		}
+	// Process the --config args.
+	appName := c.userRequestedURL.Name
+	if c.applicationName != "" {
+		appName = c.applicationName
+	}
 
-		info, localPendingResources, errs := deployAPI.DeployFromRepository(application.DeployFromRepositoryArg{
-			CharmName:        c.userRequestedURL.Name,
-			ApplicationName:  c.applicationName,
-			AttachStorage:    c.attachStorage,
-			Base:             base,
-			Channel:          channel,
-			ConfigYAML:       configYAML,
-			Cons:             c.constraints,
-			Devices:          c.devices,
-			DryRun:           c.dryRun,
-			EndpointBindings: c.bindings,
-			Force:            c.force,
-			NumUnits:         &c.numUnits,
-			Placement:        c.placement,
-			Revision:         c.id.Origin.Revision,
-			Resources:        c.resources,
-			Storage:          c.storage,
-			Trust:            c.trust,
-		})
+	configYAML, err := utils.CombinedConfig(ctx, c.model.Filesystem(), c.configOptions, appName)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-		uploadErr := c.uploadExistingPendingResources(c.applicationName, localPendingResources, deployAPI, c.model.Filesystem())
-		if uploadErr != nil {
-			ctx.Errorf("Unable to upload resources for %v, consider using --attach-resource. \n %v", c.applicationName, uploadErr)
-		}
+	charmName := c.userRequestedURL.Name
+	info, localPendingResources, errs := deployAPI.DeployFromRepository(application.DeployFromRepositoryArg{
+		CharmName:        charmName,
+		ApplicationName:  appName,
+		AttachStorage:    c.attachStorage,
+		Base:             base,
+		Channel:          channel,
+		ConfigYAML:       configYAML,
+		Cons:             c.constraints,
+		Devices:          c.devices,
+		DryRun:           c.dryRun,
+		EndpointBindings: c.bindings,
+		Force:            c.force,
+		NumUnits:         &c.numUnits,
+		Placement:        c.placement,
+		Revision:         c.id.Origin.Revision,
+		Resources:        c.resources,
+		Storage:          c.storage,
+		Trust:            c.trust,
+	})
 
-		ctx.Infof("%s", pretty.Sprint(info))
-		for _, err := range errs {
-			ctx.Errorf(err.Error())
-		}
+	uploadErr := c.uploadExistingPendingResources(appName, localPendingResources, deployAPI, c.model.Filesystem())
+	if uploadErr != nil {
+		ctx.Errorf("Unable to upload resources for %v, consider using --attach-resource. \n %v", appName, uploadErr)
+	}
+
+	if len(errs) == 0 {
+		ctx.Infof(formatDeployedText(c.dryRun, charmName, info))
 		return nil
 	}
 
+	for _, err := range errs {
+		ctx.Errorf(err.Error())
+	}
+	return errors.Errorf("failed to deploy charm %q", charmName)
+}
+
+func formatDeployedText(dryRun bool, charmName string, info application.DeployInfo) string {
+	if dryRun {
+		return fmt.Sprintf("%q from charm-hub charm %q, revision %d in channel %s on %s would be deployed",
+			info.Name, charmName, info.Revision, info.Channel, info.Base.String())
+	}
+	return fmt.Sprintf("Deployed %q from charm-hub charm %q, revision %d in channel %s on %s",
+		info.Name, charmName, info.Revision, info.Channel, info.Base.String())
+}
+
+// compatibilityPrepareAndDeploy deploys repository charms to controllers
+// which do not have application facade 18 or greater.
+func (c *repositoryCharm) compatibilityPrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver) error {
 	userRequestedURL := c.userRequestedURL
 	location := "charmhub"
 

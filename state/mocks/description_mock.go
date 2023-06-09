@@ -453,6 +453,20 @@ func (mr *MockApplicationMockRecorder) PodSpec() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PodSpec", reflect.TypeOf((*MockApplication)(nil).PodSpec))
 }
 
+// ProvisioningState mocks base method.
+func (m *MockApplication) ProvisioningState() description.ProvisioningState {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProvisioningState")
+	ret0, _ := ret[0].(description.ProvisioningState)
+	return ret0
+}
+
+// ProvisioningState indicates an expected call of ProvisioningState.
+func (mr *MockApplicationMockRecorder) ProvisioningState() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProvisioningState", reflect.TypeOf((*MockApplication)(nil).ProvisioningState))
+}
+
 // Resources mocks base method.
 func (m *MockApplication) Resources() []description.Resource {
 	m.ctrl.T.Helper()

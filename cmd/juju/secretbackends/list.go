@@ -12,12 +12,12 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/api/client/secretbackends"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/secrets/provider"
 )
@@ -148,7 +148,7 @@ func gatherSecretBackendInfo(backends []secretbackends.SecretBackend) map[string
 			info.Status = status.Error
 			info.Error = b.Error.Error()
 		}
-		if !utils.IsValidUUIDString(b.ID) {
+		if !secrets.IsInternalSecretBackendID(b.ID) {
 			info.ID = b.ID
 		}
 		if len(b.Config) > 0 {

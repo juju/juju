@@ -305,7 +305,7 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 			}, isOwnerAliveOp,
 		}...)
 		if valueDoc.ValueRef != nil {
-			refOps, err := s.st.incBackendRevisionCountOps(valueDoc.ValueRef.BackendID)
+			refOps, err := s.st.incBackendRevisionCountOps(valueDoc.ValueRef.BackendID, 1)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -414,7 +414,7 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 				Insert: *revisionDoc,
 			})
 			if p.ValueRef != nil {
-				refOps, err := s.st.incBackendRevisionCountOps(p.ValueRef.BackendID)
+				refOps, err := s.st.incBackendRevisionCountOps(p.ValueRef.BackendID, 1)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -608,6 +608,9 @@ func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (external 
 			globalRefCountsCollection, closer := st.db().GetCollection(globalRefcountsC)
 			defer closer()
 			for backendID, count := range externalRevisionCounts {
+				if secrets.IsInternalSecretBackendID(backendID) {
+					continue
+				}
 				err = globalRefCountsCollection.Writeable().UpdateId(
 					secretBackendRefCountKey(backendID),
 					bson.D{{"$inc", bson.D{{"refcount", -1 * count}}}})
@@ -719,6 +722,9 @@ func (st *State) deleteOne(uri *secrets.URI) (external []secrets.ValueRef, _ err
 	globalRefCountsCollection, closer := st.db().GetCollection(globalRefcountsC)
 	defer closer()
 	for backendID, count := range externalRevisionCounts {
+		if secrets.IsInternalSecretBackendID(backendID) {
+			continue
+		}
 		err = globalRefCountsCollection.Writeable().UpdateId(
 			secretBackendRefCountKey(backendID),
 			bson.D{{"$inc", bson.D{{"refcount", -1 * count}}}})
@@ -782,11 +788,11 @@ func (s *secretsStore) ChangeSecretBackend(arg ChangeSecretBackendParams) error 
 		return errors.Trace(err)
 	}
 
-	secretValuesCollection, closer := s.st.db().GetCollection(secretRevisionsC)
+	secretRevisionsCollection, closer := s.st.db().GetCollection(secretRevisionsC)
 	defer closer()
 	var doc secretRevisionDoc
 	key := secretRevisionKey(arg.URI, arg.Revision)
-	err := secretValuesCollection.FindId(key).One(&doc)
+	err := secretRevisionsCollection.FindId(key).One(&doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("secret revision %q", key)
 	}
@@ -807,14 +813,27 @@ func (s *secretsStore) ChangeSecretBackend(arg ChangeSecretBackendParams) error 
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		return []txn.Op{
-			{
-				C:      secretRevisionsC,
-				Id:     doc.DocID,
-				Assert: txn.DocExists,
-				Update: bson.M{"$set": bson.M{"value-reference": valRefDoc, "data": dataCopy}},
-			},
-		}, nil
+		var ops []txn.Op
+		if doc.ValueRef != nil {
+			refOps, err := s.st.decSecretBackendRefCountOp(doc.ValueRef.BackendID)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, refOps...)
+		}
+		if valRefDoc != nil {
+			refOps, err := s.st.incBackendRevisionCountOps(valRefDoc.BackendID, 1)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, refOps...)
+		}
+		return append(ops, txn.Op{
+			C:      secretRevisionsC,
+			Id:     doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{"value-reference": valRefDoc, "data": dataCopy}},
+		}), nil
 	}
 	err = s.st.db().Run(buildTxnWithLeadership(buildTxn, arg.Token))
 	return errors.Trace(err)

@@ -49,23 +49,24 @@ func OperationBlockedError(msg string) error {
 }
 
 var singletonErrorCodes = map[errors.ConstError]string{
-	stateerrors.ErrCannotEnterScopeYet: params.CodeCannotEnterScopeYet,
-	stateerrors.ErrCannotEnterScope:    params.CodeCannotEnterScope,
-	stateerrors.ErrUnitHasSubordinates: params.CodeUnitHasSubordinates,
-	stateerrors.ErrDead:                params.CodeDead,
-	jujutxn.ErrExcessiveContention:     params.CodeExcessiveContention, // TODO(dqlite): remove jujutxn.ErrExcessiveContention from api errors
-	leadership.ErrClaimDenied:          params.CodeLeadershipClaimDenied,
-	lease.ErrClaimDenied:               params.CodeLeaseClaimDenied,
-	ErrBadId:                           params.CodeNotFound,
-	ErrBadCreds:                        params.CodeUnauthorized,
-	ErrNoCreds:                         params.CodeNoCreds,
-	ErrLoginExpired:                    params.CodeLoginExpired,
-	ErrPerm:                            params.CodeUnauthorized,
-	ErrNotLoggedIn:                     params.CodeUnauthorized,
-	ErrUnknownWatcher:                  params.CodeNotFound,
-	ErrStoppedWatcher:                  params.CodeStopped,
-	ErrTryAgain:                        params.CodeTryAgain,
-	ErrActionNotAvailable:              params.CodeActionNotAvailable,
+	stateerrors.ErrCannotEnterScopeYet:           params.CodeCannotEnterScopeYet,
+	stateerrors.ErrCannotEnterScope:              params.CodeCannotEnterScope,
+	stateerrors.ErrUnitHasSubordinates:           params.CodeUnitHasSubordinates,
+	stateerrors.ErrDead:                          params.CodeDead,
+	stateerrors.ErrApplicationShouldNotHaveUnits: params.CodeAppShouldNotHaveUnits,
+	jujutxn.ErrExcessiveContention:               params.CodeExcessiveContention, // TODO(dqlite): remove jujutxn.ErrExcessiveContention from api errors
+	leadership.ErrClaimDenied:                    params.CodeLeadershipClaimDenied,
+	lease.ErrClaimDenied:                         params.CodeLeaseClaimDenied,
+	ErrBadId:                                     params.CodeNotFound,
+	ErrBadCreds:                                  params.CodeUnauthorized,
+	ErrNoCreds:                                   params.CodeNoCreds,
+	ErrLoginExpired:                              params.CodeLoginExpired,
+	ErrPerm:                                      params.CodeUnauthorized,
+	ErrNotLoggedIn:                               params.CodeUnauthorized,
+	ErrUnknownWatcher:                            params.CodeNotFound,
+	ErrStoppedWatcher:                            params.CodeStopped,
+	ErrTryAgain:                                  params.CodeTryAgain,
+	ErrActionNotAvailable:                        params.CodeActionNotAvailable,
 }
 
 func singletonCode(err error) (string, bool) {

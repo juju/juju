@@ -405,9 +405,11 @@ func (p environProviderCredentials) finalizeRemoteCredential(
 	}
 
 	insecureCreds := cloud.NewCredential(cloud.CertificateAuthType, credAttrs)
-	server, err := p.serverFactory.InsecureRemoteServer(environscloudspec.CloudSpec{
-		Endpoint:   endpoint,
-		Credential: &insecureCreds,
+	server, err := p.serverFactory.InsecureRemoteServer(CloudSpec{
+		CloudSpec: environscloudspec.CloudSpec{
+			Endpoint:   endpoint,
+			Credential: &insecureCreds,
+		},
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -459,9 +461,11 @@ func (p environProviderCredentials) finalizeRemoteCredential(
 	attributes[credAttrServerCert] = lxdServerCert
 
 	secureCreds := cloud.NewCredential(cloud.CertificateAuthType, attributes)
-	server, err = p.serverFactory.RemoteServer(environscloudspec.CloudSpec{
-		Endpoint:   endpoint,
-		Credential: &secureCreds,
+	server, err = p.serverFactory.RemoteServer(CloudSpec{
+		CloudSpec: environscloudspec.CloudSpec{
+			Endpoint:   endpoint,
+			Credential: &secureCreds,
+		},
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

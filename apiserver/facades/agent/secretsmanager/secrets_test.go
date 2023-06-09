@@ -344,6 +344,7 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 	)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token).Times(2)
 	s.token.EXPECT().Check().Return(nil).Times(2)
+	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{}, nil).Times(2)
 	s.expectSecretAccessQuery(4)
 
 	results, err := s.facade.UpdateSecrets(params.UpdateSecretArgs{
@@ -397,6 +398,7 @@ func (s *SecretsManagerSuite) TestUpdateSecretDuplicateLabel(c *gc.C) {
 	)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
+	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{}, nil)
 	s.expectSecretAccessQuery(2)
 
 	results, err := s.facade.UpdateSecrets(params.UpdateSecretArgs{
@@ -420,6 +422,7 @@ func (s *SecretsManagerSuite) TestRemoveSecrets(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	expectURI := *uri
+	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, nil)
 	s.secretsState.EXPECT().DeleteSecret(&expectURI, []int{666}).Return([]coresecrets.ValueRef{{
 		BackendID:  "backend-id",
 		RevisionID: "rev-666",
@@ -458,6 +461,7 @@ func (s *SecretsManagerSuite) TestRemoveSecretRevision(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	expectURI := *uri
+	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, nil)
 	s.secretsState.EXPECT().DeleteSecret(&expectURI, []int{666}).Return(nil, nil)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
@@ -473,6 +477,23 @@ func (s *SecretsManagerSuite) TestRemoveSecretRevision(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
 	})
+}
+
+func (s *SecretsManagerSuite) TestRemoveSecretNotFound(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	uri := coresecrets.NewURI()
+	expectURI := *uri
+	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, errors.NotFoundf("not found"))
+
+	results, err := s.facade.RemoveSecrets(params.DeleteSecretArgs{
+		Args: []params.DeleteSecretArg{{
+			URI:       expectURI.String(),
+			Revisions: []int{666},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoHavingConsumerLabel(c *gc.C) {
@@ -869,6 +890,7 @@ func (s *SecretsManagerSuite) assertGetSecretContentConsumer(c *gc.C, isUnitAgen
 	data := map[string]string{"foo": "bar"}
 	val := coresecrets.NewSecretValue(data)
 	uri := coresecrets.NewURI()
+	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{}, nil)
 	s.expectSecretAccessQuery(1)
 
 	s.secretsState.EXPECT().ListSecrets(filter).Return([]*coresecrets.SecretMetadata{}, nil)
@@ -908,6 +930,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerLabelOnly(c *gc.C) {
 	data := map[string]string{"foo": "bar"}
 	val := coresecrets.NewSecretValue(data)
 	uri := coresecrets.NewURI()
+	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{}, nil)
 	s.expectSecretAccessQuery(1)
 
 	s.secretsConsumer.EXPECT().GetURIByConsumerLabel("label", names.NewUnitTag("mariadb/0")).Return(uri, nil)
@@ -945,6 +968,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerFirstTime(c *gc.C) {
 	data := map[string]string{"foo": "bar"}
 	val := coresecrets.NewSecretValue(data)
 	uri := coresecrets.NewURI()
+	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{}, nil)
 	s.expectSecretAccessQuery(1)
 
 	s.expectgetAppOwnedOrUnitOwnedSecretMetadataNotFound()
@@ -981,6 +1005,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerUpdateLabel(c *gc.C) {
 	data := map[string]string{"foo": "bar"}
 	val := coresecrets.NewSecretValue(data)
 	uri := coresecrets.NewURI()
+	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{}, nil)
 	s.expectSecretAccessQuery(1)
 
 	s.expectgetAppOwnedOrUnitOwnedSecretMetadataNotFound()
@@ -1036,6 +1061,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerUpdateArg(c *gc.C) {
 	data := map[string]string{"foo": "bar"}
 	val := coresecrets.NewSecretValue(data)
 	uri := coresecrets.NewURI()
+	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{}, nil)
 	s.expectSecretAccessQuery(1)
 
 	s.expectgetAppOwnedOrUnitOwnedSecretMetadataNotFound()
@@ -1073,6 +1099,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerPeekArg(c *gc.C) {
 	data := map[string]string{"foo": "bar"}
 	val := coresecrets.NewSecretValue(data)
 	uri := coresecrets.NewURI()
+	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{}, nil)
 	s.expectSecretAccessQuery(1)
 
 	s.expectgetAppOwnedOrUnitOwnedSecretMetadataNotFound()

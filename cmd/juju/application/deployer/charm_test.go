@@ -71,6 +71,7 @@ func (s *charmSuite) TestSimpleCharmDeploy(c *gc.C) {
 func (s *charmSuite) TestRepositoryCharmDeployDryRun(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
+	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(17).AnyTimes()
 	s.resolver = mocks.NewMockResolver(ctrl)
 	s.expectResolveChannel()
 	s.expectDeployerAPIModelGet(c, series.Base{})
@@ -93,6 +94,7 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRun(c *gc.C) {
 func (s *charmSuite) TestRepositoryCharmDeployDryRunImageIdNoBase(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
+	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(17).AnyTimes()
 	s.resolver = mocks.NewMockResolver(ctrl)
 	s.expectResolveChannel()
 	s.expectDeployerAPIModelGet(c, series.Base{})
@@ -118,6 +120,7 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRunImageIdNoBase(c *gc.C) {
 func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
+	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(17).AnyTimes()
 	s.resolver = mocks.NewMockResolver(ctrl)
 	s.expectResolveChannel()
 	s.expectDeployerAPIModelGet(c, series.MustParseBaseFromString("ubuntu@22.04"))

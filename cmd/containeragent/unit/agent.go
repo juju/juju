@@ -5,9 +5,11 @@ package unit
 
 import (
 	"os"
+	"os/signal"
 	"path"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/juju/clock"
@@ -269,7 +271,7 @@ func (c *containerUnitAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 }
 
 // Workers returns a dependency.Engine running the k8s unit agent's responsibilities.
-func (c *containerUnitAgent) workers() (worker.Worker, error) {
+func (c *containerUnitAgent) workers(sigTermCh chan os.Signal) (worker.Worker, error) {
 	probePort := os.Getenv(constants.EnvHTTPProbePort)
 	if probePort == "" {
 		probePort = constants.DefaultHTTPProbePort
@@ -281,7 +283,6 @@ func (c *containerUnitAgent) workers() (worker.Worker, error) {
 			return nil
 		})
 	}
-
 	localHub := pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
 		Logger: loggo.GetLogger("juju.localhub"),
 	})
@@ -305,6 +306,7 @@ func (c *containerUnitAgent) workers() (worker.Worker, error) {
 		ContainerNames:          c.containerNames,
 		LocalHub:                localHub,
 		ColocatedWithController: c.colocatedWithController,
+		SignalCh:                sigTermCh,
 	}
 	manifolds := Manifolds(cfg)
 
@@ -369,7 +371,13 @@ func (c *containerUnitAgent) Run(ctx *cmd.Context) (err error) {
 		ctx.Warningf("developer feature flags enabled: %s", flags)
 	}
 
-	if err := c.runner.StartWorker("unit", c.workers); err != nil {
+	sigTermCh := make(chan os.Signal, 1)
+	signal.Notify(sigTermCh, syscall.SIGTERM)
+
+	err = c.runner.StartWorker("unit", func() (worker.Worker, error) {
+		return c.workers(sigTermCh)
+	})
+	if err != nil {
 		return errors.Annotate(err, "starting worker")
 	}
 

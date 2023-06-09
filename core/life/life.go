@@ -34,6 +34,13 @@ func (v Value) Validate() error {
 // Predicate is a predicate.
 type Predicate func(Value) bool
 
+// IsDead is a Predicate that returns true if the supplied value is Dead.
+//
+// This indicates that the entity in question is dead.
+func IsDead(v Value) bool {
+	return v == Dead
+}
+
 // IsNotAlive is a Predicate that returns true if the supplied value
 // is not Alive.
 //

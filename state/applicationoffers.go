@@ -160,6 +160,39 @@ func (s *applicationOffers) AllApplicationOffers() (offers []*crossmodel.Applica
 	return offers, nil
 }
 
+// maybeConsumerProxyForOffer returns the remote app consumer proxy related to
+// the offer on the specified relation if one exists.
+func (st *State) maybeConsumerProxyForOffer(offer *crossmodel.ApplicationOffer, rel *Relation) (*RemoteApplication, bool, error) {
+	// Is the relation for an offer connection
+	offConn, err := st.OfferConnectionForRelation(rel.String())
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, false, errors.Trace(err)
+	}
+	if err != nil || offConn.OfferUUID() != offer.OfferUUID {
+		return nil, false, nil
+	}
+
+	// Get the remote app proxy for the connection.
+	remoteApp, isCrossModel, err := rel.RemoteApplication()
+	if err != nil {
+		return nil, false, errors.Trace(err)
+	}
+	// Sanity check - we expect a cross model relation at this stage.
+	if !isCrossModel {
+		return nil, false, nil
+	}
+
+	// We have a remote app proxy, is it related to the offer in question.
+	_, err = rel.Endpoint(offer.ApplicationName)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, false, errors.Trace(err)
+		}
+		return nil, false, nil
+	}
+	return remoteApp, true, nil
+}
+
 // RemoveOfferOperation returns a model operation that will allow relation to leave scope.
 func (s *applicationOffers) RemoveOfferOperation(offerName string, force bool) (*RemoveOfferOperation, error) {
 	offerStore := &applicationOffers{s.st}
@@ -171,11 +204,20 @@ func (s *applicationOffers) RemoveOfferOperation(offerName string, force bool) (
 	}
 	var associatedAppProxies []*DestroyRemoteApplicationOperation
 	if err == nil {
-		remoteApps, err := s.st.RemoteApplicationsByOffer(offer.OfferUUID)
+		// Look at relations to the offer and if it is a cross model relation,
+		// record the associated remote app proxy in the remove operation.
+		rels, err := s.st.AllRelations()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		for _, remoteApp := range remoteApps {
+		for _, rel := range rels {
+			remoteApp, isCrossModel, err := s.st.maybeConsumerProxyForOffer(offer, rel)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if !isCrossModel {
+				continue
+			}
 			logger.Debugf("destroy consumer proxy %v for offer %v", remoteApp.Name(), offerName)
 			associatedAppProxies = append(associatedAppProxies, remoteApp.DestroyOperation(force))
 		}
@@ -316,11 +358,11 @@ func (op *RemoveOfferOperation) countOfferRelations(offer *crossmodel.Applicatio
 	}
 	var count int
 	for _, rel := range rels {
-		remoteApp, isCrossModel, err := rel.RemoteApplication()
+		remoteApp, isCrossModel, err := op.offerStore.st.maybeConsumerProxyForOffer(offer, rel)
 		if err != nil {
 			return 0, errors.Trace(err)
 		}
-		if !isCrossModel || remoteApp.OfferUUID() != offer.OfferUUID {
+		if !isCrossModel || remoteApp == nil {
 			continue
 		}
 		count++
@@ -359,13 +401,9 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 		Assert: bson.D{{"relationcount", app.doc.RelationCount}},
 	}}
 	for _, rel := range rels {
-		remoteApp, isCrossModel, err := rel.RemoteApplication()
+		remoteApp, isCrossModel, err := op.offerStore.st.maybeConsumerProxyForOffer(offer, rel)
 		if err != nil {
 			return nil, errors.Trace(err)
-		}
-		if isCrossModel && remoteApp.OfferUUID() != offer.OfferUUID {
-			logger.Debugf("removing offer %q, skipping relation %q for another offer %v", offer.OfferName, rel, remoteApp.OfferUUID())
-			isCrossModel = false
 		}
 		if isCrossModel && !op.Force {
 			logger.Debugf("aborting removal of offer %q due to relation %q", offer.OfferName, rel)
@@ -493,10 +531,6 @@ func removeApplicationOffersOps(st *State, application string) ([]txn.Op, error)
 var errDuplicateApplicationOffer = errors.Errorf("application offer already exists")
 
 func (s *applicationOffers) validateOfferArgs(offer crossmodel.AddApplicationOfferArgs) (err error) {
-	// Sanity checks.
-	if !names.IsValidApplication(offer.ApplicationName) {
-		return errors.NotValidf("application name %q", offer.ApplicationName)
-	}
 	// Same rules for valid offer names apply as for applications.
 	if !names.IsValidApplication(offer.OfferName) {
 		return errors.NotValidf("offer name %q", offer.OfferName)
@@ -508,6 +542,16 @@ func (s *applicationOffers) validateOfferArgs(offer crossmodel.AddApplicationOff
 		if !names.IsValidUser(readUser) {
 			return errors.NotValidf("offer reader %q", readUser)
 		}
+	}
+
+	// Check application and endpoints exist in state.
+	app, err := s.st.Application(offer.ApplicationName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	_, err = getApplicationEndpoints(app, offer.Endpoints)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }

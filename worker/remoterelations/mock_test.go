@@ -376,10 +376,10 @@ func (m *mockRemoteRelationsFacade) RelationUnitSettings(relationUnits []params.
 	return result, nil
 }
 
-func (m *mockRemoteRelationsFacade) WatchConsumedSecretsChanges(appToken string, mac *macaroon.Macaroon) (watcher.SecretsRevisionWatcher, error) {
+func (m *mockRemoteRelationsFacade) WatchConsumedSecretsChanges(appToken, relToken string, mac *macaroon.Macaroon) (watcher.SecretsRevisionWatcher, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.stub.MethodCall(m, "WatchConsumedSecretsChanges", appToken, mac)
+	m.stub.MethodCall(m, "WatchConsumedSecretsChanges", appToken, relToken, mac)
 	if err := m.stub.NextErr(); err != nil {
 		return nil, err
 	}

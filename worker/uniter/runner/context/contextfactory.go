@@ -102,7 +102,6 @@ type contextFactory struct {
 	modelName  string
 	modelType  model.ModelType
 	machineTag names.MachineTag
-	storage    StorageContextAccessor
 	clock      Clock
 	zone       string
 	principal  string
@@ -126,7 +125,6 @@ type FactoryConfig struct {
 	Payloads             *uniter.PayloadFacadeClient
 	Tracker              leadership.Tracker
 	GetRelationInfos     RelationsFunc
-	Storage              StorageContextAccessor
 	Paths                Paths
 	Clock                Clock
 	Logger               loggo.Logger
@@ -176,7 +174,6 @@ func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
 		machineTag:           machineTag,
 		getRelationInfos:     config.GetRelationInfos,
 		relationCaches:       map[int]*RelationCache{},
-		storage:              config.Storage,
 		rand:                 rand.New(rand.NewSource(time.Now().Unix())),
 		clock:                config.Clock,
 		zone:                 zone,
@@ -212,7 +209,6 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		assignedMachineTag:   f.machineTag,
 		relations:            f.getContextRelations(),
 		relationId:           -1,
-		storage:              f.storage,
 		clock:                f.clock,
 		logger:               f.logger,
 		availabilityZone:     f.zone,
@@ -222,6 +218,7 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 			ResourcesDir: f.paths.GetResourcesDir(),
 			Logger:       f.logger,
 		},
+		storageAttachmentCache: make(map[names.StorageTag]jujuc.ContextStorageAttachment),
 	}
 	payloadCtx, err := payloads.NewContext(f.payloads)
 	if err != nil {
@@ -276,14 +273,16 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 	}
 	if hookInfo.Kind.IsStorage() {
 		ctx.storageTag = names.NewStorageTag(hookInfo.StorageId)
-		if _, err := ctx.storage.Storage(ctx.storageTag); err != nil {
-			return nil, errors.Annotatef(err, "could not retrieve storage for id: %v", hookInfo.StorageId)
-		}
 		storageName, err := names.StorageName(hookInfo.StorageId)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		hookName = fmt.Sprintf("%s-%s", storageName, hookName)
+		// Cache the storage this hook context is for.
+		_, err = ctx.Storage(ctx.storageTag)
+		if err != nil && !errors.Is(err, errors.NotProvisioned) {
+			return nil, errors.Annotatef(err, "could not retrieve storage for id: %v", hookInfo.StorageId)
+		}
 	}
 	if hookInfo.Kind.IsWorkload() {
 		ctx.workloadName = hookInfo.WorkloadName
@@ -295,7 +294,7 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 	if hookInfo.Kind.IsSecret() {
 		ctx.secretURI = hookInfo.SecretURI
 		ctx.secretLabel = hookInfo.SecretLabel
-		if hookInfo.Kind == hooks.SecretRemove {
+		if hook.SecretHookRequiresRevision(hookInfo.Kind) {
 			ctx.secretRevision = hookInfo.SecretRevision
 		}
 		if ctx.secretLabel == "" {

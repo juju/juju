@@ -296,6 +296,11 @@ func (s *SecretsManagerAPI) updateSecret(arg params.UpdateSecretArg) error {
 		arg.Label == nil && len(arg.Params) == 0 && len(arg.Content.Data) == 0 && arg.Content.ValueRef == nil {
 		return errors.New("at least one attribute to update must be specified")
 	}
+	if _, err := s.secretsState.GetSecret(uri); err != nil {
+		// Check if the uri exists or not.
+		return errors.Trace(err)
+	}
+
 	token, err := s.canManage(uri)
 	if err != nil {
 		return errors.Trace(err)
@@ -369,6 +374,11 @@ func (s *SecretsManagerAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.
 }
 
 func (s *SecretsManagerAPI) removeSecret(uri *coresecrets.URI, revisions ...int) ([]coresecrets.ValueRef, error) {
+	if _, err := s.secretsState.GetSecret(uri); err != nil {
+		// Check if the uri exists or not.
+		return nil, errors.Trace(err)
+	}
+
 	_, err := s.canManage(uri)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -752,6 +762,10 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (
 		return s.getRemoteSecretContent(uri, arg.Refresh, arg.Peek, arg.Label, possibleUpdateLabel)
 	}
 
+	if _, err := s.secretsState.GetSecret(uri); err != nil {
+		// Check if the uri exists or not.
+		return nil, nil, false, errors.Trace(err)
+	}
 	if !s.canRead(uri, s.authTag) {
 		return nil, nil, false, apiservererrors.ErrPerm
 	}

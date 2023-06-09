@@ -959,26 +959,25 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		macJSON = string(b)
 	}
 	applicationID := st.docID(args.Name)
-	version := args.ConsumeVersion
-	if !args.IsConsumerProxy {
-		if version, err = sequenceWithMin(st, args.OfferUUID, 1); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
 	// Create the application addition operations.
 	appDoc := &remoteApplicationDoc{
 		DocID:                applicationID,
 		Name:                 args.Name,
-		OfferUUID:            args.OfferUUID,
 		SourceControllerUUID: args.ExternalControllerUUID,
 		SourceModelUUID:      args.SourceModel.Id(),
 		URL:                  args.URL,
 		Bindings:             args.Bindings,
 		Life:                 Alive,
 		IsConsumerProxy:      args.IsConsumerProxy,
-		Version:              version,
+		Version:              args.ConsumeVersion,
 		Macaroon:             macJSON,
 		AuthToken:            args.AuthToken,
+	}
+	if !args.IsConsumerProxy {
+		if appDoc.Version, err = sequenceWithMin(st, args.OfferUUID, 1); err != nil {
+			return nil, errors.Trace(err)
+		}
+		appDoc.OfferUUID = args.OfferUUID
 	}
 	eps := make([]remoteEndpointDoc, len(args.Endpoints))
 	for i, ep := range args.Endpoints {
@@ -1095,23 +1094,6 @@ func (st *State) RemoteApplication(name string) (_ *RemoteApplication, err error
 		return nil, errors.Annotatef(err, "cannot get saas application %q", name)
 	}
 	return newRemoteApplication(st, appDoc), nil
-}
-
-// RemoteApplicationsByOffer returns remote applications state by offer uuid.
-func (st *State) RemoteApplicationsByOffer(offerUUID string) (_ []*RemoteApplication, err error) {
-	apps, closer := st.db().GetCollection(remoteApplicationsC)
-	defer closer()
-
-	var appDocs []remoteApplicationDoc
-	err = apps.Find(bson.D{{"offer-uuid", offerUUID}}).All(&appDocs)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get saas applications with offer-uuid %q", offerUUID)
-	}
-	result := make([]*RemoteApplication, len(appDocs))
-	for i, appDoc := range appDocs {
-		result[i] = newRemoteApplication(st, &appDoc)
-	}
-	return result, nil
 }
 
 // AllRemoteApplications returns all the remote applications used by the model.
