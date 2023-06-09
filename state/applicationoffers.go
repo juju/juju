@@ -531,10 +531,6 @@ func removeApplicationOffersOps(st *State, application string) ([]txn.Op, error)
 var errDuplicateApplicationOffer = errors.Errorf("application offer already exists")
 
 func (s *applicationOffers) validateOfferArgs(offer crossmodel.AddApplicationOfferArgs) (err error) {
-	// Sanity checks.
-	if !names.IsValidApplication(offer.ApplicationName) {
-		return errors.NotValidf("application name %q", offer.ApplicationName)
-	}
 	// Same rules for valid offer names apply as for applications.
 	if !names.IsValidApplication(offer.OfferName) {
 		return errors.NotValidf("offer name %q", offer.OfferName)
@@ -546,6 +542,16 @@ func (s *applicationOffers) validateOfferArgs(offer crossmodel.AddApplicationOff
 		if !names.IsValidUser(readUser) {
 			return errors.NotValidf("offer reader %q", readUser)
 		}
+	}
+
+	// Check application and endpoints exist in state.
+	app, err := s.st.Application(offer.ApplicationName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	_, err = getApplicationEndpoints(app, offer.Endpoints)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }

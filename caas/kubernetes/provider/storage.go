@@ -149,7 +149,7 @@ func (v *volumeSource) DescribeVolumes(ctx jujucontext.ProviderCallContext, volI
 		results[i].VolumeInfo = &jujustorage.VolumeInfo{
 			Size:       uint64(vol.Size()),
 			VolumeId:   vol.Name,
-			Persistent: vol.Spec.PersistentVolumeReclaimPolicy == core.PersistentVolumeReclaimRetain,
+			Persistent: true,
 		}
 	}
 	return results, nil
@@ -167,6 +167,7 @@ func (v *volumeSource) DestroyVolumes(ctx jujucontext.ProviderCallContext, volId
 		if err == nil && vol.Spec.ClaimRef != nil {
 			claimRef := vol.Spec.ClaimRef
 			pClaims := v.client.client().CoreV1().PersistentVolumeClaims(claimRef.Namespace)
+			logger.Infof("deleting PVC %s due to call to volumeSource.DestroyVolumes(%q)", claimRef.Name, volumeId)
 			err := pClaims.Delete(context.TODO(), claimRef.Name, v1.DeleteOptions{PropagationPolicy: constants.DefaultPropagationPolicy()})
 			if err != nil && !k8serrors.IsNotFound(err) {
 				return errors.Annotatef(err, "destroying volume claim %v", claimRef.Name)

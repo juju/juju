@@ -62,7 +62,7 @@ func (s *uniterResolver) NextOp(
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
 	if remoteState.Life == life.Dead || localState.Removed {
-		return nil, resolver.ErrTerminate
+		return nil, resolver.ErrUnitDead
 	}
 	logger := s.config.Logger
 
@@ -358,7 +358,7 @@ func (s *uniterResolver) nextOp(
 	case life.Dead:
 		// The unit is dying/dead and stopped, so tell the uniter
 		// to terminate.
-		return nil, resolver.ErrTerminate
+		return nil, resolver.ErrUnitDead
 	}
 
 	// Now that storage hooks have run at least once, before anything else,

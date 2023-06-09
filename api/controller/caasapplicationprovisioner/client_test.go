@@ -312,31 +312,6 @@ func (s *provisionerSuite) TestAllUnits(c *gc.C) {
 	})
 }
 
-func (s *provisionerSuite) TestGarbageCollect(c *gc.C) {
-	client := newClient(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "CAASApplicationProvisioner")
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "CAASApplicationGarbageCollect")
-		c.Assert(arg, jc.DeepEquals, params.CAASApplicationGarbageCollectArgs{Args: []params.CAASApplicationGarbageCollectArg{{
-			Application:     params.Entity{Tag: "application-gitlab"},
-			ObservedUnits:   params.Entities{[]params.Entity{{Tag: "unit-gitlab-0"}}},
-			DesiredReplicas: 1,
-			ActivePodNames:  []string{"gitlab-0"},
-			Force:           false,
-		}}})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{{
-				Error: nil,
-			}},
-		}
-		return nil
-	})
-
-	err := client.GarbageCollect("gitlab", []names.Tag{names.NewUnitTag("gitlab/0")}, 1, []string{"gitlab-0"}, false)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *provisionerSuite) TestUpdateUnits(c *gc.C) {
 	var called bool
 	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
@@ -493,4 +468,170 @@ func (s *provisionerSuite) TestRemoveUnit(c *gc.C) {
 	err := client.RemoveUnit("foo/0")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(called, jc.IsTrue)
+}
+
+func (s *provisionerSuite) TestProvisioningState(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		called = true
+		c.Check(objType, gc.Equals, "CAASApplicationProvisioner")
+		c.Check(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "ProvisioningState")
+		c.Assert(a, jc.DeepEquals, params.Entity{Tag: "application-foo"})
+		c.Assert(result, gc.FitsTypeOf, &params.CAASApplicationProvisioningStateResult{})
+		*(result.(*params.CAASApplicationProvisioningStateResult)) = params.CAASApplicationProvisioningStateResult{
+			ProvisioningState: &params.CAASApplicationProvisioningState{
+				Scaling:     true,
+				ScaleTarget: 10,
+			},
+		}
+		return nil
+	})
+	state, err := client.ProvisioningState("foo")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(called, jc.IsTrue)
+	c.Check(state, jc.DeepEquals, &params.CAASApplicationProvisioningState{
+		Scaling:     true,
+		ScaleTarget: 10,
+	})
+}
+
+func (s *provisionerSuite) TestSetProvisioningState(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		called = true
+		c.Check(objType, gc.Equals, "CAASApplicationProvisioner")
+		c.Check(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "SetProvisioningState")
+		c.Assert(a, jc.DeepEquals, params.CAASApplicationProvisioningStateArg{
+			Application: params.Entity{Tag: "application-foo"},
+			ProvisioningState: params.CAASApplicationProvisioningState{
+				Scaling:     true,
+				ScaleTarget: 10,
+			},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResult{})
+		*(result.(*params.ErrorResult)) = params.ErrorResult{}
+		return nil
+	})
+	err := client.SetProvisioningState("foo", params.CAASApplicationProvisioningState{
+		Scaling:     true,
+		ScaleTarget: 10,
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(called, jc.IsTrue)
+}
+
+func (s *provisionerSuite) TestSetProvisioningStateError(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		called = true
+		c.Check(objType, gc.Equals, "CAASApplicationProvisioner")
+		c.Check(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "SetProvisioningState")
+		c.Assert(a, jc.DeepEquals, params.CAASApplicationProvisioningStateArg{
+			Application: params.Entity{Tag: "application-foo"},
+			ProvisioningState: params.CAASApplicationProvisioningState{
+				Scaling:     true,
+				ScaleTarget: 10,
+			},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResult{})
+		*(result.(*params.ErrorResult)) = params.ErrorResult{
+			Error: &params.Error{Code: params.CodeTryAgain},
+		}
+		return nil
+	})
+	err := client.SetProvisioningState("foo", params.CAASApplicationProvisioningState{
+		Scaling:     true,
+		ScaleTarget: 10,
+	})
+	c.Check(params.IsCodeTryAgain(err), jc.IsTrue)
+	c.Check(called, jc.IsTrue)
+}
+
+func (s *provisionerSuite) TestDestroyUnits(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		called = true
+		c.Check(objType, gc.Equals, "CAASApplicationProvisioner")
+		c.Check(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "DestroyUnits")
+		c.Assert(a, jc.DeepEquals, params.DestroyUnitsParams{
+			Units: []params.DestroyUnitParams{
+				{
+					UnitTag: "unit-foo-0",
+				},
+			},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.DestroyUnitResults{})
+		*(result.(*params.DestroyUnitResults)) = params.DestroyUnitResults{
+			Results: []params.DestroyUnitResult{
+				{
+					Info: &params.DestroyUnitInfo{},
+				},
+			},
+		}
+		return nil
+	})
+	err := client.DestroyUnits([]string{"foo/0"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *provisionerSuite) TestDestroyUnitsMismatchResults(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		called = true
+		c.Check(objType, gc.Equals, "CAASApplicationProvisioner")
+		c.Check(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "DestroyUnits")
+		c.Assert(a, jc.DeepEquals, params.DestroyUnitsParams{
+			Units: []params.DestroyUnitParams{
+				{
+					UnitTag: "unit-foo-0",
+				},
+			},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.DestroyUnitResults{})
+		*(result.(*params.DestroyUnitResults)) = params.DestroyUnitResults{
+			Results: []params.DestroyUnitResult{
+				{
+					Info: &params.DestroyUnitInfo{},
+				},
+				{
+					Info: &params.DestroyUnitInfo{},
+				},
+			},
+		}
+		return nil
+	})
+	err := client.DestroyUnits([]string{"foo/0"})
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.Equals, "expected 1 results got 2")
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *provisionerSuite) TestProvisionerConfig(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		called = true
+		c.Check(objType, gc.Equals, "CAASApplicationProvisioner")
+		c.Check(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "ProvisionerConfig")
+		c.Assert(a, gc.IsNil)
+		c.Assert(result, gc.FitsTypeOf, &params.CAASApplicationProvisionerConfigResult{})
+		*(result.(*params.CAASApplicationProvisionerConfigResult)) = params.CAASApplicationProvisionerConfigResult{
+			ProvisionerConfig: &params.CAASApplicationProvisionerConfig{
+				UnmanagedApplications: params.Entities{Entities: []params.Entity{{Tag: "application-controller"}}},
+			},
+		}
+		return nil
+	})
+	result, err := client.ProvisionerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+	c.Assert(result, gc.DeepEquals, params.CAASApplicationProvisionerConfig{
+		UnmanagedApplications: params.Entities{Entities: []params.Entity{{Tag: "application-controller"}}},
+	})
 }

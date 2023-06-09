@@ -331,6 +331,13 @@ type Environ struct {
 	keystoneToolsDataSourceMutex sync.Mutex
 	keystoneToolsDataSource      simplestreams.DataSource
 
+	// usingSecurityGroups tracks whether this model is using security groups
+	// for firewalling. This will be false if a network has port_security disabled,
+	// true otherwise.
+	// However, once a model security group is created, it is not removed if such a model
+	// is added, this option sticks to true
+	usingSecurityGroups bool
+
 	firewaller   Firewaller
 	networking   Networking
 	configurator ProviderConfigurator
@@ -1152,17 +1159,11 @@ func (e *Environ) startInstance(
 			}
 		}
 	}
+	e.usingSecurityGroups = e.usingSecurityGroups || createSecurityGroups
 
 	var novaGroupNames []nova.SecurityGroupName
 	if createSecurityGroups {
-		var apiPort int
-		if args.InstanceConfig.IsController() {
-			apiPort = args.InstanceConfig.ControllerConfig.APIPort()
-		} else {
-			// All ports are the same so pick the first.
-			apiPort = args.InstanceConfig.APIInfo.Ports()[0]
-		}
-		groupNames, err := e.firewaller.SetUpGroups(ctx, args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
+		groupNames, err := e.firewaller.SetUpGroups(ctx, args.ControllerUUID, args.InstanceConfig.MachineId)
 		if err != nil {
 			return nil, environs.ZoneIndependentError(errors.Annotate(err, "cannot set up groups"))
 		}
@@ -2136,6 +2137,31 @@ func (e *Environ) ClosePorts(ctx context.ProviderCallContext, rules firewall.Ing
 
 func (e *Environ) IngressRules(ctx context.ProviderCallContext) (firewall.IngressRules, error) {
 	rules, err := e.firewaller.IngressRules(ctx)
+	if err != nil {
+		handleCredentialError(err, ctx)
+		return rules, errors.Trace(err)
+	}
+	return rules, nil
+}
+
+func (e *Environ) OpenModelPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
+	if err := e.firewaller.OpenModelPorts(ctx, rules); err != nil {
+		handleCredentialError(err, ctx)
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (e *Environ) CloseModelPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
+	if err := e.firewaller.CloseModelPorts(ctx, rules); err != nil {
+		handleCredentialError(err, ctx)
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (e *Environ) ModelIngressRules(ctx context.ProviderCallContext) (firewall.IngressRules, error) {
+	rules, err := e.firewaller.ModelIngressRules(ctx)
 	if err != nil {
 		handleCredentialError(err, ctx)
 		return rules, errors.Trace(err)

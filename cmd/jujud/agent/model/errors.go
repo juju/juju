@@ -12,17 +12,16 @@ import (
 
 // ErrRemoved may be returned by some worker started from Manifolds to
 // indicate that the model under management no longer exists.
-var ErrRemoved = errors.New("model removed")
+const ErrRemoved = errors.ConstError("model removed")
 
 // LifeFilter is used with the lifeflag manifolds -- which do not depend
 // on runFlag -- to return appropriate errors for consumption by the
 // enclosing dependency.Engine (and/or its IsFatal check).
 func LifeFilter(err error) error {
-	cause := errors.Cause(err)
-	switch cause {
-	case lifeflag.ErrNotFound:
+	switch {
+	case errors.Is(err, lifeflag.ErrNotFound):
 		return ErrRemoved
-	case lifeflag.ErrValueChanged:
+	case errors.Is(err, lifeflag.ErrValueChanged):
 		return dependency.ErrBounce
 	}
 	return err
@@ -31,7 +30,7 @@ func LifeFilter(err error) error {
 // IsFatal will probably be helpful when configuring a dependency.Engine
 // to run the result of Manifolds.
 func IsFatal(err error) bool {
-	return errors.Cause(err) == ErrRemoved
+	return errors.Is(err, ErrRemoved)
 }
 
 // WorstError will probably be helpful when configuring a dependency.Engine
@@ -44,8 +43,7 @@ func WorstError(err, _ error) error {
 // IgnoreErrRemoved returns nil if passed an error caused by ErrRemoved,
 // and otherwise returns the original error.
 func IgnoreErrRemoved(err error) error {
-	cause := errors.Cause(err)
-	if cause == ErrRemoved {
+	if errors.Is(err, ErrRemoved) {
 		return nil
 	}
 	return err

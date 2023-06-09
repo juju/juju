@@ -12,10 +12,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"github.com/juju/retry"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
 
@@ -39,6 +41,7 @@ type initCommand struct {
 	applicationAPI   ApplicationAPI
 	fileReaderWriter utils.FileReaderWriter
 	environment      utils.Environment
+	clock            clock.Clock
 
 	// charmModifiedVersion holds just that and is used for generating the
 	// pebble service to run the container agent.
@@ -66,6 +69,7 @@ func New() cmd.Command {
 		identity:         identityFromK8sMetadata,
 		fileReaderWriter: utils.NewFileReaderWriter(),
 		environment:      utils.NewEnvironment(),
+		clock:            clock.WallClock,
 	}
 }
 
@@ -140,7 +144,24 @@ func (c *initCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	unitConfig, err := applicationAPI.UnitIntroduction(identity.PodName, identity.PodUUID)
+
+	var unitConfig *caasapplication.UnitConfig
+	err = retry.Call(retry.CallArgs{
+		Func: func() error {
+			unitConfig, err = applicationAPI.UnitIntroduction(identity.PodName, identity.PodUUID)
+			return errors.Trace(err)
+		},
+		IsFatalError: func(err error) bool {
+			return !errors.Is(err, errors.NotAssigned) && !errors.Is(err, errors.AlreadyExists)
+		},
+		Attempts: -1,
+		Delay:    10 * time.Second,
+		MaxDelay: 30 * time.Second,
+		NotifyFunc: func(lastError error, attempt int) {
+			ctx.Infof("failed to introduce pod %s: %v...", identity.PodName, lastError)
+		},
+		Clock: c.clock,
+	})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -219,9 +240,12 @@ func (c *initCommand) writeContainerAgentPebbleConfig() error {
 					c.dataDir,
 					c.binDir,
 					strings.Join(extraArgs, " ")),
-				Startup: plan.StartupEnabled,
+				KillDelay: plan.OptionalDuration{Value: 30 * time.Minute, IsSet: true},
+				Startup:   plan.StartupEnabled,
+				OnSuccess: plan.ActionIgnore,
+				OnFailure: onCheckFailureAction,
 				OnCheckFailure: map[string]plan.ServiceAction{
-					"liveness":  onCheckFailureAction,
+					"liveness":  plan.ActionIgnore,
 					"readiness": plan.ActionIgnore,
 				},
 				Environment: map[string]string{

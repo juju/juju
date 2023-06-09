@@ -4,6 +4,8 @@
 package caas
 
 import (
+	"context"
+
 	"github.com/juju/version/v2"
 	core "k8s.io/api/core/v1"
 
@@ -40,6 +42,9 @@ type Application interface {
 
 	// Units of the application fetched from kubernetes by matching pod labels.
 	Units() ([]Unit, error)
+
+	UnitsToRemove(context.Context, int) ([]string, error)
+
 	// Service returns the service associated with the application.
 	Service() (*Service, error)
 

@@ -18,41 +18,74 @@ type ManifoldConfig struct {
 	// endpoints for this worker.
 	MuxName string
 
+	// DefaultProviders is a list of probe providers that are given to this
+	// worker at instantiation and not fetched from the dependency engine.
+	DefaultProviders map[string]probe.ProbeProvider
+
 	// Providers is a list of worker providers that can offer one of the Prober
 	// interfaces to be registered in this worker. Expects at least one of
 	// LivenessProber, ReadinessProber or StartupProber.
 	Providers []string
 }
 
-func gatherCAASProbes(providers []string, context dependency.Context) (*CAASProbes, error) {
+// gatherCAASProbes is responsible for taking all the probe dependencies
+// passed into the manifold and producing a set of CAASProbes that can be run
+// as part of this worker.
+func gatherCAASProbes(
+	context dependency.Context,
+	defaultProviders map[string]probe.ProbeProvider,
+	providers []string) (*CAASProbes, error,
+) {
 	probes := NewCAASProbes()
 
+	// General add function that can be called for the 2 different types of
+	// providers we receive.
+	addProvider := func(id string, provider probe.ProbeProvider) {
+		supported := provider.SupportedProbes()
+
+		if supported.Supports(probe.ProbeLiveness) {
+			probes.Liveness.Probes[id] = supported[probe.ProbeLiveness]
+		}
+
+		if supported.Supports(probe.ProbeReadiness) {
+			probes.Readiness.Probes[id] = supported[probe.ProbeReadiness]
+		}
+
+		if supported.Supports(probe.ProbeStartup) {
+			probes.Readiness.Probes[id] = supported[probe.ProbeStartup]
+		}
+	}
+
+	if providers == nil {
+		providers = []string{}
+	}
 	for _, provider := range providers {
 		var probeProvider probe.ProbeProvider
 		if err := context.Get(provider, &probeProvider); err != nil {
 			return probes, errors.Trace(err)
 		}
-		supported := probeProvider.SupportedProbes()
 
-		if supported.Supports(probe.ProbeLiveness) {
-			probes.Liveness.Probes[provider] = supported[probe.ProbeLiveness]
-		}
+		addProvider(provider, probeProvider)
+	}
 
-		if supported.Supports(probe.ProbeReadiness) {
-			probes.Readiness.Probes[provider] = supported[probe.ProbeReadiness]
-		}
-
-		if supported.Supports(probe.ProbeStartup) {
-			probes.Readiness.Probes[provider] = supported[probe.ProbeStartup]
-		}
+	if defaultProviders == nil {
+		defaultProviders = map[string]probe.ProbeProvider{}
+	}
+	for k, provider := range defaultProviders {
+		addProvider(k, provider)
 	}
 
 	return probes, nil
 }
 
 func Manifold(config ManifoldConfig) dependency.Manifold {
+	providers := config.Providers
+	if providers == nil {
+		providers = []string{}
+	}
+
 	return dependency.Manifold{
-		Inputs: append([]string{config.MuxName}, config.Providers...),
+		Inputs: append([]string{config.MuxName}, providers...),
 		Output: nil,
 		Start:  config.Start,
 	}
@@ -68,7 +101,7 @@ func (c ManifoldConfig) Start(context dependency.Context) (worker.Worker, error)
 		return nil, errors.Trace(err)
 	}
 
-	probes, err := gatherCAASProbes(c.Providers, context)
+	probes, err := gatherCAASProbes(context, c.DefaultProviders, c.Providers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

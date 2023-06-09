@@ -42,7 +42,7 @@ func (s *ListenerSuite) NewRunListener(c *gc.C, operator bool) *uniter.RunListen
 		c:        c,
 		operator: operator,
 	})
-	s.AddCleanup(func(*gc.C) {
+	s.AddCleanup(func(c *gc.C) {
 		c.Assert(listener.Close(), jc.ErrorIsNil)
 	})
 	return listener

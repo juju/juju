@@ -1472,8 +1472,7 @@ func (fw *Firewaller) relationLifeChanged(tag names.RelationTag) error {
 }
 
 type remoteRelationInfo struct {
-	relationToken    string
-	applicationToken string
+	relationToken string
 }
 
 type remoteRelationData struct {
@@ -1484,7 +1483,6 @@ type remoteRelationData struct {
 	tag                 names.RelationTag
 	localApplicationTag names.ApplicationTag
 	relationToken       string
-	applicationToken    string
 	remoteModelUUID     string
 	endpointRole        charm.RelationRole
 	isOffer             bool
@@ -1553,10 +1551,9 @@ func (rd *remoteRelationData) watchLoop() error {
 			return rd.catacomb.ErrDying()
 		case remoteRelationInfo := <-rd.relationReady:
 			rd.relationToken = remoteRelationInfo.relationToken
-			rd.applicationToken = remoteRelationInfo.applicationToken
 			rd.fw.logger.Debugf(
-				"relation %v for remote app %v in model %v is ready",
-				rd.relationToken, rd.applicationToken, rd.remoteModelUUID)
+				"relation %v in model %v is ready",
+				rd.relationToken, rd.remoteModelUUID)
 		}
 	}
 
@@ -1698,12 +1695,11 @@ func (rd *remoteRelationData) updateProviderModel(cidrs []string) error {
 	}
 	defer remoteModelAPI.Close()
 	event := params.IngressNetworksChangeEvent{
-		RelationToken:    rd.relationToken,
-		ApplicationToken: rd.applicationToken,
-		Networks:         change.networks.Values(),
-		IngressRequired:  change.ingressRequired,
-		Macaroons:        macaroon.Slice{mac},
-		BakeryVersion:    bakery.LatestVersion,
+		RelationToken:   rd.relationToken,
+		Networks:        change.networks.Values(),
+		IngressRequired: change.ingressRequired,
+		Macaroons:       macaroon.Slice{mac},
+		BakeryVersion:   bakery.LatestVersion,
 	}
 	err = remoteModelAPI.PublishIngressNetworkChange(event)
 	if errors.IsNotFound(err) {
@@ -1806,18 +1802,8 @@ func (p *remoteRelationPoller) pollLoop() error {
 				continue
 			}
 			p.fw.logger.Debugf("token %v for relation id: %v in model %v", relToken, p.relationTag.Id(), p.fw.modelUUID)
-
-			// Application is exported with the offering model UUID.
-			appToken, err := p.fw.remoteRelationsApi.GetToken(p.applicationTag)
-			if err != nil {
-				continue
-			}
-			p.fw.logger.Debugf("token %v for application id: %v", appToken, p.applicationTag.Id())
-
-			// relation and application are ready.
 			relationInfo := remoteRelationInfo{
-				relationToken:    relToken,
-				applicationToken: appToken,
+				relationToken: relToken,
 			}
 			select {
 			case <-p.catacomb.Dying():

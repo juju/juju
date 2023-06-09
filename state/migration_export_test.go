@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -500,6 +501,14 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 		addr := network.NewSpaceAddress("192.168.1.1", network.WithScope(network.ScopeCloudLocal))
 		err = application.UpdateCloudService("provider-id", []network.SpaceAddress{addr})
 		c.Assert(err, jc.ErrorIsNil)
+
+		if isSidecar {
+			err = application.SetProvisioningState(state.ApplicationProvisioningState{
+				Scaling:     true,
+				ScaleTarget: 3,
+			})
+			c.Assert(err, jc.ErrorIsNil)
+		}
 	}
 
 	agentVer, err := version.ParseBinary("2.9.1-ubuntu-amd64")
@@ -595,6 +604,15 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 		c.Assert(exported.CloudService(), gc.IsNil)
 		_, err := application.AgentTools()
 		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	}
+
+	if dbModel.Type() == state.ModelTypeCAAS && isSidecar {
+		ps := exported.ProvisioningState()
+		c.Assert(ps, gc.NotNil)
+		c.Assert(ps.Scaling(), jc.IsTrue)
+		c.Assert(ps.ScaleTarget(), gc.Equals, 3)
+	} else {
+		c.Assert(exported.ProvisioningState(), gc.IsNil)
 	}
 }
 
@@ -2644,11 +2662,21 @@ func (s *MigrationExportSuite) TestRemoteRelationSettingsForUnitsInCMR(c *gc.C) 
 
 func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 	store := state.NewSecrets(s.State)
+	backendStore := state.NewSecretBackends(s.State)
 	owner := s.Factory.MakeApplication(c, nil)
 	uri := secrets.NewURI()
 	createTime := time.Now().UTC().Round(time.Second)
 	next := createTime.Add(time.Minute).Round(time.Second).UTC()
 	expire := createTime.Add(2 * time.Hour).Round(time.Second).UTC()
+
+	backendID, err := backendStore.CreateSecretBackend(state.CreateSecretBackendParams{
+		Name:                "myvault",
+		BackendType:         "vault",
+		TokenRotateInterval: ptr(666 * time.Second),
+		NextRotateTime:      ptr(next),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	p := state.CreateSecretParams{
 		Version: 1,
 		Owner:   owner.Tag(),
@@ -2665,14 +2693,20 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 	}
 	md, err := store.CreateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
-	md, err = store.UpdateSecret(md.URI, state.UpdateSecretParams{
+
+	_, err = store.UpdateSecret(md.URI, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		ValueRef: &secrets.ValueRef{
-			BackendID:  "backend-id",
+			BackendID:  backendID,
 			RevisionID: "rev-id",
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+
+	backendRefCount, err := s.State.ReadBackendRefCount(backendID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendRefCount, gc.Equals, 1)
+
 	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
 		LeaderToken: &fakeToken{},
 		Scope:       owner.Tag(),
@@ -2701,8 +2735,16 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	err = s.Model.UpdateModelConfig(map[string]interface{}{config.SecretBackendKey: "myvault"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	mCfg, err := s.Model.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mCfg.SecretBackend(), jc.DeepEquals, "myvault")
+
 	model, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(model.SecretBackendID(), gc.Equals, backendID)
 
 	allSecrets := model.Secrets()
 	c.Assert(allSecrets, gc.HasLen, 1)
@@ -2721,7 +2763,7 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 	c.Assert(revisions[0].Content(), jc.DeepEquals, map[string]string{"foo": "bar"})
 	c.Assert(revisions[0].ExpireTime(), jc.DeepEquals, ptr(expire))
 	c.Assert(revisions[1].ValueRef(), gc.NotNil)
-	c.Assert(revisions[1].ValueRef().BackendID(), jc.DeepEquals, "backend-id")
+	c.Assert(revisions[1].ValueRef().BackendID(), jc.DeepEquals, backendID)
 	c.Assert(revisions[1].ValueRef().RevisionID(), jc.DeepEquals, "rev-id")
 	consumers := secret.Consumers()
 	c.Assert(consumers, gc.HasLen, 1)

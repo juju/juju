@@ -172,7 +172,6 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 		Unit:             apiUnit,
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
-		Storage:          s.storage,
 		SecretsClient:    s.secrets,
 		Payloads:         s.payloads,
 		Paths:            s.paths,
@@ -195,6 +194,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertPaths(c, rnr)
 	ctx := rnr.Context()
+	c.Assert(ctx, gc.NotNil)
 	c.Assert(ctx.UnitName(), gc.Equals, "storage-block/0")
 }
 

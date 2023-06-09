@@ -461,6 +461,9 @@ type WatchRemoteSecretChangesArg struct {
 	// ApplicationToken is the application token on the remote model.
 	ApplicationToken string `json:"application-token"`
 
+	// RelationToken is the relation token on the remote model.
+	RelationToken string `json:"relation-token"`
+
 	// Macaroons are used for authentication.
 	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
 

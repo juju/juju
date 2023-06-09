@@ -97,7 +97,7 @@ type modelUpgradeSuite struct {
 	bootstrapEnviron *mocks.MockBootstrapEnviron
 	blockChecker     *mocks.MockBlockCheckerInterface
 	registryProvider *registrymocks.MockRegistry
-	cloudSpec        environscloudspec.CloudSpec
+	cloudSpec        lxd.CloudSpec
 }
 
 var _ = gc.Suite(&modelUpgradeSuite{})
@@ -113,7 +113,7 @@ func (s *modelUpgradeSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.callContext = context.NewEmptyCloudCallContext()
-	s.cloudSpec = environscloudspec.CloudSpec{Type: "lxd"}
+	s.cloudSpec = lxd.CloudSpec{CloudSpec: environscloudspec.CloudSpec{Type: "lxd"}}
 }
 
 func (s *modelUpgradeSuite) getModelUpgraderAPI(c *gc.C) (*gomock.Controller, *modelupgrader.ModelUpgraderAPI) {
@@ -136,7 +136,7 @@ func (s *modelUpgradeSuite) getModelUpgraderAPI(c *gc.C) (*gomock.Controller, *m
 			return s.registryProvider, nil
 		},
 		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
-			return s.cloudSpec, nil
+			return s.cloudSpec.CloudSpec, nil
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

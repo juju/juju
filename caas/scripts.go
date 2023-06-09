@@ -59,6 +59,6 @@ cat > /var/lib/pebble/default/layers/001-jujud.yaml <<EOF
 %[3]s
 EOF
 
-/opt/pebble run --http :%[4]s --verbose
+exec /opt/pebble run --http :%[4]s --verbose
 `[1:]
 )

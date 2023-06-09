@@ -236,6 +236,16 @@ application; overriding profiles on the container may cause unexpected
 behavior.
 `
 
+const upgradedApplicationHasUnitsMessage = `
+Upgrading from an older PodSpec style charm to a newer Sidecar charm requires that
+the application be scaled down to 0 units.
+
+Before refreshing the application again, you must scale it to 0 units and wait for
+all those units to disappear before continuing.
+
+	juju scale-application %s 0
+`
+
 func (c *refreshCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "refresh",
@@ -468,7 +478,11 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		EndpointBindings:   c.Bindings,
 	}
 
-	if err := block.ProcessBlockedError(charmRefreshClient.SetCharm(generation, charmCfg), block.BlockChange); err != nil {
+	err = charmRefreshClient.SetCharm(generation, charmCfg)
+	err = block.ProcessBlockedError(err, block.BlockChange)
+	if params.IsCodeAppShouldNotHaveUnits(err) {
+		return errors.Errorf(upgradedApplicationHasUnitsMessage[1:], c.ApplicationName)
+	} else if err != nil {
 		return err
 	}
 

@@ -668,6 +668,10 @@ var configTests = []configTest{
 		}),
 		err: `cidr "blah" not valid`,
 	}, {
+		about:       "Absent ssh-allow entry",
+		useDefaults: config.UseDefaults,
+		attrs:       minimalConfigAttrs,
+	}, {
 		about:       "Invalid saas-ingress-allow cidr",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
@@ -870,6 +874,7 @@ func (test configTest) check(c *gc.C) {
 	if val, ok := test.attrs[config.ContainerInheritPropertiesKey].(string); ok && val != "" {
 		c.Assert(cfg.ContainerInheritProperties(), gc.Equals, val)
 	}
+	c.Assert(cfg.SSHAllow(), gc.DeepEquals, []string{"0.0.0.0/0", "::/0"})
 }
 
 func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {

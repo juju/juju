@@ -9,9 +9,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 // StorageAccessor is an interface for accessing information about
@@ -37,8 +35,7 @@ type StorageAccessor interface {
 }
 
 // Attachments generates storage hooks in response to changes to
-// storage attachments, and provides access to information about
-// storage attachments to hooks.
+// storage attachments.
 type Attachments struct {
 	st      StorageAccessor
 	unitTag names.UnitTag
@@ -53,8 +50,6 @@ type Attachments struct {
 	// TODO: hml
 	// Can this be a names.Set?
 	storageState *State
-	// current storage attachments
-	storageAttachments map[names.StorageTag]*contextStorage
 }
 
 // NewAttachments returns a new Attachments.
@@ -65,12 +60,11 @@ func NewAttachments(
 	abort <-chan struct{},
 ) (*Attachments, error) {
 	a := &Attachments{
-		st:                 st,
-		unitTag:            tag,
-		abort:              abort,
-		stateOps:           NewStateOps(rw),
-		storageAttachments: make(map[names.StorageTag]*contextStorage),
-		pending:            names.NewSet(),
+		st:       st,
+		unitTag:  tag,
+		abort:    abort,
+		stateOps: NewStateOps(rw),
+		pending:  names.NewSet(),
 	}
 	if err := a.init(); err != nil {
 		return nil, err
@@ -111,22 +105,6 @@ func (a *Attachments) init() error {
 		if !attached {
 			continue
 		}
-		// Since there's a saved record, we must previously have handled
-		// at least "storage-attached", so there is no possibility of
-		// short-circuiting the storage's removal.
-		attachment, err := a.st.StorageAttachment(storageTag, a.unitTag)
-		if err != nil {
-			return errors.Annotatef(
-				err, "querying storage attachment %q",
-				storageTag.Id(),
-			)
-		}
-		a.storageAttachments[storageTag] =
-			&contextStorage{
-				tag:      storageTag,
-				kind:     storage.StorageKind(attachment.Kind),
-				location: attachment.Location,
-			}
 		newStateStorage.Attach(storageTag.Id())
 	}
 	a.storageState = newStateStorage
@@ -153,33 +131,6 @@ func (a *Attachments) SetDying() error {
 // to be run and committed.
 func (a *Attachments) Pending() int {
 	return a.pending.Size()
-}
-
-// Empty reports whether or not there are any active storage attachments.
-func (a *Attachments) Empty() bool {
-	return len(a.storageAttachments) == 0
-}
-
-// Storage returns the ContextStorage with the supplied tag if it was
-// found, and whether it was found.
-func (a *Attachments) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, error) {
-	if attachment, ok := a.storageAttachments[tag]; ok {
-		return attachment, nil
-	}
-	return nil, errors.NotFoundf("storage")
-}
-
-// StorageTags returns the names.StorageTags for the active storage attachments.
-func (a *Attachments) StorageTags() ([]names.StorageTag, error) {
-	tags := names.NewSet()
-	for tag := range a.storageAttachments {
-		tags.Add(tag)
-	}
-	storageTags := make([]names.StorageTag, tags.Size())
-	for i, tag := range tags.SortedValues() {
-		storageTags[i] = tag.(names.StorageTag)
-	}
-	return storageTags, nil
 }
 
 // ValidateHook validates the hook against the current State.
@@ -222,6 +173,5 @@ func (a *Attachments) removeStorageAttachment(tag names.StorageTag) error {
 		return errors.Annotate(err, "removing storage attachment")
 	}
 	a.pending.Remove(tag)
-	delete(a.storageAttachments, tag)
 	return nil
 }

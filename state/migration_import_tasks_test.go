@@ -319,8 +319,8 @@ func (s *MigrationImportTasksSuite) TestImportRemoteEntities(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	entity0 := s.remoteEntity(ctrl, "ctrl-uuid-2", "xxx-yyy-ccc")
-	entity1 := s.remoteEntity(ctrl, "ctrl-uuid-3", "aaa-bbb-zzz")
+	entity0 := s.remoteEntity(ctrl, "application-uuid2", "xxx-yyy-ccc")
+	entity1 := s.remoteEntity(ctrl, "applicationoffer-uuid3", "aaa-bbb-zzz")
 
 	entities := []description.RemoteEntity{
 		entity0,
@@ -329,26 +329,27 @@ func (s *MigrationImportTasksSuite) TestImportRemoteEntities(c *gc.C) {
 
 	model := NewMockRemoteEntitiesInput(ctrl)
 	model.EXPECT().RemoteEntities().Return(entities)
-	model.EXPECT().DocID("ctrl-uuid-2").Return("ctrl-uuid-2")
-	model.EXPECT().DocID("ctrl-uuid-3").Return("ctrl-uuid-3")
+	model.EXPECT().OfferNameForApp("uuid2").Return("offeruuid2", nil)
+	model.EXPECT().DocID("applicationoffer-offeruuid2").Return("uuid2")
+	model.EXPECT().DocID("applicationoffer-uuid3").Return("uuid3")
 
 	runner := NewMockTransactionRunner(ctrl)
 	runner.EXPECT().RunTransaction([]txn.Op{
 		{
 			C:      remoteEntitiesC,
-			Id:     "ctrl-uuid-2",
+			Id:     "uuid2",
 			Assert: txn.DocMissing,
 			Insert: &remoteEntityDoc{
-				DocID: "ctrl-uuid-2",
+				DocID: "uuid2",
 				Token: "xxx-yyy-ccc",
 			},
 		},
 		{
 			C:      remoteEntitiesC,
-			Id:     "ctrl-uuid-3",
+			Id:     "uuid3",
 			Assert: txn.DocMissing,
 			Insert: &remoteEntityDoc{
-				DocID: "ctrl-uuid-3",
+				DocID: "uuid3",
 				Token: "aaa-bbb-zzz",
 			},
 		},
@@ -380,7 +381,7 @@ func (s *MigrationImportTasksSuite) TestImportRemoteEntitiesWithTransactionRunne
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	entity0 := s.remoteEntity(ctrl, "ctrl-uuid-2", "xxx-yyy-ccc")
+	entity0 := s.remoteEntity(ctrl, "application-uuid2", "xxx-yyy-ccc")
 
 	entities := []description.RemoteEntity{
 		entity0,
@@ -388,16 +389,17 @@ func (s *MigrationImportTasksSuite) TestImportRemoteEntitiesWithTransactionRunne
 
 	model := NewMockRemoteEntitiesInput(ctrl)
 	model.EXPECT().RemoteEntities().Return(entities)
-	model.EXPECT().DocID("ctrl-uuid-2").Return("uuid-2")
+	model.EXPECT().OfferNameForApp("uuid2").Return("offeruuid2", nil)
+	model.EXPECT().DocID("applicationoffer-offeruuid2").Return("uuid2")
 
 	runner := NewMockTransactionRunner(ctrl)
 	runner.EXPECT().RunTransaction([]txn.Op{
 		{
 			C:      remoteEntitiesC,
-			Id:     "uuid-2",
+			Id:     "uuid2",
 			Assert: txn.DocMissing,
 			Insert: &remoteEntityDoc{
-				DocID: "uuid-2",
+				DocID: "uuid2",
 				Token: "xxx-yyy-ccc",
 			},
 		},

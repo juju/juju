@@ -212,6 +212,7 @@ const (
 	CodeNotYetAvailable           = "not yet available; try again later"
 	CodeNotValid                  = "not valid"
 	CodeAccessRequired            = "access required"
+	CodeAppShouldNotHaveUnits     = "application should not have units"
 )
 
 // TranslateWellKnownError translates well known wire error codes into a github.com/juju/errors error
@@ -434,4 +435,8 @@ func IsCodeNotLeader(err error) bool {
 
 func IsCodeDeadlineExceeded(err error) bool {
 	return ErrCode(err) == CodeDeadlineExceeded
+}
+
+func IsCodeAppShouldNotHaveUnits(err error) bool {
+	return ErrCode(err) == CodeAppShouldNotHaveUnits
 }

@@ -227,7 +227,7 @@ func patchOperatorToCharmBase(ss *apps.StatefulSet, appName string, imagePath st
 			continue
 		}
 
-		jujudCmd := fmt.Sprintf("$JUJU_TOOLS_DIR/jujud caasoperator --application-name=%s --debug", appName)
+		jujudCmd := fmt.Sprintf("exec $JUJU_TOOLS_DIR/jujud caasoperator --application-name=%s --debug", appName)
 		jujuDataDir := paths.DataDir(paths.OSUnixLike)
 		container.Image = baseImagePath
 		container.Args = []string{
