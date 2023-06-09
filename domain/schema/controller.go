@@ -3,9 +3,11 @@
 
 package schema
 
+import "github.com/juju/juju/core/database"
+
 // ControllerDDL is used to create the controller database schema at bootstrap.
-func ControllerDDL() []string {
-	schemas := []func() string{
+func ControllerDDL() []database.Delta {
+	schemas := []func() database.Delta{
 		leaseSchema,
 		changeLogSchema,
 		cloudSchema,
@@ -15,7 +17,7 @@ func ControllerDDL() []string {
 		controllerNodeSchema,
 	}
 
-	var deltas []string
+	var deltas []database.Delta
 	for _, fn := range schemas {
 		deltas = append(deltas, fn())
 	}
@@ -23,8 +25,8 @@ func ControllerDDL() []string {
 	return deltas
 }
 
-func leaseSchema() string {
-	return `
+func leaseSchema() database.Delta {
+	return database.MakeDelta(`
 CREATE TABLE lease_type (
     id   INT PRIMARY KEY,
     type TEXT
@@ -71,12 +73,11 @@ CREATE UNIQUE INDEX idx_lease_pin_lease_entity
 ON lease_pin (lease_uuid, entity_id);
 
 CREATE INDEX idx_lease_pin_lease
-ON lease_pin (lease_uuid);
-`[1:]
+ON lease_pin (lease_uuid);`)
 }
 
-func changeLogSchema() string {
-	return `
+func changeLogSchema() database.Delta {
+	return database.MakeDelta(`
 CREATE TABLE change_log_edit_type (
     id        INT PRIMARY KEY,
     edit_type TEXT
@@ -117,11 +118,11 @@ CREATE TABLE change_log (
     CONSTRAINT          fk_change_log_namespace
             FOREIGN KEY (namespace_id)
             REFERENCES  change_log_namespace(id)
-);`[1:]
+);`)
 }
 
-func cloudSchema() string {
-	return `
+func cloudSchema() database.Delta {
+	return database.MakeDelta(`
 CREATE TABLE cloud_type (
     id   INT PRIMARY KEY,
     type TEXT
@@ -224,11 +225,11 @@ CREATE TABLE cloud_ca_cert (
 );
 
 CREATE UNIQUE INDEX idx_cloud_ca_cert_cloud_uuid_ca_cert
-ON cloud_ca_cert (cloud_uuid, ca_cert);`[1:]
+ON cloud_ca_cert (cloud_uuid, ca_cert);`)
 }
 
-func externalControllerSchema() string {
-	return `
+func externalControllerSchema() database.Delta {
+	return database.MakeDelta(`
 CREATE TABLE external_controller (
     uuid            TEXT PRIMARY KEY,
     alias           TEXT,
@@ -272,20 +273,18 @@ AFTER DELETE ON external_controller FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
     VALUES (4, 1, OLD.uuid, DATETIME('now'));
-END;
-`[1:]
+END;`)
 }
 
-func modelListSchema() string {
-	return `
+func modelListSchema() database.Delta {
+	return database.MakeDelta(`
 CREATE TABLE model_list (
     uuid    TEXT PRIMARY KEY
-);
-`[1:]
+);`)
 }
 
-func controllerConfigSchema() string {
-	return `
+func controllerConfigSchema() database.Delta {
+	return database.MakeDelta(`
 CREATE TABLE controller_config (
     key     TEXT PRIMARY KEY,
     value   TEXT
@@ -308,12 +307,11 @@ AFTER DELETE ON controller_config FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
     VALUES (4, 3, OLD.key, DATETIME('now'));
-END;
-`[1:]
+END;`)
 }
 
-func controllerNodeSchema() string {
-	return `
+func controllerNodeSchema() database.Delta {
+	return database.MakeDelta(`
 CREATE TABLE controller_node (
     controller_id  TEXT PRIMARY KEY, 
     dqlite_node_id INT,               -- This is the uint64 from Dqlite NodeInfo.
@@ -345,5 +343,5 @@ AFTER DELETE ON controller_node FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
     VALUES (4, 2, OLD.controller_id, DATETIME('now'));
-END;`[1:]
+END;`)
 }

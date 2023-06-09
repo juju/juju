@@ -40,7 +40,7 @@ func (s *ControllerSuite) SetUpTest(c *gc.C) {
 		db: sqlair.NewDB(s.db),
 	}
 
-	s.ApplyControllerDDL(c, s.db)
+	s.ApplyControllerDDL(c)
 }
 
 func (s *ControllerSuite) TearDownTest(c *gc.C) {
@@ -78,13 +78,13 @@ func (s *ControllerSuite) NewCleanDB(c *gc.C) *sql.DB {
 
 // ApplyControllerDDL applies the controller schema to the provided sql.DB.
 // This is useful for tests that need to apply the schema to a new DB.
-func (s *ControllerSuite) ApplyControllerDDL(c *gc.C, db *sql.DB) {
+func (s *ControllerSuite) ApplyControllerDDL(c *gc.C) {
 	tx, err := s.db.Begin()
 	c.Assert(err, jc.ErrorIsNil)
 
-	for idx, stmt := range schema.ControllerDDL() {
+	for idx, delta := range schema.ControllerDDL() {
 		c.Logf("Executing schema DDL index: %v", idx)
-		_, err := tx.Exec(stmt)
+		_, err := tx.Exec(delta.Stmt(), delta.Args()...)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
