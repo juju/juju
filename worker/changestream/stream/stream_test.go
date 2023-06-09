@@ -1438,7 +1438,7 @@ func expectChanges(c *gc.C, expected []change, obtained []changestream.ChangeEve
 }
 
 func (s *streamSuite) expectWaterMark(c *gc.C, id string, changeLogIndex int) {
-	row := s.DB().QueryRowContext(context.Background(), "SELECT id, lower_bound, upper_bound, updated_at FROM change_log_witness")
+	row := s.DB().QueryRowContext(context.Background(), "SELECT controller_id, lower_bound, upper_bound, updated_at FROM change_log_witness")
 
 	type witness struct {
 		id                     string

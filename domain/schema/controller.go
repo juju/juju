@@ -133,10 +133,10 @@ CREATE TABLE change_log (
 -- We'll delete all change log entries that are older than the lower_bound
 -- change log entry that has been seen by all controllers.
 CREATE TABLE change_log_witness (
-    id                  TEXT PRIMARY KEY,
+    controller_id       TEXT PRIMARY KEY,
     lower_bound         INT NOT NULL DEFAULT(-1),
     upper_bound         INT NOT NULL DEFAULT(-1),
-    updated_at          DATETIME NOT NULL DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
+    updated_at          DATETIME NOT NULL DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc'))
 );`)
 }
 

@@ -459,10 +459,10 @@ func (s *Stream) readChanges() ([]changeEvent, error) {
 const (
 	watermarkCreateQuery = `
 INSERT INTO change_log_witness
-	(id, lower_bound, upper_bound, updated_at)
+	(controller_id, lower_bound, upper_bound, updated_at)
 VALUES
 	(?, -1, -1, datetime())
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (controller_id) DO NOTHING;
 `
 )
 
@@ -490,7 +490,7 @@ SET
 	lower_bound = ?,
 	upper_bound = ?,
 	updated_at = datetime()
-WHERE id = ?;
+WHERE controller_id = ?;
 `
 )
 
