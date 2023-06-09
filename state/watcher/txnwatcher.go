@@ -359,8 +359,7 @@ func (w *TxnWatcher) init() error {
 	db := w.session.DB(w.jujuDBName)
 
 	cs := bson.M{
-		"fullDocument":             "updateLookup",
-		"fullDocumentBeforeChange": "off",
+		"fullDocument": "updateLookup",
 	}
 	if len(w.resumeToken.Data) > 0 {
 		cs["resumeAfter"] = w.resumeToken
