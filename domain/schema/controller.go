@@ -137,9 +137,6 @@ CREATE TABLE change_log_witness (
     lower_bound         INT NOT NULL DEFAULT(-1),
     upper_bound         INT NOT NULL DEFAULT(-1),
     updated_at          DATETIME NOT NULL DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
-    pruned_lower_bound  INT
-    pruned_upper_bound  INT
-    pruned_at           DATETIME
 );`)
 }
 
