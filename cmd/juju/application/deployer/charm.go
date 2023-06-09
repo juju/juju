@@ -362,12 +362,12 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	}
 
 	// Process the --config args.
-	appName := c.userRequestedURL.Name
+	appNameForConfig := c.userRequestedURL.Name
 	if c.applicationName != "" {
-		appName = c.applicationName
+		appNameForConfig = c.applicationName
 	}
 
-	configYAML, err := utils.CombinedConfig(ctx, c.model.Filesystem(), c.configOptions, appName)
+	configYAML, err := utils.CombinedConfig(ctx, c.model.Filesystem(), c.configOptions, appNameForConfig)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -375,7 +375,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	charmName := c.userRequestedURL.Name
 	info, localPendingResources, errs := deployAPI.DeployFromRepository(application.DeployFromRepositoryArg{
 		CharmName:        charmName,
-		ApplicationName:  appName,
+		ApplicationName:  c.applicationName,
 		AttachStorage:    c.attachStorage,
 		Base:             base,
 		Channel:          channel,
@@ -393,9 +393,11 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		Trust:            c.trust,
 	})
 
-	uploadErr := c.uploadExistingPendingResources(appName, localPendingResources, deployAPI, c.model.Filesystem())
+	uploadErr := c.uploadExistingPendingResources(info.Name, localPendingResources, deployAPI,
+		c.model.Filesystem())
 	if uploadErr != nil {
-		ctx.Errorf("Unable to upload resources for %v, consider using --attach-resource. \n %v", appName, uploadErr)
+		ctx.Errorf("Unable to upload resources for %v, consider using --attach-resource. \n %v",
+			info.Name, uploadErr)
 	}
 
 	if len(errs) == 0 {
