@@ -71,7 +71,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
-			upgraderFacade := upgrader.NewState(apiCaller)
+			upgraderFacade := upgrader.NewClient(apiCaller)
 
 			// If there is no UpgradeStepsGateName, the worker should
 			// report the running version and exit.

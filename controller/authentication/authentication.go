@@ -29,7 +29,7 @@ type AuthenticationProvider interface {
 
 // NewAPIAuthenticator gets the state and api info once from the
 // provisioner API.
-func NewAPIAuthenticator(st *apiprovisioner.State) (AuthenticationProvider, error) {
+func NewAPIAuthenticator(st *apiprovisioner.Client) (AuthenticationProvider, error) {
 	apiAddresses, err := st.APIAddresses()
 	if err != nil {
 		return nil, errors.Trace(err)

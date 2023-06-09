@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/tools"
 )
 
-// State provides access to the Provisioner API facade.
-type State struct {
+// Client provides access to the Provisioner API facade.
+type Client struct {
 	*common.ModelWatcher
 	*common.APIAddresser
 	*common.ControllerConfigAPI
@@ -60,16 +60,10 @@ type LXDProfileResult struct {
 
 const provisionerFacade = "Provisioner"
 
-// NewState creates a new provisioner facade using the input caller.
-func NewState(caller base.APICaller) *State {
+// NewClient creates a new provisioner facade using the input caller.
+func NewClient(caller base.APICaller) *Client {
 	facadeCaller := base.NewFacadeCaller(caller, provisionerFacade)
-	return NewStateFromFacade(facadeCaller)
-}
-
-// NewStateFromFacade creates a new provisioner facade using the input
-// facade caller.
-func NewStateFromFacade(facadeCaller base.FacadeCaller) *State {
-	return &State{
+	return &Client{
 		ModelWatcher:        common.NewModelWatcher(facadeCaller),
 		APIAddresser:        common.NewAPIAddresser(facadeCaller),
 		ControllerConfigAPI: common.NewControllerConfig(facadeCaller),
@@ -78,12 +72,12 @@ func NewStateFromFacade(facadeCaller base.FacadeCaller) *State {
 }
 
 // machineLife requests the lifecycle of the given machine from the server.
-func (st *State) machineLife(tag names.MachineTag) (life.Value, error) {
+func (st *Client) machineLife(tag names.MachineTag) (life.Value, error) {
 	return common.OneLife(st.facade, tag)
 }
 
 // ProvisioningInfo implements MachineProvisioner.ProvisioningInfo.
-func (st *State) ProvisioningInfo(machineTags []names.MachineTag) (params.ProvisioningInfoResults, error) {
+func (st *Client) ProvisioningInfo(machineTags []names.MachineTag) (params.ProvisioningInfoResults, error) {
 	var results params.ProvisioningInfoResults
 	args := params.Entities{Entities: transform.Slice(machineTags, func(t names.MachineTag) params.Entity {
 		return params.Entity{Tag: t.String()}
@@ -94,7 +88,7 @@ func (st *State) ProvisioningInfo(machineTags []names.MachineTag) (params.Provis
 
 // Machines provides access to methods of a state.Machine through the facade
 // for the given tags.
-func (st *State) Machines(tags ...names.MachineTag) ([]MachineResult, error) {
+func (st *Client) Machines(tags ...names.MachineTag) ([]MachineResult, error) {
 	lenTags := len(tags)
 	genericTags := make([]names.Tag, lenTags)
 	for i, t := range tags {
@@ -122,7 +116,7 @@ func (st *State) Machines(tags ...names.MachineTag) ([]MachineResult, error) {
 // WatchModelMachines returns a StringsWatcher that notifies of
 // changes to the lifecycles of the machines (but not containers) in
 // the current model.
-func (st *State) WatchModelMachines() (watcher.StringsWatcher, error) {
+func (st *Client) WatchModelMachines() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
 	err := st.facade.FacadeCall("WatchModelMachines", nil, &result)
 	if err != nil {
@@ -135,7 +129,7 @@ func (st *State) WatchModelMachines() (watcher.StringsWatcher, error) {
 	return w, nil
 }
 
-func (st *State) WatchMachineErrorRetry() (watcher.NotifyWatcher, error) {
+func (st *Client) WatchMachineErrorRetry() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
 	err := st.facade.FacadeCall("WatchMachineErrorRetry", nil, &result)
 	if err != nil {
@@ -150,21 +144,21 @@ func (st *State) WatchMachineErrorRetry() (watcher.NotifyWatcher, error) {
 
 // ContainerManagerConfig returns information from the model config that is
 // needed for configuring the container manager.
-func (st *State) ContainerManagerConfig(args params.ContainerManagerConfigParams) (result params.ContainerManagerConfig, err error) {
+func (st *Client) ContainerManagerConfig(args params.ContainerManagerConfigParams) (result params.ContainerManagerConfig, err error) {
 	err = st.facade.FacadeCall("ContainerManagerConfig", args, &result)
 	return result, err
 }
 
 // ContainerConfig returns information from the model config that is
 // needed for container cloud-init.
-func (st *State) ContainerConfig() (result params.ContainerConfig, err error) {
+func (st *Client) ContainerConfig() (result params.ContainerConfig, err error) {
 	err = st.facade.FacadeCall("ContainerConfig", nil, &result)
 	return result, err
 }
 
 // MachinesWithTransientErrors returns a slice of machines and corresponding status information
 // for those machines which have transient provisioning errors.
-func (st *State) MachinesWithTransientErrors() ([]MachineStatusResult, error) {
+func (st *Client) MachinesWithTransientErrors() ([]MachineStatusResult, error) {
 	var results params.StatusResults
 	err := st.facade.FacadeCall("MachinesWithTransientErrors", nil, &results)
 	if err != nil {
@@ -187,7 +181,7 @@ func (st *State) MachinesWithTransientErrors() ([]MachineStatusResult, error) {
 
 // FindTools returns al ist of tools matching the specified version number and
 // series, and, arch. If arch is blank, a default will be used.
-func (st *State) FindTools(v version.Number, os string, arch string) (tools.List, error) {
+func (st *Client) FindTools(v version.Number, os string, arch string) (tools.List, error) {
 	args := params.FindToolsParams{
 		Number: v,
 		OSType: os,
@@ -207,7 +201,7 @@ func (st *State) FindTools(v version.Number, os string, arch string) (tools.List
 
 // ReleaseContainerAddresses releases a static IP address allocated to a
 // container.
-func (st *State) ReleaseContainerAddresses(containerTag names.MachineTag) (err error) {
+func (st *Client) ReleaseContainerAddresses(containerTag names.MachineTag) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot release static addresses for %q", containerTag.Id())
 	var result params.ErrorResults
 	args := params.Entities{
@@ -221,7 +215,7 @@ func (st *State) ReleaseContainerAddresses(containerTag names.MachineTag) (err e
 
 // PrepareContainerInterfaceInfo allocates an address and returns information to
 // configure networking for a container. It accepts container tags as arguments.
-func (st *State) PrepareContainerInterfaceInfo(containerTag names.MachineTag) (corenetwork.InterfaceInfos, error) {
+func (st *Client) PrepareContainerInterfaceInfo(containerTag names.MachineTag) (corenetwork.InterfaceInfos, error) {
 	var result params.MachineNetworkConfigResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: containerTag.String()}},
@@ -242,7 +236,7 @@ func (st *State) PrepareContainerInterfaceInfo(containerTag names.MachineTag) (c
 
 // SetHostMachineNetworkConfig sets the network configuration of the
 // machine with netConfig
-func (st *State) SetHostMachineNetworkConfig(hostMachineTag names.MachineTag, netConfig []params.NetworkConfig) error {
+func (st *Client) SetHostMachineNetworkConfig(hostMachineTag names.MachineTag, netConfig []params.NetworkConfig) error {
 	args := params.SetMachineNetworkConfig{
 		Tag:    hostMachineTag.String(),
 		Config: netConfig,
@@ -254,7 +248,7 @@ func (st *State) SetHostMachineNetworkConfig(hostMachineTag names.MachineTag, ne
 	return nil
 }
 
-func (st *State) HostChangesForContainer(containerTag names.MachineTag) ([]network.DeviceToBridge, int, error) {
+func (st *Client) HostChangesForContainer(containerTag names.MachineTag) ([]network.DeviceToBridge, int, error) {
 	var result params.HostNetworkChangeResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: containerTag.String()}},
@@ -282,7 +276,7 @@ func (st *State) HostChangesForContainer(containerTag names.MachineTag) ([]netwo
 // that belong to the same distribution group as the given
 // Machine. The provisioner may use this information
 // to distribute instances for high availability.
-func (st *State) DistributionGroupByMachineId(tags ...names.MachineTag) ([]DistributionGroupResult, error) {
+func (st *Client) DistributionGroupByMachineId(tags ...names.MachineTag) ([]DistributionGroupResult, error) {
 	var stringResults params.StringsResults
 	entities := make([]params.Entity, len(tags))
 	for i, t := range tags {
@@ -300,7 +294,7 @@ func (st *State) DistributionGroupByMachineId(tags ...names.MachineTag) ([]Distr
 }
 
 // CACert returns the certificate used to validate the API and state connections.
-func (st *State) CACert() (string, error) {
+func (st *Client) CACert() (string, error) {
 	var result params.BytesResult
 	err := st.facade.FacadeCall("CACert", nil, &result)
 	if err != nil {
@@ -311,7 +305,7 @@ func (st *State) CACert() (string, error) {
 
 // GetContainerProfileInfo returns a slice of ContainerLXDProfile, 1 for each unit's charm
 // which contains an lxd-profile.yaml.
-func (st *State) GetContainerProfileInfo(containerTag names.MachineTag) ([]*LXDProfileResult, error) {
+func (st *Client) GetContainerProfileInfo(containerTag names.MachineTag) ([]*LXDProfileResult, error) {
 	var result params.ContainerProfileResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: containerTag.String()}},
@@ -343,7 +337,7 @@ func (st *State) GetContainerProfileInfo(containerTag names.MachineTag) ([]*LXDP
 
 // ModelUUID returns the model UUID to connect to the model
 // that the current connection is for.
-func (st *State) ModelUUID() (string, error) {
+func (st *Client) ModelUUID() (string, error) {
 	var result params.StringResult
 	err := st.facade.FacadeCall("ModelUUID", nil, &result)
 	if err != nil {

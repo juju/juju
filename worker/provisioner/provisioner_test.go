@@ -66,7 +66,7 @@ type CommonProvisionerSuite struct {
 	defaultConstraints constraints.Value
 
 	st          api.Connection
-	provisioner *apiprovisioner.State
+	provisioner *apiprovisioner.Client
 	callCtx     context.ProviderCallContext
 }
 
@@ -229,7 +229,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	s.st = s.OpenAPIAsMachine(c, machine.Tag(), password, agent.BootstrapNonce)
 	c.Assert(s.st, gc.NotNil)
 	c.Logf("API: login as %q successful", machine.Tag())
-	s.provisioner = apiprovisioner.NewState(s.st)
+	s.provisioner = apiprovisioner.NewClient(s.st)
 	c.Assert(s.provisioner, gc.NotNil)
 
 }
@@ -500,7 +500,7 @@ func (s *CommonProvisionerSuite) waitInstanceId(c *gc.C, m *state.Machine, expec
 func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Provisioner {
 	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
-	apiState := apiprovisioner.NewState(s.st)
+	apiState := apiprovisioner.NewClient(s.st)
 	w, err := provisioner.NewEnvironProvisioner(apiState, agentConfig, loggo.GetLogger("test"), s.Environ, &credentialAPIForTest{})
 	c.Assert(err, jc.ErrorIsNil)
 	return w

@@ -58,7 +58,7 @@ type containerProvisioner struct {
 // provisioner providers common behaviour for a running provisioning worker.
 type provisioner struct {
 	Provisioner
-	st                      *apiprovisioner.State
+	st                      *apiprovisioner.Client
 	agentConfig             agent.Config
 	logger                  Logger
 	broker                  environs.InstanceBroker
@@ -121,13 +121,13 @@ func (p *provisioner) Wait() error {
 
 // getToolsFinder returns a ToolsFinder for the provided State.
 // This exists for mocking.
-var getToolsFinder = func(st *apiprovisioner.State) ToolsFinder {
+var getToolsFinder = func(st *apiprovisioner.Client) ToolsFinder {
 	return st
 }
 
 // getDistributionGroupFinder returns a DistributionGroupFinder
 // for the provided State. This exists for mocking.
-var getDistributionGroupFinder = func(st *apiprovisioner.State) DistributionGroupFinder {
+var getDistributionGroupFinder = func(st *apiprovisioner.Client) DistributionGroupFinder {
 	return st
 }
 
@@ -189,7 +189,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode, workerCount i
 // When new machines are added to the state, it allocates instances
 // from the environment and allocates them to the new machines.
 func NewEnvironProvisioner(
-	st *apiprovisioner.State,
+	st *apiprovisioner.Client,
 	agentConfig agent.Config,
 	logger Logger,
 	environ environs.Environ,
@@ -294,7 +294,7 @@ func (p *environProvisioner) setConfig(modelConfig *config.Config) error {
 // and allocates them to the new machines.
 func NewContainerProvisioner(
 	containerType instance.ContainerType,
-	st *apiprovisioner.State,
+	st *apiprovisioner.Client,
 	logger Logger,
 	agentConfig agent.Config,
 	broker environs.InstanceBroker,

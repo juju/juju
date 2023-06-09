@@ -4,140 +4,110 @@
 package upgrader_test
 
 import (
-	"fmt"
-
-	"github.com/juju/errors"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/agent/upgrader"
-	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
 )
 
 type machineUpgraderSuite struct {
-	testing.JujuConnSuite
-
-	stateAPI api.Connection
-
-	// These are raw State objects. Use them for setup and assertions, but
-	// should never be touched by the API calls themselves
-	rawMachine *state.Machine
-
-	st *upgrader.State
+	jujutesting.IsolationSuite
 }
 
 var _ = gc.Suite(&machineUpgraderSuite{})
 
-func (s *machineUpgraderSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c)
-	// Create the upgrader facade.
-	s.st = upgrader.NewState(s.stateAPI)
-	c.Assert(s.st, gc.NotNil)
-}
-
-// Note: This is really meant as a unit-test, this isn't a test that should
-//
-//	need all of the setup we have for this test suite
-func (s *machineUpgraderSuite) TestNew(c *gc.C) {
-	upgrader := upgrader.NewState(s.stateAPI)
-	c.Assert(upgrader, gc.NotNil)
-}
-
-func (s *machineUpgraderSuite) TestSetVersionWrongMachine(c *gc.C) {
-	err := s.st.SetVersion("machine-42", coretesting.CurrentVersion())
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
-}
-
-func (s *machineUpgraderSuite) TestSetVersionNotMachine(c *gc.C) {
-	err := s.st.SetVersion("foo-42", coretesting.CurrentVersion())
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
-}
-
 func (s *machineUpgraderSuite) TestSetVersion(c *gc.C) {
-	current := coretesting.CurrentVersion()
-	agentTools, err := s.rawMachine.AgentTools()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(agentTools, gc.IsNil)
-	err = s.st.SetVersion(s.rawMachine.Tag().String(), current)
-	c.Assert(err, jc.ErrorIsNil)
-	s.rawMachine.Refresh()
-	agentTools, err = s.rawMachine.AgentTools()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(agentTools.Version, gc.Equals, current)
-}
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Upgrader")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "SetTools")
+		c.Check(arg, jc.DeepEquals, params.EntitiesVersion{
+			AgentTools: []params.EntityVersion{{
+				Tag:   "machine-666",
+				Tools: &params.Version{Version: coretesting.CurrentVersion()},
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{Error: &params.Error{Message: "FAIL"}}},
+		}
+		return nil
 
-func (s *machineUpgraderSuite) TestToolsWrongMachine(c *gc.C) {
-	tools, err := s.st.Tools("machine-42")
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
-	c.Assert(tools, gc.IsNil)
-}
-
-func (s *machineUpgraderSuite) TestToolsNotMachine(c *gc.C) {
-	tools, err := s.st.Tools("foo-42")
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
-	c.Assert(tools, gc.IsNil)
+	})
+	client := upgrader.NewClient(apiCaller)
+	err := client.SetVersion("machine-666", coretesting.CurrentVersion())
+	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
 func (s *machineUpgraderSuite) TestTools(c *gc.C) {
-	current := coretesting.CurrentVersion()
-	err := s.rawMachine.SetAgentVersion(current)
-	c.Assert(err, jc.ErrorIsNil)
+	toolsResult := tools.List{{URL: "https://tools"}}
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Upgrader")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "Tools")
+		c.Check(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "machine-666"}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ToolsResults{})
+		*(result.(*params.ToolsResults)) = params.ToolsResults{
+			Results: []params.ToolsResult{{ToolsList: toolsResult}},
+		}
+		return nil
 
-	stateToolsList, err := s.st.Tools(s.rawMachine.Tag().String())
+	})
+	client := upgrader.NewClient(apiCaller)
+	t, err := client.Tools("machine-666")
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(stateToolsList, gc.HasLen, 1)
-	stateTools := stateToolsList[0]
-	c.Assert(stateTools.Version, gc.Equals, current)
-	url := fmt.Sprintf("https://%s/model/%s/tools/%s", s.stateAPI.Addr(), coretesting.ModelTag.Id(), current)
-	c.Assert(stateTools.URL, gc.Equals, url)
+	c.Assert(t, jc.DeepEquals, toolsResult)
 }
 
 func (s *machineUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
-	w, err := s.st.WatchAPIVersion(s.rawMachine.Tag().String())
-	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, w)
-	defer wc.AssertStops()
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Upgrader")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchAPIVersion")
+		c.Check(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "machine-666"}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
+		*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
+			Results: []params.NotifyWatchResult{{Error: &params.Error{Message: "FAIL"}}},
+		}
+		return nil
 
-	// Initial event
-	wc.AssertOneChange()
-
-	// One change noticing the new version
-	vers := version.MustParse("10.20.34")
-	err = statetesting.SetAgentVersion(s.BackingState, vers)
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	// Setting the version to the same value doesn't trigger a change
-	err = statetesting.SetAgentVersion(s.BackingState, vers)
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Another change noticing another new version
-	vers = version.MustParse("10.20.35")
-	err = statetesting.SetAgentVersion(s.BackingState, vers)
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
+	})
+	client := upgrader.NewClient(apiCaller)
+	_, err := client.WatchAPIVersion("machine-666")
+	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
 func (s *machineUpgraderSuite) TestDesiredVersion(c *gc.C) {
-	current := coretesting.CurrentVersion()
-	err := s.rawMachine.SetAgentVersion(current)
-	c.Assert(err, jc.ErrorIsNil)
+	versResult := coretesting.CurrentVersion().Number
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Upgrader")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "DesiredVersion")
+		c.Check(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "machine-666"}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.VersionResults{})
+		*(result.(*params.VersionResults)) = params.VersionResults{
+			Results: []params.VersionResult{{Version: &versResult}},
+		}
+		return nil
 
-	stateVersion, err := s.st.DesiredVersion(s.rawMachine.Tag().String())
+	})
+	client := upgrader.NewClient(apiCaller)
+	v, err := client.DesiredVersion("machine-666")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stateVersion, gc.Equals, current.Number)
+	c.Assert(v, jc.DeepEquals, versResult)
 }

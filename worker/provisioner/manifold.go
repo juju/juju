@@ -35,7 +35,7 @@ type ManifoldConfig struct {
 	EnvironName   string
 	Logger        Logger
 
-	NewProvisionerFunc           func(*apiprovisioner.State, agent.Config, Logger, environs.Environ, common.CredentialAPI) (Provisioner, error)
+	NewProvisionerFunc           func(*apiprovisioner.Client, agent.Config, Logger, environs.Environ, common.CredentialAPI) (Provisioner, error)
 	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
 }
 
@@ -64,7 +64,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			api := apiprovisioner.NewState(apiCaller)
+			api := apiprovisioner.NewClient(apiCaller)
 			agentConfig := agent.CurrentConfig()
 
 			credentialAPI, err := config.NewCredentialValidatorFacade(apiCaller)

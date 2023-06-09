@@ -73,7 +73,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				MachineLock:   config.MachineLock,
 				NewBrokerFunc: config.NewBrokerFunc,
 				NewStateFunc: func(apiCaller base.APICaller) State {
-					return provisioner.NewState(apiCaller)
+					return provisioner.NewClient(apiCaller)
 				},
 			})
 			if err != nil {

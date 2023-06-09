@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	provisionermocks "github.com/juju/juju/api/agent/provisioner/mocks"
-	apimocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/factory"
 	"github.com/juju/juju/container/testing"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker/instancemutater/mocks"
 )
 
 type containerSetupSuite struct {
@@ -34,10 +34,10 @@ type containerSetupSuite struct {
 	modelUUID      utils.UUID
 	controllerUUID utils.UUID
 
-	initialiser  *testing.MockInitialiser
-	facadeCaller *apimocks.MockFacadeCaller
-	machine      *provisionermocks.MockMachineProvisioner
-	manager      *testing.MockManager
+	initialiser *testing.MockInitialiser
+	caller      *mocks.MockAPICaller
+	machine     *provisionermocks.MockMachineProvisioner
+	manager     *testing.MockManager
 
 	machineLock *fakeMachineLock
 }
@@ -91,8 +91,8 @@ func (s *containerSetupSuite) TestInitialiseContainerProvisonerLXD(c *gc.C) {
 func (s *containerSetupSuite) TestContainerManagerConfigError(c *gc.C) {
 	defer s.patch(c).Finish()
 
-	s.facadeCaller.EXPECT().FacadeCall(
-		"ContainerManagerConfig", params.ContainerManagerConfigParams{Type: "lxd"}, gomock.Any()).Return(
+	s.caller.EXPECT().APICall(
+		"Provisioner", 666, "", "ContainerManagerConfig", params.ContainerManagerConfigParams{Type: "lxd"}, gomock.Any()).Return(
 		errors.New("boom"))
 
 	cs := s.setUpContainerSetup(c, instance.LXD)
@@ -103,7 +103,7 @@ func (s *containerSetupSuite) TestContainerManagerConfigError(c *gc.C) {
 }
 
 func (s *containerSetupSuite) setUpContainerSetup(c *gc.C, containerType instance.ContainerType) *ContainerSetup {
-	pState := apiprovisioner.NewStateFromFacade(s.facadeCaller)
+	pState := apiprovisioner.NewClient(s.caller)
 
 	cfg, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
@@ -140,7 +140,8 @@ func (s *containerSetupSuite) patch(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.initialiser = testing.NewMockInitialiser(ctrl)
-	s.facadeCaller = apimocks.NewMockFacadeCaller(ctrl)
+	s.caller = mocks.NewMockAPICaller(ctrl)
+	s.caller.EXPECT().BestFacadeVersion("Provisioner").Return(666)
 	s.machine = provisionermocks.NewMockMachineProvisioner(ctrl)
 	s.manager = testing.NewMockManager(ctrl)
 
@@ -159,9 +160,9 @@ func (s *containerSetupSuite) expectContainerManagerConfig(cType instance.Contai
 	resultSource := params.ContainerManagerConfig{
 		ManagerConfig: map[string]string{"model-uuid": s.modelUUID.String()},
 	}
-	s.facadeCaller.EXPECT().FacadeCall(
-		"ContainerManagerConfig", params.ContainerManagerConfigParams{Type: cType}, gomock.Any(),
-	).SetArg(2, resultSource).MinTimes(1)
+	s.caller.EXPECT().APICall(
+		"Provisioner", 666, "", "ContainerManagerConfig", params.ContainerManagerConfigParams{Type: cType}, gomock.Any(),
+	).SetArg(5, resultSource).MinTimes(1)
 }
 
 type credentialAPIForTest struct{}
