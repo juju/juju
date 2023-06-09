@@ -4,6 +4,8 @@
 package stream
 
 import (
+	"context"
+	"database/sql"
 	"sync/atomic"
 	"time"
 
@@ -987,25 +989,16 @@ func (s *streamSuite) insertChange(c *gc.C, changes ...change) {
 }
 
 func (s *streamSuite) insertChangeForType(c *gc.C, changeType changestream.ChangeType, changes ...change) {
-	q := `
-INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid)
-VALUES (?, ?, ?)
-`[1:]
-
-	tx, err := s.DB().Begin()
-	c.Assert(err, jc.ErrorIsNil)
-
-	stmt, err := tx.Prepare(q)
-	c.Assert(err, jc.ErrorIsNil)
-
-	for _, v := range changes {
-		c.Logf("Executing insert change: edit-type: %d, %v %v", changeType, v.id, v.uuid)
-		_, err = stmt.Exec(changeType, v.id, v.uuid)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-	c.Logf("Committing insert change")
-	err = tx.Commit()
+	q := `INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid) VALUES (?, ?, ?)`
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		for _, v := range changes {
+			c.Logf("Executing insert change: edit-type: %d, %v %v", changeType, v.id, v.uuid)
+			if _, err := tx.ExecContext(ctx, q, changeType, v.id, v.uuid); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("Committed insert change")
 }
