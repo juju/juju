@@ -55,12 +55,15 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *baseSuite) expectAnyLogs() {
-	s.logger.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()
-	s.logger.EXPECT().Warningf(gomock.Any(), gomock.Any()).AnyTimes()
-	s.logger.EXPECT().Infof(gomock.Any(), gomock.Any()).AnyTimes()
-	s.logger.EXPECT().Debugf(gomock.Any(), gomock.Any()).AnyTimes()
-	s.logger.EXPECT().Logf(gomock.Any(), gomock.Any()).AnyTimes()
+func (s *baseSuite) expectAnyLogs(c *gc.C) {
+	log := func(msg string, args ...any) { c.Logf(msg, args...) }
+
+	s.logger.EXPECT().Errorf(gomock.Any(), gomock.Any()).Do(log).AnyTimes()
+	s.logger.EXPECT().Warningf(gomock.Any(), gomock.Any()).Do(log).AnyTimes()
+	s.logger.EXPECT().Infof(gomock.Any(), gomock.Any()).Do(log).AnyTimes()
+	s.logger.EXPECT().Debugf(gomock.Any(), gomock.Any()).Do(log).AnyTimes()
+	s.logger.EXPECT().Logf(gomock.Any(), gomock.Any()).Do(log).AnyTimes()
+
 	s.logger.EXPECT().IsTraceEnabled().AnyTimes()
 }
 
