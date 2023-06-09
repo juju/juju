@@ -4,14 +4,21 @@
 package controllerport
 
 import (
+	ctx "context"
+
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/core/changestream"
+	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/domain"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 	workerstate "github.com/juju/juju/worker/state"
 )
 
@@ -25,14 +32,15 @@ type Logger interface {
 // ManifoldConfig holds the information necessary to determine the controller
 // api port and keep it up to date.
 type ManifoldConfig struct {
-	AgentName string
-	HubName   string
-	StateName string
+	AgentName        string
+	HubName          string
+	StateName        string
+	ChangeStreamName string
 
 	Logger                  Logger
 	UpdateControllerAPIPort func(int) error
 
-	GetControllerConfig func(*state.State) (controller.Config, error)
+	GetControllerConfig func(changestream.WatchableDBGetter) (controller.Config, error)
 	NewWorker           func(Config) (worker.Worker, error)
 }
 
@@ -46,6 +54,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
+	}
+	if config.ChangeStreamName == "" {
+		return errors.NotValidf("empty ChangeStreamName")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -71,6 +82,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.HubName,
 			config.StateName,
+			config.ChangeStreamName,
 		},
 		Start: config.start,
 	}
@@ -96,17 +108,28 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err := context.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
 	}
-	statePool, err := stTracker.Use()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	defer func() { _ = stTracker.Done() }()
 
-	systemState, err := statePool.SystemState()
-	if err != nil {
+	// Get controller config.
+	var dbGetter changestream.WatchableDBGetter
+	if err := context.Get(config.ChangeStreamName, &dbGetter); err != nil {
 		return nil, errors.Trace(err)
 	}
-	controllerConfig, err := config.GetControllerConfig(systemState)
+
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactoryForNamespace(
+			dbGetter.GetWatchableDB,
+			coredatabase.ControllerNS,
+		)),
+		domain.NewWatcherFactory(
+			func() (changestream.WatchableDB, error) {
+				return dbGetter.GetWatchableDB(coredatabase.ControllerNS)
+			},
+			loggo.GetLogger("juju.worker.controllerport"),
+		),
+	)
+
+	controllerConfig, err := ctrlConfigService.ControllerConfig(ctx.TODO())
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get controller config")
 	}
@@ -127,6 +150,18 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 // GetControllerConfig gets the controller config from the given state
 // - it's a shim so we can test the manifold without a state suite.
-func GetControllerConfig(st *state.State) (controller.Config, error) {
-	return st.ControllerConfig()
+func GetControllerConfig(dbGetter changestream.WatchableDBGetter) (controller.Config, error) {
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactoryForNamespace(
+			dbGetter.GetWatchableDB,
+			coredatabase.ControllerNS,
+		)),
+		domain.NewWatcherFactory(
+			func() (changestream.WatchableDB, error) {
+				return dbGetter.GetWatchableDB(coredatabase.ControllerNS)
+			},
+			loggo.GetLogger("juju.worker.controllerport"),
+		),
+	)
+	return ctrlConfigService.ControllerConfig(ctx.TODO())
 }

@@ -25,10 +25,11 @@ import (
 var over9kCPUCores uint64 = 9001
 
 type instanceTypesSuite struct {
-	authorizer *apiservertesting.FakeAuthorizer
-	st         *mocks.MockBackend
-	leadership *mocks.MockLeadership
-	api        *machinemanager.MachineManagerAPI
+	authorizer        *apiservertesting.FakeAuthorizer
+	st                *mocks.MockBackend
+	leadership        *mocks.MockLeadership
+	api               *machinemanager.MachineManagerAPI
+	ctrlConfigService *mocks.MockControllerConfigGetter
 }
 
 var _ = gc.Suite(&instanceTypesSuite{})
@@ -42,6 +43,9 @@ func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.st = mocks.NewMockBackend(ctrl)
 	s.leadership = mocks.NewMockLeadership(ctrl)
+
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
+
 	var err error
 	s.api, err = machinemanager.NewMachineManagerAPI(s.st,
 		nil,
@@ -55,6 +59,7 @@ func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
 		s.leadership,
 		nil,
 		loggo.GetLogger("juju.apiserver.machinemanager"),
+		s.ctrlConfigService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

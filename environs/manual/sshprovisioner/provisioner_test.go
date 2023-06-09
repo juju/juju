@@ -6,6 +6,7 @@ package sshprovisioner_test
 
 import (
 	"fmt"
+	"go.uber.org/mock/gomock"
 	"os"
 
 	jc "github.com/juju/testing/checkers"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	apiclient "github.com/juju/juju/api/client/machinemanager"
+	"github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/apiserver/facades/client/machinemanager"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -30,9 +32,18 @@ import (
 
 type provisionerSuite struct {
 	testing.JujuConnSuite
+
+	ctrlConfigService *mocks.MockControllerConfigGetter
 }
 
 var _ = gc.Suite(&provisionerSuite{})
+
+func (s *provisionerSuite) SetUpTest(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
+}
 
 func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 	hostname, err := os.Hostname()
@@ -143,7 +154,7 @@ func (s *provisionerSuite) TestFinishInstanceConfig(c *gc.C) {
 	// Now check what we would've configured it with.
 	systemState, err := s.StatePool.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	icfg, err := machinemanager.InstanceConfig(systemState, machinemanager.StateBackend(s.State), machineId, agent.BootstrapNonce, "/var/lib/juju")
+	icfg, err := machinemanager.InstanceConfig(systemState, machinemanager.StateBackend(s.State, s.ctrlConfigService), machineId, agent.BootstrapNonce, "/var/lib/juju", s.ctrlConfigService)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(icfg, gc.NotNil)
 	c.Check(icfg.APIInfo, gc.NotNil)
@@ -172,7 +183,7 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 
 	systemState, err := s.StatePool.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	icfg, err := machinemanager.InstanceConfig(systemState, machinemanager.StateBackend(s.State), machineId, agent.BootstrapNonce, "/var/lib/juju")
+	icfg, err := machinemanager.InstanceConfig(systemState, machinemanager.StateBackend(s.State, s.ctrlConfigService), machineId, agent.BootstrapNonce, "/var/lib/juju", s.ctrlConfigService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	script, err := sshprovisioner.ProvisioningScript(icfg)

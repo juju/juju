@@ -132,7 +132,7 @@ type backend interface {
 }
 
 // NewMetadataState composes a new backup metadata based on the current Juju state.
-func NewMetadataState(db backend, machine, base string) (*Metadata, error) {
+func NewMetadataState(db backend, machine, base string, controllerCfg controller.Config) (*Metadata, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		// If os.Hostname() is not working, something is woefully wrong.
@@ -145,10 +145,6 @@ func NewMetadataState(db backend, machine, base string) (*Metadata, error) {
 	meta.Origin.Hostname = hostname
 	meta.Origin.Base = base
 
-	controllerCfg, err := db.ControllerConfig()
-	if err != nil {
-		return nil, errors.Annotate(err, "could not get controller config")
-	}
 	meta.Controller.UUID = controllerCfg.ControllerUUID()
 	return meta, nil
 }

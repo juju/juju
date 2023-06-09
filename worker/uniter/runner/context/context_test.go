@@ -229,6 +229,7 @@ func (s *InterfaceSuite) TestUnitCaching(c *gc.C) {
 
 	// Change remote state.
 	err = s.machine.SetProviderAddresses(
+		s.ControllerConfig,
 		network.NewSpaceAddress("blah.testing.invalid", network.WithScope(network.ScopePublic)),
 	)
 	c.Assert(err, jc.ErrorIsNil)

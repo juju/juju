@@ -4,6 +4,8 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -36,7 +38,8 @@ type UnitStateUnit interface {
 // UnitStateState implements the UnitStateBackend indirection
 // over state.State.
 type UnitStateState struct {
-	St *state.State
+	St                *state.State
+	CtrlConfigService ControllerConfigGetter
 }
 
 func (s UnitStateState) ApplyOperation(op state.ModelOperation) error {
@@ -48,7 +51,7 @@ func (s UnitStateState) Unit(name string) (UnitStateUnit, error) {
 }
 
 func (s UnitStateState) ControllerConfig() (controller.Config, error) {
-	return s.St.ControllerConfig()
+	return s.CtrlConfigService.ControllerConfig(context.TODO())
 }
 
 type UnitStateAPI struct {
@@ -68,8 +71,9 @@ func NewExternalUnitStateAPI(
 	authorizer facade.Authorizer,
 	accessUnit GetAuthFunc,
 	logger loggo.Logger,
+	ctrlConfigService ControllerConfigGetter,
 ) *UnitStateAPI {
-	return NewUnitStateAPI(UnitStateState{St: st}, resources, authorizer, accessUnit, logger)
+	return NewUnitStateAPI(UnitStateState{St: st, CtrlConfigService: ctrlConfigService}, resources, authorizer, accessUnit, logger)
 }
 
 // NewUnitStateAPI returns a new UnitStateAPI. Currently both

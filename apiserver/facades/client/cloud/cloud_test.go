@@ -34,11 +34,12 @@ import (
 
 type cloudSuite struct {
 	gitjujutesting.LoggingCleanupSuite
-	backend     *mocks.MockBackend
-	ctrlBackend *mocks.MockBackend
-	pool        *mocks.MockModelPoolBackend
-	api         *cloud.CloudAPI
-	authorizer  *apiservertesting.FakeAuthorizer
+	backend           *mocks.MockBackend
+	ctrlBackend       *mocks.MockBackend
+	pool              *mocks.MockModelPoolBackend
+	api               *cloud.CloudAPI
+	authorizer        *apiservertesting.FakeAuthorizer
+	ctrlConfigService *mocks.MockControllerConfigGetter
 }
 
 func (s *cloudSuite) setup(c *gc.C, userTag names.UserTag) *gomock.Controller {
@@ -55,7 +56,8 @@ func (s *cloudSuite) setup(c *gc.C, userTag names.UserTag) *gomock.Controller {
 	s.ctrlBackend = mocks.NewMockBackend(ctrl)
 	s.ctrlBackend.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
 
-	api, err := cloud.NewCloudAPI(s.backend, s.ctrlBackend, s.pool, s.authorizer, loggo.GetLogger("juju.apiserver.cloud"))
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
+	api, err := cloud.NewCloudAPI(s.backend, s.ctrlBackend, s.pool, s.authorizer, loggo.GetLogger("juju.apiserver.cloud"), s.ctrlConfigService)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 	return ctrl

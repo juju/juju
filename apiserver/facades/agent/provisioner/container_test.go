@@ -4,9 +4,12 @@
 package provisioner_test
 
 import (
-	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	jc "github.com/juju/testing/checkers"
+
+	"github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -17,6 +20,8 @@ import (
 
 type containerProvisionerSuite struct {
 	provisionerSuite
+
+	ctrlConfigService *mocks.MockControllerConfigGetter
 }
 
 var _ = gc.Suite(&containerProvisionerSuite{})
@@ -24,6 +29,11 @@ var _ = gc.Suite(&containerProvisionerSuite{})
 func (s *containerProvisionerSuite) SetUpTest(c *gc.C) {
 	// We have a Controller machine, and 5 other machines to provision in
 	s.setUpTest(c, true)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
 }
 
 func addContainerToMachine(c *gc.C, st *state.State, machine *state.Machine) *state.Machine {
@@ -46,7 +56,7 @@ func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[1].Tag()
-	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err := provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:      anAuthorizer,
 		State_:     s.State,
 		StatePool_: s.StatePool,
@@ -99,7 +109,7 @@ func (s *containerProvisionerSuite) TestHostChangesForContainersPermission(c *gc
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[1].Tag()
-	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err := provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:      anAuthorizer,
 		State_:     s.State,
 		StatePool_: s.StatePool,

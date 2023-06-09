@@ -4,6 +4,7 @@
 package uniter
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
@@ -32,6 +34,10 @@ import (
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
 )
+
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 // TODO (manadart 2020-10-21): Remove the ModelUUID method
 // from the next version of this facade.
@@ -63,6 +69,7 @@ type UniterAPI struct {
 	accessMachine       common.GetAuthFunc
 	containerBrokerFunc caas.NewContainerBrokerFunc
 	*StorageAPI
+	ctrlConfigService ControllerConfigGetter
 
 	// A cloud spec can only be accessed for the model of the unit or
 	// application that is authorised for this API facade.
@@ -1850,7 +1857,7 @@ func convertRelationSettings(settings map[string]interface{}) (params.Settings, 
 	return result, nil
 }
 
-func leadershipSettingsAccessorFactory(
+func LeadershipSettingsAccessorFactory(
 	st *state.State,
 	checker leadership.Checker,
 	resources facade.Resources,
@@ -2503,7 +2510,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 		return errors.Trace(err)
 	}
 
-	ctrlCfg, err := u.st.ControllerConfig()
+	ctrlCfg, err := u.ctrlConfigService.ControllerConfig(context.TODO())
 	if err != nil {
 		return errors.Trace(err)
 	}

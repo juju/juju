@@ -5,6 +5,7 @@ package agent
 
 import (
 	"fmt"
+	"github.com/juju/juju/controller"
 	"os"
 	"path/filepath"
 	"sync"
@@ -225,7 +226,7 @@ func (s *commonMachineSuite) newBufferedLogWriter() *logsender.BufferedLogWriter
 
 func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Machine) {
 	addrs := network.NewSpaceAddresses("0.1.2.3")
-	err := machine.SetProviderAddresses(addrs...)
+	err := machine.SetProviderAddresses(controller.Config{}, addrs...)
 	c.Assert(err, jc.ErrorIsNil)
 	// Set the addresses in the environ instance as well so that if the instance poller
 	// runs it won't overwrite them.

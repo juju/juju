@@ -4,6 +4,7 @@
 package caasunitprovisioner_test
 
 import (
+	"go.uber.org/mock/gomock"
 	"time"
 
 	"github.com/juju/clock"
@@ -34,6 +35,7 @@ type CAASProvisionerSuite struct {
 	applicationsChanges chan []string
 	scaleChanges        chan struct{}
 	settingsChanges     chan []string
+	cc                  *MockControllerConfigGetter
 
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
@@ -42,6 +44,11 @@ type CAASProvisionerSuite struct {
 
 func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.cc = NewMockControllerConfigGetter(ctrl)
 
 	s.applicationsChanges = make(chan []string, 1)
 	s.scaleChanges = make(chan struct{}, 1)
@@ -67,7 +74,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&jujuversion.OfficialBuild, 0)
 
 	facade, err := caasunitprovisioner.NewFacade(
-		s.resources, s.authorizer, s.st, s.clock, loggo.GetLogger("juju.apiserver.controller.caasunitprovisioner"))
+		s.resources, s.authorizer, s.st, s.clock, loggo.GetLogger("juju.apiserver.controller.caasunitprovisioner"), s.cc)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }
@@ -77,7 +84,7 @@ func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := caasunitprovisioner.NewFacade(
-		s.resources, s.authorizer, s.st, s.clock, loggo.GetLogger("juju.apiserver.controller.caasunitprovisioner"))
+		s.resources, s.authorizer, s.st, s.clock, loggo.GetLogger("juju.apiserver.controller.caasunitprovisioner"), s.cc)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 

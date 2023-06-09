@@ -4,6 +4,8 @@
 package storageprovisioner
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -13,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner/internal/filesystemwatcher"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
@@ -22,6 +25,10 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 )
+
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 // StorageProvisionerAPIv4 provides the StorageProvisioner API v4 facade.
 type StorageProvisionerAPIv4 struct {
@@ -42,6 +49,7 @@ type StorageProvisionerAPIv4 struct {
 	getBlockDevicesAuthFunc  common.GetAuthFunc
 	getAttachmentAuthFunc    func() (func(names.Tag, names.Tag) bool, error)
 	logger                   loggo.Logger
+	ctrlConfigService        ControllerConfigGetter
 }
 
 // NewStorageProvisionerAPIv4 creates a new server-side StorageProvisioner v3 facade.
@@ -53,6 +61,7 @@ func NewStorageProvisionerAPIv4(
 	registry storage.ProviderRegistry,
 	poolManager poolmanager.PoolManager,
 	logger loggo.Logger,
+	ctrlConfigService ControllerConfigGetter,
 ) (*StorageProvisionerAPIv4, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -218,6 +227,7 @@ func NewStorageProvisionerAPIv4(
 		getMachineAuthFunc:       getMachineAuthFunc,
 		getBlockDevicesAuthFunc:  getBlockDevicesAuthFunc,
 		logger:                   logger,
+		ctrlConfigService:        ctrlConfigService,
 	}, nil
 }
 
@@ -728,7 +738,7 @@ func (s *StorageProvisionerAPIv4) VolumeParams(args params.Entities) (params.Vol
 	if err != nil {
 		return params.VolumeParamsResults{}, err
 	}
-	controllerCfg, err := s.st.ControllerConfig()
+	controllerCfg, err := s.ctrlConfigService.ControllerConfig(context.TODO())
 	if err != nil {
 		return params.VolumeParamsResults{}, err
 	}
@@ -880,7 +890,7 @@ func (s *StorageProvisionerAPIv4) FilesystemParams(args params.Entities) (params
 	if err != nil {
 		return params.FilesystemParamsResults{}, err
 	}
-	controllerCfg, err := s.st.ControllerConfig()
+	controllerCfg, err := s.ctrlConfigService.ControllerConfig(context.TODO())
 	if err != nil {
 		return params.FilesystemParamsResults{}, err
 	}

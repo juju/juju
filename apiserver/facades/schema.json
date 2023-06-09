@@ -5474,154 +5474,7 @@
             "model-user"
         ],
         "Schema": {
-            "type": "object",
-            "properties": {
-                "Create": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/BackupsCreateArgs"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/BackupsMetadataResult"
-                        }
-                    },
-                    "description": "Create is the API method that requests juju to create a new backup\nof its state."
-                }
-            },
-            "definitions": {
-                "BackupsCreateArgs": {
-                    "type": "object",
-                    "properties": {
-                        "no-download": {
-                            "type": "boolean"
-                        },
-                        "notes": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "notes",
-                        "no-download"
-                    ]
-                },
-                "BackupsMetadataResult": {
-                    "type": "object",
-                    "properties": {
-                        "base": {
-                            "type": "string"
-                        },
-                        "checksum": {
-                            "type": "string"
-                        },
-                        "checksum-format": {
-                            "type": "string"
-                        },
-                        "controller-machine-id": {
-                            "type": "string"
-                        },
-                        "controller-machine-inst-id": {
-                            "type": "string"
-                        },
-                        "controller-uuid": {
-                            "type": "string"
-                        },
-                        "filename": {
-                            "type": "string"
-                        },
-                        "finished": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "format-version": {
-                            "type": "integer"
-                        },
-                        "ha-nodes": {
-                            "type": "integer"
-                        },
-                        "hostname": {
-                            "type": "string"
-                        },
-                        "id": {
-                            "type": "string"
-                        },
-                        "machine": {
-                            "type": "string"
-                        },
-                        "model": {
-                            "type": "string"
-                        },
-                        "notes": {
-                            "type": "string"
-                        },
-                        "size": {
-                            "type": "integer"
-                        },
-                        "started": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "stored": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "version": {
-                            "$ref": "#/definitions/Number"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "id",
-                        "checksum",
-                        "checksum-format",
-                        "size",
-                        "stored",
-                        "started",
-                        "finished",
-                        "notes",
-                        "model",
-                        "machine",
-                        "hostname",
-                        "version",
-                        "base",
-                        "filename",
-                        "format-version",
-                        "controller-uuid",
-                        "controller-machine-id",
-                        "controller-machine-inst-id",
-                        "ha-nodes"
-                    ]
-                },
-                "Number": {
-                    "type": "object",
-                    "properties": {
-                        "Build": {
-                            "type": "integer"
-                        },
-                        "Major": {
-                            "type": "integer"
-                        },
-                        "Minor": {
-                            "type": "integer"
-                        },
-                        "Patch": {
-                            "type": "integer"
-                        },
-                        "Tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "Major",
-                        "Minor",
-                        "Tag",
-                        "Patch",
-                        "Build"
-                    ]
-                }
-            }
+            "type": "object"
         }
     },
     {
@@ -5933,7 +5786,9 @@
         "Version": 1,
         "AvailableTo": [
             "controller-machine-agent",
-            "machine-agent"
+            "machine-agent",
+            "unit-agent",
+            "model-user"
         ],
         "Schema": {
             "type": "object",
@@ -25296,7 +25151,10 @@
         "Description": "MetricsManagerAPI implements the metrics manager interface and is the concrete\nimplementation of the api end point.",
         "Version": 1,
         "AvailableTo": [
-            "controller-machine-agent"
+            "controller-machine-agent",
+            "machine-agent",
+            "unit-agent",
+            "model-user"
         ],
         "Schema": {
             "type": "object",
@@ -26301,6 +26159,9 @@
         "Description": "API implements the API required for the model migration\nmaster worker when communicating with the target controller.",
         "Version": 2,
         "AvailableTo": [
+            "controller-machine-agent",
+            "machine-agent",
+            "unit-agent",
             "controller-user"
         ],
         "Schema": {
@@ -27461,18 +27322,6 @@
                     },
                     "description": "CreateModel creates a new model using the account and\nmodel config specified in the args."
                 },
-                "DestroyModels": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/DestroyModelsParams"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "DestroyModels will try to destroy the specified models.\nIf there is a block on destruction, this method will return an error.\nFrom ModelManager v7 onwards, DestroyModels gains 'force' and 'max-wait' parameters."
-                },
                 "DumpModels": {
                     "type": "object",
                     "properties": {
@@ -27624,45 +27473,6 @@
                     "additionalProperties": false,
                     "required": [
                         "model-credentials"
-                    ]
-                },
-                "DestroyModelParams": {
-                    "type": "object",
-                    "properties": {
-                        "destroy-storage": {
-                            "type": "boolean"
-                        },
-                        "force": {
-                            "type": "boolean"
-                        },
-                        "max-wait": {
-                            "type": "integer"
-                        },
-                        "model-tag": {
-                            "type": "string"
-                        },
-                        "timeout": {
-                            "type": "integer"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "model-tag"
-                    ]
-                },
-                "DestroyModelsParams": {
-                    "type": "object",
-                    "properties": {
-                        "models": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/DestroyModelParams"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "models"
                     ]
                 },
                 "DumpModelRequest": {

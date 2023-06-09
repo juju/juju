@@ -4,6 +4,7 @@
 package controller_test
 
 import (
+	"go.uber.org/mock/gomock"
 	"time"
 
 	"github.com/juju/errors"
@@ -15,6 +16,7 @@ import (
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
+	"github.com/juju/juju/apiserver/facades/client/controller/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -34,9 +36,10 @@ type destroyControllerSuite struct {
 	jujutesting.JujuConnSuite
 	commontesting.BlockHelper
 
-	authorizer apiservertesting.FakeAuthorizer
-	resources  *common.Resources
-	controller *controller.ControllerAPI
+	authorizer        apiservertesting.FakeAuthorizer
+	resources         *common.Resources
+	controller        *controller.ControllerAPI
+	ctrlConfigService *mocks.MockControllerConfigGetter
 
 	otherState      *state.State
 	otherModel      *state.Model
@@ -48,6 +51,10 @@ var _ = gc.Suite(&destroyControllerSuite{})
 
 func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
 
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
@@ -144,7 +151,7 @@ func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedModels(c *gc.C) {
-	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool), nil, nil, nil, nil)
+	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool), nil, nil, nil, nil, s.ctrlConfigService)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.otherModel.Refresh(), jc.ErrorIsNil)
 	c.Assert(s.otherModel.Life(), gc.Equals, state.Dying)
@@ -160,7 +167,7 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModels(c *gc.C) {
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedModelsWithBlock(c *gc.C) {
-	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool), nil, nil, nil, nil)
+	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool), nil, nil, nil, nil, s.ctrlConfigService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
@@ -174,7 +181,7 @@ func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedModelsWithBl
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedModelsWithBlockFail(c *gc.C) {
-	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool), nil, nil, nil, nil)
+	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool), nil, nil, nil, nil, s.ctrlConfigService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")

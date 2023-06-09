@@ -801,6 +801,7 @@ func (s *UnitSuite) setAssignedMachineAddresses(c *gc.C, u *state.Unit) {
 	err = machine.SetProvisioned("i-exist", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProviderAddresses(
+		s.ControllerConfig,
 		network.NewSpaceAddress("private.address.example.com", network.WithScope(network.ScopeCloudLocal)),
 		network.NewSpaceAddress("public.address.example.com", network.WithScope(network.ScopePublic)),
 	)
@@ -836,7 +837,7 @@ func (s *UnitSuite) TestPublicAddress(c *gc.C) {
 	public := network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic))
 	private := network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeCloudLocal))
 
-	err = machine.SetProviderAddresses(public, private)
+	err = machine.SetProviderAddresses(s.ControllerConfig, public, private)
 	c.Assert(err, jc.ErrorIsNil)
 
 	address, err := s.unit.PublicAddress()
@@ -850,12 +851,12 @@ func (s *UnitSuite) TestStablePrivateAddress(c *gc.C) {
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetMachineAddresses(network.NewSpaceAddress("10.0.0.2"))
+	err = machine.SetMachineAddresses(s.ControllerConfig, network.NewSpaceAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now add an address that would previously have sorted before the
 	// default.
-	err = machine.SetMachineAddresses(network.NewSpaceAddress("10.0.0.1"), network.NewSpaceAddress("10.0.0.2"))
+	err = machine.SetMachineAddresses(s.ControllerConfig, network.NewSpaceAddress("10.0.0.1"), network.NewSpaceAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assert the address is unchanged.
@@ -870,12 +871,12 @@ func (s *UnitSuite) TestStablePublicAddress(c *gc.C) {
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.8.8"))
+	err = machine.SetProviderAddresses(s.ControllerConfig, network.NewSpaceAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now add an address that would previously have sorted before the
 	// default.
-	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.4.4"), network.NewSpaceAddress("8.8.8.8"))
+	err = machine.SetProviderAddresses(s.ControllerConfig, network.NewSpaceAddress("8.8.4.4"), network.NewSpaceAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assert the address is unchanged.
@@ -894,15 +895,15 @@ func (s *UnitSuite) TestPublicAddressMachineAddresses(c *gc.C) {
 	privateProvider := network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeCloudLocal))
 	privateMachine := network.NewSpaceAddress("127.0.0.2")
 
-	err = machine.SetProviderAddresses(privateProvider)
+	err = machine.SetProviderAddresses(s.ControllerConfig, privateProvider)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetMachineAddresses(privateMachine)
+	err = machine.SetMachineAddresses(s.ControllerConfig, privateMachine)
 	c.Assert(err, jc.ErrorIsNil)
 	address, err := s.unit.PublicAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(address.Value, gc.Equals, "127.0.0.1")
 
-	err = machine.SetProviderAddresses(publicProvider, privateProvider)
+	err = machine.SetProviderAddresses(s.ControllerConfig, publicProvider, privateProvider)
 	c.Assert(err, jc.ErrorIsNil)
 	address, err = s.unit.PublicAddress()
 	c.Assert(err, jc.ErrorIsNil)
@@ -931,7 +932,7 @@ func (s *UnitSuite) TestPrivateAddress(c *gc.C) {
 	public := network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic))
 	private := network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeCloudLocal))
 
-	err = machine.SetProviderAddresses(public, private)
+	err = machine.SetProviderAddresses(s.ControllerConfig, public, private)
 	c.Assert(err, jc.ErrorIsNil)
 
 	address, err := s.unit.PrivateAddress()
@@ -2902,7 +2903,7 @@ func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {
 		ConfigMethod: network.ConfigStatic,
 	})
 	c.Assert(err, gc.IsNil)
-	err = m1.SetProviderAddresses(network.NewSpaceAddress("10.0.0.100"))
+	err = m1.SetProviderAddresses(s.ControllerConfig, network.NewSpaceAddress("10.0.0.100"))
 	c.Assert(err, gc.IsNil)
 	wc.AssertChange("46ed851765a963e100161210a7b4fbb28d59b24edb580a60f86dbbaebea14d37")
 

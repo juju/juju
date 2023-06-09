@@ -8,11 +8,10 @@ import (
 	"io"
 	"time"
 
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
-
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
@@ -24,7 +23,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// ModelWatcher provides an interface for watching the additiona and
+// ModelWatcher provides an interface for watching the addition and
 // removal of models.
 type ModelWatcher interface {
 	WatchModels() state.StringsWatcher

@@ -4,6 +4,8 @@
 package modelmanager_test
 
 import (
+	"github.com/juju/juju/apiserver/facades/client/modelmanager/mocks"
+	"go.uber.org/mock/gomock"
 	"time"
 
 	"github.com/juju/errors"
@@ -31,7 +33,8 @@ import (
 type ListModelsWithInfoSuite struct {
 	gitjujutesting.IsolationSuite
 
-	st *mockState
+	st                *mockState
+	ctrlConfigService *mocks.MockControllerConfigGetter
 
 	authoriser apiservertesting.FakeAuthorizer
 	adminUser  names.UserTag
@@ -44,6 +47,10 @@ var _ = gc.Suite(&ListModelsWithInfoSuite{})
 
 func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
 
 	adminUser := "admin"
 	s.adminUser = names.NewUserTag(adminUser)
@@ -62,7 +69,7 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 	s.callContext = context.NewEmptyCloudCallContext()
 	api, err := modelmanager.NewModelManagerAPI(
 		s.st, &mockState{}, &mockModelManagerService{}, nil, nil,
-		common.NewBlockChecker(s.st), s.authoriser, s.st.model, s.callContext,
+		common.NewBlockChecker(s.st), s.authoriser, s.st.model, s.callContext, s.ctrlConfigService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
@@ -84,7 +91,7 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		s.st, &mockState{}, &mockModelManagerService{}, nil, nil,
-		common.NewBlockChecker(s.st), s.authoriser, s.st.model, s.callContext,
+		common.NewBlockChecker(s.st), s.authoriser, s.st.model, s.callContext, s.ctrlConfigService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = modelmanager

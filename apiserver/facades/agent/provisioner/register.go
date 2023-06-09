@@ -19,7 +19,7 @@ func Register(registry facade.FacadeRegistry) {
 
 // newProvisionerAPIV11 creates a new server-side Provisioner API facade.
 func newProvisionerAPIV11(ctx facade.Context) (*ProvisionerAPIV11, error) {
-	provisionerAPI, err := NewProvisionerAPI(ctx)
+	provisionerAPI, err := NewProvisionerFacade(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

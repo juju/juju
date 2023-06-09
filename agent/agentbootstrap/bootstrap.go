@@ -6,7 +6,6 @@ package agentbootstrap
 import (
 	stdcontext "context"
 	"fmt"
-
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -20,6 +19,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/controller/modelmanager"
 	coreagent "github.com/juju/juju/core/agent"
 	coredatabase "github.com/juju/juju/core/database"
@@ -41,6 +41,10 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.agent.agentbootstrap")
+
+type ControllerConfigGetter interface {
+	ControllerConfig(stdcontext.Context) (controller.Config, error)
+}
 
 // InitializeStateParams holds parameters used for initializing the state
 // database.
@@ -199,7 +203,7 @@ func InitializeState(
 
 	// Convert the provider addresses that we got from the bootstrap instance
 	// to space ID decorated addresses.
-	if err = initAPIHostPorts(st, args.BootstrapMachineAddresses, servingInfo.APIPort); err != nil {
+	if err = initAPIHostPorts(st, args.BootstrapMachineAddresses, servingInfo.APIPort, args.ControllerConfig); err != nil {
 		return nil, err
 	}
 	if err := st.SetStateServingInfo(servingInfo); err != nil {
@@ -366,6 +370,7 @@ func ensureInitialModel(
 		CloudCredential:         cloudCredentialTag,
 		StorageProviderRegistry: args.StorageProviderRegistry,
 		EnvironVersion:          provider.Version(),
+		ControllerConfig:        args.ControllerConfig,
 	})
 	if err != nil {
 		return errors.Annotate(err, "creating initial model")
@@ -528,13 +533,13 @@ func initControllerCloudService(
 }
 
 // initAPIHostPorts sets the initial API host/port addresses in state.
-func initAPIHostPorts(st *state.State, pAddrs corenetwork.ProviderAddresses, apiPort int) error {
+func initAPIHostPorts(st *state.State, pAddrs corenetwork.ProviderAddresses, apiPort int, controllerConfig controller.Config) error {
 	addrs, err := pAddrs.ToSpaceAddresses(st)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	hostPorts := corenetwork.SpaceAddressesWithPort(addrs, apiPort)
-	return st.SetAPIHostPorts([]corenetwork.SpaceHostPorts{hostPorts})
+	return st.SetAPIHostPorts([]corenetwork.SpaceHostPorts{hostPorts}, controllerConfig)
 }
 
 // machineJobFromParams returns the job corresponding to model.MachineJob.

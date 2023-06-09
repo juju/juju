@@ -4,6 +4,7 @@
 package deployer
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -12,12 +13,20 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/domain"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 // TODO (manadart 2020-10-21): Remove the ModelUUID method
 // from the next version of this facade.
+
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 // DeployerAPI provides access to the Deployer API facade.
 type DeployerAPI struct {
@@ -28,9 +37,10 @@ type DeployerAPI struct {
 	*common.UnitsWatcher
 	*common.StatusSetter
 
-	st         *state.State
-	resources  facade.Resources
-	authorizer facade.Authorizer
+	st                *state.State
+	resources         facade.Resources
+	authorizer        facade.Authorizer
+	ctrlConfigService ControllerConfigGetter
 }
 
 // NewDeployerAPI creates a new server-side DeployerAPI facade.
@@ -72,16 +82,25 @@ func NewDeployerAPI(ctx facade.Context) (*DeployerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
+		domain.NewWatcherFactory(
+			ctx.ControllerDB,
+			ctx.Logger().Child("controllerconfig"),
+		),
+	)
+
 	return &DeployerAPI{
-		Remover:         common.NewRemover(st, common.RevokeLeadershipFunc(leadershipRevoker), true, getAuthFunc),
-		PasswordChanger: common.NewPasswordChanger(st, getAuthFunc),
-		LifeGetter:      common.NewLifeGetter(st, getAuthFunc),
-		APIAddresser:    common.NewAPIAddresser(systemState, resources),
-		UnitsWatcher:    common.NewUnitsWatcher(st, resources, getCanWatch),
-		StatusSetter:    common.NewStatusSetter(st, getAuthFunc),
-		st:              st,
-		resources:       resources,
-		authorizer:      authorizer,
+		Remover:           common.NewRemover(st, common.RevokeLeadershipFunc(leadershipRevoker), true, getAuthFunc),
+		PasswordChanger:   common.NewPasswordChanger(st, getAuthFunc),
+		LifeGetter:        common.NewLifeGetter(st, getAuthFunc),
+		APIAddresser:      common.NewAPIAddresser(systemState, resources, ctrlConfigService),
+		UnitsWatcher:      common.NewUnitsWatcher(st, resources, getCanWatch),
+		StatusSetter:      common.NewStatusSetter(st, getAuthFunc),
+		st:                st,
+		resources:         resources,
+		authorizer:        authorizer,
+		ctrlConfigService: ctrlConfigService,
 	}, nil
 }
 

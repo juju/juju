@@ -4,25 +4,31 @@
 package apiserver
 
 import (
+	"context"
 	"fmt"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	gorillaws "github.com/gorilla/websocket"
+	"github.com/mitchellh/go-linereader"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	gorillaws "github.com/gorilla/websocket"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/mitchellh/go-linereader"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/websocket"
+	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/domain"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
@@ -157,7 +163,7 @@ func (h *embeddedCLIHandler) runEmbeddedCommands(
 
 	// Make a pipe to stream the stdout/stderr of the commands.
 	errCh := make(chan error, 1)
-	in, err := runCLICommands(m, errCh, commands, h.ctxt.srv.execEmbeddedCommand)
+	in, err := runCLICommands(m, errCh, commands, h.ctxt.srv.execEmbeddedCommand, h.ctxt.srv.shared.dbGetter)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -230,7 +236,7 @@ type ExecEmbeddedCommandFunc func(ctx *cmd.Context, store jujuclient.ClientStore
 
 // runCLICommands creates a CLI command instance with an in-memory copy of the controller,
 // model, and account details and runs the command against the host controller.
-func runCLICommands(m *state.Model, errCh chan<- error, commands params.CLICommands, execEmbeddedCommand ExecEmbeddedCommandFunc) (io.Reader, error) {
+func runCLICommands(m *state.Model, errCh chan<- error, commands params.CLICommands, execEmbeddedCommand ExecEmbeddedCommandFunc, db changestream.WatchableDBGetter) (io.Reader, error) {
 	if commands.User == "" {
 		return nil, errors.NotSupportedf("CLI command for anonymous user")
 	}
@@ -239,7 +245,20 @@ func runCLICommands(m *state.Model, errCh chan<- error, commands params.CLIComma
 		return nil, errors.NotValidf("user name %q", commands.User)
 	}
 
-	cfg, err := m.State().ControllerConfig()
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactoryForNamespace(
+			db.GetWatchableDB,
+			database.ControllerNS,
+		)),
+		domain.NewWatcherFactory(
+			func() (changestream.WatchableDB, error) {
+				return db.GetWatchableDB(database.ControllerNS)
+			},
+			loggo.GetLogger("juju.apiserver"),
+		),
+	)
+
+	cfg, err := ctrlConfigService.ControllerConfig(context.TODO())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

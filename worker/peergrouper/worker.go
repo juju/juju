@@ -4,7 +4,10 @@
 package peergrouper
 
 import (
+	"context"
 	"fmt"
+	"github.com/kr/pretty"
+	"github.com/prometheus/client_golang/prometheus"
 	"net"
 	"reflect"
 	"sort"
@@ -19,27 +22,29 @@ import (
 	"github.com/juju/replicaset/v3"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
-	"github.com/kr/pretty"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.worker.peergrouper")
 
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+	Watch() (watcher.StringsWatcher, error)
+}
+
 type State interface {
 	RemoveControllerReference(m ControllerNode) error
-	ControllerConfig() (controller.Config, error)
 	ControllerIds() ([]string, error)
 	ControllerNode(id string) (ControllerNode, error)
 	ControllerHost(id string) (ControllerHost, error)
 	WatchControllerInfo() state.StringsWatcher
 	WatchControllerStatusChanges() state.StringsWatcher
-	WatchControllerConfig() state.NotifyWatcher
 	Space(name string) (Space, error)
 }
 
@@ -75,7 +80,7 @@ type MongoSession interface {
 }
 
 type APIHostPortsSetter interface {
-	SetAPIHostPorts([]network.SpaceHostPorts) error
+	SetAPIHostPorts([]network.SpaceHostPorts, controller.Config) error
 }
 
 var (
@@ -150,6 +155,7 @@ type Config struct {
 	MongoPort          int
 	APIPort            int
 	ControllerAPIPort  int
+	CtrlConfigService  ControllerConfigGetter
 
 	// ControllerId is the id of the controller running this worker.
 	// It is used in checking if this working is running on the
@@ -196,6 +202,9 @@ func (config Config) Validate() error {
 	}
 	if config.APIPort <= 0 {
 		return errors.NotValidf("non-positive APIPort")
+	}
+	if config.CtrlConfigService == nil {
+		return errors.NotValidf("nil ControllerConfigGetter")
 	}
 	// TODO Juju 3.0: make ControllerAPIPort required.
 	return nil
@@ -332,8 +341,13 @@ func (w *pgWorker) loop() error {
 			apiHostPorts = append(apiHostPorts, serverHostPorts)
 		}
 
+		controllerConfig, err := w.config.CtrlConfigService.ControllerConfig(context.TODO())
+		if err != nil {
+			return errors.Annotate(err, "unable to get controller config")
+		}
+
 		var failed bool
-		if err := w.config.APIHostPortsSetter.SetAPIHostPorts(apiHostPorts); err != nil {
+		if err := w.config.APIHostPortsSetter.SetAPIHostPorts(apiHostPorts, controllerConfig); err != nil {
 			logger.Errorf("cannot write API server addresses: %v", err)
 			failed = true
 		}
@@ -426,8 +440,12 @@ func (w *pgWorker) watchForControllerChanges() (<-chan struct{}, error) {
 // does not occur, whereas we want to re-publish API addresses and check
 // for replica-set changes if either the management or HA space configs have
 // changed.
-func (w *pgWorker) watchForConfigChanges() (<-chan struct{}, error) {
-	controllerConfigWatcher := w.config.State.WatchControllerConfig()
+func (w *pgWorker) watchForConfigChanges() (<-chan []string, error) {
+	controllerConfigWatcher, err := w.config.CtrlConfigService.Watch()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if err := w.catacomb.Add(controllerConfigWatcher); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -780,7 +798,7 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 // getHASpaceFromConfig returns a space based on the controller's
 // configuration for the HA space.
 func (w *pgWorker) getHASpaceFromConfig() (network.SpaceInfo, error) {
-	config, err := w.config.State.ControllerConfig()
+	config, err := w.config.CtrlConfigService.ControllerConfig(context.TODO())
 	if err != nil {
 		return network.SpaceInfo{}, errors.Trace(err)
 	}

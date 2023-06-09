@@ -160,4 +160,5 @@ const (
 	upgraderName             = "upgrader"
 	upgradeStepsGateName     = "upgrade-steps-gate"
 	logSenderName            = "log-sender"
+	changeStreamName         = "change-stream"
 )

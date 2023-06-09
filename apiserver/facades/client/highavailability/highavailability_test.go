@@ -80,6 +80,7 @@ func (s *clientSuite) setMachineAddresses(c *gc.C, machineId string) {
 	m, err := s.State.Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetMachineAddresses(
+		s.ControllerConfig,
 		network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
 		network.NewSpaceAddress(fmt.Sprintf("cloud-local%s.internal", machineId), network.WithScope(network.ScopeCloudLocal)),
 		network.NewSpaceAddress(fmt.Sprintf("fc0%s::1", machineId), network.WithScope(network.ScopePublic)),
@@ -126,6 +127,7 @@ func (s *clientSuite) TestEnableHAErrorForMultiCloudLocal(c *gc.C) {
 	c.Assert(machines[0].Base().DisplayString(), gc.Equals, "ubuntu@12.10")
 
 	err = machines[0].SetMachineAddresses(
+		s.ControllerConfig,
 		network.NewSpaceAddress("cloud-local2.internal", network.WithScope(network.ScopeCloudLocal)),
 		network.NewSpaceAddress("cloud-local22.internal", network.WithScope(network.ScopeCloudLocal)),
 	)
@@ -144,6 +146,7 @@ func (s *clientSuite) TestEnableHAErrorForNoCloudLocal(c *gc.C) {
 
 	// remove the extra provider addresses, so we have no valid CloudLocal addresses
 	c.Assert(m0.SetProviderAddresses(
+		s.ControllerConfig,
 		network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
 	), jc.ErrorIsNil)
 
@@ -184,6 +187,7 @@ func (s *clientSuite) TestEnableHAAddMachinesErrorForMultiCloudLocal(c *gc.C) {
 	m, err := s.State.Machine("2")
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetMachineAddresses(
+		s.ControllerConfig,
 		network.NewSpaceAddress("cloud-local2.internal", network.WithScope(network.ScopeCloudLocal)),
 		network.NewSpaceAddress("cloud-local22.internal", network.WithScope(network.ScopeCloudLocal)),
 	)
@@ -356,14 +360,14 @@ func (s *clientSuite) TestEnableHAPlacementToWithAddressInSpace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	a1 := network.NewSpaceAddress("192.168.6.6")
 	a1.SpaceID = sp.Id()
-	err = m1.SetProviderAddresses(a1)
+	err = m1.SetProviderAddresses(s.ControllerConfig, a1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	m2, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	a2 := network.NewSpaceAddress("192.168.6.7")
 	a2.SpaceID = sp.Id()
-	err = m2.SetProviderAddresses(a1)
+	err = m2.SetProviderAddresses(s.ControllerConfig, a1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	placement := []string{"1", "2"}

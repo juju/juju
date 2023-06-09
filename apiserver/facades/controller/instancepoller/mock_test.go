@@ -7,6 +7,7 @@
 package instancepoller_test
 
 import (
+	"github.com/juju/juju/controller"
 	"sort"
 	"sync"
 	"time"
@@ -324,7 +325,7 @@ func (m *mockMachine) ProviderAddresses() network.SpaceAddresses {
 }
 
 // SetProviderAddresses implements StateMachine.
-func (m *mockMachine) SetProviderAddresses(addrs ...network.SpaceAddress) error {
+func (m *mockMachine) SetProviderAddresses(config controller.Config, addrs ...network.SpaceAddress) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

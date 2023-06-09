@@ -12,6 +12,9 @@ import (
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/domain"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -29,6 +32,13 @@ func newStateFacadeV2(ctx facade.Context) (*FacadeV2, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
+		domain.NewWatcherFactory(
+			ctx.ControllerDB,
+			ctx.Logger().Child("controllerconfig"),
+		),
+	)
 	resources := ctx.Resources()
 	model, err := ctx.State().Model()
 	if err != nil {
@@ -45,7 +55,7 @@ func newStateFacadeV2(ctx facade.Context) (*FacadeV2, error) {
 	return &FacadeV2{
 		CloudSpecer:         cloudSpecAPI,
 		ModelWatcher:        common.NewModelWatcher(model, resources, authorizer),
-		ControllerConfigAPI: common.NewStateControllerConfig(ctx.State()),
+		ControllerConfigAPI: common.NewStateControllerConfig(ctx.State(), ctrlConfigService),
 		auth:                authorizer,
 		resources:           resources,
 	}, nil

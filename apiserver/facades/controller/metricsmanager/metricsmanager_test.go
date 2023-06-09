@@ -30,6 +30,7 @@ type metricsManagerSuite struct {
 	metricsmanager *metricsmanager.MetricsManagerAPI
 	authorizer     apiservertesting.FakeAuthorizer
 	unit           *state.Unit
+	cc             *MockControllerConfigGetter
 }
 
 var _ = gc.Suite(&metricsManagerSuite{})
@@ -41,7 +42,7 @@ func (s *metricsManagerSuite) SetUpTest(c *gc.C) {
 		Controller: true,
 	}
 	s.clock = testclock.NewClock(time.Now())
-	manager, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, s.authorizer, s.StatePool, s.clock)
+	manager, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, s.authorizer, s.StatePool, s.clock, s.cc)
 	c.Assert(err, jc.ErrorIsNil)
 	s.metricsmanager = manager
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered"})
@@ -67,7 +68,7 @@ func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonController(c *gc
 		anAuthoriser.Controller = test.controller
 		anAuthoriser.Tag = test.tag
 		endPoint, err := metricsmanager.NewMetricsManagerAPI(s.State, nil,
-			anAuthoriser, s.StatePool, testclock.NewClock(time.Now()))
+			anAuthoriser, s.StatePool, testclock.NewClock(time.Now()), s.cc)
 		if test.expectedError == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(endPoint, gc.NotNil)

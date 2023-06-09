@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/database"
 	coremigration "github.com/juju/juju/core/migration"
@@ -27,16 +28,21 @@ import (
 	"github.com/juju/juju/state/stateenvirons"
 )
 
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
 // API implements the API required for the model migration
 // master worker when communicating with the target controller.
 type API struct {
-	state         *state.State
-	pool          *state.StatePool
-	controllerDB  database.TxnRunner
-	authorizer    facade.Authorizer
-	presence      facade.Presence
-	getEnviron    stateenvirons.NewEnvironFunc
-	getCAASBroker stateenvirons.NewCAASBrokerFunc
+	state             *state.State
+	pool              *state.StatePool
+	controllerDB      database.TxnRunner
+	authorizer        facade.Authorizer
+	presence          facade.Presence
+	getEnviron        stateenvirons.NewEnvironFunc
+	getCAASBroker     stateenvirons.NewCAASBrokerFunc
+	ctrlConfigService ControllerConfigGetter
 }
 
 // APIV1 implements the V1 version of the API facade.
@@ -46,7 +52,7 @@ type APIV1 struct {
 
 // NewAPI returns a new APIV1. Accepts a NewEnvironFunc and context.ProviderCallContext
 // for testing purposes.
-func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc, getCAASBroker stateenvirons.NewCAASBrokerFunc) (*API, error) {
+func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc, getCAASBroker stateenvirons.NewCAASBrokerFunc, ctrlConfigService ControllerConfigGetter) (*API, error) {
 	auth := ctx.Auth()
 	st := ctx.State()
 	if err := checkAuth(auth, st); err != nil {
@@ -58,13 +64,14 @@ func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc, getCAAS
 	}
 
 	return &API{
-		state:         st,
-		pool:          ctx.StatePool(),
-		controllerDB:  controllerDB,
-		authorizer:    auth,
-		presence:      ctx.Presence(),
-		getEnviron:    getEnviron,
-		getCAASBroker: getCAASBroker,
+		state:             st,
+		pool:              ctx.StatePool(),
+		controllerDB:      controllerDB,
+		authorizer:        auth,
+		presence:          ctx.Presence(),
+		getEnviron:        getEnviron,
+		getCAASBroker:     getCAASBroker,
+		ctrlConfigService: ctrlConfigService,
 	}, nil
 }
 
@@ -340,7 +347,7 @@ func (api *API) CheckMachines(args params.ModelArgs) (params.ErrorResults, error
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	return credentialcommon.ValidateExistingModelCredential(
-		credentialcommon.NewPersistentBackend(st.State),
+		credentialcommon.NewPersistentBackend(st.State, api.ctrlConfigService),
 		environscontext.CallContext(st.State),
 		cloud.Type != "manual",
 	)
@@ -348,7 +355,7 @@ func (api *API) CheckMachines(args params.ModelArgs) (params.ErrorResults, error
 
 // CACert returns the certificate used to validate the state connection.
 func (api *API) CACert() (params.BytesResult, error) {
-	cfg, err := api.state.ControllerConfig()
+	cfg, err := api.ctrlConfigService.ControllerConfig(context.TODO())
 	if err != nil {
 		return params.BytesResult{}, errors.Trace(err)
 	}

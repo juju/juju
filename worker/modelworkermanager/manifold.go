@@ -6,11 +6,17 @@ package modelworkermanager
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/core/changestream"
+	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/domain"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 	"github.com/juju/juju/pki"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/common"
@@ -27,16 +33,18 @@ type Logger interface {
 // ManifoldConfig holds the information necessary to run a model worker manager
 // in a dependency.Engine.
 type ManifoldConfig struct {
-	AgentName      string
-	AuthorityName  string
-	StateName      string
-	MuxName        string
-	SyslogName     string
-	Clock          clock.Clock
-	NewWorker      func(Config) (worker.Worker, error)
-	NewModelWorker NewModelWorkerFunc
-	ModelMetrics   ModelMetrics
-	Logger         Logger
+	AgentName                  string
+	AuthorityName              string
+	StateName                  string
+	MuxName                    string
+	ChangeStreamName           string
+	SyslogName                 string
+	Clock                      clock.Clock
+	NewWorker                  func(Config) (worker.Worker, error)
+	NewModelWorker             NewModelWorkerFunc
+	ModelMetrics               ModelMetrics
+	NewControllerConfigService func(getter changestream.WatchableDBGetter) ControllerConfigGetter
+	Logger                     Logger
 }
 
 // Validate validates the manifold configuration.
@@ -53,6 +61,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.MuxName == "" {
 		return errors.NotValidf("empty MuxName")
 	}
+	if config.ChangeStreamName == "" {
+		return errors.NotValidf("empty ChangeStreamName")
+	}
 	if config.SyslogName == "" {
 		return errors.NotValidf("empty SyslogName")
 	}
@@ -64,6 +75,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.ModelMetrics == nil {
 		return errors.NotValidf("nil ModelMetrics")
+	}
+	if config.NewControllerConfigService == nil {
+		return errors.NotValidf("nil NewControllerConfigService")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -78,6 +92,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.AuthorityName,
 			config.MuxName,
+			config.ChangeStreamName,
 			config.StateName,
 			config.SyslogName,
 		},
@@ -122,6 +137,13 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	machineID := agent.CurrentConfig().Tag().Id()
 
 	systemState, err := statePool.SystemState()
+
+	// Get controller config.
+	var dbGetter changestream.WatchableDBGetter
+	if err := context.Get(config.ChangeStreamName, &dbGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -136,6 +158,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Controller: StatePoolController{
 			StatePool: statePool,
 			SysLogger: sysLogger,
+			CcService: config.NewControllerConfigService(dbGetter),
 		},
 		NewModelWorker: config.NewModelWorker,
 		ErrorDelay:     jworker.RestartDelay,
@@ -145,4 +168,19 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
+}
+
+func NewControllerConfigService(dbGetter changestream.WatchableDBGetter) ControllerConfigGetter {
+	return ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactoryForNamespace(
+			dbGetter.GetWatchableDB,
+			coredatabase.ControllerNS,
+		)),
+		domain.NewWatcherFactory(
+			func() (changestream.WatchableDB, error) {
+				return dbGetter.GetWatchableDB(coredatabase.ControllerNS)
+			},
+			loggo.GetLogger("juju.worker.modelworkermanager"),
+		),
+	)
 }

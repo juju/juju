@@ -4,6 +4,7 @@
 package cloud
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -20,12 +21,17 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 )
+
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 // CloudV7 defines the methods on the cloud API facade, version 7.
 type CloudV7 interface {
@@ -54,6 +60,7 @@ type CloudAPI struct {
 	getCredentialsAuthFunc common.GetAuthFunc
 	pool                   ModelPoolBackend
 	logger                 loggo.Logger
+	ctrlConfigService      ControllerConfigGetter
 }
 
 var (
@@ -62,7 +69,7 @@ var (
 
 // NewCloudAPI creates a new API server endpoint for managing the controller's
 // cloud definition and cloud credentials.
-func NewCloudAPI(backend, ctlrBackend Backend, pool ModelPoolBackend, authorizer facade.Authorizer, logger loggo.Logger) (*CloudAPI, error) {
+func NewCloudAPI(backend, ctlrBackend Backend, pool ModelPoolBackend, authorizer facade.Authorizer, logger loggo.Logger, ctrlConfigService ControllerConfigGetter) (*CloudAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -91,6 +98,7 @@ func NewCloudAPI(backend, ctlrBackend Backend, pool ModelPoolBackend, authorizer
 		isAdmin:                isAdmin,
 		pool:                   pool,
 		logger:                 logger,
+		ctrlConfigService:      ctrlConfigService,
 	}, nil
 }
 

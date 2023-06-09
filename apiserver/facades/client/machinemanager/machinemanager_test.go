@@ -43,8 +43,9 @@ import (
 var _ = gc.Suite(&MachineManagerSuite{})
 
 type MachineManagerSuite struct {
-	authorizer  *apiservertesting.FakeAuthorizer
-	callContext context.ProviderCallContext
+	authorizer        *apiservertesting.FakeAuthorizer
+	callContext       context.ProviderCallContext
+	ctrlConfigService *mocks.MockControllerConfigGetter
 }
 
 func (s *MachineManagerSuite) SetUpTest(c *gc.C) {
@@ -53,6 +54,9 @@ func (s *MachineManagerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *MachineManagerSuite) TestNewMachineManagerAPINonClient(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
+
 	tag := names.NewUnitTag("mysql/0")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
 	_, err := machinemanager.NewMachineManagerAPI(
@@ -68,6 +72,7 @@ func (s *MachineManagerSuite) TestNewMachineManagerAPINonClient(c *gc.C) {
 		nil,
 		nil,
 		loggo.GetLogger("juju.apiserver.machinemanager"),
+		s.ctrlConfigService,
 	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -75,12 +80,13 @@ func (s *MachineManagerSuite) TestNewMachineManagerAPINonClient(c *gc.C) {
 var _ = gc.Suite(&AddMachineManagerSuite{})
 
 type AddMachineManagerSuite struct {
-	authorizer    *apiservertesting.FakeAuthorizer
-	st            *mocks.MockBackend
-	storageAccess *mocks.MockStorageInterface
-	pool          *mocks.MockPool
-	api           *machinemanager.MachineManagerAPI
-	model         *mocks.MockModel
+	authorizer        *apiservertesting.FakeAuthorizer
+	st                *mocks.MockBackend
+	storageAccess     *mocks.MockStorageInterface
+	pool              *mocks.MockPool
+	api               *machinemanager.MachineManagerAPI
+	model             *mocks.MockModel
+	ctrlConfigService *mocks.MockControllerConfigGetter
 
 	callContext context.ProviderCallContext
 }
@@ -100,6 +106,8 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.storageAccess = mocks.NewMockStorageInterface(ctrl)
 	s.st.EXPECT().GetBlockForType(state.ChangeBlock).Return(nil, false, nil).AnyTimes()
 
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
+
 	var err error
 	s.api, err = machinemanager.NewMachineManagerAPI(s.st,
 		s.storageAccess,
@@ -112,6 +120,7 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		nil,
 		nil,
 		loggo.GetLogger("juju.apiserver.machinemanager"),
+		s.ctrlConfigService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -191,11 +200,12 @@ var _ = gc.Suite(&DestroyMachineManagerSuite{})
 
 type DestroyMachineManagerSuite struct {
 	testing.CleanupSuite
-	authorizer    *apiservertesting.FakeAuthorizer
-	st            *mocks.MockBackend
-	storageAccess *mocks.MockStorageInterface
-	leadership    *mocks.MockLeadership
-	api           *machinemanager.MachineManagerAPI
+	authorizer        *apiservertesting.FakeAuthorizer
+	st                *mocks.MockBackend
+	storageAccess     *mocks.MockStorageInterface
+	leadership        *mocks.MockLeadership
+	api               *machinemanager.MachineManagerAPI
+	ctrlConfigService *mocks.MockControllerConfigGetter
 }
 
 func (s *DestroyMachineManagerSuite) SetUpTest(c *gc.C) {
@@ -217,6 +227,8 @@ func (s *DestroyMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.leadership = mocks.NewMockLeadership(ctrl)
 
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
+
 	var err error
 	s.api, err = machinemanager.NewMachineManagerAPI(s.st,
 		s.storageAccess,
@@ -229,6 +241,7 @@ func (s *DestroyMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		s.leadership,
 		nil,
 		loggo.GetLogger("juju.apiserver.machinemanager"),
+		s.ctrlConfigService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -690,12 +703,13 @@ func mockedClassifyDetachedStorage(
 var _ = gc.Suite(&ProvisioningMachineManagerSuite{})
 
 type ProvisioningMachineManagerSuite struct {
-	authorizer *apiservertesting.FakeAuthorizer
-	st         *mocks.MockBackend
-	ctrlSt     *mocks.MockControllerBackend
-	pool       *mocks.MockPool
-	model      *mocks.MockModel
-	api        *machinemanager.MachineManagerAPI
+	authorizer        *apiservertesting.FakeAuthorizer
+	st                *mocks.MockBackend
+	ctrlSt            *mocks.MockControllerBackend
+	pool              *mocks.MockPool
+	model             *mocks.MockModel
+	api               *machinemanager.MachineManagerAPI
+	ctrlConfigService *mocks.MockControllerConfigGetter
 
 	callContext context.ProviderCallContext
 }
@@ -722,6 +736,8 @@ func (s *ProvisioningMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.model.EXPECT().ModelTag().Return(coretesting.ModelTag).AnyTimes()
 	s.st.EXPECT().Model().Return(s.model, nil).AnyTimes()
 
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
+
 	var err error
 	s.api, err = machinemanager.NewMachineManagerAPI(s.st,
 		nil,
@@ -734,6 +750,7 @@ func (s *ProvisioningMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		nil,
 		nil,
 		loggo.GetLogger("juju.apiserver.machinemanager"),
+		s.ctrlConfigService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return ctrl
@@ -778,7 +795,9 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *gc.C) {
 	storageCloser := s.expectProvisioningStorageCloser(ctrl)
 	s.st.EXPECT().ToolsStorage().Return(storageCloser, nil)
 
-	s.ctrlSt.EXPECT().APIHostPortsForAgents().Return([]network.SpaceHostPorts{{{
+	s.ctrlConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil).AnyTimes()
+
+	s.ctrlSt.EXPECT().APIHostPortsForAgents(coretesting.FakeControllerConfig()).Return([]network.SpaceHostPorts{{{
 		SpaceAddress: network.NewSpaceAddress("0.2.4.6", network.WithScope(network.ScopeCloudLocal)),
 		NetPort:      1,
 	}}}, nil).Times(2)
@@ -835,7 +854,9 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCo
 	storageCloser := s.expectProvisioningStorageCloser(ctrl)
 	s.st.EXPECT().ToolsStorage().Return(storageCloser, nil)
 
-	s.ctrlSt.EXPECT().APIHostPortsForAgents().Return([]network.SpaceHostPorts{{{
+	s.ctrlConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil).AnyTimes()
+
+	s.ctrlSt.EXPECT().APIHostPortsForAgents(coretesting.FakeControllerConfig()).Return([]network.SpaceHostPorts{{{
 		SpaceAddress: network.NewSpaceAddress("0.2.4.6", network.WithScope(network.ScopeCloudLocal)),
 		NetPort:      1,
 	}}}, nil).Times(2)
@@ -954,9 +975,10 @@ var _ = gc.Suite(&UpgradeSeriesValidateMachineManagerSuite{})
 
 type UpgradeSeriesValidateMachineManagerSuite struct {
 	*UpgradeSeriesMachineManagerSuite
-	authorizer *apiservertesting.FakeAuthorizer
-	st         *mocks.MockBackend
-	api        *machinemanager.MachineManagerAPI
+	authorizer        *apiservertesting.FakeAuthorizer
+	st                *mocks.MockBackend
+	api               *machinemanager.MachineManagerAPI
+	ctrlConfigService *mocks.MockControllerConfigGetter
 
 	callContext context.ProviderCallContext
 }
@@ -971,6 +993,8 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) setup(c *gc.C) *gomock.Contro
 
 	s.st = mocks.NewMockBackend(ctrl)
 
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
+
 	var err error
 	s.api, err = machinemanager.NewMachineManagerAPI(s.st,
 		nil,
@@ -983,6 +1007,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) setup(c *gc.C) *gomock.Contro
 		nil,
 		nil,
 		loggo.GetLogger("juju.apiserver.machinemanager"),
+		s.ctrlConfigService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1209,9 +1234,10 @@ var _ = gc.Suite(&UpgradeSeriesPrepareMachineManagerSuite{})
 
 type UpgradeSeriesPrepareMachineManagerSuite struct {
 	*UpgradeSeriesMachineManagerSuite
-	authorizer *apiservertesting.FakeAuthorizer
-	st         *mocks.MockBackend
-	api        *machinemanager.MachineManagerAPI
+	authorizer        *apiservertesting.FakeAuthorizer
+	st                *mocks.MockBackend
+	api               *machinemanager.MachineManagerAPI
+	ctrlConfigService *mocks.MockControllerConfigGetter
 
 	callContext context.ProviderCallContext
 }
@@ -1227,6 +1253,8 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) setup(c *gc.C) *gomock.Control
 	s.st = mocks.NewMockBackend(ctrl)
 	s.st.EXPECT().GetBlockForType(state.ChangeBlock).Return(nil, false, nil).AnyTimes()
 
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
+
 	var err error
 	s.api, err = machinemanager.NewMachineManagerAPI(s.st,
 		nil,
@@ -1239,6 +1267,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) setup(c *gc.C) *gomock.Control
 		nil,
 		nil,
 		loggo.GetLogger("juju.apiserver.machinemanager"),
+		s.ctrlConfigService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1330,6 +1359,10 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareNotMac
 
 func (s *UpgradeSeriesPrepareMachineManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
+
+	ctrl := gomock.NewController(c)
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
+
 	mm, err := machinemanager.NewMachineManagerAPI(s.st,
 		nil,
 		nil,
@@ -1341,6 +1374,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) setAPIUser(c *gc.C, user names
 		nil,
 		nil,
 		loggo.GetLogger("juju.apiserver.machinemanager"),
+		s.ctrlConfigService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = mm
@@ -1405,9 +1439,10 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareRemove
 var _ = gc.Suite(&UpgradeSeriesCompleteMachineManagerSuite{})
 
 type UpgradeSeriesCompleteMachineManagerSuite struct {
-	authorizer *apiservertesting.FakeAuthorizer
-	st         *mocks.MockBackend
-	api        *machinemanager.MachineManagerAPI
+	authorizer        *apiservertesting.FakeAuthorizer
+	st                *mocks.MockBackend
+	api               *machinemanager.MachineManagerAPI
+	ctrlConfigService *mocks.MockControllerConfigGetter
 
 	callContext context.ProviderCallContext
 }
@@ -1424,6 +1459,8 @@ func (s *UpgradeSeriesCompleteMachineManagerSuite) setup(c *gc.C) *gomock.Contro
 	s.st.EXPECT().GetBlockForType(state.ChangeBlock).Return(nil, false, nil).AnyTimes()
 	s.st.EXPECT().GetBlockForType(state.ChangeBlock).Return(nil, false, nil).AnyTimes()
 
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
+
 	var err error
 	s.api, err = machinemanager.NewMachineManagerAPI(s.st,
 		nil,
@@ -1436,6 +1473,7 @@ func (s *UpgradeSeriesCompleteMachineManagerSuite) setup(c *gc.C) *gomock.Contro
 		nil,
 		nil,
 		loggo.GetLogger("juju.apiserver.machinemanager"),
+		s.ctrlConfigService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -690,7 +690,7 @@ nextPlan:
 		// Some plans have CPU cores in the type field, e.g. "24-core".
 		// When available, multiply count by cores.
 		cores := uint64(plan.Specs.Cpus[0].Count)
-		re := regexp.MustCompile(`(\d+)[ -][Cc]ore`)
+		re := regexp.MustCompile(`(\d+)[ -][CtrlConfigService]ore`)
 		coresMatch := re.FindStringSubmatch(plan.Specs.Cpus[0].Type)
 		if len(coresMatch) > 1 {
 			n, err := strconv.Atoi(coresMatch[1])

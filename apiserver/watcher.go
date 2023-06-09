@@ -4,8 +4,10 @@
 package apiserver
 
 import (
-	"github.com/juju/errors"
+	ctx "context"
 	"github.com/kr/pretty"
+
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/crossmodel"
@@ -21,6 +23,9 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	corewatcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -979,7 +984,7 @@ type migrationBackend interface {
 // migrationBackend defines controller State functionality required by the
 // migration watchers.
 type controllerBackend interface {
-	APIHostPortsForClients() ([]network.SpaceHostPorts, error)
+	APIHostPortsForClients(controller.Config) ([]network.SpaceHostPorts, error)
 	ControllerConfig() (controller.Config, error)
 }
 
@@ -989,6 +994,14 @@ func newMigrationStatusWatcher(context facade.Context) (facade.Facade, error) {
 	resources := context.Resources()
 	st := context.State()
 	pool := context.StatePool()
+
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactory(context.ControllerDB)),
+		domain.NewWatcherFactory(
+			context.ControllerDB,
+			context.Logger().Child("controllerconfig"),
+		),
+	)
 
 	if !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
@@ -1002,18 +1015,20 @@ func newMigrationStatusWatcher(context facade.Context) (facade.Facade, error) {
 		return nil, errors.Trace(err)
 	}
 	return &srvMigrationStatusWatcher{
-		watcherCommon: newWatcherCommon(context),
-		watcher:       w,
-		st:            getMigrationBackend(st),
-		ctrlSt:        controllerBackend,
+		watcherCommon:     newWatcherCommon(context),
+		watcher:           w,
+		st:                getMigrationBackend(st),
+		ctrlSt:            controllerBackend,
+		ctrlConfigService: ctrlConfigService,
 	}, nil
 }
 
 type srvMigrationStatusWatcher struct {
 	watcherCommon
-	watcher corewatcher.NotifyWatcher
-	st      migrationBackend
-	ctrlSt  controllerBackend
+	watcher           corewatcher.NotifyWatcher
+	st                migrationBackend
+	ctrlSt            controllerBackend
+	ctrlConfigService *ccservice.Service
 }
 
 // Next returns when the status for a model migration for the
@@ -1044,7 +1059,7 @@ func (w *srvMigrationStatusWatcher) Next() (params.MigrationStatus, error) {
 		return params.MigrationStatus{}, errors.Annotate(err, "retrieving source addresses")
 	}
 
-	sourceCACert, err := getControllerCACert(w.ctrlSt)
+	sourceCACert, err := getControllerCACert(w.ctrlSt, w.ctrlConfigService)
 	if err != nil {
 		return params.MigrationStatus{}, errors.Annotate(err, "retrieving source CA cert")
 	}
@@ -1066,7 +1081,11 @@ func (w *srvMigrationStatusWatcher) Next() (params.MigrationStatus, error) {
 }
 
 func (w *srvMigrationStatusWatcher) getLocalHostPorts() ([]string, error) {
-	hostports, err := w.ctrlSt.APIHostPortsForClients()
+	controllerConfig, err := w.ctrlConfigService.ControllerConfig(ctx.TODO())
+	if err != nil {
+		return nil, err
+	}
+	hostports, err := w.ctrlSt.APIHostPortsForClients(controllerConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1081,8 +1100,8 @@ func (w *srvMigrationStatusWatcher) getLocalHostPorts() ([]string, error) {
 
 // This is a shim to avoid the need to use a working State into the
 // unit tests. It is tested as part of the client side API tests.
-var getControllerCACert = func(st controllerBackend) (string, error) {
-	cfg, err := st.ControllerConfig()
+var getControllerCACert = func(st controllerBackend, ctrlConfigService *ccservice.Service) (string, error) {
+	cfg, err := ctrlConfigService.ControllerConfig(ctx.TODO())
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -1261,13 +1280,22 @@ func (w *srvSecretTriggerWatcher) translateChanges(changes []corewatcher.SecretT
 // srvSecretBackendsRotateWatcher defines the API wrapping a SecretBackendsRotateWatcher.
 type srvSecretBackendsRotateWatcher struct {
 	watcherCommon
-	watcher corewatcher.SecretBackendRotateWatcher
+	watcher           corewatcher.SecretBackendRotateWatcher
+	ctrlConfigService *ccservice.Service
 }
 
 func newSecretBackendsRotateWatcher(context facade.Context) (facade.Facade, error) {
 	id := context.ID()
 	auth := context.Auth()
 	resources := context.Resources()
+
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactory(context.ControllerDB)),
+		domain.NewWatcherFactory(
+			context.ControllerDB,
+			context.Logger().Child("controllerconfig"),
+		),
+	)
 
 	if !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
@@ -1277,8 +1305,9 @@ func newSecretBackendsRotateWatcher(context facade.Context) (facade.Facade, erro
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
 	return &srvSecretBackendsRotateWatcher{
-		watcherCommon: newWatcherCommon(context),
-		watcher:       watcher,
+		watcherCommon:     newWatcherCommon(context),
+		watcher:           watcher,
+		ctrlConfigService: ctrlConfigService,
 	}, nil
 }
 

@@ -6,6 +6,11 @@ package uniter_test
 import (
 	stdcontext "context"
 	"fmt"
+	"github.com/juju/juju/apiserver/common/cloudspec"
+	"github.com/juju/juju/apiserver/common/unitcommon"
+	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
+	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
+	"go.uber.org/mock/gomock"
 	"time"
 
 	"github.com/juju/charm/v11"
@@ -28,6 +33,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
+	"github.com/juju/juju/apiserver/facades/agent/uniter/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -76,6 +82,7 @@ type uniterSuiteBase struct {
 	mysql             *state.Application
 	mysqlUnit         *state.Unit
 	leadershipChecker *fakeLeadershipChecker
+	ctrlConfigService *mocks.MockControllerConfigGetter
 }
 
 type leadershipRevoker struct {
@@ -91,6 +98,9 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 	s.ControllerConfigAttrs = map[string]interface{}{
 		controller.Features: feature.RawK8sSpec,
 	}
+
+	ctrl := gomock.NewController(c)
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
 
 	s.JujuConnSuite.SetUpTest(c)
 
@@ -167,7 +177,142 @@ func (s *uniterSuiteBase) newUniterAPI(c *gc.C, st *state.State, auth facade.Aut
 	facadeContext.State_ = st
 	facadeContext.Auth_ = auth
 	facadeContext.LeadershipRevoker_ = s.leadershipRevoker
-	uniterAPI, err := uniter.NewUniterAPI(facadeContext)
+
+	authorizer := facadeContext.Auth()
+	st = facadeContext.State()
+	aClock := facadeContext.StatePool().Clock()
+	resources := facadeContext.Resources()
+	leadershipChecker, _ := facadeContext.LeadershipChecker()
+	leadershipRevoker, _ := facadeContext.LeadershipRevoker(st.ModelUUID())
+
+	accessUnit := unitcommon.UnitAccessor(authorizer, unitcommon.Backend(st))
+	accessApplication := uniter.ApplicationAccessor(authorizer, st)
+	accessMachine := uniter.MachineAccessor(authorizer, st)
+	accessCloudSpec := uniter.CloudSpecAccessor(authorizer, st)
+
+	m, _ := st.Model()
+
+	storageAccessor, _ := uniter.GetStorageState(st)
+	storageAPI, _ := uniter.NewStorageAPI(
+		uniter.StateShim{st}, storageAccessor, resources, accessUnit)
+
+	msAPI, _ := meterstatus.NewMeterStatusAPI(st, resources, authorizer, facadeContext.Logger().Child("meterstatus"), s.ctrlConfigService)
+	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
+
+	cloudSpec := cloudspec.NewCloudSpecV2(resources,
+		cloudspec.MakeCloudSpecGetterForModel(st),
+		cloudspec.MakeCloudSpecWatcherForModel(st),
+		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
+		common.AuthFuncForTag(m.ModelTag()),
+	)
+
+	systemState, _ := facadeContext.StatePool().SystemState()
+	secretsAPI, _ := secretsmanager.NewSecretManagerAPI(facadeContext)
+	logger := facadeContext.Logger().Child("uniter")
+
+	uniterAPI, err := uniter.NewUniterAPI(
+		common.NewLifeGetter(st, accessUnitOrApplication),
+		common.NewDeadEnsurer(st, common.RevokeLeadershipFunc(leadershipRevoker), accessUnit),
+		common.NewAgentEntityWatcher(st, resources, accessUnitOrApplication),
+		common.NewAPIAddresser(systemState, resources, s.ctrlConfigService),
+		common.NewModelWatcher(m, resources, authorizer),
+		common.NewRebootRequester(st, accessMachine),
+		common.NewExternalUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
+		common.NewExternalUnitStateAPI(st, resources, authorizer, accessUnit, logger, s.ctrlConfigService),
+		secretsAPI,
+		uniter.LeadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),
+		msAPI,
+		uniter.NewExternalLXDProfileAPIv2(st, resources, authorizer, accessUnit, logger),
+		uniter.NewStatusAPI(m, accessUnitOrApplication, leadershipChecker),
+
+		m,
+		st,
+		aClock,
+		facadeContext.Cancel(),
+		authorizer,
+		resources,
+		leadershipChecker,
+		accessUnit,
+		accessApplication,
+		accessMachine,
+		accessCloudSpec,
+		cloudSpec,
+		storageAPI,
+		logger,
+		s.ctrlConfigService,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	return uniterAPI
+}
+
+func (s *uniterSuiteBase) newUniterAPIFromContext(c *gc.C, facadeContext facadetest.Context) *uniter.UniterAPI {
+	facadeContext.LeadershipRevoker_ = s.leadershipRevoker
+
+	authorizer := facadeContext.Auth()
+	st := facadeContext.State()
+	aClock := facadeContext.StatePool().Clock()
+	resources := facadeContext.Resources()
+	leadershipChecker, _ := facadeContext.LeadershipChecker()
+	leadershipRevoker, _ := facadeContext.LeadershipRevoker(st.ModelUUID())
+
+	accessUnit := unitcommon.UnitAccessor(authorizer, unitcommon.Backend(st))
+	accessApplication := uniter.ApplicationAccessor(authorizer, st)
+	accessMachine := uniter.MachineAccessor(authorizer, st)
+	accessCloudSpec := uniter.CloudSpecAccessor(authorizer, st)
+
+	m, _ := st.Model()
+
+	storageAccessor, _ := uniter.GetStorageState(st)
+	storageAPI, _ := uniter.NewStorageAPI(
+		uniter.StateShim{st}, storageAccessor, resources, accessUnit)
+
+	msAPI, _ := meterstatus.NewMeterStatusAPI(st, resources, authorizer, facadeContext.Logger().Child("meterstatus"), s.ctrlConfigService)
+	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
+
+	cloudSpec := cloudspec.NewCloudSpecV2(resources,
+		cloudspec.MakeCloudSpecGetterForModel(st),
+		cloudspec.MakeCloudSpecWatcherForModel(st),
+		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
+		common.AuthFuncForTag(m.ModelTag()),
+	)
+
+	systemState, _ := facadeContext.StatePool().SystemState()
+	secretsAPI, _ := secretsmanager.NewSecretManagerAPI(facadeContext)
+	logger := facadeContext.Logger().Child("uniter")
+
+	uniterAPI, err := uniter.NewUniterAPI(
+		common.NewLifeGetter(st, accessUnitOrApplication),
+		common.NewDeadEnsurer(st, common.RevokeLeadershipFunc(leadershipRevoker), accessUnit),
+		common.NewAgentEntityWatcher(st, resources, accessUnitOrApplication),
+		common.NewAPIAddresser(systemState, resources, s.ctrlConfigService),
+		common.NewModelWatcher(m, resources, authorizer),
+		common.NewRebootRequester(st, accessMachine),
+		common.NewExternalUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
+		common.NewExternalUnitStateAPI(st, resources, authorizer, accessUnit, logger, s.ctrlConfigService),
+		secretsAPI,
+		uniter.LeadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),
+		msAPI,
+		uniter.NewExternalLXDProfileAPIv2(st, resources, authorizer, accessUnit, logger),
+		uniter.NewStatusAPI(m, accessUnitOrApplication, leadershipChecker),
+
+		m,
+		st,
+		aClock,
+		facadeContext.Cancel(),
+		authorizer,
+		resources,
+		leadershipChecker,
+		accessUnit,
+		accessApplication,
+		accessMachine,
+		accessCloudSpec,
+		cloudSpec,
+		storageAPI,
+		logger,
+		s.ctrlConfigService,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	return uniterAPI
 }
@@ -244,6 +389,12 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C, isSidecar bool) (*apiuniter.Cl
 
 	u, err := apiuniter.NewFromConnection(apiState)
 	c.Assert(err, jc.ErrorIsNil)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
+
 	return u, cm, app, unit
 }
 
@@ -258,7 +409,7 @@ func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
 	anAuthorizer.Tag = names.NewMachineTag("9")
 	context := s.facadeContext()
 	context.Auth_ = anAuthorizer
-	_, err := uniter.NewUniterAPI(context)
+	_, err := uniter.NewUniterFacade(context)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -581,6 +732,7 @@ func (s *uniterSuite) TestPublicAddress(c *gc.C) {
 
 	// Now set it an try again.
 	err = s.machine0.SetProviderAddresses(
+		s.ControllerConfig,
 		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopePublic)),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -621,6 +773,7 @@ func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
 
 	// Now set it and try again.
 	err = s.machine0.SetProviderAddresses(
+		s.ControllerConfig,
 		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -643,6 +796,7 @@ func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
 // all the spaces set up.
 func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
 	err := s.machine0.SetProviderAddresses(
+		s.ControllerConfig,
 		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1971,6 +2125,7 @@ func (s *uniterSuite) TestProviderType(c *gc.C) {
 func (s *uniterSuite) TestEnterScope(c *gc.C) {
 	// Set wordpressUnit's private address first.
 	err := s.machine0.SetProviderAddresses(
+		s.ControllerConfig,
 		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2924,7 +3079,7 @@ func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
 	hostPorts := []network.SpaceHostPorts{
 		network.NewSpaceHostPorts(1234, "0.1.2.3"),
 	}
-	err := s.State.SetAPIHostPorts(hostPorts)
+	err := s.State.SetAPIHostPorts(hostPorts, s.ControllerConfig)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.uniter.APIAddresses()
@@ -3315,6 +3470,7 @@ func (s *uniterSuite) setupRemoteRelationScenario(c *gc.C) (names.Tag, *state.Re
 
 	// Set mysql's addresses first.
 	err := s.machine1.SetProviderAddresses(
+		s.ControllerConfig,
 		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
 		network.NewSpaceAddress("4.3.2.1", network.WithScope(network.ScopePublic)),
 	)
@@ -3361,6 +3517,7 @@ func (s *uniterSuite) TestPrivateAddressWithRemoteRelationNoPublic(c *gc.C) {
 	thisUniter := s.makeMysqlUniter(c)
 	// Set mysql's addresses - no public address.
 	err := s.machine1.SetProviderAddresses(
+		s.ControllerConfig,
 		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3743,6 +3900,10 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 		controller.Features: feature.RawK8sSpec,
 	}
 
+	ctrl := gomock.NewController(c)
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
+	s.ctrlConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfigAttrs, nil).AnyTimes()
+
 	s.uniterSuiteBase.JujuConnSuite.SetUpTest(c)
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
@@ -3838,7 +3999,7 @@ func (s *uniterNetworkInfoSuite) addProvisionedMachineWithDevicesAndAddresses(c 
 	for i, addr := range machineAddrs {
 		netAddrs[i] = network.NewSpaceAddress(addr.Value())
 	}
-	err = machine.SetProviderAddresses(netAddrs...)
+	err = machine.SetProviderAddresses(s.ControllerConfig, netAddrs...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return machine
@@ -4392,8 +4553,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 	)
 
 	// Test-suite uses an older API version
-	api, err := uniter.NewUniterAPI(s.facadeContext())
-	c.Assert(err, jc.ErrorIsNil)
+	api := s.newUniterAPIFromContext(c, s.facadeContext())
 
 	result, err := api.CommitHookChanges(req)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4439,6 +4599,11 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 }
 
 func (s *uniterNetworkInfoSuite) TestCommitHookChangesWhenNotLeader(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ctrlConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfigAttrs, nil).AnyTimes()
+
 	s.addRelationAndAssertInScope(c)
 
 	// Make it so we're not the leader.
@@ -4452,8 +4617,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesWhenNotLeader(c *gc.C) {
 	req, _ := b.Build()
 
 	// Test-suite uses an older API version
-	api, err := uniter.NewUniterAPI(s.facadeContext())
-	c.Assert(err, jc.ErrorIsNil)
+	api := s.newUniterAPIFromContext(c, s.facadeContext())
 
 	result, err := api.CommitHookChanges(req)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4597,7 +4761,10 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: unit.Tag(),
 	}
-	api, err := uniter.NewUniterAPI(s.facadeContext())
+
+	s.ctrlConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfigAttrs, nil).AnyTimes()
+
+	api := s.newUniterAPIFromContext(c, s.facadeContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := api.CommitHookChanges(req)
@@ -4637,8 +4804,8 @@ func (s *uniterSuite) TestCommitHookChangesWithPortsSidecarApplication(c *gc.C) 
 
 	s.State = cm.State()
 	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
-	uniterAPI, err := uniter.NewUniterAPI(s.facadeContext())
-	c.Assert(err, jc.ErrorIsNil)
+	s.ctrlConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfigAttrs, nil).AnyTimes()
+	uniterAPI := s.newUniterAPIFromContext(c, s.facadeContext())
 
 	result, err := uniterAPI.CommitHookChanges(req)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4665,6 +4832,8 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAAS(c *gc.C) {
 
 	s.leadershipChecker.isLeader = true
 
+	s.ctrlConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfigAttrs, nil).AnyTimes()
+
 	b := apiuniter.NewCommitHookParamsBuilder(gitlabUnit.UnitTag())
 	b.UpdateNetworkInfo()
 	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
@@ -4673,8 +4842,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAAS(c *gc.C) {
 
 	s.State = cm.State()
 	s.authorizer = apiservertesting.FakeAuthorizer{Tag: gitlabUnit.Tag()}
-	uniterAPI, err := uniter.NewUniterAPI(s.facadeContext())
-	c.Assert(err, jc.ErrorIsNil)
+	uniterAPI := s.newUniterAPIFromContext(c, s.facadeContext())
 
 	result, err := uniterAPI.CommitHookChanges(req)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4868,7 +5036,7 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 	resources := common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
 
-	_, err := uniter.NewUniterAPI(facadetest.Context{
+	_, err := uniter.NewUniterFacade(facadetest.Context{
 		State_:             s.State,
 		StatePool_:         s.StatePool,
 		Resources_:         resources,

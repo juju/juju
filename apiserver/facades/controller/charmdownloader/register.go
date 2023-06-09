@@ -10,6 +10,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
+	"github.com/juju/juju/domain"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 	"github.com/juju/juju/state/storage"
 )
 
@@ -24,7 +27,14 @@ func Register(registry facade.FacadeRegistry) {
 func newFacadeV1(ctx facade.Context) (*CharmDownloaderAPI, error) {
 	authorizer := ctx.Auth()
 	rawState := ctx.State()
-	stateBackend := stateShim{rawState}
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
+		domain.NewWatcherFactory(
+			ctx.ControllerDB,
+			ctx.Logger().Child("controllerconfig"),
+		),
+	)
+	stateBackend := stateShim{rawState, ctrlConfigService}
 	modelBackend, err := rawState.Model()
 	if err != nil {
 		return nil, errors.Trace(err)

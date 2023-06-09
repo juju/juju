@@ -38,7 +38,7 @@ type CAASApplicationProvisionerState interface {
 type CAASApplicationControllerState interface {
 	ControllerConfig() (controller.Config, error)
 	ModelUUID() string
-	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
+	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 	WatchAPIHostPortsForAgents() state.NotifyWatcher
 	WatchControllerConfig() state.NotifyWatcher
 }

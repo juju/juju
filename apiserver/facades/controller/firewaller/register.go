@@ -11,6 +11,9 @@ import (
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/domain"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -35,7 +38,14 @@ func newFirewallerAPIV7(context facade.Context) (*FirewallerAPI, error) {
 		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
 		common.AuthFuncForTag(m.ModelTag()),
 	)
-	controllerConfigAPI := common.NewStateControllerConfig(st)
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactory(context.ControllerDB)),
+		domain.NewWatcherFactory(
+			context.ControllerDB,
+			context.Logger().Child("controllerconfig"),
+		),
+	)
+	controllerConfigAPI := common.NewStateControllerConfig(st, ctrlConfigService)
 
 	stShim := stateShim{st: st, State: firewall.StateShim(st, m)}
 	return NewStateFirewallerAPI(
@@ -45,5 +55,6 @@ func newFirewallerAPIV7(context facade.Context) (*FirewallerAPI, error) {
 		cloudSpecAPI,
 		controllerConfigAPI,
 		context.Logger().Child("firewaller"),
+		ctrlConfigService,
 	)
 }

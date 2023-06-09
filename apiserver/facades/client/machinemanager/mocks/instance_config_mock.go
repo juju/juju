@@ -39,18 +39,18 @@ func (m *MockControllerBackend) EXPECT() *MockControllerBackendMockRecorder {
 }
 
 // APIHostPortsForAgents mocks base method.
-func (m *MockControllerBackend) APIHostPortsForAgents() ([]network.SpaceHostPorts, error) {
+func (m *MockControllerBackend) APIHostPortsForAgents(arg0 controller.Config) ([]network.SpaceHostPorts, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "APIHostPortsForAgents")
+	ret := m.ctrl.Call(m, "APIHostPortsForAgents", arg0)
 	ret0, _ := ret[0].([]network.SpaceHostPorts)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // APIHostPortsForAgents indicates an expected call of APIHostPortsForAgents.
-func (mr *MockControllerBackendMockRecorder) APIHostPortsForAgents() *gomock.Call {
+func (mr *MockControllerBackendMockRecorder) APIHostPortsForAgents(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIHostPortsForAgents", reflect.TypeOf((*MockControllerBackend)(nil).APIHostPortsForAgents))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIHostPortsForAgents", reflect.TypeOf((*MockControllerBackend)(nil).APIHostPortsForAgents), arg0)
 }
 
 // ControllerConfig mocks base method.

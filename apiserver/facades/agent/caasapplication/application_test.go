@@ -4,6 +4,7 @@
 package caasapplication_test
 
 import (
+	"go.uber.org/mock/gomock"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -28,12 +29,13 @@ var _ = gc.Suite(&CAASApplicationSuite{})
 type CAASApplicationSuite struct {
 	coretesting.BaseSuite
 
-	resources  *common.Resources
-	authorizer *apiservertesting.FakeAuthorizer
-	facade     *caasapplication.Facade
-	st         *mockState
-	clock      *testclock.Clock
-	broker     *mockBroker
+	resources         *common.Resources
+	authorizer        *apiservertesting.FakeAuthorizer
+	facade            *caasapplication.Facade
+	st                *mockState
+	clock             *testclock.Clock
+	broker            *mockBroker
+	ctrlConfigService *MockControllerConfigGetter
 }
 
 func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
@@ -51,7 +53,16 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	s.st = newMockState()
 	s.broker = &mockBroker{}
 
-	facade, err := caasapplication.NewFacade(s.resources, s.authorizer, s.st, s.st, s.broker, s.clock, loggo.GetLogger("juju.apiserver.caasaplication"))
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ctrlConfigService = NewMockControllerConfigGetter(ctrl)
+
+	facade, err := caasapplication.NewFacade(
+		s.resources, s.authorizer,
+		s.st, s.st,
+		s.broker, s.clock,
+		loggo.GetLogger("juju.apiserver.caasaplication"), s.ctrlConfigService)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }

@@ -4,6 +4,8 @@
 package machine
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -11,10 +13,15 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
+
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 // MachinerAPI implements the API used by the machiner worker.
 type MachinerAPI struct {
@@ -25,14 +32,15 @@ type MachinerAPI struct {
 	*common.APIAddresser
 	*networkingcommon.NetworkConfigAPI
 
-	st           *state.State
-	auth         facade.Authorizer
-	getCanModify common.GetAuthFunc
-	getCanRead   common.GetAuthFunc
+	st                *state.State
+	auth              facade.Authorizer
+	getCanModify      common.GetAuthFunc
+	getCanRead        common.GetAuthFunc
+	ctrlConfigService ControllerConfigGetter
 }
 
 // NewMachinerAPIForState creates a new instance of the Machiner API.
-func NewMachinerAPIForState(ctrlSt, st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*MachinerAPI, error) {
+func NewMachinerAPIForState(ctrlSt, st *state.State, resources facade.Resources, authorizer facade.Authorizer, ctrlConfigService ControllerConfigGetter) (*MachinerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -51,12 +59,13 @@ func NewMachinerAPIForState(ctrlSt, st *state.State, resources facade.Resources,
 		StatusSetter:       common.NewStatusSetter(st, getCanAccess),
 		DeadEnsurer:        common.NewDeadEnsurer(st, nil, getCanAccess),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, getCanAccess),
-		APIAddresser:       common.NewAPIAddresser(ctrlSt, resources),
+		APIAddresser:       common.NewAPIAddresser(ctrlSt, resources, ctrlConfigService),
 		NetworkConfigAPI:   netConfigAPI,
 		st:                 st,
 		auth:               authorizer,
 		getCanModify:       getCanAccess,
 		getCanRead:         getCanAccess,
+		ctrlConfigService:  ctrlConfigService,
 	}, nil
 }
 
@@ -83,6 +92,10 @@ func (api *MachinerAPI) SetMachineAddresses(args params.SetMachinesAddresses) (p
 	if err != nil {
 		return results, err
 	}
+	controllerConfig, err := api.ctrlConfigService.ControllerConfig(context.Background())
+	if err != nil {
+		return results, err
+	}
 	for i, arg := range args.MachineAddresses {
 		m, err := api.getMachine(arg.Tag, canModify)
 		if err != nil {
@@ -94,7 +107,7 @@ func (api *MachinerAPI) SetMachineAddresses(args params.SetMachinesAddresses) (p
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if err := m.SetMachineAddresses(addresses...); err != nil {
+		if err := m.SetMachineAddresses(controllerConfig, addresses...); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}

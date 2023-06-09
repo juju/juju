@@ -18,7 +18,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	)
 	s.setBackups(c, s.meta, "")
 	var args params.BackupsCreateArgs
-	result, err := s.api.Create(args)
+	result, err := s.api.Create(args, s.ControllerConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := backups.CreateResult(s.meta, "test-filename")
 
@@ -35,7 +35,7 @@ func (s *backupsSuite) TestCreateNotes(c *gc.C) {
 		Notes: "this backup is important",
 	}
 
-	result, err := s.api.Create(args)
+	result, err := s.api.Create(args, s.ControllerConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := backups.CreateResult(s.meta, "test-filename")
 	expected.Notes = "this backup is important"
@@ -49,7 +49,7 @@ func (s *backupsSuite) TestCreateError(c *gc.C) {
 		func(*mgo.Session, int) error { return nil },
 	)
 	var args params.BackupsCreateArgs
-	_, err := s.api.Create(args)
+	_, err := s.api.Create(args, s.ControllerConfig)
 
 	c.Logf("%v", err)
 	c.Check(err, gc.ErrorMatches, "failed!")
@@ -65,7 +65,7 @@ func (s *backupsSuite) TestCreateController(c *gc.C) {
 	s.meta.Controller.HANodes = int64(3)
 	s.setBackups(c, s.meta, "")
 
-	result, err := s.api.Create(params.BackupsCreateArgs{})
+	result, err := s.api.Create(params.BackupsCreateArgs{}, s.ControllerConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := backups.CreateResult(s.meta, "test-filename")
 	c.Check(result, gc.DeepEquals, expected)

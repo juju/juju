@@ -10,7 +10,7 @@ const DefaultCharmIcon = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 
 <svg
    xmlns:dc="http://purl.org/dc/elements/1.1/"
-   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:ctrlConfigService="http://creativecommons.org/ns#"
    xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
    xmlns:svg="http://www.w3.org/2000/svg"
    xmlns="http://www.w3.org/2000/svg"
@@ -219,13 +219,13 @@ const DefaultCharmIcon = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
   <metadata
      id="metadata6522">
     <rdf:RDF>
-      <cc:Work
+      <ctrlConfigService:Work
          rdf:about="">
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
         <dc:title></dc:title>
-      </cc:Work>
+      </ctrlConfigService:Work>
     </rdf:RDF>
   </metadata>
   <g

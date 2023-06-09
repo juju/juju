@@ -12,6 +12,9 @@ import (
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/domain"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -39,12 +42,20 @@ func newAgentAPIV3(ctx facade.Context) (*AgentAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
+		domain.NewWatcherFactory(
+			ctx.ControllerDB,
+			ctx.Logger().Child("controllerconfig"),
+		),
+	)
+
 	resources := ctx.Resources()
 	return &AgentAPI{
 		PasswordChanger:     common.NewPasswordChanger(st, getCanChange),
 		RebootFlagClearer:   common.NewRebootFlagClearer(st, getCanChange),
 		ModelWatcher:        common.NewModelWatcher(model, resources, auth),
-		ControllerConfigAPI: common.NewStateControllerConfig(st),
+		ControllerConfigAPI: common.NewStateControllerConfig(st, ctrlConfigService),
 		CloudSpecer: cloudspec.NewCloudSpecV2(
 			resources,
 			cloudspec.MakeCloudSpecGetterForModel(st),
@@ -53,8 +64,9 @@ func newAgentAPIV3(ctx facade.Context) (*AgentAPI, error) {
 			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
 			common.AuthFuncForTag(model.ModelTag()),
 		),
-		st:        st,
-		auth:      auth,
-		resources: resources,
+		st:                st,
+		auth:              auth,
+		resources:         resources,
+		ctrlConfigService: ctrlConfigService,
 	}, nil
 }

@@ -296,7 +296,7 @@ func (s *AgentSuite) primeAPIHostPorts(c *gc.C) {
 	hostPorts := network.SpaceHostPorts{
 		{SpaceAddress: network.SpaceAddress{MachineAddress: mHP.MachineAddress}, NetPort: mHP.NetPort}}
 
-	err = s.State.SetAPIHostPorts([]network.SpaceHostPorts{hostPorts})
+	err = s.State.SetAPIHostPorts([]network.SpaceHostPorts{hostPorts}, controller.Config{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Logf("api host ports primed %#v", hostPorts)

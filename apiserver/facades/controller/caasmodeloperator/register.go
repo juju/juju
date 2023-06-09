@@ -8,6 +8,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/domain"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -23,6 +26,13 @@ func newAPIFromContext(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 	systemState, err := ctx.StatePool().SystemState()
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
+		domain.NewWatcherFactory(
+			ctx.ControllerDB,
+			ctx.Logger().Child("controllerconfig"),
+		),
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -30,5 +40,6 @@ func newAPIFromContext(ctx facade.Context) (*API, error) {
 		stateShim{systemState},
 		stateShim{ctx.State()},
 		ctx.Logger().Child("caasmodeloperator"),
+		ctrlConfigService,
 	)
 }

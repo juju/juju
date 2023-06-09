@@ -289,7 +289,22 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(*gotHW, gc.DeepEquals, expectHW)
 
 	// Check that the API host ports are initialised correctly.
-	apiHostPorts, err := st.APIHostPortsForClients()
+	apiHostPorts, err := st.APIHostPortsForClients(controller.Config{
+		"controller-uuid":           testing.ControllerTag.Id(),
+		"ca-cert":                   testing.CACert,
+		"state-port":                1234,
+		"api-port":                  17777,
+		"set-numa-control-policy":   false,
+		"max-txn-log-size":          "10M",
+		"model-logfile-max-backups": 1,
+		"model-logfile-max-size":    "1M",
+		"model-logs-size":           "1M",
+		"auditing-enabled":          false,
+		"audit-log-capture-args":    true,
+		"audit-log-max-size":        "200M",
+		"audit-log-max-backups":     5,
+		"query-tracing-threshold":   "1s",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiHostPorts, jc.DeepEquals, []corenetwork.SpaceHostPorts{
 		corenetwork.SpaceAddressesWithPort(filteredAddrs, 1234),

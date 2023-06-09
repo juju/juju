@@ -26,11 +26,12 @@ import (
 type upgradeStepsSuite struct {
 	jujutesting.BaseSuite
 
-	api        *upgradesteps.UpgradeStepsAPI
-	authorizer *facademocks.MockAuthorizer
-	entity     *mocks.MockEntity
-	resources  *facademocks.MockResources
-	state      *mocks.MockUpgradeStepsState
+	api               *upgradesteps.UpgradeStepsAPI
+	authorizer        *facademocks.MockAuthorizer
+	entity            *mocks.MockEntity
+	resources         *facademocks.MockResources
+	state             *mocks.MockUpgradeStepsState
+	ctrlConfigService *mocks.MockControllerConfigGetter
 }
 
 type machineUpgradeStepsSuite struct {
@@ -47,6 +48,7 @@ func (s *machineUpgradeStepsSuite) SetUpTest(c *gc.C) {
 	s.tag = names.NewMachineTag("0/kvm/0")
 	s.arg = params.Entity{Tag: s.tag.String()}
 	s.BaseSuite.SetUpTest(c)
+
 }
 
 func (s *machineUpgradeStepsSuite) TestResetKVMMachineModificationStatusIdle(c *gc.C) {
@@ -169,14 +171,15 @@ func (s *unitUpgradeStepsSuite) TestWriteAgentStateError(c *gc.C) {
 }
 
 func (s *upgradeStepsSuite) setup(c *gc.C) *gomock.Controller {
-	ctlr := gomock.NewController(c)
+	ctrl := gomock.NewController(c)
 
-	s.authorizer = facademocks.NewMockAuthorizer(ctlr)
-	s.entity = mocks.NewMockEntity(ctlr)
-	s.state = mocks.NewMockUpgradeStepsState(ctlr)
-	s.resources = facademocks.NewMockResources(ctlr)
+	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
+	s.entity = mocks.NewMockEntity(ctrl)
+	s.state = mocks.NewMockUpgradeStepsState(ctrl)
+	s.resources = facademocks.NewMockResources(ctrl)
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
 
-	return ctlr
+	return ctrl
 }
 
 func (s *upgradeStepsSuite) expectAuthCalls() {
@@ -186,7 +189,7 @@ func (s *upgradeStepsSuite) expectAuthCalls() {
 }
 
 func (s *upgradeStepsSuite) setupFacadeAPI(c *gc.C) {
-	api, err := upgradesteps.NewUpgradeStepsAPI(s.state, s.resources, s.authorizer, loggo.GetLogger("juju.apiserver.upgradesteps"))
+	api, err := upgradesteps.NewUpgradeStepsAPI(s.state, s.resources, s.authorizer, loggo.GetLogger("juju.apiserver.upgradesteps"), s.ctrlConfigService)
 	c.Assert(err, gc.IsNil)
 	s.api = api
 }
@@ -272,7 +275,7 @@ func (s *unitUpgradeStepsSuite) expectSetAndApplyStateOperation(err1, err2 error
 		controller.MaxAgentStateSize: 456,
 	}
 
-	s.state.EXPECT().ControllerConfig().Return(ctrlCfg, nil)
+	s.ctrlConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(ctrlCfg, nil).AnyTimes()
 
 	expLimits := state.UnitStateSizeLimits{
 		MaxCharmStateSize: 123,

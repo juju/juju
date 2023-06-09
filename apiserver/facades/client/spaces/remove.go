@@ -4,6 +4,8 @@
 package spaces
 
 import (
+	ctx "context"
+
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
@@ -208,7 +210,7 @@ func (api *API) getSpaceControllerSettings(spaceName string) ([]string, error) {
 		return matches, nil
 	}
 
-	currentControllerConfig, err := api.backing.ControllerConfig()
+	currentControllerConfig, err := api.ctrlConfigService.ControllerConfig(ctx.TODO())
 	if err != nil {
 		return matches, errors.Trace(err)
 	}

@@ -22,6 +22,7 @@ import (
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/constraints"
 	corecontainer "github.com/juju/juju/core/container"
@@ -1710,8 +1711,8 @@ func (m *Machine) setPrivateAddressOps(providerAddresses []address, machineAddre
 
 // SetProviderAddresses records any addresses related to the machine, sourced
 // by asking the provider.
-func (m *Machine) SetProviderAddresses(addresses ...network.SpaceAddress) error {
-	err := m.setAddresses(nil, &addresses)
+func (m *Machine) SetProviderAddresses(controllerConfig controller.Config, addresses ...network.SpaceAddress) error {
+	err := m.setAddresses(nil, &addresses, controllerConfig)
 	return errors.Annotatef(err, "cannot set addresses of machine %v", m)
 }
 
@@ -1735,8 +1736,8 @@ func (m *Machine) MachineAddresses() (addresses network.SpaceAddresses) {
 
 // SetMachineAddresses records any addresses related to the machine, sourced
 // by asking the machine.
-func (m *Machine) SetMachineAddresses(addresses ...network.SpaceAddress) error {
-	err := m.setAddresses(&addresses, nil)
+func (m *Machine) SetMachineAddresses(controllerConfig controller.Config, addresses ...network.SpaceAddress) error {
+	err := m.setAddresses(&addresses, nil, controllerConfig)
 	return errors.Annotatef(err, "cannot set machine addresses of machine %v", m)
 }
 
@@ -1744,7 +1745,7 @@ func (m *Machine) SetMachineAddresses(addresses ...network.SpaceAddress) error {
 // MachineAddresses, depending on the field argument). Changes are
 // only predicated on the machine not being Dead; concurrent address
 // changes are ignored.
-func (m *Machine) setAddresses(machineAddresses, providerAddresses *[]network.SpaceAddress) error {
+func (m *Machine) setAddresses(machineAddresses, providerAddresses *[]network.SpaceAddress, controllerConfig controller.Config) error {
 	var (
 		machineStateAddresses, providerStateAddresses []address
 		newPrivate, newPublic                         *address
@@ -1788,7 +1789,7 @@ func (m *Machine) setAddresses(machineAddresses, providerAddresses *[]network.Sp
 			m.Id(), oldPublic, newPublic.networkAddress(),
 		)
 		if isController(&m.doc) {
-			if err := m.st.maybeUpdateControllerCharm(m.doc.PreferredPublicAddress.Value); err != nil {
+			if err := m.st.maybeUpdateControllerCharm(m.doc.PreferredPublicAddress.Value, controllerConfig); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -1796,15 +1797,11 @@ func (m *Machine) setAddresses(machineAddresses, providerAddresses *[]network.Sp
 	return nil
 }
 
-func (st *State) maybeUpdateControllerCharm(publicAddr string) error {
+func (st *State) maybeUpdateControllerCharm(publicAddr string, controllerCfg controller.Config) error {
 	controllerApp, err := st.Application(bootstrap.ControllerApplicationName)
 	if errors.IsNotFound(err) {
 		return nil
 	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	controllerCfg, err := st.ControllerConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}

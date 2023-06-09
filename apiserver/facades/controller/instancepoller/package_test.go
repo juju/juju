@@ -11,6 +11,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
+//go:generate go run go.uber.org/mock/mockgen -package instancepoller_test -destination domain_mock_test.go github.com/juju/juju/apiserver/facades/controller/instancepoller ControllerConfigGetter
+
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }

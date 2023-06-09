@@ -4,12 +4,21 @@
 package auditconfigupdater
 
 import (
+	ctx "context"
+
 	"github.com/juju/errors"
+	"github.com/juju/juju/controller"
+	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
 	jujuagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/changestream"
+	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/domain"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 	"github.com/juju/juju/worker/common"
 	workerstate "github.com/juju/juju/worker/state"
 )
@@ -17,8 +26,10 @@ import (
 // ManifoldConfig holds the information needed to run an
 // auditconfigupdater in a dependency.Engine.
 type ManifoldConfig struct {
-	AgentName string
-	StateName string
+	AgentName        string
+	StateName        string
+	ChangeStreamName string
+
 	NewWorker func(ConfigSource, auditlog.Config, AuditLogFactory) (worker.Worker, error)
 }
 
@@ -29,6 +40,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
+	}
+	if config.ChangeStreamName == "" {
+		return errors.NotValidf("empty ChangeStreamName")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -43,6 +57,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AgentName,
 			config.StateName,
+			config.ChangeStreamName,
 		},
 		Start:  config.start,
 		Output: output,
@@ -63,10 +78,6 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 	if err := context.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
 	}
-	statePool, err := stTracker.Use()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	defer func() {
 		if err != nil {
 			_ = stTracker.Done()
@@ -75,7 +86,27 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 
 	logDir := agent.CurrentConfig().LogDir()
 
-	st, err := statePool.SystemState()
+	// Get controller config.
+	var watchableDBGetter changestream.WatchableDBGetter
+	if err = context.Get(config.ChangeStreamName, &watchableDBGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+	dbFactory := domain.NewTxnRunnerFactoryForNamespace(
+		watchableDBGetter.GetWatchableDB,
+		coredatabase.ControllerNS,
+	)
+
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(dbFactory),
+		domain.NewWatcherFactory(
+			func() (changestream.WatchableDB, error) {
+				return watchableDBGetter.GetWatchableDB(coredatabase.ControllerNS)
+			},
+			loggo.GetLogger("juju.worker.auditconfigupdater"),
+		),
+	)
+
+	controllerConfig, err := ctrlConfigService.ControllerConfig(ctx.TODO())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -83,7 +114,7 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 	logFactory := func(cfg auditlog.Config) auditlog.AuditLog {
 		return auditlog.NewLogFile(logDir, cfg.MaxSizeMB, cfg.MaxBackups)
 	}
-	auditConfig, err := initialConfig(st)
+	auditConfig, err := initialConfig(controllerConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -91,7 +122,7 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		auditConfig.Target = logFactory(auditConfig)
 	}
 
-	w, err := config.NewWorker(st, auditConfig, logFactory)
+	w, err := config.NewWorker(ctrlConfigService, auditConfig, logFactory)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -118,11 +149,7 @@ func output(in worker.Worker, out interface{}) error {
 	return nil
 }
 
-func initialConfig(source ConfigSource) (auditlog.Config, error) {
-	cfg, err := source.ControllerConfig()
-	if err != nil {
-		return auditlog.Config{}, errors.Trace(err)
-	}
+func initialConfig(cfg controller.Config) (auditlog.Config, error) {
 	result := auditlog.Config{
 		Enabled:        cfg.AuditingEnabled(),
 		CaptureAPIArgs: cfg.AuditLogCaptureArgs(),

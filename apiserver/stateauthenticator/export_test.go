@@ -26,7 +26,7 @@ func ServerBakery(a *Authenticator, identClient identchecker.IdentityClient) (*i
 }
 
 func ServerBakeryExpiresImmediately(a *Authenticator, identClient identchecker.IdentityClient) (*identchecker.Bakery, error) {
-	auth, err := newExternalMacaroonAuth(a.authContext.st, a.authContext.clock, 0, identClient)
+	auth, err := newExternalMacaroonAuth(a.authContext.st, a.ctrlConfigService, a.authContext.clock, 0, identClient)
 	if err != nil {
 		return nil, err
 	}

@@ -8,12 +8,18 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
+	"github.com/juju/juju/core/changestream"
+	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/domain"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 	workerstate "github.com/juju/juju/worker/state"
 )
 
@@ -23,6 +29,7 @@ type ManifoldConfig struct {
 	ClockName          string
 	ControllerPortName string
 	StateName          string
+	ChangeStreamName   string
 
 	NewStateAuthenticator NewStateAuthenticatorFunc
 }
@@ -40,6 +47,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewStateAuthenticator == nil {
 		return errors.NotValidf("nil NewStateAuthenticator")
+	}
+	if config.ChangeStreamName == "" {
+		return errors.NotValidf("empty ChangeStreamName")
 	}
 	return nil
 }
@@ -68,9 +78,27 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var dbGetter changestream.WatchableDBGetter
+	if err := context.Get(config.ChangeStreamName, &dbGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactoryForNamespace(
+			dbGetter.GetWatchableDB,
+			coredatabase.ControllerNS,
+		)),
+		domain.NewWatcherFactory(
+			func() (changestream.WatchableDB, error) {
+				return dbGetter.GetWatchableDB(coredatabase.ControllerNS)
+			},
+			loggo.GetLogger("juju.worker.httpserverargs"),
+		),
+	)
+
 	mux := apiserverhttp.NewMux()
 	abort := make(chan struct{})
-	authenticator, err := config.NewStateAuthenticator(statePool, mux, clock, abort)
+	authenticator, err := config.NewStateAuthenticator(statePool, mux, clock, abort, ctrlConfigService)
 	if err != nil {
 		_ = stTracker.Done()
 		return nil, errors.Trace(err)
@@ -92,6 +120,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ClockName,
 			config.ControllerPortName,
 			config.StateName,
+			config.ChangeStreamName,
 		},
 		Start:  config.start,
 		Output: manifoldOutput,
@@ -144,6 +173,7 @@ type argsWorker struct {
 	mux           *apiserverhttp.Mux
 	authenticator macaroon.LocalMacaroonAuthenticator
 	tomb          tomb.Tomb
+	trackedDB     coredatabase.TxnRunner
 }
 
 func (w *argsWorker) Kill() {

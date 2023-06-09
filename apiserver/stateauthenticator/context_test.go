@@ -5,6 +5,7 @@ package stateauthenticator_test
 
 import (
 	"context"
+	"go.uber.org/mock/gomock"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -30,15 +31,21 @@ import (
 
 type macaroonCommonSuite struct {
 	statetesting.StateSuite
-	discharger    *bakerytest.Discharger
-	authenticator *stateauthenticator.Authenticator
-	clock         *testclock.Clock
+	discharger        *bakerytest.Discharger
+	authenticator     *stateauthenticator.Authenticator
+	clock             *testclock.Clock
+	ctrlConfigService *MockControllerConfigGetter
 }
 
 func (s *macaroonCommonSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ctrlConfigService = NewMockControllerConfigGetter(ctrl)
+
 	s.clock = testclock.NewClock(time.Now())
-	authenticator, err := stateauthenticator.NewAuthenticator(s.StatePool, s.clock)
+	authenticator, err := stateauthenticator.NewAuthenticator(s.StatePool, s.clock, s.ctrlConfigService)
 	c.Assert(err, jc.ErrorIsNil)
 	s.authenticator = authenticator
 }

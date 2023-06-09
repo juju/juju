@@ -41,6 +41,7 @@ type Suite struct {
 	controllerBackend *mocks.MockControllerState
 	backend           *mocks.MockBackend
 	precheckBackend   *mocks.MockPrecheckBackend
+	ctrlConfigService *mocks.MockControllerConfigGetter
 
 	controllerUUID string
 	modelUUID      string
@@ -54,6 +55,11 @@ var _ = gc.Suite(&Suite{})
 
 func (s *Suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
 
 	s.controllerUUID = utils.MustNewUUID().String()
 	s.modelUUID = utils.MustNewUUID().String()
@@ -195,7 +201,11 @@ func (s *Suite) TestSourceControllerInfo(c *gc.C) {
 		},
 		NetPort: 666,
 	}}}
-	s.controllerBackend.EXPECT().APIHostPortsForClients().Return(apiAddr, nil)
+	s.controllerBackend.EXPECT().APIHostPortsForClients(controller.Config{
+		controller.ControllerUUIDKey: coretesting.ControllerTag.Id(),
+		controller.ControllerName:    "mycontroller",
+		controller.CACertKey:         "cacert",
+	}).Return(apiAddr, nil)
 
 	info, err := s.mustMakeAPI(c).SourceControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
@@ -600,6 +610,7 @@ func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 		&stubPresence{},
 		func(names.ModelTag) (environscloudspec.CloudSpec, error) { return s.cloudSpec, nil },
 		stubLeadership{},
+		s.ctrlConfigService,
 	)
 }
 

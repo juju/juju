@@ -109,7 +109,8 @@ func open(
 		newPolicy,
 		clock,
 		runTransactionObserver,
-		maxTxnAttempts)
+		maxTxnAttempts,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

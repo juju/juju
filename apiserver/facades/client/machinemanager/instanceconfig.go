@@ -4,6 +4,7 @@
 package machinemanager
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/collections/set"
@@ -13,12 +14,17 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/stateenvirons"
 )
+
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 type InstanceConfigBackend interface {
 	Model() (Model, error)
@@ -30,7 +36,7 @@ type InstanceConfigBackend interface {
 // is needed for configuring manual machines.
 // It is exposed for testing purposes.
 // TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.
-func InstanceConfig(ctrlSt ControllerBackend, st InstanceConfigBackend, machineId, nonce, dataDir string) (*instancecfg.InstanceConfig, error) {
+func InstanceConfig(ctrlSt ControllerBackend, st InstanceConfigBackend, machineId, nonce, dataDir string, ctrlConfigService ControllerConfigGetter) (*instancecfg.InstanceConfig, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting state model")
@@ -70,19 +76,20 @@ func InstanceConfig(ctrlSt ControllerBackend, st InstanceConfigBackend, machineI
 		Number: agentVersion,
 		OSType: machine.Base().OS,
 		Arch:   *hc.Arch,
-	})
+	},
+		ctrlConfigService)
 	if err != nil {
 		return nil, errors.Annotate(err, "finding agent binaries")
 	}
 
-	controllerConfig, err := ctrlSt.ControllerConfig()
+	controllerConfig, err := ctrlConfigService.ControllerConfig(context.TODO())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	caCert, _ := controllerConfig.CACert()
 
 	// Get the API connection info; attempt all API addresses.
-	apiHostPorts, err := ctrlSt.APIHostPortsForAgents()
+	apiHostPorts, err := ctrlSt.APIHostPortsForAgents(controllerConfig)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting API addresses")
 	}

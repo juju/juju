@@ -4,6 +4,8 @@
 package spaces
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
@@ -59,22 +61,24 @@ func (st renameSpaceState) ConstraintsBySpaceName(spaceName string) ([]Constrain
 }
 
 type spaceRenameModelOp struct {
-	st           RenameSpaceState
-	isController bool
-	space        RenameSpace
-	settings     Settings
-	toName       string
+	st                RenameSpaceState
+	isController      bool
+	space             RenameSpace
+	settings          Settings
+	toName            string
+	ctrlConfigService ControllerConfigGetter
 }
 
 func NewRenameSpaceOp(
-	isController bool, settings Settings, st RenameSpaceState, space RenameSpace, toName string,
+	isController bool, settings Settings, st RenameSpaceState, space RenameSpace, toName string, ctrlConfigService ControllerConfigGetter,
 ) *spaceRenameModelOp {
 	return &spaceRenameModelOp{
-		st:           st,
-		settings:     settings,
-		space:        space,
-		isController: isController,
-		toName:       toName,
+		st:                st,
+		settings:          settings,
+		space:             space,
+		isController:      isController,
+		toName:            toName,
+		ctrlConfigService: ctrlConfigService,
 	}
 }
 
@@ -116,7 +120,7 @@ func (o *spaceRenameModelOp) Build(attempt int) ([]txn.Op, error) {
 
 // getSettingsChanges get's skipped and returns nil if we are not in the controllerModel
 func (o *spaceRenameModelOp) getSettingsChanges(fromSpaceName, toName string) (settings.ItemChanges, error) {
-	currentControllerConfig, err := o.st.ControllerConfig()
+	currentControllerConfig, err := o.ctrlConfigService.ControllerConfig(context.TODO())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

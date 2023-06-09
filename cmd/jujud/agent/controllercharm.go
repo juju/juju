@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/charmhub"
+	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
 	corearch "github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
@@ -35,7 +37,19 @@ import (
 
 const controllerCharmURL = "ch:juju-controller"
 
-func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constraints.Value, charmPath string, channel charm.Channel, isCAAS bool, unitPassword string) (resultErr error) {
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+func (c *BootstrapCommand) deployControllerCharm(
+	st *state.State,
+	cons constraints.Value,
+	charmPath string,
+	channel charm.Channel,
+	isCAAS bool,
+	unitPassword string,
+	controllerConfig controller.Config,
+) (resultErr error) {
 	arch := corearch.DefaultArchitecture
 	base := jujuversion.DefaultSupportedLTSBase()
 	if cons.HasArch() {
@@ -104,8 +118,7 @@ func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constrain
 	origin.Platform.Channel = base.Channel.String()
 
 	// Once the charm is added, set up the controller application.
-	controllerUnit, err = addControllerApplication(
-		st, curl, *origin, cons, controllerAddress)
+	controllerUnit, err = addControllerApplication(st, curl, *origin, cons, controllerAddress, controllerConfig)
 	if err != nil {
 		return errors.Annotate(err, "cannot add controller application")
 	}
@@ -298,6 +311,7 @@ func addControllerApplication(
 	origin corecharm.Origin,
 	cons constraints.Value,
 	address string,
+	controllerConfig controller.Config,
 ) (*state.Unit, error) {
 	ch, err := st.Charm(curl)
 	if err != nil {
@@ -306,17 +320,14 @@ func addControllerApplication(
 	cfg := charm.Settings{
 		"is-juju": true,
 	}
-	controllerCfg, err := st.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cfg["identity-provider-url"] = controllerCfg.IdentityURL()
-	addr := controllerCfg.PublicDNSAddress()
+
+	cfg["identity-provider-url"] = controllerConfig.IdentityURL()
+	addr := controllerConfig.PublicDNSAddress()
 	if addr == "" {
 		addr = address
 	}
 	if addr != "" {
-		cfg["controller-url"] = api.ControllerAPIURL(addr, controllerCfg.APIPort())
+		cfg["controller-url"] = api.ControllerAPIURL(addr, controllerConfig.APIPort())
 	}
 
 	configSchema := environschema.Fields{

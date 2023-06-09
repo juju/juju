@@ -6,10 +6,13 @@ package apiserver
 import (
 	"context"
 	"fmt"
+
 	"net/http"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/domain"
+	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v3"
 
@@ -25,6 +28,8 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/syslogger"
 )
@@ -131,11 +136,20 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Annotate(err, "getting log sink config")
 	}
 
-	systemState, err := config.StatePool.SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	controllerConfig, err := systemState.ControllerConfig()
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactoryForNamespace(
+			config.DBGetter.GetWatchableDB,
+			coredatabase.ControllerNS,
+		)),
+		domain.NewWatcherFactory(
+			func() (changestream.WatchableDB, error) {
+				return config.DBGetter.GetWatchableDB(coredatabase.ControllerNS)
+			},
+			loggo.GetLogger("juju.apiserver"),
+		),
+	)
+
+	controllerConfig, err := ctrlConfigService.ControllerConfig(context.TODO())
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot fetch the controller config")
 	}

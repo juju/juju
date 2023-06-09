@@ -20,6 +20,7 @@ type NewStateAuthenticatorFunc func(
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
 	abort <-chan struct{},
+	ctrlConfigService stateauthenticator.ControllerConfigGetter,
 ) (macaroon.LocalMacaroonAuthenticator, error)
 
 // NewStateAuthenticator returns a new LocalMacaroonAuthenticator that
@@ -31,8 +32,9 @@ func NewStateAuthenticator(
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
 	abort <-chan struct{},
+	ctrlConfigService stateauthenticator.ControllerConfigGetter,
 ) (macaroon.LocalMacaroonAuthenticator, error) {
-	stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, clock)
+	stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, clock, ctrlConfigService)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

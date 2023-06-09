@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/permission"
@@ -46,6 +47,10 @@ var (
 	// Overridden by tests.
 	supportedFeaturesGetter = stateenvirons.SupportedFeatures
 )
+
+type ControllerConfigGetter interface {
+	ControllerConfig(stdcontext.Context) (controller.Config, error)
+}
 
 type newCaasBrokerFunc func(_ stdcontext.Context, args environs.OpenParams) (caas.Broker, error)
 
@@ -71,6 +76,7 @@ type ModelManagerAPI struct {
 	model               common.Model
 	getBroker           newCaasBrokerFunc
 	callContext         context.ProviderCallContext
+	ctrlConfigService   ControllerConfigGetter
 }
 
 // NewModelManagerAPI creates a new api server endpoint for managing
@@ -85,6 +91,7 @@ func NewModelManagerAPI(
 	authorizer facade.Authorizer,
 	m common.Model,
 	callCtx context.ProviderCallContext,
+	ctrlConfigService ControllerConfigGetter,
 ) (*ModelManagerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -113,6 +120,7 @@ func NewModelManagerAPI(
 		isAdmin:             isAdmin,
 		model:               m,
 		callContext:         callCtx,
+		ctrlConfigService:   ctrlConfigService,
 	}, nil
 }
 
@@ -185,7 +193,8 @@ func (m *ModelManagerAPI) newModelConfig(
 			}
 			toolsList, err := m.toolsFinder.FindAgents(common.FindAgentsParams{
 				Number: n,
-			})
+			},
+				m.ctrlConfigService)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -394,7 +403,7 @@ func (m *ModelManagerAPI) newCAASModel(
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to create config")
 	}
-	controllerConfig, err := m.state.ControllerConfig()
+	controllerConfig, err := m.ctrlConfigService.ControllerConfig(stdcontext.TODO())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting controller config")
 	}
@@ -461,7 +470,7 @@ func (m *ModelManagerAPI) newModel(
 		return nil, errors.Annotate(err, "failed to create config")
 	}
 
-	controllerCfg, err := m.state.ControllerConfig()
+	controllerCfg, err := m.ctrlConfigService.ControllerConfig(stdcontext.TODO())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -775,12 +784,12 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 // DestroyModels will try to destroy the specified models.
 // If there is a block on destruction, this method will return an error.
 // From ModelManager v7 onwards, DestroyModels gains 'force' and 'max-wait' parameters.
-func (m *ModelManagerAPI) DestroyModels(ctx stdcontext.Context, args params.DestroyModelsParams) (params.ErrorResults, error) {
+func (m *ModelManagerAPI) DestroyModels(ctx stdcontext.Context, ctrlConfigService ControllerConfigGetter, args params.DestroyModelsParams) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Models)),
 	}
 
-	destroyModel := func(modelUUID string, destroyStorage, force *bool, maxWait *time.Duration, timeout *time.Duration) error {
+	destroyModel := func(modelUUID string, destroyStorage, force *bool, maxWait *time.Duration, timeout *time.Duration, ctrlConfigService ControllerConfigGetter) error {
 		st, releaseSt, err := m.state.GetBackend(modelUUID)
 		if err != nil {
 			return errors.Trace(err)
@@ -797,7 +806,7 @@ func (m *ModelManagerAPI) DestroyModels(ctx stdcontext.Context, args params.Dest
 			}
 		}
 
-		err = errors.Trace(common.DestroyModel(st, destroyStorage, force, maxWait, timeout))
+		err = errors.Trace(common.DestroyModel(st, destroyStorage, force, maxWait, timeout, ctrlConfigService))
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -820,7 +829,7 @@ func (m *ModelManagerAPI) DestroyModels(ctx stdcontext.Context, args params.Dest
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if err := destroyModel(tag.Id(), arg.DestroyStorage, arg.Force, arg.MaxWait, arg.Timeout); err != nil {
+		if err := destroyModel(tag.Id(), arg.DestroyStorage, arg.Force, arg.MaxWait, arg.Timeout, ctrlConfigService); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}

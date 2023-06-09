@@ -33,7 +33,7 @@ type ToolsFindEntity interface {
 type ToolsURLGetter interface {
 	// ToolsURLs returns URLs for the tools with
 	// the specified binary version.
-	ToolsURLs(v version.Binary) ([]string, error)
+	ToolsURLs(v version.Binary, ctrlConfigService ControllerConfigGetter) ([]string, error)
 }
 
 // APIHostPortsForAgentsGetter is an interface providing
@@ -42,7 +42,7 @@ type APIHostPortsForAgentsGetter interface {
 	// APIHostPortsForAgents returns the HostPorts for each API server that
 	// are suitable for agent-to-controller API communication based on the
 	// configured (if any) controller management space.
-	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
+	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 }
 
 // ToolsStorageGetter is an interface providing the ToolsStorage method.
@@ -65,12 +65,13 @@ type AgentTooler interface {
 // ToolsGetter implements a common Tools method for use by various
 // facades.
 type ToolsGetter struct {
-	entityFinder       ToolsFindEntity
-	configGetter       environs.EnvironConfigGetter
-	toolsStorageGetter ToolsStorageGetter
-	toolsFinder        ToolsFinder
-	urlGetter          ToolsURLGetter
-	getCanRead         GetAuthFunc
+	entityFinder           ToolsFindEntity
+	configGetter           environs.EnvironConfigGetter
+	toolsStorageGetter     ToolsStorageGetter
+	toolsFinder            ToolsFinder
+	urlGetter              ToolsURLGetter
+	getCanRead             GetAuthFunc
+	controllerConfigGetter ControllerConfigGetter
 }
 
 // NewToolsGetter returns a new ToolsGetter. The GetAuthFunc will be
@@ -82,14 +83,16 @@ func NewToolsGetter(
 	urlGetter ToolsURLGetter,
 	toolsFinder ToolsFinder,
 	getCanRead GetAuthFunc,
+	controllerConfigGetter ControllerConfigGetter,
 ) *ToolsGetter {
 	return &ToolsGetter{
-		entityFinder:       entityFinder,
-		configGetter:       configGetter,
-		toolsStorageGetter: toolsStorageGetter,
-		urlGetter:          urlGetter,
-		toolsFinder:        toolsFinder,
-		getCanRead:         getCanRead,
+		entityFinder:           entityFinder,
+		configGetter:           configGetter,
+		toolsStorageGetter:     toolsStorageGetter,
+		urlGetter:              urlGetter,
+		toolsFinder:            toolsFinder,
+		getCanRead:             getCanRead,
+		controllerConfigGetter: controllerConfigGetter,
 	}
 }
 
@@ -159,7 +162,7 @@ func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersio
 		Arch:   existingTools.Version.Arch,
 	}
 
-	return t.toolsFinder.FindAgents(findParams)
+	return t.toolsFinder.FindAgents(findParams, t.controllerConfigGetter)
 }
 
 // ToolsSetter implements a common Tools method for use by various
@@ -243,7 +246,7 @@ type FindAgentsParams struct {
 
 // ToolsFinder defines methods for finding tools.
 type ToolsFinder interface {
-	FindAgents(args FindAgentsParams) (coretools.List, error)
+	FindAgents(args FindAgentsParams, ctrlConfigService ControllerConfigGetter) (coretools.List, error)
 }
 
 type toolsFinder struct {
@@ -266,7 +269,7 @@ func NewToolsFinder(
 
 // FindAgents calls findMatchingTools and then rewrites the URLs
 // using the provided ToolsURLGetter.
-func (f *toolsFinder) FindAgents(args FindAgentsParams) (coretools.List, error) {
+func (f *toolsFinder) FindAgents(args FindAgentsParams, ctrlConfigService ControllerConfigGetter) (coretools.List, error) {
 	list, err := f.findMatchingAgents(args)
 	if err != nil {
 		return nil, err
@@ -277,7 +280,7 @@ func (f *toolsFinder) FindAgents(args FindAgentsParams) (coretools.List, error) 
 	// download and cache them if the client requests that version.
 	var fullList coretools.List
 	for _, baseTools := range list {
-		urls, err := f.urlGetter.ToolsURLs(baseTools.Version)
+		urls, err := f.urlGetter.ToolsURLs(baseTools.Version, ctrlConfigService)
 		if err != nil {
 			return nil, err
 		}
@@ -420,8 +423,8 @@ func NewToolsURLGetter(modelUUID string, a APIHostPortsForAgentsGetter) *toolsUR
 	return &toolsURLGetter{modelUUID, a}
 }
 
-func (t *toolsURLGetter) ToolsURLs(v version.Binary) ([]string, error) {
-	addrs, err := apiAddresses(t.apiHostPortsGetter)
+func (t *toolsURLGetter) ToolsURLs(v version.Binary, ctrlConfigService ControllerConfigGetter) ([]string, error) {
+	addrs, err := apiAddresses(t.apiHostPortsGetter, ctrlConfigService)
 	if err != nil {
 		return nil, err
 	}

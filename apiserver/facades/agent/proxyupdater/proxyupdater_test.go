@@ -4,6 +4,7 @@
 package proxyupdater_test
 
 import (
+	"go.uber.org/mock/gomock"
 	"time"
 
 	"github.com/juju/names/v4"
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/proxyupdater"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
@@ -25,11 +27,12 @@ import (
 type ProxyUpdaterSuite struct {
 	coretesting.BaseSuite
 
-	state      *stubBackend
-	resources  *common.Resources
-	authorizer apiservertesting.FakeAuthorizer
-	facade     *proxyupdater.API
-	tag        names.MachineTag
+	state             *stubBackend
+	resources         *common.Resources
+	authorizer        apiservertesting.FakeAuthorizer
+	facade            *proxyupdater.API
+	tag               names.MachineTag
+	ctrlConfigService *MockControllerConfigGetter
 }
 
 var _ = gc.Suite(&ProxyUpdaterSuite{})
@@ -51,7 +54,12 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 	s.state.SetUp(c)
 	s.AddCleanup(func(_ *gc.C) { s.state.Kill() })
 
-	api, err := proxyupdater.NewAPIV2(s.state, s.state, s.resources, s.authorizer)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ctrlConfigService = NewMockControllerConfigGetter(ctrl)
+
+	api, err := proxyupdater.NewAPIV2(s.state, s.state, s.resources, s.authorizer, s.ctrlConfigService)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.NotNil)
 	s.facade = api
@@ -281,7 +289,7 @@ func (sb *stubBackend) ModelConfig() (*config.Config, error) {
 	return coretesting.CustomModelConfig(sb.c, sb.configAttrs), nil
 }
 
-func (sb *stubBackend) APIHostPortsForAgents() ([]network.SpaceHostPorts, error) {
+func (sb *stubBackend) APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error) {
 	sb.MethodCall(sb, "APIHostPortsForAgents")
 	if err := sb.NextErr(); err != nil {
 		return nil, err

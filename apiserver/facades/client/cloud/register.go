@@ -8,6 +8,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/domain"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -20,11 +23,18 @@ func Register(registry facade.FacadeRegistry) {
 // newFacadeV7 is used for API registration.
 func newFacadeV7(context facade.Context) (*CloudAPI, error) {
 	st := NewStateBackend(context.State())
-	pool := NewModelPoolBackend(context.StatePool())
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactory(context.ControllerDB)),
+		domain.NewWatcherFactory(
+			context.ControllerDB,
+			context.Logger().Child("controllerconfig"),
+		),
+	)
+	pool := NewModelPoolBackend(context.StatePool(), ctrlConfigService)
 	systemState, err := pool.SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	ctlrSt := NewStateBackend(systemState)
-	return NewCloudAPI(st, ctlrSt, pool, context.Auth(), context.Logger().Child("cloud"))
+	return NewCloudAPI(st, ctlrSt, pool, context.Auth(), context.Logger().Child("cloud"), ctrlConfigService)
 }

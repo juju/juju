@@ -4,10 +4,13 @@
 package backups
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/replicaset/v3"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/backups"
 )
@@ -16,9 +19,13 @@ var waitUntilReady = func(s *mgo.Session, timeout int) error {
 	return replicaset.WaitUntilReady(s, timeout)
 }
 
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
 // Create is the API method that requests juju to create a new backup
 // of its state.
-func (a *API) Create(args params.BackupsCreateArgs) (params.BackupsMetadataResult, error) {
+func (a *API) Create(args params.BackupsCreateArgs, controllerConfig controller.Config) (params.BackupsMetadataResult, error) {
 	backupsMethods := newBackups(a.paths)
 
 	session := a.backend.MongoSession().Copy()
@@ -44,7 +51,7 @@ func (a *API) Create(args params.BackupsCreateArgs) (params.BackupsMetadataResul
 		return result, errors.Trace(err)
 	}
 
-	meta, err := backups.NewMetadataState(a.backend, a.machineID, mBase.DisplayString())
+	meta, err := backups.NewMetadataState(a.backend, a.machineID, mBase.DisplayString(), controllerConfig)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

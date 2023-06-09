@@ -4,7 +4,10 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -14,7 +17,7 @@ import (
 // APIAddressAccessor describes methods that allow agents to maintain
 // up-to-date information on how to connect to the Juju API server.
 type APIAddressAccessor interface {
-	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
+	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 	WatchAPIHostPortsForAgents() state.NotifyWatcher
 }
 
@@ -23,22 +26,28 @@ type APIAddressAccessor interface {
 // agents, which are bound by the configured controller management space.
 // It is not suitable for callers requiring *all* available API addresses.
 type APIAddresser struct {
-	resources facade.Resources
-	getter    APIAddressAccessor
+	resources         facade.Resources
+	getter            APIAddressAccessor
+	ctrlConfigService ControllerConfigGetter
 }
 
 // NewAPIAddresser returns a new APIAddresser that uses the given getter to
 // fetch its addresses.
-func NewAPIAddresser(getter APIAddressAccessor, resources facade.Resources) *APIAddresser {
+func NewAPIAddresser(getter APIAddressAccessor, resources facade.Resources, ctrlConfigService ControllerConfigGetter) *APIAddresser {
 	return &APIAddresser{
-		getter:    getter,
-		resources: resources,
+		getter:            getter,
+		resources:         resources,
+		ctrlConfigService: ctrlConfigService,
 	}
 }
 
 // APIHostPorts returns the API server addresses.
 func (a *APIAddresser) APIHostPorts() (params.APIHostPortsResult, error) {
-	sSvrs, err := a.getter.APIHostPortsForAgents()
+	controllerConfig, err := a.ctrlConfigService.ControllerConfig(context.TODO())
+	if err != nil {
+		return params.APIHostPortsResult{}, err
+	}
+	sSvrs, err := a.getter.APIHostPortsForAgents(controllerConfig)
 	if err != nil {
 		return params.APIHostPortsResult{}, err
 	}
@@ -67,7 +76,7 @@ func (a *APIAddresser) WatchAPIHostPorts() (params.NotifyWatchResult, error) {
 
 // APIAddresses returns the list of addresses used to connect to the API.
 func (a *APIAddresser) APIAddresses() (params.StringsResult, error) {
-	addrs, err := apiAddresses(a.getter)
+	addrs, err := apiAddresses(a.getter, a.ctrlConfigService)
 	if err != nil {
 		return params.StringsResult{}, err
 	}
@@ -76,8 +85,12 @@ func (a *APIAddresser) APIAddresses() (params.StringsResult, error) {
 	}, nil
 }
 
-func apiAddresses(getter APIHostPortsForAgentsGetter) ([]string, error) {
-	apiHostPorts, err := getter.APIHostPortsForAgents()
+func apiAddresses(getter APIHostPortsForAgentsGetter, ctrlConfigService ControllerConfigGetter) ([]string, error) {
+	controllerConfig, err := ctrlConfigService.ControllerConfig(context.TODO())
+	if err != nil {
+		return nil, err
+	}
+	apiHostPorts, err := getter.APIHostPortsForAgents(controllerConfig)
 	if err != nil {
 		return nil, err
 	}

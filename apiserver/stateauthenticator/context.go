@@ -32,7 +32,8 @@ const (
 // authContext holds authentication context shared
 // between all API endpoints.
 type authContext struct {
-	st *state.State
+	st                *state.State
+	ctrlConfigService ControllerConfigGetter
 
 	clock     clock.Clock
 	agentAuth authentication.AgentAuthenticator
@@ -75,10 +76,12 @@ func (OpenLoginAuthorizer) AuthorizeOps(ctx context.Context, authorizedOp bakery
 // newAuthContext creates a new authentication context for st.
 func newAuthContext(
 	st *state.State,
+	ctrlConfigService ControllerConfigGetter,
 	clock clock.Clock,
 ) (*authContext, error) {
 	ctxt := &authContext{
 		st:                    st,
+		ctrlConfigService:     ctrlConfigService,
 		clock:                 clock,
 		localUserInteractions: authentication.NewInteractions(),
 	}
@@ -234,7 +237,7 @@ func (a authenticator) localUserAuth() *authentication.LocalUserAuthenticator {
 // logins for external users. If it fails once, it will always fail.
 func (ctxt *authContext) externalMacaroonAuth(identClient identchecker.IdentityClient) (authentication.EntityAuthenticator, error) {
 	ctxt.macaroonAuthOnce.Do(func() {
-		ctxt._macaroonAuth, ctxt._macaroonAuthError = newExternalMacaroonAuth(ctxt.st, ctxt.clock, externalLoginExpiryTime, identClient)
+		ctxt._macaroonAuth, ctxt._macaroonAuthError = newExternalMacaroonAuth(ctxt.st, ctxt.ctrlConfigService, ctxt.clock, externalLoginExpiryTime, identClient)
 	})
 	if ctxt._macaroonAuth == nil {
 		return nil, errors.Trace(ctxt._macaroonAuthError)
@@ -252,8 +255,8 @@ const (
 // newExternalMacaroonAuth returns an authenticator that can authenticate
 // macaroon-based logins for external users. This is just a helper function
 // for authCtxt.externalMacaroonAuth.
-func newExternalMacaroonAuth(st *state.State, clock clock.Clock, expiryTime time.Duration, identClient identchecker.IdentityClient) (*authentication.ExternalMacaroonAuthenticator, error) {
-	controllerCfg, err := st.ControllerConfig()
+func newExternalMacaroonAuth(st *state.State, ctrlConfigService ControllerConfigGetter, clock clock.Clock, expiryTime time.Duration, identClient identchecker.IdentityClient) (*authentication.ExternalMacaroonAuthenticator, error) {
+	controllerCfg, err := ctrlConfigService.ControllerConfig(context.TODO())
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get model config")
 	}

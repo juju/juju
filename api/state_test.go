@@ -75,7 +75,7 @@ func (s *stateSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
 	// We intentionally set this to invalid values
 	badServers := network.NewSpaceHostPorts(1234, "0.1.2.3")
 	badServers[0].Scope = network.ScopeMachineLocal
-	err := s.ControllerModel(c).State().SetAPIHostPorts([]network.SpaceHostPorts{badServers})
+	err := s.ControllerModel(c).State().SetAPIHostPorts([]network.SpaceHostPorts{badServers}, s.ControllerConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	conn2 := s.openAPI(c)
@@ -276,7 +276,7 @@ func (s *stateSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
 			},
 		},
 	}
-	err := s.ControllerModel(c).State().SetAPIHostPorts(current)
+	err := s.ControllerModel(c).State().SetAPIHostPorts(current, s.ControllerConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	conn2 := s.OpenControllerAPI(c)

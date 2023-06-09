@@ -4,6 +4,7 @@
 package caasapplicationprovisioner
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -44,6 +45,10 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 )
 
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
 type APIGroup struct {
 	*common.PasswordChanger
 	*common.LifeGetter
@@ -68,6 +73,7 @@ type API struct {
 	registry           storage.ProviderRegistry
 	clock              clock.Clock
 	logger             loggo.Logger
+	cc                 ControllerConfigGetter
 }
 
 // NewStateCAASApplicationProvisionerAPI provides the signature required for facade registration.
@@ -288,7 +294,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		return nil, errors.NotProvisionedf("charm %q pending", *charmURL)
 	}
 
-	cfg, err := a.ctrlSt.ControllerConfig()
+	cfg, err := a.cc.ControllerConfig(context.TODO())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -335,7 +341,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting juju oci image path")
 	}
-	apiHostPorts, err := a.ctrlSt.APIHostPortsForAgents()
+	apiHostPorts, err := a.ctrlSt.APIHostPortsForAgents(cfg)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting api addresses")
 	}

@@ -31,6 +31,8 @@ type controllerConfigSuite struct {
 
 	st *mocks.MockControllerConfigState
 	cc *common.ControllerConfigAPI
+
+	ctrlConfigService *mocks.MockControllerConfigGetter
 }
 
 var _ = gc.Suite(&controllerConfigSuite{})
@@ -38,8 +40,10 @@ var _ = gc.Suite(&controllerConfigSuite{})
 func (s *controllerConfigSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
+
 	s.st = mocks.NewMockControllerConfigState(ctrl)
-	s.cc = common.NewStateControllerConfig(s.st)
+	s.cc = common.NewStateControllerConfig(s.st, s.ctrlConfigService)
 	return ctrl
 }
 
@@ -80,7 +84,7 @@ func (s *controllerConfigSuite) TestControllerConfigFetchError(c *gc.C) {
 }
 
 func (s *controllerConfigSuite) expectStateControllerInfo(c *gc.C) {
-	s.st.EXPECT().APIHostPortsForAgents().Return([]network.SpaceHostPorts{
+	s.st.EXPECT().APIHostPortsForAgents(controller.Config{}).Return([]network.SpaceHostPorts{
 		network.NewSpaceHostPorts(17070, "192.168.1.1"),
 	}, nil)
 	s.st.EXPECT().ControllerConfig().Return(map[string]interface{}{
@@ -107,6 +111,8 @@ type controllerInfoSuite struct {
 
 	localState *state.State
 	localModel *state.Model
+
+	ctrlConfigService *mocks.MockControllerConfigGetter
 }
 
 var _ = gc.Suite(&controllerInfoSuite{})
@@ -122,16 +128,21 @@ func (s *controllerInfoSuite) SetUpTest(c *gc.C) {
 	model, err := s.localState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	s.localModel = model
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
 }
 
 func (s *controllerInfoSuite) TestControllerInfoLocalModel(c *gc.C) {
-	cc := common.NewStateControllerConfig(s.localState)
+	cc := common.NewStateControllerConfig(s.localState, s.ctrlConfigService)
 	results, err := cc.ControllerAPIInfoForModels(params.Entities{
 		Entities: []params.Entity{{Tag: s.localModel.ModelTag().String()}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	systemState := s.ControllerModel(c).State()
-	apiAddr, err := systemState.APIHostPortsForClients()
+	apiAddr, err := systemState.APIHostPortsForClients(controller.Config{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0].Addresses, gc.HasLen, 1)
 	c.Assert(results.Results[0].Addresses[0], gc.Equals, apiAddr[0][0].String())
@@ -148,7 +159,7 @@ func (s *controllerInfoSuite) TestControllerInfoExternalModel(c *gc.C) {
 	}
 	_, err := ec.Save(info, modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	cc := common.NewStateControllerConfig(s.localState)
+	cc := common.NewStateControllerConfig(s.localState, s.ctrlConfigService)
 	results, err := cc.ControllerAPIInfoForModels(params.Entities{
 		Entities: []params.Entity{{Tag: names.NewModelTag(modelUUID).String()}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -158,7 +169,7 @@ func (s *controllerInfoSuite) TestControllerInfoExternalModel(c *gc.C) {
 }
 
 func (s *controllerInfoSuite) TestControllerInfoMigratedController(c *gc.C) {
-	cc := common.NewStateControllerConfig(s.localState)
+	cc := common.NewStateControllerConfig(s.localState, s.ctrlConfigService)
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	modelState := f.MakeModel(c, &factory.ModelParams{})

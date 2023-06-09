@@ -1201,7 +1201,7 @@ func (s *WatchRelationUnitsSuite) TestPeer(c *gc.C) {
 			fmt.Sprintf("riak%d.example.com", i),
 			network.WithScope(network.ScopeCloudLocal),
 		)
-		err = machine.SetProviderAddresses(privateAddr)
+		err = machine.SetProviderAddresses(s.ControllerConfig, privateAddr)
 		c.Assert(err, jc.ErrorIsNil)
 		ru, err := rel.Unit(unit)
 		c.Assert(err, jc.ErrorIsNil)

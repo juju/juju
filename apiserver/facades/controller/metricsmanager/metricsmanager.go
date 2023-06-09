@@ -4,6 +4,7 @@
 package metricsmanager
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/clock"
@@ -16,6 +17,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/metricsender"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -27,6 +29,10 @@ var (
 	senderFactory     = metricsender.DefaultSenderFactory()
 )
 
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
 // MetricsManager defines the methods on the metricsmanager API end point.
 type MetricsManager interface {
 	CleanupOldMetrics(arg params.Entities) (params.ErrorResults, error)
@@ -36,12 +42,13 @@ type MetricsManager interface {
 // MetricsManagerAPI implements the metrics manager interface and is the concrete
 // implementation of the api end point.
 type MetricsManagerAPI struct {
-	state       *state.State
-	pool        *state.StatePool
-	model       *state.Model
-	accessModel common.GetAuthFunc
-	clock       clock.Clock
-	sender      metricsender.MetricSender
+	state             *state.State
+	pool              *state.StatePool
+	model             *state.Model
+	accessModel       common.GetAuthFunc
+	clock             clock.Clock
+	sender            metricsender.MetricSender
+	ctrlConfigService ControllerConfigGetter
 }
 
 var _ MetricsManager = (*MetricsManagerAPI)(nil)
@@ -58,6 +65,7 @@ func NewMetricsManagerAPI(
 	authorizer facade.Authorizer,
 	pool *state.StatePool,
 	clock clock.Clock,
+	ctrlConfigService ControllerConfigGetter,
 ) (*MetricsManagerAPI, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -78,7 +86,7 @@ func NewMetricsManagerAPI(
 		}, nil
 	}
 
-	config, err := st.ControllerConfig()
+	config, err := ctrlConfigService.ControllerConfig(context.TODO())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -87,12 +95,13 @@ func NewMetricsManagerAPI(
 		return nil, errors.Trace(err)
 	}
 	return &MetricsManagerAPI{
-		state:       st,
-		pool:        pool,
-		model:       m,
-		accessModel: accessModel,
-		clock:       clock,
-		sender:      sender,
+		state:             st,
+		pool:              pool,
+		model:             m,
+		accessModel:       accessModel,
+		clock:             clock,
+		sender:            sender,
+		ctrlConfigService: ctrlConfigService,
 	}, nil
 }
 

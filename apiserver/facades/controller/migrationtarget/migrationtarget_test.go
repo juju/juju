@@ -6,6 +6,7 @@ package migrationtarget_test
 import (
 	"context"
 	"fmt"
+	"go.uber.org/mock/gomock"
 	"time"
 
 	"github.com/juju/description/v4"
@@ -42,6 +43,7 @@ import (
 type Suite struct {
 	statetesting.StateSuite
 	authorizer *apiservertesting.FakeAuthorizer
+	cc         *MockControllerConfigGetter
 
 	facadeContext facadetest.Context
 	callContext   environscontext.ProviderCallContext
@@ -58,6 +60,11 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	// The call to StateSuite's SetUpTest uses s.InitialConfig so
 	// it has to happen here.
 	s.StateSuite.SetUpTest(c)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.cc = NewMockControllerConfigGetter(ctrl)
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:      s.Owner,
@@ -461,7 +468,7 @@ func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
 }
 
 func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stateenvirons.NewCAASBrokerFunc) (*migrationtarget.API, error) {
-	api, err := migrationtarget.NewAPI(&s.facadeContext, environFunc, brokerFunc)
+	api, err := migrationtarget.NewAPI(&s.facadeContext, environFunc, brokerFunc, s.cc)
 	return api, err
 }
 

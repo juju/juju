@@ -116,6 +116,8 @@ func coerceControllerConfigMap(m map[string]interface{}) (map[string]interface{}
 				return nil, err
 			}
 			result[k] = v
+		} else {
+			result[k] = m[k]
 		}
 	}
 	return result, nil

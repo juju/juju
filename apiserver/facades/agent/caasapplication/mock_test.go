@@ -82,7 +82,7 @@ func (st *mockState) ControllerConfig() (jujucontroller.Config, error) {
 	return st.controllerConfig, nil
 }
 
-func (st *mockState) APIHostPortsForAgents() ([]network.SpaceHostPorts, error) {
+func (st *mockState) APIHostPortsForAgents(jujucontroller.Config) ([]network.SpaceHostPorts, error) {
 	st.MethodCall(st, "APIHostPortsForAgents")
 	addrs := network.NewSpaceAddresses("52.7.1.1", "10.0.2.1")
 	ctlr1 := network.SpaceAddressesWithPort(addrs, 17070)

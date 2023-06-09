@@ -4,6 +4,7 @@
 package migrationmaster
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/juju/collections/set"
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
@@ -24,6 +26,10 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
 )
+
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 // API implements the API required for the model migration
 // master worker.
@@ -37,6 +43,7 @@ type API struct {
 	presence                facade.Presence
 	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error)
 	leadership              leadership.Reader
+	ctrlConfigService       ControllerConfigGetter
 }
 
 // NewAPI creates a new API server endpoint for the model migration
@@ -51,6 +58,7 @@ func NewAPI(
 	presence facade.Presence,
 	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error),
 	leadership leadership.Reader,
+	ctrlConfigService ControllerConfigGetter,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -65,6 +73,7 @@ func NewAPI(
 		presence:                presence,
 		environscloudspecGetter: environscloudspecGetter,
 		leadership:              leadership,
+		ctrlConfigService:       ctrlConfigService,
 	}, nil
 }
 
@@ -160,13 +169,13 @@ func (api *API) SourceControllerInfo() (params.MigrationSourceInfo, error) {
 		return empty, errors.Annotate(err, "retrieving local related models")
 	}
 
-	cfg, err := api.backend.ControllerConfig()
+	cfg, err := api.ctrlConfigService.ControllerConfig(context.TODO())
 	if err != nil {
 		return empty, errors.Annotate(err, "retrieving controller config")
 	}
 	cacert, _ := cfg.CACert()
 
-	hostports, err := api.controllerState.APIHostPortsForClients()
+	hostports, err := api.controllerState.APIHostPortsForClients(cfg)
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
@@ -364,7 +373,7 @@ func (api *API) MinionReports() (params.MinionReports, error) {
 // indicates how long the migration master worker should wait for minions to
 // reported on phases of a migration.
 func (api *API) MinionReportTimeout() (params.StringResult, error) {
-	cfg, err := api.backend.ControllerConfig()
+	cfg, err := api.ctrlConfigService.ControllerConfig(context.TODO())
 	if err != nil {
 		return params.StringResult{Error: apiservererrors.ServerError(err)}, nil
 	}

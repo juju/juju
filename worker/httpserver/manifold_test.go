@@ -5,6 +5,7 @@ package httpserver_test
 
 import (
 	"crypto/tls"
+	"go.uber.org/mock/gomock"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -22,11 +23,13 @@ import (
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/pki"
 	pkitest "github.com/juju/juju/pki/test"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/worker/httpserver"
+	"github.com/juju/juju/worker/httpserver/mocks"
 )
 
 type ManifoldSuite struct {
@@ -44,6 +47,7 @@ type ManifoldSuite struct {
 	prometheusRegisterer stubPrometheusRegisterer
 	tlsConfig            *tls.Config
 	controllerConfig     controller.Config
+	watchableDBGetter    *mocks.MockWatchableDBGetter
 
 	stub testing.Stub
 }
@@ -52,6 +56,10 @@ var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.watchableDBGetter = mocks.NewMockWatchableDBGetter(ctrl)
 
 	authority, err := pkitest.NewTestAuthority()
 	c.Assert(err, jc.ErrorIsNil)
@@ -75,6 +83,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		AuthorityName:        "authority",
 		HubName:              "hub",
 		StateName:            "state",
+		ChangeStreamName:     "change-stream",
 		MuxName:              "mux",
 		APIServerName:        "api-server",
 		Clock:                s.clock,
@@ -119,6 +128,7 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"authority":      s.authority,
 		"state":          &s.state,
 		"hub":            s.hub,
+		"change-stream":  s.watchableDBGetter,
 		"mux":            s.mux,
 		"raft-transport": nil,
 		"api-server":     nil,
@@ -129,8 +139,8 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 	return dt.StubContext(nil, resources)
 }
 
-func (s *ManifoldSuite) getControllerConfig(st *state.State) (controller.Config, error) {
-	s.stub.MethodCall(s, "GetControllerConfig", st)
+func (s *ManifoldSuite) getControllerConfig(dbGetter changestream.WatchableDBGetter) (controller.Config, error) {
+	s.stub.MethodCall(s, "GetControllerConfig", dbGetter)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
@@ -141,6 +151,7 @@ func (s *ManifoldSuite) newTLSConfig(
 	st *state.State,
 	_ httpserver.SNIGetterFunc,
 	_ httpserver.Logger,
+	config controller.Config,
 ) (*tls.Config, error) {
 	s.stub.MethodCall(s, "NewTLSConfig", st)
 	if err := s.stub.NextErr(); err != nil {
@@ -163,6 +174,7 @@ var expectedInputs = []string{
 	"mux",
 	"hub",
 	"api-server",
+	"change-stream",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -183,7 +195,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	w := s.startWorkerClean(c)
 	workertest.CleanKill(c, w)
 
-	s.stub.CheckCallNames(c, "NewTLSConfig", "GetControllerConfig", "NewWorker")
+	s.stub.CheckCallNames(c, "GetControllerConfig", "NewTLSConfig", "NewWorker")
 	newWorkerArgs := s.stub.Calls()[2].Args
 	c.Assert(newWorkerArgs, gc.HasLen, 1)
 	c.Assert(newWorkerArgs[0], gc.FitsTypeOf, httpserver.Config{})

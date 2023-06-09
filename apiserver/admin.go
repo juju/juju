@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/rpcreflect"
 	"github.com/juju/version/v2"
@@ -22,9 +23,14 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/pinger"
+	"github.com/juju/juju/domain"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -114,7 +120,26 @@ func (a *admin) login(ctx context.Context, req params.LoginRequest, loginVersion
 	if k, _ := names.TagKind(req.AuthTag); k == names.UserTagKind {
 		getHostPorts = ctrlSt.APIHostPortsForClients
 	}
-	hostPorts, err := getHostPorts()
+
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactoryForNamespace(
+			a.root.shared.dbGetter.GetWatchableDB,
+			database.ControllerNS,
+		)),
+		domain.NewWatcherFactory(
+			func() (changestream.WatchableDB, error) {
+				return a.root.shared.dbGetter.GetWatchableDB(database.ControllerNS)
+			},
+			loggo.GetLogger("juju.apiserver.admin"),
+		),
+	)
+
+	controllerConfig, err := ctrlConfigService.ControllerConfig(context.TODO())
+	if err != nil {
+		return fail, errors.Annotate(err, "unable to get controller config")
+	}
+
+	hostPorts, err := getHostPorts(controllerConfig)
 	if err != nil {
 		return fail, errors.Trace(err)
 	}

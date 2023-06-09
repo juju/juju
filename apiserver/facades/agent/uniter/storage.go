@@ -25,8 +25,8 @@ type StorageAPI struct {
 	accessUnit common.GetAuthFunc
 }
 
-// newStorageAPI creates a new server-side Storage API facade.
-func newStorageAPI(
+// NewStorageAPI creates a new server-side Storage API facade.
+func NewStorageAPI(
 	backend backend,
 	storage storageAccess,
 	resources facade.Resources,

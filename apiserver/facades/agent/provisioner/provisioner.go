@@ -4,6 +4,10 @@
 package provisioner
 
 import (
+	ctx "context"
+	"github.com/juju/juju/domain"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 	"sync"
 
 	"github.com/juju/collections/set"
@@ -18,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	corecontainer "github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
@@ -35,6 +40,10 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 )
+
+type ControllerConfigGetter interface {
+	ControllerConfig(ctx.Context) (controller.Config, error)
+}
 
 // ProvisionerAPI provides access to the Provisioner API facade.
 type ProvisionerAPI struct {
@@ -62,15 +71,16 @@ type ProvisionerAPI struct {
 	getAuthFunc             common.GetAuthFunc
 	getCanModify            common.GetAuthFunc
 	providerCallContext     context.ProviderCallContext
-	toolsFinder             common.ToolsFinder
+	ToolsFinder             common.ToolsFinder
 	logger                  loggo.Logger
+	ctrlConfigService       ControllerConfigGetter
 
 	// Used for MaybeWriteLXDProfile()
 	mu sync.Mutex
 }
 
-// NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
-func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
+// NewProvisionerFacade creates a new server-side ProvisionerAPI facade.
+func NewProvisionerFacade(ctx facade.Context) (*ProvisionerAPI, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -133,6 +143,14 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 		return nil, errors.Annotate(err, "instantiating network config API")
 	}
 
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
+		domain.NewWatcherFactory(
+			ctx.ControllerDB,
+			ctx.Logger().Child("controllerconfig"),
+		),
+	)
+
 	systemState, err := ctx.StatePool().SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -140,29 +158,33 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 	urlGetter := common.NewToolsURLGetter(model.UUID(), systemState)
 	callCtx := context.CallContext(st)
 	resources := ctx.Resources()
-	api := &ProvisionerAPI{
-		Remover:                 common.NewRemover(st, nil, false, getAuthFunc),
-		StatusSetter:            common.NewStatusSetter(st, getAuthFunc),
-		StatusGetter:            common.NewStatusGetter(st, getAuthFunc),
-		DeadEnsurer:             common.NewDeadEnsurer(st, nil, getAuthFunc),
-		PasswordChanger:         common.NewPasswordChanger(st, getAuthFunc),
-		LifeGetter:              common.NewLifeGetter(st, getAuthFunc),
-		APIAddresser:            common.NewAPIAddresser(systemState, resources),
-		ModelWatcher:            common.NewModelWatcher(model, resources, authorizer),
-		ModelMachinesWatcher:    common.NewModelMachinesWatcher(st, resources, authorizer),
-		ControllerConfigAPI:     common.NewStateControllerConfig(st),
-		NetworkConfigAPI:        netConfigAPI,
-		st:                      st,
-		m:                       model,
-		resources:               resources,
-		authorizer:              authorizer,
-		configGetter:            configGetter,
-		storageProviderRegistry: storageProviderRegistry,
-		storagePoolManager:      poolmanager.New(state.NewStateSettings(st), storageProviderRegistry),
-		getAuthFunc:             getAuthFunc,
-		getCanModify:            getCanModify,
-		providerCallContext:     callCtx,
-		logger:                  ctx.Logger().Child("provisioner"),
+	api, err := NewProvisionerAPI(
+		common.NewRemover(st, nil, false, getAuthFunc),
+		common.NewStatusSetter(st, getAuthFunc),
+		common.NewStatusGetter(st, getAuthFunc),
+		common.NewDeadEnsurer(st, nil, getAuthFunc),
+		common.NewPasswordChanger(st, getAuthFunc),
+		common.NewLifeGetter(st, getAuthFunc),
+		common.NewAPIAddresser(systemState, resources, ctrlConfigService),
+		common.NewModelWatcher(model, resources, authorizer),
+		common.NewModelMachinesWatcher(st, resources, authorizer),
+		common.NewStateControllerConfig(st, ctrlConfigService),
+		netConfigAPI,
+		st,
+		model,
+		resources,
+		authorizer,
+		configGetter,
+		storageProviderRegistry,
+		poolmanager.New(state.NewStateSettings(st), storageProviderRegistry),
+		getAuthFunc,
+		getCanModify,
+		callCtx,
+		ctx.Logger().Child("provisioner"),
+		ctrlConfigService,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	if isCaasModel {
 		return api, nil
@@ -172,8 +194,61 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 		return environs.GetEnviron(configGetter, environs.New)
 	}
 	api.InstanceIdGetter = common.NewInstanceIdGetter(st, getAuthFunc)
-	api.toolsFinder = common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
-	api.ToolsGetter = common.NewToolsGetter(st, configGetter, st, urlGetter, api.toolsFinder, getAuthOwner)
+	api.ToolsFinder = common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
+	api.ToolsGetter = common.NewToolsGetter(st, configGetter, st, urlGetter, api.ToolsFinder, getAuthOwner, api.ctrlConfigService)
+	return api, nil
+}
+
+func NewProvisionerAPI(
+	remover *common.Remover,
+	statusSetter *common.StatusSetter,
+	statusGetter *common.StatusGetter,
+	deadEnsurer *common.DeadEnsurer,
+	passwordChanger *common.PasswordChanger,
+	lifeGetter *common.LifeGetter,
+	apiAddresser *common.APIAddresser,
+	modelWatcher *common.ModelWatcher,
+	modelMachinesWatcher *common.ModelMachinesWatcher,
+	controllerConfigAPI *common.ControllerConfigAPI,
+	netConfigAPI *networkingcommon.NetworkConfigAPI,
+	st *state.State,
+	model *state.Model,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+	configGetter stateenvirons.EnvironConfigGetter,
+	storageProviderRegistry storage.ProviderRegistry,
+	storagePoolManager poolmanager.PoolManager,
+	getAuthFunc func() (common.AuthFunc, error),
+	getCanModify func() (common.AuthFunc, error),
+	callCtx *context.CloudCallContext,
+	logger loggo.Logger,
+	ctrlConfigService ControllerConfigGetter,
+) (*ProvisionerAPI, error) {
+	api := &ProvisionerAPI{
+		Remover:                 remover,
+		StatusSetter:            statusSetter,
+		StatusGetter:            statusGetter,
+		DeadEnsurer:             deadEnsurer,
+		PasswordChanger:         passwordChanger,
+		LifeGetter:              lifeGetter,
+		APIAddresser:            apiAddresser,
+		ModelWatcher:            modelWatcher,
+		ModelMachinesWatcher:    modelMachinesWatcher,
+		ControllerConfigAPI:     controllerConfigAPI,
+		NetworkConfigAPI:        netConfigAPI,
+		st:                      st,
+		m:                       model,
+		resources:               resources,
+		authorizer:              authorizer,
+		configGetter:            configGetter,
+		storageProviderRegistry: storageProviderRegistry,
+		storagePoolManager:      storagePoolManager,
+		getAuthFunc:             getAuthFunc,
+		getCanModify:            getCanModify,
+		providerCallContext:     callCtx,
+		logger:                  logger,
+		ctrlConfigService:       ctrlConfigService,
+	}
 	return api, nil
 }
 
@@ -649,12 +724,13 @@ func (api *ProvisionerAPI) Constraints(args params.Entities) (params.Constraints
 
 // FindTools returns a List containing all tools matching the given parameters.
 func (api *ProvisionerAPI) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
-	list, err := api.toolsFinder.FindAgents(common.FindAgentsParams{
+	list, err := api.ToolsFinder.FindAgents(common.FindAgentsParams{
 		Number:      args.Number,
 		Arch:        args.Arch,
 		OSType:      args.OSType,
 		AgentStream: args.AgentStream,
-	})
+	},
+		api.ctrlConfigService)
 	return params.FindToolsResult{
 		List:  list,
 		Error: apiservererrors.ServerError(err),
@@ -1296,7 +1372,7 @@ func (api *ProvisionerAPI) SetHostMachineNetworkConfig(args params.SetMachineNet
 
 // CACert returns the certificate used to validate the state connection.
 func (api *ProvisionerAPI) CACert() (params.BytesResult, error) {
-	cfg, err := api.st.ControllerConfig()
+	cfg, err := api.ctrlConfigService.ControllerConfig(ctx.TODO())
 	if err != nil {
 		return params.BytesResult{}, errors.Trace(err)
 	}

@@ -80,7 +80,7 @@ func (st *mockState) ControllerConfig() (controller.Config, error) {
 	return cfg, nil
 }
 
-func (st *mockState) APIHostPortsForAgents() ([]network.SpaceHostPorts, error) {
+func (st *mockState) APIHostPortsForAgents(config controller.Config) ([]network.SpaceHostPorts, error) {
 	st.MethodCall(st, "APIHostPortsForAgents")
 	return []network.SpaceHostPorts{
 		network.NewSpaceHostPorts(1, "10.0.0.1"),

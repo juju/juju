@@ -16,6 +16,7 @@ import (
 	"github.com/juju/naturalsort"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/resources"
@@ -25,6 +26,10 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.migration")
+
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 // StateExporter describes interface on state required to export a
 // model.

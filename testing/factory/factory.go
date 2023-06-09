@@ -20,6 +20,7 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
@@ -379,7 +380,7 @@ func (factory *Factory) makeMachineReturningPassword(c *gc.C, params *MachinePar
 	err = machine.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
 	if len(params.Addresses) > 0 {
-		err := machine.SetProviderAddresses(params.Addresses...)
+		err := machine.SetProviderAddresses(controller.Config{}, params.Addresses...)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	current := testing.CurrentVersion()

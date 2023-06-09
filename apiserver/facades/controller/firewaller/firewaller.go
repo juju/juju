@@ -4,6 +4,7 @@
 package firewaller
 
 import (
+	"context"
 	"sort"
 	"strconv"
 
@@ -17,12 +18,17 @@ import (
 	"github.com/juju/juju/apiserver/common/firewall"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
+
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 // FirewallerAPI provides access to the Firewaller API facade.
 type FirewallerAPI struct {
@@ -43,6 +49,7 @@ type FirewallerAPI struct {
 	accessMachine     common.GetAuthFunc
 	accessModel       common.GetAuthFunc
 	logger            loggo.Logger
+	cc                ControllerConfigGetter
 
 	// Fetched on demand and memoized
 	spaceInfos          network.SpaceInfos
@@ -57,6 +64,7 @@ func NewStateFirewallerAPI(
 	cloudSpecAPI cloudspec.CloudSpecer,
 	controllerConfigAPI ControllerConfigAPI,
 	logger loggo.Logger,
+	ctrlConfigService ControllerConfigGetter,
 ) (*FirewallerAPI, error) {
 	if !authorizer.AuthController() {
 		// Firewaller must run as a controller.
@@ -122,6 +130,7 @@ func NewStateFirewallerAPI(
 		accessMachine:        accessMachine,
 		accessModel:          accessModel,
 		logger:               logger,
+		cc:                   ctrlConfigService,
 	}, nil
 }
 
@@ -177,7 +186,7 @@ func (f *FirewallerAPI) ModelFirewallRules() (params.IngressRulesResult, error) 
 	if err != nil {
 		return params.IngressRulesResult{Error: apiservererrors.ServerError(err)}, nil
 	}
-	ctrlCfg, err := f.st.ControllerConfig()
+	ctrlCfg, err := f.cc.ControllerConfig(context.TODO())
 	if err != nil {
 		return params.IngressRulesResult{Error: apiservererrors.ServerError(err)}, nil
 	}

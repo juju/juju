@@ -324,6 +324,7 @@ func (m *ImportStateMigration) Run() error {
 
 type importer struct {
 	st      *State
+	ctrlCfg controller.Config
 	dbModel *Model
 	model   description.Model
 	logger  loggo.Logger
@@ -844,11 +845,6 @@ func (i *importer) makeAddresses(addrs []description.Address) []address {
 func (i *importer) applications() error {
 	i.logger.Debugf("importing applications")
 
-	ctrlCfg, err := i.st.ControllerConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	// Ensure we import principal applications first, so that
 	// subordinate units can refer to the principal ones.
 	var principals, subordinates []description.Application
@@ -863,7 +859,7 @@ func (i *importer) applications() error {
 	i.charmOrigins = make(map[string]*CharmOrigin, len(principals)+len(subordinates))
 
 	for _, s := range append(principals, subordinates...) {
-		if err := i.application(s, ctrlCfg); err != nil {
+		if err := i.application(s, i.ctrlCfg); err != nil {
 			i.logger.Errorf("error importing application %s: %s", s.Name(), err)
 			return errors.Annotate(err, s.Name())
 		}

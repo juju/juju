@@ -10,6 +10,9 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/domain"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -26,10 +29,18 @@ func Register(registry facade.FacadeRegistry) {
 
 // newFacadeV1 is used for APIV1 registration.
 func newFacadeV1(ctx facade.Context) (*APIV1, error) {
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
+		domain.NewWatcherFactory(
+			ctx.ControllerDB,
+			ctx.Logger().Child("controllerconfig"),
+		),
+	)
 	api, err := NewAPI(
 		ctx,
 		stateenvirons.GetNewEnvironFunc(environs.New),
-		stateenvirons.GetNewCAASBrokerFunc(caas.New))
+		stateenvirons.GetNewCAASBrokerFunc(caas.New),
+		ctrlConfigService)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -38,8 +49,16 @@ func newFacadeV1(ctx facade.Context) (*APIV1, error) {
 
 // newFacade is used for API registration.
 func newFacade(ctx facade.Context) (*API, error) {
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
+		domain.NewWatcherFactory(
+			ctx.ControllerDB,
+			ctx.Logger().Child("controllerconfig"),
+		),
+	)
 	return NewAPI(
 		ctx,
 		stateenvirons.GetNewEnvironFunc(environs.New),
-		stateenvirons.GetNewCAASBrokerFunc(caas.New))
+		stateenvirons.GetNewCAASBrokerFunc(caas.New),
+		ctrlConfigService)
 }

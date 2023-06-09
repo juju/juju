@@ -4,16 +4,23 @@
 package credentialcommon
 
 import (
+	ctx "context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/state"
 )
+
+type ControllerConfigGetter interface {
+	ControllerConfig(ctx.Context) (controller.Config, error)
+}
 
 // PersistentBackend defines persisted entities that are accessed
 // during credential validity check.
@@ -85,11 +92,15 @@ type ControllerConfig interface {
 
 type stateShim struct {
 	*state.State
+	ControllerConfigGetter
 }
 
 // NewPersistentBackend creates a credential validity backend to use, based on state.State.
-func NewPersistentBackend(p *state.State) PersistentBackend {
-	return stateShim{p}
+func NewPersistentBackend(p *state.State, ctrlConfigService ControllerConfigGetter) PersistentBackend {
+	return stateShim{
+		p,
+		ctrlConfigService,
+	}
 }
 
 // AllMachines implements PersistentBackend.AllMachines.
@@ -113,5 +124,5 @@ func (st stateShim) Model() (Model, error) {
 
 // Model implements PersistentBackend.Model.
 func (st stateShim) ControllerConfig() (ControllerConfig, error) {
-	return st.State.ControllerConfig()
+	return st.ControllerConfigGetter.ControllerConfig(ctx.TODO())
 }

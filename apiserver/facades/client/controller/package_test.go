@@ -9,8 +9,10 @@ import (
 	"github.com/juju/juju/testing"
 )
 
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/apiserver/facades/client/controller Backend,Application,Relation
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/domain_mock.go github.com/juju/juju/apiserver/common ControllerConfigGetter
+
 func TestAll(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/apiserver/facades/client/controller Backend,Application,Relation

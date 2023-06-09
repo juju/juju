@@ -4,6 +4,7 @@
 package httpserverargs_test
 
 import (
+	"go.uber.org/mock/gomock"
 	"time"
 
 	"github.com/juju/clock"
@@ -20,19 +21,22 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
+	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/httpserverargs"
+	"github.com/juju/juju/worker/httpserverargs/mocks"
 )
 
 type ManifoldSuite struct {
 	testing.IsolationSuite
 
-	config        httpserverargs.ManifoldConfig
-	manifold      dependency.Manifold
-	context       dependency.Context
-	clock         *testclock.Clock
-	state         stubStateTracker
-	authenticator mockLocalMacaroonAuthenticator
+	config            httpserverargs.ManifoldConfig
+	manifold          dependency.Manifold
+	context           dependency.Context
+	clock             *testclock.Clock
+	state             stubStateTracker
+	authenticator     mockLocalMacaroonAuthenticator
+	watchableDBGetter *mocks.MockWatchableDBGetter
 
 	stub testing.Stub
 }
@@ -41,6 +45,10 @@ var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.watchableDBGetter = mocks.NewMockWatchableDBGetter(ctrl)
 
 	s.clock = testclock.NewClock(time.Time{})
 	s.state = stubStateTracker{}
@@ -51,6 +59,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		ClockName:             "clock",
 		StateName:             "state",
 		ControllerPortName:    "controller-port",
+		ChangeStreamName:      "change-stream",
 		NewStateAuthenticator: s.newStateAuthenticator,
 	}
 	s.manifold = httpserverargs.Manifold(s.config)
@@ -61,6 +70,7 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"clock":           s.clock,
 		"state":           &s.state,
 		"controller-port": nil,
+		"change-stream":   s.watchableDBGetter,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -73,15 +83,16 @@ func (s *ManifoldSuite) newStateAuthenticator(
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
 	abort <-chan struct{},
+	cc stateauthenticator.ControllerConfigGetter,
 ) (macaroon.LocalMacaroonAuthenticator, error) {
-	s.stub.MethodCall(s, "NewStateAuthenticator", statePool, mux, clock, abort)
+	s.stub.MethodCall(s, "NewStateAuthenticator", statePool, mux, clock, abort, cc)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
 	return &s.authenticator, nil
 }
 
-var expectedInputs = []string{"state", "clock", "controller-port"}
+var expectedInputs = []string{"state", "clock", "controller-port", "change-stream"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -142,7 +153,7 @@ func (s *ManifoldSuite) TestStoppingWorkerClosesAuthenticator(c *gc.C) {
 	w := s.startWorkerClean(c)
 	s.stub.CheckCallNames(c, "NewStateAuthenticator")
 	authArgs := s.stub.Calls()[0].Args
-	c.Assert(authArgs, gc.HasLen, 4)
+	c.Assert(authArgs, gc.HasLen, 5)
 	abort := authArgs[3].(<-chan struct{})
 
 	// abort should still be open at this point.

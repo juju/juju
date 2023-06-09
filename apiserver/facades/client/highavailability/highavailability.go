@@ -33,13 +33,23 @@ type NodeService interface {
 	CurateNodes(context.Context, []string, []string) error
 }
 
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// HighAvailability defines the methods on the highavailability API end point.
+type HighAvailability interface {
+	EnableHA(args params.ControllersSpecs) (params.ControllersChangeResults, error)
+}
+
 // HighAvailabilityAPI implements the HighAvailability interface and is the concrete
 // implementation of the api end point.
 type HighAvailabilityAPI struct {
-	st          *state.State
-	nodeService NodeService
-	authorizer  facade.Authorizer
-	logger      loggo.Logger
+	st                *state.State
+	nodeService       NodeService
+	authorizer        facade.Authorizer
+	logger            loggo.Logger
+	ctrlConfigService ControllerConfigGetter
 }
 
 // EnableHA adds controller machines as necessary to ensure the
@@ -105,7 +115,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 
 	// Retrieve the controller configuration and merge any implied space
 	// constraints into the spec constraints.
-	cfg, err := st.ControllerConfig()
+	cfg, err := api.ctrlConfigService.ControllerConfig(context.TODO())
 	if err != nil {
 		return params.ControllersChanges{}, errors.Annotate(err, "retrieving controller config")
 	}

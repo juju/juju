@@ -30,6 +30,7 @@ type instanceTypesSuite struct {
 	pool                        *mocks.MockModelPoolBackend
 	authorizer                  *testing.FakeAuthorizer
 	credcommonPersistentBackend *credentialcommonmocks.MockPersistentBackend
+	ctrlConfigService           *mocks.MockControllerConfigGetter
 }
 
 func (s *instanceTypesSuite) setup(c *gc.C, userTag names.UserTag) *gomock.Controller {
@@ -42,6 +43,8 @@ func (s *instanceTypesSuite) setup(c *gc.C, userTag names.UserTag) *gomock.Contr
 	s.authorizer = &testing.FakeAuthorizer{
 		Tag: userTag,
 	}
+
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
 
 	return ctrl
 }
@@ -88,7 +91,7 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 		context.NewEmptyCloudCallContext(), nil)
 	p.backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag)
 
-	api, err := cloudfacade.NewCloudAPI(p.backend, p.ctrlBackend, p.pool, p.authorizer, loggo.GetLogger("juju.apiserver.cloud"))
+	api, err := cloudfacade.NewCloudAPI(p.backend, p.ctrlBackend, p.pool, p.authorizer, loggo.GetLogger("juju.apiserver.cloud"), p.ctrlConfigService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := params.CloudInstanceTypesConstraints{

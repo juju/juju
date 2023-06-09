@@ -4,6 +4,8 @@
 package caasapplication
 
 import (
+	"context"
+
 	"github.com/juju/charm/v11"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
@@ -13,6 +15,10 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
+
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (jujucontroller.Config, error)
+}
 
 // State provides the subset of model state
 // required by the CAAS application facade.
@@ -26,7 +32,7 @@ type State interface {
 // required by the CAAS application facade.
 type ControllerState interface {
 	ControllerConfig() (jujucontroller.Config, error)
-	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
+	APIHostPortsForAgents(jujucontroller.Config) ([]network.SpaceHostPorts, error)
 }
 
 // Model provides the subset of CAAS model state required
@@ -54,6 +60,7 @@ type Charm interface {
 
 type stateShim struct {
 	*state.State
+	ControllerConfigGetter
 }
 
 func (s stateShim) Application(id string) (Application, error) {

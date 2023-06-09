@@ -5,6 +5,7 @@ package stateauthenticator_test
 
 import (
 	"context"
+	"go.uber.org/mock/gomock"
 
 	"github.com/juju/clock"
 	"github.com/juju/names/v4"
@@ -22,14 +23,20 @@ import (
 // via the public interface, and then get rid of export_test.go.
 type agentAuthenticatorSuite struct {
 	statetesting.StateSuite
-	authenticator *stateauthenticator.Authenticator
+	authenticator     *stateauthenticator.Authenticator
+	ctrlConfigService *MockControllerConfigGetter
 }
 
 var _ = gc.Suite(&agentAuthenticatorSuite{})
 
 func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
-	authenticator, err := stateauthenticator.NewAuthenticator(s.StatePool, clock.WallClock)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ctrlConfigService = NewMockControllerConfigGetter(ctrl)
+
+	authenticator, err := stateauthenticator.NewAuthenticator(s.StatePool, clock.WallClock, s.ctrlConfigService)
 	c.Assert(err, jc.ErrorIsNil)
 	s.authenticator = authenticator
 }

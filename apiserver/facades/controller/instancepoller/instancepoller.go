@@ -4,6 +4,8 @@
 package instancepoller
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -12,11 +14,16 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
+
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 // InstancePollerAPI provides access to the InstancePoller API facade.
 type InstancePollerAPI struct {
@@ -26,12 +33,13 @@ type InstancePollerAPI struct {
 	*common.InstanceIdGetter
 	*common.StatusGetter
 
-	st            StateInterface
-	resources     facade.Resources
-	authorizer    facade.Authorizer
-	accessMachine common.GetAuthFunc
-	clock         clock.Clock
-	logger        loggo.Logger
+	st                StateInterface
+	resources         facade.Resources
+	authorizer        facade.Authorizer
+	accessMachine     common.GetAuthFunc
+	clock             clock.Clock
+	logger            loggo.Logger
+	ctrlConfigService ControllerConfigGetter
 }
 
 // NewInstancePollerAPI creates a new server-side InstancePoller API
@@ -43,6 +51,7 @@ func NewInstancePollerAPI(
 	authorizer facade.Authorizer,
 	clock clock.Clock,
 	logger loggo.Logger,
+	ctrlConfigService ControllerConfigGetter,
 ) (*InstancePollerAPI, error) {
 
 	if !authorizer.AuthController() {
@@ -93,6 +102,7 @@ func NewInstancePollerAPI(
 		accessMachine:        accessMachine,
 		clock:                clock,
 		logger:               logger,
+		ctrlConfigService:    ctrlConfigService,
 	}, nil
 }
 
@@ -131,6 +141,11 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(
 		return result, err
 	}
 
+	controllerConfig, err := a.ctrlConfigService.ControllerConfig(context.TODO())
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
 	for i, arg := range req.Args {
 		machine, err := a.getOneMachine(arg.Tag, canAccess)
 		if err != nil {
@@ -161,7 +176,7 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(
 			continue
 		}
 
-		modified, err := maybeUpdateMachineProviderAddresses(machine, newSpaceAddrs)
+		modified, err := maybeUpdateMachineProviderAddresses(machine, newSpaceAddrs, controllerConfig)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -181,13 +196,13 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(
 	return result, nil
 }
 
-func maybeUpdateMachineProviderAddresses(m StateMachine, newSpaceAddrs network.SpaceAddresses) (bool, error) {
+func maybeUpdateMachineProviderAddresses(m StateMachine, newSpaceAddrs network.SpaceAddresses, controllerConfig controller.Config) (bool, error) {
 	curSpaceAddrs := m.ProviderAddresses()
 	if curSpaceAddrs.EqualTo(newSpaceAddrs) {
 		return false, nil
 	}
 
-	return true, m.SetProviderAddresses(newSpaceAddrs...)
+	return true, m.SetProviderAddresses(controllerConfig, newSpaceAddrs...)
 }
 
 func (a *InstancePollerAPI) mergeLinkLayer(m StateMachine, devs network.InterfaceInfos) error {
@@ -307,6 +322,10 @@ func (a *InstancePollerAPI) SetProviderAddresses(args params.SetMachinesAddresse
 	if err != nil {
 		return result, err
 	}
+	controllerConfig, err := a.ctrlConfigService.ControllerConfig(context.TODO())
+	if err != nil {
+		return result, err
+	}
 	for i, arg := range args.MachineAddresses {
 		machine, err := a.getOneMachine(arg.Tag, canAccess)
 		if err != nil {
@@ -319,7 +338,7 @@ func (a *InstancePollerAPI) SetProviderAddresses(args params.SetMachinesAddresse
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if err := machine.SetProviderAddresses(addrsToSet...); err != nil {
+		if err := machine.SetProviderAddresses(controllerConfig, addrsToSet...); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}

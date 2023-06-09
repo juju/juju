@@ -70,7 +70,7 @@ func (m *ModelUpgraderAPI) decideVersion(
 func (m *ModelUpgraderAPI) findAgents(
 	args common.FindAgentsParams,
 ) (coretools.Versions, error) {
-	list, err := m.toolsFinder.FindAgents(args)
+	list, err := m.toolsFinder.FindAgents(args, m.ctrlConfigService)
 	if args.ModelType != state.ModelTypeCAAS {
 		// We return now for non CAAS model.
 		return toolListToVersions(list), errors.Annotate(err, "cannot find agents from simple streams")

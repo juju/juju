@@ -380,9 +380,19 @@ func (s *clientWatchSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 
 type findToolsSuite struct {
 	jtesting.IsolationSuite
+
+	ctrlConfigService *mocks.MockControllerConfigGetter
 }
 
 var _ = gc.Suite(&findToolsSuite{})
+
+func (s *findToolsSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
+}
 
 func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 	ctrl := gomock.NewController(c)
@@ -393,10 +403,13 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 	authorizer := mocks.NewMockAuthorizer(ctrl)
 	registryProvider := registrymocks.NewMockRegistry(ctrl)
 	toolsFinder := mocks.NewMockToolsFinder(ctrl)
+	ctrlConfigService := mocks.NewMockControllerConfigGetter(ctrl)
 
 	simpleStreams := []*tools.Tools{
 		{Version: version.MustParseBinary("2.9.6-ubuntu-amd64")},
 	}
+
+	ctrlConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil).AnyTimes()
 
 	gomock.InOrder(
 		authorizer.EXPECT().AuthClient().Return(true),
@@ -406,7 +419,7 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil),
 
 		backend.EXPECT().Model().Return(model, nil),
-		toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{MajorVersion: 2}).
+		toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{MajorVersion: 2}, s.ctrlConfigService).
 			Return(simpleStreams, nil),
 		model.EXPECT().Type().Return(state.ModelTypeIAAS),
 	)
@@ -419,6 +432,7 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 		func(docker.ImageRepoDetails) (registry.Registry, error) {
 			return registryProvider, nil
 		},
+		s.ctrlConfigService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := api.FindTools(params.FindToolsParams{MajorVersion: 2})
@@ -446,6 +460,9 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 	authorizer := mocks.NewMockAuthorizer(ctrl)
 	registryProvider := registrymocks.NewMockRegistry(ctrl)
 	toolsFinder := mocks.NewMockToolsFinder(ctrl)
+	ctrlConfigService := mocks.NewMockControllerConfigGetter(ctrl)
+
+	ctrlConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil).AnyTimes()
 
 	simpleStreams := []*tools.Tools{
 		{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
@@ -462,7 +479,7 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil),
 
 		backend.EXPECT().Model().Return(model, nil),
-		toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{MajorVersion: 2}).
+		toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{MajorVersion: 2}, s.ctrlConfigService).
 			Return(simpleStreams, nil),
 		model.EXPECT().Type().Return(state.ModelTypeCAAS),
 		model.EXPECT().Config().Return(s.getModelConfig(c, "2.9.9"), nil),
@@ -505,6 +522,7 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 			})
 			return registryProvider, nil
 		},
+		s.ctrlConfigService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := api.FindTools(params.FindToolsParams{MajorVersion: 2})
@@ -526,6 +544,9 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 	authorizer := mocks.NewMockAuthorizer(ctrl)
 	registryProvider := registrymocks.NewMockRegistry(ctrl)
 	toolsFinder := mocks.NewMockToolsFinder(ctrl)
+	ctrlConfigService := mocks.NewMockControllerConfigGetter(ctrl)
+
+	ctrlConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil).AnyTimes()
 
 	simpleStreams := []*tools.Tools{
 		{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
@@ -543,7 +564,7 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil),
 
 		backend.EXPECT().Model().Return(model, nil),
-		toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{MajorVersion: 2, AgentStream: envtools.DevelStream}).
+		toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{MajorVersion: 2, AgentStream: envtools.DevelStream}, s.ctrlConfigService).
 			Return(simpleStreams, nil),
 		model.EXPECT().Type().Return(state.ModelTypeCAAS),
 		model.EXPECT().Config().Return(s.getModelConfig(c, "2.9.9.1"), nil),
@@ -589,6 +610,7 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 			})
 			return registryProvider, nil
 		},
+		s.ctrlConfigService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := api.FindTools(params.FindToolsParams{MajorVersion: 2, AgentStream: envtools.DevelStream})

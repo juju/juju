@@ -9,6 +9,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/domain"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -25,6 +28,13 @@ func newStateFacade(ctx facade.Context) (*Facade, error) {
 	resources := ctx.Resources()
 	st := ctx.State()
 	model, err := st.Model()
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
+		domain.NewWatcherFactory(
+			ctx.ControllerDB,
+			ctx.Logger().Child("controllerconfig"),
+		),
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -38,8 +48,10 @@ func newStateFacade(ctx facade.Context) (*Facade, error) {
 	}
 	return NewFacade(resources, authorizer,
 		systemState,
-		&stateShim{st},
+		&stateShim{st, ctrlConfigService},
 		broker,
 		ctx.StatePool().Clock(),
-		ctx.Logger().Child("caasapplication"))
+		ctx.Logger().Child("caasapplication"),
+		ctrlConfigService,
+	)
 }

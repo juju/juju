@@ -5,6 +5,8 @@ package provisioner_test
 
 import (
 	"fmt"
+	"go.uber.org/mock/gomock"
+	gc "gopkg.in/check.v1"
 	stdtesting "testing"
 	"time"
 
@@ -15,27 +17,31 @@ import (
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
-	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/constraints"
+	corecontainer "github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	environtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -43,6 +49,8 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
+
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/domain_mock.go github.com/juju/juju/apiserver/facades/agent/provisioner ControllerConfigGetter
 
 func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
@@ -55,7 +63,7 @@ type provisionerSuite struct {
 
 	authorizer  apiservertesting.FakeAuthorizer
 	resources   *common.Resources
-	provisioner *provisioner.ProvisionerAPIV11
+	provisioner *provisioner.ProvisionerAPI
 }
 
 var _ = gc.Suite(&provisionerSuite{})
@@ -64,7 +72,19 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.setUpTest(c, false)
 }
 
+func (s *provisionerSuite) facadeContext() facadetest.Context {
+	return facadetest.Context{
+		Auth_:      s.authorizer,
+		State_:     s.State,
+		StatePool_: s.StatePool,
+		Resources_: s.resources,
+	}
+}
+
 func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	if s.JujuConnSuite.ConfigAttrs == nil {
 		s.JujuConnSuite.ConfigAttrs = make(map[string]interface{})
 	}
@@ -77,7 +97,7 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	// Note that the specific machine ids allocated are assumed
 	// to be numerically consecutive from zero.
 	if withController {
-		s.machines = append(s.machines, testing.AddControllerMachine(c, s.State))
+		s.machines = append(s.machines, testing.AddControllerMachine(c, s.State, s.ControllerConfig))
 	}
 	for i := 0; i < 5; i++ {
 		machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
@@ -96,13 +116,93 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	s.resources = common.NewResources()
 
 	// Create a provisioner API for the machine.
-	provisionerAPI, err := provisioner.NewProvisionerAPIV11(facadetest.Context{
-		Auth_:      s.authorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
-	},
+	facadeContext := s.facadeContext()
+	getAuthFunc := func() (common.AuthFunc, error) {
+		isModelManager := s.authorizer.AuthController()
+		isMachineAgent := s.authorizer.AuthMachineAgent()
+		authEntityTag := s.authorizer.GetAuthTag()
+
+		return func(tag names.Tag) bool {
+			if isMachineAgent && tag == authEntityTag {
+				// A machine agent can always access its own machine.
+				return true
+			}
+			switch tag := tag.(type) {
+			case names.MachineTag:
+				parentId := corecontainer.ParentId(tag.Id())
+				if parentId == "" {
+					// All top-level machines are accessible by the controller.
+					return isModelManager
+				}
+				// All containers with the authenticated machine as a
+				// parent are accessible by it.
+				// TODO(dfc) sometimes authEntity tag is nil, which is fine because nil is
+				// only equal to nil, but it suggests someone is passing an authorizer
+				// with a nil tag.
+				return isMachineAgent && names.NewMachineTag(parentId) == authEntityTag
+			default:
+				return false
+			}
+		}, nil
+	}
+	getCanModify := func() (common.AuthFunc, error) {
+		return s.authorizer.AuthOwner, nil
+	}
+	getAuthOwner := func() (common.AuthFunc, error) {
+		return s.authorizer.AuthOwner, nil
+	}
+	st := facadeContext.State()
+	model, err := st.Model()
+
+	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
+	isCaasModel := model.Type() == state.ModelTypeCAAS
+
+	var env storage.ProviderRegistry
+	if isCaasModel {
+		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model)
+	} else {
+		env, err = environs.GetEnviron(configGetter, environs.New)
+	}
+	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
+	netConfigAPI, err := networkingcommon.NewNetworkConfigAPI(st, getCanModify)
+	ctrlConfigService := mocks.NewMockControllerConfigGetter(ctrl)
+	systemState, err := facadeContext.StatePool().SystemState()
+	urlGetter := common.NewToolsURLGetter(model.UUID(), systemState)
+	callCtx := context.CallContext(st)
+	resources := facadeContext.Resources()
+	provisionerAPI, err := provisioner.NewProvisionerAPI(
+		common.NewRemover(st, nil, false, getAuthFunc),
+		common.NewStatusSetter(st, getAuthFunc),
+		common.NewStatusGetter(st, getAuthFunc),
+		common.NewDeadEnsurer(st, nil, getAuthFunc),
+		common.NewPasswordChanger(st, getAuthFunc),
+		common.NewLifeGetter(st, getAuthFunc),
+		common.NewAPIAddresser(systemState, resources, ctrlConfigService),
+		common.NewModelWatcher(model, resources, s.authorizer),
+		common.NewModelMachinesWatcher(st, resources, s.authorizer),
+		common.NewStateControllerConfig(st, ctrlConfigService),
+		netConfigAPI,
+		st,
+		model,
+		resources,
+		s.authorizer,
+		configGetter,
+		storageProviderRegistry,
+		poolmanager.New(state.NewStateSettings(st), storageProviderRegistry),
+		getAuthFunc,
+		getCanModify,
+		callCtx,
+		facadeContext.Logger().Child("provisioner"),
+		ctrlConfigService,
 	)
+	if !isCaasModel {
+		newEnviron := func() (environs.BootstrapEnviron, error) {
+			return environs.GetEnviron(configGetter, environs.New)
+		}
+		provisionerAPI.InstanceIdGetter = common.NewInstanceIdGetter(st, getAuthFunc)
+		provisionerAPI.ToolsFinder = common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
+		provisionerAPI.ToolsGetter = common.NewToolsGetter(st, configGetter, st, urlGetter, provisionerAPI.ToolsFinder, getAuthOwner, ctrlConfigService)
+	}
 	c.Assert(err, jc.ErrorIsNil)
 	s.provisioner = provisionerAPI
 }
@@ -110,6 +210,8 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 type withoutControllerSuite struct {
 	provisionerSuite
 	*commontesting.ModelWatcherTest
+
+	ctrlConfigService *mocks.MockControllerConfigGetter
 }
 
 var _ = gc.Suite(&withoutControllerSuite{})
@@ -117,13 +219,17 @@ var _ = gc.Suite(&withoutControllerSuite{})
 func (s *withoutControllerSuite) SetUpTest(c *gc.C) {
 	s.setUpTest(c, false)
 	s.ModelWatcherTest = commontesting.NewModelWatcherTest(s.provisioner, s.State, s.resources)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
 }
 
 func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManagerUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = true
 	// Works with a controller, which is not a machine agent.
-	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err := provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:      anAuthorizer,
 		State_:     s.State,
 		StatePool_: s.StatePool,
@@ -134,7 +240,7 @@ func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManag
 
 	// But fails with neither a machine agent or a controller.
 	anAuthorizer.Controller = false
-	aProvisioner, err = provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err = provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:      anAuthorizer,
 		State_:     s.State,
 		StatePool_: s.StatePool,
@@ -210,7 +316,7 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[0].Tag()
-	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err := provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:      anAuthorizer,
 		State_:     s.State,
 		StatePool_: s.StatePool,
@@ -569,13 +675,12 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = names.NewMachineTag("1")
-	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err := provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:      anAuthorizer,
 		State_:     s.State,
 		StatePool_: s.StatePool,
 		Resources_: s.resources,
-	},
-	)
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	sInfo := status.StatusInfo{
@@ -771,7 +876,7 @@ func (s *withoutControllerSuite) TestModelConfigNonManager(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
-	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err := provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:      anAuthorizer,
 		State_:     s.State,
 		StatePool_: s.StatePool,
@@ -1056,7 +1161,7 @@ func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) 
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
-	provisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	provisioner, err := provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:      anAuthorizer,
 		State_:     s.State,
 		StatePool_: s.StatePool,
@@ -1175,7 +1280,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineIdMachineAgentAut
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
-	provisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	provisioner, err := provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:      anAuthorizer,
 		State_:     s.State,
 		StatePool_: s.StatePool,
@@ -1412,7 +1517,7 @@ func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
-	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err := provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:      anAuthorizer,
 		State_:     s.State,
 		StatePool_: s.StatePool,
@@ -1465,7 +1570,7 @@ func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
-	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err := provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:      anAuthorizer,
 		State_:     s.State,
 		StatePool_: s.StatePool,
@@ -1634,7 +1739,7 @@ func (s *withoutControllerSuite) TestSetSupportedContainersPermissions(c *gc.C) 
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[0].Tag()
-	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err := provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:      anAuthorizer,
 		State_:     s.State,
 		StatePool_: s.StatePool,
@@ -1752,17 +1857,24 @@ var _ = gc.Suite(&withControllerSuite{})
 
 type withControllerSuite struct {
 	provisionerSuite
+
+	ctrlConfigService *mocks.MockControllerConfigGetter
 }
 
 func (s *withControllerSuite) SetUpTest(c *gc.C) {
 	s.provisionerSuite.setUpTest(c, true)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
 }
 
 func (s *withControllerSuite) TestAPIAddresses(c *gc.C) {
 	hostPorts := []network.SpaceHostPorts{
 		network.NewSpaceHostPorts(1234, "0.1.2.3"),
 	}
-	err := s.State.SetAPIHostPorts(hostPorts)
+	err := s.State.SetAPIHostPorts(hostPorts, s.ControllerConfig)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.provisioner.APIAddresses()

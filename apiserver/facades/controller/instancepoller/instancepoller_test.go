@@ -38,6 +38,7 @@ type InstancePollerSuite struct {
 	api        *instancepoller.InstancePollerAPI
 	authoriser apiservertesting.FakeAuthorizer
 	resources  *common.Resources
+	cc         *MockControllerConfigGetter
 
 	machineEntities     params.Entities
 	machineErrorResults params.ErrorResults
@@ -53,6 +54,11 @@ var _ = gc.Suite(&InstancePollerSuite{})
 func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.cc = NewMockControllerConfigGetter(ctrl)
+
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Controller: true,
 	}
@@ -64,7 +70,7 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.clock = testclock.NewClock(time.Now())
-	s.api, err = instancepoller.NewInstancePollerAPI(nil, nil, s.resources, s.authoriser, s.clock, loggo.GetLogger("juju.apiserver.instancepoller"))
+	s.api, err = instancepoller.NewInstancePollerAPI(nil, nil, s.resources, s.authoriser, s.clock, loggo.GetLogger("juju.apiserver.instancepoller"), s.cc)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.machineEntities = params.Entities{
@@ -107,7 +113,7 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 func (s *InstancePollerSuite) TestNewInstancePollerAPIRequiresController(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Controller = false
-	api, err := instancepoller.NewInstancePollerAPI(nil, nil, s.resources, anAuthoriser, s.clock, loggo.GetLogger("juju.apiserver.instancepoller"))
+	api, err := instancepoller.NewInstancePollerAPI(nil, nil, s.resources, anAuthoriser, s.clock, loggo.GetLogger("juju.apiserver.instancepoller"), s.cc)
 	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

@@ -5,6 +5,7 @@ package testing
 
 import (
 	"bytes"
+	"github.com/juju/juju/controller"
 	"text/template"
 
 	jc "github.com/juju/testing/checkers"
@@ -21,14 +22,14 @@ import (
 // It returns the addresses that will be returned by the State.Addresses
 // and State.APIAddresses methods, which will not bear any relation to
 // the be the addresses used by the controllers.
-func AddControllerMachine(c *gc.C, st *state.State) *state.Machine {
+func AddControllerMachine(c *gc.C, st *state.State, ctrlConfig controller.Config) *state.Machine {
 	machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProviderAddresses(network.NewSpaceAddress("0.1.2.3"))
+	err = machine.SetProviderAddresses(ctrlConfig, network.NewSpaceAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	hostPorts := []network.SpaceHostPorts{network.NewSpaceHostPorts(1234, "0.1.2.3")}
-	err = st.SetAPIHostPorts(hostPorts)
+	err = st.SetAPIHostPorts(hostPorts, ctrlConfig)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return machine

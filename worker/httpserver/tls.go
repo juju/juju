@@ -11,6 +11,7 @@ import (
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
 )
 
@@ -36,11 +37,7 @@ func aggregateSNIGetter(getters ...SNIGetterFunc) SNIGetterFunc {
 
 // NewTLSConfig returns the TLS configuration for the HTTP server to use
 // based on controller configuration stored in the state database.
-func NewTLSConfig(st *state.State, defaultSNI SNIGetterFunc, logger Logger) (*tls.Config, error) {
-	controllerConfig, err := st.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func NewTLSConfig(st *state.State, defaultSNI SNIGetterFunc, logger Logger, controllerConfig controller.Config) (*tls.Config, error) {
 	return newTLSConfig(
 		controllerConfig.AutocertDNSName(),
 		controllerConfig.AutocertURL(),

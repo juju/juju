@@ -48,18 +48,18 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 }
 
 // APIHostPortsForClients mocks base method.
-func (m *MockBackend) APIHostPortsForClients() ([]network.SpaceHostPorts, error) {
+func (m *MockBackend) APIHostPortsForClients(arg0 controller.Config) ([]network.SpaceHostPorts, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "APIHostPortsForClients")
+	ret := m.ctrl.Call(m, "APIHostPortsForClients", arg0)
 	ret0, _ := ret[0].([]network.SpaceHostPorts)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // APIHostPortsForClients indicates an expected call of APIHostPortsForClients.
-func (mr *MockBackendMockRecorder) APIHostPortsForClients() *gomock.Call {
+func (mr *MockBackendMockRecorder) APIHostPortsForClients(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIHostPortsForClients", reflect.TypeOf((*MockBackend)(nil).APIHostPortsForClients))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIHostPortsForClients", reflect.TypeOf((*MockBackend)(nil).APIHostPortsForClients), arg0)
 }
 
 // AbortCurrentUpgrade mocks base method.

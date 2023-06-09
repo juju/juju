@@ -4,8 +4,11 @@
 package apiserver
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/json"
+	"github.com/juju/juju/domain"
+	"github.com/juju/loggo"
 	"io"
 	"net/http"
 
@@ -16,7 +19,11 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	coremacaroon "github.com/juju/juju/core/macaroon"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -200,7 +207,20 @@ func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
 	if !st.IsController() {
 		return nil, errors.New("state is not for a controller")
 	}
-	controllerConfig, err := st.ControllerConfig()
+
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(func() (database.TxnRunner, error) {
+			return h.ctxt.srv.shared.dbGetter.GetWatchableDB(database.ControllerNS)
+		}),
+		domain.NewWatcherFactory(
+			func() (changestream.WatchableDB, error) {
+				return h.ctxt.srv.shared.dbGetter.GetWatchableDB(database.ControllerNS)
+			},
+			loggo.GetLogger("juju.apiserver"),
+		),
+	)
+
+	controllerConfig, err := ctrlConfigService.ControllerConfig(context.TODO())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

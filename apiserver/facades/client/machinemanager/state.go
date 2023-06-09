@@ -27,8 +27,8 @@ import (
 // TODO(juju3) - move to export_test
 // It's here because we need to for the client
 // facade for backwards compatibility.
-func StateBackend(st *state.State) Backend {
-	return &stateShim{st}
+func StateBackend(st *state.State, ctrlConfigService ControllerConfigGetter) Backend {
+	return &stateShim{st, ctrlConfigService}
 }
 
 type Backend interface {
@@ -55,7 +55,7 @@ type BackendState interface {
 type ControllerBackend interface {
 	ControllerTag() names.ControllerTag
 	ControllerConfig() (controller.Config, error)
-	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
+	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 }
 
 type Pool interface {
@@ -116,6 +116,7 @@ type Charm interface {
 
 type stateShim struct {
 	*state.State
+	ControllerConfigGetter
 }
 
 func (s stateShim) Application(name string) (Application, error) {

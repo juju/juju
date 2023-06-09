@@ -11,6 +11,9 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/domain"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 	"github.com/juju/juju/state"
 )
 
@@ -50,13 +53,20 @@ func newUpgraderFacade(ctx facade.Context) (Upgrader, error) {
 		return nil, errors.Trace(err)
 	}
 	resources := ctx.Resources()
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
+		domain.NewWatcherFactory(
+			ctx.ControllerDB,
+			ctx.Logger().Child("controllerconfig"),
+		),
+	)
 	switch tag.(type) {
 	case names.MachineTag, names.ControllerAgentTag, names.ApplicationTag, names.ModelTag:
-		return NewUpgraderAPI(ctrlSt, st, resources, auth, ctx.Logger().Child("upgrader"))
+		return NewUpgraderAPI(ctrlSt, st, resources, auth, ctx.Logger().Child("upgrader"), ctrlConfigService)
 	case names.UnitTag:
 		if model.Type() == state.ModelTypeCAAS {
 			// For sidecar applications.
-			return NewUpgraderAPI(ctrlSt, st, resources, auth, ctx.Logger().Child("upgrader"))
+			return NewUpgraderAPI(ctrlSt, st, resources, auth, ctx.Logger().Child("upgrader"), ctrlConfigService)
 		}
 		return NewUnitUpgraderAPI(ctx)
 	}

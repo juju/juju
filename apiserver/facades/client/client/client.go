@@ -4,6 +4,8 @@
 package client
 
 import (
+	ctx "context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -15,12 +17,16 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/multiwatcher"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry"
+	"github.com/juju/juju/domain"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 	"github.com/juju/juju/environs/context"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/feature"
@@ -32,12 +38,17 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.client")
 
+type ControllerConfigGetter interface {
+	ControllerConfig(ctx.Context) (controller.Config, error)
+}
+
 type API struct {
-	stateAccessor Backend
-	pool          Pool
-	auth          facade.Authorizer
-	resources     facade.Resources
-	presence      facade.Presence
+	stateAccessor     Backend
+	pool              Pool
+	auth              facade.Authorizer
+	resources         facade.Resources
+	presence          facade.Presence
+	ctrlConfigService ControllerConfigGetter
 
 	multiwatcherFactory multiwatcher.Factory
 
@@ -132,6 +143,14 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 		return nil, errors.Trace(err)
 	}
 
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
+		domain.NewWatcherFactory(
+			ctx.ControllerDB,
+			ctx.Logger().Child("controllerconfig"),
+		),
+	)
+
 	return NewClient(
 		&stateShim{st, model, nil},
 		&poolShim{ctx.StatePool()},
@@ -145,6 +164,7 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 		leadershipReader,
 		factory,
 		registry.New,
+		ctrlConfigService,
 	)
 }
 
@@ -162,6 +182,7 @@ func NewClient(
 	leadershipReader leadership.Reader,
 	factory multiwatcher.Factory,
 	registryAPIFunc func(docker.ImageRepoDetails) (registry.Registry, error),
+	ctrlConfigService ControllerConfigGetter,
 ) (*Client, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -176,6 +197,7 @@ func NewClient(
 			toolsFinder:         toolsFinder,
 			leadershipReader:    leadershipReader,
 			multiwatcherFactory: factory,
+			ctrlConfigService:   ctrlConfigService,
 		},
 		newEnviron:      newEnviron,
 		check:           blockChecker,
@@ -247,7 +269,8 @@ func (c *Client) FindTools(args params.FindToolsParams) (params.FindToolsResult,
 		Arch:         args.Arch,
 		OSType:       args.OSType,
 		AgentStream:  args.AgentStream,
-	})
+	},
+		c.api.ctrlConfigService)
 	result := params.FindToolsResult{
 		List:  list,
 		Error: apiservererrors.ServerError(err),
@@ -278,7 +301,7 @@ func (c *Client) FindTools(args params.FindToolsParams) (params.FindToolsResult,
 
 func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersions set.Strings, current version.Number) (params.FindToolsResult, error) {
 	result := params.FindToolsResult{}
-	controllerCfg, err := c.api.stateAccessor.ControllerConfig()
+	controllerCfg, err := c.api.ctrlConfigService.ControllerConfig(ctx.TODO())
 	if err != nil {
 		return result, errors.Trace(err)
 	}

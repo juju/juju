@@ -4,6 +4,7 @@
 package peergrouper
 
 import (
+	"github.com/juju/juju/controller"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
@@ -20,11 +21,13 @@ var _ = gc.Suite(&publishSuite{})
 type mockAPIHostPortsSetter struct {
 	calls        int
 	apiHostPorts []network.SpaceHostPorts
+	config       controller.Config
 }
 
-func (s *mockAPIHostPortsSetter) SetAPIHostPorts(apiHostPorts []network.SpaceHostPorts) error {
+func (s *mockAPIHostPortsSetter) SetAPIHostPorts(apiHostPorts []network.SpaceHostPorts, config controller.Config) error {
 	s.calls++
 	s.apiHostPorts = apiHostPorts
+	s.config = config
 	return nil
 }
 
@@ -38,7 +41,7 @@ func (s *publishSuite) TestPublisherSetsAPIHostPortsOnce(c *gc.C) {
 	// statePublish.SetAPIHostPorts should not update state a second time.
 	apiServers := []network.SpaceHostPorts{hostPorts1}
 	for i := 0; i < 2; i++ {
-		err := statePublish.SetAPIHostPorts(apiServers)
+		err := statePublish.SetAPIHostPorts(apiServers, controller.Config{})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -47,7 +50,7 @@ func (s *publishSuite) TestPublisherSetsAPIHostPortsOnce(c *gc.C) {
 
 	apiServers = append(apiServers, hostPorts2)
 	for i := 0; i < 2; i++ {
-		err := statePublish.SetAPIHostPorts(apiServers)
+		err := statePublish.SetAPIHostPorts(apiServers, controller.Config{})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	c.Assert(mock.calls, gc.Equals, 2)
@@ -62,7 +65,7 @@ func (s *publishSuite) TestPublisherSortsHostPorts(c *gc.C) {
 		var mock mockAPIHostPortsSetter
 		statePublish := &CachingAPIHostPortsSetter{APIHostPortsSetter: &mock}
 		for i := 0; i < 2; i++ {
-			err := statePublish.SetAPIHostPorts([]network.SpaceHostPorts{publish})
+			err := statePublish.SetAPIHostPorts([]network.SpaceHostPorts{publish}, controller.Config{})
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		c.Assert(mock.calls, gc.Equals, 1)
@@ -76,6 +79,6 @@ func (s *publishSuite) TestPublisherSortsHostPorts(c *gc.C) {
 func (s *publishSuite) TestPublisherRejectsNoServers(c *gc.C) {
 	var mock mockAPIHostPortsSetter
 	statePublish := &CachingAPIHostPortsSetter{APIHostPortsSetter: &mock}
-	err := statePublish.SetAPIHostPorts(nil)
+	err := statePublish.SetAPIHostPorts(nil, controller.Config{})
 	c.Assert(err, gc.ErrorMatches, "no API servers specified")
 }

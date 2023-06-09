@@ -6,6 +6,7 @@ package agent
 import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/juju/controller"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -56,7 +57,7 @@ func (s *AgentSuite) SetUpTest(c *gc.C) {
 	hostPorts := []network.SpaceHostPorts{
 		network.NewSpaceHostPorts(1234, "0.1.2.3"),
 	}
-	err := s.State.SetAPIHostPorts(hostPorts)
+	err := s.State.SetAPIHostPorts(hostPorts, controller.Config{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&proxyupdater.NewWorker, func(proxyupdater.Config) (worker.Worker, error) {
 		return newDummyWorker(), nil

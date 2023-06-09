@@ -17,6 +17,7 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -139,7 +140,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	c.Assert(err, jc.ErrorIsNil)
 	providerAddr := network.NewSpaceAddress("example.com")
 	providerAddr.SpaceID = space.Id()
-	err = m.SetProviderAddresses(providerAddr)
+	err = m.SetProviderAddresses(controller.Config{}, providerAddr)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var addresses []network.ProviderAddress
@@ -3114,7 +3115,7 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 			// Add a network to the machine and open a port.
 			publicAddress := network.NewSpaceAddress("1.2.3.4", corenetwork.WithScope(corenetwork.ScopePublic))
 			privateAddress := network.NewSpaceAddress("4.3.2.1", corenetwork.WithScope(corenetwork.ScopeCloudLocal))
-			err = m.SetProviderAddresses(publicAddress, privateAddress)
+			err = m.SetProviderAddresses(controller.Config{}, publicAddress, privateAddress)
 			c.Assert(err, jc.ErrorIsNil)
 
 			unitPortRanges, err := u.OpenedPortRanges()

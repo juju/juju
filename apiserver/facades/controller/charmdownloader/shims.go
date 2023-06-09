@@ -4,6 +4,8 @@
 package charmdownloader
 
 import (
+	"context"
+
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
@@ -16,8 +18,13 @@ import (
 	"github.com/juju/juju/state"
 )
 
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
 type stateShim struct {
-	st *state.State
+	st                *state.State
+	ctrlConfigService ControllerConfigGetter
 }
 
 func (s stateShim) WatchApplicationsWithPendingCharms() state.StringsWatcher {
@@ -25,7 +32,7 @@ func (s stateShim) WatchApplicationsWithPendingCharms() state.StringsWatcher {
 }
 
 func (s stateShim) ControllerConfig() (controller.Config, error) {
-	return s.st.ControllerConfig()
+	return s.ctrlConfigService.ControllerConfig(context.TODO())
 }
 
 func (s stateShim) UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error) {

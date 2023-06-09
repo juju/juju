@@ -5,6 +5,8 @@ package modelmanager_test
 
 import (
 	stdcontext "context"
+	"github.com/juju/juju/apiserver/facades/client/modelmanager/mocks"
+	"go.uber.org/mock/gomock"
 	"regexp"
 	"time"
 
@@ -59,13 +61,14 @@ func createArgs(owner names.UserTag) params.ModelCreateArgs {
 
 type modelManagerSuite struct {
 	gitjujutesting.IsolationSuite
-	st         *mockState
-	ctlrSt     *mockState
-	caasSt     *mockState
-	caasBroker *mockCaasBroker
-	authoriser apiservertesting.FakeAuthorizer
-	api        *modelmanager.ModelManagerAPI
-	caasApi    *modelmanager.ModelManagerAPI
+	st                *mockState
+	ctlrSt            *mockState
+	ctrlConfigService *mocks.MockControllerConfigGetter
+	caasSt            *mockState
+	caasBroker        *mockCaasBroker
+	authoriser        apiservertesting.FakeAuthorizer
+	api               *modelmanager.ModelManagerAPI
+	caasApi           *modelmanager.ModelManagerAPI
 
 	callContext context.ProviderCallContext
 }
@@ -74,6 +77,11 @@ var _ = gc.Suite(&modelManagerSuite{})
 
 func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
 
 	attrs := dummy.SampleConfig()
 	attrs["agent-version"] = jujuversion.Current.String()
@@ -215,13 +223,13 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 
 	api, err := modelmanager.NewModelManagerAPI(
 		s.st, s.ctlrSt, &mockModelManagerService{}, nil, newBroker, common.NewBlockChecker(s.st),
-		s.authoriser, s.st.model, s.callContext,
+		s.authoriser, s.st.model, s.callContext, s.ctrlConfigService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 	caasApi, err := modelmanager.NewModelManagerAPI(
 		s.caasSt, s.ctlrSt, &mockModelManagerService{}, nil, newBroker, common.NewBlockChecker(s.caasSt),
-		s.authoriser, s.st.model, s.callContext,
+		s.authoriser, s.st.model, s.callContext, s.ctrlConfigService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.caasApi = caasApi
@@ -242,7 +250,7 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	}
 	mm, err := modelmanager.NewModelManagerAPI(
 		s.st, s.ctlrSt, &mockModelManagerService{}, nil, newBroker, common.NewBlockChecker(s.st),
-		s.authoriser, s.st.model, s.callContext,
+		s.authoriser, s.st.model, s.callContext, s.ctrlConfigService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = mm
@@ -831,8 +839,9 @@ func (s *modelManagerSuite) TestAddModelCantCreateModelForSomeoneElse(c *gc.C) {
 // Prefer adding tests to modelManagerSuite above.
 type modelManagerStateSuite struct {
 	jujutesting.JujuConnSuite
-	modelmanager *modelmanager.ModelManagerAPI
-	authoriser   apiservertesting.FakeAuthorizer
+	modelmanager      *modelmanager.ModelManagerAPI
+	authoriser        apiservertesting.FakeAuthorizer
+	ctrlConfigService *mocks.MockControllerConfigGetter
 
 	callContext context.ProviderCallContext
 }
@@ -842,6 +851,10 @@ var _ = gc.Suite(&modelManagerStateSuite{})
 func (s *modelManagerStateSuite) SetUpSuite(c *gc.C) {
 	coretesting.SkipUnlessControllerOS(c)
 	s.JujuConnSuite.SetUpSuite(c)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
 }
 
 func (s *modelManagerStateSuite) SetUpTest(c *gc.C) {
@@ -872,6 +885,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		s.authoriser,
 		s.Model,
 		s.callContext,
+		s.ctrlConfigService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.modelmanager = modelmanager
@@ -888,6 +902,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 		nil, nil, common.NewBlockChecker(st), anAuthoriser,
 		s.Model,
 		s.callContext,
+		s.ctrlConfigService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endPoint, gc.NotNil)
@@ -903,6 +918,7 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(st), anAuthoriser, s.Model,
 		s.callContext,
+		s.ctrlConfigService,
 	)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -1108,12 +1124,13 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 		nil, nil, common.NewBlockChecker(backend), s.authoriser,
 		s.Model,
 		s.callContext,
+		s.ctrlConfigService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	force := true
 	timeout := time.Minute
-	results, err := s.modelmanager.DestroyModels(stdcontext.TODO(), params.DestroyModelsParams{
+	results, err := s.modelmanager.DestroyModels(stdcontext.TODO(), s.ctrlConfigService, params.DestroyModelsParams{
 		Models: []params.DestroyModelParams{{
 			ModelTag: "model-" + m.UUID,
 			Force:    &force,
@@ -1157,10 +1174,11 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 		nil, nil, common.NewBlockChecker(backend), s.authoriser,
 		s.Model,
 		s.callContext,
+		s.ctrlConfigService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.modelmanager.DestroyModels(stdcontext.TODO(), params.DestroyModelsParams{
+	results, err := s.modelmanager.DestroyModels(stdcontext.TODO(), s.ctrlConfigService, params.DestroyModelsParams{
 		Models: []params.DestroyModelParams{{
 			ModelTag: "model-" + m.UUID,
 		}},
@@ -1194,13 +1212,14 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(backend), s.authoriser, s.Model,
 		s.callContext,
+		s.ctrlConfigService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	user := names.NewUserTag("other@remote")
 	s.setAPIUser(c, user)
 
-	results, err := s.modelmanager.DestroyModels(stdcontext.TODO(), params.DestroyModelsParams{
+	results, err := s.modelmanager.DestroyModels(stdcontext.TODO(), s.ctrlConfigService, params.DestroyModelsParams{
 		Models: []params.DestroyModelParams{
 			{ModelTag: "model-" + m.UUID},
 			{ModelTag: "model-9f484882-2f18-4fd2-967d-db9663db7bea"},
@@ -1627,6 +1646,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 		nil, nil, common.NewBlockChecker(st), anAuthoriser,
 		s.Model,
 		s.callContext,
+		s.ctrlConfigService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endPoint, gc.NotNil)

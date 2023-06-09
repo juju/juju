@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"database/sql"
 	"fmt"
+	"github.com/juju/juju/controller"
 	"net"
 	"net/http/httptest"
 	"os"
@@ -269,6 +270,10 @@ type environState struct {
 	multiWatcherWorker worker.Worker
 }
 
+type ControllerConfigGetter interface {
+	ControllerConfig(stdcontext.Context) (controller.Config, error)
+}
+
 // environ represents a client's connection to a given environment's
 // state.
 type environ struct {
@@ -278,6 +283,7 @@ type environ struct {
 	cloud        environscloudspec.CloudSpec
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
+	cc           ControllerConfigGetter
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -918,7 +924,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			logger.Debugf("setting password for %q to %q", owner.Name(), icfg.APIInfo.Password)
 			_ = owner.SetPassword(icfg.APIInfo.Password)
 			statePool := controller.StatePool()
-			stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, clock.WallClock)
+			stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, clock.WallClock, e.cc)
 			if err != nil {
 				return errors.Trace(err)
 			}

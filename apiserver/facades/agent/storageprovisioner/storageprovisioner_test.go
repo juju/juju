@@ -4,6 +4,8 @@
 package storageprovisioner_test
 
 import (
+	"go.uber.org/mock/gomock"
+	gc "gopkg.in/check.v1"
 	"sort"
 	"time"
 
@@ -12,7 +14,6 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -41,6 +42,8 @@ var _ = gc.Suite(&caasProvisionerSuite{})
 
 type iaasProvisionerSuite struct {
 	provisionerSuite
+
+	ctrlConfigService *MockControllerConfigGetter
 }
 
 type caasProvisionerSuite struct {
@@ -62,14 +65,25 @@ type provisionerSuite struct {
 	authorizer     *apiservertesting.FakeAuthorizer
 	api            *storageprovisioner.StorageProvisionerAPIv4
 	storageBackend storageprovisioner.StorageBackend
+	cc             *MockControllerConfigGetter
 }
 
 func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.cc = NewMockControllerConfigGetter(ctrl)
+
 }
 
 func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
 	s.provisionerSuite.SetUpTest(c)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ctrlConfigService = NewMockControllerConfigGetter(ctrl)
+
 	s.provisionerSuite.storageSetUp = s
 
 	// Create the resource registry separately to track invocations to
@@ -89,7 +103,7 @@ func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
 	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	s.storageBackend = storageBackend
-	s.api, err = storageprovisioner.NewStorageProvisionerAPIv4(backend, storageBackend, s.resources, s.authorizer, registry, pm, loggo.GetLogger("juju.apiserver.storageprovisioner"))
+	s.api, err = storageprovisioner.NewStorageProvisionerAPIv4(backend, storageBackend, s.resources, s.authorizer, registry, pm, loggo.GetLogger("juju.apiserver.storageprovisioner"), s.ctrlConfigService)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -121,7 +135,7 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	s.storageBackend = storageBackend
-	s.api, err = storageprovisioner.NewStorageProvisionerAPIv4(backend, storageBackend, s.resources, s.authorizer, registry, pm, loggo.GetLogger("juju.apiserver.storageprovisioner"))
+	s.api, err = storageprovisioner.NewStorageProvisionerAPIv4(backend, storageBackend, s.resources, s.authorizer, registry, pm, loggo.GetLogger("juju.apiserver.storageprovisioner"), s.cc)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -130,7 +144,7 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: tag}
 	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.State)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = storageprovisioner.NewStorageProvisionerAPIv4(backend, storageBackend, common.NewResources(), authorizer, nil, nil, loggo.GetLogger("juju.apiserver.storageprovisioner"))
+	_, err = storageprovisioner.NewStorageProvisionerAPIv4(backend, storageBackend, common.NewResources(), authorizer, nil, nil, loggo.GetLogger("juju.apiserver.storageprovisioner"), s.cc)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 

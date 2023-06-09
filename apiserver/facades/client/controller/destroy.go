@@ -22,11 +22,12 @@ import (
 // non-Dead hosted models, then an error with the code
 // params.CodeHasHostedModels will be transmitted.
 func (c *ControllerAPI) DestroyController(args params.DestroyControllerArgs) error {
-	return destroyController(c.state, c.statePool, c.authorizer, args, c.logger)
+	return destroyController(c.state, c.ctrlConfigService, c.statePool, c.authorizer, args, c.logger)
 }
 
 func destroyController(
 	st Backend,
+	ctrlConfigService ControllerConfiger,
 	pool *state.StatePool,
 	authorizer facade.Authorizer,
 	args params.DestroyControllerArgs,
@@ -53,7 +54,7 @@ func destroyController(
 	backend := common.NewModelManagerBackend(model, pool)
 	return errors.Trace(common.DestroyController(
 		backend, args.DestroyModels, args.DestroyStorage,
-		args.Force, args.MaxWait, args.ModelTimeout,
+		args.Force, args.MaxWait, args.ModelTimeout, ctrlConfigService,
 	))
 }
 

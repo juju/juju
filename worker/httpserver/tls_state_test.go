@@ -46,6 +46,7 @@ func (s *TLSStateSuite) TestNewTLSConfig(c *gc.C) {
 		s.State,
 		testSNIGetter(s.cert),
 		loggo.GetLogger("test"),
+		s.ControllerConfig,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -86,6 +87,7 @@ func (s *TLSStateAutocertSuite) TestAutocertExceptions(c *gc.C) {
 		s.State,
 		testSNIGetter(s.cert),
 		loggo.GetLogger("test"),
+		s.ControllerConfig,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.testGetCertificate(c, tlsConfig, "127.0.0.1")
@@ -99,6 +101,7 @@ func (s *TLSStateAutocertSuite) TestAutocert(c *gc.C) {
 		s.State,
 		testSNIGetter(s.cert),
 		loggo.GetLogger("test"),
+		s.ControllerConfig,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.testGetCertificate(c, tlsConfig, "public.invalid")
@@ -111,6 +114,7 @@ func (s *TLSStateAutocertSuite) TestAutocertHostPolicy(c *gc.C) {
 		s.State,
 		testSNIGetter(s.cert),
 		loggo.GetLogger("test"),
+		s.ControllerConfig,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.testGetCertificate(c, tlsConfig, "always.invalid")

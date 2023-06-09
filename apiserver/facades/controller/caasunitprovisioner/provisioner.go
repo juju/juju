@@ -4,6 +4,8 @@
 package caasunitprovisioner
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -11,16 +13,22 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
 )
 
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
 type Facade struct {
-	resources facade.Resources
-	state     CAASUnitProvisionerState
-	clock     clock.Clock
-	logger    loggo.Logger
+	resources         facade.Resources
+	state             CAASUnitProvisionerState
+	clock             clock.Clock
+	logger            loggo.Logger
+	ctrlConfigService ControllerConfigGetter
 }
 
 // NewFacade returns a new CAAS unit provisioner Facade facade.
@@ -30,15 +38,17 @@ func NewFacade(
 	st CAASUnitProvisionerState,
 	clock clock.Clock,
 	logger loggo.Logger,
+	ctrlConfigService ControllerConfigGetter,
 ) (*Facade, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
 	return &Facade{
-		resources: resources,
-		state:     st,
-		clock:     clock,
-		logger:    logger,
+		resources:         resources,
+		state:             st,
+		clock:             clock,
+		logger:            logger,
+		ctrlConfigService: ctrlConfigService,
 	}, nil
 }
 

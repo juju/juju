@@ -36,12 +36,19 @@ type firewallerSuite struct {
 	subnet     *state.Subnet
 
 	ctrl *gomock.Controller
+
+	ctrlConfigService *mocks.MockControllerConfigGetter
 }
 
 var _ = gc.Suite(&firewallerSuite{})
 
 func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	s.firewallerBaseSuite.setUpTest(c)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
 
 	subnet, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.20.30.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -66,6 +73,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 		cloudSpecAPI,
 		controllerConfigAPI,
 		loggo.GetLogger("juju.apiserver.firewaller"),
+		s.ctrlConfigService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.firewaller = firewallerAPI

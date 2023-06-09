@@ -506,10 +506,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The agent-config-updater manifold sets the state serving info from
 		// the API connection and writes it to the agent config.
 		agentConfigUpdaterName: ifNotMigrating(agentconfigupdater.Manifold(agentconfigupdater.ManifoldConfig{
-			AgentName:      agentName,
-			APICallerName:  apiCallerName,
-			CentralHubName: centralHubName,
-			Logger:         loggo.GetLogger("juju.worker.agentconfigupdater"),
+			AgentName:        agentName,
+			APICallerName:    apiCallerName,
+			CentralHubName:   centralHubName,
+			ChangeStreamName: changeStreamName,
+			Logger:           loggo.GetLogger("juju.worker.agentconfigupdater"),
 		})),
 
 		// The logging config updater is a leaf worker that indirectly
@@ -553,6 +554,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ClockName:             clockName,
 			ControllerPortName:    controllerPortName,
 			StateName:             stateName,
+			ChangeStreamName:      changeStreamName,
 			NewStateAuthenticator: httpserverargs.NewStateAuthenticator,
 		}),
 
@@ -564,6 +566,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:               agentName,
 			HubName:                 centralHubName,
 			StateName:               stateName,
+			ChangeStreamName:        changeStreamName,
 			Logger:                  loggo.GetLogger("juju.worker.controllerport"),
 			UpdateControllerAPIPort: config.UpdateControllerAPIPort,
 			GetControllerConfig:     controllerport.GetControllerConfig,
@@ -574,6 +577,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AuthorityName:        certificateWatcherName,
 			HubName:              centralHubName,
 			StateName:            stateName,
+			ChangeStreamName:     changeStreamName,
 			MuxName:              httpServerArgsName,
 			APIServerName:        apiServerName,
 			PrometheusRegisterer: config.PrometheusRegisterer,
@@ -622,26 +626,30 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		},
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
-			AgentName:      agentName,
-			AuthorityName:  certificateWatcherName,
-			StateName:      stateName,
-			SyslogName:     syslogName,
-			Clock:          config.Clock,
-			MuxName:        httpServerArgsName,
-			NewWorker:      modelworkermanager.New,
-			NewModelWorker: config.NewModelWorker,
-			ModelMetrics:   config.DependencyEngineMetrics,
-			Logger:         loggo.GetLogger("juju.workers.modelworkermanager"),
+			AgentName:                  agentName,
+			AuthorityName:              certificateWatcherName,
+			StateName:                  stateName,
+			SyslogName:                 syslogName,
+			Clock:                      config.Clock,
+			MuxName:                    httpServerArgsName,
+			ChangeStreamName:           changeStreamName,
+			NewWorker:                  modelworkermanager.New,
+			NewModelWorker:             config.NewModelWorker,
+			NewControllerConfigService: modelworkermanager.NewControllerConfigService,
+			ModelMetrics:               config.DependencyEngineMetrics,
+			Logger:                     loggo.GetLogger("juju.workers.modelworkermanager"),
 		})),
 
 		peergrouperName: ifFullyUpgraded(peergrouper.Manifold(peergrouper.ManifoldConfig{
-			AgentName:            agentName,
-			ClockName:            clockName,
-			ControllerPortName:   controllerPortName,
-			StateName:            stateName,
-			Hub:                  config.CentralHub,
-			PrometheusRegisterer: config.PrometheusRegisterer,
-			NewWorker:            peergrouper.New,
+			AgentName:                  agentName,
+			ClockName:                  clockName,
+			ControllerPortName:         controllerPortName,
+			StateName:                  stateName,
+			Hub:                        config.CentralHub,
+			ChangeStreamName:           changeStreamName,
+			PrometheusRegisterer:       config.PrometheusRegisterer,
+			NewWorker:                  peergrouper.New,
+			NewControllerConfigService: peergrouper.NewControllerConfigService,
 		})),
 
 		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
@@ -687,9 +695,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		auditConfigUpdaterName: ifController(auditconfigupdater.Manifold(auditconfigupdater.ManifoldConfig{
-			AgentName: agentName,
-			StateName: stateName,
-			NewWorker: auditconfigupdater.New,
+			AgentName:        agentName,
+			StateName:        stateName,
+			ChangeStreamName: changeStreamName,
+			NewWorker:        auditconfigupdater.New,
 		})),
 
 		// The lease expiry worker constantly deletes
@@ -778,11 +787,13 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
-			AgentName:                agentName,
-			AuthorityName:            certificateWatcherName,
-			StateName:                stateName,
-			NewWorker:                certupdater.NewCertificateUpdater,
-			NewMachineAddressWatcher: certupdater.NewMachineAddressWatcher,
+			AgentName:                  agentName,
+			AuthorityName:              certificateWatcherName,
+			StateName:                  stateName,
+			ChangeStreamName:           changeStreamName,
+			NewWorker:                  certupdater.NewCertificateUpdater,
+			NewMachineAddressWatcher:   certupdater.NewMachineAddressWatcher,
+			NewControllerConfigService: certupdater.NewControllerConfigService,
 		})),
 
 		// The machiner Worker will wait for the identified machine to become

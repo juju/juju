@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/pki"
 	pkitls "github.com/juju/juju/pki/tls"
 	"github.com/juju/juju/state"
@@ -35,10 +36,11 @@ type Logger interface {
 // ManifoldConfig holds the information necessary to run an HTTP server
 // in a dependency.Engine.
 type ManifoldConfig struct {
-	AuthorityName string
-	HubName       string
-	MuxName       string
-	StateName     string
+	AuthorityName    string
+	HubName          string
+	MuxName          string
+	StateName        string
+	ChangeStreamName string
 
 	// We don't use these in the worker, but we want to prevent the
 	// httpserver from starting until they're running so that all of
@@ -53,8 +55,8 @@ type ManifoldConfig struct {
 
 	Logger Logger
 
-	GetControllerConfig func(*state.State) (controller.Config, error)
-	NewTLSConfig        func(*state.State, SNIGetterFunc, Logger) (*tls.Config, error)
+	GetControllerConfig func(changestream.WatchableDBGetter) (controller.Config, error)
+	NewTLSConfig        func(*state.State, SNIGetterFunc, Logger, controller.Config) (*tls.Config, error)
 	NewWorker           func(Config) (worker.Worker, error)
 }
 
@@ -102,6 +104,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.LogDir == "" {
 		return errors.NotValidf("empty LogDir")
 	}
+	if config.ChangeStreamName == "" {
+		return errors.NotValidf("empty ChangeStreamName")
+	}
 	return nil
 }
 
@@ -116,6 +121,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.StateName,
 			config.MuxName,
 			config.APIServerName,
+			config.ChangeStreamName,
 		},
 		Start: config.start,
 	}
@@ -162,6 +168,17 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		}
 	}()
 
+	// Get controller config.
+	var dbGetter changestream.WatchableDBGetter
+	if err := context.Get(config.ChangeStreamName, &dbGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	controllerConfig, err := config.GetControllerConfig(dbGetter)
+	if err != nil {
+		return nil, errors.Annotate(err, "unable to get controller config")
+	}
+
 	systemState, err := statePool.SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -169,13 +186,11 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 	tlsConfig, err := config.NewTLSConfig(
 		systemState,
 		pkitls.AuthoritySNITLSGetter(authority, config.Logger),
-		config.Logger)
+		config.Logger,
+		controllerConfig,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-	controllerConfig, err := config.GetControllerConfig(systemState)
-	if err != nil {
-		return nil, errors.Annotate(err, "unable to get controller config")
 	}
 
 	w, err := config.NewWorker(Config{

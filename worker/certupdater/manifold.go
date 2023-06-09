@@ -5,12 +5,18 @@ package certupdater
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
 	jujuagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/core/changestream"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 	"github.com/juju/juju/pki"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
@@ -20,11 +26,13 @@ import (
 // ManifoldConfig holds the information necessary to run a certupdater
 // in a dependency.Engine.
 type ManifoldConfig struct {
-	AgentName                string
-	AuthorityName            string
-	StateName                string
-	NewWorker                func(Config) (worker.Worker, error)
-	NewMachineAddressWatcher func(st *state.State, machineId string) (AddressWatcher, error)
+	AgentName                  string
+	AuthorityName              string
+	StateName                  string
+	ChangeStreamName           string
+	NewWorker                  func(Config) (worker.Worker, error)
+	NewMachineAddressWatcher   func(st *state.State, machineId string) (AddressWatcher, error)
+	NewControllerConfigService func(getter changestream.WatchableDBGetter) ControllerConfigGetter
 }
 
 // Validate validates the manifold configuration.
@@ -38,11 +46,17 @@ func (config ManifoldConfig) Validate() error {
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
 	}
+	if config.ChangeStreamName == "" {
+		return errors.NotValidf("empty ChangeStreamName")
+	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
 	if config.NewMachineAddressWatcher == nil {
 		return errors.NotValidf("nil NewMachineAddressWatcher")
+	}
+	if config.NewControllerConfigService == nil {
+		return errors.NotValidf("nil NewControllerConfigService")
 	}
 	return nil
 }
@@ -54,6 +68,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.AuthorityName,
 			config.StateName,
+			config.ChangeStreamName,
 		},
 		Start: config.start,
 	}
@@ -96,10 +111,16 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var dbGetter changestream.WatchableDBGetter
+	if err = context.Get(config.ChangeStreamName, &dbGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w, err := config.NewWorker(Config{
 		AddressWatcher:     addressWatcher,
 		Authority:          authority,
 		APIHostPortsGetter: st,
+		CtrlConfigService:  config.NewControllerConfigService(dbGetter),
 	})
 	if err != nil {
 		_ = stTracker.Done()
@@ -118,6 +139,21 @@ func NewMachineAddressWatcher(st *state.State, machineId string) (AddressWatcher
 	return machineShim{
 		machine: machine,
 	}, nil
+}
+
+func NewControllerConfigService(dbGetter changestream.WatchableDBGetter) ControllerConfigGetter {
+	return ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactoryForNamespace(
+			dbGetter.GetWatchableDB,
+			coredatabase.ControllerNS,
+		)),
+		domain.NewWatcherFactory(
+			func() (changestream.WatchableDB, error) {
+				return dbGetter.GetWatchableDB(coredatabase.ControllerNS)
+			},
+			loggo.GetLogger("juju.worker.certupdater"),
+		),
+	)
 }
 
 type machineShim struct {

@@ -9,6 +9,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/domain"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/space"
 )
@@ -47,6 +50,14 @@ func newAPI(ctx facade.Context) (*API, error) {
 		reloadSpacesAuth,
 	)
 
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
+		domain.NewWatcherFactory(
+			ctx.ControllerDB,
+			ctx.Logger().Child("controllerconfig"),
+		),
+	)
+
 	return newAPIWithBacking(apiConfig{
 		ReloadSpacesAPI: reloadSpacesAPI,
 		Backing:         stateShim,
@@ -54,7 +65,7 @@ func newAPI(ctx facade.Context) (*API, error) {
 		Context:         callContext,
 		Resources:       ctx.Resources(),
 		Authorizer:      auth,
-		Factory:         newOpFactory(st),
+		Factory:         newOpFactory(st, ctrlConfigService),
 		logger:          ctx.Logger().Child("spaces"),
 	})
 }

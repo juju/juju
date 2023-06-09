@@ -6,6 +6,9 @@ package machinemanager
 import (
 	"context"
 	"fmt"
+	"github.com/juju/juju/domain"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 	"strconv"
 	"time"
 
@@ -67,14 +70,15 @@ type CharmhubClient interface {
 
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
-	st               Backend
-	storageAccess    StorageInterface
-	pool             Pool
-	authorizer       Authorizer
-	check            *common.BlockChecker
-	resources        facade.Resources
-	leadership       Leadership
-	upgradeSeriesAPI UpgradeSeries
+	st                Backend
+	storageAccess     StorageInterface
+	pool              Pool
+	authorizer        Authorizer
+	check             *common.BlockChecker
+	resources         facade.Resources
+	leadership        Leadership
+	upgradeSeriesAPI  UpgradeSeries
+	ctrlConfigService ControllerConfigGetter
 
 	callContext environscontext.ProviderCallContext
 	logger      loggo.Logger
@@ -133,6 +137,14 @@ func NewFacadeV10(ctx facade.Context) (*MachineManagerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
+		domain.NewWatcherFactory(
+			ctx.ControllerDB,
+			ctx.Logger().Child("controllerconfig"),
+		),
+	)
+
 	return NewMachineManagerAPI(
 		backend,
 		storageAccess,
@@ -146,6 +158,7 @@ func NewFacadeV10(ctx facade.Context) (*MachineManagerAPI, error) {
 		leadership,
 		chClient,
 		logger,
+		ctrlConfigService,
 	)
 }
 
@@ -160,6 +173,7 @@ func NewMachineManagerAPI(
 	leadership Leadership,
 	charmhubClient CharmhubClient,
 	logger loggo.Logger,
+	ctrlConfigService ControllerConfigGetter,
 ) (*MachineManagerAPI, error) {
 	if !auth.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -179,7 +193,8 @@ func NewMachineManagerAPI(
 			makeUpgradeSeriesValidator(charmhubClient),
 			auth,
 		),
-		logger: logger,
+		logger:            logger,
+		ctrlConfigService: ctrlConfigService,
 	}
 	return api, nil
 }
@@ -327,7 +342,7 @@ func (mm *MachineManagerAPI) ProvisioningScript(args params.ProvisioningScriptPa
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	icfg, err := InstanceConfig(st, mm.st, args.MachineId, args.Nonce, args.DataDir)
+	icfg, err := InstanceConfig(st, mm.st, args.MachineId, args.Nonce, args.DataDir, mm.ctrlConfigService)
 	if err != nil {
 		return result, apiservererrors.ServerError(errors.Annotate(
 			err, "getting instance config",

@@ -4,8 +4,8 @@
 package spaces
 
 import (
+	ctx "context"
 	"fmt"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -14,12 +14,17 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
 )
+
+type ControllerConfigGetter interface {
+	ControllerConfig(ctx.Context) (controller.Config, error)
+}
 
 // API provides the spaces API facade for version 6.
 type API struct {
@@ -33,17 +38,20 @@ type API struct {
 	check     BlockChecker
 	opFactory OpFactory
 	logger    loggo.Logger
+
+	ctrlConfigService ControllerConfigGetter
 }
 
 type apiConfig struct {
-	ReloadSpacesAPI ReloadSpaces
-	Backing         Backing
-	Check           BlockChecker
-	Context         context.ProviderCallContext
-	Resources       facade.Resources
-	Authorizer      facade.Authorizer
-	Factory         OpFactory
-	logger          loggo.Logger
+	ReloadSpacesAPI   ReloadSpaces
+	Backing           Backing
+	Check             BlockChecker
+	Context           context.ProviderCallContext
+	Resources         facade.Resources
+	Authorizer        facade.Authorizer
+	Factory           OpFactory
+	logger            loggo.Logger
+	ctrlConfigService ControllerConfigGetter
 }
 
 // newAPIWithBacking creates a new server-side Spaces API facade with
@@ -55,14 +63,15 @@ func newAPIWithBacking(cfg apiConfig) (*API, error) {
 	}
 
 	return &API{
-		reloadSpacesAPI: cfg.ReloadSpacesAPI,
-		backing:         cfg.Backing,
-		resources:       cfg.Resources,
-		auth:            cfg.Authorizer,
-		context:         cfg.Context,
-		check:           cfg.Check,
-		opFactory:       cfg.Factory,
-		logger:          cfg.logger,
+		reloadSpacesAPI:   cfg.ReloadSpacesAPI,
+		backing:           cfg.Backing,
+		resources:         cfg.Resources,
+		auth:              cfg.Authorizer,
+		context:           cfg.Context,
+		check:             cfg.Check,
+		opFactory:         cfg.Factory,
+		logger:            cfg.logger,
+		ctrlConfigService: cfg.ctrlConfigService,
 	}, nil
 }
 

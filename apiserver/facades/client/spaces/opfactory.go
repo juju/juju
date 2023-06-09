@@ -23,11 +23,12 @@ type OpFactory interface {
 }
 
 type opFactory struct {
-	st *state.State
+	st                *state.State
+	ctrlConfigService ControllerConfigGetter
 }
 
-func newOpFactory(st *state.State) OpFactory {
-	return &opFactory{st: st}
+func newOpFactory(st *state.State, ctrlConfigService ControllerConfigGetter) OpFactory {
+	return &opFactory{st: st, ctrlConfigService: ctrlConfigService}
 }
 
 // NewRemoveSpaceOp (OpFactory) returns an operation
@@ -48,7 +49,7 @@ func (f *opFactory) NewRenameSpaceOp(fromName, toName string) (state.ModelOperat
 		return nil, errors.Trace(err)
 	}
 	return NewRenameSpaceOp(
-		f.st.IsController(), f.st.NewControllerSettings(), &renameSpaceState{f.st}, space, toName), nil
+		f.st.IsController(), f.st.NewControllerSettings(), &renameSpaceState{f.st}, space, toName, f.ctrlConfigService), nil
 }
 
 // NewMoveSubnetsOp (OpFactory) returns an operation

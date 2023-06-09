@@ -4,6 +4,8 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -138,11 +140,15 @@ type ControllerConfigState interface {
 
 	ModelExists(string) (bool, error)
 	NewExternalControllers() state.ExternalControllers
-	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
+	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 	CompletedMigrationForModel(string) (state.ModelMigration, error)
 }
 
 type controllerInfoState interface {
 	ControllerConfig() (controller.Config, error)
-	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
+	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
+}
+
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
 }

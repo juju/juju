@@ -18,6 +18,9 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/domain"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
@@ -74,7 +77,14 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		}
 		return secrets.DrainBackendConfigInfo(backendID, secrets.SecretsModel(model), context.Auth().GetAuthTag(), leadershipChecker)
 	}
-	controllerAPI := common.NewStateControllerConfig(context.State())
+	ctrlConfigService := ccservice.NewService(
+		ccstate.NewState(domain.NewTxnRunnerFactory(context.ControllerDB)),
+		domain.NewWatcherFactory(
+			context.ControllerDB,
+			context.Logger().Child("controllerconfig"),
+		),
+	)
+	controllerAPI := common.NewStateControllerConfig(context.State(), ctrlConfigService)
 	remoteClientGetter := func(uri *coresecrets.URI) (CrossModelSecretsClient, error) {
 		info, err := controllerAPI.ControllerAPIInfoForModels(params.Entities{Entities: []params.Entity{{
 			Tag: names.NewModelTag(uri.SourceUUID).String(),
