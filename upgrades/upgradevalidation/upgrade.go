@@ -18,7 +18,7 @@ func ValidatorsForControllerUpgrade(
 			getCheckTargetVersionForControllerModel(targetVersion),
 			checkMongoStatusForControllerUpgrade,
 		}
-		if targetVersion.Major == 3 {
+		if targetVersion.Major >= 3 {
 			validators = append(validators,
 				checkMongoVersionForControllerModel,
 				checkNoWinMachinesForModel,
@@ -56,7 +56,7 @@ func ValidatorsForModelUpgrade(
 	validators := []Validator{
 		getCheckUpgradeSeriesLockForModel(force),
 	}
-	if targetVersion.Major == 3 {
+	if targetVersion.Major >= 3 {
 		validators = append(validators,
 			checkNoWinMachinesForModel,
 			checkForDeprecatedUbuntuSeriesForModel,
