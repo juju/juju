@@ -14,8 +14,14 @@ func ControllerDDL(nodeID uint64) []database.Delta {
 		externalControllerSchema,
 		modelListSchema,
 		controllerConfigSchema,
-		controllerNodeSchema,
+		// These are broken up for 2 reasons:
+		// 1. Bind variables do not work for multiple statements in one string.
+		// 2. We want to insert the initial node before creating the change_log
+		//    triggers as there is no need to produce a change stream event
+		//    from what is a bootstrap activity.
+		controllerNodeTable,
 		controllerNodeEntry(nodeID),
+		controllerNodeTriggers,
 	}
 
 	var deltas []database.Delta
@@ -311,7 +317,7 @@ BEGIN
 END;`)
 }
 
-func controllerNodeSchema() database.Delta {
+func controllerNodeTable() database.Delta {
 	return database.MakeDelta(`
 CREATE TABLE controller_node (
     controller_id  TEXT PRIMARY KEY, 
@@ -323,28 +329,7 @@ CREATE UNIQUE INDEX idx_controller_node_dqlite_node
 ON controller_node (dqlite_node_id);
 
 CREATE UNIQUE INDEX idx_controller_node_bind_address
-ON controller_node (bind_address);
-
-CREATE TRIGGER trg_changelog_controller_node_insert
-AFTER INSERT ON controller_node FOR EACH ROW
-BEGIN
-	INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (1, 2, NEW.controller_id, DATETIME('now'));
-END;
-
-CREATE TRIGGER trg_changelog_controller_node_update
-AFTER UPDATE ON controller_node FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (2, 2, OLD.controller_id, DATETIME('now'));
-END;
-
-CREATE TRIGGER trg_changelog_controller_node_delete
-AFTER DELETE ON controller_node FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (4, 2, OLD.controller_id, DATETIME('now'));
-END;`)
+ON controller_node (bind_address);`)
 }
 
 func controllerNodeEntry(nodeID uint64) func() database.Delta {
@@ -358,4 +343,28 @@ func controllerNodeEntry(nodeID uint64) func() database.Delta {
 INSERT INTO controller_node (controller_id, dqlite_node_id, bind_address)
 VALUES ('0', ?, '127.0.0.1');`, nodeID)
 	}
+}
+
+func controllerNodeTriggers() database.Delta {
+	return database.MakeDelta(`
+CREATE TRIGGER trg_changelog_controller_node_insert
+AFTER INSERT ON controller_node FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at)
+    VALUES (1, 2, NEW.controller_id, DATETIME('now'));
+END;
+
+CREATE TRIGGER trg_changelog_controller_node_update
+AFTER UPDATE ON controller_node FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at)
+    VALUES (2, 2, OLD.controller_id, DATETIME('now'));
+END;
+
+CREATE TRIGGER trg_changelog_controller_node_delete
+AFTER DELETE ON controller_node FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at)
+    VALUES (4, 2, OLD.controller_id, DATETIME('now'));
+END;`)
 }
