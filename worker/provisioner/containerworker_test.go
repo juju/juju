@@ -41,7 +41,7 @@ type containerWorkerSuite struct {
 	controllerUUID utils.UUID
 
 	initialiser    *testing.MockInitialiser
-	facadeCaller   *apimocks.MockFacadeCaller
+	caller         *apimocks.MockAPICaller
 	machine        *provisionermocks.MockMachineProvisioner
 	manager        *testing.MockManager
 	stringsWatcher *mocks.MockStringsWatcher
@@ -115,7 +115,8 @@ func (s *containerWorkerSuite) TestContainerSetupAndProvisionerErrWatcherClose(c
 	defer ctrl.Finish()
 
 	s.initialiser = testing.NewMockInitialiser(ctrl)
-	s.facadeCaller = apimocks.NewMockFacadeCaller(ctrl)
+	s.caller = apimocks.NewMockAPICaller(ctrl)
+	s.caller.EXPECT().BestFacadeVersion("Provisioner").Return(0).AnyTimes()
 	s.stringsWatcher = mocks.NewMockStringsWatcher(ctrl)
 	s.machine = provisionermocks.NewMockMachineProvisioner(ctrl)
 	s.manager = testing.NewMockManager(ctrl)
@@ -143,7 +144,7 @@ func (s *containerWorkerSuite) TestContainerSetupAndProvisionerErrWatcherClose(c
 }
 
 func (s *containerWorkerSuite) setUpContainerWorker(c *gc.C) worker.Worker {
-	pState := apiprovisioner.NewStateFromFacade(s.facadeCaller)
+	pClient := apiprovisioner.NewClient(s.caller)
 
 	cfg, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
@@ -164,7 +165,7 @@ func (s *containerWorkerSuite) setUpContainerWorker(c *gc.C) worker.Worker {
 		ContainerType: instance.LXD,
 		MachineZone:   s.machine,
 		MTag:          s.machine.MachineTag(),
-		Provisioner:   pState,
+		Provisioner:   pClient,
 		Config:        cfg,
 		MachineLock:   s.machineLock,
 		CredentialAPI: &credentialAPIForTest{},
@@ -188,7 +189,10 @@ func (s *containerWorkerSuite) patch(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.initialiser = testing.NewMockInitialiser(ctrl)
-	s.facadeCaller = apimocks.NewMockFacadeCaller(ctrl)
+	s.caller = apimocks.NewMockAPICaller(ctrl)
+	s.caller.EXPECT().BestFacadeVersion("Provisioner").Return(0).AnyTimes()
+	s.caller.EXPECT().BestFacadeVersion("NotifyWatcher").Return(0).AnyTimes()
+	s.caller.EXPECT().BestFacadeVersion("StringsWatcher").Return(0).AnyTimes()
 	s.stringsWatcher = mocks.NewMockStringsWatcher(ctrl)
 	s.machine = provisionermocks.NewMockMachineProvisioner(ctrl)
 	s.manager = testing.NewMockManager(ctrl)
@@ -217,17 +221,14 @@ func (s *containerWorkerSuite) stubOutProvisioner(ctrl *gomock.Controller) {
 	// but expectations would be verbose to the point of obfuscation.
 	// So we only mock the base caller for calls that use it directly,
 	// such as watcher acquisition.
-	caller := apimocks.NewMockAPICaller(ctrl)
-	cExp := caller.EXPECT()
-	cExp.BestFacadeVersion(gomock.Any()).Return(0).AnyTimes()
-	cExp.APICall("NotifyWatcher", 0, gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(nil).AnyTimes()
-	cExp.APICall("StringsWatcher", 0, gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(nil).AnyTimes()
 
-	fExp := s.facadeCaller.EXPECT()
-	fExp.RawAPICaller().Return(caller).AnyTimes()
+	fExp := s.caller.EXPECT()
+	fExp.BestFacadeVersion(gomock.Any()).Return(0).AnyTimes()
+	fExp.APICall("NotifyWatcher", 0, gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(nil).AnyTimes()
+	fExp.APICall("StringsWatcher", 0, gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(nil).AnyTimes()
 
 	notifySource := params.NotifyWatchResult{NotifyWatcherId: "who-cares"}
-	fExp.FacadeCall("WatchForModelConfigChanges", nil, gomock.Any()).SetArg(2, notifySource).Return(nil).AnyTimes()
+	fExp.APICall("Provisioner", 0, "", "WatchForModelConfigChanges", nil, gomock.Any()).SetArg(5, notifySource).Return(nil).AnyTimes()
 
 	modelCfgSource := params.ModelConfigResult{
 		Config: map[string]interface{}{
@@ -237,32 +238,32 @@ func (s *containerWorkerSuite) stubOutProvisioner(ctrl *gomock.Controller) {
 			"secret-backend": "auto",
 		},
 	}
-	fExp.FacadeCall("ModelConfig", nil, gomock.Any()).SetArg(2, modelCfgSource).Return(nil).AnyTimes()
+	fExp.APICall("Provisioner", 0, "", "ModelConfig", nil, gomock.Any()).SetArg(5, modelCfgSource).Return(nil).AnyTimes()
 
 	addrSource := params.StringsResult{Result: []string{"0.0.0.0"}}
-	fExp.FacadeCall("StateAddresses", nil, gomock.Any()).SetArg(2, addrSource).Return(nil).AnyTimes()
-	fExp.FacadeCall("APIAddresses", nil, gomock.Any()).SetArg(2, addrSource).Return(nil).AnyTimes()
+	fExp.APICall("Provisioner", 0, "", "StateAddresses", nil, gomock.Any()).SetArg(5, addrSource).Return(nil).AnyTimes()
+	fExp.APICall("Provisioner", 0, "", "APIAddresses", nil, gomock.Any()).SetArg(5, addrSource).Return(nil).AnyTimes()
 
 	certSource := params.BytesResult{Result: []byte(coretesting.CACert)}
-	fExp.FacadeCall("CACert", nil, gomock.Any()).SetArg(2, certSource).Return(nil).AnyTimes()
+	fExp.APICall("Provisioner", 0, "", "CACert", nil, gomock.Any()).SetArg(5, certSource).Return(nil).AnyTimes()
 
 	uuidSource := params.StringResult{Result: s.modelUUID.String()}
-	fExp.FacadeCall("ModelUUID", nil, gomock.Any()).SetArg(2, uuidSource).Return(nil).AnyTimes()
+	fExp.APICall("Provisioner", 0, "", "ModelUUID", nil, gomock.Any()).SetArg(5, uuidSource).Return(nil).AnyTimes()
 
 	lifeSource := params.LifeResults{Results: []params.LifeResult{{Life: life.Alive}}}
-	fExp.FacadeCall("Life", gomock.Any(), gomock.Any()).SetArg(2, lifeSource).Return(nil).AnyTimes()
+	fExp.APICall("Provisioner", 0, "", "Life", gomock.Any(), gomock.Any()).SetArg(5, lifeSource).Return(nil).AnyTimes()
 
 	watchSource := params.StringsWatchResults{Results: []params.StringsWatchResult{{
 		StringsWatcherId: "whatever",
 		Changes:          []string{},
 	}}}
-	fExp.FacadeCall("WatchContainers", gomock.Any(), gomock.Any()).SetArg(2, watchSource).Return(nil).AnyTimes()
-	fExp.FacadeCall("WatchContainersCharmProfiles", gomock.Any(), gomock.Any()).SetArg(2, watchSource).Return(nil).AnyTimes()
+	fExp.APICall("Provisioner", 0, "", "WatchContainers", gomock.Any(), gomock.Any()).SetArg(5, watchSource).Return(nil).AnyTimes()
+	fExp.APICall("Provisioner", 0, "", "WatchContainersCharmProfiles", gomock.Any(), gomock.Any()).SetArg(5, watchSource).Return(nil).AnyTimes()
 
 	controllerCfgSource := params.ControllerConfigResult{
 		Config: map[string]interface{}{"controller-uuid": s.controllerUUID.String()},
 	}
-	fExp.FacadeCall("ControllerConfig", nil, gomock.Any()).SetArg(2, controllerCfgSource).Return(nil).AnyTimes()
+	fExp.APICall("Provisioner", 0, "", "ControllerConfig", nil, gomock.Any()).SetArg(5, controllerCfgSource).Return(nil).AnyTimes()
 }
 
 // notify returns a suite behaviour that will cause the container watcher
@@ -289,9 +290,9 @@ func (s *containerWorkerSuite) expectContainerManagerConfig(cType instance.Conta
 	resultSource := params.ContainerManagerConfig{
 		ManagerConfig: map[string]string{"model-uuid": s.modelUUID.String()},
 	}
-	s.facadeCaller.EXPECT().FacadeCall(
-		"ContainerManagerConfig", params.ContainerManagerConfigParams{Type: cType}, gomock.Any(),
-	).SetArg(2, resultSource).MinTimes(1)
+	s.caller.EXPECT().APICall(
+		"Provisioner", 0, "", "ContainerManagerConfig", params.ContainerManagerConfigParams{Type: cType}, gomock.Any(),
+	).SetArg(5, resultSource).MinTimes(1)
 
 	s.machine.EXPECT().AvailabilityZone().Return("az1", nil)
 }

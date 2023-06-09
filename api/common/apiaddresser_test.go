@@ -1,0 +1,115 @@
+// Copyright 2023 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package common_test
+
+import (
+	"time"
+
+	"github.com/golang/mock/gomock"
+	jujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
+	apimocks "github.com/juju/juju/api/base/mocks"
+	"github.com/juju/juju/api/common"
+	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/worker/instancemutater/mocks"
+)
+
+type apiaddresserSuite struct {
+	jujutesting.IsolationSuite
+}
+
+var _ = gc.Suite(&apiaddresserSuite{})
+
+func (s *apiaddresserSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+}
+
+func (s *apiaddresserSuite) TestAPIAddresses(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	facade := apimocks.NewMockFacadeCaller(ctrl)
+	result := params.StringsResult{
+		Result: []string{"0.1.2.3:1234"},
+	}
+	facade.EXPECT().FacadeCall("APIAddresses", nil, gomock.Any()).SetArg(2, result).Return(nil)
+
+	client := common.NewAPIAddresser(facade)
+	addresses, err := client.APIAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addresses, gc.DeepEquals, []string{"0.1.2.3:1234"})
+}
+
+func (s *apiaddresserSuite) TestAPIHostPorts(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	facade := apimocks.NewMockFacadeCaller(ctrl)
+
+	ports := []corenetwork.MachineHostPorts{
+		{{
+			MachineAddress: corenetwork.NewMachineAddress("1.2.3.4", corenetwork.WithScope(corenetwork.ScopePublic)),
+			NetPort:        1234,
+		}, {
+			MachineAddress: corenetwork.NewMachineAddress("2.3.4.5", corenetwork.WithScope(corenetwork.ScopePublic)),
+			NetPort:        2345,
+		}}, {{
+			MachineAddress: corenetwork.NewMachineAddress("3.4.5.6", corenetwork.WithScope(corenetwork.ScopePublic)),
+			NetPort:        3456,
+		}},
+	}
+
+	hps := make([]corenetwork.HostPorts, len(ports))
+	for i, mHP := range ports {
+		hps[i] = mHP.HostPorts()
+	}
+	result := params.APIHostPortsResult{
+		Servers: params.FromHostsPorts(hps),
+	}
+
+	facade.EXPECT().FacadeCall("APIHostPorts", nil, gomock.Any()).SetArg(2, result).Return(nil)
+
+	client := common.NewAPIAddresser(facade)
+
+	expectServerAddrs := []corenetwork.ProviderHostPorts{
+		{
+			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("1.2.3.4").AsProviderAddress(), NetPort: 1234},
+			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("2.3.4.5").AsProviderAddress(), NetPort: 2345},
+		},
+		{corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("3.4.5.6").AsProviderAddress(), NetPort: 3456}},
+	}
+
+	serverAddrs, err := client.APIHostPorts()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(serverAddrs, gc.DeepEquals, expectServerAddrs)
+}
+
+func (s *apiaddresserSuite) TestWatchAPIHostPorts(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	facade := apimocks.NewMockFacadeCaller(ctrl)
+	caller := mocks.NewMockAPICaller(ctrl)
+	caller.EXPECT().BestFacadeVersion("NotifyWatcher").Return(666)
+	caller.EXPECT().APICall("NotifyWatcher", 666, "", "Next", nil, gomock.Any()).Return(nil).AnyTimes()
+	caller.EXPECT().APICall("NotifyWatcher", 666, "", "Stop", nil, gomock.Any()).Return(nil).AnyTimes()
+
+	result := params.NotifyWatchResult{}
+	facade.EXPECT().FacadeCall("WatchAPIHostPorts", nil, gomock.Any()).SetArg(2, result).Return(nil)
+	facade.EXPECT().RawAPICaller().Return(caller)
+
+	client := common.NewAPIAddresser(facade)
+	w, err := client.WatchAPIHostPorts()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// watch for the changes
+	for i := 0; i < 2; i++ {
+		select {
+		case <-w.Changes():
+		case <-time.After(jujutesting.LongWait):
+			c.Fail()
+		}
+	}
+}

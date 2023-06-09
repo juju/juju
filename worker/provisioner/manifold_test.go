@@ -30,7 +30,7 @@ var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) makeManifold() dependency.Manifold {
 	fakeNewProvFunc := func(
-		*apiprovisioner.State,
+		*apiprovisioner.Client,
 		agent.Config,
 		provisioner.Logger,
 		environs.Environ,

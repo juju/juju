@@ -60,7 +60,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 
-			upgraderFacade := upgrader.NewState(apiCaller)
+			upgraderFacade := upgrader.NewClient(apiCaller)
 			operatorUpgraderFacade := caasoperatorupgrader.NewClient(apiCaller)
 
 			var upgradeStepsWaiter gate.Waiter

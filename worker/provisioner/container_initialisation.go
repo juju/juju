@@ -29,7 +29,7 @@ import (
 type ContainerSetup struct {
 	logger        Logger
 	containerType instance.ContainerType
-	provisioner   *apiprovisioner.State
+	provisioner   *apiprovisioner.Client
 	mTag          names.MachineTag
 	machineZone   broker.AvailabilityZoner
 	config        agent.Config
@@ -46,7 +46,7 @@ type ContainerSetupParams struct {
 	ContainerType instance.ContainerType
 	MTag          names.MachineTag
 	MachineZone   broker.AvailabilityZoner
-	Provisioner   *apiprovisioner.State
+	Provisioner   *apiprovisioner.Client
 	Config        agent.Config
 	MachineLock   machinelock.Lock
 	CredentialAPI workercommon.CredentialAPI

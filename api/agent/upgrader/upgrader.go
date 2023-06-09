@@ -15,21 +15,21 @@ import (
 	"github.com/juju/juju/tools"
 )
 
-// State provides access to an upgrader worker's view of the state.
-type State struct {
+// Client provides access to an upgrader worker's view of the state.
+type Client struct {
 	facade base.FacadeCaller
 }
 
-// NewState returns a version of the state that provides functionality
+// NewClient returns a version of the api client that provides functionality
 // required by the upgrader worker.
-func NewState(caller base.APICaller) *State {
-	return &State{base.NewFacadeCaller(caller, "Upgrader")}
+func NewClient(caller base.APICaller) *Client {
+	return &Client{base.NewFacadeCaller(caller, "Upgrader")}
 }
 
 // SetVersion sets the tools version associated with the entity with
 // the given tag, which must be the tag of the entity that the
 // upgrader is running on behalf of.
-func (st *State) SetVersion(tag string, v version.Binary) error {
+func (st *Client) SetVersion(tag string, v version.Binary) error {
 	var results params.ErrorResults
 	args := params.EntitiesVersion{
 		AgentTools: []params.EntityVersion{{
@@ -44,7 +44,7 @@ func (st *State) SetVersion(tag string, v version.Binary) error {
 	return results.OneError()
 }
 
-func (st *State) DesiredVersion(tag string) (version.Number, error) {
+func (st *Client) DesiredVersion(tag string) (version.Number, error) {
 	var results params.VersionResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
@@ -68,7 +68,7 @@ func (st *State) DesiredVersion(tag string) (version.Number, error) {
 
 // Tools returns the agent tools that should run on the given entity,
 // along with a flag whether to disable SSL hostname verification.
-func (st *State) Tools(tag string) (tools.List, error) {
+func (st *Client) Tools(tag string) (tools.List, error) {
 	var results params.ToolsResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
@@ -87,7 +87,7 @@ func (st *State) Tools(tag string) (tools.List, error) {
 	return result.ToolsList, nil
 }
 
-func (st *State) WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error) {
+func (st *Client) WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag}},

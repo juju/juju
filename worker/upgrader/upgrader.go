@@ -52,7 +52,7 @@ var _ logger = struct{}{}
 // requests.
 type Upgrader struct {
 	catacomb catacomb.Catacomb
-	st       *upgrader.State
+	st       *upgrader.Client
 	dataDir  string
 	tag      names.Tag
 	config   Config
@@ -62,7 +62,7 @@ type Upgrader struct {
 type Config struct {
 	Clock                       Clock
 	Logger                      Logger
-	State                       *upgrader.State
+	State                       *upgrader.Client
 	AgentConfig                 agent.Config
 	OrigAgentVersion            version.Number
 	UpgradeStepsWaiter          gate.Waiter

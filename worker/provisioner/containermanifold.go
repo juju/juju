@@ -92,7 +92,7 @@ func (cfg ContainerManifoldConfig) start(context dependency.Context) (worker.Wor
 	if err := context.Get(cfg.APICallerName, &apiCaller); err != nil {
 		return nil, errors.Trace(err)
 	}
-	pr := apiprovisioner.NewState(apiCaller)
+	pr := apiprovisioner.NewClient(apiCaller)
 
 	machine, err := cfg.machineSupportsContainers(&containerShim{api: pr}, mTag)
 	if err != nil {
@@ -140,7 +140,7 @@ type ContainerMachineResult struct {
 }
 
 type containerShim struct {
-	api *apiprovisioner.State
+	api *apiprovisioner.Client
 }
 
 func (s *containerShim) Machines(tags ...names.MachineTag) ([]ContainerMachineResult, error) {

@@ -113,7 +113,7 @@ func (s *UpgraderSuite) makeUpgrader(c *gc.C) *upgrader.Upgrader {
 	w, err := upgrader.NewAgentUpgrader(upgrader.Config{
 		Clock:                       s.clock,
 		Logger:                      loggo.GetLogger("test"),
-		State:                       upgraderapi.NewState(s.state),
+		State:                       upgraderapi.NewClient(s.state),
 		AgentConfig:                 agentConfig(s.machine.Tag(), s.DataDir()),
 		OrigAgentVersion:            s.confVersion,
 		UpgradeStepsWaiter:          s.upgradeStepsComplete,
@@ -481,7 +481,7 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 	u, err := upgrader.NewAgentUpgrader(upgrader.Config{
 		Clock:                       s.clock,
 		Logger:                      loggo.GetLogger("test"),
-		State:                       upgraderapi.NewState(s.state),
+		State:                       upgraderapi.NewClient(s.state),
 		AgentConfig:                 agentConfig(s.machine.Tag(), s.DataDir()),
 		OrigAgentVersion:            s.confVersion,
 		UpgradeStepsWaiter:          s.upgradeStepsComplete,

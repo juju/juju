@@ -885,7 +885,7 @@ func (a *MachineAgent) validateMigration(apiCaller base.APICaller) error {
 // passes the result to the juju controller.
 func (a *MachineAgent) setupContainerSupport(st api.Connection, logger machine.Logger) error {
 	logger.Tracef("setupContainerSupport called")
-	pr := apiprovisioner.NewState(st)
+	pr := apiprovisioner.NewClient(st)
 	mTag, ok := a.CurrentConfig().Tag().(names.MachineTag)
 	if !ok {
 		return errors.New("not a machine")
