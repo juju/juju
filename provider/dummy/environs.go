@@ -2127,7 +2127,7 @@ func (e *environ) newCleanDB() (changestream.WatchableDB, error) {
 		return nil, err
 	}
 
-	for _, stmt := range domainschema.ControllerDDL() {
+	for _, stmt := range domainschema.ControllerDDL(0x2dc171858c3155be) {
 		_, err := tx.Exec(stmt.Stmt(), stmt.Args()...)
 		if err != nil {
 			_ = tx.Rollback()
