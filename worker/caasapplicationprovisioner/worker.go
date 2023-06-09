@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
@@ -54,7 +55,6 @@ type CAASProvisionerFacade interface {
 	ApplicationCharmInfo(string) (*charmscommon.CharmInfo, error)
 	SetOperatorStatus(appName string, status status.Status, message string, data map[string]interface{}) error
 	Units(appName string) ([]params.CAASUnit, error)
-	GarbageCollect(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error
 	ApplicationOCIResources(appName string) (map[string]resources.DockerImageDetails, error)
 	UpdateUnits(arg params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error)
 	WatchApplication(appName string) (watcher.NotifyWatcher, error)
@@ -62,6 +62,10 @@ type CAASProvisionerFacade interface {
 	WatchUnits(application string) (watcher.StringsWatcher, error)
 	RemoveUnit(unitName string) error
 	WatchProvisioningInfo(string) (watcher.NotifyWatcher, error)
+	DestroyUnits(unitNames []string) error
+	ProvisioningState(string) (*params.CAASApplicationProvisioningState, error)
+	SetProvisioningState(string, params.CAASApplicationProvisioningState) error
+	ProvisionerConfig() (params.CAASApplicationProvisionerConfig, error)
 }
 
 // CAASBroker exposes CAAS broker functionality to a worker.
@@ -157,6 +161,19 @@ func (p *provisioner) loop() error {
 		return errors.Trace(err)
 	}
 
+	config, err := p.facade.ProvisionerConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	unmanagedApps := set.NewStrings()
+	for _, v := range config.UnmanagedApplications.Entities {
+		app, err := names.ParseApplicationTag(v.Tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		unmanagedApps.Add(app.Name)
+	}
+
 	for {
 		select {
 		case <-p.catacomb.Dying():
@@ -166,6 +183,9 @@ func (p *provisioner) loop() error {
 				return errors.New("app watcher closed channel")
 			}
 			for _, appName := range apps {
+				if unmanagedApps.Contains(appName) {
+					continue
+				}
 				_, err := p.facade.Life(appName)
 				if err != nil && !errors.IsNotFound(err) {
 					return errors.Trace(err)

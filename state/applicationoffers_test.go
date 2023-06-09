@@ -130,6 +130,21 @@ func (s *applicationOffersSuite) TestAddApplicationOffer(c *gc.C) {
 	c.Assert(access, gc.Equals, permission.ReadAccess)
 }
 
+func (s *applicationOffersSuite) TestAddApplicationOfferInvalidApplication(c *gc.C) {
+	sd := state.NewApplicationOffers(s.State)
+	owner := s.Factory.MakeUser(c, nil)
+	args := crossmodel.AddApplicationOfferArgs{
+		OfferName:              "hosted-mysql",
+		ApplicationName:        "invalid",
+		ApplicationDescription: "mysql is a db server",
+		Endpoints:              map[string]string{"db": "server", "db-admin": "server-admin"},
+		Owner:                  owner.Name(),
+		HasRead:                []string{"everyone@external"},
+	}
+	_, err := sd.AddOffer(args)
+	c.Assert(err, gc.ErrorMatches, `cannot add application offer "hosted-mysql": application "invalid" not found`)
+}
+
 func (s *applicationOffersSuite) TestAddApplicationOfferBadEndpoints(c *gc.C) {
 	eps := map[string]string{"db": "server", "db-admin": "admin"}
 	sd := state.NewApplicationOffers(s.State)
@@ -476,7 +491,7 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferNotFound(c *gc.C) {
 	owner := s.Factory.MakeUser(c, nil)
 	_, err := sd.UpdateOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
-		ApplicationName: "foo",
+		ApplicationName: "mysql",
 		Owner:           owner.Name(),
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot update application offer "hosted-mysql": offer "hosted-mysql" not found`)
@@ -508,9 +523,9 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovedAfterInitial(c
 
 func (s *applicationOffersSuite) addOfferConnection(c *gc.C, offerUUID string) *state.RemoteApplication {
 	app, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        "wordpress",
-		SourceModel: testing.ModelTag,
-		OfferUUID:   offerUUID,
+		Name:            "wordpress",
+		SourceModel:     testing.ModelTag,
+		IsConsumerProxy: true,
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
 			Name:      "server",
@@ -570,6 +585,91 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovingEndpointsInUs
 		},
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot update application offer "hosted-mysql": application endpoint "server" has active consumers`)
+}
+
+func (s *applicationOffersSuite) TestUpdateApplicationOfferInvalidApplication(c *gc.C) {
+	owner := s.Factory.MakeUser(c, nil).Name()
+	sd := state.NewApplicationOffers(s.State)
+
+	originalOffer, err := sd.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "myoffer",
+		Owner:           owner,
+		ApplicationName: "mysql",
+		Endpoints: map[string]string{
+			"db": "server",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(originalOffer, jc.DeepEquals, &crossmodel.ApplicationOffer{
+		OfferName:       "myoffer",
+		OfferUUID:       originalOffer.OfferUUID,
+		ApplicationName: "mysql",
+		Endpoints: map[string]charm.Relation{
+			"db": {
+				Name:      "server",
+				Role:      "provider",
+				Interface: "mysql",
+				Scope:     "global",
+			},
+		},
+	})
+
+	_, err = sd.UpdateOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "myoffer",
+		Owner:           owner,
+		ApplicationName: "invalid",
+		Endpoints: map[string]string{
+			"invalid-endpoint": "invalid-endpoint",
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot update application offer "myoffer": application "invalid" not found`)
+
+	newOffer, err := sd.ApplicationOffer("myoffer")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(newOffer, jc.DeepEquals, originalOffer)
+}
+
+// regression test for https://bugs.launchpad.net/juju/+bug/1954830
+func (s *applicationOffersSuite) TestUpdateApplicationOfferInvalidEndpoint(c *gc.C) {
+	owner := s.Factory.MakeUser(c, nil).Name()
+	sd := state.NewApplicationOffers(s.State)
+
+	originalOffer, err := sd.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "myoffer",
+		Owner:           owner,
+		ApplicationName: "mysql",
+		Endpoints: map[string]string{
+			"db": "server",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(originalOffer, jc.DeepEquals, &crossmodel.ApplicationOffer{
+		OfferName:       "myoffer",
+		OfferUUID:       originalOffer.OfferUUID,
+		ApplicationName: "mysql",
+		Endpoints: map[string]charm.Relation{
+			"db": {
+				Name:      "server",
+				Role:      "provider",
+				Interface: "mysql",
+				Scope:     "global",
+			},
+		},
+	})
+
+	_, err = sd.UpdateOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "myoffer",
+		Owner:           owner,
+		ApplicationName: "mysql",
+		Endpoints: map[string]string{
+			"invalid-endpoint": "invalid-endpoint",
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot update application offer "myoffer": getting relation endpoint for relation "invalid-endpoint" and application "mysql": application "mysql" has no "invalid-endpoint" relation`)
+
+	newOffer, err := sd.ApplicationOffer("myoffer")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(newOffer, jc.DeepEquals, originalOffer)
 }
 
 func (s *applicationOffersSuite) TestRemoveOffersSucceedsWithZeroConnections(c *gc.C) {
@@ -678,9 +778,9 @@ func (s *applicationOffersSuite) assertInScope(c *gc.C, relUnit *state.RelationU
 func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 	offer := s.createDefaultOffer(c)
 	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        "remote-wordpress",
-		SourceModel: names.NewModelTag("source-model"),
-		OfferUUID:   offer.OfferUUID,
+		Name:            "remote-wordpress",
+		SourceModel:     names.NewModelTag("source-model"),
+		IsConsumerProxy: true,
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
 			Limit:     1,
@@ -689,21 +789,6 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 			Scope:     charm.ScopeGlobal,
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	orphaned, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        "remote-orphaned",
-		SourceModel: names.NewModelTag("source-model"),
-		OfferUUID:   offer.OfferUUID,
-		Endpoints: []charm.Relation{{
-			Interface: "mysql",
-			Limit:     1,
-			Name:      "db",
-			Role:      charm.RoleRequirer,
-			Scope:     charm.ScopeGlobal,
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	wordpress, err := s.State.RemoteApplication("remote-wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	wordpressEP, err := rwordpress.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
@@ -729,7 +814,15 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, wpru, true)
 
-	s.addOfferConnection(c, offer.OfferUUID)
+	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
+		OfferUUID:       offer.OfferUUID,
+		RelationId:      rel.Id(),
+		RelationKey:     rel.Tag().Id(),
+		Username:        "admin",
+		SourceModelUUID: testing.ModelTag.Id(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	ao := state.NewApplicationOffers(s.State)
 
 	err = ao.Remove("hosted-mysql", true)
@@ -738,14 +831,13 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	conn, err := s.State.OfferConnections(offer.OfferUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conn, gc.HasLen, 0)
+	c.Assert(conn, gc.HasLen, 1)
+	offerRel, err := s.State.Relation(conn[0].RelationId())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(offerRel.Life(), gc.Equals, state.Dying)
 	s.assertInScope(c, wpru, false)
 	s.assertInScope(c, mysqlru, true)
-	err = wordpress.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	err = rwordpress.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	err = orphaned.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 

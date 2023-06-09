@@ -18,6 +18,7 @@ import (
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/wrench"
 )
 
 var (
@@ -71,6 +72,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			s, err := newSender(client, factory, paths.State.BaseDir, unitTag.String())
 			if err != nil {
 				return nil, errors.Trace(err)
+			}
+
+			if wrench.IsActive("metricscollector", "short-interval") {
+				period = 10 * time.Second
 			}
 			return spool.NewPeriodicWorker(s.Do, period, jworker.NewTimer, s.stop), nil
 		},

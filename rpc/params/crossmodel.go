@@ -489,9 +489,6 @@ type IngressNetworksChangeEvent struct {
 	// RelationToken is the token of the relation.
 	RelationToken string `json:"relation-token"`
 
-	// ApplicationToken is the token of the application.
-	ApplicationToken string `json:"application-token"`
-
 	// Networks are the CIDRs for which ingress is required.
 	Networks []string `json:"networks,omitempty"`
 

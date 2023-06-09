@@ -21,8 +21,8 @@ func (s *RemoteEntitiesExportSuite) TestExportRemoteEntities(c *gc.C) {
 	defer ctrl.Finish()
 
 	entities := []MigrationRemoteEntity{
-		s.remoteEntity(ctrl, "uuid-3", "aaa-bbb", ""),
-		s.remoteEntity(ctrl, "uuid-4", "ccc-yyy", "macaroon-5"),
+		s.remoteEntity(ctrl, "uuid3", "aaa-bbb", ""),
+		s.remoteEntity(ctrl, "uuid4", "ccc-yyy", "macaroon-5"),
 	}
 
 	source := NewMockRemoteEntitiesSource(ctrl)
@@ -30,11 +30,11 @@ func (s *RemoteEntitiesExportSuite) TestExportRemoteEntities(c *gc.C) {
 
 	model := NewMockRemoteEntitiesModel(ctrl)
 	model.EXPECT().AddRemoteEntity(description.RemoteEntityArgs{
-		ID:    "controller-uuid-3",
+		ID:    "controller-uuid3",
 		Token: "aaa-bbb",
 	})
 	model.EXPECT().AddRemoteEntity(description.RemoteEntityArgs{
-		ID:    "controller-uuid-4",
+		ID:    "controller-uuid4",
 		Token: "ccc-yyy",
 		// Note no macaroon.
 	})

@@ -109,10 +109,14 @@ type Config struct {
 
 	CredentialAPI common.CredentialAPI
 
+	// TODO: (jack-w-shaw) Drop these once we move tests to mocks based
 	// WatchMachineNotify is called when the Firewaller starts watching the
 	// machine with the given tag (manual machines aren't watched). This
 	// should only be used for testing.
 	WatchMachineNotify func(tag names.MachineTag)
+	// FlushModelNotify is called when the Firewaller flushes it's model.
+	// This should only be used for testing
+	FlushModelNotify func()
 }
 
 // Validate returns an error if cfg cannot drive a Worker.
@@ -185,6 +189,7 @@ type Firewaller struct {
 
 	// Only used for testing
 	watchMachineNotify func(tag names.MachineTag)
+	flushModelNotify   func()
 }
 
 // NewFirewaller returns a new Firewaller.
@@ -227,6 +232,7 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		}),
 		cloudCallContextFunc: common.NewCloudCallContextFunc(cfg.CredentialAPI),
 		watchMachineNotify:   cfg.WatchMachineNotify,
+		flushModelNotify:     cfg.FlushModelNotify,
 	}
 
 	switch cfg.Mode {
@@ -305,7 +311,10 @@ func (fw *Firewaller) loop() error {
 	if err := fw.setUp(); err != nil {
 		return errors.Trace(err)
 	}
-	var reconciled bool
+	var (
+		reconciled                    bool
+		modelGroupInitiallyConfigured bool
+	)
 	portsChange := fw.portsWatcher.Changes()
 
 	var modelFirewallChanges watcher.NotifyChannel
@@ -336,6 +345,15 @@ func (fw *Firewaller) loop() error {
 				}
 				if err != nil {
 					return errors.Trace(err)
+				}
+			}
+			if fw.environModelFirewaller != nil && !modelGroupInitiallyConfigured {
+				err := fw.flushModel()
+				if err != nil && !errors.IsNotFound(err) {
+					return err
+				}
+				if err == nil {
+					modelGroupInitiallyConfigured = true
 				}
 			}
 		case change, ok := <-portsChange:
@@ -369,7 +387,7 @@ func (fw *Firewaller) loop() error {
 			if !ok {
 				return errors.New("model config watcher closed")
 			}
-			if err := fw.flushModel(); err != nil {
+			if err := fw.flushModel(); err != nil && !errors.IsNotFound(err) {
 				return errors.Trace(err)
 			}
 
@@ -1076,10 +1094,6 @@ func (fw *Firewaller) flushModel() error {
 
 	ctx := stdcontext.Background()
 	curr, err := fw.environModelFirewaller.ModelIngressRules(fw.cloudCallContextFunc(ctx))
-	if errors.IsNotFound(err) {
-		fw.logger.Warningf("Model firewall not found so cannot re-write firewall rule %q. Ignoring", want)
-		return nil
-	}
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1101,7 +1115,9 @@ func (fw *Firewaller) flushModel() error {
 			return errors.Annotatef(err, "failed to close port ranges %v on model firewall", toOpen)
 		}
 	}
-
+	if fw.flushModelNotify != nil {
+		fw.flushModelNotify()
+	}
 	return nil
 }
 
@@ -1456,8 +1472,7 @@ func (fw *Firewaller) relationLifeChanged(tag names.RelationTag) error {
 }
 
 type remoteRelationInfo struct {
-	relationToken    string
-	applicationToken string
+	relationToken string
 }
 
 type remoteRelationData struct {
@@ -1468,7 +1483,6 @@ type remoteRelationData struct {
 	tag                 names.RelationTag
 	localApplicationTag names.ApplicationTag
 	relationToken       string
-	applicationToken    string
 	remoteModelUUID     string
 	endpointRole        charm.RelationRole
 	isOffer             bool
@@ -1537,10 +1551,9 @@ func (rd *remoteRelationData) watchLoop() error {
 			return rd.catacomb.ErrDying()
 		case remoteRelationInfo := <-rd.relationReady:
 			rd.relationToken = remoteRelationInfo.relationToken
-			rd.applicationToken = remoteRelationInfo.applicationToken
 			rd.fw.logger.Debugf(
-				"relation %v for remote app %v in model %v is ready",
-				rd.relationToken, rd.applicationToken, rd.remoteModelUUID)
+				"relation %v in model %v is ready",
+				rd.relationToken, rd.remoteModelUUID)
 		}
 	}
 
@@ -1682,12 +1695,11 @@ func (rd *remoteRelationData) updateProviderModel(cidrs []string) error {
 	}
 	defer remoteModelAPI.Close()
 	event := params.IngressNetworksChangeEvent{
-		RelationToken:    rd.relationToken,
-		ApplicationToken: rd.applicationToken,
-		Networks:         change.networks.Values(),
-		IngressRequired:  change.ingressRequired,
-		Macaroons:        macaroon.Slice{mac},
-		BakeryVersion:    bakery.LatestVersion,
+		RelationToken:   rd.relationToken,
+		Networks:        change.networks.Values(),
+		IngressRequired: change.ingressRequired,
+		Macaroons:       macaroon.Slice{mac},
+		BakeryVersion:   bakery.LatestVersion,
 	}
 	err = remoteModelAPI.PublishIngressNetworkChange(event)
 	if errors.IsNotFound(err) {
@@ -1790,18 +1802,8 @@ func (p *remoteRelationPoller) pollLoop() error {
 				continue
 			}
 			p.fw.logger.Debugf("token %v for relation id: %v in model %v", relToken, p.relationTag.Id(), p.fw.modelUUID)
-
-			// Application is exported with the offering model UUID.
-			appToken, err := p.fw.remoteRelationsApi.GetToken(p.applicationTag)
-			if err != nil {
-				continue
-			}
-			p.fw.logger.Debugf("token %v for application id: %v", appToken, p.applicationTag.Id())
-
-			// relation and application are ready.
 			relationInfo := remoteRelationInfo{
-				relationToken:    relToken,
-				applicationToken: appToken,
+				relationToken: relToken,
 			}
 			select {
 			case <-p.catacomb.Dying():

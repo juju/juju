@@ -167,7 +167,7 @@ func (s *firewallerBaseSuite) assertModelIngressRules(c *gc.C, expected firewall
 	start := time.Now()
 	for {
 		got, err := fwEnv.ModelIngressRules(s.callCtx)
-		if err != nil {
+		if err != nil && !errors.IsNotFound(err) {
 			c.Fatal(err)
 		}
 		if got.EqualTo(expected) {
@@ -204,12 +204,15 @@ func (s *firewallerBaseSuite) startInstance(c *gc.C, m *state.Machine) instances
 type InstanceModeSuite struct {
 	firewallerBaseSuite
 	watchMachineNotify func(tag names.MachineTag)
+	flushModelNotify   func()
 }
 
 var _ = gc.Suite(&InstanceModeSuite{})
 
 func (s *InstanceModeSuite) SetUpTest(c *gc.C) {
 	s.firewallerBaseSuite.setUpTest(c, config.FwInstance)
+	s.watchMachineNotify = nil
+	s.flushModelNotify = nil
 }
 
 // mockClock will panic if anything but After is called
@@ -261,6 +264,7 @@ func (s *InstanceModeSuite) newFirewallerWithClockAndIPV6CIDRSupport(c *gc.C, cl
 		Logger:             loggo.GetLogger("test"),
 		CredentialAPI:      s.credentialsFacade,
 		WatchMachineNotify: s.watchMachineNotify,
+		FlushModelNotify:   s.flushModelNotify,
 	}
 	fw, err := firewaller.NewFirewaller(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -287,6 +291,7 @@ func (s *InstanceModeSuite) newFirewallerWithoutModelFirewaller(c *gc.C) worker.
 		Logger:             loggo.GetLogger("test"),
 		CredentialAPI:      s.credentialsFacade,
 		WatchMachineNotify: s.watchMachineNotify,
+		FlushModelNotify:   s.flushModelNotify,
 	}
 	fw, err := firewaller.NewFirewaller(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -621,6 +626,44 @@ func (s *InstanceModeSuite) TestStartMachineWithManualMachine(c *gc.C) {
 	assertWatching(m.MachineTag())
 }
 
+func (s *InstanceModeSuite) TestFlushModelAfterFirstMachineOnly(c *gc.C) {
+	flush := make(chan struct{}, 10) // buffer to ensure test never blocks
+	s.flushModelNotify = func() {
+		flush <- struct{}{}
+	}
+
+	fw := s.newFirewaller(c)
+	defer statetesting.AssertKillAndWait(c, fw)
+
+	// Initial event from machine watcher
+	select {
+	case <-flush:
+	case <-time.After(coretesting.ShortWait):
+		c.Fatalf("Timed out waiting for initial event")
+	}
+
+	// Initial event from model firewall watcher
+	select {
+	case <-flush:
+	case <-time.After(coretesting.ShortWait):
+		c.Fatalf("Timed out waiting for initial event")
+	}
+
+	_, err := s.State.AddOneMachine(state.MachineTemplate{
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Since the initial event successfully configured the model firewall
+	// the next machine shouldn't trigger a model flush
+	select {
+	case <-flush:
+		c.Fatalf("Unexpected model flush creating machine")
+	case <-time.After(coretesting.ShortWait):
+	}
+}
+
 func (s *InstanceModeSuite) TestSetClearExposedApplication(c *gc.C) {
 	fw := s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
@@ -944,15 +987,9 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	// Set up the consuming model - create the remote app.
 	offeringModelTag := names.NewModelTag(utils.MustNewUUID().String())
-	appToken := utils.MustNewUUID().String()
-	app, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "mysql", SourceModel: offeringModelTag,
-		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
 	// Create the external controller info.
 	ec := state.NewExternalControllers(s.State)
-	_, err = ec.Save(crossmodel.ControllerInfo{
+	_, err := ec.Save(crossmodel.ControllerInfo{
 		ControllerTag: coretesting.ControllerTag,
 		Addrs:         []string{"1.2.3.4:1234"},
 		CACert:        coretesting.CACert}, offeringModelTag.Id())
@@ -969,8 +1006,7 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 		c.Check(request, gc.Equals, "PublishIngressNetworkChanges")
 		expected := params.IngressNetworksChanges{
 			Changes: []params.IngressNetworksChangeEvent{{
-				RelationToken:    relToken,
-				ApplicationToken: appToken,
+				RelationToken: relToken,
 			}},
 		}
 
@@ -1021,6 +1057,11 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 	// Create the firewaller facade on the consuming model.
 	fw := s.newFirewallerWithClock(c, clock)
 
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "mysql", SourceModel: offeringModelTag,
+		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -1031,8 +1072,6 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 	relToken, err = re.ExportLocalEntity(rel.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = re.SaveMacaroon(rel.Tag(), mac)
-	c.Assert(err, jc.ErrorIsNil)
-	err = re.ImportRemoteEntity(app.Tag(), appToken)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We should not have published any ingress events yet - no unit has entered scope.

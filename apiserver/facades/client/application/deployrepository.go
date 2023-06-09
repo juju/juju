@@ -87,10 +87,10 @@ func NewDeployFromRepositoryAPI(state DeployFromRepositoryState, validator Deplo
 func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRepositoryArg) (params.DeployFromRepositoryInfo, []*params.PendingResourceUpload, []error) {
 	deployRepoLogger.Tracef("deployOneFromRepository(%s)", pretty.Sprint(arg))
 	// Validate the args.
-	dt, errs := api.validator.ValidateArg(arg)
+	dt, addPendingResourceErrs := api.validator.ValidateArg(arg)
 
-	if len(errs) > 0 {
-		return params.DeployFromRepositoryInfo{}, nil, errs
+	if len(addPendingResourceErrs) > 0 {
+		return params.DeployFromRepositoryInfo{}, nil, addPendingResourceErrs
 	}
 
 	info := params.DeployFromRepositoryInfo{
@@ -124,9 +124,9 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 	}
 
 	// Last step, add pending resources.
-	pendingIDs, errs := api.addPendingResources(dt.applicationName, dt.resolvedResources)
+	pendingIDs, addPendingResourceErrs := api.addPendingResources(dt.applicationName, dt.resolvedResources)
 
-	_, err = api.state.AddApplication(state.AddApplicationArgs{
+	_, addApplicationErr := api.state.AddApplication(state.AddApplicationArgs{
 		ApplicationConfig: dt.applicationConfig,
 		AttachStorage:     dt.attachStorage,
 		Charm:             api.stateCharm(ch),
@@ -142,18 +142,19 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 		Storage:           stateStorageConstraints(dt.storage),
 	})
 
-	if err != nil && len(pendingIDs) != 0 {
-		if pendingIDs != nil {
-			// Remove the pending resources that are added before the AddApplication is called
+	if addApplicationErr != nil {
+		// Check the pending resources that are added before the AddApplication is called
+		if pendingIDs != nil && len(pendingIDs) != 0 {
+			// Remove if there's any pending resources before raising addApplicationErr
 			removeResourcesErr := api.state.RemovePendingResources(dt.applicationName, pendingIDs)
 			if removeResourcesErr != nil {
 				deployRepoLogger.Errorf("unable to remove pending resources for %q", dt.applicationName)
 			}
 		}
-		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
+		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(addApplicationErr)}
 	}
 
-	return info, dt.pendingResourceUploads, errs
+	return info, dt.pendingResourceUploads, addPendingResourceErrs
 }
 
 // PendingResourceUpload is only returned for local resources

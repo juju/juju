@@ -49,6 +49,21 @@ func (mr *MockRemoteEntitiesInputMockRecorder) DocID(arg0 interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DocID", reflect.TypeOf((*MockRemoteEntitiesInput)(nil).DocID), arg0)
 }
 
+// OfferNameForApp mocks base method.
+func (m *MockRemoteEntitiesInput) OfferNameForApp(arg0 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OfferNameForApp", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// OfferNameForApp indicates an expected call of OfferNameForApp.
+func (mr *MockRemoteEntitiesInputMockRecorder) OfferNameForApp(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OfferNameForApp", reflect.TypeOf((*MockRemoteEntitiesInput)(nil).OfferNameForApp), arg0)
+}
+
 // RemoteEntities mocks base method.
 func (m *MockRemoteEntitiesInput) RemoteEntities() []v4.RemoteEntity {
 	m.ctrl.T.Helper()

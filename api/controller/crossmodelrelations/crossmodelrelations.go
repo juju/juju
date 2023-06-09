@@ -465,7 +465,7 @@ func (c *Client) WatchOfferStatus(arg params.OfferArg) (watcher.OfferStatusWatch
 
 // WatchConsumedSecretsChanges returns a watcher which notifies of new secret revisions consumed by the
 // app with the specified token.
-func (c *Client) WatchConsumedSecretsChanges(applicationToken string, mac *macaroon.Macaroon) (watcher.SecretsRevisionWatcher, error) {
+func (c *Client) WatchConsumedSecretsChanges(applicationToken, relationToken string, mac *macaroon.Macaroon) (watcher.SecretsRevisionWatcher, error) {
 	var macs macaroon.Slice
 	if mac != nil {
 		macs = macaroon.Slice{mac}
@@ -473,12 +473,13 @@ func (c *Client) WatchConsumedSecretsChanges(applicationToken string, mac *macar
 
 	args := params.WatchRemoteSecretChangesArgs{Args: []params.WatchRemoteSecretChangesArg{{
 		ApplicationToken: applicationToken,
+		RelationToken:    relationToken,
 		Macaroons:        macs,
 		BakeryVersion:    bakery.LatestVersion,
 	}}}
 
 	// Use any previously cached discharge macaroons.
-	if ms, ok := c.getCachedMacaroon("watch consumed secret changes", applicationToken); ok {
+	if ms, ok := c.getCachedMacaroon("watch consumed secret changes", relationToken); ok {
 		args.Args[0].Macaroons = ms
 		args.Args[0].BakeryVersion = bakery.LatestVersion
 	}
@@ -510,7 +511,7 @@ func (c *Client) WatchConsumedSecretsChanges(applicationToken string, mac *macar
 			return nil, result.Error
 		}
 		args.Args[0].Macaroons = mac
-		c.cache.Upsert(applicationToken, mac)
+		c.cache.Upsert(relationToken, mac)
 
 		if err := apiCall(); err != nil {
 			return nil, errors.Trace(err)

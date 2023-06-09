@@ -6,7 +6,6 @@ package crossmodel_test
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"fmt"
 	"strings"
 	"time"
@@ -18,15 +17,12 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
-	"github.com/lestrrat-go/jwx/v2/jwk"
-	"github.com/lestrrat-go/jwx/v2/jwt"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
@@ -260,9 +256,9 @@ func (s *authSuite) TestCheckOfferMacaroons(c *gc.C) {
 		}, bakery.Op{"consume", "mysql-uuid"})
 
 	c.Assert(err, jc.ErrorIsNil)
-	attr, err := authContext.Authenticator(
-		coretesting.ModelTag.Id(), "mysql-uuid").CheckOfferMacaroons(
+	attr, err := authContext.Authenticator().CheckOfferMacaroons(
 		context.TODO(),
+		coretesting.ModelTag.Id(),
 		"mysql-uuid",
 		macaroon.Slice{mac.M()},
 		bakery.LatestVersion,
@@ -289,9 +285,9 @@ func (s *authSuite) TestCheckOfferMacaroonsWrongOffer(c *gc.C) {
 		}, bakery.Op{"consume", "mysql-uuid"})
 
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = authContext.Authenticator(
-		coretesting.ModelTag.Id(), "mysql-uuid").CheckOfferMacaroons(
+	_, err = authContext.Authenticator().CheckOfferMacaroons(
 		context.TODO(),
+		coretesting.ModelTag.Id(),
 		"prod.another",
 		macaroon.Slice{mac.M()},
 		bakery.LatestVersion,
@@ -314,9 +310,9 @@ func (s *authSuite) TestCheckOfferMacaroonsNoUser(c *gc.C) {
 		}, bakery.Op{"consume", "mysql-uuid"})
 
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = authContext.Authenticator(
-		coretesting.ModelTag.Id(), "mysql-uuid").CheckOfferMacaroons(
+	_, err = authContext.Authenticator().CheckOfferMacaroons(
 		context.TODO(),
+		coretesting.ModelTag.Id(),
 		"mysql-uuid",
 		macaroon.Slice{mac.M()},
 		bakery.LatestVersion,
@@ -337,9 +333,9 @@ func (s *authSuite) TestCheckOfferMacaroonsDischargeRequired(c *gc.C) {
 	mac, err := authContext.CreateConsumeOfferMacaroon(context.TODO(), offer, "mary", bakery.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = authContext.Authenticator(
-		coretesting.ModelTag.Id(), "mysql-uuid").CheckOfferMacaroons(
+	_, err = authContext.Authenticator().CheckOfferMacaroons(
 		context.TODO(),
+		coretesting.ModelTag.Id(),
 		"mysql-uuid",
 		macaroon.Slice{mac.M()},
 		bakery.LatestVersion,
@@ -365,9 +361,10 @@ func (s *authSuite) TestCheckRelationMacaroons(c *gc.C) {
 		}, bakery.Op{"relate", relationTag.Id()})
 
 	c.Assert(err, jc.ErrorIsNil)
-	err = authContext.Authenticator(
-		coretesting.ModelTag.Id(), "mysql-uuid").CheckRelationMacaroons(
+	err = authContext.Authenticator().CheckRelationMacaroons(
 		context.TODO(),
+		coretesting.ModelTag.Id(),
+		"mysql-uuid",
 		relationTag,
 		macaroon.Slice{mac.M()},
 		bakery.LatestVersion,
@@ -389,9 +386,10 @@ func (s *authSuite) TestCheckRelationMacaroonsWrongRelation(c *gc.C) {
 		}, bakery.Op{"relate", relationTag.Id()})
 
 	c.Assert(err, jc.ErrorIsNil)
-	err = authContext.Authenticator(
-		coretesting.ModelTag.Id(), "mysql-uuid").CheckRelationMacaroons(
+	err = authContext.Authenticator().CheckRelationMacaroons(
 		context.TODO(),
+		coretesting.ModelTag.Id(),
+		"mysql-uuid",
 		names.NewRelationTag("app:db offer:db"),
 		macaroon.Slice{mac.M()},
 		bakery.LatestVersion,
@@ -415,9 +413,10 @@ func (s *authSuite) TestCheckRelationMacaroonsNoUser(c *gc.C) {
 		}, bakery.Op{"relate", relationTag.Id()})
 
 	c.Assert(err, jc.ErrorIsNil)
-	err = authContext.Authenticator(
-		coretesting.ModelTag.Id(), "mysql-uuid").CheckRelationMacaroons(
+	err = authContext.Authenticator().CheckRelationMacaroons(
 		context.TODO(),
+		coretesting.ModelTag.Id(),
+		"mysql-uuid",
 		relationTag,
 		macaroon.Slice{mac.M()},
 		bakery.LatestVersion,
@@ -437,9 +436,10 @@ func (s *authSuite) TestCheckRelationMacaroonsDischargeRequired(c *gc.C) {
 		coretesting.ModelTag.Id(), "mysql-uuid", "mary", relationTag, bakery.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = authContext.Authenticator(
-		coretesting.ModelTag.Id(), "mysql-uuid").CheckRelationMacaroons(
+	err = authContext.Authenticator().CheckRelationMacaroons(
 		context.TODO(),
+		coretesting.ModelTag.Id(),
+		"mysql-uuid",
 		relationTag,
 		macaroon.Slice{mac.M()},
 		bakery.LatestVersion,
@@ -449,76 +449,4 @@ func (s *authSuite) TestCheckRelationMacaroonsDischargeRequired(c *gc.C) {
 	cav := dischargeErr.LegacyMacaroon.Caveats()
 	c.Assert(cav, gc.HasLen, 2)
 	c.Assert(cav[0].Location, gc.Equals, "http://thirdparty")
-}
-
-type tokenEntity struct {
-	user names.UserTag
-}
-
-func (t tokenEntity) Tag() names.Tag {
-	return t.user
-}
-
-type tokenParser struct {
-	jwkSet jwk.Set
-}
-
-func (p *tokenParser) Parse(ctx context.Context, tok string) (jwt.Token, authentication.Entity, error) {
-	tokBytes, err := base64.StdEncoding.DecodeString(tok)
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "invalid jwt authToken in request")
-	}
-
-	jwtTok, err := jwt.Parse(
-		tokBytes,
-		jwt.WithKeySet(p.jwkSet),
-	)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	userTag, err := names.ParseUserTag(jwtTok.Subject())
-	if err != nil {
-		return nil, nil, err
-	}
-	return jwtTok, tokenEntity{userTag}, err
-}
-
-var permissionFunc = func(token jwt.Token, subject names.Tag) (permission.Access, error) {
-	accessClaims, ok := token.PrivateClaims()["access"].(map[string]interface{})
-	if !ok || len(accessClaims) == 0 {
-		return permission.NoAccess, nil
-	}
-	access, ok := accessClaims[subject.String()]
-	if !ok {
-		return permission.NoAccess, nil
-	}
-	return permission.Access(fmt.Sprintf("%v", access)), nil
-}
-
-func (s *authSuite) TestCheckCheckOfferToken(c *gc.C) {
-	jwkSet, sign, err := testing.NewJWKSet()
-	c.Assert(err, jc.ErrorIsNil)
-	parser := &tokenParser{jwkSet}
-	tokBytes, err := testing.EncodedJWT(testing.JWTParams{
-		Controller: coretesting.ControllerTag.String(),
-		User:       "user-fred",
-		Access: map[string]string{
-			"applicationoffer-mysql-uuid": "consume",
-		},
-	}, jwkSet, sign)
-	c.Assert(err, jc.ErrorIsNil)
-
-	uuid := utils.MustNewUUID()
-	st := &mockState{
-		tag: names.NewModelTag(uuid.String()),
-	}
-	authContext, err := crossmodel.NewAuthContext(st, s.bakeryKey, s.bakery, parser, permissionFunc)
-	c.Assert(err, jc.ErrorIsNil)
-	username, err := authContext.Authenticator(
-		coretesting.ModelTag.Id(), "mysql-uuid").CheckOfferToken(
-		context.TODO(),
-		base64.StdEncoding.EncodeToString(tokBytes),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(username, gc.Equals, "fred")
 }

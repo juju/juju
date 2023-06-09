@@ -22,7 +22,7 @@ import (
 
 type HookContextParams struct {
 	Unit                *uniter.Unit
-	State               *uniter.State
+	State               State
 	ID                  string
 	UUID                string
 	ModelName           string
@@ -36,7 +36,6 @@ type HookContextParams struct {
 	CharmMetrics        *charm.Metrics
 	ActionData          *ActionData
 	AssignedMachineTag  names.MachineTag
-	Storage             StorageContextAccessor
 	StorageTag          names.StorageTag
 	SecretsClient       SecretsAccessor
 	SecretsStore        jujusecrets.BackendsClient
@@ -56,29 +55,29 @@ func (stub *stubLeadershipContext) IsLeader() (bool, error) {
 
 func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	ctx := &HookContext{
-		unit:                 hcParams.Unit,
-		state:                hcParams.State,
-		id:                   hcParams.ID,
-		uuid:                 hcParams.UUID,
-		modelName:            hcParams.ModelName,
-		unitName:             hcParams.Unit.Name(),
-		relationId:           hcParams.RelationID,
-		remoteUnitName:       hcParams.RemoteUnitName,
-		relations:            hcParams.Relations,
-		apiAddrs:             hcParams.APIAddrs,
-		modelType:            model.IAAS,
-		legacyProxySettings:  hcParams.LegacyProxySettings,
-		jujuProxySettings:    hcParams.JujuProxySettings,
-		actionData:           hcParams.ActionData,
-		assignedMachineTag:   hcParams.AssignedMachineTag,
-		storage:              hcParams.Storage,
-		storageTag:           hcParams.StorageTag,
-		secretsClient:        hcParams.SecretsClient,
-		secretsBackendGetter: func() (jujusecrets.BackendsClient, error) { return hcParams.SecretsStore, nil },
-		secretMetadata:       hcParams.SecretMetadata,
-		clock:                hcParams.Clock,
-		logger:               loggo.GetLogger("test"),
-		LeadershipContext:    &stubLeadershipContext{isLeader: true},
+		unit:                   hcParams.Unit,
+		state:                  hcParams.State,
+		id:                     hcParams.ID,
+		uuid:                   hcParams.UUID,
+		modelName:              hcParams.ModelName,
+		unitName:               hcParams.Unit.Name(),
+		relationId:             hcParams.RelationID,
+		remoteUnitName:         hcParams.RemoteUnitName,
+		relations:              hcParams.Relations,
+		apiAddrs:               hcParams.APIAddrs,
+		modelType:              model.IAAS,
+		legacyProxySettings:    hcParams.LegacyProxySettings,
+		jujuProxySettings:      hcParams.JujuProxySettings,
+		actionData:             hcParams.ActionData,
+		assignedMachineTag:     hcParams.AssignedMachineTag,
+		storageTag:             hcParams.StorageTag,
+		secretsClient:          hcParams.SecretsClient,
+		secretsBackendGetter:   func() (jujusecrets.BackendsClient, error) { return hcParams.SecretsStore, nil },
+		secretMetadata:         hcParams.SecretMetadata,
+		clock:                  hcParams.Clock,
+		logger:                 loggo.GetLogger("test"),
+		LeadershipContext:      &stubLeadershipContext{isLeader: true},
+		storageAttachmentCache: make(map[names.StorageTag]jujuc.ContextStorageAttachment),
 	}
 	// Get and cache the addresses.
 	var err error
@@ -133,20 +132,35 @@ func NewMockUnitHookContext(mockUnit *mocks.MockHookUnit, modelType model.ModelT
 				},
 			},
 		),
-		secretChanges: newSecretsChangeRecorder(logger),
+		secretChanges:          newSecretsChangeRecorder(logger),
+		storageAttachmentCache: make(map[names.StorageTag]jujuc.ContextStorageAttachment),
 	}
 }
 
 func NewMockUnitHookContextWithState(mockUnit *mocks.MockHookUnit, state *uniter.State) *HookContext {
 	logger := loggo.GetLogger("test")
 	return &HookContext{
-		unitName:         mockUnit.Tag().Id(), //unitName used by the action finaliser method.
-		unit:             mockUnit,
-		state:            state,
-		logger:           logger,
-		modelType:        model.IAAS,
-		portRangeChanges: newPortRangeChangeRecorder(logger, mockUnit.Tag(), model.IAAS, nil, nil),
-		secretChanges:    newSecretsChangeRecorder(logger),
+		unitName:               mockUnit.Tag().Id(), //unitName used by the action finaliser method.
+		unit:                   mockUnit,
+		state:                  state,
+		logger:                 logger,
+		modelType:              model.IAAS,
+		portRangeChanges:       newPortRangeChangeRecorder(logger, mockUnit.Tag(), model.IAAS, nil, nil),
+		secretChanges:          newSecretsChangeRecorder(logger),
+		storageAttachmentCache: make(map[names.StorageTag]jujuc.ContextStorageAttachment),
+	}
+}
+
+func NewMockUnitHookContextWithStateAndStorage(unitName string, unit HookUnit, state State, storageTag names.StorageTag) *HookContext {
+	logger := loggo.GetLogger("test")
+	return &HookContext{
+		unitName:               unit.Tag().Id(), //unitName used by the action finaliser method.
+		unit:                   unit,
+		state:                  state,
+		logger:                 logger,
+		portRangeChanges:       newPortRangeChangeRecorder(logger, names.NewUnitTag(unitName), model.IAAS, nil, nil),
+		storageTag:             storageTag,
+		storageAttachmentCache: make(map[names.StorageTag]jujuc.ContextStorageAttachment),
 	}
 }
 
@@ -179,8 +193,7 @@ func SetEnvironmentHookContextRelation(context *HookContext, relationId int, end
 
 // SetEnvironmentHookContextStorage exists purely to set the fields used in hookVars.
 // It makes no assumptions about the validity of context.
-func SetEnvironmentHookContextStorage(context *HookContext, storage StorageContextAccessor, storageTag names.StorageTag) {
-	context.storage = storage
+func SetEnvironmentHookContextStorage(context *HookContext, storageTag names.StorageTag) {
 	context.storageTag = storageTag
 }
 
@@ -236,6 +249,9 @@ type ModelHookContextParams struct {
 	JujuProxySettings   proxy.Settings
 
 	MachineTag names.MachineTag
+
+	State State
+	Unit  HookUnit
 }
 
 // NewModelHookContext exists purely to set the fields used in rs.
@@ -254,13 +270,16 @@ func NewModelHookContext(p ModelHookContextParams) *HookContext {
 			code: p.MeterCode,
 			info: p.MeterInfo,
 		},
-		relationId:         -1,
-		assignedMachineTag: p.MachineTag,
-		availabilityZone:   p.AvailZone,
-		slaLevel:           p.SLALevel,
-		principal:          p.UnitName,
-		cloudAPIVersion:    "6.66",
-		logger:             loggo.GetLogger("test"),
+		relationId:             -1,
+		assignedMachineTag:     p.MachineTag,
+		availabilityZone:       p.AvailZone,
+		slaLevel:               p.SLALevel,
+		principal:              p.UnitName,
+		cloudAPIVersion:        "6.66",
+		logger:                 loggo.GetLogger("test"),
+		state:                  p.State,
+		unit:                   p.Unit,
+		storageAttachmentCache: make(map[names.StorageTag]jujuc.ContextStorageAttachment),
 	}
 }
 

@@ -131,6 +131,12 @@ func (s *secretBackendsStorage) CreateSecretBackend(p CreateSecretBackendParams)
 			Assert: txn.DocMissing,
 			Insert: *backendDoc,
 		}}
+		refCountOps, err := s.st.createSecretBackendRefCountOp(backendDoc.DocID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, refCountOps...)
+
 		if p.NextRotateTime != nil {
 			rotateOps, err := s.tokenRotationOps(backendDoc.DocID, &p.Name, p.NextRotateTime)
 			if err != nil {
@@ -303,20 +309,13 @@ func (s *secretBackendsStorage) DeleteSecretBackend(name string, force bool) err
 			Assert: txn.DocExists,
 			Remove: true,
 		}
-		// If we are forcing removal, simply delete any ref count reference.
-		removeRefCountOp := s.st.removeBackendRevisionCountOp(b.ID)
-		if force {
-			return []txn.Op{deleteOp, removeRefCountOp}, nil
-		}
-		// Check that there are no revisions stored in the backend before allowing deletion.
-		ensureRefCountOp, count, err := s.st.ensureSecretBackendRevisionCountOp(b.ID)
+
+		refCountOp, err := s.st.removeBackendRefCountOp(b.ID, force)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if count > 0 {
-			return nil, errors.NotSupportedf("removing backend with %d stored secret revisions", count)
-		}
-		return []txn.Op{deleteOp, ensureRefCountOp}, nil
+
+		return append([]txn.Op{deleteOp}, refCountOp...), nil
 	}
 	return errors.Trace(s.st.db().Run(buildTxn))
 }
@@ -325,20 +324,63 @@ func secretBackendRefCountKey(backendID string) string {
 	return fmt.Sprintf("secretbackend#revisions#%s", backendID)
 }
 
-func (st *State) ensureSecretBackendRevisionCountOp(backendID string) (txn.Op, int, error) {
+func (st *State) removeBackendRefCountOp(backendID string, force bool) ([]txn.Op, error) {
+	if secrets.IsInternalSecretBackendID(backendID) {
+		return nil, nil
+	}
+	if force {
+		// If we are forcing removal, simply delete any ref count reference.
+		op := nsRefcounts.JustRemoveOp(globalRefcountsC, secretBackendRefCountKey(backendID), -1)
+		return []txn.Op{op}, nil
+	}
+
 	refCountCollection, ccloser := st.db().GetCollection(globalRefcountsC)
 	defer ccloser()
 
-	return nsRefcounts.CurrentOp(refCountCollection, secretBackendRefCountKey(backendID))
+	_, count, err := nsRefcounts.CurrentOp(refCountCollection, secretBackendRefCountKey(backendID))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if count > 0 {
+		return nil, errors.NotSupportedf("removing backend with %d stored secret revisions", count)
+	}
+	op := nsRefcounts.JustRemoveOp(globalRefcountsC, secretBackendRefCountKey(backendID), count)
+	return []txn.Op{op}, nil
 }
 
-func (st *State) removeBackendRevisionCountOp(backendID string) txn.Op {
-	return nsRefcounts.JustRemoveOp(globalRefcountsC, secretBackendRefCountKey(backendID), -1)
+func (st *State) createSecretBackendRefCountOp(backendID string) ([]txn.Op, error) {
+	if secrets.IsInternalSecretBackendID(backendID) {
+		return nil, nil
+	}
+	refCountCollection, ccloser := st.db().GetCollection(globalRefcountsC)
+	defer ccloser()
+	op, err := nsRefcounts.StrictCreateOp(refCountCollection, secretBackendRefCountKey(backendID), 0)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return []txn.Op{op}, nil
+}
+
+func (st *State) decSecretBackendRefCountOp(backendID string) ([]txn.Op, error) {
+	if secrets.IsInternalSecretBackendID(backendID) {
+		return nil, nil
+	}
+	refCountCollection, ccloser := st.db().GetCollection(globalRefcountsC)
+	defer ccloser()
+
+	op, err := nsRefcounts.AliveDecRefOp(refCountCollection, secretBackendRefCountKey(backendID))
+	if errors.Is(err, errors.NotFound) || errors.Cause(err) == errRefcountAlreadyZero {
+		return nil, nil
+	}
+	return []txn.Op{op}, errors.Trace(err)
 }
 
 // incBackendRevisionCountOps returns the ops needed to change the secret revision ref count
 // for the specified backend. Used to ensure backends with revisions cannot be deleted without force.
-func (st *State) incBackendRevisionCountOps(backendID string) ([]txn.Op, error) {
+func (st *State) incBackendRevisionCountOps(backendID string, count int) ([]txn.Op, error) {
+	if secrets.IsInternalSecretBackendID(backendID) {
+		return nil, nil
+	}
 	refCountCollection, ccloser := st.db().GetCollection(globalRefcountsC)
 	defer ccloser()
 
@@ -347,7 +389,7 @@ func (st *State) incBackendRevisionCountOps(backendID string) ([]txn.Op, error) 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	incOp, err := nsRefcounts.CreateOrIncRefOp(refCountCollection, key, 1)
+	incOp, err := nsRefcounts.StrictIncRefOp(refCountCollection, key, count)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

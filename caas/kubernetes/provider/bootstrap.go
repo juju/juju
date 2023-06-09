@@ -1228,7 +1228,7 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 	// Write it to a file so it can be executed.
 	mongoStartup = strings.ReplaceAll(mongoStartup, "\n", "\\n")
 	makeMongoCmd := fmt.Sprintf("printf '%s'>%s", mongoStartup, mongoSh)
-	mongoArgs := fmt.Sprintf("%[1]s && chmod a+x %[2]s && %[2]s", makeMongoCmd, mongoSh)
+	mongoArgs := fmt.Sprintf("%[1]s && chmod a+x %[2]s && exec %[2]s", makeMongoCmd, mongoSh)
 	logger.Debugf("mongodb container args:\n%s", mongoArgs)
 
 	dbImage, err := c.pcfg.GetJujuDbOCIImagePath()

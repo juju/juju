@@ -271,7 +271,7 @@ func (c *CommandBase) NewAPIRootWithDialOpts(
 	if proxyerrors.IsProxyConnectError(err) {
 		logger.Debugf("proxy connection error: %v", err)
 		if proxyerrors.ProxyType(err) == k8sproxy.ProxierTypeKey {
-			return nil, errors.New("cannot connect to k8s api server; try running 'juju update-k8s --client <k8s cloud name>'")
+			return nil, errors.Annotate(err, "cannot connect to k8s api server; try running 'juju update-k8s --client <k8s cloud name>'")
 		}
 		return nil, errors.Annotate(err, "cannot connect to api server proxy")
 	}

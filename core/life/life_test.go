@@ -65,3 +65,16 @@ func (*LifeSuite) TestIsNotDeadSuccess(c *gc.C) {
 		c.Check(life.IsNotDead(test), jc.IsTrue)
 	}
 }
+
+func (*LifeSuite) TestIsDeadSuccess(c *gc.C) {
+	c.Check(life.IsDead(life.Dead), jc.IsTrue)
+}
+
+func (*LifeSuite) TestIsDeadFailure(c *gc.C) {
+	for i, test := range []life.Value{
+		life.Alive, life.Dying, "", "bad", "DEAD",
+	} {
+		c.Logf("test %d: %s", i, test)
+		c.Check(life.IsDead(test), jc.IsFalse)
+	}
+}

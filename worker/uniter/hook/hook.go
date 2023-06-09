@@ -58,6 +58,11 @@ type Info struct {
 	SecretLabel string `yaml:"secret-label,omitempty"`
 }
 
+// SecretHookRequiresRevision returns true if the hook context needs a secret revision.
+func SecretHookRequiresRevision(kind hooks.Kind) bool {
+	return kind == hooks.SecretRemove || kind == hooks.SecretExpired
+}
+
 // Validate returns an error if the info is not valid.
 func (hi Info) Validate() error {
 	switch hi.Kind {
@@ -108,7 +113,7 @@ func (hi Info) Validate() error {
 		if _, err := secrets.ParseURI(hi.SecretURI); err != nil {
 			return errors.Errorf("invalid secret URI %q", hi.SecretURI)
 		}
-		if (hi.Kind == hooks.SecretRemove || hi.Kind == hooks.SecretExpired) && hi.SecretRevision <= 0 {
+		if SecretHookRequiresRevision(hi.Kind) && hi.SecretRevision <= 0 {
 			return errors.Errorf("%q hook requires a secret revision", hi.Kind)
 		}
 		return nil

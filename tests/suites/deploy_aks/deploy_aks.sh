@@ -7,17 +7,17 @@ run_deploy_aks_charms() {
 	juju add-model "test-deploy-aks-charms"
 
 	echo "Deploy some charms"
-	juju deploy postgresql-k8s
-	juju deploy mattermost-k8s
-	juju relate mattermost-k8s postgresql-k8s:db
+	juju deploy juju-qa-dummy-sink
+	juju deploy juju-qa-dummy-source
 
-	wait_for "postgresql-k8s" "$(idle_condition "postgresql-k8s" 1)"
-	wait_for "mattermost-k8s" "$(idle_condition "mattermost-k8s" 0)"
+	juju relate dummy-sink dummy-source
 
-	# TODO(anvial): we can return this check after fixing issue with flapping connection by curl in aks environment.
-	#	echo "Verify application is reachable"
-	#	mattermost_ip="$(juju status --format json | jq -r '.applications["mattermost-k8s"].units["mattermost-k8s/0"].address')"
-	#	juju run --unit mattermost-k8s/0 curl "${mattermost_ip}:8065"
+	wait_for "dummy-sink" "$(idle_condition "dummy-sink" 0)"
+	wait_for "dummy-source" "$(idle_condition "dummy-source" 1)"
+
+	echo "Verify application"
+	juju config dummy-source token=yeah-boi
+	wait_for "yeah-boi" "$(workload_status "dummy-sink" 0).message"
 
 	echo "Destroy model"
 	juju destroy-model "test-deploy-aks-charms" --destroy-storage -y

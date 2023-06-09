@@ -45,7 +45,7 @@ func (s *ToolsCheckerSuite) TestWorker(c *gc.C) {
 		f,
 		params,
 	)
-	s.AddCleanup(func(*gc.C) {
+	s.AddCleanup(func(c *gc.C) {
 		checker.Kill()
 		c.Assert(checker.Wait(), jc.ErrorIsNil)
 	})

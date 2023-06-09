@@ -115,7 +115,7 @@ which serves as a combination mailing list and web forum. Keep up with the news
 and get a feel for operator engineering and usage there. Get  the Juju CLI on
 Windows, macOS or Linux with the
 [install instructions](https://juju.is/docs/installing) and
-[try the tutorials](https://juju.is/docs/tutorials). All you need is a small
+[try the tutorials](https://juju.is/docs/olm/tutorials). All you need is a small
 K8s cluster, or an Ubuntu machine or VM to run MicroK8s.
 
 Read the [documentation](https://juju.is/docs) for a comprehensive reference
@@ -123,8 +123,9 @@ of commands and usage.
 
 ## Contributing
 
-Follow our [code and contribution guidelines](CONTRIBUTING.md) to learn how
-to make code changes. File bugs in
+Check the [developer instructions](https://juju.is/docs/dev/how-to) to get
+started and follow our [code and contribution guidelines](CONTRIBUTING.md) to
+learn how to make code changes. File bugs in
 [Launchpad](https://bugs.launchpad.net/juju/+filebug) or ask questions on
 our [Freenode IRC channel](https://webchat.freenode.net/#juju), and
 [Mattermost](https://chat.charmhub.io/).

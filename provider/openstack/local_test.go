@@ -1962,123 +1962,80 @@ func (s *localServerSuite) TestImageMetadataSourceOrder(c *gc.C) {
 		"image-metadata-url", "my datasource", "keystone catalog", "default ubuntu cloud images"})
 }
 
-// To compare found and expected SecurityGroupRules, convert the rules to RuleInfo, minus
-// details we can't predict such as id.
-func ruleToRuleInfo(rules []neutron.SecurityGroupRuleV2) []neutron.RuleInfoV2 {
-	ruleInfo := make([]neutron.RuleInfoV2, 0, len(rules))
-	for _, r := range rules {
-		ri := neutron.RuleInfoV2{
-			Direction:      r.Direction,
-			EthernetType:   r.EthernetType,
-			RemoteIPPrefix: r.RemoteIPPrefix,
-		}
-		if r.IPProtocol != nil {
-			ri.IPProtocol = *r.IPProtocol
-		}
-		if r.PortRangeMax != nil {
-			ri.PortRangeMax = *r.PortRangeMax
-		}
-		if r.PortRangeMin != nil {
-			ri.PortRangeMin = *r.PortRangeMin
-		}
-		ruleInfo = append(ruleInfo, ri)
-	}
-	return ruleInfo
-}
-
 // TestEnsureGroup checks that when creating a duplicate security group, the existing group is
-// returned and the existing rules have been left as is.
+// returned.
 func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
-	rule := []neutron.RuleInfoV2{
-		{
-			Direction:    "ingress",
-			IPProtocol:   "tcp",
-			PortRangeMin: 22,
-			PortRangeMax: 22,
-			EthernetType: "IPv4",
-		},
-	}
-
-	group, err := openstack.EnsureGroup(s.env, s.callCtx, "test group", rule)
+	group, err := openstack.EnsureGroup(s.env, s.callCtx, "test group", false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(group.Name, gc.Equals, "test group")
-
-	// Rules created by Neutron when a new Security Group is created
-	defaultRules := []neutron.RuleInfoV2{
-		{
-			Direction:    "egress",
-			EthernetType: "IPv4",
-		},
-		{
-			Direction:    "egress",
-			EthernetType: "IPv6",
-		},
-	}
-	expectedRules := append(defaultRules, rule[0])
-	obtainedRules := ruleToRuleInfo(group.Rules)
-	c.Check(obtainedRules, jc.SameContents, expectedRules)
 	id := group.Id
 
 	// Do it again and check that the existing group is returned
-	// and updated.
-	rules := []neutron.RuleInfoV2{
-		{
-			Direction:    "ingress",
-			IPProtocol:   "tcp",
-			PortRangeMin: 22,
-			PortRangeMax: 22,
-			EthernetType: "IPv4",
-		},
-		{
-			Direction:    "ingress",
-			IPProtocol:   "icmp",
-			EthernetType: "IPv6",
-		},
-	}
-	group, err = openstack.EnsureGroup(s.env, s.callCtx, "test group", rules)
+	group, err = openstack.EnsureGroup(s.env, s.callCtx, "test group", false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(group.Id, gc.Equals, id)
 	c.Assert(group.Name, gc.Equals, "test group")
-	c.Check(len(group.Rules), gc.Equals, 4)
-	expectedRules = append(defaultRules, rules...)
-	obtainedRulesSecondTime := ruleToRuleInfo(group.Rules)
-	c.Check(obtainedRulesSecondTime, jc.SameContents, expectedRules)
+}
 
-	// 3rd time with same name, should be back to the original now
-	group, err = openstack.EnsureGroup(s.env, s.callCtx, "test group", rule)
+// TestEnsureModelGroup checks that when creating a model security group, the
+// group is created with the correct ingress rules
+func (s *localServerSuite) TestEnsureModelGroup(c *gc.C) {
+	group, err := openstack.EnsureGroup(s.env, s.callCtx, "test model group", true)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(group.Id, gc.Equals, id)
-	c.Assert(group.Name, gc.Equals, "test group")
-	expectedRules = append(defaultRules, rule[0])
-	obtainedRulesThirdTime := ruleToRuleInfo(group.Rules)
-	c.Check(obtainedRulesThirdTime, jc.SameContents, expectedRules)
-	c.Check(obtainedRulesThirdTime, jc.SameContents, obtainedRules)
+	c.Assert(group.Name, gc.Equals, "test model group")
+
+	stringRules := make([]string, 0, len(group.Rules))
+	for _, rule := range group.Rules {
+		// Skip the default Security Group Rules created by Neutron
+		if rule.Direction == "egress" {
+			continue
+		}
+		var minInt int
+		if rule.PortRangeMin != nil {
+			minInt = *rule.PortRangeMin
+		}
+		var maxInt int
+		if rule.PortRangeMax != nil {
+			maxInt = *rule.PortRangeMax
+		}
+		ruleStr := fmt.Sprintf("%s %s %d %d %s %s %s",
+			rule.Direction,
+			*rule.IPProtocol,
+			minInt, maxInt,
+			rule.RemoteIPPrefix,
+			rule.EthernetType,
+			rule.ParentGroupId,
+		)
+		stringRules = append(stringRules, ruleStr)
+	}
+	// We don't care about the ordering, so we sort the result, and compare it.
+	expectedRules := []string{
+		fmt.Sprintf(`ingress tcp 1 65535  IPv6 %s`, group.Id),
+		fmt.Sprintf(`ingress tcp 1 65535  IPv4 %s`, group.Id),
+		fmt.Sprintf(`ingress udp 1 65535  IPv6 %s`, group.Id),
+		fmt.Sprintf(`ingress udp 1 65535  IPv4 %s`, group.Id),
+		fmt.Sprintf(`ingress icmp 0 0  IPv6 %s`, group.Id),
+		fmt.Sprintf(`ingress icmp 0 0  IPv4 %s`, group.Id),
+	}
+	sort.Strings(stringRules)
+	sort.Strings(expectedRules)
+	c.Check(stringRules, gc.DeepEquals, expectedRules)
 }
 
 // TestMatchingGroup checks that you receive the group you expected.  matchingGroup()
 // is used by the firewaller when opening and closing ports.  Unit test in response to bug 1675799.
 func (s *localServerSuite) TestMatchingGroup(c *gc.C) {
-	rule := []neutron.RuleInfoV2{
-		{
-			Direction:    "ingress",
-			IPProtocol:   "tcp",
-			PortRangeMin: 22,
-			PortRangeMax: 22,
-			EthernetType: "IPv4",
-		},
-	}
-
 	err := bootstrapEnv(c, s.env)
 	c.Assert(err, jc.ErrorIsNil)
 	group1, err := openstack.EnsureGroup(s.env, s.callCtx,
-		openstack.MachineGroupName(s.env, s.ControllerUUID, "1"), rule)
+		openstack.MachineGroupName(s.env, s.ControllerUUID, "1"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	group2, err := openstack.EnsureGroup(s.env, s.callCtx,
-		openstack.MachineGroupName(s.env, s.ControllerUUID, "2"), rule)
+		openstack.MachineGroupName(s.env, s.ControllerUUID, "2"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = openstack.EnsureGroup(s.env, s.callCtx, openstack.MachineGroupName(s.env, s.ControllerUUID, "11"), rule)
+	_, err = openstack.EnsureGroup(s.env, s.callCtx, openstack.MachineGroupName(s.env, s.ControllerUUID, "11"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = openstack.EnsureGroup(s.env, s.callCtx, openstack.MachineGroupName(s.env, s.ControllerUUID, "12"), rule)
+	_, err = openstack.EnsureGroup(s.env, s.callCtx, openstack.MachineGroupName(s.env, s.ControllerUUID, "12"), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineNameRegexp := openstack.MachineGroupRegexp(s.env, "1")

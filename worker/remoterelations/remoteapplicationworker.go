@@ -662,7 +662,7 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 	}
 
 	if w.secretChangesWatcher == nil {
-		w.secretChangesWatcher, err = w.remoteModelFacade.WatchConsumedSecretsChanges(applicationToken, w.offerMacaroon)
+		w.secretChangesWatcher, err = w.remoteModelFacade.WatchConsumedSecretsChanges(applicationToken, relationToken, w.offerMacaroon)
 		if err != nil && !errors.IsNotFound(err) {
 			w.checkOfferPermissionDenied(err, "", "")
 			if !isNotFound(err) {

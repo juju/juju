@@ -104,8 +104,7 @@ func WaitForAgentInitialisation(
 		IsFatalError: func(err error) bool {
 			return errors.Is(err, &unknownError{}) ||
 				retry.IsRetryStopped(err) ||
-				errors.Is(err, stdcontext.Canceled) ||
-				errors.Is(err, stdcontext.DeadlineExceeded)
+				errors.Is(err, stdcontext.Canceled)
 		},
 		Func: func() error {
 			retryErr := tryAPI(c)

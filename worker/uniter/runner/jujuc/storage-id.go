@@ -14,7 +14,7 @@ func newStorageIdValue(ctx Context, result *names.StorageTag) (*storageIdValue, 
 	v := &storageIdValue{result: result, ctx: ctx}
 	if s, err := ctx.HookStorage(); err == nil {
 		*v.result = s.Tag()
-	} else if !errors.IsNotFound(err) {
+	} else if !errors.Is(err, errors.NotFound) && !errors.Is(err, errors.NotProvisioned) {
 		return nil, errors.Trace(err)
 	}
 	return v, nil
