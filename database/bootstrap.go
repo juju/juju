@@ -75,7 +75,7 @@ func BootstrapDqlite(ctx context.Context, opt bootstrapOptFactory, logger Logger
 		}
 	}()
 
-	if err := NewDBMigration(db, logger, schema.ControllerDDL()).Apply(ctx); err != nil {
+	if err := NewDBMigration(db, logger, schema.ControllerDDL(dqlite.ID())).Apply(ctx); err != nil {
 		return errors.Annotate(err, "creating controller database schema")
 	}
 

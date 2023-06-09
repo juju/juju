@@ -6,7 +6,7 @@ package schema
 import "github.com/juju/juju/core/database"
 
 // ControllerDDL is used to create the controller database schema at bootstrap.
-func ControllerDDL() []database.Delta {
+func ControllerDDL(nodeID uint64) []database.Delta {
 	schemas := []func() database.Delta{
 		leaseSchema,
 		changeLogSchema,
@@ -15,6 +15,7 @@ func ControllerDDL() []database.Delta {
 		modelListSchema,
 		controllerConfigSchema,
 		controllerNodeSchema,
+		controllerNodeEntry(nodeID),
 	}
 
 	var deltas []database.Delta
@@ -344,4 +345,17 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
     VALUES (4, 2, OLD.controller_id, DATETIME('now'));
 END;`)
+}
+
+func controllerNodeEntry(nodeID uint64) func() database.Delta {
+	return func() database.Delta {
+		return database.MakeDelta(`
+-- TODO (manadart 2023-06-06): At the time of writing, 
+-- we have not yet modelled machines. 
+-- Accordingly, the controller ID remains the ID of the machine, 
+-- but it should probably become a UUID once machines have one.
+-- While HA is not supported in K8s, this doesn't matter.
+INSERT INTO controller_node (controller_id, dqlite_node_id, bind_address)
+VALUES ('0', ?, '127.0.0.1');`, nodeID)
+	}
 }

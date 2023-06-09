@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/domain/schema"
 )
 
-// ControllerSuite is used to provide an in-memory sql.DB reference to tests.
+// ControllerSuite is used to provide a sql.DB reference to tests.
 // It is pre-populated with the controller schema.
 type ControllerSuite struct {
 	testing.IsolationSuite
@@ -82,7 +82,7 @@ func (s *ControllerSuite) ApplyControllerDDL(c *gc.C) {
 	tx, err := s.db.Begin()
 	c.Assert(err, jc.ErrorIsNil)
 
-	for idx, delta := range schema.ControllerDDL() {
+	for idx, delta := range schema.ControllerDDL(0x2dc171858c3155be) {
 		c.Logf("Executing schema DDL index: %v", idx)
 		_, err := tx.Exec(delta.Stmt(), delta.Args()...)
 		c.Assert(err, jc.ErrorIsNil)
