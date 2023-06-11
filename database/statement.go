@@ -9,6 +9,21 @@ import (
 	"github.com/juju/collections/transform"
 )
 
+var (
+	mapPlaceholder = []string{"(?, ?)"}
+)
+
+// MapToMultiPlaceholder returns an sql bind string that can be used for
+// multiple value inserts. It will also flatten the map key values to an in
+// order slice for passing to the sql driver.
+func MapToMultiPlaceholder[K comparable, V any](in map[K]V) (string, []any) {
+	vals := make([]any, 0, len(in)*2)
+	return strings.Join(transform.MapToSlice(in, func(k K, v V) []string {
+		vals = append(vals, k, v)
+		return mapPlaceholder
+	}), ","), vals
+}
+
 // SliceToPlaceholder returns a string that can be used in a SQL/DML
 // statement as a parameter list for a [NOT] IN clause.
 // For example, passing []int{1, 2, 3} would return "?,?,?".
