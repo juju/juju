@@ -1389,9 +1389,19 @@ func (s *streamSuite) TestUpperBound(c *gc.C) {
 	c.Check(stream.upperBound(), gc.Equals, int64(defaultNumTermWatermarks+2))
 }
 
+func (s *streamSuite) TestCreateWatermarkTwice(c *gc.C) {
+	stream := s.newStream()
+	err := stream.createWatermark()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = stream.createWatermark()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *streamSuite) newStream() *Stream {
 	return &Stream{
 		db:         s.TxnRunner(),
+		id:         utils.MustNewUUID().String(),
 		watermarks: make([]*termView, defaultNumTermWatermarks),
 	}
 }

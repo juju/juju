@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/database"
 )
 
 const (
@@ -473,6 +474,9 @@ func (s *Stream) createWatermark() error {
 	return s.db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		result, err := tx.ExecContext(ctx, watermarkCreateQuery, s.id)
 		if err != nil {
+			if database.IsErrConstraintPrimaryKey(err) {
+				return nil
+			}
 			return errors.Annotate(err, "recording watermark")
 		}
 		if _, err := result.RowsAffected(); err != nil {
