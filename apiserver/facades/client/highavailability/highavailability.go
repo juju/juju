@@ -27,11 +27,6 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.highavailability")
 
-// HighAvailability defines the methods on the highavailability API end point.
-type HighAvailability interface {
-	EnableHA(args params.ControllersSpecs) (params.ControllersChangeResults, error)
-}
-
 // HighAvailabilityAPI implements the HighAvailability interface and is the concrete
 // implementation of the api end point.
 type HighAvailabilityAPI struct {
@@ -39,8 +34,6 @@ type HighAvailabilityAPI struct {
 	resources  facade.Resources
 	authorizer facade.Authorizer
 }
-
-var _ HighAvailability = (*HighAvailabilityAPI)(nil)
 
 // EnableHA adds controller machines as necessary to ensure the
 // controller has the number of machines specified.
