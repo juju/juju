@@ -176,7 +176,6 @@ func (s *charmSuite) TestDeployFromRepositoryCharmAppNameVSCharmName(c *gc.C) {
 	s.configFlag.EXPECT().ReadConfigPairs(gomock.Any()).Return(nil, nil)
 
 	dCharm := s.newDeployCharm()
-	dCharm.dryRun = true
 	dCharm.applicationName = "differentThanCharmName"
 	dCharm.validateCharmSeriesWithName = func(series, name string, imageStream string) error {
 		return nil
@@ -186,10 +185,6 @@ func (s *charmSuite) TestDeployFromRepositoryCharmAppNameVSCharmName(c *gc.C) {
 		deployCharm:      *dCharm,
 		userRequestedURL: s.url,
 		clock:            clock.WallClock,
-	}
-
-	repoCharm.uploadExistingPendingResources = func(appName string, pendingResources []application.PendingResourceUpload, conn base.APICallCloser, filesystem modelcmd.Filesystem) error {
-		return nil
 	}
 
 	stdOut := mocks.NewMockWriter(ctrl)
@@ -209,10 +204,15 @@ func (s *charmSuite) TestDeployFromRepositoryCharmAppNameVSCharmName(c *gc.C) {
 
 	dInfo := application.DeployInfo{
 		Name:     dCharm.applicationName,
-		Revision: -1,
+		Revision: 1,
 		Channel:  "latest/stable",
 		Base: series.Base{Channel: series.Channel{Track: "20.04"},
 			OS: "ubuntu"},
+	}
+
+	repoCharm.uploadExistingPendingResources = func(appName string, pendingResources []application.PendingResourceUpload, conn base.APICallCloser, filesystem modelcmd.Filesystem) error {
+		c.Assert(appName, gc.Equals, dInfo.Name)
+		return nil
 	}
 
 	s.deployerAPI.EXPECT().DeployFromRepository(gomock.Any()).Return(dInfo, nil, nil)
@@ -220,8 +220,8 @@ func (s *charmSuite) TestDeployFromRepositoryCharmAppNameVSCharmName(c *gc.C) {
 	err := repoCharm.PrepareAndDeploy(ctx, s.deployerAPI, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(output.String(), gc.Equals,
-		"\"differentThanCharmName\" from charm-hub charm \"testme\", "+
-			"revision -1 in channel latest/stable on ubuntu@20.04 would be deployed\n")
+		"Deployed \"differentThanCharmName\" from charm-hub charm \"testme\", "+
+			"revision 1 in channel latest/stable on ubuntu@20.04\n")
 }
 
 func (s *charmSuite) newDeployCharm() *deployCharm {
