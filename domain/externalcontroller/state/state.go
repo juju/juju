@@ -9,7 +9,6 @@ import (
 	"fmt"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3"
@@ -100,12 +99,13 @@ VALUES (?, ?, ?)
 			return errors.Trace(err)
 		}
 
+		addrsBinds, addrsAnyVals := database.SliceToPlaceholder(ci.Addrs)
 		q = fmt.Sprintf(`
 DELETE FROM external_controller_address
 WHERE  controller_uuid = ?
-AND    address NOT IN (%s)`[1:], database.SliceToPlaceholder(ci.Addrs))
+AND    address NOT IN (%s)`[1:], addrsBinds)
 
-		args := append([]any{cID}, transform.Slice(ci.Addrs, func(s string) any { return s })...)
+		args := append([]any{cID}, addrsAnyVals...)
 		if _, err := tx.ExecContext(ctx, q, args...); err != nil {
 			return errors.Trace(err)
 		}
@@ -129,9 +129,9 @@ VALUES (?, ?, ?)
 			q := `
 INSERT INTO external_model (uuid, controller_uuid)
 VALUES (?, ?)
-  ON CONFLICT(uuid) DO UPDATE SET controller_uuid=?`[1:]
+  ON CONFLICT(uuid) DO UPDATE SET controller_uuid=excluded.controller_uuid`[1:]
 
-			if _, err := tx.ExecContext(ctx, q, modelUUID, cID, cID); err != nil {
+			if _, err := tx.ExecContext(ctx, q, modelUUID, cID); err != nil {
 				return errors.Trace(err)
 			}
 		}
