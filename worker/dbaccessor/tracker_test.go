@@ -39,7 +39,7 @@ func (s *trackedDBWorkerSuite) TestWorkerStartup(c *gc.C) {
 	w, err := NewTrackedDBWorker(context.Background(), s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
 	c.Assert(err, jc.ErrorIsNil)
 
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	workertest.CleanKill(c, w)
 }
@@ -56,7 +56,7 @@ func (s *trackedDBWorkerSuite) TestWorkerReport(c *gc.C) {
 	w, err := NewTrackedDBWorker(context.Background(), s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
 	c.Assert(err, jc.ErrorIsNil)
 
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	report := w.(interface{ Report() map[string]any }).Report()
 	c.Assert(report, MapHasKeys, []string{
@@ -81,7 +81,7 @@ func (s *trackedDBWorkerSuite) TestWorkerDBIsNotNil(c *gc.C) {
 	w, err := s.newTrackedDBWorker(defaultPingDBFunc)
 	c.Assert(err, jc.ErrorIsNil)
 
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	err = w.StdTxn(context.Background(), func(_ context.Context, tx *sql.Tx) error {
 		if tx == nil {
@@ -106,7 +106,7 @@ func (s *trackedDBWorkerSuite) TestWorkerTxnIsNotNil(c *gc.C) {
 	w, err := s.newTrackedDBWorker(defaultPingDBFunc)
 	c.Assert(err, jc.ErrorIsNil)
 
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	done := make(chan struct{})
 	err = w.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -145,7 +145,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDB(c *gc.C) {
 	w, err := s.newTrackedDBWorker(pingFn)
 	c.Assert(err, jc.ErrorIsNil)
 
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	select {
 	case <-done:
@@ -191,7 +191,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *gc.C) 
 	w, err := s.newTrackedDBWorker(pingFn)
 	c.Assert(err, jc.ErrorIsNil)
 
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	select {
 	case <-done:
@@ -232,7 +232,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBRepeatedly(c *gc.C) {
 	w, err := s.newTrackedDBWorker(pingFn)
 	c.Assert(err, jc.ErrorIsNil)
 
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	select {
 	case <-done:
@@ -282,7 +282,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDiffer
 	w, err := s.newTrackedDBWorker(pingFn)
 	c.Assert(err, jc.ErrorIsNil)
 
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	select {
 	case <-done:
@@ -368,7 +368,7 @@ func (s *trackedDBWorkerSuite) TestWorkerCancelsTxn(c *gc.C) {
 	w, err := s.newTrackedDBWorker(defaultPingDBFunc)
 	c.Assert(err, jc.ErrorIsNil)
 
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	sync := make(chan struct{})
 	go func() {
@@ -408,7 +408,7 @@ func (s *trackedDBWorkerSuite) TestWorkerCancelsTxnNoRetry(c *gc.C) {
 	w, err := s.newTrackedDBWorker(defaultPingDBFunc)
 	c.Assert(err, jc.ErrorIsNil)
 
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	sync := make(chan struct{})
 	go func() {

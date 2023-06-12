@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/crossmodel"
@@ -774,7 +775,7 @@ func (s *RelationSuite) TestWatchLifeSuspendedStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	w := rel.WatchLifeSuspendedStatus()
-	defer testing.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 	// Initial event.
 	wc.AssertChange(rel.Tag().Id())
@@ -803,7 +804,7 @@ func (s *RelationSuite) TestWatchLifeSuspendedStatusDead(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	w := rel.WatchLifeSuspendedStatus()
-	defer testing.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange(rel.Tag().Id())
 
@@ -1034,7 +1035,7 @@ func (s *RelationSuite) TestWatchApplicationSettings(c *gc.C) {
 
 	w, err := relation.WatchApplicationSettings(mysql)
 	c.Assert(err, jc.ErrorIsNil)
-	defer testing.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 
 	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
@@ -1068,7 +1069,7 @@ func (s *RelationSuite) TestWatchApplicationSettingsOtherEnd(c *gc.C) {
 
 	w, err := relation.WatchApplicationSettings(mysql)
 	c.Assert(err, jc.ErrorIsNil)
-	defer testing.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 
 	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()

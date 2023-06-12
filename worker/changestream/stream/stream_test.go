@@ -41,7 +41,7 @@ func (s *streamSuite) TestWithNoNamespace(c *gc.C) {
 	s.expectAfter()
 
 	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
-	defer workertest.DirtyKill(c, stream)
+	defer workertest.CleanKill(c, stream)
 
 	select {
 	case <-stream.Terms():
@@ -62,7 +62,7 @@ func (s *streamSuite) TestNoData(c *gc.C) {
 	s.insertNamespace(c, 1000, "foo")
 
 	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
-	defer workertest.DirtyKill(c, stream)
+	defer workertest.CleanKill(c, stream)
 
 	select {
 	case <-stream.Terms():
@@ -89,7 +89,7 @@ func (s *streamSuite) TestOneChange(c *gc.C) {
 	s.insertChange(c, chg)
 
 	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
-	defer workertest.DirtyKill(c, stream)
+	defer workertest.CleanKill(c, stream)
 
 	var results []changestream.ChangeEvent
 	select {
@@ -192,7 +192,7 @@ func (s *streamSuite) TestOneChangeWithDelayedTermDone(c *gc.C) {
 	s.insertChange(c, chg)
 
 	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
-	defer workertest.DirtyKill(c, stream)
+	defer workertest.CleanKill(c, stream)
 
 	var (
 		results []changestream.ChangeEvent
@@ -229,7 +229,7 @@ func (s *streamSuite) TestOneChangeWithTermDoneAfterKill(c *gc.C) {
 	s.insertChange(c, chg)
 
 	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
-	defer workertest.DirtyKill(c, stream)
+	defer workertest.CleanKill(c, stream)
 
 	var (
 		results []changestream.ChangeEvent
@@ -302,7 +302,7 @@ func (s *streamSuite) TestMultipleTerms(c *gc.C) {
 	s.insertNamespace(c, 1000, "foo")
 
 	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
-	defer workertest.DirtyKill(c, stream)
+	defer workertest.CleanKill(c, stream)
 
 	for i := 0; i < 10; i++ {
 		// Insert a change and wait for it to be streamed.
@@ -396,7 +396,7 @@ func (s *streamSuite) TestSecondTermDoesNotStartUntilFirstTermDone(c *gc.C) {
 	s.insertNamespace(c, 1000, "foo")
 
 	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
-	defer workertest.DirtyKill(c, stream)
+	defer workertest.CleanKill(c, stream)
 
 	// Insert a change and wait for it to be streamed.
 	chg := change{
@@ -495,7 +495,7 @@ func (s *streamSuite) TestMultipleChangesWithSameUUIDCoalesce(c *gc.C) {
 	}
 
 	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
-	defer workertest.DirtyKill(c, stream)
+	defer workertest.CleanKill(c, stream)
 
 	// Wait to ensure that the loop has been given enough time to read the
 	// changes.
@@ -539,7 +539,7 @@ func (s *streamSuite) TestMultipleChangesWithNamespaces(c *gc.C) {
 	}
 
 	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
-	defer workertest.DirtyKill(c, stream)
+	defer workertest.CleanKill(c, stream)
 
 	// Wait to ensure that the loop has been given enough time to read the
 	// changes.
@@ -602,7 +602,7 @@ func (s *streamSuite) TestMultipleChangesWithNamespacesCoalesce(c *gc.C) {
 	}
 
 	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
-	defer workertest.DirtyKill(c, stream)
+	defer workertest.CleanKill(c, stream)
 
 	// Wait to ensure that the loop has been given enough time to read the
 	// changes.
@@ -673,7 +673,7 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *gc.C) 
 	}
 
 	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
-	defer workertest.DirtyKill(c, stream)
+	defer workertest.CleanKill(c, stream)
 
 	// Wait to ensure that the loop has been given enough time to read the
 	// changes.
@@ -712,7 +712,7 @@ func (s *streamSuite) TestOneChangeIsBlockedByFile(c *gc.C) {
 	s.insertNamespace(c, 1000, "foo")
 
 	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
-	defer workertest.DirtyKill(c, stream)
+	defer workertest.CleanKill(c, stream)
 
 	expectNotifyBlock := func(block bool) {
 		notified := make(chan bool)

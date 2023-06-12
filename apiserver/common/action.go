@@ -7,9 +7,9 @@ package common
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"github.com/juju/worker/v3"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -175,7 +175,7 @@ func Actions(args params.Entities, actionFn func(string) (state.Action, error)) 
 // It needs a tagToActionReceiver function and a registerFunc to register
 // resources.
 // It's a helper function currently used by the uniter and by machineactions
-func WatchOneActionReceiverNotifications(tagToActionReceiver func(tag string) (state.ActionReceiver, error), registerFunc func(r facade.Resource) string) func(names.Tag) (params.StringsWatchResult, error) {
+func WatchOneActionReceiverNotifications(tagToActionReceiver func(tag string) (state.ActionReceiver, error), registerFunc func(r worker.Worker) string) func(names.Tag) (params.StringsWatchResult, error) {
 	return func(tag names.Tag) (params.StringsWatchResult, error) {
 		nothing := params.StringsWatchResult{}
 		receiver, err := tagToActionReceiver(tag.String())
@@ -199,7 +199,7 @@ func WatchOneActionReceiverNotifications(tagToActionReceiver func(tag string) (s
 // It needs a tagToActionReceiver function and a registerFunc to register
 // resources.
 // It's a helper function currently used by the uniter and by machineactions
-func WatchPendingActionsForReceiver(tagToActionReceiver func(tag string) (state.ActionReceiver, error), registerFunc func(r facade.Resource) string) func(names.Tag) (params.StringsWatchResult, error) {
+func WatchPendingActionsForReceiver(tagToActionReceiver func(tag string) (state.ActionReceiver, error), registerFunc func(r worker.Worker) string) func(names.Tag) (params.StringsWatchResult, error) {
 	return func(tag names.Tag) (params.StringsWatchResult, error) {
 		nothing := params.StringsWatchResult{}
 		receiver, err := tagToActionReceiver(tag.String())

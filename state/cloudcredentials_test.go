@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -472,7 +473,7 @@ func (s *CloudCredentialsSuite) createCredentialWatcher(c *gc.C, st *state.State
 	state.NotifyWatcher, statetesting.NotifyWatcherC,
 ) {
 	w := st.WatchCredential(cred)
-	s.AddCleanup(func(c *gc.C) { statetesting.AssertStop(c, w) })
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, w) })
 	return w, statetesting.NewNotifyWatcherC(c, w)
 }
 
@@ -498,7 +499,7 @@ func (s *CloudCredentialsSuite) TestWatchCredential(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
-	statetesting.AssertStop(c, w)
+	workertest.CleanKill(c, w)
 	wc.AssertClosed()
 }
 
@@ -513,7 +514,7 @@ func (s *CloudCredentialsSuite) TestWatchCredentialIgnoresOther(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	statetesting.AssertStop(c, w)
+	workertest.CleanKill(c, w)
 	wc.AssertClosed()
 }
 

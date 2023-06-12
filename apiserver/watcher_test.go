@@ -169,7 +169,9 @@ func (w *fakeStringsWatcher) Changes() <-chan []string {
 	return w.ch
 }
 
-func (w *fakeStringsWatcher) Stop() error {
+func (w *fakeStringsWatcher) Kill() {}
+
+func (w *fakeStringsWatcher) Wait() error {
 	return nil
 }
 

@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/pinger"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -554,8 +555,8 @@ func setupPingTimeoutDisconnect(clock clock.Clock, root *apiHandler, entity stat
 			logger.Errorf("error closing the RPC connection: %v", err)
 		}
 	}
-	pingTimeout := newPingTimeout(action, clock, maxClientPingInterval)
-	return root.Resources().RegisterNamed("pingTimeout", pingTimeout)
+	p := pinger.NewPinger(action, clock, maxClientPingInterval)
+	return root.Resources().RegisterNamed("pingTimeout", p)
 }
 
 // errRoot implements the API that a client first sees

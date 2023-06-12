@@ -9,6 +9,7 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/crossmodel"
@@ -943,7 +944,7 @@ func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
 	w, err := s.State.WatchOfferStatus(offer.OfferUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	defer statetesting.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, w)
 	// Initial event.
 	wc.AssertOneChange()
@@ -1000,7 +1001,7 @@ func (s *applicationOffersSuite) TestWatchOffer(c *gc.C) {
 
 	w := s.State.WatchOffer(offer.OfferName)
 
-	defer statetesting.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, w)
 	// Initial event.
 	wc.AssertOneChange()

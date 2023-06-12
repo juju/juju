@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
@@ -164,7 +165,7 @@ func (s *BlockDevicesSuite) TestWatchBlockDevices(c *gc.C) {
 	sb, err := state.NewStorageBackend(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	w := sb.WatchBlockDevices(s.machine.MachineTag())
-	defer testing.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 

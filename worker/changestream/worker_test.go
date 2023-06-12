@@ -82,7 +82,7 @@ func (s *workerSuite) TestEventSource(c *gc.C) {
 	})
 
 	w := s.newWorker(c, 1)
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	stream, ok := w.(changestream.WatchableDBGetter)
 	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement ChangeStream"))
@@ -116,7 +116,7 @@ func (s *workerSuite) TestEventSourceCalledTwice(c *gc.C) {
 	})
 
 	w := s.newWorker(c, 1)
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	stream, ok := w.(changestream.WatchableDBGetter)
 	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement ChangeStream"))

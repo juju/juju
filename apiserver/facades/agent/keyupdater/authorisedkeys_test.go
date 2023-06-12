@@ -6,6 +6,7 @@ package keyupdater_test
 import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -122,7 +123,7 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *gc.C) {
 	s.setAuthorizedKeys(c, "key1\nkey2")
 
 	wc.AssertOneChange()
-	statetesting.AssertStop(c, w)
+	workertest.CleanKill(c, w)
 	wc.AssertClosed()
 }
 

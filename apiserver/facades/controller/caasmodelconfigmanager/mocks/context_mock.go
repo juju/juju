@@ -17,6 +17,7 @@ import (
 	permission "github.com/juju/juju/core/permission"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
+	worker "github.com/juju/worker/v3"
 )
 
 // MockAuthorizer is a mock of Authorizer interface.
@@ -528,10 +529,10 @@ func (m *MockResources) EXPECT() *MockResourcesMockRecorder {
 }
 
 // Get mocks base method.
-func (m *MockResources) Get(arg0 string) facade.Resource {
+func (m *MockResources) Get(arg0 string) worker.Worker {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0)
-	ret0, _ := ret[0].(facade.Resource)
+	ret0, _ := ret[0].(worker.Worker)
 	return ret0
 }
 
@@ -542,7 +543,7 @@ func (mr *MockResourcesMockRecorder) Get(arg0 interface{}) *gomock.Call {
 }
 
 // Register mocks base method.
-func (m *MockResources) Register(arg0 facade.Resource) string {
+func (m *MockResources) Register(arg0 worker.Worker) string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Register", arg0)
 	ret0, _ := ret[0].(string)

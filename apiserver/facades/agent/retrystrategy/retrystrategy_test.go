@@ -6,6 +6,7 @@ package retrystrategy_test
 
 import (
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -194,7 +195,7 @@ func (s *retryStrategySuite) TestWatchRetryStrategy(c *gc.C) {
 
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
+	defer workertest.CleanKill(c, resource)
 
 	wc := statetesting.NewNotifyWatcherC(c, resource.(state.NotifyWatcher))
 	wc.AssertNoChange()

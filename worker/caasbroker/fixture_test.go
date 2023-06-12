@@ -31,9 +31,9 @@ type fixture struct {
 
 func (fix *fixture) Run(c *gc.C, test func(*runContext)) {
 	watcher := newNotifyWatcher(fix.watcherErr)
-	defer workertest.DirtyKill(c, watcher)
+	defer workertest.CleanKill(c, watcher)
 	cloudWatcher := newNotifyWatcher(fix.watcherErr)
-	defer workertest.DirtyKill(c, cloudWatcher)
+	defer workertest.CleanKill(c, cloudWatcher)
 	context := &runContext{
 		cloud:        fix.initialSpec,
 		config:       newModelConfig(c, fix.initialConfig),

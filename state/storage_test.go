@@ -13,6 +13,7 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
@@ -1328,7 +1329,7 @@ func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := s.storageBackend.WatchStorageAttachments(u.UnitTag())
-	defer testing.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("multi1to10/0", "multi1to10/1", "multi2up/2", "multi2up/3")
 	wc.AssertNoChange()
@@ -1352,7 +1353,7 @@ func (s *StorageStateSuite) TestWatchStorageAttachment(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := s.storageBackend.WatchStorageAttachment(storageTag, u.UnitTag())
-	defer testing.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 

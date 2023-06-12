@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -100,7 +101,7 @@ func (*multiNotifyWatcherSuite) TestMultiNotifyWatcher(c *gc.C) {
 	w1 := apiservertesting.NewFakeNotifyWatcher()
 
 	mw := common.NewMultiNotifyWatcher(w0, w1)
-	defer statetesting.AssertStop(c, mw)
+	defer workertest.CleanKill(c, mw)
 
 	wc := statetesting.NewNotifyWatcherC(c, mw)
 	wc.AssertOneChange()

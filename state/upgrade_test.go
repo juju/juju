@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
@@ -323,7 +324,7 @@ func (s *UpgradeSuite) TestWatch(c *gc.C) {
 	s.provision(c, serverIdB, serverIdC)
 
 	w := s.State.WatchUpgradeInfo()
-	defer statetesting.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 
 	// initial event
 	wc := statetesting.NewNotifyWatcherC(c, w)
@@ -349,7 +350,7 @@ func (s *UpgradeSuite) TestWatch(c *gc.C) {
 	wc.AssertOneChange()
 
 	// closed on stop
-	statetesting.AssertStop(c, w)
+	workertest.CleanKill(c, w)
 	wc.AssertClosed()
 }
 
@@ -365,7 +366,7 @@ func (s *UpgradeSuite) TestWatchMethod(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := info.Watch()
-	defer statetesting.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 
 	// initial event
 	wc := statetesting.NewNotifyWatcherC(c, w)
@@ -395,7 +396,7 @@ func (s *UpgradeSuite) TestWatchMethod(c *gc.C) {
 	wc.AssertOneChange()
 
 	// closed on stop
-	statetesting.AssertStop(c, w)
+	workertest.CleanKill(c, w)
 	wc.AssertClosed()
 }
 

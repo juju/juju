@@ -86,7 +86,8 @@ func (s *Suite) TestWatch(c *gc.C) {
 
 	// Watcher with an initial event in the pipe.
 	w := mocks.NewMockNotifyWatcher(ctrl)
-	w.EXPECT().Stop().Return(nil).AnyTimes()
+	w.EXPECT().Kill().AnyTimes()
+	w.EXPECT().Wait().Return(nil).AnyTimes()
 
 	ch := make(chan struct{}, 1)
 	ch <- struct{}{}
@@ -475,7 +476,8 @@ func (s *Suite) TestWatchMinionReports(c *gc.C) {
 
 	// Watcher with an initial event in the pipe.
 	w := mocks.NewMockNotifyWatcher(ctrl)
-	w.EXPECT().Stop().Return(nil).AnyTimes()
+	w.EXPECT().Kill().AnyTimes()
+	w.EXPECT().Wait().Return(nil).AnyTimes()
 
 	ch := make(chan struct{}, 1)
 	ch <- struct{}{}

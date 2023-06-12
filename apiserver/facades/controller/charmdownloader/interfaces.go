@@ -5,6 +5,7 @@ package charmdownloader
 
 import (
 	"github.com/juju/charm/v10"
+	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/controller"
@@ -58,10 +59,5 @@ type AuthChecker interface {
 // ResourcesBackend handles the registration of a stoppable resource and
 // controls its lifecycle.
 type ResourcesBackend interface {
-	Register(StoppableResource) string
-}
-
-// StoppableResource is implemented by resources that can be stopped.
-type StoppableResource interface {
-	Stop() error
+	Register(worker.Worker) string
 }

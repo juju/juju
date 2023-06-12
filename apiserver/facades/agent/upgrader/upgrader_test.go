@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -95,7 +96,7 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	err = statetesting.SetAgentVersion(s.State, version.MustParse("3.4.567.8"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-	statetesting.AssertStop(c, w)
+	workertest.CleanKill(c, w)
 	wc.AssertClosed()
 }
 
@@ -126,7 +127,7 @@ func (s *upgraderSuite) TestWatchAPIVersionApplication(c *gc.C) {
 	err = statetesting.SetAgentVersion(s.State, version.MustParse("3.4.567.8"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-	statetesting.AssertStop(c, w)
+	workertest.CleanKill(c, w)
 	wc.AssertClosed()
 }
 
@@ -160,7 +161,7 @@ func (s *upgraderSuite) TestWatchAPIVersionUnit(c *gc.C) {
 	err = statetesting.SetAgentVersion(s.State, version.MustParse("3.4.567.8"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-	statetesting.AssertStop(c, w)
+	workertest.CleanKill(c, w)
 	wc.AssertClosed()
 }
 
@@ -193,7 +194,7 @@ func (s *upgraderSuite) TestWatchAPIVersionControllerAgent(c *gc.C) {
 	err = statetesting.SetAgentVersion(s.State, version.MustParse("3.4.567.8"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-	statetesting.AssertStop(c, w)
+	workertest.CleanKill(c, w)
 	wc.AssertClosed()
 }
 

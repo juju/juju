@@ -6,6 +6,7 @@ package state_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
@@ -136,7 +137,7 @@ func (s *ApplicationLeaderSuite) TestWriteRemoved(c *gc.C) {
 
 func (s *ApplicationLeaderSuite) TestWatchInitialEvent(c *gc.C) {
 	w := s.application.WatchLeaderSettings()
-	defer testing.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 
 	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
@@ -144,7 +145,7 @@ func (s *ApplicationLeaderSuite) TestWatchInitialEvent(c *gc.C) {
 
 func (s *ApplicationLeaderSuite) TestWatchDetectChange(c *gc.C) {
 	w := s.application.WatchLeaderSettings()
-	defer testing.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
@@ -157,7 +158,7 @@ func (s *ApplicationLeaderSuite) TestWatchDetectChange(c *gc.C) {
 
 func (s *ApplicationLeaderSuite) TestWatchIgnoreNullChange(c *gc.C) {
 	w := s.application.WatchLeaderSettings()
-	defer testing.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 	err := s.application.UpdateLeaderSettings(&fakeToken{}, map[string]string{
@@ -175,7 +176,7 @@ func (s *ApplicationLeaderSuite) TestWatchIgnoreNullChange(c *gc.C) {
 
 func (s *ApplicationLeaderSuite) TestWatchCoalesceChanges(c *gc.C) {
 	w := s.application.WatchLeaderSettings()
-	defer testing.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 

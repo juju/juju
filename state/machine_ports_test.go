@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
@@ -419,7 +420,7 @@ func (s *MachinePortsDocSuite) TestWatchMachinePorts(c *gc.C) {
 	w := s.State.WatchOpenedPorts()
 	c.Assert(w, gc.NotNil)
 
-	defer statetesting.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	// The first change we get is an empty one, as there are no ports
 	// opened yet and we need an initial event for the API watcher to

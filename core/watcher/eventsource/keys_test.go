@@ -63,7 +63,7 @@ func (s *keysSuite) TestInitialStateSent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	w := NewKeysWatcher(s.newBaseWatcher(), changestream.All, "random_namespace", "key_name")
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	select {
 	case changes := <-w.Changes():
@@ -105,7 +105,7 @@ func (s *keysSuite) TestDeltasSent(c *gc.C) {
 	).Return(s.sub, nil)
 
 	w := NewUUIDsWatcher(s.newBaseWatcher(), changestream.All, "external_controller")
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	// No initial data.
 	select {

@@ -19,6 +19,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/version/v2"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
@@ -3779,7 +3780,7 @@ func (s *ApplicationSuite) TestWatchUnitsBulkEvents(c *gc.C) {
 
 	// All except gone unit are reported in initial event.
 	w := s.mysql.WatchUnits()
-	defer testing.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange(alive.Name(), dying.Name(), dead.Name())
 	wc.AssertNoChange()
@@ -3800,7 +3801,7 @@ func (s *ApplicationSuite) TestWatchUnitsBulkEvents(c *gc.C) {
 func (s *ApplicationSuite) TestWatchUnitsLifecycle(c *gc.C) {
 	// Empty initial event when no units.
 	w := s.mysql.WatchUnits()
-	defer testing.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
@@ -3848,7 +3849,7 @@ func (s *ApplicationSuite) TestWatchUnitsLifecycle(c *gc.C) {
 func (s *ApplicationSuite) TestWatchRelations(c *gc.C) {
 	// TODO(fwereade) split this test up a bit.
 	w := s.mysql.WatchRelations()
-	defer testing.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
@@ -3884,13 +3885,13 @@ func (s *ApplicationSuite) TestWatchRelations(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Stop watcher; check change chan is closed.
-	testing.AssertStop(c, w)
+	workertest.CleanKill(c, w)
 	wc.AssertClosed()
 
 	// Add a new relation; start a new watcher; check initial event.
 	rel2 := addRelation()
 	w = s.mysql.WatchRelations()
-	defer testing.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 	wc = testing.NewStringsWatcherC(c, w)
 	wc.AssertChange(rel1.String(), rel2.String())
 	wc.AssertNoChange()
@@ -3924,7 +3925,7 @@ func (s *ApplicationSuite) TestWatchRelations(c *gc.C) {
 	// different path of the WatchRelations filter function)
 	wpx := s.AddTestingApplication(c, "wpx", wpch)
 	wpxWatcher := wpx.WatchRelations()
-	defer testing.AssertStop(c, wpxWatcher)
+	defer workertest.CleanKill(c, wpxWatcher)
 	wpxWatcherC := testing.NewStringsWatcherC(c, wpxWatcher)
 	wpxWatcherC.AssertChange()
 	wpxWatcherC.AssertNoChange()
@@ -3955,7 +3956,7 @@ func removeAllUnits(c *gc.C, s *state.Application) {
 
 func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 	w := s.mysql.Watch()
-	defer testing.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 
 	// Initial event.
 	wc := testing.NewNotifyWatcherC(c, w)
@@ -3983,7 +3984,7 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Stop, check closed.
-	testing.AssertStop(c, w)
+	workertest.CleanKill(c, w)
 	wc.AssertClosed()
 
 	// Remove application, start new watch, check single event.
@@ -3994,7 +3995,7 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 	// as an additional event.
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w = s.mysql.Watch()
-	defer testing.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 	testing.NewNotifyWatcherC(c, w).AssertOneChange()
 }
 
@@ -4497,7 +4498,7 @@ func (s *ApplicationSuite) TestWatchCharmConfig(c *gc.C) {
 
 	w, err := app.WatchCharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	defer testing.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 
 	// Initial event.
 	wc := testing.NewNotifyWatcherC(c, w)
@@ -5070,7 +5071,7 @@ func (s *CAASApplicationSuite) TestChangeScale(c *gc.C) {
 func (s *CAASApplicationSuite) TestWatchScale(c *gc.C) {
 	// Empty initial event.
 	w := s.app.WatchScale()
-	defer testing.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
@@ -5105,7 +5106,7 @@ func (s *CAASApplicationSuite) TestWatchCloudService(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := cloudSvc.Watch()
-	defer testing.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 
 	// Initial event.
 	wc := testing.NewNotifyWatcherC(c, w)
@@ -5119,7 +5120,7 @@ func (s *CAASApplicationSuite) TestWatchCloudService(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Stop, check closed.
-	testing.AssertStop(c, w)
+	workertest.CleanKill(c, w)
 	wc.AssertClosed()
 
 	// Remove service by removing app, start new watch, check single event.
@@ -5127,7 +5128,7 @@ func (s *CAASApplicationSuite) TestWatchCloudService(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w = cloudSvc.Watch()
-	defer testing.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 	testing.NewNotifyWatcherC(c, w).AssertOneChange()
 }
 
@@ -5627,7 +5628,7 @@ func (s *ApplicationSuite) dummyCharm(c *gc.C, curlOverride string) state.CharmI
 
 func (s *ApplicationSuite) TestWatch(c *gc.C) {
 	w := s.mysql.WatchConfigSettingsHash()
-	defer testing.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("1e11259677ef769e0ec4076b873c76dcc3a54be7bc651b081d0f0e2b87077717")

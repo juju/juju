@@ -35,7 +35,7 @@ func (s *loggerSuite) TestLogger(c *gc.C) {
 	s.timer.EXPECT().Chan().Return(ch).AnyTimes()
 
 	w := s.newWorker(c, dir)
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	args := []any{0.1, "SELECT * FROM foo"}
 	s.logger.EXPECT().Warningf("slow query: hello", args)
@@ -67,7 +67,7 @@ func (s *loggerSuite) TestLoggerMultipleTimes(c *gc.C) {
 	s.timer.EXPECT().Chan().Return(ch).AnyTimes()
 
 	w := s.newWorker(c, dir)
-	defer workertest.DirtyKill(c, w)
+	defer workertest.CleanKill(c, w)
 
 	for i := 0; i < 100; i++ {
 		stmt := fmt.Sprintf("SELECT %d FROM foo", i)

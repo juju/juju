@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -292,7 +293,7 @@ func (s *agentSuite) TestWatchCredentials(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 
 	w := s.resources.Get("1")
-	defer statetesting.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 
 	// Check that the Watch has consumed the initial events ("returned" in the Watch call)
 	wc := statetesting.NewNotifyWatcherC(c, w.(state.NotifyWatcher))

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/names/v4"
+	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
@@ -212,19 +213,9 @@ type Authorizer interface {
 // The lack of error returns are in deference to the existing
 // implementation, not because they're a good idea.
 type Resources interface {
-	Register(Resource) string
-	Get(string) Resource
+	Register(worker.Worker) string
+	Get(string) worker.Worker
 	Stop(string) error
-}
-
-// Resource should almost certainly be worker.Worker: the current
-// implementation renders the apiserver vulnerable to deadlock when
-// shutting down. (See common.Resources.StopAll -- *that* should be a
-// Kill() and a Wait(), so that connection cleanup can kill the
-// resources early, along with everything else, and then just wait for
-// all those things to finish.)
-type Resource interface {
-	Stop() error
 }
 
 // Presence represents the current known state of API connections from agents

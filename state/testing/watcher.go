@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
@@ -15,37 +16,20 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type Stopper interface {
-	Stop() error
-}
-
-func AssertStop(c *gc.C, stopper Stopper) {
-	c.Assert(stopper.Stop(), gc.IsNil)
-}
-
-type KillWaiter interface {
-	Kill()
-	Wait() error
-}
-
-func AssertKillAndWait(c *gc.C, killWaiter KillWaiter) {
-	killWaiter.Kill()
-	c.Assert(killWaiter.Wait(), jc.ErrorIsNil)
-}
-
 // AssertCanStopWhenSending ensures even when there are changes
 // pending to be delivered by the watcher it can still stop
 // cleanly. This is necessary to check for deadlocks in case the
 // watcher's inner loop is blocked trying to send and its tomb is
 // already dying.
-func AssertCanStopWhenSending(c *gc.C, stopper Stopper) {
+func AssertCanStopWhenSending(c *gc.C, w worker.Worker) {
 	// Leave some time for the event to be delivered and the watcher
 	// to block on sending it.
 	<-time.After(testing.ShortWait)
 	stopped := make(chan bool)
 	// Stop() blocks, so we need to call it in a separate goroutine.
 	go func() {
-		c.Check(stopper.Stop(), gc.IsNil)
+		w.Kill()
+		c.Assert(w.Wait(), jc.ErrorIsNil)
 		stopped <- true
 	}()
 	select {
@@ -58,6 +42,7 @@ func AssertCanStopWhenSending(c *gc.C, stopper Stopper) {
 }
 
 type NotifyWatcher interface {
+	worker.Worker
 	Stop() error
 	Changes() <-chan struct{}
 }
@@ -152,6 +137,7 @@ func NewStringsWatcherC(c *gc.C, w StringsWatcher) StringsWatcherC {
 }
 
 type StringsWatcher interface {
+	worker.Worker
 	Stop() error
 	Changes() <-chan []string
 }

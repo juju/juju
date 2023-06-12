@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/worker/v3"
 )
 
 // The kind constants are there to stop typos when switching on kinds.
@@ -41,7 +42,7 @@ type Factory interface {
 // Watcher is the way a caller can find out what changes have happened
 // on one or more models.
 type Watcher interface {
-	Stop() error
+	worker.Worker
 	Next() ([]Delta, error)
 }
 

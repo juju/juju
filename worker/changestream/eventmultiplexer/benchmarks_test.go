@@ -24,7 +24,7 @@ var _ = gc.Suite(&benchSuite{})
 
 func benchmarkSignal(c *gc.C, changes ChangeSet) {
 	sub := newSubscription(0, func() {})
-	defer workertest.DirtyKill(c, sub)
+	defer workertest.CleanKill(c, sub)
 
 	ctx := context.Background()
 
@@ -90,7 +90,7 @@ func benchmarkSubscriptions(c *gc.C, numSubs, numEvents int, ns string) {
 		ch: terms,
 	}, clock.WallClock, loggo.GetLogger("bench"))
 	c.Assert(err, gc.IsNil)
-	defer workertest.DirtyKill(c, em)
+	defer workertest.CleanKill(c, em)
 
 	for i := 0; i < numSubs; i++ {
 		sub, err := em.Subscribe(changestream.Namespace(ns, changestream.Update))

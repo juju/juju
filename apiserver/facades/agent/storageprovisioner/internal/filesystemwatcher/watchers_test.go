@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner/internal/filesystemwatcher"
@@ -59,7 +60,7 @@ func (s *WatchersSuite) SetUpTest(c *gc.C) {
 
 func (s *WatchersSuite) TestWatchModelManagedFilesystems(c *gc.C) {
 	w := s.watchers.WatchModelManagedFilesystems()
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	s.backend.modelFilesystemsW.C <- []string{"0", "1"}
 
 	// Filesystem 1 has a backing volume, so should not be reported.
@@ -76,7 +77,7 @@ func (s *WatchersSuite) TestWatchModelManagedFilesystemsWatcherErrorsPropagate(c
 
 func (s *WatchersSuite) TestWatchModelManagedFilesystemAttachments(c *gc.C) {
 	w := s.watchers.WatchModelManagedFilesystemAttachments()
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	s.backend.modelFilesystemAttachmentsW.C <- []string{"0:0", "0:1"}
 
 	// Filesystem 1 has a backing volume, so should not be reported.
@@ -93,7 +94,7 @@ func (s *WatchersSuite) TestWatchModelManagedFilesystemAttachmentsWatcherErrorsP
 
 func (s *WatchersSuite) TestWatchMachineManagedFilesystems(c *gc.C) {
 	w := s.watchers.WatchMachineManagedFilesystems(names.NewMachineTag("0"))
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	s.backend.modelFilesystemsW.C <- []string{"0", "1"}
 	s.backend.machineFilesystemsW.C <- []string{"0/2", "0/3"}
 	s.backend.modelVolumeAttachmentsW.C <- []string{"0:1", "0:2", "1:3"}
@@ -114,7 +115,7 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemsErrorsPropagate(c *gc.
 // and model filesystem events is swapped.
 func (s *WatchersSuite) TestWatchMachineManagedFilesystemsVolumeAttachedFirst(c *gc.C) {
 	w := s.watchers.WatchMachineManagedFilesystems(names.NewMachineTag("0"))
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	s.backend.modelVolumeAttachmentsW.C <- []string{"0:1", "0:2", "1:3"}
 	s.backend.modelFilesystemsW.C <- []string{"0", "1"}
 	s.backend.machineFilesystemsW.C <- []string{"0/2", "0/3"}
@@ -126,7 +127,7 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemsVolumeAttachedFirst(c 
 
 func (s *WatchersSuite) TestWatchMachineManagedFilesystemsVolumeAttachedLater(c *gc.C) {
 	w := s.watchers.WatchMachineManagedFilesystems(names.NewMachineTag("0"))
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	s.backend.modelFilesystemsW.C <- []string{"0", "1"}
 	s.backend.machineFilesystemsW.C <- []string{"0/2", "0/3"}
 	// No volumes are attached to begin with.
@@ -143,7 +144,7 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemsVolumeAttachedLater(c 
 
 func (s *WatchersSuite) TestWatchMachineManagedFilesystemsVolumeAttachmentDead(c *gc.C) {
 	w := s.watchers.WatchMachineManagedFilesystems(names.NewMachineTag("0"))
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 
 	s.backend.machineFilesystemsW.C <- []string{}
 	// Volume-backed filesystems 1 and 2 change.
@@ -171,7 +172,7 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemsVolumeAttachmentDead(c
 
 func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachments(c *gc.C) {
 	w := s.watchers.WatchMachineManagedFilesystemAttachments(names.NewMachineTag("0"))
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	s.backend.modelFilesystemAttachmentsW.C <- []string{"0:0", "0:1"}
 	s.backend.machineFilesystemAttachmentsW.C <- []string{"0:0/2", "0:0/3"}
 	s.backend.modelVolumeAttachmentsW.C <- []string{"0:1", "0:2", "1:3"}
@@ -192,7 +193,7 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsErrorsPropag
 // and model filesystem attachment events is swapped.
 func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsVolumeAttachedFirst(c *gc.C) {
 	w := s.watchers.WatchMachineManagedFilesystemAttachments(names.NewMachineTag("0"))
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	s.backend.modelVolumeAttachmentsW.C <- []string{"0:1", "0:2", "1:3"}
 	s.backend.modelFilesystemAttachmentsW.C <- []string{"0:0", "0:1"}
 	s.backend.machineFilesystemAttachmentsW.C <- []string{"0:0/2", "0:0/3"}
@@ -204,7 +205,7 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsVolumeAttach
 
 func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsVolumeAttachedLater(c *gc.C) {
 	w := s.watchers.WatchMachineManagedFilesystemAttachments(names.NewMachineTag("0"))
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	s.backend.modelFilesystemAttachmentsW.C <- []string{"0:0", "0:1"}
 	s.backend.machineFilesystemAttachmentsW.C <- []string{"0:0/2", "0:0/3"}
 	// No volumes are attached to begin with.
@@ -221,7 +222,7 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsVolumeAttach
 
 func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsVolumeAttachmentDead(c *gc.C) {
 	w := s.watchers.WatchMachineManagedFilesystemAttachments(names.NewMachineTag("0"))
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 
 	s.backend.machineFilesystemAttachmentsW.C <- []string{}
 	// Volume-backed filesystems attachments 0:1 and 0:2 change.
@@ -249,7 +250,7 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsVolumeAttach
 
 func (s *WatchersSuite) TestWatchUnitManagedFilesystems(c *gc.C) {
 	w := s.watchers.WatchUnitManagedFilesystems(names.NewApplicationTag("mariadb"))
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	s.backend.modelFilesystemsW.C <- []string{"0", "1"}
 	s.backend.unitFilesystemsW.C <- []string{"mariadb/0/2", "mariadb/0/3"}
 	s.backend.modelVolumeAttachmentsW.C <- []string{"mariadb/0:1", "mariadb/0:2", "mysql/1:3"}
@@ -267,7 +268,7 @@ func (s *WatchersSuite) TestWatchUnitManagedFilesystemsErrorsPropagate(c *gc.C) 
 
 func (s *WatchersSuite) TestWatchUnitManagedFilesystemAttachments(c *gc.C) {
 	w := s.watchers.WatchUnitManagedFilesystemAttachments(names.NewApplicationTag("mariadb"))
-	defer statetesting.AssertKillAndWait(c, w)
+	defer workertest.CleanKill(c, w)
 	s.backend.modelFilesystemAttachmentsW.C <- []string{"mariadb/0:0", "mariadb/0:1"}
 	s.backend.unitFilesystemAttachmentsW.C <- []string{"mariadb/0:mariadb/0/2", "mariadb/0:mariadb/0/3"}
 	s.backend.modelVolumeAttachmentsW.C <- []string{"mariadb/0:1", "mariadb/0:2", "mysql/0:3"}

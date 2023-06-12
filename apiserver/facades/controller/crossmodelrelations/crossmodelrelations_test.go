@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"regexp"
+	"sync"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
@@ -32,7 +34,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -75,21 +76,41 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 	relationStatusWatcher := func(st crossmodelrelations.CrossModelRelationsState, tag names.RelationTag) (state.StringsWatcher, error) {
 		c.Assert(s.st, gc.Equals, st)
 		s.watchedRelations = params.Entities{Entities: []params.Entity{{Tag: tag.String()}}}
-		w := &mockRelationStatusWatcher{changes: make(chan []string, 1)}
+		w := &mockRelationStatusWatcher{
+			mockWatcher: &mockWatcher{
+				mu:      sync.Mutex{},
+				stopped: make(chan struct{}, 1),
+			},
+			changes: make(chan []string, 1),
+		}
 		w.changes <- []string{"db2:db django:db"}
 		return w, nil
 	}
 	offerStatusWatcher := func(st crossmodelrelations.CrossModelRelationsState, offerUUID string) (crossmodelrelations.OfferWatcher, error) {
 		c.Assert(s.st, gc.Equals, st)
 		s.watchedOffers = []string{offerUUID}
-		w := &mockOfferStatusWatcher{offerUUID: offerUUID, offerName: "mysql", changes: make(chan struct{}, 1)}
+		w := &mockOfferStatusWatcher{
+			mockWatcher: &mockWatcher{
+				mu:      sync.Mutex{},
+				stopped: make(chan struct{}, 1),
+			},
+			offerUUID: offerUUID,
+			offerName: "mysql",
+			changes:   make(chan struct{}, 1),
+		}
 		w.changes <- struct{}{}
 		return w, nil
 	}
 	consumedSecretsWatcher := func(st crossmodelrelations.CrossModelRelationsState, appName string) (state.StringsWatcher, error) {
 		c.Assert(s.st, gc.Equals, st)
 		s.watchedSecretConsumers = []string{appName}
-		w := &mockSecretsWatcher{changes: make(chan []string, 1)}
+		w := &mockSecretsWatcher{
+			mockWatcher: &mockWatcher{
+				mu:      sync.Mutex{},
+				stopped: make(chan struct{}, 1),
+			},
+			changes: make(chan []string, 1),
+		}
 		w.changes <- []string{"9m4e2mr0ui3e8a215n4g"}
 		return w, nil
 	}
@@ -816,7 +837,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
+	defer workertest.CleanKill(c, resource)
 
 	outw, ok := resource.(*commoncrossmodel.WrappedUnitsWatcher)
 	c.Assert(ok, gc.Equals, true)

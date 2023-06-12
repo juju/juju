@@ -26,7 +26,7 @@ func (s *subscriptionSuite) TestSubscriptionIsDone(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	sub := newSubscription(0, func() {})
-	defer workertest.DirtyKill(c, sub)
+	defer workertest.CleanKill(c, sub)
 
 	workertest.CleanKill(c, sub)
 
@@ -42,7 +42,7 @@ func (s *subscriptionSuite) TestSubscriptionUnsubscriptionIsCalled(c *gc.C) {
 
 	var called bool
 	sub := newSubscription(0, func() { called = true })
-	defer workertest.DirtyKill(c, sub)
+	defer workertest.CleanKill(c, sub)
 
 	sub.Unsubscribe()
 	c.Assert(called, jc.IsTrue)
@@ -56,7 +56,7 @@ func (s *subscriptionSuite) TestSubscriptionWitnessChanges(c *gc.C) {
 	sub := newSubscription(0, func() {
 		c.Fatalf("failed if called")
 	})
-	defer workertest.DirtyKill(c, sub)
+	defer workertest.CleanKill(c, sub)
 
 	changes := ChangeSet{changeEvent{
 		ctype: changestream.Create,
@@ -88,7 +88,7 @@ func (s *subscriptionSuite) TestSubscriptionDoesNoteWitnessChangesWithCancelledC
 	sub := newSubscription(0, func() {
 		c.Fatalf("failed if called")
 	})
-	defer workertest.DirtyKill(c, sub)
+	defer workertest.CleanKill(c, sub)
 
 	changes := ChangeSet{changeEvent{
 		ctype: changestream.Create,
@@ -129,7 +129,7 @@ func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithUnsub(c *gc
 	sub := newSubscription(0, func() {
 		atomic.AddInt64(&witnessed, 1)
 	})
-	defer workertest.DirtyKill(c, sub)
+	defer workertest.CleanKill(c, sub)
 
 	changes := ChangeSet{changeEvent{
 		ctype: changestream.Create,
@@ -174,7 +174,7 @@ func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithDying(c *gc
 	sub := newSubscription(0, func() {
 		c.Fatalf("failed if called")
 	})
-	defer workertest.DirtyKill(c, sub)
+	defer workertest.CleanKill(c, sub)
 
 	changes := ChangeSet{changeEvent{
 		ctype: changestream.Create,

@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
@@ -461,7 +462,7 @@ func (s *EnableHASuite) TestWatchControllerInfo(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := s.State.WatchControllerInfo()
-	defer statetesting.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 
 	// Initial event.
 	wc := statetesting.NewStringsWatcherC(c, w)

@@ -16,6 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/fs"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -560,7 +561,7 @@ func (s *ContextFactorySuite) TestHookContextCAASNilPodSpecNilRawPodSpecButUpgra
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rps, gc.Equals, "")
 
-	statetesting.AssertStop(c, w)
+	workertest.CleanKill(c, w)
 	wc.AssertClosed()
 }
 

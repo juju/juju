@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/crossmodel"
@@ -1262,7 +1263,7 @@ func (s *remoteApplicationSuite) TestAddApplicationModelDiesAfterInitial(c *gc.C
 
 func (s *remoteApplicationSuite) TestWatchRemoteApplications(c *gc.C) {
 	w := s.State.WatchRemoteApplications()
-	defer testing.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("mysql") // initial
 	wc.AssertNoChange()
@@ -1283,7 +1284,7 @@ func (s *remoteApplicationSuite) TestWatchRemoteApplications(c *gc.C) {
 
 func (s *remoteApplicationSuite) TestWatchRemoteApplicationsDying(c *gc.C) {
 	w := s.State.WatchRemoteApplications()
-	defer testing.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("mysql") // initial
 	wc.AssertNoChange()
