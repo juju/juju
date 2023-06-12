@@ -6,6 +6,9 @@ package stream
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -39,9 +42,10 @@ func (s *streamSuite) TestWithNoNamespace(c *gc.C) {
 	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectAfter()
+	s.expectTimer()
 
-	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
-	defer workertest.CleanKill(c, stream)
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	defer workertest.DirtyKill(c, stream)
 
 	select {
 	case <-stream.Terms():
@@ -58,11 +62,12 @@ func (s *streamSuite) TestNoData(c *gc.C) {
 	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectAfter()
+	s.expectTimer()
 
 	s.insertNamespace(c, 1000, "foo")
 
-	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
-	defer workertest.CleanKill(c, stream)
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	defer workertest.DirtyKill(c, stream)
 
 	select {
 	case <-stream.Terms():
@@ -79,6 +84,7 @@ func (s *streamSuite) TestOneChange(c *gc.C) {
 	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectAfterAnyTimes()
+	s.expectTimer()
 
 	s.insertNamespace(c, 1000, "foo")
 
@@ -88,8 +94,8 @@ func (s *streamSuite) TestOneChange(c *gc.C) {
 	}
 	s.insertChange(c, chg)
 
-	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
-	defer workertest.CleanKill(c, stream)
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	defer workertest.DirtyKill(c, stream)
 
 	var results []changestream.ChangeEvent
 	select {
@@ -112,6 +118,7 @@ func (s *streamSuite) TestOneChangeWithEmptyResults(c *gc.C) {
 	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectAfterAnyTimes()
+	s.expectTimer()
 
 	s.insertNamespace(c, 1000, "foo")
 
@@ -121,7 +128,7 @@ func (s *streamSuite) TestOneChangeWithEmptyResults(c *gc.C) {
 	}
 	s.insertChange(c, chg)
 
-	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	var results []changestream.ChangeEvent
@@ -145,6 +152,7 @@ func (s *streamSuite) TestOneChangeWithClosedAbort(c *gc.C) {
 	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectAfterAnyTimes()
+	s.expectTimer()
 
 	s.insertNamespace(c, 1000, "foo")
 
@@ -154,7 +162,7 @@ func (s *streamSuite) TestOneChangeWithClosedAbort(c *gc.C) {
 	}
 	s.insertChange(c, chg)
 
-	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	var results []changestream.ChangeEvent
@@ -182,6 +190,7 @@ func (s *streamSuite) TestOneChangeWithDelayedTermDone(c *gc.C) {
 	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectAfterAnyTimes()
+	s.expectTimer()
 
 	s.insertNamespace(c, 1000, "foo")
 
@@ -191,8 +200,8 @@ func (s *streamSuite) TestOneChangeWithDelayedTermDone(c *gc.C) {
 	}
 	s.insertChange(c, chg)
 
-	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
-	defer workertest.CleanKill(c, stream)
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	defer workertest.DirtyKill(c, stream)
 
 	var (
 		results []changestream.ChangeEvent
@@ -219,6 +228,7 @@ func (s *streamSuite) TestOneChangeWithTermDoneAfterKill(c *gc.C) {
 	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectAfterAnyTimes()
+	s.expectTimer()
 
 	s.insertNamespace(c, 1000, "foo")
 
@@ -228,8 +238,8 @@ func (s *streamSuite) TestOneChangeWithTermDoneAfterKill(c *gc.C) {
 	}
 	s.insertChange(c, chg)
 
-	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
-	defer workertest.CleanKill(c, stream)
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	defer workertest.DirtyKill(c, stream)
 
 	var (
 		results []changestream.ChangeEvent
@@ -258,6 +268,7 @@ func (s *streamSuite) TestOneChangeWithTimeoutCausesWorkerToBounce(c *gc.C) {
 
 	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
+	s.expectTimer()
 
 	s.clock.EXPECT().After(gomock.Any()).DoAndReturn(func(d time.Duration) <-chan time.Time {
 		ch := make(chan time.Time)
@@ -275,7 +286,7 @@ func (s *streamSuite) TestOneChangeWithTimeoutCausesWorkerToBounce(c *gc.C) {
 	}
 	s.insertChange(c, chg)
 
-	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	select {
@@ -298,11 +309,12 @@ func (s *streamSuite) TestMultipleTerms(c *gc.C) {
 	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectAfterAnyTimes()
+	s.expectTimer()
 
 	s.insertNamespace(c, 1000, "foo")
 
-	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
-	defer workertest.CleanKill(c, stream)
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	defer workertest.DirtyKill(c, stream)
 
 	for i := 0; i < 10; i++ {
 		// Insert a change and wait for it to be streamed.
@@ -336,6 +348,7 @@ func (s *streamSuite) TestMultipleTermsAllEmpty(c *gc.C) {
 
 	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
+	s.expectTimer()
 
 	var duration int64
 	s.clock.EXPECT().After(defaultWaitTermTimeout).Return(make(chan time.Time)).AnyTimes()
@@ -354,7 +367,7 @@ func (s *streamSuite) TestMultipleTermsAllEmpty(c *gc.C) {
 
 	s.insertNamespace(c, 1000, "foo")
 
-	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	for i := 0; i < 10; i++ {
@@ -392,11 +405,12 @@ func (s *streamSuite) TestSecondTermDoesNotStartUntilFirstTermDone(c *gc.C) {
 	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectAfterAnyTimes()
+	s.expectTimer()
 
 	s.insertNamespace(c, 1000, "foo")
 
-	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
-	defer workertest.CleanKill(c, stream)
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	defer workertest.DirtyKill(c, stream)
 
 	// Insert a change and wait for it to be streamed.
 	chg := change{
@@ -466,6 +480,7 @@ func (s *streamSuite) TestMultipleChangesWithSameUUIDCoalesce(c *gc.C) {
 	s.expectAnyLogs()
 	s.expectAfterAnyTimes()
 	s.expectFileNotifyWatcher()
+	s.expectTimer()
 
 	s.insertNamespace(c, 1000, "foo")
 
@@ -494,8 +509,8 @@ func (s *streamSuite) TestMultipleChangesWithSameUUIDCoalesce(c *gc.C) {
 		inserts = append(inserts, ch)
 	}
 
-	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
-	defer workertest.CleanKill(c, stream)
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	defer workertest.DirtyKill(c, stream)
 
 	// Wait to ensure that the loop has been given enough time to read the
 	// changes.
@@ -524,6 +539,7 @@ func (s *streamSuite) TestMultipleChangesWithNamespaces(c *gc.C) {
 	s.expectAnyLogs()
 	s.expectAfterAnyTimes()
 	s.expectFileNotifyWatcher()
+	s.expectTimer()
 
 	s.insertNamespace(c, 1000, "foo")
 	s.insertNamespace(c, 2000, "bar")
@@ -538,8 +554,8 @@ func (s *streamSuite) TestMultipleChangesWithNamespaces(c *gc.C) {
 		inserts = append(inserts, ch)
 	}
 
-	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
-	defer workertest.CleanKill(c, stream)
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	defer workertest.DirtyKill(c, stream)
 
 	// Wait to ensure that the loop has been given enough time to read the
 	// changes.
@@ -572,6 +588,7 @@ func (s *streamSuite) TestMultipleChangesWithNamespacesCoalesce(c *gc.C) {
 	s.expectAnyLogs()
 	s.expectAfterAnyTimes()
 	s.expectFileNotifyWatcher()
+	s.expectTimer()
 
 	s.insertNamespace(c, 1000, "foo")
 	s.insertNamespace(c, 2000, "bar")
@@ -601,8 +618,8 @@ func (s *streamSuite) TestMultipleChangesWithNamespacesCoalesce(c *gc.C) {
 		inserts = append(inserts, ch)
 	}
 
-	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
-	defer workertest.CleanKill(c, stream)
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	defer workertest.DirtyKill(c, stream)
 
 	// Wait to ensure that the loop has been given enough time to read the
 	// changes.
@@ -635,6 +652,7 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *gc.C) 
 	s.expectAnyLogs()
 	s.expectAfterAnyTimes()
 	s.expectFileNotifyWatcher()
+	s.expectTimer()
 
 	s.insertNamespace(c, 1000, "foo")
 	s.insertNamespace(c, 2000, "bar")
@@ -672,8 +690,8 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *gc.C) 
 		inserts = append(inserts, ch)
 	}
 
-	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
-	defer workertest.CleanKill(c, stream)
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	defer workertest.DirtyKill(c, stream)
 
 	// Wait to ensure that the loop has been given enough time to read the
 	// changes.
@@ -707,12 +725,13 @@ func (s *streamSuite) TestOneChangeIsBlockedByFile(c *gc.C) {
 
 	s.expectAnyLogs()
 	s.expectAfterAnyTimes()
+	s.expectTimer()
 	notify := s.expectFileNotifyWatcher()
 
 	s.insertNamespace(c, 1000, "foo")
 
-	stream := New(s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
-	defer workertest.CleanKill(c, stream)
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	defer workertest.DirtyKill(c, stream)
 
 	expectNotifyBlock := func(block bool) {
 		notified := make(chan bool)
@@ -758,10 +777,295 @@ func (s *streamSuite) TestOneChangeIsBlockedByFile(c *gc.C) {
 	workertest.CleanKill(c, stream)
 }
 
-func (s *streamSuite) TestReadChangesWithNoChanges(c *gc.C) {
-	stream := &Stream{
-		db: s.TxnRunner(),
+func constructWatermark(start, finish int) string {
+	var builder strings.Builder
+	for j := start; j < finish; j++ {
+		builder.WriteString(fmt.Sprintf("(lower: %d, upper: %d)", j+1, j+1))
+		if j != finish-1 {
+			builder.WriteString(", ")
+		}
 	}
+	return builder.String()
+}
+
+func (s *streamSuite) TestReport(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectAfterAnyTimes()
+	s.expectFileNotifyWatcher()
+
+	s.insertNamespace(c, 1000, "foo")
+
+	ch := make(chan time.Time)
+
+	s.clock.EXPECT().NewTimer(gomock.Any()).Return(s.timer).AnyTimes()
+	s.timer.EXPECT().Chan().DoAndReturn(func() <-chan time.Time {
+		return ch
+	}).AnyTimes()
+	s.timer.EXPECT().Stop()
+
+	sync := make(chan struct{})
+	s.timer.EXPECT().Reset(gomock.Any()).DoAndReturn(func(d time.Duration) bool {
+		defer close(sync)
+		return true
+	})
+
+	id := utils.MustNewUUID().String()
+	stream := New(id, s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	defer workertest.DirtyKill(c, stream)
+
+	for i := 0; i < defaultNumTermWatermarks; i++ {
+		chg := change{
+			id:   1000,
+			uuid: utils.MustNewUUID().String(),
+		}
+		s.insertChange(c, chg)
+
+		select {
+		case term := <-stream.Terms():
+			c.Assert(term.Changes(), gc.HasLen, 1)
+
+			// A report during a term, shouldn't be blocked. This test proves
+			// that case.
+			data := stream.Report()
+			c.Check(data["last-recorded-watermark"], gc.Equals, "")
+
+			term.Done(false, make(chan struct{}))
+		case <-time.After(testing.ShortWait):
+			c.Fatal("timed out waiting for change")
+		}
+	}
+
+	// We need to force a synchronization point, so that we actually witness
+	// the change. This is because we wait until after the done channel is
+	// closed before we update the watermark.
+	syncPoint := func(c *gc.C) map[string]any {
+		for i := 0; i < 3; i++ {
+			data := stream.Report()
+			if strings.Contains(data["watermarks"].(string), strconv.Itoa(defaultNumTermWatermarks)) {
+				return data
+			}
+			<-time.After(testing.ShortWait)
+		}
+		c.Fatalf("timed out waiting for sync point")
+		return nil
+	}
+	data := syncPoint(c)
+	c.Check(data, gc.DeepEquals, map[string]any{
+		"id":                      id,
+		"watermarks":              constructWatermark(0, defaultNumTermWatermarks),
+		"last-recorded-watermark": "",
+	})
+
+	select {
+	case ch <- time.Now():
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for timer")
+	}
+
+	select {
+	case <-sync:
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for timer")
+	}
+
+	s.expectWaterMark(c, id, 1)
+
+	data = stream.Report()
+	c.Check(data, gc.DeepEquals, map[string]any{
+		"id":                      id,
+		"watermarks":              constructWatermark(1, defaultNumTermWatermarks),
+		"last-recorded-watermark": "(lower: 1, upper: 1)",
+	})
+
+	workertest.CleanKill(c, stream)
+}
+
+func (s *streamSuite) TestWatermarkWrite(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectAfterAnyTimes()
+	s.expectFileNotifyWatcher()
+
+	s.insertNamespace(c, 1000, "foo")
+
+	ch := make(chan time.Time)
+
+	s.clock.EXPECT().NewTimer(gomock.Any()).Return(s.timer).AnyTimes()
+	s.timer.EXPECT().Chan().DoAndReturn(func() <-chan time.Time {
+		return ch
+	}).AnyTimes()
+	s.timer.EXPECT().Stop()
+	sync := make(chan struct{})
+	s.timer.EXPECT().Reset(gomock.Any()).DoAndReturn(func(d time.Duration) bool {
+		defer close(sync)
+		return true
+	})
+
+	tag := utils.MustNewUUID().String()
+	stream := New(tag, s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	defer workertest.DirtyKill(c, stream)
+
+	for i := 0; i < defaultNumTermWatermarks; i++ {
+		chg := change{
+			id:   1000,
+			uuid: utils.MustNewUUID().String(),
+		}
+		s.insertChange(c, chg)
+
+		select {
+		case term := <-stream.Terms():
+			c.Assert(term.Changes(), gc.HasLen, 1)
+			term.Done(false, make(chan struct{}))
+		case <-time.After(testing.ShortWait):
+			c.Fatal("timed out waiting for change")
+		}
+	}
+
+	select {
+	case ch <- time.Now():
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for timer")
+	}
+
+	select {
+	case <-sync:
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for timer")
+	}
+
+	s.expectWaterMark(c, tag, 1)
+
+	workertest.CleanKill(c, stream)
+}
+
+func (s *streamSuite) TestWatermarkWriteIsIgnored(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectAfterAnyTimes()
+	s.expectFileNotifyWatcher()
+
+	s.insertNamespace(c, 1000, "foo")
+
+	ch := make(chan time.Time)
+
+	s.clock.EXPECT().NewTimer(gomock.Any()).Return(s.timer).AnyTimes()
+	s.timer.EXPECT().Chan().DoAndReturn(func() <-chan time.Time {
+		return ch
+	}).AnyTimes()
+	s.timer.EXPECT().Stop()
+	sync := make(chan struct{})
+	s.timer.EXPECT().Reset(gomock.Any()).DoAndReturn(func(d time.Duration) bool {
+		defer close(sync)
+		return true
+	})
+
+	tag := utils.MustNewUUID().String()
+	stream := New(tag, s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	defer workertest.DirtyKill(c, stream)
+
+	for i := 0; i < defaultNumTermWatermarks-1; i++ {
+		chg := change{
+			id:   1000,
+			uuid: utils.MustNewUUID().String(),
+		}
+		s.insertChange(c, chg)
+
+		select {
+		case term := <-stream.Terms():
+			c.Assert(term.Changes(), gc.HasLen, 1)
+			term.Done(false, make(chan struct{}))
+		case <-time.After(testing.ShortWait):
+			c.Fatal("timed out waiting for change")
+		}
+	}
+
+	select {
+	case ch <- time.Now():
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for timer")
+	}
+
+	select {
+	case <-sync:
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for timer")
+	}
+
+	s.expectWaterMark(c, tag, -1)
+
+	workertest.CleanKill(c, stream)
+}
+
+func (s *streamSuite) TestWatermarkWriteUpdatesToTheLaterOne(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectAfterAnyTimes()
+	s.expectFileNotifyWatcher()
+
+	s.insertNamespace(c, 1000, "foo")
+
+	ch := make(chan time.Time)
+
+	s.clock.EXPECT().NewTimer(gomock.Any()).Return(s.timer).AnyTimes()
+	s.timer.EXPECT().Chan().DoAndReturn(func() <-chan time.Time {
+		return ch
+	}).AnyTimes()
+	s.timer.EXPECT().Stop()
+	sync := make(chan struct{})
+	s.timer.EXPECT().Reset(gomock.Any()).DoAndReturn(func(d time.Duration) bool {
+		defer close(sync)
+		return true
+	})
+
+	tag := utils.MustNewUUID().String()
+	stream := New(tag, s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	defer workertest.DirtyKill(c, stream)
+
+	// Insert the first change, which will be the first watermark.
+	insertAndWitness := func(c *gc.C, id int) {
+		chg := change{
+			id:   1000,
+			uuid: utils.MustNewUUID().String(),
+		}
+		s.insertChange(c, chg)
+
+		select {
+		case term := <-stream.Terms():
+			c.Assert(term.Changes(), gc.HasLen, 1)
+			term.Done(false, make(chan struct{}))
+		case <-time.After(testing.ShortWait):
+			c.Fatal("timed out waiting for change")
+		}
+	}
+
+	for i := 0; i < defaultNumTermWatermarks+2; i++ {
+		insertAndWitness(c, i+1)
+	}
+
+	select {
+	case ch <- time.Now():
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for timer")
+	}
+
+	select {
+	case <-sync:
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for timer")
+	}
+
+	s.expectWaterMark(c, tag, 3)
+
+	workertest.CleanKill(c, stream)
+}
+
+func (s *streamSuite) TestReadChangesWithNoChanges(c *gc.C) {
+	stream := s.newStream()
 
 	s.insertNamespace(c, 1000, "foo")
 
@@ -772,9 +1076,7 @@ func (s *streamSuite) TestReadChangesWithNoChanges(c *gc.C) {
 }
 
 func (s *streamSuite) TestReadChangesWithOneChange(c *gc.C) {
-	stream := &Stream{
-		db: s.TxnRunner(),
-	}
+	stream := s.newStream()
 
 	s.insertNamespace(c, 1000, "foo")
 
@@ -793,9 +1095,7 @@ func (s *streamSuite) TestReadChangesWithOneChange(c *gc.C) {
 }
 
 func (s *streamSuite) TestReadChangesWithMultipleSameChange(c *gc.C) {
-	stream := &Stream{
-		db: s.TxnRunner(),
-	}
+	stream := s.newStream()
 
 	s.insertNamespace(c, 1000, "foo")
 
@@ -817,9 +1117,7 @@ func (s *streamSuite) TestReadChangesWithMultipleSameChange(c *gc.C) {
 }
 
 func (s *streamSuite) TestReadChangesWithMultipleChanges(c *gc.C) {
-	stream := &Stream{
-		db: s.TxnRunner(),
-	}
+	stream := s.newStream()
 
 	s.insertNamespace(c, 1000, "foo")
 
@@ -844,9 +1142,7 @@ func (s *streamSuite) TestReadChangesWithMultipleChanges(c *gc.C) {
 }
 
 func (s *streamSuite) TestReadChangesWithMultipleChangesGroupsCorrectly(c *gc.C) {
-	stream := &Stream{
-		db: s.TxnRunner(),
-	}
+	stream := s.newStream()
 
 	s.insertNamespace(c, 1000, "foo")
 
@@ -879,9 +1175,7 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesGroupsCorrectly(c *gc.C)
 }
 
 func (s *streamSuite) TestReadChangesWithMultipleChangesInterweavedGroupsCorrectly(c *gc.C) {
-	stream := &Stream{
-		db: s.TxnRunner(),
-	}
+	stream := s.newStream()
 
 	s.insertNamespace(c, 1000, "foo")
 	s.insertNamespace(c, 2000, "bar")
@@ -971,6 +1265,147 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesInterweavedGroupsCorrect
 	}
 }
 
+func (s *streamSuite) TestProcessWatermark(c *gc.C) {
+	stream := s.newStream()
+
+	err := stream.processWatermark(func(tv *termView) error {
+		c.Fatalf("unexpected call to process watermark")
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Insert 1 item into the buffer. This will be the first watermark. As the
+	// buffer isn't full we should not see a process watermark call.
+	stream.recordTermView(&termView{lower: 1, upper: 2})
+
+	err = stream.processWatermark(func(tv *termView) error {
+		c.Fatalf("unexpected call to process watermark")
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Fill the buffer and witness the view.
+	for i := int64(0); i < defaultNumTermWatermarks-1; i++ {
+		stream.recordTermView(&termView{lower: i + 2, upper: i + 3})
+	}
+
+	witnessWatermark := func(lower, upper int64) {
+		// Ensure that we witness the watermark.
+		var called bool
+		err = stream.processWatermark(func(tv *termView) error {
+			called = true
+			c.Check(tv.lower, gc.Equals, lower)
+			c.Check(tv.upper, gc.Equals, upper)
+			return nil
+		})
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(called, jc.IsTrue)
+
+		// We won't witness the watermark again until we've added another term view.
+		err = stream.processWatermark(func(tv *termView) error {
+			c.Fatalf("unexpected call to process watermark")
+			return nil
+		})
+		c.Check(err, jc.ErrorIsNil)
+	}
+
+	witnessWatermark(1, 2)
+
+	// Adding a term view should trigger the watermark again.
+	expected := int64(2)
+	for i := defaultNumTermWatermarks; i < defaultNumTermWatermarks+20; i++ {
+		stream.recordTermView(&termView{lower: int64(i + 1), upper: int64(i + 2)})
+
+		witnessWatermark(expected, expected+1)
+		expected++
+	}
+}
+
+func (s *streamSuite) TestProcessWatermarkBufferFull(c *gc.C) {
+	stream := s.newStream()
+
+	err := stream.processWatermark(func(tv *termView) error {
+		c.Fatalf("unexpected call to process watermark")
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Overfilling the buffer should cause us to witness the watermark. The
+	// buffer is capped FIFO, so we will only witness the last view of the
+	// buffer.
+	total := int64(defaultNumTermWatermarks * 10)
+	for i := int64(0); i < total; i++ {
+		stream.recordTermView(&termView{lower: i, upper: i + 1})
+	}
+
+	witnessWatermark := func(lower, upper int64) {
+		// Ensure that we witness the watermark.
+		var called bool
+		err = stream.processWatermark(func(tv *termView) error {
+			called = true
+			c.Check(tv.lower, gc.Equals, lower)
+			c.Check(tv.upper, gc.Equals, upper)
+			return nil
+		})
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(called, jc.IsTrue)
+
+		// We won't witness the watermark again until we've added another term view.
+		err = stream.processWatermark(func(tv *termView) error {
+			c.Fatalf("unexpected call to process watermark")
+			return nil
+		})
+		c.Check(err, jc.ErrorIsNil)
+	}
+
+	witnessWatermark(total-defaultNumTermWatermarks, total-(defaultNumTermWatermarks-1))
+}
+
+func (s *streamSuite) TestUpperBound(c *gc.C) {
+	stream := s.newStream()
+
+	c.Check(stream.upperBound(), gc.Equals, int64(-1))
+
+	// Fill the buffer and witness the view.
+	for i := int64(0); i < defaultNumTermWatermarks; i++ {
+		stream.recordTermView(&termView{lower: i + 2, upper: i + 3})
+
+		c.Check(stream.upperBound(), gc.Equals, i+3)
+	}
+
+	for i := 0; i < defaultNumTermWatermarks; i++ {
+		err := stream.processWatermark(func(tv *termView) error {
+			return nil
+		})
+		c.Assert(err, jc.ErrorIsNil)
+
+		c.Check(stream.upperBound(), gc.Equals, int64(defaultNumTermWatermarks+2))
+	}
+
+	err := stream.processWatermark(func(tv *termView) error {
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(stream.upperBound(), gc.Equals, int64(defaultNumTermWatermarks+2))
+}
+
+func (s *streamSuite) TestCreateWatermarkTwice(c *gc.C) {
+	stream := s.newStream()
+	err := stream.createWatermark()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = stream.createWatermark()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *streamSuite) newStream() *Stream {
+	return &Stream{
+		db:         s.TxnRunner(),
+		id:         utils.MustNewUUID().String(),
+		watermarks: make([]*termView, defaultNumTermWatermarks),
+	}
+}
+
 func (s *streamSuite) insertNamespace(c *gc.C, id int, name string) {
 	q := `
 INSERT INTO change_log_namespace VALUES (?, ?);
@@ -1010,4 +1445,22 @@ func expectChanges(c *gc.C, expected []change, obtained []changestream.ChangeEve
 		c.Check(obtained[i].Namespace(), gc.Equals, "foo")
 		c.Check(obtained[i].ChangedUUID(), gc.Equals, chg.uuid)
 	}
+}
+
+func (s *streamSuite) expectWaterMark(c *gc.C, id string, changeLogIndex int) {
+	row := s.DB().QueryRowContext(context.Background(), "SELECT controller_id, lower_bound, upper_bound, updated_at FROM change_log_witness")
+
+	type witness struct {
+		id                     string
+		lowerBound, upperBound int
+		updatedAt              time.Time
+	}
+	var w witness
+	err := row.Scan(&w.id, &w.lowerBound, &w.upperBound, &w.updatedAt)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(w.id, gc.Equals, id)
+	c.Check(w.lowerBound, gc.Equals, changeLogIndex)
+	c.Check(w.upperBound >= changeLogIndex, jc.IsTrue)
+	c.Check(w.updatedAt, gc.Not(gc.Equals), time.Time{})
 }

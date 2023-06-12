@@ -7,11 +7,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"math/rand"
 	"net"
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync/atomic"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/testing"
@@ -20,6 +20,7 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/app"
+	"github.com/juju/juju/domain/schema"
 )
 
 // DBSuite is used to provide a Dqlite-backed sql.DB reference to tests.
@@ -28,6 +29,7 @@ type DBSuite struct {
 
 	dbPath   string
 	rootPath string
+	uniqueID int64
 
 	dqlite    *app.App
 	db        *sql.DB
@@ -72,13 +74,19 @@ func (s *DBSuite) TearDownSuite(c *gc.C) {
 func (s *DBSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
+	// Increment the id and use it as the database name, this prevents
+	// tests from interfering with each other.
+	uniqueID := atomic.AddInt64(&s.uniqueID, 1)
+
 	var err error
-	s.db, err = s.dqlite.Open(context.TODO(), strconv.Itoa(rand.Intn(10)))
+	s.db, err = s.dqlite.Open(context.TODO(), strconv.FormatInt(uniqueID, 10))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.trackedDB = &txnRunner{
 		db: sqlair.NewDB(s.db),
 	}
+
+	s.ApplyControllerDDL(c)
 }
 
 // TearDownTest closes the database opened in SetUpTest.
@@ -127,4 +135,21 @@ func FindTCPPort(c *gc.C) int {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(l.Close(), jc.ErrorIsNil)
 	return l.Addr().(*net.TCPAddr).Port
+}
+
+// ApplyControllerDDL applies the controller schema to the provided sql.DB.
+// This is useful for tests that need to apply the schema to a new DB.
+func (s *DBSuite) ApplyControllerDDL(c *gc.C) {
+	tx, err := s.db.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+
+	for idx, delta := range schema.ControllerDDL(0x2dc171858c3155be) {
+		c.Logf("Executing schema DDL index: %v", idx)
+		_, err := tx.Exec(delta.Stmt(), delta.Args()...)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	c.Logf("Committing schema DDL")
+	err = tx.Commit()
+	c.Assert(err, jc.ErrorIsNil)
 }

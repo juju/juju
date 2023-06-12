@@ -29,6 +29,9 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	cfg := s.getConfig()
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
 
+	cfg.AgentTag = ""
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+
 	cfg.Clock = nil
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
@@ -51,11 +54,12 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 
 func (s *workerSuite) getConfig() WorkerConfig {
 	return WorkerConfig{
+		AgentTag:          "tag",
 		DBGetter:          s.dbGetter,
 		FileNotifyWatcher: s.fileNotifyWatcher,
 		Clock:             s.clock,
 		Logger:            s.logger,
-		NewEventMultiplexerWorker: func(coredatabase.TxnRunner, FileNotifier, clock.Clock, Logger) (EventMultiplexerWorker, error) {
+		NewEventMultiplexerWorker: func(string, coredatabase.TxnRunner, FileNotifier, clock.Clock, Logger) (EventMultiplexerWorker, error) {
 			return nil, nil
 		},
 	}
@@ -135,11 +139,12 @@ func (s *workerSuite) TestEventSourceCalledTwice(c *gc.C) {
 
 func (s *workerSuite) newWorker(c *gc.C, attempts int) worker.Worker {
 	cfg := WorkerConfig{
+		AgentTag:          "agent-tag",
 		DBGetter:          s.dbGetter,
 		FileNotifyWatcher: s.fileNotifyWatcher,
 		Clock:             s.clock,
 		Logger:            s.logger,
-		NewEventMultiplexerWorker: func(coredatabase.TxnRunner, FileNotifier, clock.Clock, Logger) (EventMultiplexerWorker, error) {
+		NewEventMultiplexerWorker: func(string, coredatabase.TxnRunner, FileNotifier, clock.Clock, Logger) (EventMultiplexerWorker, error) {
 			attempts--
 			if attempts < 0 {
 				c.Fatal("NewEventMultiplexerWorker called too many times")

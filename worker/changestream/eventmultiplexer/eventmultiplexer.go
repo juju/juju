@@ -292,12 +292,21 @@ func (e *EventMultiplexer) loop() error {
 
 		case r := <-e.reportsCh:
 			r.data["subscriptions"] = len(e.subscriptions)
-			r.data["subscriptionsByNS"] = len(e.subscriptionsByNS)
-			r.data["subscriptionsAll"] = len(e.subscriptionsAll)
-			r.data["dispatchErrorCount"] = e.dispatchErrorCount
+			r.data["subscriptions-by-ns"] = len(e.subscriptionsByNS)
+			r.data["subscriptions-all"] = len(e.subscriptionsAll)
+			r.data["dispatch-error-count"] = e.dispatchErrorCount
+
+			// If the stream supports reporting, then include it in the report.
+			if s, ok := e.stream.(reporter); ok {
+				r.data["stream"] = s.Report()
+			}
 			close(r.done)
 		}
 	}
+}
+
+type reporter interface {
+	Report() map[string]interface{}
 }
 
 func (e *EventMultiplexer) gatherSubscriptions(ch changestream.ChangeEvent) []*subscription {

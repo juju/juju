@@ -10,7 +10,8 @@ import (
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/logger_mocks.go github.com/juju/juju/core/charm/downloader Logger
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/charm_mocks.go github.com/juju/juju/core/charm/downloader CharmArchive,CharmRepository
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/charm_mocks.go github.com/juju/juju/core/charm/downloader CharmArchive
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/charm_archive_mocks.go github.com/juju/juju/core/charm/downloader CharmRepository
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/storage_mocks.go github.com/juju/juju/core/charm/downloader Storage
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/repo_mocks.go github.com/juju/juju/core/charm/downloader RepositoryGetter
 

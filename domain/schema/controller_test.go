@@ -61,6 +61,7 @@ func (s *schemaSuite) TestDDLApply(c *gc.C) {
 		"change_log",
 		"change_log_edit_type",
 		"change_log_namespace",
+		"change_log_witness",
 
 		// Cloud
 		"cloud",
