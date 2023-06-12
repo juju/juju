@@ -38,7 +38,7 @@ require (
 	github.com/go-logr/logr v1.2.2
 	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.1
 	github.com/gofrs/uuid v4.2.0+incompatible
-	github.com/golang/mock v1.6.0
+	github.com/golang/mock v1.7.0-rc.1
 	github.com/google/go-querystring v1.1.0
 	github.com/google/uuid v1.3.0
 	github.com/googleapis/gnostic v0.5.5

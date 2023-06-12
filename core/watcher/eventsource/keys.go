@@ -61,6 +61,8 @@ func (w *KeysWatcher) Changes() watcher.StringsChannel {
 }
 
 func (w *KeysWatcher) loop() error {
+	defer close(w.out)
+
 	if w.changeMask == 0 {
 		return errors.NotValidf("changeMask value: 0")
 	}
