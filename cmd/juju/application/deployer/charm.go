@@ -391,6 +391,14 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		Trust:            c.trust,
 	})
 
+	for _, err := range errs {
+		ctx.Errorf(err.Error())
+	}
+	if len(errs) != 0 {
+		return errors.Errorf("failed to deploy charm %q", charmName)
+	}
+
+	// No localPendingResources should exist if a dry-run.
 	uploadErr := c.uploadExistingPendingResources(info.Name, localPendingResources, deployAPI,
 		c.model.Filesystem())
 	if uploadErr != nil {
@@ -398,15 +406,8 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 			info.Name, uploadErr)
 	}
 
-	if len(errs) == 0 {
-		ctx.Infof(formatDeployedText(c.dryRun, charmName, info))
-		return nil
-	}
-
-	for _, err := range errs {
-		ctx.Errorf(err.Error())
-	}
-	return errors.Errorf("failed to deploy charm %q", charmName)
+	ctx.Infof(formatDeployedText(c.dryRun, charmName, info))
+	return nil
 }
 
 func formatDeployedText(dryRun bool, charmName string, info application.DeployInfo) string {
