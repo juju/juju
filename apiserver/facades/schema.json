@@ -15002,8 +15002,8 @@
     },
     {
         "Name": "Charms",
-        "Description": "APIv6 provides the Charms API facade for version 6.\nIt removes the AddCharmWithAuthorization function, as\nwe no longer support macaroons.",
-        "Version": 6,
+        "Description": "APIv7 provides the Charms API facade for version 7.\nv7 guarantees SupportedBases will be provided in ResolveCharms",
+        "Version": 7,
         "AvailableTo": [
             "model-user"
         ],
@@ -16104,12 +16104,6 @@
                                 "$ref": "#/definitions/Base"
                             }
                         },
-                        "supported-series": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
                         "url": {
                             "type": "string"
                         }
@@ -16118,7 +16112,6 @@
                     "required": [
                         "url",
                         "charm-origin",
-                        "supported-series",
                         "supported-bases"
                     ]
                 },
