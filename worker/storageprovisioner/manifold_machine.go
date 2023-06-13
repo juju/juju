@@ -37,7 +37,7 @@ func (config MachineManifoldConfig) newWorker(a agent.Agent, apiCaller base.APIC
 		return nil, errors.NotValidf("missing Logger")
 	}
 	cfg := a.CurrentConfig()
-	api, err := storageprovisioner.NewState(apiCaller)
+	api, err := storageprovisioner.NewClient(apiCaller)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
