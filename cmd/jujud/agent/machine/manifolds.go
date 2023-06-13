@@ -48,6 +48,7 @@ import (
 	"github.com/juju/juju/worker/centralhub"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/changestream"
+	"github.com/juju/juju/worker/changestreampruner"
 	"github.com/juju/juju/worker/common"
 	lxdbroker "github.com/juju/juju/worker/containerbroker"
 	"github.com/juju/juju/worker/controllerport"
@@ -706,6 +707,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewEventMultiplexerWorker: changestream.NewEventMultiplexerWorker,
 		})),
 
+		changeStreamPrunerName: ifPrimaryController(changestreampruner.Manifold(changestreampruner.ManifoldConfig{
+			DBAccessor: dbAccessorName,
+			Clock:      config.Clock,
+			Logger:     loggo.GetLogger("juju.worker.changestreampruner"),
+			NewWorker:  changestreampruner.NewWorker,
+		})),
+
 		auditConfigUpdaterName: ifController(auditconfigupdater.Manifold(auditconfigupdater.ManifoldConfig{
 			AgentName: agentName,
 			StateName: stateName,
@@ -1104,6 +1112,7 @@ const (
 	queryLoggerName               = "query-logger"
 	fileNotifyWatcherName         = "file-notify-watcher"
 	changeStreamName              = "change-stream"
+	changeStreamPrunerName        = "change-stream-pruner"
 	certificateUpdaterName        = "certificate-updater"
 	auditConfigUpdaterName        = "audit-config-updater"
 	leaseExpiryName               = "lease-expiry"
