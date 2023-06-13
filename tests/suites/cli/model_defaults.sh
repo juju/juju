@@ -3,7 +3,7 @@ run_model_defaults_isomorphic() {
 
 	FILE=$(mktemp)
 
-	juju model-defaults "${BOOTSTRAPPED_CLOUD}" --format=yaml | juju model-defaults "${BOOTSTRAPPED_CLOUD}" --ignore-read-only-fields --file -
+	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" --format=yaml | juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" --ignore-read-only-fields --file -
 }
 
 run_model_defaults_cloudinit_userdata() {
@@ -17,29 +17,29 @@ cloudinit-userdata: |
     - shellcheck
 EOF
 
-	juju model-defaults "${BOOTSTRAPPED_CLOUD}" --file "${FILE}"
-	juju model-defaults "${BOOTSTRAPPED_CLOUD}" cloudinit-userdata --format=yaml | grep -q 'default: ""'
-	juju model-defaults "${BOOTSTRAPPED_CLOUD}" cloudinit-userdata --format=yaml | grep -q "shellcheck"
+	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" --file "${FILE}"
+	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" cloudinit-userdata --format=yaml | grep -q 'default: ""'
+	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" cloudinit-userdata --format=yaml | grep -q "shellcheck"
 }
 
 run_model_defaults_boolean() {
 	echo
 
-	juju model-defaults "${BOOTSTRAPPED_CLOUD}" automatically-retry-hooks --format=json | jq '."automatically-retry-hooks"."default"' | grep '^true$'
-	juju model-defaults "${BOOTSTRAPPED_CLOUD}" automatically-retry-hooks=false
-	juju model-defaults "${BOOTSTRAPPED_CLOUD}" automatically-retry-hooks --format=json | jq '."automatically-retry-hooks"."controller"' | grep '^false$'
-	juju model-defaults "${BOOTSTRAPPED_CLOUD}" | grep -E 'automatically-retry-hooks +true +false'
-	juju model-defaults "${BOOTSTRAPPED_CLOUD}" automatically-retry-hooks --format=yaml | grep 'default: true'
-	juju model-defaults "${BOOTSTRAPPED_CLOUD}" automatically-retry-hooks --format=yaml | grep 'controller: false'
+	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" automatically-retry-hooks --format=json | jq '."automatically-retry-hooks"."default"' | grep '^true$'
+	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" automatically-retry-hooks=false
+	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" automatically-retry-hooks --format=json | jq '."automatically-retry-hooks"."controller"' | grep '^false$'
+	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" | grep -E 'automatically-retry-hooks +true +false'
+	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" automatically-retry-hooks --format=yaml | grep 'default: true'
+	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" automatically-retry-hooks --format=yaml | grep 'controller: false'
 }
 
 run_model_defaults_region_aws() {
 	echo
 
-	juju model-defaults "${BOOTSTRAPPED_CLOUD}" --format=json test-mode | jq '."test-mode"."default"'
-	juju model-defaults "${BOOTSTRAPPED_CLOUD}" --format=yaml aws/ca-central-1 test-mode=true
-	juju model-defaults "${BOOTSTRAPPED_CLOUD}" --format=json aws/ca-central-1 test-mode | jq '."test-mode".regions[0].value' | grep '^true$'
-	juju model-defaults "${BOOTSTRAPPED_CLOUD}" --format=json test-mode | jq '."test-mode".regions[]|select(.name=="ca-central-1").value' | grep '^true$'
+	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" --format=json test-mode | jq '."test-mode"."default"'
+	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" --format=yaml aws/ca-central-1 test-mode=true
+	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" --format=json aws/ca-central-1 test-mode | jq '."test-mode".regions[0].value' | grep '^true$'
+	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" --format=json test-mode | jq '."test-mode".regions[]|select(.name=="ca-central-1").value' | grep '^true$'
 }
 
 test_model_defaults() {
@@ -53,6 +53,10 @@ test_model_defaults() {
 
 		cd .. || exit
 
+		# save model-defaults
+		SAVED_DEFAULTS_FILE=$(mktemp)
+		juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" --format=yaml >"${SAVED_DEFAULTS_FILE}"
+
 		run "run_model_defaults_isomorphic"
 		run "run_model_defaults_cloudinit_userdata"
 		run "run_model_defaults_boolean"
@@ -65,5 +69,8 @@ test_model_defaults() {
 			echo "==> TEST SKIPPED: run_model_defaults_region_aws runs on AWS only"
 			;;
 		esac
+
+		# restore model-defaults
+		juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" --ignore-read-only-fields --file "${SAVED_DEFAULTS_FILE}"
 	)
 }
