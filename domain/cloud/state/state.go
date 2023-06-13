@@ -166,13 +166,14 @@ func loadClouds(ctx context.Context, tx *sql.Tx, filter *Filter) ([]cloud.Cloud,
 // loadCACerts loads the ca certs for the specified clouds, returning
 // a map of results keyed on cloud uuid.
 func loadCACerts(ctx context.Context, tx *sql.Tx, cloudUUIDS []string) (map[string][]string, error) {
+	cloudUUIDBinds, cloudUUIDsVals := database.SliceToPlaceholder(cloudUUIDS)
 	q := fmt.Sprintf(`
 		SELECT
 			cloud_uuid, ca_cert
 		FROM cloud_ca_cert
-		WHERE cloud_uuid IN (%s)`, database.SliceToPlaceholder(cloudUUIDS))[1:]
+		WHERE cloud_uuid IN (%s)`, cloudUUIDBinds)[1:]
 
-	rows, err := tx.QueryContext(ctx, q, transform.Slice(cloudUUIDS, func(s string) any { return s })...)
+	rows, err := tx.QueryContext(ctx, q, cloudUUIDsVals...)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.Trace(err)
 	}
@@ -199,13 +200,14 @@ func loadCACerts(ctx context.Context, tx *sql.Tx, cloudUUIDS []string) (map[stri
 // loadRegions loads the regions for the specified clouds, returning
 // a map of results keyed on cloud uuid.
 func loadRegions(ctx context.Context, tx *sql.Tx, cloudUUIDS []string) (map[string][]cloud.Region, error) {
+	cloudUUIDBinds, cloudUUIDSAnyVals := database.SliceToPlaceholder(cloudUUIDS)
 	q := fmt.Sprintf(`
 		SELECT
 			cloud_uuid, name, endpoint, identity_endpoint, storage_endpoint
 		FROM cloud_region
-		WHERE cloud_uuid IN (%s)`, database.SliceToPlaceholder(cloudUUIDS))[1:]
+		WHERE cloud_uuid IN (%s)`, cloudUUIDBinds)[1:]
 
-	rows, err := tx.QueryContext(ctx, q, transform.Slice(cloudUUIDS, func(s string) any { return s })...)
+	rows, err := tx.QueryContext(ctx, q, cloudUUIDSAnyVals...)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.Trace(err)
 	}
@@ -337,13 +339,15 @@ func updateAuthTypes(ctx context.Context, tx *sql.Tx, cloudUUID string, authType
 		authTypeIds[i] = id
 	}
 
+	authTypeIdsBinds, authTypeIdsAnyVals := database.SliceToPlaceholder(authTypeIds)
+
 	// Delete auth types no longer in the list.
 	q := fmt.Sprintf(`
 		DELETE FROM cloud_auth_type
 		WHERE  cloud_uuid = ?
-		AND    auth_type_id NOT IN (%s)`[1:], database.SliceToPlaceholder(authTypeIds))
+		AND    auth_type_id NOT IN (%s)`[1:], authTypeIdsBinds)
 
-	args := append([]any{cloudUUID}, transform.Slice(authTypeIds, func(i int) any { return i })...)
+	args := append([]any{cloudUUID}, authTypeIdsAnyVals...)
 	if _, err := tx.ExecContext(ctx, q, args...); err != nil {
 		return errors.Trace(err)
 	}
@@ -385,32 +389,32 @@ func updateCACerts(ctx context.Context, tx *sql.Tx, cloudUUID string, certs []st
 }
 
 func updateRegions(ctx context.Context, tx *sql.Tx, cloudUUID string, regions []cloud.Region) error {
-	regionNames := make([]string, len(regions))
-	for i, r := range regions {
-		regionNames[i] = r.Name
-	}
+	regionNamesBinds, regionNames := database.SliceToPlaceholderTransform(
+		regions, func(r cloud.Region) any {
+			return r.Name
+		})
 
 	// Delete any regions no longer in the list.
 	q := fmt.Sprintf(`
 		DELETE FROM cloud_region
 		WHERE  cloud_uuid = ?
-		AND    name NOT IN (%s)`[1:], database.SliceToPlaceholder(regionNames))
+		AND    name NOT IN (%s)`[1:], regionNamesBinds)
 
-	args := append([]any{cloudUUID}, transform.Slice(regionNames, func(s string) any { return s })...)
+	args := append([]any{cloudUUID}, regionNames...)
 	if _, err := tx.ExecContext(ctx, q, args...); err != nil {
 		return errors.Trace(err)
 	}
 
 	for _, r := range regions {
 		q := `
-			INSERT INTO cloud_region (uuid, cloud_uuid, name, endpoint, identity_endpoint, storage_endpoint)
-			VALUES (?, ?, ?, ?, ?, ?)
-				ON CONFLICT(cloud_uuid, name) DO UPDATE SET name=?, endpoint=?, identity_endpoint=?, storage_endpoint=?`[1:]
+INSERT INTO cloud_region (uuid, cloud_uuid, name, endpoint, identity_endpoint, storage_endpoint)
+VALUES (?, ?, ?, ?, ?, ?)
+ON CONFLICT(cloud_uuid, name) DO UPDATE SET name=excluded.name,
+                                            endpoint=excluded.endpoint,
+                                            identity_endpoint=excluded.identity_endpoint,
+                                            storage_endpoint=excluded.storage_endpoint`[1:]
 
 		if _, err := tx.ExecContext(ctx, q, utils.MustNewUUID().String(), cloudUUID,
-			// insert
-			r.Name, r.Endpoint, r.IdentityEndpoint, r.StorageEndpoint,
-			// update
 			r.Name, r.Endpoint, r.IdentityEndpoint, r.StorageEndpoint,
 		); err != nil {
 			return errors.Trace(err)

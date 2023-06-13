@@ -16,6 +16,7 @@ var _ = gc.Suite(&statementSuite{})
 
 func (s *statementSuite) TestSliceToPlaceholder(c *gc.C) {
 	args := []string{"won", "too", "free", "for"}
-	binds := SliceToPlaceholder(args)
+	binds, vals := SliceToPlaceholder(args)
 	c.Check(binds, gc.Equals, "?,?,?,?")
+	c.Check(vals, gc.DeepEquals, []any{"won", "too", "free", "for"})
 }
