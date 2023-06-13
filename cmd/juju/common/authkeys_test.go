@@ -61,11 +61,12 @@ func writeFile(c *gc.C, filename string, contents string) {
 func (s *AuthKeysSuite) TestReadAuthorizedKeys(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	writeFile(c, filepath.Join(s.dotssh, "id_rsa.pub"), "id_rsa")
+	writeFile(c, filepath.Join(s.dotssh, "id_ed25519.pub"), "id_ed25519")
 	writeFile(c, filepath.Join(s.dotssh, "identity.pub"), "identity")
 	writeFile(c, filepath.Join(s.dotssh, "test.pub"), "test")
 	keys, err := common.ReadAuthorizedKeys(ctx, "")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(keys, gc.Equals, "id_rsa\nidentity\n")
+	c.Assert(keys, gc.Equals, "id_ed25519\nid_rsa\nidentity\n")
 	keys, err = common.ReadAuthorizedKeys(ctx, "test.pub") // relative to ~/.ssh
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(keys, gc.Equals, "test\n")
@@ -111,7 +112,7 @@ func (s *AuthKeysSuite) TestFinalizeAuthorizedKeysPath(c *gc.C) {
 }
 
 func (s *AuthKeysSuite) TestFinalizeAuthorizedKeysDefault(c *gc.C) {
-	writeFile(c, filepath.Join(s.dotssh, "id_rsa.pub"), "meep")
+	writeFile(c, filepath.Join(s.dotssh, "id_ed25519.pub"), "meep")
 	attrs := map[string]interface{}{}
 	err := common.FinalizeAuthorizedKeys(cmdtesting.Context(c), attrs)
 	c.Assert(err, jc.ErrorIsNil)

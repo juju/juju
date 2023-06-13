@@ -85,7 +85,7 @@ func FinalizeAuthorizedKeys(ctx *cmd.Context, attrs map[string]interface{}) erro
 func ReadAuthorizedKeys(ctx *cmd.Context, path string) (string, error) {
 	files := ssh.PublicKeyFiles()
 	if path == "" {
-		files = append(files, "id_dsa.pub", "id_rsa.pub", "identity.pub")
+		files = append(files, "id_ed25519.pub", "id_ecdsa.pub", "id_rsa.pub", "id_dsa.pub", "identity.pub")
 	} else {
 		files = append(files, path)
 	}
