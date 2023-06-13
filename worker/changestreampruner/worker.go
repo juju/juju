@@ -11,6 +11,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database"
 	"github.com/juju/retry"
@@ -268,8 +269,8 @@ var (
 
 	// TODO (stickupkid): This needs to be swapped out for the following query
 	// once we have a way to use functions in columns.
-	// SELECT EXISTS(SELECT 1 FROM change_log WHERE created_at > $M.created_at) AS &Result.exists;
-	selectChangeLogQuery = sqlair.MustPrepare(`SELECT (id) AS &ChangeLog.* FROM change_log WHERE created_at > $M.created_at LIMIT 1;`, ChangeLog{}, sqlair.M{})
+	// SELECT COUNT(*) AS &Result.count FROM change_log WHERE created_at > $M.created_at LIMIT $M.limit;
+	selectChangeLogQuery = sqlair.MustPrepare(`SELECT (id) AS &ChangeLog.* FROM change_log WHERE created_at > $M.created_at LIMIT $M.limit;`, ChangeLog{}, sqlair.M{})
 )
 
 func (w *Pruner) locateLowestWatermark(ctx context.Context, tx *sqlair.TX, namespace string) (Watermark, error) {
@@ -296,14 +297,20 @@ func (w *Pruner) locateLowestWatermark(ctx context.Context, tx *sqlair.TX, names
 		// Check to see if the latest change log has a valid log in the last
 		// window duration, if not, then we can assume that the stream is not
 		// keeping up and we should log a warning.
-		var changeLog ChangeLog
-		if err := tx.Query(ctx, selectChangeLogQuery, sqlair.M{"created_at": w.cfg.Clock.Now().Add(-defaultWindowDuration)}).Get(&changeLog); err != nil {
-			if database.IsErrNotFound(err) {
-				return Watermark{}, nil
-			}
+		var changes []ChangeLog
+		if err := tx.Query(ctx, selectChangeLogQuery, sqlair.M{
+			"created_at": w.cfg.Clock.Now().Add(-defaultWindowDuration),
+			"limit":      changestream.DefaultNumTermWatermarks + 1,
+		}).GetAll(&changes); err != nil {
 			return Watermark{}, errors.Trace(err)
 		}
-		w.cfg.Logger.Infof("No watermarks within window, check logs to see if stream is keeping up")
+		// If there are less than the default number of term watermarks, then
+		// we can assume that the stream is keeping up and we don't need to
+		// prune anything.
+		if len(changes) < changestream.DefaultNumTermWatermarks {
+			return Watermark{}, nil
+		}
+		w.cfg.Logger.Infof("No watermarks within window, check logs to see if the change stream is keeping up")
 		return Watermark{}, nil
 	}
 	return lowest, nil

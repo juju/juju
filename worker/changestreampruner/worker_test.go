@@ -10,6 +10,7 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -230,13 +231,11 @@ func (s *workerSuite) TestPruneModelRemovesExpiredWatermarks(c *gc.C) {
 	}})
 }
 
-func (s *workerSuite) TestPruneModelLogsWarning(c *gc.C) {
+func (s *workerSuite) TestPruneModelDoesNotLogWarning(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectDBGet("foo", s.TxnRunner())
 	s.expectClock()
-
-	s.logger.EXPECT().Infof("No watermarks within window, check logs to see if stream is keeping up").Do(c.Logf)
 
 	pruner := s.newPruner(c)
 
@@ -246,7 +245,30 @@ func (s *workerSuite) TestPruneModelLogsWarning(c *gc.C) {
 	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "0", LowerBound: 1, UpdatedAt: now.Add(-(defaultWindowDuration + time.Second))})
 	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "3", LowerBound: 1, UpdatedAt: now.Add(-(defaultWindowDuration + time.Minute))})
 
-	s.insertChangeLogItems(c, s.TxnRunner(), 10, now)
+	s.insertChangeLogItems(c, s.TxnRunner(), 1, now)
+
+	result, err := pruner.pruneModel(context.Background(), "foo")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, gc.Equals, int64(0))
+}
+
+func (s *workerSuite) TestPruneModelLogsWarning(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectDBGet("foo", s.TxnRunner())
+	s.expectClock()
+
+	s.logger.EXPECT().Infof("No watermarks within window, check logs to see if the change stream is keeping up").Do(c.Logf)
+
+	pruner := s.newPruner(c)
+
+	now := time.Now()
+
+	s.insertControllerNodes(c, 2)
+	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "0", LowerBound: 1, UpdatedAt: now.Add(-(defaultWindowDuration + time.Second))})
+	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "3", LowerBound: 1, UpdatedAt: now.Add(-(defaultWindowDuration + time.Minute))})
+
+	s.insertChangeLogItems(c, s.TxnRunner(), changestream.DefaultNumTermWatermarks, now)
 
 	result, err := pruner.pruneModel(context.Background(), "foo")
 	c.Check(err, jc.ErrorIsNil)

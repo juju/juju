@@ -31,10 +31,6 @@ const (
 	// defaultWatermarkInterval is the default interval to wait before
 	// updating the watermark.
 	defaultWatermarkInterval = 5 * time.Second
-
-	// defaultNumTermWatermarks is the default number of terms (watermarks) to
-	// keep before removing the oldest one.
-	defaultNumTermWatermarks = 10
 )
 
 var (
@@ -129,7 +125,7 @@ func New(id string, db coredatabase.TxnRunner, fileNotifier FileNotifier, clock 
 		clock:        clock,
 		logger:       logger,
 		terms:        make(chan changestream.Term),
-		watermarks:   make([]*termView, defaultNumTermWatermarks),
+		watermarks:   make([]*termView, changestream.DefaultNumTermWatermarks),
 	}
 
 	stream.tomb.Go(stream.loop)
@@ -579,8 +575,8 @@ func (s *Stream) recordTermView(v *termView) {
 	// to the witness table will just see a lower bound number from the pruner
 	// perspective. Once a write is made, the pruner will just remove the lower
 	// bound from the witness tables.
-	if num := len(s.watermarks); num > defaultNumTermWatermarks {
-		s.watermarks = s.watermarks[num-defaultNumTermWatermarks:]
+	if num := len(s.watermarks); num > changestream.DefaultNumTermWatermarks {
+		s.watermarks = s.watermarks[num-changestream.DefaultNumTermWatermarks:]
 	}
 }
 
@@ -594,7 +590,7 @@ func (s *Stream) processWatermark(fn func(*termView) error) error {
 	defer s.watermarksMutex.Unlock()
 
 	// Nothing to do if there are no watermarks.
-	if len(s.watermarks) < defaultNumTermWatermarks {
+	if len(s.watermarks) < changestream.DefaultNumTermWatermarks {
 		return nil
 	}
 
