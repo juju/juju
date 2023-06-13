@@ -7,8 +7,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/changestream"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/highavailability"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/juju/testing"
@@ -112,7 +113,7 @@ func enableHA(
 			Constraints:    cons,
 			Placement:      placement,
 		}}}
-	results, err := haServer.EnableHA(arg)
+	results, err := haServer.EnableHA(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
@@ -528,7 +529,7 @@ func (s *clientSuite) TestEnableHAMultipleSpecs(c *gc.C) {
 			{NumControllers: 5},
 		},
 	}
-	results, err := s.haServer.EnableHA(arg)
+	results, err := s.haServer.EnableHA(context.Background(), arg)
 	c.Check(err, gc.ErrorMatches, "only one controller spec is supported")
 	c.Check(results.Results, gc.HasLen, 0)
 }
@@ -537,7 +538,7 @@ func (s *clientSuite) TestEnableHANoSpecs(c *gc.C) {
 	arg := params.ControllersSpecs{
 		Specs: []params.ControllersSpec{},
 	}
-	results, err := s.haServer.EnableHA(arg)
+	results, err := s.haServer.EnableHA(context.Background(), arg)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 0)
 }

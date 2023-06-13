@@ -46,7 +46,9 @@ type HighAvailabilityAPI struct {
 
 // EnableHA adds controller machines as necessary to ensure the
 // controller has the number of machines specified.
-func (api *HighAvailabilityAPI) EnableHA(args params.ControllersSpecs) (params.ControllersChangeResults, error) {
+func (api *HighAvailabilityAPI) EnableHA(
+	ctx context.Context, args params.ControllersSpecs,
+) (params.ControllersChangeResults, error) {
 	results := params.ControllersChangeResults{}
 
 	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.st.ControllerTag())
@@ -61,14 +63,14 @@ func (api *HighAvailabilityAPI) EnableHA(args params.ControllersSpecs) (params.C
 		return results, errors.New("only one controller spec is supported")
 	}
 
-	result, err := api.enableHASingle(args.Specs[0])
+	result, err := api.enableHASingle(ctx, args.Specs[0])
 	results.Results = make([]params.ControllersChangeResult, 1)
 	results.Results[0].Result = result
 	results.Results[0].Error = apiservererrors.ServerError(err)
 	return results, nil
 }
 
-func (api *HighAvailabilityAPI) enableHASingle(spec params.ControllersSpec) (
+func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.ControllersSpec) (
 	params.ControllersChanges, error,
 ) {
 	st := api.st
@@ -127,7 +129,7 @@ func (api *HighAvailabilityAPI) enableHASingle(spec params.ControllersSpec) (
 	// TODO (manadart 2023-06-12): This is the lightest touch to represent the
 	// control plane in Dqlite. It expected to change significantly when
 	// Mongo concerns are removed altogether.
-	err = api.nodeService.CurateNodes(context.TODO(), append(changes.Added, changes.Converted...), changes.Removed)
+	err = api.nodeService.CurateNodes(ctx, append(changes.Added, changes.Converted...), changes.Removed)
 	if err != nil {
 		return params.ControllersChanges{}, err
 	}
