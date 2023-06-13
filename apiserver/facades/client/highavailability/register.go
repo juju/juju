@@ -10,7 +10,10 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/controllernode/service"
+	"github.com/juju/juju/domain/controllernode/state"
+	oldstate "github.com/juju/juju/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -33,13 +36,14 @@ func newHighAvailabilityAPI(ctx facade.Context) (*HighAvailabilityAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if model.Type() == state.ModelTypeCAAS {
+	if model.Type() == oldstate.ModelTypeCAAS {
 		return nil, errors.NotSupportedf("high availability on kubernetes controllers")
 	}
 
 	return &HighAvailabilityAPI{
-		state:      st,
-		resources:  ctx.Resources(),
-		authorizer: authorizer,
+		st:          st,
+		nodeService: service.NewService(state.NewState(domain.NewDBFactory(ctx.ControllerDB))),
+		resources:   ctx.Resources(),
+		authorizer:  authorizer,
 	}, nil
 }

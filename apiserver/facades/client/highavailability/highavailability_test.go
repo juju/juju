@@ -4,10 +4,11 @@
 package highavailability_test
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
-	stdtesting "testing"
-
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/changestream"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -25,10 +26,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
-
-func TestAll(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type clientSuite struct {
 	testing.JujuConnSuite
@@ -60,9 +57,10 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.haServer, err = highavailability.NewHighAvailabilityAPI(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
+		State_:        s.State,
+		Resources_:    s.resources,
+		Auth_:         s.authorizer,
+		ControllerDB_: stubWatchableDB{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -568,4 +566,15 @@ func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {
 		Auth_:      s.authorizer,
 	})
 	c.Assert(err, gc.ErrorMatches, "high availability on kubernetes controllers not supported")
+}
+
+// TODO (manadart 2023-06-13): This stub does no verification.
+// An alternative approach will be sought when HA enablement is modified to
+// omit Mongo concerns. This will be done with mocks rather than JujuConnSuite.
+type stubWatchableDB struct {
+	changestream.WatchableDB
+}
+
+func (db stubWatchableDB) StdTxn(context.Context, func(context.Context, *sql.Tx) error) error {
+	return nil
 }

@@ -4,6 +4,7 @@
 package highavailability
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strconv"
@@ -27,12 +28,20 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.highavailability")
 
+// NodeService describes the maintenance of controller entries.
+type NodeService interface {
+	// CurateNodes modifies the control place by adding and
+	// removing node entries based on the input slices.
+	CurateNodes(context.Context, []string, []string) error
+}
+
 // HighAvailabilityAPI implements the HighAvailability interface and is the concrete
 // implementation of the api end point.
 type HighAvailabilityAPI struct {
-	state      *state.State
-	resources  facade.Resources
-	authorizer facade.Authorizer
+	st          *state.State
+	nodeService NodeService
+	resources   facade.Resources
+	authorizer  facade.Authorizer
 }
 
 // EnableHA adds controller machines as necessary to ensure the
@@ -40,7 +49,7 @@ type HighAvailabilityAPI struct {
 func (api *HighAvailabilityAPI) EnableHA(args params.ControllersSpecs) (params.ControllersChangeResults, error) {
 	results := params.ControllersChangeResults{}
 
-	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.state.ControllerTag())
+	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.st.ControllerTag())
 	if err != nil {
 		return results, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
@@ -52,16 +61,18 @@ func (api *HighAvailabilityAPI) EnableHA(args params.ControllersSpecs) (params.C
 		return results, errors.New("only one controller spec is supported")
 	}
 
-	result, err := api.enableHASingle(api.state, args.Specs[0])
+	result, err := api.enableHASingle(args.Specs[0])
 	results.Results = make([]params.ControllersChangeResult, 1)
 	results.Results[0].Result = result
 	results.Results[0].Error = apiservererrors.ServerError(err)
 	return results, nil
 }
 
-func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.ControllersSpec) (
+func (api *HighAvailabilityAPI) enableHASingle(spec params.ControllersSpec) (
 	params.ControllersChanges, error,
 ) {
+	st := api.st
+
 	if !st.IsController() {
 		return params.ControllersChanges{}, errors.New("unsupported with workload models")
 	}
@@ -112,6 +123,15 @@ func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.Cont
 	if err != nil {
 		return params.ControllersChanges{}, err
 	}
+
+	// TODO (manadart 2023-06-12): This is the lightest touch to represent the
+	// control plane in Dqlite. It expected to change significantly when
+	// Mongo concerns are removed altogether.
+	err = api.nodeService.CurateNodes(context.TODO(), append(changes.Added, changes.Converted...), changes.Removed)
+	if err != nil {
+		return params.ControllersChanges{}, err
+	}
+
 	return controllersChanges(changes), nil
 }
 
