@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
@@ -28,16 +27,6 @@ type State interface {
 	FindEntity(tag names.Tag) (state.Entity, error)
 	AllEndpointBindings() (map[string]map[string]string, error)
 	SpaceInfos() (network.SpaceInfos, error)
-}
-
-// ControllerConfigAPI provides the subset of common.ControllerConfigAPI
-// required by the remote firewaller facade
-type ControllerConfigAPI interface {
-	// ControllerConfig returns the controller's configuration.
-	ControllerConfig() (params.ControllerConfigResult, error)
-
-	// ControllerAPIInfoForModels returns the controller api connection details for the specified models.
-	ControllerAPIInfoForModels(args params.Entities) (params.ControllerAPIInfoResults, error)
 }
 
 // TODO(wallyworld) - for tests, remove when remaining firewaller tests become unit tests.
