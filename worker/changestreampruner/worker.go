@@ -11,10 +11,10 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/database"
 	"github.com/juju/retry"
 	"gopkg.in/tomb.v2"
-
-	coredatabase "github.com/juju/juju/core/database"
 )
 
 const (
@@ -206,63 +206,131 @@ func (w *Pruner) pruneModel(ctx context.Context, namespace string) (int64, error
 		return -1, errors.Trace(err)
 	}
 
-	// Prepare the select and delete queries for pruning the change log for each
-	// model.
-	pruneQuery, err := sqlair.Prepare(`DELETE FROM change_log_witness WHERE controller_id NOT IN (SELECT controller_id FROM controller_node);`)
-	if err != nil {
-		return -1, errors.Trace(err)
-	}
-	selectQuery, err := sqlair.Prepare(`SELECT (controller_id, lower_bound, updated_at) AS &Watermark.* FROM change_log_witness;`, Watermark{})
-	if err != nil {
-		return -1, errors.Annotatef(err, "failed to prepare select query")
-	}
-	deleteQuery, err := sqlair.Prepare(`DELETE FROM change_log WHERE id <= $M.id;`, sqlair.M{})
-	if err != nil {
-		return -1, errors.Annotatef(err, "failed to prepare delete query")
-	}
-
 	var pruned int64
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Prune the change log witness table, this ensures that we don't have
-		// any dangling watermarks. As the controller_node table is HA aware,
-		// which is kept up to date, we can use that to remove any rows from
-		// the change_log_witness table that are no longer valid.
-		if err := tx.Query(ctx, pruneQuery).Run(); err != nil {
-			return errors.Trace(err)
-		}
-
-		// Gather all the valid watermarks, post row pruning. These include
-		// the controller id which we know are valid based on the
-		// controller_node table. If at any point we delete rows from the
-		// change_log_witness table, the change stream will put the witness
-		// back in place after the next change log is written.
-		var watermarks []Watermark
-		if err := tx.Query(ctx, selectQuery).GetAll(&watermarks); err != nil {
-			return errors.Trace(err)
-		}
-
-		// Nothing to do if there are no watermarks.
-		if len(watermarks) == 0 {
+		// Check to see if the change_log_witness table exists. This is required
+		// because the pruner might actually see the model id in the model_list
+		// table, before the schema has been applied to the model database.
+		if exists, err := w.tableExists(ctx, tx); err != nil {
+			return errors.Annotatef(err, "failed to check if change_log_witness table exists")
+		} else if !exists {
+			w.cfg.Logger.Debugf("Skipping pruning for model %q, change_log_witness table does not exist", namespace)
 			return nil
 		}
 
-		// Gather all the watermarks that are within the windowed time period.
-		// If there are no watermarks within the window, then we can assume
-		// that the stream is keeping up and we don't need to prune anything.
-		lowest, ok := lowestWatermark(watermarks, w.cfg.Clock.Now())
-		if !ok {
-			w.cfg.Logger.Infof("No watermarks within window, check logs to see if stream is keeping up")
-			return nil
+		// Prune any witnesses that are no longer valid.
+		if err := w.pruneWitnessTable(ctx, tx); err != nil {
+			return errors.Annotatef(err, "failed to prune change_log_witness table")
 		}
 
-		// Delete all the change logs that are lower than the lowest watermark.
-		var outcome sqlair.Outcome
-		if err := tx.Query(ctx, deleteQuery, sqlair.M{"id": lowest.LowerBound}).Get(&outcome); err != nil {
-			return errors.Trace(err)
+		// Locate the lowest watermark, this is the watermark that we will
+		// use to prune the change log.
+		lowest, err := w.locateLowestWatermark(ctx, tx, namespace)
+		if err != nil {
+			return errors.Annotatef(err, "failed to locate lowest watermark")
 		}
-		pruned, err = outcome.Result().RowsAffected()
-		return errors.Trace(err)
+
+		// Prune the change log, using the lowest watermark.
+		pruned, err = w.deleteChangeLog(ctx, tx, lowest)
+		return errors.Annotatef(err, "failed to prune change log")
 	})
+	return pruned, errors.Trace(err)
+}
+
+// Table represents a row from the sqlite_master table.
+type Table struct {
+	Name string `db:"name"`
+}
+
+var tableExistsQuery = sqlair.MustPrepare(`SELECT (name) AS &Table.* FROM sqlite_schema WHERE type='table' AND name='change_log_witness';`, Table{})
+
+// tableExists returns true if the change_log_witness table exists. This is
+// because the pruner might actually see the model id in the model_list
+// table, before the schema has been applied to the model database.
+func (w *Pruner) tableExists(ctx context.Context, tx *sqlair.TX) (bool, error) {
+	var t Table
+	if err := tx.Query(ctx, tableExistsQuery).Get(&t); err != nil {
+		if database.IsErrNotFound(err) {
+			return false, nil
+		}
+		return false, errors.Trace(err)
+	}
+	return t.Name == "change_log_witness", nil
+}
+
+// ChangeLog represents a row from the change_log table.
+type ChangeLog struct {
+	ID int `db:"id"`
+}
+
+var (
+	selectWitnessQuery = sqlair.MustPrepare(`SELECT (controller_id, lower_bound, updated_at) AS &Watermark.* FROM change_log_witness;`, Watermark{})
+
+	// TODO (stickupkid): This needs to be swapped out for the following query
+	// once we have a way to use functions in columns.
+	// SELECT EXISTS(SELECT 1 FROM change_log WHERE created_at > $M.created_at) AS &Result.exists;
+	selectChangeLogQuery = sqlair.MustPrepare(`SELECT (id) AS &ChangeLog.* FROM change_log WHERE created_at > $M.created_at LIMIT 1;`, ChangeLog{}, sqlair.M{})
+)
+
+func (w *Pruner) locateLowestWatermark(ctx context.Context, tx *sqlair.TX, namespace string) (Watermark, error) {
+	// Gather all the valid watermarks, post row pruning. These include
+	// the controller id which we know are valid based on the
+	// controller_node table. If at any point we delete rows from the
+	// change_log_witness table, the change stream will put the witness
+	// back in place after the next change log is written.
+	var watermarks []Watermark
+	if err := tx.Query(ctx, selectWitnessQuery).GetAll(&watermarks); err != nil {
+		return Watermark{}, errors.Trace(err)
+	}
+
+	// Nothing to do if there are no watermarks.
+	if len(watermarks) == 0 {
+		return Watermark{}, nil
+	}
+
+	// Gather all the watermarks that are within the windowed time period.
+	// If there are no watermarks within the window, then we can assume
+	// that the stream is keeping up and we don't need to prune anything.
+	lowest, ok := lowestWatermark(watermarks, w.cfg.Clock.Now())
+	if !ok {
+		// Check to see if the latest change log has a valid log in the last
+		// window duration, if not, then we can assume that the stream is not
+		// keeping up and we should log a warning.
+		var changeLog ChangeLog
+		if err := tx.Query(ctx, selectChangeLogQuery, sqlair.M{"created_at": w.cfg.Clock.Now().Add(-defaultWindowDuration)}).Get(&changeLog); err != nil {
+			if database.IsErrNotFound(err) {
+				return Watermark{}, nil
+			}
+			return Watermark{}, errors.Trace(err)
+		}
+		w.cfg.Logger.Infof("No watermarks within window, check logs to see if stream is keeping up")
+		return Watermark{}, nil
+	}
+	return lowest, nil
+}
+
+var pruneQuery = sqlair.MustPrepare(`DELETE FROM change_log_witness WHERE controller_id NOT IN (SELECT controller_id FROM controller_node);`)
+
+func (w *Pruner) pruneWitnessTable(ctx context.Context, tx *sqlair.TX) error {
+	// Prune the change log witness table, this ensures that we don't have
+	// any dangling watermarks. As the controller_node table is HA aware,
+	// which is kept up to date, we can use that to remove any rows from
+	// the change_log_witness table that are no longer valid.
+	if err := tx.Query(ctx, pruneQuery).Run(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+var deleteQuery = sqlair.MustPrepare(`DELETE FROM change_log WHERE id <= $M.id;`, sqlair.M{})
+
+func (w *Pruner) deleteChangeLog(ctx context.Context, tx *sqlair.TX, lowest Watermark) (int64, error) {
+	// Delete all the change logs that are lower than the lowest watermark.
+	var outcome sqlair.Outcome
+	if err := tx.Query(ctx, deleteQuery, sqlair.M{"id": lowest.LowerBound}).Get(&outcome); err != nil {
+		return -1, errors.Trace(err)
+	}
+	pruned, err := outcome.Result().RowsAffected()
 	return pruned, errors.Trace(err)
 }
 

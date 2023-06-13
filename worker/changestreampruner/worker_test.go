@@ -159,6 +159,7 @@ func (s *workerSuite) TestPruneModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectDBGet("foo", s.TxnRunner())
+	s.expectAnyLogs(c)
 
 	pruner := s.newPruner(c)
 
@@ -227,6 +228,29 @@ func (s *workerSuite) TestPruneModelRemovesExpiredWatermarks(c *gc.C) {
 		LowerBound:   1,
 		UpdatedAt:    now,
 	}})
+}
+
+func (s *workerSuite) TestPruneModelLogsWarning(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectDBGet("foo", s.TxnRunner())
+	s.expectClock()
+
+	s.logger.EXPECT().Infof("No watermarks within window, check logs to see if stream is keeping up").Do(c.Logf)
+
+	pruner := s.newPruner(c)
+
+	now := time.Now()
+
+	s.insertControllerNodes(c, 2)
+	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "0", LowerBound: 1, UpdatedAt: now.Add(-(defaultWindowDuration + time.Second))})
+	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "3", LowerBound: 1, UpdatedAt: now.Add(-(defaultWindowDuration + time.Minute))})
+
+	s.insertChangeLogItems(c, s.TxnRunner(), 10, now)
+
+	result, err := pruner.pruneModel(context.Background(), "foo")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, gc.Equals, int64(0))
 }
 
 func (s *workerSuite) TestPruneModelRemovesChangeLogItems(c *gc.C) {
@@ -565,28 +589,6 @@ func (s *workerSuite) truncateChangeLog(c *gc.C, runner coredatabase.TxnRunner) 
 		return tx.Query(ctx, query).Run()
 	})
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *workerSuite) test(c *gc.C, runner coredatabase.TxnRunner) {
-	query, err := sqlair.Prepare(`
-SELECT (id, edit_type_id, namespace_id, changed_uuid, created_at) AS &ChangeLogItem.* FROM change_log;
-	`, ChangeLogItem{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	var called bool
-	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		called = true
-
-		var got []ChangeLogItem
-		err := tx.Query(ctx, query).GetAll(&got)
-		c.Assert(err, jc.ErrorIsNil)
-
-		fmt.Println(got)
-
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
 }
 
 type ChangeLogItem struct {
