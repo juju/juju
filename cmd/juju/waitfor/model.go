@@ -340,15 +340,10 @@ func outputModelSummary(writer io.Writer, scopedContext ScopeContext, c *modelCo
 		for name, sctx := range scopes {
 			idents := sctx.RecordedIdents()
 
-			var scope query.Scope
 			switch entity {
 			case "applications":
 				appInfo := c.applications[name]
-				scope = MakeApplicationScope(scopedContext, appInfo)
-
-				if scope == nil {
-					continue
-				}
+				scope := MakeApplicationScope(scopedContext, appInfo)
 
 				result.Applications[name] = make(map[string]interface{})
 
@@ -361,11 +356,7 @@ func outputModelSummary(writer io.Writer, scopedContext ScopeContext, c *modelCo
 				}
 			case "machines":
 				machineInfo := c.machines[name]
-				scope = MakeMachineScope(scopedContext, machineInfo)
-
-				if scope == nil {
-					continue
-				}
+				scope := MakeMachineScope(scopedContext, machineInfo)
 
 				result.Machines[name] = make(map[string]interface{})
 
@@ -378,11 +369,7 @@ func outputModelSummary(writer io.Writer, scopedContext ScopeContext, c *modelCo
 				}
 			case "units":
 				unitInfo := c.units[name]
-				scope = MakeUnitScope(scopedContext, unitInfo)
-
-				if scope == nil {
-					continue
-				}
+				scope := MakeUnitScope(scopedContext, unitInfo)
 
 				result.Units[name] = make(map[string]interface{})
 				for _, ident := range idents {
