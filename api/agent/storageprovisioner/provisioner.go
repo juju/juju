@@ -15,20 +15,20 @@ import (
 
 const storageProvisionerFacade = "StorageProvisioner"
 
-// State provides access to a storageprovisioner's view of the state.
-type State struct {
+// Client provides access to a storageprovisioner facade client.
+type Client struct {
 	facade base.FacadeCaller
 }
 
-// NewState creates a new client-side StorageProvisioner facade.
-func NewState(caller base.APICaller) (*State, error) {
+// NewClient creates a new client-side StorageProvisioner facade.
+func NewClient(caller base.APICaller) (*Client, error) {
 	facadeCaller := base.NewFacadeCaller(caller, storageProvisionerFacade)
-	return &State{facadeCaller}, nil
+	return &Client{facadeCaller}, nil
 }
 
 // WatchApplications returns a StringsWatcher that notifies of
 // changes to the lifecycles of CAAS applications in the current model.
-func (st *State) WatchApplications() (watcher.StringsWatcher, error) {
+func (st *Client) WatchApplications() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
 	if err := st.facade.FacadeCall("WatchApplications", nil, &result); err != nil {
 		return nil, err
@@ -41,7 +41,7 @@ func (st *State) WatchApplications() (watcher.StringsWatcher, error) {
 }
 
 // WatchBlockDevices watches for changes to the specified machine's block devices.
-func (st *State) WatchBlockDevices(m names.MachineTag) (watcher.NotifyWatcher, error) {
+func (st *Client) WatchBlockDevices(m names.MachineTag) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.String()}},
@@ -62,7 +62,7 @@ func (st *State) WatchBlockDevices(m names.MachineTag) (watcher.NotifyWatcher, e
 }
 
 // WatchMachine watches for changes to the specified machine.
-func (st *State) WatchMachine(m names.MachineTag) (watcher.NotifyWatcher, error) {
+func (st *Client) WatchMachine(m names.MachineTag) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.String()}},
@@ -84,17 +84,17 @@ func (st *State) WatchMachine(m names.MachineTag) (watcher.NotifyWatcher, error)
 
 // WatchVolumes watches for lifecycle changes to volumes scoped to the
 // entity with the specified tag.
-func (st *State) WatchVolumes(scope names.Tag) (watcher.StringsWatcher, error) {
+func (st *Client) WatchVolumes(scope names.Tag) (watcher.StringsWatcher, error) {
 	return st.watchStorageEntities("WatchVolumes", scope)
 }
 
 // WatchFilesystems watches for lifecycle changes to volumes scoped to the
 // entity with the specified tag.
-func (st *State) WatchFilesystems(scope names.Tag) (watcher.StringsWatcher, error) {
+func (st *Client) WatchFilesystems(scope names.Tag) (watcher.StringsWatcher, error) {
 	return st.watchStorageEntities("WatchFilesystems", scope)
 }
 
-func (st *State) watchStorageEntities(method string, scope names.Tag) (watcher.StringsWatcher, error) {
+func (st *Client) watchStorageEntities(method string, scope names.Tag) (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: scope.String()}},
@@ -116,23 +116,23 @@ func (st *State) watchStorageEntities(method string, scope names.Tag) (watcher.S
 
 // WatchVolumeAttachments watches for changes to volume attachments
 // scoped to the entity with the specified tag.
-func (st *State) WatchVolumeAttachments(scope names.Tag) (watcher.MachineStorageIdsWatcher, error) {
+func (st *Client) WatchVolumeAttachments(scope names.Tag) (watcher.MachineStorageIdsWatcher, error) {
 	return st.watchAttachments("WatchVolumeAttachments", scope, apiwatcher.NewVolumeAttachmentsWatcher)
 }
 
 // WatchVolumeAttachmentPlans watches for changes to volume attachments
-// scoped to the entity with the tag passed to NewState.
-func (st *State) WatchVolumeAttachmentPlans(scope names.Tag) (watcher.MachineStorageIdsWatcher, error) {
+// scoped to the entity with the tag passed to NewClient.
+func (st *Client) WatchVolumeAttachmentPlans(scope names.Tag) (watcher.MachineStorageIdsWatcher, error) {
 	return st.watchAttachments("WatchVolumeAttachmentPlans", scope, apiwatcher.NewVolumeAttachmentPlansWatcher)
 }
 
 // WatchFilesystemAttachments watches for changes to filesystem attachments
 // scoped to the entity with the specified tag.
-func (st *State) WatchFilesystemAttachments(scope names.Tag) (watcher.MachineStorageIdsWatcher, error) {
+func (st *Client) WatchFilesystemAttachments(scope names.Tag) (watcher.MachineStorageIdsWatcher, error) {
 	return st.watchAttachments("WatchFilesystemAttachments", scope, apiwatcher.NewFilesystemAttachmentsWatcher)
 }
 
-func (st *State) watchAttachments(
+func (st *Client) watchAttachments(
 	method string,
 	scope names.Tag,
 	newWatcher func(base.APICaller, params.MachineStorageIdsWatchResult) watcher.MachineStorageIdsWatcher,
@@ -157,7 +157,7 @@ func (st *State) watchAttachments(
 }
 
 // Volumes returns details of volumes with the specified tags.
-func (st *State) Volumes(tags []names.VolumeTag) ([]params.VolumeResult, error) {
+func (st *Client) Volumes(tags []names.VolumeTag) ([]params.VolumeResult, error) {
 	args := params.Entities{
 		Entities: make([]params.Entity, len(tags)),
 	}
@@ -176,7 +176,7 @@ func (st *State) Volumes(tags []names.VolumeTag) ([]params.VolumeResult, error) 
 }
 
 // Filesystems returns details of filesystems with the specified tags.
-func (st *State) Filesystems(tags []names.FilesystemTag) ([]params.FilesystemResult, error) {
+func (st *Client) Filesystems(tags []names.FilesystemTag) ([]params.FilesystemResult, error) {
 	args := params.Entities{
 		Entities: make([]params.Entity, len(tags)),
 	}
@@ -194,7 +194,7 @@ func (st *State) Filesystems(tags []names.FilesystemTag) ([]params.FilesystemRes
 	return results.Results, nil
 }
 
-func (st *State) VolumeAttachmentPlans(ids []params.MachineStorageId) ([]params.VolumeAttachmentPlanResult, error) {
+func (st *Client) VolumeAttachmentPlans(ids []params.MachineStorageId) ([]params.VolumeAttachmentPlanResult, error) {
 	args := params.MachineStorageIds{ids}
 	var results params.VolumeAttachmentPlanResults
 	err := st.facade.FacadeCall("VolumeAttachmentPlans", args, &results)
@@ -207,7 +207,7 @@ func (st *State) VolumeAttachmentPlans(ids []params.MachineStorageId) ([]params.
 	return results.Results, nil
 }
 
-func (st *State) RemoveVolumeAttachmentPlan(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
+func (st *Client) RemoveVolumeAttachmentPlan(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
 	var results params.ErrorResults
 	args := params.MachineStorageIds{
 		Ids: ids,
@@ -219,7 +219,7 @@ func (st *State) RemoveVolumeAttachmentPlan(ids []params.MachineStorageId) ([]pa
 }
 
 // VolumeAttachments returns details of volume attachments with the specified IDs.
-func (st *State) VolumeAttachments(ids []params.MachineStorageId) ([]params.VolumeAttachmentResult, error) {
+func (st *Client) VolumeAttachments(ids []params.MachineStorageId) ([]params.VolumeAttachmentResult, error) {
 	args := params.MachineStorageIds{ids}
 	var results params.VolumeAttachmentResults
 	err := st.facade.FacadeCall("VolumeAttachments", args, &results)
@@ -234,7 +234,7 @@ func (st *State) VolumeAttachments(ids []params.MachineStorageId) ([]params.Volu
 
 // VolumeBlockDevices returns details of block devices corresponding to the volume
 // attachments with the specified IDs.
-func (st *State) VolumeBlockDevices(ids []params.MachineStorageId) ([]params.BlockDeviceResult, error) {
+func (st *Client) VolumeBlockDevices(ids []params.MachineStorageId) ([]params.BlockDeviceResult, error) {
 	args := params.MachineStorageIds{ids}
 	var results params.BlockDeviceResults
 	err := st.facade.FacadeCall("VolumeBlockDevices", args, &results)
@@ -248,7 +248,7 @@ func (st *State) VolumeBlockDevices(ids []params.MachineStorageId) ([]params.Blo
 }
 
 // FilesystemAttachments returns details of filesystem attachments with the specified IDs.
-func (st *State) FilesystemAttachments(ids []params.MachineStorageId) ([]params.FilesystemAttachmentResult, error) {
+func (st *Client) FilesystemAttachments(ids []params.MachineStorageId) ([]params.FilesystemAttachmentResult, error) {
 	args := params.MachineStorageIds{ids}
 	var results params.FilesystemAttachmentResults
 	err := st.facade.FacadeCall("FilesystemAttachments", args, &results)
@@ -263,7 +263,7 @@ func (st *State) FilesystemAttachments(ids []params.MachineStorageId) ([]params.
 
 // VolumeParams returns the parameters for creating the volumes
 // with the specified tags.
-func (st *State) VolumeParams(tags []names.VolumeTag) ([]params.VolumeParamsResult, error) {
+func (st *Client) VolumeParams(tags []names.VolumeTag) ([]params.VolumeParamsResult, error) {
 	args := params.Entities{
 		Entities: make([]params.Entity, len(tags)),
 	}
@@ -283,7 +283,7 @@ func (st *State) VolumeParams(tags []names.VolumeTag) ([]params.VolumeParamsResu
 
 // RemoveVolumeParams returns the parameters for destroying or releasing
 // the volumes with the specified tags.
-func (st *State) RemoveVolumeParams(tags []names.VolumeTag) ([]params.RemoveVolumeParamsResult, error) {
+func (st *Client) RemoveVolumeParams(tags []names.VolumeTag) ([]params.RemoveVolumeParamsResult, error) {
 	args := params.Entities{
 		Entities: make([]params.Entity, len(tags)),
 	}
@@ -303,7 +303,7 @@ func (st *State) RemoveVolumeParams(tags []names.VolumeTag) ([]params.RemoveVolu
 
 // FilesystemParams returns the parameters for creating the filesystems
 // with the specified tags.
-func (st *State) FilesystemParams(tags []names.FilesystemTag) ([]params.FilesystemParamsResult, error) {
+func (st *Client) FilesystemParams(tags []names.FilesystemTag) ([]params.FilesystemParamsResult, error) {
 	args := params.Entities{
 		Entities: make([]params.Entity, len(tags)),
 	}
@@ -323,7 +323,7 @@ func (st *State) FilesystemParams(tags []names.FilesystemTag) ([]params.Filesyst
 
 // RemoveFilesystemParams returns the parameters for destroying or releasing
 // the filesystems with the specified tags.
-func (st *State) RemoveFilesystemParams(tags []names.FilesystemTag) ([]params.RemoveFilesystemParamsResult, error) {
+func (st *Client) RemoveFilesystemParams(tags []names.FilesystemTag) ([]params.RemoveFilesystemParamsResult, error) {
 	args := params.Entities{
 		Entities: make([]params.Entity, len(tags)),
 	}
@@ -343,7 +343,7 @@ func (st *State) RemoveFilesystemParams(tags []names.FilesystemTag) ([]params.Re
 
 // VolumeAttachmentParams returns the parameters for creating the volume
 // attachments with the specified tags.
-func (st *State) VolumeAttachmentParams(ids []params.MachineStorageId) ([]params.VolumeAttachmentParamsResult, error) {
+func (st *Client) VolumeAttachmentParams(ids []params.MachineStorageId) ([]params.VolumeAttachmentParamsResult, error) {
 	args := params.MachineStorageIds{ids}
 	var results params.VolumeAttachmentParamsResults
 	err := st.facade.FacadeCall("VolumeAttachmentParams", args, &results)
@@ -358,7 +358,7 @@ func (st *State) VolumeAttachmentParams(ids []params.MachineStorageId) ([]params
 
 // FilesystemAttachmentParams returns the parameters for creating the
 // filesystem attachments with the specified tags.
-func (st *State) FilesystemAttachmentParams(ids []params.MachineStorageId) ([]params.FilesystemAttachmentParamsResult, error) {
+func (st *Client) FilesystemAttachmentParams(ids []params.MachineStorageId) ([]params.FilesystemAttachmentParamsResult, error) {
 	args := params.MachineStorageIds{ids}
 	var results params.FilesystemAttachmentParamsResults
 	err := st.facade.FacadeCall("FilesystemAttachmentParams", args, &results)
@@ -372,7 +372,7 @@ func (st *State) FilesystemAttachmentParams(ids []params.MachineStorageId) ([]pa
 }
 
 // SetVolumeInfo records the details of newly provisioned volumes.
-func (st *State) SetVolumeInfo(volumes []params.Volume) ([]params.ErrorResult, error) {
+func (st *Client) SetVolumeInfo(volumes []params.Volume) ([]params.ErrorResult, error) {
 	args := params.Volumes{Volumes: volumes}
 	var results params.ErrorResults
 	err := st.facade.FacadeCall("SetVolumeInfo", args, &results)
@@ -386,7 +386,7 @@ func (st *State) SetVolumeInfo(volumes []params.Volume) ([]params.ErrorResult, e
 }
 
 // SetFilesystemInfo records the details of newly provisioned filesystems.
-func (st *State) SetFilesystemInfo(filesystems []params.Filesystem) ([]params.ErrorResult, error) {
+func (st *Client) SetFilesystemInfo(filesystems []params.Filesystem) ([]params.ErrorResult, error) {
 	args := params.Filesystems{Filesystems: filesystems}
 	var results params.ErrorResults
 	err := st.facade.FacadeCall("SetFilesystemInfo", args, &results)
@@ -399,7 +399,7 @@ func (st *State) SetFilesystemInfo(filesystems []params.Filesystem) ([]params.Er
 	return results.Results, nil
 }
 
-func (st *State) CreateVolumeAttachmentPlans(volumeAttachmentPlans []params.VolumeAttachmentPlan) ([]params.ErrorResult, error) {
+func (st *Client) CreateVolumeAttachmentPlans(volumeAttachmentPlans []params.VolumeAttachmentPlan) ([]params.ErrorResult, error) {
 	args := params.VolumeAttachmentPlans{VolumeAttachmentPlans: volumeAttachmentPlans}
 	var results params.ErrorResults
 	err := st.facade.FacadeCall("CreateVolumeAttachmentPlans", args, &results)
@@ -412,7 +412,7 @@ func (st *State) CreateVolumeAttachmentPlans(volumeAttachmentPlans []params.Volu
 	return results.Results, nil
 }
 
-func (st *State) SetVolumeAttachmentPlanBlockInfo(volumeAttachmentPlans []params.VolumeAttachmentPlan) ([]params.ErrorResult, error) {
+func (st *Client) SetVolumeAttachmentPlanBlockInfo(volumeAttachmentPlans []params.VolumeAttachmentPlan) ([]params.ErrorResult, error) {
 	args := params.VolumeAttachmentPlans{VolumeAttachmentPlans: volumeAttachmentPlans}
 	var results params.ErrorResults
 	err := st.facade.FacadeCall("SetVolumeAttachmentPlanBlockInfo", args, &results)
@@ -426,7 +426,7 @@ func (st *State) SetVolumeAttachmentPlanBlockInfo(volumeAttachmentPlans []params
 }
 
 // SetVolumeAttachmentInfo records the details of newly provisioned volume attachments.
-func (st *State) SetVolumeAttachmentInfo(volumeAttachments []params.VolumeAttachment) ([]params.ErrorResult, error) {
+func (st *Client) SetVolumeAttachmentInfo(volumeAttachments []params.VolumeAttachment) ([]params.ErrorResult, error) {
 	args := params.VolumeAttachments{VolumeAttachments: volumeAttachments}
 	var results params.ErrorResults
 	err := st.facade.FacadeCall("SetVolumeAttachmentInfo", args, &results)
@@ -440,7 +440,7 @@ func (st *State) SetVolumeAttachmentInfo(volumeAttachments []params.VolumeAttach
 }
 
 // SetFilesystemAttachmentInfo records the details of newly provisioned filesystem attachments.
-func (st *State) SetFilesystemAttachmentInfo(filesystemAttachments []params.FilesystemAttachment) ([]params.ErrorResult, error) {
+func (st *Client) SetFilesystemAttachmentInfo(filesystemAttachments []params.FilesystemAttachment) ([]params.ErrorResult, error) {
 	args := params.FilesystemAttachments{FilesystemAttachments: filesystemAttachments}
 	var results params.ErrorResults
 	err := st.facade.FacadeCall("SetFilesystemAttachmentInfo", args, &results)
@@ -454,7 +454,7 @@ func (st *State) SetFilesystemAttachmentInfo(filesystemAttachments []params.File
 }
 
 // Life requests the life cycle of the entities with the specified tags.
-func (st *State) Life(tags []names.Tag) ([]params.LifeResult, error) {
+func (st *Client) Life(tags []names.Tag) ([]params.LifeResult, error) {
 	var results params.LifeResults
 	args := params.Entities{
 		Entities: make([]params.Entity, len(tags)),
@@ -472,7 +472,7 @@ func (st *State) Life(tags []names.Tag) ([]params.LifeResult, error) {
 }
 
 // AttachmentLife requests the life cycle of the attachments with the specified IDs.
-func (st *State) AttachmentLife(ids []params.MachineStorageId) ([]params.LifeResult, error) {
+func (st *Client) AttachmentLife(ids []params.MachineStorageId) ([]params.LifeResult, error) {
 	var results params.LifeResults
 	args := params.MachineStorageIds{ids}
 	if err := st.facade.FacadeCall("AttachmentLife", args, &results); err != nil {
@@ -486,7 +486,7 @@ func (st *State) AttachmentLife(ids []params.MachineStorageId) ([]params.LifeRes
 
 // EnsureDead progresses the entities with the specified tags to the Dead
 // life cycle state, if they are Alive or Dying.
-func (st *State) EnsureDead(tags []names.Tag) ([]params.ErrorResult, error) {
+func (st *Client) EnsureDead(tags []names.Tag) ([]params.ErrorResult, error) {
 	var results params.ErrorResults
 	args := params.Entities{
 		Entities: make([]params.Entity, len(tags)),
@@ -504,7 +504,7 @@ func (st *State) EnsureDead(tags []names.Tag) ([]params.ErrorResult, error) {
 }
 
 // Remove removes the entities with the specified tags from state.
-func (st *State) Remove(tags []names.Tag) ([]params.ErrorResult, error) {
+func (st *Client) Remove(tags []names.Tag) ([]params.ErrorResult, error) {
 	var results params.ErrorResults
 	args := params.Entities{
 		Entities: make([]params.Entity, len(tags)),
@@ -522,7 +522,7 @@ func (st *State) Remove(tags []names.Tag) ([]params.ErrorResult, error) {
 }
 
 // RemoveAttachments removes the attachments with the specified IDs from state.
-func (st *State) RemoveAttachments(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
+func (st *Client) RemoveAttachments(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
 	var results params.ErrorResults
 	args := params.MachineStorageIds{ids}
 	if err := st.facade.FacadeCall("RemoveAttachment", args, &results); err != nil {
@@ -536,7 +536,7 @@ func (st *State) RemoveAttachments(ids []params.MachineStorageId) ([]params.Erro
 
 // InstanceIds returns the provider specific instance ID for each machine,
 // or an CodeNotProvisioned error if not set.
-func (st *State) InstanceIds(tags []names.MachineTag) ([]params.StringResult, error) {
+func (st *Client) InstanceIds(tags []names.MachineTag) ([]params.StringResult, error) {
 	var results params.StringResults
 	args := params.Entities{
 		Entities: make([]params.Entity, len(tags)),
@@ -555,7 +555,7 @@ func (st *State) InstanceIds(tags []names.MachineTag) ([]params.StringResult, er
 }
 
 // SetStatus sets the status of storage entities.
-func (st *State) SetStatus(args []params.EntityStatusArgs) error {
+func (st *Client) SetStatus(args []params.EntityStatusArgs) error {
 	var result params.ErrorResults
 	err := st.facade.FacadeCall("SetStatus", params.SetStatus{args}, &result)
 	if err != nil {

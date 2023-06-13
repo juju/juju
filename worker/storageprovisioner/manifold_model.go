@@ -44,7 +44,7 @@ func ModelManifold(config ModelManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			api, err := storageprovisioner.NewState(apiCaller)
+			api, err := storageprovisioner.NewClient(apiCaller)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
