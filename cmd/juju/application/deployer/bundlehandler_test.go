@@ -14,6 +14,7 @@ import (
 	charmresource "github.com/juju/charm/v11/resource"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -1213,7 +1214,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleTwiceScaleUp(c *gc.C) {
 	s.expectResolveCharm(nil)
 
 	djangoCurl := charm.MustParseURL("ch:django")
-	s.expectResolveCharmWithSeries([]string{"bionic", "xenial"}, nil)
+	s.expectResolveCharmWithSeries([]string{"ubuntu@18.04", "ubuntu@16.04"}, nil)
 	s.expectAddCharm(false)
 	s.expectAddCharm(false)
 	charmInfo := &apicharms.CharmInfo{
@@ -1601,7 +1602,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleAnnotationsChanges(c *gc.C
 	s.expectEmptyModelRepresentationNotAnnotations()
 	s.expectDeployerAPIModelGet(c)
 	s.expectWatchAll()
-	s.expectResolveCharmWithSeries([]string{"bionic", "xenial"}, nil)
+	s.expectResolveCharmWithSeries([]string{"ubuntu@18.04", "ubuntu@16.04"}, nil)
 	s.expectAddCharm(false)
 	s.expectCharmInfo("ch:bionic/django", &apicharms.CharmInfo{
 		URL:  "ch:bionic/django",
@@ -1942,8 +1943,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleLocalDeployment(c *gc.C) {
 
 func (s *BundleDeployRepositorySuite) TestApplicationsForMachineChange(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectResolveCharmWithSeries([]string{"xenial"}, nil)
-	s.expectResolveCharmWithSeries([]string{"xenial"}, nil)
+	s.expectResolveCharmWithSeries([]string{"ubuntu@16.04"}, nil)
+	s.expectResolveCharmWithSeries([]string{"ubuntu@16.04"}, nil)
 	spec := s.bundleDeploySpec()
 	bundleData, err := charm.ReadBundleData(strings.NewReader(machineUnitPlacementBundle))
 	c.Assert(err, jc.ErrorIsNil)
@@ -2098,7 +2099,6 @@ func (s *BundleDeployRepositorySuite) assertDeployArgsDevices(c *gc.C, appName s
 
 type charmUnit struct {
 	curl                 *charm.URL
-	resolveSeries        []string
 	charmMetaSeries      []string
 	force                bool
 	machine              string
@@ -2109,11 +2109,8 @@ func (s *BundleDeployRepositorySuite) setupCharmUnits(charmUnits []charmUnit) {
 	for _, chUnit := range charmUnits {
 		switch chUnit.curl.Schema {
 		case "ch":
-			resolveSeries := chUnit.resolveSeries
-			if len(resolveSeries) == 0 {
-				resolveSeries = []string{"bionic", "focal", "xenial"}
-			}
-			s.expectResolveCharmWithSeries(resolveSeries, nil)
+			resolveBases := []string{"ubuntu@18.04", "ubuntu@20.04", "ubuntu@16.04"}
+			s.expectResolveCharmWithSeries(resolveBases, nil)
 			s.expectAddCharm(chUnit.force)
 		case "local":
 			s.expectAddLocalCharm(chUnit.curl, chUnit.force)
@@ -2336,20 +2333,21 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIModelGet(c *gc.C) {
 	s.deployerAPI.EXPECT().ModelGet().Return(cfg.AllAttrs(), nil).AnyTimes()
 }
 
-func (s *BundleDeployRepositorySuite) expectResolveCharmWithSeries(series []string, err error) {
+func (s *BundleDeployRepositorySuite) expectResolveCharmWithSeries(bases []string, err error) {
+	b := transform.Slice(bases, series.MustParseBaseFromString)
 	s.bundleResolver.EXPECT().ResolveCharm(
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
 		false,
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error) {
-			return curl, origin, series, err
+		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []series.Base, error) {
+			return curl, origin, b, err
 		}).AnyTimes()
 }
 
 func (s *BundleDeployRepositorySuite) expectResolveCharm(err error) {
-	s.expectResolveCharmWithSeries([]string{"bionic", "focal", "xenial"}, err)
+	s.expectResolveCharmWithSeries([]string{"ubuntu@18.04", "ubuntu@20.04", "ubuntu@16.04"}, err)
 }
 
 func (s *BundleDeployRepositorySuite) expectAddCharm(force bool) {

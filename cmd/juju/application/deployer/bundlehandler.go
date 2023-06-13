@@ -16,6 +16,7 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/kr/pretty"
@@ -648,7 +649,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Trace(err)
 	}
 
-	url, resolvedOrigin, supportedSeries, err := h.bundleResolver.ResolveCharm(ch, origin, false) // no --switch possible.
+	url, resolvedOrigin, supportedBases, err := h.bundleResolver.ResolveCharm(ch, origin, false) // no --switch possible.
 	if err != nil {
 		return errors.Annotatef(err, "cannot resolve %q", ch.Name)
 	}
@@ -657,6 +658,10 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Errorf("expected charm, got bundle %q %v", ch.Name, resolvedOrigin)
 	case resolvedOrigin.Base.Channel.Empty():
 		modelCfg, workloadSeries, err := seriesSelectorRequirements(h.deployAPI, h.clock, url)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		supportedSeries, err := transform.SliceOrErr(supportedBases, series.GetSeriesFromBase)
 		if err != nil {
 			return errors.Trace(err)
 		}

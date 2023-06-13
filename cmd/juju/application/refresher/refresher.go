@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/charm/v11"
 	jujuclock "github.com/juju/clock"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
@@ -264,26 +265,20 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 	}
 
 	// Charm has been supplied as a URL so we resolve and deploy using the store.
-	newURL, origin, supportedSeries, err := r.charmResolver.ResolveCharm(refURL, destOrigin, r.switchCharm)
+	newURL, origin, supportedBases, err := r.charmResolver.ResolveCharm(refURL, destOrigin, r.switchCharm)
 	if err != nil {
 		return nil, commoncharm.Origin{}, errors.Trace(err)
 	}
 
-	var deployedSeries string
-	if !r.deployedBase.Channel.Empty() {
-		if deployedSeries, err = series.GetSeriesFromBase(r.deployedBase); err != nil {
-			return nil, commoncharm.Origin{}, errors.Trace(err)
-		}
-	}
-	_, seriesSupportedErr := corecharm.SeriesForCharm(deployedSeries, supportedSeries)
-	if !r.forceBase && deployedSeries != "" && newURL.Series == "" && seriesSupportedErr != nil {
-		series := []string{"no series"}
-		if len(supportedSeries) > 0 {
-			series = supportedSeries
+	_, seriesSupportedErr := corecharm.BaseForCharm(r.deployedBase, supportedBases)
+	if !r.forceBase && !r.deployedBase.Empty() && newURL.Series == "" && seriesSupportedErr != nil {
+		bases := []string{"no bases"}
+		if len(supportedBases) > 0 {
+			bases = transform.Slice(supportedBases, func(in series.Base) string { return in.DisplayString() })
 		}
 		return nil, commoncharm.Origin{}, errors.Errorf(
-			"cannot upgrade from single series %q charm to a charm supporting %q. Use --force-series to override.",
-			deployedSeries, series,
+			"cannot upgrade from single base %q charm to a charm supporting %q. Use --force-series to override.",
+			r.deployedBase.DisplayString(), bases,
 		)
 	}
 

@@ -65,6 +65,101 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 	p := params.ResolveCharmWithChannelResults{
 		Results: []params.ResolveCharmWithChannelResult{
 			{
+				URL:    curl.String(),
+				Origin: stableChannelParamsOrigin,
+				SupportedBases: []params.Base{
+					{Name: "ubuntu", Channel: "18.04/stable"},
+					{Name: "ubuntu", Channel: "20.04/stable"},
+					{Name: "ubuntu", Channel: "16.04/stable"},
+				},
+			}, {
+				URL:    curl2.String(),
+				Origin: edgeChannelParamsOrigin,
+				SupportedBases: []params.Base{
+					{Name: "ubuntu", Channel: "18.04/stable"},
+					{Name: "ubuntu", Channel: "20.04/stable"},
+					{Name: "ubuntu", Channel: "16.04/stable"},
+				},
+			},
+			{
+				URL:    curl2.String(),
+				Origin: edgeChannelParamsOrigin,
+				SupportedBases: []params.Base{
+					{Name: "ubuntu", Channel: "20.04/stable"},
+				},
+			},
+		}}
+
+	mockFacadeCaller.EXPECT().FacadeCall("ResolveCharms", facadeArgs, resolve).SetArg(2, p).Return(nil)
+
+	client := charms.NewClientWithFacade(mockFacadeCaller)
+
+	noChannelOrigin := apicharm.Origin{Source: apicharm.OriginCharmHub, Risk: no}
+	edgeChannelOrigin := apicharm.Origin{Source: apicharm.OriginCharmHub, Risk: edge}
+	stableChannelOrigin := apicharm.Origin{Source: apicharm.OriginCharmHub, Risk: stable}
+	args := []charms.CharmToResolve{
+		{URL: curl, Origin: noChannelOrigin},
+		{URL: curl2, Origin: edgeChannelOrigin},
+		{URL: curl2, Origin: edgeChannelOrigin},
+	}
+	got, err := client.ResolveCharms(args)
+	c.Assert(err, gc.IsNil)
+
+	want := []charms.ResolvedCharm{
+		{
+			URL:    curl,
+			Origin: stableChannelOrigin,
+			SupportedBases: []series.Base{
+				series.MustParseBaseFromString("ubuntu@18.04"),
+				series.MustParseBaseFromString("ubuntu@20.04"),
+				series.MustParseBaseFromString("ubuntu@16.04"),
+			},
+		}, {
+			URL:    curl2,
+			Origin: edgeChannelOrigin,
+			SupportedBases: []series.Base{
+				series.MustParseBaseFromString("ubuntu@18.04"),
+				series.MustParseBaseFromString("ubuntu@20.04"),
+				series.MustParseBaseFromString("ubuntu@16.04"),
+			},
+		}, {
+			URL:    curl2,
+			Origin: edgeChannelOrigin,
+			SupportedBases: []series.Base{
+				series.MustParseBaseFromString("ubuntu@20.04"),
+			},
+		},
+	}
+	c.Assert(got, gc.DeepEquals, want)
+}
+
+func (s *charmsMockSuite) TestResolveCharmsLegacy(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+
+	curl := charm.MustParseURL("ch:a-charm")
+	curl2 := charm.MustParseURL("ch:jammy/dummy-1")
+	no := ""
+	edge := "edge"
+	stable := "stable"
+
+	noChannelParamsOrigin := params.CharmOrigin{Source: "charm-hub"}
+	edgeChannelParamsOrigin := params.CharmOrigin{Source: "charm-hub", Risk: edge}
+	stableChannelParamsOrigin := params.CharmOrigin{Source: "charm-hub", Risk: stable}
+
+	facadeArgs := params.ResolveCharmsWithChannel{
+		Resolve: []params.ResolveCharmWithChannel{
+			{Reference: curl.String(), Origin: noChannelParamsOrigin},
+			{Reference: curl2.String(), Origin: edgeChannelParamsOrigin},
+			{Reference: curl2.String(), Origin: edgeChannelParamsOrigin},
+		},
+	}
+	resolve := new(params.ResolveCharmWithChannelResults)
+	p := params.ResolveCharmWithChannelResults{
+		Results: []params.ResolveCharmWithChannelResult{
+			{
 				URL:             curl.String(),
 				Origin:          stableChannelParamsOrigin,
 				SupportedSeries: []string{"bionic", "focal", "xenial"},
@@ -97,17 +192,27 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 
 	want := []charms.ResolvedCharm{
 		{
-			URL:             curl,
-			Origin:          stableChannelOrigin,
-			SupportedSeries: []string{"bionic", "focal", "xenial"},
+			URL:    curl,
+			Origin: stableChannelOrigin,
+			SupportedBases: []series.Base{
+				series.MustParseBaseFromString("ubuntu@18.04"),
+				series.MustParseBaseFromString("ubuntu@20.04"),
+				series.MustParseBaseFromString("ubuntu@16.04"),
+			},
 		}, {
-			URL:             curl2,
-			Origin:          edgeChannelOrigin,
-			SupportedSeries: []string{"bionic", "focal", "xenial"},
+			URL:    curl2,
+			Origin: edgeChannelOrigin,
+			SupportedBases: []series.Base{
+				series.MustParseBaseFromString("ubuntu@18.04"),
+				series.MustParseBaseFromString("ubuntu@20.04"),
+				series.MustParseBaseFromString("ubuntu@16.04"),
+			},
 		}, {
-			URL:             curl2,
-			Origin:          edgeChannelOrigin,
-			SupportedSeries: []string{"focal"},
+			URL:    curl2,
+			Origin: edgeChannelOrigin,
+			SupportedBases: []series.Base{
+				series.MustParseBaseFromString("ubuntu@20.04"),
+			},
 		},
 	}
 	c.Assert(got, gc.DeepEquals, want)
