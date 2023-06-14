@@ -120,13 +120,16 @@ func (r *restrictNewerClientSuite) TestAlwaysDisallowedMethod(c *gc.C) {
 }
 
 func (r *restrictNewerClientSuite) TestWhitelistedClient(c *gc.C) {
-	r.assertWhitelistedClient(c, "2.9.41", false)
-	r.assertWhitelistedClient(c, "2.9.42", true)
+	// Ensure we're allowed to migrate from 2.9.x min release to 3.1.0.
+	r.assertWhitelistedClient(c, "2.9.41", "3.1.0", false)
+	r.assertWhitelistedClient(c, "2.9.42", "3.1.0", true)
+	r.assertWhitelistedClient(c, "2.9.42", "3.1.5", true)
+	r.assertWhitelistedClient(c, "2.9.42", "3.2.0", true)
 }
 
-func (r *restrictNewerClientSuite) assertWhitelistedClient(c *gc.C, serverVers string, allowed bool) {
+func (r *restrictNewerClientSuite) assertWhitelistedClient(c *gc.C, callerVers, serverVers string, allowed bool) {
 	r.PatchValue(&jujuversion.Current, version.MustParse(serverVers))
-	r.callerVersion = version.MustParse("3.0.0")
+	r.callerVersion = version.MustParse(callerVers)
 	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(true, r.callerVersion)
 	caller, err := root.FindMethod("ModelConfig", 3, "ModelSet")
 	if allowed {
@@ -139,12 +142,15 @@ func (r *restrictNewerClientSuite) assertWhitelistedClient(c *gc.C, serverVers s
 }
 
 func (r *restrictNewerClientSuite) TestAgentMethod(c *gc.C) {
-	r.PatchValue(&jujuversion.Current, version.MustParse("3.0.0"))
-	r.assertAgentMethod(c, "2.9.36", true)
-	r.assertAgentMethod(c, "2.9.31", false)
+	// Ensure we're allowed to migrate from 2.9.x min release to 3.1.0.
+	r.assertAgentMethod(c, "2.9.35", "3.1.0", false)
+	r.assertAgentMethod(c, "2.9.36", "3.1.0", true)
+	r.assertAgentMethod(c, "2.9.36", "3.1.5", true)
+	r.assertAgentMethod(c, "2.9.36", "3.2.0", true)
 }
 
-func (r *restrictNewerClientSuite) assertAgentMethod(c *gc.C, agentVers string, allowed bool) {
+func (r *restrictNewerClientSuite) assertAgentMethod(c *gc.C, agentVers, serverVers string, allowed bool) {
+	r.PatchValue(&jujuversion.Current, version.MustParse(serverVers))
 	r.callerVersion = version.MustParse(agentVers)
 	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(false, r.callerVersion)
 	caller, err := root.FindMethod("Uniter", 18, "CurrentModel")

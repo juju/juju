@@ -60,14 +60,10 @@ func checkClientVersion(userLogin bool, callerVersion version.Number) func(facad
 			return nil
 		}
 
-		// Older clients can only connect to the next 0 version minor release,
-		// and then only if the client version is recent enough.
+		// Older clients are only allowed to connect to a server if it is
+		// within the min client versions map.
 		olderClient := callerVersion.Major < serverVersion.Major
 		if olderClient {
-			if serverVersion.Minor > 0 {
-				return incompatibleClientError
-			}
-			// Check whitelisted client versions.
 			if minClientVersion, ok := upgradevalidation.MinClientVersions[serverVersion.Major]; ok && callerVersion.Compare(minClientVersion) >= 0 {
 				return nil
 			}
@@ -79,14 +75,15 @@ func checkClientVersion(userLogin bool, callerVersion version.Number) func(facad
 			return nil
 		}
 
-		// Very new clients are rejected outright if not otherwise whitelisted above.
+		// Very new clients are rejected outright if not otherwise whitelisted
+		// above.
 		veryNewCaller := callerVersion.Major > serverVersion.Major && callerVersion.Minor != 0
 		if veryNewCaller {
 			return incompatibleClientError
 		}
 
-		// Newer clients with a 0 minor version can only connect to a server if it
-		// is recent enough.
+		// Newer clients with a 0 minor version can only connect to a server if
+		// it is recent enough.
 		if minServerVersion, ok := upgradevalidation.MinClientVersions[callerVersion.Major]; ok && serverVersion.Compare(minServerVersion) >= 0 {
 			return nil
 		}
