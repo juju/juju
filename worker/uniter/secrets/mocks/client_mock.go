@@ -67,10 +67,10 @@ func (mr *MockSecretsClientMockRecorder) SecretMetadata() *gomock.Call {
 }
 
 // WatchConsumedSecretsChanges mocks base method.
-func (m *MockSecretsClient) WatchConsumedSecretsChanges(arg0 string) (watcher.StringsWatcher, error) {
+func (m *MockSecretsClient) WatchConsumedSecretsChanges(arg0 string) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchConsumedSecretsChanges", arg0)
-	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -82,14 +82,14 @@ func (mr *MockSecretsClientMockRecorder) WatchConsumedSecretsChanges(arg0 interf
 }
 
 // WatchObsolete mocks base method.
-func (m *MockSecretsClient) WatchObsolete(arg0 ...names.Tag) (watcher.StringsWatcher, error) {
+func (m *MockSecretsClient) WatchObsolete(arg0 ...names.Tag) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{}
 	for _, a := range arg0 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "WatchObsolete", varargs...)
-	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

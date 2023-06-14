@@ -96,10 +96,10 @@ func (mr *MockFacadeMockRecorder) RunningActions(arg0 interface{}) *gomock.Call 
 }
 
 // WatchActionNotifications mocks base method.
-func (m *MockFacade) WatchActionNotifications(arg0 names.MachineTag) (watcher.StringsWatcher, error) {
+func (m *MockFacade) WatchActionNotifications(arg0 names.MachineTag) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchActionNotifications", arg0)
-	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

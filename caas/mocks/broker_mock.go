@@ -639,10 +639,10 @@ func (mr *MockBrokerMockRecorder) Version() *gomock.Call {
 }
 
 // WatchContainerStart mocks base method.
-func (m *MockBroker) WatchContainerStart(arg0, arg1 string) (watcher.StringsWatcher, error) {
+func (m *MockBroker) WatchContainerStart(arg0, arg1 string) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchContainerStart", arg0, arg1)
-	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -654,10 +654,10 @@ func (mr *MockBrokerMockRecorder) WatchContainerStart(arg0, arg1 interface{}) *g
 }
 
 // WatchOperator mocks base method.
-func (m *MockBroker) WatchOperator(arg0 string) (watcher.NotifyWatcher, error) {
+func (m *MockBroker) WatchOperator(arg0 string) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchOperator", arg0)
-	ret0, _ := ret[0].(watcher.NotifyWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -669,10 +669,10 @@ func (mr *MockBrokerMockRecorder) WatchOperator(arg0 interface{}) *gomock.Call {
 }
 
 // WatchService mocks base method.
-func (m *MockBroker) WatchService(arg0 string, arg1 caas.DeploymentMode) (watcher.NotifyWatcher, error) {
+func (m *MockBroker) WatchService(arg0 string, arg1 caas.DeploymentMode) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchService", arg0, arg1)
-	ret0, _ := ret[0].(watcher.NotifyWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -684,10 +684,10 @@ func (mr *MockBrokerMockRecorder) WatchService(arg0, arg1 interface{}) *gomock.C
 }
 
 // WatchUnits mocks base method.
-func (m *MockBroker) WatchUnits(arg0 string, arg1 caas.DeploymentMode) (watcher.NotifyWatcher, error) {
+func (m *MockBroker) WatchUnits(arg0 string, arg1 caas.DeploymentMode) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchUnits", arg0, arg1)
-	ret0, _ := ret[0].(watcher.NotifyWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

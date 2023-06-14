@@ -92,10 +92,10 @@ func (mr *MockUpgradeMachineAPIMockRecorder) UpgradeSeriesPrepare(arg0, arg1, ar
 }
 
 // WatchUpgradeSeriesNotifications mocks base method.
-func (m *MockUpgradeMachineAPI) WatchUpgradeSeriesNotifications(arg0 string) (watcher.NotifyWatcher, string, error) {
+func (m *MockUpgradeMachineAPI) WatchUpgradeSeriesNotifications(arg0 string) (watcher.Watcher[struct{}], string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchUpgradeSeriesNotifications", arg0)
-	ret0, _ := ret[0].(watcher.NotifyWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(string)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2

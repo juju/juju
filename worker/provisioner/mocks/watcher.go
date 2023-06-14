@@ -8,7 +8,6 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	watcher "github.com/juju/juju/core/watcher"
 )
 
 // MockStringsWatcher is a mock of StringsWatcher interface.
@@ -35,10 +34,10 @@ func (m *MockStringsWatcher) EXPECT() *MockStringsWatcherMockRecorder {
 }
 
 // Changes mocks base method.
-func (m *MockStringsWatcher) Changes() watcher.StringsChannel {
+func (m *MockStringsWatcher) Changes() <-chan []string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Changes")
-	ret0, _ := ret[0].(watcher.StringsChannel)
+	ret0, _ := ret[0].(<-chan []string)
 	return ret0
 }
 

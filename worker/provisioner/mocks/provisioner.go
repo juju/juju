@@ -86,10 +86,10 @@ func (mr *MockContainerMachineMockRecorder) SupportedContainers() *gomock.Call {
 }
 
 // WatchContainers mocks base method.
-func (m *MockContainerMachine) WatchContainers(arg0 instance.ContainerType) (watcher.StringsWatcher, error) {
+func (m *MockContainerMachine) WatchContainers(arg0 instance.ContainerType) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchContainers", arg0)
-	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

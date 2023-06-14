@@ -35,10 +35,10 @@ func (m *MockSecretTriggerWatcher) EXPECT() *MockSecretTriggerWatcherMockRecorde
 }
 
 // Changes mocks base method.
-func (m *MockSecretTriggerWatcher) Changes() watcher.SecretTriggerChannel {
+func (m *MockSecretTriggerWatcher) Changes() <-chan []watcher.SecretTriggerChange {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Changes")
-	ret0, _ := ret[0].(watcher.SecretTriggerChannel)
+	ret0, _ := ret[0].(<-chan []watcher.SecretTriggerChange)
 	return ret0
 }
 

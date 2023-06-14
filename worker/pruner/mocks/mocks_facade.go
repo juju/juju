@@ -66,10 +66,10 @@ func (mr *MockFacadeMockRecorder) Prune(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // WatchForModelConfigChanges mocks base method.
-func (m *MockFacade) WatchForModelConfigChanges() (watcher.NotifyWatcher, error) {
+func (m *MockFacade) WatchForModelConfigChanges() (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchForModelConfigChanges")
-	ret0, _ := ret[0].(watcher.NotifyWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

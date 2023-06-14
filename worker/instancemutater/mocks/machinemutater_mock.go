@@ -155,10 +155,10 @@ func (mr *MockMutaterMachineMockRecorder) Tag() *gomock.Call {
 }
 
 // WatchContainers mocks base method.
-func (m *MockMutaterMachine) WatchContainers() (watcher.StringsWatcher, error) {
+func (m *MockMutaterMachine) WatchContainers() (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchContainers")
-	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -170,10 +170,10 @@ func (mr *MockMutaterMachineMockRecorder) WatchContainers() *gomock.Call {
 }
 
 // WatchLXDProfileVerificationNeeded mocks base method.
-func (m *MockMutaterMachine) WatchLXDProfileVerificationNeeded() (watcher.NotifyWatcher, error) {
+func (m *MockMutaterMachine) WatchLXDProfileVerificationNeeded() (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchLXDProfileVerificationNeeded")
-	ret0, _ := ret[0].(watcher.NotifyWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -185,10 +185,10 @@ func (mr *MockMutaterMachineMockRecorder) WatchLXDProfileVerificationNeeded() *g
 }
 
 // WatchUnits mocks base method.
-func (m *MockMutaterMachine) WatchUnits() (watcher.StringsWatcher, error) {
+func (m *MockMutaterMachine) WatchUnits() (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchUnits")
-	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
