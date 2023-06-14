@@ -65,8 +65,6 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
-	resources := common.NewResources()
-	c.Assert(resources.RegisterNamed("dataDir", common.StringResource(c.MkDir())), jc.ErrorIsNil)
 	storageAccess, err := application.GetStorageState(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	model, err := s.State.Model()

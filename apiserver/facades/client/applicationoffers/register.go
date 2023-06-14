@@ -55,7 +55,7 @@ func newOffersAPI(ctx facade.Context) (*OffersAPI, error) {
 		GetStateAccess(st),
 		GetStatePool(ctx.StatePool()),
 		ctx.Auth(),
-		ctx.Resources(),
 		authContext.(*commoncrossmodel.AuthContext),
+		ctx.DataDir(),
 	)
 }

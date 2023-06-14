@@ -10,7 +10,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
 	"github.com/juju/juju/apiserver/testing"
@@ -31,7 +30,6 @@ const (
 type baseSuite struct {
 	jtesting.IsolationSuite
 
-	resources  *common.Resources
 	authorizer *testing.FakeAuthorizer
 
 	mockState         *mockState
@@ -44,7 +42,6 @@ type baseSuite struct {
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.resources = common.NewResources()
 	s.authorizer = &testing.FakeAuthorizer{
 		Tag:      names.NewUserTag("read"),
 		AdminTag: names.NewUserTag("admin"),

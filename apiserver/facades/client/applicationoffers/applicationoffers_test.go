@@ -15,7 +15,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
@@ -48,9 +47,6 @@ func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 		return s.applicationOffers
 	}
 
-	resources := common.NewResources()
-	_ = resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
-
 	getEnviron := func(modelUUID string) (environs.Environ, error) {
 		return s.env, nil
 	}
@@ -61,7 +57,8 @@ func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getEnviron, getFakeControllerInfo,
-		s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
+		s.mockState, s.mockStatePool, s.authorizer, s.authContext,
+		c.MkDir(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
@@ -1142,9 +1139,6 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 		return &mockApplicationOffers{st: st.(*mockState)}
 	}
 
-	resources := common.NewResources()
-	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
-
 	getEnviron := func(modelUUID string) (environs.Environ, error) {
 		return s.env, nil
 	}
@@ -1154,7 +1148,8 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getEnviron, getFakeControllerInfo,
-		s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
+		s.mockState, s.mockStatePool, s.authorizer, s.authContext,
+		c.MkDir(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api

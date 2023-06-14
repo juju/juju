@@ -131,23 +131,6 @@ func (rs *Resources) Count() int {
 	return len(rs.resources)
 }
 
-// FIXME(nvinuesa): This `StringResource` should be removed and they should not
-// be registered.
-// StringResource is just a regular 'string' that matches the Resource
-// interface.
-type StringResource string
-
-func (StringResource) Kill() {
-}
-
-func (StringResource) Wait() error {
-	return nil
-}
-
-func (s StringResource) String() string {
-	return string(s)
-}
-
 // FIXME(nvinuesa): This `ValueResource` should be removed and they should not
 // be registered.
 // ValueResource is a Resource with a no-op Stop method, containing an

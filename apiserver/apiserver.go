@@ -313,6 +313,9 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		charmhubHTTPClient:  cfg.CharmhubHTTPClient,
 		dbGetter:            cfg.DBGetter,
 		dbDeleter:           cfg.DBDeleter,
+		machineTag:          cfg.Tag,
+		dataDir:             cfg.DataDir,
+		logDir:              cfg.LogDir,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

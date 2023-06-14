@@ -105,16 +105,6 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 		serverHost:   serverHost,
 	}
 
-	if err := r.resources.RegisterNamed("machineID", common.StringResource(srv.tag.Id())); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := r.resources.RegisterNamed("dataDir", common.StringResource(srv.dataDir)); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := r.resources.RegisterNamed("logDir", common.StringResource(srv.logDir)); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	// Facades involved with managing application offers need the auth context
 	// to mint and validate macaroons.
 	localOfferAccessEndpoint := url.URL{
@@ -579,6 +569,21 @@ func (ctx *facadeContext) ControllerDB() (changestream.WatchableDB, error) {
 // DBDeleter returns a database deleter.
 func (ctx *facadeContext) DBDeleter() coredatabase.DBDeleter {
 	return ctx.r.shared.dbDeleter
+}
+
+// MachineTag returns the current machine tag.
+func (ctx *facadeContext) MachineTag() names.Tag {
+	return ctx.r.shared.machineTag
+}
+
+// DataDir returns the data directory.
+func (ctx *facadeContext) DataDir() string {
+	return ctx.r.shared.dataDir
+}
+
+// LogDir returns the log directory.
+func (ctx *facadeContext) LogDir() string {
+	return ctx.r.shared.logDir
 }
 
 // adminRoot dispatches API calls to those available to an anonymous connection

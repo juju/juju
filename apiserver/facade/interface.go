@@ -137,6 +137,15 @@ type Context interface {
 
 	// HTTPClient returns an HTTP client to use for the given purpose.
 	HTTPClient(purpose HTTPClientPurpose) HTTPClient
+
+	// MachineTag returns the current machine tag.
+	MachineTag() names.Tag
+
+	// DataDir returns the data directory.
+	DataDir() string
+
+	// LogDir returns the log directory.
+	LogDir() string
 }
 
 // ControllerDBGetter defines an interface for getting the controller DB.

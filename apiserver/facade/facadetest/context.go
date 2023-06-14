@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/state"
+	"github.com/juju/names/v4"
 )
 
 // Context implements facade.Context in the simplest possible way.
@@ -35,6 +36,10 @@ type Context struct {
 	CharmhubHTTPClient_ facade.HTTPClient
 	ControllerDB_       changestream.WatchableDB
 	DBDeleter_          database.DBDeleter
+
+	MachineTag_ names.Tag
+	DataDir_    string
+	LogDir_     string
 
 	// Identity is not part of the facade.Context interface, but is instead
 	// used to make sure that the context objects are the same.
@@ -147,4 +152,19 @@ func (context Context) ControllerDB() (changestream.WatchableDB, error) {
 
 func (context Context) DBDeleter() database.DBDeleter {
 	return context.DBDeleter_
+}
+
+// MachineTag returns the current machine tag.
+func (context Context) MachineTag() names.Tag {
+	return context.MachineTag_
+}
+
+// DataDir returns the data directory.
+func (context Context) DataDir() string {
+	return context.DataDir_
+}
+
+// LogDir returns the log directory.
+func (context Context) LogDir() string {
+	return context.LogDir_
 }

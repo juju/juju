@@ -10,6 +10,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/facade"
 	jujucontroller "github.com/juju/juju/controller"
@@ -53,6 +54,10 @@ type sharedServerContext struct {
 	controllerConfig jujucontroller.Config
 	features         set.Strings
 
+	machineTag names.Tag
+	dataDir    string
+	logDir     string
+
 	unsubscribe func()
 }
 
@@ -67,6 +72,9 @@ type sharedServerConfig struct {
 	charmhubHTTPClient  facade.HTTPClient
 	dbGetter            changestream.WatchableDBGetter
 	dbDeleter           database.DBDeleter
+	machineTag          names.Tag
+	dataDir             string
+	logDir              string
 }
 
 func (c *sharedServerConfig) validate() error {
@@ -94,6 +102,15 @@ func (c *sharedServerConfig) validate() error {
 	if c.dbDeleter == nil {
 		return errors.NotValidf("nil dbDeleter")
 	}
+	if c.machineTag == nil {
+		return errors.NotValidf("empty machineTag")
+	}
+	if c.dataDir == "" {
+		return errors.NotValidf("empty dataDir")
+	}
+	if c.logDir == "" {
+		return errors.NotValidf("empty logDir")
+	}
 	return nil
 }
 
@@ -112,6 +129,9 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		charmhubHTTPClient:  config.charmhubHTTPClient,
 		dbGetter:            config.dbGetter,
 		dbDeleter:           config.dbDeleter,
+		machineTag:          config.machineTag,
+		dataDir:             config.dataDir,
+		logDir:              config.logDir,
 	}
 	ctx.features = config.controllerConfig.Features()
 	// We are able to get the current controller config before subscribing to changes

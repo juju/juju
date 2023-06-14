@@ -43,16 +43,15 @@ func createOffersAPI(
 	backend Backend,
 	statePool StatePool,
 	authorizer facade.Authorizer,
-	resources facade.Resources,
 	authContext *commoncrossmodel.AuthContext,
+	dataDir string,
 ) (*OffersAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	dataDir := resources.Get("dataDir").(common.StringResource)
 	api := &OffersAPI{
-		dataDir:     dataDir.String(),
+		dataDir:     dataDir,
 		authContext: authContext,
 		BaseAPI: BaseAPI{
 			ctx:                  context.Background(),
