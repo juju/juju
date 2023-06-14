@@ -26,7 +26,7 @@ func (s *migrationSuite) TestMigrationSuccess(c *gc.C) {
 	}
 
 	db := s.DB()
-	m := NewDBMigration(db, stubLogger{}, deltas)
+	m := NewDBMigration(&txnRunner{db}, stubLogger{}, deltas)
 	c.Assert(m.Apply(context.Background()), jc.ErrorIsNil)
 
 	rows, err := db.Query("SELECT * from band;")

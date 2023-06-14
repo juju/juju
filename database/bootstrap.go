@@ -33,6 +33,18 @@ type bootstrapOptFactory interface {
 	WithTracingOption() app.Option
 }
 
+// txnRunning is the simplest implementation of stdTxnRunner, wrapping a
+// sql.DB reference. It is recruited to run the bootstrap DB migration,
+// where we do not yet have access to a transaction runner sourced from
+// dbaccessor worker.
+type txnRunner struct {
+	db *sql.DB
+}
+
+func (r *txnRunner) StdTxn(ctx context.Context, f func(context.Context, *sql.Tx) error) error {
+	return errors.Trace(StdTxn(ctx, r.db, f))
+}
+
 // BootstrapDqlite opens a new database for the controller, and runs the
 // DDL to create its schema.
 //
@@ -75,7 +87,7 @@ func BootstrapDqlite(ctx context.Context, opt bootstrapOptFactory, logger Logger
 		}
 	}()
 
-	if err := NewDBMigration(db, logger, schema.ControllerDDL(dqlite.ID())).Apply(ctx); err != nil {
+	if err := NewDBMigration(&txnRunner{db}, logger, schema.ControllerDDL(dqlite.ID())).Apply(ctx); err != nil {
 		return errors.Annotate(err, "creating controller database schema")
 	}
 
