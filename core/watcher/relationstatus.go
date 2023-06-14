@@ -24,11 +24,9 @@ type RelationStatusChange struct {
 
 // RelationStatusChannel is a channel used to notify of changes to
 // a relation's life or suspended status.
-type RelationStatusChannel <-chan []RelationStatusChange
+// This is deprecated; use <-chan []RelationStatusChange instead.
+type RelationStatusChannel = <-chan []RelationStatusChange
 
-// RelationStatusWatcher conveniently ties a RelationStatusChannel to the
-// worker.Worker that represents its validity.
-type RelationStatusWatcher interface {
-	CoreWatcher
-	Changes() RelationStatusChannel
-}
+// RelationStatusWatcher returns a slice of RelationStatusChanges when a
+// relation's life or suspended status changes.
+type RelationStatusWatcher = Watcher[[]RelationStatusChange]

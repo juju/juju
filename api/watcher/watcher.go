@@ -188,7 +188,7 @@ func (w *notifyWatcher) loop() error {
 
 // Changes returns a channel that receives a value when a given entity
 // changes in some way.
-func (w *notifyWatcher) Changes() watcher.NotifyChannel {
+func (w *notifyWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
@@ -240,7 +240,7 @@ func (w *stringsWatcher) loop(initialChanges []string) error {
 
 // Changes returns a channel that receives a list of strings of watched
 // entities with changes.
-func (w *stringsWatcher) Changes() watcher.StringsChannel {
+func (w *stringsWatcher) Changes() <-chan []string {
 	return w.out
 }
 
@@ -329,10 +329,7 @@ func (w *relationUnitsWatcher) Changes() watcher.RelationUnitsChannel {
 // structs - this makes more sense than converting to a core struct
 // just to convert back when the event is published to the other
 // model's API.
-type RemoteRelationWatcher interface {
-	watcher.CoreWatcher
-	Changes() <-chan params.RemoteRelationChangeEvent
-}
+type RemoteRelationWatcher = watcher.Watcher[params.RemoteRelationChangeEvent]
 
 // remoteRelationWatcher sends notifications of units entering and
 // leaving scope of a relation and changes to unit/application
@@ -733,35 +730,35 @@ type machineAttachmentsWatcher struct {
 	commonWatcher
 	caller                      base.APICaller
 	machineAttachmentsWatcherId string
-	out                         chan []watcher.MachineStorageId
+	out                         chan []watcher.MachineStorageID
 }
 
 // NewVolumeAttachmentsWatcher returns a MachineStorageIdsWatcher which
 // communicates with the VolumeAttachmentsWatcher API facade to watch
 // volume attachments.
-func NewVolumeAttachmentsWatcher(caller base.APICaller, result params.MachineStorageIdsWatchResult) watcher.MachineStorageIdsWatcher {
+func NewVolumeAttachmentsWatcher(caller base.APICaller, result params.MachineStorageIdsWatchResult) watcher.MachineStorageIDsWatcher {
 	return newMachineStorageIdsWatcher("VolumeAttachmentsWatcher", caller, result)
 }
 
 // NewVolumeAttachmentPlansWatcher returns a MachineStorageIdsWatcher which
 // communicates with the VolumeAttachmentPlansWatcher API facade to watch
 // volume attachments.
-func NewVolumeAttachmentPlansWatcher(caller base.APICaller, result params.MachineStorageIdsWatchResult) watcher.MachineStorageIdsWatcher {
+func NewVolumeAttachmentPlansWatcher(caller base.APICaller, result params.MachineStorageIdsWatchResult) watcher.MachineStorageIDsWatcher {
 	return newMachineStorageIdsWatcher("VolumeAttachmentPlansWatcher", caller, result)
 }
 
 // NewFilesystemAttachmentsWatcher returns a MachineStorageIdsWatcher which
 // communicates with the FilesystemAttachmentsWatcher API facade to watch
 // filesystem attachments.
-func NewFilesystemAttachmentsWatcher(caller base.APICaller, result params.MachineStorageIdsWatchResult) watcher.MachineStorageIdsWatcher {
+func NewFilesystemAttachmentsWatcher(caller base.APICaller, result params.MachineStorageIdsWatchResult) watcher.MachineStorageIDsWatcher {
 	return newMachineStorageIdsWatcher("FilesystemAttachmentsWatcher", caller, result)
 }
 
-func newMachineStorageIdsWatcher(facade string, caller base.APICaller, result params.MachineStorageIdsWatchResult) watcher.MachineStorageIdsWatcher {
+func newMachineStorageIdsWatcher(facade string, caller base.APICaller, result params.MachineStorageIdsWatchResult) watcher.MachineStorageIDsWatcher {
 	w := &machineAttachmentsWatcher{
 		caller:                      caller,
 		machineAttachmentsWatcherId: result.MachineStorageIdsWatcherId,
-		out:                         make(chan []watcher.MachineStorageId),
+		out:                         make(chan []watcher.MachineStorageID),
 	}
 	w.tomb.Go(func() error {
 		return w.loop(facade, result.Changes)
@@ -769,10 +766,10 @@ func newMachineStorageIdsWatcher(facade string, caller base.APICaller, result pa
 	return w
 }
 
-func copyMachineStorageIds(src []params.MachineStorageId) []watcher.MachineStorageId {
-	dst := make([]watcher.MachineStorageId, len(src))
+func copyMachineStorageIds(src []params.MachineStorageId) []watcher.MachineStorageID {
+	dst := make([]watcher.MachineStorageID, len(src))
 	for i, msi := range src {
-		dst[i] = watcher.MachineStorageId{
+		dst[i] = watcher.MachineStorageID{
 			MachineTag:    msi.MachineTag,
 			AttachmentTag: msi.AttachmentTag,
 		}
@@ -807,7 +804,7 @@ func (w *machineAttachmentsWatcher) loop(facade string, initialChanges []params.
 
 // Changes returns a channel that will receive the IDs of machine
 // storage entity attachments which have changed.
-func (w *machineAttachmentsWatcher) Changes() watcher.MachineStorageIdsChannel {
+func (w *machineAttachmentsWatcher) Changes() watcher.MachineStorageIDsChannel {
 	return w.out
 }
 

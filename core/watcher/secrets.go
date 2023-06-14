@@ -35,15 +35,14 @@ func (s SecretTriggerChange) GoString() string {
 	return fmt.Sprintf("%s%s trigger: %s", s.URI.ID, revMsg, whenMsg)
 }
 
-// SecretTriggerChannel is a change channel as described in the CoreWatcher docs.
-type SecretTriggerChannel <-chan []SecretTriggerChange
+// SecretTriggerChannel is a change channel as described in the CoreWatcher
+// docs.
+// This is deprecated; use <-chan []SecretTriggerChange instead.
+type SecretTriggerChannel = <-chan []SecretTriggerChange
 
-// SecretTriggerWatcher conveniently ties a SecretTriggerChannel to the
-// worker.Worker that represents its validity.
-type SecretTriggerWatcher interface {
-	CoreWatcher
-	Changes() SecretTriggerChannel
-}
+// SecretTriggerWatcher represents a watcher that reports the latest
+// trigger of a secret.
+type SecretTriggerWatcher = Watcher[[]SecretTriggerChange]
 
 // SecretRevisionChange describes changes to a secret.
 type SecretRevisionChange struct {
@@ -57,11 +56,9 @@ func (s SecretRevisionChange) GoString() string {
 
 // SecretRevisionChannel is a channel used to notify of
 // changes to a secret.
-type SecretRevisionChannel <-chan []SecretRevisionChange
+// This is deprecated; use <-chan []SecretRevisionChange instead.
+type SecretRevisionChannel = <-chan []SecretRevisionChange
 
-// SecretsRevisionWatcher conveniently ties an SecretRevisionChannel to the
-// worker.Worker that represents its validity.
-type SecretsRevisionWatcher interface {
-	CoreWatcher
-	Changes() SecretRevisionChannel
-}
+// SecretsRevisionWatcher represents a watcher that reports the latest
+// revision of a secret.
+type SecretsRevisionWatcher = Watcher[[]SecretRevisionChange]

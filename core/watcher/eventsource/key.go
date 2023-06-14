@@ -8,7 +8,6 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/watcher"
 )
 
 // KeyWatcher watches for changes to single database table row.
@@ -37,7 +36,7 @@ func NewKeyWatcher(base *BaseWatcher, tableName string, keyValue string) *KeyWat
 
 // Changes returns the channel on which notifications
 // are sent when the watched database row changes.
-func (w *KeyWatcher) Changes() watcher.NotifyChannel {
+func (w *KeyWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 

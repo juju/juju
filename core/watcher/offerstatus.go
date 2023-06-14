@@ -18,11 +18,9 @@ type OfferStatusChange struct {
 
 // OfferStatusChannel is a channel used to notify of changes to
 // an offer's status.
-type OfferStatusChannel <-chan []OfferStatusChange
+// This is deprecated; use <-chan []OfferStatusChange instead.
+type OfferStatusChannel = <-chan []OfferStatusChange
 
-// OfferStatusWatcher conveniently ties an OfferStatusChannel to the
-// worker.Worker that represents its validity.
-type OfferStatusWatcher interface {
-	CoreWatcher
-	Changes() OfferStatusChannel
-}
+// OfferStatusWatcher returns a slice of OfferStatusChanges when an
+// offer's status changes.
+type OfferStatusWatcher = Watcher[[]OfferStatusChange]

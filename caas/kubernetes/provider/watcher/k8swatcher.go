@@ -17,10 +17,7 @@ import (
 
 var logger = loggo.GetLogger("juju.kubernetes.provider.watcher")
 
-type KubernetesNotifyWatcher interface {
-	watcher.CoreWatcher
-	Changes() watcher.NotifyChannel
-}
+type KubernetesNotifyWatcher = watcher.NotifyWatcher
 
 // kubernetesNotifyWatcher reports changes to kubernetes
 // resources. A native kubernetes watcher is passed
@@ -119,7 +116,7 @@ func (w *kubernetesNotifyWatcher) loop() error {
 }
 
 // Changes returns the event channel for this watcher.
-func (w *kubernetesNotifyWatcher) Changes() watcher.NotifyChannel {
+func (w *kubernetesNotifyWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
@@ -134,10 +131,7 @@ func (w *kubernetesNotifyWatcher) Wait() error {
 	return w.catacomb.Wait()
 }
 
-type KubernetesStringsWatcher interface {
-	watcher.CoreWatcher
-	Changes() watcher.StringsChannel
-}
+type KubernetesStringsWatcher = watcher.StringsWatcher
 
 type kubernetesStringsWatcher struct {
 	clock    jujuclock.Clock
@@ -241,7 +235,7 @@ func (w *kubernetesStringsWatcher) loop() error {
 }
 
 // Changes returns the event channel for this watcher.
-func (w *kubernetesStringsWatcher) Changes() watcher.StringsChannel {
+func (w *kubernetesStringsWatcher) Changes() <-chan []string {
 	return w.out
 }
 

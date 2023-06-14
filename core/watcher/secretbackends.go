@@ -29,12 +29,11 @@ func (s SecretBackendRotateChange) GoString() string {
 	return fmt.Sprintf("%s token rotate: %s", s.Name, whenMsg)
 }
 
-// SecretBackendRotateChannel is a change channel as described in the CoreWatcher docs.
-type SecretBackendRotateChannel <-chan []SecretBackendRotateChange
+// SecretBackendRotateChannel is a change channel as described in the
+// CoreWatcher docs.
+// This is deprecated; use <-chan []SecretBackendRotateChange instead.
+type SecretBackendRotateChannel = <-chan []SecretBackendRotateChange
 
-// SecretBackendRotateWatcher conveniently ties a SecretBackendRotateChannel to the
-// worker.Worker that represents its validity.
-type SecretBackendRotateWatcher interface {
-	CoreWatcher
-	Changes() SecretBackendRotateChannel
-}
+// SecretBackendRotateWatcher represents a watcher that returns a slice of
+// SecretBackendRotateChange.
+type SecretBackendRotateWatcher = Watcher[[]SecretBackendRotateChange]

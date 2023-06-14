@@ -112,6 +112,6 @@ func (w *MultiNotifyWatcher) Err() error {
 	return w.tomb.Err()
 }
 
-func (w *MultiNotifyWatcher) Changes() NotifyChannel {
+func (w *MultiNotifyWatcher) Changes() <-chan struct{} {
 	return w.changes
 }
