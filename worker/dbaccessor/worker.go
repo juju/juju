@@ -18,8 +18,10 @@ import (
 	"gopkg.in/tomb.v2"
 
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/database"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/dqlite"
+	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/pubsub/apiserver"
 )
 
@@ -283,6 +285,16 @@ func (w *dbWorker) loop() (err error) {
 					req.done <- errors.Annotatef(err, "opening database for namespace %q", req.namespace)
 					continue
 				}
+
+				// This code path should only ever be encountered on the first
+				// request for a particular model database.
+				// Ensure that it has had the schema DDL applied.
+				if req.namespace != coredatabase.ControllerNS {
+					if err := w.ensureModelDBInitialised(req.namespace); err != nil {
+						req.done <- errors.Annotatef(err, "ensuring DB initialisation for namespace %q", req.namespace)
+						continue
+					}
+				}
 			} else if req.op == delOp {
 				// Close the database for the namespace.
 				if err := w.closeDatabase(req.namespace); err != nil {
@@ -323,7 +335,7 @@ func (w *dbWorker) Report() map[string]any {
 	defer w.mu.RUnlock()
 
 	// We need to guard against attempting to report when setting up or dying,
-	// so we don't end up panic'ing with missing information.
+	// so we don't end up panicking with missing information.
 	result := w.dbRunner.Report()
 
 	if w.dbApp == nil {
@@ -366,14 +378,14 @@ func (w *dbWorker) GetDB(namespace string) (coredatabase.TxnRunner, error) {
 		return nil, w.catacomb.ErrDying()
 	}
 
-	// First check if we've already got the db worker already running. If
-	// we have, then return out quickly. The dbRunner is the cache, so there
-	// is no need to have a in-memory cache here.
+	// First check if we've already got the db worker already running.
+	// If we have, then return out quickly. The dbRunner is the cache,
+	// so there is no need to have an in-memory cache here.
 	if tracked, err := w.dbRunner.Worker(namespace, w.catacomb.Dying()); err == nil {
 		return tracked.(coredatabase.TxnRunner), nil
 	} else if errors.Is(errors.Cause(err), worker.ErrDead) {
-		// Handle the case where the DB runner is dead due to this worker is
-		// dying.
+		// Handle the case where the DB runner is dead
+		// due to this worker currently dying.
 		select {
 		case <-w.catacomb.Dying():
 			return nil, w.catacomb.ErrDying()
@@ -382,8 +394,8 @@ func (w *dbWorker) GetDB(namespace string) (coredatabase.TxnRunner, error) {
 		}
 	}
 
-	// Enqueue the request as it's either starting up and we need to wait longer
-	// or it's not running and we need to start it.
+	// Enqueue the request as it's either starting up and
+	// we need to wait longer, or we need to start it.
 	req := makeDBGetRequest(namespace)
 	select {
 	case w.dbRequests <- req:
@@ -403,13 +415,12 @@ func (w *dbWorker) GetDB(namespace string) (coredatabase.TxnRunner, error) {
 		return nil, w.catacomb.ErrDying()
 	}
 
-	// This will return a not found error if the request was not honoured.
-	// The error will be logged - we don't crash this worker for bad calls.
-	tracked, err := w.dbRunner.Worker(namespace, w.catacomb.Dying())
+	tracked, err := w.txnRunnerForNamespace(namespace)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return tracked.(coredatabase.TxnRunner), nil
+
+	return tracked, nil
 }
 
 // DeleteDB deletes the dqlite-backed database that contains the data for
@@ -808,20 +819,15 @@ func (w *dbWorker) ensureNamespace(namespace string) error {
 	}
 
 	// Otherwise, we need to validate that the namespace exists.
-	controllerWorker, err := w.dbRunner.Worker(coredatabase.ControllerNS, w.catacomb.Dying())
+	db, err := w.txnRunnerForNamespace(coredatabase.ControllerNS)
 	if err != nil {
-		return errors.Annotatef(err, "getting controller worker")
-	}
-
-	dbGetter, ok := controllerWorker.(coredatabase.TxnRunner)
-	if !ok {
-		return errors.Errorf("worker is not a DBGetter")
+		return errors.Trace(err)
 	}
 
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	known, err := isNamespaceKnownToController(ctx, dbGetter, namespace)
+	known, err := isNamespaceKnownToController(ctx, db, namespace)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -831,6 +837,56 @@ func (w *dbWorker) ensureNamespace(namespace string) error {
 	return nil
 }
 
+func (w *dbWorker) ensureModelDBInitialised(namespace string) error {
+	db, err := w.txnRunnerForNamespace(namespace)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	// Check if the DB has metadata for one of our known tables.
+	var runDBMigration bool
+	if err := errors.Trace(db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(ctx, "SELECT 1 FROM sqlite_master WHERE name='change_log'")
+
+		var dummy int
+		if err := row.Scan(&dummy); err == nil {
+			// This database has the schema applied.
+			return nil
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			return errors.Trace(err)
+		}
+
+		// We need to run the migration.
+		runDBMigration = true
+		return nil
+	})); err != nil {
+		return errors.Trace(err)
+	}
+
+	if !runDBMigration {
+		return nil
+	}
+
+	return errors.Trace(database.NewDBMigration(db, w.cfg.Logger, schema.ModelDDL()).Apply(ctx))
+}
+
+func (w *dbWorker) txnRunnerForNamespace(namespace string) (coredatabase.TxnRunner, error) {
+	nsWorker, err := w.dbRunner.Worker(namespace, w.catacomb.Dying())
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting DB worker for %q", namespace)
+	}
+
+	db, ok := nsWorker.(coredatabase.TxnRunner)
+	if !ok {
+		return nil, errors.Errorf("worker is not a TxnRunner")
+	}
+
+	return db, nil
+}
+
 func isNamespaceKnownToController(ctx context.Context, db coredatabase.TxnRunner, namespace string) (bool, error) {
 	var known bool
 	err := db.StdTxn(ctx, func(ctx context.Context, db *sql.Tx) error {
@@ -838,7 +894,7 @@ func isNamespaceKnownToController(ctx context.Context, db coredatabase.TxnRunner
 
 		var uuid string
 		if err := row.Scan(&uuid); err != nil {
-			// No rows means the namespace is not known to the controller.
+			// ErrNoRows means the namespace is not known to the controller.
 			// We return a NotFound error to the caller.
 			if errors.Is(err, sql.ErrNoRows) {
 				return errors.NotFoundf("namespace %q", namespace)

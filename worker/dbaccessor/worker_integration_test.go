@@ -5,7 +5,8 @@ package dbaccessor_test
 
 import (
 	"context"
-	sql "database/sql"
+	"database/sql"
+	"github.com/canonical/sqlair"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -22,7 +23,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/database"
 	"github.com/juju/juju/database/app"
-	dqlite "github.com/juju/juju/database/dqlite"
+	"github.com/juju/juju/database/dqlite"
 	databasetesting "github.com/juju/juju/database/testing"
 	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/testing"
@@ -80,10 +81,11 @@ func (s *integrationSuite) SetUpSuite(c *gc.C) {
 	s.dbDeleter = w
 	s.worker = w
 
-	db, err := s.DBApp().Open(context.TODO(), coredatabase.ControllerNS)
+	db, err := s.DBApp().Open(context.Background(), coredatabase.ControllerNS)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = database.NewDBMigration(db, logger, schema.ControllerDDL(s.DBApp().ID())).Apply(context.TODO())
+	err = database.NewDBMigration(
+		&txnRunner{db}, logger, schema.ControllerDDL(s.DBApp().ID())).Apply(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -110,7 +112,7 @@ func (s *integrationSuite) TestWorkerAccessingUnknownDB(c *gc.C) {
 func (s *integrationSuite) TestWorkerAccessingKnownDB(c *gc.C) {
 	db, err := s.dbGetter.GetDB(coredatabase.ControllerNS)
 	c.Assert(err, jc.ErrorIsNil)
-	err = db.StdTxn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+	err = db.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO model_list (uuid) VALUES ("bar")`)
 		return err
 	})
@@ -119,6 +121,18 @@ func (s *integrationSuite) TestWorkerAccessingKnownDB(c *gc.C) {
 	db, err = s.dbGetter.GetDB("bar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(db, gc.NotNil)
+
+	// Check that the model schema DDL was applied.
+	type EditType struct {
+		EditType string `db:"edit_type"`
+	}
+	var results []EditType
+	q := sqlair.MustPrepare("SELECT &EditType.* FROM change_log_edit_type", EditType{})
+	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, q).GetAll(&results)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, gc.HasLen, 3)
 }
 
 func (s *integrationSuite) TestWorkerDeletingControllerDB(c *gc.C) {
@@ -135,7 +149,7 @@ func (s *integrationSuite) TestWorkerDeletingUnknownDB(c *gc.C) {
 func (s *integrationSuite) TestWorkerDeletingKnownDB(c *gc.C) {
 	ctrlDB, err := s.dbGetter.GetDB(coredatabase.ControllerNS)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctrlDB.StdTxn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+	err = ctrlDB.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO model_list (uuid) VALUES ("baz")`)
 		return err
 	})
@@ -147,7 +161,7 @@ func (s *integrationSuite) TestWorkerDeletingKnownDB(c *gc.C) {
 
 	// We need to unsure that we remove the namespace from the model list.
 	// Otherwise, the db will be recreated on the next call to GetDB.
-	err = ctrlDB.StdTxn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+	err = ctrlDB.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `DELETE FROM model_list WHERE uuid = "baz"`)
 		return errors.Cause(err)
 	})
@@ -166,7 +180,7 @@ func (s *integrationSuite) TestWorkerDeletingKnownDB(c *gc.C) {
 func (s *integrationSuite) TestWorkerDeletingKnownDBWithoutGetFirst(c *gc.C) {
 	ctrlDB, err := s.dbGetter.GetDB(coredatabase.ControllerNS)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctrlDB.StdTxn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+	err = ctrlDB.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO model_list (uuid) VALUES ("fred")`)
 		return err
 	})
@@ -174,7 +188,7 @@ func (s *integrationSuite) TestWorkerDeletingKnownDBWithoutGetFirst(c *gc.C) {
 
 	// We need to unsure that we remove the namespace from the model list.
 	// Otherwise, the db will be recreated on the next call to GetDB.
-	err = ctrlDB.StdTxn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+	err = ctrlDB.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `DELETE FROM model_list WHERE uuid = "fred"`)
 		return err
 	})
@@ -211,4 +225,12 @@ func (s *dqliteAppIntegrationSuite) SetUpTest(c *gc.C) {
 
 func (s *dqliteAppIntegrationSuite) TearDownTest(c *gc.C) {
 	s.IsolationSuite.TearDownTest(c)
+}
+
+type txnRunner struct {
+	db *sql.DB
+}
+
+func (r *txnRunner) StdTxn(ctx context.Context, f func(context.Context, *sql.Tx) error) error {
+	return errors.Trace(database.StdTxn(ctx, r.db, f))
 }
