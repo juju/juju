@@ -7,7 +7,7 @@ import (
 	"net/url"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -16,6 +16,7 @@ import (
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/store/mocks"
+	"github.com/juju/juju/core/series"
 )
 
 type resolveSuite struct {
@@ -40,10 +41,13 @@ func (s *resolveSuite) TestResolveCharm(c *gc.C) {
 	charmAdapter := store.NewCharmAdaptor(s.charmsAPI, func() (store.DownloadBundleClient, error) {
 		return s.downloadClient, nil
 	})
-	obtainedURL, obtainedOrigin, obtainedSeries, err := charmAdapter.ResolveCharm(curl, origin, false)
+	obtainedURL, obtainedOrigin, obtainedBases, err := charmAdapter.ResolveCharm(curl, origin, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedOrigin.Risk, gc.Equals, "edge")
-	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic", "focal"})
+	c.Assert(obtainedBases, jc.SameContents, []series.Base{
+		series.MustParseBaseFromString("ubuntu@18.04"),
+		series.MustParseBaseFromString("ubuntu@20.04"),
+	})
 	c.Assert(obtainedURL, gc.Equals, curl)
 }
 
@@ -156,9 +160,12 @@ func (s *resolveSuite) expectCharmResolutionCall(curl *charm.URL, out string, er
 		Risk:   out,
 	}
 	retVal := []apicharm.ResolvedCharm{{
-		URL:             curl,
-		Origin:          origin,
-		SupportedSeries: []string{"bionic", "focal"},
+		URL:    curl,
+		Origin: origin,
+		SupportedBases: []series.Base{
+			series.MustParseBaseFromString("ubuntu@18.04"),
+			series.MustParseBaseFromString("ubuntu@20.04"),
+		},
 	}}
 	s.charmsAPI.EXPECT().ResolveCharms(gomock.Any()).Return(retVal, err)
 }
@@ -169,10 +176,13 @@ func (s *resolveSuite) expectCharmResolutionCallWithAPIError(curl *charm.URL, ou
 		Risk:   out,
 	}
 	retVal := []apicharm.ResolvedCharm{{
-		URL:             curl,
-		Origin:          origin,
-		SupportedSeries: []string{"bionic", "focal"},
-		Error:           err,
+		URL:    curl,
+		Origin: origin,
+		SupportedBases: []series.Base{
+			series.MustParseBaseFromString("ubuntu@18.04"),
+			series.MustParseBaseFromString("ubuntu@20.04"),
+		},
+		Error: err,
 	}}
 	s.charmsAPI.EXPECT().ResolveCharms(gomock.Any()).Return(retVal, nil)
 }

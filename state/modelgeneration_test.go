@@ -6,7 +6,7 @@ package state_test
 import (
 	"time"
 
-	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v11"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"

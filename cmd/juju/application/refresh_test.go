@@ -12,8 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/charm/v10"
-	charmresource "github.com/juju/charm/v10/resource"
+	"github.com/juju/charm/v11"
+	charmresource "github.com/juju/charm/v11/resource"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
@@ -111,7 +111,7 @@ func (s *BaseRefreshSuite) setup(c *gc.C, currentCharmURL, latestCharmURL *charm
 
 	s.resolvedChannel = charm.Stable
 	s.resolveCharm = mockCharmResolver{
-		resolveFunc: func(url *charm.URL, preferredOrigin commoncharm.Origin, _ bool) (*charm.URL, commoncharm.Origin, []string, error) {
+		resolveFunc: func(url *charm.URL, preferredOrigin commoncharm.Origin, _ bool) (*charm.URL, commoncharm.Origin, []series.Base, error) {
 			s.AddCall("ResolveCharm", url, preferredOrigin)
 			if err := s.NextErr(); err != nil {
 				return nil, commoncharm.Origin{}, nil, err
@@ -120,7 +120,7 @@ func (s *BaseRefreshSuite) setup(c *gc.C, currentCharmURL, latestCharmURL *charm
 			if s.resolvedChannel != "" {
 				preferredOrigin.Risk = string(s.resolvedChannel)
 			}
-			return s.resolvedCharmURL, preferredOrigin, []string{"quantal"}, nil
+			return s.resolvedCharmURL, preferredOrigin, []series.Base{series.MustParseBaseFromString("ubuntu@12.10")}, nil
 		},
 	}
 
@@ -1103,10 +1103,10 @@ func (m *mockCharmClient) ListCharmResources(curl *charm.URL, origin commoncharm
 
 type mockCharmResolver struct {
 	testing.Stub
-	resolveFunc func(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error)
+	resolveFunc func(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []series.Base, error)
 }
 
-func (m *mockCharmResolver) ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error) {
+func (m *mockCharmResolver) ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []series.Base, error) {
 	return m.resolveFunc(url, preferredOrigin, switchCharm)
 }
 

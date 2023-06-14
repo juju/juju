@@ -5,8 +5,8 @@ package deployer
 
 import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	"github.com/juju/charm/v10"
-	charmresource "github.com/juju/charm/v10/resource"
+	"github.com/juju/charm/v11"
+	charmresource "github.com/juju/charm/v11/resource"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/names/v4"
 
@@ -131,7 +131,7 @@ type Bundle interface {
 type Resolver interface {
 	GetBundle(*charm.URL, commoncharm.Origin, string) (charm.Bundle, error)
 	ResolveBundleURL(*charm.URL, commoncharm.Origin) (*charm.URL, commoncharm.Origin, error)
-	ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error)
+	ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []series.Base, error)
 }
 
 type ModelConfigGetter interface {

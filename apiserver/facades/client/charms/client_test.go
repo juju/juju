@@ -8,7 +8,7 @@ import (
 	"net/url"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -219,18 +219,30 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 
 	expected := []params.ResolveCharmWithChannelResult{
 		{
-			URL:             curl.String(),
-			Origin:          stableOrigin,
-			SupportedSeries: []string{"bionic", "focal", "xenial"},
+			URL:    curl.String(),
+			Origin: stableOrigin,
+			SupportedBases: []params.Base{
+				{Name: "ubuntu", Channel: "18.04"},
+				{Name: "ubuntu", Channel: "20.04"},
+				{Name: "ubuntu", Channel: "16.04"},
+			},
 		}, {
-			URL:             curl.String(),
-			Origin:          stableOrigin,
-			SupportedSeries: []string{"bionic", "focal", "xenial"},
+			URL:    curl.String(),
+			Origin: stableOrigin,
+			SupportedBases: []params.Base{
+				{Name: "ubuntu", Channel: "18.04"},
+				{Name: "ubuntu", Channel: "20.04"},
+				{Name: "ubuntu", Channel: "16.04"},
+			},
 		},
 		{
-			URL:             seriesCurl.String(),
-			Origin:          edgeOrigin,
-			SupportedSeries: []string{"bionic", "focal", "xenial"},
+			URL:    seriesCurl.String(),
+			Origin: edgeOrigin,
+			SupportedBases: []params.Base{
+				{Name: "ubuntu", Channel: "18.04"},
+				{Name: "ubuntu", Channel: "20.04"},
+				{Name: "ubuntu", Channel: "16.04"},
+			},
 		},
 	}
 	result, err := api.ResolveCharms(args)
@@ -277,13 +289,73 @@ func (s *charmsMockSuite) TestResolveCharmNoDefinedSeries(c *gc.C) {
 	}
 
 	expected := []params.ResolveCharmWithChannelResult{{
-		URL:             seriesCurl.String(),
-		Origin:          edgeOrigin,
-		SupportedSeries: []string{"focal"},
+		URL:            seriesCurl.String(),
+		Origin:         edgeOrigin,
+		SupportedBases: []params.Base{{Name: "ubuntu", Channel: "20.04/stable"}},
 	}}
 	result, err := api.ResolveCharms(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results, jc.DeepEquals, expected)
+}
+
+func (s *charmsMockSuite) TestResolveCharmV6(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectResolveWithPreferredChannel(3, nil)
+	apiv6 := charms.APIv6{
+		&charms.APIv7{
+			API: s.api(c),
+		},
+	}
+
+	curl, err := charm.ParseURL("ch:testme")
+	c.Assert(err, jc.ErrorIsNil)
+	seriesCurl, err := charm.ParseURL("ch:amd64/focal/testme")
+	c.Assert(err, jc.ErrorIsNil)
+
+	edgeOrigin := params.CharmOrigin{
+		Source:       corecharm.CharmHub.String(),
+		Type:         "charm",
+		Risk:         "edge",
+		Architecture: "amd64",
+	}
+	stableOrigin := params.CharmOrigin{
+		Source:       corecharm.CharmHub.String(),
+		Type:         "charm",
+		Risk:         "stable",
+		Architecture: "amd64",
+	}
+
+	args := params.ResolveCharmsWithChannel{
+		Resolve: []params.ResolveCharmWithChannel{
+			{Reference: curl.String(), Origin: params.CharmOrigin{
+				Source:       corecharm.CharmHub.String(),
+				Architecture: "amd64",
+			}},
+			{Reference: curl.String(), Origin: stableOrigin},
+			{Reference: seriesCurl.String(), Origin: edgeOrigin},
+		},
+	}
+
+	expected := []params.ResolveCharmWithChannelResultV6{
+		{
+			URL:             curl.String(),
+			Origin:          stableOrigin,
+			SupportedSeries: []string{"bionic", "focal", "xenial"},
+		}, {
+			URL:             curl.String(),
+			Origin:          stableOrigin,
+			SupportedSeries: []string{"bionic", "focal", "xenial"},
+		},
+		{
+			URL:             seriesCurl.String(),
+			Origin:          edgeOrigin,
+			SupportedSeries: []string{"bionic", "focal", "xenial"},
+		},
+	}
+	result, err := apiv6.ResolveCharms(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 3)
 	c.Assert(result.Results, jc.DeepEquals, expected)
 }
 
@@ -647,7 +719,7 @@ func (s *charmsMockSuite) expectResolveWithPreferredChannel(times int, err error
 		gomock.AssignableToTypeOf(corecharm.Origin{}),
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []string, error) {
+		func(curl *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error) {
 			resolvedOrigin := requestedOrigin
 			resolvedOrigin.Type = "charm"
 
@@ -658,8 +730,12 @@ func (s *charmsMockSuite) expectResolveWithPreferredChannel(times int, err error
 
 				resolvedOrigin.Channel.Risk = "stable"
 			}
-
-			return curl, resolvedOrigin, []string{"bionic", "focal", "xenial"}, err
+			bases := []corecharm.Platform{
+				{OS: "ubuntu", Channel: "18.04"},
+				{OS: "ubuntu", Channel: "20.04"},
+				{OS: "ubuntu", Channel: "16.04"},
+			}
+			return curl, resolvedOrigin, bases, err
 		}).Times(times)
 }
 

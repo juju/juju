@@ -4,7 +4,7 @@
 package charmdownloader
 
 import (
-	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v11"
 	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/apiserver/facades/client/charms/services"

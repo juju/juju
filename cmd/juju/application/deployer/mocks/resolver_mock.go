@@ -8,8 +8,9 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v10"
+	charm "github.com/juju/charm/v11"
 	charm0 "github.com/juju/juju/api/common/charm"
+	series "github.com/juju/juju/core/series"
 )
 
 // MockResolver is a mock of Resolver interface.
@@ -67,12 +68,12 @@ func (mr *MockResolverMockRecorder) ResolveBundleURL(arg0, arg1 interface{}) *go
 }
 
 // ResolveCharm mocks base method.
-func (m *MockResolver) ResolveCharm(arg0 *charm.URL, arg1 charm0.Origin, arg2 bool) (*charm.URL, charm0.Origin, []string, error) {
+func (m *MockResolver) ResolveCharm(arg0 *charm.URL, arg1 charm0.Origin, arg2 bool) (*charm.URL, charm0.Origin, []series.Base, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveCharm", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*charm.URL)
 	ret1, _ := ret[1].(charm0.Origin)
-	ret2, _ := ret[2].([]string)
+	ret2, _ := ret[2].([]series.Base)
 	ret3, _ := ret[3].(error)
 	return ret0, ret1, ret2, ret3
 }

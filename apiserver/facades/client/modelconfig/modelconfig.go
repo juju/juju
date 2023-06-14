@@ -219,16 +219,13 @@ func (c *ModelConfigAPI) checkUpdateDefaultBase() state.ValidateConfigFunc {
 		cfgSeries, defaultSeriesOK := updateAttrs[config.DefaultSeriesKey]
 		_, defaultBaseOK := updateAttrs[config.DefaultBaseKey]
 
-		// If there is no default series, there is nothing to do.
-		if !defaultSeriesOK {
-			return nil
-		} else if defaultSeriesOK && defaultBaseOK {
-			// If the default-series is set and the default-base is set, error
-			// out, as you can't change both.
-			return errors.New("cannot set both default-series and default-base")
-		}
-
-		if defaultSeriesOK {
+		if defaultSeriesOK && defaultBaseOK {
+			if cfgSeries != "" {
+				// If the default-series is set (and non-empty) and the default-base is set, error
+				// out, as you can't change both.
+				return errors.New("cannot set both default-series and default-base")
+			}
+		} else if defaultSeriesOK {
 			// If the default-series is set, but empty, then we need to patch the
 			// base.
 			if cfgSeries == "" {
@@ -239,12 +236,12 @@ func (c *ModelConfigAPI) checkUpdateDefaultBase() state.ValidateConfigFunc {
 				if err != nil {
 					return errors.Trace(err)
 				}
-
 				updateAttrs[config.DefaultBaseKey] = base.String()
 			}
-			// Always remove the default-series.
-			delete(updateAttrs, config.DefaultSeriesKey)
 		}
+
+		// Always remove the default-series.
+		delete(updateAttrs, config.DefaultSeriesKey)
 		return nil
 	}
 }
