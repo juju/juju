@@ -4,9 +4,9 @@
 package eventsource
 
 import (
+	"errors"
 	"time"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
@@ -98,4 +98,42 @@ func (s *keySuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 
 	err := workertest.CheckKilled(c, w)
 	c.Check(errors.Is(err, ErrSubscriptionClosed), jc.IsTrue)
+}
+
+func (s *keySuite) TestEnsureCloseOnCleanKill(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	subExp := s.sub.EXPECT()
+	done := make(chan struct{})
+	subExp.Done().Return(done)
+	subExp.Unsubscribe()
+
+	s.events.EXPECT().Subscribe(
+		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
+	).Return(s.sub, nil)
+
+	w := NewKeyWatcher(s.newBaseWatcher(), "random_namespace", "key_value")
+
+	workertest.CleanKill(c, w)
+	_, ok := <-w.Changes()
+	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *keySuite) TestEnsureCloseOnDirtyKill(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	subExp := s.sub.EXPECT()
+	done := make(chan struct{})
+	subExp.Done().Return(done)
+	subExp.Unsubscribe()
+
+	s.events.EXPECT().Subscribe(
+		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
+	).Return(s.sub, nil)
+
+	w := NewKeyWatcher(s.newBaseWatcher(), "random_namespace", "key_value")
+
+	workertest.DirtyKill(c, w)
+	_, ok := <-w.Changes()
+	c.Assert(ok, jc.IsFalse)
 }
