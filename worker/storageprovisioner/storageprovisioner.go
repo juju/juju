@@ -46,12 +46,12 @@ type VolumeAccessor interface {
 
 	// WatchVolumeAttachments watches for changes to volume attachments
 	// that this storage provisioner is responsible for.
-	WatchVolumeAttachments(scope names.Tag) (watcher.MachineStorageIdsWatcher, error)
+	WatchVolumeAttachments(scope names.Tag) (watcher.MachineStorageIDsWatcher, error)
 
 	// WatchVolumeAttachmentPlans watches for changes to volume attachments
 	// destined for this machine. It allows the machine agent to do any extra
 	// initialization of the attachment, such as logging into the iSCSI target
-	WatchVolumeAttachmentPlans(scope names.Tag) (watcher.MachineStorageIdsWatcher, error)
+	WatchVolumeAttachmentPlans(scope names.Tag) (watcher.MachineStorageIDsWatcher, error)
 
 	// Volumes returns details of volumes with the specified tags.
 	Volumes([]names.VolumeTag) ([]params.VolumeResult, error)
@@ -99,7 +99,7 @@ type FilesystemAccessor interface {
 
 	// WatchFilesystemAttachments watches for changes to filesystem attachments
 	// that this storage provisioner is responsible for.
-	WatchFilesystemAttachments(scope names.Tag) (watcher.MachineStorageIdsWatcher, error)
+	WatchFilesystemAttachments(scope names.Tag) (watcher.MachineStorageIDsWatcher, error)
 
 	// Filesystems returns details of filesystems with the specified tags.
 	Filesystems([]names.FilesystemTag) ([]params.FilesystemResult, error)
@@ -207,9 +207,9 @@ func (w *storageProvisioner) loop() error {
 	var (
 		volumesChanges               watcher.StringsChannel
 		filesystemsChanges           watcher.StringsChannel
-		volumeAttachmentsChanges     watcher.MachineStorageIdsChannel
-		volumeAttachmentPlansChanges watcher.MachineStorageIdsChannel
-		filesystemAttachmentsChanges watcher.MachineStorageIdsChannel
+		volumeAttachmentsChanges     watcher.MachineStorageIDsChannel
+		volumeAttachmentPlansChanges watcher.MachineStorageIDsChannel
+		filesystemAttachmentsChanges watcher.MachineStorageIDsChannel
 		machineBlockDevicesChanges   <-chan struct{}
 	)
 	machineChanges := make(chan names.MachineTag)

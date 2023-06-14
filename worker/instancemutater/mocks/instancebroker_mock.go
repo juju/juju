@@ -52,10 +52,10 @@ func (mr *MockInstanceMutaterAPIMockRecorder) Machine(arg0 interface{}) *gomock.
 }
 
 // WatchModelMachines mocks base method.
-func (m *MockInstanceMutaterAPI) WatchModelMachines() (watcher.StringsWatcher, error) {
+func (m *MockInstanceMutaterAPI) WatchModelMachines() (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchModelMachines")
-	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

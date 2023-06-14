@@ -116,27 +116,27 @@ func (st *Client) watchStorageEntities(method string, scope names.Tag) (watcher.
 
 // WatchVolumeAttachments watches for changes to volume attachments
 // scoped to the entity with the specified tag.
-func (st *Client) WatchVolumeAttachments(scope names.Tag) (watcher.MachineStorageIdsWatcher, error) {
+func (st *Client) WatchVolumeAttachments(scope names.Tag) (watcher.MachineStorageIDsWatcher, error) {
 	return st.watchAttachments("WatchVolumeAttachments", scope, apiwatcher.NewVolumeAttachmentsWatcher)
 }
 
 // WatchVolumeAttachmentPlans watches for changes to volume attachments
 // scoped to the entity with the tag passed to NewClient.
-func (st *Client) WatchVolumeAttachmentPlans(scope names.Tag) (watcher.MachineStorageIdsWatcher, error) {
+func (st *Client) WatchVolumeAttachmentPlans(scope names.Tag) (watcher.MachineStorageIDsWatcher, error) {
 	return st.watchAttachments("WatchVolumeAttachmentPlans", scope, apiwatcher.NewVolumeAttachmentPlansWatcher)
 }
 
 // WatchFilesystemAttachments watches for changes to filesystem attachments
 // scoped to the entity with the specified tag.
-func (st *Client) WatchFilesystemAttachments(scope names.Tag) (watcher.MachineStorageIdsWatcher, error) {
+func (st *Client) WatchFilesystemAttachments(scope names.Tag) (watcher.MachineStorageIDsWatcher, error) {
 	return st.watchAttachments("WatchFilesystemAttachments", scope, apiwatcher.NewFilesystemAttachmentsWatcher)
 }
 
 func (st *Client) watchAttachments(
 	method string,
 	scope names.Tag,
-	newWatcher func(base.APICaller, params.MachineStorageIdsWatchResult) watcher.MachineStorageIdsWatcher,
-) (watcher.MachineStorageIdsWatcher, error) {
+	newWatcher func(base.APICaller, params.MachineStorageIdsWatchResult) watcher.MachineStorageIDsWatcher,
+) (watcher.MachineStorageIDsWatcher, error) {
 	var results params.MachineStorageIdsWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: scope.String()}},

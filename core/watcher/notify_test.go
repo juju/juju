@@ -143,7 +143,7 @@ type testNotifyWatcher struct {
 	stopError error
 }
 
-func (tnw *testNotifyWatcher) Changes() watcher.NotifyChannel {
+func (tnw *testNotifyWatcher) Changes() <-chan struct{} {
 	return tnw.changes
 }
 

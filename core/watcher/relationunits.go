@@ -34,11 +34,14 @@ type RelationUnitsChange struct {
 //
 // It feeds the joined-changed-departed logic in worker/uniter, but these events
 // do not map 1:1 with hooks.
-type RelationUnitsChannel <-chan RelationUnitsChange
+// This is deprecated; use <-chan RelationUnitsChange instead.
+type RelationUnitsChannel = <-chan RelationUnitsChange
 
-// RelationUnitsWatcher conveniently ties a RelationUnitsChannel to the
-// worker.Worker that represents its validity.
-type RelationUnitsWatcher interface {
-	CoreWatcher
-	Changes() RelationUnitsChannel
-}
+// RelationUnitsWatcher sends a single value representing the current membership
+// of a relation scope; and the versions of the settings documents for each; and
+// subsequent values representing entry, settings-change, and departure for
+// units in that scope.
+//
+// It feeds the joined-changed-departed logic in worker/uniter, but these events
+// do not map 1:1 with hooks.
+type RelationUnitsWatcher = Watcher[RelationUnitsChange]

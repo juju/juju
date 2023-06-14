@@ -67,7 +67,7 @@ func filesystemsChanged(ctx *context, changes []string) error {
 
 // filesystemAttachmentsChanged is called when the lifecycle states of the filesystem
 // attachments with the provided IDs have been seen to have changed.
-func filesystemAttachmentsChanged(ctx *context, watcherIds []watcher.MachineStorageId) error {
+func filesystemAttachmentsChanged(ctx *context, watcherIds []watcher.MachineStorageID) error {
 	ids := copyMachineStorageIds(watcherIds)
 	alive, dying, dead, gone, err := attachmentLife(ctx, ids)
 	if err != nil {

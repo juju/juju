@@ -203,7 +203,7 @@ func sourceParams(
 	return provider, sourceConfig, nil
 }
 
-func copyMachineStorageIds(src []watcher.MachineStorageId) []params.MachineStorageId {
+func copyMachineStorageIds(src []watcher.MachineStorageID) []params.MachineStorageId {
 	dst := make([]params.MachineStorageId, len(src))
 	for i, msid := range src {
 		dst[i] = params.MachineStorageId{

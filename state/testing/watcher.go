@@ -257,7 +257,7 @@ func NewRelationUnitsWatcherC(c *gc.C, w RelationUnitsWatcher) RelationUnitsWatc
 
 type RelationUnitsWatcher interface {
 	Stop() error
-	Changes() watcher.RelationUnitsChannel
+	Changes() <-chan watcher.RelationUnitsChange
 }
 
 func (c RelationUnitsWatcherC) AssertNoChange() {
@@ -343,7 +343,7 @@ func NewSecretsTriggerWatcherC(c *gc.C, w SecretsTriggerWatcher) SecretsTriggerW
 
 type SecretsTriggerWatcher interface {
 	Stop() error
-	Changes() watcher.SecretTriggerChannel
+	Changes() <-chan []watcher.SecretTriggerChange
 }
 
 func (c SecretsTriggerWatcherC) AssertNoChange() {
@@ -405,7 +405,7 @@ func NewSecretBackendRotateWatcherC(c *gc.C, w SecretBackendRotateWatcher) Secre
 
 type SecretBackendRotateWatcher interface {
 	Stop() error
-	Changes() watcher.SecretBackendRotateChannel
+	Changes() <-chan []watcher.SecretBackendRotateChange
 }
 
 func (c SecretBackendRotateWatcherC) AssertNoChange() {

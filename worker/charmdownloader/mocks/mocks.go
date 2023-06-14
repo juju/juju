@@ -50,10 +50,10 @@ func (mr *MockCharmDownloaderAPIMockRecorder) DownloadApplicationCharms(arg0 int
 }
 
 // WatchApplicationsWithPendingCharms mocks base method.
-func (m *MockCharmDownloaderAPI) WatchApplicationsWithPendingCharms() (watcher.StringsWatcher, error) {
+func (m *MockCharmDownloaderAPI) WatchApplicationsWithPendingCharms() (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchApplicationsWithPendingCharms")
-	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

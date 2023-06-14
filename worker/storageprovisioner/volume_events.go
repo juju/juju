@@ -77,7 +77,7 @@ func sortVolumeAttachmentPlans(ctx *context, ids []params.MachineStorageId) (
 	return
 }
 
-func volumeAttachmentPlansChanged(ctx *context, watcherIds []watcher.MachineStorageId) error {
+func volumeAttachmentPlansChanged(ctx *context, watcherIds []watcher.MachineStorageID) error {
 	ctx.config.Logger.Debugf("Got machine storage ids: %v", watcherIds)
 	ids := copyMachineStorageIds(watcherIds)
 	alive, dying, dead, err := sortVolumeAttachmentPlans(ctx, ids)
@@ -178,7 +178,7 @@ func volumePlansToMachineIds(plans []params.VolumeAttachmentPlanResult) []params
 
 // volumeAttachmentsChanged is called when the lifecycle states of the volume
 // attachments with the provided IDs have been seen to have changed.
-func volumeAttachmentsChanged(ctx *context, watcherIds []watcher.MachineStorageId) error {
+func volumeAttachmentsChanged(ctx *context, watcherIds []watcher.MachineStorageID) error {
 	ids := copyMachineStorageIds(watcherIds)
 	alive, dying, dead, gone, err := attachmentLife(ctx, ids)
 	if err != nil {

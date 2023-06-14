@@ -184,10 +184,10 @@ func (mr *MockUnitMockRecorder) Tag() *gomock.Call {
 }
 
 // Watch mocks base method.
-func (m *MockUnit) Watch() (watcher.NotifyWatcher, error) {
+func (m *MockUnit) Watch() (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Watch")
-	ret0, _ := ret[0].(watcher.NotifyWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

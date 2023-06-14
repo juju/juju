@@ -137,7 +137,7 @@ type testStringsWatcher struct {
 	stopError error
 }
 
-func (tsw *testStringsWatcher) Changes() watcher.StringsChannel {
+func (tsw *testStringsWatcher) Changes() <-chan []string {
 	return tsw.changes
 }
 

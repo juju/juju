@@ -247,7 +247,7 @@ func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 		select {
 		case changes, ok := <-w.Changes():
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(changes, jc.SameContents, []corewatcher.MachineStorageId{{
+			c.Assert(changes, jc.SameContents, []corewatcher.MachineStorageID{{
 				MachineTag:    machine,
 				AttachmentTag: attachment,
 			}})

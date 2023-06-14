@@ -260,10 +260,10 @@ func (mr *MockCAASProvisionerFacadeMockRecorder) UpdateUnits(arg0 interface{}) *
 }
 
 // WatchApplication mocks base method.
-func (m *MockCAASProvisionerFacade) WatchApplication(arg0 string) (watcher.NotifyWatcher, error) {
+func (m *MockCAASProvisionerFacade) WatchApplication(arg0 string) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchApplication", arg0)
-	ret0, _ := ret[0].(watcher.NotifyWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -275,10 +275,10 @@ func (mr *MockCAASProvisionerFacadeMockRecorder) WatchApplication(arg0 interface
 }
 
 // WatchApplications mocks base method.
-func (m *MockCAASProvisionerFacade) WatchApplications() (watcher.StringsWatcher, error) {
+func (m *MockCAASProvisionerFacade) WatchApplications() (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchApplications")
-	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -290,10 +290,10 @@ func (mr *MockCAASProvisionerFacadeMockRecorder) WatchApplications() *gomock.Cal
 }
 
 // WatchProvisioningInfo mocks base method.
-func (m *MockCAASProvisionerFacade) WatchProvisioningInfo(arg0 string) (watcher.NotifyWatcher, error) {
+func (m *MockCAASProvisionerFacade) WatchProvisioningInfo(arg0 string) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchProvisioningInfo", arg0)
-	ret0, _ := ret[0].(watcher.NotifyWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -305,10 +305,10 @@ func (mr *MockCAASProvisionerFacadeMockRecorder) WatchProvisioningInfo(arg0 inte
 }
 
 // WatchUnits mocks base method.
-func (m *MockCAASProvisionerFacade) WatchUnits(arg0 string) (watcher.StringsWatcher, error) {
+func (m *MockCAASProvisionerFacade) WatchUnits(arg0 string) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchUnits", arg0)
-	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

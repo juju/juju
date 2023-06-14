@@ -28,8 +28,8 @@ func NewMockNotifyWatcher(ch <-chan struct{}) *MockNotifyWatcher {
 	return w
 }
 
-func (w *MockNotifyWatcher) Changes() watcher.NotifyChannel {
-	return watcher.NotifyChannel(w.ch)
+func (w *MockNotifyWatcher) Changes() <-chan struct{} {
+	return w.ch
 }
 
 func (w *MockNotifyWatcher) Stop() error {
