@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v10"
-	charmresource "github.com/juju/charm/v10/resource"
+	"github.com/juju/charm/v11"
+	charmresource "github.com/juju/charm/v11/resource"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/collections/set"
@@ -1565,13 +1565,13 @@ func (s *DeploySuite) TestDeployWithChannel(c *gc.C) {
 	s.fakeAPI.Call("ResolveCharm", curl, origin, false).Returns(
 		curl,
 		origin,
-		[]string{"jammy"}, // Supported series
+		[]series.Base{series.MustParseBaseFromString("ubuntu@22.04")}, // Supported bases
 		error(nil),
 	)
 	s.fakeAPI.Call("ResolveCharm", curl, originWithSeries, false).Returns(
 		curl,
 		originWithSeries,
-		[]string{"jammy"}, // Supported series
+		[]series.Base{series.MustParseBaseFromString("ubuntu@22.04")}, // Supported bases
 		error(nil),
 	)
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
@@ -1664,10 +1664,12 @@ func (s *FakeStoreStateSuite) setupCharmMaybeAddForce(c *gc.C, url, name, aserie
 				origin, err := apputils.DeduceOrigin(url, charm.Channel{}, platform)
 				c.Assert(err, jc.ErrorIsNil)
 
+				abase, err := series.GetBaseFromSeries(aseries)
+				c.Assert(err, jc.ErrorIsNil)
 				s.fakeAPI.Call("ResolveCharm", url, origin, false).Returns(
 					resolveURL,
 					origin,
-					[]string{aseries},
+					[]series.Base{abase},
 					error(nil),
 				)
 				s.fakeAPI.Call("AddCharm", resolveURL, origin, force).Returns(origin, error(nil))
@@ -2233,7 +2235,7 @@ func (f *fakeDeployAPI) ModelGet() (map[string]interface{}, error) {
 func (f *fakeDeployAPI) ResolveCharm(url *charm.URL, preferredChannel commoncharm.Origin, switchCharm bool) (
 	*charm.URL,
 	commoncharm.Origin,
-	[]string,
+	[]series.Base,
 	error,
 ) {
 	results := f.MethodCall(f, "ResolveCharm", url, preferredChannel, switchCharm)
@@ -2247,7 +2249,7 @@ func (f *fakeDeployAPI) ResolveCharm(url *charm.URL, preferredChannel commonchar
 	}
 	return results[0].(*charm.URL),
 		results[1].(commoncharm.Origin),
-		results[2].([]string),
+		results[2].([]series.Base),
 		jujutesting.TypeAssertError(results[3])
 }
 
@@ -2652,7 +2654,7 @@ func withCharmRepoResolvable(
 		fakeAPI.Call("ResolveCharm", url, origin, false).Returns(
 			url,
 			origin,
-			[]string{"jammy"}, // Supported series
+			[]series.Base{series.MustParseBaseFromString("ubuntu@22.04")}, // Supported bases
 			error(nil),
 		)
 	}

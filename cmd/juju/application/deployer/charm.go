@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v11"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
@@ -446,7 +447,7 @@ func (c *repositoryCharm) compatibilityPrepareAndDeploy(ctx *cmd.Context, deploy
 		origin.Base = base
 		usingDefaultSeries = true
 	}
-	storeCharmOrBundleURL, origin, supportedSeries, err := resolver.ResolveCharm(userRequestedURL, origin, false) // no --switch possible.
+	storeCharmOrBundleURL, origin, supportedBases, err := resolver.ResolveCharm(userRequestedURL, origin, false) // no --switch possible.
 	if charm.IsUnsupportedSeriesError(err) {
 		msg := fmt.Sprintf("%v. Use --force to deploy the charm anyway.", err)
 		if usingDefaultSeries {
@@ -467,6 +468,10 @@ func (c *repositoryCharm) compatibilityPrepareAndDeploy(ctx *cmd.Context, deploy
 		if err != nil {
 			return errors.Trace(err)
 		}
+	}
+	supportedSeries, err := transform.SliceOrErr(supportedBases, series.GetSeriesFromBase)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	selector := corecharm.SeriesSelector{

@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v10"
+	charm "github.com/juju/charm/v11"
 )
 
 // MockBundleDataSource is a mock of BundleDataSource interface.

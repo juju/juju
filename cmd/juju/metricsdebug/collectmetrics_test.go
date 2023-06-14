@@ -4,7 +4,7 @@
 package metricsdebug_test
 
 import (
-	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v11"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"

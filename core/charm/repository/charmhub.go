@@ -9,8 +9,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/juju/charm/v10"
-	charmresource "github.com/juju/charm/v10/resource"
+	"github.com/juju/charm/v11"
+	charmresource "github.com/juju/charm/v11/resource"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/charmhub"
@@ -44,15 +44,15 @@ func NewCharmHubRepository(logger Logger, chClient CharmHubClient) *CharmHubRepo
 // ResolveWithPreferredChannel defines a way using the given charm URL and
 // charm origin (platform and channel) to locate a matching charm against the
 // Charmhub API.
-func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, argOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []string, error) {
+func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, argOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error) {
 	c.logger.Tracef("Resolving CharmHub charm %q with origin %+v", charmURL, argOrigin)
 
 	requestedOrigin, err := c.validateOrigin(argOrigin)
 	if err != nil {
 		return nil, corecharm.Origin{}, nil, err
 	}
-	resCurl, outputOrigin, supportedSeries, _, err := c.resolveWithPreferredChannel(charmURL, requestedOrigin)
-	return resCurl, outputOrigin, supportedSeries, err
+	resCurl, outputOrigin, resolvedBases, _, err := c.resolveWithPreferredChannel(charmURL, requestedOrigin)
+	return resCurl, outputOrigin, resolvedBases, err
 }
 
 // ResolveForDeploy combines ResolveWithPreferredChannel, GetEssentialMetadata
@@ -108,14 +108,14 @@ func (c *CharmHubRepository) ResolveForDeploy(arg corecharm.CharmID) (corecharm.
 //  3. In theory we could just return most of this information without the
 //     re-request, but we end up with missing data and potential incorrect
 //     charm downloads later.
-func (c *CharmHubRepository) resolveWithPreferredChannel(charmURL *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []string, transport.RefreshResponse, error) {
+func (c *CharmHubRepository) resolveWithPreferredChannel(charmURL *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, transport.RefreshResponse, error) {
 	// First attempt to find the charm based on the only input provided.
 	response, err := c.refreshOne(charmURL, requestedOrigin)
 	if err != nil {
 		return nil, corecharm.Origin{}, nil, transport.RefreshResponse{}, errors.Annotatef(err, "resolving with preferred channel")
 	}
 
-	// resolvableBases holds a slice of supported bases from the subsequent
+	// resolvedBases holds a slice of supported bases from the subsequent
 	// refresh API call. The bases can inform the consumer of the API about what
 	// they can also install *IF* the retry resolution uses a base that doesn't
 	// match their requirements. This can happen in the client if the series
@@ -123,7 +123,7 @@ func (c *CharmHubRepository) resolveWithPreferredChannel(charmURL *charm.URL, re
 	// call.
 	var (
 		effectiveChannel  string
-		resolvableBases   []corecharm.Platform
+		resolvedBases     []corecharm.Platform
 		chSuggestedOrigin = requestedOrigin
 	)
 	switch {
@@ -134,21 +134,21 @@ func (c *CharmHubRepository) resolveWithPreferredChannel(charmURL *charm.URL, re
 		}
 
 		response = retryResult.refreshResponse
-		resolvableBases = retryResult.bases
+		resolvedBases = retryResult.bases
 		chSuggestedOrigin = retryResult.origin
 
 		// Fill these back on the origin, so that we can fix the issue of
 		// bundles passing back "all" on the response type.
 		// Note: we can be sure these have at least one, because of the
 		// validation logic in retry method.
-		requestedOrigin.Platform.OS = resolvableBases[0].OS
-		requestedOrigin.Platform.Channel = resolvableBases[0].Channel
+		requestedOrigin.Platform.OS = resolvedBases[0].OS
+		requestedOrigin.Platform.Channel = resolvedBases[0].Channel
 
 		effectiveChannel = response.EffectiveChannel
 	case requestedOrigin.Revision != nil && *requestedOrigin.Revision != -1:
 		if len(response.Entity.Bases) > 0 {
 			for _, v := range response.Entity.Bases {
-				resolvableBases = append(resolvableBases, corecharm.Platform{
+				resolvedBases = append(resolvedBases, corecharm.Platform{
 					Architecture: v.Architecture,
 					OS:           v.Name,
 					Channel:      v.Channel,
@@ -212,40 +212,20 @@ func (c *CharmHubRepository) resolveWithPreferredChannel(charmURL *charm.URL, re
 	}
 	c.logger.Tracef("Resolved CharmHub charm %q with origin %v", resCurl, outputOrigin)
 
-	// If the callee of the API defines a series and that series is pick and
-	// identified as being selected (think `juju deploy --series`) then we will
+	// If the callee of the API defines a base and that base is pick and
+	// identified as being selected (think `juju deploy --base`) then we will
 	// never have to retry. The API will never give us back any other supported
-	// series, so we can just pass back what the callee requested.
+	// base, so we can just pass back what the callee requested.
 	// This is the happy path for resolving a charm.
 	//
-	// Unfortunately, most deployments will not pass a series flag, so we will
+	// Unfortunately, most deployments will not pass a base flag, so we will
 	// have to ask the API to give us back a potential base. The supported
-	// bases can be passed back as a slice of supported series. The callee can
-	// then determine which base they want to use and deploy that accordingly,
-	// without another API request.
-	// TODO(juju3) - we should use supported channels not series
-	var series string
-	if outputOrigin.Platform.Channel != "" {
-		series, err = coreseries.GetSeriesFromChannel(outputOrigin.Platform.OS, outputOrigin.Platform.Channel)
-		if err != nil {
-			return nil, corecharm.Origin{}, nil, transport.RefreshResponse{}, errors.Trace(err)
-		}
+	// bases can be passed back. The callee can then determine which base they
+	// want to use and deploy that accordingly without another API request.
+	if len(resolvedBases) == 0 && outputOrigin.Platform.Channel != "" {
+		resolvedBases = []corecharm.Platform{outputOrigin.Platform}
 	}
-	supportedSeries := []string{
-		series,
-	}
-	if len(resolvableBases) > 0 {
-		supportedSeries = make([]string, len(resolvableBases))
-		for k, base := range resolvableBases {
-			series, err = coreseries.GetSeriesFromChannel(base.OS, base.Channel)
-			if err != nil {
-				return nil, corecharm.Origin{}, nil, transport.RefreshResponse{}, errors.Trace(err)
-			}
-			supportedSeries[k] = series
-		}
-	}
-
-	return resCurl, outputOrigin, supportedSeries, response, nil
+	return resCurl, outputOrigin, resolvedBases, response, nil
 }
 
 // validateOrigin, validate the origin and maybe fix as follows:

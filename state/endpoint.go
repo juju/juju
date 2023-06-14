@@ -6,7 +6,7 @@ package state
 import (
 	"fmt"
 
-	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v11"
 )
 
 // counterpartRole returns the RelationRole that this RelationRole

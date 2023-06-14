@@ -10,7 +10,7 @@ import (
 
 var HasHooksOrDispatch = &hasHooksOrDispatch
 
-func NewClientWithFacade(facade base.FacadeCaller) *Client {
+func NewClientWithFacade(facade base.FacadeCaller, clientFacade base.ClientFacade) *Client {
 	charmInfoClient := commoncharms.NewCharmInfoClient(facade)
-	return &Client{facade: facade, CharmInfoClient: charmInfoClient}
+	return &Client{facade: facade, ClientFacade: clientFacade, CharmInfoClient: charmInfoClient}
 }

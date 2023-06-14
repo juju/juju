@@ -7,8 +7,8 @@ import (
 	"bytes"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v10"
-	charmresource "github.com/juju/charm/v10/resource"
+	"github.com/juju/charm/v11"
+	charmresource "github.com/juju/charm/v11/resource"
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -265,8 +265,12 @@ func (s *charmSuite) expectResolveChannel() {
 		false,
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, requestedOrigin commoncharm.Origin, _ bool) (*charm.URL, commoncharm.Origin, []string, error) {
-			return curl, requestedOrigin, []string{"bionic", "focal", "xenial"}, nil
+		func(curl *charm.URL, requestedOrigin commoncharm.Origin, _ bool) (*charm.URL, commoncharm.Origin, []series.Base, error) {
+			return curl, requestedOrigin, []series.Base{
+				series.MustParseBaseFromString("ubuntu@18.04"),
+				series.MustParseBaseFromString("ubuntu@20.04"),
+				series.MustParseBaseFromString("ubuntu@16.04"),
+			}, nil
 		}).AnyTimes()
 }
 

@@ -4,7 +4,7 @@
 package interfaces
 
 import (
-	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v11"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
