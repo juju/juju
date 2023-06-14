@@ -95,6 +95,90 @@ func (s *stateSuite) TestRetrieveExternalControllerNotFound(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `external controller "ctrl1" not found`)
 }
 
+func (s *stateSuite) TestRetrieveExternalControllerForModel(c *gc.C) {
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	db := s.DB()
+
+	// Insert a single external controller.
+	_, err := db.Exec(`INSERT INTO external_controller VALUES
+("ctrl1", "my-controller", "test-cert")`)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
+("addr1", "ctrl1", "192.168.1.1")`)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
+("addr2", "ctrl1", "10.0.0.1")`)
+	c.Assert(err, jc.ErrorIsNil)
+	// Insert a model corresponding to that controller.
+	_, err = db.Exec(`INSERT INTO external_model VALUES
+("model1", "ctrl1")`)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Retrieve the created external controller.
+	controllerInfo, err := st.ControllerForModel(ctx.Background(), "model1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(controllerInfo.ControllerTag.Id(), gc.Equals, "ctrl1")
+	c.Assert(controllerInfo.Alias, gc.Equals, "my-controller")
+	c.Assert(controllerInfo.CACert, gc.Equals, "test-cert")
+	c.Assert(controllerInfo.Addrs, jc.SameContents, []string{"192.168.1.1", "10.0.0.1"})
+}
+
+func (s *stateSuite) TestRetrieveExternalControllerForModelWithoutAddresses(c *gc.C) {
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	db := s.DB()
+
+	// Insert a single external controller.
+	_, err := db.Exec(`INSERT INTO external_controller VALUES
+("ctrl1", "my-controller", "test-cert")`)
+	c.Assert(err, jc.ErrorIsNil)
+	// Insert a model corresponding to that controller.
+	_, err = db.Exec(`INSERT INTO external_model VALUES
+("model1", "ctrl1")`)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Retrieve the created external controller.
+	controllerInfo, err := st.ControllerForModel(ctx.Background(), "model1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(controllerInfo.ControllerTag.Id(), gc.Equals, "ctrl1")
+	c.Assert(controllerInfo.Alias, gc.Equals, "my-controller")
+	c.Assert(controllerInfo.CACert, gc.Equals, "test-cert")
+	c.Assert(controllerInfo.Addrs, gc.HasLen, 0)
+}
+
+func (s *stateSuite) TestRetrieveExternalControllerForModelWithoutAlias(c *gc.C) {
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	db := s.DB()
+
+	// Insert a single external controller.
+	_, err := db.Exec(`INSERT INTO external_controller(uuid,ca_cert) VALUES	
+("ctrl1", "test-cert")`)
+	c.Assert(err, jc.ErrorIsNil)
+	// Insert a model corresponding to that controller.
+	_, err = db.Exec(`INSERT INTO external_model VALUES
+("model1", "ctrl1")`)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Retrieve the created external controller.
+	controllerInfo, err := st.ControllerForModel(ctx.Background(), "model1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(controllerInfo.ControllerTag.Id(), gc.Equals, "ctrl1")
+	// Empty Alias => zero value
+	c.Assert(controllerInfo.Alias, gc.Equals, "")
+	c.Assert(controllerInfo.CACert, gc.Equals, "test-cert")
+	c.Assert(controllerInfo.Addrs, gc.HasLen, 0)
+}
+
+func (s *stateSuite) TestRetrieveExternalControllerForModelNotFound(c *gc.C) {
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+
+	// Retrieve a not-existent controller.
+	_, err := st.ControllerForModel(ctx.Background(), "model1")
+	c.Assert(err, gc.ErrorMatches, `external controller for model "model1" not found`)
+}
+
 func (s *stateSuite) TestUpdateExternalControllerNewData(c *gc.C) {
 	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
 

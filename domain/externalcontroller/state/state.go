@@ -38,11 +38,11 @@ func (st *State) Controller(
 	}
 
 	q := `
-SELECT (alias, ca_cert, address) as &ExternalController.* 
-FROM   external_controller AS ctrl
-       LEFT JOIN external_controller_address AS addrs
-       ON ctrl.uuid = addrs.controller_uuid
-WHERE  ctrl.uuid=$M.id`
+SELECT 	(alias, ca_cert, address) as &ExternalController.* 
+FROM   	external_controller AS ctrl
+       	LEFT JOIN external_controller_address AS addrs
+       	ON ctrl.uuid = addrs.controller_uuid
+WHERE  	ctrl.uuid = $M.id`
 	s, err := sqlair.Prepare(q, ExternalController{}, sqlair.M{})
 	if err != nil {
 		return nil, errors.Annotatef(err, "preparing %q", q)
@@ -59,10 +59,50 @@ WHERE  ctrl.uuid=$M.id`
 		return nil, errors.NotFoundf("external controller %q", controllerUUID)
 	}
 
+	return controllerInfoFromRows(controllerUUID, rows), nil
+}
+
+func (st *State) ControllerForModel(
+	ctx context.Context,
+	modelUUID string,
+) (*crossmodel.ControllerInfo, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	q := `
+SELECT 	(ctrl.uuid, alias, ca_cert, address) as &ExternalController.* 
+FROM   	external_controller AS ctrl	
+	JOIN external_model AS model
+	ON ctrl.uuid = model.controller_uuid
+       	LEFT JOIN external_controller_address AS addrs
+       	ON ctrl.uuid = addrs.controller_uuid
+WHERE  	model.uuid = $M.id`
+	s, err := sqlair.Prepare(q, ExternalController{}, sqlair.M{})
+	if err != nil {
+		return nil, errors.Annotatef(err, "preparing %q", q)
+	}
+
+	var rows []ExternalController
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return errors.Trace(tx.Query(ctx, s, sqlair.M{"id": modelUUID}).GetAll(&rows))
+	}); err != nil {
+		return nil, errors.Annotate(err, "querying external controller for model")
+	}
+
+	if len(rows) == 0 {
+		return nil, errors.NotFoundf("external controller for model %q", modelUUID)
+	}
+
+	return controllerInfoFromRows(rows[0].ID, rows), nil
+}
+
+func controllerInfoFromRows(uuid string, rows []ExternalController) *crossmodel.ControllerInfo {
 	// We know that we queried for a single ID, so the first instance
 	// of the controller info fields will be repeated.
 	ci := crossmodel.ControllerInfo{
-		ControllerTag: names.NewControllerTag(controllerUUID),
+		ControllerTag: names.NewControllerTag(uuid),
 		Alias:         rows[0].Alias.String,
 		CACert:        rows[0].CACert,
 	}
@@ -74,7 +114,7 @@ WHERE  ctrl.uuid=$M.id`
 		}
 	}
 
-	return &ci, nil
+	return &ci
 }
 
 func (st *State) UpdateExternalController(
