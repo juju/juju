@@ -24,7 +24,6 @@ func ControllerDDL(nodeID uint64) []database.Delta {
 		controllerNodeEntry(nodeID),
 		controllerNodeTriggers,
 		modelMigrationSchema,
-		controllerNodeSchema,
 	}
 
 	var deltas []database.Delta
@@ -389,8 +388,8 @@ BEGIN
 END;`)
 }
 
-func modelMigrationSchema() string {
-	return `
+func modelMigrationSchema() database.Delta {
+	return database.MakeDelta(`
 CREATE TABLE model_migration (
     uuid                    TEXT PRIMARY KEY,
     attempt                 INT,
@@ -481,6 +480,5 @@ AFTER DELETE ON model_migration_minion_sync FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
     VALUES (4, 5, OLD.key, DATETIME('now'));
-END;
-`[1:]
+END;`)
 }
