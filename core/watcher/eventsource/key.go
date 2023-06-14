@@ -42,6 +42,8 @@ func (w *KeyWatcher) Changes() watcher.NotifyChannel {
 }
 
 func (w *KeyWatcher) loop() error {
+	defer close(w.out)
+
 	opt := changestream.FilteredNamespace(w.tableName, changestream.All, func(e changestream.ChangeEvent) bool {
 		return e.ChangedUUID() == w.keyValue
 	})

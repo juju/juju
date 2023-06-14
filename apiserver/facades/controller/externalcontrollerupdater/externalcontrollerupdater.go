@@ -6,14 +6,15 @@ package externalcontrollerupdater
 import (
 	"context"
 
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/facades/internal"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
 )
 
 type EcService interface {
@@ -50,11 +51,11 @@ func NewAPI(
 // controller records to the local controller's database.
 func (api *ExternalControllerUpdaterAPI) WatchExternalControllers() (params.StringsWatchResults, error) {
 	w := api.externalControllers.Watch()
-	changes, ok := <-w.Changes()
-	if !ok {
+	changes, err := internal.FirstResult[[]string](w)
+	if err != nil {
 		return params.StringsWatchResults{
 			[]params.StringsWatchResult{{
-				Error: apiservererrors.ServerError(watcher.EnsureErr(w)),
+				Error: apiservererrors.ServerError(errors.Annotate(err, "error watching external controllers changes")),
 			}},
 		}, nil
 	}

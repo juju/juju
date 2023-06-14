@@ -184,7 +184,7 @@ func (s *CrossControllerSuite) TestWatchControllerInfoError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.StringsWatchResults{
 		[]params.StringsWatchResult{{
-			Error: &params.Error{Message: "nope"},
+			Error: &params.Error{Message: "error watching external controllers changes: nope"},
 		}},
 	})
 	c.Assert(s.resources.Get("1"), gc.IsNil)

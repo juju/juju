@@ -170,3 +170,41 @@ func (s *keysSuite) TestInvalidChangeMask(c *gc.C) {
 	err := workertest.CheckKilled(c, w)
 	c.Assert(err, gc.ErrorMatches, "changeMask value: 0 not valid")
 }
+
+func (s *keysSuite) TestEnsureCloseOnCleanKill(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	subExp := s.sub.EXPECT()
+	done := make(chan struct{})
+	subExp.Done().Return(done)
+	subExp.Unsubscribe()
+
+	s.events.EXPECT().Subscribe(
+		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
+	).Return(s.sub, nil)
+
+	w := NewKeyWatcher(s.newBaseWatcher(), "random_namespace", "key_value")
+
+	workertest.CleanKill(c, w)
+	_, ok := <-w.Changes()
+	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *keysSuite) TestEnsureCloseOnDirtyKill(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	subExp := s.sub.EXPECT()
+	done := make(chan struct{})
+	subExp.Done().Return(done)
+	subExp.Unsubscribe()
+
+	s.events.EXPECT().Subscribe(
+		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
+	).Return(s.sub, nil)
+
+	w := NewKeyWatcher(s.newBaseWatcher(), "random_namespace", "key_value")
+
+	workertest.DirtyKill(c, w)
+	_, ok := <-w.Changes()
+	c.Assert(ok, jc.IsFalse)
+}
