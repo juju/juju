@@ -60,6 +60,7 @@ func writeFile(c *gc.C, filename string, contents string) {
 func (s *AuthKeysSuite) TestReadAuthorizedKeys(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	writeFile(c, filepath.Join(s.dotssh, "id_rsa.pub"), "id_rsa")
+	writeFile(c, filepath.Join(s.dotssh, "id_dsa.pub"), "id_dsa") // Check dsa is NOT loaded
 	writeFile(c, filepath.Join(s.dotssh, "id_ed25519.pub"), "id_ed25519")
 	writeFile(c, filepath.Join(s.dotssh, "identity.pub"), "identity")
 	writeFile(c, filepath.Join(s.dotssh, "test.pub"), "test")
