@@ -3,7 +3,7 @@
 
 package remotestate
 
-import "github.com/juju/charm/v10"
+import "github.com/juju/charm/v11"
 
 // Snapshot is a snapshot of the remote state of the unit.
 type Snapshot struct {

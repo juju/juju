@@ -7,13 +7,14 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 
 	apicharm "github.com/juju/juju/api/client/charms"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/core/series"
 )
 
 // DownloadBundleClient represents a way to download a bundle from a given
@@ -55,24 +56,20 @@ func NewCharmAdaptor(charmsAPI CharmsAPI, downloadBundleClientFunc DownloadBundl
 
 // ResolveCharm tries to interpret url as a Charmhub charm and
 // returns the resolved URL, origin and a slice of supported series.
-func (c *CharmAdaptor) ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error) {
+func (c *CharmAdaptor) ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []series.Base, error) {
 	resolved, err := c.charmsAPI.ResolveCharms([]apicharm.CharmToResolve{{URL: url, Origin: preferredOrigin, SwitchCharm: switchCharm}})
-	if err == nil {
-		if num := len(resolved); num == 0 {
-			return nil, commoncharm.Origin{}, nil, errors.NotFoundf(url.Name)
-		}
-
-		// Ensure we output the error correctly from the API call.
-		if resolved[0].Error == nil {
-			res := resolved[0]
-			return res.URL, res.Origin, res.SupportedSeries, nil
-		}
-		// If we do have an API call, then set it to the error, allowing us to
-		// bubble it up the stack.
-		err = resolved[0].Error
+	if err != nil {
+		return nil, commoncharm.Origin{}, nil, errors.Trace(err)
+	}
+	if len(resolved) == 0 {
+		return nil, commoncharm.Origin{}, nil, errors.NotFoundf(url.Name)
+	}
+	if err := resolved[0].Error; err != nil {
+		return nil, commoncharm.Origin{}, nil, errors.Trace(err)
 	}
 
-	return nil, commoncharm.Origin{}, nil, errors.Trace(err)
+	res := resolved[0]
+	return res.URL, res.Origin, res.SupportedBases, nil
 }
 
 // ResolveBundleURL tries to interpret maybeBundle as a Charmhub

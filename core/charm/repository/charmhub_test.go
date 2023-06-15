@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v10"
-	charmresource "github.com/juju/charm/v10/resource"
+	"github.com/juju/charm/v11"
+	charmresource "github.com/juju/charm/v11/resource"
 	"github.com/juju/collections/set"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -85,7 +85,7 @@ func (s *charmHubRepositorySuite) testResolve(c *gc.C, id string) {
 		origin.InstanceKey = "instance-key"
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedSeries, err := s.newClient().ResolveWithPreferredChannel(curl, origin)
+	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = rev
@@ -100,7 +100,7 @@ func (s *charmHubRepositorySuite) testResolve(c *gc.C, id string) {
 
 	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
-	c.Assert(obtainedSeries, jc.SameContents, []string{"focal"})
+	c.Assert(obtainedBases, jc.SameContents, []corecharm.Platform{{OS: "ubuntu", Channel: "20.04", Architecture: "amd64"}})
 }
 
 func (s *charmHubRepositorySuite) TestResolveWithChannel(c *gc.C) {
@@ -121,7 +121,7 @@ func (s *charmHubRepositorySuite) TestResolveWithChannel(c *gc.C) {
 		},
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedSeries, err := s.newClient().ResolveWithPreferredChannel(curl, origin)
+	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -140,7 +140,7 @@ func (s *charmHubRepositorySuite) TestResolveWithChannel(c *gc.C) {
 
 	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
-	c.Assert(obtainedSeries, jc.SameContents, []string{"focal"})
+	c.Assert(obtainedBases, jc.SameContents, []corecharm.Platform{{OS: "ubuntu", Channel: "20.04", Architecture: "amd64"}})
 }
 
 func (s *charmHubRepositorySuite) TestResolveWithoutBase(c *gc.C) {
@@ -155,7 +155,7 @@ func (s *charmHubRepositorySuite) TestResolveWithoutBase(c *gc.C) {
 		},
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedSeries, err := s.newClient().ResolveWithPreferredChannel(curl, origin)
+	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -172,7 +172,7 @@ func (s *charmHubRepositorySuite) TestResolveWithoutBase(c *gc.C) {
 
 	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
-	c.Assert(obtainedSeries, jc.SameContents, []string{""})
+	c.Assert(obtainedBases, jc.SameContents, []corecharm.Platform{})
 }
 
 func (s *charmHubRepositorySuite) TestResolveForDeployWithRevisionSuccess(c *gc.C) {
@@ -262,7 +262,7 @@ func (s *charmHubRepositorySuite) TestResolveWithBundles(c *gc.C) {
 		},
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedSeries, err := s.newClient().ResolveWithPreferredChannel(curl, origin)
+	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 17
@@ -279,7 +279,7 @@ func (s *charmHubRepositorySuite) TestResolveWithBundles(c *gc.C) {
 
 	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
-	c.Assert(obtainedSeries, jc.SameContents, []string{""})
+	c.Assert(obtainedBases, jc.SameContents, []corecharm.Platform{})
 }
 
 func (s *charmHubRepositorySuite) TestResolveInvalidPlatformError(c *gc.C) {
@@ -295,7 +295,7 @@ func (s *charmHubRepositorySuite) TestResolveInvalidPlatformError(c *gc.C) {
 		},
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedSeries, err := s.newClient().ResolveWithPreferredChannel(curl, origin)
+	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -314,7 +314,7 @@ func (s *charmHubRepositorySuite) TestResolveInvalidPlatformError(c *gc.C) {
 
 	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
-	c.Assert(obtainedSeries, jc.SameContents, []string{"focal"})
+	c.Assert(obtainedBases, jc.SameContents, []corecharm.Platform{{OS: "ubuntu", Channel: "20.04", Architecture: "amd64"}})
 }
 
 func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundErrorWithNoSeries(c *gc.C) {
@@ -351,7 +351,7 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
 		},
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedSeries, err := s.newClient().ResolveWithPreferredChannel(curl, origin)
+	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -370,7 +370,7 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
 
 	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
-	c.Assert(obtainedSeries, jc.SameContents, []string{"focal"})
+	c.Assert(obtainedBases, jc.SameContents, []corecharm.Platform{{OS: "ubuntu", Channel: "20.04", Architecture: "amd64"}})
 }
 
 func (s *charmHubRepositorySuite) TestDownloadCharm(c *gc.C) {

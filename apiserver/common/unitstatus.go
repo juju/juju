@@ -6,7 +6,7 @@ package common
 import (
 	"fmt"
 
-	"github.com/juju/charm/v10/hooks"
+	"github.com/juju/charm/v11/hooks"
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"

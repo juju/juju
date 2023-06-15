@@ -9,8 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v11"
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -27,17 +28,24 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.charms")
 
+// APIv7 provides the Charms API facade for version 7.
+// v7 guarantees SupportedBases will be provided in ResolveCharms
+type APIv7 struct {
+	*API
+}
+
 // APIv6 provides the Charms API facade for version 6.
 // It removes the AddCharmWithAuthorization function, as
 // we no longer support macaroons.
 type APIv6 struct {
-	*API
+	*APIv7
 }
 
 // APIv5 provides the Charms API facade for version 5.
@@ -378,7 +386,7 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel) params.Resolve
 		return result
 	}
 
-	resultURL, origin, supportedSeries, err := repo.ResolveWithPreferredChannel(curl, requestedOrigin)
+	resultURL, origin, resolvedBases, err := repo.ResolveWithPreferredChannel(curl, requestedOrigin)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
@@ -408,13 +416,56 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel) params.Resolve
 	result.Origin = archOrigin
 
 	switch {
-	case resultURL.Series != "" && len(supportedSeries) == 0:
-		result.SupportedSeries = []string{resultURL.Series}
+	case resultURL.Series != "" && len(resolvedBases) == 0:
+		base, err := series.GetBaseFromSeries(resultURL.Series)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+			return result
+		}
+		result.SupportedBases = []params.Base{{Name: base.OS, Channel: base.Channel.String()}}
 	default:
-		result.SupportedSeries = supportedSeries
+		result.SupportedBases = transform.Slice(resolvedBases, convertCharmBase)
 	}
 
 	return result
+}
+
+// ResolveCharms resolves the given charm URLs with an optionally specified
+// preferred channel.  Channel provided via CharmOrigin.
+// We need to include SupportedSeries in facade version 6
+func (a *APIv6) ResolveCharms(args params.ResolveCharmsWithChannel) (params.ResolveCharmWithChannelResultsV6, error) {
+	res, err := a.API.ResolveCharms(args)
+	if err != nil {
+		return params.ResolveCharmWithChannelResultsV6{}, errors.Trace(err)
+	}
+	results, err := transform.SliceOrErr(res.Results, func(result params.ResolveCharmWithChannelResult) (params.ResolveCharmWithChannelResultV6, error) {
+		supportedSeries, err := transform.SliceOrErr(result.SupportedBases, func(pBase params.Base) (string, error) {
+			base, err := series.ParseBase(pBase.Name, pBase.Channel)
+			if err != nil {
+				return "", err
+			}
+			return series.GetSeriesFromBase(base)
+		})
+		if err != nil {
+			return params.ResolveCharmWithChannelResultV6{}, err
+		}
+		return params.ResolveCharmWithChannelResultV6{
+			URL:             result.URL,
+			Origin:          result.Origin,
+			Error:           result.Error,
+			SupportedSeries: supportedSeries,
+		}, nil
+	})
+	return params.ResolveCharmWithChannelResultsV6{
+		Results: results,
+	}, err
+}
+
+func convertCharmBase(in corecharm.Platform) params.Base {
+	return params.Base{
+		Name:    in.OS,
+		Channel: in.Channel,
+	}
 }
 
 func validateOrigin(origin corecharm.Origin, curl *charm.URL, switchCharm bool) error {

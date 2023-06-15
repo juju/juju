@@ -6,8 +6,8 @@ package charm
 import (
 	"net/url"
 
-	"github.com/juju/charm/v10"
-	charmresource "github.com/juju/charm/v10/resource"
+	"github.com/juju/charm/v11"
+	charmresource "github.com/juju/charm/v11/resource"
 )
 
 // Repository describes an API for querying charm/bundle information and
@@ -27,7 +27,7 @@ type Repository interface {
 	// used. It returns a charm URL which includes the most current revision,
 	// if none was provided, a charm origin, and a slice of series supported by
 	// this charm.
-	ResolveWithPreferredChannel(*charm.URL, Origin) (*charm.URL, Origin, []string, error)
+	ResolveWithPreferredChannel(*charm.URL, Origin) (*charm.URL, Origin, []Platform, error)
 
 	// GetEssentialMetadata resolves each provided MetadataRequest and
 	// returns back a slice with the results. The results include the

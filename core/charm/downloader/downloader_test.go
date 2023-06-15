@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v11"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -281,7 +281,7 @@ func (r repoAdapter) DownloadCharm(charmURL *charm.URL, requestedOrigin corechar
 	return r.repo.DownloadCharm(charmURL, requestedOrigin, archivePath)
 }
 
-func (r repoAdapter) ResolveWithPreferredChannel(charmURL *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []string, error) {
+func (r repoAdapter) ResolveWithPreferredChannel(charmURL *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error) {
 	return r.repo.ResolveWithPreferredChannel(charmURL, requestedOrigin)
 }
 
