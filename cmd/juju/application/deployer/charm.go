@@ -12,7 +12,6 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api/client/application"
@@ -28,7 +27,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/series"
 	coreseries "github.com/juju/juju/core/series"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/storage"
 )
 
@@ -344,8 +342,7 @@ func (c *repositoryCharm) String() string {
 // PrepareAndDeploy finishes preparing to deploy a repository charm,
 // then deploys it.
 func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver) error {
-	if (!featureflag.Enabled(feature.ServerSideCharmDeploy) && deployAPI.BestFacadeVersion("Application") >= 18) ||
-		deployAPI.BestFacadeVersion("Application") < 18 {
+	if deployAPI.BestFacadeVersion("Application") < 19 {
 		return c.compatibilityPrepareAndDeploy(ctx, deployAPI, resolver)
 	}
 	var base *series.Base
@@ -394,6 +391,14 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		Trust:            c.trust,
 	})
 
+	for _, err := range errs {
+		ctx.Errorf(err.Error())
+	}
+	if len(errs) != 0 {
+		return errors.Errorf("failed to deploy charm %q", charmName)
+	}
+
+	// No localPendingResources should exist if a dry-run.
 	uploadErr := c.uploadExistingPendingResources(info.Name, localPendingResources, deployAPI,
 		c.model.Filesystem())
 	if uploadErr != nil {
@@ -401,15 +406,8 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 			info.Name, uploadErr)
 	}
 
-	if len(errs) == 0 {
-		ctx.Infof(formatDeployedText(c.dryRun, charmName, info))
-		return nil
-	}
-
-	for _, err := range errs {
-		ctx.Errorf(err.Error())
-	}
-	return errors.Errorf("failed to deploy charm %q", charmName)
+	ctx.Infof(formatDeployedText(c.dryRun, charmName, info))
+	return nil
 }
 
 func formatDeployedText(dryRun bool, charmName string, info application.DeployInfo) string {
@@ -422,7 +420,7 @@ func formatDeployedText(dryRun bool, charmName string, info application.DeployIn
 }
 
 // compatibilityPrepareAndDeploy deploys repository charms to controllers
-// which do not have application facade 18 or greater.
+// which do not have application facade 19 or greater.
 func (c *repositoryCharm) compatibilityPrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver) error {
 	userRequestedURL := c.userRequestedURL
 	location := "charmhub"

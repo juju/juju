@@ -1990,8 +1990,8 @@
     },
     {
         "Name": "Application",
-        "Description": "APIv18 provides the Application API facade for version 18.",
-        "Version": 18,
+        "Description": "APIv19 provides the Application API facade for version 19.",
+        "Version": 19,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
