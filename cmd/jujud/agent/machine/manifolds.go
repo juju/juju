@@ -91,7 +91,6 @@ import (
 	"github.com/juju/juju/worker/syslogger"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/toolsversionchecker"
-	"github.com/juju/juju/worker/upgradedatabase"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradeseries"
 	"github.com/juju/juju/worker/upgradesteps"
@@ -122,11 +121,6 @@ type ManifoldsConfig struct {
 	// PreviousAgentVersion passes through the version the machine
 	// agent was running before the current restart.
 	PreviousAgentVersion version.Number
-
-	// UpgradeDBLock is passed to the upgrade database gate to
-	// coordinate workers that shouldn't do anything until the
-	// upgrade-database worker is done.
-	UpgradeDBLock gate.Lock
 
 	// UpgradeStepsLock is passed to the upgrade steps gate to
 	// coordinate workers that shouldn't do anything until the
@@ -387,8 +381,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The multiwatcher manifold watches all the changes in the database
 		// through the AllWatcherBacking and manages notifying the multiwatchers.
-		// Note: ifDatabaseUpgradeComplete implies running on a controller.
-		multiwatcherName: ifDatabaseUpgradeComplete(multiwatcher.Manifold(multiwatcher.ManifoldConfig{
+		multiwatcherName: ifController(multiwatcher.Manifold(multiwatcher.ManifoldConfig{
 			StateName:            stateName,
 			Clock:                config.Clock,
 			Logger:               loggo.GetLogger("juju.worker.multiwatcher"),
@@ -427,27 +420,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Filter:               connectFilter,
 			Logger:               loggo.GetLogger("juju.worker.apicaller"),
 		}),
-
-		// The upgrade database gate is used to coordinate workers that should
-		// not do anything until the upgrade-database worker has finished
-		// running any required database upgrade steps.
-		upgradeDatabaseGateName: ifController(gate.ManifoldEx(config.UpgradeDBLock)),
-		upgradeDatabaseFlagName: ifController(gate.FlagManifold(gate.FlagManifoldConfig{
-			GateName:  upgradeDatabaseGateName,
-			NewWorker: gate.NewFlagWorker,
-		})),
-
-		// The upgrade-database worker runs soon after the machine agent starts
-		// and runs any steps required to upgrade to the database to the
-		// current version. Once upgrade steps have run, the upgrade-database
-		// gate is unlocked and the worker exits.
-		upgradeDatabaseName: ifController(upgradedatabase.Manifold(upgradedatabase.ManifoldConfig{
-			AgentName:         agentName,
-			UpgradeDBGateName: upgradeDatabaseGateName,
-			OpenState:         config.OpenStateForUpgrade,
-			Logger:            loggo.GetLogger("juju.worker.upgradedatabase"),
-			Clock:             config.Clock,
-		})),
 
 		// The upgrade steps gate is used to coordinate workers which
 		// shouldn't do anything until the upgrade-steps worker has
@@ -1039,12 +1011,6 @@ var ifCredentialValid = engine.Housing{
 	},
 }.Decorate
 
-var ifDatabaseUpgradeComplete = engine.Housing{
-	Flags: []string{
-		upgradeDatabaseFlagName,
-	},
-}.Decorate
-
 const (
 	agentName              = "agent"
 	agentConfigUpdaterName = "agent-config-updater"
@@ -1059,10 +1025,6 @@ const (
 	presenceName           = "presence"
 	pubSubName             = "pubsub-forwarder"
 	clockName              = "clock"
-
-	upgradeDatabaseName     = "upgrade-database-runner"
-	upgradeDatabaseGateName = "upgrade-database-gate"
-	upgradeDatabaseFlagName = "upgrade-database-flag"
 
 	upgraderName         = "upgrader"
 	upgradeStepsName     = "upgrade-steps-runner"

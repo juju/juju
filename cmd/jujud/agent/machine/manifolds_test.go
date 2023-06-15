@@ -118,9 +118,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"tools-version-checker",
 			"upgrade-check-flag",
 			"upgrade-check-gate",
-			"upgrade-database-flag",
-			"upgrade-database-gate",
-			"upgrade-database-runner",
 			"upgrade-series",
 			"upgrade-steps-flag",
 			"upgrade-steps-gate",
@@ -179,9 +176,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"termination-signal-handler",
 			"upgrade-check-flag",
 			"upgrade-check-gate",
-			"upgrade-database-flag",
-			"upgrade-database-gate",
-			"upgrade-database-runner",
 			"upgrade-steps-flag",
 			"upgrade-steps-gate",
 			"upgrade-steps-runner",
@@ -252,9 +246,6 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"migration-minion",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
-		"upgrade-database-runner",
 		"upgrade-series",
 		"upgrade-series-enabled",
 		"upgrade-steps-flag",
@@ -286,9 +277,6 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"audit-config-updater",
 		"is-primary-controller-flag",
 		"lease-manager",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
-		"upgrade-database-runner",
 		"db-accessor",
 		"query-logger",
 		"change-stream",
@@ -302,8 +290,6 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"secret-backend-rotate",
 	)
 
-	// Guarded by ifDatabaseUpgradeComplete,
-	// which implies running on a controller.
 	dbUpgradedWorkers := set.NewStrings(
 		"multiwatcher",
 	)
@@ -318,9 +304,8 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 			checkNotContains(c, manifold.Inputs, "is-controller-flag")
 			checkContains(c, manifold.Inputs, "is-primary-controller-flag")
 		case dbUpgradedWorkers.Contains(name):
-			checkNotContains(c, manifold.Inputs, "is-controller-flag")
+			checkContains(c, manifold.Inputs, "is-controller-flag")
 			checkNotContains(c, manifold.Inputs, "is-primary-controller-flag")
-			checkContains(c, manifold.Inputs, "upgrade-database-flag")
 		default:
 			checkNotContains(c, manifold.Inputs, "is-controller-flag")
 			checkNotContains(c, manifold.Inputs, "is-primary-controller-flag")
@@ -471,8 +456,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"state-config-watcher",
 		"syslog",
 		"upgrade-steps-gate",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
 	},
 
 	"audit-config-updater": {
@@ -628,8 +611,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"state",
 		"state-config-watcher",
 		"syslog",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
 		"upgrade-steps-gate",
 	},
 
@@ -819,8 +800,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"state",
 		"state-config-watcher",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
 	},
 
 	"peer-grouper": {
@@ -964,26 +943,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"upgrade-check-gate": {},
 
-	"upgrade-database-flag": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-		"upgrade-database-gate",
-	},
-
-	"upgrade-database-gate": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-	},
-
-	"upgrade-database-runner": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-		"upgrade-database-gate",
-	},
-
 	"upgrade-series": {
 		"agent",
 		"api-caller",
@@ -1063,8 +1022,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"state-config-watcher",
 		"syslog",
 		"upgrade-steps-gate",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
 	},
 
 	"audit-config-updater": {
@@ -1150,8 +1107,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"state",
 		"state-config-watcher",
 		"syslog",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
 		"upgrade-steps-gate",
 	},
 
@@ -1265,8 +1220,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"state",
 		"state-config-watcher",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
 	},
 
 	"peer-grouper": {
@@ -1346,26 +1299,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"upgrade-check-flag": {"upgrade-check-gate"},
 
 	"upgrade-check-gate": {},
-
-	"upgrade-database-flag": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-		"upgrade-database-gate",
-	},
-
-	"upgrade-database-gate": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-	},
-
-	"upgrade-database-runner": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-		"upgrade-database-gate",
-	},
 
 	"upgrade-steps-flag": {"upgrade-steps-gate"},
 
