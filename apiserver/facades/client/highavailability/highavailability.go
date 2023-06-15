@@ -26,8 +26,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.highavailability")
-
 // NodeService describes the maintenance of controller entries.
 type NodeService interface {
 	// CurateNodes modifies the control place by adding and
@@ -41,6 +39,7 @@ type HighAvailabilityAPI struct {
 	st          *state.State
 	nodeService NodeService
 	authorizer  facade.Authorizer
+	logger      loggo.Logger
 }
 
 // EnableHA adds controller machines as necessary to ensure the
@@ -88,7 +87,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 		return params.ControllersChanges{}, err
 	}
 
-	referenceMachine, err := getReferenceController(st, controllerIds)
+	referenceMachine, err := getReferenceController(st, controllerIds, api.logger)
 	if err != nil {
 		return params.ControllersChanges{}, errors.Trace(err)
 	}
@@ -137,7 +136,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 }
 
 // getReferenceController looks up the ideal controller to use as a reference for Constraints and Release
-func getReferenceController(st *state.State, controllerIds []string) (*state.Machine, error) {
+func getReferenceController(st *state.State, controllerIds []string, logger loggo.Logger) (*state.Machine, error) {
 	// Sort the controller IDs from low to high and take the first.
 	// This will typically give the initial bootstrap machine.
 	var controllerNumbers []int

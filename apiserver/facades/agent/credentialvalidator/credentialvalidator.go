@@ -4,7 +4,6 @@
 package credentialvalidator
 
 import (
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common/credentialcommon"
@@ -13,8 +12,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
 )
-
-var logger = loggo.GetLogger("juju.api.credentialvalidator")
 
 // CredentialValidatorV2 defines the methods on version 2 facade for the
 // credentialvalidator API endpoint.

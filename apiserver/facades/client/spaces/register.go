@@ -55,5 +55,6 @@ func newAPI(ctx facade.Context) (*API, error) {
 		Resources:       ctx.Resources(),
 		Authorizer:      auth,
 		Factory:         newOpFactory(st),
+		logger:          ctx.Logger().Child("spaces"),
 	})
 }

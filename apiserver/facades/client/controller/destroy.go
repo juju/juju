@@ -5,6 +5,7 @@ package controller
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -21,7 +22,7 @@ import (
 // non-Dead hosted models, then an error with the code
 // params.CodeHasHostedModels will be transmitted.
 func (c *ControllerAPI) DestroyController(args params.DestroyControllerArgs) error {
-	return destroyController(c.state, c.statePool, c.authorizer, args)
+	return destroyController(c.state, c.statePool, c.authorizer, args, c.logger)
 }
 
 func destroyController(
@@ -29,13 +30,14 @@ func destroyController(
 	pool *state.StatePool,
 	authorizer facade.Authorizer,
 	args params.DestroyControllerArgs,
+	logger loggo.Logger,
 ) error {
 	err := authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := ensureNotBlocked(st); err != nil {
+	if err := ensureNotBlocked(st, logger); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -55,7 +57,7 @@ func destroyController(
 	))
 }
 
-func ensureNotBlocked(st Backend) error {
+func ensureNotBlocked(st Backend, logger loggo.Logger) error {
 	// If there are blocks let the user know.
 	blocks, err := st.AllBlocksForController()
 	if err != nil {

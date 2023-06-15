@@ -40,5 +40,6 @@ func newStateFacade(ctx facade.Context) (*Facade, error) {
 		systemState,
 		&stateShim{st},
 		broker,
-		ctx.StatePool().Clock())
+		ctx.StatePool().Clock(),
+		ctx.Logger().Child("caasapplication"))
 }

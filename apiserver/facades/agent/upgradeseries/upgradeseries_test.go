@@ -5,6 +5,7 @@ package upgradeseries_test
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -230,7 +231,8 @@ func (s *upgradeSeriesSuite) arrangeTest(c *gc.C) *gomock.Controller {
 	s.backend.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
 
 	var err error
-	s.api, err = upgradeseries.NewUpgradeSeriesAPI(s.backend, resources, authorizer, nil)
+	s.api, err = upgradeseries.NewUpgradeSeriesAPI(s.backend, resources, authorizer, nil, loggo.GetLogger("juju.apiserver.upgradeseries"))
+
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl

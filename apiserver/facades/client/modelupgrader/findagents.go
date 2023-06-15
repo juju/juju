@@ -42,7 +42,7 @@ func (m *ModelUpgraderAPI) decideVersion(
 		}
 		var targetVersion version.Number
 		targetVersion, packagedAgents = packagedAgents.Newest()
-		logger.Debugf("target version %q is the best version, packagedAgents %v", targetVersion, packagedAgents)
+		m.logger.Debugf("target version %q is the best version, packagedAgents %v", targetVersion, packagedAgents)
 		return targetVersion, nil
 	}
 
@@ -58,7 +58,7 @@ func (m *ModelUpgraderAPI) decideVersion(
 			return version.Zero, errUpToDate
 		}
 		if newestCurrent.Compare(currentVersion) > 0 {
-			logger.Debugf("found more recent agent version %s", newestCurrent)
+			m.logger.Debugf("found more recent agent version %s", newestCurrent)
 			return newestCurrent, nil
 		}
 	}
@@ -112,7 +112,7 @@ func (m *ModelUpgraderAPI) agentVersionsForCAAS(
 	for _, a := range streamsAgents {
 		streamsVersions.Add(a.Version.Number.String())
 	}
-	logger.Tracef("versions from simplestreams %v", streamsVersions)
+	m.logger.Tracef("versions from simplestreams %v", streamsVersions)
 	imageName := podcfg.JujudOCIName
 	tags, err := reg.Tags(imageName)
 	if err != nil {

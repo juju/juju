@@ -30,5 +30,5 @@ func newStateCAASOperatorUpgraderAPI(ctx facade.Context) (*API, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "getting caas client")
 	}
-	return NewCAASOperatorUpgraderAPI(authorizer, broker)
+	return NewCAASOperatorUpgraderAPI(authorizer, broker, ctx.Logger().Child("caasoperatorupgrader"))
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/core/network"
 )
@@ -65,7 +66,8 @@ type affectedNetworks struct {
 	// force originates as a CLI option.
 	// When true, violations of constraints/bindings integrity are logged as
 	// warnings instead of being returned as errors.
-	force bool
+	force  bool
+	logger loggo.Logger
 }
 
 // newAffectedNetworks returns a new affectedNetworks reference for
@@ -73,7 +75,7 @@ type affectedNetworks struct {
 // The input space topology is manipulated to represent the topology that
 // would result from the move.
 func newAffectedNetworks(
-	movingSubnets network.IDSet, spaceName string, currentTopology network.SpaceInfos, force bool,
+	movingSubnets network.IDSet, spaceName string, currentTopology network.SpaceInfos, force bool, logger loggo.Logger,
 ) (*affectedNetworks, error) {
 
 	// We need to indicate that any moving fan underlays include
@@ -99,6 +101,7 @@ func newAffectedNetworks(
 		changingNetworks:  make(map[string][]unitNetwork),
 		unchangedNetworks: make(map[string][]unitNetwork),
 		force:             force,
+		logger:            logger,
 	}, nil
 }
 
@@ -248,7 +251,7 @@ func (n *affectedNetworks) ensureNegativeConstraintIntegrity(appName string, spa
 		if !n.force {
 			return errors.New(msg)
 		}
-		logger.Warningf(msg)
+		n.logger.Warningf(msg)
 	}
 
 	return nil
@@ -287,7 +290,7 @@ func (n *affectedNetworks) ensurePositiveConstraintIntegrity(appName string, spa
 			if !n.force {
 				return errors.New(msg)
 			}
-			logger.Warningf(msg)
+			n.logger.Warningf(msg)
 		}
 	}
 
@@ -350,7 +353,7 @@ func (n *affectedNetworks) ensureApplicationBindingsIntegrity(appName string, ap
 			if !n.force {
 				return errors.New(msg)
 			}
-			logger.Warningf(msg)
+			n.logger.Warningf(msg)
 		}
 	}
 

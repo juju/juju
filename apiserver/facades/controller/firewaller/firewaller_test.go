@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
@@ -64,6 +65,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 		s.authorizer,
 		cloudSpecAPI,
 		controllerConfigAPI,
+		loggo.GetLogger("juju.apiserver.firewaller"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.firewaller = firewallerAPI

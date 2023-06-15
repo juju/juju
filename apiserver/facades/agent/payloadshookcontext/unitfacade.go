@@ -15,16 +15,14 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.payloadshookcontext")
-
 // NewHookContextFacade returns a new payloads hook context facade for
 // the State and Unit given. It is used for facade registration.
-func NewHookContextFacade(st *state.State, unit *state.Unit) (*UnitFacade, error) {
+func NewHookContextFacade(st *state.State, unit *state.Unit, logger loggo.Logger) (*UnitFacade, error) {
 	up, err := st.UnitPayloads(unit)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewUnitFacade(up), nil
+	return NewUnitFacade(up, logger), nil
 }
 
 // UnitPayloadBackend exposes the State functionality for a unit's payloads.
@@ -48,16 +46,17 @@ type UnitPayloadBackend interface {
 // UnitFacade serves payload-specific API methods.
 type UnitFacade struct {
 	backend UnitPayloadBackend
+	logger  loggo.Logger
 }
 
 // NewUnitFacade builds a new facade for the given backend.
-func NewUnitFacade(backend UnitPayloadBackend) *UnitFacade {
-	return &UnitFacade{backend: backend}
+func NewUnitFacade(backend UnitPayloadBackend, logger loggo.Logger) *UnitFacade {
+	return &UnitFacade{backend: backend, logger: logger}
 }
 
 // Track stores a payload to be tracked in state.
 func (uf UnitFacade) Track(args params.TrackPayloadArgs) (params.PayloadResults, error) {
-	logger.Debugf("tracking %d payloads from API", len(args.Payloads))
+	uf.logger.Debugf("tracking %d payloads from API", len(args.Payloads))
 
 	var r params.PayloadResults
 	for _, apiPayload := range args.Payloads {
@@ -65,7 +64,7 @@ func (uf UnitFacade) Track(args params.TrackPayloadArgs) (params.PayloadResults,
 		if err != nil {
 			return r, errors.Trace(err)
 		}
-		logger.Debugf("tracking payload from API: %#v", pl)
+		uf.logger.Debugf("tracking payload from API: %#v", pl)
 
 		id, err := uf.track(pl.Payload)
 		res := newPayloadResult(id, err)
@@ -127,7 +126,7 @@ func (uf UnitFacade) listAll() (params.PayloadResults, error) {
 		pl := result.Payload
 		id, err := uf.backend.LookUp(pl.Name, pl.ID)
 		if err != nil {
-			logger.Errorf("failed to look up ID for %q: %v", pl.FullID(), err)
+			uf.logger.Errorf("failed to look up ID for %q: %v", pl.FullID(), err)
 			id = ""
 		}
 		apipl := api.Payload2api(*pl)

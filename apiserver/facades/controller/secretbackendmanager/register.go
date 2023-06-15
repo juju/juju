@@ -38,5 +38,6 @@ func NewSecretBackendsManagerAPI(context facade.Context) (*SecretBackendsManager
 		backendRotate:  context.State(),
 		backendState:   state.NewSecretBackends(context.State()),
 		clock:          clock.WallClock,
+		logger:         context.Logger().Child("secretbackendmanager"),
 	}, nil
 }

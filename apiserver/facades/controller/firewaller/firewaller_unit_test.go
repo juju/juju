@@ -5,6 +5,7 @@ package firewaller_test
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -52,7 +53,7 @@ func (s *RemoteFirewallerSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.st = mocks.NewMockState(ctrl)
 	s.cc = mocks.NewMockControllerConfigAPI(ctrl)
-	api, err := firewaller.NewStateFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{}, s.cc)
+	api, err := firewaller.NewStateFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{}, s.cc, loggo.GetLogger("juju.apiserver.firewaller"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 	return ctrl
@@ -152,7 +153,7 @@ func (s *FirewallerSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.st = mocks.NewMockState(ctrl)
 	s.cc = mocks.NewMockControllerConfigAPI(ctrl)
-	api, err := firewaller.NewStateFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{}, s.cc)
+	api, err := firewaller.NewStateFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{}, s.cc, loggo.GetLogger("juju.apiserver.firewaller"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 	return ctrl

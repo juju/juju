@@ -18,8 +18,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.instancemutater")
-
 // InstanceMutaterV2 defines the methods on the instance mutater API facade, version 2.
 type InstanceMutaterV2 interface {
 	Life(args params.Entities) (params.LifeResults, error)
@@ -40,11 +38,12 @@ type InstanceMutaterAPI struct {
 	resources   facade.Resources
 	authorizer  facade.Authorizer
 	getAuthFunc common.GetAuthFunc
+	logger      loggo.Logger
 }
 
 // InstanceMutatorWatcher instances return a lxd profile watcher for a machine.
 type InstanceMutatorWatcher interface {
-	WatchLXDProfileVerificationForMachine(Machine) (state.NotifyWatcher, error)
+	WatchLXDProfileVerificationForMachine(Machine, loggo.Logger) (state.NotifyWatcher, error)
 }
 
 type instanceMutatorWatcher struct {
@@ -57,6 +56,7 @@ func NewInstanceMutaterAPI(st InstanceMutaterState,
 	watcher InstanceMutatorWatcher,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	logger loggo.Logger,
 ) (*InstanceMutaterAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -70,6 +70,7 @@ func NewInstanceMutaterAPI(st InstanceMutaterState,
 		resources:   resources,
 		authorizer:  authorizer,
 		getAuthFunc: getAuthFunc,
+		logger:      logger,
 	}, nil
 }
 
@@ -143,7 +144,7 @@ func (api *InstanceMutaterAPI) SetModificationStatus(args params.SetStatus) (par
 	}
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
-		logger.Errorf("failed to get an authorisation function: %v", err)
+		api.logger.Errorf("failed to get an authorisation function: %v", err)
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Entities {
@@ -270,7 +271,7 @@ func (api *InstanceMutaterAPI) watchOneEntityApplication(canAccess common.AuthFu
 	if isManual {
 		return result, errors.NotSupportedf("watching lxd profiles on manual machines")
 	}
-	watch, err := api.watcher.WatchLXDProfileVerificationForMachine(machine)
+	watch, err := api.watcher.WatchLXDProfileVerificationForMachine(machine, api.logger)
 	if err != nil {
 		return result, err
 	}
@@ -294,10 +295,11 @@ func (api *InstanceMutaterAPI) watchOneEntityApplication(canAccess common.AuthFu
 //     gets updated once the download is complete.
 //  4. The machine's instanceId is changed, indicating it
 //     has been provisioned.
-func (w *instanceMutatorWatcher) WatchLXDProfileVerificationForMachine(machine Machine) (state.NotifyWatcher, error) {
+func (w *instanceMutatorWatcher) WatchLXDProfileVerificationForMachine(machine Machine, logger loggo.Logger) (state.NotifyWatcher, error) {
 	return newMachineLXDProfileWatcher(MachineLXDProfileWatcherConfig{
 		machine: machine,
 		backend: w.st,
+		logger:  logger,
 	})
 }
 
@@ -337,7 +339,7 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine) (lxdProfileInfo,
 	var changeResults []params.ProfileInfoResult
 	for _, unit := range units {
 		if unit.Life() == state.Dead {
-			logger.Debugf("unit %q is dead, do not load profile", unit.Name())
+			api.logger.Debugf("unit %q is dead, do not load profile", unit.Name())
 			continue
 		}
 		appName := unit.ApplicationName()
@@ -400,14 +402,14 @@ func (api *InstanceMutaterAPI) setOneMachineCharmProfiles(machineTag string, pro
 }
 
 func (api *InstanceMutaterAPI) setOneModificationStatus(canAccess common.AuthFunc, arg params.EntityStatusArgs) error {
-	logger.Tracef("SetInstanceStatus called with: %#v", arg)
+	api.logger.Tracef("SetInstanceStatus called with: %#v", arg)
 	mTag, err := names.ParseMachineTag(arg.Tag)
 	if err != nil {
 		return apiservererrors.ErrPerm
 	}
 	machine, err := api.getMachine(canAccess, mTag)
 	if err != nil {
-		logger.Debugf("SetModificationStatus unable to get machine %q", mTag)
+		api.logger.Debugf("SetModificationStatus unable to get machine %q", mTag)
 		return err
 	}
 
@@ -423,7 +425,7 @@ func (api *InstanceMutaterAPI) setOneModificationStatus(canAccess common.AuthFun
 		Since:   since,
 	}
 	if err = machine.SetModificationStatus(s); err != nil {
-		logger.Debugf("failed to SetModificationStatus for %q: %v", mTag, err)
+		api.logger.Debugf("failed to SetModificationStatus for %q: %v", mTag, err)
 		return err
 	}
 	return nil

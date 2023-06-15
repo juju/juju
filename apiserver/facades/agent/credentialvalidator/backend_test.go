@@ -5,6 +5,7 @@ package credentialvalidator_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -31,7 +32,7 @@ func (s *BackendSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.state = newMockState()
 
-	s.backend = credentialvalidator.NewBackend(s.state)
+	s.backend = credentialvalidator.NewBackend(s.state, loggo.GetLogger("juju.api.credentialvalidator"))
 }
 
 func (s *BackendSuite) TestModelUsesCredential(c *gc.C) {

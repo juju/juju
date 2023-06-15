@@ -23,8 +23,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.keymanager")
-
 // The comment values used by juju internal ssh keys.
 var internalComments = set.NewStrings("juju-client-key", config.JujuSystemKey)
 
@@ -35,6 +33,7 @@ type KeyManagerAPI struct {
 	check      BlockChecker
 
 	controllerTag names.ControllerTag
+	logger        loggo.Logger
 }
 
 func (api *KeyManagerAPI) checkCanRead(sshUser string) error {
@@ -155,7 +154,7 @@ func (api *KeyManagerAPI) currentKeyDataForAdd() (keys []string, fingerprints se
 	for _, key := range keys {
 		fingerprint, _, err := ssh.KeyFingerprint(key)
 		if err != nil {
-			logger.Warningf("ignoring invalid ssh key %q: %v", key, err)
+			api.logger.Warningf("ignoring invalid ssh key %q: %v", key, err)
 		}
 		fingerprints.Add(fingerprint)
 	}
@@ -323,7 +322,7 @@ func (api *KeyManagerAPI) currentKeyDataForDelete() (
 	for _, key := range currentKeys {
 		fingerprint, comment, err := ssh.KeyFingerprint(key)
 		if err != nil {
-			logger.Debugf("keeping unrecognised existing ssh key %q: %v", key, err)
+			api.logger.Debugf("keeping unrecognised existing ssh key %q: %v", key, err)
 			continue
 		}
 		byFingerprint[fingerprint] = key

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/charm/v11"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
@@ -106,7 +107,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 
 	facade, err := caasunitprovisioner.NewFacade(
 		s.resources, s.authorizer, s.st, s.storage, s.devices,
-		s.storagePoolManager, s.registry, nil, nil, s.clock)
+		s.storagePoolManager, s.registry, nil, nil, s.clock, loggo.GetLogger("juju.apiserver.controller.caasunitprovisioner"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }
@@ -117,7 +118,7 @@ func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
 	}
 	_, err := caasunitprovisioner.NewFacade(
 		s.resources, s.authorizer, s.st, s.storage, s.devices,
-		s.storagePoolManager, s.registry, nil, nil, s.clock)
+		s.storagePoolManager, s.registry, nil, nil, s.clock, loggo.GetLogger("juju.apiserver.controller.caasunitprovisioner"))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 

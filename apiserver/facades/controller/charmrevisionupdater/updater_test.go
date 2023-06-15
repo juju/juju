@@ -11,6 +11,7 @@ import (
 	"github.com/juju/charm/v11/resource"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -59,7 +60,7 @@ func (s *updaterSuite) TestNewAuthSuccess(c *gc.C) {
 
 func (s *updaterSuite) TestNewAuthFailure(c *gc.C) {
 	authoriser := apiservertesting.FakeAuthorizer{Controller: false}
-	facadeCtx := facadeContextShim{state: nil, authorizer: authoriser}
+	facadeCtx := facadeContextShim{state: nil, authorizer: authoriser, logger: loggo.GetLogger("juju.apiserver.charmrevisionupdater")}
 	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPI(facadeCtx)
 	c.Assert(updater, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -95,7 +96,7 @@ func (s *updaterSuite) TestCharmhubUpdate(c *gc.C) {
 	s.state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:mysql-23")).Return(nil)
 	s.state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:postgresql-42")).Return(nil)
 
-	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(client))
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(client), loggo.GetLogger("juju.apiserver.charmrevisionupdater"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := updater.UpdateLatestRevisions()
@@ -172,7 +173,7 @@ func (s *updaterSuite) testCharmhubUpdateMetrics(c *gc.C, ctrl *gomock.Controlle
 	s.state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:mysql-23")).Return(nil)
 	s.state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:postgresql-42")).Return(nil)
 
-	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(client))
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(client), loggo.GetLogger("juju.apiserver.charmrevisionupdater"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := updater.UpdateLatestRevisions()
@@ -216,7 +217,7 @@ func (s *updaterSuite) TestEmptyModelMetrics(c *gc.C) {
 	}
 	client.EXPECT().RefreshWithMetricsOnly(gomock.Any(), gomock.Eq(send)).Return(nil)
 
-	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(client))
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(client), loggo.GetLogger("juju.apiserver.charmrevisionupdater"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = updater.UpdateLatestRevisions()
@@ -238,7 +239,7 @@ func (s *updaterSuite) TestEmptyModelNoMetrics(c *gc.C) {
 	s.state.EXPECT().AllApplications().Return([]charmrevisionupdater.Application{}, nil)
 	client := mocks.NewMockCharmhubRefreshClient(ctrl)
 
-	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(client))
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(client), loggo.GetLogger("juju.apiserver.charmrevisionupdater"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = updater.UpdateLatestRevisions()
@@ -297,7 +298,7 @@ func (s *updaterSuite) TestCharmhubUpdateWithResources(c *gc.C) {
 
 	s.state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:resourcey-1")).Return(nil)
 
-	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(client))
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(client), loggo.GetLogger("juju.apiserver.charmrevisionupdater"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := updater.UpdateLatestRevisions()
@@ -327,7 +328,7 @@ func (s *updaterSuite) TestCharmhubNoUpdate(c *gc.C) {
 	}, nil).AnyTimes()
 	s.state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:postgresql-42")).Return(nil)
 
-	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(client))
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(client), loggo.GetLogger("juju.apiserver.charmrevisionupdater"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := updater.UpdateLatestRevisions()
@@ -347,7 +348,7 @@ func (s *updaterSuite) TestCharmNotInStore(c *gc.C) {
 		makeApplication(ctrl, "ch", "varnish", "charm-5", "app-1", 1),
 	}, nil).AnyTimes()
 
-	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(charmhubClient))
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(charmhubClient), loggo.GetLogger("juju.apiserver.charmrevisionupdater"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := updater.UpdateLatestRevisions()

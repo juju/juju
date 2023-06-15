@@ -10,6 +10,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	coretesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
@@ -850,7 +851,7 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLX
 
 	s.state.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
 	s.machine.EXPECT().IsManual().Return(false, nil)
-	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(s.machine).Return(s.watcher, nil)
+	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(s.machine, loggo.GetLogger("juju.apiserver.instancemutater")).Return(s.watcher, nil)
 	s.watcher.EXPECT().Changes().Return(ch)
 	s.resources.EXPECT().Register(s.watcher).Return("1")
 }
@@ -861,14 +862,14 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLX
 
 	s.state.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
 	s.machine.EXPECT().IsManual().Return(false, nil)
-	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(s.machine).Return(s.watcher, nil)
+	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(s.machine, loggo.GetLogger("juju.apiserver.instancemutater")).Return(s.watcher, nil)
 	s.watcher.EXPECT().Changes().Return(ch)
 }
 
 func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLXDProfileVerificationNeededError() {
 	s.state.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
 	s.machine.EXPECT().IsManual().Return(false, nil)
-	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(s.machine).Return(s.watcher, errors.New("watcher error"))
+	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(s.machine, loggo.GetLogger("juju.apiserver.instancemutater")).Return(s.watcher, errors.New("watcher error"))
 }
 
 func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLXDProfileVerificationNeededWithManualMachine() {
@@ -877,7 +878,7 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLX
 
 	s.state.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
 	s.machine.EXPECT().IsManual().Return(true, nil)
-	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(s.machine).Times(0)
+	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(s.machine, loggo.GetLogger("juju.apiserver.instancemutater")).Times(0)
 }
 
 type InstanceMutaterAPIWatchContainersSuite struct {

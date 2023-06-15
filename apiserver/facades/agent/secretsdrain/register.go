@@ -40,5 +40,6 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsDrainAPI, error) {
 		resources:         context.Resources(),
 		secretsConsumer:   context.State(),
 		model:             model,
+		logger:            context.Logger().Child("secretsdrain"),
 	}, nil
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v11"
 	"github.com/juju/charm/v11/resource"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -173,6 +174,7 @@ type facadeContextShim struct {
 	facade.Context // Make it fulfil the interface, but we only define a couple of methods
 	state          *state.State
 	authorizer     facade.Authorizer
+	logger         loggo.Logger
 }
 
 func (s facadeContextShim) Auth() facade.Authorizer {
@@ -181,4 +183,8 @@ func (s facadeContextShim) Auth() facade.Authorizer {
 
 func (s facadeContextShim) State() *state.State {
 	return s.state
+}
+
+func (s facadeContextShim) Logger() loggo.Logger {
+	return s.logger
 }

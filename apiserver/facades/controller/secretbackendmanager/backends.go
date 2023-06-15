@@ -20,8 +20,6 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.secretbackendmanager")
-
 // SecretBackendsManagerAPI is the implementation for the SecretsManager facade.
 type SecretBackendsManagerAPI struct {
 	resources facade.Resources
@@ -33,6 +31,7 @@ type SecretBackendsManagerAPI struct {
 	backendRotate BackendRotate
 	backendState  BackendState
 	clock         clock.Clock
+	logger        loggo.Logger
 }
 
 // WatchSecretBackendsRotateChanges sets up a watcher to notify of changes to secret backend rotations.
@@ -86,11 +85,11 @@ func (s *SecretBackendsManagerAPI) RotateBackendTokens(args params.RotateSecretB
 		}
 
 		if backendInfo.TokenRotateInterval == nil || *backendInfo.TokenRotateInterval == 0 {
-			logger.Warningf("not rotating token for secret backend %q", backendInfo.Name)
+			s.logger.Warningf("not rotating token for secret backend %q", backendInfo.Name)
 			continue
 		}
 
-		logger.Debugf("refresh token for backend %v", backendInfo.Name)
+		s.logger.Debugf("refresh token for backend %v", backendInfo.Name)
 		cfg := &provider.ModelBackendConfig{
 			ControllerUUID: s.controllerUUID,
 			ModelUUID:      s.modelUUID,
@@ -104,7 +103,7 @@ func (s *SecretBackendsManagerAPI) RotateBackendTokens(args params.RotateSecretB
 		var nextRotateTime time.Time
 		auth, err := p.(provider.SupportAuthRefresh).RefreshAuth(cfg, *backendInfo.TokenRotateInterval)
 		if err != nil {
-			logger.Errorf("refreshing auth token for %q: %v", backendInfo.Name, err)
+			s.logger.Errorf("refreshing auth token for %q: %v", backendInfo.Name, err)
 			results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
 			// If there's a permission error, we can't recover from that.
 			if errors.Is(err, secrets.PermissionDenied) {
@@ -126,7 +125,7 @@ func (s *SecretBackendsManagerAPI) RotateBackendTokens(args params.RotateSecretB
 		if nextRotateTime.IsZero() {
 			nextRotateTime = s.clock.Now().Add(2 * time.Minute)
 		}
-		logger.Debugf("updating token rotation for %q, next: %s", backendInfo.Name, nextRotateTime)
+		s.logger.Debugf("updating token rotation for %q, next: %s", backendInfo.Name, nextRotateTime)
 		err = s.backendState.SecretBackendRotated(backendID, nextRotateTime)
 		if err != nil {
 			results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}

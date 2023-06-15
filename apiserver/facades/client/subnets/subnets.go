@@ -19,8 +19,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.subnets")
-
 // Backing contains the state methods used in this package.
 type Backing interface {
 	environs.EnvironConfigGetter
@@ -55,6 +53,7 @@ type API struct {
 	resources  facade.Resources
 	authorizer facade.Authorizer
 	context    context.ProviderCallContext
+	logger     loggo.Logger
 }
 
 func (api *API) checkCanRead() error {
@@ -63,7 +62,7 @@ func (api *API) checkCanRead() error {
 
 // newAPIWithBacking creates a new server-side Subnets API facade with
 // a common.NetworkBacking
-func newAPIWithBacking(backing Backing, ctx context.ProviderCallContext, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
+func newAPIWithBacking(backing Backing, ctx context.ProviderCallContext, resources facade.Resources, authorizer facade.Authorizer, logger loggo.Logger) (*API, error) {
 	// Only clients can access the Subnets facade.
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -73,6 +72,7 @@ func newAPIWithBacking(backing Backing, ctx context.ProviderCallContext, resourc
 		resources:  resources,
 		authorizer: authorizer,
 		context:    ctx,
+		logger:     logger,
 	}, nil
 }
 
@@ -83,7 +83,7 @@ func (api *API) AllZones() (params.ZoneResults, error) {
 	if err := api.checkCanRead(); err != nil {
 		return params.ZoneResults{}, err
 	}
-	return allZones(api.context, api.backing)
+	return allZones(api.context, api.backing, api.logger)
 }
 
 // ListSubnets returns the matching subnets after applying
@@ -110,7 +110,7 @@ func (api *API) ListSubnets(args params.SubnetsFilters) (results params.ListSubn
 
 	for _, subnet := range subs {
 		if spaceFilter != "" && subnet.SpaceName() != spaceFilter {
-			logger.Tracef(
+			api.logger.Tracef(
 				"filtering subnet %q from space %q not matching filter %q",
 				subnet.CIDR(), subnet.SpaceName(), spaceFilter,
 			)
@@ -118,7 +118,7 @@ func (api *API) ListSubnets(args params.SubnetsFilters) (results params.ListSubn
 		}
 		zoneSet := set.NewStrings(subnet.AvailabilityZones()...)
 		if zoneFilter != "" && !zoneSet.IsEmpty() && !zoneSet.Contains(zoneFilter) {
-			logger.Tracef(
+			api.logger.Tracef(
 				"filtering subnet %q with zones %v not matching filter %q",
 				subnet.CIDR(), subnet.AvailabilityZones(), zoneFilter,
 			)

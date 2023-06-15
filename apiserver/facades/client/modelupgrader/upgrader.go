@@ -26,8 +26,6 @@ import (
 	"github.com/juju/juju/upgrades/upgradevalidation"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.modelupgrader")
-
 // ModelUpgraderAPI implements the model upgrader interface and is
 // the concrete implementation of the api end point.
 type ModelUpgraderAPI struct {
@@ -42,6 +40,7 @@ type ModelUpgraderAPI struct {
 
 	registryAPIFunc         func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
 	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error)
+	logger                  loggo.Logger
 }
 
 // NewModelUpgraderAPI creates a new api server endpoint for managing
@@ -56,6 +55,7 @@ func NewModelUpgraderAPI(
 	callCtx context.ProviderCallContext,
 	registryAPIFunc func(docker.ImageRepoDetails) (registry.Registry, error),
 	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error),
+	logger loggo.Logger,
 ) (*ModelUpgraderAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -75,6 +75,7 @@ func NewModelUpgraderAPI(
 		newEnviron:              newEnviron,
 		registryAPIFunc:         registryAPIFunc,
 		environscloudspecGetter: environscloudspecGetter,
+		logger:                  logger,
 	}, nil
 }
 
@@ -123,7 +124,7 @@ func (m *ModelUpgraderAPI) AbortModelUpgrade(arg params.ModelParam) error {
 
 // UpgradeModel upgrades a model.
 func (m *ModelUpgraderAPI) UpgradeModel(arg params.UpgradeModelParams) (result params.UpgradeModelResult, err error) {
-	logger.Tracef("UpgradeModel arg %#v", arg)
+	m.logger.Tracef("UpgradeModel arg %#v", arg)
 	targetVersion := arg.TargetVersion
 	defer func() {
 		if err == nil {
@@ -163,7 +164,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(arg params.UpgradeModelParams) (result p
 		return result, errors.Trace(err)
 	}
 
-	logger.Debugf("deciding target version for model upgrade, from %q to %q for stream %q", currentVersion, targetVersion, arg.AgentStream)
+	m.logger.Debugf("deciding target version for model upgrade, from %q to %q for stream %q", currentVersion, targetVersion, arg.AgentStream)
 	args := common.FindAgentsParams{
 		AgentStream:   arg.AgentStream,
 		ControllerCfg: controllerCfg,
@@ -210,7 +211,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(arg params.UpgradeModelParams) (result p
 		return result, errors.Trace(err)
 	}
 	if err := preCheckEnvironForUpgradeModel(
-		m.callContext, envOrBroker, model.IsControllerModel(), currentVersion, targetVersion,
+		m.callContext, envOrBroker, model.IsControllerModel(), currentVersion, targetVersion, m.logger,
 	); err != nil {
 		return result, errors.Trace(err)
 	}
@@ -236,6 +237,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(arg params.UpgradeModelParams) (result p
 func preCheckEnvironForUpgradeModel(
 	ctx context.ProviderCallContext, env environs.BootstrapEnviron,
 	controllerModel bool, currentVersion, targetVersion version.Number,
+	logger loggo.Logger,
 ) error {
 	if err := environs.CheckProviderAPI(env, ctx); err != nil {
 		return errors.Trace(err)

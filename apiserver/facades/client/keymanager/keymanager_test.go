@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -52,7 +53,7 @@ func (s *keyManagerSuite) setup(c *gc.C) *gomock.Controller {
 		Tag: s.apiUser,
 	}
 
-	s.api = keymanager.NewKeyManagerAPI(s.model, s.authorizer, s.blockChecker, coretesting.ControllerTag)
+	s.api = keymanager.NewKeyManagerAPI(s.model, s.authorizer, s.blockChecker, coretesting.ControllerTag, loggo.GetLogger("juju.apiserver.keymanager"))
 
 	return ctrl
 }

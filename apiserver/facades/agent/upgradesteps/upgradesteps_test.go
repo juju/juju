@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/controller"
 	jujutesting "github.com/juju/juju/testing"
+	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -185,7 +186,7 @@ func (s *upgradeStepsSuite) expectAuthCalls() {
 }
 
 func (s *upgradeStepsSuite) setupFacadeAPI(c *gc.C) {
-	api, err := upgradesteps.NewUpgradeStepsAPI(s.state, s.resources, s.authorizer)
+	api, err := upgradesteps.NewUpgradeStepsAPI(s.state, s.resources, s.authorizer, loggo.GetLogger("juju.apiserver.upgradesteps"))
 	c.Assert(err, gc.IsNil)
 	s.api = api
 }

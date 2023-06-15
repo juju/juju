@@ -36,8 +36,6 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.controller.caasunitprovisioner")
-
 type Facade struct {
 	*common.LifeGetter
 	entityWatcher   *common.AgentEntityWatcher
@@ -51,6 +49,7 @@ type Facade struct {
 	registry           storage.ProviderRegistry
 	devices            DeviceBackend
 	clock              clock.Clock
+	logger             loggo.Logger
 }
 
 // NewFacade returns a new CAAS unit provisioner Facade facade.
@@ -65,6 +64,7 @@ func NewFacade(
 	charmInfoAPI *charmscommon.CharmInfoAPI,
 	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI,
 	clock clock.Clock,
+	logger loggo.Logger,
 ) (*Facade, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -87,6 +87,7 @@ func NewFacade(
 		storagePoolManager: storagePoolManager,
 		registry:           registry,
 		clock:              clock,
+		logger:             logger,
 	}, nil
 }
 
@@ -200,7 +201,7 @@ func (f *Facade) ApplicationsScale(args params.Entities) (params.IntResults, err
 		}
 		results.Results[i].Result = scale
 	}
-	logger.Debugf("application scale result: %#v", results)
+	f.logger.Debugf("application scale result: %#v", results)
 	return results, nil
 }
 
@@ -229,7 +230,7 @@ func (f *Facade) ApplicationsTrust(args params.Entities) (params.BoolResults, er
 		}
 		results.Results[i].Result = trust
 	}
-	logger.Debugf("application trust result: %#v", results)
+	f.logger.Debugf("application trust result: %#v", results)
 	return results, nil
 }
 
@@ -393,7 +394,7 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 		return nil, errors.Trace(err)
 	}
 	imageRepo := params.NewDockerImageInfo(controllerCfg.CAASImageRepo(), registryPath)
-	logger.Tracef("imageRepo %v", imageRepo)
+	f.logger.Tracef("imageRepo %v", imageRepo)
 	filesystemParams, err := f.applicationFilesystemParams(app, controllerCfg, modelConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -533,7 +534,7 @@ func (f *Facade) devicesParams(app Application) ([]params.KubernetesDeviceParams
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Debugf("getting device constraints from state: %#v", devices)
+	f.logger.Debugf("getting device constraints from state: %#v", devices)
 	var devicesParams []params.KubernetesDeviceParams
 	for _, d := range devices {
 		devicesParams = append(devicesParams, params.KubernetesDeviceParams{
@@ -672,12 +673,12 @@ func (f *Facade) updateStatus(params params.ApplicationUnitParams) (
 // any existing units in state with provider ids which aren't in the set will be removed.
 func (f *Facade) updateUnitsFromCloud(app Application, scale *int,
 	generation *int64, unitUpdates []params.ApplicationUnitParams) ([]params.ApplicationUnitInfo, error) {
-	logger.Debugf("unit updates: %#v", unitUpdates)
+	f.logger.Debugf("unit updates: %#v", unitUpdates)
 	if scale != nil {
-		logger.Debugf("application scale: %v", *scale)
+		f.logger.Debugf("application scale: %v", *scale)
 		if *scale > 0 && len(unitUpdates) == 0 {
 			// no ops for empty units because we can not determine if it's stateful or not in this case.
-			logger.Debugf("ignoring empty k8s event for %q", app.Tag().String())
+			f.logger.Debugf("ignoring empty k8s event for %q", app.Tag().String())
 			return nil, nil
 		}
 	}
@@ -732,7 +733,7 @@ func (f *Facade) updateUnitsFromCloud(app Application, scale *int,
 			continue
 		}
 		if providerId == "" {
-			logger.Debugf("unit %q is not associated with any pod", u.Name())
+			f.logger.Debugf("unit %q is not associated with any pod", u.Name())
 			unitInfo.unassociatedUnits = append(unitInfo.unassociatedUnits, u)
 			continue
 		}
@@ -741,10 +742,10 @@ func (f *Facade) updateUnitsFromCloud(app Application, scale *int,
 		stateUnitInCloud := stateUnitExistsInCloud(providerId)
 		aliveStateIds.Add(providerId)
 		if stateUnitInCloud {
-			logger.Debugf("unit %q (%v) has changed in the cloud", u.Name(), providerId)
+			f.logger.Debugf("unit %q (%v) has changed in the cloud", u.Name(), providerId)
 			unitInfo.stateUnitsInCloud[u.UnitTag().String()] = u
 		} else {
-			logger.Debugf("unit %q (%v) has removed in the cloud", u.Name(), providerId)
+			f.logger.Debugf("unit %q (%v) has removed in the cloud", u.Name(), providerId)
 			extraStateIds.Add(providerId)
 		}
 	}
@@ -791,18 +792,18 @@ func (f *Facade) updateUnitsFromCloud(app Application, scale *int,
 
 	// If there are any extra provider ids left over after allocating all the cloud pods,
 	// then consider those state units as terminated.
-	logger.Debugf("alive state ids %v", aliveStateIds.Values())
-	logger.Debugf("extra state ids %v", extraStateIds.Values())
-	logger.Debugf("extra units in state: %v", extraUnitsInStateCount)
+	f.logger.Debugf("alive state ids %v", aliveStateIds.Values())
+	f.logger.Debugf("extra state ids %v", extraStateIds.Values())
+	f.logger.Debugf("extra units in state: %v", extraUnitsInStateCount)
 	for _, providerId := range extraIds {
 		u := stateUnitsById[providerId]
-		logger.Debugf("unit %q (%v) has been removed from the cloud", u.Name(), providerId)
+		f.logger.Debugf("unit %q (%v) has been removed from the cloud", u.Name(), providerId)
 		// If the unit in state is surplus to the application scale, remove it from state also.
 		// We retain units in state that are not surplus to cloud requirements as they will
 		// be regenerated by the cloud and we want to keep a stable unit name.
 		u.delete = unitInfo.deletedRemoved && scale != nil
 		if !u.delete && extraUnitsInStateCount > 0 {
-			logger.Debugf("deleting %v because it exceeds the scale of %v", u.Name(), scale)
+			f.logger.Debugf("deleting %v because it exceeds the scale of %v", u.Name(), scale)
 			u.delete = true
 			extraUnitsInStateCount--
 		}
@@ -885,14 +886,14 @@ func (f *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 
 	if app.Life() != state.Alive {
 		// We ignore any updates for dying applications.
-		logger.Debugf("ignoring unit updates for dying application: %v", app.Name())
+		f.logger.Debugf("ignoring unit updates for dying application: %v", app.Name())
 		return nil
 	}
 
-	logger.Tracef("added cloud units: %+v", unitInfo.addedCloudPods)
-	logger.Tracef("existing cloud units: %+v", unitInfo.existingCloudPods)
-	logger.Tracef("removed units: %+v", unitInfo.removedUnits)
-	logger.Tracef("unassociated units: %+v", unitInfo.unassociatedUnits)
+	f.logger.Tracef("added cloud units: %+v", unitInfo.addedCloudPods)
+	f.logger.Tracef("existing cloud units: %+v", unitInfo.existingCloudPods)
+	f.logger.Tracef("removed units: %+v", unitInfo.removedUnits)
+	f.logger.Tracef("unassociated units: %+v", unitInfo.unassociatedUnits)
 
 	// Now we have the added, removed, updated units all sorted,
 	// generate the state update operations.
@@ -962,7 +963,7 @@ func (f *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 		}
 
 		for storageName, infos := range filesystemInfoByName {
-			logger.Debugf("updating storage %v for %v", storageName, unitTag)
+			f.logger.Debugf("updating storage %v for %v", storageName, unitTag)
 			if len(infos) == 0 {
 				continue
 			}
@@ -978,7 +979,7 @@ func (f *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 			for _, sa := range unitStorage {
 				si, err := f.storage.StorageInstance(sa.StorageInstance())
 				if errors.IsNotFound(err) {
-					logger.Warningf("ignoring non-existent storage instance %v for unit %v", sa.StorageInstance(), unitTag.Id())
+					f.logger.Warningf("ignoring non-existent storage instance %v for unit %v", sa.StorageInstance(), unitTag.Id())
 					continue
 				}
 				if err != nil {
@@ -1050,7 +1051,7 @@ func (f *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 	for _, unitParams := range unitInfo.existingCloudPods {
 		u, ok := unitInfo.stateUnitsInCloud[unitParams.UnitTag]
 		if !ok {
-			logger.Warningf("unexpected unit parameters %+v not in state", unitParams)
+			f.logger.Warningf("unexpected unit parameters %+v not in state", unitParams)
 			continue
 		}
 		updateProps := processUnitParams(unitParams)
@@ -1127,7 +1128,7 @@ func (f *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 		if unitParams.UnitTag == "" {
 			unitTag, ok = providerIdToUnit[unitParams.ProviderId]
 			if !ok {
-				logger.Warningf("cannot update filesystem data for unknown pod %q", unitParams.ProviderId)
+				f.logger.Warningf("cannot update filesystem data for unknown pod %q", unitParams.ProviderId)
 				continue
 			}
 		} else {
@@ -1193,7 +1194,7 @@ func (f *Facade) cleanupOrphanedFilesystems(processedFilesystemIds set.Strings) 
 			continue
 		}
 
-		logger.Debugf("found orphaned filesystem %v", fs.FilesystemTag())
+		f.logger.Debugf("found orphaned filesystem %v", fs.FilesystemTag())
 		// TODO (anastasiamac 2019-04-04) We can now force storage removal
 		// but for now, while we have not an arg passed in, just hardcode.
 		err = f.storage.DestroyStorageInstance(storageTag, false, false, time.Duration(0))
@@ -1216,7 +1217,7 @@ func (f *Facade) updateVolumeInfo(volumeUpdates map[string]volumeInfo, volumeSta
 	}
 	sort.Strings(volTags)
 
-	logger.Debugf("updating volume data: %+v", volumeUpdates)
+	f.logger.Debugf("updating volume data: %+v", volumeUpdates)
 	for _, tagString := range volTags {
 		volTag, _ := names.ParseVolumeTag(tagString)
 		volData := volumeUpdates[tagString]
@@ -1258,7 +1259,7 @@ func (f *Facade) updateVolumeInfo(volumeUpdates map[string]volumeInfo, volumeSta
 	}
 	sort.Strings(volTags)
 
-	logger.Debugf("updating volume status: %+v", volumeStatus)
+	f.logger.Debugf("updating volume status: %+v", volumeStatus)
 	for _, tagString := range volTags {
 		volTag, _ := names.ParseVolumeTag(tagString)
 		volStatus := volumeStatus[tagString]
@@ -1289,7 +1290,7 @@ func (f *Facade) updateFilesystemInfo(filesystemUpdates map[string]filesystemInf
 	}
 	sort.Strings(fsTags)
 
-	logger.Debugf("updating filesystem data: %+v", filesystemUpdates)
+	f.logger.Debugf("updating filesystem data: %+v", filesystemUpdates)
 	for _, tagString := range fsTags {
 		fsTag, _ := names.ParseFilesystemTag(tagString)
 		fsData := filesystemUpdates[tagString]
@@ -1331,7 +1332,7 @@ func (f *Facade) updateFilesystemInfo(filesystemUpdates map[string]filesystemInf
 	}
 	sort.Strings(fsTags)
 
-	logger.Debugf("updating filesystem status: %+v", filesystemStatus)
+	f.logger.Debugf("updating filesystem status: %+v", filesystemStatus)
 	for _, tagString := range fsTags {
 		fsTag, _ := names.ParseFilesystemTag(tagString)
 		fsStatus := filesystemStatus[tagString]

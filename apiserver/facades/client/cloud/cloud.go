@@ -27,8 +27,6 @@ import (
 	stateerrors "github.com/juju/juju/state/errors"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.cloud")
-
 // CloudV7 defines the methods on the cloud API facade, version 7.
 type CloudV7 interface {
 	AddCloud(cloudArgs params.AddCloudArgs) error
@@ -55,6 +53,7 @@ type CloudAPI struct {
 	isAdmin                bool
 	getCredentialsAuthFunc common.GetAuthFunc
 	pool                   ModelPoolBackend
+	logger                 loggo.Logger
 }
 
 var (
@@ -63,7 +62,7 @@ var (
 
 // NewCloudAPI creates a new API server endpoint for managing the controller's
 // cloud definition and cloud credentials.
-func NewCloudAPI(backend, ctlrBackend Backend, pool ModelPoolBackend, authorizer facade.Authorizer) (*CloudAPI, error) {
+func NewCloudAPI(backend, ctlrBackend Backend, pool ModelPoolBackend, authorizer facade.Authorizer, logger loggo.Logger) (*CloudAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -91,6 +90,7 @@ func NewCloudAPI(backend, ctlrBackend Backend, pool ModelPoolBackend, authorizer
 		apiUser:                authUser,
 		isAdmin:                isAdmin,
 		pool:                   pool,
+		logger:                 logger,
 	}, nil
 }
 
@@ -617,10 +617,10 @@ func (api *CloudAPI) RevokeCredentialsCheckModels(args params.RevokeCredentialAr
 				results.Results[i].Error = apiservererrors.ServerError(err)
 				continue
 			}
-			logger.Warningf("could not get models that use credential %v: %v", tag, err)
+			api.logger.Warningf("could not get models that use credential %v: %v", tag, err)
 		}
 		if len(models) != 0 {
-			logger.Warningf("credential %v %v it is used by model%v",
+			api.logger.Warningf("credential %v %v it is used by model%v",
 				tag,
 				opMessage(arg.Force),
 				modelsPretty(models),
@@ -744,7 +744,7 @@ func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
 			if cloudArgs.Force == nil || !*cloudArgs.Force {
 				return apiservererrors.ServerError(params.Error{Code: params.CodeIncompatibleClouds, Message: err.Error()})
 			}
-			logger.Infof("force adding cloud %q of type %q to controller bootstrapped on cloud type %q", cloudArgs.Name, cloudArgs.Cloud.Type, controllerCloud.Type)
+			api.logger.Infof("force adding cloud %q of type %q to controller bootstrapped on cloud type %q", cloudArgs.Name, cloudArgs.Cloud.Type, controllerCloud.Type)
 		}
 	}
 

@@ -367,7 +367,7 @@ func (api *ProvisionerAPI) machineSpaceTopology(machineID string, spaceNames []s
 			// space, so no subnet should be processed more than once.
 			// Log a warning if this happens.
 			if _, ok := topology.SpaceSubnets[sID]; ok {
-				logger.Warningf("subnet with provider ID %q found is present in multiple spaces", sID)
+				api.logger.Warningf("subnet with provider ID %q found is present in multiple spaces", sID)
 			}
 			topology.SubnetAZs[sID] = zones
 			subnetIDs = append(subnetIDs, sID)
@@ -419,7 +419,7 @@ func (api *ProvisionerAPI) subnetsAndZonesForSpace(machineID string, spaceName s
 
 		providerID := subnet.ProviderId
 		if providerID == "" {
-			logger.Warningf(warningPrefix + "no ProviderId set")
+			api.logger.Warningf(warningPrefix + "no ProviderId set")
 			continue
 		}
 
@@ -438,7 +438,7 @@ func (api *ProvisionerAPI) subnetsAndZonesForSpace(machineID string, spaceName s
 			}
 
 			if providerType != azure.ProviderType && providerType != "openstack" {
-				logger.Warningf(warningPrefix + "no availability zone(s) set")
+				api.logger.Warningf(warningPrefix + "no availability zone(s) set")
 				continue
 			}
 		}
@@ -455,7 +455,7 @@ func (api *ProvisionerAPI) subnetsAndZonesForSpace(machineID string, spaceName s
 func (api *ProvisionerAPI) machineLXDProfileNames(m *state.Machine, env environs.Environ) ([]string, error) {
 	profileEnv, ok := env.(environs.LXDProfiler)
 	if !ok {
-		logger.Tracef("LXDProfiler not implemented by environ")
+		api.logger.Tracef("LXDProfiler not implemented by environ")
 		return nil, nil
 	}
 
@@ -568,7 +568,7 @@ func (api *ProvisionerAPI) availableImageMetadata(
 		return nil, errors.Trace(err)
 	}
 	sort.Sort(metadataList(data))
-	logger.Debugf("available image metadata for provisioning: %v", data)
+	api.logger.Debugf("available image metadata for provisioning: %v", data)
 	return data, nil
 }
 
@@ -621,9 +621,9 @@ func (api *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.Imag
 	if err != nil && !errors.IsNotFound(err) {
 		// look into simple stream if for some reason can't get from controller,
 		// so do not exit on error.
-		logger.Infof("could not get image metadata from controller: %v", err)
+		api.logger.Infof("could not get image metadata from controller: %v", err)
 	}
-	logger.Debugf("got from controller %d metadata", len(stateMetadata))
+	api.logger.Debugf("got from controller %d metadata", len(stateMetadata))
 	// No need to look in data sources if found in state.
 	if len(stateMetadata) != 0 {
 		return stateMetadata, nil
@@ -639,7 +639,7 @@ func (api *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.Imag
 			return nil, errors.Trace(err)
 		}
 	}
-	logger.Debugf("got from data sources %d metadata", len(dsMetadata))
+	api.logger.Debugf("got from data sources %d metadata", len(dsMetadata))
 
 	return dsMetadata, nil
 }
@@ -719,11 +719,11 @@ func (api *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, co
 
 	var metadataState []cloudimagemetadata.Metadata
 	for _, source := range sources {
-		logger.Debugf("looking in data source %v", source.Description())
+		api.logger.Debugf("looking in data source %v", source.Description())
 		found, info, err := imagemetadata.Fetch(fetcher, []simplestreams.DataSource{source}, constraint)
 		if err != nil {
 			// Do not stop looking in other data sources if there is an issue here.
-			logger.Warningf("encountered %v while getting published images metadata from %v", err, source.Description())
+			api.logger.Warningf("encountered %v while getting published images metadata from %v", err, source.Description())
 			continue
 		}
 		for _, m := range found {
@@ -733,7 +733,7 @@ func (api *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, co
 	if len(metadataState) > 0 {
 		if err := api.st.CloudImageMetadataStorage.SaveMetadata(metadataState); err != nil {
 			// No need to react here, just take note
-			logger.Warningf("failed to save published image metadata: %v", err)
+			api.logger.Warningf("failed to save published image metadata: %v", err)
 		}
 	}
 

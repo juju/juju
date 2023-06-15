@@ -44,8 +44,6 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.caasapplicationprovisioner")
-
 type APIGroup struct {
 	*common.PasswordChanger
 	*common.LifeGetter
@@ -69,6 +67,7 @@ type API struct {
 	storagePoolManager poolmanager.PoolManager
 	registry           storage.ProviderRegistry
 	clock              clock.Clock
+	logger             loggo.Logger
 }
 
 // NewStateCAASApplicationProvisionerAPI provides the signature required for facade registration.
@@ -120,6 +119,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 		pm,
 		registry,
 		clock.WallClock,
+		ctx.Logger().Child("caasapplicationprovisioner"),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -168,6 +168,7 @@ func NewCAASApplicationProvisionerAPI(
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
 	clock clock.Clock,
+	logger loggo.Logger,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -183,6 +184,7 @@ func NewCAASApplicationProvisionerAPI(
 		storagePoolManager: storagePoolManager,
 		registry:           registry,
 		clock:              clock,
+		logger:             logger,
 	}, nil
 }
 
@@ -618,7 +620,7 @@ func (a *API) devicesParams(app Application) ([]params.KubernetesDeviceParams, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Debugf("getting device constraints from state: %#v", devices)
+	a.logger.Debugf("getting device constraints from state: %#v", devices)
 	var devicesParams []params.KubernetesDeviceParams
 	for _, d := range devices {
 		devicesParams = append(devicesParams, params.KubernetesDeviceParams{
@@ -727,7 +729,7 @@ func (a *API) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) (pa
 		}
 		if app.Life() != state.Alive {
 			// We ignore any updates for dying applications.
-			logger.Debugf("ignoring unit updates for dying application: %v", app.Name())
+			a.logger.Debugf("ignoring unit updates for dying application: %v", app.Name())
 			continue
 		}
 		appStatus := appUpdate.Status
@@ -780,7 +782,7 @@ type volumeInfo struct {
 }
 
 func (a *API) updateUnitsFromCloud(app Application, unitUpdates []params.ApplicationUnitParams) ([]params.ApplicationUnitInfo, error) {
-	logger.Debugf("unit updates: %#v", unitUpdates)
+	a.logger.Debugf("unit updates: %#v", unitUpdates)
 
 	m, err := a.state.Model()
 	if err != nil {
@@ -829,7 +831,7 @@ func (a *API) updateUnitsFromCloud(app Application, unitUpdates []params.Applica
 		}
 
 		for storageName, infos := range filesystemInfoByName {
-			logger.Debugf("updating storage %v for %v", storageName, unitTag)
+			a.logger.Debugf("updating storage %v for %v", storageName, unitTag)
 			if len(infos) == 0 {
 				continue
 			}
@@ -845,7 +847,7 @@ func (a *API) updateUnitsFromCloud(app Application, unitUpdates []params.Applica
 			for _, sa := range unitStorage {
 				si, err := a.storage.StorageInstance(sa.StorageInstance())
 				if errors.IsNotFound(err) {
-					logger.Warningf("ignoring non-existent storage instance %v for unit %v", sa.StorageInstance(), unitTag.Id())
+					a.logger.Warningf("ignoring non-existent storage instance %v for unit %v", sa.StorageInstance(), unitTag.Id())
 					continue
 				}
 				if err != nil {
@@ -917,7 +919,7 @@ func (a *API) updateUnitsFromCloud(app Application, unitUpdates []params.Applica
 	for _, unitParams := range unitUpdates {
 		unit, ok := unitByProviderID[unitParams.ProviderId]
 		if !ok {
-			logger.Warningf("ignoring non-existent unit with provider id %q", unitParams.ProviderId)
+			a.logger.Warningf("ignoring non-existent unit with provider id %q", unitParams.ProviderId)
 			continue
 		}
 
@@ -1005,7 +1007,7 @@ func (a *API) cleanupOrphanedFilesystems(processedFilesystemIds set.Strings) err
 			continue
 		}
 
-		logger.Debugf("found orphaned filesystem %v", fs.FilesystemTag())
+		a.logger.Debugf("found orphaned filesystem %v", fs.FilesystemTag())
 		// TODO (anastasiamac 2019-04-04) We can now force storage removal
 		// but for now, while we have not an arg passed in, just hardcode.
 		err = a.storage.DestroyStorageInstance(storageTag, false, false, time.Duration(0))
@@ -1028,7 +1030,7 @@ func (a *API) updateVolumeInfo(volumeUpdates map[string]volumeInfo, volumeStatus
 	}
 	sort.Strings(volTags)
 
-	logger.Debugf("updating volume data: %+v", volumeUpdates)
+	a.logger.Debugf("updating volume data: %+v", volumeUpdates)
 	for _, tagString := range volTags {
 		volTag, _ := names.ParseVolumeTag(tagString)
 		volData := volumeUpdates[tagString]
@@ -1070,7 +1072,7 @@ func (a *API) updateVolumeInfo(volumeUpdates map[string]volumeInfo, volumeStatus
 	}
 	sort.Strings(volTags)
 
-	logger.Debugf("updating volume status: %+v", volumeStatus)
+	a.logger.Debugf("updating volume status: %+v", volumeStatus)
 	for _, tagString := range volTags {
 		volTag, _ := names.ParseVolumeTag(tagString)
 		volStatus := volumeStatus[tagString]
@@ -1101,7 +1103,7 @@ func (a *API) updateFilesystemInfo(filesystemUpdates map[string]filesystemInfo, 
 	}
 	sort.Strings(fsTags)
 
-	logger.Debugf("updating filesystem data: %+v", filesystemUpdates)
+	a.logger.Debugf("updating filesystem data: %+v", filesystemUpdates)
 	for _, tagString := range fsTags {
 		fsTag, _ := names.ParseFilesystemTag(tagString)
 		fsData := filesystemUpdates[tagString]
@@ -1143,7 +1145,7 @@ func (a *API) updateFilesystemInfo(filesystemUpdates map[string]filesystemInfo, 
 	}
 	sort.Strings(fsTags)
 
-	logger.Debugf("updating filesystem status: %+v", filesystemStatus)
+	a.logger.Debugf("updating filesystem status: %+v", filesystemStatus)
 	for _, tagString := range fsTags {
 		fsTag, _ := names.ParseFilesystemTag(tagString)
 		fsStatus := filesystemStatus[tagString]

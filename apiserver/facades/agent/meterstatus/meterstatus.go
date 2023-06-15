@@ -17,8 +17,6 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.meterstatus")
-
 // MeterStatus defines the methods exported by the meter status API facade.
 type MeterStatus interface {
 	GetMeterStatus(args params.Entities) (params.MeterStatusResults, error)
@@ -56,6 +54,7 @@ func NewMeterStatusAPI(
 	st MeterStatusState,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	logger loggo.Logger,
 ) (*MeterStatusAPI, error) {
 	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm

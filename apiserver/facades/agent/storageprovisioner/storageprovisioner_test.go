@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
@@ -88,7 +89,7 @@ func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
 	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	s.storageBackend = storageBackend
-	s.api, err = storageprovisioner.NewStorageProvisionerAPIv4(backend, storageBackend, s.resources, s.authorizer, registry, pm)
+	s.api, err = storageprovisioner.NewStorageProvisionerAPIv4(backend, storageBackend, s.resources, s.authorizer, registry, pm, loggo.GetLogger("juju.apiserver.storageprovisioner"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -120,7 +121,7 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	s.storageBackend = storageBackend
-	s.api, err = storageprovisioner.NewStorageProvisionerAPIv4(backend, storageBackend, s.resources, s.authorizer, registry, pm)
+	s.api, err = storageprovisioner.NewStorageProvisionerAPIv4(backend, storageBackend, s.resources, s.authorizer, registry, pm, loggo.GetLogger("juju.apiserver.storageprovisioner"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -129,7 +130,7 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: tag}
 	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.State)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = storageprovisioner.NewStorageProvisionerAPIv4(backend, storageBackend, common.NewResources(), authorizer, nil, nil)
+	_, err = storageprovisioner.NewStorageProvisionerAPIv4(backend, storageBackend, common.NewResources(), authorizer, nil, nil, loggo.GetLogger("juju.apiserver.storageprovisioner"))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 

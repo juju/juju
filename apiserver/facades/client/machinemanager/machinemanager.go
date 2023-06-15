@@ -31,8 +31,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.machinemanager")
-
 var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
 // Leadership represents a type for modifying the leadership settings of an
@@ -79,6 +77,7 @@ type MachineManagerAPI struct {
 	upgradeSeriesAPI UpgradeSeries
 
 	callContext environscontext.ProviderCallContext
+	logger      loggo.Logger
 }
 
 type MachineManagerV9 struct {
@@ -123,6 +122,7 @@ func NewFacadeV10(ctx facade.Context) (*MachineManagerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
+	logger := ctx.Logger().Child("machinemanager")
 	chURL, _ := modelCfg.CharmHubURL()
 	chClient, err := charmhub.NewClient(charmhub.Config{
 		URL:        chURL,
@@ -145,6 +145,7 @@ func NewFacadeV10(ctx facade.Context) (*MachineManagerAPI, error) {
 		ctx.Resources(),
 		leadership,
 		chClient,
+		logger,
 	)
 }
 
@@ -158,6 +159,7 @@ func NewMachineManagerAPI(
 	resources facade.Resources,
 	leadership Leadership,
 	charmhubClient CharmhubClient,
+	logger loggo.Logger,
 ) (*MachineManagerAPI, error) {
 	if !auth.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -177,6 +179,7 @@ func NewMachineManagerAPI(
 			makeUpgradeSeriesValidator(charmhubClient),
 			auth,
 		),
+		logger: logger,
 	}
 	return api, nil
 }
@@ -475,13 +478,13 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep, d
 			continue
 		}
 		if keep {
-			logger.Infof("destroy machine %v but keep instance", machineTag.Id())
+			mm.logger.Infof("destroy machine %v but keep instance", machineTag.Id())
 			if err := machine.SetKeepInstance(keep); err != nil {
 				if !force {
 					fail(err)
 					continue
 				}
-				logger.Warningf("could not keep instance for machine %v: %v", machineTag.Id(), err)
+				mm.logger.Warningf("could not keep instance for machine %v: %v", machineTag.Id(), err)
 			}
 		}
 		info := params.DestroyMachineInfo{
@@ -516,7 +519,7 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep, d
 				fail(err)
 				continue
 			}
-			logger.Warningf("could not deal with units' storage on machine %v: %v", machineTag.Id(), err)
+			mm.logger.Warningf("could not deal with units' storage on machine %v: %v", machineTag.Id(), err)
 		}
 
 		if dryRun {
@@ -557,11 +560,11 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep, d
 		// CLI, is to remove the raft logs manually.
 		unpinResults, err := mm.leadership.UnpinApplicationLeadersByName(machineTag, applicationNames)
 		if err != nil {
-			logger.Warningf("could not unpin application leaders for machine %s with error %v", machineTag.Id(), err)
+			mm.logger.Warningf("could not unpin application leaders for machine %s with error %v", machineTag.Id(), err)
 		}
 		for _, result := range unpinResults.Results {
 			if result.Error != nil {
-				logger.Warningf(
+				mm.logger.Warningf(
 					"could not unpin application leaders for machine %s with error %v", machineTag.Id(), result.Error)
 			}
 		}

@@ -10,6 +10,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -646,6 +647,7 @@ func (s *charmsMockSuite) api(c *gc.C) *charms.API {
 		func(services.CharmDownloaderConfig) (charmsinterfaces.Downloader, error) {
 			return s.downloader, nil
 		},
+		loggo.GetLogger("juju.apiserver.charms"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return api

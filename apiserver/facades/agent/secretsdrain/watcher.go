@@ -5,6 +5,7 @@ package secretsdrain
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
@@ -16,15 +17,17 @@ type secretBackendModelConfigWatcher struct {
 	out               chan struct{}
 	src               state.NotifyWatcher
 	modelConfigGetter Model
+	logger            loggo.Logger
 
 	currentSecretBackend string
 }
 
-func newSecretBackendModelConfigWatcher(modelConfigGetter Model, src state.NotifyWatcher) (state.NotifyWatcher, error) {
+func newSecretBackendModelConfigWatcher(modelConfigGetter Model, src state.NotifyWatcher, logger loggo.Logger) (state.NotifyWatcher, error) {
 	w := &secretBackendModelConfigWatcher{
 		out:               make(chan struct{}),
 		src:               src,
 		modelConfigGetter: modelConfigGetter,
+		logger:            logger,
 	}
 	modelConfig, err := w.modelConfigGetter.ModelConfig()
 	if err != nil {
@@ -100,7 +103,7 @@ func (w *secretBackendModelConfigWatcher) isSecretBackendChanged() (bool, error)
 	if w.currentSecretBackend == latest {
 		return false, nil
 	}
-	logger.Tracef("secret backend was changed from %s to %s", w.currentSecretBackend, latest)
+	w.logger.Tracef("secret backend was changed from %s to %s", w.currentSecretBackend, latest)
 	w.currentSecretBackend = latest
 	return true, nil
 }

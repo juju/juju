@@ -10,6 +10,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
 
@@ -51,12 +52,13 @@ type NetworkInfoBase struct {
 	app           *state.Application
 	defaultEgress []string
 	bindings      map[string]string
+	logger        loggo.Logger
 }
 
 // NewNetworkInfo initialises and returns a new NetworkInfo
 // based on the input state and unit tag.
-func NewNetworkInfo(st *state.State, tag names.UnitTag) (NetworkInfo, error) {
-	n, err := NewNetworkInfoForStrategy(st, tag, defaultRetryFactory, net.LookupHost)
+func NewNetworkInfo(st *state.State, tag names.UnitTag, logger loggo.Logger) (NetworkInfo, error) {
+	n, err := NewNetworkInfoForStrategy(st, tag, defaultRetryFactory, net.LookupHost, logger)
 	return n, errors.Trace(err)
 }
 
@@ -64,7 +66,7 @@ func NewNetworkInfo(st *state.State, tag names.UnitTag) (NetworkInfo, error) {
 // based on the input state and unit tag, allowing further specification of
 // behaviour via the input retry factory and host resolver.
 func NewNetworkInfoForStrategy(
-	st *state.State, tag names.UnitTag, retryFactory func() retry.CallArgs, lookupHost func(string) ([]string, error),
+	st *state.State, tag names.UnitTag, retryFactory func() retry.CallArgs, lookupHost func(string) ([]string, error), logger loggo.Logger,
 ) (NetworkInfo, error) {
 	model, err := st.Model()
 	if err != nil {
@@ -129,6 +131,7 @@ func NewNetworkInfoForStrategy(
 		defaultEgress: cfg.EgressSubnets(),
 		retryFactory:  retryFactory,
 		lookupHost:    lookupHost,
+		logger:        logger,
 	}
 
 	var netInfo NetworkInfo
@@ -198,7 +201,7 @@ func (n *NetworkInfoBase) maybeGetUnitAddress(
 
 	address, err := n.pollForAddress(n.unit.PublicAddress)
 	if err != nil {
-		logger.Warningf("no public address for unit %q in cross model relation %q", n.unit.Name(), rel)
+		n.logger.Warningf("no public address for unit %q in cross model relation %q", n.unit.Name(), rel)
 	} else if address.Value != "" {
 		return network.SpaceAddresses{address}, nil
 	}
@@ -207,10 +210,10 @@ func (n *NetworkInfoBase) maybeGetUnitAddress(
 		return nil, nil
 	}
 
-	logger.Warningf("attempting fallback to private address")
+	n.logger.Warningf("attempting fallback to private address")
 	address, err = n.pollForAddress(n.unit.PrivateAddress)
 	if err != nil {
-		logger.Warningf("no private address for unit %q in relation %q", n.unit.Name(), rel)
+		n.logger.Warningf("no private address for unit %q in relation %q", n.unit.Name(), rel)
 	} else if address.Value != "" {
 		return network.SpaceAddresses{address}, nil
 	}
@@ -265,7 +268,7 @@ func (n *NetworkInfoBase) resolveResultInfoHostNames(netInfo params.NetworkInfoR
 func (n *NetworkInfoBase) resolveHostAddress(hostName string) string {
 	resolved, err := n.lookupHost(hostName)
 	if err != nil {
-		logger.Errorf("resolving %q: %v", hostName, err)
+		n.logger.Errorf("resolving %q: %v", hostName, err)
 		return ""
 	}
 
@@ -280,11 +283,11 @@ func (n *NetworkInfoBase) resolveHostAddress(hostName string) string {
 	}
 
 	if len(resolved) == 0 {
-		logger.Warningf("no addresses resolved for host %q", hostName)
+		n.logger.Warningf("no addresses resolved for host %q", hostName)
 	} else {
 		// If we got results, but they were all filtered out, then we need to
 		// help out operators with some advice.
-		logger.Warningf(
+		n.logger.Warningf(
 			"no usable addresses resolved for host %q\n\t"+
 				"resolved: %v\n\t"+
 				"consider editing the hosts file, or changing host resolution order via /etc/nsswitch.conf",

@@ -11,6 +11,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -57,8 +58,7 @@ func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getEnviron, getFakeControllerInfo,
-		s.mockState, s.mockStatePool, s.authorizer, s.authContext,
-		c.MkDir(),
+		s.mockState, s.mockStatePool, s.authorizer, s.authContext, c.MkDir(), loggo.GetLogger("juju.apiserver.applicationoffers"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
@@ -1150,6 +1150,7 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 		getApplicationOffers, getEnviron, getFakeControllerInfo,
 		s.mockState, s.mockStatePool, s.authorizer, s.authContext,
 		c.MkDir(),
+		loggo.GetLogger("juju.apiserver.applicationoffers"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api

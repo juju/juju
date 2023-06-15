@@ -13,18 +13,18 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = loggo.GetLogger("juju.controller.caasoperatorupgrader")
-
 type API struct {
 	auth facade.Authorizer
 
 	broker caas.Upgrader
+	logger loggo.Logger
 }
 
 // NewCAASOperatorUpgraderAPI returns a new CAAS operator upgrader API facade.
 func NewCAASOperatorUpgraderAPI(
 	authorizer facade.Authorizer,
 	broker caas.Upgrader,
+	logger loggo.Logger,
 ) (*API, error) {
 	if !authorizer.AuthController() &&
 		!authorizer.AuthApplicationAgent() &&
@@ -35,6 +35,7 @@ func NewCAASOperatorUpgraderAPI(
 	return &API{
 		auth:   authorizer,
 		broker: broker,
+		logger: logger,
 	}, nil
 }
 
@@ -51,7 +52,7 @@ func (api *API) UpgradeOperator(arg params.KubernetesUpgradeArg) (params.ErrorRe
 		return serverErr(apiservererrors.ErrPerm), nil
 	}
 
-	logger.Debugf("upgrading caas agent for %s", tag)
+	api.logger.Debugf("upgrading caas agent for %s", tag)
 	err = api.broker.Upgrade(arg.AgentTag, arg.Version)
 	if err != nil {
 		return serverErr(err), nil

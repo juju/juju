@@ -35,8 +35,6 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.uniter")
-
 // TODO (manadart 2020-10-21): Remove the ModelUUID method
 // from the next version of this facade.
 
@@ -73,6 +71,8 @@ type UniterAPI struct {
 	// We do not need to use an AuthFunc, because we do not need to pass a tag.
 	accessCloudSpec func() (func() bool, error)
 	cloudSpecer     cloudspec.CloudSpecer
+
+	logger loggo.Logger
 }
 
 // OpenedMachinePortRangesByEndpoint returns the port ranges opened by each
@@ -1152,12 +1152,12 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 		}
 		if !valid {
 			principalName, _ := unit.PrincipalName()
-			logger.Debugf("ignoring %q EnterScope for %q - unit has invalid principal %q",
+			u.logger.Debugf("ignoring %q EnterScope for %q - unit has invalid principal %q",
 				unit.Name(), rel.String(), principalName)
 			return nil
 		}
 
-		netInfo, err := NewNetworkInfo(u.st, unitTag)
+		netInfo, err := NewNetworkInfo(u.st, unitTag, u.logger)
 		if err != nil {
 			return err
 		}
@@ -1179,7 +1179,7 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 			// reflects the purpose of the attribute value. We'll deprecate private-address.
 			settings["ingress-address"] = ingressAddress
 		} else if err != nil {
-			logger.Warningf("cannot set ingress/egress addresses for unit %v in relation %v: %v",
+			u.logger.Warningf("cannot set ingress/egress addresses for unit %v in relation %v: %v",
 				unitTag.Id(), relTag, err)
 		}
 		if len(egressSubnets) > 0 {
@@ -1899,7 +1899,7 @@ func (u *UniterAPI) AddMetricBatches(args params.MetricBatchParams) (params.Erro
 	}
 	canAccess, err := u.accessUnit()
 	if err != nil {
-		logger.Warningf("failed to check unit access: %v", err)
+		u.logger.Warningf("failed to check unit access: %v", err)
 		return params.ErrorResults{}, apiservererrors.ErrPerm
 	}
 	for i, batch := range args.Batches {
@@ -1964,7 +1964,7 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		return params.NetworkInfoResults{}, apiservererrors.ErrPerm
 	}
 
-	netInfo, err := NewNetworkInfo(u.st, unitTag)
+	netInfo, err := NewNetworkInfo(u.st, unitTag, u.logger)
 	if err != nil {
 		return params.NetworkInfoResults{}, err
 	}
@@ -2025,7 +2025,7 @@ func (u *UniterAPI) watchOneUnitRelations(tag names.UnitTag) (params.StringsWatc
 		if err != nil {
 			return nothing, errors.Trace(err)
 		}
-		watch, err = newSubordinateRelationsWatcher(u.st, app, principalApp.Name())
+		watch, err = newSubordinateRelationsWatcher(u.st, app, principalApp.Name(), u.logger)
 		if err != nil {
 			return nothing, errors.Trace(err)
 		}
@@ -2298,7 +2298,7 @@ func (u *UniterAPI) goalStateRelations(appName, principalName string, allRelatio
 			if err == nil {
 				key = app.Name()
 			} else if errors.IsNotFound(err) {
-				logger.Debugf("application %q must be a remote application.", e.ApplicationName)
+				u.logger.Debugf("application %q must be a remote application.", e.ApplicationName)
 				remoteApplication, err := u.st.RemoteApplication(e.ApplicationName)
 				if err != nil {
 					return nil, err
@@ -2372,7 +2372,7 @@ func (u *UniterAPI) goalStateUnits(app *state.Application, principalName string)
 		unitLife := unit.Life()
 		if unitLife == state.Dead {
 			// only show Alive and Dying units
-			logger.Debugf("unit %q is dead, ignore it.", unit.Name())
+			u.logger.Debugf("unit %q is dead, ignore it.", unit.Name())
 			continue
 		}
 		unitGoalState := params.GoalStateStatus{}
@@ -2564,7 +2564,7 @@ func (u *UniterAPI) updateUnitNetworkInfoOperation(unitTag names.UnitTag, unit *
 			return nil, errors.Trace(err)
 		}
 
-		netInfo, err := NewNetworkInfo(u.st, unitTag)
+		netInfo, err := NewNetworkInfo(u.st, unitTag, u.logger)
 		if err != nil {
 			return nil, err
 		}
@@ -2622,7 +2622,7 @@ func (u *UniterAPI) CommitHookChanges(args params.CommitHookChangesArgs) (params
 		if err := u.commitHookChangesForOneUnit(unitTag, arg, canAccessUnit, canAccessApp); err != nil {
 			// Log quota-related errors to aid operators
 			if errors.IsQuotaLimitExceeded(err) {
-				logger.Errorf("%s: %v", unitTag, err)
+				u.logger.Errorf("%s: %v", unitTag, err)
 			}
 			res[i].Error = apiservererrors.ServerError(err)
 		}

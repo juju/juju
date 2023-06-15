@@ -16,6 +16,7 @@ import (
 	multiwatcher "github.com/juju/juju/core/multiwatcher"
 	permission "github.com/juju/juju/core/permission"
 	state "github.com/juju/juju/state"
+	loggo "github.com/juju/loggo"
 	names "github.com/juju/names/v4"
 	worker "github.com/juju/worker/v3"
 )
@@ -446,6 +447,20 @@ func (m *MockContext) MachineTag() names.Tag {
 func (mr *MockContextMockRecorder) MachineTag() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineTag", reflect.TypeOf((*MockContext)(nil).MachineTag))
+}
+
+// Logger mocks base method.
+func (m *MockContext) Logger() loggo.Logger {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Logger")
+	ret0, _ := ret[0].(loggo.Logger)
+	return ret0
+}
+
+// Logger indicates an expected call of Logger.
+func (mr *MockContextMockRecorder) Logger() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Logger", reflect.TypeOf((*MockContext)(nil).Logger))
 }
 
 // MultiwatcherFactory mocks base method.

@@ -21,8 +21,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.spaces")
-
 // API provides the spaces API facade for version 6.
 type API struct {
 	reloadSpacesAPI ReloadSpaces
@@ -34,6 +32,7 @@ type API struct {
 
 	check     BlockChecker
 	opFactory OpFactory
+	logger    loggo.Logger
 }
 
 type apiConfig struct {
@@ -44,6 +43,7 @@ type apiConfig struct {
 	Resources       facade.Resources
 	Authorizer      facade.Authorizer
 	Factory         OpFactory
+	logger          loggo.Logger
 }
 
 // newAPIWithBacking creates a new server-side Spaces API facade with
@@ -62,6 +62,7 @@ func newAPIWithBacking(cfg apiConfig) (*API, error) {
 		context:         cfg.Context,
 		check:           cfg.Check,
 		opFactory:       cfg.Factory,
+		logger:          cfg.logger,
 	}, nil
 }
 

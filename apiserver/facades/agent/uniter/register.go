@@ -62,7 +62,7 @@ func newUniterAPI(context facade.Context) (*UniterAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	msAPI, err := meterstatus.NewMeterStatusAPI(st, resources, authorizer)
+	msAPI, err := meterstatus.NewMeterStatusAPI(st, resources, authorizer, context.Logger().Child("meterstatus"))
 	if err != nil {
 		return nil, errors.Annotate(err, "could not create meter status API handler")
 	}
@@ -84,6 +84,7 @@ func newUniterAPI(context facade.Context) (*UniterAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	logger := context.Logger().Child("uniter")
 	return &UniterAPI{
 		LifeGetter:                 common.NewLifeGetter(st, accessUnitOrApplication),
 		DeadEnsurer:                common.NewDeadEnsurer(st, common.RevokeLeadershipFunc(leadershipRevoker), accessUnit),
@@ -114,5 +115,6 @@ func newUniterAPI(context facade.Context) (*UniterAPI, error) {
 		accessCloudSpec:   accessCloudSpec,
 		cloudSpecer:       cloudSpec,
 		StorageAPI:        storageAPI,
+		logger:            logger,
 	}, nil
 }

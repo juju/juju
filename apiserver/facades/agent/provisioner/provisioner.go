@@ -36,8 +36,6 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.provisioner")
-
 // ProvisionerAPI provides access to the Provisioner API facade.
 type ProvisionerAPI struct {
 	*common.ControllerConfigAPI
@@ -65,6 +63,7 @@ type ProvisionerAPI struct {
 	getCanModify            common.GetAuthFunc
 	providerCallContext     context.ProviderCallContext
 	toolsFinder             common.ToolsFinder
+	logger                  loggo.Logger
 
 	// Used for MaybeWriteLXDProfile()
 	mu sync.Mutex
@@ -163,6 +162,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 		getAuthFunc:             getAuthFunc,
 		getCanModify:            getCanModify,
 		providerCallContext:     callCtx,
+		logger:                  ctx.Logger().Child("provisioner"),
 	}
 	if isCaasModel {
 		return api, nil
@@ -262,7 +262,7 @@ func (api *ProvisionerAPI) SetSupportedContainers(args params.MachineContainersP
 	for i, arg := range args.Params {
 		tag, err := names.ParseMachineTag(arg.MachineTag)
 		if err != nil {
-			logger.Warningf("SetSupportedContainers called with %q which is not a valid machine tag: %v", arg.MachineTag, err)
+			api.logger.Warningf("SetSupportedContainers called with %q which is not a valid machine tag: %v", arg.MachineTag, err)
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
@@ -296,7 +296,7 @@ func (api *ProvisionerAPI) SupportedContainers(args params.Entities) (params.Mac
 	for i, arg := range args.Entities {
 		tag, err := names.ParseMachineTag(arg.Tag)
 		if err != nil {
-			logger.Warningf("SupportedContainers called with %q which is not a valid machine tag: %v", arg.Tag, err)
+			api.logger.Warningf("SupportedContainers called with %q which is not a valid machine tag: %v", arg.Tag, err)
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
@@ -737,14 +737,14 @@ func (api *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (para
 
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
-		logger.Errorf("failed to get an authorisation function: %v", err)
+		api.logger.Errorf("failed to get an authorisation function: %v", err)
 		return result, errors.Trace(err)
 	}
 	// Loop over the passed container tags.
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-			logger.Warningf("failed to parse machine tag %q: %v", entity.Tag, err)
+			api.logger.Warningf("failed to parse machine tag %q: %v", entity.Tag, err)
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
@@ -754,7 +754,7 @@ func (api *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (para
 		// machine has the host as a parent.
 		guest, err := api.getMachine(canAccess, tag)
 		if err != nil {
-			logger.Warningf("failed to get machine %q: %v", tag, err)
+			api.logger.Warningf("failed to get machine %q: %v", tag, err)
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		} else if !guest.IsContainer() {
@@ -767,7 +767,7 @@ func (api *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (para
 		// Environ.ReleaseContainerAddresses. See LP bug http://pad.lv/1585878
 		err = guest.RemoveAllAddresses()
 		if err != nil {
-			logger.Warningf("failed to remove container %q addresses: %v", tag, err)
+			api.logger.Warningf("failed to remove container %q addresses: %v", tag, err)
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -811,7 +811,7 @@ type perContainerHandler interface {
 	// into ServerError and handed to SetError
 	ProcessOneContainer(
 		env environs.Environ, callContext context.ProviderCallContext,
-		policy BridgePolicy, idx int, host, guest Machine,
+		policy BridgePolicy, idx int, host, guest Machine, logger loggo.Logger,
 	) error
 
 	// SetError will be called whenever there is a problem with the a given
@@ -866,6 +866,7 @@ func (api *ProvisionerAPI) processEachContainer(args params.Entities, handler pe
 			env, api.providerCallContext, policy, i,
 			NewMachine(hostMachine),
 			NewMachine(guest),
+			api.logger,
 		); err != nil {
 			handler.SetError(i, err)
 			continue
@@ -891,7 +892,7 @@ func (ctx *prepareOrGetContext) ConfigType() string {
 
 // Implements perContainerHandler.ProcessOneContainer
 func (ctx *prepareOrGetContext) ProcessOneContainer(
-	env environs.Environ, callContext context.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine,
+	env environs.Environ, callContext context.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine, logger loggo.Logger,
 ) error {
 	instanceId, err := guest.InstanceId()
 	if ctx.maintain {
@@ -1002,7 +1003,7 @@ type hostChangesContext struct {
 
 // Implements perContainerHandler.ProcessOneContainer
 func (ctx *hostChangesContext) ProcessOneContainer(
-	env environs.Environ, callContext context.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine,
+	env environs.Environ, callContext context.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine, logger loggo.Logger,
 ) error {
 	bridges, reconfigureDelay, err := policy.FindMissingBridgesForContainer(host, guest)
 	if err != nil {
@@ -1054,7 +1055,7 @@ type containerProfileContext struct {
 
 // Implements perContainerHandler.ProcessOneContainer
 func (ctx *containerProfileContext) ProcessOneContainer(
-	_ environs.Environ, _ context.ProviderCallContext, _ BridgePolicy, idx int, _, guest Machine,
+	_ environs.Environ, _ context.ProviderCallContext, _ BridgePolicy, idx int, _, guest Machine, logger loggo.Logger,
 ) error {
 	units, err := guest.Units()
 	if err != nil {
@@ -1127,13 +1128,13 @@ func (api *ProvisionerAPI) InstanceStatus(args params.Entities) (params.StatusRe
 	}
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
-		logger.Errorf("failed to get an authorisation function: %v", err)
+		api.logger.Errorf("failed to get an authorisation function: %v", err)
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Entities {
 		mTag, err := names.ParseMachineTag(arg.Tag)
 		if err != nil {
-			logger.Warningf("InstanceStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
+			api.logger.Warningf("InstanceStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
@@ -1154,7 +1155,7 @@ func (api *ProvisionerAPI) InstanceStatus(args params.Entities) (params.StatusRe
 func (api *ProvisionerAPI) setOneInstanceStatus(canAccess common.AuthFunc, arg params.EntityStatusArgs) error {
 	mTag, err := names.ParseMachineTag(arg.Tag)
 	if err != nil {
-		logger.Warningf("SetInstanceStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
+		api.logger.Warningf("SetInstanceStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
 		return apiservererrors.ErrPerm
 	}
 	machine, err := api.getMachine(canAccess, mTag)
@@ -1177,7 +1178,7 @@ func (api *ProvisionerAPI) setOneInstanceStatus(canAccess common.AuthFunc, arg p
 	//	transaction, not in two separate transactions. Otherwise you can see
 	//	one toggle, but not the other.
 	if err = machine.SetInstanceStatus(s); err != nil {
-		logger.Debugf("failed to SetInstanceStatus for %q: %v", mTag, err)
+		api.logger.Debugf("failed to SetInstanceStatus for %q: %v", mTag, err)
 		return err
 	}
 	if status.Status(arg.Status) == status.ProvisioningError ||
@@ -1198,7 +1199,7 @@ func (api *ProvisionerAPI) SetInstanceStatus(args params.SetStatus) (params.Erro
 	}
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
-		logger.Errorf("failed to get an authorisation function: %v", err)
+		api.logger.Errorf("failed to get an authorisation function: %v", err)
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Entities {
@@ -1221,7 +1222,7 @@ func (api *ProvisionerAPI) SetModificationStatus(args params.SetStatus) (params.
 	}
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
-		logger.Errorf("failed to get an authorisation function: %v", err)
+		api.logger.Errorf("failed to get an authorisation function: %v", err)
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Entities {
@@ -1232,14 +1233,14 @@ func (api *ProvisionerAPI) SetModificationStatus(args params.SetStatus) (params.
 }
 
 func (api *ProvisionerAPI) setOneModificationStatus(canAccess common.AuthFunc, arg params.EntityStatusArgs) error {
-	logger.Tracef("SetModificationStatus called with: %#v", arg)
+	api.logger.Tracef("SetModificationStatus called with: %#v", arg)
 	mTag, err := names.ParseMachineTag(arg.Tag)
 	if err != nil {
 		return apiservererrors.ErrPerm
 	}
 	machine, err := api.getMachine(canAccess, mTag)
 	if err != nil {
-		logger.Debugf("SetModificationStatus unable to get machine %q", mTag)
+		api.logger.Debugf("SetModificationStatus unable to get machine %q", mTag)
 		return err
 	}
 
@@ -1255,7 +1256,7 @@ func (api *ProvisionerAPI) setOneModificationStatus(canAccess common.AuthFunc, a
 		Since:   since,
 	}
 	if err = machine.SetModificationStatus(s); err != nil {
-		logger.Debugf("failed to SetModificationStatus for %q: %v", mTag, err)
+		api.logger.Debugf("failed to SetModificationStatus for %q: %v", mTag, err)
 		return err
 	}
 	return nil
@@ -1268,7 +1269,7 @@ func (api *ProvisionerAPI) MarkMachinesForRemoval(machines params.Entities) (par
 	results := make([]params.ErrorResult, len(machines.Entities))
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
-		logger.Errorf("failed to get an authorisation function: %v", err)
+		api.logger.Errorf("failed to get an authorisation function: %v", err)
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	for i, machine := range machines.Entities {
@@ -1308,7 +1309,7 @@ func (api *ProvisionerAPI) SetCharmProfiles(args params.SetProfileArgs) (params.
 	results := make([]params.ErrorResult, len(args.Args))
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
-		logger.Errorf("failed to get an authorisation function: %v", err)
+		api.logger.Errorf("failed to get an authorisation function: %v", err)
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	for i, a := range args.Args {

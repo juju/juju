@@ -4,6 +4,7 @@
 package caasmodeloperator_test
 
 import (
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -46,7 +47,7 @@ func (m *ModelOperatorSuite) SetUpTest(c *gc.C) {
 
 	c.Logf("m.state.1operatorRepo %q", m.state.operatorRepo)
 
-	api, err := caasmodeloperator.NewAPI(m.authorizer, m.resources, m.state, m.state)
+	api, err := caasmodeloperator.NewAPI(m.authorizer, m.resources, m.state, m.state, loggo.GetLogger("juju.apiserver.caasmodeloperator"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	m.api = api

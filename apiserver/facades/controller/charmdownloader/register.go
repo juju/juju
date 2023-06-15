@@ -44,5 +44,6 @@ func newFacadeV1(ctx facade.Context) (*CharmDownloaderAPI, error) {
 		func(cfg services.CharmDownloaderConfig) (Downloader, error) {
 			return services.NewCharmDownloader(cfg)
 		},
+		ctx.Logger().Child("charmdownloader"),
 	), nil
 }

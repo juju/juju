@@ -57,5 +57,6 @@ func newOffersAPI(ctx facade.Context) (*OffersAPI, error) {
 		ctx.Auth(),
 		authContext.(*commoncrossmodel.AuthContext),
 		ctx.DataDir(),
+		ctx.Logger().Child("applicationoffers"),
 	)
 }

@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	corelogger "github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
@@ -40,6 +39,7 @@ type CrossModelSecretsAPI struct {
 	backendConfigGetter backendConfigGetter
 	crossModelState     CrossModelState
 	stateBackend        StateBackend
+	logger              loggo.Logger
 }
 
 // NewCrossModelSecretsAPI returns a new server-side CrossModelSecretsAPI facade.
@@ -51,6 +51,7 @@ func NewCrossModelSecretsAPI(
 	backendConfigGetter backendConfigGetter,
 	crossModelState CrossModelState,
 	stateBackend StateBackend,
+	logger loggo.Logger,
 ) (*CrossModelSecretsAPI, error) {
 	return &CrossModelSecretsAPI{
 		ctx:                 stdcontext.Background(),
@@ -61,10 +62,9 @@ func NewCrossModelSecretsAPI(
 		backendConfigGetter: backendConfigGetter,
 		crossModelState:     crossModelState,
 		stateBackend:        stateBackend,
+		logger:              logger,
 	}, nil
 }
-
-var logger = loggo.GetLoggerWithLabels("juju.apiserver.crossmodelsecrets", corelogger.SECRETS)
 
 // GetSecretAccessScope returns the tokens for the access scope of the specified secrets and consumers.
 func (s *CrossModelSecretsAPI) GetSecretAccessScope(args params.GetRemoteSecretAccessArgs) (params.StringResults, error) {
@@ -100,7 +100,7 @@ func (s *CrossModelSecretsAPI) getSecretAccessScope(arg params.GetRemoteSecretAc
 	}
 	consumerUnit := names.NewUnitTag(fmt.Sprintf("%s/%d", consumerApp.Id(), arg.UnitId))
 
-	logger.Debugf("consumer unit for token %q: %v", arg.ApplicationToken, consumerUnit.Id())
+	s.logger.Debugf("consumer unit for token %q: %v", arg.ApplicationToken, consumerUnit.Id())
 
 	_, secretsConsumer, closer, err := s.secretsStateGetter(uri.SourceUUID)
 	if err != nil {
@@ -111,7 +111,7 @@ func (s *CrossModelSecretsAPI) getSecretAccessScope(arg params.GetRemoteSecretAc
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	logger.Debugf("access scope for secret %v and consumer %v: %v", uri.String(), consumerUnit.Id(), scopeTag)
+	s.logger.Debugf("access scope for secret %v and consumer %v: %v", uri.String(), consumerUnit.Id(), scopeTag)
 	return s.crossModelState.GetToken(scopeTag)
 }
 
@@ -123,7 +123,7 @@ func (s *CrossModelSecretsAPI) checkRelationMacaroons(consumerTag names.Tag, mac
 	// relation and that the consumer is in the relation.
 	relKey, offerUUID, ok := crossmodel.RelationInfoFromMacaroons(mac)
 	if !ok {
-		logger.Debugf("missing relation or offer uuid from macaroons for consumer %v", consumerTag.Id())
+		s.logger.Debugf("missing relation or offer uuid from macaroons for consumer %v", consumerTag.Id())
 		return apiservererrors.ErrPerm
 	}
 	valid, err := s.stateBackend.HasEndpoint(relKey, consumerTag.Id())
@@ -131,7 +131,7 @@ func (s *CrossModelSecretsAPI) checkRelationMacaroons(consumerTag names.Tag, mac
 		return errors.Trace(err)
 	}
 	if !valid {
-		logger.Debugf("secret consumer %q for relation %q not valid", consumerTag, relKey)
+		s.logger.Debugf("secret consumer %q for relation %q not valid", consumerTag, relKey)
 		return apiservererrors.ErrPerm
 	}
 
@@ -279,7 +279,7 @@ func (s *CrossModelSecretsAPI) getBackend(modelUUID string, backendID string) (*
 
 // canRead returns true if the specified entity can read the secret.
 func (s *CrossModelSecretsAPI) canRead(secretsConsumer SecretsConsumer, uri *coresecrets.URI, entity names.Tag) bool {
-	logger.Debugf("check %s can read secret %s", entity, uri.ID)
+	s.logger.Debugf("check %s can read secret %s", entity, uri.ID)
 	hasRole, _ := secretsConsumer.SecretAccess(uri, entity)
 	if hasRole.Allowed(coresecrets.RoleView) {
 		return true
@@ -295,7 +295,7 @@ func (s *CrossModelSecretsAPI) canRead(secretsConsumer SecretsConsumer, uri *cor
 }
 
 func (s *CrossModelSecretsAPI) accessScope(secretsConsumer SecretsConsumer, uri *coresecrets.URI, entity names.Tag) (names.Tag, error) {
-	logger.Debugf("scope for %q on secret %s", entity, uri.ID)
+	s.logger.Debugf("scope for %q on secret %s", entity, uri.ID)
 	scope, err := secretsConsumer.SecretAccessScope(uri, entity)
 	if err == nil || !errors.IsNotFound(err) || entity.Kind() != names.UnitTagKind {
 		return scope, errors.Trace(err)

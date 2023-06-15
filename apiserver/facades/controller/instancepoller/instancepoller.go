@@ -18,8 +18,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.instancepoller")
-
 // InstancePollerAPI provides access to the InstancePoller API facade.
 type InstancePollerAPI struct {
 	*common.LifeGetter
@@ -33,6 +31,7 @@ type InstancePollerAPI struct {
 	authorizer    facade.Authorizer
 	accessMachine common.GetAuthFunc
 	clock         clock.Clock
+	logger        loggo.Logger
 }
 
 // NewInstancePollerAPI creates a new server-side InstancePoller API
@@ -43,6 +42,7 @@ func NewInstancePollerAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	clock clock.Clock,
+	logger loggo.Logger,
 ) (*InstancePollerAPI, error) {
 
 	if !authorizer.AuthController() {
@@ -92,6 +92,7 @@ func NewInstancePollerAPI(
 		authorizer:           authorizer,
 		accessMachine:        accessMachine,
 		clock:                clock,
+		logger:               logger,
 	}, nil
 }
 
@@ -141,12 +142,12 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(
 		// If it is not, we assume that it will be removed from the
 		// instance-poller worker subsequently.
 		if machine.Life() != state.Alive {
-			logger.Debugf("machine %q is not alive; skipping provider network config update", machine.Id())
+			a.logger.Debugf("machine %q is not alive; skipping provider network config update", machine.Id())
 			continue
 		}
 
 		configs := arg.Configs
-		logger.Tracef("provider network config for machine %q: %+v", machine.Id(), configs)
+		a.logger.Tracef("provider network config for machine %q: %+v", machine.Id(), configs)
 
 		newProviderAddrs, err := mapNetworkConfigsToProviderAddresses(configs, spaceInfos)
 		if err != nil {
@@ -172,7 +173,7 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(
 		// Treat errors as transient; the purpose of this API
 		// method is to simply update the provider addresses.
 		if err := a.mergeLinkLayer(machine, params.InterfaceInfoFromNetworkConfig(configs)); err != nil {
-			logger.Errorf(
+			a.logger.Errorf(
 				"link layer device merge attempt for machine %v failed due to error: %v; "+
 					"waiting until next instance-poller run to retry", machine.Id(), err)
 		}
@@ -190,7 +191,7 @@ func maybeUpdateMachineProviderAddresses(m StateMachine, newSpaceAddrs network.S
 }
 
 func (a *InstancePollerAPI) mergeLinkLayer(m StateMachine, devs network.InterfaceInfos) error {
-	return errors.Trace(a.st.ApplyOperation(newMergeMachineLinkLayerOp(m, devs)))
+	return errors.Trace(a.st.ApplyOperation(newMergeMachineLinkLayerOp(m, devs, a.logger)))
 }
 
 // mapNetworkConfigsToProviderAddresses iterates the list of incoming network
