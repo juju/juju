@@ -17,8 +17,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.caasmodeloperator")
-
 // TODO (manadart 2020-10-21): Remove the ModelUUID method
 // from the next version of this facade.
 
@@ -30,6 +28,7 @@ type API struct {
 	auth      facade.Authorizer
 	ctrlState CAASControllerState
 	state     CAASModelOperatorState
+	logger    loggo.Logger
 }
 
 // NewAPI is alternative means of constructing a controller model facade.
@@ -37,7 +36,9 @@ func NewAPI(
 	authorizer facade.Authorizer,
 	resources facade.Resources,
 	ctrlSt CAASControllerState,
-	st CAASModelOperatorState) (*API, error) {
+	st CAASModelOperatorState,
+	logger loggo.Logger,
+) (*API, error) {
 
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -49,6 +50,7 @@ func NewAPI(
 		PasswordChanger: common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ModelTagKind)),
 		ctrlState:       ctrlSt,
 		state:           st,
+		logger:          logger,
 	}, nil
 }
 
@@ -90,7 +92,7 @@ func (a *API) ModelOperatorProvisioningInfo() (params.ModelOperatorInfo, error) 
 		return result, errors.Trace(err)
 	}
 	imageInfo := params.NewDockerImageInfo(controllerConf.CAASImageRepo(), registryPath)
-	logger.Tracef("image info %v", imageInfo)
+	a.logger.Tracef("image info %v", imageInfo)
 
 	result = params.ModelOperatorInfo{
 		APIAddresses: apiAddresses.Result,

@@ -8,8 +8,10 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3/txn"
 	jujutxn "github.com/juju/txn/v3"
+	"github.com/lxc/lxd/shared/logger"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/core/network"
@@ -30,14 +32,17 @@ type mergeMachineLinkLayerOp struct {
 	// We consult it to ensure that the same provider ID is not being
 	// used for multiple NICs.
 	providerIDs map[network.Id]string
+
+	logger loggo.Logger
 }
 
 func newMergeMachineLinkLayerOp(
-	machine networkingcommon.LinkLayerMachine, incoming network.InterfaceInfos,
+	machine networkingcommon.LinkLayerMachine, incoming network.InterfaceInfos, logger loggo.Logger,
 ) *mergeMachineLinkLayerOp {
 	return &mergeMachineLinkLayerOp{
 		MachineLinkLayerOp: networkingcommon.NewMachineLinkLayerOp("provider", machine, incoming),
 		namelessHWAddrs:    set.NewStrings(),
+		logger:             logger,
 	}
 }
 
@@ -162,7 +167,7 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 	// Log a warning if we are changing a provider ID that is already set.
 	providerID := dev.ProviderID()
 	if providerID != "" && providerID != incomingDev.ProviderId {
-		logger.Warningf(
+		o.logger.Warningf(
 			"changing provider ID for device %q from %q to %q",
 			dev.Name(), providerID, incomingDev.ProviderId,
 		)
@@ -191,7 +196,7 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 		// If the ID is moving from one device to another for whatever reason,
 		// It will be eventually consistent. E.g. removed from the old device
 		// on this pass and added to the new device on the next.
-		logger.Warningf(
+		o.logger.Warningf(
 			"not setting provider ID for device %q to %q; it is assigned to another device",
 			dev.Name(), incomingDev.ProviderId,
 		)

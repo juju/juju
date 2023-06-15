@@ -977,7 +977,7 @@ func (s *statusUpgradeUnitSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, clock.WallClock,
-		newCharmhubClient)
+		newCharmhubClient, loggo.GetLogger("juju.apiserver.charmrevisionupdater"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 

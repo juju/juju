@@ -27,11 +27,12 @@ func newCharmRevisionUpdaterAPI(ctx facade.Context) (*CharmRevisionUpdaterAPI, e
 	}
 	newCharmhubClient := func(st State) (CharmhubRefreshClient, error) {
 		httpClient := ctx.HTTPClient(facade.CharmhubHTTPClient)
-		return common.CharmhubClient(charmhubClientStateShim{state: st}, httpClient, logger)
+		return common.CharmhubClient(charmhubClientStateShim{state: st}, httpClient, ctx.Logger().Child("charmrevisionupdater"))
 	}
 	return NewCharmRevisionUpdaterAPIState(
 		StateShim{State: ctx.State()},
 		clock.WallClock,
 		newCharmhubClient,
+		ctx.Logger().Child("charmrevisionupdater"),
 	)
 }

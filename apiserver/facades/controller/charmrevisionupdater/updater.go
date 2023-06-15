@@ -25,8 +25,6 @@ import (
 	"github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.charmrevisionupdater")
-
 // CharmRevisionUpdater defines the methods on the charmrevisionupdater API end point.
 type CharmRevisionUpdater interface {
 	UpdateLatestRevisions() (params.ErrorResult, error)
@@ -39,6 +37,7 @@ type CharmRevisionUpdaterAPI struct {
 	clock clock.Clock
 
 	newCharmhubClient newCharmhubClientFunc
+	logger            loggo.Logger
 }
 
 type newCharmhubClientFunc func(st State) (CharmhubRefreshClient, error)
@@ -51,11 +50,13 @@ func NewCharmRevisionUpdaterAPIState(
 	state State,
 	clock clock.Clock,
 	newCharmhubClient newCharmhubClientFunc,
+	logger loggo.Logger,
 ) (*CharmRevisionUpdaterAPI, error) {
 	return &CharmRevisionUpdaterAPI{
 		state:             state,
 		clock:             clock,
 		newCharmhubClient: newCharmhubClient,
+		logger:            logger,
 	}, nil
 }
 
@@ -150,11 +151,11 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 			origin := application.CharmOrigin()
 			if origin == nil {
 				// If this fails, we have big problems, so make this Errorf
-				logger.Errorf("charm %s has no origin, skipping", curl)
+				api.logger.Errorf("charm %s has no origin, skipping", curl)
 				continue
 			}
 			if origin.ID == "" || origin.Revision == nil || origin.Channel == nil || origin.Platform == nil {
-				logger.Errorf("charm %s has missing id(%s), revision (%p), channel (%p), or platform (%p), skipping",
+				api.logger.Errorf("charm %s has missing id(%s), revision (%p), channel (%p), or platform (%p), skipping",
 					curl, origin.Revision, origin.Channel, origin.Platform)
 				continue
 			}
@@ -334,7 +335,7 @@ func (api *CharmRevisionUpdaterAPI) fetchCharmhubInfos(cfg *config.Config, ids [
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	results, err := charmhubLatestCharmInfo(client, requestMetrics, ids, api.clock.Now().UTC())
+	results, err := charmhubLatestCharmInfo(client, requestMetrics, ids, api.clock.Now().UTC(), api.logger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -342,12 +343,12 @@ func (api *CharmRevisionUpdaterAPI) fetchCharmhubInfos(cfg *config.Config, ids [
 	var latest []latestCharmInfo
 	for i, result := range results {
 		if i >= len(appInfos) {
-			logger.Errorf("retrieved more results (%d) than charmhub applications (%d)",
+			api.logger.Errorf("retrieved more results (%d) than charmhub applications (%d)",
 				i, len(appInfos))
 			break
 		}
 		if result.error != nil {
-			logger.Errorf("retrieving charm info for ID %s: %v", ids[i].id, result.error)
+			api.logger.Errorf("retrieving charm info for ID %s: %v", ids[i].id, result.error)
 			continue
 		}
 		appInfo := appInfos[i]

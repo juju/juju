@@ -27,8 +27,6 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.caasoperatorprovisioner")
-
 type APIGroup struct {
 	charmInfoAPI    *charmscommon.CharmInfoAPI
 	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI
@@ -61,6 +59,7 @@ type API struct {
 	state              CAASOperatorProvisionerState
 	storagePoolManager poolmanager.PoolManager
 	registry           storage.ProviderRegistry
+	logger             loggo.Logger
 }
 
 // NewCAASOperatorProvisionerAPI returns a new CAAS operator provisioner API facade.
@@ -71,6 +70,7 @@ func NewCAASOperatorProvisionerAPI(
 	st CAASOperatorProvisionerState,
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
+	logger loggo.Logger,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -85,6 +85,7 @@ func NewCAASOperatorProvisionerAPI(
 		state:              st,
 		storagePoolManager: storagePoolManager,
 		registry:           registry,
+		logger:             logger,
 	}, nil
 }
 
@@ -138,7 +139,7 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 		return result, errors.Trace(err)
 	}
 	imageInfo := params.NewDockerImageInfo(imageRepo, registryPath)
-	logger.Tracef("image info %v", imageInfo)
+	a.logger.Tracef("image info %v", imageInfo)
 
 	// PodSpec charms now use focal as the operator base until PodSpec is removed.
 	baseRegistryPath, err := podcfg.ImageForBase(imageRepo.Repository, charm.Base{
@@ -149,7 +150,7 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 		return result, errors.Trace(err)
 	}
 	baseImageInfo := params.NewDockerImageInfo(imageRepo, baseRegistryPath)
-	logger.Tracef("base image info %v", baseImageInfo)
+	a.logger.Tracef("base image info %v", baseImageInfo)
 
 	apiAddresses, err := a.APIAddresses()
 	if err == nil && apiAddresses.Error != nil {
@@ -204,7 +205,7 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 			continue
 		}
 		needStorage := provider.RequireOperatorStorage(ch)
-		logger.Debugf("application %s has min-juju-version=%v, so charm storage is %v",
+		a.logger.Debugf("application %s has min-juju-version=%v, so charm storage is %v",
 			appName.String(), ch.Meta().MinJujuVersion, needStorage)
 		result.Results[i] = oneProvisioningInfo(needStorage)
 	}

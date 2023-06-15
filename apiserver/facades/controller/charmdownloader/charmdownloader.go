@@ -18,8 +18,6 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.charmdownloader")
-
 // CharmDownloaderAPI implements an API for watching the charms collection for
 // any entries that have not been yet downloaded to the blobstore and for
 // triggering their download.
@@ -36,6 +34,7 @@ type CharmDownloaderAPI struct {
 
 	mu         sync.Mutex
 	downloader Downloader
+	logger     loggo.Logger
 }
 
 // newAPI is invoked both by the facade constructor and from our tests. It
@@ -49,6 +48,7 @@ func newAPI(
 	httpClient http.HTTPClient,
 	newStorage func(string) services.Storage,
 	newDownloader func(services.CharmDownloaderConfig) (Downloader, error),
+	logger loggo.Logger,
 ) *CharmDownloaderAPI {
 	return &CharmDownloaderAPI{
 		authChecker:        authChecker,
@@ -59,6 +59,7 @@ func newAPI(
 		charmhubHTTPClient: httpClient,
 		newStorage:         newStorage,
 		newDownloader:      newDownloader,
+		logger:             logger,
 	}
 }
 
@@ -133,7 +134,7 @@ func (a *CharmDownloaderAPI) downloadApplicationCharm(appTag names.ApplicationTa
 		return errors.Trace(err)
 	}
 
-	logger.Infof("downloading charm %q", pendingCharmURL)
+	a.logger.Infof("downloading charm %q", pendingCharmURL)
 	downloadedOrigin, err := downloader.DownloadAndStore(pendingCharmURL, *resolvedOrigin, force)
 	if err != nil {
 		return errors.Annotatef(err, "cannot download and store charm %q", pendingCharmURL)
@@ -150,7 +151,7 @@ func (a *CharmDownloaderAPI) getDownloader() (Downloader, error) {
 	}
 
 	downloader, err := a.newDownloader(services.CharmDownloaderConfig{
-		Logger:             logger,
+		Logger:             a.logger,
 		CharmhubHTTPClient: a.charmhubHTTPClient,
 		StorageFactory:     a.newStorage,
 		StateBackend:       a.stateBackend,

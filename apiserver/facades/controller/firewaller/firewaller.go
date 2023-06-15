@@ -24,8 +24,6 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.firewaller")
-
 // FirewallerAPI provides access to the Firewaller API facade.
 type FirewallerAPI struct {
 	*common.LifeGetter
@@ -44,6 +42,7 @@ type FirewallerAPI struct {
 	accessApplication common.GetAuthFunc
 	accessMachine     common.GetAuthFunc
 	accessModel       common.GetAuthFunc
+	logger            loggo.Logger
 
 	// Fetched on demand and memoized
 	spaceInfos          network.SpaceInfos
@@ -57,6 +56,7 @@ func NewStateFirewallerAPI(
 	authorizer facade.Authorizer,
 	cloudSpecAPI cloudspec.CloudSpecer,
 	controllerConfigAPI ControllerConfigAPI,
+	logger loggo.Logger,
 ) (*FirewallerAPI, error) {
 	if !authorizer.AuthController() {
 		// Firewaller must run as a controller.
@@ -121,6 +121,7 @@ func NewStateFirewallerAPI(
 		accessApplication:    accessApplication,
 		accessMachine:        accessMachine,
 		accessModel:          accessModel,
+		logger:               logger,
 	}, nil
 }
 
@@ -325,7 +326,7 @@ func (f *FirewallerAPI) WatchIngressAddressesForRelations(relations params.Entit
 	}
 
 	one := func(tag string) (id string, changes []string, _ error) {
-		logger.Debugf("Watching ingress addresses for %+v from model %v", tag, f.st.ModelUUID())
+		f.logger.Debugf("Watching ingress addresses for %+v from model %v", tag, f.st.ModelUUID())
 
 		relationTag, err := names.ParseRelationTag(tag)
 		if err != nil {

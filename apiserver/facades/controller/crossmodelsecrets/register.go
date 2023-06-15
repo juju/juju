@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/secrets"
 	"github.com/juju/juju/apiserver/facade"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
 )
@@ -52,5 +53,6 @@ func newStateCrossModelSecretsAPI(ctx facade.Context) (*CrossModelSecretsAPI, er
 		secretBackendConfigGetter,
 		&crossModelShim{st.RemoteEntities()},
 		&stateBackendShim{st},
+		ctx.Logger().ChildWithLabels("crossmodelsecrets", corelogger.SECRETS),
 	)
 }

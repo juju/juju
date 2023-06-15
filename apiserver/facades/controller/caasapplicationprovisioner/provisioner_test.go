@@ -10,6 +10,7 @@ import (
 	charmresource "github.com/juju/charm/v11/resource"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -71,7 +72,7 @@ func (s *CAASApplicationProvisionerSuite) SetUpTest(c *gc.C) {
 		return &mockResourceOpener{appName: appName, resources: s.st.resource}, nil
 	}
 	api, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
-		s.st, s.st, s.resources, newResourceOpener, s.authorizer, s.storage, s.storagePoolManager, s.registry, s.clock)
+		s.st, s.st, s.resources, newResourceOpener, s.authorizer, s.storage, s.storagePoolManager, s.registry, s.clock, loggo.GetLogger("juju.apiserver.caasapplicationprovisioner"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
@@ -81,7 +82,7 @@ func (s *CAASApplicationProvisionerSuite) TestPermission(c *gc.C) {
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
-		s.st, s.st, s.resources, nil, s.authorizer, s.storage, s.storagePoolManager, s.registry, s.clock)
+		s.st, s.st, s.resources, nil, s.authorizer, s.storage, s.storagePoolManager, s.registry, s.clock, loggo.GetLogger("juju.apiserver.caasapplicationprovisioner"))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 

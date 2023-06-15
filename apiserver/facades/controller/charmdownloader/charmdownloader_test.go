@@ -11,6 +11,7 @@ import (
 	"github.com/juju/charm/v11"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -259,6 +260,7 @@ func (s *charmDownloaderSuite) setupMocks(c *gc.C) *gomock.Controller {
 		func(services.CharmDownloaderConfig) (charmdownloader.Downloader, error) {
 			return s.downloader, nil
 		},
+		loggo.GetLogger("juju.apiserver.charmdownloader"),
 	)
 
 	return ctrl

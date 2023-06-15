@@ -38,5 +38,12 @@ func newFirewallerAPIV7(context facade.Context) (*FirewallerAPI, error) {
 	controllerConfigAPI := common.NewStateControllerConfig(st)
 
 	stShim := stateShim{st: st, State: firewall.StateShim(st, m)}
-	return NewStateFirewallerAPI(stShim, context.Resources(), context.Auth(), cloudSpecAPI, controllerConfigAPI)
+	return NewStateFirewallerAPI(
+		stShim,
+		context.Resources(),
+		context.Auth(),
+		cloudSpecAPI,
+		controllerConfigAPI,
+		context.Logger().Child("firewaller"),
+	)
 }

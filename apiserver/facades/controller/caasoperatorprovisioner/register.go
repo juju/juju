@@ -57,7 +57,9 @@ func newStateCAASOperatorProvisionerAPI(ctx facade.Context) (*APIGroup, error) {
 	api, err := NewCAASOperatorProvisionerAPI(resources, authorizer,
 		stateShim{systemState},
 		stateShim{ctx.State()},
-		pm, registry)
+		pm, registry,
+		ctx.Logger().Child("caasoperatorprovisioner"),
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

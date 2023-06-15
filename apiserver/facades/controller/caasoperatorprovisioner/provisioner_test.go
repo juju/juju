@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -53,7 +54,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	s.storagePoolManager = &mockStoragePoolManager{}
 	s.registry = &mockStorageRegistry{}
 	api, err := caasoperatorprovisioner.NewCAASOperatorProvisionerAPI(
-		s.resources, s.authorizer, s.st, s.st, s.storagePoolManager, s.registry)
+		s.resources, s.authorizer, s.st, s.st, s.storagePoolManager, s.registry, loggo.GetLogger("juju.apiserver.caasoperatorprovisioner"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
@@ -63,7 +64,7 @@ func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := caasoperatorprovisioner.NewCAASOperatorProvisionerAPI(
-		s.resources, s.authorizer, s.st, s.st, s.storagePoolManager, s.registry)
+		s.resources, s.authorizer, s.st, s.st, s.storagePoolManager, s.registry, loggo.GetLogger("juju.apiserver.caasoperatorprovisioner"))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
