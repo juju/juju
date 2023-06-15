@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v11"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -41,7 +42,7 @@ func (s *BaseSuite) newFacade(c *gc.C) *resources.API {
 	factoryFunc := func(_ *charm.URL) (resources.NewCharmRepository, error) {
 		return s.factory, nil
 	}
-	facade, err := resources.NewResourcesAPI(s.backend, factoryFunc)
+	facade, err := resources.NewResourcesAPI(s.backend, factoryFunc, loggo.GetLogger("juju.apiserver.resources"))
 	c.Assert(err, jc.ErrorIsNil)
 	return facade
 }

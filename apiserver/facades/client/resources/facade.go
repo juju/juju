@@ -22,8 +22,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.resources")
-
 // Backend is the functionality of Juju's state needed for the resources API.
 type Backend interface {
 	// ListResources returns the resources for the given application.
@@ -42,6 +40,7 @@ type API struct {
 	backend Backend
 
 	factory func(*charm.URL) (NewCharmRepository, error)
+	logger  loggo.Logger
 }
 
 // NewFacade creates a public API facade for resources. It is
@@ -64,6 +63,7 @@ func NewFacade(ctx facade.Context) (*API, error) {
 		return nil, errors.Trace(err)
 	}
 
+	logger := ctx.Logger().Child("resources")
 	factory := func(curl *charm.URL) (NewCharmRepository, error) {
 		schema := curl.Schema
 		switch {
@@ -87,7 +87,7 @@ func NewFacade(ctx facade.Context) (*API, error) {
 		}
 	}
 
-	f, err := NewResourcesAPI(rst, factory)
+	f, err := NewResourcesAPI(rst, factory, logger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -95,7 +95,7 @@ func NewFacade(ctx facade.Context) (*API, error) {
 }
 
 // NewResourcesAPI returns a new resources API facade.
-func NewResourcesAPI(backend Backend, factory func(*charm.URL) (NewCharmRepository, error)) (*API, error) {
+func NewResourcesAPI(backend Backend, factory func(*charm.URL) (NewCharmRepository, error), logger loggo.Logger) (*API, error) {
 	if backend == nil {
 		return nil, errors.Errorf("missing data backend")
 	}
@@ -110,6 +110,7 @@ func NewResourcesAPI(backend Backend, factory func(*charm.URL) (NewCharmReposito
 	f := &API{
 		backend: backend,
 		factory: factory,
+		logger:  logger,
 	}
 	return f, nil
 }
@@ -120,7 +121,7 @@ func (a *API) ListResources(args params.ListResourcesArgs) (params.ResourcesResu
 	r.Results = make([]params.ResourcesResult, len(args.Entities))
 
 	for i, e := range args.Entities {
-		logger.Tracef("Listing resources for %q", e.Tag)
+		a.logger.Tracef("Listing resources for %q", e.Tag)
 		tag, apierr := parseApplicationTag(e.Tag)
 		if apierr != nil {
 			r.Results[i] = params.ResourcesResult{

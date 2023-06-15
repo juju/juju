@@ -41,8 +41,6 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.controller")
-
 // ControllerAPI provides the Controller API.
 type ControllerAPI struct {
 	*common.ControllerConfigAPI
@@ -58,6 +56,7 @@ type ControllerAPI struct {
 	hub        facade.Hub
 
 	multiwatcherFactory multiwatcher.Factory
+	logger              loggo.Logger
 }
 
 // LatestAPI is used for testing purposes to create the latest
@@ -79,6 +78,7 @@ func NewControllerAPI(
 	presence facade.Presence,
 	hub facade.Hub,
 	factory multiwatcher.Factory,
+	logger loggo.Logger,
 ) (*ControllerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
@@ -115,6 +115,7 @@ func NewControllerAPI(
 		presence:            presence,
 		hub:                 hub,
 		multiwatcherFactory: factory,
+		logger:              logger,
 	}, nil
 }
 
@@ -399,7 +400,7 @@ func (c *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 	for uuid, blocks := range modelBlocks {
 		model, ph, err := c.statePool.GetModel(uuid)
 		if err != nil {
-			logger.Debugf("unable to retrieve model %s: %v", uuid, err)
+			c.logger.Debugf("unable to retrieve model %s: %v", uuid, err)
 			continue
 		}
 		results.Models = append(results.Models, params.ModelBlockInfo{

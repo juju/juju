@@ -90,5 +90,6 @@ func newFacadeBase(ctx facade.Context) (*API, error) {
 		},
 		tag:             m.ModelTag(),
 		requestRecorder: ctx.RequestRecorder(),
+		logger:          ctx.Logger().Child("charms"),
 	}, nil
 }

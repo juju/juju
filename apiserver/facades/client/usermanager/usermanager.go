@@ -20,8 +20,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.usermanager")
-
 // UserManagerAPI implements the user manager interface and is the concrete
 // implementation of the api end point.
 type UserManagerAPI struct {
@@ -31,6 +29,7 @@ type UserManagerAPI struct {
 	check      *common.BlockChecker
 	apiUser    names.UserTag
 	isAdmin    bool
+	logger     loggo.Logger
 }
 
 func (api *UserManagerAPI) hasControllerAdminAccess() (bool, error) {
@@ -229,7 +228,7 @@ func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.User
 		userLastLogin, err := user.LastLogin()
 		if err != nil {
 			if !state.IsNeverLoggedInError(err) {
-				logger.Debugf("error getting last login: %v", err)
+				api.logger.Debugf("error getting last login: %v", err)
 			}
 		} else {
 			lastLogin = &userLastLogin

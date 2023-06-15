@@ -6,6 +6,7 @@ package modelupgrader_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/replicaset/v3"
 	jujutesting "github.com/juju/testing"
@@ -138,6 +139,7 @@ func (s *modelUpgradeSuite) getModelUpgraderAPI(c *gc.C) (*gomock.Controller, *m
 		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return s.cloudSpec.CloudSpec, nil
 		},
+		loggo.GetLogger("juju.apiserver.modelupgrader"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return ctrl, api

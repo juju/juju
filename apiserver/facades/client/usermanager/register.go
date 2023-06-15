@@ -49,5 +49,6 @@ func newUserManagerAPI(ctx facade.Context) (*UserManagerAPI, error) {
 		check:      common.NewBlockChecker(st),
 		apiUser:    apiUser,
 		isAdmin:    isAdmin,
+		logger:     ctx.Logger().Child("usermanager"),
 	}, nil
 }

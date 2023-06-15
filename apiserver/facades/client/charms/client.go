@@ -33,8 +33,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.charms")
-
 // APIv7 provides the Charms API facade for version 7.
 // v7 guarantees SupportedBases will be provided in ResolveCharms
 type APIv7 struct {
@@ -71,6 +69,8 @@ type API struct {
 
 	mu          sync.Mutex
 	repoFactory corecharm.RepositoryFactory
+
+	logger loggo.Logger
 }
 
 // CharmInfo returns information about the requested charm.
@@ -106,6 +106,7 @@ func NewCharmsAPI(
 	newStorage func(modelUUID string) services.Storage,
 	repoFactory corecharm.RepositoryFactory,
 	newDownloader func(cfg services.CharmDownloaderConfig) (charmsinterfaces.Downloader, error),
+	logger loggo.Logger,
 ) (*API, error) {
 	return &API{
 		authorizer:      authorizer,
@@ -116,6 +117,7 @@ func NewCharmsAPI(
 		tag:             m.ModelTag(),
 		requestRecorder: noopRequestRecorder{},
 		repoFactory:     repoFactory,
+		logger:          logger,
 	}, nil
 }
 
@@ -123,7 +125,7 @@ func NewCharmsAPI(
 // If supplied parameter contains any names, the result will
 // be filtered to return only the charms with supplied names.
 func (a *API) List(args params.CharmsList) (params.CharmsListResult, error) {
-	logger.Tracef("List %+v", args)
+	a.logger.Tracef("List %+v", args)
 	if err := a.checkCanRead(); err != nil {
 		return params.CharmsListResult{}, errors.Trace(err)
 	}
@@ -151,7 +153,7 @@ func (a *API) List(args params.CharmsList) (params.CharmsListResult, error) {
 // GetDownloadInfos attempts to get the bundle corresponding to the charm url
 // and origin.
 func (a *API) GetDownloadInfos(args params.CharmURLAndOrigins) (params.DownloadInfoResults, error) {
-	logger.Tracef("GetDownloadInfos %+v", args)
+	a.logger.Tracef("GetDownloadInfos %+v", args)
 
 	results := params.DownloadInfoResults{
 		Results: make([]params.DownloadInfoResult, len(args.Entities)),
@@ -181,7 +183,7 @@ func (a *API) getDownloadInfo(arg params.CharmURLAndOrigin) (params.DownloadInfo
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
 
-	charmOrigin, err := normalizeCharmOrigin(arg.Origin, defaultArch)
+	charmOrigin, err := normalizeCharmOrigin(arg.Origin, defaultArch, a.logger)
 	if err != nil {
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
@@ -218,7 +220,7 @@ func (a *API) getDefaultArch() (string, error) {
 	return constraints.ArchOrDefault(cons, nil), nil
 }
 
-func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string) (params.CharmOrigin, error) {
+func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string, logger loggo.Logger) (params.CharmOrigin, error) {
 	// If the series is set to all, we need to ensure that we remove that, so
 	// that we can attempt to derive it at a later stage. Juju itself doesn't
 	// know nor understand what "all" means, so we need to ensure it doesn't leak
@@ -241,7 +243,7 @@ func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string) (param
 // environment, if it does not exist yet. Local charms are not supported,
 // only charm store and charm hub URLs. See also AddLocalCharm().
 func (a *API) AddCharm(args params.AddCharmWithOrigin) (params.CharmOriginResult, error) {
-	logger.Tracef("AddCharm %+v", args)
+	a.logger.Tracef("AddCharm %+v", args)
 	return a.addCharmWithAuthorization(params.AddCharmWithAuth{
 		URL:    args.URL,
 		Origin: args.Origin,
@@ -256,7 +258,7 @@ func (a *API) AddCharm(args params.AddCharmWithOrigin) (params.CharmOriginResult
 // Since the charm macaroons are no longer supported, this is the same as
 // AddCharm. We keep it for backwards compatibility in APIv5.
 func (a *APIv5) AddCharmWithAuthorization(args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
-	logger.Tracef("AddCharmWithAuthorization %+v", args)
+	a.logger.Tracef("AddCharmWithAuthorization %+v", args)
 	return a.addCharmWithAuthorization(args)
 }
 
@@ -342,7 +344,7 @@ func (a *API) queueAsyncCharmDownload(args params.AddCharmWithAuth) (corecharm.O
 // ResolveCharms resolves the given charm URLs with an optionally specified
 // preferred channel.  Channel provided via CharmOrigin.
 func (a *API) ResolveCharms(args params.ResolveCharmsWithChannel) (params.ResolveCharmWithChannelResults, error) {
-	logger.Tracef("ResolveCharms %+v", args)
+	a.logger.Tracef("ResolveCharms %+v", args)
 	if err := a.checkCanRead(); err != nil {
 		return params.ResolveCharmWithChannelResults{}, errors.Trace(err)
 	}
@@ -500,7 +502,7 @@ func (a *API) getCharmRepository(src corecharm.Source) (corecharm.Repository, er
 	a.mu.Unlock()
 
 	repoFactory := a.newRepoFactory(services.CharmRepoFactoryConfig{
-		Logger:             logger,
+		Logger:             a.logger,
 		CharmhubHTTPClient: a.charmhubHTTPClient,
 		StateBackend:       a.backendState,
 		ModelBackend:       a.backendModel,
@@ -705,7 +707,7 @@ func (a *API) listOneCharmResources(arg params.CharmURLAndOrigin) ([]params.Char
 		return nil, apiservererrors.ServerError(err)
 	}
 
-	charmOrigin, err := normalizeCharmOrigin(arg.Origin, defaultArch)
+	charmOrigin, err := normalizeCharmOrigin(arg.Origin, defaultArch, a.logger)
 	if err != nil {
 		return nil, apiservererrors.ServerError(err)
 	}

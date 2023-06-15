@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/lxc/lxd/shared/logger"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
@@ -812,7 +811,7 @@ type perContainerHandler interface {
 	// into ServerError and handed to SetError
 	ProcessOneContainer(
 		env environs.Environ, callContext context.ProviderCallContext,
-		policy BridgePolicy, idx int, host, guest Machine,
+		policy BridgePolicy, idx int, host, guest Machine, logger loggo.Logger,
 	) error
 
 	// SetError will be called whenever there is a problem with the a given
@@ -867,6 +866,7 @@ func (api *ProvisionerAPI) processEachContainer(args params.Entities, handler pe
 			env, api.providerCallContext, policy, i,
 			NewMachine(hostMachine),
 			NewMachine(guest),
+			api.logger,
 		); err != nil {
 			handler.SetError(i, err)
 			continue
@@ -878,7 +878,6 @@ func (api *ProvisionerAPI) processEachContainer(args params.Entities, handler pe
 type prepareOrGetContext struct {
 	result   params.MachineNetworkConfigResults
 	maintain bool
-	logger   loggo.Logger
 }
 
 // Implements perContainerHandler.SetError
@@ -893,7 +892,7 @@ func (ctx *prepareOrGetContext) ConfigType() string {
 
 // Implements perContainerHandler.ProcessOneContainer
 func (ctx *prepareOrGetContext) ProcessOneContainer(
-	env environs.Environ, callContext context.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine,
+	env environs.Environ, callContext context.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine, logger loggo.Logger,
 ) error {
 	instanceId, err := guest.InstanceId()
 	if ctx.maintain {
@@ -940,13 +939,13 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(
 		if err != nil {
 			return errors.Trace(err)
 		}
-		ctx.logger.Debugf("got allocated info from provider: %+v", allocatedInfo)
+		logger.Debugf("got allocated info from provider: %+v", allocatedInfo)
 	} else {
-		ctx.logger.Debugf("using dhcp allocated addresses")
+		logger.Debugf("using dhcp allocated addresses")
 	}
 
 	allocatedConfig := params.NetworkConfigFromInterfaceInfo(allocatedInfo)
-	ctx.logger.Debugf("allocated network config: %+v", allocatedConfig)
+	logger.Debugf("allocated network config: %+v", allocatedConfig)
 	ctx.result.Results[idx].Config = allocatedConfig
 	return nil
 }
@@ -959,7 +958,6 @@ func (api *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
 			Results: make([]params.MachineNetworkConfigResult, len(args.Entities)),
 		},
 		maintain: maintain,
-		logger:   api.logger,
 	}
 
 	if err := api.processEachContainer(args, ctx); err != nil {
@@ -1005,7 +1003,7 @@ type hostChangesContext struct {
 
 // Implements perContainerHandler.ProcessOneContainer
 func (ctx *hostChangesContext) ProcessOneContainer(
-	env environs.Environ, callContext context.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine,
+	env environs.Environ, callContext context.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine, logger loggo.Logger,
 ) error {
 	bridges, reconfigureDelay, err := policy.FindMissingBridgesForContainer(host, guest)
 	if err != nil {
@@ -1057,7 +1055,7 @@ type containerProfileContext struct {
 
 // Implements perContainerHandler.ProcessOneContainer
 func (ctx *containerProfileContext) ProcessOneContainer(
-	_ environs.Environ, _ context.ProviderCallContext, _ BridgePolicy, idx int, _, guest Machine,
+	_ environs.Environ, _ context.ProviderCallContext, _ BridgePolicy, idx int, _, guest Machine, logger loggo.Logger,
 ) error {
 	units, err := guest.Units()
 	if err != nil {
@@ -1224,7 +1222,7 @@ func (api *ProvisionerAPI) SetModificationStatus(args params.SetStatus) (params.
 	}
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
-		logger.Errorf("failed to get an authorisation function: %v", err)
+		api.logger.Errorf("failed to get an authorisation function: %v", err)
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Entities {
@@ -1235,14 +1233,14 @@ func (api *ProvisionerAPI) SetModificationStatus(args params.SetStatus) (params.
 }
 
 func (api *ProvisionerAPI) setOneModificationStatus(canAccess common.AuthFunc, arg params.EntityStatusArgs) error {
-	logger.Tracef("SetModificationStatus called with: %#v", arg)
+	api.logger.Tracef("SetModificationStatus called with: %#v", arg)
 	mTag, err := names.ParseMachineTag(arg.Tag)
 	if err != nil {
 		return apiservererrors.ErrPerm
 	}
 	machine, err := api.getMachine(canAccess, mTag)
 	if err != nil {
-		logger.Debugf("SetModificationStatus unable to get machine %q", mTag)
+		api.logger.Debugf("SetModificationStatus unable to get machine %q", mTag)
 		return err
 	}
 
@@ -1258,7 +1256,7 @@ func (api *ProvisionerAPI) setOneModificationStatus(canAccess common.AuthFunc, a
 		Since:   since,
 	}
 	if err = machine.SetModificationStatus(s); err != nil {
-		logger.Debugf("failed to SetModificationStatus for %q: %v", mTag, err)
+		api.logger.Debugf("failed to SetModificationStatus for %q: %v", mTag, err)
 		return err
 	}
 	return nil
@@ -1271,7 +1269,7 @@ func (api *ProvisionerAPI) MarkMachinesForRemoval(machines params.Entities) (par
 	results := make([]params.ErrorResult, len(machines.Entities))
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
-		logger.Errorf("failed to get an authorisation function: %v", err)
+		api.logger.Errorf("failed to get an authorisation function: %v", err)
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	for i, machine := range machines.Entities {
@@ -1311,7 +1309,7 @@ func (api *ProvisionerAPI) SetCharmProfiles(args params.SetProfileArgs) (params.
 	results := make([]params.ErrorResult, len(args.Args))
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
-		logger.Errorf("failed to get an authorisation function: %v", err)
+		api.logger.Errorf("failed to get an authorisation function: %v", err)
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	for i, a := range args.Args {

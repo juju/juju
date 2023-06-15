@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -41,8 +42,7 @@ func (s *offerAccessSuite) SetUpTest(c *gc.C) {
 
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, nil, getFakeControllerInfo,
-		s.mockState, s.mockStatePool, s.authorizer, s.authContext,
-		c.MkDir(),
+		s.mockState, s.mockStatePool, s.authorizer, s.authContext, c.MkDir(), loggo.GetLogger("juju.apiserver.applicationoffers"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

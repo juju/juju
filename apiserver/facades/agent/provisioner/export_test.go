@@ -5,7 +5,6 @@ package provisioner
 
 import (
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/loggo"
 )
 
 // TODO (manadart 2019-09-26): This file should be deleted via these steps:
@@ -15,7 +14,7 @@ import (
 // - Instantiate these contexts directly instead of requiring these methods.
 
 func NewPrepareOrGetContext(result params.MachineNetworkConfigResults, maintain bool) *prepareOrGetContext {
-	return &prepareOrGetContext{result: result, maintain: maintain, logger: loggo.GetLogger("juju.apiserver.provisioner")}
+	return &prepareOrGetContext{result: result, maintain: maintain}
 }
 
 func NewContainerProfileContext(result params.ContainerProfileResults, modelName string) *containerProfileContext {

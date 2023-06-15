@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 )
 
@@ -38,6 +39,7 @@ func newFacadeV1(ctx facade.Context) (*KeyManagerAPI, error) {
 		authorizer,
 		common.NewBlockChecker(st),
 		st.ControllerTag(),
+		ctx.Logger().Child("keymanager"),
 	), nil
 }
 
@@ -46,12 +48,14 @@ func newKeyManagerAPI(
 	authorizer facade.Authorizer,
 	check BlockChecker,
 	controllerTag names.ControllerTag,
+	logger loggo.Logger,
 ) *KeyManagerAPI {
 	return &KeyManagerAPI{
 		model:         model,
 		authorizer:    authorizer,
 		check:         check,
 		controllerTag: controllerTag,
+		logger:        logger,
 	}
 }
 

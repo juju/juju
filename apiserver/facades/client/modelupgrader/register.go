@@ -66,5 +66,6 @@ func newFacadeV1(ctx facade.Context) (*ModelUpgraderAPI, error) {
 		context.CallContext(st),
 		registry.New,
 		environscloudspecGetter,
+		ctx.Logger().Child("modelupgrader"),
 	)
 }

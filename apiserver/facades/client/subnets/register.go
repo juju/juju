@@ -26,5 +26,5 @@ func newAPI(ctx facade.Context) (*API, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newAPIWithBacking(stateShim, context.CallContext(st), ctx.Resources(), ctx.Auth())
+	return newAPIWithBacking(stateShim, context.CallContext(st), ctx.Resources(), ctx.Auth(), ctx.Logger().Child("subnets"))
 }

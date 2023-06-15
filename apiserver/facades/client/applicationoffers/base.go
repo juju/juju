@@ -11,6 +11,7 @@ import (
 	"github.com/juju/charm/v11"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -33,6 +34,7 @@ type BaseAPI struct {
 	getEnviron           environFromModelFunc
 	getControllerInfo    func() (apiAddrs []string, caCert string, _ error)
 	ctx                  context.Context
+	logger               loggo.Logger
 }
 
 // checkAdmin ensures that the specified in user is a model or controller admin.
@@ -141,7 +143,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 		// Just because we can't compose the result for one offer, log
 		// that and move on to the next one.
 		if err != nil {
-			logger.Warningf("cannot get application offer: %v", err)
+			api.logger.Warningf("cannot get application offer: %v", err)
 			continue
 		}
 		offerParams.Users = []params.OfferUserDetails{{
@@ -155,7 +157,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 		// Only admins can see some sensitive details of the offer.
 		if isAdmin {
 			if err := api.getOfferAdminDetails(user, backend, app, &offer); err != nil {
-				logger.Warningf("cannot get offer admin details: %v", err)
+				api.logger.Warningf("cannot get offer admin details: %v", err)
 			}
 		}
 		results = append(results, offer)
@@ -501,7 +503,7 @@ func (api *BaseAPI) spacesAndBindingParams(
 			bindings = make(map[string]string)
 		}
 		bindings[ep.Name] = defaultBindingValue
-		logger.Warningf("no local binding for %q endpoint on application %q, assume default binding", ep.Name, app.Name())
+		api.logger.Warningf("no local binding for %q endpoint on application %q, assume default binding", ep.Name, app.Name())
 	}
 
 	// Get provider space info based on space ids.
@@ -548,7 +550,7 @@ func (api *BaseAPI) collectRemoteSpaces(backend Backend, spaceNames []string) (m
 
 	netEnv, ok := environs.SupportsNetworking(env)
 	if !ok {
-		logger.Debugf("cloud provider doesn't support networking, not getting space info")
+		api.logger.Debugf("cloud provider doesn't support networking, not getting space info")
 		return nil, nil
 	}
 
@@ -571,7 +573,7 @@ func (api *BaseAPI) collectRemoteSpaces(backend Backend, spaceNames []string) (m
 			return nil, errors.Trace(err)
 		}
 		if providerSpace == nil {
-			logger.Warningf("no provider space info for %q", name)
+			api.logger.Warningf("no provider space info for %q", name)
 			continue
 		}
 		remoteSpace := paramsFromProviderSpaceInfo(providerSpace)

@@ -34,5 +34,6 @@ func newControllerAPIv11(ctx facade.Context) (*ControllerAPI, error) {
 		presence,
 		hub,
 		factory,
+		ctx.Logger().Child("controller"),
 	)
 }

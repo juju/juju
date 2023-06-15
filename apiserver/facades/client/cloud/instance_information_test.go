@@ -6,6 +6,7 @@ package cloud_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -87,7 +88,7 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 		context.NewEmptyCloudCallContext(), nil)
 	p.backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag)
 
-	api, err := cloudfacade.NewCloudAPI(p.backend, p.ctrlBackend, p.pool, p.authorizer)
+	api, err := cloudfacade.NewCloudAPI(p.backend, p.ctrlBackend, p.pool, p.authorizer, loggo.GetLogger("juju.apiserver.cloud"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := params.CloudInstanceTypesConstraints{

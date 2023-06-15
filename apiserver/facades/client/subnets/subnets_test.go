@@ -7,6 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -93,7 +94,7 @@ func (s *SubnetSuite) setupSubnetsAPI(c *gc.C) *gomock.Controller {
 	s.mockBacking.EXPECT().ModelTag().Return(names.NewModelTag("123"))
 
 	var err error
-	s.api, err = subnets.NewAPIWithBacking(s.mockBacking, s.mockCloudCallContext, s.mockResource, s.mockAuthorizer)
+	s.api, err = subnets.NewAPIWithBacking(s.mockBacking, s.mockCloudCallContext, s.mockResource, s.mockAuthorizer, loggo.GetLogger("juju.apiserver.subnets"))
 	c.Assert(err, jc.ErrorIsNil)
 	return ctrl
 }
@@ -148,6 +149,7 @@ func (s *SubnetsSuite) SetUpTest(c *gc.C) {
 		&stubBacking{apiservertesting.BackingInstance},
 		s.callContext,
 		s.resources, s.authorizer,
+		loggo.GetLogger("juju.apiserver.subnets"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.facade, gc.NotNil)
@@ -192,6 +194,7 @@ func (s *SubnetsSuite) TestNewAPIWithBacking(c *gc.C) {
 		&stubBacking{apiservertesting.BackingInstance},
 		s.callContext,
 		s.resources, s.authorizer,
+		loggo.GetLogger("juju.apiserver.subnets"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(facade, gc.NotNil)
@@ -205,6 +208,7 @@ func (s *SubnetsSuite) TestNewAPIWithBacking(c *gc.C) {
 		&stubBacking{apiservertesting.BackingInstance},
 		s.callContext,
 		s.resources, agentAuthorizer,
+		loggo.GetLogger("juju.apiserver.subnets"),
 	)
 	c.Assert(err, jc.DeepEquals, apiservererrors.ErrPerm)
 	c.Assert(facade, gc.IsNil)

@@ -12,6 +12,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -66,6 +67,7 @@ func (s *MachineManagerSuite) TestNewMachineManagerAPINonClient(c *gc.C) {
 		common.NewResources(),
 		nil,
 		nil,
+		loggo.GetLogger("juju.apiserver.machinemanager"),
 	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -109,6 +111,7 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		common.NewResources(),
 		nil,
 		nil,
+		loggo.GetLogger("juju.apiserver.machinemanager"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -225,6 +228,7 @@ func (s *DestroyMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		nil,
 		s.leadership,
 		nil,
+		loggo.GetLogger("juju.apiserver.machinemanager"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -729,6 +733,7 @@ func (s *ProvisioningMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		common.NewResources(),
 		nil,
 		nil,
+		loggo.GetLogger("juju.apiserver.machinemanager"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return ctrl
@@ -977,6 +982,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) setup(c *gc.C) *gomock.Contro
 		common.NewResources(),
 		nil,
 		nil,
+		loggo.GetLogger("juju.apiserver.machinemanager"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1232,6 +1238,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) setup(c *gc.C) *gomock.Control
 		common.NewResources(),
 		nil,
 		nil,
+		loggo.GetLogger("juju.apiserver.machinemanager"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1333,6 +1340,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) setAPIUser(c *gc.C, user names
 		common.NewResources(),
 		nil,
 		nil,
+		loggo.GetLogger("juju.apiserver.machinemanager"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = mm
@@ -1427,6 +1435,7 @@ func (s *UpgradeSeriesCompleteMachineManagerSuite) setup(c *gc.C) *gomock.Contro
 		common.NewResources(),
 		nil,
 		nil,
+		loggo.GetLogger("juju.apiserver.machinemanager"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

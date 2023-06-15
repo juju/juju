@@ -23,8 +23,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.applicationoffers")
-
 type environFromModelFunc func(string) (environs.Environ, error)
 
 // OffersAPI implements the cross model interface and is the concrete
@@ -45,6 +43,7 @@ func createOffersAPI(
 	authorizer facade.Authorizer,
 	authContext *commoncrossmodel.AuthContext,
 	dataDir string,
+	logger loggo.Logger,
 ) (*OffersAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -61,6 +60,7 @@ func createOffersAPI(
 			StatePool:            statePool,
 			getEnviron:           getEnviron,
 			getControllerInfo:    getControllerInfo,
+			logger:               logger,
 		},
 	}
 	return api, nil

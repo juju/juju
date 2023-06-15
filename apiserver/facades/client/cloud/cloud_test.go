@@ -10,6 +10,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -55,7 +56,7 @@ func (s *cloudSuite) setup(c *gc.C, userTag names.UserTag) *gomock.Controller {
 	s.ctrlBackend = mocks.NewMockBackend(ctrl)
 	s.ctrlBackend.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
 
-	api, err := cloudfacade.NewCloudAPI(s.backend, s.ctrlBackend, s.pool, s.authorizer)
+	api, err := cloudfacade.NewCloudAPI(s.backend, s.ctrlBackend, s.pool, s.authorizer, loggo.GetLogger("juju.apiserver.cloud"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 	return ctrl

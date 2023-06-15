@@ -11,7 +11,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3/txn"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/lxc/lxd/shared/logger"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/core/network"
@@ -281,7 +280,7 @@ func (o *mergeMachineLinkLayerOp) processExistingDeviceAddress(
 func (o *mergeMachineLinkLayerOp) processNewDevices() {
 	for _, dev := range o.Incoming() {
 		if !o.IsDevProcessed(dev) {
-			logger.Debugf(
+			o.logger.Debugf(
 				"ignoring unrecognised device %q (%s) with addresses %v",
 				dev.InterfaceName, dev.MACAddress, dev.Addresses,
 			)

@@ -5,6 +5,7 @@ package charms
 
 import (
 	"github.com/juju/charm/v11"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -30,7 +31,7 @@ func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginNoAll(c *gc.C) {
 		Branch:       &branch,
 		Architecture: "all",
 	}
-	obtained, err := normalizeCharmOrigin(origin, "amd64")
+	obtained, err := normalizeCharmOrigin(origin, "amd64", loggo.GetLogger("juju.apiserver.charms"))
 	c.Assert(err, jc.ErrorIsNil)
 	origin.Architecture = "amd64"
 	c.Assert(obtained, gc.DeepEquals, origin)
@@ -46,7 +47,7 @@ func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginWithEmpty(c *gc.C) 
 		Architecture: "",
 		Base:         params.Base{Channel: "all"},
 	}
-	obtained, err := normalizeCharmOrigin(origin, "amd64")
+	obtained, err := normalizeCharmOrigin(origin, "amd64", loggo.GetLogger("juju.apiserver.charms"))
 	c.Assert(err, jc.ErrorIsNil)
 	origin.Architecture = "amd64"
 	origin.Base.Channel = ""
