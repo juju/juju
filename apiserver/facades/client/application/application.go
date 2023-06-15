@@ -60,9 +60,14 @@ var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
 var logger = loggo.GetLogger("juju.apiserver.application")
 
+// APIv19 provides the Application API facade for version 19.
+type APIv19 struct {
+	*APIBase
+}
+
 // APIv18 provides the Application API facade for version 18.
 type APIv18 struct {
-	*APIBase
+	*APIv19
 }
 
 // APIv17 provides the Application API facade for version 17.
@@ -2970,6 +2975,13 @@ func (api *APIBase) Leader(entity params.Entity) (params.StringResult, error) {
 		result.Error = apiservererrors.ServerError(errors.NotFoundf("leader for %s", entity.Tag))
 	}
 	return result, nil
+}
+
+// DeployFromRepository for facade v18. The method was still not fully complete until v19.
+// The NotImplemented error was for development purposes while use was behind a feature
+// flag in the juju client.
+func (api *APIv18) DeployFromRepository(args params.DeployFromRepositoryArgs) (params.DeployFromRepositoryResults, error) {
+	return params.DeployFromRepositoryResults{}, errors.NotImplementedf("this facade method is under development")
 }
 
 // DeployFromRepository is a one-stop deployment method for repository

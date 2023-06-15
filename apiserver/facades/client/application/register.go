@@ -25,11 +25,21 @@ func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Application", 18, func(ctx facade.Context) (facade.Facade, error) {
 		return newFacadeV18(ctx) // Added new DeployFromRepository
 	}, reflect.TypeOf((*APIv18)(nil)))
+	registry.MustRegister("Application", 19, func(ctx facade.Context) (facade.Facade, error) {
+		return newFacadeV19(ctx) // Added new DeployFromRepository
+	}, reflect.TypeOf((*APIv19)(nil)))
+}
 
+func newFacadeV19(ctx facade.Context) (*APIv19, error) {
+	api, err := newFacadeBase(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv19{api}, nil
 }
 
 func newFacadeV18(ctx facade.Context) (*APIv18, error) {
-	api, err := newFacadeBase(ctx)
+	api, err := newFacadeV19(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
