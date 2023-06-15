@@ -67,20 +67,6 @@ func (s *ControllerAddressesSuite) SetUpTest(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 }
 
-func (s *ControllerAddressesSuite) TestControllerModel(c *gc.C) {
-	addresses, err := s.State.Addresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, jc.SameContents, []string{"10.0.1.2:1234"})
-}
-
-func (s *ControllerAddressesSuite) TestOtherModel(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer func() { _ = st.Close() }()
-	addresses, err := st.Addresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, jc.SameContents, []string{"10.0.1.2:1234"})
-}
-
 func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
 	addrs, err := s.State.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)

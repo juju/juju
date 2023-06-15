@@ -5,10 +5,8 @@ package state
 
 import (
 	"fmt"
-	"net"
 	"reflect"
 	"sort"
-	"strconv"
 
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
@@ -20,74 +18,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/mongo"
 )
-
-// controllerAddresses returns the list of internal addresses of the state
-// server machines.
-func (st *State) controllerAddresses() ([]string, error) {
-	cinfo, err := st.ControllerInfo()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var machines mongo.Collection
-	var closer SessionCloser
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if model.ModelTag() == cinfo.ModelTag {
-		machines, closer = st.db().GetCollection(machinesC)
-	} else {
-		machines, closer = st.db().GetCollectionFor(cinfo.ModelTag.Id(), machinesC)
-	}
-	defer closer()
-
-	type addressMachine struct {
-		Addresses []address
-	}
-	var allAddresses []addressMachine
-	// TODO(rog) 2013/10/14 index machines on jobs.
-	err = machines.Find(bson.D{{"jobs", JobManageModel}}).All(&allAddresses)
-	if err != nil {
-		return nil, err
-	}
-	if len(allAddresses) == 0 {
-		return nil, errors.New("no controller machines found")
-	}
-	apiAddrs := make([]string, 0, len(allAddresses))
-	for _, addrs := range allAddresses {
-		addr, ok := networkAddresses(addrs.Addresses).OneMatchingScope(network.ScopeMatchCloudLocal)
-		if ok {
-			apiAddrs = append(apiAddrs, addr.Value)
-		}
-	}
-	if len(apiAddrs) == 0 {
-		return nil, errors.New("no controller machines with addresses found")
-	}
-	return apiAddrs, nil
-}
-
-func appendPort(addrs []string, port int) []string {
-	newAddrs := make([]string, len(addrs))
-	for i, addr := range addrs {
-		newAddrs[i] = net.JoinHostPort(addr, strconv.Itoa(port))
-	}
-	return newAddrs
-}
-
-// Addresses returns the list of cloud-internal addresses that
-// can be used to connect to the state.
-func (st *State) Addresses() ([]string, error) {
-	addrs, err := st.controllerAddresses()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	config, err := st.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return appendPort(addrs, config.StatePort()), nil
-}
 
 const (
 	// Key for *all* addresses at which controllers are accessible.

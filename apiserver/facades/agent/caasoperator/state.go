@@ -25,7 +25,6 @@ type CAASOperatorState interface {
 // CAASControllerState provides the subset of controller state
 // required by the CAAS operator facade.
 type CAASControllerState interface {
-	Addresses() ([]string, error)
 	ModelUUID() string
 	WatchAPIHostPortsForAgents() state.NotifyWatcher
 	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)

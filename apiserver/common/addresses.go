@@ -14,7 +14,6 @@ import (
 // APIAddressAccessor describes methods that allow agents to maintain
 // up-to-date information on how to connect to the Juju API server.
 type APIAddressAccessor interface {
-	Addresses() ([]string, error)
 	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
 	WatchAPIHostPortsForAgents() state.NotifyWatcher
 }

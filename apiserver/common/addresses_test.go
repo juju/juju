@@ -78,10 +78,6 @@ type fakeAddresses struct {
 	hostPorts []network.SpaceHostPorts
 }
 
-func (fakeAddresses) Addresses() ([]string, error) {
-	return []string{"addresses:1", "addresses:2"}, nil
-}
-
 func (fakeAddresses) ControllerConfig() (controller.Config, error) {
 	return coretesting.FakeControllerConfig(), nil
 }

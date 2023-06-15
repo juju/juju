@@ -786,17 +786,6 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 		)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	cfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
-	addrs, err := s.State.Addresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addrs, gc.HasLen, 3)
-	c.Assert(addrs, jc.SameContents, []string{
-		fmt.Sprintf("10.0.0.0:%d", cfg.StatePort()),
-		fmt.Sprintf("10.0.0.2:%d", cfg.StatePort()),
-		fmt.Sprintf("10.0.0.3:%d", cfg.StatePort()),
-	})
 }
 
 func (s *StateSuite) TestPing(c *gc.C) {
