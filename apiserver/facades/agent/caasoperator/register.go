@@ -41,8 +41,8 @@ func newStateFacade(ctx facade.Context) (*Facade, error) {
 		return nil, errors.Trace(err)
 	}
 	return NewFacade(resources, authorizer,
-		stateShim{systemState},
-		stateShim{ctx.State()},
+		stateShim{State: systemState},
+		stateShim{State: ctx.State()},
 		unitcommon.Backend(ctx.State()),
 		caasBroker, leadershipRevoker)
 }

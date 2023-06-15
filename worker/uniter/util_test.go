@@ -296,15 +296,6 @@ func step(c *gc.C, ctx *testContext, s stepper) {
 	s.step(c, ctx)
 }
 
-type ensureStateWorker struct{}
-
-func (s ensureStateWorker) step(c *gc.C, ctx *testContext) {
-	addresses, err := ctx.st.Addresses()
-	if err != nil || len(addresses) == 0 {
-		addControllerMachine(c, ctx.st)
-	}
-}
-
 func addControllerMachine(c *gc.C, st *state.State) {
 	// The AddControllerMachine call will update the API host ports
 	// to made-up addresses. We need valid addresses so that the uniter
@@ -439,7 +430,6 @@ type createUniter struct {
 }
 
 func (s createUniter) step(c *gc.C, ctx *testContext) {
-	step(c, ctx, ensureStateWorker{})
 	step(c, ctx, createApplicationAndUnit{})
 	if s.minion {
 		step(c, ctx, forceMinion{})

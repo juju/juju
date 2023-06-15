@@ -111,8 +111,8 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 		return nil, errors.Trace(err)
 	}
 	api, err := NewCAASApplicationProvisionerAPI(
-		stateShim{systemState},
-		stateShim{st},
+		stateShim{State: systemState},
+		stateShim{State: st},
 		ctx.Resources(),
 		newResourceOpener,
 		authorizer,
