@@ -11,6 +11,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/metricsdebug"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -33,6 +34,8 @@ type SetMeterStatusCommand struct {
 	Tag        names.Tag
 	Status     string
 	StatusInfo string
+
+	apiRoot base.APICallCloser
 }
 
 // New creates a new SetMeterStatusCommand.
@@ -83,17 +86,20 @@ type SetMeterStatusClient interface {
 	Close() error
 }
 
-var newClient = func(env modelcmd.ModelCommandBase) (SetMeterStatusClient, error) {
-	state, err := env.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
+func (c *SetMeterStatusCommand) getMeterStatusAPI() (SetMeterStatusClient, error) {
+	if c.apiRoot == nil {
+		var err error
+		c.apiRoot, err = c.NewAPIRoot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
-	return metricsdebug.NewClient(state), nil
+	return metricsdebug.NewClient(c.apiRoot), nil
 }
 
 // Run implements Command.Run.
 func (c *SetMeterStatusCommand) Run(ctx *cmd.Context) error {
-	client, err := newClient(c.ModelCommandBase)
+	client, err := c.getMeterStatusAPI()
 	if err != nil {
 		return errors.Trace(err)
 	}

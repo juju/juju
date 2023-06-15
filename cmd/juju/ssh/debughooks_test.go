@@ -9,13 +9,20 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/mock/gomock"
+	"github.com/juju/charm/v10"
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/errors"
 	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
+	apicharm "github.com/juju/juju/api/common/charm"
+	"github.com/juju/juju/api/common/charms"
+	"github.com/juju/juju/cmd/juju/ssh/mocks"
+	"github.com/juju/juju/cmd/modelcmd"
 	jujussh "github.com/juju/juju/network/ssh"
 )
 
@@ -104,15 +111,53 @@ var debugHooksTests = []struct {
 	error: `no unit name specified`,
 }}
 
+var meta = charm.Meta{
+	Provides: map[string]charm.Relation{
+		"metrics-client": {Name: "metrics-client", Interface: "metrics", Role: charm.RoleProvider},
+		"server":         {Name: "server", Interface: "mysql", Role: charm.RoleProvider},
+		"server-admin":   {Name: "server", Interface: "mysql", Role: charm.RoleProvider},
+	},
+}
+
+var actions = charm.Actions{
+	ActionSpecs: map[string]charm.ActionSpec{
+		"fakeaction":        {},
+		"anotherfakeaction": {},
+	},
+}
+
 func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
-	s.setupModel(c)
 
 	for i, t := range debugHooksTests {
 		c.Logf("test %d: %s\n\t%s\n", i, t.info, t.args)
 
 		s.setHostChecker(t.hostChecker)
 
-		ctx, err := cmdtesting.RunCommand(c, NewDebugHooksCommand(s.hostChecker, baseTestingRetryStrategy), t.args...)
+		ctrl := gomock.NewController(c)
+		withProxy := false
+		if t.expected != nil {
+			withProxy = t.expected.withProxy
+		}
+		target := "mysql/0"
+		if len(t.args) > 0 && t.args[0] == "nonexistent/123" {
+			target = t.args[0]
+		}
+		ssh, app, status := s.setupModel(ctrl, withProxy, nil, target)
+		app.EXPECT().GetCharmURLOrigin("", "mysql").DoAndReturn(func(_, curl string) (*charm.URL, apicharm.Origin, error) {
+			if curl != "mysql" {
+				return nil, apicharm.Origin{}, errors.NotFoundf(curl)
+			}
+			return charm.MustParseURL("mysql"), apicharm.Origin{}, nil
+		})
+
+		charmAPI := mocks.NewMockCharmAPI(ctrl)
+		chInfo := &charms.CharmInfo{Meta: &meta, Actions: &actions}
+		charmAPI.EXPECT().CharmInfo("ch:mysql").Return(chInfo, nil)
+		charmAPI.EXPECT().Close().Return(nil)
+
+		hooksCmd := NewDebugHooksCommandForTest(app, ssh, status, charmAPI, t.hostChecker, baseTestingRetryStrategy)
+
+		ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(hooksCmd), t.args...)
 		if t.error != "" {
 			c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(t.error))
 		} else {
@@ -125,10 +170,22 @@ func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
 }
 
 func (s *DebugHooksSuite) TestDebugHooksArgFormatting(c *gc.C) {
-	s.setupModel(c)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ssh, app, status := s.setupModel(ctrl, false, nil, "mysql/0")
+	app.EXPECT().GetCharmURLOrigin("", "mysql").Return(charm.MustParseURL("mysql"), apicharm.Origin{}, nil)
+
+	charmAPI := mocks.NewMockCharmAPI(ctrl)
+	chInfo := &charms.CharmInfo{Meta: &meta, Actions: &actions}
+	charmAPI.EXPECT().CharmInfo("ch:mysql").Return(chInfo, nil)
+	charmAPI.EXPECT().Close().Return(nil)
+
 	s.setHostChecker(validAddresses("0.public"))
-	ctx, err := cmdtesting.RunCommand(c, NewDebugHooksCommand(s.hostChecker, baseTestingRetryStrategy),
-		"mysql/0", "install", "start")
+
+	hooksCmd := NewDebugHooksCommandForTest(app, ssh, status, charmAPI, s.hostChecker, baseTestingRetryStrategy)
+
+	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(hooksCmd), "mysql/0", "install", "start")
 	c.Check(err, jc.ErrorIsNil)
 	base64Regex := regexp.MustCompile("echo ([A-Za-z0-9+/]+=*) \\| base64")
 	c.Check(err, jc.ErrorIsNil)

@@ -6,14 +6,13 @@ package setmeterstatus
 import (
 	"github.com/juju/cmd/v3"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
-var NewClient = &newClient
-
-func NewCommandForTest(store jujuclient.ClientStore) cmd.Command {
-	cmd := &SetMeterStatusCommand{}
-	cmd.SetClientStore(store)
+func NewCommandForTest(apiRoot base.APICallCloser) cmd.Command {
+	cmd := &SetMeterStatusCommand{apiRoot: apiRoot}
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	return modelcmd.Wrap(cmd)
 }

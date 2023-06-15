@@ -10,17 +10,19 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/ssh"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/juju/ssh/mocks"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/juju/testing"
 	jujussh "github.com/juju/juju/network/ssh"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 )
 
 // argsSpec is a test helper which converts a number of options into
@@ -116,7 +118,7 @@ func (s *argsSpec) expectedKnownHosts() string {
 }
 
 type SSHMachineSuite struct {
-	testing.JujuConnSuite
+	testing.FakeJujuXDGDataHomeSuite
 	binDir      string
 	hostChecker jujussh.ReachableChecker
 }
@@ -169,7 +171,7 @@ func validAddresses(acceptedAddresses ...string) *fakeHostChecker {
 }
 
 func (s *SSHMachineSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	ssh.ClearClientKeys()
 	s.PatchValue(&getJujuExecutable, func() (string, error) { return "juju", nil })
 
@@ -248,83 +250,103 @@ func (s *SSHMachineSuite) setHostChecker(hostChecker jujussh.ReachableChecker) {
 	s.hostChecker = hostChecker
 }
 
-func (s *SSHMachineSuite) setupModel(c *gc.C) {
-	// Add machine-0 with a mysql application and mysql/0 unit
-	u := s.Factory.MakeUnit(c, nil)
+func (s *SSHMachineSuite) setupModel(
+	ctrl *gomock.Controller, withProxy bool,
+	machineAddresses func() []string,
+	targets ...string,
+) (SSHClientAPI, *mocks.MockApplicationAPI, StatusClientAPI) {
+	applicationClient := mocks.NewMockApplicationAPI(ctrl)
+	sshClient := mocks.NewMockSSHClientAPI(ctrl)
+	statusClient := mocks.NewMockStatusClientAPI(ctrl)
 
-	// Set both the preferred public and private addresses for machine-0, add a
-	// couple of link-layer devices (loopback and ethernet) with addresses, and
-	// the ssh keys.
-	m := s.getMachineForUnit(c, u)
-	s.setAddresses(c, m)
-	s.setKeys(c, m)
-	s.setLinkLayerDevicesAddresses(c, m)
+	if len(targets) == 0 {
+		targets = []string{"0"}
+	}
+	p := strings.Split(targets[0], "@")
+	if len(p) > 1 {
+		targets[0] = p[1]
+	}
 
-	// machine-1 has no public host keys available.
-	m1 := s.Factory.MakeMachine(c, nil)
-	s.setAddresses(c, m1)
+	machineTarget := func(t string) string {
+		machine := t
+		if names.IsValidUnit(machine) {
+			machine = "0"
+		}
+		return machine
+	}
 
-	// machine-2 has IPv6 addresses
-	m2 := s.Factory.MakeMachine(c, nil)
-	s.setAddresses6(c, m2)
-	s.setKeys(c, m2)
-}
+	getAddresses := func(target string) ([]string, error) {
+		if machineAddresses == nil {
+			machine := machineTarget(target)
+			addr := []string{
+				fmt.Sprintf("%s.public", machine),
+				fmt.Sprintf("%s.private", machine),
+			}
+			if machine != "0" {
+				addr = append(addr, "2001:db8::1")
+			}
+			return addr, nil
+		}
+		addr := machineAddresses()
+		if len(addr) == 0 {
+			return nil, network.NoAddressError("machine")
+		}
+		return addr, nil
+	}
+	for _, t := range targets {
+		sshClient.EXPECT().AllAddresses(t).DoAndReturn(func(target string) ([]string, error) {
+			if target == "5" {
+				return nil, errors.NotFoundf("machine 5")
+			}
+			if target == "nonexistent/123" {
+				return nil, errors.NotFoundf(`unit "nonexistent/123"`)
+			}
+			return getAddresses(target)
+		}).MaxTimes(5)
+		sshClient.EXPECT().PrivateAddress(t).DoAndReturn(func(target string) (string, error) {
+			addr, err := getAddresses(target)
+			if err != nil || len(addr) == 0 {
+				return "", err
+			}
+			for _, a := range addr {
+				if strings.HasSuffix(a, ".private") {
+					return a, nil
+				}
+			}
+			return addr[0], nil
+		}).MaxTimes(5)
+	}
+	for _, t := range targets {
+		sshClient.EXPECT().PublicKeys(t).DoAndReturn(func(target string) ([]string, error) {
+			machine := machineTarget(target)
+			if machine != "1" {
+				return []string{
+					fmt.Sprintf("dsa-%s", machine),
+					fmt.Sprintf("rsa-%s", machine),
+				}, nil
+			}
+			return nil, errors.NotFoundf("keys")
+		}).MaxTimes(5)
+	}
 
-func (s *SSHMachineSuite) getMachineForUnit(c *gc.C, u *state.Unit) *state.Machine {
-	machineId, err := u.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	m, err := s.State.Machine(machineId)
-	c.Assert(err, jc.ErrorIsNil)
-	return m
-}
-
-func (s *SSHMachineSuite) setAddresses(c *gc.C, m *state.Machine) {
-	addrPub := network.NewSpaceAddress(
-		fmt.Sprintf("%s.public", m.Id()),
-		network.WithScope(network.ScopePublic),
-	)
-	addrPriv := network.NewSpaceAddress(
-		fmt.Sprintf("%s.private", m.Id()),
-		network.WithScope(network.ScopeCloudLocal),
-	)
-	err := m.SetProviderAddresses(addrPub, addrPriv)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *SSHMachineSuite) setLinkLayerDevicesAddresses(c *gc.C, m *state.Machine) {
-	devicesArgs := []state.LinkLayerDeviceArgs{{
-		Name: "lo",
-		Type: network.LoopbackDevice,
-	}, {
-		Name: "eth0",
-		Type: network.EthernetDevice,
-	}}
-	err := m.SetLinkLayerDevices(devicesArgs...)
-	c.Assert(err, jc.ErrorIsNil)
-
-	addressesArgs := []state.LinkLayerDeviceAddress{{
-		DeviceName:   "lo",
-		CIDRAddress:  "127.0.0.1/8", // will be filtered
-		ConfigMethod: network.ConfigLoopback,
-	}, {
-		DeviceName:   "eth0",
-		CIDRAddress:  "0.1.2.3/24", // needs to be a valid CIDR
-		ConfigMethod: network.ConfigStatic,
-	}}
-	err = m.SetDevicesAddresses(addressesArgs...)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *SSHMachineSuite) setAddresses6(c *gc.C, m *state.Machine) {
-	addrPub := network.NewSpaceAddress("2001:db8::1", network.WithScope(network.ScopePublic))
-	addrPriv := network.NewSpaceAddress("fc00:bbb::1", network.WithScope(network.ScopeCloudLocal))
-	err := m.SetProviderAddresses(addrPub, addrPriv)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *SSHMachineSuite) setKeys(c *gc.C, m *state.Machine) {
-	id := m.Id()
-	keys := state.SSHHostKeys{"dsa-" + id, "rsa-" + id}
-	err := s.State.SetSSHHostKeys(m.MachineTag(), keys)
-	c.Assert(err, jc.ErrorIsNil)
+	statusClient.EXPECT().Status(nil).DoAndReturn(func(_ []string) (*params.FullStatus, error) {
+		machine := machineTarget(targets[0])
+		addr, err := getAddresses(machine)
+		if err != nil {
+			return nil, err
+		}
+		return &params.FullStatus{
+			Machines: map[string]params.MachineStatus{
+				machine: {
+					IPAddresses: addr,
+				},
+			},
+		}, nil
+	}).MaxTimes(2)
+	sshClient.EXPECT().Proxy().Return(withProxy, nil).MaxTimes(1)
+	sshClient.EXPECT().Close().Return(nil)
+	statusClient.EXPECT().Close().Return(nil)
+	// leader api attribute is assigned the application api and both may be closed.
+	applicationClient.EXPECT().Close().Return(nil).MinTimes(1)
+	return sshClient, applicationClient, statusClient
 }
