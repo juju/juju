@@ -12,7 +12,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/highavailability"
@@ -31,7 +30,6 @@ import (
 type clientSuite struct {
 	testing.JujuConnSuite
 
-	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 	haServer   *highavailability.HighAvailabilityAPI
 
@@ -47,19 +45,14 @@ var (
 
 func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.resources = common.NewResources()
-	err := s.resources.RegisterNamed("machineID", common.StringResource("0"))
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:        s.AdminUserTag(c),
 		Controller: true,
 	}
-
+	var err error
 	s.haServer, err = highavailability.NewHighAvailabilityAPI(facadetest.Context{
 		State_:        s.State,
-		Resources_:    s.resources,
 		Auth_:         s.authorizer,
 		ControllerDB_: stubWatchableDB{},
 	})
@@ -503,9 +496,8 @@ func (s *clientSuite) TestEnableHAHostedModelErrors(c *gc.C) {
 	defer st2.Close()
 
 	haServer, err := highavailability.NewHighAvailabilityAPI(facadetest.Context{
-		State_:     st2,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
+		State_: st2,
+		Auth_:  s.authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -562,9 +554,8 @@ func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {
 	defer st.Close()
 
 	_, err := highavailability.NewHighAvailabilityAPI(facadetest.Context{
-		State_:     st,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
+		State_: st,
+		Auth_:  s.authorizer,
 	})
 	c.Assert(err, gc.ErrorMatches, "high availability on kubernetes controllers not supported")
 }

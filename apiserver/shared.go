@@ -105,12 +105,6 @@ func (c *sharedServerConfig) validate() error {
 	if c.machineTag == nil {
 		return errors.NotValidf("empty machineTag")
 	}
-	if c.dataDir == "" {
-		return errors.NotValidf("empty dataDir")
-	}
-	if c.logDir == "" {
-		return errors.NotValidf("empty logDir")
-	}
 	return nil
 }
 
