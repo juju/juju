@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/rpcreflect"
 	"github.com/juju/version/v2"
@@ -584,6 +585,11 @@ func (ctx *facadeContext) DataDir() string {
 // LogDir returns the log directory.
 func (ctx *facadeContext) LogDir() string {
 	return ctx.r.shared.logDir
+}
+
+// Logger returns the apiserver logger instance.
+func (ctx *facadeContext) Logger() loggo.Logger {
+	return ctx.r.shared.logger
 }
 
 // adminRoot dispatches API calls to those available to an anonymous connection

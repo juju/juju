@@ -15,6 +15,7 @@ import (
 	lxdprofile "github.com/juju/juju/core/lxdprofile"
 	status "github.com/juju/juju/core/status"
 	state "github.com/juju/juju/state"
+	loggo "github.com/juju/loggo"
 	names "github.com/juju/names/v4"
 )
 
@@ -42,18 +43,18 @@ func (m *MockInstanceMutatorWatcher) EXPECT() *MockInstanceMutatorWatcherMockRec
 }
 
 // WatchLXDProfileVerificationForMachine mocks base method.
-func (m *MockInstanceMutatorWatcher) WatchLXDProfileVerificationForMachine(arg0 instancemutater.Machine) (state.NotifyWatcher, error) {
+func (m *MockInstanceMutatorWatcher) WatchLXDProfileVerificationForMachine(arg0 instancemutater.Machine, arg1 loggo.Logger) (state.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchLXDProfileVerificationForMachine", arg0)
+	ret := m.ctrl.Call(m, "WatchLXDProfileVerificationForMachine", arg0, arg1)
 	ret0, _ := ret[0].(state.NotifyWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchLXDProfileVerificationForMachine indicates an expected call of WatchLXDProfileVerificationForMachine.
-func (mr *MockInstanceMutatorWatcherMockRecorder) WatchLXDProfileVerificationForMachine(arg0 interface{}) *gomock.Call {
+func (mr *MockInstanceMutatorWatcherMockRecorder) WatchLXDProfileVerificationForMachine(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLXDProfileVerificationForMachine", reflect.TypeOf((*MockInstanceMutatorWatcher)(nil).WatchLXDProfileVerificationForMachine), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLXDProfileVerificationForMachine", reflect.TypeOf((*MockInstanceMutatorWatcher)(nil).WatchLXDProfileVerificationForMachine), arg0, arg1)
 }
 
 // MockInstanceMutaterState is a mock of InstanceMutaterState interface.

@@ -7,6 +7,7 @@ import (
 	"github.com/juju/charm/v11"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/state"
@@ -22,6 +23,7 @@ type subRelationsWatcher struct {
 	// included. Needed particularly for when the relation goes away.
 	relations map[string]bool
 	out       chan []string
+	logger    loggo.Logger
 }
 
 // newSubordinateRelationsWatcher creates a watcher that will notify
@@ -30,7 +32,7 @@ type subRelationsWatcher struct {
 // principalName app. Global relations will be included, but only
 // container-scoped relations for the principal application will be
 // emitted - other container-scoped relations will be filtered out.
-func newSubordinateRelationsWatcher(backend *state.State, subordinateApp *state.Application, principalName string) (
+func newSubordinateRelationsWatcher(backend *state.State, subordinateApp *state.Application, principalName string, logger loggo.Logger) (
 	state.StringsWatcher, error,
 ) {
 	w := &subRelationsWatcher{
@@ -39,6 +41,7 @@ func newSubordinateRelationsWatcher(backend *state.State, subordinateApp *state.
 		principalName: principalName,
 		relations:     make(map[string]bool),
 		out:           make(chan []string),
+		logger:        logger,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -105,7 +108,7 @@ func (w *subRelationsWatcher) shouldSendCheck(key string) (bool, error) {
 	rel, err := w.backend.KeyRelation(key)
 	if errors.IsNotFound(err) {
 		// We never saw it, and it's already gone away, so we can drop it.
-		logger.Debugf("couldn't find unknown relation %q", key)
+		w.logger.Debugf("couldn't find unknown relation %q", key)
 		return false, nil
 	} else if err != nil {
 		return false, errors.Trace(err)

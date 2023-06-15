@@ -6,6 +6,7 @@ package instancemutater
 import (
 	"testing"
 
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -44,6 +45,7 @@ func NewTestAPI(
 		resources:   resources,
 		authorizer:  authorizer,
 		getAuthFunc: getAuthFunc,
+		logger:      loggo.GetLogger("juju.apiserver.instancemutater"),
 	}, nil
 }
 
@@ -52,6 +54,7 @@ func NewTestLxdProfileWatcher(c *gc.C, machine Machine, backend InstanceMutaterS
 	w, err := newMachineLXDProfileWatcher(MachineLXDProfileWatcherConfig{
 		backend: backend,
 		machine: machine,
+		logger:  loggo.GetLogger("juju.apiserver.instancemutater"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return w

@@ -5,6 +5,7 @@ package credentialvalidator
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	jujucloud "github.com/juju/juju/cloud"
@@ -31,12 +32,13 @@ type Backend interface {
 	WatchModelCredential() (state.NotifyWatcher, error)
 }
 
-func NewBackend(st StateAccessor) Backend {
-	return &backend{st}
+func NewBackend(st StateAccessor, logger loggo.Logger) Backend {
+	return &backend{st, logger}
 }
 
 type backend struct {
 	StateAccessor
+	logger loggo.Logger
 }
 
 // ModelUsesCredential implements Backend.ModelUsesCredential.
@@ -68,7 +70,7 @@ func (b *backend) ModelCredential() (*ModelCredential, error) {
 		result.Valid = supportsEmptyAuth
 		if !supportsEmptyAuth {
 			// TODO (anastasiamac 2018-11-12) Figure out how to notify the users here - maybe set a model status?...
-			logger.Warningf("model credential is not set for the model but the cloud requires it")
+			b.logger.Warningf("model credential is not set for the model but the cloud requires it")
 		}
 		return result, nil
 	}
@@ -81,7 +83,7 @@ func (b *backend) ModelCredential() (*ModelCredential, error) {
 		}
 		// In this situation, a model refers to a credential that does not exist in credentials collection.
 		// TODO (anastasiamac 2018-11-12) Figure out how to notify the users here - maybe set a model status?...
-		logger.Warningf("cloud credential reference is set for the model but the credential content is no longer on the controller")
+		b.logger.Warningf("cloud credential reference is set for the model but the credential content is no longer on the controller")
 		result.Valid = false
 		return result, nil
 	}

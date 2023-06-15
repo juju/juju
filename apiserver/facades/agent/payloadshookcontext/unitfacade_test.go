@@ -6,6 +6,7 @@ package payloadshookcontext_test
 import (
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -37,7 +38,7 @@ func (s *suite) TestTrack(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	s.state.stateIDs = []string{id}
 
-	a := unitfacade.NewUnitFacade(s.state)
+	a := unitfacade.NewUnitFacade(s.state, loggo.GetLogger("juju.apiserver.payloadshookcontext"))
 
 	args := params.TrackPayloadArgs{
 		Payloads: []params.Payload{{
@@ -92,7 +93,7 @@ func (s *suite) TestListOne(c *gc.C) {
 		},
 	}}
 
-	a := unitfacade.NewUnitFacade(s.state)
+	a := unitfacade.NewUnitFacade(s.state, loggo.GetLogger("juju.apiserver.payloadshookcontext"))
 	args := params.Entities{
 		Entities: []params.Entity{{
 			Tag: names.NewPayloadTag(id).String(),
@@ -143,7 +144,7 @@ func (s *suite) TestListAll(c *gc.C) {
 		},
 	}}
 
-	a := unitfacade.NewUnitFacade(s.state)
+	a := unitfacade.NewUnitFacade(s.state, loggo.GetLogger("juju.apiserver.payloadshookcontext"))
 	args := params.Entities{}
 	results, err := a.List(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -173,7 +174,7 @@ func (s *suite) TestLookUpOkay(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	s.state.stateIDs = []string{id}
 
-	a := unitfacade.NewUnitFacade(s.state)
+	a := unitfacade.NewUnitFacade(s.state, loggo.GetLogger("juju.apiserver.payloadshookcontext"))
 	args := params.LookUpPayloadArgs{
 		Args: []params.LookUpPayloadArg{{
 			Name: "fooID",
@@ -208,7 +209,7 @@ func (s *suite) TestLookUpMixed(c *gc.C) {
 	notFound := errors.NotFoundf("payload")
 	s.stub.SetErrors(nil, notFound, nil)
 
-	a := unitfacade.NewUnitFacade(s.state)
+	a := unitfacade.NewUnitFacade(s.state, loggo.GetLogger("juju.apiserver.payloadshookcontext"))
 	args := params.LookUpPayloadArgs{
 		Args: []params.LookUpPayloadArg{{
 			Name: "fooID",
@@ -253,7 +254,7 @@ func (s *suite) TestSetStatus(c *gc.C) {
 	s.state.stateIDs = []string{id}
 	s.state.stateIDs = []string{"ce5bc2a7-65d8-4800-8199-a7c3356ab309"}
 
-	a := unitfacade.NewUnitFacade(s.state)
+	a := unitfacade.NewUnitFacade(s.state, loggo.GetLogger("juju.apiserver.payloadshookcontext"))
 	args := params.SetPayloadStatusArgs{
 		Args: []params.SetPayloadStatusArg{{
 			Entity: params.Entity{
@@ -283,7 +284,7 @@ func (s *suite) TestUntrack(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	s.state.stateIDs = []string{id}
 
-	a := unitfacade.NewUnitFacade(s.state)
+	a := unitfacade.NewUnitFacade(s.state, loggo.GetLogger("juju.apiserver.payloadshookcontext"))
 	args := params.Entities{
 		Entities: []params.Entity{{
 			Tag: names.NewPayloadTag(id).String(),
@@ -306,7 +307,7 @@ func (s *suite) TestUntrack(c *gc.C) {
 }
 
 func (s *suite) TestUntrackEmptyID(c *gc.C) {
-	a := unitfacade.NewUnitFacade(s.state)
+	a := unitfacade.NewUnitFacade(s.state, loggo.GetLogger("juju.apiserver.payloadshookcontext"))
 	args := params.Entities{
 		Entities: []params.Entity{{
 			Tag: "",
@@ -332,7 +333,7 @@ func (s *suite) TestUntrackNoIDs(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	s.state.id = id
 
-	a := unitfacade.NewUnitFacade(s.state)
+	a := unitfacade.NewUnitFacade(s.state, loggo.GetLogger("juju.apiserver.payloadshookcontext"))
 	args := params.Entities{
 		Entities: []params.Entity{},
 	}

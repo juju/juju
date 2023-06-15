@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/lxc/lxd/shared/logger"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
@@ -35,8 +36,6 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.provisioner")
 
 // ProvisionerAPI provides access to the Provisioner API facade.
 type ProvisionerAPI struct {
@@ -65,6 +64,7 @@ type ProvisionerAPI struct {
 	getCanModify            common.GetAuthFunc
 	providerCallContext     context.ProviderCallContext
 	toolsFinder             common.ToolsFinder
+	logger                  loggo.Logger
 
 	// Used for MaybeWriteLXDProfile()
 	mu sync.Mutex
@@ -163,6 +163,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 		getAuthFunc:             getAuthFunc,
 		getCanModify:            getCanModify,
 		providerCallContext:     callCtx,
+		logger:                  ctx.Logger().Child("provisioner"),
 	}
 	if isCaasModel {
 		return api, nil
@@ -262,7 +263,7 @@ func (api *ProvisionerAPI) SetSupportedContainers(args params.MachineContainersP
 	for i, arg := range args.Params {
 		tag, err := names.ParseMachineTag(arg.MachineTag)
 		if err != nil {
-			logger.Warningf("SetSupportedContainers called with %q which is not a valid machine tag: %v", arg.MachineTag, err)
+			api.logger.Warningf("SetSupportedContainers called with %q which is not a valid machine tag: %v", arg.MachineTag, err)
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
@@ -296,7 +297,7 @@ func (api *ProvisionerAPI) SupportedContainers(args params.Entities) (params.Mac
 	for i, arg := range args.Entities {
 		tag, err := names.ParseMachineTag(arg.Tag)
 		if err != nil {
-			logger.Warningf("SupportedContainers called with %q which is not a valid machine tag: %v", arg.Tag, err)
+			api.logger.Warningf("SupportedContainers called with %q which is not a valid machine tag: %v", arg.Tag, err)
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
@@ -737,14 +738,14 @@ func (api *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (para
 
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
-		logger.Errorf("failed to get an authorisation function: %v", err)
+		api.logger.Errorf("failed to get an authorisation function: %v", err)
 		return result, errors.Trace(err)
 	}
 	// Loop over the passed container tags.
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-			logger.Warningf("failed to parse machine tag %q: %v", entity.Tag, err)
+			api.logger.Warningf("failed to parse machine tag %q: %v", entity.Tag, err)
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
@@ -754,7 +755,7 @@ func (api *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (para
 		// machine has the host as a parent.
 		guest, err := api.getMachine(canAccess, tag)
 		if err != nil {
-			logger.Warningf("failed to get machine %q: %v", tag, err)
+			api.logger.Warningf("failed to get machine %q: %v", tag, err)
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		} else if !guest.IsContainer() {
@@ -767,7 +768,7 @@ func (api *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (para
 		// Environ.ReleaseContainerAddresses. See LP bug http://pad.lv/1585878
 		err = guest.RemoveAllAddresses()
 		if err != nil {
-			logger.Warningf("failed to remove container %q addresses: %v", tag, err)
+			api.logger.Warningf("failed to remove container %q addresses: %v", tag, err)
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -877,6 +878,7 @@ func (api *ProvisionerAPI) processEachContainer(args params.Entities, handler pe
 type prepareOrGetContext struct {
 	result   params.MachineNetworkConfigResults
 	maintain bool
+	logger   loggo.Logger
 }
 
 // Implements perContainerHandler.SetError
@@ -938,13 +940,13 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(
 		if err != nil {
 			return errors.Trace(err)
 		}
-		logger.Debugf("got allocated info from provider: %+v", allocatedInfo)
+		ctx.logger.Debugf("got allocated info from provider: %+v", allocatedInfo)
 	} else {
-		logger.Debugf("using dhcp allocated addresses")
+		ctx.logger.Debugf("using dhcp allocated addresses")
 	}
 
 	allocatedConfig := params.NetworkConfigFromInterfaceInfo(allocatedInfo)
-	logger.Debugf("allocated network config: %+v", allocatedConfig)
+	ctx.logger.Debugf("allocated network config: %+v", allocatedConfig)
 	ctx.result.Results[idx].Config = allocatedConfig
 	return nil
 }
@@ -957,6 +959,7 @@ func (api *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
 			Results: make([]params.MachineNetworkConfigResult, len(args.Entities)),
 		},
 		maintain: maintain,
+		logger:   api.logger,
 	}
 
 	if err := api.processEachContainer(args, ctx); err != nil {
@@ -1127,13 +1130,13 @@ func (api *ProvisionerAPI) InstanceStatus(args params.Entities) (params.StatusRe
 	}
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
-		logger.Errorf("failed to get an authorisation function: %v", err)
+		api.logger.Errorf("failed to get an authorisation function: %v", err)
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Entities {
 		mTag, err := names.ParseMachineTag(arg.Tag)
 		if err != nil {
-			logger.Warningf("InstanceStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
+			api.logger.Warningf("InstanceStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
@@ -1154,7 +1157,7 @@ func (api *ProvisionerAPI) InstanceStatus(args params.Entities) (params.StatusRe
 func (api *ProvisionerAPI) setOneInstanceStatus(canAccess common.AuthFunc, arg params.EntityStatusArgs) error {
 	mTag, err := names.ParseMachineTag(arg.Tag)
 	if err != nil {
-		logger.Warningf("SetInstanceStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
+		api.logger.Warningf("SetInstanceStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
 		return apiservererrors.ErrPerm
 	}
 	machine, err := api.getMachine(canAccess, mTag)
@@ -1177,7 +1180,7 @@ func (api *ProvisionerAPI) setOneInstanceStatus(canAccess common.AuthFunc, arg p
 	//	transaction, not in two separate transactions. Otherwise you can see
 	//	one toggle, but not the other.
 	if err = machine.SetInstanceStatus(s); err != nil {
-		logger.Debugf("failed to SetInstanceStatus for %q: %v", mTag, err)
+		api.logger.Debugf("failed to SetInstanceStatus for %q: %v", mTag, err)
 		return err
 	}
 	if status.Status(arg.Status) == status.ProvisioningError ||
@@ -1198,7 +1201,7 @@ func (api *ProvisionerAPI) SetInstanceStatus(args params.SetStatus) (params.Erro
 	}
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
-		logger.Errorf("failed to get an authorisation function: %v", err)
+		api.logger.Errorf("failed to get an authorisation function: %v", err)
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Entities {

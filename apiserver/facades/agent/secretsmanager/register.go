@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	corelogger "github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
@@ -103,5 +104,6 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		adminConfigGetter:   secretBackendAdminConfigGetter,
 		remoteClientGetter:  remoteClientGetter,
 		crossModelState:     context.State().RemoteEntities(),
+		logger:              context.Logger().ChildWithLabels("secretsmanager", corelogger.SECRETS),
 	}, nil
 }

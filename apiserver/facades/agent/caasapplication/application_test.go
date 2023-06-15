@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -50,7 +51,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	s.st = newMockState()
 	s.broker = &mockBroker{}
 
-	facade, err := caasapplication.NewFacade(s.resources, s.authorizer, s.st, s.st, s.broker, s.clock)
+	facade, err := caasapplication.NewFacade(s.resources, s.authorizer, s.st, s.st, s.broker, s.clock, loggo.GetLogger("juju.apiserver.caasaplication"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }

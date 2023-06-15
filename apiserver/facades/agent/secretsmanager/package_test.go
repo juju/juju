@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/juju/clock"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	gc "gopkg.in/check.v1"
 
@@ -14,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/leadership"
+	corelogger "github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -62,5 +64,6 @@ func NewTestAPI(
 		crossModelState:     crossModelState,
 		clock:               clock,
 		modelUUID:           coretesting.ModelTag.Id(),
+		logger:              loggo.GetLoggerWithLabels("juju.apiserver.secretsmanager", corelogger.SECRETS),
 	}, nil
 }

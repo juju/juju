@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
 
@@ -68,6 +69,7 @@ type Context interface {
 	LeadershipContext
 	ControllerDBGetter
 	DBManager
+	Logger
 
 	// Cancel channel represents an indication from the API server that
 	// all interruptable calls should stop. The channel is only ever
@@ -158,6 +160,12 @@ type ControllerDBGetter interface {
 type DBManager interface {
 	// DBDeleter returns an a deleter for databases based on namespace.
 	DBDeleter() coredatabase.DBDeleter
+}
+
+// Logger defines an interface for getting the apiserver logger instance.
+type Logger interface {
+	// Logger returns the apiserver logger instance.
+	Logger() loggo.Logger
 }
 
 // RequestRecorder is implemented by types that can record information about

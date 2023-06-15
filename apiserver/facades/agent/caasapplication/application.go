@@ -24,8 +24,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.caasapplication")
-
 type Facade struct {
 	auth      facade.Authorizer
 	resources facade.Resources
@@ -34,6 +32,7 @@ type Facade struct {
 	model     Model
 	clock     clock.Clock
 	broker    Broker
+	logger    loggo.Logger
 }
 
 // NewFacade returns a new CAASOperator facade.
@@ -44,6 +43,7 @@ func NewFacade(
 	st State,
 	broker Broker,
 	clock clock.Clock,
+	logger loggo.Logger,
 ) (*Facade, error) {
 	if !authorizer.AuthApplicationAgent() && !authorizer.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -60,6 +60,7 @@ func NewFacade(
 		model:     model,
 		clock:     clock,
 		broker:    broker,
+		logger:    logger,
 	}, nil
 }
 
@@ -81,7 +82,7 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 		return errResp(errors.NotValidf("pod-uuid"))
 	}
 
-	logger.Debugf("introducing pod %q (%q)", args.PodName, args.PodUUID)
+	f.logger.Debugf("introducing pod %q (%q)", args.PodName, args.PodUUID)
 
 	application, err := f.state.Application(tag.Name)
 	if err != nil {

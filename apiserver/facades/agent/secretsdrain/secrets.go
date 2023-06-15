@@ -19,8 +19,6 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.secretsdrain")
-
 // For testing.
 var (
 	GetProvider = secretsprovider.Provider
@@ -33,6 +31,7 @@ type SecretsDrainAPI struct {
 	resources         facade.Resources
 	secretsConsumer   SecretsConsumer
 	authTag           names.Tag
+	logger            loggo.Logger
 
 	model Model
 }
@@ -115,7 +114,7 @@ func toChangeSecretBackendParams(token leadership.Token, uri *coresecrets.URI, a
 // WatchSecretBackendChanged sets up a watcher to notify of changes to the secret backend.
 func (s *SecretsDrainAPI) WatchSecretBackendChanged() (params.NotifyWatchResult, error) {
 	stateWatcher := s.model.WatchForModelConfigChanges()
-	w, err := newSecretBackendModelConfigWatcher(s.model, stateWatcher)
+	w, err := newSecretBackendModelConfigWatcher(s.model, stateWatcher, s.logger)
 	if err != nil {
 		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}, nil
 	}

@@ -58,5 +58,5 @@ func newStateFacade(ctx facade.Context) (*UnitFacade, error) {
 		return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
 	}
 
-	return NewHookContextFacade(st, unit)
+	return NewHookContextFacade(st, unit, ctx.Logger().Child("payloadshookcontext"))
 }

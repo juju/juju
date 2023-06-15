@@ -18,8 +18,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.upgradeseries")
-
 // API serves methods required by the machine agent upgrade-machine worker.
 type API struct {
 	*common.UpgradeSeriesAPI
@@ -28,6 +26,7 @@ type API struct {
 	auth       facade.Authorizer
 	resources  facade.Resources
 	leadership *common.LeadershipPinning
+	logger     loggo.Logger
 }
 
 // NewUpgradeSeriesAPI creates a new instance of the API server using the
@@ -37,6 +36,7 @@ func NewUpgradeSeriesAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	leadership *common.LeadershipPinning,
+	logger loggo.Logger,
 ) (*API, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -230,7 +230,7 @@ func (a *API) FinishUpgradeSeries(args params.UpdateChannelArgs) (params.ErrorRe
 			argBase = state.Base{OS: mBase.OS, Channel: arg.Channel}.Normalise()
 		}
 		if argBase.String() == mBase.String() {
-			logger.Debugf("%q base is unchanged from %q", arg.Entity.Tag, mBase.DisplayString())
+			a.logger.Debugf("%q base is unchanged from %q", arg.Entity.Tag, mBase.DisplayString())
 		} else {
 			if err := machine.UpdateMachineSeries(argBase); err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)

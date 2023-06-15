@@ -23,8 +23,6 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.storageprovisioner")
-
 // StorageProvisionerAPIv4 provides the StorageProvisioner API v4 facade.
 type StorageProvisionerAPIv4 struct {
 	*common.LifeGetter
@@ -43,6 +41,7 @@ type StorageProvisionerAPIv4 struct {
 	getMachineAuthFunc       common.GetAuthFunc
 	getBlockDevicesAuthFunc  common.GetAuthFunc
 	getAttachmentAuthFunc    func() (func(names.Tag, names.Tag) bool, error)
+	logger                   loggo.Logger
 }
 
 // NewStorageProvisionerAPIv4 creates a new server-side StorageProvisioner v3 facade.
@@ -53,6 +52,7 @@ func NewStorageProvisionerAPIv4(
 	authorizer facade.Authorizer,
 	registry storage.ProviderRegistry,
 	poolManager poolmanager.PoolManager,
+	logger loggo.Logger,
 ) (*StorageProvisionerAPIv4, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -217,6 +217,7 @@ func NewStorageProvisionerAPIv4(
 		getAttachmentAuthFunc:    getAttachmentAuthFunc,
 		getMachineAuthFunc:       getMachineAuthFunc,
 		getBlockDevicesAuthFunc:  getBlockDevicesAuthFunc,
+		logger:                   logger,
 	}, nil
 }
 
@@ -1549,7 +1550,7 @@ func (s *StorageProvisionerAPIv4) Remove(args params.Entities) (params.ErrorResu
 			return s.sb.RemoveVolume(tag)
 		default:
 			// should have been picked up by canAccess
-			logger.Debugf("unexpected %v tag", tag.Kind())
+			s.logger.Debugf("unexpected %v tag", tag.Kind())
 			return apiservererrors.ErrPerm
 		}
 	}

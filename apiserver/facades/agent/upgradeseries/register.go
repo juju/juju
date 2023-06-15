@@ -24,5 +24,5 @@ func newAPI(ctx facade.Context) (*API, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewUpgradeSeriesAPI(common.UpgradeSeriesState{St: ctx.State()}, ctx.Resources(), ctx.Auth(), leadership)
+	return NewUpgradeSeriesAPI(common.UpgradeSeriesState{St: ctx.State()}, ctx.Resources(), ctx.Auth(), leadership, ctx.Logger().Child("upgradeseries"))
 }

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
@@ -97,7 +98,7 @@ func (s *SecretsDrainSuite) TestSecretBackendModelConfigWatcher(c *gc.C) {
 		),
 	)
 
-	w, err := secretsdrain.NewSecretBackendModelConfigWatcher(s.model, s.modelConfigChangesWatcher)
+	w, err := secretsdrain.NewSecretBackendModelConfigWatcher(s.model, s.modelConfigChangesWatcher, loggo.GetLogger("juju.apiserver.secretsdrain"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
 

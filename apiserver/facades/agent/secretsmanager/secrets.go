@@ -17,7 +17,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/leadership"
-	corelogger "github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
@@ -25,8 +24,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
-
-var logger = loggo.GetLoggerWithLabels("juju.apiserver.secretsmanager", corelogger.SECRETS)
 
 // For testing.
 var (
@@ -55,6 +52,8 @@ type SecretsManagerAPI struct {
 	remoteClientGetter  func(uri *coresecrets.URI) (CrossModelSecretsClient, error)
 
 	crossModelState CrossModelState
+
+	logger loggo.Logger
 }
 
 // SecretsManagerAPIV1 the secrets manager facade v1.
@@ -244,7 +243,7 @@ func (s *SecretsManagerAPI) createSecret(arg params.CreateSecretArg) (string, er
 	})
 	if err != nil {
 		if _, err2 := s.secretsState.DeleteSecret(uri); err2 != nil {
-			logger.Warningf("cleaning up secret %q", uri)
+			s.logger.Warningf("cleaning up secret %q", uri)
 		}
 		return "", errors.Annotate(err, "granting secret owner permission to manage the secret")
 	}
@@ -524,13 +523,13 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(uri *coresecrets.URI, refresh
 		}
 		return nil, nil, false, errors.Trace(err)
 	}
-	logger.Debugf("secret %q scope token for %v: %s", uri.String(), token, scopeToken)
+	s.logger.Debugf("secret %q scope token for %v: %s", uri.String(), token, scopeToken)
 
 	scopeEntity, err := s.crossModelState.GetRemoteEntity(scopeToken)
 	if err != nil {
 		return nil, nil, false, errors.Annotatef(err, "getting remote entity for %q", scopeToken)
 	}
-	logger.Debugf("secret %q scope for %v: %s", uri.String(), scopeToken, scopeEntity)
+	s.logger.Debugf("secret %q scope for %v: %s", uri.String(), scopeToken, scopeEntity)
 
 	mac, err := s.crossModelState.GetMacaroon(scopeEntity)
 	if err != nil {
@@ -618,7 +617,7 @@ func (s *SecretsManagerAPI) ensureConsumerMetadataForAppOwnedSecretsForPeerUnits
 		// Create a fake consumer doc for triggering secret-changed event for uniter.
 		consumer = &coresecrets.SecretConsumerMetadata{}
 	}
-	logger.Debugf("saving consumer doc for application owned secret %q for peer units %q", md.URI, s.authTag)
+	s.logger.Debugf("saving consumer doc for application owned secret %q for peer units %q", md.URI, s.authTag)
 	if err := s.secretsConsumer.SaveSecretConsumer(md.URI, s.authTag, consumer); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -756,7 +755,7 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (
 			return nil, nil, false, errors.Trace(err)
 		}
 	}
-	logger.Debugf("getting secret content for: %s", uri)
+	s.logger.Debugf("getting secret content for: %s", uri)
 
 	if !uri.IsLocal(s.modelUUID) {
 		return s.getRemoteSecretContent(uri, arg.Refresh, arg.Peek, arg.Label, possibleUpdateLabel)
@@ -968,7 +967,7 @@ func (s *SecretsManagerAPI) SecretsRotated(args params.SecretRotatedArgs) (param
 			return apiservererrors.ErrPerm
 		}
 		if !md.RotatePolicy.WillRotate() {
-			logger.Debugf("secret %q was rotated but now is set to not rotate")
+			s.logger.Debugf("secret %q was rotated but now is set to not rotate")
 			return nil
 		}
 		lastRotateTime := md.NextRotateTime
@@ -977,18 +976,18 @@ func (s *SecretsManagerAPI) SecretsRotated(args params.SecretRotatedArgs) (param
 			lastRotateTime = &now
 		}
 		nextRotateTime := *md.RotatePolicy.NextRotateTime(*lastRotateTime)
-		logger.Debugf("secret %q was rotated: rev was %d, now %d", uri.ID, arg.OriginalRevision, md.LatestRevision)
+		s.logger.Debugf("secret %q was rotated: rev was %d, now %d", uri.ID, arg.OriginalRevision, md.LatestRevision)
 		// If the secret will expire before it is due to be next rotated, rotate sooner to allow
 		// the charm a chance to update it before it expires.
 		willExpire := md.LatestExpireTime != nil && md.LatestExpireTime.Before(nextRotateTime)
 		forcedRotateTime := lastRotateTime.Add(coresecrets.RotateRetryDelay)
 		if willExpire {
-			logger.Warningf("secret %q rev %d will expire before next scheduled rotation", uri.ID, md.LatestRevision)
+			s.logger.Warningf("secret %q rev %d will expire before next scheduled rotation", uri.ID, md.LatestRevision)
 		}
 		if willExpire && forcedRotateTime.Before(*md.LatestExpireTime) || !arg.Skip && md.LatestRevision == arg.OriginalRevision {
 			nextRotateTime = forcedRotateTime
 		}
-		logger.Debugf("secret %q next rotate time is now: %s", uri.ID, nextRotateTime.UTC().Format(time.RFC3339))
+		s.logger.Debugf("secret %q next rotate time is now: %s", uri.ID, nextRotateTime.UTC().Format(time.RFC3339))
 		return s.secretsTriggers.SecretRotated(uri, nextRotateTime)
 	}
 	for i, arg := range args.Args {

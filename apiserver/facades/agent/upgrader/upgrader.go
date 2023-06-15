@@ -20,8 +20,6 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.upgrader")
-
 type Upgrader interface {
 	WatchAPIVersion(args params.Entities) (params.NotifyWatchResults, error)
 	DesiredVersion(args params.Entities) (params.VersionResults, error)
@@ -38,6 +36,7 @@ type UpgraderAPI struct {
 	m          *state.Model
 	resources  facade.Resources
 	authorizer facade.Authorizer
+	logger     loggo.Logger
 }
 
 // NewUpgraderAPI creates a new server-side UpgraderAPI facade.
@@ -46,6 +45,7 @@ func NewUpgraderAPI(
 	st *state.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	logger loggo.Logger,
 ) (*UpgraderAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthApplicationAgent() && !authorizer.AuthModelAgent() && !authorizer.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -68,6 +68,7 @@ func NewUpgraderAPI(
 		m:           model,
 		resources:   resources,
 		authorizer:  authorizer,
+		logger:      logger,
 	}, nil
 }
 
@@ -163,7 +164,7 @@ func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResult
 			if !isNewerVersion || u.entityIsManager(tag) {
 				results[i].Version = &agentVersion
 			} else {
-				logger.Debugf("desired version is %s, but current version is %s and agent is not a manager node", agentVersion, jujuversion.Current)
+				u.logger.Debugf("desired version is %s, but current version is %s and agent is not a manager node", agentVersion, jujuversion.Current)
 				results[i].Version = &jujuversion.Current
 			}
 			err = nil

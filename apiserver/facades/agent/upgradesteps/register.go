@@ -19,5 +19,5 @@ func Register(registry facade.FacadeRegistry) {
 // newFacadeV2 is used for API registration.
 func newFacadeV2(ctx facade.Context) (*UpgradeStepsAPI, error) {
 	st := &upgradeStepsStateShim{State: ctx.State()}
-	return NewUpgradeStepsAPI(st, ctx.Resources(), ctx.Auth())
+	return NewUpgradeStepsAPI(st, ctx.Resources(), ctx.Auth(), ctx.Logger().Child("upgradesteps"))
 }

@@ -20,8 +20,6 @@ import (
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/upgradesteps_mock.go github.com/juju/juju/apiserver/facades/agent/upgradesteps UpgradeStepsState,Machine,Unit
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state EntityFinder,Entity
 
-var logger = loggo.GetLogger("juju.apiserver.upgradesteps")
-
 // UpgradeStepsV2 defines the methods on the version 2 facade for the
 // upgrade steps API endpoint.
 type UpgradeStepsV2 interface {
@@ -43,6 +41,7 @@ type UpgradeStepsAPI struct {
 	authorizer         facade.Authorizer
 	getMachineAuthFunc common.GetAuthFunc
 	getUnitAuthFunc    common.GetAuthFunc
+	logger             loggo.Logger
 }
 
 // UpgradeStepsAPIV1 implements version 1 of the Upgrade Steps API.
@@ -55,6 +54,7 @@ var _ UpgradeStepsV2 = (*UpgradeStepsAPI)(nil)
 func NewUpgradeStepsAPI(st UpgradeStepsState,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	logger loggo.Logger,
 ) (*UpgradeStepsAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() && !authorizer.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -68,6 +68,7 @@ func NewUpgradeStepsAPI(st UpgradeStepsState,
 		authorizer:         authorizer,
 		getMachineAuthFunc: getMachineAuthFunc,
 		getUnitAuthFunc:    getUnitAuthFunc,
+		logger:             logger,
 	}, nil
 }
 
@@ -132,14 +133,14 @@ func (api *UpgradeStepsAPI) WriteAgentState(args params.SetUnitStateArgs) (param
 		}
 		u, err := api.getUnit(canAccess, uTag)
 		if err != nil {
-			logger.Criticalf("failed to get unit %q: %s", uTag, err)
+			api.logger.Criticalf("failed to get unit %q: %s", uTag, err)
 			return results, errors.Trace(err)
 		}
 		us := state.NewUnitState()
 		if data.UniterState != nil {
 			us.SetUniterState(*data.UniterState)
 		} else {
-			logger.Warningf("no uniter state provided for %q", uTag)
+			api.logger.Warningf("no uniter state provided for %q", uTag)
 		}
 		if data.RelationState != nil {
 			us.SetRelationState(*data.RelationState)
@@ -184,12 +185,12 @@ func (api *UpgradeStepsAPI) getMachine(canAccess common.AuthFunc, tag names.Mach
 
 func (api *UpgradeStepsAPI) getUnit(canAccess common.AuthFunc, tag names.UnitTag) (Unit, error) {
 	if !canAccess(tag) {
-		logger.Criticalf("getUnit kind=%q, name=%q", tag.Kind(), tag.Id())
+		api.logger.Criticalf("getUnit kind=%q, name=%q", tag.Kind(), tag.Id())
 		return nil, apiservererrors.ErrPerm
 	}
 	entity, err := api.st.FindEntity(tag)
 	if err != nil {
-		logger.Criticalf("unable to find entity %q", tag, err)
+		api.logger.Criticalf("unable to find entity %q", tag, err)
 		return nil, err
 	}
 	// The authorization function guarantees that the tag represents a

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/state"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 )
 
@@ -36,6 +37,7 @@ type Context struct {
 	CharmhubHTTPClient_ facade.HTTPClient
 	ControllerDB_       changestream.WatchableDB
 	DBDeleter_          database.DBDeleter
+	Logger_             loggo.Logger
 
 	MachineTag_ names.Tag
 	DataDir_    string
@@ -167,4 +169,8 @@ func (context Context) DataDir() string {
 // LogDir returns the log directory.
 func (context Context) LogDir() string {
 	return context.LogDir_
+}
+
+func (context Context) Logger() loggo.Logger {
+	return context.Logger_
 }

@@ -5,6 +5,7 @@ package meterstatus_test
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -49,7 +50,7 @@ func (s *meterStatusSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	status, err := meterstatus.NewMeterStatusAPI(s.State, s.resources, s.authorizer)
+	status, err := meterstatus.NewMeterStatusAPI(s.State, s.resources, s.authorizer, loggo.GetLogger("juju.apiserver.meterstatus"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.status = status
 }
@@ -204,7 +205,7 @@ func (s *meterStatusSuite) setupMeterStatusAPI(c *gc.C, fn func(meterStatusAPIMo
 
 	mockAuthorizer.EXPECT().AuthUnitAgent().Return(true)
 
-	status, err := meterstatus.NewMeterStatusAPI(mockState, mockResources, mockAuthorizer)
+	status, err := meterstatus.NewMeterStatusAPI(mockState, mockResources, mockAuthorizer, loggo.GetLogger("juju.apiserver.meterstatus"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	fn(meterStatusAPIMocks{
