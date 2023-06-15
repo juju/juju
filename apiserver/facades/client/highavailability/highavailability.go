@@ -40,7 +40,6 @@ type NodeService interface {
 type HighAvailabilityAPI struct {
 	st          *state.State
 	nodeService NodeService
-	resources   facade.Resources
 	authorizer  facade.Authorizer
 }
 

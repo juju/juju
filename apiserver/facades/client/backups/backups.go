@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/authentication"
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
@@ -46,7 +45,7 @@ type API struct {
 }
 
 // NewAPI creates a new instance of the Backups API facade.
-func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
+func NewAPI(backend Backend, authorizer facade.Authorizer, machineTag names.Tag, dataDir, logDir string) (*API, error) {
 	err := authorizer.HasPermission(permission.SuperuserAccess, backend.ControllerTag())
 	if err != nil &&
 		!errors.Is(err, authentication.ErrorEntityMissingPermission) &&
@@ -68,16 +67,6 @@ func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Autho
 		return nil, errors.NotSupportedf("backups on kubernetes controllers")
 	}
 
-	// Get the backup paths.
-	dataDir, err := extractResourceValue(resources, "dataDir")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	logsDir, err := extractResourceValue(resources, "logDir")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	modelConfig, err := backend.ModelConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -86,33 +75,15 @@ func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Autho
 	paths := backups.Paths{
 		BackupDir: backupDir,
 		DataDir:   dataDir,
-		LogsDir:   logsDir,
+		LogsDir:   logDir,
 	}
 
-	// Build the API.
-	machineID, err := extractResourceValue(resources, "machineID")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	b := API{
 		backend:   backend,
 		paths:     &paths,
-		machineID: machineID,
+		machineID: machineTag.Id(),
 	}
 	return &b, nil
-}
-
-func extractResourceValue(resources facade.Resources, key string) (string, error) {
-	res := resources.Get(key)
-	strRes, ok := res.(common.StringResource)
-	if !ok {
-		if res == nil {
-			strRes = ""
-		} else {
-			return "", errors.Errorf("invalid %s resource: %v", key, res)
-		}
-	}
-	return strRes.String(), nil
 }
 
 var newBackups = backups.NewBackups

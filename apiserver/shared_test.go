@@ -9,6 +9,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
@@ -64,6 +65,9 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 		logger:              loggo.GetLogger("test"),
 		dbGetter:            StubDBGetter{},
 		dbDeleter:           StubDBDeleter{},
+		machineTag:          names.NewMachineTag("0"),
+		dataDir:             c.MkDir(),
+		logDir:              c.MkDir(),
 	}
 }
 

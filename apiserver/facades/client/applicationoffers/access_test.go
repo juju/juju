@@ -12,7 +12,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
@@ -35,9 +34,6 @@ func (s *offerAccessSuite) SetUpTest(c *gc.C) {
 		return &stubApplicationOffers{}
 	}
 
-	resources := common.NewResources()
-	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
-
 	var err error
 	thirdPartyKey := bakery.MustGenerateKey()
 	s.authContext, err = crossmodel.NewAuthContext(s.mockState, thirdPartyKey, s.bakery, nil, nil)
@@ -45,7 +41,8 @@ func (s *offerAccessSuite) SetUpTest(c *gc.C) {
 
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, nil, getFakeControllerInfo,
-		s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
+		s.mockState, s.mockStatePool, s.authorizer, s.authContext,
+		c.MkDir(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

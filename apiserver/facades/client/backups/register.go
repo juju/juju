@@ -24,5 +24,11 @@ func newFacade(ctx facade.Context) (*API, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewAPI(&stateShim{st, model}, ctx.Resources(), ctx.Auth())
+	return NewAPI(
+		&stateShim{State: st, Model: model},
+		ctx.Auth(),
+		ctx.MachineTag(),
+		ctx.DataDir(),
+		ctx.LogDir(),
+	)
 }

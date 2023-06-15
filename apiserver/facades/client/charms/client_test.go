@@ -14,8 +14,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	apiservermocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/client/charms"
 	"github.com/juju/juju/apiserver/facades/client/charms/interfaces"
@@ -24,14 +24,9 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
-	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/multiwatcher"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -47,35 +42,6 @@ type charmsSuite struct {
 
 var _ = gc.Suite(&charmsSuite{})
 
-// charmsSuiteContext implements the facade.Context interface.
-type charmsSuiteContext struct {
-	auth facade.Authorizer
-	st   *state.State
-}
-
-func (ctx *charmsSuiteContext) Abort() <-chan struct{}                    { return nil }
-func (ctx *charmsSuiteContext) Auth() facade.Authorizer                   { return ctx.auth }
-func (ctx *charmsSuiteContext) Cancel() <-chan struct{}                   { return nil }
-func (ctx *charmsSuiteContext) Dispose()                                  {}
-func (ctx *charmsSuiteContext) Resources() facade.Resources               { return common.NewResources() }
-func (ctx *charmsSuiteContext) State() *state.State                       { return ctx.st }
-func (ctx *charmsSuiteContext) StatePool() *state.StatePool               { return nil }
-func (ctx *charmsSuiteContext) ID() string                                { return "" }
-func (ctx *charmsSuiteContext) RequestRecorder() facade.RequestRecorder   { return nil }
-func (ctx *charmsSuiteContext) Presence() facade.Presence                 { return nil }
-func (ctx *charmsSuiteContext) Hub() facade.Hub                           { return nil }
-func (ctx *charmsSuiteContext) MultiwatcherFactory() multiwatcher.Factory { return nil }
-
-func (ctx *charmsSuiteContext) LeadershipClaimer(string) (leadership.Claimer, error)  { return nil, nil }
-func (ctx *charmsSuiteContext) LeadershipRevoker(string) (leadership.Revoker, error)  { return nil, nil }
-func (ctx *charmsSuiteContext) LeadershipChecker() (leadership.Checker, error)        { return nil, nil }
-func (ctx *charmsSuiteContext) LeadershipPinner(string) (leadership.Pinner, error)    { return nil, nil }
-func (ctx *charmsSuiteContext) LeadershipReader(string) (leadership.Reader, error)    { return nil, nil }
-func (ctx *charmsSuiteContext) SingularClaimer() (lease.Claimer, error)               { return nil, nil }
-func (ctx *charmsSuiteContext) HTTPClient(facade.HTTPClientPurpose) facade.HTTPClient { return nil }
-func (ctx *charmsSuiteContext) ControllerDB() (changestream.WatchableDB, error)       { return nil, nil }
-func (ctx *charmsSuiteContext) DBDeleter() coredatabase.DBDeleter                     { return nil }
-
 func (s *charmsSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
@@ -85,9 +51,9 @@ func (s *charmsSuite) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.api, err = charms.NewFacade(&charmsSuiteContext{
-		auth: s.auth,
-		st:   s.ControllerModel(c).State(),
+	s.api, err = charms.NewFacade(facadetest.Context{
+		Auth_:  s.auth,
+		State_: s.ControllerModel(c).State(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }

@@ -277,6 +277,20 @@ func (mr *MockContextMockRecorder) DBDeleter() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DBDeleter", reflect.TypeOf((*MockContext)(nil).DBDeleter))
 }
 
+// DataDir mocks base method.
+func (m *MockContext) DataDir() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DataDir")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// DataDir indicates an expected call of DataDir.
+func (mr *MockContextMockRecorder) DataDir() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DataDir", reflect.TypeOf((*MockContext)(nil).DataDir))
+}
+
 // Dispose mocks base method.
 func (m *MockContext) Dispose() {
 	m.ctrl.T.Helper()
@@ -404,6 +418,34 @@ func (m *MockContext) LeadershipRevoker(arg0 string) (leadership.Revoker, error)
 func (mr *MockContextMockRecorder) LeadershipRevoker(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LeadershipRevoker", reflect.TypeOf((*MockContext)(nil).LeadershipRevoker), arg0)
+}
+
+// LogDir mocks base method.
+func (m *MockContext) LogDir() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LogDir")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// LogDir indicates an expected call of LogDir.
+func (mr *MockContextMockRecorder) LogDir() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogDir", reflect.TypeOf((*MockContext)(nil).LogDir))
+}
+
+// MachineTag mocks base method.
+func (m *MockContext) MachineTag() names.Tag {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MachineTag")
+	ret0, _ := ret[0].(names.Tag)
+	return ret0
+}
+
+// MachineTag indicates an expected call of MachineTag.
+func (mr *MockContextMockRecorder) MachineTag() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineTag", reflect.TypeOf((*MockContext)(nil).MachineTag))
 }
 
 // MultiwatcherFactory mocks base method.
