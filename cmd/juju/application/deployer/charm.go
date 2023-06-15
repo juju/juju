@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v11"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
@@ -362,12 +363,12 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	}
 
 	// Process the --config args.
-	appName := c.userRequestedURL.Name
+	appNameForConfig := c.userRequestedURL.Name
 	if c.applicationName != "" {
-		appName = c.applicationName
+		appNameForConfig = c.applicationName
 	}
 
-	configYAML, err := utils.CombinedConfig(ctx, c.model.Filesystem(), c.configOptions, appName)
+	configYAML, err := utils.CombinedConfig(ctx, c.model.Filesystem(), c.configOptions, appNameForConfig)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -375,7 +376,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	charmName := c.userRequestedURL.Name
 	info, localPendingResources, errs := deployAPI.DeployFromRepository(application.DeployFromRepositoryArg{
 		CharmName:        charmName,
-		ApplicationName:  appName,
+		ApplicationName:  c.applicationName,
 		AttachStorage:    c.attachStorage,
 		Base:             base,
 		Channel:          channel,
@@ -393,9 +394,11 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		Trust:            c.trust,
 	})
 
-	uploadErr := c.uploadExistingPendingResources(appName, localPendingResources, deployAPI, c.model.Filesystem())
+	uploadErr := c.uploadExistingPendingResources(info.Name, localPendingResources, deployAPI,
+		c.model.Filesystem())
 	if uploadErr != nil {
-		ctx.Errorf("Unable to upload resources for %v, consider using --attach-resource. \n %v", appName, uploadErr)
+		ctx.Errorf("Unable to upload resources for %v, consider using --attach-resource. \n %v",
+			info.Name, uploadErr)
 	}
 
 	if len(errs) == 0 {
@@ -444,7 +447,7 @@ func (c *repositoryCharm) compatibilityPrepareAndDeploy(ctx *cmd.Context, deploy
 		origin.Base = base
 		usingDefaultSeries = true
 	}
-	storeCharmOrBundleURL, origin, supportedSeries, err := resolver.ResolveCharm(userRequestedURL, origin, false) // no --switch possible.
+	storeCharmOrBundleURL, origin, supportedBases, err := resolver.ResolveCharm(userRequestedURL, origin, false) // no --switch possible.
 	if charm.IsUnsupportedSeriesError(err) {
 		msg := fmt.Sprintf("%v. Use --force to deploy the charm anyway.", err)
 		if usingDefaultSeries {
@@ -465,6 +468,10 @@ func (c *repositoryCharm) compatibilityPrepareAndDeploy(ctx *cmd.Context, deploy
 		if err != nil {
 			return errors.Trace(err)
 		}
+	}
+	supportedSeries, err := transform.SliceOrErr(supportedBases, series.GetSeriesFromBase)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	selector := corecharm.SeriesSelector{

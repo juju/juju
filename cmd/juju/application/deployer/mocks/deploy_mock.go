@@ -11,8 +11,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v10"
-	resource "github.com/juju/charm/v10/resource"
+	charm "github.com/juju/charm/v11"
+	resource "github.com/juju/charm/v11/resource"
 	cmd "github.com/juju/cmd/v3"
 	api "github.com/juju/juju/api"
 	base "github.com/juju/juju/api/base"

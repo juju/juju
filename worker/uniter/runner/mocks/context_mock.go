@@ -9,7 +9,7 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v10"
+	charm "github.com/juju/charm/v11"
 	application "github.com/juju/juju/core/application"
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"

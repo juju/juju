@@ -6,7 +6,7 @@ package application
 import (
 	"fmt"
 
-	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v11"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -82,7 +82,7 @@ func newRefreshCommand() *refreshCommand {
 // CharmResolver defines methods required to resolve charms, as required
 // by the refresh command.
 type CharmResolver interface {
-	ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCHarm bool) (*charm.URL, commoncharm.Origin, []string, error)
+	ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCHarm bool) (*charm.URL, commoncharm.Origin, []series.Base, error)
 }
 
 // NewRefreshCommand returns a command which upgrades application's charm.

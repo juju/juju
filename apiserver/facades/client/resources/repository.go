@@ -4,7 +4,7 @@
 package resources
 
 import (
-	charmresource "github.com/juju/charm/v10/resource"
+	charmresource "github.com/juju/charm/v11/resource"
 
 	corecharm "github.com/juju/juju/core/charm"
 )

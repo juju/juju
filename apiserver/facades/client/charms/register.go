@@ -25,10 +25,21 @@ func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Charms", 6, func(ctx facade.Context) (facade.Facade, error) {
 		return newFacadeV6(ctx)
 	}, reflect.TypeOf((*APIv6)(nil)))
+	registry.MustRegister("Charms", 7, func(ctx facade.Context) (facade.Facade, error) {
+		return newFacadeV7(ctx)
+	}, reflect.TypeOf((*APIv7)(nil)))
+}
+
+func newFacadeV7(ctx facade.Context) (*APIv7, error) {
+	api, err := newFacadeBase(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv7{api}, nil
 }
 
 func newFacadeV6(ctx facade.Context) (*APIv6, error) {
-	api, err := newFacadeBase(ctx)
+	api, err := newFacadeV7(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

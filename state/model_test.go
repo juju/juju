@@ -8,7 +8,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v11"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
