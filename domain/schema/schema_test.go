@@ -24,9 +24,7 @@ type schemaSuite struct {
 
 var _ = gc.Suite(&schemaSuite{})
 
-// SetUpTest creates a new sql.DB reference and ensures that the
-// controller schema is applied successfully.
-func (s *schemaSuite) TestDDLApply(c *gc.C) {
+func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 	// Do not be tempted in moving to :memory: mode for this test suite. It will
 	// fail in non-deterministic ways. Unfortunately :memory: mode is not
 	// completely goroutine safe.
@@ -84,6 +82,41 @@ func (s *schemaSuite) TestDDLApply(c *gc.C) {
 
 		// Controller nodes
 		"controller_node",
+	)
+	c.Assert(readTableNames(c, s.db), jc.SameContents, expected.Union(internalTableNames).SortedValues())
+}
+
+func (s *schemaSuite) TestModelDDLApply(c *gc.C) {
+	// Do not be tempted in moving to :memory: mode for this test suite. It will
+	// fail in non-deterministic ways. Unfortunately :memory: mode is not
+	// completely goroutine safe.
+	s.db = s.NewCleanDB(c)
+
+	s.AddCleanup(func(*gc.C) {
+		err := s.db.Close()
+		c.Assert(err, jc.ErrorIsNil)
+	})
+
+	tx, err := s.db.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+
+	for idx, delta := range ModelDDL() {
+		c.Logf("Executing schema DDL index: %v", idx)
+		_, err := tx.Exec(delta.Stmt(), delta.Args()...)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	c.Logf("Committing schema DDL")
+	err = tx.Commit()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure that each table is present.
+	expected := set.NewStrings(
+		// Change log
+		"change_log",
+		"change_log_edit_type",
+		"change_log_namespace",
+		"change_log_witness",
 	)
 	c.Assert(readTableNames(c, s.db), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }

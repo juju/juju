@@ -114,10 +114,10 @@ func (mr *MockClientMockRecorder) Life(arg0 interface{}) *gomock.Call {
 }
 
 // WatchApplication mocks base method.
-func (m *MockClient) WatchApplication(arg0 string) (watcher.NotifyWatcher, error) {
+func (m *MockClient) WatchApplication(arg0 string) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchApplication", arg0)
-	ret0, _ := ret[0].(watcher.NotifyWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -129,10 +129,10 @@ func (mr *MockClientMockRecorder) WatchApplication(arg0 interface{}) *gomock.Cal
 }
 
 // WatchApplications mocks base method.
-func (m *MockClient) WatchApplications() (watcher.StringsWatcher, error) {
+func (m *MockClient) WatchApplications() (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchApplications")
-	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -144,10 +144,10 @@ func (mr *MockClientMockRecorder) WatchApplications() *gomock.Call {
 }
 
 // WatchOpenedPorts mocks base method.
-func (m *MockClient) WatchOpenedPorts() (watcher.StringsWatcher, error) {
+func (m *MockClient) WatchOpenedPorts() (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchOpenedPorts")
-	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -242,10 +242,10 @@ func (mr *MockCAASFirewallerAPIMockRecorder) IsExposed(arg0 interface{}) *gomock
 }
 
 // WatchApplication mocks base method.
-func (m *MockCAASFirewallerAPI) WatchApplication(arg0 string) (watcher.NotifyWatcher, error) {
+func (m *MockCAASFirewallerAPI) WatchApplication(arg0 string) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchApplication", arg0)
-	ret0, _ := ret[0].(watcher.NotifyWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -257,10 +257,10 @@ func (mr *MockCAASFirewallerAPIMockRecorder) WatchApplication(arg0 interface{}) 
 }
 
 // WatchApplications mocks base method.
-func (m *MockCAASFirewallerAPI) WatchApplications() (watcher.StringsWatcher, error) {
+func (m *MockCAASFirewallerAPI) WatchApplications() (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchApplications")
-	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -272,10 +272,10 @@ func (mr *MockCAASFirewallerAPIMockRecorder) WatchApplications() *gomock.Call {
 }
 
 // WatchOpenedPorts mocks base method.
-func (m *MockCAASFirewallerAPI) WatchOpenedPorts() (watcher.StringsWatcher, error) {
+func (m *MockCAASFirewallerAPI) WatchOpenedPorts() (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchOpenedPorts")
-	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -141,10 +141,10 @@ func (mr *MockSecretsDrainFacadeMockRecorder) GetSecretsToDrain() *gomock.Call {
 }
 
 // WatchSecretBackendChanged mocks base method.
-func (m *MockSecretsDrainFacade) WatchSecretBackendChanged() (watcher.NotifyWatcher, error) {
+func (m *MockSecretsDrainFacade) WatchSecretBackendChanged() (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchSecretBackendChanged")
-	ret0, _ := ret[0].(watcher.NotifyWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

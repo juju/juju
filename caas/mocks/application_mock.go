@@ -212,10 +212,10 @@ func (mr *MockApplicationMockRecorder) UpdateService(arg0 interface{}) *gomock.C
 }
 
 // Watch mocks base method.
-func (m *MockApplication) Watch() (watcher.NotifyWatcher, error) {
+func (m *MockApplication) Watch() (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Watch")
-	ret0, _ := ret[0].(watcher.NotifyWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -227,10 +227,10 @@ func (mr *MockApplicationMockRecorder) Watch() *gomock.Call {
 }
 
 // WatchReplicas mocks base method.
-func (m *MockApplication) WatchReplicas() (watcher.NotifyWatcher, error) {
+func (m *MockApplication) WatchReplicas() (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchReplicas")
-	ret0, _ := ret[0].(watcher.NotifyWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

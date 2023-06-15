@@ -35,10 +35,10 @@ func (m *MockSecretBackendRotateWatcher) EXPECT() *MockSecretBackendRotateWatche
 }
 
 // Changes mocks base method.
-func (m *MockSecretBackendRotateWatcher) Changes() watcher.SecretBackendRotateChannel {
+func (m *MockSecretBackendRotateWatcher) Changes() <-chan []watcher.SecretBackendRotateChange {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Changes")
-	ret0, _ := ret[0].(watcher.SecretBackendRotateChannel)
+	ret0, _ := ret[0].(<-chan []watcher.SecretBackendRotateChange)
 	return ret0
 }
 

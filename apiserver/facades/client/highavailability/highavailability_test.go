@@ -4,8 +4,9 @@
 package highavailability_test
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
-	stdtesting "testing"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/highavailability"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/juju/testing"
@@ -25,10 +27,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
-
-func TestAll(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type clientSuite struct {
 	testing.JujuConnSuite
@@ -60,9 +58,10 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.haServer, err = highavailability.NewHighAvailabilityAPI(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
+		State_:        s.State,
+		Resources_:    s.resources,
+		Auth_:         s.authorizer,
+		ControllerDB_: stubWatchableDB{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -114,7 +113,7 @@ func enableHA(
 			Constraints:    cons,
 			Placement:      placement,
 		}}}
-	results, err := haServer.EnableHA(arg)
+	results, err := haServer.EnableHA(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
@@ -530,7 +529,7 @@ func (s *clientSuite) TestEnableHAMultipleSpecs(c *gc.C) {
 			{NumControllers: 5},
 		},
 	}
-	results, err := s.haServer.EnableHA(arg)
+	results, err := s.haServer.EnableHA(context.Background(), arg)
 	c.Check(err, gc.ErrorMatches, "only one controller spec is supported")
 	c.Check(results.Results, gc.HasLen, 0)
 }
@@ -539,7 +538,7 @@ func (s *clientSuite) TestEnableHANoSpecs(c *gc.C) {
 	arg := params.ControllersSpecs{
 		Specs: []params.ControllersSpec{},
 	}
-	results, err := s.haServer.EnableHA(arg)
+	results, err := s.haServer.EnableHA(context.Background(), arg)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 0)
 }
@@ -568,4 +567,15 @@ func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {
 		Auth_:      s.authorizer,
 	})
 	c.Assert(err, gc.ErrorMatches, "high availability on kubernetes controllers not supported")
+}
+
+// TODO (manadart 2023-06-13): This stub does no verification.
+// An alternative approach will be sought when HA enablement is modified to
+// omit Mongo concerns. This will be done with mocks rather than JujuConnSuite.
+type stubWatchableDB struct {
+	changestream.WatchableDB
+}
+
+func (db stubWatchableDB) StdTxn(context.Context, func(context.Context, *sql.Tx) error) error {
+	return nil
 }

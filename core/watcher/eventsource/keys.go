@@ -13,7 +13,6 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/watcher"
 )
 
 // KeysWatcher watches for changes to a database table.
@@ -56,7 +55,7 @@ func NewKeysWatcher(base *BaseWatcher, changeMask changestream.ChangeType, table
 
 // Changes returns the channel on which the keys for
 // changed rows are sent to downstream consumers.
-func (w *KeysWatcher) Changes() watcher.StringsChannel {
+func (w *KeysWatcher) Changes() <-chan []string {
 	return w.out
 }
 

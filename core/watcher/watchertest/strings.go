@@ -29,7 +29,7 @@ func NewMockStringsWatcher(ch <-chan []string) *MockStringsWatcher {
 	return w
 }
 
-func (w *MockStringsWatcher) Changes() watcher.StringsChannel {
+func (w *MockStringsWatcher) Changes() <-chan []string {
 	return w.ch
 }
 

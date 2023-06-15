@@ -10,6 +10,7 @@ func ControllerDDL(nodeID uint64) []database.Delta {
 	schemas := []func() database.Delta{
 		leaseSchema,
 		changeLogSchema,
+		changeLogControllerNamespaces,
 		cloudSchema,
 		externalControllerSchema,
 		modelListSchema,
@@ -108,11 +109,6 @@ CREATE TABLE change_log_namespace (
 CREATE UNIQUE INDEX idx_change_log_namespace_namespace
 ON change_log_namespace (namespace);
 
-INSERT INTO change_log_namespace VALUES
-    (1, 'external_controller'),
-    (2, 'controller_node'),
-    (3, 'controller_config');
-
 CREATE TABLE change_log (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     edit_type_id        INT NOT NULL,
@@ -138,6 +134,14 @@ CREATE TABLE change_log_witness (
     upper_bound         INT NOT NULL DEFAULT(-1),
     updated_at          DATETIME NOT NULL DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc'))
 );`)
+}
+
+func changeLogControllerNamespaces() database.Delta {
+	return database.MakeDelta(`
+INSERT INTO change_log_namespace VALUES
+    (1, 'external_controller'),
+    (2, 'controller_node'),
+    (3, 'controller_config');`)
 }
 
 func cloudSchema() database.Delta {

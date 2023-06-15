@@ -53,7 +53,4 @@ type ModelSummaryMessage struct {
 }
 
 // ModelSummaryWatcher will return a slice for all existing models
-type ModelSummaryWatcher interface {
-	CoreWatcher
-	Changes() <-chan []ModelSummary
-}
+type ModelSummaryWatcher = Watcher[[]ModelSummary]

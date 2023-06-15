@@ -107,31 +107,31 @@ func newMockApplicationsWatcher(ch chan []string) *mockApplicationsWatcher {
 
 func newMockAttachmentsWatcher() *mockAttachmentsWatcher {
 	return &mockAttachmentsWatcher{
-		changes: make(chan []watcher.MachineStorageId, 1),
+		changes: make(chan []watcher.MachineStorageID, 1),
 	}
 }
 
 type mockAttachmentsWatcher struct {
 	mockWatcher
-	changes chan []watcher.MachineStorageId
+	changes chan []watcher.MachineStorageID
 }
 
-func (w *mockAttachmentsWatcher) Changes() watcher.MachineStorageIdsChannel {
+func (w *mockAttachmentsWatcher) Changes() watcher.MachineStorageIDsChannel {
 	return w.changes
 }
 
 func newMockAttachmentPlansWatcher() *mockAttachmentPlansWatcher {
 	return &mockAttachmentPlansWatcher{
-		changes: make(chan []watcher.MachineStorageId, 1),
+		changes: make(chan []watcher.MachineStorageID, 1),
 	}
 }
 
 type mockAttachmentPlansWatcher struct {
 	mockWatcher
-	changes chan []watcher.MachineStorageId
+	changes chan []watcher.MachineStorageID
 }
 
-func (w *mockAttachmentPlansWatcher) Changes() watcher.MachineStorageIdsChannel {
+func (w *mockAttachmentPlansWatcher) Changes() watcher.MachineStorageIDsChannel {
 	return w.changes
 }
 
@@ -165,7 +165,7 @@ func (w *mockVolumeAccessor) WatchVolumes(names.Tag) (watcher.StringsWatcher, er
 	return w.volumesWatcher, nil
 }
 
-func (w *mockVolumeAccessor) WatchVolumeAttachments(names.Tag) (watcher.MachineStorageIdsWatcher, error) {
+func (w *mockVolumeAccessor) WatchVolumeAttachments(names.Tag) (watcher.MachineStorageIDsWatcher, error) {
 	return w.attachmentsWatcher, nil
 }
 
@@ -173,7 +173,7 @@ func (w *mockVolumeAccessor) WatchBlockDevices(tag names.MachineTag) (watcher.No
 	return w.blockDevicesWatcher, nil
 }
 
-func (w *mockVolumeAccessor) WatchVolumeAttachmentPlans(names.Tag) (watcher.MachineStorageIdsWatcher, error) {
+func (w *mockVolumeAccessor) WatchVolumeAttachmentPlans(names.Tag) (watcher.MachineStorageIDsWatcher, error) {
 	return w.attachmentPlansWatcher, nil
 }
 
@@ -359,7 +359,7 @@ func (w *mockFilesystemAccessor) WatchFilesystems(tag names.Tag) (watcher.String
 	return w.filesystemsWatcher, nil
 }
 
-func (w *mockFilesystemAccessor) WatchFilesystemAttachments(names.Tag) (watcher.MachineStorageIdsWatcher, error) {
+func (w *mockFilesystemAccessor) WatchFilesystemAttachments(names.Tag) (watcher.MachineStorageIDsWatcher, error) {
 	return w.attachmentsWatcher, nil
 }
 

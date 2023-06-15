@@ -16,8 +16,7 @@ import (
 // RelationUnitsWatcher represents a state.RelationUnitsWatcher at the
 // apiserver level (different type for changes).
 type RelationUnitsWatcher interface {
-	watcher.CoreWatcher
-	Changes() <-chan params.RelationUnitsChange
+	watcher.Watcher[params.RelationUnitsChange]
 
 	// Stop is needed to implement facade.Resource.
 	Stop() error

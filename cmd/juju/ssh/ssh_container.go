@@ -18,13 +18,11 @@ import (
 	"github.com/juju/juju/api/client/application"
 	apicharms "github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/api/client/sshclient"
-	commoncharm "github.com/juju/juju/api/common/charms"
+	"github.com/juju/juju/api/common/charms"
 	controllerapi "github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
-	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudspec"
 	jujussh "github.com/juju/juju/network/ssh"
@@ -45,41 +43,11 @@ type sshContainer struct {
 	namespace string
 
 	applicationAPI   ApplicationAPI
-	charmsAPI        CharmsAPI
+	charmAPI         CharmAPI
 	execClientGetter func(string, cloudspec.CloudSpec) (k8sexec.Executor, error)
 	execClient       k8sexec.Executor
 	sshClient        SSHClientAPI
 	controllerAPI    SSHControllerAPI
-}
-
-// CloudCredentialAPI defines cloud credential related APIs.
-type CloudCredentialAPI interface {
-	Cloud(tag names.CloudTag) (jujucloud.Cloud, error)
-	CredentialContents(cloud, credential string, withSecrets bool) ([]params.CredentialContentResult, error)
-	BestAPIVersion() int
-	Close() error
-}
-
-// ApplicationAPI defines application related APIs.
-type ApplicationAPI interface {
-	Leader(string) (string, error)
-	Close() error
-	UnitsInfo(units []names.UnitTag) ([]application.UnitInfo, error)
-}
-
-// SSHClientAPI defines ssh client related APIs.
-type SSHClientAPI interface {
-	Close() error
-	ModelCredentialForSSH() (cloudspec.CloudSpec, error)
-}
-
-type CharmsAPI interface {
-	Close() error
-	CharmInfo(charmURL string) (*commoncharm.CharmInfo, error)
-}
-
-type SSHControllerAPI interface {
-	ControllerConfig() (controller.Config, error)
 }
 
 // SetFlags sets up options and flags for the command.
@@ -173,8 +141,8 @@ func (c *sshContainer) initRun(mc ModelCommand) (err error) {
 		c.applicationAPI = application.NewClient(root)
 	}
 
-	if c.charmsAPI == nil {
-		c.charmsAPI = apicharms.NewClient(root)
+	if c.charmAPI == nil {
+		c.charmAPI = apicharms.NewClient(root)
 	}
 
 	return nil
@@ -192,9 +160,9 @@ func (c *sshContainer) cleanupRun() {
 		_ = c.applicationAPI.Close()
 		c.applicationAPI = nil
 	}
-	if c.charmsAPI != nil {
-		_ = c.charmsAPI.Close()
-		c.charmsAPI = nil
+	if c.charmAPI != nil {
+		_ = c.charmAPI.Close()
+		c.charmAPI = nil
 	}
 	if c.sshClient != nil {
 		_ = c.sshClient.Close()
@@ -203,6 +171,22 @@ func (c *sshContainer) cleanupRun() {
 }
 
 const charmContainerName = "charm"
+
+type charmAdaptor struct {
+	*charms.CharmInfo
+}
+
+func (c charmAdaptor) Meta() *charm.Meta {
+	return c.CharmInfo.Meta
+}
+
+func (c charmAdaptor) Manifest() *charm.Manifest {
+	return c.CharmInfo.Manifest
+}
+
+func (c charmAdaptor) Actions() *charm.Actions {
+	return c.CharmInfo.Actions
+}
 
 func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 	if modelNameWithoutUsername(c.modelName) == environsbootstrap.ControllerModelName && names.IsValidMachine(target) {
@@ -238,12 +222,12 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 		return nil, errors.Annotatef(unit.Error, "getting unit %q", resolvedTargetName)
 	}
 
-	charmInfo, err := c.charmsAPI.CharmInfo(unit.Charm)
+	charmInfo, err := c.charmAPI.CharmInfo(unit.Charm)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting charm info for %q", resolvedTargetName)
 	}
 
-	isMetaV2 := (charm.MetaFormat(charmInfo.Charm()) == charm.FormatV2)
+	isMetaV2 := (charm.MetaFormat(charmAdaptor{charmInfo}) == charm.FormatV2)
 	var providerID string
 	if !isMetaV2 && !c.remote {
 		// We don't want to introduce CaaS broker here, but only use exec client.
@@ -275,7 +259,7 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 	}
 
 	if isMetaV2 {
-		meta := charmInfo.Charm().Meta()
+		meta := charmInfo.Meta
 		if c.container == "" {
 			c.container = charmContainerName
 		}

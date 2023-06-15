@@ -17,6 +17,7 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database"
+	"github.com/juju/juju/domain/schema"
 )
 
 const (
@@ -87,7 +88,9 @@ type trackedDBWorker struct {
 }
 
 // NewTrackedDBWorker creates a new TrackedDBWorker
-func NewTrackedDBWorker(ctx context.Context, dbApp DBApp, namespace string, opts ...TrackedDBWorkerOption) (TrackedDB, error) {
+func NewTrackedDBWorker(
+	ctx context.Context, dbApp DBApp, namespace string, opts ...TrackedDBWorkerOption,
+) (TrackedDB, error) {
 	w := &trackedDBWorker{
 		dbApp:      dbApp,
 		namespace:  namespace,
@@ -106,9 +109,47 @@ func NewTrackedDBWorker(ctx context.Context, dbApp DBApp, namespace string, opts
 	}
 	w.db = sqlair.NewDB(db)
 
+	// This logic must be performed here and not in the parent worker,
+	// because we must ensure it occurs before the worker is considered
+	// started. This prevents calls to GetDB for the same namespace
+	// racing with the application of schema DDL.
+	if namespace != coredatabase.ControllerNS {
+		if err := w.ensureModelDBInitialised(ctx); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
 	w.tomb.Go(w.loop)
 
 	return w, nil
+}
+
+func (w *trackedDBWorker) ensureModelDBInitialised(ctx context.Context) error {
+	// Check if the DB has metadata for one of our known tables.
+	var runDBMigration bool
+	if err := errors.Trace(w.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(ctx, "SELECT 1 FROM sqlite_master WHERE name='change_log'")
+
+		var dummy int
+		if err := row.Scan(&dummy); err == nil {
+			// This database has the schema applied.
+			return nil
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			return errors.Trace(err)
+		}
+
+		// We need to run the migration.
+		runDBMigration = true
+		return nil
+	})); err != nil {
+		return errors.Trace(err)
+	}
+
+	if !runDBMigration {
+		return nil
+	}
+
+	return errors.Trace(database.NewDBMigration(w, w.logger, schema.ModelDDL()).Apply(ctx))
 }
 
 // Txn executes the input function against the tracked database,
@@ -253,7 +294,7 @@ func (w *trackedDBWorker) loop() error {
 func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(db *sql.DB) (*sql.DB, error) {
 	// Allow killing the tomb to cancel the context,
 	// so shutdown/restart can not be blocked by this call.
-	ctx, cancel := context.WithTimeout(context.TODO(), time.Second*10)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	ctx = w.tomb.Context(ctx)
 	defer cancel()
 
@@ -357,7 +398,6 @@ func (r *report) Report() map[string]any {
 // Set allows to set the report fields, guarded by a mutex.
 func (r *report) Set(f func(*report)) {
 	r.Lock()
-	defer r.Unlock()
-
 	f(r)
+	r.Unlock()
 }

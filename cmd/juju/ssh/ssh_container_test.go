@@ -36,7 +36,7 @@ type sshContainerSuite struct {
 	modelUUID      string
 	modelName      string
 	applicationAPI *mocks.MockApplicationAPI
-	charmAPI       *mocks.MockCharmsAPI
+	charmAPI       *mocks.MockCharmAPI
 	execClient     *mocks.MockExecutor
 	mockPods       *k8smocks.MockPodInterface
 	mockNamespaces *k8smocks.MockNamespaceInterface
@@ -68,7 +68,7 @@ func (s *sshContainerSuite) TearDownTest(c *gc.C) {
 func (s *sshContainerSuite) setUpController(c *gc.C, remote bool, containerName string) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.applicationAPI = mocks.NewMockApplicationAPI(ctrl)
-	s.charmAPI = mocks.NewMockCharmsAPI(ctrl)
+	s.charmAPI = mocks.NewMockCharmAPI(ctrl)
 
 	s.execClient = mocks.NewMockExecutor(ctrl)
 

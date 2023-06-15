@@ -9,19 +9,16 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 )
 
-// StringsChannel is a change channel as described in the CoreWatcher docs.
-//
-// It sends a single value indicating a baseline set of values, and subsequent
-// values representing additions, changes, and/or removals of those values. The
-// precise semantics may depend upon the individual watcher.
-type StringsChannel <-chan []string
+// StringsChannel is a channel that receives a baseline set of values, and
+// subsequent values representing additions, changes, and/or removals of those
+// values.
+// This is deprecated; use <-chan []string instead.
+type StringsChannel = <-chan []string
 
-// StringsWatcher conveniently ties a StringsChannel to the worker.Worker that
-// represents its validity.
-type StringsWatcher interface {
-	CoreWatcher
-	Changes() StringsChannel
-}
+// StringsWatcher sends a single value indicating a baseline set of values, and
+// subsequent values representing additions, changes, and/or removals of those
+// values.
+type StringsWatcher = Watcher[[]string]
 
 // StringsHandler defines the operation of a StringsWorker.
 type StringsHandler interface {
@@ -106,7 +103,7 @@ func (sw *StringsWorker) loop() (err error) {
 // setUp calls the handler's SetUp method; registers any returned watcher with
 // the worker's catacomb; and returns the watcher's changes channel. Any errors
 // encountered kill the worker and cause a nil channel to be returned.
-func (sw *StringsWorker) setUp() StringsChannel {
+func (sw *StringsWorker) setUp() <-chan []string {
 	watcher, err := sw.config.Handler.SetUp()
 	if err != nil {
 		sw.catacomb.Kill(err)

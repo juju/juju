@@ -80,10 +80,10 @@ func (mr *MockCAASUnitProvisionerFacadeMockRecorder) UpdateApplicationService(ar
 }
 
 // WatchApplicationScale mocks base method.
-func (m *MockCAASUnitProvisionerFacade) WatchApplicationScale(arg0 string) (watcher.NotifyWatcher, error) {
+func (m *MockCAASUnitProvisionerFacade) WatchApplicationScale(arg0 string) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchApplicationScale", arg0)
-	ret0, _ := ret[0].(watcher.NotifyWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -95,10 +95,10 @@ func (mr *MockCAASUnitProvisionerFacadeMockRecorder) WatchApplicationScale(arg0 
 }
 
 // WatchApplicationTrustHash mocks base method.
-func (m *MockCAASUnitProvisionerFacade) WatchApplicationTrustHash(arg0 string) (watcher.StringsWatcher, error) {
+func (m *MockCAASUnitProvisionerFacade) WatchApplicationTrustHash(arg0 string) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchApplicationTrustHash", arg0)
-	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

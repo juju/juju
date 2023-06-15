@@ -18,8 +18,6 @@ import (
 
 	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/client/charms"
-	apicharm "github.com/juju/juju/api/common/charm"
-	charmscommon "github.com/juju/juju/api/common/charms"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
@@ -38,9 +36,6 @@ func NewDebugHooksCommand(hostChecker ssh.ReachableChecker, retryStrategy retry.
 type debugHooksCommand struct {
 	sshCommand
 	hooks []string
-
-	applicationAPI
-	charmAPI
 }
 
 const debugHooksDoc = `
@@ -86,17 +81,6 @@ func (c *debugHooksCommand) Init(args []string) error {
 		}
 	}
 	return nil
-}
-
-type applicationAPI interface {
-	GetCharmURLOrigin(branchName, applicationName string) (*charm.URL, apicharm.Origin, error)
-	Leader(string) (string, error)
-	Close() error
-}
-
-type charmAPI interface {
-	CharmInfo(charmURL string) (*charmscommon.CharmInfo, error)
-	Close() error
 }
 
 func (c *debugHooksCommand) initAPIs() (err error) {
@@ -167,13 +151,13 @@ func (c *debugHooksCommand) validateHooksOrActions() error {
 	}
 
 	// Get a set of valid hooks.
-	validHooks, err := c.getValidHooks(charmInfo.Charm())
+	validHooks, err := c.getValidHooks(charmInfo.Meta)
 	if err != nil {
 		return err
 	}
 
 	// Get a set of valid actions.
-	validActions, err := c.getValidActions(charmInfo.Charm())
+	validActions, err := c.getValidActions(charmInfo.Actions)
 	if err != nil {
 		return err
 	}
@@ -194,21 +178,21 @@ func (c *debugHooksCommand) validateHooksOrActions() error {
 	return nil
 }
 
-func (c *debugHooksCommand) getValidActions(ch charm.Charm) (set.Strings, error) {
+func (c *debugHooksCommand) getValidActions(actions *charm.Actions) (set.Strings, error) {
 	validActions := set.NewStrings()
-	for name := range ch.Actions().ActionSpecs {
+	for name := range actions.ActionSpecs {
 		validActions.Add(name)
 	}
 	return validActions, nil
 }
 
-func (c *debugHooksCommand) getValidHooks(ch charm.Charm) (set.Strings, error) {
+func (c *debugHooksCommand) getValidHooks(meta *charm.Meta) (set.Strings, error) {
 	validHooks := set.NewStrings()
 	for _, hook := range hooks.RelationHooks() {
 		hook := fmt.Sprintf("juju-info-%s", hook)
 		validHooks.Add(hook)
 	}
-	return validHooks.Union(set.Strings(ch.Meta().Hooks())), nil
+	return validHooks.Union(meta.Hooks()), nil
 }
 
 func (c *debugHooksCommand) decideEntryPoint(ctx *cmd.Context) string {

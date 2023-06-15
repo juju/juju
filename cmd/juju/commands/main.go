@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/cmd/juju/setmeterstatus"
 	"github.com/juju/juju/cmd/juju/space"
 	"github.com/juju/juju/cmd/juju/ssh"
+	"github.com/juju/juju/cmd/juju/sshkeys"
 	"github.com/juju/juju/cmd/juju/status"
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/juju/subnet"
@@ -399,10 +400,10 @@ func registerCommands(r commandRegistry) {
 	r.Register(backups.NewDownloadCommand())
 
 	// Manage authorized ssh keys.
-	r.Register(NewAddKeysCommand())
-	r.Register(NewRemoveKeysCommand())
-	r.Register(NewImportKeysCommand())
-	r.Register(NewListKeysCommand())
+	r.Register(sshkeys.NewAddKeysCommand())
+	r.Register(sshkeys.NewRemoveKeysCommand())
+	r.Register(sshkeys.NewImportKeysCommand())
+	r.Register(sshkeys.NewListKeysCommand())
 
 	// Manage users and access
 	r.Register(user.NewAddCommand())

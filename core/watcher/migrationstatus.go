@@ -19,7 +19,4 @@ type MigrationStatus struct {
 
 // MigrationStatusWatcher describes a watcher that reports the latest
 // status of a migration for a model.
-type MigrationStatusWatcher interface {
-	CoreWatcher
-	Changes() <-chan MigrationStatus
-}
+type MigrationStatusWatcher = Watcher[MigrationStatus]
