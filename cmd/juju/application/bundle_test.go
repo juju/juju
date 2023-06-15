@@ -75,11 +75,11 @@ func (s *BundleDeploySuite) makeBundleDir(c *gc.C, content string) string {
 	return bundlePath
 }
 
-func (s *BundleDeploySuite) setupCharm(c *gc.C, url, name, series string) charm.Charm {
-	return s.setupCharmMaybeForce(c, url, name, series, arch.DefaultArchitecture, false)
+func (s *BundleDeploySuite) setupCharm(c *gc.C, url, name string, base series.Base) charm.Charm {
+	return s.setupCharmMaybeForce(c, url, name, base, arch.DefaultArchitecture, false)
 }
 
-func (s *BundleDeploySuite) setupCharmMaybeForce(c *gc.C, url, name, aseries, arc string, force bool) charm.Charm {
+func (s *BundleDeploySuite) setupCharmMaybeForce(c *gc.C, url, name string, abase series.Base, arc string, force bool) charm.Charm {
 	baseURL := charm.MustParseURL(url)
 	baseURL.Series = ""
 	deployURL := charm.MustParseURL(url)
@@ -92,6 +92,8 @@ func (s *BundleDeploySuite) setupCharmMaybeForce(c *gc.C, url, name, aseries, ar
 	noRevisionURL.Revision = -1
 	charmHubURL := charm.MustParseURL(fmt.Sprintf("ch:%s", baseURL.Name))
 	seriesURL := charm.MustParseURL(url)
+	aseries, err := series.GetSeriesFromBase(abase)
+	c.Assert(err, jc.ErrorIsNil)
 	seriesURL.Series = aseries
 	// In order to replicate what the charmstore does in terms of matching, we
 	// brute force (badly) the various types of charm urls.
@@ -127,7 +129,7 @@ func (s *BundleDeploySuite) setupCharmMaybeForce(c *gc.C, url, name, aseries, ar
 				s.fakeAPI.Call("ResolveCharm", url, origin, false).Returns(
 					resolveURL,
 					origin,
-					[]string{aseries},
+					[]series.Base{abase},
 					error(nil),
 				)
 
@@ -135,7 +137,7 @@ func (s *BundleDeploySuite) setupCharmMaybeForce(c *gc.C, url, name, aseries, ar
 				s.fakeAPI.Call("ResolveCharm", url, origin, false).Returns(
 					resolveURL,
 					origin,
-					[]string{aseries},
+					[]series.Base{abase},
 					error(nil),
 				)
 
@@ -145,7 +147,7 @@ func (s *BundleDeploySuite) setupCharmMaybeForce(c *gc.C, url, name, aseries, ar
 	}
 
 	var chDir charm.Charm
-	chDir, err := charm.ReadCharmDir(testcharms.RepoWithSeries(aseries).CharmDirPath(name))
+	chDir, err = charm.ReadCharmDir(testcharms.RepoWithSeries(aseries).CharmDirPath(name))
 	if err != nil {
 		if !os.IsNotExist(errors.Cause(err)) {
 			c.Fatal(err)
@@ -192,8 +194,8 @@ func (s *BundleDeploySuite) runDeploy(c *gc.C, args ...string) error {
 }
 
 func (s *BundleDeploySuite) TestDeployBundleInvalidFlags(c *gc.C) {
-	s.setupCharm(c, "ch:xenial/mysql-42", "mysql", "bionic")
-	s.setupCharm(c, "ch:xenial/wordpress-47", "wordpress", "bionic")
+	s.setupCharm(c, "ch:xenial/mysql-42", "mysql", series.MustParseBaseFromString("ubuntu@18.04"))
+	s.setupCharm(c, "ch:xenial/wordpress-47", "wordpress", series.MustParseBaseFromString("ubuntu@18.04"))
 	s.setupBundle(c, "ch:bundle/wordpress-simple-1", "wordpress-simple", "bionic", "xenial")
 
 	err := s.runDeploy(c, "ch:bundle/wordpress-simple", "--config", "config.yaml")
@@ -524,7 +526,7 @@ applications:
 
 func (s *BundleDeploySuite) TestDeployBundleLocalAndCharmhubCharms(c *gc.C) {
 	charmsPath := c.MkDir()
-	s.setupCharm(c, "ch:bionic/wordpress-1", "wordpress", "bionic")
+	s.setupCharm(c, "ch:bionic/wordpress-1", "wordpress", series.MustParseBaseFromString("ubuntu@18.04"))
 	mysqlDir := testcharms.RepoWithSeries("bionic").ClonedDir(charmsPath, "mysql")
 	mysqlURL := charm.MustParseURL("local:jammy/mysql-1")
 	wordpressURL := charm.MustParseURL("ch:bionic/wordpress-1")
