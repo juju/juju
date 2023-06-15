@@ -40,25 +40,13 @@ type sshMachine struct {
 	noHostKeyChecks bool
 	target          string
 	args            []string
-	sshClient       sshAPIClient
-	statusClient    statusClient
 	apiAddr         string
 	knownHostsPath  string
-	hostChecker     jujussh.ReachableChecker
 	retryStrategy   retry.CallArgs
-}
 
-type statusClient interface {
-	Status(patterns []string) (*params.FullStatus, error)
-}
-
-type sshAPIClient interface {
-	PublicAddress(target string) (string, error)
-	PrivateAddress(target string) (string, error)
-	AllAddresses(target string) ([]string, error)
-	PublicKeys(target string) ([]string, error)
-	Proxy() (bool, error)
-	Close() error
+	sshClient    SSHClientAPI
+	statusClient StatusClientAPI
+	hostChecker  jujussh.ReachableChecker
 }
 
 type resolvedTarget struct {
@@ -168,6 +156,10 @@ func (c *sshMachine) cleanupRun() {
 	if c.sshClient != nil {
 		_ = c.sshClient.Close()
 		c.sshClient = nil
+	}
+	if c.statusClient != nil {
+		_ = c.statusClient.Close()
+		c.statusClient = nil
 	}
 	if c.leaderAPI != nil {
 		_ = c.leaderAPI.Close()
@@ -395,7 +387,7 @@ func (c *sshMachine) setProxyCommand(options *ssh.Options, targets []*resolvedTa
 }
 
 func (c *sshMachine) ensureAPIClient(mc ModelCommand) error {
-	if c.sshClient != nil && c.leaderAPI != nil {
+	if c.sshClient != nil && c.leaderAPI != nil && c.statusClient != nil {
 		return nil
 	}
 	conn, err := mc.NewAPIRoot()
@@ -405,13 +397,14 @@ func (c *sshMachine) ensureAPIClient(mc ModelCommand) error {
 	if c.leaderAPI == nil {
 		c.leaderAPI = application.NewClient(conn)
 	}
-	if c.sshClient != nil {
-		return nil
+	if c.sshClient == nil {
+		c.sshClient = sshclient.NewFacade(conn)
+		c.apiAddr = conn.Addr()
 	}
 
-	c.sshClient = sshclient.NewFacade(conn)
-	c.apiAddr = conn.Addr()
-	c.statusClient = apiclient.NewClient(conn)
+	if c.statusClient == nil {
+		c.statusClient = apiclient.NewClient(conn)
+	}
 	return nil
 }
 

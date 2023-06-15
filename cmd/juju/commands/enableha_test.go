@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -18,19 +19,14 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type EnableHASuite struct {
-	// TODO (cherylj) change this back to a FakeJujuXDGDataHomeSuite to
-	// remove the mongo dependency once ensure-availability is
-	// moved under a supercommand again.
-	testing.JujuConnSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 	fake *fakeHAClient
 }
 
@@ -39,7 +35,7 @@ type EnableHASuite struct {
 const invalidNumServers = -2
 
 func (s *EnableHASuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	// Initialize numControllers to an invalid number to validate
 	// that enable-ha doesn't call into the API when its
@@ -101,6 +97,20 @@ var _ = gc.Suite(&EnableHASuite{})
 
 func (s *EnableHASuite) runEnableHA(c *gc.C, args ...string) (*cmd.Context, error) {
 	command := &enableHACommand{newHAClientFunc: func() (MakeHAClient, error) { return s.fake, nil }}
+	store := jujuclient.NewMemStore()
+	store.CurrentControllerName = "arthur"
+	store.Controllers["arthur"] = jujuclient.ControllerDetails{}
+	store.Models["arthur"] = &jujuclient.ControllerModels{
+		CurrentModel: "admin/controller",
+		Models: map[string]jujuclient.ModelDetails{"admin/controller": {
+			ModelType: model.IAAS,
+			ModelUUID: coretesting.ModelTag.Id(),
+		}},
+	}
+	store.Accounts["arthur"] = jujuclient.AccountDetails{
+		User: "king",
+	}
+	command.SetClientStore(store)
 	return cmdtesting.RunCommand(c, modelcmd.WrapController(command), args...)
 }
 
@@ -117,7 +127,8 @@ func (s *EnableHASuite) TestEnableHA(c *gc.C) {
 func (s *EnableHASuite) TestBlockEnableHA(c *gc.C) {
 	s.fake.err = apiservererrors.OperationBlockedError("TestBlockEnableHA")
 	_, err := s.runEnableHA(c, "-n", "1")
-	coretesting.AssertOperationWasBlocked(c, err, ".*TestBlockEnableHA.*")
+	c.Assert(err, gc.NotNil)
+	c.Assert(strings.Contains(err.Error(), "All operations that change model have been disabled for the current model"), jc.IsTrue)
 }
 
 func (s *EnableHASuite) TestEnableHAFormatYaml(c *gc.C) {
@@ -241,26 +252,6 @@ func (s *EnableHASuite) TestEnableHADefaultsTo0(c *gc.C) {
 	c.Assert(s.fake.numControllers, gc.Equals, 0)
 	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
 	c.Assert(len(s.fake.placement), gc.Equals, 0)
-}
-
-func (s *EnableHASuite) TestEnableHAEndToEnd(c *gc.C) {
-	m := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobManageModel},
-	})
-	err := m.SetMachineAddresses(
-		network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
-		network.NewSpaceAddress("cloud-local0.internal", network.WithScope(network.ScopeCloudLocal)),
-		network.NewSpaceAddress("fc00::1", network.WithScope(network.ScopePublic)),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ctx, err := cmdtesting.RunCommand(c, newEnableHACommand(), "-n", "3")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, `
-maintaining machines: 0
-adding machines: 1, 2
-`[1:])
 }
 
 func (s *EnableHASuite) TestEnableHAToExisting(c *gc.C) {

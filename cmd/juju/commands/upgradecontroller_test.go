@@ -9,65 +9,70 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facades/client/client"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cmd/juju/commands/mocks"
+	"github.com/juju/juju/cmd/juju/config"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type UpgradeControllerSuite struct {
-	jujutesting.JujuConnSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 
-	resources  *common.Resources
-	authoriser apiservertesting.FakeAuthorizer
-	coretesting.CmdBlockHelper
-	modelUpgrader *mocks.MockModelUpgraderAPI
+	modelUpgrader  *mocks.MockModelUpgraderAPI
+	controllerAPI  *mocks.MockControllerAPI
+	modelConfigAPI *mocks.MockModelConfigAPI
+	store          *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&UpgradeControllerSuite{})
 
-func (s *UpgradeControllerSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	client.SkipReplicaCheck(s)
-
-	s.resources = common.NewResources()
-	s.authoriser = apiservertesting.FakeAuthorizer{
-		Tag: s.AdminUserTag(c),
-	}
-
-	s.CmdBlockHelper = coretesting.NewCmdBlockHelper(s.APIState)
-	c.Assert(s.CmdBlockHelper, gc.NotNil)
-	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
-}
-
 func (s *UpgradeControllerSuite) upgradeControllerCommand(c *gc.C) (*gomock.Controller, cmd.Command) {
 	ctrl := gomock.NewController(c)
 	s.modelUpgrader = mocks.NewMockModelUpgraderAPI(ctrl)
+	s.controllerAPI = mocks.NewMockControllerAPI(ctrl)
+	s.modelConfigAPI = mocks.NewMockModelConfigAPI(ctrl)
 	cmd := &upgradeControllerCommand{
 		baseUpgradeCommand: baseUpgradeCommand{
 			modelUpgraderAPI: s.modelUpgrader,
+			controllerAPI:    s.controllerAPI,
+			modelConfigAPI:   s.modelConfigAPI,
 		},
 	}
-	cmd.SetClientStore(s.ControllerStore)
+	store := jujuclient.NewMemStore()
+	store.CurrentControllerName = "arthur"
+	store.Controllers["arthur"] = jujuclient.ControllerDetails{}
+	store.Models["arthur"] = &jujuclient.ControllerModels{
+		CurrentModel: "admin/controller",
+		Models: map[string]jujuclient.ModelDetails{"admin/controller": {
+			ModelType: model.IAAS,
+			ModelUUID: coretesting.ModelTag.Id(),
+		}},
+	}
+	store.Accounts["arthur"] = jujuclient.AccountDetails{
+		User: "king",
+	}
+	s.store = store
+	cmd.SetClientStore(s.store)
 	return ctrl, modelcmd.WrapController(cmd)
 }
 
 func (s *UpgradeControllerSuite) TestUpgradeWrongPermissions(c *gc.C) {
-	details, err := s.ControllerStore.AccountDetails("kontroll")
+	ctrl, com := s.upgradeControllerCommand(c)
+	defer ctrl.Finish()
+
+	details, err := s.store.AccountDetails("arthur")
 	c.Assert(err, jc.ErrorIsNil)
 	details.LastKnownAccess = string(permission.ReadAccess)
-	err = s.ControllerStore.UpdateAccount("kontroll", *details)
+	err = s.store.UpdateAccount("arthur", *details)
 	c.Assert(err, jc.ErrorIsNil)
-	_, com := s.upgradeControllerCommand(c)
+
 	err = cmdtesting.InitCommand(com, []string{})
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
@@ -78,29 +83,25 @@ func (s *UpgradeControllerSuite) TestUpgradeWrongPermissions(c *gc.C) {
 }
 
 func (s *UpgradeControllerSuite) TestUpgradeDifferentUser(c *gc.C) {
-	user, err := s.BackingState.AddUser("rick", "rick", "dummy-secret", "admin")
-	c.Assert(err, jc.ErrorIsNil)
+	ctrl, com := s.upgradeControllerCommand(c)
+	defer ctrl.Finish()
 
-	s.authoriser = apiservertesting.FakeAuthorizer{
-		Tag: user.Tag(),
-	}
-	ctag := names.NewControllerTag(s.BackingState.ControllerUUID())
+	s.modelUpgrader.EXPECT().Close().Return(nil)
+	s.controllerAPI.EXPECT().Close().Return(nil)
+	s.modelConfigAPI.EXPECT().Close().Return(nil)
 
-	_, err = s.BackingState.SetUserAccess(user.UserTag(), ctag, permission.SuperuserAccess)
-	c.Assert(err, jc.ErrorIsNil)
+	attrs := coretesting.CustomModelConfig(c, coretesting.FakeConfig()).AllAttrs()
+	s.modelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
+	s.controllerAPI.EXPECT().ModelConfig().Return(config.Attrs{"uuid": coretesting.ModelTag.Id()}, nil)
+	s.modelUpgrader.EXPECT().UpgradeModel(coretesting.ModelTag.Id(), version.MustParse("0.0.0"), "proposed", false, false).Return(version.MustParse("6.6.6"), nil)
 
-	err = s.ControllerStore.UpdateAccount("kontroll", jujuclient.AccountDetails{
+	err := s.store.UpdateAccount("arthur", jujuclient.AccountDetails{
 		User:            "rick",
 		LastKnownAccess: string(permission.SuperuserAccess),
 		Password:        "dummy-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	cmd := &upgradeControllerCommand{
-		baseUpgradeCommand: baseUpgradeCommand{},
-	}
-	cmd.SetClientStore(s.ControllerStore)
-	cmdrun := modelcmd.WrapController(cmd)
-	_, err = cmdtesting.RunCommand(c, cmdrun)
+	_, err = cmdtesting.RunCommand(c, com, "--agent-stream", "proposed")
 	c.Assert(err, jc.ErrorIsNil)
 }

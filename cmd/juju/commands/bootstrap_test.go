@@ -21,13 +21,14 @@ import (
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	mgotesting "github.com/juju/mgo/v3/testing"
 	jujuos "github.com/juju/os/v2"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
+	gc "gopkg.in/check.v1"
+	k8scmd "k8s.io/client-go/tools/clientcmd"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/cmdtest"
@@ -61,13 +62,10 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
-	gc "gopkg.in/check.v1"
-	k8scmd "k8s.io/client-go/tools/clientcmd"
 )
 
 type BootstrapSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
-	mgotesting.MgoSuite
 	envtesting.ToolsFixture
 	store *jujuclient.MemStore
 	tw    loggo.TestWriter
@@ -93,7 +91,6 @@ func init() {
 
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
-	s.MgoSuite.SetUpSuite(c)
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	s.PatchValue(
 		&jujuseries.LocalSeriesVersionInfo,
@@ -105,7 +102,6 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.MgoSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 
 	// Set jujuversion.Current to a known value, for which we
@@ -152,14 +148,8 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.bootstrapCmd = bootstrapCommand{clock: s.clock}
 }
 
-func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
-	s.MgoSuite.TearDownSuite(c)
-	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
-}
-
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 	s.ToolsFixture.TearDownTest(c)
-	s.MgoSuite.TearDownTest(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 	dummy.Reset(c)
 }

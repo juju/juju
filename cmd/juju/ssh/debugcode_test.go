@@ -8,10 +8,17 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/golang/mock/gomock"
+	"github.com/juju/charm/v10"
 	"github.com/juju/cmd/v3/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
+
+	apicharm "github.com/juju/juju/api/common/charm"
+	"github.com/juju/juju/api/common/charms"
+	"github.com/juju/juju/cmd/juju/ssh/mocks"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 var _ = gc.Suite(&DebugCodeSuite{})
@@ -21,10 +28,22 @@ type DebugCodeSuite struct {
 }
 
 func (s *DebugCodeSuite) TestArgFormatting(c *gc.C) {
-	s.setupModel(c)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ssh, app, status := s.setupModel(ctrl, false, nil, "mysql/0")
+	app.EXPECT().GetCharmURLOrigin("", "mysql").Return(charm.MustParseURL("mysql"), apicharm.Origin{}, nil)
+
+	charmAPI := mocks.NewMockCharmAPI(ctrl)
+	chInfo := &charms.CharmInfo{Meta: &meta, Actions: &actions}
+	charmAPI.EXPECT().CharmInfo("ch:mysql").Return(chInfo, nil)
+	charmAPI.EXPECT().Close().Return(nil)
+
 	s.setHostChecker(validAddresses("0.public"))
-	ctx, err := cmdtesting.RunCommand(c, NewDebugCodeCommand(s.hostChecker, baseTestingRetryStrategy),
-		"--at=foo,bar", "mysql/0", "install", "start")
+
+	debugCmd := NewDebugCodeCommandForTest(app, ssh, status, charmAPI, s.hostChecker, baseTestingRetryStrategy)
+
+	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(debugCmd), "--at=foo,bar", "mysql/0", "install", "start")
 	c.Assert(err, jc.ErrorIsNil)
 	base64Regex := regexp.MustCompile("echo ([A-Za-z0-9+/]+=*) \\| base64")
 	c.Check(err, jc.ErrorIsNil)

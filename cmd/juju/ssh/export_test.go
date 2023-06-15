@@ -4,8 +4,15 @@
 package ssh
 
 import (
+	"github.com/juju/retry"
+	"github.com/juju/utils/v3"
+
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	jujussh "github.com/juju/juju/network/ssh"
 )
 
 type (
@@ -75,7 +82,7 @@ type SSHContainerInterfaceForTest interface {
 func NewSSHContainer(
 	modelUUID, modelName string,
 	applicationAPI ApplicationAPI,
-	charmsAPI CharmsAPI,
+	charmsAPI CharmAPI,
 	execClient k8sexec.Executor,
 	sshClient SSHClientAPI,
 	remote bool,
@@ -86,7 +93,7 @@ func NewSSHContainer(
 		modelUUID:      modelUUID,
 		modelName:      modelName,
 		applicationAPI: applicationAPI,
-		charmsAPI:      charmsAPI,
+		charmAPI:       charmsAPI,
 		execClient:     execClient,
 		sshClient:      sshClient,
 		execClientGetter: func(string, cloudspec.CloudSpec) (k8sexec.Executor, error) {
@@ -96,4 +103,111 @@ func NewSSHContainer(
 		container:     containerName,
 		controllerAPI: controllerAPI,
 	}
+}
+
+func clientStore() jujuclient.ClientStore {
+	store := jujuclienttesting.MinimalStore()
+	models := store.Models["arthur"]
+	models.Models["admin/controller"] = jujuclient.ModelDetails{
+		ModelUUID: utils.MustNewUUID().String(),
+		ModelType: model.IAAS,
+	}
+	store.Models["arthur"] = models
+	store.Models["arthur"].CurrentModel = "controller"
+	store.Accounts["arthur"] = jujuclient.AccountDetails{User: "admin"}
+	return store
+}
+
+func NewSSHCommandForTest(
+	applicationAPI ApplicationAPI,
+	sshClient SSHClientAPI,
+	statusClient StatusClientAPI,
+	hostChecker jujussh.ReachableChecker,
+	isTerminal func(interface{}) bool,
+	retryStrategy retry.CallArgs,
+) *sshCommand {
+	c := &sshCommand{
+		hostChecker:   hostChecker,
+		isTerminal:    isTerminal,
+		retryStrategy: retryStrategy,
+	}
+	c.sshMachine.sshClient = sshClient
+	c.sshMachine.leaderAPI = applicationAPI
+	c.statusClient = statusClient
+	c.apiAddr = "localhost:6666"
+	c.SetClientStore(clientStore())
+	return c
+}
+
+func NewSCPCommandForTest(
+	applicationAPI ApplicationAPI,
+	sshClient SSHClientAPI,
+	statusClient StatusClientAPI,
+	hostChecker jujussh.ReachableChecker,
+	retryStrategy retry.CallArgs,
+) *scpCommand {
+	c := &scpCommand{
+		hostChecker:   hostChecker,
+		retryStrategy: retryStrategy,
+	}
+	c.sshMachine.sshClient = sshClient
+	c.sshMachine.leaderAPI = applicationAPI
+	c.statusClient = statusClient
+	c.apiAddr = "localhost:6666"
+	c.SetClientStore(clientStore())
+	return c
+}
+
+func NewDebugHooksCommandForTest(
+	applicationAPI ApplicationAPI,
+	sshClient SSHClientAPI,
+	statusClient StatusClientAPI,
+	charmAPI CharmAPI,
+	hostChecker jujussh.ReachableChecker,
+	retryStrategy retry.CallArgs,
+) *debugHooksCommand {
+	c := &debugHooksCommand{
+		sshCommand: sshCommand{
+			hostChecker:   hostChecker,
+			retryStrategy: retryStrategy,
+			sshContainer: sshContainer{
+				applicationAPI: applicationAPI,
+				charmAPI:       charmAPI,
+			},
+		},
+	}
+	c.sshMachine.sshClient = sshClient
+	c.sshMachine.leaderAPI = applicationAPI
+	c.statusClient = statusClient
+	c.apiAddr = "localhost:6666"
+	c.SetClientStore(clientStore())
+	return c
+}
+
+func NewDebugCodeCommandForTest(
+	applicationAPI ApplicationAPI,
+	sshClient SSHClientAPI,
+	statusClient StatusClientAPI,
+	charmAPI CharmAPI,
+	hostChecker jujussh.ReachableChecker,
+	retryStrategy retry.CallArgs,
+) *debugCodeCommand {
+	c := &debugCodeCommand{
+		debugHooksCommand: debugHooksCommand{
+			sshCommand: sshCommand{
+				hostChecker:   hostChecker,
+				retryStrategy: retryStrategy,
+				sshContainer: sshContainer{
+					applicationAPI: applicationAPI,
+					charmAPI:       charmAPI,
+				},
+			},
+		},
+	}
+	c.sshMachine.sshClient = sshClient
+	c.sshMachine.leaderAPI = applicationAPI
+	c.statusClient = statusClient
+	c.apiAddr = "localhost:6666"
+	c.SetClientStore(clientStore())
+	return c
 }
