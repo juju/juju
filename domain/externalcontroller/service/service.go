@@ -16,6 +16,10 @@ type State interface {
 	// Controller returns the controller record.
 	Controller(ctx context.Context, controllerUUID string) (*crossmodel.ControllerInfo, error)
 
+	// ControllerForModel returns the controller record that's associated
+	// with the modelUUID.
+	ControllerForModel(ctx context.Context, modelUUID string) (*crossmodel.ControllerInfo, error)
+
 	// UpdateExternalController persists the input controller
 	// record and associates it with the input model UUIDs.
 	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo, modelUUIDs []string) error
@@ -38,6 +42,16 @@ func (s *Service) Controller(
 ) (*crossmodel.ControllerInfo, error) {
 	controllerInfo, err := s.st.Controller(ctx, controllerUUID)
 	return controllerInfo, errors.Annotate(err, "retrieving external controller")
+}
+
+// ControllerForModel returns the controller record that's associated
+// with the modelUUID.
+func (s *Service) ControllerForModel(
+	ctx context.Context,
+	modelUUID string,
+) (*crossmodel.ControllerInfo, error) {
+	controllerInfo, err := s.st.ControllerForModel(ctx, modelUUID)
+	return controllerInfo, errors.Annotate(err, "retrieving external controller for model")
 }
 
 // UpdateExternalController persists the input controller
