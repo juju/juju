@@ -342,7 +342,7 @@ func (c *repositoryCharm) String() string {
 // PrepareAndDeploy finishes preparing to deploy a repository charm,
 // then deploys it.
 func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver) error {
-	if deployAPI.BestFacadeVersion("Application") < 18 {
+	if deployAPI.BestFacadeVersion("Application") < 19 {
 		return c.compatibilityPrepareAndDeploy(ctx, deployAPI, resolver)
 	}
 	var base *series.Base
@@ -420,7 +420,7 @@ func formatDeployedText(dryRun bool, charmName string, info application.DeployIn
 }
 
 // compatibilityPrepareAndDeploy deploys repository charms to controllers
-// which do not have application facade 18 or greater.
+// which do not have application facade 19 or greater.
 func (c *repositoryCharm) compatibilityPrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver) error {
 	userRequestedURL := c.userRequestedURL
 	location := "charmhub"

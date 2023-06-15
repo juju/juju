@@ -162,7 +162,7 @@ func (s *charmSuite) TestDeployFromRepositoryCharmAppNameVSCharmName(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(18).AnyTimes()
+	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(19).AnyTimes()
 	s.modelCommand.EXPECT().Filesystem().Return(s.filesystem).AnyTimes()
 	s.configFlag.EXPECT().AbsoluteFileNames(gomock.Any()).Return(nil, nil)
 	s.configFlag.EXPECT().ReadConfigPairs(gomock.Any()).Return(nil, nil)
@@ -214,7 +214,7 @@ func (s *charmSuite) TestDeployFromRepositoryErrorNoUploadResources(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(18).AnyTimes()
+	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(19).AnyTimes()
 	s.modelCommand.EXPECT().Filesystem().Return(s.filesystem).AnyTimes()
 	s.configFlag.EXPECT().AbsoluteFileNames(gomock.Any()).Return(nil, nil)
 	s.configFlag.EXPECT().ReadConfigPairs(gomock.Any()).Return(nil, nil)
