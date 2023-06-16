@@ -205,11 +205,6 @@ func (w *Pruner) pruneModel(ctx context.Context, namespace string) (int64, error
 
 	var pruned int64
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Prune any witnesses that are no longer valid.
-		if err := w.curateControllerWitnesses(ctx, tx); err != nil {
-			return errors.Annotatef(err, "failed to prune change_log_witness table")
-		}
-
 		// Locate the lowest watermark, this is the watermark that we will
 		// use to prune the change log.
 		lowest, err := w.locateLowestWatermark(ctx, tx, namespace)
@@ -279,19 +274,6 @@ func (w *Pruner) locateLowestWatermark(ctx context.Context, tx *sqlair.TX, names
 		return Watermark{}, nil
 	}
 	return lowest, nil
-}
-
-var pruneQuery = sqlair.MustPrepare(`DELETE FROM change_log_witness WHERE controller_id NOT IN (SELECT controller_id FROM controller_node);`)
-
-func (w *Pruner) curateControllerWitnesses(ctx context.Context, tx *sqlair.TX) error {
-	// Prune the change log witness table, this ensures that we don't have
-	// any dangling watermarks. As the controller_node table is HA aware,
-	// which is kept up to date, we can use that to remove any rows from
-	// the change_log_witness table that are no longer valid.
-	if err := tx.Query(ctx, pruneQuery).Run(); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
 }
 
 var deleteQuery = sqlair.MustPrepare(`DELETE FROM change_log WHERE id <= $M.id;`, sqlair.M{})

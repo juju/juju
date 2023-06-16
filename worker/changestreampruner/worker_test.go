@@ -9,6 +9,7 @@ import (
 	time "time"
 
 	"github.com/canonical/sqlair"
+	gomock "github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	coredatabase "github.com/juju/juju/core/database"
 	jc "github.com/juju/testing/checkers"
@@ -204,39 +205,13 @@ func (s *workerSuite) TestPruneModelChangeLogWitness(c *gc.C) {
 	}})
 }
 
-func (s *workerSuite) TestPruneModelRemovesExpiredWatermarks(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.expectDBGet("foo", s.TxnRunner())
-	s.expectClock()
-	s.expectAnyLogs(c)
-
-	pruner := s.newPruner(c)
-
-	now := time.Now()
-
-	s.insertControllerNodes(c, 2)
-	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "0", LowerBound: 1, UpdatedAt: now})
-	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "3", LowerBound: 1, UpdatedAt: now})
-
-	result, err := pruner.pruneModel(context.Background(), "foo")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(result, gc.Equals, int64(1))
-
-	s.expectChangeLogWitnesses(c, s.TxnRunner(), []Watermark{{
-		ControllerID: "0",
-		LowerBound:   1,
-		UpdatedAt:    now,
-	}})
-}
-
 func (s *workerSuite) TestPruneModelLogsWarning(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectDBGet("foo", s.TxnRunner())
 	s.expectClock()
 
-	s.logger.EXPECT().Warningf("Watermark %q is outside of window, check logs to see if the change stream is keeping up", "0").Do(c.Logf)
+	s.logger.EXPECT().Warningf("Watermark %q is outside of window, check logs to see if the change stream is keeping up", gomock.Any()).Do(c.Logf).Times(2)
 
 	pruner := s.newPruner(c)
 
