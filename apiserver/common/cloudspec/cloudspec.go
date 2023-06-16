@@ -31,7 +31,7 @@ type CloudSpecer interface {
 }
 
 type CloudSpecAPI struct {
-	resources facade.Resources
+	watcherRegistry facade.WatcherRegistry
 
 	getCloudSpec                           func(names.ModelTag) (environscloudspec.CloudSpec, error)
 	watchCloudSpec                         func(tag names.ModelTag) (state.NotifyWatcher, error)
@@ -50,23 +50,25 @@ type CloudSpecAPIV1 struct {
 
 // NewCloudSpec returns a new CloudSpecAPI.
 func NewCloudSpec(
-	resources facade.Resources,
+	watcherRegistry facade.WatcherRegistry,
 	getCloudSpec func(names.ModelTag) (environscloudspec.CloudSpec, error),
 	watchCloudSpec func(tag names.ModelTag) (state.NotifyWatcher, error),
 	watchCloudSpecModelCredentialReference func(tag names.ModelTag) (state.NotifyWatcher, error),
 	watchCloudSpecCredentialContent func(tag names.ModelTag) (state.NotifyWatcher, error),
 	getAuthFunc common.GetAuthFunc,
 ) CloudSpecAPI {
-	return CloudSpecAPI{resources,
-		getCloudSpec,
-		watchCloudSpec,
-		watchCloudSpecModelCredentialReference,
-		watchCloudSpecCredentialContent,
-		getAuthFunc}
+	return CloudSpecAPI{
+		watcherRegistry:                        watcherRegistry,
+		getCloudSpec:                           getCloudSpec,
+		watchCloudSpec:                         watchCloudSpec,
+		watchCloudSpecModelCredentialReference: watchCloudSpecModelCredentialReference,
+		watchCloudSpecCredentialContent:        watchCloudSpecCredentialContent,
+		getAuthFunc:                            getAuthFunc,
+	}
 }
 
 func NewCloudSpecV2(
-	resources facade.Resources,
+	watcherRegistry facade.WatcherRegistry,
 	getCloudSpec func(names.ModelTag) (environscloudspec.CloudSpec, error),
 	watchCloudSpec func(tag names.ModelTag) (state.NotifyWatcher, error),
 	watchCloudSpecModelCredentialReference func(tag names.ModelTag) (state.NotifyWatcher, error),
@@ -74,18 +76,18 @@ func NewCloudSpecV2(
 	getAuthFunc common.GetAuthFunc,
 ) CloudSpecAPIV2 {
 	api := NewCloudSpec(
-		resources,
+		watcherRegistry,
 		getCloudSpec,
 		watchCloudSpec,
 		watchCloudSpecModelCredentialReference,
 		watchCloudSpecCredentialContent,
 		getAuthFunc,
 	)
-	return CloudSpecAPIV2{api}
+	return CloudSpecAPIV2{CloudSpecAPI: api}
 }
 
 func NewCloudSpecV1(
-	resources facade.Resources,
+	watcherRegistry facade.WatcherRegistry,
 	getCloudSpec func(names.ModelTag) (environscloudspec.CloudSpec, error),
 	watchCloudSpec func(tag names.ModelTag) (state.NotifyWatcher, error),
 	watchCloudSpecModelCredentialReference func(tag names.ModelTag) (state.NotifyWatcher, error),
@@ -93,14 +95,14 @@ func NewCloudSpecV1(
 	getAuthFunc common.GetAuthFunc,
 ) CloudSpecAPIV1 {
 	v2API := NewCloudSpecV2(
-		resources,
+		watcherRegistry,
 		k8sCloudSpecChanger(getCloudSpec),
 		watchCloudSpec,
 		watchCloudSpecModelCredentialReference,
 		watchCloudSpecCredentialContent,
 		getAuthFunc,
 	)
-	return CloudSpecAPIV1{v2API}
+	return CloudSpecAPIV1{CloudSpecAPIV2: v2API}
 }
 
 func k8sCloudSpecChanger(
@@ -232,10 +234,12 @@ func (s CloudSpecAPI) watchCloudSpecChanges(tag names.ModelTag) (params.NotifyWa
 	// calls to Watch 'transmit' the initial event
 	// in the Watch response. But NotifyWatchers
 	// have no state to transmit.
-	if _, ok := <-watch.Changes(); ok {
-		result.NotifyWatcherId = s.resources.Register(watch)
-	} else {
+	if _, ok := <-watch.Changes(); !ok {
 		return result, watcher.EnsureErr(watch)
+	}
+	result.NotifyWatcherId, err = s.watcherRegistry.Register(watch)
+	if err != nil {
+		return result, errors.Trace(err)
 	}
 	return result, nil
 }

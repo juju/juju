@@ -4,19 +4,26 @@
 package common_test
 
 import (
+	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type apiAddresserSuite struct {
-	addresser *common.APIAddresser
-	fake      *fakeAddresses
+	coretesting.BaseSuite
+
+	watcherRegistry facade.WatcherRegistry
+	addresser       *common.APIAddresser
+	fake            *fakeAddresses
 }
 
 var _ = gc.Suite(&apiAddresserSuite{})
@@ -25,13 +32,18 @@ var _ = gc.Suite(&apiAddresserSuite{})
 var _ common.APIAddressAccessor = (*state.State)(nil)
 
 func (s *apiAddresserSuite) SetUpTest(c *gc.C) {
+	var err error
+	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(_ *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
+
 	s.fake = &fakeAddresses{
 		hostPorts: []network.SpaceHostPorts{
 			network.NewSpaceHostPorts(1, "apiaddresses"),
 			network.NewSpaceHostPorts(2, "apiaddresses"),
 		},
 	}
-	s.addresser = common.NewAPIAddresser(s.fake, common.NewResources())
+	s.addresser = common.NewAPIAddresser(s.fake, s.watcherRegistry)
 }
 
 func (s *apiAddresserSuite) TestAPIAddresses(c *gc.C) {

@@ -52,8 +52,7 @@ func (s UnitStateState) ControllerConfig() (controller.Config, error) {
 }
 
 type UnitStateAPI struct {
-	backend   UnitStateBackend
-	resources facade.Resources
+	backend UnitStateBackend
 
 	logger loggo.Logger
 
@@ -64,26 +63,23 @@ type UnitStateAPI struct {
 // NewExternalUnitStateAPI can be used for API registration.
 func NewExternalUnitStateAPI(
 	st *state.State,
-	resources facade.Resources,
 	authorizer facade.Authorizer,
 	accessUnit GetAuthFunc,
 	logger loggo.Logger,
 ) *UnitStateAPI {
-	return NewUnitStateAPI(UnitStateState{St: st}, resources, authorizer, accessUnit, logger)
+	return NewUnitStateAPI(UnitStateState{St: st}, authorizer, accessUnit, logger)
 }
 
 // NewUnitStateAPI returns a new UnitStateAPI. Currently both
 // GetAuthFuncs can used to determine current permissions.
 func NewUnitStateAPI(
 	backend UnitStateBackend,
-	resources facade.Resources,
 	authorizer facade.Authorizer,
 	accessUnit GetAuthFunc,
 	logger loggo.Logger,
 ) *UnitStateAPI {
 	return &UnitStateAPI{
 		backend:    backend,
-		resources:  resources,
 		accessUnit: accessUnit,
 		logger:     logger,
 	}

@@ -20,9 +20,9 @@ var logger = loggo.GetLogger("juju.apiserver.crossmodelrelations")
 // WatchEgressAddressesForRelations creates a watcher that notifies when addresses, from which
 // connections will originate for the relation, change.
 // Each event contains the entire set of addresses which are required for ingress for the relation.
-func WatchEgressAddressesForRelations(resources facade.Resources, st State, relations params.Entities) (params.StringsWatchResults, error) {
+func WatchEgressAddressesForRelations(watcherRegistry facade.WatcherRegistry, st State, relations params.Entities) (params.StringsWatchResults, error) {
 	results := params.StringsWatchResults{
-		make([]params.StringsWatchResult, len(relations.Entities)),
+		Results: make([]params.StringsWatchResult, len(relations.Entities)),
 	}
 
 	one := func(tag string) (id string, changes []string, _ error) {
@@ -44,22 +44,15 @@ func WatchEgressAddressesForRelations(resources facade.Resources, st State, rela
 			return "", nil, errors.Trace(err)
 		}
 
-		// TODO(wallyworld) - we will need to watch subnets too, but only
-		// when we support using cloud local addresses
-		//filter := func(id interface{}) bool {
-		//	include, err := includeAsIngressSubnet(id.(string))
-		//	if err != nil {
-		//		logger.Warningf("invalid CIDR %q", id)
-		//	}
-		//	return include
-		//}
-		//w := api.st.WatchSubnets(filter)
-
 		changes, ok := <-w.Changes()
 		if !ok {
 			return "", nil, apiservererrors.ServerError(watcher.EnsureErr(w))
 		}
-		return resources.Register(w), changes, nil
+		id, err = watcherRegistry.Register(w)
+		if err != nil {
+			return "", nil, errors.Trace(err)
+		}
+		return id, changes, nil
 	}
 
 	for i, e := range relations.Entities {
@@ -117,21 +110,3 @@ func localApplication(st State, relationTag names.RelationTag) (*localEndpointIn
 	}
 	return &localEndpoint, nil
 }
-
-// TODO(wallyworld) - this is unused until we query subnets again
-/*
-func includeAsEgressSubnet(cidr string) (bool, error) {
-	ip, _, err := net.ParseCIDR(cidr)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	if ip.IsLoopback() || ip.IsMulticast() {
-		return false, nil
-	}
-	// TODO(wallyworld) - We only support IPv4 addresses as not all providers support IPv6.
-	if ip.To4() == nil {
-		return false, nil
-	}
-	return true, nil
-}
-*/

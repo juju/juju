@@ -22,7 +22,7 @@ var _ = gc.Suite(&restrictedRootSuite{})
 
 func (r *restrictedRootSuite) SetUpTest(c *gc.C) {
 	r.BaseSuite.SetUpTest(c)
-	r.root = apiserver.TestingRestrictedRoot(func(facade, method string) error {
+	r.root = apiserver.TestingRestrictedRoot(c, func(facade, method string) error {
 		if facade == "Client" && method == "FullStatus" {
 			return errors.New("blam")
 		}

@@ -4,13 +4,15 @@
 package common_test
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -18,6 +20,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -34,9 +37,9 @@ import (
 type modelStatusSuite struct {
 	statetesting.StateSuite
 
-	controller *controller.ControllerAPI
-	resources  *common.Resources
-	authorizer apiservertesting.FakeAuthorizer
+	controller      *controller.ControllerAPI
+	watcherRegistry facade.WatcherRegistry
+	authorizer      apiservertesting.FakeAuthorizer
 }
 
 var _ = gc.Suite(&modelStatusSuite{})
@@ -51,8 +54,11 @@ func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.StateSuite.SetUpTest(c)
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+
+	var err error
+	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(_ *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:      s.Owner,
@@ -61,10 +67,10 @@ func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 
 	controller, err := controller.LatestAPI(
 		facadetest.Context{
-			State_:     s.State,
-			Resources_: s.resources,
-			Auth_:      s.authorizer,
-			StatePool_: s.StatePool,
+			State_:           s.State,
+			WatcherRegistry_: s.watcherRegistry,
+			Auth_:            s.authorizer,
+			StatePool_:       s.StatePool,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = controller
@@ -80,9 +86,9 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 	}
 	endpoint, err := controller.TestingAPI(
 		facadetest.Context{
-			State_:     s.State,
-			Resources_: s.resources,
-			Auth_:      anAuthoriser,
+			State_:           s.State,
+			WatcherRegistry_: s.watcherRegistry,
+			Auth_:            anAuthoriser,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	controllerModelTag := s.Model.ModelTag().String()
@@ -105,10 +111,10 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 	defer st.Close()
 	endpoint, err := controller.TestingAPI(
 		facadetest.Context{
-			State_:     s.State,
-			Resources_: s.resources,
-			Auth_:      anAuthoriser,
-			StatePool_: s.StatePool,
+			State_:           s.State,
+			WatcherRegistry_: s.watcherRegistry,
+			Auth_:            anAuthoriser,
+			StatePool_:       s.StatePool,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 

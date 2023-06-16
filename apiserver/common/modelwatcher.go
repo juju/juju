@@ -4,6 +4,7 @@
 package common
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -13,9 +14,9 @@ import (
 // ModelWatcher implements two common methods for use by various
 // facades - WatchForModelConfigChanges and ModelConfig.
 type ModelWatcher struct {
-	st         state.ModelAccessor
-	resources  facade.Resources
-	authorizer facade.Authorizer
+	st              state.ModelAccessor
+	watcherRegistry facade.WatcherRegistry
+	authorizer      facade.Authorizer
 }
 
 // NewModelWatcher returns a new ModelWatcher. Active watchers
@@ -24,11 +25,11 @@ type ModelWatcher struct {
 // determine current permissions.
 // Right now, model tags are not used, so both created AuthFuncs
 // are called with "" for tag, which means "the current model".
-func NewModelWatcher(st state.ModelAccessor, resources facade.Resources, authorizer facade.Authorizer) *ModelWatcher {
+func NewModelWatcher(st state.ModelAccessor, watcherRegistry facade.WatcherRegistry, authorizer facade.Authorizer) *ModelWatcher {
 	return &ModelWatcher{
-		st:         st,
-		resources:  resources,
-		authorizer: authorizer,
+		st:              st,
+		watcherRegistry: watcherRegistry,
+		authorizer:      authorizer,
 	}
 }
 
@@ -45,7 +46,13 @@ func (m *ModelWatcher) WatchForModelConfigChanges() (params.NotifyWatchResult, e
 	// in the Watch response. But NotifyWatchers
 	// have no state to transmit.
 	if _, ok := <-watch.Changes(); ok {
-		result.NotifyWatcherId = m.resources.Register(watch)
+		id, err := m.watcherRegistry.Register(watch)
+		if err != nil {
+			// TODO (stickupkid): This leaks the watcher, we should ensure
+			// we kill/wait it.
+			return params.NotifyWatchResult{}, errors.Trace(err)
+		}
+		result.NotifyWatcherId = id
 	} else {
 		return result, watcher.EnsureErr(watch)
 	}

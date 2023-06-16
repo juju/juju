@@ -28,9 +28,9 @@ type DeployerAPI struct {
 	*common.UnitsWatcher
 	*common.StatusSetter
 
-	st         *state.State
-	resources  facade.Resources
-	authorizer facade.Authorizer
+	st              *state.State
+	watcherRegistry facade.WatcherRegistry
+	authorizer      facade.Authorizer
 }
 
 // NewDeployerAPI creates a new server-side DeployerAPI facade.
@@ -40,8 +40,10 @@ func NewDeployerAPI(ctx facade.Context) (*DeployerAPI, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	st := ctx.State()
-	resources := ctx.Resources()
+	var (
+		st              = ctx.State()
+		watcherRegistry = ctx.WatcherRegistry()
+	)
 	leadershipRevoker, err := ctx.LeadershipRevoker(st.ModelUUID())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting leadership client")
@@ -76,11 +78,11 @@ func NewDeployerAPI(ctx facade.Context) (*DeployerAPI, error) {
 		Remover:         common.NewRemover(st, common.RevokeLeadershipFunc(leadershipRevoker), true, getAuthFunc),
 		PasswordChanger: common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:      common.NewLifeGetter(st, getAuthFunc),
-		APIAddresser:    common.NewAPIAddresser(systemState, resources),
-		UnitsWatcher:    common.NewUnitsWatcher(st, resources, getCanWatch),
+		APIAddresser:    common.NewAPIAddresser(systemState, watcherRegistry),
+		UnitsWatcher:    common.NewUnitsWatcher(st, watcherRegistry, getCanWatch),
 		StatusSetter:    common.NewStatusSetter(st, getAuthFunc),
 		st:              st,
-		resources:       resources,
+		watcherRegistry: watcherRegistry,
 		authorizer:      authorizer,
 	}, nil
 }

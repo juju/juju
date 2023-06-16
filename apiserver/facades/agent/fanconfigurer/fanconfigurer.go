@@ -4,6 +4,7 @@
 package fanconfigurer
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -19,21 +20,21 @@ type FanConfigurer interface {
 }
 
 type FanConfigurerAPI struct {
-	model     state.ModelAccessor
-	resources facade.Resources
+	model           state.ModelAccessor
+	watcherRegistry facade.WatcherRegistry
 }
 
 var _ FanConfigurer = (*FanConfigurerAPI)(nil)
 
-func NewFanConfigurerAPIForModel(model state.ModelAccessor, resources facade.Resources, authorizer facade.Authorizer) (*FanConfigurerAPI, error) {
+func NewFanConfigurerAPIForModel(model state.ModelAccessor, watcherRegistry facade.WatcherRegistry, authorizer facade.Authorizer) (*FanConfigurerAPI, error) {
 	// Only machine agents have access to the fanconfigurer service.
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
 
 	return &FanConfigurerAPI{
-		model:     model,
-		resources: resources,
+		model:           model,
+		watcherRegistry: watcherRegistry,
 	}, nil
 }
 
@@ -49,7 +50,13 @@ func (m *FanConfigurerAPI) WatchForFanConfigChanges() (params.NotifyWatchResult,
 	// in the Watch response. But NotifyWatchers
 	// have no state to transmit.
 	if _, ok := <-watch.Changes(); ok {
-		result.NotifyWatcherId = m.resources.Register(watch)
+		id, err := m.watcherRegistry.Register(watch)
+		if err != nil {
+			// TODO (stickupkid): This leaks the watcher, we should ensure
+			// we kill/wait it.
+			return params.NotifyWatchResult{}, errors.Trace(err)
+		}
+		result.NotifyWatcherId = id
 	} else {
 		return result, watcher.EnsureErr(watch)
 	}

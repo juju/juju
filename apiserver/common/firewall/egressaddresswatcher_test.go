@@ -9,7 +9,6 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/firewall"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
@@ -23,16 +22,12 @@ var _ = gc.Suite(&addressWatcherSuite{})
 type addressWatcherSuite struct {
 	coretesting.BaseSuite
 
-	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
 	st         *mockState
 }
 
 func (s *addressWatcherSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),

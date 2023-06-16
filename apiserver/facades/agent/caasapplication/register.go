@@ -21,9 +21,11 @@ func Register(registry facade.FacadeRegistry) {
 
 // newStateFacade provides the signature required for facade registration.
 func newStateFacade(ctx facade.Context) (*Facade, error) {
-	authorizer := ctx.Auth()
-	resources := ctx.Resources()
-	st := ctx.State()
+	var (
+		authorizer      = ctx.Auth()
+		watcherRegistry = ctx.WatcherRegistry()
+		st              = ctx.State()
+	)
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -36,7 +38,7 @@ func newStateFacade(ctx facade.Context) (*Facade, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewFacade(resources, authorizer,
+	return NewFacade(watcherRegistry, authorizer,
 		systemState,
 		&stateShim{st},
 		broker,

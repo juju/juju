@@ -22,9 +22,12 @@ func Register(registry facade.FacadeRegistry) {
 
 // newStateFacade provides the signature required for facade registration.
 func newStateFacade(ctx facade.Context) (*Facade, error) {
-	authorizer := ctx.Auth()
-	resources := ctx.Resources()
-	model, err := ctx.State().Model()
+	var (
+		authorizer      = ctx.Auth()
+		watcherRegistry = ctx.WatcherRegistry()
+		st              = ctx.State()
+	)
+	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -32,7 +35,7 @@ func newStateFacade(ctx facade.Context) (*Facade, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "getting caas client")
 	}
-	leadershipRevoker, err := ctx.LeadershipRevoker(ctx.State().ModelUUID())
+	leadershipRevoker, err := ctx.LeadershipRevoker(st.ModelUUID())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting leadership client")
 	}
@@ -40,9 +43,9 @@ func newStateFacade(ctx facade.Context) (*Facade, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewFacade(resources, authorizer,
+	return NewFacade(watcherRegistry, authorizer,
 		stateShim{State: systemState},
-		stateShim{State: ctx.State()},
-		unitcommon.Backend(ctx.State()),
+		stateShim{State: st},
+		unitcommon.Backend(st),
 		caasBroker, leadershipRevoker)
 }

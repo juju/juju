@@ -33,7 +33,7 @@ func (r *restrictNewerClientSuite) SetUpTest(c *gc.C) {
 
 func (r *restrictNewerClientSuite) TestOldClientAllowedMethods(c *gc.C) {
 	r.callerVersion.Major = jujuversion.Current.Major - 1
-	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(true, r.callerVersion)
+	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(c, true, r.callerVersion)
 	checkAllowed := func(facade, method string, version int) {
 		caller, err := root.FindMethod(facade, version, method)
 		c.Check(err, jc.ErrorIsNil)
@@ -50,7 +50,7 @@ func (r *restrictNewerClientSuite) TestRecentClientAllowedAll(c *gc.C) {
 	r.PatchValue(&jujuversion.Current, version.MustParse("3.0.0"))
 	r.callerVersion = jujuversion.Current
 	r.callerVersion.Major--
-	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(true, r.callerVersion)
+	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(c, true, r.callerVersion)
 	checkAllowed := func(facade, method string, version int) {
 		caller, err := root.FindMethod(facade, version, method)
 		c.Check(err, jc.ErrorIsNil)
@@ -67,7 +67,7 @@ func (r *restrictNewerClientSuite) TestRecentNewerClientAllowedMethods(c *gc.C) 
 func (r *restrictNewerClientSuite) assertNewerClientAllowedMethods(c *gc.C, minor int, allowed bool) {
 	r.callerVersion.Major = jujuversion.Current.Major + 1
 	r.callerVersion.Minor = minor
-	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(true, r.callerVersion)
+	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(c, true, r.callerVersion)
 	checkAllowed := func(facade, method string, version int) {
 		caller, err := root.FindMethod(facade, version, method)
 		if allowed {
@@ -89,7 +89,7 @@ func (r *restrictNewerClientSuite) assertNewerClientAllowedMethods(c *gc.C, mino
 
 func (r *restrictNewerClientSuite) TestOldClientUpgradeMethodDisallowed(c *gc.C) {
 	r.callerVersion.Major = jujuversion.Current.Major - 1
-	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(true, r.callerVersion)
+	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(c, true, r.callerVersion)
 	caller, err := root.FindMethod("ModelUpgrader", 1, "UpgradeModel")
 	c.Assert(errors.HasType[*params.IncompatibleClientError](err), jc.IsTrue)
 	c.Assert(caller, gc.IsNil)
@@ -97,7 +97,7 @@ func (r *restrictNewerClientSuite) TestOldClientUpgradeMethodDisallowed(c *gc.C)
 
 func (r *restrictNewerClientSuite) TestReallyOldClientDisallowedMethod(c *gc.C) {
 	r.callerVersion.Major = jujuversion.Current.Major - 2
-	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(true, r.callerVersion)
+	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(c, true, r.callerVersion)
 	caller, err := root.FindMethod("Client", 3, "FullStatus")
 	c.Assert(errors.HasType[*params.IncompatibleClientError](err), jc.IsTrue)
 	c.Assert(caller, gc.IsNil)
@@ -105,7 +105,7 @@ func (r *restrictNewerClientSuite) TestReallyOldClientDisallowedMethod(c *gc.C) 
 
 func (r *restrictNewerClientSuite) TestReallyNewClientDisallowedMethod(c *gc.C) {
 	r.callerVersion.Major = jujuversion.Current.Major + 2
-	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(true, r.callerVersion)
+	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(c, true, r.callerVersion)
 	caller, err := root.FindMethod("Client", 3, "FullStatus")
 	c.Assert(errors.HasType[*params.IncompatibleClientError](err), jc.IsTrue)
 	c.Assert(caller, gc.IsNil)
@@ -113,7 +113,7 @@ func (r *restrictNewerClientSuite) TestReallyNewClientDisallowedMethod(c *gc.C) 
 
 func (r *restrictNewerClientSuite) TestAlwaysDisallowedMethod(c *gc.C) {
 	r.callerVersion.Major = jujuversion.Current.Major - 1
-	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(true, r.callerVersion)
+	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(c, true, r.callerVersion)
 	caller, err := root.FindMethod("ModelConfig", 3, "ModelSet")
 	c.Assert(errors.HasType[*params.IncompatibleClientError](err), jc.IsTrue)
 	c.Assert(caller, gc.IsNil)
@@ -127,7 +127,7 @@ func (r *restrictNewerClientSuite) TestWhitelistedClient(c *gc.C) {
 func (r *restrictNewerClientSuite) assertWhitelistedClient(c *gc.C, serverVers string, allowed bool) {
 	r.PatchValue(&jujuversion.Current, version.MustParse(serverVers))
 	r.callerVersion = version.MustParse("3.0.0")
-	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(true, r.callerVersion)
+	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(c, true, r.callerVersion)
 	caller, err := root.FindMethod("ModelConfig", 3, "ModelSet")
 	if allowed {
 		c.Check(err, jc.ErrorIsNil)
@@ -146,7 +146,7 @@ func (r *restrictNewerClientSuite) TestAgentMethod(c *gc.C) {
 
 func (r *restrictNewerClientSuite) assertAgentMethod(c *gc.C, agentVers string, allowed bool) {
 	r.callerVersion = version.MustParse(agentVers)
-	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(false, r.callerVersion)
+	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(c, false, r.callerVersion)
 	caller, err := root.FindMethod("Uniter", 18, "CurrentModel")
 	if allowed {
 		c.Check(err, jc.ErrorIsNil)

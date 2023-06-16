@@ -33,22 +33,22 @@ type CredentialValidatorV1 interface {
 type CredentialValidatorAPI struct {
 	*credentialcommon.CredentialManagerAPI
 
-	backend   Backend
-	resources facade.Resources
+	backend         Backend
+	watcherRegistry facade.WatcherRegistry
 }
 
 var (
 	_ CredentialValidatorV2 = (*CredentialValidatorAPI)(nil)
 )
 
-func internalNewCredentialValidatorAPI(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*CredentialValidatorAPI, error) {
+func internalNewCredentialValidatorAPI(backend Backend, watcherRegistry facade.WatcherRegistry, authorizer facade.Authorizer) (*CredentialValidatorAPI, error) {
 	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent() || authorizer.AuthApplicationAgent()) {
 		return nil, apiservererrors.ErrPerm
 	}
 
 	return &CredentialValidatorAPI{
 		CredentialManagerAPI: credentialcommon.NewCredentialManagerAPI(backend),
-		resources:            resources,
+		watcherRegistry:      watcherRegistry,
 		backend:              backend,
 	}, nil
 }
@@ -56,30 +56,32 @@ func internalNewCredentialValidatorAPI(backend Backend, resources facade.Resourc
 // WatchCredential returns a NotifyWatcher that observes
 // changes to a given cloud credential.
 func (api *CredentialValidatorAPI) WatchCredential(tag params.Entity) (params.NotifyWatchResult, error) {
-	fail := func(failure error) (params.NotifyWatchResult, error) {
-		return params.NotifyWatchResult{}, apiservererrors.ServerError(failure)
-	}
-
+	var result params.NotifyWatchResult
 	credentialTag, err := names.ParseCloudCredentialTag(tag.Tag)
 	if err != nil {
-		return fail(err)
+		return result, apiservererrors.ServerError(err)
 	}
 	// Is credential used by the model that has created this backend?
 	isUsed, err := api.backend.ModelUsesCredential(credentialTag)
 	if err != nil {
-		return fail(err)
+		return result, apiservererrors.ServerError(err)
 	}
 	if !isUsed {
-		return fail(apiservererrors.ErrPerm)
+		return result, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
 
-	result := params.NotifyWatchResult{}
 	watch := api.backend.WatchCredential(credentialTag)
 	// Consume the initial event. Technically, API calls to Watch
 	// 'transmit' the initial event in the Watch response. But
 	// NotifyWatchers have no state to transmit.
 	if _, ok := <-watch.Changes(); ok {
-		result.NotifyWatcherId = api.resources.Register(watch)
+		id, err := api.watcherRegistry.Register(watch)
+		if err != nil {
+			// TODO (stickupkid): This leaks the watcher, we should ensure
+			// we kill/wait it.
+			return params.NotifyWatchResult{}, apiservererrors.ServerError(err)
+		}
+		result.NotifyWatcherId = id
 	} else {
 		err = watcher.EnsureErr(watch)
 		result.Error = apiservererrors.ServerError(err)
@@ -104,7 +106,7 @@ func (api *CredentialValidatorAPI) ModelCredential() (params.ModelCredential, er
 
 // WatchModelCredential returns a NotifyWatcher that watches what cloud credential a model uses.
 func (api *CredentialValidatorAPI) WatchModelCredential() (params.NotifyWatchResult, error) {
-	result := params.NotifyWatchResult{}
+	var result params.NotifyWatchResult
 	watch, err := api.backend.WatchModelCredential()
 	if err != nil {
 		return result, apiservererrors.ServerError(err)
@@ -114,7 +116,13 @@ func (api *CredentialValidatorAPI) WatchModelCredential() (params.NotifyWatchRes
 	// 'transmit' the initial event in the Watch response. But
 	// NotifyWatchers have no state to transmit.
 	if _, ok := <-watch.Changes(); ok {
-		result.NotifyWatcherId = api.resources.Register(watch)
+		id, err := api.watcherRegistry.Register(watch)
+		if err != nil {
+			// TODO (stickupkid): This leaks the watcher, we should ensure
+			// we kill/wait it.
+			return params.NotifyWatchResult{}, apiservererrors.ServerError(err)
+		}
+		result.NotifyWatcherId = id
 	} else {
 		err = watcher.EnsureErr(watch)
 		result.Error = apiservererrors.ServerError(err)

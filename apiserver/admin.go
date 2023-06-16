@@ -556,7 +556,7 @@ func setupPingTimeoutDisconnect(clock clock.Clock, root *apiHandler, entity stat
 		}
 	}
 	p := pinger.NewPinger(action, clock, maxClientPingInterval)
-	return root.Resources().RegisterNamed("pingTimeout", p)
+	return root.WatcherRegistry().RegisterNamed("pingTimeout", p)
 }
 
 // errRoot implements the API that a client first sees

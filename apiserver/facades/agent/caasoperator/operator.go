@@ -25,10 +25,10 @@ import (
 
 // Facade is the CAAS operator API facade.
 type Facade struct {
-	auth      facade.Authorizer
-	resources facade.Resources
-	state     CAASOperatorState
-	broker    CAASBrokerInterface
+	auth            facade.Authorizer
+	watcherRegistry facade.WatcherRegistry
+	state           CAASOperatorState
+	broker          CAASBrokerInterface
 	*common.LifeGetter
 	*common.AgentEntityWatcher
 	*common.Remover
@@ -44,7 +44,7 @@ type CAASBrokerInterface interface {
 
 // NewFacade returns a new CAASOperator facade.
 func NewFacade(
-	resources facade.Resources,
+	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
 	ctrlSt CAASControllerState,
 	st CAASOperatorState,
@@ -66,12 +66,12 @@ func NewFacade(
 	accessUnit := unitcommon.UnitAccessor(authorizer, appGetter)
 	return &Facade{
 		LifeGetter:         common.NewLifeGetter(st, canRead),
-		APIAddresser:       common.NewAPIAddresser(ctrlSt, resources),
-		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, canRead),
+		APIAddresser:       common.NewAPIAddresser(ctrlSt, watcherRegistry),
+		AgentEntityWatcher: common.NewAgentEntityWatcher(st, watcherRegistry, canRead),
 		Remover:            common.NewRemover(st, common.RevokeLeadershipFunc(leadershipRevoker), true, accessUnit),
 		ToolsSetter:        common.NewToolsSetter(st, common.AuthFuncForTag(authorizer.GetAuthTag())),
 		auth:               authorizer,
-		resources:          resources,
+		watcherRegistry:    watcherRegistry,
 		state:              st,
 		model:              model,
 		broker:             broker,
@@ -222,7 +222,13 @@ func (f *Facade) watchUnits(tagString string) (string, []string, error) {
 	}
 	w := app.WatchUnits()
 	if changes, ok := <-w.Changes(); ok {
-		return f.resources.Register(w), changes, nil
+		id, err := f.watcherRegistry.Register(w)
+		if err != nil {
+			// TODO (stickupkid): This leaks the watcher, we should ensure
+			// we kill/wait it.
+			return "", nil, errors.Trace(err)
+		}
+		return id, changes, nil
 	}
 	return "", nil, watcher.EnsureErr(w)
 }
@@ -259,7 +265,13 @@ func (f *Facade) watchContainerStart(tagString string, containerName string) (st
 		return "", nil, errors.Trace(err)
 	}
 	if changes, ok := <-uw.Changes(); ok {
-		return f.resources.Register(uw), changes, nil
+		id, err := f.watcherRegistry.Register(w)
+		if err != nil {
+			// TODO (stickupkid): This leaks the watcher, we should ensure
+			// we kill/wait it.
+			return "", nil, errors.Trace(err)
+		}
+		return id, changes, nil
 	}
 	return "", nil, watcher.EnsureErr(uw)
 }

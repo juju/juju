@@ -4,23 +4,29 @@
 package common_test
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/mocks"
+	"github.com/juju/juju/apiserver/facade"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
 
 type upgradeSeriesSuite struct {
 	testing.BaseSuite
+
+	watcherRegistry facade.WatcherRegistry
 
 	machineTag1 names.MachineTag
 	unitTag1    names.UnitTag
@@ -30,6 +36,13 @@ type upgradeSeriesSuite struct {
 var _ = gc.Suite(&upgradeSeriesSuite{})
 
 func (s *upgradeSeriesSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+
+	var err error
+	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(_ *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
+
 	s.machineTag1 = names.NewMachineTag("1")
 	s.unitTag1 = names.NewUnitTag("mysql/1")
 	s.unitTag2 = names.NewUnitTag("redis/1")
@@ -38,7 +51,6 @@ func (s *upgradeSeriesSuite) SetUpTest(c *gc.C) {
 func (s *upgradeSeriesSuite) assertBackendApi(
 	c *gc.C, tag names.Tag,
 ) (*common.UpgradeSeriesAPI, *gomock.Controller, *mocks.MockUpgradeSeriesBackend) {
-	resources := common.NewResources()
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: tag,
 	}
@@ -59,7 +71,7 @@ func (s *upgradeSeriesSuite) assertBackendApi(
 	}
 
 	api := common.NewUpgradeSeriesAPI(
-		mockBackend, resources, authorizer, machineAuthFunc, unitAuthFunc, loggo.GetLogger("juju.apiserver.common"))
+		mockBackend, s.watcherRegistry, authorizer, machineAuthFunc, unitAuthFunc, loggo.GetLogger("juju.apiserver.common"))
 	return api, ctrl, mockBackend
 }
 

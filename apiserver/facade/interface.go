@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
@@ -92,20 +91,10 @@ type Context interface {
 	// be disposed by calling this method.
 	Dispose()
 
-	// Resources exposes per-connection capabilities. By adding a
-	// resource, you make it accessible by (returned) id to all
-	// other facades used by this connection. It's mostly used to
-	// pass watcher ids over to watcher-specific facades, but that
-	// seems to be an antipattern: it breaks the separate-facades-
-	// by-role advice, and makes it inconvenient to track a given
-	// worker's watcher activity alongside its other communications.
-	//
-	// It's also used to hold some config strings used by various
-	// consumers, because it's convenient; and the Pinger that
-	// reports client presence in state, because every Resource gets
-	// Stop()ped on conn close. Not all of these uses are
-	// necessarily a great idea.
-	Resources() Resources
+	// WatcherRegistry returns the watcher registry for this context. The
+	// watchers are per-connection, and are cleaned up when the connection
+	// is closed.
+	WatcherRegistry() WatcherRegistry
 
 	// State returns, /sigh, a *State. As yet, there is no way
 	// around this; in the not-too-distant future, we hope, its
@@ -223,16 +212,6 @@ type Authorizer interface {
 	// ConnectedModel returns the UUID of the model to which the API
 	// connection was made.
 	ConnectedModel() string
-}
-
-// Resources allows you to store and retrieve Resource implementations.
-//
-// The lack of error returns are in deference to the existing
-// implementation, not because they're a good idea.
-type Resources interface {
-	Register(worker.Worker) string
-	Get(string) worker.Worker
-	Stop(string) error
 }
 
 // Presence represents the current known state of API connections from agents

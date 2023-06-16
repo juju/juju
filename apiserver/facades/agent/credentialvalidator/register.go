@@ -18,5 +18,9 @@ func Register(registry facade.FacadeRegistry) {
 
 // newCredentialValidatorAPI creates a new CredentialValidator API endpoint on server-side.
 func newCredentialValidatorAPI(ctx facade.Context) (*CredentialValidatorAPI, error) {
-	return internalNewCredentialValidatorAPI(NewBackend(NewStateShim(ctx.State()), ctx.Logger().Child("credentialvalidator")), ctx.Resources(), ctx.Auth())
+	return internalNewCredentialValidatorAPI(
+		NewBackend(NewStateShim(ctx.State()), ctx.Logger().Child("credentialvalidator")),
+		ctx.WatcherRegistry(),
+		ctx.Auth(),
+	)
 }

@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
@@ -27,6 +28,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -43,11 +45,11 @@ type objectKey struct {
 // after it has logged in. It contains an rpc.Root which it
 // uses to dispatch API calls appropriately.
 type apiHandler struct {
-	state     *state.State
-	model     *state.Model
-	rpcConn   *rpc.Conn
-	resources *common.Resources
-	shared    *sharedServerContext
+	state           *state.State
+	model           *state.Model
+	rpcConn         *rpc.Conn
+	watcherRegistry facade.WatcherRegistry
+	shared          *sharedServerContext
 
 	// authInfo represents the authentication info established with this client
 	// connection.
@@ -95,15 +97,20 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 		}
 	}
 
+	registry, err := registry.NewRegistry(srv.clock)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	r := &apiHandler{
-		state:        st,
-		model:        m,
-		resources:    common.NewResources(),
-		shared:       srv.shared,
-		rpcConn:      rpcConn,
-		modelUUID:    modelUUID,
-		connectionID: connectionID,
-		serverHost:   serverHost,
+		state:           st,
+		model:           m,
+		watcherRegistry: registry,
+		shared:          srv.shared,
+		rpcConn:         rpcConn,
+		modelUUID:       modelUUID,
+		connectionID:    connectionID,
+		serverHost:      serverHost,
 	}
 
 	// Facades involved with managing application offers need the auth context
@@ -114,18 +121,18 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 		Path:   localOfferAccessLocationPath,
 	}
 	offerAuthCtxt := srv.offerAuthCtxt.WithDischargeURL(localOfferAccessEndpoint.String())
-	if err := r.resources.RegisterNamed(
+	if err := r.watcherRegistry.RegisterNamed(
 		"offerAccessAuthContext",
-		common.ValueResource{Value: offerAuthCtxt},
+		common.ValueResource[*crossmodel.AuthContext]{Value: offerAuthCtxt},
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return r, nil
 }
 
-// Resources returns the common resources.
-func (r *apiHandler) Resources() *common.Resources {
-	return r.resources
+// WatcherRegistry returns the watcher registry for a given connection.
+func (r *apiHandler) WatcherRegistry() facade.WatcherRegistry {
+	return r.watcherRegistry
 }
 
 // State returns the underlying state.
@@ -150,7 +157,10 @@ func (r *apiHandler) getRpcConn() *rpc.Conn {
 // Kill implements rpc.Killer, cleaning up any resources that need
 // cleaning up to ensure that all outstanding requests return.
 func (r *apiHandler) Kill() {
-	r.resources.StopAll()
+	r.watcherRegistry.Kill()
+	if err := r.watcherRegistry.Wait(); err != nil {
+		logger.Infof("error waiting for watcher registry to stop: %v", err)
+	}
 }
 
 // srvCaller is our implementation of the rpcreflect.MethodCaller interface.
@@ -190,7 +200,7 @@ type apiRoot struct {
 	state           *state.State
 	shared          *sharedServerContext
 	facades         *facade.Registry
-	resources       *common.Resources
+	watcherRegistry facade.WatcherRegistry
 	authorizer      facade.Authorizer
 	objectMutex     sync.RWMutex
 	objectCache     map[objectKey]reflect.Value
@@ -202,8 +212,8 @@ type apiRootHandler interface {
 	State() *state.State
 	// SharedContext returns the server shared context.
 	SharedContext() *sharedServerContext
-	// Resources returns the common resources.
-	Resources() *common.Resources
+	// WatcherRegistry returns the watcher registry for a given connection.
+	WatcherRegistry() facade.WatcherRegistry
 	// Authorizer returns the authorizer used for accessing API method calls.
 	Authorizer() facade.Authorizer
 }
@@ -220,7 +230,7 @@ func newAPIRoot(clock clock.Clock,
 		state:           st,
 		shared:          root.SharedContext(),
 		facades:         facades,
-		resources:       root.Resources(),
+		watcherRegistry: root.WatcherRegistry(),
 		authorizer:      root.Authorizer(),
 		objectCache:     make(map[objectKey]reflect.Value),
 		requestRecorder: requestRecorder,
@@ -310,7 +320,10 @@ func restrictAPIRootDuringMaintenance(
 
 // Kill implements rpc.Killer, stopping the root's resources.
 func (r *apiRoot) Kill() {
-	r.resources.StopAll()
+	r.watcherRegistry.Kill()
+	if err := r.watcherRegistry.Wait(); err != nil {
+		logger.Infof("error waiting for watcher registry to stop: %v", err)
+	}
 }
 
 // FindMethod looks up the given rootName and version in our facade registry
@@ -436,9 +449,9 @@ func (ctx *facadeContext) Dispose() {
 	ctx.r.dispose(ctx.key)
 }
 
-// Resources is part of the facade.Context interface.
-func (ctx *facadeContext) Resources() facade.Resources {
-	return ctx.r.resources
+// WatcherRegistry returns all the associated watchers per connection.
+func (ctx *facadeContext) WatcherRegistry() facade.WatcherRegistry {
+	return ctx.r.watcherRegistry
 }
 
 // Presence implements facade.Context.

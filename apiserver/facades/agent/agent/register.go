@@ -39,22 +39,22 @@ func newAgentAPIV3(ctx facade.Context) (*AgentAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	resources := ctx.Resources()
+	watcherRegistry := ctx.WatcherRegistry()
 	return &AgentAPI{
 		PasswordChanger:     common.NewPasswordChanger(st, getCanChange),
 		RebootFlagClearer:   common.NewRebootFlagClearer(st, getCanChange),
-		ModelWatcher:        common.NewModelWatcher(model, resources, auth),
+		ModelWatcher:        common.NewModelWatcher(model, watcherRegistry, auth),
 		ControllerConfigAPI: common.NewStateControllerConfig(st),
 		CloudSpecer: cloudspec.NewCloudSpecV2(
-			resources,
+			watcherRegistry,
 			cloudspec.MakeCloudSpecGetterForModel(st),
 			cloudspec.MakeCloudSpecWatcherForModel(st),
 			cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
 			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
 			common.AuthFuncForTag(model.ModelTag()),
 		),
-		st:        st,
-		auth:      auth,
-		resources: resources,
+		st:              st,
+		auth:            auth,
+		watcherRegistry: watcherRegistry,
 	}, nil
 }

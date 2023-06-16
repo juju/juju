@@ -120,7 +120,7 @@ type rootSuite struct {
 var _ = gc.Suite(&rootSuite{})
 
 func (r *rootSuite) TestFindMethodUnknownFacade(c *gc.C) {
-	root := apiserver.TestingAPIRoot(new(facade.Registry))
+	root := apiserver.TestingAPIRoot(c, new(facade.Registry))
 	caller, err := root.FindMethod("unknown-testing-facade", 0, "Method")
 	c.Check(caller, gc.IsNil)
 	c.Check(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
@@ -133,7 +133,7 @@ func (r *rootSuite) TestFindMethodUnknownVersion(c *gc.C) {
 		return &testingType{}, nil
 	}
 	registry.MustRegister("my-testing-facade", 0, myGoodFacade, reflect.TypeOf((*testingType)(nil)).Elem())
-	srvRoot := apiserver.TestingAPIRoot(registry)
+	srvRoot := apiserver.TestingAPIRoot(c, registry)
 	caller, err := srvRoot.FindMethod("my-testing-facade", 1, "Exposed")
 	c.Check(caller, gc.IsNil)
 	c.Check(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
@@ -156,7 +156,7 @@ func (r *rootSuite) TestFindMethodEnsuresTypeMatch(c *gc.C) {
 	registry.Register("my-testing-facade", 0, myBadFacade, expectedType)
 	registry.Register("my-testing-facade", 1, myGoodFacade, expectedType)
 	registry.Register("my-testing-facade", 2, myErrFacade, expectedType)
-	srvRoot := apiserver.TestingAPIRoot(registry)
+	srvRoot := apiserver.TestingAPIRoot(c, registry)
 
 	// Now, myGoodFacade returns the right type, so calling it should work
 	// fine
@@ -215,7 +215,7 @@ func (r *rootSuite) TestFindMethodCachesFacades(c *gc.C) {
 	facadeType := reflect.TypeOf((*countingType)(nil))
 	registry.MustRegister("my-counting-facade", 0, newCounter, facadeType)
 	registry.MustRegister("my-counting-facade", 1, newCounter, facadeType)
-	srvRoot := apiserver.TestingAPIRoot(registry)
+	srvRoot := apiserver.TestingAPIRoot(c, registry)
 
 	// The first time we call FindMethod, it should lookup a facade, and
 	// request a new object.
@@ -249,7 +249,7 @@ func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *gc.C) {
 	registry := new(facade.Registry)
 	reflectType := reflect.TypeOf((*countingType)(nil))
 	registry.Register("my-counting-facade", 0, newIdCounter, reflectType)
-	srvRoot := apiserver.TestingAPIRoot(registry)
+	srvRoot := apiserver.TestingAPIRoot(c, registry)
 
 	// The first time we call FindMethod, it should lookup a facade, and
 	// request a new object.
@@ -280,7 +280,7 @@ func (r *rootSuite) TestFindMethodCacheRaceSafe(c *gc.C) {
 	reflectType := reflect.TypeOf((*countingType)(nil))
 	registry := new(facade.Registry)
 	registry.Register("my-counting-facade", 0, newIdCounter, reflectType)
-	srvRoot := apiserver.TestingAPIRoot(registry)
+	srvRoot := apiserver.TestingAPIRoot(c, registry)
 
 	caller, err := srvRoot.FindMethod("my-counting-facade", 0, "Count")
 	c.Assert(err, jc.ErrorIsNil)
@@ -331,7 +331,7 @@ func (r *rootSuite) TestFindMethodHandlesInterfaceTypes(c *gc.C) {
 	registry.MustRegister("my-interface-facade", 1, func(_ facade.Context) (facade.Facade, error) {
 		return &secondImpl{}, nil
 	}, reflect.TypeOf((*smallInterface)(nil)).Elem())
-	srvRoot := apiserver.TestingAPIRoot(registry)
+	srvRoot := apiserver.TestingAPIRoot(c, registry)
 
 	caller, err := srvRoot.FindMethod("my-interface-facade", 0, "OneMethod")
 	c.Assert(err, jc.ErrorIsNil)

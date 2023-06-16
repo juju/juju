@@ -20,7 +20,7 @@ type Context struct {
 	Auth_                facade.Authorizer
 	Dispose_             func()
 	Hub_                 facade.Hub
-	Resources_           facade.Resources
+	WatcherRegistry_     facade.WatcherRegistry
 	State_               *state.State
 	StatePool_           *state.StatePool
 	MultiwatcherFactory_ multiwatcher.Factory
@@ -73,9 +73,11 @@ func (context Context) MultiwatcherFactory() multiwatcher.Factory {
 	return context.MultiwatcherFactory_
 }
 
-// Resources is part of the facade.Context interface.
-func (context Context) Resources() facade.Resources {
-	return context.Resources_
+// WatcherRegistry returns the watcher registry for this context. The
+// watchers are per-connection, and are cleaned up when the connection
+// is closed.
+func (context Context) WatcherRegistry() facade.WatcherRegistry {
+	return context.WatcherRegistry_
 }
 
 // State is part of the facade.Context interface.

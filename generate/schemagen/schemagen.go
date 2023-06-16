@@ -211,7 +211,7 @@ func (c context) State() *state.State {
 	return new(state.State)
 }
 
-func (c context) Resources() facade.Resources {
+func (c context) WatcherRegistry() facade.WatcherRegistry {
 	return nil
 }
 

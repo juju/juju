@@ -21,19 +21,19 @@ import (
 // AgentEntityWatcher implements a common Watch method for use by
 // various facades.
 type AgentEntityWatcher struct {
-	st          state.EntityFinder
-	resources   facade.Resources
-	getCanWatch GetAuthFunc
+	st              state.EntityFinder
+	watcherRegistry facade.WatcherRegistry
+	getCanWatch     GetAuthFunc
 }
 
 // NewAgentEntityWatcher returns a new AgentEntityWatcher. The
 // GetAuthFunc will be used on each invocation of Watch to determine
 // current permissions.
-func NewAgentEntityWatcher(st state.EntityFinder, resources facade.Resources, getCanWatch GetAuthFunc) *AgentEntityWatcher {
+func NewAgentEntityWatcher(st state.EntityFinder, watcherRegistry facade.WatcherRegistry, getCanWatch GetAuthFunc) *AgentEntityWatcher {
 	return &AgentEntityWatcher{
-		st:          st,
-		resources:   resources,
-		getCanWatch: getCanWatch,
+		st:              st,
+		watcherRegistry: watcherRegistry,
+		getCanWatch:     getCanWatch,
 	}
 }
 
@@ -52,7 +52,13 @@ func (a *AgentEntityWatcher) watchEntity(tag names.Tag) (string, error) {
 	// in the Watch response. But NotifyWatchers
 	// have no state to transmit.
 	if _, ok := <-watch.Changes(); ok {
-		return a.resources.Register(watch), nil
+		id, err := a.watcherRegistry.Register(watch)
+		if err != nil {
+			// TODO (stickupkid): This leaks the watcher, we should ensure
+			// we kill/wait it.
+			return "", errors.Trace(err)
+		}
+		return id, nil
 	}
 	return "", watcher.EnsureErr(watch)
 }

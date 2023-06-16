@@ -25,11 +25,11 @@ type KeyUpdater interface {
 // KeyUpdaterAPI implements the KeyUpdater interface and is the concrete
 // implementation of the api end point.
 type KeyUpdaterAPI struct {
-	state      *state.State
-	model      *state.Model
-	resources  facade.Resources
-	authorizer facade.Authorizer
-	getCanRead common.GetAuthFunc
+	state           *state.State
+	model           *state.Model
+	watcherRegistry facade.WatcherRegistry
+	authorizer      facade.Authorizer
+	getCanRead      common.GetAuthFunc
 }
 
 var _ KeyUpdater = (*KeyUpdaterAPI)(nil)
@@ -69,7 +69,14 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(arg params.Entities) (params.Notif
 		watch := api.model.WatchForModelConfigChanges()
 		// Consume the initial event.
 		if _, ok := <-watch.Changes(); ok {
-			results[i].NotifyWatcherId = api.resources.Register(watch)
+			id, err := api.watcherRegistry.Register(watch)
+			if err != nil {
+				// TODO (stickupkid): This leaks the watcher, we should ensure
+				// we kill/wait it.
+				results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+			results[i].NotifyWatcherId = id
 		} else {
 			err = watcher.EnsureErr(watch)
 		}

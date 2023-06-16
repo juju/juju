@@ -20,7 +20,7 @@ type restrictMigrationsSuite struct {
 var _ = gc.Suite(&restrictMigrationsSuite{})
 
 func (r *restrictMigrationsSuite) TestAllowedMethods(c *gc.C) {
-	root := apiserver.TestingMigratingRoot()
+	root := apiserver.TestingMigratingRoot(c)
 	checkAllowed := func(facade, method string, version int) {
 		caller, err := root.FindMethod(facade, version, method)
 		c.Check(err, jc.ErrorIsNil)
@@ -33,7 +33,7 @@ func (r *restrictMigrationsSuite) TestAllowedMethods(c *gc.C) {
 }
 
 func (r *restrictMigrationsSuite) TestFindDisallowedMethod(c *gc.C) {
-	root := apiserver.TestingMigratingRoot()
+	root := apiserver.TestingMigratingRoot(c)
 	caller, err := root.FindMethod("Client", clientFacadeVersion, "ModelSet")
 	c.Assert(errors.Cause(err), gc.Equals, params.MigrationInProgressError)
 	c.Assert(caller, gc.IsNil)

@@ -22,5 +22,5 @@ func newFanConfigurerAPI(ctx facade.Context) (*FanConfigurerAPI, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewFanConfigurerAPIForModel(model, ctx.Resources(), ctx.Auth())
+	return NewFanConfigurerAPIForModel(model, ctx.WatcherRegistry(), ctx.Auth())
 }

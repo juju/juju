@@ -6,43 +6,48 @@ package caasapplication_test
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/caasapplication"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&CAASApplicationSuite{})
-
 type CAASApplicationSuite struct {
 	coretesting.BaseSuite
 
-	resources  *common.Resources
-	authorizer *apiservertesting.FakeAuthorizer
-	facade     *caasapplication.Facade
-	st         *mockState
-	clock      *testclock.Clock
-	broker     *mockBroker
+	watcherRegistry facade.WatcherRegistry
+	authorizer      *apiservertesting.FakeAuthorizer
+	facade          *caasapplication.Facade
+	st              *mockState
+	clock           *testclock.Clock
+	broker          *mockBroker
 }
+
+var _ = gc.Suite(&CAASApplicationSuite{})
 
 func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.clock = testclock.NewClock(time.Now())
 
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	var err error
+	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(_ *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewApplicationTag("gitlab"),
@@ -51,7 +56,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	s.st = newMockState()
 	s.broker = &mockBroker{}
 
-	facade, err := caasapplication.NewFacade(s.resources, s.authorizer, s.st, s.st, s.broker, s.clock, loggo.GetLogger("juju.apiserver.caasaplication"))
+	facade, err := caasapplication.NewFacade(s.watcherRegistry, s.authorizer, s.st, s.st, s.broker, s.clock, loggo.GetLogger("juju.apiserver.caasaplication"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }

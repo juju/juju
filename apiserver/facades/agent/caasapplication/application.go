@@ -25,19 +25,19 @@ import (
 )
 
 type Facade struct {
-	auth      facade.Authorizer
-	resources facade.Resources
-	ctrlSt    ControllerState
-	state     State
-	model     Model
-	clock     clock.Clock
-	broker    Broker
-	logger    loggo.Logger
+	auth            facade.Authorizer
+	watcherRegistry facade.WatcherRegistry
+	ctrlSt          ControllerState
+	state           State
+	model           Model
+	clock           clock.Clock
+	broker          Broker
+	logger          loggo.Logger
 }
 
 // NewFacade returns a new CAASOperator facade.
 func NewFacade(
-	resources facade.Resources,
+	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
 	ctrlSt ControllerState,
 	st State,
@@ -53,14 +53,14 @@ func NewFacade(
 		return nil, errors.Trace(err)
 	}
 	return &Facade{
-		auth:      authorizer,
-		resources: resources,
-		ctrlSt:    ctrlSt,
-		state:     st,
-		model:     model,
-		clock:     clock,
-		broker:    broker,
-		logger:    logger,
+		auth:            authorizer,
+		watcherRegistry: watcherRegistry,
+		ctrlSt:          ctrlSt,
+		state:           st,
+		model:           model,
+		clock:           clock,
+		broker:          broker,
+		logger:          logger,
 	}, nil
 }
 

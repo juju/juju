@@ -8,7 +8,7 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -20,19 +20,21 @@ type ModelWatcher interface {
 }
 
 type ModelWatcherTest struct {
-	modelWatcher ModelWatcher
-	st           *state.State
-	// We can't call this "resources" as it conflicts
-	// when embedded in other test suites.
-	res *common.Resources
+	modelWatcher    ModelWatcher
+	st              *state.State
+	watcherRegistry facade.WatcherRegistry
 }
 
 func NewModelWatcherTest(
 	modelWatcher ModelWatcher,
 	st *state.State,
-	resources *common.Resources,
+	watcherRegistry facade.WatcherRegistry,
 ) *ModelWatcherTest {
-	return &ModelWatcherTest{modelWatcher, st, resources}
+	return &ModelWatcherTest{
+		modelWatcher:    modelWatcher,
+		st:              st,
+		watcherRegistry: watcherRegistry,
+	}
 }
 
 // AssertModelConfig provides a method to test the config from the
@@ -57,7 +59,7 @@ func (s *ModelWatcherTest) TestModelConfig(c *gc.C) {
 }
 
 func (s *ModelWatcherTest) TestWatchForModelConfigChanges(c *gc.C) {
-	c.Assert(s.res.Count(), gc.Equals, 0)
+	c.Assert(s.watcherRegistry.Count(), gc.Equals, 0)
 
 	result, err := s.modelWatcher.WatchForModelConfigChanges()
 	c.Assert(err, jc.ErrorIsNil)
@@ -65,13 +67,16 @@ func (s *ModelWatcherTest) TestWatchForModelConfigChanges(c *gc.C) {
 		NotifyWatcherId: "1",
 	})
 
-	// Verify the resources were registered and stop them when done.
-	c.Assert(s.res.Count(), gc.Equals, 1)
-	resource := s.res.Get("1")
-	defer workertest.CleanKill(c, resource)
+	// Verify the watcher were registered and stop them when done.
+	c.Assert(s.watcherRegistry.Count(), gc.Equals, 1)
+	watcher, err := s.watcherRegistry.Get("1")
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, watcher)
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)
-	wc := statetesting.NewNotifyWatcherC(c, resource.(state.NotifyWatcher))
+	wc := statetesting.NewNotifyWatcherC(c, watcher.(state.NotifyWatcher))
 	wc.AssertNoChange()
+
+	workertest.CleanKill(c, watcher)
 }

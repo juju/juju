@@ -10,7 +10,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/diskmanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -24,7 +23,6 @@ var _ = gc.Suite(&DiskManagerSuite{})
 
 type DiskManagerSuite struct {
 	coretesting.BaseSuite
-	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
 	st         *mockState
 	api        *diskmanager.DiskManagerAPI
@@ -32,7 +30,6 @@ type DiskManagerSuite struct {
 
 func (s *DiskManagerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.resources = common.NewResources()
 	tag := names.NewMachineTag("0")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
 	s.st = &mockState{}

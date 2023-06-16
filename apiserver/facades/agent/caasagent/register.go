@@ -29,13 +29,13 @@ func newStateFacadeV2(ctx facade.Context) (*FacadeV2, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	resources := ctx.Resources()
+	watcherRegistry := ctx.WatcherRegistry()
 	model, err := ctx.State().Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	cloudSpecAPI := cloudspec.NewCloudSpecV2(
-		resources,
+		watcherRegistry,
 		cloudspec.MakeCloudSpecGetterForModel(ctx.State()),
 		cloudspec.MakeCloudSpecWatcherForModel(ctx.State()),
 		cloudspec.MakeCloudSpecCredentialWatcherForModel(ctx.State()),
@@ -44,9 +44,9 @@ func newStateFacadeV2(ctx facade.Context) (*FacadeV2, error) {
 	)
 	return &FacadeV2{
 		CloudSpecer:         cloudSpecAPI,
-		ModelWatcher:        common.NewModelWatcher(model, resources, authorizer),
+		ModelWatcher:        common.NewModelWatcher(model, watcherRegistry, authorizer),
 		ControllerConfigAPI: common.NewStateControllerConfig(ctx.State()),
 		auth:                authorizer,
-		resources:           resources,
+		watcherRegistry:     watcherRegistry,
 	}, nil
 }

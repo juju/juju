@@ -4,48 +4,47 @@
 package agent_test
 
 import (
-	stdtesting "testing"
-
+	"github.com/juju/clock"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/agent"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/watcher/registry"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 )
-
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
-
-var _ = gc.Suite(&agentSuite{})
 
 type agentSuite struct {
 	jujutesting.JujuConnSuite
 
-	resources  *common.Resources
-	authorizer apiservertesting.FakeAuthorizer
+	watcherRegistry facade.WatcherRegistry
+	authorizer      apiservertesting.FakeAuthorizer
 
 	machine0  *state.Machine
 	machine1  *state.Machine
 	container *state.Machine
 }
 
+var _ = gc.Suite(&agentSuite{})
+
 func (s *agentSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	var err error
+	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(_ *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
+
 	s.machine0, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -59,9 +58,6 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	s.container, err = s.State.AddMachineInsideMachine(template, s.machine1.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.resources = common.NewResources()
-	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
-
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming machine 1 has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
@@ -73,9 +69,9 @@ func (s *agentSuite) TestAgentFailsWithNonAgent(c *gc.C) {
 	auth := s.authorizer
 	auth.Tag = names.NewUserTag("admin")
 	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      auth,
+		State_:           s.State,
+		WatcherRegistry_: s.watcherRegistry,
+		Auth_:            auth,
 	})
 	c.Assert(err, gc.NotNil)
 	c.Assert(api, gc.IsNil)
@@ -86,9 +82,9 @@ func (s *agentSuite) TestAgentSucceedsWithUnitAgent(c *gc.C) {
 	auth := s.authorizer
 	auth.Tag = names.NewUnitTag("foosball/1")
 	_, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      auth,
+		State_:           s.State,
+		WatcherRegistry_: s.watcherRegistry,
+		Auth_:            auth,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -105,9 +101,9 @@ func (s *agentSuite) TestGetEntities(c *gc.C) {
 		},
 	}
 	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
+		State_:           s.State,
+		WatcherRegistry_: s.watcherRegistry,
+		Auth_:            s.authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	results := api.GetEntities(args)
@@ -131,9 +127,9 @@ func (s *agentSuite) TestGetEntitiesContainer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      auth,
+		State_:           s.State,
+		WatcherRegistry_: s.watcherRegistry,
+		Auth_:            auth,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{
@@ -176,9 +172,9 @@ func (s *agentSuite) TestGetEntitiesNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
+		State_:           s.State,
+		WatcherRegistry_: s.watcherRegistry,
+		Auth_:            s.authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	results := api.GetEntities(params.Entities{
@@ -197,9 +193,9 @@ func (s *agentSuite) TestGetEntitiesNotFound(c *gc.C) {
 
 func (s *agentSuite) TestSetPasswords(c *gc.C) {
 	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
+		State_:           s.State,
+		WatcherRegistry_: s.watcherRegistry,
+		Auth_:            s.authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.SetPasswords(params.EntityPasswords{
@@ -212,9 +208,9 @@ func (s *agentSuite) TestSetPasswords(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
-			{nil},
-			{apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 	err = s.machine1.Refresh()
@@ -225,9 +221,9 @@ func (s *agentSuite) TestSetPasswords(c *gc.C) {
 
 func (s *agentSuite) TestSetPasswordsShort(c *gc.C) {
 	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
+		State_:           s.State,
+		WatcherRegistry_: s.watcherRegistry,
+		Auth_:            s.authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.SetPasswords(params.EntityPasswords{
@@ -243,9 +239,9 @@ func (s *agentSuite) TestSetPasswordsShort(c *gc.C) {
 
 func (s *agentSuite) TestClearReboot(c *gc.C) {
 	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
+		State_:           s.State,
+		WatcherRegistry_: s.watcherRegistry,
+		Auth_:            s.authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -265,8 +261,8 @@ func (s *agentSuite) TestClearReboot(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
-			{nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: nil},
 		},
 	})
 
@@ -281,18 +277,19 @@ func (s *agentSuite) TestWatchCredentials(c *gc.C) {
 		Controller: true,
 	}
 	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      authorizer,
+		State_:           s.State,
+		WatcherRegistry_: s.watcherRegistry,
+		Auth_:            authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	tag := names.NewCloudCredentialTag("dummy/fred/default")
 	result, err := api.WatchCredentials(params.Entities{Entities: []params.Entity{{Tag: tag.String()}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{"1", nil}}})
-	c.Assert(s.resources.Count(), gc.Equals, 1)
+	c.Assert(result, jc.DeepEquals, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{NotifyWatcherId: "1", Error: nil}}})
+	c.Assert(s.watcherRegistry.Count(), gc.Equals, 1)
 
-	w := s.resources.Get("1")
+	w, err := s.watcherRegistry.Get("1")
+	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	// Check that the Watch has consumed the initial events ("returned" in the Watch call)
@@ -309,12 +306,12 @@ func (s *agentSuite) TestWatchAuthError(c *gc.C) {
 		Controller: false,
 	}
 	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      authorizer,
+		State_:           s.State,
+		WatcherRegistry_: s.watcherRegistry,
+		Auth_:            authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = api.WatchCredentials(params.Entities{})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	c.Assert(s.watcherRegistry.Count(), gc.Equals, 0)
 }

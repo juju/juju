@@ -4,6 +4,7 @@
 package caasoperator_test
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -12,11 +13,12 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -28,19 +30,21 @@ var _ = gc.Suite(&CAASOperatorSuite{})
 type CAASOperatorSuite struct {
 	coretesting.BaseSuite
 
-	resources  *common.Resources
-	authorizer *apiservertesting.FakeAuthorizer
-	facade     *caasoperator.Facade
-	st         *mockState
-	broker     *mockBroker
-	revoker    *mockLeadershipRevoker
+	watcherRegistry facade.WatcherRegistry
+	authorizer      *apiservertesting.FakeAuthorizer
+	facade          *caasoperator.Facade
+	st              *mockState
+	broker          *mockBroker
+	revoker         *mockLeadershipRevoker
 }
 
 func (s *CAASOperatorSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	var err error
+	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(_ *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewApplicationTag("gitlab"),
@@ -54,7 +58,7 @@ func (s *CAASOperatorSuite) SetUpTest(c *gc.C) {
 	s.broker = &mockBroker{}
 	s.revoker = &mockLeadershipRevoker{revoked: set.NewStrings()}
 
-	facade, err := caasoperator.NewFacade(s.resources, s.authorizer, s.st, s.st, s.st, s.broker, s.revoker)
+	facade, err := caasoperator.NewFacade(s.watcherRegistry, s.authorizer, s.st, s.st, s.st, s.broker, s.revoker)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }
@@ -63,7 +67,7 @@ func (s *CAASOperatorSuite) TestPermission(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("0"),
 	}
-	_, err := caasoperator.NewFacade(s.resources, s.authorizer, s.st, s.st, s.st, s.broker, nil)
+	_, err := caasoperator.NewFacade(s.watcherRegistry, s.authorizer, s.st, s.st, s.st, s.broker, nil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -87,7 +91,7 @@ func (s *CAASOperatorSuite) TestSetStatus(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{},
-			{&params.Error{Message: `"machine-0" is not a valid application tag`}},
+			{Error: &params.Error{Message: `"machine-0" is not a valid application tag`}},
 		},
 	})
 
@@ -156,8 +160,9 @@ func (s *CAASOperatorSuite) TestWatchUnits(c *gc.C) {
 
 	c.Assert(results.Results[0].StringsWatcherId, gc.Equals, "1")
 	c.Assert(results.Results[0].Changes, jc.DeepEquals, []string{"gitlab/0", "gitlab/1"})
-	resource := s.resources.Get("1")
-	c.Assert(resource, gc.Equals, s.st.app.unitsWatcher)
+	watcher, err := s.watcherRegistry.Get("1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(watcher, gc.Equals, s.st.app.unitsWatcher)
 }
 
 func (s *CAASOperatorSuite) TestLife(c *gc.C) {
@@ -286,7 +291,7 @@ func (s *CAASOperatorSuite) TestModel(c *gc.C) {
 func (s *CAASOperatorSuite) TestWatch(c *gc.C) {
 	s.st.app.appChanges <- struct{}{}
 
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	c.Assert(s.watcherRegistry.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "application-gitlab"},
@@ -303,11 +308,12 @@ func (s *CAASOperatorSuite) TestWatch(c *gc.C) {
 		},
 	})
 
-	// Verify the resource was registered and stop when done
-	c.Assert(s.resources.Count(), gc.Equals, 1)
+	// Verify the watcher was registered and stop when done
+	c.Assert(s.watcherRegistry.Count(), gc.Equals, 1)
 	c.Assert(result.Results[0].NotifyWatcherId, gc.Equals, "1")
-	resource := s.resources.Get("1")
-	c.Assert(resource, gc.Equals, s.st.app.watcher)
+	watcher, err := s.watcherRegistry.Get("1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(watcher, gc.Equals, s.st.app.watcher)
 }
 
 func (s *CAASOperatorSuite) TestSetTools(c *gc.C) {
@@ -375,6 +381,7 @@ func (s *CAASOperatorSuite) TestWatchContainerStart(c *gc.C) {
 
 	c.Assert(results.Results[0].StringsWatcherId, gc.Equals, "1")
 	c.Assert(results.Results[0].Changes, jc.DeepEquals, []string{"gitlab/1"})
-	resource := s.resources.Get("1")
-	c.Assert(resource, gc.NotNil)
+	watcher, err := s.watcherRegistry.Get("1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(watcher, gc.NotNil)
 }

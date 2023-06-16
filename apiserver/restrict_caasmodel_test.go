@@ -22,7 +22,7 @@ var _ = gc.Suite(&RestrictCAASModelSuite{})
 
 func (s *RestrictCAASModelSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
-	s.root = apiserver.TestingCAASModelOnlyRoot()
+	s.root = apiserver.TestingCAASModelOnlyRoot(c)
 }
 
 func (s *RestrictCAASModelSuite) TestAllowed(c *gc.C) {

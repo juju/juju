@@ -20,7 +20,7 @@ type restrictUpgradesSuite struct {
 var _ = gc.Suite(&restrictUpgradesSuite{})
 
 func (r *restrictUpgradesSuite) TestAllowedMethods(c *gc.C) {
-	root := apiserver.TestingUpgradingRoot()
+	root := apiserver.TestingUpgradingRoot(c)
 	checkAllowed := func(facade, method string, version int) {
 		caller, err := root.FindMethod(facade, version, method)
 		c.Check(err, jc.ErrorIsNil)
@@ -33,7 +33,7 @@ func (r *restrictUpgradesSuite) TestAllowedMethods(c *gc.C) {
 }
 
 func (r *restrictUpgradesSuite) TestFindDisallowedMethod(c *gc.C) {
-	root := apiserver.TestingUpgradingRoot()
+	root := apiserver.TestingUpgradingRoot(c)
 	caller, err := root.FindMethod("Client", clientFacadeVersion, "ModelSet")
 	c.Assert(errors.Cause(err), gc.Equals, params.UpgradeInProgressError)
 	c.Assert(caller, gc.IsNil)

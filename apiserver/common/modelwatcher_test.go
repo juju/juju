@@ -7,14 +7,18 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
@@ -26,6 +30,8 @@ import (
 
 type modelWatcherSuite struct {
 	testing.BaseSuite
+
+	watcherRegistry facade.WatcherRegistry
 }
 
 var _ = gc.Suite(&modelWatcherSuite{})
@@ -46,23 +52,30 @@ func (f *fakeModelAccessor) ModelConfig() (*config.Config, error) {
 	return f.modelConfig, nil
 }
 
+func (s *modelWatcherSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+
+	var err error
+	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(_ *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
+}
+
 func (s *modelWatcherSuite) TearDownTest(c *gc.C) {
 	dummy.Reset(c)
 	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *modelWatcherSuite) TestWatchSuccess(c *gc.C) {
-	resources := common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
 	e := common.NewModelWatcher(
 		&fakeModelAccessor{},
-		resources,
+		s.watcherRegistry,
 		nil,
 	)
 	result, err := e.WatchForModelConfigChanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{"1", nil})
-	c.Assert(resources.Count(), gc.Equals, 1)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{NotifyWatcherId: "1", Error: nil})
+	c.Assert(s.watcherRegistry.Count(), gc.Equals, 1)
 }
 
 func (*modelWatcherSuite) TestModelConfigSuccess(c *gc.C) {

@@ -5,15 +5,18 @@ package firewall_test
 
 import (
 	"github.com/juju/charm/v11"
+	"github.com/juju/clock"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/firewall"
+	"github.com/juju/juju/apiserver/facade"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -24,16 +27,18 @@ var _ = gc.Suite(&FirewallSuite{})
 type FirewallSuite struct {
 	coretesting.BaseSuite
 
-	resources  *common.Resources
-	authorizer *apiservertesting.FakeAuthorizer
-	st         *mockState
+	watcherRegistry facade.WatcherRegistry
+	authorizer      *apiservertesting.FakeAuthorizer
+	st              *mockState
 }
 
 func (s *FirewallSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	var err error
+	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(_ *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
@@ -85,7 +90,7 @@ func (s *FirewallSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
 	s.st.applications["django"] = app
 
 	result, err := firewall.WatchEgressAddressesForRelations(
-		s.resources, s.st,
+		s.watcherRegistry, s.st,
 		params.Entities{Entities: []params.Entity{{
 			Tag: names.NewRelationTag("remote-db2:db django:db").String(),
 		}}})
@@ -95,7 +100,8 @@ func (s *FirewallSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
 	c.Assert(result.Results[0].Error, gc.IsNil)
 	c.Assert(result.Results[0].StringsWatcherId, gc.Equals, "1")
 
-	resource := s.resources.Get("1")
+	resource, err := s.watcherRegistry.Get("1")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resource, gc.NotNil)
 	c.Assert(resource, gc.Implements, new(state.StringsWatcher))
 
@@ -142,7 +148,7 @@ func (s *FirewallSuite) TestWatchEgressAddressesForRelationsIgnoresProvider(c *g
 	s.st.remoteEntities[names.NewRelationTag("remote-db2:db django:db")] = "token-db2:db django:db"
 
 	result, err := firewall.WatchEgressAddressesForRelations(
-		s.resources, s.st,
+		s.watcherRegistry, s.st,
 		params.Entities{Entities: []params.Entity{{
 			Tag: names.NewRelationTag("remote-db2:db django:db").String(),
 		}}})

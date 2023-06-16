@@ -31,12 +31,12 @@ import (
 type instanceMutaterAPISuite struct {
 	coretesting.IsolationSuite
 
-	authorizer     *facademocks.MockAuthorizer
-	entity         *mocks.MockEntity
-	lifer          *mocks.MockLifer
-	state          *mocks.MockInstanceMutaterState
-	mutatorWatcher *mocks.MockInstanceMutatorWatcher
-	resources      *facademocks.MockResources
+	authorizer      *facademocks.MockAuthorizer
+	entity          *mocks.MockEntity
+	lifer           *mocks.MockLifer
+	state           *mocks.MockInstanceMutaterState
+	mutatorWatcher  *mocks.MockInstanceMutatorWatcher
+	watcherRegistry *facademocks.MockWatcherRegistry
 
 	machineTag  names.Tag
 	notifyDone  chan struct{}
@@ -59,13 +59,13 @@ func (s *instanceMutaterAPISuite) setup(c *gc.C) *gomock.Controller {
 	s.lifer = mocks.NewMockLifer(ctrl)
 	s.state = mocks.NewMockInstanceMutaterState(ctrl)
 	s.mutatorWatcher = mocks.NewMockInstanceMutatorWatcher(ctrl)
-	s.resources = facademocks.NewMockResources(ctrl)
+	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
 
 	return ctrl
 }
 
 func (s *instanceMutaterAPISuite) facadeAPIForScenario(c *gc.C) *instancemutater.InstanceMutaterAPI {
-	facade, err := instancemutater.NewTestAPI(s.state, s.mutatorWatcher, s.resources, s.authorizer)
+	facade, err := instancemutater.NewTestAPI(s.state, s.mutatorWatcher, s.watcherRegistry, s.authorizer)
 	c.Assert(err, gc.IsNil)
 	return facade
 }
@@ -692,7 +692,7 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) expectWatchMachinesWithNotify(tim
 
 	s.state.EXPECT().WatchMachines().Return(s.watcher)
 	s.watcher.EXPECT().Changes().Return(ch)
-	s.resources.EXPECT().Register(s.watcher).Return("1")
+	s.watcherRegistry.EXPECT().Register(s.watcher).Return("1", nil)
 }
 
 func (s *InstanceMutaterAPIWatchMachinesSuite) expectWatchModelMachinesWithNotify(times int) {
@@ -707,7 +707,7 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) expectWatchModelMachinesWithNotif
 
 	s.state.EXPECT().WatchModelMachines().Return(s.watcher)
 	s.watcher.EXPECT().Changes().Return(ch)
-	s.resources.EXPECT().Register(s.watcher).Return("1")
+	s.watcherRegistry.EXPECT().Register(s.watcher).Return("1", nil)
 }
 
 func (s *InstanceMutaterAPIWatchMachinesSuite) expectWatchMachinesWithClosedChannel() {
@@ -853,7 +853,7 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLX
 	s.machine.EXPECT().IsManual().Return(false, nil)
 	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(s.machine, loggo.GetLogger("juju.apiserver.instancemutater")).Return(s.watcher, nil)
 	s.watcher.EXPECT().Changes().Return(ch)
-	s.resources.EXPECT().Register(s.watcher).Return("1")
+	s.watcherRegistry.EXPECT().Register(s.watcher).Return("1", nil)
 }
 
 func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLXDProfileVerificationNeededWithClosedChannel() {
@@ -955,7 +955,7 @@ func (s *InstanceMutaterAPIWatchContainersSuite) expectWatchContainersWithNotify
 	s.state.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
 	s.machine.EXPECT().WatchContainers(instance.LXD).Return(s.watcher)
 	s.watcher.EXPECT().Changes().Return(ch)
-	s.resources.EXPECT().Register(s.watcher).Return("1")
+	s.watcherRegistry.EXPECT().Register(s.watcher).Return("1", nil)
 }
 
 func (s *InstanceMutaterAPIWatchContainersSuite) expectWatchContainersWithClosedChannel() {

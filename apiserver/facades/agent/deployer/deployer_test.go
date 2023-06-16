@@ -5,30 +5,26 @@ package deployer_test
 
 import (
 	"sort"
-	stdtesting "testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/deployer"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 )
-
-func Test(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type mockLeadershipRevoker struct {
 	revoked set.Strings
@@ -52,9 +48,9 @@ type deployerSuite struct {
 	principal1   *state.Unit
 	subordinate0 *state.Unit
 
-	resources *common.Resources
-	deployer  *deployer.DeployerAPI
-	revoker   *mockLeadershipRevoker
+	watcherRegistry facade.WatcherRegistry
+	deployer        *deployer.DeployerAPI
+	revoker         *mockLeadershipRevoker
 }
 
 var _ = gc.Suite(&deployerSuite{})
@@ -104,17 +100,16 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 		Tag: s.machine1.Tag(),
 	}
 
-	// Create the resource registry separately to track invocations to
-	// Register.
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(_ *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
 
 	s.revoker = &mockLeadershipRevoker{revoked: set.NewStrings()}
 	// Create a deployer API for machine 1.
 	deployer, err := deployer.NewDeployerAPI(
 		facadetest.Context{
 			Auth_:              s.authorizer,
-			Resources_:         s.resources,
+			WatcherRegistry_:   s.watcherRegistry,
 			State_:             s.State,
 			StatePool_:         s.StatePool,
 			LeadershipRevoker_: s.revoker,
@@ -131,7 +126,7 @@ func (s *deployerSuite) TestDeployerFailsWithNonMachineAgentUser(c *gc.C) {
 		facadetest.Context{
 			Auth_:              anAuthorizer,
 			LeadershipRevoker_: s.revoker,
-			Resources_:         s.resources,
+			WatcherRegistry_:   s.watcherRegistry,
 			State_:             s.State,
 		},
 	)
@@ -141,7 +136,7 @@ func (s *deployerSuite) TestDeployerFailsWithNonMachineAgentUser(c *gc.C) {
 }
 
 func (s *deployerSuite) TestWatchUnits(c *gc.C) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	c.Assert(s.watcherRegistry.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-1"},
@@ -160,14 +155,15 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 	})
 
 	// Verify the resource was registered and stop when done
-	c.Assert(s.resources.Count(), gc.Equals, 1)
+	c.Assert(s.watcherRegistry.Count(), gc.Equals, 1)
 	c.Assert(result.Results[0].StringsWatcherId, gc.Equals, "1")
-	resource := s.resources.Get("1")
-	defer workertest.CleanKill(c, resource)
+	watcher, err := s.watcherRegistry.Get("1")
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, watcher)
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
+	wc := statetesting.NewStringsWatcherC(c, watcher.(state.StringsWatcher))
 	wc.AssertNoChange()
 }
 
@@ -184,10 +180,10 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
-			{apiservertesting.ErrUnauthorized},
-			{nil},
-			{apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 	err = s.principal0.Refresh()
@@ -215,7 +211,7 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 }
@@ -283,10 +279,10 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{&params.Error{Message: `cannot remove entity "unit-mysql-0": still alive`}},
-			{apiservertesting.ErrUnauthorized},
-			{&params.Error{Message: `cannot remove entity "unit-logging-0": still alive`}},
-			{apiservertesting.ErrUnauthorized},
+			{Error: &params.Error{Message: `cannot remove entity "unit-mysql-0": still alive`}},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: &params.Error{Message: `cannot remove entity "unit-logging-0": still alive`}},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 	c.Assert(s.revoker.revoked.IsEmpty(), jc.IsTrue)
@@ -311,7 +307,7 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 	result, err = s.deployer.Remove(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{nil}},
+		Results: []params.ErrorResult{{Error: nil}},
 	})
 	c.Assert(s.revoker.revoked.Contains("logging/0"), jc.IsTrue)
 
@@ -322,7 +318,7 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 	result, err = s.deployer.Remove(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{apiservertesting.ErrUnauthorized}},
+		Results: []params.ErrorResult{{Error: apiservertesting.ErrUnauthorized}},
 	})
 }
 
@@ -359,9 +355,9 @@ func (s *deployerSuite) TestSetStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 	sInfo, err := s.principal0.Status()

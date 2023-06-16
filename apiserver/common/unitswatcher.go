@@ -17,44 +17,50 @@ import (
 // UnitsWatcher implements a common WatchUnits method for use by
 // various facades.
 type UnitsWatcher struct {
-	st          state.EntityFinder
-	resources   facade.Resources
-	getCanWatch GetAuthFunc
+	st              state.EntityFinder
+	watcherRegistry facade.WatcherRegistry
+	getCanWatch     GetAuthFunc
 }
 
 // NewUnitsWatcher returns a new UnitsWatcher. The GetAuthFunc will be
 // used on each invocation of WatchUnits to determine current
 // permissions.
-func NewUnitsWatcher(st state.EntityFinder, resources facade.Resources, getCanWatch GetAuthFunc) *UnitsWatcher {
+func NewUnitsWatcher(st state.EntityFinder, watcherRegistry facade.WatcherRegistry, getCanWatch GetAuthFunc) *UnitsWatcher {
 	return &UnitsWatcher{
-		st:          st,
-		resources:   resources,
-		getCanWatch: getCanWatch,
+		st:              st,
+		watcherRegistry: watcherRegistry,
+		getCanWatch:     getCanWatch,
 	}
 }
 
 func (u *UnitsWatcher) watchOneEntityUnits(canWatch AuthFunc, tag names.Tag) (params.StringsWatchResult, error) {
-	nothing := params.StringsWatchResult{}
+	result := params.StringsWatchResult{}
 	if !canWatch(tag) {
-		return nothing, apiservererrors.ErrPerm
+		return result, apiservererrors.ErrPerm
 	}
 	entity0, err := u.st.FindEntity(tag)
 	if err != nil {
-		return nothing, err
+		return result, err
 	}
 	entity, ok := entity0.(state.UnitsWatcher)
 	if !ok {
-		return nothing, apiservererrors.NotSupportedError(tag, "watching units")
+		return result, apiservererrors.NotSupportedError(tag, "watching units")
 	}
 	watch := entity.WatchUnits()
 	// Consume the initial event and forward it to the result.
 	if changes, ok := <-watch.Changes(); ok {
-		return params.StringsWatchResult{
-			StringsWatcherId: u.resources.Register(watch),
-			Changes:          changes,
-		}, nil
+		id, err := u.watcherRegistry.Register(watch)
+		if err != nil {
+			// TODO (stickupkid): This leaks the watcher, we should ensure
+			// we kill/wait it.
+			return params.StringsWatchResult{}, errors.Trace(err)
+		}
+		result.StringsWatcherId = id
+		result.Changes = changes
+		return result, nil
 	}
-	return nothing, watcher.EnsureErr(watch)
+
+	return result, watcher.EnsureErr(watch)
 }
 
 // WatchUnits starts a StringsWatcher to watch all units belonging to

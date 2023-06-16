@@ -4,12 +4,16 @@
 package common_test
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -17,6 +21,8 @@ import (
 
 type modelMachinesWatcherSuite struct {
 	testing.BaseSuite
+
+	watcherRegistry facade.WatcherRegistry
 }
 
 var _ = gc.Suite(&modelMachinesWatcherSuite{})
@@ -30,7 +36,16 @@ func (f *fakeModelMachinesWatcher) WatchModelMachines() state.StringsWatcher {
 	changes := make(chan []string, 1)
 	// Simulate initial event.
 	changes <- f.initial
-	return &fakeStringsWatcher{changes}
+	return &fakeStringsWatcher{changes: changes}
+}
+
+func (s *modelMachinesWatcherSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+
+	var err error
+	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(_ *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
 }
 
 func (s *modelMachinesWatcherSuite) TestWatchModelMachines(c *gc.C) {
@@ -38,17 +53,16 @@ func (s *modelMachinesWatcherSuite) TestWatchModelMachines(c *gc.C) {
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
 	}
-	resources := common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
+
 	e := common.NewModelMachinesWatcher(
 		&fakeModelMachinesWatcher{initial: []string{"foo"}},
-		resources,
+		s.watcherRegistry,
 		authorizer,
 	)
 	result, err := e.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringsWatchResult{"1", []string{"foo"}, nil})
-	c.Assert(resources.Count(), gc.Equals, 1)
+	c.Assert(result, jc.DeepEquals, params.StringsWatchResult{StringsWatcherId: "1", Changes: []string{"foo"}, Error: nil})
+	c.Assert(s.watcherRegistry.Count(), gc.Equals, 1)
 }
 
 func (s *modelMachinesWatcherSuite) TestWatchAuthError(c *gc.C) {
@@ -56,14 +70,12 @@ func (s *modelMachinesWatcherSuite) TestWatchAuthError(c *gc.C) {
 		Tag:        names.NewMachineTag("1"),
 		Controller: false,
 	}
-	resources := common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
 	e := common.NewModelMachinesWatcher(
 		&fakeModelMachinesWatcher{},
-		resources,
+		s.watcherRegistry,
 		authorizer,
 	)
 	_, err := e.WatchModelMachines()
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(resources.Count(), gc.Equals, 0)
+	c.Assert(s.watcherRegistry.Count(), gc.Equals, 0)
 }

@@ -22,7 +22,7 @@ var _ = gc.Suite(&restrictAnonymousSuite{})
 
 func (s *restrictAnonymousSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
-	s.root = apiserver.TestingAnonymousRoot()
+	s.root = apiserver.TestingAnonymousRoot(c)
 }
 
 func (s *restrictAnonymousSuite) TestAllowed(c *gc.C) {

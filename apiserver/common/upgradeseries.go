@@ -83,8 +83,8 @@ func (m *upgradeSeriesMachine) Units() ([]UpgradeSeriesUnit, error) {
 }
 
 type UpgradeSeriesAPI struct {
-	backend   UpgradeSeriesBackend
-	resources facade.Resources
+	backend         UpgradeSeriesBackend
+	watcherRegistry facade.WatcherRegistry
 
 	logger loggo.Logger
 
@@ -97,7 +97,7 @@ type UpgradeSeriesAPI struct {
 // GetAuthFuncs can used to determine current permissions.
 func NewUpgradeSeriesAPI(
 	backend UpgradeSeriesBackend,
-	resources facade.Resources,
+	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
 	accessMachine GetAuthFunc,
 	accessUnit GetAuthFunc,
@@ -106,7 +106,7 @@ func NewUpgradeSeriesAPI(
 	logger.Tracef("NewUpgradeSeriesAPI called with %s", authorizer.GetAuthTag())
 	return &UpgradeSeriesAPI{
 		backend:             backend,
-		resources:           resources,
+		watcherRegistry:     watcherRegistry,
 		accessUnitOrMachine: AuthAny(accessUnit, accessMachine),
 		AccessMachine:       accessMachine,
 		accessUnit:          accessUnit,
@@ -145,7 +145,13 @@ func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications(args params.Entities)
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		watcherId := u.resources.Register(w)
+		watcherId, err := u.watcherRegistry.Register(w)
+		if err != nil {
+			// TODO (stickupkid): This leaks the watcher, we should ensure
+			// we kill/wait it.
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 		result.Results[i].NotifyWatcherId = watcherId
 	}
 	return result, nil
@@ -194,13 +200,13 @@ func (u *UpgradeSeriesAPI) getUnit(tag names.Tag) (UpgradeSeriesUnit, error) {
 // NewExternalUpgradeSeriesAPI can be used for API registration.
 func NewExternalUpgradeSeriesAPI(
 	st *state.State,
-	resources facade.Resources,
+	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
 	accessMachine GetAuthFunc,
 	accessUnit GetAuthFunc,
 	logger loggo.Logger,
 ) *UpgradeSeriesAPI {
-	return NewUpgradeSeriesAPI(UpgradeSeriesState{st}, resources, authorizer, accessMachine, accessUnit, logger)
+	return NewUpgradeSeriesAPI(UpgradeSeriesState{St: st}, watcherRegistry, authorizer, accessMachine, accessUnit, logger)
 }
 
 func (u *UpgradeSeriesAPI) setUnitStatus(args params.UpgradeSeriesStatusParams) (params.ErrorResults, error) {

@@ -30,9 +30,9 @@ type AgentAPI struct {
 	*common.ControllerConfigAPI
 	cloudspec.CloudSpecer
 
-	st        *state.State
-	auth      facade.Authorizer
-	resources facade.Resources
+	st              *state.State
+	auth            facade.Authorizer
+	watcherRegistry facade.WatcherRegistry
 }
 
 func (api *AgentAPI) GetEntities(args params.Entities) params.AgentGetEntitiesResults {
@@ -159,7 +159,14 @@ func (api *AgentAPI) WatchCredentials(args params.Entities) (params.NotifyWatchR
 		// 'transmit' the initial event in the Watch response. But
 		// NotifyWatchers have no state to transmit.
 		if _, ok := <-watch.Changes(); ok {
-			results.Results[i].NotifyWatcherId = api.resources.Register(watch)
+			id, err := api.watcherRegistry.Register(watch)
+			if err != nil {
+				// TODO (stickupkid): This leaks the watcher, we should ensure
+				// we kill/wait it.
+				results.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+			results.Results[i].NotifyWatcherId = id
 		} else {
 			err = watcher.EnsureErr(watch)
 			results.Results[i].Error = apiservererrors.ServerError(err)

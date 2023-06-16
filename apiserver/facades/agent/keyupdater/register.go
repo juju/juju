@@ -37,10 +37,10 @@ func newKeyUpdaterAPI(ctx facade.Context) (*KeyUpdaterAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	return &KeyUpdaterAPI{
-		state:      st,
-		model:      m,
-		resources:  ctx.Resources(),
-		authorizer: authorizer,
-		getCanRead: getCanRead,
+		state:           st,
+		model:           m,
+		watcherRegistry: ctx.WatcherRegistry(),
+		authorizer:      authorizer,
+		getCanRead:      getCanRead,
 	}, nil
 }

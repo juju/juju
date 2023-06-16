@@ -22,7 +22,7 @@ var _ = gc.Suite(&restrictModelSuite{})
 
 func (s *restrictModelSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
-	s.root = apiserver.TestingModelOnlyRoot()
+	s.root = apiserver.TestingModelOnlyRoot(c)
 }
 
 func (s *restrictModelSuite) TestAllowed(c *gc.C) {

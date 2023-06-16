@@ -4,15 +4,17 @@
 package keyupdater_test
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/keyupdater"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/watcher/registry"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -27,7 +29,7 @@ type authorisedKeysSuite struct {
 	rawMachine       *state.Machine
 	unrelatedMachine *state.Machine
 	keyupdater       *keyupdater.KeyUpdaterAPI
-	resources        *common.Resources
+	watcherRegistry  facade.WatcherRegistry
 	authorizer       apiservertesting.FakeAuthorizer
 }
 
@@ -35,11 +37,13 @@ var _ = gc.Suite(&authorisedKeysSuite{})
 
 func (s *authorisedKeysSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+
+	var err error
+	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(_ *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
 
 	// Create machines to work with
-	var err error
 	s.rawMachine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	s.unrelatedMachine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
@@ -50,18 +54,18 @@ func (s *authorisedKeysSuite) SetUpTest(c *gc.C) {
 		Tag: s.rawMachine.Tag(),
 	}
 	s.keyupdater, err = keyupdater.NewKeyUpdaterAPI(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
+		State_:           s.State,
+		WatcherRegistry_: s.watcherRegistry,
+		Auth_:            s.authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *authorisedKeysSuite) TestNewKeyUpdaterAPIAcceptsController(c *gc.C) {
 	endPoint, err := keyupdater.NewKeyUpdaterAPI(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
+		State_:           s.State,
+		WatcherRegistry_: s.watcherRegistry,
+		Auth_:            s.authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endPoint, gc.NotNil)
@@ -71,9 +75,9 @@ func (s *authorisedKeysSuite) TestNewKeyUpdaterAPIRefusesNonMachineAgent(c *gc.C
 	anAuthoriser := s.authorizer
 	anAuthoriser.Tag = names.NewUnitTag("ubuntu/1")
 	endPoint, err := keyupdater.NewKeyUpdaterAPI(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      anAuthoriser,
+		State_:           s.State,
+		WatcherRegistry_: s.watcherRegistry,
+		Auth_:            anAuthoriser,
 	})
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -113,10 +117,11 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *gc.C) {
 	})
 	c.Assert(results.Results[0].NotifyWatcherId, gc.Not(gc.Equals), "")
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	resource := s.resources.Get(results.Results[0].NotifyWatcherId)
-	c.Assert(resource, gc.NotNil)
+	watcher, err := s.watcherRegistry.Get(results.Results[0].NotifyWatcherId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(watcher, gc.NotNil)
 
-	w := resource.(state.NotifyWatcher)
+	w := watcher.(state.NotifyWatcher)
 	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertNoChange()
 

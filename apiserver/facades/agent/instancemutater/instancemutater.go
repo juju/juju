@@ -33,12 +33,12 @@ type InstanceMutaterV2 interface {
 type InstanceMutaterAPI struct {
 	*common.LifeGetter
 
-	st          InstanceMutaterState
-	watcher     InstanceMutatorWatcher
-	resources   facade.Resources
-	authorizer  facade.Authorizer
-	getAuthFunc common.GetAuthFunc
-	logger      loggo.Logger
+	st              InstanceMutaterState
+	watcher         InstanceMutatorWatcher
+	watcherRegistry facade.WatcherRegistry
+	authorizer      facade.Authorizer
+	getAuthFunc     common.GetAuthFunc
+	logger          loggo.Logger
 }
 
 // InstanceMutatorWatcher instances return a lxd profile watcher for a machine.
@@ -54,7 +54,7 @@ type instanceMutatorWatcher struct {
 // charm profiles on juju lxd machines and containers.
 func NewInstanceMutaterAPI(st InstanceMutaterState,
 	watcher InstanceMutatorWatcher,
-	resources facade.Resources,
+	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
 	logger loggo.Logger,
 ) (*InstanceMutaterAPI, error) {
@@ -64,13 +64,13 @@ func NewInstanceMutaterAPI(st InstanceMutaterState,
 
 	getAuthFunc := common.AuthFuncForMachineAgent(authorizer)
 	return &InstanceMutaterAPI{
-		LifeGetter:  common.NewLifeGetter(st, getAuthFunc),
-		st:          st,
-		watcher:     watcher,
-		resources:   resources,
-		authorizer:  authorizer,
-		getAuthFunc: getAuthFunc,
-		logger:      logger,
+		LifeGetter:      common.NewLifeGetter(st, getAuthFunc),
+		st:              st,
+		watcher:         watcher,
+		watcherRegistry: watcherRegistry,
+		authorizer:      authorizer,
+		getAuthFunc:     getAuthFunc,
+		logger:          logger,
 	}, nil
 }
 
@@ -179,7 +179,13 @@ func (api *InstanceMutaterAPI) WatchMachines() (params.StringsWatchResult, error
 
 	watch := api.st.WatchMachines()
 	if changes, ok := <-watch.Changes(); ok {
-		result.StringsWatcherId = api.resources.Register(watch)
+		id, err := api.watcherRegistry.Register(watch)
+		if err != nil {
+			// TODO (stickupkid): This leaks the watcher, we should ensure
+			// we kill/wait it.
+			return result, errors.Trace(err)
+		}
+		result.StringsWatcherId = id
 		result.Changes = changes
 	} else {
 		return result, errors.Errorf("cannot obtain initial model machines")
@@ -198,7 +204,13 @@ func (api *InstanceMutaterAPI) WatchModelMachines() (params.StringsWatchResult, 
 
 	watch := api.st.WatchModelMachines()
 	if changes, ok := <-watch.Changes(); ok {
-		result.StringsWatcherId = api.resources.Register(watch)
+		id, err := api.watcherRegistry.Register(watch)
+		if err != nil {
+			// TODO (stickupkid): This leaks the watcher, we should ensure
+			// we kill/wait it.
+			return result, errors.Trace(err)
+		}
+		result.StringsWatcherId = id
 		result.Changes = changes
 	} else {
 		return result, errors.Errorf("cannot obtain initial model machines")
@@ -224,7 +236,13 @@ func (api *InstanceMutaterAPI) WatchContainers(arg params.Entity) (params.String
 	}
 	watch := machine.WatchContainers(instance.LXD)
 	if changes, ok := <-watch.Changes(); ok {
-		result.StringsWatcherId = api.resources.Register(watch)
+		id, err := api.watcherRegistry.Register(watch)
+		if err != nil {
+			// TODO (stickupkid): This leaks the watcher, we should ensure
+			// we kill/wait it.
+			return result, errors.Trace(err)
+		}
+		result.StringsWatcherId = id
 		result.Changes = changes
 	} else {
 		return result, errors.Errorf("cannot obtain initial machine containers")
@@ -277,7 +295,13 @@ func (api *InstanceMutaterAPI) watchOneEntityApplication(canAccess common.AuthFu
 	}
 	// Consume the initial event before sending the result.
 	if _, ok := <-watch.Changes(); ok {
-		result.NotifyWatcherId = api.resources.Register(watch)
+		id, err := api.watcherRegistry.Register(watch)
+		if err != nil {
+			// TODO (stickupkid): This leaks the watcher, we should ensure
+			// we kill/wait it.
+			return params.NotifyWatchResult{}, errors.Trace(err)
+		}
+		result.NotifyWatcherId = id
 	} else {
 		return result, errors.Errorf("cannot obtain initial machine watch application LXD profiles")
 	}

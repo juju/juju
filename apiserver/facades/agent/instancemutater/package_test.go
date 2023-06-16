@@ -29,7 +29,7 @@ func TestPackage(t *testing.T) {
 func NewTestAPI(
 	st InstanceMutaterState,
 	mutatorWatcher InstanceMutatorWatcher,
-	resources facade.Resources,
+	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
 ) (*InstanceMutaterAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
@@ -39,13 +39,13 @@ func NewTestAPI(
 	getAuthFunc := common.AuthFuncForMachineAgent(authorizer)
 
 	return &InstanceMutaterAPI{
-		LifeGetter:  common.NewLifeGetter(st, getAuthFunc),
-		st:          st,
-		watcher:     mutatorWatcher,
-		resources:   resources,
-		authorizer:  authorizer,
-		getAuthFunc: getAuthFunc,
-		logger:      loggo.GetLogger("juju.apiserver.instancemutater"),
+		LifeGetter:      common.NewLifeGetter(st, getAuthFunc),
+		st:              st,
+		watcher:         mutatorWatcher,
+		watcherRegistry: watcherRegistry,
+		authorizer:      authorizer,
+		getAuthFunc:     getAuthFunc,
+		logger:          loggo.GetLogger("juju.apiserver.instancemutater"),
 	}, nil
 }
 

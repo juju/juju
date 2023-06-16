@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/errors"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/params"
@@ -23,19 +24,19 @@ const watchMachinesQuiesceInterval = 500 * time.Millisecond
 // ModelMachinesWatcher implements a common WatchModelMachines
 // method for use by various facades.
 type ModelMachinesWatcher struct {
-	st         state.ModelMachinesWatcher
-	resources  facade.Resources
-	authorizer facade.Authorizer
+	st              state.ModelMachinesWatcher
+	watcherRegistry facade.WatcherRegistry
+	authorizer      facade.Authorizer
 }
 
 // NewModelMachinesWatcher returns a new ModelMachinesWatcher. The
 // GetAuthFunc will be used on each invocation of WatchUnits to
 // determine current permissions.
-func NewModelMachinesWatcher(st state.ModelMachinesWatcher, resources facade.Resources, authorizer facade.Authorizer) *ModelMachinesWatcher {
+func NewModelMachinesWatcher(st state.ModelMachinesWatcher, watcherRegistry facade.WatcherRegistry, authorizer facade.Authorizer) *ModelMachinesWatcher {
 	return &ModelMachinesWatcher{
-		st:         st,
-		resources:  resources,
-		authorizer: authorizer,
+		st:              st,
+		watcherRegistry: watcherRegistry,
+		authorizer:      authorizer,
 	}
 }
 
@@ -50,13 +51,18 @@ func (e *ModelMachinesWatcher) WatchModelMachines() (params.StringsWatchResult, 
 	watch := e.st.WatchModelMachines()
 	// Consume the initial event and forward it to the result.
 	if changes, ok := <-watch.Changes(); ok {
-		result.StringsWatcherId = e.resources.Register(watch)
+		id, err := e.watcherRegistry.Register(watch)
+		if err != nil {
+			// TODO (stickupkid): This leaks the watcher, we should ensure
+			// we kill/wait it.
+			return params.StringsWatchResult{}, errors.Trace(err)
+		}
+		result.StringsWatcherId = id
 		result.Changes = changes
-	} else {
-		err := watcher.EnsureErr(watch)
-		return result, fmt.Errorf("cannot obtain initial model machines: %v", err)
+		return result, nil
 	}
-	return result, nil
+
+	return result, fmt.Errorf("cannot obtain initial model machines: %v", watcher.EnsureErr(watch))
 }
 
 // WatchModelMachineStartTimes watches the non-container machines in the model
@@ -69,7 +75,13 @@ func (e *ModelMachinesWatcher) WatchModelMachineStartTimes() (params.StringsWatc
 	watch := e.st.WatchModelMachineStartTimes(watchMachinesQuiesceInterval)
 	// Consume the initial event and forward it to the result.
 	if changes, ok := <-watch.Changes(); ok {
-		result.StringsWatcherId = e.resources.Register(watch)
+		id, err := e.watcherRegistry.Register(watch)
+		if err != nil {
+			// TODO (stickupkid): This leaks the watcher, we should ensure
+			// we kill/wait it.
+			return params.StringsWatchResult{}, errors.Trace(err)
+		}
+		result.StringsWatcherId = id
 		result.Changes = changes
 	} else {
 		err := watcher.EnsureErr(watch)

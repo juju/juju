@@ -4,6 +4,7 @@
 package common
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
@@ -23,16 +24,16 @@ type APIAddressAccessor interface {
 // agents, which are bound by the configured controller management space.
 // It is not suitable for callers requiring *all* available API addresses.
 type APIAddresser struct {
-	resources facade.Resources
-	getter    APIAddressAccessor
+	watcherRegistry facade.WatcherRegistry
+	getter          APIAddressAccessor
 }
 
 // NewAPIAddresser returns a new APIAddresser that uses the given getter to
 // fetch its addresses.
-func NewAPIAddresser(getter APIAddressAccessor, resources facade.Resources) *APIAddresser {
+func NewAPIAddresser(getter APIAddressAccessor, watcherRegistry facade.WatcherRegistry) *APIAddresser {
 	return &APIAddresser{
-		getter:    getter,
-		resources: resources,
+		getter:          getter,
+		watcherRegistry: watcherRegistry,
 	}
 }
 
@@ -58,8 +59,15 @@ func (a *APIAddresser) APIHostPorts() (params.APIHostPortsResult, error) {
 func (a *APIAddresser) WatchAPIHostPorts() (params.NotifyWatchResult, error) {
 	watch := a.getter.WatchAPIHostPortsForAgents()
 	if _, ok := <-watch.Changes(); ok {
+		id, err := a.watcherRegistry.Register(watch)
+		if err != nil {
+			// TODO (stickupkid): This leaks the watcher, we should ensure
+			// we kill/wait it.
+			return params.NotifyWatchResult{}, errors.Trace(err)
+		}
+
 		return params.NotifyWatchResult{
-			NotifyWatcherId: a.resources.Register(watch),
+			NotifyWatcherId: id,
 		}, nil
 	}
 	return params.NotifyWatchResult{}, watcher.EnsureErr(watch)

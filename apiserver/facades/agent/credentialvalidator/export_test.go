@@ -7,6 +7,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 )
 
-func NewCredentialValidatorAPIForTest(b Backend, resources facade.Resources, authorizer facade.Authorizer) (*CredentialValidatorAPI, error) {
-	return internalNewCredentialValidatorAPI(b, resources, authorizer)
+func NewCredentialValidatorAPIForTest(b Backend, watcherRegistry facade.WatcherRegistry, authorizer facade.Authorizer) (*CredentialValidatorAPI, error) {
+	return internalNewCredentialValidatorAPI(b, watcherRegistry, authorizer)
 }

@@ -11,8 +11,8 @@ import (
 
 // FacadeV2 is the V2 facade of the caas agent
 type FacadeV2 struct {
-	auth      facade.Authorizer
-	resources facade.Resources
+	auth            facade.Authorizer
+	watcherRegistry facade.WatcherRegistry
 	cloudspec.CloudSpecer
 	*common.ModelWatcher
 	*common.ControllerConfigAPI

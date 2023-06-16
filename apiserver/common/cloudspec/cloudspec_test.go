@@ -6,16 +6,19 @@ package cloudspec_test
 import (
 	"errors"
 
+	"github.com/juju/clock"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/watcher/registry"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -40,7 +43,7 @@ func (s *CloudSpecSuite) SetUpTest(c *gc.C) {
 		s.AddCall("Auth", tag)
 		return tag == coretesting.ModelTag
 	}
-	s.api = s.getTestCloudSpec(apiservertesting.NewFakeNotifyWatcher())
+	s.api = s.getTestCloudSpec(c, apiservertesting.NewFakeNotifyWatcher())
 	credential := cloud.NewCredential(
 		"auth-type",
 		map[string]string{"k": "v"},
@@ -58,9 +61,13 @@ func (s *CloudSpecSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *CloudSpecSuite) getTestCloudSpec(credentialContentWatcher state.NotifyWatcher) cloudspec.CloudSpecAPI {
+func (s *CloudSpecSuite) getTestCloudSpec(c *gc.C, credentialContentWatcher state.NotifyWatcher) cloudspec.CloudSpecAPI {
+	watcherRegistry, err := registry.NewRegistry(clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, watcherRegistry) })
+
 	return cloudspec.NewCloudSpec(
-		common.NewResources(),
+		watcherRegistry,
 		func(tag names.ModelTag) (environscloudspec.CloudSpec, error) {
 			s.AddCall("CloudSpec", tag)
 			return s.result, s.NextErr()
@@ -87,9 +94,9 @@ func (s *CloudSpecSuite) TestCloudSpec(c *gc.C) {
 	otherModelTag := names.NewModelTag(utils.MustNewUUID().String())
 	machineTag := names.NewMachineTag("42")
 	result, err := s.api.CloudSpec(params.Entities{Entities: []params.Entity{
-		{coretesting.ModelTag.String()},
-		{otherModelTag.String()},
-		{machineTag.String()},
+		{Tag: coretesting.ModelTag.String()},
+		{Tag: otherModelTag.String()},
+		{Tag: machineTag.String()},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, jc.DeepEquals, []params.CloudSpecResult{{
@@ -118,10 +125,10 @@ func (s *CloudSpecSuite) TestCloudSpec(c *gc.C) {
 		},
 	}})
 	s.CheckCalls(c, []testing.StubCall{
-		{"GetAuthFunc", nil},
-		{"Auth", []interface{}{coretesting.ModelTag}},
-		{"CloudSpec", []interface{}{coretesting.ModelTag}},
-		{"Auth", []interface{}{otherModelTag}},
+		{FuncName: "GetAuthFunc", Args: nil},
+		{FuncName: "Auth", Args: []interface{}{coretesting.ModelTag}},
+		{FuncName: "CloudSpec", Args: []interface{}{coretesting.ModelTag}},
+		{FuncName: "Auth", Args: []interface{}{otherModelTag}},
 	})
 }
 
@@ -129,9 +136,9 @@ func (s *CloudSpecSuite) TestWatchCloudSpecsChanges(c *gc.C) {
 	otherModelTag := names.NewModelTag(utils.MustNewUUID().String())
 	machineTag := names.NewMachineTag("42")
 	result, err := s.api.WatchCloudSpecsChanges(params.Entities{Entities: []params.Entity{
-		{coretesting.ModelTag.String()},
-		{otherModelTag.String()},
-		{machineTag.String()},
+		{Tag: coretesting.ModelTag.String()},
+		{Tag: otherModelTag.String()},
+		{Tag: machineTag.String()},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, jc.DeepEquals, []params.NotifyWatchResult{{
@@ -147,37 +154,37 @@ func (s *CloudSpecSuite) TestWatchCloudSpecsChanges(c *gc.C) {
 		},
 	}})
 	s.CheckCalls(c, []testing.StubCall{
-		{"GetAuthFunc", nil},
-		{"Auth", []interface{}{coretesting.ModelTag}},
-		{"WatchCloudSpec", []interface{}{coretesting.ModelTag}},
-		{"WatchCredentialReference", []interface{}{coretesting.ModelTag}},
-		{"WatchCredentialContent", []interface{}{coretesting.ModelTag}},
-		{"Auth", []interface{}{otherModelTag}},
+		{FuncName: "GetAuthFunc", Args: nil},
+		{FuncName: "Auth", Args: []interface{}{coretesting.ModelTag}},
+		{FuncName: "WatchCloudSpec", Args: []interface{}{coretesting.ModelTag}},
+		{FuncName: "WatchCredentialReference", Args: []interface{}{coretesting.ModelTag}},
+		{FuncName: "WatchCredentialContent", Args: []interface{}{coretesting.ModelTag}},
+		{FuncName: "Auth", Args: []interface{}{otherModelTag}},
 	})
 }
 
 func (s *CloudSpecSuite) TestWatchCloudSpecsNoCredentialContentToWatch(c *gc.C) {
-	s.api = s.getTestCloudSpec(nil)
+	s.api = s.getTestCloudSpec(c, nil)
 	result, err := s.api.WatchCloudSpecsChanges(params.Entities{Entities: []params.Entity{
-		{coretesting.ModelTag.String()},
+		{Tag: coretesting.ModelTag.String()},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, jc.DeepEquals, []params.NotifyWatchResult{{
 		NotifyWatcherId: "1",
 	}})
 	s.CheckCalls(c, []testing.StubCall{
-		{"GetAuthFunc", nil},
-		{"Auth", []interface{}{coretesting.ModelTag}},
-		{"WatchCloudSpec", []interface{}{coretesting.ModelTag}},
-		{"WatchCredentialReference", []interface{}{coretesting.ModelTag}},
-		{"WatchCredentialContent", []interface{}{coretesting.ModelTag}},
+		{FuncName: "GetAuthFunc", Args: nil},
+		{FuncName: "Auth", Args: []interface{}{coretesting.ModelTag}},
+		{FuncName: "WatchCloudSpec", Args: []interface{}{coretesting.ModelTag}},
+		{FuncName: "WatchCredentialReference", Args: []interface{}{coretesting.ModelTag}},
+		{FuncName: "WatchCredentialContent", Args: []interface{}{coretesting.ModelTag}},
 	})
 }
 
 func (s *CloudSpecSuite) TestCloudSpecNilCredential(c *gc.C) {
 	s.result.Credential = nil
 	result, err := s.api.CloudSpec(params.Entities{
-		Entities: []params.Entity{{coretesting.ModelTag.String()}},
+		Entities: []params.Entity{{Tag: coretesting.ModelTag.String()}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, jc.DeepEquals, []params.CloudSpecResult{{
@@ -199,7 +206,7 @@ func (s *CloudSpecSuite) TestCloudSpecGetAuthFuncError(c *gc.C) {
 	expect := errors.New("bewm")
 	s.SetErrors(expect)
 	result, err := s.api.CloudSpec(params.Entities{
-		Entities: []params.Entity{{coretesting.ModelTag.String()}},
+		Entities: []params.Entity{{Tag: coretesting.ModelTag.String()}},
 	})
 	c.Assert(err, gc.Equals, expect)
 	c.Assert(result, jc.DeepEquals, params.CloudSpecResults{})
@@ -208,7 +215,7 @@ func (s *CloudSpecSuite) TestCloudSpecGetAuthFuncError(c *gc.C) {
 func (s *CloudSpecSuite) TestCloudSpecCloudSpecError(c *gc.C) {
 	s.SetErrors(nil, errors.New("bewm"))
 	result, err := s.api.CloudSpec(params.Entities{
-		Entities: []params.Entity{{coretesting.ModelTag.String()}},
+		Entities: []params.Entity{{Tag: coretesting.ModelTag.String()}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.CloudSpecResults{Results: []params.CloudSpecResult{{

@@ -37,7 +37,6 @@ func (s *unitStateSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *unitStateSuite) assertBackendApi(c *gc.C) *gomock.Controller {
-	resources := common.NewResources()
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: s.unitTag1,
 	}
@@ -57,7 +56,7 @@ func (s *unitStateSuite) assertBackendApi(c *gc.C) *gomock.Controller {
 	}
 
 	s.api = common.NewUnitStateAPI(
-		s.mockBackend, resources, authorizer, unitAuthFunc, loggo.GetLogger("juju.apiserver.common"))
+		s.mockBackend, authorizer, unitAuthFunc, loggo.GetLogger("juju.apiserver.common"))
 	return ctrl
 }
 
