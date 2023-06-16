@@ -11,11 +11,11 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/changestream"
-	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/database"
 	"github.com/juju/retry"
 	"gopkg.in/tomb.v2"
+
+	"github.com/juju/juju/core/changestream"
+	coredatabase "github.com/juju/juju/core/database"
 )
 
 const (
@@ -134,16 +134,10 @@ type window struct {
 }
 
 // contains returns true if the window contains the given time.
+// Note: This assumes there isn't any clock drift!
 func (w *window) contains(t time.Time) bool {
 	return t.Compare(w.start) >= 0 && t.Compare(w.end) <= 0
 }
-
-var (
-	// staticModelUUIDs is a slice of models that should always be pruned.
-	staticModelUUIDs = []Model{
-		{UUID: coredatabase.ControllerNS},
-	}
-)
 
 func (w *Pruner) prune() (map[string]int64, error) {
 	traceEnabled := w.cfg.Logger.IsTraceEnabled()
@@ -174,7 +168,9 @@ func (w *Pruner) prune() (map[string]int64, error) {
 
 	// To ensure we always prune the change log for the controller, we add it
 	// to the list of models to prune.
-	models = append(staticModelUUIDs, models...)
+	models = append([]Model{
+		{UUID: coredatabase.ControllerNS},
+	}, models...)
 
 	// Prune each and every model found in the model list. This
 	pruned := make(map[string]int64)
@@ -209,18 +205,8 @@ func (w *Pruner) pruneModel(ctx context.Context, namespace string) (int64, error
 
 	var pruned int64
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Check to see if the change_log_witness table exists. This is required
-		// because the pruner might actually see the model id in the model_list
-		// table, before the schema has been applied to the model database.
-		if exists, err := w.tableExists(ctx, tx); err != nil {
-			return errors.Annotatef(err, "failed to check if change_log_witness table exists")
-		} else if !exists {
-			w.cfg.Logger.Debugf("Skipping pruning for model %q, change_log_witness table does not exist", namespace)
-			return nil
-		}
-
 		// Prune any witnesses that are no longer valid.
-		if err := w.pruneWitnessTable(ctx, tx); err != nil {
+		if err := w.curateControllerWitnesses(ctx, tx); err != nil {
 			return errors.Annotatef(err, "failed to prune change_log_witness table")
 		}
 
@@ -236,27 +222,6 @@ func (w *Pruner) pruneModel(ctx context.Context, namespace string) (int64, error
 		return errors.Annotatef(err, "failed to prune change log")
 	})
 	return pruned, errors.Trace(err)
-}
-
-// Table represents a row from the sqlite_master table.
-type Table struct {
-	Name string `db:"name"`
-}
-
-var tableExistsQuery = sqlair.MustPrepare(`SELECT (name) AS &Table.* FROM sqlite_schema WHERE type='table' AND name='change_log_witness';`, Table{})
-
-// tableExists returns true if the change_log_witness table exists. This is
-// because the pruner might actually see the model id in the model_list
-// table, before the schema has been applied to the model database.
-func (w *Pruner) tableExists(ctx context.Context, tx *sqlair.TX) (bool, error) {
-	var t Table
-	if err := tx.Query(ctx, tableExistsQuery).Get(&t); err != nil {
-		if database.IsErrNotFound(err) {
-			return false, nil
-		}
-		return false, errors.Trace(err)
-	}
-	return t.Name == "change_log_witness", nil
 }
 
 // ChangeLog represents a row from the change_log table.
@@ -292,7 +257,7 @@ func (w *Pruner) locateLowestWatermark(ctx context.Context, tx *sqlair.TX, names
 	// Gather all the watermarks that are within the windowed time period.
 	// If there are no watermarks within the window, then we can assume
 	// that the stream is keeping up and we don't need to prune anything.
-	lowest, ok := lowestWatermark(watermarks, w.cfg.Clock.Now())
+	lowest, ok := w.lowestWatermark(watermarks, w.cfg.Clock.Now())
 	if !ok {
 		// Check to see if the latest change log has a valid log in the last
 		// window duration, if not, then we can assume that the stream is not
@@ -310,7 +275,7 @@ func (w *Pruner) locateLowestWatermark(ctx context.Context, tx *sqlair.TX, names
 		if len(changes) < changestream.DefaultNumTermWatermarks {
 			return Watermark{}, nil
 		}
-		w.cfg.Logger.Infof("No watermarks within window, check logs to see if the change stream is keeping up")
+		w.cfg.Logger.Warningf("No watermarks within window, check logs to see if the change stream is keeping up")
 		return Watermark{}, nil
 	}
 	return lowest, nil
@@ -318,7 +283,7 @@ func (w *Pruner) locateLowestWatermark(ctx context.Context, tx *sqlair.TX, names
 
 var pruneQuery = sqlair.MustPrepare(`DELETE FROM change_log_witness WHERE controller_id NOT IN (SELECT controller_id FROM controller_node);`)
 
-func (w *Pruner) pruneWitnessTable(ctx context.Context, tx *sqlair.TX) error {
+func (w *Pruner) curateControllerWitnesses(ctx context.Context, tx *sqlair.TX) error {
 	// Prune the change log witness table, this ensures that we don't have
 	// any dangling watermarks. As the controller_node table is HA aware,
 	// which is kept up to date, we can use that to remove any rows from
@@ -341,7 +306,7 @@ func (w *Pruner) deleteChangeLog(ctx context.Context, tx *sqlair.TX, lowest Wate
 	return pruned, errors.Trace(err)
 }
 
-func lowestWatermark(watermarks []Watermark, now time.Time) (Watermark, bool) {
+func (w *Pruner) lowestWatermark(watermarks []Watermark, now time.Time) (Watermark, bool) {
 	// Select the lower bound of the watermark, only if the updated_at time
 	// is within a windowed time period.
 	var (
@@ -354,9 +319,19 @@ func lowestWatermark(watermarks []Watermark, now time.Time) (Watermark, bool) {
 		}
 	)
 	for _, watermark := range watermarks {
-		// If the watermark is outside of the window, skip it.
+		// TODO (stickupkid): If any watermarks are outside of the window, then
+		// we should force the falling behind controller to bounce and to try
+		// again at keeping up. We don't have any mechanism to do this yet,
+		// adding a item to table might be a waste of time. If the controller
+		// isn't inserting into the change log, they're either bouncing all the
+		// time or are deadlocked. If they're the latter no amount of inserting
+		// into a table will solve the problem, as they're not reading the
+		// change log anyway.
+		// In addition to this, we have no theatre experience about what a
+		// good valid window time is. For now we'll just log a warning for
+		// visibility, before we solidify the approach.
 		if !view.contains(watermark.UpdatedAt) {
-			continue
+			w.cfg.Logger.Warningf("Watermark %q is outside of window, check logs to see if the change stream is keeping up", watermark.ControllerID)
 		}
 
 		// Select the lower bound of the watermark.

@@ -10,7 +10,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -196,7 +195,7 @@ func (s *workerSuite) TestPruneModelChangeLogWitness(c *gc.C) {
 
 	result, err := pruner.pruneModel(context.Background(), "foo")
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(result, gc.Equals, int64(0))
+	c.Check(result, gc.Equals, int64(1))
 
 	s.expectChangeLogWitnesses(c, s.TxnRunner(), []Watermark{{
 		ControllerID: "0",
@@ -222,7 +221,7 @@ func (s *workerSuite) TestPruneModelRemovesExpiredWatermarks(c *gc.C) {
 
 	result, err := pruner.pruneModel(context.Background(), "foo")
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(result, gc.Equals, int64(0))
+	c.Check(result, gc.Equals, int64(1))
 
 	s.expectChangeLogWitnesses(c, s.TxnRunner(), []Watermark{{
 		ControllerID: "0",
@@ -231,11 +230,13 @@ func (s *workerSuite) TestPruneModelRemovesExpiredWatermarks(c *gc.C) {
 	}})
 }
 
-func (s *workerSuite) TestPruneModelDoesNotLogWarning(c *gc.C) {
+func (s *workerSuite) TestPruneModelLogsWarning(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectDBGet("foo", s.TxnRunner())
 	s.expectClock()
+
+	s.logger.EXPECT().Warningf("Watermark %q is outside of window, check logs to see if the change stream is keeping up", "0").Do(c.Logf)
 
 	pruner := s.newPruner(c)
 
@@ -249,30 +250,7 @@ func (s *workerSuite) TestPruneModelDoesNotLogWarning(c *gc.C) {
 
 	result, err := pruner.pruneModel(context.Background(), "foo")
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(result, gc.Equals, int64(0))
-}
-
-func (s *workerSuite) TestPruneModelLogsWarning(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.expectDBGet("foo", s.TxnRunner())
-	s.expectClock()
-
-	s.logger.EXPECT().Infof("No watermarks within window, check logs to see if the change stream is keeping up").Do(c.Logf)
-
-	pruner := s.newPruner(c)
-
-	now := time.Now()
-
-	s.insertControllerNodes(c, 2)
-	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "0", LowerBound: 1, UpdatedAt: now.Add(-(defaultWindowDuration + time.Second))})
-	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "3", LowerBound: 1, UpdatedAt: now.Add(-(defaultWindowDuration + time.Minute))})
-
-	s.insertChangeLogItems(c, s.TxnRunner(), changestream.DefaultNumTermWatermarks, now)
-
-	result, err := pruner.pruneModel(context.Background(), "foo")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(result, gc.Equals, int64(0))
+	c.Check(result, gc.Equals, int64(1))
 }
 
 func (s *workerSuite) TestPruneModelRemovesChangeLogItems(c *gc.C) {
@@ -346,9 +324,9 @@ func (s *workerSuite) TestPruneModelRemovesChangeLogItemsWithMultipleWatermarksW
 
 	result, err := pruner.pruneModel(context.Background(), "foo")
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(result, gc.Equals, int64(3+totalCtrlNodes))
+	c.Check(result, gc.Equals, int64(2+totalCtrlNodes))
 
-	s.expectChangeLogItems(c, s.TxnRunner(), 7, 1003, 1010)
+	s.expectChangeLogItems(c, s.TxnRunner(), 8, 1002, 1010)
 }
 
 func (s *workerSuite) TestPruneModelRemovesChangeLogItemsWithMultipleWatermarksMoreWatermarks(c *gc.C) {
@@ -409,6 +387,10 @@ func (s *workerSuite) TestWindowContains(c *gc.C) {
 }
 
 func (s *workerSuite) TestLowestWatermark(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs(c)
+
 	now := time.Now()
 	testCases := []struct {
 		watermarks []Watermark
@@ -451,15 +433,18 @@ func (s *workerSuite) TestLowestWatermark(c *gc.C) {
 			{ControllerID: "0", LowerBound: 2, UpdatedAt: now.Add(-(defaultWindowDuration + time.Second))},
 			{ControllerID: "1", LowerBound: 1, UpdatedAt: now.Add(-(defaultWindowDuration + time.Second))},
 		},
-		now:        now,
-		expected:   Watermark{},
-		expectedOK: false,
+		now: now,
+		// TODO (stickupkid): This should be false, but we need a strategy for
+		// removing nodes that are not keeping up. We're logging a warning
+		// instead.
+		expected:   Watermark{ControllerID: "1", LowerBound: 1, UpdatedAt: now.Add(-(defaultWindowDuration + time.Second))},
+		expectedOK: true,
 	}}
 
 	for i, test := range testCases {
 		c.Logf("test %d", i)
 
-		got, ok := lowestWatermark(test.watermarks, test.now)
+		got, ok := s.newPruner(c).lowestWatermark(test.watermarks, test.now)
 		c.Check(got, jc.DeepEquals, test.expected)
 		c.Check(ok, gc.Equals, test.expectedOK)
 	}
