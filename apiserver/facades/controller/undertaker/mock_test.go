@@ -76,10 +76,6 @@ func (m *mockState) Model() (undertaker.Model, error) {
 	return m.model, nil
 }
 
-func (m *mockState) ModelConfig() (*config.Config, error) {
-	return &config.Config{}, nil
-}
-
 func (m *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
 	if tag.Kind() == names.ModelTagKind && tag.Id() == m.model.UUID() {
 		return m.model, nil
@@ -98,12 +94,13 @@ func (m *mockState) ModelUUID() string {
 // mockModel implements Model interface and allows inspection of called
 // methods.
 type mockModel struct {
-	owner   names.UserTag
-	life    state.Life
-	name    string
-	uuid    string
-	forced  bool
-	timeout *time.Duration
+	owner       names.UserTag
+	life        state.Life
+	name        string
+	uuid        string
+	forced      bool
+	timeout     *time.Duration
+	modelConfig config.Config
 
 	status     status.Status
 	statusInfo string
@@ -150,6 +147,18 @@ func (m *mockModel) SetStatus(sInfo status.StatusInfo) error {
 	m.statusInfo = sInfo.Message
 	m.statusData = sInfo.Data
 	return nil
+}
+
+func (m *mockModel) WatchForModelConfigChanges() state.NotifyWatcher {
+	return nil
+}
+
+func (m *mockModel) Watch() state.NotifyWatcher {
+	return nil
+}
+
+func (m *mockModel) ModelConfig() (*config.Config, error) {
+	return &m.modelConfig, nil
 }
 
 type mockWatcher struct {

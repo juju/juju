@@ -90,6 +90,13 @@ proceed to the next step until the current step has finished.
 However, when using --force, users can also specify --no-wait to progress through steps 
 without delay waiting for each step to complete.
 
+WARNING: Passing --force with --model-timeout will continue the final destruction without
+consideration or respect for clean shutdown or resource cleanup. If model-timeout 
+elapses with --force, you may have resources left behind that will require
+manual cleanup. If --force --model-timeout 0 is passed, the models are brutally
+removed with haste. It is recommended to use graceful destroy (without --force, --no-wait or
+--model-timeout).
+
 Examples:
     # Destroy the controller and all hosted models. If there is
     # persistent storage remaining in any of the models, then
@@ -161,7 +168,7 @@ func (c *destroyCommand) Info() *cmd.Info {
 	})
 }
 
-const defaultTimeout = 30 * time.Minute
+const unsetTimeout = -1 * time.Second
 
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -169,7 +176,7 @@ func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.destroyModels, "destroy-all-models", false, "Destroy all hosted models in the controller")
 	f.BoolVar(&c.destroyStorage, "destroy-storage", false, "Destroy all storage instances managed by the controller")
 	f.BoolVar(&c.releaseStorage, "release-storage", false, "Release all storage instances from management of the controller, without destroying them")
-	f.DurationVar(&c.modelTimeout, "model-timeout", defaultTimeout, "Timeout before each individual hosted model destruction is aborted")
+	f.DurationVar(&c.modelTimeout, "model-timeout", unsetTimeout, "Timeout for each step of force model destruction")
 	f.BoolVar(&c.force, "force", false, "Force destroy hosted models ignoring any errors")
 	f.BoolVar(&c.noWait, "no-wait", false, "Rush through hosted model destruction without waiting for each individual step to complete")
 }
@@ -178,6 +185,9 @@ func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *destroyCommand) Init(args []string) error {
 	if c.destroyStorage && c.releaseStorage {
 		return errors.New("--destroy-storage and --release-storage cannot both be specified")
+	}
+	if !c.force && c.modelTimeout >= 0 {
+		return errors.New("--model-timeout can only be used with --force (dangerous)")
 	}
 	return c.destroyCommandBase.Init(args)
 }
@@ -276,12 +286,17 @@ upgrade the controller to version 2.3 or greater.
 			}
 		}
 
+		var modelTimeout *time.Duration
+		if c.modelTimeout >= 0 {
+			modelTimeout = &c.modelTimeout
+		}
+
 		err = api.DestroyController(controllerapi.DestroyControllerParams{
 			DestroyModels:  c.destroyModels,
 			DestroyStorage: destroyStorage,
 			Force:          force,
 			MaxWait:        maxWait,
-			ModelTimeout:   &c.modelTimeout,
+			ModelTimeout:   modelTimeout,
 		})
 		if err != nil {
 			if params.IsCodeHasHostedModels(err) {

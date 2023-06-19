@@ -39,7 +39,7 @@ type DestroySuite struct {
 	budgetAPIClient *mockBudgetAPIClient
 	store           *jujuclient.MemStore
 
-	clock *testclock.Clock
+	clock testclock.AdvanceableClock
 }
 
 var _ = gc.Suite(&DestroySuite{})
@@ -59,7 +59,7 @@ func (f *fakeAPI) BestAPIVersion() int {
 	return f.bestAPIVersion
 }
 
-func (f *fakeAPI) DestroyModel(tag names.ModelTag, destroyStorage *bool, force *bool, maxWait *time.Duration, timeout time.Duration) error {
+func (f *fakeAPI) DestroyModel(tag names.ModelTag, destroyStorage *bool, force *bool, maxWait *time.Duration, timeout *time.Duration) error {
 	f.MethodCall(f, "DestroyModel", tag, destroyStorage, force, maxWait, timeout)
 	return f.NextErr()
 }
@@ -109,7 +109,7 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 	}
 	s.configAPI = &fakeConfigAPI{}
 	s.storageAPI = &mockStorageAPI{Stub: s.stub}
-	s.clock = testclock.NewClock(time.Now())
+	s.clock = testclock.NewDilatedWallClock(100 * time.Millisecond)
 
 	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "test1"
@@ -172,11 +172,6 @@ func (s *DestroySuite) TestDestroyMaxWaitWithoutForce(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `--no-wait without --force not valid`)
 }
 
-func (s *DestroySuite) TestDestroyNegativeTimeout(c *gc.C) {
-	_, err := s.runDestroyCommand(c, "model", "--timeout=-1s")
-	c.Assert(err, gc.ErrorMatches, `timeout must be zero or greater`)
-}
-
 func (s *DestroySuite) TestDestroyUnknownModelCallsRefresh(c *gc.C) {
 	called := false
 	refresh := func(jujuclient.ClientStore, string) error {
@@ -204,8 +199,6 @@ func (s *DestroySuite) TestSystemDestroyFails(c *gc.C) {
 	checkModelExistsInStore(c, "test1:admin/test1", s.store)
 }
 
-var timeout = 30 * time.Minute
-
 func (s *DestroySuite) TestDestroy(c *gc.C) {
 	checkModelExistsInStore(c, "test1:admin/test2", s.store)
 	_, err := s.runDestroyCommand(c, "test2", "-y")
@@ -213,7 +206,7 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
 	s.stub.CheckCalls(c, []jutesting.StubCall{
 		{"DestroyModel",
-			[]interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil), timeout}},
+			[]interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil), (*time.Duration)(nil)}},
 	})
 }
 
@@ -224,7 +217,7 @@ func (s *DestroySuite) TestDestroyWithPartModelUUID(c *gc.C) {
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
 	s.stub.CheckCalls(c, []jutesting.StubCall{
 		{"DestroyModel",
-			[]interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil), timeout}},
+			[]interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil), (*time.Duration)(nil)}},
 	})
 }
 
@@ -235,8 +228,26 @@ func (s *DestroySuite) TestDestroyWithForce(c *gc.C) {
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
 	force := true
 	s.stub.CheckCalls(c, []jutesting.StubCall{
-		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), &force, (*time.Duration)(nil), timeout}},
+		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), &force, (*time.Duration)(nil), (*time.Duration)(nil)}},
 	})
+}
+
+func (s *DestroySuite) TestDestroyWithForceTimeout(c *gc.C) {
+	checkModelExistsInStore(c, "test1:admin/test2", s.store)
+	_, err := s.runDestroyCommand(c, "test2", "-y", "--force", "--timeout", "30m")
+	c.Assert(err, jc.ErrorIsNil)
+	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
+	force := true
+	timeout := 30 * time.Minute
+	s.stub.CheckCalls(c, []jutesting.StubCall{
+		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), &force, (*time.Duration)(nil), &timeout}},
+	})
+}
+
+func (s *DestroySuite) TestDestroyWithTimeoutNoForce(c *gc.C) {
+	checkModelExistsInStore(c, "test1:admin/test2", s.store)
+	_, err := s.runDestroyCommand(c, "test2", "-y", "--timeout", "30m")
+	c.Assert(err, gc.ErrorMatches, `--timeout can only be used with --force \(dangerous\)`)
 }
 
 func (s *DestroySuite) TestDestroyWithForceNoWait(c *gc.C) {
@@ -247,7 +258,7 @@ func (s *DestroySuite) TestDestroyWithForceNoWait(c *gc.C) {
 	force := true
 	maxWait := 0 * time.Second
 	s.stub.CheckCalls(c, []jutesting.StubCall{
-		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), &force, &maxWait, timeout}},
+		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), &force, &maxWait, (*time.Duration)(nil)}},
 	})
 }
 
@@ -279,7 +290,7 @@ func (s *DestroySuite) TestDestroyWithSupportedSLA(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test2", "-y")
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []jutesting.StubCall{
-		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil), timeout}},
+		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil), (*time.Duration)(nil)}},
 		{"DeleteBudget", []interface{}{"test2-uuid"}},
 	})
 }
@@ -290,7 +301,7 @@ func (s *DestroySuite) TestDestroyWithSupportedSLAFailure(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test2", "-y")
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []jutesting.StubCall{
-		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil), timeout}},
+		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil), (*time.Duration)(nil)}},
 		{"DeleteBudget", []interface{}{"test2-uuid"}},
 	})
 }
@@ -300,7 +311,7 @@ func (s *DestroySuite) TestDestroyDestroyStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	destroyStorage := true
 	s.stub.CheckCalls(c, []jutesting.StubCall{
-		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), &destroyStorage, (*bool)(nil), (*time.Duration)(nil), timeout}},
+		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), &destroyStorage, (*bool)(nil), (*time.Duration)(nil), (*time.Duration)(nil)}},
 	})
 }
 
@@ -309,7 +320,7 @@ func (s *DestroySuite) TestDestroyReleaseStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	destroyStorage := false
 	s.stub.CheckCalls(c, []jutesting.StubCall{
-		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), &destroyStorage, (*bool)(nil), (*time.Duration)(nil), timeout}},
+		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), &destroyStorage, (*bool)(nil), (*time.Duration)(nil), (*time.Duration)(nil)}},
 	})
 }
 
@@ -422,118 +433,6 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 
 		// Add the test2 model back into the store for the next test
 		s.resetModel(c)
-	}
-}
-
-func (s *DestroySuite) TestDestroyCommandWait(c *gc.C) {
-	checkModelExistsInStore(c, "test1:admin/test2", s.store)
-
-	s.api.modelInfoErr = []*params.Error{nil, nil, nil}
-	s.api.modelStatusPayload = []base.ModelStatus{{
-		ApplicationCount:   2,
-		HostedMachineCount: 1,
-		Volumes: []base.Volume{
-			{Detachable: true, Status: "error", Message: "failed to destroy volume 0", Id: "0"},
-			{Detachable: true, Status: "error", Message: "failed to destroy volume 1", Id: "1"},
-			{Detachable: true, Status: "error", Message: "failed to destroy volume 2", Id: "2"},
-		},
-		Filesystems: []base.Filesystem{
-			{Detachable: true, Status: "error", Message: "failed to destroy filesystem 0", Id: "0"},
-			{Detachable: true, Status: "error", Message: "failed to destroy filesystem 1", Id: "1"},
-		},
-	}}
-
-	done := make(chan struct{}, 1)
-	outErr := make(chan error, 1)
-	outStdOut := make(chan string, 1)
-	outStdErr := make(chan string, 1)
-
-	go func() {
-		// run destroy model cmd, and timeout in 3s.
-		ctx, err := s.runDestroyCommand(c, "test2", "-y", "-t", "3s")
-		outStdOut <- cmdtesting.Stdout(ctx)
-		outStdErr <- cmdtesting.Stderr(ctx)
-		outErr <- err
-		done <- struct{}{}
-	}()
-
-	c.Assert(s.clock.WaitAdvance(5*time.Second, testing.LongWait, 2), jc.ErrorIsNil)
-
-	select {
-	case <-done:
-		c.Assert(<-outStdErr, gc.Equals, `
-Destroying model
-Waiting for model to be removed, 5 error(s), 1 machine(s), 2 application(s), 3 volume(s), 2 filesystems(s)....
-The following resources have not yet been removed:
- - 1 machine(s)
- - 2 application(s)
- - 3 volume(s)
- - 2 filesystems(s)
-Because the destroy model operation did not finish, there may be cloud resources left behind.
-Run 'destroy-model <model-name> --timeout=0 --force' to clean up the Juju model database records
-even with potentially orphaned cloud resources.
-`[1:])
-		c.Assert(<-outStdOut, gc.Equals, `
-
-The following errors were encountered during destroying the model.
-You can fix the problem causing the errors and run destroy-model again.
-
-Resource    ID  Message
-Filesystem  0   failed to destroy filesystem 0
-            1   failed to destroy filesystem 1
-Volume      0   failed to destroy volume 0
-            1   failed to destroy volume 1
-            2   failed to destroy volume 2
-`[1:])
-		// timeout after 3s.
-		c.Assert(<-outErr, jc.Satisfies, errors.IsTimeout)
-		checkModelExistsInStore(c, "test1:admin/test2", s.store)
-	case <-time.After(testing.LongWait):
-		c.Fatalf("timed out waiting for destroy cmd.")
-	}
-}
-
-func (s *DestroySuite) TestDestroyCommandLeanMessage(c *gc.C) {
-	checkModelExistsInStore(c, "test1:admin/test2", s.store)
-
-	s.api.modelInfoErr = []*params.Error{nil, nil, nil}
-	s.api.modelStatusPayload = []base.ModelStatus{{
-		ApplicationCount:   0,
-		HostedMachineCount: 0,
-		Volumes:            []base.Volume{},
-		Filesystems:        []base.Filesystem{},
-	}}
-
-	done := make(chan struct{}, 1)
-	outErr := make(chan error, 1)
-	outStdOut := make(chan string, 1)
-	outStdErr := make(chan string, 1)
-
-	go func() {
-		// run destroy model cmd, and timeout in 3s.
-		ctx, err := s.runDestroyCommand(c, "test2", "-y", "-t", "3s")
-		outStdOut <- cmdtesting.Stdout(ctx)
-		outStdErr <- cmdtesting.Stderr(ctx)
-		outErr <- err
-		done <- struct{}{}
-	}()
-
-	c.Assert(s.clock.WaitAdvance(5*time.Second, testing.LongWait, 2), jc.ErrorIsNil)
-
-	select {
-	case <-done:
-		c.Assert(<-outStdErr, gc.Equals, `
-Destroying model
-Waiting for model to be removed....
-Because the destroy model operation did not finish, there may be cloud resources left behind.
-Run 'destroy-model <model-name> --timeout=0 --force' to clean up the Juju model database records
-even with potentially orphaned cloud resources.
-`[1:])
-		// timeout after 3s.
-		c.Assert(<-outErr, jc.Satisfies, errors.IsTimeout)
-		checkModelExistsInStore(c, "test1:admin/test2", s.store)
-	case <-time.After(testing.LongWait):
-		c.Fatalf("timed out waiting for destroy cmd.")
 	}
 }
 

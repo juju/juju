@@ -41,6 +41,15 @@ func IsDead(v Value) bool {
 	return v == Dead
 }
 
+// IsAlive is a Predicate that returns true if the supplied value
+// is Alive.
+//
+// This generally indicates that the entity in question is expected
+// to be existing for now and not going away or gone completely.
+func IsAlive(v Value) bool {
+	return v == Alive
+}
+
 // IsNotAlive is a Predicate that returns true if the supplied value
 // is not Alive.
 //

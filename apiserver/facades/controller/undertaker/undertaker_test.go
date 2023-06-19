@@ -37,7 +37,7 @@ func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, modelName str
 	}
 
 	st := newMockState(names.NewUserTag("admin"), modelName, isSystem)
-	api, err := undertaker.NewUndertaker(st, nil, authorizer)
+	api, err := undertaker.NewUndertaker(st, nil, authorizer, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return st, api
 }
@@ -49,11 +49,7 @@ func (s *undertakerSuite) TestNoPerms(c *gc.C) {
 		Tag: names.NewUserTag("bob"),
 	}} {
 		st := newMockState(names.NewUserTag("admin"), "admin", true)
-		_, err := undertaker.NewUndertaker(
-			st,
-			nil,
-			authorizer,
-		)
+		_, err := undertaker.NewUndertaker(st, nil, authorizer, nil)
 		c.Assert(err, gc.ErrorMatches, "permission denied")
 	}
 }

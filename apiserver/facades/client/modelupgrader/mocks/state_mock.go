@@ -280,6 +280,20 @@ func (mr *MockModelMockRecorder) IsControllerModel() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsControllerModel", reflect.TypeOf((*MockModel)(nil).IsControllerModel))
 }
 
+// Life mocks base method.
+func (m *MockModel) Life() state.Life {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Life")
+	ret0, _ := ret[0].(state.Life)
+	return ret0
+}
+
+// Life indicates an expected call of Life.
+func (mr *MockModelMockRecorder) Life() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Life", reflect.TypeOf((*MockModel)(nil).Life))
+}
+
 // MigrationMode mocks base method.
 func (m *MockModel) MigrationMode() state.MigrationMode {
 	m.ctrl.T.Helper()

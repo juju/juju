@@ -4,6 +4,7 @@
 package undertaker_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -15,16 +16,20 @@ import (
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/config"
+	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/undertaker"
 )
 
 type mockFacade struct {
-	stub    *testing.Stub
-	info    params.UndertakerModelInfoResult
-	clock   *testclock.Clock
-	advance time.Duration
+	stub         *testing.Stub
+	info         params.UndertakerModelInfoResult
+	clock        testclock.AdvanceableClock
+	advance      time.Duration
+	modelChanges chan struct{}
 }
 
 func (mock *mockFacade) ModelInfo() (params.UndertakerModelInfoResult, error) {
@@ -38,9 +43,7 @@ func (mock *mockFacade) ModelInfo() (params.UndertakerModelInfoResult, error) {
 func (mock *mockFacade) WatchModelResources() (watcher.NotifyWatcher, error) {
 	mock.stub.AddCall("WatchModelResources")
 	if mock.advance > 0 {
-		if err := mock.clock.WaitAdvance(mock.advance, testing.ShortWait, 1); err != nil {
-			return nil, err
-		}
+		mock.clock.Advance(mock.advance)
 	}
 	if err := mock.stub.NextErr(); err != nil {
 		return nil, err
@@ -58,6 +61,7 @@ func (mock *mockFacade) WatchModelResources() (watcher.NotifyWatcher, error) {
 
 func (mock *mockFacade) ProcessDyingModel() error {
 	mock.stub.AddCall("ProcessDyingModel")
+	time.Sleep(100 * time.Millisecond)
 	return mock.stub.NextErr()
 }
 
@@ -68,20 +72,41 @@ func (mock *mockFacade) SetStatus(status status.Status, info string, data map[st
 
 func (mock *mockFacade) RemoveModel() error {
 	mock.stub.AddCall("RemoveModel")
+	time.Sleep(100 * time.Millisecond)
 	return mock.stub.NextErr()
 }
 
-type cloudDestroyer interface {
-	Destroy(context.ProviderCallContext) error
+func (mock *mockFacade) ModelConfig() (*config.Config, error) {
+	mock.stub.AddCall("ModelConfig")
+	cfg, _ := config.New(config.NoDefaults, map[string]interface{}{
+		"uuid": "00000000-0000-0000-0000-000000000000",
+		"name": "name",
+	})
+	return cfg, mock.stub.NextErr()
+}
+
+func (mock *mockFacade) CloudSpec() (cloudspec.CloudSpec, error) {
+	mock.stub.AddCall("CloudSpec")
+	return cloudspec.CloudSpec{}, mock.stub.NextErr()
+}
+
+func (mock *mockFacade) WatchModel() (watcher.NotifyWatcher, error) {
+	mock.stub.AddCall("WatchModel")
+	if err := mock.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	return &mockWatcher{
+		Worker:  workertest.NewErrorWorker(nil),
+		changes: mock.modelChanges,
+	}, nil
 }
 
 type mockDestroyer struct {
+	environs.Environ
 	stub *testing.Stub
 }
 
-var _ cloudDestroyer = (*mockDestroyer)(nil)
-
-func (mock *mockDestroyer) Destroy(ctx context.ProviderCallContext) error {
+func (mock *mockDestroyer) Destroy(ctx environscontext.ProviderCallContext) error {
 	mock.stub.AddCall("Destroy", ctx)
 	// A small delay to allow any timeout to expire.
 	time.Sleep(100 * time.Millisecond)
@@ -102,7 +127,7 @@ type fixture struct {
 	errors  []error
 	dirty   bool
 	logger  fakeLogger
-	clock   *testclock.Clock
+	clock   testclock.AdvanceableClock
 	advance time.Duration
 }
 
@@ -116,22 +141,23 @@ func (fix *fixture) cleanup(c *gc.C, w worker.Worker) {
 
 func (fix *fixture) run(c *gc.C, test func(worker.Worker)) *testing.Stub {
 	stub := &testing.Stub{}
-	environOrBroker := &mockDestroyer{
-		stub: stub,
-	}
 	facade := &mockFacade{
-		stub:    stub,
-		info:    fix.info,
-		clock:   fix.clock,
-		advance: fix.advance,
+		stub:         stub,
+		info:         fix.info,
+		clock:        fix.clock,
+		advance:      fix.advance,
+		modelChanges: make(chan struct{}, 1),
 	}
+	facade.modelChanges <- struct{}{}
 	stub.SetErrors(fix.errors...)
 	w, err := undertaker.NewUndertaker(undertaker.Config{
 		Facade:        facade,
-		Destroyer:     environOrBroker,
 		CredentialAPI: &fakeCredentialAPI{},
 		Logger:        &fix.logger,
 		Clock:         fix.clock,
+		NewCloudDestroyerFunc: func(ctx context.Context, op environs.OpenParams) (environs.CloudDestroyer, error) {
+			return &mockDestroyer{stub: stub}, nil
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer fix.cleanup(c, w)
