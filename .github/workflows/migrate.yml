@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   migrate:
-    name: 2.9-to-3.x
+    name: 3.1-to-4.x
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     strategy:
@@ -39,16 +39,15 @@ jobs:
         if: matrix.cloud == 'lxd'
         uses: canonical/setup-lxd@4e959f8e0d9c5feb27d44c5e4d9a330a782edee0
 
-      - name: Install Juju 2.9
+      - name: Install Juju 3.1
         run: |
-          # TODO(anvial): change to stable channel once juju 2.9.43 is released
-          sudo snap install juju_29 --classic --channel 2.9/edge
+          sudo snap install juju_31 --classic --channel 3.1/stable
 
-      - name: Bootstrap a 2.9 controller and model
+      - name: Bootstrap a 3.1 controller and model
         run: |
-          juju_29 bootstrap lxd test29
-          juju_29 add-model test-migrate
-          juju_29 deploy ubuntu
+          juju_31 bootstrap lxd test31
+          juju_31 add-model test-migrate
+          juju_31 deploy ubuntu
           
           # TODO: use juju-restore
           # TODO: add users/permissions/models and test that those migrate over
@@ -61,11 +60,11 @@ jobs:
           echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
           echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
-      - name: Upgrade client to 3.x
+      - name: Upgrade client to 4.x
         run: |
           make go-install &>/dev/null
 
-      - name: Bootstrap 3.x controller
+      - name: Bootstrap 4.x controller
         run: |
           juju bootstrap lxd test31
           juju switch controller
@@ -73,18 +72,18 @@ jobs:
 
         # TODO: create backup and juju restore
 
-      - name: Migrate default model to 3.x controller
+      - name: Migrate default model to 4.x controller
         run: |
-          juju_29 switch test29
+          juju_31 switch test31
           
           # Ensure application is fully deployed
-          juju_29 wait-for application ubuntu
+          juju_31 wait-for application ubuntu
           
           # Wait a few secs for the machine status to update
           # so that migration prechecks pass.
           sleep 10
           
-          juju_29 migrate test-migrate test31
+          juju_31 migrate test-migrate test31
 
       - name: Check the migration was successful
         run: |
