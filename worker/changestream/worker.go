@@ -122,9 +122,10 @@ func (w *changeStreamWorker) Report() map[string]any {
 
 // GetWatchableDB returns a new WatchableDB for the given namespace.
 func (w *changeStreamWorker) GetWatchableDB(namespace string) (changestream.WatchableDB, error) {
-	// If the worker already exists, return the existing worker early.
-	if mux, err := w.runner.Worker(namespace, w.catacomb.Dying()); err == nil {
-		return mux.(WatchableDBWorker), nil
+	if mux, err := w.workerFromCache(namespace); err != nil {
+		return nil, errors.Trace(err)
+	} else if mux != nil {
+		return mux, nil
 	}
 
 	// If the worker doesn't exist yet, create it.
@@ -152,6 +153,29 @@ func (w *changeStreamWorker) GetWatchableDB(namespace string) (changestream.Watc
 		return nil, errors.Trace(err)
 	}
 	return mux.(WatchableDBWorker), nil
+}
+
+func (w *changeStreamWorker) workerFromCache(namespace string) (WatchableDBWorker, error) {
+	// If the worker already exists, return the existing worker early.
+	if mux, err := w.runner.Worker(namespace, w.catacomb.Dying()); err == nil {
+		return mux.(WatchableDBWorker), nil
+	} else if errors.Is(errors.Cause(err), worker.ErrDead) {
+		// Handle the case where the change stream runner is dead due to this
+		// worker dying.
+		select {
+		case <-w.catacomb.Dying():
+			return nil, w.catacomb.ErrDying()
+		default:
+			return nil, errors.Trace(err)
+		}
+	} else if !errors.Is(errors.Cause(err), errors.NotFound) {
+		// If it's not a NotFound error, return the underlying error. We should
+		// only start a worker if it doesn't exist yet.
+		return nil, errors.Trace(err)
+	}
+	// We didn't find the worker, so return nil, we'll create it in the next
+	// step.
+	return nil, nil
 }
 
 // fileNotifyWatcher is a wrapper around the FileNotifyWatcher that is used to

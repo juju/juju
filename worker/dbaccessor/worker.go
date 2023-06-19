@@ -369,17 +369,10 @@ func (w *dbWorker) GetDB(namespace string) (coredatabase.TxnRunner, error) {
 	// First check if we've already got the db worker already running. If
 	// we have, then return out quickly. The dbRunner is the cache, so there
 	// is no need to have a in-memory cache here.
-	if tracked, err := w.dbRunner.Worker(namespace, w.catacomb.Dying()); err == nil {
-		return tracked.(coredatabase.TxnRunner), nil
-	} else if errors.Is(errors.Cause(err), worker.ErrDead) {
-		// Handle the case where the DB runner is dead due to this worker is
-		// dying.
-		select {
-		case <-w.catacomb.Dying():
-			return nil, w.catacomb.ErrDying()
-		default:
-			return nil, errors.Trace(err)
-		}
+	if db, err := w.workerFromCache(namespace); err != nil {
+		return nil, errors.Trace(err)
+	} else if db != nil {
+		return db, nil
 	}
 
 	// Enqueue the request as it's either starting up and we need to wait longer
@@ -410,6 +403,28 @@ func (w *dbWorker) GetDB(namespace string) (coredatabase.TxnRunner, error) {
 		return nil, errors.Trace(err)
 	}
 	return tracked.(coredatabase.TxnRunner), nil
+}
+
+func (w *dbWorker) workerFromCache(namespace string) (coredatabase.TxnRunner, error) {
+	// If the worker already exists, return the existing worker early.
+	if tracked, err := w.dbRunner.Worker(namespace, w.catacomb.Dying()); err == nil {
+		return tracked.(coredatabase.TxnRunner), nil
+	} else if errors.Is(errors.Cause(err), worker.ErrDead) {
+		// Handle the case where the DB runner is dead due to this worker dying.
+		select {
+		case <-w.catacomb.Dying():
+			return nil, w.catacomb.ErrDying()
+		default:
+			return nil, errors.Trace(err)
+		}
+	} else if !errors.Is(errors.Cause(err), errors.NotFound) {
+		// If it's not a NotFound error, return the underlying error. We should
+		// only start a worker if it doesn't exist yet.
+		return nil, errors.Trace(err)
+	}
+	// We didn't find the worker, so return nil, we'll create it in the next
+	// step.
+	return nil, nil
 }
 
 // DeleteDB deletes the dqlite-backed database that contains the data for
