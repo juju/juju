@@ -41,7 +41,7 @@ jobs:
 
       - name: Install Juju 3.1
         run: |
-          sudo snap install juju_31 --classic --channel 3.1/stable
+          sudo snap install juju_31 --channel 3.1/stable
 
       - name: Bootstrap a 3.1 controller and model
         run: |
