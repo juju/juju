@@ -8,13 +8,15 @@ import (
 
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 )
 
-func NewTestStatusHistoryCommand(api HistoryAPI) cmd.Command {
+func NewStatusHistoryCommandForTest(api HistoryAPI) cmd.Command {
 	return &statusHistoryCommand{api: api}
 }
 
-func NewTestStatusCommand(statusapi statusAPI, storageapi storage.StorageListAPI, clock Clock) cmd.Command {
-	return modelcmd.Wrap(
-		&statusCommand{statusAPI: statusapi, storageAPI: storageapi, clock: clock})
+func NewStatusCommandForTest(store jujuclient.ClientStore, statusapi statusAPI, storageapi storage.StorageListAPI, clock Clock) cmd.Command {
+	cmd := &statusCommand{statusAPI: statusapi, storageAPI: storageapi, clock: clock}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
 }

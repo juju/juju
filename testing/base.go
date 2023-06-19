@@ -22,10 +22,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/model"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/jujuclient"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/wrench"
 )
@@ -76,28 +74,6 @@ func (s *JujuOSEnvSuite) TearDownTest(c *gc.C) {
 		os.Setenv(name, value)
 	}
 	err := utils.SetHome(s.oldHomeEnv)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-// SetModelAndController adds a controller, and a model in that controller,
-// and sets the controller as the current controller, and the model as the
-// current model.
-func (s *JujuOSEnvSuite) SetModelAndController(c *gc.C, controllerName, modelName string) {
-	store := jujuclient.NewFileClientStore()
-	err := store.AddController(controllerName, jujuclient.ControllerDetails{
-		ControllerUUID: "fake-uuid",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = store.SetCurrentController(controllerName)
-	c.Assert(err, jc.ErrorIsNil)
-	err = store.SetModels(controllerName, map[string]jujuclient.ModelDetails{
-		modelName: {
-			ModelUUID: "fake-model-uuid",
-			ModelType: model.IAAS,
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = store.SetCurrentModel(controllerName, modelName)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -435,20 +435,6 @@ func (mr *MockContextMockRecorder) LogDir() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogDir", reflect.TypeOf((*MockContext)(nil).LogDir))
 }
 
-// MachineTag mocks base method.
-func (m *MockContext) MachineTag() names.Tag {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MachineTag")
-	ret0, _ := ret[0].(names.Tag)
-	return ret0
-}
-
-// MachineTag indicates an expected call of MachineTag.
-func (mr *MockContextMockRecorder) MachineTag() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineTag", reflect.TypeOf((*MockContext)(nil).MachineTag))
-}
-
 // Logger mocks base method.
 func (m *MockContext) Logger() loggo.Logger {
 	m.ctrl.T.Helper()
@@ -461,6 +447,20 @@ func (m *MockContext) Logger() loggo.Logger {
 func (mr *MockContextMockRecorder) Logger() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Logger", reflect.TypeOf((*MockContext)(nil).Logger))
+}
+
+// MachineTag mocks base method.
+func (m *MockContext) MachineTag() names.Tag {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MachineTag")
+	ret0, _ := ret[0].(names.Tag)
+	return ret0
+}
+
+// MachineTag indicates an expected call of MachineTag.
+func (mr *MockContextMockRecorder) MachineTag() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineTag", reflect.TypeOf((*MockContext)(nil).MachineTag))
 }
 
 // MultiwatcherFactory mocks base method.

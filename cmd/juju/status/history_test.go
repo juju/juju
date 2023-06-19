@@ -78,7 +78,7 @@ func (s *StatusHistorySuite) SetUpTest(c *gc.C) {
 }
 
 func (s *StatusHistorySuite) newCommand() cmd.Command {
-	return statuscmd.NewTestStatusHistoryCommand(s.api)
+	return statuscmd.NewStatusHistoryCommandForTest(s.api)
 }
 
 func (s *StatusHistorySuite) next() *time.Time {
