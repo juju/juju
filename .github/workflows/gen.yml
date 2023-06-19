@@ -57,6 +57,7 @@ jobs:
         if: success() || failure()
         shell: bash
         run: |
+          git checkout go.sum
           git add -A
           if [[ -n $(git diff HEAD) ]]; then
             echo "*****"

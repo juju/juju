@@ -102,7 +102,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"utils/proxy",
 		"utils/scriptrunner",
 		"version",
-		"worker",
 		"worker/apicaller",
 	)
 
