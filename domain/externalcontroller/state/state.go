@@ -133,9 +133,9 @@ func (st *State) UpdateExternalController(
 		q := `
 INSERT INTO external_controller (uuid, alias, ca_cert)
 VALUES (?, ?, ?)
-  ON CONFLICT(uuid) DO UPDATE SET alias=?, ca_cert=?`[1:]
+  ON CONFLICT(uuid) DO UPDATE SET alias=excluded.alias, ca_cert=excluded.ca_cert`[1:]
 
-		if _, err := tx.ExecContext(ctx, q, cID, ci.Alias, ci.CACert, ci.Alias, ci.CACert); err != nil {
+		if _, err := tx.ExecContext(ctx, q, cID, ci.Alias, ci.CACert); err != nil {
 			return errors.Trace(err)
 		}
 

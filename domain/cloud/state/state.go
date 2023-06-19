@@ -284,15 +284,16 @@ func upsertCloud(ctx context.Context, tx *sql.Tx, cloudUUID string, cloud cloud.
 	}
 
 	q := `
-		INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, identity_endpoint, storage_endpoint, skip_tls_verify)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
-		  ON CONFLICT(uuid) DO UPDATE SET name=?, endpoint=?, identity_endpoint=?, storage_endpoint=?, skip_tls_verify=?`[1:]
+INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, identity_endpoint, storage_endpoint, skip_tls_verify)
+  VALUES (?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(uuid) DO UPDATE SET name=excluded.name,
+                                  endpoint=excluded.endpoint,
+                                  identity_endpoint=excluded.identity_endpoint,
+                                  storage_endpoint=excluded.storage_endpoint,
+                                  skip_tls_verify=excluded.skip_tls_verify`[1:]
 
 	if _, err := tx.ExecContext(ctx, q, dbCloud.ID,
-		// insert
 		dbCloud.Name, dbCloud.TypeID, dbCloud.Endpoint, dbCloud.IdentityEndpoint, dbCloud.StorageEndpoint, dbCloud.SkipTLSVerify,
-		// update
-		dbCloud.Name, dbCloud.Endpoint, dbCloud.IdentityEndpoint, dbCloud.StorageEndpoint, dbCloud.SkipTLSVerify,
 	); err != nil {
 		return errors.Trace(err)
 	}
