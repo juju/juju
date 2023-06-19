@@ -229,14 +229,15 @@ func (s *serverFactory) RemoteServer(spec CloudSpec) (Server, error) {
 		WithHTTPClient(s.newHTTPClientFunc())
 
 	svr, err := s.newRemoteServerFunc(serverSpec)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if spec.Project != "" {
 		svr.UseProject(spec.Project)
 	}
 
-	if err == nil {
-		err = s.bootstrapRemoteServer(svr)
-	}
-	return svr, errors.Trace(err)
+	return svr, errors.Trace(s.bootstrapRemoteServer(svr))
 }
 
 func (s *serverFactory) InsecureRemoteServer(spec CloudSpec) (Server, error) {
