@@ -24,6 +24,7 @@ func ControllerDDL(nodeID uint64) []database.Delta {
 		controllerNodeEntry(nodeID),
 		controllerNodeTriggers,
 		modelMigrationSchema,
+		upgradeInfoSchema,
 	}
 
 	var deltas []database.Delta
@@ -144,7 +145,9 @@ INSERT INTO change_log_namespace VALUES
     (2, 'controller_node'),
     (3, 'controller_config'),
     (4, 'model_migration_status'),
-    (5, 'model_migration_minion_sync');`)
+    (5, 'model_migration_minion_sync'),
+    (6, 'upgrade_info');
+`)
 }
 
 func cloudSchema() database.Delta {
@@ -481,4 +484,66 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
     VALUES (4, 5, OLD.key, DATETIME('now'));
 END;`)
+}
+
+func upgradeInfoSchema() database.Delta {
+	return database.MakeDelta(`
+CREATE TABLE upgrade_info (
+    uuid             TEXT PRIMARY KEY,
+    previous_version TEXT NOT NULL,
+    target_version   TEXT NOT NULL,
+    init_time        TIMESTAMP NOT NULL,
+    start_time       TIMESTAMP,
+    completion_time  TIMESTAMP
+);
+
+CREATE TABLE upgrade_node_status (
+    id     INT PRIMARY KEY,
+    status TEXT NOT NULL
+);
+
+INSERT INTO upgrade_node_status VALUES
+    (0, "ready"),
+    (1, "done");
+
+CREATE TABLE upgrade_info_controller_node (
+    uuid                      TEXT PRIMARY KEY,
+    controller_node_id        TEXT NOT NULL,
+    upgrade_info_uuid         TEXT NOT NULL,
+    upgrade_node_status_id    INT NOT NULL,
+    CONSTRAINT                fk_controller_node_id
+        FOREIGN KEY               (controller_node_id)
+        REFERENCES                controller_node(controller_id),
+    CONSTRAINT                fk_upgrade_info
+        FOREIGN KEY               (upgrade_info_uuid)
+        REFERENCES                upgrade_info(uuid),
+    CONSTRAINT                fk_node_status
+        FOREIGN KEY               (upgrade_node_status_id)
+        REFERENCES                upgrade_node_status(id)
+);
+
+CREATE UNIQUE INDEX idx_upgrade_info_controller_node
+ON upgrade_info_controller_node (controller_node_id, upgrade_info_uuid, upgrade_node_status_id);
+
+CREATE TRIGGER trg_changelog_upgradeinfo_insert
+AFTER INSERT ON upgrade_info FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at)
+    VALUES (1, 4, NEW.uuid, DATETIME('now'));
+END;
+
+CREATE TRIGGER trg_changelog_upgradeinfo_update
+AFTER UPDATE ON upgrade_info FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at)
+    VALUES (2, 4, OLD.uuid, DATETIME('now'));
+END;
+
+CREATE TRIGGER trg_changelog_upgradeinfo_delete
+AFTER DELETE ON upgrade_info FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at)
+    VALUES (4, 4, OLD.uuid, DATETIME('now'));
+END;
+`)
 }

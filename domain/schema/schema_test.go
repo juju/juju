@@ -88,6 +88,11 @@ func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 		"model_migration_status",
 		"model_migration_user",
 		"model_migration_minion_sync",
+
+		// Upgrade info
+		"upgrade_info",
+		"upgrade_node_status",
+		"upgrade_info_controller_node",
 	)
 	c.Assert(readTableNames(c, s.db), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }
