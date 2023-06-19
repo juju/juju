@@ -56,7 +56,11 @@ func newSubscription(id uint64, unsubscribeFn func()) *subscription {
 // whilst the dispatch signalling, the unsubscribe will happen after all
 // dispatches have been called.
 func (s *subscription) Unsubscribe() {
-	s.unsubscribeFn()
+	select {
+	case <-s.tomb.Dying():
+	default:
+		s.unsubscribeFn()
+	}
 }
 
 // Changes returns the channel that the subscription will receive events on.

@@ -173,6 +173,11 @@ func (s *Stream) Terms() <-chan changestream.Term {
 	return s.terms
 }
 
+// Dying returns a channel to notify when the stream is dying.
+func (s *Stream) Dying() <-chan struct{} {
+	return s.tomb.Dying()
+}
+
 // Kill is part of the worker.Worker interface.
 func (s *Stream) Kill() {
 	s.tomb.Kill(nil)

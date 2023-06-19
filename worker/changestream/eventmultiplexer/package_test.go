@@ -54,6 +54,10 @@ func (s *baseSuite) expectAnyLogs() {
 	s.logger.EXPECT().IsTraceEnabled().Return(true).AnyTimes()
 }
 
+func (s *baseSuite) expectStreamDying(ch <-chan struct{}) {
+	s.stream.EXPECT().Dying().Return(ch).AnyTimes()
+}
+
 func (s *baseSuite) expectAfter() {
 	s.clock.EXPECT().After(gomock.Any()).AnyTimes()
 }
