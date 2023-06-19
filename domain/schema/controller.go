@@ -23,6 +23,7 @@ func ControllerDDL(nodeID uint64) []database.Delta {
 		controllerNodeTable,
 		controllerNodeEntry(nodeID),
 		controllerNodeTriggers,
+		modelMigrationSchema,
 	}
 
 	var deltas []database.Delta
@@ -141,7 +142,9 @@ func changeLogControllerNamespaces() database.Delta {
 INSERT INTO change_log_namespace VALUES
     (1, 'external_controller'),
     (2, 'controller_node'),
-    (3, 'controller_config');`)
+    (3, 'controller_config'),
+    (4, 'model_migration_status'),
+    (5, 'model_migration_minion_sync');`)
 }
 
 func cloudSchema() database.Delta {
@@ -382,5 +385,100 @@ AFTER DELETE ON controller_node FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at)
     VALUES (4, 2, OLD.controller_id, DATETIME('now'));
+END;`)
+}
+
+func modelMigrationSchema() database.Delta {
+	return database.MakeDelta(`
+CREATE TABLE model_migration (
+    uuid                    TEXT PRIMARY KEY,
+    attempt                 INT,
+    target_controller_uuid  TEXT NOT NULL,
+    target_entity           TEXT,
+    target_password         TEXT,
+    target_macaroons        TEXT,
+    active                  BOOLEAN,
+    start_time              TIMESTAMP,
+    success_time            TIMESTAMP,
+    end_time                TIMESTAMP,
+    phase                   TEXT,
+    phase_changed_time      TIMESTAMP,
+    status_message          TEXT,
+    CONSTRAINT              fk_model_migration_target_controller
+        FOREIGN KEY         (target_controller_uuid)
+        REFERENCES          external_controller(uuid)
+);
+
+CREATE TABLE model_migration_status (
+    uuid                TEXT PRIMARY KEY,
+    start_time          TIMESTAMP,
+    success_time        TIMESTAMP,
+    end_time            TIMESTAMP,
+    phase               TEXT,
+    phase_changed_time  TIMESTAMP,
+    status              TEXT
+);
+
+CREATE TRIGGER trg_log_model_migration_status_insert
+AFTER INSERT ON model_migration_status FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
+    VALUES (1, 4, NEW.key, DATETIME('now'));
+END;
+CREATE TRIGGER trg_log_model_migration_status_update
+AFTER UPDATE ON model_migration_status FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
+    VALUES (2, 4, OLD.key, DATETIME('now'));
+END;
+CREATE TRIGGER trg_log_model_migration_status_delete
+AFTER DELETE ON model_migration_status FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
+    VALUES (4, 4, OLD.key, DATETIME('now'));
+END;
+
+CREATE TABLE model_migration_user (
+    uuid            TEXT PRIMARY KEY,
+--     user_uuid       TEXT NOT NULL,
+    migration_uuid  TEXT NOT NULL,
+    permission      TEXT,
+--     CONSTRAINT      fk_model_migration_user_XXX
+--         FOREIGN KEY (user_uuid)
+--         REFERENCES  XXX(uuid)
+    CONSTRAINT      fk_model_migration_user_model_migration
+        FOREIGN KEY (migration_uuid)
+        REFERENCES  model_migration(uuid)    
+);
+
+CREATE TABLE model_migration_minion_sync (
+    uuid            TEXT PRIMARY KEY,
+    migration_uuid  TEXT NOT NULL,
+    phase           TEXT,
+    entity_key      TEXT,
+    time            TIMESTAMP,
+    success         BOOLEAN,
+    CONSTRAINT      fk_model_migration_minion_sync_model_migration
+        FOREIGN KEY (migration_uuid)
+        REFERENCES  model_migration(uuid)
+);
+
+CREATE TRIGGER trg_log_model_migration_minion_sync_insert
+AFTER INSERT ON model_migration_minion_sync FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
+    VALUES (1, 5, NEW.key, DATETIME('now'));
+END;
+CREATE TRIGGER trg_log_model_migration_minion_sync_update
+AFTER UPDATE ON model_migration_minion_sync FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
+    VALUES (2, 5, OLD.key, DATETIME('now'));
+END;
+CREATE TRIGGER trg_log_model_migration_minion_sync_delete
+AFTER DELETE ON model_migration_minion_sync FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
+    VALUES (4, 5, OLD.key, DATETIME('now'));
 END;`)
 }
