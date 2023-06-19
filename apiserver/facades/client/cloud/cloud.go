@@ -125,7 +125,7 @@ func (api *CloudAPI) Clouds() (params.CloudsResult, error) {
 				continue
 			}
 		}
-		paramsCloud := common.CloudToParams(aCloud)
+		paramsCloud := cloudToParams(aCloud)
 		result.Clouds[tag.String()] = paramsCloud
 	}
 	return result, nil
@@ -159,7 +159,7 @@ func (api *CloudAPI) Cloud(args params.Entities) (params.CloudResults, error) {
 		if err != nil {
 			return nil, err
 		}
-		paramsCloud := common.CloudToParams(aCloud)
+		paramsCloud := cloudToParams(aCloud)
 		return &paramsCloud, nil
 	}
 	for i, arg := range args.Entities {
@@ -198,30 +198,6 @@ func (api *CloudAPI) CloudInfo(args params.Entities) (params.CloudInfoResults, e
 	return results, nil
 }
 
-func cloudToParams(cloud cloud.Cloud) params.CloudDetails {
-	authTypes := make([]string, len(cloud.AuthTypes))
-	for i, authType := range cloud.AuthTypes {
-		authTypes[i] = string(authType)
-	}
-	regions := make([]params.CloudRegion, len(cloud.Regions))
-	for i, region := range cloud.Regions {
-		regions[i] = params.CloudRegion{
-			Name:             region.Name,
-			Endpoint:         region.Endpoint,
-			IdentityEndpoint: region.IdentityEndpoint,
-			StorageEndpoint:  region.StorageEndpoint,
-		}
-	}
-	return params.CloudDetails{
-		Type:             cloud.Type,
-		AuthTypes:        authTypes,
-		Endpoint:         cloud.Endpoint,
-		IdentityEndpoint: cloud.IdentityEndpoint,
-		StorageEndpoint:  cloud.StorageEndpoint,
-		Regions:          regions,
-	}
-}
-
 func (api *CloudAPI) getCloudInfo(tag names.CloudTag) (*params.CloudInfo, error) {
 	isAdmin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
 	if err != nil && !errors.IsNotFound(err) {
@@ -241,7 +217,7 @@ func (api *CloudAPI) getCloudInfo(tag names.CloudTag) (*params.CloudInfo, error)
 		return nil, errors.Trace(err)
 	}
 	info := params.CloudInfo{
-		CloudDetails: cloudToParams(aCloud),
+		CloudDetails: cloudDetailsToParams(aCloud),
 	}
 
 	cloudUsers, err := api.ctlrBackend.GetCloudUsers(tag.Id())
@@ -304,7 +280,7 @@ func (api *CloudAPI) ListCloudInfo(req params.ListCloudsRequest) (params.ListClo
 
 	for _, ci := range cloudInfos {
 		info := &params.ListCloudInfo{
-			CloudDetails: cloudToParams(ci.Cloud),
+			CloudDetails: cloudDetailsToParams(ci.Cloud),
 			Access:       string(ci.Access),
 		}
 		result.Results = append(result.Results, params.ListCloudInfoResult{Result: info})
@@ -410,7 +386,7 @@ func (api *CloudAPI) CheckCredentialsModels(args params.TaggedCredentials) (para
 // Controller admins can 'force' an update of the credential
 // regardless of whether it is deemed valid or not.
 func (api *CloudAPI) UpdateCredentialsCheckModels(args params.UpdateCredentialArgs) (params.UpdateCredentialResults, error) {
-	return api.commonUpdateCredentials(true, args.Force, false, params.TaggedCredentials{args.Credentials})
+	return api.commonUpdateCredentials(true, args.Force, false, params.TaggedCredentials{Credentials: args.Credentials})
 }
 
 func (api *CloudAPI) commonUpdateCredentials(update bool, force, legacy bool, args params.TaggedCredentials) (params.UpdateCredentialResults, error) {
@@ -503,7 +479,7 @@ func (api *CloudAPI) commonUpdateCredentials(update bool, force, legacy bool, ar
 			}
 		}
 	}
-	return params.UpdateCredentialResults{results}, nil
+	return params.UpdateCredentialResults{Results: results}, nil
 }
 
 func (api *CloudAPI) credentialModels(tag names.CloudCredentialTag) (map[string]string, error) {
@@ -519,7 +495,7 @@ func (api *CloudAPI) validateCredentialForModel(modelUUID string, tag names.Clou
 
 	m, callContext, err := api.pool.GetModelCallContext(modelUUID)
 	if err != nil {
-		return append(result, params.ErrorResult{apiservererrors.ServerError(err)})
+		return append(result, params.ErrorResult{Error: apiservererrors.ServerError(err)})
 	}
 
 	modelErrors, err := validateNewCredentialForModelFunc(
@@ -530,7 +506,7 @@ func (api *CloudAPI) validateCredentialForModel(modelUUID string, tag names.Clou
 		false,
 	)
 	if err != nil {
-		return append(result, params.ErrorResult{apiservererrors.ServerError(err)})
+		return append(result, params.ErrorResult{Error: apiservererrors.ServerError(err)})
 	}
 	if len(modelErrors.Results) > 0 {
 		return append(result, modelErrors.Results...)
@@ -739,7 +715,7 @@ func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
 		}
 	}
 
-	aCloud := common.CloudFromParams(cloudArgs.Name, cloudArgs.Cloud)
+	aCloud := cloudFromParams(cloudArgs.Name, cloudArgs.Cloud)
 	// All clouds must have at least one 'default' region, lp#1819409.
 	if len(aCloud.Regions) == 0 {
 		aCloud.Regions = []cloud.Region{{Name: cloud.DefaultCloudRegion}}
@@ -761,7 +737,7 @@ func (api *CloudAPI) UpdateCloud(cloudArgs params.UpdateCloudArgs) (params.Error
 		return results, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
 	for i, aCloud := range cloudArgs.Clouds {
-		err := api.backend.UpdateCloud(common.CloudFromParams(aCloud.Name, aCloud.Cloud))
+		err := api.backend.UpdateCloud(cloudFromParams(aCloud.Name, aCloud.Cloud))
 		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
@@ -874,7 +850,7 @@ func (api *CloudAPI) internalCredentialContents(args params.CloudCredentialArgs,
 		}
 		info.Models = make([]params.ModelAccess, len(models))
 		for i, m := range models {
-			info.Models[i] = params.ModelAccess{m.ModelName, string(m.OwnerAccess)}
+			info.Models[i] = params.ModelAccess{Model: m.ModelName, Access: string(m.OwnerAccess)}
 		}
 
 		return params.CredentialContentResult{Result: &info}
@@ -918,7 +894,7 @@ func (api *CloudAPI) internalCredentialContents(args params.CloudCredentialArgs,
 			result[i] = stateIntoParam(credential, args.IncludeSecrets)
 		}
 	}
-	return params.CredentialContentResults{result}, nil
+	return params.CredentialContentResults{Results: result}, nil
 }
 
 // ModifyCloudAccess changes the model access granted to users.
@@ -1039,5 +1015,103 @@ func revokeCloudAccess(backend Backend, cloud string, targetUserTag names.UserTa
 
 	default:
 		return errors.Errorf("don't know how to revoke %q access", access)
+	}
+}
+
+func cloudFromParams(cloudName string, p params.Cloud) cloud.Cloud {
+	authTypes := make([]cloud.AuthType, len(p.AuthTypes))
+	for i, authType := range p.AuthTypes {
+		authTypes[i] = cloud.AuthType(authType)
+	}
+	regions := make([]cloud.Region, len(p.Regions))
+	for i, region := range p.Regions {
+		regions[i] = cloud.Region{
+			Name:             region.Name,
+			Endpoint:         region.Endpoint,
+			IdentityEndpoint: region.IdentityEndpoint,
+			StorageEndpoint:  region.StorageEndpoint,
+		}
+	}
+	var regionConfig map[string]cloud.Attrs
+	for r, attr := range p.RegionConfig {
+		if regionConfig == nil {
+			regionConfig = make(map[string]cloud.Attrs)
+		}
+		regionConfig[r] = attr
+	}
+	return cloud.Cloud{
+		Name:              cloudName,
+		Type:              p.Type,
+		AuthTypes:         authTypes,
+		Endpoint:          p.Endpoint,
+		IdentityEndpoint:  p.IdentityEndpoint,
+		StorageEndpoint:   p.StorageEndpoint,
+		Regions:           regions,
+		CACertificates:    p.CACertificates,
+		SkipTLSVerify:     p.SkipTLSVerify,
+		Config:            p.Config,
+		RegionConfig:      regionConfig,
+		IsControllerCloud: p.IsControllerCloud,
+	}
+}
+
+func cloudToParams(cloud cloud.Cloud) params.Cloud {
+	authTypes := make([]string, len(cloud.AuthTypes))
+	for i, authType := range cloud.AuthTypes {
+		authTypes[i] = string(authType)
+	}
+	regions := make([]params.CloudRegion, len(cloud.Regions))
+	for i, region := range cloud.Regions {
+		regions[i] = params.CloudRegion{
+			Name:             region.Name,
+			Endpoint:         region.Endpoint,
+			IdentityEndpoint: region.IdentityEndpoint,
+			StorageEndpoint:  region.StorageEndpoint,
+		}
+	}
+	var regionConfig map[string]map[string]interface{}
+	for r, attr := range cloud.RegionConfig {
+		if regionConfig == nil {
+			regionConfig = make(map[string]map[string]interface{})
+		}
+		regionConfig[r] = attr
+	}
+	return params.Cloud{
+		Type:              cloud.Type,
+		HostCloudRegion:   cloud.HostCloudRegion,
+		AuthTypes:         authTypes,
+		Endpoint:          cloud.Endpoint,
+		IdentityEndpoint:  cloud.IdentityEndpoint,
+		StorageEndpoint:   cloud.StorageEndpoint,
+		Regions:           regions,
+		CACertificates:    cloud.CACertificates,
+		SkipTLSVerify:     cloud.SkipTLSVerify,
+		Config:            cloud.Config,
+		RegionConfig:      regionConfig,
+		IsControllerCloud: cloud.IsControllerCloud,
+	}
+}
+
+func cloudDetailsToParams(cloud cloud.Cloud) params.CloudDetails {
+	authTypes := make([]string, len(cloud.AuthTypes))
+	for i, authType := range cloud.AuthTypes {
+		authTypes[i] = string(authType)
+	}
+	regions := make([]params.CloudRegion, len(cloud.Regions))
+	for i, region := range cloud.Regions {
+		regions[i] = params.CloudRegion{
+			Name:             region.Name,
+			Endpoint:         region.Endpoint,
+			IdentityEndpoint: region.IdentityEndpoint,
+			StorageEndpoint:  region.StorageEndpoint,
+		}
+	}
+	return params.CloudDetails{
+		Type:             cloud.Type,
+		AuthTypes:        authTypes,
+		Endpoint:         cloud.Endpoint,
+		IdentityEndpoint: cloud.IdentityEndpoint,
+		StorageEndpoint:  cloud.StorageEndpoint,
+		Regions:          regions,
 	}
 }

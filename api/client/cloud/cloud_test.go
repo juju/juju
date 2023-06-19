@@ -14,7 +14,6 @@ import (
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	cloudapi "github.com/juju/juju/api/client/cloud"
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/rpc/params"
@@ -385,8 +384,8 @@ func (s *cloudSuite) TestUpdateCredentialModelErrors(c *gc.C) {
 									ModelUUID: coretesting.ModelTag.Id(),
 									ModelName: "test-model",
 									Errors: []params.ErrorResult{
-										{apiservererrors.ServerError(errors.New("validation failure one"))},
-										{apiservererrors.ServerError(errors.New("validation failure two"))},
+										{Error: apiservererrors.ServerError(errors.New("validation failure one"))},
+										{Error: apiservererrors.ServerError(errors.New("validation failure two"))},
 									},
 								},
 							},
@@ -546,7 +545,7 @@ func (s *cloudSuite) TestAddCloudForce(c *gc.C) {
 	force := true
 	apiCaller := s.createVersionedAddCloudCall(c, 6, params.AddCloudArgs{
 		Name:  "foo",
-		Cloud: common.CloudToParams(testCloud),
+		Cloud: cloudapi.CloudToParams(testCloud),
 		Force: &force,
 	})
 	client := cloudapi.NewClient(apiCaller)
@@ -577,7 +576,7 @@ func (s *cloudSuite) TestUpdateCloud(c *gc.C) {
 				c.Check(request, gc.Equals, "UpdateCloud")
 				c.Assert(a, jc.DeepEquals, params.UpdateCloudArgs{Clouds: []params.AddCloudArgs{{
 					Name:  "foo",
-					Cloud: common.CloudToParams(updatedCloud),
+					Cloud: cloudapi.CloudToParams(updatedCloud),
 				}}})
 				c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 				*result.(*params.ErrorResults) = params.ErrorResults{
@@ -1090,8 +1089,8 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsModelErrors(c *gc.C) {
 									ModelUUID: coretesting.ModelTag.Id(),
 									ModelName: "test-model",
 									Errors: []params.ErrorResult{
-										{apiservererrors.ServerError(errors.New("validation failure one"))},
-										{apiservererrors.ServerError(errors.New("validation failure two"))},
+										{Error: apiservererrors.ServerError(errors.New("validation failure one"))},
+										{Error: apiservererrors.ServerError(errors.New("validation failure two"))},
 									},
 								},
 							},
@@ -1112,8 +1111,8 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsModelErrors(c *gc.C) {
 				{ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 					ModelName: "test-model",
 					Errors: []params.ErrorResult{
-						{apiservererrors.ServerError(errors.New("validation failure one"))},
-						{apiservererrors.ServerError(errors.New("validation failure two"))},
+						{Error: apiservererrors.ServerError(errors.New("validation failure one"))},
+						{Error: apiservererrors.ServerError(errors.New("validation failure two"))},
 					},
 				},
 			},
