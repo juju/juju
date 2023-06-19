@@ -98,7 +98,7 @@ WARNING: Passing --force with --timeout will continue the final destruction with
 consideration or respect for clean shutdown or resource cleanup. If timeout 
 elapses with --force, you may have resources left behind that will require
 manual cleanup. If --force --timeout 0 is passed, the model is brutally
-removed with haste. It is recommended to use graceful destroy (without --force).
+removed with haste. It is recommended to use graceful destroy (without --force or --no-wait).
 
 Examples:
 

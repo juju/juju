@@ -90,6 +90,13 @@ proceed to the next step until the current step has finished.
 However, when using --force, users can also specify --no-wait to progress through steps 
 without delay waiting for each step to complete.
 
+WARNING: Passing --force with --model-timeout will continue the final destruction without
+consideration or respect for clean shutdown or resource cleanup. If model-timeout 
+elapses with --force, you may have resources left behind that will require
+manual cleanup. If --force --model-timeout 0 is passed, the models are brutally
+removed with haste. It is recommended to use graceful destroy (without --force, --no-wait or
+--model-timeout).
+
 Examples:
     # Destroy the controller and all hosted models. If there is
     # persistent storage remaining in any of the models, then

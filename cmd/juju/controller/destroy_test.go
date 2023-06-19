@@ -382,6 +382,11 @@ func (s *DestroySuite) TestDestroyWithForceFlag(c *gc.C) {
 	})
 }
 
+func (s *DestroySuite) TestDestroyWithModelTimeoutNoForce(c *gc.C) {
+	_, err := s.runDestroyCommand(c, "test1", "-y", "--model-timeout", "10m")
+	c.Assert(err, gc.ErrorMatches, `--model-timeout can only be used with --force \(dangerous\)`)
+}
+
 func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlagUnspecified(c *gc.C) {
 	var haveFilesystem bool
 	for uuid, status := range s.api.envStatus {
