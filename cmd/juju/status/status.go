@@ -241,7 +241,7 @@ func (c *statusCommand) Init(args []string) error {
 	return nil
 }
 
-var newAPIClientForStatus = func(c *statusCommand) (statusAPI, error) {
+func (c *statusCommand) getStatusAPI() (statusAPI, error) {
 	if c.statusAPI == nil {
 		api, err := c.NewAPIClient()
 		if err != nil {
@@ -252,7 +252,7 @@ var newAPIClientForStatus = func(c *statusCommand) (statusAPI, error) {
 	return c.statusAPI, nil
 }
 
-var newAPIClientForStorage = func(c *statusCommand) (storage.StorageListAPI, error) {
+func (c *statusCommand) getStorageAPI() (storage.StorageListAPI, error) {
 	if c.storageAPI == nil {
 		root, err := c.NewAPIRoot()
 		if err != nil {
@@ -275,7 +275,7 @@ func (c *statusCommand) close() {
 }
 
 func (c *statusCommand) getStatus() (*params.FullStatus, error) {
-	apiclient, err := newAPIClientForStatus(c)
+	apiclient, err := c.getStatusAPI()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -283,7 +283,7 @@ func (c *statusCommand) getStatus() (*params.FullStatus, error) {
 }
 
 func (c *statusCommand) getStorageInfo(ctx *cmd.Context) (*storage.CombinedStorage, error) {
-	apiclient, err := newAPIClientForStorage(c)
+	apiclient, err := c.getStorageAPI()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

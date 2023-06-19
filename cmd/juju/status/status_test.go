@@ -1,7 +1,7 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package status_test
+package status
 
 import (
 	"errors"
@@ -12,8 +12,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/status"
+	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
@@ -21,6 +22,7 @@ import (
 type MinimalStatusSuite struct {
 	testing.BaseSuite
 
+	store      jujuclient.ClientStore
 	statusapi  *fakeStatusAPI
 	storageapi *mockListStorageAPI
 	clock      *timeRecorder
@@ -40,11 +42,24 @@ func (s *MinimalStatusSuite) SetUpTest(c *gc.C) {
 	}
 	s.storageapi = &mockListStorageAPI{}
 	s.clock = &timeRecorder{}
-	s.SetModelAndController(c, "test", "admin/test")
+	store := jujuclient.NewMemStore()
+	store.CurrentControllerName = "kontroll"
+	store.Controllers["kontroll"] = jujuclient.ControllerDetails{}
+	store.Models["kontroll"] = &jujuclient.ControllerModels{
+		CurrentModel: "test",
+		Models: map[string]jujuclient.ModelDetails{"admin/test": {
+			ModelType:    coremodel.IAAS,
+			ActiveBranch: coremodel.GenerationMaster,
+		}},
+	}
+	store.Accounts["kontroll"] = jujuclient.AccountDetails{
+		User: "admin",
+	}
+	s.store = store
 }
 
 func (s *MinimalStatusSuite) runStatus(c *gc.C, args ...string) (*cmd.Context, error) {
-	statusCmd := status.NewTestStatusCommand(s.statusapi, s.storageapi, s.clock)
+	statusCmd := NewStatusCommandForTest(s.store, s.statusapi, s.storageapi, s.clock)
 	return cmdtesting.RunCommand(c, statusCmd, args...)
 }
 
@@ -62,7 +77,7 @@ func (s *MinimalStatusSuite) TestGoodCallWithStorage(c *gc.C) {
 	obtainedValid := cmdtesting.Stdout(context)
 	c.Assert(obtainedValid, gc.Equals, `
 Model  Controller  Cloud/Region  Version
-test   test        foo           
+test   kontroll    foo           
 
 Storage Unit  Storage ID    Type        Pool      Mountpoint  Size     Status    Message
               persistent/1  filesystem                                 detached  
@@ -130,11 +145,13 @@ func (s *MinimalStatusSuite) TestRetryCountOfZero(c *gc.C) {
 }
 
 type fakeStatusAPI struct {
-	result *params.FullStatus
-	errors []error
+	result   *params.FullStatus
+	patterns []string
+	errors   []error
 }
 
-func (f *fakeStatusAPI) Status(_ []string) (*params.FullStatus, error) {
+func (f *fakeStatusAPI) Status(patterns []string) (*params.FullStatus, error) {
+	f.patterns = patterns
 	if len(f.errors) > 0 {
 		err, rest := f.errors[0], f.errors[1:]
 		f.errors = rest
@@ -167,6 +184,7 @@ func (r *timeRecorder) After(d time.Duration) <-chan time.Time {
 }
 
 type mockListStorageAPI struct {
+	empty           bool
 	listErrors      bool
 	listFilesystems func([]string) ([]params.FilesystemDetailsListResult, error)
 	listVolumes     func([]string) ([]params.VolumeDetailsListResult, error)
@@ -179,6 +197,9 @@ func (s *mockListStorageAPI) Close() error {
 }
 
 func (s *mockListStorageAPI) ListStorageDetails() ([]params.StorageDetails, error) {
+	if s.empty {
+		return nil, nil
+	}
 	if s.listErrors {
 		return nil, errors.New("list fails")
 	}
@@ -242,6 +263,9 @@ func (s *mockListStorageAPI) ListStorageDetails() ([]params.StorageDetails, erro
 }
 
 func (s *mockListStorageAPI) ListFilesystems(machines []string) ([]params.FilesystemDetailsListResult, error) {
+	if s.empty {
+		return nil, nil
+	}
 	if s.listFilesystems != nil {
 		return s.listFilesystems(machines)
 	}
@@ -405,6 +429,9 @@ func (s *mockListStorageAPI) ListFilesystems(machines []string) ([]params.Filesy
 }
 
 func (s *mockListStorageAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListResult, error) {
+	if s.empty {
+		return nil, nil
+	}
 	if s.listVolumes != nil {
 		return s.listVolumes(machines)
 	}
