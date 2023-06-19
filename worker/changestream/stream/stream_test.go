@@ -815,7 +815,7 @@ func (s *streamSuite) TestReport(c *gc.C) {
 	stream := New(id, s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
-	for i := 0; i < defaultNumTermWatermarks; i++ {
+	for i := 0; i < changestream.DefaultNumTermWatermarks; i++ {
 		chg := change{
 			id:   1000,
 			uuid: utils.MustNewUUID().String(),
@@ -843,7 +843,7 @@ func (s *streamSuite) TestReport(c *gc.C) {
 	syncPoint := func(c *gc.C) map[string]any {
 		for i := 0; i < 3; i++ {
 			data := stream.Report()
-			if strings.Contains(data["watermarks"].(string), strconv.Itoa(defaultNumTermWatermarks)) {
+			if strings.Contains(data["watermarks"].(string), strconv.Itoa(changestream.DefaultNumTermWatermarks)) {
 				return data
 			}
 			<-time.After(testing.ShortWait)
@@ -854,7 +854,7 @@ func (s *streamSuite) TestReport(c *gc.C) {
 	data := syncPoint(c)
 	c.Check(data, gc.DeepEquals, map[string]any{
 		"id":                      id,
-		"watermarks":              constructWatermark(0, defaultNumTermWatermarks),
+		"watermarks":              constructWatermark(0, changestream.DefaultNumTermWatermarks),
 		"last-recorded-watermark": "",
 	})
 
@@ -875,7 +875,7 @@ func (s *streamSuite) TestReport(c *gc.C) {
 	data = stream.Report()
 	c.Check(data, gc.DeepEquals, map[string]any{
 		"id":                      id,
-		"watermarks":              constructWatermark(1, defaultNumTermWatermarks),
+		"watermarks":              constructWatermark(1, changestream.DefaultNumTermWatermarks),
 		"last-recorded-watermark": "(lower: 1, upper: 1)",
 	})
 
@@ -908,7 +908,7 @@ func (s *streamSuite) TestWatermarkWrite(c *gc.C) {
 	stream := New(tag, s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
-	for i := 0; i < defaultNumTermWatermarks; i++ {
+	for i := 0; i < changestream.DefaultNumTermWatermarks; i++ {
 		chg := change{
 			id:   1000,
 			uuid: utils.MustNewUUID().String(),
@@ -967,7 +967,7 @@ func (s *streamSuite) TestWatermarkWriteIsIgnored(c *gc.C) {
 	stream := New(tag, s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
-	for i := 0; i < defaultNumTermWatermarks-1; i++ {
+	for i := 0; i < changestream.DefaultNumTermWatermarks-1; i++ {
 		chg := change{
 			id:   1000,
 			uuid: utils.MustNewUUID().String(),
@@ -1043,7 +1043,7 @@ func (s *streamSuite) TestWatermarkWriteUpdatesToTheLaterOne(c *gc.C) {
 		}
 	}
 
-	for i := 0; i < defaultNumTermWatermarks+2; i++ {
+	for i := 0; i < changestream.DefaultNumTermWatermarks+2; i++ {
 		insertAndWitness(c, i+1)
 	}
 
@@ -1285,7 +1285,7 @@ func (s *streamSuite) TestProcessWatermark(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Fill the buffer and witness the view.
-	for i := int64(0); i < defaultNumTermWatermarks-1; i++ {
+	for i := int64(0); i < int64(changestream.DefaultNumTermWatermarks-1); i++ {
 		stream.recordTermView(&termView{lower: i + 2, upper: i + 3})
 	}
 
@@ -1313,7 +1313,7 @@ func (s *streamSuite) TestProcessWatermark(c *gc.C) {
 
 	// Adding a term view should trigger the watermark again.
 	expected := int64(2)
-	for i := defaultNumTermWatermarks; i < defaultNumTermWatermarks+20; i++ {
+	for i := changestream.DefaultNumTermWatermarks; i < changestream.DefaultNumTermWatermarks+20; i++ {
 		stream.recordTermView(&termView{lower: int64(i + 1), upper: int64(i + 2)})
 
 		witnessWatermark(expected, expected+1)
@@ -1333,7 +1333,7 @@ func (s *streamSuite) TestProcessWatermarkBufferFull(c *gc.C) {
 	// Overfilling the buffer should cause us to witness the watermark. The
 	// buffer is capped FIFO, so we will only witness the last view of the
 	// buffer.
-	total := int64(defaultNumTermWatermarks * 10)
+	total := int64(changestream.DefaultNumTermWatermarks * 10)
 	for i := int64(0); i < total; i++ {
 		stream.recordTermView(&termView{lower: i, upper: i + 1})
 	}
@@ -1358,7 +1358,7 @@ func (s *streamSuite) TestProcessWatermarkBufferFull(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 	}
 
-	witnessWatermark(total-defaultNumTermWatermarks, total-(defaultNumTermWatermarks-1))
+	witnessWatermark(total-int64(changestream.DefaultNumTermWatermarks), total-int64(changestream.DefaultNumTermWatermarks-1))
 }
 
 func (s *streamSuite) TestUpperBound(c *gc.C) {
@@ -1367,26 +1367,26 @@ func (s *streamSuite) TestUpperBound(c *gc.C) {
 	c.Check(stream.upperBound(), gc.Equals, int64(-1))
 
 	// Fill the buffer and witness the view.
-	for i := int64(0); i < defaultNumTermWatermarks; i++ {
+	for i := int64(0); i < int64(changestream.DefaultNumTermWatermarks); i++ {
 		stream.recordTermView(&termView{lower: i + 2, upper: i + 3})
 
 		c.Check(stream.upperBound(), gc.Equals, i+3)
 	}
 
-	for i := 0; i < defaultNumTermWatermarks; i++ {
+	for i := 0; i < changestream.DefaultNumTermWatermarks; i++ {
 		err := stream.processWatermark(func(tv *termView) error {
 			return nil
 		})
 		c.Assert(err, jc.ErrorIsNil)
 
-		c.Check(stream.upperBound(), gc.Equals, int64(defaultNumTermWatermarks+2))
+		c.Check(stream.upperBound(), gc.Equals, int64(changestream.DefaultNumTermWatermarks+2))
 	}
 
 	err := stream.processWatermark(func(tv *termView) error {
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(stream.upperBound(), gc.Equals, int64(defaultNumTermWatermarks+2))
+	c.Check(stream.upperBound(), gc.Equals, int64(changestream.DefaultNumTermWatermarks+2))
 }
 
 func (s *streamSuite) TestCreateWatermarkTwice(c *gc.C) {
@@ -1402,7 +1402,7 @@ func (s *streamSuite) newStream() *Stream {
 	return &Stream{
 		db:         s.TxnRunner(),
 		id:         utils.MustNewUUID().String(),
-		watermarks: make([]*termView, defaultNumTermWatermarks),
+		watermarks: make([]*termView, changestream.DefaultNumTermWatermarks),
 	}
 }
 

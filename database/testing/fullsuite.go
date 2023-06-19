@@ -74,6 +74,10 @@ func (s *DBSuite) TearDownSuite(c *gc.C) {
 func (s *DBSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
+	s.trackedDB, s.db = s.OpenNewDB(c)
+}
+
+func (s *DBSuite) OpenNewDB(c *gc.C) (coredatabase.TxnRunner, *sql.DB) {
 	// Increment the id and use it as the database name, this prevents
 	// tests from interfering with each other.
 	uniqueID := atomic.AddInt64(&s.uniqueID, 1)
@@ -82,11 +86,12 @@ func (s *DBSuite) SetUpTest(c *gc.C) {
 	s.db, err = s.dqlite.Open(context.TODO(), strconv.FormatInt(uniqueID, 10))
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.trackedDB = &txnRunner{
+	trackedDB := &txnRunner{
 		db: sqlair.NewDB(s.db),
 	}
 
 	s.ApplyControllerDDL(c)
+	return trackedDB, trackedDB.db.PlainDB()
 }
 
 // TearDownTest closes the database opened in SetUpTest.
