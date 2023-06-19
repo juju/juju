@@ -670,12 +670,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		changeStreamName: ifController(changestream.Manifold(changestream.ManifoldConfig{
-			AgentName:                 agentName,
-			DBAccessor:                dbAccessorName,
-			FileNotifyWatcher:         fileNotifyWatcherName,
-			Clock:                     config.Clock,
-			Logger:                    loggo.GetLogger("juju.worker.changestream"),
-			NewEventMultiplexerWorker: changestream.NewEventMultiplexerWorker,
+			AgentName:         agentName,
+			DBAccessor:        dbAccessorName,
+			FileNotifyWatcher: fileNotifyWatcherName,
+			Clock:             config.Clock,
+			Logger:            loggo.GetLogger("juju.worker.changestream"),
+			NewWatchableDB:    changestream.NewWatchableDB,
 		})),
 
 		auditConfigUpdaterName: ifController(auditconfigupdater.Manifold(auditconfigupdater.ManifoldConfig{
