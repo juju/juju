@@ -186,6 +186,7 @@ type dbWorker struct {
 	apiServerChanges chan apiserver.Details
 }
 
+// NewWorker creates a new dbaccessor worker.
 func NewWorker(cfg WorkerConfig) (*dbWorker, error) {
 	var err error
 	if err = cfg.Validate(); err != nil {
@@ -207,6 +208,7 @@ func NewWorker(cfg WorkerConfig) (*dbWorker, error) {
 				return !errors.Is(errors.Cause(err), ErrTryAgain)
 			},
 			RestartDelay: time.Second * 10,
+			Logger:       cfg.Logger,
 		}),
 		dbReady:          make(chan error),
 		dbRequests:       make(chan dbRequest),
