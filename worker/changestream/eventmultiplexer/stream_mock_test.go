@@ -34,6 +34,20 @@ func (m *MockStream) EXPECT() *MockStreamMockRecorder {
 	return m.recorder
 }
 
+// Dying mocks base method.
+func (m *MockStream) Dying() <-chan struct{} {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Dying")
+	ret0, _ := ret[0].(<-chan struct{})
+	return ret0
+}
+
+// Dying indicates an expected call of Dying.
+func (mr *MockStreamMockRecorder) Dying() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dying", reflect.TypeOf((*MockStream)(nil).Dying))
+}
+
 // Terms mocks base method.
 func (m *MockStream) Terms() <-chan changestream.Term {
 	m.ctrl.T.Helper()

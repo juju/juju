@@ -87,7 +87,7 @@ func benchmarkSubscriptions(c *gc.C, numSubs, numEvents int, ns string) {
 	terms := make(chan changestream.Term)
 
 	em, err := New(stream{
-		ch: terms,
+		terms: terms,
 	}, clock.WallClock, loggo.GetLogger("bench"))
 	c.Assert(err, gc.IsNil)
 	defer workertest.CleanKill(c, em)
@@ -211,11 +211,16 @@ func (s *benchSuite) BenchmarkNonMatching_1000_100(c *gc.C) {
 }
 
 type stream struct {
-	ch chan changestream.Term
+	terms chan changestream.Term
+	dying chan struct{}
 }
 
 func (s stream) Terms() <-chan changestream.Term {
-	return s.ch
+	return s.terms
+}
+
+func (s stream) Dying() <-chan struct{} {
+	return s.dying
 }
 
 type term struct {

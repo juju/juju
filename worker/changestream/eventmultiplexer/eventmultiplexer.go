@@ -20,6 +20,7 @@ import (
 type Logger interface {
 	Errorf(message string, args ...interface{})
 	Infof(message string, args ...interface{})
+	Debugf(message string, args ...interface{})
 	Tracef(message string, args ...interface{})
 	IsTraceEnabled() bool
 }
@@ -36,6 +37,9 @@ type Stream interface {
 	// Once a change within a term has been completed, only at that point
 	// is another change processed, until all changes are exhausted.
 	Terms() <-chan changestream.Term
+
+	// Dying returns a channel that is closed when the stream is dying.
+	Dying() <-chan struct{}
 }
 
 type eventFilter struct {
@@ -148,6 +152,8 @@ func (e *EventMultiplexer) Report() map[string]any {
 	select {
 	case <-e.catacomb.Dying():
 		return nil
+	case <-e.stream.Dying():
+		return nil
 
 	// We can't block the engine report, so we timeout after a second.
 	// This can happen if we're in the middle of a dispatch and the term
@@ -161,6 +167,8 @@ func (e *EventMultiplexer) Report() map[string]any {
 	select {
 	case <-e.catacomb.Dying():
 		return nil
+	case <-e.stream.Dying():
+		return nil
 	case <-r.done:
 		return r.data
 	}
@@ -169,6 +177,8 @@ func (e *EventMultiplexer) Report() map[string]any {
 func (e *EventMultiplexer) unsubscribe(subscriptionID uint64) {
 	select {
 	case <-e.catacomb.Dying():
+		return
+	case <-e.stream.Dying():
 		return
 	case e.unsubscriptionCh <- subscriptionID:
 	}
@@ -181,14 +191,19 @@ func (e *EventMultiplexer) loop() error {
 		}
 		e.subscriptions = nil
 		e.subscriptionsByNS = nil
-
-		close(e.subscriptionCh)
-		close(e.unsubscriptionCh)
 	}()
 
 	for {
 		select {
+		// If the catacomb is dying, then we should exit.
 		case <-e.catacomb.Dying():
+			return e.catacomb.ErrDying()
+
+		// If the underlying stream is dying, then we should also exit.
+		case <-e.stream.Dying():
+			e.logger.Debugf("change stream is dying, waiting for catacomb to die")
+
+			<-e.catacomb.Dying()
 			return e.catacomb.ErrDying()
 
 		case term, ok := <-e.stream.Terms():
