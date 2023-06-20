@@ -159,8 +159,9 @@ func (r *apiHandler) Authorizer() facade.Authorizer {
 	return r
 }
 
-func (r *apiHandler) getRpcConn() *rpc.Conn {
-	return r.rpcConn
+// CloseConn closes the underlying connection.
+func (r *apiHandler) CloseConn() error {
+	return r.rpcConn.Close()
 }
 
 // Kill implements rpc.Killer, cleaning up any resources that need
