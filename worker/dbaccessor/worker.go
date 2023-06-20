@@ -14,12 +14,17 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 	"github.com/juju/worker/v3/dependency"
-	"gopkg.in/tomb.v2"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/dqlite"
 	"github.com/juju/juju/pubsub/apiserver"
+)
+
+var (
+	// ErrTryAgain indicates that the worker should try again to start the
+	// worker.
+	ErrTryAgain = errors.ConstError("watcher trying again starting up")
 )
 
 // nodeShutdownTimeout is the timeout that we add to the context passed
@@ -175,8 +180,14 @@ func newWorker(cfg WorkerConfig) (*dbWorker, error) {
 			// If a worker goes down, we've attempted multiple retries and in
 			// that case we do want to cause the dbaccessor to go down. This
 			// will then bring up a new dqlite app.
-			IsFatal:      func(err error) bool { return true },
-			RestartDelay: time.Second * 30,
+			IsFatal: func(err error) bool {
+				// If there is a rebind during starting up a worker the dbApp
+				// will be nil. In this case, we'll return ErrTryAgain. In this
+				// case we don't want to kill the worker. We'll force the
+				// worker to try again.
+				return !errors.Is(errors.Cause(err), ErrTryAgain)
+			},
+			RestartDelay: time.Second * 10,
 		}),
 		dbReady:          make(chan struct{}),
 		dbRequests:       make(chan dbRequest),
@@ -429,15 +440,29 @@ func (w *dbWorker) initialiseDqlite(options ...app.Option) error {
 // Since GetDB blocks until dbReady is closed, and initialiseDqlite waits for
 // the node to be ready, we can assume that we will never race with a nil dbApp
 // when first starting up.
-// Since the only way we can get into this race is during shutdown, it is safe
-// to return ErrDying if we detect a nil database.
-// This preserves the error that the worker is exiting with, including nil.
+// Since the only way we can get into this race is during shutdown or a rebind.
+// It is safe to return ErrDying if the catacomb is dying when we detect a nil
+// database or ErrTryAgain to force the runner to retry starting the worker
+// again.
 func (w *dbWorker) openDatabase(namespace string) error {
+	// Note: Do not be tempted to create the worker outside of the StartWorker
+	// function. This will create potential data race if openDatabase is called
+	// multiple times for the same namespace.
 	err := w.dbRunner.StartWorker(namespace, func() (worker.Worker, error) {
 		w.mu.RLock()
 		defer w.mu.RUnlock()
 		if w.dbApp == nil {
-			return nil, tomb.ErrDying
+			// If the dbApp is nil, then we're either shutting down or
+			// rebinding the address. In either case, we don't want to
+			// start a new worker. We'll return ErrTryAgain to indicate
+			// that we should try again in a bit. This will continue until
+			// the dbApp is no longer nil.
+			select {
+			case <-w.catacomb.Dying():
+				return nil, w.catacomb.ErrDying()
+			default:
+				return nil, ErrTryAgain
+			}
 		}
 
 		return w.cfg.NewDBWorker(w.dbApp, namespace,
