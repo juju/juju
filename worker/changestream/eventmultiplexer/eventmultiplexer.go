@@ -20,6 +20,7 @@ import (
 type Logger interface {
 	Errorf(message string, args ...interface{})
 	Infof(message string, args ...interface{})
+	Debugf(message string, args ...interface{})
 	Tracef(message string, args ...interface{})
 	IsTraceEnabled() bool
 }
@@ -200,7 +201,10 @@ func (e *EventMultiplexer) loop() error {
 
 		// If the underlying stream is dying, then we should also exit.
 		case <-e.stream.Dying():
-			return nil
+			e.logger.Debugf("change stream is dying, waiting for catacomb to die")
+
+			<-e.catacomb.Dying()
+			return e.catacomb.ErrDying()
 
 		case term, ok := <-e.stream.Terms():
 			// If the stream is closed, we expect that a new worker will come

@@ -32,7 +32,7 @@ var _ = gc.Suite(&eventMultiplexerSuite{})
 func (s *eventMultiplexerSuite) TestSubscribe(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 	s.expectStreamDying(make(<-chan struct{}))
 
 	terms := make(chan changestream.Term)
@@ -53,7 +53,7 @@ func (s *eventMultiplexerSuite) TestSubscribe(c *gc.C) {
 func (s *eventMultiplexerSuite) TestDispatch(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 	s.expectStreamDying(make(<-chan struct{}))
 
 	terms := make(chan changestream.Term)
@@ -123,7 +123,7 @@ func (s *eventMultiplexerSuite) TestSubscribeWithMatchingFilter(c *gc.C) {
 func (s *eventMultiplexerSuite) testMultipleDispatch(c *gc.C, opts ...changestream.SubscriptionOption) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 	s.expectStreamDying(make(<-chan struct{}))
 
 	terms := make(chan changestream.Term)
@@ -188,7 +188,7 @@ func (s *eventMultiplexerSuite) testMultipleDispatch(c *gc.C, opts ...changestre
 func (s *eventMultiplexerSuite) TestUnsubscribeTwice(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 	s.expectStreamDying(make(<-chan struct{}))
 
 	terms := make(chan changestream.Term)
@@ -223,7 +223,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeTwice(c *gc.C) {
 func (s *eventMultiplexerSuite) TestTopicDoesNotMatch(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 	s.expectStreamDying(make(<-chan struct{}))
 
 	terms := make(chan changestream.Term)
@@ -262,7 +262,7 @@ func (s *eventMultiplexerSuite) TestTopicDoesNotMatch(c *gc.C) {
 func (s *eventMultiplexerSuite) TestTopicMatchesOne(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 	s.expectStreamDying(make(<-chan struct{}))
 
 	terms := make(chan changestream.Term)
@@ -311,7 +311,7 @@ func (s *eventMultiplexerSuite) TestTopicMatchesOne(c *gc.C) {
 func (s *eventMultiplexerSuite) TestSubscriptionDoneWhenEventQueueKilled(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 	s.expectStreamDying(make(<-chan struct{}))
 
 	terms := make(chan changestream.Term)
@@ -347,7 +347,7 @@ func (s *eventMultiplexerSuite) TestSubscriptionDoneWhenEventQueueKilled(c *gc.C
 func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 	s.expectStreamDying(make(<-chan struct{}))
 
 	terms := make(chan changestream.Term)
@@ -407,7 +407,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *gc.C) {
 func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGoroutine(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 	s.expectStreamDying(make(<-chan struct{}))
 
 	terms := make(chan changestream.Term)
@@ -470,7 +470,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGorou
 func (s *eventMultiplexerSuite) TestStreamDying(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 
 	ch := make(chan struct{})
 	s.expectStreamDying(ch)
@@ -515,9 +515,15 @@ func (s *eventMultiplexerSuite) TestStreamDying(c *gc.C) {
 	select {
 	case <-wg.Wait():
 		close(ch)
+
 	case <-time.After(testing.ShortWait):
 		c.Fatal("timed out waiting for all events")
 	}
+
+	// Give a grace period for the stream to die and then kill the queue. This
+	// should ensure that all the subscriptions are cleaned up.
+	<-time.After(testing.ShortWait)
+	workertest.CleanKill(c, queue)
 
 	for _, sub := range subs {
 		select {
@@ -526,14 +532,12 @@ func (s *eventMultiplexerSuite) TestStreamDying(c *gc.C) {
 			c.Fatal("timed out waiting for event")
 		}
 	}
-
-	workertest.CleanKill(c, queue)
 }
 
 func (s *eventMultiplexerSuite) TestStreamDyingWhilstDispatching(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 
 	ch := make(chan struct{})
 	s.expectStreamDying(ch)
@@ -597,6 +601,11 @@ func (s *eventMultiplexerSuite) TestStreamDyingWhilstDispatching(c *gc.C) {
 		c.Fatal("timed out waiting for all events")
 	}
 
+	// Give a grace period for the stream to die and then kill the queue. This
+	// should ensure that all the subscriptions are cleaned up.
+	<-time.After(testing.ShortWait)
+	workertest.CleanKill(c, queue)
+
 	for _, sub := range subs {
 		select {
 		case <-sub.Done():
@@ -604,14 +613,12 @@ func (s *eventMultiplexerSuite) TestStreamDyingWhilstDispatching(c *gc.C) {
 			c.Fatal("timed out waiting for event")
 		}
 	}
-
-	workertest.CleanKill(c, queue)
 }
 
 func (s *eventMultiplexerSuite) TestStreamDyingOnStartup(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 
 	ch := make(chan struct{})
 	s.expectStreamDying(ch)
@@ -631,7 +638,7 @@ func (s *eventMultiplexerSuite) TestStreamDyingOnStartup(c *gc.C) {
 func (s *eventMultiplexerSuite) TestStreamDyingOnSubscribe(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 
 	ch := make(chan struct{})
 	s.expectStreamDying(ch)
@@ -645,17 +652,20 @@ func (s *eventMultiplexerSuite) TestStreamDyingOnSubscribe(c *gc.C) {
 
 	close(ch)
 
+	// Give a grace period for the stream to die and then kill the queue. This
+	// should ensure that all the subscriptions are cleaned up.
+	<-time.After(testing.ShortWait)
+	workertest.CleanKill(c, queue)
+
 	sub, err := queue.Subscribe()
 	c.Assert(err, gc.ErrorMatches, ".*dying")
 	c.Check(sub, gc.IsNil)
-
-	workertest.CleanKill(c, queue)
 }
 
 func (s *eventMultiplexerSuite) TestReportWithAllSubscriptions(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 	s.expectAfter()
 	s.expectStreamDying(make(<-chan struct{}))
 
@@ -701,7 +711,7 @@ func (s *eventMultiplexerSuite) TestReportWithAllSubscriptions(c *gc.C) {
 func (s *eventMultiplexerSuite) TestReportWithTopicSubscriptions(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 	s.expectAfter()
 	s.expectStreamDying(make(<-chan struct{}))
 
@@ -747,7 +757,7 @@ func (s *eventMultiplexerSuite) TestReportWithTopicSubscriptions(c *gc.C) {
 func (s *eventMultiplexerSuite) TestReportWithMultipleTopicSubscriptions(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 	s.expectAfter()
 	s.expectStreamDying(make(<-chan struct{}))
 
@@ -796,7 +806,7 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleTopicSubscriptions(c *gc.C
 func (s *eventMultiplexerSuite) TestReportWithDuplicateTopicSubscriptions(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 	s.expectAfter()
 	s.expectStreamDying(make(<-chan struct{}))
 
@@ -845,7 +855,7 @@ func (s *eventMultiplexerSuite) TestReportWithDuplicateTopicSubscriptions(c *gc.
 func (s *eventMultiplexerSuite) TestReportWithMultipleDuplicateTopicSubscriptions(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 	s.expectAfter()
 	s.expectStreamDying(make(<-chan struct{}))
 
@@ -894,7 +904,7 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleDuplicateTopicSubscription
 func (s *eventMultiplexerSuite) TestReportWithTopicRemovalAfterUnsubscribe(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs()
+	s.expectAnyLogs(c)
 	s.expectAfter()
 	s.expectStreamDying(make(<-chan struct{}))
 

@@ -45,12 +45,13 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *baseSuite) expectAnyLogs() {
-	s.logger.EXPECT().Errorf(gomock.Any()).AnyTimes()
-	s.logger.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()
-	s.logger.EXPECT().Infof(gomock.Any()).AnyTimes()
-	s.logger.EXPECT().Tracef(gomock.Any()).AnyTimes()
-	s.logger.EXPECT().Tracef(gomock.Any(), gomock.Any()).AnyTimes()
+func (s *baseSuite) expectAnyLogs(c *gc.C) {
+	s.logger.EXPECT().Errorf(gomock.Any()).Do(c.Logf).AnyTimes()
+	s.logger.EXPECT().Errorf(gomock.Any(), gomock.Any()).Do(c.Logf).AnyTimes()
+	s.logger.EXPECT().Infof(gomock.Any()).Do(c.Logf).AnyTimes()
+	s.logger.EXPECT().Debugf(gomock.Any()).Do(c.Logf).AnyTimes()
+	s.logger.EXPECT().Tracef(gomock.Any()).Do(c.Logf).AnyTimes()
+	s.logger.EXPECT().Tracef(gomock.Any(), gomock.Any()).Do(c.Logf).AnyTimes()
 	s.logger.EXPECT().IsTraceEnabled().Return(true).AnyTimes()
 }
 
