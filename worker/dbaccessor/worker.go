@@ -45,7 +45,7 @@ type NodeManager interface {
 	// Dqlite nodes configured to be in the cluster.
 	ClusterServers(context.Context) ([]dqlite.NodeInfo, error)
 
-	//SetClusterServers reconfigures the Dqlite cluster members.
+	// SetClusterServers reconfigures the Dqlite cluster members.
 	SetClusterServers(context.Context, []dqlite.NodeInfo) error
 
 	// SetNodeInfo rewrites the local node information
@@ -543,7 +543,9 @@ func (w *dbWorker) initialiseDqlite(options ...app.Option) error {
 // to return ErrDying if we detect a nil database.
 // This preserves the error that the worker is exiting with, including nil.
 func (w *dbWorker) openDatabase(namespace string) error {
+	sync := make(chan struct{})
 	err := w.dbRunner.StartWorker(namespace, func() (worker.Worker, error) {
+		close(sync)
 		w.mu.RLock()
 		defer w.mu.RUnlock()
 		if w.dbApp == nil {
@@ -562,8 +564,15 @@ func (w *dbWorker) openDatabase(namespace string) error {
 	})
 	if errors.Is(err, errors.AlreadyExists) {
 		return nil
+	} else if err != nil {
+		return errors.Trace(err)
 	}
-	return errors.Trace(err)
+
+	select {
+	case <-sync:
+	case <-w.catacomb.Dying():
+	}
+	return nil
 }
 
 func (w *dbWorker) closeDatabase(namespace string) error {
