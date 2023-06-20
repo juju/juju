@@ -3108,7 +3108,15 @@ func (s *localServerSuite) TestICMPFirewallRules(c *gc.C) {
 				ToPort:   -1,
 				Protocol: "icmp",
 			},
-			SourceCIDRs: set.NewStrings("0.0.0.0/0", "::/0"),
+			SourceCIDRs: set.NewStrings("0.0.0.0/0"),
+		},
+		{
+			PortRange: network.PortRange{
+				FromPort: -1,
+				ToPort:   -1,
+				Protocol: "ipv6-icmp",
+			},
+			SourceCIDRs: set.NewStrings("::/0"),
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
