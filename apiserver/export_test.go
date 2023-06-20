@@ -57,8 +57,14 @@ func (testingAPIRootHandler) Authorizer() facade.Authorizer {
 	return nil
 }
 
+// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
 func (testingAPIRootHandler) Resources() *common.Resources {
 	return common.NewResources()
+}
+
+// WatcherRegistry returns a new WatcherRegistry.
+func (testingAPIRootHandler) WatcherRegistry() facade.WatcherRegistry {
+	return nil
 }
 
 // TestingAPIRoot gives you an APIRoot as a rpc.Methodfinder that is
@@ -99,7 +105,7 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State) (*apiHan
 func TestingAPIHandlerWithEntity(c *gc.C, pool *state.StatePool, st *state.State, entity state.Entity) (*apiHandler, *common.Resources) {
 	h, hr := TestingAPIHandler(c, pool, st)
 	h.authInfo.Entity = entity
-	h.authInfo.Delegator = &stateauthenticator.PermissionDelegator{st}
+	h.authInfo.Delegator = &stateauthenticator.PermissionDelegator{State: st}
 	return h, hr
 }
 

@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -43,11 +44,13 @@ type objectKey struct {
 // after it has logged in. It contains an rpc.Root which it
 // uses to dispatch API calls appropriately.
 type apiHandler struct {
-	state     *state.State
-	model     *state.Model
-	rpcConn   *rpc.Conn
-	resources *common.Resources
-	shared    *sharedServerContext
+	state   *state.State
+	model   *state.Model
+	rpcConn *rpc.Conn
+	// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
+	resources       *common.Resources
+	watcherRegistry facade.WatcherRegistry
+	shared          *sharedServerContext
 
 	// authInfo represents the authentication info established with this client
 	// connection.
@@ -95,15 +98,21 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 		}
 	}
 
+	registry, err := registry.NewRegistry(srv.clock)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	r := &apiHandler{
-		state:        st,
-		model:        m,
-		resources:    common.NewResources(),
-		shared:       srv.shared,
-		rpcConn:      rpcConn,
-		modelUUID:    modelUUID,
-		connectionID: connectionID,
-		serverHost:   serverHost,
+		state:           st,
+		model:           m,
+		resources:       common.NewResources(),
+		watcherRegistry: registry,
+		shared:          srv.shared,
+		rpcConn:         rpcConn,
+		modelUUID:       modelUUID,
+		connectionID:    connectionID,
+		serverHost:      serverHost,
 	}
 
 	// Facades involved with managing application offers need the auth context
@@ -124,8 +133,15 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 }
 
 // Resources returns the common resources.
+// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
 func (r *apiHandler) Resources() *common.Resources {
 	return r.resources
+}
+
+// WatcherRegistry returns the watcher registry for tracking watchers between
+// API calls.
+func (r *apiHandler) WatcherRegistry() facade.WatcherRegistry {
+	return r.watcherRegistry
 }
 
 // State returns the underlying state.
@@ -150,6 +166,11 @@ func (r *apiHandler) getRpcConn() *rpc.Conn {
 // Kill implements rpc.Killer, cleaning up any resources that need
 // cleaning up to ensure that all outstanding requests return.
 func (r *apiHandler) Kill() {
+	r.watcherRegistry.Kill()
+	if err := r.watcherRegistry.Wait(); err != nil {
+		logger.Infof("error waiting for watcher registry to stop: %v", err)
+	}
+
 	r.resources.StopAll()
 }
 
@@ -190,11 +211,14 @@ type apiRoot struct {
 	state           *state.State
 	shared          *sharedServerContext
 	facades         *facade.Registry
-	resources       *common.Resources
+	watcherRegistry facade.WatcherRegistry
 	authorizer      facade.Authorizer
 	objectMutex     sync.RWMutex
 	objectCache     map[objectKey]reflect.Value
 	requestRecorder facade.RequestRecorder
+
+	// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
+	resources *common.Resources
 }
 
 type apiRootHandler interface {
@@ -203,7 +227,11 @@ type apiRootHandler interface {
 	// SharedContext returns the server shared context.
 	SharedContext() *sharedServerContext
 	// Resources returns the common resources.
+	// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
 	Resources() *common.Resources
+	// WatcherRegistry returns the watcher registry for tracking watchers
+	// between API calls.
+	WatcherRegistry() facade.WatcherRegistry
 	// Authorizer returns the authorizer used for accessing API method calls.
 	Authorizer() facade.Authorizer
 }
@@ -221,6 +249,7 @@ func newAPIRoot(clock clock.Clock,
 		shared:          root.SharedContext(),
 		facades:         facades,
 		resources:       root.Resources(),
+		watcherRegistry: root.WatcherRegistry(),
 		authorizer:      root.Authorizer(),
 		objectCache:     make(map[objectKey]reflect.Value),
 		requestRecorder: requestRecorder,
@@ -437,8 +466,14 @@ func (ctx *facadeContext) Dispose() {
 }
 
 // Resources is part of the facade.Context interface.
+// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
 func (ctx *facadeContext) Resources() facade.Resources {
 	return ctx.r.resources
+}
+
+// WatcherRegistry is part of the facade.Context interface.
+func (ctx *facadeContext) WatcherRegistry() facade.WatcherRegistry {
+	return ctx.r.watcherRegistry
 }
 
 // Presence implements facade.Context.
