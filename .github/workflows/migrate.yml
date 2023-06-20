@@ -66,7 +66,7 @@ jobs:
 
       - name: Bootstrap 4.x controller
         run: |
-          juju bootstrap lxd test31
+          juju bootstrap lxd test4x
           juju switch controller
           juju wait-for application controller || juju status -m controller
 
@@ -83,12 +83,12 @@ jobs:
           # so that migration prechecks pass.
           sleep 10
           
-          juju_31 migrate test-migrate test31
+          juju_31 migrate test-migrate test4x
 
       - name: Check the migration was successful
         run: |
           set -x
-          juju switch test31
+          juju switch test4x
           
           # Wait for 'test-migrate' model to come through
           attempt=0
