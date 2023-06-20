@@ -67,6 +67,8 @@ func (testingAPIRootHandler) WatcherRegistry() facade.WatcherRegistry {
 	return nil
 }
 
+func (testingAPIRootHandler) Kill() {}
+
 // TestingAPIRoot gives you an APIRoot as a rpc.Methodfinder that is
 // *barely* connected to anything.  Just enough to let you probe some
 // of the interfaces, but not enough to actually do any RPC calls.
