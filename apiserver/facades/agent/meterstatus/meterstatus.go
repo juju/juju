@@ -44,15 +44,15 @@ type MeterStatusState interface {
 type MeterStatusAPI struct {
 	*common.UnitStateAPI
 
-	state      MeterStatusState
-	accessUnit common.GetAuthFunc
-	resources  facade.Resources
+	state           MeterStatusState
+	accessUnit      common.GetAuthFunc
+	watcherRegistry facade.WatcherRegistry
 }
 
 // NewMeterStatusAPI creates a new API endpoint for dealing with unit meter status.
 func NewMeterStatusAPI(
 	st MeterStatusState,
-	resources facade.Resources,
+	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
 	logger loggo.Logger,
 ) (*MeterStatusAPI, error) {
@@ -62,12 +62,11 @@ func NewMeterStatusAPI(
 
 	accessUnit := unitcommon.UnitAccessor(authorizer, unitcommon.Backend(st))
 	return &MeterStatusAPI{
-		state:      st,
-		accessUnit: accessUnit,
-		resources:  resources,
+		state:           st,
+		accessUnit:      accessUnit,
+		watcherRegistry: watcherRegistry,
 		UnitStateAPI: common.NewUnitStateAPI(
-			unitStateShim{st},
-			resources,
+			unitStateShim{st: st},
 			authorizer,
 			accessUnit,
 			logger,
@@ -109,7 +108,7 @@ func (m *MeterStatusAPI) watchOneUnitMeterStatus(tag names.UnitTag) (string, err
 	}
 	watch := unit.WatchMeterStatus()
 	if _, ok := <-watch.Changes(); ok {
-		return m.resources.Register(watch), nil
+		return m.watcherRegistry.Register(watch)
 	}
 	return "", watcher.EnsureErr(watch)
 }

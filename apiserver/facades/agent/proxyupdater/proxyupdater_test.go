@@ -6,16 +6,18 @@ package proxyupdater_test
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/proxyupdater"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -25,11 +27,11 @@ import (
 type ProxyUpdaterSuite struct {
 	coretesting.BaseSuite
 
-	state      *stubBackend
-	resources  *common.Resources
-	authorizer apiservertesting.FakeAuthorizer
-	facade     *proxyupdater.API
-	tag        names.MachineTag
+	state           *stubBackend
+	watcherRegistry facade.WatcherRegistry
+	authorizer      apiservertesting.FakeAuthorizer
+	facade          *proxyupdater.API
+	tag             names.MachineTag
 }
 
 var _ = gc.Suite(&ProxyUpdaterSuite{})
@@ -40,8 +42,12 @@ func (s *ProxyUpdaterSuite) SetUpSuite(c *gc.C) {
 
 func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+
+	var err error
+	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
+
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("1"),
 		Controller: false,
@@ -51,7 +57,7 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 	s.state.SetUp(c)
 	s.AddCleanup(func(_ *gc.C) { s.state.Kill() })
 
-	api, err := proxyupdater.NewAPIV2(s.state, s.state, s.resources, s.authorizer)
+	api, err := proxyupdater.NewAPIV2(s.state, s.state, s.watcherRegistry, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.NotNil)
 	s.facade = api
@@ -73,8 +79,11 @@ func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C
 	)
 
 	// Verify the watcher resource was registered.
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	resource := s.resources.Get(result.Results[0].NotifyWatcherId)
+	c.Assert(s.watcherRegistry.Count(), gc.Equals, 1)
+	resource, err := s.watcherRegistry.Get(result.Results[0].NotifyWatcherId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(resource, gc.NotNil)
+
 	watcher, ok := resource.(state.NotifyWatcher)
 	c.Assert(ok, jc.IsTrue)
 
@@ -88,7 +97,7 @@ func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C
 
 func (s *ProxyUpdaterSuite) oneEntity() params.Entities {
 	entities := params.Entities{
-		make([]params.Entity, 1),
+		Entities: make([]params.Entity, 1),
 	}
 	entities.Entities[0].Tag = s.tag.String()
 	return entities

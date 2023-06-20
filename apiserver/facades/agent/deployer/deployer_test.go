@@ -102,7 +102,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 
 	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(_ *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
+	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
 
 	s.revoker = &mockLeadershipRevoker{revoked: set.NewStrings()}
 	// Create a deployer API for machine 1.

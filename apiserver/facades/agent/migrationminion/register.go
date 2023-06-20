@@ -6,6 +6,7 @@ package migrationminion
 import (
 	"reflect"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -18,5 +19,9 @@ func Register(registry facade.FacadeRegistry) {
 
 // newFacade provides the signature required for facade registration.
 func newFacade(ctx facade.Context) (*API, error) {
-	return NewAPI(ctx.State(), ctx.Resources(), ctx.Auth())
+	authorizer := ctx.Auth()
+	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent() || authorizer.AuthApplicationAgent()) {
+		return nil, apiservererrors.ErrPerm
+	}
+	return NewAPI(ctx.State(), ctx.WatcherRegistry(), authorizer)
 }

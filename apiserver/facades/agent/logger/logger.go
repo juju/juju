@@ -25,9 +25,9 @@ type Logger interface {
 // LoggerAPI implements the Logger interface and is the concrete
 // implementation of the api end point.
 type LoggerAPI struct {
-	model      *state.Model
-	resources  facade.Resources
-	authorizer facade.Authorizer
+	model           *state.Model
+	watcherRegistry facade.WatcherRegistry
+	authorizer      facade.Authorizer
 }
 
 var _ Logger = (*LoggerAPI)(nil)
@@ -52,8 +52,15 @@ func (api *LoggerAPI) WatchLoggingConfig(arg params.Entities) params.NotifyWatch
 			// 'transmit' the initial event in the Watch response. But
 			// NotifyWatchers have no state to transmit.
 			if _, ok := <-watch.Changes(); ok {
-				result[i].NotifyWatcherId = api.resources.Register(watch)
-				err = nil
+				id, err := api.watcherRegistry.Register(watch)
+				if err == nil {
+					result[i].NotifyWatcherId = id
+					err = nil
+				} else {
+					// TODO (stickupkid): This leaks the watcher, we should
+					// ensure we kill/wait it.
+					err = errors.Trace(err)
+				}
 			} else {
 				err = errors.New("programming error: channel should not be closed")
 			}

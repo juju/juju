@@ -15,25 +15,25 @@ import (
 // API implements the API required for the model migration
 // master worker.
 type API struct {
-	backend    Backend
-	authorizer facade.Authorizer
-	resources  facade.Resources
+	backend         Backend
+	authorizer      facade.Authorizer
+	watcherRegistry facade.WatcherRegistry
 }
 
 // NewAPI creates a new API server endpoint for the model migration
 // master worker.
 func NewAPI(
 	backend Backend,
-	resources facade.Resources,
+	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
 ) (*API, error) {
 	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent() || authorizer.AuthApplicationAgent()) {
 		return nil, apiservererrors.ErrPerm
 	}
 	return &API{
-		backend:    backend,
-		authorizer: authorizer,
-		resources:  resources,
+		backend:         backend,
+		authorizer:      authorizer,
+		watcherRegistry: watcherRegistry,
 	}, nil
 }
 
@@ -46,8 +46,12 @@ func NewAPI(
 // from the watcher.
 func (api *API) Watch() (params.NotifyWatchResult, error) {
 	w := api.backend.WatchMigrationStatus()
+	id, err := api.watcherRegistry.Register(w)
+	if err != nil {
+		return params.NotifyWatchResult{}, errors.Trace(err)
+	}
 	return params.NotifyWatchResult{
-		NotifyWatcherId: api.resources.Register(w),
+		NotifyWatcherId: id,
 	}, nil
 }
 

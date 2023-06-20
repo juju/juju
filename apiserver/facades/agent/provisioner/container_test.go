@@ -47,10 +47,10 @@ func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[1].Tag()
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      anAuthorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
+		Auth_:            anAuthorizer,
+		State_:           s.State,
+		StatePool_:       s.StatePool,
+		WatcherRegistry_: s.watcherRegistry,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
@@ -100,10 +100,10 @@ func (s *containerProvisionerSuite) TestHostChangesForContainersPermission(c *gc
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[1].Tag()
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      anAuthorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
+		Auth_:            anAuthorizer,
+		State_:           s.State,
+		StatePool_:       s.StatePool,
+		WatcherRegistry_: s.watcherRegistry,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)

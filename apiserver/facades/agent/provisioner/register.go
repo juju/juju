@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -19,9 +20,14 @@ func Register(registry facade.FacadeRegistry) {
 
 // newProvisionerAPIV11 creates a new server-side Provisioner API facade.
 func newProvisionerAPIV11(ctx facade.Context) (*ProvisionerAPIV11, error) {
+	authorizer := ctx.Auth()
+	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
+		return nil, apiservererrors.ErrPerm
+	}
+
 	provisionerAPI, err := NewProvisionerAPI(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &ProvisionerAPIV11{provisionerAPI}, nil
+	return &ProvisionerAPIV11{ProvisionerAPI: provisionerAPI}, nil
 }

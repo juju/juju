@@ -12,7 +12,6 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/metricsadder"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -28,7 +27,6 @@ type metricsAdderSuite struct {
 	jujutesting.JujuConnSuite
 
 	authorizer apiservertesting.FakeAuthorizer
-	resources  *common.Resources
 
 	machine0       *state.Machine
 	machine1       *state.Machine
@@ -82,15 +80,9 @@ func (s *metricsAdderSuite) SetUpTest(c *gc.C) {
 		Tag: names.NewMachineTag("1"),
 	}
 
-	// Create the resource registry separately to track invocations to
-	// Register.
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
-
 	adder, err := metricsadder.NewMetricsAdderAPI(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
+		State_: s.State,
+		Auth_:  s.authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.adder = adder
@@ -116,7 +108,7 @@ func (s *metricsAdderSuite) TestAddMetricsBatch(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{nil}},
+		Results: []params.ErrorResult{{Error: nil}},
 	})
 
 	batches, err := s.State.AllMetricBatches()
@@ -151,7 +143,7 @@ func (s *metricsAdderSuite) TestAddMetricsBatchNoCharmURL(c *gc.C) {
 			}}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{nil}},
+		Results: []params.ErrorResult{{Error: nil}},
 	})
 
 	batches, err := s.State.AllMetricBatches()
@@ -224,11 +216,11 @@ func (s *metricsAdderSuite) TestNewMetricsAdderAPIRefusesNonAgent(c *gc.C) {
 	}{
 		// TODO(cmars): unit agent should get permission denied when callers are
 		// moved to machine agent.
-		{names.NewUnitTag("mysql/0"), false, ""},
+		{tag: names.NewUnitTag("mysql/0"), controller: false, expectedError: ""},
 
-		{names.NewLocalUserTag("admin"), true, "permission denied"},
-		{names.NewMachineTag("0"), false, ""},
-		{names.NewMachineTag("0"), true, ""},
+		{tag: names.NewLocalUserTag("admin"), controller: true, expectedError: "permission denied"},
+		{tag: names.NewMachineTag("0"), controller: false, expectedError: ""},
+		{tag: names.NewMachineTag("0"), controller: true, expectedError: ""},
 	}
 	for i, test := range tests {
 		c.Logf("test %d", i)

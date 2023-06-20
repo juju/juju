@@ -8,7 +8,7 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/rpc/params"
@@ -41,8 +41,8 @@ func TestGetMeterStatus(c *gc.C, status meterstatus.MeterStatus, unit *jujustate
 }
 
 // TestWatchMeterStatus tests the meter status watcher functionality.
-func TestWatchMeterStatus(c *gc.C, status meterstatus.MeterStatus, unit *jujustate.Unit, state *jujustate.State, resources *common.Resources) {
-	c.Assert(resources.Count(), gc.Equals, 0)
+func TestWatchMeterStatus(c *gc.C, status meterstatus.MeterStatus, unit *jujustate.Unit, state *jujustate.State, watcherRegistry facade.WatcherRegistry) {
+	c.Assert(watcherRegistry.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: unit.UnitTag().String()},
@@ -58,8 +58,9 @@ func TestWatchMeterStatus(c *gc.C, status meterstatus.MeterStatus, unit *jujusta
 	})
 
 	// Verify the resource was registered and stop when done
-	c.Assert(resources.Count(), gc.Equals, 1)
-	resource := resources.Get("1")
+	c.Assert(watcherRegistry.Count(), gc.Equals, 1)
+	resource, err := watcherRegistry.Get("1")
+	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned" in

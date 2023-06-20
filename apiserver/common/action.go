@@ -199,7 +199,7 @@ func WatchOneActionReceiverNotifications(tagToActionReceiver func(tag string) (s
 // It needs a tagToActionReceiver function and a registerFunc to register
 // resources.
 // It's a helper function currently used by the uniter and by machineactions
-func WatchPendingActionsForReceiver(tagToActionReceiver func(tag string) (state.ActionReceiver, error), registerFunc func(r worker.Worker) string) func(names.Tag) (params.StringsWatchResult, error) {
+func WatchPendingActionsForReceiver(tagToActionReceiver func(tag string) (state.ActionReceiver, error), registerFunc func(r worker.Worker) (string, error)) func(names.Tag) (params.StringsWatchResult, error) {
 	return func(tag names.Tag) (params.StringsWatchResult, error) {
 		nothing := params.StringsWatchResult{}
 		receiver, err := tagToActionReceiver(tag.String())
@@ -209,8 +209,12 @@ func WatchPendingActionsForReceiver(tagToActionReceiver func(tag string) (state.
 		watch := receiver.WatchPendingActionNotifications()
 
 		if changes, ok := <-watch.Changes(); ok {
+			id, err := registerFunc(watch)
+			if err != nil {
+				return nothing, err
+			}
 			return params.StringsWatchResult{
-				StringsWatcherId: registerFunc(watch),
+				StringsWatcherId: id,
 				Changes:          changes,
 			}, nil
 		}

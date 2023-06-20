@@ -4,17 +4,20 @@
 package migrationminion_test
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/migrationminion"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -26,10 +29,10 @@ var _ migrationminion.Backend = (*state.State)(nil)
 type Suite struct {
 	coretesting.BaseSuite
 
-	stub       *testing.Stub
-	backend    *stubBackend
-	resources  *common.Resources
-	authorizer apiservertesting.FakeAuthorizer
+	stub            *testing.Stub
+	backend         *stubBackend
+	watcherRegistry facade.WatcherRegistry
+	authorizer      apiservertesting.FakeAuthorizer
 }
 
 var _ = gc.Suite(&Suite{})
@@ -40,8 +43,10 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.stub = &testing.Stub{}
 	s.backend = &stubBackend{stub: s.stub}
 
-	s.resources = common.NewResources()
-	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
+	var err error
+	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("99"),
@@ -73,7 +78,10 @@ func (s *Suite) TestWatch(c *gc.C) {
 	api := s.mustMakeAPI(c)
 	result, err := api.Watch()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.resources.Get(result.NotifyWatcherId), gc.NotNil)
+
+	w, err := s.watcherRegistry.Get(result.NotifyWatcherId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(w, gc.NotNil)
 }
 
 func (s *Suite) TestReport(c *gc.C) {
@@ -85,8 +93,8 @@ func (s *Suite) TestReport(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{
-		{"Migration", []interface{}{"id"}},
-		{"Report", []interface{}{s.authorizer.Tag, migration.IMPORT, true}},
+		{FuncName: "Migration", Args: []interface{}{"id"}},
+		{FuncName: "Report", Args: []interface{}{s.authorizer.Tag, migration.IMPORT, true}},
 	})
 }
 
@@ -113,7 +121,7 @@ func (s *Suite) TestReportNoSuchMigration(c *gc.C) {
 }
 
 func (s *Suite) makeAPI() (*migrationminion.API, error) {
-	return migrationminion.NewAPI(s.backend, s.resources, s.authorizer)
+	return migrationminion.NewAPI(s.backend, s.watcherRegistry, s.authorizer)
 }
 
 func (s *Suite) mustMakeAPI(c *gc.C) *migrationminion.API {

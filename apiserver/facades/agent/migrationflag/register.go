@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -19,7 +20,12 @@ func Register(registry facade.FacadeRegistry) {
 
 // newFacade wraps New to express the supplied *state.State as a Backend.
 func newFacade(ctx facade.Context) (*Facade, error) {
-	facade, err := New(&backend{ctx.State()}, ctx.Resources(), ctx.Auth())
+	auth := ctx.Auth()
+	if !auth.AuthMachineAgent() && !auth.AuthUnitAgent() && !auth.AuthApplicationAgent() {
+		return nil, apiservererrors.ErrPerm
+	}
+
+	facade, err := New(&backend{ctx.State()}, ctx.WatcherRegistry(), auth)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

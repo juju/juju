@@ -41,17 +41,17 @@ func newFacadeBase(ctx facade.Context) (*API, error) {
 	return NewAPIV2(
 		systemState,
 		model,
-		ctx.Resources(),
+		ctx.WatcherRegistry(),
 		ctx.Auth(),
 	)
 }
 
 // API provides the ProxyUpdater version 2 facade.
 type API struct {
-	backend    Backend
-	controller ControllerBackend
-	resources  facade.Resources
-	authorizer facade.Authorizer
+	backend         Backend
+	controller      ControllerBackend
+	watcherRegistry facade.WatcherRegistry
+	authorizer      facade.Authorizer
 }
 
 // Backend defines the model state methods this facade needs,
@@ -69,15 +69,15 @@ type ControllerBackend interface {
 }
 
 // NewAPIV2 creates a new server-side API facade with the given Backing.
-func NewAPIV2(controller ControllerBackend, backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
+func NewAPIV2(controller ControllerBackend, backend Backend, watcherRegistry facade.WatcherRegistry, authorizer facade.Authorizer) (*API, error) {
 	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent() || authorizer.AuthApplicationAgent() || authorizer.AuthModelAgent()) {
 		return nil, apiservererrors.ErrPerm
 	}
 	return &API{
-		backend:    backend,
-		controller: controller,
-		resources:  resources,
-		authorizer: authorizer,
+		backend:         backend,
+		controller:      controller,
+		watcherRegistry: watcherRegistry,
+		authorizer:      authorizer,
 	}, nil
 }
 
@@ -89,8 +89,16 @@ func (api *API) oneWatch() params.NotifyWatchResult {
 		api.controller.WatchAPIHostPortsForAgents())
 
 	if _, ok := <-watch.Changes(); ok {
+		id, err := api.watcherRegistry.Register(watch)
+		if err != nil {
+			// TODO (stickupkid): This leaks the watcher, we should ensure
+			// we kill/wait it.
+			return params.NotifyWatchResult{
+				Error: apiservererrors.ServerError(err),
+			}
+		}
 		result = params.NotifyWatchResult{
-			NotifyWatcherId: api.resources.Register(watch),
+			NotifyWatcherId: id,
 		}
 	} else {
 		result.Error = apiservererrors.ServerError(watcher.EnsureErr(watch))

@@ -6,6 +6,7 @@ package machineactions
 import (
 	"reflect"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -18,5 +19,13 @@ func Register(registry facade.FacadeRegistry) {
 
 // newExternalFacade is used for API registration.
 func newExternalFacade(ctx facade.Context) (*Facade, error) {
-	return NewFacade(backendShim{ctx.State()}, ctx.Resources(), ctx.Auth())
+	authorizer := ctx.Auth()
+	if !authorizer.AuthMachineAgent() {
+		return nil, apiservererrors.ErrPerm
+	}
+	return NewFacade(
+		backendShim{st: ctx.State()},
+		ctx.WatcherRegistry(),
+		authorizer,
+	)
 }

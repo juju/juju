@@ -6,6 +6,7 @@ package meterstatus
 import (
 	"reflect"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -19,6 +20,10 @@ func Register(registry facade.FacadeRegistry) {
 // newMeterStatusFacade provides the signature required for facade registration.
 func newMeterStatusFacade(ctx facade.Context) (*MeterStatusAPI, error) {
 	authorizer := ctx.Auth()
-	resources := ctx.Resources()
-	return NewMeterStatusAPI(ctx.State(), resources, authorizer, ctx.Logger().Child("meterstatus"))
+	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
+		return nil, apiservererrors.ErrPerm
+	}
+
+	watcherRegistry := ctx.WatcherRegistry()
+	return NewMeterStatusAPI(ctx.State(), watcherRegistry, authorizer, ctx.Logger().Child("meterstatus"))
 }

@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -19,6 +20,11 @@ func Register(registry facade.FacadeRegistry) {
 
 // newMachinerAPI creates a new instance of the Machiner API.
 func newMachinerAPI(ctx facade.Context) (*MachinerAPI, error) {
+	authorizer := ctx.Auth()
+	if !authorizer.AuthMachineAgent() {
+		return nil, apiservererrors.ErrPerm
+	}
+
 	systemState, err := ctx.StatePool().SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -26,7 +32,7 @@ func newMachinerAPI(ctx facade.Context) (*MachinerAPI, error) {
 	return NewMachinerAPIForState(
 		systemState,
 		ctx.State(),
-		ctx.Resources(),
-		ctx.Auth(),
+		ctx.WatcherRegistry(),
+		authorizer,
 	)
 }

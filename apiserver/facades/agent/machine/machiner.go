@@ -32,7 +32,7 @@ type MachinerAPI struct {
 }
 
 // NewMachinerAPIForState creates a new instance of the Machiner API.
-func NewMachinerAPIForState(ctrlSt, st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*MachinerAPI, error) {
+func NewMachinerAPIForState(ctrlSt, st *state.State, watcherRegistry facade.WatcherRegistry, authorizer facade.Authorizer) (*MachinerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -50,8 +50,8 @@ func NewMachinerAPIForState(ctrlSt, st *state.State, resources facade.Resources,
 		LifeGetter:         common.NewLifeGetter(st, getCanAccess),
 		StatusSetter:       common.NewStatusSetter(st, getCanAccess),
 		DeadEnsurer:        common.NewDeadEnsurer(st, nil, getCanAccess),
-		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, getCanAccess),
-		APIAddresser:       common.NewAPIAddresser(ctrlSt, resources),
+		AgentEntityWatcher: common.NewAgentEntityWatcher(st, watcherRegistry, getCanAccess),
+		APIAddresser:       common.NewAPIAddresser(ctrlSt, watcherRegistry),
 		NetworkConfigAPI:   netConfigAPI,
 		st:                 st,
 		auth:               authorizer,

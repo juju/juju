@@ -134,10 +134,10 @@ func (s *actionsSuite) TestBeginActions(c *gc.C) {
 	results := common.BeginActions(args, actionFn)
 
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{
-		[]params.ErrorResult{
+		Results: []params.ErrorResult{
 			{},
-			{apiservererrors.ServerError(expectErr)},
-			{apiservererrors.ServerError(actionNotFoundErr)},
+			{Error: apiservererrors.ServerError(expectErr)},
+			{Error: apiservererrors.ServerError(actionNotFoundErr)},
 		},
 	})
 }
@@ -154,7 +154,7 @@ func (s *actionsSuite) TestGetActions(c *gc.C) {
 	parallel := true
 	executionGroup := "group"
 	c.Assert(results, jc.DeepEquals, params.ActionResults{
-		[]params.ActionResult{
+		Results: []params.ActionResult{
 			{Action: &params.Action{Name: "floosh", Parallel: &parallel, ExecutionGroup: &executionGroup}},
 			{Error: apiservererrors.ServerError(actionNotFoundErr)},
 			{Error: apiservererrors.ServerError(apiservererrors.ErrActionNotAvailable)},
@@ -164,7 +164,7 @@ func (s *actionsSuite) TestGetActions(c *gc.C) {
 
 func (s *actionsSuite) TestFinishActions(c *gc.C) {
 	args := params.ActionExecutionResults{
-		[]params.ActionExecutionResult{
+		Results: []params.ActionExecutionResult{
 			{ActionTag: "success", Status: string(state.ActionCompleted)},
 			{ActionTag: "notfound"},
 			{ActionTag: "convertFail", Status: "failStatus"},
@@ -179,11 +179,11 @@ func (s *actionsSuite) TestFinishActions(c *gc.C) {
 	})
 	results := common.FinishActions(args, actionFn)
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{
-		[]params.ErrorResult{
+		Results: []params.ErrorResult{
 			{},
-			{apiservererrors.ServerError(actionNotFoundErr)},
-			{apiservererrors.ServerError(errors.New("unrecognized action status 'failStatus'"))},
-			{apiservererrors.ServerError(expectErr)},
+			{Error: apiservererrors.ServerError(actionNotFoundErr)},
+			{Error: apiservererrors.ServerError(errors.New("unrecognized action status 'failStatus'"))},
+			{Error: apiservererrors.ServerError(expectErr)},
 		},
 	})
 }
@@ -204,7 +204,7 @@ func (s *actionsSuite) TestWatchActionNotifications(c *gc.C) {
 	results := common.WatchActionNotifications(args, canAccess, watchOne)
 
 	c.Assert(results, jc.DeepEquals, params.StringsWatchResults{
-		[]params.StringsWatchResult{
+		Results: []params.StringsWatchResult{
 			{Error: apiservererrors.ServerError(errors.New(`invalid actionreceiver tag "invalid-actionreceiver"`))},
 			{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)},
 			{Error: apiservererrors.ServerError(errors.New("pax"))},
@@ -252,7 +252,7 @@ func (s *actionsSuite) TestWatchOneActionReceiverNotifications(c *gc.C) {
 
 func (s *actionsSuite) TestWatchPendingActionsForReceiver(c *gc.C) {
 	expectErr := errors.New("zwoosh")
-	registerFunc := func(worker.Worker) string { return "bambalam" }
+	registerFunc := func(worker.Worker) (string, error) { return "bambalam", nil }
 	tagToActionReceiver := common.TagToActionReceiverFn(makeFindEntity(map[string]state.Entity{
 		"machine-1": &fakeActionReceiver{watcher: &fakeWatcher{}},
 		"machine-2": &fakeActionReceiver{watcher: &fakeWatcher{err: expectErr}},

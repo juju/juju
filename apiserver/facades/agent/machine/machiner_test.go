@@ -6,18 +6,20 @@ package machine_test
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/machine"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -26,8 +28,8 @@ import (
 type machinerSuite struct {
 	commonSuite
 
-	resources *common.Resources
-	machiner  *machine.MachinerAPI
+	watcherRegistry facade.WatcherRegistry
+	machiner        *machine.MachinerAPI
 }
 
 var _ = gc.Suite(&machinerSuite{})
@@ -35,9 +37,10 @@ var _ = gc.Suite(&machinerSuite{})
 func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.commonSuite.SetUpTest(c)
 
-	// Create the resource registry separately to track invocations to
-	// Register.
-	s.resources = common.NewResources()
+	var err error
+	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
 
 	systemState, err := s.StatePool.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
@@ -45,7 +48,7 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 	machiner, err := machine.NewMachinerAPIForState(
 		systemState,
 		s.State,
-		s.resources,
+		s.watcherRegistry,
 		s.authorizer,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -59,7 +62,7 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	aMachiner, err := machine.NewMachinerAPIForState(
 		systemState,
-		s.State, s.resources, anAuthorizer)
+		s.State, s.watcherRegistry, anAuthorizer)
 	c.Assert(err, gc.NotNil)
 	c.Assert(aMachiner, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -92,9 +95,9 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -146,9 +149,9 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -166,7 +169,7 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 	result, err = s.machiner.EnsureDead(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{nil}},
+		Results: []params.ErrorResult{{Error: nil}},
 	})
 
 	// Verify Life is unchanged.
@@ -193,9 +196,9 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -222,7 +225,7 @@ func (s *machinerSuite) TestSetEmptyMachineAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
+			{Error: nil},
 		},
 	})
 	err = s.machine1.Refresh()
@@ -234,7 +237,7 @@ func (s *machinerSuite) TestSetEmptyMachineAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
+			{Error: nil},
 		},
 	})
 
@@ -265,7 +268,7 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 	loggo.GetLogger("juju.state.pool.txnwatcher").SetLogLevel(loggo.TRACE)
 	loggo.GetLogger("juju.state.watcher").SetLogLevel(loggo.TRACE)
 
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	c.Assert(s.watcherRegistry.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-1"},
@@ -283,15 +286,18 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 	})
 
 	// Verify the resource was registered and stop when done
-	c.Assert(s.resources.Count(), gc.Equals, 1)
+	c.Assert(s.watcherRegistry.Count(), gc.Equals, 1)
 	c.Assert(result.Results[0].NotifyWatcherId, gc.Equals, "1")
-	resource := s.resources.Get("1")
-	defer workertest.CleanKill(c, resource)
+	watcher, err := s.watcherRegistry.Get("1")
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, watcher)
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc := statetesting.NewNotifyWatcherC(c, resource.(state.NotifyWatcher))
+	wc := statetesting.NewNotifyWatcherC(c, watcher.(state.NotifyWatcher))
 	wc.AssertNoChange()
+
+	workertest.CleanKill(c, watcher)
 }
 
 func (s *machinerSuite) TestRecordAgentStartInformation(c *gc.C) {
@@ -305,9 +311,9 @@ func (s *machinerSuite) TestRecordAgentStartInformation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 

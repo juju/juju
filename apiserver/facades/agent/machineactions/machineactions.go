@@ -24,24 +24,24 @@ type Backend interface {
 // Facade implements the machineactions interface and is the concrete
 // implementation of the api end point.
 type Facade struct {
-	backend       Backend
-	resources     facade.Resources
-	accessMachine common.AuthFunc
+	backend         Backend
+	watcherRegistry facade.WatcherRegistry
+	accessMachine   common.AuthFunc
 }
 
 // NewFacade creates a new server-side machineactions API end point.
 func NewFacade(
 	backend Backend,
-	resources facade.Resources,
+	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
 ) (*Facade, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
 	return &Facade{
-		backend:       backend,
-		resources:     resources,
-		accessMachine: authorizer.AuthOwner,
+		backend:         backend,
+		watcherRegistry: watcherRegistry,
+		accessMachine:   authorizer.AuthOwner,
 	}, nil
 }
 
@@ -68,7 +68,7 @@ func (f *Facade) FinishActions(args params.ActionExecutionResults) params.ErrorR
 // incoming action calls to a machine.
 func (f *Facade) WatchActionNotifications(args params.Entities) params.StringsWatchResults {
 	tagToActionReceiver := f.backend.TagToActionReceiverFn(f.backend.FindEntity)
-	watchOne := common.WatchPendingActionsForReceiver(tagToActionReceiver, f.resources.Register)
+	watchOne := common.WatchPendingActionsForReceiver(tagToActionReceiver, f.watcherRegistry.Register)
 	return common.WatchActionNotifications(args, f.accessMachine, watchOne)
 }
 

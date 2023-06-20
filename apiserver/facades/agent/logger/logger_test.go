@@ -4,15 +4,17 @@
 package logger_test
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/logger"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -23,21 +25,23 @@ type loggerSuite struct {
 
 	// These are raw State objects. Use them for setup and assertions, but
 	// should never be touched by the API calls themselves
-	rawMachine *state.Machine
-	logger     *logger.LoggerAPI
-	resources  *common.Resources
-	authorizer apiservertesting.FakeAuthorizer
+	rawMachine      *state.Machine
+	logger          *logger.LoggerAPI
+	watcherRegistry facade.WatcherRegistry
+	authorizer      apiservertesting.FakeAuthorizer
 }
 
 var _ = gc.Suite(&loggerSuite{})
 
 func (s *loggerSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+
+	var err error
+	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
 
 	// Create a machine to work with
-	var err error
 	s.rawMachine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -52,9 +56,9 @@ func (s *loggerSuite) SetUpTest(c *gc.C) {
 
 func (s *loggerSuite) makeLoggerAPI(auth facade.Authorizer) (*logger.LoggerAPI, error) {
 	ctx := facadetest.Context{
-		Auth_:      auth,
-		Resources_: s.resources,
-		State_:     s.State,
+		Auth_:            auth,
+		WatcherRegistry_: s.watcherRegistry,
+		State_:           s.State,
 	}
 	return logger.NewLoggerAPI(ctx)
 }
@@ -107,8 +111,9 @@ func (s *loggerSuite) TestWatchLoggingConfig(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].NotifyWatcherId, gc.Not(gc.Equals), "")
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	resource := s.resources.Get(results.Results[0].NotifyWatcherId)
+	resource, err := s.watcherRegistry.Get(results.Results[0].NotifyWatcherId)
 	c.Assert(resource, gc.NotNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, ok := resource.(state.NotifyWatcher)
 	c.Assert(ok, jc.IsTrue)

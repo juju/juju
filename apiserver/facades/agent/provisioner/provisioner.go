@@ -54,7 +54,7 @@ type ProvisionerAPI struct {
 
 	st                      *state.State
 	m                       *state.Model
-	resources               facade.Resources
+	watcherRegistry         facade.WatcherRegistry
 	authorizer              facade.Authorizer
 	storageProviderRegistry storage.ProviderRegistry
 	storagePoolManager      poolmanager.PoolManager
@@ -139,7 +139,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 	}
 	urlGetter := common.NewToolsURLGetter(model.UUID(), systemState)
 	callCtx := context.CallContext(st)
-	resources := ctx.Resources()
+	watcherRegistry := ctx.WatcherRegistry()
 	api := &ProvisionerAPI{
 		Remover:                 common.NewRemover(st, nil, false, getAuthFunc),
 		StatusSetter:            common.NewStatusSetter(st, getAuthFunc),
@@ -147,14 +147,14 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 		DeadEnsurer:             common.NewDeadEnsurer(st, nil, getAuthFunc),
 		PasswordChanger:         common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:              common.NewLifeGetter(st, getAuthFunc),
-		APIAddresser:            common.NewAPIAddresser(systemState, resources),
-		ModelWatcher:            common.NewModelWatcher(model, resources, authorizer),
-		ModelMachinesWatcher:    common.NewModelMachinesWatcher(st, resources, authorizer),
+		APIAddresser:            common.NewAPIAddresser(systemState, watcherRegistry),
+		ModelWatcher:            common.NewModelWatcher(model, watcherRegistry, authorizer),
+		ModelMachinesWatcher:    common.NewModelMachinesWatcher(st, watcherRegistry, authorizer),
 		ControllerConfigAPI:     common.NewStateControllerConfig(st),
 		NetworkConfigAPI:        netConfigAPI,
 		st:                      st,
 		m:                       model,
-		resources:               resources,
+		watcherRegistry:         watcherRegistry,
 		authorizer:              authorizer,
 		configGetter:            configGetter,
 		storageProviderRegistry: storageProviderRegistry,
@@ -221,8 +221,14 @@ func (api *ProvisionerAPI) watchOneMachineContainers(arg params.WatchContainer) 
 	}
 	// Consume the initial event and forward it to the result.
 	if changes, ok := <-watch.Changes(); ok {
+		id, err := api.watcherRegistry.Register(watch)
+		if err != nil {
+			// TODO (stickupkid): This leaks the watcher, we should ensure
+			// we kill/wait it.
+			return params.StringsWatchResult{}, errors.Trace(err)
+		}
 		return params.StringsWatchResult{
-			StringsWatcherId: api.resources.Register(watch),
+			StringsWatcherId: id,
 			Changes:          changes,
 		}, nil
 	}
@@ -720,7 +726,13 @@ func (api *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, e
 	watch := newWatchMachineErrorRetry()
 	// Consume any initial event and forward it to the result.
 	if _, ok := <-watch.Changes(); ok {
-		result.NotifyWatcherId = api.resources.Register(watch)
+		id, err := api.watcherRegistry.Register(watch)
+		if err != nil {
+			// TODO (stickupkid): This leaks the watcher, we should ensure
+			// we kill/wait it.
+			return params.NotifyWatchResult{}, errors.Trace(err)
+		}
+		result.NotifyWatcherId = id
 	} else {
 		return result, watcher.EnsureErr(watch)
 	}

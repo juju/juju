@@ -23,10 +23,10 @@ type RebootAPI struct {
 	*common.RebootRequester
 	*common.RebootFlagClearer
 
-	auth      facade.Authorizer
-	st        *state.State
-	machine   *state.Machine
-	resources facade.Resources
+	auth            facade.Authorizer
+	st              *state.State
+	machine         *state.Machine
+	watcherRegistry facade.WatcherRegistry
 }
 
 // NewRebootAPI creates a new server-side RebootAPI facade.
@@ -56,7 +56,7 @@ func NewRebootAPI(ctx facade.Context) (*RebootAPI, error) {
 		RebootFlagClearer:  common.NewRebootFlagClearer(st, canAccess),
 		st:                 st,
 		machine:            machine,
-		resources:          ctx.Resources(),
+		watcherRegistry:    ctx.WatcherRegistry(),
 		auth:               auth,
 	}, nil
 }
@@ -76,7 +76,13 @@ func (r *RebootAPI) WatchForRebootEvent() (params.NotifyWatchResult, error) {
 		// in the Watch response. But NotifyWatchers
 		// have no state to transmit.
 		if _, ok := <-watch.Changes(); ok {
-			result.NotifyWatcherId = r.resources.Register(watch)
+			id, err := r.watcherRegistry.Register(watch)
+			if err != nil {
+				// TODO (stickupkid): This leaks the watcher, we should ensure
+				// we kill/wait it.
+				return params.NotifyWatchResult{}, errors.Trace(err)
+			}
+			result.NotifyWatcherId = id
 		} else {
 			err = watcher.EnsureErr(watch)
 		}

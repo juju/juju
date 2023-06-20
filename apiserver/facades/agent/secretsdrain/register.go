@@ -22,7 +22,8 @@ func Register(registry facade.FacadeRegistry) {
 
 // NewSecretManagerAPI creates a SecretsDrainAPI.
 func NewSecretManagerAPI(context facade.Context) (*SecretsDrainAPI, error) {
-	if !context.Auth().AuthUnitAgent() && !context.Auth().AuthApplicationAgent() {
+	auth := context.Auth()
+	if !auth.AuthUnitAgent() && !auth.AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
 	leadershipChecker, err := context.LeadershipChecker()
@@ -34,10 +35,10 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsDrainAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	return &SecretsDrainAPI{
-		authTag:           context.Auth().GetAuthTag(),
+		authTag:           auth.GetAuthTag(),
 		leadershipChecker: leadershipChecker,
 		secretsState:      state.NewSecrets(context.State()),
-		resources:         context.Resources(),
+		watcherRegistry:   context.WatcherRegistry(),
 		secretsConsumer:   context.State(),
 		model:             model,
 		logger:            context.Logger().Child("secretsdrain"),

@@ -54,10 +54,10 @@ func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
 
 func (s *ImageMetadataSuite) TestMetadataNone(c *gc.C) {
 	api, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      s.authorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
+		Auth_:            s.authorizer,
+		State_:           s.State,
+		StatePool_:       s.StatePool,
+		WatcherRegistry_: s.watcherRegistry,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -73,10 +73,10 @@ func (s *ImageMetadataSuite) TestMetadataNone(c *gc.C) {
 
 func (s *ImageMetadataSuite) TestMetadataFromState(c *gc.C) {
 	api, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      s.authorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
+		Auth_:            s.authorizer,
+		State_:           s.State,
+		StatePool_:       s.StatePool,
+		WatcherRegistry_: s.watcherRegistry,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

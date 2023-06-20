@@ -24,20 +24,20 @@ type Backend interface {
 
 // Facade lets clients watch and get models' migration phases.
 type Facade struct {
-	backend   Backend
-	resources facade.Resources
+	backend         Backend
+	watcherRegistry facade.WatcherRegistry
 }
 
-// New creates a Facade backed by backend and resources. If auth
+// New creates a Facade backed by backend and watcherRegistry. If auth
 // doesn't identity the client as a machine agent or a unit agent,
 // it will return apiservererrors.ErrPerm.
-func New(backend Backend, resources facade.Resources, auth facade.Authorizer) (*Facade, error) {
+func New(backend Backend, watcherRegistry facade.WatcherRegistry, auth facade.Authorizer) (*Facade, error) {
 	if !auth.AuthMachineAgent() && !auth.AuthUnitAgent() && !auth.AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
 	return &Facade{
-		backend:   backend,
-		resources: resources,
+		backend:         backend,
+		watcherRegistry: watcherRegistry,
 	}, nil
 }
 
@@ -104,7 +104,7 @@ func (facade *Facade) oneWatch(tagString string) (string, error) {
 	}
 	watch := facade.backend.WatchMigrationPhase()
 	if _, ok := <-watch.Changes(); ok {
-		return facade.resources.Register(watch), nil
+		return facade.watcherRegistry.Register(watch)
 	}
 	return "", watcher.EnsureErr(watch)
 }

@@ -4,23 +4,37 @@
 package migrationflag_test
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/migrationflag"
+	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type FacadeSuite struct {
 	testing.IsolationSuite
+
+	watcherRegistry facade.WatcherRegistry
 }
 
 var _ = gc.Suite(&FacadeSuite{})
+
+func (s *FacadeSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
+	var err error
+	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
+}
 
 func (*FacadeSuite) TestAcceptsMachineAgent(c *gc.C) {
 	facade, err := migrationflag.New(nil, nil, agentAuth{machine: true})
@@ -95,11 +109,10 @@ func (*FacadeSuite) TestPhaseErrors(c *gc.C) {
 	}})
 }
 
-func (*FacadeSuite) TestWatchSuccess(c *gc.C) {
+func (s *FacadeSuite) TestWatchSuccess(c *gc.C) {
 	stub := &testing.Stub{}
 	backend := newMockBackend(stub)
-	resources := common.NewResources()
-	facade, err := migrationflag.New(backend, resources, authOK)
+	facade, err := migrationflag.New(backend, s.watcherRegistry, authOK)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results := facade.Watch(entities(
@@ -111,7 +124,8 @@ func (*FacadeSuite) TestWatchSuccess(c *gc.C) {
 
 	check := func(result params.NotifyWatchResult) {
 		c.Check(result.Error, gc.IsNil)
-		resource := resources.Get(result.NotifyWatcherId)
+		resource, err := s.watcherRegistry.Get(result.NotifyWatcherId)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(resource, gc.NotNil)
 	}
 	first := results.Results[0]
@@ -121,12 +135,11 @@ func (*FacadeSuite) TestWatchSuccess(c *gc.C) {
 	c.Check(first.NotifyWatcherId, gc.Not(gc.Equals), second.NotifyWatcherId)
 }
 
-func (*FacadeSuite) TestWatchErrors(c *gc.C) {
+func (s *FacadeSuite) TestWatchErrors(c *gc.C) {
 	stub := &testing.Stub{}
 	stub.SetErrors(errors.New("blort")) // trigger channel closed error
 	backend := newMockBackend(stub)
-	resources := common.NewResources()
-	facade, err := migrationflag.New(backend, resources, authOK)
+	facade, err := migrationflag.New(backend, s.watcherRegistry, authOK)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// 3 entities: unparseable, unauthorized, closed channel.
@@ -150,5 +163,5 @@ func (*FacadeSuite) TestWatchErrors(c *gc.C) {
 			Message: "blort",
 		}},
 	})
-	c.Check(resources.Count(), gc.Equals, 0)
+	c.Check(s.watcherRegistry.Count(), gc.Equals, 0)
 }

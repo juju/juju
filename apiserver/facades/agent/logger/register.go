@@ -21,13 +21,7 @@ func Register(registry facade.FacadeRegistry) {
 
 // newLoggerAPI creates a new server-side logger API end point.
 func newLoggerAPI(ctx facade.Context) (*LoggerAPI, error) {
-	model, err := ctx.State().Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	resources := ctx.Resources()
 	authorizer := ctx.Auth()
-
 	if !authorizer.AuthMachineAgent() &&
 		!authorizer.AuthUnitAgent() &&
 		!authorizer.AuthApplicationAgent() &&
@@ -35,9 +29,15 @@ func newLoggerAPI(ctx facade.Context) (*LoggerAPI, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
+	model, err := ctx.State().Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	watcherRegistry := ctx.WatcherRegistry()
+
 	return &LoggerAPI{
-		model:      model,
-		resources:  resources,
-		authorizer: authorizer,
+		model:           model,
+		watcherRegistry: watcherRegistry,
+		authorizer:      authorizer,
 	}, nil
 }

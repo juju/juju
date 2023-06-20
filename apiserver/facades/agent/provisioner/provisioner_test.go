@@ -10,6 +10,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v11"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -18,9 +19,9 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner/mocks"
@@ -30,6 +31,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/environs/config"
 	environtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/juju/testing"
@@ -53,9 +55,9 @@ type provisionerSuite struct {
 
 	machines []*state.Machine
 
-	authorizer  apiservertesting.FakeAuthorizer
-	resources   *common.Resources
-	provisioner *provisioner.ProvisionerAPIV11
+	authorizer      apiservertesting.FakeAuthorizer
+	watcherRegistry facade.WatcherRegistry
+	provisioner     *provisioner.ProvisionerAPIV11
 }
 
 var _ = gc.Suite(&provisionerSuite{})
@@ -91,16 +93,17 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 		Controller: true,
 	}
 
-	// Create the resource registry separately to track invocations to
-	// Register, and to register the root for tools URLs.
-	s.resources = common.NewResources()
+	var err error
+	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
 
 	// Create a provisioner API for the machine.
 	provisionerAPI, err := provisioner.NewProvisionerAPIV11(facadetest.Context{
-		Auth_:      s.authorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
+		Auth_:            s.authorizer,
+		State_:           s.State,
+		StatePool_:       s.StatePool,
+		WatcherRegistry_: s.watcherRegistry,
 	},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -116,7 +119,7 @@ var _ = gc.Suite(&withoutControllerSuite{})
 
 func (s *withoutControllerSuite) SetUpTest(c *gc.C) {
 	s.setUpTest(c, false)
-	s.ModelWatcherTest = commontesting.NewModelWatcherTest(s.provisioner, s.State, s.resources)
+	s.ModelWatcherTest = commontesting.NewModelWatcherTest(s.provisioner, s.State, s.watcherRegistry)
 }
 
 func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManagerUser(c *gc.C) {
@@ -124,10 +127,10 @@ func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManag
 	anAuthorizer.Controller = true
 	// Works with a controller, which is not a machine agent.
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      anAuthorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
+		Auth_:            anAuthorizer,
+		State_:           s.State,
+		StatePool_:       s.StatePool,
+		WatcherRegistry_: s.watcherRegistry,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
@@ -135,10 +138,10 @@ func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManag
 	// But fails with neither a machine agent or a controller.
 	anAuthorizer.Controller = false
 	aProvisioner, err = provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      anAuthorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
+		Auth_:            anAuthorizer,
+		State_:           s.State,
+		StatePool_:       s.StatePool,
+		WatcherRegistry_: s.watcherRegistry,
 	})
 	c.Assert(err, gc.NotNil)
 	c.Assert(aProvisioner, gc.IsNil)
@@ -162,14 +165,14 @@ func (s *withoutControllerSuite) TestSetPasswords(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
-			{nil},
-			{nil},
-			{nil},
-			{nil},
-			{apiservertesting.NotFoundError("machine 42")},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: nil},
+			{Error: nil},
+			{Error: nil},
+			{Error: nil},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -211,10 +214,10 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[0].Tag()
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      anAuthorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
+		Auth_:            anAuthorizer,
+		State_:           s.State,
+		StatePool_:       s.StatePool,
+		WatcherRegistry_: s.watcherRegistry,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
@@ -332,12 +335,12 @@ func (s *withoutControllerSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{&params.Error{Message: `cannot remove entity "machine-0": still alive`}},
-			{nil},
-			{&params.Error{Message: `cannot remove entity "machine-2": still alive`}},
-			{apiservertesting.NotFoundError("machine 42")},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: &params.Error{Message: `cannot remove entity "machine-0": still alive`}},
+			{Error: nil},
+			{Error: &params.Error{Message: `cannot remove entity "machine-2": still alive`}},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -386,12 +389,12 @@ func (s *withoutControllerSuite) TestSetStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
-			{nil},
-			{nil},
-			{apiservertesting.NotFoundError("machine 42")},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: nil},
+			{Error: nil},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -439,12 +442,12 @@ func (s *withoutControllerSuite) TestSetInstanceStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
-			{nil},
-			{nil},
-			{apiservertesting.NotFoundError("machine 42")},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: nil},
+			{Error: nil},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -494,12 +497,12 @@ func (s *withoutControllerSuite) TestSetModificationStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
-			{nil},
-			{nil},
-			{apiservertesting.NotFoundError("machine 42")},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: nil},
+			{Error: nil},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -570,10 +573,10 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      anAuthorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
+		Auth_:            anAuthorizer,
+		State_:           s.State,
+		StatePool_:       s.StatePool,
+		WatcherRegistry_: s.watcherRegistry,
 	},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -640,12 +643,12 @@ func (s *withoutControllerSuite) TestEnsureDead(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
-			{nil},
-			{nil},
-			{apiservertesting.NotFoundError("machine 42")},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: nil},
+			{Error: nil},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -692,7 +695,7 @@ func (s *withoutControllerSuite) assertModificationStatus(c *gc.C, index int, ex
 }
 
 func (s *withoutControllerSuite) TestWatchContainers(c *gc.C) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	c.Assert(s.watcherRegistry.Count(), gc.Equals, 0)
 
 	args := params.WatchContainers{Params: []params.WatchContainer{
 		{MachineTag: s.machines[0].Tag().String(), ContainerType: string(instance.LXD)},
@@ -714,10 +717,12 @@ func (s *withoutControllerSuite) TestWatchContainers(c *gc.C) {
 	})
 
 	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 2)
-	m0Watcher := s.resources.Get("1")
+	c.Assert(s.watcherRegistry.Count(), gc.Equals, 2)
+	m0Watcher, err := s.watcherRegistry.Get("1")
+	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, m0Watcher)
-	m1Watcher := s.resources.Get("2")
+	m1Watcher, err := s.watcherRegistry.Get("2")
+	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, m1Watcher)
 
 	// Check that the Watch has consumed the initial event ("returned"
@@ -729,7 +734,7 @@ func (s *withoutControllerSuite) TestWatchContainers(c *gc.C) {
 }
 
 func (s *withoutControllerSuite) TestWatchAllContainers(c *gc.C) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	c.Assert(s.watcherRegistry.Count(), gc.Equals, 0)
 
 	args := params.WatchContainers{Params: []params.WatchContainer{
 		{MachineTag: s.machines[0].Tag().String()},
@@ -751,10 +756,12 @@ func (s *withoutControllerSuite) TestWatchAllContainers(c *gc.C) {
 	})
 
 	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 2)
-	m0Watcher := s.resources.Get("1")
+	c.Assert(s.watcherRegistry.Count(), gc.Equals, 2)
+	m0Watcher, err := s.watcherRegistry.Get("1")
+	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, m0Watcher)
-	m1Watcher := s.resources.Get("2")
+	m1Watcher, err := s.watcherRegistry.Get("2")
+	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, m1Watcher)
 
 	// Check that the Watch has consumed the initial event ("returned"
@@ -772,10 +779,10 @@ func (s *withoutControllerSuite) TestModelConfigNonManager(c *gc.C) {
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      anAuthorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
+		Auth_:            anAuthorizer,
+		State_:           s.State,
+		StatePool_:       s.StatePool,
+		WatcherRegistry_: s.watcherRegistry,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertModelConfig(c, aProvisioner)
@@ -1057,10 +1064,10 @@ func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) 
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
 	provisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      anAuthorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
+		Auth_:            anAuthorizer,
+		State_:           s.State,
+		StatePool_:       s.StatePool,
+		WatcherRegistry_: s.watcherRegistry,
 	})
 	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{
@@ -1176,10 +1183,10 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineIdMachineAgentAut
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
 	provisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      anAuthorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
+		Auth_:            anAuthorizer,
+		State_:           s.State,
+		StatePool_:       s.StatePool,
+		WatcherRegistry_: s.watcherRegistry,
 	})
 	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{
@@ -1305,15 +1312,15 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{&params.Error{
+			{Error: &params.Error{
 				Message: `cannot record provisioning info for "i-was": cannot set instance data for machine "0": already set`,
 			}},
-			{nil},
-			{nil},
-			{nil},
-			{apiservertesting.NotFoundError("machine 42")},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: nil},
+			{Error: nil},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -1387,7 +1394,7 @@ func (s *withoutControllerSuite) TestInstanceId(c *gc.C) {
 }
 
 func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	c.Assert(s.watcherRegistry.Count(), gc.Equals, 0)
 
 	got, err := s.provisioner.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1398,14 +1405,15 @@ func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
 	c.Assert(got.StringsWatcherId, gc.Equals, want.StringsWatcherId)
 	c.Assert(got.Changes, jc.SameContents, want.Changes)
 
-	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	resource := s.resources.Get("1")
-	defer workertest.CleanKill(c, resource)
+	// Verify the watcherRegistry were registered and stop them when done.
+	c.Assert(s.watcherRegistry.Count(), gc.Equals, 1)
+	watcher, err := s.watcherRegistry.Get("1")
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, watcher)
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
+	wc := statetesting.NewStringsWatcherC(c, watcher.(state.StringsWatcher))
 	wc.AssertNoChange()
 
 	// Make sure WatchModelMachines fails with a machine agent login.
@@ -1413,10 +1421,10 @@ func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      anAuthorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
+		Auth_:            anAuthorizer,
+		State_:           s.State,
+		StatePool_:       s.StatePool,
+		WatcherRegistry_: s.watcherRegistry,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1443,14 +1451,15 @@ func (s *withoutControllerSuite) TestContainerManagerConfigDefaults(c *gc.C) {
 
 func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 	s.PatchValue(&provisioner.ErrorRetryWaitDelay, 2*coretesting.ShortWait)
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	c.Assert(s.watcherRegistry.Count(), gc.Equals, 0)
 
 	_, err := s.provisioner.WatchMachineErrorRetry()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	resource := s.resources.Get("1")
+	// Verify the watchers were registered and stop them when done.
+	c.Assert(s.watcherRegistry.Count(), gc.Equals, 1)
+	resource, err := s.watcherRegistry.Get("1")
+	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned"
@@ -1466,10 +1475,10 @@ func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      anAuthorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
+		Auth_:            anAuthorizer,
+		State_:           s.State,
+		StatePool_:       s.StatePool,
+		WatcherRegistry_: s.watcherRegistry,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1635,10 +1644,10 @@ func (s *withoutControllerSuite) TestSetSupportedContainersPermissions(c *gc.C) 
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[0].Tag()
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      anAuthorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
+		Auth_:            anAuthorizer,
+		State_:           s.State,
+		StatePool_:       s.StatePool,
+		WatcherRegistry_: s.watcherRegistry,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)

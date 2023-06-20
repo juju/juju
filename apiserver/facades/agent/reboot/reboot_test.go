@@ -5,15 +5,17 @@
 package reboot_test
 
 import (
+	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/reboot"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/watcher/registry"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -21,11 +23,11 @@ import (
 )
 
 type machines struct {
-	machine    *state.Machine
-	authorizer apiservertesting.FakeAuthorizer
-	resources  *common.Resources
-	rebootAPI  *reboot.RebootAPI
-	args       params.Entities
+	machine         *state.Machine
+	authorizer      apiservertesting.FakeAuthorizer
+	watcherRegistry facade.WatcherRegistry
+	rebootAPI       *reboot.RebootAPI
+	args            params.Entities
 
 	w  state.NotifyWatcher
 	wc statetesting.NotifyWatcherC
@@ -48,12 +50,13 @@ func (s *rebootSuite) setUpMachine(c *gc.C, machine *state.Machine) *machines {
 		Tag: machine.Tag(),
 	}
 
-	resources := common.NewResources()
+	watcherRegistry, err := registry.NewRegistry(clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
 
 	rebootAPI, err := reboot.NewRebootAPI(facadetest.Context{
-		State_:     s.State,
-		Resources_: resources,
-		Auth_:      authorizer,
+		State_:           s.State,
+		WatcherRegistry_: watcherRegistry,
+		Auth_:            authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -66,7 +69,8 @@ func (s *rebootSuite) setUpMachine(c *gc.C, machine *state.Machine) *machines {
 	c.Check(resultMachine.NotifyWatcherId, gc.Not(gc.Equals), "")
 	c.Check(resultMachine.Error, gc.IsNil)
 
-	resourceMachine := resources.Get(resultMachine.NotifyWatcherId)
+	resourceMachine, err := watcherRegistry.Get(resultMachine.NotifyWatcherId)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(resourceMachine, gc.NotNil)
 
 	w := resourceMachine.(state.NotifyWatcher)
@@ -74,19 +78,18 @@ func (s *rebootSuite) setUpMachine(c *gc.C, machine *state.Machine) *machines {
 	wc.AssertNoChange()
 
 	return &machines{
-		machine:    machine,
-		authorizer: authorizer,
-		resources:  resources,
-		rebootAPI:  rebootAPI,
-		args:       args,
-		w:          w,
-		wc:         wc,
+		machine:         machine,
+		authorizer:      authorizer,
+		watcherRegistry: watcherRegistry,
+		rebootAPI:       rebootAPI,
+		args:            args,
+		w:               w,
+		wc:              wc,
 	}
 }
 
 func (s *rebootSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	var err error
 
 	template := state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
@@ -108,24 +111,24 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *rebootSuite) TearDownTest(c *gc.C) {
-	if s.machine.resources != nil {
-		s.machine.resources.StopAll()
+	if s.machine.watcherRegistry != nil {
+		workertest.DirtyKill(c, s.machine.watcherRegistry)
 	}
 	if s.machine.w != nil {
 		workertest.CleanKill(c, s.machine.w)
 		s.machine.wc.AssertClosed()
 	}
 
-	if s.container.resources != nil {
-		s.container.resources.StopAll()
+	if s.container.watcherRegistry != nil {
+		workertest.DirtyKill(c, s.machine.watcherRegistry)
 	}
 	if s.container.w != nil {
 		workertest.CleanKill(c, s.container.w)
 		s.container.wc.AssertClosed()
 	}
 
-	if s.nestedContainer.resources != nil {
-		s.nestedContainer.resources.StopAll()
+	if s.nestedContainer.watcherRegistry != nil {
+		workertest.DirtyKill(c, s.machine.watcherRegistry)
 	}
 	if s.nestedContainer.w != nil {
 		workertest.CleanKill(c, s.nestedContainer.w)

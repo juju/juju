@@ -38,6 +38,6 @@ func newRetryStrategyAPI(ctx facade.Context) (*RetryStrategyAPI, error) {
 		canAccess: func() (common.AuthFunc, error) {
 			return authorizer.AuthOwner, nil
 		},
-		resources: ctx.Resources(),
+		watcherRegistry: ctx.WatcherRegistry(),
 	}, nil
 }

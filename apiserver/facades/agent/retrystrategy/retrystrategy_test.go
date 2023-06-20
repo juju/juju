@@ -5,14 +5,16 @@
 package retrystrategy_test
 
 import (
+	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/retrystrategy"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/watcher/registry"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -25,8 +27,8 @@ var _ = gc.Suite(&retryStrategySuite{})
 type retryStrategySuite struct {
 	jujutesting.JujuConnSuite
 
-	authorizer apiservertesting.FakeAuthorizer
-	resources  *common.Resources
+	authorizer      apiservertesting.FakeAuthorizer
+	watcherRegistry facade.WatcherRegistry
 
 	unit *state.Unit
 
@@ -53,15 +55,15 @@ func (s *retryStrategySuite) SetUpTest(c *gc.C) {
 		Tag: s.unit.UnitTag(),
 	}
 
-	// Create the resource registry separately to track invocations to
-	// Register.
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	var err error
+	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
 
 	strategy, err := retrystrategy.NewRetryStrategyAPI(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
+		State_:           s.State,
+		WatcherRegistry_: s.watcherRegistry,
+		Auth_:            s.authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.strategy = strategy
@@ -71,7 +73,7 @@ func (s *retryStrategySuite) TestRetryStrategyUnauthenticated(c *gc.C) {
 	svc, err := s.unit.Application()
 	c.Assert(err, jc.ErrorIsNil)
 	otherUnit := s.Factory.MakeUnit(c, &jujufactory.UnitParams{Application: svc})
-	args := params.Entities{Entities: []params.Entity{{otherUnit.Tag().String()}}}
+	args := params.Entities{Entities: []params.Entity{{Tag: otherUnit.Tag().String()}}}
 
 	res, err := s.strategy.RetryStrategy(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -106,9 +108,9 @@ func (s *retryStrategySuite) TestRetryStrategyApplication(c *gc.C) {
 	}
 
 	strategy, err := retrystrategy.NewRetryStrategyAPI(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
+		State_:           s.State,
+		WatcherRegistry_: s.watcherRegistry,
+		Auth_:            s.authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.strategy = strategy
@@ -153,7 +155,7 @@ func (s *retryStrategySuite) TestWatchRetryStrategyUnauthenticated(c *gc.C) {
 	svc, err := s.unit.Application()
 	c.Assert(err, jc.ErrorIsNil)
 	otherUnit := s.Factory.MakeUnit(c, &jujufactory.UnitParams{Application: svc})
-	args := params.Entities{Entities: []params.Entity{{otherUnit.Tag().String()}}}
+	args := params.Entities{Entities: []params.Entity{{Tag: otherUnit.Tag().String()}}}
 
 	res, err := s.strategy.WatchRetryStrategy(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -178,7 +180,7 @@ func (s *retryStrategySuite) TestWatchRetryStrategyBadTag(c *gc.C) {
 }
 
 func (s *retryStrategySuite) TestWatchRetryStrategy(c *gc.C) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	c.Assert(s.watcherRegistry.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: s.unit.UnitTag().String()},
@@ -193,8 +195,9 @@ func (s *retryStrategySuite) TestWatchRetryStrategy(c *gc.C) {
 		},
 	})
 
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	resource := s.resources.Get("1")
+	c.Assert(s.watcherRegistry.Count(), gc.Equals, 1)
+	resource, err := s.watcherRegistry.Get("1")
+	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, resource)
 
 	wc := statetesting.NewNotifyWatcherC(c, resource.(state.NotifyWatcher))

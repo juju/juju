@@ -35,10 +35,10 @@ type RetryStrategy interface {
 
 // RetryStrategyAPI implements RetryStrategy
 type RetryStrategyAPI struct {
-	st        *state.State
-	model     *state.Model
-	canAccess common.GetAuthFunc
-	resources facade.Resources
+	st              *state.State
+	model           *state.Model
+	canAccess       common.GetAuthFunc
+	watcherRegistry facade.WatcherRegistry
 }
 
 var _ RetryStrategy = (*RetryStrategyAPI)(nil)
@@ -105,8 +105,15 @@ func (h *RetryStrategyAPI) WatchRetryStrategy(args params.Entities) (params.Noti
 			// 'transmit' the initial event in the Watch response. But
 			// NotifyWatchers have no state to transmit.
 			if _, ok := <-watch.Changes(); ok {
-				results.Results[i].NotifyWatcherId = h.resources.Register(watch)
-				err = nil
+				var id string
+				id, err = h.watcherRegistry.Register(watch)
+				if err == nil {
+					results.Results[i].NotifyWatcherId = id
+					err = nil
+				}
+
+				// TODO (stickupkid): This leaks the watcher, we should ensure
+				// we kill/wait it.
 			} else {
 				err = watcher.EnsureErr(watch)
 			}
