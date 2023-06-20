@@ -317,40 +317,6 @@ func (hps SpaceHostPorts) AllMatchingScope(getMatcher ScopeMatchFunc) []string {
 	return out
 }
 
-// ToProviderHostPorts transforms the SpaceHostPorts to ProviderHostPorts
-// by using the input lookup for conversion of space ID to space info.
-func (hps SpaceHostPorts) ToProviderHostPorts(lookup SpaceLookup) (ProviderHostPorts, error) {
-	if hps == nil {
-		return nil, nil
-	}
-
-	var spaces SpaceInfos
-	if len(hps) > 0 {
-		var err error
-		if spaces, err = lookup.AllSpaceInfos(); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-
-	pHPs := make(ProviderHostPorts, len(hps))
-	for i, hp := range hps {
-		pHPs[i] = ProviderHostPort{
-			ProviderAddress: ProviderAddress{MachineAddress: hp.MachineAddress},
-			NetPort:         hp.NetPort,
-		}
-
-		if hp.SpaceID != "" {
-			info := spaces.GetByID(hp.SpaceID)
-			if info == nil {
-				return nil, errors.NotFoundf("space with ID %q", hp.SpaceID)
-			}
-			pHPs[i].SpaceName = info.Name
-			pHPs[i].ProviderSpaceID = info.ProviderId
-		}
-	}
-	return pHPs, nil
-}
-
 func (hps SpaceHostPorts) Len() int      { return len(hps) }
 func (hps SpaceHostPorts) Swap(i, j int) { hps[i], hps[j] = hps[j], hps[i] }
 func (hps SpaceHostPorts) Less(i, j int) bool {

@@ -18,8 +18,10 @@ import (
 	coretools "github.com/juju/juju/tools"
 )
 
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/deployer_mocks.go github.com/juju/juju/worker/deployer API,Machine,Unit
+
 func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+	gc.TestingT(t)
 }
 
 type BaseSuite struct {

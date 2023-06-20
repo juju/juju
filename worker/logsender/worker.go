@@ -17,9 +17,14 @@ import (
 
 const loggerName = "juju.worker.logsender"
 
+// LogSenderAPI provides a log writer.
+type LogSenderAPI interface {
+	LogWriter() (logsender.LogWriter, error)
+}
+
 // New starts a logsender worker which reads log message structs from
 // a channel and sends them to the controller via the logsink API.
-func New(logs LogRecordCh, logSenderAPI *logsender.API) worker.Worker {
+func New(logs LogRecordCh, logSenderAPI LogSenderAPI) worker.Worker {
 	loop := func(stop <-chan struct{}) error {
 		// It has been observed that sometimes the logsender.API gets wedged
 		// attempting to get the LogWriter while the agent is being torn down,

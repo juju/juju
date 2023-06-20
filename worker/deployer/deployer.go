@@ -29,7 +29,7 @@ var _ logger = struct{}{}
 // to changes in a set of state units; and for the final removal of its agents'
 // units from state when they are no longer needed.
 type Deployer struct {
-	st       API
+	api      API
 	logger   Logger
 	ctx      Context
 	deployed set.Strings
@@ -84,9 +84,9 @@ type Context interface {
 
 // NewDeployer returns a Worker that deploys and recalls unit agents
 // via ctx, taking a machine id to operate on.
-func NewDeployer(st API, logger Logger, ctx Context) (worker.Worker, error) {
+func NewDeployer(api API, logger Logger, ctx Context) (worker.Worker, error) {
 	d := &Deployer{
-		st:       st,
+		api:      api,
 		logger:   logger,
 		ctx:      ctx,
 		deployed: make(set.Strings),
@@ -116,7 +116,7 @@ func (d *Deployer) SetUp() (watcher.StringsWatcher, error) {
 		return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
 	}
 	d.logger.Tracef("getting Machine %s", machineTag)
-	machine, err := d.st.Machine(machineTag)
+	machine, err := d.api.Machine(machineTag)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,7 @@ func (d *Deployer) changed(unitName string) error {
 	// Determine unit life state, and whether we're responsible for it.
 	d.logger.Infof("checking unit %q", unitName)
 	var unitLife life.Value
-	unit, err := d.st.Unit(unitTag)
+	unit, err := d.api.Unit(unitTag)
 	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		unitLife = life.Dead
 	} else if err != nil {

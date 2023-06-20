@@ -6,6 +6,7 @@ package apiaddressupdater_test
 import (
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -14,26 +15,22 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	apimachiner "github.com/juju/juju/api/agent/machiner"
 	corenetwork "github.com/juju/juju/core/network"
-	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/apiaddressupdater"
+	"github.com/juju/juju/worker/apiaddressupdater/mocks"
 )
 
 type APIAddressUpdaterSuite struct {
-	jujutesting.JujuConnSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&APIAddressUpdaterSuite{})
 
 func (s *APIAddressUpdaterSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	err := s.State.SetAPIHostPorts(nil)
-	c.Assert(err, jc.ErrorIsNil)
-
+	s.IsolationSuite.SetUpTest(c)
 	s.PatchValue(&network.AddressesForInterfaceName, func(string) ([]string, error) {
 		return nil, nil
 	})
@@ -50,145 +47,132 @@ func (s *apiAddressSetter) SetAPIHostPorts(servers []corenetwork.HostPorts) erro
 }
 
 func (s *APIAddressUpdaterSuite) TestStartStop(c *gc.C) {
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	client := mocks.NewMockAPIAddresser(ctrl)
+	ch := make(chan struct{}, 1)
+	watch := watchertest.NewMockNotifyWatcher(ch)
+	client.EXPECT().WatchAPIHostPorts().Return(watch, nil)
+
 	worker, err := apiaddressupdater.NewAPIAddressUpdater(
 		apiaddressupdater.Config{
-			Addresser: apimachiner.NewClient(st),
+			Addresser: client,
 			Setter:    &apiAddressSetter{},
 			Logger:    loggo.GetLogger("test"),
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	worker.Kill()
-	c.Assert(worker.Wait(), gc.IsNil)
+	workertest.CleanKill(c, worker)
 }
 
-func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
-	updatedServers := []corenetwork.SpaceHostPorts{corenetwork.NewSpaceHostPorts(1234, "localhost", "127.0.0.1")}
-	err := s.State.SetAPIHostPorts(updatedServers)
-	c.Assert(err, jc.ErrorIsNil)
+func (s *APIAddressUpdaterSuite) assertInitialUpdate(c *gc.C, ctrl *gomock.Controller, setter *apiAddressSetter) (worker.Worker, *mocks.MockAPIAddresser, chan struct{}) {
+	ch := make(chan struct{}, 1)
+	watch := watchertest.NewMockNotifyWatcher(ch)
+	ch <- struct{}{}
 
-	setter := &apiAddressSetter{servers: make(chan []corenetwork.HostPorts, 1)}
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	updater, err := apiaddressupdater.NewAPIAddressUpdater(
+	result := corenetwork.ProviderHostPorts{
+		corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("localhost").AsProviderAddress(), NetPort: 1234},
+		corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("127.0.0.1").AsProviderAddress(), NetPort: 1234},
+	}
+
+	client := mocks.NewMockAPIAddresser(ctrl)
+	client.EXPECT().WatchAPIHostPorts().Return(watch, nil).MinTimes(1)
+	client.EXPECT().APIHostPorts().Return([]corenetwork.ProviderHostPorts{result}, nil)
+
+	w, err := apiaddressupdater.NewAPIAddressUpdater(
 		apiaddressupdater.Config{
-			Addresser: apimachiner.NewClient(st),
+			Addresser: client,
 			Setter:    setter,
 			Logger:    loggo.GetLogger("test"),
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, updater)
+
+	expServer := result.HostPorts()
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for initial update")
+	case servers := <-setter.servers:
+		c.Assert(servers, gc.DeepEquals, []corenetwork.HostPorts{expServer})
+	}
+
+	// The values are also available through the report.
+	reporter, ok := w.(worker.Reporter)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(reporter.Report(), jc.DeepEquals, map[string]interface{}{
+		"servers": [][]string{{"localhost:1234", "127.0.0.1:1234"}},
+	})
+	return w, client, ch
+}
+
+func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	setter := &apiAddressSetter{servers: make(chan []corenetwork.HostPorts, 1)}
+	w, _, _ := s.assertInitialUpdate(c, ctrl, setter)
+	defer workertest.CleanKill(c, w)
+
+}
+
+func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	setter := &apiAddressSetter{servers: make(chan []corenetwork.HostPorts, 1)}
+	w, client, ch := s.assertInitialUpdate(c, ctrl, setter)
+	defer workertest.CleanKill(c, w)
+
+	result := corenetwork.ProviderHostPorts{
+		corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("10.0.0.1").AsProviderAddress(), NetPort: 1234},
+	}
+
+	client.EXPECT().APIHostPorts().Return([]corenetwork.ProviderHostPorts{result}, nil)
+
+	ch <- struct{}{}
+
+	expServer := result.HostPorts()
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for update")
+	case servers := <-setter.servers:
+		c.Assert(servers, gc.DeepEquals, []corenetwork.HostPorts{expServer})
+	}
+}
+
+func (s *APIAddressUpdaterSuite) TestAddressChangeEmpty(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	setter := &apiAddressSetter{servers: make(chan []corenetwork.HostPorts, 1)}
+	w, client, ch := s.assertInitialUpdate(c, ctrl, setter)
+	defer workertest.CleanKill(c, w)
+
+	client.EXPECT().APIHostPorts().Return([]corenetwork.ProviderHostPorts{}, nil)
+
+	ch <- struct{}{}
 
 	expServer := corenetwork.ProviderHostPorts{
 		corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("localhost").AsProviderAddress(), NetPort: 1234},
 		corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("127.0.0.1").AsProviderAddress(), NetPort: 1234},
 	}.HostPorts()
 
-	// SetAPIHostPorts should be called with the initial value.
 	select {
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for SetAPIHostPorts to be called")
+		c.Fatalf("timed out waiting for initial update")
 	case servers := <-setter.servers:
-		c.Assert(servers, gc.DeepEquals, []corenetwork.HostPorts{expServer})
-	}
-
-	// The values are also available through the report.
-	reporter, ok := updater.(worker.Reporter)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(reporter.Report(), jc.DeepEquals, map[string]interface{}{
-		"servers": [][]string{{"localhost:1234", "127.0.0.1:1234"}},
-	})
-
-}
-
-func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
-	setter := &apiAddressSetter{servers: make(chan []corenetwork.HostPorts, 1)}
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	worker, err := apiaddressupdater.NewAPIAddressUpdater(
-		apiaddressupdater.Config{
-			Addresser: apimachiner.NewClient(st),
-			Setter:    setter,
-			Logger:    loggo.GetLogger("test"),
-		})
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
-	defer worker.Kill()
-	updatedServers := []corenetwork.SpaceHostPorts{
-		corenetwork.NewSpaceHostPorts(1234, "localhost", "127.0.0.1"),
-	}
-	// SetAPIHostPorts should be called with the initial value (empty),
-	// and then the updated value.
-	select {
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for SetAPIHostPorts to be called initially")
-	case servers := <-setter.servers:
-		c.Assert(servers, gc.HasLen, 0)
-	}
-	err = s.State.SetAPIHostPorts(updatedServers)
-	c.Assert(err, jc.ErrorIsNil)
-	select {
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for SetAPIHostPorts to be called after update")
-	case servers := <-setter.servers:
-		expServer := corenetwork.ProviderHostPorts{
-			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("localhost").AsProviderAddress(), NetPort: 1234},
-			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("127.0.0.1").AsProviderAddress(), NetPort: 1234},
-		}.HostPorts()
 		c.Assert(servers, gc.DeepEquals, []corenetwork.HostPorts{expServer})
 	}
 }
 
-func (s *APIAddressUpdaterSuite) TestAddressChangeEmpty(c *gc.C) {
-	setter := &apiAddressSetter{servers: make(chan []corenetwork.HostPorts, 1)}
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	worker, err := apiaddressupdater.NewAPIAddressUpdater(
-		apiaddressupdater.Config{
-			Addresser: apimachiner.NewClient(st),
-			Setter:    setter,
-			Logger:    loggo.GetLogger("test"),
-		})
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
-	defer worker.Kill()
-
-	// SetAPIHostPorts should be called with the initial value (empty),
-	// and then the updated value.
-	select {
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for SetAPIHostPorts to be called initially")
-	case servers := <-setter.servers:
-		c.Assert(servers, gc.HasLen, 0)
+func toProviderHostPorts(hps corenetwork.SpaceHostPorts) corenetwork.ProviderHostPorts {
+	pHPs := make(corenetwork.ProviderHostPorts, len(hps))
+	for i, hp := range hps {
+		pHPs[i] = corenetwork.ProviderHostPort{
+			ProviderAddress: corenetwork.ProviderAddress{MachineAddress: hp.MachineAddress},
+			NetPort:         hp.NetPort,
+		}
 	}
-
-	updatedServers := []corenetwork.SpaceHostPorts{
-		corenetwork.NewSpaceHostPorts(1234, "localhost", "127.0.0.1"),
-	}
-
-	err = s.State.SetAPIHostPorts(updatedServers)
-	c.Assert(err, jc.ErrorIsNil)
-	select {
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for SetAPIHostPorts to be called after update")
-	case servers := <-setter.servers:
-		expServer := corenetwork.ProviderHostPorts{
-			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("localhost").AsProviderAddress(), NetPort: 1234},
-			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("127.0.0.1").AsProviderAddress(), NetPort: 1234},
-		}.HostPorts()
-		c.Assert(servers, gc.DeepEquals, []corenetwork.HostPorts{expServer})
-	}
-
-	updatedServers = []corenetwork.SpaceHostPorts{}
-	err = s.State.SetAPIHostPorts(updatedServers)
-	c.Assert(err, jc.ErrorIsNil)
-	select {
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for SetAPIHostPorts to be called after update")
-	case servers := <-setter.servers:
-		expServer := corenetwork.ProviderHostPorts{
-			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("localhost").AsProviderAddress(), NetPort: 1234},
-			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("127.0.0.1").AsProviderAddress(), NetPort: 1234},
-		}.HostPorts()
-		c.Assert(servers, gc.DeepEquals, []corenetwork.HostPorts{expServer})
-	}
+	return pHPs
 }
 
 func (s *APIAddressUpdaterSuite) TestBridgeAddressesFiltering(c *gc.C) {
@@ -207,37 +191,34 @@ func (s *APIAddressUpdaterSuite) TestBridgeAddressesFiltering(c *gc.C) {
 		return nil, nil
 	})
 
-	initialServers := []corenetwork.SpaceHostPorts{
-		corenetwork.NewSpaceHostPorts(1234, "localhost", "127.0.0.1"),
-		corenetwork.NewSpaceHostPorts(
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	initialServers := []corenetwork.ProviderHostPorts{
+		toProviderHostPorts(corenetwork.NewSpaceHostPorts(1234, "localhost", "127.0.0.1")),
+		toProviderHostPorts(corenetwork.NewSpaceHostPorts(
 			4321,
 			"10.0.3.3",      // not filtered
 			"10.0.4.1",      // filtered lxd bridge address
 			"10.0.4.2",      // not filtered
 			"192.168.122.1", // filtered default virbr0
-		),
+		)),
 	}
-	err := s.State.SetAPIHostPorts(initialServers)
-	c.Assert(err, jc.ErrorIsNil)
 
 	setter := &apiAddressSetter{servers: make(chan []corenetwork.HostPorts, 1)}
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	w, err := apiaddressupdater.NewAPIAddressUpdater(
-		apiaddressupdater.Config{
-			Addresser: apimachiner.NewClient(st),
-			Setter:    setter,
-			Logger:    loggo.GetLogger("test"),
-		})
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(w.Wait(), gc.IsNil) }()
-	defer w.Kill()
+	w, client, ch := s.assertInitialUpdate(c, ctrl, setter)
+	defer workertest.CleanKill(c, w)
 
-	updatedServers := []corenetwork.SpaceHostPorts{
-		corenetwork.NewSpaceHostPorts(1234, "localhost", "127.0.0.1"),
-		corenetwork.NewSpaceHostPorts(
+	client.EXPECT().APIHostPorts().Return(initialServers, nil)
+
+	ch <- struct{}{}
+
+	updatedServers := []corenetwork.ProviderHostPorts{
+		toProviderHostPorts(corenetwork.NewSpaceHostPorts(1234, "localhost", "127.0.0.1")),
+		toProviderHostPorts(corenetwork.NewSpaceHostPorts(
 			4001,
 			"10.0.3.3", // not filtered
-		),
+		)),
 	}
 
 	expServer1 := corenetwork.ProviderHostPorts{
@@ -260,8 +241,10 @@ func (s *APIAddressUpdaterSuite) TestBridgeAddressesFiltering(c *gc.C) {
 		c.Assert(servers, jc.DeepEquals, []corenetwork.HostPorts{expServer1, expServerInit})
 	}
 
-	err = s.State.SetAPIHostPorts(updatedServers)
-	c.Assert(err, gc.IsNil)
+	client.EXPECT().APIHostPorts().Return(updatedServers, nil)
+
+	ch <- struct{}{}
+
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for SetAPIHostPorts to be called after update")

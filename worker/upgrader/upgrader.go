@@ -18,10 +18,10 @@ import (
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/api/agent/upgrader"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/watcher"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
@@ -48,11 +48,19 @@ type logger interface{}
 
 var _ logger = struct{}{}
 
+// UpgraderClient provides the facade methods used by the worker.
+type UpgraderClient interface {
+	DesiredVersion(tag string) (version.Number, error)
+	SetVersion(tag string, v version.Binary) error
+	WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error)
+	Tools(tag string) (coretools.List, error)
+}
+
 // Upgrader represents a worker that watches the state for upgrade
 // requests.
 type Upgrader struct {
 	catacomb catacomb.Catacomb
-	st       *upgrader.Client
+	client   UpgraderClient
 	dataDir  string
 	tag      names.Tag
 	config   Config
@@ -62,7 +70,7 @@ type Upgrader struct {
 type Config struct {
 	Clock                       Clock
 	Logger                      Logger
-	State                       *upgrader.Client
+	Client                      UpgraderClient
 	AgentConfig                 agent.Config
 	OrigAgentVersion            version.Number
 	UpgradeStepsWaiter          gate.Waiter
@@ -78,7 +86,7 @@ type Config struct {
 // downloaded and unpacked.
 func NewAgentUpgrader(config Config) (*Upgrader, error) {
 	u := &Upgrader{
-		st:      config.State,
+		client:  config.Client,
 		dataDir: config.AgentConfig.DataDir(),
 		tag:     config.AgentConfig.Tag(),
 		config:  config,
@@ -122,7 +130,7 @@ func (u *Upgrader) loop() error {
 	// Start by reporting current tools (which includes arch/os type, and is
 	// used by the controller in communicating the desired version below).
 	hostOSType := coreos.HostOSTypeName()
-	if err := u.st.SetVersion(u.tag.String(), toBinaryVersion(jujuversion.Current, hostOSType)); err != nil {
+	if err := u.client.SetVersion(u.tag.String(), toBinaryVersion(jujuversion.Current, hostOSType)); err != nil {
 		return errors.Annotatef(err, "cannot set agent version for %q", u.tag.String())
 	}
 
@@ -142,7 +150,7 @@ func (u *Upgrader) loop() error {
 		return nil
 	}
 
-	versionWatcher, err := u.st.WatchAPIVersion(u.tag.String())
+	versionWatcher, err := u.client.WatchAPIVersion(u.tag.String())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -159,7 +167,7 @@ func (u *Upgrader) loop() error {
 			}
 		}
 
-		wantVersion, err := u.st.DesiredVersion(u.tag.String())
+		wantVersion, err := u.client.DesiredVersion(u.tag.String())
 		if err != nil {
 			return err
 		}
@@ -195,7 +203,7 @@ func (u *Upgrader) loop() error {
 		}
 
 		// Check if tools are available for download.
-		wantToolsList, err := u.st.Tools(u.tag.String())
+		wantToolsList, err := u.client.Tools(u.tag.String())
 		if err != nil {
 			// Not being able to lookup Tools is considered fatal
 			return err
