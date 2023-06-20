@@ -265,7 +265,7 @@ they don't have any access rights to the controller itself`,
 	},
 	CAASOperatorImagePath: {
 		Type: environschema.Tstring,
-		Description: `(deprected) The url of the docker image used for the application operator.
+		Description: `(deprecated) The url of the docker image used for the application operator.
 Use "caas-image-repo" instead.`,
 	},
 	CAASImageRepo: {

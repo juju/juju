@@ -45,7 +45,7 @@ const (
 	// properly.
 	ControllerAPIPort = "controller-api-port"
 
-	// ControllerName is the canonical name for the controller
+	// ControllerName is the canonical name for the controller.
 	ControllerName = "controller-name"
 
 	// ApplicationResourceDownloadLimit limits the number of concurrent resource download
@@ -113,13 +113,13 @@ const (
 	// ControllerUUIDKey is the key for the controller UUID attribute.
 	ControllerUUIDKey = "controller-uuid"
 
-	// LoginTokenRefreshURL sets the url of the login jwt well known endpoint.
+	// LoginTokenRefreshURL sets the URL of the login JWT well-known endpoint.
 	// Use this when authentication/authorisation is done using a JWT in the
 	// login request rather than a username/password or macaroon and a local
 	// permissions model.
 	LoginTokenRefreshURL = "login-token-refresh-url"
 
-	// IdentityURL sets the url of the identity manager.
+	// IdentityURL sets the URL of the identity manager.
 	// Use this when users should be managed externally rather than
 	// created locally on the controller.
 	IdentityURL = "identity-url"
@@ -148,15 +148,16 @@ const (
 	AutocertURLKey = "autocert-url"
 
 	// AllowModelAccessKey sets whether the controller will allow users to
-	// connect to models they have been authorized for even when
+	// connect to models they have been authorized for, even when
 	// they don't have any access rights to the controller itself.
 	AllowModelAccessKey = "allow-model-access"
 
-	// MongoMemoryProfile sets whether mongo uses the least possible memory or the
-	// default.
+	// MongoMemoryProfile sets the memory profile for MongoDB. Valid values are:
+	// - "low": use the least possible memory
+	// - "default": use the default memory profile
 	MongoMemoryProfile = "mongo-memory-profile"
 
-	// JujuDBSnapChannel selects the channel to use when installing mongo
+	// JujuDBSnapChannel selects the channel to use when installing Mongo
 	// snaps for focal or later. The value is ignored for older releases.
 	JujuDBSnapChannel = "juju-db-snap-channel"
 
@@ -164,9 +165,8 @@ const (
 	// debug-log command. If someone starts a debug-log session in a remote
 	// screen for example, it is very easy to disconnect from the screen while
 	// leaving the debug-log process running. This causes unnecessary load on
-	// the API Server. The max debug-log duration has a default of 24 hours,
+	// the API server. The max debug-log duration has a default of 24 hours,
 	// which should be more than enough time for a debugging session.
-	// If the user needs more information, perhaps debug-log isn't the right source.
 	MaxDebugLogDuration = "max-debug-log-duration"
 
 	// AgentLogfileMaxSize is the maximum file size in MB of each
@@ -243,7 +243,7 @@ const (
 	// communicate with controllers.
 	JujuManagementSpace = "juju-mgmt-space"
 
-	// CAASOperatorImagePath sets the url of the docker image
+	// CAASOperatorImagePath sets the URL of the docker image
 	// used for the application operator.
 	// Deprecated: use CAASImageRepo
 	CAASOperatorImagePath = "caas-operator-image-path"
@@ -255,18 +255,20 @@ const (
 	// Features allows a list of runtime changeable features to be updated.
 	Features = "features"
 
-	// MeteringURL is the key for the url to use for metrics
+	// MeteringURL is the URL to use for metrics.
 	MeteringURL = "metering-url"
 
 	// PublicDNSAddress is the public DNS address (and port) of the controller.
 	PublicDNSAddress = "public-dns-address"
 
-	// QueryTracingEnabled returns whether query tracing is enabled.
+	// QueryTracingEnabled returns whether query tracing is enabled. If so, any
+	// queries which take longer than QueryTracingThreshold will be logged.
 	QueryTracingEnabled = "query-tracing-enabled"
 
-	// QueryTracingThreshold returns the threshold for query tracing. The
-	// lower the threshold, the more queries will be output. A value of 0
-	// means all queries will be output.
+	// QueryTracingThreshold returns the "threshold" for query tracing. Any
+	// queries which take longer than this value will be logged (if query tracing
+	// is enabled). The lower the threshold, the more queries will be output. A
+	// value of 0 means all queries will be output.
 	QueryTracingThreshold = "query-tracing-threshold"
 )
 
@@ -395,8 +397,8 @@ const (
 )
 
 var (
-	// ControllerOnlyConfigAttributes are attributes which are only relevant
-	// for a controller, never a model.
+	// ControllerOnlyConfigAttributes lists all the controller config keys, so we
+	// can distinguish these from model config keys when bootstrapping.
 	ControllerOnlyConfigAttributes = []string{
 		AllowModelAccessKey,
 		AgentRateLimitMax,
@@ -512,7 +514,7 @@ var (
 )
 
 // ControllerOnlyAttribute returns true if the specified attribute name
-// is only relevant for a controller.
+// is a controller config key (as opposed to, say, a model config key).
 func ControllerOnlyAttribute(attr string) bool {
 	for _, a := range ControllerOnlyConfigAttributes {
 		if attr == a {
@@ -797,7 +799,7 @@ func (c Config) CACert() (string, bool) {
 	return "", false
 }
 
-// IdentityURL returns the url of the identity manager.
+// IdentityURL returns the URL of the identity manager.
 func (c Config) IdentityURL() string {
 	return c.asString(IdentityURL)
 }
@@ -831,7 +833,7 @@ func (c Config) IdentityPublicKey() *bakery.PublicKey {
 	return &pubKey
 }
 
-// LoginTokenRefreshURL returns the url of the login jwt well known endpoint.
+// LoginTokenRefreshURL returns the URL of the login jwt well known endpoint.
 func (c Config) LoginTokenRefreshURL() string {
 	return c.asString(LoginTokenRefreshURL)
 }
@@ -942,7 +944,7 @@ func (c Config) JujuManagementSpace() string {
 	return c.asString(JujuManagementSpace)
 }
 
-// CAASOperatorImagePath sets the url of the docker image
+// CAASOperatorImagePath sets the URL of the docker image
 // used for the application operator.
 func (c Config) CAASOperatorImagePath() (o docker.ImageRepoDetails) {
 	str := c.asString(CAASOperatorImagePath)
@@ -978,7 +980,7 @@ func validateCAASImageRepo(imageRepo string) (string, error) {
 	return r.ImageRepoDetails().Content(), nil
 }
 
-// CAASImageRepo sets the url of the docker repo
+// CAASImageRepo sets the URL of the docker repo
 // used for the jujud operator and mongo images.
 func (c Config) CAASImageRepo() (o docker.ImageRepoDetails) {
 	str := c.asString(CAASImageRepo)
