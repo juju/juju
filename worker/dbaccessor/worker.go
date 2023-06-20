@@ -24,7 +24,7 @@ import (
 var (
 	// ErrTryAgain indicates that the worker should try again to start the
 	// worker.
-	ErrTryAgain = errors.ConstError("watcher trying again starting up")
+	ErrTryAgain = errors.ConstError("DB node is nil, but worker is not dying; rescheduling TrackedDB start attempt")
 )
 
 // nodeShutdownTimeout is the timeout that we add to the context passed
@@ -440,8 +440,8 @@ func (w *dbWorker) initialiseDqlite(options ...app.Option) error {
 // Since GetDB blocks until dbReady is closed, and initialiseDqlite waits for
 // the node to be ready, we can assume that we will never race with a nil dbApp
 // when first starting up.
-// Since the only way we can get into this race is during shutdown or a rebind.
-// It is safe to return ErrDying if the catacomb is dying when we detect a nil
+// Since the only way we can get into this race is during shutdown or a rebind,
+// it is safe to return ErrDying if the catacomb is dying when we detect a nil
 // database or ErrTryAgain to force the runner to retry starting the worker
 // again.
 func (w *dbWorker) openDatabase(namespace string) error {
