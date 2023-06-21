@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/pubsub/apiserver"
 )
 
-var (
+const (
 	// ErrTryAgain indicates that the worker should try again to start the
 	// worker.
 	ErrTryAgain = errors.ConstError("DB node is nil, but worker is not dying; rescheduling TrackedDB start attempt")
@@ -185,7 +185,7 @@ func newWorker(cfg WorkerConfig) (*dbWorker, error) {
 				// will be nil. In this case, we'll return ErrTryAgain. In this
 				// case we don't want to kill the worker. We'll force the
 				// worker to try again.
-				return !errors.Is(errors.Cause(err), ErrTryAgain)
+				return !errors.Is(err, ErrTryAgain)
 			},
 			RestartDelay: time.Second * 10,
 		}),
