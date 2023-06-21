@@ -64,7 +64,10 @@ func (k vaultBackend) SaveContent(ctx context.Context, uri *secrets.URI, revisio
 		val[k] = v
 	}
 	err = k.client.KVv1(k.mountPath).Put(ctx, path, val)
-	return path, errors.Annotatef(err, "saving secret content for %q", uri)
+	if err != nil {
+		return "", errors.Annotatef(err, "saving secret content for %q", path)
+	}
+	return path, nil
 }
 
 // Ping implements SecretsBackend.

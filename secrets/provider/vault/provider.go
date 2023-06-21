@@ -175,8 +175,11 @@ func (p vaultProvider) CleanupSecrets(cfg *provider.ModelBackendConfig, tag name
 // secrets backend client restricted to manage the specified
 // owned secrets and read shared secrets for the given entity tag.
 func (p vaultProvider) RestrictedConfig(
-	adminCfg *provider.ModelBackendConfig, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
+	adminCfg *provider.ModelBackendConfig, forDrain bool, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
 ) (*provider.BackendConfig, error) {
+	logger.Criticalf("restricted config for %s, forDrain %v", tag, forDrain)
+	logger.Criticalf("RestrictedConfig owned %v", owned)
+	logger.Criticalf("RestrictedConfig read %v", read)
 	adminUser := tag == nil
 	// Get an admin backend client so we can set up the policies.
 	mountPath := modelPathPrefix(adminCfg.ModelName, adminCfg.ModelUUID)
@@ -188,6 +191,19 @@ func (p vaultProvider) RestrictedConfig(
 
 	ctx := context.Background()
 	var policies []string
+	if forDrain {
+		// For drain worker, we need to be able to update a secret.
+		// Because we may run into a situation that the worker creates a secret in the vault but gets killed/restarted
+		// before it can update the secret to the new backend, we need to allow the worker to update the content
+		// after it's comming up again.
+		rule := fmt.Sprintf(`path "%s/*" {capabilities = ["update"]}`, mountPath)
+		policyName := mountPath + "-update"
+		err = sys.PutPolicyWithContext(ctx, policyName, rule)
+		if err != nil {
+			return nil, errors.Annotatef(err, "creating update policy for model %q for the drain worker", mountPath)
+		}
+		policies = append(policies, policyName)
+	}
 	if adminUser {
 		// For admin users, all secrets for the model can be read.
 		rule := fmt.Sprintf(`path "%s/*" {capabilities = ["read"]}`, mountPath)

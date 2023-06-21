@@ -32,9 +32,7 @@ func (nm SecretRevisions) Add(uri *secrets.URI, revisionIDs ...string) {
 // RevisionIDs returns all the secret revisions.
 func (nm SecretRevisions) RevisionIDs() (result []string) {
 	for _, revisions := range nm {
-		for _, rev := range revisions.SortedValues() {
-			result = append(result, rev)
-		}
+		result = append(result, revisions.SortedValues()...)
 	}
 	sort.Strings(result) // for testing.
 	return result
@@ -85,7 +83,7 @@ type SecretBackendProvider interface {
 	// RestrictedConfig returns the config needed to create a
 	// secrets backend client restricted to manage the specified
 	// owned secrets and read shared secrets for the given entity tag.
-	RestrictedConfig(adminCfg *ModelBackendConfig, tag names.Tag, owned SecretRevisions, read SecretRevisions) (*BackendConfig, error)
+	RestrictedConfig(adminCfg *ModelBackendConfig, forDrain bool, tag names.Tag, owned SecretRevisions, read SecretRevisions) (*BackendConfig, error)
 
 	// NewBackend creates a secrets backend client using the
 	// specified model config.

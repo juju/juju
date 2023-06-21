@@ -73,7 +73,7 @@ func (s *providerSuite) TestBackendConfig(c *gc.C) {
 			},
 		},
 	}
-	_, err = p.RestrictedConfig(adminCfg, nil, nil, nil)
+	_, err = p.RestrictedConfig(adminCfg, false, nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
