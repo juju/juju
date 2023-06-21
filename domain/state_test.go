@@ -11,25 +11,25 @@ import (
 	"github.com/juju/juju/database/testing"
 )
 
-type dbFactorySuite struct {
+type stateSuite struct {
 	testing.ControllerSuite
 }
 
-var _ = gc.Suite(&dbFactorySuite{})
+var _ = gc.Suite(&stateSuite{})
 
-func (s *dbFactorySuite) TestTxnRunnerFactory(c *gc.C) {
+func (s *stateSuite) TestTxnRunnerFactory(c *gc.C) {
 	db, err := NewTxnRunnerFactory(s.getWatchableDB)()
 	c.Assert(err, gc.IsNil)
 	c.Assert(db, gc.NotNil)
 }
 
-func (s *dbFactorySuite) TestTxnRunnerFactoryForNamespace(c *gc.C) {
+func (s *stateSuite) TestTxnRunnerFactoryForNamespace(c *gc.C) {
 	db, err := NewTxnRunnerFactoryForNamespace(s.getWatchableDBForNameSpace, "any-old-namespace")()
 	c.Assert(err, gc.IsNil)
 	c.Assert(db, gc.NotNil)
 }
 
-func (s *dbFactorySuite) TestStateBaseGetDB(c *gc.C) {
+func (s *stateSuite) TestStateBaseGetDB(c *gc.C) {
 	f := testing.TxnRunnerFactory(s.TxnRunner())
 	base := NewStateBase(f)
 	db, err := base.DB()
@@ -37,24 +37,24 @@ func (s *dbFactorySuite) TestStateBaseGetDB(c *gc.C) {
 	c.Assert(db, gc.NotNil)
 }
 
-func (s *dbFactorySuite) TestStateBaseGetDBNilFactory(c *gc.C) {
+func (s *stateSuite) TestStateBaseGetDBNilFactory(c *gc.C) {
 	base := NewStateBase(nil)
 	_, err := base.DB()
 	c.Assert(err, gc.ErrorMatches, `nil getDB`)
 }
 
-func (s *dbFactorySuite) TestStateBaseGetDBNilDB(c *gc.C) {
+func (s *stateSuite) TestStateBaseGetDBNilDB(c *gc.C) {
 	f := testing.TxnRunnerFactory(nil)
 	base := NewStateBase(f)
 	_, err := base.DB()
 	c.Assert(err, gc.ErrorMatches, `invoking getDB: nil db`)
 }
 
-func (s *dbFactorySuite) getWatchableDB() (changestream.WatchableDB, error) {
+func (s *stateSuite) getWatchableDB() (changestream.WatchableDB, error) {
 	return &stubWatchableDB{TxnRunner: s.TxnRunner()}, nil
 }
 
-func (s *dbFactorySuite) getWatchableDBForNameSpace(_ string) (changestream.WatchableDB, error) {
+func (s *stateSuite) getWatchableDBForNameSpace(_ string) (changestream.WatchableDB, error) {
 	return &stubWatchableDB{TxnRunner: s.TxnRunner()}, nil
 }
 
