@@ -27,7 +27,7 @@ func (k jujuBackend) DeleteContent(ctx context.Context, revisionId string) error
 
 // SaveContent implements SecretsBackend.
 func (k jujuBackend) SaveContent(ctx context.Context, uri *coresecrets.URI, revision int, value coresecrets.SecretValue) (string, error) {
-	return "", errors.NotSupportedf("creating content to internal backend")
+	return "", errors.NotSupportedf("saving content to internal backend")
 }
 
 // Ping implements SecretsBackend.

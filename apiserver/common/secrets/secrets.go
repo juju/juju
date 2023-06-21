@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/kr/pretty"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cloud"
@@ -246,19 +245,13 @@ func backendConfigInfo(
 	if err := getExternalRevisions(secretsState, backendID, ownedFilter, ownedRevisions); err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Criticalf("ownedFilter: %s", pretty.Sprint(ownedFilter))
-	logger.Criticalf("ownedRevisions: %s", pretty.Sprint(ownedRevisions))
 
 	readRevisions := map[string]provider.SecretRevisions{}
 	if err := getExternalRevisions(secretsState, backendID, readFilter, readRevisions); err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Criticalf("readFilter: %s", pretty.Sprint(readFilter))
-	logger.Criticalf("readRevisions: %s", pretty.Sprint(readRevisions))
 
 	if len(readAppOwnedFilter.OwnerTags) > 0 {
-		logger.Criticalf("readAppOwnedFilter: %s", pretty.Sprint(readAppOwnedFilter))
-		logger.Criticalf("readRevisions 2: %s", pretty.Sprint(readRevisions))
 		if err := getExternalRevisions(secretsState, backendID, readAppOwnedFilter, readRevisions); err != nil {
 			return nil, errors.Trace(err)
 		}

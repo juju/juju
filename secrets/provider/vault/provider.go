@@ -177,9 +177,6 @@ func (p vaultProvider) CleanupSecrets(cfg *provider.ModelBackendConfig, tag name
 func (p vaultProvider) RestrictedConfig(
 	adminCfg *provider.ModelBackendConfig, forDrain bool, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
 ) (*provider.BackendConfig, error) {
-	logger.Criticalf("restricted config for %s, forDrain %v", tag, forDrain)
-	logger.Criticalf("RestrictedConfig owned %v", owned)
-	logger.Criticalf("RestrictedConfig read %v", read)
 	adminUser := tag == nil
 	// Get an admin backend client so we can set up the policies.
 	mountPath := modelPathPrefix(adminCfg.ModelName, adminCfg.ModelUUID)
@@ -195,7 +192,7 @@ func (p vaultProvider) RestrictedConfig(
 		// For drain worker, we need to be able to update a secret.
 		// Because we may run into a situation that the worker creates a secret in the vault but gets killed/restarted
 		// before it can update the secret to the new backend, we need to allow the worker to update the content
-		// after it's comming up again.
+		// after it's coming up again.
 		rule := fmt.Sprintf(`path "%s/*" {capabilities = ["update"]}`, mountPath)
 		policyName := mountPath + "-update"
 		err = sys.PutPolicyWithContext(ctx, policyName, rule)
