@@ -10,6 +10,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	crossmodel "github.com/juju/juju/core/crossmodel"
+	watcher "github.com/juju/juju/core/watcher"
 )
 
 // MockEcService is a mock of EcService interface.
@@ -67,4 +68,19 @@ func (mr *MockEcServiceMockRecorder) UpdateExternalController(arg0, arg1 interfa
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateExternalController", reflect.TypeOf((*MockEcService)(nil).UpdateExternalController), varargs...)
+}
+
+// Watch mocks base method.
+func (m *MockEcService) Watch() (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Watch")
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Watch indicates an expected call of Watch.
+func (mr *MockEcServiceMockRecorder) Watch() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Watch", reflect.TypeOf((*MockEcService)(nil).Watch))
 }

@@ -13,36 +13,30 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/internal"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type EcService interface {
 	Controller(ctx context.Context, controllerUUID string) (*crossmodel.ControllerInfo, error)
 	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo, modelUUIDs ...string) error
+	Watch() (watcher.StringsWatcher, error)
 }
 
 // ExternalControllerUpdaterAPI provides access to the CrossModelRelations API facade.
 type ExternalControllerUpdaterAPI struct {
-	ecService           EcService
-	externalControllers state.ExternalControllers
-	resources           facade.Resources
+	ecService EcService
+	resources facade.Resources
 }
 
 // NewAPI creates a new server-side CrossModelRelationsAPI API facade backed
 // by the given interfaces.
 func NewAPI(
-	auth facade.Authorizer,
 	resources facade.Resources,
-	externalControllers state.ExternalControllers,
 	ecService EcService,
 ) (*ExternalControllerUpdaterAPI, error) {
-	if !auth.AuthController() {
-		return nil, apiservererrors.ErrPerm
-	}
 	return &ExternalControllerUpdaterAPI{
 		ecService,
-		externalControllers,
 		resources,
 	}, nil
 }
@@ -50,12 +44,19 @@ func NewAPI(
 // WatchExternalControllers watches for the addition and removal of external
 // controller records to the local controller's database.
 func (api *ExternalControllerUpdaterAPI) WatchExternalControllers() (params.StringsWatchResults, error) {
-	w := api.externalControllers.Watch()
+	w, err := api.ecService.Watch()
+	if err != nil {
+		return params.StringsWatchResults{
+			[]params.StringsWatchResult{{
+				Error: apiservererrors.ServerError(errors.Annotate(err, "watching external controllers changes")),
+			}},
+		}, nil
+	}
 	changes, err := internal.FirstResult[[]string](w)
 	if err != nil {
 		return params.StringsWatchResults{
 			[]params.StringsWatchResult{{
-				Error: apiservererrors.ServerError(errors.Annotate(err, "error watching external controllers changes")),
+				Error: apiservererrors.ServerError(errors.Annotate(err, "watching external controllers changes")),
 			}},
 		}, nil
 	}

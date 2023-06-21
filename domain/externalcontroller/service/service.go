@@ -8,7 +8,10 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain"
 )
 
 // State describes retrieval and persistence methods for storage.
@@ -25,14 +28,23 @@ type State interface {
 	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo, modelUUIDs []string) error
 }
 
+// Logger facilitates emitting log messages.
+type Logger interface {
+	Debugf(string, ...interface{})
+}
+
 // Service provides the API for working with external controllers.
 type Service struct {
-	st State
+	st             State
+	watcherFactory *domain.WatcherFactory
 }
 
 // NewService returns a new service reference wrapping the input state.
-func NewService(st State) *Service {
-	return &Service{st}
+func NewService(st State, watcherFactory *domain.WatcherFactory) *Service {
+	return &Service{
+		st,
+		watcherFactory,
+	}
 }
 
 // Controller returns the controller record.
@@ -61,4 +73,10 @@ func (s *Service) UpdateExternalController(
 ) error {
 	err := s.st.UpdateExternalController(ctx, ec, modelUUIDs)
 	return errors.Annotate(err, "updating external controller state")
+}
+
+func (s *Service) Watch() (watcher.StringsWatcher, error) {
+	return s.watcherFactory.NewUUIDsWatcher(
+		changestream.Create|changestream.Update, "external_controller",
+	)
 }

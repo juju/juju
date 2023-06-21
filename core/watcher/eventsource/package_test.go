@@ -11,28 +11,39 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	dbtesting "github.com/juju/juju/database/testing"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package eventsource -destination package_mock_test.go github.com/juju/juju/core/watcher/eventsource Logger
-//go:generate go run github.com/golang/mock/mockgen -package eventsource -destination changestream_mock_test.go github.com/juju/juju/core/changestream Subscription,EventSource
+//go:generate go run github.com/golang/mock/mockgen -package eventsource -destination changestream_mock_test.go github.com/juju/juju/core/changestream Subscription,WatchableDB,EventSource
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
 
+type watchableDBShim struct {
+	database.TxnRunner
+	changestream.EventSource
+}
+
 type baseSuite struct {
 	dbtesting.ControllerSuite
 
-	events *MockEventSource
-	logger *MockLogger
-	sub    *MockSubscription
+	watchableDB watchableDBShim
+	eventsource *MockEventSource
+	logger      *MockLogger
+	sub         *MockSubscription
 }
 
 func (s *baseSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.events = NewMockEventSource(ctrl)
+	s.eventsource = NewMockEventSource(ctrl)
+	s.watchableDB = watchableDBShim{
+		s.TxnRunner(),
+		s.eventsource,
+	}
 	s.logger = NewMockLogger(ctrl)
 	s.sub = NewMockSubscription(ctrl)
 
@@ -40,7 +51,7 @@ func (s *baseSuite) setUpMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *baseSuite) newBaseWatcher() *BaseWatcher {
-	return NewBaseWatcher(s.events, s.TxnRunner(), s.logger)
+	return NewBaseWatcher(s.watchableDB, s.logger)
 }
 
 // subscriptionOptionMatcher is a gomock.Matcher that can be used to check

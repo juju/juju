@@ -4,8 +4,8 @@
 package eventsource
 
 import (
-	"context"
-	"database/sql"
+	context "context"
+	sql "database/sql"
 	"errors"
 	"time"
 
@@ -40,10 +40,9 @@ func (s *keysSuite) TestInitialStateSent(c *gc.C) {
 	// read mode, we will have the in channel assigned.
 	deltas := make(chan []changestream.ChangeEvent)
 	subExp.Changes().Return(deltas)
-
 	subExp.Unsubscribe()
 
-	s.events.EXPECT().Subscribe(
+	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{changestream.Namespace(
 			"random_namespace",
 			changestream.Create|changestream.Update|changestream.Delete,
@@ -60,8 +59,8 @@ func (s *keysSuite) TestInitialStateSent(c *gc.C) {
 		_, err := tx.ExecContext(ctx, "INSERT INTO random_namespace(key_name) VALUES ('some-key')")
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
 
+	c.Assert(err, jc.ErrorIsNil)
 	w := NewKeysWatcher(s.newBaseWatcher(), changestream.All, "random_namespace", "key_name")
 	defer workertest.CleanKill(c, w)
 
@@ -97,7 +96,7 @@ func (s *keysSuite) TestDeltasSent(c *gc.C) {
 
 	// The specific table doesn't matter here. Only that exists to read from.
 	// We don't need any initial data.
-	s.events.EXPECT().Subscribe(
+	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{changestream.Namespace(
 			"external_controller",
 			changestream.Create|changestream.Update|changestream.Delete,
@@ -149,7 +148,7 @@ func (s *keysSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 
 	// The specific table doesn't matter here. Only that exists to read from.
 	// We don't need any initial data.
-	s.events.EXPECT().Subscribe(
+	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{changestream.Namespace(
 			"external_controller",
 			changestream.Create|changestream.Update|changestream.Delete,
@@ -179,7 +178,7 @@ func (s *keysSuite) TestEnsureCloseOnCleanKill(c *gc.C) {
 	subExp.Done().Return(done)
 	subExp.Unsubscribe()
 
-	s.events.EXPECT().Subscribe(
+	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
@@ -198,7 +197,7 @@ func (s *keysSuite) TestEnsureCloseOnDirtyKill(c *gc.C) {
 	subExp.Done().Return(done)
 	subExp.Unsubscribe()
 
-	s.events.EXPECT().Subscribe(
+	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 

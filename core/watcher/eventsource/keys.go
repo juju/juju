@@ -13,6 +13,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/watcher"
 )
 
 // KeysWatcher watches for changes to a database table.
@@ -33,13 +34,13 @@ type KeysWatcher struct {
 
 // NewUUIDsWatcher is a convenience method for creating a new
 // KeysWatcher for the "uuid" column of the input table name.
-func NewUUIDsWatcher(base *BaseWatcher, changeMask changestream.ChangeType, tableName string) *KeysWatcher {
+func NewUUIDsWatcher(base *BaseWatcher, changeMask changestream.ChangeType, tableName string) watcher.StringsWatcher {
 	return NewKeysWatcher(base, changeMask, tableName, "uuid")
 }
 
 // NewKeysWatcher returns a new watcher that receives changes from the
 // input base watcher's db/queue when rows in the input table change.
-func NewKeysWatcher(base *BaseWatcher, changeMask changestream.ChangeType, tableName, keyName string) *KeysWatcher {
+func NewKeysWatcher(base *BaseWatcher, changeMask changestream.ChangeType, tableName, keyName string) watcher.StringsWatcher {
 	w := &KeysWatcher{
 		BaseWatcher: base,
 		out:         make(chan []string),
@@ -65,7 +66,7 @@ func (w *KeysWatcher) loop() error {
 	if w.changeMask == 0 {
 		return errors.NotValidf("changeMask value: 0")
 	}
-	subscription, err := w.eventSource.Subscribe(changestream.Namespace(w.tableName, w.changeMask))
+	subscription, err := w.watchableDB.Subscribe(changestream.Namespace(w.tableName, w.changeMask))
 	if err != nil {
 		return errors.Annotatef(err, "subscribing to namespace %q", w.tableName)
 	}
@@ -117,7 +118,7 @@ func (w *KeysWatcher) getInitialState() ([]string, error) {
 	defer cancel()
 
 	var keys []string
-	err := w.db.StdTxn(w.tomb.Context(parentCtx), func(ctx context.Context, tx *sql.Tx) error {
+	err := w.watchableDB.StdTxn(w.tomb.Context(parentCtx), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, w.selectAll)
 		if err != nil {
 			if err == sql.ErrNoRows {

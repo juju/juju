@@ -43,7 +43,7 @@ func (s *keysSuite) TestNotificationsSent(c *gc.C) {
 
 	subExp.Unsubscribe()
 
-	s.events.EXPECT().Subscribe(
+	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
@@ -89,7 +89,7 @@ func (s *keySuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 
 	subExp.Unsubscribe()
 
-	s.events.EXPECT().Subscribe(
+	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
@@ -108,7 +108,7 @@ func (s *keySuite) TestEnsureCloseOnCleanKill(c *gc.C) {
 	subExp.Done().Return(done)
 	subExp.Unsubscribe()
 
-	s.events.EXPECT().Subscribe(
+	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
@@ -127,7 +127,7 @@ func (s *keySuite) TestEnsureCloseOnDirtyKill(c *gc.C) {
 	subExp.Done().Return(done)
 	subExp.Unsubscribe()
 
-	s.events.EXPECT().Subscribe(
+	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
