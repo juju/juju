@@ -52,6 +52,7 @@ type SecretsManagerAPI struct {
 
 	backendConfigGetter commonsecrets.BackendConfigGetter
 	adminConfigGetter   commonsecrets.BackendAdminConfigGetter
+	drainConfigGetter   commonsecrets.BackendDrainConfigGetter
 	remoteClientGetter  func(uri *coresecrets.URI) (CrossModelSecretsClient, error)
 
 	crossModelState CrossModelState
@@ -118,6 +119,34 @@ func (s *SecretsManagerAPI) GetSecretBackendConfigs(arg params.SecretBackendArgs
 	}
 	results.ActiveID = activeID
 	results.Results = result
+	return results, nil
+}
+
+// GetBackendConfigForDrain fetches the config needed to make a secret backend client for the drain worker.
+func (s *SecretsManagerAPI) GetBackendConfigForDrain(arg params.SecretBackendArg) (params.SecretBackendConfigResults, error) {
+	results := params.SecretBackendConfigResults{
+		Results: make(map[string]params.SecretBackendConfigResult, 1),
+	}
+	cfgInfo, err := s.drainConfigGetter(arg.BackendID)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	if len(cfgInfo.Configs) == 0 {
+		return results, errors.NotFoundf("no secret backends available")
+	}
+	results.ActiveID = cfgInfo.ActiveID
+	for id, cfg := range cfgInfo.Configs {
+		results.Results[id] = params.SecretBackendConfigResult{
+			ControllerUUID: cfg.ControllerUUID,
+			ModelUUID:      cfg.ModelUUID,
+			ModelName:      cfg.ModelName,
+			Draining:       true,
+			Config: params.SecretBackendConfig{
+				BackendType: cfg.BackendType,
+				Params:      cfg.Config,
+			},
+		}
+	}
 	return results, nil
 }
 

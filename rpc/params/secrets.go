@@ -27,6 +27,11 @@ type SecretBackendArgs struct {
 	BackendIDs []string `json:"backend-ids"`
 }
 
+// SecretBackendArg holds arg for querying secret backend.
+type SecretBackendArg struct {
+	BackendID string `json:"backend-id"`
+}
+
 // SecretBackendConfigResults holds config info for creating
 // secret backend clients for a specific model.
 type SecretBackendConfigResults struct {

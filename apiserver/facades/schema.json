@@ -40480,6 +40480,18 @@
                     },
                     "description": "CreateSecrets creates new secrets."
                 },
+                "GetBackendConfigForDrain": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SecretBackendArg"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SecretBackendConfigResults"
+                        }
+                    },
+                    "description": "GetBackendConfigForDrain fetches the config needed to make a secret backend client for the drain worker."
+                },
                 "GetConsumerSecretsRevisionInfo": {
                     "type": "object",
                     "properties": {
@@ -40998,6 +41010,18 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "SecretBackendArg": {
+                    "type": "object",
+                    "properties": {
+                        "backend-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "backend-id"
                     ]
                 },
                 "SecretBackendArgs": {
@@ -46318,6 +46342,18 @@
                     },
                     "description": "FinishActions saves the result of a completed Action"
                 },
+                "GetBackendConfigForDrain": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SecretBackendArg"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SecretBackendConfigResults"
+                        }
+                    },
+                    "description": "GetBackendConfigForDrain fetches the config needed to make a secret backend client for the drain worker."
+                },
                 "GetConsumerSecretsRevisionInfo": {
                     "type": "object",
                     "properties": {
@@ -49352,6 +49388,18 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "SecretBackendArg": {
+                    "type": "object",
+                    "properties": {
+                        "backend-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "backend-id"
                     ]
                 },
                 "SecretBackendArgs": {

@@ -72,6 +72,38 @@ func (c *Client) GetSecretBackendConfig(backendID *string) (*provider.ModelBacke
 	return info, nil
 }
 
+// GetBackendConfigForDrain fetches the config needed to make a secret backend client for the drain worker.
+func (c *Client) GetBackendConfigForDrain(backendID *string) (*provider.ModelBackendConfig, string, error) {
+	var result params.SecretBackendConfigResults
+	arg := params.SecretBackendArg{}
+	if backendID != nil {
+		arg.BackendID = *backendID
+	}
+	err := c.facade.FacadeCall("GetBackendConfigForDrain", arg, &result)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	if len(result.Results) == 0 {
+		return nil, "", errors.NotFoundf("no secret backends available")
+	}
+
+	for _, cfg := range result.Results {
+		return &provider.ModelBackendConfig{
+			ControllerUUID: cfg.ControllerUUID,
+			ModelUUID:      cfg.ModelUUID,
+			ModelName:      cfg.ModelName,
+			BackendConfig: provider.BackendConfig{
+				BackendType: cfg.Config.BackendType,
+				Config:      cfg.Config.Params,
+			},
+		}, result.ActiveID, nil
+	}
+	if backendID != nil {
+		return nil, "", errors.NotFoundf("secret backend %q", *backendID)
+	}
+	return nil, "", errors.NotFoundf("active secret backend")
+}
+
 // CreateSecretURIs generates new secret URIs.
 func (c *Client) CreateSecretURIs(count int) ([]*coresecrets.URI, error) {
 	var results params.StringResults
