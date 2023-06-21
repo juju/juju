@@ -42,7 +42,7 @@ func newHighAvailabilityAPI(ctx facade.Context) (*HighAvailabilityAPI, error) {
 
 	return &HighAvailabilityAPI{
 		st:          st,
-		nodeService: service.NewService(state.NewState(domain.NewDBFactory(ctx.ControllerDB))),
+		nodeService: service.NewService(state.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB))),
 		authorizer:  authorizer,
 		logger:      ctx.Logger().Child("highavailability"),
 	}, nil

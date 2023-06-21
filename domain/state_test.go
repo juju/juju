@@ -4,25 +4,32 @@
 package domain
 
 import (
+	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/database/testing"
 )
 
-type dbFactorySuite struct {
+type stateSuite struct {
 	testing.ControllerSuite
 }
 
-var _ = gc.Suite(&dbFactorySuite{})
+var _ = gc.Suite(&stateSuite{})
 
-func (s *dbFactorySuite) TestDBFactory(c *gc.C) {
-	f := testing.TxnRunnerFactory(s.TxnRunner())
-	db, err := f()
+func (s *stateSuite) TestTxnRunnerFactory(c *gc.C) {
+	db, err := NewTxnRunnerFactory(s.getWatchableDB)()
 	c.Assert(err, gc.IsNil)
 	c.Assert(db, gc.NotNil)
 }
 
-func (s *dbFactorySuite) TestStateBaseGetDB(c *gc.C) {
+func (s *stateSuite) TestTxnRunnerFactoryForNamespace(c *gc.C) {
+	db, err := NewTxnRunnerFactoryForNamespace(s.getWatchableDBForNameSpace, "any-old-namespace")()
+	c.Assert(err, gc.IsNil)
+	c.Assert(db, gc.NotNil)
+}
+
+func (s *stateSuite) TestStateBaseGetDB(c *gc.C) {
 	f := testing.TxnRunnerFactory(s.TxnRunner())
 	base := NewStateBase(f)
 	db, err := base.DB()
@@ -30,16 +37,28 @@ func (s *dbFactorySuite) TestStateBaseGetDB(c *gc.C) {
 	c.Assert(db, gc.NotNil)
 }
 
-func (s *dbFactorySuite) TestStateBaseGetDBNilFactory(c *gc.C) {
+func (s *stateSuite) TestStateBaseGetDBNilFactory(c *gc.C) {
 	base := NewStateBase(nil)
 	_, err := base.DB()
 	c.Assert(err, gc.ErrorMatches, `nil getDB`)
-
 }
 
-func (s *dbFactorySuite) TestStateBaseGetDBNilDB(c *gc.C) {
+func (s *stateSuite) TestStateBaseGetDBNilDB(c *gc.C) {
 	f := testing.TxnRunnerFactory(nil)
 	base := NewStateBase(f)
 	_, err := base.DB()
 	c.Assert(err, gc.ErrorMatches, `invoking getDB: nil db`)
+}
+
+func (s *stateSuite) getWatchableDB() (changestream.WatchableDB, error) {
+	return &stubWatchableDB{TxnRunner: s.TxnRunner()}, nil
+}
+
+func (s *stateSuite) getWatchableDBForNameSpace(_ string) (changestream.WatchableDB, error) {
+	return &stubWatchableDB{TxnRunner: s.TxnRunner()}, nil
+}
+
+type stubWatchableDB struct {
+	database.TxnRunner
+	changestream.EventSource
 }

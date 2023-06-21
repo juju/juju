@@ -22,7 +22,7 @@ type State struct {
 	*domain.StateBase
 }
 
-func NewState(factory domain.DBFactory) *State {
+func NewState(factory domain.TxnRunnerFactory) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
 	}
