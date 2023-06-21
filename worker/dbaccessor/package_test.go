@@ -17,6 +17,7 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	databasetesting "github.com/juju/juju/database/testing"
+	jujujujutesting "github.com/juju/juju/testing"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package dbaccessor -destination package_mock_test.go github.com/juju/juju/worker/dbaccessor Logger,DBApp,NodeManager,TrackedDB,Hub,Client
@@ -30,10 +31,11 @@ func TestPackage(t *testing.T) {
 type baseSuite struct {
 	jujutesting.IsolationSuite
 
+	logger Logger
+
 	clock                *MockClock
 	hub                  *MockHub
 	timer                *MockTimer
-	logger               *MockLogger
 	dbApp                *MockDBApp
 	client               *MockClient
 	trackedDB            *MockTrackedDB
@@ -45,26 +47,17 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.clock = NewMockClock(ctrl)
 	s.timer = NewMockTimer(ctrl)
-	s.logger = NewMockLogger(ctrl)
 	s.hub = NewMockHub(ctrl)
 	s.dbApp = NewMockDBApp(ctrl)
 	s.client = NewMockClient(ctrl)
 	s.trackedDB = NewMockTrackedDB(ctrl)
 	s.prometheusRegisterer = NewMockRegisterer(ctrl)
 
+	s.logger = jujujujutesting.CheckLogger{
+		Log: c,
+	}
+
 	return ctrl
-}
-
-func (s *baseSuite) expectAnyLogs(c *gc.C) {
-	log := func(msg string, args ...any) { c.Logf(msg, args...) }
-
-	s.logger.EXPECT().Errorf(gomock.Any(), gomock.Any()).Do(log).AnyTimes()
-	s.logger.EXPECT().Warningf(gomock.Any(), gomock.Any()).Do(log).AnyTimes()
-	s.logger.EXPECT().Infof(gomock.Any(), gomock.Any()).Do(log).AnyTimes()
-	s.logger.EXPECT().Debugf(gomock.Any(), gomock.Any()).Do(log).AnyTimes()
-	s.logger.EXPECT().Logf(gomock.Any(), gomock.Any()).Do(log).AnyTimes()
-
-	s.logger.EXPECT().IsTraceEnabled().AnyTimes()
 }
 
 func (s *baseSuite) expectClock() {

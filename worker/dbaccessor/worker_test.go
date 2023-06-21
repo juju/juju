@@ -34,7 +34,6 @@ var _ = gc.Suite(&workerSuite{})
 func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs(c)
 	s.expectClock()
 	s.expectTrackedDBKill()
 
@@ -127,7 +126,6 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs(c)
 	s.expectClock()
 	s.expectTrackedDBKill()
 
@@ -166,7 +164,6 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs(c)
 	s.expectClock()
 	s.expectTrackedDBKill()
 
@@ -229,7 +226,6 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs(c)
 	s.expectClock()
 	s.expectTrackedDBKill()
 
@@ -319,7 +315,6 @@ func (s *workerSuite) TestEnsureNamespaceForController(c *gc.C) {
 func (s *workerSuite) TestEnsureNamespaceForModelNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs(c)
 	s.expectClock()
 
 	dataDir := c.MkDir()
@@ -356,7 +351,6 @@ func (s *workerSuite) TestEnsureNamespaceForModelNotFound(c *gc.C) {
 func (s *workerSuite) TestEnsureNamespaceForModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs(c)
 	s.expectClock()
 
 	dataDir := c.MkDir()
@@ -409,7 +403,6 @@ func (s *workerSuite) TestEnsureNamespaceForModel(c *gc.C) {
 func (s *workerSuite) TestEnsureNamespaceForModelWithCache(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs(c)
 	s.expectClock()
 
 	dataDir := c.MkDir()
@@ -471,7 +464,6 @@ func (s *workerSuite) TestEnsureNamespaceForModelWithCache(c *gc.C) {
 func (s *workerSuite) TestCloseDatabaseForController(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs(c)
 	s.expectClock()
 
 	dataDir := c.MkDir()
@@ -524,7 +516,6 @@ func (s *workerSuite) TestCloseDatabaseForController(c *gc.C) {
 func (s *workerSuite) TestCloseDatabaseForModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs(c)
 	s.expectClock()
 
 	dataDir := c.MkDir()
@@ -580,7 +571,6 @@ func (s *workerSuite) TestCloseDatabaseForModel(c *gc.C) {
 func (s *workerSuite) TestCloseDatabaseForUnknownModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs(c)
 	s.expectClock()
 
 	dataDir := c.MkDir()

@@ -30,7 +30,6 @@ var _ = gc.Suite(&trackedDBWorkerSuite{})
 func (s *trackedDBWorkerSuite) TestWorkerStartup(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs(c)
 	s.expectClock()
 	s.expectTimer(0)
 
@@ -47,7 +46,6 @@ func (s *trackedDBWorkerSuite) TestWorkerStartup(c *gc.C) {
 func (s *trackedDBWorkerSuite) TestWorkerReport(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs(c)
 	s.expectClock()
 	s.expectTimer(0)
 
@@ -72,7 +70,6 @@ func (s *trackedDBWorkerSuite) TestWorkerReport(c *gc.C) {
 func (s *trackedDBWorkerSuite) TestWorkerDBIsNotNil(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs(c)
 	s.expectClock()
 	s.expectTimer(0)
 
@@ -97,7 +94,6 @@ func (s *trackedDBWorkerSuite) TestWorkerDBIsNotNil(c *gc.C) {
 func (s *trackedDBWorkerSuite) TestWorkerTxnIsNotNil(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs(c)
 	s.expectClock()
 	s.expectTimer(0)
 
@@ -129,7 +125,6 @@ func (s *trackedDBWorkerSuite) TestWorkerTxnIsNotNil(c *gc.C) {
 func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDB(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs(c)
 	s.expectClock()
 	done := s.expectTimer(1)
 
@@ -165,7 +160,6 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDB(c *gc.C) {
 func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs(c)
 	s.expectClock()
 	done := s.expectTimer(1)
 
@@ -215,7 +209,6 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *gc.C) 
 func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBRepeatedly(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs(c)
 	s.expectClock()
 	done := s.expectTimer(2)
 
@@ -252,7 +245,6 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBRepeatedly(c *gc.C) {
 func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDifferentDB(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs(c)
 	s.expectClock()
 	done := s.expectTimer(1)
 
@@ -325,7 +317,6 @@ loop:
 func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs(c)
 	s.expectClock()
 	done := s.expectTimer(1)
 
@@ -359,7 +350,6 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
 func (s *trackedDBWorkerSuite) TestWorkerCancelsTxn(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs(c)
 	s.expectClock()
 	s.expectTimer(0)
 
@@ -399,7 +389,6 @@ func (s *trackedDBWorkerSuite) TestWorkerCancelsTxn(c *gc.C) {
 func (s *trackedDBWorkerSuite) TestWorkerCancelsTxnNoRetry(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs(c)
 	s.expectClock()
 	s.expectTimer(0)
 
