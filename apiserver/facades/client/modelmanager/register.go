@@ -70,7 +70,7 @@ func newFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
 		backend,
 		common.NewModelManagerBackend(ctrlModel, pool),
 		modelmanagerservice.NewService(
-			modelmanagerstate.NewState(domain.NewDBFactory(ctx.ControllerDB)),
+			modelmanagerstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
 			ctx.DBDeleter()),
 		toolsFinder,
 		caas.New,

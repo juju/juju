@@ -18,7 +18,7 @@ type State struct {
 }
 
 // NewState returns a new State for interacting with the underlying state.
-func NewState(factory domain.DBFactory) *State {
+func NewState(factory domain.TxnRunnerFactory) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
 	}

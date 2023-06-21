@@ -19,7 +19,7 @@ type State struct {
 
 // NewState returns a new controller node state
 // based on the input database factory method.
-func NewState(factory domain.DBFactory) *State {
+func NewState(factory domain.TxnRunnerFactory) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
 	}

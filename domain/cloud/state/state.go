@@ -23,7 +23,7 @@ type State struct {
 }
 
 // NewState creates a state to access the database.
-func NewState(factory domain.DBFactory) *State {
+func NewState(factory domain.TxnRunnerFactory) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
 	}

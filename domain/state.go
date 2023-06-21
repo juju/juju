@@ -12,20 +12,29 @@ import (
 	"github.com/juju/juju/core/database"
 )
 
-// DBFactory defines a function that returns a database or an error if a
-// database cannot be returned.
-type DBFactory = func() (database.TxnRunner, error)
+// TxnRunnerFactory aliases a function that
+// returns a database.TxnRunner or an error.
+type TxnRunnerFactory = func() (database.TxnRunner, error)
 
-// NewDBFactory returns a DBFactory for the input function that returns a
-// WatchableDB.
-// This ensures that we never pass the ability to access the change-stream
-// into a state object.
+// NewTxnRunnerFactory returns a TxnRunnerFactory for the input
+// changestream.WatchableDB factory function.
+// This ensures that we never pass the ability to access the
+// change-stream into a state object.
 // State objects should only be concerned with persistence and retrieval.
 // Watchers are the concern of the service layer.
-func NewDBFactory(f func() (changestream.WatchableDB, error)) DBFactory {
+func NewTxnRunnerFactory(f func() (changestream.WatchableDB, error)) TxnRunnerFactory {
 	return func() (database.TxnRunner, error) {
-		db, err := f()
-		return db, errors.Trace(err)
+		r, err := f()
+		return r, errors.Trace(err)
+	}
+}
+
+// NewTxnRunnerFactoryForNamespace returns a TxnRunnerFactory for the input
+// namespaced changestream.WatchableDB factory function and namespace.
+func NewTxnRunnerFactoryForNamespace(f func(string) (changestream.WatchableDB, error), ns string) TxnRunnerFactory {
+	return func() (database.TxnRunner, error) {
+		r, err := f(ns)
+		return r, errors.Trace(err)
 	}
 }
 
@@ -33,12 +42,12 @@ func NewDBFactory(f func() (changestream.WatchableDB, error)) DBFactory {
 // the database for the lifetime of the struct.
 type StateBase struct {
 	mu    sync.Mutex
-	getDB DBFactory
+	getDB TxnRunnerFactory
 	db    database.TxnRunner
 }
 
 // NewStateBase returns a new StateBase.
-func NewStateBase(getDB DBFactory) *StateBase {
+func NewStateBase(getDB TxnRunnerFactory) *StateBase {
 	return &StateBase{
 		getDB: getDB,
 	}
