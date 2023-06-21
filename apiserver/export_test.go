@@ -184,25 +184,6 @@ func TestingUpgradeOrMigrationOnlyRoot(userLogin bool, clientVersion version.Num
 	return restrictRoot(r, checkClientVersion(userLogin, clientVersion))
 }
 
-// PatchGetMigrationBackend overrides the getMigrationBackend function
-// to support testing.
-func PatchGetMigrationBackend(p Patcher, ctrlSt controllerBackend, st migrationBackend) {
-	p.PatchValue(&getMigrationBackend, func(*state.State) migrationBackend {
-		return st
-	})
-	p.PatchValue(&getControllerBackend, func(pool *state.StatePool) (controllerBackend, error) {
-		return ctrlSt, nil
-	})
-}
-
-// PatchGetControllerCACert overrides the getControllerCACert function
-// to support testing.
-func PatchGetControllerCACert(p Patcher, caCert string) {
-	p.PatchValue(&getControllerCACert, func(backend controllerBackend) (string, error) {
-		return caCert, nil
-	})
-}
-
 // ServerWaitGroup exposes the underlying wait group used to track running API calls
 // to allow tests to hold a server open.
 func ServerWaitGroup(server *Server) *sync.WaitGroup {
