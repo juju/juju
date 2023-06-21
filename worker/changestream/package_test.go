@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package changestream -destination stream_mock_test.go github.com/juju/juju/worker/changestream DBGetter,Logger,EventMultiplexerWorker,FileNotifyWatcher
+//go:generate go run github.com/golang/mock/mockgen -package changestream -destination stream_mock_test.go github.com/juju/juju/worker/changestream DBGetter,Logger,WatchableDBWorker,FileNotifyWatcher
 //go:generate go run github.com/golang/mock/mockgen -package changestream -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 //go:generate go run github.com/golang/mock/mockgen -package changestream -destination source_mock_test.go github.com/juju/juju/core/changestream EventSource
 
@@ -29,7 +29,7 @@ type baseSuite struct {
 	logger            *MockLogger
 	fileNotifyWatcher *MockFileNotifyWatcher
 	eventSource       *MockEventSource
-	eventMuxWorker    *MockEventMultiplexerWorker
+	watchableDBWorker *MockWatchableDBWorker
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -41,7 +41,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.logger = NewMockLogger(ctrl)
 	s.fileNotifyWatcher = NewMockFileNotifyWatcher(ctrl)
 	s.eventSource = NewMockEventSource(ctrl)
-	s.eventMuxWorker = NewMockEventMultiplexerWorker(ctrl)
+	s.watchableDBWorker = NewMockWatchableDBWorker(ctrl)
 
 	return ctrl
 }

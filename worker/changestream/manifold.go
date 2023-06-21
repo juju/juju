@@ -25,9 +25,9 @@ type Logger interface {
 	IsTraceEnabled() bool
 }
 
-// EventMultiplexerWorkerFn is an alias function that allows the creation of
+// WatchableDBFn is an alias function that allows the creation of
 // EventQueueWorker.
-type EventMultiplexerWorkerFn = func(string, coredatabase.TxnRunner, FileNotifier, clock.Clock, Logger) (EventMultiplexerWorker, error)
+type WatchableDBFn = func(string, coredatabase.TxnRunner, FileNotifier, clock.Clock, Logger) (WatchableDBWorker, error)
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.
@@ -36,9 +36,9 @@ type ManifoldConfig struct {
 	DBAccessor        string
 	FileNotifyWatcher string
 
-	Clock                     clock.Clock
-	Logger                    Logger
-	NewEventMultiplexerWorker EventMultiplexerWorkerFn
+	Clock          clock.Clock
+	Logger         Logger
+	NewWatchableDB WatchableDBFn
 }
 
 func (cfg ManifoldConfig) Validate() error {
@@ -57,8 +57,8 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if cfg.NewEventMultiplexerWorker == nil {
-		return errors.NotValidf("nil NewEventMultiplexerWorker")
+	if cfg.NewWatchableDB == nil {
+		return errors.NotValidf("nil NewWatchableDB")
 	}
 	return nil
 }
@@ -96,12 +96,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			cfg := WorkerConfig{
-				AgentTag:                  agentConfig.Tag().Id(),
-				DBGetter:                  dbGetter,
-				FileNotifyWatcher:         fileNotifyWatcher,
-				Clock:                     config.Clock,
-				Logger:                    config.Logger,
-				NewEventMultiplexerWorker: config.NewEventMultiplexerWorker,
+				AgentTag:          agentConfig.Tag().Id(),
+				DBGetter:          dbGetter,
+				FileNotifyWatcher: fileNotifyWatcher,
+				Clock:             config.Clock,
+				Logger:            config.Logger,
+				NewWatchableDB:    config.NewWatchableDB,
 			}
 
 			w, err := newWorker(cfg)
@@ -127,7 +127,7 @@ func changeStreamOutput(in worker.Worker, out interface{}) error {
 		var target changestream.WatchableDBGetter = w
 		*out = target
 	default:
-		return errors.Errorf("out should be a *changestream.ChangeStream; got %T", out)
+		return errors.Errorf("out should be a *changestream.WatchableDBGetter; got %T", out)
 	}
 	return nil
 }

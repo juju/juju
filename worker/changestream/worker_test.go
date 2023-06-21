@@ -48,7 +48,7 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	cfg = s.getConfig()
-	cfg.NewEventMultiplexerWorker = nil
+	cfg.NewWatchableDB = nil
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 }
 
@@ -59,7 +59,7 @@ func (s *workerSuite) getConfig() WorkerConfig {
 		FileNotifyWatcher: s.fileNotifyWatcher,
 		Clock:             s.clock,
 		Logger:            s.logger,
-		NewEventMultiplexerWorker: func(string, coredatabase.TxnRunner, FileNotifier, clock.Clock, Logger) (EventMultiplexerWorker, error) {
+		NewWatchableDB: func(string, coredatabase.TxnRunner, FileNotifier, clock.Clock, Logger) (WatchableDBWorker, error) {
 			return nil, nil
 		},
 	}
@@ -74,9 +74,8 @@ func (s *workerSuite) TestEventSource(c *gc.C) {
 	done := make(chan struct{})
 
 	s.dbGetter.EXPECT().GetDB("controller").Return(s.TxnRunner(), nil)
-	s.eventMuxWorker.EXPECT().EventSource().Return(s.eventSource)
-	s.eventMuxWorker.EXPECT().Kill().AnyTimes()
-	s.eventMuxWorker.EXPECT().Wait().DoAndReturn(func() error {
+	s.watchableDBWorker.EXPECT().Kill().AnyTimes()
+	s.watchableDBWorker.EXPECT().Wait().DoAndReturn(func() error {
 		select {
 		case <-done:
 		case <-time.After(testing.LongWait):
@@ -107,10 +106,9 @@ func (s *workerSuite) TestEventSourceCalledTwice(c *gc.C) {
 
 	done := make(chan struct{})
 
-	s.dbGetter.EXPECT().GetDB("controller").Return(s.TxnRunner(), nil).Times(2)
-	s.eventMuxWorker.EXPECT().EventSource().Return(s.eventSource).Times(2)
-	s.eventMuxWorker.EXPECT().Kill().AnyTimes()
-	s.eventMuxWorker.EXPECT().Wait().DoAndReturn(func() error {
+	s.dbGetter.EXPECT().GetDB("controller").Return(s.TxnRunner(), nil).Times(1)
+	s.watchableDBWorker.EXPECT().Kill().AnyTimes()
+	s.watchableDBWorker.EXPECT().Wait().DoAndReturn(func() error {
 		select {
 		case <-done:
 		case <-time.After(testing.LongWait):
@@ -144,12 +142,12 @@ func (s *workerSuite) newWorker(c *gc.C, attempts int) worker.Worker {
 		FileNotifyWatcher: s.fileNotifyWatcher,
 		Clock:             s.clock,
 		Logger:            s.logger,
-		NewEventMultiplexerWorker: func(string, coredatabase.TxnRunner, FileNotifier, clock.Clock, Logger) (EventMultiplexerWorker, error) {
+		NewWatchableDB: func(string, coredatabase.TxnRunner, FileNotifier, clock.Clock, Logger) (WatchableDBWorker, error) {
 			attempts--
 			if attempts < 0 {
-				c.Fatal("NewEventMultiplexerWorker called too many times")
+				c.Fatal("NewWatchableDB called too many times")
 			}
-			return s.eventMuxWorker, nil
+			return s.watchableDBWorker, nil
 		},
 	}
 
