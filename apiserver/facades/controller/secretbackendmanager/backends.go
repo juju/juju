@@ -22,7 +22,7 @@ import (
 
 // SecretBackendsManagerAPI is the implementation for the SecretsManager facade.
 type SecretBackendsManagerAPI struct {
-	resources facade.Resources
+	watcherRegistry facade.WatcherRegistry
 
 	controllerUUID string
 	modelUUID      string
@@ -50,8 +50,13 @@ func (s *SecretBackendsManagerAPI) WatchSecretBackendsRotateChanges() (params.Se
 				NextTriggerTime: c.NextTriggerTime,
 			}
 		}
-		result.WatcherId = s.resources.Register(w)
-		result.Changes = changes
+		id, err := s.watcherRegistry.Register(w)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		} else {
+			result.WatcherId = id
+			result.Changes = changes
+		}
 	} else {
 		err = watcher.EnsureErr(w)
 		result.Error = apiservererrors.ServerError(err)

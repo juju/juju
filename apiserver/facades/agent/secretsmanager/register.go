@@ -95,7 +95,7 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		authTag:             context.Auth().GetAuthTag(),
 		leadershipChecker:   leadershipChecker,
 		secretsState:        state.NewSecrets(context.State()),
-		resources:           context.Resources(),
+		watcherRegistry:     context.WatcherRegistry(),
 		secretsTriggers:     context.State(),
 		secretsConsumer:     context.State(),
 		clock:               clock.WallClock,

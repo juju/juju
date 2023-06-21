@@ -27,8 +27,8 @@ import (
 type SecretsManagerSuite struct {
 	testing.IsolationSuite
 
-	authorizer *facademocks.MockAuthorizer
-	resources  *facademocks.MockResources
+	authorizer      *facademocks.MockAuthorizer
+	watcherRegistry *facademocks.MockWatcherRegistry
 
 	provider             *mocks.MockSecretBackendProvider
 	backendState         *mocks.MockBackendState
@@ -45,7 +45,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
-	s.resources = facademocks.NewMockResources(ctrl)
+	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
 
 	s.provider = mocks.NewMockSecretBackendProvider(ctrl)
 	s.backendState = mocks.NewMockBackendState(ctrl)
@@ -57,7 +57,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 
 	var err error
 	s.facade, err = secretbackendmanager.NewTestAPI(
-		s.authorizer, s.resources, s.backendState, s.backendRotate, s.clock)
+		s.authorizer, s.watcherRegistry, s.backendState, s.backendRotate, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
@@ -77,7 +77,7 @@ func (s *SecretsManagerSuite) TestWatchBackendRotateChanges(c *gc.C) {
 	s.backendRotate.EXPECT().WatchSecretBackendRotationChanges().Return(
 		s.backendRotateWatcher, nil,
 	)
-	s.resources.EXPECT().Register(s.backendRotateWatcher).Return("1")
+	s.watcherRegistry.EXPECT().Register(s.backendRotateWatcher).Return("1", nil)
 
 	next := time.Now().Add(time.Hour)
 	rotateChan := make(chan []corewatcher.SecretBackendRotateChange, 1)

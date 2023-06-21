@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/charm/v11"
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
@@ -41,6 +42,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -64,6 +66,7 @@ type uniterSuiteBase struct {
 
 	authorizer        apiservertesting.FakeAuthorizer
 	resources         *common.Resources
+	watcherRegistry   facade.WatcherRegistry
 	leadershipRevoker *leadershipRevoker
 	uniter            *uniter.UniterAPI
 
@@ -107,6 +110,10 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 
 	// Create the resource registry separately to track invocations to
 	// Register.
+	var err error
+	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
@@ -157,6 +164,7 @@ func (s *uniterSuiteBase) facadeContext() facadetest.Context {
 		State_:             s.State,
 		StatePool_:         s.StatePool,
 		Resources_:         s.resources,
+		WatcherRegistry_:   s.watcherRegistry,
 		Auth_:              s.authorizer,
 		LeadershipChecker_: s.leadershipChecker,
 	}

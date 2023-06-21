@@ -31,13 +31,13 @@ func NewSecretBackendsManagerAPI(context facade.Context) (*SecretBackendsManager
 		return nil, errors.Trace(err)
 	}
 	return &SecretBackendsManagerAPI{
-		resources:      context.Resources(),
-		controllerUUID: model.ControllerUUID(),
-		modelUUID:      model.UUID(),
-		modelName:      model.Name(),
-		backendRotate:  context.State(),
-		backendState:   state.NewSecretBackends(context.State()),
-		clock:          clock.WallClock,
-		logger:         context.Logger().Child("secretbackendmanager"),
+		watcherRegistry: context.WatcherRegistry(),
+		controllerUUID:  model.ControllerUUID(),
+		modelUUID:       model.UUID(),
+		modelName:       model.Name(),
+		backendRotate:   context.State(),
+		backendState:    state.NewSecretBackends(context.State()),
+		clock:           clock.WallClock,
+		logger:          context.Logger().Child("secretbackendmanager"),
 	}, nil
 }

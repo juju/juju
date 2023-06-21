@@ -23,15 +23,17 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/apiserver/watchers"
 	"github.com/juju/juju/cloud"
 	corecontroller "github.com/juju/juju/controller"
 	coremultiwatcher "github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -47,11 +49,12 @@ import (
 type controllerSuite struct {
 	statetesting.StateSuite
 
-	controller *controller.ControllerAPI
-	resources  *common.Resources
-	authorizer apiservertesting.FakeAuthorizer
-	hub        *pubsub.StructuredHub
-	context    facadetest.Context
+	controller      *controller.ControllerAPI
+	resources       *common.Resources
+	watcherRegistry facade.WatcherRegistry
+	authorizer      apiservertesting.FakeAuthorizer
+	hub             *pubsub.StructuredHub
+	context         facadetest.Context
 }
 
 var _ = gc.Suite(&controllerSuite{})
@@ -77,6 +80,14 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiWatcherWorker) })
 
 	s.hub = pubsub.NewStructuredHub(nil)
+
+	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) {
+		s.watcherRegistry.Kill()
+		err := s.watcherRegistry.Wait()
+		c.Assert(err, jc.ErrorIsNil)
+	})
 
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
@@ -360,15 +371,23 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var disposed bool
-	watcherAPI_, err := apiserver.NewAllWatcher(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
-		ID_:        watcherId.AllWatcherId,
-		Dispose_:   func() { disposed = true },
+	watcherAPI_, err := watchers.NewAllWatcher(facadetest.Context{
+		State_:           s.State,
+		Resources_:       s.resources,
+		WatcherRegistry_: s.watcherRegistry,
+		Auth_:            s.authorizer,
+		ID_:              watcherId.AllWatcherId,
+		Dispose_:         func() { disposed = true },
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	watcherAPI := watcherAPI_.(*apiserver.SrvAllWatcher)
+
+	type allWatcher interface {
+		Stop() error
+		Next() (params.AllWatcherNextResults, error)
+	}
+	watcherAPI, ok := watcherAPI_.(allWatcher)
+	c.Assert(ok, jc.IsTrue)
+
 	defer func() {
 		err := watcherAPI.Stop()
 		c.Assert(err, jc.ErrorIsNil)
@@ -1026,12 +1045,17 @@ func (s *controllerSuite) TestIdentityProviderURL(c *gc.C) {
 	c.Assert(urlRes.Result, gc.Equals, expURL)
 }
 
-func (s *controllerSuite) newSummaryWatcherFacade(c *gc.C, id string) *apiserver.SrvModelSummaryWatcher {
+type modelSummaryWatcher interface {
+	Stop() error
+	Next() (params.SummaryWatcherNextResults, error)
+}
+
+func (s *controllerSuite) newSummaryWatcherFacade(c *gc.C, id string) modelSummaryWatcher {
 	context := s.context
 	context.ID_ = id
-	watcher, err := apiserver.NewModelSummaryWatcher(context)
+	watcher, err := watchers.NewModelSummaryWatcher(context)
 	c.Assert(err, jc.ErrorIsNil)
-	return watcher
+	return watcher.(modelSummaryWatcher)
 }
 
 func (s *controllerSuite) TestWatchAllModelSummariesByAdmin(c *gc.C) {

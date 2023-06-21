@@ -25,9 +25,9 @@ func TestPackage(t *testing.T) {
 
 func NewTestAPI(
 	authorizer facade.Authorizer,
-	resources facade.Resources,
+	watcherRegistry facade.WatcherRegistry,
 	secretsState BackendState,
-	backendrotate BackendRotate,
+	backendRotate BackendRotate,
 	clock clock.Clock,
 ) (*SecretBackendsManagerAPI, error) {
 	if !authorizer.AuthController() {
@@ -35,9 +35,9 @@ func NewTestAPI(
 	}
 
 	return &SecretBackendsManagerAPI{
-		resources:     resources,
-		backendState:  secretsState,
-		backendRotate: backendrotate,
-		clock:         clock,
+		watcherRegistry: watcherRegistry,
+		backendState:    secretsState,
+		backendRotate:   backendRotate,
+		clock:           clock,
 	}, nil
 }

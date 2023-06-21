@@ -8,18 +8,18 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/mocks"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type allWatcherSuite struct {
 	testing.BaseSuite
+
+	deltaTranslater *MockDeltaTranslater
 }
 
 var _ = gc.Suite(&allWatcherSuite{})
@@ -77,24 +77,21 @@ func newDelta(info multiwatcher.EntityInfo) multiwatcher.Delta {
 }
 
 func (s *allWatcherSuite) TestTranslate(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	dt := mocks.NewMockDeltaTranslater(ctrl)
+	defer s.setupMocks(c).Finish()
 
 	gomock.InOrder(
-		dt.EXPECT().TranslateModel(gomock.Any()).Return(nil),
-		dt.EXPECT().TranslateApplication(gomock.Any()).Return(nil),
-		dt.EXPECT().TranslateRemoteApplication(gomock.Any()).Return(nil),
-		dt.EXPECT().TranslateMachine(gomock.Any()).Return(nil),
-		dt.EXPECT().TranslateUnit(gomock.Any()).Return(nil),
-		dt.EXPECT().TranslateCharm(gomock.Any()).Return(nil),
-		dt.EXPECT().TranslateRelation(gomock.Any()).Return(nil),
-		dt.EXPECT().TranslateBranch(gomock.Any()).Return(nil),
-		dt.EXPECT().TranslateAnnotation(gomock.Any()).Return(nil),
-		dt.EXPECT().TranslateBlock(gomock.Any()).Return(nil),
-		dt.EXPECT().TranslateAction(gomock.Any()).Return(nil),
-		dt.EXPECT().TranslateApplicationOffer(gomock.Any()).Return(nil),
+		s.deltaTranslater.EXPECT().TranslateModel(gomock.Any()).Return(nil),
+		s.deltaTranslater.EXPECT().TranslateApplication(gomock.Any()).Return(nil),
+		s.deltaTranslater.EXPECT().TranslateRemoteApplication(gomock.Any()).Return(nil),
+		s.deltaTranslater.EXPECT().TranslateMachine(gomock.Any()).Return(nil),
+		s.deltaTranslater.EXPECT().TranslateUnit(gomock.Any()).Return(nil),
+		s.deltaTranslater.EXPECT().TranslateCharm(gomock.Any()).Return(nil),
+		s.deltaTranslater.EXPECT().TranslateRelation(gomock.Any()).Return(nil),
+		s.deltaTranslater.EXPECT().TranslateBranch(gomock.Any()).Return(nil),
+		s.deltaTranslater.EXPECT().TranslateAnnotation(gomock.Any()).Return(nil),
+		s.deltaTranslater.EXPECT().TranslateBlock(gomock.Any()).Return(nil),
+		s.deltaTranslater.EXPECT().TranslateAction(gomock.Any()).Return(nil),
+		s.deltaTranslater.EXPECT().TranslateApplicationOffer(gomock.Any()).Return(nil),
 	)
 
 	deltas := []multiwatcher.Delta{
@@ -111,7 +108,7 @@ func (s *allWatcherSuite) TestTranslate(c *gc.C) {
 		newDelta(&multiwatcher.ActionInfo{}),
 		newDelta(&multiwatcher.ApplicationOfferInfo{}),
 	}
-	_ = translate(dt, deltas)
+	_ = translate(s.deltaTranslater, deltas)
 }
 
 func (s *allWatcherSuite) TestTranslateModelEmpty(c *gc.C) {
@@ -126,11 +123,11 @@ func (s *allWatcherSuite) TestTranslateModelEmpty(c *gc.C) {
 }
 
 func (s *allWatcherSuite) TestTranslateModelAgentVersion(c *gc.C) {
-	current := coretesting.CurrentVersion()
+	current := testing.CurrentVersion()
 	configAttrs := map[string]any{
 		"name":                 "some-name",
 		"type":                 "some-type",
-		"uuid":                 coretesting.ModelTag.Id(),
+		"uuid":                 testing.ModelTag.Id(),
 		config.AgentVersionKey: current.Number.String(),
 	}
 
@@ -143,4 +140,12 @@ func (s *allWatcherSuite) TestTranslateModelAgentVersion(c *gc.C) {
 	modelUpdate := entityInfo.(*params.ModelUpdate)
 	c.Assert(modelUpdate, gc.NotNil)
 	c.Assert(modelUpdate.Version, gc.Equals, current.Number.String())
+}
+
+func (s *allWatcherSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.deltaTranslater = NewMockDeltaTranslater(ctrl)
+
+	return ctrl
 }

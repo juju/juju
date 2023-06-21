@@ -27,6 +27,8 @@ import (
 	jujutesting "github.com/juju/juju/testing"
 )
 
+//go:generate go run github.com/golang/mock/mockgen -package watchers -destination deltatranslater_mock_test.go github.com/juju/juju/apiserver/watchers DeltaTranslater
+
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }

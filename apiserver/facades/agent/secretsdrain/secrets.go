@@ -28,7 +28,7 @@ var (
 type SecretsDrainAPI struct {
 	leadershipChecker leadership.Checker
 	secretsState      SecretsState
-	resources         facade.Resources
+	watcherRegistry   facade.WatcherRegistry
 	secretsConsumer   SecretsConsumer
 	authTag           names.Tag
 	logger            loggo.Logger
@@ -116,10 +116,22 @@ func (s *SecretsDrainAPI) WatchSecretBackendChanged() (params.NotifyWatchResult,
 	stateWatcher := s.model.WatchForModelConfigChanges()
 	w, err := newSecretBackendModelConfigWatcher(s.model, stateWatcher, s.logger)
 	if err != nil {
-		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}, nil
+		return params.NotifyWatchResult{
+			Error: apiservererrors.ServerError(err),
+		}, nil
 	}
 	if _, ok := <-w.Changes(); ok {
-		return params.NotifyWatchResult{NotifyWatcherId: s.resources.Register(w)}, nil
+		id, err := s.watcherRegistry.Register(w)
+		if err != nil {
+			return params.NotifyWatchResult{
+				Error: apiservererrors.ServerError(err),
+			}, nil
+		}
+		return params.NotifyWatchResult{
+			NotifyWatcherId: id,
+		}, nil
 	}
-	return params.NotifyWatchResult{Error: apiservererrors.ServerError(watcher.EnsureErr(w))}, nil
+	return params.NotifyWatchResult{
+		Error: apiservererrors.ServerError(watcher.EnsureErr(w)),
+	}, nil
 }

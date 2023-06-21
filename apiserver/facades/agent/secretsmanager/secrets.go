@@ -40,7 +40,7 @@ type CrossModelSecretsClient interface {
 type SecretsManagerAPI struct {
 	leadershipChecker leadership.Checker
 	secretsState      SecretsState
-	resources         facade.Resources
+	watcherRegistry   facade.WatcherRegistry
 	secretsTriggers   SecretTriggers
 	secretsConsumer   SecretsConsumer
 	authTag           names.Tag
@@ -842,7 +842,8 @@ func (s *SecretsManagerAPI) WatchConsumedSecretsChanges(args params.Entities) (p
 			return "", nil, errors.Trace(err)
 		}
 		if changes, ok := <-w.Changes(); ok {
-			return s.resources.Register(w), changes, nil
+			id, err := s.watcherRegistry.Register(w)
+			return id, changes, errors.Trace(err)
 		}
 		return "", nil, watcher.EnsureErr(w)
 	}
@@ -893,8 +894,13 @@ func (s *SecretsManagerAPI) WatchObsolete(args params.Entities) (params.StringsW
 		return result, errors.Trace(err)
 	}
 	if changes, ok := <-w.Changes(); ok {
-		result.StringsWatcherId = s.resources.Register(w)
-		result.Changes = changes
+		id, err := s.watcherRegistry.Register(w)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		} else {
+			result.StringsWatcherId = id
+			result.Changes = changes
+		}
 	} else {
 		err = watcher.EnsureErr(w)
 		result.Error = apiservererrors.ServerError(err)
@@ -936,8 +942,13 @@ func (s *SecretsManagerAPI) WatchSecretsRotationChanges(args params.Entities) (p
 				NextTriggerTime: c.NextTriggerTime,
 			}
 		}
-		result.WatcherId = s.resources.Register(w)
-		result.Changes = changes
+		id, err := s.watcherRegistry.Register(w)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		} else {
+			result.WatcherId = id
+			result.Changes = changes
+		}
 	} else {
 		err = watcher.EnsureErr(w)
 		result.Error = apiservererrors.ServerError(err)
@@ -1033,8 +1044,13 @@ func (s *SecretsManagerAPI) WatchSecretRevisionsExpiryChanges(args params.Entiti
 				NextTriggerTime: c.NextTriggerTime,
 			}
 		}
-		result.WatcherId = s.resources.Register(w)
-		result.Changes = changes
+		id, err := s.watcherRegistry.Register(w)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		} else {
+			result.WatcherId = id
+			result.Changes = changes
+		}
 	} else {
 		err = watcher.EnsureErr(w)
 		result.Error = apiservererrors.ServerError(err)
