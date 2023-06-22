@@ -199,10 +199,13 @@ func (s *SecretsManagerSuite) TestGetSecretBackendConfigs(c *gc.C) {
 	})
 }
 
-func (s *SecretsManagerSuite) TestGetBackendConfigForDrain(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetSecretBackendConfigsForDrain(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	result, err := s.facade.GetBackendConfigForDrain(params.SecretBackendArg{BackendID: "backend-id"})
+	result, err := s.facade.GetSecretBackendConfigs(params.SecretBackendArgs{
+		ForDrain:   true,
+		BackendIDs: []string{"backend-id"},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.SecretBackendConfigResults{
 		ActiveID: "backend-id",

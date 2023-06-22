@@ -75,11 +75,11 @@ func (c *Client) GetSecretBackendConfig(backendID *string) (*provider.ModelBacke
 // GetBackendConfigForDrain fetches the config needed to make a secret backend client for the drain worker.
 func (c *Client) GetBackendConfigForDrain(backendID *string) (*provider.ModelBackendConfig, string, error) {
 	var result params.SecretBackendConfigResults
-	arg := params.SecretBackendArg{}
+	arg := params.SecretBackendArgs{ForDrain: true}
 	if backendID != nil {
-		arg.BackendID = *backendID
+		arg.BackendIDs = []string{*backendID}
 	}
-	err := c.facade.FacadeCall("GetBackendConfigForDrain", arg, &result)
+	err := c.facade.FacadeCall("GetSecretBackendConfigs", arg, &result)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}

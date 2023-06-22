@@ -24,12 +24,8 @@ type SecretBackendConfigResultsV1 struct {
 
 // SecretBackendArgs holds args for querying secret backends.
 type SecretBackendArgs struct {
+	ForDrain   bool     `json:"for-drain"`
 	BackendIDs []string `json:"backend-ids"`
-}
-
-// SecretBackendArg holds arg for querying secret backend.
-type SecretBackendArg struct {
-	BackendID string `json:"backend-id"`
 }
 
 // SecretBackendConfigResults holds config info for creating

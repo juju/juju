@@ -110,6 +110,9 @@ func (*SecretsManagerAPIV1) GetSecretBackendConfigs(_ struct{}) {}
 
 // GetSecretBackendConfigs gets the config needed to create a client to secret backends.
 func (s *SecretsManagerAPI) GetSecretBackendConfigs(arg params.SecretBackendArgs) (params.SecretBackendConfigResults, error) {
+	if arg.ForDrain {
+		return s.getBackendConfigForDrain(arg)
+	}
 	results := params.SecretBackendConfigResults{
 		Results: make(map[string]params.SecretBackendConfigResult, len(arg.BackendIDs)),
 	}
@@ -123,11 +126,18 @@ func (s *SecretsManagerAPI) GetSecretBackendConfigs(arg params.SecretBackendArgs
 }
 
 // GetBackendConfigForDrain fetches the config needed to make a secret backend client for the drain worker.
-func (s *SecretsManagerAPI) GetBackendConfigForDrain(arg params.SecretBackendArg) (params.SecretBackendConfigResults, error) {
+func (s *SecretsManagerAPI) getBackendConfigForDrain(arg params.SecretBackendArgs) (params.SecretBackendConfigResults, error) {
+	if len(arg.BackendIDs) > 1 {
+		return params.SecretBackendConfigResults{}, errors.Errorf("Maximumly only one backend ID can be specified for drain")
+	}
+	var backendID string
+	if len(arg.BackendIDs) == 1 {
+		backendID = arg.BackendIDs[0]
+	}
 	results := params.SecretBackendConfigResults{
 		Results: make(map[string]params.SecretBackendConfigResult, 1),
 	}
-	cfgInfo, err := s.drainConfigGetter(arg.BackendID)
+	cfgInfo, err := s.drainConfigGetter(backendID)
 	if err != nil {
 		return results, errors.Trace(err)
 	}

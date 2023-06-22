@@ -87,8 +87,8 @@ func (s *SecretsSuite) TestGetBackendConfigForDraing(c *gc.C) {
 		c.Check(objType, gc.Equals, "SecretsManager")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "GetBackendConfigForDrain")
-		c.Check(arg, jc.DeepEquals, params.SecretBackendArg{BackendID: "active-id"})
+		c.Check(request, gc.Equals, "GetSecretBackendConfigs")
+		c.Check(arg, jc.DeepEquals, params.SecretBackendArgs{ForDrain: true, BackendIDs: []string{"active-id"}})
 		c.Assert(result, gc.FitsTypeOf, &params.SecretBackendConfigResults{})
 		*(result.(*params.SecretBackendConfigResults)) = params.SecretBackendConfigResults{
 			ActiveID: "active-id",
