@@ -48,20 +48,20 @@ func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *gc.C) {
 		config:   agentConfig(mTag, c.MkDir(), c.MkDir()),
 		deployed: set.NewStrings(),
 	}
-	api := mocks.NewMockAPI(ctrl)
-	dep, err := deployer.NewDeployer(api, loggo.GetLogger("test.deployer"), ctx)
+	client := mocks.NewMockClient(ctrl)
+	dep, err := deployer.NewDeployer(client, loggo.GetLogger("test.deployer"), ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	defer stop(c, dep)
 
 	machine := mocks.NewMockMachine(ctrl)
-	api.EXPECT().Machine(mTag).Return(machine, nil)
+	client.EXPECT().Machine(mTag).Return(machine, nil)
 
 	ch := make(chan []string, 1)
 	watch := watchertest.NewMockStringsWatcher(ch)
 	machine.EXPECT().WatchUnits().Return(watch, nil)
 
 	u0 := mocks.NewMockUnit(ctrl)
-	api.EXPECT().Unit(names.NewUnitTag("mysql/0")).Return(u0, nil)
+	client.EXPECT().Unit(names.NewUnitTag("mysql/0")).Return(u0, nil)
 	u0.EXPECT().Name().Return("mysql/0").AnyTimes()
 	u0.EXPECT().Life().Return(life.Alive)
 	u0.EXPECT().SetStatus(status.Waiting, status.MessageInstallingAgent, nil).Return(nil)
@@ -73,7 +73,7 @@ func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *gc.C) {
 
 	// Assign another unit, and wait for that to be deployed.
 	u1 := mocks.NewMockUnit(ctrl)
-	api.EXPECT().Unit(names.NewUnitTag("mysql/1")).Return(u1, nil)
+	client.EXPECT().Unit(names.NewUnitTag("mysql/1")).Return(u1, nil)
 	u1.EXPECT().Name().Return("mysql/1").AnyTimes()
 	u1.EXPECT().Life().Return(life.Alive)
 	u1.EXPECT().SetStatus(status.Waiting, status.MessageInstallingAgent, nil).Return(nil)
@@ -82,21 +82,21 @@ func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *gc.C) {
 	s.waitFor(c, isDeployed(ctx, u0.Name(), u1.Name()))
 
 	// Cause a unit to become Dying, and check no change.
-	api.EXPECT().Unit(names.NewUnitTag("mysql/1")).Return(u1, nil)
+	client.EXPECT().Unit(names.NewUnitTag("mysql/1")).Return(u1, nil)
 	u1.EXPECT().Life().Return(life.Dying)
 	ch <- []string{"mysql/1"}
 	s.waitFor(c, isDeployed(ctx, u0.Name(), u1.Name()))
 
 	// Cause a unit to become Dead, and check that it is recalled and
 	// removed from state.
-	api.EXPECT().Unit(names.NewUnitTag("mysql/0")).Return(u0, nil)
+	client.EXPECT().Unit(names.NewUnitTag("mysql/0")).Return(u0, nil)
 	u0.EXPECT().Life().Return(life.Dead).Times(2)
 	u0.EXPECT().Remove().Return(nil)
 	ch <- []string{"mysql/0"}
 	s.waitFor(c, isDeployed(ctx, u1.Name()))
 
 	// Remove the Dying unit from the machine, and check that it is recalled...
-	api.EXPECT().Unit(names.NewUnitTag("mysql/1")).Return(u1, nil)
+	client.EXPECT().Unit(names.NewUnitTag("mysql/1")).Return(u1, nil)
 	u1.EXPECT().Life().Return(life.Dead).Times(2)
 	u1.EXPECT().Remove().Return(nil)
 	ch <- []string{"mysql/1"}
@@ -112,20 +112,20 @@ func (s *deployerSuite) TestInitialStatusMessages(c *gc.C) {
 		config:   agentConfig(mTag, c.MkDir(), c.MkDir()),
 		deployed: set.NewStrings(),
 	}
-	api := mocks.NewMockAPI(ctrl)
-	dep, err := deployer.NewDeployer(api, loggo.GetLogger("test.deployer"), ctx)
+	client := mocks.NewMockClient(ctrl)
+	dep, err := deployer.NewDeployer(client, loggo.GetLogger("test.deployer"), ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	defer stop(c, dep)
 
 	machine := mocks.NewMockMachine(ctrl)
-	api.EXPECT().Machine(mTag).Return(machine, nil)
+	client.EXPECT().Machine(mTag).Return(machine, nil)
 
 	ch := make(chan []string, 1)
 	watch := watchertest.NewMockStringsWatcher(ch)
 	machine.EXPECT().WatchUnits().Return(watch, nil)
 
 	u0 := mocks.NewMockUnit(ctrl)
-	api.EXPECT().Unit(names.NewUnitTag("mysql/0")).Return(u0, nil)
+	client.EXPECT().Unit(names.NewUnitTag("mysql/0")).Return(u0, nil)
 	u0.EXPECT().Name().Return("mysql/0").AnyTimes()
 	u0.EXPECT().Life().Return(life.Alive)
 	u0.EXPECT().SetStatus(status.Waiting, status.MessageInstallingAgent, nil).Return(nil)
@@ -144,10 +144,10 @@ func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *gc.C) {
 		config:   agentConfig(mTag, c.MkDir(), c.MkDir()),
 		deployed: set.NewStrings(),
 	}
-	api := mocks.NewMockAPI(ctrl)
+	client := mocks.NewMockClient(ctrl)
 
 	machine := mocks.NewMockMachine(ctrl)
-	api.EXPECT().Machine(mTag).Return(machine, nil)
+	client.EXPECT().Machine(mTag).Return(machine, nil)
 
 	ch := make(chan []string, 1)
 	watch := watchertest.NewMockStringsWatcher(ch)
@@ -155,19 +155,19 @@ func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *gc.C) {
 
 	// Assign a unit which is dead before the deployer starts.
 	u0 := mocks.NewMockUnit(ctrl)
-	api.EXPECT().Unit(names.NewUnitTag("mysql/0")).Return(u0, nil)
+	client.EXPECT().Unit(names.NewUnitTag("mysql/0")).Return(u0, nil)
 	u0.EXPECT().Name().Return("mysql/0").AnyTimes()
 	u0.EXPECT().Life().Return(life.Dead).Times(2)
 
 	// Assign another unit which is dying before the deployer starts.
 	u1 := mocks.NewMockUnit(ctrl)
-	api.EXPECT().Unit(names.NewUnitTag("mysql/1")).Return(u1, nil)
+	client.EXPECT().Unit(names.NewUnitTag("mysql/1")).Return(u1, nil)
 	u1.EXPECT().Name().Return("mysql/1").AnyTimes()
 	u1.EXPECT().Life().Return(life.Dying).Times(2)
 
 	// When the deployer is started, in each case (1) no unit agent is deployed
 	// and (2) the non-Alive unit is been removed from state.
-	dep, err := deployer.NewDeployer(api, loggo.GetLogger("test.deployer"), ctx)
+	dep, err := deployer.NewDeployer(client, loggo.GetLogger("test.deployer"), ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	defer stop(c, dep)
 
@@ -178,7 +178,7 @@ func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *gc.C) {
 
 	// Deploy a different unit to give the test something to wait for.
 	u2 := mocks.NewMockUnit(ctrl)
-	api.EXPECT().Unit(names.NewUnitTag("mysql/2")).Return(u2, nil)
+	client.EXPECT().Unit(names.NewUnitTag("mysql/2")).Return(u2, nil)
 	u2.EXPECT().Name().Return("mysql/2").AnyTimes()
 	u2.EXPECT().Life().Return(life.Alive)
 	u2.EXPECT().SetStatus(status.Waiting, status.MessageInstallingAgent, nil).Return(nil)

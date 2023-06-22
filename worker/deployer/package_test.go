@@ -18,7 +18,7 @@ import (
 	coretools "github.com/juju/juju/tools"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/deployer_mocks.go github.com/juju/juju/worker/deployer API,Machine,Unit
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/deployer_mocks.go github.com/juju/juju/worker/deployer Client,Machine,Unit
 
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)

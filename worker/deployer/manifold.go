@@ -74,7 +74,7 @@ func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	shim := &apiShim{deployerFacade}
+	shim := &facadeShim{deployerFacade}
 	w, err := NewDeployer(shim, config.Logger, context)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot start unit agent deployer worker")
@@ -82,11 +82,11 @@ func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) 
 	return w, nil
 }
 
-type apiShim struct {
+type facadeShim struct {
 	st *apideployer.Client
 }
 
-func (s *apiShim) Machine(tag names.MachineTag) (Machine, error) {
+func (s *facadeShim) Machine(tag names.MachineTag) (Machine, error) {
 	// Need to deal with typed nils.
 	machine, err := s.st.Machine(tag)
 	if err != nil {
@@ -95,7 +95,7 @@ func (s *apiShim) Machine(tag names.MachineTag) (Machine, error) {
 	return machine, nil
 }
 
-func (s *apiShim) Unit(tag names.UnitTag) (Unit, error) {
+func (s *facadeShim) Unit(tag names.UnitTag) (Unit, error) {
 	unit, err := s.st.Unit(tag)
 	if err != nil {
 		return nil, err
