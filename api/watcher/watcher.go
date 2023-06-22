@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.api.watcher")
@@ -91,7 +90,7 @@ func (w *commonWatcher) commonLoop() {
 		if err := w.call("Stop", nil); err != nil {
 			// Don't log an error if a watcher is stopped due to an agent restart,
 			// or if the entity being watched is already removed.
-			if err.Error() != worker.ErrRestartAgent.Error() &&
+			if !isAgentRestartError(err) &&
 				err.Error() != rpc.ErrShutdown.Error() && !params.IsCodeNotFound(err) {
 				logger.Errorf("error trying to stop watcher: %v", err)
 			}
@@ -130,6 +129,16 @@ func (w *commonWatcher) commonLoop() {
 		}
 	}()
 	wg.Wait()
+}
+
+var (
+	// ErrRestartArgent matches juju/juju/worker/error.go ErrRestartAgent
+	// and is used to indicate that the watcher should be restarted.
+	ErrRestartAgent = errors.New("agent should be restarted")
+)
+
+func isAgentRestartError(err error) bool {
+	return err.Error() == ErrRestartAgent.Error()
 }
 
 // Kill is part of the worker.Worker interface.
