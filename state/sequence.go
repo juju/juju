@@ -143,7 +143,7 @@ func updateSeqWithMin(sequence seqUpdater, minVal int) (int, error) {
 			// Increment an existing sequence document, respecting the
 			// minimum value provided.
 			nextVal := curVal + 1
-			if nextVal < minVal {
+			if nextVal <= minVal {
 				nextVal = minVal + 1
 			}
 			ok, err := sequence.set(curVal, nextVal)
