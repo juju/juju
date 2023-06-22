@@ -295,7 +295,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDiffer
 	// In-theatre this will be OK, because a DB in an error state recoverable
 	// by reconnecting will be replaced within the default retry strategy's
 	// backoff/repeat loop.
-	timeout := time.After(testing.ShortWait)
+	timeout := time.After(time.Millisecond * 500)
 	tables := readTableNames(c, w)
 loop:
 	for {

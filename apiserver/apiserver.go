@@ -1100,22 +1100,19 @@ func (srv *Server) serveConn(
 		}
 		resolvedModelUUID = systemState.ModelUUID()
 	}
-	var (
-		st *state.PooledState
-		h  *apiHandler
-	)
 
+	var handler *apiHandler
 	st, err := statePool.Get(resolvedModelUUID)
 	if err == nil {
 		defer st.Release()
-		h, err = newAPIHandler(srv, st.State, conn, modelUUID, connectionID, host)
+		handler, err = newAPIHandler(srv, st.State, conn, modelUUID, connectionID, host)
 	}
 	if errors.Is(err, errors.NotFound) {
 		err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, resolvedModelUUID)
 	}
 
 	if err != nil {
-		conn.ServeRoot(&errRoot{errors.Trace(err)}, recorderFactory, serverError)
+		conn.ServeRoot(&errRoot{err: errors.Trace(err)}, recorderFactory, serverError)
 	} else {
 		// Set up the admin apis used to accept logins and direct
 		// requests to the relevant business facade.
@@ -1123,9 +1120,9 @@ func (srv *Server) serveConn(
 		// time login changes in a non-backwards compatible way.
 		adminAPIs := make(map[int]interface{})
 		for apiVersion, factory := range adminAPIFactories {
-			adminAPIs[apiVersion] = factory(srv, h, apiObserver)
+			adminAPIs[apiVersion] = factory(srv, handler, apiObserver)
 		}
-		conn.ServeRoot(newAdminRoot(h, adminAPIs), recorderFactory, serverError)
+		conn.ServeRoot(newAdminRoot(handler, adminAPIs), recorderFactory, serverError)
 	}
 	conn.Start(ctx)
 	select {

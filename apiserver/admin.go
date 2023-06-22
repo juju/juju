@@ -533,7 +533,14 @@ func (a *admin) maintenanceInProgress() bool {
 	return !a.srv.upgradeComplete()
 }
 
-func setupPingTimeoutDisconnect(clock clock.Clock, root *apiHandler, entity state.Entity) error {
+// PingRootHandler is the interface that the root handler must implement
+// to allow the pinger to be registered.
+type PingRootHandler interface {
+	WatcherRegistry() facade.WatcherRegistry
+	CloseConn() error
+}
+
+func setupPingTimeoutDisconnect(clock clock.Clock, root PingRootHandler, entity state.Entity) error {
 	tag := entity.Tag()
 	if tag.Kind() == names.UserTagKind {
 		return nil
@@ -550,13 +557,13 @@ func setupPingTimeoutDisconnect(clock clock.Clock, root *apiHandler, entity stat
 	//
 	// We should have picked better names...
 	action := func() {
-		logger.Debugf("closing connection due to ping timout")
-		if err := root.getRpcConn().Close(); err != nil {
+		logger.Debugf("closing connection due to ping timeout")
+		if err := root.CloseConn(); err != nil {
 			logger.Errorf("error closing the RPC connection: %v", err)
 		}
 	}
 	p := pinger.NewPinger(action, clock, maxClientPingInterval)
-	return root.Resources().RegisterNamed("pingTimeout", p)
+	return root.WatcherRegistry().RegisterNamed("pingTimeout", p)
 }
 
 // errRoot implements the API that a client first sees
@@ -571,5 +578,4 @@ func (r *errRoot) FindMethod(rootName string, version int, methodName string) (r
 	return nil, r.err
 }
 
-func (r *errRoot) Kill() {
-}
+func (r *errRoot) Kill() {}

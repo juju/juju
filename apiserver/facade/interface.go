@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
@@ -105,7 +104,13 @@ type Context interface {
 	// reports client presence in state, because every Resource gets
 	// Stop()ped on conn close. Not all of these uses are
 	// necessarily a great idea.
+	// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
 	Resources() Resources
+
+	// WatcherRegistry returns the watcher registry for this context. The
+	// watchers are per-connection, and are cleaned up when the connection
+	// is closed.
+	WatcherRegistry() WatcherRegistry
 
 	// State returns, /sigh, a *State. As yet, there is no way
 	// around this; in the not-too-distant future, we hope, its
@@ -223,16 +228,6 @@ type Authorizer interface {
 	// ConnectedModel returns the UUID of the model to which the API
 	// connection was made.
 	ConnectedModel() string
-}
-
-// Resources allows you to store and retrieve Resource implementations.
-//
-// The lack of error returns are in deference to the existing
-// implementation, not because they're a good idea.
-type Resources interface {
-	Register(worker.Worker) string
-	Get(string) worker.Worker
-	Stop(string) error
 }
 
 // Presence represents the current known state of API connections from agents

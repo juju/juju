@@ -382,3 +382,17 @@ func (mr *MockContextMockRecorder) StatePool() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StatePool", reflect.TypeOf((*MockContext)(nil).StatePool))
 }
+
+// WatcherRegistry mocks base method.
+func (m *MockContext) WatcherRegistry() facade.WatcherRegistry {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatcherRegistry")
+	ret0, _ := ret[0].(facade.WatcherRegistry)
+	return ret0
+}
+
+// WatcherRegistry indicates an expected call of WatcherRegistry.
+func (mr *MockContextMockRecorder) WatcherRegistry() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatcherRegistry", reflect.TypeOf((*MockContext)(nil).WatcherRegistry))
+}

@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -43,11 +44,13 @@ type objectKey struct {
 // after it has logged in. It contains an rpc.Root which it
 // uses to dispatch API calls appropriately.
 type apiHandler struct {
-	state     *state.State
-	model     *state.Model
-	rpcConn   *rpc.Conn
-	resources *common.Resources
-	shared    *sharedServerContext
+	state   *state.State
+	model   *state.Model
+	rpcConn *rpc.Conn
+	// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
+	resources       *common.Resources
+	watcherRegistry facade.WatcherRegistry
+	shared          *sharedServerContext
 
 	// authInfo represents the authentication info established with this client
 	// connection.
@@ -95,15 +98,21 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 		}
 	}
 
+	registry, err := registry.NewRegistry(srv.clock)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	r := &apiHandler{
-		state:        st,
-		model:        m,
-		resources:    common.NewResources(),
-		shared:       srv.shared,
-		rpcConn:      rpcConn,
-		modelUUID:    modelUUID,
-		connectionID: connectionID,
-		serverHost:   serverHost,
+		state:           st,
+		model:           m,
+		resources:       common.NewResources(),
+		watcherRegistry: registry,
+		shared:          srv.shared,
+		rpcConn:         rpcConn,
+		modelUUID:       modelUUID,
+		connectionID:    connectionID,
+		serverHost:      serverHost,
 	}
 
 	// Facades involved with managing application offers need the auth context
@@ -124,8 +133,15 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 }
 
 // Resources returns the common resources.
+// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
 func (r *apiHandler) Resources() *common.Resources {
 	return r.resources
+}
+
+// WatcherRegistry returns the watcher registry for tracking watchers between
+// API calls.
+func (r *apiHandler) WatcherRegistry() facade.WatcherRegistry {
+	return r.watcherRegistry
 }
 
 // State returns the underlying state.
@@ -143,14 +159,123 @@ func (r *apiHandler) Authorizer() facade.Authorizer {
 	return r
 }
 
-func (r *apiHandler) getRpcConn() *rpc.Conn {
-	return r.rpcConn
+// CloseConn closes the underlying connection.
+func (r *apiHandler) CloseConn() error {
+	return r.rpcConn.Close()
 }
 
 // Kill implements rpc.Killer, cleaning up any resources that need
 // cleaning up to ensure that all outstanding requests return.
 func (r *apiHandler) Kill() {
+	r.watcherRegistry.Kill()
+	if err := r.watcherRegistry.Wait(); err != nil {
+		logger.Infof("error waiting for watcher registry to stop: %v", err)
+	}
 	r.resources.StopAll()
+}
+
+// AuthMachineAgent returns whether the current client is a machine agent.
+// TODO(controlleragent) - add AuthControllerAgent function
+func (r *apiHandler) AuthMachineAgent() bool {
+	_, isMachine := r.GetAuthTag().(names.MachineTag)
+	_, isControllerAgent := r.GetAuthTag().(names.ControllerAgentTag)
+	return isMachine || isControllerAgent
+}
+
+// AuthModelAgent return whether the current client is a model agent
+func (r *apiHandler) AuthModelAgent() bool {
+	_, isModel := r.GetAuthTag().(names.ModelTag)
+	return isModel
+}
+
+// AuthApplicationAgent returns whether the current client is an application operator.
+func (r *apiHandler) AuthApplicationAgent() bool {
+	_, isApp := r.GetAuthTag().(names.ApplicationTag)
+	return isApp
+}
+
+// AuthUnitAgent returns whether the current client is a unit agent.
+func (r *apiHandler) AuthUnitAgent() bool {
+	_, isUnit := r.GetAuthTag().(names.UnitTag)
+	return isUnit
+}
+
+// AuthOwner returns whether the authenticated user's tag matches the
+// given entity tag.
+func (r *apiHandler) AuthOwner(tag names.Tag) bool {
+	return r.GetAuthTag() == tag
+}
+
+// AuthController returns whether the authenticated user is a
+// machine with running the ManageEnviron job.
+func (r *apiHandler) AuthController() bool {
+	type hasIsManager interface {
+		IsManager() bool
+	}
+	m, ok := r.authInfo.Entity.(hasIsManager)
+	return ok && m.IsManager()
+}
+
+// AuthClient returns whether the authenticated entity is a client
+// user.
+func (r *apiHandler) AuthClient() bool {
+	_, isUser := r.GetAuthTag().(names.UserTag)
+	return isUser
+}
+
+// GetAuthTag returns the tag of the authenticated entity, if any.
+func (r *apiHandler) GetAuthTag() names.Tag {
+	if r.authInfo.Entity == nil {
+		return nil
+	}
+	return r.authInfo.Entity.Tag()
+}
+
+// ConnectedModel returns the UUID of the model authenticated
+// against. It's possible for it to be empty if the login was made
+// directly to the root of the API instead of a model endpoint, but
+// that method is deprecated.
+func (r *apiHandler) ConnectedModel() string {
+	return r.modelUUID
+}
+
+// HasPermission is responsible for reporting if the logged in user is
+// able to perform operation x on target y. It uses the authentication mechanism
+// of the user to interrogate their permissions. If the entity does not have
+// permission to perform the operation then the authentication provider is asked
+// to provide a permission error. All permissions errors returned satisfy
+// errors.Is(err, ErrorEntityMissingPermission) to distinguish before errors and
+// no permissions errors. If error is nil then the user has permission.
+func (r *apiHandler) HasPermission(operation permission.Access, target names.Tag) error {
+	return r.EntityHasPermission(r.GetAuthTag(), operation, target)
+}
+
+// EntityHasPermission is responsible for reporting if the supplied entity is
+// able to perform operation x on target y. It uses the authentication mechanism
+// of the user to interrogate their permissions. If the entity does not have
+// permission to perform the operation then the authentication provider is asked
+// to provide a permission error. All permissions errors returned satisfy
+// errors.Is(err, ErrorEntityMissingPermission) to distinguish before errors and
+// no permissions errors. If error is nil then the user has permission.
+func (r *apiHandler) EntityHasPermission(entity names.Tag, operation permission.Access, target names.Tag) error {
+	var userAccessFunc common.UserAccessFunc = func(entity names.UserTag, subject names.Tag) (permission.Access, error) {
+		if r.authInfo.Delegator == nil {
+			return permission.NoAccess, fmt.Errorf("permissions %w for auth info", errors.NotImplemented)
+		}
+		return r.authInfo.Delegator.SubjectPermissions(authentication.TagToEntity(entity), subject)
+	}
+	has, err := common.HasPermission(userAccessFunc, entity, operation, target)
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return fmt.Errorf("checking entity %q has permission: %w", entity, err)
+	}
+	if !has && r.authInfo.Delegator != nil {
+		err = r.authInfo.Delegator.PermissionError(target, operation)
+	}
+	if !has {
+		return errors.WithType(err, authentication.ErrorEntityMissingPermission)
+	}
+
+	return nil
 }
 
 // srvCaller is our implementation of the rpcreflect.MethodCaller interface.
@@ -186,46 +311,56 @@ func (s *srvCaller) Call(ctx context.Context, objId string, arg reflect.Value) (
 
 // apiRoot implements basic method dispatching to the facade registry.
 type apiRoot struct {
+	rpc.Killer
 	clock           clock.Clock
 	state           *state.State
 	shared          *sharedServerContext
 	facades         *facade.Registry
-	resources       *common.Resources
+	watcherRegistry facade.WatcherRegistry
 	authorizer      facade.Authorizer
 	objectMutex     sync.RWMutex
 	objectCache     map[objectKey]reflect.Value
 	requestRecorder facade.RequestRecorder
+
+	// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
+	resources *common.Resources
 }
 
 type apiRootHandler interface {
+	rpc.Killer
 	// State returns the underlying state.
 	State() *state.State
 	// SharedContext returns the server shared context.
 	SharedContext() *sharedServerContext
 	// Resources returns the common resources.
+	// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
 	Resources() *common.Resources
+	// WatcherRegistry returns the watcher registry for tracking watchers
+	// between API calls.
+	WatcherRegistry() facade.WatcherRegistry
 	// Authorizer returns the authorizer used for accessing API method calls.
 	Authorizer() facade.Authorizer
 }
 
 // newAPIRoot returns a new apiRoot.
-func newAPIRoot(clock clock.Clock,
+func newAPIRoot(
+	clock clock.Clock,
 	facades *facade.Registry,
 	root apiRootHandler,
 	requestRecorder facade.RequestRecorder,
 ) (*apiRoot, error) {
-	st := root.State()
-	r := &apiRoot{
+	return &apiRoot{
+		Killer:          root,
 		clock:           clock,
-		state:           st,
+		state:           root.State(),
 		shared:          root.SharedContext(),
 		facades:         facades,
 		resources:       root.Resources(),
+		watcherRegistry: root.WatcherRegistry(),
 		authorizer:      root.Authorizer(),
 		objectCache:     make(map[objectKey]reflect.Value),
 		requestRecorder: requestRecorder,
-	}
-	return r, nil
+	}, nil
 }
 
 // restrictAPIRoot calls restrictAPIRootDuringMaintenance, and
@@ -306,11 +441,6 @@ func restrictAPIRootDuringMaintenance(
 	}
 
 	return apiRoot, nil
-}
-
-// Kill implements rpc.Killer, stopping the root's resources.
-func (r *apiRoot) Kill() {
-	r.resources.StopAll()
 }
 
 // FindMethod looks up the given rootName and version in our facade registry
@@ -415,6 +545,42 @@ func (r *apiRoot) facadeContext(key objectKey) *facadeContext {
 	}
 }
 
+// adminRoot dispatches API calls to those available to an anonymous connection
+// which has not logged in, which here is the admin facade.
+type adminRoot struct {
+	*apiHandler
+	reflectAPIs map[int]rpcreflect.Value
+}
+
+// newAdminRoot creates a new AnonRoot which dispatches to the given Admin API implementation.
+func newAdminRoot(h *apiHandler, adminAPIs map[int]any) *adminRoot {
+	reflects := make(map[int]rpcreflect.Value, len(adminAPIs))
+	for version, api := range adminAPIs {
+		reflects[version] = rpcreflect.ValueOf(reflect.ValueOf(api))
+	}
+	r := &adminRoot{
+		apiHandler:  h,
+		reflectAPIs: reflects,
+	}
+	return r
+}
+
+func (r *adminRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
+	if rootName != "Admin" {
+		return nil, &rpcreflect.CallNotImplementedError{
+			RootMethod: rootName,
+			Version:    version,
+		}
+	}
+	if reflectAPI, ok := r.reflectAPIs[version]; ok {
+		return reflectAPI.FindMethod(rootName, 0, methodName)
+	}
+	return nil, &rpc.RequestError{
+		Code:    params.CodeNotSupported,
+		Message: "this version of Juju does not support login from old clients",
+	}
+}
+
 // facadeContext implements facade.Context
 type facadeContext struct {
 	r   *apiRoot
@@ -437,8 +603,14 @@ func (ctx *facadeContext) Dispose() {
 }
 
 // Resources is part of the facade.Context interface.
+// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
 func (ctx *facadeContext) Resources() facade.Resources {
 	return ctx.r.resources
+}
+
+// WatcherRegistry is part of the facade.Context interface.
+func (ctx *facadeContext) WatcherRegistry() facade.WatcherRegistry {
+	return ctx.r.watcherRegistry
 }
 
 // Presence implements facade.Context.
@@ -590,142 +762,6 @@ func (ctx *facadeContext) LogDir() string {
 // Logger returns the apiserver logger instance.
 func (ctx *facadeContext) Logger() loggo.Logger {
 	return ctx.r.shared.logger
-}
-
-// adminRoot dispatches API calls to those available to an anonymous connection
-// which has not logged in, which here is the admin facade.
-type adminRoot struct {
-	*apiHandler
-	adminAPIs map[int]interface{}
-}
-
-// newAdminRoot creates a new AnonRoot which dispatches to the given Admin API implementation.
-func newAdminRoot(h *apiHandler, adminAPIs map[int]interface{}) *adminRoot {
-	r := &adminRoot{
-		apiHandler: h,
-		adminAPIs:  adminAPIs,
-	}
-	return r
-}
-
-func (r *adminRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
-	if rootName != "Admin" {
-		return nil, &rpcreflect.CallNotImplementedError{
-			RootMethod: rootName,
-			Version:    version,
-		}
-	}
-	if api, ok := r.adminAPIs[version]; ok {
-		return rpcreflect.ValueOf(reflect.ValueOf(api)).FindMethod(rootName, 0, methodName)
-	}
-	return nil, &rpc.RequestError{
-		Code:    params.CodeNotSupported,
-		Message: "this version of Juju does not support login from old clients",
-	}
-}
-
-// AuthMachineAgent returns whether the current client is a machine agent.
-// TODO(controlleragent) - add AuthControllerAgent function
-func (r *apiHandler) AuthMachineAgent() bool {
-	_, isMachine := r.GetAuthTag().(names.MachineTag)
-	_, isControllerAgent := r.GetAuthTag().(names.ControllerAgentTag)
-	return isMachine || isControllerAgent
-}
-
-// AuthModelAgent return whether the current client is a model agent
-func (r *apiHandler) AuthModelAgent() bool {
-	_, isModel := r.GetAuthTag().(names.ModelTag)
-	return isModel
-}
-
-// AuthApplicationAgent returns whether the current client is an application operator.
-func (r *apiHandler) AuthApplicationAgent() bool {
-	_, isApp := r.GetAuthTag().(names.ApplicationTag)
-	return isApp
-}
-
-// AuthUnitAgent returns whether the current client is a unit agent.
-func (r *apiHandler) AuthUnitAgent() bool {
-	_, isUnit := r.GetAuthTag().(names.UnitTag)
-	return isUnit
-}
-
-// AuthOwner returns whether the authenticated user's tag matches the
-// given entity tag.
-func (r *apiHandler) AuthOwner(tag names.Tag) bool {
-	return r.GetAuthTag() == tag
-}
-
-// AuthController returns whether the authenticated user is a
-// machine with running the ManageEnviron job.
-func (r *apiHandler) AuthController() bool {
-	type hasIsManager interface {
-		IsManager() bool
-	}
-	m, ok := r.authInfo.Entity.(hasIsManager)
-	return ok && m.IsManager()
-}
-
-// AuthClient returns whether the authenticated entity is a client
-// user.
-func (r *apiHandler) AuthClient() bool {
-	_, isUser := r.GetAuthTag().(names.UserTag)
-	return isUser
-}
-
-// GetAuthTag returns the tag of the authenticated entity, if any.
-func (r *apiHandler) GetAuthTag() names.Tag {
-	if r.authInfo.Entity == nil {
-		return nil
-	}
-	return r.authInfo.Entity.Tag()
-}
-
-// ConnectedModel returns the UUID of the model authenticated
-// against. It's possible for it to be empty if the login was made
-// directly to the root of the API instead of a model endpoint, but
-// that method is deprecated.
-func (r *apiHandler) ConnectedModel() string {
-	return r.modelUUID
-}
-
-// HasPermission is responsible for reporting if the logged in user is
-// able to perform operation x on target y. It uses the authentication mechanism
-// of the user to interrogate their permissions. If the entity does not have
-// permission to perform the operation then the authentication provider is asked
-// to provide a permission error. All permissions errors returned satisfy
-// errors.Is(err, ErrorEntityMissingPermission) to distinguish before errors and
-// no permissions errors. If error is nil then the user has permission.
-func (r *apiHandler) HasPermission(operation permission.Access, target names.Tag) error {
-	return r.EntityHasPermission(r.GetAuthTag(), operation, target)
-}
-
-// EntityHasPermission is responsible for reporting if the supplied entity is
-// able to perform operation x on target y. It uses the authentication mechanism
-// of the user to interrogate their permissions. If the entity does not have
-// permission to perform the operation then the authentication provider is asked
-// to provide a permission error. All permissions errors returned satisfy
-// errors.Is(err, ErrorEntityMissingPermission) to distinguish before errors and
-// no permissions errors. If error is nil then the user has permission.
-func (r *apiHandler) EntityHasPermission(entity names.Tag, operation permission.Access, target names.Tag) error {
-	var userAccessFunc common.UserAccessFunc = func(entity names.UserTag, subject names.Tag) (permission.Access, error) {
-		if r.authInfo.Delegator == nil {
-			return permission.NoAccess, fmt.Errorf("permissions %w for auth info", errors.NotImplemented)
-		}
-		return r.authInfo.Delegator.SubjectPermissions(authentication.TagToEntity(entity), subject)
-	}
-	has, err := common.HasPermission(userAccessFunc, entity, operation, target)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return fmt.Errorf("checking entity %q has permission: %w", entity, err)
-	}
-	if !has && r.authInfo.Delegator != nil {
-		err = r.authInfo.Delegator.PermissionError(target, operation)
-	}
-	if !has {
-		return errors.WithType(err, authentication.ErrorEntityMissingPermission)
-	}
-
-	return nil
 }
 
 // DescribeFacades returns the list of available Facades and their Versions

@@ -228,6 +228,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 
 	s.expectClock()
 	s.expectTrackedDBKill()
+	s.expectAnyAfter()
 
 	dataDir := c.MkDir()
 	mgrExp := s.nodeManager.EXPECT()
