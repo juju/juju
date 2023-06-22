@@ -699,7 +699,7 @@ func (s *cloudSuite) TestUpdateCloud(c *gc.C) {
 
 	args := params.UpdateCloudArgs{Clouds: []params.AddCloudArgs{{
 		Name:  "foo",
-		Cloud: common.CloudToParams(updatedCloud),
+		Cloud: cloudapi.CloudToParams(updatedCloud),
 	}}}
 	res := new(params.ErrorResults)
 	results := params.ErrorResults{
