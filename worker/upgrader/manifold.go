@@ -95,7 +95,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			return NewAgentUpgrader(Config{
 				Clock:                       config.Clock,
 				Logger:                      config.Logger,
-				State:                       upgraderFacade,
+				Client:                      upgraderFacade,
 				AgentConfig:                 currentConfig,
 				OrigAgentVersion:            config.PreviousAgentVersion,
 				UpgradeStepsWaiter:          upgradeStepsWaiter,

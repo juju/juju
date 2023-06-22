@@ -5,80 +5,72 @@ package logsender_test
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v3"
-	"github.com/juju/mgo/v3/bson"
-	"github.com/juju/names/v4"
-	jc "github.com/juju/testing/checkers"
+	jtesting "github.com/juju/testing"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
 	apilogsender "github.com/juju/juju/api/logsender"
-	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/logsender/mocks"
 )
 
 type workerSuite struct {
-	jujutesting.JujuConnSuite
-
-	// machineTag holds the tag of a machine created
-	// for the test.
-	machineTag names.Tag
-
-	// APIState holds an API connection authenticated
-	// as the above machine.
-	APIState api.Connection
+	jtesting.IsolationSuite
 }
 
 var _ = gc.Suite(&workerSuite{})
 
-func (s *workerSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-
-	// Create a machine for the client to log in as.
-	nonce := "some-nonce"
-	machine, password := s.Factory.MakeMachineReturningPassword(c,
-		&factory.MachineParams{Nonce: nonce})
-	apiInfo := s.APIInfo(c)
-	apiInfo.Tag = machine.Tag()
-	apiInfo.Password = password
-	apiInfo.Nonce = nonce
-	st, err := api.Open(apiInfo, api.DefaultDialOpts())
-	c.Assert(err, gc.IsNil)
-	s.APIState = st
-	s.machineTag = machine.Tag()
+type logsenderAPI struct {
+	writer *mocks.MockLogWriter
 }
 
-func (s *workerSuite) TearDownTest(c *gc.C) {
-	s.APIState.Close()
-	s.JujuConnSuite.TearDownTest(c)
-}
-
-func (s *workerSuite) logSenderAPI() *apilogsender.API {
-	return apilogsender.NewAPI(s.APIState)
+func (s logsenderAPI) LogWriter() (apilogsender.LogWriter, error) {
+	return s.writer, nil
 }
 
 func (s *workerSuite) TestLogSending(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	const logCount = 5
 	logsCh := make(chan *logsender.LogRecord, logCount)
 
+	wg := sync.WaitGroup{}
+	wg.Add(logCount)
+	writer := mocks.NewMockLogWriter(ctrl)
+	ts := time.Now()
+	for i := 0; i < logCount; i++ {
+		location := fmt.Sprintf("loc%d", i)
+		message := fmt.Sprintf("%d", i)
+
+		writer.EXPECT().WriteLog(&params.LogRecord{
+			Time:     ts,
+			Module:   "logsender-test",
+			Location: location,
+			Level:    loggo.INFO.String(),
+			Message:  message,
+			Labels:   []string{"foo", "bar"},
+		}).DoAndReturn(func(_ *params.LogRecord) error {
+			wg.Add(-1)
+			return nil
+		})
+	}
+	writer.EXPECT().Close()
+
 	// Start the logsender worker.
-	worker := logsender.New(logsCh, s.logSenderAPI())
-	defer func() {
-		worker.Kill()
-		c.Check(worker.Wait(), jc.ErrorIsNil)
-	}()
+	worker := logsender.New(logsCh, logsenderAPI{writer})
+	defer workertest.CleanKill(c, worker)
 
 	// Send some logs, also building up what should appear in the
 	// database.
-	var expectedDocs []bson.M
 	for i := 0; i < logCount; i++ {
-		ts := time.Now()
 		location := fmt.Sprintf("loc%d", i)
 		message := fmt.Sprintf("%d", i)
 
@@ -88,102 +80,97 @@ func (s *workerSuite) TestLogSending(c *gc.C) {
 			Location: location,
 			Level:    loggo.INFO,
 			Message:  message,
-		}
-
-		expectedDocs = append(expectedDocs, bson.M{
-			"t": ts.UnixNano(),
-			"r": version.Current.String(),
-			"n": s.machineTag.String(),
-			"m": "logsender-test",
-			"l": location,
-			"v": int(loggo.INFO),
-			"x": message,
-		})
-	}
-
-	// Wait for the logs to appear in the database.
-	var docs []bson.M
-	logsColl := s.logCollection()
-	for a := testing.LongAttempt.Start(); a.Next(); {
-		err := logsColl.Find(bson.M{"m": "logsender-test"}).All(&docs)
-		c.Assert(err, jc.ErrorIsNil)
-		if len(docs) == logCount {
-			break
+			Labels:   []string{"foo", "bar"},
 		}
 	}
 
-	// Check that the logs are correct.
-	c.Assert(docs, gc.HasLen, logCount)
-	for i := 0; i < logCount; i++ {
-		doc := docs[i]
-		delete(doc, "_id")
-		c.Assert(doc, gc.DeepEquals, expectedDocs[i])
-	}
-}
+	done := make(chan bool)
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
 
-func (s *workerSuite) logCollection() *mgo.Collection {
-	return s.State.MongoSession().DB("logs").C("logs." + s.State.ModelUUID())
+	select {
+	case <-done:
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for all events")
+	}
 }
 
 func (s *workerSuite) TestDroppedLogs(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	logsCh := make(logsender.LogRecordCh)
 
+	wg := sync.WaitGroup{}
+	wg.Add(3)
+	writer := mocks.NewMockLogWriter(ctrl)
+	ts := time.Now()
+	writer.EXPECT().WriteLog(&params.LogRecord{
+		Time:     ts,
+		Module:   "aaa",
+		Location: "loc",
+		Level:    loggo.INFO.String(),
+		Message:  "message0",
+	}).DoAndReturn(func(_ *params.LogRecord) error {
+		wg.Add(-1)
+		return nil
+	})
+	writer.EXPECT().WriteLog(&params.LogRecord{
+		Time:    ts,
+		Module:  "juju.worker.logsender",
+		Level:   loggo.WARNING.String(),
+		Message: "666 log messages dropped due to lack of API connectivity",
+	}).DoAndReturn(func(a *params.LogRecord) error {
+		wg.Add(-1)
+		return nil
+	})
+	writer.EXPECT().WriteLog(&params.LogRecord{
+		Time:     ts,
+		Module:   "zzz",
+		Location: "loc",
+		Level:    loggo.INFO.String(),
+		Message:  "message1",
+	}).DoAndReturn(func(_ *params.LogRecord) error {
+		wg.Add(-1)
+		return nil
+	})
+	writer.EXPECT().Close()
+
 	// Start the logsender worker.
-	worker := logsender.New(logsCh, s.logSenderAPI())
-	defer func() {
-		worker.Kill()
-		c.Check(worker.Wait(), jc.ErrorIsNil)
-	}()
+	worker := logsender.New(logsCh, logsenderAPI{writer})
+	defer workertest.CleanKill(c, worker)
 
 	// Send a log record which indicates some messages after it were
 	// dropped.
-	ts := time.Now()
 	logsCh <- &logsender.LogRecord{
 		Time:         ts,
 		Module:       "aaa",
 		Location:     "loc",
 		Level:        loggo.INFO,
 		Message:      "message0",
-		DroppedAfter: 42,
+		DroppedAfter: 666,
 	}
 
 	// Send another log record with no drops indicated.
 	logsCh <- &logsender.LogRecord{
-		Time:     time.Now(),
+		Time:     ts,
 		Module:   "zzz",
 		Location: "loc",
 		Level:    loggo.INFO,
 		Message:  "message1",
 	}
 
-	// Wait for the logs to appear in the database.
-	var docs []bson.M
-	logsColl := s.logCollection()
-	for a := testing.LongAttempt.Start(); a.Next(); {
-		if !a.HasNext() {
-			c.Fatal("timed out waiting for logs")
-		}
-		err := logsColl.Find(nil).Sort("m").All(&docs)
-		c.Assert(err, jc.ErrorIsNil)
-		// Expect the 2 messages sent along with a message about
-		// dropped messages.
-		if len(docs) == 3 {
-			break
-		}
-	}
+	done := make(chan bool)
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
 
-	// Check that the log records sent are present as well as an additional
-	// message in between indicating that some messages were dropped.
-	c.Assert(docs[0]["x"], gc.Equals, "message0")
-	delete(docs[1], "_id")
-	c.Assert(docs[1], gc.DeepEquals, bson.M{
-		"t": ts.UnixNano(), // Should share timestamp with previous message.
-		"r": version.Current.String(),
-		"n": s.machineTag.String(),
-		"m": "juju.worker.logsender",
-		"l": "",
-		"v": int(loggo.WARNING),
-		"x": "42 log messages dropped due to lack of API connectivity",
-	})
-	c.Assert(docs[2]["x"], gc.Equals, "message1")
+	select {
+	case <-done:
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for all events")
+	}
 }

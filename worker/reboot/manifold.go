@@ -4,7 +4,6 @@
 package reboot
 
 import (
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
@@ -21,7 +20,6 @@ type ManifoldConfig struct {
 	AgentName     string
 	APICallerName string
 	MachineLock   machinelock.Lock
-	Clock         clock.Clock
 }
 
 // Manifold returns a dependency manifold that runs a reboot worker,
@@ -41,13 +39,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
-			if config.Clock == nil {
-				return nil, errors.NotValidf("missing Clock")
-			}
 			if config.MachineLock == nil {
 				return nil, errors.NotValidf("missing MachineLock")
 			}
-			return newWorker(agent, apiCaller, config.MachineLock, config.Clock)
+			return newWorker(agent, apiCaller, config.MachineLock)
 		},
 	}
 }
@@ -56,7 +51,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 //
 // TODO(mjs) - It's not tested at the moment, because the scaffolding
 // necessary is too unwieldy/distracting to introduce at this point.
-func newWorker(a agent.Agent, apiCaller base.APICaller, machineLock machinelock.Lock, clock clock.Clock) (worker.Worker, error) {
+func newWorker(a agent.Agent, apiCaller base.APICaller, machineLock machinelock.Lock) (worker.Worker, error) {
 	apiConn, ok := apiCaller.(api.Connection)
 	if !ok {
 		return nil, errors.New("unable to obtain api.Connection")
@@ -65,7 +60,7 @@ func newWorker(a agent.Agent, apiCaller base.APICaller, machineLock machinelock.
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	w, err := NewReboot(rebootState, a.CurrentConfig(), machineLock, clock)
+	w, err := NewReboot(rebootState, a.CurrentConfig().Tag(), machineLock)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot start reboot worker")
 	}

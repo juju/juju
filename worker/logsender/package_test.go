@@ -6,9 +6,11 @@ package logsender_test
 import (
 	stdtesting "testing"
 
-	"github.com/juju/juju/testing"
+	gc "gopkg.in/check.v1"
 )
 
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/logwriter_mock.go github.com/juju/juju/api/logsender LogWriter
+
 func TestPackage(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+	gc.TestingT(t)
 }

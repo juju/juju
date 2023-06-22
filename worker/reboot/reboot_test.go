@@ -4,122 +4,94 @@
 package reboot_test
 
 import (
-	"sync"
-	"time"
-
-	"github.com/juju/clock"
+	"github.com/golang/mock/gomock"
+	"github.com/juju/names/v4"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	apireboot "github.com/juju/juju/api/agent/reboot"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/reboot"
+	"github.com/juju/juju/worker/reboot/mocks"
 )
 
 type rebootSuite struct {
-	jujutesting.JujuConnSuite
-
-	machine     *state.Machine
-	stateAPI    api.Connection
-	rebootState apireboot.Client
-
-	ct            *state.Machine
-	ctRebootState apireboot.Client
-
-	clock clock.Clock
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&rebootSuite{})
 
-func (s *rebootSuite) SetUpTest(c *gc.C) {
-	var err error
-	template := state.MachineTemplate{
-		Base: state.DefaultLTSBase(),
-		Jobs: []state.MachineJob{state.JobHostUnits},
-	}
-	s.JujuConnSuite.SetUpTest(c)
-
-	s.stateAPI, s.machine = s.OpenAPIAsNewMachine(c)
-	s.rebootState, err = apireboot.NewFromConnection(s.stateAPI)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.rebootState, gc.NotNil)
-
-	//Add container
-	s.ct, err = s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.KVM)
-	c.Assert(err, jc.ErrorIsNil)
-	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.ct.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.ct.SetProvisioned("foo", "", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Open api as container
-	ctState := s.OpenAPIAsMachine(c, s.ct.Tag(), password, "fake_nonce")
-	s.ctRebootState, err = apireboot.NewFromConnection(ctState)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.ctRebootState, gc.NotNil)
-
-	s.clock = &fakeClock{delay: time.Millisecond}
-}
-
-func (s *rebootSuite) TearDownTest(c *gc.C) {
-	s.JujuConnSuite.TearDownTest(c)
-}
-
 func (s *rebootSuite) TestStartStop(c *gc.C) {
-	worker, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()), &fakemachinelock{}, s.clock)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ch := make(chan struct{}, 1)
+	watch := watchertest.NewMockNotifyWatcher(ch)
+
+	client := mocks.NewMockClient(ctrl)
+	client.EXPECT().WatchForRebootEvent().Return(watch, nil)
+	lock := mocks.NewMockLock(ctrl)
+
+	w, err := reboot.NewReboot(client, names.NewMachineTag("666"), lock)
 	c.Assert(err, jc.ErrorIsNil)
-	worker.Kill()
-	c.Assert(worker.Wait(), gc.IsNil)
-}
 
-func (s *rebootSuite) TestWorkerCatchesRebootEvent(c *gc.C) {
-	wrk, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()), &fakemachinelock{}, s.clock)
+	w.Kill()
+	err = workertest.CheckKilled(c, w)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.rebootState.RequestReboot()
+}
+
+func (s *rebootSuite) TestWorkerReboot(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ch := make(chan struct{}, 1)
+	watch := watchertest.NewMockNotifyWatcher(ch)
+	ch <- struct{}{}
+
+	client := mocks.NewMockClient(ctrl)
+	client.EXPECT().WatchForRebootEvent().Return(watch, nil)
+	client.EXPECT().GetRebootAction().Return(params.ShouldReboot, nil)
+	client.EXPECT().ClearReboot().Return(nil)
+
+	lock := mocks.NewMockLock(ctrl)
+	lock.EXPECT().Acquire(machinelock.Spec{
+		Worker:   "reboot",
+		Comment:  "reboot",
+		NoCancel: true,
+	}).Return(func() {}, nil)
+
+	w, err := reboot.NewReboot(client, names.NewMachineTag("666"), lock)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(wrk.Wait(), gc.Equals, worker.ErrRebootMachine)
-	// The flag is cleared.
-	rFlag, err := s.machine.GetRebootFlag()
+	err = workertest.CheckKilled(c, w)
+	c.Assert(err, gc.Equals, worker.ErrRebootMachine)
+}
+
+func (s *rebootSuite) TestContainerShutdown(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ch := make(chan struct{}, 1)
+	watch := watchertest.NewMockNotifyWatcher(ch)
+	ch <- struct{}{}
+
+	client := mocks.NewMockClient(ctrl)
+	client.EXPECT().WatchForRebootEvent().Return(watch, nil)
+	client.EXPECT().GetRebootAction().Return(params.ShouldShutdown, nil)
+	client.EXPECT().ClearReboot().Return(nil)
+
+	lock := mocks.NewMockLock(ctrl)
+	lock.EXPECT().Acquire(machinelock.Spec{
+		Worker:   "reboot",
+		Comment:  "shutdown",
+		NoCancel: true,
+	}).Return(func() {}, nil)
+
+	w, err := reboot.NewReboot(client, names.NewMachineTag("666/lxd/0"), lock)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rFlag, jc.IsFalse)
-
-}
-
-func (s *rebootSuite) TestContainerCatchesParentFlag(c *gc.C) {
-	wrk, err := reboot.NewReboot(s.ctRebootState, s.AgentConfigForTag(c, s.ct.Tag()), &fakemachinelock{}, s.clock)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.rebootState.RequestReboot()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(wrk.Wait(), gc.Equals, worker.ErrShutdownMachine)
-}
-
-type fakeClock struct {
-	clock.Clock
-	delay time.Duration
-}
-
-func (f *fakeClock) After(time.Duration) <-chan time.Time {
-	return time.After(f.delay)
-}
-
-type fakemachinelock struct {
-	mu sync.Mutex
-}
-
-func (f *fakemachinelock) Acquire(spec machinelock.Spec) (func(), error) {
-	f.mu.Lock()
-	return func() {
-		f.mu.Unlock()
-	}, nil
-}
-func (f *fakemachinelock) Report(opts ...machinelock.ReportOption) (string, error) {
-	return "", nil
+	err = workertest.CheckKilled(c, w)
+	c.Assert(err, gc.Equals, worker.ErrShutdownMachine)
 }

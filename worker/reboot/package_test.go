@@ -6,9 +6,12 @@ package reboot_test
 import (
 	"testing"
 
-	coretesting "github.com/juju/juju/testing"
+	gc "gopkg.in/check.v1"
 )
 
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/api/agent/reboot Client
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/lock_mock.go github.com/juju/juju/core/machinelock Lock
+
 func TestPackage(t *testing.T) {
-	coretesting.MgoTestPackage(t)
+	gc.TestingT(t)
 }

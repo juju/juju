@@ -4,12 +4,11 @@
 package upgrader_test
 
 import (
-	"fmt"
 	"os"
-	"path/filepath"
 	stdtesting "testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -25,39 +24,37 @@ import (
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/api"
-	upgraderapi "github.com/juju/juju/api/agent/upgrader"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/environs/simplestreams"
-	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
-	envtools "github.com/juju/juju/environs/tools"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/juju/worker/upgrader/mocks"
 )
 
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/upgrader_mocks.go github.com/juju/juju/worker/upgrader UpgraderClient
 func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+	gc.TestingT(t)
 }
 
 type UpgraderSuite struct {
-	jujutesting.JujuConnSuite
+	testing.IsolationSuite
 
-	machine              *state.Machine
-	state                api.Connection
 	confVersion          version.Number
 	upgradeStepsComplete gate.Lock
 	initialCheckComplete gate.Lock
 	clock                *testclock.Clock
+
+	dataDir string
+	store   storage.Storage
 }
 
 type AllowedTargetVersionSuite struct{}
@@ -66,10 +63,12 @@ var _ = gc.Suite(&UpgraderSuite{})
 var _ = gc.Suite(&AllowedTargetVersionSuite{})
 
 func (s *UpgraderSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	// s.machine needs to have IsManager() so that it can get the actual
-	// current revision to upgrade to.
-	s.state, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageModel)
+	s.IsolationSuite.SetUpTest(c)
+
+	s.dataDir = c.MkDir()
+	store, err := filestorage.NewFileStorageWriter(c.MkDir())
+	c.Assert(err, jc.ErrorIsNil)
+	s.store = store
 
 	// For expediency we assume that upgrade-steps have run as the default.
 	// Create a new locked gate for alternative test composition.
@@ -83,9 +82,7 @@ func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 func (s *UpgraderSuite) patchVersion(v version.Binary) {
 	s.PatchValue(&arch.HostArch, func() string { return v.Arch })
 	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
-	vers := v.Number
-	vers.Build = 666
-	s.PatchValue(&jujuversion.Current, vers)
+	s.PatchValue(&jujuversion.Current, v.Number)
 }
 
 type mockConfig struct {
@@ -109,12 +106,12 @@ func agentConfig(tag names.Tag, datadir string) agent.Config {
 	}
 }
 
-func (s *UpgraderSuite) makeUpgrader(c *gc.C) *upgrader.Upgrader {
+func (s *UpgraderSuite) makeUpgrader(c *gc.C, client upgrader.UpgraderClient) *upgrader.Upgrader {
 	w, err := upgrader.NewAgentUpgrader(upgrader.Config{
 		Clock:                       s.clock,
 		Logger:                      loggo.GetLogger("test"),
-		State:                       upgraderapi.NewClient(s.state),
-		AgentConfig:                 agentConfig(s.machine.Tag(), s.DataDir()),
+		Client:                      client,
+		AgentConfig:                 agentConfig(names.NewMachineTag("666"), s.dataDir),
 		OrigAgentVersion:            s.confVersion,
 		UpgradeStepsWaiter:          s.upgradeStepsComplete,
 		InitialUpgradeCheckComplete: s.initialCheckComplete,
@@ -126,76 +123,68 @@ func (s *UpgraderSuite) makeUpgrader(c *gc.C) *upgrader.Upgrader {
 
 func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	vers := version.MustParseBinary("5.4.3-ubuntu-amd64")
-	err := statetesting.SetAgentVersion(s.State, vers.Number)
-	c.Assert(err, jc.ErrorIsNil)
+	s.patchVersion(vers)
 
-	store := s.DefaultToolsStorage
-	agentTools := envtesting.PrimeTools(c, store, s.DataDir(), s.Environ.Config().AgentStream(), vers)
-	s.patchVersion(agentTools.Version)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	err = envtools.MergeAndWriteMetadata(
-		ss, store, "released", "released", coretools.List{agentTools}, envtools.DoNotWriteMirrors)
-	c.Assert(err, jc.ErrorIsNil)
+	ch := make(chan struct{}, 1)
+	watch := watchertest.NewMockNotifyWatcher(ch)
+	ch <- struct{}{}
 
-	_, err = s.machine.AgentTools()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	client := mocks.NewMockUpgraderClient(ctrl)
+	client.EXPECT().SetVersion("machine-666", vers)
+	client.EXPECT().DesiredVersion("machine-666").Return(vers.Number, nil)
+	client.EXPECT().WatchAPIVersion("machine-666").Return(watch, nil)
 
-	u := s.makeUpgrader(c)
+	u := s.makeUpgrader(c, client)
 	s.waitForUpgradeCheck(c)
 	workertest.CleanKill(c, u)
-
-	err = s.machine.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-
-	gotTools, err := s.machine.AgentTools()
-
-	c.Assert(err, jc.ErrorIsNil)
-	agentTools.Version.Build = 666
-	envtesting.CheckTools(c, gotTools, agentTools)
 }
 
 func (s *UpgraderSuite) TestUpgraderSetVersion(c *gc.C) {
 	vers := version.MustParseBinary("5.4.3-ubuntu-amd64")
-	agentTools := envtesting.PrimeTools(c, s.DefaultToolsStorage, s.DataDir(), s.Environ.Config().AgentStream(), vers)
-	s.patchVersion(agentTools.Version)
-	err := os.RemoveAll(filepath.Join(s.DataDir(), "tools"))
-	c.Assert(err, jc.ErrorIsNil)
+	s.patchVersion(vers)
 
-	_, err = s.machine.AgentTools()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	err = statetesting.SetAgentVersion(s.State, vers.Number)
-	c.Assert(err, jc.ErrorIsNil)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	u := s.makeUpgrader(c)
+	ch := make(chan struct{}, 1)
+	watch := watchertest.NewMockNotifyWatcher(ch)
+	ch <- struct{}{}
+
+	client := mocks.NewMockUpgraderClient(ctrl)
+	client.EXPECT().SetVersion("machine-666", vers)
+	client.EXPECT().DesiredVersion("machine-666").Return(vers.Number, nil)
+	client.EXPECT().WatchAPIVersion("machine-666").Return(watch, nil)
+
+	u := s.makeUpgrader(c, client)
 	s.waitForUpgradeCheck(c)
-	workertest.CleanKill(c, u)
 
-	err = s.machine.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	gotTools, err := s.machine.AgentTools()
-	c.Assert(err, jc.ErrorIsNil)
-	vers.Build = 666
-	c.Assert(gotTools, gc.DeepEquals, &coretools.Tools{Version: vers})
+	newVersion := vers
+	newVersion.Minor++
+	client.EXPECT().DesiredVersion("machine-666").Return(newVersion.Number, nil)
+	client.EXPECT().Tools("machine-666").Return(coretools.List{}, nil)
+
+	ch <- struct{}{}
+
+	workertest.CleanKill(c, u)
 }
 
 func (s *UpgraderSuite) TestUpgraderWaitsForUpgradeStepsGate(c *gc.C) {
+	vers := version.MustParseBinary("5.4.3-ubuntu-amd64")
+	s.patchVersion(vers)
+
 	// Replace with a locked gate.
 	s.upgradeStepsComplete = gate.NewLock()
 
-	stor := s.DefaultToolsStorage
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	oldTools := envtesting.PrimeTools(
-		c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.3-ubuntu-amd64"))
-	s.patchVersion(oldTools.Version)
+	client := mocks.NewMockUpgraderClient(ctrl)
+	client.EXPECT().SetVersion("machine-666", vers)
 
-	newTools := envtesting.AssertUploadFakeToolsVersions(
-		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(),
-		version.MustParseBinary("5.4.5-ubuntu-amd64"))[0]
-	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
-	c.Assert(err, jc.ErrorIsNil)
-
-	u := s.makeUpgrader(c)
+	u := s.makeUpgrader(c, client)
 	workertest.CheckAlive(c, u)
 
 	s.expectInitialUpgradeCheckNotDone(c)
@@ -205,56 +194,70 @@ func (s *UpgraderSuite) TestUpgraderWaitsForUpgradeStepsGate(c *gc.C) {
 }
 
 func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
-	stor := s.DefaultToolsStorage
+	vers := version.MustParseBinary("5.4.3-ubuntu-amd64")
+	s.patchVersion(vers)
 
-	oldTools := envtesting.PrimeTools(
-		c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.3-ubuntu-amd64"))
-	s.patchVersion(oldTools.Version)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	newTools := envtesting.AssertUploadFakeToolsVersions(
-		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(),
-		version.MustParseBinary("5.4.5-ubuntu-amd64"))[0]
-	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
-	c.Assert(err, jc.ErrorIsNil)
+	newVersion := vers
+	newVersion.Minor++
+	newTools := envtesting.PrimeTools(c, s.store, s.dataDir, "released", newVersion)
 
-	u := s.makeUpgrader(c)
-	err = workertest.CheckKilled(c, u)
+	ch := make(chan struct{}, 1)
+	watch := watchertest.NewMockNotifyWatcher(ch)
+	ch <- struct{}{}
+
+	client := mocks.NewMockUpgraderClient(ctrl)
+	client.EXPECT().SetVersion("machine-666", vers)
+	client.EXPECT().DesiredVersion("machine-666").Return(newVersion.Number, nil)
+	client.EXPECT().WatchAPIVersion("machine-666").Return(watch, nil)
+
+	u := s.makeUpgrader(c, client)
+	err := workertest.CheckKilled(c, u)
 	s.expectInitialUpgradeCheckNotDone(c)
 
 	envtesting.CheckUpgraderReadyError(c, err, &agenterrors.UpgradeReadyError{
-		AgentName: s.machine.Tag().String(),
-		OldTools:  oldTools.Version,
-		NewTools:  newTools.Version,
-		DataDir:   s.DataDir(),
+		AgentName: "machine-666",
+		OldTools:  vers,
+		NewTools:  newVersion,
+		DataDir:   s.dataDir,
 	})
-	foundTools, err := agenttools.ReadTools(s.DataDir(), newTools.Version)
+	foundTools, err := agenttools.ReadTools(s.dataDir, newVersion)
 	c.Assert(err, jc.ErrorIsNil)
-	newTools.URL = fmt.Sprintf("https://%s/model/%s/tools/5.4.5-ubuntu-amd64",
-		s.APIState.Addr(), coretesting.ModelTag.Id())
 	envtesting.CheckTools(c, foundTools, newTools)
 }
 
 func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
-	stor := s.DefaultToolsStorage
+	vers := version.MustParseBinary("5.4.3-ubuntu-amd64")
+	s.patchVersion(vers)
 
-	oldTools := envtesting.PrimeTools(
-		c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.3-ubuntu-amd64"))
-	s.patchVersion(oldTools.Version)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	newTools := envtesting.AssertUploadFakeToolsVersions(
-		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(),
-		version.MustParseBinary("5.4.5-ubuntu-amd64"))[0]
-	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
-	c.Assert(err, jc.ErrorIsNil)
+	newVersion := vers
+	newVersion.Minor++
 
-	err = stor.Remove(envtools.StorageName(newTools.Version, "released"))
-	c.Assert(err, jc.ErrorIsNil)
+	ch := make(chan struct{}, 1)
+	watch := watchertest.NewMockNotifyWatcher(ch)
+	ch <- struct{}{}
 
-	u := s.makeUpgrader(c)
+	client := mocks.NewMockUpgraderClient(ctrl)
+	client.EXPECT().SetVersion("machine-666", vers)
+	client.EXPECT().WatchAPIVersion("machine-666").Return(watch, nil)
+
+	retryCount := 3
+
+	client.EXPECT().DesiredVersion("machine-666").Return(newVersion.Number, nil).Times(retryCount + 1)
+	client.EXPECT().Tools("machine-666").Return(coretools.List{{
+		URL: "http://invalid",
+	}}, nil).Times(retryCount + 1)
+
+	u := s.makeUpgrader(c, client)
 	defer func() { _ = workertest.CheckKilled(c, u) }()
 	s.expectInitialUpgradeCheckNotDone(c)
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < retryCount; i++ {
 		err := s.clock.WaitAdvance(5*time.Second, coretesting.LongWait, 1)
 		c.Assert(err, jc.ErrorIsNil)
 	}
@@ -262,12 +265,15 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	// Make it upgrade to some newer tools that can be
 	// downloaded ok; it should stop retrying, download
 	// the newer tools and exit.
-	newerTools := envtesting.AssertUploadFakeToolsVersions(
-		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(),
-		version.MustParseBinary("5.4.6-ubuntu-amd64"))[0]
+	newerVersion := newVersion
+	newerVersion.Minor++
+	newTools := envtesting.AssertUploadFakeToolsVersions(
+		c, s.store, "released", "released",
+		newerVersion)[0]
 
-	err = statetesting.SetAgentVersion(s.State, newerTools.Version.Number)
-	c.Assert(err, jc.ErrorIsNil)
+	client.EXPECT().DesiredVersion("machine-666").Return(newerVersion.Number, nil)
+	client.EXPECT().Tools("machine-666").Return(coretools.List{newTools}, nil)
+	ch <- struct{}{}
 
 	done := make(chan error)
 	go func() {
@@ -276,120 +282,149 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	select {
 	case err := <-done:
 		envtesting.CheckUpgraderReadyError(c, err, &agenterrors.UpgradeReadyError{
-			AgentName: s.machine.Tag().String(),
-			OldTools:  oldTools.Version,
-			NewTools:  newerTools.Version,
-			DataDir:   s.DataDir(),
+			AgentName: "machine-666",
+			OldTools:  vers,
+			NewTools:  newerVersion,
+			DataDir:   s.dataDir,
 		})
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("upgrader did not quit after upgrading")
 	}
+	foundTools, err := agenttools.ReadTools(s.dataDir, newerVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	envtesting.CheckTools(c, foundTools, newTools)
 }
 
 func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 	oldTools := &coretools.Tools{Version: version.MustParseBinary("1.2.3-ubuntu-amd64")}
 
-	store := s.DefaultToolsStorage
 	newToolsBinary := "5.4.3-ubuntu-amd64"
 	newTools := envtesting.PrimeTools(
-		c, store, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary(newToolsBinary))
-	s.patchVersion(newTools.Version)
-
-	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	err := envtools.MergeAndWriteMetadata(
-		ss, store, "released", "released", coretools.List{newTools}, envtools.DoNotWriteMirrors)
-	c.Assert(err, jc.ErrorIsNil)
+		c, s.store, s.dataDir, "released", version.MustParseBinary(newToolsBinary))
 
 	ugErr := &agenterrors.UpgradeReadyError{
 		AgentName: "anAgent",
 		OldTools:  oldTools.Version,
 		NewTools:  newTools.Version,
-		DataDir:   s.DataDir(),
+		DataDir:   s.dataDir,
 	}
-	err = ugErr.ChangeAgentTools(loggo.GetLogger("test"))
+	err := ugErr.ChangeAgentTools(loggo.GetLogger("test"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	target := agenttools.ToolsDir(s.DataDir(), newToolsBinary)
-	link, err := symlink.Read(agenttools.ToolsDir(s.DataDir(), "anAgent"))
+	target := agenttools.ToolsDir(s.dataDir, newToolsBinary)
+	link, err := symlink.Read(agenttools.ToolsDir(s.dataDir, "anAgent"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(link, jc.SamePath, target)
 }
 
 func (s *UpgraderSuite) TestUsesAlreadyDownloadedToolsIfAvailable(c *gc.C) {
-	oldVersion := version.MustParseBinary("1.2.3-ubuntu-amd64")
-	s.patchVersion(oldVersion)
+	vers := version.MustParseBinary("5.4.3-ubuntu-amd64")
+	s.patchVersion(vers)
 
-	newVersion := version.MustParseBinary("5.4.3-ubuntu-amd64")
-	err := statetesting.SetAgentVersion(s.State, newVersion.Number)
-	c.Assert(err, jc.ErrorIsNil)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ch := make(chan struct{}, 1)
+	watch := watchertest.NewMockNotifyWatcher(ch)
+
+	client := mocks.NewMockUpgraderClient(ctrl)
+	client.EXPECT().SetVersion("machine-666", vers)
+	client.EXPECT().WatchAPIVersion("machine-666").Return(watch, nil)
+
+	newVersion := vers
+	newVersion.Minor++
 
 	// Install tools matching the new version in the data directory
 	// but *not* in environment storage. The upgrader should find the
 	// downloaded tools without looking in environment storage.
-	envtesting.InstallFakeDownloadedTools(c, s.DataDir(), newVersion)
+	envtesting.InstallFakeDownloadedTools(c, s.dataDir, newVersion)
 
-	u := s.makeUpgrader(c)
-	err = workertest.CheckKilled(c, u)
+	client.EXPECT().DesiredVersion("machine-666").Return(newVersion.Number, nil)
+	ch <- struct{}{}
+
+	u := s.makeUpgrader(c, client)
+	err := workertest.CheckKilled(c, u)
 	s.expectInitialUpgradeCheckNotDone(c)
 
 	envtesting.CheckUpgraderReadyError(c, err, &agenterrors.UpgradeReadyError{
-		AgentName: s.machine.Tag().String(),
-		OldTools:  oldVersion,
+		AgentName: "machine-666",
+		OldTools:  vers,
 		NewTools:  newVersion,
-		DataDir:   s.DataDir(),
+		DataDir:   s.dataDir,
 	})
 }
 
 func (s *UpgraderSuite) TestUpgraderAllowsDowngradingMinorVersions(c *gc.C) {
+	vers := version.MustParseBinary("5.4.3-ubuntu-amd64")
+	s.patchVersion(vers)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ch := make(chan struct{}, 1)
+	watch := watchertest.NewMockNotifyWatcher(ch)
+	ch <- struct{}{}
+
 	// We allow this scenario to allow reverting upgrades by restoring
 	// a backup from the previous version.
-	stor := s.DefaultToolsStorage
-	origTools := envtesting.PrimeTools(
-		c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.3-ubuntu-amd64"))
-	s.patchVersion(origTools.Version)
-
+	oldVersion := vers
+	oldVersion.Minor--
 	downgradeTools := envtesting.AssertUploadFakeToolsVersions(
-		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(),
-		version.MustParseBinary("5.3.3-ubuntu-amd64"))[0]
-	err := statetesting.SetAgentVersion(s.State, downgradeTools.Version.Number)
-	c.Assert(err, jc.ErrorIsNil)
+		c, s.store, "released", "released",
+		oldVersion)[0]
 
-	u := s.makeUpgrader(c)
-	err = workertest.CheckKilled(c, u)
+	client := mocks.NewMockUpgraderClient(ctrl)
+	client.EXPECT().SetVersion("machine-666", vers)
+	client.EXPECT().WatchAPIVersion("machine-666").Return(watch, nil)
+	client.EXPECT().DesiredVersion("machine-666").Return(oldVersion.Number, nil)
+	client.EXPECT().Tools("machine-666").Return(coretools.List{downgradeTools}, nil)
+
+	u := s.makeUpgrader(c, client)
+	err := workertest.CheckKilled(c, u)
 	s.expectInitialUpgradeCheckNotDone(c)
 
 	envtesting.CheckUpgraderReadyError(c, err, &agenterrors.UpgradeReadyError{
-		AgentName: s.machine.Tag().String(),
-		OldTools:  origTools.Version,
+		AgentName: "machine-666",
+		OldTools:  vers,
 		NewTools:  downgradeTools.Version,
-		DataDir:   s.DataDir(),
+		DataDir:   s.dataDir,
 	})
-	foundTools, err := agenttools.ReadTools(s.DataDir(), downgradeTools.Version)
+	foundTools, err := agenttools.ReadTools(s.dataDir, downgradeTools.Version)
 	c.Assert(err, jc.ErrorIsNil)
-	downgradeTools.URL = fmt.Sprintf("https://%s/model/%s/tools/5.3.3-ubuntu-amd64",
-		s.APIState.Addr(), coretesting.ModelTag.Id())
 	envtesting.CheckTools(c, foundTools, downgradeTools)
 }
 
 func (s *UpgraderSuite) TestUpgraderForbidsDowngradingToMajorVersion(c *gc.C) {
-	stor := s.DefaultToolsStorage
-	origTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(),
-		version.MustParseBinary("2.4.3-ubuntu-amd64"))
-	s.patchVersion(origTools.Version)
+	vers := version.MustParseBinary("5.4.3-ubuntu-amd64")
+	s.patchVersion(vers)
 
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ch := make(chan struct{}, 1)
+	watch := watchertest.NewMockNotifyWatcher(ch)
+	ch <- struct{}{}
+
+	// We allow this scenario to allow reverting upgrades by restoring
+	// a backup from the previous version.
+	oldVersion := vers
+	oldVersion.Major--
 	downgradeTools := envtesting.AssertUploadFakeToolsVersions(
-		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(),
-		version.MustParseBinary("1.25.3-ubuntu-amd64"))[0]
-	err := statetesting.SetAgentVersion(s.State, downgradeTools.Version.Number)
-	c.Assert(err, jc.ErrorIsNil)
+		c, s.store, "released", "released",
+		oldVersion)[0]
 
-	u := s.makeUpgrader(c)
+	client := mocks.NewMockUpgraderClient(ctrl)
+	client.EXPECT().SetVersion("machine-666", vers)
+	client.EXPECT().WatchAPIVersion("machine-666").Return(watch, nil)
+	client.EXPECT().DesiredVersion("machine-666").Return(oldVersion.Number, nil)
+
+	u := s.makeUpgrader(c, client)
 	s.waitForUpgradeCheck(c)
-	err = worker.Stop(u)
+	err := worker.Stop(u)
 
 	// If the upgrade had been allowed we would get an UpgradeReadyError.
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = agenttools.ReadTools(s.DataDir(), downgradeTools.Version)
+	_, err = agenttools.ReadTools(s.dataDir, downgradeTools.Version)
 	// TODO: ReadTools *should* be returning some form of
 	// errors.NotFound, however, it just passes back a fmt.Errorf so
 	// we live with it c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -397,82 +432,110 @@ func (s *UpgraderSuite) TestUpgraderForbidsDowngradingToMajorVersion(c *gc.C) {
 }
 
 func (s *UpgraderSuite) TestUpgraderAllowsDowngradingPatchVersions(c *gc.C) {
-	stor := s.DefaultToolsStorage
-	origTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(),
-		version.MustParseBinary("5.4.3-ubuntu-amd64"))
-	s.patchVersion(origTools.Version)
+	vers := version.MustParseBinary("5.4.3-ubuntu-amd64")
+	s.patchVersion(vers)
 
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ch := make(chan struct{}, 1)
+	watch := watchertest.NewMockNotifyWatcher(ch)
+	ch <- struct{}{}
+
+	// We allow this scenario to allow reverting upgrades by restoring
+	// a backup from the previous version.
+	oldVersion := vers
+	oldVersion.Patch--
 	downgradeTools := envtesting.AssertUploadFakeToolsVersions(
-		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(),
-		version.MustParseBinary("5.4.2-ubuntu-amd64"))[0]
-	err := statetesting.SetAgentVersion(s.State, downgradeTools.Version.Number)
-	c.Assert(err, jc.ErrorIsNil)
+		c, s.store, "released", "released",
+		oldVersion)[0]
 
-	u := s.makeUpgrader(c)
-	err = workertest.CheckKilled(c, u)
+	client := mocks.NewMockUpgraderClient(ctrl)
+	client.EXPECT().SetVersion("machine-666", vers)
+	client.EXPECT().WatchAPIVersion("machine-666").Return(watch, nil)
+	client.EXPECT().DesiredVersion("machine-666").Return(oldVersion.Number, nil)
+	client.EXPECT().Tools("machine-666").Return(coretools.List{downgradeTools}, nil)
+
+	u := s.makeUpgrader(c, client)
+	err := workertest.CheckKilled(c, u)
 	s.expectInitialUpgradeCheckNotDone(c)
 
 	envtesting.CheckUpgraderReadyError(c, err, &agenterrors.UpgradeReadyError{
-		AgentName: s.machine.Tag().String(),
-		OldTools:  origTools.Version,
+		AgentName: "machine-666",
+		OldTools:  vers,
 		NewTools:  downgradeTools.Version,
-		DataDir:   s.DataDir(),
+		DataDir:   s.dataDir,
 	})
-	foundTools, err := agenttools.ReadTools(s.DataDir(), downgradeTools.Version)
+	foundTools, err := agenttools.ReadTools(s.dataDir, downgradeTools.Version)
 	c.Assert(err, jc.ErrorIsNil)
-	downgradeTools.URL = fmt.Sprintf("https://%s/model/%s/tools/5.4.2-ubuntu-amd64",
-		s.APIState.Addr(), coretesting.ModelTag.Id())
 	envtesting.CheckTools(c, foundTools, downgradeTools)
 }
 
 func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToPriorMinorVersion(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	// We now allow this to support restoring
 	// a backup from a previous version.
 	downgradeVersion := version.MustParseBinary("5.3.0-ubuntu-amd64")
 	s.confVersion = downgradeVersion.Number
 
-	stor := s.DefaultToolsStorage
-	origTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(),
+	ch := make(chan struct{}, 1)
+	watch := watchertest.NewMockNotifyWatcher(ch)
+	ch <- struct{}{}
+
+	origTools := envtesting.PrimeTools(c, s.store, s.dataDir, "released",
 		version.MustParseBinary("5.4.3-ubuntu-amd64"))
 	s.patchVersion(origTools.Version)
 
 	envtesting.AssertUploadFakeToolsVersions(
-		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), downgradeVersion)
+		c, s.store, "released", "released", downgradeVersion)
 
 	prevTools := envtesting.AssertUploadFakeToolsVersions(
-		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), downgradeVersion)[0]
+		c, s.store, "released", "released", downgradeVersion)[0]
 
-	err := statetesting.SetAgentVersion(s.State, downgradeVersion.Number)
-	c.Assert(err, jc.ErrorIsNil)
+	client := mocks.NewMockUpgraderClient(ctrl)
+	client.EXPECT().SetVersion("machine-666", origTools.Version)
+	client.EXPECT().WatchAPIVersion("machine-666").Return(watch, nil)
+	client.EXPECT().DesiredVersion("machine-666").Return(downgradeVersion.Number, nil)
+	client.EXPECT().Tools("machine-666").Return(coretools.List{prevTools}, nil)
 
-	u := s.makeUpgrader(c)
-	err = workertest.CheckKilled(c, u)
+	u := s.makeUpgrader(c, client)
+	err := workertest.CheckKilled(c, u)
 	s.expectInitialUpgradeCheckNotDone(c)
 
 	envtesting.CheckUpgraderReadyError(c, err, &agenterrors.UpgradeReadyError{
-		AgentName: s.machine.Tag().String(),
+		AgentName: "machine-666",
 		OldTools:  origTools.Version,
 		NewTools:  prevTools.Version,
-		DataDir:   s.DataDir(),
+		DataDir:   s.dataDir,
 	})
-	foundTools, err := agenttools.ReadTools(s.DataDir(), prevTools.Version)
+	foundTools, err := agenttools.ReadTools(s.dataDir, prevTools.Version)
 	c.Assert(err, jc.ErrorIsNil)
-	prevTools.URL = fmt.Sprintf("https://%s/model/%s/tools/5.3.0-ubuntu-amd64",
-		s.APIState.Addr(), coretesting.ModelTag.Id())
 	envtesting.CheckTools(c, foundTools, prevTools)
 }
 
 func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
-	stor := s.DefaultToolsStorage
-	oldTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(),
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ch := make(chan struct{}, 1)
+	watch := watchertest.NewMockNotifyWatcher(ch)
+	ch <- struct{}{}
+
+	oldTools := envtesting.PrimeTools(c, s.store, s.dataDir, "released",
 		version.MustParseBinary("5.4.3-ubuntu-amd64"))
 	s.patchVersion(oldTools.Version)
 
 	newTools := envtesting.AssertUploadFakeToolsVersions(
-		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(),
+		c, s.store, "released", "released",
 		version.MustParseBinary("5.4.5-ubuntu-amd64"))[0]
-	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
-	c.Assert(err, jc.ErrorIsNil)
+
+	client := mocks.NewMockUpgraderClient(ctrl)
+	client.EXPECT().SetVersion("machine-666", oldTools.Version)
+	client.EXPECT().WatchAPIVersion("machine-666").Return(watch, nil)
+	client.EXPECT().DesiredVersion("machine-666").Return(newTools.Version.Number, nil)
+	client.EXPECT().Tools("machine-666").Return(coretools.List{newTools}, nil)
 
 	var diskSpaceStub testing.Stub
 	diskSpaceStub.SetErrors(nil, errors.Errorf("full-up"))
@@ -481,8 +544,8 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 	u, err := upgrader.NewAgentUpgrader(upgrader.Config{
 		Clock:                       s.clock,
 		Logger:                      loggo.GetLogger("test"),
-		State:                       upgraderapi.NewClient(s.state),
-		AgentConfig:                 agentConfig(s.machine.Tag(), s.DataDir()),
+		Client:                      client,
+		AgentConfig:                 agentConfig(names.NewMachineTag("666"), s.dataDir),
 		OrigAgentVersion:            s.confVersion,
 		UpgradeStepsWaiter:          s.upgradeStepsComplete,
 		InitialUpgradeCheckComplete: s.initialCheckComplete,
@@ -512,10 +575,10 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 	s.expectInitialUpgradeCheckNotDone(c)
 
 	c.Assert(diskSpaceStub.Calls(), gc.HasLen, 2)
-	diskSpaceStub.CheckCall(c, 0, "CheckDiskSpace", s.DataDir(), upgrades.MinDiskSpaceMib)
+	diskSpaceStub.CheckCall(c, 0, "CheckDiskSpace", s.dataDir, upgrades.MinDiskSpaceMib)
 	diskSpaceStub.CheckCall(c, 1, "CheckDiskSpace", os.TempDir(), upgrades.MinDiskSpaceMib)
 
-	_, err = agenttools.ReadTools(s.DataDir(), newTools.Version)
+	_, err = agenttools.ReadTools(s.dataDir, newTools.Version)
 	c.Assert(err, gc.ErrorMatches, `cannot read agent metadata in directory.*: no such file or directory`)
 }
 

@@ -4,13 +4,11 @@
 package reboot
 
 import (
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/agent/reboot"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/watcher"
@@ -26,22 +24,20 @@ var logger = loggo.GetLogger("juju.worker.reboot")
 // up by the machine agent as a fatal error and will do the
 // right thing (reboot or shutdown)
 type Reboot struct {
-	st          reboot.Client
+	client      reboot.Client
 	tag         names.MachineTag
 	machineLock machinelock.Lock
-	clock       clock.Clock
 }
 
-func NewReboot(st reboot.Client, agentConfig agent.Config, machineLock machinelock.Lock, clock clock.Clock) (worker.Worker, error) {
-	tag, ok := agentConfig.Tag().(names.MachineTag)
+func NewReboot(client reboot.Client, agentTag names.Tag, machineLock machinelock.Lock) (worker.Worker, error) {
+	tag, ok := agentTag.(names.MachineTag)
 	if !ok {
-		return nil, errors.Errorf("Expected names.MachineTag, got %T: %v", agentConfig.Tag(), agentConfig.Tag())
+		return nil, errors.Errorf("Expected names.MachineTag, got %T: %v", agentTag, agentTag)
 	}
 	r := &Reboot{
-		st:          st,
+		client:      client,
 		tag:         tag,
 		machineLock: machineLock,
-		clock:       clock,
 	}
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: r,
@@ -50,12 +46,12 @@ func NewReboot(st reboot.Client, agentConfig agent.Config, machineLock machinelo
 }
 
 func (r *Reboot) SetUp() (watcher.NotifyWatcher, error) {
-	watcher, err := r.st.WatchForRebootEvent()
+	watcher, err := r.client.WatchForRebootEvent()
 	return watcher, errors.Trace(err)
 }
 
 func (r *Reboot) Handle(_ <-chan struct{}) error {
-	rAction, err := r.st.GetRebootAction()
+	rAction, err := r.client.GetRebootAction()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -92,7 +88,7 @@ func (r *Reboot) Handle(_ <-chan struct{}) error {
 		// that the machine agent is also a controller, and the apiserver has been
 		// shut down. It is better to clear the flag and not reboot on a weird
 		// error rather than get into a reboot loop because we can't shutdown.
-		if err := r.st.ClearReboot(); err != nil {
+		if err := r.client.ClearReboot(); err != nil {
 			logger.Infof("unable to clear reboot flag: %v", err)
 		}
 	}

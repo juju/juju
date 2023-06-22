@@ -867,7 +867,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			MachineLock:   config.MachineLock,
-			Clock:         config.Clock,
 		})),
 
 		// The storageProvisioner worker manages provisioning

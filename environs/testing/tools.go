@@ -231,24 +231,6 @@ func AssertUploadFakeToolsVersions(c *gc.C, stor storage.Storage, toolsDir, stre
 	return agentTools
 }
 
-// MustUploadFakeToolsVersions acts as UploadFakeToolsVersions, but panics on failure.
-func MustUploadFakeToolsVersions(store storage.Storage, stream string, versions ...version.Binary) []*coretools.Tools {
-	var agentTools = make(coretools.List, len(versions))
-	for i, version := range versions {
-		t, err := uploadFakeToolsVersion(store, stream, version)
-		if err != nil {
-			panic(err)
-		}
-		agentTools[i] = t
-	}
-	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	err := envtools.MergeAndWriteMetadata(ss, store, stream, stream, agentTools, envtools.DoNotWriteMirrors)
-	if err != nil {
-		panic(err)
-	}
-	return agentTools
-}
-
 // UploadFakeTools puts fake tools into the supplied storage with a binary
 // version matching jujuversion.Current; if jujuversion.Current's os type is different
 // to the host os type, matching fake tools will be uploaded for that host os type.
