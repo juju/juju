@@ -11,6 +11,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/names/v4"
 
 	actionapi "github.com/juju/juju/api/client/action"
 	jujucmd "github.com/juju/juju/cmd"
@@ -106,6 +107,9 @@ func (c *showTaskCommand) Init(args []string) error {
 	case 0:
 		return errors.New("no task ID specified")
 	case 1:
+		if !names.IsValidAction(args[0]) {
+			return errors.NotValidf("task ID %q", args[0])
+		}
 		c.requestedId = args[0]
 		return nil
 	default:
