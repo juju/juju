@@ -259,6 +259,8 @@ func (s *PodSpecSuite) TestWatchRawK8sSpec(c *gc.C) {
 	// Multiple changes coalesced.
 	err = s.applySetRawK8sSpecOperation(nil, s.application.ApplicationTag(), strPtr("raw spec 1"))
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO(quiescence): these two changes should be one event.
+	wc.AssertOneChange()
 	err = s.applySetRawK8sSpecOperation(nil, s.application.ApplicationTag(), strPtr("raw spec 2"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
