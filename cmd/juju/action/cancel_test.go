@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -26,6 +27,15 @@ var _ = gc.Suite(&CancelSuite{})
 func (s *CancelSuite) SetUpTest(c *gc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 	s.subcommand, _ = action.NewCancelCommandForTest(s.store)
+}
+
+func (s *CancelSuite) TestInit(c *gc.C) {
+	for _, modelFlag := range s.modelFlags {
+		cmd, _ := action.NewCancelCommandForTest(s.store)
+		args := append([]string{modelFlag, "admin"}, "test")
+		err := cmdtesting.InitCommand(cmd, args)
+		c.Check(errors.Is(err, errors.NotValid), jc.IsTrue)
+	}
 }
 
 func (s *CancelSuite) TestRun(c *gc.C) {
