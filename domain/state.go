@@ -29,9 +29,9 @@ func NewTxnRunnerFactory(f func() (changestream.WatchableDB, error)) TxnRunnerFa
 	}
 }
 
-// NewTxnRunnerFactoryForNamespace returns a TxnRunnerFactory for the input
-// namespaced changestream.WatchableDB factory function and namespace.
-func NewTxnRunnerFactoryForNamespace(f func(string) (changestream.WatchableDB, error), ns string) TxnRunnerFactory {
+// NewTxnRunnerFactoryForNamespace returns a TxnRunnerFactory
+// for the input namespaced factory function and namespace.
+func NewTxnRunnerFactoryForNamespace[T database.TxnRunner](f func(string) (T, error), ns string) TxnRunnerFactory {
 	return func() (database.TxnRunner, error) {
 		r, err := f(ns)
 		return r, errors.Trace(err)

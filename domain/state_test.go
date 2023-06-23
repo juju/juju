@@ -24,7 +24,14 @@ func (s *stateSuite) TestTxnRunnerFactory(c *gc.C) {
 }
 
 func (s *stateSuite) TestTxnRunnerFactoryForNamespace(c *gc.C) {
-	db, err := NewTxnRunnerFactoryForNamespace(s.getWatchableDBForNameSpace, "any-old-namespace")()
+	// Test multiple function return signatures to verify the generic behaviour.
+	db, err := NewTxnRunnerFactoryForNamespace(func(string) (database.TxnRunner, error) {
+		return s.TxnRunner(), nil
+	}, "any-old-namespace")()
+	c.Assert(err, gc.IsNil)
+	c.Assert(db, gc.NotNil)
+
+	db, err = NewTxnRunnerFactoryForNamespace(s.getWatchableDBForNameSpace, "any-old-namespace")()
 	c.Assert(err, gc.IsNil)
 	c.Assert(db, gc.NotNil)
 }
