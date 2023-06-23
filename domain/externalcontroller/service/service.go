@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/externalcontroller"
 )
 
 // State describes retrieval and persistence methods for storage.
@@ -26,6 +26,10 @@ type State interface {
 	// UpdateExternalController persists the input controller
 	// record and associates it with the input model UUIDs.
 	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo, modelUUIDs []string) error
+
+	// ImportExternalControllers persists the input controller records from
+	// an import.
+	ImportExternalControllers(ctx context.Context, infos []externalcontroller.MigrationControllerInfo) error
 }
 
 // Logger facilitates emitting log messages.
@@ -33,17 +37,21 @@ type Logger interface {
 	Debugf(string, ...interface{})
 }
 
+type WatcherFactory interface {
+	NewUUIDsWatcher(flags changestream.ChangeType, collection string) (watcher.StringsWatcher, error)
+}
+
 // Service provides the API for working with external controllers.
 type Service struct {
 	st             State
-	watcherFactory *domain.WatcherFactory
+	watcherFactory WatcherFactory
 }
 
 // NewService returns a new service reference wrapping the input state.
-func NewService(st State, watcherFactory *domain.WatcherFactory) *Service {
+func NewService(st State, watcherFactory WatcherFactory) *Service {
 	return &Service{
-		st,
-		watcherFactory,
+		st:             st,
+		watcherFactory: watcherFactory,
 	}
 }
 
@@ -75,8 +83,15 @@ func (s *Service) UpdateExternalController(
 	return errors.Annotate(err, "updating external controller state")
 }
 
+// Watch returns a watcher for external controller changes.
 func (s *Service) Watch() (watcher.StringsWatcher, error) {
 	return s.watcherFactory.NewUUIDsWatcher(
-		changestream.Create|changestream.Update, "external_controller",
+		changestream.Create|changestream.Update,
+		"external_controller",
 	)
+}
+
+func (s *Service) ImportExternalControllers(ctx context.Context, infos []externalcontroller.MigrationControllerInfo) error {
+	err := s.st.ImportExternalControllers(ctx, infos)
+	return errors.Annotate(err, "importing external controllers")
 }
