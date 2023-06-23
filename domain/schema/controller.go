@@ -13,8 +13,10 @@ func ControllerDDL(nodeID uint64) []database.Delta {
 		changeLogControllerNamespaces,
 		cloudSchema,
 		externalControllerSchema,
+		changeLogTriggersForTable("external_controller", "uuid", 1),
 		modelListSchema,
 		controllerConfigSchema,
+		changeLogTriggersForTable("controller_config", "key", 3),
 		// These are broken up for 2 reasons:
 		// 1. Bind variables do not work for multiple statements in one string.
 		// 2. We want to insert the initial node before creating the change_log
@@ -22,12 +24,15 @@ func ControllerDDL(nodeID uint64) []database.Delta {
 		//    from what is a bootstrap activity.
 		controllerNodeTable,
 		controllerNodeEntry(nodeID),
-		controllerNodeTriggers,
+		changeLogTriggersForTable("controller_node", "controller_id", 2),
 		modelMigrationSchema,
+		changeLogTriggersForTable("model_migration_status", "uuid", 4),
+		changeLogTriggersForTable("model_migration_minion_sync", "uuid", 5),
 		upgradeInfoSchema,
+		changeLogTriggersForTable("upgrade_info", "uuid", 6),
 	}
 
-	var deltas []database.Delta
+	deltas := make([]database.Delta, 0, len(schemas))
 	for _, fn := range schemas {
 		deltas = append(deltas, fn())
 	}
@@ -84,58 +89,6 @@ ON lease_pin (lease_uuid, entity_id);
 
 CREATE INDEX idx_lease_pin_lease
 ON lease_pin (lease_uuid);`)
-}
-
-func changeLogSchema() database.Delta {
-	return database.MakeDelta(`
-CREATE TABLE change_log_edit_type (
-    id        INT PRIMARY KEY,
-    edit_type TEXT
-);
-
-CREATE UNIQUE INDEX idx_change_log_edit_type_edit_type
-ON change_log_edit_type (edit_type);
-
--- The change log type values are bitmasks, so that multiple types can be
--- expressed when looking for changes.
-INSERT INTO change_log_edit_type VALUES
-    (1, 'create'),
-    (2, 'update'),
-    (4, 'delete');
-
-CREATE TABLE change_log_namespace (
-    id        INT PRIMARY KEY,
-    namespace TEXT
-);
-
-CREATE UNIQUE INDEX idx_change_log_namespace_namespace
-ON change_log_namespace (namespace);
-
-CREATE TABLE change_log (
-    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-    edit_type_id        INT NOT NULL,
-    namespace_id        INT NOT NULL,
-    changed_uuid        TEXT NOT NULL,
-    created_at          DATETIME NOT NULL DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
-    CONSTRAINT          fk_change_log_edit_type
-            FOREIGN KEY (edit_type_id)
-            REFERENCES  change_log_edit_type(id),
-    CONSTRAINT          fk_change_log_namespace
-            FOREIGN KEY (namespace_id)
-            REFERENCES  change_log_namespace(id)
-);
-
--- The change log witness table is used to track which nodes have seen
--- which change log entries. This is used to determine when a change log entry
--- can be deleted.
--- We'll delete all change log entries that are older than the lower_bound
--- change log entry that has been seen by all controllers.
-CREATE TABLE change_log_witness (
-    controller_id       TEXT PRIMARY KEY,
-    lower_bound         INT NOT NULL DEFAULT(-1),
-    upper_bound         INT NOT NULL DEFAULT(-1),
-    updated_at          DATETIME NOT NULL DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc'))
-);`)
 }
 
 func changeLogControllerNamespaces() database.Delta {
@@ -283,26 +236,7 @@ CREATE TABLE external_model (
     CONSTRAINT          fk_external_model_external_controller_uuid
         FOREIGN KEY         (controller_uuid)
         REFERENCES          external_controller(uuid)
-);
-
-CREATE TRIGGER trg_log_external_controller_insert
-AFTER INSERT ON external_controller FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (1, 1, NEW.uuid, DATETIME('now'));
-END;
-CREATE TRIGGER trg_log_external_controller_update
-AFTER UPDATE ON external_controller FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (2, 1, OLD.uuid, DATETIME('now'));
-END;
-CREATE TRIGGER trg_log_external_controller_delete
-AFTER DELETE ON external_controller FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (4, 1, OLD.uuid, DATETIME('now'));
-END;`)
+);`)
 }
 
 func modelListSchema() database.Delta {
@@ -317,26 +251,7 @@ func controllerConfigSchema() database.Delta {
 CREATE TABLE controller_config (
     key     TEXT PRIMARY KEY,
     value   TEXT
-);
-
-CREATE TRIGGER trg_log_controller_config_insert
-AFTER INSERT ON controller_config FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (1, 3, NEW.key, DATETIME('now'));
-END;
-CREATE TRIGGER trg_log_controller_config_update
-AFTER UPDATE ON controller_config FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (2, 3, OLD.key, DATETIME('now'));
-END;
-CREATE TRIGGER trg_log_controller_config_delete
-AFTER DELETE ON controller_config FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (4, 3, OLD.key, DATETIME('now'));
-END;`)
+);`)
 }
 
 func controllerNodeTable() database.Delta {
@@ -365,30 +280,6 @@ func controllerNodeEntry(nodeID uint64) func() database.Delta {
 INSERT INTO controller_node (controller_id, dqlite_node_id, bind_address)
 VALUES ('0', ?, '127.0.0.1');`, nodeID)
 	}
-}
-
-func controllerNodeTriggers() database.Delta {
-	return database.MakeDelta(`
-CREATE TRIGGER trg_changelog_controller_node_insert
-AFTER INSERT ON controller_node FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at)
-    VALUES (1, 2, NEW.controller_id, DATETIME('now'));
-END;
-
-CREATE TRIGGER trg_changelog_controller_node_update
-AFTER UPDATE ON controller_node FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at)
-    VALUES (2, 2, OLD.controller_id, DATETIME('now'));
-END;
-
-CREATE TRIGGER trg_changelog_controller_node_delete
-AFTER DELETE ON controller_node FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at)
-    VALUES (4, 2, OLD.controller_id, DATETIME('now'));
-END;`)
 }
 
 func modelMigrationSchema() database.Delta {
@@ -422,25 +313,6 @@ CREATE TABLE model_migration_status (
     status              TEXT
 );
 
-CREATE TRIGGER trg_log_model_migration_status_insert
-AFTER INSERT ON model_migration_status FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (1, 4, NEW.key, DATETIME('now'));
-END;
-CREATE TRIGGER trg_log_model_migration_status_update
-AFTER UPDATE ON model_migration_status FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (2, 4, OLD.key, DATETIME('now'));
-END;
-CREATE TRIGGER trg_log_model_migration_status_delete
-AFTER DELETE ON model_migration_status FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (4, 4, OLD.key, DATETIME('now'));
-END;
-
 CREATE TABLE model_migration_user (
     uuid            TEXT PRIMARY KEY,
 --     user_uuid       TEXT NOT NULL,
@@ -464,26 +336,7 @@ CREATE TABLE model_migration_minion_sync (
     CONSTRAINT      fk_model_migration_minion_sync_model_migration
         FOREIGN KEY (migration_uuid)
         REFERENCES  model_migration(uuid)
-);
-
-CREATE TRIGGER trg_log_model_migration_minion_sync_insert
-AFTER INSERT ON model_migration_minion_sync FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (1, 5, NEW.key, DATETIME('now'));
-END;
-CREATE TRIGGER trg_log_model_migration_minion_sync_update
-AFTER UPDATE ON model_migration_minion_sync FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (2, 5, OLD.key, DATETIME('now'));
-END;
-CREATE TRIGGER trg_log_model_migration_minion_sync_delete
-AFTER DELETE ON model_migration_minion_sync FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
-    VALUES (4, 5, OLD.key, DATETIME('now'));
-END;`)
+);`)
 }
 
 func upgradeInfoSchema() database.Delta {
@@ -512,26 +365,5 @@ CREATE TABLE upgrade_info_controller_node (
 
 CREATE UNIQUE INDEX idx_upgrade_info_controller_node
 ON upgrade_info_controller_node (controller_node_id, upgrade_info_uuid);
-
-CREATE TRIGGER trg_changelog_upgradeinfo_insert
-AFTER INSERT ON upgrade_info FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at)
-    VALUES (1, 4, NEW.uuid, DATETIME('now'));
-END;
-
-CREATE TRIGGER trg_changelog_upgradeinfo_update
-AFTER UPDATE ON upgrade_info FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at)
-    VALUES (2, 4, OLD.uuid, DATETIME('now'));
-END;
-
-CREATE TRIGGER trg_changelog_upgradeinfo_delete
-AFTER DELETE ON upgrade_info FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at)
-    VALUES (4, 4, OLD.uuid, DATETIME('now'));
-END;
 `)
 }

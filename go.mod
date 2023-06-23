@@ -52,7 +52,7 @@ require (
 	github.com/juju/charm/v11 v11.0.0-20230525115724-1b98af243110
 	github.com/juju/clock v1.0.3
 	github.com/juju/cmd/v3 v3.0.10
-	github.com/juju/collections v1.0.3
+	github.com/juju/collections v1.0.4
 	github.com/juju/description/v4 v4.0.10
 	github.com/juju/errors v1.0.0
 	github.com/juju/featureflag v1.0.0

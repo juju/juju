@@ -11,7 +11,7 @@ func ModelDDL() []database.Delta {
 		changeLogSchema,
 	}
 
-	var deltas []database.Delta
+	deltas := make([]database.Delta, 0, len(schemas))
 	for _, fn := range schemas {
 		deltas = append(deltas, fn())
 	}

@@ -20,3 +20,12 @@ func (s *statementSuite) TestSliceToPlaceholder(c *gc.C) {
 	c.Check(binds, gc.Equals, "?,?,?,?")
 	c.Check(vals, gc.DeepEquals, []any{"won", "too", "free", "for"})
 }
+
+func (s *statementSuite) TestMapToMultiPlaceholder(c *gc.C) {
+	binds, vals := MapToMultiPlaceholder(map[string]string{
+		"a": "b",
+		"c": "d",
+	})
+	c.Assert(binds, gc.Equals, "(?, ?),(?, ?)")
+	c.Assert(len(vals), gc.Equals, 4)
+}
