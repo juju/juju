@@ -85,6 +85,9 @@ type JujuAPIClient interface {
 	// GetSecretBackendConfig fetches the config needed to make secret backend clients.
 	// If backendID is nil, return the current active backend (if any).
 	GetSecretBackendConfig(backendID *string) (*provider.ModelBackendConfigInfo, error)
+
+	// GetBackendConfigForDrain fetches the config needed to make a secret backend client for the drain worker.
+	GetBackendConfigForDrain(backendID *string) (*provider.ModelBackendConfig, string, error)
 }
 
 // BackendsClient provides access to a client which can access secret backends.
@@ -108,5 +111,5 @@ type BackendsClient interface {
 	DeleteExternalContent(ref secrets.ValueRef) error
 
 	// GetBackend returns the secret client for the provided backend ID.
-	GetBackend(backendID *string) (provider.SecretsBackend, string, error)
+	GetBackend(backendID *string, forDrain bool) (provider.SecretsBackend, string, error)
 }

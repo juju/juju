@@ -11,6 +11,8 @@ import (
 	"github.com/juju/juju/secrets/provider"
 )
 
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/http_mock.go net/http RoundTripper
+
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }

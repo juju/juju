@@ -118,6 +118,22 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 			},
 		}, nil
 	}
+	drainConfigGetter := func(backendID string) (*provider.ModelBackendConfigInfo, error) {
+		return &provider.ModelBackendConfigInfo{
+			ActiveID: "backend-id",
+			Configs: map[string]provider.ModelBackendConfig{
+				"backend-id": {
+					ControllerUUID: coretesting.ControllerTag.Id(),
+					ModelUUID:      coretesting.ModelTag.Id(),
+					ModelName:      "fred",
+					BackendConfig: provider.BackendConfig{
+						BackendType: "some-backend",
+						Config:      map[string]interface{}{"foo": "admin"},
+					},
+				},
+			},
+		}, nil
+	}
 	remoteClientGetter := func(uri *coresecrets.URI) (secretsmanager.CrossModelSecretsClient, error) {
 		return s.remoteClient, nil
 	}
@@ -125,8 +141,10 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	var err error
 	s.facade, err = secretsmanager.NewTestAPI(
 		s.authorizer, s.resources, s.leadership, s.secretsState, s.secretsConsumer,
-		s.secretTriggers, backendConfigGetter, adminConfigGetter, remoteClientGetter,
-		s.crossModelState, s.authTag, s.clock)
+		s.secretTriggers, backendConfigGetter, adminConfigGetter,
+		drainConfigGetter, remoteClientGetter,
+		s.crossModelState, s.authTag, s.clock,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
@@ -175,6 +193,31 @@ func (s *SecretsManagerSuite) TestGetSecretBackendConfigs(c *gc.C) {
 				Config: params.SecretBackendConfig{
 					BackendType: "some-backend",
 					Params:      map[string]interface{}{"foo": "bar"},
+				},
+			},
+		},
+	})
+}
+
+func (s *SecretsManagerSuite) TestGetSecretBackendConfigsForDrain(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	result, err := s.facade.GetSecretBackendConfigs(params.SecretBackendArgs{
+		ForDrain:   true,
+		BackendIDs: []string{"backend-id"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.SecretBackendConfigResults{
+		ActiveID: "backend-id",
+		Results: map[string]params.SecretBackendConfigResult{
+			"backend-id": {
+				ControllerUUID: coretesting.ControllerTag.Id(),
+				ModelUUID:      coretesting.ModelTag.Id(),
+				ModelName:      "fred",
+				Draining:       true,
+				Config: params.SecretBackendConfig{
+					BackendType: "some-backend",
+					Params:      map[string]interface{}{"foo": "admin"},
 				},
 			},
 		},

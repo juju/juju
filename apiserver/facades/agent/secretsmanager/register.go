@@ -65,6 +65,13 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		}
 		return secrets.AdminBackendConfigInfo(secrets.SecretsModel(model))
 	}
+	secretBackendDrainConfigGetter := func(backendID string) (*provider.ModelBackendConfigInfo, error) {
+		model, err := context.State().Model()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return secrets.DrainBackendConfigInfo(backendID, secrets.SecretsModel(model), context.Auth().GetAuthTag(), leadershipChecker)
+	}
 	controllerAPI := common.NewStateControllerConfig(context.State())
 	remoteClientGetter := func(uri *coresecrets.URI) (CrossModelSecretsClient, error) {
 		info, err := controllerAPI.ControllerAPIInfoForModels(params.Entities{Entities: []params.Entity{{
@@ -100,6 +107,7 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		modelUUID:           context.State().ModelUUID(),
 		backendConfigGetter: secretBackendConfigGetter,
 		adminConfigGetter:   secretBackendAdminConfigGetter,
+		drainConfigGetter:   secretBackendDrainConfigGetter,
 		remoteClientGetter:  remoteClientGetter,
 		crossModelState:     context.State().RemoteEntities(),
 	}, nil
