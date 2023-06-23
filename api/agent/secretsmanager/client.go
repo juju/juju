@@ -80,7 +80,7 @@ func (c *Client) GetBackendConfigForDrain(backendID *string) (*provider.ModelBac
 		arg.BackendIDs = []string{*backendID}
 	}
 	err := c.facade.FacadeCall("GetSecretBackendConfigs", arg, &result)
-	if err != nil {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, "", errors.Trace(err)
 	}
 	if len(result.Results) == 0 {
