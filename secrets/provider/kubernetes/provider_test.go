@@ -64,7 +64,7 @@ func (s *providerSuite) assertRestrictedConfigWithTag(c *gc.C, isControllerCloud
 		},
 	}
 
-	backendCfg, err := p.RestrictedConfig(adminCfg, tag,
+	backendCfg, err := p.RestrictedConfig(adminCfg, false, tag,
 		provider.SecretRevisions{"owned-a": set.NewStrings("owned-rev-1")},
 		provider.SecretRevisions{"read-b": set.NewStrings("read-rev-1", "read-rev-2")},
 	)

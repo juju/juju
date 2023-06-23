@@ -40,6 +40,10 @@ func (s *ShowOperationSuite) TestInit(c *gc.C) {
 		args:        []string{},
 		expectError: "no operation ID specified",
 	}, {
+		should:      "fail with invalid operation ID",
+		args:        []string{"test"},
+		expectError: "operation ID \"test\" not valid",
+	}, {
 		should:      "fail with multiple args",
 		args:        []string{"12345", "54321"},
 		expectError: `unrecognized args: \["54321"\]`,

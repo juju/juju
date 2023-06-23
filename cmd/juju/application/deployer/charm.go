@@ -98,7 +98,7 @@ func (d *deployCharm) deploy(
 	}
 
 	// Process the --config args.
-	appConfig, configYAML, err := utils.ProcessConfig(ctx, d.model.Filesystem(), d.configOptions, d.trust)
+	appConfig, configYAML, err := utils.ProcessConfig(ctx, d.model.Filesystem(), d.configOptions, &d.trust)
 	if err != nil {
 		return errors.Trace(err)
 	}

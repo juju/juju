@@ -40,6 +40,10 @@ func (s *ShowTaskSuite) TestInit(c *gc.C) {
 		args:        []string{},
 		expectError: "no task ID specified",
 	}, {
+		should:      "fail with invalid task ID",
+		args:        []string{"test"},
+		expectError: "task ID \"test\" not valid",
+	}, {
 		should:      "fail with multiple args",
 		args:        []string{"12345", "54321"},
 		expectError: `unrecognized args: \["54321"\]`,

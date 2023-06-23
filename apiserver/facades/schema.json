@@ -40984,10 +40984,14 @@
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "for-drain": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "for-drain",
                         "backend-ids"
                     ]
                 },
@@ -49338,10 +49342,14 @@
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "for-drain": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "for-drain",
                         "backend-ids"
                     ]
                 },
