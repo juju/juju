@@ -288,7 +288,7 @@ type configFlag interface {
 // We may also have key/value pairs representing
 // charm settings which overrides anything in the YAML file.
 // If more than one file is specified, that is an error.
-func ProcessConfig(ctx *cmd.Context, filesystem modelcmd.Filesystem, configOptions configFlag, trust bool) (map[string]string, string, error) {
+func ProcessConfig(ctx *cmd.Context, filesystem modelcmd.Filesystem, configOptions configFlag, trust *bool) (map[string]string, string, error) {
 	var configYAML []byte
 	files, err := configOptions.AbsoluteFileNames(ctx)
 	if err != nil {
@@ -323,6 +323,8 @@ func ProcessConfig(ctx *cmd.Context, filesystem modelcmd.Filesystem, configOptio
 	}
 
 	// Expand the trust flag into the appConfig
-	appConfig[app.TrustConfigOptionName] = strconv.FormatBool(trust)
+	if trust != nil {
+		appConfig[app.TrustConfigOptionName] = strconv.FormatBool(*trust)
+	}
 	return appConfig, string(configYAML), nil
 }
