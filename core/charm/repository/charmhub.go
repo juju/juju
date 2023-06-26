@@ -268,7 +268,11 @@ func (c *CharmHubRepository) retryResolveWithPreferredChannel(charmURL *charm.UR
 	}
 
 	if len(bases) == 0 {
-		return nil, errors.Wrap(resErr, errors.Errorf("no releases found for channel %q", origin.Channel.String()))
+		ch := origin.Channel.String()
+		if ch == "" {
+			ch = "stable"
+		}
+		return nil, errors.Wrap(resErr, errors.Errorf("no releases found for channel %q", ch))
 	}
 	base := bases[0]
 
