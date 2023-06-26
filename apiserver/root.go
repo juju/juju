@@ -98,7 +98,7 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 		}
 	}
 
-	registry, err := registry.NewRegistry(srv.clock)
+	registry, err := registry.NewRegistry(srv.clock, registry.WithLogger(logger))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

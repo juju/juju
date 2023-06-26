@@ -1999,7 +1999,9 @@ func newObsoleteSecretsWatcher(st modelBackend, owners []string) *obsoleteSecret
 	}
 	w.tomb.Go(func() error {
 		defer w.finish()
-		return w.loop()
+		err := w.loop()
+		fmt.Println("!!!", err)
+		return errors.Trace(err)
 	})
 	return w
 }
