@@ -261,7 +261,7 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundErrorWithNoSeries(c
 	c.Assert(err, gc.ErrorMatches,
 		`(?m)selecting releases: charm or bundle not found for channel "", platform "amd64"
 available releases are:
-  channel "stable": available series are: focal`)
+  channel "stable": available bases are: ubuntu@20.04`)
 }
 
 func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
@@ -869,7 +869,7 @@ func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestion(c *gc.C)
 	c.Assert(err, gc.ErrorMatches,
 		`charm or bundle not found for channel "", platform "arch"
 available releases are:
-  channel "stable": available series are: focal`)
+  channel "stable": available bases are: ubuntu@20.04`)
 }
 
 func (s *selectNextBaseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -924,7 +924,7 @@ func (s *composeSuggestionsSuite) TestSuggestion(c *gc.C) {
 		},
 	})
 	c.Assert(suggestions, gc.DeepEquals, []string{
-		`channel "stable": available series are: focal`,
+		`channel "stable": available bases are: ubuntu@20.04`,
 	})
 }
 
@@ -944,7 +944,7 @@ func (s *composeSuggestionsSuite) TestSuggestionWithRisk(c *gc.C) {
 		},
 	})
 	c.Assert(suggestions, gc.DeepEquals, []string{
-		`channel "stable": available series are: focal`,
+		`channel "stable": available bases are: ubuntu@20.04`,
 	})
 }
 
@@ -985,8 +985,8 @@ func (s *composeSuggestionsSuite) TestMultipleSuggestion(c *gc.C) {
 		},
 	})
 	c.Assert(suggestions, gc.DeepEquals, []string{
-		`channel "stable": available series are: focal, bionic`,
-		`channel "2.0/stable": available series are: bionic`,
+		`channel "stable": available bases are: ubuntu@20.04, ubuntu@18.04`,
+		`channel "2.0/stable": available bases are: ubuntu@18.04`,
 	})
 }
 
@@ -1006,7 +1006,7 @@ func (s *composeSuggestionsSuite) TestCentosSuggestion(c *gc.C) {
 		},
 	})
 	c.Assert(suggestions, gc.DeepEquals, []string{
-		`channel "stable": available series are: centos7`,
+		`channel "stable": available bases are: centos@7`,
 	})
 }
 

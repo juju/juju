@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/series"
 	coreseries "github.com/juju/juju/core/series"
 )
 
@@ -652,12 +653,7 @@ func refreshConfig(charmURL *charm.URL, origin corecharm.Origin) (charmhub.Refre
 func (c *CharmHubRepository) composeSuggestions(releases []transport.Release, origin corecharm.Origin) []string {
 	channelSeries := make(map[string][]string)
 	for _, release := range releases {
-		base := corecharm.Platform{
-			Architecture: release.Base.Architecture,
-			OS:           release.Base.Name,
-			Channel:      release.Base.Channel,
-		}
-		arch := base.Architecture
+		arch := release.Base.Architecture
 		if arch == "all" {
 			arch = origin.Platform.Architecture
 		}
@@ -665,24 +661,24 @@ func (c *CharmHubRepository) composeSuggestions(releases []transport.Release, or
 			continue
 		}
 		var (
-			series string
-			err    error
+			base coreseries.Base
+			err  error
 		)
-		track, err := corecharm.ChannelTrack(base.Channel)
+		track, err := corecharm.ChannelTrack(release.Base.Channel)
 		if err != nil {
-			c.logger.Errorf("invalid base channel %v: %s", base.Channel, err)
+			c.logger.Errorf("invalid base channel %v: %s", release.Base.Channel, err)
 			continue
 		}
-		if track == "all" || base.OS == "all" {
-			series, err = coreseries.GetSeriesFromChannel(origin.Platform.OS, origin.Platform.Channel)
+		if track == "all" || release.Base.Name == "all" {
+			base, err = series.ParseBase(origin.Platform.OS, origin.Platform.Channel)
 		} else {
-			series, err = coreseries.GetSeriesFromChannel(base.OS, base.Channel)
+			base, err = series.ParseBase(release.Base.Name, release.Base.Channel)
 		}
 		if err != nil {
-			c.logger.Errorf("converting version to series: %s", err)
+			c.logger.Errorf("converting version to base: %s", err)
 			continue
 		}
-		channelSeries[release.Channel] = append(channelSeries[release.Channel], series)
+		channelSeries[release.Channel] = append(channelSeries[release.Channel], base.DisplayString())
 	}
 
 	var suggestions []string
@@ -691,13 +687,13 @@ func (c *CharmHubRepository) composeSuggestions(releases []transport.Release, or
 	for _, r := range charm.Risks {
 		risk := string(r)
 		if values, ok := channelSeries[risk]; ok {
-			suggestions = append(suggestions, fmt.Sprintf("channel %q: available series are: %s", risk, strings.Join(values, ", ")))
+			suggestions = append(suggestions, fmt.Sprintf("channel %q: available bases are: %s", risk, strings.Join(values, ", ")))
 			delete(channelSeries, risk)
 		}
 	}
 
 	for channel, values := range channelSeries {
-		suggestions = append(suggestions, fmt.Sprintf("channel %q: available series are: %s", channel, strings.Join(values, ", ")))
+		suggestions = append(suggestions, fmt.Sprintf("channel %q: available bases are: %s", channel, strings.Join(values, ", ")))
 	}
 	return suggestions
 }
