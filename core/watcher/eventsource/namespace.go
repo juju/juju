@@ -16,10 +16,10 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-// KeysWatcher watches for changes to a database table.
+// NamespaceWatcher watches for changes to a database table.
 // Any time rows change in the watched table, the changed
 // values from the column specified by keyName are emitted.
-type KeysWatcher struct {
+type NamespaceWatcher struct {
 	*BaseWatcher
 
 	out chan []string
@@ -33,15 +33,17 @@ type KeysWatcher struct {
 }
 
 // NewUUIDsWatcher is a convenience method for creating a new
-// KeysWatcher for the "uuid" column of the input table name.
+// NamespaceWatcher for the "uuid" column of the input table name.
 func NewUUIDsWatcher(base *BaseWatcher, changeMask changestream.ChangeType, tableName string) watcher.StringsWatcher {
-	return NewKeysWatcher(base, changeMask, tableName, "uuid")
+	return NewNamespaceWatcher(base, changeMask, tableName, "uuid")
 }
 
-// NewKeysWatcher returns a new watcher that receives changes from the
+// NewNamespaceWatcher returns a new watcher that receives changes from the
 // input base watcher's db/queue when rows in the input table change.
-func NewKeysWatcher(base *BaseWatcher, changeMask changestream.ChangeType, tableName, keyName string) watcher.StringsWatcher {
-	w := &KeysWatcher{
+func NewNamespaceWatcher(
+	base *BaseWatcher, changeMask changestream.ChangeType, tableName, keyName string,
+) watcher.StringsWatcher {
+	w := &NamespaceWatcher{
 		BaseWatcher: base,
 		out:         make(chan []string),
 		tableName:   tableName,
@@ -56,11 +58,11 @@ func NewKeysWatcher(base *BaseWatcher, changeMask changestream.ChangeType, table
 
 // Changes returns the channel on which the keys for
 // changed rows are sent to downstream consumers.
-func (w *KeysWatcher) Changes() <-chan []string {
+func (w *NamespaceWatcher) Changes() <-chan []string {
 	return w.out
 }
 
-func (w *KeysWatcher) loop() error {
+func (w *NamespaceWatcher) loop() error {
 	defer close(w.out)
 
 	if w.changeMask == 0 {
@@ -113,7 +115,7 @@ func (w *KeysWatcher) loop() error {
 // getInitialState retrieves the current state of the world from the database,
 // as it concerns this watcher. It must be called after we are subscribed.
 // Note that killing the worker via its tomb cancels the context used here.
-func (w *KeysWatcher) getInitialState() ([]string, error) {
+func (w *NamespaceWatcher) getInitialState() ([]string, error) {
 	parentCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -146,12 +148,12 @@ func (w *KeysWatcher) getInitialState() ([]string, error) {
 }
 
 // Kill (worker.Worker) kills the watcher via its tomb.
-func (w *KeysWatcher) Kill() {
+func (w *NamespaceWatcher) Kill() {
 	w.tomb.Kill(nil)
 }
 
 // Wait (worker.Worker) waits for the watcher's tomb to die,
 // and returns the error with which it was killed.
-func (w *KeysWatcher) Wait() error {
+func (w *NamespaceWatcher) Wait() error {
 	return w.tomb.Wait()
 }

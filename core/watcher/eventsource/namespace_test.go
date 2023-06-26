@@ -4,8 +4,8 @@
 package eventsource
 
 import (
-	context "context"
-	sql "database/sql"
+	"context"
+	"database/sql"
 	"errors"
 	"time"
 
@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-var _ watcher.StringsWatcher = &KeysWatcher{}
+var _ watcher.StringsWatcher = &NamespaceWatcher{}
 
 type keysSuite struct {
 	baseSuite
@@ -61,7 +61,7 @@ func (s *keysSuite) TestInitialStateSent(c *gc.C) {
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
-	w := NewKeysWatcher(s.newBaseWatcher(), changestream.All, "random_namespace", "key_name")
+	w := NewNamespaceWatcher(s.newBaseWatcher(), changestream.All, "random_namespace", "key_name")
 	defer workertest.CleanKill(c, w)
 
 	select {

@@ -71,5 +71,5 @@ func (f *WatcherFactory) NewKeysWatcher(
 		return nil, errors.Annotatef(err, "creating keys watcher on namespace %s and key %s", tableName, keyName)
 	}
 
-	return eventsource.NewKeysWatcher(base, changeMask, tableName, keyName), nil
+	return eventsource.NewNamespaceWatcher(base, changeMask, tableName, keyName), nil
 }
