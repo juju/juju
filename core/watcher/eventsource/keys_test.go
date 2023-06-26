@@ -182,7 +182,7 @@ func (s *keysSuite) TestEnsureCloseOnCleanKill(c *gc.C) {
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewKeyWatcher(s.newBaseWatcher(), "random_namespace", "key_value")
+	w := NewValueWatcher(s.newBaseWatcher(), "random_namespace", "key_value")
 
 	workertest.CleanKill(c, w)
 	_, ok := <-w.Changes()
@@ -201,7 +201,7 @@ func (s *keysSuite) TestEnsureCloseOnDirtyKill(c *gc.C) {
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewKeyWatcher(s.newBaseWatcher(), "random_namespace", "key_value")
+	w := NewValueWatcher(s.newBaseWatcher(), "random_namespace", "key_value")
 
 	workertest.DirtyKill(c, w)
 	_, ok := <-w.Changes()

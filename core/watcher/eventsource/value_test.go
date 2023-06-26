@@ -16,13 +16,13 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-var _ watcher.NotifyWatcher = &KeyWatcher{}
+var _ watcher.NotifyWatcher = &ValueWatcher{}
 
-type keySuite struct {
+type valueSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&keySuite{})
+var _ = gc.Suite(&valueSuite{})
 
 func (s *keysSuite) TestNotificationsSent(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
@@ -47,7 +47,7 @@ func (s *keysSuite) TestNotificationsSent(c *gc.C) {
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewKeyWatcher(s.newBaseWatcher(), "random_namespace", "key_value")
+	w := NewValueWatcher(s.newBaseWatcher(), "random_namespace", "value")
 	defer workertest.CleanKill(c, w)
 
 	// Initial notification.
@@ -78,7 +78,7 @@ func (s *keysSuite) TestNotificationsSent(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *keySuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
+func (s *valueSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -93,14 +93,14 @@ func (s *keySuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewKeyWatcher(s.newBaseWatcher(), "random_namespace", "key_value")
+	w := NewValueWatcher(s.newBaseWatcher(), "random_namespace", "value")
 	defer workertest.DirtyKill(c, w)
 
 	err := workertest.CheckKilled(c, w)
 	c.Check(errors.Is(err, ErrSubscriptionClosed), jc.IsTrue)
 }
 
-func (s *keySuite) TestEnsureCloseOnCleanKill(c *gc.C) {
+func (s *valueSuite) TestEnsureCloseOnCleanKill(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -112,14 +112,14 @@ func (s *keySuite) TestEnsureCloseOnCleanKill(c *gc.C) {
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewKeyWatcher(s.newBaseWatcher(), "random_namespace", "key_value")
+	w := NewValueWatcher(s.newBaseWatcher(), "random_namespace", "value")
 
 	workertest.CleanKill(c, w)
 	_, ok := <-w.Changes()
 	c.Assert(ok, jc.IsFalse)
 }
 
-func (s *keySuite) TestEnsureCloseOnDirtyKill(c *gc.C) {
+func (s *valueSuite) TestEnsureCloseOnDirtyKill(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -131,7 +131,7 @@ func (s *keySuite) TestEnsureCloseOnDirtyKill(c *gc.C) {
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewKeyWatcher(s.newBaseWatcher(), "random_namespace", "key_value")
+	w := NewValueWatcher(s.newBaseWatcher(), "random_namespace", "value")
 
 	workertest.DirtyKill(c, w)
 	_, ok := <-w.Changes()

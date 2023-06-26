@@ -10,24 +10,27 @@ import (
 	"github.com/juju/juju/core/changestream"
 )
 
-// KeyWatcher watches for changes to single database table row.
-// Any time the identified row changes, a notification is emitted.
-type KeyWatcher struct {
+// ValueWatcher watches for events associated with a single value
+// from a namespace.
+// Any time the identified change value has an associated event,
+// a notification is emitted.
+type ValueWatcher struct {
 	*BaseWatcher
 
-	out       chan struct{}
-	tableName string
-	keyValue  string
+	out         chan struct{}
+	namespace   string
+	changeValue string
 }
 
-// NewKeyWatcher returns a new watcher that receives changes from the input
-// base watcher's db/queue when a specific database table row changes.
-func NewKeyWatcher(base *BaseWatcher, tableName string, keyValue string) *KeyWatcher {
-	w := &KeyWatcher{
+// NewValueWatcher returns a new watcher that receives changes from the input
+// base watcher's db/queue when change-log events occur for a specific changeValue
+// from the input namespace.
+func NewValueWatcher(base *BaseWatcher, namespace string, changeValue string) *ValueWatcher {
+	w := &ValueWatcher{
 		BaseWatcher: base,
 		out:         make(chan struct{}),
-		tableName:   tableName,
-		keyValue:    keyValue,
+		namespace:   namespace,
+		changeValue: changeValue,
 	}
 
 	w.tomb.Go(w.loop)
@@ -36,19 +39,19 @@ func NewKeyWatcher(base *BaseWatcher, tableName string, keyValue string) *KeyWat
 
 // Changes returns the channel on which notifications
 // are sent when the watched database row changes.
-func (w *KeyWatcher) Changes() <-chan struct{} {
+func (w *ValueWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
-func (w *KeyWatcher) loop() error {
+func (w *ValueWatcher) loop() error {
 	defer close(w.out)
 
-	opt := changestream.FilteredNamespace(w.tableName, changestream.All, func(e changestream.ChangeEvent) bool {
-		return e.Changed() == w.keyValue
+	opt := changestream.FilteredNamespace(w.namespace, changestream.All, func(e changestream.ChangeEvent) bool {
+		return e.Changed() == w.changeValue
 	})
 	subscription, err := w.watchableDB.Subscribe(opt)
 	if err != nil {
-		return errors.Annotatef(err, "subscribing to entity %q in namespace %q", w.keyValue, w.tableName)
+		return errors.Annotatef(err, "subscribing to entity %q in namespace %q", w.changeValue, w.namespace)
 	}
 	defer subscription.Unsubscribe()
 
@@ -69,7 +72,7 @@ func (w *KeyWatcher) loop() error {
 			return ErrSubscriptionClosed
 		case _, ok := <-in:
 			if !ok {
-				w.logger.Debugf("change channel closed for %q; terminating watcher for %q", w.tableName, w.keyValue)
+				w.logger.Debugf("change channel closed for %q; terminating watcher for %q", w.namespace, w.changeValue)
 				return nil
 			}
 
@@ -85,12 +88,12 @@ func (w *KeyWatcher) loop() error {
 }
 
 // Kill (worker.Worker) kills the watcher via its tomb.
-func (w *KeyWatcher) Kill() {
+func (w *ValueWatcher) Kill() {
 	w.tomb.Kill(nil)
 }
 
 // Wait (worker.Worker) waits for the watcher's tomb to die,
 // and returns the error with which it was killed.
-func (w *KeyWatcher) Wait() error {
+func (w *ValueWatcher) Wait() error {
 	return w.tomb.Wait()
 }
