@@ -30,46 +30,39 @@ func NewWatcherFactory(watchableDBFactory WatchableDBFactory, logger eventsource
 	}
 }
 
+// NewUUIDsWatcher returns a watcher that emits the UUIDs for
+// changes to the input table name that match the input mask.
+func (f *WatcherFactory) NewUUIDsWatcher(
+	changeMask changestream.ChangeType,
+	tableName string,
+) (watcher.StringsWatcher, error) {
+	w, err := f.NewNamespaceWatcher(changeMask, tableName, "SELECT uuid from "+tableName)
+	return w, errors.Trace(err)
+}
+
+// NewNamespaceWatcher returns a new namespace watcher
+// for events based on the input change mask.
+func (f *WatcherFactory) NewNamespaceWatcher(
+	changeMask changestream.ChangeType, namespace, initialStateQuery string,
+) (watcher.StringsWatcher, error) {
+	base, err := f.newBaseWatcher()
+	if err != nil {
+		return nil, errors.Annotate(err, "creating base watcher")
+	}
+
+	return eventsource.NewNamespaceWatcher(base, changeMask, namespace, initialStateQuery), nil
+}
+
 func (f *WatcherFactory) newBaseWatcher() (*eventsource.BaseWatcher, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	var err error
-
 	if f.watchableDB == nil {
+		var err error
 		if f.watchableDB, err = f.getDB(); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
 
 	return eventsource.NewBaseWatcher(f.watchableDB, f.logger), nil
-}
-
-// NewUUIDsWatcher returns a new UUIDs watcher on the table and change mask
-// provided.
-func (f *WatcherFactory) NewUUIDsWatcher(
-	changeMask changestream.ChangeType,
-	tableName string,
-) (watcher.StringsWatcher, error) {
-	base, err := f.newBaseWatcher()
-	if err != nil {
-		return nil, errors.Annotatef(err, "creating UUID watcher on namespace %s", tableName)
-	}
-
-	return eventsource.NewUUIDsWatcher(base, changeMask, tableName), nil
-}
-
-// NewKeysWatcher returns a new keys watcher on the table, key name and
-// change mask provided.
-func (f *WatcherFactory) NewKeysWatcher(
-	changeMask changestream.ChangeType,
-	tableName,
-	keyName string,
-) (watcher.StringsWatcher, error) {
-	base, err := f.newBaseWatcher()
-	if err != nil {
-		return nil, errors.Annotatef(err, "creating keys watcher on namespace %s and key %s", tableName, keyName)
-	}
-
-	return eventsource.NewNamespaceWatcher(base, changeMask, tableName, keyName), nil
 }

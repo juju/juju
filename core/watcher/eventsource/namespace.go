@@ -6,7 +6,6 @@ package eventsource
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
@@ -16,9 +15,9 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-// NamespaceWatcher watches for changes to a database table.
-// Any time rows change in the watched table, the changed
-// values from the column specified by keyName are emitted.
+// NamespaceWatcher watches for changes in a namespace.
+// Any time events matching the change mask occur in the namespace,
+// the values associated with the events are emitted.
 type NamespaceWatcher struct {
 	*BaseWatcher
 
@@ -26,29 +25,21 @@ type NamespaceWatcher struct {
 
 	// TODO (manadart 2023-05-24): Consider making this plural (composite key)
 	// if/when it is supported by the change log table structure and stream.
-	keyName    string
-	tableName  string
+	namespace  string
 	selectAll  string
 	changeMask changestream.ChangeType
 }
 
-// NewUUIDsWatcher is a convenience method for creating a new
-// NamespaceWatcher for the "uuid" column of the input table name.
-func NewUUIDsWatcher(base *BaseWatcher, changeMask changestream.ChangeType, tableName string) watcher.StringsWatcher {
-	return NewNamespaceWatcher(base, changeMask, tableName, "uuid")
-}
-
 // NewNamespaceWatcher returns a new watcher that receives changes from the
-// input base watcher's db/queue when rows in the input table change.
+// input base watcher's db/queue when changes in the namespace occur.
 func NewNamespaceWatcher(
-	base *BaseWatcher, changeMask changestream.ChangeType, tableName, keyName string,
+	base *BaseWatcher, changeMask changestream.ChangeType, namespace, initialStateQuery string,
 ) watcher.StringsWatcher {
 	w := &NamespaceWatcher{
 		BaseWatcher: base,
 		out:         make(chan []string),
-		tableName:   tableName,
-		keyName:     keyName,
-		selectAll:   fmt.Sprintf("SELECT %s FROM %s", keyName, tableName),
+		namespace:   namespace,
+		selectAll:   initialStateQuery,
 		changeMask:  changeMask,
 	}
 
@@ -68,16 +59,16 @@ func (w *NamespaceWatcher) loop() error {
 	if w.changeMask == 0 {
 		return errors.NotValidf("changeMask value: 0")
 	}
-	subscription, err := w.watchableDB.Subscribe(changestream.Namespace(w.tableName, w.changeMask))
+	subscription, err := w.watchableDB.Subscribe(changestream.Namespace(w.namespace, w.changeMask))
 	if err != nil {
-		return errors.Annotatef(err, "subscribing to namespace %q", w.tableName)
+		return errors.Annotatef(err, "subscribing to namespace %q", w.namespace)
 	}
 	defer subscription.Unsubscribe()
 
 	changes, err := w.getInitialState()
 	if err != nil {
 		return errors.Annotatef(
-			err, "retrieving initial watcher state for namespace %q and key %q", w.tableName, w.keyName)
+			err, "retrieving initial watcher state for namespace %q", w.namespace)
 	}
 
 	// By reassigning the in and out channels, we effectively ticktock between
@@ -96,7 +87,7 @@ func (w *NamespaceWatcher) loop() error {
 			return ErrSubscriptionClosed
 		case subChanges, ok := <-in:
 			if !ok {
-				w.logger.Debugf("change channel closed for %q; terminating watcher", w.tableName)
+				w.logger.Debugf("change channel closed for %q; terminating watcher", w.namespace)
 				return nil
 			}
 
