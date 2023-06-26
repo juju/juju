@@ -95,8 +95,8 @@ func (s *baseSuite) dispatchTerm(c *gc.C, terms chan<- changestream.Term) <-chan
 }
 
 type changeEvent struct {
-	ctype    changestream.ChangeType
-	ns, uuid string
+	ctype       changestream.ChangeType
+	ns, changed string
 }
 
 // Type returns the type of change (create, update, delete).
@@ -110,9 +110,11 @@ func (c changeEvent) Namespace() string {
 	return c.ns
 }
 
-// ChangedUUID returns the entity UUID of the change.
-func (c changeEvent) ChangedUUID() string {
-	return c.uuid
+// Changed returns the changed value of event. This logically can be
+// the primary key of the row that was changed or the field of the change
+// that was changed.
+func (c changeEvent) Changed() string {
+	return c.changed
 }
 
 type waitGroup struct {

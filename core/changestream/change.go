@@ -25,8 +25,10 @@ type ChangeEvent interface {
 	// Namespace returns the namespace of the change. This is normally the
 	// table name.
 	Namespace() string
-	// ChangedUUID returns the entity UUID of the change.
-	ChangedUUID() string
+	// Changed returns the changed value of event. This logically can be
+	// the primary key of the row that was changed or the field of the change
+	// that was changed.
+	Changed() string
 }
 
 // Term represents a set of changes that are bounded by a coalesced set.

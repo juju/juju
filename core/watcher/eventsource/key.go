@@ -44,7 +44,7 @@ func (w *KeyWatcher) loop() error {
 	defer close(w.out)
 
 	opt := changestream.FilteredNamespace(w.tableName, changestream.All, func(e changestream.ChangeEvent) bool {
-		return e.ChangedUUID() == w.keyValue
+		return e.Changed() == w.keyValue
 	})
 	subscription, err := w.watchableDB.Subscribe(opt)
 	if err != nil {

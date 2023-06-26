@@ -67,9 +67,9 @@ func (s *eventMultiplexerSuite) TestDispatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectTerm(c, changeEvent{
-		ctype: changestream.Create,
-		ns:    "topic",
-		uuid:  "1",
+		ctype:   changestream.Create,
+		ns:      "topic",
+		changed: "1",
 	})
 	s.dispatchTerm(c, terms)
 
@@ -83,7 +83,7 @@ func (s *eventMultiplexerSuite) TestDispatch(c *gc.C) {
 	c.Assert(changes, gc.HasLen, 1)
 	c.Check(changes[0].Type(), jc.DeepEquals, changestream.Create)
 	c.Check(changes[0].Namespace(), jc.DeepEquals, "topic")
-	c.Check(changes[0].ChangedUUID(), gc.Equals, "1")
+	c.Check(changes[0].Changed(), gc.Equals, "1")
 
 	s.unsubscribe(c, sub)
 
@@ -134,9 +134,9 @@ func (s *eventMultiplexerSuite) testMultipleDispatch(c *gc.C, opts ...changestre
 	defer workertest.CleanKill(c, queue)
 
 	s.expectTerm(c, changeEvent{
-		ctype: changestream.Update,
-		ns:    "topic",
-		uuid:  "1",
+		ctype:   changestream.Update,
+		ns:      "topic",
+		changed: "1",
 	})
 
 	subs := make([]changestream.Subscription, 10)
@@ -202,9 +202,9 @@ func (s *eventMultiplexerSuite) TestUnsubscribeTwice(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectTerm(c, changeEvent{
-		ctype: changestream.Create,
-		ns:    "topic",
-		uuid:  "1",
+		ctype:   changestream.Create,
+		ns:      "topic",
+		changed: "1",
 	})
 	s.dispatchTerm(c, terms)
 
@@ -237,9 +237,9 @@ func (s *eventMultiplexerSuite) TestTopicDoesNotMatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectEmptyTerm(c, changeEvent{
-		ctype: changestream.Create,
-		ns:    "foo",
-		uuid:  "1",
+		ctype:   changestream.Create,
+		ns:      "foo",
+		changed: "1",
 	})
 	done := s.dispatchTerm(c, terms)
 	select {
@@ -279,9 +279,9 @@ func (s *eventMultiplexerSuite) TestTopicMatchesOne(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectTerm(c, changeEvent{
-		ctype: changestream.Create,
-		ns:    "topic",
-		uuid:  "1",
+		ctype:   changestream.Create,
+		ns:      "topic",
+		changed: "1",
 	})
 	done := s.dispatchTerm(c, terms)
 	select {
@@ -325,9 +325,9 @@ func (s *eventMultiplexerSuite) TestSubscriptionDoneWhenEventQueueKilled(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectTerm(c, changeEvent{
-		ctype: changestream.Create,
-		ns:    "topic",
-		uuid:  "1",
+		ctype:   changestream.Create,
+		ns:      "topic",
+		changed: "1",
 	})
 	done := s.dispatchTerm(c, terms)
 	select {
@@ -365,9 +365,9 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *gc.C) {
 	}
 
 	s.expectTerm(c, changeEvent{
-		ctype: changestream.Create,
-		ns:    "topic",
-		uuid:  "1",
+		ctype:   changestream.Create,
+		ns:      "topic",
+		changed: "1",
 	})
 	s.dispatchTerm(c, terms)
 
@@ -426,9 +426,9 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGorou
 	}
 
 	s.expectTerm(c, changeEvent{
-		ctype: changestream.Create,
-		ns:    "topic",
-		uuid:  "1",
+		ctype:   changestream.Create,
+		ns:      "topic",
+		changed: "1",
 	})
 	s.dispatchTerm(c, terms)
 
@@ -490,9 +490,9 @@ func (s *eventMultiplexerSuite) TestStreamDying(c *gc.C) {
 	}
 
 	s.expectTerm(c, changeEvent{
-		ctype: changestream.Create,
-		ns:    "topic",
-		uuid:  "1",
+		ctype:   changestream.Create,
+		ns:      "topic",
+		changed: "1",
 	})
 	s.dispatchTerm(c, terms)
 
@@ -557,9 +557,9 @@ func (s *eventMultiplexerSuite) TestStreamDyingWhilstDispatching(c *gc.C) {
 	}
 
 	s.expectTerm(c, changeEvent{
-		ctype: changestream.Create,
-		ns:    "topic",
-		uuid:  "1",
+		ctype:   changestream.Create,
+		ns:      "topic",
+		changed: "1",
 	})
 	s.dispatchTerm(c, terms)
 

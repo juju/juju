@@ -494,7 +494,7 @@ VALUES ($M.ctrl_id, $M.lower_bound, $M.updated_at)
 
 func (s *workerSuite) insertChangeLogItems(c *gc.C, runner coredatabase.TxnRunner, amount int, now time.Time) {
 	query, err := sqlair.Prepare(`
-INSERT INTO change_log (id, edit_type_id, namespace_id, changed_uuid, created_at)
+INSERT INTO change_log (id, edit_type_id, namespace_id, changed, created_at)
 VALUES ($M.id, 4, 2, 0, $M.created_at);
 			`, sqlair.M{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -534,7 +534,7 @@ SELECT (controller_id, lower_bound, updated_at) AS &Watermark.* FROM change_log_
 
 func (s *workerSuite) expectChangeLogItems(c *gc.C, runner coredatabase.TxnRunner, amount, lowerBound, upperBound int) {
 	query, err := sqlair.Prepare(`
-SELECT (id, edit_type_id, namespace_id, changed_uuid, created_at) AS &ChangeLogItem.* FROM change_log;
+SELECT (id, edit_type_id, namespace_id, changed, created_at) AS &ChangeLogItem.* FROM change_log;
 	`, ChangeLogItem{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -554,7 +554,7 @@ SELECT (id, edit_type_id, namespace_id, changed_uuid, created_at) AS &ChangeLogI
 
 			c.Check(item.EditTypeID, gc.Equals, 4)
 			c.Check(item.Namespace, gc.Equals, 2)
-			c.Check(item.UUID, gc.Equals, 0)
+			c.Check(item.Changed, gc.Equals, 0)
 		}
 
 		return nil
@@ -577,6 +577,6 @@ type ChangeLogItem struct {
 	ID         int       `db:"id"`
 	EditTypeID int       `db:"edit_type_id"`
 	Namespace  int       `db:"namespace_id"`
-	UUID       int       `db:"changed_uuid"`
+	Changed    int       `db:"changed"`
 	CreatedAt  time.Time `db:"created_at"`
 }

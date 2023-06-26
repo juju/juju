@@ -94,12 +94,12 @@ ON lease_pin (lease_uuid);`)
 func changeLogControllerNamespaces() database.Delta {
 	return database.MakeDelta(`
 INSERT INTO change_log_namespace VALUES
-    (1, 'external_controller'),
-    (2, 'controller_node'),
-    (3, 'controller_config'),
-    (4, 'model_migration_status'),
-    (5, 'model_migration_minion_sync'),
-    (6, 'upgrade_info');
+    (1, 'external_controller', 'external controller changes based on the UUID'),
+    (2, 'controller_node', 'controller node changes based on the controller ID'),
+    (3, 'controller_config', 'controller config changes based on the key'),
+    (4, 'model_migration_status', 'model migration status changes based on the UUID'),
+    (5, 'model_migration_minion_sync', 'model migration minion sync changes based on the UUID'),
+    (6, 'upgrade_info', 'upgrade info changes based on the UUID');
 `)
 }
 

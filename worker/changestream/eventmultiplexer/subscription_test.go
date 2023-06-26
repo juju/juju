@@ -59,9 +59,9 @@ func (s *subscriptionSuite) TestSubscriptionWitnessChanges(c *gc.C) {
 	defer workertest.CleanKill(c, sub)
 
 	changes := ChangeSet{changeEvent{
-		ctype: changestream.Create,
-		ns:    "foo",
-		uuid:  "1",
+		ctype:   changestream.Create,
+		ns:      "foo",
+		changed: "1",
 	}}
 
 	go func() {
@@ -91,9 +91,9 @@ func (s *subscriptionSuite) TestSubscriptionDoesNoteWitnessChangesWithCancelledC
 	defer workertest.CleanKill(c, sub)
 
 	changes := ChangeSet{changeEvent{
-		ctype: changestream.Create,
-		ns:    "foo",
-		uuid:  "1",
+		ctype:   changestream.Create,
+		ns:      "foo",
+		changed: "1",
 	}}
 
 	syncPoint := make(chan struct{})
@@ -132,9 +132,9 @@ func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithUnsub(c *gc
 	defer workertest.CleanKill(c, sub)
 
 	changes := ChangeSet{changeEvent{
-		ctype: changestream.Create,
-		ns:    "foo",
-		uuid:  "1",
+		ctype:   changestream.Create,
+		ns:      "foo",
+		changed: "1",
 	}}
 
 	syncPoint := make(chan struct{})
@@ -177,9 +177,9 @@ func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithDying(c *gc
 	defer workertest.CleanKill(c, sub)
 
 	changes := ChangeSet{changeEvent{
-		ctype: changestream.Create,
-		ns:    "foo",
-		uuid:  "1",
+		ctype:   changestream.Create,
+		ns:      "foo",
+		changed: "1",
 	}}
 
 	syncPoint := make(chan struct{})

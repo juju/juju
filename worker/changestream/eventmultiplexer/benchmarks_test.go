@@ -45,9 +45,9 @@ func create(size int) ChangeSet {
 	changes := make(ChangeSet, size)
 	for i := 0; i < size; i++ {
 		changes[i] = &changeEvent{
-			ctype: changestream.Update,
-			ns:    "test",
-			uuid:  fmt.Sprintf("uuid-%d", i),
+			ctype:   changestream.Update,
+			ns:      "test",
+			changed: fmt.Sprintf("uuid-%d", i),
 		}
 	}
 	return changes

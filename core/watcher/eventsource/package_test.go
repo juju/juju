@@ -80,7 +80,7 @@ func (m subscriptionOptionMatcher) String() string {
 type changeEvent struct {
 	changeType changestream.ChangeType
 	namespace  string
-	uuid       string
+	changed    string
 }
 
 func (e changeEvent) Type() changestream.ChangeType {
@@ -91,6 +91,6 @@ func (e changeEvent) Namespace() string {
 	return e.namespace
 }
 
-func (e changeEvent) ChangedUUID() string {
-	return e.uuid
+func (e changeEvent) Changed() string {
+	return e.changed
 }

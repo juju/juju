@@ -118,7 +118,7 @@ func (s *keysSuite) TestDeltasSent(c *gc.C) {
 	case deltas <- []changestream.ChangeEvent{changeEvent{
 		changeType: 0,
 		namespace:  "external_controller",
-		uuid:       "some-ec-uuid",
+		changed:    "some-ec-uuid",
 	}}:
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out dispatching change event")
