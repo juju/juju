@@ -401,11 +401,11 @@ SELECT MAX(c.id), c.edit_type_id, n.namespace, changed, created_at
 // struct instead of an interface. We should work out if this is a good idea
 // or not.
 type changeEvent struct {
-	id          int64
-	changeType  int
-	namespace   string
-	changedUUID string
-	createdAt   string
+	id         int64
+	changeType int
+	namespace  string
+	changed    string
+	createdAt  string
 }
 
 // Type returns the type of change (create, update, delete).
@@ -419,9 +419,11 @@ func (e changeEvent) Namespace() string {
 	return e.namespace
 }
 
-// ChangedUUID returns the entity UUID of the change.
-func (e changeEvent) ChangedUUID() string {
-	return e.changedUUID
+// Changed returns the changed value of event. This logically can be
+// the primary key of the row that was changed or the field of the change
+// that was changed.
+func (e changeEvent) Changed() string {
+	return e.changed
 }
 
 func (s *Stream) readChanges() ([]changeEvent, error) {
@@ -444,7 +446,7 @@ func (s *Stream) readChanges() ([]changeEvent, error) {
 				&changes[i].id,
 				&changes[i].changeType,
 				&changes[i].namespace,
-				&changes[i].changedUUID,
+				&changes[i].changed,
 				&changes[i].createdAt,
 			}
 		}

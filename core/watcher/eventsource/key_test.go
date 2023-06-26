@@ -62,7 +62,7 @@ func (s *keysSuite) TestNotificationsSent(c *gc.C) {
 	case deltas <- []changestream.ChangeEvent{changeEvent{
 		changeType: 0,
 		namespace:  "random_namespace",
-		uuid:       "some-key-value",
+		changed:    "some-key-value",
 	}}:
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out dispatching change event")

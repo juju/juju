@@ -99,7 +99,7 @@ func (w *KeysWatcher) loop() error {
 			}
 
 			// We have changes. Tick over to dispatch mode.
-			changes = transform.Slice(subChanges, func(c changestream.ChangeEvent) string { return c.ChangedUUID() })
+			changes = transform.Slice(subChanges, func(c changestream.ChangeEvent) string { return c.Changed() })
 			in = nil
 			out = w.out
 		case out <- changes:

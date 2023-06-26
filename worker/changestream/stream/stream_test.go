@@ -527,7 +527,7 @@ func (s *streamSuite) TestMultipleChangesWithSameUUIDCoalesce(c *gc.C) {
 	c.Assert(results, gc.HasLen, 8)
 	for i, result := range results {
 		c.Check(result.Namespace(), gc.Equals, "foo")
-		c.Check(result.ChangedUUID(), gc.Equals, inserts[i].uuid)
+		c.Check(result.Changed(), gc.Equals, inserts[i].uuid)
 	}
 
 	workertest.CleanKill(c, stream)
@@ -576,7 +576,7 @@ func (s *streamSuite) TestMultipleChangesWithNamespaces(c *gc.C) {
 			namespace = "bar"
 		}
 		c.Check(result.Namespace(), gc.Equals, namespace)
-		c.Check(result.ChangedUUID(), gc.Equals, inserts[i].uuid)
+		c.Check(result.Changed(), gc.Equals, inserts[i].uuid)
 	}
 
 	workertest.CleanKill(c, stream)
@@ -640,7 +640,7 @@ func (s *streamSuite) TestMultipleChangesWithNamespacesCoalesce(c *gc.C) {
 			namespace = "bar"
 		}
 		c.Check(result.Namespace(), gc.Equals, namespace)
-		c.Check(result.ChangedUUID(), gc.Equals, inserts[i].uuid)
+		c.Check(result.Changed(), gc.Equals, inserts[i].uuid)
 	}
 
 	workertest.CleanKill(c, stream)
@@ -714,7 +714,7 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *gc.C) 
 			namespace = "baz"
 		}
 		c.Check(result.Namespace(), gc.Equals, namespace)
-		c.Check(result.ChangedUUID(), gc.Equals, inserts[i].uuid)
+		c.Check(result.Changed(), gc.Equals, inserts[i].uuid)
 	}
 
 	workertest.CleanKill(c, stream)
@@ -772,7 +772,7 @@ func (s *streamSuite) TestOneChangeIsBlockedByFile(c *gc.C) {
 
 	c.Assert(results, gc.HasLen, 1)
 	c.Check(results[0].Namespace(), gc.Equals, "foo")
-	c.Check(results[0].ChangedUUID(), gc.Equals, first.uuid)
+	c.Check(results[0].Changed(), gc.Equals, first.uuid)
 
 	workertest.CleanKill(c, stream)
 }
@@ -1091,7 +1091,7 @@ func (s *streamSuite) TestReadChangesWithOneChange(c *gc.C) {
 
 	c.Assert(results, gc.HasLen, 1)
 	c.Check(results[0].Namespace(), gc.Equals, "foo")
-	c.Check(results[0].ChangedUUID(), gc.Equals, first.uuid)
+	c.Check(results[0].Changed(), gc.Equals, first.uuid)
 }
 
 func (s *streamSuite) TestReadChangesWithMultipleSameChange(c *gc.C) {
@@ -1113,7 +1113,7 @@ func (s *streamSuite) TestReadChangesWithMultipleSameChange(c *gc.C) {
 
 	c.Assert(results, gc.HasLen, 1)
 	c.Assert(results[0].Namespace(), gc.Equals, "foo")
-	c.Assert(results[0].ChangedUUID(), gc.Equals, uuid)
+	c.Assert(results[0].Changed(), gc.Equals, uuid)
 }
 
 func (s *streamSuite) TestReadChangesWithMultipleChanges(c *gc.C) {
@@ -1137,7 +1137,7 @@ func (s *streamSuite) TestReadChangesWithMultipleChanges(c *gc.C) {
 	c.Assert(results, gc.HasLen, 10)
 	for i := range results {
 		c.Check(results[i].Namespace(), gc.Equals, "foo")
-		c.Check(results[i].ChangedUUID(), gc.Equals, changes[i].uuid)
+		c.Check(results[i].Changed(), gc.Equals, changes[i].uuid)
 	}
 }
 
@@ -1170,7 +1170,7 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesGroupsCorrectly(c *gc.C)
 	c.Assert(results, gc.HasLen, 10)
 	for i := range results {
 		c.Check(results[i].Namespace(), gc.Equals, "foo")
-		c.Check(results[i].ChangedUUID(), gc.Equals, changes[i].uuid)
+		c.Check(results[i].Changed(), gc.Equals, changes[i].uuid)
 	}
 }
 
@@ -1261,7 +1261,7 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesInterweavedGroupsCorrect
 		c.Logf("expected %v", expected[i])
 		c.Check(results[i].Type(), gc.Equals, expected[i].changeType)
 		c.Check(results[i].Namespace(), gc.Equals, expected[i].namespace)
-		c.Check(results[i].ChangedUUID(), gc.Equals, expected[i].uuid)
+		c.Check(results[i].Changed(), gc.Equals, expected[i].uuid)
 	}
 }
 
@@ -1408,9 +1408,9 @@ func (s *streamSuite) newStream() *Stream {
 
 func (s *streamSuite) insertNamespace(c *gc.C, id int, name string) {
 	q := `
-INSERT INTO change_log_namespace VALUES (?, ?);
+INSERT INTO change_log_namespace VALUES (?, ?, ?);
 `[1:]
-	_, err := s.DB().Exec(q, id, name)
+	_, err := s.DB().Exec(q, id, name, "blah")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1443,7 +1443,7 @@ func expectChanges(c *gc.C, expected []change, obtained []changestream.ChangeEve
 
 	for i, chg := range expected {
 		c.Check(obtained[i].Namespace(), gc.Equals, "foo")
-		c.Check(obtained[i].ChangedUUID(), gc.Equals, chg.uuid)
+		c.Check(obtained[i].Changed(), gc.Equals, chg.uuid)
 	}
 }
 
