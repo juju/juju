@@ -1424,7 +1424,7 @@ func (s *streamSuite) insertChange(c *gc.C, changes ...change) {
 }
 
 func (s *streamSuite) insertChangeForType(c *gc.C, changeType changestream.ChangeType, changes ...change) {
-	q := `INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid) VALUES (?, ?, ?)`
+	q := `INSERT INTO change_log (edit_type_id, namespace_id, changed) VALUES (?, ?, ?)`
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		for _, v := range changes {
 			c.Logf("Executing insert change: edit-type: %d, %v %v", changeType, v.id, v.uuid)

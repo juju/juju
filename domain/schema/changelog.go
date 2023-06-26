@@ -40,7 +40,7 @@ CREATE TABLE change_log (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     edit_type_id        INT NOT NULL,
     namespace_id        INT NOT NULL,
-    changed_uuid        TEXT NOT NULL,
+    changed             TEXT NOT NULL,
     created_at          DATETIME NOT NULL DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
     CONSTRAINT          fk_change_log_edit_type
             FOREIGN KEY (edit_type_id)
@@ -72,19 +72,19 @@ func changeLogTriggersForTable(table, primaryKey string, namespaceId int) func()
 CREATE TRIGGER trg_log_%[1]s_insert
 AFTER INSERT ON %[1]s FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (1, %[2]d, NEW.%[3]s, DATETIME('now'));
 END;
 CREATE TRIGGER trg_log_%[1]s_update
 AFTER UPDATE ON %[1]s FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[3]s, DATETIME('now'));
 END;
 CREATE TRIGGER trg_log_%[1]s_delete
 AFTER DELETE ON %[1]s FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid, created_at) 
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (4, %[2]d, OLD.%[3]s, DATETIME('now'));
 END;`[1:], table, namespaceId, primaryKey))
 	}

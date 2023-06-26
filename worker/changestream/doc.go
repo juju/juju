@@ -35,7 +35,7 @@
 // then send the changes to the appropriate subscription.
 //
 // To aid with performance the stream worker will coalesce changes from the
-// database change log. So if a change from the same namespace and changed_uuid
+// database change log. So if a change from the same namespace and changed value
 // is received within a polling request, then the changes will be coalesced into
 // a single change.
 //
@@ -62,7 +62,7 @@
 //
 //   - The change type (CREATE, UPDATE, DELETE)
 //   - The namespace (generally the table name, but not guaranteed)
-//   - The changed_uuid (the primary key of the row that changed)
+//   - The changed (this could be the primary key of the row that changed)
 //
 // It's not useful to provide additional information about the change, because
 // in an eventual system, the change may be considered stale by the time it

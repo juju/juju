@@ -387,12 +387,12 @@ const (
 	// If the namespace is later deleted, you'll no longer locate that during
 	// a select.
 	selectQuery = `
-SELECT MAX(c.id), c.edit_type_id, n.namespace, changed_uuid, created_at
+SELECT MAX(c.id), c.edit_type_id, n.namespace, changed, created_at
 	FROM change_log c
 		JOIN change_log_edit_type t ON c.edit_type_id = t.id
 		JOIN change_log_namespace n ON c.namespace_id = n.id
 	WHERE c.id > ?
-	GROUP BY c.namespace_id, c.changed_uuid 
+	GROUP BY c.namespace_id, c.changed
 	ORDER BY c.id;
 `
 )
