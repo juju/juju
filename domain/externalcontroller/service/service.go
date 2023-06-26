@@ -28,6 +28,12 @@ type State interface {
 	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo, modelUUIDs []string) error
 }
 
+// WatcherFactory describes methods for creating watchers.
+type WatcherFactory interface {
+	// NewUUIDsWatcher returns a new watcher that observes changes to
+	NewUUIDsWatcher(changestream.ChangeType, string) (watcher.StringsWatcher, error)
+}
+
 // Logger facilitates emitting log messages.
 type Logger interface {
 	Debugf(string, ...interface{})
@@ -42,8 +48,8 @@ type Service struct {
 // NewService returns a new service reference wrapping the input state.
 func NewService(st State, watcherFactory *domain.WatcherFactory) *Service {
 	return &Service{
-		st,
-		watcherFactory,
+		st:             st,
+		watcherFactory: watcherFactory,
 	}
 }
 
@@ -75,6 +81,7 @@ func (s *Service) UpdateExternalController(
 	return errors.Annotate(err, "updating external controller state")
 }
 
+// Watch returns a watcher that observes changes to external controllers.
 func (s *Service) Watch() (watcher.StringsWatcher, error) {
 	return s.watcherFactory.NewUUIDsWatcher(
 		changestream.Create|changestream.Update, "external_controller",

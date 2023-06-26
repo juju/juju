@@ -1,7 +1,7 @@
-// Copyright 2022 Canonical Ltd.
+// Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package lease
+package state
 
 import (
 	"context"
@@ -13,43 +13,26 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
 
-	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/database"
+	"github.com/juju/juju/domain"
 )
 
-// StoreLogger describes methods for logging lease store concerns.
-type StoreLogger interface {
-	Errorf(string, ...interface{})
+// State describes retrieval and persistence methods for storage.
+type State struct {
+	*domain.StateBase
 }
 
-// StoreConfig encapsulates data required to construct a lease store instance.
-type StoreConfig struct {
-	// TxnRunner is the SQL database that backs this lease store.
-	TxnRunner coredatabase.TxnRunner
-
-	// Logger is used to emit store-specific diagnostics.
-	Logger StoreLogger
-}
-
-// Store implements lease.Store using a database
-// supporting SQLite-compatible dialects.
-type Store struct {
-	txnRunner coredatabase.TxnRunner
-	logger    StoreLogger
-}
-
-// NewStore returns a reference to a new database-backed lease store.
-func NewStore(cfg StoreConfig) *Store {
-	return &Store{
-		txnRunner: cfg.TxnRunner,
-		logger:    cfg.Logger,
+// NewState returns a new state reference.
+func NewState(factory domain.TxnRunnerFactory) *State {
+	return &State{
+		StateBase: domain.NewStateBase(factory),
 	}
 }
 
 // Leases (lease.Store) returns all leases in the database,
 // optionally filtering using the input keys.
-func (s *Store) Leases(ctx context.Context, keys ...lease.Key) (map[lease.Key]lease.Info, error) {
+func (s *State) Leases(ctx context.Context, keys ...lease.Key) (map[lease.Key]lease.Info, error) {
 	// TODO (manadart 2022-11-30): We expect the variadic `keys` argument to be
 	// length 0 or 1. It was a work-around for design constraints at the time.
 	// Either filter the result here for len(keys) > 1, or fix the design.
@@ -57,6 +40,11 @@ func (s *Store) Leases(ctx context.Context, keys ...lease.Key) (map[lease.Key]le
 	// so we just lock in that behaviour.
 	if len(keys) > 1 {
 		return nil, errors.NotSupportedf("filtering with more than one lease key")
+	}
+
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	q := `
@@ -76,7 +64,7 @@ AND    l.name = ?`
 	}
 
 	var result map[lease.Key]lease.Info
-	err := s.txnRunner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, q, args...)
 		if err != nil {
 			return errors.Trace(err)
@@ -85,14 +73,15 @@ AND    l.name = ?`
 		result, err = leasesFromRows(rows)
 		return errors.Trace(err)
 	})
-	return result, err
+	return result, errors.Trace(err)
 }
 
 // ClaimLease (lease.Store) claims the lease indicated by the input key,
 // for the holder and duration indicated by the input request.
 // The lease must not already be held, otherwise an error is returned.
-func (s *Store) ClaimLease(ctx context.Context, key lease.Key, req lease.Request) error {
-	if err := req.Validate(); err != nil {
+func (s *State) ClaimLease(ctx context.Context, uuid utils.UUID, key lease.Key, req lease.Request) error {
+	db, err := s.DB()
+	if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -102,12 +91,10 @@ SELECT ?, id, ?, ?, ?, datetime('now'), datetime('now', ?)
 FROM   lease_type
 WHERE  type = ?;`[1:]
 
-	uuid := utils.MustNewUUID().String()
-
-	err := s.txnRunner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		d := fmt.Sprintf("+%d seconds", int64(math.Ceil(req.Duration.Seconds())))
 
-		_, err := tx.ExecContext(ctx, q, uuid, key.ModelUUID, key.Lease, req.Holder, d, key.Namespace)
+		_, err := tx.ExecContext(ctx, q, uuid.String(), key.ModelUUID, key.Lease, req.Holder, d, key.Namespace)
 		return errors.Trace(err)
 	})
 	if database.IsErrConstraintUnique(err) {
@@ -119,8 +106,9 @@ WHERE  type = ?;`[1:]
 // ExtendLease (lease.Store) ensures the input lease will be held for at least
 // the requested duration starting from now.
 // If the input holder does not currently hold the lease, an error is returned.
-func (s *Store) ExtendLease(ctx context.Context, key lease.Key, req lease.Request) error {
-	if err := req.Validate(); err != nil {
+func (s *State) ExtendLease(ctx context.Context, key lease.Key, req lease.Request) error {
+	db, err := s.DB()
+	if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -136,7 +124,7 @@ WHERE  uuid = (
     AND    l.holder = ?
 )`[1:]
 
-	err := s.txnRunner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		d := fmt.Sprintf("+%d seconds", int64(math.Ceil(req.Duration.Seconds())))
 		result, err := tx.ExecContext(ctx, q, d, key.Namespace, key.ModelUUID, key.Lease, req.Holder)
 
@@ -157,7 +145,12 @@ WHERE  uuid = (
 // RevokeLease (lease.Store) deletes the lease from the store,
 // provided it exists and is held by the input holder.
 // If either of these conditions is false, an error is returned.
-func (s *Store) RevokeLease(ctx context.Context, key lease.Key, holder string) error {
+func (s *State) RevokeLease(ctx context.Context, key lease.Key, holder string) error {
+	db, err := s.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	q := `
 DELETE FROM lease
 WHERE  uuid = (
@@ -169,7 +162,7 @@ WHERE  uuid = (
     AND    l.holder = ?
 );`[1:]
 
-	err := s.txnRunner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 
 		result, err := tx.ExecContext(ctx, q, key.Namespace, key.ModelUUID, key.Lease, holder)
 		if err == nil {
@@ -186,7 +179,12 @@ WHERE  uuid = (
 
 // LeaseGroup (lease.Store) returns all leases
 // for the input namespace and model.
-func (s *Store) LeaseGroup(ctx context.Context, namespace, modelUUID string) (map[lease.Key]lease.Info, error) {
+func (s *State) LeaseGroup(ctx context.Context, namespace, modelUUID string) (map[lease.Key]lease.Info, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	q := `
 SELECT t.type, l.model_uuid, l.name, l.holder, l.expiry
 FROM   lease l JOIN lease_type t ON l.lease_type_id = t.id
@@ -194,7 +192,7 @@ WHERE  t.type = ?
 AND    l.model_uuid = ?;`[1:]
 
 	var result map[lease.Key]lease.Info
-	err := s.txnRunner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, q, namespace, modelUUID)
 		if err != nil {
 			return errors.Trace(err)
@@ -209,7 +207,12 @@ AND    l.model_uuid = ?;`[1:]
 // PinLease (lease.Store) adds the input entity into the lease_pin table
 // to indicate that the lease indicated by the input key must not expire,
 // and that this entity requires such behaviour.
-func (s *Store) PinLease(ctx context.Context, key lease.Key, entity string) error {
+func (s *State) PinLease(ctx context.Context, key lease.Key, entity string) error {
+	db, err := s.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	q := `
 INSERT INTO lease_pin (uuid, lease_uuid, entity_id)
 SELECT ?, l.uuid, ?
@@ -218,7 +221,7 @@ WHERE  t.type = ?
 AND    l.model_uuid = ?
 AND    l.name = ?;`[1:]
 
-	err := s.txnRunner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, q, utils.MustNewUUID().String(), entity, key.Namespace, key.ModelUUID, key.Lease)
 		return errors.Trace(err)
 	})
@@ -233,7 +236,12 @@ AND    l.name = ?;`[1:]
 // no longer requires the lease to be pinned.
 // When there are no entities associated with a particular lease,
 // it is determined not to be pinned, and can expire normally.
-func (s *Store) UnpinLease(ctx context.Context, key lease.Key, entity string) error {
+func (s *State) UnpinLease(ctx context.Context, key lease.Key, entity string) error {
+	db, err := s.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	q := `
 DELETE FROM lease_pin
 WHERE  uuid = (
@@ -246,7 +254,7 @@ WHERE  uuid = (
     AND    l.name = ?
     AND    p.entity_id = ?   
 );`[1:]
-	err := s.txnRunner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, q, key.Namespace, key.ModelUUID, key.Lease, entity)
 		return errors.Trace(err)
 	})
@@ -255,7 +263,12 @@ WHERE  uuid = (
 
 // Pinned (lease.Store) returns all leases that are currently pinned,
 // and the entities requiring such behaviour for them.
-func (s *Store) Pinned(ctx context.Context) (map[lease.Key][]string, error) {
+func (s *State) Pinned(ctx context.Context) (map[lease.Key][]string, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	q := `
 SELECT   l.uuid, t.type, l.model_uuid, l.name, p.entity_id
 FROM     lease l 
@@ -264,7 +277,7 @@ FROM     lease l
 ORDER BY l.uuid;`[1:]
 
 	var result map[lease.Key][]string
-	err := s.txnRunner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, q)
 		if err != nil {
 			return errors.Trace(err)

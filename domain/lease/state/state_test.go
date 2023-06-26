@@ -1,7 +1,7 @@
-// Copyright 2022 Canonical Ltd.
+// Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package lease_test
+package state_test
 
 import (
 	"context"
@@ -9,31 +9,32 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/database/testing"
-	"github.com/juju/juju/worker/lease"
+	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/lease/state"
 )
 
-type storeSuite struct {
+type stateSuite struct {
 	testing.ControllerSuite
 
-	store *lease.Store
+	store *state.State
 }
 
-var _ = gc.Suite(&storeSuite{})
+var _ = gc.Suite(&stateSuite{})
 
-func (s *storeSuite) SetUpTest(c *gc.C) {
+func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
-	s.store = lease.NewStore(lease.StoreConfig{
-		TxnRunner: s.TxnRunner(),
-		Logger:    lease.StubLogger{},
-	})
+	s.store = state.NewState(domain.NewTxnRunnerFactory(s.getWatchableDB))
 }
 
-func (s *storeSuite) TestClaimLeaseSuccessAndLeaseQueries(c *gc.C) {
+func (s *stateSuite) TestClaimLeaseSuccessAndLeaseQueries(c *gc.C) {
 	pgKey := corelease.Key{
 		Namespace: "application-leadership",
 		ModelUUID: "model-uuid",
@@ -46,7 +47,7 @@ func (s *storeSuite) TestClaimLeaseSuccessAndLeaseQueries(c *gc.C) {
 	}
 
 	// Add 2 leases.
-	err := s.store.ClaimLease(context.Background(), pgKey, pgReq)
+	err := s.store.ClaimLease(context.Background(), utils.MustNewUUID(), pgKey, pgReq)
 	c.Assert(err, jc.ErrorIsNil)
 
 	mmKey := pgKey
@@ -55,7 +56,7 @@ func (s *storeSuite) TestClaimLeaseSuccessAndLeaseQueries(c *gc.C) {
 	mmReq := pgReq
 	mmReq.Holder = "mattermost/0"
 
-	err = s.store.ClaimLease(context.Background(), mmKey, mmReq)
+	err = s.store.ClaimLease(context.Background(), utils.MustNewUUID(), mmKey, mmReq)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check all the leases.
@@ -76,6 +77,7 @@ func (s *storeSuite) TestClaimLeaseSuccessAndLeaseQueries(c *gc.C) {
 	// Add a lease from a different group,
 	// and check that the group returns the application leases.
 	err = s.store.ClaimLease(context.Background(),
+		utils.MustNewUUID(),
 		corelease.Key{
 			Namespace: "singular-controller",
 			ModelUUID: "controller-model-uuid",
@@ -95,7 +97,7 @@ func (s *storeSuite) TestClaimLeaseSuccessAndLeaseQueries(c *gc.C) {
 	c.Check(leases[mmKey].Holder, gc.Equals, "mattermost/0")
 }
 
-func (s *storeSuite) TestClaimLeaseAlreadyHeld(c *gc.C) {
+func (s *stateSuite) TestClaimLeaseAlreadyHeld(c *gc.C) {
 	key := corelease.Key{
 		Namespace: "singular-controller",
 		ModelUUID: "controller-model-uuid",
@@ -107,14 +109,14 @@ func (s *storeSuite) TestClaimLeaseAlreadyHeld(c *gc.C) {
 		Duration: time.Minute,
 	}
 
-	err := s.store.ClaimLease(context.Background(), key, req)
+	err := s.store.ClaimLease(context.Background(), utils.MustNewUUID(), key, req)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.store.ClaimLease(context.Background(), key, req)
+	err = s.store.ClaimLease(context.Background(), utils.MustNewUUID(), key, req)
 	c.Assert(errors.Is(err, corelease.ErrHeld), jc.IsTrue)
 }
 
-func (s *storeSuite) TestExtendLeaseSuccess(c *gc.C) {
+func (s *stateSuite) TestExtendLeaseSuccess(c *gc.C) {
 	key := corelease.Key{
 		Namespace: "application-leadership",
 		ModelUUID: "model-uuid",
@@ -126,7 +128,7 @@ func (s *storeSuite) TestExtendLeaseSuccess(c *gc.C) {
 		Duration: time.Minute,
 	}
 
-	err := s.store.ClaimLease(context.Background(), key, req)
+	err := s.store.ClaimLease(context.Background(), utils.MustNewUUID(), key, req)
 	c.Assert(err, jc.ErrorIsNil)
 
 	leases, err := s.store.Leases(context.Background(), key)
@@ -148,7 +150,7 @@ func (s *storeSuite) TestExtendLeaseSuccess(c *gc.C) {
 	c.Check(leases[key].Expiry.After(originalExpiry), jc.IsTrue)
 }
 
-func (s *storeSuite) TestExtendLeaseNotHeldInvalid(c *gc.C) {
+func (s *stateSuite) TestExtendLeaseNotHeldInvalid(c *gc.C) {
 	key := corelease.Key{
 		Namespace: "application-leadership",
 		ModelUUID: "model-uuid",
@@ -164,7 +166,7 @@ func (s *storeSuite) TestExtendLeaseNotHeldInvalid(c *gc.C) {
 	c.Assert(errors.Is(err, corelease.ErrInvalid), jc.IsTrue)
 }
 
-func (s *storeSuite) TestRevokeLeaseSuccess(c *gc.C) {
+func (s *stateSuite) TestRevokeLeaseSuccess(c *gc.C) {
 	key := corelease.Key{
 		Namespace: "application-leadership",
 		ModelUUID: "model-uuid",
@@ -176,14 +178,14 @@ func (s *storeSuite) TestRevokeLeaseSuccess(c *gc.C) {
 		Duration: time.Minute,
 	}
 
-	err := s.store.ClaimLease(context.Background(), key, req)
+	err := s.store.ClaimLease(context.Background(), utils.MustNewUUID(), key, req)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.store.RevokeLease(context.Background(), key, req.Holder)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *storeSuite) TestRevokeLeaseNotHeldInvalid(c *gc.C) {
+func (s *stateSuite) TestRevokeLeaseNotHeldInvalid(c *gc.C) {
 	key := corelease.Key{
 		Namespace: "application-leadership",
 		ModelUUID: "model-uuid",
@@ -194,7 +196,7 @@ func (s *storeSuite) TestRevokeLeaseNotHeldInvalid(c *gc.C) {
 	c.Assert(errors.Is(err, corelease.ErrInvalid), jc.IsTrue)
 }
 
-func (s *storeSuite) TestPinUnpinLeaseAndPinQueries(c *gc.C) {
+func (s *stateSuite) TestPinUnpinLeaseAndPinQueries(c *gc.C) {
 	pgKey := corelease.Key{
 		Namespace: "application-leadership",
 		ModelUUID: "model-uuid",
@@ -206,7 +208,7 @@ func (s *storeSuite) TestPinUnpinLeaseAndPinQueries(c *gc.C) {
 		Duration: time.Minute,
 	}
 
-	err := s.store.ClaimLease(context.Background(), pgKey, pgReq)
+	err := s.store.ClaimLease(context.Background(), utils.MustNewUUID(), pgKey, pgReq)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// One entity pins the lease.
@@ -236,7 +238,7 @@ func (s *storeSuite) TestPinUnpinLeaseAndPinQueries(c *gc.C) {
 	c.Check(pins[pgKey], jc.SameContents, []string{"machine/6"})
 }
 
-func (s *storeSuite) TestLeaseOperationCancellation(c *gc.C) {
+func (s *stateSuite) TestLeaseOperationCancellation(c *gc.C) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
@@ -251,6 +253,19 @@ func (s *storeSuite) TestLeaseOperationCancellation(c *gc.C) {
 		Duration: time.Minute,
 	}
 
-	err := s.store.ClaimLease(ctx, key, req)
+	err := s.store.ClaimLease(ctx, utils.MustNewUUID(), key, req)
 	c.Assert(err, gc.ErrorMatches, "context canceled")
+}
+
+func (s *stateSuite) getWatchableDB() (changestream.WatchableDB, error) {
+	return &stubWatchableDB{TxnRunner: s.TxnRunner()}, nil
+}
+
+func (s *stateSuite) getWatchableDBForNameSpace(_ string) (changestream.WatchableDB, error) {
+	return &stubWatchableDB{TxnRunner: s.TxnRunner()}, nil
+}
+
+type stubWatchableDB struct {
+	database.TxnRunner
+	changestream.EventSource
 }
