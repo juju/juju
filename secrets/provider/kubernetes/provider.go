@@ -130,7 +130,7 @@ func IsBuiltInName(backendName string) bool {
 // secrets backend client restricted to manage the specified
 // owned secrets and read shared secrets for the given entity tag.
 func (p k8sProvider) RestrictedConfig(
-	adminCfg *provider.ModelBackendConfig, consumer names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
+	adminCfg *provider.ModelBackendConfig, forDrain bool, consumer names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
 ) (*provider.BackendConfig, error) {
 	logger.Tracef("getting k8s backend config for %q, owned %v, read %v", consumer, owned, read)
 

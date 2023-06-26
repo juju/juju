@@ -131,14 +131,14 @@ func (w *Worker) loop() (err error) {
 	}
 }
 
-func (w *Worker) drainSecret(md coresecrets.SecretMetadataForDrain, client jujusecrets.BackendsClient) error {
+func (w *Worker) drainSecret(md coresecrets.SecretMetadataForDrain, client jujusecrets.BackendsClient) (err error) {
 	var args []secretsdrain.ChangeSecretBackendArg
 	var cleanUpInExternalBackendFuncs []func() error
 	for _, revisionMeta := range md.Revisions {
 		rev := revisionMeta
 		// We have to get the active backend for each drain operation because the active backend
 		// could be changed during the draining process.
-		_, activeBackendID, err := client.GetBackend(nil)
+		activeBackend, activeBackendID, err := client.GetBackend(nil, true)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -152,16 +152,19 @@ func (w *Worker) drainSecret(md coresecrets.SecretMetadataForDrain, client jujus
 		if err != nil {
 			return errors.Trace(err)
 		}
-		valueRef, err := client.SaveContent(md.Metadata.URI, rev.Revision, secretVal)
+		newRevId, err := activeBackend.SaveContent(context.TODO(), md.Metadata.URI, rev.Revision, secretVal)
 		if err != nil && !errors.Is(err, errors.NotSupported) {
 			return errors.Trace(err)
 		}
-		w.config.Logger.Debugf("saved secret %s/%d to the new backend %q, %#v", md.Metadata.URI.ID, rev.Revision, valueRef.BackendID, err)
+		w.config.Logger.Debugf("saved secret %s/%d to the new backend %q, %#v", md.Metadata.URI.ID, rev.Revision, activeBackendID, err)
 		var newValueRef *coresecrets.ValueRef
 		data := secretVal.EncodedValues()
 		if err == nil {
 			// We are draining to an external backend,
-			newValueRef = &valueRef
+			newValueRef = &coresecrets.ValueRef{
+				BackendID:  activeBackendID,
+				RevisionID: newRevId,
+			}
 			// The content has successfully saved into the external backend.
 			// So we won't save the content into the Juju database.
 			data = nil
@@ -172,13 +175,13 @@ func (w *Worker) drainSecret(md coresecrets.SecretMetadataForDrain, client jujus
 			// The old backend is an external backend.
 			// Note: we have to get the old backend before we make ChangeSecretBackend facade call.
 			// Because the token policy(for the vault backend especially) will be changed after we changed the secret's backend.
-			oldBackend, _, err := client.GetBackend(&rev.ValueRef.BackendID)
+			oldBackend, _, err := client.GetBackend(&rev.ValueRef.BackendID, true)
 			if err != nil {
 				return errors.Trace(err)
 			}
 			cleanUpInExternalBackend = func() error {
 				w.config.Logger.Debugf("cleanup secret %s/%d from old backend %q", md.Metadata.URI.ID, rev.Revision, rev.ValueRef.BackendID)
-				if valueRef.BackendID == rev.ValueRef.BackendID {
+				if activeBackendID == rev.ValueRef.BackendID {
 					// Ideally, We should have done all these drain steps in the controller via transaction, but by design, we only allow
 					// uniters to be able to access secret content. So we have to do these extra checks to avoid
 					// secret gets deleted wrongly when the model's secret backend is changed back to
@@ -213,12 +216,11 @@ func (w *Worker) drainSecret(md coresecrets.SecretMetadataForDrain, client jujus
 
 	for i, err := range results.Results {
 		arg := args[i]
-		backend := getBackend(arg.ValueRef)
 		if err == nil {
 			// We have already changed the secret to the active backend, so we
 			// can clean up the secret content in the old backend now.
 			if err := cleanUpInExternalBackendFuncs[i](); err != nil {
-				w.config.Logger.Warningf("failed to clean up secret %q-%d in the external backend %q: %v", arg.URI, arg.Revision, backend, err)
+				w.config.Logger.Warningf("failed to clean up secret %q-%d in the external backend: %v", arg.URI, arg.Revision, err)
 			}
 		} else {
 			// If any of the ChangeSecretBackend calls failed, we will
@@ -231,11 +233,4 @@ func (w *Worker) drainSecret(md coresecrets.SecretMetadataForDrain, client jujus
 		return errors.Errorf("failed to drain secret revisions for %q to the active backend", md.Metadata.URI)
 	}
 	return nil
-}
-
-func getBackend(ref *coresecrets.ValueRef) string {
-	if ref == nil {
-		return "internal"
-	}
-	return ref.BackendID
 }
