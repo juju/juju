@@ -331,15 +331,28 @@ func (s *backendSuite) TestGetBackend(c *gc.C) {
 				},
 			},
 		}, nil),
+		jujuapi.EXPECT().GetBackendConfigForDrain(&backendID).Return(
+			&provider.ModelBackendConfig{
+				ControllerUUID: "controller-uuid1",
+				ModelUUID:      "model-uuid1",
+				ModelName:      "model1",
+				BackendConfig:  provider.BackendConfig{BackendType: "somebackend1"},
+			}, "backend-id1", nil,
+		),
 	)
-	result, activeBackendID, err := client.GetBackend(nil)
+	result, activeBackendID, err := client.GetBackend(nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activeBackendID, gc.Equals, "backend-id2")
 	c.Assert(result, gc.Equals, backend)
 
-	result, activeBackendID, err = client.GetBackend(&backendID)
+	result, activeBackendID, err = client.GetBackend(&backendID, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activeBackendID, gc.Equals, "backend-id2")
+	c.Assert(result, gc.Equals, backend)
+
+	result, activeBackendID, err = client.GetBackend(&backendID, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(activeBackendID, gc.Equals, "backend-id1")
 	c.Assert(result, gc.Equals, backend)
 }
 

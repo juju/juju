@@ -82,6 +82,45 @@ func (s *SecretsSuite) TestGetSecretBackendConfig(c *gc.C) {
 	})
 }
 
+func (s *SecretsSuite) TestGetBackendConfigForDraing(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SecretsManager")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "GetSecretBackendConfigs")
+		c.Check(arg, jc.DeepEquals, params.SecretBackendArgs{ForDrain: true, BackendIDs: []string{"active-id"}})
+		c.Assert(result, gc.FitsTypeOf, &params.SecretBackendConfigResults{})
+		*(result.(*params.SecretBackendConfigResults)) = params.SecretBackendConfigResults{
+			ActiveID: "active-id",
+			Results: map[string]params.SecretBackendConfigResult{
+				"active-id": {
+					ControllerUUID: coretesting.ControllerTag.Id(),
+					ModelUUID:      coretesting.ModelTag.Id(),
+					ModelName:      "fred",
+					Config: params.SecretBackendConfig{
+						BackendType: "controller",
+						Params:      map[string]interface{}{"foo": "bar"},
+					},
+				},
+			},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	result, activeID, err := client.GetBackendConfigForDrain(ptr("active-id"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, &provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "controller",
+			Config:      map[string]interface{}{"foo": "bar"},
+		},
+	})
+	c.Assert(activeID, gc.Equals, "active-id")
+}
+
 func (s *SecretsSuite) TestCreateSecretURIs(c *gc.C) {
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
