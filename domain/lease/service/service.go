@@ -24,11 +24,6 @@ type State interface {
 	Pinned(context.Context) (map[lease.Key][]string, error)
 }
 
-// Logger facilitates emitting log messages.
-type Logger interface {
-	Debugf(string, ...interface{})
-}
-
 // Service provides the API for working with external controllers.
 type Service struct {
 	st State

@@ -135,13 +135,9 @@ func (noopRegisterer) Unregister(prometheus.Collector) bool {
 }
 
 func leaseManager(controllerUUID string, db coredatabase.TxnRunner, clock clock.Clock) (*lease.Manager, error) {
-	store := lease.NewStore(lease.StoreConfig{
-		TxnRunner: db,
-		Logger:    loggo.GetLogger("juju.lease.test"),
-	})
 	return lease.NewManager(lease.ManagerConfig{
 		Secretary:            lease.SecretaryFinder(controllerUUID),
-		Store:                store,
+		Store:                lease.NewStore(db),
 		Logger:               loggo.GetLogger("juju.worker.lease.test"),
 		Clock:                clock,
 		MaxSleep:             time.Minute,
