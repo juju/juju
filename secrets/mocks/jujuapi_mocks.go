@@ -36,6 +36,22 @@ func (m *MockJujuAPIClient) EXPECT() *MockJujuAPIClientMockRecorder {
 	return m.recorder
 }
 
+// GetBackendConfigForDrain mocks base method.
+func (m *MockJujuAPIClient) GetBackendConfigForDrain(arg0 *string) (*provider.ModelBackendConfig, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBackendConfigForDrain", arg0)
+	ret0, _ := ret[0].(*provider.ModelBackendConfig)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetBackendConfigForDrain indicates an expected call of GetBackendConfigForDrain.
+func (mr *MockJujuAPIClientMockRecorder) GetBackendConfigForDrain(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBackendConfigForDrain", reflect.TypeOf((*MockJujuAPIClient)(nil).GetBackendConfigForDrain), arg0)
+}
+
 // GetContentInfo mocks base method.
 func (m *MockJujuAPIClient) GetContentInfo(arg0 *secrets.URI, arg1 string, arg2, arg3 bool) (*secrets0.ContentParams, *provider.ModelBackendConfig, bool, error) {
 	m.ctrl.T.Helper()

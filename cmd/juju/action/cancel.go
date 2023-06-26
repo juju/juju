@@ -48,6 +48,11 @@ func (c *cancelCommand) Info() *cmd.Info {
 }
 
 func (c *cancelCommand) Init(args []string) error {
+	for _, arg := range args {
+		if !names.IsValidAction(arg) {
+			return errors.NotValidf("task ID %q", arg)
+		}
+	}
 	c.requestedIDs = args
 	return nil
 }

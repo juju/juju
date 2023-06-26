@@ -291,7 +291,7 @@ func (s *secretsSuite) assertBackendConfigInfoLeaderUnit(c *gc.C, wanted []strin
 				ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "read-rev-1"},
 			}}, nil),
 	)
-	p.EXPECT().RestrictedConfig(&adminCfg, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
+	p.EXPECT().RestrictedConfig(&adminCfg, false, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
 	info, err := secrets.BackendConfigInfo(model, wanted, false, unitTag, leadershipChecker)
 	c.Assert(err, jc.ErrorIsNil)
@@ -402,9 +402,120 @@ func (s *secretsSuite) TestBackendConfigInfoNonLeaderUnit(c *gc.C) {
 				ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "app-owned-rev-3"},
 			}}, nil),
 	)
-	p.EXPECT().RestrictedConfig(&adminCfg, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
+	p.EXPECT().RestrictedConfig(&adminCfg, false, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
 	info, err := secrets.BackendConfigInfo(model, []string{"backend-id"}, false, unitTag, leadershipChecker)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
+		ActiveID: "backend-id",
+		Configs: map[string]provider.ModelBackendConfig{
+			"backend-id": {
+				ControllerUUID: coretesting.ControllerTag.Id(),
+				ModelUUID:      coretesting.ModelTag.Id(),
+				ModelName:      "fred",
+				BackendConfig: provider.BackendConfig{
+					BackendType: "some-backend",
+				},
+			},
+		},
+	})
+}
+
+func (s *secretsSuite) TestDrainBackendConfigInfo(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	unitTag := names.NewUnitTag("gitlab/0")
+	model := mocks.NewMockModel(ctrl)
+	leadershipChecker := mocks.NewMockChecker(ctrl)
+	token := mocks.NewMockToken(ctrl)
+	p := mocks.NewMockSecretBackendProvider(ctrl)
+	backendState := mocks.NewMockSecretBackendsStorage(ctrl)
+	secretsState := mocks.NewMockSecretsStore(ctrl)
+
+	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return p, nil })
+	s.PatchValue(&secrets.GetSecretsState, func(secrets.Model) state.SecretsStore { return secretsState })
+	s.PatchValue(&secrets.GetSecretBackendsState, func(secrets.Model) state.SecretBackendsStorage { return backendState })
+
+	unitOwned := []*coresecrets.SecretMetadata{
+		{URI: &coresecrets.URI{ID: "owned-1"}},
+	}
+	appOwned := []*coresecrets.SecretMetadata{
+		{URI: &coresecrets.URI{ID: "app-owned-1"}},
+	}
+	ownedRevs := map[string]set.Strings{
+		"owned-1": set.NewStrings("owned-rev-1", "owned-rev-2"),
+	}
+	read := []*coresecrets.SecretMetadata{
+		{URI: &coresecrets.URI{ID: "read-1"}},
+	}
+	readRevs := map[string]set.Strings{
+		"read-1":      set.NewStrings("read-rev-1"),
+		"app-owned-1": set.NewStrings("app-owned-rev-1", "app-owned-rev-2", "app-owned-rev-3"),
+	}
+	modelCfg := coretesting.CustomModelConfig(c, coretesting.Attrs{
+		"secret-backend": "backend-name",
+	})
+	adminCfg := provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "some-backend",
+		},
+	}
+	model.EXPECT().ControllerUUID().Return(coretesting.ControllerTag.Id()).AnyTimes()
+	model.EXPECT().UUID().Return(coretesting.ModelTag.Id()).AnyTimes()
+	model.EXPECT().Name().Return("fred").AnyTimes()
+	gomock.InOrder(
+		model.EXPECT().Config().Return(modelCfg, nil),
+		model.EXPECT().Type().Return(state.ModelTypeIAAS),
+		backendState.EXPECT().ListSecretBackends().Return([]*coresecrets.SecretBackend{{
+			ID:          "backend-id",
+			Name:        "backend-name",
+			BackendType: "some-backend",
+		}}, nil),
+		p.EXPECT().Initialise(gomock.Any()).Return(nil),
+		leadershipChecker.EXPECT().LeadershipCheck("gitlab", "gitlab/0").Return(token),
+		token.EXPECT().Check().Return(leadership.NewNotLeaderError("", "")),
+
+		secretsState.EXPECT().ListSecrets(state.SecretsFilter{
+			OwnerTags: []names.Tag{unitTag},
+		}).Return(unitOwned, nil),
+		secretsState.EXPECT().ListSecretRevisions(&coresecrets.URI{ID: "owned-1"}).
+			Return([]*coresecrets.SecretRevisionMetadata{{
+				Revision: 1,
+				ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "owned-rev-1"},
+			}, {
+				Revision: 2,
+				ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "owned-rev-2"},
+			}}, nil),
+		secretsState.EXPECT().ListSecrets(state.SecretsFilter{
+			ConsumerTags: []names.Tag{unitTag, names.NewApplicationTag("gitlab")},
+		}).Return(read, nil),
+		secretsState.EXPECT().ListSecretRevisions(&coresecrets.URI{ID: "read-1"}).
+			Return([]*coresecrets.SecretRevisionMetadata{{
+				Revision: 1,
+				ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "read-rev-1"},
+			}}, nil),
+		secretsState.EXPECT().ListSecrets(state.SecretsFilter{
+			OwnerTags: []names.Tag{names.NewApplicationTag("gitlab")},
+		}).Return(appOwned, nil),
+		secretsState.EXPECT().ListSecretRevisions(&coresecrets.URI{ID: "app-owned-1"}).
+			Return([]*coresecrets.SecretRevisionMetadata{{
+				Revision: 1,
+				ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "app-owned-rev-1"},
+			}, {
+				Revision: 2,
+				ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "app-owned-rev-2"},
+			}, {
+				Revision: 3,
+				ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "app-owned-rev-3"},
+			}}, nil),
+	)
+	p.EXPECT().RestrictedConfig(&adminCfg, true, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
+
+	info, err := secrets.DrainBackendConfigInfo("backend-id", model, unitTag, leadershipChecker)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "backend-id",
@@ -492,7 +603,7 @@ func (s *secretsSuite) TestBackendConfigInfoAppTagLogin(c *gc.C) {
 				ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "read-rev-1"},
 			}}, nil),
 	)
-	p.EXPECT().RestrictedConfig(&adminCfg, appTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
+	p.EXPECT().RestrictedConfig(&adminCfg, false, appTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
 	info, err := secrets.BackendConfigInfo(model, []string{"backend-id"}, false, appTag, leadershipChecker)
 	c.Assert(err, jc.ErrorIsNil)
