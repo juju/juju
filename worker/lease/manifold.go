@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/lease/service"
 	"github.com/juju/juju/domain/lease/state"
 	"github.com/juju/juju/worker/common"
@@ -38,7 +39,7 @@ type ManifoldConfig struct {
 	LogDir               string
 	PrometheusRegisterer prometheus.Registerer
 	NewWorker            func(ManagerConfig) (worker.Worker, error)
-	NewStore             func(coredatabase.TxnRunner) lease.Store
+	NewStore             func(coredatabase.DBGetter) lease.Store
 }
 
 // Validate checks that the config has all the required values.
@@ -91,12 +92,7 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 		return nil, errors.Trace(err)
 	}
 
-	db, err := dbGetter.GetDB(coredatabase.ControllerNS)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	store := s.config.NewStore(db)
+	store := s.config.NewStore(dbGetter)
 
 	controllerUUID := agent.CurrentConfig().Controller().Id()
 	w, err := s.config.NewWorker(ManagerConfig{
@@ -149,8 +145,7 @@ func NewWorker(config ManagerConfig) (worker.Worker, error) {
 }
 
 // NewStore returns a new lease store based on the input config.
-func NewStore(runner coredatabase.TxnRunner) lease.Store {
-	return service.NewService(state.NewState(func() (coredatabase.TxnRunner, error) {
-		return runner, nil
-	}))
+func NewStore(dbGetter coredatabase.DBGetter) lease.Store {
+	factory := domain.NewTxnRunnerFactoryForNamespace(dbGetter.GetDB, coredatabase.ControllerNS)
+	return service.NewService(state.NewState(factory))
 }

@@ -57,7 +57,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewWorker: func(mc ManagerConfig) (worker.Worker, error) {
 			return nil, nil
 		},
-		NewStore: func(coredatabase.TxnRunner) lease.Store {
+		NewStore: func(coredatabase.DBGetter) lease.Store {
 			return nil
 		},
 	}

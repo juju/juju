@@ -12,11 +12,8 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/database"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/database/testing"
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/lease/state"
 )
 
@@ -31,7 +28,7 @@ var _ = gc.Suite(&stateSuite{})
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
-	s.store = state.NewState(domain.NewTxnRunnerFactory(s.getWatchableDB))
+	s.store = state.NewState(testing.TxnRunnerFactory(s.TxnRunner()))
 }
 
 func (s *stateSuite) TestClaimLeaseSuccessAndLeaseQueries(c *gc.C) {
@@ -255,17 +252,4 @@ func (s *stateSuite) TestLeaseOperationCancellation(c *gc.C) {
 
 	err := s.store.ClaimLease(ctx, utils.MustNewUUID(), key, req)
 	c.Assert(err, gc.ErrorMatches, "context canceled")
-}
-
-func (s *stateSuite) getWatchableDB() (changestream.WatchableDB, error) {
-	return &stubWatchableDB{TxnRunner: s.TxnRunner()}, nil
-}
-
-func (s *stateSuite) getWatchableDBForNameSpace(_ string) (changestream.WatchableDB, error) {
-	return &stubWatchableDB{TxnRunner: s.TxnRunner()}, nil
-}
-
-type stubWatchableDB struct {
-	database.TxnRunner
-	changestream.EventSource
 }

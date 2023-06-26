@@ -51,3 +51,18 @@ func TxnRunnerFactory(db coredatabase.TxnRunner) func() (coredatabase.TxnRunner,
 		return db, nil
 	}
 }
+
+type singularDBGetter struct {
+	runner coredatabase.TxnRunner
+}
+
+func (s singularDBGetter) GetDB(name string) (coredatabase.TxnRunner, error) {
+	return s.runner, nil
+}
+
+// SingularDBGetter returns a DBGetter that always returns the given database.
+func SingularDBGetter(runner coredatabase.TxnRunner) coredatabase.DBGetter {
+	return singularDBGetter{
+		runner: runner,
+	}
+}
