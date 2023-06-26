@@ -29,8 +29,9 @@ INSERT INTO change_log_edit_type VALUES
     (4, 'delete');
 
 CREATE TABLE change_log_namespace (
-    id        INT PRIMARY KEY,
-    namespace TEXT
+    id          INT PRIMARY KEY,
+    namespace   TEXT,
+    description TEXT
 );
 
 CREATE UNIQUE INDEX idx_change_log_namespace_namespace
