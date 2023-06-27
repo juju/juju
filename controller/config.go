@@ -114,15 +114,24 @@ const (
 	ControllerUUIDKey = "controller-uuid"
 
 	// LoginTokenRefreshURL sets the url of the login jwt well known endpoint.
+	// Use this when authentication/authorisation is done using a JWT in the
+	// login request rather than a username/password or macaroon and a local
+	// permissions model.
 	LoginTokenRefreshURL = "login-token-refresh-url"
 
 	// IdentityURL sets the url of the identity manager.
+	// Use this when users should be managed externally rather than
+	// created locally on the controller.
 	IdentityURL = "identity-url"
 
 	// IdentityPublicKey sets the public key of the identity manager.
+	// Use this when users should be managed externally rather than
+	// created locally on the controller.
 	IdentityPublicKey = "identity-public-key"
 
-	// SetNUMAControlPolicyKey stores the value for this setting
+	// SetNUMAControlPolicyKey (true/false) is deprecated.
+	// Use to configure whether mongo is started with NUMA
+	// controller policy turned on.
 	SetNUMAControlPolicyKey = "set-numa-control-policy"
 
 	// AutocertDNSNameKey sets the DNS name of the controller. If a
