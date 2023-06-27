@@ -33,9 +33,9 @@ type watcherCommon struct {
 
 func newWatcherCommon(context facade.Context) watcherCommon {
 	return watcherCommon{
-		context.ID(),
-		context.Resources(),
-		context.Dispose,
+		id:        context.ID(),
+		resources: context.Resources(),
+		dispose:   context.Dispose,
 	}
 }
 
