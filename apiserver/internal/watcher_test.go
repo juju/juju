@@ -5,11 +5,13 @@ package internal_test
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/apiserver/facades/internal"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/testing"
 )
 
@@ -66,6 +68,7 @@ func (suite) TestFirstResultWatcherStoppedNilErr(c *gc.C) {
 	stringsWatcher.EXPECT().Wait().Return(nil)
 
 	res, err := internal.FirstResult[[]string](stringsWatcher)
-	c.Assert(err, gc.ErrorMatches, "expected an error from(.)*got nil")
+	c.Assert(err, gc.ErrorMatches, "expected an error from .* got nil.*")
+	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrStoppedWatcher)
 	c.Assert(res, gc.IsNil)
 }

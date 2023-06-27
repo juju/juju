@@ -11,7 +11,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/internal"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -36,8 +36,8 @@ func NewAPI(
 	ecService EcService,
 ) (*ExternalControllerUpdaterAPI, error) {
 	return &ExternalControllerUpdaterAPI{
-		ecService,
-		resources,
+		ecService: ecService,
+		resources: resources,
 	}, nil
 }
 
@@ -47,7 +47,7 @@ func (api *ExternalControllerUpdaterAPI) WatchExternalControllers() (params.Stri
 	w, err := api.ecService.Watch()
 	if err != nil {
 		return params.StringsWatchResults{
-			[]params.StringsWatchResult{{
+			Results: []params.StringsWatchResult{{
 				Error: apiservererrors.ServerError(errors.Annotate(err, "watching external controllers changes")),
 			}},
 		}, nil
@@ -55,13 +55,13 @@ func (api *ExternalControllerUpdaterAPI) WatchExternalControllers() (params.Stri
 	changes, err := internal.FirstResult[[]string](w)
 	if err != nil {
 		return params.StringsWatchResults{
-			[]params.StringsWatchResult{{
+			Results: []params.StringsWatchResult{{
 				Error: apiservererrors.ServerError(errors.Annotate(err, "watching external controllers changes")),
 			}},
 		}, nil
 	}
 	return params.StringsWatchResults{
-		[]params.StringsWatchResult{{
+		Results: []params.StringsWatchResult{{
 			StringsWatcherId: api.resources.Register(w),
 			Changes:          changes,
 		}},
