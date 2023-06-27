@@ -27,7 +27,28 @@ func NewFirewallerFacade(apiCaller base.APICaller) (FirewallerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return facade, nil
+	return &firewallerShim{facade}, nil
+}
+
+type firewallerShim struct {
+	*firewaller.Client
+}
+
+func (s *firewallerShim) Machine(tag names.MachineTag) (Machine, error) {
+	return s.Client.Machine(tag)
+}
+
+func (s *firewallerShim) Unit(tag names.UnitTag) (Unit, error) {
+	u, err := s.Client.Unit(tag)
+	return &unitShim{u}, err
+}
+
+type unitShim struct {
+	*firewaller.Unit
+}
+
+func (s *unitShim) Application() (Application, error) {
+	return s.Unit.Application()
 }
 
 // NewWorker creates a firewaller worker.
