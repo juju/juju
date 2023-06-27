@@ -9,8 +9,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  cli:
-    name: Sync CLI docs
+  sync:
+    name: Sync to Discourse
     runs-on: ubuntu-latest
     env:
       TOPIC_IDS: './.github/discourse-topic-ids.yaml'
@@ -29,7 +29,7 @@ jobs:
         run: |
           go install -v ./cmd/juju
 
-      - name: Generate docs
+      - name: Generate CLI docs
         id: gen
         shell: bash
         run: |
@@ -38,6 +38,13 @@ jobs:
           echo "dir=${DOCS_DIR}" >> $GITHUB_OUTPUT
           juju documentation --split --out=$DOCS_DIR --discourse-ids $TOPIC_IDS
         # TODO: save $DOCS_DIR as an artifact
+
+      - name: Generate controller config keys doc
+        env:
+          DOCS_DIR: ${{ steps.gen.outputs.dir }}
+          JUJU_SRC_ROOT: '.'
+        run: |
+          go run ./scripts/md-gen/controller-config
 
       - name: pip install requirements
         run: |

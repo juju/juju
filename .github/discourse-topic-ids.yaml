@@ -26,6 +26,7 @@ config: 10139
 constraints: 10060
 consume: 10213
 controller-config: 10237
+controller-config-keys: 7059
 controllers: 10152
 create-backup: 10197
 create-storage-pool: 10093
