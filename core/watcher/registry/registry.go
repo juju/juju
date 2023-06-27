@@ -67,9 +67,8 @@ func NewRegistry(clock clock.Clock, opts ...Option) (*Registry, error) {
 		runner: worker.NewRunner(worker.RunnerParams{
 			// Prevent the runner from restarting the worker, if one of the
 			// workers dies, we want to stop the whole thing.
-			IsFatal:       func(err error) bool { return false },
-			ShouldRestart: func(err error) bool { return false },
-			Clock:         clock,
+			IsFatal: func(err error) bool { return false },
+			Clock:   clock,
 		}),
 		watcherWrapper: watcherLogDecorator(o.logger),
 	}
