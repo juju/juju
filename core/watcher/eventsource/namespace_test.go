@@ -4,8 +4,8 @@
 package eventsource
 
 import (
-	context "context"
-	sql "database/sql"
+	"context"
+	"database/sql"
 	"errors"
 	"time"
 
@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-var _ watcher.StringsWatcher = &KeysWatcher{}
+var _ watcher.StringsWatcher = &NamespaceWatcher{}
 
 type keysSuite struct {
 	baseSuite
@@ -61,7 +61,8 @@ func (s *keysSuite) TestInitialStateSent(c *gc.C) {
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
-	w := NewKeysWatcher(s.newBaseWatcher(), changestream.All, "random_namespace", "key_name")
+	w := NewNamespaceWatcher(
+		s.newBaseWatcher(), changestream.All, "random_namespace", "SELECT key_name FROM random_namespace")
 	defer workertest.CleanKill(c, w)
 
 	select {
@@ -103,7 +104,8 @@ func (s *keysSuite) TestDeltasSent(c *gc.C) {
 		)},
 	).Return(s.sub, nil)
 
-	w := NewUUIDsWatcher(s.newBaseWatcher(), changestream.All, "external_controller")
+	w := NewNamespaceWatcher(
+		s.newBaseWatcher(), changestream.All, "external_controller", "SELECT uuid FROM external_controller")
 	defer workertest.CleanKill(c, w)
 
 	// No initial data.
@@ -155,7 +157,8 @@ func (s *keysSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 		)},
 	).Return(s.sub, nil)
 
-	w := NewUUIDsWatcher(s.newBaseWatcher(), changestream.All, "external_controller")
+	w := NewNamespaceWatcher(
+		s.newBaseWatcher(), changestream.All, "external_controller", "SELECT uuid FROM external_controller")
 	defer workertest.DirtyKill(c, w)
 
 	err := workertest.CheckKilled(c, w)
@@ -163,7 +166,7 @@ func (s *keysSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 }
 
 func (s *keysSuite) TestInvalidChangeMask(c *gc.C) {
-	w := NewUUIDsWatcher(s.newBaseWatcher(), 0, "external_controller")
+	w := NewNamespaceWatcher(s.newBaseWatcher(), 0, "external_controller", "SELECT uuid FROM external_controller")
 	defer workertest.DirtyKill(c, w)
 
 	err := workertest.CheckKilled(c, w)

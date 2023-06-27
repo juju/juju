@@ -6,7 +6,6 @@ package eventsource
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
@@ -16,37 +15,31 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-// KeysWatcher watches for changes to a database table.
-// Any time rows change in the watched table, the changed
-// values from the column specified by keyName are emitted.
-type KeysWatcher struct {
+// NamespaceWatcher watches for changes in a namespace.
+// Any time events matching the change mask occur in the namespace,
+// the values associated with the events are emitted.
+type NamespaceWatcher struct {
 	*BaseWatcher
 
 	out chan []string
 
 	// TODO (manadart 2023-05-24): Consider making this plural (composite key)
 	// if/when it is supported by the change log table structure and stream.
-	keyName    string
-	tableName  string
+	namespace  string
 	selectAll  string
 	changeMask changestream.ChangeType
 }
 
-// NewUUIDsWatcher is a convenience method for creating a new
-// KeysWatcher for the "uuid" column of the input table name.
-func NewUUIDsWatcher(base *BaseWatcher, changeMask changestream.ChangeType, tableName string) watcher.StringsWatcher {
-	return NewKeysWatcher(base, changeMask, tableName, "uuid")
-}
-
-// NewKeysWatcher returns a new watcher that receives changes from the
-// input base watcher's db/queue when rows in the input table change.
-func NewKeysWatcher(base *BaseWatcher, changeMask changestream.ChangeType, tableName, keyName string) watcher.StringsWatcher {
-	w := &KeysWatcher{
+// NewNamespaceWatcher returns a new watcher that receives changes from the
+// input base watcher's db/queue when changes in the namespace occur.
+func NewNamespaceWatcher(
+	base *BaseWatcher, changeMask changestream.ChangeType, namespace, initialStateQuery string,
+) watcher.StringsWatcher {
+	w := &NamespaceWatcher{
 		BaseWatcher: base,
 		out:         make(chan []string),
-		tableName:   tableName,
-		keyName:     keyName,
-		selectAll:   fmt.Sprintf("SELECT %s FROM %s", keyName, tableName),
+		namespace:   namespace,
+		selectAll:   initialStateQuery,
 		changeMask:  changeMask,
 	}
 
@@ -56,26 +49,26 @@ func NewKeysWatcher(base *BaseWatcher, changeMask changestream.ChangeType, table
 
 // Changes returns the channel on which the keys for
 // changed rows are sent to downstream consumers.
-func (w *KeysWatcher) Changes() <-chan []string {
+func (w *NamespaceWatcher) Changes() <-chan []string {
 	return w.out
 }
 
-func (w *KeysWatcher) loop() error {
+func (w *NamespaceWatcher) loop() error {
 	defer close(w.out)
 
 	if w.changeMask == 0 {
 		return errors.NotValidf("changeMask value: 0")
 	}
-	subscription, err := w.watchableDB.Subscribe(changestream.Namespace(w.tableName, w.changeMask))
+	subscription, err := w.watchableDB.Subscribe(changestream.Namespace(w.namespace, w.changeMask))
 	if err != nil {
-		return errors.Annotatef(err, "subscribing to namespace %q", w.tableName)
+		return errors.Annotatef(err, "subscribing to namespace %q", w.namespace)
 	}
 	defer subscription.Unsubscribe()
 
 	changes, err := w.getInitialState()
 	if err != nil {
 		return errors.Annotatef(
-			err, "retrieving initial watcher state for namespace %q and key %q", w.tableName, w.keyName)
+			err, "retrieving initial watcher state for namespace %q", w.namespace)
 	}
 
 	// By reassigning the in and out channels, we effectively ticktock between
@@ -94,7 +87,7 @@ func (w *KeysWatcher) loop() error {
 			return ErrSubscriptionClosed
 		case subChanges, ok := <-in:
 			if !ok {
-				w.logger.Debugf("change channel closed for %q; terminating watcher", w.tableName)
+				w.logger.Debugf("change channel closed for %q; terminating watcher", w.namespace)
 				return nil
 			}
 
@@ -113,7 +106,7 @@ func (w *KeysWatcher) loop() error {
 // getInitialState retrieves the current state of the world from the database,
 // as it concerns this watcher. It must be called after we are subscribed.
 // Note that killing the worker via its tomb cancels the context used here.
-func (w *KeysWatcher) getInitialState() ([]string, error) {
+func (w *NamespaceWatcher) getInitialState() ([]string, error) {
 	parentCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -143,15 +136,4 @@ func (w *KeysWatcher) getInitialState() ([]string, error) {
 	})
 
 	return keys, errors.Trace(err)
-}
-
-// Kill (worker.Worker) kills the watcher via its tomb.
-func (w *KeysWatcher) Kill() {
-	w.tomb.Kill(nil)
-}
-
-// Wait (worker.Worker) waits for the watcher's tomb to die,
-// and returns the error with which it was killed.
-func (w *KeysWatcher) Wait() error {
-	return w.tomb.Wait()
 }
