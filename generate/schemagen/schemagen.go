@@ -10,17 +10,23 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"log"
 	"os"
 	"strings"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"golang.org/x/tools/go/packages"
 
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/changestream"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/generate/schemagen/gen"
 	"github.com/juju/juju/state"
 )
@@ -77,27 +83,32 @@ func main() {
 		groups = append(groups, g)
 	}
 
+	watcherRegistry, err := registry.NewRegistry(clock.WallClock)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	linker := defaultLinker{
+		watcherRegistry: watcherRegistry,
+	}
+
 	result, err := gen.Generate(defaultPackages{
 		path: "github.com/juju/juju/apiserver",
-	}, defaultLinker{}, apiServerShim{},
+	}, linker, apiServerShim{},
 		gen.WithAdminFacades(*adminFacades),
 		gen.WithFacadeGroups(groups),
 	)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		log.Fatalln(err)
 	}
 
 	jsonSchema, err := json.MarshalIndent(result, "", "    ")
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		log.Fatalln(err)
 	}
 
 	err = os.WriteFile(args[0], jsonSchema, 0644)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		log.Fatalln(err)
 	}
 }
 
@@ -133,7 +144,9 @@ func (p defaultPackages) LoadPackage() (*packages.Package, error) {
 	return pkgs[0], nil
 }
 
-type defaultLinker struct{}
+type defaultLinker struct {
+	watcherRegistry facade.WatcherRegistry
+}
 
 func (l defaultLinker) Links(facadeName string, factory facade.Factory) []string {
 	var a []string
@@ -145,7 +158,7 @@ func (l defaultLinker) Links(facadeName string, factory facade.Factory) []string
 	return a
 }
 
-func (defaultLinker) isAvailable(facadeName string, factory facade.Factory, kind entityKind) (ok bool) {
+func (l defaultLinker) isAvailable(facadeName string, factory facade.Factory, kind entityKind) (ok bool) {
 	if factory == nil {
 		// Admin facade only.
 		return true
@@ -167,6 +180,7 @@ func (defaultLinker) isAvailable(facadeName string, factory facade.Factory, kind
 		auth: authorizer{
 			kind: kind,
 		},
+		watcherRegistry: l.watcherRegistry,
 	}
 	_, err := factory(ctx)
 	return errors.Cause(err) != apiservererrors.ErrPerm
@@ -195,8 +209,9 @@ var kinds = []string{
 }
 
 type context struct {
-	auth authorizer
 	facade.Context
+	auth            authorizer
+	watcherRegistry facade.WatcherRegistry
 }
 
 func (c context) Auth() facade.Authorizer {
@@ -211,16 +226,34 @@ func (c context) State() *state.State {
 	return new(state.State)
 }
 
-func (c context) Resources() facade.Resources {
-	return nil
-}
-
 func (c context) StatePool() *state.StatePool {
 	return new(state.StatePool)
 }
 
+func (c context) Resources() facade.Resources {
+	return common.NewResources()
+}
+
+func (c context) WatcherRegistry() facade.WatcherRegistry {
+	return c.watcherRegistry
+}
+
 func (c context) ControllerTag() names.ControllerTag {
 	return names.NewControllerTag("xxxx")
+}
+
+func (c context) Dispose() {}
+
+func (c context) Cancel() <-chan struct{} {
+	return make(chan struct{})
+}
+
+func (c context) ControllerDB() (changestream.WatchableDB, error) {
+	return nil, nil
+}
+
+func (c context) DBDeleter() coredatabase.DBDeleter {
+	return nil
 }
 
 type authorizer struct {

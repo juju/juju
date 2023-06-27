@@ -1683,9 +1683,6 @@
         "Description": "SrvAllWatcher defines the API methods on a Multiwatcher.\nwhich watches any changes to the state. Each client has its own\ncurrent set of watchers, stored in resources. It is used by both\nthe AllWatcher and AllModelWatcher facades.",
         "Version": 4,
         "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
             "controller-user"
         ],
         "Schema": {
@@ -1746,9 +1743,6 @@
         "Description": "SrvAllWatcher defines the API methods on a Multiwatcher.\nwhich watches any changes to the state. Each client has its own\ncurrent set of watchers, stored in resources. It is used by both\nthe AllWatcher and AllModelWatcher facades.",
         "Version": 3,
         "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
             "model-user"
         ],
         "Schema": {
@@ -28791,9 +28785,6 @@
         "Description": "SrvModelSummaryWatcher defines the API methods on a ModelSummaryWatcher.",
         "Version": 1,
         "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
             "controller-user"
         ],
         "Schema": {
