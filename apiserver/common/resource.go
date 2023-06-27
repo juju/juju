@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/juju/worker/v3"
+	"gopkg.in/tomb.v2"
 )
 
 // Resources holds all the resources for a connection.
@@ -133,15 +134,29 @@ func (rs *Resources) Count() int {
 
 // FIXME(nvinuesa): This `ValueResource` should be removed and they should not
 // be registered.
-// ValueResource is a Resource with a no-op Stop method, containing an
-// interface{} value.
+// ValueResource is a Resource with a no-op Stop method, containing any value.
+// It does nothing but waits for heat death of the universe, whilst holding
+// a value.
 type ValueResource struct {
-	Value interface{}
+	tomb  tomb.Tomb
+	Value any
 }
 
-func (ValueResource) Kill() {
+func NewValueResource(value any) *ValueResource {
+	res := &ValueResource{
+		Value: value,
+	}
+	res.tomb.Go(func() error {
+		<-res.tomb.Dying()
+		return tomb.ErrDying
+	})
+	return res
 }
 
-func (ValueResource) Wait() error {
-	return nil
+func (v *ValueResource) Kill() {
+	v.tomb.Kill(nil)
+}
+
+func (v *ValueResource) Wait() error {
+	return v.tomb.Wait()
 }

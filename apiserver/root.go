@@ -125,7 +125,7 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 	offerAuthCtxt := srv.offerAuthCtxt.WithDischargeURL(localOfferAccessEndpoint.String())
 	if err := r.resources.RegisterNamed(
 		"offerAccessAuthContext",
-		common.ValueResource{Value: offerAuthCtxt},
+		common.NewValueResource(offerAuthCtxt),
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
