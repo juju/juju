@@ -416,8 +416,8 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(resolvedCharm ch
 	var cons constraints.Value
 	var numUnits int
 	if resolvedCharm.Meta().Subordinate {
-		if arg.NumUnits != nil && *arg.NumUnits != 0 {
-			errs = append(errs, fmt.Errorf("subordinate application must be deployed without units"))
+		if arg.NumUnits != nil && *arg.NumUnits != 0 && constraints.IsEmpty(&arg.Cons) {
+			numUnits = 0
 		}
 		if !constraints.IsEmpty(&arg.Cons) {
 			errs = append(errs, fmt.Errorf("subordinate application must be deployed without constraints"))

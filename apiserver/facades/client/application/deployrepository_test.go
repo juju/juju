@@ -7,14 +7,13 @@ import (
 	"reflect"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/names/v4"
-	"github.com/kr/pretty"
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/charm/v11"
 	"github.com/juju/charm/v11/resource"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/kr/pretty"
+	gc "gopkg.in/check.v1"
 
 	corecharm "github.com/juju/juju/core/charm"
 	coreconfig "github.com/juju/juju/core/config"
@@ -684,6 +683,24 @@ func (s *validatorSuite) TestDeducePlatformPlacementSimpleNotFound(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(usedModelDefaultBase, jc.IsFalse)
 	c.Assert(plat, gc.DeepEquals, corecharm.Platform{Architecture: "amd64"})
+}
+
+func (s *validatorSuite) TestResolvedCharmValidationSubordinate(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	ch := NewMockCharm(ctrl)
+	meta := &charm.Meta{
+		Name:        "testcharm",
+		Subordinate: true,
+	}
+	ch.EXPECT().Config().Return(nil)
+	ch.EXPECT().Meta().Return(meta).AnyTimes()
+	arg := params.DeployFromRepositoryArg{
+		NumUnits: intptr(1),
+	}
+	dt, err := s.getValidator().resolvedCharmValidation(ch, arg)
+	c.Assert(err, gc.HasLen, 0)
+	c.Assert(dt.numUnits, gc.Equals, 0)
 }
 
 func (s *validatorSuite) TestDeducePlatformPlacementMutipleMatch(c *gc.C) {
