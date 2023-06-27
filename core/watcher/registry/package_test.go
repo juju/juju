@@ -14,6 +14,7 @@ import (
 
 //go:generate go run github.com/golang/mock/mockgen -package registry -destination worker_mock_test.go github.com/juju/worker/v3 Worker
 //go:generate go run github.com/golang/mock/mockgen -package registry -destination clock_mock_test.go github.com/juju/clock Clock
+//go:generate go run github.com/golang/mock/mockgen -package registry -destination logger_mock_test.go github.com/juju/juju/core/watcher/registry Logger
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

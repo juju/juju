@@ -25,6 +25,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher/registry"
@@ -98,7 +99,7 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 		}
 	}
 
-	registry, err := registry.NewRegistry(srv.clock)
+	registry, err := registry.NewRegistry(srv.clock, registry.WithLogger(logger.ChildWithLabels("registry", corelogger.WATCHERS)))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

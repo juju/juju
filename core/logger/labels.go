@@ -26,4 +26,7 @@ const (
 
 	// SECRETS defines a common label for dealing with secrets.
 	SECRETS Label = "secrets"
+
+	// WATCHERS defines a common label for dealing with watchers.
+	WATCHERS Label = "watchers"
 )

@@ -9,9 +9,41 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 )
+
+// Logger is the interface we need to log when a worker finishes.
+type Logger interface {
+	Tracef(string, ...any)
+	IsTraceEnabled() bool
+}
+
+// Option defines a function for setting options on a Registry.
+type Option func(*option)
+
+type option struct {
+	logger Logger
+}
+
+// WithLogger returns an Option that sets the logger to use for logging when
+// workers finish.
+func WithLogger(logger Logger) Option {
+	return func(o *option) {
+		o.logger = logger
+	}
+}
+
+func newOptions() *option {
+	return &option{
+		logger: loggo.GetLogger("juju.core.watcher.registry"),
+	}
+}
+
+type watcherUnwrapper interface {
+	Unwrap() worker.Worker
+}
 
 // Registry holds all the watchers for a connection.
 // It allows the registration of watchers that will be cleaned up when a
@@ -20,9 +52,17 @@ type Registry struct {
 	catacomb                  catacomb.Catacomb
 	runner                    *worker.Runner
 	namespaceCounter, counter int64
+	watcherWrapper            func(worker.Worker) (worker.Worker, error)
 }
 
-func NewRegistry(clock clock.Clock) (*Registry, error) {
+// NewRegistry returns a new Registry that also starts a worker to manage the
+// registry.
+func NewRegistry(clock clock.Clock, opts ...Option) (*Registry, error) {
+	o := newOptions()
+	for _, opt := range opts {
+		opt(o)
+	}
+
 	r := &Registry{
 		runner: worker.NewRunner(worker.RunnerParams{
 			// Prevent the runner from restarting the worker, if one of the
@@ -30,6 +70,7 @@ func NewRegistry(clock clock.Clock) (*Registry, error) {
 			IsFatal: func(err error) bool { return false },
 			Clock:   clock,
 		}),
+		watcherWrapper: wrapperFromLogger(o.logger),
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -48,7 +89,13 @@ func NewRegistry(clock clock.Clock) (*Registry, error) {
 // watcher.
 func (r *Registry) Get(id string) (worker.Worker, error) {
 	w, err := r.runner.Worker(id, r.catacomb.Dying())
-	return w, errors.Trace(err)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if lw, ok := w.(watcherUnwrapper); ok {
+		return lw.Unwrap(), nil
+	}
+	return w, nil
 }
 
 // Register registers the given watcher. It returns a unique identifier for the
@@ -80,7 +127,7 @@ func (r *Registry) RegisterNamed(namespace string, w worker.Worker) error {
 
 func (r *Registry) register(namespace string, w worker.Worker) error {
 	err := r.runner.StartWorker(namespace, func() (worker.Worker, error) {
-		return w, nil
+		return r.watcherWrapper(w)
 	})
 	if err != nil {
 		return errors.Trace(err)
@@ -120,4 +167,56 @@ func (r *Registry) Count() int {
 func (r *Registry) loop() error {
 	<-r.catacomb.Dying()
 	return r.catacomb.ErrDying()
+}
+
+// wrapperFromLogger returns a function that wraps a worker.Worker with a
+// LogWatcher.
+func wrapperFromLogger(logger Logger) func(worker.Worker) (worker.Worker, error) {
+	return func(w worker.Worker) (worker.Worker, error) {
+		if logger == nil {
+			return w, nil
+		}
+		if logger.IsTraceEnabled() {
+			logger.Tracef("starting worker %T", w)
+		}
+		return NewLogWatcher(w, logger), nil
+	}
+}
+
+// LogWatcher is a wrapper around a worker.Worker that logs when it finishes.
+type LogWatcher struct {
+	worker worker.Worker
+	logger Logger
+}
+
+// NewLogWatcher returns a new LogWatcher that wraps the given worker, so we
+// can log when it starts and finishes.
+func NewLogWatcher(w worker.Worker, logger Logger) *LogWatcher {
+	return &LogWatcher{
+		worker: w,
+		logger: logger,
+	}
+}
+
+// Kill asks the worker to stop and returns immediately.
+func (l *LogWatcher) Kill() {
+	if l.logger.IsTraceEnabled() {
+		l.logger.Tracef("killing worker %T", l.worker)
+	}
+	l.worker.Kill()
+}
+
+// Wait waits for the worker to complete and returns any
+// error encountered when it was running or stopping.
+func (l *LogWatcher) Wait() error {
+	err := l.worker.Wait()
+	if l.logger.IsTraceEnabled() {
+		l.logger.Tracef("worker %T finished with error %v", l.worker, err)
+	}
+	return errors.Trace(err)
+}
+
+// Unwrap returns the wrapped worker.
+func (l *LogWatcher) Unwrap() worker.Worker {
+	return l.worker
 }
