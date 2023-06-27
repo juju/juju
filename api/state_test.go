@@ -4,8 +4,6 @@
 package api_test
 
 import (
-	stdtesting "testing"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -25,10 +23,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
-
-func TestAll(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type stateSuite struct {
 	jujutesting.ApiServerSuite

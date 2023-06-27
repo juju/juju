@@ -49,6 +49,7 @@ type SecretsManagerAPI struct {
 
 	backendConfigGetter commonsecrets.BackendConfigGetter
 	adminConfigGetter   commonsecrets.BackendAdminConfigGetter
+	drainConfigGetter   commonsecrets.BackendDrainConfigGetter
 	remoteClientGetter  func(uri *coresecrets.URI) (CrossModelSecretsClient, error)
 
 	crossModelState CrossModelState
@@ -108,6 +109,9 @@ func (*SecretsManagerAPIV1) GetSecretBackendConfigs(_ struct{}) {}
 
 // GetSecretBackendConfigs gets the config needed to create a client to secret backends.
 func (s *SecretsManagerAPI) GetSecretBackendConfigs(arg params.SecretBackendArgs) (params.SecretBackendConfigResults, error) {
+	if arg.ForDrain {
+		return s.getBackendConfigForDrain(arg)
+	}
 	results := params.SecretBackendConfigResults{
 		Results: make(map[string]params.SecretBackendConfigResult, len(arg.BackendIDs)),
 	}
@@ -117,6 +121,41 @@ func (s *SecretsManagerAPI) GetSecretBackendConfigs(arg params.SecretBackendArgs
 	}
 	results.ActiveID = activeID
 	results.Results = result
+	return results, nil
+}
+
+// GetBackendConfigForDrain fetches the config needed to make a secret backend client for the drain worker.
+func (s *SecretsManagerAPI) getBackendConfigForDrain(arg params.SecretBackendArgs) (params.SecretBackendConfigResults, error) {
+	if len(arg.BackendIDs) > 1 {
+		return params.SecretBackendConfigResults{}, errors.Errorf("Maximumly only one backend ID can be specified for drain")
+	}
+	var backendID string
+	if len(arg.BackendIDs) == 1 {
+		backendID = arg.BackendIDs[0]
+	}
+	results := params.SecretBackendConfigResults{
+		Results: make(map[string]params.SecretBackendConfigResult, 1),
+	}
+	cfgInfo, err := s.drainConfigGetter(backendID)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	if len(cfgInfo.Configs) == 0 {
+		return results, errors.NotFoundf("no secret backends available")
+	}
+	results.ActiveID = cfgInfo.ActiveID
+	for id, cfg := range cfgInfo.Configs {
+		results.Results[id] = params.SecretBackendConfigResult{
+			ControllerUUID: cfg.ControllerUUID,
+			ModelUUID:      cfg.ModelUUID,
+			ModelName:      cfg.ModelName,
+			Draining:       true,
+			Config: params.SecretBackendConfig{
+				BackendType: cfg.BackendType,
+				Params:      cfg.Config,
+			},
+		}
+	}
 	return results, nil
 }
 

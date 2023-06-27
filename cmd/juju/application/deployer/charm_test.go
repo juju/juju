@@ -12,6 +12,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -30,7 +31,6 @@ import (
 )
 
 type charmSuite struct {
-	osEnvSuite   coretesting.JujuOSEnvSuite
 	deployerAPI  *mocks.MockDeployerAPI
 	modelCommand *mocks.MockModelCommand
 	configFlag   *mocks.MockDeployConfigFlag
@@ -56,11 +56,6 @@ func (s *charmSuite) SetUpTest(c *gc.C) {
 			Name: s.url.Name,
 		},
 	}
-	s.osEnvSuite.SetUpTest(c)
-}
-
-func (s *charmSuite) TearDownTest(c *gc.C) {
-	s.osEnvSuite.TearDownTest(c)
 }
 
 func (s *charmSuite) TestSimpleCharmDeploy(c *gc.C) {
@@ -74,7 +69,7 @@ func (s *charmSuite) TestSimpleCharmDeploy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *charmSuite) TestRepositoryCharmDeployDryRun(c *gc.C) {
+func (s *charmSuite) TestRepositoryCharmDeployDryRunCompatibility(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(17).AnyTimes()
@@ -167,19 +162,13 @@ func (s *charmSuite) TestDeployFromRepositoryCharmAppNameVSCharmName(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.osEnvSuite.SetFeatureFlags("server-side-charm-deploy")
-
-	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(18).AnyTimes()
-	s.resolver = mocks.NewMockResolver(ctrl)
+	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(19).AnyTimes()
 	s.modelCommand.EXPECT().Filesystem().Return(s.filesystem).AnyTimes()
 	s.configFlag.EXPECT().AbsoluteFileNames(gomock.Any()).Return(nil, nil)
 	s.configFlag.EXPECT().ReadConfigPairs(gomock.Any()).Return(nil, nil)
 
 	dCharm := s.newDeployCharm()
 	dCharm.applicationName = "differentThanCharmName"
-	dCharm.validateCharmSeriesWithName = func(series, name string, imageStream string) error {
-		return nil
-	}
 
 	repoCharm := &repositoryCharm{
 		deployCharm:      *dCharm,
@@ -187,19 +176,16 @@ func (s *charmSuite) TestDeployFromRepositoryCharmAppNameVSCharmName(c *gc.C) {
 		clock:            clock.WallClock,
 	}
 
-	stdOut := mocks.NewMockWriter(ctrl)
 	stdErr := mocks.NewMockWriter(ctrl)
 	output := bytes.NewBuffer([]byte{})
 	logOutput := func(p []byte) {
 		c.Logf("%q", p)
 		output.Write(p)
 	}
-	stdOut.EXPECT().Write(gomock.Any()).Return(0, nil).AnyTimes().Do(logOutput)
 	stdErr.EXPECT().Write(gomock.Any()).Return(0, nil).AnyTimes().Do(logOutput)
 
 	ctx := &cmd.Context{
 		Stderr: stdErr,
-		Stdout: stdOut,
 	}
 
 	dInfo := application.DeployInfo{
@@ -217,11 +203,46 @@ func (s *charmSuite) TestDeployFromRepositoryCharmAppNameVSCharmName(c *gc.C) {
 
 	s.deployerAPI.EXPECT().DeployFromRepository(gomock.Any()).Return(dInfo, nil, nil)
 
-	err := repoCharm.PrepareAndDeploy(ctx, s.deployerAPI, s.resolver)
+	err := repoCharm.PrepareAndDeploy(ctx, s.deployerAPI, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(output.String(), gc.Equals,
 		"Deployed \"differentThanCharmName\" from charm-hub charm \"testme\", "+
 			"revision 1 in channel latest/stable on ubuntu@20.04\n")
+}
+
+func (s *charmSuite) TestDeployFromRepositoryErrorNoUploadResources(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(19).AnyTimes()
+	s.modelCommand.EXPECT().Filesystem().Return(s.filesystem).AnyTimes()
+	s.configFlag.EXPECT().AbsoluteFileNames(gomock.Any()).Return(nil, nil)
+	s.configFlag.EXPECT().ReadConfigPairs(gomock.Any()).Return(nil, nil)
+
+	dCharm := s.newDeployCharm()
+
+	repoCharm := &repositoryCharm{
+		deployCharm:      *dCharm,
+		userRequestedURL: s.url,
+		clock:            clock.WallClock,
+	}
+
+	writer := mocks.NewMockWriter(ctrl)
+	writer.EXPECT().Write(gomock.Any()).Return(0, nil).AnyTimes()
+	ctx := &cmd.Context{
+		Stderr: writer,
+		Stdout: writer,
+	}
+
+	repoCharm.uploadExistingPendingResources = func(appName string, pendingResources []application.PendingResourceUpload, conn base.APICallCloser, filesystem modelcmd.Filesystem) error {
+		c.Fatalf("Do not upload pending resources if errors")
+		return nil
+	}
+	expectedErrors := []error{errors.NotFoundf("test errors")}
+	s.deployerAPI.EXPECT().DeployFromRepository(gomock.Any()).Return(application.DeployInfo{}, nil, expectedErrors)
+
+	err := repoCharm.PrepareAndDeploy(ctx, s.deployerAPI, nil)
+	c.Assert(err, gc.ErrorMatches, "failed to deploy charm \"testme\"")
 }
 
 func (s *charmSuite) newDeployCharm() *deployCharm {

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/charm/v11"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
@@ -48,7 +47,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -62,9 +60,14 @@ var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
 var logger = loggo.GetLogger("juju.apiserver.application")
 
+// APIv19 provides the Application API facade for version 19.
+type APIv19 struct {
+	*APIBase
+}
+
 // APIv18 provides the Application API facade for version 18.
 type APIv18 struct {
-	*APIBase
+	*APIv19
 }
 
 // APIv17 provides the Application API facade for version 17.
@@ -2974,16 +2977,19 @@ func (api *APIBase) Leader(entity params.Entity) (params.StringResult, error) {
 	return result, nil
 }
 
+// DeployFromRepository for facade v18. The method was still not fully complete until v19.
+// The NotImplemented error was for development purposes while use was behind a feature
+// flag in the juju client.
+func (api *APIv18) DeployFromRepository(args params.DeployFromRepositoryArgs) (params.DeployFromRepositoryResults, error) {
+	return params.DeployFromRepositoryResults{}, errors.NotImplementedf("this facade method is under development")
+}
+
 // DeployFromRepository is a one-stop deployment method for repository
 // charms. Only a charm name is required to deploy. If argument validation
 // fails, a list of all errors found in validation will be returned. If a
 // local resource is provided, details required for uploading the validated
 // resource will be returned.
 func (api *APIBase) DeployFromRepository(args params.DeployFromRepositoryArgs) (params.DeployFromRepositoryResults, error) {
-	if !featureflag.Enabled(feature.ServerSideCharmDeploy) {
-		return params.DeployFromRepositoryResults{}, errors.NotImplementedf("this facade method is under develop")
-	}
-
 	if err := api.checkCanWrite(); err != nil {
 		return params.DeployFromRepositoryResults{}, errors.Trace(err)
 	}

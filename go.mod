@@ -91,7 +91,7 @@ require (
 	github.com/juju/worker/v3 v3.2.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.3.1
-	github.com/lestrrat-go/jwx/v2 v2.0.9
+	github.com/lestrrat-go/jwx/v2 v2.0.11
 	github.com/lxc/lxd v0.0.0-20230406222408-2a93c684a73e
 	github.com/mattn/go-isatty v0.0.17
 	github.com/mattn/go-sqlite3 v1.14.16
@@ -107,11 +107,11 @@ require (
 	github.com/rs/xid v1.4.0
 	github.com/vishvananda/netlink v1.2.1-beta.2
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
-	golang.org/x/crypto v0.7.0
-	golang.org/x/net v0.8.0
+	golang.org/x/crypto v0.9.0
+	golang.org/x/net v0.10.0
 	golang.org/x/oauth2 v0.6.0
 	golang.org/x/sync v0.1.0
-	golang.org/x/sys v0.6.0
+	golang.org/x/sys v0.8.0
 	golang.org/x/tools v0.7.0
 	google.golang.org/api v0.108.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
@@ -166,7 +166,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/creack/pty v1.1.15 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0 // indirect
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/dnaeon/go-vcr v1.2.0 // indirect
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/fatih/color v1.13.0 // indirect
@@ -265,6 +265,7 @@ require (
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
+	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/sony/gobreaker v0.5.0 // indirect
@@ -280,7 +281,7 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	golang.org/x/mod v0.9.0 // indirect
-	golang.org/x/term v0.6.0 // indirect
+	golang.org/x/term v0.8.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect

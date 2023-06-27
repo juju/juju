@@ -455,6 +455,25 @@ func (s *serverIntegrationSuite) TestRemoteServerMissingCertificates(c *gc.C) {
 	c.Assert(errors.Cause(err).Error(), gc.Equals, "credentials not valid")
 }
 
+func (s *serverIntegrationSuite) TestRemoteServerBadServerFuncError(c *gc.C) {
+	factory := lxd.NewServerFactoryWithError()
+
+	creds := cloud.NewCredential("any", map[string]string{
+		"client-cert": "client-cert",
+		"client-key":  "client-key",
+		"server-cert": "server-cert",
+	})
+	svr, err := factory.RemoteServer(
+		lxd.CloudSpec{
+			CloudSpec: environscloudspec.CloudSpec{
+				Endpoint:   "https://10.0.0.9:8443",
+				Credential: &creds,
+			},
+		})
+	c.Assert(svr, gc.IsNil)
+	c.Assert(errors.Cause(err).Error(), gc.Equals, "oops")
+}
+
 func (s *serverIntegrationSuite) TestRemoteServerWithUnSupportedAPIVersion(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

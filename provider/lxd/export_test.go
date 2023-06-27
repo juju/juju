@@ -63,6 +63,14 @@ func NewServerFactoryWithMocks(localServerFunc func() (Server, error),
 	}
 }
 
+func NewServerFactoryWithError() ServerFactory {
+	return &serverFactory{
+		newLocalServerFunc:  func() (Server, error) { return nil, errors.New("oops") },
+		newRemoteServerFunc: func(lxd.ServerSpec) (Server, error) { return nil, errors.New("oops") },
+		newHTTPClientFunc:   func() *http.Client { return &http.Client{} },
+	}
+}
+
 func ExposeInstContainer(inst *environInstance) *lxd.Container {
 	return inst.container
 }
