@@ -153,9 +153,9 @@ func (r *rootSuite) TestFindMethodEnsuresTypeMatch(c *gc.C) {
 	expectedType := reflect.TypeOf((*testingType)(nil))
 
 	registry := new(facade.Registry)
-	registry.Register("my-testing-facade", 0, myBadFacade, expectedType)
-	registry.Register("my-testing-facade", 1, myGoodFacade, expectedType)
-	registry.Register("my-testing-facade", 2, myErrFacade, expectedType)
+	registry.Register("my-testing-facade", 0, facade.AlwaysAllowed, myBadFacade, expectedType)
+	registry.Register("my-testing-facade", 1, facade.AlwaysAllowed, myGoodFacade, expectedType)
+	registry.Register("my-testing-facade", 2, facade.AlwaysAllowed, myErrFacade, expectedType)
 	srvRoot := apiserver.TestingAPIRoot(registry)
 
 	// Now, myGoodFacade returns the right type, so calling it should work
@@ -248,7 +248,7 @@ func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *gc.C) {
 	}
 	registry := new(facade.Registry)
 	reflectType := reflect.TypeOf((*countingType)(nil))
-	registry.Register("my-counting-facade", 0, newIdCounter, reflectType)
+	registry.Register("my-counting-facade", 0, facade.AlwaysAllowed, newIdCounter, reflectType)
 	srvRoot := apiserver.TestingAPIRoot(registry)
 
 	// The first time we call FindMethod, it should lookup a facade, and
@@ -279,7 +279,7 @@ func (r *rootSuite) TestFindMethodCacheRaceSafe(c *gc.C) {
 	}
 	reflectType := reflect.TypeOf((*countingType)(nil))
 	registry := new(facade.Registry)
-	registry.Register("my-counting-facade", 0, newIdCounter, reflectType)
+	registry.Register("my-counting-facade", 0, facade.AlwaysAllowed, newIdCounter, reflectType)
 	srvRoot := apiserver.TestingAPIRoot(registry)
 
 	caller, err := srvRoot.FindMethod("my-counting-facade", 0, "Count")

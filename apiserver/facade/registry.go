@@ -13,6 +13,7 @@ import (
 
 // record represents an entry in a Registry.
 type record struct {
+	allower    Allower
 	factory    Factory
 	facadeType reflect.Type
 }
@@ -20,6 +21,16 @@ type record struct {
 // versions is our internal structure for tracking specific versions of a
 // single facade. We use a map to be able to quickly lookup a version.
 type versions map[int]record
+
+// Allower is a function that can be used to check if a connection is allowed to
+// access a given facade.
+type Allower func(Authorizer) error
+
+// AlwaysAllowed is an Allower that always returns nil, which means it's always
+// allowed.
+func AlwaysAllowed(a Authorizer) error {
+	return nil
+}
 
 // FacadeRegistry describes the API facades exposed by some API server.
 type FacadeRegistry interface {
@@ -32,6 +43,8 @@ type FacadeRegistry interface {
 	// the API, and it must exactly match the actual object returned by the
 	// factory.
 	MustRegister(string, int, Factory, reflect.Type)
+
+	MustRegisterWithAuth(string, int, Allower, Factory, reflect.Type)
 }
 
 // Registry describes the API facades exposed by some API server.
@@ -45,11 +58,12 @@ type Registry struct {
 // object will be.
 // The Type information is used to define what methods will be exported in the
 // API, and it must exactly match the actual object returned by the factory.
-func (f *Registry) Register(name string, version int, factory Factory, facadeType reflect.Type) error {
+func (f *Registry) Register(name string, version int, allower Allower, factory Factory, facadeType reflect.Type) error {
 	if f.facades == nil {
 		f.facades = make(map[string]versions, 1)
 	}
 	record := record{
+		allower:    allower,
 		factory:    factory,
 		facadeType: facadeType,
 	}
@@ -69,7 +83,16 @@ func (f *Registry) Register(name string, version int, factory Factory, facadeTyp
 // and panics if it fails.
 // See: Register.
 func (f *Registry) MustRegister(name string, version int, factory Factory, facadeType reflect.Type) {
-	if err := f.Register(name, version, factory, facadeType); err != nil {
+	if err := f.Register(name, version, nil, factory, facadeType); err != nil {
+		panic(err)
+	}
+}
+
+// MustRegister adds a single named facade at a given version to the registry
+// and panics if it fails.
+// See: Register.
+func (f *Registry) MustRegisterWithAuth(name string, version int, allower Allower, factory Factory, facadeType reflect.Type) {
+	if err := f.Register(name, version, allower, factory, facadeType); err != nil {
 		panic(err)
 	}
 }
@@ -82,6 +105,16 @@ func (f *Registry) lookup(name string, version int) (record, error) {
 		}
 	}
 	return record{}, errors.NotFoundf("%s(%d)", name, version)
+}
+
+// GetAllower returns just the Allower for a given Facade name and version.
+// See also GetType for getting the type information instead of the creation factory.
+func (f *Registry) GetAllower(name string, version int) (Allower, error) {
+	record, err := f.lookup(name, version)
+	if err != nil {
+		return nil, err
+	}
+	return record.allower, nil
 }
 
 // GetFactory returns just the Factory for a given Facade name and version.
@@ -153,6 +186,10 @@ type Details struct {
 	// Factory holds the factory function for making
 	// instances of the facade.
 	Factory Factory
+	// Allower holds the function that can be used to
+	// check if a connection is allowed to access the
+	// facade.
+	Allower Allower
 	// Type holds the type of object that the Factory
 	// will return. This can be used to find out
 	// details of the facade without actually creating
@@ -175,6 +212,7 @@ func (f *Registry) ListDetails() []Details {
 				Name:    name,
 				Version: v,
 				Factory: info.factory,
+				Allower: info.allower,
 				Type:    info.facadeType,
 			})
 		}

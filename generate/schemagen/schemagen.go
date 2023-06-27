@@ -135,17 +135,17 @@ func (p defaultPackages) LoadPackage() (*packages.Package, error) {
 
 type defaultLinker struct{}
 
-func (l defaultLinker) Links(facadeName string, factory facade.Factory) []string {
+func (l defaultLinker) Links(facadeName string, allower facade.Allower, factory facade.Factory) []string {
 	var a []string
 	for i, kindStr := range kinds {
-		if l.isAvailable(facadeName, factory, entityKind(i)) {
+		if l.isAvailable(facadeName, allower, factory, entityKind(i)) {
 			a = append(a, kindStr)
 		}
 	}
 	return a
 }
 
-func (defaultLinker) isAvailable(facadeName string, factory facade.Factory, kind entityKind) (ok bool) {
+func (defaultLinker) isAvailable(facadeName string, allower facade.Allower, factory facade.Factory, kind entityKind) (ok bool) {
 	if factory == nil {
 		// Admin facade only.
 		return true
@@ -156,6 +156,17 @@ func (defaultLinker) isAvailable(facadeName string, factory facade.Factory, kind
 	if kind == kindModelUser && !apiserver.IsModelFacade(facadeName) {
 		return false
 	}
+
+	auth := authorizer{
+		kind: kind,
+	}
+	if allower != nil {
+		err := allower(auth)
+		if err != nil {
+			return errors.Cause(err) != apiservererrors.ErrPerm
+		}
+	}
+
 	defer func() {
 		err := recover()
 		if err == nil {
@@ -164,9 +175,7 @@ func (defaultLinker) isAvailable(facadeName string, factory facade.Factory, kind
 		ok = true
 	}()
 	ctx := context{
-		auth: authorizer{
-			kind: kind,
-		},
+		auth: auth,
 	}
 	_, err := factory(ctx)
 	return errors.Cause(err) != apiservererrors.ErrPerm

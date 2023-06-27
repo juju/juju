@@ -83,7 +83,7 @@ func (s *GenSuite) expectList() {
 
 func (s *GenSuite) expectLinker() {
 	aExp := s.linker.EXPECT()
-	aExp.Links(gomock.Any(), gomock.Any()).Return([]string{})
+	aExp.Links(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{})
 }
 
 func (s *GenSuite) expectLoadPackage() {

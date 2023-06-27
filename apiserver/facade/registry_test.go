@@ -27,7 +27,7 @@ var (
 
 func (s *RegistrySuite) TestRegister(c *gc.C) {
 	registry := &facade.Registry{}
-	err := registry.Register("myfacade", 123, testFacade, interfaceType)
+	err := registry.Register("myfacade", 123, facade.AlwaysAllowed, testFacade, interfaceType)
 	c.Assert(err, jc.ErrorIsNil)
 
 	factory, err := registry.GetFactory("myfacade", 123)
@@ -39,10 +39,10 @@ func (s *RegistrySuite) TestRegister(c *gc.C) {
 
 func (s *RegistrySuite) TestListDetails(c *gc.C) {
 	registry := &facade.Registry{}
-	err := registry.Register("f2", 6, testFacade, interfaceType)
+	err := registry.Register("f2", 6, facade.AlwaysAllowed, testFacade, interfaceType)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = registry.Register("f1", 9, validIdFactory, intPtrType)
+	err = registry.Register("f1", 9, facade.AlwaysAllowed, validIdFactory, intPtrType)
 	c.Assert(err, jc.ErrorIsNil)
 
 	details := registry.ListDetails()
@@ -119,7 +119,7 @@ func (*RegistrySuite) TestRegisterAlreadyPresent(c *gc.C) {
 		var i = 200
 		return &i, nil
 	}
-	err := registry.Register("name", 0, secondIdFactory, intPtrType)
+	err := registry.Register("name", 0, facade.AlwaysAllowed, secondIdFactory, intPtrType)
 	c.Assert(err, gc.ErrorMatches, `object "name\(0\)" already registered`)
 
 	factory, err := registry.GetFactory("name", 0)
@@ -191,7 +191,7 @@ func assertRegister(c *gc.C, registry *facade.Registry, name string, version int
 }
 
 func assertRegisterFlag(c *gc.C, registry *facade.Registry, name string, version int) {
-	err := registry.Register(name, version, validIdFactory, intPtrType)
+	err := registry.Register(name, version, facade.AlwaysAllowed, validIdFactory, intPtrType)
 	c.Assert(err, gc.IsNil)
 }
 

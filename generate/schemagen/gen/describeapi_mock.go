@@ -190,15 +190,15 @@ func (m *MockLinker) EXPECT() *MockLinkerMockRecorder {
 }
 
 // Links mocks base method.
-func (m *MockLinker) Links(arg0 string, arg1 facade.Factory) []string {
+func (m *MockLinker) Links(arg0 string, arg1 facade.Allower, arg2 facade.Factory) []string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Links", arg0, arg1)
+	ret := m.ctrl.Call(m, "Links", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]string)
 	return ret0
 }
 
 // Links indicates an expected call of Links.
-func (mr *MockLinkerMockRecorder) Links(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockLinkerMockRecorder) Links(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Links", reflect.TypeOf((*MockLinker)(nil).Links), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Links", reflect.TypeOf((*MockLinker)(nil).Links), arg0, arg1, arg2)
 }

@@ -14,7 +14,7 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Annotations", 2, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegisterWithAuth("Annotations", 2, authorizeCheck, func(ctx facade.Context) (facade.Facade, error) {
 		return newAPI(ctx)
 	}, reflect.TypeOf((*API)(nil)))
 }
@@ -35,4 +35,11 @@ func newAPI(ctx facade.Context) (*API, error) {
 		access:     getState(st, m),
 		authorizer: authorizer,
 	}, nil
+}
+
+func authorizeCheck(auth facade.Authorizer) error {
+	if !auth.AuthClient() {
+		return apiservererrors.ErrPerm
+	}
+	return nil
 }

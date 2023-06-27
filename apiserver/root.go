@@ -468,6 +468,19 @@ func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (r
 		if objValue, ok := r.objectCache[objKey]; ok {
 			return objValue, nil
 		}
+
+		// Check if the caller is allowed to access this facade, before
+		// creating the object.
+		allower, err := r.facades.GetAllower(rootName, version)
+		if allower != nil {
+			if err != nil {
+				return reflect.Value{}, err
+			}
+			if err := allower(r.authorizer); err != nil {
+				return reflect.Value{}, err
+			}
+		}
+
 		// Now that we have the write lock, check one more time in case
 		// someone got the write lock before us.
 		factory, err := r.facades.GetFactory(rootName, version)
