@@ -1617,16 +1617,15 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 					"current-revision": metadata.CurrentRevision,
 				}},
 			})
-		}
-
-		if localSecret {
-			// The consumer is tracking a new revision, which might result in the
-			// previous revision becoming obsolete.
-			obsoleteOps, err := st.markObsoleteRevisionOps(uri, consumer.String(), metadata.CurrentRevision)
-			if err != nil {
-				return nil, errors.Trace(err)
+			if localSecret && metadata.CurrentRevision > doc.CurrentRevision {
+				// The consumer is tracking a new revision, which might result in the
+				// previous revision becoming obsolete.
+				obsoleteOps, err := st.markObsoleteRevisionOps(uri, consumer.String(), metadata.CurrentRevision)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				ops = append(ops, obsoleteOps...)
 			}
-			ops = append(ops, obsoleteOps...)
 		}
 
 		return ops, nil
@@ -1683,15 +1682,16 @@ func (st *State) SaveSecretRemoteConsumer(uri *secrets.URI, consumer names.Tag, 
 					"current-revision": metadata.CurrentRevision,
 				}},
 			})
+			if metadata.CurrentRevision > doc.CurrentRevision {
+				// The consumer is tracking a new revision, which might result in the
+				// previous revision becoming obsolete.
+				obsoleteOps, err := st.markObsoleteRevisionOps(uri, consumer.String(), metadata.CurrentRevision)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				ops = append(ops, obsoleteOps...)
+			}
 		}
-
-		// The consumer is tracking a new revision, which might result in the
-		// previous revision becoming obsolete.
-		obsoleteOps, err := st.markObsoleteRevisionOps(uri, consumer.String(), metadata.CurrentRevision)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops = append(ops, obsoleteOps...)
 
 		return ops, nil
 	}
