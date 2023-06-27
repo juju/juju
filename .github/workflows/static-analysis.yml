@@ -19,6 +19,10 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v3
 
+    - name: Dependency Review
+      uses: actions/dependency-review-action@v3
+      if: github.event_name == 'pull_request'
+
     - name: Determine which tests to run
       uses: dorny/paths-filter@v2
       id: filter
