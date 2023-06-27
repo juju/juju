@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/secrets"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -112,4 +113,13 @@ func (st *State) ReadBackendRefCount(backendID string) (int, error) {
 
 	key := secretBackendRefCountKey(backendID)
 	return nsRefcounts.read(refCountCollection, key)
+}
+
+func (st *State) IsSecretRevisionObsolete(c *gc.C, uri *secrets.URI, rev int) bool {
+	col, closer := st.db().GetCollection(secretRevisionsC)
+	defer closer()
+	var doc secretRevisionDoc
+	err := col.FindId(secretRevisionKey(uri, rev)).One(&doc)
+	c.Assert(err, jc.ErrorIsNil)
+	return doc.Obsolete
 }

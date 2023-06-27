@@ -1364,23 +1364,58 @@ func (s *SecretsSuite) TestSaveSecretConsumer(c *gc.C) {
 		},
 	}
 	uri := secrets.NewURI()
-	_, err := s.store.CreateSecret(uri, cp)
+	md, err := s.store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
-	md := &secrets.SecretConsumerMetadata{
+	c.Assert(md.LatestRevision, gc.Equals, 1)
+	c.Assert(s.State.IsSecretRevisionObsolete(c, uri, 1), jc.IsFalse)
+
+	cmd := &secrets.SecretConsumerMetadata{
 		Label:           "foobar",
-		CurrentRevision: 666,
+		CurrentRevision: md.LatestRevision,
+		LatestRevision:  md.LatestRevision,
 	}
-	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), md)
+	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), cmd)
 	c.Assert(err, jc.ErrorIsNil)
 	md2, err := s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(md2, jc.DeepEquals, md)
-	md.CurrentRevision = 668
-	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), md)
+	c.Assert(md2, jc.DeepEquals, cmd)
+	c.Assert(md2.LatestRevision, gc.Equals, 1)
+	c.Assert(md2.CurrentRevision, gc.Equals, 1)
+	c.Assert(s.State.IsSecretRevisionObsolete(c, uri, 1), jc.IsFalse)
+
+	// secret revison ++, but not obsolete.
+	md, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "bar", "baz": "qux"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(md.LatestRevision, gc.Equals, 2)
+	c.Assert(s.State.IsSecretRevisionObsolete(c, uri, 1), jc.IsFalse)
+	c.Assert(s.State.IsSecretRevisionObsolete(c, uri, 2), jc.IsFalse)
+
+	// consumer latest revison ++, but not obsolete.
+	cmd.LatestRevision = md.LatestRevision
+	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), cmd)
 	c.Assert(err, jc.ErrorIsNil)
 	md2, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(md2, jc.DeepEquals, md)
+	c.Assert(md2, jc.DeepEquals, cmd)
+	c.Assert(md2.LatestRevision, gc.Equals, 2)
+	c.Assert(md2.CurrentRevision, gc.Equals, 1)
+	c.Assert(s.State.IsSecretRevisionObsolete(c, uri, 1), jc.IsFalse)
+	c.Assert(s.State.IsSecretRevisionObsolete(c, uri, 2), jc.IsFalse)
+
+	// consumer current revison ++, then obsolete.
+	cmd.CurrentRevision = md.LatestRevision
+	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), cmd)
+	c.Assert(err, jc.ErrorIsNil)
+	md2, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(md2, jc.DeepEquals, cmd)
+	c.Assert(md2.LatestRevision, gc.Equals, 2)
+	c.Assert(md2.CurrentRevision, gc.Equals, 2)
+	c.Assert(s.State.IsSecretRevisionObsolete(c, uri, 1), jc.IsTrue)
+	c.Assert(s.State.IsSecretRevisionObsolete(c, uri, 2), jc.IsFalse)
 }
 
 func (s *SecretsSuite) TestSaveSecretConsumerConcurrent(c *gc.C) {
