@@ -1,0 +1,15 @@
+# Core database packages
+/core/changestream/**           @manadart @SimonRichardson
+/core/database/**               @manadart @SimonRichardson
+/core/watcher/**                @manadart @SimonRichardson
+/database/**                    @manadart @SimonRichardson
+/worker/dbaccessor/**           @manadart @SimonRichardson
+/worker/changestream/**         @manadart @SimonRichardson
+/worker/changestreampruner/**   @manadart @SimonRichardson
+
+# Lease management packages
+/worker/lease/**                @manadart
+/worker/leaseexpiry/**          @manadart
+
+# Charmhub
+/charmhub/**                    @hmlanigan @SimonRichardson
