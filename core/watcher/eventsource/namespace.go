@@ -137,14 +137,3 @@ func (w *NamespaceWatcher) getInitialState() ([]string, error) {
 
 	return keys, errors.Trace(err)
 }
-
-// Kill (worker.Worker) kills the watcher via its tomb.
-func (w *NamespaceWatcher) Kill() {
-	w.tomb.Kill(nil)
-}
-
-// Wait (worker.Worker) waits for the watcher's tomb to die,
-// and returns the error with which it was killed.
-func (w *NamespaceWatcher) Wait() error {
-	return w.tomb.Wait()
-}

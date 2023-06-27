@@ -86,14 +86,3 @@ func (w *ValueWatcher) loop() error {
 		}
 	}
 }
-
-// Kill (worker.Worker) kills the watcher via its tomb.
-func (w *ValueWatcher) Kill() {
-	w.tomb.Kill(nil)
-}
-
-// Wait (worker.Worker) waits for the watcher's tomb to die,
-// and returns the error with which it was killed.
-func (w *ValueWatcher) Wait() error {
-	return w.tomb.Wait()
-}
