@@ -111,6 +111,17 @@ run_enable_ha() {
 	wait_for_controller_machines 3
 	wait_for_ha 3
 
+	# Ensure all the units are fully deployed before trying to
+	# tear down HA. There is a window between when wait_for_ha
+	# returns and the controller units are fully deployed when
+	# remove-machine will fail. Wait for the config to be
+	# settled before trying to tear down.
+	juju switch controller
+	wait_for "controller" "$(idle_condition "controller" 0 0)"
+	wait_for "controller" "$(idle_condition "controller" 0 1)"
+	wait_for "controller" "$(idle_condition "controller" 0 2)"
+
+	juju switch enable-ha
 	juju remove-machine -m controller 1
 	juju remove-machine -m controller 2
 

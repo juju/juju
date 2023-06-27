@@ -110,7 +110,7 @@ func (s *workerSuite) TestDrainNoOPS(c *gc.C) {
 				},
 			},
 		}, nil),
-		s.backendClient.EXPECT().GetBackend(nil).DoAndReturn(func(_ *string) (*provider.SecretsBackend, string, error) {
+		s.backendClient.EXPECT().GetBackend(nil, true).DoAndReturn(func(*string, bool) (*provider.SecretsBackend, string, error) {
 			close(s.done)
 			return nil, "backend-1", nil
 		}),
@@ -127,10 +127,8 @@ func (s *workerSuite) TestDrainBetweenExternalBackends(c *gc.C) {
 	secretValue := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 
 	oldBackend := mocks.NewMockSecretsBackend(ctrl)
-	newVauleRef := coresecrets.ValueRef{
-		BackendID:  "backend-2",
-		RevisionID: "revision-1",
-	}
+	activeBackend := mocks.NewMockSecretsBackend(ctrl)
+
 	gomock.InOrder(
 		s.facade.EXPECT().GetSecretsToDrain().Return([]coresecrets.SecretMetadataForDrain{
 			{
@@ -143,18 +141,19 @@ func (s *workerSuite) TestDrainBetweenExternalBackends(c *gc.C) {
 				},
 			},
 		}, nil),
-		s.backendClient.EXPECT().GetBackend(nil).DoAndReturn(func(_ *string) (*provider.SecretsBackend, string, error) {
-			return nil, "backend-2", nil
-		}),
+		s.backendClient.EXPECT().GetBackend(nil, true).Return(activeBackend, "backend-2", nil),
 		s.backendClient.EXPECT().GetRevisionContent(uri, 1).Return(secretValue, nil),
-		s.backendClient.EXPECT().SaveContent(uri, 1, secretValue).Return(newVauleRef, nil),
-		s.backendClient.EXPECT().GetBackend(ptr("backend-1")).Return(oldBackend, "", nil),
+		activeBackend.EXPECT().SaveContent(gomock.Any(), uri, 1, secretValue).Return("revision-1", nil),
+		s.backendClient.EXPECT().GetBackend(ptr("backend-1"), true).Return(oldBackend, "", nil),
 		s.facade.EXPECT().ChangeSecretBackend(
 			[]secretsdrain.ChangeSecretBackendArg{
 				{
 					URI:      uri,
 					Revision: 1,
-					ValueRef: &newVauleRef,
+					ValueRef: &coresecrets.ValueRef{
+						BackendID:  "backend-2",
+						RevisionID: "revision-1",
+					},
 				},
 			},
 		).Return(secretsdrain.ChangeSecretBackendResult{Results: []error{nil}}, nil),
@@ -174,10 +173,8 @@ func (s *workerSuite) TestDrainFromInternalToExternal(c *gc.C) {
 	s.notifyBackendChangedCh <- struct{}{}
 	secretValue := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 
-	newVauleRef := coresecrets.ValueRef{
-		BackendID:  "backend-2",
-		RevisionID: "revision-1",
-	}
+	activeBackend := mocks.NewMockSecretsBackend(ctrl)
+
 	gomock.InOrder(
 		s.facade.EXPECT().GetSecretsToDrain().Return([]coresecrets.SecretMetadataForDrain{
 			{
@@ -185,17 +182,18 @@ func (s *workerSuite) TestDrainFromInternalToExternal(c *gc.C) {
 				Revisions: []coresecrets.SecretRevisionMetadata{{Revision: 1}},
 			},
 		}, nil),
-		s.backendClient.EXPECT().GetBackend(nil).DoAndReturn(func(_ *string) (*provider.SecretsBackend, string, error) {
-			return nil, "backend-2", nil
-		}),
+		s.backendClient.EXPECT().GetBackend(nil, true).Return(activeBackend, "backend-2", nil),
 		s.backendClient.EXPECT().GetRevisionContent(uri, 1).Return(secretValue, nil),
-		s.backendClient.EXPECT().SaveContent(uri, 1, secretValue).Return(newVauleRef, nil),
+		activeBackend.EXPECT().SaveContent(gomock.Any(), uri, 1, secretValue).Return("revision-1", nil),
 		s.facade.EXPECT().ChangeSecretBackend(
 			[]secretsdrain.ChangeSecretBackendArg{
 				{
 					URI:      uri,
 					Revision: 1,
-					ValueRef: &newVauleRef,
+					ValueRef: &coresecrets.ValueRef{
+						BackendID:  "backend-2",
+						RevisionID: "revision-1",
+					},
 				},
 			},
 		).DoAndReturn(func([]secretsdrain.ChangeSecretBackendArg) (secretsdrain.ChangeSecretBackendResult, error) {
@@ -215,6 +213,7 @@ func (s *workerSuite) TestDrainFromExternalToInternal(c *gc.C) {
 	secretValue := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 
 	oldBackend := mocks.NewMockSecretsBackend(ctrl)
+	activeBackend := mocks.NewMockSecretsBackend(ctrl)
 	gomock.InOrder(
 		s.facade.EXPECT().GetSecretsToDrain().Return([]coresecrets.SecretMetadataForDrain{
 			{
@@ -227,12 +226,10 @@ func (s *workerSuite) TestDrainFromExternalToInternal(c *gc.C) {
 				},
 			},
 		}, nil),
-		s.backendClient.EXPECT().GetBackend(nil).DoAndReturn(func(_ *string) (*provider.SecretsBackend, string, error) {
-			return nil, "backend-2", nil
-		}),
+		s.backendClient.EXPECT().GetBackend(nil, true).Return(activeBackend, "backend-2", nil),
 		s.backendClient.EXPECT().GetRevisionContent(uri, 1).Return(secretValue, nil),
-		s.backendClient.EXPECT().SaveContent(uri, 1, secretValue).Return(coresecrets.ValueRef{}, errors.NotSupportedf("")),
-		s.backendClient.EXPECT().GetBackend(ptr("backend-1")).Return(oldBackend, "", nil),
+		activeBackend.EXPECT().SaveContent(gomock.Any(), uri, 1, secretValue).Return("", errors.NotSupportedf("")),
+		s.backendClient.EXPECT().GetBackend(ptr("backend-1"), true).Return(oldBackend, "", nil),
 		s.facade.EXPECT().ChangeSecretBackend(
 			[]secretsdrain.ChangeSecretBackendArg{
 				{
@@ -261,6 +258,7 @@ func (s *workerSuite) TestDrainPartiallyFailed(c *gc.C) {
 	secretValue := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 
 	oldBackend := mocks.NewMockSecretsBackend(ctrl)
+	activeBackend := mocks.NewMockSecretsBackend(ctrl)
 	gomock.InOrder(
 		s.facade.EXPECT().GetSecretsToDrain().Return([]coresecrets.SecretMetadataForDrain{
 			{
@@ -279,20 +277,16 @@ func (s *workerSuite) TestDrainPartiallyFailed(c *gc.C) {
 		}, nil),
 
 		// revision 1
-		s.backendClient.EXPECT().GetBackend(nil).DoAndReturn(func(_ *string) (*provider.SecretsBackend, string, error) {
-			return nil, "backend-3", nil
-		}),
+		s.backendClient.EXPECT().GetBackend(nil, true).Return(activeBackend, "backend-3", nil),
 		s.backendClient.EXPECT().GetRevisionContent(uri, 1).Return(secretValue, nil),
-		s.backendClient.EXPECT().SaveContent(uri, 1, secretValue).Return(coresecrets.ValueRef{}, errors.NotSupportedf("")),
-		s.backendClient.EXPECT().GetBackend(ptr("backend-1")).Return(oldBackend, "", nil),
+		activeBackend.EXPECT().SaveContent(gomock.Any(), uri, 1, secretValue).Return("", errors.NotSupportedf("")),
+		s.backendClient.EXPECT().GetBackend(ptr("backend-1"), true).Return(oldBackend, "", nil),
 
 		// revision 2
-		s.backendClient.EXPECT().GetBackend(nil).DoAndReturn(func(_ *string) (*provider.SecretsBackend, string, error) {
-			return nil, "backend-3", nil
-		}),
+		s.backendClient.EXPECT().GetBackend(nil, true).Return(activeBackend, "backend-3", nil),
 		s.backendClient.EXPECT().GetRevisionContent(uri, 2).Return(secretValue, nil),
-		s.backendClient.EXPECT().SaveContent(uri, 2, secretValue).Return(coresecrets.ValueRef{}, errors.NotSupportedf("")),
-		s.backendClient.EXPECT().GetBackend(ptr("backend-2")).Return(oldBackend, "", nil),
+		activeBackend.EXPECT().SaveContent(gomock.Any(), uri, 2, secretValue).Return("", errors.NotSupportedf("")),
+		s.backendClient.EXPECT().GetBackend(ptr("backend-2"), true).Return(oldBackend, "", nil),
 
 		s.facade.EXPECT().ChangeSecretBackend(
 			[]secretsdrain.ChangeSecretBackendArg{

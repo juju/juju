@@ -10,6 +10,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/names/v4"
 
 	actionapi "github.com/juju/juju/api/client/action"
 	jujucmd "github.com/juju/juju/cmd"
@@ -96,6 +97,9 @@ func (c *showOperationCommand) Init(args []string) error {
 	case 0:
 		return errors.New("no operation ID specified")
 	case 1:
+		if !names.IsValidOperation(args[0]) {
+			return errors.NotValidf("operation ID %q", args[0])
+		}
 		c.requestedID = args[0]
 		return nil
 	default:

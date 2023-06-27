@@ -48,6 +48,9 @@ type BackendConfigGetter func(backendIDs []string, wantAll bool) (*provider.Mode
 // BackendAdminConfigGetter is a func used to get admin level secret backend config.
 type BackendAdminConfigGetter func() (*provider.ModelBackendConfigInfo, error)
 
+// BackendDrainConfigGetter is a func used to get secret backend config for draining.
+type BackendDrainConfigGetter func(string) (*provider.ModelBackendConfigInfo, error)
+
 // AdminBackendConfigInfo returns the admin config for the secret backends is use by
 // the specified model.
 // If external backend is configured, it returns the external backend together with the "internal" backend and
@@ -122,6 +125,32 @@ func AdminBackendConfigInfo(model Model) (*provider.ModelBackendConfigInfo, erro
 	return &info, nil
 }
 
+// DrainBackendConfigInfo returns the secret backend config for the drain worker to use.
+func DrainBackendConfigInfo(backendID string, model Model, authTag names.Tag, leadershipChecker leadership.Checker) (*provider.ModelBackendConfigInfo, error) {
+	adminModelCfg, err := AdminBackendConfigInfo(model)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting configured secrets providers")
+	}
+	result := provider.ModelBackendConfigInfo{
+		ActiveID: adminModelCfg.ActiveID,
+		Configs:  make(map[string]provider.ModelBackendConfig),
+	}
+	if backendID == "" {
+		backendID = adminModelCfg.ActiveID
+	}
+
+	cfg, ok := adminModelCfg.Configs[backendID]
+	if !ok {
+		return nil, errors.Errorf("missing secret backend %q", backendID)
+	}
+	backendCfg, err := backendConfigInfo(model, backendID, &cfg, authTag, leadershipChecker, true)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result.Configs[backendID] = *backendCfg
+	return &result, nil
+}
+
 // BackendConfigInfo returns the config to create a secret backend
 // for the specified backend IDs.
 // This is called to provide config to a client like a unit agent which
@@ -153,7 +182,7 @@ func BackendConfigInfo(model Model, backendIDs []string, wantAll bool, authTag n
 		if !ok {
 			return nil, errors.Errorf("missing secret backend %q", backendID)
 		}
-		backendCfg, err := backendConfigInfo(model, backendID, &cfg, authTag, leadershipChecker)
+		backendCfg, err := backendConfigInfo(model, backendID, &cfg, authTag, leadershipChecker, false)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -162,7 +191,10 @@ func BackendConfigInfo(model Model, backendIDs []string, wantAll bool, authTag n
 	return &result, nil
 }
 
-func backendConfigInfo(model Model, backendID string, adminCfg *provider.ModelBackendConfig, authTag names.Tag, leadershipChecker leadership.Checker) (*provider.ModelBackendConfig, error) {
+func backendConfigInfo(
+	model Model, backendID string, adminCfg *provider.ModelBackendConfig,
+	authTag names.Tag, leadershipChecker leadership.Checker, forDrain bool,
+) (*provider.ModelBackendConfig, error) {
 	p, err := GetProvider(adminCfg.BackendType)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -226,7 +258,7 @@ func backendConfigInfo(model Model, backendID string, adminCfg *provider.ModelBa
 	}
 
 	logger.Debugf("secrets for %v:\nowned: %v\nconsumed:%v", authTag.String(), ownedRevisions, readRevisions)
-	cfg, err := p.RestrictedConfig(adminCfg, authTag, ownedRevisions[backendID], readRevisions[backendID])
+	cfg, err := p.RestrictedConfig(adminCfg, forDrain, authTag, ownedRevisions[backendID], readRevisions[backendID])
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

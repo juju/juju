@@ -5,6 +5,7 @@ package application
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/juju/charm/v11"
 	"github.com/juju/cmd/v3"
@@ -154,7 +155,7 @@ type refreshCommand struct {
 	// Trust signifies that the charm should have access to trusted credentials.
 	// That is, hooks run by the charm can access cloud credentials and other
 	// trusted access credentials.
-	Trust bool
+	Trust *bool
 }
 
 const refreshDoc = `
@@ -268,7 +269,38 @@ func (c *refreshCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(storageFlag{&c.Storage, nil}, "storage", "Charm storage constraints")
 	f.Var(&c.ConfigOptions, "config", "Either a path to yaml-formatted application config file or a key=value pair ")
 	f.StringVar(&c.BindToSpaces, "bind", "", "Configure application endpoint bindings to spaces")
-	f.BoolVar(&c.Trust, "trust", false, "Allows charm to run hooks that require access credentials")
+	f.Var(newOptBoolValue(&c.Trust), "trust", "Allows charm to run hooks that require access credentials")
+}
+
+type optBoolValue struct {
+	target **bool
+}
+
+func newOptBoolValue(p **bool) *optBoolValue {
+	return &optBoolValue{
+		target: p,
+	}
+}
+
+func (b *optBoolValue) Set(s string) error {
+	v, err := strconv.ParseBool(s)
+	*b.target = &v
+	return err
+}
+
+func (b *optBoolValue) Get() interface{} {
+	if *b.target != nil {
+		return **b.target
+	}
+	return "unset"
+}
+
+func (b *optBoolValue) String() string {
+	return fmt.Sprintf("%v", b.Get())
+}
+
+func (b *optBoolValue) IsBoolFlag() bool {
+	return true
 }
 
 func (c *refreshCommand) Init(args []string) error {
