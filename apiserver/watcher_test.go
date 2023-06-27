@@ -4,9 +4,11 @@
 package apiserver_test
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
@@ -18,6 +20,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -25,14 +28,21 @@ import (
 
 type watcherSuite struct {
 	testing.BaseSuite
-	resources  *common.Resources
-	authorizer apiservertesting.FakeAuthorizer
+	resources       *common.Resources
+	watcherRegistry facade.WatcherRegistry
+	authorizer      apiservertesting.FakeAuthorizer
 }
 
 var _ = gc.Suite(&watcherSuite{})
 
 func (s *watcherSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+
+	var err error
+	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
+
 	s.resources = common.NewResources()
 	s.AddCleanup(func(*gc.C) {
 		s.resources.StopAll()
@@ -55,10 +65,11 @@ func (s *watcherSuite) getFacade(
 
 func (s *watcherSuite) facadeContext(id string, dispose func()) facadetest.Context {
 	return facadetest.Context{
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
-		ID_:        id,
-		Dispose_:   dispose,
+		Resources_:       s.resources,
+		WatcherRegistry_: s.watcherRegistry,
+		Auth_:            s.authorizer,
+		ID_:              id,
+		Dispose_:         dispose,
 	}
 }
 

@@ -230,7 +230,7 @@ func AllFacades() *facade.Registry {
 	registry.MustRegister("EntityWatcher", 2, newEntitiesWatcher, reflect.TypeOf((*srvEntitiesWatcher)(nil)))
 	registry.MustRegister("MigrationStatusWatcher", 1, newMigrationStatusWatcher, reflect.TypeOf((*srvMigrationStatusWatcher)(nil)))
 	registry.MustRegister("ModelSummaryWatcher", 1, newModelSummaryWatcher, reflect.TypeOf((*SrvModelSummaryWatcher)(nil)))
-	registry.MustRegister("SecretsTriggerWatcher", 1, newSecretTriggerWatcher, reflect.TypeOf((*srvSecretTriggerWatcher)(nil)))
+	registry.MustRegister("SecretsTriggerWatcher", 1, newSecretsTriggerWatcher, reflect.TypeOf((*srvSecretTriggerWatcher)(nil)))
 	registry.MustRegister("SecretBackendsRotateWatcher", 1, newSecretBackendsRotateWatcher, reflect.TypeOf((*srvSecretBackendsRotateWatcher)(nil)))
 	registry.MustRegister("SecretsRevisionWatcher", 1, newSecretsRevisionWatcher, reflect.TypeOf((*srvSecretsRevisionWatcher)(nil)))
 
