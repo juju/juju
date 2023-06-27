@@ -15,7 +15,6 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/schema"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/testing"
@@ -374,101 +373,4 @@ func getKeysInDescLenOrder[T any](m map[string]T) (keys []string) {
 		return len(keys[i]) > len(keys[j])
 	})
 	return
-}
-
-// UNUSED
-// Alternative ways to gather data that didn't make the cut. Leaving here for
-// interest, or in case they become useful in the future
-
-// //go:linkname configChecker github.com/juju/juju/controller.configChecker
-var configChecker schema.Checker
-
-// Get default values by reflection on controller.configChecker
-func fillFromConfigChecker(data map[string]*keyInfo) {
-	schemaOmitVal := reflect.ValueOf(schema.Omit)
-
-	iter := reflect.ValueOf(configChecker).FieldByName("defaults").MapRange()
-	for iter.Next() {
-		defaultVal := iter.Value()
-		if defaultVal.Equal(schemaOmitVal) {
-			continue
-		}
-
-		key := iter.Key().String()
-		ensureDefined(data, key)
-		data[key].Default = fmt.Sprint(defaultVal)
-	}
-}
-
-// Get default values from "DefaultX" constants defined in config.go
-func fillFromDefaultConstants(data map[string]*keyInfo, defaults ast.Decl, keyForConstantName map[string]string) {
-	renameKeys := map[string]string{
-		"MaxTxnLogCollection": "MaxTxnLogSize",
-		"NUMAControlPolicy":   "SetNUMAControlPolicyKey",
-	}
-	rename := func(raw string) string {
-		if rn, ok := renameKeys[raw]; ok {
-			return rn
-		}
-		return raw
-	}
-
-	for _, spec := range defaults.(*ast.GenDecl).Specs {
-		valueSpec := spec.(*ast.ValueSpec)
-		defConstName := valueSpec.Names[0].Name // e.g. DefaultAgentRateLimitMax
-
-		// handle the case where this value is in MB
-		var suffix string
-		if strings.HasSuffix(defConstName, "MB") {
-			suffix = "M"
-			defConstName = strings.TrimSuffix(defConstName, "MB")
-		}
-
-		keyConstName := strings.TrimPrefix(defConstName, "Default") // e.g. AgentRateLimitMax
-		keyConstName = rename(keyConstName)
-		key := keyForConstantName[keyConstName]
-
-		ensureDefined(data, key)
-		data[key].Default = parseValue(valueSpec.Values[0]) + suffix
-	}
-}
-
-// parse default values from ast.Expr into a reasonable string
-func parseValue(expr ast.Expr) string {
-	switch v := expr.(type) {
-	case *ast.BasicLit:
-		return v.Value
-
-	case *ast.BinaryExpr:
-		// TODO: if these are all numbers then evaluate
-		return parseValue(v.X) + " " + parseValue(v.Y)
-
-	case *ast.SelectorExpr: // always time.something
-		if v.X.(*ast.Ident).Name != "time" {
-			panic("can't handle *ast.SelectorExpr that isn't time.something")
-		}
-		// TODO: nice strings for time units (e.g. Hour -> h)
-		return v.Sel.Name
-
-	case *ast.Ident:
-		return v.Name
-
-	default:
-		panic(fmt.Sprintf("can't handle type %T\n", v))
-	}
-}
-
-// Get type / description based on controller.ConfigSchema
-func fillFromConfigSchema(data map[string]*keyInfo) {
-	configSchema := controller.ConfigSchema
-
-	for key, attr := range configSchema {
-		ensureDefined(data, key)
-		data[key].Type = string(attr.Type)
-		data[key].Doc = attr.Description
-
-		if strings.Contains(attr.Description, "deprecated") || strings.Contains(attr.Description, "Deprecated") {
-			data[key].Deprecated = true
-		}
-	}
 }
