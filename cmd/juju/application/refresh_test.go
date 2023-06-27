@@ -464,7 +464,7 @@ func (s *RefreshSuite) TestLocalRevisionUnchanged(c *gc.C) {
 				Source: "local",
 			},
 		},
-		ConfigSettings:   map[string]string{"trust": "false"},
+		ConfigSettings:   map[string]string{},
 		EndpointBindings: map[string]string{},
 	})
 }
@@ -652,7 +652,7 @@ func (s *RefreshSuite) TestRespectsLocalRevisionWhenPossible(c *gc.C) {
 				Source: "local",
 			},
 		},
-		ConfigSettings:   map[string]string{"trust": "false"},
+		ConfigSettings:   map[string]string{},
 		EndpointBindings: map[string]string{},
 	})
 }
@@ -702,7 +702,7 @@ func (s *RefreshSuite) TestForcedSeriesUpgrade(c *gc.C) {
 			},
 		},
 		ForceBase:        true,
-		ConfigSettings:   map[string]string{"trust": "false"},
+		ConfigSettings:   map[string]string{},
 		EndpointBindings: map[string]string{},
 	})
 }
@@ -726,7 +726,7 @@ func (s *RefreshSuite) TestForcedUnitsUpgrade(c *gc.C) {
 			},
 		},
 		ForceUnits:       true,
-		ConfigSettings:   map[string]string{"trust": "false"},
+		ConfigSettings:   map[string]string{},
 		EndpointBindings: map[string]string{},
 	})
 }
@@ -766,7 +766,7 @@ func (s *RefreshSuite) TestCharmPathNoRevUpgrade(c *gc.C) {
 				Source: "local",
 			},
 		},
-		ConfigSettings:   map[string]string{"trust": "false"},
+		ConfigSettings:   map[string]string{},
 		EndpointBindings: map[string]string{},
 	})
 }
@@ -831,7 +831,7 @@ devices: {}
 				Risk:   "stable",
 			},
 		},
-		ConfigSettings:   map[string]string{"trust": "false"},
+		ConfigSettings:   map[string]string{},
 		EndpointBindings: map[string]string{},
 	})
 }
