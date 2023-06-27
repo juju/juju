@@ -134,14 +134,10 @@ func (noopRegisterer) Unregister(prometheus.Collector) bool {
 	return true
 }
 
-func leaseManager(controllerUUID string, db coredatabase.TxnRunner, clock clock.Clock) (*lease.Manager, error) {
-	store := lease.NewStore(lease.StoreConfig{
-		TxnRunner: db,
-		Logger:    loggo.GetLogger("juju.lease.test"),
-	})
+func leaseManager(controllerUUID string, db coredatabase.DBGetter, clock clock.Clock) (*lease.Manager, error) {
 	return lease.NewManager(lease.ManagerConfig{
 		Secretary:            lease.SecretaryFinder(controllerUUID),
-		Store:                store,
+		Store:                lease.NewStore(db),
 		Logger:               loggo.GetLogger("juju.worker.lease.test"),
 		Clock:                clock,
 		MaxSleep:             time.Minute,
@@ -282,7 +278,7 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 		return auditlog.Config{Enabled: false}
 	}
 	if s.WithLeaseManager {
-		leaseManager, err := leaseManager(coretesting.ControllerTag.Id(), s.TxnRunner(), s.Clock)
+		leaseManager, err := leaseManager(coretesting.ControllerTag.Id(), testing.SingularDBGetter(s.TxnRunner()), s.Clock)
 		c.Assert(err, jc.ErrorIsNil)
 		cfg.LeaseManager = leaseManager
 		s.LeaseManager = leaseManager

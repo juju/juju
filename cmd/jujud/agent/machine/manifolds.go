@@ -66,7 +66,7 @@ import (
 	"github.com/juju/juju/worker/httpserverargs"
 	"github.com/juju/juju/worker/identityfilewriter"
 	"github.com/juju/juju/worker/instancemutater"
-	leasemanager "github.com/juju/juju/worker/lease/manifold"
+	leasemanager "github.com/juju/juju/worker/lease"
 	"github.com/juju/juju/worker/leaseexpiry"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"

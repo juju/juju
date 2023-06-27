@@ -1,15 +1,7 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package manifold
-
-// TODO (manadart 2023-05-29) This is no longer true. Put it back.
-//
-// This needs to be in a different package from the lease manager
-// because it uses state (to construct the raftlease store), but the
-// lease manager also runs as a worker in state, so the state package
-// depends on worker/lease. Having it in worker/lease produces an
-// import cycle.
+package lease
 
 import (
 	"time"
@@ -22,9 +14,11 @@ import (
 
 	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
-	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/lease/service"
+	"github.com/juju/juju/domain/lease/state"
 	"github.com/juju/juju/worker/common"
-	"github.com/juju/juju/worker/lease"
 )
 
 const (
@@ -41,11 +35,11 @@ type ManifoldConfig struct {
 	ClockName      string
 	DBAccessorName string
 
-	Logger               lease.Logger
+	Logger               Logger
 	LogDir               string
 	PrometheusRegisterer prometheus.Registerer
-	NewWorker            func(lease.ManagerConfig) (worker.Worker, error)
-	NewStore             func(lease.StoreConfig) *lease.Store
+	NewWorker            func(ManagerConfig) (worker.Worker, error)
+	NewStore             func(coredatabase.DBGetter) lease.Store
 }
 
 // Validate checks that the config has all the required values.
@@ -76,7 +70,6 @@ func (c ManifoldConfig) Validate() error {
 
 type manifoldState struct {
 	config ManifoldConfig
-	store  *lease.Store
 }
 
 func (s *manifoldState) start(context dependency.Context) (worker.Worker, error) {
@@ -99,20 +92,12 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 		return nil, errors.Trace(err)
 	}
 
-	db, err := dbGetter.GetDB(coredatabase.ControllerNS)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	s.store = s.config.NewStore(lease.StoreConfig{
-		TxnRunner: db,
-		Logger:    s.config.Logger,
-	})
+	store := s.config.NewStore(dbGetter)
 
 	controllerUUID := agent.CurrentConfig().Controller().Id()
-	w, err := s.config.NewWorker(lease.ManagerConfig{
-		Secretary:            lease.SecretaryFinder(controllerUUID),
-		Store:                s.store,
+	w, err := s.config.NewWorker(ManagerConfig{
+		Secretary:            SecretaryFinder(controllerUUID),
+		Store:                store,
 		Clock:                clock,
 		Logger:               s.config.Logger,
 		MaxSleep:             MaxSleep,
@@ -127,16 +112,16 @@ func (s *manifoldState) output(in worker.Worker, out interface{}) error {
 	if w, ok := in.(*common.CleanupWorker); ok {
 		in = w.Worker
 	}
-	manager, ok := in.(*lease.Manager)
+	manager, ok := in.(*Manager)
 	if !ok {
-		return errors.Errorf("expected input of type *worker/lease.Manager, got %T", in)
+		return errors.Errorf("expected input of type *worker/Manager, got %T", in)
 	}
 	switch out := out.(type) {
-	case *corelease.Manager:
+	case *lease.Manager:
 		*out = manager
 		return nil
 	default:
-		return errors.Errorf("expected output of type *core/lease.Manager, got %T", out)
+		return errors.Errorf("expected output of type *core/Manager, got %T", out)
 	}
 }
 
@@ -155,11 +140,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // NewWorker wraps NewManager to return worker.Worker for testability.
-func NewWorker(config lease.ManagerConfig) (worker.Worker, error) {
-	return lease.NewManager(config)
+func NewWorker(config ManagerConfig) (worker.Worker, error) {
+	return NewManager(config)
 }
 
 // NewStore returns a new lease store based on the input config.
-func NewStore(config lease.StoreConfig) *lease.Store {
-	return lease.NewStore(config)
+func NewStore(dbGetter coredatabase.DBGetter) lease.Store {
+	factory := domain.NewTxnRunnerFactoryForNamespace(dbGetter.GetDB, coredatabase.ControllerNS)
+	return service.NewService(state.NewState(factory))
 }
