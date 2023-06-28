@@ -10,6 +10,10 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/lease/service"
+	"github.com/juju/juju/domain/lease/state"
 )
 
 // Logger represents the methods used by the worker to log details.
@@ -27,6 +31,7 @@ type ManifoldConfig struct {
 	Logger Logger
 
 	NewWorker func(Config) (worker.Worker, error)
+	NewStore  func(coredatabase.DBGetter, Logger) lease.ExpiryStore
 }
 
 // Validate checks that the config has all the required values.
@@ -43,7 +48,9 @@ func (c ManifoldConfig) Validate() error {
 	if c.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
-
+	if c.NewStore == nil {
+		return errors.NotValidf("nil NewStore")
+	}
 	return nil
 }
 
@@ -62,15 +69,12 @@ func (c ManifoldConfig) start(ctx dependency.Context) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	db, err := dbGetter.GetDB(coredatabase.ControllerNS)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	store := c.NewStore(dbGetter, c.Logger)
 
 	w, err := NewWorker(Config{
-		Clock:     clk,
-		Logger:    c.Logger,
-		TxnRunner: db,
+		Clock:  clk,
+		Logger: c.Logger,
+		Store:  store,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -88,4 +92,10 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 		},
 		Start: cfg.start,
 	}
+}
+
+// NewStore returns a new lease store based on the input config.
+func NewStore(dbGetter coredatabase.DBGetter, logger Logger) lease.ExpiryStore {
+	factory := domain.NewTxnRunnerFactoryForNamespace(dbGetter.GetDB, coredatabase.ControllerNS)
+	return service.NewService(state.NewState(factory, logger))
 }

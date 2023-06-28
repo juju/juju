@@ -62,6 +62,12 @@ type Store interface {
 	Pinned(ctx context.Context) (map[Key][]string, error)
 }
 
+// ExpiryStore defines a store for expiring leases.
+type ExpiryStore interface {
+	// ExpireLeases deletes all leases that have expired.
+	ExpireLeases(ctx context.Context) error
+}
+
 // Key fully identifies a lease, including the namespace and
 // model it belongs to.
 type Key struct {

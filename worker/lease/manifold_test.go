@@ -5,11 +5,12 @@ package lease
 
 import (
 	"github.com/juju/errors"
-	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/core/lease"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
+
+	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/lease"
 )
 
 type manifoldSuite struct {
@@ -57,7 +58,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewWorker: func(mc ManagerConfig) (worker.Worker, error) {
 			return nil, nil
 		},
-		NewStore: func(coredatabase.DBGetter) lease.Store {
+		NewStore: func(coredatabase.DBGetter, Logger) lease.Store {
 			return nil
 		},
 	}

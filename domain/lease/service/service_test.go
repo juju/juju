@@ -182,6 +182,16 @@ func (s *serviceSuite) TestPinned(c *gc.C) {
 	c.Assert(got, gc.DeepEquals, expected)
 }
 
+func (s *serviceSuite) TestExpireLeases(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().ExpireLeases(gomock.Any()).Return(nil)
+
+	service := NewService(s.state)
+	err := service.ExpireLeases(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
