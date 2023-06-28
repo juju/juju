@@ -163,12 +163,12 @@ func (s *ControllerSuite) TestUpdateControllerConfigChecksSchema(c *gc.C) {
 	err := s.State.UpdateControllerConfig(map[string]interface{}{
 		controller.AuditLogExcludeMethods: []int{1, 2, 3},
 	}, nil)
-	c.Assert(err, gc.ErrorMatches, `audit-log-exclude-methods\[0\]: expected string, got int\(1\)`)
+	c.Assert(err, gc.ErrorMatches, `audit-log-exclude-methods: expected string, got .*`)
 }
 
 func (s *ControllerSuite) TestUpdateControllerConfigValidates(c *gc.C) {
 	err := s.State.UpdateControllerConfig(map[string]interface{}{
-		controller.AuditLogExcludeMethods: []string{"thing"},
+		controller.AuditLogExcludeMethods: "thing",
 	}, nil)
 	c.Assert(err, gc.ErrorMatches, `invalid audit log exclude methods: should be a list of "Facade.Method" names \(or "ReadOnlyMethods"\), got "thing" at position 1`)
 }

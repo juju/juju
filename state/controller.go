@@ -71,7 +71,7 @@ func (ctlr *Controller) GetState(modelTag names.ModelTag) (*PooledState, error) 
 	return ctlr.pool.Get(modelTag.Id())
 }
 
-// Ping probes the Controllers's database connection to ensure that it
+// Ping probes the Controller's database connection to ensure that it
 // is still alive.
 func (ctlr *Controller) Ping() error {
 	systemState, err := ctlr.pool.SystemState()

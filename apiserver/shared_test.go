@@ -154,7 +154,7 @@ func (s *sharedServerContextSuite) TestControllerConfigChanged(c *gc.C) {
 
 	msg := controller.ConfigChangedMessage{
 		Config: corecontroller.Config{
-			corecontroller.Features: []string{"foo", "bar"},
+			corecontroller.Features: "foo,bar",
 		},
 	}
 

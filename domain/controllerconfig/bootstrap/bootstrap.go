@@ -30,7 +30,7 @@ func InsertInitialControllerConfig(cfg controller.Config) func(context.Context, 
 
 				q := "INSERT INTO controller_config (key, value) VALUES (?, ?)"
 				if _, err := tx.ExecContext(ctx, q, k, v); err != nil {
-					return errors.Trace(err)
+					return errors.Annotatef(err, "inserting controller configuration %q, %v", k, v)
 				}
 			}
 			return nil

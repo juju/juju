@@ -272,7 +272,7 @@ func (c *configCommand) setConfig(client controllerAPI, attrs config.Attrs) erro
 			if field, ok := fields[k]; ok {
 				v, err := field.Coerce(attrs[k], []string{k})
 				if err != nil {
-					return err
+					return errors.Trace(err)
 				}
 				values[k] = v
 			} else {

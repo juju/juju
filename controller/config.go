@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -394,6 +395,12 @@ const (
 	// for query tracing. If a query takes longer than this to complete
 	// it will be logged if query tracing is enabled.
 	DefaultQueryTracingThreshold = time.Second
+
+	// DefaultAuditLogExcludeMethods is the default list of methods to
+	// exclude from the audit log.
+	// This special value means we exclude any methods in the set
+	// listed in apiserver/observer/auditfilter.go
+	DefaultAuditLogExcludeMethods = ReadOnlyMethodsWildcard
 )
 
 var (
@@ -501,14 +508,6 @@ var (
 		QueryTracingEnabled,
 		QueryTracingThreshold,
 	)
-
-	// DefaultAuditLogExcludeMethods is the default list of methods to
-	// exclude from the audit log.
-	DefaultAuditLogExcludeMethods = []string{
-		// This special value means we exclude any methods in the set
-		// listed in apiserver/observer/auditfilter.go
-		ReadOnlyMethodsWildcard,
-	}
 
 	methodNameRE = regexp.MustCompile(`[[:alpha:]][[:alnum:]]*\.[[:alpha:]][[:alnum:]]*`)
 )
@@ -754,27 +753,20 @@ func (c Config) AuditLogMaxBackups() int {
 // considered uninteresting for audit logging. Conversations
 // containing only these will be excluded from the audit log.
 func (c Config) AuditLogExcludeMethods() set.Strings {
-	if value, ok := c[AuditLogExcludeMethods]; ok {
-		value := value.([]interface{})
-		items := set.NewStrings()
-		for _, item := range value {
-			items.Add(item.(string))
-		}
-		return items
+	v := c.asString(AuditLogExcludeMethods)
+	if v == "" {
+		return set.NewStrings()
 	}
-	return set.NewStrings(DefaultAuditLogExcludeMethods...)
+	return set.NewStrings(strings.Split(v, ",")...)
 }
 
 // Features returns the controller config set features flags.
 func (c Config) Features() set.Strings {
-	features := set.NewStrings()
-	if value, ok := c[Features]; ok {
-		value := value.([]interface{})
-		for _, item := range value {
-			features.Add(item.(string))
-		}
+	v := c.asString(Features)
+	if v == "" {
+		return set.NewStrings()
 	}
-	return features
+	return set.NewStrings(strings.Split(v, ",")...)
 }
 
 // ControllerName returns the name for the controller
@@ -952,7 +944,7 @@ func (c Config) CAASOperatorImagePath() (o docker.ImageRepoDetails) {
 	if repoDetails != nil {
 		return *repoDetails
 	}
-	// This should not happen since we have done validation in c.Valiate().
+	// This should not happen since we have done validation in c.Validate().
 	logger.Tracef("parsing controller config %q: %q, err %v", CAASOperatorImagePath, str, err)
 	return o
 }
@@ -1214,15 +1206,16 @@ func Validate(c Config) error {
 		}
 	}
 
-	if v, ok := c[AuditLogExcludeMethods].([]interface{}); ok {
-		for i, name := range v {
-			name := name.(string)
-			if name != ReadOnlyMethodsWildcard && !methodNameRE.MatchString(name) {
-				return errors.Errorf(
-					`invalid audit log exclude methods: should be a list of "Facade.Method" names (or "ReadOnlyMethods"), got %q at position %d`,
-					name,
-					i+1,
-				)
+	if v, ok := c[AuditLogExcludeMethods].(string); ok {
+		if v != "" {
+			for i, name := range strings.Split(v, ",") {
+				if name != ReadOnlyMethodsWildcard && !methodNameRE.MatchString(name) {
+					return errors.Errorf(
+						`invalid audit log exclude methods: should be a list of "Facade.Method" names (or "ReadOnlyMethods"), got %q at position %d`,
+						name,
+						i+1,
+					)
+				}
 			}
 		}
 	}

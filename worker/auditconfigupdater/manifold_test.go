@@ -38,7 +38,7 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 	s.ControllerConfig = make(map[string]interface{})
 	s.ControllerConfig["auditing-enabled"] = true
 	s.ControllerConfig["audit-log-capture-args"] = true
-	s.ControllerConfig["audit-log-exclude-methods"] = []interface{}{"This.Method"}
+	s.ControllerConfig["audit-log-exclude-methods"] = "This.Method"
 	s.ControllerConfig["audit-log-max-size"] = "10M"
 	s.ControllerConfig["audit-log-max-backups"] = 10
 

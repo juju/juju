@@ -89,7 +89,7 @@ func (s *leadershipRevoker) RevokeLeadership(applicationId, unitId string) error
 
 func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 	s.ControllerConfigAttrs = map[string]interface{}{
-		controller.Features: []string{feature.RawK8sSpec},
+		controller.Features: feature.RawK8sSpec,
 	}
 
 	s.JujuConnSuite.SetUpTest(c)
@@ -3945,7 +3945,7 @@ var _ = gc.Suite(&uniterNetworkInfoSuite{})
 
 func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	s.ControllerConfigAttrs = map[string]interface{}{
-		controller.Features: []string{feature.RawK8sSpec},
+		controller.Features: feature.RawK8sSpec,
 	}
 
 	s.uniterSuiteBase.JujuConnSuite.SetUpTest(c)

@@ -52,7 +52,7 @@ var _ = gc.Suite(&ContextFactorySuite{})
 
 func (s *ContextFactorySuite) SetUpTest(c *gc.C) {
 	s.ControllerConfigAttrs = map[string]interface{}{
-		controller.Features: []string{feature.RawK8sSpec},
+		controller.Features: feature.RawK8sSpec,
 	}
 
 	s.HookContextSuite.SetUpTest(c)

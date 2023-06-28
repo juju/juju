@@ -609,7 +609,7 @@ func (s *MachineSuite) TestManageModelAuditsAPI(c *gc.C) {
 	})
 
 	err := s.State.UpdateControllerConfig(map[string]interface{}{
-		"audit-log-exclude-methods": []interface{}{"Client.FullStatus"},
+		"audit-log-exclude-methods": "Client.FullStatus",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -659,7 +659,7 @@ func (s *MachineSuite) TestManageModelAuditsAPI(c *gc.C) {
 
 		// Now update the controller config to remove the exclusion.
 		err := s.State.UpdateControllerConfig(map[string]interface{}{
-			"audit-log-exclude-methods": []interface{}{},
+			"audit-log-exclude-methods": "",
 		}, nil)
 		c.Assert(err, jc.ErrorIsNil)
 
