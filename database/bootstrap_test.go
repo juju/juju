@@ -8,13 +8,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/juju/juju/core/database"
 	"net"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/client"
 )

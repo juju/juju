@@ -6,8 +6,8 @@ package database
 import (
 	"context"
 	"database/sql"
-	"github.com/canonical/sqlair"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 
 	coredatabase "github.com/juju/juju/core/database"

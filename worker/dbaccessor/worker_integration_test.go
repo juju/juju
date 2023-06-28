@@ -231,6 +231,10 @@ type txnRunner struct {
 	db *sql.DB
 }
 
+func (r *txnRunner) Txn(ctx context.Context, f func(context.Context, *sqlair.TX) error) error {
+	return errors.Trace(database.Txn(ctx, sqlair.NewDB(r.db), f))
+}
+
 func (r *txnRunner) StdTxn(ctx context.Context, f func(context.Context, *sql.Tx) error) error {
 	return errors.Trace(database.StdTxn(ctx, r.db, f))
 }

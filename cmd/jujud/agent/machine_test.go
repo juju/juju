@@ -57,6 +57,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/migration"
@@ -1383,13 +1384,15 @@ func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C
 }
 
 func (s *MachineSuite) claimSingularLease(modelUUID string) {
-	s.InitialDBOps = append(s.InitialDBOps, func(db *sql.DB) error {
+	s.InitialDBOps = append(s.InitialDBOps, func(ctx stdcontext.Context, db database.TxnRunner) error {
 		q := `
 INSERT INTO lease (uuid, lease_type_id, model_uuid, name, holder, start, expiry)
 VALUES (?, 0, ?, ?, 'machine-999-lxd-99', datetime('now'), datetime('now', '+100 seconds'))`[1:]
 
-		_, err := db.Exec(q, utils.MustNewUUID().String(), modelUUID, modelUUID)
-		return err
+		return db.StdTxn(ctx, func(ctx stdcontext.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, q, utils.MustNewUUID().String(), modelUUID, modelUUID)
+			return err
+		})
 	})
 }
 
