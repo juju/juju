@@ -27,7 +27,7 @@ func Register(registry facade.FacadeRegistry) {
 // newStateCrossModelSecretsAPI creates a new server-side CrossModelSecrets API facade
 // backed by global state.
 func newStateCrossModelSecretsAPI(ctx facade.Context) (*CrossModelSecretsAPI, error) {
-	authCtxt := ctx.Resources().Get("offerAccessAuthContext").(common.ValueResource).Value
+	authCtxt := ctx.Resources().Get("offerAccessAuthContext").(*common.ValueResource).Value
 	secretBackendConfigGetter := func(modelUUID string) (*provider.ModelBackendConfigInfo, error) {
 		model, closer, err := ctx.StatePool().GetModel(modelUUID)
 		if err != nil {

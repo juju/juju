@@ -23,7 +23,7 @@ func Register(registry facade.FacadeRegistry) {
 // newStateCrossModelRelationsAPI creates a new server-side CrossModelRelations API facade
 // backed by global state.
 func newStateCrossModelRelationsAPI(ctx facade.Context) (*CrossModelRelationsAPI, error) {
-	authCtxt := ctx.Resources().Get("offerAccessAuthContext").(common.ValueResource).Value
+	authCtxt := ctx.Resources().Get("offerAccessAuthContext").(*common.ValueResource).Value
 	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {

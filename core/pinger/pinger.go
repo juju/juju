@@ -73,13 +73,31 @@ func (pt *Pinger) loop() error {
 	}
 }
 
-// NoopPinger implements the pinger interface but just does nothing
-type NoopPinger struct{}
+// NoopPinger implements the pinger interface, does nothing but waits for heat
+// death of the universe.
+type NoopPinger struct {
+	tomb tomb.Tomb
+}
 
-func (NoopPinger) Ping() {}
+// NewNoopPinger returns a new NoopPinger instance.
+func NewNoopPinger() *NoopPinger {
+	p := &NoopPinger{}
+	p.tomb.Go(func() error {
+		<-p.tomb.Dying()
+		return tomb.ErrDying
+	})
+	return p
+}
 
-func (NoopPinger) Kill() {}
+// Ping implements the pinger.Pinger interface.
+func (*NoopPinger) Ping() {}
 
-func (NoopPinger) Wait() error {
-	return nil
+// Kill implements the worker.Worker interface.
+func (p *NoopPinger) Kill() {
+	p.tomb.Kill(nil)
+}
+
+// Wait implements the worker.Worker interface.
+func (p *NoopPinger) Wait() error {
+	return p.tomb.Wait()
 }

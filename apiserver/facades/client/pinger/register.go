@@ -25,10 +25,10 @@ func newFacade(ctx facade.Context) (*API, error) {
 func getPinger(ctx facade.Context) Pinger {
 	worker, err := ctx.WatcherRegistry().Get("pingTimeout")
 	if err != nil {
-		return pinger.NoopPinger{}
+		return pinger.NewNoopPinger()
 	}
 	if p, ok := worker.(Pinger); ok {
 		return p
 	}
-	return pinger.NoopPinger{}
+	return pinger.NewNoopPinger()
 }

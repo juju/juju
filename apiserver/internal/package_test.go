@@ -10,6 +10,7 @@ import (
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package internal_test -destination watcher_mock_test.go -source=./watcher.go
+
 func TestAll(t *testing.T) {
 	gc.TestingT(t)
 }

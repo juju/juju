@@ -47,7 +47,7 @@ func newOffersAPI(ctx facade.Context) (*OffersAPI, error) {
 		return common.StateControllerInfo(st)
 	}
 
-	authContext := ctx.Resources().Get("offerAccessAuthContext").(common.ValueResource).Value
+	authContext := ctx.Resources().Get("offerAccessAuthContext").(*common.ValueResource).Value
 	return createOffersAPI(
 		GetApplicationOffers,
 		environFromModel,

@@ -19,9 +19,11 @@ type RelationUnitsWatcher interface {
 	watcher.Watcher[params.RelationUnitsChange]
 
 	// Stop is needed to implement facade.Resource.
+	// Deprecated: use Kill and Wait instead.
 	Stop() error
 
 	// Err implements watcher.Errer.
+	// Deprecated: use Kill and Wait instead.
 	Err() error
 }
 
