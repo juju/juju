@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/apiserver/bakeryutil"
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/core/macaroon"
@@ -43,7 +42,7 @@ func addOfferAuthHandlers(offerAuthCtxt *crossmodel.AuthContext, mux *apiserverh
 	_ = mux.AddHandler("GET", localOfferAccessLocationPath+"/publickey", appOfferDischargeMux)
 }
 
-func newOfferAuthContext(pool *state.StatePool, tokenParser jwt.TokenParser) (*crossmodel.AuthContext, error) {
+func newOfferAuthcontext(pool *state.StatePool) (*crossmodel.AuthContext, error) {
 	// Create a bakery service for discharging third-party caveats for
 	// local offer access authentication. This service does not persist keys;
 	// its macaroons should be very short-lived.
@@ -81,7 +80,7 @@ func newOfferAuthContext(pool *state.StatePool, tokenParser jwt.TokenParser) (*c
 		localOfferBakery, location, localOfferBakeryKey, store, locator,
 	}
 	authCtx, err := crossmodel.NewAuthContext(
-		crossmodel.GetBackend(st), key, offerBakery, tokenParser, jwt.PermissionFromToken)
+		crossmodel.GetBackend(st), key, offerBakery)
 	if err != nil {
 		return nil, err
 	}
