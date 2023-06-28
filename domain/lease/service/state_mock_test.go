@@ -50,6 +50,20 @@ func (mr *MockStateMockRecorder) ClaimLease(arg0, arg1, arg2, arg3 interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClaimLease", reflect.TypeOf((*MockState)(nil).ClaimLease), arg0, arg1, arg2, arg3)
 }
 
+// ExpireLeases mocks base method.
+func (m *MockState) ExpireLeases(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExpireLeases", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ExpireLeases indicates an expected call of ExpireLeases.
+func (mr *MockStateMockRecorder) ExpireLeases(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExpireLeases", reflect.TypeOf((*MockState)(nil).ExpireLeases), arg0)
+}
+
 // ExtendLease mocks base method.
 func (m *MockState) ExtendLease(arg0 context.Context, arg1 lease.Key, arg2 lease.Request) error {
 	m.ctrl.T.Helper()

@@ -15,18 +15,27 @@ import (
 
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/database"
+	"github.com/juju/juju/database/txn"
 	"github.com/juju/juju/domain"
 )
+
+// Logger is the interface used by the state to log messages.
+type Logger interface {
+	Debugf(string, ...interface{})
+	Infof(string, ...interface{})
+}
 
 // State describes retrieval and persistence methods for storage.
 type State struct {
 	*domain.StateBase
+	logger Logger
 }
 
 // NewState returns a new state reference.
-func NewState(factory domain.TxnRunnerFactory) *State {
+func NewState(factory domain.TxnRunnerFactory, logger Logger) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
+		logger:    logger,
 	}
 }
 
@@ -306,6 +315,51 @@ ORDER BY l.uuid;`[1:]
 		return errors.Trace(rows.Err())
 	})
 	return result, errors.Trace(err)
+}
+
+// ExpireLeases (lease.Store) deletes all leases that have expired, from the
+// store. This method is intended to be called periodically by a worker.
+func (s *State) ExpireLeases(ctx context.Context) error {
+	db, err := s.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	q := `
+DELETE FROM lease WHERE uuid in (
+	SELECT l.uuid 
+	FROM   lease l LEFT JOIN lease_pin p ON l.uuid = p.lease_uuid
+	WHERE  p.uuid IS NULL
+	AND    l.expiry < datetime('now')
+);`[1:]
+
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		res, err := tx.ExecContext(ctx, q)
+		if err != nil {
+			// TODO (manadart 2022-12-15): This incarnation of the worker runs on
+			// all controller nodes. Retryable errors are those that occur due to
+			// locking or other contention. We know we will retry very soon,
+			// so just log and indicate success for these cases.
+			// Rethink this if the worker cardinality changes to be singular.
+			if txn.IsErrRetryable(err) {
+				s.logger.Debugf("ignoring error during lease expiry: %s", err.Error())
+				return nil
+			}
+			return errors.Trace(err)
+		}
+
+		expired, err := res.RowsAffected()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		if expired > 0 {
+			s.logger.Infof("expired %d leases", expired)
+		}
+
+		return nil
+	})
+	return errors.Trace(err)
 }
 
 // leasesFromRows returns lease info from rows returned from the backing DB.

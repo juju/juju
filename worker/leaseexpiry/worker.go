@@ -5,7 +5,6 @@ package leaseexpiry
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"github.com/juju/clock"
@@ -13,16 +12,15 @@ import (
 	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
 
-	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/database/txn"
+	"github.com/juju/juju/core/lease"
 )
 
 // Config encapsulates the configuration options for
 // instantiating a new lease expiry worker.
 type Config struct {
-	Clock     clock.Clock
-	Logger    Logger
-	TxnRunner coredatabase.TxnRunner
+	Clock  clock.Clock
+	Logger Logger
+	Store  lease.ExpiryStore
 }
 
 // Validate checks whether the worker configuration settings are valid.
@@ -33,8 +31,8 @@ func (cfg Config) Validate() error {
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if cfg.TxnRunner == nil {
-		return errors.NotValidf("nil TxnRunner")
+	if cfg.Store == nil {
+		return errors.NotValidf("nil Store")
 	}
 
 	return nil
@@ -43,10 +41,9 @@ func (cfg Config) Validate() error {
 type expiryWorker struct {
 	tomb tomb.Tomb
 
-	clock     clock.Clock
-	logger    Logger
-	trackedDB coredatabase.TxnRunner
-	dml       string
+	clock  clock.Clock
+	logger Logger
+	store  lease.ExpiryStore
 }
 
 // NewWorker returns a worker that periodically deletes
@@ -59,16 +56,9 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 	}
 
 	w := &expiryWorker{
-		clock:     cfg.Clock,
-		logger:    cfg.Logger,
-		trackedDB: cfg.TxnRunner,
-		dml: `
-DELETE FROM lease WHERE uuid in (
-    SELECT l.uuid 
-    FROM   lease l LEFT JOIN lease_pin p ON l.uuid = p.lease_uuid
-    WHERE  p.uuid IS NULL
-    AND    l.expiry < datetime('now')
-)`[1:],
+		clock:  cfg.Clock,
+		logger: cfg.Logger,
+		store:  cfg.Store,
 	}
 
 	w.tomb.Go(w.loop)
@@ -90,43 +80,12 @@ func (w *expiryWorker) loop() error {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-timer.Chan():
-			if err := w.expireLeases(ctx); err != nil {
+			if err := w.store.ExpireLeases(ctx); err != nil {
 				return errors.Trace(err)
 			}
 			timer.Reset(time.Second)
 		}
 	}
-}
-
-func (w *expiryWorker) expireLeases(ctx context.Context) error {
-	err := w.trackedDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		res, err := tx.ExecContext(ctx, w.dml)
-		if err != nil {
-			// TODO (manadart 2022-12-15): This incarnation of the worker runs on
-			// all controller nodes. Retryable errors are those that occur due to
-			// locking or other contention. We know we will retry very soon,
-			// so just log and indicate success for these cases.
-			// Rethink this if the worker cardinality changes to be singular.
-			if txn.IsErrRetryable(err) {
-				w.logger.Debugf("ignoring error during lease expiry: %s", err.Error())
-				return nil
-			}
-			return errors.Trace(err)
-		}
-
-		expired, err := res.RowsAffected()
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		if expired > 0 {
-			w.logger.Infof("expired %d leases", expired)
-		}
-
-		return nil
-	})
-
-	return errors.Trace(err)
 }
 
 // Kill is part of the worker.Worker interface.

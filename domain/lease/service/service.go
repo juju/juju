@@ -22,6 +22,7 @@ type State interface {
 	PinLease(context.Context, lease.Key, string) error
 	UnpinLease(context.Context, lease.Key, string) error
 	Pinned(context.Context) (map[lease.Key][]string, error)
+	ExpireLeases(context.Context) error
 }
 
 // Service provides the API for working with external controllers.
@@ -109,4 +110,10 @@ func (s *Service) UnpinLease(ctx context.Context, key lease.Key, entity string) 
 // and the entities requiring such behaviour for them.
 func (s *Service) Pinned(ctx context.Context) (map[lease.Key][]string, error) {
 	return s.st.Pinned(ctx)
+}
+
+// ExpireLeases ensures that all leases that have expired are deleted from
+// the store.
+func (s *Service) ExpireLeases(ctx context.Context) error {
+	return s.st.ExpireLeases(ctx)
 }

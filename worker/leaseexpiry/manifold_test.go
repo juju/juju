@@ -4,6 +4,7 @@
 package leaseexpiry_test
 
 import (
+	"github.com/golang/mock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -12,24 +13,28 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/database/testing"
+	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/leaseexpiry"
 )
 
 type manifoldSuite struct {
 	testing.ControllerSuite
+
+	store *MockExpiryStore
 }
 
 var _ = gc.Suite(&manifoldSuite{})
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
-	cfg := newManifoldConfig()
+	cfg := s.newManifoldConfig(c)
 
 	c.Check(leaseexpiry.Manifold(cfg).Inputs, jc.DeepEquals, []string{"clock-name", "db-accessor-name"})
 }
 
 func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
-	validCfg := newManifoldConfig()
+	validCfg := s.newManifoldConfig(c)
 
 	cfg := validCfg
 	cfg.ClockName = ""
@@ -46,32 +51,49 @@ func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
 	cfg = validCfg
 	cfg.NewWorker = nil
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+
+	cfg = validCfg
+	cfg.NewStore = nil
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 }
 
 func (s *manifoldSuite) TestStartSuccess(c *gc.C) {
-	cfg := newManifoldConfig()
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.newManifoldConfig(c)
 
 	work, err := leaseexpiry.Manifold(cfg).Start(s.newStubContext())
 	c.Check(work, gc.NotNil)
 	c.Check(err, jc.ErrorIsNil)
 }
 
-// newManifoldConfig creates and returns a new ManifoldConfig instance based on
-// the supplied arguments.
-func newManifoldConfig() leaseexpiry.ManifoldConfig {
-	return leaseexpiry.ManifoldConfig{
-		ClockName:      "clock-name",
-		DBAccessorName: "db-accessor-name",
-		Logger:         leaseexpiry.StubLogger{},
-		NewWorker:      func(config leaseexpiry.Config) (worker.Worker, error) { return nil, nil },
-	}
+func (s *manifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.store = NewMockExpiryStore(ctrl)
+
+	return ctrl
 }
 
 func (s *manifoldSuite) newStubContext() *dt.Context {
 	return dt.StubContext(nil, map[string]interface{}{
 		"clock-name":       clock.WallClock,
-		"db-accessor-name": stubDBGetter{s.TxnRunner()},
+		"db-accessor-name": stubDBGetter{runner: s.TxnRunner()},
 	})
+}
+
+// newManifoldConfig creates and returns a new ManifoldConfig instance based on
+// the supplied arguments.
+func (s *manifoldSuite) newManifoldConfig(c *gc.C) leaseexpiry.ManifoldConfig {
+	return leaseexpiry.ManifoldConfig{
+		ClockName:      "clock-name",
+		DBAccessorName: "db-accessor-name",
+		Logger:         jujutesting.CheckLogger{Log: c},
+		NewWorker:      func(config leaseexpiry.Config) (worker.Worker, error) { return nil, nil },
+		NewStore: func(db coredatabase.DBGetter, logger leaseexpiry.Logger) lease.ExpiryStore {
+			return s.store
+		},
+	}
 }
 
 type stubDBGetter struct {

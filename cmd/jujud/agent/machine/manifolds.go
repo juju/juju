@@ -699,6 +699,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			DBAccessorName: dbAccessorName,
 			Logger:         loggo.GetLogger("juju.worker.leaseexpiry"),
 			NewWorker:      leaseexpiry.NewWorker,
+			NewStore:       leaseexpiry.NewStore,
 		})),
 
 		// The global lease manager tracks lease information in the Dqlite database.
