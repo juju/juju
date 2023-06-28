@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/database"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/externalcontroller"
 )
 
 type State struct {
@@ -179,5 +180,51 @@ VALUES (?, ?)
 		return nil
 	})
 
+	return errors.Trace(err)
+}
+
+func (st *State) ImportExternalControllers(ctx context.Context, infos []externalcontroller.MigrationControllerInfo) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		for _, ci := range infos {
+			cID := ci.ControllerTag.Id()
+
+			q := `
+INSERT INTO external_controller (uuid, alias, ca_cert)
+VALUES (?, ?, ?)
+  ON CONFLICT(uuid) DO UPDATE SET alias=excluded.alias, ca_cert=excluded.ca_cert`[1:]
+
+			if _, err := tx.ExecContext(ctx, q, cID, ci.Alias, ci.CACert); err != nil {
+				return errors.Trace(err)
+			}
+
+			for _, addr := range ci.Addrs {
+				q := `
+INSERT INTO external_controller_address (uuid, controller_uuid, address)
+VALUES (?, ?, ?)
+  ON CONFLICT(controller_uuid, address) DO NOTHING`[1:]
+
+				if _, err := tx.ExecContext(ctx, q, utils.MustNewUUID().String(), cID, addr); err != nil {
+					return errors.Trace(err)
+				}
+			}
+
+			for _, modelUUID := range ci.ModelUUIDs {
+				q := `
+INSERT INTO external_model (uuid, controller_uuid)
+VALUES (?, ?)
+  ON CONFLICT(uuid) DO UPDATE SET controller_uuid=excluded.controller_uuid`[1:]
+
+				if _, err := tx.ExecContext(ctx, q, modelUUID, cID); err != nil {
+					return errors.Trace(err)
+				}
+			}
+		}
+		return nil
+	})
 	return errors.Trace(err)
 }
