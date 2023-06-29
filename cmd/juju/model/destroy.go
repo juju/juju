@@ -85,11 +85,16 @@ proceed to the next step until the current step has finished.
 However, when using --force, users can also specify --no-wait to progress through steps 
 without delay waiting for each step to complete.
 
+WARNING: Passing --force with --timeout will continue the final destruction without
+consideration or respect for clean shutdown or resource cleanup. If timeout 
+elapses with --force, you may have resources left behind that will require
+manual cleanup. If --force --timeout 0 is passed, the model is brutally
+removed with haste. It is recommended to use graceful destroy (without --force or --no-wait).
+
 Examples:
 
     juju destroy-model test
     juju destroy-model --no-prompt mymodel
-    juju destroy-model --no-prompt mymodel --timeout 5m
     juju destroy-model --no-prompt mymodel --destroy-storage
     juju destroy-model --no-prompt mymodel --release-storage
     juju destroy-model --no-prompt mymodel --force
@@ -100,7 +105,7 @@ See also:
 `
 
 var destroyModelMsg = `
-This command will destroy the %q model and all its resources`[1:]
+This command will destroy the %q model and all its resources. It cannot be stopped.`[1:]
 
 var destroyModelMsgDetails = `
 {{- if gt .MachineCount 0}}
@@ -118,7 +123,7 @@ var destroyModelMsgDetails = `
 // API that the destroy command calls. It is exported for mocking in tests.
 type DestroyModelAPI interface {
 	Close() error
-	DestroyModel(tag names.ModelTag, destroyStorage, force *bool, maxWait *time.Duration, timeout time.Duration) error
+	DestroyModel(tag names.ModelTag, destroyStorage, force *bool, maxWait *time.Duration, timeout *time.Duration) error
 	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
 }
 
@@ -132,14 +137,14 @@ func (c *destroyCommand) Info() *cmd.Info {
 	})
 }
 
-const defaultTimeout = 30 * time.Minute
+const unsetTimeout = -1 * time.Second
 
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	c.DestroyConfirmationCommandBase.SetFlags(f)
-	f.DurationVar(&c.timeout, "t", defaultTimeout, "Timeout before model destruction is aborted")
-	f.DurationVar(&c.timeout, "timeout", defaultTimeout, "")
+	f.DurationVar(&c.timeout, "t", unsetTimeout, "Timeout for each step of force model destruction")
+	f.DurationVar(&c.timeout, "timeout", unsetTimeout, "")
 	f.BoolVar(&c.destroyStorage, "destroy-storage", false, "Destroy all storage instances in the model")
 	f.BoolVar(&c.releaseStorage, "release-storage", false, "Release all storage instances from the model, and management of the controller, without destroying them")
 	f.BoolVar(&c.Force, "force", false, "Force destroy model ignoring any errors")
@@ -152,8 +157,11 @@ func (c *destroyCommand) Init(args []string) error {
 	if c.destroyStorage && c.releaseStorage {
 		return errors.New("--destroy-storage and --release-storage cannot both be specified")
 	}
-	if c.timeout < 0 {
-		return errors.New("timeout must be zero or greater")
+	if c.timeout < 0 && c.timeout != unsetTimeout {
+		return errors.New("--timeout must be zero or greater")
+	}
+	if !c.Force && c.timeout >= 0 {
+		return errors.New("--timeout can only be used with --force (dangerous)")
 	}
 	switch len(args) {
 	case 0:
@@ -284,7 +292,11 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 	modelTag := names.NewModelTag(modelDetails.ModelUUID)
-	if err := api.DestroyModel(modelTag, destroyStorage, force, maxWait, c.timeout); err != nil {
+	var timeout *time.Duration
+	if c.timeout >= 0 {
+		timeout = &c.timeout
+	}
+	if err := api.DestroyModel(modelTag, destroyStorage, force, maxWait, timeout); err != nil {
 		return c.handleError(
 			modelTag, modelName, api,
 			errors.Annotate(err, "cannot destroy model"),
@@ -295,7 +307,6 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	if err := waitForModelDestroyed(
 		ctx, api,
 		names.NewModelTag(modelDetails.ModelUUID),
-		c.timeout,
 		c.clock,
 		c.Force,
 	); err != nil {
@@ -318,11 +329,9 @@ func waitForModelDestroyed(
 	ctx *cmd.Context,
 	api DestroyModelAPI,
 	tag names.ModelTag,
-	timeout time.Duration,
 	clock jujuclock.Clock,
 	force bool,
 ) error {
-
 	interrupted := make(chan os.Signal, 1)
 	defer close(interrupted)
 	ctx.InterruptNotify(interrupted)
@@ -335,12 +344,6 @@ func waitForModelDestroyed(
 		erroredStatuses.PrettyPrint(ctx.Stdout)
 	}
 
-	// Set a small nominal value to allow the timer to fire.
-	zeroTimeout := timeout == 0
-	if timeout == 0 {
-		timeout = time.Microsecond
-	}
-	timeoutAfter := clock.After(timeout)
 	// no wait for 1st time.
 	intervalSeconds := 0 * time.Second
 	reported := ""
@@ -354,22 +357,6 @@ func waitForModelDestroyed(
 			msg := formatDestroyModelAbortInfo(data, false, force)
 			fmt.Fprintln(ctx.Stderr, msg)
 			return cmd.ErrSilent
-		case <-timeoutAfter:
-			if !zeroTimeout {
-				// Final check just in case mode is gone.
-				data, erroredStatuses = getModelStatus(ctx, api, tag)
-				if data == nil {
-					// model has been destroyed successfully.
-					return nil
-				}
-				printErrors()
-			}
-			msg := formatDestroyModelAbortInfo(data, true, force)
-			fmt.Fprintln(ctx.Stderr, msg)
-			if zeroTimeout {
-				return nil
-			}
-			return errors.NewTimeout(nil, fmt.Sprintf("timeout after %v", timeout))
 		case <-clock.After(intervalSeconds):
 			data, erroredStatuses = getModelStatus(ctx, api, tag)
 			if data == nil {
