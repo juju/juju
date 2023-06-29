@@ -5,6 +5,7 @@ package auditconfigupdater_test
 
 import (
 	"reflect"
+	"strings"
 	"sync"
 
 	"github.com/juju/collections/set"
@@ -188,12 +189,12 @@ func (s *updaterSuite) TestChangingCaptureArgs(c *gc.C) {
 	})
 }
 
-func makeControllerConfig(auditEnabled bool, captureArgs bool, methods ...interface{}) controller.Config {
+func makeControllerConfig(auditEnabled bool, captureArgs bool, methods ...string) controller.Config {
 	result := map[string]interface{}{
 		"other-setting":             "something",
 		"auditing-enabled":          auditEnabled,
 		"audit-log-capture-args":    captureArgs,
-		"audit-log-exclude-methods": methods,
+		"audit-log-exclude-methods": strings.Join(methods, ","),
 	}
 	return result
 }

@@ -976,7 +976,7 @@ func (s *controllerSuite) TestConfigSetPublishesEvent(c *gc.C) {
 	})
 
 	err := s.controller.ConfigSet(params.ControllerConfigSet{Config: map[string]interface{}{
-		"features": []string{"foo", "bar"},
+		"features": "foo,bar",
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/client"
 )
@@ -29,29 +30,30 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *gc.C) {
 
 	// check tests the variadic operation functionality
 	// and ensures that bootstrap applied the DDL.
-	check := func(db *sql.DB) error {
-		rows, err := db.Query("SELECT COUNT(*) FROM lease_type")
-		if err != nil {
-			return err
-		}
+	check := func(ctx context.Context, db database.TxnRunner) error {
+		return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+			rows, err := tx.QueryContext(ctx, "SELECT COUNT(*) FROM lease_type")
+			if err != nil {
+				return err
+			}
+			defer func() { _ = rows.Close() }()
 
-		defer func() { _ = rows.Close() }()
+			if !rows.Next() {
+				return errors.New("no rows in lease_type")
+			}
 
-		if !rows.Next() {
-			return errors.New("no rows in lease_type")
-		}
+			var count int
+			err = rows.Scan(&count)
+			if err != nil {
+				return err
+			}
 
-		var count int
-		err = rows.Scan(&count)
-		if err != nil {
-			return err
-		}
+			if count != 2 {
+				return fmt.Errorf("expected 2 rows, got %d", count)
+			}
 
-		if count != 2 {
-			return fmt.Errorf("expected 2 rows, got %d", count)
-		}
-
-		return nil
+			return nil
+		})
 	}
 
 	err := BootstrapDqlite(context.TODO(), opt, stubLogger{}, check)

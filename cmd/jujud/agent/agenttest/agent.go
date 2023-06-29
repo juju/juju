@@ -5,7 +5,6 @@ package agenttest
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/juju/clock"
@@ -103,7 +102,7 @@ func (f *FakeEnsureMongo) EnsureMongo(args mongo.EnsureServerParams) error {
 	return f.Err
 }
 
-func (f *FakeEnsureMongo) EnsureMongoStarted(snapChannel string) error {
+func (f *FakeEnsureMongo) EnsureMongoStarted(_ string) error {
 	return f.Err
 }
 
@@ -120,13 +119,13 @@ type AgentSuite struct {
 	// InitialDBOps can be set prior to calling PrimeStateAgentVersion,
 	// ensuring that the functions are executed against the controller database
 	// immediately after Dqlite is set up.
-	InitialDBOps []func(db *sql.DB) error
+	InitialDBOps []func(context.Context, coredatabase.TxnRunner) error
 }
 
 func (s *AgentSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
 
-	s.InitialDBOps = make([]func(db *sql.DB) error, 0)
+	s.InitialDBOps = make([]func(context.Context, coredatabase.TxnRunner) error, 0)
 }
 
 // PrimeAgent writes the configuration file and tools for an agent
@@ -216,7 +215,8 @@ func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password str
 	conf := s.WriteStateAgentConfig(c, tag, password, vers, model.ModelTag())
 	s.primeAPIHostPorts(c)
 
-	err = database.BootstrapDqlite(context.TODO(), database.NewNodeManager(conf, logger, coredatabase.NoopSlowQueryLogger{}), logger, s.InitialDBOps...)
+	err = database.BootstrapDqlite(
+		context.TODO(), database.NewNodeManager(conf, logger, coredatabase.NoopSlowQueryLogger{}), logger, s.InitialDBOps...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return conf, agentTools
@@ -282,7 +282,7 @@ func (s *AgentSuite) SetControllerConfigAPIPort(c *gc.C, apiPort int) {
 		"api-port": apiPort,
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	// Ensure that the local controller config is also up to date.
+	// Ensure that the local controller config is also up-to-date.
 	s.ControllerConfig["api-port"] = apiPort
 }
 
@@ -329,7 +329,7 @@ func (s *AgentSuite) AssertCanOpenState(c *gc.C, tag names.Tag, dataDir string) 
 		NewPolicy:          stateenvirons.GetNewPolicyFunc(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	pool.Close()
+	_ = pool.Close()
 }
 
 func (s *AgentSuite) AssertCannotOpenState(c *gc.C, tag names.Tag, dataDir string) {

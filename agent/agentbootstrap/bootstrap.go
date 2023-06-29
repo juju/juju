@@ -28,6 +28,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/database"
+	ccbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -107,7 +108,12 @@ func InitializeState(
 	info.Tag = nil
 	info.Password = c.OldPassword()
 
-	if err := database.BootstrapDqlite(stdcontext.TODO(), database.NewNodeManager(c, logger, coredatabase.NoopSlowQueryLogger{}), logger); err != nil {
+	if err := database.BootstrapDqlite(
+		stdcontext.TODO(),
+		database.NewNodeManager(c, logger, coredatabase.NoopSlowQueryLogger{}),
+		logger,
+		ccbootstrap.InsertInitialControllerConfig(args.ControllerConfig),
+	); err != nil {
 		return nil, errors.Trace(err)
 	}
 

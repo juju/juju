@@ -188,19 +188,6 @@ func (s *ConfigSuite) TestSettingDuration(c *gc.C) {
 	c.Assert(api.values, gc.DeepEquals, map[string]interface{}{"api-port-open-delay": "100ms"})
 }
 
-func (s *ConfigSuite) TestSettingComplexKey(c *gc.C) {
-	var api fakeControllerAPI
-	context, err := s.runWithAPI(c, &api, "features=[value1,value2]")
-	c.Assert(err, jc.ErrorIsNil)
-
-	output := strings.TrimSpace(cmdtesting.Stdout(context))
-	c.Assert(output, gc.Equals, "")
-
-	c.Assert(api.values, gc.DeepEquals, map[string]interface{}{
-		"features": []interface{}{"value1", "value2"},
-	})
-}
-
 func (s *ConfigSuite) TestSettingFromFile(c *gc.C) {
 	path := writeFile(c, "yaml", "juju-ha-space: value\n")
 	var api fakeControllerAPI

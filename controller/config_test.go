@@ -101,12 +101,6 @@ var newConfigTests = []struct {
 		controller.IdentityURL:       "http://0.1.2.3/foo",
 	},
 }, {
-	about: "feature flags mys be a list",
-	config: controller.Config{
-		controller.Features: "foo",
-	},
-	expectError: `features: expected list, got string\("foo"\)`,
-}, {
 	about: "invalid identity public key",
 	config: controller.Config{
 		controller.IdentityPublicKey: `xxxx`,
@@ -164,7 +158,7 @@ var newConfigTests = []struct {
 }, {
 	about: "invalid audit log exclude",
 	config: controller.Config{
-		controller.AuditLogExcludeMethods: []interface{}{"Dap.Kings", "ReadOnlyMethods", "Sharon Jones"},
+		controller.AuditLogExcludeMethods: "Dap.Kings,ReadOnlyMethods,Sharon Jones",
 	},
 	expectError: `invalid audit log exclude methods: should be a list of "Facade.Method" names \(or "ReadOnlyMethods"\), got "Sharon Jones" at position 3`,
 }, {
@@ -573,7 +567,7 @@ func (s *ConfigSuite) TestAuditLogDefaults(c *gc.C) {
 	c.Assert(cfg.AuditLogMaxSizeMB(), gc.Equals, 300)
 	c.Assert(cfg.AuditLogMaxBackups(), gc.Equals, 10)
 	c.Assert(cfg.AuditLogExcludeMethods(), gc.DeepEquals,
-		set.NewStrings(controller.DefaultAuditLogExcludeMethods...))
+		set.NewStrings(controller.DefaultAuditLogExcludeMethods))
 }
 
 func (s *ConfigSuite) TestAuditLogValues(c *gc.C) {
@@ -585,7 +579,7 @@ func (s *ConfigSuite) TestAuditLogValues(c *gc.C) {
 			"audit-log-capture-args":    true,
 			"audit-log-max-size":        "100M",
 			"audit-log-max-backups":     10.0,
-			"audit-log-exclude-methods": []string{"Fleet.Foxes", "King.Gizzard", "ReadOnlyMethods"},
+			"audit-log-exclude-methods": "Fleet.Foxes,King.Gizzard,ReadOnlyMethods",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -608,7 +602,7 @@ func (s *ConfigSuite) TestAuditLogExcludeMethodsType(c *gc.C) {
 			"audit-log-exclude-methods": []int{2, 3, 4},
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, `audit-log-exclude-methods\[0\]: expected string, got int\(2\)`)
+	c.Assert(err, gc.ErrorMatches, `audit-log-exclude-methods: expected string, got .*`)
 }
 
 func (s *ConfigSuite) TestAuditLogFloatBackupsLoadedDirectly(c *gc.C) {
@@ -815,7 +809,7 @@ func (s *ConfigSuite) TestFeatureFlags(c *gc.C) {
 		testing.ControllerTag.Id(),
 		testing.CACert,
 		map[string]interface{}{
-			controller.Features: `["foo","bar"]`,
+			controller.Features: "foo,bar",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
