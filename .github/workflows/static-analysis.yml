@@ -67,14 +67,6 @@ jobs:
         STATIC_ANALYSIS_JOB=test_static_analysis_shell make static-analysis
       shell: bash
 
-    - name: "Static Analysis: Go Check"
-      if: steps.filter.outputs.static-analysis == 'true' || steps.filter.outputs.go == 'true'
-      run: |
-        # Explicitly set GOROOT to avoid golangci-lint/issues/3107
-        export "GOROOT=$(go env GOROOT)"
-        STATIC_ANALYSIS_JOB=test_static_analysis_go make static-analysis
-      shell: bash
-
     - name: Run golangci-lint
       if: steps.filter.outputs.static-analysis == 'true' || steps.filter.outputs.go == 'true'
       uses: golangci/golangci-lint-action@v3
