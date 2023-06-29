@@ -8,40 +8,55 @@ import (
 
 	"github.com/juju/errors"
 
-	jujucontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/watcher"
 )
 
 // State defines an interface for interacting with the underlying state.
 type State interface {
 	ControllerConfig(context.Context) (map[string]interface{}, error)
 	UpdateControllerConfig(ctx context.Context, updateAttrs map[string]interface{}, removeAttrs []string) error
+
+	// AllKeysQuery is used to get the initial state
+	// for the controller configuration watcher.
+	AllKeysQuery() string
+}
+
+// WatcherFactory describes methods for creating watchers.
+type WatcherFactory interface {
+	// NewNamespaceWatcher returns a new namespace watcher
+	// for events based on the input change mask.
+	NewNamespaceWatcher(string, changestream.ChangeType, string) (watcher.StringsWatcher, error)
 }
 
 // Service defines a service for interacting with the underlying state.
 type Service struct {
-	st State
+	st             State
+	watcherFactory WatcherFactory
 }
 
 // NewService returns a new Service for interacting with the underlying state.
-func NewService(st State) *Service {
+func NewService(st State, wf WatcherFactory) *Service {
 	return &Service{
-		st: st,
+		st:             st,
+		watcherFactory: wf,
 	}
 }
 
 // ControllerConfig returns the config values for the controller.
-func (s *Service) ControllerConfig(ctx context.Context) (jujucontroller.Config, error) {
+func (s *Service) ControllerConfig(ctx context.Context) (controller.Config, error) {
 	cc, err := s.st.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var coercedControllerConfig jujucontroller.Config
+	var coercedControllerConfig controller.Config
 	coercedControllerConfig, err = coerceControllerConfigMap(cc)
 	return coercedControllerConfig, errors.Annotate(err, "getting controller config state")
 }
 
 // UpdateControllerConfig updates the controller config.
-func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs jujucontroller.Config, removeAttrs []string) error {
+func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs controller.Config, removeAttrs []string) error {
 	coercedUpdateAttrs, err := coerceControllerConfigMap(updateAttrs)
 	if err != nil {
 		return errors.Trace(err)
@@ -52,6 +67,12 @@ func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs jujuco
 	}
 	err = s.st.UpdateControllerConfig(ctx, coercedUpdateAttrs, removeAttrs)
 	return errors.Annotate(err, "updating controller config state")
+}
+
+// Watch returns a watcher that returns keys
+// for any changes to controller config.
+func (s *Service) Watch() (watcher.StringsWatcher, error) {
+	return s.watcherFactory.NewNamespaceWatcher("controller_config", changestream.All, s.st.AllKeysQuery())
 }
 
 // validateConfig validates the given updateAttrs and removeAttrs.
@@ -71,10 +92,10 @@ func validateConfig(updateAttrs map[string]interface{}, removeAttrs []string) er
 
 // validateConfigField checks that the given field is a valid controller config.
 func validateConfigField(name string) error {
-	if !jujucontroller.ControllerOnlyAttribute(name) {
+	if !controller.ControllerOnlyAttribute(name) {
 		return errors.Errorf("unknown controller config setting %q", name)
 	}
-	if !jujucontroller.AllowedUpdateConfigAttributes.Contains(name) {
+	if !controller.AllowedUpdateConfigAttributes.Contains(name) {
 		return errors.Errorf("can't change %q after bootstrap", name)
 	}
 	return nil
@@ -84,7 +105,7 @@ func validateConfigField(name string) error {
 func coerceControllerConfigMap(m map[string]interface{}) (map[string]interface{}, error) {
 	result := make(map[string]interface{})
 	// Validate the updateAttrs.
-	fields, _, err := jujucontroller.ConfigSchema.ValidationSchema()
+	fields, _, err := controller.ConfigSchema.ValidationSchema()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

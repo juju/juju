@@ -31,7 +31,7 @@ func (st *State) ControllerConfig(ctx context.Context) (map[string]interface{}, 
 		return nil, errors.Trace(err)
 	}
 
-	q := `SELECT key,value FROM controller_config`
+	q := "SELECT key, value FROM controller_config"
 
 	var result map[string]interface{}
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -57,24 +57,24 @@ func (st *State) UpdateControllerConfig(ctx context.Context, updateAttrs map[str
 		return errors.Trace(err)
 	}
 
+	dq := "DELETE FROM controller_config WHERE key = ?"
+
+	uq := `
+INSERT INTO controller_config (key, value)
+VALUES (?, ?)
+  ON CONFLICT(key) DO UPDATE SET value=?`
+
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		// Remove the attributes
 		for _, r := range removeAttrs {
-			q := `
-DELETE FROM controller_config
-WHERE key = ?`[1:]
-			if _, err := tx.ExecContext(ctx, q, r); err != nil {
+			if _, err := tx.ExecContext(ctx, dq, r); err != nil {
 				return errors.Trace(err)
 			}
 		}
 
 		// Update the attributes.
 		for k := range updateAttrs {
-			q := `
-INSERT INTO controller_config (key, value)
-VALUES (?, ?)
-  ON CONFLICT(key) DO UPDATE SET value=?`[1:]
-			if _, err := tx.ExecContext(ctx, q, k, updateAttrs[k], updateAttrs[k]); err != nil {
+			if _, err := tx.ExecContext(ctx, uq, k, updateAttrs[k], updateAttrs[k]); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -83,6 +83,12 @@ VALUES (?, ?)
 	})
 
 	return errors.Trace(err)
+}
+
+// AllKeysQuery returns a SQL statement that will return
+// all known controller configuration keys.
+func (*State) AllKeysQuery() string {
+	return "SELECT key FROM controller_config"
 }
 
 // controllerConfigFromRows returns controller config info from rows returned from the backing DB.

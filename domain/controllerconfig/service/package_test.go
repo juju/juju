@@ -9,7 +9,8 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package service -destination package_mock_test.go github.com/juju/juju/domain/controllerconfig/service State
+//go:generate go run github.com/golang/mock/mockgen -package service -destination package_mock_test.go github.com/juju/juju/domain/controllerconfig/service State,WatcherFactory
+//go:generate go run github.com/golang/mock/mockgen -package service -destination watcher_mock_test.go github.com/juju/juju/core/watcher StringsWatcher
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
