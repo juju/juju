@@ -9,8 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	description "github.com/juju/description/v4"
-	database "github.com/juju/juju/core/database"
+	v4 "github.com/juju/description/v4"
 )
 
 // MockOperation is a mock of Operation interface.
@@ -37,7 +36,7 @@ func (m *MockOperation) EXPECT() *MockOperationMockRecorder {
 }
 
 // Execute mocks base method.
-func (m *MockOperation) Execute(arg0 context.Context, arg1 description.Model) error {
+func (m *MockOperation) Execute(arg0 context.Context, arg1 v4.Model) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Execute", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -65,7 +64,7 @@ func (mr *MockOperationMockRecorder) Rollback(arg0 interface{}) *gomock.Call {
 }
 
 // Setup mocks base method.
-func (m *MockOperation) Setup(arg0 database.DBGetter) error {
+func (m *MockOperation) Setup(arg0 Scope) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Setup", arg0)
 	ret0, _ := ret[0].(error)

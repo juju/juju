@@ -25,7 +25,7 @@ func (b *BaseOperation) Rollback(context.Context) error {
 type Operation interface {
 	// Setup is called before the operation is executed. It should return an
 	// error if the operation cannot be performed.
-	Setup(database.DBGetter) error
+	Setup(Scope) error
 
 	// Execute is called to perform the operation. It should return an error
 	// if the operation fails.
@@ -35,6 +35,31 @@ type Operation interface {
 	// any changes made by the operation. This is best effort, and may not
 	// always be possible.
 	Rollback(context.Context) error
+}
+
+// Scope is a collection of database txn runners that can be used by the
+// operations.
+type Scope struct {
+	controllerDB database.TxnRunner
+	modelDB      database.TxnRunner
+}
+
+// NewScope creates a new scope with the given database txn runners.
+func NewScope(controllerDB, modelDB database.TxnRunner) Scope {
+	return Scope{
+		controllerDB: controllerDB,
+		modelDB:      modelDB,
+	}
+}
+
+// ControllerDB returns the database txn runner for the controller.
+func (s Scope) ControllerDB() database.TxnRunner {
+	return s.controllerDB
+}
+
+// ModelDB returns the database txn runner for the model.
+func (s Scope) ModelDB() database.TxnRunner {
+	return s.modelDB
 }
 
 // Hook is a callback that is called after the operation is executed.
@@ -68,7 +93,7 @@ func (m *Coordinator) Len() int {
 }
 
 // Perform executes the migration.
-func (m *Coordinator) Perform(ctx context.Context, dbGetter database.DBGetter, model description.Model) (err error) {
+func (m *Coordinator) Perform(ctx context.Context, scope Scope, model description.Model) (err error) {
 	var current int
 	defer func() {
 		if err != nil {
@@ -82,7 +107,7 @@ func (m *Coordinator) Perform(ctx context.Context, dbGetter database.DBGetter, m
 
 	var op Operation
 	for current, op = range m.operations {
-		if err := op.Setup(dbGetter); err != nil {
+		if err := op.Setup(scope); err != nil {
 			return errors.Annotatef(err, "setup operation at %d", current)
 		}
 		if err := op.Execute(ctx, model); err != nil {
