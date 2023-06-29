@@ -33,8 +33,7 @@ func NewWatcherFactory(watchableDBFactory WatchableDBFactory, logger eventsource
 // NewUUIDsWatcher returns a watcher that emits the UUIDs for
 // changes to the input table name that match the input mask.
 func (f *WatcherFactory) NewUUIDsWatcher(
-	tableName string,
-	changeMask changestream.ChangeType,
+	tableName string, changeMask changestream.ChangeType,
 ) (watcher.StringsWatcher, error) {
 	w, err := f.NewNamespaceWatcher(tableName, changeMask, "SELECT uuid from "+tableName)
 	return w, errors.Trace(err)
@@ -51,6 +50,17 @@ func (f *WatcherFactory) NewNamespaceWatcher(
 	}
 
 	return eventsource.NewNamespaceWatcher(base, namespace, changeMask, initialStateQuery), nil
+}
+
+func (f *WatcherFactory) NewValueWatcher(
+	namespace, changeValue string, changeMask changestream.ChangeType,
+) (watcher.NotifyWatcher, error) {
+	base, err := f.newBaseWatcher()
+	if err != nil {
+		return nil, errors.Annotate(err, "creating base watcher")
+	}
+
+	return eventsource.NewValueWatcher(base, namespace, changeValue, changeMask), nil
 }
 
 func (f *WatcherFactory) newBaseWatcher() (*eventsource.BaseWatcher, error) {
