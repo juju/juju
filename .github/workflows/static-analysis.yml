@@ -41,7 +41,7 @@ jobs:
       uses: actions/setup-go@v3
       with:
         go-version-file: 'go.mod'
-        cache: true
+        cache: false # caching done by golangci step
 
     - name: Install Dependencies
       run: |
