@@ -40,17 +40,17 @@ type Operation interface {
 // Hook is a callback that is called after the operation is executed.
 type Hook func(Operation) error
 
-// Migration is a collection of operations that can be performed as a single
+// Coordinator is a collection of operations that can be performed as a single
 // unit. This is not atomic, but it does allow for a rollback of the entire
 // migration if any operation fails.
-type Migration struct {
+type Coordinator struct {
 	operations []Operation
 	hook       Hook
 }
 
 // New creates a new migration coordinator with the given operations.
-func New(operations ...Operation) *Migration {
-	return &Migration{
+func New(operations ...Operation) *Coordinator {
+	return &Coordinator{
 		operations: operations,
 		hook:       omitHook,
 	}
@@ -58,17 +58,17 @@ func New(operations ...Operation) *Migration {
 
 // Add a new operation to the migration. It will be appended at the end of the
 // list of operations.
-func (m *Migration) Add(operations Operation) {
+func (m *Coordinator) Add(operations Operation) {
 	m.operations = append(m.operations, operations)
 }
 
 // Len returns the number of operations in the migration.
-func (m *Migration) Len() int {
+func (m *Coordinator) Len() int {
 	return len(m.operations)
 }
 
 // Perform executes the migration.
-func (m *Migration) Perform(ctx context.Context, dbGetter database.DBGetter, model description.Model) (err error) {
+func (m *Coordinator) Perform(ctx context.Context, dbGetter database.DBGetter, model description.Model) (err error) {
 	var current int
 	defer func() {
 		if err != nil {
