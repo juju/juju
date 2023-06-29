@@ -5,10 +5,13 @@ package state
 
 import (
 	ctx "context"
+	"fmt"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
+	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -251,6 +254,270 @@ func (s *stateSuite) TestUpsertCloudInvalidType(c *gc.C) {
 	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
 	err := st.UpsertCloud(ctx.Background(), cld)
 	c.Assert(err, gc.ErrorMatches, `.* cloud type "mycloud" not valid`)
+}
+
+func (s *stateSuite) TestCloudWithEmptyNameFails(c *gc.C) {
+	cld := testCloud
+	cld.Name = ""
+
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	err := st.UpsertCloud(ctx.Background(), cld)
+	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue)
+}
+
+func (s *stateSuite) TestUpdateCloudDefaults(c *gc.C) {
+	cld := testCloud
+
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	err := st.UpsertCloud(ctx.Background(), cld)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.UpdateCloudDefaults(context.Background(), cld.Name, map[string]string{
+		"foo":        "bar",
+		"wallyworld": "peachy",
+	}, []string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	defaults, err := st.CloudDefaults(context.Background(), cld.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(defaults, jc.DeepEquals, map[string]string{
+		"foo":        "bar",
+		"wallyworld": "peachy",
+	})
+}
+
+func (s *stateSuite) TestComplexUpdateCloudDefaults(c *gc.C) {
+	cld := testCloud
+
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	err := st.UpsertCloud(ctx.Background(), cld)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.UpdateCloudDefaults(context.Background(), cld.Name, map[string]string{
+		"foo":        "bar",
+		"wallyworld": "peachy",
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	defaults, err := st.CloudDefaults(context.Background(), cld.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(defaults, jc.DeepEquals, map[string]string{
+		"foo":        "bar",
+		"wallyworld": "peachy",
+	})
+
+	err = st.UpdateCloudDefaults(context.Background(), cld.Name, map[string]string{
+		"wallyworld": "peachy1",
+		"foo2":       "bar2",
+	}, []string{"foo"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	defaults, err = st.CloudDefaults(context.Background(), cld.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(defaults, jc.DeepEquals, map[string]string{
+		"wallyworld": "peachy1",
+		"foo2":       "bar2",
+	})
+}
+
+func (s *stateSuite) TestCloudDefaultsUpdateForNonExistentCloud(c *gc.C) {
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	err := st.UpdateCloudDefaults(context.Background(), "noexist", map[string]string{
+		"wallyworld": "peachy",
+	}, nil)
+	fmt.Println(err)
+	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue)
+}
+
+func (s *stateSuite) TestCloudRegionDefaults(c *gc.C) {
+	cld := testCloud
+
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	err := st.UpsertCloud(ctx.Background(), cld)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.UpdateCloudRegionDefaults(
+		context.Background(),
+		cld.Name,
+		cld.Regions[0].Name,
+		map[string]string{
+			"foo":        "bar",
+			"wallyworld": "peachy",
+		},
+		nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.UpdateCloudRegionDefaults(
+		context.Background(),
+		cld.Name,
+		cld.Regions[1].Name,
+		map[string]string{
+			"foo":        "bar1",
+			"wallyworld": "peachy2",
+		},
+		nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	regionDefaults, err := st.CloudAllRegionDefaults(context.Background(), cld.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(regionDefaults, jc.DeepEquals, map[string]map[string]string{
+		cld.Regions[0].Name: {
+			"foo":        "bar",
+			"wallyworld": "peachy",
+		},
+		cld.Regions[1].Name: {
+			"foo":        "bar1",
+			"wallyworld": "peachy2",
+		},
+	})
+}
+
+func (s *stateSuite) TestCloudRegionDefaultsComplex(c *gc.C) {
+	cld := testCloud
+
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	err := st.UpsertCloud(ctx.Background(), cld)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.UpdateCloudRegionDefaults(
+		context.Background(),
+		cld.Name,
+		cld.Regions[0].Name,
+		map[string]string{
+			"foo":        "bar",
+			"wallyworld": "peachy",
+		},
+		nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.UpdateCloudRegionDefaults(
+		context.Background(),
+		cld.Name,
+		cld.Regions[1].Name,
+		map[string]string{
+			"foo":        "bar1",
+			"wallyworld": "peachy2",
+		},
+		nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	regionDefaults, err := st.CloudAllRegionDefaults(context.Background(), cld.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(regionDefaults, jc.DeepEquals, map[string]map[string]string{
+		cld.Regions[0].Name: {
+			"foo":        "bar",
+			"wallyworld": "peachy",
+		},
+		cld.Regions[1].Name: {
+			"foo":        "bar1",
+			"wallyworld": "peachy2",
+		},
+	})
+
+	err = st.UpdateCloudRegionDefaults(
+		context.Background(),
+		cld.Name,
+		cld.Regions[1].Name,
+		map[string]string{
+			"wallyworld": "peachy3",
+		},
+		[]string{"foo"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.UpdateCloudRegionDefaults(
+		context.Background(),
+		cld.Name,
+		cld.Regions[0].Name,
+		map[string]string{
+			"one":   "two",
+			"three": "four",
+			"five":  "six",
+		},
+		nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	regionDefaults, err = st.CloudAllRegionDefaults(context.Background(), cld.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(regionDefaults, jc.DeepEquals, map[string]map[string]string{
+		cld.Regions[0].Name: {
+			"foo":        "bar",
+			"wallyworld": "peachy",
+			"one":        "two",
+			"three":      "four",
+			"five":       "six",
+		},
+		cld.Regions[1].Name: {
+			"wallyworld": "peachy3",
+		},
+	})
+}
+
+func (s *stateSuite) TestCloudRegionDefaultsNoExist(c *gc.C) {
+	cld := testCloud
+
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	err := st.UpsertCloud(context.Background(), cld)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.UpdateCloudRegionDefaults(context.Background(), cld.Name, "noexistregion", map[string]string{
+		"foo": "bar",
+	}, nil)
+	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue)
+
+	defaults, err := st.CloudAllRegionDefaults(context.Background(), cld.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(defaults), gc.Equals, 0)
+}
+
+func (s *stateSuite) TestCloudDefaultsRemoval(c *gc.C) {
+	cld := testCloud
+
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	err := st.UpsertCloud(ctx.Background(), cld)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.UpdateCloudDefaults(context.Background(), cld.Name, map[string]string{
+		"foo":        "bar",
+		"wallyworld": "peachy",
+	}, []string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.UpdateCloudDefaults(context.Background(), cld.Name, nil, []string{"foo"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	defaults, err := st.CloudDefaults(context.Background(), cld.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(defaults, jc.DeepEquals, map[string]string{
+		"wallyworld": "peachy",
+	})
+
+	err = st.UpdateCloudDefaults(context.Background(), cld.Name, nil, []string{"noexist"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	defaults, err = st.CloudDefaults(context.Background(), cld.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(defaults, jc.DeepEquals, map[string]string{
+		"wallyworld": "peachy",
+	})
+}
+
+func (s *stateSuite) TestEmptyCloudDefaults(c *gc.C) {
+	cld := testCloud
+
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	err := st.UpsertCloud(ctx.Background(), cld)
+	c.Assert(err, jc.ErrorIsNil)
+
+	defaults, err := st.CloudDefaults(context.Background(), cld.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(defaults), gc.Equals, 0)
+}
+
+func (s *stateSuite) TestNonFoundCloudDefaults(c *gc.C) {
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	defaults, err := st.CloudDefaults(context.Background(), "notfound")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(defaults), gc.Equals, 0)
 }
 
 func (s *stateSuite) TestUpsertCloudInvalidAuthType(c *gc.C) {

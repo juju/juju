@@ -66,7 +66,9 @@ func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 		"auth_type",
 		"cloud_auth_type",
 		"cloud_ca_cert",
+		"cloud_defaults",
 		"cloud_region",
+		"cloud_region_defaults",
 		"cloud_type",
 
 		// External controller
@@ -88,6 +90,9 @@ func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 		"model_migration_status",
 		"model_migration_user",
 		"model_migration_minion_sync",
+
+		// Model defaults
+		"model_defaults",
 
 		// Upgrade info
 		"upgrade_info",

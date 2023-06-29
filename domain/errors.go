@@ -9,7 +9,7 @@ import (
 	"github.com/juju/juju/database"
 )
 
-var (
+const (
 	// ErrDuplicate is returned when a record already exists.
 	ErrDuplicate = errors.ConstError("record already exists")
 
