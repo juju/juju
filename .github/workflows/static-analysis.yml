@@ -80,6 +80,7 @@ jobs:
       with:
         version: v1.52
         args: -v -c .github/golangci-lint.config.experimental.yaml
+        skip-cache: true # caching done by previous step
 
     - name: Run other Go static analysis (go mod tidy)
       if: steps.filter.outputs.static-analysis == 'true' || steps.filter.outputs.go == 'true'
