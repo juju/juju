@@ -28,6 +28,7 @@ var (
 		"environ-upgraded-flag",
 		"not-alive-flag",
 		"not-dead-flag",
+		"alive-flag",
 		"valid-credential-flag",
 	}
 	requireValidCredentialModelWorkers = []string{

@@ -202,7 +202,7 @@ func (s *modelmanagerSuite) testDestroyModel(c *gc.C, destroyStorage, force *boo
 		},
 	)
 	client := modelmanager.NewClient(apiCaller)
-	err := client.DestroyModel(coretesting.ModelTag, destroyStorage, force, maxWait, timeout)
+	err := client.DestroyModel(coretesting.ModelTag, destroyStorage, force, maxWait, &timeout)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }

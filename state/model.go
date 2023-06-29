@@ -1233,11 +1233,28 @@ func (m *Model) destroyOps(
 	ensureEmpty bool,
 	destroyingController bool,
 ) ([]txn.Op, error) {
+	modelUUID := m.UUID()
 	force := args.Force != nil && *args.Force
-	if m.Life() != Alive {
-		if !force {
-			return nil, errModelNotAlive
+	if m.Life() != Alive && !force {
+		currentTimeout := m.DestroyTimeout()
+		if !destroyingController && ((currentTimeout == nil && args.Timeout != nil) ||
+			(currentTimeout != nil && args.Timeout != nil && *currentTimeout != *args.Timeout)) {
+			var ops []txn.Op
+			modelOp := txn.Op{
+				C:      modelsC,
+				Id:     modelUUID,
+				Assert: bson.D{{"life", m.Life()}},
+			}
+			modelOp.Update = bson.D{{
+				"$set",
+				bson.D{
+					{"destroy-timeout", args.Timeout},
+				},
+			}}
+			ops = append(ops, modelOp)
+			return ops, nil
 		}
+		return nil, errModelNotAlive
 	}
 
 	// Check if the model is empty. If it is, we can advance the model's
@@ -1250,7 +1267,6 @@ func (m *Model) destroyOps(
 		logger.Warningf("getting model %v entity refs: %v", m.UUID(), err)
 	}
 	isEmpty := true
-	modelUUID := m.UUID()
 	nextLife := Dying
 
 	prereqOps, err := checkModelEntityRefsEmpty(modelEntityRefs)

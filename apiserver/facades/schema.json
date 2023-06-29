@@ -45560,6 +45560,30 @@
         "Schema": {
             "type": "object",
             "properties": {
+                "CloudSpec": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/CloudSpecResults"
+                        }
+                    },
+                    "description": "CloudSpec returns the model's cloud spec."
+                },
+                "GetCloudSpec": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ModelTag"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/CloudSpecResult"
+                        }
+                    },
+                    "description": "GetCloudSpec constructs the CloudSpec for a validated and authorized model."
+                },
                 "ModelConfig": {
                     "type": "object",
                     "properties": {
@@ -45567,7 +45591,7 @@
                             "$ref": "#/definitions/ModelConfigResult"
                         }
                     },
-                    "description": "ModelConfig returns the model's configuration."
+                    "description": "ModelConfig returns the current model's configuration."
                 },
                 "ModelInfo": {
                     "type": "object",
@@ -45598,6 +45622,36 @@
                     },
                     "description": "SetStatus sets the status of each given entity."
                 },
+                "WatchCloudSpecsChanges": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResults"
+                        }
+                    },
+                    "description": "WatchCloudSpecsChanges returns a watcher for cloud spec changes."
+                },
+                "WatchForModelConfigChanges": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResult"
+                        }
+                    },
+                    "description": "WatchForModelConfigChanges returns a NotifyWatcher that observes\nchanges to the model configuration.\nNote that although the NotifyWatchResult contains an Error field,\nit's not used because we are only returning a single watcher,\nso we use the regular error return."
+                },
+                "WatchModel": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResults"
+                        }
+                    },
+                    "description": "WatchModel creates a watcher for the current model."
+                },
                 "WatchModelResources": {
                     "type": "object",
                     "properties": {
@@ -45609,6 +45663,126 @@
                 }
             },
             "definitions": {
+                "CloudCredential": {
+                    "type": "object",
+                    "properties": {
+                        "attrs": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "auth-type": {
+                            "type": "string"
+                        },
+                        "redacted": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "auth-type"
+                    ]
+                },
+                "CloudSpec": {
+                    "type": "object",
+                    "properties": {
+                        "cacertificates": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "credential": {
+                            "$ref": "#/definitions/CloudCredential"
+                        },
+                        "endpoint": {
+                            "type": "string"
+                        },
+                        "identity-endpoint": {
+                            "type": "string"
+                        },
+                        "is-controller-cloud": {
+                            "type": "boolean"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "region": {
+                            "type": "string"
+                        },
+                        "skip-tls-verify": {
+                            "type": "boolean"
+                        },
+                        "storage-endpoint": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "type",
+                        "name"
+                    ]
+                },
+                "CloudSpecResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "$ref": "#/definitions/CloudSpec"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "CloudSpecResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CloudSpecResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "Entities": {
+                    "type": "object",
+                    "properties": {
+                        "entities": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Entity"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "entities"
+                    ]
+                },
+                "Entity": {
+                    "type": "object",
+                    "properties": {
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag"
+                    ]
+                },
                 "EntityStatusArgs": {
                     "type": "object",
                     "properties": {
@@ -45705,6 +45879,10 @@
                     "required": [
                         "config"
                     ]
+                },
+                "ModelTag": {
+                    "type": "object",
+                    "additionalProperties": false
                 },
                 "NotifyWatchResult": {
                     "type": "object",
