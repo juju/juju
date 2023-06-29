@@ -675,7 +675,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	// Get the series to use.
 	chSeries, err = selector.charmSeries()
 	if err != nil {
-		return errors.Annotatef(err, "failed to upload charm %s", chParams.Charm)
+		return errors.Annotatef(err, "failed to upload charm %q", ch.Name)
 	}
 	url = url.WithSeries(chSeries)
 
