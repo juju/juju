@@ -4,6 +4,7 @@
 package migration
 
 import (
+	"context"
 	"io"
 	"net/url"
 	"os"
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/domain/migrations"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
 )
@@ -45,7 +47,7 @@ type ClaimerFunc func(string) (leadership.Claimer, error)
 // ImportModel deserializes a model description from the bytes, transforms
 // the model config based on information from the controller model, and then
 // imports that as a new database model.
-func ImportModel(importer StateImporter, getClaimer ClaimerFunc, bytes []byte) (*state.Model, *state.State, error) {
+func ImportModel(ctx context.Context, importer StateImporter, scope migration.Scope, getClaimer ClaimerFunc, bytes []byte) (*state.Model, *state.State, error) {
 	model, err := description.Deserialize(bytes)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -53,6 +55,12 @@ func ImportModel(importer StateImporter, getClaimer ClaimerFunc, bytes []byte) (
 
 	dbModel, dbState, err := importer.Import(model)
 	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	coordinator := migration.NewCoordinator()
+	migrations.ImportOperations(coordinator, logger)
+	if err := coordinator.Perform(ctx, scope, model); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 

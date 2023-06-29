@@ -5,6 +5,7 @@ package migration_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/url"
@@ -23,6 +24,7 @@ import (
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	databasetesting "github.com/juju/juju/database/testing"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -34,6 +36,7 @@ import (
 
 type ImportSuite struct {
 	statetesting.StateSuite
+	databasetesting.ControllerSuite
 }
 
 var _ = gc.Suite(&ImportSuite{})
@@ -48,12 +51,14 @@ func (s *ImportSuite) SetUpTest(c *gc.C) {
 	// NOTE: make a better test provider.
 	s.InitialConfig = coretesting.CustomModelConfig(c, dummy.SampleConfig())
 	s.StateSuite.SetUpTest(c)
+	s.ControllerSuite.SetUpTest(c)
 }
 
 func (s *ImportSuite) TestBadBytes(c *gc.C) {
 	bytes := []byte("not a model")
 	controller := state.NewController(s.StatePool)
-	model, st, err := migration.ImportModel(controller, fakeGetClaimer, bytes)
+	scope := coremigration.NewScope(s.TxnRunner(), nil)
+	model, st, err := migration.ImportModel(context.Background(), controller, scope, fakeGetClaimer, bytes)
 	c.Check(st, gc.IsNil)
 	c.Check(model, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "yaml: unmarshal errors:\n.*")
@@ -76,7 +81,8 @@ func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string, getClaime
 	c.Check(err, jc.ErrorIsNil)
 
 	controller := state.NewController(s.StatePool)
-	dbModel, dbState, err := migration.ImportModel(controller, getClaimer, bytes)
+	scope := coremigration.NewScope(s.TxnRunner(), nil)
+	dbModel, dbState, err := migration.ImportModel(context.Background(), controller, scope, getClaimer, bytes)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { dbState.Close() })
 

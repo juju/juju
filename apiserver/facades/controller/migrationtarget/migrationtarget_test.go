@@ -4,6 +4,7 @@
 package migrationtarget_test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -27,7 +28,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/manual"
@@ -45,7 +46,7 @@ type Suite struct {
 	authorizer *apiservertesting.FakeAuthorizer
 
 	facadeContext facadetest.Context
-	callContext   context.ProviderCallContext
+	callContext   environscontext.ProviderCallContext
 	leaders       map[string]string
 }
 
@@ -67,7 +68,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 		Tag:      s.Owner,
 		AdminTag: s.Owner,
 	}
-	s.callContext = context.NewEmptyCloudCallContext()
+	s.callContext = environscontext.NewEmptyCloudCallContext()
 	s.facadeContext = facadetest.Context{
 		State_:     s.State,
 		StatePool_: s.StatePool,
@@ -105,7 +106,7 @@ func (s *Suite) TestNotControllerAdmin(c *gc.C) {
 
 func (s *Suite) importModel(c *gc.C, api *migrationtarget.API) names.ModelTag {
 	uuid, bytes := s.makeExportedModel(c)
-	err := api.Import(params.SerializedModel{Bytes: bytes})
+	err := api.Import(context.Background(), params.SerializedModel{Bytes: bytes})
 	c.Assert(err, jc.ErrorIsNil)
 	return names.NewModelTag(uuid)
 }
@@ -517,12 +518,12 @@ type mockEnv struct {
 	instances []*mockInstance
 }
 
-func (e *mockEnv) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, sourceVersion version.Number) error {
+func (e *mockEnv) AdoptResources(ctx environscontext.ProviderCallContext, controllerUUID string, sourceVersion version.Number) error {
 	e.MethodCall(e, "AdoptResources", ctx, controllerUUID, sourceVersion)
 	return e.NextErr()
 }
 
-func (e *mockEnv) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+func (e *mockEnv) AllInstances(ctx environscontext.ProviderCallContext) ([]instances.Instance, error) {
 	e.MethodCall(e, "AllInstances", ctx)
 	results := make([]instances.Instance, len(e.instances))
 	for i, anInstance := range e.instances {
@@ -536,7 +537,7 @@ type mockBroker struct {
 	*testing.Stub
 }
 
-func (e *mockBroker) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, sourceVersion version.Number) error {
+func (e *mockBroker) AdoptResources(ctx environscontext.ProviderCallContext, controllerUUID string, sourceVersion version.Number) error {
 	e.MethodCall(e, "AdoptResources", ctx, controllerUUID, sourceVersion)
 	return e.NextErr()
 }

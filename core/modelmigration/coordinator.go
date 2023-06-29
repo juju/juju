@@ -93,8 +93,8 @@ type Coordinator struct {
 	hook       Hook
 }
 
-// New creates a new migration coordinator with the given operations.
-func New(operations ...Operation) *Coordinator {
+// NewCoordinator creates a new migration coordinator with the given operations.
+func NewCoordinator(operations ...Operation) *Coordinator {
 	return &Coordinator{
 		operations: operations,
 		hook:       emptyHook,

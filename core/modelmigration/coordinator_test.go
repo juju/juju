@@ -28,7 +28,7 @@ var _ = gc.Suite(&migrationSuite{})
 func (s *migrationSuite) TestAdd(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	m := New()
+	m := NewCoordinator()
 	c.Assert(m.Len(), gc.Equals, 0)
 
 	m.Add(s.op)
@@ -38,7 +38,7 @@ func (s *migrationSuite) TestAdd(c *gc.C) {
 func (s *migrationSuite) TestPerform(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	m := New()
+	m := NewCoordinator()
 	c.Assert(m.Len(), gc.Equals, 0)
 
 	m.Add(s.op)
@@ -55,7 +55,7 @@ func (s *migrationSuite) TestPerform(c *gc.C) {
 func (s *migrationSuite) TestPerformWithRollbackAtSetup(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	m := New()
+	m := NewCoordinator()
 	c.Assert(m.Len(), gc.Equals, 0)
 
 	m.Add(s.op)
@@ -73,7 +73,7 @@ func (s *migrationSuite) TestPerformWithRollbackAtSetup(c *gc.C) {
 func (s *migrationSuite) TestPerformWithRollbackAtExecution(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	m := New()
+	m := NewCoordinator()
 	c.Assert(m.Len(), gc.Equals, 0)
 
 	m.Add(s.op)
@@ -92,7 +92,7 @@ func (s *migrationSuite) TestPerformWithRollbackAtExecution(c *gc.C) {
 func (s *migrationSuite) TestPerformWithRollbackError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	m := New()
+	m := NewCoordinator()
 	c.Assert(m.Len(), gc.Equals, 0)
 
 	m.Add(s.op)
