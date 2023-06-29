@@ -20,13 +20,13 @@ import (
 
 var _ watcher.StringsWatcher = &NamespaceWatcher{}
 
-type keysSuite struct {
+type namespaceSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&keysSuite{})
+var _ = gc.Suite(&namespaceSuite{})
 
-func (s *keysSuite) TestInitialStateSent(c *gc.C) {
+func (s *namespaceSuite) TestInitialStateSent(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -76,7 +76,7 @@ func (s *keysSuite) TestInitialStateSent(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *keysSuite) TestDeltasSent(c *gc.C) {
+func (s *namespaceSuite) TestDeltasSent(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -137,7 +137,7 @@ func (s *keysSuite) TestDeltasSent(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *keysSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
+func (s *namespaceSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -165,48 +165,10 @@ func (s *keysSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 	c.Check(errors.Is(err, ErrSubscriptionClosed), jc.IsTrue)
 }
 
-func (s *keysSuite) TestInvalidChangeMask(c *gc.C) {
+func (s *namespaceSuite) TestInvalidChangeMask(c *gc.C) {
 	w := NewNamespaceWatcher(s.newBaseWatcher(), "external_controller", 0, "SELECT uuid FROM external_controller")
 	defer workertest.DirtyKill(c, w)
 
 	err := workertest.CheckKilled(c, w)
 	c.Assert(err, gc.ErrorMatches, "changeMask value: 0 not valid")
-}
-
-func (s *keysSuite) TestEnsureCloseOnCleanKill(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
-
-	subExp := s.sub.EXPECT()
-	done := make(chan struct{})
-	subExp.Done().Return(done)
-	subExp.Unsubscribe()
-
-	s.eventsource.EXPECT().Subscribe(
-		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
-	).Return(s.sub, nil)
-
-	w := NewValueWatcher(s.newBaseWatcher(), "random_namespace", "key_value")
-
-	workertest.CleanKill(c, w)
-	_, ok := <-w.Changes()
-	c.Assert(ok, jc.IsFalse)
-}
-
-func (s *keysSuite) TestEnsureCloseOnDirtyKill(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
-
-	subExp := s.sub.EXPECT()
-	done := make(chan struct{})
-	subExp.Done().Return(done)
-	subExp.Unsubscribe()
-
-	s.eventsource.EXPECT().Subscribe(
-		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
-	).Return(s.sub, nil)
-
-	w := NewValueWatcher(s.newBaseWatcher(), "random_namespace", "key_value")
-
-	workertest.DirtyKill(c, w)
-	_, ok := <-w.Changes()
-	c.Assert(ok, jc.IsFalse)
 }

@@ -24,7 +24,7 @@ type valueSuite struct {
 
 var _ = gc.Suite(&valueSuite{})
 
-func (s *keysSuite) TestNotificationsSent(c *gc.C) {
+func (s *valueSuite) TestNotificationsSent(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -47,7 +47,7 @@ func (s *keysSuite) TestNotificationsSent(c *gc.C) {
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewValueWatcher(s.newBaseWatcher(), "random_namespace", "value")
+	w := NewValueWatcher(s.newBaseWatcher(), "random_namespace", "value", changestream.All)
 	defer workertest.CleanKill(c, w)
 
 	// Initial notification.
@@ -93,7 +93,7 @@ func (s *valueSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewValueWatcher(s.newBaseWatcher(), "random_namespace", "value")
+	w := NewValueWatcher(s.newBaseWatcher(), "random_namespace", "value", changestream.All)
 	defer workertest.DirtyKill(c, w)
 
 	err := workertest.CheckKilled(c, w)
@@ -112,7 +112,7 @@ func (s *valueSuite) TestEnsureCloseOnCleanKill(c *gc.C) {
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewValueWatcher(s.newBaseWatcher(), "random_namespace", "value")
+	w := NewValueWatcher(s.newBaseWatcher(), "random_namespace", "value", changestream.All)
 
 	workertest.CleanKill(c, w)
 	_, ok := <-w.Changes()
@@ -131,7 +131,7 @@ func (s *valueSuite) TestEnsureCloseOnDirtyKill(c *gc.C) {
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewValueWatcher(s.newBaseWatcher(), "random_namespace", "value")
+	w := NewValueWatcher(s.newBaseWatcher(), "random_namespace", "value", changestream.All)
 
 	workertest.DirtyKill(c, w)
 	_, ok := <-w.Changes()

@@ -29,7 +29,7 @@ func (*watcherSuite) TestNewUUIDsWatcherFail(c *gc.C) {
 		return nil, errors.New("fail getting db instance")
 	}, nil)
 
-	_, err := factory.NewUUIDsWatcher(changestream.All, "random_namespace")
+	_, err := factory.NewUUIDsWatcher("random_namespace", changestream.All)
 	c.Assert(err, gc.ErrorMatches, "creating base watcher: fail getting db instance")
 }
 
@@ -58,7 +58,7 @@ func (s *watcherSuite) TestNewUUIDsWatcherSuccess(c *gc.C) {
 		}, nil
 	}, nil)
 
-	w, err := factory.NewUUIDsWatcher(changestream.All, "external_controller")
+	w, err := factory.NewUUIDsWatcher("external_controller", changestream.All)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {
