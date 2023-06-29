@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/domain/externalcontroller"
 )
 
 // State describes retrieval and persistence methods for storage.
@@ -26,10 +25,6 @@ type State interface {
 	// UpdateExternalController persists the input controller
 	// record and associates it with the input model UUIDs.
 	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo, modelUUIDs []string) error
-
-	// ImportExternalControllers persists the input controller records from
-	// an import.
-	ImportExternalControllers(ctx context.Context, infos []externalcontroller.MigrationControllerInfo) error
 }
 
 // WatcherFactory describes methods for creating watchers.
@@ -88,5 +83,8 @@ func (s *Service) UpdateExternalController(
 
 // Watch returns a watcher that observes changes to external controllers.
 func (s *Service) Watch() (watcher.StringsWatcher, error) {
-	return s.watcherFactory.NewUUIDsWatcher("external_controller", changestream.Create|changestream.Update)
+	return s.watcherFactory.NewUUIDsWatcher(
+		"external_controller",
+		changestream.Create|changestream.Update,
+	)
 }

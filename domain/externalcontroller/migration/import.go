@@ -10,30 +10,27 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
-	"github.com/juju/juju/core/database/migration"
 	"github.com/juju/juju/domain/externalcontroller"
 )
 
-type ImportService interface {
+type ImportState interface {
 	ImportExternalControllers(context.Context, []externalcontroller.MigrationControllerInfo) error
 }
 
 type ImportOperation struct {
-	migration.BaseOperation
-
-	service   ImportService
-	serviceFn func(database.TxnRunner) (ImportService, error)
+	st      ImportState
+	stateFn func(database.TxnRunner) (ImportState, error)
 }
 
 func (i *ImportOperation) Setup(dbGetter database.DBGetter) error {
 	db, err := dbGetter.GetDB(database.ControllerNS)
 	if err != nil {
-		return errors.Annotatef(err, "cannot get database")
+		return errors.Annotatef(err, "retrieving database for import operation")
 	}
 
-	i.service, err = i.serviceFn(db)
+	i.st, err = i.stateFn(db)
 	if err != nil {
-		return errors.Annotatef(err, "cannot get service")
+		return errors.Annotatef(err, "retrieving state for import operation")
 	}
 
 	return nil
@@ -56,6 +53,6 @@ func (i *ImportOperation) Execute(ctx context.Context, model description.Model) 
 		})
 	}
 
-	err := i.service.ImportExternalControllers(ctx, docs)
+	err := i.st.ImportExternalControllers(ctx, docs)
 	return errors.Annotatef(err, "cannot import external controllers")
 }

@@ -228,3 +228,39 @@ VALUES (?, ?)
 	})
 	return errors.Trace(err)
 }
+
+func (st *State) ModelsForController(
+	ctx context.Context,
+	controllerUUID string,
+) ([]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	q := `
+SELECT 	uuid 
+FROM   	external_model 
+WHERE  	controller_uuid = ?`
+
+	var models []string
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, q, controllerUUID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		for rows.Next() {
+			var row string
+			if err := rows.Scan(&row); err != nil {
+				_ = rows.Close()
+				return errors.Trace(err)
+			}
+			models = append(models, row)
+		}
+
+		return nil
+	})
+
+	return models, err
+}
