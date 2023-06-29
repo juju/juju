@@ -75,6 +75,26 @@ jobs:
         STATIC_ANALYSIS_JOB=test_static_analysis_go make static-analysis
       shell: bash
 
+    - name: Run golangci-lint
+      if: steps.filter.outputs.static-analysis == 'true' || steps.filter.outputs.go == 'true'
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: v1.52
+        args: -v -c .github/golangci-lint.config.yaml
+
+    - name: Run golangci-lint experimental
+      if: steps.filter.outputs.static-analysis == 'true' || steps.filter.outputs.go == 'true'
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: v1.52
+        args: -v -c .github/golangci-lint.config.experimental.yaml
+
+    - name: Run other Go static analysis (go mod tidy)
+      if: steps.filter.outputs.static-analysis == 'true' || steps.filter.outputs.go == 'true'
+      run: |
+        # TODO
+      shell: bash
+
     - name: "Static Analysis: Python Check"
       if: steps.filter.outputs.static-analysis == 'true' || steps.filter.outputs.python == 'true'
       run: |
