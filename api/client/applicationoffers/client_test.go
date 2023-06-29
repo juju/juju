@@ -496,7 +496,6 @@ func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
 				ConsumeOfferDetails: params.ConsumeOfferDetails{
 					Offer:          &offer,
 					Macaroon:       mac,
-					AuthToken:      "auth-token",
 					ControllerInfo: controllerInfo,
 				},
 			},
@@ -511,7 +510,6 @@ func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
 	c.Assert(details, jc.DeepEquals, params.ConsumeOfferDetails{
 		Offer:          &offer,
 		Macaroon:       mac,
-		AuthToken:      "auth-token",
 		ControllerInfo: controllerInfo,
 	})
 }

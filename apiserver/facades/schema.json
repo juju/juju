@@ -3270,9 +3270,6 @@
                         "application-description": {
                             "type": "string"
                         },
-                        "auth-token": {
-                            "type": "string"
-                        },
                         "bindings": {
                             "type": "object",
                             "patternProperties": {
@@ -4762,9 +4759,6 @@
                 "ConsumeOfferDetails": {
                     "type": "object",
                     "properties": {
-                        "auth-token": {
-                            "type": "string"
-                        },
                         "external-controller": {
                             "$ref": "#/definitions/ExternalControllerInfo"
                         },
@@ -4797,9 +4791,6 @@
                     "properties": {
                         "ConsumeOfferDetails": {
                             "$ref": "#/definitions/ConsumeOfferDetails"
-                        },
-                        "auth-token": {
-                            "type": "string"
                         },
                         "error": {
                             "$ref": "#/definitions/Error"
@@ -20421,9 +20412,6 @@
                     "type": "object",
                     "properties": {
                         "application-token": {
-                            "type": "string"
-                        },
-                        "auth-token": {
                             "type": "string"
                         },
                         "bakery-version": {

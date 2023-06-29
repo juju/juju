@@ -2435,8 +2435,6 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 		},
 		// Macaroon not exported.
 		Macaroon: mac,
-		// AuthToken not exported.
-		AuthToken: "auth-token",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
@@ -2616,8 +2614,6 @@ func (s *MigrationExportSuite) TestRemoteRelationSettingsForUnitsInCMR(c *gc.C) 
 		},
 		// Macaroon not exported.
 		Macaroon: mac,
-		// AuthToken not exported.
-		AuthToken: "auth-token",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

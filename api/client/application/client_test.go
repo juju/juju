@@ -595,7 +595,6 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 				ApplicationAlias:        "alias",
 				ApplicationOfferDetails: offer,
 				Macaroon:                mac,
-				AuthToken:               "auth-token",
 				ControllerInfo:          controllerInfo,
 			},
 		},
@@ -608,7 +607,6 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 		Offer:            offer,
 		ApplicationAlias: "alias",
 		Macaroon:         mac,
-		AuthToken:        "auth-token",
 		ControllerInfo: &crossmodel.ControllerInfo{
 			ControllerTag: coretesting.ControllerTag,
 			Alias:         "controller-alias",

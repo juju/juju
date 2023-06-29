@@ -1486,7 +1486,6 @@ func (h *bundleHandler) consumeOffer(change *bundlechanges.ConsumeOfferChange) e
 		Offer:            *consumeDetails.Offer,
 		ApplicationAlias: p.ApplicationName,
 		Macaroon:         consumeDetails.Macaroon,
-		AuthToken:        consumeDetails.AuthToken,
 	}
 	if consumeDetails.ControllerInfo != nil {
 		controllerTag, err := names.ParseControllerTag(consumeDetails.ControllerInfo.ControllerTag)

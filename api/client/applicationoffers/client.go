@@ -289,7 +289,6 @@ func (c *Client) GetConsumeDetails(urlStr string) (params.ConsumeOfferDetails, e
 	return params.ConsumeOfferDetails{
 		Offer:          theOne.Offer,
 		Macaroon:       theOne.Macaroon,
-		AuthToken:      theOne.AuthToken,
 		ControllerInfo: theOne.ControllerInfo,
 	}, nil
 }
