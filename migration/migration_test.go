@@ -9,18 +9,15 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"time"
 
 	"github.com/juju/charm/v11"
 	"github.com/juju/description/v4"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/leadership"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
@@ -58,13 +55,13 @@ func (s *ImportSuite) TestBadBytes(c *gc.C) {
 	bytes := []byte("not a model")
 	controller := state.NewController(s.StatePool)
 	scope := coremigration.NewScope(s.TxnRunner(), nil)
-	model, st, err := migration.ImportModel(context.Background(), controller, scope, fakeGetClaimer, bytes)
+	model, st, err := migration.ImportModel(context.Background(), controller, scope, bytes)
 	c.Check(st, gc.IsNil)
 	c.Check(model, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "yaml: unmarshal errors:\n.*")
 }
 
-func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string, getClaimer migration.ClaimerFunc) *state.State {
+func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string) *state.State {
 	model, err := s.State.Export(leaders)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -82,7 +79,7 @@ func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string, getClaime
 
 	controller := state.NewController(s.StatePool)
 	scope := coremigration.NewScope(s.TxnRunner(), nil)
-	dbModel, dbState, err := migration.ImportModel(context.Background(), controller, scope, getClaimer, bytes)
+	dbModel, dbState, err := migration.ImportModel(context.Background(), controller, scope, bytes)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { dbState.Close() })
 
@@ -94,25 +91,7 @@ func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string, getClaime
 }
 
 func (s *ImportSuite) TestImportModel(c *gc.C) {
-	s.exportImport(c, map[string]string{}, fakeGetClaimer)
-}
-
-func (s *ImportSuite) TestImportsLeadership(c *gc.C) {
-	s.makeApplicationWithUnits(c, "wordpress", 3)
-	s.makeApplicationWithUnits(c, "mysql", 2)
-	leaders := map[string]string{"wordpress": "wordpress/1"}
-
-	var (
-		claimer   fakeClaimer
-		modelUUID string
-	)
-	dbState := s.exportImport(c, leaders, func(uuid string) (leadership.Claimer, error) {
-		modelUUID = uuid
-		return &claimer, nil
-	})
-	c.Assert(modelUUID, gc.Equals, dbState.ModelUUID())
-	c.Assert(claimer.stub.Calls(), gc.HasLen, 1)
-	claimer.stub.CheckCall(c, 0, "ClaimLeadership", "wordpress", "wordpress/1", time.Minute)
+	s.exportImport(c, map[string]string{})
 }
 
 func (s *ImportSuite) makeApplicationWithUnits(c *gc.C, applicationname string, count int) {
@@ -325,18 +304,4 @@ func (f *fakeUploader) SetPlaceholderResource(res resources.Resource) error {
 func (f *fakeUploader) SetUnitResource(unit string, res resources.Resource) error {
 	f.unitResources = append(f.unitResources, unit+"-"+res.Name)
 	return nil
-}
-
-func fakeGetClaimer(string) (leadership.Claimer, error) {
-	return &fakeClaimer{}, nil
-}
-
-type fakeClaimer struct {
-	leadership.Claimer
-	stub testing.Stub
-}
-
-func (c *fakeClaimer) ClaimLeadership(application, unit string, duration time.Duration) error {
-	c.stub.AddCall("ClaimLeadership", application, unit, duration)
-	return c.stub.NextErr()
 }

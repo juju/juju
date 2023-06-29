@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/url"
 	"os"
-	"time"
 
 	"github.com/juju/charm/v11"
 	"github.com/juju/description/v4"
@@ -17,7 +16,6 @@ import (
 	"github.com/juju/naturalsort"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/domain/migrations"
@@ -40,14 +38,10 @@ type StateImporter interface {
 	Import(model description.Model) (*state.Model, *state.State, error)
 }
 
-// ClaimerFunc is a function that returns a leadership claimer for the
-// model UUID passed.
-type ClaimerFunc func(string) (leadership.Claimer, error)
-
 // ImportModel deserializes a model description from the bytes, transforms
 // the model config based on information from the controller model, and then
 // imports that as a new database model.
-func ImportModel(ctx context.Context, importer StateImporter, scope migration.Scope, getClaimer ClaimerFunc, bytes []byte) (*state.Model, *state.State, error) {
+func ImportModel(ctx context.Context, importer StateImporter, scope migration.Scope, bytes []byte) (*state.Model, *state.State, error) {
 	model, err := description.Deserialize(bytes)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -62,40 +56,6 @@ func ImportModel(ctx context.Context, importer StateImporter, scope migration.Sc
 	migrations.ImportOperations(coordinator, logger)
 	if err := coordinator.Perform(ctx, scope, model); err != nil {
 		return nil, nil, errors.Trace(err)
-	}
-
-	claimer, err := getClaimer(dbModel.UUID())
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "getting leadership claimer")
-	}
-
-	logger.Debugf("importing leadership")
-	for _, application := range model.Applications() {
-		if application.Leader() == "" {
-			continue
-		}
-		// When we import a new model, we need to give the leaders
-		// some time to settle. We don't want to have leader switches
-		// just because we migrated a model, so this time needs to be
-		// long enough to make sure we cover the time taken to migrate
-		// a reasonable sized model. We don't yet know how long this
-		// is going to be, but we need something.
-		// TODO(babbageclunk): Handle this better - maybe a way to
-		// suppress leadership expirations for a model until it is
-		// finished importing?
-		logger.Debugf("%q is the leader for %q", application.Leader(), application.Name())
-		err := claimer.ClaimLeadership(
-			application.Name(),
-			application.Leader(),
-			time.Minute,
-		)
-		if err != nil {
-			return nil, nil, errors.Annotatef(
-				err,
-				"claiming leadership for %q",
-				application.Leader(),
-			)
-		}
 	}
 
 	return dbModel, dbState, nil

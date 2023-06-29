@@ -18,7 +18,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
@@ -42,7 +41,6 @@ import (
 
 type Suite struct {
 	statetesting.StateSuite
-	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
 
 	facadeContext facadetest.Context
@@ -61,9 +59,6 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	// it has to happen here.
 	s.StateSuite.SetUpTest(c)
 
-	s.resources = common.NewResources()
-	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
-
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:      s.Owner,
 		AdminTag: s.Owner,
@@ -72,7 +67,6 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.facadeContext = facadetest.Context{
 		State_:     s.State,
 		StatePool_: s.StatePool,
-		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	}
 
@@ -84,9 +78,8 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := aFactory(&facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
+		State_: s.State,
+		Auth_:  s.authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.API))

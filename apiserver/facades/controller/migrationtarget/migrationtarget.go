@@ -33,9 +33,7 @@ type API struct {
 	pool          *state.StatePool
 	controllerDB  database.TxnRunner
 	authorizer    facade.Authorizer
-	resources     facade.Resources
 	presence      facade.Presence
-	getClaimer    migration.ClaimerFunc
 	getEnviron    stateenvirons.NewEnvironFunc
 	getCAASBroker stateenvirons.NewCAASBrokerFunc
 }
@@ -63,9 +61,7 @@ func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc, getCAAS
 		pool:          ctx.StatePool(),
 		controllerDB:  controllerDB,
 		authorizer:    auth,
-		resources:     ctx.Resources(),
 		presence:      ctx.Presence(),
-		getClaimer:    ctx.LeadershipClaimer,
 		getEnviron:    getEnviron,
 		getCAASBroker: getCAASBroker,
 	}, nil
@@ -118,7 +114,7 @@ func (api *API) Import(ctx context.Context, serialized params.SerializedModel) e
 	scope := coremigration.NewScope(api.controllerDB, nil)
 
 	controller := state.NewController(api.pool)
-	_, st, err := migration.ImportModel(ctx, controller, scope, api.getClaimer, serialized.Bytes)
+	_, st, err := migration.ImportModel(ctx, controller, scope, serialized.Bytes)
 	if err != nil {
 		return err
 	}
