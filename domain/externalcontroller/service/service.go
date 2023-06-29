@@ -29,7 +29,8 @@ type State interface {
 
 // WatcherFactory describes methods for creating watchers.
 type WatcherFactory interface {
-	// NewUUIDsWatcher returns a new watcher that observes changes to
+	// NewUUIDsWatcher returns a watcher that emits the UUIDs for
+	// changes to the input table name that match the input mask.
 	NewUUIDsWatcher(string, changestream.ChangeType) (watcher.StringsWatcher, error)
 }
 

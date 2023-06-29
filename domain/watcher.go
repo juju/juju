@@ -52,6 +52,8 @@ func (f *WatcherFactory) NewNamespaceWatcher(
 	return eventsource.NewNamespaceWatcher(base, namespace, changeMask, initialStateQuery), nil
 }
 
+// NewValueWatcher returns a watcher for a particular change value
+// in a namespace, based on the input change mask.
 func (f *WatcherFactory) NewValueWatcher(
 	namespace, changeValue string, changeMask changestream.ChangeType,
 ) (watcher.NotifyWatcher, error) {
