@@ -796,7 +796,6 @@ func (c *neutronFirewaller) ingressRulesInGroup(ctx context.ProviderCallContext,
 		if portRange.Protocol == "ipv6-icmp" {
 			portRange.Protocol = "icmp"
 		}
-
 		// NOTE: Juju firewall rule validation expects that icmp rules have port
 		// values set to -1
 		if p.PortRangeMin != nil {

@@ -48,6 +48,7 @@ type Model interface {
 	Name() string
 	MigrationMode() state.MigrationMode
 	Type() state.ModelType
+	Life() state.Life
 }
 
 type statePoolShim struct {
