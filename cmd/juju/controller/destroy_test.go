@@ -297,10 +297,8 @@ func (s *DestroySuite) TestDestroyWithDestroyAllModelsFlag(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "--no-prompt", "--destroy-all-models")
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c, "AllModels", "ModelStatus", "DestroyController", "AllModels", "ModelStatus", "Close")
-	timeout := 30 * time.Minute
 	s.api.CheckCall(c, 2, "DestroyController", apicontroller.DestroyControllerParams{
 		DestroyModels: true,
-		ModelTimeout:  &timeout,
 	})
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
@@ -309,10 +307,20 @@ func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlag(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "--no-prompt", "--destroy-storage")
 	c.Assert(err, jc.ErrorIsNil)
 	destroyStorage := true
-	timeout := 30 * time.Minute
 	s.api.CheckCall(c, 2, "DestroyController", apicontroller.DestroyControllerParams{
 		DestroyStorage: &destroyStorage,
-		ModelTimeout:   &timeout,
+	})
+}
+
+func (s *DestroySuite) TestDestroyWithDestroyTimeout(c *gc.C) {
+	_, err := s.runDestroyCommand(c, "test1", "--no-prompt", "--force", "--model-timeout", "30m")
+	c.Assert(err, jc.ErrorIsNil)
+	timeout := 30 * time.Minute
+	force := true
+	s.api.CheckCallNames(c, "AllModels", "ModelStatus", "DestroyController", "AllModels", "ModelStatus", "Close")
+	s.api.CheckCall(c, 2, "DestroyController", apicontroller.DestroyControllerParams{
+		ModelTimeout: &timeout,
+		Force:        &force,
 	})
 }
 
@@ -320,10 +328,8 @@ func (s *DestroySuite) TestDestroyWithDestroyReleaseStorageFlag(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "--no-prompt", "--release-storage")
 	c.Assert(err, jc.ErrorIsNil)
 	destroyStorage := false
-	timeout := 30 * time.Minute
 	s.api.CheckCall(c, 2, "DestroyController", apicontroller.DestroyControllerParams{
 		DestroyStorage: &destroyStorage,
-		ModelTimeout:   &timeout,
 	})
 }
 
@@ -341,6 +347,11 @@ func (s *DestroySuite) TestDestroyWithForceFlag(c *gc.C) {
 		Force:        &force,
 		ModelTimeout: &timeout,
 	})
+}
+
+func (s *DestroySuite) TestDestroyWithModelTimeoutNoForce(c *gc.C) {
+	_, err := s.runDestroyCommand(c, "test1", "--no-prompt", "--model-timeout", "10m")
+	c.Assert(err, gc.ErrorMatches, `--model-timeout can only be used with --force \(dangerous\)`)
 }
 
 func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlagUnspecified(c *gc.C) {

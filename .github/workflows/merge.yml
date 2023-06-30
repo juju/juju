@@ -32,14 +32,18 @@ jobs:
 
       - name: Attempt to merge
         id: merge
+        env:
+          SOURCE_BRANCH: ${{ steps.branch.outputs.source }}
         run: |
           set -x
+          git fetch origin "$SOURCE_BRANCH"
+          git branch "$SOURCE_BRANCH" "origin/$SOURCE_BRANCH"
           # Need to set Git username/email to do the merge (yawn)
           git config user.name 'jujubot'
           git config user.email 'fake@address.me'
           
           set +e
-          git merge origin/${{ steps.branch.outputs.source }}
+          git merge "$SOURCE_BRANCH"
           case $? in
           0)
             echo "conflicts=false" >> "$GITHUB_OUTPUT"
@@ -52,29 +56,24 @@ jobs:
             ;;
           esac
 
+      - name: Generate notification message
+        if: steps.merge.outputs.conflicts == 'true'
+        id: message
+        env:
+          SOURCE_BRANCH: ${{ steps.branch.outputs.source }}
+          TARGET_BRANCH: ${{ steps.branch.outputs.target }}
+          EMAIL_TO_MM_USER: ${{ secrets.EMAIL_TO_MM_USER }}
+          IGNORE_EMAILS: ${{ secrets.MERGE_NOTIFY_IGNORE_EMAILS }}
+        run: |
+          MESSAGE=$(go run ./scripts/try-merge errmsg)
+          echo "message=$MESSAGE" >> "$GITHUB_OUTPUT"
+
       - name: Notify if merge has conflicts
         if: steps.merge.outputs.conflicts == 'true'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MM_TOKEN: ${{ secrets.MM_TOKEN }}
-          MM_USERS: ${{ secrets.MM_USERS }}
+          MESSAGE: ${{ steps.message.outputs.message }}
         run: |
-          set -ex
-          SOURCE_BRANCH=${{ steps.branch.outputs.source }}
-          TARGET_BRANCH=${{ steps.branch.outputs.target }}
-          
-          # Get PR info
-          PR_INFO=$(gh pr list --search="${{ github.sha }}" --state=merged --base="$SOURCE_BRANCH" --json='number,author')
-          PR_NUMBER=$(echo "$PR_INFO" | jq '.[].number')
-          
-          PR_AUTHOR=$(echo "$PR_INFO" | jq -r '.[].author.login')
-          MM_USER=$(echo "$MM_USERS" | jq -r ".\"$PR_AUTHOR\"")
-          if [[ $MM_USER == '' || $MM_USER == null ]]; then
-            MM_USER=$PR_AUTHOR
-          fi
-          
-          MESSAGE="@$MM_USER your PR [#$PR_NUMBER](https://github.com/juju/juju/pull/$PR_NUMBER) has created merge conflicts - please merge $SOURCE_BRANCH into $TARGET_BRANCH and resolve the conflicts. Thanks! :)"
-          
           # install mmctl
           curl https://github.com/mattermost/mmctl/releases/download/v7.8.5/linux_amd64.tar -Lo mmctl.tar
           tar -xvf mmctl.tar

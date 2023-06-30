@@ -186,7 +186,7 @@ func (s *modelmanagerSuite) testDestroyModel(c *gc.C, destroyStorage, force *boo
 	mockFacadeCaller.EXPECT().FacadeCall("DestroyModels", args, result).SetArg(2, ress).Return(nil)
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
-	err := client.DestroyModel(coretesting.ModelTag, destroyStorage, force, maxWait, timeout)
+	err := client.DestroyModel(coretesting.ModelTag, destroyStorage, force, maxWait, &timeout)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

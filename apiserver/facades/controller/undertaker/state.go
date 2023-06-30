@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
@@ -32,9 +31,6 @@ type State interface {
 	// multi-model collections.
 	RemoveDyingModel() error
 
-	// ModelConfig retrieves the model configuration.
-	ModelConfig() (*config.Config, error)
-
 	// WatchModelEntityReferences gets a watcher capable of monitoring
 	// model entity references changes.
 	WatchModelEntityReferences(mUUID string) state.NotifyWatcher
@@ -44,24 +40,18 @@ type State interface {
 	ModelUUID() string
 }
 
-// TODO - CAAS(ericclaudejones): This should contain state alone, model will be
-// removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
-	model *state.Model
 }
 
 func (s *stateShim) Model() (Model, error) {
 	return s.State.Model()
 }
 
-func (s *stateShim) ModelConfig() (*config.Config, error) {
-	return s.model.Config()
-}
-
 // Model defines the needed methods of state.Model for
 // the work of the undertaker API.
 type Model interface {
+	state.ModelAccessor
 
 	// Owner returns tag representing the owner of the model.
 	// The owner is the user that created the model.
@@ -83,4 +73,7 @@ type Model interface {
 
 	// UUID returns the universally unique identifier of the model.
 	UUID() string
+
+	// Watch returns a watcher watching the model.
+	Watch() state.NotifyWatcher
 }

@@ -2102,7 +2102,7 @@ func (api *APIBase) consumeOne(arg params.ConsumeApplicationArg) error {
 	if appName == "" {
 		appName = arg.OfferName
 	}
-	_, err = api.saveRemoteApplication(sourceModelTag, appName, externalControllerUUID, arg.ApplicationOfferDetails, arg.Macaroon, arg.AuthToken)
+	_, err = api.saveRemoteApplication(sourceModelTag, appName, externalControllerUUID, arg.ApplicationOfferDetails, arg.Macaroon)
 	return err
 }
 
@@ -2114,7 +2114,6 @@ func (api *APIBase) saveRemoteApplication(
 	externalControllerUUID string,
 	offer params.ApplicationOfferDetails,
 	mac *macaroon.Macaroon,
-	authToken string,
 ) (RemoteApplication, error) {
 	remoteEps := make([]charm.Relation, len(offer.Endpoints))
 	for j, ep := range offer.Endpoints {
@@ -2161,7 +2160,6 @@ func (api *APIBase) saveRemoteApplication(
 		Spaces:                 remoteSpaces,
 		Bindings:               offer.Bindings,
 		Macaroon:               mac,
-		AuthToken:              authToken,
 	})
 }
 

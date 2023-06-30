@@ -143,14 +143,16 @@ jobs:
           set -euxo pipefail
           
           # Shim in recognition for our CA to jujud-operator
-          cat >~/Dockerfile <<EOL
+          BUILD_TEMP=$(mktemp -d)
+          cp ~/certs/ca.crt $BUILD_TEMP/
+          cat >$BUILD_TEMP/Dockerfile <<EOL
             FROM jujusolutions/jujud-operator:${BASE_JUJU_TAG}
           
-            COPY certs/ca.crt /usr/local/share/ca-certificates/ca.crt
+            COPY ca.crt /usr/local/share/ca-certificates/ca.crt
           
             RUN update-ca-certificates
           EOL
-          docker build ~ -t ${DOCKER_REGISTRY}/test-repo/jujud-operator:${BASE_JUJU_TAG}
+          docker build $BUILD_TEMP -t ${DOCKER_REGISTRY}/test-repo/jujud-operator:${BASE_JUJU_TAG}
           docker push ${DOCKER_REGISTRY}/test-repo/jujud-operator:${BASE_JUJU_TAG}
           
           docker pull jujusolutions/juju-db:${JUJU_DB_TAG}
@@ -228,24 +230,28 @@ jobs:
           make operator-image
           
           # Shim in recognition for our CA to jujud-operator
-          cat >~/Dockerfile <<EOL
+          BUILD_TEMP=$(mktemp -d)
+          cp ~/certs/ca.crt $BUILD_TEMP/
+          cat >$BUILD_TEMP/Dockerfile <<EOL
             FROM jujusolutions/jujud-operator:${UPSTREAM_JUJU_TAG}
           
-            COPY certs/ca.crt /usr/local/share/ca-certificates/ca.crt
+            COPY ca.crt /usr/local/share/ca-certificates/ca.crt
           
             RUN update-ca-certificates
           EOL
-          docker build ~ -t ${DOCKER_REGISTRY}/test-repo/jujud-operator:${UPSTREAM_JUJU_TAG}
+          docker build $BUILD_TEMP -t ${DOCKER_REGISTRY}/test-repo/jujud-operator:${UPSTREAM_JUJU_TAG}
           docker push ${DOCKER_REGISTRY}/test-repo/jujud-operator:${UPSTREAM_JUJU_TAG}
           
-          cat >~/Dockerfile <<EOL
+          BUILD_TEMP=$(mktemp -d)
+          cp ~/certs/ca.crt $BUILD_TEMP/
+          cat >$BUILD_TEMP/Dockerfile <<EOL
             FROM jujusolutions/jujud-operator:${CURRENT_STABLE_JUJU_TAG}
           
-            COPY certs/ca.crt /usr/local/share/ca-certificates/ca.crt
+            COPY ca.crt /usr/local/share/ca-certificates/ca.crt
           
             RUN update-ca-certificates
           EOL
-          docker build ~ -t ${DOCKER_REGISTRY}/test-repo/jujud-operator:${CURRENT_STABLE_JUJU_TAG}
+          docker build $BUILD_TEMP -t ${DOCKER_REGISTRY}/test-repo/jujud-operator:${CURRENT_STABLE_JUJU_TAG}
           docker push ${DOCKER_REGISTRY}/test-repo/jujud-operator:${CURRENT_STABLE_JUJU_TAG}
 
       - name: Preflight

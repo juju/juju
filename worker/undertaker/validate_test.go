@@ -4,11 +4,16 @@
 package undertaker_test
 
 import (
+	"context"
+	"time"
+
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker/undertaker"
 )
 
@@ -24,12 +29,6 @@ func (*ValidateSuite) TestNilFacade(c *gc.C) {
 	checkInvalid(c, config, "nil Facade not valid")
 }
 
-func (*ValidateSuite) TestNilDestroyer(c *gc.C) {
-	config := validConfig()
-	config.Destroyer = nil
-	checkInvalid(c, config, "nil Destroyer not valid")
-}
-
 func (*ValidateSuite) TestNilCredentialAPI(c *gc.C) {
 	config := validConfig()
 	config.CredentialAPI = nil
@@ -42,12 +41,25 @@ func (*ValidateSuite) TestNilLogger(c *gc.C) {
 	checkInvalid(c, config, "nil Logger not valid")
 }
 
+func (*ValidateSuite) TestNilNewCloudDestroyerFunc(c *gc.C) {
+	config := validConfig()
+	config.NewCloudDestroyerFunc = nil
+	checkInvalid(c, config, "nil NewCloudDestroyerFunc not valid")
+}
+
+func (*ValidateSuite) TestNilClock(c *gc.C) {
+	config := validConfig()
+	config.Clock = nil
+	checkInvalid(c, config, "nil Clock not valid")
+}
+
 func validConfig() undertaker.Config {
 	return undertaker.Config{
-		Facade:        &fakeFacade{},
-		Destroyer:     &fakeEnviron{},
-		CredentialAPI: &fakeCredentialAPI{},
-		Logger:        &fakeLogger{},
+		Facade:                &fakeFacade{},
+		CredentialAPI:         &fakeCredentialAPI{},
+		Logger:                &fakeLogger{},
+		Clock:                 testclock.NewClock(time.Time{}),
+		NewCloudDestroyerFunc: func(ctx context.Context, op environs.OpenParams) (environs.CloudDestroyer, error) { return nil, nil },
 	}
 }
 
