@@ -1835,11 +1835,16 @@ func newDefaultStartInstanceParamsMatcher(c *gc.C, want *environs.StartInstanceP
 		p.CleanupCallback = nil
 		if p.InstanceConfig != nil {
 			cfgCopy := *p.InstanceConfig
+			// The api password and machine nonce are generated to random values.
+			// Just ensure they are not empty and tweak it so that the compare succeeds.
 			if cfgCopy.APIInfo != nil {
+				if cfgCopy.APIInfo.Password == "" {
+					return false
+				}
 				cfgCopy.APIInfo.Password = want.InstanceConfig.APIInfo.Password
 			}
 			if cfgCopy.MachineNonce == "" {
-				return true
+				return false
 			}
 			cfgCopy.MachineNonce = ""
 			p.InstanceConfig = &cfgCopy
