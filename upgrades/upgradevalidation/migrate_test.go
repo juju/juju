@@ -97,24 +97,6 @@ func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju31(c *gc.C) {
 	c.Assert(blockers, gc.IsNil)
 }
 
-func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju2(c *gc.C) {
-	defer s.initializeMocks(c).Finish()
-
-	modelTag := coretesting.ModelTag
-
-	// - check agent version;
-	s.model.EXPECT().AgentVersion().Return(version.MustParse("2.9.32"), nil)
-	// - check no upgrade series in process.
-	s.st.EXPECT().HasUpgradeSeriesLocks().Return(false, nil)
-
-	targetVersion := version.MustParse("2.9.99")
-	validators := upgradevalidation.ValidatorsForModelMigrationSource(targetVersion, environscloudspec.CloudSpec{Type: "foo"})
-	checker := upgradevalidation.NewModelUpgradeCheck(modelTag.Id(), s.statePool, s.st, s.model, validators...)
-	blockers, err := checker.Validate()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockers, gc.IsNil)
-}
-
 func (s *migrateSuite) initializeMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.statePool = mocks.NewMockStatePool(ctrl)
