@@ -63,6 +63,10 @@ func configHelpText() string {
 	return helpText(application.NewConfigCommand(), "juju config")
 }
 
+func versionHelpText() string {
+	return helpText(NewVersionCommand(), "juju version")
+}
+
 func syncToolsHelpText() string {
 	return helpText(newSyncAgentBinaryCommand(), "juju sync-agent-binary")
 }
@@ -159,6 +163,26 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		args:    []string{"--version"},
 		code:    0,
 		out:     testing.CurrentVersion().String() + "\n",
+	}, {
+		summary: "--version option after command is not changed to version command",
+		args:    []string{"bootstrap", "--version"},
+		code:    0,
+		out:     "ERROR option provided but not defined: --version\n",
+	}, {
+		summary: "check command is identified as an unrecognised option after --version option",
+		args:    []string{"--version", "bootstrap"},
+		code:    0,
+		out:     "ERROR unrecognized args: [\"bootstrap\"]\n",
+	}, {
+		summary: "juju help --version shows the same help as 'help version'",
+		args:    []string{"help", "--version"},
+		code:    0,
+		out:     versionHelpText(),
+	}, {
+		summary: "juju --version --help shows the same help as 'help version'",
+		args:    []string{"--version", "--help"},
+		code:    0,
+		out:     versionHelpText(),
 	}} {
 		c.Logf("test %d: %s", i, t.summary)
 		out := badrun(c, t.code, t.args...)
