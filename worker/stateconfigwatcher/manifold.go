@@ -12,7 +12,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
-	apiagent "github.com/juju/juju/api/agent/agent"
+	coreagent "github.com/juju/juju/core/agent"
 )
 
 var logger = loggo.GetLogger("juju.worker.stateconfigwatcher")
@@ -48,7 +48,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			tagKind := a.CurrentConfig().Tag().Kind()
-			if !apiagent.IsAllowedControllerTag(tagKind) {
+			if !coreagent.IsAllowedControllerTag(tagKind) {
 				return nil, errors.New("manifold can only be used with a machine or controller agent")
 			}
 

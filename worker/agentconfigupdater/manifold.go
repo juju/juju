@@ -9,9 +9,10 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	coreagent "github.com/juju/juju/agent"
+	jujuagent "github.com/juju/juju/agent"
 	apiagent "github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/api/base"
+	coreagent "github.com/juju/juju/core/agent"
 	"github.com/juju/juju/mongo"
 	jworker "github.com/juju/juju/worker"
 )
@@ -47,14 +48,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
 			// Get the agent.
-			var agent coreagent.Agent
+			var agent jujuagent.Agent
 			if err := context.Get(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
 
 			// Grab the tag and ensure that it's for a controller.
 			tag := agent.CurrentConfig().Tag()
-			if !apiagent.IsAllowedControllerTag(tag.Kind()) {
+			if !coreagent.IsAllowedControllerTag(tag.Kind()) {
 				return nil, errors.New("agent's tag is not a machine or controller agent tag")
 			}
 
@@ -113,7 +114,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, errors.Annotate(err, "getting state serving info")
 			}
-			err = agent.ChangeConfig(func(config coreagent.ConfigSetter) error {
+			err = agent.ChangeConfig(func(config jujuagent.ConfigSetter) error {
 				existing, hasInfo := config.StateServingInfo()
 				if hasInfo {
 					// Use the existing cert and key as they appear to

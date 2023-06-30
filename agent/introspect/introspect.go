@@ -21,8 +21,8 @@ import (
 
 	"github.com/juju/juju/agent/addons"
 	"github.com/juju/juju/agent/config"
-	apiagent "github.com/juju/juju/api/agent/agent"
 	jujucmd "github.com/juju/juju/cmd"
+	coreagent "github.com/juju/juju/core/agent"
 )
 
 type IntrospectCommand struct {
@@ -190,7 +190,7 @@ func (c *IntrospectCommand) getAgentTag() (names.Tag, error) {
 		if err != nil {
 			continue
 		}
-		if apiagent.IsAllowedControllerTag(tag.Kind()) {
+		if coreagent.IsAllowedControllerTag(tag.Kind()) {
 			return tag, nil
 		}
 	}

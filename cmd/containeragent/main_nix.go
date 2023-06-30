@@ -20,11 +20,11 @@ import (
 	"github.com/juju/loggo"
 	proxyutils "github.com/juju/proxy"
 
+	"github.com/juju/juju/agent/introspect"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/containeragent/config"
 	initcommand "github.com/juju/juju/cmd/containeragent/initialize"
 	unitcommand "github.com/juju/juju/cmd/containeragent/unit"
-	"github.com/juju/juju/cmd/jujud/introspect"
 	"github.com/juju/juju/cmd/jujud/run"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/juju/names"

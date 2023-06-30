@@ -114,12 +114,6 @@ func (m *Entity) Jobs() []model.MachineJob {
 	return m.doc.Jobs
 }
 
-// IsAllowedControllerTag returns true if the tag kind can be for a controller.
-// TODO(controlleragent) - this method is needed while IAAS controllers are still machines.
-func IsAllowedControllerTag(kind string) bool {
-	return kind == names.ControllerAgentTagKind || kind == names.MachineTagKind
-}
-
 // IsController returns true of the tag is for a controller (machine or agent).
 // TODO(controlleragent) - this method is needed while IAAS controllers are still machines.
 func IsController(caller base.APICaller, tag names.Tag) (bool, error) {

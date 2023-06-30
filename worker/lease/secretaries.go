@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/agent/agent"
+	coreagent "github.com/juju/juju/core/agent"
 	"github.com/juju/juju/core/lease"
 )
 
@@ -34,7 +34,7 @@ func (s SingularSecretary) CheckHolder(name string) error {
 	if err != nil {
 		return errors.Annotate(err, "expected a valid tag")
 	}
-	if !agent.IsAllowedControllerTag(tag.Kind()) {
+	if !coreagent.IsAllowedControllerTag(tag.Kind()) {
 		return errors.New("expected machine or controller tag")
 	}
 	return nil
