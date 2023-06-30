@@ -35,6 +35,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/addons"
+	agentconfig "github.com/juju/juju/agent/config"
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
@@ -46,7 +47,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/charmhub"
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/jujud/agent/agentconf"
+	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/cmd/jujud/agent/model"
@@ -156,7 +157,7 @@ func NewMachineAgentCmd(
 	ctx *cmd.Context,
 	machineAgentFactory machineAgentFactoryFnType,
 	agentInitializer AgentInitializer,
-	configFetcher agentconf.AgentConfigWriter,
+	configFetcher agentconfig.AgentConfigWriter,
 ) cmd.Command {
 	return &machineAgentCmd{
 		ctx:                 ctx,
@@ -171,7 +172,7 @@ type machineAgentCmd struct {
 
 	// This group of arguments is required.
 	agentInitializer    AgentInitializer
-	currentConfig       agentconf.AgentConfigWriter
+	currentConfig       agentconfig.AgentConfigWriter
 	machineAgentFactory machineAgentFactoryFnType
 	ctx                 *cmd.Context
 
@@ -215,7 +216,7 @@ func (a *machineAgentCmd) Init(args []string) error {
 	} else {
 		a.agentTag = names.NewControllerAgentTag(a.controllerId)
 	}
-	if err := agentconf.ReadAgentConfig(a.currentConfig, a.agentTag.Id()); err != nil {
+	if err := agentconfig.ReadAgentConfig(a.currentConfig, a.agentTag.Id()); err != nil {
 		return errors.Errorf("cannot read agent configuration: %v", err)
 	}
 	config := a.currentConfig.CurrentConfig()
@@ -268,7 +269,7 @@ func (a *machineAgentCmd) Info() *cmd.Info {
 // MachineAgentFactoryFn returns a function which instantiates a
 // MachineAgent given a machineId.
 func MachineAgentFactoryFn(
-	agentConfWriter agentconf.AgentConfigWriter,
+	agentConfWriter agentconfig.AgentConfigWriter,
 	bufferedLogger *logsender.BufferedLogWriter,
 	newIntrospectionSocketName func(names.Tag) string,
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
@@ -296,7 +297,7 @@ func MachineAgentFactoryFn(
 // NewMachineAgent instantiates a new MachineAgent.
 func NewMachineAgent(
 	agentTag names.Tag,
-	agentConfWriter agentconf.AgentConfigWriter,
+	agentConfWriter agentconfig.AgentConfigWriter,
 	bufferedLogger *logsender.BufferedLogWriter,
 	runner *worker.Runner,
 	loopDeviceManager looputil.LoopDeviceManager,
@@ -378,7 +379,7 @@ func (defaultRunner) RunCommands(run exec.RunParams) (*exec.ExecResponse, error)
 // MachineAgent is responsible for tying together all functionality
 // needed to orchestrate a Jujud instance which controls a machine.
 type MachineAgent struct {
-	agentconf.AgentConfigWriter
+	agentconfig.AgentConfigWriter
 
 	ctx              *cmd.Context
 	dead             chan struct{}

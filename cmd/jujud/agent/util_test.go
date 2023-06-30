@@ -22,9 +22,10 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/addons"
+	agentconfig "github.com/juju/juju/agent/config"
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/jujud/agent/agentconf"
+	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/mocks"
 	"github.com/juju/juju/core/instance"
@@ -163,7 +164,7 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 
 func NewTestMachineAgentFactory(
 	c *gc.C,
-	agentConfWriter agentconf.AgentConfigWriter,
+	agentConfWriter agentconfig.AgentConfigWriter,
 	bufferedLogger *logsender.BufferedLogWriter,
 	rootDir string,
 	cmdRunner CommandRunner,

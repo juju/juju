@@ -20,7 +20,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cmd/containeragent/unit"
 	utilsmocks "github.com/juju/juju/cmd/containeragent/utils/mocks"
-	"github.com/juju/juju/cmd/jujud/agent/agentconf"
+	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	jnames "github.com/juju/juju/juju/names"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/logsender"

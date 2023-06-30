@@ -18,7 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cmd/jujud/agent/agentconf"
+	agentconfig "github.com/juju/juju/agent/config"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	message "github.com/juju/juju/pubsub/agent"
 	jt "github.com/juju/juju/testing"
@@ -33,7 +33,7 @@ type NestedContextSuite struct {
 	BaseSuite
 
 	config  deployer.ContextConfig
-	agent   agentconf.AgentConf
+	agent   agentconfig.AgentConf
 	hub     *pubsub.SimpleHub
 	workers *unitWorkersStub
 }
@@ -70,7 +70,7 @@ func (s *NestedContextSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(config.Write(), jc.ErrorIsNil)
 
-	s.agent = agentconf.NewAgentConf(datadir)
+	s.agent = agentconfig.NewAgentConfig(datadir)
 	err = s.agent.ReadConfig(machine.String())
 	c.Assert(err, jc.ErrorIsNil)
 
