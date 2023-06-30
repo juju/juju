@@ -1,7 +1,9 @@
 run_secrets() {
 	echo
 
-	juju --show-log add-model "model-secrets-k8s" --config secret-store=kubernetes
+	microk8s enable ingress
+
+	juju --show-log add-model "model-secrets-k8s" --config secret-backend=auto
 
 	juju --show-log deploy hello-kubecon hello
 	wait_for "active" '.applications["hello"] | ."application-status".current'
