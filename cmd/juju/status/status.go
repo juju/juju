@@ -64,8 +64,9 @@ type statusCommand struct {
 	color   bool
 	noColor bool
 
-	// relations indicates if 'relations' section is displayed
-	relations bool
+	// integrations indicates if the integrations/relations section is displayed
+	integrations bool
+	relations    bool
 
 	// checkProvidedIgnoredFlagF indicates whether ignored options were provided by the user
 	checkProvidedIgnoredFlagF func() set.Strings
@@ -93,7 +94,7 @@ time.
 
     (<machine>|<unit>|<application>)[*]
 
-When an entity that matches <selector> is related to other applications, the 
+When an entity that matches <selector> is integrated with other applications, the 
 status of those applications will also be presented. By default (without a 
 <selector>) the status of all applications and their units will be displayed.
 
@@ -105,7 +106,7 @@ The '--format' option allows you to specify how the status report is formatted.
   --format=tabular  (default)
                     Display information about all aspects of the model in a 
                     human-centric manner. Omits some information by default.
-                    Use the '--relations' and '--storage' options to include
+                    Use the '--integrations' and '--storage' options to include
                     all available information.
 
   --format=line
@@ -135,8 +136,8 @@ Examples:
     # Report the status for applications that start with nova-
     juju status nova-*
 
-    # Include information about storage and relations in output
-    juju status --storage --relations
+    # Include information about storage and integrations in output
+    juju status --storage --integrations
 
     # Provide output as valid JSON
     juju status --format=json
@@ -174,7 +175,8 @@ func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 
 	f.BoolVar(&c.color, "color", false, "Use ANSI color codes in tabular output")
 	f.BoolVar(&c.noColor, "no-color", false, "Disable ANSI color codes in tabular output")
-	f.BoolVar(&c.relations, "relations", false, "Show 'relations' section in tabular output")
+	f.BoolVar(&c.integrations, "integrations", false, "Show 'integrations' section in tabular output")
+	f.BoolVar(&c.relations, "relations", false, "The same as '--integrations'")
 	f.BoolVar(&c.storage, "storage", false, "Show 'storage' section in tabular output")
 
 	f.IntVar(&c.retryCount, "retry-count", 3, "Number of times to retry API failures")
@@ -184,6 +186,7 @@ func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 
 	c.checkProvidedIgnoredFlagF = func() set.Strings {
 		ignoredFlagForNonTabularFormat := set.NewStrings(
+			"integrations",
 			"relations",
 			"storage",
 		)
@@ -327,10 +330,10 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	showRelations := c.relations
+	showIntegrations := c.integrations || c.relations
 	showStorage := c.storage
 	if c.out.Name() != "tabular" {
-		showRelations = true
+		showIntegrations = true
 		showStorage = true
 		providedIgnoredFlags := c.checkProvidedIgnoredFlagF()
 		if !providedIgnoredFlags.IsEmpty() {
@@ -349,7 +352,7 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 		ControllerName: controllerName,
 		OutputName:     c.out.Name(),
 		ISOTime:        c.isoTime,
-		ShowRelations:  showRelations,
+		ShowRelations:  showIntegrations,
 		ActiveBranch:   activeBranch,
 	}
 	if showStorage {
