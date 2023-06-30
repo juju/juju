@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/cmd/containeragent/config"
 	initcommand "github.com/juju/juju/cmd/containeragent/initialize"
 	unitcommand "github.com/juju/juju/cmd/containeragent/unit"
-	"github.com/juju/juju/cmd/jujud/run"
+	"github.com/juju/juju/cmd/internal/run"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
