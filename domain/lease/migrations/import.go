@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/description/v4"
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/migration"
@@ -19,7 +20,7 @@ import (
 const (
 	// LeadershipGuarantee is the amount of time that the lease service will
 	// guarantee that the application leader will be the holder of the lease.
-	LeadershipGuarantee = time.Second * 30
+	LeadershipGuarantee = time.Minute
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -74,7 +75,9 @@ func (o *importOperation) Execute(ctx context.Context, model description.Model) 
 			Holder:   app.Leader(),
 			Duration: LeadershipGuarantee,
 		}
-		o.service.ClaimLease(ctx, key, req)
+		if err := o.service.ClaimLease(ctx, key, req); err != nil {
+			return errors.Annotatef(err, "claiming lease for %q", key)
+		}
 	}
 
 	return nil
