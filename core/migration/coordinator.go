@@ -16,12 +16,29 @@ import (
 // The rollback operation is a no-op by default.
 type BaseOperation struct{}
 
+// Setup returns not implemented. It is expected that the operation will
+// override this method.
+func (b *BaseOperation) Setup(Scope) error {
+	return errors.NotImplementedf("setup")
+}
+
+// Execute returns not implemented. It is expected that the operation will
+// override this method.
+func (b *BaseOperation) Execute(context.Context, description.Model) error {
+	return errors.NotImplementedf("execute")
+}
+
 // Rollback is a no-op by default.
 func (b *BaseOperation) Rollback(context.Context) error {
 	return nil
 }
 
 // Operation is a single step in a migration.
+// An operation plays its part in the model migration by being instructed as
+// part of a model orchestration. The coordination is required as we need to
+// perform transactions over multiple databases (controller and model). This
+// is not atomic, but it does allow for a rollback of the entire migration if
+// any operation fails.
 type Operation interface {
 	// Setup is called before the operation is executed. It should return an
 	// error if the operation cannot be performed.
@@ -34,6 +51,9 @@ type Operation interface {
 	// Rollback is called if the operation fails. It should attempt to undo
 	// any changes made by the operation. This is best effort, and may not
 	// always be possible.
+	// Rollback should only be called on controller DB operations. The
+	// model DB operations are not rolled back, but instead we remove the
+	// db, clearing the model.
 	Rollback(context.Context) error
 }
 
@@ -77,7 +97,7 @@ type Coordinator struct {
 func New(operations ...Operation) *Coordinator {
 	return &Coordinator{
 		operations: operations,
-		hook:       omitHook,
+		hook:       emptyHook,
 	}
 }
 
@@ -120,5 +140,5 @@ func (m *Coordinator) Perform(ctx context.Context, scope Scope, model descriptio
 	return nil
 }
 
-// omitHook always returns a nil, omitting the error.
-func omitHook(Operation) error { return nil }
+// emptyHook always returns a nil, omitting the error.
+func emptyHook(Operation) error { return nil }
