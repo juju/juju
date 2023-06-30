@@ -4,10 +4,9 @@
 package provisioner_test
 
 import (
-	"fmt"
-	"runtime"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -15,118 +14,76 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/container/kvm/mock"
-	kvmtesting "github.com/juju/juju/container/kvm/testing"
-	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/agent"
+	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/provisioner"
 )
 
 type kvmProvisionerSuite struct {
 	CommonProvisionerSuite
-	kvmtesting.TestSuite
 
-	events chan mock.Event
+	containersCh chan []string
 }
 
 var _ = gc.Suite(&kvmProvisionerSuite{})
 
-func (s *kvmProvisionerSuite) SetUpSuite(c *gc.C) {
-	s.CommonProvisionerSuite.SetUpSuite(c)
-	s.TestSuite.SetUpSuite(c)
-}
-
-func (s *kvmProvisionerSuite) TearDownSuite(c *gc.C) {
-	s.TestSuite.TearDownSuite(c)
-	s.CommonProvisionerSuite.TearDownSuite(c)
-}
-
-func (s *kvmProvisionerSuite) SetUpTest(c *gc.C) {
-	s.CommonProvisionerSuite.SetUpTest(c)
-	s.TestSuite.SetUpTest(c)
-
-	s.events = make(chan mock.Event, 25)
-	s.ContainerFactory.AddListener(s.events)
-}
-
-func (s *kvmProvisionerSuite) nextEvent(c *gc.C) mock.Event {
-	select {
-	case event := <-s.events:
-		return event
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("no event arrived")
-	}
-	panic("not reachable")
-}
-
-func (s *kvmProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) string {
-	event := s.nextEvent(c)
-	c.Assert(event.Action, gc.Equals, mock.Started)
-	err := machine.Refresh()
+func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C, ctrl *gomock.Controller) provisioner.Provisioner {
+	mTag := names.NewMachineTag("0")
+	defaultPaths := agent.DefaultPaths
+	defaultPaths.DataDir = c.MkDir()
+	cfg, err := agent.NewAgentConfig(
+		agent.AgentConfigParams{
+			Paths:             defaultPaths,
+			Tag:               mTag,
+			UpgradedToVersion: jujuversion.Current,
+			Password:          "password",
+			Nonce:             "nonce",
+			APIAddresses:      []string{"0.0.0.0:12345"},
+			CACert:            coretesting.CACert,
+			Controller:        coretesting.ControllerTag,
+			Model:             coretesting.ModelTag,
+		})
 	c.Assert(err, jc.ErrorIsNil)
-	s.waitInstanceId(c, machine, instance.Id(event.InstanceId))
-	return event.InstanceId
-}
 
-func (s *kvmProvisionerSuite) expectStopped(c *gc.C, instId string) {
-	event := s.nextEvent(c)
-	c.Assert(event.Action, gc.Equals, mock.Stopped)
-	c.Assert(event.InstanceId, gc.Equals, instId)
-}
+	s.containersCh = make(chan []string)
+	m0 := &testMachine{containersCh: s.containersCh}
+	s.machinesAPI.EXPECT().Machines(mTag).Return([]apiprovisioner.MachineResult{{
+		Machine: m0,
+	}}, nil)
 
-func (s *kvmProvisionerSuite) expectNoEvents(c *gc.C) {
-	select {
-	case event := <-s.events:
-		c.Fatalf("unexpected event %#v", event)
-	case <-time.After(coretesting.ShortWait):
-		return
-	}
-}
-
-func (s *kvmProvisionerSuite) TearDownTest(c *gc.C) {
-	close(s.events)
-	s.TestSuite.TearDownTest(c)
-	s.CommonProvisionerSuite.TearDownTest(c)
-}
-
-func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner {
-	broker := &mockBroker{Environ: s.Environ, retryCount: make(map[string]int),
-		startInstanceFailureInfo: map[string]mockBrokerFailures{
-			"3": {whenSucceed: 2, err: fmt.Errorf("error: some error")},
-			"4": {whenSucceed: 2, err: fmt.Errorf("error: some error")},
-		},
-	}
-	machineTag := names.NewMachineTag("0")
-	agentConfig := s.AgentConfigForTag(c, machineTag)
-	toolsFinder := (*provisioner.GetToolsFinder)(s.provisioner)
+	toolsFinder := &mockToolsFinder{}
 	w, err := provisioner.NewContainerProvisioner(
-		instance.KVM, s.provisioner, loggo.GetLogger("test"),
-		agentConfig, broker,
+		instance.KVM, s.controllerAPI, s.machinesAPI, loggo.GetLogger("test"),
+		cfg, s.broker,
 		toolsFinder, &mockDistributionGroupFinder{}, &credentialAPIForTest{})
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.waitForProvisioner(c)
 	return w
 }
 
 func (s *kvmProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
-	p := s.newKvmProvisioner(c)
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+
+	p := s.newKvmProvisioner(c, ctrl)
 	workertest.CleanKill(c, p)
 }
 
-func (s *kvmProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
-	p := s.newKvmProvisioner(c)
-	defer workertest.CleanKill(c, p)
-
-	// Check that an instance is not provisioned when the machine is created.
-	_, err := s.State.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.expectNoEvents(c)
-}
-
 func (s *kvmProvisionerSuite) TestDoesNotHaveRetryWatcher(c *gc.C) {
-	p := s.newKvmProvisioner(c)
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+
+	p := s.newKvmProvisioner(c, ctrl)
 	defer workertest.CleanKill(c, p)
 
 	w, err := provisioner.GetRetryWatcher(p)
@@ -134,48 +91,74 @@ func (s *kvmProvisionerSuite) TestDoesNotHaveRetryWatcher(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
 }
 
-func (s *kvmProvisionerSuite) addContainer(c *gc.C) *state.Machine {
-	template := state.MachineTemplate{
-		Base: state.DefaultLTSBase(),
-		Jobs: []state.MachineJob{state.JobHostUnits},
+func (s *kvmProvisionerSuite) sendMachineContainersChange(c *gc.C, ids ...string) {
+	select {
+	case s.containersCh <- ids:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending containers change")
 	}
-	container, err := s.State.AddMachineInsideMachine(template, "0", instance.KVM)
-	c.Assert(err, jc.ErrorIsNil)
-	return container
 }
 
 func (s *kvmProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
-	if arch.NormaliseArch(runtime.GOARCH) != arch.AMD64 {
-		c.Skip("Test only enabled on amd64, see bug lp:1572145")
-	}
-	p := s.newKvmProvisioner(c)
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+
+	p := s.newKvmProvisioner(c, ctrl)
 	defer workertest.CleanKill(c, p)
 
-	container := s.addContainer(c)
+	cTag := names.NewMachineTag("0/kvm/666")
 
-	// TODO(jam): 2016-12-22 recent changes to check for networking changes
-	// when starting a container cause this test to start failing, because
-	// the Dummy provider does not support Networking configuration.
-	_, _, err := s.provisioner.HostChangesForContainer(container.MachineTag())
-	c.Assert(err, gc.ErrorMatches, "dummy provider network config not supported.*")
-	c.Skip("dummy provider doesn't support network config. https://pad.lv/1651974")
-	instId := s.expectStarted(c, container)
+	c666 := &testMachine{id: "0/kvm/666"}
+	s.broker.EXPECT().AllRunningInstances(gomock.Any()).Return([]instances.Instance{&testInstance{id: "inst-666"}}, nil).Times(2)
+	s.machinesAPI.EXPECT().Machines(cTag).Return([]apiprovisioner.MachineResult{{
+		Machine: c666,
+	}}, nil).Times(2)
+	s.machinesAPI.EXPECT().ProvisioningInfo([]names.MachineTag{cTag}).Return(params.ProvisioningInfoResults{
+		Results: []params.ProvisioningInfoResult{{
+			Result: &params.ProvisioningInfo{
+				ControllerConfig: coretesting.FakeControllerConfig(),
+				Constraints:      constraints.MustParse("mem=666G"),
+				Base:             params.Base{Name: "ubuntu", Channel: "22.04"},
+				Jobs:             []model.MachineJob{model.JobHostUnits},
+			},
+		}},
+	}, nil)
+	startArg := machineStartInstanceArg(c666.id)
+	startArg.Constraints = constraints.MustParse("mem=666G")
+	s.broker.EXPECT().StartInstance(gomock.Any(), newDefaultStartInstanceParamsMatcher(c, startArg)).Return(&environs.StartInstanceResult{
+		Instance: &testInstance{id: "inst-666"},
+	}, nil)
 
-	// ...and removed, along with the machine, when the machine is Dead.
-	c.Assert(container.EnsureDead(), gc.IsNil)
-	s.expectStopped(c, instId)
-	s.waitForRemovalMark(c, container)
+	s.sendMachineContainersChange(c, c666.Id())
+	s.checkStartInstance(c, c666)
+
+	s.broker.EXPECT().StopInstances(gomock.Any(), gomock.Any()).Do(func(ctx interface{}, ids ...interface{}) {
+		c.Assert(len(ids), gc.Equals, 1)
+		c.Assert(ids[0], gc.DeepEquals, instance.Id("inst-666"))
+	})
+
+	c666.SetLife(life.Dead)
+	s.sendMachineContainersChange(c, c666.Id())
+	s.waitForRemovalMark(c, c666)
 }
 
 func (s *kvmProvisionerSuite) TestKVMProvisionerObservesConfigChanges(c *gc.C) {
-	p := s.newKvmProvisioner(c)
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+
+	p := s.newKvmProvisioner(c, ctrl)
 	defer workertest.CleanKill(c, p)
-	s.assertProvisionerObservesConfigChanges(c, p)
+
+	s.assertProvisionerObservesConfigChanges(c, p, true)
 }
 
 func (s *kvmProvisionerSuite) TestKVMProvisionerObservesConfigChangesWorkerCount(c *gc.C) {
-	p := s.newKvmProvisioner(c)
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+
+	p := s.newKvmProvisioner(c, ctrl)
 	defer workertest.CleanKill(c, p)
+
 	s.assertProvisionerObservesConfigChangesWorkerCount(c, p, true)
 }
 

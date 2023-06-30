@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/environs"
@@ -29,12 +28,8 @@ type ManifoldSuite struct {
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) makeManifold() dependency.Manifold {
-	fakeNewProvFunc := func(
-		*apiprovisioner.Client,
-		agent.Config,
-		provisioner.Logger,
-		environs.Environ,
-		common.CredentialAPI,
+	fakeNewProvFunc := func(provisioner.ControllerAPI, provisioner.MachinesAPI, provisioner.ToolsFinder,
+		provisioner.DistributionGroupFinder, agent.Config, provisioner.Logger, provisioner.Environ, common.CredentialAPI,
 	) (provisioner.Provisioner, error) {
 		s.stub.AddCall("NewProvisionerFunc")
 		return struct{ provisioner.Provisioner }{}, nil

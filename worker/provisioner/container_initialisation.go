@@ -27,14 +27,18 @@ import (
 // and start a suitable provisioner. Work is triggered by the
 // ContainerSetupAndProvisioner.
 type ContainerSetup struct {
-	logger        Logger
-	containerType instance.ContainerType
-	provisioner   *apiprovisioner.Client
-	mTag          names.MachineTag
-	machineZone   broker.AvailabilityZoner
-	config        agent.Config
-	machineLock   machinelock.Lock
-	managerConfig container.ManagerConfig
+	logger                  Logger
+	containerType           instance.ContainerType
+	provisioner             ContainerProvisionerAPI
+	controllerAPI           ControllerAPI
+	machinesAPI             MachinesAPI
+	toolsFinder             ToolsFinder
+	distributionGroupFinder DistributionGroupFinder
+	mTag                    names.MachineTag
+	machineZone             broker.AvailabilityZoner
+	config                  agent.Config
+	machineLock             machinelock.Lock
+	managerConfig           container.ManagerConfig
 
 	credentialAPI workercommon.CredentialAPI
 	getNetConfig  func(network.ConfigSource) ([]params.NetworkConfig, error)
@@ -57,15 +61,19 @@ type ContainerSetupParams struct {
 // provisioner workers.
 func NewContainerSetup(params ContainerSetupParams) *ContainerSetup {
 	return &ContainerSetup{
-		logger:        params.Logger,
-		mTag:          params.MTag,
-		machineZone:   params.MachineZone,
-		containerType: params.ContainerType,
-		provisioner:   params.Provisioner,
-		config:        params.Config,
-		machineLock:   params.MachineLock,
-		credentialAPI: params.CredentialAPI,
-		getNetConfig:  params.GetNetConfig,
+		logger:                  params.Logger,
+		containerType:           params.ContainerType,
+		provisioner:             params.Provisioner,
+		controllerAPI:           params.Provisioner,
+		machinesAPI:             params.Provisioner,
+		toolsFinder:             params.Provisioner,
+		distributionGroupFinder: params.Provisioner,
+		mTag:                    params.MTag,
+		machineZone:             params.MachineZone,
+		config:                  params.Config,
+		machineLock:             params.MachineLock,
+		credentialAPI:           params.CredentialAPI,
+		getNetConfig:            params.GetNetConfig,
 	}
 }
 
@@ -169,15 +177,15 @@ func (cs *ContainerSetup) initialiseContainerProvisioner() (Provisioner, error) 
 		return nil, errors.Annotate(err, "initialising container infrastructure on host machine")
 	}
 
-	toolsFinder := getToolsFinder(cs.provisioner)
 	w, err := NewContainerProvisioner(
 		cs.containerType,
-		cs.provisioner,
+		cs.controllerAPI,
+		cs.machinesAPI,
 		cs.logger,
 		cs.config,
 		instanceBroker,
-		toolsFinder,
-		getDistributionGroupFinder(cs.provisioner),
+		cs.toolsFinder,
+		cs.distributionGroupFinder,
 		cs.credentialAPI,
 	)
 	if err != nil {

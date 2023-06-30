@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
-	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
@@ -42,7 +41,7 @@ type Provisioner interface {
 // belonging to an environment.
 type environProvisioner struct {
 	provisioner
-	environ        environs.Environ
+	environ        Environ
 	configObserver configObserver
 }
 
@@ -58,7 +57,8 @@ type containerProvisioner struct {
 // provisioner providers common behaviour for a running provisioning worker.
 type provisioner struct {
 	Provisioner
-	st                      *apiprovisioner.Client
+	controllerAPI           ControllerAPI
+	machinesAPI             MachinesAPI
 	agentConfig             agent.Config
 	logger                  Logger
 	broker                  environs.InstanceBroker
@@ -119,24 +119,8 @@ func (p *provisioner) Wait() error {
 	return p.catacomb.Wait()
 }
 
-// getToolsFinder returns a ToolsFinder for the provided State.
-// This exists for mocking.
-var getToolsFinder = func(st *apiprovisioner.Client) ToolsFinder {
-	return st
-}
-
-// getDistributionGroupFinder returns a DistributionGroupFinder
-// for the provided State. This exists for mocking.
-var getDistributionGroupFinder = func(st *apiprovisioner.Client) DistributionGroupFinder {
-	return st
-}
-
 // getStartTask creates a new worker for the provisioner,
 func (p *provisioner) getStartTask(harvestMode config.HarvestMode, workerCount int) (ProvisionerTask, error) {
-	auth, err := authentication.NewAPIAuthenticator(p.st)
-	if err != nil {
-		return nil, err
-	}
 	// Start responding to changes in machines, and to any further updates
 	// to the environment config.
 	machineWatcher, err := p.getMachineWatcher()
@@ -152,12 +136,12 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode, workerCount i
 		return nil, errors.Errorf("agent's tag is not a machine or controller agent tag, got %T", hostTag)
 	}
 
-	modelCfg, err := p.st.ModelConfig()
+	modelCfg, err := p.controllerAPI.ModelConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "could not retrieve the model config.")
 	}
 
-	controllerCfg, err := p.st.ControllerConfig()
+	controllerCfg, err := p.controllerAPI.ControllerConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "could not retrieve the controller config.")
 	}
@@ -167,13 +151,13 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode, workerCount i
 		HostTag:                    hostTag,
 		Logger:                     p.logger,
 		HarvestMode:                harvestMode,
-		TaskAPI:                    p.st,
+		ControllerAPI:              p.controllerAPI,
+		MachinesAPI:                p.machinesAPI,
 		DistributionGroupFinder:    p.distributionGroupFinder,
 		ToolsFinder:                p.toolsFinder,
 		MachineWatcher:             machineWatcher,
 		RetryWatcher:               retryWatcher,
 		Broker:                     p.broker,
-		Auth:                       auth,
 		ImageStream:                modelCfg.ImageStream(),
 		RetryStartInstanceStrategy: RetryStrategy{retryDelay: retryStrategyDelay, retryCount: retryStrategyCount},
 		CloudCallContextFunc:       p.callContextFunc,
@@ -189,10 +173,13 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode, workerCount i
 // When new machines are added to the state, it allocates instances
 // from the environment and allocates them to the new machines.
 func NewEnvironProvisioner(
-	st *apiprovisioner.Client,
+	controllerAPI ControllerAPI,
+	machinesAPI MachinesAPI,
+	toolsFinder ToolsFinder,
+	distributionGroupFinder DistributionGroupFinder,
 	agentConfig agent.Config,
 	logger Logger,
-	environ environs.Environ,
+	environ Environ,
 	credentialAPI common.CredentialAPI,
 ) (Provisioner, error) {
 	if logger == nil {
@@ -200,11 +187,12 @@ func NewEnvironProvisioner(
 	}
 	p := &environProvisioner{
 		provisioner: provisioner{
-			st:                      st,
 			agentConfig:             agentConfig,
 			logger:                  logger,
-			toolsFinder:             getToolsFinder(st),
-			distributionGroupFinder: getDistributionGroupFinder(st),
+			controllerAPI:           controllerAPI,
+			machinesAPI:             machinesAPI,
+			toolsFinder:             toolsFinder,
+			distributionGroupFinder: distributionGroupFinder,
 			callContextFunc:         common.NewCloudCallContextFunc(credentialAPI),
 		},
 		environ: environ,
@@ -229,7 +217,7 @@ func (p *environProvisioner) loop() error {
 	// watcher for all changes to model config. This would avoid the
 	// need for a full model config.
 	var modelConfigChanges <-chan struct{}
-	modelWatcher, err := p.st.WatchForModelConfigChanges()
+	modelWatcher, err := p.controllerAPI.WatchForModelConfigChanges()
 	if err != nil {
 		return loggedErrorStack(p.logger, errors.Trace(err))
 	}
@@ -238,7 +226,10 @@ func (p *environProvisioner) loop() error {
 	}
 	modelConfigChanges = modelWatcher.Changes()
 
-	modelConfig := p.environ.Config()
+	modelConfig, err := p.controllerAPI.ModelConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	p.configObserver.notify(modelConfig)
 	harvestMode := modelConfig.ProvisionerHarvestMode()
 	workerCount := modelConfig.NumProvisionWorkers()
@@ -258,7 +249,7 @@ func (p *environProvisioner) loop() error {
 			if !ok {
 				return errors.New("model configuration watcher closed")
 			}
-			modelConfig, err := p.st.ModelConfig()
+			modelConfig, err := p.controllerAPI.ModelConfig()
 			if err != nil {
 				return errors.Annotate(err, "cannot load model configuration")
 			}
@@ -272,11 +263,11 @@ func (p *environProvisioner) loop() error {
 }
 
 func (p *environProvisioner) getMachineWatcher() (watcher.StringsWatcher, error) {
-	return p.st.WatchModelMachines()
+	return p.machinesAPI.WatchModelMachines()
 }
 
 func (p *environProvisioner) getRetryWatcher() (watcher.NotifyWatcher, error) {
-	return p.st.WatchMachineErrorRetry()
+	return p.machinesAPI.WatchMachineErrorRetry()
 }
 
 // setConfig updates the environment configuration and notifies
@@ -294,7 +285,8 @@ func (p *environProvisioner) setConfig(modelConfig *config.Config) error {
 // and allocates them to the new machines.
 func NewContainerProvisioner(
 	containerType instance.ContainerType,
-	st *apiprovisioner.Client,
+	controllerAPI ControllerAPI,
+	machinesAPI MachinesAPI,
 	logger Logger,
 	agentConfig agent.Config,
 	broker environs.InstanceBroker,
@@ -304,9 +296,10 @@ func NewContainerProvisioner(
 ) (Provisioner, error) {
 	p := &containerProvisioner{
 		provisioner: provisioner{
-			st:                      st,
 			agentConfig:             agentConfig,
 			logger:                  logger,
+			controllerAPI:           controllerAPI,
+			machinesAPI:             machinesAPI,
 			broker:                  broker,
 			toolsFinder:             toolsFinder,
 			distributionGroupFinder: distributionGroupFinder,
@@ -328,7 +321,7 @@ func NewContainerProvisioner(
 }
 
 func (p *containerProvisioner) loop() error {
-	modelWatcher, err := p.st.WatchForModelConfigChanges()
+	modelWatcher, err := p.controllerAPI.WatchForModelConfigChanges()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -336,7 +329,7 @@ func (p *containerProvisioner) loop() error {
 		return errors.Trace(err)
 	}
 
-	modelConfig, err := p.st.ModelConfig()
+	modelConfig, err := p.controllerAPI.ModelConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -360,7 +353,7 @@ func (p *containerProvisioner) loop() error {
 			if !ok {
 				return errors.New("model configuration watch closed")
 			}
-			modelConfig, err := p.st.ModelConfig()
+			modelConfig, err := p.controllerAPI.ModelConfig()
 			if err != nil {
 				return errors.Annotate(err, "cannot load model configuration")
 			}
@@ -378,7 +371,7 @@ func (p *containerProvisioner) getMachine() (apiprovisioner.MachineProvisioner, 
 		if !ok {
 			return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
 		}
-		result, err := p.st.Machines(machineTag)
+		result, err := p.machinesAPI.Machines(machineTag)
 		if err != nil {
 			p.logger.Errorf("error retrieving %s from state", machineTag)
 			return nil, err
