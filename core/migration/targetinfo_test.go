@@ -88,14 +88,14 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 	}}
 
 	for _, test := range tests {
-		c.Logf("---- %s -----------", test.label)
+		c.Logf("%s", test.label)
 		info := makeValidTargetInfo(c)
 		test.tweakInfo(&info)
 		err := info.Validate()
 		if test.errorPattern == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
-			c.Check(errors.IsNotValid(err), jc.IsTrue)
+			c.Check(errors.Is(err, errors.NotValid), jc.IsTrue)
 			c.Check(err, gc.ErrorMatches, test.errorPattern)
 		}
 	}
