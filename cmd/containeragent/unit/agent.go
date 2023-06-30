@@ -27,6 +27,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/addons"
+	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/base"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -35,7 +36,6 @@ import (
 	"github.com/juju/juju/cmd/containeragent/utils"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
-	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/paths"
 	jnames "github.com/juju/juju/juju/names"

@@ -25,6 +25,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/addons"
+	agenterrors "github.com/juju/juju/agent/errors"
 	apicaasoperator "github.com/juju/juju/api/agent/caasoperator"
 	"github.com/juju/juju/api/base"
 	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -32,7 +33,6 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
-	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/upgrades"

@@ -17,7 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
+	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"

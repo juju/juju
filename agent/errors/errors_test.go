@@ -8,13 +8,12 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
+	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 )
 
@@ -23,13 +22,13 @@ var (
 )
 
 type toolSuite struct {
-	coretesting.BaseSuite
-	logger loggo.Logger
+	testing.BaseSuite
+	logger agenterrors.Logger
 }
 
 func (s *toolSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.logger = loggo.GetLogger("test")
+	s.logger = testing.CheckLogger{Log: c}
 }
 
 func (*toolSuite) TestErrorImportance(c *gc.C) {

@@ -9,8 +9,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/api/agent/machiner"
-	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 )
