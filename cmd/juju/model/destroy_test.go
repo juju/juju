@@ -206,7 +206,7 @@ func (s *DestroySuite) TestDestroyWithForce(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyWithForceTimeout(c *gc.C) {
 	checkModelExistsInStore(c, "test1:admin/test2", s.store)
-	_, err := s.runDestroyCommand(c, "test2", "-y", "--force", "--timeout", "30m")
+	_, err := s.runDestroyCommand(c, "test2", "--no-prompt", "--force", "--timeout", "30m")
 	c.Assert(err, jc.ErrorIsNil)
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
 	force := true
@@ -218,7 +218,7 @@ func (s *DestroySuite) TestDestroyWithForceTimeout(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyWithTimeoutNoForce(c *gc.C) {
 	checkModelExistsInStore(c, "test1:admin/test2", s.store)
-	_, err := s.runDestroyCommand(c, "test2", "-y", "--timeout", "30m")
+	_, err := s.runDestroyCommand(c, "test2", "--no-prompt", "--timeout", "30m")
 	c.Assert(err, gc.ErrorMatches, `--timeout can only be used with --force \(dangerous\)`)
 }
 
