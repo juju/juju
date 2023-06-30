@@ -14,8 +14,8 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/config"
 	agenterrors "github.com/juju/juju/agent/errors"
-	"github.com/juju/juju/cmd/jujud/agent/config"
 	"github.com/juju/juju/state/mgo"
 )
 

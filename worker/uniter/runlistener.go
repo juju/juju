@@ -21,8 +21,8 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
+	agentconfig "github.com/juju/juju/agent/config"
 	"github.com/juju/juju/caas"
-	agentconfig "github.com/juju/juju/cmd/jujud/agent/config"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runcommands"
