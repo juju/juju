@@ -8,6 +8,8 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/api/common/cloudspec"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -18,6 +20,8 @@ type NewWatcherFunc func(base.APICaller, params.NotifyWatchResult) watcher.Notif
 
 // Client provides access to the undertaker API
 type Client struct {
+	*cloudspec.CloudSpecAPI
+	*common.ModelWatcher
 	modelTag   names.ModelTag
 	caller     base.FacadeCaller
 	newWatcher NewWatcherFunc
@@ -29,10 +33,13 @@ func NewClient(caller base.APICaller, newWatcher NewWatcherFunc) (*Client, error
 	if !ok {
 		return nil, errors.New("undertaker client is not appropriate for controller-only API")
 	}
+	facadeCaller := base.NewFacadeCaller(caller, "Undertaker")
 	return &Client{
-		modelTag:   modelTag,
-		caller:     base.NewFacadeCaller(caller, "Undertaker"),
-		newWatcher: newWatcher,
+		modelTag:     modelTag,
+		caller:       facadeCaller,
+		newWatcher:   newWatcher,
+		CloudSpecAPI: cloudspec.NewCloudSpecAPI(facadeCaller, modelTag),
+		ModelWatcher: common.NewModelWatcher(facadeCaller),
 	}, nil
 }
 
@@ -89,7 +96,24 @@ func (c *Client) WatchModelResources() (watcher.NotifyWatcher, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := c.newWatcher(c.caller.RawAPICaller(), result)
+	return w, nil
+}
 
+// WatchModel starts a watcher for changes to the model.
+func (c *Client) WatchModel() (watcher.NotifyWatcher, error) {
+	var results params.NotifyWatchResults
+	err := c.entityFacadeCall("WatchModel", &results)
+	if err != nil {
+		return nil, err
+	}
 	if len(results.Results) != 1 {
 		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}

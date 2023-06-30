@@ -123,6 +123,24 @@ func (s *sequenceSuite) TestMultipleSequenceWithMin(c *gc.C) {
 	c.Check(value, gc.Equals, 3)
 }
 
+func (s *sequenceSuite) TestMigrationSequenceWithMin(c *gc.C) {
+	// Test local charm migration where incoming charms may have
+	// the same curl with non-sequential revisions.
+	st := s.State
+
+	value, err := state.SequenceWithMin(st, "foo", 0)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(value, gc.Equals, 0)
+
+	value, err = state.SequenceWithMin(st, "foo", 2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(value, gc.Equals, 2)
+
+	found, err := state.Sequence(st, "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(found, gc.Equals, 3)
+}
+
 func (s *sequenceSuite) TestContention(c *gc.C) {
 	const name = "foo"
 	const goroutines = 2

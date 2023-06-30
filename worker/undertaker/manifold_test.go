@@ -4,6 +4,8 @@
 package undertaker_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/juju/caas"
 	"github.com/juju/testing"
@@ -46,24 +48,15 @@ func (s *IAASManifoldSuite) SetUpTest(c *gc.C) {
 	s.modelType = "iaas"
 }
 
-func (s *manifoldSuite) destroyerName() string {
-	if s.modelType == "iaas" {
-		return "environ"
-	}
-	return "broker"
-}
-
 func (s *manifoldSuite) namesConfig() undertaker.ManifoldConfig {
-	destroyerName := "environ"
-	if s.modelType == "caas" {
-		destroyerName = "broker"
-	}
 	return undertaker.ManifoldConfig{
-		APICallerName:      "api-caller",
-		CloudDestroyerName: destroyerName,
-		Logger:             &s.logger,
+		APICallerName: "api-caller",
+		Logger:        &s.logger,
 		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) {
 			return &fakeCredentialAPI{}, nil
+		},
+		NewCloudDestroyerFunc: func(ctx context.Context, params environs.OpenParams) (environs.CloudDestroyer, error) {
+			return &fakeEnviron{}, nil
 		},
 	}
 }
@@ -71,7 +64,7 @@ func (s *manifoldSuite) namesConfig() undertaker.ManifoldConfig {
 func (s *manifoldSuite) TestInputs(c *gc.C) {
 	manifold := undertaker.Manifold(s.namesConfig())
 	c.Check(manifold.Inputs, jc.DeepEquals, []string{
-		"api-caller", s.destroyerName(),
+		"api-caller",
 	})
 }
 
@@ -128,7 +121,6 @@ func (s *manifoldSuite) TestNewWorkerError(c *gc.C) {
 	}
 	config.NewWorker = func(cfg undertaker.Config) (worker.Worker, error) {
 		c.Check(cfg.Facade, gc.Equals, expectFacade)
-		checkResource(c, cfg.Destroyer, resources, s.destroyerName())
 		return nil, errors.New("lhiis")
 	}
 	manifold := undertaker.Manifold(config)
@@ -136,31 +128,6 @@ func (s *manifoldSuite) TestNewWorkerError(c *gc.C) {
 	worker, err := manifold.Start(resources.Context())
 	c.Check(err, gc.ErrorMatches, "lhiis")
 	c.Check(worker, gc.IsNil)
-}
-
-func (s *manifoldSuite) TestNewWorkerEnvironMissing(c *gc.C) {
-	// If the environ tracker isn't available the undertaker can still
-	// start, but the destroyer it gets passed will always return an
-	// error.
-	expectWorker := &fakeWorker{}
-	config := s.namesConfig()
-	var gotConfig undertaker.Config
-	config.NewFacade = func(_ base.APICaller) (undertaker.Facade, error) {
-		return &fakeFacade{}, nil
-	}
-	config.NewWorker = func(workerConfig undertaker.Config) (worker.Worker, error) {
-		gotConfig = workerConfig
-		return expectWorker, nil
-	}
-
-	resources := resourcesMissing("environ", "broker")
-	manifold := undertaker.Manifold(config)
-
-	worker, err := manifold.Start(resources.Context())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(worker, gc.Equals, expectWorker)
-	err = gotConfig.Destroyer.Destroy(nil)
-	c.Assert(err, gc.ErrorMatches, "cloud environment unavailable")
 }
 
 func (s *manifoldSuite) TestNewWorkerSuccess(c *gc.C) {
@@ -234,4 +201,14 @@ func (l *fakeLogger) Errorf(format string, args ...interface{}) {
 }
 
 func (l *fakeLogger) Debugf(format string, args ...interface{}) {
+}
+
+func (l *fakeLogger) Tracef(format string, args ...interface{}) {
+}
+
+func (l *fakeLogger) Infof(format string, args ...interface{}) {
+}
+
+func (l *fakeLogger) Warningf(format string, args ...interface{}) {
+	l.stub.AddCall("Warningf", format, args)
 }
