@@ -193,19 +193,21 @@ func (m jujuMain) Run(args []string) int {
 	// There's special processing to call the inbuilt version command if the
 	// --version flag is set. But we want to invoke the juju version command.
 	cmdArgs := make([]string, len(args)-1)
-	versionFlagIndex := -1
-	commandIndex := -1
+	flagIdx := -1
+	cmdIdx := -1
 	for i, arg := range args[1:] {
 		if arg == "--version" {
-			versionFlagIndex = i
+			flagIdx = i
 		}
-		if commandIndex == -1 && !strings.HasPrefix(arg, "--") && arg != "help" && arg != "version" {
-			commandIndex = i
+		if cmdIdx == -1 && !strings.HasPrefix(arg, "--") && arg != "help" && arg != "version" {
+			cmdIdx = i
 		}
 		cmdArgs[i] = arg
 	}
-	if versionFlagIndex != -1 && (commandIndex > versionFlagIndex || commandIndex == -1) {
-		cmdArgs[versionFlagIndex] = "version"
+	// If there is a command before the --version flag, don't change the flag
+	// to the version command.
+	if flagIdx != -1 && (cmdIdx > flagIdx || cmdIdx == -1) {
+		cmdArgs[flagIdx] = "version"
 	}
 	jcmd := NewJujuCommand(ctx, jujuMsg)
 	return cmd.Main(jcmd, ctx, cmdArgs)
