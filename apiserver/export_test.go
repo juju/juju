@@ -79,7 +79,7 @@ func TestingAPIRoot(facades *facade.Registry) rpc.Root {
 func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State) (*apiHandler, *common.Resources) {
 	authenticator, err := stateauthenticator.NewAuthenticator(pool, clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
-	offerAuthCtxt, err := newOfferAuthContext(pool, nil)
+	offerAuthCtxt, err := newOfferAuthcontext(pool)
 	c.Assert(err, jc.ErrorIsNil)
 	srv := &Server{
 		httpAuthenticators:  []authentication.HTTPAuthenticator{authenticator},

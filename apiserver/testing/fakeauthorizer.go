@@ -22,7 +22,6 @@ type FakeAuthorizer struct {
 	AdminTag      names.UserTag
 	HasConsumeTag names.UserTag
 	HasWriteTag   names.UserTag
-	AuthToken     string
 }
 
 func (fa FakeAuthorizer) AuthOwner(tag names.Tag) bool {
@@ -156,9 +155,4 @@ func (fa FakeAuthorizer) EntityHasPermission(entity names.Tag, operation permiss
 		return nil
 	}
 	return errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission)
-}
-
-// AuthTokenString returns the jwt passed to login.
-func (fa FakeAuthorizer) AuthTokenString() string {
-	return fa.AuthToken
 }

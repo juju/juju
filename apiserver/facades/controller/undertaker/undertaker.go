@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/cloudspec"
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -26,12 +27,15 @@ var (
 type UndertakerAPI struct {
 	st        State
 	resources facade.Resources
+
 	*common.StatusSetter
+	*common.ModelWatcher
+	cloudspec.CloudSpecer
 
 	secretBackendConfigGetter commonsecrets.BackendAdminConfigGetter
 }
 
-func newUndertakerAPI(st State, resources facade.Resources, authorizer facade.Authorizer, secretBackendConfigGetter commonsecrets.BackendAdminConfigGetter) (*UndertakerAPI, error) {
+func newUndertakerAPI(st State, resources facade.Resources, authorizer facade.Authorizer, secretBackendConfigGetter commonsecrets.BackendAdminConfigGetter, cloudSpecer cloudspec.CloudSpecer) (*UndertakerAPI, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -57,6 +61,8 @@ func newUndertakerAPI(st State, resources facade.Resources, authorizer facade.Au
 		resources:                 resources,
 		secretBackendConfigGetter: secretBackendConfigGetter,
 		StatusSetter:              common.NewStatusSetter(st, getCanModifyModel),
+		ModelWatcher:              common.NewModelWatcher(model, resources, authorizer),
+		CloudSpecer:               cloudSpecer,
 	}, nil
 }
 
@@ -132,15 +138,28 @@ func (u *UndertakerAPI) WatchModelResources() params.NotifyWatchResults {
 	}
 }
 
-// ModelConfig returns the model's configuration.
-func (u *UndertakerAPI) ModelConfig() (params.ModelConfigResult, error) {
-	result := params.ModelConfigResult{}
-
-	config, err := u.st.ModelConfig()
+func (u *UndertakerAPI) modelWatcher() params.NotifyWatchResult {
+	var nothing params.NotifyWatchResult
+	model, err := u.st.Model()
 	if err != nil {
-		return result, err
+		nothing.Error = apiservererrors.ServerError(err)
+		return nothing
 	}
-	allAttrs := config.AllAttrs()
-	result.Config = allAttrs
-	return result, nil
+	watch := model.Watch()
+	if _, ok := <-watch.Changes(); ok {
+		return params.NotifyWatchResult{
+			NotifyWatcherId: u.resources.Register(watch),
+		}
+	}
+	nothing.Error = apiservererrors.ServerError(watcher.EnsureErr(watch))
+	return nothing
+}
+
+// WatchModel creates a watcher for the current model.
+func (u *UndertakerAPI) WatchModel() params.NotifyWatchResults {
+	return params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{
+			u.modelWatcher(),
+		},
+	}
 }

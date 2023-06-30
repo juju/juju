@@ -49,7 +49,6 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationToOneRemoteApplication(c *
 			},
 			ApplicationAlias: "applicationname2",
 			Macaroon:         s.mac,
-			AuthToken:        "auth-token",
 			ControllerInfo: &crossmodel.ControllerInfo{
 				ControllerTag: testing.ControllerTag,
 				Addrs:         []string{"192.168.1.0"},
@@ -71,7 +70,6 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationAnyRemoteApplication(c *gc
 			},
 			ApplicationAlias: "applicationname2",
 			Macaroon:         s.mac,
-			AuthToken:        "auth-token",
 			ControllerInfo: &crossmodel.ControllerInfo{
 				ControllerTag: testing.ControllerTag,
 				Addrs:         []string{"192.168.1.0"},
@@ -240,8 +238,7 @@ func (m *mockAddRelationAPI) GetConsumeDetails(url string) (params.ConsumeOfferD
 			OfferName: "hosted-mysql",
 			OfferURL:  "bob/prod.hosted-mysql",
 		},
-		Macaroon:  m.mac,
-		AuthToken: "auth-token",
+		Macaroon: m.mac,
 		ControllerInfo: &params.ExternalControllerInfo{
 			ControllerTag: testing.ControllerTag.String(),
 			Addrs:         []string{"192.168.1.0"},
