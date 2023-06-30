@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/client/application"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/state"
 )
 
@@ -90,7 +90,7 @@ func cloudSpecAccessor(authorizer facade.Authorizer, st *state.State) func() (fu
 			return nil, errors.Trace(err)
 		}
 		return func() bool {
-			return config.GetBool(application.TrustConfigOptionName, false)
+			return config.GetBool(coreapplication.TrustConfigOptionName, false)
 		}, nil
 	}
 }

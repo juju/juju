@@ -27,10 +27,10 @@ import (
 	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
-	app "github.com/juju/juju/apiserver/facades/client/application"
 	appbundle "github.com/juju/juju/cmd/juju/application/bundle"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
+	coreapplication "github.com/juju/juju/core/application"
 	bundlechanges "github.com/juju/juju/core/bundle/changes"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -836,7 +836,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 			p.Options = make(map[string]interface{})
 		}
 
-		p.Options[app.TrustConfigOptionName] = strconv.FormatBool(h.trust)
+		p.Options[coreapplication.TrustConfigOptionName] = strconv.FormatBool(h.trust)
 	}
 
 	// Handle application configuration.

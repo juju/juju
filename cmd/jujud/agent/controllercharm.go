@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/charmhub"
+	coreapplication "github.com/juju/juju/core/application"
 	corearch "github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
@@ -319,12 +320,12 @@ func addControllerApplication(
 	}
 
 	configSchema := environschema.Fields{
-		application.TrustConfigOptionName: {
+		coreapplication.TrustConfigOptionName: {
 			Type: environschema.Tbool,
 		},
 	}
 	appCfg, err := config.NewConfig(nil, configSchema, schema.Defaults{
-		application.TrustConfigOptionName: true,
+		coreapplication.TrustConfigOptionName: true,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

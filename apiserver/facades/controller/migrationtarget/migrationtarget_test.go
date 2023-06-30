@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -155,28 +154,6 @@ func (s *Suite) TestImport(c *gc.C) {
 	defer ph.Release()
 	c.Assert(model.Name(), gc.Equals, "some-model")
 	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeImporting)
-}
-
-func (s *Suite) TestImportLeadership(c *gc.C) {
-	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
-			Name: "wordpress",
-		}),
-	})
-	for i := 0; i < 3; i++ {
-		s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
-	}
-	s.leaders = map[string]string{
-		"wordpress": "wordpress/2",
-	}
-
-	var claimer fakeClaimer
-	s.facadeContext.LeadershipClaimer_ = &claimer
-	api := s.mustNewAPI(c)
-	s.importModel(c, api)
-
-	c.Assert(claimer.stub.Calls(), gc.HasLen, 1)
-	claimer.stub.CheckCall(c, 0, "ClaimLeadership", "wordpress", "wordpress/2", time.Minute)
 }
 
 func (s *Suite) TestAbort(c *gc.C) {
@@ -571,14 +548,4 @@ type mockInstance struct {
 
 func (i *mockInstance) Id() instance.Id {
 	return instance.Id(i.id)
-}
-
-type fakeClaimer struct {
-	leadership.Claimer
-	stub testing.Stub
-}
-
-func (c *fakeClaimer) ClaimLeadership(application, unit string, duration time.Duration) error {
-	c.stub.AddCall("ClaimLeadership", application, unit, duration)
-	return c.stub.NextErr()
 }

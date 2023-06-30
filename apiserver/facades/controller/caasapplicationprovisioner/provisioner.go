@@ -23,11 +23,11 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/caas"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
@@ -366,7 +366,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		ImageRepo:            params.NewDockerImageInfo(cfg.CAASImageRepo(), imagePath),
 		CharmModifiedVersion: app.CharmModifiedVersion(),
 		CharmURL:             *charmURL,
-		Trust:                appConfig.GetBool(application.TrustConfigOptionName, false),
+		Trust:                appConfig.GetBool(coreapplication.TrustConfigOptionName, false),
 		Scale:                app.GetScale(),
 	}, nil
 }

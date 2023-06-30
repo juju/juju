@@ -28,12 +28,12 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
-	"github.com/juju/juju/apiserver/facades/client/application"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/controller"
+	coreapplication "github.com/juju/juju/core/application"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
@@ -5104,9 +5104,9 @@ func (s *cloudSpecUniterSuite) SetUpTest(c *gc.C) {
 
 	// Update the application config for wordpress so that it is authorised to
 	// retrieve its cloud spec.
-	conf := map[string]interface{}{application.TrustConfigOptionName: true}
-	fields := map[string]environschema.Attr{application.TrustConfigOptionName: {Type: environschema.Tbool}}
-	defaults := map[string]interface{}{application.TrustConfigOptionName: false}
+	conf := map[string]interface{}{coreapplication.TrustConfigOptionName: true}
+	fields := map[string]environschema.Attr{coreapplication.TrustConfigOptionName: {Type: environschema.Tbool}}
+	defaults := map[string]interface{}{coreapplication.TrustConfigOptionName: false}
 	err := s.wordpress.UpdateApplicationConfig(conf, nil, fields, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 }

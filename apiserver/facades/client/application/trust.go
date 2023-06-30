@@ -7,14 +7,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
+
+	"github.com/juju/juju/core/application"
 )
 
-// TrustConfigOptionName is the option name used to set trust level in application configuration.
-const TrustConfigOptionName = "trust"
 const defaultTrustLevel = false
 
 var trustFields = environschema.Fields{
-	TrustConfigOptionName: {
+	application.TrustConfigOptionName: {
 		Description: "Does this application have access to trusted credentials",
 		Type:        environschema.Tbool,
 		Group:       environschema.JujuGroup,
@@ -22,7 +22,7 @@ var trustFields = environschema.Fields{
 }
 
 var trustDefaults = schema.Defaults{
-	TrustConfigOptionName: defaultTrustLevel,
+	application.TrustConfigOptionName: defaultTrustLevel,
 }
 
 // AddTrustSchemaAndDefaults adds trust schema fields and defaults to an existing set of schema fields and defaults.

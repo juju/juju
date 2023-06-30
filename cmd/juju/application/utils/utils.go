@@ -19,8 +19,8 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api/client/application"
-	app "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/cmd/modelcmd"
+	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/resources"
@@ -325,7 +325,7 @@ func ProcessConfig(ctx *cmd.Context, filesystem modelcmd.Filesystem, configOptio
 
 	// Expand the trust flag into the appConfig
 	if trust != nil {
-		appConfig[app.TrustConfigOptionName] = strconv.FormatBool(*trust)
+		appConfig[coreapplication.TrustConfigOptionName] = strconv.FormatBool(*trust)
 	}
 	return appConfig, string(configYAML), nil
 }

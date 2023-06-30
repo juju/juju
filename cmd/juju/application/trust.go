@@ -11,10 +11,10 @@ import (
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api/client/application"
-	appfacade "github.com/juju/juju/apiserver/facades/client/application"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
 )
 
@@ -115,7 +115,7 @@ func (c *trustCommand) Run(ctx *cmd.Context) error {
 	defer func() { _ = client.Close() }()
 
 	err = client.SetConfig("", c.applicationName, "",
-		map[string]string{appfacade.TrustConfigOptionName: fmt.Sprint(!c.removeTrust)},
+		map[string]string{coreapplication.TrustConfigOptionName: fmt.Sprint(!c.removeTrust)},
 	)
 	return errors.Trace(block.ProcessBlockedError(err, block.BlockChange))
 }

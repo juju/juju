@@ -15,9 +15,9 @@ import (
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
-	appFacade "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/rpc/params"
@@ -932,7 +932,7 @@ func (s *bundleSuite) TestExportBundleWithTrustedApplication(c *gc.C) {
 
 	appArgs := s.minimalApplicationArgs(description.IAAS)
 	appArgs.ApplicationConfig = map[string]interface{}{
-		appFacade.TrustConfigOptionName: true,
+		coreapplication.TrustConfigOptionName: true,
 	}
 
 	app := s.st.model.AddApplication(appArgs)

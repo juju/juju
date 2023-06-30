@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	appFacade "github.com/juju/juju/apiserver/facades/client/application"
+	coreapplication "github.com/juju/juju/core/application"
 	bundlechanges "github.com/juju/juju/core/bundle/changes"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -589,7 +589,7 @@ func (b *BundleAPI) bundleDataApplications(
 		// If this application has been trusted by the operator, set the
 		// Trust field of the ApplicationSpec to true
 		if appConfig := application.ApplicationConfig(); appConfig != nil {
-			newApplication.RequiresTrust = appConfig[appFacade.TrustConfigOptionName] == true
+			newApplication.RequiresTrust = appConfig[coreapplication.TrustConfigOptionName] == true
 		}
 
 		// Populate offer list
