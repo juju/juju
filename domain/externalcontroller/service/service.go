@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/domain"
 )
 
 // State describes retrieval and persistence methods for storage.
@@ -30,8 +29,9 @@ type State interface {
 
 // WatcherFactory describes methods for creating watchers.
 type WatcherFactory interface {
-	// NewUUIDsWatcher returns a new watcher that observes changes to
-	NewUUIDsWatcher(changestream.ChangeType, string) (watcher.StringsWatcher, error)
+	// NewUUIDsWatcher returns a watcher that emits the UUIDs for
+	// changes to the input table name that match the input mask.
+	NewUUIDsWatcher(string, changestream.ChangeType) (watcher.StringsWatcher, error)
 }
 
 // Logger facilitates emitting log messages.
@@ -42,11 +42,11 @@ type Logger interface {
 // Service provides the API for working with external controllers.
 type Service struct {
 	st             State
-	watcherFactory *domain.WatcherFactory
+	watcherFactory WatcherFactory
 }
 
 // NewService returns a new service reference wrapping the input state.
-func NewService(st State, watcherFactory *domain.WatcherFactory) *Service {
+func NewService(st State, watcherFactory WatcherFactory) *Service {
 	return &Service{
 		st:             st,
 		watcherFactory: watcherFactory,
@@ -83,7 +83,5 @@ func (s *Service) UpdateExternalController(
 
 // Watch returns a watcher that observes changes to external controllers.
 func (s *Service) Watch() (watcher.StringsWatcher, error) {
-	return s.watcherFactory.NewUUIDsWatcher(
-		changestream.Create|changestream.Update, "external_controller",
-	)
+	return s.watcherFactory.NewUUIDsWatcher("external_controller", changestream.Create|changestream.Update)
 }

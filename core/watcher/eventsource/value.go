@@ -20,17 +20,19 @@ type ValueWatcher struct {
 	out         chan struct{}
 	namespace   string
 	changeValue string
+	changeMask  changestream.ChangeType
 }
 
 // NewValueWatcher returns a new watcher that receives changes from the input
 // base watcher's db/queue when change-log events occur for a specific changeValue
 // from the input namespace.
-func NewValueWatcher(base *BaseWatcher, namespace string, changeValue string) *ValueWatcher {
+func NewValueWatcher(base *BaseWatcher, namespace, changeValue string, changeMask changestream.ChangeType) *ValueWatcher {
 	w := &ValueWatcher{
 		BaseWatcher: base,
 		out:         make(chan struct{}),
 		namespace:   namespace,
 		changeValue: changeValue,
+		changeMask:  changeMask,
 	}
 
 	w.tomb.Go(w.loop)
@@ -46,7 +48,7 @@ func (w *ValueWatcher) Changes() <-chan struct{} {
 func (w *ValueWatcher) loop() error {
 	defer close(w.out)
 
-	opt := changestream.FilteredNamespace(w.namespace, changestream.All, func(e changestream.ChangeEvent) bool {
+	opt := changestream.FilteredNamespace(w.namespace, w.changeMask, func(e changestream.ChangeEvent) bool {
 		return e.Changed() == w.changeValue
 	})
 	subscription, err := w.watchableDB.Subscribe(opt)

@@ -13,12 +13,15 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujucontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/changestream"
 )
 
 type serviceSuite struct {
 	testing.IsolationSuite
 
-	state *MockState
+	state          *MockState
+	watcherFactory *MockWatcherFactory
+	stringsWatcher *MockStringsWatcher
 }
 
 var _ = gc.Suite(&serviceSuite{})
@@ -39,7 +42,7 @@ func (s *serviceSuite) TestUpdateControllerConfigSuccess(c *gc.C) {
 
 	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), cc, []string{k1, k2}).Return(nil)
 
-	err := NewService(s.state).UpdateControllerConfig(context.Background(), cc, []string{k1, k2})
+	err := NewService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cc, []string{k1, k2})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -56,14 +59,28 @@ func (s *serviceSuite) TestUpdateExternalControllerError(c *gc.C) {
 
 	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), cc, nil).Return(errors.New("boom"))
 
-	err := NewService(s.state).UpdateControllerConfig(context.Background(), cc, nil)
+	err := NewService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cc, nil)
 	c.Assert(err, gc.ErrorMatches, "updating controller config state: boom")
+}
+
+func (s *serviceSuite) TestWatch(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	q := "the query does not matter"
+	s.state.EXPECT().AllKeysQuery().Return(q)
+	s.watcherFactory.EXPECT().NewNamespaceWatcher("controller_config", changestream.All, q).Return(s.stringsWatcher, nil)
+
+	w, err := NewService(s.state, s.watcherFactory).Watch()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(w, gc.NotNil)
 }
 
 func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockState(ctrl)
+	s.watcherFactory = NewMockWatcherFactory(ctrl)
+	s.stringsWatcher = NewMockStringsWatcher(ctrl)
 
 	return ctrl
 }

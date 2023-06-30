@@ -33,7 +33,7 @@ type NamespaceWatcher struct {
 // NewNamespaceWatcher returns a new watcher that receives changes from the
 // input base watcher's db/queue when changes in the namespace occur.
 func NewNamespaceWatcher(
-	base *BaseWatcher, changeMask changestream.ChangeType, namespace, initialStateQuery string,
+	base *BaseWatcher, namespace string, changeMask changestream.ChangeType, initialStateQuery string,
 ) watcher.StringsWatcher {
 	w := &NamespaceWatcher{
 		BaseWatcher: base,

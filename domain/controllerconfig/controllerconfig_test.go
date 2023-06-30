@@ -24,7 +24,7 @@ var _ = gc.Suite(&controllerconfigSuite{})
 
 func (s *controllerconfigSuite) TestControllerConfigRoundTrips(c *gc.C) {
 	st := domainstate.NewState(testing.TxnRunnerFactory(s.TxnRunner()))
-	srv := domainservice.NewService(st)
+	srv := domainservice.NewService(st, nil)
 
 	cfgIn := jujucontroller.Config{
 		jujucontroller.AuditingEnabled:     true,
