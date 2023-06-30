@@ -17,6 +17,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/domain/migrations"
 	"github.com/juju/juju/state"
@@ -41,7 +42,7 @@ type StateImporter interface {
 // ImportModel deserializes a model description from the bytes, transforms
 // the model config based on information from the controller model, and then
 // imports that as a new database model.
-func ImportModel(ctx context.Context, importer StateImporter, scope migration.Scope, bytes []byte) (*state.Model, *state.State, error) {
+func ImportModel(ctx context.Context, importer StateImporter, scope modelmigration.Scope, bytes []byte) (*state.Model, *state.State, error) {
 	model, err := description.Deserialize(bytes)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -52,7 +53,7 @@ func ImportModel(ctx context.Context, importer StateImporter, scope migration.Sc
 		return nil, nil, errors.Trace(err)
 	}
 
-	coordinator := migration.NewCoordinator()
+	coordinator := modelmigration.NewCoordinator()
 	migrations.ImportOperations(coordinator, logger)
 	if err := coordinator.Perform(ctx, scope, model); err != nil {
 		return nil, nil, errors.Trace(err)

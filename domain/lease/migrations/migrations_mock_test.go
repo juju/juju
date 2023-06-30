@@ -10,7 +10,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	lease "github.com/juju/juju/core/lease"
-	migration "github.com/juju/juju/core/migration"
+	modelmigration "github.com/juju/juju/core/modelmigration"
 )
 
 // MockCoordinator is a mock of Coordinator interface.
@@ -37,7 +37,7 @@ func (m *MockCoordinator) EXPECT() *MockCoordinatorMockRecorder {
 }
 
 // Add mocks base method.
-func (m *MockCoordinator) Add(arg0 migration.Operation) {
+func (m *MockCoordinator) Add(arg0 modelmigration.Operation) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Add", arg0)
 }

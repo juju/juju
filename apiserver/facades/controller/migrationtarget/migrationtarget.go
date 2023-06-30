@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/database"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -111,7 +112,7 @@ func (api *API) Prechecks(model params.MigrationModelInfo) error {
 // Import takes a serialized Juju model, deserializes it, and
 // recreates it in the receiving controller.
 func (api *API) Import(ctx context.Context, serialized params.SerializedModel) error {
-	scope := coremigration.NewScope(api.controllerDB, nil)
+	scope := modelmigration.NewScope(api.controllerDB, nil)
 
 	controller := state.NewController(api.pool)
 	_, st, err := migration.ImportModel(ctx, controller, scope, serialized.Bytes)

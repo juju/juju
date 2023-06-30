@@ -4,14 +4,14 @@
 package migrations
 
 import (
-	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/modelmigration"
 	lease "github.com/juju/juju/domain/lease/migrations"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
 type Coordinator interface {
 	// Add adds the given operation to the migration.
-	Add(migration.Operation)
+	Add(modelmigration.Operation)
 }
 
 // Logger is the interface that is used to log messages.

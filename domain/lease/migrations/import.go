@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/lease/service"
 	"github.com/juju/juju/domain/lease/state"
@@ -26,7 +26,7 @@ const (
 // Coordinator is the interface that is used to add operations to a migration.
 type Coordinator interface {
 	// Add adds the given operation to the migration.
-	Add(migration.Operation)
+	Add(modelmigration.Operation)
 }
 
 // Logger is the interface that is used to log messages.
@@ -49,7 +49,7 @@ type ImportService interface {
 }
 
 type importOperation struct {
-	migration.BaseOperation
+	modelmigration.BaseOperation
 
 	service ImportService
 	logger  Logger
@@ -57,7 +57,7 @@ type importOperation struct {
 
 // Setup is called before the operation is executed. It should return an
 // error if the operation cannot be performed.
-func (o *importOperation) Setup(scope migration.Scope) error {
+func (o *importOperation) Setup(scope modelmigration.Scope) error {
 	o.service = service.NewService(state.NewState(domain.ConstFactory(scope.ControllerDB()), o.logger))
 	return nil
 }
