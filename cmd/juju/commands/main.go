@@ -353,7 +353,7 @@ func registerCommands(r commandRegistry) {
 	// be whitelisted for being enabled as an embedded command accessible to
 	// the Dashboard.
 	// Update allowedEmbeddedCommands in apiserver.go
-	r.Register(NewVersionCommand())
+	r.Register(newVersionCommand())
 	// Creation commands.
 	r.Register(newBootstrapCommand())
 	r.Register(application.NewAddRelationCommand())

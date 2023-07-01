@@ -26,7 +26,7 @@ var _ = gc.Suite(&VersionSuite{})
 
 func (s *VersionSuite) TestVersion(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, version.MustParse("2.99.0"))
-	command := NewVersionCommand()
+	command := newVersionCommand()
 	cctx, err := cmdtesting.RunCommand(c, command)
 	c.Assert(err, jc.ErrorIsNil)
 	output := fmt.Sprintf("2.99.0-%s-%s\n",
@@ -41,7 +41,7 @@ func (s *VersionSuite) TestVersionDetail(c *gc.C) {
 	s.PatchValue(&jujuversion.GitCommit, "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f")
 	s.PatchValue(&jujuversion.GitTreeState, "clean")
 	s.PatchValue(&jujuversion.Compiler, "gc")
-	command := NewVersionCommand()
+	command := newVersionCommand()
 	cctx, err := cmdtesting.RunCommand(c, command, "--all")
 	c.Assert(err, jc.ErrorIsNil)
 	outputTemplate := `
@@ -61,7 +61,7 @@ func (s *VersionSuite) TestVersionDetailJSON(c *gc.C) {
 	s.PatchValue(&jujuversion.GitCommit, "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f")
 	s.PatchValue(&jujuversion.GitTreeState, "clean")
 	s.PatchValue(&jujuversion.Compiler, "gc")
-	command := NewVersionCommand()
+	command := newVersionCommand()
 	cctx, err := cmdtesting.RunCommand(c, command, "--all", "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	outputTemplate := `
@@ -78,7 +78,7 @@ func (s *VersionSuite) TestVersionDetailYAML(c *gc.C) {
 	s.PatchValue(&jujuversion.GitCommit, "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f")
 	s.PatchValue(&jujuversion.GitTreeState, "clean")
 	s.PatchValue(&jujuversion.Compiler, "gc")
-	command := NewVersionCommand()
+	command := newVersionCommand()
 	cctx, err := cmdtesting.RunCommand(c, command, "--all", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	outputTemplate := `

@@ -64,7 +64,7 @@ func configHelpText() string {
 }
 
 func versionHelpText() string {
-	return helpText(NewVersionCommand(), "juju version")
+	return helpText(newVersionCommand(), "juju version")
 }
 
 func syncToolsHelpText() string {

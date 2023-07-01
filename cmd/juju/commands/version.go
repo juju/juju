@@ -42,8 +42,8 @@ type versionDetail struct {
 	OfficialBuild int `json:"official-build,omitempty" yaml:"official-build,omitempty"`
 }
 
-// VersionCommand is a cmd.Command that prints the current version.
-type VersionCommand struct {
+// versionCommand is a cmd.Command that prints the current version.
+type versionCommand struct {
 	cmd.CommandBase
 	out           cmd.Output
 	version       version.Binary
@@ -52,11 +52,11 @@ type VersionCommand struct {
 	showAll bool
 }
 
-func NewVersionCommand() *VersionCommand {
-	return &VersionCommand{}
+func newVersionCommand() *versionCommand {
+	return &versionCommand{}
 }
 
-func (v *VersionCommand) Info() *cmd.Info {
+func (v *versionCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "version",
 		Purpose: "Print the Juju CLI client version.",
@@ -64,7 +64,7 @@ func (v *VersionCommand) Info() *cmd.Info {
 	}
 }
 
-func (v *VersionCommand) SetFlags(f *gnuflag.FlagSet) {
+func (v *versionCommand) SetFlags(f *gnuflag.FlagSet) {
 	formatters := make(map[string]cmd.Formatter, len(cmd.DefaultFormatters))
 	for k, v := range cmd.DefaultFormatters {
 		formatters[k] = v.Formatter
@@ -73,7 +73,7 @@ func (v *VersionCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&v.showAll, "all", false, "Prints all version information")
 }
 
-func (v *VersionCommand) Init(args []string) error {
+func (v *versionCommand) Init(args []string) error {
 	current := version.Binary{
 		Number:  jujuversion.Current,
 		Arch:    arch.HostArch(),
@@ -92,7 +92,7 @@ func (v *VersionCommand) Init(args []string) error {
 	return v.CommandBase.Init(args)
 }
 
-func (v *VersionCommand) Run(ctxt *cmd.Context) error {
+func (v *versionCommand) Run(ctxt *cmd.Context) error {
 	if v.showAll {
 		return v.out.Write(ctxt, v.versionDetail)
 	}
