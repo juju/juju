@@ -121,7 +121,7 @@ type HookProcess interface {
 }
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/hookunit_mock.go github.com/juju/juju/worker/uniter/runner/context HookUnit
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/worker/uniter/runner/context State
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/uniter_mock.go github.com/juju/juju/worker/uniter/runner/context Uniter
 
 // HookUnit represents the functions needed by a unit in a hook context to
 // call into state.
@@ -142,8 +142,8 @@ type HookUnit interface {
 	PublicAddress() (string, error)
 }
 
-// State exposes required state functions needed by the HookContext.
-type State interface {
+// Uniter exposes required state functions needed by the HookContext.
+type Uniter interface {
 	UnitStorageAttachments(unitTag names.UnitTag) ([]params.StorageAttachmentId, error)
 	StorageAttachment(storageTag names.StorageTag, unitTag names.UnitTag) (params.StorageAttachment, error)
 	GoalState() (application.GoalState, error)
@@ -164,12 +164,12 @@ type HookContext struct {
 	*payloads.PayloadsHookContext
 	unit HookUnit
 
-	// state is the handle to the uniter State so that HookContext can make
-	// API calls on the state.
+	// uniter is the handle to the uniter client so that HookContext can make
+	// API calls on the uniter facade.
 	// NOTE: We would like to be rid of the fake-remote-Unit and switch
-	// over fully to API calls on State.  This adds that ability, but we're
+	// over fully to API calls on the uniter.  This adds that ability, but we're
 	// not fully there yet.
-	state State
+	uniter Uniter
 
 	// secretsClient allows the context to access the secrets backend.
 	secretsClient SecretsAccessor
@@ -697,7 +697,7 @@ func (ctx *HookContext) StorageTags() ([]names.StorageTag, error) {
 	if ctx.storageTags != nil {
 		return ctx.storageTags, nil
 	}
-	attachmentIds, err := ctx.state.UnitStorageAttachments(ctx.unit.Tag())
+	attachmentIds, err := ctx.uniter.UnitStorageAttachments(ctx.unit.Tag())
 	if err != nil {
 		return nil, err
 	}
@@ -733,7 +733,7 @@ func (ctx *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorageAttac
 	if ctxStorageAttachment, ok := ctx.storageAttachmentCache[tag]; ok {
 		return ctxStorageAttachment, nil
 	}
-	attachment, err := ctx.state.StorageAttachment(tag, ctx.unit.Tag())
+	attachment, err := ctx.uniter.StorageAttachment(tag, ctx.unit.Tag())
 	if err != nil {
 		return nil, err
 	}
@@ -1077,7 +1077,7 @@ func (ctx *HookContext) RevokeSecret(uri *coresecrets.URI, args *jujuc.SecretGra
 // Implements jujuc.HookContext.ContextUnit, part of runner.Context.
 func (ctx *HookContext) GoalState() (*application.GoalState, error) {
 	var err error
-	ctx.goalState, err = ctx.state.GoalState()
+	ctx.goalState, err = ctx.uniter.GoalState()
 	if err != nil {
 		return nil, err
 	}
@@ -1127,14 +1127,14 @@ func (ctx *HookContext) SetRawK8sSpec(specYaml string) error {
 // Implements jujuc.HookContext.ContextUnit, part of runner.Context.
 func (ctx *HookContext) GetPodSpec() (string, error) {
 	appName := ctx.unit.ApplicationName()
-	return ctx.state.GetPodSpec(appName)
+	return ctx.uniter.GetPodSpec(appName)
 }
 
 // GetRawK8sSpec returns the raw k8s spec for the unit's application.
 // Implements jujuc.HookContext.ContextUnit, part of runner.Context.
 func (ctx *HookContext) GetRawK8sSpec() (string, error) {
 	appName := ctx.unit.ApplicationName()
-	return ctx.state.GetRawK8sSpec(appName)
+	return ctx.uniter.GetRawK8sSpec(appName)
 }
 
 // CloudSpec return the cloud specification for the running unit's model.
@@ -1144,7 +1144,7 @@ func (ctx *HookContext) CloudSpec() (*params.CloudSpec, error) {
 		return nil, errors.NotSupportedf("credential-get on a %q model", model.CAAS)
 	}
 	var err error
-	ctx.cloudSpec, err = ctx.state.CloudSpec()
+	ctx.cloudSpec, err = ctx.uniter.CloudSpec()
 	if err != nil {
 		return nil, err
 	}
@@ -1440,7 +1440,7 @@ func (ctx *HookContext) handleReboot(ctxErr error) error {
 // Prepare implements the runner.Context interface.
 func (ctx *HookContext) Prepare() error {
 	if ctx.actionData != nil {
-		err := ctx.state.ActionBegin(ctx.actionData.Tag)
+		err := ctx.uniter.ActionBegin(ctx.actionData.Tag)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1705,7 +1705,7 @@ func (ctx *HookContext) finalizeAction(err, flushErr error) error {
 		}
 	}
 
-	callErr := ctx.state.ActionFinish(tag, actionStatus, results, message)
+	callErr := ctx.uniter.ActionFinish(tag, actionStatus, results, message)
 	// Prevent the unit agent from looping if it's impossible to finalise the action.
 	if params.IsCodeNotFoundOrCodeUnauthorized(callErr) || params.IsCodeAlreadyExists(callErr) {
 		ctx.logger.Warningf("error finalising action %v: %v", tag.Id(), callErr)
@@ -1751,14 +1751,14 @@ func (ctx *HookContext) killCharmHook() error {
 // the current unit.
 // Implements jujuc.HookContext.ContextVersion, part of runner.Context.
 func (ctx *HookContext) UnitWorkloadVersion() (string, error) {
-	return ctx.state.UnitWorkloadVersion(ctx.unit.Tag())
+	return ctx.uniter.UnitWorkloadVersion(ctx.unit.Tag())
 }
 
 // SetUnitWorkloadVersion sets the current unit's workload version to
 // the specified value.
 // Implements jujuc.HookContext.ContextVersion, part of runner.Context.
 func (ctx *HookContext) SetUnitWorkloadVersion(version string) error {
-	return ctx.state.SetUnitWorkloadVersion(ctx.unit.Tag(), version)
+	return ctx.uniter.SetUnitWorkloadVersion(ctx.unit.Tag(), version)
 }
 
 // NetworkInfo returns the network info for the given bindings on the given relation.

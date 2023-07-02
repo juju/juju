@@ -33,7 +33,7 @@ type LeadershipContextFunc func(accessor context.LeadershipSettingsAccessor, tra
 // RelationStateTrackerConfig contains configuration values for creating a new
 // RelationStateTracker instance.
 type RelationStateTrackerConfig struct {
-	State                *uniter.State
+	Uniter               *uniter.Client
 	Unit                 *uniter.Unit
 	Tracker              leadership.Tracker
 	CharmDir             string
@@ -67,13 +67,13 @@ func NewRelationStateTracker(cfg RelationStateTrackerConfig) (RelationStateTrack
 		return nil, errors.Trace(err)
 	}
 	leadershipContext := cfg.NewLeadershipContext(
-		cfg.State.LeadershipSettings,
+		cfg.Uniter.LeadershipSettings,
 		cfg.Tracker,
 		cfg.Unit.Tag().Id(),
 	)
 
 	r := &relationStateTracker{
-		st:              &stateTrackerStateShim{cfg.State},
+		st:              &stateTrackerStateShim{cfg.Uniter},
 		unit:            &unitShim{cfg.Unit},
 		leaderCtx:       leadershipContext,
 		subordinate:     subordinate,

@@ -17,8 +17,8 @@ import (
 
 // Charm represents the state of a charm in the model.
 type Charm struct {
-	st   *State
-	curl *charm.URL
+	client *Client
+	curl   *charm.URL
 }
 
 // String returns the charm URL as a string.
@@ -46,7 +46,7 @@ func (c *Charm) ArchiveSha256() (string, error) {
 	args := params.CharmURLs{
 		URLs: []params.CharmURL{{URL: c.curl.String()}},
 	}
-	err := c.st.facade.FacadeCall("CharmArchiveSha256", args, &results)
+	err := c.client.facade.FacadeCall("CharmArchiveSha256", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -67,7 +67,7 @@ func (c *Charm) LXDProfileRequired() (bool, error) {
 	args := params.CharmURLs{
 		URLs: []params.CharmURL{{URL: c.curl.String()}},
 	}
-	err := c.st.facade.FacadeCall("LXDProfileRequired", args, &results)
+	err := c.client.facade.FacadeCall("LXDProfileRequired", args, &results)
 	if err != nil {
 		return false, err
 	}

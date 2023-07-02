@@ -125,12 +125,12 @@ func assertNumCalls(c *gc.C, numCalls *int32, expected int32) {
 
 func (s *relationResolverSuite) newRelationStateTracer(c *gc.C, apiCaller base.APICaller, unitTag names.UnitTag) relation.RelationStateTracker {
 	abort := make(chan struct{})
-	st := uniter.NewState(apiCaller, unitTag)
-	u, err := st.Unit(unitTag)
+	client := uniter.NewClient(apiCaller, unitTag)
+	u, err := client.Unit(unitTag)
 	c.Assert(err, jc.ErrorIsNil)
 	r, err := relation.NewRelationStateTracker(
 		relation.RelationStateTrackerConfig{
-			State:                st,
+			Uniter:               client,
 			Unit:                 u,
 			Logger:               loggo.GetLogger("test"),
 			CharmDir:             s.charmDir,

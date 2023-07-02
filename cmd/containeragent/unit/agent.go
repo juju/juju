@@ -393,7 +393,7 @@ func (c *containerUnitAgent) validateMigration(apiCaller base.APICaller) error {
 	if !ok {
 		return errors.NotValidf("expected a unit tag; got %q", tag)
 	}
-	facade := uniter.NewState(apiCaller, unitTag)
+	facade := uniter.NewClient(apiCaller, unitTag)
 	_, err := facade.Unit(unitTag)
 	if err != nil {
 		return errors.Trace(err)

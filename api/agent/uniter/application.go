@@ -21,9 +21,9 @@ import (
 
 // Application represents the state of an application.
 type Application struct {
-	st   *State
-	tag  names.ApplicationTag
-	life life.Value
+	client *Client
+	tag    names.ApplicationTag
+	life   life.Value
 }
 
 // Tag returns the application's tag.
@@ -43,7 +43,7 @@ func (s *Application) String() string {
 
 // Watch returns a watcher for observing changes to an application.
 func (s *Application) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(s.st.facade, "Watch", s.tag)
+	return common.Watch(s.client.facade, "Watch", s.tag)
 }
 
 // Life returns the application's current life state.
@@ -54,7 +54,7 @@ func (s *Application) Life() life.Value {
 // Refresh refreshes the contents of the application from the underlying
 // state.
 func (s *Application) Refresh() error {
-	life, err := s.st.life(s.tag)
+	life, err := s.client.life(s.tag)
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func (s *Application) CharmModifiedVersion() (int, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag.String()}},
 	}
-	err := s.st.facade.FacadeCall("CharmModifiedVersion", args, &results)
+	err := s.client.facade.FacadeCall("CharmModifiedVersion", args, &results)
 	if err != nil {
 		return -1, err
 	}
@@ -96,7 +96,7 @@ func (s *Application) CharmURL() (string, bool, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag.String()}},
 	}
-	err := s.st.facade.FacadeCall("CharmURL", args, &results)
+	err := s.client.facade.FacadeCall("CharmURL", args, &results)
 	if err != nil {
 		return "", false, err
 	}
@@ -128,7 +128,7 @@ func (s *Application) SetStatus(unitName string, appStatus status.Status, info s
 			},
 		},
 	}
-	err := s.st.facade.FacadeCall("SetApplicationStatus", args, &result)
+	err := s.client.facade.FacadeCall("SetApplicationStatus", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -147,7 +147,7 @@ func (s *Application) Status(unitName string) (params.ApplicationStatusResult, e
 			},
 		},
 	}
-	err := s.st.facade.FacadeCall("ApplicationStatus", args, &results)
+	err := s.client.facade.FacadeCall("ApplicationStatus", args, &results)
 	if err != nil {
 		return params.ApplicationStatusResult{}, errors.Trace(err)
 	}
@@ -161,5 +161,5 @@ func (s *Application) Status(unitName string) (params.ApplicationStatusResult, e
 // WatchLeadershipSettings returns a watcher which can be used to wait
 // for leadership settings changes to be made for the application.
 func (s *Application) WatchLeadershipSettings() (watcher.NotifyWatcher, error) {
-	return s.st.LeadershipSettings.WatchLeadershipSettings(s.tag.Id())
+	return s.client.LeadershipSettings.WatchLeadershipSettings(s.tag.Id())
 }

@@ -981,8 +981,8 @@ func (s *mockHookContextSuite) TestActionAbort(c *gc.C) {
 			}
 			return nil
 		})
-		st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-		hookContext := context.NewMockUnitHookContextWithState(s.mockUnit, st)
+		client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
+		hookContext := context.NewMockUnitHookContextWithState(s.mockUnit, client)
 		cancel := make(chan struct{})
 		if test.Cancel {
 			close(cancel)
@@ -1039,8 +1039,8 @@ func (s *mockHookContextSuite) TestActionFlushError(c *gc.C) {
 		}},
 	}).Return(errors.New("flush failed"))
 
-	st := uniter.NewState(apiCaller, names.NewUnitTag("wordpress/0"))
-	hookContext := context.NewMockUnitHookContextWithState(s.mockUnit, st)
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("wordpress/0"))
+	hookContext := context.NewMockUnitHookContextWithState(s.mockUnit, client)
 	context.SetEnvironmentHookContextSecret(hookContext, coresecrets.NewURI().String(), nil, nil, nil)
 
 	err := hookContext.OpenPortRange("ep", network.PortRange{Protocol: "tcp", FromPort: 666, ToPort: 666})
@@ -1070,8 +1070,8 @@ func (s *mockHookContextSuite) TestMissingAction(c *gc.C) {
 		}
 		return nil
 	})
-	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	hookContext := context.NewMockUnitHookContextWithState(s.mockUnit, st)
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
+	hookContext := context.NewMockUnitHookContextWithState(s.mockUnit, client)
 
 	context.WithActionContext(hookContext, nil, nil)
 	err := hookContext.Flush("action", charmrunner.NewMissingHookError("noaction"))
@@ -1540,7 +1540,7 @@ func (s *mockHookContextSuite) TestHookStorage(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	st := mocks.NewMockState(ctrl)
+	st := mocks.NewMockUniter(ctrl)
 	st.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("wordpress/0")).Return(params.StorageAttachment{
 		StorageTag: "data/0",
 	}, nil)

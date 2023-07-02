@@ -56,7 +56,7 @@ type WorkerSuite struct {
 	charmSHA256           string
 	uniterParams          *uniter.UniterParams
 	leadershipTrackerFunc func(unitTag names.UnitTag) leadership.TrackerWorker
-	uniterFacadeFunc      func(unitTag names.UnitTag) *apiuniter.State
+	uniterFacadeFunc      func(unitTag names.UnitTag) *apiuniter.Client
 	resourceFacadeFunc    func(unitTag names.UnitTag) (*apiuniter.ResourcesFacadeClient, error)
 	payloadFacadeFunc     func() *apiuniter.PayloadFacadeClient
 	runListenerSocketFunc func(*uniter.SocketConfig) (*sockets.Socket, error)
@@ -107,8 +107,8 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.leadershipTrackerFunc = func(unitTag names.UnitTag) leadership.TrackerWorker {
 		return &runnertesting.FakeTracker{}
 	}
-	s.uniterFacadeFunc = func(unitTag names.UnitTag) *apiuniter.State {
-		return &apiuniter.State{}
+	s.uniterFacadeFunc = func(unitTag names.UnitTag) *apiuniter.Client {
+		return &apiuniter.Client{}
 	}
 	s.resourceFacadeFunc = func(unitTag names.UnitTag) (*apiuniter.ResourcesFacadeClient, error) {
 		return &apiuniter.ResourcesFacadeClient{}, nil

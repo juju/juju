@@ -15,9 +15,9 @@ var (
 )
 
 // CreateUnit creates uniter.Unit for tests.
-func CreateUnit(st *State, tag names.UnitTag) *Unit {
+func CreateUnit(client *Client, tag names.UnitTag) *Unit {
 	return &Unit{
-		st:           st,
+		client:       client,
 		tag:          tag,
 		life:         life.Alive,
 		resolvedMode: params.ResolvedNone,
@@ -25,18 +25,18 @@ func CreateUnit(st *State, tag names.UnitTag) *Unit {
 }
 
 // CreateRelation creates uniter.Relation for tests.
-func CreateRelation(st *State, tag names.RelationTag) *Relation {
+func CreateRelation(client *Client, tag names.RelationTag) *Relation {
 	return &Relation{
-		st:  st,
-		tag: tag,
-		id:  666,
+		client: client,
+		tag:    tag,
+		id:     666,
 	}
 }
 
 // CreateRelationUnit creates uniter.RelationUnit for tests.
-func CreateRelationUnit(st *State, relationTag names.RelationTag, unitTag names.UnitTag) *RelationUnit {
+func CreateRelationUnit(client *Client, relationTag names.RelationTag, unitTag names.UnitTag) *RelationUnit {
 	return &RelationUnit{
-		st:       st,
+		client:   client,
 		unitTag:  unitTag,
 		relation: &Relation{tag: relationTag},
 	}

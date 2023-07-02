@@ -83,7 +83,7 @@ type RemoteInitFunc func(remotestate.ContainerRunningStatus, <-chan struct{}) er
 // Uniter implements the capabilities of the unit agent, for example running hooks.
 type Uniter struct {
 	catacomb                     catacomb.Catacomb
-	st                           *uniter.State
+	client                       *uniter.Client
 	secretsClient                SecretsClient
 	secretsBackendGetter         context.SecretsBackendGetter
 	paths                        Paths
@@ -186,9 +186,9 @@ type Uniter struct {
 
 // UniterParams hold all the necessary parameters for a new Uniter.
 type UniterParams struct {
-	UniterFacade                  *uniter.State
-	ResourcesFacade               *uniter.ResourcesFacadeClient
-	PayloadFacade                 *uniter.PayloadFacadeClient
+	UniterClient                  *uniter.Client
+	ResourcesClient               *uniter.ResourcesFacadeClient
+	PayloadClient                 *uniter.PayloadFacadeClient
 	SecretsClient                 SecretsClient
 	SecretsBackendGetter          context.SecretsBackendGetter
 	UnitTag                       names.UnitTag
@@ -263,9 +263,9 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 	}
 	startFunc := func() (worker.Worker, error) {
 		u := &Uniter{
-			st:                            uniterParams.UniterFacade,
-			resources:                     uniterParams.ResourcesFacade,
-			payloads:                      uniterParams.PayloadFacade,
+			client:                        uniterParams.UniterClient,
+			resources:                     uniterParams.ResourcesClient,
+			payloads:                      uniterParams.PayloadClient,
 			secretsClient:                 uniterParams.SecretsClient,
 			secretsBackendGetter:          uniterParams.SecretsBackendGetter,
 			paths:                         NewPaths(uniterParams.DataDir, uniterParams.UnitTag, uniterParams.SocketConfig),
@@ -410,7 +410,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		var err error
 		watcher, err = remotestate.NewWatcher(
 			remotestate.WatcherConfig{
-				State:                         remotestate.NewAPIState(u.st),
+				State:                         remotestate.NewAPIState(u.client),
 				LeadershipTracker:             u.leadershipTracker,
 				SecretsClient:                 u.secretsClient,
 				SecretRotateWatcherFunc:       u.secretRotateWatcherFunc,
@@ -617,7 +617,7 @@ func (u *Uniter) verifyCharmProfile(url string) error {
 	}
 	// NOTE: this is very similar code to verifyCharmProfile.NextOp,
 	// if you make changes here, check to see if they are needed there.
-	ch, err := u.st.Charm(curl)
+	ch, err := u.client.Charm(curl)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -779,7 +779,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	// complete any operations in progress before detecting it,
 	// but that race is fundamental and inescapable,
 	// whereas this one is not.
-	u.unit, err = u.st.Unit(unitTag)
+	u.unit, err = u.client.Unit(unitTag)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return u.stopUnitError()
@@ -810,7 +810,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	}
 	relStateTracker, err := relation.NewRelationStateTracker(
 		relation.RelationStateTrackerConfig{
-			State:                u.st,
+			Uniter:               u.client,
 			Unit:                 u.unit,
 			Tracker:              u.leadershipTracker,
 			NewLeadershipContext: context.NewLeadershipContext,
@@ -826,7 +826,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	u.commandChannel = make(chan string)
 
 	storageAttachments, err := storage.NewAttachments(
-		u.st, unitTag, u.unit, u.catacomb.Dying(),
+		u.client, unitTag, u.unit, u.catacomb.Dying(),
 	)
 	if err != nil {
 		return errors.Annotatef(err, "cannot create storage hook source")
@@ -858,7 +858,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Annotatef(err, "cannot create deployer")
 	}
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
-		State:                u.st,
+		Uniter:               u.client,
 		SecretsClient:        u.secretsClient,
 		SecretsBackendGetter: u.secretsBackendGetter,
 		Unit:                 u.unit,
@@ -887,7 +887,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		Deployer:       deployer,
 		RunnerFactory:  runnerFactory,
 		Callbacks:      &operationCallbacks{u},
-		State:          u.st,
+		State:          u.client,
 		Abort:          u.catacomb.Dying(),
 		MetricSpoolDir: u.paths.GetMetricsSpoolDir(),
 		Logger:         u.logger.Child("operation"),
@@ -965,7 +965,7 @@ func (u *Uniter) Wait() error {
 
 func (u *Uniter) getApplicationCharmURL() (string, error) {
 	// TODO(fwereade): pretty sure there's no reason to make 2 API calls here.
-	app, err := u.st.Application(u.unit.ApplicationTag())
+	app, err := u.client.Application(u.unit.ApplicationTag())
 	if err != nil {
 		return "", err
 	}

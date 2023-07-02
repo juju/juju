@@ -39,7 +39,7 @@ func (s *cloudNativeUniterSuite) TestCloudSpec(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("wordpress/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("wordpress/0"))
 
 	result, err := client.CloudSpec()
 	c.Assert(err, jc.ErrorIsNil)

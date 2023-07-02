@@ -22,7 +22,7 @@ import (
 
 type HookContextParams struct {
 	Unit                *uniter.Unit
-	State               State
+	Uniter              Uniter
 	ID                  string
 	UUID                string
 	ModelName           string
@@ -56,7 +56,7 @@ func (stub *stubLeadershipContext) IsLeader() (bool, error) {
 func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	ctx := &HookContext{
 		unit:                   hcParams.Unit,
-		state:                  hcParams.State,
+		uniter:                 hcParams.Uniter,
 		id:                     hcParams.ID,
 		uuid:                   hcParams.UUID,
 		modelName:              hcParams.ModelName,
@@ -93,12 +93,12 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	if err != nil {
 		return nil, err
 	}
-	machPorts, err := hcParams.State.OpenedMachinePortRangesByEndpoint(ctx.assignedMachineTag)
+	machPorts, err := hcParams.Uniter.OpenedMachinePortRangesByEndpoint(ctx.assignedMachineTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	appPortRanges, err := hcParams.State.OpenedPortRangesByEndpoint()
+	appPortRanges, err := hcParams.Uniter.OpenedPortRangesByEndpoint()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -137,12 +137,12 @@ func NewMockUnitHookContext(mockUnit *mocks.MockHookUnit, modelType model.ModelT
 	}
 }
 
-func NewMockUnitHookContextWithState(mockUnit *mocks.MockHookUnit, state *uniter.State) *HookContext {
+func NewMockUnitHookContextWithState(mockUnit *mocks.MockHookUnit, state *uniter.Client) *HookContext {
 	logger := loggo.GetLogger("test")
 	return &HookContext{
 		unitName:               mockUnit.Tag().Id(), //unitName used by the action finaliser method.
 		unit:                   mockUnit,
-		state:                  state,
+		uniter:                 state,
 		logger:                 logger,
 		modelType:              model.IAAS,
 		portRangeChanges:       newPortRangeChangeRecorder(logger, mockUnit.Tag(), model.IAAS, nil, nil),
@@ -151,12 +151,12 @@ func NewMockUnitHookContextWithState(mockUnit *mocks.MockHookUnit, state *uniter
 	}
 }
 
-func NewMockUnitHookContextWithStateAndStorage(unitName string, unit HookUnit, state State, storageTag names.StorageTag) *HookContext {
+func NewMockUnitHookContextWithStateAndStorage(unitName string, unit HookUnit, state Uniter, storageTag names.StorageTag) *HookContext {
 	logger := loggo.GetLogger("test")
 	return &HookContext{
 		unitName:               unit.Tag().Id(), //unitName used by the action finaliser method.
 		unit:                   unit,
-		state:                  state,
+		uniter:                 state,
 		logger:                 logger,
 		portRangeChanges:       newPortRangeChangeRecorder(logger, names.NewUnitTag(unitName), model.IAAS, nil, nil),
 		storageTag:             storageTag,
@@ -250,8 +250,8 @@ type ModelHookContextParams struct {
 
 	MachineTag names.MachineTag
 
-	State State
-	Unit  HookUnit
+	Uniter Uniter
+	Unit   HookUnit
 }
 
 // NewModelHookContext exists purely to set the fields used in rs.
@@ -277,7 +277,7 @@ func NewModelHookContext(p ModelHookContextParams) *HookContext {
 		principal:              p.UnitName,
 		cloudAPIVersion:        "6.66",
 		logger:                 loggo.GetLogger("test"),
-		state:                  p.State,
+		uniter:                 p.Uniter,
 		unit:                   p.Unit,
 		storageAttachmentCache: make(map[names.StorageTag]jujuc.ContextStorageAttachment),
 	}

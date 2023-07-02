@@ -6,10 +6,11 @@ package uniter_test
 import (
 	"time"
 
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	coretesting "github.com/juju/juju/testing"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/base/testing"
@@ -100,8 +101,8 @@ func (s *goalStateSuite) testGoalState(c *gc.C, facadeResult params.GoalStateRes
 		return nil
 	})
 
-	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	goalStateResult, err := st.GoalState()
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
+	goalStateResult, err := client.GoalState()
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(goalStateResult, jc.DeepEquals, apiResult)

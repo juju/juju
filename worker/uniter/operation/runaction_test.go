@@ -45,9 +45,9 @@ func newOpFactoryForAction(runnerFactory runner.Factory, callbacks operation.Cal
 		}
 		return nil
 	})
-	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	return operation.NewFactory(operation.FactoryParams{
-		State:         st,
+		State:         client,
 		RunnerFactory: runnerFactory,
 		Callbacks:     callbacks,
 		Logger:        loggo.GetLogger("test"),

@@ -31,7 +31,7 @@ func (s *slaSuite) TestSLALevel(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	level, err := client.SLALevel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(level, gc.Equals, "essential")

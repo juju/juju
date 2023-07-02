@@ -118,7 +118,7 @@ type testContext struct {
 	dataDir                string
 	s                      *UniterSuite
 	st                     *state.State
-	api                    *apiuniter.State
+	api                    *apiuniter.Client
 	resources              *apiuniter.ResourcesFacadeClient
 	payloads               *apiuniter.PayloadFacadeClient
 	apiConn                api.Connection
@@ -539,14 +539,14 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 	}
 
 	uniterParams := uniter.UniterParams{
-		UniterFacade: ctx.api,
+		UniterClient: ctx.api,
 		UnitTag:      tag,
 		ModelType:    model.IAAS,
 		LeadershipTrackerFunc: func(_ names.UnitTag) leadership.TrackerWorker {
 			return ctx.leaderTracker
 		},
-		PayloadFacade:        ctx.payloads,
-		ResourcesFacade:      ctx.resources,
+		PayloadClient:        ctx.payloads,
+		ResourcesClient:      ctx.resources,
 		CharmDirGuard:        ctx.charmDirGuard,
 		DataDir:              ctx.dataDir,
 		Downloader:           downloader,

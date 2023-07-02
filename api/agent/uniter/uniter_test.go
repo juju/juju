@@ -32,7 +32,7 @@ func (s *uniterSuite) TestProviderType(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	providerType, err := client.ProviderType()
 	c.Assert(err, jc.ErrorIsNil)
@@ -72,7 +72,7 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 		return nil
 	})
 	caller := testing.BestVersionCaller{apiCaller, 17}
-	client := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
 
 	portRangesMap, err := client.OpenedMachinePortRangesByEndpoint(names.NewMachineTag("42"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -120,7 +120,7 @@ func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *gc.C) {
 		return nil
 	})
 	caller := testing.BestVersionCaller{apiCaller, 18}
-	client := uniter.NewState(caller, names.NewUnitTag("gitlab/0"))
+	client := uniter.NewClient(caller, names.NewUnitTag("gitlab/0"))
 
 	result, err := client.OpenedPortRangesByEndpoint()
 	c.Assert(err, jc.ErrorIsNil)
@@ -160,7 +160,7 @@ func (s *uniterSuite) TestOpenedApplicationPortRangesByEndpoint(c *gc.C) {
 		return nil
 	})
 	caller := testing.BestVersionCaller{apiCaller, 18}
-	client := uniter.NewState(caller, names.NewUnitTag("gitlab/0"))
+	client := uniter.NewClient(caller, names.NewUnitTag("gitlab/0"))
 
 	result, err := client.OpenedApplicationPortRangesByEndpoint(names.NewApplicationTag("gitlab"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -178,7 +178,7 @@ func (s *uniterSuite) TestOpenedApplicationPortRangesByEndpointOldAPINotSupporte
 		return nil
 	})
 	caller := testing.BestVersionCaller{apiCaller, 17}
-	client := uniter.NewState(caller, names.NewUnitTag("gitlab/0"))
+	client := uniter.NewClient(caller, names.NewUnitTag("gitlab/0"))
 
 	_, err := client.OpenedApplicationPortRangesByEndpoint(names.NewApplicationTag("gitlab"))
 	c.Assert(err, gc.ErrorMatches, `OpenedApplicationPortRangesByEndpoint\(\) \(need V18\+\) not implemented`)
@@ -192,7 +192,7 @@ func (s *uniterSuite) TestOpenedPortRangesByEndpointOldAPINotSupported(c *gc.C) 
 		return nil
 	})
 	caller := testing.BestVersionCaller{apiCaller, 17}
-	client := uniter.NewState(caller, names.NewUnitTag("gitlab/0"))
+	client := uniter.NewClient(caller, names.NewUnitTag("gitlab/0"))
 
 	_, err := client.OpenedPortRangesByEndpoint()
 	c.Assert(err, gc.ErrorMatches, `OpenedPortRangesByEndpoint\(\) \(need V18\+\) not implemented`)
@@ -210,7 +210,7 @@ func (s *uniterSuite) TestUnitWorkloadVersion(c *gc.C) {
 		return nil
 	})
 	caller := testing.BestVersionCaller{apiCaller, 17}
-	client := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
 
 	workloadVersion, err := client.UnitWorkloadVersion(names.NewUnitTag("mysql/0"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -229,7 +229,7 @@ func (s *uniterSuite) TestSetUnitWorkloadVersion(c *gc.C) {
 		return nil
 	})
 	caller := testing.BestVersionCaller{apiCaller, 17}
-	client := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
 
 	err := client.SetUnitWorkloadVersion(names.NewUnitTag("mysql/0"), "mysql-1.2.3")
 	c.Assert(err, jc.ErrorIsNil)

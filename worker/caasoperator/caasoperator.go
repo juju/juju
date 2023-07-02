@@ -133,7 +133,7 @@ type Config struct {
 	LeadershipTrackerFunc func(unitTag names.UnitTag) leadership.TrackerWorker
 
 	// UniterFacadeFunc is a function for making a uniter facade.
-	UniterFacadeFunc func(unitTag names.UnitTag) *apiuniter.State
+	UniterFacadeFunc func(unitTag names.UnitTag) *apiuniter.Client
 
 	// ResourcesFacadeFunc is a function for making a unit resources facade.
 	ResourcesFacadeFunc func(unitTag names.UnitTag) (*apiuniter.ResourcesFacadeClient, error)
@@ -593,11 +593,11 @@ func (op *caasOperator) loop() (err error) {
 				params.ModelType = model.CAAS
 				params.UnitTag = unitTag
 				params.Downloader = op.config.Downloader // TODO(caas): write a cache downloader
-				params.UniterFacade = op.config.UniterFacadeFunc(unitTag)
-				if params.ResourcesFacade, err = op.config.ResourcesFacadeFunc(unitTag); err != nil {
+				params.UniterClient = op.config.UniterFacadeFunc(unitTag)
+				if params.ResourcesClient, err = op.config.ResourcesFacadeFunc(unitTag); err != nil {
 					return errors.Trace(err)
 				}
-				params.PayloadFacade = op.config.PayloadFacadeFunc()
+				params.PayloadClient = op.config.PayloadFacadeFunc()
 				params.LeadershipTrackerFunc = op.config.LeadershipTrackerFunc
 				params.Logger = params.Logger.Child(unitID)
 				if op.deploymentMode != caas.ModeOperator {

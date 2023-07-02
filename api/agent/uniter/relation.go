@@ -19,7 +19,7 @@ import (
 // Relation represents a relation between one or two application
 // endpoints.
 type Relation struct {
-	st        *State
+	client    *Client
 	tag       names.RelationTag
 	id        int
 	life      life.Value
@@ -71,7 +71,7 @@ func (r *Relation) OtherApplication() string {
 // state. It returns an error that satisfies errors.IsNotFound if the
 // relation has been removed.
 func (r *Relation) Refresh() error {
-	result, err := r.st.relation(r.tag, r.st.unitTag)
+	result, err := r.client.relation(r.tag, r.client.unitTag)
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func (r *Relation) Refresh() error {
 
 // SetStatus updates the status of the relation.
 func (r *Relation) SetStatus(status relation.Status) error {
-	return r.st.setRelationStatus(r.id, status)
+	return r.client.setRelationStatus(r.id, status)
 }
 
 func (r *Relation) toCharmRelation(cr params.CharmRelation) charm.Relation {
@@ -106,7 +106,7 @@ func (r *Relation) Endpoint() (*Endpoint, error) {
 	// NOTE: This differs from state.Relation.Endpoint(), because when
 	// talking to the API, there's already an authenticated entity - the
 	// unit, and we can find out its application name.
-	result, err := r.st.relation(r.tag, r.st.unitTag)
+	result, err := r.client.relation(r.tag, r.client.unitTag)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (r *Relation) Unit(uTag names.UnitTag) (*RelationUnit, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result, err := r.st.relation(r.tag, uTag)
+	result, err := r.client.relation(r.tag, uTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -128,6 +128,6 @@ func (r *Relation) Unit(uTag names.UnitTag) (*RelationUnit, error) {
 		unitTag:  uTag,
 		appTag:   names.NewApplicationTag(appName),
 		endpoint: Endpoint{r.toCharmRelation(result.Endpoint.Relation)},
-		st:       r.st,
+		client:   r.client,
 	}, nil
 }

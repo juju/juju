@@ -39,7 +39,7 @@ func (s *modelSuite) TestModel(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	m, err := client.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m, jc.DeepEquals, &model.Model{

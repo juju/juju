@@ -29,7 +29,7 @@ type BundlesDirSuite struct {
 	testing.JujuConnSuite
 
 	st     api.Connection
-	uniter *uniter.State
+	uniter *uniter.Client
 }
 
 var _ = gc.Suite(&BundlesDirSuite{})

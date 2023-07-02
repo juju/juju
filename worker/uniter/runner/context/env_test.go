@@ -50,7 +50,7 @@ func (s *EnvSuite) getPaths() (paths context.Paths, expectVars []string) {
 	}
 }
 
-func (s *EnvSuite) getContext(newProxyOnly bool, state context.State, unit context.HookUnit) (ctx *context.HookContext, expectVars []string) {
+func (s *EnvSuite) getContext(newProxyOnly bool, uniter context.Uniter, unit context.HookUnit) (ctx *context.HookContext, expectVars []string) {
 	var (
 		legacyProxy proxy.Settings
 		jujuProxy   proxy.Settings
@@ -125,7 +125,7 @@ func (s *EnvSuite) getContext(newProxyOnly bool, state context.State, unit conte
 		LegacyProxySettings: legacyProxy,
 		JujuProxySettings:   jujuProxy,
 		MachineTag:          names.NewMachineTag("42"),
-		State:               state,
+		Uniter:              uniter,
 		Unit:                unit,
 	}), expected
 }
@@ -184,7 +184,7 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	state := mocks.NewMockState(ctrl)
+	state := mocks.NewMockUniter(ctrl)
 	state.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("this-unit/123")).Return(params.StorageAttachment{
 		Kind:     params.StorageKindBlock,
 		Location: "/dev/sdb",
@@ -239,7 +239,7 @@ func (s *EnvSuite) TestEnvCentos(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	state := mocks.NewMockState(ctrl)
+	state := mocks.NewMockUniter(ctrl)
 	state.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("this-unit/123")).Return(params.StorageAttachment{
 		Kind:     params.StorageKindBlock,
 		Location: "/dev/sdb",
@@ -300,7 +300,7 @@ func (s *EnvSuite) TestEnvOpenSUSE(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	state := mocks.NewMockState(ctrl)
+	state := mocks.NewMockUniter(ctrl)
 	state.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("this-unit/123")).Return(params.StorageAttachment{
 		Kind:     params.StorageKindBlock,
 		Location: "/dev/sdb",
@@ -361,7 +361,7 @@ func (s *EnvSuite) TestEnvGenericLinux(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	state := mocks.NewMockState(ctrl)
+	state := mocks.NewMockUniter(ctrl)
 	state.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("this-unit/123")).Return(params.StorageAttachment{
 		Kind:     params.StorageKindBlock,
 		Location: "/dev/sdb",
@@ -413,7 +413,7 @@ func (s *EnvSuite) TestHostEnv(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	state := mocks.NewMockState(ctrl)
+	state := mocks.NewMockUniter(ctrl)
 	state.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("this-unit/123")).Return(params.StorageAttachment{
 		Kind:     params.StorageKindBlock,
 		Location: "/dev/sdb",
