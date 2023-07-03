@@ -5836,7 +5836,7 @@ func (s *StatusSuite) TestTabularNoRelations(c *gc.C) {
 
 	_, stdout, stderr := runStatus(c, ctx, "--no-color")
 	c.Assert(stderr, gc.HasLen, 0)
-	c.Assert(strings.Contains(string(stdout), "Integration provider"), jc.IsFalse)
+	c.Assert(strings.Contains(stdout, "Integration provider"), jc.IsFalse)
 }
 
 func (s *StatusSuite) TestTabularDisplayRelations(c *gc.C) {
@@ -5844,7 +5844,7 @@ func (s *StatusSuite) TestTabularDisplayRelations(c *gc.C) {
 
 	_, stdout, stderr := runStatus(c, ctx, "--no-color", "--relations")
 	c.Assert(stderr, gc.HasLen, 0)
-	c.Assert(strings.Contains(string(stdout), "Integration provider"), jc.IsTrue)
+	c.Assert(strings.Contains(stdout, "Integration provider"), jc.IsTrue)
 }
 
 func (s *StatusSuite) TestNonTabularDisplayRelations(c *gc.C) {

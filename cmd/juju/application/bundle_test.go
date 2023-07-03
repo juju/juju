@@ -806,8 +806,7 @@ func (s *BundleDeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 			OfferName: "mysql",
 			OfferURL:  "admin/default.mysql",
 		},
-		Macaroon:  mac,
-		AuthToken: "auth-token",
+		Macaroon: mac,
 		ControllerInfo: &params.ExternalControllerInfo{
 			ControllerTag: coretesting.ControllerTag.String(),
 			Addrs:         []string{"192.168.1.0"},
@@ -824,7 +823,6 @@ func (s *BundleDeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 			},
 			ApplicationAlias: "mysql",
 			Macaroon:         mac,
-			AuthToken:        "auth-token",
 			ControllerInfo: &crossmodel.ControllerInfo{
 				ControllerTag: coretesting.ControllerTag,
 				Alias:         "controller-alias",

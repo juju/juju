@@ -365,7 +365,7 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 		}
 
 		if model.Life() != state.Alive {
-			logger.Tracef("skipping upgrade check for dying/dead model %s", modelUUID)
+			m.logger.Tracef("skipping upgrade check for dying/dead model %s", modelUUID)
 			continue
 		}
 
