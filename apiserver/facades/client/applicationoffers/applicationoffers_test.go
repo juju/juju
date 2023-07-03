@@ -54,7 +54,7 @@ func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.bakery = &mockBakeryService{caveats: make(map[string][]checkers.Caveat)}
 	thirdPartyKey := bakery.MustGenerateKey()
-	s.authContext, err = crossmodel.NewAuthContext(s.mockState, thirdPartyKey, s.bakery, nil, nil)
+	s.authContext, err = crossmodel.NewAuthContext(s.mockState, thirdPartyKey, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getEnviron, getFakeControllerInfo,
@@ -1144,7 +1144,7 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 	}
 	var err error
 	thirdPartyKey := bakery.MustGenerateKey()
-	s.authContext, err = crossmodel.NewAuthContext(s.mockState, thirdPartyKey, s.bakery, nil, nil)
+	s.authContext, err = crossmodel.NewAuthContext(s.mockState, thirdPartyKey, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getEnviron, getFakeControllerInfo,
@@ -1189,14 +1189,14 @@ func (s *consumeSuite) TestConsumeDetailsNoPermission(c *gc.C) {
 }
 
 func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
-	s.assertConsumeDetailsWithPermission(c, false, "")
+	s.assertConsumeDetailsWithPermission(c, false)
 }
 
 func (s *consumeSuite) TestConsumeDetailsSpecifiedUser(c *gc.C) {
-	s.assertConsumeDetailsWithPermission(c, true, "")
+	s.assertConsumeDetailsWithPermission(c, true)
 }
 
-func (s *consumeSuite) assertConsumeDetailsWithPermission(c *gc.C, specifiedUser bool, authToken string) {
+func (s *consumeSuite) assertConsumeDetailsWithPermission(c *gc.C, specifiedUser bool) {
 	s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
 	st.(*mockState).users["someone"] = &mockUser{"someone"}
@@ -1247,11 +1247,6 @@ func (s *consumeSuite) assertConsumeDetailsWithPermission(c *gc.C, specifiedUser
 		Addrs:         []string{"192.168.1.1:17070"},
 		CACert:        testing.CACert,
 	})
-	c.Assert(results.Results[0].AuthToken, gc.Equals, authToken)
-	if authToken != "" {
-		c.Assert(results.Results[0].Macaroon, gc.IsNil)
-		return
-	}
 	c.Assert(results.Results[0].Macaroon.Id(), jc.DeepEquals, []byte("id"))
 
 	cav := s.bakery.caveats[string(results.Results[0].Macaroon.Id())]

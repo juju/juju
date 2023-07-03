@@ -2683,6 +2683,28 @@ type novaInstaceStartedWithOpts interface {
 	NovaInstanceStartedWithOpts() *nova.RunServerOpts
 }
 
+func (s *localServerSuite) TestStartInstanceWithImageIDConstraint(c *gc.C) {
+	env := s.ensureAMDImages(c)
+
+	err := bootstrapEnv(c, env)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons, err := constraints.Parse("image-id=ubuntu-bf2")
+	c.Assert(err, jc.ErrorIsNil)
+
+	res, err := testing.StartInstanceWithParams(env, s.callCtx, "1", environs.StartInstanceParams{
+		ControllerUUID: s.ControllerUUID,
+		Constraints:    cons,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.NotNil)
+
+	runOpts := res.Instance.(novaInstaceStartedWithOpts).NovaInstanceStartedWithOpts()
+	c.Assert(runOpts, gc.NotNil)
+	c.Assert(runOpts.ImageId, gc.NotNil)
+	c.Assert(runOpts.ImageId, gc.Equals, "ubuntu-bf2")
+}
+
 func (s *localServerSuite) TestStartInstanceVolumeRootBlockDevice(c *gc.C) {
 	// diskSizeGiB should be equal to the openstack.defaultRootDiskSize
 	diskSizeGiB := 30
@@ -3067,7 +3089,15 @@ func (s *localServerSuite) TestICMPFirewallRules(c *gc.C) {
 				ToPort:   -1,
 				Protocol: "icmp",
 			},
-			SourceCIDRs: set.NewStrings("0.0.0.0/0", "::/0"),
+			SourceCIDRs: set.NewStrings("0.0.0.0/0"),
+		},
+		{
+			PortRange: network.PortRange{
+				FromPort: -1,
+				ToPort:   -1,
+				Protocol: "ipv6-icmp",
+			},
+			SourceCIDRs: set.NewStrings("::/0"),
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)

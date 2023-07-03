@@ -119,7 +119,6 @@ func (s *remoteApplicationSuite) makeRemoteApplication(c *gc.C, name, url string
 		Spaces:                 spaces,
 		Bindings:               bindings,
 		Macaroon:               mac,
-		AuthToken:              "auth-token",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -357,13 +356,12 @@ func (s *remoteApplicationSuite) TestMysqlEndpoints(c *gc.C) {
 	c.Assert(eps, gc.DeepEquals, []state.Endpoint{serverEP, adminEp, loggingEp})
 }
 
-func (s *remoteApplicationSuite) TestAuth(c *gc.C) {
+func (s *remoteApplicationSuite) TestMacaroon(c *gc.C) {
 	mac, err := newMacaroon("test")
 	c.Assert(err, jc.ErrorIsNil)
 	appMac, err := s.application.Macaroon()
 	c.Assert(err, jc.ErrorIsNil)
 	assertMacaroonEquals(c, appMac, mac)
-	c.Assert(s.application.AuthToken(), gc.Equals, "auth-token")
 }
 
 func (s *remoteApplicationSuite) TestApplicationRefresh(c *gc.C) {

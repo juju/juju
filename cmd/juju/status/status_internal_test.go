@@ -4931,7 +4931,7 @@ Machine  State    Address   Inst id       Base          AZ          Message
 Offer         Application  Charm  Rev  Connected  Endpoint  Interface  Role
 hosted-mysql  mysql        mysql  1    1/1        server    mysql      provider
 
-Relation provider      Requirer                   Interface  Type         Message
+Integration provider   Requirer                   Interface  Type         Message
 mysql:juju-info        logging:info               juju-info  subordinate  
 mysql:server           wordpress:db               mysql      regular      suspended  
 wordpress:logging-dir  logging:logging-directory  logging    subordinate  
@@ -5406,8 +5406,8 @@ Machine  State   Address       Inst id  Base          AZ  Message
 0        active  10.53.62.100           ubuntu@22.04      Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
 0/lxd/0  active  10.53.62.101           ubuntu@22.04      Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
 
-Relation provider  Requirer     Interface  Type  Message
-foo:cluster        bar:cluster  baz                Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
+Integration provider  Requirer     Interface  Type  Message
+foo:cluster           bar:cluster  baz                Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
 `[1:])
 }
 
@@ -5836,7 +5836,7 @@ func (s *StatusSuite) TestTabularNoRelations(c *gc.C) {
 
 	_, stdout, stderr := runStatus(c, ctx, "--no-color")
 	c.Assert(stderr, gc.HasLen, 0)
-	c.Assert(strings.Contains(stdout, "Relation provider"), jc.IsFalse)
+	c.Assert(strings.Contains(string(stdout), "Integration provider"), jc.IsFalse)
 }
 
 func (s *StatusSuite) TestTabularDisplayRelations(c *gc.C) {
@@ -5844,7 +5844,7 @@ func (s *StatusSuite) TestTabularDisplayRelations(c *gc.C) {
 
 	_, stdout, stderr := runStatus(c, ctx, "--no-color", "--relations")
 	c.Assert(stderr, gc.HasLen, 0)
-	c.Assert(strings.Contains(stdout, "Relation provider"), jc.IsTrue)
+	c.Assert(strings.Contains(string(stdout), "Integration provider"), jc.IsTrue)
 }
 
 func (s *StatusSuite) TestNonTabularDisplayRelations(c *gc.C) {

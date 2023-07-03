@@ -361,13 +361,13 @@ func (c *Client) DumpModelDB(model names.ModelTag) (map[string]interface{}, erro
 // DestroyModel puts the specified model into a "dying" state, which will
 // cause the model's resources to be cleaned up, after which the model will
 // be removed.
-func (c *Client) DestroyModel(tag names.ModelTag, destroyStorage, force *bool, maxWait *time.Duration, timeout time.Duration) error {
+func (c *Client) DestroyModel(tag names.ModelTag, destroyStorage, force *bool, maxWait *time.Duration, timeout *time.Duration) error {
 	arg := params.DestroyModelParams{
 		ModelTag:       tag.String(),
 		DestroyStorage: destroyStorage,
 		Force:          force,
 		MaxWait:        maxWait,
-		Timeout:        &timeout,
+		Timeout:        timeout,
 	}
 	args := params.DestroyModelsParams{Models: []params.DestroyModelParams{arg}}
 	var results params.ErrorResults
