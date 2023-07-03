@@ -4,6 +4,7 @@
 package migrationtarget
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -13,11 +14,13 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/database"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -29,10 +32,9 @@ import (
 type API struct {
 	state         *state.State
 	pool          *state.StatePool
+	controllerDB  database.TxnRunner
 	authorizer    facade.Authorizer
-	resources     facade.Resources
 	presence      facade.Presence
-	getClaimer    migration.ClaimerFunc
 	getEnviron    stateenvirons.NewEnvironFunc
 	getCAASBroker stateenvirons.NewCAASBrokerFunc
 }
@@ -50,13 +52,17 @@ func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc, getCAAS
 	if err := checkAuth(auth, st); err != nil {
 		return nil, errors.Trace(err)
 	}
+	controllerDB, err := ctx.ControllerDB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &API{
 		state:         st,
 		pool:          ctx.StatePool(),
+		controllerDB:  controllerDB,
 		authorizer:    auth,
-		resources:     ctx.Resources(),
 		presence:      ctx.Presence(),
-		getClaimer:    ctx.LeadershipClaimer,
 		getEnviron:    getEnviron,
 		getCAASBroker: getCAASBroker,
 	}, nil
@@ -105,9 +111,11 @@ func (api *API) Prechecks(model params.MigrationModelInfo) error {
 
 // Import takes a serialized Juju model, deserializes it, and
 // recreates it in the receiving controller.
-func (api *API) Import(serialized params.SerializedModel) error {
+func (api *API) Import(ctx context.Context, serialized params.SerializedModel) error {
+	scope := modelmigration.NewScope(api.controllerDB, nil)
+
 	controller := state.NewController(api.pool)
-	_, st, err := migration.ImportModel(controller, api.getClaimer, serialized.Bytes)
+	_, st, err := migration.ImportModel(ctx, controller, scope, serialized.Bytes)
 	if err != nil {
 		return err
 	}
@@ -302,8 +310,8 @@ func (api *API) AdoptResources(args params.AdoptResourcesArgs) error {
 		return errors.Trace(err)
 	}
 
-	err = ra.AdoptResources(context.CallContext(m.State()), st.ControllerUUID(), args.SourceControllerVersion)
-	if errors.IsNotImplemented(err) {
+	err = ra.AdoptResources(environscontext.CallContext(m.State()), st.ControllerUUID(), args.SourceControllerVersion)
+	if errors.Is(err, errors.NotImplemented) {
 		return nil
 	}
 	return errors.Trace(err)
@@ -333,7 +341,7 @@ func (api *API) CheckMachines(args params.ModelArgs) (params.ErrorResults, error
 	}
 	return credentialcommon.ValidateExistingModelCredential(
 		credentialcommon.NewPersistentBackend(st.State),
-		context.CallContext(st.State),
+		environscontext.CallContext(st.State),
 		cloud.Type != "manual",
 	)
 }

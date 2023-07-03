@@ -38,6 +38,14 @@ func NewTxnRunnerFactoryForNamespace[T database.TxnRunner](f func(string) (T, er
 	}
 }
 
+// ConstFactory returns a TxnRunnerFactory that always returns the
+// same database.TxnRunner.
+func ConstFactory(r database.TxnRunner) TxnRunnerFactory {
+	return func() (database.TxnRunner, error) {
+		return r, nil
+	}
+}
+
 // StateBase defines a base struct for requesting a database. This will cache
 // the database for the lifetime of the struct.
 type StateBase struct {

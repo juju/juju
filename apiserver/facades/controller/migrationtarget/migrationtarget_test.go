@@ -4,6 +4,7 @@
 package migrationtarget_test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -17,7 +18,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/manual"
@@ -41,11 +41,10 @@ import (
 
 type Suite struct {
 	statetesting.StateSuite
-	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
 
 	facadeContext facadetest.Context
-	callContext   context.ProviderCallContext
+	callContext   environscontext.ProviderCallContext
 	leaders       map[string]string
 }
 
@@ -60,18 +59,14 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	// it has to happen here.
 	s.StateSuite.SetUpTest(c)
 
-	s.resources = common.NewResources()
-	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
-
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:      s.Owner,
 		AdminTag: s.Owner,
 	}
-	s.callContext = context.NewEmptyCloudCallContext()
+	s.callContext = environscontext.NewEmptyCloudCallContext()
 	s.facadeContext = facadetest.Context{
 		State_:     s.State,
 		StatePool_: s.StatePool,
-		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	}
 
@@ -83,9 +78,8 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := aFactory(&facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
+		State_: s.State,
+		Auth_:  s.authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.API))
@@ -105,7 +99,7 @@ func (s *Suite) TestNotControllerAdmin(c *gc.C) {
 
 func (s *Suite) importModel(c *gc.C, api *migrationtarget.API) names.ModelTag {
 	uuid, bytes := s.makeExportedModel(c)
-	err := api.Import(params.SerializedModel{Bytes: bytes})
+	err := api.Import(context.Background(), params.SerializedModel{Bytes: bytes})
 	c.Assert(err, jc.ErrorIsNil)
 	return names.NewModelTag(uuid)
 }
@@ -517,12 +511,12 @@ type mockEnv struct {
 	instances []*mockInstance
 }
 
-func (e *mockEnv) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, sourceVersion version.Number) error {
+func (e *mockEnv) AdoptResources(ctx environscontext.ProviderCallContext, controllerUUID string, sourceVersion version.Number) error {
 	e.MethodCall(e, "AdoptResources", ctx, controllerUUID, sourceVersion)
 	return e.NextErr()
 }
 
-func (e *mockEnv) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+func (e *mockEnv) AllInstances(ctx environscontext.ProviderCallContext) ([]instances.Instance, error) {
 	e.MethodCall(e, "AllInstances", ctx)
 	results := make([]instances.Instance, len(e.instances))
 	for i, anInstance := range e.instances {
@@ -536,7 +530,7 @@ type mockBroker struct {
 	*testing.Stub
 }
 
-func (e *mockBroker) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, sourceVersion version.Number) error {
+func (e *mockBroker) AdoptResources(ctx environscontext.ProviderCallContext, controllerUUID string, sourceVersion version.Number) error {
 	e.MethodCall(e, "AdoptResources", ctx, controllerUUID, sourceVersion)
 	return e.NextErr()
 }
