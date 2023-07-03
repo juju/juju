@@ -221,7 +221,6 @@ func (api *API) Prechecks(arg params.PrechecksArgs) error {
 	}
 	return migration.SourcePrecheck(
 		api.precheckBackend,
-		arg.TargetControllerVersion,
 		api.presence.ModelPresence(model.UUID()),
 		api.presence.ModelPresence(controllerModel.UUID()),
 		api.environscloudspecGetter,

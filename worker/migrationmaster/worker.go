@@ -75,7 +75,7 @@ type Facade interface {
 
 	// Prechecks performs pre-migration checks on the model and
 	// (source) controller.
-	Prechecks(targetControllerVersion version.Number) error
+	Prechecks() error
 
 	// ModelInfo return basic information about the model to migrated.
 	ModelInfo() (coremigration.ModelInfo, error)
@@ -348,24 +348,18 @@ func (w *Worker) prechecks(status coremigration.MigrationStatus) error {
 	if err != nil {
 		return errors.Annotate(err, "failed to obtain model info during prechecks")
 	}
+
+	w.setInfoStatus("performing source prechecks")
+	if err := w.config.Facade.Prechecks(); err != nil {
+		return errors.Annotate(err, "source prechecks failed")
+	}
+
+	w.setInfoStatus("performing target prechecks")
 	targetConn, err := w.openAPIConn(status.TargetInfo)
 	if err != nil {
 		return errors.Annotate(err, "failed to connect to target controller during prechecks")
 	}
 	defer targetConn.Close()
-
-	targetControllerVersion, err := w.getTargetControllerVersion(targetConn)
-	if err != nil {
-		return errors.Annotate(err, "cannot get target controller version")
-	}
-
-	w.setInfoStatus("performing source prechecks")
-	err = w.config.Facade.Prechecks(targetControllerVersion)
-	if err != nil {
-		return errors.Annotate(err, "source prechecks failed")
-	}
-
-	w.setInfoStatus("performing target prechecks")
 	if targetConn.ControllerTag() != status.TargetInfo.ControllerTag {
 		return errors.Errorf("unexpected target controller UUID (got %s, expected %s)",
 			targetConn.ControllerTag(), status.TargetInfo.ControllerTag)

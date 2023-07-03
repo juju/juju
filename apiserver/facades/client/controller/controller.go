@@ -741,7 +741,7 @@ func (c *ControllerAPI) ConfigSet(args params.ControllerConfigSet) error {
 	}
 	if _, err := c.hub.Publish(
 		controller.ConfigChanged,
-		controller.ConfigChangedMessage{cfg}); err != nil {
+		controller.ConfigChangedMessage{Config: cfg}); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -761,20 +761,8 @@ var runMigrationPrechecks = func(
 	modelPresence := presence.ModelPresence(st.ModelUUID())
 	controllerPresence := presence.ModelPresence(ctlrSt.ModelUUID())
 
-	targetConn, err := api.Open(targetToAPIInfo(targetInfo), migration.ControllerDialOpts())
-	if err != nil {
-		return errors.Annotate(err, "connect to target controller")
-	}
-	defer targetConn.Close()
-
-	targetControllerVersion, err := getTargetControllerVersion(targetConn)
-	if err != nil {
-		return errors.Annotate(err, "cannot get target controller version")
-	}
-
 	if err := migration.SourcePrecheck(
 		backend,
-		targetControllerVersion,
 		modelPresence, controllerPresence,
 		cloudspec.MakeCloudSpecGetterForModel(st),
 	); err != nil {
@@ -786,6 +774,11 @@ var runMigrationPrechecks = func(
 	if err != nil {
 		return errors.Trace(err)
 	}
+	targetConn, err := api.Open(targetToAPIInfo(targetInfo), migration.ControllerDialOpts())
+	if err != nil {
+		return errors.Annotate(err, "connect to target controller")
+	}
+	defer targetConn.Close()
 	dstUserList, err := getTargetControllerUsers(targetConn)
 	if err != nil {
 		return errors.Trace(err)

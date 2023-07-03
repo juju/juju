@@ -43,7 +43,7 @@ var _ = gc.Suite(&SourcePrecheckSuite{})
 
 func sourcePrecheck(backend migration.PrecheckBackend) error {
 	return migration.SourcePrecheck(
-		backend, version.MustParse("2.9.32"), allAlivePresence(), allAlivePresence(),
+		backend, allAlivePresence(), allAlivePresence(),
 		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return environscloudspec.CloudSpec{Type: "lxd"}, nil
 		},
@@ -54,7 +54,7 @@ func (*SourcePrecheckSuite) TestSuccess(c *gc.C) {
 	backend := newHappyBackend()
 	backend.controllerBackend = newHappyBackend()
 	err := migration.SourcePrecheck(
-		backend, version.MustParse("2.9.32"), allAlivePresence(), allAlivePresence(),
+		backend, allAlivePresence(), allAlivePresence(),
 		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return environscloudspec.CloudSpec{Type: "lxd"}, nil
 		},
@@ -112,15 +112,14 @@ func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 	server.EXPECT().ServerVersion().Return("4.0")
 
 	err := migration.SourcePrecheck(
-		backend, version.MustParse("3.0.0"), allAlivePresence(), allAlivePresence(),
+		backend, allAlivePresence(), allAlivePresence(),
 		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return cloudSpec.CloudSpec, nil
 		},
 	)
 	c.Assert(err.Error(), gc.Equals, `
-cannot migrate to controller ("3.0.0") due to issues:
+cannot migrate to controller due to issues:
 "foo/model-1":
-- current model ("2.9.35") has to be upgraded to "2.9.36" at least
 - unexpected upgrade series lock found
 - the model hosts deprecated windows machine(s): win10(1) win7(2)
 - the model hosts deprecated ubuntu machine(s): trusty(3) vivid(2) xenial(1)
@@ -138,15 +137,17 @@ func (*SourcePrecheckSuite) TestTargetController2Failed(c *gc.C) {
 	backend.model.name = "model-1"
 	backend.model.owner = names.NewUserTag("foo")
 	err := migration.SourcePrecheck(
-		backend, version.MustParse("2.9.99"), allAlivePresence(), allAlivePresence(),
+		backend, allAlivePresence(), allAlivePresence(),
 		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return environscloudspec.CloudSpec{Type: "lxd"}, nil
 		},
 	)
 	c.Assert(err.Error(), gc.Equals, `
-cannot migrate to controller ("2.9.99") due to issues:
+cannot migrate to controller due to issues:
 "foo/model-1":
-- unexpected upgrade series lock found`[1:])
+- unexpected upgrade series lock found
+- the model hosts deprecated windows machine(s): win10(1) win7(2)
+- the model hosts deprecated ubuntu machine(s): trusty(3) vivid(2) xenial(1)`[1:])
 }
 
 func (*SourcePrecheckSuite) TestImportingModel(c *gc.C) {
@@ -218,7 +219,7 @@ func (s *SourcePrecheckSuite) TestDownMachineAgent(c *gc.C) {
 	modelPresence := downAgentPresence("machine-1")
 	controllerPresence := allAlivePresence()
 	err := migration.SourcePrecheck(
-		backend, version.MustParse("2.9.32"), modelPresence, controllerPresence,
+		backend, modelPresence, controllerPresence,
 		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return environscloudspec.CloudSpec{Type: "foo"}, nil
 		},
@@ -338,7 +339,7 @@ func (s *SourcePrecheckSuite) TestUnitLost(c *gc.C) {
 	modelPresence := downAgentPresence("unit-foo-0")
 	controllerPresence := allAlivePresence()
 	err := migration.SourcePrecheck(
-		backend, version.MustParse("2.9.32"), modelPresence, controllerPresence,
+		backend, modelPresence, controllerPresence,
 		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return environscloudspec.CloudSpec{Type: "foo"}, nil
 		},
