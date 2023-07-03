@@ -9,9 +9,8 @@ run_secrets_vault() {
 
 	check_secrets
 
-	# TODO - fix destroy failure
-	#destroy_model "model-secrets-vault"
-	#destroy_model "model-vault-provider"
+	destroy_model "model-secrets-vault"
+	destroy_model "model-vault-provider"
 }
 
 run_secret_drain() {
@@ -36,15 +35,30 @@ run_secret_drain() {
 	juju show-secret --reveal "$secret_owned_by_app"
 
 	juju model-config secret-backend="$vault_backend_name"
-	sleep 20
 
 	model_uuid=$(juju show-model $model_name --format json | jq -r ".[\"${model_name}\"][\"model-uuid\"]")
-	check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length)" 2
+
+	attempt=0
+	until check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length)" 2 >/dev/null 2>&1; do
+		if [[ ${attempt} -ge 30 ]]; then
+			echo "Failed: expected all secrets get drained to vault."
+			exit 1
+		fi
+		sleep 2
+		attempt=$((attempt + 1))
+	done
 
 	juju model-config secret-backend=auto
-	sleep 20
 
-	check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length)" 0
+	attempt=0
+	until check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length)" 0 >/dev/null 2>&1; do
+		if [[ ${attempt} -ge 30 ]]; then
+			echo "Failed: expected all secrets get drained back to juju controller."
+			exit 1
+		fi
+		sleep 2
+		attempt=$((attempt + 1))
+	done
 
 	juju show-secret --reveal "$secret_owned_by_unit"
 	juju show-secret --reveal "$secret_owned_by_app"
