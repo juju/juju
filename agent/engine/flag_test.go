@@ -1,4 +1,4 @@
-// Copyright 2016 Canonical Ltd.
+// Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package engine_test
@@ -6,11 +6,10 @@ package engine_test
 import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/jujud/agent/engine"
+	"github.com/juju/juju/agent/engine"
 )
 
 type FlagSuite struct {
@@ -55,13 +54,4 @@ func testStaticFlagWorker(c *gc.C, value bool) {
 
 	c.Assert(w, gc.Implements, new(engine.Flag))
 	c.Assert(w.(engine.Flag).Check(), gc.Equals, value)
-}
-
-type stubWorker struct {
-	worker.Worker
-}
-
-type stubFlagWorker struct {
-	engine.Flag
-	worker.Worker
 }

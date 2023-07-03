@@ -13,6 +13,7 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	caasfirewallerapi "github.com/juju/juju/api/controller/caasfirewaller"
@@ -20,7 +21,6 @@ import (
 	controllerlifeflag "github.com/juju/juju/api/controller/lifeflag"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"

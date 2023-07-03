@@ -9,9 +9,9 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/engine"
 	apiagent "github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
 	coreagent "github.com/juju/juju/core/agent"
 	jworker "github.com/juju/juju/worker"
 )

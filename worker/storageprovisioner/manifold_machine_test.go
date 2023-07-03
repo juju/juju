@@ -16,8 +16,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/engine/enginetest"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/jujud/agent/engine/enginetest"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/common"

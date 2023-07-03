@@ -13,11 +13,11 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api"
 	msapi "github.com/juju/juju/api/agent/meterstatus"
 	"github.com/juju/juju/api/base"
 	commonapi "github.com/juju/juju/api/common"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker"

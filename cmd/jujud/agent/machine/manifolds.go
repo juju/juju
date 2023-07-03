@@ -20,11 +20,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/crosscontroller"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
 	containerbroker "github.com/juju/juju/container/broker"
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/instance"

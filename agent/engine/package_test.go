@@ -9,6 +9,7 @@ import (
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api/base"
 )
 
@@ -22,4 +23,13 @@ type dummyWorker struct {
 
 type dummyAPICaller struct {
 	base.APICaller
+}
+
+type stubWorker struct {
+	worker.Worker
+}
+
+type stubFlagWorker struct {
+	engine.Flag
+	worker.Worker
 }
