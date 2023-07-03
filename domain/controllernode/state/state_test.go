@@ -46,3 +46,18 @@ func (s *stateSuite) TestCurateNodes(c *gc.C) {
 	c.Check(ids.Contains("2"), jc.IsTrue)
 	c.Check(ids.Contains("3"), jc.IsTrue)
 }
+
+func (s *stateSuite) TestUpdateBootstrapNodeBindAddress(c *gc.C) {
+	err := NewState(testing.TxnRunnerFactory(s.TxnRunner())).UpdateBootstrapNodeBindAddress(
+		context.Background(), "192.168.5.60")
+	c.Assert(err, jc.ErrorIsNil)
+
+	row := s.DB().QueryRow("SELECT bind_address FROM controller_node WHERE controller_id = 0")
+	c.Assert(row.Err(), jc.ErrorIsNil)
+
+	var addr string
+	err = row.Scan(&addr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(addr, gc.Equals, "192.168.5.60")
+}
