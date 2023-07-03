@@ -20,9 +20,9 @@ import (
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/agent/addons"
-	apiagent "github.com/juju/juju/api/agent/agent"
+	"github.com/juju/juju/agent/config"
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/jujud/agent/config"
+	coreagent "github.com/juju/juju/core/agent"
 )
 
 type IntrospectCommand struct {
@@ -190,7 +190,7 @@ func (c *IntrospectCommand) getAgentTag() (names.Tag, error) {
 		if err != nil {
 			continue
 		}
-		if apiagent.IsAllowedControllerTag(tag.Kind()) {
+		if coreagent.IsAllowedControllerTag(tag.Kind()) {
 			return tag, nil
 		}
 	}

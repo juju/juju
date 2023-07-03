@@ -16,8 +16,8 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
+	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/api"
-	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/upgrades"

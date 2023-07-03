@@ -20,7 +20,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/addons"
-	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/introspection"
 )
@@ -75,8 +74,8 @@ func (s *introspectionSuite) TestStartSuccess(c *gc.C) {
 	}
 
 	config := dependency.EngineConfig{
-		IsFatal:    agenterrors.IsFatal,
-		WorstError: agenterrors.MoreImportantError,
+		IsFatal:    func(err error) bool { return false },
+		WorstError: func(err1, err2 error) error { return err1 },
 		Clock:      clock.WallClock,
 		Metrics:    dependency.DefaultMetrics(),
 		Logger:     loggo.GetLogger("juju.worker.dependency"),

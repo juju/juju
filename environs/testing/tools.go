@@ -18,8 +18,8 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	agenterrors "github.com/juju/juju/agent/errors"
 	agenttools "github.com/juju/juju/agent/tools"
-	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs/filestorage"

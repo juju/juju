@@ -16,12 +16,12 @@ import (
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/agent"
-	apiagent "github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/caas"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller/modelmanager"
+	coreagent "github.com/juju/juju/core/agent"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -92,7 +92,7 @@ func InitializeState(
 	dialOpts mongo.DialOpts,
 	newPolicy state.NewPolicyFunc,
 ) (_ *state.Controller, resultErr error) {
-	if c.Tag().Id() != agent.BootstrapControllerId || !apiagent.IsAllowedControllerTag(c.Tag().Kind()) {
+	if c.Tag().Id() != agent.BootstrapControllerId || !coreagent.IsAllowedControllerTag(c.Tag().Kind()) {
 		return nil, errors.Errorf("InitializeState not called with bootstrap controller's configuration")
 	}
 	servingInfo, ok := c.StateServingInfo()

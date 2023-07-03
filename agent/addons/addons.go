@@ -14,11 +14,17 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/worker/introspection"
 )
+
+// MetricSink describes a way to unregister a model metrics collector. This
+// ensures that we correctly tidy up after the removal of a model.
+type MetricSink interface {
+	dependency.Metrics
+	Unregister() bool
+}
 
 var logger = loggo.GetLogger("juju.cmd.jujud.agent.addons")
 
@@ -105,7 +111,7 @@ func NewPrometheusRegistry() (*prometheus.Registry, error) {
 
 // RegisterEngineMetrics registers the metrics sink on a prometheus registerer,
 // ensuring that we cleanup when the worker has stopped.
-func RegisterEngineMetrics(registry prometheus.Registerer, metrics prometheus.Collector, worker worker.Worker, sink engine.MetricSink) error {
+func RegisterEngineMetrics(registry prometheus.Registerer, metrics prometheus.Collector, worker worker.Worker, sink MetricSink) error {
 	if err := registry.Register(metrics); err != nil {
 		return errors.Annotatef(err, "failed to register engine metrics")
 	}

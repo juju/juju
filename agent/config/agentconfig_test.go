@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package agentconf_test
+package config
 
 import (
 	"github.com/juju/errors"
@@ -9,19 +9,18 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	coretesting "github.com/juju/juju/testing"
 )
-
-var _ = gc.Suite(&agentConfSuite{})
 
 type agentConfSuite struct {
 	coretesting.BaseSuite
 }
 
+var _ = gc.Suite(&agentConfSuite{})
+
 func (s *agentConfSuite) TestChangeConfigSuccess(c *gc.C) {
 	mcsw := &mockConfigSetterWriter{}
-	conf := agentconf.NewAgentConfForTest(c.MkDir(), mcsw)
+	conf := NewAgentConfigWithConfigSetterWriter(c.MkDir(), mcsw)
 	err := conf.ChangeConfig(func(agent.ConfigSetter) error {
 		return nil
 	})
@@ -32,7 +31,7 @@ func (s *agentConfSuite) TestChangeConfigSuccess(c *gc.C) {
 
 func (s *agentConfSuite) TestChangeConfigMutateFailure(c *gc.C) {
 	mcsw := &mockConfigSetterWriter{}
-	conf := agentconf.NewAgentConfForTest(c.MkDir(), mcsw)
+	conf := NewAgentConfigWithConfigSetterWriter(c.MkDir(), mcsw)
 
 	err := conf.ChangeConfig(func(agent.ConfigSetter) error {
 		return errors.New("blam")
@@ -46,7 +45,7 @@ func (s *agentConfSuite) TestChangeConfigWriteFailure(c *gc.C) {
 	mcsw := &mockConfigSetterWriter{
 		WriteError: errors.New("boom"),
 	}
-	conf := agentconf.NewAgentConfForTest(c.MkDir(), mcsw)
+	conf := NewAgentConfigWithConfigSetterWriter(c.MkDir(), mcsw)
 	err := conf.ChangeConfig(func(agent.ConfigSetter) error {
 		return nil
 	})

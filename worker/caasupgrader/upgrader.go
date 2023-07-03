@@ -12,7 +12,7 @@ import (
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/api/agent/agent"
+	coreagent "github.com/juju/juju/core/agent"
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/watcher"
@@ -89,7 +89,7 @@ func (u *Upgrader) Wait() error {
 func (u *Upgrader) loop() error {
 	// Only controllers and sidecar unit agents set their version here - application agents do it in the main agent worker loop.
 	hostOSType := coreos.HostOSTypeName()
-	if agent.IsAllowedControllerTag(u.tag.Kind()) || u.tag.Kind() == names.UnitTagKind {
+	if coreagent.IsAllowedControllerTag(u.tag.Kind()) || u.tag.Kind() == names.UnitTagKind {
 		if err := u.upgraderClient.SetVersion(u.tag.String(), toBinaryVersion(jujuversion.Current, hostOSType)); err != nil {
 			return errors.Annotatef(err, "cannot set agent version for %q", u.tag.String())
 		}

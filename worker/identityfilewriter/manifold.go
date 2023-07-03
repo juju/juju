@@ -12,6 +12,7 @@ import (
 	apiagent "github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
+	coreagent "github.com/juju/juju/core/agent"
 	jworker "github.com/juju/juju/worker"
 )
 
@@ -30,7 +31,7 @@ func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	cfg := a.CurrentConfig()
 
 	// Grab the tag and ensure that it's for a controller.
-	if !apiagent.IsAllowedControllerTag(cfg.Tag().Kind()) {
+	if !coreagent.IsAllowedControllerTag(cfg.Tag().Kind()) {
 		return nil, errors.New("this manifold may only be used inside a machine or controller agent")
 	}
 

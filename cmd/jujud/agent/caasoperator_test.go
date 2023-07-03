@@ -21,7 +21,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
-	"github.com/juju/juju/cmd/jujud/agent/agentconf"
+	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
 	coretesting "github.com/juju/juju/testing"
 	jujuworker "github.com/juju/juju/worker"

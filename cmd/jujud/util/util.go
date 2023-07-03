@@ -11,7 +11,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/agent"
-	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
+	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/mongo"
 	jworker "github.com/juju/juju/worker"
 )

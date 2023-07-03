@@ -22,13 +22,14 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
+	agentconfig "github.com/juju/juju/agent/config"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/jujud/agent/agentconf"
+	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
@@ -252,7 +253,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return nil
 	}
 
-	if err := agentconf.ReadAgentConfig(c, agent.BootstrapControllerId); err != nil {
+	if err := agentconfig.ReadAgentConfig(c, agent.BootstrapControllerId); err != nil {
 		return errors.Annotate(err, "cannot read config")
 	}
 	agentConfig := c.CurrentConfig()

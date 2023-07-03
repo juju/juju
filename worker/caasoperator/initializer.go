@@ -16,11 +16,11 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils/v3"
 
+	"github.com/juju/juju/agent/config"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/caas"
 	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
-	"github.com/juju/juju/cmd/jujud/agent/config"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/wrench"
 )

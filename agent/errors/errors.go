@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent/tools"
@@ -80,8 +79,6 @@ func importance(err error) int {
 	switch {
 	case err == nil:
 		return 0
-	default:
-		return 1
 	case isUpgraded(err):
 		return 2
 	case errors.Is(err, jworker.ErrRebootMachine):
@@ -90,6 +87,8 @@ func importance(err error) int {
 		return 3
 	case errors.Is(err, jworker.ErrTerminateAgent):
 		return 4
+	default:
+		return 1
 	}
 }
 
@@ -116,7 +115,7 @@ type Breakable interface {
 // isFatal argument to worker.NewRunner, that diagnoses an error as
 // fatal if the connection has failed or if the error is otherwise
 // fatal.
-func ConnectionIsFatal(logger loggo.Logger, conns ...Breakable) func(err error) bool {
+func ConnectionIsFatal(logger Logger, conns ...Breakable) func(err error) bool {
 	return func(err error) bool {
 		if IsFatal(err) {
 			return true
@@ -131,7 +130,7 @@ func ConnectionIsFatal(logger loggo.Logger, conns ...Breakable) func(err error) 
 }
 
 // ConnectionIsDead returns true if the given Breakable is broken.
-var ConnectionIsDead = func(logger loggo.Logger, conn Breakable) bool {
+var ConnectionIsDead = func(logger Logger, conn Breakable) bool {
 	return conn.IsBroken()
 }
 
@@ -150,7 +149,7 @@ type Pinger interface {
 //     actually quite a nice idea).
 //  2. The dependency engine conversion is completed for the machine
 //     agent.
-func PingerIsFatal(logger loggo.Logger, conns ...Pinger) func(err error) bool {
+func PingerIsFatal(logger Logger, conns ...Pinger) func(err error) bool {
 	return func(err error) bool {
 		if IsFatal(err) {
 			return true
@@ -165,7 +164,7 @@ func PingerIsFatal(logger loggo.Logger, conns ...Pinger) func(err error) bool {
 }
 
 // PingerIsDead returns true if the given pinger fails to ping.
-var PingerIsDead = func(logger loggo.Logger, conn Pinger) bool {
+var PingerIsDead = func(logger Logger, conn Pinger) bool {
 	if err := conn.Ping(); err != nil {
 		logger.Infof("error pinging %T: %v", conn, err)
 		return true

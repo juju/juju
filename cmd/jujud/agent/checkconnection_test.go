@@ -12,8 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
-	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 )
 
 type checkConnectionSuite struct {
