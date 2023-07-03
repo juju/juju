@@ -14,7 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
+	"github.com/juju/juju/agent/engine"
 	jt "github.com/juju/juju/testing"
 	jv "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/deployer"
@@ -49,7 +49,10 @@ func (s *UnitAgentSuite) SetUpTest(c *gc.C) {
 			c.GetLogger("").SetLogLevel(loggo.DEBUG)
 		},
 		UnitEngineConfig: func() dependency.EngineConfig {
-			return engine.DependencyEngineConfig(dependency.DefaultMetrics())
+			return engine.DependencyEngineConfig(
+				dependency.DefaultMetrics(),
+				loggo.GetLogger("juju.worker.dependency"),
+			)
 		},
 		UnitManifolds: s.workers.Manifolds,
 	}

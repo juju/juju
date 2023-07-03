@@ -16,8 +16,8 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
+	agentengine "github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/pki"
@@ -61,9 +61,13 @@ type ModelLogger interface {
 	Close() error
 }
 
+// MetricSink describes a way to unregister a model metrics collector. This
+// ensures that we correctly tidy up after the removal of a model.
+type MetricSink = agentengine.MetricSink
+
 // ModelMetrics defines a way to create metrics for a model.
 type ModelMetrics interface {
-	ForModel(names.ModelTag) engine.MetricSink
+	ForModel(names.ModelTag) MetricSink
 }
 
 // NewModelConfig holds the information required by the NewModelWorkerFunc
@@ -74,7 +78,7 @@ type NewModelConfig struct {
 	ModelUUID        string
 	ModelType        state.ModelType
 	ModelLogger      ModelLogger
-	ModelMetrics     engine.MetricSink
+	ModelMetrics     MetricSink
 	Mux              *apiserverhttp.Mux
 	ControllerConfig controller.Config
 }

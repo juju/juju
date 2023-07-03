@@ -18,7 +18,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/pki"
 	pkitest "github.com/juju/juju/pki/test"
@@ -207,7 +206,7 @@ func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
 
 type dummyModelMetrics struct{}
 
-func (dummyModelMetrics) ForModel(model names.ModelTag) engine.MetricSink {
+func (dummyModelMetrics) ForModel(model names.ModelTag) modelworkermanager.MetricSink {
 	return dummyMetricSink{
 		Metrics: dependency.DefaultMetrics(),
 	}
