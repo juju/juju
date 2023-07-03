@@ -28,8 +28,8 @@ type ContextRelationSuite struct {
 	rel *state.Relation
 	ru  *state.RelationUnit
 
-	st      api.Connection
-	uniter  *apiuniter.State
+	conn    api.Connection
+	uniter  *apiuniter.Client
 	relUnit context.RelationUnit
 }
 
@@ -65,8 +65,8 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
-	s.st = s.OpenAPIAs(c, unit.Tag(), password)
-	s.uniter, err = uniter.NewFromConnection(s.st)
+	s.conn = s.OpenAPIAs(c, unit.Tag(), password)
+	s.uniter, err = uniter.NewFromConnection(s.conn)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.uniter, gc.NotNil)
 

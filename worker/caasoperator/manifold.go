@@ -176,8 +176,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if !ok {
 				return nil, errors.Errorf("expected an application tag, got %v", tag)
 			}
-			newUniterFunc := func(unitTag names.UnitTag) *apiuniter.State {
-				return apiuniter.NewState(apiCaller, unitTag)
+			newUniterFunc := func(unitTag names.UnitTag) *apiuniter.Client {
+				return apiuniter.NewClient(apiCaller, unitTag)
 			}
 			newResourcesFacadeFunc := func(unitTag names.UnitTag) (*apiuniter.ResourcesFacadeClient, error) {
 				return apiuniter.NewResourcesFacadeClient(apiCaller, unitTag)

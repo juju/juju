@@ -44,7 +44,7 @@ func (s *unitSuite) TestUnitAndUnitTag(c *gc.C) {
 		return nil
 	})
 	tag := names.NewUnitTag("mysql/0")
-	client := uniter.NewState(apiCaller, tag)
+	client := uniter.NewClient(apiCaller, tag)
 	unit, err := client.Unit(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Name(), gc.Equals, "mysql/0")
@@ -69,7 +69,7 @@ func (s *unitSuite) TestSetAgentStatus(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.SetAgentStatus(status.Idle, "blah", map[string]interface{}{"foo": "bar"})
@@ -91,7 +91,7 @@ func (s *unitSuite) TestSetUnitStatus(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.SetUnitStatus(status.Idle, "blah", map[string]interface{}{"foo": "bar"})
@@ -117,7 +117,7 @@ func (s *unitSuite) TestUnitStatus(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	statusInfo, err := unit.UnitStatus()
@@ -143,7 +143,7 @@ func (s *unitSuite) TestEnsureDead(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.EnsureDead()
@@ -161,7 +161,7 @@ func (s *unitSuite) TestDestroy(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.Destroy()
@@ -179,7 +179,7 @@ func (s *unitSuite) TestDestroyAllSubordinates(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.DestroyAllSubordinates()
@@ -201,7 +201,7 @@ func (s *unitSuite) TestRefresh(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.Refresh()
@@ -222,7 +222,7 @@ func (s *unitSuite) TestClearResolved(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.ClearResolved()
@@ -248,7 +248,7 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.Watch()
@@ -285,7 +285,7 @@ func (s *unitSuite) TestWatchRelations(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchRelations()
@@ -310,7 +310,7 @@ func (s *unitSuite) TestAssignedMachine(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	tag, err := unit.AssignedMachine()
@@ -332,7 +332,7 @@ func (s *unitSuite) TestPrincipalName(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	name, ok, err := unit.PrincipalName()
@@ -354,7 +354,7 @@ func (s *unitSuite) TestHasSubordinates(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	ok, err := unit.HasSubordinates()
@@ -375,7 +375,7 @@ func (s *unitSuite) TestPublicAddress(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	address, err := unit.PublicAddress()
@@ -396,7 +396,7 @@ func (s *unitSuite) TestPrivateAddress(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	address, err := unit.PrivateAddress()
@@ -417,7 +417,7 @@ func (s *unitSuite) TestAvailabilityZone(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	address, err := unit.AvailabilityZone()
@@ -438,7 +438,7 @@ func (s *unitSuite) TestCharmURL(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	curl, err := unit.CharmURL()
@@ -461,7 +461,7 @@ func (s *unitSuite) TestSetCharmURL(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.SetCharmURL("ch:mysql")
@@ -490,7 +490,7 @@ func (s *unitSuite) TestNetworkInfo(c *gc.C) {
 		return nil
 	})
 
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	result, err := unit.NetworkInfo([]string{"server"}, &relId)
@@ -512,7 +512,7 @@ func (s *unitSuite) TestConfigSettings(c *gc.C) {
 		return nil
 	})
 
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	settings, err := unit.ConfigSettings()
@@ -542,7 +542,7 @@ func (s *unitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchConfigSettingsHash()
@@ -574,7 +574,7 @@ func (s *unitSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchTrustConfigSettingsHash()
@@ -606,7 +606,7 @@ func (s *unitSuite) TestWatchAddressesHash(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchAddressesHash()
@@ -637,7 +637,7 @@ func (s *unitSuite) TestWatchUpgradeSeriesNotifications(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchUpgradeSeriesNotifications()
@@ -671,7 +671,7 @@ func (s *unitSuite) TestUpgradeSeriesStatus(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.SetUpgradeSeriesStatus(model.UpgradeSeriesCompleted, "done")
@@ -692,7 +692,7 @@ func (s *unitSuite) TestSetUpgradeSeriesStatus(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	seriesStatus, target, err := unit.UpgradeSeriesStatus()
@@ -718,7 +718,7 @@ func (s *unitSuite) TestRelationStatus(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	relStatus, err := unit.RelationsStatus()
@@ -749,7 +749,7 @@ func (s *unitSuite) TestUnitState(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	result, err := unit.State()
@@ -775,7 +775,7 @@ func (s *unitSuite) TestSetState(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.SetState(unitState)
@@ -811,7 +811,7 @@ func (s *unitSuite) TestAddMetricBatch(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	result, err := unit.AddMetricBatches([]params.MetricBatch{batch})
@@ -842,7 +842,7 @@ func (s *unitSuite) TestAddMetrics(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.AddMetrics(metrics)
@@ -853,7 +853,7 @@ func (s *unitSuite) TestAddMetricsError(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return errors.New("boom")
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.AddMetrics(nil)
@@ -874,7 +874,7 @@ func (s *unitSuite) TestMeterStatus(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	code, info, err := unit.MeterStatus()
@@ -893,7 +893,7 @@ func (s *unitSuite) TestMeterStatusResultError(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, _, err := unit.MeterStatus()
@@ -919,7 +919,7 @@ func (s *unitSuite) TestWatchInstanceData(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchInstanceData()
@@ -949,7 +949,7 @@ func (s *unitSuite) TestLXDProfileName(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	profile, err := unit.LXDProfileName()
 	c.Assert(err, jc.ErrorIsNil)
@@ -969,7 +969,7 @@ func (s *unitSuite) TestCanApplyLXDProfile(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	canApply, err := unit.CanApplyLXDProfile()
 	c.Assert(err, jc.ErrorIsNil)

@@ -93,7 +93,7 @@ func (s *relationUnitSuite) getRelationUnit(c *gc.C) *uniter.RelationUnit {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	tag := names.NewRelationTag("wordpress:db mysql:server")
 	rel := uniter.CreateRelation(client, tag)
 	relUnit, err := rel.Unit(names.NewUnitTag("mysql/0"))
@@ -180,7 +180,7 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	tag := names.NewRelationTag("wordpress:db mysql:server")
 	w, err := client.WatchRelationUnits(tag, names.NewUnitTag("mysql/0"))
 	c.Assert(err, jc.ErrorIsNil)

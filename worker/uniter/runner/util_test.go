@@ -49,7 +49,7 @@ type ContextSuite struct {
 	application *state.Application
 	machine     *state.Machine
 	unit        *state.Unit
-	uniter      *uniter.State
+	uniter      *uniter.Client
 	apiUnit     *uniter.Unit
 	payloads    *uniter.PayloadFacadeClient
 	secrets     *runnertesting.SecretsContextAccessor
@@ -99,7 +99,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 	s.AddContextRelation(c, "db1")
 
 	s.contextFactory, err = context.NewContextFactory(context.FactoryConfig{
-		State:            s.uniter,
+		Uniter:           s.uniter,
 		Unit:             s.apiUnit,
 		Payloads:         s.payloads,
 		Tracker:          &runnertesting.FakeTracker{},

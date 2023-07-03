@@ -87,7 +87,7 @@ type RelationsFunc func() map[int]*RelationInfo
 type contextFactory struct {
 	// API connection fields; unit should be deprecated, but isn't yet.
 	unit                 *uniter.Unit
-	state                *uniter.State
+	client               *uniter.Client
 	resources            *uniter.ResourcesFacadeClient
 	payloads             *uniter.PayloadFacadeClient
 	secretsClient        SecretsAccessor
@@ -117,7 +117,7 @@ type contextFactory struct {
 // FactoryConfig contains configuration values
 // for the context factory.
 type FactoryConfig struct {
-	State                *uniter.State
+	Uniter               *uniter.Client
 	SecretsClient        SecretsAccessor
 	SecretsBackendGetter SecretsBackendGetter
 	Unit                 *uniter.Unit
@@ -133,7 +133,7 @@ type FactoryConfig struct {
 // NewContextFactory returns a ContextFactory capable of creating execution contexts backed
 // by the supplied unit's supplied API connection.
 func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
-	m, err := config.State.Model()
+	m, err := config.Uniter.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -161,7 +161,7 @@ func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
 
 	f := &contextFactory{
 		unit:                 config.Unit,
-		state:                config.State,
+		client:               config.Uniter,
 		resources:            config.Resources,
 		payloads:             config.Payloads,
 		secretsClient:        config.SecretsClient,
@@ -192,13 +192,13 @@ func (f *contextFactory) newId(name string) string {
 // coreContext creates a new context with all unspecialised fields filled in.
 func (f *contextFactory) coreContext() (*HookContext, error) {
 	leadershipContext := newLeadershipContext(
-		f.state.LeadershipSettings,
+		f.client.LeadershipSettings,
 		f.tracker,
 		f.unit.Name(),
 	)
 	ctx := &HookContext{
 		unit:                 f.unit,
-		state:                f.state,
+		uniter:               f.client,
 		secretsClient:        f.secretsClient,
 		secretsBackendGetter: f.secretsBackendGetter,
 		LeadershipContext:    leadershipContext,
@@ -369,18 +369,18 @@ func (f *contextFactory) getContextRelations() map[int]*ContextRelation {
 func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	defer func() { err = errors.Trace(err) }()
 
-	ctx.apiAddrs, err = f.state.APIAddresses()
+	ctx.apiAddrs, err = f.client.APIAddresses()
 	if err != nil {
 		return err
 	}
 
-	sla, err := f.state.SLALevel()
+	sla, err := f.client.SLALevel()
 	if err != nil {
 		return errors.Annotate(err, "could not retrieve the SLA level")
 	}
 	ctx.slaLevel = sla
 
-	apiVersion, err := f.state.CloudAPIVersion()
+	apiVersion, err := f.client.CloudAPIVersion()
 	if err != nil {
 		f.logger.Warningf("could not retrieve the cloud API version: %v", err)
 	}
@@ -388,7 +388,7 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 
 	// TODO(fwereade) 23-10-2014 bug 1384572
 	// Nothing here should ever be getting the environ config directly.
-	modelConfig, err := f.state.ModelConfig()
+	modelConfig, err := f.client.ModelConfig()
 	if err != nil {
 		return err
 	}
@@ -408,7 +408,7 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	var appPortRanges map[names.UnitTag]network.GroupedPortRanges
 	switch f.modelType {
 	case model.IAAS:
-		if machPortRanges, err = f.state.OpenedMachinePortRangesByEndpoint(f.machineTag); err != nil {
+		if machPortRanges, err = f.client.OpenedMachinePortRangesByEndpoint(f.machineTag); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -417,7 +417,7 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 			f.logger.Warningf("cannot get legacy private address for %v: %v", f.unit.Name(), err)
 		}
 	case model.CAAS:
-		if appPortRanges, err = f.state.OpenedPortRangesByEndpoint(); err != nil && !errors.Is(err, errors.NotSupported) {
+		if appPortRanges, err = f.client.OpenedPortRangesByEndpoint(); err != nil && !errors.Is(err, errors.NotSupported) {
 			return errors.Trace(err)
 		}
 	}

@@ -116,7 +116,7 @@ func (opc *operationCallbacks) FailAction(actionId, message string) error {
 		return errors.Errorf("invalid action id %q", actionId)
 	}
 	tag := names.NewActionTag(actionId)
-	err := opc.u.st.ActionFinish(tag, params.ActionFailed, nil, message)
+	err := opc.u.client.ActionFinish(tag, params.ActionFailed, nil, message)
 	if params.IsCodeNotFoundOrCodeUnauthorized(err) || params.IsCodeAlreadyExists(err) {
 		err = nil
 	}
@@ -128,7 +128,7 @@ func (opc *operationCallbacks) ActionStatus(actionId string) (string, error) {
 		return "", errors.NotValidf("invalid action id %q", actionId)
 	}
 	tag := names.NewActionTag(actionId)
-	return opc.u.st.ActionStatus(tag)
+	return opc.u.client.ActionStatus(tag)
 }
 
 // GetArchiveInfo is part of the operation.Callbacks interface.
@@ -137,7 +137,7 @@ func (opc *operationCallbacks) GetArchiveInfo(url string) (charm.BundleInfo, err
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ch, err := opc.u.st.Charm(charmURL)
+	ch, err := opc.u.client.Charm(charmURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

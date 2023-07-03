@@ -54,7 +54,7 @@ func (s *relationSuite) TestRelation(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	tag := names.NewRelationTag("wordpress:db mysql:server")
 	rel, err := client.Relation(tag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -96,7 +96,7 @@ func (s *relationSuite) TestRefresh(c *gc.C) {
 		return nil
 	})
 
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	tag := names.NewRelationTag("wordpress:db mysql:server")
 	rel := uniter.CreateRelation(client, tag)
 	err := rel.Refresh()
@@ -109,7 +109,7 @@ func (s *relationSuite) TestSuspended(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	tag := names.NewRelationTag("wordpress:db mysql:server")
 	rel := uniter.CreateRelation(client, tag)
 	c.Assert(rel.Suspended(), jc.IsFalse)
@@ -136,7 +136,7 @@ func (s *relationSuite) TestSetStatus(c *gc.C) {
 		statusSet = true
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	tag := names.NewRelationTag("wordpress:db mysql:server")
 	rel := uniter.CreateRelation(client, tag)
 	err := rel.SetStatus(relation.Suspended)
@@ -160,7 +160,7 @@ func (s *relationSuite) TestRelationById(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	rel, err := client.RelationById(666)
 	c.Assert(rel.Id(), gc.Equals, 666)

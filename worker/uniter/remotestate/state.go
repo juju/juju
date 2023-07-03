@@ -88,12 +88,12 @@ type Charm interface {
 	LXDProfileRequired() (bool, error)
 }
 
-func NewAPIState(st *uniter.State) State {
+func NewAPIState(st *uniter.Client) State {
 	return apiState{st}
 }
 
 type apiState struct {
-	*uniter.State
+	*uniter.Client
 }
 
 type apiUnit struct {
@@ -109,17 +109,17 @@ type apiRelation struct {
 }
 
 func (st apiState) Relation(tag names.RelationTag) (Relation, error) {
-	r, err := st.State.Relation(tag)
+	r, err := st.Client.Relation(tag)
 	return apiRelation{r}, err
 }
 
 func (st apiState) Unit(tag names.UnitTag) (Unit, error) {
-	u, err := st.State.Unit(tag)
+	u, err := st.Client.Unit(tag)
 	return apiUnit{u}, err
 }
 
 func (st apiState) Charm(charmURL *charm.URL) (Charm, error) {
-	return st.State.Charm(charmURL)
+	return st.Client.Charm(charmURL)
 }
 
 func (u apiUnit) Application() (Application, error) {

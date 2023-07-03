@@ -42,8 +42,8 @@ func (s *podSpecSuite) TestGetPodSpec(c *gc.C) {
 		}
 		return nil
 	})
-	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	_, err := st.GetPodSpec("mysql")
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
+	_, err := client.GetPodSpec("mysql")
 	c.Assert(err, gc.ErrorMatches, "yoink")
 }
 
@@ -53,8 +53,8 @@ func (s *podSpecSuite) TestGetPodSpecInvalidApplicationName(c *gc.C) {
 		return nil
 	})
 
-	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	_, err := st.GetPodSpec("")
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
+	_, err := client.GetPodSpec("")
 	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
 }
 
@@ -79,8 +79,8 @@ func (s *podSpecSuite) TestGetPodSpecError(c *gc.C) {
 		return errors.New(msg)
 	})
 
-	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	_, err := st.GetPodSpec("mysql")
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
+	_, err := client.GetPodSpec("mysql")
 	c.Assert(err, gc.ErrorMatches, msg)
 	c.Assert(called, jc.IsTrue)
 }
@@ -105,8 +105,8 @@ func (s *podSpecSuite) TestGetPodSpecArity(c *gc.C) {
 		return nil
 	})
 
-	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	_, err := st.GetPodSpec("mysql")
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
+	_, err := client.GetPodSpec("mysql")
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
 
@@ -131,8 +131,8 @@ func (s *podSpecSuite) TestGetRawK8sSpec(c *gc.C) {
 		}
 		return nil
 	})
-	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	_, err := st.GetRawK8sSpec("mysql")
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
+	_, err := client.GetRawK8sSpec("mysql")
 	c.Assert(err, gc.ErrorMatches, "yoink")
 }
 
@@ -142,8 +142,8 @@ func (s *podSpecSuite) TestGetRawK8sSpecInvalidApplicationName(c *gc.C) {
 		return nil
 	})
 
-	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	_, err := st.GetRawK8sSpec("")
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
+	_, err := client.GetRawK8sSpec("")
 	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
 }
 
@@ -168,8 +168,8 @@ func (s *podSpecSuite) TestGetRawK8sSpecError(c *gc.C) {
 		return errors.New(msg)
 	})
 
-	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	_, err := st.GetRawK8sSpec("mysql")
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
+	_, err := client.GetRawK8sSpec("mysql")
 	c.Assert(err, gc.ErrorMatches, msg)
 	c.Assert(called, jc.IsTrue)
 }
@@ -194,7 +194,7 @@ func (s *podSpecSuite) TestGetRawK8sSpecArity(c *gc.C) {
 		return nil
 	})
 
-	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	_, err := st.GetRawK8sSpec("mysql")
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
+	_, err := client.GetRawK8sSpec("mysql")
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }

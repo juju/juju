@@ -25,7 +25,7 @@ func (s *charmSuite) TestCharmWithNilFails(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	_, err := client.Charm(nil)
 	c.Assert(err, gc.ErrorMatches, "charm url cannot be nil")
 }
@@ -34,7 +34,7 @@ func (s *charmSuite) TestCharm(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	curl := charm.MustParseURL("ch:mysql")
 	ch, err := client.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
@@ -59,7 +59,7 @@ func (s *charmSuite) TestArchiveSha256(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	ch, err := client.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	sha, err := ch.ArchiveSha256()
@@ -84,7 +84,7 @@ func (s *charmSuite) TestLXDProfileRequired(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	ch, err := client.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	required, err := ch.LXDProfileRequired()

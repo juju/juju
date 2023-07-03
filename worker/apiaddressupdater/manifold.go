@@ -52,7 +52,7 @@ func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) 
 	var facade APIAddresser
 	switch apiTag := tag.(type) {
 	case names.UnitTag:
-		facade = uniter.NewState(apiCaller, apiTag)
+		facade = uniter.NewClient(apiCaller, apiTag)
 	case names.ApplicationTag:
 		facade = caasoperator.NewClient(apiCaller)
 	case names.MachineTag:

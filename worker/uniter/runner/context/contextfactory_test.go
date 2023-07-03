@@ -60,7 +60,7 @@ func (s *ContextFactorySuite) SetUpTest(c *gc.C) {
 	s.membership = map[int][]string{}
 
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
-		State:            s.uniter,
+		Uniter:           s.uniter,
 		Unit:             s.apiUnit,
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
@@ -289,7 +289,7 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
-		State:            uniter,
+		Uniter:           uniter,
 		Unit:             apiUnit,
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
@@ -384,8 +384,8 @@ func (s *ContextFactorySuite) setupPodSpec(c *gc.C) (*state.State, context.Conte
 	c.Assert(err, jc.ErrorIsNil)
 
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
-		State: uniter,
-		Unit:  apiUnit,
+		Uniter: uniter,
+		Unit:   apiUnit,
 		Tracker: &runnertesting.FakeTracker{
 			AllowClaimLeader: true,
 		},
@@ -593,8 +593,8 @@ func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
-		State: uniter,
-		Unit:  apiUnit,
+		Uniter: uniter,
+		Unit:   apiUnit,
 		Tracker: &runnertesting.FakeTracker{
 			AllowClaimLeader: true,
 		},

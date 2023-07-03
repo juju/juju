@@ -21,7 +21,7 @@ type FactoryParams struct {
 	Deployer       charm.Deployer
 	RunnerFactory  runner.Factory
 	Callbacks      Callbacks
-	State          *uniter.State
+	State          *uniter.Client
 	Abort          <-chan struct{}
 	MetricSpoolDir string
 	Logger         Logger

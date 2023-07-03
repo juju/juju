@@ -112,7 +112,7 @@ func (s *applicationSuite) apiCallerFunc(c *gc.C) basetesting.APICallerFunc {
 }
 
 func (s *applicationSuite) TestNameTagAndString(c *gc.C) {
-	client := uniter.NewState(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
 	tag := names.NewApplicationTag("mysql")
 	app, err := client.Application(tag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -123,7 +123,7 @@ func (s *applicationSuite) TestNameTagAndString(c *gc.C) {
 }
 
 func (s *applicationSuite) TestWatch(c *gc.C) {
-	client := uniter.NewState(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
 	app, err := client.Application(names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -142,7 +142,7 @@ func (s *applicationSuite) TestWatch(c *gc.C) {
 }
 
 func (s *applicationSuite) TestRefresh(c *gc.C) {
-	client := uniter.NewState(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
 	app, err := client.Application(names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -153,7 +153,7 @@ func (s *applicationSuite) TestRefresh(c *gc.C) {
 }
 
 func (s *applicationSuite) TestCharmURL(c *gc.C) {
-	client := uniter.NewState(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
 	app, err := client.Application(names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -164,7 +164,7 @@ func (s *applicationSuite) TestCharmURL(c *gc.C) {
 }
 
 func (s *applicationSuite) TestCharmModifiedVersion(c *gc.C) {
-	client := uniter.NewState(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
 	app, err := client.Application(names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -174,7 +174,7 @@ func (s *applicationSuite) TestCharmModifiedVersion(c *gc.C) {
 }
 
 func (s *applicationSuite) TestSetApplicationStatus(c *gc.C) {
-	client := uniter.NewState(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
 	app, err := client.Application(names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -184,7 +184,7 @@ func (s *applicationSuite) TestSetApplicationStatus(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationStatus(c *gc.C) {
-	client := uniter.NewState(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
 	app, err := client.Application(names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
 

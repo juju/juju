@@ -43,7 +43,7 @@ func (s *actionSuite) TestAction(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	a, err := client.Action(names.NewActionTag("666"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -67,7 +67,7 @@ func (s *actionSuite) TestActionError(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	_, err := client.Action(names.NewActionTag("666"))
 	c.Assert(err, gc.ErrorMatches, "boom")
@@ -84,7 +84,7 @@ func (s *actionSuite) TestActionBegin(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	err := client.ActionBegin(names.NewActionTag("666"))
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
@@ -105,7 +105,7 @@ func (s *actionSuite) TestActionFinish(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	err := client.ActionFinish(names.NewActionTag("666"), "failed", map[string]interface{}{"foo": "bar"}, "oops")
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
@@ -121,7 +121,7 @@ func (s *actionSuite) TestActionStatus(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	status, err := client.ActionStatus(names.NewActionTag("666"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, "failed")
@@ -141,7 +141,7 @@ func (s *actionSuite) TestLogActionMessage(c *gc.C) {
 		return nil
 	})
 	caller := basetesting.BestVersionCaller{apiCaller, 12}
-	client := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.LogActionMessage(names.NewActionTag("666"), "hello")
@@ -168,7 +168,7 @@ func (s *actionSuite) TestWatchActionNotifications(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchActionNotifications()
@@ -184,7 +184,7 @@ func (s *actionSuite) TestWatchActionNotificationsError(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return errors.New("boom")
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, err := unit.WatchActionNotifications()
@@ -204,7 +204,7 @@ func (s *actionSuite) TestWatchActionNotificationsErrorResults(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, err := unit.WatchActionNotifications()
@@ -217,7 +217,7 @@ func (s *actionSuite) TestWatchActionNotificationsNoResults(c *gc.C) {
 		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, err := unit.WatchActionNotifications()
@@ -232,7 +232,7 @@ func (s *actionSuite) TestWatchActionNotificationsMoreResults(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, err := unit.WatchActionNotifications()

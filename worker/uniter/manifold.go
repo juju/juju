@@ -172,19 +172,19 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if !ok {
 				return nil, errors.Errorf("expected a unit tag, got %v", tag)
 			}
-			resourcesFacade, err := uniter.NewResourcesFacadeClient(apiConn, unitTag)
+			resourcesClient, err := uniter.NewResourcesFacadeClient(apiConn, unitTag)
 			if err != nil {
 				return nil, err
 			}
-			payloadFacade := uniter.NewPayloadFacadeClient(apiConn)
+			payloadClient := uniter.NewPayloadFacadeClient(apiConn)
 
 			secretsBackendGetter := func() (secrets.BackendsClient, error) {
 				return secrets.NewClient(jujuSecretsAPI)
 			}
 			uniter, err := NewUniter(&UniterParams{
-				UniterFacade:                 uniter.NewState(apiConn, unitTag),
-				ResourcesFacade:              resourcesFacade,
-				PayloadFacade:                payloadFacade,
+				UniterClient:                 uniter.NewClient(apiConn, unitTag),
+				ResourcesClient:              resourcesClient,
+				PayloadClient:                payloadClient,
 				SecretsClient:                jujuSecretsAPI,
 				SecretsBackendGetter:         secretsBackendGetter,
 				UnitTag:                      unitTag,

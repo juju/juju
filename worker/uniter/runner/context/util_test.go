@@ -48,7 +48,7 @@ type HookContextSuite struct {
 	clock          *testclock.Clock
 
 	st             api.Connection
-	uniter         *uniter.State
+	uniter         *uniter.Client
 	payloads       *uniter.PayloadFacadeClient
 	apiUnit        *uniter.Unit
 	meteredAPIUnit *uniter.Unit
@@ -195,7 +195,7 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int, remot
 
 	context, err := runnercontext.NewHookContext(runnercontext.HookContextParams{
 		Unit:                s.apiUnit,
-		State:               facade,
+		Uniter:              facade,
 		ID:                  "TestCtx",
 		UUID:                uuid,
 		ModelName:           env.Name(),
@@ -238,7 +238,7 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 
 	context, err := runnercontext.NewHookContext(runnercontext.HookContextParams{
 		Unit:                s.meteredAPIUnit,
-		State:               facade,
+		Uniter:              facade,
 		ID:                  "TestCtx",
 		UUID:                uuid,
 		ModelName:           "test-model-name",

@@ -19,7 +19,7 @@ import (
 // and allows clients to conveniently access unit-specific
 // functionality.
 type RelationUnit struct {
-	st       *State
+	client   *Client
 	relation *Relation
 	unitTag  names.UnitTag
 	appTag   names.ApplicationTag
@@ -64,7 +64,7 @@ func (ru *RelationUnit) EnterScope() error {
 			Unit:     ru.unitTag.String(),
 		}},
 	}
-	err := ru.st.facade.FacadeCall("EnterScope", args, &result)
+	err := ru.client.facade.FacadeCall("EnterScope", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -84,7 +84,7 @@ func (ru *RelationUnit) LeaveScope() error {
 			Unit:     ru.unitTag.String(),
 		}},
 	}
-	err := ru.st.facade.FacadeCall("LeaveScope", args, &result)
+	err := ru.client.facade.FacadeCall("LeaveScope", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -101,7 +101,7 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 			Unit:     ru.unitTag.String(),
 		}},
 	}
-	err := ru.st.facade.FacadeCall("ReadSettings", args, &results)
+	err := ru.client.facade.FacadeCall("ReadSettings", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -124,7 +124,7 @@ func (ru *RelationUnit) ApplicationSettings() (*Settings, error) {
 		Relation: ru.relation.tag.String(),
 		Unit:     ru.unitTag.String(),
 	}
-	if err := ru.st.facade.FacadeCall("ReadLocalApplicationSettings", arg, &result); err != nil {
+	if err := ru.client.facade.FacadeCall("ReadLocalApplicationSettings", arg, &result); err != nil {
 		return nil, errors.Trace(err)
 	} else if result.Error != nil {
 		return nil, errors.Trace(result.Error)
@@ -156,7 +156,7 @@ func (ru *RelationUnit) ReadSettings(name string) (params.Settings, error) {
 			RemoteUnit: tag.String(),
 		}},
 	}
-	err := ru.st.facade.FacadeCall("ReadRemoteSettings", args, &results)
+	err := ru.client.facade.FacadeCall("ReadRemoteSettings", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

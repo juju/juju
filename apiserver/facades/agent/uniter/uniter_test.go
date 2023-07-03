@@ -190,7 +190,7 @@ func (s *uniterSuiteBase) assertInScope(c *gc.C, relUnit *state.RelationUnit, in
 // in a new suite.
 // If we are testing a CAAS model, it is a waste of resources to do preamble
 // for an IAAS model.
-func (s *uniterSuiteBase) setupCAASModel(c *gc.C, isSidecar bool) (*apiuniter.State, *state.CAASModel, *state.Application, *state.Unit) {
+func (s *uniterSuiteBase) setupCAASModel(c *gc.C, isSidecar bool) (*apiuniter.Client, *state.CAASModel, *state.Application, *state.Unit) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)

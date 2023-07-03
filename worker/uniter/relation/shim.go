@@ -10,11 +10,11 @@ import (
 )
 
 type stateTrackerStateShim struct {
-	*uniter.State
+	*uniter.Client
 }
 
 func (s *stateTrackerStateShim) Relation(tag names.RelationTag) (Relation, error) {
-	rel, err := s.State.Relation(tag)
+	rel, err := s.Client.Relation(tag)
 	if err != nil {
 		return nil, err
 	}
@@ -23,7 +23,7 @@ func (s *stateTrackerStateShim) Relation(tag names.RelationTag) (Relation, error
 
 // RelationById returns the existing relation with the given id.
 func (s *stateTrackerStateShim) RelationById(id int) (Relation, error) {
-	rel, err := s.State.RelationById(id)
+	rel, err := s.Client.RelationById(id)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +32,7 @@ func (s *stateTrackerStateShim) RelationById(id int) (Relation, error) {
 
 // Unit returns the existing unit with the given tag.
 func (s *stateTrackerStateShim) Unit(tag names.UnitTag) (Unit, error) {
-	unit, err := s.State.Unit(tag)
+	unit, err := s.Client.Unit(tag)
 	if err != nil {
 		return nil, err
 	}
