@@ -1,4 +1,4 @@
-// Copyright 2016 Canonical Ltd.
+// Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package engine_test
@@ -12,8 +12,8 @@ import (
 	dt "github.com/juju/worker/v3/dependency/testing"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
 )
 
 type APIManifoldSuite struct {

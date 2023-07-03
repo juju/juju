@@ -108,14 +108,6 @@ func (s *AgentAPIManifoldSuite) TestStartSuccess(c *gc.C) {
 	}})
 }
 
-type dummyAPICaller struct {
-	base.APICaller
-}
-
 type dummyAgent struct {
 	agent.Agent
-}
-
-type dummyWorker struct {
-	worker.Worker
 }
