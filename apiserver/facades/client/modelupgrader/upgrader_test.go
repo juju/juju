@@ -218,6 +218,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 
 	// Decide/validate target version.
 	ctrlState.EXPECT().ControllerConfig().Return(controllerCfg, nil)
+	ctrlModel.EXPECT().Life().Return(state.Alive)
 	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.1"), nil)
 	ctrlModel.EXPECT().Type().Return(state.ModelTypeIAAS)
 	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
@@ -268,6 +269,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	// 2. Check other models.
 	s.statePool.EXPECT().Get(model1ModelUUID.String()).Return(state1, nil)
 	state1.EXPECT().Model().Return(model1, nil)
+	model1.EXPECT().Life().Return(state.Alive)
 	// - check agent version;
 	model1.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
 	//  - check if model migration is ongoing;
@@ -308,6 +310,110 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3DryRun(c *gc.
 	s.assertUpgradeModelForControllerModelJuju3(c, true)
 }
 
+func (s *modelUpgradeSuite) TestUpgradeModelForControllerDyingHostedModelJuju3(c *gc.C) {
+	ctrl, api := s.getModelUpgraderAPI(c)
+	defer ctrl.Finish()
+
+	s.PatchValue(&upgradevalidation.MinAgentVersions, map[int]version.Number{
+		3: version.MustParse("2.9.1"),
+	})
+
+	server := upgradevalidationmocks.NewMockServer(ctrl)
+	serverFactory := upgradevalidationmocks.NewMockServerFactory(ctrl)
+	s.PatchValue(&upgradevalidation.NewServerFactory,
+		func(_ lxd.NewHTTPClientFunc) lxd.ServerFactory {
+			return serverFactory
+		},
+	)
+
+	ctrlModelTag := coretesting.ModelTag
+	model1ModelUUID, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	ctrlModel := mocks.NewMockModel(ctrl)
+	model1 := mocks.NewMockModel(ctrl)
+	ctrlModel.EXPECT().IsControllerModel().Return(true).AnyTimes()
+
+	ctrlState := mocks.NewMockState(ctrl)
+	state1 := mocks.NewMockState(ctrl)
+	ctrlState.EXPECT().Release().AnyTimes()
+	ctrlState.EXPECT().Model().Return(ctrlModel, nil)
+	state1.EXPECT().Release()
+
+	s.statePool.EXPECT().Get(ctrlModelTag.Id()).Return(ctrlState, nil)
+	s.blockChecker.EXPECT().ChangeAllowed().Return(nil)
+
+	// Decide/validate target version.
+	ctrlState.EXPECT().ControllerConfig().Return(controllerCfg, nil)
+	ctrlModel.EXPECT().Life().Return(state.Alive)
+	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.1"), nil)
+	ctrlModel.EXPECT().Type().Return(state.ModelTypeIAAS)
+	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
+		Number:        version.MustParse("3.9.99"),
+		ControllerCfg: controllerCfg, ModelType: state.ModelTypeIAAS}).Return(
+		[]*coretools.Tools{
+			{Version: version.MustParseBinary("3.9.99-ubuntu-amd64")},
+		}, nil,
+	)
+
+	// 1. Check controller model.
+	// - check agent version;
+	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.1"), nil)
+	// - check mongo status;
+	ctrlState.EXPECT().MongoCurrentStatus().Return(&replicaset.Status{
+		Members: []replicaset.MemberStatus{
+			{
+				Id:      1,
+				Address: "1.1.1.1",
+				State:   replicaset.PrimaryState,
+			},
+			{
+				Id:      2,
+				Address: "2.2.2.2",
+				State:   replicaset.SecondaryState,
+			},
+			{
+				Id:      3,
+				Address: "3.3.3.3",
+				State:   replicaset.SecondaryState,
+			},
+		},
+	}, nil)
+	// - check mongo version;
+	s.statePool.EXPECT().MongoVersion().Return("4.4", nil)
+	// - check if the model has win machines;
+	ctrlState.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
+	// - check if the model has deprecated ubuntu machines;
+	ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
+	// - check LXD version.
+	// - check if model has charm store charms;
+	ctrlState.EXPECT().AllCharmURLs().Return(nil, errors.NotFoundf("charms"))
+	serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil)
+	server.EXPECT().ServerVersion().Return("5.2")
+
+	ctrlState.EXPECT().AllModelUUIDs().Return([]string{ctrlModelTag.Id(), model1ModelUUID.String()}, nil)
+
+	// 2. Check other models.
+	s.statePool.EXPECT().Get(model1ModelUUID.String()).Return(state1, nil)
+	state1.EXPECT().Model().Return(model1, nil)
+	// Skip this dying model.
+	model1.EXPECT().Life().Return(state.Dying)
+
+	ctrlState.EXPECT().SetModelAgentVersion(version.MustParse("3.9.99"), nil, false).Return(nil)
+
+	result, err := api.UpgradeModel(
+		params.UpgradeModelParams{
+			ModelTag:      ctrlModelTag.String(),
+			TargetVersion: version.MustParse("3.9.99"),
+			AgentStream:   "",
+			DryRun:        false,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.UpgradeModelResult{
+		ChosenVersion: version.MustParse("3.9.99"),
+	})
+}
+
 func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
@@ -343,6 +449,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 
 	// Decide/validate target version.
 	ctrlState.EXPECT().ControllerConfig().Return(controllerCfg, nil)
+	ctrlModel.EXPECT().Life().Return(state.Alive)
 	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
 	ctrlModel.EXPECT().Type().Return(state.ModelTypeIAAS)
 	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
@@ -394,6 +501,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	// 2. Check other models.
 	s.statePool.EXPECT().Get(model1ModelUUID.String()).Return(state1, nil)
 	state1.EXPECT().Model().Return(model1, nil)
+	model1.EXPECT().Life().Return(state.Alive)
 	// - check agent version;
 	model1.EXPECT().AgentVersion().Return(version.MustParse("2.9.0"), nil)
 	//  - check if model migration is ongoing;
@@ -466,6 +574,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 
 	// Decide/validate target version.
 	st.EXPECT().ControllerConfig().Return(controllerCfg, nil)
+	model.EXPECT().Life().Return(state.Alive)
 	model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
 	model.EXPECT().Type().Return(state.ModelTypeIAAS)
 	model.EXPECT().IsControllerModel().Return(false)
@@ -544,6 +653,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 
 	// Decide/validate target version.
 	st.EXPECT().ControllerConfig().Return(controllerCfg, nil)
+	model.EXPECT().Life().Return(state.Alive)
 	model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
 	model.EXPECT().Type().Return(state.ModelTypeIAAS)
 	model.EXPECT().IsControllerModel().Return(false)

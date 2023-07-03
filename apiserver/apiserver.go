@@ -404,7 +404,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 	srv.shared.cancel = srv.tomb.Dying()
 
 	// The auth context for authenticating access to application offers.
-	srv.offerAuthCtxt, err = newOfferAuthContext(cfg.StatePool, srv.jwtAuthenticator)
+	srv.offerAuthCtxt, err = newOfferAuthcontext(cfg.StatePool)
 	if err != nil {
 		unsubscribeControllerConfig()
 		return nil, errors.Trace(err)

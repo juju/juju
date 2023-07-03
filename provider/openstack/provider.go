@@ -578,7 +578,6 @@ func (e *Environ) neutron() *neutron.Client {
 var unsupportedConstraints = []string{
 	constraints.Tags,
 	constraints.CpuPower,
-	constraints.ImageID,
 }
 
 // ConstraintsValidator is defined on the Environs interface.
@@ -1265,6 +1264,7 @@ func (e *Environ) startInstance(
 		Metadata:           args.InstanceConfig.Tags,
 		AvailabilityZone:   args.AvailabilityZone,
 	}
+
 	err = e.configureRootDisk(ctx, args, spec, &opts)
 	if err != nil {
 		return nil, environs.ZoneIndependentError(err)
@@ -1619,8 +1619,15 @@ func (e *Environ) configureRootDisk(_ context.ProviderCallContext, args environs
 	}
 	switch rootDiskSource {
 	case rootDiskSourceLocal:
-		runOpts.ImageId = spec.Image.Id
+		if args.Constraints.HasImageID() {
+			runOpts.ImageId = *args.Constraints.ImageID
+		} else {
+			runOpts.ImageId = spec.Image.Id
+		}
 	case rootDiskSourceVolume:
+		if args.Constraints.HasImageID() {
+			runOpts.ImageId = *args.Constraints.ImageID
+		}
 		size := uint64(0)
 		if args.Constraints.HasRootDisk() {
 			size = *args.Constraints.RootDisk

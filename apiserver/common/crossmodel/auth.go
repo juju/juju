@@ -12,12 +12,10 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/lestrrat-go/jwx/v2/jwt"
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
-	authjwt "github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coremacaroon "github.com/juju/juju/core/macaroon"
@@ -62,14 +60,10 @@ func (CrossModelAuthorizer) AuthorizeOps(ctx context.Context, authorizedOp baker
 	return allowed, nil, nil
 }
 
-type tokenPermissionFunc func(token jwt.Token, subject names.Tag) (permission.Access, error)
-
 // AuthContext is used to validate macaroons used to access
 // application offers.
 type AuthContext struct {
-	systemState     Backend
-	tokenPermission tokenPermissionFunc
-	tokenParser     authjwt.TokenParser
+	systemState Backend
 
 	clock              clock.Clock
 	offerThirdPartyKey *bakery.KeyPair
@@ -84,16 +78,12 @@ func NewAuthContext(
 	systemState Backend,
 	offerThirdPartyKey *bakery.KeyPair,
 	offerBakery authentication.ExpirableStorageBakery,
-	tokenParser authjwt.TokenParser,
-	tokenPermission tokenPermissionFunc,
 ) (*AuthContext, error) {
 	ctxt := &AuthContext{
 		systemState:        systemState,
 		clock:              clock.WallClock,
 		offerBakery:        offerBakery,
 		offerThirdPartyKey: offerThirdPartyKey,
-		tokenParser:        tokenParser,
-		tokenPermission:    tokenPermission,
 	}
 	return ctxt, nil
 }
@@ -439,21 +429,4 @@ func (a *authenticator) CheckRelationMacaroons(ctx context.Context, sourceModelU
 	}
 	_, err := a.checkMacaroons(ctx, mac, version, requiredValues, crossModelRelateOp(relationTag.Id()))
 	return err
-}
-
-// TODO - this will be removed soon
-// CheckOfferToken verifies that session auth token allows access to the offer.
-func (a *authenticator) CheckOfferToken(ctx context.Context, authToken string) (string, error) {
-	tok, entity, err := a.ctxt.tokenParser.Parse(ctx, authToken)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	userAccess := func(user names.UserTag, target names.Tag) (permission.Access, error) {
-		if entity.Tag() != user {
-			return permission.NoAccess, nil
-		}
-		return a.ctxt.tokenPermission(tok, target)
-	}
-	username := entity.Tag().Id()
-	return username, a.ctxt.checkOfferAccess(userAccess, username, "")
 }

@@ -8,6 +8,8 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/common/secrets"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/secrets/provider"
@@ -34,5 +36,13 @@ func newUndertakerFacade(ctx facade.Context) (*UndertakerAPI, error) {
 		}
 		return secrets.AdminBackendConfigInfo(secrets.SecretsModel(model))
 	}
-	return newUndertakerAPI(&stateShim{st, m}, ctx.Resources(), ctx.Auth(), secretsBackendsGetter)
+	cloudSpecAPI := cloudspec.NewCloudSpec(
+		ctx.Resources(),
+		cloudspec.MakeCloudSpecGetterForModel(st),
+		cloudspec.MakeCloudSpecWatcherForModel(st),
+		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
+		common.AuthFuncForTag(m.ModelTag()),
+	)
+	return newUndertakerAPI(&stateShim{st}, ctx.Resources(), ctx.Auth(), secretsBackendsGetter, cloudSpecAPI)
 }

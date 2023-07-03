@@ -31,7 +31,7 @@ func (s *UndertakerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	minute := time.Minute
 	s.fix = fixture{
-		clock: testclock.NewClock(time.Now()),
+		clock: testclock.NewDilatedWallClock(10 * time.Millisecond),
 		info: params.UndertakerModelInfoResult{
 			Result: params.UndertakerModelInfo{
 				Life:           "dying",
@@ -48,7 +48,7 @@ func (s *UndertakerSuite) TestAliveError(c *gc.C) {
 		err := workertest.CheckKilled(c, w)
 		c.Check(err, gc.ErrorMatches, "model still alive")
 	})
-	stub.CheckCallNames(c, "ModelInfo")
+	stub.CheckCallNames(c, "WatchModel", "ModelInfo")
 }
 
 func (s *UndertakerSuite) TestAlreadyDeadRemoves(c *gc.C) {
@@ -56,7 +56,7 @@ func (s *UndertakerSuite) TestAlreadyDeadRemoves(c *gc.C) {
 	stub := s.fix.run(c, func(w worker.Worker) {
 		workertest.CheckKilled(c, w)
 	})
-	stub.CheckCallNames(c, "ModelInfo", "SetStatus", "Destroy", "RemoveModel")
+	stub.CheckCallNames(c, "WatchModel", "ModelInfo", "SetStatus", "ModelConfig", "CloudSpec", "Destroy", "RemoveModel")
 }
 
 func (s *UndertakerSuite) TestDyingDeadRemoved(c *gc.C) {
@@ -64,11 +64,14 @@ func (s *UndertakerSuite) TestDyingDeadRemoved(c *gc.C) {
 		workertest.CheckKilled(c, w)
 	})
 	stub.CheckCallNames(c,
+		"WatchModel",
 		"ModelInfo",
 		"SetStatus",
 		"WatchModelResources",
 		"ProcessDyingModel",
 		"SetStatus",
+		"ModelConfig",
+		"CloudSpec",
 		"Destroy",
 		"RemoveModel",
 	)
@@ -78,12 +81,15 @@ func (s *UndertakerSuite) TestSetStatusDestroying(c *gc.C) {
 	stub := s.fix.run(c, func(w worker.Worker) {
 		workertest.CheckKilled(c, w)
 	})
+	stub.CheckCallNames(c,
+		"WatchModel", "ModelInfo", "SetStatus", "WatchModelResources", "ProcessDyingModel",
+		"SetStatus", "ModelConfig", "CloudSpec", "Destroy", "RemoveModel")
 	stub.CheckCall(
-		c, 1, "SetStatus", status.Destroying,
+		c, 2, "SetStatus", status.Destroying,
 		"cleaning up cloud resources", map[string]interface{}(nil),
 	)
 	stub.CheckCall(
-		c, 4, "SetStatus", status.Destroying,
+		c, 5, "SetStatus", status.Destroying,
 		"tearing down cloud environment", map[string]interface{}(nil),
 	)
 }
@@ -94,6 +100,7 @@ func (s *UndertakerSuite) TestControllerStopsWhenModelDead(c *gc.C) {
 		workertest.CheckKilled(c, w)
 	})
 	stub.CheckCallNames(c,
+		"WatchModel",
 		"ModelInfo",
 		"SetStatus",
 		"WatchModelResources",
@@ -102,27 +109,28 @@ func (s *UndertakerSuite) TestControllerStopsWhenModelDead(c *gc.C) {
 }
 
 func (s *UndertakerSuite) TestModelInfoErrorFatal(c *gc.C) {
-	s.fix.errors = []error{errors.New("pow")}
+	s.fix.errors = []error{nil, errors.New("pow")}
 	s.fix.dirty = true
 	stub := s.fix.run(c, func(w worker.Worker) {
 		err := workertest.CheckKilled(c, w)
 		c.Check(err, gc.ErrorMatches, "pow")
 	})
-	stub.CheckCallNames(c, "ModelInfo")
+	stub.CheckCallNames(c, "WatchModel", "ModelInfo")
 }
 
 func (s *UndertakerSuite) TestWatchModelResourcesErrorFatal(c *gc.C) {
-	s.fix.errors = []error{nil, nil, errors.New("pow")}
+	s.fix.errors = []error{nil, nil, nil, errors.New("pow")}
 	s.fix.dirty = true
 	stub := s.fix.run(c, func(w worker.Worker) {
 		err := workertest.CheckKilled(c, w)
-		c.Check(err, gc.ErrorMatches, "pow")
+		c.Check(err, gc.ErrorMatches, "proccesing model death: pow")
 	})
-	stub.CheckCallNames(c, "ModelInfo", "SetStatus", "WatchModelResources")
+	stub.CheckCallNames(c, "WatchModel", "ModelInfo", "SetStatus", "WatchModelResources")
 }
 
 func (s *UndertakerSuite) TestProcessDyingModelErrorRetried(c *gc.C) {
 	s.fix.errors = []error{
+		nil, // WatchModel
 		nil, // ModelInfo
 		nil, // SetStatus
 		nil, // WatchModelResources,
@@ -132,6 +140,8 @@ func (s *UndertakerSuite) TestProcessDyingModelErrorRetried(c *gc.C) {
 		nil, // SetStatus
 		nil, // ProcessDyingModel,
 		nil, // SetStatus
+		nil, // ModelConfig
+		nil, // CloudSpec
 		nil, // Destroy,
 		nil, // RemoveModel
 	}
@@ -139,6 +149,7 @@ func (s *UndertakerSuite) TestProcessDyingModelErrorRetried(c *gc.C) {
 		workertest.CheckKilled(c, w)
 	})
 	stub.CheckCallNames(c,
+		"WatchModel",
 		"ModelInfo",
 		"SetStatus",
 		"WatchModelResources",
@@ -148,6 +159,8 @@ func (s *UndertakerSuite) TestProcessDyingModelErrorRetried(c *gc.C) {
 		"SetStatus",
 		"ProcessDyingModel",
 		"SetStatus",
+		"ModelConfig",
+		"CloudSpec",
 		"Destroy",
 		"RemoveModel",
 	)
@@ -155,6 +168,7 @@ func (s *UndertakerSuite) TestProcessDyingModelErrorRetried(c *gc.C) {
 
 func (s *UndertakerSuite) TestProcessDyingModelErrorFatal(c *gc.C) {
 	s.fix.errors = []error{
+		nil, // WatchModel
 		nil, // ModelInfo
 		nil, // SetStatus
 		nil, // WatchModelResources,
@@ -163,9 +177,10 @@ func (s *UndertakerSuite) TestProcessDyingModelErrorFatal(c *gc.C) {
 	s.fix.dirty = true
 	stub := s.fix.run(c, func(w worker.Worker) {
 		err := workertest.CheckKilled(c, w)
-		c.Check(err, gc.ErrorMatches, "nope")
+		c.Check(err, gc.ErrorMatches, "proccesing model death: nope")
 	})
 	stub.CheckCallNames(c,
+		"WatchModel",
 		"ModelInfo",
 		"SetStatus",
 		"WatchModelResources",
@@ -174,44 +189,50 @@ func (s *UndertakerSuite) TestProcessDyingModelErrorFatal(c *gc.C) {
 }
 
 func (s *UndertakerSuite) TestDestroyErrorFatal(c *gc.C) {
-	s.fix.errors = []error{nil, nil, errors.New("pow")}
+	s.fix.errors = []error{nil, nil, nil, nil, nil, errors.New("pow")}
 	s.fix.info.Result.Life = "dead"
 	s.fix.dirty = true
 	stub := s.fix.run(c, func(w worker.Worker) {
 		err := workertest.CheckKilled(c, w)
-		c.Check(err, gc.ErrorMatches, "cannot destroy cloud resources: pow")
+		c.Check(err, gc.ErrorMatches, "cannot destroy cloud resources: process destroy environ: pow")
 	})
-	stub.CheckCallNames(c, "ModelInfo", "SetStatus", "Destroy")
+	stub.CheckCallNames(c, "WatchModel", "ModelInfo", "SetStatus", "ModelConfig", "CloudSpec", "Destroy")
 }
 
 func (s *UndertakerSuite) TestDestroyErrorForced(c *gc.C) {
-	s.fix.errors = []error{nil, nil, errors.New("pow")}
+	s.fix.errors = []error{nil, nil, nil, nil, nil, errors.New("pow")}
 	s.fix.info.Result.Life = "dead"
 	s.fix.info.Result.ForceDestroyed = true
+	destroyTimeout := 500 * time.Millisecond
+	s.fix.info.Result.DestroyTimeout = &destroyTimeout
 	stub := s.fix.run(c, func(w worker.Worker) {
 		err := workertest.CheckKilled(c, w)
 		c.Assert(err, jc.ErrorIsNil)
 	})
 	// Removal continues despite the error calling destroy.
-	stub.CheckCallNames(c, "ModelInfo", "SetStatus", "Destroy", "RemoveModel")
+	mainCalls, destroyCloudCalls := s.sortCalls(c, stub)
+	c.Assert(mainCalls, jc.DeepEquals, []string{"WatchModel", "ModelInfo", "SetStatus", "RemoveModel"})
+	c.Assert(destroyCloudCalls, jc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
 	// Logged the failed destroy call.
 	s.fix.logger.stub.CheckCallNames(c, "Errorf")
 }
 
 func (s *UndertakerSuite) TestRemoveModelErrorFatal(c *gc.C) {
-	s.fix.errors = []error{nil, nil, nil, errors.New("pow")}
+	s.fix.errors = []error{nil, nil, nil, nil, nil, nil, errors.New("pow")}
 	s.fix.info.Result.Life = "dead"
 	s.fix.dirty = true
 	stub := s.fix.run(c, func(w worker.Worker) {
 		err := workertest.CheckKilled(c, w)
 		c.Check(err, gc.ErrorMatches, "cannot remove model: pow")
 	})
-	stub.CheckCallNames(c, "ModelInfo", "SetStatus", "Destroy", "RemoveModel")
+	mainCalls, destroyCloudCalls := s.sortCalls(c, stub)
+	c.Assert(mainCalls, jc.DeepEquals, []string{"WatchModel", "ModelInfo", "SetStatus", "RemoveModel"})
+	c.Assert(destroyCloudCalls, jc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
 }
 
 func (s *UndertakerSuite) TestDestroyTimeout(c *gc.C) {
 	notEmptyErr := &params.Error{Code: params.CodeModelNotEmpty}
-	s.fix.errors = []error{nil, nil, nil, notEmptyErr, notEmptyErr, notEmptyErr, notEmptyErr, errors.Timeoutf("error")}
+	s.fix.errors = []error{nil, nil, nil, nil, notEmptyErr, notEmptyErr, notEmptyErr, notEmptyErr, errors.Timeoutf("error")}
 	s.fix.dirty = true
 	s.fix.advance = 2 * time.Minute
 	stub := s.fix.run(c, func(w worker.Worker) {
@@ -225,12 +246,12 @@ func (s *UndertakerSuite) TestDestroyTimeout(c *gc.C) {
 		if call.FuncName == "ProcessDyingModel" {
 			continue
 		}
-		if i > 3 && call.FuncName == "SetStatus" {
+		if i > 4 && call.FuncName == "SetStatus" {
 			continue
 		}
 		callNames = append(callNames, call.FuncName)
 	}
-	c.Assert(callNames, jc.DeepEquals, []string{"ModelInfo", "SetStatus", "WatchModelResources"})
+	c.Assert(callNames, jc.DeepEquals, []string{"WatchModel", "ModelInfo", "SetStatus", "WatchModelResources"})
 }
 
 func (s *UndertakerSuite) TestDestroyTimeoutForce(c *gc.C) {
@@ -240,16 +261,9 @@ func (s *UndertakerSuite) TestDestroyTimeoutForce(c *gc.C) {
 		err := workertest.CheckKilled(c, w)
 		c.Assert(err, jc.ErrorIsNil)
 	})
-	// Depending on timing there can be 1 or more ProcessDyingModel calls.
-	calls := stub.Calls()
-	var callNames []string
-	for _, call := range calls {
-		if call.FuncName == "ProcessDyingModel" {
-			continue
-		}
-		callNames = append(callNames, call.FuncName)
-	}
-	c.Assert(callNames, jc.DeepEquals, []string{"ModelInfo", "SetStatus", "WatchModelResources", "SetStatus", "Destroy", "RemoveModel"})
+	mainCalls, destroyCloudCalls := s.sortCalls(c, stub)
+	c.Assert(mainCalls, jc.DeepEquals, []string{"WatchModel", "ModelInfo", "SetStatus", "WatchModelResources", "ProcessDyingModel", "SetStatus", "RemoveModel"})
+	c.Assert(destroyCloudCalls, jc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
 	s.fix.logger.stub.CheckNoCalls(c)
 }
 
@@ -259,19 +273,12 @@ func (s *UndertakerSuite) TestEnvironDestroyTimeout(c *gc.C) {
 	s.fix.dirty = true
 	stub := s.fix.run(c, func(w worker.Worker) {
 		err := workertest.CheckKilled(c, w)
-		c.Assert(err, gc.ErrorMatches, "cannot destroy cloud resources: destroy model timeout")
+		c.Assert(err, jc.ErrorIsNil)
 	})
-	// Depending on timing there can be 1 or more ProcessDyingModel calls.
-	calls := stub.Calls()
-	var callNames []string
-	for _, call := range calls {
-		if call.FuncName == "ProcessDyingModel" {
-			continue
-		}
-		callNames = append(callNames, call.FuncName)
-	}
-	c.Assert(callNames, jc.DeepEquals, []string{"ModelInfo", "SetStatus", "WatchModelResources", "SetStatus", "Destroy"})
-	s.fix.logger.stub.CheckNoCalls(c)
+	mainCalls, destroyCloudCalls := s.sortCalls(c, stub)
+	c.Assert(mainCalls, jc.DeepEquals, []string{"WatchModel", "ModelInfo", "SetStatus", "WatchModelResources", "ProcessDyingModel", "SetStatus", "RemoveModel"})
+	c.Assert(destroyCloudCalls, jc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
+	s.fix.logger.stub.CheckCall(c, 0, "Warningf", "timeout ignored for graceful model destroy", []interface{}(nil))
 }
 
 func (s *UndertakerSuite) TestEnvironDestroyTimeoutForce(c *gc.C) {
@@ -281,20 +288,24 @@ func (s *UndertakerSuite) TestEnvironDestroyTimeoutForce(c *gc.C) {
 	s.fix.dirty = true
 	stub := s.fix.run(c, func(w worker.Worker) {
 		err := workertest.CheckKilled(c, w)
-		// We still get an error when the requested timeout is > 0.
-		c.Assert(err, gc.ErrorMatches, "cannot destroy cloud resources: destroy model timeout")
+		c.Assert(err, jc.ErrorIsNil)
 	})
-	// Depending on timing there can be 1 or more ProcessDyingModel calls.
+	mainCalls, destroyCloudCalls := s.sortCalls(c, stub)
+	c.Assert(mainCalls, jc.DeepEquals, []string{"WatchModel", "ModelInfo", "SetStatus", "WatchModelResources", "ProcessDyingModel", "SetStatus", "RemoveModel"})
+	c.Assert(destroyCloudCalls, jc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
+}
+
+func (s *UndertakerSuite) sortCalls(c *gc.C, stub *testing.Stub) (mainCalls []string, destroyCloudCalls []string) {
 	calls := stub.Calls()
-	var callNames []string
 	for _, call := range calls {
-		if call.FuncName == "ProcessDyingModel" {
-			continue
+		switch call.FuncName {
+		case "ModelConfig", "CloudSpec", "Destroy":
+			destroyCloudCalls = append(destroyCloudCalls, call.FuncName)
+		default:
+			mainCalls = append(mainCalls, call.FuncName)
 		}
-		callNames = append(callNames, call.FuncName)
 	}
-	c.Assert(callNames, jc.DeepEquals, []string{"ModelInfo", "SetStatus", "WatchModelResources", "SetStatus", "Destroy"})
-	s.fix.logger.stub.CheckCallNames(c, "Errorf")
+	return
 }
 
 func (s *UndertakerSuite) TestEnvironDestroyForceTimeoutZero(c *gc.C) {
@@ -306,6 +317,6 @@ func (s *UndertakerSuite) TestEnvironDestroyForceTimeoutZero(c *gc.C) {
 		err := workertest.CheckKilled(c, w)
 		c.Assert(err, jc.ErrorIsNil)
 	})
-	stub.CheckCallNames(c, "ModelInfo", "SetStatus", "RemoveModel")
+	stub.CheckCallNames(c, "WatchModel", "ModelInfo", "RemoveModel")
 	s.fix.logger.stub.CheckNoCalls(c)
 }

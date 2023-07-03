@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/upgrades/upgradevalidation"
 )
 
@@ -159,6 +160,12 @@ func (m *ModelUpgraderAPI) UpgradeModel(arg params.UpgradeModelParams) (result p
 	if err != nil {
 		return result, errors.Trace(err)
 	}
+
+	if model.Life() != state.Alive {
+		result.Error = apiservererrors.ServerError(errors.NewNotValid(nil, "model is not alive"))
+		return result, nil
+	}
+
 	currentVersion, err := model.AgentVersion()
 	if err != nil {
 		return result, errors.Trace(err)
@@ -347,12 +354,6 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 			continue
 		}
 
-		cloudspec, err := m.environscloudspecGetter(names.NewModelTag(modelUUID))
-		if err != nil {
-			return errors.Trace(err)
-		}
-		validators := upgradevalidation.ValidatorsForControllerUpgrade(false, targetVersion, cloudspec)
-
 		st, err := m.statePool.Get(modelUUID)
 		if err != nil {
 			return errors.Trace(err)
@@ -362,6 +363,18 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 		if err != nil {
 			return errors.Trace(err)
 		}
+
+		if model.Life() != state.Alive {
+			m.logger.Tracef("skipping upgrade check for dying/dead model %s", modelUUID)
+			continue
+		}
+
+		cloudspec, err := m.environscloudspecGetter(names.NewModelTag(modelUUID))
+		if err != nil {
+			return errors.Trace(err)
+		}
+		validators := upgradevalidation.ValidatorsForControllerUpgrade(false, targetVersion, cloudspec)
+
 		checker := upgradevalidation.NewModelUpgradeCheck(modelUUID, m.statePool, st, model, validators...)
 		blockersForModel, err := checker.Validate()
 		if err != nil {

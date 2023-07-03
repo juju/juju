@@ -13,6 +13,9 @@ test_constraints_common() {
 		"lxd" | "lxd-remote" | "localhost")
 			run "run_constraints_lxd"
 			;;
+		"openstack")
+			run "run_constraints_openstack"
+			;;
 		"ec2")
 			run "run_constraints_aws"
 			;;
