@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cmd/jujud/agent/agenttest"
+	"github.com/juju/juju/agent/agenttest"
 	"github.com/juju/juju/worker/deployer"
 )
 
