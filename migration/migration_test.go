@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/tools"
 )
 
@@ -93,21 +92,6 @@ func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string) *state.St
 
 func (s *ImportSuite) TestImportModel(c *gc.C) {
 	s.exportImport(c, map[string]string{})
-}
-
-func (s *ImportSuite) makeApplicationWithUnits(c *gc.C, applicationname string, count int) {
-	units := make([]*state.Unit, count)
-	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Name: applicationname,
-		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
-			Name: applicationname,
-		}),
-	})
-	for i := 0; i < count; i++ {
-		units[i] = s.Factory.MakeUnit(c, &factory.UnitParams{
-			Application: application,
-		})
-	}
 }
 
 func (s *ImportSuite) TestUploadBinariesConfigValidate(c *gc.C) {
