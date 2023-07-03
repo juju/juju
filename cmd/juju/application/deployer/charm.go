@@ -18,9 +18,9 @@ import (
 	applicationapi "github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
-	app "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
+	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
@@ -101,7 +101,7 @@ func (d *deployCharm) deploy(
 	}
 	// At deploy time, there's no need to include "trust=false" as missing is the same thing.
 	if !d.trust {
-		delete(appConfig, app.TrustConfigOptionName)
+		delete(appConfig, coreapplication.TrustConfigOptionName)
 	}
 
 	if id.URL != nil && id.URL.Schema != "local" && len(charmInfo.Meta.Terms) > 0 {

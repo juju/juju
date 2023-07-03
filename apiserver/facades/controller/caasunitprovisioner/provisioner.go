@@ -20,11 +20,11 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
@@ -247,7 +247,7 @@ func (f *Facade) applicationTrust(tagString string) (bool, error) {
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	return cfg.GetBool(application.TrustConfigOptionName, false), nil
+	return cfg.GetBool(coreapplication.TrustConfigOptionName, false), nil
 }
 
 // WatchApplicationsTrustHash starts a StringsWatcher to watch changes

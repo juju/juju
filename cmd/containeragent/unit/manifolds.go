@@ -21,7 +21,6 @@ import (
 	agentlifeflag "github.com/juju/juju/api/agent/lifeflag"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
-	cmdmodel "github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
@@ -203,7 +202,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			APICallerName:  apiCallerName,
 			AgentName:      agentName,
 			Result:         life.IsDead,
-			Filter:         cmdmodel.LifeFilter,
+			Filter:         LifeFilter,
 			NotFoundIsDead: true,
 			NewFacade: func(b base.APICaller) (lifeflag.Facade, error) {
 				return agentlifeflag.NewClient(b), nil
@@ -215,7 +214,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			AgentName:     agentName,
 			Result:        life.IsNotDead,
-			Filter:        cmdmodel.LifeFilter,
+			Filter:        LifeFilter,
 			NewFacade: func(b base.APICaller) (lifeflag.Facade, error) {
 				return agentlifeflag.NewClient(b), nil
 			},
