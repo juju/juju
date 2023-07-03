@@ -46,8 +46,9 @@ func (s *versionSuite) TestUpgradeControllerAllowed(c *gc.C) {
 		}, {
 			from:    "2.9.0",
 			to:      "4.0.0",
-			allowed: true,
+			allowed: false,
 			minVers: "0.0.0",
+			err:     `upgrading controller to "4.0.0" is not supported from "2.9.0"`,
 		}, {
 			from:    "3.0.0",
 			to:      "2.0.0",
@@ -102,8 +103,9 @@ func (s *versionSuite) TestMigrateToAllowed(c *gc.C) {
 		{
 			from:    "2.9.0",
 			to:      "4.0.0",
-			allowed: true,
+			allowed: false,
 			minVers: "0.0.0",
+			err:     `migrate to "4.0.0" is not supported from "2.9.0"`,
 		},
 		{
 			from:    "3.0.0",

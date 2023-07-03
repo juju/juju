@@ -60,14 +60,6 @@ func versionCheck(
 	minVer, ok := versionMap[to.Major]
 	logger.Debugf("from %q, to %q, versionMap %#v", from, to, versionMap)
 	if !ok {
-		// If the to major version is not located within the version map, then
-		// check to see if the from major version is greater than the to major
-		// version. If it is, then we will allow the upgrade. This allows for
-		// upgrades for > 3.x without specifying the new major version in the
-		// version map.
-		if to.Major > from.Major {
-			return true, version.Number{}, nil
-		}
 		return false, version.Number{}, errors.Errorf("%s to %q is not supported from %q", operation, to, from)
 	}
 	// Allow upgrades from rc etc.

@@ -206,7 +206,7 @@ func (s *upgradeValidationSuite) TestGetCheckTargetVersionForControllerModel(c *
 		version.MustParse("4.1.1"),
 		upgradevalidation.UpgradeControllerAllowed,
 	)("", nil, nil, model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.ErrorMatches, `upgrading controller to "4.1.1" is not supported from "2.9.31"`)
 	c.Assert(blocker, gc.IsNil)
 }
 
