@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
@@ -26,7 +25,10 @@ type MetricSink interface {
 	Unregister() bool
 }
 
-var logger = loggo.GetLogger("juju.cmd.jujud.agent.addons")
+// Logger is the interface that the introspection worker uses to log details.
+type Logger interface {
+	Debugf(string, ...any)
+}
 
 // DefaultIntrospectionSocketName returns the socket name to use for the
 // abstract domain socket that the introspection worker serves requests
@@ -48,6 +50,7 @@ type IntrospectionConfig struct {
 	Clock              clock.Clock
 	LocalHub           introspection.SimpleHub
 	CentralHub         introspection.StructuredHub
+	Logger             Logger
 
 	NewSocketName func(names.Tag) string
 	WorkerFunc    func(config introspection.Config) (worker.Worker, error)
@@ -61,7 +64,7 @@ type IntrospectionConfig struct {
 // life to that of the engine that is returned.
 func StartIntrospection(cfg IntrospectionConfig) error {
 	if runtime.GOOS != "linux" {
-		logger.Debugf("introspection worker not supported on %q", runtime.GOOS)
+		cfg.Logger.Debugf("introspection worker not supported on %q", runtime.GOOS)
 		return nil
 	}
 
@@ -84,10 +87,10 @@ func StartIntrospection(cfg IntrospectionConfig) error {
 	}
 	go func() {
 		_ = cfg.Engine.Wait()
-		logger.Debugf("engine stopped, stopping introspection")
+		cfg.Logger.Debugf("engine stopped, stopping introspection")
 		w.Kill()
 		_ = w.Wait()
-		logger.Debugf("introspection stopped")
+		cfg.Logger.Debugf("introspection stopped")
 	}()
 
 	return nil

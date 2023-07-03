@@ -663,6 +663,7 @@ func (a *MachineAgent) makeEngineCreator(
 			Clock:              clock.WallClock,
 			LocalHub:           localHub,
 			CentralHub:         a.centralHub,
+			Logger:             logger.Child("introspection"),
 		}); err != nil {
 			// If the introspection worker failed to start, we just log error
 			// but continue. It is very unlikely to happen in the real world

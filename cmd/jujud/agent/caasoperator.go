@@ -268,6 +268,7 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		WorkerFunc:         introspection.NewWorker,
 		Clock:              clock.WallClock,
 		LocalHub:           localHub,
+		Logger:             logger.Child("introspection"),
 		// If the caas operator gains the ability to interact with the
 		// introspection worker, the introspection worker should be configured
 		// with a clock and hub. See the machine agent.
