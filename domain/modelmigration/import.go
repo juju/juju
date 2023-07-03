@@ -1,11 +1,11 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package migrations
+package modelmigration
 
 import (
 	"github.com/juju/juju/core/modelmigration"
-	lease "github.com/juju/juju/domain/lease/migrations"
+	lease "github.com/juju/juju/domain/lease/modelmigration"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.

@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/domain/migrations"
+	migrations "github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
 )
