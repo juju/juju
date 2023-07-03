@@ -19,17 +19,18 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
+	"github.com/juju/juju/api"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/container/broker"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/core/network"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -60,13 +61,22 @@ type ProvisionerTask interface {
 	SetNumProvisionWorkers(numWorkers int)
 }
 
-// TaskAPI describes API methods required by a ProvisionerTask.
-type TaskAPI interface {
+// MachinesAPI describes API methods required to access machine provisioning info.
+type MachinesAPI interface {
 	Machines(...names.MachineTag) ([]apiprovisioner.MachineResult, error)
 	MachinesWithTransientErrors() ([]apiprovisioner.MachineStatusResult, error)
+	WatchMachineErrorRetry() (watcher.NotifyWatcher, error)
+	WatchModelMachines() (watcher.StringsWatcher, error)
 	ProvisioningInfo(machineTags []names.MachineTag) (params.ProvisioningInfoResults, error)
 }
 
+// Environ describes the methods for provisioning instances.
+type Environ interface {
+	environs.InstanceBroker
+	environs.ConfigSetter
+}
+
+// DistributionGroupFinder provides access to machine distribution groups.
 type DistributionGroupFinder interface {
 	DistributionGroupByMachineId(...names.MachineTag) ([]apiprovisioner.DistributionGroupResult, error)
 }
@@ -80,19 +90,35 @@ type ToolsFinder interface {
 	FindTools(version version.Number, os string, arch string) (coretools.List, error)
 }
 
+// ControllerAPI describes API methods for querying a controller.
+type ControllerAPI interface {
+	ControllerConfig() (controller.Config, error)
+	CACert() (string, error)
+	ModelUUID() (string, error)
+	ModelConfig() (*config.Config, error)
+	WatchForModelConfigChanges() (watcher.NotifyWatcher, error)
+	APIAddresses() ([]string, error)
+}
+
+// ContainerProvisionerAPI describes methods for provisioning a container.
+type ContainerProvisionerAPI interface {
+	ContainerManagerConfigGetter
+	broker.APICalls
+}
+
 // TaskConfig holds the initialisation data for a ProvisionerTask instance.
 type TaskConfig struct {
 	ControllerUUID             string
 	HostTag                    names.Tag
 	Logger                     Logger
 	HarvestMode                config.HarvestMode
-	TaskAPI                    TaskAPI
+	ControllerAPI              ControllerAPI
+	MachinesAPI                MachinesAPI
 	DistributionGroupFinder    DistributionGroupFinder
 	ToolsFinder                ToolsFinder
 	MachineWatcher             watcher.StringsWatcher
 	RetryWatcher               watcher.NotifyWatcher
 	Broker                     environs.InstanceBroker
-	Auth                       authentication.AuthenticationProvider
 	ImageStream                string
 	RetryStartInstanceStrategy RetryStrategy
 	CloudCallContextFunc       common.CloudCallContextFunc
@@ -112,13 +138,13 @@ func NewProvisionerTask(cfg TaskConfig) (ProvisionerTask, error) {
 		controllerUUID:             cfg.ControllerUUID,
 		hostTag:                    cfg.HostTag,
 		logger:                     cfg.Logger,
-		taskAPI:                    cfg.TaskAPI,
+		controllerAPI:              cfg.ControllerAPI,
+		machinesAPI:                cfg.MachinesAPI,
 		distributionGroupFinder:    cfg.DistributionGroupFinder,
 		toolsFinder:                cfg.ToolsFinder,
 		machineChanges:             machineChanges,
 		retryChanges:               retryChanges,
 		broker:                     cfg.Broker,
-		auth:                       cfg.Auth,
 		harvestMode:                cfg.HarvestMode,
 		harvestModeChan:            make(chan config.HarvestMode, 1),
 		machines:                   make(map[string]apiprovisioner.MachineProvisioner),
@@ -157,14 +183,14 @@ type provisionerTask struct {
 	controllerUUID             string
 	hostTag                    names.Tag
 	logger                     Logger
-	taskAPI                    TaskAPI
+	controllerAPI              ControllerAPI
+	machinesAPI                MachinesAPI
 	distributionGroupFinder    DistributionGroupFinder
 	toolsFinder                ToolsFinder
 	machineChanges             watcher.StringsChannel
 	retryChanges               watcher.NotifyChannel
 	broker                     environs.InstanceBroker
 	catacomb                   catacomb.Catacomb
-	auth                       authentication.AuthenticationProvider
 	imageStream                string
 	harvestMode                config.HarvestMode
 	harvestModeChan            chan config.HarvestMode
@@ -302,7 +328,7 @@ func (task *provisionerTask) SetNumProvisionWorkers(numWorkers int) {
 }
 
 func (task *provisionerTask) processMachinesWithTransientErrors(ctx context.ProviderCallContext) error {
-	results, err := task.taskAPI.MachinesWithTransientErrors()
+	results, err := task.machinesAPI.MachinesWithTransientErrors()
 	if err != nil || len(results) == 0 {
 		return nil
 	}
@@ -327,7 +353,7 @@ func (task *provisionerTask) processMachinesWithTransientErrors(ctx context.Prov
 			continue
 		}
 		task.machinesMutex.Lock()
-		task.machines[machine.Tag().String()] = machine
+		task.machines[machine.Id()] = machine
 		task.machinesMutex.Unlock()
 		pending = append(pending, machine)
 	}
@@ -394,7 +420,7 @@ func (task *provisionerTask) populateMachineMaps(ctx context.ProviderCallContext
 	for i, id := range ids {
 		machineTags[i] = names.NewMachineTag(id)
 	}
-	machines, err := task.taskAPI.Machines(machineTags...)
+	machines, err := task.machinesAPI.Machines(machineTags...)
 	if err != nil {
 		return errors.Annotatef(err, "getting machines %v", ids)
 	}
@@ -761,13 +787,33 @@ func (task *provisionerTask) doStopInstances(ctx context.ProviderCallContext, in
 
 func (task *provisionerTask) constructInstanceConfig(
 	machine apiprovisioner.MachineProvisioner,
-	auth authentication.AuthenticationProvider,
 	pInfo *params.ProvisioningInfo,
 ) (*instancecfg.InstanceConfig, error) {
-
-	apiInfo, err := auth.SetupAuthentication(machine)
+	apiAddresses, err := task.controllerAPI.APIAddresses()
 	if err != nil {
-		return nil, errors.Annotate(err, "setting up authentication")
+		return nil, errors.Trace(err)
+	}
+	caCert, err := task.controllerAPI.CACert()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	modelUUID, err := task.controllerAPI.ModelUUID()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	password, err := utils.RandomPassword()
+	if err != nil {
+		return nil, fmt.Errorf("cannot make password for machine %v: %v", machine, err)
+	}
+	if err := machine.SetPassword(password); err != nil {
+		return nil, fmt.Errorf("cannot set API password for machine %v: %v", machine, err)
+	}
+	apiInfo := &api.Info{
+		Addrs:    apiAddresses,
+		CACert:   caCert,
+		ModelTag: names.NewModelTag(modelUUID),
+		Tag:      machine.Tag(),
+		Password: password,
 	}
 
 	// Generated a nonce for the new instance, with the format: "machine-#:UUID".
@@ -890,11 +936,11 @@ func (task *provisionerTask) constructStartInstanceParams(
 		}
 	}
 
-	var endpointBindings map[string]network.Id
+	var endpointBindings map[string]corenetwork.Id
 	if len(provisioningInfo.EndpointBindings) != 0 {
-		endpointBindings = make(map[string]network.Id)
+		endpointBindings = make(map[string]corenetwork.Id)
 		for endpoint, space := range provisioningInfo.EndpointBindings {
-			endpointBindings[endpoint] = network.Id(space)
+			endpointBindings[endpoint] = corenetwork.Id(space)
 		}
 	}
 
@@ -1225,7 +1271,7 @@ func (task *provisionerTask) queueStartMachines(ctx context.ProviderCallContext,
 	// key the results by machine IDs for retrieval in the loop below.
 	// We rely here on the API guarantee - that the returned results are
 	// ordered to correspond to the call arguments.
-	pInfoResults, err := task.taskAPI.ProvisioningInfo(machineTags)
+	pInfoResults, err := task.machinesAPI.ProvisioningInfo(machineTags)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1507,7 +1553,7 @@ func (task *provisionerTask) setupToStartMachine(
 		return environs.StartInstanceParams{}, errors.Errorf("no provisioning info for machine %q", machine.Id())
 	}
 
-	instanceCfg, err := task.constructInstanceConfig(machine, task.auth, pInfo)
+	instanceCfg, err := task.constructInstanceConfig(machine, pInfo)
 	if err != nil {
 		return environs.StartInstanceParams{}, errors.Annotatef(err, "creating instance config for machine %q", machine)
 	}
@@ -1638,7 +1684,7 @@ func (task *provisionerTask) removeMachineFromAZMap(machine apiprovisioner.Machi
 
 // subnetZonesFromNetworkTopology denormalises the topology passed from the API
 // server into a slice of subnet to AZ list maps, one for each listed space.
-func subnetZonesFromNetworkTopology(topology params.ProvisioningNetworkTopology) []map[network.Id][]string {
+func subnetZonesFromNetworkTopology(topology params.ProvisioningNetworkTopology) []map[corenetwork.Id][]string {
 	if len(topology.SpaceSubnets) == 0 {
 		return nil
 	}
@@ -1650,11 +1696,11 @@ func subnetZonesFromNetworkTopology(topology params.ProvisioningNetworkTopology)
 	}
 	sort.Strings(spaceNames)
 
-	subnetsToZones := make([]map[network.Id][]string, 0, len(spaceNames))
+	subnetsToZones := make([]map[corenetwork.Id][]string, 0, len(spaceNames))
 	for _, spaceName := range spaceNames {
-		subnetAZs := make(map[network.Id][]string)
+		subnetAZs := make(map[corenetwork.Id][]string)
 		for _, subnet := range topology.SpaceSubnets[spaceName] {
-			subnetAZs[network.Id(subnet)] = topology.SubnetAZs[subnet]
+			subnetAZs[corenetwork.Id(subnet)] = topology.SubnetAZs[subnet]
 		}
 		subnetsToZones = append(subnetsToZones, subnetAZs)
 	}

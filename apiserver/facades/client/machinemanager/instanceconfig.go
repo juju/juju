@@ -8,11 +8,11 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
@@ -27,8 +27,8 @@ type InstanceConfigBackend interface {
 }
 
 // InstanceConfig returns information from the model config that
-// is needed for machine cloud-init (for non-controllers only). It
-// is exposed for testing purposes.
+// is needed for configuring manual machines.
+// It is exposed for testing purposes.
 // TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.
 func InstanceConfig(ctrlSt ControllerBackend, st InstanceConfigBackend, machineId, nonce, dataDir string) (*instancecfg.InstanceConfig, error) {
 	model, err := st.Model()
@@ -92,15 +92,20 @@ func InstanceConfig(ctrlSt ControllerBackend, st InstanceConfigBackend, machineI
 			apiAddrs.Add(network.DialAddress(hp))
 		}
 	}
+
+	password, err := utils.RandomPassword()
+	if err != nil {
+		return nil, fmt.Errorf("cannot make password for machine %v: %v", machine, err)
+	}
+	if err := machine.SetPassword(password); err != nil {
+		return nil, fmt.Errorf("cannot set API password for machine %v: %v", machine, err)
+	}
 	apiInfo := &api.Info{
 		Addrs:    apiAddrs.SortedValues(),
 		CACert:   caCert,
 		ModelTag: model.ModelTag(),
-	}
-
-	apiInfo, err = authentication.SetupAuthentication(machine, apiInfo)
-	if err != nil {
-		return nil, errors.Annotate(err, "setting up machine authentication")
+		Tag:      machine.Tag(),
+		Password: password,
 	}
 
 	base, err := series.ParseBase(machine.Base().OS, machine.Base().Channel)
