@@ -20,7 +20,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/api/controller/migrationtarget"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resources"
@@ -378,19 +377,6 @@ func (w *Worker) prechecks(status coremigration.MigrationStatus) error {
 	}
 	err = targetClient.Prechecks(model)
 	return errors.Annotate(err, "target prechecks failed")
-}
-
-func (w *Worker) getTargetControllerVersion(conn api.Connection) (version.Number, error) {
-	client := controller.NewClient(conn)
-	result, err := client.ControllerVersion()
-	if err != nil {
-		return version.Number{}, errors.Annotate(err, "failed to obtain target controller version during prechecks")
-	}
-	number, err := version.Parse(result.Version)
-	if err != nil {
-		return version.Number{}, errors.Trace(err)
-	}
-	return number, nil
 }
 
 func (w *Worker) doIMPORT(targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {

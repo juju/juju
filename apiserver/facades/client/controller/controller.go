@@ -14,7 +14,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -917,19 +916,6 @@ func makeModelInfo(st, ctlrSt *state.State) (coremigration.ModelInfo, userList, 
 		AgentVersion:           agentVersion,
 		ControllerAgentVersion: controllerVersion,
 	}, ul, nil
-}
-
-func getTargetControllerVersion(conn api.Connection) (version.Number, error) {
-	client := controllerclient.NewClient(conn)
-	result, err := client.ControllerVersion()
-	if err != nil {
-		return version.Number{}, errors.Annotate(err, "failed to obtain target controller version during prechecks")
-	}
-	number, err := version.Parse(result.Version)
-	if err != nil {
-		return version.Number{}, errors.Trace(err)
-	}
-	return number, nil
 }
 
 func getTargetControllerUsers(conn api.Connection) (userList, error) {
