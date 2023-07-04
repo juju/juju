@@ -8,8 +8,8 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
+	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
 )
 
 // ManifoldConfig holds dependencies and configuration for an
@@ -35,7 +35,7 @@ func (config ManifoldConfig) start(apiCaller base.APICaller) (worker.Worker, err
 // Manifold returns a dependency.Manifold that runs an applicationscaler worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return engine.APIManifold(
-		engine.APIManifoldConfig{config.APICallerName},
+		engine.APIManifoldConfig{APICallerName: config.APICallerName},
 		config.start,
 	)
 }

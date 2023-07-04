@@ -4,37 +4,10 @@
 package engine
 
 import (
-	"time"
-
-	"github.com/juju/clock"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3/dependency"
 	"github.com/prometheus/client_golang/prometheus"
-
-	"github.com/juju/juju/agent/errors"
 )
-
-// EngineErrorDelay is the amount of time the dependency engine waits
-// between getting an error from a worker, and restarting it. It is exposed
-// here so tests can make it smaller.
-var EngineErrorDelay = 3 * time.Second
-
-// DependencyEngineConfig returns a dependency engine config.
-func DependencyEngineConfig(metrics dependency.Metrics) dependency.EngineConfig {
-	return dependency.EngineConfig{
-		IsFatal:          errors.IsFatal,
-		WorstError:       errors.MoreImportantError,
-		ErrorDelay:       EngineErrorDelay,
-		BounceDelay:      10 * time.Millisecond,
-		BackoffFactor:    1.2,
-		BackoffResetTime: 1 * time.Minute,
-		MaxDelay:         2 * time.Minute,
-		Clock:            clock.WallClock,
-		Metrics:          metrics,
-		Logger:           loggo.GetLogger("juju.worker.dependency"),
-	}
-}
 
 const (
 	dependencyMetricsNamespace   = "juju"

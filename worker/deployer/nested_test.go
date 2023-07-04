@@ -19,7 +19,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	agentconfig "github.com/juju/juju/agent/config"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
+	"github.com/juju/juju/agent/engine"
 	message "github.com/juju/juju/pubsub/agent"
 	jt "github.com/juju/juju/testing"
 	jv "github.com/juju/juju/version"
@@ -85,7 +85,10 @@ func (s *NestedContextSuite) SetUpTest(c *gc.C) {
 		Hub:    s.hub,
 		Logger: logger,
 		UnitEngineConfig: func() dependency.EngineConfig {
-			return engine.DependencyEngineConfig(dependency.DefaultMetrics())
+			return engine.DependencyEngineConfig(
+				dependency.DefaultMetrics(),
+				loggo.GetLogger("juju.worker.dependency"),
+			)
 		},
 		SetupLogging: func(c *loggo.Context, _ agent.Config) {
 			c.GetLogger("").SetLogLevel(loggo.DEBUG)

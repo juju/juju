@@ -27,6 +27,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/addons"
+	"github.com/juju/juju/agent/engine"
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/base"
@@ -35,7 +36,6 @@ import (
 	"github.com/juju/juju/cmd/constants"
 	"github.com/juju/juju/cmd/containeragent/utils"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/paths"
 	jnames "github.com/juju/juju/juju/names"
@@ -312,7 +312,10 @@ func (c *containerUnitAgent) workers(sigTermCh chan os.Signal) (worker.Worker, e
 
 	metrics := engine.NewMetrics()
 	workerMetricsSink := metrics.ForModel(agentConfig.Model())
-	eng, err := dependency.NewEngine(engine.DependencyEngineConfig(workerMetricsSink))
+	eng, err := dependency.NewEngine(engine.DependencyEngineConfig(
+		workerMetricsSink,
+		loggo.GetLogger("juju.worker.dependency"),
+	))
 	if err != nil {
 		return nil, err
 	}
@@ -331,6 +334,7 @@ func (c *containerUnitAgent) workers(sigTermCh chan os.Signal) (worker.Worker, e
 		WorkerFunc:         introspection.NewWorker,
 		Clock:              c.clk,
 		LocalHub:           localHub,
+		Logger:             logger.Child("introspection"),
 	}); err != nil {
 		// If the introspection worker failed to start, we just log error
 		// but continue. It is very unlikely to happen in the real world

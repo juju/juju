@@ -41,6 +41,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/engine"
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/agent/machiner"
@@ -50,7 +51,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/cmd/jujud/agent/mocks"
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/container/kvm"

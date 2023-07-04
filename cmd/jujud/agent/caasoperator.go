@@ -25,6 +25,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/addons"
+	"github.com/juju/juju/agent/engine"
 	agenterrors "github.com/juju/juju/agent/errors"
 	apicaasoperator "github.com/juju/juju/api/agent/caasoperator"
 	"github.com/juju/juju/api/base"
@@ -32,7 +33,6 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/upgrades"
@@ -246,7 +246,10 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 	manifolds := CaasOperatorManifolds(manifoldConfig)
 	metrics := engine.NewMetrics()
 	workerMetricsSink := metrics.ForModel(agentConfig.Model())
-	engine, err := dependency.NewEngine(engine.DependencyEngineConfig(workerMetricsSink))
+	engine, err := dependency.NewEngine(engine.DependencyEngineConfig(
+		workerMetricsSink,
+		loggo.GetLogger("juju.worker.dependency"),
+	))
 	if err != nil {
 		return nil, err
 	}
@@ -265,6 +268,7 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		WorkerFunc:         introspection.NewWorker,
 		Clock:              clock.WallClock,
 		LocalHub:           localHub,
+		Logger:             logger.Child("introspection"),
 		// If the caas operator gains the ability to interact with the
 		// introspection worker, the introspection worker should be configured
 		// with a clock and hub. See the machine agent.

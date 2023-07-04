@@ -11,19 +11,20 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/engine"
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/caas"
 	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
 	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/cmd/jujud/agent/modeloperator"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	jujuversion "github.com/juju/juju/version"
@@ -184,7 +185,10 @@ func (m *ModelCommand) Workers() (worker.Worker, error) {
 
 	// TODO (stickupkid): There is no prometheus registry at this level, we
 	// should work out the best way to get it into here.
-	engine, err := dependency.NewEngine(engine.DependencyEngineConfig(dependency.DefaultMetrics()))
+	engine, err := dependency.NewEngine(engine.DependencyEngineConfig(
+		dependency.DefaultMetrics(),
+		loggo.GetLogger("juju.worker.dependency"),
+	))
 	if err != nil {
 		return nil, err
 	}

@@ -13,8 +13,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
 )
 
 type AgentAPIManifoldSuite struct {
@@ -108,14 +108,6 @@ func (s *AgentAPIManifoldSuite) TestStartSuccess(c *gc.C) {
 	}})
 }
 
-type dummyAPICaller struct {
-	base.APICaller
-}
-
 type dummyAgent struct {
 	agent.Agent
-}
-
-type dummyWorker struct {
-	worker.Worker
 }

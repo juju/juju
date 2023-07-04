@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/addons"
 	agentconfig "github.com/juju/juju/agent/config"
+	agentengine "github.com/juju/juju/agent/engine"
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
@@ -48,7 +49,6 @@ import (
 	"github.com/juju/juju/charmhub"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/cmd/jujud/reboot"
@@ -554,10 +554,12 @@ func (a *MachineAgent) makeEngineCreator(
 	agentName string, previousAgentVersion version.Number,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
-		engineConfigFunc := engine.DependencyEngineConfig
-		metrics := engine.NewMetrics()
+		metrics := agentengine.NewMetrics()
 		controllerMetricsSink := metrics.ForModel(a.CurrentConfig().Model())
-		engine, err := dependency.NewEngine(engineConfigFunc(controllerMetricsSink))
+		eng, err := dependency.NewEngine(agentengine.DependencyEngineConfig(
+			controllerMetricsSink,
+			loggo.GetLogger("juju.worker.dependency"),
+		))
 		if err != nil {
 			return nil, err
 		}
@@ -629,7 +631,10 @@ func (a *MachineAgent) makeEngineCreator(
 			NewBrokerFunc:                     newBroker,
 			IsCaasConfig:                      a.isCaasAgent,
 			UnitEngineConfig: func() dependency.EngineConfig {
-				return engineConfigFunc(controllerMetricsSink)
+				return agentengine.DependencyEngineConfig(
+					controllerMetricsSink,
+					loggo.GetLogger("juju.worker.dependency"),
+				)
 			},
 			SetupLogging:            agentconf.SetupAgentLogging,
 			DependencyEngineMetrics: metrics,
@@ -639,15 +644,15 @@ func (a *MachineAgent) makeEngineCreator(
 		if a.isCaasAgent {
 			manifolds = caasMachineManifolds(manifoldsCfg)
 		}
-		if err := dependency.Install(engine, manifolds); err != nil {
-			if err := worker.Stop(engine); err != nil {
+		if err := dependency.Install(eng, manifolds); err != nil {
+			if err := worker.Stop(eng); err != nil {
 				logger.Errorf("while stopping engine with bad manifolds: %v", err)
 			}
 			return nil, err
 		}
 		if err := addons.StartIntrospection(addons.IntrospectionConfig{
 			AgentTag:           a.CurrentConfig().Tag(),
-			Engine:             engine,
+			Engine:             eng,
 			StatePoolReporter:  &statePoolReporter,
 			PubSubReporter:     pubsubReporter,
 			MachineLock:        a.machineLock,
@@ -658,6 +663,7 @@ func (a *MachineAgent) makeEngineCreator(
 			Clock:              clock.WallClock,
 			LocalHub:           localHub,
 			CentralHub:         a.centralHub,
+			Logger:             logger.Child("introspection"),
 		}); err != nil {
 			// If the introspection worker failed to start, we just log error
 			// but continue. It is very unlikely to happen in the real world
@@ -665,13 +671,13 @@ func (a *MachineAgent) makeEngineCreator(
 			// and the agent is controlled by by the OS to only have one.
 			logger.Errorf("failed to start introspection worker: %v", err)
 		}
-		if err := addons.RegisterEngineMetrics(a.prometheusRegistry, metrics, engine, controllerMetricsSink); err != nil {
+		if err := addons.RegisterEngineMetrics(a.prometheusRegistry, metrics, eng, controllerMetricsSink); err != nil {
 			// If the dependency engine metrics fail, continue on. This is unlikely
 			// to happen in the real world, but should't stop or bring down an
 			// agent.
 			logger.Errorf("failed to start the dependency engine metrics %v", err)
 		}
-		return engine, nil
+		return eng, nil
 	}
 }
 
@@ -998,7 +1004,10 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		return nil, errors.Trace(err)
 	}
 
-	config := engine.DependencyEngineConfig(cfg.ModelMetrics)
+	config := agentengine.DependencyEngineConfig(
+		cfg.ModelMetrics,
+		loggo.GetLogger("juju.worker.dependency"),
+	)
 	config.IsFatal = model.IsFatal
 	config.WorstError = model.WorstError
 	config.Filter = model.IgnoreErrRemoved
@@ -1110,7 +1119,7 @@ type modelWorker struct {
 	*dependency.Engine
 	logger    modelworkermanager.ModelLogger
 	modelUUID string
-	metrics   engine.MetricSink
+	metrics   agentengine.MetricSink
 }
 
 // Wait is the last thing that is called on the worker as it is being

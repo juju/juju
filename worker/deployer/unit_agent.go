@@ -231,6 +231,7 @@ func (a *UnitAgent) start() (worker.Worker, error) {
 		PrometheusGatherer: a.prometheusRegistry,
 		MachineLock:        machineLock,
 		WorkerFunc:         introspection.NewWorker,
+		Logger:             a.logger,
 	}); err != nil {
 		// If the introspection worker failed to start, we just log error
 		// but continue. It is very unlikely to happen in the real world
