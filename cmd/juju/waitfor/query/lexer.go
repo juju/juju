@@ -26,14 +26,12 @@ type Lexer struct {
 
 // NewLexer creates a new Lexer from a given input.
 func NewLexer(input string) *Lexer {
-	lex := &Lexer{
+	return &Lexer{
 		input:  []rune(input),
 		char:   ' ',
 		line:   1,
 		column: 1,
 	}
-
-	return lex
 }
 
 // ReadNext will attempt to read the next character and correctly setup the

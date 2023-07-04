@@ -100,11 +100,11 @@ func (c *modelCommand) Init(args []string) (err error) {
 	return nil
 }
 
-func (c *modelCommand) Run(ctx *cmd.Context) error {
+func (c *modelCommand) Run(ctx *cmd.Context) (err error) {
 	scopedContext := MakeScopeContext()
 
 	defer func() {
-		if c.model == nil || !c.summary {
+		if err != nil || c.model == nil || !c.summary {
 			return
 		}
 
@@ -129,7 +129,7 @@ func (c *modelCommand) Run(ctx *cmd.Context) error {
 			c.primeCache()
 		}
 	})
-	err := strategy.Run(c.name, c.query, c.waitFor(scopedContext))
+	err = strategy.Run(c.name, c.query, c.waitFor(scopedContext))
 	return errors.Trace(err)
 }
 

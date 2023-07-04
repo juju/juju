@@ -94,11 +94,11 @@ func (c *machineCommand) Init(args []string) (err error) {
 	return nil
 }
 
-func (c *machineCommand) Run(ctx *cmd.Context) error {
+func (c *machineCommand) Run(ctx *cmd.Context) (err error) {
 	scopedContext := MakeScopeContext()
 
 	defer func() {
-		if !c.summary {
+		if err != nil || !c.summary {
 			return
 		}
 
@@ -117,7 +117,7 @@ func (c *machineCommand) Run(ctx *cmd.Context) error {
 		ClientFn: c.newWatchAllAPIFunc,
 		Timeout:  c.timeout,
 	}
-	err := strategy.Run(c.id, c.query, c.waitFor(scopedContext))
+	err = strategy.Run(c.id, c.query, c.waitFor(scopedContext))
 	return errors.Trace(err)
 }
 
