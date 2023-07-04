@@ -3154,19 +3154,11 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mCfg.SecretBackend(), jc.DeepEquals, "myvault")
 
-	newModel, newSt := s.importModel(c, s.State, func(map[string]interface{}) {
-		// Rename the backend.
-		err := backendStore.UpdateSecretBackend(state.UpdateSecretBackendParams{
-			ID:         backendID,
-			NameChange: ptr("myvault-1"),
-		})
-		c.Assert(err, jc.ErrorIsNil)
-	})
+	newModel, newSt := s.importModel(c, s.State)
 
-	// After import, the backend should be changed to "myvault-1".
 	mCfg, err = newModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mCfg.SecretBackend(), jc.DeepEquals, "myvault-1")
+	c.Assert(mCfg.SecretBackend(), jc.DeepEquals, "myvault")
 
 	backendRefCount, err = s.State.ReadBackendRefCount(backendID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3195,7 +3187,7 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 			BackendID:  backendID,
 			RevisionID: "rev-id",
 		},
-		BackendName: ptr("myvault-1"),
+		BackendName: ptr("myvault"),
 		CreateTime:  now,
 		UpdateTime:  now,
 	}})

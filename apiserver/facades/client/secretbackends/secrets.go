@@ -163,7 +163,7 @@ func (s *SecretBackendsAPI) updateBackend(arg params.UpdateSecretBackendArg) err
 				cfg[k] = defaultVal
 			}
 		}
-		err = configValidator.ValidateConfig(nil, cfg)
+		err = configValidator.ValidateConfig(existing.Config, cfg)
 		if err != nil {
 			return errors.Annotatef(err, "invalid config for provider %q", existing.BackendType)
 		}
