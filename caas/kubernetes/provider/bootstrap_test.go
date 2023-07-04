@@ -35,10 +35,10 @@ import (
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	k8swatchertest "github.com/juju/juju/caas/kubernetes/provider/watcher/test"
 	"github.com/juju/juju/cloudconfig/podcfg"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/feature"
@@ -1136,7 +1136,7 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
 
 	controllerStacker := s.controllerStackerGetter()
 	mockStdCtx := mocks.NewMockContext(ctrl)
-	ctx := modelcmd.BootstrapContext(mockStdCtx, cmdtesting.Context(c))
+	ctx := cmd.BootstrapContext(mockStdCtx, cmdtesting.Context(c))
 	controllerStacker.SetContext(ctx)
 
 	ns := &core.Namespace{

@@ -21,9 +21,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
 	sstestings "github.com/juju/juju/environs/simplestreams/testing"
@@ -58,7 +58,7 @@ func (s *GenerateAgentsSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	e, err := bootstrap.PrepareController(
 		false,
-		modelcmd.BootstrapContextNoVerify(context.Background(), cmdtesting.Context(c)),
+		environscmd.BootstrapContextNoVerify(context.Background(), cmdtesting.Context(c)),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),

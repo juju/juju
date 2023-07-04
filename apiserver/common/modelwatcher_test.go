@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/dummy"
@@ -102,7 +102,7 @@ func (*modelWatcherSuite) TestModelConfigFetchError(c *gc.C) {
 func testingEnvConfig(c *gc.C) *config.Config {
 	env, err := bootstrap.PrepareController(
 		false,
-		modelcmd.BootstrapContext(context.Background(), cmdtesting.Context(c)),
+		cmd.BootstrapContext(context.Background(), cmdtesting.Context(c)),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerConfig(),

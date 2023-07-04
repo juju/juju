@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
@@ -38,6 +37,7 @@ import (
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
@@ -351,7 +351,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	cloudSpec := dummy.SampleCloudSpec()
 	bootstrapEnviron, err := bootstrap.PrepareController(
 		false,
-		modelcmd.BootstrapContext(context.Background(), ctx),
+		environscmd.BootstrapContext(context.Background(), ctx),
 		s.ControllerStore,
 		bootstrap.PrepareParams{
 			ControllerConfig: s.ControllerConfig,
@@ -387,7 +387,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	apiPort := dummy.APIPort(environ.Provider())
 	s.ControllerConfig["api-port"] = apiPort
 	s.ProviderCallContext = envcontext.NewCloudCallContext(context.Background())
-	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(context.Background(), ctx), environ, s.ProviderCallContext, bootstrap.BootstrapParams{
+	err = bootstrap.Bootstrap(environscmd.BootstrapContext(context.Background(), ctx), environ, s.ProviderCallContext, bootstrap.BootstrapParams{
 		ControllerConfig: s.ControllerConfig,
 		CloudRegion:      "dummy-region",
 		Cloud: cloud.Cloud{
