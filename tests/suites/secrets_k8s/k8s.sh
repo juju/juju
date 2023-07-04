@@ -131,7 +131,7 @@ run_secret_drain() {
 	juju model-config secret-backend=auto
 
 	attempt=0
-	until [[ "$(microk8s kubectl -n $model_name get secrets -l 'app.juju.is/created-by=hello')" =~ "${unit_owned_short_uri}-1" ]]; do
+	until [[ "$(microk8s kubectl -n $model_name get secrets -l 'app.juju.is/created-by=hello')" =~ ${unit_owned_short_uri}-1 ]]; do
 		if [[ ${attempt} -ge 30 ]]; then
 			echo "Failed: expected secret ${unit_owned_short_uri}-1 gets drained to k8s."
 			exit 1
@@ -141,7 +141,7 @@ run_secret_drain() {
 	done
 
 	attempt=0
-	until [[ "$(microk8s kubectl -n $model_name get secrets -l 'app.juju.is/created-by=hello')" =~ "${app_owned_short_uri}-1" ]]; do
+	until [[ "$(microk8s kubectl -n $model_name get secrets -l 'app.juju.is/created-by=hello')" =~ ${app_owned_short_uri}-1 ]]; do
 		if [[ ${attempt} -ge 30 ]]; then
 			echo "Failed: expected secret ${app_owned_short_uri}-1 gets drained to k8s."
 			exit 1
