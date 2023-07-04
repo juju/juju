@@ -21,7 +21,6 @@ type SecretBackendsSuite struct {
 	testing.StateSuite
 	storage state.SecretBackendsStorage
 	store   state.SecretsStore
-	owner   *state.Application
 }
 
 var _ = gc.Suite(&SecretBackendsSuite{})
@@ -30,7 +29,6 @@ func (s *SecretBackendsSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.storage = state.NewSecretBackends(s.State)
 	s.store = state.NewSecrets(s.State)
-	s.owner = s.Factory.MakeApplication(c, nil)
 }
 
 func (s *SecretBackendsSuite) TestCreate(c *gc.C) {
@@ -395,10 +393,11 @@ func (s *SecretBackendsSuite) TestUpdateNameForInUseBackend(c *gc.C) {
 	b, err := s.storage.GetSecretBackend("myvault")
 	c.Assert(err, jc.ErrorIsNil)
 
+	owner := s.Factory.MakeApplication(c, nil)
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag(),
+		Owner:   owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			ValueRef:    &secrets.ValueRef{BackendID: b.ID},
