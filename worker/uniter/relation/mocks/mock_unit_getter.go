@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	relation "github.com/juju/juju/worker/uniter/relation"
+	domain "github.com/juju/juju/worker/uniter/domain"
 	names "github.com/juju/names/v4"
 )
 
@@ -36,10 +36,10 @@ func (m *MockUnitGetter) EXPECT() *MockUnitGetterMockRecorder {
 }
 
 // Unit mocks base method.
-func (m *MockUnitGetter) Unit(arg0 names.UnitTag) (relation.Unit, error) {
+func (m *MockUnitGetter) Unit(arg0 names.UnitTag) (domain.Unit, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Unit", arg0)
-	ret0, _ := ret[0].(relation.Unit)
+	ret0, _ := ret[0].(domain.Unit)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

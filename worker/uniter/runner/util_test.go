@@ -20,12 +20,13 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/agent/uniter"
+	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
@@ -49,12 +50,12 @@ type ContextSuite struct {
 	application *state.Application
 	machine     *state.Machine
 	unit        *state.Unit
-	uniter      *uniter.Client
-	apiUnit     *uniter.Unit
-	payloads    *uniter.PayloadFacadeClient
+	uniter      *apiuniter.Client
+	apiUnit     *apiuniter.Unit
+	payloads    *apiuniter.PayloadFacadeClient
 	secrets     *runnertesting.SecretsContextAccessor
 
-	apiRelunits map[int]*uniter.RelationUnit
+	apiRelunits map[int]*apiuniter.RelationUnit
 	relch       *state.Charm
 	relunits    map[int]*state.RelationUnit
 }
@@ -75,14 +76,14 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 	err = s.unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAs(c, s.unit.Tag(), password)
-	s.uniter, err = uniter.NewFromConnection(s.st)
+	s.uniter, err = apiuniter.NewFromConnection(s.st)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.uniter, gc.NotNil)
 	s.apiUnit, err = s.uniter.Unit(s.unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
 	s.model, err = s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	s.payloads = uniter.NewPayloadFacadeClient(s.st)
+	s.payloads = apiuniter.NewPayloadFacadeClient(s.st)
 
 	s.paths = runnertesting.NewRealPaths(c)
 	s.membership = map[int][]string{}
@@ -94,13 +95,13 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.relch = s.AddTestingCharm(c, "mysql")
 	s.relunits = map[int]*state.RelationUnit{}
-	s.apiRelunits = map[int]*uniter.RelationUnit{}
+	s.apiRelunits = map[int]*apiuniter.RelationUnit{}
 	s.AddContextRelation(c, "db0")
 	s.AddContextRelation(c, "db1")
 
 	s.contextFactory, err = context.NewContextFactory(context.FactoryConfig{
-		Uniter:           s.uniter,
-		Unit:             s.apiUnit,
+		Uniter:           uniter.UniterClientShim{s.uniter},
+		Unit:             uniter.UnitShim{s.apiUnit},
 		Payloads:         s.payloads,
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
@@ -179,7 +180,7 @@ func (s *ContextSuite) getRelationInfos() map[int]*context.RelationInfo {
 	info := map[int]*context.RelationInfo{}
 	for relId, relUnit := range s.apiRelunits {
 		info[relId] = &context.RelationInfo{
-			RelationUnit: &relUnitShim{relUnit},
+			RelationUnit: uniter.RelationUnitShim{relUnit},
 			MemberNames:  s.membership[relId],
 		}
 	}
@@ -261,12 +262,4 @@ func makeCharmMetadata(c *gc.C, charmDir string) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = os.WriteFile(path.Join(charmDir, "metadata.yaml"), nil, 0664)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-type relUnitShim struct {
-	*uniter.RelationUnit
-}
-
-func (r *relUnitShim) Relation() context.Relation {
-	return r.RelationUnit.Relation()
 }

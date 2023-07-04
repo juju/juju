@@ -593,7 +593,7 @@ func (op *caasOperator) loop() (err error) {
 				params.ModelType = model.CAAS
 				params.UnitTag = unitTag
 				params.Downloader = op.config.Downloader // TODO(caas): write a cache downloader
-				params.UniterClient = op.config.UniterFacadeFunc(unitTag)
+				params.UniterClient = uniter.UniterClientShim{op.config.UniterFacadeFunc(unitTag)}
 				if params.ResourcesClient, err = op.config.ResourcesFacadeFunc(unitTag); err != nil {
 					return errors.Trace(err)
 				}

@@ -182,7 +182,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return secrets.NewClient(jujuSecretsAPI)
 			}
 			uniter, err := NewUniter(&UniterParams{
-				UniterClient:                 uniter.NewClient(apiConn, unitTag),
+				UniterClient:                 UniterClientShim{uniter.NewClient(apiConn, unitTag)},
 				ResourcesClient:              resourcesClient,
 				PayloadClient:                payloadClient,
 				SecretsClient:                jujuSecretsAPI,

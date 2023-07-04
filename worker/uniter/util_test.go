@@ -539,7 +539,7 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 	}
 
 	uniterParams := uniter.UniterParams{
-		UniterClient: ctx.api,
+		UniterClient: uniter.UniterClientShim{ctx.api},
 		UnitTag:      tag,
 		ModelType:    model.IAAS,
 		LeadershipTrackerFunc: func(_ names.UnitTag) leadership.TrackerWorker {

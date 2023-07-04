@@ -11,6 +11,7 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/worker/uniter/domain"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
@@ -18,7 +19,7 @@ import (
 // relationer manages a unit's presence in a relation.
 type relationer struct {
 	relationId int
-	ru         RelationUnit
+	ru         domain.RelationUnit
 	stateMgr   StateManager
 	unitGetter UnitGetter
 	dying      bool
@@ -28,7 +29,7 @@ type relationer struct {
 
 // NewRelationer creates a new relationer. The unit will not join the
 // relation until explicitly requested.
-func NewRelationer(ru RelationUnit, stateMgr StateManager, unitGetter UnitGetter, logger Logger) Relationer {
+func NewRelationer(ru domain.RelationUnit, stateMgr StateManager, unitGetter UnitGetter, logger Logger) Relationer {
 	return &relationer{
 		relationId: ru.Relation().Id(),
 		ru:         ru,
@@ -49,9 +50,8 @@ func (r *relationer) ContextInfo() *context.RelationInfo {
 	for memberName := range members {
 		memberNames = append(memberNames, memberName)
 	}
-	sh, _ := r.ru.(*RelationUnitShim)
 	return &context.RelationInfo{
-		RelationUnit: &context.RelationUnitShim{sh.RelationUnit},
+		RelationUnit: r.ru,
 		MemberNames:  memberNames,
 	}
 }
@@ -68,7 +68,7 @@ func (r *relationer) IsDying() bool {
 }
 
 // RelationUnit returns the relation unit associated with this relationer instance.
-func (r *relationer) RelationUnit() RelationUnit {
+func (r *relationer) RelationUnit() domain.RelationUnit {
 	return r.ru
 }
 

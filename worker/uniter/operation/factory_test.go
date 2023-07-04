@@ -53,9 +53,9 @@ func (s *FactorySuite) SetUpTest(c *gc.C) {
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	s.factory = operation.NewFactory(operation.FactoryParams{
-		State:    client,
-		Deployer: deployer,
-		Logger:   loggo.GetLogger("test"),
+		ActionGetter: client,
+		Deployer:     deployer,
+		Logger:       loggo.GetLogger("test"),
 	})
 }
 

@@ -16,7 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/agent/uniter"
+	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/client/block"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/worker/uniter"
 	runnercontext "github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
@@ -48,12 +49,12 @@ type HookContextSuite struct {
 	clock          *testclock.Clock
 
 	st             api.Connection
-	uniter         *uniter.Client
-	payloads       *uniter.PayloadFacadeClient
-	apiUnit        *uniter.Unit
-	meteredAPIUnit *uniter.Unit
+	uniter         *apiuniter.Client
+	payloads       *apiuniter.PayloadFacadeClient
+	apiUnit        *apiuniter.Unit
+	meteredAPIUnit *apiuniter.Unit
 	meteredCharm   *state.Charm
-	apiRelunits    map[int]*uniter.RelationUnit
+	apiRelunits    map[int]*apiuniter.RelationUnit
 	BlockHelper
 }
 
@@ -80,9 +81,9 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	err = s.unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAs(c, s.unit.Tag(), password)
-	s.uniter, err = uniter.NewFromConnection(s.st)
+	s.uniter, err = apiuniter.NewFromConnection(s.st)
 	c.Assert(err, jc.ErrorIsNil)
-	s.payloads = uniter.NewPayloadFacadeClient(s.st)
+	s.payloads = apiuniter.NewPayloadFacadeClient(s.st)
 	c.Assert(s.uniter, gc.NotNil)
 	s.apiUnit, err = s.uniter.Unit(s.unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
@@ -90,7 +91,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	err = meteredUnit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	meteredState := s.OpenAPIAs(c, meteredUnit.Tag(), password)
-	meteredUniter, err := uniter.NewFromConnection(meteredState)
+	meteredUniter, err := apiuniter.NewFromConnection(meteredState)
 	c.Assert(err, jc.ErrorIsNil)
 	s.meteredAPIUnit, err = meteredUniter.Unit(meteredUnit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
@@ -110,7 +111,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 
 	s.relCh = s.AddTestingCharm(c, "mysql")
 	s.relUnits = map[int]*state.RelationUnit{}
-	s.apiRelunits = map[int]*uniter.RelationUnit{}
+	s.apiRelunits = map[int]*apiuniter.RelationUnit{}
 	s.AddContextRelation(c, "db0")
 	s.AddContextRelation(c, "db1")
 
@@ -181,21 +182,21 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int, remot
 		_, found := s.apiRelunits[relid]
 		c.Assert(found, jc.IsTrue)
 	}
-	facade, err := uniter.NewFromConnection(s.st)
+	client, err := apiuniter.NewFromConnection(s.st)
 	c.Assert(err, jc.ErrorIsNil)
 
 	relctxs := map[int]*runnercontext.ContextRelation{}
 	for relId, relUnit := range s.apiRelunits {
 		cache := runnercontext.NewRelationCache(relUnit.ReadSettings, nil)
-		relctxs[relId] = runnercontext.NewContextRelation(&relUnitShim{relUnit}, cache)
+		relctxs[relId] = runnercontext.NewContextRelation(uniter.RelationUnitShim{relUnit}, cache)
 	}
 
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	context, err := runnercontext.NewHookContext(runnercontext.HookContextParams{
-		Unit:                s.apiUnit,
-		Uniter:              facade,
+		Unit:                uniter.UnitShim{s.apiUnit},
+		Uniter:              uniter.UniterClientShim{client},
 		ID:                  "TestCtx",
 		UUID:                uuid,
 		ModelName:           env.Name(),
@@ -227,18 +228,18 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 		_, found := s.apiRelunits[relid]
 		c.Assert(found, jc.IsTrue)
 	}
-	facade, err := uniter.NewFromConnection(s.st)
+	client, err := apiuniter.NewFromConnection(s.st)
 	c.Assert(err, jc.ErrorIsNil)
 
 	relctxs := map[int]*runnercontext.ContextRelation{}
 	for relId, relUnit := range s.apiRelunits {
 		cache := runnercontext.NewRelationCache(relUnit.ReadSettings, nil)
-		relctxs[relId] = runnercontext.NewContextRelation(&relUnitShim{relUnit}, cache)
+		relctxs[relId] = runnercontext.NewContextRelation(uniter.RelationUnitShim{relUnit}, cache)
 	}
 
 	context, err := runnercontext.NewHookContext(runnercontext.HookContextParams{
-		Unit:                s.meteredAPIUnit,
-		Uniter:              facade,
+		Unit:                uniter.UnitShim{s.meteredAPIUnit},
+		Uniter:              uniter.UniterClientShim{client},
 		ID:                  "TestCtx",
 		UUID:                uuid,
 		ModelName:           "test-model-name",

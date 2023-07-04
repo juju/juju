@@ -6,20 +6,13 @@ package context
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/leadership"
 )
 
 var (
 	errIsMinion = errors.New("not the leader")
 )
-
-// LeadershipSettingsAccessor is an interface that allows us not to have
-// to use the concrete `api/uniter/LeadershipSettingsAccessor` type, thus
-// simplifying testing.
-type LeadershipSettingsAccessor interface {
-	Read(applicationName string) (map[string]string, error)
-	Merge(applicationName, unitName string, settings map[string]string) error
-}
 
 // LeadershipContext provides several hooks.Context methods. It
 // exists separately of HookContext for clarity, and ease of testing.
@@ -30,7 +23,7 @@ type LeadershipContext interface {
 }
 
 type leadershipContext struct {
-	accessor        LeadershipSettingsAccessor
+	accessor        uniter.LeadershipSettingsAccessor
 	tracker         leadership.Tracker
 	applicationName string
 	unitName        string
@@ -39,7 +32,8 @@ type leadershipContext struct {
 	settings map[string]string
 }
 
-func NewLeadershipContext(accessor LeadershipSettingsAccessor, tracker leadership.Tracker, unitName string) LeadershipContext {
+// NewLeadershipContext creates a leadership context for the specified unit.
+func NewLeadershipContext(accessor uniter.LeadershipSettingsAccessor, tracker leadership.Tracker, unitName string) LeadershipContext {
 	return &leadershipContext{
 		accessor:        accessor,
 		tracker:         tracker,
@@ -47,10 +41,6 @@ func NewLeadershipContext(accessor LeadershipSettingsAccessor, tracker leadershi
 		unitName:        unitName,
 	}
 }
-
-// newLeadershipContext allows us to swap out the leadership context creator for
-// factory tests.
-var newLeadershipContext = NewLeadershipContext
 
 // IsLeader is part of the hooks.Context interface.
 func (ctx *leadershipContext) IsLeader() (bool, error) {

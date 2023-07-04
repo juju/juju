@@ -12,13 +12,13 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/agent/uniter"
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
@@ -66,7 +66,7 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	s.conn = s.OpenAPIAs(c, unit.Tag(), password)
-	s.uniter, err = uniter.NewFromConnection(s.conn)
+	s.uniter, err = apiuniter.NewFromConnection(s.conn)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.uniter, gc.NotNil)
 
@@ -76,7 +76,7 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	relUnit, err := apiRel.Unit(apiUnit.Tag())
 	c.Assert(err, jc.ErrorIsNil)
-	s.relUnit = &relUnitShim{relUnit}
+	s.relUnit = uniter.RelationUnitShim{relUnit}
 }
 
 func (s *ContextRelationSuite) TestMemberCaching(c *gc.C) {
@@ -182,12 +182,4 @@ func (s *ContextRelationSuite) TestSetStatus(c *gc.C) {
 func (s *ContextRelationSuite) TestRemoteApplicationName(c *gc.C) {
 	ctx := context.NewContextRelation(s.relUnit, nil)
 	c.Assert(ctx.RemoteApplicationName(), gc.Equals, "u")
-}
-
-type relUnitShim struct {
-	*apiuniter.RelationUnit
-}
-
-func (r *relUnitShim) Relation() context.Relation {
-	return r.RelationUnit.Relation()
 }

@@ -17,7 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/secretsmanager"
-	"github.com/juju/juju/api/agent/uniter"
+	apiuniter "github.com/juju/juju/api/agent/uniter"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
@@ -31,6 +31,8 @@ import (
 	"github.com/juju/juju/secrets/provider/vault"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/common/charmrunner"
+	"github.com/juju/juju/worker/uniter"
+	domainmocks "github.com/juju/juju/worker/uniter/domain/mocks"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/context/mocks"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -631,7 +633,7 @@ var _ = gc.Suite(&mockHookContextSuite{})
 
 type mockHookContextSuite struct {
 	testing.IsolationSuite
-	mockUnit       *mocks.MockHookUnit
+	mockUnit       *domainmocks.MockUnit
 	mockLeadership *mocks.MockLeadershipContext
 	mockCache      params.UnitStateResult
 }
@@ -935,7 +937,7 @@ func (s *mockHookContextSuite) TestClosePortRange(c *gc.C) {
 
 func (s *mockHookContextSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.mockUnit = mocks.NewMockHookUnit(ctrl)
+	s.mockUnit = domainmocks.NewMockUnit(ctrl)
 	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).AnyTimes()
 	s.mockLeadership = mocks.NewMockLeadershipContext(ctrl)
 	return ctrl
@@ -981,8 +983,8 @@ func (s *mockHookContextSuite) TestActionAbort(c *gc.C) {
 			}
 			return nil
 		})
-		client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
-		hookContext := context.NewMockUnitHookContextWithState(s.mockUnit, client)
+		client := apiuniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
+		hookContext := context.NewMockUnitHookContextWithState(s.mockUnit, uniter.UniterClientShim{client})
 		cancel := make(chan struct{})
 		if test.Cancel {
 			close(cancel)
@@ -1039,8 +1041,8 @@ func (s *mockHookContextSuite) TestActionFlushError(c *gc.C) {
 		}},
 	}).Return(errors.New("flush failed"))
 
-	client := uniter.NewClient(apiCaller, names.NewUnitTag("wordpress/0"))
-	hookContext := context.NewMockUnitHookContextWithState(s.mockUnit, client)
+	client := apiuniter.NewClient(apiCaller, names.NewUnitTag("wordpress/0"))
+	hookContext := context.NewMockUnitHookContextWithState(s.mockUnit, uniter.UniterClientShim{client})
 	context.SetEnvironmentHookContextSecret(hookContext, coresecrets.NewURI().String(), nil, nil, nil)
 
 	err := hookContext.OpenPortRange("ep", network.PortRange{Protocol: "tcp", FromPort: 666, ToPort: 666})
@@ -1070,8 +1072,8 @@ func (s *mockHookContextSuite) TestMissingAction(c *gc.C) {
 		}
 		return nil
 	})
-	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
-	hookContext := context.NewMockUnitHookContextWithState(s.mockUnit, client)
+	client := apiuniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
+	hookContext := context.NewMockUnitHookContextWithState(s.mockUnit, uniter.UniterClientShim{client})
 
 	context.WithActionContext(hookContext, nil, nil)
 	err := hookContext.Flush("action", charmrunner.NewMissingHookError("noaction"))
@@ -1099,12 +1101,12 @@ func (s *mockHookContextSuite) assertSecretGetFromPendingChanges(c *gc.C,
 func (s *mockHookContextSuite) TestSecretGetFromPendingCreateChanges(c *gc.C) {
 	s.assertSecretGetFromPendingChanges(c,
 		func(hc *context.HookContext, uri *coresecrets.URI, label string, value map[string]string) {
-			arg := uniter.SecretCreateArg{OwnerTag: s.mockUnit.Tag()}
+			arg := apiuniter.SecretCreateArg{OwnerTag: s.mockUnit.Tag()}
 			arg.URI = uri
 			arg.Label = ptr(label)
 			arg.Value = coresecrets.NewSecretValue(value)
 			hc.SetPendingSecretCreates(
-				[]uniter.SecretCreateArg{arg})
+				[]apiuniter.SecretCreateArg{arg})
 		},
 	)
 }
@@ -1112,12 +1114,12 @@ func (s *mockHookContextSuite) TestSecretGetFromPendingCreateChanges(c *gc.C) {
 func (s *mockHookContextSuite) TestSecretGetFromPendingUpdateChanges(c *gc.C) {
 	s.assertSecretGetFromPendingChanges(c,
 		func(hc *context.HookContext, uri *coresecrets.URI, label string, value map[string]string) {
-			arg := uniter.SecretUpdateArg{}
+			arg := apiuniter.SecretUpdateArg{}
 			arg.URI = uri
 			arg.Label = ptr(label)
 			arg.Value = coresecrets.NewSecretValue(value)
 			hc.SetPendingSecretUpdates(
-				[]uniter.SecretUpdateArg{arg})
+				[]apiuniter.SecretUpdateArg{arg})
 		},
 	)
 }
@@ -1277,12 +1279,12 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromAppliedCache
 func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingCreate(c *gc.C) {
 	s.assertSecretGetOwnedSecretURILookup(c,
 		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client context.SecretsAccessor, backend secrets.BackendsClient) {
-			arg := uniter.SecretCreateArg{OwnerTag: s.mockUnit.Tag()}
+			arg := apiuniter.SecretCreateArg{OwnerTag: s.mockUnit.Tag()}
 			arg.URI = uri
 			arg.Label = ptr(label)
 			arg.Value = coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 			ctx.SetPendingSecretCreates(
-				[]uniter.SecretCreateArg{arg})
+				[]apiuniter.SecretCreateArg{arg})
 		},
 	)
 }
@@ -1290,12 +1292,12 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingCreat
 func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingUpdate(c *gc.C) {
 	s.assertSecretGetOwnedSecretURILookup(c,
 		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client context.SecretsAccessor, backend secrets.BackendsClient) {
-			arg := uniter.SecretUpdateArg{}
+			arg := apiuniter.SecretUpdateArg{}
 			arg.URI = uri
 			arg.Label = ptr(label)
 			arg.Value = coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 			ctx.SetPendingSecretUpdates(
-				[]uniter.SecretUpdateArg{arg})
+				[]apiuniter.SecretUpdateArg{arg})
 		},
 	)
 }
@@ -1354,8 +1356,8 @@ func (s *mockHookContextSuite) assertSecretCreate(c *gc.C, owner names.Tag) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uri.String(), gc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
-	c.Assert(hookContext.PendingSecretCreates(), jc.DeepEquals, []uniter.SecretCreateArg{{
-		SecretUpsertArg: uniter.SecretUpsertArg{
+	c.Assert(hookContext.PendingSecretCreates(), jc.DeepEquals, []apiuniter.SecretCreateArg{{
+		SecretUpsertArg: apiuniter.SecretUpsertArg{
 			URI:          uri,
 			Value:        value,
 			RotatePolicy: ptr(coresecrets.RotateDaily),
@@ -1432,9 +1434,9 @@ func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {
 		Label:        ptr("foo"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hookContext.PendingSecretUpdates(), jc.DeepEquals, []uniter.SecretUpdateArg{{
+	c.Assert(hookContext.PendingSecretUpdates(), jc.DeepEquals, []apiuniter.SecretUpdateArg{{
 		CurrentRevision: 666,
-		SecretUpsertArg: uniter.SecretUpsertArg{
+		SecretUpsertArg: apiuniter.SecretUpsertArg{
 			URI:          uri,
 			Value:        value,
 			RotatePolicy: ptr(coresecrets.RotateDaily),
@@ -1461,7 +1463,7 @@ func (s *mockHookContextSuite) TestSecretRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = hookContext.RemoveSecret(uri2, ptr(666))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hookContext.PendingSecretRemoves(), jc.DeepEquals, []uniter.SecretDeleteArg{{URI: uri}, {URI: uri2, Revision: ptr(666)}})
+	c.Assert(hookContext.PendingSecretRemoves(), jc.DeepEquals, []apiuniter.SecretDeleteArg{{URI: uri}, {URI: uri2, Revision: ptr(666)}})
 }
 
 func (s *mockHookContextSuite) TestSecretGrant(c *gc.C) {
@@ -1489,7 +1491,7 @@ func (s *mockHookContextSuite) TestSecretGrant(c *gc.C) {
 		RelationKey:     &relationKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, []uniter.SecretGrantRevokeArgs{{
+	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, []apiuniter.SecretGrantRevokeArgs{{
 		URI:             uri,
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
@@ -1525,7 +1527,7 @@ func (s *mockHookContextSuite) TestSecretRevoke(c *gc.C) {
 		RelationKey:     &relationKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hookContext.PendingSecretRevokes(), jc.DeepEquals, []uniter.SecretGrantRevokeArgs{{
+	c.Assert(hookContext.PendingSecretRevokes(), jc.DeepEquals, []apiuniter.SecretGrantRevokeArgs{{
 		URI:             uri,
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
@@ -1540,7 +1542,7 @@ func (s *mockHookContextSuite) TestHookStorage(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	st := mocks.NewMockUniter(ctrl)
+	st := mocks.NewMockUniterClient(ctrl)
 	st.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("wordpress/0")).Return(params.StorageAttachment{
 		StorageTag: "data/0",
 	}, nil)

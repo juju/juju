@@ -15,11 +15,10 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/kr/pretty"
 
-	"github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/worker/uniter/domain"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -27,25 +26,21 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
-// LeadershipContextFunc is a function that returns a leadership context.
-type LeadershipContextFunc func(accessor context.LeadershipSettingsAccessor, tracker leadership.Tracker, unitName string) context.LeadershipContext
-
 // RelationStateTrackerConfig contains configuration values for creating a new
 // RelationStateTracker instance.
 type RelationStateTrackerConfig struct {
-	Uniter               *uniter.Client
-	Unit                 *uniter.Unit
-	Tracker              leadership.Tracker
-	CharmDir             string
-	NewLeadershipContext LeadershipContextFunc
-	Abort                <-chan struct{}
-	Logger               Logger
+	Client            StateTrackerClient
+	Unit              domain.Unit
+	CharmDir          string
+	LeadershipContext context.LeadershipContext
+	Abort             <-chan struct{}
+	Logger            Logger
 }
 
 // relationStateTracker implements RelationStateTracker.
 type relationStateTracker struct {
-	st              StateTrackerState
-	unit            Unit
+	client          StateTrackerClient
+	unit            domain.Unit
 	leaderCtx       context.LeadershipContext
 	abort           <-chan struct{}
 	subordinate     bool
@@ -57,7 +52,7 @@ type relationStateTracker struct {
 	isPeerRelation  map[int]bool
 	stateMgr        StateManager
 	logger          Logger
-	newRelationer   func(RelationUnit, StateManager, UnitGetter, Logger) Relationer
+	newRelationer   func(domain.RelationUnit, StateManager, UnitGetter, Logger) Relationer
 }
 
 // NewRelationStateTracker returns a new RelationStateTracker instance.
@@ -66,16 +61,11 @@ func NewRelationStateTracker(cfg RelationStateTrackerConfig) (RelationStateTrack
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	leadershipContext := cfg.NewLeadershipContext(
-		cfg.Uniter.LeadershipSettings,
-		cfg.Tracker,
-		cfg.Unit.Tag().Id(),
-	)
 
 	r := &relationStateTracker{
-		st:              &stateTrackerStateShim{cfg.Uniter},
-		unit:            &unitShim{cfg.Unit},
-		leaderCtx:       leadershipContext,
+		client:          cfg.Client,
+		unit:            cfg.Unit,
+		leaderCtx:       cfg.LeadershipContext,
 		subordinate:     subordinate,
 		principalName:   principalName,
 		charmDir:        cfg.CharmDir,
@@ -107,13 +97,13 @@ func (r *relationStateTracker) loadInitialState() error {
 
 	// Keep the relations ordered for reliable testing.
 	var orderedIds []int
-	isScopeRelations := make(map[int]Relation)
+	isScopeRelations := make(map[int]domain.Relation)
 	relationSuspended := make(map[int]bool)
 	for _, rs := range relationStatus {
 		if !rs.InScope {
 			continue
 		}
-		rel, err := r.st.Relation(rs.Tag)
+		rel, err := r.client.Relation(rs.Tag)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -142,7 +132,7 @@ func (r *relationStateTracker) loadInitialState() error {
 			// Relations which are suspended may become active
 			// again so we keep the local state, otherwise we
 			// remove it.
-			if err := r.stateMgr.RemoveRelation(id, r.st, knownUnits); err != nil {
+			if err := r.stateMgr.RemoveRelation(id, r.client, knownUnits); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -171,14 +161,14 @@ func (r *relationStateTracker) relationGone(id int) {
 // store persistent state. It will block until the
 // operation succeeds or fails; or until the abort chan is closed, in which
 // case it will return resolver.ErrLoopAborted.
-func (r *relationStateTracker) joinRelation(rel Relation) (err error) {
+func (r *relationStateTracker) joinRelation(rel domain.Relation) (err error) {
 	unitName := r.unit.Name()
 	r.logger.Tracef("%q (re-)joining: %q", unitName, rel)
 	ru, err := rel.Unit(r.unit.Tag())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	relationer := r.newRelationer(ru, r.stateMgr, r.st, r.logger)
+	relationer := r.newRelationer(ru, r.stateMgr, r.client, r.logger)
 	unitWatcher, err := r.unit.Watch()
 	if err != nil {
 		return errors.Trace(err)
@@ -258,7 +248,7 @@ func (r *relationStateTracker) SynchronizeScopes(remote remotestate.Snapshot) er
 		if relationSnapshot.Life != life.Alive || relationSnapshot.Suspended {
 			continue
 		}
-		rel, err := r.st.RelationById(id)
+		rel, err := r.client.RelationById(id)
 		if err != nil {
 			if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 				r.relationGone(id)
@@ -297,7 +287,7 @@ func (r *relationStateTracker) SynchronizeScopes(remote remotestate.Snapshot) er
 		}
 
 		if joinErr := r.joinRelation(rel); joinErr != nil {
-			removeErr := r.stateMgr.RemoveRelation(id, r.st, knownUnits)
+			removeErr := r.stateMgr.RemoveRelation(id, r.client, knownUnits)
 			if !params.IsCodeCannotEnterScope(joinErr) {
 				return errors.Trace(joinErr)
 			} else if errors.IsNotFound(joinErr) {

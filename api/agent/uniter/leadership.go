@@ -11,20 +11,20 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// NewLeadershipSettingsAccessor returns a new LeadershipSettingsAccessor.
-func NewLeadershipSettingsAccessor(
+// NewLeadershipSettings returns a new LeadershipSettings.
+func NewLeadershipSettings(
 	caller FacadeCallFn,
 	newWatcher NewNotifyWatcherFn,
-) *LeadershipSettingsAccessor {
-	return &LeadershipSettingsAccessor{caller, newWatcher}
+) *LeadershipSettings {
+	return &LeadershipSettings{caller, newWatcher}
 }
 
 type FacadeCallFn func(request string, params, response interface{}) error
 type NewNotifyWatcherFn func(params.NotifyWatchResult) watcher.NotifyWatcher
 
-// LeadershipSettingsAccessor provides a type that can make RPC calls
+// LeadershipSettings provides a type that can make RPC calls
 // to a service which can read, write, and watch leadership settings.
-type LeadershipSettingsAccessor struct {
+type LeadershipSettings struct {
 	facadeCaller     FacadeCallFn
 	newNotifyWatcher NewNotifyWatcherFn
 }
@@ -32,8 +32,8 @@ type LeadershipSettingsAccessor struct {
 // Merge merges the provided settings into the leadership settings for
 // the given application and unit. Only leaders of a given application may perform
 // this operation.
-func (lsa *LeadershipSettingsAccessor) Merge(appId, unitId string, settings map[string]string) error {
-	results, err := lsa.bulkMerge(lsa.prepareMerge(appId, unitId, settings))
+func (ls *LeadershipSettings) Merge(appId, unitId string, settings map[string]string) error {
+	results, err := ls.bulkMerge(ls.prepareMerge(appId, unitId, settings))
 	if err != nil {
 		return errors.Annotatef(err, "failed to call leadership api")
 	}
@@ -48,8 +48,8 @@ func (lsa *LeadershipSettingsAccessor) Merge(appId, unitId string, settings map[
 
 // Read retrieves the leadership settings for the given application
 // ID. Anyone may perform this operation.
-func (lsa *LeadershipSettingsAccessor) Read(appId string) (map[string]string, error) {
-	results, err := lsa.bulkRead(lsa.prepareRead(appId))
+func (ls *LeadershipSettings) Read(appId string) (map[string]string, error) {
+	results, err := ls.bulkRead(ls.prepareRead(appId))
 	if err != nil {
 		return nil, errors.Annotatef(err, "failed to call leadership api")
 	}
@@ -64,9 +64,9 @@ func (lsa *LeadershipSettingsAccessor) Read(appId string) (map[string]string, er
 
 // WatchLeadershipSettings returns a watcher which can be used to wait
 // for leadership settings changes to be made for a given application ID.
-func (lsa *LeadershipSettingsAccessor) WatchLeadershipSettings(appId string) (watcher.NotifyWatcher, error) {
+func (ls *LeadershipSettings) WatchLeadershipSettings(appId string) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
-	if err := lsa.facadeCaller(
+	if err := ls.facadeCaller(
 		"WatchLeadershipSettings",
 		params.Entities{[]params.Entity{{names.NewApplicationTag(appId).String()}}},
 		&results,
@@ -79,14 +79,14 @@ func (lsa *LeadershipSettingsAccessor) WatchLeadershipSettings(appId string) (wa
 	if results.Results[0].Error != nil {
 		return nil, errors.Annotatef(results.Results[0].Error, "failed to watch leadership settings")
 	}
-	return lsa.newNotifyWatcher(results.Results[0]), nil
+	return ls.newNotifyWatcher(results.Results[0]), nil
 }
 
 //
 // Prepare functions for building bulk-calls.
 //
 
-func (lsa *LeadershipSettingsAccessor) prepareMerge(appId, unitId string, settings map[string]string) params.MergeLeadershipSettingsParam {
+func (ls *LeadershipSettings) prepareMerge(appId, unitId string, settings map[string]string) params.MergeLeadershipSettingsParam {
 	return params.MergeLeadershipSettingsParam{
 		ApplicationTag: names.NewApplicationTag(appId).String(),
 		UnitTag:        names.NewUnitTag(unitId).String(),
@@ -94,7 +94,7 @@ func (lsa *LeadershipSettingsAccessor) prepareMerge(appId, unitId string, settin
 	}
 }
 
-func (lsa *LeadershipSettingsAccessor) prepareRead(appId string) params.Entity {
+func (ls *LeadershipSettings) prepareRead(appId string) params.Entity {
 	return params.Entity{Tag: names.NewApplicationTag(appId).String()}
 }
 
@@ -102,7 +102,7 @@ func (lsa *LeadershipSettingsAccessor) prepareRead(appId string) params.Entity {
 // Bulk calls.
 //
 
-func (lsa *LeadershipSettingsAccessor) bulkMerge(args ...params.MergeLeadershipSettingsParam) (*params.ErrorResults, error) {
+func (ls *LeadershipSettings) bulkMerge(args ...params.MergeLeadershipSettingsParam) (*params.ErrorResults, error) {
 	// Don't make the jump over the network if we don't have to.
 	if len(args) <= 0 {
 		return &params.ErrorResults{}, nil
@@ -110,10 +110,10 @@ func (lsa *LeadershipSettingsAccessor) bulkMerge(args ...params.MergeLeadershipS
 
 	bulkArgs := params.MergeLeadershipSettingsBulkParams{Params: args}
 	var results params.ErrorResults
-	return &results, lsa.facadeCaller("Merge", bulkArgs, &results)
+	return &results, ls.facadeCaller("Merge", bulkArgs, &results)
 }
 
-func (lsa *LeadershipSettingsAccessor) bulkRead(args ...params.Entity) (*params.GetLeadershipSettingsBulkResults, error) {
+func (ls *LeadershipSettings) bulkRead(args ...params.Entity) (*params.GetLeadershipSettingsBulkResults, error) {
 
 	// Don't make the jump over the network if we don't have to.
 	if len(args) <= 0 {
@@ -122,5 +122,5 @@ func (lsa *LeadershipSettingsAccessor) bulkRead(args ...params.Entity) (*params.
 
 	bulkArgs := params.Entities{Entities: args}
 	var results params.GetLeadershipSettingsBulkResults
-	return &results, lsa.facadeCaller("Read", bulkArgs, &results)
+	return &results, ls.facadeCaller("Read", bulkArgs, &results)
 }

@@ -15,9 +15,10 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/agent/uniter"
+	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common/charmrunner"
+	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -161,15 +162,15 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.OpenAPIAs(c, unit.Tag(), password)
-	uniter, err := uniter.NewFromConnection(st)
+	uniterClient, err := apiuniter.NewFromConnection(st)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.uniter, gc.NotNil)
-	apiUnit, err := uniter.Unit(unit.Tag().(names.UnitTag))
+	apiUnit, err := uniterClient.Unit(unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
 
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
-		Uniter:           uniter,
-		Unit:             apiUnit,
+		Uniter:           uniter.UniterClientShim{uniterClient},
+		Unit:             uniter.UnitShim{apiUnit},
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		SecretsClient:    s.secrets,
@@ -243,7 +244,7 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), test.actionName, test.payload, true, "group", nil)
 		c.Assert(err, jc.ErrorIsNil)
-		uniterAction := uniter.NewAction(
+		uniterAction := apiuniter.NewAction(
 			action.Id(),
 			action.Name(),
 			action.Parameters(),
@@ -290,7 +291,7 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 
 func (s *FactorySuite) TestNewActionRunnerBadName(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	action := uniter.NewAction("666", "no-such-action", nil, false, "")
+	action := apiuniter.NewAction("666", "no-such-action", nil, false, "")
 	rnr, err := s.factory.NewActionRunner(action, nil)
 	c.Check(rnr, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot run \"no-such-action\" action: not defined")
@@ -299,7 +300,7 @@ func (s *FactorySuite) TestNewActionRunnerBadName(c *gc.C) {
 
 func (s *FactorySuite) TestNewActionRunnerBadParams(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	action := uniter.NewAction("666", "snapshot", map[string]interface{}{
+	action := apiuniter.NewAction("666", "snapshot", map[string]interface{}{
 		"outfile": 123,
 	}, true, "group")
 	rnr, err := s.factory.NewActionRunner(action, nil)
@@ -319,7 +320,7 @@ func (s *FactorySuite) TestNewActionRunnerWithCancel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), actionName, payload, true, "group", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	uniterAction := uniter.NewAction(
+	uniterAction := apiuniter.NewAction(
 		action.Id(),
 		action.Name(),
 		action.Parameters(),

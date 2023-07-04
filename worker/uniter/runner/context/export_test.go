@@ -11,18 +11,18 @@ import (
 	"github.com/juju/proxy"
 
 	"github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	jujusecrets "github.com/juju/juju/secrets"
-	"github.com/juju/juju/worker/uniter/runner/context/mocks"
+	"github.com/juju/juju/worker/uniter/domain"
+	domainmocks "github.com/juju/juju/worker/uniter/domain/mocks"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type HookContextParams struct {
-	Unit                *uniter.Unit
-	Uniter              Uniter
+	Unit                domain.Unit
+	Uniter              UniterClient
 	ID                  string
 	UUID                string
 	ModelName           string
@@ -117,7 +117,7 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	return ctx, nil
 }
 
-func NewMockUnitHookContext(mockUnit *mocks.MockHookUnit, modelType model.ModelType, leadership LeadershipContext) *HookContext {
+func NewMockUnitHookContext(mockUnit *domainmocks.MockUnit, modelType model.ModelType, leadership LeadershipContext) *HookContext {
 	logger := loggo.GetLogger("test")
 	return &HookContext{
 		unit:              mockUnit,
@@ -137,12 +137,12 @@ func NewMockUnitHookContext(mockUnit *mocks.MockHookUnit, modelType model.ModelT
 	}
 }
 
-func NewMockUnitHookContextWithState(mockUnit *mocks.MockHookUnit, state *uniter.Client) *HookContext {
+func NewMockUnitHookContextWithState(mockUnit *domainmocks.MockUnit, uniterClient UniterClient) *HookContext {
 	logger := loggo.GetLogger("test")
 	return &HookContext{
 		unitName:               mockUnit.Tag().Id(), //unitName used by the action finaliser method.
 		unit:                   mockUnit,
-		uniter:                 state,
+		uniter:                 uniterClient,
 		logger:                 logger,
 		modelType:              model.IAAS,
 		portRangeChanges:       newPortRangeChangeRecorder(logger, mockUnit.Tag(), model.IAAS, nil, nil),
@@ -151,12 +151,12 @@ func NewMockUnitHookContextWithState(mockUnit *mocks.MockHookUnit, state *uniter
 	}
 }
 
-func NewMockUnitHookContextWithStateAndStorage(unitName string, unit HookUnit, state Uniter, storageTag names.StorageTag) *HookContext {
+func NewMockUnitHookContextWithStateAndStorage(unitName string, unit HookUnit, uniterClient UniterClient, storageTag names.StorageTag) *HookContext {
 	logger := loggo.GetLogger("test")
 	return &HookContext{
 		unitName:               unit.Tag().Id(), //unitName used by the action finaliser method.
 		unit:                   unit,
-		uniter:                 state,
+		uniter:                 uniterClient,
 		logger:                 logger,
 		portRangeChanges:       newPortRangeChangeRecorder(logger, names.NewUnitTag(unitName), model.IAAS, nil, nil),
 		storageTag:             storageTag,
@@ -218,14 +218,6 @@ func WithActionContext(ctx *HookContext, in map[string]interface{}, cancel <-cha
 	}
 }
 
-type LeadershipContextFunc func(LeadershipSettingsAccessor, leadership.Tracker, string) LeadershipContext
-
-func PatchNewLeadershipContext(f LeadershipContextFunc) func() {
-	var old LeadershipContextFunc
-	old, newLeadershipContext = newLeadershipContext, f
-	return func() { newLeadershipContext = old }
-}
-
 func StorageAddConstraints(ctx *HookContext) map[string][]params.StorageConstraints {
 	return ctx.storageAddConstraints
 }
@@ -250,7 +242,7 @@ type ModelHookContextParams struct {
 
 	MachineTag names.MachineTag
 
-	Uniter Uniter
+	Uniter UniterClient
 	Unit   HookUnit
 }
 

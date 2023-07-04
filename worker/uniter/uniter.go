@@ -18,7 +18,6 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/worker/uniter/actions"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/container"
+	"github.com/juju/juju/worker/uniter/domain"
 	"github.com/juju/juju/worker/uniter/hook"
 	uniterleadership "github.com/juju/juju/worker/uniter/leadership"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -43,6 +43,8 @@ import (
 	"github.com/juju/juju/worker/uniter/runcommands"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/worker/uniter/runner/context/payloads"
+	"github.com/juju/juju/worker/uniter/runner/context/resources"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/worker/uniter/secrets"
 	"github.com/juju/juju/worker/uniter/storage"
@@ -56,40 +58,19 @@ const (
 	ErrCAASUnitDead = errors.ConstError("unit dead")
 )
 
-// A UniterExecutionObserver gets the appropriate methods called when a hook
-// is executed and either succeeds or fails.  Missing hooks don't get reported
-// in this way.
-type UniterExecutionObserver interface {
-	HookCompleted(hookName string)
-	HookFailed(hookName string)
-}
-
-// RebootQuerier is implemented by types that can deliver one-off machine
-// reboot notifications to entities.
-type RebootQuerier interface {
-	Query(tag names.Tag) (bool, error)
-}
-
-// SecretsClient provides methods used by the remote state watcher, hook context,
-// and op callbacks.
-type SecretsClient interface {
-	remotestate.SecretsClient
-	context.SecretsAccessor
-}
-
 // RemoteInitFunc is used to init remote state
 type RemoteInitFunc func(remotestate.ContainerRunningStatus, <-chan struct{}) error
 
 // Uniter implements the capabilities of the unit agent, for example running hooks.
 type Uniter struct {
 	catacomb                     catacomb.Catacomb
-	client                       *uniter.Client
+	client                       UniterClient
 	secretsClient                SecretsClient
 	secretsBackendGetter         context.SecretsBackendGetter
 	paths                        Paths
-	unit                         *uniter.Unit
-	resources                    *uniter.ResourcesFacadeClient
-	payloads                     *uniter.PayloadFacadeClient
+	unit                         domain.Unit
+	resources                    resources.OpenedResourceClient
+	payloads                     payloads.PayloadAPIClient
 	modelType                    model.ModelType
 	sidecar                      bool
 	enforcedCharmModifiedVersion int
@@ -186,9 +167,9 @@ type Uniter struct {
 
 // UniterParams hold all the necessary parameters for a new Uniter.
 type UniterParams struct {
-	UniterClient                  *uniter.Client
-	ResourcesClient               *uniter.ResourcesFacadeClient
-	PayloadClient                 *uniter.PayloadFacadeClient
+	UniterClient                  UniterClient
+	ResourcesClient               resources.OpenedResourceClient
+	PayloadClient                 payloads.PayloadAPIClient
 	SecretsClient                 SecretsClient
 	SecretsBackendGetter          context.SecretsBackendGetter
 	UnitTag                       names.UnitTag
@@ -229,15 +210,8 @@ type UniterParams struct {
 // NewOperationExecutorFunc is a func which returns an operations.Executor.
 type NewOperationExecutorFunc func(string, operation.ExecutorConfig) (operation.Executor, error)
 
-// ProviderIDGetter defines the API to get provider ID.
-type ProviderIDGetter interface {
-	ProviderID() string
-	Refresh() error
-	Name() string
-}
-
 // NewRunnerExecutorFunc defines the type of the NewRunnerExecutor.
-type NewRunnerExecutorFunc func(ProviderIDGetter, Paths) runner.ExecFunc
+type NewRunnerExecutorFunc func(domain.ProviderIDGetter, Paths) runner.ExecFunc
 
 // NewUniter creates a new Uniter which will install, run, and upgrade
 // a charm on behalf of the unit with the given unitTag, by executing
@@ -410,7 +384,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		var err error
 		watcher, err = remotestate.NewWatcher(
 			remotestate.WatcherConfig{
-				State:                         remotestate.NewAPIState(u.client),
+				UniterClient:                  u.client,
 				LeadershipTracker:             u.leadershipTracker,
 				SecretsClient:                 u.secretsClient,
 				SecretRotateWatcherFunc:       u.secretRotateWatcherFunc,
@@ -810,13 +784,12 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	}
 	relStateTracker, err := relation.NewRelationStateTracker(
 		relation.RelationStateTrackerConfig{
-			Uniter:               u.client,
-			Unit:                 u.unit,
-			Tracker:              u.leadershipTracker,
-			NewLeadershipContext: context.NewLeadershipContext,
-			CharmDir:             u.paths.State.CharmDir,
-			Abort:                u.catacomb.Dying(),
-			Logger:               u.logger.Child("relation"),
+			Client:            u.client,
+			Unit:              u.unit,
+			LeadershipContext: context.NewLeadershipContext(u.client.LeadershipSettings(), u.leadershipTracker, unitTag.Id()),
+			CharmDir:          u.paths.State.CharmDir,
+			Abort:             u.catacomb.Dying(),
+			Logger:            u.logger.Child("relation"),
 		})
 	if err != nil {
 		return errors.Annotatef(err, "cannot create relation state tracker")
@@ -887,7 +860,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		Deployer:       deployer,
 		RunnerFactory:  runnerFactory,
 		Callbacks:      &operationCallbacks{u},
-		State:          u.client,
+		ActionGetter:   u.client,
 		Abort:          u.catacomb.Dying(),
 		MetricSpoolDir: u.paths.GetMetricsSpoolDir(),
 		Logger:         u.logger.Child("operation"),

@@ -35,7 +35,7 @@ type Client struct {
 	*common.UnitStateAPI
 	*StorageAccessor
 
-	LeadershipSettings *LeadershipSettingsAccessor
+	leadershipSettings *LeadershipSettings
 	facade             base.FacadeCaller
 	// unitTag contains the authenticated unit's tag.
 	unitTag names.UnitTag
@@ -63,7 +63,7 @@ func NewClient(
 	newWatcher := func(result params.NotifyWatchResult) watcher.NotifyWatcher {
 		return apiwatcher.NewNotifyWatcher(caller, result)
 	}
-	client.LeadershipSettings = NewLeadershipSettingsAccessor(
+	client.leadershipSettings = NewLeadershipSettings(
 		facadeCaller.FacadeCall,
 		newWatcher,
 	)
@@ -161,6 +161,19 @@ func (client *Client) getOneAction(tag *names.ActionTag) (params.ActionResult, e
 	}
 
 	return result, nil
+}
+
+// LeadershipSettingsAccessor is an interface that allows us not to have
+// to use the concrete `api/uniter/LeadershipSettings` type, thus
+// simplifying testing.
+type LeadershipSettingsAccessor interface {
+	Read(applicationName string) (map[string]string, error)
+	Merge(applicationName, unitName string, settings map[string]string) error
+}
+
+// LeadershipSettings returns the client's leadership settings api.
+func (client *Client) LeadershipSettings() LeadershipSettingsAccessor {
+	return client.leadershipSettings
 }
 
 // ActionStatus provides the status of a single action.

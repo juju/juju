@@ -13,33 +13,9 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/worker/uniter/domain"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
-
-type Relation interface {
-	// Id returns the integer internal relation key.
-	Id() int
-
-	// Refresh refreshes the contents of the relation from the underlying
-	// state.
-	Refresh() error
-
-	// Suspended returns the relation's current suspended status.
-	Suspended() bool
-
-	// SetStatus updates the status of the relation.
-	SetStatus(status relation.Status) error
-
-	// Tag returns the relation tag.
-	Tag() names.RelationTag
-
-	// OtherApplication returns the name of the application on the other
-	// end of the relation (from this unit's perspective).
-	OtherApplication() string
-
-	// Life returns the relation's current life state.
-	Life() life.Value
-}
 
 type RelationUnit interface {
 	// ApplicationSettings returns a Settings which allows access to this unit's
@@ -55,19 +31,11 @@ type RelationUnit interface {
 	ReadSettings(name string) (params.Settings, error)
 
 	// Relation returns the relation associated with the unit.
-	Relation() Relation
+	Relation() domain.Relation
 
 	// Settings returns a Settings which allows access to the unit's settings
 	// within the relation.
 	Settings() (*uniter.Settings, error)
-}
-
-type RelationUnitShim struct {
-	*uniter.RelationUnit
-}
-
-func (r *RelationUnitShim) Relation() Relation {
-	return r.RelationUnit.Relation()
 }
 
 type RelationInfo struct {

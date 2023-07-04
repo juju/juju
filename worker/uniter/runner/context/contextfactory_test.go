@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/charm/v11/hooks"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -20,11 +19,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/agent/uniter"
+	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	environscontext "github.com/juju/juju/environs/context"
@@ -36,6 +34,7 @@ import (
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
@@ -60,8 +59,8 @@ func (s *ContextFactorySuite) SetUpTest(c *gc.C) {
 	s.membership = map[int][]string{}
 
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
-		Uniter:           s.uniter,
-		Unit:             s.apiUnit,
+		Uniter:           uniter.UniterClientShim{s.uniter},
+		Unit:             uniter.UnitShim{s.apiUnit},
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		SecretsClient:    s.secrets,
@@ -117,36 +116,11 @@ func (s *ContextFactorySuite) getRelationInfos() map[int]*context.RelationInfo {
 	info := map[int]*context.RelationInfo{}
 	for relId, relUnit := range s.apiRelunits {
 		info[relId] = &context.RelationInfo{
-			RelationUnit: &relUnitShim{relUnit},
+			RelationUnit: uniter.RelationUnitShim{relUnit},
 			MemberNames:  s.membership[relId],
 		}
 	}
 	return info
-}
-
-func (s *ContextFactorySuite) testLeadershipContextWiring(c *gc.C, createContext func() *context.HookContext) {
-	var stub testing.Stub
-	stub.SetErrors(errors.New("bam"))
-	restore := context.PatchNewLeadershipContext(
-		func(accessor context.LeadershipSettingsAccessor, tracker leadership.Tracker, unitName string) context.LeadershipContext {
-			stub.AddCall("NewLeadershipContext", accessor, tracker, unitName)
-			return &StubLeadershipContext{Stub: &stub}
-		},
-	)
-	defer restore()
-
-	ctx := createContext()
-	isLeader, err := ctx.IsLeader()
-	c.Check(err, gc.ErrorMatches, "bam")
-	c.Check(isLeader, jc.IsFalse)
-
-	stub.CheckCalls(c, []testing.StubCall{{
-		FuncName: "NewLeadershipContext",
-		Args:     []interface{}{s.uniter.LeadershipSettings, &runnertesting.FakeTracker{}, "u/0"},
-	}, {
-		FuncName: "IsLeader",
-	}})
-
 }
 
 func (s *ContextFactorySuite) TestNewHookContextRetrievesSLALevel(c *gc.C) {
@@ -156,43 +130,6 @@ func (s *ContextFactorySuite) TestNewHookContextRetrievesSLALevel(c *gc.C) {
 	ctx, err := s.factory.HookContext(hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.SLALevel(), gc.Equals, "essential")
-}
-
-func (s *ContextFactorySuite) TestNewHookContextLeadershipContext(c *gc.C) {
-	s.testLeadershipContextWiring(c, func() *context.HookContext {
-		ctx, err := s.factory.HookContext(hook.Info{Kind: hooks.ConfigChanged})
-		c.Assert(err, jc.ErrorIsNil)
-		return ctx
-	})
-}
-
-func (s *ContextFactorySuite) TestNewCommandContextLeadershipContext(c *gc.C) {
-	s.testLeadershipContextWiring(c, func() *context.HookContext {
-		ctx, err := s.factory.CommandContext(context.CommandInfo{RelationId: -1})
-		c.Assert(err, jc.ErrorIsNil)
-		return ctx
-	})
-}
-
-func (s *ContextFactorySuite) TestNewActionContextLeadershipContext(c *gc.C) {
-	s.testLeadershipContextWiring(c, func() *context.HookContext {
-		s.SetCharm(c, "dummy")
-		operationID, err := s.Model(c).EnqueueOperation("a test", 1)
-		c.Assert(err, jc.ErrorIsNil)
-		action, err := s.Model(c).EnqueueAction(operationID, s.unit.Tag(), "snapshot", nil, true, "group", nil)
-		c.Assert(err, jc.ErrorIsNil)
-
-		actionData := &context.ActionData{
-			Name:       action.Name(),
-			Tag:        names.NewActionTag(action.Id()),
-			Params:     action.Parameters(),
-			ResultsMap: map[string]interface{}{},
-		}
-
-		ctx, err := s.factory.ActionContext(actionData)
-		c.Assert(err, jc.ErrorIsNil)
-		return ctx
-	})
 }
 
 func (s *ContextFactorySuite) TestRelationHookContext(c *gc.C) {
@@ -282,15 +219,15 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.OpenAPIAs(c, unit.Tag(), password)
-	uniter, err := uniter.NewFromConnection(st)
+	uniterClient, err := apiuniter.NewFromConnection(st)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uniter, gc.NotNil)
-	apiUnit, err := uniter.Unit(unit.Tag().(names.UnitTag))
+	c.Assert(uniterClient, gc.NotNil)
+	apiUnit, err := uniterClient.Unit(unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
 
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
-		Uniter:           uniter,
-		Unit:             apiUnit,
+		Uniter:           uniter.UniterClientShim{uniterClient},
+		Unit:             uniter.UnitShim{apiUnit},
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		SecretsClient:    s.secrets,
@@ -377,15 +314,15 @@ func (s *ContextFactorySuite) setupPodSpec(c *gc.C) (*state.State, context.Conte
 	apiInfo.Password = password
 	apiState, err := api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
-	uniter, err := uniter.NewFromConnection(apiState)
+	uniterClient, err := apiuniter.NewFromConnection(apiState)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uniter, gc.NotNil)
-	apiUnit, err := uniter.Unit(unit.Tag().(names.UnitTag))
+	c.Assert(uniterClient, gc.NotNil)
+	apiUnit, err := uniterClient.Unit(unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
 
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
-		Uniter: uniter,
-		Unit:   apiUnit,
+		Uniter: uniter.UniterClientShim{uniterClient},
+		Unit:   uniter.UnitShim{apiUnit},
 		Tracker: &runnertesting.FakeTracker{
 			AllowClaimLeader: true,
 		},
@@ -586,15 +523,15 @@ func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {
 	apiInfo.Password = password
 	apiState, err := api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
-	uniter, err := uniter.NewFromConnection(apiState)
+	uniterClient, err := apiuniter.NewFromConnection(apiState)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uniter, gc.NotNil)
-	apiUnit, err := uniter.Unit(unit.Tag().(names.UnitTag))
+	c.Assert(uniterClient, gc.NotNil)
+	apiUnit, err := uniterClient.Unit(unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
 
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
-		Uniter: uniter,
-		Unit:   apiUnit,
+		Uniter: uniter.UniterClientShim{uniterClient},
+		Unit:   uniter.UnitShim{apiUnit},
 		Tracker: &runnertesting.FakeTracker{
 			AllowClaimLeader: true,
 		},
