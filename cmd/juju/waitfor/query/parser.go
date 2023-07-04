@@ -108,7 +108,7 @@ func (p *Parser) parseString() (Expression, error) {
 func (p *Parser) parseBool() (Expression, error) {
 	value, err := strconv.ParseBool(p.currentToken.Literal)
 	if err != nil {
-		return nil, ErrSyntaxError(p.currentToken.Pos, p.currentToken.Type, FLOAT)
+		return nil, ErrSyntaxError(p.currentToken.Pos, p.currentToken.Type, BOOL)
 	}
 	return &Bool{
 		Token: p.currentToken,

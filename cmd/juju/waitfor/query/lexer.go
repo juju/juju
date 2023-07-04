@@ -269,5 +269,5 @@ func isDigit(char rune) bool {
 }
 
 func isQuote(char rune) bool {
-	return char == 34
+	return char == 34 || char == 39
 }
