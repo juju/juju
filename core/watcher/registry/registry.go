@@ -70,7 +70,7 @@ func NewRegistry(clock clock.Clock, opts ...Option) (*Registry, error) {
 			IsFatal: func(err error) bool { return false },
 			Clock:   clock,
 		}),
-		watcherWrapper: wrapperFromLogger(o.logger),
+		watcherWrapper: watcherLogDecorator(o.logger),
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -169,54 +169,54 @@ func (r *Registry) loop() error {
 	return r.catacomb.ErrDying()
 }
 
-// wrapperFromLogger returns a function that wraps a worker.Worker with a
-// LogWatcher.
-func wrapperFromLogger(logger Logger) func(worker.Worker) (worker.Worker, error) {
+// watcherLogDecorator returns a function that wraps a worker.Worker with a
+// LoggingWatcher.
+func watcherLogDecorator(logger Logger) func(worker.Worker) (worker.Worker, error) {
 	return func(w worker.Worker) (worker.Worker, error) {
 		if logger == nil {
 			return w, nil
 		}
 		if logger.IsTraceEnabled() {
-			logger.Tracef("starting worker %T", w)
+			logger.Tracef("starting watcher %T", w)
 		}
-		return NewLogWatcher(w, logger), nil
+		return NewLoggingWatcher(w, logger), nil
 	}
 }
 
-// LogWatcher is a wrapper around a worker.Worker that logs when it finishes.
-type LogWatcher struct {
+// LoggingWatcher is a wrapper around a worker.Worker that logs when it finishes.
+type LoggingWatcher struct {
 	worker worker.Worker
 	logger Logger
 }
 
-// NewLogWatcher returns a new LogWatcher that wraps the given worker, so we
-// can log when it starts and finishes.
-func NewLogWatcher(w worker.Worker, logger Logger) *LogWatcher {
-	return &LogWatcher{
+// NewLoggingWatcher returns a new LoggingWatcher that wraps the given worker,
+// so we can log when it starts and finishes.
+func NewLoggingWatcher(w worker.Worker, logger Logger) *LoggingWatcher {
+	return &LoggingWatcher{
 		worker: w,
 		logger: logger,
 	}
 }
 
 // Kill asks the worker to stop and returns immediately.
-func (l *LogWatcher) Kill() {
+func (l *LoggingWatcher) Kill() {
 	if l.logger.IsTraceEnabled() {
-		l.logger.Tracef("killing worker %T", l.worker)
+		l.logger.Tracef("killing watcher %T", l.worker)
 	}
 	l.worker.Kill()
 }
 
 // Wait waits for the worker to complete and returns any
 // error encountered when it was running or stopping.
-func (l *LogWatcher) Wait() error {
+func (l *LoggingWatcher) Wait() error {
 	err := l.worker.Wait()
 	if l.logger.IsTraceEnabled() {
-		l.logger.Tracef("worker %T finished with error %v", l.worker, err)
+		l.logger.Tracef("watcher %T finished with error %v", l.worker, err)
 	}
 	return errors.Trace(err)
 }
 
 // Unwrap returns the wrapped worker.
-func (l *LogWatcher) Unwrap() worker.Worker {
+func (l *LoggingWatcher) Unwrap() worker.Worker {
 	return l.worker
 }

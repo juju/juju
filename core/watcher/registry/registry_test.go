@@ -180,9 +180,9 @@ func (s *registrySuite) TestRegisterStopWithLogging(c *gc.C) {
 
 	// We expect the following log messages to occur in the lifecycle of
 	// the worker.
-	exp.Tracef("starting worker %T", gomock.Any())
-	exp.Tracef("killing worker %T", gomock.Any()).MinTimes(1)
-	exp.Tracef("worker %T finished with error %v", gomock.Any(), gomock.Any()).MinTimes(1)
+	exp.Tracef("starting watcher %T", gomock.Any())
+	exp.Tracef("killing watcher %T", gomock.Any()).MinTimes(1)
+	exp.Tracef("watcher %T finished with error %v", gomock.Any(), gomock.Any()).MinTimes(1)
 
 	reg, err := NewRegistry(s.clock, WithLogger(s.logger))
 	c.Assert(err, jc.ErrorIsNil)
