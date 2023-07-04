@@ -36,6 +36,7 @@ var precedence = map[TokenType]int{
 type Parser struct {
 	lex *Lexer
 
+	prevToken    Token
 	currentToken Token
 	peekToken    Token
 
@@ -100,6 +101,9 @@ func (p *Parser) parseIdentifier() (Expression, error) {
 }
 
 func (p *Parser) parseString() (Expression, error) {
+	if !p.currentToken.Terminated {
+		return nil, ErrSyntaxError(p.currentToken.Pos, p.currentToken.Type, STRING)
+	}
 	return &String{
 		Token: p.currentToken,
 	}, nil
@@ -362,6 +366,7 @@ func (p *Parser) isCurrentToken(t TokenType) bool {
 }
 
 func (p *Parser) nextToken() {
+	p.prevToken = p.currentToken
 	p.currentToken = p.peekToken
 	p.peekToken = p.lex.NextToken()
 }

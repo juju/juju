@@ -189,11 +189,11 @@ func (l *Lexer) readRunesToken() Token {
 		}
 		return tok
 	case isQuote(l.char):
-		if s, err := l.readString(l.char); err == nil {
-			tok.Type = STRING
-			tok.Literal = s
-			return tok
-		}
+		s, err := l.readString(l.char)
+		tok.Type = STRING
+		tok.Literal = s
+		tok.Terminated = err == nil
+		return tok
 	}
 	l.ReadNext()
 	return MakeToken(UNKNOWN, l.char)

@@ -1,16 +1,13 @@
 package waitfor
 
 import (
+	"bufio"
 	"fmt"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/cmd/juju/waitfor/query"
 )
-
-// ColumnPrefix is the prefix used for column errors. By default the prefix
-// for all errors from the cmd line is ERROR.
-const ColumnPrefix = "ERROR "
 
 func HelpDisplay(err error, input []rune) error {
 	cause := errors.Cause(err)
@@ -26,10 +23,13 @@ func HelpDisplay(err error, input []rune) error {
 	builder.WriteString(" ")
 	if len(syntaxErr.Expectations) == 0 {
 		builder.WriteString("unexpected character")
+	} else if exp := syntaxErr.Expectations[0]; exp == query.STRING {
+		builder.WriteString("string not correctly terminated")
 	} else {
 		builder.WriteString("expected ")
 		builder.WriteString(syntaxErr.Expectations[0].String())
 	}
+
 	builder.WriteString(".")
 	builder.WriteString("\n")
 	builder.WriteString("\n")
@@ -37,13 +37,29 @@ func HelpDisplay(err error, input []rune) error {
 	ledger := fmt.Sprintf("%d | ", syntaxErr.Pos.Line)
 	builder.WriteString(ledger)
 
-	builder.WriteString(string(input))
+	builder.WriteString(getLine(string(input), syntaxErr.Pos.Line))
 	builder.WriteString("\n")
 	builder.WriteString(strings.Repeat(" ", len(ledger)+(syntaxErr.Pos.Column-1)))
 	builder.WriteString(strings.Repeat("^", syntaxErr.Pos.Offset))
 	builder.WriteString("\n")
 
-	builder.WriteString(fmt.Sprintf("wait-for doesn't support %q. Maybe try removing the character and try again.", input[syntaxErr.Pos.Column-1]))
+	if len(syntaxErr.Expectations) == 0 {
+		builder.WriteString(fmt.Sprintf("wait-for doesn't support %q. Maybe try removing the character and try again.", input[syntaxErr.Pos.Column-1]))
+	} else if exp := syntaxErr.Expectations[0]; exp == query.STRING {
+		builder.WriteString("Try adding a closing quote to the string.")
+	} else {
+		builder.WriteString("The type doesn't match the expected syntax. Maybe try removing the character and try again.")
+	}
 
 	return fmt.Errorf(builder.String())
+}
+
+func getLine(input string, line int) string {
+	scanner := bufio.NewScanner(strings.NewReader(input))
+	for i := 0; scanner.Scan(); i++ {
+		if i == line-1 {
+			return scanner.Text()
+		}
+	}
+	return ""
 }

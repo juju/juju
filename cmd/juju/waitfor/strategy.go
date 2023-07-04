@@ -128,7 +128,7 @@ func isWatcherStopped(e *rpc.RequestError) bool {
 
 // GenericScope allows the query to introspect an entity.
 type GenericScope struct {
-	scopes map[string]interface{}
+	scopes map[string]any
 }
 
 // GetIdents returns the names of all the available idents.
@@ -175,13 +175,13 @@ func (m *GenericScope) GetIdentValue(name string) (query.Box, error) {
 }
 
 // SetIdentValue sets a new ident and it's value on a given scope.
-func (m *GenericScope) SetIdentValue(name string, value interface{}) {
+func (m *GenericScope) SetIdentValue(name string, value any) {
 	m.scopes[name] = value
 }
 
 // Clone a given scope.
 func (m *GenericScope) Clone() query.Scope {
-	scopes := make(map[string]interface{}, len(m.scopes))
+	scopes := make(map[string]any, len(m.scopes))
 	for k, v := range m.scopes {
 		scopes[k] = v
 	}

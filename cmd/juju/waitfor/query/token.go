@@ -121,9 +121,10 @@ func (p Position) String() string {
 // Token defines a token found with in a query, along with the position and what
 // type it is.
 type Token struct {
-	Pos     Position
-	Type    TokenType
-	Literal string
+	Pos        Position
+	Type       TokenType
+	Literal    string
+	Terminated bool
 }
 
 // MakeToken creates a new token value.
