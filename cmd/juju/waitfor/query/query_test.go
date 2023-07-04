@@ -242,14 +242,14 @@ func (s *querySuite) TestRunBool(c *gc.C) {
 				Expression: &Bool{
 					Token: Token{
 						Pos:     Position{Line: 1, Column: 1, Offset: 0},
-						Type:    TRUE,
+						Type:    BOOL,
 						Literal: "true",
 					},
 					Value: true,
 				},
 				Token: Token{
 					Pos:     Position{Line: 1, Column: 1, Offset: 0},
-					Type:    TRUE,
+					Type:    BOOL,
 					Literal: "true",
 				},
 			},
@@ -276,7 +276,7 @@ func (s *querySuite) TestRunInfixLogicalAND(c *gc.C) {
 					Left: &Bool{
 						Token: Token{
 							Pos:     Position{Line: 1, Column: 1, Offset: 0},
-							Type:    TRUE,
+							Type:    BOOL,
 							Literal: "true",
 						},
 						Value: true,
@@ -285,7 +285,7 @@ func (s *querySuite) TestRunInfixLogicalAND(c *gc.C) {
 					Right: &Bool{
 						Token: Token{
 							Pos:     Position{Line: 1, Column: 9, Offset: 8},
-							Type:    TRUE,
+							Type:    BOOL,
 							Literal: "true",
 						},
 						Value: true,
@@ -298,7 +298,7 @@ func (s *querySuite) TestRunInfixLogicalAND(c *gc.C) {
 				},
 				Token: Token{
 					Pos:     Position{Line: 1, Column: 1, Offset: 0},
-					Type:    TRUE,
+					Type:    BOOL,
 					Literal: "true",
 				},
 			},
@@ -325,7 +325,7 @@ func (s *querySuite) TestRunInfixLogicalOR(c *gc.C) {
 					Left: &Bool{
 						Token: Token{
 							Pos:     Position{Line: 1, Column: 1, Offset: 0},
-							Type:    TRUE,
+							Type:    BOOL,
 							Literal: "true",
 						},
 						Value: true,
@@ -334,7 +334,7 @@ func (s *querySuite) TestRunInfixLogicalOR(c *gc.C) {
 					Right: &Bool{
 						Token: Token{
 							Pos:     Position{Line: 1, Column: 9, Offset: 8},
-							Type:    TRUE,
+							Type:    BOOL,
 							Literal: "false",
 						},
 						Value: false,
@@ -347,7 +347,7 @@ func (s *querySuite) TestRunInfixLogicalOR(c *gc.C) {
 				},
 				Token: Token{
 					Pos:     Position{Line: 1, Column: 1, Offset: 0},
-					Type:    TRUE,
+					Type:    BOOL,
 					Literal: "true",
 				},
 			},

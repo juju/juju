@@ -177,7 +177,7 @@ func (o *BoxBool) Equal(other Ord) bool {
 
 // IsZero returns if the underlying value is zero.
 func (o *BoxBool) IsZero() bool {
-	return o.value == false
+	return !o.value
 }
 
 // Value defines the shadow type value of the Box.

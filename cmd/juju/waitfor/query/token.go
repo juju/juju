@@ -39,8 +39,7 @@ const (
 	BITOR   // |
 	CONDAND // &&
 	CONDOR  // ||
-	TRUE    // TRUE
-	FALSE   // FALSE
+	BOOL    // BOOL
 
 	LAMBDA     // =>
 	UNDERSCORE // _
@@ -101,10 +100,8 @@ func (t TokenType) String() string {
 		return "||"
 	case STRING:
 		return `""`
-	case TRUE:
-		return "true"
-	case FALSE:
-		return "false"
+	case BOOL:
+		return "BOOL"
 	default:
 		return "<UNKNOWN>"
 	}

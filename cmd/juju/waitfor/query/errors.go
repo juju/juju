@@ -3,7 +3,11 @@
 
 package query
 
-import "github.com/juju/errors"
+import (
+	"fmt"
+
+	"github.com/juju/errors"
+)
 
 // InvalidIdentifierError creates an invalid error.
 type InvalidIdentifierError struct {
@@ -55,5 +59,34 @@ func RuntimeErrorf(msg string, args ...interface{}) error {
 func IsRuntimeError(err error) bool {
 	err = errors.Cause(err)
 	_, ok := err.(*RuntimeError)
+	return ok
+}
+
+// SyntaxError creates an invalid error.
+type SyntaxError struct {
+	Pos          Position
+	TokenType    TokenType
+	Expectations []TokenType
+}
+
+func (e *SyntaxError) Error() string {
+	if len(e.Expectations) == 0 {
+		return fmt.Sprintf("Syntax Error: %v invalid character '%s' found", e.Pos, e.TokenType)
+	}
+	return fmt.Sprintf("Syntax Error: %v expected token to be %s, got %s instead", e.Pos, e.Expectations[0], e.TokenType)
+}
+
+func ErrSyntaxError(pos Position, tokenType TokenType, expectations ...TokenType) error {
+	return &SyntaxError{
+		Pos:          pos,
+		TokenType:    tokenType,
+		Expectations: expectations,
+	}
+}
+
+// IsSyntaxError returns if the error is an ErrSyntaxError error
+func IsSyntaxError(err error) bool {
+	err = errors.Cause(err)
+	_, ok := err.(*SyntaxError)
 	return ok
 }

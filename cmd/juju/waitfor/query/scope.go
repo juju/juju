@@ -15,15 +15,15 @@ import (
 // on a set of arguments.
 type GlobalFuncScope struct {
 	scope Scope
-	funcs map[string]interface{}
+	funcs map[string]any
 }
 
 // NewGlobalFuncScope creates a new scope for executing functions.
 func NewGlobalFuncScope(scope Scope) *GlobalFuncScope {
 	return &GlobalFuncScope{
 		scope: scope,
-		funcs: map[string]interface{}{
-			"len": func(v interface{}) (int, error) {
+		funcs: map[string]any{
+			"len": func(v any) (int, error) {
 				val := reflect.ValueOf(v)
 				switch val.Kind() {
 				case reflect.Map, reflect.Slice, reflect.String:
@@ -32,11 +32,11 @@ func NewGlobalFuncScope(scope Scope) *GlobalFuncScope {
 					return -1, RuntimeErrorf("unexpected type %T passed to len", v)
 				}
 			},
-			"print": func(v interface{}) (interface{}, error) {
+			"print": func(v any) (any, error) {
 				fmt.Printf("%+v\n", v)
 				return v, nil
 			},
-			"forEach": func(values, expr interface{}) (interface{}, error) {
+			"forEach": func(values, expr any) (any, error) {
 				scopes, ok := values.(Box)
 				if !ok {
 					return nil, RuntimeErrorf("unexpected lambda values %T", values)
@@ -51,7 +51,7 @@ func NewGlobalFuncScope(scope Scope) *GlobalFuncScope {
 					called bool
 					result = true
 				)
-				ForEach(scopes, func(value interface{}) bool {
+				ForEach(scopes, func(value any) bool {
 					called = true
 
 					nestedScope, ok := value.(Scope)
@@ -88,12 +88,12 @@ func NewGlobalFuncScope(scope Scope) *GlobalFuncScope {
 }
 
 // Add a function to the global scope.
-func (s *GlobalFuncScope) Add(name string, fn interface{}) {
+func (s *GlobalFuncScope) Add(name string, fn any) {
 	s.funcs[name] = fn
 }
 
 // Call a function with a set of arguments.
-func (s *GlobalFuncScope) Call(ident *Identifier, params []Box) (interface{}, error) {
+func (s *GlobalFuncScope) Call(ident *Identifier, params []Box) (any, error) {
 	name := ident.Token.Literal
 	fn, ok := s.funcs[name]
 	if !ok {
@@ -183,15 +183,15 @@ func (o *BoxNestedScope) IsZero() bool {
 }
 
 // Value defines the shadow type value of the Box.
-func (o *BoxNestedScope) Value() interface{} {
+func (o *BoxNestedScope) Value() any {
 	return o.value
 }
 
 // ForEach will call the function on every value within a Box.
 // If a Box isn't an iterable then we perform a no-op.
-func ForEach(box Box, fn func(value interface{}) bool) {
+func ForEach(box Box, fn func(value any) bool) {
 	type iterable interface {
-		ForEach(func(interface{}) bool)
+		ForEach(func(any) bool)
 	}
 	if e, ok := box.(iterable); ok {
 		e.ForEach(fn)

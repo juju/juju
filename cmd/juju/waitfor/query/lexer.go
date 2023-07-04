@@ -179,9 +179,9 @@ func (l *Lexer) readRunesToken() Token {
 		tok.Literal = l.readIdentifier()
 		switch strings.ToLower(tok.Literal) {
 		case "true":
-			tok.Type = TRUE
+			tok.Type = BOOL
 		case "false":
-			tok.Type = FALSE
+			tok.Type = BOOL
 		case "_":
 			tok.Type = UNDERSCORE
 		default:
