@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/worker/uniter"
+	uniterapi "github.com/juju/juju/worker/uniter/api"
 	runnercontext "github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
@@ -188,15 +188,15 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int, remot
 	relctxs := map[int]*runnercontext.ContextRelation{}
 	for relId, relUnit := range s.apiRelunits {
 		cache := runnercontext.NewRelationCache(relUnit.ReadSettings, nil)
-		relctxs[relId] = runnercontext.NewContextRelation(uniter.RelationUnitShim{relUnit}, cache)
+		relctxs[relId] = runnercontext.NewContextRelation(uniterapi.RelationUnitShim{relUnit}, cache)
 	}
 
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	context, err := runnercontext.NewHookContext(runnercontext.HookContextParams{
-		Unit:                uniter.UnitShim{s.apiUnit},
-		Uniter:              uniter.UniterClientShim{client},
+		Unit:                uniterapi.UnitShim{s.apiUnit},
+		Uniter:              uniterapi.UniterClientShim{client},
 		ID:                  "TestCtx",
 		UUID:                uuid,
 		ModelName:           env.Name(),
@@ -234,12 +234,12 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 	relctxs := map[int]*runnercontext.ContextRelation{}
 	for relId, relUnit := range s.apiRelunits {
 		cache := runnercontext.NewRelationCache(relUnit.ReadSettings, nil)
-		relctxs[relId] = runnercontext.NewContextRelation(uniter.RelationUnitShim{relUnit}, cache)
+		relctxs[relId] = runnercontext.NewContextRelation(uniterapi.RelationUnitShim{relUnit}, cache)
 	}
 
 	context, err := runnercontext.NewHookContext(runnercontext.HookContextParams{
-		Unit:                uniter.UnitShim{s.meteredAPIUnit},
-		Uniter:              uniter.UniterClientShim{client},
+		Unit:                uniterapi.UnitShim{s.meteredAPIUnit},
+		Uniter:              uniterapi.UniterClientShim{client},
 		ID:                  "TestCtx",
 		UUID:                uuid,
 		ModelName:           "test-model-name",

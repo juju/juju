@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/worker/s3caller"
 	"github.com/juju/juju/worker/secretexpire"
 	"github.com/juju/juju/worker/secretrotate"
+	uniterapi "github.com/juju/juju/worker/uniter/api"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/resolver"
@@ -182,7 +183,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return secrets.NewClient(jujuSecretsAPI)
 			}
 			uniter, err := NewUniter(&UniterParams{
-				UniterClient:                 UniterClientShim{uniter.NewClient(apiConn, unitTag)},
+				UniterClient:                 uniterapi.UniterClientShim{uniter.NewClient(apiConn, unitTag)},
 				ResourcesClient:              resourcesClient,
 				PayloadClient:                payloadClient,
 				SecretsClient:                jujuSecretsAPI,

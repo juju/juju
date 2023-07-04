@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/uniter/domain"
+	"github.com/juju/juju/worker/uniter/api"
 )
 
 // Logger is here to stop the desire of creating a package level Logger.
@@ -43,20 +43,13 @@ type Logger interface {
 // SecretTriggerWatcherFunc is a function returning a secrets trigger watcher.
 type SecretTriggerWatcherFunc func(names.UnitTag, bool, chan []string) (worker.Worker, error)
 
-// SecretsClient provides access to the secrets manager facade.
-type SecretsClient interface {
-	WatchConsumedSecretsChanges(unitName string) (watcher.StringsWatcher, error)
-	GetConsumerSecretsRevisionInfo(string, []string) (map[string]secrets.SecretRevisionInfo, error)
-	WatchObsolete(ownerTags ...names.Tag) (watcher.StringsWatcher, error)
-}
-
 // RemoteStateWatcher collects unit, application, and application config information
 // from separate state watchers, and updates a Snapshot which is sent on a
 // channel upon change.
 type RemoteStateWatcher struct {
 	client                       UniterClient
-	unit                         domain.Unit
-	application                  domain.Application
+	unit                         api.Unit
+	application                  api.Application
 	modelType                    model.ModelType
 	sidecar                      bool
 	enforcedCharmModifiedVersion int
@@ -76,7 +69,7 @@ type RemoteStateWatcher struct {
 	workloadEventChannel          <-chan string
 	shutdownChannel               <-chan bool
 
-	secretsClient SecretsClient
+	secretsClient api.SecretsWatcher
 
 	secretRotateWatcherFunc SecretTriggerWatcherFunc
 	secretRotateWatcher     worker.Worker
@@ -115,7 +108,7 @@ type WatcherConfig struct {
 	LeadershipTracker             leadership.Tracker
 	SecretRotateWatcherFunc       SecretTriggerWatcherFunc
 	SecretExpiryWatcherFunc       SecretTriggerWatcherFunc
-	SecretsClient                 SecretsClient
+	SecretsClient                 api.SecretsWatcher
 	UpdateStatusChannel           UpdateStatusTimerFunc
 	CommandChannel                <-chan string
 	RetryHookChannel              watcher.NotifyChannel
@@ -1194,7 +1187,7 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 	return nil
 }
 
-func (w *RemoteStateWatcher) ensureRelationUnits(rel domain.Relation) error {
+func (w *RemoteStateWatcher) ensureRelationUnits(rel api.Relation) error {
 	relationTag := rel.Tag()
 	if _, ok := w.relations[relationTag]; ok {
 		// We're already watching this one, so just update life/suspension status
@@ -1229,7 +1222,7 @@ func (w *RemoteStateWatcher) ensureRelationUnits(rel domain.Relation) error {
 // watchRelationUnits starts watching the relation units for the given
 // relation, waits for its first event, and records the information in
 // the current snapshot.
-func (w *RemoteStateWatcher) watchRelationUnits(rel domain.Relation) error {
+func (w *RemoteStateWatcher) watchRelationUnits(rel api.Relation) error {
 	ruw, err := w.client.WatchRelationUnits(rel.Tag(), w.unit.Tag())
 	// Deal with the race where Relation returned a valid, perhaps dying
 	// relation, but by the time we ask to watch it, we get unauthorized

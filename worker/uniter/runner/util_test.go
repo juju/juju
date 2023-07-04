@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/worker/uniter"
+	uniterapi "github.com/juju/juju/worker/uniter/api"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
@@ -100,8 +100,8 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 	s.AddContextRelation(c, "db1")
 
 	s.contextFactory, err = context.NewContextFactory(context.FactoryConfig{
-		Uniter:           uniter.UniterClientShim{s.uniter},
-		Unit:             uniter.UnitShim{s.apiUnit},
+		Uniter:           uniterapi.UniterClientShim{s.uniter},
+		Unit:             uniterapi.UnitShim{s.apiUnit},
 		Payloads:         s.payloads,
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
@@ -180,7 +180,7 @@ func (s *ContextSuite) getRelationInfos() map[int]*context.RelationInfo {
 	info := map[int]*context.RelationInfo{}
 	for relId, relUnit := range s.apiRelunits {
 		info[relId] = &context.RelationInfo{
-			RelationUnit: uniter.RelationUnitShim{relUnit},
+			RelationUnit: uniterapi.RelationUnitShim{relUnit},
 			MemberNames:  s.membership[relId],
 		}
 	}

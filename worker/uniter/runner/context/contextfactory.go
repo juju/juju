@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	jujusecrets "github.com/juju/juju/secrets"
-	"github.com/juju/juju/worker/uniter/domain"
+	"github.com/juju/juju/worker/uniter/api"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/context/payloads"
 	"github.com/juju/juju/worker/uniter/runner/context/resources"
@@ -63,20 +63,6 @@ type StorageContextAccessor interface {
 	Storage(names.StorageTag) (jujuc.ContextStorageAttachment, error)
 }
 
-// SecretsAccessor is used by the hook context to access the secrets backend.
-type SecretsAccessor interface {
-	// CreateSecretURIs is used by secret-add to get URIs
-	// for added secrets.
-	CreateSecretURIs(int) ([]*secrets.URI, error)
-
-	// SecretMetadata is used by secrets-get to fetch
-	// metadata for secrets.
-	SecretMetadata() ([]secrets.SecretOwnerMetadata, error)
-
-	// SecretRotated records the outcome of rotating a secret.
-	SecretRotated(uri string, oldRevision int) error
-}
-
 // SecretsBackendGetter creates a secrets backend client.
 type SecretsBackendGetter func() (jujusecrets.BackendsClient, error)
 
@@ -86,11 +72,11 @@ type RelationsFunc func() map[int]*RelationInfo
 
 type contextFactory struct {
 	// API connection fields; unit should be deprecated, but isn't yet.
-	unit                 domain.Unit
-	client               UniterClient
+	unit                 api.Unit
+	client               api.UniterClient
 	resources            resources.OpenedResourceClient
 	payloads             payloads.PayloadAPIClient
-	secretsClient        SecretsAccessor
+	secretsClient        api.SecretsAccessor
 	secretsBackendGetter SecretsBackendGetter
 	tracker              leadership.Tracker
 
@@ -117,10 +103,10 @@ type contextFactory struct {
 // FactoryConfig contains configuration values
 // for the context factory.
 type FactoryConfig struct {
-	Uniter               UniterClient
-	SecretsClient        SecretsAccessor
+	Uniter               api.UniterClient
+	SecretsClient        api.SecretsAccessor
 	SecretsBackendGetter SecretsBackendGetter
-	Unit                 domain.Unit
+	Unit                 api.Unit
 	Resources            resources.OpenedResourceClient
 	Payloads             payloads.PayloadAPIClient
 	Tracker              leadership.Tracker

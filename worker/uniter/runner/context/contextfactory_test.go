@@ -34,7 +34,7 @@ import (
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/worker/uniter"
+	uniterapi "github.com/juju/juju/worker/uniter/api"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
@@ -59,8 +59,8 @@ func (s *ContextFactorySuite) SetUpTest(c *gc.C) {
 	s.membership = map[int][]string{}
 
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
-		Uniter:           uniter.UniterClientShim{s.uniter},
-		Unit:             uniter.UnitShim{s.apiUnit},
+		Uniter:           uniterapi.UniterClientShim{s.uniter},
+		Unit:             uniterapi.UnitShim{s.apiUnit},
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		SecretsClient:    s.secrets,
@@ -116,7 +116,7 @@ func (s *ContextFactorySuite) getRelationInfos() map[int]*context.RelationInfo {
 	info := map[int]*context.RelationInfo{}
 	for relId, relUnit := range s.apiRelunits {
 		info[relId] = &context.RelationInfo{
-			RelationUnit: uniter.RelationUnitShim{relUnit},
+			RelationUnit: uniterapi.RelationUnitShim{relUnit},
 			MemberNames:  s.membership[relId],
 		}
 	}
@@ -226,8 +226,8 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
-		Uniter:           uniter.UniterClientShim{uniterClient},
-		Unit:             uniter.UnitShim{apiUnit},
+		Uniter:           uniterapi.UniterClientShim{uniterClient},
+		Unit:             uniterapi.UnitShim{apiUnit},
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		SecretsClient:    s.secrets,
@@ -321,8 +321,8 @@ func (s *ContextFactorySuite) setupPodSpec(c *gc.C) (*state.State, context.Conte
 	c.Assert(err, jc.ErrorIsNil)
 
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
-		Uniter: uniter.UniterClientShim{uniterClient},
-		Unit:   uniter.UnitShim{apiUnit},
+		Uniter: uniterapi.UniterClientShim{uniterClient},
+		Unit:   uniterapi.UnitShim{apiUnit},
 		Tracker: &runnertesting.FakeTracker{
 			AllowClaimLeader: true,
 		},
@@ -530,8 +530,8 @@ func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
-		Uniter: uniter.UniterClientShim{uniterClient},
-		Unit:   uniter.UnitShim{apiUnit},
+		Uniter: uniterapi.UniterClientShim{uniterClient},
+		Unit:   uniterapi.UnitShim{apiUnit},
 		Tracker: &runnertesting.FakeTracker{
 			AllowClaimLeader: true,
 		},

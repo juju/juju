@@ -18,7 +18,7 @@ import (
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common/charmrunner"
-	"github.com/juju/juju/worker/uniter"
+	uniterapi "github.com/juju/juju/worker/uniter/api"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -169,8 +169,8 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
-		Uniter:           uniter.UniterClientShim{uniterClient},
-		Unit:             uniter.UnitShim{apiUnit},
+		Uniter:           uniterapi.UniterClientShim{uniterClient},
+		Unit:             uniterapi.UnitShim{apiUnit},
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		SecretsClient:    s.secrets,

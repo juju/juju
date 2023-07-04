@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/juju/sockets"
 	jujusecrets "github.com/juju/juju/secrets"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/worker/uniter/api"
 )
 
 // RealPaths implements Paths for tests that do touch the filesystem.
@@ -121,7 +121,7 @@ func (ft *FakeTicket) Ready() <-chan struct{} {
 }
 
 type SecretsContextAccessor struct {
-	context.SecretsAccessor
+	api.SecretsAccessor
 	jujusecrets.BackendsClient
 }
 

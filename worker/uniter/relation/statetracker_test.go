@@ -21,8 +21,7 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/watcher/watchertest"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/uniter/domain"
-	domainmocks "github.com/juju/juju/worker/uniter/domain/mocks"
+	"github.com/juju/juju/worker/uniter/api"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/relation"
 	"github.com/juju/juju/worker/uniter/relation/mocks"
@@ -40,10 +39,10 @@ type baseStateTrackerSuite struct {
 	unitChanges       chan struct{}
 
 	client       *mocks.MockStateTrackerClient
-	unit         *domainmocks.MockUnit
-	relation     *domainmocks.MockRelation
+	unit         *api.MockUnit
+	relation     *api.MockRelation
 	relationer   *mocks.MockRelationer
-	relationUnit *domainmocks.MockRelationUnit
+	relationUnit *api.MockRelationUnit
 	stateMgr     *mocks.MockStateManager
 	watcher      *watchertest.MockNotifyWatcher
 }
@@ -319,10 +318,10 @@ func (s *stateTrackerSuite) TestCommitHookRelationBrokenFail(c *gc.C) {
 func (s *baseStateTrackerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.client = mocks.NewMockStateTrackerClient(ctrl)
-	s.unit = domainmocks.NewMockUnit(ctrl)
-	s.relation = domainmocks.NewMockRelation(ctrl)
+	s.unit = api.NewMockUnit(ctrl)
+	s.relation = api.NewMockRelation(ctrl)
 	s.relationer = mocks.NewMockRelationer(ctrl)
-	s.relationUnit = domainmocks.NewMockRelationUnit(ctrl)
+	s.relationUnit = api.NewMockRelationUnit(ctrl)
 	s.stateMgr = mocks.NewMockStateManager(ctrl)
 	return ctrl
 }
@@ -374,7 +373,7 @@ func (s *syncScopesSuite) TestSynchronizeScopesNoRemoteRelationsDestroySubordina
 		StateManager:      s.stateMgr,
 		Subordinate:       true,
 		PrincipalName:     "ubuntu/0",
-		NewRelationerFunc: func(_ domain.RelationUnit, _ relation.StateManager, _ relation.UnitGetter, _ relation.Logger) relation.Relationer {
+		NewRelationerFunc: func(_ api.RelationUnit, _ relation.StateManager, _ relation.UnitGetter, _ relation.Logger) relation.Relationer {
 			return s.relationer
 		},
 	}
@@ -728,7 +727,7 @@ func (s *baseStateTrackerSuite) newStateTracker(c *gc.C) relation.RelationStateT
 		Unit:              s.unit,
 		LeadershipContext: s.leadershipContext,
 		StateManager:      s.stateMgr,
-		NewRelationerFunc: func(_ domain.RelationUnit, _ relation.StateManager, _ relation.UnitGetter, _ relation.Logger) relation.Relationer {
+		NewRelationerFunc: func(_ api.RelationUnit, _ relation.StateManager, _ relation.UnitGetter, _ relation.Logger) relation.Relationer {
 			return s.relationer
 		},
 	}
@@ -743,7 +742,7 @@ func (s *syncScopesSuite) newSyncScopesStateTracker(c *gc.C, relationers map[int
 		Unit:              s.unit,
 		LeadershipContext: s.leadershipContext,
 		StateManager:      s.stateMgr,
-		NewRelationerFunc: func(_ domain.RelationUnit, _ relation.StateManager, _ relation.UnitGetter, _ relation.Logger) relation.Relationer {
+		NewRelationerFunc: func(_ api.RelationUnit, _ relation.StateManager, _ relation.UnitGetter, _ relation.Logger) relation.Relationer {
 			return s.relationer
 		},
 		Relationers:   relationers,

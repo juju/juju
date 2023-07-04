@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/uniter/domain"
+	"github.com/juju/juju/worker/uniter/api"
 )
 
 // The interfaces in this file provide access to the various facade api methods.
@@ -35,11 +35,11 @@ type Waiter interface {
 type UpdateStatusTimerFunc func(duration time.Duration) Waiter
 
 type UniterClient interface {
-	Charm(url *charm.URL) (domain.Charm, error)
-	Relation(tag names.RelationTag) (domain.Relation, error)
+	Charm(url *charm.URL) (api.Charm, error)
+	Relation(tag names.RelationTag) (api.Relation, error)
 	StorageAttachment(names.StorageTag, names.UnitTag) (params.StorageAttachment, error)
 	StorageAttachmentLife([]params.StorageAttachmentId) ([]params.LifeResult, error)
-	Unit(names.UnitTag) (domain.Unit, error)
+	Unit(names.UnitTag) (api.Unit, error)
 	WatchRelationUnits(names.RelationTag, names.UnitTag) (watcher.RelationUnitsWatcher, error)
 	WatchStorageAttachment(names.StorageTag, names.UnitTag) (watcher.NotifyWatcher, error)
 	WatchUpdateStatusHookInterval() (watcher.NotifyWatcher, error)

@@ -11,7 +11,7 @@ import (
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/apibase.go github.com/juju/juju/api/base APICaller
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/exec_mock.go github.com/juju/juju/caas/kubernetes/provider/exec Executor
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/uniter_mock.go github.com/juju/juju/worker/uniter/domain ProviderIDGetter
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/uniter_mock.go github.com/juju/juju/worker/uniter/api ProviderIDGetter
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

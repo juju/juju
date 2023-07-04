@@ -10,7 +10,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/uniter_mock.go github.com/juju/juju/worker/uniter/runner/context UniterClient
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/leadership_mock.go github.com/juju/juju/worker/uniter/runner/context LeadershipContext
 
 func TestPackage(t *stdtesting.T) {

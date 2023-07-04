@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/worker/caasoperator/remotestate"
 	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/uniter"
+	uniterapi "github.com/juju/juju/worker/uniter/api"
 	jujucharm "github.com/juju/juju/worker/uniter/charm"
 	uniterremotestate "github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/wrench"
@@ -593,7 +594,7 @@ func (op *caasOperator) loop() (err error) {
 				params.ModelType = model.CAAS
 				params.UnitTag = unitTag
 				params.Downloader = op.config.Downloader // TODO(caas): write a cache downloader
-				params.UniterClient = uniter.UniterClientShim{op.config.UniterFacadeFunc(unitTag)}
+				params.UniterClient = uniterapi.UniterClientShim{op.config.UniterFacadeFunc(unitTag)}
 				if params.ResourcesClient, err = op.config.ResourcesFacadeFunc(unitTag); err != nil {
 					return errors.Trace(err)
 				}
