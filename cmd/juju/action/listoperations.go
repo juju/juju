@@ -20,8 +20,8 @@ import (
 	actionapi "github.com/juju/juju/api/client/action"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/rpc/params"
 )
 

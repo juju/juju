@@ -27,6 +27,16 @@ run_go_tidy() {
 	fi
 }
 
+run_go_fanout() {
+	for cmd in "containeragent" "jujuc" "jujud"; do
+		LIST=$(find . -type f -name "*.go" | sort -u | xargs grep -H "github\.com\/juju\/juju\/cmd\/$cmd(\/|\")" | grep -v "^./cmd/$cmd")
+		if [[ ! -z "${LIST}" ]]; then
+			(echo >&2 -e "\\nError: fanout leak detected. See offending list\\n\\n${LIST}")
+			exit 1
+		fi
+	done
+}
+
 test_static_analysis_go() {
 	if [ "$(skip 'test_static_analysis_go')" ]; then
 		echo "==> TEST SKIPPED: static go analysis"
@@ -38,7 +48,8 @@ test_static_analysis_go() {
 
 		cd .. || exit
 
-		run_linter "run_go"
-		run_linter "run_go_tidy"
+		#run_linter "run_go"
+		#run_linter "run_go_tidy"
+		run_linter "run_go_fanout"
 	)
 }

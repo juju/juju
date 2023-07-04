@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/output"
 	"golang.org/x/crypto/ssh/terminal"
 )
 

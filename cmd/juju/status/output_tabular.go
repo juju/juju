@@ -21,9 +21,9 @@ import (
 
 	cmdcrossmodel "github.com/juju/juju/cmd/juju/crossmodel"
 	"github.com/juju/juju/cmd/juju/storage"
-	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"

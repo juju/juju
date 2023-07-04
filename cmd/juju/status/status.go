@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/output"
 
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"

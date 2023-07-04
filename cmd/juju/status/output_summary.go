@@ -18,7 +18,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/naturalsort"
 
-	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/core/status"
 )
 

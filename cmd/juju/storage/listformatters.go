@@ -12,7 +12,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/juju/ansiterm"
 
-	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/output"
 )
 
 // formatStorageInstancesListTabular writes a tabular summary of storage instances.

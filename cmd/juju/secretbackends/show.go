@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/api/client/secretbackends"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/output"
 )
 
 type showSecretBackendCommand struct {

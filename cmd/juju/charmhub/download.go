@@ -22,11 +22,10 @@ import (
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/output/progress"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/output/progress"
 	"github.com/juju/juju/core/series"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/version"
 )
 
@@ -322,14 +321,14 @@ func (c *downloadCommand) refresh(
 	return results, &normBase, nil
 }
 
-func (c *downloadCommand) suggested(cmdContext *cmd.Context, requestedBase coreseries.Base, channel string, releases []transport.Release) ([]coreseries.Base, error) {
+func (c *downloadCommand) suggested(cmdContext *cmd.Context, requestedBase series.Base, channel string, releases []transport.Release) ([]series.Base, error) {
 	var (
-		ordered []coreseries.Base
-		bases   = make(map[coreseries.Base]struct{})
+		ordered []series.Base
+		bases   = make(map[series.Base]struct{})
 	)
 	for _, rel := range releases {
 		if rel.Channel == channel {
-			parsedBase, err := coreseries.ParseBase(rel.Base.Name, rel.Base.Channel)
+			parsedBase, err := series.ParseBase(rel.Base.Name, rel.Base.Channel)
 			if err != nil {
 				// Shouldn't happen, log and continue if verbose is set.
 				cmdContext.Verbosef("%s of %s", err, rel.Base.Name)

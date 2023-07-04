@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/output"
 )
 
 // formatFindTabular returns a tabular summary of remote applications or
