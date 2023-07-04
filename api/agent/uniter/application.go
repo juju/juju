@@ -161,5 +161,5 @@ func (s *Application) Status(unitName string) (params.ApplicationStatusResult, e
 // WatchLeadershipSettings returns a watcher which can be used to wait
 // for leadership settings changes to be made for the application.
 func (s *Application) WatchLeadershipSettings() (watcher.NotifyWatcher, error) {
-	return s.client.LeadershipSettings.WatchLeadershipSettings(s.tag.Id())
+	return s.client.leadershipSettings.WatchLeadershipSettings(s.tag.Id())
 }

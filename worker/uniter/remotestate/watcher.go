@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/uniter/domain"
 )
 
 // Logger is here to stop the desire of creating a package level Logger.
@@ -53,9 +54,9 @@ type SecretsClient interface {
 // from separate state watchers, and updates a Snapshot which is sent on a
 // channel upon change.
 type RemoteStateWatcher struct {
-	st                           State
-	unit                         Unit
-	application                  Application
+	client                       UniterClient
+	unit                         domain.Unit
+	application                  domain.Application
 	modelType                    model.ModelType
 	sidecar                      bool
 	enforcedCharmModifiedVersion int
@@ -110,7 +111,7 @@ type ContainerRunningStatusFunc func(providerID string) (*ContainerRunningStatus
 // WatcherConfig holds configuration parameters for the
 // remote state watcher.
 type WatcherConfig struct {
-	State                         State
+	UniterClient                  UniterClient
 	LeadershipTracker             leadership.Tracker
 	SecretRotateWatcherFunc       SecretTriggerWatcherFunc
 	SecretExpiryWatcherFunc       SecretTriggerWatcherFunc
@@ -155,7 +156,7 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		return nil, errors.Trace(err)
 	}
 	w := &RemoteStateWatcher{
-		st:                            config.State,
+		client:                        config.UniterClient,
 		relations:                     make(map[names.RelationTag]*wrappedRelationUnitsWatcher),
 		relationUnitsChanges:          make(chan relationUnitsChange),
 		storageAttachmentWatchers:     make(map[names.StorageTag]*storageAttachmentWatcher),
@@ -359,7 +360,7 @@ func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) (err error) {
 			}
 		}
 	}()
-	if w.unit, err = w.st.Unit(unitTag); err != nil {
+	if w.unit, err = w.client.Unit(unitTag); err != nil {
 		return errors.Trace(err)
 	}
 	w.application, err = w.unit.Application()
@@ -526,7 +527,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	requiredEvents++
 
 	var seenUpdateStatusIntervalChange bool
-	updateStatusIntervalw, err := w.st.WatchUpdateStatusHookInterval()
+	updateStatusIntervalw, err := w.client.WatchUpdateStatusHookInterval()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -743,7 +744,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenUpdateStatusIntervalChange)
 
 			var err error
-			updateStatusInterval, err = w.st.UpdateStatusHookInterval()
+			updateStatusInterval, err = w.client.UpdateStatusHookInterval()
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -948,7 +949,7 @@ func (w *RemoteStateWatcher) applicationChanged() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		ch, err := w.st.Charm(curl)
+		ch, err := w.client.Charm(curl)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1175,7 +1176,7 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 
 	for _, key := range keys {
 		relationTag := names.NewRelationTag(key)
-		rel, err := w.st.Relation(relationTag)
+		rel, err := w.client.Relation(relationTag)
 		if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 			// If it's actually gone, this unit cannot have entered
 			// scope, and therefore never needs to know about it.
@@ -1193,7 +1194,7 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 	return nil
 }
 
-func (w *RemoteStateWatcher) ensureRelationUnits(rel Relation) error {
+func (w *RemoteStateWatcher) ensureRelationUnits(rel domain.Relation) error {
 	relationTag := rel.Tag()
 	if _, ok := w.relations[relationTag]; ok {
 		// We're already watching this one, so just update life/suspension status
@@ -1228,8 +1229,8 @@ func (w *RemoteStateWatcher) ensureRelationUnits(rel Relation) error {
 // watchRelationUnits starts watching the relation units for the given
 // relation, waits for its first event, and records the information in
 // the current snapshot.
-func (w *RemoteStateWatcher) watchRelationUnits(rel Relation) error {
-	ruw, err := w.st.WatchRelationUnits(rel.Tag(), w.unit.Tag())
+func (w *RemoteStateWatcher) watchRelationUnits(rel domain.Relation) error {
+	ruw, err := w.client.WatchRelationUnits(rel.Tag(), w.unit.Tag())
 	// Deal with the race where Relation returned a valid, perhaps dying
 	// relation, but by the time we ask to watch it, we get unauthorized
 	// because it is no longer around.
@@ -1340,7 +1341,7 @@ func (w *RemoteStateWatcher) storageChanged(keys []string) error {
 			UnitTag:    w.unit.Tag().String(),
 		}
 	}
-	results, err := w.st.StorageAttachmentLife(ids)
+	results, err := w.client.StorageAttachmentLife(ids)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1362,7 +1363,7 @@ func (w *RemoteStateWatcher) storageChanged(keys []string) error {
 			// We haven't seen this storage attachment before, so start
 			// a watcher now; add it to our catacomb in case of mishap;
 			// and wait for the initial event.
-			saw, err := w.st.WatchStorageAttachment(tag, w.unit.Tag())
+			saw, err := w.client.WatchStorageAttachment(tag, w.unit.Tag())
 			if err != nil {
 				return errors.Annotate(err, "watching storage attachment")
 			}
@@ -1406,7 +1407,7 @@ func (w *RemoteStateWatcher) watchStorageAttachment(
 			return errors.Errorf("storage attachment watcher closed for %s", w.unit.Tag().Id())
 		}
 		var err error
-		storageSnapshot, err = getStorageSnapshot(w.st, tag, w.unit.Tag())
+		storageSnapshot, err = getStorageSnapshot(w.client, tag, w.unit.Tag())
 		if errors.Is(err, errors.NotProvisioned) {
 			// If the storage is unprovisioned, we still want to
 			// record the attachment, but we'll mark it as
@@ -1418,7 +1419,7 @@ func (w *RemoteStateWatcher) watchStorageAttachment(
 		}
 	}
 	innerSAW, err := newStorageAttachmentWatcher(
-		w.st, saw, w.unit.Tag(), tag, w.storageAttachmentChanges,
+		w.client, saw, w.unit.Tag(), tag, w.storageAttachmentChanges,
 	)
 	if err != nil {
 		return errors.Trace(err)

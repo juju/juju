@@ -12,13 +12,12 @@ import (
 
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/uniter/domain"
 	"github.com/juju/juju/worker/uniter/runner"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/exec_mock.go github.com/juju/juju/caas/kubernetes/provider/exec Executor
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/uniter_mock.go github.com/juju/juju/worker/uniter ProviderIDGetter
 func getNewRunnerExecutor(logger Logger, execClient exec.Executor) uniter.NewRunnerExecutorFunc {
-	return func(providerIDGetter uniter.ProviderIDGetter, unitPaths uniter.Paths) runner.ExecFunc {
+	return func(providerIDGetter domain.ProviderIDGetter, unitPaths uniter.Paths) runner.ExecFunc {
 		return func(params runner.ExecParams) (*utilexec.ExecResponse, error) {
 			return remoteExecute(logger, execClient, providerIDGetter, unitPaths, params)
 		}
@@ -27,7 +26,7 @@ func getNewRunnerExecutor(logger Logger, execClient exec.Executor) uniter.NewRun
 
 func remoteExecute(logger Logger,
 	execClient exec.Executor,
-	providerIDGetter uniter.ProviderIDGetter,
+	providerIDGetter domain.ProviderIDGetter,
 	unitPaths uniter.Paths,
 	params runner.ExecParams) (*utilexec.ExecResponse, error) {
 	if err := providerIDGetter.Refresh(); err != nil {

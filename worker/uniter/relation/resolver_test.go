@@ -18,14 +18,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/agent/uniter"
+	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/relation"
@@ -38,8 +38,8 @@ import (
 type relationResolverSuite struct {
 	coretesting.BaseSuite
 
-	charmDir              string
-	leadershipContextFunc relation.LeadershipContextFunc
+	charmDir          string
+	leadershipContext context.LeadershipContext
 }
 
 var (
@@ -113,9 +113,7 @@ func (s *relationResolverSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = os.WriteFile(filepath.Join(s.charmDir, "metadata.yaml"), []byte(minimalMetadata), 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	s.leadershipContextFunc = func(accessor context.LeadershipSettingsAccessor, tracker leadership.Tracker, unitName string) context.LeadershipContext {
-		return &stubLeadershipContext{isLeader: true}
-	}
+	s.leadershipContext = &stubLeadershipContext{isLeader: true}
 }
 
 func assertNumCalls(c *gc.C, numCalls *int32, expected int32) {
@@ -125,17 +123,17 @@ func assertNumCalls(c *gc.C, numCalls *int32, expected int32) {
 
 func (s *relationResolverSuite) newRelationStateTracer(c *gc.C, apiCaller base.APICaller, unitTag names.UnitTag) relation.RelationStateTracker {
 	abort := make(chan struct{})
-	client := uniter.NewClient(apiCaller, unitTag)
+	client := apiuniter.NewClient(apiCaller, unitTag)
 	u, err := client.Unit(unitTag)
 	c.Assert(err, jc.ErrorIsNil)
 	r, err := relation.NewRelationStateTracker(
 		relation.RelationStateTrackerConfig{
-			Uniter:               client,
-			Unit:                 u,
-			Logger:               loggo.GetLogger("test"),
-			CharmDir:             s.charmDir,
-			NewLeadershipContext: s.leadershipContextFunc,
-			Abort:                abort,
+			Client:            uniter.UniterClientShim{client},
+			Unit:              uniter.UnitShim{u},
+			Logger:            loggo.GetLogger("test"),
+			CharmDir:          s.charmDir,
+			LeadershipContext: s.leadershipContext,
+			Abort:             abort,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	return r
@@ -166,9 +164,7 @@ func (s *relationResolverSuite) TestNewRelationsNoRelations(c *gc.C) {
 
 func (s *relationResolverSuite) assertNewRelationsWithExistingRelations(c *gc.C, isLeader bool) {
 	unitTag := names.NewUnitTag("wordpress/0")
-	s.leadershipContextFunc = func(accessor context.LeadershipSettingsAccessor, tracker leadership.Tracker, unitName string) context.LeadershipContext {
-		return &stubLeadershipContext{isLeader: isLeader}
-	}
+	s.leadershipContext = &stubLeadershipContext{isLeader: isLeader}
 
 	var numCalls int32
 	unitEntity := params.Entities{Entities: []params.Entity{{Tag: "unit-wordpress-0"}}}
@@ -225,7 +221,7 @@ func (s *relationResolverSuite) assertNewRelationsWithExistingRelations(c *gc.C,
 	c.Assert(info, gc.HasLen, 1)
 	oneInfo := info[1]
 	c.Assert(oneInfo.RelationUnit.Relation().Tag(), gc.Equals, names.NewRelationTag("wordpress:db mysql:db"))
-	c.Assert(oneInfo.RelationUnit.Endpoint(), jc.DeepEquals, uniter.Endpoint{
+	c.Assert(oneInfo.RelationUnit.Endpoint(), jc.DeepEquals, apiuniter.Endpoint{
 		Relation: charm.Relation{Name: "mysql", Role: "provider", Interface: "db", Optional: false, Limit: 0, Scope: ""},
 	})
 	c.Assert(oneInfo.MemberNames, gc.HasLen, 0)

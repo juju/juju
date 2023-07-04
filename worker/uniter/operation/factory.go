@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/charm"
@@ -21,7 +20,7 @@ type FactoryParams struct {
 	Deployer       charm.Deployer
 	RunnerFactory  runner.Factory
 	Callbacks      Callbacks
-	State          *uniter.Client
+	ActionGetter   ActionGetter
 	Abort          <-chan struct{}
 	MetricSpoolDir string
 	Logger         Logger
@@ -135,7 +134,7 @@ func (f *factory) NewAction(actionId string) (Operation, error) {
 	}
 
 	tag := names.NewActionTag(actionId)
-	action, err := f.config.State.Action(tag)
+	action, err := f.config.ActionGetter.Action(tag)
 	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		return nil, charmrunner.ErrActionNotAvailable
 	} else if params.IsCodeActionNotAvailable(err) {

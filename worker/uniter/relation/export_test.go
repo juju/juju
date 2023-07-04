@@ -6,25 +6,26 @@ package relation
 import (
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/worker/uniter/domain"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 type StateTrackerForTestConfig struct {
-	St                StateTrackerState
-	Unit              Unit
+	Client            StateTrackerClient
+	Unit              domain.Unit
 	LeadershipContext context.LeadershipContext
 	Subordinate       bool
 	PrincipalName     string
 	CharmDir          string
 	StateManager      StateManager
-	NewRelationerFunc func(RelationUnit, StateManager, UnitGetter, Logger) Relationer
+	NewRelationerFunc func(domain.RelationUnit, StateManager, UnitGetter, Logger) Relationer
 	Relationers       map[int]Relationer
 	RemoteAppName     map[int]string
 }
 
 func NewStateTrackerForTest(cfg StateTrackerForTestConfig) (RelationStateTracker, error) {
 	rst := &relationStateTracker{
-		st:              cfg.St,
+		client:          cfg.Client,
 		unit:            cfg.Unit,
 		leaderCtx:       cfg.LeadershipContext,
 		abort:           make(chan struct{}),
@@ -45,7 +46,7 @@ func NewStateTrackerForTest(cfg StateTrackerForTestConfig) (RelationStateTracker
 
 func NewStateTrackerForSyncScopesTest(cfg StateTrackerForTestConfig) (RelationStateTracker, error) {
 	return &relationStateTracker{
-		st:              cfg.St,
+		client:          cfg.Client,
 		unit:            cfg.Unit,
 		leaderCtx:       cfg.LeadershipContext,
 		abort:           make(chan struct{}),

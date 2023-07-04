@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names/v4"
 	utilexec "github.com/juju/utils/v3/exec"
 
+	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -262,4 +263,9 @@ type StorageUpdater interface {
 	// UpdateStorage updates local knowledge of the storage attachments
 	// with the specified tags.
 	UpdateStorage([]names.StorageTag) error
+}
+
+// ActionGetter provides a method to query a given action.
+type ActionGetter interface {
+	Action(tag names.ActionTag) (*uniter.Action, error)
 }

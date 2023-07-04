@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	domain "github.com/juju/juju/worker/uniter/domain"
 	hook "github.com/juju/juju/worker/uniter/hook"
-	relation "github.com/juju/juju/worker/uniter/relation"
 	context "github.com/juju/juju/worker/uniter/runner/context"
 )
 
@@ -122,10 +122,10 @@ func (mr *MockRelationerMockRecorder) PrepareHook(arg0 interface{}) *gomock.Call
 }
 
 // RelationUnit mocks base method.
-func (m *MockRelationer) RelationUnit() relation.RelationUnit {
+func (m *MockRelationer) RelationUnit() domain.RelationUnit {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RelationUnit")
-	ret0, _ := ret[0].(relation.RelationUnit)
+	ret0, _ := ret[0].(domain.RelationUnit)
 	return ret0
 }
 

@@ -32,12 +32,3 @@ func CreateRelation(client *Client, tag names.RelationTag) *Relation {
 		id:     666,
 	}
 }
-
-// CreateRelationUnit creates uniter.RelationUnit for tests.
-func CreateRelationUnit(client *Client, relationTag names.RelationTag, unitTag names.UnitTag) *RelationUnit {
-	return &RelationUnit{
-		client:   client,
-		unitTag:  unitTag,
-		relation: &Relation{tag: relationTag},
-	}
-}

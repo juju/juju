@@ -21,6 +21,8 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/watcher/watchertest"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/uniter/domain"
+	domainmocks "github.com/juju/juju/worker/uniter/domain/mocks"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/relation"
 	"github.com/juju/juju/worker/uniter/relation/mocks"
@@ -37,11 +39,11 @@ type baseStateTrackerSuite struct {
 	unitTag           names.UnitTag
 	unitChanges       chan struct{}
 
-	state        *mocks.MockStateTrackerState
-	unit         *mocks.MockUnit
-	relation     *mocks.MockRelation
+	client       *mocks.MockStateTrackerClient
+	unit         *domainmocks.MockUnit
+	relation     *domainmocks.MockRelation
 	relationer   *mocks.MockRelationer
-	relationUnit *mocks.MockRelationUnit
+	relationUnit *domainmocks.MockRelationUnit
 	stateMgr     *mocks.MockStateManager
 	watcher      *watchertest.MockNotifyWatcher
 }
@@ -316,11 +318,11 @@ func (s *stateTrackerSuite) TestCommitHookRelationBrokenFail(c *gc.C) {
 
 func (s *baseStateTrackerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.state = mocks.NewMockStateTrackerState(ctrl)
-	s.unit = mocks.NewMockUnit(ctrl)
-	s.relation = mocks.NewMockRelation(ctrl)
+	s.client = mocks.NewMockStateTrackerClient(ctrl)
+	s.unit = domainmocks.NewMockUnit(ctrl)
+	s.relation = domainmocks.NewMockRelation(ctrl)
 	s.relationer = mocks.NewMockRelationer(ctrl)
-	s.relationUnit = mocks.NewMockRelationUnit(ctrl)
+	s.relationUnit = domainmocks.NewMockRelationUnit(ctrl)
 	s.stateMgr = mocks.NewMockStateManager(ctrl)
 	return ctrl
 }
@@ -366,13 +368,13 @@ func (s *syncScopesSuite) TestSynchronizeScopesNoRemoteRelationsDestroySubordina
 	s.expectUnitDestroy()
 
 	cfg := relation.StateTrackerForTestConfig{
-		St:                s.state,
+		Client:            s.client,
 		Unit:              s.unit,
 		LeadershipContext: s.leadershipContext,
 		StateManager:      s.stateMgr,
 		Subordinate:       true,
 		PrincipalName:     "ubuntu/0",
-		NewRelationerFunc: func(_ relation.RelationUnit, _ relation.StateManager, _ relation.UnitGetter, _ relation.Logger) relation.Relationer {
+		NewRelationerFunc: func(_ domain.RelationUnit, _ relation.StateManager, _ relation.UnitGetter, _ relation.Logger) relation.Relationer {
 			return s.relationer
 		},
 	}
@@ -664,7 +666,7 @@ func (s *syncScopesSuite) expectString() {
 
 // StateManager
 func (s *baseStateTrackerSuite) expectStateMgrRemoveRelation(id int) {
-	s.stateMgr.EXPECT().RemoveRelation(id, s.state, map[string]bool{}).Return(nil)
+	s.stateMgr.EXPECT().RemoveRelation(id, s.client, map[string]bool{}).Return(nil)
 }
 
 func (s *baseStateTrackerSuite) expectStateMgrKnownIDs(ids []int) {
@@ -677,11 +679,11 @@ func (s *baseStateTrackerSuite) expectStateMgrRelationFound(id int) {
 
 // State
 func (s *baseStateTrackerSuite) expectRelation(relTag names.RelationTag) {
-	s.state.EXPECT().Relation(relTag).Return(s.relation, nil)
+	s.client.EXPECT().Relation(relTag).Return(s.relation, nil)
 }
 
 func (s *syncScopesSuite) expectRelationById(id int) {
-	s.state.EXPECT().RelationById(id).Return(s.relation, nil)
+	s.client.EXPECT().RelationById(id).Return(s.relation, nil)
 }
 
 // Unit
@@ -722,11 +724,11 @@ func (s *baseStateTrackerSuite) expectWatch(c *gc.C) {
 
 func (s *baseStateTrackerSuite) newStateTracker(c *gc.C) relation.RelationStateTracker {
 	cfg := relation.StateTrackerForTestConfig{
-		St:                s.state,
+		Client:            s.client,
 		Unit:              s.unit,
 		LeadershipContext: s.leadershipContext,
 		StateManager:      s.stateMgr,
-		NewRelationerFunc: func(_ relation.RelationUnit, _ relation.StateManager, _ relation.UnitGetter, _ relation.Logger) relation.Relationer {
+		NewRelationerFunc: func(_ domain.RelationUnit, _ relation.StateManager, _ relation.UnitGetter, _ relation.Logger) relation.Relationer {
 			return s.relationer
 		},
 	}
@@ -737,11 +739,11 @@ func (s *baseStateTrackerSuite) newStateTracker(c *gc.C) relation.RelationStateT
 
 func (s *syncScopesSuite) newSyncScopesStateTracker(c *gc.C, relationers map[int]relation.Relationer, appNames map[int]string) relation.RelationStateTracker {
 	cfg := relation.StateTrackerForTestConfig{
-		St:                s.state,
+		Client:            s.client,
 		Unit:              s.unit,
 		LeadershipContext: s.leadershipContext,
 		StateManager:      s.stateMgr,
-		NewRelationerFunc: func(_ relation.RelationUnit, _ relation.StateManager, _ relation.UnitGetter, _ relation.Logger) relation.Relationer {
+		NewRelationerFunc: func(_ domain.RelationUnit, _ relation.StateManager, _ relation.UnitGetter, _ relation.Logger) relation.Relationer {
 			return s.relationer
 		},
 		Relationers:   relationers,

@@ -13,13 +13,13 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	jujusecrets "github.com/juju/juju/secrets"
+	"github.com/juju/juju/worker/uniter/domain"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/context/payloads"
 	"github.com/juju/juju/worker/uniter/runner/context/resources"
@@ -86,10 +86,10 @@ type RelationsFunc func() map[int]*RelationInfo
 
 type contextFactory struct {
 	// API connection fields; unit should be deprecated, but isn't yet.
-	unit                 *uniter.Unit
-	client               *uniter.Client
-	resources            *uniter.ResourcesFacadeClient
-	payloads             *uniter.PayloadFacadeClient
+	unit                 domain.Unit
+	client               UniterClient
+	resources            resources.OpenedResourceClient
+	payloads             payloads.PayloadAPIClient
 	secretsClient        SecretsAccessor
 	secretsBackendGetter SecretsBackendGetter
 	tracker              leadership.Tracker
@@ -117,12 +117,12 @@ type contextFactory struct {
 // FactoryConfig contains configuration values
 // for the context factory.
 type FactoryConfig struct {
-	Uniter               *uniter.Client
+	Uniter               UniterClient
 	SecretsClient        SecretsAccessor
 	SecretsBackendGetter SecretsBackendGetter
-	Unit                 *uniter.Unit
-	Resources            *uniter.ResourcesFacadeClient
-	Payloads             *uniter.PayloadFacadeClient
+	Unit                 domain.Unit
+	Resources            resources.OpenedResourceClient
+	Payloads             payloads.PayloadAPIClient
 	Tracker              leadership.Tracker
 	GetRelationInfos     RelationsFunc
 	Paths                Paths
@@ -191,8 +191,8 @@ func (f *contextFactory) newId(name string) string {
 
 // coreContext creates a new context with all unspecialised fields filled in.
 func (f *contextFactory) coreContext() (*HookContext, error) {
-	leadershipContext := newLeadershipContext(
-		f.client.LeadershipSettings,
+	leadershipContext := NewLeadershipContext(
+		f.client.LeadershipSettings(),
 		f.tracker,
 		f.unit.Name(),
 	)

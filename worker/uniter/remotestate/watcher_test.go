@@ -29,7 +29,7 @@ type WatcherSuite struct {
 	modelType                    model.ModelType
 	sidecar                      bool
 	enforcedCharmModifiedVersion int
-	st                           *mockState
+	uniterClient                 *mockUniterClient
 	leadership                   *mockLeadershipTracker
 	watcher                      *remotestate.RemoteStateWatcher
 	clock                        *testclock.Clock
@@ -90,7 +90,7 @@ var _ = gc.Suite(&WatcherSuiteSidecarCharmModVer{
 
 func (s *WatcherSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.st = &mockState{
+	s.uniterClient = &mockUniterClient{
 		modelType: s.modelType,
 		unit: mockUnit{
 			tag:  names.NewUnitTag("mysql/0"),
@@ -141,10 +141,10 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 func (s *WatcherSuiteIAAS) SetUpTest(c *gc.C) {
 	s.WatcherSuite.SetUpTest(c)
 
-	s.st.unit.application.applicationWatcher = newMockNotifyWatcher()
-	s.applicationWatcher = s.st.unit.application.applicationWatcher
-	s.st.unit.upgradeSeriesWatcher = newMockNotifyWatcher()
-	s.st.unit.instanceDataWatcher = newMockNotifyWatcher()
+	s.uniterClient.unit.application.applicationWatcher = newMockNotifyWatcher()
+	s.applicationWatcher = s.uniterClient.unit.application.applicationWatcher
+	s.uniterClient.unit.upgradeSeriesWatcher = newMockNotifyWatcher()
+	s.uniterClient.unit.instanceDataWatcher = newMockNotifyWatcher()
 
 	w, err := remotestate.NewWatcher(s.setupWatcherConfig())
 	c.Assert(err, jc.ErrorIsNil)
@@ -155,8 +155,8 @@ func (s *WatcherSuiteIAAS) SetUpTest(c *gc.C) {
 func (s *WatcherSuiteCAAS) SetUpTest(c *gc.C) {
 	s.WatcherSuite.SetUpTest(c)
 	s.runningStatusWatcher = newMockNotifyWatcher()
-	s.st.unit.application.applicationWatcher = newMockNotifyWatcher()
-	s.applicationWatcher = s.st.unit.application.applicationWatcher
+	s.uniterClient.unit.application.applicationWatcher = newMockNotifyWatcher()
+	s.applicationWatcher = s.uniterClient.unit.application.applicationWatcher
 
 	cfg := s.setupWatcherConfig()
 	cfg.ContainerRunningStatusChannel = s.runningStatusWatcher.Changes()
@@ -173,8 +173,8 @@ func (s *WatcherSuiteCAAS) SetUpTest(c *gc.C) {
 func (s *WatcherSuiteSidecar) SetUpTest(c *gc.C) {
 	s.WatcherSuite.SetUpTest(c)
 
-	s.st.unit.application.applicationWatcher = newMockNotifyWatcher()
-	s.applicationWatcher = s.st.unit.application.applicationWatcher
+	s.uniterClient.unit.application.applicationWatcher = newMockNotifyWatcher()
+	s.applicationWatcher = s.uniterClient.unit.application.applicationWatcher
 
 	w, err := remotestate.NewWatcher(s.setupWatcherConfig())
 	c.Assert(err, jc.ErrorIsNil)
@@ -188,7 +188,7 @@ func (s *WatcherSuite) setupWatcherConfig() remotestate.WatcherConfig {
 	}
 	return remotestate.WatcherConfig{
 		Logger:                       loggo.GetLogger("test"),
-		State:                        s.st,
+		UniterClient:                 s.uniterClient,
 		ModelType:                    s.modelType,
 		Sidecar:                      s.sidecar,
 		EnforcedCharmModifiedVersion: s.enforcedCharmModifiedVersion,
@@ -216,7 +216,7 @@ func (s *WatcherSuite) setupWatcherConfig() remotestate.WatcherConfig {
 			}
 			return expireRevisionWatcher, nil
 		},
-		UnitTag:              s.st.unit.tag,
+		UnitTag:              s.uniterClient.unit.tag,
 		UpdateStatusChannel:  statusTicker,
 		CanApplyCharmProfile: s.modelType == model.IAAS,
 		WorkloadEventChannel: s.workloadEventChannel,
@@ -280,25 +280,25 @@ func (s *WatcherSuiteSidecar) TestInitialSnapshot(c *gc.C) {
 func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 	// There should not be a remote state change until
 	// we've seen all of the top-level notifications.
-	s.st.unit.unitWatcher.changes <- struct{}{}
+	s.uniterClient.unit.unitWatcher.changes <- struct{}{}
 	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
-	s.st.unit.addressesWatcher.changes <- []string{"addresseshash"}
-	s.st.unit.configSettingsWatcher.changes <- []string{"confighash"}
-	s.st.unit.applicationConfigSettingsWatcher.changes <- []string{"trusthash"}
-	if s.st.unit.upgradeSeriesWatcher != nil {
-		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
+	s.uniterClient.unit.addressesWatcher.changes <- []string{"addresseshash"}
+	s.uniterClient.unit.configSettingsWatcher.changes <- []string{"confighash"}
+	s.uniterClient.unit.applicationConfigSettingsWatcher.changes <- []string{"trusthash"}
+	if s.uniterClient.unit.upgradeSeriesWatcher != nil {
+		s.uniterClient.unit.upgradeSeriesWatcher.changes <- struct{}{}
 	}
-	if s.st.unit.instanceDataWatcher != nil {
-		s.st.unit.instanceDataWatcher.changes <- struct{}{}
+	if s.uniterClient.unit.instanceDataWatcher != nil {
+		s.uniterClient.unit.instanceDataWatcher.changes <- struct{}{}
 	}
-	s.st.unit.storageWatcher.changes <- []string{}
-	s.st.unit.actionWatcher.changes <- []string{}
-	if s.st.unit.application.applicationWatcher != nil {
-		s.st.unit.application.applicationWatcher.changes <- struct{}{}
+	s.uniterClient.unit.storageWatcher.changes <- []string{}
+	s.uniterClient.unit.actionWatcher.changes <- []string{}
+	if s.uniterClient.unit.application.applicationWatcher != nil {
+		s.uniterClient.unit.application.applicationWatcher.changes <- struct{}{}
 	}
-	s.st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
-	s.st.unit.relationsWatcher.changes <- []string{}
-	s.st.updateStatusIntervalWatcher.changes <- struct{}{}
+	s.uniterClient.unit.application.leaderSettingsWatcher.changes <- struct{}{}
+	s.uniterClient.unit.relationsWatcher.changes <- []string{}
+	s.uniterClient.updateStatusIntervalWatcher.changes <- struct{}{}
 	s.leadership.claimTicket.ch <- struct{}{}
 	s.secretsClient.secretsWatcher.changes <- []string{}
 	s.secretsClient.secretsRevisionsWatcher.changes <- []string{}
@@ -306,21 +306,21 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 }
 
 func (s *WatcherSuite) signalAll() {
-	s.st.unit.unitWatcher.changes <- struct{}{}
-	s.st.unit.configSettingsWatcher.changes <- []string{"confighash"}
-	s.st.unit.applicationConfigSettingsWatcher.changes <- []string{"trusthash"}
-	s.st.unit.actionWatcher.changes <- []string{}
-	s.st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
-	s.st.unit.relationsWatcher.changes <- []string{}
-	s.st.unit.addressesWatcher.changes <- []string{"addresseshash"}
-	s.st.updateStatusIntervalWatcher.changes <- struct{}{}
+	s.uniterClient.unit.unitWatcher.changes <- struct{}{}
+	s.uniterClient.unit.configSettingsWatcher.changes <- []string{"confighash"}
+	s.uniterClient.unit.applicationConfigSettingsWatcher.changes <- []string{"trusthash"}
+	s.uniterClient.unit.actionWatcher.changes <- []string{}
+	s.uniterClient.unit.application.leaderSettingsWatcher.changes <- struct{}{}
+	s.uniterClient.unit.relationsWatcher.changes <- []string{}
+	s.uniterClient.unit.addressesWatcher.changes <- []string{"addresseshash"}
+	s.uniterClient.updateStatusIntervalWatcher.changes <- struct{}{}
 	s.leadership.claimTicket.ch <- struct{}{}
-	s.st.unit.storageWatcher.changes <- []string{}
+	s.uniterClient.unit.storageWatcher.changes <- []string{}
 	s.applicationWatcher.changes <- struct{}{}
 	s.secretsClient.secretsWatcher.changes <- []string{}
-	if s.st.modelType == model.IAAS {
-		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
-		s.st.unit.instanceDataWatcher.changes <- struct{}{}
+	if s.uniterClient.modelType == model.IAAS {
+		s.uniterClient.unit.upgradeSeriesWatcher.changes <- struct{}{}
+		s.uniterClient.unit.instanceDataWatcher.changes <- struct{}{}
 	}
 }
 
@@ -330,14 +330,14 @@ func (s *WatcherSuite) TestSnapshot(c *gc.C) {
 
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Life:                    s.st.unit.life,
+		Life:                    s.uniterClient.unit.life,
 		Relations:               map[int]remotestate.RelationSnapshot{},
 		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
 		ActionChanged:           map[string]int{},
-		CharmModifiedVersion:    s.st.unit.application.charmModifiedVersion,
-		CharmURL:                s.st.unit.application.curl,
-		ForceCharmUpgrade:       s.st.unit.application.forceUpgrade,
-		ResolvedMode:            s.st.unit.resolved,
+		CharmModifiedVersion:    s.uniterClient.unit.application.charmModifiedVersion,
+		CharmURL:                s.uniterClient.unit.application.curl,
+		ForceCharmUpgrade:       s.uniterClient.unit.application.forceUpgrade,
+		ResolvedMode:            s.uniterClient.unit.resolved,
 		ConfigHash:              "confighash",
 		TrustHash:               "trusthash",
 		AddressesHash:           "addresseshash",
@@ -356,14 +356,14 @@ func (s *WatcherSuiteSidecar) TestSnapshot(c *gc.C) {
 
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Life:                    s.st.unit.life,
+		Life:                    s.uniterClient.unit.life,
 		Relations:               map[int]remotestate.RelationSnapshot{},
 		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
 		ActionChanged:           map[string]int{},
-		CharmModifiedVersion:    s.st.unit.application.charmModifiedVersion,
-		CharmURL:                s.st.unit.application.curl,
-		ForceCharmUpgrade:       s.st.unit.application.forceUpgrade,
-		ResolvedMode:            s.st.unit.resolved,
+		CharmModifiedVersion:    s.uniterClient.unit.application.charmModifiedVersion,
+		CharmURL:                s.uniterClient.unit.application.curl,
+		ForceCharmUpgrade:       s.uniterClient.unit.application.forceUpgrade,
+		ResolvedMode:            s.uniterClient.unit.resolved,
 		ConfigHash:              "confighash",
 		TrustHash:               "trusthash",
 		AddressesHash:           "addresseshash",
@@ -381,13 +381,13 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Life:                    s.st.unit.life,
+		Life:                    s.uniterClient.unit.life,
 		Relations:               map[int]remotestate.RelationSnapshot{},
 		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
-		CharmModifiedVersion:    s.st.unit.application.charmModifiedVersion,
-		CharmURL:                s.st.unit.application.curl,
-		ForceCharmUpgrade:       s.st.unit.application.forceUpgrade,
-		ResolvedMode:            s.st.unit.resolved,
+		CharmModifiedVersion:    s.uniterClient.unit.application.charmModifiedVersion,
+		CharmURL:                s.uniterClient.unit.application.curl,
+		ForceCharmUpgrade:       s.uniterClient.unit.application.forceUpgrade,
+		ResolvedMode:            s.uniterClient.unit.resolved,
 		ConfigHash:              "confighash",
 		TrustHash:               "trusthash",
 		AddressesHash:           "addresseshash",
@@ -402,7 +402,7 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 	})
 
 	t := time.Now()
-	s.st.unit.providerID = "provider-id"
+	s.uniterClient.unit.providerID = "provider-id"
 	s.running = &remotestate.ContainerRunningStatus{
 		Initialising:     true,
 		InitialisingTime: t,
@@ -418,13 +418,13 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 
 	snap = s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Life:                    s.st.unit.life,
+		Life:                    s.uniterClient.unit.life,
 		Relations:               map[int]remotestate.RelationSnapshot{},
 		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
-		CharmModifiedVersion:    s.st.unit.application.charmModifiedVersion,
-		CharmURL:                s.st.unit.application.curl,
-		ForceCharmUpgrade:       s.st.unit.application.forceUpgrade,
-		ResolvedMode:            s.st.unit.resolved,
+		CharmModifiedVersion:    s.uniterClient.unit.application.charmModifiedVersion,
+		CharmURL:                s.uniterClient.unit.application.curl,
+		ForceCharmUpgrade:       s.uniterClient.unit.application.forceUpgrade,
+		ResolvedMode:            s.uniterClient.unit.resolved,
 		ConfigHash:              "confighash",
 		TrustHash:               "trusthash",
 		AddressesHash:           "addresseshash",
@@ -433,7 +433,7 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		UpgradeMachineStatus:    model.UpgradeSeriesNotStarted,
 		ActionsBlocked:          true,
 		ActionChanged:           map[string]int{},
-		ProviderID:              s.st.unit.providerID,
+		ProviderID:              s.uniterClient.unit.providerID,
 		ContainerRunningStatus:  s.running,
 		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
 		ObsoleteSecretRevisions: map[string][]int{},
@@ -454,13 +454,13 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 
 	snap = s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Life:                    s.st.unit.life,
+		Life:                    s.uniterClient.unit.life,
 		Relations:               map[int]remotestate.RelationSnapshot{},
 		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
-		CharmModifiedVersion:    s.st.unit.application.charmModifiedVersion,
-		CharmURL:                s.st.unit.application.curl,
-		ForceCharmUpgrade:       s.st.unit.application.forceUpgrade,
-		ResolvedMode:            s.st.unit.resolved,
+		CharmModifiedVersion:    s.uniterClient.unit.application.charmModifiedVersion,
+		CharmURL:                s.uniterClient.unit.application.curl,
+		ForceCharmUpgrade:       s.uniterClient.unit.application.forceUpgrade,
+		ResolvedMode:            s.uniterClient.unit.resolved,
 		ConfigHash:              "confighash",
 		TrustHash:               "trusthash",
 		AddressesHash:           "addresseshash",
@@ -469,7 +469,7 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		UpgradeMachineStatus:    model.UpgradeSeriesNotStarted,
 		ActionsBlocked:          false,
 		ActionChanged:           map[string]int{},
-		ProviderID:              s.st.unit.providerID,
+		ProviderID:              s.uniterClient.unit.providerID,
 		ContainerRunningStatus:  s.running,
 		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
 		ObsoleteSecretRevisions: map[string][]int{},
@@ -486,21 +486,21 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	assertOneChange()
 	initial := s.watcher.Snapshot()
 
-	s.st.unit.life = life.Dying
-	s.st.unit.unitWatcher.changes <- struct{}{}
+	s.uniterClient.unit.life = life.Dying
+	s.uniterClient.unit.unitWatcher.changes <- struct{}{}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().Life, gc.Equals, life.Dying)
 
-	s.st.unit.resolved = params.ResolvedRetryHooks
-	s.st.unit.unitWatcher.changes <- struct{}{}
+	s.uniterClient.unit.resolved = params.ResolvedRetryHooks
+	s.uniterClient.unit.unitWatcher.changes <- struct{}{}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().ResolvedMode, gc.Equals, params.ResolvedRetryHooks)
 
-	s.st.unit.addressesWatcher.changes <- []string{"addresseshash2"}
+	s.uniterClient.unit.addressesWatcher.changes <- []string{"addresseshash2"}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().AddressesHash, gc.Equals, "addresseshash2")
 
-	s.st.unit.storageWatcher.changes <- []string{}
+	s.uniterClient.unit.storageWatcher.changes <- []string{}
 	assertOneChange()
 
 	rotateWatcher := remotestate.SecretRotateWatcher(s.watcher).(*mockSecretTriggerWatcher)
@@ -536,28 +536,28 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	})
 	c.Assert(s.watcher.Snapshot().DeletedSecrets, jc.DeepEquals, []string{"secret:666e2mr0ui3e8a215n4g", "secret:999e2mr0ui3e8a215n4g"})
 
-	s.st.unit.configSettingsWatcher.changes <- []string{"confighash2"}
+	s.uniterClient.unit.configSettingsWatcher.changes <- []string{"confighash2"}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().ConfigHash, gc.Equals, "confighash2")
 
-	s.st.unit.applicationConfigSettingsWatcher.changes <- []string{"trusthash2"}
+	s.uniterClient.unit.applicationConfigSettingsWatcher.changes <- []string{"trusthash2"}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().TrustHash, gc.Equals, "trusthash2")
 
-	s.st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
+	s.uniterClient.unit.application.leaderSettingsWatcher.changes <- struct{}{}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().LeaderSettingsVersion, gc.Equals, initial.LeaderSettingsVersion+1)
 
-	s.st.unit.relationsWatcher.changes <- []string{}
+	s.uniterClient.unit.relationsWatcher.changes <- []string{}
 	assertOneChange()
 
 	if s.modelType == model.IAAS {
-		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
+		s.uniterClient.unit.upgradeSeriesWatcher.changes <- struct{}{}
 		assertOneChange()
-		s.st.unit.instanceDataWatcher.changes <- struct{}{}
+		s.uniterClient.unit.instanceDataWatcher.changes <- struct{}{}
 		assertOneChange()
 	}
-	s.st.unit.application.forceUpgrade = true
+	s.uniterClient.unit.application.forceUpgrade = true
 	s.applicationWatcher.changes <- struct{}{}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().ForceCharmUpgrade, jc.IsTrue)
@@ -570,7 +570,7 @@ func (s *WatcherSuite) TestActionsReceived(c *gc.C) {
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
-	s.st.unit.actionWatcher.changes <- []string{"an-action"}
+	s.uniterClient.unit.actionWatcher.changes <- []string{"an-action"}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	snapshot := s.watcher.Snapshot()
 	c.Assert(snapshot.ActionsPending, gc.DeepEquals, []string{"an-action"})
@@ -581,13 +581,13 @@ func (s *WatcherSuite) TestActionsReceivedWithChanges(c *gc.C) {
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
-	s.st.unit.actionWatcher.changes <- []string{"an-action"}
+	s.uniterClient.unit.actionWatcher.changes <- []string{"an-action"}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	snapshot := s.watcher.Snapshot()
 	c.Assert(snapshot.ActionsPending, gc.DeepEquals, []string{"an-action"})
 	c.Assert(snapshot.ActionChanged["an-action"], gc.Equals, 0)
 
-	s.st.unit.actionWatcher.changes <- []string{"an-action"}
+	s.uniterClient.unit.actionWatcher.changes <- []string{"an-action"}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	snapshot = s.watcher.Snapshot()
 	c.Assert(snapshot.ActionsPending, gc.DeepEquals, []string{"an-action"})
@@ -595,7 +595,7 @@ func (s *WatcherSuite) TestActionsReceivedWithChanges(c *gc.C) {
 }
 
 func (s *WatcherSuite) TestClearResolvedMode(c *gc.C) {
-	s.st.unit.resolved = params.ResolvedRetryHooks
+	s.uniterClient.unit.resolved = params.ResolvedRetryHooks
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
@@ -647,12 +647,12 @@ func (s *WatcherSuite) TestStorageChanged(c *gc.C) {
 
 	storageTag0 := names.NewStorageTag("blob/0")
 	storageAttachmentId0 := params.StorageAttachmentId{
-		UnitTag:    s.st.unit.tag.String(),
+		UnitTag:    s.uniterClient.unit.tag.String(),
 		StorageTag: storageTag0.String(),
 	}
 	storageTag0Watcher := newMockNotifyWatcher()
-	s.st.storageAttachmentWatchers[storageTag0] = storageTag0Watcher
-	s.st.storageAttachment[storageAttachmentId0] = params.StorageAttachment{
+	s.uniterClient.storageAttachmentWatchers[storageTag0] = storageTag0Watcher
+	s.uniterClient.storageAttachment[storageAttachmentId0] = params.StorageAttachment{
 		UnitTag:    storageAttachmentId0.UnitTag,
 		StorageTag: storageAttachmentId0.StorageTag,
 		Life:       life.Alive,
@@ -662,12 +662,12 @@ func (s *WatcherSuite) TestStorageChanged(c *gc.C) {
 
 	storageTag1 := names.NewStorageTag("blob/1")
 	storageAttachmentId1 := params.StorageAttachmentId{
-		UnitTag:    s.st.unit.tag.String(),
+		UnitTag:    s.uniterClient.unit.tag.String(),
 		StorageTag: storageTag1.String(),
 	}
 	storageTag1Watcher := newMockNotifyWatcher()
-	s.st.storageAttachmentWatchers[storageTag1] = storageTag1Watcher
-	s.st.storageAttachment[storageAttachmentId1] = params.StorageAttachment{
+	s.uniterClient.storageAttachmentWatchers[storageTag1] = storageTag1Watcher
+	s.uniterClient.storageAttachment[storageAttachmentId1] = params.StorageAttachment{
 		UnitTag:    storageAttachmentId1.UnitTag,
 		StorageTag: storageAttachmentId1.StorageTag,
 		Life:       life.Dying,
@@ -677,7 +677,7 @@ func (s *WatcherSuite) TestStorageChanged(c *gc.C) {
 
 	// We should not see any event until the storage attachment watchers
 	// return their initial events.
-	s.st.unit.storageWatcher.changes <- []string{"blob/0", "blob/1"}
+	s.uniterClient.unit.storageWatcher.changes <- []string{"blob/0", "blob/1"}
 	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
 	storageTag0Watcher.changes <- struct{}{}
 	storageTag1Watcher.changes <- struct{}{}
@@ -695,17 +695,17 @@ func (s *WatcherSuite) TestStorageChanged(c *gc.C) {
 		},
 	})
 
-	s.st.storageAttachment[storageAttachmentId0] = params.StorageAttachment{
+	s.uniterClient.storageAttachment[storageAttachmentId0] = params.StorageAttachment{
 		UnitTag:    storageAttachmentId0.UnitTag,
 		StorageTag: storageAttachmentId0.StorageTag,
 		Life:       life.Dying,
 		Kind:       params.StorageKindFilesystem,
 		Location:   "somewhere",
 	}
-	delete(s.st.storageAttachment, storageAttachmentId1)
+	delete(s.uniterClient.storageAttachment, storageAttachmentId1)
 	storageTag0Watcher.changes <- struct{}{}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-	s.st.unit.storageWatcher.changes <- []string{"blob/1"}
+	s.uniterClient.unit.storageWatcher.changes <- []string{"blob/1"}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
 		storageTag0: {
@@ -723,19 +723,19 @@ func (s *WatcherSuite) TestStorageUnattachedChanged(c *gc.C) {
 
 	storageTag0 := names.NewStorageTag("blob/0")
 	storageAttachmentId0 := params.StorageAttachmentId{
-		UnitTag:    s.st.unit.tag.String(),
+		UnitTag:    s.uniterClient.unit.tag.String(),
 		StorageTag: storageTag0.String(),
 	}
 	storageTag0Watcher := newMockNotifyWatcher()
-	s.st.storageAttachmentWatchers[storageTag0] = storageTag0Watcher
-	s.st.storageAttachment[storageAttachmentId0] = params.StorageAttachment{
+	s.uniterClient.storageAttachmentWatchers[storageTag0] = storageTag0Watcher
+	s.uniterClient.storageAttachment[storageAttachmentId0] = params.StorageAttachment{
 		UnitTag:    storageAttachmentId0.UnitTag,
 		StorageTag: storageAttachmentId0.StorageTag,
 		Life:       life.Alive,
 		Kind:       params.StorageKindUnknown, // unprovisioned
 	}
 
-	s.st.unit.storageWatcher.changes <- []string{"blob/0"}
+	s.uniterClient.unit.storageWatcher.changes <- []string{"blob/0"}
 	storageTag0Watcher.changes <- struct{}{}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
@@ -745,7 +745,7 @@ func (s *WatcherSuite) TestStorageUnattachedChanged(c *gc.C) {
 		},
 	})
 
-	s.st.storageAttachment[storageAttachmentId0] = params.StorageAttachment{
+	s.uniterClient.storageAttachment[storageAttachmentId0] = params.StorageAttachment{
 		UnitTag:    storageAttachmentId0.UnitTag,
 		StorageTag: storageAttachmentId0.StorageTag,
 		Life:       life.Dying,
@@ -754,7 +754,7 @@ func (s *WatcherSuite) TestStorageUnattachedChanged(c *gc.C) {
 	// watcher should not cause any event to be emitted.
 	storageTag0Watcher.changes <- struct{}{}
 	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
-	s.st.unit.storageWatcher.changes <- []string{"blob/0"}
+	s.uniterClient.unit.storageWatcher.changes <- []string{"blob/0"}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
 		storageTag0: {
@@ -769,19 +769,19 @@ func (s *WatcherSuite) TestStorageAttachmentRemoved(c *gc.C) {
 
 	storageTag0 := names.NewStorageTag("blob/0")
 	storageAttachmentId0 := params.StorageAttachmentId{
-		UnitTag:    s.st.unit.tag.String(),
+		UnitTag:    s.uniterClient.unit.tag.String(),
 		StorageTag: storageTag0.String(),
 	}
 	storageTag0Watcher := newMockNotifyWatcher()
-	s.st.storageAttachmentWatchers[storageTag0] = storageTag0Watcher
-	s.st.storageAttachment[storageAttachmentId0] = params.StorageAttachment{
+	s.uniterClient.storageAttachmentWatchers[storageTag0] = storageTag0Watcher
+	s.uniterClient.storageAttachment[storageAttachmentId0] = params.StorageAttachment{
 		UnitTag:    storageAttachmentId0.UnitTag,
 		StorageTag: storageAttachmentId0.StorageTag,
 		Life:       life.Dying,
 		Kind:       params.StorageKindUnknown, // unprovisioned
 	}
 
-	s.st.unit.storageWatcher.changes <- []string{"blob/0"}
+	s.uniterClient.unit.storageWatcher.changes <- []string{"blob/0"}
 	storageTag0Watcher.changes <- struct{}{}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
@@ -795,11 +795,11 @@ func (s *WatcherSuite) TestStorageAttachmentRemoved(c *gc.C) {
 	// specific watcher should not cause an event to be emitted, but it
 	// will cause that watcher to stop running. Triggering the top-level
 	// storage watcher will remove it and update the snapshot.
-	delete(s.st.storageAttachment, storageAttachmentId0)
+	delete(s.uniterClient.storageAttachment, storageAttachmentId0)
 	storageTag0Watcher.changes <- struct{}{}
 	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
 	c.Assert(storageTag0Watcher.Stopped(), jc.IsTrue)
-	s.st.unit.storageWatcher.changes <- []string{"blob/0"}
+	s.uniterClient.unit.storageWatcher.changes <- []string{"blob/0"}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().Storage, gc.HasLen, 0)
 }
@@ -811,7 +811,7 @@ func (s *WatcherSuite) TestStorageChangedNotFoundInitially(c *gc.C) {
 	// blob/0 is initially in state, but is removed between the
 	// watcher signal and the uniter querying it. This should
 	// not cause the watcher to raise an error.
-	s.st.unit.storageWatcher.changes <- []string{"blob/0"}
+	s.uniterClient.unit.storageWatcher.changes <- []string{"blob/0"}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().Storage, gc.HasLen, 0)
 }
@@ -821,17 +821,17 @@ func (s *WatcherSuite) TestRelationsChanged(c *gc.C) {
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	relationTag := names.NewRelationTag("mysql:peer")
-	s.st.relations[relationTag] = &mockRelation{
+	s.uniterClient.relations[relationTag] = &mockRelation{
 		tag: relationTag, id: 123, life: life.Alive, suspended: false,
 	}
-	s.st.relationUnitsWatchers[relationTag] = newMockRelationUnitsWatcher()
-	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
-	s.st.relationAppWatchers[relationTag] = map[string]*mockNotifyWatcher{"mysql": newMockNotifyWatcher()}
+	s.uniterClient.relationUnitsWatchers[relationTag] = newMockRelationUnitsWatcher()
+	s.uniterClient.unit.relationsWatcher.changes <- []string{relationTag.Id()}
+	s.uniterClient.relationAppWatchers[relationTag] = map[string]*mockNotifyWatcher{"mysql": newMockNotifyWatcher()}
 
 	// There should not be any signal until the relation units watcher has
 	// returned its initial event also.
 	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
-	s.st.relationUnitsWatchers[relationTag].changes <- watcher.RelationUnitsChange{
+	s.uniterClient.relationUnitsWatchers[relationTag].changes <- watcher.RelationUnitsChange{
 		Changed:    map[string]watcher.UnitSettings{"mysql/1": {1}, "mysql/2": {2}},
 		AppChanged: map[string]int64{"mysql": 1},
 	}
@@ -851,18 +851,18 @@ func (s *WatcherSuite) TestRelationsChanged(c *gc.C) {
 
 	// If a relation is known, then updating it does not require any input
 	// from the relation units watcher.
-	s.st.relations[relationTag].life = life.Dying
-	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
+	s.uniterClient.relations[relationTag].life = life.Dying
+	s.uniterClient.unit.relationsWatcher.changes <- []string{relationTag.Id()}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().Relations[123].Life, gc.Equals, life.Dying)
 
 	// If a relation is not found, then it should be removed from the
 	// snapshot and its relation units watcher stopped.
-	delete(s.st.relations, relationTag)
-	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
+	delete(s.uniterClient.relations, relationTag)
+	s.uniterClient.unit.relationsWatcher.changes <- []string{relationTag.Id()}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().Relations, gc.HasLen, 0)
-	c.Assert(s.st.relationUnitsWatchers[relationTag].Stopped(), jc.IsTrue)
+	c.Assert(s.uniterClient.relationUnitsWatchers[relationTag].Stopped(), jc.IsTrue)
 }
 
 func (s *WatcherSuite) TestRelationsSuspended(c *gc.C) {
@@ -870,23 +870,23 @@ func (s *WatcherSuite) TestRelationsSuspended(c *gc.C) {
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	relationTag := names.NewRelationTag("mysql:db wordpress:db")
-	s.st.relations[relationTag] = &mockRelation{
+	s.uniterClient.relations[relationTag] = &mockRelation{
 		tag: relationTag, id: 123, life: life.Alive, suspended: false,
 	}
-	s.st.relationUnitsWatchers[relationTag] = newMockRelationUnitsWatcher()
-	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
+	s.uniterClient.relationUnitsWatchers[relationTag] = newMockRelationUnitsWatcher()
+	s.uniterClient.unit.relationsWatcher.changes <- []string{relationTag.Id()}
 	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
-	s.st.relationUnitsWatchers[relationTag].changes <- watcher.RelationUnitsChange{
+	s.uniterClient.relationUnitsWatchers[relationTag].changes <- watcher.RelationUnitsChange{
 		Changed:    map[string]watcher.UnitSettings{"mysql/1": {1}, "mysql/2": {2}},
 		AppChanged: map[string]int64{"mysql": 1},
 	}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
-	s.st.relations[relationTag].suspended = true
-	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
+	s.uniterClient.relations[relationTag].suspended = true
+	s.uniterClient.unit.relationsWatcher.changes <- []string{relationTag.Id()}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().Relations[123].Suspended, jc.IsTrue)
-	c.Assert(s.st.relationUnitsWatchers[relationTag].Stopped(), jc.IsTrue)
+	c.Assert(s.uniterClient.relationUnitsWatchers[relationTag].Stopped(), jc.IsTrue)
 }
 
 func (s *WatcherSuite) TestRelationUnitsChanged(c *gc.C) {
@@ -894,19 +894,19 @@ func (s *WatcherSuite) TestRelationUnitsChanged(c *gc.C) {
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	relationTag := names.NewRelationTag("mysql:peer")
-	s.st.relations[relationTag] = &mockRelation{
+	s.uniterClient.relations[relationTag] = &mockRelation{
 		tag: relationTag, id: 123, life: life.Alive,
 	}
-	s.st.relationUnitsWatchers[relationTag] = newMockRelationUnitsWatcher()
+	s.uniterClient.relationUnitsWatchers[relationTag] = newMockRelationUnitsWatcher()
 
-	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
-	s.st.relationUnitsWatchers[relationTag].changes <- watcher.RelationUnitsChange{
+	s.uniterClient.unit.relationsWatcher.changes <- []string{relationTag.Id()}
+	s.uniterClient.relationUnitsWatchers[relationTag].changes <- watcher.RelationUnitsChange{
 		Changed:    map[string]watcher.UnitSettings{"mysql/1": {1}},
 		AppChanged: map[string]int64{"mysql": 1},
 	}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
-	s.st.relationUnitsWatchers[relationTag].changes <- watcher.RelationUnitsChange{
+	s.uniterClient.relationUnitsWatchers[relationTag].changes <- watcher.RelationUnitsChange{
 		Changed: map[string]watcher.UnitSettings{"mysql/1": {2}, "mysql/2": {1}},
 	}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
@@ -921,7 +921,7 @@ func (s *WatcherSuite) TestRelationUnitsChanged(c *gc.C) {
 		map[string]int64{"mysql": 1},
 	)
 
-	s.st.relationUnitsWatchers[relationTag].changes <- watcher.RelationUnitsChange{
+	s.uniterClient.relationUnitsWatchers[relationTag].changes <- watcher.RelationUnitsChange{
 		AppChanged: map[string]int64{"mysql": 2},
 	}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
@@ -936,7 +936,7 @@ func (s *WatcherSuite) TestRelationUnitsChanged(c *gc.C) {
 		map[string]int64{"mysql": 2},
 	)
 
-	s.st.relationUnitsWatchers[relationTag].changes <- watcher.RelationUnitsChange{
+	s.uniterClient.relationUnitsWatchers[relationTag].changes <- watcher.RelationUnitsChange{
 		Departed: []string{"mysql/1", "mysql/42"},
 	}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
@@ -952,13 +952,13 @@ func (s *WatcherSuite) TestRelationUnitsDontLeakReferences(c *gc.C) {
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	relationTag := names.NewRelationTag("mysql:peer")
-	s.st.relations[relationTag] = &mockRelation{
+	s.uniterClient.relations[relationTag] = &mockRelation{
 		tag: relationTag, id: 123, life: life.Alive,
 	}
-	s.st.relationUnitsWatchers[relationTag] = newMockRelationUnitsWatcher()
+	s.uniterClient.relationUnitsWatchers[relationTag] = newMockRelationUnitsWatcher()
 
-	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
-	s.st.relationUnitsWatchers[relationTag].changes <- watcher.RelationUnitsChange{
+	s.uniterClient.unit.relationsWatcher.changes <- []string{relationTag.Id()}
+	s.uniterClient.relationUnitsWatchers[relationTag].changes <- watcher.RelationUnitsChange{
 		Changed: map[string]watcher.UnitSettings{"mysql/1": {1}},
 	}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
@@ -1007,8 +1007,8 @@ func (s *WatcherSuite) TestUpdateStatusIntervalChanges(c *gc.C) {
 	c.Assert(s.watcher.Snapshot().UpdateStatusVersion, gc.Equals, initial.UpdateStatusVersion+1)
 
 	// Change the update status interval to 10 seconds.
-	s.st.updateStatusInterval = 10 * time.Second
-	s.st.updateStatusIntervalWatcher.changes <- struct{}{}
+	s.uniterClient.updateStatusInterval = 10 * time.Second
+	s.uniterClient.updateStatusIntervalWatcher.changes <- struct{}{}
 
 	// Advance 10 seconds; the timer should be triggered.
 	s.waitAlarmsStable(c)
@@ -1069,24 +1069,24 @@ func (s *WatcherSuiteSidecarCharmModVer) TestRemoteStateChanged(c *gc.C) {
 	assertOneChange()
 	initial := s.watcher.Snapshot()
 
-	s.st.unit.life = life.Dying
-	s.st.unit.unitWatcher.changes <- struct{}{}
+	s.uniterClient.unit.life = life.Dying
+	s.uniterClient.unit.unitWatcher.changes <- struct{}{}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().Life, gc.Equals, life.Dying)
 
-	s.st.unit.resolved = params.ResolvedRetryHooks
-	s.st.unit.unitWatcher.changes <- struct{}{}
+	s.uniterClient.unit.resolved = params.ResolvedRetryHooks
+	s.uniterClient.unit.unitWatcher.changes <- struct{}{}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().ResolvedMode, gc.Equals, params.ResolvedRetryHooks)
 
-	s.st.unit.addressesWatcher.changes <- []string{"addresseshash2"}
+	s.uniterClient.unit.addressesWatcher.changes <- []string{"addresseshash2"}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().AddressesHash, gc.Equals, "addresseshash2")
 
-	s.st.unit.storageWatcher.changes <- []string{}
+	s.uniterClient.unit.storageWatcher.changes <- []string{}
 	assertOneChange()
 
-	s.st.unit.configSettingsWatcher.changes <- []string{"confighash2"}
+	s.uniterClient.unit.configSettingsWatcher.changes <- []string{"confighash2"}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().ConfigHash, gc.Equals, "confighash2")
 
@@ -1123,24 +1123,24 @@ func (s *WatcherSuiteSidecarCharmModVer) TestRemoteStateChanged(c *gc.C) {
 	})
 	c.Assert(s.watcher.Snapshot().DeletedSecrets, jc.DeepEquals, []string{"secret:666e2mr0ui3e8a215n4g", "secret:999e2mr0ui3e8a215n4g"})
 
-	s.st.unit.applicationConfigSettingsWatcher.changes <- []string{"trusthash2"}
+	s.uniterClient.unit.applicationConfigSettingsWatcher.changes <- []string{"trusthash2"}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().TrustHash, gc.Equals, "trusthash2")
 
-	s.st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
+	s.uniterClient.unit.application.leaderSettingsWatcher.changes <- struct{}{}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().LeaderSettingsVersion, gc.Equals, initial.LeaderSettingsVersion+1)
 
-	s.st.unit.relationsWatcher.changes <- []string{}
+	s.uniterClient.unit.relationsWatcher.changes <- []string{}
 	assertOneChange()
 
 	if s.modelType == model.IAAS {
-		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
+		s.uniterClient.unit.upgradeSeriesWatcher.changes <- struct{}{}
 		assertOneChange()
-		s.st.unit.instanceDataWatcher.changes <- struct{}{}
+		s.uniterClient.unit.instanceDataWatcher.changes <- struct{}{}
 		assertOneChange()
 	}
-	s.st.unit.application.forceUpgrade = true
+	s.uniterClient.unit.application.forceUpgrade = true
 	s.applicationWatcher.changes <- struct{}{}
 	assertOneChange()
 
@@ -1160,14 +1160,14 @@ func (s *WatcherSuiteSidecarCharmModVer) TestSnapshot(c *gc.C) {
 
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Life:                    s.st.unit.life,
+		Life:                    s.uniterClient.unit.life,
 		Relations:               map[int]remotestate.RelationSnapshot{},
 		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
 		ActionChanged:           map[string]int{},
 		CharmModifiedVersion:    0,
 		CharmURL:                "",
 		ForceCharmUpgrade:       false,
-		ResolvedMode:            s.st.unit.resolved,
+		ResolvedMode:            s.uniterClient.unit.resolved,
 		ConfigHash:              "confighash",
 		TrustHash:               "trusthash",
 		AddressesHash:           "addresseshash",
