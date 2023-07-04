@@ -56,6 +56,7 @@ func (s *resolverSuite) TestAllowUpgradeWithSameChannel(c *gc.C) {
 
 func (s *resolverSuite) TestAllowUpgradeWithDowngrades(c *gc.C) {
 	existing := &Application{
+		Name:     "ubuntu",
 		Charm:    "ch:ubuntu",
 		Channel:  "stable",
 		Revision: 2,
@@ -73,7 +74,7 @@ func (s *resolverSuite) TestAllowUpgradeWithDowngrades(c *gc.C) {
 		},
 	}
 	ok, err := r.allowCharmUpgrade(existing, requested, requestedArch)
-	c.Assert(err, gc.ErrorMatches, `downgrades are not currently supported`)
+	c.Assert(err, gc.ErrorMatches, `application "ubuntu": downgrades are not currently supported: deployed revision 2 is newer than requested revision 1`)
 	c.Assert(ok, jc.IsFalse)
 }
 

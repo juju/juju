@@ -321,7 +321,7 @@ func (r *resolver) allowCharmUpgrade(existingApp *Application, bundleApp *charm.
 	}
 	if resolvedRev != -1 && resolvedRev < existingApp.Revision {
 		// For charmhub charms, we currently don't support downgrades.
-		return false, errors.Errorf("downgrades are not currently supported")
+		return false, errors.Errorf("application %q: downgrades are not currently supported: deployed revision %v is newer than requested revision %v", existingApp.Name, existingApp.Revision, resolvedRev)
 	}
 	// Same revision, no upgrade required.
 	return false, nil
