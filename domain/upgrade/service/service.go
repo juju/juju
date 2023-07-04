@@ -7,9 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/version/v2"
+
 	"github.com/juju/juju/database"
 	"github.com/juju/juju/domain"
-	"github.com/juju/version/v2"
 )
 
 // State describes retrieval and persistence
@@ -30,7 +31,7 @@ type Service struct {
 
 // NewService returns a new Service for interacting with the underlying state.
 func NewService(st State) *Service {
-	return &Service{st}
+	return &Service{st: st}
 }
 
 // CreateUpgrade creates an upgrade to and from specified versions
