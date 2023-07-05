@@ -32,7 +32,7 @@ run_go_fanout() {
 	# imported by any other package outside of their own package.
 	for cmd in "containeragent" "jujuc" "jujud"; do
 		LIST=$(find . -type f -name "*.go" | sort -u | xargs grep -EH "github\.com\/juju\/juju\/cmd\/$cmd(\/|\")" | grep -v "^./cmd/$cmd")
-		if [[ ! -z "${LIST}" ]]; then
+		if [[ -n ${LIST} ]]; then
 			(echo >&2 -e "\\nError: $cmd binary is being used outside of it's package. Refactor the following list:\\n\\n${LIST}")
 			exit 1
 		fi
@@ -41,7 +41,7 @@ run_go_fanout() {
 	# Ensure the following packages aren't used outside of the cmd directory.
 	for pkg in "modelcmd"; do
 		LIST=$(find . -type f -name "*.go" | sort -u | xargs grep -EH "github\.com\/juju\/juju\/cmd\/$pkg(\/|\")" | grep -v "^./cmd")
-		if [[ ! -z "${LIST}" ]]; then
+		if [[ -n ${LIST} ]]; then
 			(echo >&2 -e "\\nError: $pkg package can not be used outside of the cmd package. Refactor the following list:\\n\\n${LIST}")
 			exit 1
 		fi
