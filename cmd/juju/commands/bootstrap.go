@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/sync"
@@ -866,7 +867,7 @@ to create a new model to deploy %sworkloads.
 		}
 	}()
 
-	bootstrapCtx := modelcmd.BootstrapContext(stdCtx, ctx)
+	bootstrapCtx := environscmd.BootstrapContext(stdCtx, ctx)
 	bootstrapPrepareParams := bootstrap.PrepareParams{
 		ModelConfig:      bootstrapCfg.bootstrapModel,
 		ControllerConfig: bootstrapCfg.controller,

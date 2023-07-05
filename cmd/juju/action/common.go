@@ -28,8 +28,8 @@ import (
 	"gopkg.in/yaml.v2"
 
 	actionapi "github.com/juju/juju/api/client/action"
-	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )

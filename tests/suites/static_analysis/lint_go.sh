@@ -27,6 +27,27 @@ run_go_tidy() {
 	fi
 }
 
+run_go_fanout() {
+	# Ensure that the following binaries don't import each other, or are not
+	# imported by any other package outside of their own package.
+	for cmd in "containeragent" "jujuc" "jujud"; do
+		LIST=$(find . -type f -name "*.go" | sort -u | xargs grep -EH "github\.com\/juju\/juju\/cmd\/$cmd(\/|\")" | grep -v "^./cmd/$cmd")
+		if [[ -n ${LIST} ]]; then
+			(echo >&2 -e "\\nError: $cmd binary is being used outside of it's package. Refactor the following list:\\n\\n${LIST}")
+			exit 1
+		fi
+	done
+
+	# Ensure the following packages aren't used outside of the cmd directory.
+	for pkg in "modelcmd"; do
+		LIST=$(find . -type f -name "*.go" | sort -u | xargs grep -EH "github\.com\/juju\/juju\/cmd\/$pkg(\/|\")" | grep -v "^./cmd")
+		if [[ -n ${LIST} ]]; then
+			(echo >&2 -e "\\nError: $pkg package can not be used outside of the cmd package. Refactor the following list:\\n\\n${LIST}")
+			exit 1
+		fi
+	done
+}
+
 test_static_analysis_go() {
 	if [ "$(skip 'test_static_analysis_go')" ]; then
 		echo "==> TEST SKIPPED: static go analysis"
@@ -40,5 +61,6 @@ test_static_analysis_go() {
 
 		run_linter "run_go"
 		run_linter "run_go_tidy"
+		run_linter "run_go_fanout"
 	)
 }

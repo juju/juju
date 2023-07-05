@@ -4,7 +4,6 @@
 package modelcmd
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -21,7 +20,6 @@ import (
 	"github.com/juju/juju/api/client/modelmanager"
 	"github.com/juju/juju/api/client/modelupgrader"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 )
@@ -675,44 +673,6 @@ func (w *modelCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 		f.StringVar(&w.modelIdentifier, "model", "", "")
 	}
 	w.ModelCommand.SetFlags(f)
-}
-
-// Define a type alias so we can embed *cmd.Context and have a Context() method.
-type cmdContext = cmd.Context
-
-type bootstrapContext struct {
-	*cmdContext
-	verifyCredentials bool
-	ctx               context.Context
-}
-
-// ShouldVerifyCredentials implements BootstrapContext.ShouldVerifyCredentials
-func (c *bootstrapContext) ShouldVerifyCredentials() bool {
-	return c.verifyCredentials
-}
-
-// Context returns this bootstrap's context.Context value.
-func (c *bootstrapContext) Context() context.Context {
-	return c.ctx
-}
-
-// BootstrapContext returns a new BootstrapContext constructed from a command Context.
-func BootstrapContext(ctx context.Context, cmdContext *cmd.Context) environs.BootstrapContext {
-	return &bootstrapContext{
-		cmdContext:        cmdContext,
-		verifyCredentials: true,
-		ctx:               ctx,
-	}
-}
-
-// BootstrapContextNoVerify returns a new BootstrapContext constructed from a command Context
-// where the validation of credentials is false.
-func BootstrapContextNoVerify(ctx context.Context, cmdContext *cmd.Context) environs.BootstrapContext {
-	return &bootstrapContext{
-		cmdContext:        cmdContext,
-		verifyCredentials: false,
-		ctx:               ctx,
-	}
 }
 
 // SplitModelName splits a model name into its controller

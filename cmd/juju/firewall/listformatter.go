@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/output"
 )
 
 type firewallRule struct {

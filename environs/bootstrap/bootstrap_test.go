@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/podcfg"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -33,6 +32,7 @@ import (
 	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
@@ -887,7 +887,7 @@ func (s *bootstrapSuite) TestBootstrapControllerCharmLocal(c *gc.C) {
 	path := testcharms.RepoForSeries("quantal").CharmDir("juju-controller").Path
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
-	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(context.Background(), ctx), env,
+	err := bootstrap.Bootstrap(environscmd.BootstrapContext(context.Background(), ctx), env,
 		s.callContext, bootstrap.BootstrapParams{
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             "admin-secret",
@@ -903,7 +903,7 @@ func (s *bootstrapSuite) TestBootstrapControllerCharmChannel(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
 	ch := charm.Channel{Track: "3.0", Risk: "beta"}
-	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(context.Background(), ctx), env,
+	err := bootstrap.Bootstrap(environscmd.BootstrapContext(context.Background(), ctx), env,
 		s.callContext, bootstrap.BootstrapParams{
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             "admin-secret",

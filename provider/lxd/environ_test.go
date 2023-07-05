@@ -16,12 +16,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	environscmd "github.com/juju/juju/environs/cmd"
 	envcontext "github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/lxd"
@@ -97,7 +97,7 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 	}
-	result, err := s.Env.Bootstrap(modelcmd.BootstrapContext(context.Background(), ctx), s.callCtx, params)
+	result, err := s.Env.Bootstrap(environscmd.BootstrapContext(context.Background(), ctx), s.callCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result.Arch, gc.Equals, "amd64")

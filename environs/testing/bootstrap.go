@@ -13,8 +13,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
+	environscmd "github.com/juju/juju/environs/cmd"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/common"
@@ -43,7 +43,7 @@ func DisableFinishBootstrap() func() {
 
 // BootstrapContext creates a simple bootstrap execution context.
 func BootstrapContext(ctx context.Context, c *gc.C) environs.BootstrapContext {
-	return modelcmd.BootstrapContext(ctx, cmdtesting.Context(c))
+	return environscmd.BootstrapContext(ctx, cmdtesting.Context(c))
 }
 
 func BootstrapTODOContext(c *gc.C) environs.BootstrapContext {

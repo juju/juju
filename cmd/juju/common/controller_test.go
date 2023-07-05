@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/api"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
@@ -93,7 +94,7 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyRetries(c *gc.C) {
 		s.mockBlockClient.numRetries = t.numRetries
 		s.mockBlockClient.retryCount = 0
 		runInCommand(c, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
-			bootstrapCtx := modelcmd.BootstrapContext(context.Background(), ctx)
+			bootstrapCtx := environscmd.BootstrapContext(context.Background(), ctx)
 			err := WaitForAgentInitialisation(bootstrapCtx, base, false, "controller")
 			c.Check(errors.Cause(err), gc.DeepEquals, t.err)
 		})
@@ -115,7 +116,7 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyRetriesWithOpenEOFErr(c *gc.C)
 	s.mockBlockClient.loginError = io.EOF
 
 	runInCommand(c, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
-		bootstrapCtx := modelcmd.BootstrapContext(context.Background(), ctx)
+		bootstrapCtx := environscmd.BootstrapContext(context.Background(), ctx)
 		err := WaitForAgentInitialisation(bootstrapCtx, base, false, "controller")
 		c.Check(err, jc.ErrorIsNil)
 	})
@@ -127,7 +128,7 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyStopsRetriesWithOpenErr(c *gc.
 	s.mockBlockClient.retryCount = 0
 	s.mockBlockClient.loginError = errors.NewUnauthorized(nil, "")
 	runInCommand(c, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
-		bootstrapCtx := modelcmd.BootstrapContext(context.Background(), ctx)
+		bootstrapCtx := environscmd.BootstrapContext(context.Background(), ctx)
 		err := WaitForAgentInitialisation(bootstrapCtx, base, false, "controller")
 		c.Check(err, jc.Satisfies, errors.IsUnauthorized)
 	})
@@ -139,7 +140,7 @@ func (s *controllerSuite) TestWaitForAgentCancelled(c *gc.C) {
 	runInCommand(c, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
 		stdCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		bootstrapCtx := modelcmd.BootstrapContext(stdCtx, ctx)
+		bootstrapCtx := environscmd.BootstrapContext(stdCtx, ctx)
 		err := WaitForAgentInitialisation(bootstrapCtx, base, false, "controller")
 		c.Check(err, gc.ErrorMatches, `unable to contact api server: .*`)
 	})

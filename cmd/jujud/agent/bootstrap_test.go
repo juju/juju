@@ -39,7 +39,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -49,6 +48,7 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
+	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
@@ -877,7 +877,7 @@ func nullContext() environs.BootstrapContext {
 	ctx.Stdin = io.LimitReader(nil, 0)
 	ctx.Stdout = io.Discard
 	ctx.Stderr = io.Discard
-	return modelcmd.BootstrapContext(context.Background(), ctx)
+	return environscmd.BootstrapContext(context.Background(), ctx)
 }
 
 type mockDummyEnviron struct {

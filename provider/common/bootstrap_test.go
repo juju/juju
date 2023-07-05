@@ -24,7 +24,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -32,6 +31,7 @@ import (
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -184,7 +184,7 @@ func (s *BootstrapSuite) TestBootstrapInstanceCancelled(c *gc.C) {
 
 	stdCtx, cancel := context.WithCancel(context.Background())
 	cancel()
-	ctx := modelcmd.BootstrapContext(stdCtx, cmdtesting.Context(c))
+	ctx := environscmd.BootstrapContext(stdCtx, cmdtesting.Context(c))
 	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		AvailableTools:           fakeAvailableTools(),
@@ -600,7 +600,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		},
 	}
 	inner := cmdtesting.Context(c)
-	ctx := modelcmd.BootstrapContext(context.Background(), inner)
+	ctx := environscmd.BootstrapContext(context.Background(), inner)
 	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		AvailableTools:           fakeAvailableTools(),

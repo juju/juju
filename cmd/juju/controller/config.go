@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/config"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/output"
 )
 
 var ctrConfigBase = config.ConfigCommandBase{
