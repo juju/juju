@@ -210,7 +210,7 @@ func (m UnitScope) GetIdentValue(name string) (query.Box, error) {
 	case "agent-status":
 		return query.NewString(string(m.UnitInfo.AgentStatus.Current)), nil
 	}
-	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "Runtime Error: identifier %q not found on UnitInfo", name)
+	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "%q on UnitInfo", name)
 }
 
 func outputUnitSummary(writer io.Writer, scopedContext ScopeContext, unitInfo *params.UnitInfo) {

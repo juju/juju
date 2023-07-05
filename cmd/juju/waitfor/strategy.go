@@ -52,7 +52,7 @@ func (s *Strategy) Subscribe(sub Callback) {
 func (s *Strategy) Run(name string, input string, fn StrategyFunc) error {
 	q, err := query.Parse(input)
 	if err != nil {
-		return HelpDisplay(err, input)
+		return HelpDisplay(err, input, nil)
 	}
 
 	return retry.Call(retry.CallArgs{

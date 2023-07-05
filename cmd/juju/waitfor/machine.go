@@ -203,7 +203,7 @@ func (m MachineScope) GetIdentValue(name string) (query.Box, error) {
 		}
 		return query.NewSliceString(containerTypes), nil
 	}
-	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "Runtime Error: identifier %q not found on MachineInfo", name)
+	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "%q on MachineInfo", name)
 }
 
 func outputMachineSummary(writer io.Writer, scopedContext ScopeContext, machineInfo *params.MachineInfo) {

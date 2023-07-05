@@ -234,7 +234,7 @@ func (m ApplicationScope) GetIdentValue(name string) (query.Box, error) {
 	case "workload-version":
 		return query.NewString(m.ApplicationInfo.WorkloadVersion), nil
 	}
-	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "Runtime Error: identifier %q not found on ApplicationInfo", name)
+	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "%q on ApplicationInfo", name)
 }
 
 func deriveApplicationStatus(currentStatus status.Status, units map[string]*params.UnitInfo) status.Status {

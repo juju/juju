@@ -16,6 +16,9 @@ type InvalidIdentifierError struct {
 }
 
 func (e *InvalidIdentifierError) Error() string {
+	if e.err == nil {
+		return ""
+	}
 	return e.err.Error()
 }
 
@@ -28,7 +31,6 @@ func (e *InvalidIdentifierError) Name() string {
 func ErrInvalidIdentifier(name string) error {
 	return &InvalidIdentifierError{
 		name: name,
-		err:  errors.Errorf("invalid identifier"),
 	}
 }
 

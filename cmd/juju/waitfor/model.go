@@ -269,7 +269,7 @@ func (m ModelScope) GetIdentValue(name string) (query.Box, error) {
 		}
 		return NewScopedBox(scopes), nil
 	}
-	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "Runtime Error: identifier %q not found on ModelInfo", name)
+	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "%q on ModelInfo", name)
 }
 
 // ScopedBox defines a scoped box of scopes.
