@@ -6,6 +6,8 @@ package provider
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"sort"
 	"time"
 
 	jujuclock "github.com/juju/clock"
@@ -468,6 +470,21 @@ func ensureResourceDeleted(clock jujuclock.Clock, getResource func() error) erro
 	return errors.Trace(err)
 }
 
+func isRoleBindingEqual(a, b rbacv1.RoleBinding) bool {
+	sortSubjects := func(s []rbacv1.Subject) {
+		sort.Slice(s, func(i, j int) bool {
+			return s[i].Name+s[i].Namespace+s[i].Kind > s[j].Name+s[j].Namespace+s[j].Kind
+		})
+	}
+	sortSubjects(a.Subjects)
+	sortSubjects(b.Subjects)
+
+	// We don't compare labels.
+	return reflect.DeepEqual(a.RoleRef, b.RoleRef) &&
+		reflect.DeepEqual(a.Subjects, b.Subjects) &&
+		reflect.DeepEqual(a.ObjectMeta.Annotations, b.ObjectMeta.Annotations)
+}
+
 func (k *kubernetesClient) ensureRoleBinding(rb *rbacv1.RoleBinding) (out *rbacv1.RoleBinding, cleanups []func(), err error) {
 	isFirstDeploy := false
 	// RoleRef is immutable, so delete first then re-create.
@@ -482,6 +499,9 @@ func (k *kubernetesClient) ensureRoleBinding(rb *rbacv1.RoleBinding) (out *rbacv
 		if v.GetName() == rb.GetName() {
 			name := v.GetName()
 			UID := v.GetUID()
+			if isRoleBindingEqual(v, *rb) {
+				return &v, cleanups, nil
+			}
 
 			if err := k.deleteRoleBinding(name, UID); err != nil {
 				return nil, cleanups, errors.Trace(err)
