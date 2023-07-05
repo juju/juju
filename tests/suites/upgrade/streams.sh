@@ -94,11 +94,12 @@ exec_simplestream_metadata() {
 
 	attempt=0
 	while true; do
-		UPDATED=$(juju machines -m controller --format=json | jq -r '.machines | .["0"] | .["juju-status"] | .version' || echo "${CURRENT}")
+		UPDATED=$(timeout 30 juju machines -m controller --format=json | jq -r '.machines | .["0"] | .["juju-status"] | .version' || echo "${CURRENT}")
 		if [ "$CURRENT" != "$UPDATED" ]; then
 			break
 		fi
 		echo "[+] (attempt ${attempt}) polling machines"
+		timeout 30 juju status -m controller || true
 		sleep 10
 		attempt=$((attempt + 1))
 		if [ "$attempt" -eq 48 ]; then
@@ -111,11 +112,12 @@ exec_simplestream_metadata() {
 	juju switch test-upgrade-"${test_name}"
 	juju upgrade-model
 	while true; do
-		UPDATED=$(juju machines --format=json | jq -r '.machines | .["0"] | .["juju-status"] | .version' || echo "${CURRENT}")
+		UPDATED=$(timeout 30 juju machines --format=json | jq -r '.machines | .["0"] | .["juju-status"] | .version' || echo "${CURRENT}")
 		if [ "$CURRENT" != "$UPDATED" ]; then
 			break
 		fi
 		echo "[+] (attempt ${attempt}) polling machines"
+		timeout 30 juju status -m test-upgrade-"${test_name}" || true
 		sleep 10
 		attempt=$((attempt + 1))
 		if [ "$attempt" -eq 48 ]; then
