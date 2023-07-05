@@ -6,6 +6,7 @@ package query
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/juju/errors"
@@ -97,15 +98,20 @@ func (s *GlobalFuncScope) Call(ident *Identifier, params []Box) (any, error) {
 	name := ident.Token.Literal
 	fn, ok := s.funcs[name]
 	if !ok {
-		return nil, RuntimeErrorf("no function %q", name)
+		names := make([]string, 0, len(s.funcs))
+		for name := range s.funcs {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		return nil, ErrRuntimeSyntax(fmt.Sprintf("no function %q", name), name, names)
 	}
 
 	f := reflect.ValueOf(fn)
 	if len(params) != f.Type().NumIn() {
-		return nil, RuntimeErrorf("number of params not valid for function call, wanted: %d, received: %d", f.Type().NumIn(), len(params))
+		return nil, RuntimeErrorf("number of params for a function call to be %d, but got: %d", f.Type().NumIn(), len(params))
 	}
 	if f.Type().NumOut() != 2 {
-		return nil, RuntimeErrorf("number of results is not value for function call")
+		return nil, RuntimeErrorf("number of results for a given function call must be 2")
 	}
 
 	var args []reflect.Value
@@ -115,7 +121,7 @@ func (s *GlobalFuncScope) Call(ident *Identifier, params []Box) (any, error) {
 
 	results := f.Call(args)
 	if len(results) != 2 {
-		return nil, RuntimeErrorf("number of results does not match expected function call results set")
+		return nil, RuntimeErrorf("number of results to match the number of results from the function call")
 	}
 	if err, ok := results[1].Interface().(error); ok && err != nil {
 		return nil, err

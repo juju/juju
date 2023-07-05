@@ -50,10 +50,10 @@ func (e *RuntimeError) Error() string {
 	return e.err.Error()
 }
 
-// RuntimeErrorf defines a sentinel error for invalid index.
+// RuntimeErrorf defines a sentinel error for runtime errors.
 func RuntimeErrorf(msg string, args ...interface{}) error {
 	return &RuntimeError{
-		err: errors.Errorf("Runtime Error: "+msg, args...),
+		err: errors.Errorf(msg, args...),
 	}
 }
 
@@ -61,6 +61,33 @@ func RuntimeErrorf(msg string, args ...interface{}) error {
 func IsRuntimeError(err error) bool {
 	err = errors.Cause(err)
 	_, ok := err.(*RuntimeError)
+	return ok
+}
+
+// RuntimeSyntaxError creates an invalid error.
+type RuntimeSyntaxError struct {
+	err     error
+	Name    string
+	Options []string
+}
+
+func (e *RuntimeSyntaxError) Error() string {
+	return e.err.Error()
+}
+
+// ErrRuntimeSyntax defines a sentinel error for runtime syntax error.
+func ErrRuntimeSyntax(msg, name string, options []string) error {
+	return &RuntimeSyntaxError{
+		err:     errors.Errorf(msg),
+		Name:    name,
+		Options: options,
+	}
+}
+
+// IsRuntimeSyntaxError returns if the error is an ErrInvalidIndex error
+func IsRuntimeSyntaxError(err error) bool {
+	err = errors.Cause(err)
+	_, ok := err.(*RuntimeSyntaxError)
 	return ok
 }
 

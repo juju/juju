@@ -75,7 +75,7 @@ func (q Query) Run(fnScope FuncScope, scope Scope) (bool, error) {
 
 func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (any, error) {
 	// Useful for debugging.
-	fmt.Printf("%[1]T %[1]v\n", e)
+	// fmt.Printf("%[1]T %[1]v\n", e)
 
 	switch node := e.(type) {
 	case *QueryExpression:
@@ -185,7 +185,7 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (any, error) {
 			}
 			num := int(idx.Value().(int64))
 			if num < 0 || num >= len(t.value) {
-				return nil, RuntimeErrorf("%s %v range error accessing slice", shadowType(t), node.Left.Pos(), num)
+				return nil, RuntimeErrorf("%s %v range %d accessing slice", shadowType(t), node.Left.Pos(), num)
 			}
 			return ConvertRawResult(t.value[num])
 

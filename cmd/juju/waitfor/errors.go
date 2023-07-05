@@ -17,6 +17,10 @@ func HelpDisplay(err error, input string, idents []string) error {
 		return syntaxErrDisplay(err, input)
 	case query.IsInvalidIdentifierErr(err):
 		return invalidIdentifierDisplay(err, input, idents)
+	case query.IsRuntimeError(err):
+		return runtimeErrDisplay(err, input)
+	case query.IsRuntimeSyntaxError(err):
+		return runtimeSyntaxErrDisplay(err, input)
 	default:
 		fmt.Println()
 		return err
@@ -203,6 +207,66 @@ func orderPotentialMatches(name string, possible []string) (string, []string, bo
 	}
 
 	return "", possible, false
+}
+
+func runtimeErrDisplay(err error, input string) error {
+	cause := errors.Cause(err)
+	runErr := cause.(*query.RuntimeError)
+
+	var builder strings.Builder
+	builder.WriteString("Cannot execute query: runtime error.")
+	builder.WriteString("\n")
+	builder.WriteString("\n")
+
+	builder.WriteString(helpLineErrors(input))
+
+	builder.WriteString("wait-for requires the ")
+	builder.WriteString(runErr.Error())
+	builder.WriteString("\n")
+	builder.WriteString("Maybe try removing the character and try again.")
+
+	return fmt.Errorf(builder.String())
+}
+
+func runtimeSyntaxErrDisplay(err error, input string) error {
+	cause := errors.Cause(err)
+	runErr := cause.(*query.RuntimeSyntaxError)
+
+	var builder strings.Builder
+	builder.WriteString("Cannot execute query: runtime syntax error.")
+	builder.WriteString("\n")
+	builder.WriteString("\n")
+
+	builder.WriteString(helpLineErrors(input))
+
+	builder.WriteString("wait-for has ")
+	builder.WriteString(runErr.Error())
+	builder.WriteString(".")
+	builder.WriteString("\n")
+
+	first, other, ok := orderPotentialMatches(runErr.Name, runErr.Options)
+	if !ok {
+		return fmt.Errorf(builder.String())
+	}
+
+	if first != "" {
+		builder.WriteString("Did you mean:")
+		builder.WriteString("\n")
+		builder.WriteString("\n")
+		builder.WriteString(fmt.Sprintf("    %s", first))
+		builder.WriteString("\n")
+	}
+
+	if len(other) > 0 {
+		builder.WriteString("\n")
+		builder.WriteString("Other possible matches:")
+		builder.WriteString("\n")
+		builder.WriteString("\n")
+		builder.WriteString("    - ")
+		builder.WriteString(strings.Join(other, "\n    - "))
+	}
+
+	return fmt.Errorf(builder.String())
 }
 
 // levenshteinDistance
