@@ -84,6 +84,32 @@ func NewGlobalFuncScope(scope Scope) *GlobalFuncScope {
 				}
 				return result, nil
 			},
+			"startsWith": func(v, prefix any) (bool, error) {
+				if _, ok := prefix.(string); !ok {
+					return false, RuntimeErrorf("requires string to be passed to startsWith, got %T", prefix)
+				}
+
+				val := reflect.ValueOf(v)
+				switch val.Kind() {
+				case reflect.String:
+					return strings.HasPrefix(val.String(), prefix.(string)), nil
+				default:
+					return false, RuntimeErrorf("unexpected type %T passed to startsWith", v)
+				}
+			},
+			"endsWith": func(v, suffix any) (bool, error) {
+				if _, ok := suffix.(string); !ok {
+					return false, RuntimeErrorf("requires string to be passed to endsWith, got %T", suffix)
+				}
+
+				val := reflect.ValueOf(v)
+				switch val.Kind() {
+				case reflect.String:
+					return strings.HasSuffix(val.String(), suffix.(string)), nil
+				default:
+					return false, RuntimeErrorf("unexpected type %T passed to endsWith", v)
+				}
+			},
 		},
 	}
 }
@@ -108,7 +134,7 @@ func (s *GlobalFuncScope) Call(ident *Identifier, params []Box) (any, error) {
 
 	f := reflect.ValueOf(fn)
 	if len(params) != f.Type().NumIn() {
-		return nil, RuntimeErrorf("number of params for a function call to be %d, but got: %d", f.Type().NumIn(), len(params))
+		return nil, RuntimeErrorf("number of arguments for a function call to be %d, but got: %d", f.Type().NumIn(), len(params))
 	}
 	if f.Type().NumOut() != 2 {
 		return nil, RuntimeErrorf("number of results for a given function call must be 2")

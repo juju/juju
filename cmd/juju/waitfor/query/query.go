@@ -354,6 +354,9 @@ func ConvertRawResult(value any) (Box, error) {
 	if box, ok := value.(Box); ok {
 		return box, nil
 	}
+	if scope, ok := value.(Scope); ok {
+		return NewScope(scope), nil
+	}
 
 	switch t := value.(type) {
 	case string:

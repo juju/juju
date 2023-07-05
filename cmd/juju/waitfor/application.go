@@ -4,10 +4,12 @@
 package waitfor
 
 import (
+	"fmt"
 	"io"
 	"time"
 
 	"github.com/juju/cmd/v3"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
@@ -120,6 +122,7 @@ func (c *applicationCommand) Run(ctx *cmd.Context) (err error) {
 	strategy.Subscribe(func(event EventType) {
 		switch event {
 		case WatchAllStarted:
+			fmt.Println("!!!")
 			c.primeCache()
 		}
 	})
@@ -147,7 +150,7 @@ func (c *applicationCommand) waitFor(input string, ctx ScopeContext) func(string
 
 				c.appInfo = *entityInfo
 
-				scope := MakeApplicationScope(ctx, entityInfo)
+				scope := MakeApplicationScope(ctx, entityInfo, c.units)
 				if done, err := runQuery(input, q, scope); err != nil {
 					return false, errors.Trace(err)
 				} else if done {
@@ -178,7 +181,7 @@ func (c *applicationCommand) waitFor(input string, ctx ScopeContext) func(string
 		appInfo := c.appInfo
 		appInfo.Status.Current = deriveApplicationStatus(currentStatus, c.units)
 
-		scope := MakeApplicationScope(ctx, &appInfo)
+		scope := MakeApplicationScope(ctx, &appInfo, c.units)
 		if done, err := runQuery(input, q, scope); err != nil {
 			return false, errors.Trace(err)
 		} else if done {
@@ -197,19 +200,22 @@ func (c *applicationCommand) waitFor(input string, ctx ScopeContext) func(string
 type ApplicationScope struct {
 	ctx             ScopeContext
 	ApplicationInfo *params.ApplicationInfo
+	UnitInfos       map[string]*params.UnitInfo
 }
 
 // MakeApplicationScope creates an ApplicationScope from an ApplicationInfo
-func MakeApplicationScope(ctx ScopeContext, info *params.ApplicationInfo) ApplicationScope {
+func MakeApplicationScope(ctx ScopeContext, appInfo *params.ApplicationInfo, unitInfos map[string]*params.UnitInfo) ApplicationScope {
 	return ApplicationScope{
 		ctx:             ctx,
-		ApplicationInfo: info,
+		ApplicationInfo: appInfo,
+		UnitInfos:       unitInfos,
 	}
 }
 
 // GetIdents returns the identifiers with in a given scope.
 func (m ApplicationScope) GetIdents() []string {
-	return getIdents(m.ApplicationInfo)
+	idents := set.NewStrings(getIdents(m.ApplicationInfo)...)
+	return set.NewStrings("units").Union(idents).SortedValues()
 }
 
 // GetIdentValue returns the value of the identifier in a given scope.
@@ -233,6 +239,12 @@ func (m ApplicationScope) GetIdentValue(name string) (query.Box, error) {
 		return query.NewString(string(m.ApplicationInfo.Status.Current)), nil
 	case "workload-version":
 		return query.NewString(m.ApplicationInfo.WorkloadVersion), nil
+	case "units":
+		scopes := make(map[string]query.Scope)
+		for k, unit := range m.UnitInfos {
+			scopes[k] = MakeUnitScope(m.ctx.Child(name, unit.Name), unit)
+		}
+		return NewScopedBox(scopes), nil
 	}
 	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "%q on ApplicationInfo", name)
 }
@@ -274,7 +286,7 @@ func outputApplicationSummary(writer io.Writer, scopedContext ScopeContext, appI
 			continue
 		}
 
-		scope := MakeApplicationScope(scopedContext, appInfo)
+		scope := MakeApplicationScope(scopedContext, appInfo, units)
 		box, err := scope.GetIdentValue(ident)
 		if err != nil {
 			continue

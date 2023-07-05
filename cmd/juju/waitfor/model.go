@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd/v3"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
@@ -216,7 +217,8 @@ func MakeModelScope(ctx ScopeContext, model *modelCommand) ModelScope {
 
 // GetIdents returns the identifiers with in a given scope.
 func (m ModelScope) GetIdents() []string {
-	return getIdents(m.ModelInfo)
+	idents := set.NewStrings(getIdents(m.ModelInfo)...)
+	return set.NewStrings("applications", "machines", "units").Union(idents).SortedValues()
 }
 
 // GetIdentValue returns the value of the identifier in a given scope.
@@ -253,7 +255,7 @@ func (m ModelScope) GetIdentValue(name string) (query.Box, error) {
 			appInfo := app
 			appInfo.Status.Current = newStatus
 
-			scopes[k] = MakeApplicationScope(m.ctx.Child(name, app.Name), appInfo)
+			scopes[k] = MakeApplicationScope(m.ctx.Child(name, app.Name), appInfo, units)
 		}
 		return NewScopedBox(scopes), nil
 	case "machines":
@@ -343,7 +345,7 @@ func outputModelSummary(writer io.Writer, scopedContext ScopeContext, c *modelCo
 			switch entity {
 			case "applications":
 				appInfo := c.applications[name]
-				scope := MakeApplicationScope(scopedContext, appInfo)
+				scope := MakeApplicationScope(scopedContext, appInfo, c.units)
 
 				result.Applications[name] = make(map[string]interface{})
 

@@ -29,6 +29,44 @@ type Box interface {
 	Value() any
 }
 
+// BoxScope defines an ordered integer.
+type BoxScope struct {
+	value Scope
+}
+
+// NewScope creates a new Box value
+func NewScope(value Scope) *BoxScope {
+	return &BoxScope{value: value}
+}
+
+// Less checks if a BoxScope is less than another BoxScope.
+func (o *BoxScope) Less(other Ord) bool {
+	return false
+}
+
+// Equal checks if an BoxScope is equal to another BoxScope.
+func (o *BoxScope) Equal(other Ord) bool {
+	if i, ok := other.(*BoxScope); ok {
+		return o.value == i.value
+	}
+	return false
+}
+
+// IsZero returns if the underlying value is zero.
+func (o *BoxScope) IsZero() bool {
+	return o.value == nil
+}
+
+// Value defines the shadow type value of the Box.
+func (o *BoxScope) Value() any {
+	return o.value
+}
+
+// ForEach iterates over each value in the box.
+func (o *BoxScope) ForEach(fn func(any) bool) {
+	fn(o.value)
+}
+
 // BoxInteger defines an ordered integer.
 type BoxInteger struct {
 	value int64

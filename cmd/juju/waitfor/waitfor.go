@@ -19,6 +19,7 @@ defined by the supplied query.
 Examples:
 	juju wait-for unit mysql/0
 	juju wait-for application mysql --query='name=="mysql" && (status=="active" || status=="idle")'
+	juju wait-for model default --query='forEach(units, unit => startsWith(unit.name, "ubuntu"))'
 
 `
 
