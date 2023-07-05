@@ -28,7 +28,7 @@ import (
 // //go:gen-erate go run github.com/golang/mock/mockgen -package api -destination uniter_mocks.go github.com/juju/juju/worker/uniter/api UniterClient
 
 //go:generate go run github.com/golang/mock/mockgen -package api -destination domain_mocks.go github.com/juju/juju/worker/uniter/api Unit,Relation,RelationUnit,Application,Charm
-//go:generate go run github.com/golang/mock/mockgen -package api -destination secrets_mocks.go github.com/juju/juju/worker/uniter/api SecretsClient
+//go:generate go run github.com/golang/mock/mockgen -package api -destination secrets_mocks.go github.com/juju/juju/worker/uniter/api SecretsClient,SecretsBackend
 
 // ProviderIDGetter defines the API to get provider ID.
 type ProviderIDGetter interface {
@@ -160,6 +160,14 @@ type SecretsWatcher interface {
 	WatchConsumedSecretsChanges(unitName string) (watcher.StringsWatcher, error)
 	GetConsumerSecretsRevisionInfo(string, []string) (map[string]secrets.SecretRevisionInfo, error)
 	WatchObsolete(ownerTags ...names.Tag) (watcher.StringsWatcher, error)
+}
+
+// SecretsBackend provides access to a secrets backend.
+type SecretsBackend interface {
+	GetContent(uri *secrets.URI, label string, refresh, peek bool) (secrets.SecretValue, error)
+	SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (secrets.ValueRef, error)
+	DeleteContent(uri *secrets.URI, revision int) error
+	DeleteExternalContent(ref secrets.ValueRef) error
 }
 
 // SecretsClient provides access to the secrets manager facade.

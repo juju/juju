@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
-	jujusecrets "github.com/juju/juju/secrets"
 	"github.com/juju/juju/worker/uniter/api"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/context/payloads"
@@ -64,7 +63,7 @@ type StorageContextAccessor interface {
 }
 
 // SecretsBackendGetter creates a secrets backend client.
-type SecretsBackendGetter func() (jujusecrets.BackendsClient, error)
+type SecretsBackendGetter func() (api.SecretsBackend, error)
 
 // RelationsFunc is used to get snapshots of relation membership at context
 // creation time.

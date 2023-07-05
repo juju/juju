@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/worker/secretexpire"
 	"github.com/juju/juju/worker/secretrotate"
 	"github.com/juju/juju/worker/uniter"
+	uniterapi "github.com/juju/juju/worker/uniter/api"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runner"
@@ -201,7 +202,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				}
 			}
 			jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
-			secretsBackendGetter := func() (secrets.BackendsClient, error) {
+			secretsBackendGetter := func() (uniterapi.SecretsBackend, error) {
 				return secrets.NewClient(jujuSecretsAPI)
 			}
 			secretRotateWatcherFunc := func(unitTag names.UnitTag, isLeader bool, rotateSecrets chan []string) (worker.Worker, error) {

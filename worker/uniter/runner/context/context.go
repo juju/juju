@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/common/charmrunner"
@@ -159,7 +158,7 @@ type HookContext struct {
 	// secretsBackendGetter is used to get a client to access the secrets backend.
 	secretsBackendGetter SecretsBackendGetter
 	// secretsBackend is the secrets backend client, created only when needed.
-	secretsBackend secrets.BackendsClient
+	secretsBackend api.SecretsBackend
 
 	// LeadershipContext supplies several hooks.Context methods.
 	LeadershipContext
@@ -784,7 +783,7 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 	return result, nil
 }
 
-func (ctx *HookContext) getSecretsBackend() (secrets.BackendsClient, error) {
+func (ctx *HookContext) getSecretsBackend() (api.SecretsBackend, error) {
 	if ctx.secretsBackend != nil {
 		return ctx.secretsBackend, nil
 	}
@@ -1494,7 +1493,7 @@ func (ctx *HookContext) doFlush(process string) error {
 	// Before saving the secret metadata to Juju, save the content to an external
 	// backend (if configured) - we need the backend id to send to Juju.
 	// If the flush to Juju fails, we'll delete the external content.
-	var secretsBackend secrets.BackendsClient
+	var secretsBackend api.SecretsBackend
 	if ctx.secretChanges.haveContentUpdates() {
 		var err error
 		secretsBackend, err = ctx.getSecretsBackend()
