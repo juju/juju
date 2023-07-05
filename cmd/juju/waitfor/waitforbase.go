@@ -32,11 +32,11 @@ func (s watchAllAPIShim) WatchAll() (api.AllWatcher, error) {
 
 // runQuery handles the more complex error handling of a query with a given
 // scope.
-func runQuery(q query.Query, scope query.Scope) (bool, error) {
+func runQuery(input string, q query.Query, scope query.Scope) (bool, error) {
 	if res, err := q.BuiltinsRun(scope); query.IsInvalidIdentifierErr(err) {
 		return false, invalidIdentifierError(scope, err)
-	} else if query.IsRuntimeError(err) {
-		return false, errors.Trace(err)
+	} else if query.IsRuntimeError(err) || query.IsSyntaxError(err) {
+		return false, HelpDisplay(err, input)
 	} else if res && err == nil {
 		return true, nil
 	} else if err != nil {

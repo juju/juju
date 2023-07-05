@@ -244,7 +244,7 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (any, error) {
 		case bool:
 			leftOp = op
 		default:
-			return nil, RuntimeErrorf("%T %v logical AND only allowed on boolean values", left, node.Left.Pos())
+			return nil, ErrSyntaxError(node.Left.Pos(), node.Token.Type, node.Token.Type)
 		}
 
 		// Ensure we don't call the right hand expression unless we need to.
@@ -271,7 +271,7 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (any, error) {
 		case bool:
 			rightOp = op
 		default:
-			return nil, RuntimeErrorf("%T %v logical AND only allowed on boolean values", right, node.Right.Pos())
+			return nil, ErrSyntaxError(node.Right.Pos(), node.Token.Type, node.Token.Type)
 		}
 
 		return rightOp, nil

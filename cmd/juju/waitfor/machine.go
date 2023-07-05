@@ -117,11 +117,11 @@ func (c *machineCommand) Run(ctx *cmd.Context) (err error) {
 		ClientFn: c.newWatchAllAPIFunc,
 		Timeout:  c.timeout,
 	}
-	err = strategy.Run(c.id, c.query, c.waitFor(scopedContext))
+	err = strategy.Run(c.id, c.query, c.waitFor(c.query, scopedContext))
 	return errors.Trace(err)
 }
 
-func (c *machineCommand) waitFor(ctx ScopeContext) func(string, []params.Delta, query.Query) (bool, error) {
+func (c *machineCommand) waitFor(input string, ctx ScopeContext) func(string, []params.Delta, query.Query) (bool, error) {
 	return func(id string, deltas []params.Delta, q query.Query) (bool, error) {
 		for _, delta := range deltas {
 			logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
@@ -139,7 +139,7 @@ func (c *machineCommand) waitFor(ctx ScopeContext) func(string, []params.Delta, 
 				c.machineInfo = *entityInfo
 
 				scope := MakeMachineScope(ctx, entityInfo)
-				if done, err := runQuery(q, scope); err != nil {
+				if done, err := runQuery(input, q, scope); err != nil {
 					return false, errors.Trace(err)
 				} else if done {
 					return true, nil

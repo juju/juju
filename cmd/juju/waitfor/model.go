@@ -129,7 +129,7 @@ func (c *modelCommand) Run(ctx *cmd.Context) (err error) {
 			c.primeCache()
 		}
 	})
-	err = strategy.Run(c.name, c.query, c.waitFor(scopedContext))
+	err = strategy.Run(c.name, c.query, c.waitFor(c.query, scopedContext))
 	return errors.Trace(err)
 }
 
@@ -139,7 +139,7 @@ func (c *modelCommand) primeCache() {
 	c.units = make(map[string]*params.UnitInfo)
 }
 
-func (c *modelCommand) waitFor(ctx ScopeContext) func(string, []params.Delta, query.Query) (bool, error) {
+func (c *modelCommand) waitFor(input string, ctx ScopeContext) func(string, []params.Delta, query.Query) (bool, error) {
 	return func(name string, deltas []params.Delta, q query.Query) (bool, error) {
 		for _, delta := range deltas {
 			logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
@@ -181,7 +181,7 @@ func (c *modelCommand) waitFor(ctx ScopeContext) func(string, []params.Delta, qu
 
 		if c.model != nil {
 			scope := MakeModelScope(ctx, c)
-			if done, err := runQuery(q, scope); err != nil {
+			if done, err := runQuery(input, q, scope); err != nil {
 				return false, errors.Trace(err)
 			} else if done {
 				return true, nil
