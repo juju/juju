@@ -17,7 +17,7 @@ import (
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/rpc/params"
-	domainmocks "github.com/juju/juju/worker/uniter/domain/mocks"
+	"github.com/juju/juju/worker/uniter/api"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/relation"
 	"github.com/juju/juju/worker/uniter/relation/mocks"
@@ -25,8 +25,8 @@ import (
 
 type relationerSuite struct {
 	stateManager *mocks.MockStateManager
-	relationUnit *domainmocks.MockRelationUnit
-	relation     *domainmocks.MockRelation
+	relationUnit *api.MockRelationUnit
+	relation     *api.MockRelation
 	unitGetter   *mocks.MockUnitGetter
 }
 
@@ -226,8 +226,8 @@ func (s *relationerSuite) newRelationer() relation.Relationer {
 func (s *relationerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.stateManager = mocks.NewMockStateManager(ctrl)
-	s.relationUnit = domainmocks.NewMockRelationUnit(ctrl)
-	s.relation = domainmocks.NewMockRelation(ctrl)
+	s.relationUnit = api.NewMockRelationUnit(ctrl)
+	s.relation = api.NewMockRelation(ctrl)
 	s.unitGetter = mocks.NewMockUnitGetter(ctrl)
 	// Setup for NewRelationer
 	s.expectRelationUnitRelation()

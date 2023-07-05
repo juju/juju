@@ -6,19 +6,19 @@ package relation
 import (
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/worker/uniter/domain"
+	"github.com/juju/juju/worker/uniter/api"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 type StateTrackerForTestConfig struct {
 	Client            StateTrackerClient
-	Unit              domain.Unit
+	Unit              api.Unit
 	LeadershipContext context.LeadershipContext
 	Subordinate       bool
 	PrincipalName     string
 	CharmDir          string
 	StateManager      StateManager
-	NewRelationerFunc func(domain.RelationUnit, StateManager, UnitGetter, Logger) Relationer
+	NewRelationerFunc func(api.RelationUnit, StateManager, UnitGetter, Logger) Relationer
 	Relationers       map[int]Relationer
 	RemoteAppName     map[int]string
 }

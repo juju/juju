@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/uniter/domain"
+	"github.com/juju/juju/worker/uniter/api"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -30,7 +30,7 @@ import (
 // RelationStateTracker instance.
 type RelationStateTrackerConfig struct {
 	Client            StateTrackerClient
-	Unit              domain.Unit
+	Unit              api.Unit
 	CharmDir          string
 	LeadershipContext context.LeadershipContext
 	Abort             <-chan struct{}
@@ -40,7 +40,7 @@ type RelationStateTrackerConfig struct {
 // relationStateTracker implements RelationStateTracker.
 type relationStateTracker struct {
 	client          StateTrackerClient
-	unit            domain.Unit
+	unit            api.Unit
 	leaderCtx       context.LeadershipContext
 	abort           <-chan struct{}
 	subordinate     bool
@@ -52,7 +52,7 @@ type relationStateTracker struct {
 	isPeerRelation  map[int]bool
 	stateMgr        StateManager
 	logger          Logger
-	newRelationer   func(domain.RelationUnit, StateManager, UnitGetter, Logger) Relationer
+	newRelationer   func(api.RelationUnit, StateManager, UnitGetter, Logger) Relationer
 }
 
 // NewRelationStateTracker returns a new RelationStateTracker instance.
@@ -97,7 +97,7 @@ func (r *relationStateTracker) loadInitialState() error {
 
 	// Keep the relations ordered for reliable testing.
 	var orderedIds []int
-	isScopeRelations := make(map[int]domain.Relation)
+	isScopeRelations := make(map[int]api.Relation)
 	relationSuspended := make(map[int]bool)
 	for _, rs := range relationStatus {
 		if !rs.InScope {
@@ -161,7 +161,7 @@ func (r *relationStateTracker) relationGone(id int) {
 // store persistent state. It will block until the
 // operation succeeds or fails; or until the abort chan is closed, in which
 // case it will return resolver.ErrLoopAborted.
-func (r *relationStateTracker) joinRelation(rel domain.Relation) (err error) {
+func (r *relationStateTracker) joinRelation(rel api.Relation) (err error) {
 	unitName := r.unit.Name()
 	r.logger.Tracef("%q (re-)joining: %q", unitName, rel)
 	ru, err := rel.Unit(r.unit.Tag())

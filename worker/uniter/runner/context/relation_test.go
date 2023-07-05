@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/uniter"
+	uniterapi "github.com/juju/juju/worker/uniter/api"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
@@ -76,7 +76,7 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	relUnit, err := apiRel.Unit(apiUnit.Tag())
 	c.Assert(err, jc.ErrorIsNil)
-	s.relUnit = uniter.RelationUnitShim{relUnit}
+	s.relUnit = uniterapi.RelationUnitShim{relUnit}
 }
 
 func (s *ContextRelationSuite) TestMemberCaching(c *gc.C) {

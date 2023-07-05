@@ -15,14 +15,13 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	jujusecrets "github.com/juju/juju/secrets"
-	"github.com/juju/juju/worker/uniter/domain"
-	domainmocks "github.com/juju/juju/worker/uniter/domain/mocks"
+	"github.com/juju/juju/worker/uniter/api"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type HookContextParams struct {
-	Unit                domain.Unit
-	Uniter              UniterClient
+	Unit                api.Unit
+	Uniter              api.UniterClient
 	ID                  string
 	UUID                string
 	ModelName           string
@@ -37,7 +36,7 @@ type HookContextParams struct {
 	ActionData          *ActionData
 	AssignedMachineTag  names.MachineTag
 	StorageTag          names.StorageTag
-	SecretsClient       SecretsAccessor
+	SecretsClient       api.SecretsAccessor
 	SecretsStore        jujusecrets.BackendsClient
 	SecretMetadata      map[string]jujuc.SecretMetadata
 	Paths               Paths
@@ -117,7 +116,7 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	return ctx, nil
 }
 
-func NewMockUnitHookContext(mockUnit *domainmocks.MockUnit, modelType model.ModelType, leadership LeadershipContext) *HookContext {
+func NewMockUnitHookContext(mockUnit *api.MockUnit, modelType model.ModelType, leadership LeadershipContext) *HookContext {
 	logger := loggo.GetLogger("test")
 	return &HookContext{
 		unit:              mockUnit,
@@ -137,7 +136,7 @@ func NewMockUnitHookContext(mockUnit *domainmocks.MockUnit, modelType model.Mode
 	}
 }
 
-func NewMockUnitHookContextWithState(mockUnit *domainmocks.MockUnit, uniterClient UniterClient) *HookContext {
+func NewMockUnitHookContextWithState(mockUnit *api.MockUnit, uniterClient api.UniterClient) *HookContext {
 	logger := loggo.GetLogger("test")
 	return &HookContext{
 		unitName:               mockUnit.Tag().Id(), //unitName used by the action finaliser method.
@@ -151,7 +150,7 @@ func NewMockUnitHookContextWithState(mockUnit *domainmocks.MockUnit, uniterClien
 	}
 }
 
-func NewMockUnitHookContextWithStateAndStorage(unitName string, unit HookUnit, uniterClient UniterClient, storageTag names.StorageTag) *HookContext {
+func NewMockUnitHookContextWithStateAndStorage(unitName string, unit HookUnit, uniterClient api.UniterClient, storageTag names.StorageTag) *HookContext {
 	logger := loggo.GetLogger("test")
 	return &HookContext{
 		unitName:               unit.Tag().Id(), //unitName used by the action finaliser method.
@@ -166,7 +165,7 @@ func NewMockUnitHookContextWithStateAndStorage(unitName string, unit HookUnit, u
 
 // SetEnvironmentHookContextSecret exists purely to set the fields used in hookVars.
 func SetEnvironmentHookContextSecret(
-	context *HookContext, secretURI string, metadata map[string]jujuc.SecretMetadata, client SecretsAccessor, backend jujusecrets.BackendsClient,
+	context *HookContext, secretURI string, metadata map[string]jujuc.SecretMetadata, client api.SecretsAccessor, backend jujusecrets.BackendsClient,
 ) {
 	context.secretURI = secretURI
 	context.secretLabel = "label-" + secretURI
@@ -242,7 +241,7 @@ type ModelHookContextParams struct {
 
 	MachineTag names.MachineTag
 
-	Uniter UniterClient
+	Uniter api.UniterClient
 	Unit   HookUnit
 }
 

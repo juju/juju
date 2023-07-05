@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/uniter"
+	uniterapi "github.com/juju/juju/worker/uniter/api"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/relation"
@@ -128,8 +128,8 @@ func (s *relationResolverSuite) newRelationStateTracer(c *gc.C, apiCaller base.A
 	c.Assert(err, jc.ErrorIsNil)
 	r, err := relation.NewRelationStateTracker(
 		relation.RelationStateTrackerConfig{
-			Client:            uniter.UniterClientShim{client},
-			Unit:              uniter.UnitShim{u},
+			Client:            uniterapi.UniterClientShim{client},
+			Unit:              uniterapi.UnitShim{u},
 			Logger:            loggo.GetLogger("test"),
 			CharmDir:          s.charmDir,
 			LeadershipContext: s.leadershipContext,

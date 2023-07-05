@@ -8,14 +8,14 @@ import (
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/worker/uniter/api"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
-	"github.com/juju/juju/worker/uniter/storage"
 )
 
 type dummyStorageAccessor struct {
-	storage.StorageAccessor
+	api.StorageAccessor
 }
 
 func (*dummyStorageAccessor) UnitStorageAttachments(_ names.UnitTag) ([]params.StorageAttachmentId, error) {
@@ -23,7 +23,7 @@ func (*dummyStorageAccessor) UnitStorageAttachments(_ names.UnitTag) ([]params.S
 }
 
 type dummySecretsAccessor struct {
-	remotestate.SecretsClient
+	api.SecretsClient
 }
 
 func (a *dummySecretsAccessor) SecretMetadata() ([]secrets.SecretOwnerMetadata, error) {

@@ -29,14 +29,13 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/common/charmrunner"
-	"github.com/juju/juju/worker/uniter/domain"
+	"github.com/juju/juju/worker/uniter/api"
 	"github.com/juju/juju/worker/uniter/runner/context/payloads"
 	"github.com/juju/juju/worker/uniter/runner/context/resources"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -125,7 +124,7 @@ type HookProcess interface {
 // HookUnit represents the functions needed by a unit in a hook context to
 // call into state.
 type HookUnit interface {
-	Application() (domain.Application, error)
+	Application() (api.Application, error)
 	ApplicationName() string
 	ConfigSettings() (charm.Settings, error)
 	LogActionMessage(names.ActionTag, string) error
@@ -141,29 +140,6 @@ type HookUnit interface {
 	PublicAddress() (string, error)
 }
 
-// UniterClient exposes required state functions needed by the HookContext and ContextFactory.
-type UniterClient interface {
-	UnitStorageAttachments(unitTag names.UnitTag) ([]params.StorageAttachmentId, error)
-	StorageAttachment(storageTag names.StorageTag, unitTag names.UnitTag) (params.StorageAttachment, error)
-	GoalState() (application.GoalState, error)
-	GetPodSpec(appName string) (string, error)
-	GetRawK8sSpec(appName string) (string, error)
-	CloudSpec() (*params.CloudSpec, error)
-	ActionBegin(tag names.ActionTag) error
-	ActionFinish(tag names.ActionTag, status string, results map[string]interface{}, message string) error
-	UnitWorkloadVersion(tag names.UnitTag) (string, error)
-	SetUnitWorkloadVersion(tag names.UnitTag, version string) error
-	OpenedMachinePortRangesByEndpoint(machineTag names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error)
-	OpenedPortRangesByEndpoint() (map[names.UnitTag]network.GroupedPortRanges, error)
-	LeadershipSettings() uniter.LeadershipSettingsAccessor
-	Model() (*model.Model, error)
-	Charm(curl *charm.URL) (domain.Charm, error)
-	ModelConfig() (*config.Config, error)
-	SLALevel() (string, error)
-	CloudAPIVersion() (string, error)
-	APIAddresses() ([]string, error)
-}
-
 // HookContext is the implementation of runner.Context.
 type HookContext struct {
 	*resources.ResourcesHookContext
@@ -175,10 +151,10 @@ type HookContext struct {
 	// NOTE: We would like to be rid of the fake-remote-Unit and switch
 	// over fully to API calls on the uniter.  This adds that ability, but we're
 	// not fully there yet.
-	uniter UniterClient
+	uniter api.UniterClient
 
 	// secretsClient allows the context to access the secrets backend.
-	secretsClient SecretsAccessor
+	secretsClient api.SecretsAccessor
 
 	// secretsBackendGetter is used to get a client to access the secrets backend.
 	secretsBackendGetter SecretsBackendGetter

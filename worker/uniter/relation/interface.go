@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/uniter/domain"
+	"github.com/juju/juju/worker/uniter/api"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -108,7 +108,7 @@ type StateManager interface {
 // UnitGetter encapsulates methods to get unit info.
 type UnitGetter interface {
 	// Unit returns the existing unit with the given tag.
-	Unit(tag names.UnitTag) (domain.Unit, error)
+	Unit(tag names.UnitTag) (api.Unit, error)
 }
 
 // UnitStateReadWriter encapsulates the methods from a state.Unit
@@ -127,13 +127,13 @@ type UnitStateReadWriter interface {
 // required by a relationStateTracker.
 type StateTrackerClient interface {
 	// Unit returns the existing unit with the given tag.
-	Unit(tag names.UnitTag) (domain.Unit, error)
+	Unit(tag names.UnitTag) (api.Unit, error)
 
 	// Relation returns the existing relation with the given tag.
-	Relation(tag names.RelationTag) (domain.Relation, error)
+	Relation(tag names.RelationTag) (api.Relation, error)
 
 	// RelationById returns the existing relation with the given id.
-	RelationById(int) (domain.Relation, error)
+	RelationById(int) (api.Relation, error)
 }
 
 // Application encapsulates the methods from
@@ -167,7 +167,7 @@ type Relationer interface {
 	PrepareHook(hi hook.Info) (string, error)
 
 	// RelationUnit returns the relation unit associated with this relationer instance.
-	RelationUnit() domain.RelationUnit
+	RelationUnit() api.RelationUnit
 
 	// SetDying informs the relationer that the unit is departing the relation,
 	// and that the only hooks it should send henceforth are -departed hooks,

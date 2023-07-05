@@ -12,13 +12,13 @@ import (
 	"github.com/juju/names/v4"
 
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/worker/uniter/api"
 	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
 // SecretsClient is used by the secrets tracker to access the Juju model.
 type SecretsClient interface {
-	remotestate.SecretsClient
+	api.SecretsClient
 	SecretMetadata() ([]coresecrets.SecretOwnerMetadata, error)
 }
 

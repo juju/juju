@@ -30,9 +30,9 @@ import (
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter/actions"
+	"github.com/juju/juju/worker/uniter/api"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/container"
-	"github.com/juju/juju/worker/uniter/domain"
 	"github.com/juju/juju/worker/uniter/hook"
 	uniterleadership "github.com/juju/juju/worker/uniter/leadership"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -64,11 +64,11 @@ type RemoteInitFunc func(remotestate.ContainerRunningStatus, <-chan struct{}) er
 // Uniter implements the capabilities of the unit agent, for example running hooks.
 type Uniter struct {
 	catacomb                     catacomb.Catacomb
-	client                       UniterClient
-	secretsClient                SecretsClient
+	client                       api.UniterClient
+	secretsClient                api.SecretsClient
 	secretsBackendGetter         context.SecretsBackendGetter
 	paths                        Paths
-	unit                         domain.Unit
+	unit                         api.Unit
 	resources                    resources.OpenedResourceClient
 	payloads                     payloads.PayloadAPIClient
 	modelType                    model.ModelType
@@ -167,10 +167,10 @@ type Uniter struct {
 
 // UniterParams hold all the necessary parameters for a new Uniter.
 type UniterParams struct {
-	UniterClient                  UniterClient
+	UniterClient                  api.UniterClient
 	ResourcesClient               resources.OpenedResourceClient
 	PayloadClient                 payloads.PayloadAPIClient
-	SecretsClient                 SecretsClient
+	SecretsClient                 api.SecretsClient
 	SecretsBackendGetter          context.SecretsBackendGetter
 	UnitTag                       names.UnitTag
 	ModelType                     model.ModelType
@@ -211,7 +211,7 @@ type UniterParams struct {
 type NewOperationExecutorFunc func(string, operation.ExecutorConfig) (operation.Executor, error)
 
 // NewRunnerExecutorFunc defines the type of the NewRunnerExecutor.
-type NewRunnerExecutorFunc func(domain.ProviderIDGetter, Paths) runner.ExecFunc
+type NewRunnerExecutorFunc func(api.ProviderIDGetter, Paths) runner.ExecFunc
 
 // NewUniter creates a new Uniter which will install, run, and upgrade
 // a charm on behalf of the unit with the given unitTag, by executing

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/uniter/domain"
+	"github.com/juju/juju/worker/uniter/api"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -31,7 +31,7 @@ type RelationUnit interface {
 	ReadSettings(name string) (params.Settings, error)
 
 	// Relation returns the relation associated with the unit.
-	Relation() domain.Relation
+	Relation() api.Relation
 
 	// Settings returns a Settings which allows access to the unit's settings
 	// within the relation.

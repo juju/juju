@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	domain "github.com/juju/juju/worker/uniter/domain"
+	api "github.com/juju/juju/worker/uniter/api"
 	names "github.com/juju/names/v4"
 )
 
@@ -36,10 +36,10 @@ func (m *MockStateTrackerClient) EXPECT() *MockStateTrackerClientMockRecorder {
 }
 
 // Relation mocks base method.
-func (m *MockStateTrackerClient) Relation(arg0 names.RelationTag) (domain.Relation, error) {
+func (m *MockStateTrackerClient) Relation(arg0 names.RelationTag) (api.Relation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Relation", arg0)
-	ret0, _ := ret[0].(domain.Relation)
+	ret0, _ := ret[0].(api.Relation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -51,10 +51,10 @@ func (mr *MockStateTrackerClientMockRecorder) Relation(arg0 interface{}) *gomock
 }
 
 // RelationById mocks base method.
-func (m *MockStateTrackerClient) RelationById(arg0 int) (domain.Relation, error) {
+func (m *MockStateTrackerClient) RelationById(arg0 int) (api.Relation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RelationById", arg0)
-	ret0, _ := ret[0].(domain.Relation)
+	ret0, _ := ret[0].(api.Relation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -66,10 +66,10 @@ func (mr *MockStateTrackerClientMockRecorder) RelationById(arg0 interface{}) *go
 }
 
 // Unit mocks base method.
-func (m *MockStateTrackerClient) Unit(arg0 names.UnitTag) (domain.Unit, error) {
+func (m *MockStateTrackerClient) Unit(arg0 names.UnitTag) (api.Unit, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Unit", arg0)
-	ret0, _ := ret[0].(domain.Unit)
+	ret0, _ := ret[0].(api.Unit)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

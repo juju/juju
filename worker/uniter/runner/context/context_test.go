@@ -31,8 +31,7 @@ import (
 	"github.com/juju/juju/secrets/provider/vault"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/common/charmrunner"
-	"github.com/juju/juju/worker/uniter"
-	domainmocks "github.com/juju/juju/worker/uniter/domain/mocks"
+	"github.com/juju/juju/worker/uniter/api"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/context/mocks"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -633,7 +632,7 @@ var _ = gc.Suite(&mockHookContextSuite{})
 
 type mockHookContextSuite struct {
 	testing.IsolationSuite
-	mockUnit       *domainmocks.MockUnit
+	mockUnit       *api.MockUnit
 	mockLeadership *mocks.MockLeadershipContext
 	mockCache      params.UnitStateResult
 }
@@ -937,7 +936,7 @@ func (s *mockHookContextSuite) TestClosePortRange(c *gc.C) {
 
 func (s *mockHookContextSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.mockUnit = domainmocks.NewMockUnit(ctrl)
+	s.mockUnit = api.NewMockUnit(ctrl)
 	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).AnyTimes()
 	s.mockLeadership = mocks.NewMockLeadershipContext(ctrl)
 	return ctrl
@@ -984,7 +983,7 @@ func (s *mockHookContextSuite) TestActionAbort(c *gc.C) {
 			return nil
 		})
 		client := apiuniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
-		hookContext := context.NewMockUnitHookContextWithState(s.mockUnit, uniter.UniterClientShim{client})
+		hookContext := context.NewMockUnitHookContextWithState(s.mockUnit, api.UniterClientShim{client})
 		cancel := make(chan struct{})
 		if test.Cancel {
 			close(cancel)
@@ -1042,7 +1041,7 @@ func (s *mockHookContextSuite) TestActionFlushError(c *gc.C) {
 	}).Return(errors.New("flush failed"))
 
 	client := apiuniter.NewClient(apiCaller, names.NewUnitTag("wordpress/0"))
-	hookContext := context.NewMockUnitHookContextWithState(s.mockUnit, uniter.UniterClientShim{client})
+	hookContext := context.NewMockUnitHookContextWithState(s.mockUnit, api.UniterClientShim{client})
 	context.SetEnvironmentHookContextSecret(hookContext, coresecrets.NewURI().String(), nil, nil, nil)
 
 	err := hookContext.OpenPortRange("ep", network.PortRange{Protocol: "tcp", FromPort: 666, ToPort: 666})
@@ -1073,7 +1072,7 @@ func (s *mockHookContextSuite) TestMissingAction(c *gc.C) {
 		return nil
 	})
 	client := apiuniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
-	hookContext := context.NewMockUnitHookContextWithState(s.mockUnit, uniter.UniterClientShim{client})
+	hookContext := context.NewMockUnitHookContextWithState(s.mockUnit, api.UniterClientShim{client})
 
 	context.WithActionContext(hookContext, nil, nil)
 	err := hookContext.Flush("action", charmrunner.NewMissingHookError("noaction"))
@@ -1222,7 +1221,7 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretFailedWithUpdate(c *gc.C)
 }
 
 func (s *mockHookContextSuite) assertSecretGetOwnedSecretURILookup(
-	c *gc.C, patchContext func(*context.HookContext, *coresecrets.URI, string, context.SecretsAccessor, secrets.BackendsClient),
+	c *gc.C, patchContext func(*context.HookContext, *coresecrets.URI, string, api.SecretsAccessor, secrets.BackendsClient),
 ) {
 	defer s.setupMocks(c).Finish()
 
@@ -1265,7 +1264,7 @@ func (s *mockHookContextSuite) assertSecretGetOwnedSecretURILookup(
 
 func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromAppliedCache(c *gc.C) {
 	s.assertSecretGetOwnedSecretURILookup(c,
-		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client context.SecretsAccessor, backend secrets.BackendsClient) {
+		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client api.SecretsAccessor, backend secrets.BackendsClient) {
 			context.SetEnvironmentHookContextSecret(
 				ctx, uri.String(),
 				map[string]jujuc.SecretMetadata{
@@ -1278,7 +1277,7 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromAppliedCache
 
 func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingCreate(c *gc.C) {
 	s.assertSecretGetOwnedSecretURILookup(c,
-		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client context.SecretsAccessor, backend secrets.BackendsClient) {
+		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client api.SecretsAccessor, backend secrets.BackendsClient) {
 			arg := apiuniter.SecretCreateArg{OwnerTag: s.mockUnit.Tag()}
 			arg.URI = uri
 			arg.Label = ptr(label)
@@ -1291,7 +1290,7 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingCreat
 
 func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingUpdate(c *gc.C) {
 	s.assertSecretGetOwnedSecretURILookup(c,
-		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client context.SecretsAccessor, backend secrets.BackendsClient) {
+		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client api.SecretsAccessor, backend secrets.BackendsClient) {
 			arg := apiuniter.SecretUpdateArg{}
 			arg.URI = uri
 			arg.Label = ptr(label)
@@ -1542,7 +1541,7 @@ func (s *mockHookContextSuite) TestHookStorage(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	st := mocks.NewMockUniterClient(ctrl)
+	st := api.NewMockUniterClient(ctrl)
 	st.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("wordpress/0")).Return(params.StorageAttachment{
 		StorageTag: "data/0",
 	}, nil)

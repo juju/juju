@@ -54,6 +54,7 @@ import (
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter"
+	uniterapi "github.com/juju/juju/worker/uniter/api"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -539,7 +540,7 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 	}
 
 	uniterParams := uniter.UniterParams{
-		UniterClient: uniter.UniterClientShim{ctx.api},
+		UniterClient: uniterapi.UniterClientShim{ctx.api},
 		UnitTag:      tag,
 		ModelType:    model.IAAS,
 		LeadershipTrackerFunc: func(_ names.UnitTag) leadership.TrackerWorker {

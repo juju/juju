@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/uniter/domain"
+	"github.com/juju/juju/worker/uniter/api"
 )
 
 func newMockWatcher() *mockWatcher {
@@ -114,7 +114,7 @@ type mockUniterClient struct {
 	charm                       *mockCharm
 }
 
-func (m *mockUniterClient) Charm(*charm.URL) (domain.Charm, error) {
+func (m *mockUniterClient) Charm(*charm.URL) (api.Charm, error) {
 	if m.charm != nil {
 		return m.charm, nil
 	}
@@ -122,7 +122,7 @@ func (m *mockUniterClient) Charm(*charm.URL) (domain.Charm, error) {
 }
 
 type mockCharm struct {
-	domain.Charm
+	api.Charm
 	required bool
 }
 
@@ -130,7 +130,7 @@ func (c *mockCharm) LXDProfileRequired() (bool, error) {
 	return c.required, nil
 }
 
-func (m *mockUniterClient) Relation(tag names.RelationTag) (domain.Relation, error) {
+func (m *mockUniterClient) Relation(tag names.RelationTag) (api.Relation, error) {
 	r, ok := m.relations[tag]
 	if !ok {
 		return nil, &params.Error{Code: params.CodeNotFound}
@@ -174,7 +174,7 @@ func (m *mockUniterClient) StorageAttachmentLife(
 	return results, nil
 }
 
-func (m *mockUniterClient) Unit(tag names.UnitTag) (domain.Unit, error) {
+func (m *mockUniterClient) Unit(tag names.UnitTag) (api.Unit, error) {
 	if tag != m.unit.tag {
 		return nil, &params.Error{Code: params.CodeNotFound}
 	}
@@ -216,7 +216,7 @@ func (m *mockUniterClient) WatchUpdateStatusHookInterval() (watcher.NotifyWatche
 }
 
 type mockUnit struct {
-	domain.Unit
+	api.Unit
 	tag                              names.UnitTag
 	life                             life.Value
 	providerID                       string
@@ -254,7 +254,7 @@ func (u *mockUnit) Resolved() params.ResolvedMode {
 	return u.resolved
 }
 
-func (u *mockUnit) Application() (domain.Application, error) {
+func (u *mockUnit) Application() (api.Application, error) {
 	return &u.application, nil
 }
 
@@ -307,7 +307,7 @@ func (u *mockUnit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, reas
 }
 
 type mockApplication struct {
-	domain.Application
+	api.Application
 	tag                   names.ApplicationTag
 	life                  life.Value
 	curl                  string
@@ -346,7 +346,7 @@ func (s *mockApplication) WatchLeadershipSettings() (watcher.NotifyWatcher, erro
 }
 
 type mockRelation struct {
-	domain.Relation
+	api.Relation
 	tag       names.RelationTag
 	id        int
 	life      life.Value
