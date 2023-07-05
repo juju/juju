@@ -179,7 +179,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			payloadClient := uniter.NewPayloadFacadeClient(apiConn)
 
-			secretsBackendGetter := func() (secrets.BackendsClient, error) {
+			secretsBackendGetter := func() (uniterapi.SecretsBackend, error) {
 				return secrets.NewClient(jujuSecretsAPI)
 			}
 			uniter, err := NewUniter(&UniterParams{

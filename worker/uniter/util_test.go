@@ -595,7 +595,7 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 			return watchertest.NewMockStringsWatcher(ctx.secretsExpireCh), nil
 		},
 		SecretsClient: ctx.secretsClient,
-		SecretsBackendGetter: func() (jujusecrets.BackendsClient, error) {
+		SecretsBackendGetter: func() (uniterapi.SecretsBackend, error) {
 			return ctx.secretBackends, nil
 		},
 	}

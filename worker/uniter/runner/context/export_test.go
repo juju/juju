@@ -71,7 +71,7 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 		assignedMachineTag:     hcParams.AssignedMachineTag,
 		storageTag:             hcParams.StorageTag,
 		secretsClient:          hcParams.SecretsClient,
-		secretsBackendGetter:   func() (jujusecrets.BackendsClient, error) { return hcParams.SecretsStore, nil },
+		secretsBackendGetter:   func() (api.SecretsBackend, error) { return hcParams.SecretsStore, nil },
 		secretMetadata:         hcParams.SecretMetadata,
 		clock:                  hcParams.Clock,
 		logger:                 loggo.GetLogger("test"),
