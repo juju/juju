@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package migration
+package modelmigration
 
 import (
 	"context"
@@ -10,33 +10,36 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/externalcontroller"
+	"github.com/juju/juju/domain/externalcontroller/service"
+	"github.com/juju/juju/domain/externalcontroller/state"
 )
 
-type ExportState interface {
+// RegisterExport registers the export operations with the given coordinator.
+func RegisterExport(coordinator Coordinator) {
+	coordinator.Add(&exportOperation{})
+}
+
+type ExportService interface {
 	ControllerForModel(ctx context.Context, modelUUID string) (*crossmodel.ControllerInfo, error)
 	ModelsForController(ctx context.Context, controllerUUID string) ([]string, error)
 }
 
-// ExportOperation describes a way to execute a migration for
+// exportOperation describes a way to execute a migration for
 // exporting external controller s.
-type ExportOperation struct {
-	st      ExportState
-	stateFn func(database.TxnRunner) (ExportState, error)
+type exportOperation struct {
+	modelmigration.BaseOperation
+
+	service ExportService
 }
 
-func (e *ExportOperation) Setup(dbGetter database.DBGetter) error {
-	db, err := dbGetter.GetDB(database.ControllerNS)
-	if err != nil {
-		return errors.Annotatef(err, "retrieving database for export operation")
-	}
-
-	e.st, err = e.stateFn(db)
-	if err != nil {
-		return errors.Annotatef(err, "retrieving state for export operation")
-	}
-
+func (e exportOperation) Setup(scope modelmigration.Scope) error {
+	// We must not use a watcher during migration, so it's safe to pass a
+	// nil watcher factory.
+	e.service = service.NewService(
+		state.NewState(domain.ConstFactory(scope.ControllerDB())), nil)
 	return nil
 }
 
@@ -48,10 +51,10 @@ func (e *ExportOperation) Setup(dbGetter database.DBGetter) error {
 // the dst description.Model argument and make sure that the model is not
 // updated until the export has finished, thus avoiding a race on the
 // remote applications of the model.
-func (e *ExportOperation) Execute(ctx context.Context, dst description.Model) error {
+func (e exportOperation) Execute(ctx context.Context, model description.Model) error {
 	// If there are not remote applications, then no external controllers will
 	// be exported. We should understand if that's ever going to be an issue?
-	remoteApplications := dst.RemoteApplications()
+	remoteApplications := model.RemoteApplications()
 
 	// Iterate over the source model UUIDs, to gather up all the related
 	// external controllers. Store them in a map to create a unique set of
@@ -64,23 +67,12 @@ func (e *ExportOperation) Execute(ctx context.Context, dst description.Model) er
 
 	controllers := make(map[string]externalcontroller.MigrationControllerInfo)
 	for modelUUID := range sourceModelUUIDs {
-		externalController, err := e.st.ControllerForModel(ctx, modelUUID)
+		externalController, err := e.service.ControllerForModel(ctx, modelUUID)
 		if err != nil {
-			// This can occur when attempting to export a remote application
-			// where there is a external controller, yet the controller doesn't
-			// exist.
-			// This generally only happens whilst keeping backwards
-			// compatibility, whilst remote applications aren't exported or
-			// imported correctly.
-			// TODO (stickupkid): This should be removed when we support CMR
-			// migrations without a feature flag.
-			if errors.IsNotFound(err) {
-				continue
-			}
 			return errors.Trace(err)
 		}
 
-		models, err := e.st.ModelsForController(ctx, externalController.ControllerTag.Id())
+		models, err := e.service.ModelsForController(ctx, externalController.ControllerTag.Id())
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -96,7 +88,7 @@ func (e *ExportOperation) Execute(ctx context.Context, dst description.Model) er
 	}
 
 	for _, controller := range controllers {
-		_ = dst.AddExternalController(description.ExternalControllerArgs{
+		_ = model.AddExternalController(description.ExternalControllerArgs{
 			Tag:    controller.ControllerTag,
 			Addrs:  controller.Addrs,
 			Alias:  controller.Alias,

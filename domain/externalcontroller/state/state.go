@@ -128,61 +128,15 @@ func (st *State) UpdateExternalController(
 		return errors.Trace(err)
 	}
 
-	cID := ci.ControllerTag.Id()
-
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		q := `
-INSERT INTO external_controller (uuid, alias, ca_cert)
-VALUES (?, ?, ?)
-  ON CONFLICT(uuid) DO UPDATE SET alias=excluded.alias, ca_cert=excluded.ca_cert`[1:]
-
-		if _, err := tx.ExecContext(ctx, q, cID, ci.Alias, ci.CACert); err != nil {
-			return errors.Trace(err)
-		}
-
-		addrsBinds, addrsAnyVals := database.SliceToPlaceholder(ci.Addrs)
-		q = fmt.Sprintf(`
-DELETE FROM external_controller_address
-WHERE  controller_uuid = ?
-AND    address NOT IN (%s)`[1:], addrsBinds)
-
-		args := append([]any{cID}, addrsAnyVals...)
-		if _, err := tx.ExecContext(ctx, q, args...); err != nil {
-			return errors.Trace(err)
-		}
-
-		for _, addr := range ci.Addrs {
-			q := `
-INSERT INTO external_controller_address (uuid, controller_uuid, address)
-VALUES (?, ?, ?)
-  ON CONFLICT(controller_uuid, address) DO NOTHING`[1:]
-
-			if _, err := tx.ExecContext(ctx, q, utils.MustNewUUID().String(), cID, addr); err != nil {
-				return errors.Trace(err)
-			}
-		}
-
-		// TODO (manadart 2023-05-13): Check current implementation and see if
-		// we need to delete models as we do for addresses, or whether this
-		// (additive) approach is what we have now.
-
-		for _, modelUUID := range modelUUIDs {
-			q := `
-INSERT INTO external_model (uuid, controller_uuid)
-VALUES (?, ?)
-  ON CONFLICT(uuid) DO UPDATE SET controller_uuid=excluded.controller_uuid`[1:]
-
-			if _, err := tx.ExecContext(ctx, q, modelUUID, cID); err != nil {
-				return errors.Trace(err)
-			}
-		}
-
-		return nil
+		return st.updateExternalControllerTx(ctx, ci, modelUUIDs, tx)
 	})
 
 	return errors.Trace(err)
 }
 
+// ImportExternalControllers imports the list of MigrationControllerInfo
+// external controllers on one single transaction.
 func (st *State) ImportExternalControllers(ctx context.Context, infos []externalcontroller.MigrationControllerInfo) error {
 	db, err := st.DB()
 	if err != nil {
@@ -191,42 +145,80 @@ func (st *State) ImportExternalControllers(ctx context.Context, infos []external
 
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		for _, ci := range infos {
-			cID := ci.ControllerTag.Id()
-
-			q := `
-INSERT INTO external_controller (uuid, alias, ca_cert)
-VALUES (?, ?, ?)
-  ON CONFLICT(uuid) DO UPDATE SET alias=excluded.alias, ca_cert=excluded.ca_cert`[1:]
-
-			if _, err := tx.ExecContext(ctx, q, cID, ci.Alias, ci.CACert); err != nil {
+			err := st.updateExternalControllerTx(
+				ctx,
+				crossmodel.ControllerInfo{
+					ControllerTag: ci.ControllerTag,
+					Addrs:         ci.Addrs,
+					Alias:         ci.Alias,
+					CACert:        ci.CACert,
+				},
+				ci.ModelUUIDs,
+				tx,
+			)
+			if err != nil {
 				return errors.Trace(err)
-			}
-
-			for _, addr := range ci.Addrs {
-				q := `
-INSERT INTO external_controller_address (uuid, controller_uuid, address)
-VALUES (?, ?, ?)
-  ON CONFLICT(controller_uuid, address) DO NOTHING`[1:]
-
-				if _, err := tx.ExecContext(ctx, q, utils.MustNewUUID().String(), cID, addr); err != nil {
-					return errors.Trace(err)
-				}
-			}
-
-			for _, modelUUID := range ci.ModelUUIDs {
-				q := `
-INSERT INTO external_model (uuid, controller_uuid)
-VALUES (?, ?)
-  ON CONFLICT(uuid) DO UPDATE SET controller_uuid=excluded.controller_uuid`[1:]
-
-				if _, err := tx.ExecContext(ctx, q, modelUUID, cID); err != nil {
-					return errors.Trace(err)
-				}
 			}
 		}
 		return nil
 	})
+
 	return errors.Trace(err)
+}
+
+func (st *State) updateExternalControllerTx(
+	ctx context.Context,
+	ci crossmodel.ControllerInfo,
+	modelUUIDs []string,
+	tx *sql.Tx,
+) error {
+	cID := ci.ControllerTag.Id()
+	q := `
+INSERT INTO external_controller (uuid, alias, ca_cert)
+VALUES (?, ?, ?)
+  ON CONFLICT(uuid) DO UPDATE SET alias=excluded.alias, ca_cert=excluded.ca_cert`[1:]
+
+	if _, err := tx.ExecContext(ctx, q, cID, ci.Alias, ci.CACert); err != nil {
+		return errors.Trace(err)
+	}
+
+	addrsBinds, addrsAnyVals := database.SliceToPlaceholder(ci.Addrs)
+	q = fmt.Sprintf(`
+DELETE FROM external_controller_address
+WHERE  controller_uuid = ?
+AND    address NOT IN (%s)`[1:], addrsBinds)
+
+	args := append([]any{cID}, addrsAnyVals...)
+	if _, err := tx.ExecContext(ctx, q, args...); err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, addr := range ci.Addrs {
+		q := `
+INSERT INTO external_controller_address (uuid, controller_uuid, address)
+VALUES (?, ?, ?)
+  ON CONFLICT(controller_uuid, address) DO NOTHING`[1:]
+
+		if _, err := tx.ExecContext(ctx, q, utils.MustNewUUID().String(), cID, addr); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	// TODO (manadart 2023-05-13): Check current implementation and see if
+	// we need to delete models as we do for addresses, or whether this
+	// (additive) approach is what we have now.
+	for _, modelUUID := range modelUUIDs {
+		q := `
+INSERT INTO external_model (uuid, controller_uuid)
+VALUES (?, ?)
+  ON CONFLICT(uuid) DO UPDATE SET controller_uuid=excluded.controller_uuid`[1:]
+
+		if _, err := tx.ExecContext(ctx, q, modelUUID, cID); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	return nil
 }
 
 func (st *State) ModelsForController(

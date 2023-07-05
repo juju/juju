@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/database/testing"
-	"github.com/juju/juju/domain/externalcontroller"
 )
 
 type stateSuite struct {
@@ -316,50 +315,6 @@ func (s *stateSuite) TestUpdateExternalControllerUpdateModel(c *gc.C) {
 	err = row.Scan(&mc)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(mc, gc.Equals, ecUUID)
-}
-
-func (s *stateSuite) TestImportExternalControllers(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
-	c1Tag := names.NewControllerTag(utils.MustNewUUID().String())
-	c2Tag := names.NewControllerTag(utils.MustNewUUID().String())
-
-	ecs := []externalcontroller.MigrationControllerInfo{
-		{
-			ControllerTag: c1Tag,
-			Alias:         "controller-1",
-			Addrs:         []string{"192.168.0.1", "10.0.0.1"},
-			CACert:        "random-cert-string",
-			ModelUUIDs:    []string{"model1", "model2"},
-		},
-		{
-			ControllerTag: c2Tag,
-			Alias:         "controller-2",
-			Addrs:         []string{"192.168.0.1", "10.0.0.1"},
-			CACert:        "random-cert-string",
-			ModelUUIDs:    []string{"model3", "model4"},
-		},
-	}
-
-	err := st.ImportExternalControllers(ctx.Background(), ecs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check that the controller and its associated informations have
-	// correctly been imported
-	c1, err := st.Controller(ctx.Background(), c1Tag.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(c1.Alias, gc.Equals, ecs[0].Alias)
-	c.Assert(c1.Addrs, jc.SameContents, ecs[0].Addrs)
-	m1, err := st.ModelsForController(ctx.Background(), c1Tag.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m1, jc.SameContents, ecs[0].ModelUUIDs)
-
-	c2, err := st.Controller(ctx.Background(), c2Tag.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(c2.Alias, gc.Equals, ecs[1].Alias)
-	c.Assert(c2.Addrs, jc.SameContents, ecs[1].Addrs)
-	m2, err := st.ModelsForController(ctx.Background(), c2Tag.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m2, jc.SameContents, ecs[1].ModelUUIDs)
 }
 
 func (s *stateSuite) TestModelsForController(c *gc.C) {

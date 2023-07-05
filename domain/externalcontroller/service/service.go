@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/externalcontroller"
 )
 
 // State describes retrieval and persistence methods for storage.
@@ -25,6 +26,14 @@ type State interface {
 	// UpdateExternalController persists the input controller
 	// record and associates it with the input model UUIDs.
 	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo, modelUUIDs []string) error
+
+	// ModelsForController returns the list of model UUIDs for
+	// the given controllerUUID.
+	ModelsForController(ctx context.Context, controllerUUID string) ([]string, error)
+
+	// ImportExternalControllers imports the list of MigrationControllerInfo
+	// external controllers on one single transaction.
+	ImportExternalControllers(ctx context.Context, infos []externalcontroller.MigrationControllerInfo) error
 }
 
 // WatcherFactory describes methods for creating watchers.
@@ -59,7 +68,7 @@ func (s *Service) Controller(
 	controllerUUID string,
 ) (*crossmodel.ControllerInfo, error) {
 	controllerInfo, err := s.st.Controller(ctx, controllerUUID)
-	return controllerInfo, errors.Annotate(err, "retrieving external controller")
+	return controllerInfo, errors.Annotatef(err, "retrieving external controller %s", controllerUUID)
 }
 
 // ControllerForModel returns the controller record that's associated
@@ -69,7 +78,7 @@ func (s *Service) ControllerForModel(
 	modelUUID string,
 ) (*crossmodel.ControllerInfo, error) {
 	controllerInfo, err := s.st.ControllerForModel(ctx, modelUUID)
-	return controllerInfo, errors.Annotate(err, "retrieving external controller for model")
+	return controllerInfo, errors.Annotatef(err, "retrieving external controller for model %s", modelUUID)
 }
 
 // UpdateExternalController persists the input controller
@@ -83,8 +92,26 @@ func (s *Service) UpdateExternalController(
 
 // Watch returns a watcher that observes changes to external controllers.
 func (s *Service) Watch() (watcher.StringsWatcher, error) {
-	return s.watcherFactory.NewUUIDsWatcher(
-		"external_controller",
-		changestream.Create|changestream.Update,
-	)
+	if s.watcherFactory != nil {
+		return s.watcherFactory.NewUUIDsWatcher(
+			"external_controller",
+			changestream.Create|changestream.Update,
+		)
+	}
+	return nil, errors.NotYetAvailablef("external controller watcher")
+}
+
+func (s *Service) ImportExternalControllers(
+	ctx context.Context,
+	externalControllers []externalcontroller.MigrationControllerInfo,
+) error {
+	return s.st.ImportExternalControllers(ctx, externalControllers)
+}
+
+func (s *Service) ModelsForController(
+	ctx context.Context,
+	controllerUUID string,
+) ([]string, error) {
+	models, err := s.ModelsForController(ctx, controllerUUID)
+	return models, errors.Annotatef(err, "retrieving model UUIDs for controller %s", controllerUUID)
 }
