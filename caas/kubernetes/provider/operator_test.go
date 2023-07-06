@@ -349,8 +349,8 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 		// ensure RBAC resources.
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), svcAccount, v1.CreateOptions{}).Return(svcAccount, nil),
 		s.mockRoles.EXPECT().Create(gomock.Any(), role, v1.CreateOptions{}).Return(role, nil),
-		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,operator.juju.is/name=test,operator.juju.is/target=application"}).
-			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
+		s.mockRoleBindings.EXPECT().Get(gomock.Any(), "test-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
 		s.mockRoleBindings.EXPECT().Create(gomock.Any(), rb, v1.CreateOptions{}).Return(rb, nil),
 
 		s.mockConfigMaps.EXPECT().Get(gomock.Any(), "test-operator-config", v1.GetOptions{}).
@@ -464,8 +464,8 @@ func (s *K8sBrokerSuite) assertEnsureOperatorCreate(c *gc.C, isPrivateImageRepo 
 		// ensure RBAC resources.
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), svcAccount, v1.CreateOptions{}).Return(svcAccount, nil),
 		s.mockRoles.EXPECT().Create(gomock.Any(), role, v1.CreateOptions{}).Return(role, nil),
-		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,operator.juju.is/name=test,operator.juju.is/target=application"}).
-			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
+		s.mockRoleBindings.EXPECT().Get(gomock.Any(), "test-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
 		s.mockRoleBindings.EXPECT().Create(gomock.Any(), rb, v1.CreateOptions{}).Return(rb, nil),
 
 		s.mockConfigMaps.EXPECT().Update(gomock.Any(), configMapArg, v1.UpdateOptions{}).
@@ -573,7 +573,6 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 			},
 		},
 	}
-	rbUID := rb.GetUID()
 
 	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage", "test-operator", true)
 
@@ -598,12 +597,8 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 		s.mockRoles.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,operator.juju.is/name=test,operator.juju.is/target=application"}).
 			Return(&rbacv1.RoleList{Items: []rbacv1.Role{*role}}, nil),
 		s.mockRoles.EXPECT().Update(gomock.Any(), role, v1.UpdateOptions{}).Return(role, nil),
-		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,operator.juju.is/name=test,operator.juju.is/target=application"}).
-			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{*rb}}, nil),
-		s.mockRoleBindings.EXPECT().Delete(gomock.Any(), "test-operator", s.deleteOptions(v1.DeletePropagationForeground, rbUID)).Return(nil),
-		s.mockRoleBindings.EXPECT().Get(gomock.Any(), "test-operator", v1.GetOptions{}).Return(rb, nil),
-		s.mockRoleBindings.EXPECT().Get(gomock.Any(), "test-operator", v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
-		s.mockRoleBindings.EXPECT().Create(gomock.Any(), rb, v1.CreateOptions{}).Return(rb, nil),
+		s.mockRoleBindings.EXPECT().Get(gomock.Any(), "test-operator", v1.GetOptions{}).
+			Return(rb, nil),
 
 		s.mockConfigMaps.EXPECT().Update(gomock.Any(), configMapArg, v1.UpdateOptions{}).
 			Return(configMapArg, nil),
@@ -617,35 +612,24 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 			Return(nil, nil),
 	)
 
-	errChan := make(chan error)
-	go func() {
-		errChan <- s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
-			ImageDetails: coreresources.DockerImageDetails{RegistryPath: "/path/to/image"},
-			Version:      version.MustParse("2.99.0"),
-			AgentConf:    []byte("agent-conf-data"),
-			OperatorInfo: []byte("operator-info-data"),
-			ResourceTags: map[string]string{
-				"fred":                 "mary",
-				"juju-controller-uuid": testing.ControllerTag.Id(),
-			},
-			CharmStorage: &caas.CharmStorageParams{
-				Size:         uint64(10),
-				Provider:     "kubernetes",
-				Attributes:   map[string]interface{}{"storage-class": "operator-storage"},
-				ResourceTags: map[string]string{"foo": "bar"},
-			},
-			ConfigMapGeneration: 1234,
-		})
-	}()
-	err := s.clock.WaitAdvance(2*time.Second, testing.LongWait, 1)
+	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
+		ImageDetails: coreresources.DockerImageDetails{RegistryPath: "/path/to/image"},
+		Version:      version.MustParse("2.99.0"),
+		AgentConf:    []byte("agent-conf-data"),
+		OperatorInfo: []byte("operator-info-data"),
+		ResourceTags: map[string]string{
+			"fred":                 "mary",
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+		},
+		CharmStorage: &caas.CharmStorageParams{
+			Size:         uint64(10),
+			Provider:     "kubernetes",
+			Attributes:   map[string]interface{}{"storage-class": "operator-storage"},
+			ResourceTags: map[string]string{"foo": "bar"},
+		},
+		ConfigMapGeneration: 1234,
+	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	select {
-	case err := <-errChan:
-		c.Assert(err, jc.ErrorIsNil)
-	case <-time.After(testing.LongWait):
-		c.Fatalf("timed out waiting for EnsureOperator return")
-	}
 }
 
 func (s *K8sBrokerSuite) TestEnsureOperatorNoStorageExistingPVC(c *gc.C) {
@@ -747,8 +731,8 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorageExistingPVC(c *gc.C) {
 		// ensure RBAC resources.
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), svcAccount, v1.CreateOptions{}).Return(svcAccount, nil),
 		s.mockRoles.EXPECT().Create(gomock.Any(), role, v1.CreateOptions{}).Return(role, nil),
-		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,operator.juju.is/name=test,operator.juju.is/target=application"}).
-			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
+		s.mockRoleBindings.EXPECT().Get(gomock.Any(), "test-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
 		s.mockRoleBindings.EXPECT().Create(gomock.Any(), rb, v1.CreateOptions{}).Return(rb, nil),
 		s.mockConfigMaps.EXPECT().Update(gomock.Any(), configMapArg, v1.UpdateOptions{}).
 			Return(nil, s.k8sNotFoundError()),
@@ -862,8 +846,8 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorage(c *gc.C) {
 		// ensure RBAC resources.
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), svcAccount, v1.CreateOptions{}).Return(svcAccount, nil),
 		s.mockRoles.EXPECT().Create(gomock.Any(), role, v1.CreateOptions{}).Return(role, nil),
-		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,operator.juju.is/name=test,operator.juju.is/target=application"}).
-			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
+		s.mockRoleBindings.EXPECT().Get(gomock.Any(), "test-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
 		s.mockRoleBindings.EXPECT().Create(gomock.Any(), rb, v1.CreateOptions{}).Return(rb, nil),
 		s.mockConfigMaps.EXPECT().Update(gomock.Any(), configMapArg, v1.UpdateOptions{}).
 			Return(nil, s.k8sNotFoundError()),
@@ -965,8 +949,8 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 		// ensure RBAC resources.
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), svcAccount, v1.CreateOptions{}).Return(svcAccount, nil),
 		s.mockRoles.EXPECT().Create(gomock.Any(), role, v1.CreateOptions{}).Return(role, nil),
-		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,operator.juju.is/name=test,operator.juju.is/target=application"}).
-			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
+		s.mockRoleBindings.EXPECT().Get(gomock.Any(), "test-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
 		s.mockRoleBindings.EXPECT().Create(gomock.Any(), rb, v1.CreateOptions{}).Return(rb, nil),
 
 		s.mockConfigMaps.EXPECT().Get(gomock.Any(), "test-operator-config", v1.GetOptions{}).

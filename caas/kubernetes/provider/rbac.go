@@ -6,6 +6,8 @@ package provider
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"sort"
 	"time"
 
 	jujuclock "github.com/juju/clock"
@@ -468,35 +470,48 @@ func ensureResourceDeleted(clock jujuclock.Clock, getResource func() error) erro
 	return errors.Trace(err)
 }
 
+func isRoleBindingEqual(a, b rbacv1.RoleBinding) bool {
+	sortSubjects := func(s []rbacv1.Subject) {
+		sort.Slice(s, func(i, j int) bool {
+			return s[i].Name+s[i].Namespace+s[i].Kind > s[j].Name+s[j].Namespace+s[j].Kind
+		})
+	}
+	sortSubjects(a.Subjects)
+	sortSubjects(b.Subjects)
+
+	// We don't compare labels.
+	return reflect.DeepEqual(a.RoleRef, b.RoleRef) &&
+		reflect.DeepEqual(a.Subjects, b.Subjects) &&
+		reflect.DeepEqual(a.ObjectMeta.Annotations, b.ObjectMeta.Annotations)
+}
+
 func (k *kubernetesClient) ensureRoleBinding(rb *rbacv1.RoleBinding) (out *rbacv1.RoleBinding, cleanups []func(), err error) {
 	isFirstDeploy := false
 	// RoleRef is immutable, so delete first then re-create.
-	rbs, err := k.listRoleBindings(utils.LabelsToSelector(rb.GetLabels()))
-	if errors.IsNotFound(err) {
+	existing, err := k.getRoleBinding(rb.GetName())
+	if errors.Is(err, errors.NotFound) {
 		isFirstDeploy = true
 	} else if err != nil {
 		return nil, cleanups, errors.Trace(err)
 	}
+	if existing != nil {
+		if isRoleBindingEqual(*existing, *rb) {
+			return existing, cleanups, nil
+		}
+		name := existing.GetName()
+		UID := existing.GetUID()
+		if err := k.deleteRoleBinding(name, UID); err != nil {
+			return nil, cleanups, errors.Trace(err)
+		}
 
-	for _, v := range rbs {
-		if v.GetName() == rb.GetName() {
-			name := v.GetName()
-			UID := v.GetUID()
-
-			if err := k.deleteRoleBinding(name, UID); err != nil {
-				return nil, cleanups, errors.Trace(err)
-			}
-
-			if err := ensureResourceDeleted(
-				k.clock,
-				func() error {
-					_, err := k.getRoleBinding(name)
-					return errors.Trace(err)
-				},
-			); err != nil {
-				return nil, cleanups, errors.Trace(err)
-			}
-			break
+		if err := ensureResourceDeleted(
+			k.clock,
+			func() error {
+				_, err := k.getRoleBinding(name)
+				return errors.Trace(err)
+			},
+		); err != nil {
+			return nil, cleanups, errors.Trace(err)
 		}
 	}
 	out, err = k.createRoleBinding(rb)
@@ -550,23 +565,6 @@ func (k *kubernetesClient) deleteRoleBindings(selectors ...k8slabels.Selector) e
 		}
 	}
 	return nil
-}
-
-func (k *kubernetesClient) listRoleBindings(selector k8slabels.Selector) ([]rbacv1.RoleBinding, error) {
-	if k.namespace == "" {
-		return nil, errNoNamespace
-	}
-	listOps := v1.ListOptions{
-		LabelSelector: selector.String(),
-	}
-	rBList, err := k.client().RbacV1().RoleBindings(k.namespace).List(context.TODO(), listOps)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(rBList.Items) == 0 {
-		return nil, errors.NotFoundf("role binding with selector %q", selector)
-	}
-	return rBList.Items, nil
 }
 
 func (k *kubernetesClient) deleteClusterRoleBindings(selector k8slabels.Selector) error {
