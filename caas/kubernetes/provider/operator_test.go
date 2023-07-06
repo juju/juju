@@ -5,14 +5,14 @@ package provider_test
 
 import (
 	"fmt"
-	"time"
 	"strings"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 	"github.com/kr/pretty"
+	gc "gopkg.in/check.v1"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
