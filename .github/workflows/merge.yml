@@ -1,7 +1,6 @@
 name: Merge
 on:
-  push:
-    branches: ['2.9', '3.1', '3.2', '3.3']
+  pull_request:
 
 jobs:
   check-merge:
@@ -15,58 +14,58 @@ jobs:
         3.3: main
 
     steps:
-      - name: Determine source/target branches
-        id: branch
-        run: |
-          set -x
-          SOURCE_BRANCH=${{ github.ref_name }}
-          echo "source=$SOURCE_BRANCH" >> "$GITHUB_OUTPUT"
-          TARGET_BRANCH=$(echo "$MERGE_TARGETS" | yq ".\"$SOURCE_BRANCH\"")
-          echo "target=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
+      # - name: Determine source/target branches
+      #   id: branch
+      #   run: |
+      #     set -x
+      #     SOURCE_BRANCH=${{ github.ref_name }}
+      #     echo "source=$SOURCE_BRANCH" >> "$GITHUB_OUTPUT"
+      #     TARGET_BRANCH=$(echo "$MERGE_TARGETS" | yq ".\"$SOURCE_BRANCH\"")
+      #     echo "target=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout repository
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-          ref: ${{ steps.branch.outputs.target }}
+      # - name: Checkout repository
+      #   uses: actions/checkout@v3
+      #   with:
+      #     fetch-depth: 0
+      #     ref: ${{ steps.branch.outputs.target }}
 
-      - name: Attempt to merge
-        id: merge
-        env:
-          SOURCE_BRANCH: ${{ steps.branch.outputs.source }}
-        run: |
-          set -x
-          git fetch origin "$SOURCE_BRANCH"
-          git branch "$SOURCE_BRANCH" "origin/$SOURCE_BRANCH"
-          # Need to set Git username/email to do the merge (yawn)
-          git config user.name 'jujubot'
-          git config user.email 'fake@address.me'
-          
-          set +e
-          git merge "$SOURCE_BRANCH"
-          case $? in
-          0)
-            echo "conflicts=false" >> "$GITHUB_OUTPUT"
-            ;;
-          1)
-            echo "conflicts=true" >> "$GITHUB_OUTPUT"
-            ;;
-          *)
-            exit $?
-            ;;
-          esac
+      # - name: Attempt to merge
+      #   id: merge
+      #   env:
+      #     SOURCE_BRANCH: ${{ steps.branch.outputs.source }}
+      #   run: |
+      #     set -x
+      #     git fetch origin "$SOURCE_BRANCH"
+      #     git branch "$SOURCE_BRANCH" "origin/$SOURCE_BRANCH"
+      #     # Need to set Git username/email to do the merge (yawn)
+      #     git config user.name 'jujubot'
+      #     git config user.email 'fake@address.me'
 
-      - name: Generate notification message
-        if: steps.merge.outputs.conflicts == 'true'
-        id: message
-        env:
-          SOURCE_BRANCH: ${{ steps.branch.outputs.source }}
-          TARGET_BRANCH: ${{ steps.branch.outputs.target }}
-          EMAIL_TO_MM_USER: ${{ secrets.EMAIL_TO_MM_USER }}
-          IGNORE_EMAILS: ${{ secrets.MERGE_NOTIFY_IGNORE_EMAILS }}
-        run: |
-          MESSAGE=$(go run ./scripts/try-merge errmsg)
-          echo "message=$MESSAGE" >> "$GITHUB_OUTPUT"
+      #     set +e
+      #     git merge "$SOURCE_BRANCH"
+      #     case $? in
+      #     0)
+      #       echo "conflicts=false" >> "$GITHUB_OUTPUT"
+      #       ;;
+      #     1)
+      #       echo "conflicts=true" >> "$GITHUB_OUTPUT"
+      #       ;;
+      #     *)
+      #       exit $?
+      #       ;;
+      #     esac
+
+      # - name: Generate notification message
+      #   if: steps.merge.outputs.conflicts == 'true'
+      #   id: message
+      #   env:
+      #     SOURCE_BRANCH: ${{ steps.branch.outputs.source }}
+      #     TARGET_BRANCH: ${{ steps.branch.outputs.target }}
+      #     EMAIL_TO_MM_USER: ${{ secrets.EMAIL_TO_MM_USER }}
+      #     IGNORE_EMAILS: ${{ secrets.MERGE_NOTIFY_IGNORE_EMAILS }}
+      #   run: |
+      #     MESSAGE=$(go run ./scripts/try-merge errmsg)
+      #     echo "message=$MESSAGE" >> "$GITHUB_OUTPUT"
 
       - name: Notify if merge has conflicts
         if: steps.merge.outputs.conflicts == 'true'
@@ -78,4 +77,4 @@ jobs:
           curl https://github.com/mattermost/mmctl/releases/download/v7.8.5/linux_amd64.tar -Lo mmctl.tar
           tar -xvf mmctl.tar
           ./mmctl auth login 'https://chat.charmhub.io' --name Charmhub --access-token $MM_TOKEN
-          ./mmctl post create Charmhub:juju-watercooler --message "$MESSAGE"
+          ./mmctl post create Charmhub:juju-watercooler --message "I use my IDE in light mode"
