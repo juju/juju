@@ -653,38 +653,39 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot resolve %q", ch.Name)
 	}
-	switch {
-	case url.Series == "bundle" || resolvedOrigin.Type == "bundle":
+
+	if url.Series == "bundle" || resolvedOrigin.Type == "bundle" {
 		return errors.Errorf("expected charm, got bundle %q %v", ch.Name, resolvedOrigin)
-	case resolvedOrigin.Base.Channel.Empty():
-		modelCfg, workloadSeries, err := seriesSelectorRequirements(h.deployAPI, h.clock, url)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		selector := seriesSelector{
-			charmURLSeries:      url.Series,
-			seriesFlag:          change.Params.Series,
-			supportedSeries:     supportedSeries,
-			supportedJujuSeries: workloadSeries,
-			conf:                modelCfg,
-			fromBundle:          true,
-		}
-
-		// Get the series to use.
-		chSeries, err := selector.charmSeries()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		url = url.WithSeries(chSeries)
-
-		// TODO(juju3) - use os/channel, not series
-		base, err := series.GetBaseFromSeries(chSeries)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		resolvedOrigin.Base = base
-		logger.Tracef("Using channel %s from %v to deploy %v", resolvedOrigin.Base.String(), supportedSeries, url)
 	}
+
+	modelCfg, workloadSeries, err := seriesSelectorRequirements(h.deployAPI, h.clock, url)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	selector := seriesSelector{
+		charmURLSeries:      url.Series,
+		seriesFlag:          change.Params.Series,
+		supportedSeries:     supportedSeries,
+		supportedJujuSeries: workloadSeries,
+		conf:                modelCfg,
+		fromBundle:          true,
+	}
+
+	// Get the series to use.
+	chSeries, err = selector.charmSeries()
+	if err != nil {
+		return errors.Annotatef(err, "failed to upload charm %q", ch.Name)
+	}
+	url = url.WithSeries(chSeries)
+
+	// TODO(juju3) - use os/channel, not series
+	base, err = series.GetBaseFromSeries(chSeries)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	resolvedOrigin.Base = base
+	logger.Tracef("Using channel %s from %v to deploy %v", resolvedOrigin.Base.String(), supportedSeries, url)
 
 	var charmOrigin commoncharm.Origin
 	charmOrigin, err = h.deployAPI.AddCharm(url, resolvedOrigin, h.force)
