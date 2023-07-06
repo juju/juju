@@ -126,17 +126,9 @@ func (a *appWorker) loop() error {
 		return nil
 	}
 
-	// Ensure the charm is upgraded to a v2 charm (or wait for that).
-	shouldExit, err := a.ops.VerifyCharmUpgraded(a.name, a.facade, &a.catacomb, a.logger)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if shouldExit {
-		return nil
-	}
-
-	err = a.ops.UpgradePodSpec(a.name, a.broker, a.clock, &a.catacomb, a.logger)
-	if err != nil {
+	// Ensure the charm is to a v2 charm.
+	isOk, err := a.ops.CheckCharmFormat(a.name, a.facade, a.logger)
+	if !isOk || err != nil {
 		return errors.Trace(err)
 	}
 

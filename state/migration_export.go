@@ -703,10 +703,6 @@ func (e *exporter) applications(leaders map[string]string) error {
 		return errors.Trace(err)
 	}
 
-	podSpecs, err := e.readAllPodSpecs()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	cloudServices, err := e.readAllCloudServices()
 	if err != nil {
 		return errors.Trace(err)
@@ -738,7 +734,6 @@ func (e *exporter) applications(leaders map[string]string) error {
 			application:      application,
 			units:            applicationUnits,
 			meterStatus:      meterStatus,
-			podSpecs:         podSpecs,
 			cloudServices:    cloudServices,
 			cloudContainers:  cloudContainers,
 			payloads:         payloads,
@@ -814,7 +809,6 @@ type addApplicationContext struct {
 	portsData        map[string]*applicationPortRanges
 
 	// CAAS
-	podSpecs        map[string]string
 	cloudServices   map[string]*cloudServiceDoc
 	cloudContainers map[string]*cloudContainerDoc
 
@@ -880,7 +874,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		Leader:               ctx.leader,
 		LeadershipSettings:   leadershipSettings,
 		MetricsCredentials:   application.doc.MetricCredentials,
-		PodSpec:              ctx.podSpecs[application.globalKey()],
 	}
 
 	if cloudService, found := ctx.cloudServices[application.globalKey()]; found {
@@ -2025,23 +2018,6 @@ func (e *exporter) readAllMeterStatus() (map[string]*meterStatusDoc, error) {
 	for _, v := range docs {
 		doc := v
 		result[e.st.localID(doc.DocID)] = &doc
-	}
-	return result, nil
-}
-
-func (e *exporter) readAllPodSpecs() (map[string]string, error) {
-	specs, closer := e.st.db().GetCollection(podSpecsC)
-	defer closer()
-
-	var docs []containerSpecDoc
-	err := specs.Find(nil).All(&docs)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get all pod spec docs")
-	}
-	e.logger.Debugf("found %d pod spec docs", len(docs))
-	result := make(map[string]string)
-	for _, doc := range docs {
-		result[e.st.localID(doc.Id)] = doc.Spec
 	}
 	return result, nil
 }

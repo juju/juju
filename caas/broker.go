@@ -11,15 +11,12 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/caas/specs"
-	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/proxy"
@@ -102,12 +99,6 @@ const (
 // DeploymentMode defines a deployment mode.
 type DeploymentMode string
 
-const (
-	ModeOperator DeploymentMode = "operator"
-	ModeWorkload DeploymentMode = "workload"
-	ModeSidecar  DeploymentMode = "embedded"
-)
-
 // ServiceType defines a service type.
 type ServiceType string
 
@@ -133,12 +124,6 @@ type DeploymentParams struct {
 type ServiceParams struct {
 	// Deployment defines how a service is deployed.
 	Deployment DeploymentParams
-
-	// PodSpec is the spec used to configure a pod.
-	PodSpec *specs.PodSpec
-
-	// RawK8sSpec is the raw spec used to to apply to the cluster.
-	RawK8sSpec string
 
 	// ResourceTags is a set of tags to set on the created service.
 	ResourceTags map[string]string
@@ -220,10 +205,6 @@ type Broker interface {
 	// individual models.
 	ModelOperatorManager
 
-	// ApplicationOperatorManager provides an API for deploying operators
-	// for individual applications.
-	ApplicationOperatorManager
-
 	// EnsureImageRepoSecret ensures the image pull secret gets created.
 	EnsureImageRepoSecret(docker.ImageRepoDetails) error
 
@@ -237,23 +218,13 @@ type ApplicationBroker interface {
 	// Application returns the broker interface for an Application
 	Application(string, DeploymentType) Application
 
-	// WatchUnits returns a watcher which notifies when there
-	// are changes to units of the specified application.
-	WatchUnits(appName string, mode DeploymentMode) (watcher.NotifyWatcher, error)
-
 	// Units returns all units and any associated filesystems
 	// of the specified application. Filesystems are mounted
 	// via volumes bound to the unit.
-	Units(appName string, mode DeploymentMode) ([]Unit, error)
+	Units(appName string) ([]Unit, error)
 
 	// AnnotateUnit annotates the specified pod (name or uid) with a unit tag.
-	AnnotateUnit(appName string, mode DeploymentMode, podName string, unit names.UnitTag) error
-
-	// WatchContainerStart returns a watcher which is notified when the specified container
-	// for each unit in the application is starting/restarting. Each string represents
-	// the provider id for the unit. If containerName is empty, then the first workload container
-	// is used.
-	WatchContainerStart(appName string, containerName string) (watcher.StringsWatcher, error)
+	AnnotateUnit(appName string, podName string, unit names.UnitTag) error
 }
 
 // SecretsProvider provides an API for accessing the broker interface for managing secret k8s provider resources.
@@ -293,35 +264,6 @@ type ModelOperatorManager interface {
 	ModelOperator() (*ModelOperatorConfig, error)
 }
 
-// ApplicationOperatorManager provides an API for deploying operators for
-// individual applications.
-type ApplicationOperatorManager interface {
-	// Application returns the broker interface for an Application.
-	Application(string, DeploymentType) Application
-
-	// OperatorExists indicates if the operator for the specified
-	// application exists, and whether the operator is terminating.
-	OperatorExists(appName string) (DeploymentState, error)
-
-	// EnsureOperator creates or updates an operator pod for running
-	// a charm for the specified application.
-	EnsureOperator(appName, agentPath string, config *OperatorConfig) error
-
-	// DeleteOperator deletes the specified operator.
-	DeleteOperator(appName string) error
-
-	// Operator returns an Operator with current status and life details.
-	Operator(string) (*Operator, error)
-
-	// WatchOperator returns a watcher which notifies when there
-	// are changes to the operator of the specified application.
-	WatchOperator(string) (watcher.NotifyWatcher, error)
-
-	// WatchService returns a watcher which notifies when there
-	// are changes to the deployment of the specified application.
-	WatchService(appName string, mode DeploymentMode) (watcher.NotifyWatcher, error)
-}
-
 // Upgrader provides the API to perform upgrades.
 type Upgrader interface {
 	// Upgrade sets the OCI image for the app to the specified version.
@@ -355,24 +297,8 @@ type ProxyManager interface {
 
 // ServiceManager provides the API to manipulate services.
 type ServiceManager interface {
-	// EnsureService creates or updates a service for pods with the given params.
-	EnsureService(appName string, statusCallback StatusCallbackFunc, params *ServiceParams, numUnits int, config config.ConfigAttributes) error
-
-	// DeleteService deletes the specified service with all related resources.
-	DeleteService(appName string) error
-
-	// ExposeService sets up external access to the specified service.
-	ExposeService(appName string, resourceTags map[string]string, config config.ConfigAttributes) error
-
-	// UnexposeService removes external access to the specified service.
-	UnexposeService(appName string) error
-
 	// GetService returns the service for the specified application.
-	GetService(appName string, mode DeploymentMode, includeClusterIP bool) (*Service, error)
-
-	// WatchService returns a watcher which notifies when there
-	// are changes to the deployment of the specified application.
-	WatchService(appName string, mode DeploymentMode) (watcher.NotifyWatcher, error)
+	GetService(appName string, includeClusterIP bool) (*Service, error)
 }
 
 // Service represents information about the status of a caas service entity.

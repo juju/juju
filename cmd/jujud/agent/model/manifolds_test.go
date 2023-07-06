@@ -90,13 +90,10 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 		"api-config-watcher",
 		"caas-application-provisioner",
 		"caas-broker-tracker",
-		"caas-firewaller-embedded",
-		"caas-firewaller-legacy",
+		"caas-firewaller",
 		"caas-model-config-manager",
 		"caas-model-operator",
-		"caas-operator-provisioner",
 		"caas-storage-provisioner",
-		"caas-unit-provisioner",
 		"charm-downloader",
 		"charm-revision-updater",
 		"clock",
@@ -228,18 +225,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 
 	"caas-model-config-manager": {"agent", "api-caller", "caas-broker-tracker", "is-responsible-flag"},
 
-	"caas-firewaller-legacy": {
-		"agent",
-		"api-caller",
-		"caas-broker-tracker",
-		"is-responsible-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"environ-upgrade-gate",
-		"environ-upgraded-flag",
-		"not-dead-flag"},
-
-	"caas-firewaller-embedded": {
+	"caas-firewaller": {
 		"agent",
 		"api-caller",
 		"caas-broker-tracker",
@@ -256,18 +242,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"caas-broker-tracker",
 		"is-responsible-flag",
 	},
-
-	"caas-operator-provisioner": {
-		"agent",
-		"api-caller",
-		"caas-broker-tracker",
-		"clock",
-		"is-responsible-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"environ-upgrade-gate",
-		"environ-upgraded-flag",
-		"not-dead-flag"},
 
 	"caas-application-provisioner": {
 		"agent",
@@ -292,17 +266,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"environ-upgraded-flag",
 		"not-dead-flag",
 		"valid-credential-flag"},
-
-	"caas-unit-provisioner": {
-		"agent",
-		"api-caller",
-		"caas-broker-tracker",
-		"is-responsible-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"environ-upgrade-gate",
-		"environ-upgraded-flag",
-		"not-dead-flag"},
 
 	"charm-downloader": {
 		"agent",

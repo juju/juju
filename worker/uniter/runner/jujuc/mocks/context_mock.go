@@ -291,36 +291,6 @@ func (mr *MockContextMockRecorder) GetPayload(arg0, arg1 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPayload", reflect.TypeOf((*MockContext)(nil).GetPayload), arg0, arg1)
 }
 
-// GetPodSpec mocks base method.
-func (m *MockContext) GetPodSpec() (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetPodSpec")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetPodSpec indicates an expected call of GetPodSpec.
-func (mr *MockContextMockRecorder) GetPodSpec() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPodSpec", reflect.TypeOf((*MockContext)(nil).GetPodSpec))
-}
-
-// GetRawK8sSpec mocks base method.
-func (m *MockContext) GetRawK8sSpec() (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRawK8sSpec")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetRawK8sSpec indicates an expected call of GetRawK8sSpec.
-func (mr *MockContextMockRecorder) GetRawK8sSpec() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRawK8sSpec", reflect.TypeOf((*MockContext)(nil).GetRawK8sSpec))
-}
-
 // GetSecret mocks base method.
 func (m *MockContext) GetSecret(arg0 *secrets.URI, arg1 string, arg2, arg3 bool) (secrets.SecretValue, error) {
 	m.ctrl.T.Helper()
@@ -712,34 +682,6 @@ func (m *MockContext) SetPayloadStatus(arg0, arg1, arg2 string) error {
 func (mr *MockContextMockRecorder) SetPayloadStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPayloadStatus", reflect.TypeOf((*MockContext)(nil).SetPayloadStatus), arg0, arg1, arg2)
-}
-
-// SetPodSpec mocks base method.
-func (m *MockContext) SetPodSpec(arg0 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetPodSpec", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetPodSpec indicates an expected call of SetPodSpec.
-func (mr *MockContextMockRecorder) SetPodSpec(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPodSpec", reflect.TypeOf((*MockContext)(nil).SetPodSpec), arg0)
-}
-
-// SetRawK8sSpec mocks base method.
-func (m *MockContext) SetRawK8sSpec(arg0 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetRawK8sSpec", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetRawK8sSpec indicates an expected call of SetRawK8sSpec.
-func (mr *MockContextMockRecorder) SetRawK8sSpec(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRawK8sSpec", reflect.TypeOf((*MockContext)(nil).SetRawK8sSpec), arg0)
 }
 
 // SetUnitStatus mocks base method.

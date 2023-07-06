@@ -35,11 +35,8 @@ type ApplicationOps interface {
 	AppDead(appName string, app caas.Application,
 		broker CAASBroker, facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, clk clock.Clock, logger Logger) error
 
-	VerifyCharmUpgraded(appName string,
-		facade CAASProvisionerFacade, tomb Tomb, logger Logger) (shouldExit bool, err error)
-
-	UpgradePodSpec(appName string,
-		broker CAASBroker, clk clock.Clock, tomb Tomb, logger Logger) error
+	CheckCharmFormat(appName string,
+		facade CAASProvisionerFacade, logger Logger) (isOk bool, err error)
 
 	EnsureTrust(appName string, app caas.Application,
 		unitFacade CAASUnitProvisionerFacade, logger Logger) error
@@ -78,14 +75,9 @@ func (applicationOps) AppDead(appName string, app caas.Application,
 	return appDead(appName, app, broker, facade, unitFacade, clk, logger)
 }
 
-func (applicationOps) VerifyCharmUpgraded(appName string,
-	facade CAASProvisionerFacade, tomb Tomb, logger Logger) (shouldExit bool, err error) {
-	return verifyCharmUpgraded(appName, facade, tomb, logger)
-}
-
-func (applicationOps) UpgradePodSpec(appName string,
-	broker CAASBroker, clk clock.Clock, tomb Tomb, logger Logger) error {
-	return upgradePodSpec(appName, broker, clk, tomb, logger)
+func (applicationOps) CheckCharmFormat(appName string,
+	facade CAASProvisionerFacade, logger Logger) (isOk bool, err error) {
+	return checkCharmFormat(appName, facade, logger)
 }
 
 func (applicationOps) EnsureTrust(appName string, app caas.Application,
@@ -268,112 +260,21 @@ func appDead(appName string, app caas.Application,
 	return nil
 }
 
-// verifyCharmUpgraded waits till the charm is upgraded to a v2 charm.
-func verifyCharmUpgraded(appName string,
-	facade CAASProvisionerFacade, tomb Tomb, logger Logger) (shouldExit bool, err error) {
-	appStateWatcher, err := facade.WatchApplication(appName)
-	if err != nil {
-		return false, errors.Annotatef(err, "failed to watch for changes to application %q when verifying charm upgrade", appName)
+// checkCharmFormat checks that the charm is a v2 charm.
+func checkCharmFormat(appName string,
+	facade CAASProvisionerFacade, logger Logger) (isOk bool, err error) {
+	charmInfo, err := facade.ApplicationCharmInfo(appName)
+	if errors.Is(err, errors.NotFound) {
+		logger.Debugf("application %q no longer exists", appName)
+		return false, nil
+	} else if err != nil {
+		return false, errors.Annotatef(err, "failed to get charm info for application %q", appName)
 	}
-	defer appStateWatcher.Kill()
-
-	appStateChanges := appStateWatcher.Changes()
-	for {
-		charmInfo, err := facade.ApplicationCharmInfo(appName)
-		if errors.Is(err, errors.NotFound) {
-			logger.Debugf("application %q no longer exists", appName)
-			return true, nil
-		} else if err != nil {
-			return false, errors.Annotatef(err, "failed to get charm info for application %q", appName)
-		}
-		format := charm.MetaFormat(charmInfo.Charm())
-		if format >= charm.FormatV2 {
-			logger.Debugf("application %q is now a v2 charm", appName)
-			return false, nil
-		}
-
-		appLife, err := facade.Life(appName)
-		if errors.Is(err, errors.NotFound) {
-			logger.Debugf("application %q no longer exists", appName)
-			return true, nil
-		} else if err != nil {
-			return false, errors.Trace(err)
-		}
-		if appLife == life.Dead {
-			logger.Debugf("application %q now dead", appName)
-			return true, nil
-		}
-
-		// Wait for next app change, then loop to check charm format again.
-		select {
-		case <-appStateChanges:
-		case <-tomb.Dying():
-			return false, tomb.ErrDying()
-		}
+	format := charm.MetaFormat(charmInfo.Charm())
+	if format >= charm.FormatV2 {
+		return true, nil
 	}
-}
-
-// upgradePodSpec checks to see if the application used to be a podspec statefulset charm
-// and then to trigger an upgrade and wait for it to complete.
-func upgradePodSpec(appName string,
-	broker CAASBroker, clk clock.Clock, tomb Tomb, logger Logger) error {
-	// If the application has an operator pod due to upgrading the charm from a pod-spec charm
-	// to a sidecar charm, delete it. Also delete workload pod.
-	const maxDeleteLoops = 20
-	for i := 0; ; i++ {
-		if i >= maxDeleteLoops {
-			return fmt.Errorf("couldn't delete operator and service with %d tries", maxDeleteLoops)
-		}
-		if i > 0 {
-			select {
-			case <-clk.After(3 * time.Second):
-			case <-tomb.Dying():
-				return tomb.ErrDying()
-			}
-		}
-
-		exists, err := broker.OperatorExists(appName)
-		if err != nil {
-			return errors.Annotatef(err, "checking if %q has an operator pod due to upgrading the charm from a pod-spec charm to a sidecar charm", appName)
-		}
-		if !exists.Exists {
-			break
-		}
-
-		logger.Infof("app %q has just been upgraded from a podspec charm to sidecar, now deleting workload and operator pods", appName)
-		err = broker.DeleteService(appName)
-		if err != nil && !errors.Is(err, errors.NotFound) {
-			return errors.Annotatef(err, "deleting workload pod for application %q", appName)
-		}
-
-		// Wait till the units are gone, to ensure worker code isn't messing
-		// with old units, only new sidecar pods.
-		const maxUnitsLoops = 20
-		for j := 0; ; j++ {
-			if j >= maxUnitsLoops {
-				return fmt.Errorf("pods still present after %d tries", maxUnitsLoops)
-			}
-			units, err := broker.Units(appName, caas.ModeWorkload)
-			if err != nil && !errors.Is(err, errors.NotFound) {
-				return errors.Annotatef(err, "fetching workload units for application %q", appName)
-			}
-			if len(units) == 0 {
-				break
-			}
-			logger.Debugf("%q: waiting for workload pods to be deleted", appName)
-			select {
-			case <-clk.After(3 * time.Second):
-			case <-tomb.Dying():
-				return tomb.ErrDying()
-			}
-		}
-
-		err = broker.DeleteOperator(appName)
-		if err != nil && !errors.Is(err, errors.NotFound) {
-			return errors.Annotatef(err, "deleting operator pod for application %q", appName)
-		}
-	}
-	return nil
+	return false, nil
 }
 
 // ensureTrust updates the applications Trust status on the CAAS broker, giving it
@@ -507,7 +408,7 @@ func updateState(appName string, app caas.Application, lastReportedStatus map[st
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			err = broker.AnnotateUnit(appName, caas.ModeSidecar, unitInfo.ProviderId, unit)
+			err = broker.AnnotateUnit(appName, unitInfo.ProviderId, unit)
 			if errors.Is(err, errors.NotFound) {
 				continue
 			} else if err != nil {

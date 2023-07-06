@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasfirewallersidecar_test
+package caasfirewaller_test
 
 import (
 	"time"
@@ -19,8 +19,8 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/caasfirewallersidecar"
-	"github.com/juju/juju/worker/caasfirewallersidecar/mocks"
+	"github.com/juju/juju/worker/caasfirewaller"
+	"github.com/juju/juju/worker/caasfirewaller/mocks"
 )
 
 type appWorkerSuite struct {
@@ -66,7 +66,7 @@ func (s *appWorkerSuite) getController(c *gc.C) *gomock.Controller {
 }
 
 func (s *appWorkerSuite) getWorker(c *gc.C) worker.Worker {
-	w, err := caasfirewallersidecar.NewApplicationWorker(
+	w, err := caasfirewaller.NewApplicationWorker(
 		testing.ControllerTag.Id(),
 		testing.ModelTag.Id(),
 		s.appName,

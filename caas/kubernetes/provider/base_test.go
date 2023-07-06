@@ -43,7 +43,6 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/mocks"
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	"github.com/juju/juju/cloud"
@@ -149,18 +148,6 @@ func listOptionsFieldSelectorMatcher(fieldSelector string) gomock.Matcher {
 		})
 }
 
-func listOptionsLabelSelectorMatcher(labelSelector string) gomock.Matcher {
-	return genericMatcherFn(
-		func(i interface{}) (bool, string) {
-			lo, ok := i.(v1.ListOptions)
-			if !ok {
-				return false, "is list options, not a valid corev1.ListOptions"
-			}
-			return lo.LabelSelector == labelSelector,
-				fmt.Sprintf("is list options label %v == %v", lo.LabelSelector, labelSelector)
-		})
-}
-
 func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
@@ -226,7 +213,7 @@ func (s *BaseSuite) setupController(c *gc.C) *gomock.Controller {
 func (s *BaseSuite) setupBroker(
 	c *gc.C, ctrl *gomock.Controller, controllerUUID string,
 	newK8sClientFunc provider.NewK8sClientFunc,
-	newK8sRestFunc k8sspecs.NewK8sRestClientFunc,
+	newK8sRestFunc provider.NewK8sRestClientFunc,
 	randomPrefixFunc utils.RandomPrefixFunc,
 	expectErr string,
 ) *gomock.Controller {
@@ -265,7 +252,7 @@ func (s *BaseSuite) setupBroker(
 
 func (s *BaseSuite) setupK8sRestClient(
 	c *gc.C, ctrl *gomock.Controller, namespace string,
-) (provider.NewK8sClientFunc, k8sspecs.NewK8sRestClientFunc) {
+) (provider.NewK8sClientFunc, provider.NewK8sRestClientFunc) {
 	s.k8sClient = mocks.NewMockInterface(ctrl)
 
 	// Plug in the various k8s client modules we need.
@@ -536,7 +523,7 @@ func (s *fakeClientSuite) getNamespace() string {
 func (s *fakeClientSuite) setupBroker(
 	c *gc.C,
 	newK8sClientFunc provider.NewK8sClientFunc,
-	newK8sRestFunc k8sspecs.NewK8sRestClientFunc,
+	newK8sRestFunc provider.NewK8sRestClientFunc,
 	randomPrefixFunc utils.RandomPrefixFunc,
 	watchers *[]k8swatcher.KubernetesNotifyWatcher,
 ) {
@@ -566,7 +553,7 @@ func (s *fakeClientSuite) setupBroker(
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *fakeClientSuite) setupK8sRestClient(c *gc.C, namespace string) (provider.NewK8sClientFunc, k8sspecs.NewK8sRestClientFunc) {
+func (s *fakeClientSuite) setupK8sRestClient(c *gc.C, namespace string) (provider.NewK8sClientFunc, provider.NewK8sRestClientFunc) {
 	s.clientset = fake.NewSimpleClientset()
 	s.k8sClient = s.clientset
 	s.mockCoreV1 = s.k8sClient.CoreV1()

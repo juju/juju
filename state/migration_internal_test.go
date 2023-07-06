@@ -76,7 +76,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		volumeAttachmentsC,
 
 		// caas
-		podSpecsC,
 		cloudContainersC,
 		cloudServicesC,
 		deviceConstraintsC,

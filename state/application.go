@@ -808,7 +808,6 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 		removeStatusOp(a.st, applicationGlobalOperatorKey(name)),
 		removeSettingsOp(settingsC, a.applicationConfigKey()),
 		removeModelApplicationRefOp(a.st, name),
-		removePodSpecOp(a.ApplicationTag()),
 	)
 
 	apr, err := getApplicationPortRanges(a.st, a.Name())
@@ -3603,35 +3602,6 @@ func (a *Application) Status() (status.StatusInfo, error) {
 	return info, nil
 }
 
-// CheckApplicationExpectsWorkload checks if the application expects workload or not.
-func CheckApplicationExpectsWorkload(m *Model, appName string) (bool, error) {
-	cm, err := m.CAASModel()
-	if err != nil {
-		// IAAS models alway have a unit workload.
-		return true, nil
-	}
-
-	// Check charm v2
-	app, err := m.State().Application(appName)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	ch, _, err := app.Charm()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-
-	if charm.MetaFormat(ch) == charm.FormatV2 {
-		return false, nil
-	}
-
-	_, err = cm.PodSpec(names.NewApplicationTag(appName))
-	if err != nil && !errors.IsNotFound(err) {
-		return false, errors.Trace(err)
-	}
-	return err == nil, nil
-}
-
 // SetStatus sets the status for the application.
 func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 	if !status.ValidWorkloadStatus(statusInfo.Status) {
@@ -3647,13 +3617,9 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 		// Application status for a caas model needs to consider status
 		// info coming from the operator pod as well; It may need to
 		// override what is set here.
-		expectWorkload, err := CheckApplicationExpectsWorkload(m, a.Name())
-		if err != nil {
-			return errors.Trace(err)
-		}
 		operatorStatus, err := getStatus(a.st.db(), applicationGlobalOperatorKey(a.Name()), "operator")
 		if err == nil {
-			newHistory, err = caasHistoryRewriteDoc(statusInfo, operatorStatus, expectWorkload, status.ApplicationDisplayStatus, a.st.clock())
+			newHistory, err = caasHistoryRewriteDoc(statusInfo, operatorStatus, status.ApplicationDisplayStatus, a.st.clock())
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -3699,11 +3665,7 @@ func (a *Application) SetOperatorStatus(sInfo status.StatusInfo) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	expectWorkload, err := CheckApplicationExpectsWorkload(m, a.Name())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	historyDoc, err := caasHistoryRewriteDoc(appStatus, sInfo, expectWorkload, status.ApplicationDisplayStatus, a.st.clock())
+	historyDoc, err := caasHistoryRewriteDoc(appStatus, sInfo, status.ApplicationDisplayStatus, a.st.clock())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -4052,7 +4014,7 @@ func (op *AddUnitOperation) Done(err error) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		newHistory, err := caasHistoryRewriteDoc(unitStatus, *op.props.CloudContainerStatus, true, status.UnitDisplayStatus, op.application.st.clock())
+		newHistory, err := caasHistoryRewriteDoc(unitStatus, *op.props.CloudContainerStatus, status.UnitDisplayStatus, op.application.st.clock())
 		if err != nil {
 			return errors.Trace(err)
 		}

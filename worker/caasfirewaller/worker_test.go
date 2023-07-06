@@ -1,94 +1,84 @@
-// Copyright 2017 Canonical Ltd.
+// Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package caasfirewaller_test
 
 import (
-	"time"
-
+	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v11"
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/retry"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/common/charms"
-	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasfirewaller"
+	"github.com/juju/juju/worker/caasfirewaller/mocks"
 )
 
-type WorkerSuite struct {
-	testing.IsolationSuite
+type workerSuite struct {
+	testing.BaseSuite
 
-	config            caasfirewaller.Config
-	applicationGetter mockApplicationGetter
-	serviceExposer    mockServiceExposer
-	lifeGetter        mockLifeGetter
-	charmGetter       mockCharmGetter
+	config caasfirewaller.Config
+
+	firewallerAPI *mocks.MockCAASFirewallerAPI
+	lifeGetter    *mocks.MockLifeGetter
+	broker        *mocks.MockCAASBroker
 
 	applicationChanges chan []string
-	appExposedChange   chan struct{}
-	serviceExposed     chan struct{}
-	serviceUnexposed   chan struct{}
+
+	appsWatcher watcher.StringsWatcher
 }
 
-var _ = gc.Suite(&WorkerSuite{})
+var _ = gc.Suite(&workerSuite{})
 
-func (s *WorkerSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+func (s *workerSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 
 	s.applicationChanges = make(chan []string)
-	s.appExposedChange = make(chan struct{})
-	s.serviceExposed = make(chan struct{})
-	s.serviceUnexposed = make(chan struct{})
+}
 
-	s.applicationGetter = mockApplicationGetter{
-		allWatcher: watchertest.NewMockStringsWatcher(s.applicationChanges),
-		appWatcher: watchertest.NewMockNotifyWatcher(s.appExposedChange),
-	}
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.applicationGetter.allWatcher) })
+func (s *workerSuite) TearDownTest(c *gc.C) {
+	s.applicationChanges = nil
 
-	s.lifeGetter = mockLifeGetter{
-		life: life.Alive,
-	}
-	s.charmGetter = mockCharmGetter{
-		charmInfo: &charms.CharmInfo{
-			Manifest: &charm.Manifest{},
-			Meta:     &charm.Meta{},
-		},
-	}
-	s.serviceExposer = mockServiceExposer{
-		exposed:   s.serviceExposed,
-		unexposed: s.serviceUnexposed,
-	}
+	s.firewallerAPI = nil
+	s.lifeGetter = nil
+	s.broker = nil
+	s.config = caasfirewaller.Config{}
+
+	s.BaseSuite.TearDownTest(c)
+}
+
+func (s *workerSuite) initConfig(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.appsWatcher = watchertest.NewMockStringsWatcher(s.applicationChanges)
+	s.firewallerAPI = mocks.NewMockCAASFirewallerAPI(ctrl)
+	s.firewallerAPI.EXPECT().WatchApplications().AnyTimes().Return(s.appsWatcher, nil)
+
+	s.lifeGetter = mocks.NewMockLifeGetter(ctrl)
+	s.broker = mocks.NewMockCAASBroker(ctrl)
 
 	s.config = caasfirewaller.Config{
-		ControllerUUID:    coretesting.ControllerTag.Id(),
-		ModelUUID:         coretesting.ModelTag.Id(),
-		ApplicationGetter: &s.applicationGetter,
-		ServiceExposer:    &s.serviceExposer,
-		LifeGetter:        &s.lifeGetter,
-		CharmGetter:       &s.charmGetter,
-		Logger:            loggo.GetLogger("test"),
+		ControllerUUID: testing.ControllerTag.Id(),
+		ModelUUID:      testing.ModelTag.Id(),
+		FirewallerAPI:  s.firewallerAPI,
+		Broker:         s.broker,
+		LifeGetter:     s.lifeGetter,
+		Logger:         loggo.GetLogger("test"),
 	}
+	return ctrl
 }
 
-func (s *WorkerSuite) sendApplicationExposedChange(c *gc.C) {
-	select {
-	case s.appExposedChange <- struct{}{}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending application exposed change")
-	}
-}
+func (s *workerSuite) TestValidateConfig(c *gc.C) {
+	_ = s.initConfig(c)
 
-func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	s.testValidateConfig(c, func(config *caasfirewaller.Config) {
 		config.ControllerUUID = ""
 	}, `missing ControllerUUID not valid`)
@@ -98,273 +88,123 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	}, `missing ModelUUID not valid`)
 
 	s.testValidateConfig(c, func(config *caasfirewaller.Config) {
-		config.ApplicationGetter = nil
-	}, `missing ApplicationGetter not valid`)
+		config.FirewallerAPI = nil
+	}, `missing FirewallerAPI not valid`)
 
 	s.testValidateConfig(c, func(config *caasfirewaller.Config) {
-		config.ServiceExposer = nil
-	}, `missing ServiceExposer not valid`)
+		config.Broker = nil
+	}, `missing Broker not valid`)
 
 	s.testValidateConfig(c, func(config *caasfirewaller.Config) {
 		config.LifeGetter = nil
 	}, `missing LifeGetter not valid`)
 
 	s.testValidateConfig(c, func(config *caasfirewaller.Config) {
-		config.CharmGetter = nil
-	}, `missing CharmGetter not valid`)
-
-	s.testValidateConfig(c, func(config *caasfirewaller.Config) {
 		config.Logger = nil
 	}, `missing Logger not valid`)
 }
 
-func (s *WorkerSuite) testValidateConfig(c *gc.C, f func(*caasfirewaller.Config), expect string) {
+func (s *workerSuite) testValidateConfig(c *gc.C, f func(*caasfirewaller.Config), expect string) {
 	config := s.config
 	f(&config)
-	w, err := caasfirewaller.NewWorker(config)
-	if err == nil {
-		workertest.DirtyKill(c, w)
-	}
-	c.Check(err, gc.ErrorMatches, expect)
+	c.Check(config.Validate(), gc.ErrorMatches, expect)
 }
 
-func (s *WorkerSuite) TestStartStop(c *gc.C) {
-	w, err := caasfirewaller.NewWorker(s.config)
+func (s *workerSuite) TestStartStop(c *gc.C) {
+	ctrl := s.initConfig(c)
+	defer ctrl.Finish()
+
+	go func() {
+		// trigger to start app workers.
+		s.applicationChanges <- []string{"app1", "app2"}
+		// trigger to stop app workers.
+		s.applicationChanges <- []string{"app1", "app2"}
+	}()
+
+	app1Worker := mocks.NewMockWorker(ctrl)
+	app2Worker := mocks.NewMockWorker(ctrl)
+
+	workerCreator := func(
+		controllerUUID string,
+		modelUUID string,
+		appName string,
+		firewallerAPI caasfirewaller.CAASFirewallerAPI,
+		broker caasfirewaller.CAASBroker,
+		lifeGetter caasfirewaller.LifeGetter,
+		logger caasfirewaller.Logger,
+	) (worker.Worker, error) {
+		if appName == "app1" {
+			return app1Worker, nil
+		} else if appName == "app2" {
+			return app2Worker, nil
+		}
+		return nil, errors.New("never happen")
+	}
+
+	charmInfo := &charms.CharmInfo{
+		Meta:     &charm.Meta{},
+		Manifest: &charm.Manifest{Bases: []charm.Base{{}}}, // bases make it a v2 charm
+	}
+	s.firewallerAPI.EXPECT().ApplicationCharmInfo("app1").Return(charmInfo, nil)
+	s.lifeGetter.EXPECT().Life("app1").Return(life.Alive, nil)
+	// Added app1's worker to catacomb.
+	app1Worker.EXPECT().Wait().Return(nil)
+
+	s.firewallerAPI.EXPECT().ApplicationCharmInfo("app2").Return(charmInfo, nil)
+	s.lifeGetter.EXPECT().Life("app2").Return(life.Alive, nil)
+	// Added app2's worker to catacomb.
+	app2Worker.EXPECT().Wait().Return(nil)
+
+	s.firewallerAPI.EXPECT().ApplicationCharmInfo("app1").Return(charmInfo, nil)
+	s.lifeGetter.EXPECT().Life("app1").Return(life.Value(""), errors.NotFoundf("%q", "app1"))
+	// Stopped app1's worker because it's removed.
+	app1Worker.EXPECT().Kill()
+	app1Worker.EXPECT().Wait().Return(nil)
+
+	s.firewallerAPI.EXPECT().ApplicationCharmInfo("app2").Return(charmInfo, nil)
+	s.lifeGetter.EXPECT().Life("app2").Return(life.Dead, nil)
+	// Stopped app2's worker because it's dead.
+	app2Worker.EXPECT().Kill()
+	app2Worker.EXPECT().Wait().Return(nil)
+
+	w, err := caasfirewaller.NewWorkerForTest(s.config, workerCreator)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) sendApplicationChange(c *gc.C, appName string) {
-	select {
-	case s.applicationChanges <- []string{appName}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending applications change")
-	}
-}
+func (s *workerSuite) TestV1CharmSkipsProcessing(c *gc.C) {
+	ctrl := s.initConfig(c)
+	defer ctrl.Finish()
 
-func (s *WorkerSuite) TestExposedChange(c *gc.C) {
-	w, err := caasfirewaller.NewWorker(s.config)
+	go func() {
+		s.applicationChanges <- []string{"app1"}
+	}()
+
+	charmInfo := &charms.CharmInfo{ // v1 charm
+		Meta:     &charm.Meta{},
+		Manifest: &charm.Manifest{},
+	}
+	s.firewallerAPI.EXPECT().ApplicationCharmInfo("app1").Return(charmInfo, nil)
+
+	w, err := caasfirewaller.NewWorkerForTest(s.config, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, w)
-
-	s.sendApplicationChange(c, "gitlab")
-
-	s.sendApplicationExposedChange(c)
-	// The last known state on start up was unexposed
-	// so we first call Unexpose().
-	select {
-	case <-s.serviceUnexposed:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for service to be unexposed")
-	}
-	select {
-	case <-s.serviceExposed:
-		c.Fatal("service exposed unexpectedly")
-	case <-time.After(coretesting.ShortWait):
-	}
-
-	s.applicationGetter.exposed = true
-	s.sendApplicationExposedChange(c)
-	select {
-	case <-s.serviceExposed:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for service to be exposed")
-	}
-	s.serviceExposer.CheckCallNames(c, "UnexposeService", "ExposeService")
-	s.serviceExposer.CheckCall(c, 1, "ExposeService", "gitlab",
-		map[string]string{
-			"juju-controller-uuid": coretesting.ControllerTag.Id(),
-			"juju-model-uuid":      coretesting.ModelTag.Id()},
-		config.ConfigAttributes{"juju-external-hostname": "exthost"})
-}
-
-func (s *WorkerSuite) TestUnexposedChange(c *gc.C) {
-	w, err := caasfirewaller.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, w)
-
-	s.sendApplicationChange(c, "gitlab")
-
-	s.applicationGetter.exposed = true
-	s.sendApplicationExposedChange(c)
-	// The last known state on start up was exposed
-	// so we first call Expose().
-	select {
-	case <-s.serviceExposed:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for service to be exposed")
-	}
-	select {
-	case <-s.serviceUnexposed:
-		c.Fatal("service unexposed unexpectedly")
-	case <-time.After(coretesting.ShortWait):
-	}
-
-	s.applicationGetter.exposed = false
-	s.sendApplicationExposedChange(c)
-	select {
-	case <-s.serviceUnexposed:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for service to be unexposed")
-	}
-}
-
-func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
-	w, err := caasfirewaller.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, w)
-
-	s.lifeGetter.life = life.Dead
-	s.sendApplicationChange(c, "gitlab")
-
-	select {
-	case s.appExposedChange <- struct{}{}:
-		c.Fatal("unexpected watch for app exposed")
-	case <-time.After(coretesting.ShortWait):
-	}
-
+	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplication(c *gc.C) {
-	// Set up the errors before triggering any events to avoid racing
-	// with the worker loop. First time around the loop the
-	// application's alive, then it's gone.
-	s.lifeGetter.SetErrors(nil, errors.NotFoundf("application"))
+func (s *workerSuite) TestNotFoundCharmSkipsProcessing(c *gc.C) {
+	ctrl := s.initConfig(c)
+	defer ctrl.Finish()
 
-	w, err := caasfirewaller.NewWorker(s.config)
+	go func() {
+		s.applicationChanges <- []string{"app1"}
+	}()
+
+	s.firewallerAPI.EXPECT().ApplicationCharmInfo("app1").Return(nil, errors.NotFoundf("app1"))
+
+	w, err := caasfirewaller.NewWorkerForTest(s.config, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, w)
-
-	s.sendApplicationChange(c, "gitlab")
-	s.sendApplicationChange(c, "gitlab")
-
-	err = workertest.CheckKilled(c, s.applicationGetter.appWatcher)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *WorkerSuite) TestRemoveApplicationStopsWorker(c *gc.C) {
-	// Set up the errors before triggering any events to avoid racing
-	// with the worker loop. First time around the loop the
-	// application's alive, then it's gone.
-	s.applicationGetter.SetErrors(nil, nil, errors.NotFoundf("application"))
-
-	w, err := caasfirewaller.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, w)
-
-	s.sendApplicationChange(c, "gitlab")
-
-	s.applicationGetter.exposed = true
-	s.sendApplicationExposedChange(c)
-	select {
-	case <-s.serviceExposed:
-		c.Fatal("removed application should not be exposed")
-	case <-time.After(coretesting.ShortWait):
-	}
-}
-
-func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {
-	w, err := caasfirewaller.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, w)
-
-	s.sendApplicationChange(c, "gitlab")
-
-	s.applicationGetter.appWatcher.KillErr(errors.New("splat"))
-	_ = workertest.CheckKilled(c, s.applicationGetter.appWatcher)
-	_ = workertest.CheckKilled(c, s.applicationGetter.allWatcher)
-	err = workertest.CheckKilled(c, w)
-	c.Assert(err, gc.ErrorMatches, "splat")
-}
-
-func (s *WorkerSuite) TestV2CharmSkipProcessing(c *gc.C) {
-	s.charmGetter.charmInfo.Manifest = &charm.Manifest{Bases: []charm.Base{{}}}
-	s.charmGetter.charmInfo.Meta = &charm.Meta{}
-
-	w, err := caasfirewaller.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.sendApplicationChange(c, "gitlab")
-	s.waitCharmGetterCalls(c, "ApplicationCharmInfo")
-
+	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)
-
-	s.expectNoLifeGetterCalls(c)
-}
-
-func (s *WorkerSuite) TestCharmNotFound(c *gc.C) {
-	w, err := caasfirewaller.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.charmGetter.charmInfo = nil
-
-	s.sendApplicationChange(c, "gitlab")
-	s.waitCharmGetterCalls(c, "ApplicationCharmInfo")
-
-	workertest.CleanKill(c, w)
-
-	s.expectNoLifeGetterCalls(c)
-}
-
-func (s *WorkerSuite) TestCharmChangesToV2(c *gc.C) {
-	w, err := caasfirewaller.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, w)
-
-	s.sendApplicationChange(c, "gitlab")
-	s.waitCharmGetterCalls(c, "ApplicationCharmInfo")
-	s.waitLifeGetterCalls(c, "Life")
-
-	s.charmGetter.charmInfo.Manifest = &charm.Manifest{Bases: []charm.Base{{}}}
-	s.charmGetter.charmInfo.Meta = &charm.Meta{}
-	s.sendApplicationExposedChange(c)
-	s.waitCharmGetterCalls(c, "ApplicationCharmInfo")
-
-	err = workertest.CheckKilled(c, s.applicationGetter.appWatcher)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *WorkerSuite) waitCharmGetterCalls(c *gc.C, names ...string) {
-	waitStubCalls(c, &s.charmGetter, names...)
-}
-
-func (s *WorkerSuite) waitLifeGetterCalls(c *gc.C, names ...string) {
-	waitStubCalls(c, &s.lifeGetter, names...)
-}
-
-type waitStub interface {
-	Calls() []testing.StubCall
-	CheckCallNames(c *gc.C, expected ...string) bool
-	ResetCalls()
-}
-
-func waitStubCalls(c *gc.C, stub waitStub, names ...string) {
-	retryCallArgs := coretesting.LongRetryStrategy
-	retryCallArgs.Func = func() error {
-		if len(stub.Calls()) >= len(names) {
-			return nil
-		}
-		return errors.Errorf("Not enough calls yet")
-	}
-	err := retry.Call(retryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	stub.CheckCallNames(c, names...)
-	stub.ResetCalls()
-}
-
-func (s *WorkerSuite) expectNoLifeGetterCalls(c *gc.C) {
-	totalDuration := clock.WallClock.After(coretesting.ShortWait)
-	for {
-		select {
-		case <-clock.WallClock.After(10 * time.Millisecond):
-			if len(s.lifeGetter.Calls()) > 0 {
-				c.Fatalf("unexpected lifegetter call")
-			}
-		case <-totalDuration:
-			return
-		}
-	}
 }

@@ -71,11 +71,8 @@ type CAASProvisionerFacade interface {
 // CAASBroker exposes CAAS broker functionality to a worker.
 type CAASBroker interface {
 	Application(string, caas.DeploymentType) caas.Application
-	AnnotateUnit(appName string, mode caas.DeploymentMode, podName string, unit names.UnitTag) error
-	DeleteOperator(appName string) error
-	DeleteService(appName string) error
-	OperatorExists(appName string) (caas.DeploymentState, error)
-	Units(appName string, mode caas.DeploymentMode) ([]caas.Unit, error)
+	AnnotateUnit(appName string, podName string, unit names.UnitTag) error
+	Units(appName string) ([]caas.Unit, error)
 }
 
 // Runner exposes functionalities of a worker.Runner.

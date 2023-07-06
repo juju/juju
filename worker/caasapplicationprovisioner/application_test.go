@@ -129,41 +129,6 @@ func (s *ApplicationWorkerSuite) TestLifeDead(c *gc.C) {
 	workertest.CleanKill(c, appWorker)
 }
 
-func (s *ApplicationWorkerSuite) TestUpgradePodSpec(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	broker := mocks.NewMockCAASBroker(ctrl)
-	brokerApp := caasmocks.NewMockApplication(ctrl)
-	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
-	ops := mocks.NewMockApplicationOps(ctrl)
-	done := make(chan struct{})
-
-	clk := testclock.NewClock(time.Time{})
-	gomock.InOrder(
-		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(brokerApp),
-		facade.EXPECT().Life("test").Return(life.Alive, nil),
-
-		// Verify charm is v2
-		ops.EXPECT().VerifyCharmUpgraded("test", gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil),
-
-		// Operator delete loop (with a retry)
-		ops.EXPECT().UpgradePodSpec("test", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
-
-		// Make SetPassword return an error to exit early (we've tested what
-		// we want to above).
-		facade.EXPECT().SetPassword("test", gomock.Any()).DoAndReturn(func(appName, password string) error {
-			close(done)
-			return errors.New("exit early error")
-		}),
-	)
-
-	appWorker := s.startAppWorker(c, clk, facade, broker, nil, ops)
-
-	s.waitDone(c, done)
-	workertest.DirtyKill(c, appWorker)
-}
-
 func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -190,8 +155,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
 		facade.EXPECT().Life("test").Return(life.Alive, nil),
 
-		ops.EXPECT().VerifyCharmUpgraded("test", gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil),
-		ops.EXPECT().UpgradePodSpec("test", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		ops.EXPECT().CheckCharmFormat("test", gomock.Any(), gomock.Any()).Return(true, nil),
 
 		facade.EXPECT().SetPassword("test", gomock.Any()).Return(nil),
 

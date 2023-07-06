@@ -50,9 +50,10 @@ type bundleDeploySpec struct {
 	ctx        *cmd.Context
 	filesystem modelcmd.Filesystem
 
-	dryRun bool
-	force  bool
-	trust  bool
+	modelType model.ModelType
+	dryRun    bool
+	force     bool
+	trust     bool
 
 	bundleDataSource  charm.BundleDataSource
 	bundleDir         string
@@ -105,9 +106,10 @@ func bundleDeploy(defaultCharmSchema charm.Schema, bundleData *charm.BundleData,
 
 // bundleHandler provides helpers and the state required to deploy a bundle.
 type bundleHandler struct {
-	dryRun bool
-	force  bool
-	trust  bool
+	dryRun    bool
+	force     bool
+	trust     bool
+	modelType model.ModelType
 
 	clock jujuclock.Clock
 
@@ -213,6 +215,7 @@ func makeBundleHandler(defaultCharmSchema charm.Schema, bundleData *charm.Bundle
 		// TODO (stickupkid): pass this through from the constructor.
 		clock: jujuclock.WallClock,
 
+		modelType:            spec.modelType,
 		dryRun:               spec.dryRun,
 		force:                spec.force,
 		trust:                spec.trust,
@@ -863,7 +866,12 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	if err != nil {
 		return errors.Trace(err)
 	}
-	checkPodspec(charmInfo.Charm(), h.ctx)
+
+	if h.modelType == model.CAAS {
+		if ch := charmInfo.Charm(); charm.MetaFormat(ch) == charm.FormatV1 {
+			return errors.NotSupportedf("deploying format v1 charms")
+		}
+	}
 
 	resMap := h.makeResourceMap(charmInfo.Meta.Resources, p.Resources, p.LocalResources)
 

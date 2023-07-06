@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
@@ -275,6 +276,7 @@ func (s *charmSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.deployerAPI.EXPECT().ModelUUID().Return("dead-beef", true).AnyTimes()
 
 	s.modelCommand = mocks.NewMockModelCommand(ctrl)
+	s.modelCommand.EXPECT().ModelType().Return(model.IAAS, nil).AnyTimes()
 	s.configFlag = mocks.NewMockDeployConfigFlag(ctrl)
 	return ctrl
 }

@@ -14,10 +14,6 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	core "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/common/charms"
@@ -65,7 +61,7 @@ func (s *sshContainerSuite) TearDownTest(c *gc.C) {
 	s.mockNamespaces = nil
 }
 
-func (s *sshContainerSuite) setUpController(c *gc.C, remote bool, containerName string) *gomock.Controller {
+func (s *sshContainerSuite) setUpController(c *gc.C, containerName string) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.applicationAPI = mocks.NewMockApplicationAPI(ctrl)
 	s.charmAPI = mocks.NewMockCharmAPI(ctrl)
@@ -92,7 +88,6 @@ func (s *sshContainerSuite) setUpController(c *gc.C, remote bool, containerName 
 		s.charmAPI,
 		s.execClient,
 		s.mockSSHClient,
-		remote,
 		containerName,
 		s.controllerAPI,
 	)
@@ -100,7 +95,7 @@ func (s *sshContainerSuite) setUpController(c *gc.C, remote bool, containerName 
 }
 
 func (s *sshContainerSuite) TestCleanupRun(c *gc.C) {
-	ctrl := s.setUpController(c, true, "")
+	ctrl := s.setUpController(c, "")
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -112,7 +107,7 @@ func (s *sshContainerSuite) TestCleanupRun(c *gc.C) {
 }
 
 func (s *sshContainerSuite) TestResolveTargetForWorkloadPod(c *gc.C) {
-	ctrl := s.setUpController(c, true, "")
+	ctrl := s.setUpController(c, "")
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -132,7 +127,7 @@ func (s *sshContainerSuite) TestResolveTargetForWorkloadPod(c *gc.C) {
 
 func (s *sshContainerSuite) TestResolveTargetForController(c *gc.C) {
 	s.modelName = "controller"
-	ctrl := s.setUpController(c, false, "")
+	ctrl := s.setUpController(c, "")
 	defer ctrl.Finish()
 
 	target, err := s.sshC.ResolveTarget("0")
@@ -142,7 +137,7 @@ func (s *sshContainerSuite) TestResolveTargetForController(c *gc.C) {
 
 func (s *sshContainerSuite) TestResolveTargetForControllerInvalidTarget(c *gc.C) {
 	s.modelName = "controller"
-	ctrl := s.setUpController(c, false, "")
+	ctrl := s.setUpController(c, "")
 	defer ctrl.Finish()
 
 	_, err := s.sshC.ResolveTarget("1")
@@ -150,7 +145,7 @@ func (s *sshContainerSuite) TestResolveTargetForControllerInvalidTarget(c *gc.C)
 }
 
 func (s *sshContainerSuite) TestResolveTargetForSidecarCharm(c *gc.C) {
-	ctrl := s.setUpController(c, true, "")
+	ctrl := s.setUpController(c, "")
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -178,7 +173,7 @@ func (s *sshContainerSuite) TestResolveTargetForSidecarCharm(c *gc.C) {
 }
 
 func (s *sshContainerSuite) TestResolveCharmTargetForSidecarCharm(c *gc.C) {
-	ctrl := s.setUpController(c, true, "charm")
+	ctrl := s.setUpController(c, "charm")
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -206,7 +201,7 @@ func (s *sshContainerSuite) TestResolveCharmTargetForSidecarCharm(c *gc.C) {
 }
 
 func (s *sshContainerSuite) TestResolveTargetForSidecarCharmWithContainer(c *gc.C) {
-	ctrl := s.setUpController(c, true, "test-container")
+	ctrl := s.setUpController(c, "test-container")
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -238,7 +233,7 @@ func (s *sshContainerSuite) TestResolveTargetForSidecarCharmWithContainer(c *gc.
 }
 
 func (s *sshContainerSuite) TestResolveTargetForSidecarCharmWithContainerMissing(c *gc.C) {
-	ctrl := s.setUpController(c, true, "bad-test-container")
+	ctrl := s.setUpController(c, "bad-test-container")
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -268,63 +263,8 @@ func (s *sshContainerSuite) TestResolveTargetForSidecarCharmWithContainerMissing
 	c.Assert(err, gc.ErrorMatches, `container "bad-test-container" must be one of charm, test-container`)
 }
 
-func (s *sshContainerSuite) TestResolveTargetForOperatorPod(c *gc.C) {
-	ctrl := s.setUpController(c, false, "")
-	defer ctrl.Finish()
-
-	gomock.InOrder(
-		s.applicationAPI.EXPECT().UnitsInfo([]names.UnitTag{names.NewUnitTag("mariadb-k8s/0")}).
-			Return([]application.UnitInfo{
-				{ProviderId: "", Charm: "test-charm-url"},
-			}, nil),
-		s.charmAPI.EXPECT().CharmInfo("test-charm-url").
-			Return(&charms.CharmInfo{
-				Meta: &charm.Meta{},
-			}, nil),
-		s.execClient.EXPECT().NameSpace().AnyTimes().Return("test-ns"),
-
-		s.mockNamespaces.EXPECT().Get(gomock.Any(), "test-ns", metav1.GetOptions{}).
-			Return(nil, k8serrors.NewNotFound(schema.GroupResource{}, "test")),
-
-		s.mockPods.EXPECT().List(gomock.Any(), metav1.ListOptions{LabelSelector: "operator.juju.is/name=mariadb-k8s,operator.juju.is/target=application"}).AnyTimes().
-			Return(&core.PodList{Items: []core.Pod{
-				{ObjectMeta: metav1.ObjectMeta{Name: "mariadb-k8s-operator-0"}},
-			}}, nil),
-	)
-	target, err := s.sshC.ResolveTarget("mariadb-k8s/0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(target.GetEntity(), gc.DeepEquals, "mariadb-k8s-operator-0")
-}
-
-func (s *sshContainerSuite) TestResolveTargetForOperatorPodNoProviderID(c *gc.C) {
-	ctrl := s.setUpController(c, false, "")
-	defer ctrl.Finish()
-
-	gomock.InOrder(
-		s.applicationAPI.EXPECT().UnitsInfo([]names.UnitTag{names.NewUnitTag("mariadb-k8s/0")}).
-			Return([]application.UnitInfo{
-				{ProviderId: "", Charm: "test-charm-url"},
-			}, nil),
-		s.charmAPI.EXPECT().CharmInfo("test-charm-url").
-			Return(&charms.CharmInfo{
-				Meta: &charm.Meta{},
-			}, nil),
-		s.execClient.EXPECT().NameSpace().AnyTimes().Return("test-ns"),
-
-		s.mockNamespaces.EXPECT().Get(gomock.Any(), "test-ns", metav1.GetOptions{}).
-			Return(nil, k8serrors.NewNotFound(schema.GroupResource{}, "test")),
-
-		s.mockPods.EXPECT().List(gomock.Any(), metav1.ListOptions{LabelSelector: "operator.juju.is/name=mariadb-k8s,operator.juju.is/target=application"}).AnyTimes().
-			Return(&core.PodList{Items: []core.Pod{
-				{ObjectMeta: metav1.ObjectMeta{Name: ""}},
-			}}, nil),
-	)
-	_, err := s.sshC.ResolveTarget("mariadb-k8s/0")
-	c.Assert(err, gc.ErrorMatches, `operator pod for unit "mariadb-k8s/0" is not ready yet`)
-}
-
 func (s *sshContainerSuite) TestResolveTargetForWorkloadPodNoProviderID(c *gc.C) {
-	ctrl := s.setUpController(c, true, "")
+	ctrl := s.setUpController(c, "")
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -342,7 +282,7 @@ func (s *sshContainerSuite) TestResolveTargetForWorkloadPodNoProviderID(c *gc.C)
 }
 
 func (s *sshContainerSuite) TestGetExecClient(c *gc.C) {
-	ctrl := s.setUpController(c, true, "")
+	ctrl := s.setUpController(c, "")
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -356,7 +296,7 @@ func (s *sshContainerSuite) TestGetExecClient(c *gc.C) {
 }
 
 func (s *sshContainerSuite) TestSSHNoContainerSpecified(c *gc.C) {
-	ctrl := s.setUpController(c, false, "")
+	ctrl := s.setUpController(c, "")
 	ctx := mocks.NewMockContext(ctrl)
 	defer ctrl.Finish()
 
@@ -388,7 +328,7 @@ func (s *sshContainerSuite) TestSSHNoContainerSpecified(c *gc.C) {
 }
 
 func (s *sshContainerSuite) TestSSHWithContainerSpecified(c *gc.C) {
-	ctrl := s.setUpController(c, true, "container1")
+	ctrl := s.setUpController(c, "container1")
 	ctx := mocks.NewMockContext(ctrl)
 	defer ctrl.Finish()
 
@@ -421,7 +361,7 @@ func (s *sshContainerSuite) TestSSHWithContainerSpecified(c *gc.C) {
 }
 
 func (s *sshContainerSuite) TestSSHCancelled(c *gc.C) {
-	ctrl := s.setUpController(c, true, "")
+	ctrl := s.setUpController(c, "")
 	ctx := mocks.NewMockContext(ctrl)
 	defer ctrl.Finish()
 
@@ -466,7 +406,7 @@ func (s *sshContainerSuite) TestSSHCancelled(c *gc.C) {
 }
 
 func (s *sshContainerSuite) TestGetInterruptAbortChanInterrupted(c *gc.C) {
-	ctrl := s.setUpController(c, true, "")
+	ctrl := s.setUpController(c, "")
 	ctx := mocks.NewMockContext(ctrl)
 	defer ctrl.Finish()
 
@@ -488,7 +428,7 @@ func (s *sshContainerSuite) TestGetInterruptAbortChanInterrupted(c *gc.C) {
 }
 
 func (s *sshContainerSuite) TestGetInterruptAbortChanStopped(c *gc.C) {
-	ctrl := s.setUpController(c, false, "")
+	ctrl := s.setUpController(c, "")
 	ctx := mocks.NewMockContext(ctrl)
 	defer ctrl.Finish()
 
@@ -506,88 +446,8 @@ func (s *sshContainerSuite) TestGetInterruptAbortChanStopped(c *gc.C) {
 	}
 }
 
-func (s *sshContainerSuite) TestCopyToOperator(c *gc.C) {
-	ctrl := s.setUpController(c, false, "")
-	ctx := mocks.NewMockContext(ctrl)
-	defer ctrl.Finish()
-
-	s.sshC.SetArgs([]string{"./file1", "mariadb-k8s/0:/home/ubuntu/"})
-
-	gomock.InOrder(
-		s.applicationAPI.EXPECT().UnitsInfo([]names.UnitTag{names.NewUnitTag("mariadb-k8s/0")}).
-			Return([]application.UnitInfo{
-				{ProviderId: "mariadb-k8s-0", Charm: "test-charm-url"},
-			}, nil),
-		s.charmAPI.EXPECT().CharmInfo("test-charm-url").
-			Return(&charms.CharmInfo{
-				Meta: &charm.Meta{},
-			}, nil),
-
-		s.execClient.EXPECT().NameSpace().AnyTimes().Return("test-ns"),
-
-		s.mockNamespaces.EXPECT().Get(gomock.Any(), gomock.Any(), metav1.GetOptions{}).
-			Return(nil, k8serrors.NewNotFound(schema.GroupResource{}, "test")),
-
-		s.mockPods.EXPECT().List(gomock.Any(), metav1.ListOptions{LabelSelector: "operator.juju.is/name=mariadb-k8s,operator.juju.is/target=application"}).AnyTimes().
-			Return(&core.PodList{Items: []core.Pod{
-				{ObjectMeta: metav1.ObjectMeta{Name: "mariadb-k8s-operator-0"}},
-			}}, nil),
-
-		ctx.EXPECT().InterruptNotify(gomock.Any()),
-		s.execClient.EXPECT().Copy(k8sexec.CopyParams{
-			Src:  k8sexec.FileResource{Path: "./file1"},
-			Dest: k8sexec.FileResource{Path: "/home/ubuntu/", PodName: "mariadb-k8s-operator-0"},
-		}, gomock.Any()).
-			Return(nil),
-		ctx.EXPECT().StopInterruptNotify(gomock.Any()),
-	)
-
-	err := s.sshC.Copy(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *sshContainerSuite) TestCopyFromOperator(c *gc.C) {
-	ctrl := s.setUpController(c, false, "")
-	ctx := mocks.NewMockContext(ctrl)
-	defer ctrl.Finish()
-
-	s.sshC.SetArgs([]string{"mariadb-k8s/0:/home/ubuntu/", "./file1"})
-
-	gomock.InOrder(
-		s.applicationAPI.EXPECT().UnitsInfo([]names.UnitTag{names.NewUnitTag("mariadb-k8s/0")}).
-			Return([]application.UnitInfo{
-				{ProviderId: "mariadb-k8s-0", Charm: "test-charm-url"},
-			}, nil),
-		s.charmAPI.EXPECT().CharmInfo("test-charm-url").
-			Return(&charms.CharmInfo{
-				Meta: &charm.Meta{},
-			}, nil),
-
-		s.execClient.EXPECT().NameSpace().AnyTimes().Return("test-ns"),
-
-		s.mockNamespaces.EXPECT().Get(gomock.Any(), gomock.Any(), metav1.GetOptions{}).
-			Return(nil, k8serrors.NewNotFound(schema.GroupResource{}, "test")),
-
-		s.mockPods.EXPECT().List(gomock.Any(), metav1.ListOptions{LabelSelector: "operator.juju.is/name=mariadb-k8s,operator.juju.is/target=application"}).AnyTimes().
-			Return(&core.PodList{Items: []core.Pod{
-				{ObjectMeta: metav1.ObjectMeta{Name: "mariadb-k8s-operator-0"}},
-			}}, nil),
-
-		ctx.EXPECT().InterruptNotify(gomock.Any()),
-		s.execClient.EXPECT().Copy(k8sexec.CopyParams{
-			Src:  k8sexec.FileResource{Path: "/home/ubuntu/", PodName: "mariadb-k8s-operator-0"},
-			Dest: k8sexec.FileResource{Path: "./file1"},
-		}, gomock.Any()).
-			Return(nil),
-		ctx.EXPECT().StopInterruptNotify(gomock.Any()),
-	)
-
-	err := s.sshC.Copy(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *sshContainerSuite) TestCopyInvalidArgs(c *gc.C) {
-	ctrl := s.setUpController(c, false, "")
+	ctrl := s.setUpController(c, "")
 	ctx := mocks.NewMockContext(ctrl)
 	defer ctrl.Finish()
 
@@ -601,7 +461,7 @@ func (s *sshContainerSuite) TestCopyInvalidArgs(c *gc.C) {
 }
 
 func (s *sshContainerSuite) TestCopyFromWorkloadPod(c *gc.C) {
-	ctrl := s.setUpController(c, true, "")
+	ctrl := s.setUpController(c, "")
 	ctx := mocks.NewMockContext(ctrl)
 	defer ctrl.Finish()
 
@@ -619,7 +479,7 @@ func (s *sshContainerSuite) TestCopyFromWorkloadPod(c *gc.C) {
 
 		ctx.EXPECT().InterruptNotify(gomock.Any()),
 		s.execClient.EXPECT().Copy(k8sexec.CopyParams{
-			Src:  k8sexec.FileResource{Path: "/home/ubuntu/", PodName: "mariadb-k8s-0"},
+			Src:  k8sexec.FileResource{Path: "/home/ubuntu/", PodName: "mariadb-k8s-0", ContainerName: "charm"},
 			Dest: k8sexec.FileResource{Path: "./file1"},
 		}, gomock.Any()).
 			Return(nil),
@@ -631,7 +491,7 @@ func (s *sshContainerSuite) TestCopyFromWorkloadPod(c *gc.C) {
 }
 
 func (s *sshContainerSuite) TestCopyToWorkloadPod(c *gc.C) {
-	ctrl := s.setUpController(c, true, "")
+	ctrl := s.setUpController(c, "")
 	ctx := mocks.NewMockContext(ctrl)
 	defer ctrl.Finish()
 
@@ -650,7 +510,7 @@ func (s *sshContainerSuite) TestCopyToWorkloadPod(c *gc.C) {
 		ctx.EXPECT().InterruptNotify(gomock.Any()),
 		s.execClient.EXPECT().Copy(k8sexec.CopyParams{
 			Src:  k8sexec.FileResource{Path: "./file1"},
-			Dest: k8sexec.FileResource{Path: "/home/ubuntu/", PodName: "mariadb-k8s-0"},
+			Dest: k8sexec.FileResource{Path: "/home/ubuntu/", PodName: "mariadb-k8s-0", ContainerName: "charm"},
 		}, gomock.Any()).
 			Return(nil),
 		ctx.EXPECT().StopInterruptNotify(gomock.Any()),
@@ -661,7 +521,7 @@ func (s *sshContainerSuite) TestCopyToWorkloadPod(c *gc.C) {
 }
 
 func (s *sshContainerSuite) TestCopyToWorkloadPodWithContainerSpecified(c *gc.C) {
-	ctrl := s.setUpController(c, true, "container1")
+	ctrl := s.setUpController(c, "container1")
 	ctx := mocks.NewMockContext(ctrl)
 	defer ctrl.Finish()
 
@@ -674,7 +534,11 @@ func (s *sshContainerSuite) TestCopyToWorkloadPodWithContainerSpecified(c *gc.C)
 			}, nil),
 		s.charmAPI.EXPECT().CharmInfo("test-charm-url").
 			Return(&charms.CharmInfo{
-				Meta: &charm.Meta{},
+				Meta: &charm.Meta{
+					Containers: map[string]charm.Container{
+						"container1": {},
+					},
+				},
 			}, nil),
 
 		ctx.EXPECT().InterruptNotify(gomock.Any()),
@@ -691,7 +555,7 @@ func (s *sshContainerSuite) TestCopyToWorkloadPodWithContainerSpecified(c *gc.C)
 }
 
 func (s *sshContainerSuite) TestNamespaceControllerModel(c *gc.C) {
-	ctrl := s.setUpController(c, true, "")
+	ctrl := s.setUpController(c, "")
 	defer ctrl.Finish()
 
 	mc := mocks.NewMockModelCommand(ctrl)

@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
-	"github.com/juju/juju/api/agent/caasoperator"
 	"github.com/juju/juju/api/agent/machiner"
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/base"
@@ -53,8 +52,6 @@ func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) 
 	switch apiTag := tag.(type) {
 	case names.UnitTag:
 		facade = uniter.NewClient(apiCaller, apiTag)
-	case names.ApplicationTag:
-		facade = caasoperator.NewClient(apiCaller)
 	case names.MachineTag:
 		facade = machiner.NewClient(apiCaller)
 	default:

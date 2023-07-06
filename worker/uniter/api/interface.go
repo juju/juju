@@ -200,8 +200,6 @@ type UniterClient interface {
 	UnitStorageAttachments(unitTag names.UnitTag) ([]params.StorageAttachmentId, error)
 	StorageAttachment(storageTag names.StorageTag, unitTag names.UnitTag) (params.StorageAttachment, error)
 	GoalState() (application.GoalState, error)
-	GetPodSpec(appName string) (string, error)
-	GetRawK8sSpec(appName string) (string, error)
 	CloudSpec() (*params.CloudSpec, error)
 	ActionBegin(tag names.ActionTag) error
 	ActionFinish(tag names.ActionTag, status string, results map[string]interface{}, message string) error

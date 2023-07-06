@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/mongo/utils"
 )
 
-type displayStatusFunc func(unitStatus status.StatusInfo, containerStatus status.StatusInfo, expectWorkload bool) status.StatusInfo
+type displayStatusFunc func(unitStatus status.StatusInfo, containerStatus status.StatusInfo) status.StatusInfo
 
 // ModelStatus holds all the current status values for a given model
 // and offers accessors for the various parts of a model.
@@ -127,7 +127,7 @@ func (m *ModelStatus) UnitAgent(unitName string) (status.StatusInfo, error) {
 }
 
 // UnitWorkload returns the status of the unit's workload.
-func (m *ModelStatus) UnitWorkload(unitName string, expectWorkload bool) (status.StatusInfo, error) {
+func (m *ModelStatus) UnitWorkload(unitName string) (status.StatusInfo, error) {
 	// We do horrible things with unit status.
 	// See notes in unit.go.
 	info, err := m.getStatus(unitAgentGlobalKey(unitName), "unit")
@@ -153,12 +153,12 @@ func (m *ModelStatus) UnitWorkload(unitName string, expectWorkload bool) (status
 	if err != nil && !errors.IsNotFound(err) {
 		return info, err
 	}
-	return status.UnitDisplayStatus(info, containerInfo, expectWorkload), nil
+	return status.UnitDisplayStatus(info, containerInfo), nil
 }
 
 // caasHistoryRewriteDoc determines which status should be stored as history.
-func caasHistoryRewriteDoc(jujuStatus, caasStatus status.StatusInfo, expectWorkload bool, displayStatus displayStatusFunc, clock clock.Clock) (*statusDoc, error) {
-	modifiedStatus := displayStatus(jujuStatus, caasStatus, expectWorkload)
+func caasHistoryRewriteDoc(jujuStatus, caasStatus status.StatusInfo, displayStatus displayStatusFunc, clock clock.Clock) (*statusDoc, error) {
+	modifiedStatus := displayStatus(jujuStatus, caasStatus)
 	if modifiedStatus.Status == jujuStatus.Status && modifiedStatus.Message == jujuStatus.Message {
 		return nil, nil
 	}

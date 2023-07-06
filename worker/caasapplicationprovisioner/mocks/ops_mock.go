@@ -80,6 +80,21 @@ func (mr *MockApplicationOpsMockRecorder) AppDying(arg0, arg1, arg2, arg3, arg4,
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppDying", reflect.TypeOf((*MockApplicationOps)(nil).AppDying), arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
+// CheckCharmFormat mocks base method.
+func (m *MockApplicationOps) CheckCharmFormat(arg0 string, arg1 caasapplicationprovisioner.CAASProvisionerFacade, arg2 caasapplicationprovisioner.Logger) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckCharmFormat", arg0, arg1, arg2)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CheckCharmFormat indicates an expected call of CheckCharmFormat.
+func (mr *MockApplicationOpsMockRecorder) CheckCharmFormat(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckCharmFormat", reflect.TypeOf((*MockApplicationOps)(nil).CheckCharmFormat), arg0, arg1, arg2)
+}
+
 // EnsureScale mocks base method.
 func (m *MockApplicationOps) EnsureScale(arg0 string, arg1 caas.Application, arg2 life.Value, arg3 caasapplicationprovisioner.CAASProvisionerFacade, arg4 caasapplicationprovisioner.CAASUnitProvisionerFacade, arg5 caasapplicationprovisioner.Logger) error {
 	m.ctrl.T.Helper()
@@ -149,35 +164,6 @@ func (m *MockApplicationOps) UpdateState(arg0 string, arg1 caas.Application, arg
 func (mr *MockApplicationOpsMockRecorder) UpdateState(arg0, arg1, arg2, arg3, arg4, arg5, arg6 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateState", reflect.TypeOf((*MockApplicationOps)(nil).UpdateState), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
-}
-
-// UpgradePodSpec mocks base method.
-func (m *MockApplicationOps) UpgradePodSpec(arg0 string, arg1 caasapplicationprovisioner.CAASBroker, arg2 clock.Clock, arg3 caasapplicationprovisioner.Tomb, arg4 caasapplicationprovisioner.Logger) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpgradePodSpec", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UpgradePodSpec indicates an expected call of UpgradePodSpec.
-func (mr *MockApplicationOpsMockRecorder) UpgradePodSpec(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradePodSpec", reflect.TypeOf((*MockApplicationOps)(nil).UpgradePodSpec), arg0, arg1, arg2, arg3, arg4)
-}
-
-// VerifyCharmUpgraded mocks base method.
-func (m *MockApplicationOps) VerifyCharmUpgraded(arg0 string, arg1 caasapplicationprovisioner.CAASProvisionerFacade, arg2 caasapplicationprovisioner.Tomb, arg3 caasapplicationprovisioner.Logger) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "VerifyCharmUpgraded", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// VerifyCharmUpgraded indicates an expected call of VerifyCharmUpgraded.
-func (mr *MockApplicationOpsMockRecorder) VerifyCharmUpgraded(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyCharmUpgraded", reflect.TypeOf((*MockApplicationOps)(nil).VerifyCharmUpgraded), arg0, arg1, arg2, arg3)
 }
 
 // WaitForTerminated mocks base method.

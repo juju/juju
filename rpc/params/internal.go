@@ -313,8 +313,6 @@ type CommitHookChangesArg struct {
 	ClosePorts           []EntityPortRange      `json:"close-ports,omitempty"`
 	SetUnitState         *SetUnitStateArg       `json:"unit-state,omitempty"`
 	AddStorage           []StorageAddParams     `json:"add-storage,omitempty"`
-	SetPodSpec           *PodSpec               `json:"pod-spec,omitempty"`
-	SetRawK8sSpec        *PodSpec               `json:"set-raw-k8s-spec,omitempty"`
 	SecretCreates        []CreateSecretArg      `json:"secret-creates,omitempty"`
 	SecretUpdates        []UpdateSecretArg      `json:"secret-updates,omitempty"`
 	SecretGrants         []GrantRevokeSecretArg `json:"secret-grants,omitempty"`
@@ -937,19 +935,6 @@ type UnitRefreshResults struct {
 type EntityString struct {
 	Tag   string `json:"tag"`
 	Value string `json:"value"`
-}
-
-// SetPodSpecParams holds the arguments for setting the pod
-// spec for a set of applications.
-// TODO(juju3) - remove
-type SetPodSpecParams struct {
-	Specs []EntityString `json:"specs"`
-}
-
-// PodSpec holds an entity tag and optional podspec value.
-type PodSpec struct {
-	Tag  string  `json:"tag"`
-	Spec *string `json:"spec,omitempty"`
 }
 
 // GoalStateResults holds the results of GoalStates API call

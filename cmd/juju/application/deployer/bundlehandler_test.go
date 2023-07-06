@@ -113,12 +113,10 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccess(c *gc.C) {
 	chUnits := []charmUnit{
 		{
 			curl:                 mysqlCurl,
-			charmMetaSeries:      []string{"bionic", "xenial"},
 			machine:              "0",
 			machineUbuntuVersion: "16.04",
 		},
 		{
-			charmMetaSeries:      []string{"bionic", "xenial"},
 			curl:                 wordpressCurl,
 			machine:              "1",
 			machineUbuntuVersion: "16.04",
@@ -162,12 +160,10 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccessWithModelConstraint
 	chUnits := []charmUnit{
 		{
 			curl:                 mysqlCurl,
-			charmMetaSeries:      []string{"bionic", "xenial"},
 			machine:              "0",
 			machineUbuntuVersion: "16.04",
 		},
 		{
-			charmMetaSeries:      []string{"bionic", "xenial"},
 			curl:                 wordpressCurl,
 			machine:              "1",
 			machineUbuntuVersion: "16.04",
@@ -249,7 +245,7 @@ applications:
     channel: 1.3/edge
 `
 
-func (s *BundleDeployRepositorySuite) TestDeployAddCharmHasSeries(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployAddCharmHasBase(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
@@ -279,11 +275,9 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccess(c *gc.C)
 	chUnits := []charmUnit{
 		{
 			curl:                 mariadbCurl,
-			charmMetaSeries:      []string{"kubernetes"},
 			machineUbuntuVersion: "kubernetes",
 		},
 		{
-			charmMetaSeries:      []string{"kubernetes"},
 			curl:                 gitlabCurl,
 			machineUbuntuVersion: "kubernetes",
 		},
@@ -404,7 +398,7 @@ func (s *BundleDeployRepositorySuite) expectK8sCharm(curl *charm.URL, rev int) *
 		Revision: fullCurl.Revision,
 		URL:      fullCurl.String(),
 		Meta: &charm.Meta{
-			Series: []string{"kubernetes"},
+			Containers: map[string]charm.Container{"mysql": {}},
 		},
 		Manifest: &charm.Manifest{
 			Bases: []charm.Base{
@@ -495,7 +489,7 @@ func (s *BundleDeployRepositorySuite) expectK8sCharmByRevision(curl *charm.URL, 
 		Revision: fullCurl.Revision,
 		URL:      fullCurl.String(),
 		Meta: &charm.Meta{
-			Series: []string{"kubernetes"},
+			Containers: map[string]charm.Container{"mysql": {}},
 		},
 		Manifest: &charm.Manifest{
 			Bases: []charm.Base{
@@ -522,12 +516,10 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleStorage(c *gc.C) {
 	chUnits := []charmUnit{
 		{
 			curl:                 mysqlCurl,
-			charmMetaSeries:      []string{"bionic", "xenial"},
 			machine:              "0",
 			machineUbuntuVersion: "18.04",
 		},
 		{
-			charmMetaSeries:      []string{"bionic", "xenial"},
 			curl:                 wordpressCurl,
 			machine:              "1",
 			machineUbuntuVersion: "18.04",
@@ -655,7 +647,7 @@ func (s *BundleDeployRepositorySuite) expectCharmhubK8sCharm(curl *charm.URL) *c
 		Revision: fullCurl.Revision,
 		URL:      fullCurl.String(),
 		Meta: &charm.Meta{
-			Series: []string{"kubernetes"},
+			Containers: map[string]charm.Container{"workload": {}},
 		},
 	}
 	s.expectCharmInfo(fullCurl.String(), charmInfo)
@@ -748,12 +740,10 @@ func (s *BundleDeployRepositorySuite) testExistingModel(c *gc.C, dryRun bool) {
 	chUnits := []charmUnit{
 		{
 			curl:                 mysqlCurl,
-			charmMetaSeries:      []string{"bionic", "xenial"},
 			machine:              "0",
 			machineUbuntuVersion: "18.04",
 		},
 		{
-			charmMetaSeries:      []string{"bionic", "xenial"},
 			curl:                 wordpressCurl,
 			machine:              "1",
 			machineUbuntuVersion: "18.04",
@@ -1554,12 +1544,10 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleAnnotations(c *gc.C) {
 	chUnits := []charmUnit{
 		{
 			curl:                 memCurl,
-			charmMetaSeries:      []string{"bionic", "focal"},
 			machine:              "0",
 			machineUbuntuVersion: "18.04",
 		},
 		{
-			charmMetaSeries:      []string{"bionic", "xenial"},
 			curl:                 djangoCurl,
 			machine:              "1",
 			machineUbuntuVersion: "18.04",
@@ -1770,7 +1758,6 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleExpose(c *gc.C) {
 	wordpressCurl := charm.MustParseURL("ch:bionic/wordpress")
 	chUnits := []charmUnit{
 		{
-			charmMetaSeries:      []string{"bionic", "xenial"},
 			curl:                 wordpressCurl,
 			machineUbuntuVersion: "18.04",
 		},
@@ -1809,22 +1796,18 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleMultipleRelations(c *gc.C)
 	varnishCurl := charm.MustParseURL("ch:varnish")
 	chUnits := []charmUnit{
 		{
-			charmMetaSeries:      []string{"bionic", "xenial"},
 			curl:                 mysqlCurl,
 			machineUbuntuVersion: "18.04",
 		},
 		{
-			charmMetaSeries:      []string{"bionic", "xenial"},
 			curl:                 pgresCurl,
 			machineUbuntuVersion: "16.04",
 		},
 		{
-			charmMetaSeries:      []string{"bionic", "xenial"},
 			curl:                 varnishCurl,
 			machineUbuntuVersion: "16.04",
 		},
 		{
-			charmMetaSeries:      []string{"bionic", "xenial"},
 			curl:                 wordpressCurl,
 			machineUbuntuVersion: "18.04",
 		},
@@ -1890,11 +1873,9 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleLocalDeployment(c *gc.C) {
 	chUnits := []charmUnit{
 		{
 			curl:                 mysqlCurl,
-			charmMetaSeries:      []string{"focal", "jammy"},
 			machineUbuntuVersion: "20.04",
 		},
 		{
-			charmMetaSeries:      []string{"focal", "jammy"},
 			curl:                 wordpressCurl,
 			machineUbuntuVersion: "20.04",
 		},
@@ -1992,7 +1973,6 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithEndpointBindings(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 	chUnits := []charmUnit{{
 		curl:                 grafanaCurl,
-		charmMetaSeries:      []string{"bionic", "xenial"},
 		machine:              "0",
 		machineUbuntuVersion: "18.04",
 	}}
@@ -2099,7 +2079,6 @@ func (s *BundleDeployRepositorySuite) assertDeployArgsDevices(c *gc.C, appName s
 
 type charmUnit struct {
 	curl                 *charm.URL
-	charmMetaSeries      []string
 	force                bool
 	machine              string
 	machineUbuntuVersion string
@@ -2119,9 +2098,20 @@ func (s *BundleDeployRepositorySuite) setupCharmUnits(charmUnits []charmUnit) {
 			Revision: chUnit.curl.Revision,
 			URL:      chUnit.curl.String(),
 			Meta: &charm.Meta{
-				Series: chUnit.charmMetaSeries,
+				//Series:     chUnit.charmMetaSeries,
+				Containers: map[string]charm.Container{"mysql": {}},
 			},
+			Manifest: &charm.Manifest{Bases: []charm.Base{
+				{Name: "ubuntu", Channel: charm.Channel{Track: "20.04"}},
+				{Name: "ubuntu", Channel: charm.Channel{Track: "22.04"}},
+			}},
 		}
+		//for _, ser := range chUnit.charmMetaSeries {
+		//	charmInfo.Manifest.Bases = append(charmInfo.Manifest.Bases, charm.Base{
+		//		Name:          "ubuntu",
+		//		Architectures: nil,
+		//	})
+		//}
 		s.expectCharmInfo(chUnit.curl.String(), charmInfo)
 		s.expectDeploy()
 		if chUnit.machineUbuntuVersion != "kubernetes" {

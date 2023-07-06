@@ -53,21 +53,3 @@ func (s *secretsSuite) TestCanManageLeaderUnitAppSecret(c *gc.C) {
 	_, err := secrets.CanManage(secretsConsumer, leadershipChecker, authTag, uri)
 	c.Assert(err, jc.ErrorIsNil)
 }
-
-func (s *secretsSuite) TestCanManageAppTagLogin(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	secretsConsumer := mocks.NewMockSecretsConsumer(ctrl)
-	leadershipChecker := mocks.NewMockChecker(ctrl)
-	authTag := names.NewApplicationTag("mariadb")
-
-	uri := coresecrets.NewURI()
-	gomock.InOrder(
-		secretsConsumer.EXPECT().SecretAccess(uri, authTag).Return(coresecrets.RoleManage, nil),
-	)
-
-	t, err := secrets.CanManage(secretsConsumer, leadershipChecker, authTag, uri)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(t.Check(), jc.ErrorIsNil)
-}

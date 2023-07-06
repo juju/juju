@@ -1,4 +1,4 @@
-// Copyright 2017 Canonical Ltd.
+// Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package caasfirewaller
@@ -88,13 +88,12 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	client := config.NewClient(apiCaller)
 	w, err := config.NewWorker(Config{
-		ControllerUUID:    config.ControllerUUID,
-		ModelUUID:         config.ModelUUID,
-		ApplicationGetter: client,
-		LifeGetter:        client,
-		CharmGetter:       client,
-		ServiceExposer:    broker,
-		Logger:            config.Logger,
+		ControllerUUID: config.ControllerUUID,
+		ModelUUID:      config.ModelUUID,
+		FirewallerAPI:  client,
+		LifeGetter:     client,
+		Broker:         broker,
+		Logger:         config.Logger,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

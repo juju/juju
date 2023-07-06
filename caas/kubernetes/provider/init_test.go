@@ -18,10 +18,6 @@ var _ = gc.Suite(&initSuite{})
 
 func (s *initSuite) TestLabelSelectorGlobalResourcesLifecycle(c *gc.C) {
 	c.Assert(
-		provider.CompileLifecycleApplicationRemovalSelector().String(), gc.DeepEquals,
-		`juju-resource-lifecycle notin (model,persistent)`,
-	)
-	c.Assert(
 		provider.CompileLifecycleModelTeardownSelector().String(), gc.DeepEquals,
 		`juju-resource-lifecycle notin (persistent)`,
 	)

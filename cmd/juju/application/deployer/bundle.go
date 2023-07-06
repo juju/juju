@@ -212,9 +212,14 @@ func (d *deployBundle) makeBundleDeploySpec(ctx *cmd.Context, apiRoot DeployerAP
 		knownSpaceNames.Add(space.Name)
 	}
 
+	modelType, err := d.model.ModelType()
+	if err != nil {
+		return bundleDeploySpec{}, errors.Trace(err)
+	}
 	return bundleDeploySpec{
 		ctx:                  ctx,
 		filesystem:           d.model.Filesystem(),
+		modelType:            modelType,
 		dryRun:               d.dryRun,
 		force:                d.force,
 		trust:                d.trust,

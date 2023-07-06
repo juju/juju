@@ -50,7 +50,6 @@ var (
 	_ backingEntityDoc = (*backingAction)(nil)
 	_ backingEntityDoc = (*backingBlock)(nil)
 	_ backingEntityDoc = (*backingGeneration)(nil)
-	_ backingEntityDoc = (*backingPodSpec)(nil)
 )
 
 var dottedConfig = `
@@ -657,98 +656,10 @@ func (s *allWatcherStateSuite) TestChangeApplications(c *gc.C) {
 	testChangeApplications(c, s.owner, s.performChangeTestCases)
 }
 
-func strPtr(s string) *string {
-	return &s
-}
-
 func (s *allWatcherStateSuite) TestChangeCAASApplications(c *gc.C) {
 	loggo.GetLogger("juju.txn").SetLogLevel(loggo.TRACE)
 	changeTestFuncs := []changeTestFunc{
 		// Applications.
-		func(c *gc.C, st *State) changeTestCase {
-			return changeTestCase{
-				about: "not finding a podspec for a change is fine",
-				change: watcher.Change{
-					C:  "podSpecs",
-					Id: st.docID(applicationGlobalKey("mysql")),
-				}}
-		},
-		func(c *gc.C, st *State) changeTestCase {
-			caasSt := s.newCAASState(c)
-			m, err := caasSt.Model()
-			c.Assert(err, jc.ErrorIsNil)
-			cm, err := m.CAASModel()
-			c.Assert(err, jc.ErrorIsNil)
-			ch := AddTestingCharmForSeries(c, caasSt, "kubernetes", "mysql")
-			mysql := AddTestingApplicationForBase(c, caasSt, UbuntuBase("20.04"), "mysql", ch)
-			err = cm.SetPodSpec(nil, mysql.ApplicationTag(), strPtr("some podspec"))
-			c.Assert(err, jc.ErrorIsNil)
-			now := st.clock().Now()
-			return changeTestCase{
-				about: "initial CAAS application has podspec",
-				change: watcher.Change{
-					C:  "applications",
-					Id: caasSt.docID("mysql"),
-				},
-				expectContents: []multiwatcher.EntityInfo{
-					&multiwatcher.ApplicationInfo{
-						ModelUUID:   caasSt.ModelUUID(),
-						Name:        "mysql",
-						CharmURL:    "local:kubernetes/kubernetes-mysql-0",
-						Life:        "alive",
-						Config:      map[string]interface{}{},
-						Constraints: constraints.MustParse("arch=amd64"),
-						Status: multiwatcher.StatusInfo{
-							Current: "unset",
-							Data:    map[string]interface{}{},
-							Since:   &now,
-						},
-						OperatorStatus: multiwatcher.StatusInfo{
-							Current: "waiting",
-							Message: "waiting for container",
-							Data:    map[string]interface{}{},
-							Since:   &now,
-						},
-						PodSpec: &multiwatcher.PodSpec{
-							Spec: "some podspec",
-						},
-					},
-				},
-			}
-		},
-		func(c *gc.C, st *State) changeTestCase {
-			caasSt := s.newCAASState(c)
-			m, err := caasSt.Model()
-			c.Assert(err, jc.ErrorIsNil)
-			cm, err := m.CAASModel()
-			c.Assert(err, jc.ErrorIsNil)
-			ch := AddTestingCharmForSeries(c, caasSt, "kubernetes", "mysql")
-			mysql := AddTestingApplicationForBase(c, caasSt, UbuntuBase("20.04"), "mysql", ch)
-			err = cm.SetPodSpec(nil, mysql.ApplicationTag(), strPtr("some podspec"))
-			c.Assert(err, jc.ErrorIsNil)
-			return changeTestCase{
-				about: "application podspec is updated",
-				initialContents: []multiwatcher.EntityInfo{
-					&multiwatcher.ApplicationInfo{
-						ModelUUID: caasSt.ModelUUID(),
-						Name:      "mysql",
-					},
-				},
-				change: watcher.Change{
-					C:  "podSpecs",
-					Id: caasSt.docID(applicationGlobalKey("mysql")),
-				},
-				expectContents: []multiwatcher.EntityInfo{
-					&multiwatcher.ApplicationInfo{
-						ModelUUID: caasSt.ModelUUID(),
-						Name:      "mysql",
-						PodSpec: &multiwatcher.PodSpec{
-							Spec: "some podspec",
-						},
-					},
-				},
-			}
-		},
 		func(c *gc.C, st *State) changeTestCase {
 			caasSt := s.newCAASState(c)
 			ch := AddTestingCharmForSeries(c, caasSt, "kubernetes", "mysql")

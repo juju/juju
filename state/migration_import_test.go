@@ -746,15 +746,9 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	platform := &state.Platform{Architecture: arch.DefaultArchitecture, OS: "ubuntu", Channel: "20.04/stable"}
 	charm, application, pwd := s.setupSourceApplications(c, caasSt, cons, platform, true)
 
-	model, err := caasSt.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	caasModel, err := model.CAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-	err = caasModel.SetPodSpec(nil, application.ApplicationTag(), strPtr("pod spec"))
-	c.Assert(err, jc.ErrorIsNil)
 	addr := network.NewSpaceAddress("192.168.1.1", network.WithScope(network.ScopeCloudLocal))
 	addr.SpaceID = "0"
-	err = application.UpdateCloudService("provider-id", []network.SpaceAddress{addr})
+	err := application.UpdateCloudService("provider-id", []network.SpaceAddress{addr})
 	c.Assert(err, jc.ErrorIsNil)
 
 	allApplications, err := caasSt.AllApplications()
@@ -773,11 +767,6 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 		Revision: strconv.Itoa(charm.Revision()),
 	})
 	s.assertImportedApplication(c, application, pwd, cons, exported, newModel, newSt, true)
-	newCAASModel, err := newModel.CAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-	podSpec, err := newCAASModel.PodSpec(application.ApplicationTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(podSpec, gc.Equals, "pod spec")
 	newApp, err := newSt.Application(application.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	cloudService, err := newApp.ServiceInfo()
@@ -823,12 +812,6 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	err = application.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	testModel, err := caasSt.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	caasModel, err := testModel.CAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-	err = caasModel.SetPodSpec(nil, application.ApplicationTag(), strPtr("pod spec"))
-	c.Assert(err, jc.ErrorIsNil)
 	addr := network.NewSpaceAddress("192.168.1.1", network.WithScope(network.ScopeCloudLocal))
 	err = application.UpdateCloudService("provider-id", []network.SpaceAddress{addr})
 	c.Assert(err, jc.ErrorIsNil)

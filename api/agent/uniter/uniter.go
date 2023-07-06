@@ -584,60 +584,6 @@ func goalStateFromParams(paramsGoalState *params.GoalState) application.GoalStat
 	return goalState
 }
 
-// GetPodSpec gets the pod spec of the specified application.
-func (client *Client) GetPodSpec(appName string) (string, error) {
-	if !names.IsValidApplication(appName) {
-		return "", errors.NotValidf("application name %q", appName)
-	}
-	tag := names.NewApplicationTag(appName)
-	var result params.StringResults
-	args := params.Entities{
-		Entities: []params.Entity{{
-			Tag: tag.String(),
-		}},
-	}
-	if err := client.facade.FacadeCall("GetPodSpec", args, &result); err != nil {
-		return "", errors.Trace(err)
-	}
-	if len(result.Results) != 1 {
-		return "", fmt.Errorf("expected 1 result, got %d", len(result.Results))
-	}
-	if err := result.Results[0].Error; err != nil {
-		if params.IsCodeNotFound(result.Results[0].Error) {
-			return "", errors.NotFoundf("podspec for application %s", appName)
-		}
-		return "", err
-	}
-	return result.Results[0].Result, nil
-}
-
-// GetRawK8sSpec gets the raw k8s spec of the specified application.
-func (client *Client) GetRawK8sSpec(appName string) (string, error) {
-	if !names.IsValidApplication(appName) {
-		return "", errors.NotValidf("application name %q", appName)
-	}
-	tag := names.NewApplicationTag(appName)
-	var result params.StringResults
-	args := params.Entities{
-		Entities: []params.Entity{{
-			Tag: tag.String(),
-		}},
-	}
-	if err := client.facade.FacadeCall("GetRawK8sSpec", args, &result); err != nil {
-		return "", errors.Trace(err)
-	}
-	if len(result.Results) != 1 {
-		return "", fmt.Errorf("expected 1 result, got %d", len(result.Results))
-	}
-	if err := result.Results[0].Error; err != nil {
-		if params.IsCodeNotFound(result.Results[0].Error) {
-			return "", errors.NotFoundf("raw k8s spec for application %s", appName)
-		}
-		return "", err
-	}
-	return result.Results[0].Result, nil
-}
-
 // CloudSpec returns the cloud spec for the model that calling unit or
 // application resides in.
 // If the application has not been authorised to access its cloud spec,

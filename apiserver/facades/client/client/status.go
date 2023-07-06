@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
@@ -1295,11 +1294,7 @@ func (context *statusContext) processApplication(application *state.Application)
 	}
 	units := context.allAppsUnitsCharmBindings.units[application.Name()]
 	if application.IsPrincipal() {
-		expectWorkload, err := state.CheckApplicationExpectsWorkload(context.model, application.Name())
-		if err != nil {
-			return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
-		}
-		processedStatus.Units = context.processUnits(units, applicationCharm.String(), expectWorkload)
+		processedStatus.Units = context.processUnits(units, applicationCharm.String())
 	}
 
 	applicationStatus := status.StatusInfo{Status: status.Unknown}
@@ -1337,30 +1332,6 @@ func (context *statusContext) processApplication(application *state.Application)
 	}
 
 	modelType := context.model.Type()
-	if processedStatus.WorkloadVersion == "" && modelType == state.ModelTypeCAAS {
-		// We'll punt on using the docker image name.
-		caasModel, err := context.model.CAASModel()
-		if err != nil {
-			return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
-		}
-		specStr, err := caasModel.PodSpec(application.ApplicationTag())
-		if err != nil && !errors.IsNotFound(err) {
-			return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
-		}
-		// TODO(caas): get WorkloadVersion from rawSpec once `ParseRawK8sSpec` is implemented.
-		if specStr != "" {
-			spec, err := k8sspecs.ParsePodSpec(specStr)
-			if err != nil {
-				return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
-			}
-			// Container zero is the primary.
-			primary := spec.Containers[0]
-			processedStatus.WorkloadVersion = primary.ImageDetails.ImagePath
-			if processedStatus.WorkloadVersion == "" {
-				processedStatus.WorkloadVersion = spec.Containers[0].Image
-			}
-		}
-	}
 	if modelType == state.ModelTypeCAAS {
 		serviceInfo, err := application.ServiceInfo()
 		if err == nil {
@@ -1498,11 +1469,10 @@ func (context *statusContext) processUnitMeterStatuses(units map[string]*state.U
 	return nil
 }
 
-func (context *statusContext) processUnits(units map[string]*state.Unit, applicationCharm string,
-	expectWorkload bool) map[string]params.UnitStatus {
+func (context *statusContext) processUnits(units map[string]*state.Unit, applicationCharm string) map[string]params.UnitStatus {
 	unitsMap := make(map[string]params.UnitStatus)
 	for _, unit := range units {
-		unitsMap[unit.Name()] = context.processUnit(unit, applicationCharm, expectWorkload)
+		unitsMap[unit.Name()] = context.processUnit(unit, applicationCharm)
 	}
 	return unitsMap
 }
@@ -1532,8 +1502,7 @@ func (context *statusContext) unitPublicAddress(unit *state.Unit) string {
 	return addr.Value
 }
 
-func (context *statusContext) processUnit(unit *state.Unit, applicationCharm string,
-	expectWorkload bool) params.UnitStatus {
+func (context *statusContext) processUnit(unit *state.Unit, applicationCharm string) params.UnitStatus {
 	var result params.UnitStatus
 	if context.model.Type() == state.ModelTypeIAAS {
 		result.PublicAddress = context.unitPublicAddress(unit)
@@ -1574,7 +1543,7 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 		logger.Debugf("error fetching workload version: %v", err)
 	}
 
-	result.AgentStatus, result.WorkloadStatus = context.processUnitAndAgentStatus(unit, expectWorkload)
+	result.AgentStatus, result.WorkloadStatus = context.processUnitAndAgentStatus(unit)
 
 	if subUnits := unit.SubordinateNames(); len(subUnits) > 0 {
 		result.Subordinates = make(map[string]params.UnitStatus)
@@ -1593,7 +1562,7 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 				} else {
 					logger.Debugf("error fetching subordinate application charm for %q", subUnit.ApplicationName())
 				}
-				result.Subordinates[name] = context.processUnit(subUnit, subUnitAppCharm, true)
+				result.Subordinates[name] = context.processUnit(subUnit, subUnitAppCharm)
 			}
 		}
 	}
@@ -1682,8 +1651,7 @@ type lifer interface {
 // status values, and delegates everything else to the Unit.
 type contextUnit struct {
 	*state.Unit
-	expectWorkload bool
-	context        *statusContext
+	context *statusContext
 }
 
 // AgentStatus implements UnitStatusGetter.
@@ -1693,13 +1661,12 @@ func (c *contextUnit) AgentStatus() (status.StatusInfo, error) {
 
 // Status implements UnitStatusGetter.
 func (c *contextUnit) Status() (status.StatusInfo, error) {
-	return c.context.status.UnitWorkload(c.Name(), c.expectWorkload)
+	return c.context.status.UnitWorkload(c.Name())
 }
 
 // processUnitAndAgentStatus retrieves status information for both unit and unitAgents.
-func (c *statusContext) processUnitAndAgentStatus(unit *state.Unit,
-	expectWorkload bool) (agentStatus, workloadStatus params.DetailedStatus) {
-	wrapped := &contextUnit{unit, expectWorkload, c}
+func (c *statusContext) processUnitAndAgentStatus(unit *state.Unit) (agentStatus, workloadStatus params.DetailedStatus) {
+	wrapped := &contextUnit{unit, c}
 	agent, workload := c.presence.UnitStatus(wrapped)
 	populateStatusFromStatusInfoAndErr(&agentStatus, agent.Status, agent.Err)
 	populateStatusFromStatusInfoAndErr(&workloadStatus, workload.Status, workload.Err)

@@ -55,11 +55,6 @@ func CanManage(
 			// leader unit can manage app owned secret.
 			return LeadershipToken(authTag, leadershipChecker)
 		}
-	case names.ApplicationTag:
-		// TODO(wallyworld) - remove auth tag kind check when podspec charms are gone.
-		if hasRole(api, uri, appTag, coresecrets.RoleManage) {
-			return successfulToken{}, nil
-		}
 	}
 	return nil, apiservererrors.ErrPerm
 }
@@ -72,8 +67,7 @@ func CanRead(api SecretsConsumer, authTag names.Tag, uri *coresecrets.URI, entit
 		return true
 	}
 
-	// 1. all units can read secrets owned by application.
-	// 2. units of podspec applications can do this as well.
+	// All units can read secrets owned by application.
 	appName := AuthTagApp(authTag)
 	hasRole, _ = api.SecretAccess(uri, names.NewApplicationTag(appName))
 	return hasRole.Allowed(coresecrets.RoleView)
@@ -87,8 +81,7 @@ func OwnerToken(authTag names.Tag, ownerTag names.Tag, leadershipChecker leaders
 	}
 	// A unit can create a secret so long as the
 	// secret owner is that unit's app.
-	// TODO(wallyworld) - remove auth tag kind check when podspec charms are gone.
-	if authTag.Kind() == names.ApplicationTagKind || authTag.Id() == ownerTag.Id() {
+	if authTag.Id() == ownerTag.Id() {
 		return successfulToken{}, nil
 	}
 	return LeadershipToken(authTag, leadershipChecker)

@@ -28,18 +28,6 @@ func (dummyHookContext) AddMetrics(_, _ string, _ time.Time) error {
 func (dummyHookContext) UnitName() string {
 	return ""
 }
-func (dummyHookContext) SetPodSpec(specYaml string) error {
-	return nil
-}
-func (dummyHookContext) GetPodSpec() (string, error) {
-	return "", nil
-}
-func (dummyHookContext) SetRawK8sSpec(specYaml string) error {
-	return nil
-}
-func (dummyHookContext) GetRawK8sSpec() (string, error) {
-	return "", nil
-}
 func (dummyHookContext) PublicAddress() (string, error) {
 	return "", errors.NotFoundf("PublicAddress")
 }

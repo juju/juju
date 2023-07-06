@@ -18,6 +18,7 @@ import (
 	applicationapi "github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
+	apicharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
 	coreapplication "github.com/juju/juju/core/application"
@@ -25,6 +26,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/series"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/storage"
@@ -56,6 +58,19 @@ type deployCharm struct {
 	validateResourcesNeededForLocalDeploy func(charmMeta *charm.Meta) error
 }
 
+func checkCharmFormat(m ModelCommand, charmInfo *apicharms.CharmInfo) error {
+	modelType, err := m.ModelType()
+	if err != nil {
+		return err
+	}
+	if modelType == model.CAAS {
+		if ch := charmInfo.Charm(); charm.MetaFormat(ch) == charm.FormatV1 {
+			return errors.NotSupportedf("deploying format v1 charms")
+		}
+	}
+	return nil
+}
+
 // deploy is the business logic of deploying a charm after
 // it's been prepared.
 func (d *deployCharm) deploy(
@@ -67,7 +82,9 @@ func (d *deployCharm) deploy(
 	if err != nil {
 		return err
 	}
-	checkPodspec(charmInfo.Charm(), ctx)
+	if err := checkCharmFormat(d.model, charmInfo); err != nil {
+		return err
+	}
 
 	// storage cannot be added to a container.
 	if len(d.storage) > 0 || len(d.attachStorage) > 0 {
@@ -239,7 +256,9 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 		return errors.Trace(err)
 	}
 	ctx.Infof(formatLocatedText(d.userCharmURL, commoncharm.Origin{}))
-	checkPodspec(charmInfo.Charm(), ctx)
+	if err := checkCharmFormat(d.model, charmInfo); err != nil {
+		return err
+	}
 
 	if err := d.validateResourcesNeededForLocalDeploy(charmInfo.Meta); err != nil {
 		return errors.Trace(err)

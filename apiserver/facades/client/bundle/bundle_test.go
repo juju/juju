@@ -1589,7 +1589,6 @@ func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
 		},
 		MetricsCredentials: []byte("sekrit"),
 		PasswordHash:       "passwordhash",
-		PodSpec:            "podspec",
 	})
 	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/18.04/stable"})
 	application.SetStatus(minimalStatusArgs())
