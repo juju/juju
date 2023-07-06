@@ -29,7 +29,7 @@ func newModelCommand() cmd.Command {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return watchAllAPIShim{
+		return modelAllWatchShim{
 			Client: client,
 		}, nil
 	}
@@ -58,9 +58,6 @@ type modelCommand struct {
 	summary bool
 	found   bool
 
-	// TODO (stickupkid): Generalize this to become a local cache, similar to
-	// the model cache but not with the hierarchy or complexity (for example,
-	// we don't need the mark+sweep gc).
 	model        *params.ModelUpdate
 	applications map[string]*params.ApplicationInfo
 	machines     map[string]*params.MachineInfo
@@ -116,7 +113,7 @@ func (c *modelCommand) Run(ctx *cmd.Context) (err error) {
 			ctx.Infof("Model %q is being removed", c.name)
 		default:
 			ctx.Infof("Model %q is running", c.name)
-			outputModelSummary(ctx.Stdout, scopedContext, c)
+			outputModelSummary(ctx.Stdout, scopedContext, c.model, c.applications, c.units, c.machines)
 		}
 	}()
 
@@ -141,6 +138,15 @@ func (c *modelCommand) primeCache() {
 }
 
 func (c *modelCommand) waitFor(input string, ctx ScopeContext) func(string, []params.Delta, query.Query) (bool, error) {
+	run := func(q query.Query) (bool, error) {
+		scope := MakeModelScope(ctx, c.model, c.applications, c.units, c.machines)
+		if done, err := runQuery(input, q, scope); err != nil {
+			return false, errors.Trace(err)
+		} else if done {
+			return true, nil
+		}
+		return c.model.Life == life.Dead, nil
+	}
 	return func(name string, deltas []params.Delta, q query.Query) (bool, error) {
 		for _, delta := range deltas {
 			logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
@@ -181,15 +187,12 @@ func (c *modelCommand) waitFor(input string, ctx ScopeContext) func(string, []pa
 		}
 
 		if c.model != nil {
-			scope := MakeModelScope(ctx, c)
-			if done, err := runQuery(input, q, scope); err != nil {
+			if done, err := run(q); err != nil {
 				return false, errors.Trace(err)
 			} else if done {
 				return true, nil
 			}
-		}
-
-		if !c.found {
+		} else {
 			logger.Infof("model %q not found, waiting...", name)
 			return false, nil
 		}
@@ -201,17 +204,26 @@ func (c *modelCommand) waitFor(input string, ctx ScopeContext) func(string, []pa
 
 // ModelScope allows the query to introspect a model entity.
 type ModelScope struct {
-	ctx       ScopeContext
-	ModelInfo *params.ModelUpdate
-	Model     *modelCommand
+	ctx              ScopeContext
+	ModelInfo        *params.ModelUpdate
+	ApplicationInfos map[string]*params.ApplicationInfo
+	UnitInfos        map[string]*params.UnitInfo
+	MachineInfos     map[string]*params.MachineInfo
 }
 
 // MakeModelScope creates a ModelScope from a ModelUpdate
-func MakeModelScope(ctx ScopeContext, model *modelCommand) ModelScope {
+func MakeModelScope(ctx ScopeContext,
+	modelInfo *params.ModelUpdate,
+	applicationInfos map[string]*params.ApplicationInfo,
+	unitInfos map[string]*params.UnitInfo,
+	machineInfos map[string]*params.MachineInfo,
+) ModelScope {
 	return ModelScope{
-		ctx:       ctx,
-		ModelInfo: model.model,
-		Model:     model,
+		ctx:              ctx,
+		ModelInfo:        modelInfo,
+		ApplicationInfos: applicationInfos,
+		UnitInfos:        unitInfos,
+		MachineInfos:     machineInfos,
 	}
 }
 
@@ -241,10 +253,17 @@ func (m ModelScope) GetIdentValue(name string) (query.Box, error) {
 		return query.NewMapStringInterface(m.ModelInfo.Config), nil
 	case "applications":
 		scopes := make(map[string]query.Scope)
-		for k, app := range m.Model.applications {
+		for k, app := range m.ApplicationInfos {
 			units := make(map[string]*params.UnitInfo)
-			for n, unit := range m.Model.units {
+			machines := make(map[string]*params.MachineInfo)
+			for n, unit := range m.UnitInfos {
 				if unit.Application == app.Name {
+					for m, machine := range m.MachineInfos {
+						if machine.Id == unit.MachineId {
+							machines[m] = machine
+						}
+					}
+
 					units[n] = unit
 				}
 			}
@@ -255,23 +274,30 @@ func (m ModelScope) GetIdentValue(name string) (query.Box, error) {
 			appInfo := app
 			appInfo.Status.Current = newStatus
 
-			scopes[k] = MakeApplicationScope(m.ctx.Child(name, app.Name), appInfo, units)
+			scopes[k] = MakeApplicationScope(m.ctx.Child(name, app.Name), appInfo, units, machines)
 		}
 		return NewScopedBox(scopes), nil
 	case "machines":
 		scopes := make(map[string]query.Scope)
-		for k, machine := range m.Model.machines {
+		for k, machine := range m.MachineInfos {
 			scopes[k] = MakeMachineScope(m.ctx.Child(name, machine.Id), machine)
 		}
 		return NewScopedBox(scopes), nil
 	case "units":
 		scopes := make(map[string]query.Scope)
-		for k, unit := range m.Model.units {
-			scopes[k] = MakeUnitScope(m.ctx.Child(name, unit.Name), unit)
+		for k, unit := range m.UnitInfos {
+			machines := make(map[string]*params.MachineInfo)
+			for n, machine := range m.MachineInfos {
+				if machine.Id == unit.MachineId {
+					machines[n] = machine
+				}
+			}
+
+			scopes[k] = MakeUnitScope(m.ctx.Child(name, unit.Name), unit, machines)
 		}
 		return NewScopedBox(scopes), nil
 	}
-	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "%q on ModelInfo", name)
+	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name, m), "%q on ModelInfo", name)
 }
 
 // ScopedBox defines a scoped box of scopes.
@@ -303,12 +329,12 @@ func (o *ScopedBox) IsZero() bool {
 }
 
 // Value defines the shadow type value of the Box.
-func (o *ScopedBox) Value() interface{} {
+func (o *ScopedBox) Value() any {
 	return o
 }
 
 // ForEach iterates over each value in the box.
-func (o *ScopedBox) ForEach(fn func(interface{}) bool) {
+func (o *ScopedBox) ForEach(fn func(any) bool) {
 	for _, v := range o.scopes {
 		if !fn(v) {
 			return
@@ -316,27 +342,33 @@ func (o *ScopedBox) ForEach(fn func(interface{}) bool) {
 	}
 }
 
-func outputModelSummary(writer io.Writer, scopedContext ScopeContext, c *modelCommand) {
+func outputModelSummary(writer io.Writer,
+	scopedContext ScopeContext,
+	modelInfo *params.ModelUpdate,
+	applications map[string]*params.ApplicationInfo,
+	units map[string]*params.UnitInfo,
+	machines map[string]*params.MachineInfo,
+) {
 	result := struct {
-		Elements     map[string]interface{}            `yaml:"properties"`
-		Applications map[string]map[string]interface{} `yaml:"applications,omitempty"`
-		Machines     map[string]map[string]interface{} `yaml:"machines,omitempty"`
-		Units        map[string]map[string]interface{} `yaml:"units,omitempty"`
+		Properties   map[string]any            `yaml:"properties"`
+		Applications map[string]map[string]any `yaml:"applications,omitempty"`
+		Units        map[string]map[string]any `yaml:"units,omitempty"`
+		Machines     map[string]map[string]any `yaml:"machines,omitempty"`
 	}{
-		Elements:     make(map[string]interface{}),
-		Applications: make(map[string]map[string]interface{}),
-		Machines:     make(map[string]map[string]interface{}),
-		Units:        make(map[string]map[string]interface{}),
+		Properties:   make(map[string]any),
+		Applications: make(map[string]map[string]any),
+		Units:        make(map[string]map[string]any),
+		Machines:     make(map[string]map[string]any),
 	}
 
 	idents := scopedContext.RecordedIdents()
 	for _, ident := range idents {
-		scope := MakeModelScope(scopedContext, c)
+		scope := MakeModelScope(scopedContext, modelInfo, applications, units, machines)
 		box, err := scope.GetIdentValue(ident)
 		if err != nil {
 			continue
 		}
-		result.Elements[ident] = box.Value()
+		result.Properties[ident] = box.Value()
 	}
 	for entity, scopes := range scopedContext.children {
 		for name, sctx := range scopes {
@@ -344,10 +376,10 @@ func outputModelSummary(writer io.Writer, scopedContext ScopeContext, c *modelCo
 
 			switch entity {
 			case "applications":
-				appInfo := c.applications[name]
-				scope := MakeApplicationScope(scopedContext, appInfo, c.units)
+				appInfo := applications[name]
+				scope := MakeApplicationScope(scopedContext, appInfo, units, machines)
 
-				result.Applications[name] = make(map[string]interface{})
+				result.Applications[name] = make(map[string]any)
 
 				for _, ident := range idents {
 					box, err := scope.GetIdentValue(ident)
@@ -356,11 +388,25 @@ func outputModelSummary(writer io.Writer, scopedContext ScopeContext, c *modelCo
 					}
 					result.Applications[name][ident] = box.Value()
 				}
+
+			case "units":
+				unitInfo := units[name]
+				scope := MakeUnitScope(scopedContext, unitInfo, machines)
+
+				result.Units[name] = make(map[string]any)
+				for _, ident := range idents {
+					box, err := scope.GetIdentValue(ident)
+					if err != nil {
+						continue
+					}
+					result.Units[name][ident] = box.Value()
+				}
+
 			case "machines":
-				machineInfo := c.machines[name]
+				machineInfo := machines[name]
 				scope := MakeMachineScope(scopedContext, machineInfo)
 
-				result.Machines[name] = make(map[string]interface{})
+				result.Machines[name] = make(map[string]any)
 
 				for _, ident := range idents {
 					box, err := scope.GetIdentValue(ident)
@@ -368,18 +414,6 @@ func outputModelSummary(writer io.Writer, scopedContext ScopeContext, c *modelCo
 						continue
 					}
 					result.Machines[name][ident] = box.Value()
-				}
-			case "units":
-				unitInfo := c.units[name]
-				scope := MakeUnitScope(scopedContext, unitInfo)
-
-				result.Units[name] = make(map[string]interface{})
-				for _, ident := range idents {
-					box, err := scope.GetIdentValue(ident)
-					if err != nil {
-						continue
-					}
-					result.Units[name][ident] = box.Value()
 				}
 			}
 		}

@@ -88,11 +88,16 @@ func helpLineError(input string, pos query.Position) string {
 
 	builder.WriteString(getLine(input, pos.Line))
 	builder.WriteString("\n")
-	builder.WriteString(strings.Repeat(" ", len(ledger)+(pos.Column-1)))
+
+	leading := len(ledger) + (pos.Column - 1)
+	builder.WriteString(strings.Repeat(" ", leading))
 
 	offset := 1
 	if pos.Offset > 0 {
 		offset = pos.Offset
+	}
+	if leading+offset > len(input) {
+		offset = leading - len(input)
 	}
 	builder.WriteString(strings.Repeat("^", offset))
 	builder.WriteString("\n")
@@ -122,7 +127,7 @@ func getLine(input string, line int) string {
 	return ""
 }
 
-func invalidIdentifierDisplay(err error, input string, idents []string) error {
+func invalidIdentifierDisplay(err error, input string, defaultIdents []string) error {
 	cause := errors.Cause(err)
 	identErr := cause.(*query.InvalidIdentifierError)
 
@@ -137,6 +142,11 @@ func invalidIdentifierDisplay(err error, input string, idents []string) error {
 	builder.WriteString(" ")
 	builder.WriteString(err.Error())
 	builder.WriteString("\n")
+
+	idents := defaultIdents
+	if identErr.Scope() != nil {
+		idents = identErr.Scope().GetIdents()
+	}
 
 	first, other, ok := orderPotentialMatches(identErr.Name(), idents)
 	if !ok {

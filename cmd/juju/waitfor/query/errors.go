@@ -11,8 +11,9 @@ import (
 
 // InvalidIdentifierError creates an invalid error.
 type InvalidIdentifierError struct {
-	name string
-	err  error
+	name  string
+	err   error
+	scope Scope
 }
 
 func (e *InvalidIdentifierError) Error() string {
@@ -27,10 +28,15 @@ func (e *InvalidIdentifierError) Name() string {
 	return e.name
 }
 
+func (e *InvalidIdentifierError) Scope() Scope {
+	return e.scope
+}
+
 // ErrInvalidIdentifier defines a sentinel error for invalid identifiers.
-func ErrInvalidIdentifier(name string) error {
+func ErrInvalidIdentifier(name string, scope Scope) error {
 	return &InvalidIdentifierError{
-		name: name,
+		name:  name,
+		scope: scope,
 	}
 }
 

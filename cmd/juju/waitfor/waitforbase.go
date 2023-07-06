@@ -19,11 +19,11 @@ type waitForCommandBase struct {
 	newWatchAllAPIFunc func() (api.WatchAllAPI, error)
 }
 
-type watchAllAPIShim struct {
+type modelAllWatchShim struct {
 	*apiclient.Client
 }
 
-func (s watchAllAPIShim) WatchAll() (api.AllWatcher, error) {
+func (s modelAllWatchShim) WatchAll() (api.AllWatcher, error) {
 	return s.Client.WatchAll()
 }
 

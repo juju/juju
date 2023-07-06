@@ -92,15 +92,17 @@ func (p *parserSuite) TestParserString(c *gc.C) {
 			&ExpressionStatement{
 				Expression: &String{
 					Token: Token{
-						Pos:     Position{Line: 1, Column: 1, Offset: 0},
-						Type:    STRING,
-						Literal: "abc",
+						Pos:        Position{Line: 1, Column: 1, Offset: 0},
+						Type:       STRING,
+						Literal:    "abc",
+						Terminated: true,
 					},
 				},
 				Token: Token{
-					Pos:     Position{Line: 1, Column: 1, Offset: 0},
-					Type:    STRING,
-					Literal: "abc",
+					Pos:        Position{Line: 1, Column: 1, Offset: 0},
+					Type:       STRING,
+					Literal:    "abc",
+					Terminated: true,
 				},
 			},
 		},

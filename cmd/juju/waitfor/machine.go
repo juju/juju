@@ -28,7 +28,7 @@ func newMachineCommand() cmd.Command {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return watchAllAPIShim{
+		return modelAllWatchShim{
 			Client: client,
 		}, nil
 	}
@@ -54,10 +54,9 @@ type machineCommand struct {
 	id      string
 	query   string
 	timeout time.Duration
-	found   bool
 	summary bool
 
-	machineInfo params.MachineInfo
+	machineInfo *params.MachineInfo
 }
 
 // Info implements Command.Info.
@@ -109,7 +108,7 @@ func (c *machineCommand) Run(ctx *cmd.Context) (err error) {
 			ctx.Infof("Machine %q is being removed", c.id)
 		default:
 			ctx.Infof("Machine %q is running", c.id)
-			outputMachineSummary(ctx.Stdout, scopedContext, &c.machineInfo)
+			outputMachineSummary(ctx.Stdout, scopedContext, c.machineInfo)
 		}
 	}()
 
@@ -122,6 +121,15 @@ func (c *machineCommand) Run(ctx *cmd.Context) (err error) {
 }
 
 func (c *machineCommand) waitFor(input string, ctx ScopeContext) func(string, []params.Delta, query.Query) (bool, error) {
+	run := func(q query.Query) (bool, error) {
+		scope := MakeMachineScope(ctx, c.machineInfo)
+		if done, err := runQuery(input, q, scope); err != nil {
+			return false, errors.Trace(err)
+		} else if done {
+			return true, nil
+		}
+		return c.machineInfo.Life == life.Dead, nil
+	}
 	return func(id string, deltas []params.Delta, q query.Query) (bool, error) {
 		for _, delta := range deltas {
 			logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
@@ -136,19 +144,17 @@ func (c *machineCommand) waitFor(input string, ctx ScopeContext) func(string, []
 					return false, errors.Errorf("machine %v removed", id)
 				}
 
-				c.machineInfo = *entityInfo
-
-				scope := MakeMachineScope(ctx, entityInfo)
-				if done, err := runQuery(input, q, scope); err != nil {
-					return false, errors.Trace(err)
-				} else if done {
-					return true, nil
-				}
-				c.found = entityInfo.Life != life.Dead
+				c.machineInfo = entityInfo
 			}
 		}
 
-		if !c.found {
+		if c.machineInfo != nil {
+			if found, err := run(q); err != nil {
+				return false, errors.Trace(err)
+			} else if found {
+				return true, nil
+			}
+		} else {
 			logger.Infof("machine %q not found, waiting...", id)
 			return false, nil
 		}
@@ -203,7 +209,7 @@ func (m MachineScope) GetIdentValue(name string) (query.Box, error) {
 		}
 		return query.NewSliceString(containerTypes), nil
 	}
-	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "%q on MachineInfo", name)
+	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name, m), "%q on MachineInfo", name)
 }
 
 func outputMachineSummary(writer io.Writer, scopedContext ScopeContext, machineInfo *params.MachineInfo) {

@@ -4,7 +4,6 @@
 package waitfor
 
 import (
-	"fmt"
 	"io"
 	"time"
 
@@ -31,7 +30,7 @@ func newApplicationCommand() cmd.Command {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return watchAllAPIShim{
+		return modelAllWatchShim{
 			Client: client,
 		}, nil
 	}
@@ -57,9 +56,9 @@ type applicationCommand struct {
 	timeout time.Duration
 	summary bool
 
-	found   bool
-	appInfo params.ApplicationInfo
-	units   map[string]*params.UnitInfo
+	appInfo  *params.ApplicationInfo
+	units    map[string]*params.UnitInfo
+	machines map[string]*params.MachineInfo
 }
 
 // Info implements Command.Info.
@@ -111,7 +110,7 @@ func (c *applicationCommand) Run(ctx *cmd.Context) (err error) {
 			ctx.Infof("Application %q is being removed", c.name)
 		default:
 			ctx.Infof("Application %q is running", c.name)
-			outputApplicationSummary(ctx.Stdout, scopedContext, &c.appInfo, c.units)
+			outputApplicationSummary(ctx.Stdout, scopedContext, c.appInfo, c.units, c.machines)
 		}
 	}()
 
@@ -122,7 +121,6 @@ func (c *applicationCommand) Run(ctx *cmd.Context) (err error) {
 	strategy.Subscribe(func(event EventType) {
 		switch event {
 		case WatchAllStarted:
-			fmt.Println("!!!")
 			c.primeCache()
 		}
 	})
@@ -132,9 +130,19 @@ func (c *applicationCommand) Run(ctx *cmd.Context) (err error) {
 
 func (c *applicationCommand) primeCache() {
 	c.units = make(map[string]*params.UnitInfo)
+	c.machines = make(map[string]*params.MachineInfo)
 }
 
 func (c *applicationCommand) waitFor(input string, ctx ScopeContext) func(string, []params.Delta, query.Query) (bool, error) {
+	run := func(q query.Query) (bool, error) {
+		scope := MakeApplicationScope(ctx, c.appInfo, c.units, c.machines)
+		if done, err := runQuery(input, q, scope); err != nil {
+			return false, errors.Trace(err)
+		} else if done {
+			return true, nil
+		}
+		return c.appInfo.Life == life.Dead, nil
+	}
 	return func(name string, deltas []params.Delta, q query.Query) (bool, error) {
 		for _, delta := range deltas {
 			logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
@@ -148,16 +156,7 @@ func (c *applicationCommand) waitFor(input string, ctx ScopeContext) func(string
 					return false, errors.Errorf("application %v removed", name)
 				}
 
-				c.appInfo = *entityInfo
-
-				scope := MakeApplicationScope(ctx, entityInfo, c.units)
-				if done, err := runQuery(input, q, scope); err != nil {
-					return false, errors.Trace(err)
-				} else if done {
-					return true, nil
-				}
-
-				c.found = entityInfo.Life != life.Dead
+				c.appInfo = entityInfo
 
 			case *params.UnitInfo:
 				if delta.Removed {
@@ -167,31 +166,31 @@ func (c *applicationCommand) waitFor(input string, ctx ScopeContext) func(string
 				if entityInfo.Application == name {
 					c.units[entityInfo.Name] = entityInfo
 				}
+
+			case *params.MachineInfo:
+				if delta.Removed {
+					delete(c.machines, entityInfo.Id)
+					break
+				}
+				c.machines[entityInfo.Id] = entityInfo
 			}
 		}
 
-		if !c.found {
+		currentStatus := c.appInfo.Status.Current
+		c.appInfo.Status.Current = deriveApplicationStatus(currentStatus, c.units)
+
+		if c.appInfo != nil {
+			if found, err := run(q); err != nil {
+				return false, errors.Trace(err)
+			} else if found {
+				return true, nil
+			}
+		} else {
 			logger.Infof("application %q not found, waiting...", name)
 			return false, nil
 		}
 
-		currentStatus := c.appInfo.Status.Current
-		logOutput := currentStatus.String() != "unset" && len(c.units) > 0
-
-		appInfo := c.appInfo
-		appInfo.Status.Current = deriveApplicationStatus(currentStatus, c.units)
-
-		scope := MakeApplicationScope(ctx, &appInfo, c.units)
-		if done, err := runQuery(input, q, scope); err != nil {
-			return false, errors.Trace(err)
-		} else if done {
-			return true, nil
-		}
-
-		if logOutput {
-			logger.Infof("application %q found with %q, waiting for goal state", name, currentStatus)
-		}
-
+		logger.Infof("application %q found with %q, waiting...", name, currentStatus)
 		return false, nil
 	}
 }
@@ -201,21 +200,27 @@ type ApplicationScope struct {
 	ctx             ScopeContext
 	ApplicationInfo *params.ApplicationInfo
 	UnitInfos       map[string]*params.UnitInfo
+	MachineInfos    map[string]*params.MachineInfo
 }
 
 // MakeApplicationScope creates an ApplicationScope from an ApplicationInfo
-func MakeApplicationScope(ctx ScopeContext, appInfo *params.ApplicationInfo, unitInfos map[string]*params.UnitInfo) ApplicationScope {
+func MakeApplicationScope(ctx ScopeContext,
+	appInfo *params.ApplicationInfo,
+	unitInfos map[string]*params.UnitInfo,
+	machineInfos map[string]*params.MachineInfo,
+) ApplicationScope {
 	return ApplicationScope{
 		ctx:             ctx,
 		ApplicationInfo: appInfo,
 		UnitInfos:       unitInfos,
+		MachineInfos:    machineInfos,
 	}
 }
 
 // GetIdents returns the identifiers with in a given scope.
 func (m ApplicationScope) GetIdents() []string {
 	idents := set.NewStrings(getIdents(m.ApplicationInfo)...)
-	return set.NewStrings("units").Union(idents).SortedValues()
+	return set.NewStrings("units", "machines").Union(idents).SortedValues()
 }
 
 // GetIdentValue returns the value of the identifier in a given scope.
@@ -242,11 +247,32 @@ func (m ApplicationScope) GetIdentValue(name string) (query.Box, error) {
 	case "units":
 		scopes := make(map[string]query.Scope)
 		for k, unit := range m.UnitInfos {
-			scopes[k] = MakeUnitScope(m.ctx.Child(name, unit.Name), unit)
+			machines := make(map[string]*params.MachineInfo)
+			for n, machine := range m.MachineInfos {
+				if machine.Id == unit.MachineId {
+					machines[n] = machine
+				}
+			}
+
+			scopes[k] = MakeUnitScope(m.ctx.Child(name, unit.Name), unit, machines)
 		}
 		return NewScopedBox(scopes), nil
+	case "machines":
+		scopes := make(map[string]query.Scope)
+		for k, machine := range m.MachineInfos {
+			var found bool
+			for _, unit := range m.UnitInfos {
+				if unit.Application == m.ApplicationInfo.Name && unit.MachineId == machine.Id {
+					found = true
+					break
+				}
+			}
+			if found {
+				scopes[k] = MakeMachineScope(m.ctx.Child(name, machine.Id), machine)
+			}
+		}
 	}
-	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "%q on ApplicationInfo", name)
+	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name, m), "%q on ApplicationInfo", name)
 }
 
 func deriveApplicationStatus(currentStatus status.Status, units map[string]*params.UnitInfo) status.Status {
@@ -267,11 +293,20 @@ func deriveApplicationStatus(currentStatus status.Status, units map[string]*para
 	return derived.Status
 }
 
-func outputApplicationSummary(writer io.Writer, scopedContext ScopeContext, appInfo *params.ApplicationInfo, units map[string]*params.UnitInfo) {
+func outputApplicationSummary(writer io.Writer,
+	scopedContext ScopeContext,
+	appInfo *params.ApplicationInfo,
+	units map[string]*params.UnitInfo,
+	machines map[string]*params.MachineInfo,
+) {
 	result := struct {
-		Elements map[string]interface{} `yaml:"properties"`
+		Properties map[string]any            `yaml:"properties"`
+		Units      map[string]map[string]any `yaml:"units,omitempty"`
+		Machines   map[string]map[string]any `yaml:"machines,omitempty"`
 	}{
-		Elements: make(map[string]interface{}),
+		Properties: make(map[string]any),
+		Units:      make(map[string]map[string]any),
+		Machines:   make(map[string]map[string]any),
 	}
 
 	idents := scopedContext.RecordedIdents()
@@ -282,16 +317,50 @@ func outputApplicationSummary(writer io.Writer, scopedContext ScopeContext, appI
 		if ident == "status" {
 			currentStatus := appInfo.Status.Current
 			currentStatus = deriveApplicationStatus(currentStatus, units)
-			result.Elements[ident] = currentStatus.String()
+			result.Properties[ident] = currentStatus.String()
 			continue
 		}
 
-		scope := MakeApplicationScope(scopedContext, appInfo, units)
+		scope := MakeApplicationScope(scopedContext, appInfo, units, machines)
 		box, err := scope.GetIdentValue(ident)
 		if err != nil {
 			continue
 		}
-		result.Elements[ident] = box.Value()
+		result.Properties[ident] = box.Value()
+	}
+	for entity, scopes := range scopedContext.children {
+		for name, sctx := range scopes {
+			idents := sctx.RecordedIdents()
+
+			switch entity {
+			case "units":
+				unitInfo := units[name]
+				scope := MakeUnitScope(scopedContext, unitInfo, machines)
+
+				result.Units[name] = make(map[string]any)
+				for _, ident := range idents {
+					box, err := scope.GetIdentValue(ident)
+					if err != nil {
+						continue
+					}
+					result.Units[name][ident] = box.Value()
+				}
+
+			case "machines":
+				machineInfo := machines[name]
+				scope := MakeMachineScope(scopedContext, machineInfo)
+
+				result.Machines[name] = make(map[string]any)
+
+				for _, ident := range idents {
+					box, err := scope.GetIdentValue(ident)
+					if err != nil {
+						continue
+					}
+					result.Machines[name][ident] = box.Value()
+				}
+			}
+		}
 	}
 
 	_ = yaml.NewEncoder(writer).Encode(result)

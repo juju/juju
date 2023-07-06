@@ -109,7 +109,13 @@ func (s *strategySuite) TestRunWithInvalidQuery(c *gc.C) {
 		c.FailNow()
 		return false, nil
 	})
-	c.Assert(err, gc.ErrorMatches, `Syntax Error:<:1:7> invalid character '<UNKNOWN>' found`)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.Equals, `
+Cannot parse query: string is not correctly terminated.
+
+1 | life=="ac
+          ^
+Try adding a closing quote to the string.`[1:])
 }
 
 type MockEntityInfo struct {

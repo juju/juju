@@ -106,7 +106,8 @@ func (s *Strategy) run(q query.Query, name string, input string, fn StrategyFunc
 			}
 		}
 
-		if done, err := fn(name, deltas, q); err != nil {
+		done, err := fn(name, deltas, q)
+		if err != nil {
 			return errors.Trace(err)
 		} else if done {
 			return nil

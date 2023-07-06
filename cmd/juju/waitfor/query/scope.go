@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
@@ -30,6 +31,14 @@ func NewGlobalFuncScope(scope Scope) *GlobalFuncScope {
 				case reflect.Map, reflect.Slice, reflect.String:
 					return val.Len(), nil
 				default:
+					if box, ok := v.(Box); ok {
+						var num int
+						ForEach(box, func(value any) bool {
+							num++
+							return true
+						})
+						return num, nil
+					}
 					return -1, RuntimeErrorf("unexpected type %T passed to len", v)
 				}
 			},
@@ -108,6 +117,15 @@ func NewGlobalFuncScope(scope Scope) *GlobalFuncScope {
 					return strings.HasSuffix(val.String(), suffix.(string)), nil
 				default:
 					return false, RuntimeErrorf("unexpected type %T passed to endsWith", v)
+				}
+			},
+			"int": func(v any) (int, error) {
+				val := reflect.ValueOf(v)
+				switch val.Kind() {
+				case reflect.String:
+					return strconv.Atoi(val.String())
+				default:
+					return -1, RuntimeErrorf("unexpected type %T passed to int", v)
 				}
 			},
 		},
