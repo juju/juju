@@ -194,18 +194,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: lifeflag.NewWorker,
 			// No Logger defined in lifeflag package.
 		}),
-		aliveFlagName: lifeflag.Manifold(lifeflag.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Entity:        modelTag,
-			Result:        life.IsAlive,
-			Filter:        LifeFilter,
-
-			NewFacade: func(b base.APICaller) (lifeflag.Facade, error) {
-				return controllerlifeflag.NewClient(b), nil
-			},
-			NewWorker: lifeflag.NewWorker,
-			// No Logger defined in lifeflag package.
-		}),
 		isResponsibleFlagName: singular.Manifold(singular.ManifoldConfig{
 			Clock:         config.Clock,
 			APICallerName: apiCallerName,
@@ -457,7 +445,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 			Logger:                       config.LoggingContext.GetLogger("juju.worker.machineundertaker"),
 		})),
-		environUpgraderName: ifAlive(ifCredentialValid(environupgrader.Manifold(environupgrader.ManifoldConfig{
+		environUpgraderName: ifNotDead(ifCredentialValid(environupgrader.Manifold(environupgrader.ManifoldConfig{
 			APICallerName:                apiCallerName,
 			EnvironName:                  environTrackerName,
 			GateName:                     environUpgradeGateName,
@@ -587,7 +575,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 				Logger:    config.LoggingContext.GetLogger("juju.worker.caasunitprovisioner"),
 			},
 		)),
-		environUpgraderName: ifAlive(ifCredentialValid(caasenvironupgrader.Manifold(caasenvironupgrader.ManifoldConfig{
+		environUpgraderName: ifNotDead(ifCredentialValid(caasenvironupgrader.Manifold(caasenvironupgrader.ManifoldConfig{
 			APICallerName: apiCallerName,
 			GateName:      environUpgradeGateName,
 			ModelTag:      modelTag,
@@ -655,15 +643,6 @@ var (
 		},
 	}.Decorate
 
-	// ifAlive wraps a manifold such that it only runs if the
-	// responsibility flag is set and the model is Alive.
-	ifAlive = engine.Housing{
-		Flags: []string{
-			isResponsibleFlagName,
-			aliveFlagName,
-		},
-	}.Decorate
-
 	// ifNotDead wraps a manifold such that it only runs if the
 	// responsibility flag is set and the model is Alive or Dying.
 	ifNotDead = engine.Housing{
@@ -712,7 +691,6 @@ const (
 	isResponsibleFlagName = "is-responsible-flag"
 	notDeadFlagName       = "not-dead-flag"
 	notAliveFlagName      = "not-alive-flag"
-	aliveFlagName         = "alive-flag"
 
 	migrationFortressName     = "migration-fortress"
 	migrationInactiveFlagName = "migration-inactive-flag"
