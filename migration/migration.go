@@ -31,18 +31,53 @@ var logger = loggo.GetLogger("juju.migration")
 type StateExporter interface {
 	// Export generates an abstract representation of a model.
 	Export(leaders map[string]string) (description.Model, error)
+	// ExportPartial the current model for the State optionally skipping
+	// aspects as defined by the ExportConfig.
+	ExportPartial(cfg state.ExportConfig) (description.Model, error)
 }
 
-// StateImporter describes the method needed to import a model
+// ExportModelPartial partially serializes a model description from the
+// database contents, optionally skipping aspects as defined by the
+// ExportConfig.
+func ExportModelPartial(ctx context.Context, exporter StateExporter, scope modelmigration.Scope, cfg state.ExportConfig) (description.Model, error) {
+	model, err := exporter.ExportPartial(cfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return exportImpl(ctx, scope, model)
+}
+
+// ExportModel serializes a model description from the database contents.
+func ExportModel(ctx context.Context, exporter StateExporter, scope modelmigration.Scope, leaders map[string]string) (description.Model, error) {
+	model, err := exporter.Export(leaders)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return exportImpl(ctx, scope, model)
+}
+
+func exportImpl(ctx context.Context, scope modelmigration.Scope, model description.Model) (description.Model, error) {
+	coordinator := modelmigration.NewCoordinator()
+	migrations.ExportOperations(coordinator)
+	if err := coordinator.Perform(ctx, scope, model); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return model, nil
+}
+
+// stateImporter describes the method needed to import a model
 // into the database.
-type StateImporter interface {
+type stateImporter interface {
 	Import(model description.Model) (*state.Model, *state.State, error)
 }
 
 // ImportModel deserializes a model description from the bytes, transforms
 // the model config based on information from the controller model, and then
 // imports that as a new database model.
-func ImportModel(ctx context.Context, importer StateImporter, scope modelmigration.Scope, bytes []byte) (*state.Model, *state.State, error) {
+func ImportModel(ctx context.Context, importer stateImporter, scope modelmigration.Scope, bytes []byte) (*state.Model, *state.State, error) {
 	model, err := description.Deserialize(bytes)
 	if err != nil {
 		return nil, nil, errors.Trace(err)

@@ -4,6 +4,7 @@
 package modelmanager
 
 import (
+	"context"
 	stdcontext "context"
 	"fmt"
 	"sort"
@@ -24,15 +25,18 @@ import (
 	"github.com/juju/juju/caas"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/series"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	environsContext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/space"
+	"github.com/juju/juju/migration"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -60,6 +64,7 @@ type ModelManagerService interface {
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
+	controllerDB        database.TxnRunner
 	modelManagerService ModelManagerService
 	state               common.ModelManagerBackend
 	ctlrState           common.ModelManagerBackend
@@ -70,12 +75,13 @@ type ModelManagerAPI struct {
 	isAdmin             bool
 	model               common.Model
 	getBroker           newCaasBrokerFunc
-	callContext         context.ProviderCallContext
+	callContext         environsContext.ProviderCallContext
 }
 
 // NewModelManagerAPI creates a new api server endpoint for managing
 // models.
 func NewModelManagerAPI(
+	ctx facade.Context,
 	st common.ModelManagerBackend,
 	ctlrSt common.ModelManagerBackend,
 	modelManagerService ModelManagerService,
@@ -84,7 +90,7 @@ func NewModelManagerAPI(
 	blockChecker common.BlockCheckerInterface,
 	authorizer facade.Authorizer,
 	m common.Model,
-	callCtx context.ProviderCallContext,
+	callCtx environsContext.ProviderCallContext,
 ) (*ModelManagerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -100,7 +106,13 @@ func NewModelManagerAPI(
 	}
 	isAdmin := err == nil
 
+	controllerDB, err := ctx.ControllerDB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &ModelManagerAPI{
+		controllerDB:        controllerDB,
 		ModelStatusAPI:      common.NewModelStatusAPI(st, authorizer, apiUser),
 		state:               st,
 		ctlrState:           ctlrSt,
@@ -529,7 +541,7 @@ func (m *ModelManagerAPI) newModel(
 	return model, nil
 }
 
-func (m *ModelManagerAPI) dumpModel(args params.Entity, simplified bool) ([]byte, error) {
+func (m *ModelManagerAPI) dumpModel(ctx context.Context, args params.Entity, simplified bool) ([]byte, error) {
 	modelTag, err := names.ParseModelTag(args.Tag)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -563,7 +575,8 @@ func (m *ModelManagerAPI) dumpModel(args params.Entity, simplified bool) ([]byte
 		exportConfig.SkipLinkLayerDevices = true
 	}
 
-	model, err := st.ExportPartial(exportConfig)
+	scope := modelmigration.NewScope(m.controllerDB, nil)
+	model, err := migration.ExportModelPartial(ctx, st, scope, exportConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -604,12 +617,12 @@ func (m *ModelManagerAPI) dumpModelDB(args params.Entity) (map[string]interface{
 // DumpModels will export the models into the database agnostic
 // representation. The user needs to either be a controller admin, or have
 // admin privileges on the model itself.
-func (m *ModelManagerAPI) DumpModels(args params.DumpModelRequest) params.StringResults {
+func (m *ModelManagerAPI) DumpModels(ctx context.Context, args params.DumpModelRequest) params.StringResults {
 	results := params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
 	for i, entity := range args.Entities {
-		bytes, err := m.dumpModel(entity, args.Simplified)
+		bytes, err := m.dumpModel(ctx, entity, args.Simplified)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue

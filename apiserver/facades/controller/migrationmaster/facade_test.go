@@ -4,6 +4,7 @@
 package migrationmaster_test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -31,16 +33,19 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
 type Suite struct {
 	coretesting.BaseSuite
+	statetesting.StateSuite
 
 	controllerBackend *mocks.MockControllerState
 	backend           *mocks.MockBackend
 	precheckBackend   *mocks.MockPrecheckBackend
+	facadeContext     facade.Context
 
 	controllerUUID string
 	modelUUID      string
@@ -64,6 +69,11 @@ func (s *Suite) SetUpTest(c *gc.C) {
 		Owner:              names.NewUserTag("admin"),
 		LatestToolsVersion: jujuversion.Current,
 	})
+	s.facadeContext = facadetest.Context{
+		State_:     s.State,
+		StatePool_: s.StatePool,
+		Auth_:      s.authorizer,
+	}
 
 	s.resources = common.NewResources()
 	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
@@ -377,7 +387,7 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 
 	s.backend.EXPECT().Export(map[string]string{}).Return(s.model, nil)
 
-	serialized, err := s.mustMakeAPI(c).Export()
+	serialized, err := s.mustMakeAPI(c).Export(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We don't want to tie this test the serialisation output (that's
@@ -591,6 +601,7 @@ func (s *Suite) mustMakeAPI(c *gc.C) *migrationmaster.API {
 
 func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 	return migrationmaster.NewAPI(
+		s.facadeContext,
 		s.controllerBackend,
 		s.backend,
 		s.precheckBackend,

@@ -4,6 +4,7 @@
 package migrationmaster
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/juju/collections/set"
@@ -16,9 +17,11 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/modelmigration"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/rpc/params"
@@ -28,6 +31,7 @@ import (
 // API implements the API required for the model migration
 // master worker.
 type API struct {
+	controllerDB            database.TxnRunner
 	controllerState         ControllerState
 	backend                 Backend
 	precheckBackend         migration.PrecheckBackend
@@ -42,6 +46,7 @@ type API struct {
 // NewAPI creates a new API server endpoint for the model migration
 // master worker.
 func NewAPI(
+	ctx facade.Context,
 	controllerState ControllerState,
 	backend Backend,
 	precheckBackend migration.PrecheckBackend,
@@ -55,7 +60,14 @@ func NewAPI(
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
+
+	controllerDB, err := ctx.ControllerDB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &API{
+		controllerDB:            controllerDB,
 		controllerState:         controllerState,
 		backend:                 backend,
 		precheckBackend:         precheckBackend,
@@ -240,7 +252,7 @@ func (api *API) SetStatusMessage(args params.SetMigrationStatusMessageArgs) erro
 }
 
 // Export serializes the model associated with the API connection.
-func (api *API) Export() (params.SerializedModel, error) {
+func (api *API) Export(ctx context.Context) (params.SerializedModel, error) {
 	var serialized params.SerializedModel
 
 	leaders, err := api.leadership.Leaders()
@@ -248,7 +260,8 @@ func (api *API) Export() (params.SerializedModel, error) {
 		return serialized, err
 	}
 
-	model, err := api.backend.Export(leaders)
+	scope := modelmigration.NewScope(api.controllerDB, nil)
+	model, err := migration.ExportModel(ctx, api.backend, scope, leaders)
 	if err != nil {
 		return serialized, err
 	}

@@ -99,6 +99,21 @@ func (mr *MockBackendMockRecorder) Export(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Export", reflect.TypeOf((*MockBackend)(nil).Export), arg0)
 }
 
+// ExportPartial mocks base method.
+func (m *MockBackend) ExportPartial(arg0 state.ExportConfig) (description.Model, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExportPartial", arg0)
+	ret0, _ := ret[0].(description.Model)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ExportPartial indicates an expected call of ExportPartial.
+func (mr *MockBackendMockRecorder) ExportPartial(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportPartial", reflect.TypeOf((*MockBackend)(nil).ExportPartial), arg0)
+}
+
 // LatestMigration mocks base method.
 func (m *MockBackend) LatestMigration() (state.ModelMigration, error) {
 	m.ctrl.T.Helper()

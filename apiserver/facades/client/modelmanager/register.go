@@ -67,6 +67,7 @@ func newFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)
 	backend := common.NewUserAwareModelManagerBackend(model, pool, apiUser)
 	return NewModelManagerAPI(
+		ctx,
 		backend,
 		common.NewModelManagerBackend(ctrlModel, pool),
 		modelmanagerservice.NewService(
