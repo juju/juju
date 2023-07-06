@@ -110,21 +110,21 @@ func (s *rbacSuite) TestEnsureRoleBinding(c *gc.C) {
 	rbUID := rb2DifferentSubjects.GetUID()
 	gomock.InOrder(
 		// Already exists, no change.
-		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name"}).
-			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{*rb1}}, nil),
+		s.mockRoleBindings.EXPECT().Get(gomock.Any(), "rb-name", v1.GetOptions{}).
+			Return(rb1, nil),
 
 		// Already exists, but with same subjects in different order.
-		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name"}).
-			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{*rb1SubjectsInDifferentOrder}}, nil),
+		s.mockRoleBindings.EXPECT().Get(gomock.Any(), "rb-name", v1.GetOptions{}).
+			Return(rb1SubjectsInDifferentOrder, nil),
 
 		// No existing role binding, create one.
-		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name"}).
-			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
+		s.mockRoleBindings.EXPECT().Get(gomock.Any(), "rb-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
 		s.mockRoleBindings.EXPECT().Create(gomock.Any(), &rb2, v1.CreateOptions{}).Return(&rb2, nil),
 
 		// Already exists, but with different subjects, delete and create.
-		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name"}).
-			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{rb2DifferentSubjects}}, nil),
+		s.mockRoleBindings.EXPECT().Get(gomock.Any(), "rb-name", v1.GetOptions{}).
+			Return(&rb2DifferentSubjects, nil),
 		s.mockRoleBindings.EXPECT().Delete(gomock.Any(), "rb-name", s.deleteOptions(v1.DeletePropagationForeground, rbUID)).Return(nil),
 		s.mockRoleBindings.EXPECT().Get(gomock.Any(), "rb-name", v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
 		s.mockRoleBindings.EXPECT().Create(gomock.Any(), &rb2, v1.CreateOptions{}).Return(&rb2, nil),
