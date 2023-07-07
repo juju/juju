@@ -76,7 +76,7 @@ func (s *ScaleApplicationSuite) TestScaleApplicationBlocked(c *gc.C) {
 func (s *ScaleApplicationSuite) TestScaleApplicationWrongModel(c *gc.C) {
 	store := jujuclienttesting.MinimalStore()
 	_, err := cmdtesting.RunCommand(c, NewScaleCommandForTest(s.mockAPI, store), "foo", "2")
-	c.Assert(err, gc.ErrorMatches, `Juju command "scale-application" not supported on non-container models`)
+	c.Assert(err, gc.ErrorMatches, `Juju command "scale-application" only supported on k8s container models`)
 }
 
 func (s *ScaleApplicationSuite) TestInvalidArgs(c *gc.C) {

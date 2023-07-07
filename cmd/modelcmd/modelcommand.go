@@ -599,7 +599,7 @@ func (w *modelCommandWrapper) validateCommandForModelType(runStarted bool) error
 		err = errors.Errorf("Juju command %q not supported on container models", w.Info().Name)
 	}
 	if modelType == model.IAAS && caasOnly {
-		err = errors.Errorf("Juju command %q not supported on non-container models", w.Info().Name)
+		err = errors.Errorf("Juju command %q only supported on k8s container models", w.Info().Name)
 	}
 
 	if c, ok := w.inner().(modelSpecificCommand); ok {
