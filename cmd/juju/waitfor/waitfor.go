@@ -5,12 +5,15 @@ package waitfor
 
 import (
 	"github.com/juju/cmd/v3"
-	"github.com/juju/loggo"
 
 	_ "github.com/juju/juju/provider/all"
 )
 
-var logger = loggo.GetLogger("juju.plugins.waitfor")
+// Logger is the interface used by the wait-for command to log messages.
+type Logger interface {
+	Infof(string, ...any)
+	Verbosef(string, ...any)
+}
 
 var waitForDoc = `
 Waits for a specified model, machine, application or unit to reach a state

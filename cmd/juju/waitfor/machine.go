@@ -97,7 +97,7 @@ func (c *machineCommand) Run(ctx *cmd.Context) (err error) {
 	scopedContext := MakeScopeContext()
 
 	defer func() {
-		if err != nil || !c.summary {
+		if err != nil || !c.summary || c.machineInfo == nil {
 			return
 		}
 
@@ -116,11 +116,11 @@ func (c *machineCommand) Run(ctx *cmd.Context) (err error) {
 		ClientFn: c.newWatchAllAPIFunc,
 		Timeout:  c.timeout,
 	}
-	err = strategy.Run(c.id, c.query, c.waitFor(c.query, scopedContext))
+	err = strategy.Run(c.id, c.query, c.waitFor(c.query, scopedContext, ctx))
 	return errors.Trace(err)
 }
 
-func (c *machineCommand) waitFor(input string, ctx ScopeContext) func(string, []params.Delta, query.Query) (bool, error) {
+func (c *machineCommand) waitFor(input string, ctx ScopeContext, logger Logger) func(string, []params.Delta, query.Query) (bool, error) {
 	run := func(q query.Query) (bool, error) {
 		scope := MakeMachineScope(ctx, c.machineInfo)
 		if done, err := runQuery(input, q, scope); err != nil {
@@ -132,7 +132,7 @@ func (c *machineCommand) waitFor(input string, ctx ScopeContext) func(string, []
 	}
 	return func(id string, deltas []params.Delta, q query.Query) (bool, error) {
 		for _, delta := range deltas {
-			logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
+			logger.Verbosef("delta %T: %v", delta.Entity, delta.Entity)
 
 			switch entityInfo := delta.Entity.(type) {
 			case *params.MachineInfo:

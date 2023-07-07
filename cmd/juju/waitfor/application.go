@@ -99,7 +99,7 @@ func (c *applicationCommand) Run(ctx *cmd.Context) (err error) {
 	scopedContext := MakeScopeContext()
 
 	defer func() {
-		if err != nil || !c.summary {
+		if err != nil || !c.summary || c.appInfo == nil {
 			return
 		}
 
@@ -124,7 +124,7 @@ func (c *applicationCommand) Run(ctx *cmd.Context) (err error) {
 			c.primeCache()
 		}
 	})
-	err = strategy.Run(c.name, c.query, c.waitFor(c.query, scopedContext))
+	err = strategy.Run(c.name, c.query, c.waitFor(c.query, scopedContext, ctx))
 	return errors.Trace(err)
 }
 
@@ -133,7 +133,7 @@ func (c *applicationCommand) primeCache() {
 	c.machines = make(map[string]*params.MachineInfo)
 }
 
-func (c *applicationCommand) waitFor(input string, ctx ScopeContext) func(string, []params.Delta, query.Query) (bool, error) {
+func (c *applicationCommand) waitFor(input string, ctx ScopeContext, logger Logger) func(string, []params.Delta, query.Query) (bool, error) {
 	run := func(q query.Query) (bool, error) {
 		scope := MakeApplicationScope(ctx, c.appInfo, c.units, c.machines)
 		if done, err := runQuery(input, q, scope); err != nil {
@@ -145,7 +145,7 @@ func (c *applicationCommand) waitFor(input string, ctx ScopeContext) func(string
 	}
 	return func(name string, deltas []params.Delta, q query.Query) (bool, error) {
 		for _, delta := range deltas {
-			logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
+			logger.Verbosef("delta %T: %v", delta.Entity, delta.Entity)
 
 			switch entityInfo := delta.Entity.(type) {
 			case *params.ApplicationInfo:
@@ -176,15 +176,18 @@ func (c *applicationCommand) waitFor(input string, ctx ScopeContext) func(string
 			}
 		}
 
-		currentStatus := c.appInfo.Status.Current
-		c.appInfo.Status.Current = deriveApplicationStatus(currentStatus, c.units)
-
+		var currentStatus status.Status
 		if c.appInfo != nil {
+			currentStatus = c.appInfo.Status.Current
+			c.appInfo.Status.Current = deriveApplicationStatus(currentStatus, c.units)
+
 			if found, err := run(q); err != nil {
 				return false, errors.Trace(err)
 			} else if found {
 				return true, nil
 			}
+
+			logger.Infof("application %q found with %q, waiting...", name, currentStatus)
 		} else {
 			logger.Infof("application %q not found, waiting...", name)
 			return false, nil

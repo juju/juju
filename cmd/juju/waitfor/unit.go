@@ -99,7 +99,7 @@ func (c *unitCommand) Run(ctx *cmd.Context) (err error) {
 	scopedContext := MakeScopeContext()
 
 	defer func() {
-		if err != nil || !c.summary {
+		if err != nil || !c.summary || c.unitInfo == nil {
 			return
 		}
 
@@ -124,7 +124,7 @@ func (c *unitCommand) Run(ctx *cmd.Context) (err error) {
 			c.primeCache()
 		}
 	})
-	err = strategy.Run(c.name, c.query, c.waitFor(c.query, scopedContext))
+	err = strategy.Run(c.name, c.query, c.waitFor(c.query, scopedContext, ctx))
 	return errors.Trace(err)
 }
 
@@ -132,7 +132,7 @@ func (c *unitCommand) primeCache() {
 	c.machines = make(map[string]*params.MachineInfo)
 }
 
-func (c *unitCommand) waitFor(input string, ctx ScopeContext) func(string, []params.Delta, query.Query) (bool, error) {
+func (c *unitCommand) waitFor(input string, ctx ScopeContext, logger Logger) func(string, []params.Delta, query.Query) (bool, error) {
 	run := func(q query.Query) (bool, error) {
 		scope := MakeUnitScope(ctx, c.unitInfo, c.machines)
 		if done, err := runQuery(input, q, scope); err != nil {
@@ -144,7 +144,7 @@ func (c *unitCommand) waitFor(input string, ctx ScopeContext) func(string, []par
 	}
 	return func(name string, deltas []params.Delta, q query.Query) (bool, error) {
 		for _, delta := range deltas {
-			logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
+			logger.Verbosef("delta %T: %v", delta.Entity, delta.Entity)
 
 			switch entityInfo := delta.Entity.(type) {
 			case *params.UnitInfo:

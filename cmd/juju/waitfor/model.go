@@ -33,7 +33,10 @@ func newModelCommand() cmd.Command {
 			Client: client,
 		}, nil
 	}
-	return modelcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd,
+		modelcmd.WrapSkipModelInit,
+		modelcmd.WrapSkipModelFlags,
+	)
 }
 
 const modelCommandDoc = `
@@ -90,12 +93,16 @@ func (c *modelCommand) Init(args []string) (err error) {
 	if len(args) != 1 {
 		return errors.New("only one model name can be supplied as an argument to this command")
 	}
-	if ok := names.IsValidModelName(args[0]); !ok {
-		return errors.Errorf("%q is not valid model name", args[0])
+	controller, model := modelcmd.SplitModelName(args[0])
+	if controller != "" && !names.IsValidControllerName(controller) {
+		return errors.Errorf("%q is not valid controller name", controller)
 	}
-	c.name = args[0]
+	if !names.IsValidModelName(model) {
+		return errors.Errorf("%q is not valid model name", model)
+	}
 
-	return nil
+	c.name = model
+	return c.SetModelIdentifier(args[0], true)
 }
 
 func (c *modelCommand) Run(ctx *cmd.Context) (err error) {
@@ -127,7 +134,7 @@ func (c *modelCommand) Run(ctx *cmd.Context) (err error) {
 			c.primeCache()
 		}
 	})
-	err = strategy.Run(c.name, c.query, c.waitFor(c.query, scopedContext))
+	err = strategy.Run(c.name, c.query, c.waitFor(c.query, scopedContext, ctx))
 	return errors.Trace(err)
 }
 
@@ -137,7 +144,7 @@ func (c *modelCommand) primeCache() {
 	c.units = make(map[string]*params.UnitInfo)
 }
 
-func (c *modelCommand) waitFor(input string, ctx ScopeContext) func(string, []params.Delta, query.Query) (bool, error) {
+func (c *modelCommand) waitFor(input string, ctx ScopeContext, logger Logger) func(string, []params.Delta, query.Query) (bool, error) {
 	run := func(q query.Query) (bool, error) {
 		scope := MakeModelScope(ctx, c.model, c.applications, c.units, c.machines)
 		if done, err := runQuery(input, q, scope); err != nil {
@@ -149,7 +156,7 @@ func (c *modelCommand) waitFor(input string, ctx ScopeContext) func(string, []pa
 	}
 	return func(name string, deltas []params.Delta, q query.Query) (bool, error) {
 		for _, delta := range deltas {
-			logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
+			logger.Verbosef("delta %T: %v", delta.Entity, delta.Entity)
 
 			switch entityInfo := delta.Entity.(type) {
 			case *params.ApplicationInfo:

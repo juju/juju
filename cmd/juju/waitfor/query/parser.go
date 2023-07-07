@@ -317,8 +317,7 @@ func (p *Parser) parseLambda(left Expression) (Expression, error) {
 		expressions = append(expressions, next)
 	}
 	if !p.isPeekToken(EOF) && !p.isPeekToken(RPAREN) {
-		p.expectPeek(RPAREN)
-		return nil, nil
+		return nil, p.expectPeek(RPAREN)
 	}
 
 	return &LambdaExpression{
