@@ -6,11 +6,13 @@ package state
 import (
 	"context"
 	"database/sql"
+	stderrors "errors"
 	"fmt"
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
+	"github.com/mattn/go-sqlite3"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/database"
@@ -71,6 +73,258 @@ func (st *State) ListClouds(ctx context.Context, filter *Filter) ([]cloud.Cloud,
 		return errors.Trace(err)
 	})
 	return result, errors.Trace(err)
+}
+
+// CloudDefaults provides the currently set cloud defaults for a cloud. If the
+// cloud has no defaults or the cloud does not exist a nil error is returned
+// with an empty defaults map.
+func (st *State) CloudDefaults(ctx context.Context, cloudName string) (map[string]string, error) {
+	defaults := map[string]string{}
+
+	db, err := st.DB()
+	if err != nil {
+		return defaults, errors.Trace(err)
+	}
+
+	stmt := `
+SELECT key, value
+FROM cloud_defaults
+INNER JOIN cloud
+ON cloud_defaults.cloud_uuid = cloud.uuid
+WHERE cloud.name = ?
+`
+
+	return defaults, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, stmt, cloudName)
+		if err != nil {
+			return fmt.Errorf("fetching cloud %q defaults: %w", cloudName, err)
+		}
+
+		var key, value string
+		for rows.Next() {
+			if err := rows.Scan(&key, &value); err != nil {
+				return fmt.Errorf("compiling cloud %q defaults: %w", cloudName, stderrors.Join(err, rows.Close()))
+			}
+			defaults[key] = value
+		}
+		return nil
+	})
+}
+
+// UpdateCloudDefaults is responsible for updating default config values for a
+// cloud. This function will allow the addition and updating of attributes.
+// Attributes can also be removed by keys if they exist for the current cloud.
+func (st *State) UpdateCloudDefaults(
+	ctx context.Context,
+	cloudName string,
+	updateAttrs map[string]string,
+	removeAttrs []string,
+) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	deleteBinds, deleteVals := database.SliceToPlaceholder(removeAttrs)
+	deleteStmt := fmt.Sprintf(`
+DELETE FROM cloud_defaults
+WHERE key IN (%s)
+AND cloud_uuid = (SELECT uuid
+                    FROM cloud
+                    WHERE name = ?)
+`, deleteBinds)
+
+	upsertBinds, upsertVals := database.MapToMultiPlaceholder(updateAttrs)
+	upsertStmt := fmt.Sprintf(`
+CREATE TEMP TABLE cloud_default_tmp (
+	key TEXT,
+    value TEXT
+);
+    
+INSERT INTO temp.cloud_default_tmp VALUES %s;
+
+INSERT INTO cloud_defaults(cloud_uuid, key, value)
+SELECT (SELECT uuid FROM cloud WHERE name = ?) AS cloud_uuid,
+       key,
+       value
+FROM temp.cloud_default_tmp
+-- The WHERE clause here is needed to help sqlite parser with ambiguity.
+WHERE true
+ON CONFLICT(cloud_uuid, key) DO UPDATE
+SET value = excluded.value
+WHERE cloud_uuid = excluded.cloud_uuid
+AND key = excluded.key;
+
+DROP TABLE temp.cloud_default_tmp;
+`, upsertBinds)
+
+	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		if len(deleteVals) != 0 {
+			_, err := tx.ExecContext(ctx, deleteStmt, append(deleteVals, cloudName)...)
+			if err != nil {
+				return fmt.Errorf("removing cloud default keys for %q: %w", cloudName, err)
+			}
+		}
+
+		if len(upsertVals) != 0 {
+			_, err := tx.ExecContext(ctx, upsertStmt, append(upsertVals, cloudName)...)
+			if sqliteErr, is := errors.AsType[sqlite3.Error](err); is && sqliteErr.ExtendedCode == sqlite3.ErrConstraintNotNull {
+				return fmt.Errorf("missing cloud %q %w%w", cloudName, errors.NotValid, errors.Hide(err))
+			} else if err != nil {
+				return fmt.Errorf("updating cloud default keys %q: %w", cloudName, err)
+			}
+		}
+
+		return nil
+	})
+}
+
+// CloudAllRegionDefaults returns all the default settings for a cloud and it's
+// regions. Note this will not include the defaults set on the cloud itself but
+// just that of it's regions. Empty map values are returned when no region
+// defaults are found.
+func (st *State) CloudAllRegionDefaults(
+	ctx context.Context,
+	cloudName string,
+) (map[string]map[string]string, error) {
+	defaults := map[string]map[string]string{}
+
+	db, err := st.DB()
+	if err != nil {
+		return defaults, fmt.Errorf("getting database instance for cloud region defaults: %w", err)
+	}
+
+	stmt := `
+SELECT cloud_region.name,
+       cloud_region_defaults.key,
+       cloud_region_defaults.value
+FROM cloud_region_defaults
+INNER JOIN cloud_region
+ON cloud_region.uuid = cloud_region_defaults.region_uuid
+INNER JOIN cloud
+ON cloud_region.cloud_uuid = cloud.uuid
+WHERE cloud.name = ?
+`
+
+	return defaults, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, stmt, cloudName)
+		if err != nil {
+			return fmt.Errorf("fetching cloud %q region defaults: %w", cloudName, err)
+		}
+
+		var regionName, key, value string
+		for rows.Next() {
+			if err := rows.Scan(&regionName, &key, &value); err != nil {
+				return fmt.Errorf(
+					"compiling cloud %q region %q defaults: %w",
+					cloudName,
+					regionName,
+					stderrors.Join(err, rows.Close()),
+				)
+			}
+			store, has := defaults[regionName]
+			if !has {
+				store = map[string]string{}
+				defaults[regionName] = store
+			}
+			store[key] = value
+		}
+		return nil
+	})
+}
+
+// UpdateCloudRegionDefaults is responsible for updating default config values
+// for a cloud region. This function will allow the addition and updating of
+// attributes. Attributes can also be removed by keys if they exist for the
+// current cloud. If the cloud or region is not found an error that satisfied
+// NotValid is returned.
+func (st *State) UpdateCloudRegionDefaults(
+	ctx context.Context,
+	cloudName string,
+	regionName string,
+	updateAttrs map[string]string,
+	removeAttrs []string,
+) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	deleteBinds, deleteVals := database.SliceToPlaceholder(removeAttrs)
+	deleteStmt := fmt.Sprintf(`
+DELETE FROM cloud_region_defaults
+WHERE key IN (%s)
+AND region_uuid = (SELECT cloud_region.uuid
+                   FROM cloud_region
+                   INNER JOIN cloud
+                   ON cloud_region.cloud_uuid = cloud.uuid
+                   WHERE cloud.name = ?
+                   AND cloud_region.name = ?)`, deleteBinds)
+
+	upsertBinds, upsertVals := database.MapToMultiPlaceholder(updateAttrs)
+	upsertStmt := fmt.Sprintf(`
+CREATE TEMP TABLE cloud_region_default_tmp (
+	key TEXT,
+    value TEXT
+);
+    
+INSERT INTO temp.cloud_region_default_tmp VALUES %s;
+
+INSERT INTO cloud_region_defaults(region_uuid, key, value)
+SELECT (SELECT cloud_region.uuid
+        FROM cloud_region
+        INNER JOIN cloud
+        ON cloud.uuid = cloud_region.cloud_uuid
+        WHERE cloud.name = ?
+        AND cloud_region.name = ?) AS region_uuid,
+       key,
+       value
+FROM temp.cloud_region_default_tmp
+-- The WHERE clause here is needed to help sqlite parser with ambiguity.
+WHERE true
+ON CONFLICT(region_uuid, key) DO UPDATE
+SET value = excluded.value
+WHERE region_uuid = excluded.region_uuid
+AND key = excluded.key;
+
+DROP TABLE temp.cloud_region_default_tmp;
+`, upsertBinds)
+
+	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		if len(deleteVals) != 0 {
+			_, err := tx.ExecContext(ctx, deleteStmt, append(deleteVals, cloudName, regionName)...)
+			if err != nil {
+				return fmt.Errorf(
+					"removing cloud %q region %q default keys: %w",
+					cloudName,
+					regionName,
+					err,
+				)
+			}
+		}
+
+		if len(upsertVals) != 0 {
+			_, err := tx.ExecContext(ctx, upsertStmt, append(upsertVals, cloudName, regionName)...)
+			if sqliteErr, is := errors.AsType[sqlite3.Error](err); is && sqliteErr.ExtendedCode == sqlite3.ErrConstraintNotNull {
+				return fmt.Errorf(
+					"missing region %q for cloud %q %w%w",
+					regionName,
+					cloudName,
+					errors.NotValid,
+					errors.Hide(err),
+				)
+			} else if err != nil {
+				return fmt.Errorf(
+					"updating cloud %q region %q default keys: %w",
+					cloudName,
+					regionName,
+					err,
+				)
+			}
+		}
+
+		return nil
+	})
 }
 
 func loadClouds(ctx context.Context, tx *sql.Tx, filter *Filter) ([]cloud.Cloud, error) {
@@ -292,9 +546,12 @@ INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, identity_endpoint, stora
                                   storage_endpoint=excluded.storage_endpoint,
                                   skip_tls_verify=excluded.skip_tls_verify`[1:]
 
-	if _, err := tx.ExecContext(ctx, q, dbCloud.ID,
+	_, err = tx.ExecContext(ctx, q, dbCloud.ID,
 		dbCloud.Name, dbCloud.TypeID, dbCloud.Endpoint, dbCloud.IdentityEndpoint, dbCloud.StorageEndpoint, dbCloud.SkipTLSVerify,
-	); err != nil {
+	)
+	if sqliteErr, is := errors.AsType[sqlite3.Error](err); is && sqliteErr.ExtendedCode == sqlite3.ErrConstraintCheck {
+		return fmt.Errorf("%w cloud name cannot be empty%w", errors.NotValid, errors.Hide(err))
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 	return nil

@@ -30,6 +30,7 @@ func ControllerDDL(nodeID uint64) []database.Delta {
 		changeLogTriggersForTable("model_migration_minion_sync", "uuid", 5),
 		upgradeInfoSchema,
 		changeLogTriggersForTable("upgrade_info", "uuid", 6),
+		modelDefaults,
 	}
 
 	deltas := make([]database.Delta, 0, len(schemas))
@@ -153,15 +154,27 @@ INSERT INTO auth_type VALUES
 
 CREATE TABLE cloud (
     uuid                TEXT PRIMARY KEY,
-    name                TEXT NOT NULL,
+    name                TEXT NOT NULL UNIQUE,
     cloud_type_id       INT NOT NULL,
     endpoint            TEXT NOT NULL,
     identity_endpoint   TEXT,
     storage_endpoint    TEXT,
     skip_tls_verify     BOOLEAN NOT NULL,
+    CONSTRAINT  chk_name_empty CHECK (name != ""),
     CONSTRAINT          fk_cloud_type
         FOREIGN KEY       (cloud_type_id)
         REFERENCES        cloud_type(id)
+);
+
+CREATE TABLE cloud_defaults (
+    cloud_uuid TEXT NOT NULL,
+    key TEXT NOT NULL,
+    value TEXT,
+    PRIMARY KEY (cloud_uuid, key)
+    CONSTRAINT chk_key_empty CHECK (key != ""),
+    CONSTRAINT fk_cloud_uuid
+        FOREIGN KEY (cloud_uuid)
+        REFERENCES cloud(uuid)
 );
 
 CREATE TABLE cloud_auth_type (
@@ -186,6 +199,7 @@ CREATE TABLE cloud_region (
     endpoint            TEXT,
     identity_endpoint   TEXT,
     storage_endpoint    TEXT,
+    UNIQUE(cloud_uuid, name),
     CONSTRAINT          fk_cloud_region_cloud
         FOREIGN KEY         (cloud_uuid)
         REFERENCES          cloud(uuid)
@@ -196,6 +210,17 @@ ON cloud_region (cloud_uuid, name);
 
 CREATE INDEX idx_cloud_region_cloud_uuid
 ON cloud_region (cloud_uuid);
+
+CREATE TABLE cloud_region_defaults (
+	region_uuid TEXT NOT NULL,
+	key TEXT NOT NULL,
+	value TEXT,
+	PRIMARY KEY (region_uuid, key),
+	CONSTRAINT chk_key_empty CHECK(key != ""),
+	CONSTRAINT fk_region_uuid
+        FOREIGN KEY (region_uuid)
+        REFERENCES cloud_region(uuid)
+);
 
 CREATE TABLE cloud_ca_cert (
     uuid              TEXT PRIMARY KEY,
@@ -365,5 +390,14 @@ CREATE TABLE upgrade_info_controller_node (
 
 CREATE UNIQUE INDEX idx_upgrade_info_controller_node
 ON upgrade_info_controller_node (controller_node_id, upgrade_info_uuid);
+`)
+}
+
+func modelDefaults() database.Delta {
+	return database.MakeDelta(`
+CREATE TABLE model_defaults (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 `)
 }
