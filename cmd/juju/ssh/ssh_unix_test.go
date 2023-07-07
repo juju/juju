@@ -95,7 +95,7 @@ var sshTests = []struct {
 		about:       "connect to machine 1 which has no SSH host keys",
 		args:        []string{"1"},
 		hostChecker: validAddresses("1.public"),
-		expectedErr: `retrieving SSH host keys for "1": keys not found`,
+		expectedErr: `attempt count exceeded: retrieving SSH host keys for "1": keys not found`,
 	},
 	{
 		about:       "connect to machine 1 which has no SSH host keys, no host key checks",
@@ -178,7 +178,7 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 		isTerminal := func(stdin interface{}) bool {
 			return t.isTerminal
 		}
-		cmd := NewSSHCommand(t.hostChecker, isTerminal, baseTestingRetryStrategy)
+		cmd := NewSSHCommand(t.hostChecker, isTerminal, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
 		ctx, err := cmdtesting.RunCommand(c, cmd, t.args...)
 		if t.expectedErr != "" {
@@ -199,7 +199,7 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *gc.C) {
 	err := s.Model.UpdateModelConfig(map[string]interface{}{"proxy-ssh": true}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx, err := cmdtesting.RunCommand(c, NewSSHCommand(s.hostChecker, nil, baseTestingRetryStrategy), "0")
+	ctx, err := cmdtesting.RunCommand(c, NewSSHCommand(s.hostChecker, nil, baseTestingRetryStrategy, baseTestingRetryStrategy), "0")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
 	expectedArgs := argsSpec{
@@ -210,7 +210,7 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *gc.C) {
 	}
 	expectedArgs.check(c, cmdtesting.Stdout(ctx))
 
-	ctx, err = cmdtesting.RunCommand(c, NewSSHCommand(s.hostChecker, nil, baseTestingRetryStrategy), "0")
+	ctx, err = cmdtesting.RunCommand(c, NewSSHCommand(s.hostChecker, nil, baseTestingRetryStrategy, baseTestingRetryStrategy), "0")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
 	expectedArgs.argsMatch = `ubuntu@0.(public|private|1\.2\.3)` // can be any of the 3 with api v2.
@@ -255,7 +255,7 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 	// Ensure that the ssh command waits for a public (private with proxy=true)
 	// address, or the attempt strategy's Done method returns false.
 	args := []string{"--proxy=" + fmt.Sprint(proxy), "0"}
-	_, err := cmdtesting.RunCommand(c, NewSSHCommand(s.hostChecker, nil, baseTestingRetryStrategy), args...)
+	_, err := cmdtesting.RunCommand(c, NewSSHCommand(s.hostChecker, nil, baseTestingRetryStrategy, baseTestingRetryStrategy), args...)
 	c.Assert(err, gc.ErrorMatches, `no .+ address\(es\)`)
 
 	if proxy {
@@ -271,7 +271,7 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 		}
 	}
 
-	_, err = cmdtesting.RunCommand(c, NewSSHCommand(s.hostChecker, nil, retryStrategy), args...)
+	_, err = cmdtesting.RunCommand(c, NewSSHCommand(s.hostChecker, nil, retryStrategy, baseTestingRetryStrategy), args...)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
