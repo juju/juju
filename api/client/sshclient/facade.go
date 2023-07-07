@@ -98,7 +98,7 @@ func (facade *Facade) PublicKeys(target string) ([]string, error) {
 		return nil, countError(len(out.Results))
 	}
 	if err := out.Results[0].Error; err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return out.Results[0].PublicKeys, nil
 }

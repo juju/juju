@@ -27,10 +27,11 @@ import (
 	unitdebug "github.com/juju/juju/worker/uniter/runner/debug"
 )
 
-func newDebugHooksCommand(hostChecker ssh.ReachableChecker, retryStrategy retry.CallArgs) cmd.Command {
+func newDebugHooksCommand(hostChecker ssh.ReachableChecker, retryStrategy retry.CallArgs, publicKeyRetryStrategy retry.CallArgs) cmd.Command {
 	c := new(debugHooksCommand)
 	c.hostChecker = hostChecker
 	c.retryStrategy = retryStrategy
+	c.publicKeyRetryStrategy = publicKeyRetryStrategy
 	return modelcmd.Wrap(c)
 }
 

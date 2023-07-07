@@ -136,11 +136,13 @@ func newSSHCommand(
 	hostChecker jujussh.ReachableChecker,
 	isTerminal func(interface{}) bool,
 	retryStrategy retry.CallArgs,
+	publicKeyRetryStrategy retry.CallArgs,
 ) cmd.Command {
 	c := &sshCommand{
-		hostChecker:   hostChecker,
-		isTerminal:    isTerminal,
-		retryStrategy: retryStrategy,
+		hostChecker:            hostChecker,
+		isTerminal:             isTerminal,
+		retryStrategy:          retryStrategy,
+		publicKeyRetryStrategy: publicKeyRetryStrategy,
 	}
 	return modelcmd.Wrap(c)
 }
@@ -149,6 +151,14 @@ var defaultSSHRetryStrategy = retry.CallArgs{
 	Clock:       clock.WallClock,
 	MaxDuration: SSHTimeout,
 	Delay:       SSHRetryDelay,
+}
+
+var defaultSSHPublicKeyRetryStrategy = retry.CallArgs{
+	Clock:       clock.WallClock,
+	MaxDelay:    60 * time.Second,
+	Delay:       1 * time.Second,
+	Attempts:    10,
+	BackoffFunc: retry.DoubleDelay,
 }
 
 // sshCommand is responsible for launching a ssh shell on a given unit or machine.
@@ -165,7 +175,8 @@ type sshCommand struct {
 	isTerminal  func(interface{}) bool
 	pty         autoBoolValue
 
-	retryStrategy retry.CallArgs
+	retryStrategy          retry.CallArgs
+	publicKeyRetryStrategy retry.CallArgs
 }
 
 func (c *sshCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -200,6 +211,7 @@ func (c *sshCommand) Init(args []string) (err error) {
 	c.provider.setArgs(args[1:])
 	c.provider.setHostChecker(c.hostChecker)
 	c.provider.setRetryStrategy(c.retryStrategy)
+	c.provider.setPublicKeyRetryStrategy(c.publicKeyRetryStrategy)
 	return nil
 }
 
@@ -233,6 +245,7 @@ type sshProvider interface {
 	setArgs(Args []string)
 
 	setRetryStrategy(retry.CallArgs)
+	setPublicKeyRetryStrategy(retry.CallArgs)
 }
 
 // Run resolves the given target to a machine or unit, then opens

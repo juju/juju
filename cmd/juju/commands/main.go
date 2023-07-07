@@ -374,12 +374,12 @@ func registerCommands(r commandRegistry) {
 		r.Register(newDefaultRunCommand(nil))
 	}
 	r.Register(newDefaultExecCommand(nil))
-	r.Register(newSCPCommand(nil, defaultSSHRetryStrategy))
-	r.Register(newSSHCommand(nil, nil, defaultSSHRetryStrategy))
+	r.Register(newSCPCommand(nil, defaultSSHRetryStrategy, defaultSSHPublicKeyRetryStrategy))
+	r.Register(newSSHCommand(nil, nil, defaultSSHRetryStrategy, defaultSSHPublicKeyRetryStrategy))
 	r.Register(application.NewResolvedCommand())
 	r.Register(newDebugLogCommand(nil))
-	r.Register(newDebugHooksCommand(nil, defaultSSHRetryStrategy))
-	r.Register(newDebugCodeCommand(nil, defaultSSHRetryStrategy))
+	r.Register(newDebugHooksCommand(nil, defaultSSHRetryStrategy, defaultSSHPublicKeyRetryStrategy))
+	r.Register(newDebugCodeCommand(nil, defaultSSHRetryStrategy, defaultSSHPublicKeyRetryStrategy))
 
 	// Configuration commands.
 	r.Register(model.NewModelGetConstraintsCommand())
