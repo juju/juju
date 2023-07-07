@@ -649,33 +649,36 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot resolve %q", ch.Name)
 	}
-	switch {
-	case url.Series == "bundle" || resolvedOrigin.Type == "bundle":
+	if url.Series == "bundle" || resolvedOrigin.Type == "bundle" {
 		return errors.Errorf("expected charm, got bundle %q %v", ch.Name, resolvedOrigin)
-	case resolvedOrigin.Base.Channel.Empty():
-		selector, err := corecharm.ConfigureBaseSelector(corecharm.SelectorConfig{
-			Config:              h.modelConfig,
-			Force:               h.force,
-			Logger:              logger,
-			RequestedBase:       base,
-			SupportedCharmBases: supportedBases,
-		})
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		selectedBase, err := selector.CharmBase()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		selectedSeries, err := series.GetSeriesFromBase(selectedBase)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		url = url.WithSeries(selectedSeries)
-		resolvedOrigin.Base = selectedBase
-		logger.Tracef("Using channel %s from %v to deploy %v", resolvedOrigin.Base, supportedBases, url)
 	}
+	workloadBases, err := SupportedJujuBases(jujuclock.WallClock.Now(), base, h.modelConfig.ImageStream())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	selector, err := corecharm.ConfigureBaseSelector(corecharm.SelectorConfig{
+		Config:              h.modelConfig,
+		Force:               h.force,
+		Logger:              logger,
+		RequestedBase:       base,
+		SupportedCharmBases: supportedBases,
+		WorkloadBases:       workloadBases,
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	selectedBase, err := selector.CharmBase()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	selectedSeries, err := series.GetSeriesFromBase(selectedBase)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	url = url.WithSeries(selectedSeries)
+	resolvedOrigin.Base = selectedBase
+	logger.Tracef("Using channel %s from %v to deploy %v", resolvedOrigin.Base, supportedBases, url)
 
 	var charmOrigin commoncharm.Origin
 	charmOrigin, err = h.deployAPI.AddCharm(url, resolvedOrigin, h.force)
@@ -984,12 +987,17 @@ func (h *bundleHandler) selectedBase(ch charm.CharmMeta, chBase series.Base) (se
 	if err != nil {
 		return series.Base{}, errors.Trace(err)
 	}
+	workloadBases, err := SupportedJujuBases(jujuclock.WallClock.Now(), chBase, h.modelConfig.ImageStream())
+	if err != nil {
+		return series.Base{}, errors.Trace(err)
+	}
 	selector, err := corecharm.ConfigureBaseSelector(corecharm.SelectorConfig{
 		Config:              h.modelConfig,
 		Force:               h.force,
 		Logger:              logger,
 		RequestedBase:       chBase,
 		SupportedCharmBases: supportedBases,
+		WorkloadBases:       workloadBases,
 	})
 	if err != nil {
 		return series.Base{}, errors.Trace(err)

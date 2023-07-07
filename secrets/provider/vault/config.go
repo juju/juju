@@ -143,7 +143,7 @@ func (p vaultProvider) ValidateConfig(oldCfg, newCfg provider.ConfigAttrs) error
 		oldV := oldValidCfg.validAttrs[n]
 		newV := newValidCfg.validAttrs[n]
 		if oldV != newV {
-			return errors.Errorf("cannot change config %q from %q to %q", n, oldV, newV)
+			return errors.Errorf("cannot change immutable field %q", n)
 		}
 	}
 	return nil

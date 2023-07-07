@@ -13,10 +13,11 @@ import (
 	"github.com/juju/juju/network/ssh"
 )
 
-func NewDebugCodeCommand(hostChecker ssh.ReachableChecker, retryStrategy retry.CallArgs) cmd.Command {
+func NewDebugCodeCommand(hostChecker ssh.ReachableChecker, retryStrategy retry.CallArgs, publicKeyRetryStrategy retry.CallArgs) cmd.Command {
 	c := new(debugCodeCommand)
 	c.hostChecker = hostChecker
 	c.retryStrategy = retryStrategy
+	c.publicKeyRetryStrategy = publicKeyRetryStrategy
 	return modelcmd.Wrap(c)
 }
 
