@@ -267,8 +267,6 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	)
 
 	appWorker := s.startAppWorker(c, clk, facade, broker, unitFacade, ops, false)
-	appWorker.(appNotifyWorker).Notify()
-
 	s.waitDone(c, done)
 	workertest.CheckKill(c, appWorker)
 }
@@ -342,8 +340,6 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *gc.C) {
 	)
 
 	appWorker := s.startAppWorker(c, clk, facade, broker, unitFacade, ops, true)
-	appWorker.(appNotifyWorker).Notify()
-
 	s.waitDone(c, done)
 	workertest.CheckKill(c, appWorker)
 }
