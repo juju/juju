@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v11"
@@ -62,6 +63,10 @@ var _ = gc.Suite(&BundleDeployRepositorySuite{})
 func (s *BundleDeployRepositorySuite) SetUpTest(_ *gc.C) {
 	s.deployArgs = make(map[string]application.DeployArgs)
 	s.output = bytes.NewBuffer([]byte{})
+
+	s.PatchValue(&SupportedJujuBases, func(time.Time, series.Base, string) ([]series.Base, error) {
+		return transform.SliceOrErr([]string{"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04"}, series.ParseBaseFromString)
+	})
 }
 
 func (s *BundleDeployRepositorySuite) TearDownTest(_ *gc.C) {

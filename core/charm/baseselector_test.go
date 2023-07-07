@@ -217,6 +217,7 @@ func (s *baseSelectorSuite) TestConfigureBaseSelector(c *gc.C) {
 		Logger:              &noOpLogger{},
 		RequestedBase:       series.Base{},
 		SupportedCharmBases: []series.Base{jammy, focal, bionic},
+		WorkloadBases:       []series.Base{jammy, focal},
 		UsingImageID:        false,
 	}
 
@@ -236,6 +237,7 @@ func (s *baseSelectorSuite) TestConfigureBaseSelectorCentos(c *gc.C) {
 		Logger:              &noOpLogger{},
 		RequestedBase:       series.Base{},
 		SupportedCharmBases: []series.Base{c6, c7, c8},
+		WorkloadBases:       []series.Base{c7, c8},
 		UsingImageID:        false,
 	}
 
@@ -254,6 +256,7 @@ func (s *baseSelectorSuite) TestConfigureBaseSelectorDefaultBase(c *gc.C) {
 		Logger:              &noOpLogger{},
 		RequestedBase:       series.Base{},
 		SupportedCharmBases: []series.Base{jammy, focal, bionic},
+		WorkloadBases:       []series.Base{jammy, focal},
 		UsingImageID:        false,
 	}
 
@@ -279,6 +282,7 @@ func (s *baseSelectorSuite) TestConfigureBaseSelectorDefaultBaseFail(c *gc.C) {
 		Logger:              &noOpLogger{},
 		RequestedBase:       series.Base{},
 		SupportedCharmBases: []series.Base{jammy, focal, bionic},
+		WorkloadBases:       []series.Base{jammy, focal},
 		UsingImageID:        false,
 	}
 
