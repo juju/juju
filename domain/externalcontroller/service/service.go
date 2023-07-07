@@ -19,7 +19,7 @@ type State interface {
 	Controller(ctx context.Context, controllerUUID string) (*crossmodel.ControllerInfo, error)
 
 	// UpdateExternalController persists the input controller
-	// record and associates it with the input model UUIDs.
+	// record.
 	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
 
 	// ModelsForController returns the list of model UUIDs for

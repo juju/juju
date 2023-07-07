@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/names/v4"
@@ -29,8 +30,9 @@ import (
 type controllerConfigSuite struct {
 	testing.BaseSuite
 
-	st *mocks.MockControllerConfigState
-	cc *common.ControllerConfigAPI
+	st        *mocks.MockControllerConfigState
+	ecService *mocks.MockECService
+	cc        *common.ControllerConfigAPI
 }
 
 var _ = gc.Suite(&controllerConfigSuite{})
@@ -39,7 +41,8 @@ func (s *controllerConfigSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.st = mocks.NewMockControllerConfigState(ctrl)
-	s.cc = common.NewStateControllerConfig(s.st)
+	s.ecService = mocks.NewMockECService(ctrl)
+	s.cc = common.NewControllerConfigAPI(s.st, s.ecService)
 	return ctrl
 }
 
@@ -94,7 +97,7 @@ func (s *controllerConfigSuite) TestControllerInfo(c *gc.C) {
 	s.st.EXPECT().ModelExists(testing.ModelTag.Id()).Return(true, nil)
 	s.expectStateControllerInfo(c)
 
-	results, err := s.cc.ControllerAPIInfoForModels(params.Entities{
+	results, err := s.cc.ControllerAPIInfoForModels(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: testing.ModelTag.String()}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -105,11 +108,19 @@ func (s *controllerConfigSuite) TestControllerInfo(c *gc.C) {
 type controllerInfoSuite struct {
 	jujutesting.ApiServerSuite
 
+	ecService  *mocks.MockECService
 	localState *state.State
 	localModel *state.Model
 }
 
 var _ = gc.Suite(&controllerInfoSuite{})
+
+func (s *controllerInfoSuite) setUpMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.ecService = mocks.NewMockECService(ctrl)
+	return ctrl
+}
 
 func (s *controllerInfoSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
@@ -125,8 +136,8 @@ func (s *controllerInfoSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *controllerInfoSuite) TestControllerInfoLocalModel(c *gc.C) {
-	cc := common.NewStateControllerConfig(s.localState)
-	results, err := cc.ControllerAPIInfoForModels(params.Entities{
+	cc := common.NewControllerConfigAPI(s.localState, s.ecService)
+	results, err := cc.ControllerAPIInfoForModels(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: s.localModel.ModelTag().String()}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -139,17 +150,20 @@ func (s *controllerInfoSuite) TestControllerInfoLocalModel(c *gc.C) {
 }
 
 func (s *controllerInfoSuite) TestControllerInfoExternalModel(c *gc.C) {
-	ec := state.NewExternalControllers(s.localState)
+	defer s.setUpMocks(c).Finish()
+
 	modelUUID := utils.MustNewUUID().String()
 	info := crossmodel.ControllerInfo{
 		ControllerTag: testing.ControllerTag,
 		Addrs:         []string{"192.168.1.1:12345"},
 		CACert:        testing.CACert,
 	}
-	_, err := ec.Save(info, modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	cc := common.NewStateControllerConfig(s.localState)
-	results, err := cc.ControllerAPIInfoForModels(params.Entities{
+
+	s.ecService.EXPECT().ControllerForModel(gomock.Any(), modelUUID).
+		Return(&info, nil)
+
+	cc := common.NewControllerConfigAPI(s.localState, s.ecService)
+	results, err := cc.ControllerAPIInfoForModels(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: names.NewModelTag(modelUUID).String()}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -158,7 +172,7 @@ func (s *controllerInfoSuite) TestControllerInfoExternalModel(c *gc.C) {
 }
 
 func (s *controllerInfoSuite) TestControllerInfoMigratedController(c *gc.C) {
-	cc := common.NewStateControllerConfig(s.localState)
+	cc := common.NewControllerConfigAPI(s.localState, s.ecService)
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	modelState := f.MakeModel(c, &factory.ModelParams{})
@@ -189,7 +203,7 @@ func (s *controllerInfoSuite) TestControllerInfoMigratedController(c *gc.C) {
 	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 	c.Assert(modelState.RemoveDyingModel(), jc.ErrorIsNil)
 
-	externalControllerInfo, err := cc.ControllerAPIInfoForModels(params.Entities{
+	externalControllerInfo, err := cc.ControllerAPIInfoForModels(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: names.NewModelTag(model.UUID()).String()}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(externalControllerInfo.Results), gc.Equals, 1)

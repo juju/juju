@@ -4,6 +4,7 @@
 package application_test
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
@@ -61,6 +62,7 @@ type ApplicationSuite struct {
 	api *application.APIBase
 
 	backend            *mocks.MockBackend
+	ecService          *mocks.MockECService
 	storageAccess      *mocks.MockStorageInterface
 	model              *mocks.MockModel
 	leadershipReader   *mocks.MockReader
@@ -156,6 +158,8 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 	s.backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
 	s.backend.EXPECT().AllSpaceInfos().Return(s.allSpaceInfos, nil).AnyTimes()
 
+	s.ecService = mocks.NewMockECService(ctrl)
+
 	s.storageAccess = mocks.NewMockStorageInterface(ctrl)
 	s.storageAccess.EXPECT().VolumeAccess().Return(nil).AnyTimes()
 	s.storageAccess.EXPECT().FilesystemAccess().Return(nil).AnyTimes()
@@ -184,6 +188,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 
 	api, err := application.NewAPIBase(
 		s.backend,
+		s.ecService,
 		s.storageAccess,
 		s.authorizer,
 		nil,
@@ -2378,7 +2383,7 @@ func (s *ApplicationSuite) TestConsumeIdempotent(c *gc.C) {
 	s.backend.EXPECT().RemoteApplication("hosted-mysql").Return(remApp, nil)
 
 	for i := 0; i < 2; i++ {
-		results, err := s.api.Consume(s.consumeApplicationArgs)
+		results, err := s.api.Consume(context.Background(), s.consumeApplicationArgs)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(results.OneError(), gc.IsNil)
 	}
@@ -2399,15 +2404,19 @@ func (s *ApplicationSuite) TestConsumeFromExternalController(c *gc.C) {
 	}
 
 	s.backend.EXPECT().RemoteApplication("hosted-mysql").Return(nil, errors.NotFoundf(`saas application "hosted-mysql"`))
-	s.backend.EXPECT().SaveController(crossmodel.ControllerInfo{
-		ControllerTag: names.NewControllerTag(controllerUUID),
-		Alias:         "controller-alias",
-		CACert:        coretesting.CACert,
-		Addrs:         []string{"192.168.1.1:1234"},
-	}, coretesting.ModelTag.Id()).Return(nil, nil)
+	s.ecService.EXPECT().UpdateExternalController(
+		context.Background(),
+		crossmodel.ControllerInfo{
+			ControllerTag: names.NewControllerTag(controllerUUID),
+			Alias:         "controller-alias",
+			CACert:        coretesting.CACert,
+			Addrs:         []string{"192.168.1.1:1234"},
+			ModelUUIDs:    []string{coretesting.ModelTag.Id()},
+		},
+	).Return(nil)
 	s.backend.EXPECT().AddRemoteApplication(s.addRemoteApplicationParams).Return(nil, nil)
 
-	results, err := s.api.Consume(s.consumeApplicationArgs)
+	results, err := s.api.Consume(context.Background(), s.consumeApplicationArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.OneError(), gc.IsNil)
 }
@@ -2425,7 +2434,7 @@ func (s *ApplicationSuite) TestConsumeFromSameController(c *gc.C) {
 	s.backend.EXPECT().RemoteApplication("hosted-mysql").Return(nil, errors.NotFoundf(`saas application "hosted-mysql"`))
 	s.backend.EXPECT().AddRemoteApplication(s.addRemoteApplicationParams).Return(nil, nil)
 
-	results, err := s.api.Consume(s.consumeApplicationArgs)
+	results, err := s.api.Consume(context.Background(), s.consumeApplicationArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.OneError(), gc.IsNil)
 }
@@ -2468,7 +2477,7 @@ func (s *ApplicationSuite) TestConsumeIncludesSpaceInfo(c *gc.C) {
 	s.backend.EXPECT().RemoteApplication("beirut").Return(nil, errors.NotFoundf(`saas application "beirut"`))
 	s.backend.EXPECT().AddRemoteApplication(s.addRemoteApplicationParams).Return(nil, nil)
 
-	results, err := s.api.Consume(s.consumeApplicationArgs)
+	results, err := s.api.Consume(context.Background(), s.consumeApplicationArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.OneError(), gc.IsNil)
 }
@@ -2481,7 +2490,7 @@ func (s *ApplicationSuite) TestConsumeRemoteAppExistsDifferentSourceModel(c *gc.
 
 	s.consumeApplicationArgs.Args[0].ApplicationOfferDetails.SourceModelTag = names.NewModelTag(utils.MustNewUUID().String()).String()
 
-	results, err := s.api.Consume(params.ConsumeApplicationArgs{
+	results, err := s.api.Consume(context.Background(), params.ConsumeApplicationArgs{
 		Args: []params.ConsumeApplicationArg{{
 			ApplicationOfferDetails: params.ApplicationOfferDetails{
 				SourceModelTag:         names.NewModelTag(utils.MustNewUUID().String()).String(),
@@ -2503,7 +2512,7 @@ func (s *ApplicationSuite) TestConsumeRemoteAppDying(c *gc.C) {
 
 	s.backend.EXPECT().RemoteApplication("hosted-mysql").Return(s.expectRemoteApplication(ctrl, state.Dying, status.Active), nil)
 
-	results, err := s.api.Consume(s.consumeApplicationArgs)
+	results, err := s.api.Consume(context.Background(), s.consumeApplicationArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.OneError(), gc.ErrorMatches, `saas application called "hosted-mysql" exists but is terminating`)
@@ -2519,7 +2528,7 @@ func (s *ApplicationSuite) TestConsumeRemoteAppTerminated(c *gc.C) {
 	s.backend.EXPECT().ApplyOperation(&state.DestroyRemoteApplicationOperation{}).Return(nil)
 	s.backend.EXPECT().AddRemoteApplication(s.addRemoteApplicationParams).Return(nil, nil)
 
-	results, err := s.api.Consume(s.consumeApplicationArgs)
+	results, err := s.api.Consume(context.Background(), s.consumeApplicationArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.OneError(), gc.IsNil)

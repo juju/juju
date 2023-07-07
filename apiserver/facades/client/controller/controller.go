@@ -28,10 +28,14 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	corecontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/changestream"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/domain"
+	ecservice "github.com/juju/juju/domain/externalcontroller/service"
+	ecstate "github.com/juju/juju/domain/externalcontroller/state"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/pubsub/controller"
@@ -79,6 +83,7 @@ var TestingAPI = LatestAPI
 // on a controller.
 func NewControllerAPI(
 	st *state.State,
+	controllerDB domain.WatchableDBFactory,
 	pool *state.StatePool,
 	authorizer facade.Authorizer,
 	resources facade.Resources,
@@ -101,7 +106,16 @@ func NewControllerAPI(
 		return nil, errors.Trace(err)
 	}
 	return &ControllerAPI{
-		ControllerConfigAPI: common.NewStateControllerConfig(st),
+		ControllerConfigAPI: common.NewControllerConfigAPI(
+			st,
+			ecservice.NewService(
+				ecstate.NewState(changestream.NewTxnRunnerFactory(controllerDB)),
+				domain.NewWatcherFactory(
+					controllerDB,
+					logger.Child("clientcontroller"),
+				),
+			),
+		),
 		ModelStatusAPI: common.NewModelStatusAPI(
 			common.NewModelManagerBackend(model, pool),
 			authorizer,

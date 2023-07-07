@@ -18,12 +18,16 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/constraints"
 	corecontainer "github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain"
+	ecservice "github.com/juju/juju/domain/externalcontroller/service"
+	ecstate "github.com/juju/juju/domain/externalcontroller/state"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -141,16 +145,25 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 	callCtx := context.CallContext(st)
 	resources := ctx.Resources()
 	api := &ProvisionerAPI{
-		Remover:                 common.NewRemover(st, nil, false, getAuthFunc),
-		StatusSetter:            common.NewStatusSetter(st, getAuthFunc),
-		StatusGetter:            common.NewStatusGetter(st, getAuthFunc),
-		DeadEnsurer:             common.NewDeadEnsurer(st, nil, getAuthFunc),
-		PasswordChanger:         common.NewPasswordChanger(st, getAuthFunc),
-		LifeGetter:              common.NewLifeGetter(st, getAuthFunc),
-		APIAddresser:            common.NewAPIAddresser(systemState, resources),
-		ModelWatcher:            common.NewModelWatcher(model, resources, authorizer),
-		ModelMachinesWatcher:    common.NewModelMachinesWatcher(st, resources, authorizer),
-		ControllerConfigAPI:     common.NewStateControllerConfig(st),
+		Remover:              common.NewRemover(st, nil, false, getAuthFunc),
+		StatusSetter:         common.NewStatusSetter(st, getAuthFunc),
+		StatusGetter:         common.NewStatusGetter(st, getAuthFunc),
+		DeadEnsurer:          common.NewDeadEnsurer(st, nil, getAuthFunc),
+		PasswordChanger:      common.NewPasswordChanger(st, getAuthFunc),
+		LifeGetter:           common.NewLifeGetter(st, getAuthFunc),
+		APIAddresser:         common.NewAPIAddresser(systemState, resources),
+		ModelWatcher:         common.NewModelWatcher(model, resources, authorizer),
+		ModelMachinesWatcher: common.NewModelMachinesWatcher(st, resources, authorizer),
+		ControllerConfigAPI: common.NewControllerConfigAPI(
+			st,
+			ecservice.NewService(
+				ecstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),
+				domain.NewWatcherFactory(
+					ctx.ControllerDB,
+					ctx.Logger().Child("provisioner"),
+				),
+			),
+		),
 		NetworkConfigAPI:        netConfigAPI,
 		st:                      st,
 		m:                       model,

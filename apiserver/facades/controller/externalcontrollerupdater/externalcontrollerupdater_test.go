@@ -35,7 +35,7 @@ func (s *CrossControllerSuite) TestExternalControllerInfo(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ecService := NewMockEcService(ctrl)
+	ecService := NewMockECService(ctrl)
 
 	ctrlTag, err := names.ParseControllerTag(coretesting.ControllerTag.String())
 	c.Assert(err, jc.ErrorIsNil)
@@ -83,7 +83,7 @@ func (s *CrossControllerSuite) TestSetExternalControllerInfo(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ecService := NewMockEcService(ctrl)
+	ecService := NewMockECService(ctrl)
 
 	firstControllerTag := coretesting.ControllerTag.String()
 	firstControllerTagParsed, err := names.ParseControllerTag(firstControllerTag)
@@ -143,7 +143,7 @@ func (s *CrossControllerSuite) TestWatchExternalControllers(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ecService := NewMockEcService(ctrl)
+	ecService := NewMockECService(ctrl)
 	mockKeysWatcher := NewMockStringsWatcher(ctrl)
 	ecService.EXPECT().Watch().Return(mockKeysWatcher, nil)
 	changes := make(chan []string, 1)
@@ -171,7 +171,7 @@ func (s *CrossControllerSuite) TestWatchControllerInfoError(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ecService := NewMockEcService(ctrl)
+	ecService := NewMockECService(ctrl)
 	mockKeysWatcher := NewMockStringsWatcher(ctrl)
 	ecService.EXPECT().Watch().Return(mockKeysWatcher, nil)
 	changes := make(chan []string, 1)

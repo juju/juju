@@ -49,6 +49,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := application.NewAPIBase(
 		application.GetState(s.State),
+		nil,
 		storageAccess,
 		s.authorizer,
 		nil,
@@ -165,6 +166,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := application.NewAPIBase(
 		application.GetState(st),
+		nil,
 		storageAccess,
 		s.authorizer,
 		nil,

@@ -4,6 +4,8 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -12,16 +14,31 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+type ECService interface {
+	// ControllerForModel returns the controller record that's associated
+	// with the modelUUID.
+	ControllerForModel(ctx context.Context, modelUUID string) (*crossmodel.ControllerInfo, error)
+
+	// UpdateExternalController persists the input controller
+	// record.
+	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
+}
+
 // ControllerConfigAPI implements two common methods for use by various
 // facades - eg Provisioner and ControllerConfig.
 type ControllerConfigAPI struct {
-	st ControllerConfigState
+	ecService ECService
+	st        ControllerConfigState
 }
 
-// NewStateControllerConfig returns a new NewControllerConfigAPI.
-func NewStateControllerConfig(st ControllerConfigState) *ControllerConfigAPI {
+// NewControllerConfigAPI returns a new ControllerConfigAPI.
+func NewControllerConfigAPI(
+	st ControllerConfigState,
+	ecService ECService,
+) *ControllerConfigAPI {
 	return &ControllerConfigAPI{
-		st: st,
+		st:        st,
+		ecService: ecService,
 	}
 }
 
@@ -37,11 +54,11 @@ func (s *ControllerConfigAPI) ControllerConfig() (params.ControllerConfigResult,
 }
 
 // ControllerAPIInfoForModels returns the controller api connection details for the specified models.
-func (s *ControllerConfigAPI) ControllerAPIInfoForModels(args params.Entities) (params.ControllerAPIInfoResults, error) {
+func (s *ControllerConfigAPI) ControllerAPIInfoForModels(ctx context.Context, args params.Entities) (params.ControllerAPIInfoResults, error) {
 	var result params.ControllerAPIInfoResults
 	result.Results = make([]params.ControllerAPIInfoResult, len(args.Entities))
 	for i, entity := range args.Entities {
-		info, err := s.getModelControllerInfo(entity)
+		info, err := s.getModelControllerInfo(ctx, entity)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -52,7 +69,7 @@ func (s *ControllerConfigAPI) ControllerAPIInfoForModels(args params.Entities) (
 }
 
 // GetModelControllerInfo returns the external controller details for the specified model.
-func (s *ControllerConfigAPI) getModelControllerInfo(model params.Entity) (params.ControllerAPIInfoResult, error) {
+func (s *ControllerConfigAPI) getModelControllerInfo(ctx context.Context, model params.Entity) (params.ControllerAPIInfoResult, error) {
 	modelTag, err := names.ParseModelTag(model.Tag)
 	if err != nil {
 		return params.ControllerAPIInfoResult{}, errors.Trace(err)
@@ -73,12 +90,11 @@ func (s *ControllerConfigAPI) getModelControllerInfo(model params.Entity) (param
 		}, nil
 	}
 
-	ec := s.st.NewExternalControllers()
-	ctrl, err := ec.ControllerForModel(modelTag.Id())
+	ctrl, err := s.ecService.ControllerForModel(ctx, modelTag.Id())
 	if err == nil {
 		return params.ControllerAPIInfoResult{
-			Addresses: ctrl.ControllerInfo().Addrs,
-			CACert:    ctrl.ControllerInfo().CACert,
+			Addresses: ctrl.Addrs,
+			CACert:    ctrl.CACert,
 		}, nil
 	}
 	if !errors.IsNotFound(err) {
@@ -101,12 +117,13 @@ func (s *ControllerConfigAPI) getModelControllerInfo(model params.Entity) (param
 	}
 
 	logger.Debugf("found migrated model on another controller, saving the information")
-	_, err = ec.Save(crossmodel.ControllerInfo{
+	err = s.ecService.UpdateExternalController(ctx, crossmodel.ControllerInfo{
 		ControllerTag: target.ControllerTag,
 		Alias:         target.ControllerAlias,
 		Addrs:         target.Addrs,
 		CACert:        target.CACert,
-	}, modelTag.Id())
+		ModelUUIDs:    []string{modelTag.Id()},
+	})
 	if err != nil {
 		return params.ControllerAPIInfoResult{}, errors.Trace(err)
 	}
