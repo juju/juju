@@ -674,27 +674,30 @@ func (k *kubernetesClient) EnsureSecretAccessToken(tag names.Tag, owned, read, r
 }
 
 func (k *kubernetesClient) ensureBindingForSecretAccessToken(sa *core.ServiceAccount, objMeta v1.ObjectMeta, owned, read, removed []string) error {
+	ctx := context.TODO()
 	isControllerModel := k.Config().Name() == environsbootstrap.ControllerModelName
+
 	if isControllerModel {
+		objMeta.Name = fmt.Sprintf("%s-%s", k.namespace, objMeta.Name)
 		clusterRole, err := k.getClusterRole(objMeta.Name)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 		if errors.Is(err, errors.NotFound) {
 			clusterRole, err = k.createClusterRole(
 				&rbacv1.ClusterRole{
 					ObjectMeta: objMeta,
-					Rules:      k.rulesForSecretAccess(true, nil, owned, read, removed),
+					Rules:      rulesForSecretAccess(k.namespace, true, nil, owned, read, removed),
 				},
 			)
 		} else {
-			clusterRole.Rules = k.rulesForSecretAccess(true, clusterRole.Rules, owned, read, removed)
+			clusterRole.Rules = rulesForSecretAccess(k.namespace, true, clusterRole.Rules, owned, read, removed)
 			clusterRole, err = k.updateClusterRole(clusterRole)
 		}
 		if err != nil {
 			return errors.Trace(err)
 		}
-		binding := &rbacv1.ClusterRoleBinding{
+		bindingSpec := &rbacv1.ClusterRoleBinding{
 			ObjectMeta: objMeta,
 			RoleRef: rbacv1.RoleRef{
 				APIGroup: "rbac.authorization.k8s.io",
@@ -709,33 +712,34 @@ func (k *kubernetesClient) ensureBindingForSecretAccessToken(sa *core.ServiceAcc
 				},
 			},
 		}
-		// _, _, err = k.ensureClusterRoleBinding(binding)
-		// _, err = k.createClusterRoleBinding(binding)
-		_, err = k.client().RbacV1().ClusterRoleBindings().Create(context.TODO(), binding, v1.CreateOptions{})
-		if err != nil {
-			return errors.Annotatef(err, "cannot ensure cluster role binding %q", binding.Name)
-		}
+		clusterRoleBinding := resources.NewClusterRoleBinding(bindingSpec.Name, bindingSpec)
+		_, err = clusterRoleBinding.Ensure(
+			ctx,
+			k.client(),
+			resources.ClaimJujuOwnership,
+		)
+		return errors.Trace(err)
 	}
 
 	role, err := k.getRole(objMeta.Name)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
 	}
 	if errors.Is(err, errors.NotFound) {
 		role, err = k.createRole(
 			&rbacv1.Role{
 				ObjectMeta: objMeta,
-				Rules:      k.rulesForSecretAccess(false, nil, owned, read, removed),
+				Rules:      rulesForSecretAccess(k.namespace, false, nil, owned, read, removed),
 			},
 		)
 	} else {
-		role.Rules = k.rulesForSecretAccess(false, role.Rules, owned, read, removed)
+		role.Rules = rulesForSecretAccess(k.namespace, false, role.Rules, owned, read, removed)
 		role, err = k.updateRole(role)
 	}
 	if err != nil {
 		return errors.Trace(err)
 	}
-	binding := &rbacv1.RoleBinding{
+	bindingSpec := &rbacv1.RoleBinding{
 		ObjectMeta: objMeta,
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
@@ -750,8 +754,9 @@ func (k *kubernetesClient) ensureBindingForSecretAccessToken(sa *core.ServiceAcc
 			},
 		},
 	}
-	_, _, err = k.ensureRoleBinding(binding)
-	return errors.Annotatef(err, "cannot ensure role binding %q", binding.Name)
+	roleBinding := resources.NewRoleBinding(bindingSpec.Name, bindingSpec.Namespace, bindingSpec)
+	err = roleBinding.Apply(ctx, k.client())
+	return errors.Trace(err)
 }
 
 func cleanRules(existing []rbacv1.PolicyRule, shouldRemove func(string) bool) []rbacv1.PolicyRule {
@@ -770,7 +775,10 @@ func cleanRules(existing []rbacv1.PolicyRule, shouldRemove func(string) bool) []
 	return existing[:i]
 }
 
-func (k *kubernetesClient) rulesForSecretAccess(isControllerModel bool, existing []rbacv1.PolicyRule, owned, read, removed []string) []rbacv1.PolicyRule {
+func rulesForSecretAccess(
+	namespace string, isControllerModel bool,
+	existing []rbacv1.PolicyRule, owned, read, removed []string,
+) []rbacv1.PolicyRule {
 	if len(existing) == 0 {
 		existing = []rbacv1.PolicyRule{
 			{
@@ -795,7 +803,7 @@ func (k *kubernetesClient) rulesForSecretAccess(isControllerModel bool, existing
 				APIGroups:     []string{rbacv1.APIGroupAll},
 				Resources:     []string{"namespaces"},
 				Verbs:         []string{"get", "list"},
-				ResourceNames: []string{k.namespace},
+				ResourceNames: []string{namespace},
 			})
 		}
 	}
