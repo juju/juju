@@ -21,7 +21,6 @@ test_deploy_aks() {
 
 	test_deploy_aks_charms
 
-	export KILL_CONTROLLER=true
 	destroy_controller "test-deploy-aks"
 
 	juju remove-k8s --client aks-k8s-cloud
