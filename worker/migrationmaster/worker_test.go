@@ -129,9 +129,8 @@ var (
 	}
 	prechecksCalls = []jujutesting.StubCall{
 		{"facade.ModelInfo", nil},
+		{"facade.Prechecks", []interface{}{}},
 		apiOpenControllerCall,
-		{"Controller.ControllerVersion", []interface{}{nil}},
-		{"facade.Prechecks", []interface{}{version.MustParse("2.9.99")}},
 		{"MigrationTarget.Prechecks", []interface{}{params.MigrationModelInfo{
 			UUID:         modelUUID,
 			Name:         modelName,
@@ -326,9 +325,8 @@ func (s *Suite) TestIncompatibleTarget(c *gc.C) {
 		// QUIESCE
 		[]jujutesting.StubCall{
 			{"facade.ModelInfo", nil},
+			{"facade.Prechecks", []interface{}{}},
 			apiOpenControllerCall,
-			{"Controller.ControllerVersion", []interface{}{nil}},
-			{"facade.Prechecks", []interface{}{version.MustParse("2.9.99")}},
 			{"facade.SourceControllerInfo", nil},
 			apiCloseCall,
 		},
@@ -483,9 +481,8 @@ func (s *Suite) TestQUIESCEWrongController(c *gc.C) {
 		[]jujutesting.StubCall{
 			{"facade.MinionReportTimeout", nil},
 			{"facade.ModelInfo", nil},
+			{"facade.Prechecks", []interface{}{}},
 			apiOpenControllerCall,
-			{"Controller.ControllerVersion", []interface{}{nil}},
-			{"facade.Prechecks", []interface{}{version.MustParse("2.9.99")}},
 			apiCloseCall,
 		},
 		abortCalls,
@@ -502,10 +499,7 @@ func (s *Suite) TestQUIESCESourceChecksFail(c *gc.C) {
 		[]jujutesting.StubCall{
 			{"facade.MinionReportTimeout", nil},
 			{"facade.ModelInfo", nil},
-			apiOpenControllerCall,
-			{"Controller.ControllerVersion", []interface{}{nil}},
-			{"facade.Prechecks", []interface{}{version.MustParse("2.9.99")}},
-			apiCloseCall,
+			{"facade.Prechecks", []interface{}{}},
 		},
 		abortCalls,
 	))
@@ -1277,8 +1271,8 @@ func (f *stubMasterFacade) MinionReportTimeout() (time.Duration, error) {
 	return f.minionReportTimeout, nil
 }
 
-func (f *stubMasterFacade) Prechecks(targetControllerVersion version.Number) error {
-	f.stub.AddCall("facade.Prechecks", targetControllerVersion)
+func (f *stubMasterFacade) Prechecks() error {
+	f.stub.AddCall("facade.Prechecks")
 	return f.prechecksErr
 }
 

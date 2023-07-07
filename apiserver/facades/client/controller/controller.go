@@ -14,7 +14,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -741,7 +740,7 @@ func (c *ControllerAPI) ConfigSet(args params.ControllerConfigSet) error {
 	}
 	if _, err := c.hub.Publish(
 		controller.ConfigChanged,
-		controller.ConfigChangedMessage{cfg}); err != nil {
+		controller.ConfigChangedMessage{Config: cfg}); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -761,20 +760,8 @@ var runMigrationPrechecks = func(
 	modelPresence := presence.ModelPresence(st.ModelUUID())
 	controllerPresence := presence.ModelPresence(ctlrSt.ModelUUID())
 
-	targetConn, err := api.Open(targetToAPIInfo(targetInfo), migration.ControllerDialOpts())
-	if err != nil {
-		return errors.Annotate(err, "connect to target controller")
-	}
-	defer targetConn.Close()
-
-	targetControllerVersion, err := getTargetControllerVersion(targetConn)
-	if err != nil {
-		return errors.Annotate(err, "cannot get target controller version")
-	}
-
 	if err := migration.SourcePrecheck(
 		backend,
-		targetControllerVersion,
 		modelPresence, controllerPresence,
 		cloudspec.MakeCloudSpecGetterForModel(st),
 	); err != nil {
@@ -786,6 +773,11 @@ var runMigrationPrechecks = func(
 	if err != nil {
 		return errors.Trace(err)
 	}
+	targetConn, err := api.Open(targetToAPIInfo(targetInfo), migration.ControllerDialOpts())
+	if err != nil {
+		return errors.Annotate(err, "connect to target controller")
+	}
+	defer targetConn.Close()
 	dstUserList, err := getTargetControllerUsers(targetConn)
 	if err != nil {
 		return errors.Trace(err)
@@ -924,19 +916,6 @@ func makeModelInfo(st, ctlrSt *state.State) (coremigration.ModelInfo, userList, 
 		AgentVersion:           agentVersion,
 		ControllerAgentVersion: controllerVersion,
 	}, ul, nil
-}
-
-func getTargetControllerVersion(conn api.Connection) (version.Number, error) {
-	client := controllerclient.NewClient(conn)
-	result, err := client.ControllerVersion()
-	if err != nil {
-		return version.Number{}, errors.Annotate(err, "failed to obtain target controller version during prechecks")
-	}
-	number, err := version.Parse(result.Version)
-	if err != nil {
-		return version.Number{}, errors.Trace(err)
-	}
-	return number, nil
 }
 
 func getTargetControllerUsers(conn api.Connection) (userList, error) {

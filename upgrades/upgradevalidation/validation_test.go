@@ -186,7 +186,7 @@ func (s *upgradeValidationSuite) TestGetCheckTargetVersionForControllerModel(c *
 		upgradevalidation.UpgradeControllerAllowed,
 	)("", nil, nil, model)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker.Error(), gc.Equals, `current model ("2.9.29") has to be upgraded to "2.9.30" at least`)
+	c.Assert(blocker, gc.ErrorMatches, `current model \("2.9.29"\) has to be upgraded to "2.9.30" at least`)
 
 	blocker, err = upgradevalidation.GetCheckTargetVersionForModel(
 		version.MustParse("3.0.0"),

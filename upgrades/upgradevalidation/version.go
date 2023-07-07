@@ -47,6 +47,7 @@ func UpgradeControllerAllowed(modelVersion, targetControllerVersion version.Numb
 func versionCheck(
 	from, to version.Number, versionMap map[int]version.Number, operation string,
 ) (bool, version.Number, error) {
+	// If the major version is the same then we will allow the upgrade.
 	if from.Major == to.Major {
 		return true, version.Number{}, nil
 	}
@@ -55,6 +56,7 @@ func versionCheck(
 		logger.Debugf("downgrade from %q to %q is not allowed", from, to)
 		return false, version.Number{}, errors.Errorf("downgrade is not allowed")
 	}
+
 	minVer, ok := versionMap[to.Major]
 	logger.Debugf("from %q, to %q, versionMap %#v", from, to, versionMap)
 	if !ok {
