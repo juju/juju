@@ -9,9 +9,13 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/ssh"
 	gc "gopkg.in/check.v1"
@@ -117,8 +121,9 @@ func (s *argsSpec) expectedKnownHosts() string {
 
 type SSHMachineSuite struct {
 	testing.JujuConnSuite
-	binDir      string
-	hostChecker jujussh.ReachableChecker
+	binDir        string
+	hostChecker   jujussh.ReachableChecker
+	noKeysMachine *state.Machine
 }
 
 var _ = gc.Suite(&SSHMachineSuite{})
@@ -245,6 +250,41 @@ func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForContainerMachineTarg
 	c.Assert(target.via.host, gc.Equals, "10.0.0.1", gc.Commentf("expected target.via.host to be set to the container's host machine address"))
 }
 
+func (s *SSHMachineSuite) TestKeyFetchRetries(c *gc.C) {
+	s.setupModel(c)
+
+	isTerminal := func(stdin interface{}) bool {
+		return false
+	}
+
+	done := make(chan struct{})
+	publicKeyRetry := retry.CallArgs{
+		Attempts:    10,
+		Delay:       10 * time.Millisecond,
+		MaxDelay:    1 * time.Second,
+		BackoffFunc: retry.DoubleDelay,
+		Clock:       clock.WallClock,
+		NotifyFunc: func(lastError error, attempt int) {
+			if attempt == 1 {
+				s.setKeys(c, s.noKeysMachine)
+				close(done)
+			}
+		},
+	}
+
+	cmd := newSSHCommand(validAddresses("1.public"), isTerminal, baseTestingRetryStrategy, publicKeyRetry)
+
+	ctx, err := cmdtesting.RunCommand(c, cmd, "1")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+
+	select {
+	case <-done:
+	default:
+		c.Fatal("command exited before keys were delay set")
+	}
+}
+
 func (s *SSHMachineSuite) setForceAPIv1(enabled bool) {
 	if enabled {
 		os.Setenv(jujuSSHClientForceAPIv1, "1")
@@ -270,8 +310,8 @@ func (s *SSHMachineSuite) setupModel(c *gc.C) {
 	s.setLinkLayerDevicesAddresses(c, m)
 
 	// machine-1 has no public host keys available.
-	m1 := s.Factory.MakeMachine(c, nil)
-	s.setAddresses(c, m1)
+	s.noKeysMachine = s.Factory.MakeMachine(c, nil)
+	s.setAddresses(c, s.noKeysMachine)
 
 	// machine-2 has IPv6 addresses
 	m2 := s.Factory.MakeMachine(c, nil)

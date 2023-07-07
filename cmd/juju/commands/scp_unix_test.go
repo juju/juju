@@ -73,7 +73,7 @@ var scpTests = []struct {
 		about:       "scp when no keys available",
 		args:        []string{"foo", "1:"},
 		hostChecker: validAddresses("1.public"),
-		error:       `retrieving SSH host keys for "1": keys not found`,
+		error:       `attempt count exceeded: retrieving SSH host keys for "1": keys not found`,
 	}, {
 		about:       "scp when no keys available, with --no-host-key-checks",
 		args:        []string{"--no-host-key-checks", "foo", "1:"},
@@ -221,18 +221,18 @@ func (s *SCPSuiteLegacy) TestSCPCommand(c *gc.C) {
 		s.setHostChecker(t.hostChecker)
 		s.setForceAPIv1(t.forceAPIv1)
 
-		ctx, err := cmdtesting.RunCommand(c, newSCPCommand(s.hostChecker, baseTestingRetryStrategy), t.args...)
+		ctx, err := cmdtesting.RunCommand(c, newSCPCommand(s.hostChecker, baseTestingRetryStrategy, baseTestingRetryStrategy), t.args...)
 		if t.error != "" {
-			c.Check(err, gc.ErrorMatches, t.error)
+			c.Assert(err, gc.ErrorMatches, t.error, gc.Commentf("test %d", i))
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
 			// we suppress stdout from scp, so get the scp args used
 			// from the "scp.args" file that the fake scp executable
 			// installed by SSHMachineSuite generates.
-			c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
-			c.Check(cmdtesting.Stdout(ctx), gc.Equals, "")
+			c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "", gc.Commentf("test %d", i))
+			c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "", gc.Commentf("test %d", i))
 			actual, err := ioutil.ReadFile(filepath.Join(s.binDir, "scp.args"))
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, jc.ErrorIsNil, gc.Commentf("test %d", i))
 			t.expected.check(c, string(actual))
 		}
 	}

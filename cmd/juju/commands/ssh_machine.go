@@ -37,18 +37,19 @@ type sshMachine struct {
 	// TODO(juju3) - remove
 	modelType model.ModelType
 
-	proxy           bool
-	noHostKeyChecks bool
-	target          string
-	args            []string
-	apiClient       sshAPIClient
-	leaderAPI       LeaderAPI
-	statusClient    statusClient
-	apiAddr         string
-	knownHostsPath  string
-	hostChecker     jujussh.ReachableChecker
-	forceAPIv1      bool
-	retryStrategy   retry.CallArgs
+	proxy                  bool
+	noHostKeyChecks        bool
+	target                 string
+	args                   []string
+	apiClient              sshAPIClient
+	leaderAPI              LeaderAPI
+	statusClient           statusClient
+	apiAddr                string
+	knownHostsPath         string
+	hostChecker            jujussh.ReachableChecker
+	forceAPIv1             bool
+	retryStrategy          retry.CallArgs
+	publicKeyRetryStrategy retry.CallArgs
 
 	statusAPIGetter statusAPIGetterFunc
 	leaderAPIGetter leaderAPIGetterFunc
@@ -140,6 +141,10 @@ func (c *sshMachine) setHostChecker(checker jujussh.ReachableChecker) {
 
 func (c *sshMachine) setRetryStrategy(retryStrategy retry.CallArgs) {
 	c.retryStrategy = retryStrategy
+}
+
+func (c *sshMachine) setPublicKeyRetryStrategy(retryStrategy retry.CallArgs) {
+	c.publicKeyRetryStrategy = retryStrategy
 }
 
 func (c *sshMachine) getModelType() model.ModelType {
@@ -310,9 +315,9 @@ func (c *sshMachine) generateKnownHosts(targets []*resolvedTarget) (string, erro
 	for _, target := range targets {
 		if target.isAgent() {
 			agentCount++
-			keys, err := c.apiClient.PublicKeys(target.entity)
+			keys, err := c.getKeysWithRetry(target.entity)
 			if err != nil {
-				return "", errors.Annotatef(err, "retrieving SSH host keys for %q", target.entity)
+				return "", errors.Trace(err)
 			}
 			knownHosts.add(target.host, keys)
 		} else {
@@ -566,9 +571,9 @@ func (c *sshMachine) reachableAddressGetter(entity string) (string, error) {
 	}
 	var publicKeys []string
 	if !c.noHostKeyChecks {
-		publicKeys, err = c.apiClient.PublicKeys(entity)
+		publicKeys, err = c.getKeysWithRetry(entity)
 		if err != nil {
-			return "", errors.Annotatef(err, "retrieving SSH host keys for %q", entity)
+			return "", errors.Trace(err)
 		}
 	}
 
@@ -623,6 +628,27 @@ func (c *sshMachine) maybePopulateTargetViaField(target *resolvedTarget, statusG
 	}
 
 	return nil
+}
+
+func (c *sshMachine) getKeysWithRetry(entity string) ([]string, error) {
+	var publicKeys []string
+	strategy := c.publicKeyRetryStrategy
+	strategy.IsFatalError = func(err error) bool {
+		return !errors.Is(err, errors.NotFound)
+	}
+	strategy.Func = func() error {
+		keys, err := c.apiClient.PublicKeys(entity)
+		if err != nil {
+			return errors.Annotatef(err, "retrieving SSH host keys for %q", entity)
+		}
+		publicKeys = keys
+		return nil
+	}
+	err := retry.Call(strategy)
+	if err != nil {
+		return nil, err
+	}
+	return publicKeys, nil
 }
 
 // getJujuExecutable returns the path to the juju

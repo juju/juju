@@ -130,6 +130,8 @@ func (c *sshContainer) setArgs(args []string) {
 
 func (c *sshContainer) setRetryStrategy(_ retry.CallArgs) {}
 
+func (c *sshContainer) setPublicKeyRetryStrategy(_ retry.CallArgs) {}
+
 func (c *sshContainer) getModelType() model.ModelType {
 	return c.modelType
 }
