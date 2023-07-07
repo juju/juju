@@ -95,8 +95,7 @@ type APIBase struct {
 	updateBase UpdateBase
 	repoDeploy DeployFromRepository
 
-	model     Model
-	modelType state.ModelType
+	model Model
 
 	resources        facade.Resources
 	leadershipReader leadership.Reader
@@ -229,7 +228,6 @@ func NewAPIBase(
 		repoDeploy:            repoDeploy,
 		check:                 blockChecker,
 		model:                 model,
-		modelType:             model.Type(),
 		leadershipReader:      leadershipReader,
 		stateCharm:            stateCharm,
 		deployApplicationFunc: deployApplication,
@@ -327,12 +325,8 @@ func applicationConfigSchema(modelType state.ModelType) (environschema.Fields, s
 	if modelType != state.ModelTypeCAAS {
 		return trustFields, trustDefaults, nil
 	}
-	// TODO(caas) - get the schema from the provider
-	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
-	configSchema, err := caas.ConfigSchema(k8s.ConfigSchema())
-	if err != nil {
-		return nil, nil, err
-	}
+	defaults := k8s.ConfigDefaults()
+	configSchema := k8s.ConfigSchema()
 	return AddTrustSchemaAndDefaults(configSchema, defaults)
 }
 
@@ -849,7 +843,7 @@ func (api *APIBase) setConfig(app Application, generation, settingsYAML string, 
 	// parseCharmSettings is passed false for useDefaults because setConfig
 	// should not care about defaults.
 	// If defaults are wanted, one should call unsetApplicationConfig.
-	appConfig, appConfigSchema, charmSettings, defaults, err := parseCharmSettings(api.modelType, ch.Config(), app.Name(), settingsStrings, settingsYAML, environsconfig.NoDefaults)
+	appConfig, appConfigSchema, charmSettings, defaults, err := parseCharmSettings(api.model.Type(), ch.Config(), app.Name(), settingsStrings, settingsYAML, environsconfig.NoDefaults)
 	if err != nil {
 		return errors.Annotate(err, "parsing settings for application")
 	}
@@ -1003,7 +997,7 @@ func (api *APIBase) setCharmWithAgentValidation(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if api.modelType == state.ModelTypeCAAS {
+	if api.model.Type() == state.ModelTypeCAAS {
 		// We need to disallow updates that k8s does not yet support,
 		// eg changing the filesystem or device directives, or deployment info.
 		// TODO(wallyworld) - support resizing of existing storage.
@@ -1067,9 +1061,8 @@ func (api *APIBase) applicationSetCharm(
 	if err != nil {
 		return errors.Annotate(err, "retrieving model")
 	}
-	modelType := model.Type()
 
-	appConfig, appSchema, charmSettings, appDefaults, err := parseCharmSettings(modelType, newCharm.Config(), params.AppName, params.ConfigSettingsStrings, params.ConfigSettingsYAML, environsconfig.NoDefaults)
+	appConfig, appSchema, charmSettings, appDefaults, err := parseCharmSettings(model.Type(), newCharm.Config(), params.AppName, params.ConfigSettingsStrings, params.ConfigSettingsYAML, environsconfig.NoDefaults)
 	if err != nil {
 		return errors.Annotate(err, "parsing config settings")
 	}
@@ -1264,17 +1257,6 @@ func (api *APIBase) Expose(args params.ApplicationExpose) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if api.modelType == state.ModelTypeCAAS {
-		appConfig, err := app.ApplicationConfig()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if appConfig.GetString(caas.JujuExternalHostNameKey, "") == "" {
-			return errors.Errorf(
-				"cannot expose a container application without a %q value set, run\n"+
-					"juju config %s %s=<value>", caas.JujuExternalHostNameKey, args.ApplicationName, caas.JujuExternalHostNameKey)
-		}
-	}
 
 	// Map space names to space IDs before calling SetExposed
 	mappedExposeParams, err := api.mapExposedEndpointParams(args.ExposedEndpoints)
@@ -1366,7 +1348,7 @@ func (api *APIBase) Unexpose(args params.ApplicationUnexpose) error {
 
 // AddUnits adds a given number of units to an application.
 func (api *APIBase) AddUnits(args params.AddApplicationUnits) (params.AddApplicationUnitsResults, error) {
-	if api.modelType == state.ModelTypeCAAS {
+	if api.model.Type() == state.ModelTypeCAAS {
 		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units to a container-based model")
 	}
 
@@ -1390,7 +1372,7 @@ func (api *APIBase) AddUnits(args params.AddApplicationUnits) (params.AddApplica
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
-	units, err := addApplicationUnits(api.backend, api.modelType, args)
+	units, err := addApplicationUnits(api.backend, api.model.Type(), args)
 	if err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
@@ -1501,7 +1483,7 @@ func (api *APIv15) DestroyUnit(argsV15 params.DestroyUnitsParamsV15) (params.Des
 
 // DestroyUnit removes a given set of application units.
 func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyUnitResults, error) {
-	if api.modelType == state.ModelTypeCAAS {
+	if api.model.Type() == state.ModelTypeCAAS {
 		return params.DestroyUnitResults{}, errors.NotSupportedf("removing units on a non-container model")
 	}
 	if err := api.checkCanWrite(); err != nil {
@@ -1790,7 +1772,7 @@ func (api *APIBase) DestroyConsumedApplications(args params.DestroyConsumedAppli
 
 // ScaleApplications scales the specified application to the requested number of units.
 func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (params.ScaleApplicationResults, error) {
-	if api.modelType != state.ModelTypeCAAS {
+	if api.model.Type() != state.ModelTypeCAAS {
 		return params.ScaleApplicationResults{}, errors.NotSupportedf("scaling applications on a non-container model")
 	}
 	if err := api.checkCanWrite(); err != nil {
@@ -2369,7 +2351,7 @@ func (api *APIBase) unsetApplicationConfig(arg params.ApplicationUnset) error {
 		return errors.Trace(err)
 	}
 
-	configSchema, defaults, err := applicationConfigSchema(api.modelType)
+	configSchema, defaults, err := applicationConfigSchema(api.model.Type())
 	if err != nil {
 		return errors.Trace(err)
 	}

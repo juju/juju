@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/client/application/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/charmhub"
@@ -41,7 +40,6 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -171,7 +169,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.model = mocks.NewMockModel(ctrl)
 	s.model.EXPECT().ModelTag().Return(coretesting.ModelTag).AnyTimes()
-	s.model.EXPECT().Type().Return(s.modelType).MinTimes(1)
+	s.model.EXPECT().Type().Return(s.modelType).AnyTimes()
 	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig())).AnyTimes()
 	s.backend.EXPECT().Model().Return(s.model, nil).AnyTimes()
 
@@ -278,62 +276,16 @@ func (s *ApplicationSuite) expectApplicationWithCharm(ctrl *gomock.Controller, c
 }
 
 func (s *ApplicationSuite) expectUpdateApplicationConfig(c *gc.C, app *mocks.MockApplication) {
-	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
-	appCfgSchema, err := caas.ConfigSchema(k8s.ConfigSchema())
-	c.Assert(err, jc.ErrorIsNil)
-	appCfgSchema, defaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
+	defaults := k8s.ConfigDefaults()
+	appCfgSchema := k8s.ConfigSchema()
+	appCfgSchema, defaults, err := application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	appCfg, err := coreconfig.NewConfig(map[string]interface{}{
-		"juju-external-hostname": "foo",
+		"trust": "true",
 	}, appCfgSchema, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	app.EXPECT().UpdateApplicationConfig(appCfg.Attributes(), []string(nil), appCfgSchema, defaults).Return(nil)
-}
-
-func (s *ApplicationSuite) TestSetCAASConfigSettings(c *gc.C) {
-	s.modelType = state.ModelTypeCAAS
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().UpdateCharmConfig("master", charm.Settings{
-		"stringOption": "bar",
-	})
-
-	s.expectUpdateApplicationConfig(c, app)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	// Update settings for the application.
-	args := params.ConfigSetArgs{Args: []params.ConfigSet{{
-		ApplicationName: "postgresql",
-		ConfigYAML:      "postgresql:\n  stringOption: bar\n  juju-external-hostname: foo",
-	}}}
-	results, err := s.api.SetConfigs(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.DeepEquals, []params.ErrorResult{{}})
-}
-
-func (s *ApplicationSuite) TestSetCAASConfigSettingsInIAASModelTriggersError(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	app := s.expectDefaultApplication(ctrl)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	// Update settings for the application.
-	args := params.ConfigSetArgs{Args: []params.ConfigSet{{
-		ApplicationName: "postgresql",
-		ConfigYAML:      "postgresql:\n  stringOption: bar\n  juju-external-hostname: foo",
-	}}}
-
-	results, err := s.api.SetConfigs(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.DeepEquals, []params.ErrorResult{{
-		Error: &params.Error{
-			Message: "parsing settings for application: unknown option \"juju-external-hostname\"",
-		},
-	}}, gc.Commentf("expected to get an error when attempting to set CAAS-specific app setting in IAAS model"))
 }
 
 func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
@@ -2732,8 +2684,8 @@ func (s *ApplicationSuite) TestSetConfigBranch(c *gc.C) {
 		Args: []params.ConfigSet{{
 			ApplicationName: "postgresql",
 			Config: map[string]string{
-				"juju-external-hostname": "foo",
-				"stringOption":           "stringVal",
+				"trust":        "true",
+				"stringOption": "stringVal",
 			},
 			Generation: "new-branch",
 		}}})
@@ -2755,8 +2707,8 @@ func (s *ApplicationSuite) TestSetEmptyConfigMasterBranch(c *gc.C) {
 		Args: []params.ConfigSet{{
 			ApplicationName: "postgresql",
 			Config: map[string]string{
-				"juju-external-hostname": "foo",
-				"stringOption":           "",
+				"trust":        "true",
+				"stringOption": "",
 			},
 			Generation: "master",
 		}}})
@@ -2769,21 +2721,20 @@ func (s *ApplicationSuite) TestUnsetApplicationConfig(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	schema, err := caas.ConfigSchema(k8s.ConfigSchema())
-	c.Assert(err, jc.ErrorIsNil)
-	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
-	schema, defaults, err = application.AddTrustSchemaAndDefaults(schema, defaults)
+	schema := k8s.ConfigSchema()
+	defaults := k8s.ConfigDefaults()
+	schema, defaults, err := application.AddTrustSchemaAndDefaults(schema, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().UpdateApplicationConfig(coreconfig.ConfigAttributes(nil), []string{"juju-external-hostname"}, schema, defaults)
+	app.EXPECT().UpdateApplicationConfig(coreconfig.ConfigAttributes(nil), []string{"trust"}, schema, defaults)
 	app.EXPECT().UpdateCharmConfig("new-branch", charm.Settings{"stringVal": nil})
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	result, err := s.api.UnsetApplicationsConfig(params.ApplicationConfigUnsetArgs{
 		Args: []params.ApplicationUnset{{
 			ApplicationName: "postgresql",
-			Options:         []string{"juju-external-hostname", "stringVal"},
+			Options:         []string{"trust", "stringVal"},
 			BranchName:      "new-branch",
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2877,41 +2828,6 @@ func (s *ApplicationSuite) TestResolveUnitErrorsPermissionDenied(c *gc.C) {
 	}
 	_, err := s.api.ResolveUnitErrors(p)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-}
-
-func (s *ApplicationSuite) TestCAASExposeWithoutHostname(c *gc.C) {
-	s.modelType = state.ModelTypeCAAS
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().ApplicationConfig().Return(coreconfig.ConfigAttributes{}, nil)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	err := s.api.Expose(params.ApplicationExpose{
-		ApplicationName: "postgresql",
-	})
-	c.Assert(err, gc.ErrorMatches,
-		`cannot expose a container application without a "juju-external-hostname" value set, run\n`+
-			`juju config postgresql juju-external-hostname=<value>`)
-}
-
-func (s *ApplicationSuite) TestCAASExposeWithHostname(c *gc.C) {
-	s.modelType = state.ModelTypeCAAS
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().ApplicationConfig().Return(coreconfig.ConfigAttributes{"juju-external-hostname": "exthost"}, nil)
-	app.EXPECT().MergeExposeSettings(map[string]state.ExposedEndpoint{
-		"": {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR}},
-	}).Return(nil)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	err := s.api.Expose(params.ApplicationExpose{
-		ApplicationName: "postgresql",
-	})
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {

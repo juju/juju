@@ -85,10 +85,10 @@ var getTests = []struct {
 			"application": "dummy-application",
 			"charm":       "dummy",
 			"application-config": map[string]interface{}{
-				"juju-external-hostname": map[string]interface{}{
-					"description": "Specifies juju-external-hostname",
-					"type":        "string",
-					"value":       "ext-host",
+				"trust": map[string]interface{}{
+					"description": "Specifies trust",
+					"type":        "bool",
+					"value":       true,
 				},
 			},
 			"settings":                               charmSettings,
@@ -118,7 +118,7 @@ func (s *configCommandSuite) SetUpTest(c *gc.C) {
 		"multiline-value": "The quick brown fox jumps over the lazy dog. \"The quick brown fox jumps over the lazy dog\" \"The quick brown fox jumps over the lazy dog\" ",
 	}
 	s.defaultAppValues = map[string]interface{}{
-		"juju-external-hostname": "ext-host",
+		"trust": true,
 	}
 
 	s.fake = &fakeApplicationAPI{
@@ -224,10 +224,10 @@ func (s *configCommandSuite) TestGetCharmConfigKeyMultilineValueJSON(c *gc.C) {
 func (s *configCommandSuite) TestGetAppConfigKey(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(application.NewConfigCommandForTest(
-		s.fake, s.store), ctx, []string{"dummy-application", "juju-external-hostname"})
+		s.fake, s.store), ctx, []string{"dummy-application", "trust"})
 	c.Check(code, gc.Equals, 0)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "ext-host\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "true\n")
 }
 
 func (s *configCommandSuite) TestGetConfigKeyNotFound(c *gc.C) {
@@ -341,14 +341,14 @@ func (s *configCommandSuite) TestSetCharmConfigSuccess(c *gc.C) {
 
 func (s *configCommandSuite) TestSetAppConfigSuccess(c *gc.C) {
 	s.assertSetSuccess(c, s.dir, []string{
-		"juju-external-hostname=hello",
+		"trust=false",
 	}, map[string]interface{}{
-		"juju-external-hostname": "hello",
+		"trust": "false",
 	}, s.defaultCharmValues)
 	s.assertSetSuccess(c, s.dir, []string{
-		"juju-external-hostname=",
+		"trust=true",
 	}, map[string]interface{}{
-		"juju-external-hostname": "",
+		"trust": "true",
 	}, s.defaultCharmValues)
 }
 
@@ -427,11 +427,11 @@ func (s *configCommandSuite) TestResetAppConfig(c *gc.C) {
 	s.fake = &fakeApplicationAPI{
 		branchName: model.GenerationMaster,
 		name:       "dummy-application", appValues: map[string]interface{}{
-			"juju-external-hostname": "app-value",
+			"trust": false,
 		}}
 	s.assertResetSuccess(c, s.dir, []string{
 		"--reset",
-		"juju-external-hostname",
+		"trust",
 	}, make(map[string]interface{}), nil)
 }
 
@@ -453,12 +453,12 @@ func (s *configCommandSuite) TestSetReset(c *gc.C) {
 	s.fake = &fakeApplicationAPI{
 		branchName: model.GenerationMaster,
 		name:       "dummy-application", appValues: map[string]interface{}{
-			"juju-external-hostname": "app-value",
+			"trust": false,
 		}}
 	s.assertResetSuccess(c, s.dir, []string{
 		"username=foo",
 		"--reset",
-		"juju-external-hostname",
+		"trust",
 	}, make(map[string]interface{}), map[string]interface{}{"username": "foo"})
 }
 
