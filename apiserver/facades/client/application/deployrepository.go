@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/charm/v11"
 	"github.com/juju/charm/v11/resource"
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -24,6 +25,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/series"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
@@ -745,12 +747,17 @@ func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedO
 	if err != nil {
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
 	}
+	workloadBases, err := series.WorkloadBases(jujuclock.WallClock.Now(), requestedBase, modelCfg.ImageStream())
+	if err != nil {
+		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
+	}
 	bsCfg := corecharm.SelectorConfig{
 		Config:              modelCfg,
 		Force:               force,
 		Logger:              deployRepoLogger,
 		RequestedBase:       requestedBase,
 		SupportedCharmBases: supportedBases,
+		WorkloadBases:       workloadBases,
 		UsingImageID:        cons.HasImageID() || modelCons.HasImageID(),
 	}
 	selector, err := corecharm.ConfigureBaseSelector(bsCfg)

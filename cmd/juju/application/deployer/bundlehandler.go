@@ -652,12 +652,17 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	if url.Series == "bundle" || resolvedOrigin.Type == "bundle" {
 		return errors.Errorf("expected charm, got bundle %q %v", ch.Name, resolvedOrigin)
 	}
+	workloadBases, err := SupportedJujuBases(jujuclock.WallClock.Now(), base, h.modelConfig.ImageStream())
+	if err != nil {
+		return errors.Trace(err)
+	}
 	selector, err := corecharm.ConfigureBaseSelector(corecharm.SelectorConfig{
 		Config:              h.modelConfig,
 		Force:               h.force,
 		Logger:              logger,
 		RequestedBase:       base,
 		SupportedCharmBases: supportedBases,
+		WorkloadBases:       workloadBases,
 	})
 	if err != nil {
 		return errors.Trace(err)
@@ -982,12 +987,17 @@ func (h *bundleHandler) selectedBase(ch charm.CharmMeta, chBase series.Base) (se
 	if err != nil {
 		return series.Base{}, errors.Trace(err)
 	}
+	workloadBases, err := SupportedJujuBases(jujuclock.WallClock.Now(), chBase, h.modelConfig.ImageStream())
+	if err != nil {
+		return series.Base{}, errors.Trace(err)
+	}
 	selector, err := corecharm.ConfigureBaseSelector(corecharm.SelectorConfig{
 		Config:              h.modelConfig,
 		Force:               h.force,
 		Logger:              logger,
 		RequestedBase:       chBase,
 		SupportedCharmBases: supportedBases,
+		WorkloadBases:       workloadBases,
 	})
 	if err != nil {
 		return series.Base{}, errors.Trace(err)

@@ -73,6 +73,10 @@ type ConsumeDetails interface {
 // TODO: unexport it if we don't need to patch it anymore.
 var SupportedJujuSeries = series.WorkloadSeries
 
+// For testing.
+// TODO: unexport it if we don't need to patch it anymore.
+var SupportedJujuBases = series.WorkloadBases
+
 type DeployerAPI interface {
 	// APICallCloser is needed for the DeployResourcesFunc.
 	base.APICallCloser
