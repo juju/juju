@@ -324,7 +324,11 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 
 	dummy.SetInstanceStatus(insts[0], "running")
 
-	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+	strategy := &utils.AttemptStrategy{
+		Total: 60 * time.Second,
+		Delay: testing.ShortWait,
+	}
+	for attempt := strategy.Start(); attempt.Next(); {
 		if !attempt.HasNext() {
 			c.Logf("final machine addresses: %#v", m.Addresses())
 			c.Fatalf("timed out waiting for machine to get address")

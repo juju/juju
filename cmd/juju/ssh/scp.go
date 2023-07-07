@@ -118,10 +118,11 @@ in a specific container in a juju unit running in Kubernetes:
     juju scp --container loki chunks-inspect loki-k8s/0:/loki
 `
 
-func NewSCPCommand(hostChecker jujussh.ReachableChecker, retryStrategy retry.CallArgs) cmd.Command {
+func NewSCPCommand(hostChecker jujussh.ReachableChecker, retryStrategy retry.CallArgs, publicKeyRetryStrategy retry.CallArgs) cmd.Command {
 	c := new(scpCommand)
 	c.hostChecker = hostChecker
 	c.retryStrategy = retryStrategy
+	c.publicKeyRetryStrategy = publicKeyRetryStrategy
 	return modelcmd.Wrap(c)
 }
 
@@ -138,7 +139,8 @@ type scpCommand struct {
 
 	hostChecker jujussh.ReachableChecker
 
-	retryStrategy retry.CallArgs
+	retryStrategy          retry.CallArgs
+	publicKeyRetryStrategy retry.CallArgs
 }
 
 func (c *scpCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -175,6 +177,7 @@ func (c *scpCommand) Init(args []string) (err error) {
 	c.provider.setArgs(args)
 	c.provider.setHostChecker(c.hostChecker)
 	c.provider.setRetryStrategy(c.retryStrategy)
+	c.provider.setPublicKeyRetryStrategy(c.publicKeyRetryStrategy)
 	return nil
 }
 
