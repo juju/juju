@@ -64,6 +64,7 @@ jobs:
           TARGET_BRANCH: ${{ steps.branch.outputs.target }}
           EMAIL_TO_MM_USER: ${{ secrets.EMAIL_TO_MM_USER }}
           IGNORE_EMAILS: ${{ secrets.MERGE_NOTIFY_IGNORE_EMAILS }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           MESSAGE=$(go run ./scripts/try-merge errmsg)
           echo "message=$MESSAGE" >> "$GITHUB_OUTPUT"

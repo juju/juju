@@ -93,6 +93,10 @@ func printErrMsg() {
 		if ignoreEmails.Contains(commit.CommitterEmail) {
 			continue
 		}
+		if num, ok := commitHasOpenPR(commit); ok {
+			stderrf("DEBUG: skipping commit %s due to open PR #%d\n", commit.SHA, num)
+			continue
+		}
 
 		_, ok := emailToMMUser[commit.CommitterEmail]
 		if ok {
@@ -155,6 +159,33 @@ type commitInfo struct {
 	AuthorEmail    string `json:"authorEmail"`
 	CommitterName  string `json:"committerName"`
 	CommitterEmail string `json:"committerEmail"`
+}
+
+type prInfo struct {
+	Number int `json:"number"`
+}
+
+// Check if there is already an open merge containing this commit. If so,
+// we don't need to notify.
+func commitHasOpenPR(commit commitInfo) (prNumber int, ok bool) {
+	ghRes := execute(executeArgs{
+		command: "gh",
+		args: []string{"pr", "list",
+			"--search", commit.SHA,
+			"--state", "open",
+			"--base", targetBranch,
+			"--json", "number",
+		},
+	})
+	handleExecuteError(ghRes)
+
+	prList := []prInfo{}
+	check(json.Unmarshal(ghRes.stdout, &prList))
+
+	if len(prList) > 0 {
+		return prList[0].Number, true
+	}
+	return -1, false
 }
 
 func check(err error) {
