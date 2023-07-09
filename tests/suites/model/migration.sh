@@ -151,14 +151,14 @@ run_model_migration_saas_common() {
 	bootstrap_alt_controller "alt-model-migration-saas"
 
 	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
-	juju deploy juju-qa-dummy-source
+	juju deploy juju-qa-dummy-source --series jammy
 	juju offer dummy-source:sink
 
 	wait_for "dummy-source" "$(idle_condition "dummy-source")"
 
 	juju add-model blog
 	juju switch blog
-	juju deploy juju-qa-dummy-sink
+	juju deploy juju-qa-dummy-sink --series jammy
 
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 
@@ -221,13 +221,13 @@ run_model_migration_saas_external() {
 	bootstrap_alt_controller "model-migration-saas-target"
 
 	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
-	juju deploy juju-qa-dummy-source
+	juju deploy juju-qa-dummy-source --series jammy
 	juju offer dummy-source:sink
 
 	wait_for "dummy-source" "$(idle_condition "dummy-source")"
 
 	juju switch "model-migration-saas-consume"
-	juju deploy juju-qa-dummy-sink
+	juju deploy juju-qa-dummy-sink --series jammy
 
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 
@@ -288,14 +288,14 @@ run_model_migration_saas_consumer() {
 	bootstrap_alt_controller "model-migration-saas-target"
 
 	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
-	juju deploy juju-qa-dummy-source
+	juju deploy juju-qa-dummy-source --series jammy
 	juju offer dummy-source:sink
 
 	wait_for "dummy-source" "$(idle_condition "dummy-source")"
 
 	juju switch "model-migration-saas-consume"
 	juju add-model "model-migration-consumer"
-	juju deploy juju-qa-dummy-sink
+	juju deploy juju-qa-dummy-sink --series jammy
 
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 

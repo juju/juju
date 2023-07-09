@@ -31,7 +31,7 @@ func main() {
 	fillIgnoreEmails()
 
 	if len(os.Args) < 2 {
-		fatalf("no command provided")
+		fatalf("no command provided\n")
 	}
 	switch cmd := os.Args[1]; cmd {
 	// TODO: migrate the merging logic from merge.yml to here
@@ -40,7 +40,7 @@ func main() {
 	case "errmsg":
 		printErrMsg()
 	default:
-		fatalf("unrecognised command %q", cmd)
+		fatalf("unrecognised command %q\n", cmd)
 	}
 }
 
@@ -79,10 +79,10 @@ func fillIgnoreEmails() {
 func printErrMsg() {
 	// Check required env variables are set
 	if sourceBranch == "" {
-		fatalf("fatal: SOURCE_BRANCH not set")
+		fatalf("fatal: SOURCE_BRANCH not set\n")
 	}
 	if targetBranch == "" {
-		fatalf("fatal: TARGET_BRANCH not set")
+		fatalf("fatal: TARGET_BRANCH not set\n")
 	}
 
 	badCommits := findOffendingCommits()
@@ -90,17 +90,21 @@ func printErrMsg() {
 	// Iterate through commits and find people to notify
 	peopleToNotify := set.NewStrings()
 	for _, commit := range badCommits {
-		if ignoreEmails.Contains(commit.Email) {
+		if ignoreEmails.Contains(commit.CommitterEmail) {
+			continue
+		}
+		if num, ok := commitHasOpenPR(commit); ok {
+			stderrf("DEBUG: skipping commit %s due to open PR #%d\n", commit.SHA, num)
 			continue
 		}
 
-		_, ok := emailToMMUser[commit.Email]
+		_, ok := emailToMMUser[commit.CommitterEmail]
 		if ok {
-			peopleToNotify.Add("@" + emailToMMUser[commit.Email])
+			peopleToNotify.Add("@" + emailToMMUser[commit.CommitterEmail])
 		} else {
 			// Don't have a username for this email - just use commit author name
-			stderrf("WARNING: no MM username found for email %q\n", commit.Email)
-			peopleToNotify.Add(commit.Author)
+			stderrf("WARNING: no MM username found for email %q\n", commit.CommitterEmail)
+			peopleToNotify.Add(commit.CommitterName)
 		}
 	}
 
@@ -136,7 +140,7 @@ func findOffendingCommits() []commitInfo {
 	return commits
 }
 
-var gitLogJSONFormat = `{"sha":"%H","author":"%an","email":"%ae"}`
+var gitLogJSONFormat = `{"sha":"%H","authorName":"%an","authorEmail":"%ae","committerName":"%cn","committerEmail":"%ce"}`
 
 // Transforms the output of `git log` into a valid JSON array.
 func gitLogOutputToValidJSON(raw []byte) []byte {
@@ -150,9 +154,38 @@ func gitLogOutputToValidJSON(raw []byte) []byte {
 }
 
 type commitInfo struct {
-	SHA    string `json:"sha"`
-	Author string `json:"author"`
-	Email  string `json:"email"`
+	SHA            string `json:"sha"`
+	AuthorName     string `json:"authorName"`
+	AuthorEmail    string `json:"authorEmail"`
+	CommitterName  string `json:"committerName"`
+	CommitterEmail string `json:"committerEmail"`
+}
+
+type prInfo struct {
+	Number int `json:"number"`
+}
+
+// Check if there is already an open merge containing this commit. If so,
+// we don't need to notify.
+func commitHasOpenPR(commit commitInfo) (prNumber int, ok bool) {
+	ghRes := execute(executeArgs{
+		command: "gh",
+		args: []string{"pr", "list",
+			"--search", commit.SHA,
+			"--state", "open",
+			"--base", targetBranch,
+			"--json", "number",
+		},
+	})
+	handleExecuteError(ghRes)
+
+	prList := []prInfo{}
+	check(json.Unmarshal(ghRes.stdout, &prList))
+
+	if len(prList) > 0 {
+		return prList[0].Number, true
+	}
+	return -1, false
 }
 
 func check(err error) {
