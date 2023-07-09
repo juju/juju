@@ -31,7 +31,7 @@ func main() {
 	fillIgnoreEmails()
 
 	if len(os.Args) < 2 {
-		fatalf("no command provided")
+		fatalf("no command provided\n")
 	}
 	switch cmd := os.Args[1]; cmd {
 	// TODO: migrate the merging logic from merge.yml to here
@@ -40,7 +40,7 @@ func main() {
 	case "errmsg":
 		printErrMsg()
 	default:
-		fatalf("unrecognised command %q", cmd)
+		fatalf("unrecognised command %q\n", cmd)
 	}
 }
 
@@ -79,10 +79,10 @@ func fillIgnoreEmails() {
 func printErrMsg() {
 	// Check required env variables are set
 	if sourceBranch == "" {
-		fatalf("fatal: SOURCE_BRANCH not set")
+		fatalf("fatal: SOURCE_BRANCH not set\n")
 	}
 	if targetBranch == "" {
-		fatalf("fatal: TARGET_BRANCH not set")
+		fatalf("fatal: TARGET_BRANCH not set\n")
 	}
 
 	badCommits := findOffendingCommits()
@@ -90,17 +90,17 @@ func printErrMsg() {
 	// Iterate through commits and find people to notify
 	peopleToNotify := set.NewStrings()
 	for _, commit := range badCommits {
-		if ignoreEmails.Contains(commit.Email) {
+		if ignoreEmails.Contains(commit.CommitterEmail) {
 			continue
 		}
 
-		_, ok := emailToMMUser[commit.Email]
+		_, ok := emailToMMUser[commit.CommitterEmail]
 		if ok {
-			peopleToNotify.Add("@" + emailToMMUser[commit.Email])
+			peopleToNotify.Add("@" + emailToMMUser[commit.CommitterEmail])
 		} else {
 			// Don't have a username for this email - just use commit author name
-			stderrf("WARNING: no MM username found for email %q\n", commit.Email)
-			peopleToNotify.Add(commit.Author)
+			stderrf("WARNING: no MM username found for email %q\n", commit.CommitterEmail)
+			peopleToNotify.Add(commit.CommitterName)
 		}
 	}
 
@@ -136,7 +136,7 @@ func findOffendingCommits() []commitInfo {
 	return commits
 }
 
-var gitLogJSONFormat = `{"sha":"%H","author":"%an","email":"%ae"}`
+var gitLogJSONFormat = `{"sha":"%H","authorName":"%an","authorEmail":"%ae","committerName":"%cn","committerEmail":"%ce"}`
 
 // Transforms the output of `git log` into a valid JSON array.
 func gitLogOutputToValidJSON(raw []byte) []byte {
@@ -150,9 +150,11 @@ func gitLogOutputToValidJSON(raw []byte) []byte {
 }
 
 type commitInfo struct {
-	SHA    string `json:"sha"`
-	Author string `json:"author"`
-	Email  string `json:"email"`
+	SHA            string `json:"sha"`
+	AuthorName     string `json:"authorName"`
+	AuthorEmail    string `json:"authorEmail"`
+	CommitterName  string `json:"committerName"`
+	CommitterEmail string `json:"committerEmail"`
 }
 
 func check(err error) {
