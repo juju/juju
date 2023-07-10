@@ -66,6 +66,21 @@ func (mr *MockStateMockRecorder) ControllerForModel(arg0, arg1 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerForModel", reflect.TypeOf((*MockState)(nil).ControllerForModel), arg0, arg1)
 }
 
+// ControllersForModels mocks base method.
+func (m *MockState) ControllersForModels(arg0 context.Context, arg1 []string) ([]externalcontroller.MigrationControllerInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllersForModels", arg0, arg1)
+	ret0, _ := ret[0].([]externalcontroller.MigrationControllerInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ControllersForModels indicates an expected call of ControllersForModels.
+func (mr *MockStateMockRecorder) ControllersForModels(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllersForModels", reflect.TypeOf((*MockState)(nil).ControllersForModels), arg0, arg1)
+}
+
 // ImportExternalControllers mocks base method.
 func (m *MockState) ImportExternalControllers(arg0 context.Context, arg1 []externalcontroller.MigrationControllerInfo) error {
 	m.ctrl.T.Helper()

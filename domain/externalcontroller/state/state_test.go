@@ -340,3 +340,46 @@ func (s *stateSuite) TestModelsForController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(models, jc.SameContents, []string{"model1"})
 }
+
+func (s *stateSuite) TestControllersForModels(c *gc.C) {
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	db := s.DB()
+
+	// Insert an external controller with one model.
+	_, err := db.Exec(`INSERT INTO external_controller VALUES
+("ctrl1", NULL, "test-cert1")`)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
+("addr1", "ctrl1", "192.168.1.1")`)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
+("addr2", "ctrl1", "10.0.0.1")`)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
+("addr3", "ctrl1", "10.0.0.2")`)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = db.Exec(`INSERT INTO external_model VALUES
+("model1", "ctrl1")`)
+	c.Assert(err, jc.ErrorIsNil)
+	// Insert another external controller with two models.
+	_, err = db.Exec(`INSERT INTO external_controller VALUES
+("ctrl2", "my-controller2", "test-cert2")`)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
+("addr4", "ctrl2", "10.0.0.1")`)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = db.Exec(`INSERT INTO external_model VALUES
+("model2", "ctrl2")`)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = db.Exec(`INSERT INTO external_model VALUES
+("model3", "ctrl2")`)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllers, err := st.ControllersForModels(ctx.Background(), []string{"model1", "model2", "model3", "model2", "model3"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllers, gc.HasLen, 2)
+	c.Assert(controllers[0].Addrs, jc.SameContents, []string{"192.168.1.1", "10.0.0.1", "10.0.0.2"})
+	c.Assert(controllers[0].ModelUUIDs, jc.SameContents, []string{"model1"})
+	c.Assert(controllers[1].Addrs, jc.SameContents, []string{"10.0.0.1"})
+	c.Assert(controllers[1].ModelUUIDs, jc.SameContents, []string{"model2", "model3"})
+}

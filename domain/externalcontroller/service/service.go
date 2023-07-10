@@ -34,6 +34,12 @@ type State interface {
 	// ImportExternalControllers imports the list of MigrationControllerInfo
 	// external controllers on one single transaction.
 	ImportExternalControllers(ctx context.Context, infos []externalcontroller.MigrationControllerInfo) error
+
+	// ControllersForModels returns the list of controllers which
+	// are part of the given modelUUIDs.
+	// The resulting MigrationControllerInfo contains the list of models
+	// for each controller.
+	ControllersForModels(ctx context.Context, modelUUIDs []string) ([]externalcontroller.MigrationControllerInfo, error)
 }
 
 // WatcherFactory describes methods for creating watchers.
@@ -101,6 +107,8 @@ func (s *Service) Watch() (watcher.StringsWatcher, error) {
 	return nil, errors.NotYetAvailablef("external controller watcher")
 }
 
+// ImportExternalControllers imports the list of MigrationControllerInfo
+// external controllers on one single transaction.
 func (s *Service) ImportExternalControllers(
 	ctx context.Context,
 	externalControllers []externalcontroller.MigrationControllerInfo,
@@ -108,10 +116,23 @@ func (s *Service) ImportExternalControllers(
 	return s.st.ImportExternalControllers(ctx, externalControllers)
 }
 
+// ModelsForController returns the list of model UUIDs for
+// the given controllerUUID.
 func (s *Service) ModelsForController(
 	ctx context.Context,
 	controllerUUID string,
 ) ([]string, error) {
-	models, err := s.ModelsForController(ctx, controllerUUID)
+	models, err := s.st.ModelsForController(ctx, controllerUUID)
 	return models, errors.Annotatef(err, "retrieving model UUIDs for controller %s", controllerUUID)
+}
+
+// ControllersForModels returns the list of controllers which
+// are part of the given modelUUIDs.
+// The resulting MigrationControllerInfo contains the list of models
+// for each controller.
+func (s *Service) ControllersForModels(
+	ctx context.Context,
+	modelUUIDs []string,
+) ([]externalcontroller.MigrationControllerInfo, error) {
+	return s.st.ControllersForModels(ctx, modelUUIDs)
 }

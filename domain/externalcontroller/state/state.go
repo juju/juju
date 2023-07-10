@@ -129,7 +129,7 @@ func (st *State) UpdateExternalController(
 	}
 
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		return st.updateExternalControllerTx(ctx, ci, modelUUIDs, tx)
+		return st.updateExternalControllerTx(ctx, tx, ci, modelUUIDs)
 	})
 
 	return errors.Trace(err)
@@ -147,6 +147,7 @@ func (st *State) ImportExternalControllers(ctx context.Context, infos []external
 		for _, ci := range infos {
 			err := st.updateExternalControllerTx(
 				ctx,
+				tx,
 				crossmodel.ControllerInfo{
 					ControllerTag: ci.ControllerTag,
 					Addrs:         ci.Addrs,
@@ -154,7 +155,6 @@ func (st *State) ImportExternalControllers(ctx context.Context, infos []external
 					CACert:        ci.CACert,
 				},
 				ci.ModelUUIDs,
-				tx,
 			)
 			if err != nil {
 				return errors.Trace(err)
@@ -168,9 +168,9 @@ func (st *State) ImportExternalControllers(ctx context.Context, infos []external
 
 func (st *State) updateExternalControllerTx(
 	ctx context.Context,
+	tx *sql.Tx,
 	ci crossmodel.ControllerInfo,
 	modelUUIDs []string,
-	tx *sql.Tx,
 ) error {
 	cID := ci.ControllerTag.Id()
 	q := `
@@ -235,7 +235,7 @@ SELECT 	uuid
 FROM   	external_model 
 WHERE  	controller_uuid = ?`
 
-	var models []string
+	var modelUUIDs []string
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, q, controllerUUID)
 		if err != nil {
@@ -243,16 +243,103 @@ WHERE  	controller_uuid = ?`
 		}
 
 		for rows.Next() {
-			var row string
-			if err := rows.Scan(&row); err != nil {
+			var modelUUID string
+			if err := rows.Scan(&modelUUID); err != nil {
 				_ = rows.Close()
 				return errors.Trace(err)
 			}
-			models = append(models, row)
+			modelUUIDs = append(modelUUIDs, modelUUID)
 		}
 
 		return nil
 	})
 
-	return models, err
+	return modelUUIDs, err
+}
+
+func (st *State) ControllersForModels(ctx context.Context, modelUUIDs []string) ([]externalcontroller.MigrationControllerInfo, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	modelBinds, modelVals := database.SliceToPlaceholder(modelUUIDs)
+
+	q := fmt.Sprintf(`
+SELECT  ctrl.uuid,  
+	ctrl.alias,
+	ctrl.ca_cert,
+	model.uuid AS model,
+	addrs.address AS address
+FROM external_controller AS ctrl	
+JOIN 	external_model AS model
+ON ctrl.uuid = model.controller_uuid
+LEFT JOIN external_controller_address AS addrs
+ON ctrl.uuid = addrs.controller_uuid
+WHERE model.uuid IN (%s)`, modelBinds)
+
+	var resultControllers []externalcontroller.MigrationControllerInfo
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, q, modelVals...)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		// Prepare structs for unique models and addresses for each
+		// controller.
+		uniqueModelUUIDs := make(map[string]map[string]string)
+		uniqueAddresses := make(map[string]map[string]string)
+		uniqueControllers := make(map[string]externalcontroller.MigrationControllerInfo)
+		for rows.Next() {
+			var controller MigrationControllerInfo
+			if err := rows.Scan(&controller.ID, &controller.Alias, &controller.CACert, &controller.ModelUUID, &controller.Addr); err != nil {
+				_ = rows.Close()
+				return errors.Trace(err)
+			}
+			uniqueControllers[controller.ID] = externalcontroller.MigrationControllerInfo{
+				ControllerTag: names.NewControllerTag(controller.ID),
+				CACert:        controller.CACert,
+				Alias:         controller.Alias.String,
+			}
+
+			// Each row contains only one address, so it's safe
+			// to access the only possible (nullable) value.
+			if controller.Addr.Valid {
+				if _, ok := uniqueAddresses[controller.ID]; !ok {
+					uniqueAddresses[controller.ID] = make(map[string]string)
+				}
+				uniqueAddresses[controller.ID][controller.Addr.String] = controller.Addr.String
+			}
+			// Each row contains only one model, so it's safe
+			// to access the only possible (nullable) value.
+			if controller.ModelUUID.Valid {
+				if _, ok := uniqueModelUUIDs[controller.ID]; !ok {
+					uniqueModelUUIDs[controller.ID] = make(map[string]string)
+				}
+				uniqueModelUUIDs[controller.ID][controller.ModelUUID.String] = controller.ModelUUID.String
+			}
+		}
+
+		// Iterate through every controller and flatten its models and
+		// addresses.
+		for controllerID, controller := range uniqueControllers {
+			var modelUUIDs []string
+			for _, modelUUID := range uniqueModelUUIDs[controllerID] {
+				modelUUIDs = append(modelUUIDs, modelUUID)
+			}
+			controller.ModelUUIDs = modelUUIDs
+
+			var addresses []string
+			for _, modelUUID := range uniqueAddresses[controllerID] {
+				addresses = append(addresses, modelUUID)
+			}
+			controller.Addrs = addresses
+
+			resultControllers = append(resultControllers, controller)
+		}
+
+		return nil
+	})
+
+	return resultControllers, err
 }

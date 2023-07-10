@@ -9,10 +9,11 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/description/v4"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/domain/externalcontroller"
 )
 
 type exportSuite struct {
@@ -46,18 +47,18 @@ func (s *exportSuite) TestExportExternalController(c *gc.C) {
 		SourceModel: names.NewModelTag(modelUUID),
 	})
 	ctrlUUID := "ctrl-uuid-1"
-	extCtrlModel := &crossmodel.ControllerInfo{
-		ControllerTag: names.NewControllerTag(ctrlUUID),
-		Addrs:         []string{"192.168.1.1:8080"},
-		Alias:         "external ctrl1",
-		CACert:        "ca-cert-1",
+	extCtrlModel := []externalcontroller.MigrationControllerInfo{
+		{
+			ControllerTag: names.NewControllerTag(ctrlUUID),
+			Addrs:         []string{"192.168.1.1:8080"},
+			Alias:         "external ctrl1",
+			CACert:        "ca-cert-1",
+			ModelUUIDs:    []string{"model1", "model2"},
+		},
 	}
-	s.service.EXPECT().ControllerForModel(gomock.Any(), modelUUID).
+	s.service.EXPECT().ControllersForModels(gomock.Any(), []string{modelUUID}).
 		Times(1).
 		Return(extCtrlModel, nil)
-	s.service.EXPECT().ModelsForController(gomock.Any(), ctrlUUID).
-		Times(1).
-		Return([]string{"model1", "model2"}, nil)
 
 	// Assert that the destination description model has no external
 	// controllers before the migration:
@@ -88,20 +89,20 @@ func (s *exportSuite) TestExportExternalControllerRequestsExternalControllerOnce
 		SourceModel: names.NewModelTag(modelUUID),
 	})
 	ctrlUUID := "ctrl-uuid-1"
-	extCtrlModel := &crossmodel.ControllerInfo{
-		ControllerTag: names.NewControllerTag(ctrlUUID),
-		Addrs:         []string{"192.168.1.1:8080"},
-		Alias:         "external ctrl1",
-		CACert:        "ca-cert-1",
+	extCtrlModel := []externalcontroller.MigrationControllerInfo{
+		{
+			ControllerTag: names.NewControllerTag(ctrlUUID),
+			Addrs:         []string{"192.168.1.1:8080"},
+			Alias:         "external ctrl1",
+			CACert:        "ca-cert-1",
+			ModelUUIDs:    []string{"model1", "model2"},
+		},
 	}
 	// But only once controller should be returned since the model is
 	// the same for both remote applications.
-	s.service.EXPECT().ControllerForModel(gomock.Any(), modelUUID).
+	s.service.EXPECT().ControllersForModels(gomock.Any(), []string{modelUUID, modelUUID}).
 		Times(1).
 		Return(extCtrlModel, nil)
-	s.service.EXPECT().ModelsForController(gomock.Any(), ctrlUUID).
-		Times(1).
-		Return([]string{"model1", "model2"}, nil)
 
 	// Assert that the destination description model has no external
 	// controllers before the migration:
@@ -133,23 +134,20 @@ func (s *exportSuite) TestExportExternalControllerRequestsExternalControllerOnce
 		SourceModel: names.NewModelTag(modelUUID2),
 	})
 	ctrlUUID := "ctrl-uuid-1"
-	extCtrlModel := &crossmodel.ControllerInfo{
-		ControllerTag: names.NewControllerTag(ctrlUUID),
-		Addrs:         []string{"192.168.1.1:8080"},
-		Alias:         "external ctrl1",
-		CACert:        "ca-cert-1",
+	extCtrlModel := []externalcontroller.MigrationControllerInfo{
+		{
+			ControllerTag: names.NewControllerTag(ctrlUUID),
+			Addrs:         []string{"192.168.1.1:8080"},
+			Alias:         "external ctrl1",
+			CACert:        "ca-cert-1",
+			ModelUUIDs:    []string{"model1", "model2"},
+		},
 	}
 	// But only once controller should be returned since the model is
 	// the same for both remote applications.
-	s.service.EXPECT().ControllerForModel(gomock.Any(), modelUUID1).
+	s.service.EXPECT().ControllersForModels(gomock.Any(), []string{modelUUID1, modelUUID2}).
 		Times(1).
 		Return(extCtrlModel, nil)
-	s.service.EXPECT().ControllerForModel(gomock.Any(), modelUUID2).
-		Times(1).
-		Return(extCtrlModel, nil)
-	s.service.EXPECT().ModelsForController(gomock.Any(), ctrlUUID).
-		Times(2).
-		Return([]string{"model1", "model2"}, nil)
 
 	// Assert that the destination description model has no external
 	// controllers before the migration:
@@ -176,7 +174,7 @@ func (s *exportSuite) TestExportExternalControllerWithNoControllerNotFound(c *gc
 		SourceModel: names.NewModelTag(modelUUID),
 	})
 
-	s.service.EXPECT().ControllerForModel(gomock.Any(), modelUUID).
+	s.service.EXPECT().ControllersForModels(gomock.Any(), []string{modelUUID}).
 		Times(1).
 		Return(nil, errors.NotFoundf("test-external-controller"))
 
@@ -194,7 +192,7 @@ func (s *exportSuite) TestExportExternalControllerFailsGettingExternalController
 		SourceModel: names.NewModelTag(modelUUID),
 	})
 
-	s.service.EXPECT().ControllerForModel(gomock.Any(), modelUUID).
+	s.service.EXPECT().ControllersForModels(gomock.Any(), []string{modelUUID}).
 		Times(1).
 		Return(nil, errors.New("fail"))
 

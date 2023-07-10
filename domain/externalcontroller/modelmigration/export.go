@@ -22,20 +22,32 @@ func RegisterExport(coordinator Coordinator) {
 	coordinator.Add(&exportOperation{})
 }
 
+// EcService provides a subset of the external controller domain service methods.
 type ExportService interface {
+	// ControllerForModel returns the controller record that's associated
+	// with the modelUUID.
 	ControllerForModel(ctx context.Context, modelUUID string) (*crossmodel.ControllerInfo, error)
+
+	// ModelsForController returns the list of model UUIDs for
+	// the given controllerUUID.
 	ModelsForController(ctx context.Context, controllerUUID string) ([]string, error)
+
+	// ControllersForModels returns the list of controllers which
+	// are part of the given modelUUIDs.
+	// The resulting MigrationControllerInfo contains the list of models
+	// for each controller.
+	ControllersForModels(ctx context.Context, modelUUIDs []string) ([]externalcontroller.MigrationControllerInfo, error)
 }
 
 // exportOperation describes a way to execute a migration for
-// exporting external controller s.
+// exporting external controllers.
 type exportOperation struct {
 	modelmigration.BaseOperation
 
 	service ExportService
 }
 
-func (e exportOperation) Setup(scope modelmigration.Scope) error {
+func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 	// We must not use a watcher during migration, so it's safe to pass a
 	// nil watcher factory.
 	e.service = service.NewService(
@@ -51,40 +63,19 @@ func (e exportOperation) Setup(scope modelmigration.Scope) error {
 // the dst description.Model argument and make sure that the model is not
 // updated until the export has finished, thus avoiding a race on the
 // remote applications of the model.
-func (e exportOperation) Execute(ctx context.Context, model description.Model) error {
-	// If there are not remote applications, then no external controllers will
-	// be exported. We should understand if that's ever going to be an issue?
-	remoteApplications := model.RemoteApplications()
-
-	// Iterate over the source model UUIDs, to gather up all the related
-	// external controllers. Store them in a map to create a unique set of
-	// source model UUIDs, that way we don't request multiple versions of the
-	// same external controller.
-	sourceModelUUIDs := make(map[string]struct{})
-	for _, remoteApp := range remoteApplications {
-		sourceModelUUIDs[remoteApp.SourceModelTag().Id()] = struct{}{}
+func (e *exportOperation) Execute(ctx context.Context, model description.Model) error {
+	// Get the list of model UUIDs from the remote applications. We don't
+	// care that the modelUUIDs might be repeated among different remote
+	// applications, since the db query takes a list of modelUUIDs so there
+	// is no extra performance cost.
+	var sourceModelUUIDs []string
+	for _, remoteApp := range model.RemoteApplications() {
+		sourceModelUUIDs = append(sourceModelUUIDs, remoteApp.SourceModelTag().Id())
 	}
 
-	controllers := make(map[string]externalcontroller.MigrationControllerInfo)
-	for modelUUID := range sourceModelUUIDs {
-		externalController, err := e.service.ControllerForModel(ctx, modelUUID)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		models, err := e.service.ModelsForController(ctx, externalController.ControllerTag.Id())
-		if err != nil {
-			return errors.Trace(err)
-		}
-		migrationControllerInfo := externalcontroller.MigrationControllerInfo{
-			ControllerTag: externalController.ControllerTag,
-			Alias:         externalController.Alias,
-			Addrs:         externalController.Addrs,
-			CACert:        externalController.CACert,
-			ModelUUIDs:    models,
-		}
-
-		controllers[externalController.ControllerTag.Id()] = migrationControllerInfo
+	controllers, err := e.service.ControllersForModels(ctx, sourceModelUUIDs)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	for _, controller := range controllers {

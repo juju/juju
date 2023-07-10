@@ -37,7 +37,7 @@ type importOperation struct {
 	service ImportService
 }
 
-func (i importOperation) Setup(scope modelmigration.Scope) error {
+func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	// We must not use a watcher during migration, so it's safe to pass a
 	// nil watcher factory.
 	i.service = service.NewService(
@@ -48,7 +48,7 @@ func (i importOperation) Setup(scope modelmigration.Scope) error {
 // Execute the import on the external controllers description, carefully
 // modelling the dependencies we have. External controllers are then inserted
 // into the database.
-func (i importOperation) Execute(ctx context.Context, model description.Model) error {
+func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
 	externalControllers := model.ExternalControllers()
 	if len(externalControllers) == 0 {
 		return nil

@@ -124,6 +124,21 @@ func (mr *MockExportServiceMockRecorder) ControllerForModel(arg0, arg1 interface
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerForModel", reflect.TypeOf((*MockExportService)(nil).ControllerForModel), arg0, arg1)
 }
 
+// ControllersForModels mocks base method.
+func (m *MockExportService) ControllersForModels(arg0 context.Context, arg1 []string) ([]externalcontroller.MigrationControllerInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllersForModels", arg0, arg1)
+	ret0, _ := ret[0].([]externalcontroller.MigrationControllerInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ControllersForModels indicates an expected call of ControllersForModels.
+func (mr *MockExportServiceMockRecorder) ControllersForModels(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllersForModels", reflect.TypeOf((*MockExportService)(nil).ControllersForModels), arg0, arg1)
+}
+
 // ModelsForController mocks base method.
 func (m *MockExportService) ModelsForController(arg0 context.Context, arg1 string) ([]string, error) {
 	m.ctrl.T.Helper()
