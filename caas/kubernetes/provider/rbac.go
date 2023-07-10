@@ -673,52 +673,49 @@ func (k *kubernetesClient) EnsureSecretAccessToken(tag names.Tag, owned, read, r
 	return tr.Status.Token, nil
 }
 
-func (k *kubernetesClient) ensureBindingForSecretAccessToken(sa *core.ServiceAccount, objMeta v1.ObjectMeta, owned, read, removed []string) error {
-	ctx := context.TODO()
-	isControllerModel := k.Config().Name() == environsbootstrap.ControllerModelName
-
-	if isControllerModel {
-		objMeta.Name = fmt.Sprintf("%s-%s", k.namespace, objMeta.Name)
-		clusterRole, err := k.getClusterRole(objMeta.Name)
-		if err != nil && !errors.Is(err, errors.NotFound) {
-			return errors.Trace(err)
-		}
-		if errors.Is(err, errors.NotFound) {
-			clusterRole, err = k.createClusterRole(
-				&rbacv1.ClusterRole{
-					ObjectMeta: objMeta,
-					Rules:      rulesForSecretAccess(k.namespace, true, nil, owned, read, removed),
-				},
-			)
-		} else {
-			clusterRole.Rules = rulesForSecretAccess(k.namespace, true, clusterRole.Rules, owned, read, removed)
-			clusterRole, err = k.updateClusterRole(clusterRole)
-		}
-		if err != nil {
-			return errors.Trace(err)
-		}
-		bindingSpec := &rbacv1.ClusterRoleBinding{
-			ObjectMeta: objMeta,
-			RoleRef: rbacv1.RoleRef{
-				APIGroup: "rbac.authorization.k8s.io",
-				Kind:     "ClusterRole",
-				Name:     clusterRole.Name,
-			},
-			Subjects: []rbacv1.Subject{
-				{
-					Kind:      "ServiceAccount",
-					Name:      sa.Name,
-					Namespace: sa.Namespace,
-				},
-			},
-		}
-		clusterRoleBinding := resources.NewClusterRoleBinding(bindingSpec.Name, bindingSpec)
-		_, err = clusterRoleBinding.Ensure(
-			ctx,
-			k.client(),
-			resources.ClaimJujuOwnership,
-		)
+func (k *kubernetesClient) ensureClusterBindingForSecretAccessToken(sa *core.ServiceAccount, objMeta v1.ObjectMeta, owned, read, removed []string) error {
+	objMeta.Name = fmt.Sprintf("%s-%s", k.namespace, objMeta.Name)
+	clusterRole, err := k.getClusterRole(objMeta.Name)
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
+	}
+	if errors.Is(err, errors.NotFound) {
+		clusterRole, err = k.createClusterRole(
+			&rbacv1.ClusterRole{
+				ObjectMeta: objMeta,
+				Rules:      rulesForSecretAccess(k.namespace, true, nil, owned, read, removed),
+			},
+		)
+	} else {
+		clusterRole.Rules = rulesForSecretAccess(k.namespace, true, clusterRole.Rules, owned, read, removed)
+		clusterRole, err = k.updateClusterRole(clusterRole)
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	bindingSpec := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: objMeta,
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     clusterRole.Name,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      sa.Name,
+				Namespace: sa.Namespace,
+			},
+		},
+	}
+	clusterRoleBinding := resources.NewClusterRoleBinding(bindingSpec.Name, bindingSpec)
+	_, err = clusterRoleBinding.Ensure(context.TODO(), k.client(), resources.ClaimJujuOwnership)
+	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) ensureBindingForSecretAccessToken(sa *core.ServiceAccount, objMeta v1.ObjectMeta, owned, read, removed []string) error {
+	if k.Config().Name() == environsbootstrap.ControllerModelName {
+		return k.ensureClusterBindingForSecretAccessToken(sa, objMeta, owned, read, removed)
 	}
 
 	role, err := k.getRole(objMeta.Name)
@@ -755,7 +752,7 @@ func (k *kubernetesClient) ensureBindingForSecretAccessToken(sa *core.ServiceAcc
 		},
 	}
 	roleBinding := resources.NewRoleBinding(bindingSpec.Name, bindingSpec.Namespace, bindingSpec)
-	err = roleBinding.Apply(ctx, k.client())
+	err = roleBinding.Apply(context.TODO(), k.client())
 	return errors.Trace(err)
 }
 
@@ -791,14 +788,14 @@ func rulesForSecretAccess(
 			},
 		}
 		if isControllerModel {
-			// We need to be able to list/get all namespaces for units' in controller model.
+			// We need to be able to list/get all namespaces for units in controller model.
 			existing = append(existing, rbacv1.PolicyRule{
 				APIGroups: []string{rbacv1.APIGroupAll},
 				Resources: []string{"namespaces"},
 				Verbs:     []string{"get", "list"},
 			})
 		} else {
-			// We just need to be able to list/get our own namespace for units' in other models.
+			// We just need to be able to list/get our own namespace for units in other models.
 			existing = append(existing, rbacv1.PolicyRule{
 				APIGroups:     []string{rbacv1.APIGroupAll},
 				Resources:     []string{"namespaces"},
