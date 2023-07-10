@@ -19,7 +19,6 @@ const (
 	CentOS
 	GenericLinux
 	OpenSUSE
-	Kubernetes
 )
 
 func (t OSType) String() string {
@@ -36,8 +35,6 @@ func (t OSType) String() string {
 		return "GenericLinux"
 	case OpenSUSE:
 		return "OpenSUSE"
-	case Kubernetes:
-		return "Kubernetes"
 	}
 	return "Unknown"
 }
@@ -53,7 +50,6 @@ func init() {
 		CentOS,
 		GenericLinux,
 		OpenSUSE,
-		Kubernetes,
 	}
 	validOSTypeNames = make(map[string]OSType)
 	for _, osType := range osTypes {

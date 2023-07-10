@@ -8,4 +8,4 @@ requires:
   website:
     interface: http
 series:
-  - kubernetes
+  - focal

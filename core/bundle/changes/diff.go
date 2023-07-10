@@ -167,13 +167,13 @@ func (d *differ) diffApplication(name string) *ApplicationDiff {
 	}
 	if len(model.SubordinateTo) == 0 {
 		// We don't check num_units for subordinate apps.
-		if d.config.Bundle.Type == kubernetes {
+		if d.config.Bundle.Type == Kubernetes {
 			result.Scale = d.diffInts(bundle.NumUnits, model.Scale)
 		} else {
 			result.NumUnits = d.diffInts(bundle.NumUnits, len(model.Units))
 		}
 	}
-	if d.config.Bundle.Type == kubernetes && len(bundle.To) > 0 {
+	if d.config.Bundle.Type == Kubernetes && len(bundle.To) > 0 {
 		result.Placement = d.diffStrings(bundle.To[0], model.Placement)
 	}
 

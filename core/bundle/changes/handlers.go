@@ -17,6 +17,8 @@ import (
 	"github.com/juju/juju/core/series"
 )
 
+const Kubernetes = "kubernetes"
+
 type resolver struct {
 	bundle           *charm.BundleData
 	model            *Model
@@ -48,10 +50,6 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 	var change Change
 	for _, name := range names {
 		application := applications[name]
-		// Legacy k8s charms - assume ubuntu focal.
-		if application.Series == kubernetes {
-			application.Series = series.LegacyKubernetesSeries()
-		}
 		existingApp := existing.GetApplication(name)
 		computedSeries, err := getSeries(application, defaultSeries)
 		if err != nil {
@@ -152,7 +150,7 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 
 			// For Kubernetes bundles, we include the scale (num units).
 			numUnits := 0
-			if r.bundle.Type == kubernetes {
+			if r.bundle.Type == Kubernetes {
 				numUnits = application.NumUnits
 			}
 			// Add the addApplication record for this application.
@@ -240,7 +238,7 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 				}
 			}
 
-			if r.bundle.Type == kubernetes && existingApp.Scale != application.NumUnits {
+			if r.bundle.Type == Kubernetes && existingApp.Scale != application.NumUnits {
 				add(newScaleChange(ScaleParams{
 					Application: name,
 					appName:     name,
@@ -1286,10 +1284,6 @@ func getSeries(application *charm.ApplicationSpec, defaultSeries string) (string
 		return "", errors.Trace(err)
 	}
 	if charmURL.Series != "" {
-		// Legacy k8s charms - assume ubuntu focal.
-		if charmURL.Series == kubernetes {
-			return series.LegacyKubernetesSeries(), nil
-		}
 		return charmURL.Series, nil
 	}
 	return defaultSeries, nil

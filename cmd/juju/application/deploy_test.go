@@ -569,18 +569,18 @@ func (s *CAASDeploySuite) TestCaasModelValidatedAtRun(c *gc.C) {
 }
 
 func (s *CAASDeploySuite) TestLocalCharmNeedsResources(c *gc.C) {
-	repo := testcharms.RepoWithSeries("kubernetes")
-	charmDir := repo.ClonedDir(s.CharmsPath, "mariadb")
+	repo := testcharms.RepoWithSeries("focal")
+	charmDir := repo.ClonedDir(s.CharmsPath, "mariadb-k8s")
 
 	defer s.setupMocks(c).Finish()
 	cfg := basicDeployerConfig(charmDir.Path)
 	s.expectDeployer(c, cfg)
 
 	fakeAPI := s.fakeAPI()
-	curl := charm.MustParseURL("local:kubernetes/mariadb-0")
+	curl := charm.MustParseURL("local:mariadb-k8s-0")
 	withLocalCharmDeployable(fakeAPI, curl, charmDir, false)
 	withCharmDeployable(
-		fakeAPI, curl, series.LegacyKubernetesBase(),
+		fakeAPI, curl, defaultBase,
 		charmDir.Meta(),
 		charmDir.Metrics(),
 		false, 1, nil, nil,
@@ -603,7 +603,7 @@ func (s *CAASDeploySuite) TestLocalCharmNeedsResources(c *gc.C) {
 }
 
 func (s *CAASDeploySuite) TestDevices(c *gc.C) {
-	repo := testcharms.RepoWithSeries("kubernetes")
+	repo := testcharms.RepoWithSeries("focal")
 	charmDir := repo.ClonedDir(s.CharmsPath, "bitcoin-miner")
 
 	defer s.setupMocks(c).Finish()
@@ -614,14 +614,14 @@ func (s *CAASDeploySuite) TestDevices(c *gc.C) {
 			Count: 10,
 		},
 	}
-	cfg.Base = series.LegacyKubernetesBase()
+	cfg.Base = defaultBase
 	s.expectDeployer(c, cfg)
 
 	fakeAPI := s.fakeAPI()
-	curl := charm.MustParseURL("local:kubernetes/bitcoin-miner-1")
+	curl := charm.MustParseURL("local:bitcoin-miner-1")
 	withLocalCharmDeployable(fakeAPI, curl, charmDir, false)
 	withCharmDeployableWithDevices(
-		fakeAPI, curl, curl.Name, series.LegacyKubernetesBase(),
+		fakeAPI, curl, curl.Name, cfg.Base,
 		charmDir.Meta(),
 		charmDir.Metrics(),
 		true, 1, nil, "", nil,
@@ -641,7 +641,7 @@ func (s *CAASDeploySuite) TestDevices(c *gc.C) {
 		return nil, fakeAPI.NextErr()
 	}
 
-	_, err := s.runDeploy(c, fakeAPI, charmDir.Path, "-m", "caas-model", "--device", "bitcoinminer=10,nvidia.com/gpu", "--series", "kubernetes")
+	_, err := s.runDeploy(c, fakeAPI, charmDir.Path, "-m", "caas-model", "--device", "bitcoinminer=10,nvidia.com/gpu", "--series", "jammy")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -782,6 +782,10 @@ func setupConfigFile(c *gc.C, dir string) (string, string) {
 	return path, string(content)
 }
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
 func (s *DeploySuite) TestDeployWithChannel(c *gc.C) {
 	curl := charm.MustParseURL("ch:jammy/dummy")
 	origin := commoncharm.Origin{
@@ -807,15 +811,18 @@ func (s *DeploySuite) TestDeployWithChannel(c *gc.C) {
 		[]series.Base{series.MustParseBaseFromString("ubuntu@22.04")}, // Supported bases
 		error(nil),
 	)
-	s.fakeAPI.Call("Deploy", application.DeployArgs{
-		CharmID: application.CharmID{
-			URL:    curl,
-			Origin: originWithSeries,
-		},
-		CharmOrigin:     originWithSeries,
-		ApplicationName: curl.Name,
-		NumUnits:        1,
-	}).Returns(error(nil))
+	s.fakeAPI.Call("DeployFromRepository", application.DeployFromRepositoryArg{
+		CharmName:  "dummy",
+		Channel:    ptr("beta"),
+		ConfigYAML: "dummy: {}\n",
+		NumUnits:   ptr(1),
+	}).Returns(application.DeployInfo{
+		Architecture: "amd64",
+		Base:         series.Base{OS: "ubuntu", Channel: series.Channel{Track: "22.04"}},
+		Channel:      "beta",
+		Name:         "dummy",
+		Revision:     666,
+	}, []application.PendingResourceUpload(nil), nil)
 	s.fakeAPI.Call("AddCharm", curl, originWithSeries, false).Returns(originWithSeries, error(nil))
 	withCharmDeployable(
 		s.fakeAPI, curl, defaultBase,
@@ -856,6 +863,22 @@ func (s *DeploySuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c 
 			"":          "public",
 		},
 	}).Returns(error(nil))
+	s.fakeAPI.Call("DeployFromRepository", application.DeployFromRepositoryArg{
+		CharmName:  "wordpress-extra-bindings",
+		ConfigYAML: "wordpress-extra-bindings: {}\n",
+		NumUnits:   ptr(1),
+		EndpointBindings: map[string]string{
+			"db":        "db",
+			"db-client": "db",
+			"admin-api": "public",
+			"":          "public",
+		},
+	}).Returns(application.DeployInfo{
+		Architecture: "amd64",
+		Base:         series.Base{OS: "ubuntu", Channel: series.Channel{Track: "22.04"}},
+		Name:         "wordpress-extra-bindings",
+		Revision:     666,
+	}, []application.PendingResourceUpload(nil), nil)
 	s.fakeAPI.Call("ListSpaces").Returns([]params.Space{
 		{
 			Id:   "0",
@@ -1317,6 +1340,14 @@ func (f *fakeDeployAPI) Deploy(args application.DeployArgs) error {
 	return jujutesting.TypeAssertError(results[0])
 }
 
+func (f *fakeDeployAPI) DeployFromRepository(arg application.DeployFromRepositoryArg) (application.DeployInfo, []application.PendingResourceUpload, []error) {
+	results := f.MethodCall(f, "DeployFromRepository", arg)
+	if err := f.NextErr(); err != nil {
+		return application.DeployInfo{}, nil, []error{err}
+	}
+	return results[0].(application.DeployInfo), results[1].([]application.PendingResourceUpload), nil
+}
+
 func (f *fakeDeployAPI) ListSpaces() ([]params.Space, error) {
 	results := f.MethodCall(f, "ListSpaces")
 	return results[0].([]params.Space), jujutesting.TypeAssertError(results[1])
@@ -1433,7 +1464,6 @@ func vanillaFakeModelAPI(cfgAttrs map[string]interface{}) *fakeDeployAPI {
 	fakeAPI.Call("Close").Returns(error(nil))
 	fakeAPI.Call("ModelGet").Returns(cfgAttrs, error(nil))
 	fakeAPI.Call("ModelUUID").Returns("deadbeef-0bad-400d-8000-4b1d0d06f00d", true)
-	fakeAPI.Call("BestFacadeVersion", "Application").Returns(13)
 	fakeAPI.Call("BestFacadeVersion", "Charms").Returns(4)
 	fakeAPI.Call("BestFacadeVersion", "Resources").Returns(3)
 

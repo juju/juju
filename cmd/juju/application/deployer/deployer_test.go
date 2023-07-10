@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/series"
-	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -58,7 +57,7 @@ func (s *deployerSuite) SetUpTest(_ *gc.C) {
 	s.PatchValue(&SupportedJujuSeries,
 		func(time.Time, string, string) (set.Strings, error) {
 			return set.NewStrings(
-				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
+				"centos7", "centos8", "centos9", "genericlinux", "opensuseleap",
 				"jammy", "focal", "bionic", "xenial",
 			), nil
 		},
@@ -330,7 +329,7 @@ func (s *deployerSuite) TestValidateResourcesNeededForLocalDeployCAAS(c *gc.C) {
 	}
 
 	err := f.validateResourcesNeededForLocalDeploy(&charm.Meta{
-		Series: []string{jujuseries.Kubernetes.String()},
+		Series: []string{"jammy"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -345,7 +344,7 @@ func (s *deployerSuite) TestValidateResourcesNeededForLocalDeployIAAS(c *gc.C) {
 	}
 
 	err := f.validateResourcesNeededForLocalDeploy(&charm.Meta{
-		Series: []string{jujuseries.Kubernetes.String()},
+		Series: []string{"jammy"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }

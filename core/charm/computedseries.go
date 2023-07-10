@@ -54,10 +54,9 @@ func IsMissingSeriesError(err error) bool {
 // listed in the manifest Bases as channels.
 func ComputedSeries(c charm.CharmMeta) (seriesSlice []string, _ error) {
 	format := charm.MetaFormat(c)
-	isKubernetes := IsKubernetes(c)
 	meta := c.Meta()
 	defer func(s *[]string) {
-		logger.Debugf("series %q for charm %q with format %v, Kubernetes %v", strings.Join(*s, ", "), meta.Name, format, isKubernetes)
+		logger.Debugf("series %q for charm %q with format %v", strings.Join(*s, ", "), meta.Name, format)
 	}(&seriesSlice)
 
 	manifest := c.Manifest()

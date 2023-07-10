@@ -3964,7 +3964,7 @@ func (s *changesSuite) TestAppExistsWithDifferentScale(c *gc.C) {
                         revision: 4
                         channel: stable
                         num_units: 2
-                        series: kubernetes
+                        series: focal
             `
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{

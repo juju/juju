@@ -9,4 +9,4 @@ devices:
     type: nvidia.com/gpu
     count: 1
 series:
-  - kubernetes
+  - jammy

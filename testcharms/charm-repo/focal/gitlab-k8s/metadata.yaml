@@ -19,4 +19,4 @@ peers:
   ring:
     interface: gitlab
 series:
-  - kubernetes
+  - focal

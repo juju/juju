@@ -1810,7 +1810,7 @@ func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer func() { _ = st.Close() }()
 	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 
 	insettings := charm.Settings{"tuning": "optimized"}
 	inconfig, err := coreconfig.NewConfig(coreconfig.ConfigAttributes{"outlook": "good"}, sampleApplicationConfigSchema(), nil)
@@ -1966,7 +1966,7 @@ func (s *StateSuite) TestAddCAASApplicationPlacementNotAllowed(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 
 	placement := []*instance.Placement{instance.MustParsePlacement("#:2")}
 	_, err := st.AddApplication(

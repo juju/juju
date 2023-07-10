@@ -227,7 +227,7 @@ func (s *iaasProvisionerSuite) setupFilesystems(c *gc.C) {
 func (s *caasProvisionerSuite) setupFilesystems(c *gc.C) {
 	ch := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name:   "storage-filesystem",
-		Series: "kubernetes",
+		Series: "focal",
 	})
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: ch,
@@ -992,7 +992,7 @@ func (s *iaasProvisionerSuite) TestSetFilesystemAttachmentInfo(c *gc.C) {
 func (s *caasProvisionerSuite) TestWatchApplications(c *gc.C) {
 	ch := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name:   "storage-filesystem",
-		Series: "kubernetes",
+		Series: "focal",
 	})
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: ch,

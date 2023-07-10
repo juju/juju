@@ -235,8 +235,8 @@ func AddTestingCharmWithSeries(c *gc.C, st *State, name string, series string) *
 }
 
 func getCharmRepo(series string) *repo.CharmRepo {
-	// ALl testing charms for state are under `quantal` except `kubernetes`.
-	if series == "kubernetes" {
+	// ALl testing charms for state are under `quantal` except `focal`.
+	if series == "focal" {
 		return testcharms.RepoForSeries(series)
 	}
 	return testcharms.Repo
@@ -309,9 +309,6 @@ func AddTestingApplicationWithNumUnits(c *gc.C, st *State, numUnits int, name st
 
 func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
 	series := ch.URL().Series
-	if series == "kubernetes" {
-		series = "focal"
-	}
 	base, err := coreseries.GetBaseFromSeries(series)
 	c.Assert(err, jc.ErrorIsNil)
 	var source string

@@ -283,11 +283,11 @@ func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
 	})
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql", Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql-k8s", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch})
 
 	// Add a compatible charm and force it.
-	sch := state.AddCustomCharm(c, st, "mysql", "metadata.yaml", metaBaseCAAS, "kubernetes", 2)
+	sch := state.AddCustomCharm(c, st, "mysql-k8s", "metadata.yaml", metaBaseCAAS, "focal", 2)
 
 	cfg := state.SetCharmConfig{
 		Charm:      sch,
@@ -301,28 +301,6 @@ func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
 	c.Assert(force, jc.IsTrue)
 }
 
-func (s *ApplicationSuite) TestCAASSetCharmRequireNoUnits(c *gc.C) {
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "caas-model",
-		Type: state.ModelTypeCAAS,
-	})
-	defer st.Close()
-	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql", Series: "kubernetes"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch, DesiredScale: 1})
-
-	// Add a compatible charm and force it.
-	sch := state.AddCustomCharm(c, st, "mysql", "metadata.yaml", metaBaseCAAS, "kubernetes", 2)
-
-	cfg := state.SetCharmConfig{
-		Charm:          sch,
-		ForceUnits:     true,
-		RequireNoUnits: true,
-	}
-	err := app.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, `.*application should not have units`)
-}
-
 func (s *ApplicationSuite) TestCAASSetCharmNewDeploymentFails(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
@@ -330,12 +308,12 @@ func (s *ApplicationSuite) TestCAASSetCharmNewDeploymentFails(c *gc.C) {
 	})
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 
 	// Create a charm with new deployment info in metadata.
 	metaYaml := `
-name: gitlab
+name: gitlab-k8s
 summary: test
 description: test
 provides:
@@ -350,13 +328,13 @@ deployment:
   type: stateful
   service: loadbalancer
 `[1:]
-	newCh := state.AddCustomCharm(c, st, "gitlab", "metadata.yaml", metaYaml, "kubernetes", 2)
+	newCh := state.AddCustomCharm(c, st, "gitlab-k8s", "metadata.yaml", metaYaml, "focal", 2)
 	cfg := state.SetCharmConfig{
 		Charm:      newCh,
 		ForceUnits: true,
 	}
 	err := app.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "gitlab" to charm "local:kubernetes/kubernetes-gitlab-2": cannot change a charm's deployment info`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "gitlab" to charm "local:focal/focal-gitlab-k8s-2": cannot change a charm's deployment info`)
 }
 
 func (s *ApplicationSuite) TestCAASSetCharmNewDeploymentTypeFails(c *gc.C) {
@@ -366,7 +344,7 @@ func (s *ApplicationSuite) TestCAASSetCharmNewDeploymentTypeFails(c *gc.C) {
 	})
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "elastic-operator", Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "elastic-operator", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "elastic-operator", Charm: ch})
 
 	// Create a charm with new deployment info in metadata.
@@ -386,13 +364,13 @@ deployment:
   type: stateful
   service: loadbalancer
 `[1:]
-	newCh := state.AddCustomCharm(c, st, "elastic-operator", "metadata.yaml", metaYaml, "kubernetes", 2)
+	newCh := state.AddCustomCharm(c, st, "elastic-operator", "metadata.yaml", metaYaml, "focal", 2)
 	cfg := state.SetCharmConfig{
 		Charm:      newCh,
 		ForceUnits: true,
 	}
 	err := app.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "elastic-operator" to charm "local:kubernetes/kubernetes-elastic-operator-2": cannot change a charm's deployment type`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "elastic-operator" to charm "local:focal/focal-elastic-operator-2": cannot change a charm's deployment type`)
 }
 
 func (s *ApplicationSuite) TestCAASSetCharmNewDeploymentModeFails(c *gc.C) {
@@ -402,7 +380,7 @@ func (s *ApplicationSuite) TestCAASSetCharmNewDeploymentModeFails(c *gc.C) {
 	})
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "elastic-operator", Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "elastic-operator", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "elastic-operator", Charm: ch})
 
 	// Create a charm with new deployment info in metadata.
@@ -421,13 +399,13 @@ series:
 deployment:
   mode: workload
 `[1:]
-	newCh := state.AddCustomCharm(c, st, "elastic-operator", "metadata.yaml", metaYaml, "kubernetes", 2)
+	newCh := state.AddCustomCharm(c, st, "elastic-operator", "metadata.yaml", metaYaml, "focal", 2)
 	cfg := state.SetCharmConfig{
 		Charm:      newCh,
 		ForceUnits: true,
 	}
 	err := app.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "elastic-operator" to charm "local:kubernetes/kubernetes-elastic-operator-2": cannot change a charm's deployment mode`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "elastic-operator" to charm "local:focal/focal-elastic-operator-2": cannot change a charm's deployment mode`)
 }
 
 func (s *ApplicationSuite) TestSetCharmWithNewBindings(c *gc.C) {
@@ -2864,7 +2842,7 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 	})
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 
 	unitZero, err := app.AddUnit(state.AddUnitParams{})
@@ -2913,7 +2891,7 @@ func (s *ApplicationSuite) TestAgentTools(c *gc.C) {
 	})
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 	agentTools := version.Binary{
 		Number:  jujuversion.Current,
@@ -2930,7 +2908,7 @@ func (s *ApplicationSuite) TestSetAgentVersion(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 
 	agentVersion := version.MustParseBinary("2.0.1-ubuntu-and64")
@@ -4718,7 +4696,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { _ = s.caasSt.Close() })
 
 	f := factory.NewFactory(s.caasSt, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	s.app = f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 	// Consume the initial construction events from the watchers.
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
@@ -5139,7 +5117,7 @@ func (s *CAASApplicationSuite) TestRewriteStatusHistory(c *gc.C) {
 	})
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 
 	history, err := app.StatusHistory(status.StatusHistoryFilter{Size: 10})
@@ -5296,7 +5274,7 @@ func (s *CAASApplicationSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
 }
 
 func (s *CAASApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
-	ch := state.AddTestingCharmForSeries(c, s.caasSt, "kubernetes", "mysql")
+	ch := state.AddTestingCharmForSeries(c, s.caasSt, "focal", "mysql-k8s")
 	mysql := state.AddTestingApplicationForBase(c, s.caasSt, state.UbuntuBase("20.04"), "mysql", ch)
 	eps, err := s.caasSt.InferEndpoints("gitlab", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -5325,14 +5303,14 @@ func (s *CAASApplicationSuite) TestDestroyWithReferencedRelationStaleCount(c *gc
 }
 
 func (s *CAASApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh bool) {
-	ch := state.AddTestingCharmForSeries(c, s.caasSt, "kubernetes", "mysql")
+	ch := state.AddTestingCharmForSeries(c, s.caasSt, "focal", "mysql-k8s")
 	mysql := state.AddTestingApplicationForBase(c, s.caasSt, state.UbuntuBase("20.04"), "mysql", ch)
 	eps, err := s.caasSt.InferEndpoints("gitlab", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel0, err := s.caasSt.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ch = state.AddTestingCharmForSeries(c, s.caasSt, "kubernetes", "proxy")
+	ch = state.AddTestingCharmForSeries(c, s.caasSt, "focal", "proxy-k8s")
 	state.AddTestingApplicationForBase(c, s.caasSt, state.UbuntuBase("20.04"), "proxy", ch)
 	eps, err = s.caasSt.InferEndpoints("proxy", "gitlab")
 	c.Assert(err, jc.ErrorIsNil)
@@ -5426,7 +5404,7 @@ func (s *ApplicationSuite) TestSetOperatorStatus(c *gc.C) {
 	})
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 
 	now := coretesting.ZeroTime()
@@ -5516,33 +5494,6 @@ provides:
 `
 	ch := state.AddCustomCharmWithManifest(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
 	return st, f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch})
-}
-
-func (s *ApplicationSuite) TestCAASNonSidecarCharm(c *gc.C) {
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "caas-model",
-		Type: state.ModelTypeCAAS,
-	})
-	defer st.Close()
-	f := factory.NewFactory(st, s.StatePool)
-
-	charmDef := `
-name: mysql
-description: foo
-summary: foo
-series:
-  - kubernetes
-deployment:
-  mode: workload
-`
-	ch := state.AddCustomCharmForSeries(c, st, "mysql", "metadata.yaml", charmDef, "kubernetes", 1)
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch})
-
-	unit, err := app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	sidecar, err := unit.IsSidecar()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sidecar, jc.IsFalse)
 }
 
 func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {

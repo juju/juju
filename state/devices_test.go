@@ -22,7 +22,7 @@ type DevicesStateSuiteBase struct {
 func (s *DevicesStateSuiteBase) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
-	if s.series == "kubernetes" {
+	if s.series == "focal" {
 		s.st = s.Factory.MakeCAASModel(c, nil)
 		s.AddCleanup(func(_ *gc.C) { s.st.Close() })
 	} else {
@@ -47,7 +47,8 @@ type CAASDevicesStateSuite struct {
 }
 
 func (s *CAASDevicesStateSuite) SetUpTest(c *gc.C) {
-	s.series = "kubernetes"
+	// Use focal for k8s charms (quantal for machine charms).
+	s.series = "focal"
 	s.DevicesStateSuiteBase.SetUpTest(c)
 }
 

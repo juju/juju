@@ -410,6 +410,10 @@ func (s *MigrationExportSuite) TestMachineDevices(c *gc.C) {
 	c.Check(ex2.MountPoint(), gc.Equals, "/var/lib/lxd")
 }
 
+func (s *MigrationExportSuite) TestApplications(c *gc.C) {
+	s.assertMigrateApplications(c, s.State, constraints.MustParse("arch=amd64 mem=8G"))
+}
+
 func (s *MigrationExportSuite) TestCAASSidecarApplications(c *gc.C) {
 	caasSt := s.Factory.MakeCAASModel(c, nil)
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
@@ -431,6 +435,9 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 	dbModel, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	series := "quantal"
+	if dbModel.Type() == state.ModelTypeCAAS {
+		series = "focal"
+	}
 	var ch *state.Charm
 	ch = f.MakeCharmV2(c, &factory.CharmParams{
 		Name:   "snappass-test",
@@ -472,7 +479,8 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 	if dbModel.Type() == state.ModelTypeCAAS {
 		_, err = application.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id1")})
 		c.Assert(err, jc.ErrorIsNil)
-		application.SetOperatorStatus(status.StatusInfo{Status: status.Running})
+		err = application.SetOperatorStatus(status.StatusInfo{Status: status.Running})
+		c.Assert(err, jc.ErrorIsNil)
 
 		addr := network.NewSpaceAddress("192.168.1.1", network.WithScope(network.ScopeCloudLocal))
 		err = application.UpdateCloudService("provider-id", []network.SpaceAddress{addr})
@@ -854,22 +862,29 @@ func (s *MigrationExportSuite) TestExternalControllers(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestUnits(c *gc.C) {
-	s.assertMigrateUnits(c, s.State)
+	f := factory.NewFactory(s.State, s.StatePool)
+	unit := f.MakeUnit(c, &factory.UnitParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	s.assertMigrateUnits(c, s.State, unit)
 }
 
 func (s *MigrationExportSuite) TestCAASUnits(c *gc.C) {
 	caasSt := s.Factory.MakeCAASModel(c, nil)
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 
-	s.assertMigrateUnits(c, caasSt)
+	f := factory.NewFactory(caasSt, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql-k8s", Series: "focal"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{
+		Charm: ch, Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	unit := f.MakeUnit(c, &factory.UnitParams{
+		Application: app,
+	})
+	s.assertMigrateUnits(c, caasSt, unit)
 }
 
-func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
-	f := factory.NewFactory(st, s.StatePool)
-
-	unit := f.MakeUnit(c, &factory.UnitParams{
-		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
-	})
+func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State, unit *state.Unit) {
 	err := unit.SetMeterStatus("GREEN", "some info")
 	c.Assert(err, jc.ErrorIsNil)
 	for _, version := range []string{"garnet", "amethyst", "pearl", "steven"} {

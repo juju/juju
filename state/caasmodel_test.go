@@ -105,7 +105,7 @@ func (s *CAASModelSuite) TestDestroyModel(c *gc.C) {
 	model, st := s.newCAASModel(c)
 
 	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -146,7 +146,7 @@ func (s *CAASModelSuite) TestDestroyModelDestroyStorage(c *gc.C) {
 	f := factory.NewFactory(st, s.StatePool)
 	f.MakeUnit(c, &factory.UnitParams{
 		Application: f.MakeApplication(c, &factory.ApplicationParams{
-			Charm: state.AddTestingCharmForSeries(c, st, "kubernetes", "storage-filesystem"),
+			Charm: state.AddTestingCharmForSeries(c, st, "focal", "storage-filesystem"),
 			Storage: map[string]state.StorageConstraints{
 				"data": {Count: 1, Size: 1024},
 			},
@@ -187,7 +187,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModels(c *gc.C) {
 	defer st2.Close()
 
 	f := factory.NewFactory(st2, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 
 	controllerModel, err := s.State.Model()
@@ -250,7 +250,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 	c.Assert(err, jc.ErrorIsNil)
 
 	f := factory.NewFactory(otherSt, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	args := state.AddApplicationArgs{
 		Name: application.Name(),
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
@@ -302,8 +302,8 @@ func (s *CAASModelSuite) TestContainers(c *gc.C) {
 	m, st := s.newCAASModel(c)
 	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{
-		Name:   "gitlab",
-		Series: "kubernetes",
+		Name:   "gitlab-k8s",
+		Series: "focal",
 	})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 
@@ -325,7 +325,10 @@ func (s *CAASModelSuite) TestContainers(c *gc.C) {
 func (s *CAASModelSuite) TestUnitStatus(c *gc.C) {
 	m, st := s.newCAASModel(c)
 	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql-k8s", Series: "focal"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 	unit := f.MakeUnit(c, &factory.UnitParams{
+		Application: app,
 		Status: &status.StatusInfo{
 			Status:  status.Waiting,
 			Message: status.MessageInitializingAgent,
@@ -346,7 +349,10 @@ func (s *CAASModelSuite) TestUnitStatus(c *gc.C) {
 func (s *CAASModelSuite) TestCloudContainerStatus(c *gc.C) {
 	m, st := s.newCAASModel(c)
 	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql-k8s", Series: "focal"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 	unit := f.MakeUnit(c, &factory.UnitParams{
+		Application: app,
 		Status: &status.StatusInfo{
 			Status:  status.Active,
 			Message: "Unit Active",

@@ -34,13 +34,14 @@ var _ = gc.Suite(&FilesystemIAASModelSuite{})
 var _ = gc.Suite(&FilesystemCAASModelSuite{})
 
 func (s *FilesystemCAASModelSuite) SetUpTest(c *gc.C) {
-	s.series = "kubernetes"
+	// Use focal for k8s charms (quantal for machine charms).
+	s.series = "focal"
 	s.FilesystemStateSuite.SetUpTest(c)
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 }
 
 func (s *FilesystemStateSuite) TestAddApplicationInvalidPool(c *gc.C) {
-	ch := s.AddTestingCharm(c, "storage-filesystem")
+	ch := s.AddTestingCharmWithSeries(c, "storage-filesystem", s.series)
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("invalid-pool", 1024, 1),
 	}
@@ -58,7 +59,7 @@ func (s *FilesystemStateSuite) TestAddApplicationInvalidPool(c *gc.C) {
 func (s *FilesystemStateSuite) TestAddApplicationNoPoolNoDefault(c *gc.C) {
 	// no pool specified, no default configured: use default.
 	expected := "rootfs"
-	if s.series == "kubernetes" {
+	if s.series == "focal" {
 		expected = "kubernetes"
 	}
 	s.testAddApplicationDefaultPool(c, expected, 0)
@@ -68,7 +69,7 @@ func (s *FilesystemStateSuite) TestAddApplicationNoPoolNoDefaultWithUnits(c *gc.
 	// no pool specified, no default configured: use default, add a unit during
 	// app deploy.
 	expected := "rootfs"
-	if s.series == "kubernetes" {
+	if s.series == "focal" {
 		expected = "kubernetes"
 	}
 	s.testAddApplicationDefaultPool(c, expected, 1)
@@ -125,7 +126,7 @@ func (s *FilesystemStateSuite) testAddApplicationDefaultPool(c *gc.C, expectedPo
 			Count: 1,
 		},
 	}
-	if s.series == "kubernetes" {
+	if s.series == "focal" {
 		expected["cache"] = state.StorageConstraints{Count: 0, Size: 1024, Pool: expectedPool}
 	}
 	c.Assert(cons, jc.DeepEquals, expected)
@@ -318,7 +319,7 @@ func (s *FilesystemStateSuite) addUnitWithFilesystemUnprovisioned(c *gc.C, pool 
 		c.Assert(errors.Cause(err), gc.Equals, state.ErrNoBackingVolume)
 	}
 
-	if s.series != "kubernetes" {
+	if s.series != "focal" {
 		machineTag := hostTag.(names.MachineTag)
 		filesystemAttachments, err := s.storageBackend.MachineFilesystemAttachments(machineTag)
 		c.Assert(err, jc.ErrorIsNil)
@@ -1459,7 +1460,7 @@ func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsLocationStorageDir(
 	}, s.series)
 	app := s.AddTestingApplication(c, "storage-filesystem", ch)
 	unit, err := app.AddUnit(state.AddUnitParams{})
-	if s.series != "kubernetes" {
+	if s.series != "focal" {
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	}

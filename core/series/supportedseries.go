@@ -184,9 +184,6 @@ func composeSeriesVersions() {
 	for k, v := range opensuseSeries {
 		allSeriesVersions[k] = v
 	}
-	for k, v := range kubernetesSeries {
-		allSeriesVersions[k] = v
-	}
 	allSeriesVersions[genericLinuxSeries] = seriesVersion{
 		WorkloadType: OtherWorkloadType,
 		Version:      genericLinuxVersion,
@@ -269,9 +266,6 @@ func getOSFromSeries(series SeriesName) (coreos.OSType, error) {
 	}
 	if _, ok := opensuseSeries[series]; ok {
 		return coreos.OpenSUSE, nil
-	}
-	if _, ok := kubernetesSeries[series]; ok {
-		return coreos.Kubernetes, nil
 	}
 	if series == genericLinuxSeries {
 		return coreos.GenericLinux, nil

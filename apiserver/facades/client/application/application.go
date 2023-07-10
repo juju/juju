@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v11"
-	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -62,26 +61,6 @@ var logger = loggo.GetLogger("juju.apiserver.application")
 // APIv19 provides the Application API facade for version 19.
 type APIv19 struct {
 	*APIBase
-}
-
-// APIv18 provides the Application API facade for version 18.
-type APIv18 struct {
-	*APIv19
-}
-
-// APIv17 provides the Application API facade for version 17.
-type APIv17 struct {
-	*APIv18
-}
-
-// APIv16 provides the Application API facade for version 16.
-type APIv16 struct {
-	*APIv17
-}
-
-// APIv15 provides the Application API facade for version 15.
-type APIv15 struct {
-	*APIv16
 }
 
 // APIBase implements the shared application interface and is the concrete
@@ -1117,13 +1096,6 @@ func (api *APIBase) applicationSetCharm(
 		return errors.New("cannot downgrade from v2 charm format to v1")
 	}
 
-	// If upgrading from a pod-spec (v1) charm to sidecar (v2), force the application
-	// to have no units.
-	if charm.MetaFormat(oldCharm) == charm.FormatV1 && corecharm.IsKubernetes(oldCharm) &&
-		charm.MetaFormat(newCharm) >= charm.FormatV2 && corecharm.IsKubernetes(newCharm) {
-		cfg.RequireNoUnits = true
-	}
-
 	// TODO(wallyworld) - do in a single transaction
 	if err := params.Application.SetCharm(cfg); err != nil {
 		return errors.Annotate(err, "updating charm config")
@@ -1435,52 +1407,6 @@ func addApplicationUnits(backend Backend, modelType state.ModelType, args params
 	)
 }
 
-// DestroyUnits removes a given set of application units.
-//
-// TODO(jack-w-shaw) Drop this once facade 16 is not longer supported
-func (api *APIv16) DestroyUnits(args params.DestroyApplicationUnits) error {
-	var errs []error
-	entities := params.DestroyUnitsParams{
-		Units: make([]params.DestroyUnitParams, 0, len(args.UnitNames)),
-	}
-	for _, unitName := range args.UnitNames {
-		if !names.IsValidUnit(unitName) {
-			errs = append(errs, errors.NotValidf("unit name %q", unitName))
-			continue
-		}
-		entities.Units = append(entities.Units, params.DestroyUnitParams{
-			UnitTag: names.NewUnitTag(unitName).String(),
-		})
-	}
-	results, err := api.DestroyUnit(entities)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, result := range results.Results {
-		if result.Error != nil {
-			errs = append(errs, result.Error)
-		}
-	}
-	return apiservererrors.DestroyErr("units", args.UnitNames, errs)
-}
-
-func (*APIBase) DestroyUnits(_, _ struct{}) {}
-
-func (api *APIv15) DestroyUnit(argsV15 params.DestroyUnitsParamsV15) (params.DestroyUnitResults, error) {
-	args := params.DestroyUnitsParams{
-		Units: transform.Slice(argsV15.Units, func(p params.DestroyUnitParamsV15) params.DestroyUnitParams {
-			return params.DestroyUnitParams{
-				UnitTag:        p.UnitTag,
-				DestroyStorage: p.DestroyStorage,
-				Force:          p.Force,
-				MaxWait:        p.MaxWait,
-				DryRun:         false,
-			}
-		}),
-	}
-	return api.APIv16.DestroyUnit(args)
-}
-
 // DestroyUnit removes a given set of application units.
 func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyUnitResults, error) {
 	if api.model.Type() == state.ModelTypeCAAS {
@@ -1580,46 +1506,6 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 	return params.DestroyUnitResults{
 		Results: results,
 	}, nil
-}
-
-// Destroy destroys a given application, local or remote.
-//
-// TODO(jack-w-shaw) Drop this once facade 16 is not longer supported
-func (api *APIv16) Destroy(in params.ApplicationDestroy) error {
-	if !names.IsValidApplication(in.ApplicationName) {
-		return errors.NotValidf("application name %q", in.ApplicationName)
-	}
-	args := params.DestroyApplicationsParams{
-		Applications: []params.DestroyApplicationParams{{
-			ApplicationTag: names.NewApplicationTag(in.ApplicationName).String(),
-		}},
-	}
-	results, err := api.DestroyApplication(args)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := results.Results[0].Error; err != nil {
-		return apiservererrors.ServerError(err)
-	}
-	return nil
-}
-
-func (*APIBase) Destroy(_, _ struct{}) {}
-
-// DestroyApplication removes a given set of applications.
-func (api *APIv15) DestroyApplication(argsV15 params.DestroyApplicationsParamsV15) (params.DestroyApplicationResults, error) {
-	args := params.DestroyApplicationsParams{
-		Applications: transform.Slice(argsV15.Applications, func(p params.DestroyApplicationParamsV15) params.DestroyApplicationParams {
-			return params.DestroyApplicationParams{
-				ApplicationTag: p.ApplicationTag,
-				DestroyStorage: p.DestroyStorage,
-				Force:          p.Force,
-				MaxWait:        p.MaxWait,
-				DryRun:         false,
-			}
-		}),
-	}
-	return api.APIBase.DestroyApplication(args)
 }
 
 // DestroyApplication removes a given set of applications.
@@ -2954,13 +2840,6 @@ func (api *APIBase) Leader(entity params.Entity) (params.StringResult, error) {
 		result.Error = apiservererrors.ServerError(errors.NotFoundf("leader for %s", entity.Tag))
 	}
 	return result, nil
-}
-
-// DeployFromRepository for facade v18. The method was still not fully complete until v19.
-// The NotImplemented error was for development purposes while use was behind a feature
-// flag in the juju client.
-func (api *APIv18) DeployFromRepository(args params.DeployFromRepositoryArgs) (params.DeployFromRepositoryResults, error) {
-	return params.DeployFromRepositoryResults{}, errors.NotImplementedf("this facade method is under development")
 }
 
 // DeployFromRepository is a one-stop deployment method for repository

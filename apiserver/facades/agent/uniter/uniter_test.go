@@ -205,7 +205,7 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C, isSidecar bool) (*apiuniter.Cl
 		ch := f.MakeCharm(c, &factory.CharmParams{Name: "cockroach", Series: "focal"})
 		app = f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch})
 	} else {
-		ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+		ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 		app = f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 	}
 	unit := f.MakeUnit(c, &factory.UnitParams{
@@ -4696,7 +4696,7 @@ func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 
 	st := cm.State()
 	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mariadb", Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mariadb-k8s", Series: "focal"})
 	f.MakeApplication(c, &factory.ApplicationParams{Name: "mariadb", Charm: ch})
 	eps, err := st.InferEndpoints("gitlab", "mariadb")
 	c.Assert(err, jc.ErrorIsNil)
@@ -4752,7 +4752,7 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 
 	st := cm.State()
 	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mariadb", Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mariadb-k8s", Series: "focal"})
 	_ = f.MakeApplication(c, &factory.ApplicationParams{Name: "mariadb", Charm: ch})
 
 	var updateUnits state.UpdateUnitsOperation

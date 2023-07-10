@@ -9,4 +9,4 @@ storage:
         multiple:
                 range: 0+
 series:
-  - kubernetes
+  - focal

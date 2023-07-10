@@ -45,7 +45,7 @@ func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 	s.PatchValue(&k8sprovider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
 	var registry storage.ProviderRegistry
-	if s.series == "kubernetes" {
+	if s.series == "focal" {
 		s.base = state.UbuntuBase("20.04")
 		s.st = s.Factory.MakeCAASModel(c, nil)
 		s.AddCleanup(func(_ *gc.C) { s.st.Close() })
@@ -77,7 +77,7 @@ func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 	_, err = s.pm.Create("tmpfs-pool", provider.TmpfsProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	if s.series != "kubernetes" {
+	if s.series != "focal" {
 		// Create a pool that creates persistent block devices.
 		_, err = s.pm.Create("persistent-block", "modelscoped-block", map[string]interface{}{
 			"persistent": true,
@@ -464,7 +464,7 @@ var _ = gc.Suite(&StorageStateSuite{})
 func (s *StorageStateSuite) TestBlockStorageNotSupportedOnCAAS(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
-	ch := state.AddTestingCharmForSeries(c, st, "kubernetes", "storage-block")
+	ch := state.AddTestingCharmForSeries(c, st, "focal", "storage-block")
 	_, err := st.AddApplication(state.AddApplicationArgs{
 		Name: "storage-block", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
@@ -512,7 +512,7 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefault(c *gc.C)
 	constraints, err = storageFilesystem.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	defaultStorage := "rootfs"
-	if s.series == "kubernetes" {
+	if s.series == "focal" {
 		defaultStorage = "kubernetes"
 	}
 	c.Assert(constraints, jc.DeepEquals, map[string]state.StorageConstraints{
@@ -795,7 +795,7 @@ func (s *StorageStateSuite) TestAllStorageInstancesEmpty(c *gc.C) {
 }
 
 func (s *StorageStateSuite) TestUnitEnsureDead(c *gc.C) {
-	if s.series == "kubernetes" {
+	if s.series == "focal" {
 		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
@@ -825,7 +825,7 @@ func (s *StorageStateSuite) TestUnitEnsureDead(c *gc.C) {
 }
 
 func (s *StorageStateSuite) TestUnitStorageProvisionerError(c *gc.C) {
-	if s.series == "kubernetes" {
+	if s.series == "focal" {
 		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
@@ -862,7 +862,7 @@ func (s *StorageStateSuite) TestUnitStorageProvisionerError(c *gc.C) {
 }
 
 func (s *StorageStateSuite) TestRemoveStorageAttachmentsRemovesDyingInstance(c *gc.C) {
-	if s.series == "kubernetes" {
+	if s.series == "focal" {
 		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
@@ -885,7 +885,7 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsRemovesDyingInstance(c *
 }
 
 func (s *StorageStateSuite) TestRemoveStorageAttachmentsDisownsUnitOwnedInstance(c *gc.C) {
-	if s.series == "kubernetes" {
+	if s.series == "focal" {
 		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "persistent-block")
@@ -1188,7 +1188,7 @@ func (s *StorageStateSuite) TestAddUnitAttachStorage(c *gc.C) {
 }
 
 func (s *StorageStateSuite) TestConcurrentDestroyStorageInstanceRemoveStorageAttachmentsRemovesInstance(c *gc.C) {
-	if s.series == "kubernetes" {
+	if s.series == "focal" {
 		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
@@ -1211,7 +1211,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyStorageInstanceRemoveStorageAtt
 }
 
 func (s *StorageStateSuite) TestConcurrentRemoveStorageAttachment(c *gc.C) {
-	if s.series == "kubernetes" {
+	if s.series == "focal" {
 		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
@@ -1239,7 +1239,7 @@ func (s *StorageStateSuite) TestConcurrentRemoveStorageAttachment(c *gc.C) {
 }
 
 func (s *StorageStateSuite) TestRemoveAliveStorageAttachmentError(c *gc.C) {
-	if s.series == "kubernetes" {
+	if s.series == "focal" {
 		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
@@ -1254,7 +1254,7 @@ func (s *StorageStateSuite) TestRemoveAliveStorageAttachmentError(c *gc.C) {
 }
 
 func (s *StorageStateSuite) TestConcurrentDestroyInstanceRemoveStorageAttachmentsRemovesInstance(c *gc.C) {
-	if s.series == "kubernetes" {
+	if s.series == "focal" {
 		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
@@ -1279,7 +1279,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyInstanceRemoveStorageAttachment
 }
 
 func (s *StorageStateSuite) TestConcurrentDestroyStorageInstance(c *gc.C) {
-	if s.series == "kubernetes" {
+	if s.series == "focal" {
 		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
@@ -1306,7 +1306,7 @@ func (s *StorageStateSuite) TestDestroyStorageInstanceNotFound(c *gc.C) {
 }
 
 func (s *StorageStateSuite) TestDestroyStorageInstanceAttachedError(c *gc.C) {
-	if s.series == "kubernetes" {
+	if s.series == "focal" {
 		c.Skip("volumes on containers not supported")
 	}
 	_, _, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
@@ -1341,7 +1341,7 @@ func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {
 }
 
 func (s *StorageStateSuite) TestWatchStorageAttachment(c *gc.C) {
-	if s.series == "kubernetes" {
+	if s.series == "focal" {
 		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
@@ -1527,7 +1527,8 @@ type StorageStateSuiteCaas struct {
 var _ = gc.Suite(&StorageStateSuiteCaas{})
 
 func (s *StorageStateSuiteCaas) SetUpTest(c *gc.C) {
-	s.series = "kubernetes"
+	// Use focal for k8s charms (quantal for machine charms).
+	s.series = "focal"
 	s.StorageStateSuiteBase.SetUpTest(c)
 }
 

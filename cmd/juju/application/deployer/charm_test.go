@@ -24,10 +24,8 @@ import (
 	"github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/series"
-	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -70,62 +68,14 @@ func (s *charmSuite) TestSimpleCharmDeploy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *charmSuite) TestRepositoryCharmDeployDryRunCompatibility(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(17).AnyTimes()
-	s.resolver = mocks.NewMockResolver(ctrl)
-	s.expectResolveChannel()
-	s.expectDeployerAPIModelGet(c, series.Base{})
-
-	dCharm := s.newDeployCharm()
-	dCharm.dryRun = true
-	dCharm.validateCharmSeriesWithName = func(series, name string, imageStream string) error {
-		return nil
-	}
-	repoCharm := &repositoryCharm{
-		deployCharm:      *dCharm,
-		userRequestedURL: s.url,
-		clock:            clock.WallClock,
-	}
-
-	err := repoCharm.PrepareAndDeploy(s.ctx, s.deployerAPI, s.resolver)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *charmSuite) TestRepositoryCharmDeployDryRunImageIdNoBase(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(17).AnyTimes()
-	s.resolver = mocks.NewMockResolver(ctrl)
-	s.expectResolveChannel()
-	s.expectDeployerAPIModelGet(c, series.Base{})
-
-	dCharm := s.newDeployCharm()
-	dCharm.dryRun = true
-	dCharm.validateCharmSeriesWithName = func(series, name string, imageStream string) error {
-		return nil
-	}
-	dCharm.constraints = constraints.Value{
-		ImageID: strptr("ubuntu-bf2"),
-	}
-	repoCharm := &repositoryCharm{
-		deployCharm:      *dCharm,
-		userRequestedURL: s.url,
-		clock:            clock.WallClock,
-	}
-
-	err := repoCharm.PrepareAndDeploy(s.ctx, s.deployerAPI, s.resolver)
-	c.Assert(err, gc.ErrorMatches, "base must be explicitly provided when image-id constraint is used")
-}
-
 func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(17).AnyTimes()
+	s.modelCommand.EXPECT().Filesystem().Return(s.filesystem).AnyTimes()
+	s.configFlag.EXPECT().AbsoluteFileNames(gomock.Any()).Return(nil, nil)
+	s.configFlag.EXPECT().ReadConfigPairs(gomock.Any()).Return(nil, nil)
 	s.resolver = mocks.NewMockResolver(ctrl)
 	s.expectResolveChannel()
-	s.expectDeployerAPIModelGet(c, series.MustParseBaseFromString("ubuntu@22.04"))
 
 	dCharm := s.newDeployCharm()
 	dCharm.dryRun = true
@@ -154,16 +104,30 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *gc.C) 
 		Stdout: stdOut,
 	}
 
+	dInfo := application.DeployInfo{
+		Name:     "testme",
+		Revision: 1,
+		Channel:  "latest/stable",
+		Base: series.Base{Channel: series.Channel{Track: "20.04"},
+			OS: "ubuntu"},
+	}
+
+	repoCharm.uploadExistingPendingResources = func(appName string, pendingResources []application.PendingResourceUpload, conn base.APICallCloser, filesystem modelcmd.Filesystem) error {
+		c.Assert(appName, gc.Equals, dInfo.Name)
+		return nil
+	}
+
+	s.deployerAPI.EXPECT().DeployFromRepository(gomock.Any()).Return(dInfo, nil, nil)
+
 	err := repoCharm.PrepareAndDeploy(ctx, s.deployerAPI, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(output.String(), gc.Equals, "\"testme\" from  charm \"testme\", revision -1 on ubuntu@22.04 would be deployed\n")
+	c.Check(output.String(), gc.Equals, "\"testme\" from charm-hub charm \"testme\", revision 1 in channel latest/stable on ubuntu@20.04 would be deployed\n")
 }
 
 func (s *charmSuite) TestDeployFromRepositoryCharmAppNameVSCharmName(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(19).AnyTimes()
 	s.modelCommand.EXPECT().Filesystem().Return(s.filesystem).AnyTimes()
 	s.configFlag.EXPECT().AbsoluteFileNames(gomock.Any()).Return(nil, nil)
 	s.configFlag.EXPECT().ReadConfigPairs(gomock.Any()).Return(nil, nil)
@@ -215,7 +179,6 @@ func (s *charmSuite) TestDeployFromRepositoryErrorNoUploadResources(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(19).AnyTimes()
 	s.modelCommand.EXPECT().Filesystem().Return(s.filesystem).AnyTimes()
 	s.configFlag.EXPECT().AbsoluteFileNames(gomock.Any()).Return(nil, nil)
 	s.configFlag.EXPECT().ReadConfigPairs(gomock.Any()).Return(nil, nil)
@@ -295,14 +258,6 @@ func (s *charmSuite) expectResolveChannel() {
 				series.MustParseBaseFromString("ubuntu@16.04"),
 			}, nil
 		}).AnyTimes()
-}
-
-func (s *charmSuite) expectDeployerAPIModelGet(c *gc.C, defaultBase series.Base) {
-	cfg, err := config.New(true, minimalModelConfig())
-	c.Assert(err, jc.ErrorIsNil)
-	attrs := cfg.AllAttrs()
-	attrs["default-base"] = defaultBase.String()
-	s.deployerAPI.EXPECT().ModelGet().Return(attrs, nil)
 }
 
 func minimalModelConfig() map[string]interface{} {

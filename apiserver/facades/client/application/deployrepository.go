@@ -492,7 +492,7 @@ type caasDeployFromRepositoryValidator struct {
 	caasPrecheckFunc func(deployTemplate) error
 }
 
-// CAAS specific validation of arguments to deploy a charm
+// ValidateArg performs CAAS specific validation of arguments to deploy a charm
 //   - Storage is not allowed
 //   - Only 1 value placement allowed
 //   - Block storage is not allowed
@@ -504,8 +504,8 @@ type caasDeployFromRepositoryValidator struct {
 func (v caasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
 	dt, errs := v.validator.validate(arg)
 
-	if corecharm.IsKubernetes(dt.charm) && charm.MetaFormat(dt.charm) == charm.FormatV1 {
-		deployRepoLogger.Debugf("DEPRECATED: %q is a podspec charm, which will be removed in a future release", arg.CharmName)
+	if charm.MetaFormat(dt.charm) == charm.FormatV1 {
+		errs = append(errs, errors.NotSupportedf("deploying format v1 charm %q", arg.CharmName))
 	}
 	// TODO
 	// Convert dt.applicationConfig from Config to a map[string]string.

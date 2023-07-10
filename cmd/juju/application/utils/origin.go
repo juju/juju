@@ -34,12 +34,6 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 	}
 
 	var origin commoncharm.Origin
-	// Legacy k8s charms - assume ubuntu focal.
-	if platform.OS == series.Kubernetes.String() || platform.Channel == series.Kubernetes.String() {
-		b := series.LegacyKubernetesBase()
-		platform.OS = b.OS
-		platform.Channel = b.Channel.Track
-	}
 	switch url.Schema {
 	case "local":
 		origin = commoncharm.Origin{

@@ -1139,7 +1139,8 @@ func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 	s.model = m
 
 	ch := f.MakeCharm(c, &factory.CharmParams{
-		Series: "kubernetes",
+		Name:   "mysql-k8s",
+		Series: "focal",
 	})
 	s.app = f.MakeApplication(c, &factory.ApplicationParams{
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{

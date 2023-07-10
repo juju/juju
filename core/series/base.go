@@ -119,9 +119,6 @@ func (b Base) DisplayString() string {
 	if b.Channel.Track == "" || b.OS == "" {
 		return ""
 	}
-	if b.OS == Kubernetes.String() {
-		return b.OS
-	}
 	return b.OS + "@" + b.Channel.DisplayString()
 }
 
@@ -166,14 +163,4 @@ func GetSeriesFromBase(v Base) (string, error) {
 		}
 	}
 	return "", errors.NotFoundf("os %q version %q", v.OS, v.Channel.Track)
-}
-
-// LegacyKubernetesBase is the ubuntu base image for legacy k8s charms.
-func LegacyKubernetesBase() Base {
-	return MakeDefaultBase("ubuntu", "20.04")
-}
-
-// LegacyKubernetesSeries is the ubuntu series for legacy k8s charms.
-func LegacyKubernetesSeries() string {
-	return "focal"
 }

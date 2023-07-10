@@ -7,4 +7,4 @@ requires:
     limit: 1
     optional: false
 series:
-  - kubernetes
+  - focal

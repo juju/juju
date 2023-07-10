@@ -68,7 +68,7 @@ func (s *BundleDeployRepositorySuite) SetUpTest(_ *gc.C) {
 	s.PatchValue(&SupportedJujuSeries,
 		func(time.Time, string, string) (set.Strings, error) {
 			return set.NewStrings(
-				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
+				"centos7", "centos8", "centos9", "genericlinux", "opensuseleap",
 				"jammy", "focal", "bionic", "xenial",
 			), nil
 		},
@@ -601,8 +601,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleDevices(c *gc.C) {
 	s.runDeployWithSpec(c, kubernetesBitcoinBundle, spec)
 
 	c.Assert(s.deployArgs, gc.HasLen, 2)
-	s.assertDeployArgs(c, dashboardCurl.String(), dashboardCurl.Name, "kubernetes", "kubernetes")
-	s.assertDeployArgs(c, bitcoinCurl.String(), bitcoinCurl.Name, "kubernetes", "kubernetes")
+	s.assertDeployArgs(c, dashboardCurl.String(), dashboardCurl.Name, "ubuntu", "22.04")
+	s.assertDeployArgs(c, bitcoinCurl.String(), bitcoinCurl.Name, "ubuntu", "22.04")
 	s.assertDeployArgsDevices(c, bitcoinCurl.Name, devConstraints)
 
 	c.Check(s.output.String(), gc.Equals, ""+
@@ -620,7 +620,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleDevices(c *gc.C) {
 }
 
 func (s *BundleDeployRepositorySuite) expectCharmhubK8sCharm(curl *charm.URL) *charm.URL {
-	fullCurl := curl.WithSeries("kubernetes")
+	fullCurl := curl.WithSeries("jammy")
 	// Called from resolveCharmsAndEndpoints & resolveCharmChannelAndRevision && addCharm
 	s.bundleResolver.EXPECT().ResolveCharm(
 		curl,
@@ -630,7 +630,7 @@ func (s *BundleDeployRepositorySuite) expectCharmhubK8sCharm(curl *charm.URL) *c
 		// Ensure the same curl that is provided, is returned.
 		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error) {
 			origin.Type = "charm"
-			return fullCurl, origin, []string{"kubernetes"}, nil
+			return fullCurl, origin, []string{"jammy"}, nil
 		}).Times(3)
 
 	s.deployerAPI.EXPECT().AddCharm(
@@ -639,7 +639,7 @@ func (s *BundleDeployRepositorySuite) expectCharmhubK8sCharm(curl *charm.URL) *c
 		false,
 	).DoAndReturn(
 		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
-			origin.Base = coreseries.MakeDefaultBase("kubernetes", "kubernetes")
+			origin.Base = coreseries.MakeDefaultBase("ubuntu", "22.04")
 			return origin, nil
 		})
 

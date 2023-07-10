@@ -113,7 +113,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "dashboard4miner", Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "dashboard4miner", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Name: "dashboard4miner", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},

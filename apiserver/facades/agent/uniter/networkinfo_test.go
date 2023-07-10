@@ -277,7 +277,7 @@ func (s *networkInfoSuite) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.
 	defer func() { _ = st.Close() }()
 
 	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql", Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql-k8s", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch})
 	u := f.MakeUnit(c, &factory.UnitParams{Application: app})
 
@@ -507,8 +507,8 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	defer func() { _ = st.Close() }()
 
 	f := factory.NewFactory(st, s.StatePool)
-	gitlabch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
-	mysqlch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql", Series: "kubernetes"})
+	gitlabch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
+	mysqlch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql-k8s", Series: "focal"})
 	gitlab := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitlabch})
 	mysql := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: mysqlch})
 
@@ -552,8 +552,8 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.
 	defer func() { _ = st.Close() }()
 
 	f := factory.NewFactory(st, s.StatePool)
-	gitLabCh := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
-	mySqlCh := f.MakeCharm(c, &factory.CharmParams{Name: "mysql", Series: "kubernetes"})
+	gitLabCh := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
+	mySqlCh := f.MakeCharm(c, &factory.CharmParams{Name: "mysql-k8s", Series: "focal"})
 	gitLab := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitLabCh})
 	mySql := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: mySqlCh})
 
@@ -573,7 +573,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 	defer func() { _ = st.Close() }()
 
 	f := factory.NewFactory(st, s.StatePool)
-	gitLabCh := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	gitLabCh := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	gitLab := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitLabCh})
 
 	// Add a local-machine address.

@@ -540,56 +540,6 @@ func (s *ApplicationSuite) TestSetCharmDisallowDowngradeFormat(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot downgrade from v2 charm format to v1")
 }
 
-func (s *ApplicationSuite) TestSetCharmUpgradeFormat(c *gc.C) {
-	s.modelType = state.ModelTypeCAAS
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	ch := s.expectCharm(ctrl, &charm.Meta{
-		Name: "postgresql",
-		Containers: map[string]charm.Container{ // sidecar charm has containers
-			"c1": {Resource: "c1-image"},
-		},
-	}, &charm.Manifest{Bases: []charm.Base{{ // len(bases)>0 means it's a v2 charm
-		Name: "ubuntu",
-		Channel: charm.Channel{
-			Track: "22.04",
-			Risk:  "stable",
-		},
-	}}}, defaultCharmConfig)
-	curl := charm.MustParseURL("ch:postgresql")
-	s.backend.EXPECT().Charm(curl).Return(ch, nil)
-
-	oldCharm := s.expectCharm(ctrl,
-		&charm.Meta{
-			Name:   "charm-postgresql",
-			Series: []string{"kubernetes"},
-		},
-		&charm.Manifest{},
-		&charm.Config{
-			Options: map[string]charm.Option{
-				"stringOption": {Type: "string"},
-				"intOption":    {Type: "int", Default: int(123)},
-			},
-		},
-	)
-
-	app := s.expectApplicationWithCharm(ctrl, oldCharm, "postgresql")
-	cfg := state.SetCharmConfig{
-		CharmOrigin:    createStateCharmOriginFromURL(curl),
-		RequireNoUnits: true,
-	}
-	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg}).Return(nil)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	err := s.api.SetCharm(params.ApplicationSetCharm{
-		ApplicationName: "postgresql",
-		CharmURL:        "ch:postgresql",
-		CharmOrigin:     createCharmOriginFromURL(curl),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *ApplicationSuite) TestSetCharmConfigSettingsYAML(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()

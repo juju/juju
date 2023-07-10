@@ -114,7 +114,7 @@ func (ch Channel) Normalize() Channel {
 	track := ch.Track
 
 	risk := ch.Risk
-	if risk == "" && track != "kubernetes" {
+	if risk == "" {
 		risk = "stable"
 	}
 
@@ -139,7 +139,7 @@ func (ch Channel) String() string {
 
 func (ch Channel) DisplayString() string {
 	track, risk := ch.Track, ch.Risk
-	if risk == Stable && track != "kubernetes" {
+	if risk == Stable {
 		risk = ""
 	}
 	if risk == "" {

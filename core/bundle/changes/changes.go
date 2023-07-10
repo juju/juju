@@ -13,6 +13,7 @@ import (
 	"github.com/juju/charm/v11"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/core/series"
 )
 
@@ -93,7 +94,7 @@ func FromData(config ChangesConfig) ([]Change, error) {
 	}
 
 	var addedMachines map[string]*AddMachineChange
-	if resolver.bundle.Type != kubernetes {
+	if resolver.bundle.Type != Kubernetes {
 		addedMachines = resolver.handleMachines()
 	}
 
@@ -103,7 +104,7 @@ func FromData(config ChangesConfig) ([]Change, error) {
 		return nil, err
 	}
 	resolver.handleRelations(addedApplications)
-	if resolver.bundle.Type != kubernetes {
+	if resolver.bundle.Type != Kubernetes {
 		err := resolver.handleUnits(addedApplications, addedMachines)
 		if err != nil {
 			return nil, errors.Trace(err)

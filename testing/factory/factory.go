@@ -495,10 +495,6 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 	if params.CharmOrigin == nil {
 		curl := params.Charm.URL()
 		chSeries := curl.Series
-		// Legacy k8s charms - assume ubuntu focal.
-		if chSeries == "kubernetes" {
-			chSeries = coreseries.LegacyKubernetesSeries()
-		}
 		base, err := coreseries.GetBaseFromSeries(chSeries)
 		c.Assert(err, jc.ErrorIsNil)
 		var channel *state.Channel
@@ -626,7 +622,7 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	if params.Application == nil {
 		series := "quantal"
 		if model.Type() == state.ModelTypeCAAS {
-			series = "kubernetes"
+			series = "focal"
 		}
 		ch := factory.MakeCharm(c, &CharmParams{Series: series})
 		params.Application = factory.MakeApplication(c, &ApplicationParams{

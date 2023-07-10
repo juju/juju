@@ -662,7 +662,7 @@ func (s *allWatcherStateSuite) TestChangeCAASApplications(c *gc.C) {
 		// Applications.
 		func(c *gc.C, st *State) changeTestCase {
 			caasSt := s.newCAASState(c)
-			ch := AddTestingCharmForSeries(c, caasSt, "kubernetes", "mysql")
+			ch := AddTestingCharmForSeries(c, caasSt, "focal", "mysql-k8s")
 			mysql := AddTestingApplicationForBase(c, caasSt, UbuntuBase("20.04"), "mysql", ch)
 			now := st.clock().Now()
 			sInfo := status.StatusInfo{
@@ -706,7 +706,7 @@ func (s *allWatcherStateSuite) TestChangeCAASUnits(c *gc.C) {
 	changeTestFuncs := []changeTestFunc{
 		func(c *gc.C, st *State) changeTestCase {
 			caasSt := s.newCAASState(c)
-			ch := AddTestingCharmForSeries(c, caasSt, "kubernetes", "mysql")
+			ch := AddTestingCharmForSeries(c, caasSt, "focal", "mysql-k8s")
 			mysql := AddTestingApplicationForBase(c, caasSt, UbuntuBase("20.04"), "mysql", ch)
 			unit, err := mysql.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
@@ -758,7 +758,7 @@ func (s *allWatcherStateSuite) TestChangeCAASUnits(c *gc.C) {
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			caasSt := s.newCAASState(c)
-			ch := AddTestingCharmForSeries(c, caasSt, "kubernetes", "mysql")
+			ch := AddTestingCharmForSeries(c, caasSt, "focal", "mysql-k8s")
 			mysql := AddTestingApplicationForBase(c, caasSt, UbuntuBase("20.04"), "mysql", ch)
 			unit, err := mysql.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)

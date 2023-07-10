@@ -243,7 +243,7 @@ func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
 
 	otherFactory := factory.NewFactory(otherSt, s.StatePool)
 	app := otherFactory.MakeApplication(c, &factory.ApplicationParams{
-		Charm: otherFactory.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"}),
+		Charm: otherFactory.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"}),
 	})
 	otherFactory.MakeUnit(c, &factory.UnitParams{
 		Application: app,

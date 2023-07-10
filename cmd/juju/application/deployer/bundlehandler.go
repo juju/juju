@@ -899,7 +899,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	// Only Kubernetes bundles send the unit count and placement with the deploy API call.
 	numUnits := 0
 	var placement []*instance.Placement
-	if h.data.Type == series.Kubernetes.String() {
+	if h.data.Type == bundlechanges.Kubernetes {
 		numUnits = p.NumUnits
 	}
 
@@ -997,10 +997,6 @@ func (h *bundleHandler) deviceConstraints(application string, deviceMap map[stri
 }
 
 func (h *bundleHandler) selectedSeries(ch charm.CharmMeta, chID application.CharmID, curl *charm.URL, chSeries string) (string, error) {
-	if corecharm.IsKubernetes(ch) && charm.MetaFormat(ch) == charm.FormatV1 {
-		chSeries = series.Kubernetes.String()
-	}
-
 	supportedSeries, err := corecharm.ComputedSeries(ch)
 	if err != nil {
 		return "", errors.Trace(err)

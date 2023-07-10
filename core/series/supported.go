@@ -384,7 +384,6 @@ const (
 	Centos8      SeriesName = "centos8"
 	Centos9      SeriesName = "centos9"
 	OpenSUSELeap SeriesName = "opensuseleap"
-	Kubernetes   SeriesName = "kubernetes"
 )
 
 var centosSeries = map[SeriesName]seriesVersion{
@@ -409,14 +408,6 @@ var opensuseSeries = map[SeriesName]seriesVersion{
 	OpenSUSELeap: {
 		WorkloadType: OtherWorkloadType,
 		Version:      "opensuse42",
-		Supported:    true,
-	},
-}
-
-var kubernetesSeries = map[SeriesName]seriesVersion{
-	Kubernetes: {
-		WorkloadType: OtherWorkloadType,
-		Version:      "kubernetes",
 		Supported:    true,
 	},
 }
