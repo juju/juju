@@ -40,6 +40,8 @@ type versionDetail struct {
 	Compiler string `json:"compiler" yaml:"compiler"`
 	// OfficialBuild is a monotonic integer set by Jenkins.
 	OfficialBuild int `json:"official-build,omitempty" yaml:"official-build,omitempty"`
+	// GoBuildTags is the build tags used to build the binary.
+	GoBuildTags string `json:"go-build-tags,omitempty" yaml:"go-build-tags,omitempty"`
 }
 
 // versionCommand is a cmd.Command that prints the current version.
@@ -84,6 +86,7 @@ func (v *versionCommand) Init(args []string) error {
 		GitCommit:    jujuversion.GitCommit,
 		GitTreeState: jujuversion.GitTreeState,
 		Compiler:     jujuversion.Compiler,
+		GoBuildTags:  jujuversion.GoBuildTags,
 	}
 
 	v.version = detail.Version

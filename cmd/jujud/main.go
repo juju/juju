@@ -207,6 +207,8 @@ type versionDetail struct {
 	Compiler string `json:"compiler" yaml:"compiler"`
 	// OfficialBuild is a monotonic integer set by Jenkins.
 	OfficialBuild int `json:"official-build,omitempty" yaml:"official-build,omitempty"`
+	// GoBuildTags is the build tags used to build the binary.
+	GoBuildTags string `json:"go-build-tags,omitempty" yaml:"go-build-tags,omitempty"`
 }
 
 // Main registers subcommands for the jujud executable, and hands over control
@@ -239,6 +241,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		GitCommit:    jujuversion.GitCommit,
 		GitTreeState: jujuversion.GitTreeState,
 		Compiler:     jujuversion.Compiler,
+		GoBuildTags:  jujuversion.GoBuildTags,
 	}
 
 	jujud := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
