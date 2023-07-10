@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
+	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 )
 
 // AppNameForServiceAccount returns the juju application name associated with a
@@ -407,6 +408,40 @@ func (k *kubernetesClient) listRoles(selector k8slabels.Selector) ([]rbacv1.Role
 	return rList.Items, nil
 }
 
+func (k *kubernetesClient) createClusterRole(clusterrole *rbacv1.ClusterRole) (*rbacv1.ClusterRole, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
+	utils.PurifyResource(clusterrole)
+	out, err := k.client().RbacV1().ClusterRoles().Create(context.TODO(), clusterrole, v1.CreateOptions{})
+	if k8serrors.IsAlreadyExists(err) {
+		return nil, errors.AlreadyExistsf("clusterrole %q", clusterrole.GetName())
+	}
+	return out, errors.Trace(err)
+}
+
+func (k *kubernetesClient) updateClusterRole(clusterrole *rbacv1.ClusterRole) (*rbacv1.ClusterRole, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
+	out, err := k.client().RbacV1().ClusterRoles().Update(context.TODO(), clusterrole, v1.UpdateOptions{})
+	if k8serrors.IsNotFound(err) {
+		return nil, errors.NotFoundf("clusterrole %q", clusterrole.GetName())
+	}
+	return out, errors.Trace(err)
+}
+
+func (k *kubernetesClient) getClusterRole(name string) (*rbacv1.ClusterRole, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
+	out, err := k.client().RbacV1().ClusterRoles().Get(context.TODO(), name, v1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return nil, errors.NotFoundf("clusterrole %q", name)
+	}
+	return out, errors.Trace(err)
+}
+
 func (k *kubernetesClient) deleteClusterRoles(selector k8slabels.Selector) error {
 	err := k.client().RbacV1().ClusterRoles().DeleteCollection(context.TODO(), v1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
@@ -622,12 +657,86 @@ func (k *kubernetesClient) EnsureSecretAccessToken(tag names.Tag, owned, read, r
 		return "", errors.Annotatef(err, "cannot ensure service account %q", sa.GetName())
 	}
 
-	role, err := k.ensureRoleForSecretAccessToken(objMeta, owned, read, removed)
-	if err != nil {
-		return "", errors.Annotatef(err, "cannot ensure role %q", role.GetName())
+	if err := k.ensureBindingForSecretAccessToken(sa, objMeta, owned, read, removed); err != nil {
+		return "", errors.Trace(err)
 	}
 
-	roleBinding := &rbacv1.RoleBinding{
+	treq := &authenticationv1.TokenRequest{
+		Spec: authenticationv1.TokenRequestSpec{
+			ExpirationSeconds: &expiresInSeconds,
+		},
+	}
+	tr, err := k.client().CoreV1().ServiceAccounts(k.namespace).CreateToken(context.TODO(), sa.Name, treq, v1.CreateOptions{})
+	if err != nil {
+		return "", errors.Annotatef(err, "cannot request a token for %q", sa.Name)
+	}
+	return tr.Status.Token, nil
+}
+
+func (k *kubernetesClient) ensureClusterBindingForSecretAccessToken(sa *core.ServiceAccount, objMeta v1.ObjectMeta, owned, read, removed []string) error {
+	objMeta.Name = fmt.Sprintf("%s-%s", k.namespace, objMeta.Name)
+	clusterRole, err := k.getClusterRole(objMeta.Name)
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return errors.Trace(err)
+	}
+	if errors.Is(err, errors.NotFound) {
+		clusterRole, err = k.createClusterRole(
+			&rbacv1.ClusterRole{
+				ObjectMeta: objMeta,
+				Rules:      rulesForSecretAccess(k.namespace, true, nil, owned, read, removed),
+			},
+		)
+	} else {
+		clusterRole.Rules = rulesForSecretAccess(k.namespace, true, clusterRole.Rules, owned, read, removed)
+		clusterRole, err = k.updateClusterRole(clusterRole)
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	bindingSpec := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: objMeta,
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     clusterRole.Name,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      sa.Name,
+				Namespace: sa.Namespace,
+			},
+		},
+	}
+	clusterRoleBinding := resources.NewClusterRoleBinding(bindingSpec.Name, bindingSpec)
+	_, err = clusterRoleBinding.Ensure(context.TODO(), k.client(), resources.ClaimJujuOwnership)
+	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) ensureBindingForSecretAccessToken(sa *core.ServiceAccount, objMeta v1.ObjectMeta, owned, read, removed []string) error {
+	if k.Config().Name() == environsbootstrap.ControllerModelName {
+		return k.ensureClusterBindingForSecretAccessToken(sa, objMeta, owned, read, removed)
+	}
+
+	role, err := k.getRole(objMeta.Name)
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return errors.Trace(err)
+	}
+	if errors.Is(err, errors.NotFound) {
+		role, err = k.createRole(
+			&rbacv1.Role{
+				ObjectMeta: objMeta,
+				Rules:      rulesForSecretAccess(k.namespace, false, nil, owned, read, removed),
+			},
+		)
+	} else {
+		role.Rules = rulesForSecretAccess(k.namespace, false, role.Rules, owned, read, removed)
+		role, err = k.updateRole(role)
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	bindingSpec := &rbacv1.RoleBinding{
 		ObjectMeta: objMeta,
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
@@ -642,38 +751,9 @@ func (k *kubernetesClient) EnsureSecretAccessToken(tag names.Tag, owned, read, r
 			},
 		},
 	}
-
-	_, _, err = k.ensureRoleBinding(roleBinding)
-	if err != nil {
-		return "", errors.Annotatef(err, "cannot ensure role binding %q", roleBinding.Name)
-	}
-	treq := &authenticationv1.TokenRequest{
-		Spec: authenticationv1.TokenRequestSpec{
-			ExpirationSeconds: &expiresInSeconds,
-		},
-	}
-	tr, err := k.client().CoreV1().ServiceAccounts(k.namespace).CreateToken(context.TODO(), sa.Name, treq, v1.CreateOptions{})
-	if err != nil {
-		return "", errors.Annotatef(err, "cannot request a token for %q", sa.Name)
-	}
-	return tr.Status.Token, nil
-}
-
-func (k *kubernetesClient) ensureRoleForSecretAccessToken(objMeta v1.ObjectMeta, owned, read, removed []string) (*rbacv1.Role, error) {
-	role, err := k.getRole(objMeta.Name)
-	if errors.Is(err, errors.NotFound) {
-		return k.createRole(
-			&rbacv1.Role{
-				ObjectMeta: objMeta,
-				Rules:      rulesForSecretAccess(k.namespace, nil, owned, read, removed),
-			},
-		)
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	role.Rules = rulesForSecretAccess(k.namespace, role.Rules, owned, read, removed)
-	return k.updateRole(role)
+	roleBinding := resources.NewRoleBinding(bindingSpec.Name, bindingSpec.Namespace, bindingSpec)
+	err = roleBinding.Apply(context.TODO(), k.client())
+	return errors.Trace(err)
 }
 
 func cleanRules(existing []rbacv1.PolicyRule, shouldRemove func(string) bool) []rbacv1.PolicyRule {
@@ -692,15 +772,12 @@ func cleanRules(existing []rbacv1.PolicyRule, shouldRemove func(string) bool) []
 	return existing[:i]
 }
 
-func rulesForSecretAccess(namespace string, existing []rbacv1.PolicyRule, owned, read, removed []string) []rbacv1.PolicyRule {
+func rulesForSecretAccess(
+	namespace string, isControllerModel bool,
+	existing []rbacv1.PolicyRule, owned, read, removed []string,
+) []rbacv1.PolicyRule {
 	if len(existing) == 0 {
 		existing = []rbacv1.PolicyRule{
-			{
-				APIGroups:     []string{rbacv1.APIGroupAll},
-				Resources:     []string{"namespaces"},
-				Verbs:         []string{"get", "list"},
-				ResourceNames: []string{namespace},
-			},
 			{
 				APIGroups: []string{rbacv1.APIGroupAll},
 				Resources: []string{"secrets"},
@@ -709,6 +786,22 @@ func rulesForSecretAccess(namespace string, existing []rbacv1.PolicyRule, owned,
 					"patch", // TODO: we really should only allow "create" but not patch  but currently we uses .Apply() which requres patch!!!
 				},
 			},
+		}
+		if isControllerModel {
+			// We need to be able to list/get all namespaces for units in controller model.
+			existing = append(existing, rbacv1.PolicyRule{
+				APIGroups: []string{rbacv1.APIGroupAll},
+				Resources: []string{"namespaces"},
+				Verbs:     []string{"get", "list"},
+			})
+		} else {
+			// We just need to be able to list/get our own namespace for units in other models.
+			existing = append(existing, rbacv1.PolicyRule{
+				APIGroups:     []string{rbacv1.APIGroupAll},
+				Resources:     []string{"namespaces"},
+				Verbs:         []string{"get", "list"},
+				ResourceNames: []string{namespace},
+			})
 		}
 	}
 
