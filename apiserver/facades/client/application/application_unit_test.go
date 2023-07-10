@@ -14,14 +14,12 @@ import (
 	"github.com/juju/charm/v11/assumes"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/schema"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/environschema.v1"
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/common"
@@ -29,7 +27,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/client/application/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/controller"
@@ -276,9 +273,7 @@ func (s *ApplicationSuite) expectApplicationWithCharm(ctrl *gomock.Controller, c
 }
 
 func (s *ApplicationSuite) expectUpdateApplicationConfig(c *gc.C, app *mocks.MockApplication) {
-	defaults := k8s.ConfigDefaults()
-	appCfgSchema := k8s.ConfigSchema()
-	appCfgSchema, defaults, err := application.AddTrustSchemaAndDefaults(appCfgSchema, defaults)
+	appCfgSchema, defaults, err := application.ConfigSchema()
 	c.Assert(err, jc.ErrorIsNil)
 
 	appCfg, err := coreconfig.NewConfig(map[string]interface{}{
@@ -324,7 +319,7 @@ func (s *ApplicationSuite) TestSetCharmEverything(c *gc.C) {
 	}
 	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg})
 
-	schemaFields, defaults, err := application.AddTrustSchemaAndDefaults(environschema.Fields{}, schema.Defaults{})
+	schemaFields, defaults, err := application.ConfigSchema()
 	c.Assert(err, jc.ErrorIsNil)
 	app.EXPECT().UpdateApplicationConfig(coreconfig.ConfigAttributes{"trust": true}, nil, schemaFields, defaults)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
@@ -1682,7 +1677,7 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 			},
 		},
 	)
-	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil).Times(4)
+	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil).Times(3)
 	s.expectDefaultK8sModelConfig()
 
 	args := params.ApplicationsDeploy{
@@ -1691,15 +1686,6 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 			CharmURL:        "local:foo-0",
 			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
-			Config:          map[string]string{"kubernetes-service-annotations": "a=b c="},
-			ConfigYAML:      "foo:\n  stringOption: fred\n  kubernetes-service-type: loadbalancer",
-		}, {
-			ApplicationName: "foobar",
-			CharmURL:        "local:foobar-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
-			NumUnits:        1,
-			Config:          map[string]string{"kubernetes-service-type": "cluster", "intOption": "2"},
-			ConfigYAML:      "foobar:\n  intOption: 1\n  kubernetes-service-type: loadbalancer\n  kubernetes-ingress-ssl-redirect: true",
 		}, {
 			ApplicationName: "bar",
 			CharmURL:        "local:bar-0",
@@ -1716,42 +1702,10 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 	}
 	results, err := s.api.Deploy(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 4)
+	c.Assert(results.Results, gc.HasLen, 3)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[1].Error, gc.IsNil)
-	c.Assert(results.Results[2].Error, gc.ErrorMatches, "AttachStorage may not be specified for container models")
-	c.Assert(results.Results[3].Error, gc.ErrorMatches, "only 1 placement directive is supported for container models, got 2")
-
-	c.Assert(s.deployParams["foo"].ApplicationConfig.Attributes()["kubernetes-service-type"], gc.Equals, "loadbalancer")
-	// Check parsing of k8s service annotations.
-	c.Assert(s.deployParams["foo"].ApplicationConfig.Attributes()["kubernetes-service-annotations"], jc.DeepEquals, map[string]string{"a": "b", "c": ""})
-	c.Assert(s.deployParams["foobar"].ApplicationConfig.Attributes()["kubernetes-service-type"], gc.Equals, "cluster")
-	c.Assert(s.deployParams["foobar"].ApplicationConfig.Attributes()["kubernetes-ingress-ssl-redirect"], gc.Equals, true)
-	c.Assert(s.deployParams["foobar"].CharmConfig, jc.DeepEquals, charm.Settings{"intOption": int64(2)})
-}
-
-func (s *ApplicationSuite) TestDeployCAASInvalidServiceType(c *gc.C) {
-	s.modelType = state.ModelTypeCAAS
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	ch := s.expectDefaultCharm(ctrl)
-	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
-
-	curl := charm.MustParseURL("local:foo-0")
-	args := params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{{
-			ApplicationName: "foo",
-			CharmURL:        curl.String(),
-			CharmOrigin:     createCharmOriginFromURL(curl),
-			NumUnits:        1,
-			Config:          map[string]string{"kubernetes-service-type": "ClusterIP", "intOption": "2"},
-		}},
-	}
-	result, err := s.api.Deploy(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.OneError(), gc.ErrorMatches, `service type "ClusterIP" not valid`)
+	c.Assert(results.Results[1].Error, gc.ErrorMatches, "AttachStorage may not be specified for container models")
+	c.Assert(results.Results[2].Error, gc.ErrorMatches, "only 1 placement directive is supported for container models, got 2")
 }
 
 func (s *ApplicationSuite) TestDeployCAASBlockStorageRejected(c *gc.C) {
@@ -2671,13 +2625,11 @@ func (s *ApplicationSuite) TestUnsetApplicationConfig(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	schema := k8s.ConfigSchema()
-	defaults := k8s.ConfigDefaults()
-	schema, defaults, err := application.AddTrustSchemaAndDefaults(schema, defaults)
+	schemaFields, defaults, err := application.ConfigSchema()
 	c.Assert(err, jc.ErrorIsNil)
 
 	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().UpdateApplicationConfig(coreconfig.ConfigAttributes(nil), []string{"trust"}, schema, defaults)
+	app.EXPECT().UpdateApplicationConfig(coreconfig.ConfigAttributes(nil), []string{"trust"}, schemaFields, defaults)
 	app.EXPECT().UpdateCharmConfig("new-branch", charm.Settings{"stringVal": nil})
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 

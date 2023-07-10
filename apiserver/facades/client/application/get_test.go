@@ -119,10 +119,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
 	})
 
-	schemaFields := provider.ConfigSchema()
-	defaults := provider.ConfigDefaults()
-
-	schemaFields, defaults, err := application.AddTrustSchemaAndDefaults(schemaFields, defaults)
+	schemaFields, defaults, err := application.ConfigSchema()
 	c.Assert(err, jc.ErrorIsNil)
 
 	appConfig, err := coreconfig.NewConfig(map[string]interface{}{"trust": true}, schemaFields, defaults)

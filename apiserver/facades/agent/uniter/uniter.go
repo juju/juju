@@ -1161,7 +1161,7 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 		}
 
 		settings := map[string]interface{}{}
-		_, ingressAddresses, egressSubnets, err := netInfo.NetworksForRelation(relUnit.Endpoint().Name, rel, false)
+		_, ingressAddresses, egressSubnets, err := netInfo.NetworksForRelation(relUnit.Endpoint().Name, rel)
 		if err == nil && len(ingressAddresses) > 0 {
 			ingressAddress := ingressAddresses[0].Value
 			// private-address is historically a cloud local address for the machine.
@@ -2435,7 +2435,7 @@ func (u *UniterAPI) updateUnitNetworkInfoOperation(unitTag names.UnitTag, unit *
 			return nil, err
 		}
 
-		_, ingressAddresses, egressSubnets, err := netInfo.NetworksForRelation(relUnit.Endpoint().Name, rel, false)
+		_, ingressAddresses, egressSubnets, err := netInfo.NetworksForRelation(relUnit.Endpoint().Name, rel)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

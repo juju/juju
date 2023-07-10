@@ -249,7 +249,7 @@ func (n *NetworkInfoIAAS) getRelationNetworkInfo(
 		return "", "", nil, nil, errors.Trace(err)
 	}
 
-	space, ingress, egress, err := n.NetworksForRelation(endpoint, rel, true)
+	space, ingress, egress, err := n.NetworksForRelation(endpoint, rel)
 	return endpoint, space, ingress, egress, errors.Trace(err)
 }
 
@@ -258,7 +258,7 @@ func (n *NetworkInfoIAAS) getRelationNetworkInfo(
 // The ingress addresses depend on if the relation is cross-model
 // and whether the relation endpoint is bound to a space.
 func (n *NetworkInfoIAAS) NetworksForRelation(
-	endpoint string, rel *state.Relation, _ bool,
+	endpoint string, rel *state.Relation,
 ) (string, network.SpaceAddresses, []string, error) {
 	// If NetworksForRelation is called during ProcessAPIRequest,
 	// this is a second validation, but we need to do it for the cases

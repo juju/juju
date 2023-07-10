@@ -300,22 +300,18 @@ func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults,
 	return result, nil
 }
 
-func applicationConfigSchema(modelType state.ModelType) (environschema.Fields, schema.Defaults, error) {
-	if modelType != state.ModelTypeCAAS {
-		return trustFields, trustDefaults, nil
-	}
-	defaults := k8s.ConfigDefaults()
-	configSchema := k8s.ConfigSchema()
-	return AddTrustSchemaAndDefaults(configSchema, defaults)
+// ConfigSchema returns the config schema and defaults for an application.
+func ConfigSchema() (environschema.Fields, schema.Defaults, error) {
+	return trustFields, trustDefaults, nil
 }
 
-func splitApplicationAndCharmConfig(modelType state.ModelType, inConfig map[string]string) (
+func splitApplicationAndCharmConfig(inConfig map[string]string) (
 	appCfg map[string]interface{},
 	charmCfg map[string]string,
 	_ error,
 ) {
 
-	providerSchema, _, err := applicationConfigSchema(modelType)
+	providerSchema, _, err := ConfigSchema()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -335,7 +331,7 @@ func splitApplicationAndCharmConfig(modelType state.ModelType, inConfig map[stri
 
 // splitApplicationAndCharmConfigFromYAML extracts app specific settings from a charm config YAML
 // and returns those app settings plus a YAML with just the charm settings left behind.
-func splitApplicationAndCharmConfigFromYAML(modelType state.ModelType, inYaml, appName string) (
+func splitApplicationAndCharmConfigFromYAML(inYaml, appName string) (
 	appCfg map[string]interface{},
 	outYaml string,
 	_ error,
@@ -354,7 +350,7 @@ func splitApplicationAndCharmConfigFromYAML(modelType state.ModelType, inYaml, a
 		return nil, inYaml, nil
 	}
 
-	providerSchema, _, err := applicationConfigSchema(modelType)
+	providerSchema, _, err := ConfigSchema()
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
@@ -414,11 +410,6 @@ func (c caasDeployParams) precheck(
 			return errors.Errorf("block storage %q is not supported for container charms", s.Name)
 		}
 	}
-	serviceType := c.config[k8s.ServiceTypeConfigKey]
-	if _, err := k8s.CaasServiceToK8s(caas.ServiceType(serviceType)); err != nil {
-		return errors.NotValidf("service type %q", serviceType)
-	}
-
 	cfg, err := model.ModelConfig()
 	if err != nil {
 		return errors.Trace(err)
@@ -522,7 +513,7 @@ func deployApplication(
 		}
 	}
 
-	appConfig, _, charmSettings, _, err := parseCharmSettings(modelType, ch.Config(), args.ApplicationName, args.Config, args.ConfigYAML, environsconfig.UseDefaults)
+	appConfig, _, charmSettings, _, err := parseCharmSettings(ch.Config(), args.ApplicationName, args.Config, args.ConfigYAML, environsconfig.UseDefaults)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -619,7 +610,7 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL) (corecharm.
 // charm as specified by the provided config map and config yaml payload. Any
 // model-specific application settings will be automatically extracted and
 // returned back as an *application.Config.
-func parseCharmSettings(modelType state.ModelType, chCfg *charm.Config, appName string, cfg map[string]string, configYaml string, defaults environsconfig.Defaulting) (*config.Config, environschema.Fields, charm.Settings, schema.Defaults, error) {
+func parseCharmSettings(chCfg *charm.Config, appName string, cfg map[string]string, configYaml string, defaults environsconfig.Defaulting) (*config.Config, environschema.Fields, charm.Settings, schema.Defaults, error) {
 	// Split out the app config from the charm config for any config
 	// passed in as a map as opposed to YAML.
 	var (
@@ -628,7 +619,7 @@ func parseCharmSettings(modelType state.ModelType, chCfg *charm.Config, appName 
 		err               error
 	)
 	if len(cfg) > 0 {
-		if applicationConfig, charmConfig, err = splitApplicationAndCharmConfig(modelType, cfg); err != nil {
+		if applicationConfig, charmConfig, err = splitApplicationAndCharmConfig(cfg); err != nil {
 			return nil, nil, nil, nil, errors.Trace(err)
 		}
 	}
@@ -640,7 +631,7 @@ func parseCharmSettings(modelType state.ModelType, chCfg *charm.Config, appName 
 		appSettings     = make(map[string]interface{})
 	)
 	if len(configYaml) != 0 {
-		if appSettings, charmYamlConfig, err = splitApplicationAndCharmConfigFromYAML(modelType, configYaml, appName); err != nil {
+		if appSettings, charmYamlConfig, err = splitApplicationAndCharmConfigFromYAML(configYaml, appName); err != nil {
 			return nil, nil, nil, nil, errors.Trace(err)
 		}
 	}
@@ -651,7 +642,7 @@ func parseCharmSettings(modelType state.ModelType, chCfg *charm.Config, appName 
 		appSettings[k] = v
 	}
 
-	appCfgSchema, schemaDefaults, err := applicationConfigSchema(modelType)
+	appCfgSchema, schemaDefaults, err := ConfigSchema()
 	if err != nil {
 		return nil, nil, nil, nil, errors.Trace(err)
 	}
@@ -822,7 +813,7 @@ func (api *APIBase) setConfig(app Application, generation, settingsYAML string, 
 	// parseCharmSettings is passed false for useDefaults because setConfig
 	// should not care about defaults.
 	// If defaults are wanted, one should call unsetApplicationConfig.
-	appConfig, appConfigSchema, charmSettings, defaults, err := parseCharmSettings(api.model.Type(), ch.Config(), app.Name(), settingsStrings, settingsYAML, environsconfig.NoDefaults)
+	appConfig, appConfigSchema, charmSettings, defaults, err := parseCharmSettings(ch.Config(), app.Name(), settingsStrings, settingsYAML, environsconfig.NoDefaults)
 	if err != nil {
 		return errors.Annotate(err, "parsing settings for application")
 	}
@@ -1036,12 +1027,7 @@ func (api *APIBase) applicationSetCharm(
 	newCharm Charm,
 	newOrigin *state.CharmOrigin,
 ) error {
-	model, err := api.backend.Model()
-	if err != nil {
-		return errors.Annotate(err, "retrieving model")
-	}
-
-	appConfig, appSchema, charmSettings, appDefaults, err := parseCharmSettings(model.Type(), newCharm.Config(), params.AppName, params.ConfigSettingsStrings, params.ConfigSettingsYAML, environsconfig.NoDefaults)
+	appConfig, appSchema, charmSettings, appDefaults, err := parseCharmSettings(newCharm.Config(), params.AppName, params.ConfigSettingsStrings, params.ConfigSettingsYAML, environsconfig.NoDefaults)
 	if err != nil {
 		return errors.Annotate(err, "parsing config settings")
 	}
@@ -1064,6 +1050,10 @@ func (api *APIBase) applicationSetCharm(
 	}
 
 	// Enforce "assumes" requirements if the feature flag is enabled.
+	model, err := api.backend.Model()
+	if err != nil {
+		return errors.Annotate(err, "retrieving model")
+	}
 	if err := assertCharmAssumptions(newCharm.Meta().Assumes, model, api.backend.ControllerConfig); err != nil {
 		if !errors.IsNotSupported(err) || !params.Force.Force {
 			return errors.Trace(err)
@@ -2237,7 +2227,7 @@ func (api *APIBase) unsetApplicationConfig(arg params.ApplicationUnset) error {
 		return errors.Trace(err)
 	}
 
-	configSchema, defaults, err := applicationConfigSchema(api.model.Type())
+	configSchema, defaults, err := ConfigSchema()
 	if err != nil {
 		return errors.Trace(err)
 	}

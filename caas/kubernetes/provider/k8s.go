@@ -764,7 +764,7 @@ func (k *kubernetesClient) getDeployment(name string) (*apps.Deployment, error) 
 
 // CaasServiceToK8s translates a caas service type to a k8s one.
 func CaasServiceToK8s(in caas.ServiceType) (core.ServiceType, error) {
-	serviceType := defaultServiceType
+	serviceType := core.ServiceTypeClusterIP
 	if in != "" {
 		switch in {
 		case caas.ServiceCluster:

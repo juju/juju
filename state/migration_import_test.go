@@ -1081,11 +1081,7 @@ func (s *MigrationImportSuite) TestCAASUnits(c *gc.C) {
 
 	cons := constraints.MustParse("arch=amd64 mem=8G")
 	f := factory.NewFactory(caasSt, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql-k8s", Series: "focal"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm:       ch,
-		Constraints: cons,
-	})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Constraints: cons})
 	exported, pwd := f.MakeUnitReturningPassword(c, &factory.UnitParams{
 		Application: app,
 	})

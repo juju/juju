@@ -56,7 +56,7 @@ func (api *APIBase) getConfig(
 		return params.ApplicationGetResults{}, err
 	}
 
-	providerSchema, providerDefaults, err := applicationConfigSchema(api.model.Type())
+	providerSchema, providerDefaults, err := ConfigSchema()
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}

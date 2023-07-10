@@ -838,7 +838,7 @@ func (v *deployFromRepositoryValidator) appCharmSettings(appName string, trust b
 	if trust {
 		cfg = map[string]string{"trust": "true"}
 	}
-	appConfig, _, charmSettings, _, err := parseCharmSettings(v.model.Type(), chCfg, appName, cfg, configYAML, environsconfig.NoDefaults)
+	appConfig, _, charmSettings, _, err := parseCharmSettings(chCfg, appName, cfg, configYAML, environsconfig.NoDefaults)
 	return appConfig, charmSettings, err
 }
 

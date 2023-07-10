@@ -769,7 +769,6 @@ testme:
 
 func (s *validatorSuite) TestAppCharmSettings(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.model.EXPECT().Type().Return(state.ModelTypeIAAS)
 
 	cfg := charm.NewConfig()
 	cfg.Options = map[string]charm.Option{
@@ -783,7 +782,7 @@ func (s *validatorSuite) TestAppCharmSettings(c *gc.C) {
 		},
 	}
 
-	appCfgSchema, _, err := applicationConfigSchema(state.ModelTypeIAAS)
+	appCfgSchema, _, err := ConfigSchema()
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedAppConfig, err := coreconfig.NewConfig(map[string]interface{}{"trust": true}, appCfgSchema, nil)

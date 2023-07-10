@@ -325,8 +325,7 @@ func (s *CAASModelSuite) TestContainers(c *gc.C) {
 func (s *CAASModelSuite) TestUnitStatus(c *gc.C) {
 	m, st := s.newCAASModel(c)
 	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql-k8s", Series: "focal"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
+	app := f.MakeApplication(c, nil)
 	unit := f.MakeUnit(c, &factory.UnitParams{
 		Application: app,
 		Status: &status.StatusInfo{
@@ -349,8 +348,7 @@ func (s *CAASModelSuite) TestUnitStatus(c *gc.C) {
 func (s *CAASModelSuite) TestCloudContainerStatus(c *gc.C) {
 	m, st := s.newCAASModel(c)
 	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql-k8s", Series: "focal"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
+	app := f.MakeApplication(c, nil)
 	unit := f.MakeUnit(c, &factory.UnitParams{
 		Application: app,
 		Status: &status.StatusInfo{

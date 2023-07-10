@@ -8,8 +8,6 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/caas"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -108,19 +106,7 @@ func (n *NetworkInfoCAAS) getRelationNetworkInfo(
 		return "", "", nil, nil, errors.Trace(err)
 	}
 
-	cfg, err := n.app.ApplicationConfig()
-	if err != nil {
-		return "", "", nil, nil, errors.Trace(err)
-	}
-
-	var pollAddr bool
-	svcType := cfg.GetString(k8sprovider.ServiceTypeConfigKey, "")
-	switch caas.ServiceType(svcType) {
-	case caas.ServiceLoadBalancer, caas.ServiceExternal:
-		pollAddr = true
-	}
-
-	space, ingress, egress, err := n.NetworksForRelation(endpoint, rel, pollAddr)
+	space, ingress, egress, err := n.NetworksForRelation(endpoint, rel)
 	return endpoint, space, ingress, egress, errors.Trace(err)
 }
 
@@ -129,7 +115,7 @@ func (n *NetworkInfoCAAS) getRelationNetworkInfo(
 // The ingress addresses depend on if the relation is cross-model
 // and whether the relation endpoint is bound to a space.
 func (n *NetworkInfoCAAS) NetworksForRelation(
-	endpoint string, rel *state.Relation, pollAddr bool,
+	endpoint string, rel *state.Relation,
 ) (string, network.SpaceAddresses, []string, error) {
 	var ingress network.SpaceAddresses
 	var err error
@@ -139,12 +125,6 @@ func (n *NetworkInfoCAAS) NetworksForRelation(
 	// where NetworksForRelation is called directly by EnterScope.
 	if err = n.validateEndpoint(endpoint); err != nil {
 		return "", nil, nil, errors.Trace(err)
-	}
-
-	if pollAddr {
-		if ingress, err = n.maybeGetUnitAddress(rel, false); err != nil {
-			return "", nil, nil, errors.Trace(err)
-		}
 	}
 
 	if len(ingress) == 0 {

@@ -874,9 +874,8 @@ func (s *MigrationExportSuite) TestCAASUnits(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 
 	f := factory.NewFactory(caasSt, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql-k8s", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: ch, Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
 	unit := f.MakeUnit(c, &factory.UnitParams{
 		Application: app,
