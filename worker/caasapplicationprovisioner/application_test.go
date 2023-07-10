@@ -264,8 +264,6 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	)
 
 	appWorker := s.startAppWorker(c, clk, facade, broker, unitFacade, ops)
-	appWorker.(appNotifyWorker).Notify()
-
 	s.waitDone(c, done)
 	workertest.CheckKill(c, appWorker)
 }

@@ -40,8 +40,3 @@ func (t *mockTomb) ErrDying() error {
 		return tomb.ErrStillAlive
 	}
 }
-
-type appNotifyWorker interface {
-	worker.Worker
-	Notify()
-}
