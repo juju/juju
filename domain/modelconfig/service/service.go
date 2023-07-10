@@ -92,7 +92,7 @@ func (s *Service) ModelDefaults(ctx context.Context, name string) (config.ModelD
 }
 
 // UpdateModelDefaults will update the defaults values for either a cloud or a
-// clouds region. Not specifying a valid value for either Cloud or Region will
+// cloud region. Not specifying a valid value for either Cloud or Region will
 // result in an error that satisfies NotValid.
 func (s *Service) UpdateModelDefaults(
 	ctx context.Context,
