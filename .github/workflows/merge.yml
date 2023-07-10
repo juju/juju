@@ -70,7 +70,7 @@ jobs:
           echo "message=$MESSAGE" >> "$GITHUB_OUTPUT"
 
       - name: Notify if merge has conflicts
-        if: steps.merge.outputs.conflicts == 'true'
+        if: steps.merge.outputs.conflicts == 'true' && steps.message.outputs.message != ''
         env:
           MM_TOKEN: ${{ secrets.MM_TOKEN }}
           MESSAGE: ${{ steps.message.outputs.message }}
