@@ -91,10 +91,11 @@ func printErrMsg() {
 	peopleToNotify := set.NewStrings()
 	for _, commit := range badCommits {
 		if ignoreEmails.Contains(commit.CommitterEmail) {
+			stderrf("DEBUG: skipping commit %s: committer on ignore list\n", commit.SHA)
 			continue
 		}
 		if num, ok := commitHasOpenPR(commit); ok {
-			stderrf("DEBUG: skipping commit %s due to open PR #%d\n", commit.SHA, num)
+			stderrf("DEBUG: skipping commit %s: has open PR #%d\n", commit.SHA, num)
 			continue
 		}
 
@@ -106,6 +107,11 @@ func printErrMsg() {
 			stderrf("WARNING: no MM username found for email %q\n", commit.CommitterEmail)
 			peopleToNotify.Add(commit.CommitterName)
 		}
+	}
+
+	// If no-one to notify: don't send a message
+	if peopleToNotify.IsEmpty() {
+		return
 	}
 
 	// Construct the message
