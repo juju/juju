@@ -5794,18 +5794,6 @@
                     },
                     "description": "ExportBundle exports the current model configuration as bundle."
                 },
-                "GetChanges": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/BundleChangesParams"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/BundleChangesResults"
-                        }
-                    },
-                    "description": "GetChanges returns the list of changes required to deploy the given bundle\ndata. The changes are sorted by requirements, so that they can be applied in\norder.\nGetChanges has been superseded in favour of GetChangesMapArgs. It's\npreferable to use that new method to add new functionality and move clients\naway from this one."
-                },
                 "GetChangesMapArgs": {
                     "type": "object",
                     "properties": {
@@ -5820,37 +5808,6 @@
                 }
             },
             "definitions": {
-                "BundleChange": {
-                    "type": "object",
-                    "properties": {
-                        "args": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "additionalProperties": true
-                            }
-                        },
-                        "id": {
-                            "type": "string"
-                        },
-                        "method": {
-                            "type": "string"
-                        },
-                        "requires": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "id",
-                        "method",
-                        "args",
-                        "requires"
-                    ]
-                },
                 "BundleChangesMapArgs": {
                     "type": "object",
                     "properties": {
@@ -5917,24 +5874,6 @@
                         "yaml",
                         "bundleURL"
                     ]
-                },
-                "BundleChangesResults": {
-                    "type": "object",
-                    "properties": {
-                        "changes": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/BundleChange"
-                            }
-                        },
-                        "errors": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
                 },
                 "Error": {
                     "type": "object",
