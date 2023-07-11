@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -24,7 +23,7 @@ type State interface {
 	Save(context.Context, cloud.Cloud) error
 
 	// List returns the clouds matching the optional filter.
-	List(context.Context, *state.Filter) ([]cloud.Cloud, error)
+	List(context.Context, string) ([]cloud.Cloud, error)
 }
 
 // Service provides the API for working with clouds.
@@ -49,13 +48,13 @@ func (s *Service) Save(ctx context.Context, cloud cloud.Cloud) error {
 
 // ListAll returns all the clouds.
 func (s *Service) ListAll(ctx context.Context) ([]cloud.Cloud, error) {
-	all, err := s.st.List(ctx, nil)
+	all, err := s.st.List(ctx, "")
 	return all, errors.Trace(err)
 }
 
 // Get returns the named cloud.
 func (s *Service) Get(ctx context.Context, name string) (*cloud.Cloud, error) {
-	clouds, err := s.st.List(ctx, &state.Filter{Name: name})
+	clouds, err := s.st.List(ctx, name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

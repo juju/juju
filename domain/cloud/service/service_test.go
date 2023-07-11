@@ -14,7 +14,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -65,7 +64,7 @@ func (s *serviceSuite) TestListAll(c *gc.C) {
 	clouds := []cloud.Cloud{{
 		Name: "fluffy",
 	}}
-	s.state.EXPECT().List(gomock.Any(), nil).Return(clouds, nil)
+	s.state.EXPECT().List(gomock.Any(), "").Return(clouds, nil)
 
 	result, err := NewService(s.state, dummyConfigSchemaProvider).ListAll(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -78,7 +77,7 @@ func (s *serviceSuite) TestGet(c *gc.C) {
 	one := cloud.Cloud{
 		Name: "fluffy",
 	}
-	s.state.EXPECT().List(gomock.Any(), &state.Filter{Name: "fluffy"}).Return([]cloud.Cloud{one}, nil)
+	s.state.EXPECT().List(gomock.Any(), "fluffy").Return([]cloud.Cloud{one}, nil)
 
 	result, err := NewService(s.state, dummyConfigSchemaProvider).Get(context.Background(), "fluffy")
 	c.Assert(err, jc.ErrorIsNil)
@@ -88,7 +87,7 @@ func (s *serviceSuite) TestGet(c *gc.C) {
 func (s *serviceSuite) TestGetNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().List(gomock.Any(), &state.Filter{Name: "fluffy"}).Return(nil, nil)
+	s.state.EXPECT().List(gomock.Any(), "fluffy").Return(nil, nil)
 
 	result, err := NewService(s.state, dummyConfigSchemaProvider).Get(context.Background(), "fluffy")
 	c.Assert(err, gc.ErrorMatches, `cloud "fluffy" not found`)
