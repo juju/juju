@@ -11,13 +11,13 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v10"
 	charmresource "github.com/juju/charm/v10/resource"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/kr/pretty"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/client/resources"

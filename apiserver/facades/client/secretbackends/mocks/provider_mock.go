@@ -8,7 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 	secrets "github.com/juju/juju/core/secrets"
 	provider "github.com/juju/juju/secrets/provider"
 	names "github.com/juju/names/v4"

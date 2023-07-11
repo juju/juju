@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/hashicorp/raft"
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
@@ -40,6 +39,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	"github.com/juju/worker/v3/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"

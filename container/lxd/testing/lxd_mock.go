@@ -9,7 +9,7 @@ import (
 	http "net/http"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 	websocket "github.com/gorilla/websocket"
 	lxd "github.com/lxc/lxd/client"
 	api "github.com/lxc/lxd/shared/api"

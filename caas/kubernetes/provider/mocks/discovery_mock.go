@@ -7,7 +7,7 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 	openapi_v2 "github.com/googleapis/gnostic/openapiv2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	version "k8s.io/apimachinery/pkg/version"

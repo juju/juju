@@ -9,7 +9,7 @@ import (
 	url "net/url"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 	cloud "github.com/juju/juju/cloud"
 	jujuclient "github.com/juju/juju/jujuclient"
 )

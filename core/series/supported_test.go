@@ -6,11 +6,11 @@ package series
 import (
 	"sort"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 )
 

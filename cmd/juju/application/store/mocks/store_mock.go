@@ -9,7 +9,7 @@ import (
 	url "net/url"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 	charm "github.com/juju/charm/v10"
 	charms "github.com/juju/juju/api/client/charms"
 	charm0 "github.com/juju/juju/api/common/charm"

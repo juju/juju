@@ -9,7 +9,7 @@ import (
 
 	neutron "github.com/go-goose/goose/v5/neutron"
 	nova "github.com/go-goose/goose/v5/nova"
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 	set "github.com/juju/collections/set"
 	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"

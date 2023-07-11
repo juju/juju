@@ -7,7 +7,7 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 	permission "github.com/juju/juju/core/permission"
 	names "github.com/juju/names/v4"
 )

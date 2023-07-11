@@ -6,8 +6,8 @@ package resources_test
 import (
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/testing"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base/mocks"

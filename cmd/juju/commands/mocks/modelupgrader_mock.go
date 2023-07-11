@@ -8,7 +8,7 @@ import (
 	io "io"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 	tools "github.com/juju/juju/tools"
 	version "github.com/juju/version/v2"
 )

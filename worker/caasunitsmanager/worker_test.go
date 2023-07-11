@@ -4,11 +4,11 @@
 package caasunitsmanager_test
 
 import (
-	"github.com/golang/mock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	message "github.com/juju/juju/pubsub/agent"

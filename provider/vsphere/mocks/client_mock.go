@@ -8,7 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 	vsphereclient "github.com/juju/juju/provider/vsphere/internal/vsphereclient"
 	object "github.com/vmware/govmomi/object"
 	mo "github.com/vmware/govmomi/vim25/mo"

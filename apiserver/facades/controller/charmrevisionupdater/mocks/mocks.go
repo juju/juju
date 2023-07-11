@@ -8,7 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 	charm "github.com/juju/charm/v10"
 	charmrevisionupdater "github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	charmhub "github.com/juju/juju/charmhub"

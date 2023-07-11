@@ -6,7 +6,7 @@ package gen
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 	facade "github.com/juju/juju/apiserver/facade"
 	packages "golang.org/x/tools/go/packages"
 )

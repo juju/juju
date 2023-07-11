@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/golang/mock/gomock"
 	"github.com/hashicorp/vault/api"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	vault "github.com/mittwald/vaultgo"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/secrets/provider"

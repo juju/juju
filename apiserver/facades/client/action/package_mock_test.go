@@ -7,7 +7,7 @@ package action
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 	state "github.com/juju/juju/state"
 	v4 "github.com/juju/names/v4"
 )

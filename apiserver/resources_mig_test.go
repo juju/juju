@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	charmresource "github.com/juju/charm/v10/resource"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"

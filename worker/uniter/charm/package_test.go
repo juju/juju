@@ -9,7 +9,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mocks.go github.com/juju/juju/worker/uniter/charm BundleReader,BundleInfo,Bundle
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/mocks.go github.com/juju/juju/worker/uniter/charm BundleReader,BundleInfo,Bundle
 
 func TestPackage(t *stdtesting.T) {
 	// TODO(fwereade) 2014-03-21 not-worth-a-bug-number

@@ -7,7 +7,7 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 	exec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	kubernetes "k8s.io/client-go/kubernetes"
 )

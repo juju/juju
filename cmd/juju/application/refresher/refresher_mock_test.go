@@ -7,7 +7,7 @@ package refresher
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 	v10 "github.com/juju/charm/v10"
 	charm "github.com/juju/juju/api/common/charm"
 )

@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 	time "time"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 	migration "github.com/juju/juju/core/migration"
 	permission "github.com/juju/juju/core/permission"
 	state "github.com/juju/juju/state"

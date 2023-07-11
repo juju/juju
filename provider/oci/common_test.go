@@ -14,11 +14,12 @@ import (
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 
-	gomock "github.com/golang/mock/gomock"
+	jc "github.com/juju/testing/checkers"
+	gomock "go.uber.org/mock/gomock"
+	gc "gopkg.in/check.v1"
+
 	ocitesting "github.com/juju/juju/provider/oci/testing"
 	jujutesting "github.com/juju/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	ociCore "github.com/oracle/oci-go-sdk/v47/core"
 	ociIdentity "github.com/oracle/oci-go-sdk/v47/identity"

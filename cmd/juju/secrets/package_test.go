@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsapi.go github.com/juju/juju/cmd/juju/secrets ListSecretsAPI
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretsapi.go github.com/juju/juju/cmd/juju/secrets ListSecretsAPI
 
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)

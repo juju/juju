@@ -7,7 +7,7 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 	resource "github.com/juju/charm/v10/resource"
 	resources "github.com/juju/juju/apiserver/facades/client/resources"
 	resources0 "github.com/juju/juju/core/resources"

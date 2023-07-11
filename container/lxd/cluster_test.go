@@ -6,8 +6,8 @@ package lxd_test
 import (
 	"errors"
 
-	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/container/lxd"
