@@ -28,7 +28,7 @@ require (
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
 	github.com/canonical/go-dqlite v1.11.9
 	github.com/canonical/pebble v0.0.0-20230307221844-5842ea68c9c7
-	github.com/canonical/sqlair v0.0.0-20230606092629-0a5ab10a1b54
+	github.com/canonical/sqlair v0.0.0-20230707154306-6f89ebb4ac5c
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.3.2
 	github.com/docker/distribution v2.8.2+incompatible
@@ -44,7 +44,6 @@ require (
 	github.com/gorilla/schema v0.0.0-20160426231512-08023a0215e7
 	github.com/gorilla/websocket v1.5.0
 	github.com/gosuri/uitable v0.0.1
-	github.com/hashicorp/go-uuid v1.0.2
 	github.com/hashicorp/vault/api v1.7.2
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v1.0.0
@@ -203,6 +202,7 @@ require (
 	github.com/hashicorp/go-secure-stdlib/parseutil v0.1.6 // indirect
 	github.com/hashicorp/go-secure-stdlib/strutil v0.1.2 // indirect
 	github.com/hashicorp/go-sockaddr v1.0.2 // indirect
+	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/hashicorp/go-version v1.3.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
