@@ -253,6 +253,7 @@ func (s *SSHMachineSuite) setHostChecker(hostChecker jujussh.ReachableChecker) {
 func (s *SSHMachineSuite) setupModel(
 	ctrl *gomock.Controller, withProxy bool,
 	machineAddresses func() []string,
+	keysForTarget func(target string) ([]string, error),
 	targets ...string,
 ) (SSHClientAPI, *mocks.MockApplicationAPI, StatusClientAPI) {
 	applicationClient := mocks.NewMockApplicationAPI(ctrl)
@@ -317,7 +318,7 @@ func (s *SSHMachineSuite) setupModel(
 		}).MaxTimes(5)
 	}
 	for _, t := range targets {
-		sshClient.EXPECT().PublicKeys(t).DoAndReturn(func(target string) ([]string, error) {
+		f := func(target string) ([]string, error) {
 			machine := machineTarget(target)
 			if machine != "1" {
 				return []string{
@@ -326,7 +327,11 @@ func (s *SSHMachineSuite) setupModel(
 				}, nil
 			}
 			return nil, errors.NotFoundf("keys")
-		}).MaxTimes(5)
+		}
+		if keysForTarget != nil {
+			f = keysForTarget
+		}
+		sshClient.EXPECT().PublicKeys(t).DoAndReturn(f).AnyTimes()
 	}
 
 	statusClient.EXPECT().Status(nil).DoAndReturn(func(_ []string) (*params.FullStatus, error) {

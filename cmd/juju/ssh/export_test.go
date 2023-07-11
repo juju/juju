@@ -125,11 +125,13 @@ func NewSSHCommandForTest(
 	hostChecker jujussh.ReachableChecker,
 	isTerminal func(interface{}) bool,
 	retryStrategy retry.CallArgs,
+	publicKeyRetryStrategy retry.CallArgs,
 ) *sshCommand {
 	c := &sshCommand{
-		hostChecker:   hostChecker,
-		isTerminal:    isTerminal,
-		retryStrategy: retryStrategy,
+		hostChecker:            hostChecker,
+		isTerminal:             isTerminal,
+		retryStrategy:          retryStrategy,
+		publicKeyRetryStrategy: publicKeyRetryStrategy,
 	}
 	c.sshMachine.sshClient = sshClient
 	c.sshMachine.leaderAPI = applicationAPI
@@ -145,10 +147,12 @@ func NewSCPCommandForTest(
 	statusClient StatusClientAPI,
 	hostChecker jujussh.ReachableChecker,
 	retryStrategy retry.CallArgs,
+	publicKeyRetryStrategy retry.CallArgs,
 ) *scpCommand {
 	c := &scpCommand{
-		hostChecker:   hostChecker,
-		retryStrategy: retryStrategy,
+		hostChecker:            hostChecker,
+		retryStrategy:          retryStrategy,
+		publicKeyRetryStrategy: publicKeyRetryStrategy,
 	}
 	c.sshMachine.sshClient = sshClient
 	c.sshMachine.leaderAPI = applicationAPI
@@ -165,11 +169,13 @@ func NewDebugHooksCommandForTest(
 	charmAPI CharmAPI,
 	hostChecker jujussh.ReachableChecker,
 	retryStrategy retry.CallArgs,
+	publicKeyRetryStrategy retry.CallArgs,
 ) *debugHooksCommand {
 	c := &debugHooksCommand{
 		sshCommand: sshCommand{
-			hostChecker:   hostChecker,
-			retryStrategy: retryStrategy,
+			hostChecker:            hostChecker,
+			retryStrategy:          retryStrategy,
+			publicKeyRetryStrategy: publicKeyRetryStrategy,
 			sshContainer: sshContainer{
 				applicationAPI: applicationAPI,
 				charmAPI:       charmAPI,
@@ -191,12 +197,14 @@ func NewDebugCodeCommandForTest(
 	charmAPI CharmAPI,
 	hostChecker jujussh.ReachableChecker,
 	retryStrategy retry.CallArgs,
+	publicKeyRetryStrategy retry.CallArgs,
 ) *debugCodeCommand {
 	c := &debugCodeCommand{
 		debugHooksCommand: debugHooksCommand{
 			sshCommand: sshCommand{
-				hostChecker:   hostChecker,
-				retryStrategy: retryStrategy,
+				hostChecker:            hostChecker,
+				retryStrategy:          retryStrategy,
+				publicKeyRetryStrategy: publicKeyRetryStrategy,
 				sshContainer: sshContainer{
 					applicationAPI: applicationAPI,
 					charmAPI:       charmAPI,

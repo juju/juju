@@ -201,10 +201,18 @@ func (s *secretBackendsStorage) UpdateSecretBackend(p UpdateSecretBackendParams)
 		update = append(update, bson.DocElem{"$unset", bson.D{{"token-rotate-interval", nil}}})
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		// This isn't perfect but we don't want to use the name as the doc id.
-		// The tiny window for multiple callers to create dupe backends will
-		// go away once we transition to a SQL backend.
 		if p.NameChange != nil {
+			inUse, err := s.st.isSecretBackendInUse(p.ID)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if inUse {
+				return nil, errors.NewNotValid(nil, "cannot rename a secret backend that is in use")
+			}
+
+			// This isn't perfect but we don't want to use the name as the doc id.
+			// The tiny window for multiple callers to create dupe backends will
+			// go away once we transition to a SQL backend.
 			if existing, err := s.GetSecretBackend(doc.Name); err != nil {
 				if !errors.IsNotFound(err) {
 					return nil, errors.Annotatef(err, "checking for existing secret backend")
@@ -322,6 +330,16 @@ func (s *secretBackendsStorage) DeleteSecretBackend(name string, force bool) err
 
 func secretBackendRefCountKey(backendID string) string {
 	return fmt.Sprintf("secretbackend#revisions#%s", backendID)
+}
+
+func (st *State) isSecretBackendInUse(backendID string) (bool, error) {
+	refCountCollection, ccloser := st.db().GetCollection(globalRefcountsC)
+	defer ccloser()
+	_, count, err := nsRefcounts.CurrentOp(refCountCollection, secretBackendRefCountKey(backendID))
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return count > 0, nil
 }
 
 func (st *State) removeBackendRefCountOp(backendID string, force bool) ([]txn.Op, error) {

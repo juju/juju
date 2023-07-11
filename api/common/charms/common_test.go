@@ -189,7 +189,6 @@ func (s *suite) TestApplicationCharmInfo(c *gc.C) {
 			Name:           "foobar",
 			MinJujuVersion: version.MustParse("2.9.0"),
 		},
-		Manifest: &charm.Manifest{},
 	}
 	c.Assert(got, gc.DeepEquals, want)
 }

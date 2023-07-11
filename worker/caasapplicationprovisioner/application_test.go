@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasapplicationprovisioner"
 	"github.com/juju/juju/worker/caasapplicationprovisioner/mocks"
@@ -59,6 +60,7 @@ func (s *ApplicationWorkerSuite) startAppWorker(
 	broker caasapplicationprovisioner.CAASBroker,
 	unitFacade caasapplicationprovisioner.CAASUnitProvisionerFacade,
 	ops caasapplicationprovisioner.ApplicationOps,
+	statusOnly bool,
 ) worker.Worker {
 	config := caasapplicationprovisioner.AppWorkerConfig{
 		Name:       "test",
@@ -69,6 +71,7 @@ func (s *ApplicationWorkerSuite) startAppWorker(
 		Logger:     s.logger,
 		UnitFacade: unitFacade,
 		Ops:        ops,
+		StatusOnly: statusOnly,
 	}
 	startFunc := caasapplicationprovisioner.NewAppWorker(config)
 	c.Assert(startFunc, gc.NotNil)
@@ -95,7 +98,7 @@ func (s *ApplicationWorkerSuite) TestLifeNotFound(c *gc.C) {
 			return "", errors.NotFoundf("test charm")
 		}),
 	)
-	appWorker := s.startAppWorker(c, nil, facade, broker, nil, ops)
+	appWorker := s.startAppWorker(c, nil, facade, broker, nil, ops, false)
 
 	s.waitDone(c, done)
 	workertest.CleanKill(c, appWorker)
@@ -123,7 +126,7 @@ func (s *ApplicationWorkerSuite) TestLifeDead(c *gc.C) {
 			return nil
 		}),
 	)
-	appWorker := s.startAppWorker(c, clk, facade, broker, unitFacade, ops)
+	appWorker := s.startAppWorker(c, clk, facade, broker, unitFacade, ops, false)
 
 	s.waitDone(c, done)
 	workertest.CleanKill(c, appWorker)
@@ -158,7 +161,7 @@ func (s *ApplicationWorkerSuite) TestUpgradePodSpec(c *gc.C) {
 		}),
 	)
 
-	appWorker := s.startAppWorker(c, clk, facade, broker, nil, ops)
+	appWorker := s.startAppWorker(c, clk, facade, broker, nil, ops, false)
 
 	s.waitDone(c, done)
 	workertest.DirtyKill(c, appWorker)
@@ -263,9 +266,80 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		}),
 	)
 
-	appWorker := s.startAppWorker(c, clk, facade, broker, unitFacade, ops)
-	appWorker.(appNotifyWorker).Notify()
+	appWorker := s.startAppWorker(c, clk, facade, broker, unitFacade, ops, false)
+	s.waitDone(c, done)
+	workertest.CheckKill(c, appWorker)
+}
 
+func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	broker := mocks.NewMockCAASBroker(ctrl)
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	unitFacade := mocks.NewMockCAASUnitProvisionerFacade(ctrl)
+	ops := mocks.NewMockApplicationOps(ctrl)
+	done := make(chan struct{})
+
+	clk := testclock.NewDilatedWallClock(time.Millisecond)
+
+	scaleChan := make(chan struct{}, 1)
+	trustChan := make(chan []string, 1)
+	provisioningInfoChan := make(chan struct{}, 1)
+	appUnitsChan := make(chan []string, 1)
+	appChan := make(chan struct{}, 1)
+	appReplicasChan := make(chan struct{}, 1)
+
+	ops.EXPECT().RefreshApplicationStatus("test", app, gomock.Any(), facade, s.logger).Return(nil).AnyTimes()
+
+	gomock.InOrder(
+		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
+		facade.EXPECT().Life("test").Return(life.Alive, nil),
+
+		unitFacade.EXPECT().WatchApplicationScale("test").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
+		unitFacade.EXPECT().WatchApplicationTrustHash("test").Return(watchertest.NewMockStringsWatcher(trustChan), nil),
+		facade.EXPECT().WatchUnits("test").Return(watchertest.NewMockStringsWatcher(appUnitsChan), nil),
+
+		// handleChange
+		facade.EXPECT().Life("test").Return(life.Alive, nil),
+		facade.EXPECT().ProvisioningState("test").Return(&params.CAASApplicationProvisioningState{Scaling: true, ScaleTarget: 1}, nil),
+		facade.EXPECT().SetProvisioningState("test", params.CAASApplicationProvisioningState{}).Return(nil),
+		facade.EXPECT().WatchProvisioningInfo("test").Return(watchertest.NewMockNotifyWatcher(provisioningInfoChan), nil),
+		app.EXPECT().Watch().Return(watchertest.NewMockNotifyWatcher(appChan), nil),
+		app.EXPECT().WatchReplicas().DoAndReturn(func() (watcher.NotifyWatcher, error) {
+			appChan <- struct{}{}
+			return watchertest.NewMockNotifyWatcher(appReplicasChan), nil
+		}),
+
+		// appChan fired
+		ops.EXPECT().UpdateState("test", app, gomock.Any(), broker, facade, unitFacade, s.logger).DoAndReturn(func(_, _, _, _, _, _, _ any) (map[string]status.StatusInfo, error) {
+			appReplicasChan <- struct{}{}
+			return nil, nil
+		}),
+		// appReplicasChan fired
+		ops.EXPECT().UpdateState("test", app, gomock.Any(), broker, facade, unitFacade, s.logger).DoAndReturn(func(_, _, _, _, _, _, _ any) (map[string]status.StatusInfo, error) {
+			provisioningInfoChan <- struct{}{}
+			return nil, nil
+		}),
+
+		// provisioningInfoChan fired
+		facade.EXPECT().Life("test").DoAndReturn(func(_ string) (life.Value, error) {
+			provisioningInfoChan <- struct{}{}
+			return life.Alive, nil
+		}),
+		facade.EXPECT().Life("test").DoAndReturn(func(_ string) (life.Value, error) {
+			provisioningInfoChan <- struct{}{}
+			return life.Dying, nil
+		}),
+		facade.EXPECT().Life("test").DoAndReturn(func(_ string) (life.Value, error) {
+			provisioningInfoChan <- struct{}{}
+			close(done)
+			return life.Dead, nil
+		}),
+	)
+
+	appWorker := s.startAppWorker(c, clk, facade, broker, unitFacade, ops, true)
 	s.waitDone(c, done)
 	workertest.CheckKill(c, appWorker)
 }

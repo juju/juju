@@ -34,7 +34,7 @@ func (s *configSuite) TestValidateConfig(c *gc.C) {
 	}, {
 		cfg:    map[string]interface{}{"endpoint": "newep"},
 		oldCfg: map[string]interface{}{"endpoint": "oldep"},
-		err:    `cannot change config "endpoint" from "oldep" to "newep"`,
+		err:    `cannot change immutable field "endpoint"`,
 	}, {
 		cfg: map[string]interface{}{"endpoint": "newep", "client-cert": "aaa"},
 		err: `vault config missing client key not valid`,
