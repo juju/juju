@@ -229,8 +229,8 @@ github.com/canonical/lxd v0.0.0-20230711094827-6dc6fbfb95ee h1:OAX+7N0oVnAjpKW06
 github.com/canonical/lxd v0.0.0-20230711094827-6dc6fbfb95ee/go.mod h1:iRepjqZoVVmu2NXI55FgUAnCgoqggPTKTYMqTA4P6Qk=
 github.com/canonical/pebble v0.0.0-20230307221844-5842ea68c9c7 h1:/L2OgTX7McauPmggZfYNWEu6D/QiPHcNDQ60grftM04=
 github.com/canonical/pebble v0.0.0-20230307221844-5842ea68c9c7/go.mod h1:j3uyWpPkuWf8u0kB2v7n/XGVpYIg4luGetpSngCvzac=
-github.com/canonical/sqlair v0.0.0-20230606092629-0a5ab10a1b54 h1:Z1lS2ubz/NpKeJ+yhaSykCk8Dpk1/+6+N5xjUHS2DqQ=
-github.com/canonical/sqlair v0.0.0-20230606092629-0a5ab10a1b54/go.mod h1:T+40I2sXshY3KRxx0QQpqqn6hCibSKJ2KHzjBvJj8T4=
+github.com/canonical/sqlair v0.0.0-20230707154306-6f89ebb4ac5c h1:xeaBPftOYj0W/GsLZ5W97oE9Xq4hEd+NeKtor24reKA=
+github.com/canonical/sqlair v0.0.0-20230707154306-6f89ebb4ac5c/go.mod h1:T+40I2sXshY3KRxx0QQpqqn6hCibSKJ2KHzjBvJj8T4=
 github.com/canonical/x-go v0.0.0-20230113154138-0ccdb0b57a43 h1:bey1JgA3D2EBabr2a7kWKj+JlEPxX1akv8rcRromotA=
 github.com/canonical/x-go v0.0.0-20230113154138-0ccdb0b57a43/go.mod h1:A0/Jvt7qKuCDss37TYRNXSscVyS+tLWM5kBYipQOpWQ=
 github.com/cenkalti/backoff v2.2.1+incompatible h1:tNowT99t7UNflLxfYYSlKYsBpXdEet03Pg2g16Swow4=

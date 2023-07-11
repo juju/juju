@@ -29,7 +29,7 @@ require (
 	github.com/canonical/go-dqlite v1.20.0
 	github.com/canonical/lxd v0.0.0-20230711094827-6dc6fbfb95ee
 	github.com/canonical/pebble v0.0.0-20230307221844-5842ea68c9c7
-	github.com/canonical/sqlair v0.0.0-20230606092629-0a5ab10a1b54
+	github.com/canonical/sqlair v0.0.0-20230707154306-6f89ebb4ac5c
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.3.2
 	github.com/docker/distribution v2.8.2+incompatible
