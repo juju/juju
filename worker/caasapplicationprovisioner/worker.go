@@ -180,9 +180,6 @@ func (p *provisioner) loop() error {
 				return errors.New("app watcher closed channel")
 			}
 			for _, appName := range apps {
-				if unmanagedApps.Contains(appName) {
-					continue
-				}
 				_, err := p.facade.Life(appName)
 				if err != nil && !errors.IsNotFound(err) {
 					return errors.Trace(err)
@@ -216,6 +213,7 @@ func (p *provisioner) loop() error {
 					Clock:      p.clock,
 					Logger:     p.logger.Child(appName),
 					UnitFacade: p.unitFacade,
+					StatusOnly: unmanagedApps.Contains(appName),
 				}
 				startFunc := p.newAppWorker(config)
 				p.logger.Debugf("starting app worker %q", appName)

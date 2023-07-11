@@ -31,7 +31,7 @@ func (s *DebugCodeSuite) TestArgFormatting(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ssh, app, status := s.setupModel(ctrl, false, nil, "mysql/0")
+	ssh, app, status := s.setupModel(ctrl, false, nil, nil, "mysql/0")
 	app.EXPECT().GetCharmURLOrigin("", "mysql").Return(charm.MustParseURL("mysql"), apicharm.Origin{}, nil)
 
 	charmAPI := mocks.NewMockCharmAPI(ctrl)
@@ -41,7 +41,7 @@ func (s *DebugCodeSuite) TestArgFormatting(c *gc.C) {
 
 	s.setHostChecker(validAddresses("0.public"))
 
-	debugCmd := NewDebugCodeCommandForTest(app, ssh, status, charmAPI, s.hostChecker, baseTestingRetryStrategy)
+	debugCmd := NewDebugCodeCommandForTest(app, ssh, status, charmAPI, s.hostChecker, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
 	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(debugCmd), "--at=foo,bar", "mysql/0", "install", "start")
 	c.Assert(err, jc.ErrorIsNil)

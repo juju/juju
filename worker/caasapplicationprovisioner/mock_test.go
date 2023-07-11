@@ -22,8 +22,3 @@ type mockNotifyWorker struct {
 func (w *mockNotifyWorker) Notify() {
 	w.MethodCall(w, "Notify")
 }
-
-type appNotifyWorker interface {
-	worker.Worker
-	Notify()
-}

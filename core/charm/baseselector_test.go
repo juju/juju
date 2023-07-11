@@ -54,7 +54,7 @@ func (s *baseSelectorSuite) TestCharmBase(c *gc.C) {
 				requestedBase:  precise,
 				supportedBases: []series.Base{bionic, cosmic},
 			},
-			err: `base: ubuntu@14.04/stable`,
+			err: `base: ubuntu@14.04/stable not supported`,
 		},
 		{
 			title: "juju deploy simple --base=ubuntu@18.04   # user provided base takes precedence over default base ",
@@ -83,7 +83,7 @@ func (s *baseSelectorSuite) TestCharmBase(c *gc.C) {
 				defaultBase:         precise,
 				explicitDefaultBase: true,
 			},
-			err: `base: ubuntu@14.04/stable`,
+			err: `base: ubuntu@14.04/stable not supported`,
 		},
 		{
 			title: "juju deploy multiseries   # use model base defaults if supported by charm",
@@ -108,7 +108,7 @@ func (s *baseSelectorSuite) TestCharmBase(c *gc.C) {
 				requestedBase:  bionic,
 				supportedBases: []series.Base{utopic, vivid},
 			},
-			err: `base: ubuntu@18.04/stable`,
+			err: `base: ubuntu@18.04/stable not supported`,
 		},
 		{
 			title: "juju deploy multiseries    # fallback to series.LatestLTSBase()",
@@ -217,6 +217,7 @@ func (s *baseSelectorSuite) TestConfigureBaseSelector(c *gc.C) {
 		Logger:              &noOpLogger{},
 		RequestedBase:       series.Base{},
 		SupportedCharmBases: []series.Base{jammy, focal, bionic},
+		WorkloadBases:       []series.Base{jammy, focal},
 		UsingImageID:        false,
 	}
 
@@ -236,6 +237,7 @@ func (s *baseSelectorSuite) TestConfigureBaseSelectorCentos(c *gc.C) {
 		Logger:              &noOpLogger{},
 		RequestedBase:       series.Base{},
 		SupportedCharmBases: []series.Base{c6, c7, c8},
+		WorkloadBases:       []series.Base{c7, c8},
 		UsingImageID:        false,
 	}
 
@@ -254,6 +256,7 @@ func (s *baseSelectorSuite) TestConfigureBaseSelectorDefaultBase(c *gc.C) {
 		Logger:              &noOpLogger{},
 		RequestedBase:       series.Base{},
 		SupportedCharmBases: []series.Base{jammy, focal, bionic},
+		WorkloadBases:       []series.Base{jammy, focal},
 		UsingImageID:        false,
 	}
 
@@ -279,11 +282,12 @@ func (s *baseSelectorSuite) TestConfigureBaseSelectorDefaultBaseFail(c *gc.C) {
 		Logger:              &noOpLogger{},
 		RequestedBase:       series.Base{},
 		SupportedCharmBases: []series.Base{jammy, focal, bionic},
+		WorkloadBases:       []series.Base{jammy, focal},
 		UsingImageID:        false,
 	}
 
 	baseSelector, err := ConfigureBaseSelector(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = baseSelector.CharmBase()
-	c.Assert(err, gc.ErrorMatches, `base: ubuntu@18.04/stable`)
+	c.Assert(err, gc.ErrorMatches, `base: ubuntu@18.04/stable not supported`)
 }

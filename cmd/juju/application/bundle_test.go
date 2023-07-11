@@ -8,13 +8,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/juju/charm/v11"
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -215,15 +212,6 @@ func (s *BundleDeploySuite) TestDeployBundleLocalPathInvalidSeriesWithoutForce(c
 }
 
 func (s *BundleDeploySuite) assertDeployBundleLocalPathInvalidSeriesWithForce(c *gc.C, force bool) {
-	restore := testing.PatchValue(&deployer.SupportedJujuSeries,
-		func(time.Time, string, string) (set.Strings, error) {
-			return set.NewStrings(
-				"focal", "xenial", "quantal",
-			), nil
-		},
-	)
-	defer restore()
-
 	dir := c.MkDir()
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(dir, "dummy")
 
@@ -231,7 +219,7 @@ func (s *BundleDeploySuite) assertDeployBundleLocalPathInvalidSeriesWithForce(c 
 	withLocalCharmDeployable(s.fakeAPI, dummyURL, charmDir, force)
 	withLocalBundleCharmDeployable(
 		s.fakeAPI, dummyURL, series.MustParseBaseFromString("ubuntu@12.10"),
-		&charm.Meta{Name: "dummy"}, force,
+		charmDir.Meta(), charmDir.Manifest(), force,
 	)
 	s.fakeAPI.Call("CharmInfo", "local:quantal/dummy-1").Returns(
 		&apicommoncharms.CharmInfo{
@@ -256,11 +244,11 @@ func (s *BundleDeploySuite) assertDeployBundleLocalPathInvalidSeriesWithForce(c 
 		args = append(args, "--force")
 	}
 	err = s.runDeploy(c, args...)
-	if !force {
-		c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: dummy is not available on the following series: quantal")
-		return
+	if force {
+		c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: base: ubuntu@12.10/stable not supported")
+	} else {
+		c.Assert(err, gc.ErrorMatches, `cannot deploy bundle:.*series "quantal" not supported by charm.*`)
 	}
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 var deployBundleErrorsTests = []struct {
@@ -374,7 +362,7 @@ func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentLXDProfile(c *gc.C) {
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withLocalBundleCharmDeployable(
 		s.fakeAPI, curl, series.MustParseBaseFromString("ubuntu@20.04"),
-		&charm.Meta{Name: "lxd-profile"}, false,
+		charmDir.Meta(), charmDir.Manifest(), false,
 	)
 
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
@@ -417,7 +405,7 @@ func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentBadLXDProfileWithForc
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, true)
 	withLocalBundleCharmDeployable(
 		s.fakeAPI, curl, series.MustParseBaseFromString("ubuntu@20.04"),
-		&charm.Meta{Name: "lxd-profile-fail"}, true,
+		charmDir.Meta(), charmDir.Manifest(), true,
 	)
 
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
@@ -457,11 +445,11 @@ func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentWithBundleOverlay(c *
 	withLocalCharmDeployable(s.fakeAPI, wordpressURL, wordpressDir, false)
 	withLocalBundleCharmDeployable(
 		s.fakeAPI, mysqlURL, defaultBase,
-		&charm.Meta{Name: "mysql"}, false,
+		mysqlDir.Meta(), mysqlDir.Manifest(), false,
 	)
 	withLocalBundleCharmDeployable(
 		s.fakeAPI, wordpressURL, defaultBase,
-		&charm.Meta{Name: "wordpress"}, false,
+		wordpressDir.Meta(), wordpressDir.Manifest(), false,
 	)
 	deployArgs := application.DeployArgs{
 		CharmID: application.CharmID{
@@ -517,7 +505,7 @@ applications:
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withLocalBundleCharmDeployable(
 		s.fakeAPI, curl, series.MustParseBaseFromString("ubuntu@20.04"),
-		&charm.Meta{Name: "dummy"}, false,
+		charmDir.Meta(), charmDir.Manifest(), false,
 	)
 
 	err := s.runDeploy(c, bundleFile)
@@ -526,23 +514,24 @@ applications:
 
 func (s *BundleDeploySuite) TestDeployBundleLocalAndCharmhubCharms(c *gc.C) {
 	charmsPath := c.MkDir()
-	s.setupCharm(c, "ch:bionic/wordpress-1", "wordpress", series.MustParseBaseFromString("ubuntu@18.04"))
+	wordpressDir := s.setupCharm(c, "ch:focal/wordpress-1", "wordpress", series.MustParseBaseFromString("ubuntu@20.04"))
 	mysqlDir := testcharms.RepoWithSeries("bionic").ClonedDir(charmsPath, "mysql")
 	mysqlURL := charm.MustParseURL("local:jammy/mysql-1")
-	wordpressURL := charm.MustParseURL("ch:bionic/wordpress-1")
+	wordpressURL := charm.MustParseURL("ch:focal/wordpress-1")
 	withLocalCharmDeployable(s.fakeAPI, mysqlURL, mysqlDir, false)
 	withLocalBundleCharmDeployable(
 		s.fakeAPI, mysqlURL, defaultBase,
-		&charm.Meta{Name: "mysql"}, false,
+		mysqlDir.Meta(), mysqlDir.Manifest(), false,
 	)
 	s.fakeAPI.Call("CharmInfo", wordpressURL.String()).Returns(
 		&apicommoncharms.CharmInfo{
-			URL:  wordpressURL.String(),
-			Meta: &charm.Meta{Name: "wordpress"},
+			URL:      wordpressURL.String(),
+			Meta:     wordpressDir.Meta(),
+			Manifest: wordpressDir.Manifest(),
 		},
 		error(nil),
 	)
-	base := series.MustParseBaseFromString("ubuntu@18.04/stable")
+	base := series.MustParseBaseFromString("ubuntu@20.04/stable")
 	deployArgs := application.DeployArgs{
 		CharmID: application.CharmID{
 			URL:    wordpressURL,
@@ -568,8 +557,8 @@ func (s *BundleDeploySuite) TestDeployBundleLocalAndCharmhubCharms(c *gc.C) {
       series: jammy
       applications:
           wordpress:
-              charm: ch:bionic/wordpress
-              series: bionic
+              charm: ch:focal/wordpress
+              series: focal
               num_units: 1
           mysql:
               charm: %s

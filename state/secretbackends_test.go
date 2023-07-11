@@ -21,6 +21,7 @@ import (
 type SecretBackendsSuite struct {
 	testing.StateSuite
 	storage state.SecretBackendsStorage
+	store   state.SecretsStore
 }
 
 var _ = gc.Suite(&SecretBackendsSuite{})
@@ -28,6 +29,7 @@ var _ = gc.Suite(&SecretBackendsSuite{})
 func (s *SecretBackendsSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.storage = state.NewSecretBackends(s.State)
+	s.store = state.NewSecrets(s.State)
 }
 
 func (s *SecretBackendsSuite) TestCreate(c *gc.C) {
@@ -375,6 +377,43 @@ func (s *SecretBackendsSuite) TestUpdateName(c *gc.C) {
 	name, nextTime := state.GetSecretBackendNextRotateInfo(c, s.State, b.ID)
 	c.Assert(name, gc.Equals, "myvault2")
 	c.Assert(nextTime, gc.Equals, next)
+}
+
+func (s *SecretBackendsSuite) TestUpdateNameForInUseBackend(c *gc.C) {
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next := now.Add(time.Minute).Round(time.Second).UTC()
+	p := state.CreateSecretBackendParams{
+		Name:                "myvault",
+		BackendType:         "vault",
+		TokenRotateInterval: ptr(666 * time.Second),
+		NextRotateTime:      ptr(next),
+		Config:              map[string]interface{}{"foo.key": "bar"},
+	}
+	_, err := s.storage.CreateSecretBackend(p)
+	c.Assert(err, jc.ErrorIsNil)
+	b, err := s.storage.GetSecretBackend("myvault")
+	c.Assert(err, jc.ErrorIsNil)
+
+	owner := s.Factory.MakeApplication(c, nil)
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			ValueRef:    &secrets.ValueRef{BackendID: b.ID},
+		},
+	}
+	_, err = s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	u := state.UpdateSecretBackendParams{
+		ID:         b.ID,
+		NameChange: ptr("myvault2"),
+		Config:     map[string]interface{}{"foo": "bar2"},
+	}
+	err = s.storage.UpdateSecretBackend(u)
+	c.Assert(err, gc.ErrorMatches, `cannot rename a secret backend that is in use`)
 }
 
 func (s *SecretBackendsSuite) TestUpdateNameDuplicate(c *gc.C) {

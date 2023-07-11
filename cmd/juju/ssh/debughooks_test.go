@@ -142,7 +142,7 @@ func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
 		if len(t.args) > 0 && t.args[0] == "nonexistent/123" {
 			target = t.args[0]
 		}
-		ssh, app, status := s.setupModel(ctrl, withProxy, nil, target)
+		ssh, app, status := s.setupModel(ctrl, withProxy, nil, nil, target)
 		app.EXPECT().GetCharmURLOrigin("", "mysql").DoAndReturn(func(_, curl string) (*charm.URL, apicharm.Origin, error) {
 			if curl != "mysql" {
 				return nil, apicharm.Origin{}, errors.NotFoundf(curl)
@@ -155,7 +155,7 @@ func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
 		charmAPI.EXPECT().CharmInfo("ch:mysql").Return(chInfo, nil)
 		charmAPI.EXPECT().Close().Return(nil)
 
-		hooksCmd := NewDebugHooksCommandForTest(app, ssh, status, charmAPI, t.hostChecker, baseTestingRetryStrategy)
+		hooksCmd := NewDebugHooksCommandForTest(app, ssh, status, charmAPI, t.hostChecker, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
 		ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(hooksCmd), t.args...)
 		if t.error != "" {
@@ -173,7 +173,7 @@ func (s *DebugHooksSuite) TestDebugHooksArgFormatting(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ssh, app, status := s.setupModel(ctrl, false, nil, "mysql/0")
+	ssh, app, status := s.setupModel(ctrl, false, nil, nil, "mysql/0")
 	app.EXPECT().GetCharmURLOrigin("", "mysql").Return(charm.MustParseURL("mysql"), apicharm.Origin{}, nil)
 
 	charmAPI := mocks.NewMockCharmAPI(ctrl)
@@ -183,7 +183,7 @@ func (s *DebugHooksSuite) TestDebugHooksArgFormatting(c *gc.C) {
 
 	s.setHostChecker(validAddresses("0.public"))
 
-	hooksCmd := NewDebugHooksCommandForTest(app, ssh, status, charmAPI, s.hostChecker, baseTestingRetryStrategy)
+	hooksCmd := NewDebugHooksCommandForTest(app, ssh, status, charmAPI, s.hostChecker, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
 	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(hooksCmd), "mysql/0", "install", "start")
 	c.Check(err, jc.ErrorIsNil)

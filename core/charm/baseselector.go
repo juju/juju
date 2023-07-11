@@ -4,10 +4,8 @@
 package charm
 
 import (
-	"fmt"
 	"strings"
 
-	jujuclock "github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
@@ -41,6 +39,7 @@ type SelectorConfig struct {
 	Logger              SelectorLogger
 	RequestedBase       series.Base
 	SupportedCharmBases []series.Base
+	WorkloadBases       []series.Base
 	// usingImageID is true when the user is using the image-id constraint
 	// when deploying the charm. This is needed to validate that in that
 	// case the user is also explicitly providing a base.
@@ -52,11 +51,6 @@ type SelectorModelConfig interface {
 	// for the environment, and whether the default base was
 	// explicitly configured on the environment.
 	DefaultBase() (string, bool)
-
-	// ImageStream returns the simplestreams stream
-	// used to identify which image ids to search
-	// when starting an instance.
-	ImageStream() string
 }
 
 // ConfigureBaseSelector returns a configured and validated BaseSelector
@@ -64,13 +58,11 @@ func ConfigureBaseSelector(cfg SelectorConfig) (BaseSelector, error) {
 	// TODO (hml) 2023-05-16
 	// Is there more we can do here and reduce the prep work
 	// necessary for the callers?
-	imageStream := cfg.Config.ImageStream()
-	workloadBases, err := series.WorkloadBases(jujuclock.WallClock.Now(), cfg.RequestedBase, imageStream)
-	if err != nil {
-		return BaseSelector{}, errors.Trace(err)
-	}
 	defaultBase, explicit := cfg.Config.DefaultBase()
-	var parsedDefaultBase series.Base
+	var (
+		parsedDefaultBase series.Base
+		err               error
+	)
 	if explicit {
 		parsedDefaultBase, err = series.ParseBaseFromString(defaultBase)
 		if err != nil {
@@ -86,7 +78,7 @@ func ConfigureBaseSelector(cfg SelectorConfig) (BaseSelector, error) {
 		usingImageID:        cfg.UsingImageID,
 		jujuSupportedBases:  set.NewStrings(),
 	}
-	bs.supportedBases, err = bs.validate(cfg.SupportedCharmBases, workloadBases)
+	bs.supportedBases, err = bs.validate(cfg.SupportedCharmBases, cfg.WorkloadBases)
 	if err != nil {
 		return BaseSelector{}, errors.Trace(err)
 	}
@@ -109,7 +101,7 @@ func (s BaseSelector) validate(supportedCharmBases, supportedJujuBases []series.
 		return nil, errors.NotValidf("charm does not define any bases,")
 	}
 	if len(supportedJujuBases) == 0 {
-		return nil, errors.BadRequestf("programming error: no juju supported bases")
+		return nil, errors.NotValidf("no juju supported bases")
 	}
 	// Verify that the charm supported bases include at least one juju
 	// supported base.
@@ -188,7 +180,7 @@ func (s BaseSelector) userRequested(requestedBase series.Base) (series.Base, err
 		base = requestedBase
 	} else if err != nil {
 		if !s.jujuSupportedBases.Contains(requestedBase.String()) {
-			return series.Base{}, errors.NewNotSupported(nil, fmt.Sprintf("base: %s", requestedBase))
+			return series.Base{}, errors.NotSupportedf("base: %s", requestedBase)
 		}
 		if IsUnsupportedBaseError(err) {
 			return series.Base{}, errors.Errorf(

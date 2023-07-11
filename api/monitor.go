@@ -56,7 +56,7 @@ func (m *monitor) pingWithTimeout() bool {
 		}
 		return err == nil
 	case <-m.clock.After(m.pingTimeout):
-		logger.Errorf("health ping timed out after %s", m.pingTimeout)
+		logger.Warningf("health ping timed out after %s", m.pingTimeout)
 		return false
 	}
 }
