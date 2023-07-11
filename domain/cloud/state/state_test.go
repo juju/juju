@@ -536,7 +536,7 @@ func (s *stateSuite) TestListClouds(c *gc.C) {
 	err = st.UpsertCloud(ctx.Background(), testCloud2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	clouds, err := st.ListClouds(ctx.Background(), nil)
+	clouds, err := st.ListClouds(ctx.Background(), "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(clouds, gc.HasLen, 2)
 	if clouds[0].Name == testCloud.Name {
@@ -555,11 +555,11 @@ func (s *stateSuite) TestListCloudsFilter(c *gc.C) {
 	err = st.UpsertCloud(ctx.Background(), testCloud2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	clouds, err := st.ListClouds(ctx.Background(), &Filter{Name: "fluffy3"})
+	clouds, err := st.ListClouds(ctx.Background(), "fluffy3")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(clouds, gc.HasLen, 0)
 
-	clouds, err = st.ListClouds(ctx.Background(), &Filter{Name: "fluffy2"})
+	clouds, err = st.ListClouds(ctx.Background(), "fluffy2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(clouds, jc.DeepEquals, []cloud.Cloud{testCloud2})
 }

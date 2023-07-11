@@ -10,7 +10,6 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	cloud "github.com/juju/juju/cloud"
-	state "github.com/juju/juju/domain/cloud/state"
 )
 
 // MockState is a mock of State interface.
@@ -37,7 +36,7 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // List mocks base method.
-func (m *MockState) List(arg0 context.Context, arg1 *state.Filter) ([]cloud.Cloud, error) {
+func (m *MockState) List(arg0 context.Context, arg1 string) ([]cloud.Cloud, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "List", arg0, arg1)
 	ret0, _ := ret[0].([]cloud.Cloud)

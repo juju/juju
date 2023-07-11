@@ -9,7 +9,6 @@ import (
 	stderrors "errors"
 	"fmt"
 
-	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
 	"github.com/mattn/go-sqlite3"
@@ -31,36 +30,8 @@ func NewState(factory domain.TxnRunnerFactory) *State {
 	}
 }
 
-// Filter is used when listing clouds.
-type Filter struct {
-	Name string
-}
-
-func (f *Filter) isEmpty() bool {
-	if f == nil {
-		return true
-	}
-	return f.Name == ""
-}
-
-func (f *Filter) condition() string {
-	if f == nil {
-		return ""
-	}
-	// Enhance where more terms are supported.
-	return "name = ?"
-}
-
-func (f *Filter) parameters() []string {
-	if f == nil {
-		return nil
-	}
-	// Enhance where more terms are supported.
-	return []string{f.Name}
-}
-
 // ListClouds lists the clouds with the specified filter, if any.
-func (st *State) ListClouds(ctx context.Context, filter *Filter) ([]cloud.Cloud, error) {
+func (st *State) ListClouds(ctx context.Context, name string) ([]cloud.Cloud, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -69,7 +40,7 @@ func (st *State) ListClouds(ctx context.Context, filter *Filter) ([]cloud.Cloud,
 	var result []cloud.Cloud
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		var err error
-		result, err = loadClouds(ctx, tx, filter)
+		result, err = loadClouds(ctx, tx, name)
 		return errors.Trace(err)
 	})
 	return result, errors.Trace(err)
@@ -327,25 +298,24 @@ DROP TABLE temp.cloud_region_default_tmp;
 	})
 }
 
-func loadClouds(ctx context.Context, tx *sql.Tx, filter *Filter) ([]cloud.Cloud, error) {
-	where := ""
-	if !filter.isEmpty() {
-		where = "WHERE " + filter.condition()
+func loadClouds(ctx context.Context, tx *sql.Tx, name string) ([]cloud.Cloud, error) {
+	// First load the basic cloud info and auth types.
+	q := `
+SELECT cloud.uuid, cloud.name, cloud_type_id, cloud.endpoint, cloud.identity_endpoint, 
+       cloud.storage_endpoint, skip_tls_verify, auth_type.type, cloud_type.type
+FROM   cloud
+       LEFT JOIN cloud_auth_type ON cloud.uuid = cloud_auth_type.cloud_uuid
+       JOIN auth_type ON auth_type.id = cloud_auth_type.auth_type_id
+       JOIN cloud_type ON cloud_type.id = cloud.cloud_type_id
+`
+
+	var args []any
+	if name != "" {
+		q = q + "WHERE cloud.name = ?"
+		args = []any{name}
 	}
 
-	// First load the basic cloud info and auth types.
-	q := fmt.Sprintf(`
-		SELECT
-			cloud.uuid, cloud.name, cloud_type_id, cloud.endpoint, cloud.identity_endpoint, cloud.storage_endpoint, skip_tls_verify,
-			auth_type.type,
-			cloud_type.type
-		FROM cloud
-			LEFT JOIN cloud_auth_type ON cloud.uuid = cloud_auth_type.cloud_uuid
-			JOIN auth_type ON auth_type.id = cloud_auth_type.auth_type_id
-			JOIN cloud_type ON cloud_type.id = cloud.cloud_type_id
-		%s`, where)[1:]
-
-	rows, err := tx.QueryContext(ctx, q, transform.Slice(filter.parameters(), func(s string) any { return s })...)
+	rows, err := tx.QueryContext(ctx, q, args...)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.Trace(err)
 	}
@@ -359,8 +329,8 @@ func loadClouds(ctx context.Context, tx *sql.Tx, filter *Filter) ([]cloud.Cloud,
 			cloudAuthType string
 		)
 		if err := rows.Scan(
-			&dbCloud.ID, &dbCloud.Name, &dbCloud.TypeID, &dbCloud.Endpoint, &dbCloud.IdentityEndpoint, &dbCloud.StorageEndpoint, &dbCloud.SkipTLSVerify,
-			&cloudAuthType, &cloudType,
+			&dbCloud.ID, &dbCloud.Name, &dbCloud.TypeID, &dbCloud.Endpoint, &dbCloud.IdentityEndpoint,
+			&dbCloud.StorageEndpoint, &dbCloud.SkipTLSVerify, &cloudAuthType, &cloudType,
 		); err != nil {
 			return nil, errors.Trace(err)
 		}
