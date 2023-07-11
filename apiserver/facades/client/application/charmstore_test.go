@@ -6,10 +6,10 @@ package application_test
 import (
 	"fmt"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/testing"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/application"

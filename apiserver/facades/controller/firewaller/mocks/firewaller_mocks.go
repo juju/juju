@@ -8,7 +8,6 @@ import (
 	reflect "reflect"
 	time "time"
 
-	gomock "github.com/golang/mock/gomock"
 	firewall "github.com/juju/juju/apiserver/common/firewall"
 	network "github.com/juju/juju/core/network"
 	firewall0 "github.com/juju/juju/core/network/firewall"
@@ -16,6 +15,7 @@ import (
 	params "github.com/juju/juju/rpc/params"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 	macaroon "gopkg.in/macaroon.v2"
 )
 

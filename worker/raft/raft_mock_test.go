@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 	time "time"
 
-	gomock "github.com/golang/mock/gomock"
 	raft "github.com/hashicorp/raft"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockRaft is a mock of Raft interface.

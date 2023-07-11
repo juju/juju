@@ -8,9 +8,9 @@ import (
 	io "io"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
 	params "github.com/juju/charmrepo/v6/csclient/params"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockCharmStoreClient is a mock of CharmStoreClient interface.

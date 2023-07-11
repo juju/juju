@@ -8,9 +8,9 @@ import (
 	net "net"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	set "github.com/juju/collections/set"
 	network "github.com/juju/juju/core/network"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockConfigSource is a mock of ConfigSource interface.

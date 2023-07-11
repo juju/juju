@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	common "github.com/juju/juju/service/common"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockService is a mock of Service interface.

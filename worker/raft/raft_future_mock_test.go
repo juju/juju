@@ -7,8 +7,8 @@ package raft
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	raft "github.com/hashicorp/raft"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockApplyFuture is a mock of ApplyFuture interface.

@@ -7,7 +7,6 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	lxd "github.com/juju/juju/container/lxd"
 	network "github.com/juju/juju/core/network"
 	environs "github.com/juju/juju/environs"
@@ -15,6 +14,7 @@ import (
 	lxd0 "github.com/juju/juju/provider/lxd"
 	lxd1 "github.com/lxc/lxd/client"
 	api "github.com/lxc/lxd/shared/api"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockServerFactory is a mock of ServerFactory interface.

@@ -5,9 +5,10 @@ package upgradesteps
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/state"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+
+	"github.com/juju/juju/state"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -17,8 +18,8 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/upgradesteps_mock.go github.com/juju/juju/apiserver/facades/agent/upgradesteps UpgradeStepsState,Machine,Unit
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state EntityFinder,Entity
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/upgradesteps_mock.go github.com/juju/juju/apiserver/facades/agent/upgradesteps UpgradeStepsState,Machine,Unit
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state EntityFinder,Entity
 
 var logger = loggo.GetLogger("juju.apiserver.upgradesteps")
 

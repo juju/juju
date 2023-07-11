@@ -7,7 +7,7 @@ import (
 	"github.com/juju/juju/caas"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/broker_mock.go github.com/juju/juju/worker/caasfirewallersidecar CAASBroker,PortMutator,ServiceUpdater
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/broker_mock.go github.com/juju/juju/worker/caasfirewallersidecar CAASBroker,PortMutator,ServiceUpdater
 
 // CAASBroker exposes CAAS broker functionality to a worker.
 type CAASBroker interface {

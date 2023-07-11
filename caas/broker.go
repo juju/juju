@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/broker_mock.go github.com/juju/juju/caas Broker
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/broker_mock.go github.com/juju/juju/caas Broker
 
 // ContainerEnvironProvider represents a computing and storage provider
 // for a container runtime.

@@ -6,12 +6,12 @@ package charms_test
 import (
 	"net/url"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 

@@ -7,9 +7,9 @@ package state
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
-	v3 "github.com/juju/description/v3"
+	description "github.com/juju/description/v3"
 	txn "github.com/juju/mgo/v2/txn"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockTransactionRunner is a mock of TransactionRunner interface.
@@ -73,7 +73,7 @@ func (m *MockStateDocumentFactory) EXPECT() *MockStateDocumentFactoryMockRecorde
 }
 
 // MakeRemoteApplicationDoc mocks base method.
-func (m *MockStateDocumentFactory) MakeRemoteApplicationDoc(arg0 v3.RemoteApplication) *remoteApplicationDoc {
+func (m *MockStateDocumentFactory) MakeRemoteApplicationDoc(arg0 description.RemoteApplication) *remoteApplicationDoc {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MakeRemoteApplicationDoc", arg0)
 	ret0, _ := ret[0].(*remoteApplicationDoc)
@@ -87,7 +87,7 @@ func (mr *MockStateDocumentFactoryMockRecorder) MakeRemoteApplicationDoc(arg0 in
 }
 
 // MakeStatusDoc mocks base method.
-func (m *MockStateDocumentFactory) MakeStatusDoc(arg0 v3.Status) statusDoc {
+func (m *MockStateDocumentFactory) MakeStatusDoc(arg0 description.Status) statusDoc {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MakeStatusDoc", arg0)
 	ret0, _ := ret[0].(statusDoc)

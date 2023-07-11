@@ -4,13 +4,14 @@
 package state_test
 
 import (
-	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	"github.com/juju/juju/state/mocks"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/state/mocks"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"

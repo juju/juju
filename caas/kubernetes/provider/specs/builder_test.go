@@ -13,8 +13,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	appsv1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"

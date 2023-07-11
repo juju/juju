@@ -8,9 +8,9 @@ import (
 	reflect "reflect"
 	time "time"
 
-	gomock "github.com/golang/mock/gomock"
 	lease "github.com/juju/juju/core/lease"
 	raftlease "github.com/juju/juju/core/raftlease"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockNotifyTarget is a mock of NotifyTarget interface.

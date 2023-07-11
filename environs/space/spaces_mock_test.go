@@ -7,10 +7,10 @@ package space
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	set "github.com/juju/collections/set"
 	network "github.com/juju/juju/core/network"
 	state "github.com/juju/juju/state"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockReloadSpacesState is a mock of ReloadSpacesState interface.

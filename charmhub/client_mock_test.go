@@ -10,9 +10,9 @@ import (
 	os "os"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	path "github.com/juju/juju/charmhub/path"
 	loggo "github.com/juju/loggo"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockTransport is a mock of Transport interface.

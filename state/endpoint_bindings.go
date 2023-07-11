@@ -486,7 +486,7 @@ func DefaultEndpointBindingsForCharm(st EndpointBinding, charmMeta *charm.Meta) 
 // EndpointBinding are the methods necessary for exported methods of
 // Bindings to work.
 //
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/endpointbinding_mock.go github.com/juju/juju/state EndpointBinding
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/endpointbinding_mock.go github.com/juju/juju/state EndpointBinding
 type EndpointBinding interface {
 	network.SpaceLookup
 	DefaultEndpointBindingSpace() (string, error)

@@ -7,7 +7,6 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
 	interfaces "github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	services "github.com/juju/juju/apiserver/facades/client/charms/services"
@@ -20,6 +19,7 @@ import (
 	state "github.com/juju/juju/state"
 	mgo "github.com/juju/mgo/v2"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 	macaroon "gopkg.in/macaroon.v2"
 )
 

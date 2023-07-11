@@ -7,7 +7,6 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	api "github.com/juju/juju/api"
 	application "github.com/juju/juju/api/client/application"
 	client "github.com/juju/juju/api/client/client"
@@ -17,6 +16,7 @@ import (
 	jujuclient "github.com/juju/juju/jujuclient"
 	params "github.com/juju/juju/rpc/params"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockCloudCredentialAPI is a mock of CloudCredentialAPI interface.

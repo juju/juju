@@ -7,9 +7,9 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	api "github.com/juju/juju/cmd/plugins/juju-wait-for/api"
 	params "github.com/juju/juju/rpc/params"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockWatchAllAPI is a mock of WatchAllAPI interface.

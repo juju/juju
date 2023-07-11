@@ -9,9 +9,9 @@ import (
 	url "net/url"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	charmhub "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockCharmHubClient is a mock of CharmHubClient interface.

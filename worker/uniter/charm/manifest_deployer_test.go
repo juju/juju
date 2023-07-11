@@ -9,13 +9,13 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"

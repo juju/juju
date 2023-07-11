@@ -7,12 +7,12 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
 	modelgeneration "github.com/juju/juju/apiserver/facades/client/modelgeneration"
 	cache "github.com/juju/juju/core/cache"
 	settings "github.com/juju/juju/core/settings"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockState is a mock of State interface.

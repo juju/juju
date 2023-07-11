@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	ecr "github.com/aws/aws-sdk-go-v2/service/ecr"
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockECRInterface is a mock of ECRInterface interface.

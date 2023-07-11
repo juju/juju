@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	params "github.com/juju/juju/rpc/params"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockAllWatch is a mock of AllWatch interface.

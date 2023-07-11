@@ -7,7 +7,6 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	credentialcommon "github.com/juju/juju/apiserver/common/credentialcommon"
 	cloud "github.com/juju/juju/apiserver/facades/client/cloud"
 	cloud0 "github.com/juju/juju/cloud"
@@ -17,6 +16,7 @@ import (
 	context "github.com/juju/juju/environs/context"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockBackend is a mock of Backend interface.

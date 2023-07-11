@@ -17,7 +17,6 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
 	jujutesting "github.com/juju/testing"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/utils/v3/tar"
 	"github.com/juju/version/v2"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	coreos "github.com/juju/juju/core/os"

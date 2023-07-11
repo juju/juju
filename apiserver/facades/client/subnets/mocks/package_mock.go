@@ -7,12 +7,12 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	networkingcommon "github.com/juju/juju/apiserver/common/networkingcommon"
 	network "github.com/juju/juju/core/network"
 	cloudspec "github.com/juju/juju/environs/cloudspec"
 	config "github.com/juju/juju/environs/config"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockBacking is a mock of Backing interface.

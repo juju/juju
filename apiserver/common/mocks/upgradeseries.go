@@ -7,12 +7,12 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	common "github.com/juju/juju/apiserver/common"
 	model "github.com/juju/juju/core/model"
 	status "github.com/juju/juju/core/status"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockUpgradeSeriesBackend is a mock of UpgradeSeriesBackend interface.

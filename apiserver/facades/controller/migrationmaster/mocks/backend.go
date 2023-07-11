@@ -7,13 +7,13 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	description "github.com/juju/description/v3"
 	controller "github.com/juju/juju/controller"
 	network "github.com/juju/juju/core/network"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
 	version "github.com/juju/version/v2"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockBackend is a mock of Backend interface.

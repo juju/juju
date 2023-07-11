@@ -6,12 +6,12 @@ package charmrevisionupdater_test
 import (
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/resource"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"

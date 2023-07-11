@@ -6,10 +6,10 @@ package provider_test
 import (
 	"strings"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"

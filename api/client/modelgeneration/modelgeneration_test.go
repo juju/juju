@@ -6,8 +6,8 @@ package modelgeneration_test
 import (
 	"time"
 
-	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base/mocks"

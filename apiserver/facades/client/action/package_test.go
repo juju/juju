@@ -3,5 +3,5 @@
 
 package action
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/local_mock.go github.com/juju/juju/apiserver/facades/client/action State,Model
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state Action,ActionReceiver
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/local_mock.go github.com/juju/juju/apiserver/facades/client/action State,Model
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state Action,ActionReceiver

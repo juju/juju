@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/service/systemd"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/servicemanager_mock.go github.com/juju/juju/service SystemdServiceManager
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/servicemanager_mock.go github.com/juju/juju/service SystemdServiceManager
 
 var systemdMultiUserDir = systemd.EtcSystemdMultiUserDir
 

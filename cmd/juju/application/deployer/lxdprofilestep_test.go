@@ -4,9 +4,9 @@
 package deployer_test
 
 import (
-	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	"github.com/juju/testing"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	apicommoncharms "github.com/juju/juju/api/common/charms"

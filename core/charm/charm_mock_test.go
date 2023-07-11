@@ -7,8 +7,8 @@ package charm
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockCharmMeta is a mock of CharmMeta interface.

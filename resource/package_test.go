@@ -13,6 +13,6 @@ func Test(t *testing.T) {
 	gc.TestingT(t)
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/charmhub_mock.go github.com/juju/juju/resource CharmHub
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/cache_mock.go github.com/juju/juju/resource Resources
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/opener_mock.go github.com/juju/juju/resource ResourceGetter,ResourceDownloadLock
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/charmhub_mock.go github.com/juju/juju/resource CharmHub
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/cache_mock.go github.com/juju/juju/resource Resources
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/opener_mock.go github.com/juju/juju/resource ResourceGetter,ResourceDownloadLock

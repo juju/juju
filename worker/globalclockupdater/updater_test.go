@@ -6,11 +6,11 @@ package globalclockupdater
 import (
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/globalclock"
@@ -200,7 +200,7 @@ func (s *updaterSuite) expectRaftState() {
 
 // This is the PR to gomock, that should hopefully land in the future. For now
 // we can copy it here.
-// See: https://github.com/golang/mock/pull/199
+// See: https://go.uber.org/mock/pull/199
 func inOrder(calls ...*gomock.Call) (last *gomock.Call) {
 	if len(calls) == 1 {
 		return calls[0]

@@ -7,8 +7,8 @@ package refresher
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockCharm is a mock of Charm interface.

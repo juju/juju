@@ -8,7 +8,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
 	params "github.com/juju/charmrepo/v6/csclient/params"
 	charmrevisionupdater "github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
@@ -20,6 +19,7 @@ import (
 	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockApplication is a mock of Application interface.
