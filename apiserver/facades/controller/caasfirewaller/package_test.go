@@ -14,6 +14,5 @@ func TestAll(t *testing.T) {
 }
 
 var (
-	NewFacadeLegacyForTest  = newFacadeLegacy
-	NewFacadeSidecarForTest = newFacadeSidecar
+	NewFacadeForTest = newFacade
 )

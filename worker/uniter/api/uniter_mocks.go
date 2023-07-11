@@ -191,36 +191,6 @@ func (mr *MockUniterClientMockRecorder) DestroyUnitStorageAttachments(arg0 inter
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyUnitStorageAttachments", reflect.TypeOf((*MockUniterClient)(nil).DestroyUnitStorageAttachments), arg0)
 }
 
-// GetPodSpec mocks base method.
-func (m *MockUniterClient) GetPodSpec(arg0 string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetPodSpec", arg0)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetPodSpec indicates an expected call of GetPodSpec.
-func (mr *MockUniterClientMockRecorder) GetPodSpec(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPodSpec", reflect.TypeOf((*MockUniterClient)(nil).GetPodSpec), arg0)
-}
-
-// GetRawK8sSpec mocks base method.
-func (m *MockUniterClient) GetRawK8sSpec(arg0 string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRawK8sSpec", arg0)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetRawK8sSpec indicates an expected call of GetRawK8sSpec.
-func (mr *MockUniterClientMockRecorder) GetRawK8sSpec(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRawK8sSpec", reflect.TypeOf((*MockUniterClient)(nil).GetRawK8sSpec), arg0)
-}
-
 // GoalState mocks base method.
 func (m *MockUniterClient) GoalState() (application.GoalState, error) {
 	m.ctrl.T.Helper()

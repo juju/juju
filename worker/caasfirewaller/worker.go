@@ -1,4 +1,4 @@
-// Copyright 2017 Canonical Ltd.
+// Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package caasfirewaller
@@ -20,13 +20,12 @@ var _ logger = struct{}{}
 
 // Config holds configuration for the CAAS unit firewaller worker.
 type Config struct {
-	ControllerUUID    string
-	ModelUUID         string
-	ApplicationGetter ApplicationGetter
-	LifeGetter        LifeGetter
-	CharmGetter       CharmGetter
-	ServiceExposer    ServiceExposer
-	Logger            Logger
+	ControllerUUID string
+	ModelUUID      string
+	FirewallerAPI  CAASFirewallerAPI
+	LifeGetter     LifeGetter
+	Broker         CAASBroker
+	Logger         Logger
 }
 
 // Validate validates the worker configuration.
@@ -37,17 +36,14 @@ func (config Config) Validate() error {
 	if config.ModelUUID == "" {
 		return errors.NotValidf("missing ModelUUID")
 	}
-	if config.ApplicationGetter == nil {
-		return errors.NotValidf("missing ApplicationGetter")
+	if config.FirewallerAPI == nil {
+		return errors.NotValidf("missing FirewallerAPI")
+	}
+	if config.Broker == nil {
+		return errors.NotValidf("missing Broker")
 	}
 	if config.LifeGetter == nil {
 		return errors.NotValidf("missing LifeGetter")
-	}
-	if config.CharmGetter == nil {
-		return errors.NotValidf("missing CharmGetter")
-	}
-	if config.ServiceExposer == nil {
-		return errors.NotValidf("missing ServiceExposer")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("missing Logger")
@@ -60,7 +56,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	p := &firewaller{config: config}
+	p := newFirewaller(config, newApplicationWorker)
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &p.catacomb,
 		Work: p.loop,
@@ -71,6 +67,27 @@ func NewWorker(config Config) (worker.Worker, error) {
 type firewaller struct {
 	catacomb catacomb.Catacomb
 	config   Config
+
+	appWorkers           map[string]worker.Worker
+	newApplicationWorker applicationWorkerCreator
+}
+
+type applicationWorkerCreator func(
+	controllerUUID string,
+	modelUUID string,
+	appName string,
+	firewallerAPI CAASFirewallerAPI,
+	broker CAASBroker,
+	lifeGetter LifeGetter,
+	logger Logger,
+) (worker.Worker, error)
+
+func newFirewaller(config Config, f applicationWorkerCreator) *firewaller {
+	return &firewaller{
+		config:               config,
+		appWorkers:           make(map[string]worker.Worker),
+		newApplicationWorker: f,
+	}
 }
 
 // Kill is part of the worker.Worker interface.
@@ -85,25 +102,24 @@ func (p *firewaller) Wait() error {
 
 func (p *firewaller) loop() error {
 	logger := p.config.Logger
-	appWatcher, err := p.config.ApplicationGetter.WatchApplications()
+	w, err := p.config.FirewallerAPI.WatchApplications()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := p.catacomb.Add(appWatcher); err != nil {
+	if err := p.catacomb.Add(w); err != nil {
 		return errors.Trace(err)
 	}
 
-	appWorkers := make(map[string]worker.Worker)
 	for {
 		select {
 		case <-p.catacomb.Dying():
 			return p.catacomb.ErrDying()
-		case apps, ok := <-appWatcher.Changes():
+		case apps, ok := <-w.Changes():
 			if !ok {
 				return errors.New("watcher closed channel")
 			}
 			for _, appName := range apps {
-				// If charm is (now) a v2 charm, skip processing.
+				// If charm is a v1 charm, skip processing.
 				format, err := p.charmFormat(appName)
 				if errors.IsNotFound(err) {
 					p.config.Logger.Debugf("application %q no longer exists", appName)
@@ -111,50 +127,55 @@ func (p *firewaller) loop() error {
 				} else if err != nil {
 					return errors.Trace(err)
 				}
-				if format >= charm.FormatV2 {
-					p.config.Logger.Tracef("v1 caasfirewaller got event for v2 app %q, skipping", appName)
+				if format < charm.FormatV2 {
+					p.config.Logger.Tracef("v2 caasfirewaller got event for v1 app %q, skipping", appName)
 					continue
 				}
 
 				appLife, err := p.config.LifeGetter.Life(appName)
 				if errors.IsNotFound(err) || appLife == life.Dead {
-					if appWorker, ok := appWorkers[appName]; ok {
-						if err := worker.Stop(appWorker); err != nil {
+					w, ok := p.appWorkers[appName]
+					if ok {
+						if err := worker.Stop(w); err != nil {
 							logger.Errorf("error stopping caas firewaller: %v", err)
 						}
-						delete(appWorkers, appName)
+						delete(p.appWorkers, appName)
 					}
 					continue
 				}
 				if err != nil {
 					return errors.Trace(err)
 				}
-				if _, ok := appWorkers[appName]; ok {
+				if _, ok := p.appWorkers[appName]; ok {
 					// Already watching the application.
 					continue
 				}
-				appWorker, err := newApplicationWorker(
+				w, err := p.newApplicationWorker(
 					p.config.ControllerUUID,
 					p.config.ModelUUID,
 					appName,
-					p.config.ApplicationGetter,
-					p.config.ServiceExposer,
+					p.config.FirewallerAPI,
+					p.config.Broker,
 					p.config.LifeGetter,
-					p.config.CharmGetter,
 					logger,
 				)
 				if err != nil {
 					return errors.Trace(err)
 				}
-				appWorkers[appName] = appWorker
-				_ = p.catacomb.Add(appWorker)
+				if err := p.catacomb.Add(w); err != nil {
+					if err2 := worker.Stop(w); err2 != nil {
+						logger.Errorf("error stopping caas application worker: %v", err2)
+					}
+					return errors.Trace(err)
+				}
+				p.appWorkers[appName] = w
 			}
 		}
 	}
 }
 
 func (p *firewaller) charmFormat(appName string) (charm.Format, error) {
-	charmInfo, err := p.config.CharmGetter.ApplicationCharmInfo(appName)
+	charmInfo, err := p.config.FirewallerAPI.ApplicationCharmInfo(appName)
 	if err != nil {
 		return charm.FormatUnknown, errors.Annotatef(err, "failed to get charm info for application %q", appName)
 	}

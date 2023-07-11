@@ -53,7 +53,7 @@ func (s formatSuite) TestFormatV1Series(c *gc.C) {
 		Bases: []charm.Base{{}},
 	})
 	cm.EXPECT().Meta().Return(&charm.Meta{
-		Series: []string{"kubernetes"},
+		Series: []string{"focal"},
 	})
 
 	c.Assert(Format(cm), gc.Equals, FormatV1)

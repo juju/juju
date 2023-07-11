@@ -23,7 +23,7 @@ import (
 type NetworkInfo interface {
 	ProcessAPIRequest(params.NetworkInfoParams) (params.NetworkInfoResults, error)
 	NetworksForRelation(
-		binding string, rel *state.Relation, pollPublic bool,
+		binding string, rel *state.Relation,
 	) (boundSpace string, ingress network.SpaceAddresses, egress []string, err error)
 }
 

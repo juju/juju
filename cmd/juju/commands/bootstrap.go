@@ -1134,7 +1134,7 @@ func (c *bootstrapCommand) controllerDataRefresher(
 	} else if env, ok := environ.(caas.ServiceManager); ok {
 		// CAAS.
 		var svc *caas.Service
-		svc, err = env.GetService(k8sconstants.JujuControllerStackName, caas.ModeWorkload, false)
+		svc, err = env.GetService(k8sconstants.JujuControllerStackName, false)
 		if err != nil {
 			return errors.Trace(err)
 		}

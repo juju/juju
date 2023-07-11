@@ -1,7 +1,0 @@
-#!/bin/bash
-cd $JUJU_CHARM_DIR
-pwd
-mv "$(action-get filename)" dispatch
-ls -la
-action-set result-map.time-completed="$(date)" result-map.message="$(action-get filename) is now called dispatch"
-action-set outcome="success"

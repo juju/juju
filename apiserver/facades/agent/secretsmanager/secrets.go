@@ -918,8 +918,7 @@ func (s *SecretsManagerAPI) WatchObsolete(args params.Entities) (params.StringsW
 			return result, apiservererrors.ErrPerm
 		}
 		// Only unit leaders can watch application secrets.
-		// TODO(wallyworld) - temp fix for old podspec charms
-		if ownerTag.Kind() == names.ApplicationTagKind && s.authTag.Kind() != names.ApplicationTagKind {
+		if ownerTag.Kind() == names.ApplicationTagKind {
 			_, err := commonsecrets.LeadershipToken(s.authTag, s.leadershipChecker)
 			if err != nil {
 				return result, errors.Trace(err)
@@ -954,8 +953,7 @@ func (s *SecretsManagerAPI) WatchSecretsRotationChanges(args params.Entities) (p
 			return result, apiservererrors.ErrPerm
 		}
 		// Only unit leaders can watch application secrets.
-		// TODO(wallyworld) - temp fix for old podspec charms
-		if ownerTag.Kind() == names.ApplicationTagKind && s.authTag.Kind() != names.ApplicationTagKind {
+		if ownerTag.Kind() == names.ApplicationTagKind {
 			_, err := commonsecrets.LeadershipToken(s.authTag, s.leadershipChecker)
 			if err != nil {
 				return result, errors.Trace(err)
@@ -1050,8 +1048,7 @@ func (s *SecretsManagerAPI) WatchSecretRevisionsExpiryChanges(args params.Entiti
 			return result, apiservererrors.ErrPerm
 		}
 		// Only unit leaders can watch application secrets.
-		// TODO(wallyworld) - temp fix for old podspec charms
-		if ownerTag.Kind() == names.ApplicationTagKind && s.authTag.Kind() != names.ApplicationTagKind {
+		if ownerTag.Kind() == names.ApplicationTagKind {
 			_, err := commonsecrets.LeadershipToken(s.authTag, s.leadershipChecker)
 			if err != nil {
 				return result, errors.Trace(err)

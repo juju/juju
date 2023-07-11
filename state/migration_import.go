@@ -991,20 +991,6 @@ func (i *importer) application(a description.Application, ctrlCfg controller.Con
 		return errors.Trace(err)
 	}
 
-	if a.PodSpec() != "" {
-		cm, err := i.dbModel.CAASModel()
-		if err != nil {
-			return errors.NewNotSupported(err, "adding pod spec to IAAS model")
-		}
-		// We pass a nil token as there is no need to perform
-		// leadership checks while migrating.
-		spec := a.PodSpec()
-		if err := cm.SetPodSpec(nil, a.Tag(), &spec); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	// TODO(caas): Add raw k8s spec to juju/description for model migration!
-
 	if cs := a.CloudService(); cs != nil {
 		app, err := i.st.Application(a.Name())
 		if err != nil {

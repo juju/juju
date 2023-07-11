@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	caasfirewallerapi "github.com/juju/juju/api/controller/caasfirewaller"
-	caasunitprovisionerapi "github.com/juju/juju/api/controller/caasunitprovisioner"
 	controllerlifeflag "github.com/juju/juju/api/controller/lifeflag"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/caas"
@@ -36,11 +35,8 @@ import (
 	"github.com/juju/juju/worker/caasbroker"
 	"github.com/juju/juju/worker/caasenvironupgrader"
 	"github.com/juju/juju/worker/caasfirewaller"
-	"github.com/juju/juju/worker/caasfirewallersidecar"
 	"github.com/juju/juju/worker/caasmodelconfigmanager"
 	"github.com/juju/juju/worker/caasmodeloperator"
-	"github.com/juju/juju/worker/caasoperatorprovisioner"
-	"github.com/juju/juju/worker/caasunitprovisioner"
 	"github.com/juju/juju/worker/charmdownloader"
 	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/cleaner"
@@ -510,31 +506,17 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:                 config.LoggingContext.GetLogger("juju.worker.caas"),
 		})),
 
-		caasFirewallerNameLegacy: ifNotMigrating(caasfirewaller.Manifold(
+		caasFirewallerName: ifNotMigrating(caasfirewaller.Manifold(
 			caasfirewaller.ManifoldConfig{
 				APICallerName:  apiCallerName,
 				BrokerName:     caasBrokerTrackerName,
 				ControllerUUID: agentConfig.Controller().Id(),
 				ModelUUID:      agentConfig.Model().Id(),
 				NewClient: func(caller base.APICaller) caasfirewaller.Client {
-					return caasfirewallerapi.NewClientLegacy(caller)
+					return caasfirewallerapi.NewClient(caller)
 				},
 				NewWorker: caasfirewaller.NewWorker,
-				Logger:    config.LoggingContext.GetLogger("juju.worker.caasfirewallerlegacy"),
-			},
-		)),
-
-		caasFirewallerNameSidecar: ifNotMigrating(caasfirewallersidecar.Manifold(
-			caasfirewallersidecar.ManifoldConfig{
-				APICallerName:  apiCallerName,
-				BrokerName:     caasBrokerTrackerName,
-				ControllerUUID: agentConfig.Controller().Id(),
-				ModelUUID:      agentConfig.Model().Id(),
-				NewClient: func(caller base.APICaller) caasfirewallersidecar.Client {
-					return caasfirewallerapi.NewClientSidecar(caller)
-				},
-				NewWorker: caasfirewallersidecar.NewWorker,
-				Logger:    config.LoggingContext.GetLogger("juju.worker.caasfirewallersidecar"),
+				Logger:    config.LoggingContext.GetLogger("juju.worker.caasfirewaller"),
 			},
 		)),
 
@@ -555,17 +537,6 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:         config.Clock,
 		})),
 
-		caasOperatorProvisionerName: ifNotMigrating(caasoperatorprovisioner.Manifold(
-			caasoperatorprovisioner.ManifoldConfig{
-				AgentName:     agentName,
-				APICallerName: apiCallerName,
-				BrokerName:    caasBrokerTrackerName,
-				ClockName:     clockName,
-				NewWorker:     caasoperatorprovisioner.NewProvisionerWorker,
-				Logger:        config.LoggingContext.GetLogger("juju.worker.caasprovisioner"),
-			},
-		)),
-
 		caasApplicationProvisionerName: ifNotMigrating(caasapplicationprovisioner.Manifold(
 			caasapplicationprovisioner.ManifoldConfig{
 				APICallerName: apiCallerName,
@@ -576,17 +547,6 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 		)),
 
-		caasUnitProvisionerName: ifNotMigrating(caasunitprovisioner.Manifold(
-			caasunitprovisioner.ManifoldConfig{
-				APICallerName: apiCallerName,
-				BrokerName:    caasBrokerTrackerName,
-				NewClient: func(caller base.APICaller) caasunitprovisioner.Client {
-					return caasunitprovisionerapi.NewClient(caller)
-				},
-				NewWorker: caasunitprovisioner.NewWorker,
-				Logger:    config.LoggingContext.GetLogger("juju.worker.caasunitprovisioner"),
-			},
-		)),
 		environUpgraderName: ifAlive(ifCredentialValid(caasenvironupgrader.Manifold(caasenvironupgrader.ManifoldConfig{
 			APICallerName: apiCallerName,
 			GateName:      environUpgradeGateName,
@@ -742,13 +702,10 @@ const (
 	loggingConfigUpdaterName = "logging-config-updater"
 	instanceMutaterName      = "instance-mutater"
 
-	caasFirewallerNameLegacy       = "caas-firewaller-legacy"
-	caasFirewallerNameSidecar      = "caas-firewaller-embedded"
+	caasFirewallerName             = "caas-firewaller"
 	caasModelOperatorName          = "caas-model-operator"
 	caasmodelconfigmanagerName     = "caas-model-config-manager"
-	caasOperatorProvisionerName    = "caas-operator-provisioner"
 	caasApplicationProvisionerName = "caas-application-provisioner"
-	caasUnitProvisionerName        = "caas-unit-provisioner"
 	caasStorageProvisionerName     = "caas-storage-provisioner"
 	caasBrokerTrackerName          = "caas-broker-tracker"
 

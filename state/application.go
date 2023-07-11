@@ -808,7 +808,6 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 		removeStatusOp(a.st, applicationGlobalOperatorKey(name)),
 		removeSettingsOp(settingsC, a.applicationConfigKey()),
 		removeModelApplicationRefOp(a.st, name),
-		removePodSpecOp(a.ApplicationTag()),
 	)
 
 	apr, err := getApplicationPortRanges(a.st, a.Name())
@@ -1634,10 +1633,6 @@ type SetCharmConfig struct {
 	// EndpointBindings is an operator-defined map of endpoint names to
 	// space names that should be merged with any existing bindings.
 	EndpointBindings map[string]string
-
-	// RequireNoUnits is set when upgrading from podspec to sidecar charm to ensure
-	// the application is scaled to 0 units first.
-	RequireNoUnits bool
 }
 
 // SetCharm changes the charm for the application.
@@ -1669,7 +1664,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	}
 
 	// If it's a v1 or v2 machine charm (no containers), check series.
-	if charm.MetaFormat(cfg.Charm) == charm.FormatV1 || !corecharm.IsKubernetes(cfg.Charm) {
+	if charm.MetaFormat(cfg.Charm) == charm.FormatV1 || len(cfg.Charm.Meta().Containers) == 0 {
 		err := checkSeriesForSetCharm(a.CharmOrigin().Platform, cfg.Charm, cfg.ForceBase)
 		if err != nil {
 			return errors.Trace(err)
@@ -1840,17 +1835,6 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			})
 		}
 
-		if cfg.RequireNoUnits {
-			if a.UnitCount()+a.GetScale() > 0 {
-				return nil, stateerrors.ErrApplicationShouldNotHaveUnits
-			}
-			ops = append(ops, txn.Op{
-				C:      applicationsC,
-				Id:     a.doc.DocID,
-				Assert: bson.D{{"scale", 0}, {"unitcount", 0}},
-			})
-		}
-
 		// Always update bindings regardless of whether we upgrade to a
 		// new version or stay at the previous version.
 		currentMap, txnRevno, err := readEndpointBindings(a.st, a.globalKey())
@@ -1955,16 +1939,12 @@ func checkSeriesForSetCharm(currentPlatform *Platform, charm *Charm, ForceBase b
 	}
 	if charm.URL().Series != "" {
 		// Allow series change when switching to charmhub charms.
-		// Account for legacy charms with "kubernetes" series in the URL.
-		if charm.URL().Schema != "ch" && charm.URL().Series != series.Kubernetes.String() && charm.URL().Series != curSeries {
+		if charm.URL().Schema != "ch" && charm.URL().Series != curSeries {
 			return errors.Errorf("cannot change an application's series")
 		}
 	} else if !ForceBase {
 		supported := false
 		for _, oneSeries := range charmSeries {
-			if oneSeries == series.Kubernetes.String() {
-				oneSeries = series.LegacyKubernetesSeries()
-			}
 			if oneSeries == curSeries {
 				supported = true
 				break
@@ -1984,10 +1964,6 @@ func checkSeriesForSetCharm(currentPlatform *Platform, charm *Charm, ForceBase b
 		currentOS := os.OSTypeForName(currentPlatform.OS)
 		supportedOS := false
 		for _, oneSeries := range charmSeries {
-			if oneSeries == series.Kubernetes.String() {
-				supportedOS = true
-				break
-			}
 			charmSeriesOS, err := series.GetOSFromSeries(oneSeries)
 			if err != nil {
 				return nil
@@ -3603,35 +3579,6 @@ func (a *Application) Status() (status.StatusInfo, error) {
 	return info, nil
 }
 
-// CheckApplicationExpectsWorkload checks if the application expects workload or not.
-func CheckApplicationExpectsWorkload(m *Model, appName string) (bool, error) {
-	cm, err := m.CAASModel()
-	if err != nil {
-		// IAAS models alway have a unit workload.
-		return true, nil
-	}
-
-	// Check charm v2
-	app, err := m.State().Application(appName)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	ch, _, err := app.Charm()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-
-	if charm.MetaFormat(ch) == charm.FormatV2 {
-		return false, nil
-	}
-
-	_, err = cm.PodSpec(names.NewApplicationTag(appName))
-	if err != nil && !errors.IsNotFound(err) {
-		return false, errors.Trace(err)
-	}
-	return err == nil, nil
-}
-
 // SetStatus sets the status for the application.
 func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 	if !status.ValidWorkloadStatus(statusInfo.Status) {
@@ -3647,13 +3594,9 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 		// Application status for a caas model needs to consider status
 		// info coming from the operator pod as well; It may need to
 		// override what is set here.
-		expectWorkload, err := CheckApplicationExpectsWorkload(m, a.Name())
-		if err != nil {
-			return errors.Trace(err)
-		}
 		operatorStatus, err := getStatus(a.st.db(), applicationGlobalOperatorKey(a.Name()), "operator")
 		if err == nil {
-			newHistory, err = caasHistoryRewriteDoc(statusInfo, operatorStatus, expectWorkload, status.ApplicationDisplayStatus, a.st.clock())
+			newHistory, err = caasHistoryRewriteDoc(statusInfo, operatorStatus, status.ApplicationDisplayStatus, a.st.clock())
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -3699,11 +3642,7 @@ func (a *Application) SetOperatorStatus(sInfo status.StatusInfo) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	expectWorkload, err := CheckApplicationExpectsWorkload(m, a.Name())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	historyDoc, err := caasHistoryRewriteDoc(appStatus, sInfo, expectWorkload, status.ApplicationDisplayStatus, a.st.clock())
+	historyDoc, err := caasHistoryRewriteDoc(appStatus, sInfo, status.ApplicationDisplayStatus, a.st.clock())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -4052,7 +3991,7 @@ func (op *AddUnitOperation) Done(err error) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		newHistory, err := caasHistoryRewriteDoc(unitStatus, *op.props.CloudContainerStatus, true, status.UnitDisplayStatus, op.application.st.clock())
+		newHistory, err := caasHistoryRewriteDoc(unitStatus, *op.props.CloudContainerStatus, status.UnitDisplayStatus, op.application.st.clock())
 		if err != nil {
 			return errors.Trace(err)
 		}

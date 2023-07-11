@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v11"
-	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -26,7 +25,6 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -65,26 +63,6 @@ type APIv19 struct {
 	*APIBase
 }
 
-// APIv18 provides the Application API facade for version 18.
-type APIv18 struct {
-	*APIv19
-}
-
-// APIv17 provides the Application API facade for version 17.
-type APIv17 struct {
-	*APIv18
-}
-
-// APIv16 provides the Application API facade for version 16.
-type APIv16 struct {
-	*APIv17
-}
-
-// APIv15 provides the Application API facade for version 15.
-type APIv15 struct {
-	*APIv16
-}
-
 // APIBase implements the shared application interface and is the concrete
 // implementation of the api end point.
 type APIBase struct {
@@ -96,8 +74,7 @@ type APIBase struct {
 	updateBase UpdateBase
 	repoDeploy DeployFromRepository
 
-	model     Model
-	modelType state.ModelType
+	model Model
 
 	resources        facade.Resources
 	leadershipReader leadership.Reader
@@ -230,7 +207,6 @@ func NewAPIBase(
 		repoDeploy:            repoDeploy,
 		check:                 blockChecker,
 		model:                 model,
-		modelType:             model.Type(),
 		leadershipReader:      leadershipReader,
 		stateCharm:            stateCharm,
 		deployApplicationFunc: deployApplication,
@@ -324,26 +300,18 @@ func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults,
 	return result, nil
 }
 
-func applicationConfigSchema(modelType state.ModelType) (environschema.Fields, schema.Defaults, error) {
-	if modelType != state.ModelTypeCAAS {
-		return trustFields, trustDefaults, nil
-	}
-	// TODO(caas) - get the schema from the provider
-	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
-	configSchema, err := caas.ConfigSchema(k8s.ConfigSchema())
-	if err != nil {
-		return nil, nil, err
-	}
-	return AddTrustSchemaAndDefaults(configSchema, defaults)
+// ConfigSchema returns the config schema and defaults for an application.
+func ConfigSchema() (environschema.Fields, schema.Defaults, error) {
+	return trustFields, trustDefaults, nil
 }
 
-func splitApplicationAndCharmConfig(modelType state.ModelType, inConfig map[string]string) (
+func splitApplicationAndCharmConfig(inConfig map[string]string) (
 	appCfg map[string]interface{},
 	charmCfg map[string]string,
 	_ error,
 ) {
 
-	providerSchema, _, err := applicationConfigSchema(modelType)
+	providerSchema, _, err := ConfigSchema()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -363,7 +331,7 @@ func splitApplicationAndCharmConfig(modelType state.ModelType, inConfig map[stri
 
 // splitApplicationAndCharmConfigFromYAML extracts app specific settings from a charm config YAML
 // and returns those app settings plus a YAML with just the charm settings left behind.
-func splitApplicationAndCharmConfigFromYAML(modelType state.ModelType, inYaml, appName string) (
+func splitApplicationAndCharmConfigFromYAML(inYaml, appName string) (
 	appCfg map[string]interface{},
 	outYaml string,
 	_ error,
@@ -382,7 +350,7 @@ func splitApplicationAndCharmConfigFromYAML(modelType state.ModelType, inYaml, a
 		return nil, inYaml, nil
 	}
 
-	providerSchema, _, err := applicationConfigSchema(modelType)
+	providerSchema, _, err := ConfigSchema()
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
@@ -442,11 +410,6 @@ func (c caasDeployParams) precheck(
 			return errors.Errorf("block storage %q is not supported for container charms", s.Name)
 		}
 	}
-	serviceType := c.config[k8s.ServiceTypeConfigKey]
-	if _, err := k8s.CaasServiceToK8s(caas.ServiceType(serviceType)); err != nil {
-		return errors.NotValidf("service type %q", serviceType)
-	}
-
 	cfg, err := model.ModelConfig()
 	if err != nil {
 		return errors.Trace(err)
@@ -463,7 +426,7 @@ func (c caasDeployParams) precheck(
 					"See https://discourse.charmhub.io/t/getting-started/152.",
 			)
 		}
-		sp, err := caasoperatorprovisioner.CharmStorageParams("", storageClassName, cfg, "", storagePoolManager, registry)
+		sp, err := charmStorageParams("", storageClassName, cfg, "", storagePoolManager, registry)
 		if err != nil {
 			return errors.Annotatef(err, "getting operator storage params for %q", c.applicationName)
 		}
@@ -482,7 +445,7 @@ func (c caasDeployParams) precheck(
 		if cons.Pool == "" && workloadStorageClass == "" {
 			return errors.Errorf("storage pool for %q must be specified since there's no model default storage class", storageName)
 		}
-		_, err := caasoperatorprovisioner.CharmStorageParams("", workloadStorageClass, cfg, cons.Pool, storagePoolManager, registry)
+		_, err := charmStorageParams("", workloadStorageClass, cfg, cons.Pool, storagePoolManager, registry)
 		if err != nil {
 			return errors.Annotatef(err, "getting workload storage params for %q", c.applicationName)
 		}
@@ -550,7 +513,7 @@ func deployApplication(
 		}
 	}
 
-	appConfig, _, charmSettings, _, err := parseCharmSettings(modelType, ch.Config(), args.ApplicationName, args.Config, args.ConfigYAML, environsconfig.UseDefaults)
+	appConfig, _, charmSettings, _, err := parseCharmSettings(ch.Config(), args.ApplicationName, args.Config, args.ConfigYAML, environsconfig.UseDefaults)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -647,7 +610,7 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL) (corecharm.
 // charm as specified by the provided config map and config yaml payload. Any
 // model-specific application settings will be automatically extracted and
 // returned back as an *application.Config.
-func parseCharmSettings(modelType state.ModelType, chCfg *charm.Config, appName string, cfg map[string]string, configYaml string, defaults environsconfig.Defaulting) (*config.Config, environschema.Fields, charm.Settings, schema.Defaults, error) {
+func parseCharmSettings(chCfg *charm.Config, appName string, cfg map[string]string, configYaml string, defaults environsconfig.Defaulting) (*config.Config, environschema.Fields, charm.Settings, schema.Defaults, error) {
 	// Split out the app config from the charm config for any config
 	// passed in as a map as opposed to YAML.
 	var (
@@ -656,7 +619,7 @@ func parseCharmSettings(modelType state.ModelType, chCfg *charm.Config, appName 
 		err               error
 	)
 	if len(cfg) > 0 {
-		if applicationConfig, charmConfig, err = splitApplicationAndCharmConfig(modelType, cfg); err != nil {
+		if applicationConfig, charmConfig, err = splitApplicationAndCharmConfig(cfg); err != nil {
 			return nil, nil, nil, nil, errors.Trace(err)
 		}
 	}
@@ -668,7 +631,7 @@ func parseCharmSettings(modelType state.ModelType, chCfg *charm.Config, appName 
 		appSettings     = make(map[string]interface{})
 	)
 	if len(configYaml) != 0 {
-		if appSettings, charmYamlConfig, err = splitApplicationAndCharmConfigFromYAML(modelType, configYaml, appName); err != nil {
+		if appSettings, charmYamlConfig, err = splitApplicationAndCharmConfigFromYAML(configYaml, appName); err != nil {
 			return nil, nil, nil, nil, errors.Trace(err)
 		}
 	}
@@ -679,7 +642,7 @@ func parseCharmSettings(modelType state.ModelType, chCfg *charm.Config, appName 
 		appSettings[k] = v
 	}
 
-	appCfgSchema, schemaDefaults, err := applicationConfigSchema(modelType)
+	appCfgSchema, schemaDefaults, err := ConfigSchema()
 	if err != nil {
 		return nil, nil, nil, nil, errors.Trace(err)
 	}
@@ -850,7 +813,7 @@ func (api *APIBase) setConfig(app Application, generation, settingsYAML string, 
 	// parseCharmSettings is passed false for useDefaults because setConfig
 	// should not care about defaults.
 	// If defaults are wanted, one should call unsetApplicationConfig.
-	appConfig, appConfigSchema, charmSettings, defaults, err := parseCharmSettings(api.modelType, ch.Config(), app.Name(), settingsStrings, settingsYAML, environsconfig.NoDefaults)
+	appConfig, appConfigSchema, charmSettings, defaults, err := parseCharmSettings(ch.Config(), app.Name(), settingsStrings, settingsYAML, environsconfig.NoDefaults)
 	if err != nil {
 		return errors.Annotate(err, "parsing settings for application")
 	}
@@ -1004,7 +967,7 @@ func (api *APIBase) setCharmWithAgentValidation(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if api.modelType == state.ModelTypeCAAS {
+	if api.model.Type() == state.ModelTypeCAAS {
 		// We need to disallow updates that k8s does not yet support,
 		// eg changing the filesystem or device directives, or deployment info.
 		// TODO(wallyworld) - support resizing of existing storage.
@@ -1064,13 +1027,7 @@ func (api *APIBase) applicationSetCharm(
 	newCharm Charm,
 	newOrigin *state.CharmOrigin,
 ) error {
-	model, err := api.backend.Model()
-	if err != nil {
-		return errors.Annotate(err, "retrieving model")
-	}
-	modelType := model.Type()
-
-	appConfig, appSchema, charmSettings, appDefaults, err := parseCharmSettings(modelType, newCharm.Config(), params.AppName, params.ConfigSettingsStrings, params.ConfigSettingsYAML, environsconfig.NoDefaults)
+	appConfig, appSchema, charmSettings, appDefaults, err := parseCharmSettings(newCharm.Config(), params.AppName, params.ConfigSettingsStrings, params.ConfigSettingsYAML, environsconfig.NoDefaults)
 	if err != nil {
 		return errors.Annotate(err, "parsing config settings")
 	}
@@ -1093,6 +1050,10 @@ func (api *APIBase) applicationSetCharm(
 	}
 
 	// Enforce "assumes" requirements if the feature flag is enabled.
+	model, err := api.backend.Model()
+	if err != nil {
+		return errors.Annotate(err, "retrieving model")
+	}
 	if err := assertCharmAssumptions(newCharm.Meta().Assumes, model, api.backend.ControllerConfig); err != nil {
 		if !errors.IsNotSupported(err) || !params.Force.Force {
 			return errors.Trace(err)
@@ -1123,13 +1084,6 @@ func (api *APIBase) applicationSetCharm(
 	}
 	if charm.MetaFormat(oldCharm) >= charm.FormatV2 && charm.MetaFormat(newCharm) == charm.FormatV1 {
 		return errors.New("cannot downgrade from v2 charm format to v1")
-	}
-
-	// If upgrading from a pod-spec (v1) charm to sidecar (v2), force the application
-	// to have no units.
-	if charm.MetaFormat(oldCharm) == charm.FormatV1 && corecharm.IsKubernetes(oldCharm) &&
-		charm.MetaFormat(newCharm) >= charm.FormatV2 && corecharm.IsKubernetes(newCharm) {
-		cfg.RequireNoUnits = true
 	}
 
 	// TODO(wallyworld) - do in a single transaction
@@ -1265,17 +1219,6 @@ func (api *APIBase) Expose(args params.ApplicationExpose) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if api.modelType == state.ModelTypeCAAS {
-		appConfig, err := app.ApplicationConfig()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if appConfig.GetString(caas.JujuExternalHostNameKey, "") == "" {
-			return errors.Errorf(
-				"cannot expose a container application without a %q value set, run\n"+
-					"juju config %s %s=<value>", caas.JujuExternalHostNameKey, args.ApplicationName, caas.JujuExternalHostNameKey)
-		}
-	}
 
 	// Map space names to space IDs before calling SetExposed
 	mappedExposeParams, err := api.mapExposedEndpointParams(args.ExposedEndpoints)
@@ -1367,7 +1310,7 @@ func (api *APIBase) Unexpose(args params.ApplicationUnexpose) error {
 
 // AddUnits adds a given number of units to an application.
 func (api *APIBase) AddUnits(args params.AddApplicationUnits) (params.AddApplicationUnitsResults, error) {
-	if api.modelType == state.ModelTypeCAAS {
+	if api.model.Type() == state.ModelTypeCAAS {
 		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units to a container-based model")
 	}
 
@@ -1391,7 +1334,7 @@ func (api *APIBase) AddUnits(args params.AddApplicationUnits) (params.AddApplica
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
-	units, err := addApplicationUnits(api.backend, api.modelType, args)
+	units, err := addApplicationUnits(api.backend, api.model.Type(), args)
 	if err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
@@ -1454,55 +1397,9 @@ func addApplicationUnits(backend Backend, modelType state.ModelType, args params
 	)
 }
 
-// DestroyUnits removes a given set of application units.
-//
-// TODO(jack-w-shaw) Drop this once facade 16 is not longer supported
-func (api *APIv16) DestroyUnits(args params.DestroyApplicationUnits) error {
-	var errs []error
-	entities := params.DestroyUnitsParams{
-		Units: make([]params.DestroyUnitParams, 0, len(args.UnitNames)),
-	}
-	for _, unitName := range args.UnitNames {
-		if !names.IsValidUnit(unitName) {
-			errs = append(errs, errors.NotValidf("unit name %q", unitName))
-			continue
-		}
-		entities.Units = append(entities.Units, params.DestroyUnitParams{
-			UnitTag: names.NewUnitTag(unitName).String(),
-		})
-	}
-	results, err := api.DestroyUnit(entities)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, result := range results.Results {
-		if result.Error != nil {
-			errs = append(errs, result.Error)
-		}
-	}
-	return apiservererrors.DestroyErr("units", args.UnitNames, errs)
-}
-
-func (*APIBase) DestroyUnits(_, _ struct{}) {}
-
-func (api *APIv15) DestroyUnit(argsV15 params.DestroyUnitsParamsV15) (params.DestroyUnitResults, error) {
-	args := params.DestroyUnitsParams{
-		Units: transform.Slice(argsV15.Units, func(p params.DestroyUnitParamsV15) params.DestroyUnitParams {
-			return params.DestroyUnitParams{
-				UnitTag:        p.UnitTag,
-				DestroyStorage: p.DestroyStorage,
-				Force:          p.Force,
-				MaxWait:        p.MaxWait,
-				DryRun:         false,
-			}
-		}),
-	}
-	return api.APIv16.DestroyUnit(args)
-}
-
 // DestroyUnit removes a given set of application units.
 func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyUnitResults, error) {
-	if api.modelType == state.ModelTypeCAAS {
+	if api.model.Type() == state.ModelTypeCAAS {
 		return params.DestroyUnitResults{}, errors.NotSupportedf("removing units on a non-container model")
 	}
 	if err := api.checkCanWrite(); err != nil {
@@ -1599,46 +1496,6 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 	return params.DestroyUnitResults{
 		Results: results,
 	}, nil
-}
-
-// Destroy destroys a given application, local or remote.
-//
-// TODO(jack-w-shaw) Drop this once facade 16 is not longer supported
-func (api *APIv16) Destroy(in params.ApplicationDestroy) error {
-	if !names.IsValidApplication(in.ApplicationName) {
-		return errors.NotValidf("application name %q", in.ApplicationName)
-	}
-	args := params.DestroyApplicationsParams{
-		Applications: []params.DestroyApplicationParams{{
-			ApplicationTag: names.NewApplicationTag(in.ApplicationName).String(),
-		}},
-	}
-	results, err := api.DestroyApplication(args)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := results.Results[0].Error; err != nil {
-		return apiservererrors.ServerError(err)
-	}
-	return nil
-}
-
-func (*APIBase) Destroy(_, _ struct{}) {}
-
-// DestroyApplication removes a given set of applications.
-func (api *APIv15) DestroyApplication(argsV15 params.DestroyApplicationsParamsV15) (params.DestroyApplicationResults, error) {
-	args := params.DestroyApplicationsParams{
-		Applications: transform.Slice(argsV15.Applications, func(p params.DestroyApplicationParamsV15) params.DestroyApplicationParams {
-			return params.DestroyApplicationParams{
-				ApplicationTag: p.ApplicationTag,
-				DestroyStorage: p.DestroyStorage,
-				Force:          p.Force,
-				MaxWait:        p.MaxWait,
-				DryRun:         false,
-			}
-		}),
-	}
-	return api.APIBase.DestroyApplication(args)
 }
 
 // DestroyApplication removes a given set of applications.
@@ -1791,7 +1648,7 @@ func (api *APIBase) DestroyConsumedApplications(args params.DestroyConsumedAppli
 
 // ScaleApplications scales the specified application to the requested number of units.
 func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (params.ScaleApplicationResults, error) {
-	if api.modelType != state.ModelTypeCAAS {
+	if api.model.Type() != state.ModelTypeCAAS {
 		return params.ScaleApplicationResults{}, errors.NotSupportedf("scaling applications on a non-container model")
 	}
 	if err := api.checkCanWrite(); err != nil {
@@ -2370,7 +2227,7 @@ func (api *APIBase) unsetApplicationConfig(arg params.ApplicationUnset) error {
 		return errors.Trace(err)
 	}
 
-	configSchema, defaults, err := applicationConfigSchema(api.modelType)
+	configSchema, defaults, err := ConfigSchema()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -2973,13 +2830,6 @@ func (api *APIBase) Leader(entity params.Entity) (params.StringResult, error) {
 		result.Error = apiservererrors.ServerError(errors.NotFoundf("leader for %s", entity.Tag))
 	}
 	return result, nil
-}
-
-// DeployFromRepository for facade v18. The method was still not fully complete until v19.
-// The NotImplemented error was for development purposes while use was behind a feature
-// flag in the juju client.
-func (api *APIv18) DeployFromRepository(args params.DeployFromRepositoryArgs) (params.DeployFromRepositoryResults, error) {
-	return params.DeployFromRepositoryResults{}, errors.NotImplementedf("this facade method is under development")
 }
 
 // DeployFromRepository is a one-stop deployment method for repository

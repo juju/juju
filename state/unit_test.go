@@ -2946,7 +2946,7 @@ func (s *CAASUnitSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 	s.application = f.MakeApplication(c, &factory.ApplicationParams{
 		Name: "gitlab", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
@@ -2959,7 +2959,7 @@ snapshot:
       type: string
       default: "abcd"
 `[1:]
-	ch = state.AddCustomCharm(c, st, "elastic-operator", "actions.yaml", basicActions, "kubernetes", 1)
+	ch = state.AddCustomCharm(c, st, "elastic-operator", "actions.yaml", basicActions, "focal", 1)
 	s.operatorApp = f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 }
 

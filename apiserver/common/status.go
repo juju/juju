@@ -40,11 +40,6 @@ func appStatusContext(model *state.Model, application *state.Application, units 
 		return nil, errors.Trace(err)
 	}
 	statusCtx.IsCaas = model.Type() == state.ModelTypeCAAS
-	expectsWorkload, err := state.CheckApplicationExpectsWorkload(model, application.Name())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	statusCtx.ExpectWorkload = expectsWorkload
 	for _, u := range units {
 		workloadStatus, err := u.Status()
 		if err != nil {

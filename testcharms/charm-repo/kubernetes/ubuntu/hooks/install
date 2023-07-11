@@ -1,4 +1,0 @@
-#!/bin/sh
-date=`date`
-status-set waiting "Hello from install, it is $date."
-juju-log -l INFO "Hello from install."

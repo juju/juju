@@ -513,10 +513,6 @@ func allCollections() CollectionSchema {
 		// relationNetworksC holds required ingress or egress cidrs for remote relations.
 		relationNetworksC: {},
 
-		// podSpecsC holds the CAAS pod specifications,
-		// for applications.
-		podSpecsC: {},
-
 		// cloudContainersC holds the CAAS container (pod) information
 		// for units, eg address, ports.
 		cloudContainersC: {},
@@ -638,7 +634,6 @@ const (
 	operationsC                = "operations"
 	payloadsC                  = "payloads"
 	permissionsC               = "permissions"
-	podSpecsC                  = "podSpecs"
 	providerIDsC               = "providerIDs"
 	rebootC                    = "reboot"
 	relationScopesC            = "relationscopes"

@@ -25,36 +25,7 @@ type Facade struct {
 	state           CAASFirewallerState
 	charmInfoAPI    *charmscommon.CharmInfoAPI
 	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI
-}
-
-func newFacadeLegacy(
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-	st CAASFirewallerState,
-	charmInfoAPI *charmscommon.CharmInfoAPI,
-	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI,
-) (*Facade, error) {
-	if !authorizer.AuthController() {
-		return nil, apiservererrors.ErrPerm
-	}
-	accessApplication := common.AuthFuncForTagKind(names.ApplicationTagKind)
-	return &Facade{
-		LifeGetter: common.NewLifeGetter(
-			st, common.AuthAny(
-				common.AuthFuncForTagKind(names.ApplicationTagKind),
-				common.AuthFuncForTagKind(names.UnitTagKind),
-			),
-		),
-		AgentEntityWatcher: common.NewAgentEntityWatcher(
-			st,
-			resources,
-			accessApplication,
-		),
-		resources:       resources,
-		state:           st,
-		charmInfoAPI:    charmInfoAPI,
-		appCharmInfoAPI: appCharmInfoAPI,
-	}, nil
+	accessModel     common.GetAuthFunc
 }
 
 // CharmInfo returns information about the requested charm.
@@ -134,50 +105,41 @@ func (f *Facade) WatchApplications() (params.StringsWatchResult, error) {
 	return params.StringsWatchResult{}, watcher.EnsureErr(watch)
 }
 
-// FacadeSidecar provides access to the CAASFirewaller API facade for sidecar applications.
-type FacadeSidecar struct {
-	*Facade
-
-	accessModel common.GetAuthFunc
-}
-
-func newFacadeSidecar(
+func newFacade(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	st CAASFirewallerState,
 	commonCharmsAPI *charmscommon.CharmInfoAPI,
 	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI,
-) (*FacadeSidecar, error) {
+) (*Facade, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
 	accessApplication := common.AuthFuncForTagKind(names.ApplicationTagKind)
 
-	return &FacadeSidecar{
+	return &Facade{
 		accessModel: common.AuthFuncForTagKind(names.ModelTagKind),
-		Facade: &Facade{
-			LifeGetter: common.NewLifeGetter(
-				st, common.AuthAny(
-					common.AuthFuncForTagKind(names.ApplicationTagKind),
-					common.AuthFuncForTagKind(names.UnitTagKind),
-				),
+		LifeGetter: common.NewLifeGetter(
+			st, common.AuthAny(
+				common.AuthFuncForTagKind(names.ApplicationTagKind),
+				common.AuthFuncForTagKind(names.UnitTagKind),
 			),
-			AgentEntityWatcher: common.NewAgentEntityWatcher(
-				st,
-				resources,
-				accessApplication,
-			),
-			resources:       resources,
-			state:           st,
-			charmInfoAPI:    commonCharmsAPI,
-			appCharmInfoAPI: appCharmInfoAPI,
-		},
+		),
+		AgentEntityWatcher: common.NewAgentEntityWatcher(
+			st,
+			resources,
+			accessApplication,
+		),
+		resources:       resources,
+		state:           st,
+		charmInfoAPI:    commonCharmsAPI,
+		appCharmInfoAPI: appCharmInfoAPI,
 	}, nil
 }
 
 // WatchOpenedPorts returns a new StringsWatcher for each given
 // model tag.
-func (f *FacadeSidecar) WatchOpenedPorts(args params.Entities) (params.StringsWatchResults, error) {
+func (f *Facade) WatchOpenedPorts(args params.Entities) (params.StringsWatchResults, error) {
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
@@ -209,7 +171,7 @@ func (f *FacadeSidecar) WatchOpenedPorts(args params.Entities) (params.StringsWa
 	return result, nil
 }
 
-func (f *FacadeSidecar) watchOneModelOpenedPorts(tag names.Tag) (string, []string, error) {
+func (f *Facade) watchOneModelOpenedPorts(tag names.Tag) (string, []string, error) {
 	// NOTE: tag is ignored, as there is only one model in the
 	// state DB. Once this changes, change the code below accordingly.
 	watch := f.state.WatchOpenedPorts()
@@ -221,7 +183,7 @@ func (f *FacadeSidecar) watchOneModelOpenedPorts(tag names.Tag) (string, []strin
 }
 
 // GetOpenedPorts returns all the opened ports for each given application tag.
-func (f *FacadeSidecar) GetOpenedPorts(arg params.Entity) (params.ApplicationOpenedPortsResults, error) {
+func (f *Facade) GetOpenedPorts(arg params.Entity) (params.ApplicationOpenedPortsResults, error) {
 	result := params.ApplicationOpenedPortsResults{
 		Results: make([]params.ApplicationOpenedPortsResult, 1),
 	}
@@ -255,7 +217,7 @@ func (f *FacadeSidecar) GetOpenedPorts(arg params.Entity) (params.ApplicationOpe
 	return result, nil
 }
 
-func (f *FacadeSidecar) applicationOpenedPortsForEndpoint(endpointName string, pgs []network.PortRange) params.ApplicationOpenedPorts {
+func (f *Facade) applicationOpenedPortsForEndpoint(endpointName string, pgs []network.PortRange) params.ApplicationOpenedPorts {
 	network.SortPortRanges(pgs)
 	o := params.ApplicationOpenedPorts{
 		Endpoint:   endpointName,

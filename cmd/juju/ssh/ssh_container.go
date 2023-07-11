@@ -9,7 +9,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
@@ -18,10 +17,8 @@ import (
 	"github.com/juju/juju/api/client/application"
 	apicharms "github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/api/client/sshclient"
-	"github.com/juju/juju/api/common/charms"
 	controllerapi "github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/caas/kubernetes/provider"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudspec"
@@ -33,8 +30,6 @@ import (
 // and DebugHooksCommand for CAAS model.
 type sshContainer struct {
 	leaderResolver
-	// remote indicates if it should target to the operator or workload pod.
-	remote    bool
 	target    string
 	container string
 	args      []string
@@ -52,7 +47,6 @@ type sshContainer struct {
 
 // SetFlags sets up options and flags for the command.
 func (c *sshContainer) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.remote, "remote", false, "Target on the workload or operator pod (k8s-only)")
 	f.StringVar(&c.container, "container", "", "the container name of the target pod")
 }
 
@@ -172,22 +166,6 @@ func (c *sshContainer) cleanupRun() {
 
 const charmContainerName = "charm"
 
-type charmAdaptor struct {
-	*charms.CharmInfo
-}
-
-func (c charmAdaptor) Meta() *charm.Meta {
-	return c.CharmInfo.Meta
-}
-
-func (c charmAdaptor) Manifest() *charm.Manifest {
-	return c.CharmInfo.Manifest
-}
-
-func (c charmAdaptor) Actions() *charm.Actions {
-	return c.CharmInfo.Actions
-}
-
 func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 	if modelNameWithoutUsername(c.modelName) == environsbootstrap.ControllerModelName && names.IsValidMachine(target) {
 		// TODO(caas): change here to controller unit tag once we refactored controller to an application.
@@ -208,10 +186,6 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 		return nil, errors.Errorf("invalid unit name %q", resolvedTargetName)
 	}
 	unitTag := names.NewUnitTag(resolvedTargetName)
-	appName, err := names.UnitApplication(unitTag.Id())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	unitInfoResults, err := c.applicationAPI.UnitsInfo([]names.UnitTag{unitTag})
 	if err != nil {
@@ -227,53 +201,24 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 		return nil, errors.Annotatef(err, "getting charm info for %q", resolvedTargetName)
 	}
 
-	isMetaV2 := (charm.MetaFormat(charmAdaptor{charmInfo}) == charm.FormatV2)
-	var providerID string
-	if !isMetaV2 && !c.remote {
-		// We don't want to introduce CaaS broker here, but only use exec client.
-		podAPI := c.execClient.RawClient().CoreV1().Pods(c.execClient.NameSpace())
-		modelName := modelNameWithoutUsername(c.modelName)
-		// Model name should always be set, but just in case...
-		if modelName == "" {
-			modelName = c.execClient.NameSpace()
-		}
-		providerID, err = k8sprovider.GetOperatorPodName(
-			podAPI,
-			c.execClient.RawClient().CoreV1().Namespaces(),
-			appName,
-			c.execClient.NameSpace(),
-			modelName,
-		)
-
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if len(providerID) == 0 {
-			return nil, errors.New(fmt.Sprintf("operator pod for unit %q is not ready yet", unitTag.Id()))
-		}
-	} else {
-		if len(unit.ProviderId) == 0 {
-			return nil, errors.New(fmt.Sprintf("container for unit %q is not ready yet", unitTag.Id()))
-		}
-		providerID = unit.ProviderId
+	if len(unit.ProviderId) == 0 {
+		return nil, errors.New(fmt.Sprintf("container for unit %q is not ready yet", unitTag.Id()))
 	}
 
-	if isMetaV2 {
-		meta := charmInfo.Meta
-		if c.container == "" {
-			c.container = charmContainerName
+	meta := charmInfo.Meta
+	if c.container == "" {
+		c.container = charmContainerName
+	}
+	if _, ok := meta.Containers[c.container]; !ok && c.container != charmContainerName {
+		containers := []string{charmContainerName}
+		for k := range meta.Containers {
+			containers = append(containers, k)
 		}
-		if _, ok := meta.Containers[c.container]; !ok && c.container != charmContainerName {
-			containers := []string{charmContainerName}
-			for k := range meta.Containers {
-				containers = append(containers, k)
-			}
-			return nil, errors.New(
-				fmt.Sprintf("container %q must be one of %s", c.container, strings.Join(containers, ", ")))
-		}
+		return nil, errors.New(
+			fmt.Sprintf("container %q must be one of %s", c.container, strings.Join(containers, ", ")))
 	}
 
-	return &resolvedTarget{entity: providerID}, nil
+	return &resolvedTarget{entity: unit.ProviderId}, nil
 }
 
 // Context defines methods for command context.

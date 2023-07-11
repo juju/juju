@@ -3982,16 +3982,6 @@ func (w *externalControllersWatcher) loop() error {
 	}
 }
 
-// WatchPodSpec returns a watcher observing changes that affect the
-// pod spec for an application or unit.
-func (m *CAASModel) WatchPodSpec(appTag names.ApplicationTag) (NotifyWatcher, error) {
-	docKeys := []docKey{{
-		podSpecsC,
-		m.st.docID(applicationGlobalKey(appTag.Id())),
-	}}
-	return newDocWatcher(m.st, docKeys), nil
-}
-
 // containerAddressesWatcher notifies about changes to a unit's pod address(es).
 type containerAddressesWatcher struct {
 	commonWatcher

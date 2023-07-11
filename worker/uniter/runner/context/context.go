@@ -21,7 +21,6 @@ import (
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/caas"
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -298,12 +297,6 @@ type HookContext struct {
 
 	// The cloud API version, if available.
 	cloudAPIVersion string
-
-	// podSpecYaml is the pending pod spec to be committed.
-	podSpecYaml *string
-
-	// k8sRawSpecYaml is the pending raw k8s spec to be committed.
-	k8sRawSpecYaml *string
 
 	// A cached view of the unit's charm state that gets persisted by juju
 	// once the context is flushed.
@@ -1066,58 +1059,6 @@ func (ctx *HookContext) GoalState() (*application.GoalState, error) {
 	return &ctx.goalState, nil
 }
 
-// SetPodSpec sets the podspec for the unit's application.
-// Implements jujuc.HookContext.ContextUnit, part of runner.Context.
-func (ctx *HookContext) SetPodSpec(specYaml string) error {
-	isLeader, err := ctx.IsLeader()
-	if err != nil {
-		return errors.Annotatef(err, "cannot determine leadership")
-	}
-	if !isLeader {
-		ctx.logger.Errorf("%q is not the leader but is setting application k8s spec", ctx.unitName)
-		return ErrIsNotLeader
-	}
-	_, err = k8sspecs.ParsePodSpec(specYaml)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	ctx.podSpecYaml = &specYaml
-	return nil
-}
-
-// SetRawK8sSpec sets the raw k8s spec for the unit's application.
-// Implements jujuc.HookContext.ContextUnit, part of runner.Context.
-func (ctx *HookContext) SetRawK8sSpec(specYaml string) error {
-	isLeader, err := ctx.IsLeader()
-	if err != nil {
-		return errors.Annotatef(err, "cannot determine leadership")
-	}
-	if !isLeader {
-		ctx.logger.Errorf("%q is not the leader but is setting application raw k8s spec", ctx.unitName)
-		return ErrIsNotLeader
-	}
-	_, err = k8sspecs.ParseRawK8sSpec(specYaml)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	ctx.k8sRawSpecYaml = &specYaml
-	return nil
-}
-
-// GetPodSpec returns the k8s spec for the unit's application.
-// Implements jujuc.HookContext.ContextUnit, part of runner.Context.
-func (ctx *HookContext) GetPodSpec() (string, error) {
-	appName := ctx.unit.ApplicationName()
-	return ctx.uniter.GetPodSpec(appName)
-}
-
-// GetRawK8sSpec returns the raw k8s spec for the unit's application.
-// Implements jujuc.HookContext.ContextUnit, part of runner.Context.
-func (ctx *HookContext) GetRawK8sSpec() (string, error) {
-	appName := ctx.unit.ApplicationName()
-	return ctx.uniter.GetRawK8sSpec(appName)
-}
-
 // CloudSpec return the cloud specification for the running unit's model.
 // Implements jujuc.HookContext.ContextUnit, part of runner.Context.
 func (ctx *HookContext) CloudSpec() (*params.CloudSpec, error) {
@@ -1569,12 +1510,6 @@ func (ctx *HookContext) doFlush(process string) error {
 	b.AddSecretGrants(ctx.secretChanges.pendingGrants)
 	b.AddSecretRevokes(ctx.secretChanges.pendingRevokes)
 
-	if ctx.modelType == model.CAAS {
-		if err := ctx.addCommitHookChangesForCAAS(b, process); err != nil {
-			return err
-		}
-	}
-
 	// Generate change request but skip its execution if no changes are pending.
 	commitReq, numChanges := b.Build()
 	if numChanges > 0 {
@@ -1595,42 +1530,6 @@ func (ctx *HookContext) doFlush(process string) error {
 
 	// Call completed successfully; update local state
 	ctx.charmStateCacheDirty = false
-	return nil
-}
-
-// If we're running the upgrade-charm hook and no podspec update was done,
-// we'll still trigger a change to a counter on the podspec so that we can
-// ensure any other charm changes (eg storage) are acted on.
-func (ctx *HookContext) addCommitHookChangesForCAAS(builder *uniter.CommitHookParamsBuilder, process string) error {
-	if ctx.podSpecYaml == nil && ctx.k8sRawSpecYaml == nil && process != string(hooks.UpgradeCharm) {
-		// No ops for any situation unless any k8s spec needs to be set or "upgrade-charm" was run.
-		return nil
-	}
-	if ctx.podSpecYaml != nil && ctx.k8sRawSpecYaml != nil {
-		return errors.NewForbidden(nil, "either k8s-spec-set or k8s-raw-set can be run for each application, but not both")
-	}
-
-	isLeader, err := ctx.IsLeader()
-	if err != nil {
-		return errors.Annotatef(err, "cannot determine leadership")
-	}
-	// Only leader can set k8s spec.
-	if !isLeader {
-		if process == string(hooks.UpgradeCharm) {
-			// We do not want to fail the non leader unit's upgrade-charm hook.
-			return nil
-		}
-		ctx.logger.Errorf("%v is not the leader but is setting application k8s spec", ctx.unitName)
-		return ErrIsNotLeader
-	}
-
-	appTag := names.NewApplicationTag(ctx.unit.ApplicationName())
-	if ctx.k8sRawSpecYaml != nil {
-		builder.SetRawK8sSpec(appTag, ctx.k8sRawSpecYaml)
-	} else {
-		// either set k8s spec or increment upgrade-counter.
-		builder.SetPodSpec(appTag, ctx.podSpecYaml)
-	}
 	return nil
 }
 

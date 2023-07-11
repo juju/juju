@@ -1139,7 +1139,8 @@ func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 	s.model = m
 
 	ch := f.MakeCharm(c, &factory.CharmParams{
-		Series: "kubernetes",
+		Name:   "mysql-k8s",
+		Series: "focal",
 	})
 	s.app = f.MakeApplication(c, &factory.ApplicationParams{
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
@@ -1160,42 +1161,6 @@ func (s *CAASStatusSuite) TestStatusOperatorNotReady(c *gc.C) {
 	c.Assert(status.Applications, gc.HasLen, 1)
 	clearSinceTimes(status)
 	s.assertUnitStatus(c, status.Applications[s.app.Name()], "waiting", "installing agent")
-}
-
-func (s *CAASStatusSuite) TestStatusPodSpecNotSet(c *gc.C) {
-	conn := s.OpenModelAPI(c, s.model.UUID())
-	client := apiclient.NewClient(conn)
-	err := s.app.SetOperatorStatus(status.StatusInfo{Status: status.Active})
-	c.Assert(err, jc.ErrorIsNil)
-
-	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Applications, gc.HasLen, 1)
-	clearSinceTimes(status)
-	s.assertUnitStatus(c, status.Applications[s.app.Name()], "waiting", "installing agent")
-}
-
-func (s *CAASStatusSuite) TestStatusPodSpecSet(c *gc.C) {
-	conn := s.OpenModelAPI(c, s.model.UUID())
-	client := apiclient.NewClient(conn)
-	err := s.app.SetOperatorStatus(status.StatusInfo{Status: status.Active})
-	c.Assert(err, jc.ErrorIsNil)
-	cm, err := s.model.CAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-
-	spec := `
-containers:
- - name: gitlab
-   image: gitlab/latest
-`[1:]
-	err = cm.SetPodSpec(nil, s.app.ApplicationTag(), &spec)
-	c.Assert(err, jc.ErrorIsNil)
-
-	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Applications, gc.HasLen, 1)
-	clearSinceTimes(status)
-	s.assertUnitStatus(c, status.Applications[s.app.Name()], "waiting", "waiting for container")
 }
 
 func (s *CAASStatusSuite) TestStatusCloudContainerSet(c *gc.C) {

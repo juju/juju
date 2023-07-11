@@ -23,12 +23,10 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/caas"
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -1163,7 +1161,7 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 		}
 
 		settings := map[string]interface{}{}
-		_, ingressAddresses, egressSubnets, err := netInfo.NetworksForRelation(relUnit.Endpoint().Name, rel, false)
+		_, ingressAddresses, egressSubnets, err := netInfo.NetworksForRelation(relUnit.Endpoint().Name, rel)
 		if err == nil && len(ingressAddresses) > 0 {
 			ingressAddress := ingressAddresses[0].Value
 			// private-address is historically a cloud local address for the machine.
@@ -2057,138 +2055,6 @@ func makeAppAuthChecker(authTag names.Tag) common.AuthFunc {
 	}
 }
 
-func (u *UniterAPI) setPodSpecOperation(appTag string, spec *string, unitTag names.Tag, canAccessApp common.AuthFunc) (state.ModelOperation, error) {
-	parsedAppTag, err := names.ParseApplicationTag(appTag)
-	if err != nil {
-		return nil, err
-	}
-	if !canAccessApp(parsedAppTag) {
-		return nil, apiservererrors.ErrPerm
-	}
-	if spec != nil {
-		if _, err := k8sspecs.ParsePodSpec(*spec); err != nil {
-			return nil, errors.Annotate(err, "invalid pod spec")
-		}
-	}
-
-	cm, err := u.m.CAASModel()
-	if err != nil {
-		return nil, err
-	}
-
-	// If this call is invoked by the CommitHookChanges call, the unit tag
-	// is known and can be used for a leadership check. For calls to the
-	// SetPodSpec API endpoint (older k8s deployments) the unit tag is
-	// unknown since the uniter authenticates as an application. In the
-	// latter case, the leadership check is skipped.
-	var token leadership.Token
-	if unitTag != nil {
-		token = u.leadershipChecker.LeadershipCheck(parsedAppTag.Id(), unitTag.Id())
-	}
-	return cm.SetPodSpecOperation(token, parsedAppTag, spec), nil
-}
-
-func (u *UniterAPI) setRawK8sSpecOperation(appTag string, spec *string, unitTag names.Tag, canAccessApp common.AuthFunc) (state.ModelOperation, error) {
-	controllerCfg, err := u.st.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if !controllerCfg.Features().Contains(feature.RawK8sSpec) {
-		return nil, errors.NewNotSupported(nil,
-			fmt.Sprintf("feature flag %q is required for setting raw k8s spec", feature.RawK8sSpec),
-		)
-	}
-
-	parsedAppTag, err := names.ParseApplicationTag(appTag)
-	if err != nil {
-		return nil, err
-	}
-	if !canAccessApp(parsedAppTag) {
-		return nil, apiservererrors.ErrPerm
-	}
-	if spec != nil {
-		if _, err := k8sspecs.ParseRawK8sSpec(*spec); err != nil {
-			return nil, errors.Annotate(err, "invalid raw k8s spec")
-		}
-	}
-
-	cm, err := u.m.CAASModel()
-	if err != nil {
-		return nil, err
-	}
-
-	var token leadership.Token
-	if unitTag != nil {
-		token = u.leadershipChecker.LeadershipCheck(parsedAppTag.Id(), unitTag.Id())
-	}
-	return cm.SetRawK8sSpecOperation(token, parsedAppTag, spec), nil
-}
-
-// GetPodSpec gets the pod specs for a set of applications.
-func (u *UniterAPI) GetPodSpec(args params.Entities) (params.StringResults, error) {
-	return u.getContainerSpec(args, func(m caasSpecGetter) getSpecFunc {
-		return m.PodSpec
-	})
-}
-
-// GetRawK8sSpec gets the raw k8s specs for a set of applications.
-func (u *UniterAPI) GetRawK8sSpec(args params.Entities) (params.StringResults, error) {
-	return u.getContainerSpec(args, func(m caasSpecGetter) getSpecFunc {
-		return m.RawK8sSpec
-	})
-}
-
-type caasSpecGetter interface {
-	PodSpec(names.ApplicationTag) (string, error)
-	RawK8sSpec(names.ApplicationTag) (string, error)
-}
-
-type getSpecFunc func(names.ApplicationTag) (string, error)
-type getSpecFuncGetter func(caasSpecGetter) getSpecFunc
-
-func (u *UniterAPI) getContainerSpec(args params.Entities, getSpec getSpecFuncGetter) (params.StringResults, error) {
-	results := params.StringResults{
-		Results: make([]params.StringResult, len(args.Entities)),
-	}
-	authTag := u.auth.GetAuthTag()
-	canAccess := func(tag names.Tag) bool {
-		if tag, ok := tag.(names.ApplicationTag); ok {
-			switch authTag.(type) {
-			case names.UnitTag:
-				appName, err := names.UnitApplication(authTag.Id())
-				return err == nil && appName == tag.Id()
-			case names.ApplicationTag:
-				return tag == authTag
-			}
-		}
-		return false
-	}
-
-	for i, arg := range args.Entities {
-		tag, err := names.ParseApplicationTag(arg.Tag)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if !canAccess(tag) {
-			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		cm, err := u.m.CAASModel()
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		spec, err := getSpec(cm)(tag)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		results.Results[i].Result = spec
-	}
-	return results, nil
-}
-
 // CloudSpec returns the cloud spec used by the model in which the
 // authenticated unit or application resides.
 // A check is made beforehand to ensure that the request is made by an entity
@@ -2569,7 +2435,7 @@ func (u *UniterAPI) updateUnitNetworkInfoOperation(unitTag names.UnitTag, unit *
 			return nil, err
 		}
 
-		_, ingressAddresses, egressSubnets, err := netInfo.NetworksForRelation(relUnit.Endpoint().Name, rel, false)
+		_, ingressAddresses, egressSubnets, err := netInfo.NetworksForRelation(relUnit.Endpoint().Name, rel)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -2641,12 +2507,6 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	appName, err := names.UnitApplication(unit.Name())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	appTag := names.NewApplicationTag(appName)
 
 	var modelOps []state.ModelOperation
 
@@ -2765,36 +2625,6 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 		}
 
 		modelOp, err := u.addStorageToOneUnitOperation(unitTag, addParams, curCons)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		modelOps = append(modelOps, modelOp)
-	}
-
-	if changes.SetPodSpec != nil && changes.SetRawK8sSpec != nil {
-		return errors.NewForbidden(nil, "either SetPodSpec or SetRawK8sSpec can be set for each application, but not both")
-	}
-
-	if changes.SetPodSpec != nil {
-		// Ensure the application tag for the unit in the change arg
-		// matches the one specified in the SetPodSpec payload.
-		if changes.SetPodSpec.Tag != appTag.String() {
-			return errors.BadRequestf("application tag %q in SetPodSpec payload does not match the application for unit %q", changes.SetPodSpec.Tag, changes.Tag)
-		}
-		modelOp, err := u.setPodSpecOperation(changes.SetPodSpec.Tag, changes.SetPodSpec.Spec, unitTag, canAccessApp)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		modelOps = append(modelOps, modelOp)
-	}
-
-	if changes.SetRawK8sSpec != nil {
-		// Ensure the application tag for the unit in the change arg
-		// matches the one specified in the SetRawK8sSpec payload.
-		if changes.SetRawK8sSpec.Tag != appTag.String() {
-			return errors.BadRequestf("application tag %q in SetRawK8sSpec payload does not match the application for unit %q", changes.SetRawK8sSpec.Tag, changes.Tag)
-		}
-		modelOp, err := u.setRawK8sSpecOperation(changes.SetRawK8sSpec.Tag, changes.SetRawK8sSpec.Spec, unitTag, canAccessApp)
 		if err != nil {
 			return errors.Trace(err)
 		}

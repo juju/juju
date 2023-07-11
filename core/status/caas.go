@@ -5,7 +5,7 @@ package status
 
 // UnitDisplayStatus is used for CAAS units where the status of the unit
 // could be overridden by the status of the container.
-func UnitDisplayStatus(unitStatus, containerStatus StatusInfo, expectWorkload bool) StatusInfo {
+func UnitDisplayStatus(unitStatus, containerStatus StatusInfo) StatusInfo {
 	if unitStatus.Status == Terminated {
 		return unitStatus
 	}
@@ -14,20 +14,14 @@ func UnitDisplayStatus(unitStatus, containerStatus StatusInfo, expectWorkload bo
 	}
 	if containerStatus.Status == "" {
 		// No container update received from k8s yet.
-		// Unit may have set status, (though final status
-		// can only be active if a container status has come through).
-		if isStatusModified(unitStatus) && (unitStatus.Status != Active || !expectWorkload) {
+		// Unit may have set sttaus, in which case use it.
+		if isStatusModified(unitStatus) {
 			return unitStatus
 		}
-		message := unitStatus.Message
-		if expectWorkload {
-			message = MessageWaitForContainer
-		}
-
 		// If no unit status set, assume still allocating.
 		return StatusInfo{
 			Status:  Waiting,
-			Message: message,
+			Message: unitStatus.Message,
 			Since:   containerStatus.Since,
 		}
 	}
@@ -60,7 +54,7 @@ func UnitDisplayStatus(unitStatus, containerStatus StatusInfo, expectWorkload bo
 
 // ApplicationDisplayStatus determines which of the two statuses to use when
 // displaying application status in a CAAS model.
-func ApplicationDisplayStatus(applicationStatus, operatorStatus StatusInfo, expectWorkload bool) StatusInfo {
+func ApplicationDisplayStatus(applicationStatus, operatorStatus StatusInfo) StatusInfo {
 	if applicationStatus.Status == Terminated {
 		return applicationStatus
 	}
@@ -69,7 +63,7 @@ func ApplicationDisplayStatus(applicationStatus, operatorStatus StatusInfo, expe
 		return applicationStatus
 	}
 
-	if operatorStatus.Status == Waiting && !expectWorkload {
+	if operatorStatus.Status == Waiting {
 		operatorStatus.Message = MessageInstallingAgent
 	}
 	return operatorStatus

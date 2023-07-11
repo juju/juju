@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/application"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	coreconfig "github.com/juju/juju/core/config"
@@ -114,20 +113,16 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "dashboard4miner", Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "dashboard4miner", Series: "focal"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Name: "dashboard4miner", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
 	})
 
-	schemaFields, err := caas.ConfigSchema(provider.ConfigSchema())
-	c.Assert(err, jc.ErrorIsNil)
-	defaults := caas.ConfigDefaults(provider.ConfigDefaults())
-
-	schemaFields, defaults, err = application.AddTrustSchemaAndDefaults(schemaFields, defaults)
+	schemaFields, defaults, err := application.ConfigSchema()
 	c.Assert(err, jc.ErrorIsNil)
 
-	appConfig, err := coreconfig.NewConfig(map[string]interface{}{"juju-external-hostname": "ext"}, schemaFields, defaults)
+	appConfig, err := coreconfig.NewConfig(map[string]interface{}{"trust": true}, schemaFields, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 	err = app.UpdateApplicationConfig(appConfig.Attributes(), nil, schemaFields, defaults)
 	c.Assert(err, jc.ErrorIsNil)

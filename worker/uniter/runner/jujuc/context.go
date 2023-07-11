@@ -148,20 +148,6 @@ type ContextUnit interface {
 	// GoalState returns the goal state for the current unit.
 	GoalState() (*application.GoalState, error)
 
-	// SetPodSpec updates the yaml spec used to create a pod.
-	// TODO(wallyworld) - rename to SetK8sSpec (here and elsewhere)
-	SetPodSpec(specYaml string) error
-
-	// GetPodSpec returns the yaml spec used to create a pod.
-	// TODO(wallyworld) - rename to GetK8sSpec (here and elsewhere)
-	GetPodSpec() (string, error)
-
-	// SetRawK8sSpec updates the raw yaml spec used to create a pod.
-	SetRawK8sSpec(specYaml string) error
-
-	// GetRawK8sSpec returns the raw yaml spec used to create a pod.
-	GetRawK8sSpec() (string, error)
-
 	// CloudSpec returns the unit's cloud specification
 	CloudSpec() (*params.CloudSpec, error)
 }

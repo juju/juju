@@ -64,12 +64,6 @@ const (
 	ControllerName = "kontroll"
 )
 
-var (
-	// KubernetesSeriesName is the kubernetes series name that is validated at
-	// runtime, otherwise it panics.
-	KubernetesSeriesName = strings.ToLower(coreos.Kubernetes.String())
-)
-
 // JujuConnSuite provides a freshly bootstrapped juju.Conn
 // for each test. It also includes testing.BaseSuite.
 //
@@ -663,9 +657,6 @@ func (s *JujuConnSuite) AddTestingCharmForSeries(c *gc.C, name, series string) *
 
 func (s *JujuConnSuite) AddTestingApplication(c *gc.C, name string, ch *state.Charm) *state.Application {
 	appSeries := ch.URL().Series
-	if appSeries == "kubernetes" {
-		appSeries = series.LegacyKubernetesSeries()
-	}
 	base, err := series.GetBaseFromSeries(appSeries)
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.AddApplication(state.AddApplicationArgs{

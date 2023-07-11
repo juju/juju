@@ -288,13 +288,9 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	// Note: we validated that both series and base cannot be specified in
 	// Init(), so it's safe to assume that only one of them is set here.
 	if c.Series != "" {
-		if c.Series == "kubernetes" {
-			return fmt.Errorf(`command "add-machine" does not support container models`)
-		} else {
-			ctx.Warningf("series flag is deprecated, use --base instead")
-			if base, err = series.GetBaseFromSeries(c.Series); err != nil {
-				return errors.Annotatef(err, "attempting to convert %q to a base", c.Series)
-			}
+		ctx.Warningf("series flag is deprecated, use --base instead")
+		if base, err = series.GetBaseFromSeries(c.Series); err != nil {
+			return errors.Annotatef(err, "attempting to convert %q to a base", c.Series)
 		}
 		c.Base = base.String()
 		c.Series = ""

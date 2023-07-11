@@ -13,7 +13,6 @@ import (
 	"github.com/juju/charm/v11"
 	charmresource "github.com/juju/charm/v11/resource"
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -24,12 +23,10 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/series"
-	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -60,7 +57,7 @@ func (s *deployerSuite) SetUpTest(_ *gc.C) {
 	s.PatchValue(&SupportedJujuSeries,
 		func(time.Time, string, string) (set.Strings, error) {
 			return set.NewStrings(
-				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
+				"centos7", "centos8", "centos9", "genericlinux", "opensuseleap",
 				"jammy", "focal", "bionic", "xenial",
 			), nil
 		},
@@ -332,7 +329,7 @@ func (s *deployerSuite) TestValidateResourcesNeededForLocalDeployCAAS(c *gc.C) {
 	}
 
 	err := f.validateResourcesNeededForLocalDeploy(&charm.Meta{
-		Series: []string{jujuseries.Kubernetes.String()},
+		Series: []string{"jammy"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -347,7 +344,7 @@ func (s *deployerSuite) TestValidateResourcesNeededForLocalDeployIAAS(c *gc.C) {
 	}
 
 	err := f.validateResourcesNeededForLocalDeploy(&charm.Meta{
-		Series: []string{jujuseries.Kubernetes.String()},
+		Series: []string{"jammy"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -395,39 +392,6 @@ func (s *deployerSuite) TestMaybeReadLocalCharmErrorWithoutApplicationName(c *gc
 
 	_, err := f.GetDeployer(DeployerConfig{CharmOrBundle: url}, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *deployerSuite) TestCheckPodspec(c *gc.C) {
-	tests := []struct {
-		charm     charms.CharmInfo
-		isPodspec bool
-	}{{
-		// redis-k8s
-		charm: charms.CharmInfo{
-			Meta: &charm.Meta{
-				Name: "redis-k8s",
-				Series: []string{
-					"kubernetes",
-				},
-			},
-		},
-		isPodspec: true,
-	}, {
-		// prometheus-k8s
-		charm: charms.CharmInfo{
-			Meta: &charm.Meta{
-				Name: "prometheus-k8s",
-				Containers: map[string]charm.Container{
-					"prometheus": {},
-				},
-			},
-		},
-		isPodspec: false,
-	}}
-
-	for _, t := range tests {
-		c.Check(checkPodspec(t.charm.Charm(), &cmd.Context{}), gc.Equals, t.isPodspec)
-	}
 }
 
 func (s *deployerSuite) makeBundleDir(c *gc.C, content string) string {

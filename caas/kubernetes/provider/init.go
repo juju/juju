@@ -16,9 +16,6 @@ import (
 var (
 	k8sCloudCheckers map[string][]k8slabels.Selector
 
-	// lifecycleApplicationRemovalSelector is the label selector for removing global resources for application removal.
-	lifecycleApplicationRemovalSelector k8slabels.Selector
-
 	// LifecycleModelTeardownSelector is the label selector for removing global resources for model teardown.
 	lifecycleModelTeardownSelector k8slabels.Selector
 )
@@ -32,7 +29,6 @@ func init() {
 	// used for detecting cloud provider from node labels.
 	k8sCloudCheckers = compileK8sCloudCheckers()
 
-	lifecycleApplicationRemovalSelector = compileLifecycleApplicationRemovalSelector()
 	lifecycleModelTeardownSelector = compileLifecycleModelTeardownSelector()
 
 }
@@ -83,16 +79,6 @@ func compileK8sCloudCheckers() map[string][]k8slabels.Selector {
 		},
 		// format - cloudType: requirements.
 	}
-}
-
-func compileLifecycleApplicationRemovalSelector() k8slabels.Selector {
-	return newLabelRequirements(
-		requirementParams{
-			labelResourceLifeCycleKey, selection.NotIn, []string{
-				labelResourceLifeCycleValueModel,
-				labelResourceLifeCycleValuePersistent,
-			}},
-	)
 }
 
 func compileLifecycleModelTeardownSelector() k8slabels.Selector {

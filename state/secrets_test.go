@@ -536,7 +536,7 @@ func (s *SecretsSuite) TestListModelSecrets(c *gc.C) {
 	uri3 := secrets.NewURI()
 	p3 := state.CreateSecretParams{
 		Version: 1,
-		Owner:   names.NewApplicationTag("wordpress"),
+		Owner:   names.NewApplicationTag("gitlab-k8s"),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			ValueRef:    &secrets.ValueRef{BackendID: caasSt.ModelUUID()},
@@ -581,8 +581,8 @@ func (s *SecretsSuite) newCAASState(c *gc.C) *state.State {
 	s.AddCleanup(func(*gc.C) { st.Close() })
 	s.Factory = factory.NewFactory(st, s.StatePool)
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Name:  "wordpress",
-		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
+		Name:  "gitlab-k8s",
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s"}),
 	})
 	return st
 }

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/caasadmission"
 	"github.com/juju/juju/apiserver/facades/agent/caasagent"
 	"github.com/juju/juju/apiserver/facades/agent/caasapplication"
-	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
 	"github.com/juju/juju/apiserver/facades/agent/credentialvalidator"
 	"github.com/juju/juju/apiserver/facades/agent/deployer"
 	"github.com/juju/juju/apiserver/facades/agent/diskmanager"
@@ -48,6 +47,8 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelupgrader"
 	"github.com/juju/juju/apiserver/facades/client/pinger"
 	"github.com/juju/juju/apiserver/facades/client/secretbackends"
+	"github.com/juju/juju/apiserver/facades/controller/caasoperatorupgrader"
+	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelsecrets"
 
 	// ModelUser Write
@@ -83,9 +84,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	"github.com/juju/juju/apiserver/facades/controller/caasmodelconfigmanager"
 	"github.com/juju/juju/apiserver/facades/controller/caasmodeloperator"
-	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
-	"github.com/juju/juju/apiserver/facades/controller/caasoperatorupgrader"
-	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/facades/controller/charmdownloader"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
@@ -141,10 +139,8 @@ func AllFacades() *facade.Registry {
 	caasapplication.Register(registry)
 	caasapplicationprovisioner.Register(registry)
 	caasfirewaller.Register(registry)
-	caasoperator.Register(registry)
 	caasmodeloperator.Register(registry)
 	caasmodelconfigmanager.Register(registry)
-	caasoperatorprovisioner.Register(registry)
 	caasoperatorupgrader.Register(registry)
 	caasunitprovisioner.Register(registry)
 

@@ -5,7 +5,6 @@ package provider
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	jujuclock "github.com/juju/clock"
@@ -22,8 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/resources"
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 )
 
@@ -46,158 +43,6 @@ func RBACLabels(appName, model string, global, legacy bool) map[string]string {
 		labels = utils.LabelsMerge(labels, utils.LabelsForModel(model, legacy))
 	}
 	return labels
-}
-
-func (k *kubernetesClient) ensureServiceAccountForApp(
-	appName string, annotations map[string]string, rbacDefinition k8sspecs.K8sRBACSpecConverter,
-) (cleanups []func(), err error) {
-	ctx := context.TODO()
-
-	prefixNameSpace := func(name string) string {
-		return fmt.Sprintf("%s-%s", k.namespace, name)
-	}
-	getBindingName := func(sa, cR k8sspecs.NameGetter) string {
-		if sa.GetName() == cR.GetName() {
-			return sa.GetName()
-		}
-		return fmt.Sprintf("%s-%s", sa.GetName(), cR.GetName())
-	}
-	getSAMeta := func(name string) v1.ObjectMeta {
-		return v1.ObjectMeta{
-			Name:        name,
-			Namespace:   k.namespace,
-			Labels:      RBACLabels(appName, k.CurrentModel(), false, k.IsLegacyLabels()),
-			Annotations: annotations,
-		}
-	}
-	getRoleClusterRoleName := func(roleName, serviceAccountName string, index int, global bool) (out string) {
-		defer func() {
-			if global {
-				out = prefixNameSpace(out)
-			}
-		}()
-		if roleName != "" {
-			return roleName
-		}
-		out = serviceAccountName
-		if index == 0 {
-			return out
-		}
-		return fmt.Sprintf("%s%d", out, index)
-	}
-	getRoleMeta := func(roleName, serviceAccountName string, index int) v1.ObjectMeta {
-		return v1.ObjectMeta{
-			Name:        getRoleClusterRoleName(roleName, serviceAccountName, index, false),
-			Namespace:   k.namespace,
-			Labels:      RBACLabels(appName, k.CurrentModel(), false, k.IsLegacyLabels()),
-			Annotations: annotations,
-		}
-	}
-	getClusterRoleMeta := func(roleName, serviceAccountName string, index int) v1.ObjectMeta {
-		return v1.ObjectMeta{
-			Name:        getRoleClusterRoleName(roleName, serviceAccountName, index, true),
-			Namespace:   k.namespace,
-			Labels:      RBACLabels(appName, k.CurrentModel(), true, k.IsLegacyLabels()),
-			Annotations: annotations,
-		}
-	}
-	getBindingMeta := func(sa, role k8sspecs.NameGetter) v1.ObjectMeta {
-		return v1.ObjectMeta{
-			Name:        getBindingName(sa, role),
-			Namespace:   k.namespace,
-			Labels:      RBACLabels(appName, k.CurrentModel(), false, k.IsLegacyLabels()),
-			Annotations: annotations,
-		}
-	}
-	getClusterBindingMeta := func(sa, clusterRole k8sspecs.NameGetter) v1.ObjectMeta {
-		return v1.ObjectMeta{
-			Name:        getBindingName(sa, clusterRole),
-			Namespace:   k.namespace,
-			Labels:      RBACLabels(appName, k.CurrentModel(), true, k.IsLegacyLabels()),
-			Annotations: annotations,
-		}
-	}
-
-	serviceAccounts, roles, clusterroles, roleBindings, clusterRoleBindings := rbacDefinition.ToK8s(
-		getSAMeta,
-		getRoleMeta,
-		getClusterRoleMeta,
-		getBindingMeta,
-		getClusterBindingMeta,
-	)
-
-	for _, spec := range serviceAccounts {
-		_, sacleanups, err := k.ensureServiceAccount(&spec)
-		cleanups = append(cleanups, sacleanups...)
-		if err != nil {
-			return cleanups, errors.Trace(err)
-		}
-	}
-
-	for _, spec := range roles {
-		_, rCleanups, err := k.ensureRole(&spec)
-		cleanups = append(cleanups, rCleanups...)
-		if err != nil {
-			return cleanups, errors.Trace(err)
-		}
-	}
-	for _, spec := range roleBindings {
-		_, rbCleanups, err := k.ensureRoleBinding(&spec)
-		cleanups = append(cleanups, rbCleanups...)
-		if err != nil {
-			return cleanups, errors.Trace(err)
-		}
-	}
-
-	for _, spec := range clusterroles {
-		cr := resources.ClusterRole{spec}
-		cRCleanups, err := cr.Ensure(
-			ctx,
-			k.client(),
-			resources.ClaimJujuOwnership,
-		)
-		cleanups = append(cleanups, cRCleanups...)
-		if err != nil {
-			return cleanups, errors.Trace(err)
-		}
-	}
-	for _, spec := range clusterRoleBindings {
-		clusterRoleBinding := resources.NewClusterRoleBinding(spec.Name, &spec)
-		crbCleanups, err := clusterRoleBinding.Ensure(
-			ctx,
-			k.client(),
-			resources.ClaimJujuOwnership,
-		)
-		cleanups = append(cleanups, crbCleanups...)
-		if err != nil {
-			return cleanups, errors.Trace(err)
-		}
-	}
-
-	return cleanups, nil
-}
-
-func (k *kubernetesClient) deleteAllServiceAccountResources(appName string) error {
-	selectorNamespaced := utils.LabelsToSelector(
-		RBACLabels(appName, k.CurrentModel(), false, k.IsLegacyLabels()))
-	selectorGlobal := utils.LabelsToSelector(
-		RBACLabels(appName, k.CurrentModel(), true, k.IsLegacyLabels()))
-	if err := k.deleteRoleBindings(selectorNamespaced); err != nil {
-		return errors.Trace(err)
-	}
-	if err := k.deleteClusterRoleBindings(selectorGlobal); err != nil {
-		return errors.Trace(err)
-	}
-	if err := k.deleteRoles(selectorNamespaced); err != nil {
-		return errors.Trace(err)
-	}
-	if err := k.deleteClusterRoles(selectorGlobal); err != nil {
-		return errors.Trace(err)
-	}
-	if err := k.deleteServiceAccounts(selectorNamespaced); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
 }
 
 func (k *kubernetesClient) createServiceAccount(sa *core.ServiceAccount) (*core.ServiceAccount, error) {
@@ -266,22 +111,6 @@ func (k *kubernetesClient) deleteServiceAccount(name string, uid types.UID) erro
 		return nil
 	}
 	return errors.Trace(err)
-}
-
-func (k *kubernetesClient) deleteServiceAccounts(selectors ...k8slabels.Selector) error {
-	for _, selector := range selectors {
-		err := k.client().CoreV1().ServiceAccounts(k.namespace).DeleteCollection(
-			context.TODO(),
-			v1.DeleteOptions{
-				PropagationPolicy: constants.DefaultPropagationPolicy(),
-			}, v1.ListOptions{
-				LabelSelector: selector.String(),
-			})
-		if !k8serrors.IsNotFound(err) {
-			return errors.Trace(err)
-		}
-	}
-	return nil
 }
 
 func (k *kubernetesClient) listServiceAccount(labels map[string]string) ([]core.ServiceAccount, error) {
@@ -367,25 +196,6 @@ func (k *kubernetesClient) deleteRole(name string, uid types.UID) error {
 		return nil
 	}
 	return errors.Trace(err)
-}
-
-func (k *kubernetesClient) deleteRoles(selectors ...k8slabels.Selector) error {
-	if k.namespace == "" {
-		return errNoNamespace
-	}
-	for _, selector := range selectors {
-		err := k.client().RbacV1().Roles(k.namespace).DeleteCollection(
-			context.TODO(),
-			v1.DeleteOptions{
-				PropagationPolicy: constants.DefaultPropagationPolicy(),
-			}, v1.ListOptions{
-				LabelSelector: selector.String(),
-			})
-		if !k8serrors.IsNotFound(err) {
-			return errors.Trace(err)
-		}
-	}
-	return nil
 }
 
 func (k *kubernetesClient) listRoles(selector k8slabels.Selector) ([]rbacv1.Role, error) {
@@ -534,25 +344,6 @@ func (k *kubernetesClient) deleteRoleBinding(name string, uid types.UID) error {
 		return nil
 	}
 	return errors.Trace(err)
-}
-
-func (k *kubernetesClient) deleteRoleBindings(selectors ...k8slabels.Selector) error {
-	if k.namespace == "" {
-		return errNoNamespace
-	}
-	for _, selector := range selectors {
-		err := k.client().RbacV1().RoleBindings(k.namespace).DeleteCollection(
-			context.TODO(),
-			v1.DeleteOptions{
-				PropagationPolicy: constants.DefaultPropagationPolicy(),
-			}, v1.ListOptions{
-				LabelSelector: selector.String(),
-			})
-		if !k8serrors.IsNotFound(err) {
-			return errors.Trace(err)
-		}
-	}
-	return nil
 }
 
 func (k *kubernetesClient) listRoleBindings(selector k8slabels.Selector) ([]rbacv1.RoleBinding, error) {

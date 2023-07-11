@@ -28,12 +28,10 @@ import (
 	"github.com/juju/juju/agent/addons"
 	"github.com/juju/juju/agent/config"
 	"github.com/juju/juju/agent/introspect"
-	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/cmd/internal/run"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
-	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
 	"github.com/juju/juju/cmd/jujud/dumplogs"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/machinelock"
@@ -272,16 +270,6 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		"",
 	)
 	jujud.Register(agentcmd.NewMachineAgentCmd(ctx, machineAgentFactory, agentConf, agentConf))
-
-	caasOperatorAgent, err := agentcmd.NewCaasOperatorAgent(ctx, bufferedLogger, func(mc *caasoperator.ManifoldsConfig) error {
-		mc.NewExecClient = k8sexec.NewInCluster
-		return nil
-	})
-	if err != nil {
-		return -1, errors.Trace(err)
-	}
-	jujud.Register(caasOperatorAgent)
-
 	jujud.Register(agentcmd.NewCheckConnectionCommand(agentConf, agentcmd.ConnectAsAgent))
 
 	code = cmd.Main(jujud, ctx, args[1:])

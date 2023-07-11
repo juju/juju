@@ -17,8 +17,6 @@ import (
 	coreseries "github.com/juju/juju/core/series"
 )
 
-const kubernetes = "kubernetes"
-
 // Model represents the existing deployment if any.
 type Model struct {
 	Applications map[string]*Application

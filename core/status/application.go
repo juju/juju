@@ -13,7 +13,6 @@ type AppContext struct {
 	// These are only set for CAAS models.
 
 	OperatorStatus StatusInfo
-	ExpectWorkload bool
 }
 
 // UnitContext holds the data necessary to derive a status
@@ -35,7 +34,7 @@ func DisplayApplicationStatus(ctx AppContext) StatusInfo {
 		unitStatus := make([]StatusInfo, len(ctx.UnitCtx))
 		for i, u := range ctx.UnitCtx {
 			if ctx.IsCaas {
-				unitStatus[i] = UnitDisplayStatus(u.WorkloadStatus, u.ContainerStatus, ctx.ExpectWorkload)
+				unitStatus[i] = UnitDisplayStatus(u.WorkloadStatus, u.ContainerStatus)
 			} else {
 				unitStatus[i] = u.WorkloadStatus
 			}
@@ -49,5 +48,5 @@ func DisplayApplicationStatus(ctx AppContext) StatusInfo {
 	if ctx.OperatorStatus.Status == "" {
 		return info
 	}
-	return ApplicationDisplayStatus(info, ctx.OperatorStatus, ctx.ExpectWorkload)
+	return ApplicationDisplayStatus(info, ctx.OperatorStatus)
 }

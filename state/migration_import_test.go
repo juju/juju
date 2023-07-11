@@ -525,7 +525,7 @@ func (s *MigrationImportSuite) setupSourceApplications(
 	c.Assert(err, jc.ErrorIsNil)
 	series := "quantal"
 	if testModel.Type() == state.ModelTypeCAAS {
-		series = "kubernetes"
+		series = "focal"
 		exposedSpaceIDs = nil
 	}
 	// Add a application with charm settings, app config, and leadership settings.
@@ -746,15 +746,9 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	platform := &state.Platform{Architecture: arch.DefaultArchitecture, OS: "ubuntu", Channel: "20.04/stable"}
 	charm, application, pwd := s.setupSourceApplications(c, caasSt, cons, platform, true)
 
-	model, err := caasSt.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	caasModel, err := model.CAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-	err = caasModel.SetPodSpec(nil, application.ApplicationTag(), strPtr("pod spec"))
-	c.Assert(err, jc.ErrorIsNil)
 	addr := network.NewSpaceAddress("192.168.1.1", network.WithScope(network.ScopeCloudLocal))
 	addr.SpaceID = "0"
-	err = application.UpdateCloudService("provider-id", []network.SpaceAddress{addr})
+	err := application.UpdateCloudService("provider-id", []network.SpaceAddress{addr})
 	c.Assert(err, jc.ErrorIsNil)
 
 	allApplications, err := caasSt.AllApplications()
@@ -768,16 +762,11 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	f := factory.NewFactory(newSt, s.StatePool)
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
-		Series:   "kubernetes",
+		Series:   "focal",
 		URL:      charm.String(),
 		Revision: strconv.Itoa(charm.Revision()),
 	})
 	s.assertImportedApplication(c, application, pwd, cons, exported, newModel, newSt, true)
-	newCAASModel, err := newModel.CAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-	podSpec, err := newCAASModel.PodSpec(application.ApplicationTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(podSpec, gc.Equals, "pod spec")
 	newApp, err := newSt.Application(application.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	cloudService, err := newApp.ServiceInfo()
@@ -823,12 +812,6 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	err = application.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	testModel, err := caasSt.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	caasModel, err := testModel.CAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-	err = caasModel.SetPodSpec(nil, application.ApplicationTag(), strPtr("pod spec"))
-	c.Assert(err, jc.ErrorIsNil)
 	addr := network.NewSpaceAddress("192.168.1.1", network.WithScope(network.ScopeCloudLocal))
 	err = application.UpdateCloudService("provider-id", []network.SpaceAddress{addr})
 	c.Assert(err, jc.ErrorIsNil)
@@ -843,7 +826,7 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	f := factory.NewFactory(newSt, s.StatePool)
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
-		Series:   "kubernetes",
+		Series:   "focal",
 		URL:      testCharm.String(),
 		Revision: strconv.Itoa(testCharm.Revision()),
 	})
@@ -1084,18 +1067,34 @@ func (s *MigrationImportSuite) TestApplicationsSubordinatesAfter(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestUnits(c *gc.C) {
-	s.assertUnitsMigrated(c, s.State, constraints.MustParse("arch=amd64 mem=8G"))
+	cons := constraints.MustParse("arch=amd64 mem=8G")
+	f := factory.NewFactory(s.State, s.StatePool)
+	exported, pwd := f.MakeUnitReturningPassword(c, &factory.UnitParams{
+		Constraints: cons,
+	})
+	s.assertUnitsMigrated(c, s.State, cons, exported, pwd)
 }
 
 func (s *MigrationImportSuite) TestCAASUnits(c *gc.C) {
 	caasSt := s.Factory.MakeCAASModel(c, nil)
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 
-	s.assertUnitsMigrated(c, caasSt, constraints.MustParse("arch=amd64 mem=8G"))
+	cons := constraints.MustParse("arch=amd64 mem=8G")
+	f := factory.NewFactory(caasSt, s.StatePool)
+	app := f.MakeApplication(c, &factory.ApplicationParams{Constraints: cons})
+	exported, pwd := f.MakeUnitReturningPassword(c, &factory.UnitParams{
+		Application: app,
+	})
+	s.assertUnitsMigrated(c, caasSt, cons, exported, pwd)
 }
 
 func (s *MigrationImportSuite) TestUnitsWithVirtConstraint(c *gc.C) {
-	s.assertUnitsMigrated(c, s.State, constraints.MustParse("arch=amd64 mem=8G virt-type=kvm"))
+	cons := constraints.MustParse("arch=amd64 mem=8G virt-type=kvm")
+	f := factory.NewFactory(s.State, s.StatePool)
+	exported, pwd := f.MakeUnitReturningPassword(c, &factory.UnitParams{
+		Constraints: cons,
+	})
+	s.assertUnitsMigrated(c, s.State, cons, exported, pwd)
 }
 
 func (s *MigrationImportSuite) TestUnitWithoutAnyPersistedState(c *gc.C) {
@@ -1147,12 +1146,7 @@ func (s *MigrationImportSuite) TestUnitWithoutAnyPersistedState(c *gc.C) {
 	c.Assert(isSet, jc.IsFalse, gc.Commentf("unexpected meter status state after import; SetState should not have been called"))
 }
 
-func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, cons constraints.Value) {
-	f := factory.NewFactory(st, s.StatePool)
-
-	exported, pwd := f.MakeUnitReturningPassword(c, &factory.UnitParams{
-		Constraints: cons,
-	})
+func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, cons constraints.Value, exported *state.Unit, pwd string) {
 	err := exported.SetMeterStatus("GREEN", "some info")
 	c.Assert(err, jc.ErrorIsNil)
 	err = exported.SetWorkloadVersion("amethyst")
@@ -3323,7 +3317,7 @@ func (s *MigrationImportSuite) TestApplicationWithProvisioningState(c *gc.C) {
 	f := factory.NewFactory(newSt, s.StatePool)
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
-		Series:   "kubernetes",
+		Series:   "focal",
 		URL:      testCharm.String(),
 		Revision: strconv.Itoa(testCharm.Revision()),
 	})

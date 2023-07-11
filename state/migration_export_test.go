@@ -411,49 +411,38 @@ func (s *MigrationExportSuite) TestMachineDevices(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestApplications(c *gc.C) {
-	s.assertMigrateApplications(c, false, s.State, constraints.MustParse("arch=amd64 mem=8G"))
-}
-
-func (s *MigrationExportSuite) TestCAASLegacyApplications(c *gc.C) {
-	caasSt := s.Factory.MakeCAASModel(c, nil)
-	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
-
-	s.assertMigrateApplications(c, false, caasSt, constraints.MustParse("arch=amd64 mem=8G"))
+	s.assertMigrateApplications(c, s.State, constraints.MustParse("arch=amd64 mem=8G"))
 }
 
 func (s *MigrationExportSuite) TestCAASSidecarApplications(c *gc.C) {
 	caasSt := s.Factory.MakeCAASModel(c, nil)
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 
-	s.assertMigrateApplications(c, true, caasSt, constraints.MustParse("arch=amd64 mem=8G"))
+	s.assertMigrateApplications(c, caasSt, constraints.MustParse("arch=amd64 mem=8G"))
 }
 
 func (s *MigrationExportSuite) TestApplicationsWithVirtConstraint(c *gc.C) {
-	s.assertMigrateApplications(c, false, s.State, constraints.MustParse("arch=amd64 mem=8G virt-type=kvm"))
+	s.assertMigrateApplications(c, s.State, constraints.MustParse("arch=amd64 mem=8G virt-type=kvm"))
 }
 
 func (s *MigrationExportSuite) TestApplicationsWithRootDiskSourceConstraint(c *gc.C) {
-	s.assertMigrateApplications(c, false, s.State, constraints.MustParse("arch=amd64 mem=8G root-disk-source=vonnegut"))
+	s.assertMigrateApplications(c, s.State, constraints.MustParse("arch=amd64 mem=8G root-disk-source=vonnegut"))
 }
 
-func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool, st *state.State, cons constraints.Value) {
+func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.State, cons constraints.Value) {
 	f := factory.NewFactory(st, s.StatePool)
 
 	dbModel, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	series := "quantal"
-	if dbModel.Type() == state.ModelTypeCAAS && !isSidecar {
-		series = "kubernetes"
+	if dbModel.Type() == state.ModelTypeCAAS {
+		series = "focal"
 	}
 	var ch *state.Charm
-	if isSidecar {
-		ch = f.MakeCharmV2(c, &factory.CharmParams{
-			Name:   "snappass-test",
-			Series: series,
-		})
-	} else {
-		ch = f.MakeCharm(c, &factory.CharmParams{Series: series})
-	}
+	ch = f.MakeCharmV2(c, &factory.CharmParams{
+		Name:   "snappass-test",
+		Series: series,
+	})
 	application := f.MakeApplication(c, &factory.ApplicationParams{
 		Charm: ch,
 		CharmConfig: map[string]interface{}{
@@ -490,39 +479,27 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 	if dbModel.Type() == state.ModelTypeCAAS {
 		_, err = application.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id1")})
 		c.Assert(err, jc.ErrorIsNil)
-		application.SetOperatorStatus(status.StatusInfo{Status: status.Running})
-
-		caasModel, err := dbModel.CAASModel()
+		err = application.SetOperatorStatus(status.StatusInfo{Status: status.Running})
 		c.Assert(err, jc.ErrorIsNil)
-		if !isSidecar {
-			err = caasModel.SetPodSpec(nil, application.ApplicationTag(), strPtr("pod spec"))
-			c.Assert(err, jc.ErrorIsNil)
-		}
+
 		addr := network.NewSpaceAddress("192.168.1.1", network.WithScope(network.ScopeCloudLocal))
 		err = application.UpdateCloudService("provider-id", []network.SpaceAddress{addr})
 		c.Assert(err, jc.ErrorIsNil)
 
-		if isSidecar {
-			err = application.SetProvisioningState(state.ApplicationProvisioningState{
-				Scaling:     true,
-				ScaleTarget: 3,
-			})
-			c.Assert(err, jc.ErrorIsNil)
-		}
+		err = application.SetProvisioningState(state.ApplicationProvisioningState{
+			Scaling:     true,
+			ScaleTarget: 3,
+		})
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	agentVer, err := version.ParseBinary("2.9.1-ubuntu-amd64")
 	c.Assert(err, jc.ErrorIsNil)
-	if dbModel.Type() == state.ModelTypeCAAS && !isSidecar {
-		err = application.SetAgentVersion(agentVer)
+	units, err := application.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	for _, unit := range units {
+		err = unit.SetAgentVersion(agentVer)
 		c.Assert(err, jc.ErrorIsNil)
-	} else {
-		units, err := application.AllUnits()
-		c.Assert(err, jc.ErrorIsNil)
-		for _, unit := range units {
-			err = unit.SetAgentVersion(agentVer)
-			c.Assert(err, jc.ErrorIsNil)
-		}
 	}
 
 	s.primeStatusHistory(c, application, status.Active, addedHistoryCount)
@@ -573,21 +550,13 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 	s.checkStatusHistory(c, history[:addedHistoryCount], status.Active)
 
 	if dbModel.Type() == state.ModelTypeCAAS {
-		if !isSidecar {
-			c.Assert(exported.PodSpec(), gc.Equals, "pod spec")
-			tools, err := application.AgentTools()
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(exported.Tools().Version(), gc.Equals, tools.Version)
-		} else {
-			c.Assert(exported.PodSpec(), gc.Equals, "")
-			units, err := application.AllUnits()
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(len(units), gc.Equals, len(exported.Units()))
+		units, err := application.AllUnits()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(len(units), gc.Equals, len(exported.Units()))
 
-			for _, exportedUnit := range exported.Units() {
-				tools := exportedUnit.Tools()
-				c.Assert(tools.Version(), gc.Equals, agentVer)
-			}
+		for _, exportedUnit := range exported.Units() {
+			tools := exportedUnit.Tools()
+			c.Assert(tools.Version(), gc.Equals, agentVer)
 		}
 		c.Assert(exported.CloudService().ProviderId(), gc.Equals, "provider-id")
 		c.Assert(exported.DesiredScale(), gc.Equals, 3)
@@ -600,19 +569,16 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 		c.Assert(addr.Type(), gc.Equals, "ipv4")
 		c.Assert(addr.Origin(), gc.Equals, "provider")
 	} else {
-		c.Assert(exported.PodSpec(), gc.Equals, "")
 		c.Assert(exported.CloudService(), gc.IsNil)
 		_, err := application.AgentTools()
 		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	}
 
-	if dbModel.Type() == state.ModelTypeCAAS && isSidecar {
+	if dbModel.Type() == state.ModelTypeCAAS {
 		ps := exported.ProvisioningState()
 		c.Assert(ps, gc.NotNil)
 		c.Assert(ps.Scaling(), jc.IsTrue)
 		c.Assert(ps.ScaleTarget(), gc.Equals, 3)
-	} else {
-		c.Assert(exported.ProvisioningState(), gc.IsNil)
 	}
 }
 
@@ -896,22 +862,28 @@ func (s *MigrationExportSuite) TestExternalControllers(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestUnits(c *gc.C) {
-	s.assertMigrateUnits(c, s.State)
+	f := factory.NewFactory(s.State, s.StatePool)
+	unit := f.MakeUnit(c, &factory.UnitParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	s.assertMigrateUnits(c, s.State, unit)
 }
 
 func (s *MigrationExportSuite) TestCAASUnits(c *gc.C) {
 	caasSt := s.Factory.MakeCAASModel(c, nil)
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 
-	s.assertMigrateUnits(c, caasSt)
-}
-
-func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
-	f := factory.NewFactory(st, s.StatePool)
-
-	unit := f.MakeUnit(c, &factory.UnitParams{
+	f := factory.NewFactory(caasSt, s.StatePool)
+	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
+	unit := f.MakeUnit(c, &factory.UnitParams{
+		Application: app,
+	})
+	s.assertMigrateUnits(c, caasSt, unit)
+}
+
+func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State, unit *state.Unit) {
 	err := unit.SetMeterStatus("GREEN", "some info")
 	c.Assert(err, jc.ErrorIsNil)
 	for _, version := range []string{"garnet", "amethyst", "pearl", "steven"} {

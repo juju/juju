@@ -61,10 +61,6 @@ Currently available charm hook tools are:
     is-leader                print application leadership status
     juju-log                 write a message to the juju log
     juju-reboot              Reboot the host machine
-    k8s-raw-get              get k8s raw spec information
-    k8s-raw-set              set k8s raw spec information
-    k8s-spec-get             get k8s spec information
-    k8s-spec-set             set k8s spec information
     leader-get               print application leadership settings
     leader-set               write application leadership settings
     network-get              get network config
@@ -73,8 +69,6 @@ Currently available charm hook tools are:
     payload-register         register a charm payload with juju
     payload-status-set       update the status of a payload
     payload-unregister       stop tracking a payload
-    pod-spec-get             get k8s spec information (deprecated)
-    pod-spec-set             set k8s spec information (deprecated)
     relation-get             get relation settings
     relation-ids             list all relation ids with the given relation name
     relation-list            list relation units
@@ -120,10 +114,6 @@ var expectedCommands = []string{
 	"is-leader",
 	"juju-log",
 	"juju-reboot",
-	"k8s-raw-get",
-	"k8s-raw-set",
-	"k8s-spec-get",
-	"k8s-spec-set",
 	"leader-get",
 	"leader-set",
 	"network-get",
@@ -132,8 +122,6 @@ var expectedCommands = []string{
 	"payload-register",
 	"payload-status-set",
 	"payload-unregister",
-	"pod-spec-get",
-	"pod-spec-set",
 	"relation-get",
 	"relation-ids",
 	"relation-list",

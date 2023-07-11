@@ -9,7 +9,6 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/caas"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
@@ -57,11 +56,11 @@ func (api *APIBase) getConfig(
 		return params.ApplicationGetResults{}, err
 	}
 
-	providerSchema, providerDefaults, err := applicationConfigSchema(api.modelType)
+	providerSchema, providerDefaults, err := ConfigSchema()
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}
-	appConfigInfo := describeAppConfig(appConfig, providerSchema, caas.ConfigDefaults(providerDefaults))
+	appConfigInfo := describeAppConfig(appConfig, providerSchema, providerDefaults)
 	var cons constraints.Value
 	if app.IsPrincipal() {
 		cons, err = app.Constraints()
@@ -115,16 +114,20 @@ func (api *APIBase) getConfig(
 
 func describeAppConfig(
 	appConfig config.ConfigAttributes,
-	schema environschema.Fields,
+	schemaFields environschema.Fields,
 	defaults schema.Defaults,
 ) map[string]interface{} {
 	results := make(map[string]interface{})
-	for name, field := range schema {
+	for name, field := range schemaFields {
 		defaultValue := defaults[name]
 		info := map[string]interface{}{
 			"description": field.Description,
 			"type":        field.Type,
 			"source":      "unset",
+		}
+		if defaultValue == schema.Omit {
+			results[name] = info
+			continue
 		}
 		set := false
 		if value := appConfig[name]; value != nil && defaultValue != value {

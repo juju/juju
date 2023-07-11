@@ -14,19 +14,12 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
-	"github.com/juju/juju/caas/specs"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/secrets"
 )
-
-func getSecretLabels(appName string, legacy bool) map[string]string {
-	return utils.LabelsForApp(appName, legacy)
-}
 
 func processSecretData(in map[string]string) (_ map[string][]byte, err error) {
 	out := make(map[string][]byte)
@@ -36,55 +29,6 @@ func processSecretData(in map[string]string) (_ map[string][]byte, err error) {
 		}
 	}
 	return out, nil
-}
-
-func (k *kubernetesClient) ensureSecrets(appName string, annotations k8sannotations.Annotation, secrets []k8sspecs.K8sSecret) (cleanUps []func(), err error) {
-	for _, v := range secrets {
-		spec := &core.Secret{
-			ObjectMeta: v1.ObjectMeta{
-				Name:        v.Name,
-				Namespace:   k.namespace,
-				Labels:      getSecretLabels(appName, k.IsLegacyLabels()),
-				Annotations: annotations.Merge(v.Annotations),
-			},
-			Type:       v.Type,
-			StringData: v.StringData,
-		}
-		if len(v.Data) > 0 {
-			if spec.Data, err = processSecretData(v.Data); err != nil {
-				return cleanUps, errors.Trace(err)
-			}
-		}
-		secretCleanup, err := k.ensureSecret(spec)
-		cleanUps = append(cleanUps, secretCleanup)
-		if err != nil {
-			return cleanUps, errors.Trace(err)
-		}
-	}
-	return cleanUps, nil
-}
-
-func (k *kubernetesClient) ensureOCIImageSecretForApp(
-	imageSecretName,
-	appName string,
-	imageDetails *specs.ImageDetails,
-	annotations k8sannotations.Annotation,
-) error {
-	if imageDetails.Password == "" {
-		return errors.New("attempting to create a secret with no password")
-	}
-	secretData, err := utils.CreateDockerConfigJSON(imageDetails.Username, imageDetails.Password, imageDetails.ImagePath)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	logger.Debugf("ensuring docker secret %q", imageSecretName)
-	_, err = k.ensureOCIImageSecret(
-		imageSecretName,
-		getSecretLabels(appName, k.IsLegacyLabels()),
-		secretData, annotations.ToMap(),
-	)
-	return errors.Trace(err)
 }
 
 // ensureOCIImageSecret ensures a secret exists for use with retrieving images from private registries.
@@ -200,22 +144,6 @@ func (k *kubernetesClient) listSecrets(labels map[string]string) ([]core.Secret,
 		return nil, errors.NotFoundf("secret with labels %v", labels)
 	}
 	return secList.Items, nil
-}
-
-func (k *kubernetesClient) deleteSecrets(appName string) error {
-	if k.namespace == "" {
-		return errNoNamespace
-	}
-	err := k.client().CoreV1().Secrets(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: constants.DefaultPropagationPolicy(),
-	}, v1.ListOptions{
-		LabelSelector: utils.LabelsToSelector(
-			getSecretLabels(appName, k.IsLegacyLabels())).String(),
-	})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return errors.Trace(err)
 }
 
 var timeoutForSecretTokenGet = 10 * time.Second

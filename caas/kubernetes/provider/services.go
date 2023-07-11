@@ -5,7 +5,6 @@ package provider
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/errors"
 	core "k8s.io/api/core/v1"
@@ -15,37 +14,8 @@ import (
 
 	"github.com/juju/juju/caas/kubernetes/provider/application"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
-	k8sannotations "github.com/juju/juju/core/annotations"
 )
-
-func getServiceLabels(appName string, legacy bool) map[string]string {
-	return utils.LabelsForApp(appName, legacy)
-}
-
-func (k *kubernetesClient) ensureServicesForApp(appName, deploymentName string, annotations k8sannotations.Annotation, services []k8sspecs.K8sService) (cleanUps []func(), err error) {
-	for _, v := range services {
-		if v.Name == deploymentName {
-			return cleanUps, errors.NewNotValid(nil, fmt.Sprintf("%q is a reserved service name", deploymentName))
-		}
-		spec := &core.Service{
-			ObjectMeta: meta.ObjectMeta{
-				Name:        v.Name,
-				Namespace:   k.namespace,
-				Labels:      utils.LabelsMerge(v.Labels, getServiceLabels(appName, k.IsLegacyLabels())),
-				Annotations: annotations.Copy().Merge(v.Annotations),
-			},
-			Spec: v.Spec,
-		}
-		serviceCleanup, err := k.ensureK8sService(spec)
-		cleanUps = append(cleanUps, serviceCleanup)
-		if err != nil {
-			return cleanUps, errors.Trace(err)
-		}
-	}
-	return cleanUps, nil
-}
 
 // ensureK8sService ensures a k8s service resource.
 func (k *kubernetesClient) ensureK8sService(spec *core.Service) (func(), error) {
@@ -85,32 +55,6 @@ func (k *kubernetesClient) deleteService(serviceName string) error {
 		return nil
 	}
 	return errors.Trace(err)
-}
-
-func (k *kubernetesClient) deleteServices(appName string) error {
-	if k.namespace == "" {
-		return errNoNamespace
-	}
-	// Service API does not have `DeleteCollection` implemented, so we have to do it like this.
-	api := k.client().CoreV1().Services(k.namespace)
-	services, err := api.List(context.TODO(),
-		meta.ListOptions{
-			LabelSelector: utils.LabelsToSelector(
-				getServiceLabels(appName, k.IsLegacyLabels())).String(),
-		},
-	)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, svc := range services.Items {
-		if err := k.deleteService(svc.GetName()); err != nil {
-			if errors.IsNotFound(err) {
-				continue
-			}
-			return errors.Trace(err)
-		}
-	}
-	return nil
 }
 
 func findServiceForApplication(

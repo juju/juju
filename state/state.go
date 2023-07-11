@@ -1472,13 +1472,6 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) (Ba
 	var supportedSeries []string
 	if cSeries := args.Charm.URL().Series; cSeries != "" {
 		supportedSeries = []string{cSeries}
-		// If a charm has a url, but is a kubernetes charm then we need to
-		// add this to the list of supported series.
-		if cSeries != series.Kubernetes.String() &&
-			(set.NewStrings(args.Charm.Meta().Series...).Contains(series.Kubernetes.String()) ||
-				len(args.Charm.Meta().Containers) > 0) {
-			supportedSeries = append(supportedSeries, series.Kubernetes.String())
-		}
 	} else {
 		var err error
 		supportedSeries, err = corecharm.ComputedSeries(args.Charm)
@@ -1489,9 +1482,6 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) (Ba
 	if len(supportedSeries) > 0 {
 		supportedOperatingSystems := make(map[string]bool)
 		for _, chSeries := range supportedSeries {
-			if chSeries == series.Kubernetes.String() {
-				chSeries = series.LegacyKubernetesSeries()
-			}
 			os, err := series.GetOSFromSeries(chSeries)
 			if err != nil {
 				// If we can't figure out a series written in the charm
@@ -2244,10 +2234,6 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				}
 				var charmBases []string
 				for _, s := range charmSeries {
-					if s == series.Kubernetes.String() {
-						charmBases = append(charmBases, series.LegacyKubernetesBase().DisplayString())
-						continue
-					}
 					b, err := series.GetBaseFromSeries(s)
 					if err != nil {
 						return nil, errors.Trace(err)

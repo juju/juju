@@ -51,13 +51,6 @@ var baseCommands = map[string]creator{
 	"status-set":              NewStatusSetCommand,
 	"network-get":             NewNetworkGetCommand,
 	"application-version-set": NewApplicationVersionSetCommand,
-	"k8s-spec-set":            constructCommandCreator("k8s-spec-set", NewK8sSpecSetCommand),
-	"k8s-spec-get":            constructCommandCreator("k8s-spec-get", NewK8sSpecGetCommand),
-	"k8s-raw-set":             NewK8sRawSetCommand,
-	"k8s-raw-get":             NewK8sRawGetCommand,
-	// "pod" variants are deprecated.
-	"pod-spec-set": constructCommandCreator("pod-spec-set", NewK8sSpecSetCommand),
-	"pod-spec-get": constructCommandCreator("pod-spec-get", NewK8sSpecGetCommand),
 
 	"goal-state":     NewGoalStateCommand,
 	"credential-get": NewCredentialGetCommand,
@@ -70,14 +63,6 @@ var baseCommands = map[string]creator{
 	"state-get":    NewStateGetCommand,
 	"state-delete": NewStateDeleteCommand,
 	"state-set":    NewStateSetCommand,
-}
-
-type functionCmdCreator func(Context, string) (cmd.Command, error)
-
-func constructCommandCreator(name string, newCmd functionCmdCreator) creator {
-	return func(ctx Context) (cmd.Command, error) {
-		return newCmd(ctx, name)
-	}
 }
 
 var secretCommands = map[string]creator{

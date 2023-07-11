@@ -915,22 +915,6 @@ func (b *CommitHookParamsBuilder) AddStorage(constraints map[string][]params.Sto
 	b.arg.AddStorage = storageReqs
 }
 
-// SetPodSpec records a request to update the PodSpec for an application.
-func (b *CommitHookParamsBuilder) SetPodSpec(appTag names.ApplicationTag, spec *string) {
-	b.arg.SetPodSpec = &params.PodSpec{
-		Tag:  appTag.String(),
-		Spec: spec,
-	}
-}
-
-// SetRawK8sSpec records a request to update the PodSpec for an application.
-func (b *CommitHookParamsBuilder) SetRawK8sSpec(appTag names.ApplicationTag, spec *string) {
-	b.arg.SetRawK8sSpec = &params.PodSpec{
-		Tag:  appTag.String(),
-		Spec: spec,
-	}
-}
-
 // SecretUpsertArg holds parameters for creating or updating a secret.
 type SecretUpsertArg struct {
 	URI          *secrets.URI
@@ -1132,13 +1116,6 @@ func (b *CommitHookParamsBuilder) changeCount() int {
 	if b.arg.SetUnitState != nil {
 		count++
 	}
-	if b.arg.SetPodSpec != nil {
-		count++
-	}
-	if b.arg.SetRawK8sSpec != nil {
-		count++
-	}
-
 	count += len(b.arg.RelationUnitSettings)
 	count += len(b.arg.OpenPorts)
 	count += len(b.arg.ClosePorts)

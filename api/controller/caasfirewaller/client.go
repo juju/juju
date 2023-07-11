@@ -18,15 +18,15 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// Client allows access to the CAAS firewaller API endpoint.
+// Client allows access to the CAAS firewaller API endpoint for sidecar applications.
 type Client struct {
 	facade base.FacadeCaller
 	*charmscommon.CharmInfoClient
 	*charmscommon.ApplicationCharmInfoClient
 }
 
-// NewClientLegacy returns a client used to access the CAAS unit provisioner API.
-func NewClientLegacy(caller base.APICaller) *Client {
+// NewClient returns a client used to access the CAAS firewaller API.
+func NewClient(caller base.APICaller) *Client {
 	facadeCaller := base.NewFacadeCaller(caller, "CAASFirewaller")
 	charmInfoClient := charmscommon.NewCharmInfoClient(facadeCaller)
 	appCharmInfoClient := charmscommon.NewApplicationCharmInfoClient(facadeCaller)
@@ -37,34 +37,14 @@ func NewClientLegacy(caller base.APICaller) *Client {
 	}
 }
 
-// ClientSidecar allows access to the CAAS firewaller API endpoint for sidecar applications.
-type ClientSidecar struct {
-	*Client
-}
-
-// NewClientSidecar returns a client used to access the CAAS unit provisioner API.
-func NewClientSidecar(caller base.APICaller) *ClientSidecar {
-	// TODO(sidecar): add OpenedPorts and ClosedPorts API for caasfirewallersidecar worker to fetch port mapping changes.
-	facadeCaller := base.NewFacadeCaller(caller, "CAASFirewallerSidecar")
-	charmInfoClient := charmscommon.NewCharmInfoClient(facadeCaller)
-	appCharmInfoClient := charmscommon.NewApplicationCharmInfoClient(facadeCaller)
-	return &ClientSidecar{
-		Client: &Client{
-			facade:                     facadeCaller,
-			CharmInfoClient:            charmInfoClient,
-			ApplicationCharmInfoClient: appCharmInfoClient,
-		},
-	}
-}
-
 // modelTag returns the current model's tag.
-func (c *ClientSidecar) modelTag() (names.ModelTag, bool) {
+func (c *Client) modelTag() (names.ModelTag, bool) {
 	return c.facade.RawAPICaller().ModelTag()
 }
 
 // WatchOpenedPorts returns a StringsWatcher that notifies of
 // changes to the opened ports for the current model.
-func (c *ClientSidecar) WatchOpenedPorts() (watcher.StringsWatcher, error) {
+func (c *Client) WatchOpenedPorts() (watcher.StringsWatcher, error) {
 	modelTag, ok := c.modelTag()
 	if !ok {
 		return nil, errors.New("API connection is controller-only (should never happen)")
@@ -88,7 +68,7 @@ func (c *ClientSidecar) WatchOpenedPorts() (watcher.StringsWatcher, error) {
 }
 
 // GetOpenedPorts returns all the opened ports for each given application.
-func (c *ClientSidecar) GetOpenedPorts(appName string) (network.GroupedPortRanges, error) {
+func (c *Client) GetOpenedPorts(appName string) (network.GroupedPortRanges, error) {
 	arg := params.Entity{
 		Tag: names.NewApplicationTag(appName).String(),
 	}

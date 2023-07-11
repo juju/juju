@@ -6,6 +6,8 @@ package multiwatcher
 import (
 	"time"
 
+	"github.com/juju/worker/v3"
+
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
@@ -13,7 +15,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/worker/v3"
 )
 
 // The kind constants are there to stop typos when switching on kinds.
@@ -169,26 +170,6 @@ type StatusInfo struct {
 	Data    map[string]interface{}
 }
 
-// NewStatusInfo return a new multiwatcher StatusInfo from a
-// status StatusInfo.
-func NewStatusInfo(s status.StatusInfo, err error) StatusInfo {
-	return StatusInfo{
-		Err:     err,
-		Current: s.Status,
-		Message: s.Message,
-		Since:   s.Since,
-		Data:    s.Data,
-	}
-}
-
-// PodSpec is used to determine whether or not a CAAS application
-// has called the command to set the pod spec.
-type PodSpec struct {
-	Spec    string
-	Raw     bool
-	Counter int
-}
-
 // ApplicationInfo holds the information about an application that is tracked
 // by multiwatcherStore.
 type ApplicationInfo struct {
@@ -206,7 +187,6 @@ type ApplicationInfo struct {
 	Status          StatusInfo
 	OperatorStatus  StatusInfo // For CAAS models.
 	WorkloadVersion string
-	PodSpec         *PodSpec // For CAAS models.
 }
 
 // EntityID returns a unique identifier for an application across

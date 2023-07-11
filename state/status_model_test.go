@@ -197,7 +197,7 @@ func (s *ModelStatusSuite) TestUnitStatus(c *gc.C) {
 
 	msAgent, err := ms.UnitAgent(unit.Name())
 	c.Assert(err, jc.ErrorIsNil)
-	msWorkload, err := ms.UnitWorkload(unit.Name(), true)
+	msWorkload, err := ms.UnitWorkload(unit.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	msWorkloadVersion, err := ms.UnitWorkloadVersion(unit.Name())
 	c.Assert(err, jc.ErrorIsNil)
@@ -229,7 +229,7 @@ func (s *ModelStatusSuite) TestUnitStatusWeirdness(c *gc.C) {
 
 	msAgent, err := ms.UnitAgent(unit.Name())
 	c.Assert(err, jc.ErrorIsNil)
-	msWorkload, err := ms.UnitWorkload(unit.Name(), true)
+	msWorkload, err := ms.UnitWorkload(unit.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	uAgent, err := unit.AgentStatus()

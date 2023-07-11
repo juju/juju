@@ -1194,7 +1194,7 @@ func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func
 		},
 	}
 
-	ch := state.AddTestingCharmForSeries(c, st, "kubernetes", "storage-filesystem")
+	ch := state.AddTestingCharmForSeries(c, st, "focal", "storage-filesystem")
 	storCons := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
 	}

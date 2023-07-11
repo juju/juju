@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
@@ -50,149 +49,62 @@ func (s *OpsSuite) SetUpTest(c *gc.C) {
 	s.logger = loggo.GetLogger("test")
 }
 
-func (s *OpsSuite) TestVerifyCharmUpgraded(c *gc.C) {
+func (s *OpsSuite) TestCheckCharmFormatV1(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	charmInfoV1 := &charmscommon.CharmInfo{
 		Meta: &charm.Meta{Name: "test"},
 	}
+
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+
+	gomock.InOrder(
+		// Wait till charm is v2
+		facade.EXPECT().ApplicationCharmInfo("test").Return(charmInfoV1, nil),
+	)
+
+	isOk, err := caasapplicationprovisioner.AppOps.CheckCharmFormat("test", facade, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isOk, jc.IsFalse)
+}
+
+func (s *OpsSuite) TestCheckCharmFormatV2(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	charmInfoV2 := &charmscommon.CharmInfo{
 		Meta:     &charm.Meta{Name: "test"},
 		Manifest: &charm.Manifest{Bases: []charm.Base{{}}},
 	}
 
-	appStateChan := make(chan struct{}, 1)
-	appStateWatcher := watchertest.NewMockNotifyWatcher(appStateChan)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
-
-	done := make(chan struct{})
-	defer close(done)
-	tomb := &mockTomb{done}
 
 	gomock.InOrder(
 		// Wait till charm is v2
-		facade.EXPECT().WatchApplication("test").Return(appStateWatcher, nil),
-		facade.EXPECT().ApplicationCharmInfo("test").Return(charmInfoV1, nil),
-		facade.EXPECT().Life("test").DoAndReturn(func(appName string) (life.Value, error) {
-			appStateChan <- struct{}{}
-			return life.Alive, nil
-		}),
 		facade.EXPECT().ApplicationCharmInfo("test").Return(charmInfoV2, nil),
 	)
 
-	shouldExit, err := caasapplicationprovisioner.AppOps.VerifyCharmUpgraded("test", facade, tomb, s.logger)
+	isOk, err := caasapplicationprovisioner.AppOps.CheckCharmFormat("test", facade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(shouldExit, jc.IsFalse)
+	c.Assert(isOk, jc.IsTrue)
 }
 
-func (s *OpsSuite) TestVerifyCharmUpgradeLifeDead(c *gc.C) {
+func (s *OpsSuite) TestCheckCharmFormatNotFound(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	charmInfoV1 := &charmscommon.CharmInfo{
-		Meta: &charm.Meta{Name: "test"},
-	}
-
-	appStateChan := make(chan struct{}, 1)
-	appStateWatcher := watchertest.NewMockNotifyWatcher(appStateChan)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 
-	done := make(chan struct{})
-	tomb := &mockTomb{done}
-
 	gomock.InOrder(
-		// Wait till charm is v2
-		facade.EXPECT().WatchApplication("test").Return(appStateWatcher, nil),
-		facade.EXPECT().ApplicationCharmInfo("test").Return(charmInfoV1, nil),
-		facade.EXPECT().Life("test").DoAndReturn(func(appName string) (life.Value, error) {
-			close(done)
-			return life.Dead, nil
-		}),
-	)
-
-	shouldExit, err := caasapplicationprovisioner.AppOps.VerifyCharmUpgraded("test", facade, tomb, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(shouldExit, jc.IsTrue)
-}
-
-func (s *OpsSuite) TestVerifyCharmUpgradeLifeNotFound(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	charmInfoV1 := &charmscommon.CharmInfo{
-		Meta: &charm.Meta{Name: "test"},
-	}
-
-	appStateChan := make(chan struct{}, 1)
-	appStateWatcher := watchertest.NewMockNotifyWatcher(appStateChan)
-	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
-
-	done := make(chan struct{})
-	tomb := &mockTomb{done}
-
-	gomock.InOrder(
-		// Wait till charm is v2
-		facade.EXPECT().WatchApplication("test").Return(appStateWatcher, nil),
-		facade.EXPECT().ApplicationCharmInfo("test").Return(charmInfoV1, nil),
-		facade.EXPECT().Life("test").DoAndReturn(func(appName string) (life.Value, error) {
-			close(done)
-			return "", errors.NotFoundf("test charm")
-		}),
-	)
-
-	shouldExit, err := caasapplicationprovisioner.AppOps.VerifyCharmUpgraded("test", facade, tomb, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(shouldExit, jc.IsTrue)
-}
-
-func (s *OpsSuite) TestVerifyCharmUpgradeInfoNotFound(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	appStateChan := make(chan struct{}, 1)
-	appStateWatcher := watchertest.NewMockNotifyWatcher(appStateChan)
-	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
-
-	done := make(chan struct{})
-	tomb := &mockTomb{done}
-
-	gomock.InOrder(
-		// Wait till charm is v2
-		facade.EXPECT().WatchApplication("test").Return(appStateWatcher, nil),
 		facade.EXPECT().ApplicationCharmInfo("test").DoAndReturn(func(appName string) (*charmscommon.CharmInfo, error) {
-			close(done)
 			return nil, errors.NotFoundf("test charm")
 		}),
 	)
 
-	shouldExit, err := caasapplicationprovisioner.AppOps.VerifyCharmUpgraded("test", facade, tomb, s.logger)
+	isOk, err := caasapplicationprovisioner.AppOps.CheckCharmFormat("test", facade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(shouldExit, jc.IsTrue)
-}
-
-func (s *OpsSuite) TestUpgradePodSpec(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	broker := mocks.NewMockCAASBroker(ctrl)
-
-	done := make(chan struct{})
-	defer close(done)
-	tomb := &mockTomb{done}
-
-	clk := testclock.NewDilatedWallClock(coretesting.ShortWait)
-
-	gomock.InOrder(
-		broker.EXPECT().OperatorExists("test").Return(caas.DeploymentState{Exists: true}, nil),
-		broker.EXPECT().DeleteService("test").Return(nil),
-		broker.EXPECT().Units("test", caas.ModeWorkload).Return([]caas.Unit{}, nil),
-		broker.EXPECT().DeleteOperator("test").Return(nil),
-		broker.EXPECT().OperatorExists("test").Return(caas.DeploymentState{Exists: false}, nil),
-	)
-
-	err := caasapplicationprovisioner.AppOps.UpgradePodSpec("test", broker, clk, tomb, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isOk, jc.IsFalse)
 }
 
 func (s *OpsSuite) TestEnsureTrust(c *gc.C) {
@@ -317,8 +229,8 @@ func (s *OpsSuite) TestUpdateState(c *gc.C) {
 		unitFacade.EXPECT().UpdateApplicationService(updateServiceArg).Return(nil),
 		app.EXPECT().Units().Return(units, nil),
 		facade.EXPECT().UpdateUnits(updateUnitsArg).Return(appUnitInfo, nil),
-		broker.EXPECT().AnnotateUnit("test", caas.ModeSidecar, "a", names.NewUnitTag("test/0")).Return(nil),
-		broker.EXPECT().AnnotateUnit("test", caas.ModeSidecar, "b", names.NewUnitTag("test/1")).Return(nil),
+		broker.EXPECT().AnnotateUnit("test", "a", names.NewUnitTag("test/0")).Return(nil),
+		broker.EXPECT().AnnotateUnit("test", "b", names.NewUnitTag("test/1")).Return(nil),
 	)
 
 	lastReportedStatus := map[string]status.StatusInfo{

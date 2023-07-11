@@ -105,9 +105,6 @@ func makeAllWatcherCollectionInfo(collNames []string) map[string]allWatcherState
 			// Permissions are attached to the Model that they are for.
 			collection.docType = reflect.TypeOf(backingPermission{})
 			collection.subsidiary = true
-		case podSpecsC:
-			collection.docType = reflect.TypeOf(backingPodSpec{})
-			collection.subsidiary = true
 		default:
 			allWatcherLogger.Criticalf("programming error: unknown collection %q", collName)
 		}
@@ -690,18 +687,6 @@ func (app *backingApplication) updated(ctx *allWatcherContext) error {
 			return errors.Annotatef(err, "get model type for %q", ctx.modelUUID)
 		}
 		if modelType == ModelTypeCAAS {
-			// Look for the PodSpec for this application.
-			var doc backingPodSpec
-			if err := readPodInfo(ctx.state.db(), app.Name, &doc); err != nil {
-				if errors.IsNotFound(err) {
-					// This is expected in some situations, there just hasn't
-					// been a call to set the pod spec.
-				} else {
-					return errors.Annotatef(err, "get podSpec for %s", app.Name)
-				}
-			} else {
-				info.PodSpec = doc.asPodSpec()
-			}
 			key = applicationGlobalOperatorKey(app.Name)
 			operatorStatus, err := ctx.getStatus(key, "application operator")
 			if err == nil {
@@ -725,7 +710,6 @@ func (app *backingApplication) updated(ctx *allWatcherContext) error {
 		}
 		info.Status = appInfo.Status
 		info.OperatorStatus = appInfo.OperatorStatus
-		info.PodSpec = appInfo.PodSpec
 	}
 	if needConfig {
 		config, err := ctx.getSettings(applicationCharmConfigKey(app.Name, app.CharmURL))
@@ -746,56 +730,6 @@ func (app *backingApplication) removed(ctx *allWatcherContext) error {
 
 func (app *backingApplication) mongoID() string {
 	return app.Name
-}
-
-type backingPodSpec containerSpecDoc
-
-func (ps *backingPodSpec) updated(ctx *allWatcherContext) error {
-	allWatcherLogger.Tracef(`podspec "%s:%s" updated`, ctx.modelUUID, ctx.id)
-
-	// The id of the podspec is the application global key.
-	parentID, _, ok := ctx.entityIDForGlobalKey(ctx.id)
-	if !ok {
-		return nil
-	}
-	info0 := ctx.store.Get(parentID)
-	switch info := info0.(type) {
-	case nil:
-		// The parent info doesn't exist. Ignore until it does.
-		return nil
-	case *multiwatcher.ApplicationInfo:
-		newInfo := *info
-		newInfo.PodSpec = ps.asPodSpec()
-		info0 = &newInfo
-	default:
-		allWatcherLogger.Warningf("unexpected podspec type: %T", info)
-		return nil
-	}
-	ctx.store.Update(info0)
-	return nil
-}
-
-func (ps *backingPodSpec) asPodSpec() *multiwatcher.PodSpec {
-	podSpec := &multiwatcher.PodSpec{
-		Spec:    ps.Spec,
-		Counter: ps.UpgradeCounter,
-	}
-	if len(podSpec.Spec) == 0 && len(ps.RawSpec) > 0 {
-		podSpec.Spec = ps.RawSpec
-		podSpec.Raw = true
-	}
-	return podSpec
-}
-
-func (ps *backingPodSpec) removed(ctx *allWatcherContext) error {
-	allWatcherLogger.Tracef(`podspec "%s:%s" removed`, ctx.modelUUID, ctx.id)
-	// The podSpec is only removed when the application is removed, so we don't care.
-	return nil
-}
-
-func (ps *backingPodSpec) mongoID() string {
-	allWatcherLogger.Criticalf("programming error: attempting to get mongoID from podspec document")
-	return ""
 }
 
 type backingCharm charmDoc
@@ -1654,8 +1588,6 @@ func NewAllWatcherBacking(pool *StatePool) (AllWatcherBacking, error) {
 		remoteApplicationsC,
 		statusesC,
 		settingsC,
-		// And for CAAS we need to watch these...
-		podSpecsC,
 	}
 	collectionMap := makeAllWatcherCollectionInfo(collectionNames)
 	controllerState, err := pool.SystemState()

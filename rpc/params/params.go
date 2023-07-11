@@ -361,22 +361,6 @@ type ModelOperatorInfo struct {
 	Version      version.Number  `json:"version"`
 }
 
-// OperatorProvisioningInfoResults holds OperatorProvisioningInfo results.
-type OperatorProvisioningInfoResults struct {
-	Results []OperatorProvisioningInfo `json:"results"`
-}
-
-// OperatorProvisioningInfo holds info need to provision an operator.
-type OperatorProvisioningInfo struct {
-	ImageDetails     DockerImageInfo             `json:"image-details"`
-	BaseImageDetails DockerImageInfo             `json:"base-image-details"`
-	Version          version.Number              `json:"version"`
-	APIAddresses     []string                    `json:"api-addresses"`
-	Tags             map[string]string           `json:"tags,omitempty"`
-	CharmStorage     *KubernetesFilesystemParams `json:"charm-storage,omitempty"`
-	Error            *Error                      `json:"error,omitempty"`
-}
-
 // IssueOperatorCertificateResult contains an x509 certificate
 // for a CAAS Operator.
 type IssueOperatorCertificateResult struct {

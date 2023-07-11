@@ -402,11 +402,21 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 	if params == nil {
 		params = &CharmParams{}
 	}
+	model, err := factory.st.Model()
+	c.Assert(err, jc.ErrorIsNil)
 	if params.Name == "" {
-		params.Name = "mysql"
+		if model.Type() == state.ModelTypeCAAS {
+			params.Name = "mysql-k8s"
+		} else {
+			params.Name = "mysql"
+		}
 	}
 	if params.Series == "" {
-		params.Series = "quantal"
+		if model.Type() == state.ModelTypeCAAS {
+			params.Series = "focal"
+		} else {
+			params.Series = "quantal"
+		}
 	}
 	if params.Revision == "" {
 		params.Revision = fmt.Sprintf("%d", uniqueInteger())
@@ -495,10 +505,6 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 	if params.CharmOrigin == nil {
 		curl := params.Charm.URL()
 		chSeries := curl.Series
-		// Legacy k8s charms - assume ubuntu focal.
-		if chSeries == "kubernetes" {
-			chSeries = coreseries.LegacyKubernetesSeries()
-		}
 		base, err := coreseries.GetBaseFromSeries(chSeries)
 		c.Assert(err, jc.ErrorIsNil)
 		var channel *state.Channel
@@ -624,11 +630,7 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 		}
 	}
 	if params.Application == nil {
-		series := "quantal"
-		if model.Type() == state.ModelTypeCAAS {
-			series = "kubernetes"
-		}
-		ch := factory.MakeCharm(c, &CharmParams{Series: series})
+		ch := factory.MakeCharm(c, nil)
 		params.Application = factory.MakeApplication(c, &ApplicationParams{
 			Constraints: params.Constraints,
 			Charm:       ch,
