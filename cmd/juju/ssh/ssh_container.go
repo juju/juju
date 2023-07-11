@@ -78,6 +78,8 @@ func (c *sshContainer) setArgs(args []string) {
 
 func (c *sshContainer) setRetryStrategy(_ retry.CallArgs) {}
 
+func (c *sshContainer) setPublicKeyRetryStrategy(_ retry.CallArgs) {}
+
 // initRun initializes the API connection if required. It must be called
 // at the top of the command's Run method.
 func (c *sshContainer) initRun(mc ModelCommand) (err error) {

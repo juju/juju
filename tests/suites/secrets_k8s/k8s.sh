@@ -116,7 +116,7 @@ run_secret_drain() {
 	juju model-config secret-backend="$vault_backend_name"
 
 	attempt=0
-	until check_contains "$(microk8s kubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' -o json | jq '.items | length')" 0 >/dev/null 2>&1; do
+	until [[ $(microk8s kubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' -o json | jq '.items | length') -eq 0 ]]; do
 		if [[ ${attempt} -ge 30 ]]; then
 			echo "Failed: expected all secrets get drained to vault, so k8s has no secrets."
 			exit 1
@@ -131,7 +131,7 @@ run_secret_drain() {
 	juju model-config secret-backend=auto
 
 	attempt=0
-	until check_contains "$(microk8s kubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello')" "${unit_owned_short_uri}-1" >/dev/null 2>&1; do
+	until [[ "$(microk8s kubectl -n $model_name get secrets -l 'app.juju.is/created-by=hello')" =~ ${unit_owned_short_uri}-1 ]]; do
 		if [[ ${attempt} -ge 30 ]]; then
 			echo "Failed: expected secret ${unit_owned_short_uri}-1 gets drained to k8s."
 			exit 1
@@ -141,7 +141,7 @@ run_secret_drain() {
 	done
 
 	attempt=0
-	until check_contains "$(microk8s kubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello')" "${app_owned_short_uri}-1" >/dev/null 2>&1; do
+	until [[ "$(microk8s kubectl -n $model_name get secrets -l 'app.juju.is/created-by=hello')" =~ ${app_owned_short_uri}-1 ]]; do
 		if [[ ${attempt} -ge 30 ]]; then
 			echo "Failed: expected secret ${app_owned_short_uri}-1 gets drained to k8s."
 			exit 1
@@ -162,7 +162,7 @@ prepare_vault() {
 
 	ip=$(hostname -I | awk '{print $1}')
 	root_token='root'
-	timeout 30m vault server -dev -dev-listen-address="${ip}:8200" -dev-root-token-id="$root_token" >/dev/null 2>&1 &
+	timeout 45m vault server -dev -dev-listen-address="${ip}:8200" -dev-root-token-id="$root_token" >/dev/null 2>&1 &
 
 	export VAULT_ADDR="http://${ip}:8200"
 	export VAULT_TOKEN="$root_token"

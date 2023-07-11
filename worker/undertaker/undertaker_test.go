@@ -282,7 +282,7 @@ func (s *UndertakerSuite) TestEnvironDestroyTimeout(c *gc.C) {
 }
 
 func (s *UndertakerSuite) TestEnvironDestroyTimeoutForce(c *gc.C) {
-	timeout := time.Millisecond
+	timeout := time.Second
 	s.fix.info.Result.DestroyTimeout = &timeout
 	s.fix.info.Result.ForceDestroyed = true
 	s.fix.dirty = true

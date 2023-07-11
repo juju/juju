@@ -246,8 +246,8 @@ func (m *Model) hasCharm(charm string, revision int) bool {
 	return false
 }
 
-func (m *Model) matchesCharmPermutation(charm, arch, series, channel string, revision int, constraintGetter ConstraintGetter) bool {
-	if arch == "" && series == "" && channel == "" {
+func (m *Model) matchesCharmPermutation(charm, arch string, base coreseries.Base, channel string, revision int, constraintGetter ConstraintGetter) bool {
+	if arch == "" && base.Empty() && channel == "" {
 		return m.hasCharm(charm, revision)
 	}
 
@@ -263,10 +263,9 @@ func (m *Model) matchesCharmPermutation(charm, arch, series, channel string, rev
 			}
 		}
 
-		appSeries, _ := coreseries.GetSeriesFromBase(app.Base)
 		if app.Charm == charm &&
 			appArch == arch &&
-			appSeries == series &&
+			app.Base == base &&
 			app.Channel == channel &&
 			((revision >= 0 && revision == app.Revision) || revision < 0) {
 			return true

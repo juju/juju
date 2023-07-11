@@ -6,6 +6,7 @@ package caasapplicationprovisioner_test
 import (
 	jujutesting "github.com/juju/testing"
 	"github.com/juju/worker/v3"
+	"gopkg.in/tomb.v1"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/broker_mock.go github.com/juju/juju/worker/caasapplicationprovisioner CAASBroker
@@ -23,7 +24,19 @@ func (w *mockNotifyWorker) Notify() {
 	w.MethodCall(w, "Notify")
 }
 
-type appNotifyWorker interface {
-	worker.Worker
-	Notify()
+type mockTomb struct {
+	done chan struct{}
+}
+
+func (t *mockTomb) Dying() <-chan struct{} {
+	return t.done
+}
+
+func (t *mockTomb) ErrDying() error {
+	select {
+	case <-t.done:
+		return tomb.ErrDying
+	default:
+		return tomb.ErrStillAlive
+	}
 }

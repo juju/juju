@@ -9,9 +9,13 @@ package ssh
 import (
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/clock"
 	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/errors"
+	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -98,7 +102,7 @@ var sshTests = []struct {
 		about:       "connect to machine 1 which has no SSH host keys",
 		args:        []string{"1"},
 		hostChecker: validAddresses("1.public"),
-		expectedErr: `retrieving SSH host keys for "1": keys not found`,
+		expectedErr: `attempt count exceeded: retrieving SSH host keys for "1": keys not found`,
 	},
 	{
 		about:       "connect to machine 1 which has no SSH host keys, no host key checks",
@@ -180,8 +184,8 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 			target = t.target
 		}
 		ctrl := gomock.NewController(c)
-		ssh, app, status := s.setupModel(ctrl, t.expected.withProxy, nil, target)
-		sshCmd := NewSSHCommandForTest(app, ssh, status, t.hostChecker, isTerminal, baseTestingRetryStrategy)
+		ssh, app, status := s.setupModel(ctrl, t.expected.withProxy, nil, nil, target)
+		sshCmd := NewSSHCommandForTest(app, ssh, status, t.hostChecker, isTerminal, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
 		ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), t.args...)
 		if t.expectedErr != "" {
@@ -200,8 +204,8 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ssh, app, status := s.setupModel(ctrl, true, nil, "0")
-	sshCmd := NewSSHCommandForTest(app, ssh, status, s.hostChecker, nil, baseTestingRetryStrategy)
+	ssh, app, status := s.setupModel(ctrl, true, nil, nil, "0")
+	sshCmd := NewSSHCommandForTest(app, ssh, status, s.hostChecker, nil, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
 	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), "0")
 	c.Check(err, jc.ErrorIsNil)
@@ -219,8 +223,8 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSHAddressMatch(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ssh, app, status := s.setupModel(ctrl, true, nil, "0")
-	sshCmd := NewSSHCommandForTest(app, ssh, status, s.hostChecker, nil, baseTestingRetryStrategy)
+	ssh, app, status := s.setupModel(ctrl, true, nil, nil, "0")
+	sshCmd := NewSSHCommandForTest(app, ssh, status, s.hostChecker, nil, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
 	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), "0")
 	c.Check(err, jc.ErrorIsNil)
@@ -277,8 +281,8 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 	var addr []string
 	ssh, app, status := s.setupModel(ctrl, proxy, func() []string {
 		return addr
-	}, "0")
-	sshCmd := NewSSHCommandForTest(app, ssh, status, s.hostChecker, nil, baseTestingRetryStrategy)
+	}, nil, "0")
+	sshCmd := NewSSHCommandForTest(app, ssh, status, s.hostChecker, nil, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), args...)
 	c.Assert(err, gc.ErrorMatches, `no .+ address\(es\)`)
@@ -298,8 +302,8 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 
 	ssh, app, status = s.setupModel(ctrl, proxy, func() []string {
 		return addr
-	}, "0")
-	sshCmd = NewSSHCommandForTest(app, ssh, status, s.hostChecker, nil, baseTestingRetryStrategy)
+	}, nil, "0")
+	sshCmd = NewSSHCommandForTest(app, ssh, status, s.hostChecker, nil, baseTestingRetryStrategy, baseTestingRetryStrategy)
 	sshCmd.retryStrategy = retryStrategy
 	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), args...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -316,4 +320,52 @@ func (s *SSHSuite) TestMaybeResolveLeaderUnit(c *gc.C) {
 	resolvedUnit, err := ldr.maybeResolveLeaderUnit("loop/leader")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resolvedUnit, gc.Equals, "loop/1", gc.Commentf("expected leader to resolve to loop/1 for principal application"))
+}
+
+func (s *SSHSuite) TestKeyFetchRetries(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	isTerminal := func(stdin interface{}) bool {
+		return false
+	}
+
+	done := make(chan struct{})
+	publicKeyRetry := retry.CallArgs{
+		Attempts:    10,
+		Delay:       10 * time.Millisecond,
+		MaxDelay:    1 * time.Second,
+		BackoffFunc: retry.DoubleDelay,
+		Clock:       clock.WallClock,
+		NotifyFunc: func(lastError error, attempt int) {
+			if attempt == 1 {
+				close(done)
+			}
+		},
+	}
+	keysFunc := func(target string) ([]string, error) {
+		c.Check(target, gc.Equals, "1")
+		select {
+		case <-done:
+			return []string{
+				fmt.Sprintf("dsa-%s", target),
+				fmt.Sprintf("rsa-%s", target),
+			}, nil
+		default:
+			return nil, errors.NotFoundf("public keys for %s", target)
+		}
+	}
+
+	ssh, app, status := s.setupModel(ctrl, false, nil, keysFunc, "1")
+	cmd := NewSSHCommandForTest(app, ssh, status, validAddresses("1.public"), isTerminal, baseTestingRetryStrategy, publicKeyRetry)
+
+	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(cmd), "1")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+
+	select {
+	case <-done:
+	default:
+		c.Fatal("command exited before keys were delay set")
+	}
 }

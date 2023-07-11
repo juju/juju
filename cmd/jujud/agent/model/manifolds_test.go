@@ -36,7 +36,6 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 	c.Check(actual.SortedValues(), jc.DeepEquals, []string{
 		"action-pruner",
 		"agent",
-		"alive-flag",
 		"api-caller",
 		"api-config-watcher",
 		"application-scaler",
@@ -85,7 +84,6 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 	c.Check(actual.SortedValues(), jc.DeepEquals, []string{
 		"action-pruner",
 		"agent",
-		"alive-flag",
 		"api-caller",
 		"api-config-watcher",
 		"caas-application-provisioner",
@@ -125,7 +123,6 @@ func (s *ManifoldsSuite) TestFlagDependencies(c *gc.C) {
 		"is-responsible-flag",
 		"not-alive-flag",
 		"not-dead-flag",
-		"alive-flag",
 		// model upgrade manifolds are run on all
 		// controller agents, "responsible" or not.
 		"environ-upgrade-gate",
@@ -340,18 +337,16 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 
 	"environ-upgrader": {
 		"agent",
-		"alive-flag",
 		"api-caller",
 		"environ-upgrade-gate",
 		"is-responsible-flag",
+		"not-dead-flag",
 		"valid-credential-flag",
 	},
 
 	"not-alive-flag": {"agent", "api-caller"},
 
 	"not-dead-flag": {"agent", "api-caller"},
-
-	"alive-flag": {"agent", "api-caller"},
 
 	"remote-relations": {
 		"agent",
@@ -579,19 +574,17 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 
 	"environ-upgrader": {
 		"agent",
-		"alive-flag",
 		"api-caller",
 		"environ-tracker",
 		"environ-upgrade-gate",
 		"is-responsible-flag",
+		"not-dead-flag",
 		"valid-credential-flag",
 	},
 
 	"not-alive-flag": {"agent", "api-caller"},
 
 	"not-dead-flag": {"agent", "api-caller"},
-
-	"alive-flag": {"agent", "api-caller"},
 
 	"remote-relations": {
 		"agent",

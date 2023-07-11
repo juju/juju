@@ -39,7 +39,7 @@ run_secret_drain() {
 	model_uuid=$(juju show-model $model_name --format json | jq -r ".[\"${model_name}\"][\"model-uuid\"]")
 
 	attempt=0
-	until check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length)" 2 >/dev/null 2>&1; do
+	until [[ $(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length) -eq 2 ]]; do
 		if [[ ${attempt} -ge 30 ]]; then
 			echo "Failed: expected all secrets get drained to vault."
 			exit 1
@@ -51,7 +51,7 @@ run_secret_drain() {
 	juju model-config secret-backend=auto
 
 	attempt=0
-	until check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length)" 0 >/dev/null 2>&1; do
+	until [[ $(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length) -eq 0 ]]; do
 		if [[ ${attempt} -ge 30 ]]; then
 			echo "Failed: expected all secrets get drained back to juju controller."
 			exit 1
@@ -62,6 +62,9 @@ run_secret_drain() {
 
 	juju show-secret --reveal "$secret_owned_by_unit"
 	juju show-secret --reveal "$secret_owned_by_app"
+
+	destroy_model "$model_name"
+	destroy_model "model-vault-provider"
 }
 
 prepare_vault() {

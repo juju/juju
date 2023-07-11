@@ -20,7 +20,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/api/controller/migrationtarget"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resources"
@@ -75,7 +74,7 @@ type Facade interface {
 
 	// Prechecks performs pre-migration checks on the model and
 	// (source) controller.
-	Prechecks(targetControllerVersion version.Number) error
+	Prechecks() error
 
 	// ModelInfo return basic information about the model to migrated.
 	ModelInfo() (coremigration.ModelInfo, error)
@@ -348,24 +347,18 @@ func (w *Worker) prechecks(status coremigration.MigrationStatus) error {
 	if err != nil {
 		return errors.Annotate(err, "failed to obtain model info during prechecks")
 	}
+
+	w.setInfoStatus("performing source prechecks")
+	if err := w.config.Facade.Prechecks(); err != nil {
+		return errors.Annotate(err, "source prechecks failed")
+	}
+
+	w.setInfoStatus("performing target prechecks")
 	targetConn, err := w.openAPIConn(status.TargetInfo)
 	if err != nil {
 		return errors.Annotate(err, "failed to connect to target controller during prechecks")
 	}
 	defer targetConn.Close()
-
-	targetControllerVersion, err := w.getTargetControllerVersion(targetConn)
-	if err != nil {
-		return errors.Annotate(err, "cannot get target controller version")
-	}
-
-	w.setInfoStatus("performing source prechecks")
-	err = w.config.Facade.Prechecks(targetControllerVersion)
-	if err != nil {
-		return errors.Annotate(err, "source prechecks failed")
-	}
-
-	w.setInfoStatus("performing target prechecks")
 	if targetConn.ControllerTag() != status.TargetInfo.ControllerTag {
 		return errors.Errorf("unexpected target controller UUID (got %s, expected %s)",
 			targetConn.ControllerTag(), status.TargetInfo.ControllerTag)
@@ -384,19 +377,6 @@ func (w *Worker) prechecks(status coremigration.MigrationStatus) error {
 	}
 	err = targetClient.Prechecks(model)
 	return errors.Annotate(err, "target prechecks failed")
-}
-
-func (w *Worker) getTargetControllerVersion(conn api.Connection) (version.Number, error) {
-	client := controller.NewClient(conn)
-	result, err := client.ControllerVersion()
-	if err != nil {
-		return version.Number{}, errors.Annotate(err, "failed to obtain target controller version during prechecks")
-	}
-	number, err := version.Parse(result.Version)
-	if err != nil {
-		return version.Number{}, errors.Trace(err)
-	}
-	return number, nil
 }
 
 func (w *Worker) doIMPORT(targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {
