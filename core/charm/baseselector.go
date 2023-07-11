@@ -4,7 +4,6 @@
 package charm
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -181,7 +180,7 @@ func (s BaseSelector) userRequested(requestedBase series.Base) (series.Base, err
 		base = requestedBase
 	} else if err != nil {
 		if !s.jujuSupportedBases.Contains(requestedBase.String()) {
-			return series.Base{}, errors.NewNotSupported(nil, fmt.Sprintf("base: %s", requestedBase))
+			return series.Base{}, errors.NotSupportedf("base: %s", requestedBase)
 		}
 		if IsUnsupportedBaseError(err) {
 			return series.Base{}, errors.Errorf(

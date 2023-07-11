@@ -175,7 +175,7 @@ func (s *DeploySuite) TestPathWithNoCharmOrBundle(c *gc.C) {
 }
 
 func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeries(c *gc.C) {
-	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "dummy")
+	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "dummy-no-series")
 	err := s.runDeploy(c, path)
 	c.Assert(err, gc.ErrorMatches, "series not specified and charm does not define any")
 }
@@ -1780,12 +1780,14 @@ func withLocalBundleCharmDeployable(
 	url *charm.URL,
 	base series.Base,
 	meta *charm.Meta,
+	manifest *charm.Manifest,
 	force bool,
 ) {
 	fakeAPI.Call("CharmInfo", url.String()).Returns(
 		&apicommoncharms.CharmInfo{
-			URL:  url.String(),
-			Meta: meta,
+			URL:      url.String(),
+			Meta:     meta,
+			Manifest: manifest,
 		},
 		error(nil),
 	)
