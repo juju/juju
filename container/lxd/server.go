@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"strings"
 
+	lxd "github.com/canonical/lxd/client"
+	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	lxd "github.com/lxc/lxd/client"
-	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/core/arch"
 )

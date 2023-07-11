@@ -8,9 +8,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/containerinit"

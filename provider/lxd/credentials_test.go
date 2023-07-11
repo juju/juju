@@ -10,12 +10,12 @@ import (
 	"path"
 	"path/filepath"
 
+	"github.com/canonical/lxd/shared/api"
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
-	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"

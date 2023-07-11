@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	lxd "github.com/canonical/lxd/client"
 	"github.com/juju/errors"
-	lxd "github.com/lxc/lxd/client"
 )
 
 type Protocol string

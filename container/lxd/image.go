@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"path"
 
+	lxd "github.com/canonical/lxd/client"
+	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
-	lxd "github.com/lxc/lxd/client"
-	"github.com/lxc/lxd/shared/api"
 
 	jujuarch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/instance"

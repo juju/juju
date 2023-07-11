@@ -6,9 +6,9 @@ package lxd_test
 import (
 	"errors"
 
+	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
-	lxdapi "github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/container/lxd"

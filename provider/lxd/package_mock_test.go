@@ -7,13 +7,13 @@ package lxd
 import (
 	reflect "reflect"
 
+	client "github.com/canonical/lxd/client"
+	api "github.com/canonical/lxd/shared/api"
 	gomock "github.com/golang/mock/gomock"
 	lxd "github.com/juju/juju/container/lxd"
 	network "github.com/juju/juju/core/network"
 	series "github.com/juju/juju/core/series"
 	environs "github.com/juju/juju/environs"
-	client "github.com/lxc/lxd/client"
-	api "github.com/lxc/lxd/shared/api"
 )
 
 // MockServer is a mock of Server interface.
