@@ -398,23 +398,6 @@ func (k *kubernetesClient) deleteRoleBinding(name string, uid types.UID) error {
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) listRoleBindings(selector k8slabels.Selector) ([]rbacv1.RoleBinding, error) {
-	if k.namespace == "" {
-		return nil, errNoNamespace
-	}
-	listOps := v1.ListOptions{
-		LabelSelector: selector.String(),
-	}
-	rBList, err := k.client().RbacV1().RoleBindings(k.namespace).List(context.TODO(), listOps)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(rBList.Items) == 0 {
-		return nil, errors.NotFoundf("role binding with selector %q", selector)
-	}
-	return rBList.Items, nil
-}
-
 func (k *kubernetesClient) deleteClusterRoleBindings(selector k8slabels.Selector) error {
 	err := k.client().RbacV1().ClusterRoleBindings().DeleteCollection(context.TODO(), v1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
