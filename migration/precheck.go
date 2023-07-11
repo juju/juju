@@ -8,131 +8,25 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/replicaset/v3"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
 	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/upgrades/upgradevalidation"
 )
-
-// PrecheckBackend defines the interface to query Juju's state
-// for migration prechecks.
-type PrecheckBackend interface {
-	AgentVersion() (version.Number, error)
-	NeedsCleanup() (bool, error)
-	Model() (PrecheckModel, error)
-	AllModelUUIDs() ([]string, error)
-	IsUpgrading() (bool, error)
-	IsMigrationActive(string) (bool, error)
-	AllMachines() ([]PrecheckMachine, error)
-	AllApplications() ([]PrecheckApplication, error)
-	AllRelations() ([]PrecheckRelation, error)
-	AllCharmURLs() ([]*string, error)
-	ControllerBackend() (PrecheckBackend, error)
-	CloudCredential(tag names.CloudCredentialTag) (state.Credential, error)
-	HasUpgradeSeriesLocks() (bool, error)
-	MachineCountForBase(base ...state.Base) (map[string]int, error)
-	MongoCurrentStatus() (*replicaset.Status, error)
-}
-
-// Pool defines the interface to a StatePool used by the migration
-// prechecks.
-type Pool interface {
-	GetModel(string) (PrecheckModel, func(), error)
-}
-
-// PrecheckModel describes the state interface a model as needed by
-// the migration prechecks.
-type PrecheckModel interface {
-	UUID() string
-	Name() string
-	Type() state.ModelType
-	Owner() names.UserTag
-	Life() state.Life
-	MigrationMode() state.MigrationMode
-	AgentVersion() (version.Number, error)
-	CloudCredentialTag() (names.CloudCredentialTag, bool)
-}
-
-// PrecheckMachine describes the state interface for a machine needed
-// by migration prechecks.
-type PrecheckMachine interface {
-	Id() string
-	AgentTools() (*tools.Tools, error)
-	Life() state.Life
-	Status() (status.StatusInfo, error)
-	InstanceStatus() (status.StatusInfo, error)
-	ShouldRebootOrShutdown() (state.RebootAction, error)
-}
-
-// PrecheckApplication describes the state interface for an
-// application needed by migration prechecks.
-type PrecheckApplication interface {
-	Name() string
-	Life() state.Life
-	CharmURL() (*string, bool)
-	AllUnits() ([]PrecheckUnit, error)
-	MinUnits() int
-}
-
-// PrecheckUnit describes state interface for a unit needed by
-// migration prechecks.
-type PrecheckUnit interface {
-	Name() string
-	AgentTools() (*tools.Tools, error)
-	Life() state.Life
-	CharmURL() *string
-	AgentStatus() (status.StatusInfo, error)
-	Status() (status.StatusInfo, error)
-	ShouldBeAssigned() bool
-	IsSidecar() (bool, error)
-}
-
-// PrecheckRelation describes the state interface for relations needed
-// for prechecks.
-type PrecheckRelation interface {
-	String() string
-	Endpoints() []state.Endpoint
-	Unit(PrecheckUnit) (PrecheckRelationUnit, error)
-	AllRemoteUnits(appName string) ([]PrecheckRelationUnit, error)
-	RemoteApplication() (string, bool, error)
-}
-
-// PrecheckRelationUnit describes the interface for relation units
-// needed for migration prechecks.
-type PrecheckRelationUnit interface {
-	Valid() (bool, error)
-	InScope() (bool, error)
-	UnitName() string
-}
-
-// ModelPresence represents the API server connections for a model.
-type ModelPresence interface {
-	// For a given non controller agent, return the Status for that agent.
-	AgentStatus(agent string) (presence.Status, error)
-}
 
 // SourcePrecheck checks the state of the source controller to make
 // sure that the preconditions for model migration are met. The
 // backend provided must be for the model to be migrated.
 func SourcePrecheck(
 	backend PrecheckBackend,
-	targetControllerVersion version.Number,
 	modelPresence ModelPresence, controllerPresence ModelPresence,
-	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error),
+	environscloudspecGetter environsCloudSpecGetter,
 ) error {
-	ctx := precheckContext{
-		backend:                 backend,
-		presence:                modelPresence,
-		targetControllerVersion: targetControllerVersion,
-		environscloudspecGetter: environscloudspecGetter,
-	}
+	ctx := newPrecheckSource(backend, modelPresence, environscloudspecGetter)
 	if err := ctx.checkModel(); err != nil {
 		return errors.Trace(err)
 	}
@@ -161,60 +55,11 @@ func SourcePrecheck(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	controllerCtx := precheckContext{
-		backend:                 controllerBackend,
-		presence:                controllerPresence,
-		targetControllerVersion: targetControllerVersion,
-		environscloudspecGetter: environscloudspecGetter,
-	}
+	controllerCtx := newPrecheckTarget(controllerBackend, controllerPresence, environscloudspecGetter)
 	if err := controllerCtx.checkController(); err != nil {
 		return errors.Annotate(err, "controller")
 	}
 	return nil
-}
-
-type precheckContext struct {
-	backend                 PrecheckBackend
-	presence                ModelPresence
-	targetControllerVersion version.Number
-	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error)
-}
-
-func (ctx *precheckContext) checkModel() error {
-	model, err := ctx.backend.Model()
-	if err != nil {
-		return errors.Annotate(err, "retrieving model")
-	}
-	if model.Life() != state.Alive {
-		return errors.Errorf("model is %s", model.Life())
-	}
-	if model.MigrationMode() == state.MigrationModeImporting {
-		return errors.New("model is being imported as part of another migration")
-	}
-	if credTag, found := model.CloudCredentialTag(); found {
-		creds, err := ctx.backend.CloudCredential(credTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if creds.Revoked {
-			return errors.New("model has revoked credentials")
-		}
-	}
-
-	cloudspec, err := ctx.environscloudspecGetter(names.NewModelTag(model.UUID()))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	validators := upgradevalidation.ValidatorsForModelMigrationSource(ctx.targetControllerVersion, cloudspec)
-	checker := upgradevalidation.NewModelUpgradeCheck(model.UUID(), nil, ctx.backend, model, validators...)
-	blockers, err := checker.Validate()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if blockers == nil {
-		return nil
-	}
-	return errors.NewNotSupported(nil, fmt.Sprintf("cannot migrate to controller (%q) due to issues:\n%s", ctx.targetControllerVersion, blockers))
 }
 
 // TargetPrecheck checks the state of the target controller to make
@@ -263,11 +108,7 @@ func TargetPrecheck(backend PrecheckBackend, pool Pool, modelInfo coremigration.
 		return errors.Errorf("model must be upgraded to at least version %s before being migrated to a controller with version %s", minVer, controllerVersion)
 	}
 
-	controllerCtx := precheckContext{
-		backend:                 backend,
-		presence:                presence,
-		targetControllerVersion: controllerVersion,
-	}
+	controllerCtx := newPrecheckTarget(backend, presence, nil)
 	if err := controllerCtx.checkController(); err != nil {
 		return errors.Trace(err)
 	}
@@ -298,21 +139,24 @@ func TargetPrecheck(backend PrecheckBackend, pool Pool, modelInfo coremigration.
 	return nil
 }
 
-func controllerVersionCompatible(sourceVersion, targetVersion version.Number) bool {
-	// Compare source controller version to target controller version, only
-	// considering major and minor version numbers. Downgrades between
-	// patch, build releases for a given major.minor release are
-	// ok. Tag differences are ok too.
-	sourceVersion = versionToMajMin(sourceVersion)
-	targetVersion = versionToMajMin(targetVersion)
-	return sourceVersion.Compare(targetVersion) <= 0
+type precheckTarget struct {
+	precheckContext
 }
 
-func versionToMajMin(ver version.Number) version.Number {
-	ver.Patch = 0
-	ver.Build = 0
-	ver.Tag = ""
-	return ver
+func newPrecheckTarget(backend PrecheckBackend, presence ModelPresence, environscloudspecGetter environsCloudSpecGetter) *precheckTarget {
+	return &precheckTarget{
+		precheckContext: precheckContext{
+			backend:                 backend,
+			presence:                presence,
+			environscloudspecGetter: environscloudspecGetter,
+		},
+	}
+}
+
+type precheckContext struct {
+	backend                 PrecheckBackend
+	presence                ModelPresence
+	environscloudspecGetter environsCloudSpecGetter
 }
 
 func (ctx *precheckContext) checkController() error {
@@ -441,7 +285,7 @@ func (ctx *precheckContext) checkUnits(app PrecheckApplication, units []Precheck
 }
 
 func (ctx *precheckContext) checkUnitAgentStatus(unit PrecheckUnit) error {
-	modelPresenceContext := common.ModelPresenceContext{ctx.presence}
+	modelPresenceContext := common.ModelPresenceContext{Presence: ctx.presence}
 	statusData, _ := modelPresenceContext.UnitStatus(unit)
 	if statusData.Err != nil {
 		return errors.Annotatef(statusData.Err, "retrieving unit %s status", unit.Name())
@@ -454,31 +298,6 @@ func (ctx *precheckContext) checkUnitAgentStatus(unit PrecheckUnit) error {
 		return newStatusError("unit %s not idle or executing", unit.Name(), agentStatus)
 	}
 	return nil
-}
-
-func checkAgentTools(modelVersion version.Number, agent agentToolsGetter, agentLabel string) error {
-	tools, err := agent.AgentTools()
-	if err != nil {
-		return errors.Annotatef(err, "retrieving agent binaries for %s", agentLabel)
-	}
-	agentVersion := tools.Version.Number
-	if agentVersion != modelVersion {
-		return errors.Errorf("%s agent binaries don't match model (%s != %s)",
-			agentLabel, agentVersion, modelVersion)
-	}
-	return nil
-}
-
-type agentToolsGetter interface {
-	AgentTools() (*tools.Tools, error)
-}
-
-func newStatusError(format, id string, s status.Status) error {
-	msg := fmt.Sprintf(format, id)
-	if s != status.Empty {
-		msg += fmt.Sprintf(" (%s)", s)
-	}
-	return errors.New(msg)
 }
 
 func (ctx *precheckContext) checkRelations(appUnits map[string][]PrecheckUnit) error {
@@ -537,4 +356,97 @@ func (ctx *precheckContext) checkRelations(appUnits map[string][]PrecheckUnit) e
 		}
 	}
 	return nil
+}
+
+type precheckSource struct {
+	precheckContext
+}
+
+func newPrecheckSource(backend PrecheckBackend, presence ModelPresence, environscloudspecGetter environsCloudSpecGetter) *precheckSource {
+	return &precheckSource{
+		precheckContext: precheckContext{
+			backend:                 backend,
+			presence:                presence,
+			environscloudspecGetter: environscloudspecGetter,
+		},
+	}
+}
+
+func (ctx *precheckSource) checkModel() error {
+	model, err := ctx.backend.Model()
+	if err != nil {
+		return errors.Annotate(err, "retrieving model")
+	}
+	if model.Life() != state.Alive {
+		return errors.Errorf("model is %s", model.Life())
+	}
+	if model.MigrationMode() == state.MigrationModeImporting {
+		return errors.New("model is being imported as part of another migration")
+	}
+	if credTag, found := model.CloudCredentialTag(); found {
+		creds, err := ctx.backend.CloudCredential(credTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if creds.Revoked {
+			return errors.New("model has revoked credentials")
+		}
+	}
+
+	cloudspec, err := ctx.environscloudspecGetter(names.NewModelTag(model.UUID()))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	validators := upgradevalidation.ValidatorsForModelMigrationSource(cloudspec)
+	checker := upgradevalidation.NewModelUpgradeCheck(model.UUID(), nil, ctx.backend, model, validators...)
+	blockers, err := checker.Validate()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if blockers == nil {
+		return nil
+	}
+	return errors.NewNotSupported(nil, fmt.Sprintf("cannot migrate to controller due to issues:\n%s", blockers))
+}
+
+type agentToolsGetter interface {
+	AgentTools() (*tools.Tools, error)
+}
+
+func checkAgentTools(modelVersion version.Number, agent agentToolsGetter, agentLabel string) error {
+	tools, err := agent.AgentTools()
+	if err != nil {
+		return errors.Annotatef(err, "retrieving agent binaries for %s", agentLabel)
+	}
+	agentVersion := tools.Version.Number
+	if agentVersion != modelVersion {
+		return errors.Errorf("%s agent binaries don't match model (%s != %s)",
+			agentLabel, agentVersion, modelVersion)
+	}
+	return nil
+}
+
+func newStatusError(format, id string, s status.Status) error {
+	msg := fmt.Sprintf(format, id)
+	if s != status.Empty {
+		msg += fmt.Sprintf(" (%s)", s)
+	}
+	return errors.New(msg)
+}
+
+func controllerVersionCompatible(sourceVersion, targetVersion version.Number) bool {
+	// Compare source controller version to target controller version, only
+	// considering major and minor version numbers. Downgrades between
+	// patch, build releases for a given major.minor release are
+	// ok. Tag differences are ok too.
+	sourceVersion = versionToMajMin(sourceVersion)
+	targetVersion = versionToMajMin(targetVersion)
+	return sourceVersion.Compare(targetVersion) <= 0
+}
+
+func versionToMajMin(ver version.Number) version.Number {
+	ver.Patch = 0
+	ver.Build = 0
+	ver.Tag = ""
+	return ver
 }

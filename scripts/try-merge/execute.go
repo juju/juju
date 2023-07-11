@@ -6,6 +6,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"os/exec"
 )
 
@@ -20,6 +21,15 @@ type executeResults struct {
 	exitCode int
 
 	stdout, stderr []byte
+}
+
+func (res executeResults) String() string {
+	var str string
+	str += fmt.Sprintf("runError: %v\n", res.runError)
+	str += fmt.Sprintf("exitCode: %d\n", res.exitCode)
+	str += fmt.Sprintf("stdout: %s\n", res.stdout)
+	str += fmt.Sprintf("stderr: %s", res.stderr)
+	return str
 }
 
 func execute(args executeArgs) (res executeResults) {
