@@ -16,13 +16,14 @@ import (
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/leadership"
 	coresecrets "github.com/juju/juju/core/secrets"
+	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
 	secretsprovider "github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
 )
 
 // For testing.
@@ -40,7 +41,7 @@ type CrossModelSecretsClient interface {
 type SecretsManagerAPI struct {
 	leadershipChecker leadership.Checker
 	secretsState      SecretsState
-	resources         facade.Resources
+	watcherRegistry   facade.WatcherRegistry
 	secretsTriggers   SecretTriggers
 	secretsConsumer   SecretsConsumer
 	authTag           names.Tag
@@ -880,10 +881,11 @@ func (s *SecretsManagerAPI) WatchConsumedSecretsChanges(args params.Entities) (p
 		if err != nil {
 			return "", nil, errors.Trace(err)
 		}
-		if changes, ok := <-w.Changes(); ok {
-			return s.resources.Register(w), changes, nil
+		id, changes, err := internal.EnsureRegisterWatcher[[]string](s.watcherRegistry, w)
+		if err != nil {
+			return "", nil, errors.Trace(err)
 		}
-		return "", nil, watcher.EnsureErr(w)
+		return id, changes, nil
 	}
 	for i, arg := range args.Entities {
 		var result params.StringsWatchResult
@@ -930,13 +932,14 @@ func (s *SecretsManagerAPI) WatchObsolete(args params.Entities) (params.StringsW
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	if changes, ok := <-w.Changes(); ok {
-		result.StringsWatcherId = s.resources.Register(w)
-		result.Changes = changes
-	} else {
-		err = watcher.EnsureErr(w)
+	id, changes, err := internal.EnsureRegisterWatcher[[]string](s.watcherRegistry, w)
+	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
+		return result, nil
 	}
+
+	result.StringsWatcherId = id
+	result.Changes = changes
 	return result, nil
 }
 
@@ -965,20 +968,21 @@ func (s *SecretsManagerAPI) WatchSecretsRotationChanges(args params.Entities) (p
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	if secretChanges, ok := <-w.Changes(); ok {
-		changes := make([]params.SecretTriggerChange, len(secretChanges))
-		for i, c := range secretChanges {
-			changes[i] = params.SecretTriggerChange{
-				URI:             c.URI.ID,
-				NextTriggerTime: c.NextTriggerTime,
-			}
-		}
-		result.WatcherId = s.resources.Register(w)
-		result.Changes = changes
-	} else {
-		err = watcher.EnsureErr(w)
+
+	id, secretChanges, err := internal.EnsureRegisterWatcher[[]corewatcher.SecretTriggerChange](s.watcherRegistry, w)
+	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
+		return result, nil
 	}
+	changes := make([]params.SecretTriggerChange, len(secretChanges))
+	for i, c := range secretChanges {
+		changes[i] = params.SecretTriggerChange{
+			URI:             c.URI.ID,
+			NextTriggerTime: c.NextTriggerTime,
+		}
+	}
+	result.WatcherId = id
+	result.Changes = changes
 	return result, nil
 }
 
@@ -1060,21 +1064,22 @@ func (s *SecretsManagerAPI) WatchSecretRevisionsExpiryChanges(args params.Entiti
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	if secretChanges, ok := <-w.Changes(); ok {
-		changes := make([]params.SecretTriggerChange, len(secretChanges))
-		for i, c := range secretChanges {
-			changes[i] = params.SecretTriggerChange{
-				URI:             c.URI.ID,
-				Revision:        c.Revision,
-				NextTriggerTime: c.NextTriggerTime,
-			}
-		}
-		result.WatcherId = s.resources.Register(w)
-		result.Changes = changes
-	} else {
-		err = watcher.EnsureErr(w)
+	id, secretChanges, err := internal.EnsureRegisterWatcher[[]corewatcher.SecretTriggerChange](s.watcherRegistry, w)
+	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
+		return result, nil
 	}
+
+	changes := make([]params.SecretTriggerChange, len(secretChanges))
+	for i, c := range secretChanges {
+		changes[i] = params.SecretTriggerChange{
+			URI:             c.URI.ID,
+			Revision:        c.Revision,
+			NextTriggerTime: c.NextTriggerTime,
+		}
+	}
+	result.WatcherId = id
+	result.Changes = changes
 	return result, nil
 }
 

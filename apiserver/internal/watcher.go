@@ -16,6 +16,13 @@ type Watcher[T any] interface {
 	Changes() <-chan T
 }
 
+// WatcherRegistry defines a generic registry for watchers.
+type WatcherRegistry interface {
+	// Register registers a watcher and returns a string that can be used
+	// to unregister it.
+	Register(w worker.Worker) (string, error)
+}
+
 // FirstResult checks whether the first set of returned changes are
 // available and returns them, otherwise it kills the worker and waits
 // for the error and returns it.
@@ -31,4 +38,18 @@ func FirstResult[T any](w Watcher[T]) (T, error) {
 		return t, errors.Trace(err)
 	}
 	return changes, nil
+}
+
+// EnsureRegisterWatcher registers a watcher and returns the first set
+// of changes.
+func EnsureRegisterWatcher[T any](reg WatcherRegistry, w Watcher[T]) (string, T, error) {
+	changes, err := FirstResult(w)
+	if err != nil {
+		return "", changes, errors.Trace(err)
+	}
+	id, err := reg.Register(w)
+	if err != nil {
+		return "", changes, errors.Trace(err)
+	}
+	return id, changes, nil
 }

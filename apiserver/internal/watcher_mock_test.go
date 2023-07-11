@@ -7,6 +7,7 @@ package internal_test
 import (
 	reflect "reflect"
 
+	worker "github.com/juju/worker/v3"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -71,4 +72,42 @@ func (m *MockWatcher[T]) Wait() error {
 func (mr *MockWatcherMockRecorder[T]) Wait() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Wait", reflect.TypeOf((*MockWatcher[T])(nil).Wait))
+}
+
+// MockWatcherRegistry is a mock of WatcherRegistry interface.
+type MockWatcherRegistry struct {
+	ctrl     *gomock.Controller
+	recorder *MockWatcherRegistryMockRecorder
+}
+
+// MockWatcherRegistryMockRecorder is the mock recorder for MockWatcherRegistry.
+type MockWatcherRegistryMockRecorder struct {
+	mock *MockWatcherRegistry
+}
+
+// NewMockWatcherRegistry creates a new mock instance.
+func NewMockWatcherRegistry(ctrl *gomock.Controller) *MockWatcherRegistry {
+	mock := &MockWatcherRegistry{ctrl: ctrl}
+	mock.recorder = &MockWatcherRegistryMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockWatcherRegistry) EXPECT() *MockWatcherRegistryMockRecorder {
+	return m.recorder
+}
+
+// Register mocks base method.
+func (m *MockWatcherRegistry) Register(w worker.Worker) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Register", w)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Register indicates an expected call of Register.
+func (mr *MockWatcherRegistryMockRecorder) Register(w interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockWatcherRegistry)(nil).Register), w)
 }

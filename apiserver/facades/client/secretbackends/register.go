@@ -32,6 +32,6 @@ func newSecretBackendsAPI(context facade.Context) (*SecretBackendsAPI, error) {
 		clock:          clock.WallClock,
 		backendState:   state.NewSecretBackends(context.State()),
 		secretState:    state.NewSecrets(context.State()),
-		statePool:      &statePoolShim{context.StatePool()},
+		statePool:      &statePoolShim{pool: context.StatePool()},
 	}, nil
 }

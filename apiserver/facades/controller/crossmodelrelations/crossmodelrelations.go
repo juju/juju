@@ -16,6 +16,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/kr/pretty"
 	"gopkg.in/macaroon.v2"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
@@ -25,6 +26,7 @@ import (
 	"github.com/juju/juju/core/life"
 	coremacaroon "github.com/juju/juju/core/macaroon"
 	"github.com/juju/juju/core/secrets"
+	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -446,13 +448,13 @@ func (api *CrossModelRelationsAPI) WatchRelationsSuspendedStatus(
 
 // OfferWatcher instances track changes to a specified offer.
 type OfferWatcher interface {
-	state.NotifyWatcher
+	corewatcher.NotifyWatcher
 	OfferUUID() string
 	OfferName() string
 }
 
 type offerWatcher struct {
-	state.NotifyWatcher
+	corewatcher.NotifyWatcher
 	offerUUID string
 	offerName string
 }
@@ -508,13 +510,21 @@ func (api *CrossModelRelationsAPI) WatchOfferStatus(
 		}
 		_, ok := <-w.Changes()
 		if !ok {
-			results.Results[i].Error = apiservererrors.ServerError(watcher.EnsureErr(w))
+			w.Kill()
+			err := w.Wait()
+			if err == nil {
+				err = errors.Errorf("expected an error from %v, got nil", w)
+			} else if errors.Is(err, tomb.ErrStillAlive) {
+				err = errors.Annotatef(err, "expected %v to be stopped", w)
+			}
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		change, err := commoncrossmodel.GetOfferStatusChange(api.st, arg.OfferUUID, w.OfferName())
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
-			_ = w.Stop()
+			w.Kill()
+			_ = w.Wait()
 			continue
 		}
 		results.Results[i].Changes = []params.OfferStatusChange{*change}

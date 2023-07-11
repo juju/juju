@@ -12,17 +12,18 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	coresecrets "github.com/juju/juju/core/secrets"
+	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
 )
 
 // SecretBackendsManagerAPI is the implementation for the SecretsManager facade.
 type SecretBackendsManagerAPI struct {
-	resources facade.Resources
+	watcherRegistry facade.WatcherRegistry
 
 	controllerUUID string
 	modelUUID      string
@@ -41,21 +42,24 @@ func (s *SecretBackendsManagerAPI) WatchSecretBackendsRotateChanges() (params.Se
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	if backendChanges, ok := <-w.Changes(); ok {
-		changes := make([]params.SecretBackendRotateChange, len(backendChanges))
-		for i, c := range backendChanges {
-			changes[i] = params.SecretBackendRotateChange{
-				ID:              c.ID,
-				Name:            c.Name,
-				NextTriggerTime: c.NextTriggerTime,
-			}
-		}
-		result.WatcherId = s.resources.Register(w)
-		result.Changes = changes
-	} else {
-		err = watcher.EnsureErr(w)
+
+	id, backendChanges, err := internal.EnsureRegisterWatcher[[]corewatcher.SecretBackendRotateChange](s.watcherRegistry, w)
+	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
+		return result, nil
 	}
+
+	changes := make([]params.SecretBackendRotateChange, len(backendChanges))
+	for i, c := range backendChanges {
+		changes[i] = params.SecretBackendRotateChange{
+			ID:              c.ID,
+			Name:            c.Name,
+			NextTriggerTime: c.NextTriggerTime,
+		}
+	}
+
+	result.WatcherId = id
+	result.Changes = changes
 	return result, nil
 }
 
