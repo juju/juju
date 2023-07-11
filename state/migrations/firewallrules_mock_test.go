@@ -7,7 +7,7 @@ package migrations
 import (
 	reflect "reflect"
 
-	v3 "github.com/juju/description/v3"
+	description "github.com/juju/description/v3"
 	firewall "github.com/juju/juju/core/network/firewall"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -139,10 +139,10 @@ func (m *MockFirewallRulesModel) EXPECT() *MockFirewallRulesModelMockRecorder {
 }
 
 // AddFirewallRule mocks base method.
-func (m *MockFirewallRulesModel) AddFirewallRule(arg0 v3.FirewallRuleArgs) v3.FirewallRule {
+func (m *MockFirewallRulesModel) AddFirewallRule(arg0 description.FirewallRuleArgs) description.FirewallRule {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddFirewallRule", arg0)
-	ret0, _ := ret[0].(v3.FirewallRule)
+	ret0, _ := ret[0].(description.FirewallRule)
 	return ret0
 }
 

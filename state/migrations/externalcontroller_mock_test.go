@@ -7,7 +7,7 @@ package migrations
 import (
 	reflect "reflect"
 
-	v3 "github.com/juju/description/v3"
+	description "github.com/juju/description/v3"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -181,10 +181,10 @@ func (m *MockExternalControllerModel) EXPECT() *MockExternalControllerModelMockR
 }
 
 // AddExternalController mocks base method.
-func (m *MockExternalControllerModel) AddExternalController(arg0 v3.ExternalControllerArgs) v3.ExternalController {
+func (m *MockExternalControllerModel) AddExternalController(arg0 description.ExternalControllerArgs) description.ExternalController {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddExternalController", arg0)
-	ret0, _ := ret[0].(v3.ExternalController)
+	ret0, _ := ret[0].(description.ExternalController)
 	return ret0
 }
 

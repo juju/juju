@@ -7,8 +7,8 @@ package apiserver_test
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	proxy "github.com/juju/juju/proxy"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockConnectorInfo is a mock of ConnectorInfo interface.

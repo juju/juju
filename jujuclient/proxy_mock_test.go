@@ -7,8 +7,8 @@ package jujuclient_test
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	proxy "github.com/juju/juju/proxy"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockProxyFactory is a mock of ProxyFactory interface.

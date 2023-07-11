@@ -7,7 +7,7 @@ package migrations
 import (
 	reflect "reflect"
 
-	v3 "github.com/juju/description/v3"
+	description "github.com/juju/description/v3"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -138,10 +138,10 @@ func (m *MockRelationNetworksModel) EXPECT() *MockRelationNetworksModelMockRecor
 }
 
 // AddRelationNetwork mocks base method.
-func (m *MockRelationNetworksModel) AddRelationNetwork(arg0 v3.RelationNetworkArgs) v3.RelationNetwork {
+func (m *MockRelationNetworksModel) AddRelationNetwork(arg0 description.RelationNetworkArgs) description.RelationNetwork {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddRelationNetwork", arg0)
-	ret0, _ := ret[0].(v3.RelationNetwork)
+	ret0, _ := ret[0].(description.RelationNetwork)
 	return ret0
 }
 

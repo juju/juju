@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 	time "time"
 
-	gomock "go.uber.org/mock/gomock"
 	raft "github.com/hashicorp/raft"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockRaftApplier is a mock of RaftApplier interface.

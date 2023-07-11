@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	cloud "github.com/juju/juju/cloud"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockCredentialStoreAPI is a mock of CredentialStoreAPI interface.
