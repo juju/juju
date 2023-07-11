@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/canonical/lxd/shared/api"
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/arch"
-	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"

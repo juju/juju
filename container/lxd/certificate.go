@@ -11,9 +11,9 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/canonical/lxd/shared"
+	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
-	"github.com/lxc/lxd/shared"
-	"github.com/lxc/lxd/shared/api"
 )
 
 // Certificate holds the information for a single certificate that a client may

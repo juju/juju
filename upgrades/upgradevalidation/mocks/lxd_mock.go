@@ -13,8 +13,8 @@ import (
 	series "github.com/juju/juju/core/series"
 	environs "github.com/juju/juju/environs"
 	lxd0 "github.com/juju/juju/provider/lxd"
-	lxd1 "github.com/lxc/lxd/client"
-	api "github.com/lxc/lxd/shared/api"
+	lxd1 "github.com/canonical/lxd/client"
+	api "github.com/canonical/lxd/shared/api"
 )
 
 // MockServerFactory is a mock of ServerFactory interface.

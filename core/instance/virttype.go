@@ -6,8 +6,8 @@ package instance
 import (
 	"strings"
 
+	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
-	"github.com/lxc/lxd/shared/api"
 )
 
 // VirtType represents the type of virtualisation used by a container.
