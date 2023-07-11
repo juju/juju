@@ -42,7 +42,7 @@ type trustCommand struct {
 	scope       string
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/applicationapi_mock.go github.com/juju/juju/cmd/juju/application ApplicationAPI
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/applicationapi_mock.go github.com/juju/juju/cmd/juju/application ApplicationAPI
 
 func NewTrustCommand() cmd.Command {
 	return modelcmd.Wrap(&trustCommand{})

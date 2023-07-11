@@ -7,12 +7,13 @@ import (
 	"context"
 	"time"
 
-	"github.com/golang/mock/gomock"
-	ocitesting "github.com/juju/juju/provider/oci/testing"
-	jujutesting "github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	ociCore "github.com/oracle/oci-go-sdk/v47/core"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	ocitesting "github.com/juju/juju/provider/oci/testing"
+	jujutesting "github.com/juju/juju/testing"
 
 	"github.com/juju/juju/provider/oci"
 )

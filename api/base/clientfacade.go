@@ -18,7 +18,7 @@ type APICallCloser interface {
 // BestAPIVersion() is used to allow for compatibility testing, and Close() is
 // used to indicate when we are done with the connection.
 //
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/clientfacade_mock.go github.com/juju/juju/api/base APICallCloser,ClientFacade
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/clientfacade_mock.go github.com/juju/juju/api/base APICallCloser,ClientFacade
 type ClientFacade interface {
 	// BestAPIVersion returns the API version that we were able to
 	// determine is supported by both the client and the API Server

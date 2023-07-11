@@ -6,7 +6,6 @@ package caasunitprovisioner_test
 import (
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -17,6 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/common/charms"

@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/service/windows"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/service.go github.com/juju/juju/service Service
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/service.go github.com/juju/juju/service Service
 
 var logger = loggo.GetLogger("juju.service")
 

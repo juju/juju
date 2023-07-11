@@ -11,7 +11,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/golang/mock/gomock"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/names/v4"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"

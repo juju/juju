@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	cloudspec "github.com/juju/juju/environs/cloudspec"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockSSHClientAPI is a mock of SSHClientAPI interface.

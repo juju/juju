@@ -58,7 +58,7 @@ type resourceInfo struct {
 	client  rest.Interface
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/meta_mock.go k8s.io/apimachinery/pkg/api/meta RESTMapper
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/meta_mock.go k8s.io/apimachinery/pkg/api/meta RESTMapper
 func getRestMapper(c rest.Interface) meta.RESTMapper {
 	discoveryClient := discovery.NewDiscoveryClient(c)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(

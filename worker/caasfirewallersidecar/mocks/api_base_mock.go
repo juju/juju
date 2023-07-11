@@ -10,9 +10,9 @@ import (
 	url "net/url"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	base "github.com/juju/juju/api/base"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 	httprequest "gopkg.in/httprequest.v1"
 )
 

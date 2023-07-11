@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/interface_mock.go github.com/juju/juju/worker/uniter/operation Operation,Factory,Callbacks
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/interface_mock.go github.com/juju/juju/worker/uniter/operation Operation,Factory,Callbacks
 
 // Logger is here to stop the desire of creating a package level Logger.
 // Don't do this, pass one in to the needed functions.

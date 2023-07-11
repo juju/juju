@@ -7,9 +7,9 @@ package refresher
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	v8 "github.com/juju/charm/v8"
 	charm "github.com/juju/juju/api/common/charm"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockRefresherFactory is a mock of RefresherFactory interface.

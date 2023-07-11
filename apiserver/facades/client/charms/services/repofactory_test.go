@@ -6,10 +6,10 @@ package services_test
 import (
 	"net/http"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/charms/services"

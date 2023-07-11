@@ -7,10 +7,10 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	modelmanager "github.com/juju/juju/apiserver/facades/client/modelmanager"
 	names "github.com/juju/names/v4"
 	version "github.com/juju/version/v2"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockStatePool is a mock of StatePool interface.

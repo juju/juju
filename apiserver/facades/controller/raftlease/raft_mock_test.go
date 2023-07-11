@@ -8,7 +8,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	facade "github.com/juju/juju/apiserver/facade"
 	cache "github.com/juju/juju/core/cache"
 	leadership "github.com/juju/juju/core/leadership"
@@ -18,6 +17,7 @@ import (
 	raftlease "github.com/juju/juju/core/raftlease"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockRaftContext is a mock of RaftContext interface.

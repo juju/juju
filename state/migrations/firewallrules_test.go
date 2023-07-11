@@ -4,13 +4,14 @@
 package migrations
 
 import (
-	"github.com/golang/mock/gomock"
 	"github.com/juju/description/v3"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/network/firewall"
 )
 
 type FirewallRulesExportSuite struct{}

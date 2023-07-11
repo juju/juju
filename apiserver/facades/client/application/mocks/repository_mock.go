@@ -8,9 +8,9 @@ import (
 	url "net/url"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
 	charm0 "github.com/juju/juju/core/charm"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockRepository is a mock of Repository interface.

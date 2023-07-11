@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 	time "time"
 
-	gomock "github.com/golang/mock/gomock"
 	model "github.com/juju/juju/core/model"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockDiffCommandAPI is a mock of DiffCommandAPI interface.

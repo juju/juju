@@ -4,11 +4,11 @@
 package utils_test
 
 import (
-	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/client/application"

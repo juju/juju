@@ -9,16 +9,17 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	client "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/testing"
 
 	"github.com/juju/juju/cloud"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/provider/lxd"
-	"github.com/juju/testing"
 )
 
 var (

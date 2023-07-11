@@ -7,8 +7,8 @@ package migrations
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	v3 "github.com/juju/description/v3"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockMigrationOfferConnection is a mock of MigrationOfferConnection interface.

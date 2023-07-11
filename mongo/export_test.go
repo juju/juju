@@ -4,7 +4,7 @@
 package mongo
 
 import (
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/service/common"
 	svctesting "github.com/juju/juju/service/common/testing"

@@ -8,9 +8,9 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	charmhub "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockCharmHub is a mock of CharmHub interface.

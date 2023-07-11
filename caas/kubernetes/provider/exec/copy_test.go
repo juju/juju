@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

@@ -7,7 +7,7 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 	metricobserver "github.com/juju/juju/apiserver/observer/metricobserver"
 	prometheus "github.com/prometheus/client_golang/prometheus"
 )

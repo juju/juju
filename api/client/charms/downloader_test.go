@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
 

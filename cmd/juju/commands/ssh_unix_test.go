@@ -12,9 +12,9 @@ import (
 	"reflect"
 	"runtime"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3/cmdtesting"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"

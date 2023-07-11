@@ -7,13 +7,13 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	instancemutater "github.com/juju/juju/api/agent/instancemutater"
 	instance "github.com/juju/juju/core/instance"
 	life "github.com/juju/juju/core/life"
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockMutaterMachine is a mock of MutaterMachine interface.

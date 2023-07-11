@@ -8,10 +8,10 @@ import (
 	io "io"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	params "github.com/juju/juju/rpc/params"
 	tools "github.com/juju/juju/tools"
 	version "github.com/juju/version/v2"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockClientAPI is a mock of ClientAPI interface.

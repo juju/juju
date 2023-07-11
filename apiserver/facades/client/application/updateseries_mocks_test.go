@@ -8,7 +8,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	v8 "github.com/juju/charm/v8"
 	params "github.com/juju/charmrepo/v6/csclient/params"
 	charmhub "github.com/juju/juju/charmhub"
@@ -19,6 +18,7 @@ import (
 	tools "github.com/juju/juju/tools"
 	v4 "github.com/juju/names/v4"
 	schema "github.com/juju/schema"
+	gomock "go.uber.org/mock/gomock"
 	environschema_v1 "gopkg.in/juju/environschema.v1"
 )
 

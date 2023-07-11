@@ -6,13 +6,13 @@ package lxd
 import (
 	"testing"
 
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	containerLXD "github.com/juju/juju/container/lxd"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package lxd -destination package_mock_test.go github.com/juju/juju/provider/lxd Server,ServerFactory,InterfaceAddress,CertificateReadWriter,CertificateGenerator,LXCConfigReader
+//go:generate go run go.uber.org/mock/mockgen -package lxd -destination package_mock_test.go github.com/juju/juju/provider/lxd Server,ServerFactory,InterfaceAddress,CertificateReadWriter,CertificateGenerator,LXCConfigReader
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

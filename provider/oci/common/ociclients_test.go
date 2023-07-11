@@ -6,11 +6,11 @@ package common
 import (
 	ctx "context"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	ociCommon "github.com/oracle/oci-go-sdk/v47/common"
 	ociCore "github.com/oracle/oci-go-sdk/v47/core"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/tags"

@@ -7,9 +7,9 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
 	params "github.com/juju/charmrepo/v6/csclient/params"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockCharmrepoForDeploy is a mock of CharmrepoForDeploy interface.

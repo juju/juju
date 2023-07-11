@@ -6,11 +6,11 @@ package gen
 import (
 	"reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	jsonschema "github.com/juju/jsonschema-gen"
 	"github.com/juju/rpcreflect"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facade"

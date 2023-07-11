@@ -7,7 +7,6 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	network "github.com/juju/juju/core/network"
 	params "github.com/juju/juju/rpc/params"
 	state "github.com/juju/juju/state"
@@ -15,6 +14,7 @@ import (
 	tools "github.com/juju/juju/tools"
 	names "github.com/juju/names/v4"
 	version "github.com/juju/version/v2"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockToolsFinder is a mock of ToolsFinder interface.

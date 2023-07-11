@@ -7,12 +7,12 @@ import (
 	"context"
 	stdcontext "context"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/lxc/lxd/shared/api"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"

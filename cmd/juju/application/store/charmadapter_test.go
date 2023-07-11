@@ -6,14 +6,15 @@ package store_test
 import (
 	"net/url"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
+	gc "gopkg.in/check.v1"
+
 	apicharm "github.com/juju/juju/api/client/charms"
 	commoncharm "github.com/juju/juju/api/common/charm"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/store/mocks"

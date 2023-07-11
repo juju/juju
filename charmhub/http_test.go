@@ -10,11 +10,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 )
 

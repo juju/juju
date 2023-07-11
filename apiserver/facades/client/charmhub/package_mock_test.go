@@ -8,10 +8,10 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	charmhub0 "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
 	config "github.com/juju/juju/environs/config"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockBackend is a mock of Backend interface.

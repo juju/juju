@@ -11,10 +11,10 @@ import (
 	"net/url"
 	os "os"
 
-	gomock "github.com/golang/mock/gomock"
 	charmrepotesting "github.com/juju/charmrepo/v6/testing"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 )
 

@@ -7,7 +7,6 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	caas "github.com/juju/juju/caas"
 	config "github.com/juju/juju/core/config"
 	constraints "github.com/juju/juju/core/constraints"
@@ -19,6 +18,7 @@ import (
 	storage "github.com/juju/juju/storage"
 	names "github.com/juju/names/v4"
 	version "github.com/juju/version/v2"
+	gomock "go.uber.org/mock/gomock"
 	v1 "k8s.io/api/core/v1"
 )
 

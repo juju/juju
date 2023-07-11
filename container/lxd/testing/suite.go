@@ -4,9 +4,9 @@
 package testing
 
 import (
-	"github.com/golang/mock/gomock"
 	"github.com/juju/utils/v3/arch"
 	lxdapi "github.com/lxc/lxd/shared/api"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/status"

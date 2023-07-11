@@ -7,8 +7,8 @@ package charm
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	v8 "github.com/juju/charm/v8"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockStateCharm is a mock of StateCharm interface.
