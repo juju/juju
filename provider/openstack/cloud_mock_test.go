@@ -7,8 +7,8 @@ package openstack
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	network "github.com/juju/juju/core/network"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockNetworkingConfig is a mock of NetworkingConfig interface.

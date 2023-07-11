@@ -7,9 +7,9 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	cmd "github.com/juju/cmd/v3"
 	deployer "github.com/juju/juju/cmd/juju/application/deployer"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockDeployer is a mock of Deployer interface.

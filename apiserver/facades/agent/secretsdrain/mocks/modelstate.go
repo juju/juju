@@ -7,9 +7,9 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockModel is a mock of Model interface.

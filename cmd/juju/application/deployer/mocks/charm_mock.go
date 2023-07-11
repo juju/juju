@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	charm "github.com/juju/charm/v10"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockCharm is a mock of Charm interface.

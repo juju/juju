@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	leadership "github.com/juju/juju/core/leadership"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockChecker is a mock of Checker interface.

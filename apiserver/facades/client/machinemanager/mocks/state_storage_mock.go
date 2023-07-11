@@ -8,8 +8,8 @@ import (
 	io "io"
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	binarystorage "github.com/juju/juju/state/binarystorage"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockStorageCloser is a mock of StorageCloser interface.

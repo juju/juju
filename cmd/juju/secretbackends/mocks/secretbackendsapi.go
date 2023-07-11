@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	secretbackends "github.com/juju/juju/api/client/secretbackends"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockListSecretBackendsAPI is a mock of ListSecretBackendsAPI interface.

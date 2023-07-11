@@ -6,7 +6,6 @@ package testing
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	instancecfg "github.com/juju/juju/cloudconfig/instancecfg"
 	container "github.com/juju/juju/container"
 	constraints "github.com/juju/juju/core/constraints"
@@ -15,6 +14,7 @@ import (
 	series "github.com/juju/juju/core/series"
 	environs "github.com/juju/juju/environs"
 	instances "github.com/juju/juju/environs/instances"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockTestLXDManager is a mock of TestLXDManager interface.

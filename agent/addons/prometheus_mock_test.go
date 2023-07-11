@@ -7,8 +7,8 @@ package addons_test
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	prometheus "github.com/prometheus/client_golang/prometheus"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockRegisterer is a mock of Registerer interface.

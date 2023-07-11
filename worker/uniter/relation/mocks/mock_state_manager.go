@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	relation "github.com/juju/juju/worker/uniter/relation"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockStateManager is a mock of StateManager interface.

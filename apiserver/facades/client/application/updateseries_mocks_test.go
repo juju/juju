@@ -8,8 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
-	v10 "github.com/juju/charm/v10"
+	charm "github.com/juju/charm/v10"
 	charmhub "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
 	config "github.com/juju/juju/core/config"
@@ -17,9 +16,10 @@ import (
 	series "github.com/juju/juju/core/series"
 	state "github.com/juju/juju/state"
 	tools "github.com/juju/juju/tools"
-	v4 "github.com/juju/names/v4"
+	names "github.com/juju/names/v4"
 	schema "github.com/juju/schema"
-	environschema_v1 "gopkg.in/juju/environschema.v1"
+	gomock "go.uber.org/mock/gomock"
+	environschema "gopkg.in/juju/environschema.v1"
 )
 
 // MockApplication is a mock of Application interface.
@@ -106,10 +106,10 @@ func (mr *MockApplicationMockRecorder) ApplicationConfig() *gomock.Call {
 }
 
 // ApplicationTag mocks base method.
-func (m *MockApplication) ApplicationTag() v4.ApplicationTag {
+func (m *MockApplication) ApplicationTag() names.ApplicationTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplicationTag")
-	ret0, _ := ret[0].(v4.ApplicationTag)
+	ret0, _ := ret[0].(names.ApplicationTag)
 	return ret0
 }
 
@@ -151,10 +151,10 @@ func (mr *MockApplicationMockRecorder) Charm() *gomock.Call {
 }
 
 // CharmConfig mocks base method.
-func (m *MockApplication) CharmConfig(arg0 string) (v10.Settings, error) {
+func (m *MockApplication) CharmConfig(arg0 string) (charm.Settings, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CharmConfig", arg0)
-	ret0, _ := ret[0].(v10.Settings)
+	ret0, _ := ret[0].(charm.Settings)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -507,7 +507,7 @@ func (mr *MockApplicationMockRecorder) UpdateApplicationBase(arg0, arg1 interfac
 }
 
 // UpdateApplicationConfig mocks base method.
-func (m *MockApplication) UpdateApplicationConfig(arg0 config.ConfigAttributes, arg1 []string, arg2 environschema_v1.Fields, arg3 schema.Defaults) error {
+func (m *MockApplication) UpdateApplicationConfig(arg0 config.ConfigAttributes, arg1 []string, arg2 environschema.Fields, arg3 schema.Defaults) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateApplicationConfig", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -521,7 +521,7 @@ func (mr *MockApplicationMockRecorder) UpdateApplicationConfig(arg0, arg1, arg2,
 }
 
 // UpdateCharmConfig mocks base method.
-func (m *MockApplication) UpdateCharmConfig(arg0 string, arg1 v10.Settings) error {
+func (m *MockApplication) UpdateCharmConfig(arg0 string, arg1 charm.Settings) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateCharmConfig", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -558,10 +558,10 @@ func (m *MockCharm) EXPECT() *MockCharmMockRecorder {
 }
 
 // Config mocks base method.
-func (m *MockCharm) Config() *v10.Config {
+func (m *MockCharm) Config() *charm.Config {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Config")
-	ret0, _ := ret[0].(*v10.Config)
+	ret0, _ := ret[0].(*charm.Config)
 	return ret0
 }
 
@@ -572,10 +572,10 @@ func (mr *MockCharmMockRecorder) Config() *gomock.Call {
 }
 
 // Manifest mocks base method.
-func (m *MockCharm) Manifest() *v10.Manifest {
+func (m *MockCharm) Manifest() *charm.Manifest {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Manifest")
-	ret0, _ := ret[0].(*v10.Manifest)
+	ret0, _ := ret[0].(*charm.Manifest)
 	return ret0
 }
 
@@ -586,10 +586,10 @@ func (mr *MockCharmMockRecorder) Manifest() *gomock.Call {
 }
 
 // Meta mocks base method.
-func (m *MockCharm) Meta() *v10.Meta {
+func (m *MockCharm) Meta() *charm.Meta {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Meta")
-	ret0, _ := ret[0].(*v10.Meta)
+	ret0, _ := ret[0].(*charm.Meta)
 	return ret0
 }
 
@@ -614,10 +614,10 @@ func (mr *MockCharmMockRecorder) String() *gomock.Call {
 }
 
 // URL mocks base method.
-func (m *MockCharm) URL() *v10.URL {
+func (m *MockCharm) URL() *charm.URL {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "URL")
-	ret0, _ := ret[0].(*v10.URL)
+	ret0, _ := ret[0].(*charm.URL)
 	return ret0
 }
 

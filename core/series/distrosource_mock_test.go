@@ -7,8 +7,8 @@ package series
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	series "github.com/juju/os/v2/series"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockDistroSource is a mock of DistroSource interface.

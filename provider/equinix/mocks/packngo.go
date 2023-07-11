@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	packngo "github.com/packethost/packngo"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockDeviceService is a mock of DeviceService interface.

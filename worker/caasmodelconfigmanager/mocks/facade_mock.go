@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	controller "github.com/juju/juju/controller"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockFacade is a mock of Facade interface.

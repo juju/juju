@@ -7,7 +7,6 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	instance "github.com/juju/juju/core/instance"
 	life "github.com/juju/juju/core/life"
 	status "github.com/juju/juju/core/status"
@@ -15,6 +14,7 @@ import (
 	params "github.com/juju/juju/rpc/params"
 	names "github.com/juju/names/v4"
 	version "github.com/juju/version/v2"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockMachineProvisioner is a mock of MachineProvisioner interface.

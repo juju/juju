@@ -7,13 +7,13 @@ package lxd
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	lxd "github.com/juju/juju/container/lxd"
 	network "github.com/juju/juju/core/network"
 	series "github.com/juju/juju/core/series"
 	environs "github.com/juju/juju/environs"
-	client "github.com/lxc/lxd/client"
+	lxd1 "github.com/lxc/lxd/client"
 	api "github.com/lxc/lxd/shared/api"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockServer is a mock of Server interface.
@@ -305,10 +305,10 @@ func (mr *MockServerMockRecorder) GetClusterMembers() *gomock.Call {
 }
 
 // GetConnectionInfo mocks base method.
-func (m *MockServer) GetConnectionInfo() (*client.ConnectionInfo, error) {
+func (m *MockServer) GetConnectionInfo() (*lxd1.ConnectionInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetConnectionInfo")
-	ret0, _ := ret[0].(*client.ConnectionInfo)
+	ret0, _ := ret[0].(*lxd1.ConnectionInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

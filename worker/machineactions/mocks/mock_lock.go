@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	machinelock "github.com/juju/juju/core/machinelock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockLock is a mock of Lock interface.

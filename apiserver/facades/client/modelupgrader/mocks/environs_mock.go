@@ -7,12 +7,12 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	constraints "github.com/juju/juju/core/constraints"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
 	context "github.com/juju/juju/environs/context"
 	storage "github.com/juju/juju/storage"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockBootstrapEnviron is a mock of BootstrapEnviron interface.

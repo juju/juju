@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	txn "github.com/juju/txn/v3"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockRunner is a mock of Runner interface.

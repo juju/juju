@@ -7,8 +7,8 @@ package centralhub
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	prometheus "github.com/prometheus/client_golang/prometheus"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockGaugeVec is a mock of GaugeVec interface.

@@ -7,10 +7,10 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	secrets "github.com/juju/juju/core/secrets"
 	secrets0 "github.com/juju/juju/secrets"
 	provider "github.com/juju/juju/secrets/provider"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockJujuAPIClient is a mock of JujuAPIClient interface.

@@ -7,8 +7,8 @@ package migrations
 import (
 	reflect "reflect"
 
+	description "github.com/juju/description/v4"
 	gomock "go.uber.org/mock/gomock"
-	v4 "github.com/juju/description/v4"
 )
 
 // MockMigrationRemoteEntity is a mock of MigrationRemoteEntity interface.
@@ -138,10 +138,10 @@ func (m *MockRemoteEntitiesModel) EXPECT() *MockRemoteEntitiesModelMockRecorder 
 }
 
 // AddRemoteEntity mocks base method.
-func (m *MockRemoteEntitiesModel) AddRemoteEntity(arg0 v4.RemoteEntityArgs) v4.RemoteEntity {
+func (m *MockRemoteEntitiesModel) AddRemoteEntity(arg0 description.RemoteEntityArgs) description.RemoteEntity {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddRemoteEntity", arg0)
-	ret0, _ := ret[0].(v4.RemoteEntity)
+	ret0, _ := ret[0].(description.RemoteEntity)
 	return ret0
 }
 

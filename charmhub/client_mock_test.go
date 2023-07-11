@@ -10,9 +10,9 @@ import (
 	os "os"
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	path "github.com/juju/juju/charmhub/path"
 	loggo "github.com/juju/loggo"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockHTTPClient is a mock of HTTPClient interface.

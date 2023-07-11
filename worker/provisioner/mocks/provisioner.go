@@ -7,7 +7,6 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	provisioner "github.com/juju/juju/api/agent/provisioner"
 	instance "github.com/juju/juju/core/instance"
 	life "github.com/juju/juju/core/life"
@@ -15,6 +14,7 @@ import (
 	params "github.com/juju/juju/rpc/params"
 	provisioner0 "github.com/juju/juju/worker/provisioner"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockContainerMachine is a mock of ContainerMachine interface.

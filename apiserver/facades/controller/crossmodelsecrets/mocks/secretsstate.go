@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	secrets "github.com/juju/juju/core/secrets"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockSecretsState is a mock of SecretsState interface.

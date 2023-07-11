@@ -9,11 +9,11 @@ import (
 	http "net/http"
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	websocket "github.com/gorilla/websocket"
 	lxd "github.com/lxc/lxd/client"
 	api "github.com/lxc/lxd/shared/api"
 	sftp "github.com/pkg/sftp"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockOperation is a mock of Operation interface.

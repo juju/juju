@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	payloads "github.com/juju/juju/core/payloads"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockPayloadAPIClient is a mock of PayloadAPIClient interface.

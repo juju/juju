@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	model "github.com/juju/juju/core/model"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockCommitsCommandAPI is a mock of CommitsCommandAPI interface.

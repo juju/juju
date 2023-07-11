@@ -8,9 +8,9 @@ import (
 	reflect "reflect"
 	time "time"
 
-	gomock "go.uber.org/mock/gomock"
 	mongo "github.com/juju/juju/mongo"
 	mgo "github.com/juju/mgo/v3"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockCollection is a mock of Collection interface.

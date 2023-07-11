@@ -7,13 +7,13 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	secrets "github.com/juju/juju/apiserver/common/secrets"
 	cloud "github.com/juju/juju/cloud"
 	secrets0 "github.com/juju/juju/core/secrets"
 	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockModel is a mock of Model interface.

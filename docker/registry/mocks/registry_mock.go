@@ -8,9 +8,9 @@ import (
 	reflect "reflect"
 	time "time"
 
-	gomock "go.uber.org/mock/gomock"
 	docker "github.com/juju/juju/docker"
 	tools "github.com/juju/juju/tools"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockRegistry is a mock of Registry interface.

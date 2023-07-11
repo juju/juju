@@ -8,9 +8,9 @@ import (
 	io "io"
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	tools "github.com/juju/juju/tools"
 	version "github.com/juju/version/v2"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockSyncToolAPI is a mock of SyncToolAPI interface.

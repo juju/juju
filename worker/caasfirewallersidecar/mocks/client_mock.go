@@ -7,12 +7,12 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	charms "github.com/juju/juju/api/common/charms"
 	config "github.com/juju/juju/core/config"
 	life "github.com/juju/juju/core/life"
 	network "github.com/juju/juju/core/network"
 	watcher "github.com/juju/juju/core/watcher"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockClient is a mock of Client interface.

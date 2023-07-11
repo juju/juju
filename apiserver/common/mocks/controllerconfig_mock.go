@@ -7,10 +7,10 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	controller "github.com/juju/juju/controller"
 	network "github.com/juju/juju/core/network"
 	state "github.com/juju/juju/state"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockControllerConfigState is a mock of ControllerConfigState interface.

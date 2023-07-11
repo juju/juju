@@ -7,12 +7,12 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	clock "github.com/juju/clock"
 	caas "github.com/juju/juju/caas"
 	life "github.com/juju/juju/core/life"
 	status "github.com/juju/juju/core/status"
 	caasapplicationprovisioner "github.com/juju/juju/worker/caasapplicationprovisioner"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockApplicationOps is a mock of ApplicationOps interface.
