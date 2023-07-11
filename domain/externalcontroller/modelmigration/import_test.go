@@ -9,7 +9,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/description/v4"
-	"github.com/juju/juju/domain/externalcontroller"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -76,7 +76,7 @@ func (s *importSuite) TestExecuteMultipleExternalControllers(c *gc.C) {
 		},
 	)
 
-	expectedCtrls := []externalcontroller.MigrationControllerInfo{
+	expectedCtrls := []crossmodel.ControllerInfo{
 		{
 			ControllerTag: names.NewControllerTag("ctrl1"),
 			Addrs:         []string{"192.168.1.1:8080"},
@@ -114,7 +114,7 @@ func (s *importSuite) TestExecuteReturnsError(c *gc.C) {
 		},
 	)
 
-	expectedCtrls := []externalcontroller.MigrationControllerInfo{
+	expectedCtrls := []crossmodel.ControllerInfo{
 		{
 			ControllerTag: names.NewControllerTag("ctrl1"),
 			Addrs:         []string{"192.168.1.1:8080"},

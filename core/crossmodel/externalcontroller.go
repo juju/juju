@@ -24,6 +24,9 @@ type ControllerInfo struct {
 	// CACert holds the CA certificate that will be used to validate
 	// the API server's certificate, in PEM format.
 	CACert string
+
+	// ModelUUIDs holds the UUIDs of the models hosted on this controller.
+	ModelUUIDs []string
 }
 
 // Validate returns an error if the ControllerInfo contains bad data.

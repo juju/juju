@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/externalcontroller"
 	"github.com/juju/juju/domain/externalcontroller/service"
 	"github.com/juju/juju/domain/externalcontroller/state"
 )
@@ -22,7 +21,8 @@ func RegisterExport(coordinator Coordinator) {
 	coordinator.Add(&exportOperation{})
 }
 
-// EcService provides a subset of the external controller domain service methods.
+// ExportService provides a subset of the external controller domain
+// service methods needed for external controller export.
 type ExportService interface {
 	// ControllerForModel returns the controller record that's associated
 	// with the modelUUID.
@@ -36,7 +36,7 @@ type ExportService interface {
 	// are part of the given modelUUIDs.
 	// The resulting MigrationControllerInfo contains the list of models
 	// for each controller.
-	ControllersForModels(ctx context.Context, modelUUIDs []string) ([]externalcontroller.MigrationControllerInfo, error)
+	ControllersForModels(ctx context.Context, modelUUIDs []string) ([]crossmodel.ControllerInfo, error)
 }
 
 // exportOperation describes a way to execute a migration for

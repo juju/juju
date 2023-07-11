@@ -9,9 +9,9 @@ import (
 	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/externalcontroller"
 	"github.com/juju/juju/domain/externalcontroller/service"
 	"github.com/juju/juju/domain/externalcontroller/state"
 )
@@ -28,7 +28,7 @@ func RegisterImport(coordinator Coordinator) {
 }
 
 type ImportService interface {
-	ImportExternalControllers(context.Context, []externalcontroller.MigrationControllerInfo) error
+	ImportExternalControllers(context.Context, []crossmodel.ControllerInfo) error
 }
 
 type importOperation struct {
@@ -54,9 +54,9 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return nil
 	}
 
-	var controllers []externalcontroller.MigrationControllerInfo
+	var controllers []crossmodel.ControllerInfo
 	for _, entity := range externalControllers {
-		controllers = append(controllers, externalcontroller.MigrationControllerInfo{
+		controllers = append(controllers, crossmodel.ControllerInfo{
 			ControllerTag: entity.ID(),
 			Alias:         entity.Alias(),
 			CACert:        entity.CACert(),

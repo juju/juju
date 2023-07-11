@@ -11,7 +11,6 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	crossmodel "github.com/juju/juju/core/crossmodel"
 	modelmigration "github.com/juju/juju/core/modelmigration"
-	externalcontroller "github.com/juju/juju/domain/externalcontroller"
 )
 
 // MockCoordinator is a mock of Coordinator interface.
@@ -73,7 +72,7 @@ func (m *MockImportService) EXPECT() *MockImportServiceMockRecorder {
 }
 
 // ImportExternalControllers mocks base method.
-func (m *MockImportService) ImportExternalControllers(arg0 context.Context, arg1 []externalcontroller.MigrationControllerInfo) error {
+func (m *MockImportService) ImportExternalControllers(arg0 context.Context, arg1 []crossmodel.ControllerInfo) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ImportExternalControllers", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -125,10 +124,10 @@ func (mr *MockExportServiceMockRecorder) ControllerForModel(arg0, arg1 interface
 }
 
 // ControllersForModels mocks base method.
-func (m *MockExportService) ControllersForModels(arg0 context.Context, arg1 []string) ([]externalcontroller.MigrationControllerInfo, error) {
+func (m *MockExportService) ControllersForModels(arg0 context.Context, arg1 []string) ([]crossmodel.ControllerInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllersForModels", arg0, arg1)
-	ret0, _ := ret[0].([]externalcontroller.MigrationControllerInfo)
+	ret0, _ := ret[0].([]crossmodel.ControllerInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

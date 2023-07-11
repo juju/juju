@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/domain/externalcontroller"
+	"github.com/juju/juju/core/crossmodel"
 )
 
 type exportSuite struct {
@@ -47,7 +47,7 @@ func (s *exportSuite) TestExportExternalController(c *gc.C) {
 		SourceModel: names.NewModelTag(modelUUID),
 	})
 	ctrlUUID := "ctrl-uuid-1"
-	extCtrlModel := []externalcontroller.MigrationControllerInfo{
+	extCtrlModel := []crossmodel.ControllerInfo{
 		{
 			ControllerTag: names.NewControllerTag(ctrlUUID),
 			Addrs:         []string{"192.168.1.1:8080"},
@@ -89,7 +89,7 @@ func (s *exportSuite) TestExportExternalControllerRequestsExternalControllerOnce
 		SourceModel: names.NewModelTag(modelUUID),
 	})
 	ctrlUUID := "ctrl-uuid-1"
-	extCtrlModel := []externalcontroller.MigrationControllerInfo{
+	extCtrlModel := []crossmodel.ControllerInfo{
 		{
 			ControllerTag: names.NewControllerTag(ctrlUUID),
 			Addrs:         []string{"192.168.1.1:8080"},
@@ -134,7 +134,7 @@ func (s *exportSuite) TestExportExternalControllerRequestsExternalControllerOnce
 		SourceModel: names.NewModelTag(modelUUID2),
 	})
 	ctrlUUID := "ctrl-uuid-1"
-	extCtrlModel := []externalcontroller.MigrationControllerInfo{
+	extCtrlModel := []crossmodel.ControllerInfo{
 		{
 			ControllerTag: names.NewControllerTag(ctrlUUID),
 			Addrs:         []string{"192.168.1.1:8080"},

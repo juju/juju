@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/domain/externalcontroller"
 )
 
 // State describes retrieval and persistence methods for storage.
@@ -25,7 +24,7 @@ type State interface {
 
 	// UpdateExternalController persists the input controller
 	// record and associates it with the input model UUIDs.
-	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo, modelUUIDs []string) error
+	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
 
 	// ModelsForController returns the list of model UUIDs for
 	// the given controllerUUID.
@@ -33,13 +32,13 @@ type State interface {
 
 	// ImportExternalControllers imports the list of MigrationControllerInfo
 	// external controllers on one single transaction.
-	ImportExternalControllers(ctx context.Context, infos []externalcontroller.MigrationControllerInfo) error
+	ImportExternalControllers(ctx context.Context, infos []crossmodel.ControllerInfo) error
 
 	// ControllersForModels returns the list of controllers which
 	// are part of the given modelUUIDs.
 	// The resulting MigrationControllerInfo contains the list of models
 	// for each controller.
-	ControllersForModels(ctx context.Context, modelUUIDs []string) ([]externalcontroller.MigrationControllerInfo, error)
+	ControllersForModels(ctx context.Context, modelUUIDs []string) ([]crossmodel.ControllerInfo, error)
 }
 
 // WatcherFactory describes methods for creating watchers.
@@ -90,9 +89,9 @@ func (s *Service) ControllerForModel(
 // UpdateExternalController persists the input controller
 // record and associates it with the input model UUIDs.
 func (s *Service) UpdateExternalController(
-	ctx context.Context, ec crossmodel.ControllerInfo, modelUUIDs ...string,
+	ctx context.Context, ec crossmodel.ControllerInfo,
 ) error {
-	err := s.st.UpdateExternalController(ctx, ec, modelUUIDs)
+	err := s.st.UpdateExternalController(ctx, ec)
 	return errors.Annotate(err, "updating external controller state")
 }
 
@@ -111,7 +110,7 @@ func (s *Service) Watch() (watcher.StringsWatcher, error) {
 // external controllers on one single transaction.
 func (s *Service) ImportExternalControllers(
 	ctx context.Context,
-	externalControllers []externalcontroller.MigrationControllerInfo,
+	externalControllers []crossmodel.ControllerInfo,
 ) error {
 	return s.st.ImportExternalControllers(ctx, externalControllers)
 }
@@ -133,6 +132,6 @@ func (s *Service) ModelsForController(
 func (s *Service) ControllersForModels(
 	ctx context.Context,
 	modelUUIDs []string,
-) ([]externalcontroller.MigrationControllerInfo, error) {
+) ([]crossmodel.ControllerInfo, error) {
 	return s.st.ControllersForModels(ctx, modelUUIDs)
 }

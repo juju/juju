@@ -67,10 +67,10 @@ func (mr *MockStateMockRecorder) ControllerForModel(arg0, arg1 interface{}) *gom
 }
 
 // ControllersForModels mocks base method.
-func (m *MockState) ControllersForModels(arg0 context.Context, arg1 []string) ([]externalcontroller.MigrationControllerInfo, error) {
+func (m *MockState) ControllersForModels(arg0 context.Context, arg1 []string) ([]crossmodel.ControllerInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllersForModels", arg0, arg1)
-	ret0, _ := ret[0].([]externalcontroller.MigrationControllerInfo)
+	ret0, _ := ret[0].([]crossmodel.ControllerInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -82,7 +82,7 @@ func (mr *MockStateMockRecorder) ControllersForModels(arg0, arg1 interface{}) *g
 }
 
 // ImportExternalControllers mocks base method.
-func (m *MockState) ImportExternalControllers(arg0 context.Context, arg1 []externalcontroller.MigrationControllerInfo) error {
+func (m *MockState) ImportExternalControllers(arg0 context.Context, arg1 []crossmodel.ControllerInfo) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ImportExternalControllers", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -111,15 +111,15 @@ func (mr *MockStateMockRecorder) ModelsForController(arg0, arg1 interface{}) *go
 }
 
 // UpdateExternalController mocks base method.
-func (m *MockState) UpdateExternalController(arg0 context.Context, arg1 crossmodel.ControllerInfo, arg2 []string) error {
+func (m *MockState) UpdateExternalController(arg0 context.Context, arg1 crossmodel.ControllerInfo) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateExternalController", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "UpdateExternalController", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateExternalController indicates an expected call of UpdateExternalController.
-func (mr *MockStateMockRecorder) UpdateExternalController(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockStateMockRecorder) UpdateExternalController(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateExternalController", reflect.TypeOf((*MockState)(nil).UpdateExternalController), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateExternalController", reflect.TypeOf((*MockState)(nil).UpdateExternalController), arg0, arg1)
 }

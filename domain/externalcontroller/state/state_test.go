@@ -183,16 +183,16 @@ func (s *stateSuite) TestUpdateExternalControllerNewData(c *gc.C) {
 	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
 
 	ecUUID := utils.MustNewUUID().String()
+	m1 := utils.MustNewUUID().String()
 	ec := crossmodel.ControllerInfo{
 		ControllerTag: names.NewControllerTag(ecUUID),
 		Alias:         "new-external-controller",
 		Addrs:         []string{"10.10.10.10", "192.168.0.9"},
 		CACert:        "random-cert-string",
+		ModelUUIDs:    []string{m1},
 	}
 
-	m1 := utils.MustNewUUID().String()
-
-	err := st.UpdateExternalController(ctx.Background(), ec, []string{m1})
+	err := st.UpdateExternalController(ctx.Background(), ec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	db := s.DB()
@@ -244,14 +244,14 @@ func (s *stateSuite) TestUpdateExternalControllerUpsertAndReplace(c *gc.C) {
 	}
 
 	// Initial values.
-	err := st.UpdateExternalController(ctx.Background(), ec, nil)
+	err := st.UpdateExternalController(ctx.Background(), ec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now with different alias and addresses.
 	ec.Alias = "updated-external-controller"
 	ec.Addrs = []string{"10.10.10.10", "192.168.0.10"}
 
-	err = st.UpdateExternalController(ctx.Background(), ec, nil)
+	err = st.UpdateExternalController(ctx.Background(), ec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	db := s.DB()
@@ -284,16 +284,16 @@ func (s *stateSuite) TestUpdateExternalControllerUpsertAndReplace(c *gc.C) {
 func (s *stateSuite) TestUpdateExternalControllerUpdateModel(c *gc.C) {
 	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
 
+	m1 := utils.MustNewUUID().String()
 	// This is an existing controller with a model reference.
 	ec := crossmodel.ControllerInfo{
 		ControllerTag: names.NewControllerTag(utils.MustNewUUID().String()),
 		Alias:         "existing-external-controller",
 		CACert:        "random-cert-string",
+		ModelUUIDs:    []string{m1},
 	}
 
-	m1 := utils.MustNewUUID().String()
-
-	err := st.UpdateExternalController(ctx.Background(), ec, []string{m1})
+	err := st.UpdateExternalController(ctx.Background(), ec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now upload a new controller with the same model
@@ -302,9 +302,10 @@ func (s *stateSuite) TestUpdateExternalControllerUpdateModel(c *gc.C) {
 		ControllerTag: names.NewControllerTag(ecUUID),
 		Alias:         "new-external-controller",
 		CACert:        "another-random-cert-string",
+		ModelUUIDs:    []string{m1},
 	}
 
-	err = st.UpdateExternalController(ctx.Background(), ec, []string{m1})
+	err = st.UpdateExternalController(ctx.Background(), ec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the model is indicated as being on the new controller.

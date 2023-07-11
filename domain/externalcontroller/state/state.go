@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/database"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/externalcontroller"
 )
 
 type State struct {
@@ -121,7 +120,6 @@ func controllerInfoFromRows(uuid string, rows []ExternalController) *crossmodel.
 func (st *State) UpdateExternalController(
 	ctx context.Context,
 	ci crossmodel.ControllerInfo,
-	modelUUIDs []string,
 ) error {
 	db, err := st.DB()
 	if err != nil {
@@ -129,15 +127,15 @@ func (st *State) UpdateExternalController(
 	}
 
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		return st.updateExternalControllerTx(ctx, tx, ci, modelUUIDs)
+		return st.updateExternalControllerTx(ctx, tx, ci)
 	})
 
 	return errors.Trace(err)
 }
 
-// ImportExternalControllers imports the list of MigrationControllerInfo
+// ImportExternalControllers imports the list of ControllerInfo
 // external controllers on one single transaction.
-func (st *State) ImportExternalControllers(ctx context.Context, infos []externalcontroller.MigrationControllerInfo) error {
+func (st *State) ImportExternalControllers(ctx context.Context, infos []crossmodel.ControllerInfo) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -148,13 +146,7 @@ func (st *State) ImportExternalControllers(ctx context.Context, infos []external
 			err := st.updateExternalControllerTx(
 				ctx,
 				tx,
-				crossmodel.ControllerInfo{
-					ControllerTag: ci.ControllerTag,
-					Addrs:         ci.Addrs,
-					Alias:         ci.Alias,
-					CACert:        ci.CACert,
-				},
-				ci.ModelUUIDs,
+				ci,
 			)
 			if err != nil {
 				return errors.Trace(err)
@@ -170,7 +162,6 @@ func (st *State) updateExternalControllerTx(
 	ctx context.Context,
 	tx *sql.Tx,
 	ci crossmodel.ControllerInfo,
-	modelUUIDs []string,
 ) error {
 	cID := ci.ControllerTag.Id()
 	q := `
@@ -207,7 +198,7 @@ VALUES (?, ?, ?)
 	// TODO (manadart 2023-05-13): Check current implementation and see if
 	// we need to delete models as we do for addresses, or whether this
 	// (additive) approach is what we have now.
-	for _, modelUUID := range modelUUIDs {
+	for _, modelUUID := range ci.ModelUUIDs {
 		q := `
 INSERT INTO external_model (uuid, controller_uuid)
 VALUES (?, ?)
@@ -257,7 +248,7 @@ WHERE  	controller_uuid = ?`
 	return modelUUIDs, err
 }
 
-func (st *State) ControllersForModels(ctx context.Context, modelUUIDs []string) ([]externalcontroller.MigrationControllerInfo, error) {
+func (st *State) ControllersForModels(ctx context.Context, modelUUIDs []string) ([]crossmodel.ControllerInfo, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -265,12 +256,18 @@ func (st *State) ControllersForModels(ctx context.Context, modelUUIDs []string) 
 
 	modelBinds, modelVals := database.SliceToPlaceholder(modelUUIDs)
 
+	// TODO(nvinuesa): We should use SQLair here, but for the moment it's
+	// not possible for two reasons:
+	// 1) Queries with `IN` statements are not yet supported:
+	// https://github.com/canonical/sqlair/pull/76
+	// 2) The `AS` statement is not supported for SELECT statement
+	// column names (in our case we need the `model.uuid AS model`).
 	q := fmt.Sprintf(`
 SELECT  ctrl.uuid,  
 	ctrl.alias,
 	ctrl.ca_cert,
 	model.uuid AS model,
-	addrs.address AS address
+	addrs.address
 FROM external_controller AS ctrl	
 JOIN 	external_model AS model
 ON ctrl.uuid = model.controller_uuid
@@ -278,7 +275,7 @@ LEFT JOIN external_controller_address AS addrs
 ON ctrl.uuid = addrs.controller_uuid
 WHERE model.uuid IN (%s)`, modelBinds)
 
-	var resultControllers []externalcontroller.MigrationControllerInfo
+	var resultControllers []crossmodel.ControllerInfo
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, q, modelVals...)
 		if err != nil {
@@ -289,14 +286,14 @@ WHERE model.uuid IN (%s)`, modelBinds)
 		// controller.
 		uniqueModelUUIDs := make(map[string]map[string]string)
 		uniqueAddresses := make(map[string]map[string]string)
-		uniqueControllers := make(map[string]externalcontroller.MigrationControllerInfo)
+		uniqueControllers := make(map[string]crossmodel.ControllerInfo)
 		for rows.Next() {
-			var controller MigrationControllerInfo
+			var controller ExternalController
 			if err := rows.Scan(&controller.ID, &controller.Alias, &controller.CACert, &controller.ModelUUID, &controller.Addr); err != nil {
 				_ = rows.Close()
 				return errors.Trace(err)
 			}
-			uniqueControllers[controller.ID] = externalcontroller.MigrationControllerInfo{
+			uniqueControllers[controller.ID] = crossmodel.ControllerInfo{
 				ControllerTag: names.NewControllerTag(controller.ID),
 				CACert:        controller.CACert,
 				Alias:         controller.Alias.String,
