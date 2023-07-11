@@ -6,14 +6,14 @@
 package lxd
 
 import (
+	lxd "github.com/canonical/lxd/client"
+	"github.com/canonical/lxd/shared/api"
 	"github.com/golang/mock/gomock"
 	"github.com/juju/packaging/v2/commands"
 	"github.com/juju/packaging/v2/manager"
 	"github.com/juju/proxy"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	lxd "github.com/lxc/lxd/client"
-	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/container/lxd/mocks"
