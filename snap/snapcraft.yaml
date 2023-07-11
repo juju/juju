@@ -71,7 +71,7 @@ parts:
     source: snap/local
 
   musl:
-    source: https://musl.libc.org/releases/musl-1.2.3.tar.gz
+    source: https://musl.libc.org/releases/musl-1.2.4.tar.gz
     source-type: tar
     plugin: autotools
     build-packages:
