@@ -5,10 +5,12 @@ package state
 
 import (
 	"context"
+	"errors"
 
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	jujuerrors "github.com/juju/errors"
 
 	"github.com/juju/juju/database/testing"
 )
@@ -60,4 +62,21 @@ func (s *stateSuite) TestUpdateBootstrapNodeBindAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(addr, gc.Equals, "192.168.5.60")
+}
+
+func (s *stateSuite) TestSelectModelUUID(c *gc.C) {
+	db := s.DB()
+
+	_, err := db.Exec("INSERT INTO model_list (uuid) VALUES ('some-uuid')")
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+
+	uuid, err := st.SelectModelUUID(context.Background(), "not-there")
+	c.Assert(errors.Is(err, jujuerrors.NotFound), jc.IsTrue)
+	c.Check(uuid, gc.Equals, "")
+
+	uuid, err = st.SelectModelUUID(context.Background(), "some-uuid")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(uuid, gc.Equals, "some-uuid")
 }
