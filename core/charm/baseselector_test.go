@@ -54,7 +54,7 @@ func (s *baseSelectorSuite) TestCharmBase(c *gc.C) {
 				requestedBase:  precise,
 				supportedBases: []series.Base{bionic, cosmic},
 			},
-			err: `base: ubuntu@14.04/stable`,
+			err: `base ubuntu@14.04/stable not supported`,
 		},
 		{
 			title: "juju deploy simple --base=ubuntu@18.04   # user provided base takes precedence over default base ",
@@ -83,7 +83,7 @@ func (s *baseSelectorSuite) TestCharmBase(c *gc.C) {
 				defaultBase:         precise,
 				explicitDefaultBase: true,
 			},
-			err: `base: ubuntu@14.04/stable`,
+			err: `base ubuntu@14.04/stable not supported`,
 		},
 		{
 			title: "juju deploy multiseries   # use model base defaults if supported by charm",
@@ -108,7 +108,7 @@ func (s *baseSelectorSuite) TestCharmBase(c *gc.C) {
 				requestedBase:  bionic,
 				supportedBases: []series.Base{utopic, vivid},
 			},
-			err: `base: ubuntu@18.04/stable`,
+			err: `base ubuntu@18.04/stable not supported`,
 		},
 		{
 			title: "juju deploy multiseries    # fallback to series.LatestLTSBase()",
@@ -166,7 +166,7 @@ func (s *baseSelectorSuite) TestValidate(c *gc.C) {
 		// Simple selectors first, no supported bases, check we're validating
 		title:    "juju deploy simple   # no default base, no supported base",
 		selector: BaseSelector{},
-		err:      "charm does not define any bases, not valid",
+		err:      "charm does not define any bases",
 	}, {
 		title: "should fail when image-id constraint is used and no base is explicitly set",
 		selector: BaseSelector{
@@ -289,5 +289,5 @@ func (s *baseSelectorSuite) TestConfigureBaseSelectorDefaultBaseFail(c *gc.C) {
 	baseSelector, err := ConfigureBaseSelector(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = baseSelector.CharmBase()
-	c.Assert(err, gc.ErrorMatches, `base: ubuntu@18.04/stable`)
+	c.Assert(err, gc.ErrorMatches, `base ubuntu@18.04/stable not supported`)
 }

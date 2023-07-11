@@ -4,7 +4,6 @@
 package charm
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -99,10 +98,10 @@ func (s BaseSelector) validate(supportedCharmBases, supportedJujuBases []series.
 		return nil, errors.Forbiddenf("base must be explicitly provided when image-id constraint is used")
 	}
 	if len(supportedCharmBases) == 0 {
-		return nil, errors.NotValidf("charm does not define any bases,")
+		return nil, errors.NewNotValid(nil, "charm does not define any bases")
 	}
 	if len(supportedJujuBases) == 0 {
-		return nil, errors.NotValidf("no juju supported bases")
+		return nil, errors.NewNotValid(nil, "charm does not define any juju supported bases")
 	}
 	// Verify that the charm supported bases include at least one juju
 	// supported base.
@@ -181,7 +180,7 @@ func (s BaseSelector) userRequested(requestedBase series.Base) (series.Base, err
 		base = requestedBase
 	} else if err != nil {
 		if !s.jujuSupportedBases.Contains(requestedBase.String()) {
-			return series.Base{}, errors.NewNotSupported(nil, fmt.Sprintf("base: %s", requestedBase))
+			return series.Base{}, errors.NotSupportedf("base %s", requestedBase)
 		}
 		if IsUnsupportedBaseError(err) {
 			return series.Base{}, errors.Errorf(
