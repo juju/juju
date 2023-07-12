@@ -2277,6 +2277,17 @@ func (st *State) findSecretEntity(tag names.Tag) (entity Lifer, collName, docID 
 			entity, err = st.RemoteApplication(id)
 			collName = remoteApplicationsC
 		}
+	case names.ModelTag:
+		if st.ModelUUID() != tag.Id() {
+			// This should never happen, but just in case.
+			return nil, "", "", errors.NotFoundf("model %q", tag.Id())
+		}
+		entity, err = st.Model()
+		if err != nil {
+			return nil, "", "", errors.Trace(err)
+		}
+		collName = modelsC
+		docID = id
 	default:
 		err = errors.NotValidf("secret scope reference %q", tag.String())
 	}
