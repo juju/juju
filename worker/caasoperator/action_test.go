@@ -8,13 +8,13 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	utilexec "github.com/juju/utils/v3/exec"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	k8sexec "k8s.io/client-go/util/exec"
 

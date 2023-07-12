@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	"github.com/lxc/lxd/shared/api"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"

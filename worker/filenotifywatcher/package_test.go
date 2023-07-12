@@ -7,14 +7,14 @@ import (
 	"testing"
 	time "time"
 
-	"github.com/golang/mock/gomock"
 	jujutesting "github.com/juju/testing"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package filenotifywatcher -destination watcher_mock_test.go github.com/juju/juju/worker/filenotifywatcher FileNotifyWatcher,FileWatcher
-//go:generate go run github.com/golang/mock/mockgen -package filenotifywatcher -destination logger_mock_test.go github.com/juju/juju/worker/filenotifywatcher Logger
-//go:generate go run github.com/golang/mock/mockgen -package filenotifywatcher -destination clock_mock_test.go github.com/juju/clock Clock,Timer
+//go:generate go run go.uber.org/mock/mockgen -package filenotifywatcher -destination watcher_mock_test.go github.com/juju/juju/worker/filenotifywatcher FileNotifyWatcher,FileWatcher
+//go:generate go run go.uber.org/mock/mockgen -package filenotifywatcher -destination logger_mock_test.go github.com/juju/juju/worker/filenotifywatcher Logger
+//go:generate go run go.uber.org/mock/mockgen -package filenotifywatcher -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

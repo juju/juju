@@ -4,8 +4,8 @@
 package caasmodelconfigmanager_test
 
 import (
-	"github.com/golang/mock/gomock"
 	"github.com/juju/testing"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/controller/caasmodelconfigmanager"

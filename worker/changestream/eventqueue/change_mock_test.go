@@ -7,8 +7,8 @@ package eventqueue
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	changestream "github.com/juju/juju/core/changestream"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockChangeEvent is a mock of ChangeEvent interface.

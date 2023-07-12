@@ -7,13 +7,13 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	constraints "github.com/juju/juju/core/constraints"
 	environs "github.com/juju/juju/environs"
 	cloudspec "github.com/juju/juju/environs/cloudspec"
 	config "github.com/juju/juju/environs/config"
 	context "github.com/juju/juju/environs/context"
 	storage "github.com/juju/juju/storage"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockEnvironConfigGetter is a mock of EnvironConfigGetter interface.

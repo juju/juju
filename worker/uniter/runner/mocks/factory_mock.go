@@ -7,12 +7,12 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	uniter "github.com/juju/juju/api/agent/uniter"
 	hook "github.com/juju/juju/worker/uniter/hook"
 	runner "github.com/juju/juju/worker/uniter/runner"
 	context "github.com/juju/juju/worker/uniter/runner/context"
 	exec "github.com/juju/utils/v3/exec"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockFactory is a mock of Factory interface.

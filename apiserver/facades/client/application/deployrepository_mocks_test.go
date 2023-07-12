@@ -7,8 +7,7 @@ package application
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
-	v11 "github.com/juju/charm/v11"
+	charm "github.com/juju/charm/v11"
 	resource "github.com/juju/charm/v11/resource"
 	services "github.com/juju/juju/apiserver/facades/client/charms/services"
 	cloud "github.com/juju/juju/cloud"
@@ -19,8 +18,9 @@ import (
 	config "github.com/juju/juju/environs/config"
 	params "github.com/juju/juju/rpc/params"
 	state "github.com/juju/juju/state"
-	v4 "github.com/juju/names/v4"
-	v2 "github.com/juju/version/v2"
+	names "github.com/juju/names/v4"
+	version "github.com/juju/version/v2"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockBindings is a mock of Bindings interface.
@@ -159,7 +159,7 @@ func (mr *MockDeployFromRepositoryStateMockRecorder) AllSpaceInfos() *gomock.Cal
 }
 
 // Charm mocks base method.
-func (m *MockDeployFromRepositoryState) Charm(arg0 *v11.URL) (Charm, error) {
+func (m *MockDeployFromRepositoryState) Charm(arg0 *charm.URL) (Charm, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Charm", arg0)
 	ret0, _ := ret[0].(Charm)
@@ -248,7 +248,7 @@ func (mr *MockDeployFromRepositoryStateMockRecorder) ModelUUID() *gomock.Call {
 }
 
 // PrepareCharmUpload mocks base method.
-func (m *MockDeployFromRepositoryState) PrepareCharmUpload(arg0 *v11.URL) (services.UploadedCharm, error) {
+func (m *MockDeployFromRepositoryState) PrepareCharmUpload(arg0 *charm.URL) (services.UploadedCharm, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrepareCharmUpload", arg0)
 	ret0, _ := ret[0].(services.UploadedCharm)
@@ -368,10 +368,10 @@ func (m *MockModel) EXPECT() *MockModelMockRecorder {
 }
 
 // AgentVersion mocks base method.
-func (m *MockModel) AgentVersion() (v2.Number, error) {
+func (m *MockModel) AgentVersion() (version.Number, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AgentVersion")
-	ret0, _ := ret[0].(v2.Number)
+	ret0, _ := ret[0].(version.Number)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -486,10 +486,10 @@ func (mr *MockModelMockRecorder) ModelConfig() *gomock.Call {
 }
 
 // ModelTag mocks base method.
-func (m *MockModel) ModelTag() v4.ModelTag {
+func (m *MockModel) ModelTag() names.ModelTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelTag")
-	ret0, _ := ret[0].(v4.ModelTag)
+	ret0, _ := ret[0].(names.ModelTag)
 	return ret0
 }
 
@@ -529,10 +529,10 @@ func (mr *MockModelMockRecorder) OpenedPortRangesForMachine(arg0 interface{}) *g
 }
 
 // Owner mocks base method.
-func (m *MockModel) Owner() v4.UserTag {
+func (m *MockModel) Owner() names.UserTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Owner")
-	ret0, _ := ret[0].(v4.UserTag)
+	ret0, _ := ret[0].(names.UserTag)
 	return ret0
 }
 
@@ -543,10 +543,10 @@ func (mr *MockModelMockRecorder) Owner() *gomock.Call {
 }
 
 // Tag mocks base method.
-func (m *MockModel) Tag() v4.Tag {
+func (m *MockModel) Tag() names.Tag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tag")
-	ret0, _ := ret[0].(v4.Tag)
+	ret0, _ := ret[0].(names.Tag)
 	return ret0
 }
 

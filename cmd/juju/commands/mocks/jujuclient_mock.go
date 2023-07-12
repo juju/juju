@@ -9,9 +9,9 @@ import (
 	url "net/url"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	cloud "github.com/juju/juju/cloud"
 	jujuclient "github.com/juju/juju/jujuclient"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockClientStore is a mock of ClientStore interface.
