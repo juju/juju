@@ -2,8 +2,7 @@ run_model_constraints() {
 	echo
 
 	juju set-model-constraints "cores=2 mem=6G"
-	juju get-model-constraints | check "cores=2 mem=6144M"
-
+	juju model-constraints | check "cores=2 mem=6144M"
 }
 
 test_model_constraints() {
