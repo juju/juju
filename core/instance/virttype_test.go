@@ -4,8 +4,8 @@
 package instance
 
 import (
+	"github.com/canonical/lxd/shared/api"
 	jc "github.com/juju/testing/checkers"
-	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 )
 

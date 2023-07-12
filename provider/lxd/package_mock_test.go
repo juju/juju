@@ -11,8 +11,8 @@ import (
 	network "github.com/juju/juju/core/network"
 	series "github.com/juju/juju/core/series"
 	environs "github.com/juju/juju/environs"
-	lxd1 "github.com/lxc/lxd/client"
-	api "github.com/lxc/lxd/shared/api"
+	lxd1 "github.com/canonical/lxd/client"
+	api "github.com/canonical/lxd/shared/api"
 	gomock "go.uber.org/mock/gomock"
 )
 

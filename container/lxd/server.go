@@ -7,12 +7,12 @@ import (
 	"net/http"
 	"strings"
 
+	lxd "github.com/canonical/lxd/client"
+	"github.com/canonical/lxd/shared"
+	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3/arch"
-	lxd "github.com/lxc/lxd/client"
-	"github.com/lxc/lxd/shared"
-	"github.com/lxc/lxd/shared/api"
 )
 
 // Server extends the upstream LXD container server.
