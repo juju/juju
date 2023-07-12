@@ -7,10 +7,10 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
 	context "github.com/juju/juju/environs/context"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockInstance is a mock of Instance interface.

@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v10"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockLXDProfiler is a mock of LXDProfiler interface.

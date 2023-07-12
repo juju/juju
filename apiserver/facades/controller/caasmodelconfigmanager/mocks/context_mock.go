@@ -7,7 +7,6 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	facade "github.com/juju/juju/apiserver/facade"
 	cache "github.com/juju/juju/core/cache"
 	leadership "github.com/juju/juju/core/leadership"
@@ -16,6 +15,7 @@ import (
 	permission "github.com/juju/juju/core/permission"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockAuthorizer is a mock of Authorizer interface.

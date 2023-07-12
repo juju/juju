@@ -7,9 +7,9 @@ package state
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
-	v4 "github.com/juju/description/v4"
+	description "github.com/juju/description/v4"
 	txn "github.com/juju/mgo/v3/txn"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockRemoteEntitiesInput is a mock of RemoteEntitiesInput interface.
@@ -50,10 +50,10 @@ func (mr *MockRemoteEntitiesInputMockRecorder) DocID(arg0 interface{}) *gomock.C
 }
 
 // RemoteEntities mocks base method.
-func (m *MockRemoteEntitiesInput) RemoteEntities() []v4.RemoteEntity {
+func (m *MockRemoteEntitiesInput) RemoteEntities() []description.RemoteEntity {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoteEntities")
-	ret0, _ := ret[0].([]v4.RemoteEntity)
+	ret0, _ := ret[0].([]description.RemoteEntity)
 	return ret0
 }
 
@@ -101,10 +101,10 @@ func (mr *MockRelationNetworksInputMockRecorder) DocID(arg0 interface{}) *gomock
 }
 
 // RelationNetworks mocks base method.
-func (m *MockRelationNetworksInput) RelationNetworks() []v4.RelationNetwork {
+func (m *MockRelationNetworksInput) RelationNetworks() []description.RelationNetwork {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RelationNetworks")
-	ret0, _ := ret[0].([]v4.RelationNetwork)
+	ret0, _ := ret[0].([]description.RelationNetwork)
 	return ret0
 }
 
@@ -152,7 +152,7 @@ func (mr *MockRemoteApplicationsInputMockRecorder) DocID(arg0 interface{}) *gomo
 }
 
 // MakeRemoteApplicationDoc mocks base method.
-func (m *MockRemoteApplicationsInput) MakeRemoteApplicationDoc(arg0 v4.RemoteApplication) *remoteApplicationDoc {
+func (m *MockRemoteApplicationsInput) MakeRemoteApplicationDoc(arg0 description.RemoteApplication) *remoteApplicationDoc {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MakeRemoteApplicationDoc", arg0)
 	ret0, _ := ret[0].(*remoteApplicationDoc)
@@ -166,7 +166,7 @@ func (mr *MockRemoteApplicationsInputMockRecorder) MakeRemoteApplicationDoc(arg0
 }
 
 // MakeStatusDoc mocks base method.
-func (m *MockRemoteApplicationsInput) MakeStatusDoc(arg0 v4.Status) statusDoc {
+func (m *MockRemoteApplicationsInput) MakeStatusDoc(arg0 description.Status) statusDoc {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MakeStatusDoc", arg0)
 	ret0, _ := ret[0].(statusDoc)
@@ -208,10 +208,10 @@ func (mr *MockRemoteApplicationsInputMockRecorder) NewRemoteApplication(arg0 int
 }
 
 // RemoteApplications mocks base method.
-func (m *MockRemoteApplicationsInput) RemoteApplications() []v4.RemoteApplication {
+func (m *MockRemoteApplicationsInput) RemoteApplications() []description.RemoteApplication {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoteApplications")
-	ret0, _ := ret[0].([]v4.RemoteApplication)
+	ret0, _ := ret[0].([]description.RemoteApplication)
 	return ret0
 }
 
@@ -245,7 +245,7 @@ func (m *MockApplicationOfferStateDocumentFactory) EXPECT() *MockApplicationOffe
 }
 
 // MakeApplicationOfferDoc mocks base method.
-func (m *MockApplicationOfferStateDocumentFactory) MakeApplicationOfferDoc(arg0 v4.ApplicationOffer) (applicationOfferDoc, error) {
+func (m *MockApplicationOfferStateDocumentFactory) MakeApplicationOfferDoc(arg0 description.ApplicationOffer) (applicationOfferDoc, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MakeApplicationOfferDoc", arg0)
 	ret0, _ := ret[0].(applicationOfferDoc)
@@ -312,7 +312,7 @@ func (mr *MockApplicationOfferInputMockRecorder) DocID(arg0 interface{}) *gomock
 }
 
 // MakeApplicationOfferDoc mocks base method.
-func (m *MockApplicationOfferInput) MakeApplicationOfferDoc(arg0 v4.ApplicationOffer) (applicationOfferDoc, error) {
+func (m *MockApplicationOfferInput) MakeApplicationOfferDoc(arg0 description.ApplicationOffer) (applicationOfferDoc, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MakeApplicationOfferDoc", arg0)
 	ret0, _ := ret[0].(applicationOfferDoc)
@@ -342,10 +342,10 @@ func (mr *MockApplicationOfferInputMockRecorder) MakeApplicationOffersRefOp(arg0
 }
 
 // Offers mocks base method.
-func (m *MockApplicationOfferInput) Offers() []v4.ApplicationOffer {
+func (m *MockApplicationOfferInput) Offers() []description.ApplicationOffer {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Offers")
-	ret0, _ := ret[0].([]v4.ApplicationOffer)
+	ret0, _ := ret[0].([]description.ApplicationOffer)
 	return ret0
 }
 
@@ -446,10 +446,10 @@ func (mr *MockExternalControllersInputMockRecorder) ExternalControllerDoc(arg0 i
 }
 
 // ExternalControllers mocks base method.
-func (m *MockExternalControllersInput) ExternalControllers() []v4.ExternalController {
+func (m *MockExternalControllersInput) ExternalControllers() []description.ExternalController {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExternalControllers")
-	ret0, _ := ret[0].([]v4.ExternalController)
+	ret0, _ := ret[0].([]description.ExternalController)
 	return ret0
 }
 
@@ -497,10 +497,10 @@ func (m *MockFirewallRulesInput) EXPECT() *MockFirewallRulesInputMockRecorder {
 }
 
 // FirewallRules mocks base method.
-func (m *MockFirewallRulesInput) FirewallRules() []v4.FirewallRule {
+func (m *MockFirewallRulesInput) FirewallRules() []description.FirewallRule {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FirewallRules")
-	ret0, _ := ret[0].([]v4.FirewallRule)
+	ret0, _ := ret[0].([]description.FirewallRule)
 	return ret0
 }
 

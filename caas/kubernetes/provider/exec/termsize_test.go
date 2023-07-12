@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 	"golang.org/x/sys/unix"
 	gc "gopkg.in/check.v1"
 	"k8s.io/client-go/tools/remotecommand"

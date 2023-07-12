@@ -156,7 +156,7 @@ func ParsePodSpec(in string) (*specs.PodSpec, error) {
 	return parsePodSpec(in, getParser)
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination ./mocks/parsers_mock.go github.com/juju/juju/caas/kubernetes/provider/specs PodSpecConverter
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination ./mocks/parsers_mock.go github.com/juju/juju/caas/kubernetes/provider/specs PodSpecConverter
 func parsePodSpec(
 	in string,
 	getParser func(specVersion specs.Version) (parserType, error),

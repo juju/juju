@@ -7,7 +7,7 @@ package query
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockFuncScope is a mock of FuncScope interface.

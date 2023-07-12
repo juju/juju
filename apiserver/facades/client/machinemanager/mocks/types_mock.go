@@ -9,7 +9,6 @@ import (
 	reflect "reflect"
 	time "time"
 
-	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v10"
 	storagecommon "github.com/juju/juju/apiserver/common/storagecommon"
 	machinemanager "github.com/juju/juju/apiserver/facades/client/machinemanager"
@@ -24,6 +23,7 @@ import (
 	state "github.com/juju/juju/state"
 	binarystorage "github.com/juju/juju/state/binarystorage"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockBackend is a mock of Backend interface.

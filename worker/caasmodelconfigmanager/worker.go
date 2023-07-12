@@ -31,12 +31,12 @@ type Logger interface {
 	Child(string) loggo.Logger
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/worker/caasmodelconfigmanager Facade
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/worker/caasmodelconfigmanager Facade
 type Facade interface {
 	ControllerConfig() (controller.Config, error)
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/broker_mock.go github.com/juju/juju/worker/caasmodelconfigmanager CAASBroker
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/broker_mock.go github.com/juju/juju/worker/caasmodelconfigmanager CAASBroker
 type CAASBroker interface {
 	EnsureImageRepoSecret(docker.ImageRepoDetails) error
 }

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v10"
 	charmresource "github.com/juju/charm/v10/resource"
 	"github.com/juju/clock"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"

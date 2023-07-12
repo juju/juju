@@ -4,9 +4,9 @@
 package centralhub
 
 import (
-	"github.com/golang/mock/gomock"
 	"github.com/juju/testing"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 )
 

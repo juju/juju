@@ -4,10 +4,10 @@
 package storage_test
 
 import (
-	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/testing/checkers"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	"gopkg.in/check.v1"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"

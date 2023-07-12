@@ -8,10 +8,10 @@ import (
 	url "net/url"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v10"
 	charm0 "github.com/juju/juju/core/charm"
 	downloader "github.com/juju/juju/core/charm/downloader"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockLogger is a mock of Logger interface.

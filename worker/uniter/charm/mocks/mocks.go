@@ -7,9 +7,9 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	set "github.com/juju/collections/set"
 	charm "github.com/juju/juju/worker/uniter/charm"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockBundleReader is a mock of BundleReader interface.

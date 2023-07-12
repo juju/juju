@@ -18,12 +18,12 @@ func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsstate.go github.com/juju/juju/apiserver/facades/agent/secretsdrain SecretsState
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsconsumer.go github.com/juju/juju/apiserver/facades/agent/secretsdrain SecretsConsumer
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/modelstate.go github.com/juju/juju/apiserver/facades/agent/secretsdrain Model
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/statewatcher.go github.com/juju/juju/state NotifyWatcher
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/leadershipchecker.go github.com/juju/juju/core/leadership Checker,Token
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsprovider.go github.com/juju/juju/secrets/provider SecretBackendProvider
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretsstate.go github.com/juju/juju/apiserver/facades/agent/secretsdrain SecretsState
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretsconsumer.go github.com/juju/juju/apiserver/facades/agent/secretsdrain SecretsConsumer
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/modelstate.go github.com/juju/juju/apiserver/facades/agent/secretsdrain Model
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/statewatcher.go github.com/juju/juju/state NotifyWatcher
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/leadershipchecker.go github.com/juju/juju/core/leadership Checker,Token
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretsprovider.go github.com/juju/juju/secrets/provider SecretBackendProvider
 
 func NewTestAPI(
 	authorizer facade.Authorizer,

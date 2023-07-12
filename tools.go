@@ -7,8 +7,8 @@
 package juju
 
 import (
-	// github.com/golang/mock/mockgen for generating mocks
-	_ "github.com/golang/mock/mockgen"
+	// go.uber.org/mock/mockgen for generating mocks
+	_ "go.uber.org/mock/mockgen"
 
 	// github.com/canonical/pebble/cmd/pebble for pebble binary generation
 	_ "github.com/canonical/pebble/cmd/pebble"

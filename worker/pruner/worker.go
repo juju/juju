@@ -22,7 +22,7 @@ var (
 	_ logger = struct{}{}
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mocks_facade.go github.com/juju/juju/worker/pruner Facade
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/mocks_facade.go github.com/juju/juju/worker/pruner Facade
 
 // Facade represents an API that implements status history pruning.
 type Facade interface {

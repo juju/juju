@@ -7,9 +7,9 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	secrets "github.com/juju/juju/api/client/secrets"
 	secrets0 "github.com/juju/juju/core/secrets"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockListSecretsAPI is a mock of ListSecretsAPI interface.
