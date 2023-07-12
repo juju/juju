@@ -8,10 +8,9 @@ import (
 	"database/sql"
 	"time"
 
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
 	databasetesting "github.com/juju/juju/database/testing"
 )

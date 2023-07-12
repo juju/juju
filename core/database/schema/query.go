@@ -16,12 +16,13 @@ import (
 
 const schemaTable = `
 CREATE TABLE IF NOT EXISTS schema (
-    id         	INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-    version    	INTEGER NOT NULL,
-	hash	   	TEXT NOT NULL,
-    updated_at 	DATETIME NOT NULL,
-    UNIQUE (version)
-)
+    id           INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    version      INTEGER NOT NULL,
+    hash         TEXT NOT NULL,
+    updated_at   DATETIME NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_schema_version ON schema (version);
 `
 
 // Create the schema table.
@@ -61,9 +62,7 @@ type versionHash struct {
 
 // Return all versions in the schema table, in increasing order.
 func selectSchemaVersions(ctx context.Context, tx *sql.Tx) ([]versionHash, error) {
-	statement := `
-SELECT version, hash FROM schema ORDER BY version
-`
+	statement := `SELECT version, hash FROM schema ORDER BY version;`
 	rows, err := tx.QueryContext(ctx, statement)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -113,7 +112,8 @@ func ensurePatchesAreApplied(ctx context.Context, tx *sql.Tx, current int, patch
 	if current > len(patches) {
 		return errors.Errorf(
 			"schema version '%d' is more recent than expected '%d'",
-			current, len(patches))
+			current, len(patches),
+		)
 	}
 
 	// If there are no patches, there's nothing to do.
@@ -155,9 +155,7 @@ func ensurePatchesAreApplied(ctx context.Context, tx *sql.Tx, current int, patch
 
 // Insert a new version into the schema table.
 func insertSchemaVersion(ctx context.Context, tx *sql.Tx, new versionHash) error {
-	statement := `
-INSERT INTO schema (version, hash, updated_at) VALUES (?, ?, strftime("%s"))
-`
+	statement := `INSERT INTO schema (version, hash, updated_at) VALUES (?, ?, strftime("%s"));`
 	_, err := tx.ExecContext(ctx, statement, new.version, new.hash)
 	return errors.Trace(err)
 }
