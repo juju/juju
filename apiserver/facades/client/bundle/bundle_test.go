@@ -197,7 +197,6 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
 			"channel":  "stable",
 			"charm":    "ch:haproxy",
 			"revision": float64(42),
-			"series":   "jammy",
 			"base":     "ubuntu@22.04/stable",
 		},
 	}, {
@@ -207,7 +206,6 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
 			"channel":     "stable",
 			"application": "haproxy",
 			"charm":       "$addCharm-2",
-			"series":      "jammy",
 			"base":        "ubuntu@22.04/stable",
 		},
 		Requires: []string{"addCharm-2"},

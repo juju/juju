@@ -625,9 +625,8 @@ func (s *changesSuite) TestSimpleBundle(c *gc.C) {
 			Base:  "ubuntu@20.04/stable",
 		},
 		Args: map[string]interface{}{
-			"charm":  "ch:mediawiki",
-			"base":   "ubuntu@20.04/stable",
-			"series": "focal",
+			"charm": "ch:mediawiki",
+			"base":  "ubuntu@20.04/stable",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -648,8 +647,7 @@ func (s *changesSuite) TestSimpleBundle(c *gc.C) {
 			"resources": map[string]interface{}{
 				"data": float64(3),
 			},
-			"base":   "ubuntu@20.04/stable",
-			"series": "focal",
+			"base": "ubuntu@20.04/stable",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -687,9 +685,8 @@ func (s *changesSuite) TestSimpleBundle(c *gc.C) {
 			Base:  "ubuntu@20.04/stable",
 		},
 		Args: map[string]interface{}{
-			"charm":  "ch:mysql",
-			"base":   "ubuntu@20.04/stable",
-			"series": "focal",
+			"charm": "ch:mysql",
+			"base":  "ubuntu@20.04/stable",
 		},
 	}, {
 		Id:     "deploy-5",
@@ -706,8 +703,7 @@ func (s *changesSuite) TestSimpleBundle(c *gc.C) {
 			"local-resources": map[string]interface{}{
 				"data": "./resources/data.tar",
 			},
-			"base":   "ubuntu@20.04/stable",
-			"series": "focal",
+			"base": "ubuntu@20.04/stable",
 		},
 		Requires: []string{"addCharm-4"},
 	}, {
@@ -781,9 +777,8 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *gc.C) {
 			Base:  "ubuntu@20.04/stable",
 		},
 		Args: map[string]interface{}{
-			"charm":  "ch:mediawiki",
-			"base":   "ubuntu@20.04/stable",
-			"series": "focal",
+			"charm": "ch:mediawiki",
+			"base":  "ubuntu@20.04/stable",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -804,8 +799,7 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *gc.C) {
 			"resources": map[string]interface{}{
 				"data": float64(3),
 			},
-			"base":   "ubuntu@20.04/stable",
-			"series": "focal",
+			"base": "ubuntu@20.04/stable",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -843,9 +837,8 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *gc.C) {
 			Base:  "ubuntu@20.04/stable",
 		},
 		Args: map[string]interface{}{
-			"charm":  "ch:mysql",
-			"base":   "ubuntu@20.04/stable",
-			"series": "focal",
+			"charm": "ch:mysql",
+			"base":  "ubuntu@20.04/stable",
 		},
 	}, {
 		Id:     "deploy-5",
@@ -862,8 +855,7 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *gc.C) {
 			"local-resources": map[string]interface{}{
 				"data": "./resources/data.tar",
 			},
-			"base":   "ubuntu@20.04/stable",
-			"series": "focal",
+			"base": "ubuntu@20.04/stable",
 		},
 		Requires: []string{"addCharm-4"},
 	}, {
@@ -1050,9 +1042,8 @@ func (s *changesSuite) TestSameCharmReused(c *gc.C) {
 			Base:  "ubuntu@20.04/stable",
 		},
 		Args: map[string]interface{}{
-			"charm":  "ch:mediawiki",
-			"base":   "ubuntu@20.04/stable",
-			"series": "focal",
+			"charm": "ch:mediawiki",
+			"base":  "ubuntu@20.04/stable",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -1066,7 +1057,6 @@ func (s *changesSuite) TestSameCharmReused(c *gc.C) {
 			"application": "mediawiki",
 			"charm":       "$addCharm-0",
 			"base":        "ubuntu@20.04/stable",
-			"series":      "focal",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -1081,7 +1071,6 @@ func (s *changesSuite) TestSameCharmReused(c *gc.C) {
 			"application": "otherwiki",
 			"charm":       "$addCharm-0",
 			"base":        "ubuntu@20.04/stable",
-			"series":      "focal",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -1137,9 +1126,8 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *gc.C) {
 			Base:  "ubuntu@22.04/stable",
 		},
 		Args: map[string]interface{}{
-			"charm":  "ch:django",
-			"base":   "ubuntu@22.04/stable",
-			"series": "jammy",
+			"charm": "ch:django",
+			"base":  "ubuntu@22.04/stable",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -1159,8 +1147,7 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *gc.C) {
 				"":     "foo",
 				"http": "bar",
 			},
-			"base":   "ubuntu@22.04/stable",
-			"series": "jammy",
+			"base": "ubuntu@22.04/stable",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -1171,9 +1158,8 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *gc.C) {
 			Base:  "ubuntu@22.04/stable",
 		},
 		Args: map[string]interface{}{
-			"charm":  "ch:haproxy",
-			"base":   "ubuntu@22.04/stable",
-			"series": "jammy",
+			"charm": "ch:haproxy",
+			"base":  "ubuntu@22.04/stable",
 		},
 	}, {
 		Id:     "deploy-3",
@@ -1191,8 +1177,7 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *gc.C) {
 				"bad":    "wolf",
 				"number": 42.47,
 			},
-			"base":   "ubuntu@22.04/stable",
-			"series": "jammy",
+			"base": "ubuntu@22.04/stable",
 		},
 		Requires: []string{"addCharm-2"},
 	}, {
@@ -1212,8 +1197,7 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *gc.C) {
 			Base: "ubuntu@22.04/stable",
 		},
 		Args: map[string]interface{}{
-			"base":   "ubuntu@22.04/stable",
-			"series": "jammy",
+			"base": "ubuntu@22.04/stable",
 		},
 	}, {
 		Id:       "addMachines-6",
@@ -1247,7 +1231,6 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *gc.C) {
 			"container-type": "lxc",
 			"parent-id":      "$addMachines-6",
 			"base":           "ubuntu@22.04/stable",
-			"series":         "jammy",
 		},
 		Requires: []string{"addMachines-5", "addMachines-6"},
 	}, {
@@ -1262,7 +1245,6 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *gc.C) {
 			"container-type": "lxc",
 			"parent-id":      "$addUnit-7",
 			"base":           "ubuntu@22.04/stable",
-			"series":         "jammy",
 		},
 		Requires: []string{"addMachines-11", "addMachines-5", "addMachines-6", "addUnit-7"},
 	}, {
@@ -1272,8 +1254,7 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *gc.C) {
 			Base: "ubuntu@22.04/stable",
 		},
 		Args: map[string]interface{}{
-			"base":   "ubuntu@22.04/stable",
-			"series": "jammy",
+			"base": "ubuntu@22.04/stable",
 		},
 		Requires: []string{"addMachines-11", "addMachines-12", "addMachines-5", "addMachines-6"},
 	}, {
@@ -1341,9 +1322,8 @@ func (s *changesSuite) TestMachinesWithConstraintsAndAnnotations(c *gc.C) {
 			Base:  "ubuntu@22.04/stable",
 		},
 		Args: map[string]interface{}{
-			"charm":  "ch:django",
-			"base":   "ubuntu@22.04/stable",
-			"series": "jammy",
+			"charm": "ch:django",
+			"base":  "ubuntu@22.04/stable",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -1357,7 +1337,6 @@ func (s *changesSuite) TestMachinesWithConstraintsAndAnnotations(c *gc.C) {
 			"application": "django",
 			"charm":       "$addCharm-0",
 			"base":        "ubuntu@22.04/stable",
-			"series":      "jammy",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -1404,8 +1383,7 @@ func (s *changesSuite) TestMachinesWithConstraintsAndAnnotations(c *gc.C) {
 			Base: "ubuntu@22.04/stable",
 		},
 		Args: map[string]interface{}{
-			"base":   "ubuntu@22.04/stable",
-			"series": "jammy",
+			"base": "ubuntu@22.04/stable",
 		},
 		Requires: []string{"addMachines-2"},
 	}, {
@@ -1447,9 +1425,8 @@ func (s *changesSuite) TestEndpointWithoutRelationName(c *gc.C) {
 			Base:  "ubuntu@20.04/stable",
 		},
 		Args: map[string]interface{}{
-			"charm":  "ch:mediawiki",
-			"base":   "ubuntu@20.04/stable",
-			"series": "focal",
+			"charm": "ch:mediawiki",
+			"base":  "ubuntu@20.04/stable",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -1463,7 +1440,6 @@ func (s *changesSuite) TestEndpointWithoutRelationName(c *gc.C) {
 			"application": "mediawiki",
 			"charm":       "$addCharm-0",
 			"base":        "ubuntu@20.04/stable",
-			"series":      "focal",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -1474,9 +1450,8 @@ func (s *changesSuite) TestEndpointWithoutRelationName(c *gc.C) {
 			Base:  "ubuntu@20.04/stable",
 		},
 		Args: map[string]interface{}{
-			"charm":  "mysql",
-			"base":   "ubuntu@20.04/stable",
-			"series": "focal",
+			"charm": "mysql",
+			"base":  "ubuntu@20.04/stable",
 		},
 	}, {
 		Id:     "deploy-3",
@@ -1492,7 +1467,6 @@ func (s *changesSuite) TestEndpointWithoutRelationName(c *gc.C) {
 			"charm":       "$addCharm-2",
 			"constraints": "mem=42G",
 			"base":        "ubuntu@20.04/stable",
-			"series":      "focal",
 		},
 		Requires: []string{"addCharm-2"},
 	}, {
@@ -1532,9 +1506,8 @@ func (s *changesSuite) TestUnitPlacedInApplication(c *gc.C) {
 			Base:  "ubuntu@22.04/stable",
 		},
 		Args: map[string]interface{}{
-			"charm":  "ch:django",
-			"base":   "ubuntu@22.04/stable",
-			"series": "jammy",
+			"charm": "ch:django",
+			"base":  "ubuntu@22.04/stable",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -1548,7 +1521,6 @@ func (s *changesSuite) TestUnitPlacedInApplication(c *gc.C) {
 			"application": "django",
 			"charm":       "$addCharm-0",
 			"base":        "ubuntu@22.04/stable",
-			"series":      "jammy",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -1651,9 +1623,8 @@ func (s *changesSuite) TestUnitPlacedInApplicationWithDevices(c *gc.C) {
 			Base:  "ubuntu@22.04/stable",
 		},
 		Args: map[string]interface{}{
-			"charm":  "ch:django",
-			"base":   "ubuntu@22.04/stable",
-			"series": "jammy",
+			"charm": "ch:django",
+			"base":  "ubuntu@22.04/stable",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -1667,7 +1638,6 @@ func (s *changesSuite) TestUnitPlacedInApplicationWithDevices(c *gc.C) {
 			"application": "django",
 			"charm":       "$addCharm-0",
 			"base":        "ubuntu@22.04/stable",
-			"series":      "jammy",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -1785,9 +1755,8 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 			Base:  "ubuntu@22.04/stable",
 		},
 		Args: map[string]interface{}{
-			"charm":  "ch:django",
-			"base":   "ubuntu@22.04/stable",
-			"series": "jammy",
+			"charm": "ch:django",
+			"base":  "ubuntu@22.04/stable",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -1801,7 +1770,6 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 			"application": "django",
 			"charm":       "$addCharm-0",
 			"base":        "ubuntu@22.04/stable",
-			"series":      "jammy",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -1812,9 +1780,8 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 			Base:  "ubuntu@22.04/stable",
 		},
 		Args: map[string]interface{}{
-			"charm":  "ch:mem",
-			"base":   "ubuntu@22.04/stable",
-			"series": "jammy",
+			"charm": "ch:mem",
+			"base":  "ubuntu@22.04/stable",
 		},
 	}, {
 		Id:     "deploy-3",
@@ -1828,7 +1795,6 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 			"application": "memcached",
 			"charm":       "$addCharm-2",
 			"base":        "ubuntu@22.04/stable",
-			"series":      "jammy",
 		},
 		Requires: []string{"addCharm-2"},
 	}, {
@@ -1859,8 +1825,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 			Base: "ubuntu@22.04/stable",
 		},
 		Args: map[string]interface{}{
-			"base":   "ubuntu@22.04/stable",
-			"series": "jammy",
+			"base": "ubuntu@22.04/stable",
 		},
 	}, {
 		Id:     "addUnit-12",
@@ -1881,8 +1846,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 			Base: "ubuntu@22.04/stable",
 		},
 		Args: map[string]interface{}{
-			"base":   "ubuntu@22.04/stable",
-			"series": "jammy",
+			"base": "ubuntu@22.04/stable",
 		},
 		Requires: []string{"addMachines-6"},
 	}, {
@@ -1892,8 +1856,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 			Base: "ubuntu@22.04/stable",
 		},
 		Args: map[string]interface{}{
-			"base":   "ubuntu@22.04/stable",
-			"series": "jammy",
+			"base": "ubuntu@22.04/stable",
 		},
 		Requires: []string{"addMachines-17", "addMachines-6"},
 	}, {
@@ -1974,7 +1937,6 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 			"container-type": "lxc",
 			"parent-id":      "$addUnit-13",
 			"base":           "ubuntu@22.04/stable",
-			"series":         "jammy",
 		},
 		Requires: []string{"addMachines-17", "addMachines-18", "addMachines-19", "addMachines-6", "addUnit-13"},
 	}, {
@@ -1989,7 +1951,6 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 			"container-type": "lxc",
 			"parent-id":      "$addUnit-14",
 			"base":           "ubuntu@22.04/stable",
-			"series":         "jammy",
 		},
 		Requires: []string{"addMachines-17", "addMachines-18", "addMachines-19", "addMachines-20", "addMachines-6", "addUnit-14"},
 	}, {
@@ -2004,7 +1965,6 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 			"container-type": "kvm",
 			"parent-id":      "$addUnit-15",
 			"base":           "ubuntu@22.04/stable",
-			"series":         "jammy",
 		},
 		Requires: []string{"addMachines-17", "addMachines-18", "addMachines-19", "addMachines-20", "addMachines-21", "addMachines-6", "addUnit-15"},
 	}, {
@@ -2019,7 +1979,6 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 			"container-type": "kvm",
 			"parent-id":      "$addUnit-16",
 			"base":           "ubuntu@22.04/stable",
-			"series":         "jammy",
 		},
 		Requires: []string{"addMachines-17", "addMachines-18", "addMachines-19", "addMachines-20", "addMachines-21", "addMachines-22", "addMachines-6", "addUnit-16"},
 	}, {
@@ -2101,9 +2060,8 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *gc.C) {
 			Base:  "ubuntu@22.04/stable",
 		},
 		Args: map[string]interface{}{
-			"charm":  "ch:django",
-			"base":   "ubuntu@22.04/stable",
-			"series": "jammy",
+			"charm": "ch:django",
+			"base":  "ubuntu@22.04/stable",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -2117,7 +2075,6 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *gc.C) {
 			"application": "django",
 			"charm":       "$addCharm-0",
 			"base":        "ubuntu@22.04/stable",
-			"series":      "jammy",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -2146,8 +2103,7 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *gc.C) {
 			Base: "ubuntu@22.04/stable",
 		},
 		Args: map[string]interface{}{
-			"base":   "ubuntu@22.04/stable",
-			"series": "jammy",
+			"base": "ubuntu@22.04/stable",
 		},
 		Requires: []string{"addMachines-2", "addMachines-3"},
 	}, {
@@ -2162,7 +2118,6 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *gc.C) {
 			"container-type": "kvm",
 			"parent-id":      "$addMachines-3",
 			"base":           "ubuntu@22.04/stable",
-			"series":         "jammy",
 		},
 		Requires: []string{"addMachines-2", "addMachines-3", "addMachines-9"},
 	}, {
@@ -2175,7 +2130,6 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *gc.C) {
 		Args: map[string]interface{}{
 			"container-type": "lxc",
 			"base":           "ubuntu@22.04/stable",
-			"series":         "jammy",
 		},
 		Requires: []string{"addMachines-10", "addMachines-2", "addMachines-3", "addMachines-9"},
 	}, {
@@ -2188,7 +2142,6 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *gc.C) {
 		Args: map[string]interface{}{
 			"container-type": "lxc",
 			"base":           "ubuntu@22.04/stable",
-			"series":         "jammy",
 		},
 		Requires: []string{"addMachines-10", "addMachines-11", "addMachines-2", "addMachines-3", "addMachines-9"},
 	}, {
@@ -2285,7 +2238,6 @@ func (s *changesSuite) TestUnitPlacedToNewMachineWithConstraints(c *gc.C) {
 			"revision": float64(42),
 			"channel":  "stable",
 			"base":     "ubuntu@22.04/stable",
-			"series":   "jammy",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -2303,7 +2255,6 @@ func (s *changesSuite) TestUnitPlacedToNewMachineWithConstraints(c *gc.C) {
 			"channel":     "stable",
 			"constraints": "cpu-cores=4 image-id=ubuntu-bf2",
 			"base":        "ubuntu@22.04/stable",
-			"series":      "jammy",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -2316,7 +2267,6 @@ func (s *changesSuite) TestUnitPlacedToNewMachineWithConstraints(c *gc.C) {
 		Args: map[string]interface{}{
 			"constraints": "cpu-cores=4 image-id=ubuntu-bf2",
 			"base":        "ubuntu@22.04/stable",
-			"series":      "jammy",
 		},
 	}, {
 		Id:     "addUnit-2",
@@ -2360,7 +2310,6 @@ func (s *changesSuite) TestApplicationWithStorage(c *gc.C) {
 		Args: map[string]interface{}{
 			"charm":    "django",
 			"base":     "ubuntu@22.04/stable",
-			"series":   "jammy",
 			"revision": float64(42),
 			"channel":  "stable",
 		},
@@ -2382,7 +2331,6 @@ func (s *changesSuite) TestApplicationWithStorage(c *gc.C) {
 			"charm":       "$addCharm-0",
 			"channel":     "stable",
 			"base":        "ubuntu@22.04/stable",
-			"series":      "jammy",
 			"storage": map[string]interface{}{
 				"osd-devices": "3,30G",
 				"tmpfs":       "tmpfs,1G",
@@ -2443,7 +2391,6 @@ func (s *changesSuite) TestApplicationWithDevices(c *gc.C) {
 			"channel":  "stable",
 			"revision": float64(42),
 			"base":     "ubuntu@22.04/stable",
-			"series":   "jammy",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -2470,8 +2417,7 @@ func (s *changesSuite) TestApplicationWithDevices(c *gc.C) {
 				"description": "a nvidia gpu device",
 				"type":        "nvidia.com/gpu",
 			},
-			"base":   "ubuntu@22.04/stable",
-			"series": "jammy",
+			"base": "ubuntu@22.04/stable",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -2618,9 +2564,8 @@ machines:
 			Base:  "ubuntu@20.04/stable",
 		},
 		Args: map[string]interface{}{
-			"charm":  "ch:juju-gui",
-			"base":   "ubuntu@20.04/stable",
-			"series": "focal",
+			"charm": "ch:juju-gui",
+			"base":  "ubuntu@20.04/stable",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -2634,7 +2579,6 @@ machines:
 			"application": "gui3",
 			"charm":       "$addCharm-0",
 			"base":        "ubuntu@20.04/stable",
-			"series":      "focal",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -2644,8 +2588,7 @@ machines:
 			Base: "ubuntu@22.04/stable",
 		},
 		Args: map[string]interface{}{
-			"base":   "ubuntu@22.04/stable",
-			"series": "jammy",
+			"base": "ubuntu@22.04/stable",
 		},
 	}, {
 		Id:       "addMachines-5",
@@ -2655,8 +2598,7 @@ machines:
 			Base: "ubuntu@20.04/stable",
 		},
 		Args: map[string]interface{}{
-			"base":   "ubuntu@20.04/stable",
-			"series": "focal",
+			"base": "ubuntu@20.04/stable",
 		},
 	}, {
 		Id:       "addMachines-6",
@@ -2671,7 +2613,6 @@ machines:
 			"container-type": "lxc",
 			"parent-id":      "$addMachines-2",
 			"base":           "ubuntu@20.04/stable",
-			"series":         "focal",
 		},
 	}, {
 		Id:       "addUnit-3",
@@ -2816,11 +2757,6 @@ func (s *changesSuite) assertParseDataWithDevices(c *gc.C, content string, expec
 }
 
 func (s *changesSuite) assertLocalBundleChanges(c *gc.C, charmDir, bundleContent, base string) {
-	b, err := series.ParseBaseFromString(base)
-	c.Assert(err, jc.ErrorIsNil)
-	series, err := series.GetSeriesFromBase(b)
-	c.Assert(err, jc.ErrorIsNil)
-
 	expected := []record{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
@@ -2829,9 +2765,8 @@ func (s *changesSuite) assertLocalBundleChanges(c *gc.C, charmDir, bundleContent
 			Base:  base,
 		},
 		Args: map[string]interface{}{
-			"charm":  charmDir,
-			"base":   base,
-			"series": series,
+			"charm": charmDir,
+			"base":  base,
 		},
 	}, {
 		Id:     "deploy-1",
@@ -2845,7 +2780,6 @@ func (s *changesSuite) assertLocalBundleChanges(c *gc.C, charmDir, bundleContent
 			"application": "django",
 			"charm":       "$addCharm-0",
 			"base":        base,
-			"series":      series,
 		},
 		Requires: []string{"addCharm-0"},
 	}}
@@ -2853,11 +2787,6 @@ func (s *changesSuite) assertLocalBundleChanges(c *gc.C, charmDir, bundleContent
 }
 
 func (s *changesSuite) assertLocalBundleChangesWithDevices(c *gc.C, charmDir, bundleContent, base string) {
-	b, err := series.ParseBaseFromString(base)
-	c.Assert(err, jc.ErrorIsNil)
-	series, err := series.GetSeriesFromBase(b)
-	c.Assert(err, jc.ErrorIsNil)
-
 	expected := []record{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
@@ -2866,9 +2795,8 @@ func (s *changesSuite) assertLocalBundleChangesWithDevices(c *gc.C, charmDir, bu
 			Base:  base,
 		},
 		Args: map[string]interface{}{
-			"charm":  charmDir,
-			"base":   base,
-			"series": series,
+			"charm": charmDir,
+			"base":  base,
 		},
 	}, {
 		Id:     "deploy-1",
@@ -2882,7 +2810,6 @@ func (s *changesSuite) assertLocalBundleChangesWithDevices(c *gc.C, charmDir, bu
 			"application": "django",
 			"charm":       "$addCharm-0",
 			"base":        base,
-			"series":      series,
 		},
 		Requires: []string{"addCharm-0"},
 	}}

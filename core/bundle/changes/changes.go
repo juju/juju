@@ -1089,38 +1089,7 @@ func paramsToArgs(params interface{}) (map[string]interface{}, error) {
 	if err := json.Unmarshal(bytes, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
-	// For backwards compatibility, ensure series is included along with base
-	// TODO: remove in Juju 4
-	if b, ok := result["base"]; ok {
-		series, err := baseToSeries(b)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		result["series"] = series
-	}
 	return result, nil
-}
-
-// baseToSeries converts a base from Args into a series
-// We wish to move entirely to bases, but must keep series
-// in Args and GUIArgs for backwards compatibility.
-func baseToSeries(b interface{}) (string, error) {
-	bStr, ok := b.(string)
-	if !ok {
-		return "", errors.Errorf("Failed to parse base arg as string")
-	}
-	if bStr == "" {
-		return "", nil
-	}
-	base, err := series.ParseBaseFromString(bStr)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	series, err := series.GetSeriesFromBase(base)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return series, nil
 }
 
 // GrantOfferAccessParams holds the parameters for granting access to a user.
