@@ -8,9 +8,9 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	crossmodel "github.com/juju/juju/core/crossmodel"
 	watcher "github.com/juju/juju/core/watcher"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockEcService is a mock of EcService interface.

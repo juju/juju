@@ -7,7 +7,6 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	instance "github.com/juju/juju/core/instance"
 	life "github.com/juju/juju/core/life"
 	network "github.com/juju/juju/core/network"
@@ -15,6 +14,7 @@ import (
 	params "github.com/juju/juju/rpc/params"
 	firewaller "github.com/juju/juju/worker/firewaller"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockMachine is a mock of Machine interface.

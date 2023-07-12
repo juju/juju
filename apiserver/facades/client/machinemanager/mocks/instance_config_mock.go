@@ -7,12 +7,12 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	machinemanager "github.com/juju/juju/apiserver/facades/client/machinemanager"
 	controller "github.com/juju/juju/controller"
 	network "github.com/juju/juju/core/network"
 	binarystorage "github.com/juju/juju/state/binarystorage"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockControllerBackend is a mock of ControllerBackend interface.

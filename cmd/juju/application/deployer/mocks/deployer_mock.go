@@ -8,11 +8,11 @@ import (
 	reflect "reflect"
 
 	httpbakery "github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	gomock "github.com/golang/mock/gomock"
 	modelcmd "github.com/juju/juju/cmd/modelcmd"
 	model "github.com/juju/juju/core/model"
 	jujuclient "github.com/juju/juju/jujuclient"
 	params "github.com/juju/juju/rpc/params"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockModelCommand is a mock of ModelCommand interface.

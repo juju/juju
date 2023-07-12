@@ -8,9 +8,9 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	lease "github.com/juju/juju/core/lease"
 	utils "github.com/juju/utils/v3"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockState is a mock of State interface.

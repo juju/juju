@@ -8,7 +8,7 @@ import (
 	"testing"
 	time "time"
 
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
@@ -16,10 +16,10 @@ import (
 	jujutesting "github.com/juju/juju/testing"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package eventmultiplexer -destination change_mock_test.go github.com/juju/juju/core/changestream Term
-//go:generate go run github.com/golang/mock/mockgen -package eventmultiplexer -destination stream_mock_test.go github.com/juju/juju/worker/changestream/eventmultiplexer Stream
-//go:generate go run github.com/golang/mock/mockgen -package eventmultiplexer -destination logger_mock_test.go github.com/juju/juju/worker/changestream/eventmultiplexer Logger
-//go:generate go run github.com/golang/mock/mockgen -package eventmultiplexer -destination clock_mock_test.go github.com/juju/clock Clock,Timer
+//go:generate go run go.uber.org/mock/mockgen -package eventmultiplexer -destination change_mock_test.go github.com/juju/juju/core/changestream Term
+//go:generate go run go.uber.org/mock/mockgen -package eventmultiplexer -destination stream_mock_test.go github.com/juju/juju/worker/changestream/eventmultiplexer Stream
+//go:generate go run go.uber.org/mock/mockgen -package eventmultiplexer -destination logger_mock_test.go github.com/juju/juju/worker/changestream/eventmultiplexer Logger
+//go:generate go run go.uber.org/mock/mockgen -package eventmultiplexer -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

@@ -7,14 +7,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
-	dbtesting "github.com/juju/juju/database/testing"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	dbtesting "github.com/juju/juju/database/testing"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package changestream -destination stream_mock_test.go github.com/juju/juju/worker/changestream DBGetter,Logger,WatchableDBWorker,FileNotifyWatcher
-//go:generate go run github.com/golang/mock/mockgen -package changestream -destination clock_mock_test.go github.com/juju/clock Clock,Timer
-//go:generate go run github.com/golang/mock/mockgen -package changestream -destination source_mock_test.go github.com/juju/juju/core/changestream EventSource
+//go:generate go run go.uber.org/mock/mockgen -package changestream -destination stream_mock_test.go github.com/juju/juju/worker/changestream DBGetter,Logger,WatchableDBWorker,FileNotifyWatcher
+//go:generate go run go.uber.org/mock/mockgen -package changestream -destination clock_mock_test.go github.com/juju/clock Clock,Timer
+//go:generate go run go.uber.org/mock/mockgen -package changestream -destination source_mock_test.go github.com/juju/juju/core/changestream EventSource
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

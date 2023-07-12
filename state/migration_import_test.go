@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"time" // only uses time.Time values
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v11"
 	"github.com/juju/description/v4"
 	"github.com/juju/errors"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
@@ -494,7 +494,7 @@ func (s *MigrationImportSuite) ApplicationPortOps(c *gc.C) {
 	c.Assert(ops[0].Id, gc.Equals, "gitlab")
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/description_mock.go github.com/juju/description/v4 Application,Machine,PortRanges,UnitPortRanges
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/description_mock.go github.com/juju/description/v4 Application,Machine,PortRanges,UnitPortRanges
 func setupMockOpenedPortRanges(c *gc.C, mID string) (*gomock.Controller, *mocks.MockMachine) {
 	ctrl := gomock.NewController(c)
 	mockMachine := mocks.NewMockMachine(ctrl)

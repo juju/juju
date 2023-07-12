@@ -8,7 +8,6 @@ import (
 	reflect "reflect"
 	time "time"
 
-	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v11"
 	instancemutater "github.com/juju/juju/apiserver/facades/agent/instancemutater"
 	instance "github.com/juju/juju/core/instance"
@@ -17,6 +16,7 @@ import (
 	state "github.com/juju/juju/state"
 	loggo "github.com/juju/loggo"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockInstanceMutatorWatcher is a mock of InstanceMutatorWatcher interface.

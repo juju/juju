@@ -25,10 +25,10 @@ import (
 // TODO(wallyworld) - mockgen breaks on WatchRelationUnits method due to generics.
 // The generated mock file needed to be edited manually to fix the error(s).
 // Typo below is deliberate to avoid mock linting from failing.
-// //go:gen-erate go run github.com/golang/mock/mockgen -package api -destination uniter_mocks.go github.com/juju/juju/worker/uniter/api UniterClient
+// //go:gen-erate go run go.uber.org/mock/mockgen -package api -destination uniter_mocks.go github.com/juju/juju/worker/uniter/api UniterClient
 
-//go:generate go run github.com/golang/mock/mockgen -package api -destination domain_mocks.go github.com/juju/juju/worker/uniter/api Unit,Relation,RelationUnit,Application,Charm
-//go:generate go run github.com/golang/mock/mockgen -package api -destination secrets_mocks.go github.com/juju/juju/worker/uniter/api SecretsClient,SecretsBackend
+//go:generate go run go.uber.org/mock/mockgen -package api -destination domain_mocks.go github.com/juju/juju/worker/uniter/api Unit,Relation,RelationUnit,Application,Charm
+//go:generate go run go.uber.org/mock/mockgen -package api -destination secrets_mocks.go github.com/juju/juju/worker/uniter/api SecretsClient,SecretsBackend
 
 // ProviderIDGetter defines the API to get provider ID.
 type ProviderIDGetter interface {

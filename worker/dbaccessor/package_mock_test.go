@@ -10,10 +10,10 @@ import (
 	reflect "reflect"
 
 	sqlair "github.com/canonical/sqlair"
-	gomock "github.com/golang/mock/gomock"
 	app "github.com/juju/juju/database/app"
 	dqlite "github.com/juju/juju/database/dqlite"
 	loggo "github.com/juju/loggo"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockLogger is a mock of Logger interface.

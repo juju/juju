@@ -7,9 +7,9 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	jujuc "github.com/juju/juju/worker/uniter/runner/jujuc"
 	loggo "github.com/juju/loggo"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockJujuLogContext is a mock of JujuLogContext interface.

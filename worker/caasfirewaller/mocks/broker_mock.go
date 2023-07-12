@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	caas "github.com/juju/juju/caas"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockCAASBroker is a mock of CAASBroker interface.

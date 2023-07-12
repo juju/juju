@@ -8,7 +8,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	caas "github.com/juju/juju/caas"
 	constraints "github.com/juju/juju/core/constraints"
 	secrets "github.com/juju/juju/core/secrets"
@@ -20,6 +19,7 @@ import (
 	storage "github.com/juju/juju/storage"
 	names "github.com/juju/names/v4"
 	version "github.com/juju/version/v2"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockBroker is a mock of Broker interface.

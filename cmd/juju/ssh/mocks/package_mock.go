@@ -9,7 +9,6 @@ import (
 	os "os"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v11"
 	api "github.com/juju/juju/api"
 	application "github.com/juju/juju/api/client/application"
@@ -22,6 +21,7 @@ import (
 	jujuclient "github.com/juju/juju/jujuclient"
 	params "github.com/juju/juju/rpc/params"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockContext is a mock of Context interface.

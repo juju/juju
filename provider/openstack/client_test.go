@@ -6,9 +6,9 @@ package openstack
 import (
 	"github.com/go-goose/goose/v5/client"
 	"github.com/go-goose/goose/v5/identity"
-	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"

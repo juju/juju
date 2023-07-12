@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	resource "github.com/juju/juju/resource"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockResourceGetter is a mock of ResourceGetter interface.

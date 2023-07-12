@@ -12,9 +12,9 @@ import (
 
 	lxd "github.com/canonical/lxd/client"
 	api "github.com/canonical/lxd/shared/api"
-	gomock "github.com/golang/mock/gomock"
 	websocket "github.com/gorilla/websocket"
 	sftp "github.com/pkg/sftp"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockOperation is a mock of Operation interface.

@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	dbus "github.com/coreos/go-systemd/v22/dbus"
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockDBusAPI is a mock of DBusAPI interface.

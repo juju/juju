@@ -7,9 +7,9 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	databasetesting "github.com/juju/juju/database/testing"

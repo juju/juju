@@ -7,7 +7,6 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	facade "github.com/juju/juju/apiserver/facade"
 	changestream "github.com/juju/juju/core/changestream"
 	database "github.com/juju/juju/core/database"
@@ -17,6 +16,7 @@ import (
 	state "github.com/juju/juju/state"
 	loggo "github.com/juju/loggo"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockContext is a mock of Context interface.

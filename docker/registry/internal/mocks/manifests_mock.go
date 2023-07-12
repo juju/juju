@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	internal "github.com/juju/juju/docker/registry/internal"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockArchitectureGetter is a mock of ArchitectureGetter interface.

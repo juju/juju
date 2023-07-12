@@ -8,9 +8,9 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v11"
 	"github.com/juju/names/v4"
+	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/application"

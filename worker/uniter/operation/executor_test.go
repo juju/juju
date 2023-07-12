@@ -6,12 +6,12 @@ package operation_test
 import (
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v11/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 

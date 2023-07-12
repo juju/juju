@@ -9,12 +9,12 @@ import (
 
 	lxd "github.com/canonical/lxd/client"
 	api "github.com/canonical/lxd/shared/api"
-	gomock "github.com/golang/mock/gomock"
 	lxd0 "github.com/juju/juju/container/lxd"
 	network "github.com/juju/juju/core/network"
 	series "github.com/juju/juju/core/series"
 	environs "github.com/juju/juju/environs"
 	lxd1 "github.com/juju/juju/provider/lxd"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockServerFactory is a mock of ServerFactory interface.

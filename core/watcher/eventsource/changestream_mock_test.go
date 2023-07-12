@@ -10,8 +10,8 @@ import (
 	reflect "reflect"
 
 	sqlair "github.com/canonical/sqlair"
-	gomock "github.com/golang/mock/gomock"
 	changestream "github.com/juju/juju/core/changestream"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockSubscription is a mock of Subscription interface.

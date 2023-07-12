@@ -10,8 +10,8 @@ import (
 	reflect "reflect"
 
 	sqlair "github.com/canonical/sqlair"
-	gomock "github.com/golang/mock/gomock"
 	database "github.com/juju/juju/core/database"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockDBGetter is a mock of DBGetter interface.

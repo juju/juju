@@ -9,11 +9,12 @@ import (
 	time "time"
 
 	"github.com/canonical/sqlair"
-	gomock "github.com/golang/mock/gomock"
 	"github.com/juju/errors"
-	coredatabase "github.com/juju/juju/core/database"
 	jc "github.com/juju/testing/checkers"
+	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	coredatabase "github.com/juju/juju/core/database"
 )
 
 type workerSuite struct {

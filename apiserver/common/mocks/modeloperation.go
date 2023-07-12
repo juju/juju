@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	txn "github.com/juju/mgo/v3/txn"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockModelOperation is a mock of ModelOperation interface.

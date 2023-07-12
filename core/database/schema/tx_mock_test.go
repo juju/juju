@@ -9,7 +9,7 @@ import (
 	sql "database/sql"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockTx is a mock of Tx interface.
