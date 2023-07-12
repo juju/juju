@@ -7,8 +7,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/golang/mock/gomock"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"

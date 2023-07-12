@@ -17,9 +17,9 @@ func Test(t *testing.T) {
 	gc.TestingT(t)
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/charmhub.go github.com/juju/juju/apiserver/facades/client/resources CharmHub
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/logger.go github.com/juju/juju/apiserver/facades/client/resources Logger
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/backend.go github.com/juju/juju/apiserver/facades/client/resources Backend,NewCharmRepository
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/charmhub.go github.com/juju/juju/apiserver/facades/client/resources CharmHub
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/logger.go github.com/juju/juju/apiserver/facades/client/resources Logger
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/backend.go github.com/juju/juju/apiserver/facades/client/resources Backend,NewCharmRepository
 
 func NewResourceClient(client CharmHub, logger Logger) *CharmHubClient {
 	c := &CharmHubClient{

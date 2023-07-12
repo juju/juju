@@ -7,10 +7,10 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	common "github.com/juju/juju/apiserver/common"
 	controller "github.com/juju/juju/controller"
 	state "github.com/juju/juju/state"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockUnitStateBackend is a mock of UnitStateBackend interface.

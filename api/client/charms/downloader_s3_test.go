@@ -6,8 +6,8 @@ package charms_test
 import (
 	"net/url"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/names/v4"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	basemocks "github.com/juju/juju/api/base/mocks"

@@ -7,9 +7,9 @@ package changestream
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	changestream "github.com/juju/juju/core/changestream"
 	database "github.com/juju/juju/core/database"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockChangeStream is a mock of ChangeStream interface.

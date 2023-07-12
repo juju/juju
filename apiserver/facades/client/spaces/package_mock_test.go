@@ -7,7 +7,6 @@ package spaces
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	set "github.com/juju/collections/set"
 	networkingcommon "github.com/juju/juju/apiserver/common/networkingcommon"
 	controller "github.com/juju/juju/controller"
@@ -21,7 +20,8 @@ import (
 	space "github.com/juju/juju/environs/space"
 	state "github.com/juju/juju/state"
 	txn "github.com/juju/mgo/v3/txn"
-	v4 "github.com/juju/names/v4"
+	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockBacking is a mock of Backing interface.
@@ -226,10 +226,10 @@ func (mr *MockBackingMockRecorder) ModelConfig() *gomock.Call {
 }
 
 // ModelTag mocks base method.
-func (m *MockBacking) ModelTag() v4.ModelTag {
+func (m *MockBacking) ModelTag() names.ModelTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelTag")
-	ret0, _ := ret[0].(v4.ModelTag)
+	ret0, _ := ret[0].(names.ModelTag)
 	return ret0
 }
 
@@ -1362,10 +1362,10 @@ func (m *MockAuthorizerState) EXPECT() *MockAuthorizerStateMockRecorder {
 }
 
 // ModelTag mocks base method.
-func (m *MockAuthorizerState) ModelTag() v4.ModelTag {
+func (m *MockAuthorizerState) ModelTag() names.ModelTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelTag")
-	ret0, _ := ret[0].(v4.ModelTag)
+	ret0, _ := ret[0].(names.ModelTag)
 	return ret0
 }
 

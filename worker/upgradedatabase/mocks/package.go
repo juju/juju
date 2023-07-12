@@ -8,11 +8,11 @@ import (
 	reflect "reflect"
 	time "time"
 
-	gomock "github.com/golang/mock/gomock"
 	status "github.com/juju/juju/core/status"
 	state "github.com/juju/juju/state"
 	upgradedatabase "github.com/juju/juju/worker/upgradedatabase"
 	version "github.com/juju/version/v2"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockLogger is a mock of Logger interface.

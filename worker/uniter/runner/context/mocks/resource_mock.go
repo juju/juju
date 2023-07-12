@@ -8,8 +8,8 @@ import (
 	io "io"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	resources "github.com/juju/juju/core/resources"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockOpenedResourceClient is a mock of OpenedResourceClient interface.

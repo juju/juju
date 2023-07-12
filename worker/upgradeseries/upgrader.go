@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/service"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/servicemanager_mock.go github.com/juju/juju/service SystemdServiceManager
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/servicemanager_mock.go github.com/juju/juju/service SystemdServiceManager
 
 // Upgrader describes methods required to perform file-system manipulation in
 // preparation for upgrading the host Ubuntu version.

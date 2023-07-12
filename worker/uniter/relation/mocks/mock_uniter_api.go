@@ -7,7 +7,6 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	uniter "github.com/juju/juju/api/agent/uniter"
 	life "github.com/juju/juju/core/life"
 	relation "github.com/juju/juju/core/relation"
@@ -15,6 +14,7 @@ import (
 	params "github.com/juju/juju/rpc/params"
 	relation0 "github.com/juju/juju/worker/uniter/relation"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockUnit is a mock of Unit interface.

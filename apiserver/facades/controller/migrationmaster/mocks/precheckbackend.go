@@ -7,12 +7,12 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	migration "github.com/juju/juju/migration"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
 	replicaset "github.com/juju/replicaset/v3"
 	version "github.com/juju/version/v2"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockPrecheckBackend is a mock of PrecheckBackend interface.

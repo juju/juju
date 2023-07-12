@@ -13,4 +13,4 @@ func Test(t *testing.T) {
 	gc.TestingT(t)
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/clock_mock.go github.com/juju/clock Clock
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/clock_mock.go github.com/juju/clock Clock

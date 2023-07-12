@@ -7,7 +7,6 @@ package commands
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
 	environs "github.com/juju/juju/environs"
@@ -16,6 +15,7 @@ import (
 	instances "github.com/juju/juju/environs/instances"
 	storage "github.com/juju/juju/storage"
 	version "github.com/juju/version/v2"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockEnviron is a mock of Environ interface.

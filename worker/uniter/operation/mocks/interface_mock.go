@@ -7,13 +7,13 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	model "github.com/juju/juju/core/model"
 	charm "github.com/juju/juju/worker/uniter/charm"
 	hook "github.com/juju/juju/worker/uniter/hook"
 	operation "github.com/juju/juju/worker/uniter/operation"
 	remotestate "github.com/juju/juju/worker/uniter/remotestate"
 	context "github.com/juju/juju/worker/uniter/runner/context"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockOperation is a mock of Operation interface.

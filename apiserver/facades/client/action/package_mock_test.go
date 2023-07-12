@@ -7,9 +7,9 @@ package action
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	state "github.com/juju/juju/state"
-	v4 "github.com/juju/names/v4"
+	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockState is a mock of State interface.
@@ -81,7 +81,7 @@ func (mr *MockStateMockRecorder) Application(arg0 interface{}) *gomock.Call {
 }
 
 // FindEntity mocks base method.
-func (m *MockState) FindEntity(arg0 v4.Tag) (state.Entity, error) {
+func (m *MockState) FindEntity(arg0 names.Tag) (state.Entity, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindEntity", arg0)
 	ret0, _ := ret[0].(state.Entity)
@@ -164,7 +164,7 @@ func (m *MockModel) EXPECT() *MockModelMockRecorder {
 }
 
 // ActionByTag mocks base method.
-func (m *MockModel) ActionByTag(arg0 v4.ActionTag) (state.Action, error) {
+func (m *MockModel) ActionByTag(arg0 names.ActionTag) (state.Action, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ActionByTag", arg0)
 	ret0, _ := ret[0].(state.Action)
@@ -238,7 +238,7 @@ func (mr *MockModelMockRecorder) FindActionsByName(arg0 interface{}) *gomock.Cal
 }
 
 // ListOperations mocks base method.
-func (m *MockModel) ListOperations(arg0 []string, arg1 []v4.Tag, arg2 []state.ActionStatus, arg3, arg4 int) ([]state.OperationInfo, bool, error) {
+func (m *MockModel) ListOperations(arg0 []string, arg1 []names.Tag, arg2 []state.ActionStatus, arg3, arg4 int) ([]state.OperationInfo, bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListOperations", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].([]state.OperationInfo)
@@ -254,10 +254,10 @@ func (mr *MockModelMockRecorder) ListOperations(arg0, arg1, arg2, arg3, arg4 int
 }
 
 // ModelTag mocks base method.
-func (m *MockModel) ModelTag() v4.ModelTag {
+func (m *MockModel) ModelTag() names.ModelTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelTag")
-	ret0, _ := ret[0].(v4.ModelTag)
+	ret0, _ := ret[0].(names.ModelTag)
 	return ret0
 }
 
