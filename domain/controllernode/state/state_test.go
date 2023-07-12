@@ -8,9 +8,9 @@ import (
 	"errors"
 
 	"github.com/juju/collections/set"
+	jujuerrors "github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	jujuerrors "github.com/juju/errors"
 
 	"github.com/juju/juju/database/testing"
 )

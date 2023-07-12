@@ -41,6 +41,8 @@ func (s *Service) UpdateBootstrapNodeBindAddress(ctx context.Context, addr strin
 	return errors.Annotatef(err, "updating bootstrap node bind address to %q", addr)
 }
 
+// IsModelKnownToController returns true if the input
+// model UUID is one managed by this controller.
 func (s *Service) IsModelKnownToController(ctx context.Context, modelUUID string) (bool, error) {
 	uuid, err := s.st.SelectModelUUID(ctx, modelUUID)
 	if err != nil {

@@ -5,9 +5,9 @@ package service
 
 import (
 	"context"
-	"github.com/juju/errors"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
