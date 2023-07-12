@@ -8,9 +8,9 @@ import (
 	reflect "reflect"
 	time "time"
 
-	gomock "github.com/golang/mock/gomock"
 	watcher "github.com/juju/juju/core/watcher"
 	config "github.com/juju/juju/environs/config"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockFacade is a mock of Facade interface.

@@ -7,8 +7,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	core "github.com/oracle/oci-go-sdk/v65/core"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockComputeClient is a mock of ComputeClient interface.

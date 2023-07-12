@@ -7,8 +7,8 @@ package user_test
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	jujuclient "github.com/juju/juju/jujuclient"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockControllerCommand is a mock of ControllerCommand interface.

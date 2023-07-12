@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	storage "github.com/juju/juju/storage"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockProviderRegistry is a mock of ProviderRegistry interface.

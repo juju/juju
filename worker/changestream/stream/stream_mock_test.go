@@ -7,7 +7,7 @@ package stream
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockFileNotifier is a mock of FileNotifier interface.

@@ -21,11 +21,12 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/clock"
+
 	"github.com/juju/juju/cmd/output/progress"
 	"github.com/juju/juju/cmd/output/progress/mocks"
 )

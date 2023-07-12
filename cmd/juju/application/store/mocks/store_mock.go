@@ -9,11 +9,11 @@ import (
 	url "net/url"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v11"
 	charms "github.com/juju/juju/api/client/charms"
 	charm0 "github.com/juju/juju/api/common/charm"
 	charmhub "github.com/juju/juju/charmhub"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockCharmAdder is a mock of CharmAdder interface.

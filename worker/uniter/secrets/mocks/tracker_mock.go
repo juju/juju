@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	hook "github.com/juju/juju/worker/uniter/hook"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockSecretStateTracker is a mock of SecretStateTracker interface.

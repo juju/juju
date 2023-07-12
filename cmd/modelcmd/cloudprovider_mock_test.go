@@ -7,12 +7,12 @@ package modelcmd
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	jsonschema "github.com/juju/jsonschema"
 	cloud "github.com/juju/juju/cloud"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
 	context "github.com/juju/juju/environs/context"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockTestCloudProvider is a mock of TestCloudProvider interface.

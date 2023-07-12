@@ -7,9 +7,9 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	params "github.com/juju/juju/rpc/params"
 	meterstatus "github.com/juju/juju/worker/meterstatus"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockUnitStateAPI is a mock of UnitStateAPI interface.

@@ -8,11 +8,11 @@ import (
 	reflect "reflect"
 	time "time"
 
-	gomock "github.com/golang/mock/gomock"
 	migration "github.com/juju/juju/core/migration"
 	permission "github.com/juju/juju/core/permission"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockModelMigration is a mock of ModelMigration interface.

@@ -9,7 +9,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/modelconfig_mock.go github.com/juju/juju/cmd/modelcmd ModelConfigAPI
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/modelconfig_mock.go github.com/juju/juju/cmd/modelcmd ModelConfigAPI
 
 func Test(t *testing.T) {
 	coretesting.MgoTestPackage(t)
