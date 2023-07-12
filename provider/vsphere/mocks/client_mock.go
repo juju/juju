@@ -8,11 +8,11 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	vsphereclient "github.com/juju/juju/provider/vsphere/internal/vsphereclient"
 	object "github.com/vmware/govmomi/object"
 	mo "github.com/vmware/govmomi/vim25/mo"
 	types "github.com/vmware/govmomi/vim25/types"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockClient is a mock of Client interface.

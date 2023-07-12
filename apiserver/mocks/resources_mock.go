@@ -9,10 +9,10 @@ import (
 	reflect "reflect"
 	time "time"
 
-	gomock "github.com/golang/mock/gomock"
 	resource "github.com/juju/charm/v10/resource"
 	resources "github.com/juju/juju/core/resources"
 	state "github.com/juju/juju/state"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockResources is a mock of Resources interface.

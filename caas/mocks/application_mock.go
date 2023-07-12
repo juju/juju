@@ -8,9 +8,9 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	caas "github.com/juju/juju/caas"
 	watcher "github.com/juju/juju/core/watcher"
+	gomock "go.uber.org/mock/gomock"
 	v1 "k8s.io/api/core/v1"
 )
 

@@ -12,11 +12,11 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
 	"github.com/juju/romulus"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"

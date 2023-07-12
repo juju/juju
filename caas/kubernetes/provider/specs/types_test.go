@@ -4,8 +4,8 @@
 package specs_test
 
 import (
-	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	k8sspces "github.com/juju/juju/caas/kubernetes/provider/specs"

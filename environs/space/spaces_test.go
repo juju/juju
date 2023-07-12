@@ -4,11 +4,11 @@
 package space
 
 import (
-	"github.com/golang/mock/gomock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	instance "github.com/juju/juju/core/instance"

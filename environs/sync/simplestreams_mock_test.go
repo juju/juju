@@ -7,8 +7,8 @@ package sync_test
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	simplestreams "github.com/juju/juju/environs/simplestreams"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockSimplestreamsFetcher is a mock of SimplestreamsFetcher interface.

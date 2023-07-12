@@ -7,7 +7,6 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	charms "github.com/juju/juju/api/common/charms"
 	caasapplicationprovisioner "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	life "github.com/juju/juju/core/life"
@@ -15,6 +14,7 @@ import (
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
 	params "github.com/juju/juju/rpc/params"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockCAASProvisionerFacade is a mock of CAASProvisionerFacade interface.

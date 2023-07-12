@@ -7,7 +7,6 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v10"
 	uniter "github.com/juju/juju/apiserver/facades/agent/uniter"
 	instance "github.com/juju/juju/core/instance"
@@ -15,6 +14,7 @@ import (
 	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockLXDProfileBackendV2 is a mock of LXDProfileBackendV2 interface.

@@ -9,13 +9,13 @@ import (
 	"fmt"
 	"time"
 
-	gomock "github.com/golang/mock/gomock"
 	"github.com/juju/clock/testclock"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	ociIdentity "github.com/oracle/oci-go-sdk/v65/identity"
+	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"

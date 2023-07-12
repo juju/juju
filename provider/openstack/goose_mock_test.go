@@ -9,7 +9,7 @@ import (
 
 	http "github.com/go-goose/goose/v5/http"
 	identity "github.com/go-goose/goose/v5/identity"
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockAuthenticatingClient is a mock of AuthenticatingClient interface.

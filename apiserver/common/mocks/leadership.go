@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	common "github.com/juju/juju/apiserver/common"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockLeadershipPinningBackend is a mock of LeadershipPinningBackend interface.

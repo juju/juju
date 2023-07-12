@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"

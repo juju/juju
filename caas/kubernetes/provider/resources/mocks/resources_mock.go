@@ -9,9 +9,9 @@ import (
 	reflect "reflect"
 	time "time"
 
-	gomock "github.com/golang/mock/gomock"
 	resources "github.com/juju/juju/caas/kubernetes/provider/resources"
 	status "github.com/juju/juju/core/status"
+	gomock "go.uber.org/mock/gomock"
 	v1 "k8s.io/api/core/v1"
 	v10 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubernetes "k8s.io/client-go/kubernetes"

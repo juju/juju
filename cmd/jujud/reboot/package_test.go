@@ -18,5 +18,5 @@ func NewRebootForTest(acfg AgentConfig, reboot RebootWaiter) *Reboot {
 	return &Reboot{acfg: acfg, reboot: reboot}
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/service_mock.go github.com/juju/juju/cmd/jujud/reboot AgentConfig,Manager,Model,RebootWaiter,Service
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/instance_mock.go github.com/juju/juju/environs/instances Instance
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/service_mock.go github.com/juju/juju/cmd/jujud/reboot AgentConfig,Manager,Model,RebootWaiter,Service
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/instance_mock.go github.com/juju/juju/environs/instances Instance

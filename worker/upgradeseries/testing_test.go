@@ -7,12 +7,13 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
 
-	"github.com/golang/mock/gomock"
+	"github.com/juju/names/v4"
+	"go.uber.org/mock/gomock"
+
 	"github.com/juju/juju/api/base"
 	workermocks "github.com/juju/juju/worker/mocks"
 	"github.com/juju/juju/worker/upgradeseries"
 	. "github.com/juju/juju/worker/upgradeseries/mocks"
-	"github.com/juju/names/v4"
 )
 
 // validManifoldConfig returns a valid manifold config created from mocks based

@@ -8,11 +8,11 @@ import (
 	reflect "reflect"
 	time "time"
 
-	gomock "github.com/golang/mock/gomock"
 	set "github.com/juju/collections/set"
 	secrets "github.com/juju/juju/core/secrets"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockSecretsStore is a mock of SecretsStore interface.

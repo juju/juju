@@ -29,7 +29,7 @@ import (
 	k8sannotations "github.com/juju/juju/core/annotations"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/crd_getter_mock.go github.com/juju/juju/caas/kubernetes/provider CRDGetterInterface
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/crd_getter_mock.go github.com/juju/juju/caas/kubernetes/provider CRDGetterInterface
 
 func (k *kubernetesClient) getAPIExtensionLabelsGlobal(appName string) map[string]string {
 	return utils.LabelsMerge(

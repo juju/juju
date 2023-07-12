@@ -7,16 +7,16 @@ import (
 	"testing"
 	time "time"
 
-	"github.com/golang/mock/gomock"
 	jujutesting "github.com/juju/testing"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	databasetesting "github.com/juju/juju/database/testing"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package dbaccessor -destination package_mock_test.go github.com/juju/juju/worker/dbaccessor Logger,DBApp,NodeManager,TrackedDB,Hub,Client
-//go:generate go run github.com/golang/mock/mockgen -package dbaccessor -destination clock_mock_test.go github.com/juju/clock Clock,Timer
-//go:generate go run github.com/golang/mock/mockgen -package dbaccessor -destination metrics_mock_test.go github.com/prometheus/client_golang/prometheus Registerer
+//go:generate go run go.uber.org/mock/mockgen -package dbaccessor -destination package_mock_test.go github.com/juju/juju/worker/dbaccessor Logger,DBApp,NodeManager,TrackedDB,Hub,Client
+//go:generate go run go.uber.org/mock/mockgen -package dbaccessor -destination clock_mock_test.go github.com/juju/clock Clock,Timer
+//go:generate go run go.uber.org/mock/mockgen -package dbaccessor -destination metrics_mock_test.go github.com/prometheus/client_golang/prometheus Registerer
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

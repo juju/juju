@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/wrench"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mutatercontext_mock.go github.com/juju/juju/worker/instancemutater MutaterContext
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/mutatercontext_mock.go github.com/juju/juju/worker/instancemutater MutaterContext
 
 // lifetimeContext was extracted to allow the various Context clients to get
 // the benefits of the catacomb encapsulating everything that should happen

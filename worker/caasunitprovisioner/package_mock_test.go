@@ -7,8 +7,8 @@ package caasunitprovisioner
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	status "github.com/juju/juju/core/status"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockProvisioningStatusSetter is a mock of ProvisioningStatusSetter interface.

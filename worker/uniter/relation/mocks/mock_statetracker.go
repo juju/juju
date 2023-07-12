@@ -7,12 +7,12 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	life "github.com/juju/juju/core/life"
 	hook "github.com/juju/juju/worker/uniter/hook"
 	relation "github.com/juju/juju/worker/uniter/relation"
 	remotestate "github.com/juju/juju/worker/uniter/remotestate"
 	context "github.com/juju/juju/worker/uniter/runner/context"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockRelationStateTracker is a mock of RelationStateTracker interface.

@@ -8,16 +8,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/core/changestream"
 	dbtesting "github.com/juju/juju/database/testing"
 	jujutesting "github.com/juju/juju/testing"
-	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package eventqueue -destination change_mock_test.go github.com/juju/juju/core/changestream ChangeEvent
-//go:generate go run github.com/golang/mock/mockgen -package eventqueue -destination stream_mock_test.go github.com/juju/juju/worker/changestream/eventqueue Stream
-//go:generate go run github.com/golang/mock/mockgen -package eventqueue -destination logger_mock_test.go github.com/juju/juju/worker/changestream/eventqueue Logger
+//go:generate go run go.uber.org/mock/mockgen -package eventqueue -destination change_mock_test.go github.com/juju/juju/core/changestream ChangeEvent
+//go:generate go run go.uber.org/mock/mockgen -package eventqueue -destination stream_mock_test.go github.com/juju/juju/worker/changestream/eventqueue Stream
+//go:generate go run go.uber.org/mock/mockgen -package eventqueue -destination logger_mock_test.go github.com/juju/juju/worker/changestream/eventqueue Logger
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

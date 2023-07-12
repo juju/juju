@@ -4,15 +4,16 @@
 package containerbroker_test
 
 import (
-	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/testing"
+	worker "github.com/juju/worker/v3"
+	"go.uber.org/mock/gomock"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/container/broker"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker/containerbroker"
 	"github.com/juju/juju/worker/containerbroker/mocks"
-	"github.com/juju/testing"
-	worker "github.com/juju/worker/v3"
-	gc "gopkg.in/check.v1"
 )
 
 type manifoldConfigSuite struct {

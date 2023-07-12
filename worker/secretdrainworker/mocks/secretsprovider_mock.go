@@ -8,8 +8,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	secrets "github.com/juju/juju/core/secrets"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockSecretsBackend is a mock of SecretsBackend interface.

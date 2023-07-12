@@ -7,9 +7,9 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	relation "github.com/juju/juju/worker/uniter/relation"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockStateTrackerState is a mock of StateTrackerState interface.
