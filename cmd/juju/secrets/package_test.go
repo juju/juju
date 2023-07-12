@@ -11,10 +11,19 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretsapi.go github.com/juju/juju/cmd/juju/secrets ListSecretsAPI
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretsapi.go github.com/juju/juju/cmd/juju/secrets ListSecretsAPI,AddSecretsAPI
 
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
+}
+
+// NewAddCommandForTest returns a secrets command for testing.
+func NewAddCommandForTest(store jujuclient.ClientStore, addSecretsAPI AddSecretsAPI) *addSecretCommand {
+	c := &addSecretCommand{
+		secretsAPIFunc: func() (AddSecretsAPI, error) { return addSecretsAPI, nil },
+	}
+	c.SetClientStore(store)
+	return c
 }
 
 // NewListCommandForTest returns a secrets command for testing.
