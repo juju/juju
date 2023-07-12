@@ -6,11 +6,11 @@ package modelmigration
 import (
 	"context"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/crossmodel"
@@ -68,7 +68,7 @@ func (s *exportSuite) TestExportExternalController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Assert that the destination description model has one external
 	// controller after the migration:
-	c.Assert(dst.ExternalControllers(), gc.HasLen, 1)
+	c.Check(dst.ExternalControllers(), gc.HasLen, 1)
 	c.Assert(dst.ExternalControllers()[0].ID().Id(), gc.Equals, ctrlUUID)
 	c.Assert(dst.ExternalControllers()[0].Addrs(), jc.SameContents, []string{"192.168.1.1:8080"})
 	c.Assert(dst.ExternalControllers()[0].Alias(), gc.Equals, "external ctrl1")

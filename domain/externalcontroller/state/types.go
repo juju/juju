@@ -34,6 +34,11 @@ type ExternalController struct {
 
 type ExternalControllers []ExternalController
 
+// ToControllerInfo ExternalControllers to a slice of crossmodel.ControllerInfo
+// structs. This method makes sure only unique models and addresses are mapped
+// and flattens them into each controller.
+// Order of addresses, models and the resulting crossmodel.ControllerInfo
+// elements are not guaranteed, no sorting is applied.
 func (e ExternalControllers) ToControllerInfo() []crossmodel.ControllerInfo {
 	var resultControllers []crossmodel.ControllerInfo
 	// Prepare structs for unique models and addresses for each

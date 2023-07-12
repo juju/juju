@@ -10,7 +10,6 @@ import (
 
 	crossmodel "github.com/juju/juju/core/crossmodel"
 	gomock "go.uber.org/mock/gomock"
-	externalcontroller "github.com/juju/juju/domain/externalcontroller"
 )
 
 // MockState is a mock of State interface.

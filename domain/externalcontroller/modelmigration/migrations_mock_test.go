@@ -8,9 +8,9 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	crossmodel "github.com/juju/juju/core/crossmodel"
 	modelmigration "github.com/juju/juju/core/modelmigration"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockCoordinator is a mock of Coordinator interface.
