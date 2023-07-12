@@ -29,6 +29,15 @@ func (s *serviceSuite) TestUpdateExternalControllerSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *serviceSuite) TestUpdateBootstrapNodeBindAddress(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().UpdateBootstrapNodeBindAddress(gomock.Any(), "192.168.5.60")
+
+	err := NewService(s.state).UpdateBootstrapNodeBindAddress(context.Background(), "192.168.5.60")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

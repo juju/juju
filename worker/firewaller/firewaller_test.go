@@ -1045,7 +1045,7 @@ func (s *InstanceModeSuite) TestRemoveMachine(c *gc.C) {
 	fw := s.newFirewaller(c, ctrl)
 
 	app := s.addApplication(ctrl, "wordpress", true)
-	u, m, unitsCh := s.addUnit(c, ctrl, app)
+	u, m, _ := s.addUnit(c, ctrl, app)
 	s.startInstance(c, ctrl, m)
 	s.mustOpenPortRanges(c, u, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80/tcp"),
@@ -1055,13 +1055,6 @@ func (s *InstanceModeSuite) TestRemoveMachine(c *gc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	}
 	s.assertIngressRules(c, m.Tag().Id(), rules1)
-
-	// Remove unit and application, also tested without. Has no effect.
-	u.EXPECT().Life().Return(life.Dead).AnyTimes()
-	unitsCh <- []string{u.Tag().Id()}
-
-	app.EXPECT().ExposeInfo().Return(false, nil, errors.NotFoundf(app.Name()))
-	s.applicationsCh <- struct{}{}
 
 	// Kill machine.
 	s.deadMachines.Add(m.Tag().Id())

@@ -13,6 +13,7 @@ import (
 // methods for controller node concerns.
 type State interface {
 	CurateNodes(context.Context, []string, []string) error
+	UpdateBootstrapNodeBindAddress(context.Context, string) error
 }
 
 // Service provides the API for working with controller nodes.
@@ -30,4 +31,11 @@ func NewService(st State) *Service {
 func (s *Service) CurateNodes(ctx context.Context, toAdd, toRemove []string) error {
 	err := s.st.CurateNodes(ctx, toAdd, toRemove)
 	return errors.Annotatef(err, "curating controller codes; adding %v, removing %v", toAdd, toRemove)
+}
+
+// UpdateBootstrapNodeBindAddress sets the input address as the Dqlite
+// bind address of the original bootstrapped controller node.
+func (s *Service) UpdateBootstrapNodeBindAddress(ctx context.Context, addr string) error {
+	err := s.st.UpdateBootstrapNodeBindAddress(ctx, addr)
+	return errors.Annotatef(err, "updating bootstrap node bind address to %q", addr)
 }
