@@ -5,7 +5,6 @@ package dbaccessor
 
 import (
 	"context"
-	"database/sql"
 	"net"
 	"sync"
 	"time"
@@ -19,6 +18,9 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/dqlite"
+	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/controllernode/service"
+	"github.com/juju/juju/domain/controllernode/state"
 	"github.com/juju/juju/pubsub/apiserver"
 )
 
@@ -850,20 +852,12 @@ func (w *dbWorker) ensureNamespace(namespace string) error {
 	}
 
 	// Otherwise, we need to validate that the namespace exists.
-	controllerWorker, err := w.dbRunner.Worker(coredatabase.ControllerNS, w.catacomb.Dying())
-	if err != nil {
-		return errors.Annotatef(err, "getting controller worker")
-	}
-
-	dbGetter, ok := controllerWorker.(coredatabase.TxnRunner)
-	if !ok {
-		return errors.Errorf("worker is not a DBGetter")
-	}
-
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	known, err := isNamespaceKnownToController(ctx, dbGetter, namespace)
+	known, err := service.NewService(
+		state.NewState(domain.NewTxnRunnerFactoryForNamespace(w.GetDB, coredatabase.ControllerNS)),
+	).IsModelKnownToController(ctx, namespace)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -871,32 +865,4 @@ func (w *dbWorker) ensureNamespace(namespace string) error {
 		return errors.NotFoundf("namespace %q", namespace)
 	}
 	return nil
-}
-
-func isNamespaceKnownToController(ctx context.Context, db coredatabase.TxnRunner, namespace string) (bool, error) {
-	var known bool
-	err := db.StdTxn(ctx, func(ctx context.Context, db *sql.Tx) error {
-		row := db.QueryRowContext(ctx, "SELECT uuid FROM model_list WHERE uuid=?", namespace)
-
-		var uuid string
-		if err := row.Scan(&uuid); err != nil {
-			// No rows means the namespace is not known to the controller.
-			// We return a NotFound error to the caller.
-			if errors.Is(err, sql.ErrNoRows) {
-				return errors.NotFoundf("namespace %q", namespace)
-			}
-			return errors.Trace(err)
-		}
-
-		if err := row.Err(); err != nil {
-			return errors.Trace(err)
-		}
-
-		known = uuid == namespace
-		return nil
-	})
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	return known, nil
 }

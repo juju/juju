@@ -14,6 +14,7 @@ import (
 type State interface {
 	CurateNodes(context.Context, []string, []string) error
 	UpdateBootstrapNodeBindAddress(context.Context, string) error
+	SelectModelUUID(context.Context, string) (string, error)
 }
 
 // Service provides the API for working with controller nodes.
@@ -38,4 +39,17 @@ func (s *Service) CurateNodes(ctx context.Context, toAdd, toRemove []string) err
 func (s *Service) UpdateBootstrapNodeBindAddress(ctx context.Context, addr string) error {
 	err := s.st.UpdateBootstrapNodeBindAddress(ctx, addr)
 	return errors.Annotatef(err, "updating bootstrap node bind address to %q", addr)
+}
+
+// IsModelKnownToController returns true if the input
+// model UUID is one managed by this controller.
+func (s *Service) IsModelKnownToController(ctx context.Context, modelUUID string) (bool, error) {
+	uuid, err := s.st.SelectModelUUID(ctx, modelUUID)
+	if err != nil {
+		if !errors.Is(err, errors.NotFound) {
+			return false, errors.Annotatef(err, "determining model existence")
+		}
+	}
+
+	return uuid == modelUUID, nil
 }

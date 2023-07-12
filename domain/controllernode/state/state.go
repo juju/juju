@@ -76,3 +76,32 @@ AND    bind_address = '127.0.0.1'`
 		return errors.Trace(err)
 	}))
 }
+
+// SelectModelUUID simply selects the input model UUID from the
+// model_list table, thereby verifying whether it exists.
+func (st *State) SelectModelUUID(ctx context.Context, modelUUID string) (string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	var uuid string
+	err = db.StdTxn(ctx, func(ctx context.Context, db *sql.Tx) error {
+		row := db.QueryRowContext(ctx, "SELECT uuid FROM model_list WHERE uuid = ?", modelUUID)
+
+		if err := row.Scan(&uuid); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return errors.NotFoundf("model UUID %q", modelUUID)
+			}
+			return errors.Trace(err)
+		}
+
+		if err := row.Err(); err != nil {
+			return errors.Trace(err)
+		}
+
+		return nil
+	})
+
+	return uuid, errors.Trace(err)
+}
