@@ -115,6 +115,7 @@ func NewMetricsCollector() *Collector {
 			"go_version":       runtime.Version(),
 			"git_commit":       version.GitCommit,
 			"git_commit_state": version.GitTreeState,
+			"go_build_tags":    version.GoBuildTags,
 		},
 	})
 	buildInfo.Set(1.0)
