@@ -48,6 +48,21 @@ func (mr *MockStateMockRecorder) CurateNodes(arg0, arg1, arg2 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CurateNodes", reflect.TypeOf((*MockState)(nil).CurateNodes), arg0, arg1, arg2)
 }
 
+// SelectModelUUID mocks base method.
+func (m *MockState) SelectModelUUID(arg0 context.Context, arg1 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SelectModelUUID", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SelectModelUUID indicates an expected call of SelectModelUUID.
+func (mr *MockStateMockRecorder) SelectModelUUID(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectModelUUID", reflect.TypeOf((*MockState)(nil).SelectModelUUID), arg0, arg1)
+}
+
 // UpdateBootstrapNodeBindAddress mocks base method.
 func (m *MockState) UpdateBootstrapNodeBindAddress(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()

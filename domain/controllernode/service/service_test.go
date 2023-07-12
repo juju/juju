@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"github.com/juju/errors"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/testing"
@@ -36,6 +37,28 @@ func (s *serviceSuite) TestUpdateBootstrapNodeBindAddress(c *gc.C) {
 
 	err := NewService(s.state).UpdateBootstrapNodeBindAddress(context.Background(), "192.168.5.60")
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestIsModelKnownToController(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	knownID := "is-a-known-model"
+
+	exp := s.state.EXPECT()
+	gomock.InOrder(
+		exp.SelectModelUUID(gomock.Any(), "is-not-there").Return("", errors.NotFound),
+		exp.SelectModelUUID(gomock.Any(), knownID).Return(knownID, nil),
+	)
+
+	svc := NewService(s.state)
+
+	known, err := svc.IsModelKnownToController(context.Background(), "is-not-there")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(known, jc.IsFalse)
+
+	known, err = svc.IsModelKnownToController(context.Background(), knownID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(known, jc.IsTrue)
 }
 
 func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
