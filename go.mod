@@ -26,7 +26,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/iam v1.9.0
 	github.com/aws/smithy-go v1.8.0
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
-	github.com/canonical/pebble v0.0.0-20230307221844-5842ea68c9c7
+	github.com/canonical/pebble v0.0.0-20230711093550-00bcd1f7dda5
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.3.2
 	github.com/docker/distribution v2.7.1+incompatible
@@ -148,7 +148,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.2.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.4.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/canonical/x-go v0.0.0-20230113154138-0ccdb0b57a43 // indirect
+	github.com/canonical/go-flags v0.0.0-20230403090104-105d09a091b8 // indirect
+	github.com/canonical/x-go v0.0.0-20230522092633-7947a7587f5b // indirect
 	github.com/cenkalti/backoff/v3 v3.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/creack/pty v1.1.15 // indirect
@@ -193,7 +194,6 @@ require (
 	github.com/hashicorp/vault/sdk v0.5.1 // indirect
 	github.com/hashicorp/yamux v0.0.0-20180604194846-3520598351bb // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
-	github.com/jessevdk/go-flags v1.5.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/juju/go4 v0.0.0-20160222163258-40d72ab9641a // indirect
