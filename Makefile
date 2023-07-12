@@ -71,8 +71,19 @@ AGENT_PACKAGE_PLATFORMS ?= $(GOOS)/$(GOARCH)
 OCI_IMAGE_PLATFORMS ?= linux/$(GOARCH)
 
 # Build tags passed to go install/build.
+# Passing no-dqlite will disable building with dqlite.
 # Example: BUILD_TAGS="minimal provider_kubernetes"
-BUILD_TAGS ?= "libsqlite3 dqlite"
+BUILD_TAGS ?= 
+
+# EXTRA_BUILD_TAGS is not passed in, but built up from context.
+EXTRA_BUILD_TAGS =
+ifeq (,$(findstring no-dqlite,$(BUILD_TAGS)))
+EXTRA_BUILD_TAGS += libsqlite3
+EXTRA_BUILD_TAGS += dqlite
+endif
+
+# FINAL_BUILD_TAGS is the final list of build tags.
+FINAL_BUILD_TAGS=$(shell echo "$(BUILD_TAGS) $(EXTRA_BUILD_TAGS)" | awk '{$$1=$$1};1' | tr ' ' ',')
 
 # GIT_COMMIT the current git commit of this repository
 GIT_COMMIT ?= $(shell git -C $(PROJECT_DIR) rev-parse HEAD 2>/dev/null)
@@ -172,7 +183,8 @@ endif
 define link_flags_version
 	-X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) \
 	-X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) \
-	-X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)
+	-X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER) \
+	-X $(PROJECT)/version.GoBuildTags=$(FINAL_BUILD_TAGS)
 endef
 
 # Compile with debug flags if requested.
@@ -214,7 +226,7 @@ define run_go_build
 		GOARCH=${BUILD_ARCH} \
 		go build \
 			-mod=$(JUJU_GOMOD_MODE) \
-			-tags=$(BUILD_TAGS) \
+			-tags=$(FINAL_BUILD_TAGS) \
 			-o ${BBIN_DIR} \
 			$(COMPILE_FLAGS) \
 			-ldflags $(LINK_FLAGS) \
@@ -239,7 +251,7 @@ define run_cgo_build
 		GOARCH=${BUILD_ARCH} \
 		go build \
 			-mod=$(JUJU_GOMOD_MODE) \
-			-tags=$(BUILD_TAGS) \
+			-tags=$(FINAL_BUILD_TAGS) \
 			-o ${BBIN_DIR} \
 			${COMPILE_FLAGS} \
 			-ldflags ${CGO_LINK_FLAGS} \
@@ -250,7 +262,7 @@ define run_go_install
 	@echo "Installing ${PACKAGE}"
 	@go install \
 		-mod=$(JUJU_GOMOD_MODE) \
-		-tags=$(BUILD_TAGS) \
+		-tags=$(FINAL_BUILD_TAGS) \
 		$(COMPILE_FLAGS) \
 		-ldflags $(LINK_FLAGS) \
 		-v ${PACKAGE}
@@ -269,7 +281,7 @@ define run_cgo_install
 		GOARCH=${GOARCH} \
 		go install \
 			-mod=$(JUJU_GOMOD_MODE) \
-			-tags=$(BUILD_TAGS) \
+			-tags=$(FINAL_BUILD_TAGS) \
 			${COMPILE_FLAGS} \
 			-ldflags ${CGO_LINK_FLAGS} \
 			-v ${PACKAGE}
@@ -418,7 +430,7 @@ run-tests: musl-install-if-missing dqlite-install-if-missing
 	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
 	$(eval TMP := $(shell mktemp -d $${TMPDIR:-/tmp}/jj-XXX))
 	$(eval TEST_PACKAGES := $(shell go list $(PROJECT)/... | sort | ([ -f "$(TEST_PACKAGE_LIST)" ] && comm -12 "$(TEST_PACKAGE_LIST)" - || cat) | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/acceptancetests/ | grep -v $(PROJECT)/generate/ | grep -v mocks))
-	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v'
+	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(FINAL_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v'
 	@TMPDIR=$(TMP) \
 		PATH="${MUSL_BIN_PATH}:${PATH}" \
 		CC="musl-gcc" \
@@ -427,7 +439,7 @@ run-tests: musl-install-if-missing dqlite-install-if-missing
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
 		CGO_ENABLED=1 \
-		go test -v -mod=$(JUJU_GOMOD_MODE) -tags=$(BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -ldflags ${CGO_LINK_FLAGS} -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v
+		go test -v -mod=$(JUJU_GOMOD_MODE) -tags=$(FINAL_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -ldflags ${CGO_LINK_FLAGS} -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v
 	@rm -r $(TMP)
 
 run-go-tests: musl-install-if-missing dqlite-install-if-missing
@@ -437,7 +449,7 @@ run-go-tests: musl-install-if-missing dqlite-install-if-missing
 	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
 	$(eval TEST_PACKAGES ?= "./...")
 	$(eval TEST_FILTER ?= "")
-	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v -check.f $(TEST_FILTER)'
+	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(FINAL_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v -check.f $(TEST_FILTER)'
 	@PATH="${MUSL_BIN_PATH}:${PATH}" \
 		CC="musl-gcc" \
 		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
@@ -445,7 +457,7 @@ run-go-tests: musl-install-if-missing dqlite-install-if-missing
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
 		CGO_ENABLED=1 \
-		go test -v -mod=$(JUJU_GOMOD_MODE) -tags=$(BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -ldflags ${CGO_LINK_FLAGS} -test.timeout=$(TEST_TIMEOUT) ${TEST_PACKAGES} -check.v -check.f $(TEST_FILTER)
+		go test -v -mod=$(JUJU_GOMOD_MODE) -tags=$(FINAL_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -ldflags ${CGO_LINK_FLAGS} -test.timeout=$(TEST_TIMEOUT) ${TEST_PACKAGES} -check.v -check.f $(TEST_FILTER)
 
 .PHONY: install
 install: rebuild-schema go-install
