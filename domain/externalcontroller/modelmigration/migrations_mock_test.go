@@ -124,18 +124,23 @@ func (mr *MockExportServiceMockRecorder) ControllerForModel(arg0, arg1 interface
 }
 
 // ControllersForModels mocks base method.
-func (m *MockExportService) ControllersForModels(arg0 context.Context, arg1 []string) ([]crossmodel.ControllerInfo, error) {
+func (m *MockExportService) ControllersForModels(arg0 context.Context, arg1 ...string) ([]crossmodel.ControllerInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllersForModels", arg0, arg1)
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ControllersForModels", varargs...)
 	ret0, _ := ret[0].([]crossmodel.ControllerInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ControllersForModels indicates an expected call of ControllersForModels.
-func (mr *MockExportServiceMockRecorder) ControllersForModels(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockExportServiceMockRecorder) ControllersForModels(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllersForModels", reflect.TypeOf((*MockExportService)(nil).ControllersForModels), arg0, arg1)
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllersForModels", reflect.TypeOf((*MockExportService)(nil).ControllersForModels), varargs...)
 }
 
 // ModelsForController mocks base method.

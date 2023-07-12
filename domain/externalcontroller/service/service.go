@@ -18,10 +18,6 @@ type State interface {
 	// Controller returns the controller record.
 	Controller(ctx context.Context, controllerUUID string) (*crossmodel.ControllerInfo, error)
 
-	// ControllerForModel returns the controller record that's associated
-	// with the modelUUID.
-	ControllerForModel(ctx context.Context, modelUUID string) (*crossmodel.ControllerInfo, error)
-
 	// UpdateExternalController persists the input controller
 	// record and associates it with the input model UUIDs.
 	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
@@ -38,7 +34,7 @@ type State interface {
 	// are part of the given modelUUIDs.
 	// The resulting MigrationControllerInfo contains the list of models
 	// for each controller.
-	ControllersForModels(ctx context.Context, modelUUIDs []string) ([]crossmodel.ControllerInfo, error)
+	ControllersForModels(ctx context.Context, modelUUIDs ...string) ([]crossmodel.ControllerInfo, error)
 }
 
 // WatcherFactory describes methods for creating watchers.
@@ -82,8 +78,17 @@ func (s *Service) ControllerForModel(
 	ctx context.Context,
 	modelUUID string,
 ) (*crossmodel.ControllerInfo, error) {
-	controllerInfo, err := s.st.ControllerForModel(ctx, modelUUID)
-	return controllerInfo, errors.Annotatef(err, "retrieving external controller for model %s", modelUUID)
+	controllers, err := s.st.ControllersForModels(ctx, modelUUID)
+
+	if err != nil {
+		return nil, errors.Annotatef(err, "retrieving external controller for model %s", modelUUID)
+	}
+
+	if len(controllers) == 0 {
+		return nil, errors.NotFoundf("external controller for model %q", modelUUID)
+	}
+
+	return &controllers[0], nil
 }
 
 // UpdateExternalController persists the input controller
@@ -131,7 +136,7 @@ func (s *Service) ModelsForController(
 // for each controller.
 func (s *Service) ControllersForModels(
 	ctx context.Context,
-	modelUUIDs []string,
+	modelUUIDs ...string,
 ) ([]crossmodel.ControllerInfo, error) {
-	return s.st.ControllersForModels(ctx, modelUUIDs)
+	return s.st.ControllersForModels(ctx, modelUUIDs...)
 }

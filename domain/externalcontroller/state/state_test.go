@@ -115,13 +115,13 @@ func (s *stateSuite) TestRetrieveExternalControllerForModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Retrieve the created external controller.
-	controllerInfo, err := st.ControllerForModel(ctx.Background(), "model1")
+	controllerInfos, err := st.ControllersForModels(ctx.Background(), "model1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(controllerInfo.ControllerTag.Id(), gc.Equals, "ctrl1")
-	c.Assert(controllerInfo.Alias, gc.Equals, "my-controller")
-	c.Assert(controllerInfo.CACert, gc.Equals, "test-cert")
-	c.Assert(controllerInfo.Addrs, jc.SameContents, []string{"192.168.1.1", "10.0.0.1"})
+	c.Assert(controllerInfos[0].ControllerTag.Id(), gc.Equals, "ctrl1")
+	c.Assert(controllerInfos[0].Alias, gc.Equals, "my-controller")
+	c.Assert(controllerInfos[0].CACert, gc.Equals, "test-cert")
+	c.Assert(controllerInfos[0].Addrs, jc.SameContents, []string{"192.168.1.1", "10.0.0.1"})
 }
 
 func (s *stateSuite) TestRetrieveExternalControllerForModelWithoutAddresses(c *gc.C) {
@@ -138,13 +138,14 @@ func (s *stateSuite) TestRetrieveExternalControllerForModelWithoutAddresses(c *g
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Retrieve the created external controller.
-	controllerInfo, err := st.ControllerForModel(ctx.Background(), "model1")
+	controllerInfos, err := st.ControllersForModels(ctx.Background(), "model1")
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllerInfos, gc.HasLen, 1)
 
-	c.Assert(controllerInfo.ControllerTag.Id(), gc.Equals, "ctrl1")
-	c.Assert(controllerInfo.Alias, gc.Equals, "my-controller")
-	c.Assert(controllerInfo.CACert, gc.Equals, "test-cert")
-	c.Assert(controllerInfo.Addrs, gc.HasLen, 0)
+	c.Assert(controllerInfos[0].ControllerTag.Id(), gc.Equals, "ctrl1")
+	c.Assert(controllerInfos[0].Alias, gc.Equals, "my-controller")
+	c.Assert(controllerInfos[0].CACert, gc.Equals, "test-cert")
+	c.Assert(controllerInfos[0].Addrs, gc.HasLen, 0)
 }
 
 func (s *stateSuite) TestRetrieveExternalControllerForModelWithoutAlias(c *gc.C) {
@@ -161,22 +162,14 @@ func (s *stateSuite) TestRetrieveExternalControllerForModelWithoutAlias(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Retrieve the created external controller.
-	controllerInfo, err := st.ControllerForModel(ctx.Background(), "model1")
+	controllerInfos, err := st.ControllersForModels(ctx.Background(), "model1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(controllerInfo.ControllerTag.Id(), gc.Equals, "ctrl1")
+	c.Assert(controllerInfos[0].ControllerTag.Id(), gc.Equals, "ctrl1")
 	// Empty Alias => zero value
-	c.Assert(controllerInfo.Alias, gc.Equals, "")
-	c.Assert(controllerInfo.CACert, gc.Equals, "test-cert")
-	c.Assert(controllerInfo.Addrs, gc.HasLen, 0)
-}
-
-func (s *stateSuite) TestRetrieveExternalControllerForModelNotFound(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
-
-	// Retrieve a not-existent controller.
-	_, err := st.ControllerForModel(ctx.Background(), "model1")
-	c.Assert(err, gc.ErrorMatches, `external controller for model "model1" not found`)
+	c.Assert(controllerInfos[0].Alias, gc.Equals, "")
+	c.Assert(controllerInfos[0].CACert, gc.Equals, "test-cert")
+	c.Assert(controllerInfos[0].Addrs, gc.HasLen, 0)
 }
 
 func (s *stateSuite) TestUpdateExternalControllerNewData(c *gc.C) {
@@ -376,7 +369,7 @@ func (s *stateSuite) TestControllersForModels(c *gc.C) {
 ("model3", "ctrl2")`)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllers, err := st.ControllersForModels(ctx.Background(), []string{"model1", "model2", "model3", "model2", "model3"})
+	controllers, err := st.ControllersForModels(ctx.Background(), []string{"model1", "model2", "model3", "model2", "model3"}...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllers, gc.HasLen, 2)
 	c.Assert(controllers[0].Addrs, jc.SameContents, []string{"192.168.1.1", "10.0.0.1", "10.0.0.2"})

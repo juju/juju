@@ -36,7 +36,7 @@ type ExportService interface {
 	// are part of the given modelUUIDs.
 	// The resulting MigrationControllerInfo contains the list of models
 	// for each controller.
-	ControllersForModels(ctx context.Context, modelUUIDs []string) ([]crossmodel.ControllerInfo, error)
+	ControllersForModels(ctx context.Context, modelUUIDs ...string) ([]crossmodel.ControllerInfo, error)
 }
 
 // exportOperation describes a way to execute a migration for
@@ -73,7 +73,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 		sourceModelUUIDs = append(sourceModelUUIDs, remoteApp.SourceModelTag().Id())
 	}
 
-	controllers, err := e.service.ControllersForModels(ctx, sourceModelUUIDs)
+	controllers, err := e.service.ControllersForModels(ctx, sourceModelUUIDs...)
 	if err != nil {
 		return errors.Trace(err)
 	}

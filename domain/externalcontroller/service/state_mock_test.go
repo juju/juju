@@ -51,34 +51,24 @@ func (mr *MockStateMockRecorder) Controller(arg0, arg1 interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Controller", reflect.TypeOf((*MockState)(nil).Controller), arg0, arg1)
 }
 
-// ControllerForModel mocks base method.
-func (m *MockState) ControllerForModel(arg0 context.Context, arg1 string) (*crossmodel.ControllerInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerForModel", arg0, arg1)
-	ret0, _ := ret[0].(*crossmodel.ControllerInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ControllerForModel indicates an expected call of ControllerForModel.
-func (mr *MockStateMockRecorder) ControllerForModel(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerForModel", reflect.TypeOf((*MockState)(nil).ControllerForModel), arg0, arg1)
-}
-
 // ControllersForModels mocks base method.
-func (m *MockState) ControllersForModels(arg0 context.Context, arg1 []string) ([]crossmodel.ControllerInfo, error) {
+func (m *MockState) ControllersForModels(arg0 context.Context, arg1 ...string) ([]crossmodel.ControllerInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllersForModels", arg0, arg1)
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ControllersForModels", varargs...)
 	ret0, _ := ret[0].([]crossmodel.ControllerInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ControllersForModels indicates an expected call of ControllersForModels.
-func (mr *MockStateMockRecorder) ControllersForModels(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockStateMockRecorder) ControllersForModels(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllersForModels", reflect.TypeOf((*MockState)(nil).ControllersForModels), arg0, arg1)
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllersForModels", reflect.TypeOf((*MockState)(nil).ControllersForModels), varargs...)
 }
 
 // ImportExternalControllers mocks base method.

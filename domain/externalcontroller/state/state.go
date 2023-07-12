@@ -38,11 +38,17 @@ func (st *State) Controller(
 	}
 
 	q := `
-SELECT 	(alias, ca_cert, address) as &ExternalController.* 
-FROM   	external_controller AS ctrl
-       	LEFT JOIN external_controller_address AS addrs
-       	ON ctrl.uuid = addrs.controller_uuid
-WHERE  	ctrl.uuid = $M.id`
+SELECT (ctrl.uuid,
+       alias,
+       ca_cert,
+       address) as &ExternalController.*,
+       model.uuid as &ExternalController.model
+FROM external_controller AS ctrl
+LEFT JOIN external_model AS model
+ON ctrl.uuid = model.controller_uuid
+LEFT JOIN external_controller_address AS addrs
+ON ctrl.uuid = addrs.controller_uuid
+WHERE ctrl.uuid = $M.id`
 	s, err := sqlair.Prepare(q, ExternalController{}, sqlair.M{})
 	if err != nil {
 		return nil, errors.Annotatef(err, "preparing %q", q)
@@ -59,26 +65,35 @@ WHERE  	ctrl.uuid = $M.id`
 		return nil, errors.NotFoundf("external controller %q", controllerUUID)
 	}
 
-	return controllerInfoFromRows(controllerUUID, rows), nil
+	return controllerInfoFromRows(rows), nil
 }
 
-func (st *State) ControllerForModel(
-	ctx context.Context,
-	modelUUID string,
-) (*crossmodel.ControllerInfo, error) {
+func (st *State) ControllersForModels(ctx context.Context, modelUUIDs ...string) ([]crossmodel.ControllerInfo, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	// TODO(nvinuesa): We should use an `IN` statement query here, instead
+	// of looping over the list of models and performing N queries, but
+	// they are not yet supported on sqlair:
+	// https://github.com/canonical/sqlair/pull/76
 	q := `
-SELECT 	(ctrl.uuid, alias, ca_cert, address) as &ExternalController.* 
-FROM   	external_controller AS ctrl	
-	JOIN external_model AS model
-	ON ctrl.uuid = model.controller_uuid
-       	LEFT JOIN external_controller_address AS addrs
-       	ON ctrl.uuid = addrs.controller_uuid
-WHERE  	model.uuid = $M.id`
+SELECT (ctrl.uuid,  
+       ctrl.alias,
+       ctrl.ca_cert,
+       addrs.address) as &ExternalController.*,
+       model.uuid as &ExternalController.model
+FROM external_controller AS ctrl	
+JOIN external_model AS model
+ON ctrl.uuid = model.controller_uuid
+LEFT JOIN external_controller_address AS addrs
+ON ctrl.uuid = addrs.controller_uuid
+WHERE model.uuid = $M.model`
+
+	var resultControllers []crossmodel.ControllerInfo
+
+	uniqueControllers := make(map[string]crossmodel.ControllerInfo)
 	s, err := sqlair.Prepare(q, ExternalController{}, sqlair.M{})
 	if err != nil {
 		return nil, errors.Annotatef(err, "preparing %q", q)
@@ -86,35 +101,70 @@ WHERE  	model.uuid = $M.id`
 
 	var rows []ExternalController
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Trace(tx.Query(ctx, s, sqlair.M{"id": modelUUID}).GetAll(&rows))
+		for _, modelUUID := range modelUUIDs {
+			err := tx.Query(ctx, s, sqlair.M{"model": modelUUID}).GetAll(&rows)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if len(rows) > 0 {
+				uniqueControllers[rows[0].ID] = *controllerInfoFromRows(rows)
+			}
+
+			for _, controller := range uniqueControllers {
+				resultControllers = append(resultControllers, controller)
+			}
+		}
+
+		return nil
 	}); err != nil {
-		return nil, errors.Annotate(err, "querying external controller for model")
+		return nil, errors.Annotate(err, "querying external controller")
 	}
 
-	if len(rows) == 0 {
-		return nil, errors.NotFoundf("external controller for model %q", modelUUID)
-	}
-
-	return controllerInfoFromRows(rows[0].ID, rows), nil
+	return resultControllers, nil
 }
 
-func controllerInfoFromRows(uuid string, rows []ExternalController) *crossmodel.ControllerInfo {
-	// We know that we queried for a single ID, so the first instance
-	// of the controller info fields will be repeated.
-	ci := crossmodel.ControllerInfo{
-		ControllerTag: names.NewControllerTag(uuid),
-		Alias:         rows[0].Alias.String,
+// controllerInfoFromRows is a convenient method for de-normalizing multiple
+// rows containing the (necessary) columns from the three tables that
+// represent the ControllerInfo struct (i.e. including addresses and models).
+func controllerInfoFromRows(rows []ExternalController) *crossmodel.ControllerInfo {
+	// We are sure that only one controller is represented by the list
+	// of rows:
+	controllerInfo := &crossmodel.ControllerInfo{
+		ControllerTag: names.NewControllerTag(rows[0].ID),
 		CACert:        rows[0].CACert,
+		Alias:         rows[0].Alias.String,
 	}
 
-	if rows[0].Addr.Valid {
-		ci.Addrs = make([]string, len(rows))
-		for i, row := range rows {
-			ci.Addrs[i] = row.Addr.String
+	// Prepare structs for unique models and addresses for each
+	// controller.
+	uniqueModelUUIDs := make(map[string]string)
+	uniqueAddresses := make(map[string]string)
+	for _, row := range rows {
+		// Each row contains only one address, so it's safe
+		// to access the only possible (nullable) value.
+		if row.Addr.Valid {
+			uniqueAddresses[row.Addr.String] = row.Addr.String
+		}
+		// Each row contains only one model, so it's safe
+		// to access the only possible (nullable) value.
+		if row.ModelUUID.Valid {
+			uniqueModelUUIDs[row.ModelUUID.String] = row.ModelUUID.String
 		}
 	}
 
-	return &ci
+	// Flatten the models and addresses.
+	var modelUUIDs []string
+	for _, modelUUID := range uniqueModelUUIDs {
+		modelUUIDs = append(modelUUIDs, modelUUID)
+	}
+	controllerInfo.ModelUUIDs = modelUUIDs
+	var addresses []string
+	for _, modelUUID := range uniqueAddresses {
+		addresses = append(addresses, modelUUID)
+	}
+	controllerInfo.Addrs = addresses
+
+	return controllerInfo
 }
 
 func (st *State) UpdateExternalController(
@@ -222,9 +272,9 @@ func (st *State) ModelsForController(
 	}
 
 	q := `
-SELECT 	uuid 
-FROM   	external_model 
-WHERE  	controller_uuid = ?`
+SELECT uuid 
+FROM external_model 
+WHERE controller_uuid = ?`
 
 	var modelUUIDs []string
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -246,97 +296,4 @@ WHERE  	controller_uuid = ?`
 	})
 
 	return modelUUIDs, err
-}
-
-func (st *State) ControllersForModels(ctx context.Context, modelUUIDs []string) ([]crossmodel.ControllerInfo, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	modelBinds, modelVals := database.SliceToPlaceholder(modelUUIDs)
-
-	// TODO(nvinuesa): We should use SQLair here, but for the moment it's
-	// not possible for two reasons:
-	// 1) Queries with `IN` statements are not yet supported:
-	// https://github.com/canonical/sqlair/pull/76
-	// 2) The `AS` statement is not supported for SELECT statement
-	// column names (in our case we need the `model.uuid AS model`).
-	q := fmt.Sprintf(`
-SELECT  ctrl.uuid,  
-	ctrl.alias,
-	ctrl.ca_cert,
-	model.uuid AS model,
-	addrs.address
-FROM external_controller AS ctrl	
-JOIN 	external_model AS model
-ON ctrl.uuid = model.controller_uuid
-LEFT JOIN external_controller_address AS addrs
-ON ctrl.uuid = addrs.controller_uuid
-WHERE model.uuid IN (%s)`, modelBinds)
-
-	var resultControllers []crossmodel.ControllerInfo
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, q, modelVals...)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		// Prepare structs for unique models and addresses for each
-		// controller.
-		uniqueModelUUIDs := make(map[string]map[string]string)
-		uniqueAddresses := make(map[string]map[string]string)
-		uniqueControllers := make(map[string]crossmodel.ControllerInfo)
-		for rows.Next() {
-			var controller ExternalController
-			if err := rows.Scan(&controller.ID, &controller.Alias, &controller.CACert, &controller.ModelUUID, &controller.Addr); err != nil {
-				_ = rows.Close()
-				return errors.Trace(err)
-			}
-			uniqueControllers[controller.ID] = crossmodel.ControllerInfo{
-				ControllerTag: names.NewControllerTag(controller.ID),
-				CACert:        controller.CACert,
-				Alias:         controller.Alias.String,
-			}
-
-			// Each row contains only one address, so it's safe
-			// to access the only possible (nullable) value.
-			if controller.Addr.Valid {
-				if _, ok := uniqueAddresses[controller.ID]; !ok {
-					uniqueAddresses[controller.ID] = make(map[string]string)
-				}
-				uniqueAddresses[controller.ID][controller.Addr.String] = controller.Addr.String
-			}
-			// Each row contains only one model, so it's safe
-			// to access the only possible (nullable) value.
-			if controller.ModelUUID.Valid {
-				if _, ok := uniqueModelUUIDs[controller.ID]; !ok {
-					uniqueModelUUIDs[controller.ID] = make(map[string]string)
-				}
-				uniqueModelUUIDs[controller.ID][controller.ModelUUID.String] = controller.ModelUUID.String
-			}
-		}
-
-		// Iterate through every controller and flatten its models and
-		// addresses.
-		for controllerID, controller := range uniqueControllers {
-			var modelUUIDs []string
-			for _, modelUUID := range uniqueModelUUIDs[controllerID] {
-				modelUUIDs = append(modelUUIDs, modelUUID)
-			}
-			controller.ModelUUIDs = modelUUIDs
-
-			var addresses []string
-			for _, modelUUID := range uniqueAddresses[controllerID] {
-				addresses = append(addresses, modelUUID)
-			}
-			controller.Addrs = addresses
-
-			resultControllers = append(resultControllers, controller)
-		}
-
-		return nil
-	})
-
-	return resultControllers, err
 }
