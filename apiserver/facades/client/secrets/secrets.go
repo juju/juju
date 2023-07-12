@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
@@ -15,11 +16,14 @@ import (
 	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/secrets/provider/juju"
 	"github.com/juju/juju/secrets/provider/kubernetes"
 	"github.com/juju/juju/state"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.client.secrets")
 
 // SecretsAPI is the backend for the Secrets facade.
 type SecretsAPI struct {
@@ -34,6 +38,11 @@ type SecretsAPI struct {
 
 	backendConfigGetter func() (*provider.ModelBackendConfigInfo, error)
 	backendGetter       func(*provider.ModelBackendConfig) (provider.SecretsBackend, error)
+}
+
+// SecretsAPIV1 is the backend for the Secrets facade v1.
+type SecretsAPIV1 struct {
+	*SecretsAPI
 }
 
 func (s *SecretsAPI) checkCanRead() error {
@@ -203,5 +212,122 @@ func (s *SecretsAPI) secretContentFromBackend(uri *coresecrets.URI, rev int) (co
 		if s.activeBackendID == backendID {
 			return nil, errors.Trace(err)
 		}
+	}
+}
+
+func (s *SecretsAPI) getActiveBackend() (provider.SecretsBackend, error) {
+	if s.activeBackendID == "" {
+		err := s.getBackendInfo()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	backend, ok := s.backends[s.activeBackendID]
+	if !ok {
+		return nil, errors.NotFoundf("external secret backend %q, have %q", s.activeBackendID, s.backends)
+	}
+	return backend, nil
+}
+
+// CreateSecrets isn't on the v1 API.
+func (s *SecretsAPIV1) CreateSecrets(_ struct{}) {}
+
+// CreateSecrets creates new secrets.
+func (s *SecretsAPI) CreateSecrets(args params.CreateSecretArgs) (params.StringResults, error) {
+	result := params.StringResults{
+		Results: make([]params.StringResult, len(args.Args)),
+	}
+	if err := s.checkCanAdmin(); err != nil {
+		return result, errors.Trace(err)
+	}
+	for i, arg := range args.Args {
+		ID, err := s.createSecret(arg)
+		result.Results[i].Result = ID
+		if errors.Is(err, state.LabelExists) {
+			err = errors.AlreadyExistsf("secret with label %q", *arg.Label)
+		}
+		result.Results[i].Error = apiservererrors.ServerError(err)
+	}
+	return result, nil
+}
+
+type successfulToken struct{}
+
+// Check implements lease.Token.
+func (t successfulToken) Check() error {
+	return nil
+}
+
+func (s *SecretsAPI) createSecret(arg params.CreateSecretArg) (_ string, err error) {
+	if arg.OwnerTag != "" && arg.OwnerTag != s.modelUUID {
+		return "", errors.NotValidf("owner tag %q", arg.OwnerTag)
+	}
+	secretOwner := names.NewModelTag(s.modelUUID)
+	var uri *coresecrets.URI
+	if arg.URI != nil {
+		uri, err = coresecrets.ParseURI(*arg.URI)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+	} else {
+		uri = coresecrets.NewURI()
+	}
+
+	if len(arg.Content.Data) == 0 {
+		return "", errors.NotValidf("empty secret value")
+	}
+	backend, err := s.getActiveBackend()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	revId, err := backend.SaveContent(context.TODO(), uri, 1, coresecrets.NewSecretValue(arg.Content.Data))
+	if err != nil && !errors.Is(err, errors.NotSupported) {
+		return "", errors.Trace(err)
+	}
+	if err == nil {
+		defer func() {
+			if err != nil {
+				// If we failed to create the secret, we should delete the
+				// secret value from the backend.
+				if err := backend.DeleteContent(context.TODO(), revId); err != nil &&
+					!errors.Is(err, errors.NotSupported) &&
+					!errors.Is(err, errors.NotFound) {
+					logger.Errorf("failed to delete secret %q: %v", revId, err)
+				}
+			}
+		}()
+		arg.Content.Data = nil
+		arg.Content.ValueRef = &params.SecretValueRef{
+			BackendID:  s.activeBackendID,
+			RevisionID: revId,
+		}
+	}
+
+	md, err := s.state.CreateSecret(uri, state.CreateSecretParams{
+		Version:            secrets.Version,
+		Owner:              secretOwner,
+		UpdateSecretParams: fromUpsertParams(arg.UpsertSecretArg),
+	})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return md.URI.String(), nil
+}
+
+func fromUpsertParams(p params.UpsertSecretArg) state.UpdateSecretParams {
+	var valueRef *coresecrets.ValueRef
+	if p.Content.ValueRef != nil {
+		valueRef = &coresecrets.ValueRef{
+			BackendID:  p.Content.ValueRef.BackendID,
+			RevisionID: p.Content.ValueRef.RevisionID,
+		}
+	}
+	return state.UpdateSecretParams{
+		LeaderToken: successfulToken{},
+		Description: p.Description,
+		Label:       p.Label,
+		Params:      p.Params,
+		Data:        p.Content.Data,
+		ValueRef:    valueRef,
 	}
 }
