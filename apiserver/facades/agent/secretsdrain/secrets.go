@@ -11,12 +11,12 @@ import (
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/leadership"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	secretsprovider "github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
 )
 
 // For testing.
@@ -28,7 +28,7 @@ var (
 type SecretsDrainAPI struct {
 	leadershipChecker leadership.Checker
 	secretsState      SecretsState
-	resources         facade.Resources
+	watcherRegistry   facade.WatcherRegistry
 	secretsConsumer   SecretsConsumer
 	authTag           names.Tag
 	logger            loggo.Logger
@@ -116,10 +116,17 @@ func (s *SecretsDrainAPI) WatchSecretBackendChanged() (params.NotifyWatchResult,
 	stateWatcher := s.model.WatchForModelConfigChanges()
 	w, err := newSecretBackendModelConfigWatcher(s.model, stateWatcher, s.logger)
 	if err != nil {
-		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}, nil
+		return params.NotifyWatchResult{
+			Error: apiservererrors.ServerError(err),
+		}, nil
 	}
-	if _, ok := <-w.Changes(); ok {
-		return params.NotifyWatchResult{NotifyWatcherId: s.resources.Register(w)}, nil
+	id, _, err := internal.EnsureRegisterWatcher[struct{}](s.watcherRegistry, w)
+	if err != nil {
+		return params.NotifyWatchResult{
+			Error: apiservererrors.ServerError(err),
+		}, nil
 	}
-	return params.NotifyWatchResult{Error: apiservererrors.ServerError(watcher.EnsureErr(w))}, nil
+	return params.NotifyWatchResult{
+		NotifyWatcherId: id,
+	}, nil
 }

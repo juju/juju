@@ -57,14 +57,10 @@ func (w *watcherCommon) Stop() error {
 // have been removed, this can be removed too.
 func GetWatcherByID(watcherRegistry facade.WatcherRegistry, resources facade.Resources, id string) (worker.Worker, error) {
 	watcher, err := watcherRegistry.Get(id)
-	if err != nil {
-		if errors.Is(err, errors.NotFound) {
-			return resources.Get(id), nil
-		} else {
-			return nil, errors.Trace(err)
-		}
+	if err == nil {
+		return watcher, nil
 	}
-	return watcher, nil
+	return resources.Get(id), nil
 }
 
 // SrvAllWatcher defines the API methods on a state.Multiwatcher.
