@@ -12,17 +12,17 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Bundle", 6, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV6(ctx)
-	}, reflect.TypeOf((*APIv6)(nil)))
+	registry.MustRegister("Bundle", 7, func(ctx facade.Context) (facade.Facade, error) {
+		return newFacadeV7(ctx)
+	}, reflect.TypeOf((*APIv7)(nil)))
 }
 
-// newFacadeV6 provides the signature required for facade registration
-// for version 6.
-func newFacadeV6(ctx facade.Context) (*APIv6, error) {
+// newFacadeV7 provides the signature required for facade registration
+// for version 7.
+func newFacadeV7(ctx facade.Context) (*APIv7, error) {
 	api, err := newFacade(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &APIv6{api}, nil
+	return &APIv7{api}, nil
 }

@@ -37,10 +37,10 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// APIv6 provides the Bundle API facade for version 6. It is otherwise
-// identical to V5 with the exception that the V6 adds the support for
-// multi-part yaml handling to GetChanges and GetChangesMapArgs.
-type APIv6 struct {
+// APIv7 provides the Bundle API facade for version 7. It drops GetChanges
+// from the facade, which was deprecated in favour of GetChangesMapArgs. It
+// also drops series from GetChangesMapArgs
+type APIv7 struct {
 	*BundleAPI
 }
 

@@ -27,7 +27,7 @@ import (
 type bundleSuite struct {
 	coretesting.BaseSuite
 	auth     *apiservertesting.FakeAuthorizer
-	facade   *bundle.APIv6
+	facade   *bundle.APIv7
 	st       *mockState
 	modelTag names.ModelTag
 }
@@ -45,14 +45,14 @@ func (s *bundleSuite) SetUpTest(c *gc.C) {
 	s.facade = s.makeAPI(c)
 }
 
-func (s *bundleSuite) makeAPI(c *gc.C) *bundle.APIv6 {
+func (s *bundleSuite) makeAPI(c *gc.C) *bundle.APIv7 {
 	api, err := bundle.NewBundleAPI(
 		s.st,
 		s.auth,
 		s.modelTag,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	return &bundle.APIv6{api}
+	return &bundle.APIv7{api}
 }
 
 func (s *bundleSuite) TestGetChangesMapArgsBundleContentError(c *gc.C) {

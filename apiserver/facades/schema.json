@@ -5773,8 +5773,8 @@
     },
     {
         "Name": "Bundle",
-        "Description": "APIv6 provides the Bundle API facade for version 6. It is otherwise\nidentical to V5 with the exception that the V6 adds the support for\nmulti-part yaml handling to GetChanges and GetChangesMapArgs.",
-        "Version": 6,
+        "Description": "APIv7 provides the Bundle API facade for version 7. It drops GetChanges\nfrom the facade, which was deprecated in favour of GetChangesMapArgs. It\nalso drops series from GetChangesMapArgs",
+        "Version": 7,
         "AvailableTo": [
             "controller-user",
             "model-user"
