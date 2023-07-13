@@ -209,7 +209,7 @@ func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 
 	messages := make(chan common.LogMessage)
 	go func(numMessages int) {
-		client := apiclient.NewClient(s.APIState)
+		client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 		logMessages, err := client.WatchDebugLog(common.DebugLogParams{})
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -318,7 +318,7 @@ func (s *debugLogDbSuite2) TestLogsUsesStartTime(c *gc.C) {
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	logMessages, err := client.WatchDebugLog(common.DebugLogParams{
 		StartTime: t3,
 	})

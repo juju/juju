@@ -416,7 +416,7 @@ func (c *sshMachine) ensureAPIClient(mc ModelCommand) error {
 
 	c.sshClient = sshclient.NewFacade(conn)
 	c.apiAddr = conn.Addr()
-	c.statusClient = apiclient.NewClient(conn)
+	c.statusClient = apiclient.NewClient(conn, logger)
 	return nil
 }
 
