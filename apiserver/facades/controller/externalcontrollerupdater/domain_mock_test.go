@@ -52,22 +52,17 @@ func (mr *MockEcServiceMockRecorder) Controller(arg0, arg1 interface{}) *gomock.
 }
 
 // UpdateExternalController mocks base method.
-func (m *MockEcService) UpdateExternalController(arg0 context.Context, arg1 crossmodel.ControllerInfo, arg2 ...string) error {
+func (m *MockEcService) UpdateExternalController(arg0 context.Context, arg1 crossmodel.ControllerInfo) error {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1}
-	for _, a := range arg2 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "UpdateExternalController", varargs...)
+	ret := m.ctrl.Call(m, "UpdateExternalController", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateExternalController indicates an expected call of UpdateExternalController.
-func (mr *MockEcServiceMockRecorder) UpdateExternalController(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockEcServiceMockRecorder) UpdateExternalController(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateExternalController", reflect.TypeOf((*MockEcService)(nil).UpdateExternalController), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateExternalController", reflect.TypeOf((*MockEcService)(nil).UpdateExternalController), arg0, arg1)
 }
 
 // Watch mocks base method.

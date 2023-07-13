@@ -17,9 +17,10 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// EcService provides a subset of the external controller domain service methods.
 type EcService interface {
 	Controller(ctx context.Context, controllerUUID string) (*crossmodel.ControllerInfo, error)
-	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo, modelUUIDs ...string) error
+	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
 	Watch() (watcher.StringsWatcher, error)
 }
 

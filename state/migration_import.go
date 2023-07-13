@@ -203,9 +203,6 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 	if err := restore.remoteEntities(); err != nil {
 		return nil, nil, errors.Annotate(err, "remoteentitites")
 	}
-	if err := restore.externalControllers(); err != nil {
-		return nil, nil, errors.Annotate(err, "externalcontrollers")
-	}
 	if err := restore.relationNetworks(); err != nil {
 		return nil, nil, errors.Annotate(err, "relationnetworks")
 	}
@@ -1794,29 +1791,6 @@ func (i *importer) relationNetworks() error {
 		return errors.Trace(err)
 	}
 	i.logger.Debugf("importing relation networks succeeded")
-	return nil
-}
-
-func (i *importer) externalControllers() error {
-	i.logger.Debugf("importing external controllers")
-	migration := &ImportStateMigration{
-		src: i.model,
-		dst: i.st.db(),
-	}
-	migration.Add(func() error {
-		m := ImportExternalControllers{}
-		return m.Execute(stateExternalControllerDocumentFactoryShim{
-			stateModelNamspaceShim{
-				Model: migration.src,
-				st:    i.st,
-			},
-			i,
-		}, migration.dst)
-	})
-	if err := migration.Run(); err != nil {
-		return errors.Trace(err)
-	}
-	i.logger.Debugf("importing external controllers succeeded")
 	return nil
 }
 

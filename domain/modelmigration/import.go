@@ -5,6 +5,7 @@ package modelmigration
 
 import (
 	"github.com/juju/juju/core/modelmigration"
+	externalcontroller "github.com/juju/juju/domain/externalcontroller/modelmigration"
 	lease "github.com/juju/juju/domain/lease/modelmigration"
 )
 
@@ -26,4 +27,5 @@ type Logger interface {
 func ImportOperations(coordinator Coordinator, logger Logger) {
 	// Note: All the import operations are registered here.
 	lease.RegisterImport(coordinator, logger)
+	externalcontroller.RegisterImport(coordinator)
 }

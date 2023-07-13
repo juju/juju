@@ -928,45 +928,6 @@ func (s *MigrationImportSuite) TestApplicationsWithExposedOffers(c *gc.C) {
 	})
 }
 
-func (s *MigrationImportSuite) TestExternalControllers(c *gc.C) {
-	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        "gravy-rainbow",
-		URL:         "me/model.rainbow",
-		SourceModel: s.Model.ModelTag(),
-		Token:       "charisma",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = remoteApp.SetStatus(status.StatusInfo{Status: status.Active})
-	c.Assert(err, jc.ErrorIsNil)
-
-	stateExternalCtrl := state.NewExternalControllers(s.State)
-	crossModelController, err := stateExternalCtrl.Save(crossmodel.ControllerInfo{
-		ControllerTag: s.Model.ControllerTag(),
-		Addrs:         []string{"192.168.1.1:8080"},
-		Alias:         "magic",
-		CACert:        "magic-ca-cert",
-	}, s.Model.UUID())
-	c.Assert(err, jc.ErrorIsNil)
-
-	stateExternalController, err := s.State.ExternalControllerForModel(s.Model.UUID())
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, newSt := s.importModel(c, s.State, func(map[string]interface{}) {
-		err := stateExternalCtrl.Remove(s.Model.ControllerTag().Id())
-		c.Assert(err, jc.ErrorIsNil)
-	})
-
-	newExternalCtrl := state.NewExternalControllers(newSt)
-
-	newCtrl, err := newExternalCtrl.ControllerForModel(s.Model.UUID())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newCtrl.ControllerInfo(), jc.DeepEquals, crossModelController.ControllerInfo())
-
-	newExternalController, err := newSt.ExternalControllerForModel(s.Model.UUID())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stateExternalController, gc.DeepEquals, newExternalController)
-}
-
 func (s *MigrationImportSuite) TestCharmRevSequencesNotImported(c *gc.C) {
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{

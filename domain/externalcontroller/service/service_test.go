@@ -28,19 +28,20 @@ var _ = gc.Suite(&serviceSuite{})
 func (s *serviceSuite) TestUpdateExternalControllerSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	m1 := utils.MustNewUUID().String()
+	m2 := utils.MustNewUUID().String()
+
 	ec := crossmodel.ControllerInfo{
 		ControllerTag: names.NewControllerTag(utils.MustNewUUID().String()),
 		Alias:         "that-other-controller",
 		Addrs:         []string{"10.10.10.10"},
 		CACert:        "random-cert-string",
+		ModelUUIDs:    []string{m1, m2},
 	}
 
-	m1 := utils.MustNewUUID().String()
-	m2 := utils.MustNewUUID().String()
+	s.state.EXPECT().UpdateExternalController(gomock.Any(), ec).Return(nil)
 
-	s.state.EXPECT().UpdateExternalController(gomock.Any(), ec, []string{m1, m2}).Return(nil)
-
-	err := NewService(s.state, nil).UpdateExternalController(context.Background(), ec, m1, m2)
+	err := NewService(s.state, nil).UpdateExternalController(context.Background(), ec)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -54,7 +55,7 @@ func (s *serviceSuite) TestUpdateExternalControllerError(c *gc.C) {
 		CACert:        "random-cert-string",
 	}
 
-	s.state.EXPECT().UpdateExternalController(gomock.Any(), ec, nil).Return(errors.New("boom"))
+	s.state.EXPECT().UpdateExternalController(gomock.Any(), ec).Return(errors.New("boom"))
 
 	err := NewService(s.state, nil).UpdateExternalController(context.Background(), ec)
 	c.Assert(err, gc.ErrorMatches, "updating external controller state: boom")
@@ -85,35 +86,47 @@ func (s *serviceSuite) TestRetrieveExternalControllerError(c *gc.C) {
 	s.state.EXPECT().Controller(gomock.Any(), ctrlUUID).Return(nil, errors.New("boom"))
 
 	_, err := NewService(s.state, nil).Controller(context.Background(), ctrlUUID)
-	c.Assert(err, gc.ErrorMatches, "retrieving external controller: boom")
+	c.Assert(err, gc.ErrorMatches, "retrieving external controller ctrl1: boom")
 }
 
 func (s *serviceSuite) TestRetrieveExternalControllerForModelSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := utils.MustNewUUID().String()
-	ec := crossmodel.ControllerInfo{
-		ControllerTag: names.NewControllerTag(modelUUID),
-		Alias:         "that-other-controller",
-		Addrs:         []string{"10.10.10.10"},
-		CACert:        "random-cert-string",
+	ec := []crossmodel.ControllerInfo{
+		{
+			ControllerTag: names.NewControllerTag(modelUUID),
+			Alias:         "that-other-controller",
+			Addrs:         []string{"10.10.10.10"},
+			CACert:        "random-cert-string",
+		},
 	}
 
-	s.state.EXPECT().ControllerForModel(gomock.Any(), modelUUID).Return(&ec, nil)
+	s.state.EXPECT().ControllersForModels(gomock.Any(), modelUUID).Return(ec, nil)
 
 	res, err := NewService(s.state, nil).ControllerForModel(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.Equals, &ec)
+	c.Assert(res, gc.Equals, &ec[0])
 }
 
 func (s *serviceSuite) TestRetrieveExternalControllerForModelError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := "model1"
-	s.state.EXPECT().Controller(gomock.Any(), modelUUID).Return(nil, errors.New("boom"))
+	s.state.EXPECT().ControllersForModels(gomock.Any(), modelUUID).Return(nil, errors.New("boom"))
 
-	_, err := NewService(s.state, nil).Controller(context.Background(), modelUUID)
-	c.Assert(err, gc.ErrorMatches, "retrieving external controller: boom")
+	_, err := NewService(s.state, nil).ControllerForModel(context.Background(), modelUUID)
+	c.Assert(err, gc.ErrorMatches, "retrieving external controller for model model1: boom")
+}
+
+func (s *serviceSuite) TestRetrieveExternalControllerForModelNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := "model1"
+	s.state.EXPECT().ControllersForModels(gomock.Any(), modelUUID).Return(nil, nil)
+
+	_, err := NewService(s.state, nil).ControllerForModel(context.Background(), modelUUID)
+	c.Assert(err, gc.ErrorMatches, "external controller for model \"model1\" not found")
 }
 
 func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
