@@ -6,13 +6,13 @@ package schema
 import (
 	"fmt"
 
-	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/database/schema"
 )
 
 // changeLogSchema provides a helper function for generating a change_log ddl
 // for a schema.
-func changeLogSchema() database.Delta {
-	return database.MakeDelta(`
+func changeLogSchema() schema.Patch {
+	return schema.MakePatch(`
 CREATE TABLE change_log_edit_type (
     id        INT PRIMARY KEY,
     edit_type TEXT
@@ -67,9 +67,9 @@ CREATE TABLE change_log_witness (
 // changeLogTriggersForTable is a helper function to generate the necessary
 // triggers for a table to have it's crud operations tracked in the schemas
 // change_log table.
-func changeLogTriggersForTable(table, primaryKey string, namespaceId int) func() database.Delta {
-	return func() database.Delta {
-		return database.MakeDelta(fmt.Sprintf(`
+func changeLogTriggersForTable(table, primaryKey string, namespaceId int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
 CREATE TRIGGER trg_log_%[1]s_insert
 AFTER INSERT ON %[1]s FOR EACH ROW
 BEGIN

@@ -10,12 +10,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
-	dbtesting "github.com/juju/juju/database/testing"
+	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/testing"
 )
 
 type bootstrapSuite struct {
-	dbtesting.ControllerSuite
+	schematesting.ControllerSuite
 }
 
 var _ = gc.Suite(&bootstrapSuite{})

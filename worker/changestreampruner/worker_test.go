@@ -94,7 +94,7 @@ func (s *workerSuite) TestPruneControllerNS(c *gc.C) {
 func (s *workerSuite) TestPruneModelList(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	txnRunner, db := s.OpenNewDB(c)
+	txnRunner, db := s.OpenDB(c)
 	defer db.Close()
 
 	s.expectControllerDBGet()
@@ -125,7 +125,7 @@ func (s *workerSuite) TestPruneModelList(c *gc.C) {
 func (s *workerSuite) TestPruneModelListWithChangeLogItems(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	txnRunner, db := s.OpenNewDB(c)
+	txnRunner, db := s.OpenDB(c)
 	defer db.Close()
 
 	s.expectControllerDBGet()

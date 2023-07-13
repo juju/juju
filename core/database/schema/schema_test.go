@@ -60,7 +60,7 @@ func (s *patchSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 type schemaSuite struct {
-	databasetesting.ControllerSuite
+	databasetesting.DqliteSuite
 }
 
 var _ = gc.Suite(&schemaSuite{})

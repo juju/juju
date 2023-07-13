@@ -10,43 +10,27 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	_ "github.com/mattn/go-sqlite3"
 	gc "gopkg.in/check.v1"
+
+	databasetesting "github.com/juju/juju/database/testing"
 )
 
 type schemaSuite struct {
-	testing.IsolationSuite
-
-	db *sql.DB
+	databasetesting.DqliteSuite
 }
 
 var _ = gc.Suite(&schemaSuite{})
 
 func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
-	// Do not be tempted in moving to :memory: mode for this test suite. It will
-	// fail in non-deterministic ways. Unfortunately :memory: mode is not
-	// completely goroutine safe.
-	s.db = s.NewCleanDB(c)
-
-	s.AddCleanup(func(*gc.C) {
-		err := s.db.Close()
-		c.Assert(err, jc.ErrorIsNil)
-	})
-
-	tx, err := s.db.Begin()
-	c.Assert(err, jc.ErrorIsNil)
-
-	for idx, delta := range ControllerDDL(0x2dc171858c3155be) {
-		c.Logf("Executing schema DDL index: %v", idx)
-		_, err := tx.Exec(delta.Stmt(), delta.Args()...)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
 	c.Logf("Committing schema DDL")
-	err = tx.Commit()
+
+	schema := ControllerDDL(0x2dc171858c3155be)
+	changeSet, err := schema.Ensure(context.Background(), s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(changeSet.Current, gc.Equals, 0)
+	c.Check(changeSet.Post > 0, jc.IsTrue)
 
 	// Ensure that each table is present.
 	expected := set.NewStrings(
@@ -98,32 +82,15 @@ func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 		"upgrade_info",
 		"upgrade_info_controller_node",
 	)
-	c.Assert(readTableNames(c, s.db), jc.SameContents, expected.Union(internalTableNames).SortedValues())
+	c.Assert(readTableNames(c, s.DB()), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }
 
 func (s *schemaSuite) TestModelDDLApply(c *gc.C) {
-	// Do not be tempted in moving to :memory: mode for this test suite. It will
-	// fail in non-deterministic ways. Unfortunately :memory: mode is not
-	// completely goroutine safe.
-	s.db = s.NewCleanDB(c)
-
-	s.AddCleanup(func(*gc.C) {
-		err := s.db.Close()
-		c.Assert(err, jc.ErrorIsNil)
-	})
-
-	tx, err := s.db.Begin()
+	schema := ModelDDL()
+	changeSet, err := schema.Ensure(context.Background(), s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
-
-	for idx, delta := range ModelDDL() {
-		c.Logf("Executing schema DDL index: %v", idx)
-		_, err := tx.Exec(delta.Stmt(), delta.Args()...)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-	c.Logf("Committing schema DDL")
-	err = tx.Commit()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(changeSet.Current, gc.Equals, 0)
+	c.Check(changeSet.Post > 0, jc.IsTrue)
 
 	// Ensure that each table is present.
 	expected := set.NewStrings(
@@ -133,7 +100,7 @@ func (s *schemaSuite) TestModelDDLApply(c *gc.C) {
 		"change_log_namespace",
 		"change_log_witness",
 	)
-	c.Assert(readTableNames(c, s.db), jc.SameContents, expected.Union(internalTableNames).SortedValues())
+	c.Assert(readTableNames(c, s.DB()), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }
 
 // NewCleanDB returns a new sql.DB reference.
@@ -151,6 +118,7 @@ func (s *schemaSuite) NewCleanDB(c *gc.C) *sql.DB {
 
 var (
 	internalTableNames = set.NewStrings(
+		"schema",
 		"sqlite_sequence",
 	)
 )

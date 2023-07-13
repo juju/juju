@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/database/testing"
+	domaintesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
@@ -79,7 +80,7 @@ var (
 
 // ApiServerSuite is a text fixture which spins up an apiserver on top of a controller model.
 type ApiServerSuite struct {
-	testing.ControllerSuite
+	domaintesting.ControllerSuite
 
 	// MgoSuite is needed until we finally can
 	// represent the model fully in dqlite.

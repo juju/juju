@@ -16,7 +16,7 @@ import (
 )
 
 type querySuite struct {
-	databasetesting.ControllerSuite
+	databasetesting.DqliteSuite
 }
 
 var _ = gc.Suite(&querySuite{})

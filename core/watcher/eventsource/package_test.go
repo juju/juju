@@ -28,7 +28,7 @@ type watchableDBShim struct {
 }
 
 type baseSuite struct {
-	dbtesting.ControllerSuite
+	dbtesting.DqliteSuite
 
 	watchableDB watchableDBShim
 	eventsource *MockEventSource
@@ -41,8 +41,8 @@ func (s *baseSuite) setUpMocks(c *gc.C) *gomock.Controller {
 
 	s.eventsource = NewMockEventSource(ctrl)
 	s.watchableDB = watchableDBShim{
-		s.TxnRunner(),
-		s.eventsource,
+		TxnRunner:   s.TxnRunner(),
+		EventSource: s.eventsource,
 	}
 	s.logger = NewMockLogger(ctrl)
 	s.sub = NewMockSubscription(ctrl)

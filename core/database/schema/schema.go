@@ -8,16 +8,9 @@ import (
 	"database/sql"
 
 	"github.com/juju/errors"
-)
 
-// StdTxnRunner describes the ability to run a function
-// within a standard library SQL transaction.
-type StdTxnRunner interface {
-	// StdTxn manages the application of a standard library transaction within
-	// which the input function is executed.
-	// The input context can be used by the caller to cancel this process.
-	StdTxn(context.Context, func(context.Context, *sql.Tx) error) error
-}
+	"github.com/juju/juju/core/database"
+)
 
 // Tx describes the ability to execute a SQL statement within a transaction.
 type Tx interface {
@@ -98,7 +91,7 @@ type ChangeSet struct {
 //
 // If no error occurs, the integer returned by this method is the
 // initial version that the schema has been upgraded from.
-func (s *Schema) Ensure(ctx context.Context, runner StdTxnRunner) (ChangeSet, error) {
+func (s *Schema) Ensure(ctx context.Context, runner database.TxnRunner) (ChangeSet, error) {
 	current, post := -1, -1
 	err := runner.StdTxn(ctx, func(ctx context.Context, t *sql.Tx) error {
 		if err := createSchemaTable(ctx, t); err != nil {

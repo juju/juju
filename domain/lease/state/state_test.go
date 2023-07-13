@@ -15,11 +15,12 @@ import (
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/database/testing"
 	"github.com/juju/juju/domain/lease/state"
+	schematesting "github.com/juju/juju/domain/schema/testing"
 	jujutesting "github.com/juju/juju/testing"
 )
 
 type stateSuite struct {
-	testing.ControllerSuite
+	schematesting.ControllerSuite
 
 	store *state.State
 }

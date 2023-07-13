@@ -2122,24 +2122,11 @@ func (e *environ) newCleanDB() (changestream.WatchableDB, error) {
 		return nil, err
 	}
 
-	tx, err := db.Begin()
-	if err != nil {
-		return nil, err
-	}
+	runner := &trackedDB{db: db}
 
-	for _, stmt := range domainschema.ControllerDDL(0x2dc171858c3155be) {
-		_, err := tx.Exec(stmt.Stmt(), stmt.Args()...)
-		if err != nil {
-			_ = tx.Rollback()
-			return nil, err
-		}
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return nil, err
-	}
-	return &trackedDB{db: db}, nil
+	schema := domainschema.ControllerDDL(0x2dc171858c3155be)
+	_, err = schema.Ensure(stdcontext.Background(), runner)
+	return runner, errors.Trace(err)
 }
 
 var defaultTransactionRunner = txn.NewRetryingTxnRunner()

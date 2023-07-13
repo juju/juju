@@ -42,7 +42,7 @@ type integrationSuite struct {
 var _ = gc.Suite(&integrationSuite{})
 
 func (s *integrationSuite) SetUpSuite(c *gc.C) {
-	s.DBSuite.SetUpSuite(c)
+	s.DqliteSuite.SetUpSuite(c)
 
 	params := agent.AgentConfigParams{
 		Tag:               names.NewMachineTag("1"),
@@ -205,7 +205,7 @@ func (s *integrationSuite) TestWorkerDeletingKnownDBWithoutGetFirst(c *gc.C) {
 // the dqlite database. It overrides the various methods to prevent the creation
 // of a new database for each test.
 type dqliteAppIntegrationSuite struct {
-	databasetesting.DBSuite
+	databasetesting.DqliteSuite
 }
 
 func (s *dqliteAppIntegrationSuite) TearDownSuite(c *gc.C) {

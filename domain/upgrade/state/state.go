@@ -72,7 +72,7 @@ func (st *State) SetControllerReady(ctx context.Context, upgradeUUID, controller
 SELECT (controller_node_id) AS &infoControllerNode.*
 FROM upgrade_info_controller_node
 WHERE  upgrade_info_uuid = $M.info_uuid
-       AND controller_node_id = $M.controller_id`
+       AND controller_node_id = $M.controller_id;`
 	lookForReadyNodeStatement, err := sqlair.Prepare(lookForReadyNodeQuery, infoControllerNode{}, sqlair.M{})
 	if err != nil {
 		return errors.Annotatef(err, "preparing %q", lookForReadyNodeQuery)
@@ -81,7 +81,7 @@ WHERE  upgrade_info_uuid = $M.info_uuid
 	insertUpgradeNodeQuery := `
 INSERT INTO upgrade_info_controller_node (uuid, controller_node_id, upgrade_info_uuid)
 VALUES
-    ($M.uuid, $M.controller_id, $M.info_uuid)`
+    ($M.uuid, $M.controller_id, $M.info_uuid);`
 	insertUpgradeNodeStatement, err := sqlair.Prepare(insertUpgradeNodeQuery, sqlair.M{})
 	if err != nil {
 		return errors.Annotatef(err, "preparing %q", insertUpgradeNodeQuery)
@@ -90,14 +90,15 @@ VALUES
 		err := tx.Query(ctx, lookForReadyNodeStatement, sqlair.M{
 			"info_uuid":     upgradeUUID,
 			"controller_id": controllerID,
-		}).Run()
-		if err != sqlair.ErrNoRows {
+		}).Get(&infoControllerNode{})
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Trace(err)
 		}
+
 		err = tx.Query(ctx, insertUpgradeNodeStatement, sqlair.M{
 			"uuid":          uuid.String(),
-			"info_uuid":     upgradeUUID,
 			"controller_id": controllerID,
+			"info_uuid":     upgradeUUID,
 		}).Run()
 		if err != nil {
 			return errors.Trace(err)

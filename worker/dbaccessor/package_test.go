@@ -16,7 +16,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	coredatabase "github.com/juju/juju/core/database"
-	databasetesting "github.com/juju/juju/database/testing"
+	domaintesting "github.com/juju/juju/domain/schema/testing"
 	jujujujutesting "github.com/juju/juju/testing"
 )
 
@@ -103,7 +103,7 @@ func (s *baseSuite) expectTrackedDBKill() {
 }
 
 type dbBaseSuite struct {
-	databasetesting.ControllerSuite
+	domaintesting.ControllerSuite
 	baseSuite
 }
 

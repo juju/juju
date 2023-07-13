@@ -257,7 +257,9 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDiffer
 		exp.Open(gomock.Any(), "controller").Return(s.DB(), nil),
 		exp.Open(gomock.Any(), "controller").DoAndReturn(func(_ context.Context, _ string) (*sql.DB, error) {
 			defer close(dbChange)
-			return s.NewCleanDB(c), nil
+
+			_, db := s.OpenDB(c)
+			return db, nil
 		}),
 	)
 

@@ -3,18 +3,19 @@
 
 package schema
 
-import "github.com/juju/juju/core/database"
+import (
+	"github.com/juju/juju/core/database/schema"
+)
 
 // ModelDDL is used to create model databases.
-func ModelDDL() []database.Delta {
-	schemas := []func() database.Delta{
+func ModelDDL() *schema.Schema {
+	patches := []func() schema.Patch{
 		changeLogSchema,
 	}
 
-	deltas := make([]database.Delta, 0, len(schemas))
-	for _, fn := range schemas {
-		deltas = append(deltas, fn())
+	schema := schema.New()
+	for _, fn := range patches {
+		schema.Add(fn())
 	}
-
-	return deltas
+	return schema
 }

@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
-	dbtesting "github.com/juju/juju/database/testing"
+	domaintesting "github.com/juju/juju/domain/schema/testing"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -26,7 +26,7 @@ func TestPackage(t *testing.T) {
 }
 
 type baseSuite struct {
-	dbtesting.ControllerSuite
+	domaintesting.ControllerSuite
 
 	clock  *MockClock
 	logger *MockLogger
