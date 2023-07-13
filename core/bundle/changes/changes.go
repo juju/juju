@@ -388,9 +388,6 @@ func (ch *AddMachineChange) Description() []string {
 type AddMachineOptions struct {
 	// Base holds the machine OS base.
 	Base string `json:"base,omitempty"`
-	// Series holds the optional machine OS series.
-	// DEPRECATED
-	Series string `json:"series,omitempty"`
 	// Constraints holds the machine constraints.
 	Constraints string `json:"constraints,omitempty"`
 	// ContainerType holds the machine container type (like "lxc" or "kvm").
