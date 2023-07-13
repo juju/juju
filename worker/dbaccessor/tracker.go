@@ -17,6 +17,7 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database"
+	"github.com/juju/juju/database/pragma"
 	"github.com/juju/juju/domain/schema"
 )
 
@@ -107,6 +108,11 @@ func NewTrackedDBWorker(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	if err := pragma.SetPragma(ctx, db, pragma.ForeignKeysPragma, true); err != nil {
+		return nil, errors.Annotate(err, "setting foreign keys pragma")
+	}
+
 	w.db = sqlair.NewDB(db)
 
 	// This logic must be performed here and not in the parent worker,
@@ -356,6 +362,10 @@ func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(db *sql.DB) (*sql.DB, e
 		// the worker, we can't do anything else.
 		if db, err = w.dbApp.Open(ctx, w.namespace); err != nil {
 			return nil, errors.Trace(err)
+		}
+
+		if err := pragma.SetPragma(ctx, db, pragma.ForeignKeysPragma, true); err != nil {
+			return nil, errors.Annotate(err, "setting foreign keys pragma")
 		}
 	}
 	return nil, errors.NotValidf("database")

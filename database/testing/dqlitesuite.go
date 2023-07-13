@@ -21,6 +21,7 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/app"
+	"github.com/juju/juju/database/pragma"
 )
 
 // SchemaApplier is an interface that can be used to apply a schema to a
@@ -78,7 +79,7 @@ func (s *DqliteSuite) TearDownTest(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	s.IsolationSuite.TearDownSuite(c)
+	s.IsolationSuite.TearDownTest(c)
 }
 
 // DB returns a sql.DB reference.
@@ -117,6 +118,9 @@ func (s *DqliteSuite) OpenDB(c *gc.C) (coredatabase.TxnRunner, *sql.DB) {
 
 	var err error
 	s.db, err = s.dqlite.Open(context.TODO(), strconv.FormatInt(uniqueID, 10))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = pragma.SetPragma(context.Background(), s.db, pragma.ForeignKeysPragma, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	trackedDB := &txnRunner{

@@ -103,7 +103,7 @@ func (s *querySuite) TestEnsurePatches(c *gc.C) {
 	s.createSchemaTable(c)
 
 	patches := []Patch{
-		MakePatch("SELECT 1"),
+		MakePatch("CREATE TEMP TABLE foo (id INTEGER PRIMARY KEY);"),
 	}
 
 	var called bool

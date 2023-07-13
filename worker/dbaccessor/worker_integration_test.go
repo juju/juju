@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/database"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/dqlite"
+	"github.com/juju/juju/database/pragma"
 	databasetesting "github.com/juju/juju/database/testing"
 	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/testing"
@@ -84,8 +85,11 @@ func (s *integrationSuite) SetUpSuite(c *gc.C) {
 	db, err := s.DBApp().Open(context.Background(), coredatabase.ControllerNS)
 	c.Assert(err, jc.ErrorIsNil)
 
+	err = pragma.SetPragma(context.Background(), db, pragma.ForeignKeysPragma, true)
+	c.Assert(err, jc.ErrorIsNil)
+
 	err = database.NewDBMigration(
-		&txnRunner{db}, logger, schema.ControllerDDL(s.DBApp().ID())).Apply(context.Background())
+		&txnRunner{db: db}, logger, schema.ControllerDDL(s.DBApp().ID())).Apply(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 

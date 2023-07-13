@@ -6,6 +6,7 @@ package agentbootstrap_test
 import (
 	stdcontext "context"
 
+	"github.com/juju/errors"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
@@ -451,7 +452,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	if err == nil {
 		_ = st.Close()
 	}
-	c.Assert(err, gc.ErrorMatches, "creating controller database schema.*")
+	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
 func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
