@@ -62,10 +62,10 @@ Examples:
     add-secret key#base64=AA==
     add-secret key#file=/path/to/file another-key=s3cret
     add-secret --label db-password \
-        --description "my database password" \
+        --info "my database password" \
         data#base64=s3cret== 
     add-secret --label db-password \
-        --description "my database password" \
+        --info "my database password" \
         --file=/path/to/file
 `
 	return jujucmd.Info(&cmd.Info{

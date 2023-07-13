@@ -48,7 +48,7 @@ func (s *addSuite) TestAddDataFromArg(c *gc.C) {
 	s.secretsAPI.EXPECT().CreateSecret(nil, "label", "this is a secret.", map[string]string{"foo": "YmFy"}).Return(uri.String(), nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
-	ctx, err := cmdtesting.RunCommand(c, secrets.NewAddCommandForTest(s.store, s.secretsAPI), "foo=bar", "--label", "label", "--description", "this is a secret.")
+	ctx, err := cmdtesting.RunCommand(c, secrets.NewAddCommandForTest(s.store, s.secretsAPI), "foo=bar", "--label", "label", "--info", "this is a secret.")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, uri.String()+"\n")
@@ -69,7 +69,7 @@ foo: bar
 	err := os.WriteFile(path, []byte(data), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx, err := cmdtesting.RunCommand(c, secrets.NewAddCommandForTest(s.store, s.secretsAPI), "--file", path, "--label", "label", "--description", "this is a secret.")
+	ctx, err := cmdtesting.RunCommand(c, secrets.NewAddCommandForTest(s.store, s.secretsAPI), "--file", path, "--label", "label", "--info", "this is a secret.")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, uri.String()+"\n")
@@ -78,6 +78,6 @@ foo: bar
 func (s *addSuite) TestAddEmptyData(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	_, err := cmdtesting.RunCommand(c, secrets.NewAddCommandForTest(s.store, s.secretsAPI), "--label", "label", "--description", "this is a secret.")
+	_, err := cmdtesting.RunCommand(c, secrets.NewAddCommandForTest(s.store, s.secretsAPI), "--label", "label", "--info", "this is a secret.")
 	c.Assert(err, gc.ErrorMatches, `missing secret value or filename`)
 }

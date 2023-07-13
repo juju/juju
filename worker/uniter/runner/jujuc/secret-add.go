@@ -82,6 +82,9 @@ Examples:
 // SetFlags implements cmd.Command.
 func (c *secretUpsertCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.SecretUpsertContentCommand.SetFlags(f)
+	if c.Description == "" {
+		f.StringVar(&c.Description, "description", "", "the secret description")
+	}
 	f.StringVar(&c.expireSpec, "expire", "", "either a duration or time when the secret should expire")
 	f.StringVar(&c.rotatePolicy, "rotate", "", "the secret rotation policy")
 	f.StringVar(&c.owner, "owner", "application", "the owner of the secret, either the application or unit")
