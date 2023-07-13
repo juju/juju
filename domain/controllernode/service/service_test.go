@@ -30,12 +30,12 @@ func (s *serviceSuite) TestUpdateExternalControllerSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestUpdateBootstrapNodeBindAddress(c *gc.C) {
+func (s *serviceSuite) TestUpdateDqliteNode(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().UpdateBootstrapNodeBindAddress(gomock.Any(), "192.168.5.60")
+	s.state.EXPECT().UpdateDqliteNode(gomock.Any(), "0", "whatever", "192.168.5.60")
 
-	err := NewService(s.state).UpdateBootstrapNodeBindAddress(context.Background(), "192.168.5.60")
+	err := NewService(s.state).UpdateDqliteNode(context.Background(), "0", "whatever", "192.168.5.60")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
