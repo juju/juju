@@ -16,7 +16,6 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/core/database"
-	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/dqlite"
 	"github.com/juju/juju/domain/controllernode/service"
@@ -90,7 +89,7 @@ type DBGetter interface {
 	// GetDB returns a sql.DB reference for the dqlite-backed database that
 	// contains the data for the specified namespace.
 	// A NotFound error is returned if the worker is unaware of the requested DB.
-	GetDB(namespace string) (coredatabase.TxnRunner, error)
+	GetDB(namespace string) (database.TxnRunner, error)
 }
 
 type opType int
@@ -374,7 +373,7 @@ func (w *dbWorker) Report() map[string]any {
 
 // GetDB returns a transaction runner for the dqlite-backed
 // database that contains the data for the specified namespace.
-func (w *dbWorker) GetDB(namespace string) (coredatabase.TxnRunner, error) {
+func (w *dbWorker) GetDB(namespace string) (database.TxnRunner, error) {
 	// Ensure Dqlite is initialised.
 	select {
 	case <-w.dbReady:
@@ -418,13 +417,13 @@ func (w *dbWorker) GetDB(namespace string) (coredatabase.TxnRunner, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return tracked.(coredatabase.TxnRunner), nil
+	return tracked.(database.TxnRunner), nil
 }
 
-func (w *dbWorker) workerFromCache(namespace string) (coredatabase.TxnRunner, error) {
+func (w *dbWorker) workerFromCache(namespace string) (database.TxnRunner, error) {
 	// If the worker already exists, return the existing worker early.
 	if tracked, err := w.dbRunner.Worker(namespace, w.catacomb.Dying()); err == nil {
-		return tracked.(coredatabase.TxnRunner), nil
+		return tracked.(database.TxnRunner), nil
 	} else if errors.Is(errors.Cause(err), worker.ErrDead) {
 		// Handle the case where the DB runner is dead due to this worker dying.
 		select {
@@ -558,7 +557,7 @@ func (w *dbWorker) initialiseDqlite(options ...app.Option) error {
 	// Note: we don't need to verify the database schema here, since the
 	// controller database is created by the controller itself, and we know
 	// it's allowed to access it.
-	if err := w.openDatabase(coredatabase.ControllerNS); err != nil {
+	if err := w.openDatabase(database.ControllerNS); err != nil {
 		return errors.Annotate(err, "opening initial databases")
 	}
 
@@ -624,7 +623,7 @@ func (w *dbWorker) openDatabase(namespace string) error {
 }
 
 func (w *dbWorker) closeDatabase(namespace string) error {
-	if namespace == coredatabase.ControllerNS {
+	if namespace == database.ControllerNS {
 		return errors.Forbiddenf("cannot close controller database")
 	}
 
@@ -895,7 +894,7 @@ func (w *dbWorker) scopedContext() (context.Context, context.CancelFunc) {
 func (w *dbWorker) ensureNamespace(namespace string) error {
 	// If the namespace is the controller namespace, we don't need to
 	// validate it. It exists by the very nature of the controller.
-	if namespace == coredatabase.ControllerNS {
+	if namespace == database.ControllerNS {
 		return nil
 	}
 
@@ -903,9 +902,7 @@ func (w *dbWorker) ensureNamespace(namespace string) error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	known, err := service.NewService(
-		state.NewState(database.NewTxnRunnerFactoryForNamespace(w.GetDB, coredatabase.ControllerNS)),
-	).IsModelKnownToController(ctx, namespace)
+	known, err := w.nodeService().IsModelKnownToController(ctx, namespace)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -913,4 +910,10 @@ func (w *dbWorker) ensureNamespace(namespace string) error {
 		return errors.NotFoundf("namespace %q", namespace)
 	}
 	return nil
+}
+
+// nodeService uses the worker's capacity as a DBGetter to return a
+// service instance for manipulating the controller node topology.
+func (w *dbWorker) nodeService() *service.Service {
+	return service.NewService(state.NewState(database.NewTxnRunnerFactoryForNamespace(w.GetDB, database.ControllerNS)))
 }
