@@ -4,9 +4,9 @@
 package containerbroker_test
 
 import (
-	"github.com/golang/mock/gomock"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/provisioner"

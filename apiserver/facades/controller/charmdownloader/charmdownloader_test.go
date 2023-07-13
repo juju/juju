@@ -7,13 +7,13 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v11"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"

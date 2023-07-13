@@ -7,10 +7,10 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v11"
 	charmresource "github.com/juju/charm/v11/resource"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/charmhub/transport"

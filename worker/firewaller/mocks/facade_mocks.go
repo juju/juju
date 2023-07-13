@@ -7,7 +7,6 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	api "github.com/juju/juju/api"
 	firewaller "github.com/juju/juju/api/controller/firewaller"
 	instance "github.com/juju/juju/core/instance"
@@ -21,6 +20,7 @@ import (
 	params "github.com/juju/juju/rpc/params"
 	firewaller0 "github.com/juju/juju/worker/firewaller"
 	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 	macaroon "gopkg.in/macaroon.v2"
 )
 

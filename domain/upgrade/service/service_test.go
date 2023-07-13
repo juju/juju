@@ -7,13 +7,13 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"github.com/mattn/go-sqlite3"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 )
 

@@ -7,7 +7,7 @@ package registry
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockWorker is a mock of Worker interface.

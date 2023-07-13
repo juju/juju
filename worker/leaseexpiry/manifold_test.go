@@ -4,12 +4,12 @@
 package leaseexpiry_test
 
 import (
-	"github.com/golang/mock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	dt "github.com/juju/worker/v3/dependency/testing"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	coredatabase "github.com/juju/juju/core/database"

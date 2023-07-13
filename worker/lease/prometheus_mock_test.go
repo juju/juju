@@ -7,8 +7,8 @@ package lease
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	prometheus "github.com/prometheus/client_golang/prometheus"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockRegisterer is a mock of Registerer interface.

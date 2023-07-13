@@ -7,8 +7,7 @@ package api
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
-	v11 "github.com/juju/charm/v11"
+	charm "github.com/juju/charm/v11"
 	uniter "github.com/juju/juju/api/agent/uniter"
 	life "github.com/juju/juju/core/life"
 	model "github.com/juju/juju/core/model"
@@ -16,7 +15,8 @@ import (
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
 	params "github.com/juju/juju/rpc/params"
-	v4 "github.com/juju/names/v4"
+	names "github.com/juju/names/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockUnit is a mock of Unit interface.
@@ -72,10 +72,10 @@ func (mr *MockUnitMockRecorder) ApplicationName() *gomock.Call {
 }
 
 // ApplicationTag mocks base method.
-func (m *MockUnit) ApplicationTag() v4.ApplicationTag {
+func (m *MockUnit) ApplicationTag() names.ApplicationTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplicationTag")
-	ret0, _ := ret[0].(v4.ApplicationTag)
+	ret0, _ := ret[0].(names.ApplicationTag)
 	return ret0
 }
 
@@ -86,10 +86,10 @@ func (mr *MockUnitMockRecorder) ApplicationTag() *gomock.Call {
 }
 
 // AssignedMachine mocks base method.
-func (m *MockUnit) AssignedMachine() (v4.MachineTag, error) {
+func (m *MockUnit) AssignedMachine() (names.MachineTag, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AssignedMachine")
-	ret0, _ := ret[0].(v4.MachineTag)
+	ret0, _ := ret[0].(names.MachineTag)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -174,10 +174,10 @@ func (mr *MockUnitMockRecorder) CommitHookChanges(arg0 interface{}) *gomock.Call
 }
 
 // ConfigSettings mocks base method.
-func (m *MockUnit) ConfigSettings() (v11.Settings, error) {
+func (m *MockUnit) ConfigSettings() (charm.Settings, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConfigSettings")
-	ret0, _ := ret[0].(v11.Settings)
+	ret0, _ := ret[0].(charm.Settings)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -275,7 +275,7 @@ func (mr *MockUnitMockRecorder) Life() *gomock.Call {
 }
 
 // LogActionMessage mocks base method.
-func (m *MockUnit) LogActionMessage(arg0 v4.ActionTag, arg1 string) error {
+func (m *MockUnit) LogActionMessage(arg0 names.ActionTag, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LogActionMessage", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -536,10 +536,10 @@ func (mr *MockUnitMockRecorder) State() *gomock.Call {
 }
 
 // Tag mocks base method.
-func (m *MockUnit) Tag() v4.UnitTag {
+func (m *MockUnit) Tag() names.UnitTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tag")
-	ret0, _ := ret[0].(v4.UnitTag)
+	ret0, _ := ret[0].(names.UnitTag)
 	return ret0
 }
 
@@ -852,10 +852,10 @@ func (mr *MockRelationMockRecorder) Suspended() *gomock.Call {
 }
 
 // Tag mocks base method.
-func (m *MockRelation) Tag() v4.RelationTag {
+func (m *MockRelation) Tag() names.RelationTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tag")
-	ret0, _ := ret[0].(v4.RelationTag)
+	ret0, _ := ret[0].(names.RelationTag)
 	return ret0
 }
 
@@ -866,7 +866,7 @@ func (mr *MockRelationMockRecorder) Tag() *gomock.Call {
 }
 
 // Unit mocks base method.
-func (m *MockRelation) Unit(arg0 v4.UnitTag) (RelationUnit, error) {
+func (m *MockRelation) Unit(arg0 names.UnitTag) (RelationUnit, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Unit", arg0)
 	ret0, _ := ret[0].(RelationUnit)
@@ -1128,10 +1128,10 @@ func (mr *MockApplicationMockRecorder) Status(arg0 interface{}) *gomock.Call {
 }
 
 // Tag mocks base method.
-func (m *MockApplication) Tag() v4.ApplicationTag {
+func (m *MockApplication) Tag() names.ApplicationTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tag")
-	ret0, _ := ret[0].(v4.ApplicationTag)
+	ret0, _ := ret[0].(names.ApplicationTag)
 	return ret0
 }
 

@@ -7,9 +7,9 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/juju/core/charm"
 	downloader "github.com/juju/juju/core/charm/downloader"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockRepositoryGetter is a mock of RepositoryGetter interface.

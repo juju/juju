@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v11"
 	"github.com/juju/charm/v11/assumes"
 	"github.com/juju/errors"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	apitesting "github.com/juju/juju/api/testing"

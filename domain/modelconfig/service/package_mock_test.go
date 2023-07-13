@@ -8,9 +8,9 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	cloud "github.com/juju/juju/cloud"
 	config "github.com/juju/juju/environs/config"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockCloudService is a mock of CloudService interface.

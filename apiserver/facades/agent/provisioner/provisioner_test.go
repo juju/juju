@@ -8,7 +8,6 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"

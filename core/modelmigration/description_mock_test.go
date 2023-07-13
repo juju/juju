@@ -7,10 +7,10 @@ package modelmigration
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	description "github.com/juju/description/v4"
 	names "github.com/juju/names/v4"
 	version "github.com/juju/version/v2"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockModel is a mock of Model interface.

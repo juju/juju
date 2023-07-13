@@ -7,7 +7,6 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v11"
 	services "github.com/juju/juju/apiserver/facades/client/charms/services"
 	charmdownloader "github.com/juju/juju/apiserver/facades/controller/charmdownloader"
@@ -17,6 +16,7 @@ import (
 	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
 	worker "github.com/juju/worker/v3"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockStateBackend is a mock of StateBackend interface.

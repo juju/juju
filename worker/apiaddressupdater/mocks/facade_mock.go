@@ -7,9 +7,9 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	network "github.com/juju/juju/core/network"
 	watcher "github.com/juju/juju/core/watcher"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockAPIAddresser is a mock of APIAddresser interface.

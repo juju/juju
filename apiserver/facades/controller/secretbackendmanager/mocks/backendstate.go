@@ -8,9 +8,9 @@ import (
 	reflect "reflect"
 	time "time"
 
-	gomock "github.com/golang/mock/gomock"
 	secrets "github.com/juju/juju/core/secrets"
 	state "github.com/juju/juju/state"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockBackendState is a mock of BackendState interface.

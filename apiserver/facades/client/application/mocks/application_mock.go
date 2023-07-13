@@ -8,7 +8,6 @@ import (
 	reflect "reflect"
 	time "time"
 
-	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v11"
 	resource "github.com/juju/charm/v11/resource"
 	storagecommon "github.com/juju/juju/apiserver/common/storagecommon"
@@ -28,6 +27,7 @@ import (
 	names "github.com/juju/names/v4"
 	schema "github.com/juju/schema"
 	version "github.com/juju/version/v2"
+	gomock "go.uber.org/mock/gomock"
 	environschema "gopkg.in/juju/environschema.v1"
 )
 

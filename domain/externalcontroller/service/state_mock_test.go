@@ -8,8 +8,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	crossmodel "github.com/juju/juju/core/crossmodel"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockState is a mock of State interface.

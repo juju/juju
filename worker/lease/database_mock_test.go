@@ -10,7 +10,7 @@ import (
 	reflect "reflect"
 
 	sqlair "github.com/canonical/sqlair"
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockTxnRunner is a mock of TxnRunner interface.

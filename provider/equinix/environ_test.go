@@ -6,10 +6,10 @@ package equinix
 import (
 	"context"
 
-	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"github.com/packethost/packngo"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	jtesting "github.com/juju/testing"

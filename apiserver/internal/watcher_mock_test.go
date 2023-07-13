@@ -7,7 +7,7 @@ package internal_test
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockWatcher is a mock of Watcher interface.

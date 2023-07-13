@@ -7,10 +7,10 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	watcher "github.com/juju/juju/core/watcher"
 	tools "github.com/juju/juju/tools"
 	version "github.com/juju/version/v2"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockUpgraderClient is a mock of UpgraderClient interface.

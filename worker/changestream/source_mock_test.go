@@ -7,8 +7,8 @@ package changestream
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	changestream "github.com/juju/juju/core/changestream"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockEventSource is a mock of EventSource interface.

@@ -7,13 +7,13 @@ package lxd
 import (
 	reflect "reflect"
 
-	client "github.com/canonical/lxd/client"
+	lxd "github.com/canonical/lxd/client"
 	api "github.com/canonical/lxd/shared/api"
-	gomock "github.com/golang/mock/gomock"
-	lxd "github.com/juju/juju/container/lxd"
+	lxd0 "github.com/juju/juju/container/lxd"
 	network "github.com/juju/juju/core/network"
 	series "github.com/juju/juju/core/series"
 	environs "github.com/juju/juju/environs"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockServer is a mock of Server interface.
@@ -40,10 +40,10 @@ func (m *MockServer) EXPECT() *MockServerMockRecorder {
 }
 
 // AliveContainers mocks base method.
-func (m *MockServer) AliveContainers(arg0 string) ([]lxd.Container, error) {
+func (m *MockServer) AliveContainers(arg0 string) ([]lxd0.Container, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AliveContainers", arg0)
-	ret0, _ := ret[0].([]lxd.Container)
+	ret0, _ := ret[0].([]lxd0.Container)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -84,7 +84,7 @@ func (mr *MockServerMockRecorder) CreateCertificate(arg0 interface{}) *gomock.Ca
 }
 
 // CreateClientCertificate mocks base method.
-func (m *MockServer) CreateClientCertificate(arg0 *lxd.Certificate) error {
+func (m *MockServer) CreateClientCertificate(arg0 *lxd0.Certificate) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateClientCertificate", arg0)
 	ret0, _ := ret[0].(error)
@@ -98,10 +98,10 @@ func (mr *MockServerMockRecorder) CreateClientCertificate(arg0 interface{}) *gom
 }
 
 // CreateContainerFromSpec mocks base method.
-func (m *MockServer) CreateContainerFromSpec(arg0 lxd.ContainerSpec) (*lxd.Container, error) {
+func (m *MockServer) CreateContainerFromSpec(arg0 lxd0.ContainerSpec) (*lxd0.Container, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateContainerFromSpec", arg0)
-	ret0, _ := ret[0].(*lxd.Container)
+	ret0, _ := ret[0].(*lxd0.Container)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -239,14 +239,14 @@ func (mr *MockServerMockRecorder) EnsureDefaultStorage(arg0, arg1 interface{}) *
 }
 
 // FilterContainers mocks base method.
-func (m *MockServer) FilterContainers(arg0 string, arg1 ...string) ([]lxd.Container, error) {
+func (m *MockServer) FilterContainers(arg0 string, arg1 ...string) ([]lxd0.Container, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "FilterContainers", varargs...)
-	ret0, _ := ret[0].([]lxd.Container)
+	ret0, _ := ret[0].([]lxd0.Container)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -259,10 +259,10 @@ func (mr *MockServerMockRecorder) FilterContainers(arg0 interface{}, arg1 ...int
 }
 
 // FindImage mocks base method.
-func (m *MockServer) FindImage(arg0 series.Base, arg1 string, arg2 api.InstanceType, arg3 []lxd.ServerSpec, arg4 bool, arg5 environs.StatusCallbackFunc) (lxd.SourcedImage, error) {
+func (m *MockServer) FindImage(arg0 series.Base, arg1 string, arg2 api.InstanceType, arg3 []lxd0.ServerSpec, arg4 bool, arg5 environs.StatusCallbackFunc) (lxd0.SourcedImage, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindImage", arg0, arg1, arg2, arg3, arg4, arg5)
-	ret0, _ := ret[0].(lxd.SourcedImage)
+	ret0, _ := ret[0].(lxd0.SourcedImage)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -305,10 +305,10 @@ func (mr *MockServerMockRecorder) GetClusterMembers() *gomock.Call {
 }
 
 // GetConnectionInfo mocks base method.
-func (m *MockServer) GetConnectionInfo() (*client.ConnectionInfo, error) {
+func (m *MockServer) GetConnectionInfo() (*lxd.ConnectionInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetConnectionInfo")
-	ret0, _ := ret[0].(*client.ConnectionInfo)
+	ret0, _ := ret[0].(*lxd.ConnectionInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -757,10 +757,10 @@ func (mr *MockServerMockRecorder) UseProject(arg0 interface{}) *gomock.Call {
 }
 
 // UseTargetServer mocks base method.
-func (m *MockServer) UseTargetServer(arg0 string) (*lxd.Server, error) {
+func (m *MockServer) UseTargetServer(arg0 string) (*lxd0.Server, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UseTargetServer", arg0)
-	ret0, _ := ret[0].(*lxd.Server)
+	ret0, _ := ret[0].(*lxd0.Server)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -786,7 +786,7 @@ func (mr *MockServerMockRecorder) VerifyNetworkDevice(arg0, arg1 interface{}) *g
 }
 
 // WriteContainer mocks base method.
-func (m *MockServer) WriteContainer(arg0 *lxd.Container) error {
+func (m *MockServer) WriteContainer(arg0 *lxd0.Container) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WriteContainer", arg0)
 	ret0, _ := ret[0].(error)

@@ -8,9 +8,8 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/golang/mock/gomock"
-	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -18,6 +17,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
+	"github.com/juju/juju/testing"
 )
 
 type k8sRawClientSuite struct {

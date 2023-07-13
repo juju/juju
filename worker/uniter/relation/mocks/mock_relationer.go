@@ -7,10 +7,10 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	api "github.com/juju/juju/worker/uniter/api"
 	hook "github.com/juju/juju/worker/uniter/hook"
 	context "github.com/juju/juju/worker/uniter/runner/context"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockRelationer is a mock of Relationer interface.

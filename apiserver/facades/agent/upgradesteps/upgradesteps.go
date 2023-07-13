@@ -17,8 +17,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/upgradesteps_mock.go github.com/juju/juju/apiserver/facades/agent/upgradesteps UpgradeStepsState,Machine,Unit
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state EntityFinder,Entity
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/upgradesteps_mock.go github.com/juju/juju/apiserver/facades/agent/upgradesteps UpgradeStepsState,Machine,Unit
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state EntityFinder,Entity
 
 // UpgradeStepsV2 defines the methods on the version 2 facade for the
 // upgrade steps API endpoint.

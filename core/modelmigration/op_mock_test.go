@@ -8,8 +8,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
-	v4 "github.com/juju/description/v4"
+	description "github.com/juju/description/v4"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockOperation is a mock of Operation interface.
@@ -36,7 +36,7 @@ func (m *MockOperation) EXPECT() *MockOperationMockRecorder {
 }
 
 // Execute mocks base method.
-func (m *MockOperation) Execute(arg0 context.Context, arg1 v4.Model) error {
+func (m *MockOperation) Execute(arg0 context.Context, arg1 description.Model) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Execute", arg0, arg1)
 	ret0, _ := ret[0].(error)

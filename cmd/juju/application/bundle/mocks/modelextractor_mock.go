@@ -7,9 +7,9 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	constraints "github.com/juju/juju/core/constraints"
 	params "github.com/juju/juju/rpc/params"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockModelExtractor is a mock of ModelExtractor interface.

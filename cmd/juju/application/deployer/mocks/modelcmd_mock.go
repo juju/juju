@@ -9,8 +9,8 @@ import (
 	os "os"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	modelcmd "github.com/juju/juju/cmd/modelcmd"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockFilesystem is a mock of Filesystem interface.

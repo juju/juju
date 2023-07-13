@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v11"
 	charmresource "github.com/juju/charm/v11/resource"
 	"github.com/juju/clock"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"

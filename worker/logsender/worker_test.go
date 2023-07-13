@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/loggo"
 	jtesting "github.com/juju/testing"
 	"github.com/juju/worker/v3/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	apilogsender "github.com/juju/juju/api/logsender"

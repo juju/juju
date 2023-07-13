@@ -8,7 +8,6 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -40,7 +40,7 @@ import (
 	"github.com/juju/juju/worker/upgrader/mocks"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/upgrader_mocks.go github.com/juju/juju/worker/upgrader UpgraderClient
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/upgrader_mocks.go github.com/juju/juju/worker/upgrader UpgraderClient
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
 }

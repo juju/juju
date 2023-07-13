@@ -4,12 +4,12 @@
 package modelconfig_test
 
 import (
-	"github.com/golang/mock/gomock"
-	basemocks "github.com/juju/juju/api/base/mocks"
-	"github.com/juju/juju/api/client/modelconfig"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	basemocks "github.com/juju/juju/api/base/mocks"
+	"github.com/juju/juju/api/client/modelconfig"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
