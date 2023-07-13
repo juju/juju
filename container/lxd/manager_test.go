@@ -8,7 +8,6 @@ import (
 	stdtesting "testing"
 
 	lxdclient "github.com/canonical/lxd/client"
-	"github.com/canonical/lxd/shared"
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
