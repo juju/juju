@@ -17,7 +17,7 @@ import (
 
 const (
 	// DefaultNamespace is the default namespace for watchers.
-	DefaultNamespace = "watcher"
+	DefaultNamespace = "w"
 )
 
 // Logger is the interface we need to log when a worker finishes.
