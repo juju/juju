@@ -4,6 +4,8 @@
 package remoterelations_test
 
 import (
+	"context"
+
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -36,6 +38,7 @@ type remoteRelationsSuite struct {
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
 	st         *mocks.MockRemoteRelationsState
+	ecService  *mocks.MockECService
 	cc         *mocks.MockControllerConfigAPI
 	api        *remoterelations.API
 }
@@ -57,7 +60,8 @@ func (s *remoteRelationsSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.st = mocks.NewMockRemoteRelationsState(ctrl)
 	s.cc = mocks.NewMockControllerConfigAPI(ctrl)
-	api, err := remoterelations.NewRemoteRelationsAPI(s.st, s.cc, s.resources, s.authorizer)
+	s.ecService = mocks.NewMockECService(ctrl)
+	api, err := remoterelations.NewRemoteRelationsAPI(s.st, s.ecService, s.cc, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 	return ctrl
@@ -500,45 +504,58 @@ func (s *remoteRelationsSuite) TestUpdateControllersForModels(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	mod1 := utils.MustNewUUID().String()
-	c1 := names.NewControllerTag(utils.MustNewUUID().String())
+	c1Tag := names.NewControllerTag(utils.MustNewUUID().String())
 	mod2 := utils.MustNewUUID().String()
-	c2 := names.NewControllerTag(utils.MustNewUUID().String())
+	c2Tag := names.NewControllerTag(utils.MustNewUUID().String())
 
-	s.st.EXPECT().UpdateControllerForModel(crossmodel.ControllerInfo{
-		ControllerTag: c1,
+	c1 := crossmodel.ControllerInfo{
+		ControllerTag: c1Tag,
 		Alias:         "alias1",
 		Addrs:         []string{"1.1.1.1:1"},
 		CACert:        "cert1",
-	}, mod1).Return(errors.New("whack"))
-	s.st.EXPECT().UpdateControllerForModel(crossmodel.ControllerInfo{
-		ControllerTag: c2,
+		ModelUUIDs:    []string{mod1},
+	}
+	c2 := crossmodel.ControllerInfo{
+		ControllerTag: c2Tag,
 		Alias:         "alias2",
 		Addrs:         []string{"2.2.2.2:2"},
 		CACert:        "cert2",
-	}, mod2).Return(nil)
+		ModelUUIDs:    []string{mod2},
+	}
 
-	res, err := s.api.UpdateControllersForModels(params.UpdateControllersForModelsParams{
-		Changes: []params.UpdateControllerForModel{
-			{
-				ModelTag: names.NewModelTag(mod1).String(),
-				Info: params.ExternalControllerInfo{
-					ControllerTag: c1.String(),
-					Alias:         "alias1",
-					Addrs:         []string{"1.1.1.1:1"},
-					CACert:        "cert1",
+	s.ecService.EXPECT().UpdateExternalController(
+		gomock.Any(),
+		c1,
+	).Return(errors.New("whack"))
+	s.ecService.EXPECT().UpdateExternalController(
+		gomock.Any(),
+		c2,
+	).Return(nil)
+
+	res, err := s.api.UpdateControllersForModels(
+		context.Background(),
+		params.UpdateControllersForModelsParams{
+			Changes: []params.UpdateControllerForModel{
+				{
+					ModelTag: names.NewModelTag(mod1).String(),
+					Info: params.ExternalControllerInfo{
+						ControllerTag: c1Tag.String(),
+						Alias:         "alias1",
+						Addrs:         []string{"1.1.1.1:1"},
+						CACert:        "cert1",
+					},
+				},
+				{
+					ModelTag: names.NewModelTag(mod2).String(),
+					Info: params.ExternalControllerInfo{
+						ControllerTag: c2Tag.String(),
+						Alias:         "alias2",
+						Addrs:         []string{"2.2.2.2:2"},
+						CACert:        "cert2",
+					},
 				},
 			},
-			{
-				ModelTag: names.NewModelTag(mod2).String(),
-				Info: params.ExternalControllerInfo{
-					ControllerTag: c2.String(),
-					Alias:         "alias2",
-					Addrs:         []string{"2.2.2.2:2"},
-					CACert:        "cert2",
-				},
-			},
-		},
-	})
+		})
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, 2)
