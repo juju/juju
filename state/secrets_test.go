@@ -102,6 +102,41 @@ func (s *SecretsSuite) TestCreate(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
+func (s *SecretsSuite) TestCreateUserSecret(c *gc.C) {
+	uri := secrets.NewURI()
+	now := s.Clock.Now().Round(time.Second).UTC()
+	p := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.Model.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Description: ptr("my secret"),
+			Label:       ptr("label-1"),
+			Params:      nil,
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := s.store.CreateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
+	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	c.Assert(md, mc, &secrets.SecretMetadata{
+		URI:            uri,
+		Version:        1,
+		Description:    "my secret",
+		Label:          "label-1",
+		LatestRevision: 1,
+		OwnerTag:       s.Model.Tag().String(),
+		CreateTime:     now,
+		UpdateTime:     now,
+	})
+
+	uri2 := secrets.NewURI()
+	_, err = s.store.CreateSecret(uri2, p)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`secret label "label-1" for %q already exists`, s.Model.Tag().String()))
+}
+
 func (s *SecretsSuite) TestCreateBackendRef(c *gc.C) {
 	backendStore := state.NewSecretBackends(s.State)
 	_, err := backendStore.CreateSecretBackend(state.CreateSecretBackendParams{

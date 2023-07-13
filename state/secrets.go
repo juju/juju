@@ -1253,6 +1253,8 @@ func (st *State) uniqueSecretLabelBaseOps(tag names.Tag, label string) (ops []tx
 			"^%s:(%s|%s)#%s#%s$",
 			st.ModelUUID(), secretOwnerLabelKeyPrefix, secretConsumerLabelKeyPrefix, appTag.String(), label,
 		)
+	case names.ModelTag:
+		keyPattern = fmt.Sprintf("^%s:%s#%s#%s$", st.ModelUUID(), secretOwnerLabelKeyPrefix, tag.String(), label)
 	default:
 		return nil, errors.NotSupportedf("tag type %T", tag)
 	}
