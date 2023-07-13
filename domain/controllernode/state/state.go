@@ -57,23 +57,23 @@ func (st *State) CurateNodes(ctx context.Context, insert, delete []string) error
 	return errors.Annotate(err, "curating controller nodes")
 }
 
-// UpdateBootstrapNodeBindAddress sets the input address as the Dqlite
-// bind address of the original bootstrapped controller node.
-func (st *State) UpdateBootstrapNodeBindAddress(ctx context.Context, addr string) error {
+// UpdateDqliteNode sets the Dqlite node ID and bind address for the input
+// controller ID. It is a no-op if they are already set to the same values.
+func (st *State) UpdateDqliteNode(ctx context.Context, controllerID, nodeID, addr string) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// This ensures a no-op if previously set.
 	q := `
 UPDATE controller_node 
-SET    bind_address = ? 
-WHERE  controller_id = 0
-AND    bind_address = '127.0.0.1'`
+SET    dqlite_node_id = ?,
+       bind_address = ? 
+WHERE  controller_id = ?
+AND    (dqlite_node_id != ? OR bind_address != ?)`
 
 	return errors.Trace(db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, q, addr)
+		_, err := tx.ExecContext(ctx, q, nodeID, addr, controllerID, nodeID, addr)
 		return errors.Trace(err)
 	}))
 }
