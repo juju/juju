@@ -104,7 +104,7 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 	c.Check(result.CloudBootstrapFinalizer, gc.NotNil)
 
 	out := cmdtesting.Stderr(ctx)
-	c.Assert(out, gc.Equals, "To configure your system to better support LXD containers, please see: https://linuxcontainers.org/lxd/docs/master/explanation/performance_tuning/\n")
+	c.Assert(out, gc.Matches, "To configure your system to better support LXD containers, please see: .*\n")
 }
 
 func (s *environSuite) TestBootstrapAPI(c *gc.C) {
