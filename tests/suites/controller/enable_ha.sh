@@ -5,7 +5,7 @@ wait_for_controller_machines() {
 	# shellcheck disable=SC2143
 	until [[ "$(juju machines -m controller --format=json | jq -r '.machines | .[] | .["juju-status"] | select(.current == "started") | .current' | wc -l | grep "${amount}")" ]]; do
 		echo "[+] (attempt ${attempt}) polling machines"
-		juju machines -m controller 2>&1 | sed 's/^/    | /g'
+		juju machines -m controller 2>&1 | sed 's/^/    | /g' || true
 		sleep "${SHORT_TIMEOUT}"
 		attempt=$((attempt + 1))
 
@@ -32,7 +32,7 @@ wait_for_controller_machines_tear_down() {
 	# shellcheck disable=SC2143
 	until [[ "$(juju machines -m controller --format=json | jq -r '.machines | .[] | .["juju-status"] | select(.current == "started") | .current' | wc -l | grep "${amount}")" ]]; do
 		echo "[+] (attempt ${attempt}) polling started machines during ha tear down"
-		juju machines -m controller 2>&1 | sed 's/^/    | /g'
+		juju machines -m controller 2>&1 | sed 's/^/    | /g' || true
 		sleep "${SHORT_TIMEOUT}"
 		attempt=$((attempt + 1))
 
@@ -46,7 +46,7 @@ wait_for_controller_machines_tear_down() {
 	# shellcheck disable=SC2143
 	until [[ "$(juju machines -m controller --format=json | jq -r '.machines | .[] | .["juju-status"] | select(.current == "stopped") | .current' | wc -l | grep 0)" ]]; do
 		echo "[+] (attempt ${attempt}) polling stopped machines during ha tear down"
-		juju machines -m controller 2>&1 | sed 's/^/    | /g'
+		juju machines -m controller 2>&1 | sed 's/^/    | /g' || true
 		sleep "${SHORT_TIMEOUT}"
 		attempt=$((attempt + 1))
 
@@ -58,7 +58,7 @@ wait_for_controller_machines_tear_down() {
 
 	if [[ "$(juju machines -m controller --format=json | jq -r '.machines | .[] | .["juju-status"] | select(.current == "error") | .current' | wc -l)" -gt 0 ]]; then
 		echo "machine in controller model with error during ha tear down"
-		juju machines -m controller 2>&1 | sed 's/^/    | /g'
+		juju machines -m controller 2>&1 | sed 's/^/    | /g' || true
 		exit 1
 	fi
 

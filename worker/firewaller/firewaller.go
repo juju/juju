@@ -182,7 +182,7 @@ type Firewaller struct {
 	localRelationsChange       chan *remoteRelationNetworkChange
 	relationIngress            map[names.RelationTag]*remoteRelationData
 	relationWorkerRunner       *worker.Runner
-	pollClock                  clock.Clock
+	clk                        clock.Clock
 	logger                     Logger
 
 	cloudCallContextFunc common.CloudCallContextFunc
@@ -218,7 +218,7 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		exposedChange:              make(chan *exposedChange),
 		relationIngress:            make(map[names.RelationTag]*remoteRelationData),
 		localRelationsChange:       make(chan *remoteRelationNetworkChange),
-		pollClock:                  clk,
+		clk:                        clk,
 		logger:                     cfg.Logger,
 		relationWorkerRunner: worker.NewRunner(worker.RunnerParams{
 			Clock: clk,
@@ -318,6 +318,7 @@ func (fw *Firewaller) loop() error {
 	portsChange := fw.portsWatcher.Changes()
 
 	var modelFirewallChanges watcher.NotifyChannel
+	var ensureModelFirewalls <-chan time.Time
 	if fw.modelFirewallWatcher != nil {
 		modelFirewallChanges = fw.modelFirewallWatcher.Changes()
 	}
@@ -326,6 +327,22 @@ func (fw *Firewaller) loop() error {
 		select {
 		case <-fw.catacomb.Dying():
 			return fw.catacomb.ErrDying()
+		case <-ensureModelFirewalls:
+			err := fw.flushModel()
+			if errors.Is(err, errors.NotFound) {
+				ensureModelFirewalls = fw.clk.After(time.Second)
+			} else if err != nil {
+				return err
+			} else {
+				ensureModelFirewalls = nil
+			}
+		case _, ok := <-modelFirewallChanges:
+			if !ok {
+				return errors.New("model config watcher closed")
+			}
+			if ensureModelFirewalls == nil {
+				ensureModelFirewalls = fw.clk.After(0)
+			}
 		case change, ok := <-fw.machinesWatcher.Changes():
 			if !ok {
 				return errors.New("machines watcher closed")
@@ -347,13 +364,11 @@ func (fw *Firewaller) loop() error {
 					return errors.Trace(err)
 				}
 			}
-			if fw.environModelFirewaller != nil && !modelGroupInitiallyConfigured {
-				err := fw.flushModel()
-				if err != nil && !errors.IsNotFound(err) {
-					return err
-				}
-				if err == nil {
-					modelGroupInitiallyConfigured = true
+			// After first machine exists, make sure to trigger the model firewall flush.
+			if len(change) > 0 && !modelGroupInitiallyConfigured {
+				modelGroupInitiallyConfigured = true
+				if ensureModelFirewalls == nil {
+					ensureModelFirewalls = fw.clk.After(0)
 				}
 			}
 		case change, ok := <-portsChange:
@@ -383,14 +398,6 @@ func (fw *Firewaller) loop() error {
 			if err := fw.subnetsChanged(); err != nil {
 				return errors.Trace(err)
 			}
-		case _, ok := <-modelFirewallChanges:
-			if !ok {
-				return errors.New("model config watcher closed")
-			}
-			if err := fw.flushModel(); err != nil && !errors.IsNotFound(err) {
-				return errors.Trace(err)
-			}
-
 		case change := <-fw.localRelationsChange:
 			// We have a notification that the remote (consuming) model
 			// has changed egress networks so need to update the local
@@ -1085,7 +1092,7 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose firewall.IngressRules) 
 
 func (fw *Firewaller) flushModel() error {
 	if fw.environModelFirewaller == nil {
-		return errors.NotSupportedf("model firewaller")
+		return nil
 	}
 	want, err := fw.firewallerApi.ModelFirewallRules()
 	if err != nil {
@@ -1795,7 +1802,7 @@ func (p *remoteRelationPoller) pollLoop() error {
 		select {
 		case <-p.catacomb.Dying():
 			return p.catacomb.ErrDying()
-		case <-p.fw.pollClock.After(3 * time.Second):
+		case <-p.fw.clk.After(3 * time.Second):
 			// Relation is exported with the consuming model UUID.
 			relToken, err := p.fw.remoteRelationsApi.GetToken(p.relationTag)
 			if err != nil {
