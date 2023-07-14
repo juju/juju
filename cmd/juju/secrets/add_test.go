@@ -7,10 +7,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"go.uber.org/mock/gomock"
 	"github.com/juju/cmd/v3/cmdtesting"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/secrets"
@@ -45,7 +45,7 @@ func (s *addSuite) TestAddDataFromArg(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().CreateSecret(nil, "label", "this is a secret.", map[string]string{"foo": "YmFy"}).Return(uri.String(), nil)
+	s.secretsAPI.EXPECT().CreateSecret("label", "this is a secret.", map[string]string{"foo": "YmFy"}).Return(uri.String(), nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewAddCommandForTest(s.store, s.secretsAPI), "foo=bar", "--label", "label", "--info", "this is a secret.")
@@ -58,7 +58,7 @@ func (s *addSuite) TestAddDataFromFile(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().CreateSecret(nil, "label", "this is a secret.", map[string]string{"foo": "YmFy"}).Return(uri.String(), nil)
+	s.secretsAPI.EXPECT().CreateSecret("label", "this is a secret.", map[string]string{"foo": "YmFy"}).Return(uri.String(), nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	dir := c.MkDir()

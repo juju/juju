@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v4"
 
 	jujucmd "github.com/juju/juju/cmd"
-	secretscmd "github.com/juju/juju/cmd/juju/secrets"
 	"github.com/juju/juju/core/secrets"
 )
 
@@ -23,11 +22,14 @@ type secretUpsertCommand struct {
 
 	owner        string
 	rotatePolicy string
+	description  string
+	label        string
+	fileName     string
 
 	expireSpec string
 	expireTime time.Time
 
-	secretscmd.SecretUpsertContentCommand
+	data map[string]string
 }
 
 type secretAddCommand struct {
@@ -81,12 +83,11 @@ Examples:
 
 // SetFlags implements cmd.Command.
 func (c *secretUpsertCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.SecretUpsertContentCommand.SetFlags(f)
-	if c.Description == "" {
-		f.StringVar(&c.Description, "description", "", "the secret description")
-	}
 	f.StringVar(&c.expireSpec, "expire", "", "either a duration or time when the secret should expire")
 	f.StringVar(&c.rotatePolicy, "rotate", "", "the secret rotation policy")
+	f.StringVar(&c.description, "description", "", "the secret description")
+	f.StringVar(&c.label, "label", "", "a label used to identify the secret in hooks")
+	f.StringVar(&c.fileName, "file", "", "a YAML file containing secret key values")
 	f.StringVar(&c.owner, "owner", "application", "the owner of the secret, either the application or unit")
 }
 
@@ -118,11 +119,26 @@ func (c *secretUpsertCommand) Init(args []string) error {
 		return errors.NotValidf("secret owner %q", c.owner)
 	}
 
-	return c.SecretUpsertContentCommand.Init(args)
+	var err error
+	c.data, err = secrets.CreateSecretData(args)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if c.fileName == "" {
+		return nil
+	}
+	dataFromFile, err := secrets.ReadSecretData(c.fileName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for k, v := range dataFromFile {
+		c.data[k] = v
+	}
+	return nil
 }
 
 func (c *secretUpsertCommand) marshallArg() *SecretUpdateArgs {
-	value := secrets.NewSecretValue(c.Data)
+	value := secrets.NewSecretValue(c.data)
 	arg := &SecretUpdateArgs{
 		Value: value,
 	}
@@ -133,18 +149,18 @@ func (c *secretUpsertCommand) marshallArg() *SecretUpdateArgs {
 	if !c.expireTime.IsZero() {
 		arg.ExpireTime = &c.expireTime
 	}
-	if c.Description != "" {
-		arg.Description = &c.Description
+	if c.description != "" {
+		arg.Description = &c.description
 	}
-	if c.Label != "" {
-		arg.Label = &c.Label
+	if c.label != "" {
+		arg.Label = &c.label
 	}
 	return arg
 }
 
 // Init implements cmd.Command.
 func (c *secretAddCommand) Init(args []string) error {
-	if len(args) < 1 && c.FileName == "" {
+	if len(args) < 1 && c.fileName == "" {
 		return errors.New("missing secret value or filename")
 	}
 	return c.secretUpsertCommand.Init(args)

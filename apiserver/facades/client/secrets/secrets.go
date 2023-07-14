@@ -240,8 +240,12 @@ func (s *SecretsAPI) CreateSecrets(args params.CreateSecretArgs) (params.StringR
 	if err := s.checkCanAdmin(); err != nil {
 		return result, errors.Trace(err)
 	}
+	backend, err := s.getActiveBackend()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
 	for i, arg := range args.Args {
-		ID, err := s.createSecret(arg)
+		ID, err := s.createSecret(backend, arg)
 		result.Results[i].Result = ID
 		if errors.Is(err, state.LabelExists) {
 			err = errors.AlreadyExistsf("secret with label %q", *arg.Label)
@@ -258,7 +262,7 @@ func (t successfulToken) Check() error {
 	return nil
 }
 
-func (s *SecretsAPI) createSecret(arg params.CreateSecretArg) (_ string, err error) {
+func (s *SecretsAPI) createSecret(backend provider.SecretsBackend, arg params.CreateSecretArg) (_ string, err error) {
 	if arg.OwnerTag != "" && arg.OwnerTag != s.modelUUID {
 		return "", errors.NotValidf("owner tag %q", arg.OwnerTag)
 	}
@@ -275,10 +279,6 @@ func (s *SecretsAPI) createSecret(arg params.CreateSecretArg) (_ string, err err
 
 	if len(arg.Content.Data) == 0 {
 		return "", errors.NotValidf("empty secret value")
-	}
-	backend, err := s.getActiveBackend()
-	if err != nil {
-		return "", errors.Trace(err)
 	}
 	revId, err := backend.SaveContent(context.TODO(), uri, 1, coresecrets.NewSecretValue(arg.Content.Data))
 	if err != nil && !errors.Is(err, errors.NotSupported) {

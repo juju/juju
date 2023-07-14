@@ -12,7 +12,6 @@ import (
 	apisecrets "github.com/juju/juju/api/client/secrets"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/secrets"
 )
 
 type addSecretCommand struct {
@@ -24,7 +23,7 @@ type addSecretCommand struct {
 
 // AddSecretsAPI is the secrets client API.
 type AddSecretsAPI interface {
-	CreateSecret(uri *secrets.URI, label, description string, data map[string]string) (string, error)
+	CreateSecret(label, description string, data map[string]string) (string, error)
 	Close() error
 }
 
@@ -71,7 +70,7 @@ Examples:
 	return jujucmd.Info(&cmd.Info{
 		Name:    "add-secret",
 		Args:    "[key[#base64|#file]=value...]",
-		Purpose: "add a new secret",
+		Purpose: "Add a new secret.",
 		Doc:     doc,
 	})
 }
@@ -95,7 +94,7 @@ func (c *addSecretCommand) Run(ctx *cmd.Context) error {
 	}
 	defer secretsAPI.Close()
 
-	uri, err := secretsAPI.CreateSecret(nil, c.Label, c.Description, c.Data)
+	uri, err := secretsAPI.CreateSecret(c.Label, c.Description, c.Data)
 	if err != nil {
 		return err
 	}

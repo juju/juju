@@ -95,7 +95,7 @@ func (api *Client) ListSecrets(reveal bool, filter secrets.Filter) ([]SecretDeta
 	return result, err
 }
 
-func (c *Client) CreateSecret(uri *secrets.URI, label, description string, data map[string]string) (string, error) {
+func (c *Client) CreateSecret(label, description string, data map[string]string) (string, error) {
 	if c.BestAPIVersion() < 2 {
 		return "", errors.NotSupportedf("user secrets")
 	}
@@ -104,10 +104,6 @@ func (c *Client) CreateSecret(uri *secrets.URI, label, description string, data 
 		UpsertSecretArg: params.UpsertSecretArg{
 			Content: params.SecretContentParams{Data: data},
 		},
-	}
-	if uri != nil {
-		uriStr := uri.String()
-		arg.URI = &uriStr
 	}
 	if label != "" {
 		arg.Label = &label

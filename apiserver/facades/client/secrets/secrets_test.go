@@ -257,7 +257,36 @@ func (s *SecretsSuite) TestCreateSecretsEmptyData(c *gc.C) {
 	uri := coresecrets.NewURI()
 	uriStrPtr := ptr(uri.String())
 
-	facade, err := apisecrets.NewTestAPI(s.secretsState, nil, nil, s.authorizer)
+	facade, err := apisecrets.NewTestAPI(s.secretsState,
+		func() (*provider.ModelBackendConfigInfo, error) {
+			return &provider.ModelBackendConfigInfo{
+				ActiveID: "backend-id",
+				Configs: map[string]provider.ModelBackendConfig{
+					"backend-id": {
+						ControllerUUID: coretesting.ControllerTag.Id(),
+						ModelUUID:      coretesting.ModelTag.Id(),
+						ModelName:      "some-model",
+						BackendConfig: provider.BackendConfig{
+							BackendType: "active-type",
+							Config:      map[string]interface{}{"foo": "active-type"},
+						},
+					},
+					"other-backend-id": {
+						ControllerUUID: coretesting.ControllerTag.Id(),
+						ModelUUID:      coretesting.ModelTag.Id(),
+						ModelName:      "some-model",
+						BackendConfig: provider.BackendConfig{
+							BackendType: "other-type",
+							Config:      map[string]interface{}{"foo": "other-type"},
+						},
+					},
+				},
+			}, nil
+		},
+		func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+			c.Assert(cfg.Config, jc.DeepEquals, provider.ConfigAttrs{"foo": cfg.BackendType})
+			return s.secretsBackend, nil
+		}, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := facade.CreateSecrets(params.CreateSecretArgs{

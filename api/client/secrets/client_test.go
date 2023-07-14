@@ -141,21 +141,18 @@ func (s *SecretsSuite) TestCreateSecretError(c *gc.C) {
 	})
 	caller := testing.BestVersionCaller{apiCaller, 1}
 	client := apisecrets.NewClient(caller)
-	uri := secrets.NewURI()
-	_, err := client.CreateSecret(uri, "label", "this is a secret.", map[string]string{"foo": "bar"})
+	_, err := client.CreateSecret("label", "this is a secret.", map[string]string{"foo": "bar"})
 	c.Assert(err, gc.ErrorMatches, "user secrets not supported")
 }
 
 func (s *SecretsSuite) TestCreateSecret(c *gc.C) {
 	uri := secrets.NewURI()
-	uriStrPtr := ptr(uri.String())
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "Secrets")
 		c.Assert(request, gc.Equals, "CreateSecrets")
 		c.Assert(arg, gc.DeepEquals, params.CreateSecretArgs{
 			Args: []params.CreateSecretArg{
 				{
-					URI: uriStrPtr,
 					UpsertSecretArg: params.UpsertSecretArg{
 						Label:       ptr("label"),
 						Description: ptr("this is a secret."),
@@ -173,7 +170,7 @@ func (s *SecretsSuite) TestCreateSecret(c *gc.C) {
 	})
 	caller := testing.BestVersionCaller{apiCaller, 2}
 	client := apisecrets.NewClient(caller)
-	result, err := client.CreateSecret(uri, "label", "this is a secret.", map[string]string{"foo": "bar"})
+	result, err := client.CreateSecret("label", "this is a secret.", map[string]string{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, uri.String())
 }
