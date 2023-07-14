@@ -14,6 +14,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/database/schema"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/testing"
 )
@@ -26,8 +28,13 @@ type namespaceSuite struct {
 
 var _ = gc.Suite(&namespaceSuite{})
 
+func (s *namespaceSuite) SetUpTest(c *gc.C) {
+	s.baseSuite.SetUpTest(c)
+	s.ApplyDDL(c, schemaDDLApplier{})
+}
+
 func (s *namespaceSuite) TestInitialStateSent(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
+	defer s.setupMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
 
@@ -77,7 +84,7 @@ func (s *namespaceSuite) TestInitialStateSent(c *gc.C) {
 }
 
 func (s *namespaceSuite) TestDeltasSent(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
+	defer s.setupMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
 
@@ -138,7 +145,7 @@ func (s *namespaceSuite) TestDeltasSent(c *gc.C) {
 }
 
 func (s *namespaceSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
+	defer s.setupMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
 
@@ -171,4 +178,20 @@ func (s *namespaceSuite) TestInvalidChangeMask(c *gc.C) {
 
 	err := workertest.CheckKilled(c, w)
 	c.Assert(err, gc.ErrorMatches, "changeMask value: 0 not valid")
+}
+
+type schemaDDLApplier struct{}
+
+func (schemaDDLApplier) Apply(c *gc.C, ctx context.Context, runner database.TxnRunner) {
+	schema := schema.New(
+		schema.MakePatch(`
+CREATE TABLE external_controller (
+	uuid            TEXT PRIMARY KEY,
+	alias           TEXT,
+	ca_cert         TEXT NOT NULL
+);
+		`),
+	)
+	_, err := schema.Ensure(ctx, runner)
+	c.Assert(err, jc.ErrorIsNil)
 }

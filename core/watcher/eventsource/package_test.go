@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"testing"
 
+	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	dbtesting "github.com/juju/juju/database/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package eventsource -destination package_mock_test.go github.com/juju/juju/core/watcher/eventsource Logger
@@ -20,6 +22,29 @@ import (
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
+}
+
+type ImportTest struct{}
+
+var _ = gc.Suite(&ImportTest{})
+
+func (*ImportTest) TestImports(c *gc.C) {
+	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/watcher/eventsource")
+
+	// This package brings in nothing else from outside juju/juju/core
+	c.Assert(found, jc.SameContents, []string{
+		"core/changestream",
+		"core/database",
+		"core/life",
+		"core/migration",
+		"core/network",
+		"core/resources",
+		"core/secrets",
+		"core/status",
+		"core/watcher",
+		"docker",
+	})
+
 }
 
 type watchableDBShim struct {
@@ -36,7 +61,7 @@ type baseSuite struct {
 	sub         *MockSubscription
 }
 
-func (s *baseSuite) setUpMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.eventsource = NewMockEventSource(ctrl)
