@@ -43,6 +43,7 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTLSOption().Return(nil, nil)
 	mgrExp.WithTracingOption().Return(nil)
+	mgrExp.IsBootstrappedNode(gomock.Any()).Return(false, nil)
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
@@ -133,8 +134,10 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 	// If this is an existing node, we do not invoke the address or cluster
 	// options, but if the node is not as bootstrapped, we do assume it is
 	// part of a cluster, and uses the TLS option.
+	// IsBootstrapped node is called twice - once to check the startup
+	// conditions and then again upon worker shutdown.
 	mgrExp.IsExistingNode().Return(true, nil)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(false, nil)
+	mgrExp.IsBootstrappedNode(gomock.Any()).Return(false, nil).Times(2)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTLSOption().Return(nil, nil)
 	mgrExp.WithTracingOption().Return(nil)
@@ -171,13 +174,13 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil).Times(3)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(3)
+	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(4)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	sync := s.expectNodeStartupAndShutdown(true)
+	sync := s.expectNodeStartupAndShutdown(false)
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -234,7 +237,10 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil).Times(2)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(2)
+	gomock.InOrder(
+		mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(2),
+		// This is the check at shutdown.
+		mgrExp.IsBootstrappedNode(gomock.Any()).Return(false, nil))
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 
@@ -262,6 +268,9 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
+	// Although the shut-down check for IsBootstrappedNode returns false,
+	// this call to shut-down is actually run before reconfiguring the node.
+	// When the loop exits, the node is already set to nil.
 	sync := s.expectNodeStartupAndShutdown(false)
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
