@@ -64,7 +64,7 @@ func (mr *MockStateMockRecorder) SelectModelUUID(arg0, arg1 interface{}) *gomock
 }
 
 // UpdateDqliteNode mocks base method.
-func (m *MockState) UpdateDqliteNode(arg0 context.Context, arg1, arg2, arg3 string) error {
+func (m *MockState) UpdateDqliteNode(arg0 context.Context, arg1 string, arg2 uint64, arg3 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateDqliteNode", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)

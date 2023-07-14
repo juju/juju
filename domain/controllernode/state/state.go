@@ -59,7 +59,7 @@ func (st *State) CurateNodes(ctx context.Context, insert, delete []string) error
 
 // UpdateDqliteNode sets the Dqlite node ID and bind address for the input
 // controller ID. It is a no-op if they are already set to the same values.
-func (st *State) UpdateDqliteNode(ctx context.Context, controllerID, nodeID, addr string) error {
+func (st *State) UpdateDqliteNode(ctx context.Context, controllerID string, nodeID uint64, addr string) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)

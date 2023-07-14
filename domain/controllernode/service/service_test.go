@@ -33,9 +33,9 @@ func (s *serviceSuite) TestUpdateExternalControllerSuccess(c *gc.C) {
 func (s *serviceSuite) TestUpdateDqliteNode(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().UpdateDqliteNode(gomock.Any(), "0", "whatever", "192.168.5.60")
+	s.state.EXPECT().UpdateDqliteNode(gomock.Any(), "0", uint64(12345), "192.168.5.60")
 
-	err := NewService(s.state).UpdateDqliteNode(context.Background(), "0", "whatever", "192.168.5.60")
+	err := NewService(s.state).UpdateDqliteNode(context.Background(), "0", 12345, "192.168.5.60")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
