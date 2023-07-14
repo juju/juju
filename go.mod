@@ -80,7 +80,7 @@ require (
 	github.com/juju/rpcreflect v1.2.0
 	github.com/juju/schema v1.0.1
 	github.com/juju/terms-client/v2 v2.0.0
-	github.com/juju/testing v1.0.3
+	github.com/juju/testing v1.0.4
 	github.com/juju/txn/v3 v3.0.2
 	github.com/juju/utils/v3 v3.0.2
 	github.com/juju/version/v2 v2.0.1
@@ -265,7 +265,7 @@ require (
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
-	github.com/rogpeppe/go-internal v1.9.0 // indirect
+	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/sergi/go-diff v1.2.0 // indirect

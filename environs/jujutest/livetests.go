@@ -7,6 +7,7 @@ import (
 	stdcontext "context"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/juju/charm/v10"
@@ -628,12 +629,11 @@ func (t *LiveTests) TestModelPorts(c *gc.C) {
 
 	rules, err := fwModelEnv.ModelIngressRules(t.ProviderCallContext)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(
-		rules, jc.DeepEquals,
-		firewall.IngressRules{
-			firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
-		},
-	)
+	c.Assert(rules, jc.SameContents, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+		// TODO: extend tests to check the api port isn't on hosted models.
+		firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(coretesting.FakeControllerConfig().APIPort())), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+	})
 
 	err = fwModelEnv.OpenModelPorts(t.ProviderCallContext,
 		firewall.IngressRules{
@@ -645,15 +645,14 @@ func (t *LiveTests) TestModelPorts(c *gc.C) {
 
 	rules, err = fwModelEnv.ModelIngressRules(t.ProviderCallContext)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(
-		rules, jc.DeepEquals,
-		firewall.IngressRules{
-			firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
-			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
-			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
-			firewall.NewIngressRule(network.MustParsePortRange("67/udp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
-		},
-	)
+	c.Assert(rules, jc.SameContents, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+		// TODO: extend tests to check the api port isn't on hosted models.
+		firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(coretesting.FakeControllerConfig().APIPort())), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("67/udp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+	})
 
 	// Check closing some ports.
 	err = fwModelEnv.CloseModelPorts(t.ProviderCallContext,
@@ -665,13 +664,12 @@ func (t *LiveTests) TestModelPorts(c *gc.C) {
 
 	rules, err = fwModelEnv.ModelIngressRules(t.ProviderCallContext)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(
-		rules, jc.DeepEquals,
-		firewall.IngressRules{
-			firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
-			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
-		},
-	)
+	c.Assert(rules, jc.SameContents, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+		// TODO: extend tests to check the api port isn't on hosted models.
+		firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(coretesting.FakeControllerConfig().APIPort())), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+	})
 
 	// Check that we can close ports that aren't there.
 	err = fwModelEnv.CloseModelPorts(t.ProviderCallContext,
@@ -684,13 +682,12 @@ func (t *LiveTests) TestModelPorts(c *gc.C) {
 
 	rules, err = fwModelEnv.ModelIngressRules(t.ProviderCallContext)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(
-		rules, jc.DeepEquals,
-		firewall.IngressRules{
-			firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
-			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
-		},
-	)
+	c.Assert(rules, jc.SameContents, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+		// TODO: extend tests to check the api port isn't on hosted models.
+		firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(coretesting.FakeControllerConfig().APIPort())), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+	})
 }
 
 func (t *LiveTests) TestBootstrapMultiple(c *gc.C) {

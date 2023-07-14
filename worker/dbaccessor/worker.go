@@ -208,12 +208,21 @@ func newWorker(cfg WorkerConfig) (*dbWorker, error) {
 }
 
 func (w *dbWorker) loop() (err error) {
-	// The context here should not be tied to the catacomb, as the context will
-	// be cancelled when the worker is stopped, and we want to wait for the
-	// Dqlite app to shut down gracefully.
-	// There is a timeout in shutdownDqlite to ensure that we don't wait
+	// The context here should not be tied to the catacomb, as such a context
+	// would be cancelled when the worker is stopped, and we want to give a
+	// chance for the Dqlite app to shut down gracefully.
+	// There is a timeout in shutdownDqlite to ensure that we don't block
 	// forever.
-	defer w.shutdownDqlite(context.Background(), true)
+	// We allow a very short time to check whether we should attempt to hand
+	// over to another node.
+	// If we can't determine that we *shouldn't* within the time window,
+	// we go ahead and make the attempt.
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		bs, _ := w.cfg.NodeManager.IsBootstrappedNode(ctx)
+		w.shutdownDqlite(context.Background(), !bs)
+		cancel()
+	}()
 
 	extant, err := w.cfg.NodeManager.IsExistingNode()
 	if err != nil {
