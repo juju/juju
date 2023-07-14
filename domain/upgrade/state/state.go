@@ -201,72 +201,65 @@ func (st *State) SetControllerDone(ctx context.Context, upgradeUUID, controllerI
 	lookForDoneNodesQuery := `
 SELECT (controller_node_id, node_upgrade_completed_at) AS &infoControllerNode.*
 FROM   upgrade_info_controller_node
-WHERE  upgrade_info_uuid = $M.info_uuid`
-	lookForDoneNodesStatement, err := sqlair.Prepare(lookForDoneNodesQuery, infoControllerNode{}, sqlair.M{})
+WHERE  upgrade_info_uuid = $M.info_uuid
+  AND controller_node_id = $M.controller_id;`
+	lookForDoneNodesStmt, err := sqlair.Prepare(lookForDoneNodesQuery, infoControllerNode{}, sqlair.M{})
 	if err != nil {
-		return errors.Annotatef(err, "preparing %q", lookForDoneNodesQuery)
+		return errors.Annotatef(err, "preparing select done query")
 	}
 
 	setNodeToDoneQuery := `
 UPDATE upgrade_info_controller_node
 SET    node_upgrade_completed_at = DATETIME("now")
-WHERE  upgrade_info_uuid = $M.info_uuid 
-       AND controller_node_id = $M.controller_id`
-	setNodeToDoneStatement, err := sqlair.Prepare(setNodeToDoneQuery, sqlair.M{})
+WHERE  upgrade_info_uuid = $M.info_uuid
+       AND controller_node_id = $M.controller_id
+	   AND node_upgrade_completed_at IS NULL;
+`
+	setNodeToDoneStmt, err := sqlair.Prepare(setNodeToDoneQuery, sqlair.M{})
 	if err != nil {
-		return errors.Annotatef(err, "preparing %q", setNodeToDoneQuery)
+		return errors.Annotatef(err, "preparing update node query")
 	}
 
 	completeUpgradeQuery := `
 UPDATE upgrade_info
 SET    completed_at = DATETIME("now")
-WHERE  uuid = $M.info_uuid`
-	completeUpgradeStatement, err := sqlair.Prepare(completeUpgradeQuery, sqlair.M{})
+WHERE  uuid = $M.info_uuid
+AND (
+    SELECT COUNT(*) FROM upgrade_info_controller_node
+    WHERE upgrade_info_uuid = $M.info_uuid
+    AND node_upgrade_completed_at IS NOT NULL
+) = (
+    SELECT COUNT(*) FROM upgrade_info_controller_node
+    WHERE upgrade_info_uuid = $M.info_uuid
+);
+`
+	completeUpgradeStmt, err := sqlair.Prepare(completeUpgradeQuery, sqlair.M{})
 	if err != nil {
-		return errors.Annotatef(err, "preparing %q", completeUpgradeQuery)
+		return errors.Annotatef(err, "preparing complete upgrade query")
 	}
 
-	var (
-		controllerReady bool
-	)
-
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var nodes []infoControllerNode
-		err := tx.Query(ctx, lookForDoneNodesStatement, sqlair.M{
-			"info_uuid": upgradeUUID,
-		}).GetAll(&nodes)
-		if err != nil && err != sql.ErrNoRows {
+		var node infoControllerNode
+		err := tx.Query(ctx, lookForDoneNodesStmt, sqlair.M{
+			"info_uuid":     upgradeUUID,
+			"controller_id": controllerID,
+		}).Get(&node)
+		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Errorf("controller node %q not ready", controllerID)
+			}
 			return errors.Trace(err)
 		}
 
-		for _, node := range nodes {
-			if node.ControllerNodeID == controllerID {
-				controllerReady = true
-				// We use the presence of NodeUpgradeCompletedAt as a flag to indicate whether the
-				// upgrade has been completed.  It's specific value is only for debugging
-				if node.NodeUpgradeCompletedAt.Valid {
-					return nil
-				}
-			}
-		}
-		if !controllerReady {
-			return nil
-		}
-
-		err = tx.Query(ctx, setNodeToDoneStatement, sqlair.M{
+		err = tx.Query(ctx, setNodeToDoneStmt, sqlair.M{
 			"info_uuid":     upgradeUUID,
 			"controller_id": controllerID,
 		}).Run()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		for _, node := range nodes {
-			if !node.NodeUpgradeCompletedAt.Valid && node.ControllerNodeID != controllerID {
-				return nil
-			}
-		}
 
-		err = tx.Query(ctx, completeUpgradeStatement, sqlair.M{"info_uuid": upgradeUUID}).Run()
+		err = tx.Query(ctx, completeUpgradeStmt, sqlair.M{"info_uuid": upgradeUUID}).Run()
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -274,9 +267,6 @@ WHERE  uuid = $M.info_uuid`
 	})
 	if err != nil {
 		return errors.Trace(err)
-	}
-	if !controllerReady {
-		return errors.Errorf("controller node %q not ready", controllerID)
 	}
 	return nil
 }
