@@ -52,18 +52,7 @@ func (s *statementSuite) TestNilSliceToPlaceholderTransform(c *gc.C) {
 	c.Check(count, gc.Equals, 0)
 }
 
-func (s *statementSuite) TestMapToMultiPlaceholder(c *gc.C) {
-	binds, vals := MapToMultiPlaceholder(map[string]string{
-		"a": "b",
-		"c": "d",
-	})
-	c.Assert(binds, gc.Equals, "(?, ?),(?, ?)")
-	c.Assert(len(vals), gc.Equals, 4)
-}
-
-func (s *statementSuite) TestNilMapToMultiPlaceholder(c *gc.C) {
-	binds, vals := MapToMultiPlaceholder[string, string](nil)
-	c.Assert(binds, gc.Equals, "")
-	c.Assert(vals, gc.NotNil)
-	c.Assert(len(vals), gc.Equals, 0)
+func (s *statementSuite) TestMakeBindArgs(c *gc.C) {
+	binds := MakeBindArgs(2, 3)
+	c.Assert(binds, gc.Equals, "(?, ?), (?, ?), (?, ?)")
 }

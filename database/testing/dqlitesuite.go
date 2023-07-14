@@ -21,6 +21,7 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/app"
+	"github.com/juju/juju/database/client"
 	"github.com/juju/juju/database/pragma"
 )
 
@@ -62,7 +63,16 @@ func (s *DqliteSuite) SetUpTest(c *gc.C) {
 	url := fmt.Sprintf("%s:%d", "127.0.0.1", port)
 	c.Logf("Opening dqlite db with: %v", url)
 
-	s.dqlite, err = app.New(s.dbPath, app.WithAddress(url))
+	s.dqlite, err = app.New(s.dbPath,
+		app.WithAddress(url),
+		app.WithTracing(client.LogDebug),
+		app.WithLogFunc(func(level client.LogLevel, msg string, args ...any) {
+			switch level {
+			case client.LogInfo, client.LogWarn, client.LogError:
+				c.Logf("%s: %s, %v", level, msg, args)
+			}
+		}),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.dqlite.Ready(context.TODO())
