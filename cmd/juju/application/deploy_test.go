@@ -2213,7 +2213,7 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 			}
 			return &deployAPIAdapter{
 				Connection:        apiRoot,
-				legacyClient:      apiclient.NewClient(apiRoot),
+				legacyClient:      apiclient.NewClient(apiRoot, coretesting.NoopLogger{}),
 				charmsClient:      apicharms.NewClient(apiRoot),
 				applicationClient: application.NewClient(apiRoot),
 				modelConfigClient: modelconfig.NewClient(apiRoot),

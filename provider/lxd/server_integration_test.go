@@ -9,11 +9,11 @@ import (
 	"os"
 	"syscall"
 
+	client "github.com/canonical/lxd/client"
+	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	client "github.com/lxc/lxd/client"
-	"github.com/lxc/lxd/shared/api"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 

@@ -29,8 +29,8 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/utils/proxy"
 
-	lxdclient "github.com/lxc/lxd/client"
-	lxdapi "github.com/lxc/lxd/shared/api"
+	lxdclient "github.com/canonical/lxd/client"
+	lxdapi "github.com/canonical/lxd/shared/api"
 )
 
 // Server defines an interface of all localized methods that the environment

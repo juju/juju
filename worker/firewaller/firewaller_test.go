@@ -988,7 +988,7 @@ func (s *InstanceModeSuite) TestConfigureModelFirewall(c *gc.C) {
 }
 
 func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
-	c *gc.C, published chan bool, apiErr *bool, ingressRequired *bool, clock clock.Clock,
+	c *gc.C, published chan bool, apiErr <-chan bool, ingressRequired *bool, clock clock.Clock,
 ) (worker.Worker, *state.RelationUnit) {
 	// Set up the consuming model - create the local app.
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
@@ -1049,7 +1049,7 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{}},
 		}
-		if *apiErr {
+		if <-apiErr {
 			return errors.New("fail")
 		}
 		if !*ingressRequired || len(argNetworks) > 0 {
@@ -1104,8 +1104,10 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C) {
 	published := make(chan bool)
 	ingressRequired := true
-	apiErr := false
-	fw, ru := s.setupRemoteRelationRequirerRoleConsumingSide(c, published, &apiErr, &ingressRequired, s.clock)
+	apiErr := make(chan bool, 2)
+	apiErr <- false
+	apiErr <- false
+	fw, ru := s.setupRemoteRelationRequirerRoleConsumingSide(c, published, apiErr, &ingressRequired, s.clock)
 	defer statetesting.AssertKillAndWait(c, fw)
 
 	// Add a unit on the consuming app and have it enter the relation scope.
@@ -1130,16 +1132,17 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *gc.C) {
-	published := make(chan bool)
+	published := make(chan bool, 1)
 	ingressRequired := true
-	apiErr := true
-	fw, ru := s.setupRemoteRelationRequirerRoleConsumingSide(c, published, &apiErr, &ingressRequired, s.clock)
+	apiErr := make(chan bool)
+	fw, ru := s.setupRemoteRelationRequirerRoleConsumingSide(c, published, apiErr, &ingressRequired, s.clock)
 	defer statetesting.AssertKillAndWait(c, fw)
 
 	// Add a unit on the consuming app and have it enter the relation scope.
 	// This will trigger the firewaller to try and publish the changes.
 	err := ru.EnterScope(map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
+	apiErr <- true
 	// We should not have published any ingress events yet - no changed published.
 	select {
 	case <-time.After(coretesting.ShortWait):
@@ -1147,8 +1150,10 @@ func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *gc.C) {
 		c.Fatal("unexpected ingress change to be published")
 	}
 
+	s.clock.Advance(time.Minute)
+
 	// Give the worker time to restart and try again.
-	apiErr = false
+	apiErr <- false
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("time out waiting for ingress change to be published on enter scope")

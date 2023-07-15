@@ -30,6 +30,18 @@ jobs:
           fetch-depth: 0
           ref: ${{ steps.branch.outputs.target }}
 
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: 'go.mod'
+          cache: false
+
+        # We need to do this before trying to merge, because if the merge
+        # creates conflicts in go.mod, we won't be able to use the go command.
+      - name: Pre-compile try-merge script
+        run: |
+          go install ./scripts/try-merge
+
       - name: Attempt to merge
         id: merge
         env:
@@ -66,7 +78,7 @@ jobs:
           IGNORE_EMAILS: ${{ secrets.MERGE_NOTIFY_IGNORE_EMAILS }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          MESSAGE=$(go run ./scripts/try-merge errmsg)
+          MESSAGE=$(try-merge errmsg)
           echo "message=$MESSAGE" >> "$GITHUB_OUTPUT"
 
       - name: Notify if merge has conflicts

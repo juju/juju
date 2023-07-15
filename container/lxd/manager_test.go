@@ -7,11 +7,11 @@ import (
 	"errors"
 	stdtesting "testing"
 
+	lxdclient "github.com/canonical/lxd/client"
+	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
-	lxdclient "github.com/lxc/lxd/client"
-	lxdapi "github.com/lxc/lxd/shared/api"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 

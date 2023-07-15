@@ -688,6 +688,12 @@ func (t *LiveTests) TestModelPorts(c *gc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(coretesting.FakeControllerConfig().APIPort())), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 	})
+
+	// Cleanup
+	err = fwModelEnv.CloseModelPorts(t.ProviderCallContext, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (t *LiveTests) TestBootstrapMultiple(c *gc.C) {
@@ -754,7 +760,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the API connection is working.
-	status, err := apiclient.NewClient(apiState).Status(nil)
+	status, err := apiclient.NewClient(apiState, coretesting.NoopLogger{}).Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Machines["0"].InstanceId, gc.Equals, string(instId0))
 

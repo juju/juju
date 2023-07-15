@@ -4,8 +4,8 @@
 package lxd_test
 
 import (
+	lxdapi "github.com/canonical/lxd/shared/api"
 	jc "github.com/juju/testing/checkers"
-	lxdapi "github.com/lxc/lxd/shared/api"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
