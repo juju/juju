@@ -1104,7 +1104,8 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C) {
 	published := make(chan bool)
 	ingressRequired := true
-	apiErr := make(chan bool, 1)
+	apiErr := make(chan bool, 2)
+	apiErr <- false
 	apiErr <- false
 	fw, ru := s.setupRemoteRelationRequirerRoleConsumingSide(c, published, apiErr, &ingressRequired, s.clock)
 	defer statetesting.AssertKillAndWait(c, fw)
