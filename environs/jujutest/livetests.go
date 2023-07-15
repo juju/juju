@@ -688,6 +688,12 @@ func (t *LiveTests) TestModelPorts(c *gc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(coretesting.FakeControllerConfig().APIPort())), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 	})
+
+	// Cleanup
+	err = fwModelEnv.CloseModelPorts(t.ProviderCallContext, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (t *LiveTests) TestBootstrapMultiple(c *gc.C) {
