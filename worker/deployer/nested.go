@@ -133,6 +133,7 @@ func NewNestedContext(config ContextConfig) (Context, error) {
 		units:  make(map[string]*UnitAgent),
 		errors: make(map[string]error),
 		runner: worker.NewRunner(worker.RunnerParams{
+			Logger:        config.Logger,
 			IsFatal:       agenterrors.IsFatal,
 			MoreImportant: agenterrors.MoreImportant,
 			RestartDelay:  jworker.RestartDelay,

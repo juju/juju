@@ -283,6 +283,7 @@ func MachineAgentFactoryFn(
 				IsFatal:       agenterrors.IsFatal,
 				MoreImportant: agenterrors.MoreImportant,
 				RestartDelay:  jworker.RestartDelay,
+				Logger:        logger,
 			}),
 			looputil.NewLoopDeviceManager(),
 			newIntrospectionSocketName,
