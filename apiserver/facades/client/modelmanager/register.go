@@ -14,9 +14,11 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/modelmigration"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	modelmanagerstate "github.com/juju/juju/domain/modelmanager/state"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -66,9 +68,13 @@ func newFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
 
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)
 	backend := common.NewUserAwareModelManagerBackend(model, pool, apiUser)
+
 	return NewModelManagerAPI(
-		ctx,
 		backend,
+		migration.NewModelExporter(
+			backend,
+			modelmigration.NewScope(changestream.NewTxnRunnerFactory(ctx.ControllerDB), nil),
+		),
 		common.NewModelManagerBackend(ctrlModel, pool),
 		modelmanagerservice.NewService(
 			modelmanagerstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),

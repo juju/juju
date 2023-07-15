@@ -20,8 +20,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
@@ -42,20 +40,17 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
 type modelInfoSuite struct {
 	coretesting.BaseSuite
-	statetesting.StateSuite
-	authorizer    apiservertesting.FakeAuthorizer
-	st            *mockState
-	ctlrSt        *mockState
-	modelmanager  *modelmanager.ModelManagerAPI
-	facadeContext facade.Context
-	callContext   context.ProviderCallContext
+	authorizer   apiservertesting.FakeAuthorizer
+	st           *mockState
+	ctlrSt       *mockState
+	modelmanager *modelmanager.ModelManagerAPI
+	callContext  context.ProviderCallContext
 }
 
 func pUint64(v uint64) *uint64 {
@@ -89,11 +84,6 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 					Name:  "left",
 					Value: "spam"}}},
 		},
-	}
-	s.facadeContext = facadetest.Context{
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Auth_:      s.authorizer,
 	}
 
 	controllerModel := &mockModel{
@@ -190,7 +180,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		s.facadeContext, s.st, s.ctlrSt, &mockModelManagerService{}, nil, nil, common.NewBlockChecker(s.st),
+		s.st, nil, s.ctlrSt, &mockModelManagerService{}, nil, nil, common.NewBlockChecker(s.st),
 		&s.authorizer, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -208,7 +198,7 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	var err error
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		s.facadeContext, s.st, s.ctlrSt, &mockModelManagerService{}, nil, nil,
+		s.st, nil, s.ctlrSt, &mockModelManagerService{}, nil, nil,
 		common.NewBlockChecker(s.st), s.authorizer, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)

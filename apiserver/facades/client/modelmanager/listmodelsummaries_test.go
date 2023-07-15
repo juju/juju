@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/permission"
@@ -26,22 +25,19 @@ import (
 	_ "github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
 type ListModelsWithInfoSuite struct {
 	gitjujutesting.IsolationSuite
-	statetesting.StateSuite
 
 	st *mockState
 
 	authoriser apiservertesting.FakeAuthorizer
 	adminUser  names.UserTag
 
-	facadeContext facadetest.Context
-	api           *modelmanager.ModelManagerAPI
-	callContext   context.ProviderCallContext
+	api         *modelmanager.ModelManagerAPI
+	callContext context.ProviderCallContext
 }
 
 var _ = gc.Suite(&ListModelsWithInfoSuite{})
@@ -62,14 +58,11 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: s.adminUser,
 	}
-	s.facadeContext = facadetest.Context{
-		State_:     s.State,
-		StatePool_: s.StatePool,
-	}
 
 	s.callContext = context.NewEmptyCloudCallContext()
+
 	api, err := modelmanager.NewModelManagerAPI(
-		s.facadeContext, s.st, &mockState{}, &mockModelManagerService{}, nil, nil,
+		s.st, nil, &mockState{}, &mockModelManagerService{}, nil, nil,
 		common.NewBlockChecker(s.st), s.authoriser, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -91,7 +84,7 @@ func (s *ListModelsWithInfoSuite) createModel(c *gc.C, user names.UserTag) *mock
 func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
 	modelmanager, err := modelmanager.NewModelManagerAPI(
-		s.facadeContext, s.st, &mockState{}, &mockModelManagerService{}, nil, nil,
+		s.st, nil, &mockState{}, &mockModelManagerService{}, nil, nil,
 		common.NewBlockChecker(s.st), s.authoriser, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)

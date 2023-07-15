@@ -26,71 +26,101 @@ import (
 
 var logger = loggo.GetLogger("juju.migration")
 
-// StateExporter describes interface on state required to export a
+// Note: This is being deprecated.
+// LegacyStateExporter describes interface on state required to export a
 // model.
-type StateExporter interface {
+type LegacyStateExporter interface {
 	// Export generates an abstract representation of a model.
 	Export(leaders map[string]string) (description.Model, error)
-	// ExportPartial the current model for the State optionally skipping
-	// aspects as defined by the ExportConfig.
+	// ExportPartial produces a partial export based based on the input
+	// config.
 	ExportPartial(cfg state.ExportConfig) (description.Model, error)
 }
 
+// ModelExporter facilitates partial and full export of a model.
+type ModelExporter struct {
+	// TODO(nvinuesa): This is being deprecated, only needed until the
+	// migration to dqlite is complete.
+	legacyStateExporter LegacyStateExporter
+
+	scope modelmigration.Scope
+}
+
+func NewModelExporter(legacyStateExporter LegacyStateExporter, scope modelmigration.Scope) *ModelExporter {
+	return &ModelExporter{legacyStateExporter, scope}
+}
+
 // ExportModelPartial partially serializes a model description from the
-// database contents, optionally skipping aspects as defined by the
-// ExportConfig.
-func ExportModelPartial(ctx context.Context, exporter StateExporter, scope modelmigration.Scope, cfg state.ExportConfig) (description.Model, error) {
-	model, err := exporter.ExportPartial(cfg)
+// database (legacy mongodb plus dqlite) contents, optionally skipping aspects
+// as defined by the ExportConfig.
+func (e *ModelExporter) ExportModelPartial(ctx context.Context, cfg state.ExportConfig) (description.Model, error) {
+	model, err := e.legacyStateExporter.ExportPartial(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return exportImpl(ctx, scope, model)
+	return e.Export(ctx, model)
 }
 
-// ExportModel serializes a model description from the database contents.
-func ExportModel(ctx context.Context, exporter StateExporter, scope modelmigration.Scope, leaders map[string]string) (description.Model, error) {
-	model, err := exporter.Export(leaders)
+// ExportModel serializes a model description from the database (legacy mongodb
+// plus dqlite) contents.
+func (e *ModelExporter) ExportModel(ctx context.Context, leaders map[string]string) (description.Model, error) {
+	model, err := e.legacyStateExporter.Export(leaders)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return exportImpl(ctx, scope, model)
+	return e.Export(ctx, model)
 }
 
-func exportImpl(ctx context.Context, scope modelmigration.Scope, model description.Model) (description.Model, error) {
+// Export serializes a model description from the dataase contents.
+func (e *ModelExporter) Export(ctx context.Context, model description.Model) (description.Model, error) {
 	coordinator := modelmigration.NewCoordinator()
 	migrations.ExportOperations(coordinator)
-	if err := coordinator.Perform(ctx, scope, model); err != nil {
+	if err := coordinator.Perform(ctx, e.scope, model); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return model, nil
 }
 
-// stateImporter describes the method needed to import a model
+// Note: This is being deprecated.
+// legacyStateImporter describes the method needed to import a model
 // into the database.
-type stateImporter interface {
+type legacyStateImporter interface {
 	Import(model description.Model) (*state.Model, *state.State, error)
+}
+
+// ModelImporter represents a model migration that implements Import.
+type ModelImporter struct {
+	// TODO(nvinuesa): This is being deprecated, only needed until the
+	// migration to dqlite is complete.
+	legacyStateImporter legacyStateImporter
+
+	scope modelmigration.Scope
+}
+
+func NewModelImporter(stateImporter legacyStateImporter, scope modelmigration.Scope) *ModelImporter {
+	return &ModelImporter{stateImporter, scope}
 }
 
 // ImportModel deserializes a model description from the bytes, transforms
 // the model config based on information from the controller model, and then
 // imports that as a new database model.
-func ImportModel(ctx context.Context, importer stateImporter, scope modelmigration.Scope, bytes []byte) (*state.Model, *state.State, error) {
+func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.Model, *state.State, error) {
 	model, err := description.Deserialize(bytes)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	dbModel, dbState, err := importer.Import(model)
+	dbModel, dbState, err := i.legacyStateImporter.Import(model)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
 	coordinator := modelmigration.NewCoordinator()
 	migrations.ImportOperations(coordinator, logger)
-	if err := coordinator.Perform(ctx, scope, model); err != nil {
+	if err := coordinator.Perform(ctx, i.scope, model); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 

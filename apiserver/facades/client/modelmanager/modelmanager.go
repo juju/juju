@@ -25,9 +25,7 @@ import (
 	"github.com/juju/juju/caas"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/series"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
@@ -36,7 +34,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	environsContext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/space"
-	"github.com/juju/juju/migration"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -60,13 +57,17 @@ type ModelManagerService interface {
 	Delete(stdcontext.Context, modelmanagerservice.UUID) error
 }
 
+type ModelExporter interface {
+	ExportModelPartial(ctx context.Context, cfg state.ExportConfig) (description.Model, error)
+}
+
 // ModelManagerAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
-	controllerDB        database.TxnRunner
 	modelManagerService ModelManagerService
 	state               common.ModelManagerBackend
+	modelExporter       ModelExporter
 	ctlrState           common.ModelManagerBackend
 	check               common.BlockCheckerInterface
 	authorizer          facade.Authorizer
@@ -81,8 +82,8 @@ type ModelManagerAPI struct {
 // NewModelManagerAPI creates a new api server endpoint for managing
 // models.
 func NewModelManagerAPI(
-	ctx facade.Context,
 	st common.ModelManagerBackend,
+	modelExporter ModelExporter,
 	ctlrSt common.ModelManagerBackend,
 	modelManagerService ModelManagerService,
 	toolsFinder common.ToolsFinder,
@@ -106,15 +107,10 @@ func NewModelManagerAPI(
 	}
 	isAdmin := err == nil
 
-	controllerDB, err := ctx.ControllerDB()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	return &ModelManagerAPI{
-		controllerDB:        controllerDB,
 		ModelStatusAPI:      common.NewModelStatusAPI(st, authorizer, apiUser),
 		state:               st,
+		modelExporter:       modelExporter,
 		ctlrState:           ctlrSt,
 		modelManagerService: modelManagerService,
 		getBroker:           getBroker,
@@ -553,7 +549,7 @@ func (m *ModelManagerAPI) dumpModel(ctx context.Context, args params.Entity, sim
 		}
 	}
 
-	st, release, err := m.state.GetBackend(modelTag.Id())
+	_, release, err := m.state.GetBackend(modelTag.Id())
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, errors.Trace(apiservererrors.ErrBadId)
@@ -575,8 +571,7 @@ func (m *ModelManagerAPI) dumpModel(ctx context.Context, args params.Entity, sim
 		exportConfig.SkipLinkLayerDevices = true
 	}
 
-	scope := modelmigration.NewScope(m.controllerDB, nil)
-	model, err := migration.ExportModelPartial(ctx, st, scope, exportConfig)
+	model, err := m.modelExporter.ExportModelPartial(ctx, exportConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
