@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/series"
 	coreseries "github.com/juju/juju/core/series"
 )
 
@@ -1004,9 +1003,9 @@ func (c *CharmHubRepository) composeSuggestions(releases []transport.Release, or
 			continue
 		}
 		if track == "all" || release.Base.Name == "all" {
-			base, err = series.ParseBase(origin.Platform.OS, origin.Platform.Channel)
+			base, err = coreseries.ParseBase(origin.Platform.OS, origin.Platform.Channel)
 		} else {
-			base, err = series.ParseBase(release.Base.Name, release.Base.Channel)
+			base, err = coreseries.ParseBase(release.Base.Name, release.Base.Channel)
 		}
 		if err != nil {
 			c.logger.Errorf("converting version to base: %s", err)

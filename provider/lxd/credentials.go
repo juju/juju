@@ -13,9 +13,9 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
-	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/container/lxd"

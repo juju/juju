@@ -117,9 +117,9 @@ func (c *sshMachine) setArgs(args []string) {
 }
 
 // defaultReachableChecker returns a jujussh.ReachableChecker with a connection
-// timeout of SSHRetryDelay and an overall timout of SSHTimeout
+// timeout of SSHTimeout/2 and an overall timout of SSHTimeout
 func defaultReachableChecker() jujussh.ReachableChecker {
-	return jujussh.NewReachableChecker(&net.Dialer{Timeout: SSHRetryDelay}, SSHTimeout)
+	return jujussh.NewReachableChecker(&net.Dialer{Timeout: SSHTimeout / 2}, SSHTimeout)
 }
 
 func (c *sshMachine) setHostChecker(checker jujussh.ReachableChecker) {
@@ -416,7 +416,7 @@ func (c *sshMachine) ensureAPIClient(mc ModelCommand) error {
 
 	c.sshClient = sshclient.NewFacade(conn)
 	c.apiAddr = conn.Addr()
-	c.statusClient = apiclient.NewClient(conn)
+	c.statusClient = apiclient.NewClient(conn, logger)
 	return nil
 }
 

@@ -6,9 +6,9 @@ package lxd_test
 import (
 	"errors"
 
+	lxdclient "github.com/canonical/lxd/client"
+	lxdapi "github.com/canonical/lxd/shared/api"
 	jc "github.com/juju/testing/checkers"
-	lxdclient "github.com/lxc/lxd/client"
-	lxdapi "github.com/lxc/lxd/shared/api"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 

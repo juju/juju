@@ -181,7 +181,7 @@ func newDeployCommand() *DeployCommand {
 		}
 		return &deployAPIAdapter{
 			Connection:           apiRoot,
-			legacyClient:         apiclient.NewClient(apiRoot),
+			legacyClient:         apiclient.NewClient(apiRoot, logger),
 			charmsClient:         apicharms.NewClient(apiRoot),
 			applicationClient:    application.NewClient(apiRoot),
 			machineManagerClient: machinemanager.NewClient(apiRoot),

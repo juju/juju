@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/canonical/lxd/shared/api"
+	"github.com/canonical/lxd/shared/units"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
-	"github.com/lxc/lxd/shared/api"
-	"github.com/lxc/lxd/shared/units"
 
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/instance"
