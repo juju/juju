@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   migrate:
-    name: 2.9-to-3.x via ${{ matrix.client }} client
+    name: 3.x-to-4.x via ${{ matrix.client }} client
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     strategy:
@@ -26,8 +26,8 @@ jobs:
       matrix:
         # TODO: add microk8s tests
         cloud: ["lxd"]
-        channel: ["2.9/stable"]
-        client: ['2.9', '3.x']
+        channel: ["3.1/stable"]
+        client: ['3.x', '4.x']
 
     steps:
       - name: Checkout code
@@ -37,17 +37,17 @@ jobs:
         if: matrix.cloud == 'lxd'
         uses: canonical/setup-lxd@v0.1.1
 
-      - name: Install Juju 2.9
+      - name: Install Juju 3.x
         run: |
           sudo snap install juju --classic --channel ${{ matrix.channel }}
 
-      - name: Bootstrap a 2.9 controller and model
+      - name: Bootstrap a 3.x controller and model
         run: |
           /snap/bin/juju version
-          /snap/bin/juju bootstrap lxd test29
+          /snap/bin/juju bootstrap lxd test3x
           /snap/bin/juju add-model test-migrate
           /snap/bin/juju deploy ubuntu
-          
+
           # TODO: use juju-restore
           # TODO: add users/permissions/models and test that those migrate over
 
@@ -59,46 +59,46 @@ jobs:
           echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
           echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
-      - name: Upgrade client to 3.x
+      - name: Upgrade client to 4.x
         run: |
           make go-install &>/dev/null
 
-      - name: Bootstrap 3.x controller
+      - name: Bootstrap 4.x controller
         run: |
           juju version
-          juju bootstrap lxd test3x
+          juju bootstrap lxd test4x --build-agent
           juju switch controller
           juju wait-for application controller
 
         # TODO: create backup and juju restore
 
-      - name: Migrate default model to 3.x controller
+      - name: Migrate default model to 4.x controller
         run: |
           # Determine which Juju client to use
           JUJU='juju'
-          if [[ ${{ matrix.client }} == '2.9' ]]; then
+          if [[ ${{ matrix.client }} == '3.x' ]]; then
             JUJU='/snap/bin/juju'
           fi
-          
-          $JUJU switch test29
-          
+
+          $JUJU switch test3x
+
           # Ensure application is fully deployed
           # We have to use the old client to speak to the new controller, as
           # this is blocked otherwise.
-          /snap/bin/juju wait-for application ubuntu
+          $JUJU wait-for application ubuntu
 
           # Wait a few secs for the machine status to update
           # so that migration prechecks pass.
           sleep 10
 
           $JUJU version
-          $JUJU migrate test-migrate test3x
+          $JUJU migrate test-migrate test4x
 
       - name: Check the migration was successful
         run: |
           set -x
-          juju switch test3x
-          
+          juju switch test4x
+
           # Wait for 'test-migrate' model to come through
           attempt=0
           while true; do
@@ -113,9 +113,9 @@ jobs:
               exit 1
             fi
           done
-          
+
           juju switch test-migrate
           juju wait-for application ubuntu
-          
+
           juju deploy ubuntu yet-another-ubuntu
           juju wait-for application yet-another-ubuntu
