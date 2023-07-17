@@ -176,6 +176,7 @@ func (m *modelWorkerManager) loop() error {
 		IsFatal:       neverFatal,
 		MoreImportant: neverImportant,
 		RestartDelay:  m.config.ErrorDelay,
+		Logger:        m.config.Logger,
 	})
 	if err := m.catacomb.Add(m.runner); err != nil {
 		return errors.Trace(err)

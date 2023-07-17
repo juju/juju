@@ -22,6 +22,8 @@ import (
 type Logger interface {
 	Debugf(string, ...interface{})
 	Warningf(string, ...interface{})
+	Errorf(string, ...interface{})
+	Infof(string, ...interface{})
 }
 
 // ManifoldConfig holds the information necessary to run a model worker manager

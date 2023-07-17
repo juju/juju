@@ -164,7 +164,8 @@ func New(config Config) (*Worker, error) {
 	runner := config.Runner
 	if runner == nil {
 		runner = worker.NewRunner(worker.RunnerParams{
-			Clock: config.Clock,
+			Clock:  config.Clock,
+			Logger: config.Logger,
 
 			// One of the remote application workers failing should not
 			// prevent the others from running.

@@ -173,8 +173,7 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 	// noticed. The clocks in the runner and the txn watcher are used to
 	// control polling, and never return the actual times.
 	pool.watcherRunner = worker.NewRunner(worker.RunnerParams{
-		// TODO add a Logger parameter to RunnerParams:
-		// Logger: loggo.GetLogger(logger.Name() + ".txnwatcher"),
+		Logger:       loggo.GetLogger("juju.state.pool.txnwatcher"),
 		IsFatal:      func(err error) bool { return errors.Cause(err) == errPoolClosed },
 		RestartDelay: time.Second,
 		Clock:        args.Clock,
