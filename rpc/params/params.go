@@ -1104,29 +1104,6 @@ type BundleChangesParams struct {
 	BundleURL      string `json:"bundleURL"`
 }
 
-// BundleChangesResults holds results of the Bundle.GetChanges call.
-type BundleChangesResults struct {
-	// Changes holds the list of changes required to deploy the bundle.
-	// It is omitted if the provided bundle YAML has verification errors.
-	Changes []*BundleChange `json:"changes,omitempty"`
-	// Errors holds possible bundle verification errors.
-	Errors []string `json:"errors,omitempty"`
-}
-
-// BundleChange holds a single change required to deploy a bundle.
-type BundleChange struct {
-	// Id is the unique identifier for this change.
-	Id string `json:"id"`
-	// Method is the action to be performed to apply this change.
-	Method string `json:"method"`
-	// Args holds a list of arguments to pass to the method.
-	Args []interface{} `json:"args"`
-	// Requires holds a list of dependencies for this change. Each dependency
-	// is represented by the corresponding change id, and must be applied
-	// before this change is applied.
-	Requires []string `json:"requires"`
-}
-
 // BundleChangesMapArgsResults holds results of the Bundle.GetChanges call.
 type BundleChangesMapArgsResults struct {
 	// Changes holds the list of changes required to deploy the bundle.

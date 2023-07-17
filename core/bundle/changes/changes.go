@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/series"
-	"github.com/juju/loggo"
 )
 
 // Logger defines the logging methods needed
@@ -151,8 +150,6 @@ func existingOffersFromModel(ctrlModel *Model) map[string]set.Strings {
 	return existingOffers
 }
 
-var logger = loggo.GetLogger("juju.core.bundle.changes")
-
 // Change holds a single change required to deploy a bundle.
 type Change interface {
 	// Id returns the unique identifier for this change.
@@ -162,12 +159,6 @@ type Change interface {
 	Requires() []string
 	// Method returns the action to be performed to apply this change.
 	Method() string
-	// GUIArgs returns positional arguments to pass to the method, suitable for
-	// being JSON-serialized and sent to the Juju GUI.
-	// TODO (jack-w-shaw): GUIArgs returns it's args in a magic order, making it very
-	// very brittle. All this information is included in map form in Args. In Juju 4
-	// we should remove GUIArgs and the corresponding GetChanges facade
-	GUIArgs() []interface{}
 	// Description returns a human readable, potentially multi-line summary
 	// of the change.
 	Description() []string
@@ -226,16 +217,6 @@ type AddCharmChange struct {
 	changeInfo
 	// Params holds parameters for adding a charm.
 	Params AddCharmParams
-}
-
-// GUIArgs implements Change.GUIArgs.
-func (ch *AddCharmChange) GUIArgs() []interface{} {
-	series, err := baseToSeries(ch.Params.Base)
-	if err != nil {
-		// params base is has already been parsed, so this should be impossible.
-		logger.Errorf("Cannot parse base to series: %v", ch.Params.Base)
-	}
-	return []interface{}{ch.Params.Charm, series, ch.Params.Channel}
 }
 
 // Args implements Change.Args.
@@ -312,21 +293,6 @@ type UpgradeCharmChange struct {
 	Params UpgradeCharmParams
 }
 
-// GUIArgs implements Change.GUIArgs.
-func (ch *UpgradeCharmChange) GUIArgs() []interface{} {
-	series, err := baseToSeries(ch.Params.Base)
-	if err != nil {
-		// params base is has already been parsed, so this should be impossible.
-		logger.Errorf("Cannot parse base to series: %v", ch.Params.Base)
-	}
-	return []interface{}{
-		ch.Params.Charm,
-		ch.Params.Application,
-		series,
-		ch.Params.Channel,
-	}
-}
-
 // Args implements Change.Args.
 func (ch *UpgradeCharmChange) Args() (map[string]interface{}, error) {
 	return paramsToArgs(ch.Params)
@@ -396,23 +362,6 @@ type AddMachineChange struct {
 	Params AddMachineParams
 }
 
-// GUIArgs implements Change.GUIArgs.
-func (ch *AddMachineChange) GUIArgs() []interface{} {
-	series, err := baseToSeries(ch.Params.Base)
-	if err != nil {
-		// params base is has already been parsed, so this should be impossible.
-		logger.Errorf("Cannot parse base to series: %v", ch.Params.Base)
-	}
-	options := AddMachineOptions{
-		Base:          ch.Params.Base,
-		Series:        series,
-		Constraints:   ch.Params.Constraints,
-		ContainerType: ch.Params.ContainerType,
-		ParentId:      ch.Params.ParentId,
-	}
-	return []interface{}{options}
-}
-
 // Args implements Change.Args.
 func (ch *AddMachineChange) Args() (map[string]interface{}, error) {
 	return paramsToArgs(ch.Params)
@@ -435,13 +384,10 @@ func (ch *AddMachineChange) Description() []string {
 	return []string{fmt.Sprintf("add %s", machine)}
 }
 
-// AddMachineOptions holds GUI options for adding a machine or container.
+// AddMachineOptions holds options for adding a machine or container.
 type AddMachineOptions struct {
 	// Base holds the machine OS base.
 	Base string `json:"base,omitempty"`
-	// Series holds the optional machine OS series.
-	// DEPRECATED
-	Series string `json:"series,omitempty"`
 	// Constraints holds the machine constraints.
 	Constraints string `json:"constraints,omitempty"`
 	// ContainerType holds the machine container type (like "lxc" or "kvm").
@@ -497,11 +443,6 @@ type AddRelationChange struct {
 	Params AddRelationParams
 }
 
-// GUIArgs implements Change.GUIArgs.
-func (ch *AddRelationChange) GUIArgs() []interface{} {
-	return []interface{}{ch.Params.Endpoint1, ch.Params.Endpoint2}
-}
-
 // Args implements Change.Args.
 func (ch *AddRelationChange) Args() (map[string]interface{}, error) {
 	return paramsToArgs(ch.Params)
@@ -546,67 +487,9 @@ type AddApplicationChange struct {
 	Params AddApplicationParams
 }
 
-// GUIArgsWithDevices implements Change.GUIArgs and adds devices support
-func (ch *AddApplicationChange) GUIArgsWithDevices() []interface{} {
-	return ch.buildArgs(true)
-}
-
 // Args implements Change.Args.
 func (ch *AddApplicationChange) Args() (map[string]interface{}, error) {
 	return paramsToArgs(ch.Params)
-}
-
-// TODO: since GUIArgs are returned in a magical order, replacing series with base
-// would be a breaking change. Remove GetChanges facade endpoint in Juju 4
-func (ch *AddApplicationChange) buildArgs(includeDevices bool) []interface{} {
-	options := ch.Params.Options
-	if options == nil {
-		options = make(map[string]interface{}, 0)
-	}
-	storage := ch.Params.Storage
-	if storage == nil {
-		storage = make(map[string]string, 0)
-	}
-	devices := ch.Params.Devices
-	if devices == nil {
-		devices = map[string]string{}
-	}
-	endpointBindings := ch.Params.EndpointBindings
-	if endpointBindings == nil {
-		endpointBindings = make(map[string]string, 0)
-	}
-	resources := ch.Params.Resources
-	if resources == nil {
-		resources = make(map[string]int, 0)
-	}
-	series, err := baseToSeries(ch.Params.Base)
-	if err != nil {
-		// params base is has already been parsed, so this should be impossible.
-		logger.Errorf("Cannot parse base to series: %v", ch.Params.Base)
-	}
-	args := []interface{}{
-		ch.Params.Charm,
-		series,
-		ch.Params.Application,
-		options,
-		ch.Params.Constraints,
-		storage,
-		devices,
-		endpointBindings,
-		resources,
-		ch.Params.NumUnits,
-		ch.Params.Channel,
-	}
-	if !includeDevices {
-		// delete devices after storage
-		args = append(args[:6], args[6+1:]...)
-	}
-	return args
-}
-
-// GUIArgs implements Change.GUIArgs.
-func (ch *AddApplicationChange) GUIArgs() []interface{} {
-	return ch.buildArgs(false)
 }
 
 // Description implements Change.
@@ -699,15 +582,6 @@ type AddUnitChange struct {
 	Params AddUnitParams
 }
 
-// GUIArgs implements Change.GUIArgs.
-func (ch *AddUnitChange) GUIArgs() []interface{} {
-	args := []interface{}{ch.Params.Application, nil}
-	if ch.Params.To != "" {
-		args[1] = ch.Params.To
-	}
-	return args
-}
-
 // Args implements Change.Args.
 func (ch *AddUnitChange) Args() (map[string]interface{}, error) {
 	return paramsToArgs(ch.Params)
@@ -776,14 +650,6 @@ type ExposeChange struct {
 	changeInfo
 	// Params holds parameters for exposing an application.
 	Params ExposeParams
-}
-
-// GUIArgs implements Change.GUIArgs.
-func (ch *ExposeChange) GUIArgs() []interface{} {
-	if len(ch.Params.ExposedEndpoints) == 0 {
-		return []interface{}{ch.Params.Application, nil}
-	}
-	return []interface{}{ch.Params.Application, ch.Params.ExposedEndpoints}
 }
 
 // Args implements Change.Args.
@@ -960,11 +826,6 @@ type ScaleChange struct {
 	Params ScaleParams
 }
 
-// GUIArgs implements Change.GUIArgs.
-func (ch *ScaleChange) GUIArgs() []interface{} {
-	return []interface{}{ch.Params.Application, ch.Params.Scale}
-}
-
 // Args implements Change.Args.
 func (ch *ScaleChange) Args() (map[string]interface{}, error) {
 	return paramsToArgs(ch.Params)
@@ -1003,11 +864,6 @@ type SetAnnotationsChange struct {
 	changeInfo
 	// Params holds parameters for setting annotations.
 	Params SetAnnotationsParams
-}
-
-// GUIArgs implements Change.GUIArgs.
-func (ch *SetAnnotationsChange) GUIArgs() []interface{} {
-	return []interface{}{ch.Params.Id, string(ch.Params.EntityType), ch.Params.Annotations}
 }
 
 // Args implements Change.Args.
@@ -1059,11 +915,6 @@ type SetOptionsChange struct {
 	Params SetOptionsParams
 }
 
-// GUIArgs implements Change.GUIArgs.
-func (ch *SetOptionsChange) GUIArgs() []interface{} {
-	return []interface{}{ch.Params.Application, ch.Params.Options}
-}
-
 // Args implements Change.Args.
 func (ch *SetOptionsChange) Args() (map[string]interface{}, error) {
 	return paramsToArgs(ch.Params)
@@ -1097,11 +948,6 @@ type SetConstraintsChange struct {
 	changeInfo
 	// Params holds parameters for setting constraints.
 	Params SetConstraintsParams
-}
-
-// GUIArgs implements Change.GUIArgs.
-func (ch *SetConstraintsChange) GUIArgs() []interface{} {
-	return []interface{}{ch.Params.Application, ch.Params.Constraints}
 }
 
 // Args implements Change.Args.
@@ -1138,11 +984,6 @@ func newCreateOfferChange(params CreateOfferParams, requires ...string) *CreateO
 		},
 		Params: params,
 	}
-}
-
-// GUIArgs implements Change.GUIArgs.
-func (ch *CreateOfferChange) GUIArgs() []interface{} {
-	return []interface{}{ch.Params.Application, ch.Params.Endpoints, ch.Params.OfferName}
 }
 
 // Args implements Change.Args.
@@ -1188,11 +1029,6 @@ func newConsumeOfferChange(params ConsumeOfferParams, requires ...string) *Consu
 	}
 }
 
-// GUIArgs implements Change.GUIArgs.
-func (ch *ConsumeOfferChange) GUIArgs() []interface{} {
-	return []interface{}{ch.Params.URL, ch.Params.ApplicationName}
-}
-
 // Args implements Change.Args.
 func (ch *ConsumeOfferChange) Args() (map[string]interface{}, error) {
 	return paramsToArgs(ch.Params)
@@ -1228,11 +1064,6 @@ func newGrantOfferAccessChange(params GrantOfferAccessParams, requires ...string
 	}
 }
 
-// GUIArgs implements Change.GUIArgs.
-func (ch *GrantOfferAccessChange) GUIArgs() []interface{} {
-	return []interface{}{ch.Params.User, ch.Params.Access, ch.Params.Offer}
-}
-
 // Args implements Change.Args.
 func (ch *GrantOfferAccessChange) Args() (map[string]interface{}, error) {
 	return paramsToArgs(ch.Params)
@@ -1255,38 +1086,7 @@ func paramsToArgs(params interface{}) (map[string]interface{}, error) {
 	if err := json.Unmarshal(bytes, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
-	// For backwards compatibility, ensure series is included along with base
-	// TODO: remove in Juju 4
-	if b, ok := result["base"]; ok {
-		series, err := baseToSeries(b)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		result["series"] = series
-	}
 	return result, nil
-}
-
-// baseToSeries converts a base from Args into a series
-// We wish to move entirely to bases, but must keep series
-// in Args and GUIArgs for backwards compatibility.
-func baseToSeries(b interface{}) (string, error) {
-	bStr, ok := b.(string)
-	if !ok {
-		return "", errors.Errorf("Failed to parse base arg as string")
-	}
-	if bStr == "" {
-		return "", nil
-	}
-	base, err := series.ParseBaseFromString(bStr)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	series, err := series.GetSeriesFromBase(base)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return series, nil
 }
 
 // GrantOfferAccessParams holds the parameters for granting access to a user.

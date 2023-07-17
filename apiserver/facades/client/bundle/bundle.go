@@ -37,10 +37,10 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// APIv6 provides the Bundle API facade for version 6. It is otherwise
-// identical to V5 with the exception that the V6 adds the support for
-// multi-part yaml handling to GetChanges and GetChangesMapArgs.
-type APIv6 struct {
+// APIv7 provides the Bundle API facade for version 7. It drops GetChanges
+// from the facade, which was deprecated in favour of GetChangesMapArgs. It
+// also drops series from GetChangesMapArgs
+type APIv7 struct {
 	*BundleAPI
 }
 
@@ -89,65 +89,6 @@ type validators struct {
 	verifyConstraints func(string) error
 	verifyStorage     func(string) error
 	verifyDevices     func(string) error
-}
-
-// GetChanges returns the list of changes required to deploy the given bundle
-// data. The changes are sorted by requirements, so that they can be applied in
-// order.
-// GetChanges has been superseded in favour of GetChangesMapArgs. It's
-// preferable to use that new method to add new functionality and move clients
-// away from this one.
-func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
-	vs := validators{
-		verifyConstraints: func(s string) error {
-			_, err := constraints.Parse(s)
-			return err
-		},
-		verifyStorage: func(s string) error {
-			_, err := storage.ParseConstraints(s)
-			return err
-		},
-		verifyDevices: func(s string) error {
-			_, err := devices.ParseConstraints(s)
-			return err
-		},
-	}
-
-	var results params.BundleChangesResults
-	changes, validationErrors, err := b.doGetBundleChanges(args, vs)
-	if err != nil {
-		return results, errors.Trace(err)
-	}
-	if len(validationErrors) > 0 {
-		results.Errors = make([]string, len(validationErrors))
-		for k, v := range validationErrors {
-			results.Errors[k] = v.Error()
-		}
-		return results, nil
-	}
-	err = mapBundleChanges(changes, &results)
-	return results, errors.Trace(err)
-
-}
-
-func mapBundleChanges(changes []bundlechanges.Change, results *params.BundleChangesResults) error {
-	results.Changes = make([]*params.BundleChange, len(changes))
-	for i, c := range changes {
-		var guiArgs []interface{}
-		switch c := c.(type) {
-		case *bundlechanges.AddApplicationChange:
-			guiArgs = c.GUIArgsWithDevices()
-		default:
-			guiArgs = c.GUIArgs()
-		}
-		results.Changes[i] = &params.BundleChange{
-			Id:       c.Id(),
-			Method:   c.Method(),
-			Args:     guiArgs,
-			Requires: c.Requires(),
-		}
-	}
-	return nil
 }
 
 func (b *BundleAPI) doGetBundleChanges(
