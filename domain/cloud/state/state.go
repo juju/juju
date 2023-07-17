@@ -57,11 +57,11 @@ func (st *State) CloudDefaults(ctx context.Context, cloudName string) (map[strin
 	}
 
 	stmt := `
-SELECT key, value
-FROM cloud_defaults
-INNER JOIN cloud
-ON cloud_defaults.cloud_uuid = cloud.uuid
-WHERE cloud.name = ?
+SELECT  key, value
+FROM    cloud_defaults
+        INNER JOIN cloud
+            ON cloud_defaults.cloud_uuid = cloud.uuid
+WHERE   cloud.name = ?
 `
 
 	return defaults, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -99,13 +99,13 @@ func (st *State) UpdateCloudDefaults(
 
 	deleteBinds, deleteVals := database.SliceToPlaceholder(removeAttrs)
 	deleteStmt := fmt.Sprintf(`
-DELETE FROM cloud_defaults
-WHERE key IN (%s)
-AND cloud_uuid = ?;
+DELETE FROM  cloud_defaults
+WHERE        key IN (%s)
+AND          cloud_uuid = ?;
 `, deleteBinds)
 
 	upsertStmt := fmt.Sprintf(`
-INSERT INTO cloud_defaults(cloud_uuid, key, value) 
+INSERT INTO cloud_defaults (cloud_uuid, key, value) 
 VALUES %s 
 ON CONFLICT(cloud_uuid, key) DO UPDATE
     SET value = excluded.value
@@ -162,15 +162,15 @@ func (st *State) CloudAllRegionDefaults(
 	}
 
 	stmt := `
-SELECT cloud_region.name,
-       cloud_region_defaults.key,
-       cloud_region_defaults.value
-FROM cloud_region_defaults
-INNER JOIN cloud_region
-ON cloud_region.uuid = cloud_region_defaults.region_uuid
-INNER JOIN cloud
-ON cloud_region.cloud_uuid = cloud.uuid
-WHERE cloud.name = ?
+SELECT  cloud_region.name,
+        cloud_region_defaults.key,
+        cloud_region_defaults.value
+FROM    cloud_region_defaults
+        INNER JOIN cloud_region
+            ON cloud_region.uuid = cloud_region_defaults.region_uuid
+        INNER JOIN cloud
+            ON cloud_region.cloud_uuid = cloud.uuid
+WHERE   cloud.name = ?
 `
 
 	return defaults, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -218,19 +218,20 @@ func (st *State) UpdateCloudRegionDefaults(
 	}
 
 	selectStmt := `
-SELECT cloud_region.uuid
-FROM cloud_region
-INNER JOIN cloud
-ON cloud_region.cloud_uuid = cloud.uuid
-WHERE cloud.name = ?
-AND cloud_region.name = ?;
+SELECT  cloud_region.uuid
+FROM    cloud_region
+        INNER JOIN cloud
+            ON cloud_region.cloud_uuid = cloud.uuid
+WHERE   cloud.name = ?
+AND     cloud_region.name = ?;
 `
 
 	deleteBinds, deleteVals := database.SliceToPlaceholder(removeAttrs)
 	deleteStmt := fmt.Sprintf(`
-DELETE FROM cloud_region_defaults
-WHERE key IN (%s)
-AND region_uuid = ?;`, deleteBinds)
+DELETE FROM  cloud_region_defaults
+WHERE        key IN (%s)
+AND          region_uuid = ?;
+`, deleteBinds)
 
 	upsertStmt := fmt.Sprintf(`
 INSERT INTO cloud_region_defaults (region_uuid, key, value)
@@ -293,12 +294,17 @@ ON CONFLICT(region_uuid, key) DO UPDATE
 func loadClouds(ctx context.Context, tx *sql.Tx, name string) ([]cloud.Cloud, error) {
 	// First load the basic cloud info and auth types.
 	q := `
-SELECT cloud.uuid, cloud.name, cloud_type_id, cloud.endpoint, cloud.identity_endpoint, 
-       cloud.storage_endpoint, skip_tls_verify, auth_type.type, cloud_type.type
+SELECT cloud.uuid, cloud.name, cloud_type_id, 
+       cloud.endpoint, cloud.identity_endpoint, 
+       cloud.storage_endpoint, skip_tls_verify, 
+       auth_type.type, cloud_type.type
 FROM   cloud
-       LEFT JOIN cloud_auth_type ON cloud.uuid = cloud_auth_type.cloud_uuid
-       JOIN auth_type ON auth_type.id = cloud_auth_type.auth_type_id
-       JOIN cloud_type ON cloud_type.id = cloud.cloud_type_id
+       LEFT JOIN cloud_auth_type 
+            ON cloud.uuid = cloud_auth_type.cloud_uuid
+       JOIN auth_type 
+            ON auth_type.id = cloud_auth_type.auth_type_id
+       JOIN cloud_type 
+            ON cloud_type.id = cloud.cloud_type_id
 `
 
 	var args []any
@@ -569,9 +575,9 @@ func updateAuthTypes(ctx context.Context, tx *sql.Tx, cloudUUID string, authType
 
 	// Delete auth types no longer in the list.
 	deleteQuery := fmt.Sprintf(`
-DELETE FROM cloud_auth_type
-WHERE  cloud_uuid = ?
-AND    auth_type_id NOT IN (%s)
+DELETE FROM  cloud_auth_type
+WHERE        cloud_uuid = ?
+AND          auth_type_id NOT IN (%s)
 `, authTypeIdsBinds)
 
 	args := append([]any{cloudUUID}, authTypeIdsAnyVals...)
@@ -596,8 +602,8 @@ func updateCACerts(ctx context.Context, tx *sql.Tx, cloudUUID string, certs []st
 	// Delete any existing ca certs - we just delete them all rather
 	// than keeping existing ones as the cert values are long strings.
 	deleteQuery := `
-DELETE FROM cloud_ca_cert
-WHERE  cloud_uuid = ?
+DELETE FROM  cloud_ca_cert
+WHERE        cloud_uuid = ?
 `
 
 	if _, err := tx.ExecContext(ctx, deleteQuery, cloudUUID); err != nil {
@@ -626,9 +632,10 @@ func updateRegions(ctx context.Context, tx *sql.Tx, cloudUUID string, regions []
 
 	// Delete any regions no longer in the list.
 	deleteQuery := fmt.Sprintf(`
-DELETE FROM cloud_region
-WHERE  cloud_uuid = ?
-AND    name NOT IN (%s)`, regionNamesBinds)
+DELETE FROM  cloud_region
+WHERE        cloud_uuid = ?
+AND          name NOT IN (%s)
+`, regionNamesBinds)
 
 	args := append([]any{cloudUUID}, regionNames...)
 	if _, err := tx.ExecContext(ctx, deleteQuery, args...); err != nil {
@@ -639,10 +646,10 @@ AND    name NOT IN (%s)`, regionNamesBinds)
 INSERT INTO cloud_region (uuid, cloud_uuid, name, endpoint, identity_endpoint, storage_endpoint)
 VALUES (?, ?, ?, ?, ?, ?)
 ON CONFLICT(cloud_uuid, name) DO UPDATE SET name=excluded.name,
-											endpoint=excluded.endpoint,
-											identity_endpoint=excluded.identity_endpoint,
-											storage_endpoint=excluded.storage_endpoint
-												`
+                                            endpoint=excluded.endpoint,
+                                            identity_endpoint=excluded.identity_endpoint,
+                                            storage_endpoint=excluded.storage_endpoint
+`
 	for _, r := range regions {
 
 		if _, err := tx.ExecContext(ctx, insertQuery, utils.MustNewUUID().String(), cloudUUID,
