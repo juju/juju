@@ -186,8 +186,6 @@ func (c *applicationCommand) waitFor(input string, ctx ScopeContext, logger Logg
 			} else if found {
 				return true, nil
 			}
-
-			logger.Infof("application %q found with %q, waiting...", name, currentStatus)
 		} else {
 			logger.Infof("application %q not found, waiting...", name)
 			return false, nil

@@ -103,11 +103,11 @@ func (c *machineCommand) Run(ctx *cmd.Context) (err error) {
 
 		switch c.machineInfo.Life {
 		case life.Dead:
-			ctx.Infof("Machine %q has been removed", c.id)
+			ctx.Infof("machine %q has been removed", c.id)
 		case life.Dying:
-			ctx.Infof("Machine %q is being removed", c.id)
+			ctx.Infof("machine %q is being removed", c.id)
 		default:
-			ctx.Infof("Machine %q is running", c.id)
+			ctx.Infof("machine %q is running", c.id)
 			outputMachineSummary(ctx.Stdout, scopedContext, c.machineInfo)
 		}
 	}()

@@ -115,11 +115,11 @@ func (c *modelCommand) Run(ctx *cmd.Context) (err error) {
 
 		switch c.model.Life {
 		case life.Dead:
-			ctx.Infof("Model %q has been removed", c.name)
+			ctx.Infof("model %q has been removed", c.name)
 		case life.Dying:
-			ctx.Infof("Model %q is being removed", c.name)
+			ctx.Infof("model %q is being removed", c.name)
 		default:
-			ctx.Infof("Model %q is running", c.name)
+			ctx.Infof("model %q is running", c.name)
 			outputModelSummary(ctx.Stdout, scopedContext, c.model, c.applications, c.units, c.machines)
 		}
 	}()

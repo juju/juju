@@ -105,11 +105,11 @@ func (c *unitCommand) Run(ctx *cmd.Context) (err error) {
 
 		switch c.unitInfo.Life {
 		case life.Dead:
-			ctx.Infof("Unit %q has been removed", c.name)
+			ctx.Infof("unit %q has been removed", c.name)
 		case life.Dying:
-			ctx.Infof("Unit %q is being removed", c.name)
+			ctx.Infof("unit %q is being removed", c.name)
 		default:
-			ctx.Infof("Unit %q is running", c.name)
+			ctx.Infof("unit %q is running", c.name)
 			outputUnitSummary(ctx.Stdout, scopedContext, c.unitInfo, c.machines)
 		}
 	}()
