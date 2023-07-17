@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
-	"github.com/mattn/go-sqlite3"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/database"
@@ -58,11 +57,11 @@ func (st *State) CloudDefaults(ctx context.Context, cloudName string) (map[strin
 	}
 
 	stmt := `
-SELECT key, value
-FROM cloud_defaults
-INNER JOIN cloud
-ON cloud_defaults.cloud_uuid = cloud.uuid
-WHERE cloud.name = ?
+SELECT  key, value
+FROM    cloud_defaults
+        INNER JOIN cloud
+            ON cloud_defaults.cloud_uuid = cloud.uuid
+WHERE   cloud.name = ?
 `
 
 	return defaults, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -96,50 +95,47 @@ func (st *State) UpdateCloudDefaults(
 		return errors.Trace(err)
 	}
 
+	selectStmt := "SELECT uuid FROM cloud WHERE name = ?"
+
 	deleteBinds, deleteVals := database.SliceToPlaceholder(removeAttrs)
 	deleteStmt := fmt.Sprintf(`
-DELETE FROM cloud_defaults
-WHERE key IN (%s)
-AND cloud_uuid = (SELECT uuid
-                    FROM cloud
-                    WHERE name = ?)
+DELETE FROM  cloud_defaults
+WHERE        key IN (%s)
+AND          cloud_uuid = ?;
 `, deleteBinds)
 
-	upsertBinds, upsertVals := database.MapToMultiPlaceholder(updateAttrs)
 	upsertStmt := fmt.Sprintf(`
-CREATE TEMP TABLE cloud_default_tmp (
-	key TEXT,
-    value TEXT
-);
-    
-INSERT INTO temp.cloud_default_tmp VALUES %s;
-
-INSERT INTO cloud_defaults(cloud_uuid, key, value)
-SELECT (SELECT uuid FROM cloud WHERE name = ?) AS cloud_uuid,
-       key,
-       value
-FROM temp.cloud_default_tmp
--- The WHERE clause here is needed to help sqlite parser with ambiguity.
-WHERE true
+INSERT INTO cloud_defaults (cloud_uuid, key, value) 
+VALUES %s 
 ON CONFLICT(cloud_uuid, key) DO UPDATE
-SET value = excluded.value
-WHERE cloud_uuid = excluded.cloud_uuid
-AND key = excluded.key;
-
-DROP TABLE temp.cloud_default_tmp;
-`, upsertBinds)
+    SET value = excluded.value
+    WHERE cloud_uuid = excluded.cloud_uuid
+    AND key = excluded.key;
+`, database.MakeBindArgs(3, len(updateAttrs)))
 
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		if len(deleteVals) != 0 {
-			_, err := tx.ExecContext(ctx, deleteStmt, append(deleteVals, cloudName)...)
+		var uuid string
+		row := tx.QueryRowContext(ctx, selectStmt, cloudName)
+		if err := row.Scan(&uuid); err == sql.ErrNoRows {
+			return fmt.Errorf("cloud %q %w%w", cloudName, errors.NotFound, errors.Hide(err))
+		} else if err != nil {
+			return fmt.Errorf("fetching cloud %q: %w", cloudName, err)
+		}
+
+		if len(deleteVals) > 0 {
+			_, err := tx.ExecContext(ctx, deleteStmt, append(deleteVals, uuid)...)
 			if err != nil {
 				return fmt.Errorf("removing cloud default keys for %q: %w", cloudName, err)
 			}
 		}
 
-		if len(upsertVals) != 0 {
-			_, err := tx.ExecContext(ctx, upsertStmt, append(upsertVals, cloudName)...)
-			if sqliteErr, is := errors.AsType[sqlite3.Error](err); is && sqliteErr.ExtendedCode == sqlite3.ErrConstraintNotNull {
+		if len(updateAttrs) > 0 {
+			values := make([]any, 0, len(updateAttrs)*3)
+			for k, v := range updateAttrs {
+				values = append(values, uuid, k, v)
+			}
+			_, err := tx.ExecContext(ctx, upsertStmt, values...)
+			if database.IsErrConstraintNotNull(err) {
 				return fmt.Errorf("missing cloud %q %w%w", cloudName, errors.NotValid, errors.Hide(err))
 			} else if err != nil {
 				return fmt.Errorf("updating cloud default keys %q: %w", cloudName, err)
@@ -166,15 +162,15 @@ func (st *State) CloudAllRegionDefaults(
 	}
 
 	stmt := `
-SELECT cloud_region.name,
-       cloud_region_defaults.key,
-       cloud_region_defaults.value
-FROM cloud_region_defaults
-INNER JOIN cloud_region
-ON cloud_region.uuid = cloud_region_defaults.region_uuid
-INNER JOIN cloud
-ON cloud_region.cloud_uuid = cloud.uuid
-WHERE cloud.name = ?
+SELECT  cloud_region.name,
+        cloud_region_defaults.key,
+        cloud_region_defaults.value
+FROM    cloud_region_defaults
+        INNER JOIN cloud_region
+            ON cloud_region.uuid = cloud_region_defaults.region_uuid
+        INNER JOIN cloud
+            ON cloud_region.cloud_uuid = cloud.uuid
+WHERE   cloud.name = ?
 `
 
 	return defaults, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -221,49 +217,42 @@ func (st *State) UpdateCloudRegionDefaults(
 		return errors.Trace(err)
 	}
 
+	selectStmt := `
+SELECT  cloud_region.uuid
+FROM    cloud_region
+        INNER JOIN cloud
+            ON cloud_region.cloud_uuid = cloud.uuid
+WHERE   cloud.name = ?
+AND     cloud_region.name = ?;
+`
+
 	deleteBinds, deleteVals := database.SliceToPlaceholder(removeAttrs)
 	deleteStmt := fmt.Sprintf(`
-DELETE FROM cloud_region_defaults
-WHERE key IN (%s)
-AND region_uuid = (SELECT cloud_region.uuid
-                   FROM cloud_region
-                   INNER JOIN cloud
-                   ON cloud_region.cloud_uuid = cloud.uuid
-                   WHERE cloud.name = ?
-                   AND cloud_region.name = ?)`, deleteBinds)
+DELETE FROM  cloud_region_defaults
+WHERE        key IN (%s)
+AND          region_uuid = ?;
+`, deleteBinds)
 
-	upsertBinds, upsertVals := database.MapToMultiPlaceholder(updateAttrs)
 	upsertStmt := fmt.Sprintf(`
-CREATE TEMP TABLE cloud_region_default_tmp (
-	key TEXT,
-    value TEXT
-);
-    
-INSERT INTO temp.cloud_region_default_tmp VALUES %s;
-
-INSERT INTO cloud_region_defaults(region_uuid, key, value)
-SELECT (SELECT cloud_region.uuid
-        FROM cloud_region
-        INNER JOIN cloud
-        ON cloud.uuid = cloud_region.cloud_uuid
-        WHERE cloud.name = ?
-        AND cloud_region.name = ?) AS region_uuid,
-       key,
-       value
-FROM temp.cloud_region_default_tmp
--- The WHERE clause here is needed to help sqlite parser with ambiguity.
-WHERE true
+INSERT INTO cloud_region_defaults (region_uuid, key, value)
+VALUES %s
 ON CONFLICT(region_uuid, key) DO UPDATE
-SET value = excluded.value
-WHERE region_uuid = excluded.region_uuid
-AND key = excluded.key;
-
-DROP TABLE temp.cloud_region_default_tmp;
-`, upsertBinds)
+    SET value = excluded.value
+    WHERE region_uuid = excluded.region_uuid
+    AND key = excluded.key;
+`, database.MakeBindArgs(3, len(updateAttrs)))
 
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		if len(deleteVals) != 0 {
-			_, err := tx.ExecContext(ctx, deleteStmt, append(deleteVals, cloudName, regionName)...)
+		var uuid string
+		row := tx.QueryRowContext(ctx, selectStmt, cloudName, regionName)
+		if err := row.Scan(&uuid); err == sql.ErrNoRows {
+			return fmt.Errorf("cloud %q region %q %w%w", cloudName, regionName, errors.NotFound, errors.Hide(err))
+		} else if err != nil {
+			return fmt.Errorf("fetching cloud %q region %q: %w", cloudName, regionName, err)
+		}
+
+		if len(deleteVals) > 0 {
+			_, err := tx.ExecContext(ctx, deleteStmt, append(deleteVals, uuid)...)
 			if err != nil {
 				return fmt.Errorf(
 					"removing cloud %q region %q default keys: %w",
@@ -274,9 +263,13 @@ DROP TABLE temp.cloud_region_default_tmp;
 			}
 		}
 
-		if len(upsertVals) != 0 {
-			_, err := tx.ExecContext(ctx, upsertStmt, append(upsertVals, cloudName, regionName)...)
-			if sqliteErr, is := errors.AsType[sqlite3.Error](err); is && sqliteErr.ExtendedCode == sqlite3.ErrConstraintNotNull {
+		if len(updateAttrs) > 0 {
+			values := make([]any, 0, len(updateAttrs)*3)
+			for k, v := range updateAttrs {
+				values = append(values, uuid, k, v)
+			}
+			_, err := tx.ExecContext(ctx, upsertStmt, values...)
+			if database.IsErrConstraintNotNull(err) {
 				return fmt.Errorf(
 					"missing region %q for cloud %q %w%w",
 					regionName,
@@ -301,12 +294,17 @@ DROP TABLE temp.cloud_region_default_tmp;
 func loadClouds(ctx context.Context, tx *sql.Tx, name string) ([]cloud.Cloud, error) {
 	// First load the basic cloud info and auth types.
 	q := `
-SELECT cloud.uuid, cloud.name, cloud_type_id, cloud.endpoint, cloud.identity_endpoint, 
-       cloud.storage_endpoint, skip_tls_verify, auth_type.type, cloud_type.type
+SELECT cloud.uuid, cloud.name, cloud_type_id, 
+       cloud.endpoint, cloud.identity_endpoint, 
+       cloud.storage_endpoint, skip_tls_verify, 
+       auth_type.type, cloud_type.type
 FROM   cloud
-       LEFT JOIN cloud_auth_type ON cloud.uuid = cloud_auth_type.cloud_uuid
-       JOIN auth_type ON auth_type.id = cloud_auth_type.auth_type_id
-       JOIN cloud_type ON cloud_type.id = cloud.cloud_type_id
+       LEFT JOIN cloud_auth_type 
+            ON cloud.uuid = cloud_auth_type.cloud_uuid
+       JOIN auth_type 
+            ON auth_type.id = cloud_auth_type.auth_type_id
+       JOIN cloud_type 
+            ON cloud_type.id = cloud.cloud_type_id
 `
 
 	var args []any
@@ -392,10 +390,10 @@ FROM   cloud
 func loadCACerts(ctx context.Context, tx *sql.Tx, cloudUUIDS []string) (map[string][]string, error) {
 	cloudUUIDBinds, cloudUUIDsVals := database.SliceToPlaceholder(cloudUUIDS)
 	q := fmt.Sprintf(`
-		SELECT
-			cloud_uuid, ca_cert
-		FROM cloud_ca_cert
-		WHERE cloud_uuid IN (%s)`, cloudUUIDBinds)[1:]
+SELECT cloud_uuid, ca_cert
+FROM   cloud_ca_cert
+WHERE  cloud_uuid IN (%s)
+`, cloudUUIDBinds)
 
 	rows, err := tx.QueryContext(ctx, q, cloudUUIDsVals...)
 	if err != nil && err != sql.ErrNoRows {
@@ -426,10 +424,10 @@ func loadCACerts(ctx context.Context, tx *sql.Tx, cloudUUIDS []string) (map[stri
 func loadRegions(ctx context.Context, tx *sql.Tx, cloudUUIDS []string) (map[string][]cloud.Region, error) {
 	cloudUUIDBinds, cloudUUIDSAnyVals := database.SliceToPlaceholder(cloudUUIDS)
 	q := fmt.Sprintf(`
-		SELECT
-			cloud_uuid, name, endpoint, identity_endpoint, storage_endpoint
-		FROM cloud_region
-		WHERE cloud_uuid IN (%s)`, cloudUUIDBinds)[1:]
+SELECT cloud_uuid, name, endpoint, identity_endpoint, storage_endpoint
+FROM   cloud_region
+WHERE  cloud_uuid IN (%s)
+		`, cloudUUIDBinds)[1:]
 
 	rows, err := tx.QueryContext(ctx, q, cloudUUIDSAnyVals...)
 	if err != nil && err != sql.ErrNoRows {
@@ -509,17 +507,23 @@ func upsertCloud(ctx context.Context, tx *sql.Tx, cloudUUID string, cloud cloud.
 
 	q := `
 INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, identity_endpoint, storage_endpoint, skip_tls_verify)
-  VALUES (?, ?, ?, ?, ?, ?, ?)
-  ON CONFLICT(uuid) DO UPDATE SET name=excluded.name,
-                                  endpoint=excluded.endpoint,
-                                  identity_endpoint=excluded.identity_endpoint,
-                                  storage_endpoint=excluded.storage_endpoint,
-                                  skip_tls_verify=excluded.skip_tls_verify`[1:]
+VALUES (?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(uuid) DO UPDATE SET name=excluded.name,
+                                endpoint=excluded.endpoint,
+                                identity_endpoint=excluded.identity_endpoint,
+                                storage_endpoint=excluded.storage_endpoint,
+                                skip_tls_verify=excluded.skip_tls_verify;`
 
-	_, err = tx.ExecContext(ctx, q, dbCloud.ID,
-		dbCloud.Name, dbCloud.TypeID, dbCloud.Endpoint, dbCloud.IdentityEndpoint, dbCloud.StorageEndpoint, dbCloud.SkipTLSVerify,
+	_, err = tx.ExecContext(ctx, q,
+		dbCloud.ID,
+		dbCloud.Name,
+		dbCloud.TypeID,
+		dbCloud.Endpoint,
+		dbCloud.IdentityEndpoint,
+		dbCloud.StorageEndpoint,
+		dbCloud.SkipTLSVerify,
 	)
-	if sqliteErr, is := errors.AsType[sqlite3.Error](err); is && sqliteErr.ExtendedCode == sqlite3.ErrConstraintCheck {
+	if database.IsErrConstraintCheck(err) {
 		return fmt.Errorf("%w cloud name cannot be empty%w", errors.NotValid, errors.Hide(err))
 	} else if err != nil {
 		return errors.Trace(err)
@@ -570,23 +574,24 @@ func updateAuthTypes(ctx context.Context, tx *sql.Tx, cloudUUID string, authType
 	authTypeIdsBinds, authTypeIdsAnyVals := database.SliceToPlaceholder(authTypeIds)
 
 	// Delete auth types no longer in the list.
-	q := fmt.Sprintf(`
-		DELETE FROM cloud_auth_type
-		WHERE  cloud_uuid = ?
-		AND    auth_type_id NOT IN (%s)`[1:], authTypeIdsBinds)
+	deleteQuery := fmt.Sprintf(`
+DELETE FROM  cloud_auth_type
+WHERE        cloud_uuid = ?
+AND          auth_type_id NOT IN (%s)
+`, authTypeIdsBinds)
 
 	args := append([]any{cloudUUID}, authTypeIdsAnyVals...)
-	if _, err := tx.ExecContext(ctx, q, args...); err != nil {
+	if _, err := tx.ExecContext(ctx, deleteQuery, args...); err != nil {
 		return errors.Trace(err)
 	}
 
+	insertQuery := `
+INSERT INTO cloud_auth_type (uuid, cloud_uuid, auth_type_id)
+VALUES (?, ?, ?)
+ON CONFLICT(cloud_uuid, auth_type_id) DO NOTHING;
+	`
 	for _, a := range authTypeIds {
-		q := `
-			INSERT INTO cloud_auth_type (uuid, cloud_uuid, auth_type_id)
-			VALUES (?, ?, ?)
-				ON CONFLICT(cloud_uuid, auth_type_id) DO NOTHING`[1:]
-
-		if _, err := tx.ExecContext(ctx, q, utils.MustNewUUID().String(), cloudUUID, a); err != nil {
+		if _, err := tx.ExecContext(ctx, insertQuery, utils.MustNewUUID().String(), cloudUUID, a); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -596,20 +601,22 @@ func updateAuthTypes(ctx context.Context, tx *sql.Tx, cloudUUID string, authType
 func updateCACerts(ctx context.Context, tx *sql.Tx, cloudUUID string, certs []string) error {
 	// Delete any existing ca certs - we just delete them all rather
 	// than keeping existing ones as the cert values are long strings.
-	q := `
-		DELETE FROM cloud_ca_cert
-		WHERE  cloud_uuid = ?`
+	deleteQuery := `
+DELETE FROM  cloud_ca_cert
+WHERE        cloud_uuid = ?
+`
 
-	if _, err := tx.ExecContext(ctx, q, cloudUUID); err != nil {
+	if _, err := tx.ExecContext(ctx, deleteQuery, cloudUUID); err != nil {
 		return errors.Trace(err)
 	}
 
+	insertQuery := `
+INSERT INTO cloud_ca_cert (uuid, cloud_uuid, ca_cert)
+VALUES (?, ?, ?)
+`
 	for _, cert := range certs {
-		q := `
-			INSERT INTO cloud_ca_cert (uuid, cloud_uuid, ca_cert)
-			VALUES (?, ?, ?)`[1:]
 
-		if _, err := tx.ExecContext(ctx, q, utils.MustNewUUID().String(), cloudUUID, cert); err != nil {
+		if _, err := tx.ExecContext(ctx, insertQuery, utils.MustNewUUID().String(), cloudUUID, cert); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -620,29 +627,32 @@ func updateRegions(ctx context.Context, tx *sql.Tx, cloudUUID string, regions []
 	regionNamesBinds, regionNames := database.SliceToPlaceholderTransform(
 		regions, func(r cloud.Region) any {
 			return r.Name
-		})
+		},
+	)
 
 	// Delete any regions no longer in the list.
-	q := fmt.Sprintf(`
-		DELETE FROM cloud_region
-		WHERE  cloud_uuid = ?
-		AND    name NOT IN (%s)`[1:], regionNamesBinds)
+	deleteQuery := fmt.Sprintf(`
+DELETE FROM  cloud_region
+WHERE        cloud_uuid = ?
+AND          name NOT IN (%s)
+`, regionNamesBinds)
 
 	args := append([]any{cloudUUID}, regionNames...)
-	if _, err := tx.ExecContext(ctx, q, args...); err != nil {
+	if _, err := tx.ExecContext(ctx, deleteQuery, args...); err != nil {
 		return errors.Trace(err)
 	}
 
-	for _, r := range regions {
-		q := `
+	insertQuery := `
 INSERT INTO cloud_region (uuid, cloud_uuid, name, endpoint, identity_endpoint, storage_endpoint)
 VALUES (?, ?, ?, ?, ?, ?)
 ON CONFLICT(cloud_uuid, name) DO UPDATE SET name=excluded.name,
                                             endpoint=excluded.endpoint,
                                             identity_endpoint=excluded.identity_endpoint,
-                                            storage_endpoint=excluded.storage_endpoint`[1:]
+                                            storage_endpoint=excluded.storage_endpoint
+`
+	for _, r := range regions {
 
-		if _, err := tx.ExecContext(ctx, q, utils.MustNewUUID().String(), cloudUUID,
+		if _, err := tx.ExecContext(ctx, insertQuery, utils.MustNewUUID().String(), cloudUUID,
 			r.Name, r.Endpoint, r.IdentityEndpoint, r.StorageEndpoint,
 		); err != nil {
 			return errors.Trace(err)

@@ -14,10 +14,11 @@ import (
 	"github.com/juju/juju/database/testing"
 	domainservice "github.com/juju/juju/domain/controllerconfig/service"
 	domainstate "github.com/juju/juju/domain/controllerconfig/state"
+	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
 type controllerconfigSuite struct {
-	testing.ControllerSuite
+	schematesting.ControllerSuite
 }
 
 var _ = gc.Suite(&controllerconfigSuite{})

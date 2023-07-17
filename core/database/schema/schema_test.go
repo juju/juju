@@ -60,7 +60,7 @@ func (s *patchSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 type schemaSuite struct {
-	databasetesting.ControllerSuite
+	databasetesting.DqliteSuite
 }
 
 var _ = gc.Suite(&schemaSuite{})
@@ -87,16 +87,16 @@ func (s *schemaSuite) TestEnsureWithNoPatches(c *gc.C) {
 
 func (s *schemaSuite) TestSchemaRunMultipleTimes(c *gc.C) {
 	schema := New(
-		MakePatch("SELECT 1"),
-		MakePatch("SELECT 2"),
+		MakePatch("CREATE TEMP TABLE foo (id INTEGER PRIMARY KEY);"),
+		MakePatch("CREATE TEMP TABLE bar (id INTEGER PRIMARY KEY);"),
 	)
 	current, err := schema.Ensure(context.Background(), s.TxnRunner())
 	c.Assert(err, gc.IsNil)
 	c.Assert(current, gc.DeepEquals, ChangeSet{Current: 0, Post: 2})
 
 	schema = New(
-		MakePatch("SELECT 1"),
-		MakePatch("SELECT 2"),
+		MakePatch("CREATE TEMP TABLE foo (id INTEGER PRIMARY KEY);"),
+		MakePatch("CREATE TEMP TABLE bar (id INTEGER PRIMARY KEY);"),
 	)
 	current, err = schema.Ensure(context.Background(), s.TxnRunner())
 	c.Assert(err, gc.IsNil)
@@ -105,17 +105,17 @@ func (s *schemaSuite) TestSchemaRunMultipleTimes(c *gc.C) {
 
 func (s *schemaSuite) TestSchemaRunMultipleTimesWithAdditions(c *gc.C) {
 	schema := New(
-		MakePatch("SELECT 1"),
-		MakePatch("SELECT 2"),
+		MakePatch("CREATE TEMP TABLE foo (id INTEGER PRIMARY KEY);"),
+		MakePatch("CREATE TEMP TABLE bar (id INTEGER PRIMARY KEY);"),
 	)
 	current, err := schema.Ensure(context.Background(), s.TxnRunner())
 	c.Assert(err, gc.IsNil)
 	c.Assert(current, gc.DeepEquals, ChangeSet{Current: 0, Post: 2})
 
 	schema = New(
-		MakePatch("SELECT 1"),
-		MakePatch("SELECT 2"),
-		MakePatch("SELECT 3"),
+		MakePatch("CREATE TEMP TABLE foo (id INTEGER PRIMARY KEY);"),
+		MakePatch("CREATE TEMP TABLE bar (id INTEGER PRIMARY KEY);"),
+		MakePatch("CREATE TEMP TABLE baz (id INTEGER PRIMARY KEY);"),
 	)
 	current, err = schema.Ensure(context.Background(), s.TxnRunner())
 	c.Assert(err, gc.IsNil)
@@ -124,8 +124,8 @@ func (s *schemaSuite) TestSchemaRunMultipleTimesWithAdditions(c *gc.C) {
 
 func (s *schemaSuite) TestEnsure(c *gc.C) {
 	schema := New(
-		MakePatch("SELECT 1"),
-		MakePatch("SELECT 2"),
+		MakePatch("CREATE TEMP TABLE foo (id INTEGER PRIMARY KEY);"),
+		MakePatch("CREATE TEMP TABLE bar (id INTEGER PRIMARY KEY);"),
 	)
 	current, err := schema.Ensure(context.Background(), s.TxnRunner())
 	c.Assert(err, gc.IsNil)
@@ -134,8 +134,8 @@ func (s *schemaSuite) TestEnsure(c *gc.C) {
 
 func (s *schemaSuite) TestEnsureIdempotent(c *gc.C) {
 	schema := New(
-		MakePatch("SELECT 1"),
-		MakePatch("SELECT 2"),
+		MakePatch("CREATE TEMP TABLE foo (id INTEGER PRIMARY KEY);"),
+		MakePatch("CREATE TEMP TABLE bar (id INTEGER PRIMARY KEY);"),
 	)
 	current, err := schema.Ensure(context.Background(), s.TxnRunner())
 	c.Assert(err, gc.IsNil)
@@ -148,20 +148,20 @@ func (s *schemaSuite) TestEnsureIdempotent(c *gc.C) {
 
 func (s *schemaSuite) TestEnsureTwiceWithAdditionalChanges(c *gc.C) {
 	schema := New(
-		MakePatch("SELECT 1"),
-		MakePatch("SELECT 2"),
+		MakePatch("CREATE TEMP TABLE foo (id INTEGER PRIMARY KEY);"),
+		MakePatch("CREATE TEMP TABLE bar (id INTEGER PRIMARY KEY);"),
 	)
 	current, err := schema.Ensure(context.Background(), s.TxnRunner())
 	c.Assert(err, gc.IsNil)
 	c.Assert(current, gc.DeepEquals, ChangeSet{Current: 0, Post: 2})
 
-	schema.Add(MakePatch("SELECT 3"))
+	schema.Add(MakePatch("CREATE TEMP TABLE baz (id INTEGER PRIMARY KEY);"))
 
 	current, err = schema.Ensure(context.Background(), s.TxnRunner())
 	c.Assert(err, gc.IsNil)
 	c.Assert(current, gc.DeepEquals, ChangeSet{Current: 2, Post: 3})
 
-	schema.Add(MakePatch("SELECT 4"))
+	schema.Add(MakePatch("CREATE TEMP TABLE alice (id INTEGER PRIMARY KEY);"))
 
 	current, err = schema.Ensure(context.Background(), s.TxnRunner())
 	c.Assert(err, gc.IsNil)
@@ -170,8 +170,8 @@ func (s *schemaSuite) TestEnsureTwiceWithAdditionalChanges(c *gc.C) {
 
 func (s *schemaSuite) TestEnsureHashBreaks(c *gc.C) {
 	schema := New(
-		MakePatch("SELECT 1"),
-		MakePatch("SELECT 2"),
+		MakePatch("CREATE TEMP TABLE foo (id INTEGER PRIMARY KEY);"),
+		MakePatch("CREATE TEMP TABLE bar (id INTEGER PRIMARY KEY);"),
 	)
 	current, err := schema.Ensure(context.Background(), s.TxnRunner())
 	c.Assert(err, gc.IsNil)
@@ -183,7 +183,7 @@ func (s *schemaSuite) TestEnsureHashBreaks(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	schema.Add(MakePatch("SELECT 3"))
+	schema.Add(MakePatch("CREATE TEMP TABLE baz (id INTEGER PRIMARY KEY);"))
 
 	_, err = schema.Ensure(context.Background(), s.TxnRunner())
 	c.Assert(err, gc.ErrorMatches, `failed to query current schema version: hash mismatch for version 2`)

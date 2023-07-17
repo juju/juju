@@ -15,11 +15,15 @@ import (
 
 	"github.com/juju/juju/database"
 	"github.com/juju/juju/database/testing"
+	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
 type stateSuite struct {
-	testing.ControllerSuite
+	schematesting.ControllerSuite
+
 	st *State
+
+	upgradeUUID string
 }
 
 var _ = gc.Suite(&stateSuite{})
@@ -37,6 +41,8 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.st.SetControllerDone(context.Background(), uuid, "0")
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.upgradeUUID = uuid
 }
 
 func (s *stateSuite) getUpgrade(c *gc.C, st *State, upgradeUUID string) (info, []infoControllerNode) {
@@ -75,13 +81,13 @@ func (s *stateSuite) TestCreateUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	upgradeInfo, nodeInfos := s.getUpgrade(c, s.st, uuid)
-	c.Assert(upgradeInfo, gc.Equals, info{
+	c.Check(upgradeInfo, gc.Equals, info{
 		UUID:            uuid,
 		PreviousVersion: "3.0.0",
 		TargetVersion:   "3.0.1",
 		CreatedAt:       upgradeInfo.CreatedAt,
 	})
-	c.Assert(nodeInfos, gc.HasLen, 0)
+	c.Check(nodeInfos, gc.HasLen, 0)
 }
 
 func (s *stateSuite) TestSetControllerReady(c *gc.C) {
@@ -91,16 +97,25 @@ func (s *stateSuite) TestSetControllerReady(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, nodeInfos := s.getUpgrade(c, s.st, uuid)
-	c.Assert(nodeInfos, gc.HasLen, 1)
-	c.Assert(nodeInfos[0], gc.Equals, infoControllerNode{
+	c.Check(nodeInfos, gc.HasLen, 1)
+	c.Check(nodeInfos[0], gc.Equals, infoControllerNode{
 		ControllerNodeID: "0",
 	})
 }
 
 func (s *stateSuite) TestSetControllerReadyWithoutUpgrade(c *gc.C) {
-	uuid := utils.MustNewUUID().String()
-	err := s.st.SetControllerReady(context.Background(), uuid, "0")
-	c.Assert(database.IsErrConstraintForeignKey(err), jc.IsTrue)
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.st.SetControllerReady(context.Background(), uuid.String(), "0")
+	c.Assert(err, gc.NotNil)
+	c.Check(database.IsErrConstraintForeignKey(err), jc.IsTrue)
+}
+
+func (s *stateSuite) TestSetControllerReadyMultipleTimes(c *gc.C) {
+	err := s.st.SetControllerReady(context.Background(), s.upgradeUUID, "0")
+	c.Assert(err, gc.NotNil)
+	c.Check(database.IsErrConstraintUnique(err), jc.IsTrue)
 }
 
 func (s *stateSuite) TestAllProvisionedControllerReadyTrue(c *gc.C) {
@@ -118,7 +133,7 @@ func (s *stateSuite) TestAllProvisionedControllerReadyTrue(c *gc.C) {
 
 	allProvisioned, err := s.st.AllProvisionedControllersReady(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(allProvisioned, jc.IsTrue)
+	c.Check(allProvisioned, jc.IsTrue)
 }
 
 func (s *stateSuite) TestAllProvisionedControllerReadyFalse(c *gc.C) {
@@ -136,7 +151,7 @@ func (s *stateSuite) TestAllProvisionedControllerReadyFalse(c *gc.C) {
 
 	allProvisioned, err := s.st.AllProvisionedControllersReady(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(allProvisioned, jc.IsFalse)
+	c.Check(allProvisioned, jc.IsFalse)
 }
 
 func (s *stateSuite) TestAllProvisionedControllerReadyUnprovisionedController(c *gc.C) {
@@ -156,7 +171,7 @@ func (s *stateSuite) TestAllProvisionedControllerReadyUnprovisionedController(c 
 
 	allProvisioned, err := s.st.AllProvisionedControllersReady(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(allProvisioned, jc.IsTrue)
+	c.Check(allProvisioned, jc.IsTrue)
 }
 
 func (s *stateSuite) TestStartUpgrade(c *gc.C) {
@@ -170,7 +185,7 @@ func (s *stateSuite) TestStartUpgrade(c *gc.C) {
 
 	info, _ := s.getUpgrade(c, s.st, uuid)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.StartedAt.Valid, jc.IsTrue)
+	c.Check(info.StartedAt.Valid, jc.IsTrue)
 }
 
 func (s *stateSuite) TestStartUpgradeIdempotent(c *gc.C) {
@@ -190,7 +205,7 @@ func (s *stateSuite) TestStartUpgradeIdempotent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	info, _ = s.getUpgrade(c, s.st, uuid)
-	c.Assert(info.StartedAt.String, gc.Equals, startedAt)
+	c.Check(info.StartedAt.String, gc.Equals, startedAt)
 }
 
 func (s *stateSuite) TestStartUpgradeBeforeCreated(c *gc.C) {
@@ -216,10 +231,10 @@ func (s *stateSuite) TestSetControllerDone(c *gc.C) {
 
 	_, nodeInfos := s.getUpgrade(c, s.st, uuid)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(nodeInfos, gc.HasLen, 2)
-	c.Assert(nodeInfos[0], gc.Equals, infoControllerNode{ControllerNodeID: "0"})
-	c.Assert(nodeInfos[1], gc.Equals, infoControllerNode{ControllerNodeID: "1", NodeUpgradeCompletedAt: nodeInfos[1].NodeUpgradeCompletedAt})
-	c.Assert(nodeInfos[1].NodeUpgradeCompletedAt.Valid, jc.IsTrue)
+	c.Check(nodeInfos, gc.HasLen, 2)
+	c.Check(nodeInfos[0], gc.Equals, infoControllerNode{ControllerNodeID: "0"})
+	c.Check(nodeInfos[1], gc.Equals, infoControllerNode{ControllerNodeID: "1", NodeUpgradeCompletedAt: nodeInfos[1].NodeUpgradeCompletedAt})
+	c.Check(nodeInfos[1].NodeUpgradeCompletedAt.Valid, jc.IsTrue)
 }
 
 func (s *stateSuite) TestSetControllerDoneNotExists(c *gc.C) {
@@ -238,7 +253,7 @@ func (s *stateSuite) TestSetControllerDoneCompleteUpgrade(c *gc.C) {
 
 	activeUpgrades, err := s.st.ActiveUpgrades(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activeUpgrades, gc.HasLen, 0)
+	c.Check(activeUpgrades, gc.HasLen, 0)
 
 	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -252,14 +267,14 @@ func (s *stateSuite) TestSetControllerDoneCompleteUpgrade(c *gc.C) {
 
 	activeUpgrades, err = s.st.ActiveUpgrades(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activeUpgrades, gc.HasLen, 1)
+	c.Check(activeUpgrades, gc.HasLen, 1)
 
 	err = s.st.SetControllerDone(context.Background(), uuid, "1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	activeUpgrades, err = s.st.ActiveUpgrades(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activeUpgrades, gc.HasLen, 0)
+	c.Check(activeUpgrades, gc.HasLen, 0)
 }
 
 func (s *stateSuite) TestSetControllerDoneCompleteUpgradeEmptyCompletedAt(c *gc.C) {
@@ -284,20 +299,20 @@ WHERE  upgrade_info_uuid = ?
 
 	activeUpgrades, err := s.st.ActiveUpgrades(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activeUpgrades, gc.HasLen, 1)
+	c.Check(activeUpgrades, gc.HasLen, 1)
 
 	err = s.st.SetControllerDone(context.Background(), uuid, "1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	activeUpgrades, err = s.st.ActiveUpgrades(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activeUpgrades, gc.HasLen, 0)
+	c.Check(activeUpgrades, gc.HasLen, 0)
 }
 
 func (s *stateSuite) TestActiveUpgradesNoUpgrades(c *gc.C) {
 	activeUpgrades, err := s.st.ActiveUpgrades(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activeUpgrades, gc.HasLen, 0)
+	c.Check(activeUpgrades, gc.HasLen, 0)
 }
 
 func (s *stateSuite) TestActiveUpgradesSingular(c *gc.C) {
@@ -306,7 +321,7 @@ func (s *stateSuite) TestActiveUpgradesSingular(c *gc.C) {
 
 	activeUpgrades, err := s.st.ActiveUpgrades(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activeUpgrades, gc.DeepEquals, []string{uuid})
+	c.Check(activeUpgrades, gc.DeepEquals, []string{uuid})
 }
 
 func (s *stateSuite) TestActiveUpgradesMultiple(c *gc.C) {
@@ -318,5 +333,5 @@ func (s *stateSuite) TestActiveUpgradesMultiple(c *gc.C) {
 
 	activeUpgrades, err := s.st.ActiveUpgrades(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activeUpgrades, gc.HasLen, 2)
+	c.Check(activeUpgrades, gc.HasLen, 2)
 }

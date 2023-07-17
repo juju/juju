@@ -3,11 +3,13 @@
 
 package schema
 
-import "github.com/juju/juju/core/database"
+import (
+	"github.com/juju/juju/core/database/schema"
+)
 
 // ControllerDDL is used to create the controller database schema at bootstrap.
-func ControllerDDL(nodeID uint64) []database.Delta {
-	schemas := []func() database.Delta{
+func ControllerDDL(nodeID uint64) *schema.Schema {
+	patches := []func() schema.Patch{
 		leaseSchema,
 		changeLogSchema,
 		changeLogControllerNamespaces,
@@ -33,16 +35,16 @@ func ControllerDDL(nodeID uint64) []database.Delta {
 		modelDefaults,
 	}
 
-	deltas := make([]database.Delta, 0, len(schemas))
-	for _, fn := range schemas {
-		deltas = append(deltas, fn())
+	schema := schema.New()
+	for _, fn := range patches {
+		schema.Add(fn())
 	}
 
-	return deltas
+	return schema
 }
 
-func leaseSchema() database.Delta {
-	return database.MakeDelta(`
+func leaseSchema() schema.Patch {
+	return schema.MakePatch(`
 CREATE TABLE lease_type (
     id   INT PRIMARY KEY,
     type TEXT
@@ -92,8 +94,8 @@ CREATE INDEX idx_lease_pin_lease
 ON lease_pin (lease_uuid);`)
 }
 
-func changeLogControllerNamespaces() database.Delta {
-	return database.MakeDelta(`
+func changeLogControllerNamespaces() schema.Patch {
+	return schema.MakePatch(`
 INSERT INTO change_log_namespace VALUES
     (1, 'external_controller', 'external controller changes based on the UUID'),
     (2, 'controller_node', 'controller node changes based on the controller ID'),
@@ -104,8 +106,8 @@ INSERT INTO change_log_namespace VALUES
 `)
 }
 
-func cloudSchema() database.Delta {
-	return database.MakeDelta(`
+func cloudSchema() schema.Patch {
+	return schema.MakePatch(`
 CREATE TABLE cloud_type (
     id   INT PRIMARY KEY,
     type TEXT
@@ -234,8 +236,8 @@ CREATE UNIQUE INDEX idx_cloud_ca_cert_cloud_uuid_ca_cert
 ON cloud_ca_cert (cloud_uuid, ca_cert);`)
 }
 
-func externalControllerSchema() database.Delta {
-	return database.MakeDelta(`
+func externalControllerSchema() schema.Patch {
+	return schema.MakePatch(`
 CREATE TABLE external_controller (
     uuid            TEXT PRIMARY KEY,
     alias           TEXT,
@@ -263,23 +265,23 @@ CREATE TABLE external_model (
 );`)
 }
 
-func modelListSchema() database.Delta {
-	return database.MakeDelta(`
+func modelListSchema() schema.Patch {
+	return schema.MakePatch(`
 CREATE TABLE model_list (
     uuid    TEXT PRIMARY KEY
 );`)
 }
 
-func controllerConfigSchema() database.Delta {
-	return database.MakeDelta(`
+func controllerConfigSchema() schema.Patch {
+	return schema.MakePatch(`
 CREATE TABLE controller_config (
     key     TEXT PRIMARY KEY,
     value   TEXT
 );`)
 }
 
-func controllerNodeTable() database.Delta {
-	return database.MakeDelta(`
+func controllerNodeTable() schema.Patch {
+	return schema.MakePatch(`
 CREATE TABLE controller_node (
     controller_id  TEXT PRIMARY KEY, 
     dqlite_node_id INT,               -- This is the uint64 from Dqlite NodeInfo.
@@ -293,9 +295,9 @@ CREATE UNIQUE INDEX idx_controller_node_bind_address
 ON controller_node (bind_address);`)
 }
 
-func controllerNodeEntry(nodeID uint64) func() database.Delta {
-	return func() database.Delta {
-		return database.MakeDelta(`
+func controllerNodeEntry(nodeID uint64) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(`
 -- TODO (manadart 2023-06-06): At the time of writing, 
 -- we have not yet modelled machines. 
 -- Accordingly, the controller ID remains the ID of the machine, 
@@ -306,8 +308,8 @@ VALUES ('0', ?, '127.0.0.1');`, nodeID)
 	}
 }
 
-func modelMigrationSchema() database.Delta {
-	return database.MakeDelta(`
+func modelMigrationSchema() schema.Patch {
+	return schema.MakePatch(`
 CREATE TABLE model_migration (
     uuid                    TEXT PRIMARY KEY,
     attempt                 INT,
@@ -363,8 +365,8 @@ CREATE TABLE model_migration_minion_sync (
 );`)
 }
 
-func upgradeInfoSchema() database.Delta {
-	return database.MakeDelta(`
+func upgradeInfoSchema() schema.Patch {
+	return schema.MakePatch(`
 CREATE TABLE upgrade_info (
     uuid             TEXT PRIMARY KEY,
     previous_version TEXT NOT NULL,
@@ -392,8 +394,8 @@ ON upgrade_info_controller_node (controller_node_id, upgrade_info_uuid);
 `)
 }
 
-func modelDefaults() database.Delta {
-	return database.MakeDelta(`
+func modelDefaults() schema.Patch {
+	return schema.MakePatch(`
 CREATE TABLE model_defaults (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL

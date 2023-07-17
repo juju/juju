@@ -11,10 +11,11 @@ import (
 
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/database/testing"
+	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
 type stateSuite struct {
-	testing.ControllerSuite
+	schematesting.ControllerSuite
 }
 
 var _ = gc.Suite(&stateSuite{})

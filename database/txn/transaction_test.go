@@ -21,7 +21,7 @@ import (
 )
 
 type transactionRunnerSuite struct {
-	testing.ControllerSuite
+	testing.DqliteSuite
 }
 
 var _ = gc.Suite(&transactionRunnerSuite{})

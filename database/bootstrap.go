@@ -12,6 +12,7 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/app"
+	"github.com/juju/juju/database/pragma"
 	"github.com/juju/juju/domain/schema"
 )
 
@@ -91,13 +92,18 @@ func BootstrapDqlite(
 	if err != nil {
 		return errors.Annotatef(err, "opening controller database")
 	}
+
+	if err := pragma.SetPragma(ctx, db, pragma.ForeignKeysPragma, true); err != nil {
+		return errors.Annotate(err, "setting foreign keys pragma")
+	}
+
 	defer func() {
 		if err := db.Close(); err != nil {
 			logger.Errorf("closing controller database: %v", err)
 		}
 	}()
 
-	runner := &txnRunner{db}
+	runner := &txnRunner{db: db}
 
 	if err := NewDBMigration(runner, logger, schema.ControllerDDL(dqlite.ID())).Apply(ctx); err != nil {
 		return errors.Annotate(err, "creating controller database schema")

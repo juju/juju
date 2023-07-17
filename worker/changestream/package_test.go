@@ -10,7 +10,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	dbtesting "github.com/juju/juju/database/testing"
+	domaintesting "github.com/juju/juju/domain/schema/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package changestream -destination stream_mock_test.go github.com/juju/juju/worker/changestream DBGetter,Logger,WatchableDBWorker,FileNotifyWatcher
@@ -22,7 +22,7 @@ func TestPackage(t *testing.T) {
 }
 
 type baseSuite struct {
-	dbtesting.ControllerSuite
+	domaintesting.ControllerSuite
 
 	dbGetter          *MockDBGetter
 	clock             *MockClock

@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
-	databasetesting "github.com/juju/juju/database/testing"
+	domaintesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -33,7 +33,7 @@ import (
 
 type ImportSuite struct {
 	statetesting.StateSuite
-	databasetesting.ControllerSuite
+	domaintesting.ControllerSuite
 }
 
 var _ = gc.Suite(&ImportSuite{})

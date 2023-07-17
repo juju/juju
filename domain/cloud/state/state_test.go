@@ -5,7 +5,6 @@ package state
 
 import (
 	ctx "context"
-	"fmt"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -16,10 +15,11 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/database/testing"
+	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
 type stateSuite struct {
-	testing.ControllerSuite
+	schematesting.ControllerSuite
 }
 
 var _ = gc.Suite(&stateSuite{})
@@ -325,8 +325,7 @@ func (s *stateSuite) TestCloudDefaultsUpdateForNonExistentCloud(c *gc.C) {
 	err := st.UpdateCloudDefaults(context.Background(), "noexist", map[string]string{
 		"wallyworld": "peachy",
 	}, nil)
-	fmt.Println(err)
-	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue)
+	c.Assert(errors.Is(err, errors.NotFound), jc.IsTrue)
 }
 
 func (s *stateSuite) TestCloudRegionDefaults(c *gc.C) {
@@ -462,7 +461,7 @@ func (s *stateSuite) TestCloudRegionDefaultsNoExist(c *gc.C) {
 	err = st.UpdateCloudRegionDefaults(context.Background(), cld.Name, "noexistregion", map[string]string{
 		"foo": "bar",
 	}, nil)
-	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue)
+	c.Assert(errors.Is(err, errors.NotFound), jc.IsTrue)
 
 	defaults, err := st.CloudAllRegionDefaults(context.Background(), cld.Name)
 	c.Assert(err, jc.ErrorIsNil)

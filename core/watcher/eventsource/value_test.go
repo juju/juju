@@ -25,7 +25,7 @@ type valueSuite struct {
 var _ = gc.Suite(&valueSuite{})
 
 func (s *valueSuite) TestNotificationsSent(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
+	defer s.setupMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
 
@@ -79,7 +79,7 @@ func (s *valueSuite) TestNotificationsSent(c *gc.C) {
 }
 
 func (s *valueSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
+	defer s.setupMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
 
@@ -101,7 +101,7 @@ func (s *valueSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 }
 
 func (s *valueSuite) TestEnsureCloseOnCleanKill(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
+	defer s.setupMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
 	done := make(chan struct{})
@@ -120,7 +120,7 @@ func (s *valueSuite) TestEnsureCloseOnCleanKill(c *gc.C) {
 }
 
 func (s *valueSuite) TestEnsureCloseOnDirtyKill(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
+	defer s.setupMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
 	done := make(chan struct{})

@@ -6,6 +6,7 @@ package leaseexpiry_test
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	dt "github.com/juju/worker/v3/dependency/testing"
@@ -14,13 +15,12 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/database/testing"
-	jujutesting "github.com/juju/juju/testing"
+	jujujujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/leaseexpiry"
 )
 
 type manifoldSuite struct {
-	testing.ControllerSuite
+	jujutesting.IsolationSuite
 
 	store *MockExpiryStore
 }
@@ -78,7 +78,7 @@ func (s *manifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *manifoldSuite) newStubContext() *dt.Context {
 	return dt.StubContext(nil, map[string]interface{}{
 		"clock-name":       clock.WallClock,
-		"db-accessor-name": stubDBGetter{runner: s.TxnRunner()},
+		"db-accessor-name": stubDBGetter{runner: nil},
 	})
 }
 
@@ -88,7 +88,7 @@ func (s *manifoldSuite) newManifoldConfig(c *gc.C) leaseexpiry.ManifoldConfig {
 	return leaseexpiry.ManifoldConfig{
 		ClockName:      "clock-name",
 		DBAccessorName: "db-accessor-name",
-		Logger:         jujutesting.CheckLogger{Log: c},
+		Logger:         jujujujutesting.CheckLogger{Log: c},
 		NewWorker:      func(config leaseexpiry.Config) (worker.Worker, error) { return nil, nil },
 		NewStore: func(db coredatabase.DBGetter, logger leaseexpiry.Logger) lease.ExpiryStore {
 			return s.store

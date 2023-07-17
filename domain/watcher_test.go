@@ -14,12 +14,12 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
-	"github.com/juju/juju/database/testing"
+	schematesting "github.com/juju/juju/domain/schema/testing"
 	jujutesting "github.com/juju/juju/testing"
 )
 
 type watcherSuite struct {
-	testing.ControllerSuite
+	schematesting.ControllerSuite
 
 	sub    *MockSubscription
 	events *MockEventSource

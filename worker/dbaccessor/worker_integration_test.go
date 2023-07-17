@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/database"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/dqlite"
+	"github.com/juju/juju/database/pragma"
 	databasetesting "github.com/juju/juju/database/testing"
 	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/testing"
@@ -41,8 +42,8 @@ type integrationSuite struct {
 
 var _ = gc.Suite(&integrationSuite{})
 
-func (s *integrationSuite) SetUpSuite(c *gc.C) {
-	s.DBSuite.SetUpSuite(c)
+func (s *integrationSuite) SetUpTest(c *gc.C) {
+	s.DqliteSuite.SetUpTest(c)
 
 	params := agent.AgentConfigParams{
 		Tag:               names.NewMachineTag("1"),
@@ -84,17 +85,20 @@ func (s *integrationSuite) SetUpSuite(c *gc.C) {
 	db, err := s.DBApp().Open(context.Background(), coredatabase.ControllerNS)
 	c.Assert(err, jc.ErrorIsNil)
 
+	err = pragma.SetPragma(context.Background(), db, pragma.ForeignKeysPragma, true)
+	c.Assert(err, jc.ErrorIsNil)
+
 	err = database.NewDBMigration(
-		&txnRunner{db}, logger, schema.ControllerDDL(s.DBApp().ID())).Apply(context.Background())
+		&txnRunner{db: db}, logger, schema.ControllerDDL(s.DBApp().ID())).Apply(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *integrationSuite) TearDownSuite(c *gc.C) {
-	if dqlite.Enabled {
+func (s *integrationSuite) TearDownTest(c *gc.C) {
+	if dqlite.Enabled && s.worker != nil {
 		workertest.CleanKill(c, s.worker)
 	}
 
-	s.dqliteAppIntegrationSuite.TearDownSuite(c)
+	s.dqliteAppIntegrationSuite.TearDownTest(c)
 }
 
 func (s *integrationSuite) TestWorkerAccessingControllerDB(c *gc.C) {
@@ -205,7 +209,7 @@ func (s *integrationSuite) TestWorkerDeletingKnownDBWithoutGetFirst(c *gc.C) {
 // the dqlite database. It overrides the various methods to prevent the creation
 // of a new database for each test.
 type dqliteAppIntegrationSuite struct {
-	databasetesting.DBSuite
+	databasetesting.DqliteSuite
 }
 
 func (s *dqliteAppIntegrationSuite) TearDownSuite(c *gc.C) {

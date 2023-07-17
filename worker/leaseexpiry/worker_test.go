@@ -8,18 +8,18 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/database/testing"
-	jujutesting "github.com/juju/juju/testing"
+	jujujujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/leaseexpiry"
 )
 
 type workerSuite struct {
-	testing.ControllerSuite
+	jujutesting.IsolationSuite
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -32,7 +32,7 @@ func (s *workerSuite) TestConfigValidate(c *gc.C) {
 
 	validCfg := leaseexpiry.Config{
 		Clock:  clock.WallClock,
-		Logger: jujutesting.CheckLogger{Log: c},
+		Logger: jujujujutesting.CheckLogger{Log: c},
 		Store:  store,
 	}
 
@@ -72,7 +72,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 
 	w, err := leaseexpiry.NewWorker(leaseexpiry.Config{
 		Clock:  clk,
-		Logger: jujutesting.CheckLogger{Log: c},
+		Logger: jujujujutesting.CheckLogger{Log: c},
 		Store:  store,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -80,7 +80,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(jujutesting.ShortWait):
+	case <-time.After(jujujujutesting.ShortWait):
 		c.Fatalf("timed out waiting for reset")
 	}
 
