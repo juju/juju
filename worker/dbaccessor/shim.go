@@ -52,6 +52,9 @@ type DBApp interface {
 	// ID returns the dqlite ID of this application node.
 	ID() uint64
 
+	// Address returns the bind address of this application node.
+	Address() string
+
 	// Close the application node, releasing all resources it created.
 	Close() error
 }
