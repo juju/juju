@@ -86,3 +86,39 @@ func (s *statementSuite) TestMakeQueryConditionMultiple(c *gc.C) {
 	}
 	c.Assert(args, jc.DeepEquals, sqlair.M{"t2_col": "foo", "t3_col": 123})
 }
+
+func (s *statementSuite) TestMapToMultiPlaceholderNil(c *gc.C) {
+	var nilMap map[string]string
+	bind, vals := MapToMultiPlaceholder(nilMap)
+	c.Assert(bind, gc.Equals, "")
+	c.Assert(len(vals), gc.Equals, 0)
+}
+
+func (s *statementSuite) TestMapToMultiPlaceholder(c *gc.C) {
+	m := map[string]string{
+		"one":   "two",
+		"three": "four",
+		"five":  "six",
+	}
+	bind, vals := MapToMultiPlaceholder(m)
+	c.Assert(bind, gc.Equals, "(?, ?),(?, ?),(?, ?)")
+	c.Assert(len(vals), gc.Equals, 6)
+	count := 0
+	for i := 0; i < len(vals); i += 2 {
+		v := vals[i]
+		switch v {
+		case "one":
+			count += 1
+			c.Assert(vals[i+1], gc.Equals, "two")
+		case "three":
+			count += 3
+			c.Assert(vals[i+1], gc.Equals, "four")
+		case "five":
+			count += 5
+			c.Assert(vals[i+1], gc.Equals, "six")
+		default:
+			c.Fatalf("unexpected vals key %s", v)
+		}
+	}
+	c.Assert(count, gc.Equals, 9)
+}

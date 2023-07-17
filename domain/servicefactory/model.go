@@ -5,12 +5,26 @@ package servicefactory
 
 import (
 	"github.com/juju/juju/core/changestream"
+	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
+	modelconfigstate "github.com/juju/juju/domain/modelconfig/state"
 )
 
 // ModelFactory provides access to the services required by the apiserver.
 type ModelFactory struct {
 	logger  Logger
 	modelDB changestream.WatchableDBFactory
+}
+
+// Config returns the model's configuration service. A ModelDefaultsProvider
+// needs to be supplied for the model config service. The provider can be
+// obtained from the controller service factory model defaults service.
+func (f *ModelFactory) Config(
+	defaultsProvider modelconfigservice.ModelDefaultsProvider,
+) *modelconfigservice.Service {
+	return modelconfigservice.NewService(
+		defaultsProvider,
+		modelconfigstate.NewState(changestream.NewTxnRunnerFactory(f.modelDB)),
+	)
 }
 
 // NewModelFactory returns a new registry which uses the provided modelDB
@@ -24,8 +38,3 @@ func NewModelFactory(
 		modelDB: modelDB,
 	}
 }
-
-// TODO we need a method here because if we don't have a type here, then
-// anything satisfies the ModelFactory. Once we have model methods here, we
-// can remove this method.
-func (f *ModelFactory) TODO() {}

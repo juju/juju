@@ -14,8 +14,9 @@ import (
 	service3 "github.com/juju/juju/domain/credential/service"
 	service4 "github.com/juju/juju/domain/externalcontroller/service"
 	service5 "github.com/juju/juju/domain/model/service"
-	service6 "github.com/juju/juju/domain/modelmanager/service"
-	service7 "github.com/juju/juju/domain/upgrade/service"
+	service6 "github.com/juju/juju/domain/modelconfig/service"
+	service7 "github.com/juju/juju/domain/modelmanager/service"
+	service8 "github.com/juju/juju/domain/upgrade/service"
 	servicefactory "github.com/juju/juju/internal/servicefactory"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -142,10 +143,10 @@ func (mr *MockControllerServiceFactoryMockRecorder) Model() *gomock.Call {
 }
 
 // ModelManager mocks base method.
-func (m *MockControllerServiceFactory) ModelManager() *service6.Service {
+func (m *MockControllerServiceFactory) ModelManager() *service7.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelManager")
-	ret0, _ := ret[0].(*service6.Service)
+	ret0, _ := ret[0].(*service7.Service)
 	return ret0
 }
 
@@ -156,10 +157,10 @@ func (mr *MockControllerServiceFactoryMockRecorder) ModelManager() *gomock.Call 
 }
 
 // Upgrade mocks base method.
-func (m *MockControllerServiceFactory) Upgrade() *service7.Service {
+func (m *MockControllerServiceFactory) Upgrade() *service8.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Upgrade")
-	ret0, _ := ret[0].(*service7.Service)
+	ret0, _ := ret[0].(*service8.Service)
 	return ret0
 }
 
@@ -192,16 +193,18 @@ func (m *MockModelServiceFactory) EXPECT() *MockModelServiceFactoryMockRecorder 
 	return m.recorder
 }
 
-// TODO mocks base method.
-func (m *MockModelServiceFactory) TODO() {
+// Config mocks base method.
+func (m *MockModelServiceFactory) Config(arg0 service6.ModelDefaultsProvider) *service6.Service {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "TODO")
+	ret := m.ctrl.Call(m, "Config", arg0)
+	ret0, _ := ret[0].(*service6.Service)
+	return ret0
 }
 
-// TODO indicates an expected call of TODO.
-func (mr *MockModelServiceFactoryMockRecorder) TODO() *gomock.Call {
+// Config indicates an expected call of Config.
+func (mr *MockModelServiceFactoryMockRecorder) Config(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TODO", reflect.TypeOf((*MockModelServiceFactory)(nil).TODO))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockModelServiceFactory)(nil).Config), arg0)
 }
 
 // MockServiceFactory is a mock of ServiceFactory interface.
@@ -253,6 +256,20 @@ func (m *MockServiceFactory) Cloud() *service0.Service {
 func (mr *MockServiceFactoryMockRecorder) Cloud() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cloud", reflect.TypeOf((*MockServiceFactory)(nil).Cloud))
+}
+
+// Config mocks base method.
+func (m *MockServiceFactory) Config(arg0 service6.ModelDefaultsProvider) *service6.Service {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Config", arg0)
+	ret0, _ := ret[0].(*service6.Service)
+	return ret0
+}
+
+// Config indicates an expected call of Config.
+func (mr *MockServiceFactoryMockRecorder) Config(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockServiceFactory)(nil).Config), arg0)
 }
 
 // ControllerConfig mocks base method.
@@ -326,10 +343,10 @@ func (mr *MockServiceFactoryMockRecorder) Model() *gomock.Call {
 }
 
 // ModelManager mocks base method.
-func (m *MockServiceFactory) ModelManager() *service6.Service {
+func (m *MockServiceFactory) ModelManager() *service7.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelManager")
-	ret0, _ := ret[0].(*service6.Service)
+	ret0, _ := ret[0].(*service7.Service)
 	return ret0
 }
 
@@ -339,23 +356,11 @@ func (mr *MockServiceFactoryMockRecorder) ModelManager() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelManager", reflect.TypeOf((*MockServiceFactory)(nil).ModelManager))
 }
 
-// TODO mocks base method.
-func (m *MockServiceFactory) TODO() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "TODO")
-}
-
-// TODO indicates an expected call of TODO.
-func (mr *MockServiceFactoryMockRecorder) TODO() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TODO", reflect.TypeOf((*MockServiceFactory)(nil).TODO))
-}
-
 // Upgrade mocks base method.
-func (m *MockServiceFactory) Upgrade() *service7.Service {
+func (m *MockServiceFactory) Upgrade() *service8.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Upgrade")
-	ret0, _ := ret[0].(*service7.Service)
+	ret0, _ := ret[0].(*service8.Service)
 	return ret0
 }
 

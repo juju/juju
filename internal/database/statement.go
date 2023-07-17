@@ -49,6 +49,20 @@ func MakeBindArgs(columns, rows int) string {
 	return strings.Join(r, ", ")
 }
 
+// MapToMultiPlaceholder returns a string of bind args for map key value inserts
+// into a table and a flattened args slice.
+// Example bind string (?, ?), (?, ?), (?, ?)
+func MapToMultiPlaceholder[K comparable, V any](m map[K]V) (string, []any) {
+	binds := make([]string, 0, len(m))
+	vals := make([]any, 0, len(m)*2)
+	for k, v := range m {
+		binds = append(binds, "(?, ?)")
+		vals = append(vals, k, v)
+	}
+
+	return strings.Join(binds, ","), vals
+}
+
 // SqlairClauseAnd creates a sqlair query condition where each
 // of the non-empty map values becomes an AND operator.
 func SqlairClauseAnd(columnValues map[string]any) (string, sqlair.M) {

@@ -62,6 +62,12 @@ const (
 	// Settings Attributes
 	//
 
+	// AdminSecretKey
+	AdminSecretKey = "admin-secret"
+
+	// CAPrivateKeyKey
+	CAPrivateKeyKey = "ca-private-key"
+
 	// NameKey is the key for the model's name.
 	NameKey = "name"
 

@@ -11,6 +11,8 @@ import (
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
 	modelservice "github.com/juju/juju/domain/model/service"
+	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
+	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 )
@@ -29,6 +31,11 @@ func (s *TestingServiceFactory) AutocertCache() *autocertcacheservice.Service {
 	return nil
 }
 
+// Config returns the model config service.
+func (s *TestingServiceFactory) Config(_ modelconfigservice.ModelDefaultsProvider) *modelconfigservice.Service {
+	return nil
+}
+
 // ControllerConfig returns the controller configuration service.
 func (s *TestingServiceFactory) ControllerConfig() *controllerconfigservice.Service {
 	return nil
@@ -41,6 +48,11 @@ func (s *TestingServiceFactory) ControllerNode() *controllernodeservice.Service 
 
 // Model returns the model service.
 func (s *TestingServiceFactory) Model() *modelservice.Service {
+	return nil
+}
+
+// ModelDefaults returns the model defaults service.
+func (s *TestingServiceFactory) ModelDefaults() *modeldefaultsservice.Service {
 	return nil
 }
 

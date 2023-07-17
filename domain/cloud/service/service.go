@@ -9,13 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs/config"
 )
-
-// CloudConfigSchemaProvider is responsible for providing the ConfigSchemaSource
-// for a cloud. If no ConfigSchemaSource is found for the provided cloud type
-// then an error that satisfies NotFound is returned.
-type CloudConfigSchemaProvider func(string) (config.ConfigSchemaSource, error)
 
 // State describes retrieval and persistence methods for storage.
 type State interface {
@@ -31,15 +25,13 @@ type State interface {
 
 // Service provides the API for working with clouds.
 type Service struct {
-	cloudConfigSchema CloudConfigSchemaProvider
-	st                State
+	st State
 }
 
 // NewService returns a new service reference wrapping the input state.
-func NewService(st State, cloudConfigSchema CloudConfigSchemaProvider) *Service {
+func NewService(st State) *Service {
 	return &Service{
-		cloudConfigSchema: cloudConfigSchema,
-		st:                st,
+		st: st,
 	}
 }
 
