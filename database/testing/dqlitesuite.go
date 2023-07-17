@@ -117,7 +117,13 @@ func (s *DqliteSuite) DBPath() string {
 // ApplyDDL is a helper manager for the test suites to apply a set of DDL string
 // on top of a pre-established database.
 func (s *DqliteSuite) ApplyDDL(c *gc.C, schema SchemaApplier) {
-	schema.Apply(c, context.Background(), s.TxnRunner())
+	s.ApplyDDLForRunner(c, schema, s.trackedDB)
+}
+
+// ApplyDDLForRunner is a helper manager for the test suites to apply a set of
+// DDL string on top of a pre-established database.
+func (s *DqliteSuite) ApplyDDLForRunner(c *gc.C, schema SchemaApplier, runner coredatabase.TxnRunner) {
+	schema.Apply(c, context.Background(), runner)
 }
 
 // OpenDB returns a new sql.DB reference.

@@ -97,6 +97,8 @@ func (s *workerSuite) TestPruneModelList(c *gc.C) {
 	txnRunner, db := s.OpenDB(c)
 	defer db.Close()
 
+	s.ApplyDDLForRunner(c, txnRunner)
+
 	s.expectControllerDBGet()
 	s.expectDBGet("foo", txnRunner)
 	s.expectClock()
@@ -127,6 +129,8 @@ func (s *workerSuite) TestPruneModelListWithChangeLogItems(c *gc.C) {
 
 	txnRunner, db := s.OpenDB(c)
 	defer db.Close()
+
+	s.ApplyDDLForRunner(c, txnRunner)
 
 	s.expectControllerDBGet()
 	s.expectDBGet("foo", txnRunner)

@@ -6,6 +6,7 @@ package testing
 import (
 	gc "gopkg.in/check.v1"
 
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/testing"
 	"github.com/juju/juju/domain/schema"
 )
@@ -23,4 +24,12 @@ func (s *ControllerSuite) SetUpTest(c *gc.C) {
 	s.DqliteSuite.ApplyDDL(c, &SchemaApplier{
 		schema: schema.ControllerDDL(0x2dc171858c3155be),
 	})
+}
+
+// ApplyDDLForRunner is responsible for applying the controller schema to the
+// given database.
+func (s *ControllerSuite) ApplyDDLForRunner(c *gc.C, runner coredatabase.TxnRunner) {
+	s.DqliteSuite.ApplyDDLForRunner(c, &SchemaApplier{
+		schema: schema.ControllerDDL(0x2dc171858c3155be),
+	}, runner)
 }
