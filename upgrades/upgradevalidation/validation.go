@@ -9,8 +9,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/charm/v11"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/replicaset/v3"
@@ -212,39 +210,6 @@ func checkForDeprecatedUbuntuSeriesForModel(
 	if len(result) > 0 {
 		return NewBlocker("the model hosts deprecated ubuntu machine(s): %s",
 			stringifyMachineCounts(result),
-		), nil
-	}
-	return nil, nil
-}
-
-func checkForCharmStoreCharms(_ string, _ StatePool, st State, _ Model) (*Blocker, error) {
-	curls, err := st.AllCharmURLs()
-	if errors.Is(err, errors.NotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	result := set.NewStrings()
-	for _, curlStr := range curls {
-		if curlStr == nil {
-			return nil, errors.New("malformed charm in database with no URL")
-		}
-		curl, err := charm.ParseURL(*curlStr)
-		if err != nil {
-			logger.Errorf("error from ParseURL: %s", err)
-			return nil, errors.New(fmt.Sprintf("malformed charm url in database: %q", *curlStr))
-		}
-		// TODO 6-dec-2022
-		// Update check once charm's ValidateSchema rejects charm store charms.
-		if !charm.CharmHub.Matches(curl.Schema) && !charm.Local.Matches(curl.Schema) {
-			c := curl.WithSeries("").WithArchitecture("")
-			result.Add(c.String())
-		}
-	}
-	if !result.IsEmpty() {
-		return NewBlocker("the model hosts deprecated charm store charms(s): %s",
-			strings.Join(result.SortedValues(), ", "),
 		), nil
 	}
 	return nil, nil

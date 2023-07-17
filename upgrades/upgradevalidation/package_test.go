@@ -25,5 +25,4 @@ var (
 	CheckMongoStatusForControllerUpgrade        = checkMongoStatusForControllerUpgrade
 	CheckMongoVersionForControllerModel         = checkMongoVersionForControllerModel
 	GetCheckForLXDVersion                       = getCheckForLXDVersion
-	CheckForCharmStoreCharms                    = checkForCharmStoreCharms
 )

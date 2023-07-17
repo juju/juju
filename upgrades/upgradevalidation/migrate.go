@@ -18,6 +18,5 @@ func ValidatorsForModelMigrationSource(
 		checkNoWinMachinesForModel,
 		checkForDeprecatedUbuntuSeriesForModel,
 		getCheckForLXDVersion(cloudspec),
-		checkForCharmStoreCharms,
 	}
 }

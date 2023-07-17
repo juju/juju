@@ -401,26 +401,3 @@ func (s *upgradeValidationSuite) TestGetCheckForLXDVersionFailed(c *gc.C) {
 	c.Assert(blocker, gc.NotNil)
 	c.Assert(blocker.Error(), gc.Equals, `LXD version has to be at least "5.0.0", but current version is only "4.0.0"`)
 }
-
-func (s *upgradeValidationSuite) TestCheckForCharmStoreCharmsNotFound(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	st := mocks.NewMockState(ctrl)
-	st.EXPECT().AllCharmURLs().Return([]*string{}, errors.NotFoundf("charm urls"))
-
-	blocker, err := upgradevalidation.CheckForCharmStoreCharms("", nil, st, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker, gc.IsNil)
-}
-
-func (s *upgradeValidationSuite) TestCheckForCharmStoreCharmsError(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	st := mocks.NewMockState(ctrl)
-	st.EXPECT().AllCharmURLs().Return([]*string{}, errors.BadRequestf("charm urls"))
-
-	_, err := upgradevalidation.CheckForCharmStoreCharms("", nil, st, nil)
-	c.Assert(errors.Is(err, errors.BadRequest), jc.IsTrue)
-}
