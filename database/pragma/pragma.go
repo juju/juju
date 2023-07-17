@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/database/txn"
 )
 
 // Pragma is the name of a pragma.
@@ -35,9 +36,21 @@ func GetPragma[T any](ctx context.Context, txn coredatabase.TxnRunner, pragam Pr
 	return value, nil
 }
 
+var (
+	// Reuse the txn runner for retries as they're consistent. We can't use
+	// the database package directly, as that causes import cycle error.
+	runner = txn.NewRetryingTxnRunner()
+)
+
 // SetPragma sets the given pragma to the given value.
 func SetPragma[T any](ctx context.Context, db *sql.DB, pragma Pragma, value T) error {
 	query := fmt.Sprintf("PRAGMA %s = %v", pragma, value)
-	_, err := db.ExecContext(ctx, query)
-	return errors.Trace(err)
+	err := runner.Retry(ctx, func() error {
+		_, err := db.ExecContext(ctx, query)
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return fmt.Errorf("failed to set %q pragma %w", pragma, errors.Hide(err))
+	}
+	return nil
 }

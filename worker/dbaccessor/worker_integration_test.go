@@ -42,8 +42,8 @@ type integrationSuite struct {
 
 var _ = gc.Suite(&integrationSuite{})
 
-func (s *integrationSuite) SetUpSuite(c *gc.C) {
-	s.DqliteSuite.SetUpSuite(c)
+func (s *integrationSuite) SetUpTest(c *gc.C) {
+	s.DqliteSuite.SetUpTest(c)
 
 	params := agent.AgentConfigParams{
 		Tag:               names.NewMachineTag("1"),
@@ -93,12 +93,12 @@ func (s *integrationSuite) SetUpSuite(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *integrationSuite) TearDownSuite(c *gc.C) {
-	if dqlite.Enabled {
+func (s *integrationSuite) TearDownTest(c *gc.C) {
+	if dqlite.Enabled && s.worker != nil {
 		workertest.CleanKill(c, s.worker)
 	}
 
-	s.dqliteAppIntegrationSuite.TearDownSuite(c)
+	s.dqliteAppIntegrationSuite.TearDownTest(c)
 }
 
 func (s *integrationSuite) TestWorkerAccessingControllerDB(c *gc.C) {
