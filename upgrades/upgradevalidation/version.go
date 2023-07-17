@@ -14,7 +14,7 @@ var logger = loggo.GetLogger("juju.upgrades.validations")
 // MinAgentVersions defines the minimum agent version
 // allowed to make a call to a controller with the major version.
 var MinAgentVersions = map[int]version.Number{
-	3: version.MustParse("2.9.43"),
+	4: version.MustParse("3.1.0"),
 }
 
 // MinClientVersions defines the minimum user client version
@@ -22,7 +22,7 @@ var MinAgentVersions = map[int]version.Number{
 // or the minimum controller version needed to accept a call from a
 // client with the major version.
 var MinClientVersions = map[int]version.Number{
-	3: version.MustParse("2.9.42"),
+	4: version.MustParse("3.1.0"),
 }
 
 // MinMajorMigrateVersions defines the minimum version the model
@@ -62,6 +62,13 @@ func versionCheck(
 	if !ok {
 		return false, version.Number{}, errors.Errorf("%s to %q is not supported from %q", operation, to, from)
 	}
+
+	// We don't want to allow upgrades from a version that is lower than the
+	// minimum major version (for example, 2.9.0 to 4.0.0).
+	if from.Major < minVer.Major {
+		return false, version.Number{}, errors.Errorf("%s to %q is not supported from %q", operation, to, from)
+	}
+
 	// Allow upgrades from rc etc.
 	from.Tag = ""
 	return from.Compare(minVer) >= 0, minVer, nil

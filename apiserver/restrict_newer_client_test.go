@@ -119,15 +119,16 @@ func (r *restrictNewerClientSuite) TestAlwaysDisallowedMethod(c *gc.C) {
 	c.Assert(caller, gc.IsNil)
 }
 
-func (r *restrictNewerClientSuite) TestWhitelistedClient(c *gc.C) {
-	// Ensure we're allowed to migrate from 2.9.x min release to 3.1.0.
-	r.assertWhitelistedClient(c, "2.9.41", "3.2.0", false)
-	r.assertWhitelistedClient(c, "2.9.42", "3.2.0", true)
-	r.assertWhitelistedClient(c, "2.9.42", "3.2.5", true)
-	r.assertWhitelistedClient(c, "2.9.42", "3.3.0", true)
+func (r *restrictNewerClientSuite) TestAllowedListedClient(c *gc.C) {
+	// Ensure we're allowed to migrate from 3.1.x min release to 4.0.0.
+	r.assertAllowedListedClient(c, "2.9.0", "4.0.0", false)
+	r.assertAllowedListedClient(c, "3.0.0", "4.0.0", true)
+	r.assertAllowedListedClient(c, "3.1.0", "4.0.0", true)
+	r.assertAllowedListedClient(c, "3.1.0", "4.0.9", true)
+	r.assertAllowedListedClient(c, "3.1.0", "4.1.0", true)
 }
 
-func (r *restrictNewerClientSuite) assertWhitelistedClient(c *gc.C, callerVers, serverVers string, allowed bool) {
+func (r *restrictNewerClientSuite) assertAllowedListedClient(c *gc.C, callerVers, serverVers string, allowed bool) {
 	r.PatchValue(&jujuversion.Current, version.MustParse(serverVers))
 	r.callerVersion = version.MustParse(callerVers)
 	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(true, r.callerVersion)
@@ -142,11 +143,11 @@ func (r *restrictNewerClientSuite) assertWhitelistedClient(c *gc.C, callerVers, 
 }
 
 func (r *restrictNewerClientSuite) TestAgentMethod(c *gc.C) {
-	// Ensure we're allowed to migrate from 2.9.x min release to 3.1.0.
-	r.assertAgentMethod(c, "2.9.42", "3.2.0", false)
-	r.assertAgentMethod(c, "2.9.43", "3.2.0", true)
-	r.assertAgentMethod(c, "2.9.43", "3.2.5", true)
-	r.assertAgentMethod(c, "2.9.43", "3.3.0", true)
+	// Ensure we're allowed to migrate from 3.1.x min release to 4.0.0.
+	r.assertAgentMethod(c, "3.0.0", "4.0.0", false)
+	r.assertAgentMethod(c, "3.1.0", "4.0.0", true)
+	r.assertAgentMethod(c, "3.1.0", "4.0.9", true)
+	r.assertAgentMethod(c, "3.1.0", "4.1.0", true)
 }
 
 func (r *restrictNewerClientSuite) assertAgentMethod(c *gc.C, agentVers, serverVers string, allowed bool) {

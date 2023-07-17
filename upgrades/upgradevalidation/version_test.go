@@ -86,30 +86,35 @@ func (s *versionSuite) TestMigrateToAllowed(c *gc.C) {
 	for i, t := range []versionCheckTC{
 		{
 			from:    "2.8.0",
-			to:      "3.0.0",
+			to:      "4.0.0",
 			allowed: false,
-			minVers: "2.9.43",
+			minVers: "0.0.0",
+			err:     `migrate to "4.0.0" is not supported from "2.8.0"`,
 		}, {
-			from:    "2.9.43",
-			to:      "3.0.0",
-			allowed: true,
-			minVers: "2.9.43",
-		}, {
-			from:    "2.9.44",
-			to:      "3.0.0",
-			allowed: true,
-			minVers: "2.9.43",
-		},
-		{
 			from:    "2.9.0",
 			to:      "4.0.0",
 			allowed: false,
 			minVers: "0.0.0",
 			err:     `migrate to "4.0.0" is not supported from "2.9.0"`,
-		},
-		{
+		}, {
+			from:    "2.9.44",
+			to:      "4.0.0",
+			allowed: false,
+			minVers: "0.0.0",
+			err:     `migrate to "4.0.0" is not supported from "2.9.44"`,
+		}, {
 			from:    "3.0.0",
-			to:      "2.0.0",
+			to:      "4.0.0",
+			allowed: false,
+			minVers: "3.1.0",
+		}, {
+			from:    "3.1.0",
+			to:      "4.0.0",
+			allowed: true,
+			minVers: "3.1.0",
+		}, {
+			from:    "4.0.0",
+			to:      "3.1.0",
 			allowed: false,
 			minVers: "0.0.0",
 			err:     `downgrade is not allowed`,
