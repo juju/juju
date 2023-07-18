@@ -8,6 +8,7 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/errors"
 )
 
 // TxnRunner defines an interface for running transactions against a database.
@@ -21,4 +22,25 @@ type TxnRunner interface {
 	// which the input function is executed.
 	// The input context can be used by the caller to cancel this process.
 	StdTxn(context.Context, func(context.Context, *sql.Tx) error) error
+}
+
+// TxnRunnerFactory aliases a function that
+// returns a database.TxnRunner or an error.
+type TxnRunnerFactory = func() (TxnRunner, error)
+
+// NewTxnRunnerFactoryForNamespace returns a TxnRunnerFactory
+// for the input namespaced factory function and namespace.
+func NewTxnRunnerFactoryForNamespace[T TxnRunner](f func(string) (T, error), ns string) TxnRunnerFactory {
+	return func() (TxnRunner, error) {
+		r, err := f(ns)
+		return r, errors.Trace(err)
+	}
+}
+
+// ConstFactory returns a TxnRunnerFactory that always returns the
+// same database.TxnRunner.
+func ConstFactory(r TxnRunner) TxnRunnerFactory {
+	return func() (TxnRunner, error) {
+		return r, nil
+	}
 }

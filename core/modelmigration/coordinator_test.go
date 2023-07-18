@@ -115,7 +115,7 @@ func (s *migrationSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.txnRunner = NewMockTxnRunner(ctrl)
 	s.model = NewMockModel(ctrl)
 
-	s.scope = NewScope(s.txnRunner, s.txnRunner)
+	s.scope = NewScope(nil, nil)
 
 	return ctrl
 }

@@ -112,7 +112,7 @@ func (api *API) Prechecks(model params.MigrationModelInfo) error {
 // Import takes a serialized Juju model, deserializes it, and
 // recreates it in the receiving controller.
 func (api *API) Import(ctx context.Context, serialized params.SerializedModel) error {
-	scope := modelmigration.NewScope(api.controllerDB, nil)
+	scope := modelmigration.NewScope(database.ConstFactory(api.controllerDB), nil)
 
 	controller := state.NewController(api.pool)
 	_, st, err := migration.ImportModel(ctx, controller, scope, serialized.Bytes)

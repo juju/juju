@@ -15,10 +15,10 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 	"github.com/juju/worker/v3/dependency"
 
+	"github.com/juju/juju/core/database"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/dqlite"
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/controllernode/service"
 	"github.com/juju/juju/domain/controllernode/state"
 	"github.com/juju/juju/pubsub/apiserver"
@@ -856,7 +856,7 @@ func (w *dbWorker) ensureNamespace(namespace string) error {
 	defer cancel()
 
 	known, err := service.NewService(
-		state.NewState(domain.NewTxnRunnerFactoryForNamespace(w.GetDB, coredatabase.ControllerNS)),
+		state.NewState(database.NewTxnRunnerFactoryForNamespace(w.GetDB, coredatabase.ControllerNS)),
 	).IsModelKnownToController(ctx, namespace)
 	if err != nil {
 		return errors.Trace(err)

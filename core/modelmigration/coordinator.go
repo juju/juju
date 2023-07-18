@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/description/v4"
 	"github.com/juju/errors"
-
 	"github.com/juju/juju/core/database"
 )
 
@@ -60,12 +59,12 @@ type Operation interface {
 // Scope is a collection of database txn runners that can be used by the
 // operations.
 type Scope struct {
-	controllerDB database.TxnRunner
-	modelDB      database.TxnRunner
+	controllerDB database.TxnRunnerFactory
+	modelDB      database.TxnRunnerFactory
 }
 
 // NewScope creates a new scope with the given database txn runners.
-func NewScope(controllerDB, modelDB database.TxnRunner) Scope {
+func NewScope(controllerDB, modelDB database.TxnRunnerFactory) Scope {
 	return Scope{
 		controllerDB: controllerDB,
 		modelDB:      modelDB,
@@ -73,12 +72,12 @@ func NewScope(controllerDB, modelDB database.TxnRunner) Scope {
 }
 
 // ControllerDB returns the database txn runner for the controller.
-func (s Scope) ControllerDB() database.TxnRunner {
+func (s Scope) ControllerDB() database.TxnRunnerFactory {
 	return s.controllerDB
 }
 
 // ModelDB returns the database txn runner for the model.
-func (s Scope) ModelDB() database.TxnRunner {
+func (s Scope) ModelDB() database.TxnRunnerFactory {
 	return s.modelDB
 }
 

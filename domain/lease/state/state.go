@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
 
+	coreDB "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/database"
 	"github.com/juju/juju/database/txn"
@@ -32,7 +33,7 @@ type State struct {
 }
 
 // NewState returns a new state reference.
-func NewState(factory domain.TxnRunnerFactory, logger Logger) *State {
+func NewState(factory coreDB.TxnRunnerFactory, logger Logger) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
 		logger:    logger,

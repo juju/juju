@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/modelmigration"
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/externalcontroller/service"
 	"github.com/juju/juju/domain/externalcontroller/state"
 )
@@ -51,7 +50,7 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 	// We must not use a watcher during migration, so it's safe to pass a
 	// nil watcher factory.
 	e.service = service.NewService(
-		state.NewState(domain.ConstFactory(scope.ControllerDB())), nil)
+		state.NewState(scope.ControllerDB()), nil)
 	return nil
 }
 

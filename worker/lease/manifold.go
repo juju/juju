@@ -13,9 +13,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/core/database"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/lease/service"
 	"github.com/juju/juju/domain/lease/state"
 	"github.com/juju/juju/worker/common"
@@ -146,6 +146,6 @@ func NewWorker(config ManagerConfig) (worker.Worker, error) {
 
 // NewStore returns a new lease store based on the input config.
 func NewStore(dbGetter coredatabase.DBGetter, logger Logger) lease.Store {
-	factory := domain.NewTxnRunnerFactoryForNamespace(dbGetter.GetDB, coredatabase.ControllerNS)
+	factory := database.NewTxnRunnerFactoryForNamespace(dbGetter.GetDB, coredatabase.ControllerNS)
 	return service.NewService(state.NewState(factory, logger))
 }

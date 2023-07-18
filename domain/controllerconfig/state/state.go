@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
 )
 
@@ -18,7 +19,7 @@ type State struct {
 }
 
 // NewState returns a new State for interacting with the underlying state.
-func NewState(factory domain.TxnRunnerFactory) *State {
+func NewState(factory database.TxnRunnerFactory) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
 	}

@@ -13,7 +13,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/domain"
+	"github.com/juju/juju/core/changestream"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	modelmanagerstate "github.com/juju/juju/domain/modelmanager/state"
 	"github.com/juju/juju/environs/context"
@@ -70,7 +70,7 @@ func newFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
 		backend,
 		common.NewModelManagerBackend(ctrlModel, pool),
 		modelmanagerservice.NewService(
-			modelmanagerstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
+			modelmanagerstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),
 			ctx.DBDeleter()),
 		toolsFinder,
 		caas.New,
