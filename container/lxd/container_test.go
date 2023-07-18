@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/canonical/lxd/shared/api"
+	"github.com/canonical/lxd/shared/osarch"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/lxc/lxd/shared/api"
-	"github.com/lxc/lxd/shared/osarch"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 

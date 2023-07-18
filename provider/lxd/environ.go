@@ -11,8 +11,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
-	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/arch"

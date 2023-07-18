@@ -4,7 +4,7 @@
 package testing
 
 import (
-	lxdapi "github.com/lxc/lxd/shared/api"
+	lxdapi "github.com/canonical/lxd/shared/api"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 

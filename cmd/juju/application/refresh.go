@@ -619,7 +619,7 @@ func newCharmAdder(
 	conn api.Connection,
 ) store.CharmAdder {
 	return &charmAdderShim{
-		api:               apiclient.NewClient(conn),
+		api:               apiclient.NewClient(conn, logger),
 		charmsClient:      apicharms.NewClient(conn),
 		modelConfigClient: modelconfig.NewClient(conn),
 	}

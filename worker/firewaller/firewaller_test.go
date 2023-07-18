@@ -33,6 +33,8 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -43,6 +45,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/firewaller"
@@ -59,10 +62,10 @@ type firewallerBaseSuite struct {
 	controllerPassword string
 
 	st                   api.Connection
-	firewaller           *apifirewaller.Client
+	firewaller           firewaller.FirewallerAPI
 	remoteRelations      *remoterelations.Client
 	crossmodelFirewaller *crossmodelrelations.Client
-	clock                clock.Clock
+	clock                testclock.AdvanceableClock
 
 	callCtx           context.ProviderCallContext
 	credentialsFacade *credentialvalidator.Facade
@@ -213,35 +216,14 @@ func (s *InstanceModeSuite) SetUpTest(c *gc.C) {
 	s.firewallerBaseSuite.setUpTest(c, config.FwInstance)
 	s.watchMachineNotify = nil
 	s.flushModelNotify = nil
-}
-
-// mockClock will panic if anything but After is called
-type mockClock struct {
-	clock.Clock
-	wait time.Duration
-	c    *gc.C
-}
-
-func (m *mockClock) Now() time.Time {
-	return time.Now()
-}
-
-func (m *mockClock) After(duration time.Duration) <-chan time.Time {
-	m.wait = duration
-	return time.After(time.Millisecond)
+	s.clock = testclock.NewDilatedWallClock(testing.ShortWait)
 }
 
 func (s *InstanceModeSuite) newFirewaller(c *gc.C) worker.Worker {
-	return s.newFirewallerWithClockAndIPV6CIDRSupport(c, &mockClock{c: c}, true)
+	return s.newFirewallerWithIPV6CIDRSupport(c, true)
 }
 
-func (s *InstanceModeSuite) newFirewallerWithClock(c *gc.C, clock clock.Clock) worker.Worker {
-	return s.newFirewallerWithClockAndIPV6CIDRSupport(c, clock, true)
-}
-
-func (s *InstanceModeSuite) newFirewallerWithClockAndIPV6CIDRSupport(c *gc.C, clock clock.Clock,
-	ipv6CIDRSupport bool) worker.Worker {
-	s.clock = clock
+func (s *InstanceModeSuite) newFirewallerWithIPV6CIDRSupport(c *gc.C, ipv6CIDRSupport bool) worker.Worker {
 	fwEnv, ok := s.Environ.(environs.Firewaller)
 	c.Assert(ok, gc.Equals, true)
 
@@ -272,7 +254,6 @@ func (s *InstanceModeSuite) newFirewallerWithClockAndIPV6CIDRSupport(c *gc.C, cl
 }
 
 func (s *InstanceModeSuite) newFirewallerWithoutModelFirewaller(c *gc.C) worker.Worker {
-	s.clock = &mockClock{c: c}
 	fwEnv, ok := s.Environ.(environs.Firewaller)
 	c.Assert(ok, gc.Equals, true)
 
@@ -626,7 +607,26 @@ func (s *InstanceModeSuite) TestStartMachineWithManualMachine(c *gc.C) {
 	assertWatching(m.MachineTag())
 }
 
+// TODO: remove once JujuConnSuite is gone.
+type firewallerAPIShim struct {
+	firewaller.FirewallerAPI
+	newModelMachineWatcher func() (watcher.StringsWatcher, error)
+}
+
+func (a *firewallerAPIShim) WatchModelMachines() (watcher.StringsWatcher, error) {
+	return a.newModelMachineWatcher()
+}
+
 func (s *InstanceModeSuite) TestFlushModelAfterFirstMachineOnly(c *gc.C) {
+	machinesChan := make(chan []string, 1)
+	machinesChan <- []string{}
+	s.firewaller = &firewallerAPIShim{
+		FirewallerAPI: s.firewaller,
+		newModelMachineWatcher: func() (watcher.StringsWatcher, error) {
+			return watchertest.NewMockStringsWatcher(machinesChan), nil
+		},
+	}
+
 	flush := make(chan struct{}, 10) // buffer to ensure test never blocks
 	s.flushModelNotify = func() {
 		flush <- struct{}{}
@@ -635,31 +635,38 @@ func (s *InstanceModeSuite) TestFlushModelAfterFirstMachineOnly(c *gc.C) {
 	fw := s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	// Initial event from machine watcher
+	// Initial event from model config watcher
 	select {
 	case <-flush:
-	case <-time.After(coretesting.ShortWait):
-		c.Fatalf("Timed out waiting for initial event")
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for initial event")
 	}
 
-	// Initial event from model firewall watcher
-	select {
-	case <-flush:
-	case <-time.After(coretesting.ShortWait):
-		c.Fatalf("Timed out waiting for initial event")
-	}
-
-	_, err := s.State.AddOneMachine(state.MachineTemplate{
+	m1, err := s.State.AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	machinesChan <- []string{m1.Id()}
+
+	select {
+	case <-flush:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for first machine event")
+	}
+
+	m2, err := s.State.AddOneMachine(state.MachineTemplate{
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	machinesChan <- []string{m2.Id()}
 
 	// Since the initial event successfully configured the model firewall
 	// the next machine shouldn't trigger a model flush
 	select {
 	case <-flush:
-		c.Fatalf("Unexpected model flush creating machine")
+		c.Fatalf("unexpected model flush creating machine")
 	case <-time.After(coretesting.ShortWait):
 	}
 }
@@ -981,7 +988,7 @@ func (s *InstanceModeSuite) TestConfigureModelFirewall(c *gc.C) {
 }
 
 func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
-	c *gc.C, published chan bool, apiErr *bool, ingressRequired *bool, clock clock.Clock,
+	c *gc.C, published chan bool, apiErr <-chan bool, ingressRequired *bool, clock clock.Clock,
 ) (worker.Worker, *state.RelationUnit) {
 	// Set up the consuming model - create the local app.
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
@@ -1042,7 +1049,7 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{}},
 		}
-		if *apiErr {
+		if <-apiErr {
 			return errors.New("fail")
 		}
 		if !*ingressRequired || len(argNetworks) > 0 {
@@ -1055,7 +1062,7 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 	c.Assert(s.crossmodelFirewaller, gc.NotNil)
 
 	// Create the firewaller facade on the consuming model.
-	fw := s.newFirewallerWithClock(c, clock)
+	fw := s.newFirewaller(c)
 
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "mysql", SourceModel: offeringModelTag,
@@ -1097,8 +1104,10 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C) {
 	published := make(chan bool)
 	ingressRequired := true
-	apiErr := false
-	fw, ru := s.setupRemoteRelationRequirerRoleConsumingSide(c, published, &apiErr, &ingressRequired, &mockClock{c: c})
+	apiErr := make(chan bool, 2)
+	apiErr <- false
+	apiErr <- false
+	fw, ru := s.setupRemoteRelationRequirerRoleConsumingSide(c, published, apiErr, &ingressRequired, s.clock)
 	defer statetesting.AssertKillAndWait(c, fw)
 
 	// Add a unit on the consuming app and have it enter the relation scope.
@@ -1110,9 +1119,6 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 		c.Fatal("time out waiting for ingress change to be published on enter scope")
 	case <-published:
 	}
-
-	// Check the relation ready poll time is as expected.
-	c.Assert(s.clock.(*mockClock).wait, gc.Equals, 3*time.Second)
 
 	// Change should be sent when unit leaves scope.
 	ingressRequired = false
@@ -1126,17 +1132,17 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *gc.C) {
-	published := make(chan bool)
+	published := make(chan bool, 1)
 	ingressRequired := true
-	apiErr := true
-	fw, ru := s.setupRemoteRelationRequirerRoleConsumingSide(c, published, &apiErr, &ingressRequired,
-		testclock.NewClock(time.Time{}))
+	apiErr := make(chan bool)
+	fw, ru := s.setupRemoteRelationRequirerRoleConsumingSide(c, published, apiErr, &ingressRequired, s.clock)
 	defer statetesting.AssertKillAndWait(c, fw)
 
 	// Add a unit on the consuming app and have it enter the relation scope.
 	// This will trigger the firewaller to try and publish the changes.
 	err := ru.EnterScope(map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
+	apiErr <- true
 	// We should not have published any ingress events yet - no changed published.
 	select {
 	case <-time.After(coretesting.ShortWait):
@@ -1144,9 +1150,10 @@ func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *gc.C) {
 		c.Fatal("unexpected ingress change to be published")
 	}
 
+	s.clock.Advance(time.Minute)
+
 	// Give the worker time to restart and try again.
-	apiErr = false
-	s.clock.(*testclock.Clock).WaitAdvance(60*time.Second, coretesting.LongWait, 1)
+	apiErr <- false
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("time out waiting for ingress change to be published on enter scope")
@@ -1236,9 +1243,6 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *gc.C)
 		c.Fatal("time out waiting for watcher call")
 	case <-watched:
 	}
-
-	// Check the relation ready poll time is as expected.
-	c.Assert(s.clock.(*mockClock).wait, gc.Equals, 3*time.Second)
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
@@ -1385,9 +1389,6 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ingress []string, expect
 	s.assertIngressRules(c, inst, m.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("3306/tcp"), expected...),
 	})
-
-	// Check the relation ready poll time is as expected.
-	c.Assert(s.clock.(*mockClock).wait, gc.Equals, 3*time.Second)
 
 	// Change should be sent when ingress networks disappear.
 	_, err = rin.Save(rel.Tag().Id(), false, nil)
@@ -1729,7 +1730,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceH
 
 func (s *InstanceModeSuite) TestExposeToIPV6CIDRsOnIPV4OnlyProvider(c *gc.C) {
 	supportsIPV6CIDRs := false
-	fw := s.newFirewallerWithClockAndIPV6CIDRSupport(c, &mockClock{c: c}, supportsIPV6CIDRs)
+	fw := s.newFirewallerWithIPV6CIDRSupport(c, supportsIPV6CIDRs)
 	defer statetesting.AssertKillAndWait(c, fw)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
