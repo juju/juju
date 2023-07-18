@@ -668,6 +668,8 @@ func (w *dbWorker) bindAddrFromServerDetails(apiDetails apiserver.Details) (stri
 // reinitialised either directly or by bouncing the agent reasonably
 // soon after calling this method.
 func (w *dbWorker) shutdownDqlite(ctx context.Context, handover bool) {
+	w.cfg.Logger.Infof("shutting down Dqlite node")
+
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -683,6 +685,8 @@ func (w *dbWorker) shutdownDqlite(ctx context.Context, handover bool) {
 		if err := w.dbApp.Handover(ctx); err != nil {
 			w.cfg.Logger.Errorf("handing off Dqlite responsibilities: %v", err)
 		}
+	} else {
+		w.cfg.Logger.Infof("skipping Dqlite handover")
 	}
 
 	if err := w.dbApp.Close(); err != nil {
