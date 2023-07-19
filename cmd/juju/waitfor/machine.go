@@ -116,7 +116,7 @@ func (c *machineCommand) Run(ctx *cmd.Context) (err error) {
 		ClientFn: c.newWatchAllAPIFunc,
 		Timeout:  c.timeout,
 	}
-	err = strategy.Run(c.id, c.query, c.waitFor(c.query, scopedContext, ctx))
+	err = strategy.Run(ctx, c.id, c.query, c.waitFor(c.query, scopedContext, ctx), emptyNotify)
 	return errors.Trace(err)
 }
 

@@ -124,7 +124,7 @@ func (c *applicationCommand) Run(ctx *cmd.Context) (err error) {
 			c.primeCache()
 		}
 	})
-	err = strategy.Run(c.name, c.query, c.waitFor(c.query, scopedContext, ctx))
+	err = strategy.Run(ctx, c.name, c.query, c.waitFor(c.query, scopedContext, ctx), emptyNotify)
 	return errors.Trace(err)
 }
 

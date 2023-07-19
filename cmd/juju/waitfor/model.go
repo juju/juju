@@ -4,14 +4,19 @@
 package waitfor
 
 import (
+	"context"
+	"fmt"
 	"io"
+	"os"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
+	"github.com/juju/retry"
 	"gopkg.in/yaml.v2"
 
 	jujucmd "github.com/juju/juju/cmd"
@@ -102,7 +107,7 @@ func (c *modelCommand) Init(args []string) (err error) {
 	}
 
 	c.name = model
-	return c.SetModelIdentifier(args[0], true)
+	return c.locateModel(args[0])
 }
 
 func (c *modelCommand) Run(ctx *cmd.Context) (err error) {
@@ -134,8 +139,39 @@ func (c *modelCommand) Run(ctx *cmd.Context) (err error) {
 			c.primeCache()
 		}
 	})
-	err = strategy.Run(c.name, c.query, c.waitFor(c.query, scopedContext, ctx))
+	err = strategy.Run(ctx, c.name, c.query, c.waitFor(c.query, scopedContext, ctx), func(err error, attempt int) {
+		if errors.Is(err, errors.NotFound) {
+			ctx.Infof("model %q not found, waiting...", c.name)
+		}
+	})
 	return errors.Trace(err)
+}
+
+func (c *modelCommand) locateModel(name string) error {
+	timeoutContext, cancel := context.WithTimeout(context.Background(), c.timeout)
+	defer cancel()
+
+	if err := retry.Call(retry.CallArgs{
+		Clock:       clock.WallClock,
+		Delay:       1 * time.Second,
+		Attempts:    200,
+		MaxDelay:    10 * time.Second,
+		MaxDuration: c.timeout,
+		BackoffFunc: retry.DoubleDelay,
+		Stop:        timeoutContext.Done(),
+		IsFatalError: func(err error) bool {
+			return !errors.Is(err, errors.NotFound)
+		},
+		NotifyFunc: func(err error, attempt int) {
+			fmt.Fprintf(os.Stderr, "model %q not found, waiting...\n", c.name)
+		},
+		Func: func() error {
+			return c.SetModelIdentifier(name, true)
+		},
+	}); err != nil {
+		return fmt.Errorf("unable to locate model %q%w", c.name, errors.Hide(err))
+	}
+	return nil
 }
 
 func (c *modelCommand) primeCache() {

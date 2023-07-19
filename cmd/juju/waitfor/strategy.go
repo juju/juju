@@ -4,6 +4,7 @@
 package waitfor
 
 import (
+	"context"
 	"reflect"
 	"strings"
 	"time"
@@ -49,7 +50,12 @@ func (s *Strategy) Subscribe(sub Callback) {
 }
 
 // Run the strategy and return the given result set.
-func (s *Strategy) Run(name string, input string, fn StrategyFunc) error {
+func (s *Strategy) Run(
+	ctx context.Context,
+	name string, input string,
+	runFn StrategyFunc,
+	notifyFn func(lastError error, attempt int),
+) error {
 	q, err := query.Parse(input)
 	if err != nil {
 		return HelpDisplay(err, input, nil)
@@ -59,16 +65,21 @@ func (s *Strategy) Run(name string, input string, fn StrategyFunc) error {
 		Clock:       clock.WallClock,
 		Delay:       5 * time.Second,
 		MaxDuration: s.Timeout,
+		Stop:        ctx.Done(),
 		Func: func() error {
 			s.dispatch(WatchAllStarted)
-			return s.run(q, name, input, fn)
+			return s.run(q, name, input, runFn)
 		},
 		IsFatalError: func(err error) bool {
 			if e, ok := errors.Cause(err).(*rpc.RequestError); ok && isWatcherStopped(e) {
 				return false
 			}
+			if errors.Is(err, errors.NotFound) || errors.Is(err, rpc.ErrShutdown) {
+				return false
+			}
 			return true
 		},
+		NotifyFunc: notifyFn,
 	})
 }
 
@@ -227,3 +238,5 @@ func (c ScopeContext) Child(entityName, name string) ScopeContext {
 	c.children[entityName][name] = ctx
 	return ctx
 }
+
+func emptyNotify(error, int) {}
