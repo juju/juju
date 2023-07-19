@@ -89,7 +89,7 @@ type Server interface {
 	GetInstanceState(name string) (*lxdapi.InstanceState, string, error)
 
 	// UseProject ensures that this server will use the input project.
-	// See: https://linuxcontainers.org/lxd/docs/master/projects.
+	// See: https://documentation.ubuntu.com/lxd/en/latest/projects.
 	UseProject(string)
 }
 

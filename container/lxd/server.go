@@ -163,7 +163,7 @@ func (s *Server) GetContainerProfiles(name string) ([]string, error) {
 }
 
 // UseProject ensures that this server will use the input project.
-// See: https://linuxcontainers.org/lxd/docs/master/projects.
+// See: https://documentation.ubuntu.com/lxd/en/latest/projects.
 func (s *Server) UseProject(project string) {
 	s.InstanceServer = s.InstanceServer.UseProject(project)
 }

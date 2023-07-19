@@ -74,6 +74,7 @@ func New(
 			// If the API connection fails, try again in 1 minute.
 			RestartDelay: time.Minute,
 			Clock:        clock,
+			Logger:       logger,
 		}),
 	}
 	if err := catacomb.Invoke(catacomb.Plan{

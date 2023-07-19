@@ -194,6 +194,11 @@ func (a *UpgradeSeriesAPI) Prepare(tag, channel string, force bool) (retErr erro
 		unitNames[i] = unit.UnitTag().Id()
 	}
 
+	// Validate the machine applications for a given series.
+	if err := a.validateApplication(machine, requestedBase, force); err != nil {
+		return errors.Trace(err)
+	}
+
 	// TODO 2018-06-28 managed series upgrade
 	// improve error handling based on error type, there will be cases where retrying
 	// the hooks is needed etc.
@@ -212,11 +217,6 @@ func (a *UpgradeSeriesAPI) Prepare(tag, channel string, force bool) (retErr erro
 			retErr = errors.Annotatef(retErr, "%s occurred while cleaning up from", err)
 		}
 	}()
-
-	// Validate the machine applications for a given series.
-	if err := a.validateApplication(machine, requestedBase, force); err != nil {
-		return errors.Trace(err)
-	}
 
 	// Once validated, set the machine status to started.
 	mBase, err := coreseries.ParseBase(machine.Base().OS, machine.Base().Channel)
@@ -388,24 +388,26 @@ func (s upgradeSeriesValidator) ValidateMachine(machine Machine) error {
 	}
 
 	// If we've already got a series lock on upgrade, don't go any further.
-	if locked, err := machine.IsLockedForSeriesUpgrade(); errors.IsNotFound(errors.Cause(err)) {
+	locked, err := machine.IsLockedForSeriesUpgrade()
+	if err != nil {
 		return errors.Trace(err)
-	} else if locked {
-		// Grab the status from upgrade series and add it to the error.
-		status, err := machine.UpgradeSeriesStatus()
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		// Additionally add the status to the underlying params error. This
-		// gives a typed error to the client, which can then decode ths
-		// optional information later on.
-		return &apiservererrors.UpgradeSeriesValidationError{
-			Cause:  errors.Errorf("upgrade series lock found for %q; series upgrade is in the %q state", machine.Id(), status),
-			Status: status.String(),
-		}
 	}
-	return nil
+	if !locked {
+		return nil
+	}
+	// Grab the status from upgrade series and add it to the error.
+	status, err := machine.UpgradeSeriesStatus()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Additionally add the status to the underlying params error. This
+	// gives a typed error to the client, which can then decode ths
+	// optional information later on.
+	return &apiservererrors.UpgradeSeriesValidationError{
+		Cause:  errors.Errorf("upgrade series lock found for %q; series upgrade is in the %q state", machine.Id(), status),
+		Status: status.String(),
+	}
 }
 
 // ValidateUnits validates a given set of units.
