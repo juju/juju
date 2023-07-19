@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/exec"
 	"github.com/juju/version/v2"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/service/windows"
+	"github.com/juju/juju/testing"
 )
 
 var maybeSystemd = service.InitSystemSystemd

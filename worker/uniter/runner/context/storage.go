@@ -4,8 +4,9 @@
 package context
 
 import (
-	"github.com/juju/juju/storage"
 	"github.com/juju/names/v4"
+
+	"github.com/juju/juju/storage"
 )
 
 // contextStorage is an implementation of hooks.ContextStorageAttachment.

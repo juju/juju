@@ -14,7 +14,6 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/loggo"
 	"github.com/juju/loggo/loggocolor"
 	"github.com/juju/names/v4"
@@ -24,6 +23,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/jujuclient"
 )
 
 // defaultLineCount is the default number of lines to

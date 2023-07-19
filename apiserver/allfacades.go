@@ -44,8 +44,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/action"
 	"github.com/juju/juju/apiserver/facades/client/annotations" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/application"
-	"github.com/juju/juju/apiserver/facades/client/modelupgrader"
-
 	// ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
 	"github.com/juju/juju/apiserver/facades/client/backups" // ModelUser Write
@@ -67,6 +65,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelconfig"    // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/modelgeneration"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager" // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/client/modelupgrader"
 	"github.com/juju/juju/apiserver/facades/client/payloads"
 	"github.com/juju/juju/apiserver/facades/client/resources"
 	"github.com/juju/juju/apiserver/facades/client/spaces"    // ModelUser Write

@@ -8,11 +8,12 @@ import (
 	"fmt"
 	"strings"
 
-	corenetwork "github.com/juju/juju/core/network"
-	jujupackaging "github.com/juju/juju/packaging"
 	"github.com/juju/packaging/v2"
 	"github.com/juju/packaging/v2/config"
 	"gopkg.in/yaml.v2"
+
+	corenetwork "github.com/juju/juju/core/network"
+	jujupackaging "github.com/juju/juju/packaging"
 )
 
 // PackageHelper is the interface for configuring specific parameter of the package manager

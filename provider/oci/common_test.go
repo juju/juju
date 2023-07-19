@@ -11,24 +11,21 @@ import (
 
 	"github.com/juju/clock/testclock"
 	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
-
-	jc "github.com/juju/testing/checkers"
-	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
-
-	ocitesting "github.com/juju/juju/provider/oci/testing"
-	jujutesting "github.com/juju/juju/testing"
-
 	ociCore "github.com/oracle/oci-go-sdk/v47/core"
 	ociIdentity "github.com/oracle/oci-go-sdk/v47/identity"
+	gomock "go.uber.org/mock/gomock"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/provider/oci"
+	ocitesting "github.com/juju/juju/provider/oci/testing"
+	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
 

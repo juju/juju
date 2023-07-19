@@ -6,8 +6,8 @@ package modelgeneration
 import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/cache"
 
+	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/state"
 )
 

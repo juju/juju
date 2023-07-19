@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	ociCore "github.com/oracle/oci-go-sdk/v47/core"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
@@ -17,8 +18,6 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/provider/oci"
 	"github.com/juju/juju/storage"
-
-	ociCore "github.com/oracle/oci-go-sdk/v47/core"
 )
 
 type storageVolumeSuite struct {

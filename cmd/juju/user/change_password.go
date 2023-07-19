@@ -13,6 +13,9 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/names/v4"
+	"golang.org/x/crypto/ssh/terminal"
+
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/authentication"
 	jujucmd "github.com/juju/juju/cmd"
@@ -20,8 +23,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/names/v4"
-	"golang.org/x/crypto/ssh/terminal"
 )
 
 const userChangePasswordDoc = `

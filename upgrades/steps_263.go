@@ -4,8 +4,9 @@
 package upgrades
 
 import (
-	"github.com/juju/juju/api/agent/upgradesteps"
 	"github.com/juju/names/v4"
+
+	"github.com/juju/juju/api/agent/upgradesteps"
 )
 
 // stepsFor263 returns upgrade steps for Juju 2.6.3.

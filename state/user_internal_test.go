@@ -6,11 +6,11 @@ package state
 import (
 	"strings"
 
+	"github.com/juju/names/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/testing"
-	"github.com/juju/names/v4"
 )
 
 type internalUserSuite struct {

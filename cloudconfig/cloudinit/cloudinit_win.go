@@ -5,8 +5,9 @@
 package cloudinit
 
 import (
-	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/packaging/v2"
+
+	corenetwork "github.com/juju/juju/core/network"
 )
 
 // windowsCloudConfig is the cloudconfig type specific to Windows machines.

@@ -11,14 +11,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/juju/apiserver/common/networkingcommon"
-
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"

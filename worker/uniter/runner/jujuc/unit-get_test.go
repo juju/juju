@@ -5,10 +5,9 @@
 package jujuc_test
 
 import (
-	"strings"
-
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"

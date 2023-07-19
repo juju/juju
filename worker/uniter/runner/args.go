@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/worker/common/charmrunner"
 )

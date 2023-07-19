@@ -5,8 +5,9 @@ package dependency
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/packaging"
 	"github.com/juju/utils/v3/arch"
+
+	"github.com/juju/juju/packaging"
 )
 
 // KVM returns a dependency instance for installing KVM support.

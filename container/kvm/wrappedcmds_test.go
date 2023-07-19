@@ -9,12 +9,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/juju/core/paths"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	. "github.com/juju/juju/container/kvm"
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/environs/imagedownloads"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"

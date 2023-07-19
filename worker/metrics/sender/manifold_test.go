@@ -11,11 +11,6 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/agent/metricsadder"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/worker/metrics/sender"
-	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -24,6 +19,12 @@ import (
 	dt "github.com/juju/worker/v3/dependency/testing"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
+
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/agent/metricsadder"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/worker/metrics/sender"
+	"github.com/juju/juju/worker/metrics/spool"
 )
 
 type ManifoldSuite struct {

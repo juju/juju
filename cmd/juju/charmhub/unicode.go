@@ -8,8 +8,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/juju/juju/cmd/output"
 	"golang.org/x/crypto/ssh/terminal"
+
+	"github.com/juju/juju/cmd/output"
 )
 
 // OSEnviron represents an interface around the os environment.

@@ -10,9 +10,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/collections/set"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	corenetwork "github.com/juju/juju/core/network"

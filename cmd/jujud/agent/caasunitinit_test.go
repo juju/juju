@@ -14,14 +14,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/juju/juju/sockets"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
-	"github.com/juju/testing"
 )
 
 type CAASUnitInitSuite struct {

@@ -6,18 +6,16 @@ package upgradesteps
 import (
 	"time"
 
-	apiagent "github.com/juju/juju/api/agent/agent"
-
 	"github.com/juju/clock"
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
-
-	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	apiagent "github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/worker/gate"

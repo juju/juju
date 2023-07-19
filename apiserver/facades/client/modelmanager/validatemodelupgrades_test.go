@@ -12,8 +12,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	jujuversion "github.com/juju/juju/version"
-
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -21,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type ValidateModelUpgradesSuite struct {

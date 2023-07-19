@@ -20,15 +20,14 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
+	lxdclient "github.com/lxc/lxd/client"
+	lxdapi "github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/utils/proxy"
-
-	lxdclient "github.com/lxc/lxd/client"
-	lxdapi "github.com/lxc/lxd/shared/api"
 )
 
 // Server defines an interface of all localized methods that the environment

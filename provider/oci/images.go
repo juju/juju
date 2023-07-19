@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3/arch"
-
 	ociCore "github.com/oracle/oci-go-sdk/v47/core"
 
 	"github.com/juju/juju/core/series"
