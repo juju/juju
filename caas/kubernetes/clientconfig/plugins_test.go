@@ -16,9 +16,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	"github.com/juju/juju/testing"
-
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
+	"github.com/juju/juju/testing"
 )
 
 type k8sRawClientSuite struct {

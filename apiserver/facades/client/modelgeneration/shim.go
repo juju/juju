@@ -8,7 +8,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/cache"
-
 	"github.com/juju/juju/state"
 )
 

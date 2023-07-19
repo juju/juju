@@ -10,11 +10,12 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/globalclock"
-	"github.com/juju/juju/core/lease"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v3"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/juju/juju/core/globalclock"
+	"github.com/juju/juju/core/lease"
 )
 
 // Client defines the methods for broadcasting a command.

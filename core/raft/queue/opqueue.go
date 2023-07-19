@@ -8,8 +8,9 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/raftlease"
 	"gopkg.in/tomb.v2"
+
+	"github.com/juju/juju/core/raftlease"
 )
 
 const (

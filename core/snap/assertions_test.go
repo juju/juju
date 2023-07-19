@@ -9,8 +9,9 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	"github.com/juju/juju/core/snap"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/snap"
 )
 
 var (

@@ -7,12 +7,13 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/packaging"
-	"github.com/juju/juju/packaging/dependency"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/packaging"
+	"github.com/juju/juju/packaging/dependency"
 )
 
 type initialisationInternalSuite struct {

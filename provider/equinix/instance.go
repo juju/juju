@@ -7,6 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/packethost/packngo"
+
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
@@ -15,8 +17,6 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/common"
-
-	"github.com/packethost/packngo"
 )
 
 type equinixDevice struct {

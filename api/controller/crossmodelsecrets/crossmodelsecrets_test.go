@@ -11,14 +11,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/crossmodelsecrets"
 	apitesting "github.com/juju/juju/api/testing"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
 	secretsprovider "github.com/juju/juju/secrets/provider"
-
-	"github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
 

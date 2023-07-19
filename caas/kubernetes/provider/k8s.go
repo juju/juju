@@ -41,12 +41,10 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/pointer"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	jujuversion "github.com/juju/juju/version"
-
 	"github.com/juju/juju/caas"
 	k8sapplication "github.com/juju/juju/caas/kubernetes/provider/application"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	k8sstorage "github.com/juju/juju/caas/kubernetes/provider/storage"
@@ -68,6 +66,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.kubernetes.provider")

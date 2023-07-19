@@ -29,7 +29,6 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
-
 	gc "gopkg.in/check.v1"
 	k8scmd "k8s.io/client-go/tools/clientcmd"
 

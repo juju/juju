@@ -11,10 +11,9 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state/mocks"
-
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/mocks"
 )
 
 type bindingsSuite struct {

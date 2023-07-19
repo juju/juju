@@ -12,20 +12,19 @@ import (
 	"github.com/juju/version/v2"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/worker/fortress"
-
 	"github.com/juju/juju/agent"
 	caasoperatorapi "github.com/juju/juju/api/agent/caasoperator"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
+	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/downloader"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasoperator"
+	"github.com/juju/juju/worker/fortress"
 )
 
 var (

@@ -7,8 +7,9 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/storage"
 	"github.com/juju/schema"
+
+	"github.com/juju/juju/storage"
 )
 
 // checkK8sConfig checks that the attributes in a configuration

@@ -9,10 +9,6 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/juju/juju/core/network"
-
-	"github.com/juju/juju/container/kvm/mock"
-
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/arch"
@@ -20,10 +16,12 @@ import (
 
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
+	"github.com/juju/juju/container/kvm/mock"
 	kvmtesting "github.com/juju/juju/container/kvm/testing"
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	coretesting "github.com/juju/juju/testing"

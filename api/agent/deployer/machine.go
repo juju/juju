@@ -6,10 +6,11 @@ package deployer
 import (
 	"fmt"
 
+	"github.com/juju/names/v4"
+
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/names/v4"
 )
 
 // Machine represents a juju machine as seen by the deployer worker.

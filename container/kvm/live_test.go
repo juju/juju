@@ -9,9 +9,6 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/series"
-
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/arch"
@@ -22,6 +19,8 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"

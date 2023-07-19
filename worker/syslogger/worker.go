@@ -11,10 +11,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-
-	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
+
+	corelogger "github.com/juju/juju/core/logger"
 )
 
 // NewLogger is a factory function to create a new syslog logger.
