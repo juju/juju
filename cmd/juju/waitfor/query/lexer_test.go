@@ -164,7 +164,7 @@ func (p *lexerSuite) TestReadNextBool(c *gc.C) {
 			Type: -1,
 		}, {
 			Pos:     Position{Offset: 0, Line: 1, Column: 1},
-			Type:    TRUE,
+			Type:    BOOL,
 			Literal: "true",
 		}},
 	}, {
@@ -173,7 +173,7 @@ func (p *lexerSuite) TestReadNextBool(c *gc.C) {
 			Type: -1,
 		}, {
 			Pos:     Position{Offset: 0, Line: 1, Column: 1},
-			Type:    FALSE,
+			Type:    BOOL,
 			Literal: "false",
 		}},
 	}}
@@ -267,9 +267,10 @@ func (p *lexerSuite) TestReadNextString(c *gc.C) {
 		Expected: []Token{{
 			Type: -1,
 		}, {
-			Pos:     Position{Offset: 0, Line: 1, Column: 1},
-			Type:    STRING,
-			Literal: ``,
+			Pos:        Position{Offset: 0, Line: 1, Column: 1},
+			Type:       STRING,
+			Literal:    ``,
+			Terminated: true,
 		}},
 	}, {
 		Input: `"abc"`,
@@ -279,6 +280,8 @@ func (p *lexerSuite) TestReadNextString(c *gc.C) {
 			Pos:     Position{Offset: 0, Line: 1, Column: 1},
 			Type:    STRING,
 			Literal: "abc",
+
+			Terminated: true,
 		}},
 	}, {
 		Input: `"abc with a space"`,
@@ -288,6 +291,8 @@ func (p *lexerSuite) TestReadNextString(c *gc.C) {
 			Pos:     Position{Offset: 0, Line: 1, Column: 1},
 			Type:    STRING,
 			Literal: "abc with a space",
+
+			Terminated: true,
 		}},
 	}}
 

@@ -28,7 +28,7 @@ func newMachineCommand() cmd.Command {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return watchAllAPIShim{
+		return modelAllWatchShim{
 			Client: client,
 		}, nil
 	}
@@ -54,10 +54,9 @@ type machineCommand struct {
 	id      string
 	query   string
 	timeout time.Duration
-	found   bool
 	summary bool
 
-	machineInfo params.MachineInfo
+	machineInfo *params.MachineInfo
 }
 
 // Info implements Command.Info.
@@ -94,22 +93,22 @@ func (c *machineCommand) Init(args []string) (err error) {
 	return nil
 }
 
-func (c *machineCommand) Run(ctx *cmd.Context) error {
+func (c *machineCommand) Run(ctx *cmd.Context) (err error) {
 	scopedContext := MakeScopeContext()
 
 	defer func() {
-		if !c.summary {
+		if err != nil || !c.summary || c.machineInfo == nil {
 			return
 		}
 
 		switch c.machineInfo.Life {
 		case life.Dead:
-			ctx.Infof("Machine %q has been removed", c.id)
+			ctx.Infof("machine %q has been removed", c.id)
 		case life.Dying:
-			ctx.Infof("Machine %q is being removed", c.id)
+			ctx.Infof("machine %q is being removed", c.id)
 		default:
-			ctx.Infof("Machine %q is running", c.id)
-			outputMachineSummary(ctx.Stdout, scopedContext, &c.machineInfo)
+			ctx.Infof("machine %q is running", c.id)
+			outputMachineSummary(ctx.Stdout, scopedContext, c.machineInfo)
 		}
 	}()
 
@@ -117,14 +116,23 @@ func (c *machineCommand) Run(ctx *cmd.Context) error {
 		ClientFn: c.newWatchAllAPIFunc,
 		Timeout:  c.timeout,
 	}
-	err := strategy.Run(c.id, c.query, c.waitFor(scopedContext))
+	err = strategy.Run(ctx, c.id, c.query, c.waitFor(c.query, scopedContext, ctx), emptyNotify)
 	return errors.Trace(err)
 }
 
-func (c *machineCommand) waitFor(ctx ScopeContext) func(string, []params.Delta, query.Query) (bool, error) {
+func (c *machineCommand) waitFor(input string, ctx ScopeContext, logger Logger) func(string, []params.Delta, query.Query) (bool, error) {
+	run := func(q query.Query) (bool, error) {
+		scope := MakeMachineScope(ctx, c.machineInfo)
+		if done, err := runQuery(input, q, scope); err != nil {
+			return false, errors.Trace(err)
+		} else if done {
+			return true, nil
+		}
+		return c.machineInfo.Life == life.Dead, nil
+	}
 	return func(id string, deltas []params.Delta, q query.Query) (bool, error) {
 		for _, delta := range deltas {
-			logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
+			logger.Verbosef("delta %T: %v", delta.Entity, delta.Entity)
 
 			switch entityInfo := delta.Entity.(type) {
 			case *params.MachineInfo:
@@ -136,19 +144,17 @@ func (c *machineCommand) waitFor(ctx ScopeContext) func(string, []params.Delta, 
 					return false, errors.Errorf("machine %v removed", id)
 				}
 
-				c.machineInfo = *entityInfo
-
-				scope := MakeMachineScope(ctx, entityInfo)
-				if done, err := runQuery(q, scope); err != nil {
-					return false, errors.Trace(err)
-				} else if done {
-					return true, nil
-				}
-				c.found = entityInfo.Life != life.Dead
+				c.machineInfo = entityInfo
 			}
 		}
 
-		if !c.found {
+		if c.machineInfo != nil {
+			if found, err := run(q); err != nil {
+				return false, errors.Trace(err)
+			} else if found {
+				return true, nil
+			}
+		} else {
 			logger.Infof("machine %q not found, waiting...", id)
 			return false, nil
 		}
@@ -203,7 +209,7 @@ func (m MachineScope) GetIdentValue(name string) (query.Box, error) {
 		}
 		return query.NewSliceString(containerTypes), nil
 	}
-	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "Runtime Error: identifier %q not found on MachineInfo", name)
+	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name, m), "%q on MachineInfo", name)
 }
 
 func outputMachineSummary(writer io.Writer, scopedContext ScopeContext, machineInfo *params.MachineInfo) {
