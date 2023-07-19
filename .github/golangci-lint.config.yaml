@@ -1,4 +1,10 @@
 linters-settings:
+  gci:
+    sections:
+      - standard
+      - default
+      - Prefix(github.com/juju/juju)
+    skip-generated: true
   gofmt:
     simplify: true
   govet:
@@ -26,9 +32,9 @@ linters-settings:
 linters:
   disable-all: true
   enable:
+    - gci
     - govet
     - gofmt
-    - goimports
     - ineffassign
     - misspell
     - unconvert
