@@ -710,7 +710,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenActionsChange)
 
 		case keys, ok := <-relationsw.Changes():
-			w.logger.Debugf("got relations change for %s: ok=%t", w.unit.Tag().Id(), ok)
+			w.logger.Debugf("got relations change for %s: ok=%t: %q", w.unit.Tag().Id(), ok, keys)
 			if !ok {
 				return errors.New("relations watcher closed")
 			}
@@ -1109,7 +1109,7 @@ func (w *RemoteStateWatcher) leadershipChanged(isLeader bool) error {
 	// Allow a generous buffer so a slow unit agent does not
 	// block the upstream worker.
 	w.obsoleteRevisionChanges = make(chan []string, 100)
-	w.logger.Debugf("starting obsolete secret revisions watcher")
+	w.logger.Debugf("starting obsolete secret revisions watcher (leader=%v)", isLeader)
 	owners := []names.Tag{w.unit.Tag()}
 	if isLeader {
 		appName, _ := names.UnitApplication(w.unit.Tag().Id())

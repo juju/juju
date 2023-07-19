@@ -7,25 +7,28 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/juju/charm/v11/hooks"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	utilexec "github.com/juju/utils/v3/exec"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 // mockRunner implements Runner.
 type mockRunner struct {
-	ctx context.Context
+	stdContext context.Context
 
 	mu              sync.Mutex
+	ctx             *testContext
 	hooksWithErrors set.Strings
 	ranActions_     []actionData
 }
 
 func (r *mockRunner) Context() context.Context {
-	return r.ctx
+	return r.stdContext
 }
 
 func (r *mockRunner) ranActions() []actionData {
@@ -49,7 +52,7 @@ func (r *mockRunner) RunCommands(commands string, runLocation runner.RunLocation
 
 // RunAction exists to satisfy the Runner interface.
 func (r *mockRunner) RunAction(actionName string) (runner.HookHandlerType, error) {
-	data, err := r.ctx.ActionData()
+	data, err := r.stdContext.ActionData()
 	if err != nil {
 		return runner.ExplicitHookHandler, errors.Trace(err)
 	}
@@ -67,6 +70,14 @@ func (r *mockRunner) RunAction(actionName string) (runner.HookHandlerType, error
 
 // RunHook exists to satisfy the Runner interface.
 func (r *mockRunner) RunHook(hookName string) (runner.HookHandlerType, error) {
+	r.ctx.unit.mu.Lock()
+	if hookName == string(hooks.Install) {
+		r.ctx.unit.unitStatus = status.StatusInfo{
+			Status:  status.Maintenance,
+			Message: status.MessageInstallingCharm,
+		}
+	}
+	r.ctx.unit.mu.Unlock()
 	var err error = nil
 	if r.hooksWithErrors != nil && r.hooksWithErrors.Contains(hookName) {
 		err = errors.Errorf("%q failed", hookName)
