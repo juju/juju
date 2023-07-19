@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -100,7 +101,7 @@ func (u *UpgradeSeriesAPI) SetUpgradeSeriesUnitStatus(status model.UpgradeSeries
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return result.Error
+		return apiservererrors.RestoreError(result.Error)
 	}
 	return nil
 }
