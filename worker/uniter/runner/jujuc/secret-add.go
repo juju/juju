@@ -12,9 +12,8 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/secrets"
-
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/core/secrets"
 )
 
 type secretUpsertCommand struct {

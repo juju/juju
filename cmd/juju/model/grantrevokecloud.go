@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
-	"github.com/juju/juju/api/client/cloud"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/api/client/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"

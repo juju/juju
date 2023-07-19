@@ -11,16 +11,15 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/controller"
-	jujutesting "github.com/juju/juju/testing"
-
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/upgradesteps"
 	"github.com/juju/juju/apiserver/facades/agent/upgradesteps/mocks"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 type upgradeStepsSuite struct {

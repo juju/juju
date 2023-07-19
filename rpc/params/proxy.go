@@ -5,6 +5,7 @@ package params
 
 import (
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/proxy"
 )
 

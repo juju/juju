@@ -4,9 +4,9 @@
 package pki_test
 
 import (
-	"github.com/juju/juju/pki"
-
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/pki"
 )
 
 type SignerSuite struct {

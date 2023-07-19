@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
+
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
