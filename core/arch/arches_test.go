@@ -4,11 +4,12 @@
 package arch_test
 
 import (
-	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/constraints"
 )
 
 type archSuite struct {

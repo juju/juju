@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	ociCore "github.com/oracle/oci-go-sdk/v47/core"
 
 	"github.com/juju/juju/core/instance"
 	envcontext "github.com/juju/juju/environs/context"
@@ -18,8 +19,6 @@ import (
 	allProvidersCommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/oci/common"
 	"github.com/juju/juju/storage"
-
-	ociCore "github.com/oracle/oci-go-sdk/v47/core"
 )
 
 func mibToGib(m uint64) uint64 {

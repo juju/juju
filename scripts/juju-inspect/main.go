@@ -13,9 +13,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/juju/scripts/juju-inspect/rules"
 	"github.com/juju/version/v2"
 	"gopkg.in/yaml.v2"
+
+	"github.com/juju/juju/scripts/juju-inspect/rules"
 )
 
 func main() {

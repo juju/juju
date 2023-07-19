@@ -5,11 +5,12 @@ package cache
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/settings"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/settings"
 )
 
 const (

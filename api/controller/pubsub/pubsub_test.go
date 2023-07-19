@@ -9,12 +9,12 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
 	apipubsub "github.com/juju/juju/api/controller/pubsub"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/testing"
 )
 
 type PubSubSuite struct {

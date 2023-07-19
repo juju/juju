@@ -4,9 +4,10 @@
 package connector
 
 import (
-	"github.com/juju/juju/api"
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
+
+	"github.com/juju/juju/api"
 )
 
 // SimpleConfig aims to provide the same API surface as pilot juju for

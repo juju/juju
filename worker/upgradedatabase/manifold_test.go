@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
-
 	"github.com/juju/juju/worker/upgradedatabase"
 	. "github.com/juju/juju/worker/upgradedatabase/mocks"
 )

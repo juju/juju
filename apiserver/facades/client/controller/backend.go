@@ -9,7 +9,6 @@ import (
 
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/permission"
-
 	"github.com/juju/juju/state"
 )
 

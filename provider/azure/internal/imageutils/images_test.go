@@ -10,10 +10,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
 	"github.com/Azure/go-autorest/autorest/mocks"
-	gc "gopkg.in/check.v1"
-
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/arch"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/context"

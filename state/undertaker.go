@@ -5,6 +5,7 @@ package state
 
 import (
 	"github.com/juju/errors"
+
 	stateerrors "github.com/juju/juju/state/errors"
 )
 

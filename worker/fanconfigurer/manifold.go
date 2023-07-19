@@ -4,11 +4,11 @@
 package fanconfigurer
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/clock"
 	apifanconfigurer "github.com/juju/juju/api/agent/fanconfigurer"
 	"github.com/juju/juju/api/base"
 )

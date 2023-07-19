@@ -10,11 +10,10 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/cache"
-
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/client/modelgeneration"
 	"github.com/juju/juju/apiserver/facades/client/modelgeneration/mocks"
+	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/rpc/params"
