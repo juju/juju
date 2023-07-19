@@ -16,6 +16,7 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database"
+	"github.com/juju/juju/database/pragma"
 )
 
 const (
@@ -86,7 +87,7 @@ type trackedDBWorker struct {
 }
 
 // NewTrackedDBWorker creates a new TrackedDBWorker
-func NewTrackedDBWorker(dbApp DBApp, namespace string, opts ...TrackedDBWorkerOption) (TrackedDB, error) {
+func NewTrackedDBWorker(ctx context.Context, dbApp DBApp, namespace string, opts ...TrackedDBWorkerOption) (TrackedDB, error) {
 	w := &trackedDBWorker{
 		dbApp:      dbApp,
 		namespace:  namespace,
@@ -103,6 +104,10 @@ func NewTrackedDBWorker(dbApp DBApp, namespace string, opts ...TrackedDBWorkerOp
 	w.db, err = w.dbApp.Open(context.TODO(), w.namespace)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	if err := pragma.SetPragma(ctx, w.db, pragma.ForeignKeysPragma, true); err != nil {
+		return nil, errors.Annotate(err, "setting foreign keys pragma")
 	}
 
 	w.tomb.Go(w.loop)
@@ -300,6 +305,10 @@ func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(db *sql.DB) (*sql.DB, e
 		// the worker, we can't do anything else.
 		if db, err = w.dbApp.Open(ctx, w.namespace); err != nil {
 			return nil, errors.Trace(err)
+		}
+
+		if err := pragma.SetPragma(ctx, db, pragma.ForeignKeysPragma, true); err != nil {
+			return nil, errors.Annotate(err, "setting foreign keys pragma")
 		}
 	}
 	return nil, errors.NotValidf("database")
