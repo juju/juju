@@ -9,9 +9,9 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
+	"github.com/juju/juju/core/database"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/lease/service"
 	"github.com/juju/juju/domain/lease/state"
 )
@@ -96,6 +96,6 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 
 // NewStore returns a new lease store based on the input config.
 func NewStore(dbGetter coredatabase.DBGetter, logger Logger) lease.ExpiryStore {
-	factory := domain.NewTxnRunnerFactoryForNamespace(dbGetter.GetDB, coredatabase.ControllerNS)
+	factory := database.NewTxnRunnerFactoryForNamespace(dbGetter.GetDB, coredatabase.ControllerNS)
 	return service.NewService(state.NewState(factory, logger))
 }

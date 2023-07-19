@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/modelmigration"
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/lease/service"
 	"github.com/juju/juju/domain/lease/state"
 )
@@ -58,7 +57,7 @@ type importOperation struct {
 // Setup is called before the operation is executed. It should return an
 // error if the operation cannot be performed.
 func (o *importOperation) Setup(scope modelmigration.Scope) error {
-	o.service = service.NewService(state.NewState(domain.ConstFactory(scope.ControllerDB()), o.logger))
+	o.service = service.NewService(state.NewState(scope.ControllerDB(), o.logger))
 	return nil
 }
 

@@ -8,54 +8,19 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 )
-
-// TxnRunnerFactory aliases a function that
-// returns a database.TxnRunner or an error.
-type TxnRunnerFactory = func() (database.TxnRunner, error)
-
-// NewTxnRunnerFactory returns a TxnRunnerFactory for the input
-// changestream.WatchableDB factory function.
-// This ensures that we never pass the ability to access the
-// change-stream into a state object.
-// State objects should only be concerned with persistence and retrieval.
-// Watchers are the concern of the service layer.
-func NewTxnRunnerFactory(f func() (changestream.WatchableDB, error)) TxnRunnerFactory {
-	return func() (database.TxnRunner, error) {
-		r, err := f()
-		return r, errors.Trace(err)
-	}
-}
-
-// NewTxnRunnerFactoryForNamespace returns a TxnRunnerFactory
-// for the input namespaced factory function and namespace.
-func NewTxnRunnerFactoryForNamespace[T database.TxnRunner](f func(string) (T, error), ns string) TxnRunnerFactory {
-	return func() (database.TxnRunner, error) {
-		r, err := f(ns)
-		return r, errors.Trace(err)
-	}
-}
-
-// ConstFactory returns a TxnRunnerFactory that always returns the
-// same database.TxnRunner.
-func ConstFactory(r database.TxnRunner) TxnRunnerFactory {
-	return func() (database.TxnRunner, error) {
-		return r, nil
-	}
-}
 
 // StateBase defines a base struct for requesting a database. This will cache
 // the database for the lifetime of the struct.
 type StateBase struct {
 	mu    sync.Mutex
-	getDB TxnRunnerFactory
+	getDB database.TxnRunnerFactory
 	db    database.TxnRunner
 }
 
 // NewStateBase returns a new StateBase.
-func NewStateBase(getDB TxnRunnerFactory) *StateBase {
+func NewStateBase(getDB database.TxnRunnerFactory) *StateBase {
 	return &StateBase{
 		getDB: getDB,
 	}

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/database"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/resources"
@@ -54,7 +55,7 @@ func (s *ImportSuite) SetUpTest(c *gc.C) {
 func (s *ImportSuite) TestBadBytes(c *gc.C) {
 	bytes := []byte("not a model")
 	controller := state.NewController(s.StatePool)
-	scope := modelmigration.NewScope(s.TxnRunner(), nil)
+	scope := modelmigration.NewScope(database.ConstFactory(s.TxnRunner()), nil)
 	model, st, err := migration.ImportModel(context.Background(), controller, scope, bytes)
 	c.Check(st, gc.IsNil)
 	c.Check(model, gc.IsNil)
@@ -78,7 +79,7 @@ func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string) *state.St
 	c.Check(err, jc.ErrorIsNil)
 
 	controller := state.NewController(s.StatePool)
-	scope := modelmigration.NewScope(s.TxnRunner(), nil)
+	scope := modelmigration.NewScope(database.ConstFactory(s.TxnRunner()), nil)
 	dbModel, dbState, err := migration.ImportModel(context.Background(), controller, scope, bytes)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { dbState.Close() })

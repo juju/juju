@@ -3,7 +3,10 @@
 
 package changestream
 
-import "github.com/juju/juju/core/database"
+import (
+	"github.com/juju/errors"
+	"github.com/juju/juju/core/database"
+)
 
 // EventSource describes the ability to subscribe
 // to a subset of events from a change stream.
@@ -24,4 +27,17 @@ type WatchableDB interface {
 // a WatchableDB for a particular namespace.
 type WatchableDBGetter interface {
 	GetWatchableDB(string) (WatchableDB, error)
+}
+
+// NewTxnRunnerFactory returns a TxnRunnerFactory for the input
+// changestream.WatchableDB factory function.
+// This ensures that we never pass the ability to access the
+// change-stream into a state object.
+// State objects should only be concerned with persistence and retrieval.
+// Watchers are the concern of the service layer.
+func NewTxnRunnerFactory(f func() (WatchableDB, error)) database.TxnRunnerFactory {
+	return func() (database.TxnRunner, error) {
+		r, err := f()
+		return r, errors.Trace(err)
+	}
 }

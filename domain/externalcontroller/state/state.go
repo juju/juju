@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/core/crossmodel"
+	coreDB "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database"
 	"github.com/juju/juju/domain"
 )
@@ -21,7 +22,7 @@ type State struct {
 	*domain.StateBase
 }
 
-func NewState(factory domain.TxnRunnerFactory) *State {
+func NewState(factory coreDB.TxnRunnerFactory) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
 	}

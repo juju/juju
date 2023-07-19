@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
 )
 
@@ -21,7 +22,7 @@ type State struct {
 }
 
 // NewState creates a state to access the database.
-func NewState(factory domain.TxnRunnerFactory) *State {
+func NewState(factory database.TxnRunnerFactory) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
 	}
