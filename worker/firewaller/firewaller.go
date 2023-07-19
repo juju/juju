@@ -203,7 +203,8 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		pollClock:                  clk,
 		logger:                     cfg.Logger,
 		relationWorkerRunner: worker.NewRunner(worker.RunnerParams{
-			Clock: clk,
+			Clock:  clk,
+			Logger: cfg.Logger,
 
 			// One of the remote relation workers failing should not
 			// prevent the others from running.
@@ -1439,6 +1440,10 @@ func (fw *Firewaller) startRelation(rel *params.RemoteRelation, role charm.Relat
 	// Start the worker which will watch the remote relation for things like new networks.
 	// We use ReplaceWorker since the relation may have been removed and we are re-adding it.
 	if err := fw.relationWorkerRunner.StartWorker(tag.Id(), func() (worker.Worker, error) {
+		// This may be a restart after an api error, so ensure any previous
+		// worker is killed and the catacomb is reset.
+		data.Kill()
+		data.catacomb = catacomb.Catacomb{}
 		if err := catacomb.Invoke(catacomb.Plan{
 			Site: &data.catacomb,
 			Work: data.watchLoop,
