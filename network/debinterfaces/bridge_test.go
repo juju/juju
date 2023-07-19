@@ -6,10 +6,10 @@ package debinterfaces_test
 import (
 	"runtime"
 
+	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network/debinterfaces"
-	"github.com/juju/testing"
 )
 
 type BridgeSuite struct {

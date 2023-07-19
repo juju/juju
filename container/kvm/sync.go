@@ -17,6 +17,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/environs/imagedownloads"
 	"github.com/juju/juju/environs/imagemetadata"

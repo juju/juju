@@ -10,12 +10,11 @@ import (
 	"syscall"
 
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	client "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/cloud"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"

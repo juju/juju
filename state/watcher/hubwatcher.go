@@ -10,9 +10,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/juju/feature"
 	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
+
+	"github.com/juju/juju/feature"
 )
 
 var (

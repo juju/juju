@@ -6,10 +6,9 @@ package testing
 import (
 	"time"
 
-	"github.com/juju/utils/v3"
-
 	"github.com/juju/clock"
 	"github.com/juju/retry"
+	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/common"

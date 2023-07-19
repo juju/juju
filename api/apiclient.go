@@ -36,12 +36,11 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/rpc/params"
-
 	"github.com/juju/juju/core/network"
 	jujuproxy "github.com/juju/juju/proxy"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/utils/proxy"
 	jujuversion "github.com/juju/juju/version"
 )

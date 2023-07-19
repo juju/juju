@@ -11,11 +11,10 @@ import (
 	"os"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/charm/v8"
 	"github.com/juju/charmrepo/v6/testing"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
 	jtesting "github.com/juju/juju/testing"
 )

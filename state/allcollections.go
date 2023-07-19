@@ -6,9 +6,8 @@ package state
 import (
 	"github.com/juju/mgo/v2"
 
-	"github.com/juju/juju/state/cloudimagemetadata"
-
 	"github.com/juju/juju/state/bakerystorage"
+	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
 // The capped collection used for transaction logs defaults to 10MB.

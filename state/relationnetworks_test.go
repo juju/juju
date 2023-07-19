@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/juju/errors"
 	"github.com/juju/mgo/v2/bson"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/state"
 )
 

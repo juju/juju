@@ -6,9 +6,10 @@ package muxhttpserver_test
 import (
 	"testing"
 
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/pki"
 	pki_test "github.com/juju/juju/pki/test"
-	gc "gopkg.in/check.v1"
 )
 
 func TestSuite(t *testing.T) { gc.TestingT(t) }

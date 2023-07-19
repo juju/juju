@@ -16,11 +16,11 @@ import (
 
 	corecharm "github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.metrics")

@@ -40,14 +40,13 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
+	// Import the providers.
+	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/utils/proxy"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
-
-	// Import the providers.
-	_ "github.com/juju/juju/provider/all"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud")

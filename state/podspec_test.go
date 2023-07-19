@@ -4,17 +4,16 @@
 package state_test
 
 import (
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/errors"
-	"github.com/juju/juju/testing/factory"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/arch"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type PodSpecSuite struct {

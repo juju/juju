@@ -12,10 +12,9 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/provider/oci"
 	ocitesting "github.com/juju/juju/provider/oci/testing"
 	jujutesting "github.com/juju/juju/testing"
-
-	"github.com/juju/juju/provider/oci"
 )
 
 type imagesSuite struct {

@@ -5,11 +5,11 @@ package rafttransport_test
 
 import (
 	"github.com/hashicorp/raft"
+	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/names/v4"
 )
 
 type mockAgent struct {

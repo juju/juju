@@ -11,12 +11,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3"
 	"gopkg.in/yaml.v2"
-
-	"github.com/juju/collections/set"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/agent/upgradesteps"

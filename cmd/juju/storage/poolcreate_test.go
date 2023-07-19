@@ -6,11 +6,11 @@ package storage_test
 import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/juju/core/model"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/storage"
+	"github.com/juju/juju/core/model"
 	_ "github.com/juju/juju/provider/dummy"
 )
 

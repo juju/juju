@@ -14,9 +14,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
-
 	"go.uber.org/mock/gomock"
+	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/instance"
