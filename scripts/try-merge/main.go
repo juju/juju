@@ -168,7 +168,8 @@ type commitInfo struct {
 }
 
 type prInfo struct {
-	Number int `json:"number"`
+	Number int    `json:"number"`
+	State  string `json:"state"`
 }
 
 // Check if there is already an open merge containing this commit. If so,
@@ -178,9 +179,9 @@ func commitHasOpenPR(commit commitInfo) (prNumber int, ok bool) {
 		command: "gh",
 		args: []string{"pr", "list",
 			"--search", commit.SHA,
-			"--state", "open",
+			"--state", "all",
 			"--base", targetBranch,
-			"--json", "number",
+			"--json", "number,state",
 		},
 	})
 	handleExecuteError(ghRes)
@@ -188,8 +189,12 @@ func commitHasOpenPR(commit commitInfo) (prNumber int, ok bool) {
 	prList := []prInfo{}
 	check(json.Unmarshal(ghRes.stdout, &prList))
 
-	if len(prList) > 0 {
-		return prList[0].Number, true
+	for _, pr := range prList {
+		// Check for merged PRs, just in case the merge PR landed while we've been
+		// checking for conflicts.
+		if pr.State == "OPEN" || pr.State == "MERGED" {
+			return pr.Number, true
+		}
 	}
 	return -1, false
 }
