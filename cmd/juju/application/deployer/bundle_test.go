@@ -5,9 +5,10 @@ package deployer
 
 import (
 	"github.com/juju/charm/v10"
-	"github.com/juju/juju/core/constraints"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/constraints"
 )
 
 type bundleSuite struct {

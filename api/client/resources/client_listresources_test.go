@@ -5,9 +5,8 @@ package resources_test
 
 import (
 	"github.com/juju/errors"
-	"go.uber.org/mock/gomock"
-
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base/mocks"
