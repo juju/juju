@@ -146,6 +146,20 @@ func (m *NodeManager) SetClusterServers(ctx context.Context, servers []dqlite.No
 	return errors.Annotate(store.Set(ctx, servers), "writing servers to Dqlite node store")
 }
 
+// NodeInfo reads the local node information file in the Dqlite directory
+// and returns the dqlite.NodeInfo represented by its contents.
+func (m *NodeManager) NodeInfo() (dqlite.NodeInfo, error) {
+	var node dqlite.NodeInfo
+
+	data, err := os.ReadFile(path.Join(m.dataDir, "info.yaml"))
+	if err != nil {
+		return node, errors.Annotate(err, "reading info.yaml")
+	}
+
+	err = yaml.Unmarshal(data, &node)
+	return node, errors.Annotate(err, "decoding NodeInfo")
+}
+
 // SetNodeInfo rewrites the local node information file in the Dqlite
 // data directory, so that it matches the input NodeInfo.
 // This should only be called on a stopped Dqlite node.

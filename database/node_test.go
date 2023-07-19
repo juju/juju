@@ -201,7 +201,7 @@ func (s *nodeManagerSuite) TestSetClusterServersSuccess(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, servers)
 }
 
-func (s *nodeManagerSuite) TestSetNodeInfoSuccess(c *gc.C) {
+func (s *nodeManagerSuite) TestSetGetNodeInfoSuccess(c *gc.C) {
 	subDir := strconv.Itoa(rand.Intn(10))
 
 	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
@@ -213,7 +213,7 @@ func (s *nodeManagerSuite) TestSetNodeInfoSuccess(c *gc.C) {
 
 	infoFile := path.Join(dataDir, "info.yaml")
 
-	// Write a cluster.yaml file into the Dqlite data directory.
+	// Write an info.yaml file into the Dqlite data directory.
 	data := []byte(`
 Address: 127.0.0.1:17666
 ID: 3297041220608546238
@@ -236,8 +236,7 @@ Role: 0
 	c.Assert(err, jc.ErrorIsNil)
 
 	// info.yaml should reflect the new node info.
-	var result dqlite.NodeInfo
-	err = yaml.Unmarshal(data, &result)
+	result, err := m.NodeInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, server)
 }
