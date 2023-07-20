@@ -4,8 +4,9 @@
 package firewaller
 
 import (
-	"github.com/juju/juju/core/life"
 	"github.com/juju/names/v4"
+
+	"github.com/juju/juju/core/life"
 )
 
 // Relation represents a juju relation as seen by the firewaller worker.

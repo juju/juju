@@ -8,8 +8,9 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/paths/transientfile"
 	"github.com/juju/names/v4"
+
+	"github.com/juju/juju/core/paths/transientfile"
 )
 
 // Monitor leverages juju's transient file mechanism to deliver one-off

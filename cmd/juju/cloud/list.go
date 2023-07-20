@@ -64,8 +64,8 @@ var listCloudsDoc = "" +
 	"Further reading:\n " +
 	"\n" +
 	"    Documentation:   https://juju.is/docs/olm/manage-clouds\n" +
-	"    microk8s:        https://microk8s.io/\n" +
-	"    LXD hypervisor:  https://linuxcontainers.org/lxd/\n" +
+	"    microk8s:        https://microk8s.io/docs\n" +
+	"    LXD hypervisor:  https://documentation.ubuntu.com/lxd\n" +
 	listCloudsDocExamples
 
 var listCloudsDocExamples = `

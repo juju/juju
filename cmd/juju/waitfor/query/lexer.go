@@ -26,14 +26,12 @@ type Lexer struct {
 
 // NewLexer creates a new Lexer from a given input.
 func NewLexer(input string) *Lexer {
-	lex := &Lexer{
+	return &Lexer{
 		input:  []rune(input),
 		char:   ' ',
 		line:   1,
 		column: 1,
 	}
-
-	return lex
 }
 
 // ReadNext will attempt to read the next character and correctly setup the
@@ -181,9 +179,9 @@ func (l *Lexer) readRunesToken() Token {
 		tok.Literal = l.readIdentifier()
 		switch strings.ToLower(tok.Literal) {
 		case "true":
-			tok.Type = TRUE
+			tok.Type = BOOL
 		case "false":
-			tok.Type = FALSE
+			tok.Type = BOOL
 		case "_":
 			tok.Type = UNDERSCORE
 		default:
@@ -191,11 +189,11 @@ func (l *Lexer) readRunesToken() Token {
 		}
 		return tok
 	case isQuote(l.char):
-		if s, err := l.readString(l.char); err == nil {
-			tok.Type = STRING
-			tok.Literal = s
-			return tok
-		}
+		s, err := l.readString(l.char)
+		tok.Type = STRING
+		tok.Literal = s
+		tok.Terminated = err == nil
+		return tok
 	}
 	l.ReadNext()
 	return MakeToken(UNKNOWN, l.char)
@@ -271,5 +269,5 @@ func isDigit(char rune) bool {
 }
 
 func isQuote(char rune) bool {
-	return char == 34
+	return char == 34 || char == 39
 }

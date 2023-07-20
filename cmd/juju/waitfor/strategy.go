@@ -4,6 +4,7 @@
 package waitfor
 
 import (
+	"context"
 	"reflect"
 	"strings"
 	"time"
@@ -49,26 +50,36 @@ func (s *Strategy) Subscribe(sub Callback) {
 }
 
 // Run the strategy and return the given result set.
-func (s *Strategy) Run(name string, input string, fn StrategyFunc) error {
+func (s *Strategy) Run(
+	ctx context.Context,
+	name string, input string,
+	runFn StrategyFunc,
+	notifyFn func(lastError error, attempt int),
+) error {
 	q, err := query.Parse(input)
 	if err != nil {
-		return errors.Trace(err)
+		return HelpDisplay(err, input, nil)
 	}
 
 	return retry.Call(retry.CallArgs{
 		Clock:       clock.WallClock,
 		Delay:       5 * time.Second,
 		MaxDuration: s.Timeout,
+		Stop:        ctx.Done(),
 		Func: func() error {
 			s.dispatch(WatchAllStarted)
-			return s.run(q, name, input, fn)
+			return s.run(q, name, input, runFn)
 		},
 		IsFatalError: func(err error) bool {
 			if e, ok := errors.Cause(err).(*rpc.RequestError); ok && isWatcherStopped(e) {
 				return false
 			}
+			if errors.Is(err, errors.NotFound) || errors.Is(err, rpc.ErrShutdown) {
+				return false
+			}
 			return true
 		},
+		NotifyFunc: notifyFn,
 	})
 }
 
@@ -106,7 +117,8 @@ func (s *Strategy) run(q query.Query, name string, input string, fn StrategyFunc
 			}
 		}
 
-		if done, err := fn(name, deltas, q); err != nil {
+		done, err := fn(name, deltas, q)
+		if err != nil {
 			return errors.Trace(err)
 		} else if done {
 			return nil
@@ -128,7 +140,7 @@ func isWatcherStopped(e *rpc.RequestError) bool {
 
 // GenericScope allows the query to introspect an entity.
 type GenericScope struct {
-	scopes map[string]interface{}
+	scopes map[string]any
 }
 
 // GetIdents returns the names of all the available idents.
@@ -175,13 +187,13 @@ func (m *GenericScope) GetIdentValue(name string) (query.Box, error) {
 }
 
 // SetIdentValue sets a new ident and it's value on a given scope.
-func (m *GenericScope) SetIdentValue(name string, value interface{}) {
+func (m *GenericScope) SetIdentValue(name string, value any) {
 	m.scopes[name] = value
 }
 
 // Clone a given scope.
 func (m *GenericScope) Clone() query.Scope {
-	scopes := make(map[string]interface{}, len(m.scopes))
+	scopes := make(map[string]any, len(m.scopes))
 	for k, v := range m.scopes {
 		scopes[k] = v
 	}
@@ -226,3 +238,5 @@ func (c ScopeContext) Child(entityName, name string) ScopeContext {
 	c.children[entityName][name] = ctx
 	return ctx
 }
+
+func emptyNotify(error, int) {}

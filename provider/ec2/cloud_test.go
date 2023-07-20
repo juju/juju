@@ -6,10 +6,10 @@ package ec2
 import (
 	"sort"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
-	jc "github.com/juju/testing/checkers"
 )
 
 type cloudSuite struct {

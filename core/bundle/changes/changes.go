@@ -13,6 +13,7 @@ import (
 	"github.com/juju/charm/v10"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/core/series"
 )
 
