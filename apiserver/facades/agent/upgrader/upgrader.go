@@ -39,12 +39,11 @@ type UpgraderAPI struct {
 	*common.ToolsGetter
 	*common.ToolsSetter
 
-	st                *state.State
-	m                 *state.Model
-	resources         facade.Resources
-	authorizer        facade.Authorizer
-	logger            loggo.Logger
-	ctrlConfigService ControllerConfigGetter
+	st         *state.State
+	m          *state.Model
+	resources  facade.Resources
+	authorizer facade.Authorizer
+	logger     loggo.Logger
 }
 
 // NewUpgraderAPI creates a new server-side UpgraderAPI facade.

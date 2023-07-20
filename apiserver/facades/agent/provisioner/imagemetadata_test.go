@@ -113,6 +113,7 @@ func (s *ImageMetadataSuite) TestMetadataNone(c *gc.C) {
 	}
 	st := facadeContext.State()
 	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
 
 	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
 	isCaasModel := model.Type() == state.ModelTypeCAAS
@@ -123,9 +124,13 @@ func (s *ImageMetadataSuite) TestMetadataNone(c *gc.C) {
 	} else {
 		env, err = environs.GetEnviron(configGetter, environs.New)
 	}
+	c.Assert(err, jc.ErrorIsNil)
+
 	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
 	netConfigAPI, err := networkingcommon.NewNetworkConfigAPI(st, getCanModify)
+	c.Assert(err, jc.ErrorIsNil)
 	systemState, err := facadeContext.StatePool().SystemState()
+	c.Assert(err, jc.ErrorIsNil)
 	urlGetter := common.NewToolsURLGetter(model.UUID(), systemState)
 	callCtx := context.CallContext(st)
 	resources := facadeContext.Resources()

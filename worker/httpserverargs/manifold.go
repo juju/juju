@@ -172,7 +172,6 @@ type argsWorker struct {
 	mux           *apiserverhttp.Mux
 	authenticator macaroon.LocalMacaroonAuthenticator
 	tomb          tomb.Tomb
-	trackedDB     coredatabase.TxnRunner
 }
 
 func (w *argsWorker) Kill() {
