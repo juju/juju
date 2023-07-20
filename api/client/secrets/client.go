@@ -94,3 +94,34 @@ func (api *Client) ListSecrets(reveal bool, filter secrets.Filter) ([]SecretDeta
 	}
 	return result, err
 }
+
+func (c *Client) CreateSecret(label, description string, data map[string]string) (string, error) {
+	if c.BestAPIVersion() < 2 {
+		return "", errors.NotSupportedf("user secrets")
+	}
+	var results params.StringResults
+	arg := params.CreateSecretArg{
+		UpsertSecretArg: params.UpsertSecretArg{
+			Content: params.SecretContentParams{Data: data},
+		},
+	}
+	if label != "" {
+		arg.Label = &label
+	}
+	if description != "" {
+		arg.Description = &description
+	}
+
+	err := c.facade.FacadeCall("CreateSecrets", params.CreateSecretArgs{Args: []params.CreateSecretArg{arg}}, &results)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return "", params.TranslateWellKnownError(result.Error)
+	}
+	return result.Result, nil
+}
