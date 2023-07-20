@@ -4,8 +4,9 @@
 package httpserverargs_test
 
 import (
-	"go.uber.org/mock/gomock"
 	"time"
+
+	"go.uber.org/mock/gomock"
 
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/apiserver/stateauthenticator"
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/httpserverargs"
 	"github.com/juju/juju/worker/httpserverargs/mocks"
@@ -56,11 +58,12 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.context = s.newContext(nil)
 	s.config = httpserverargs.ManifoldConfig{
-		ClockName:             "clock",
-		StateName:             "state",
-		ControllerPortName:    "controller-port",
-		ChangeStreamName:      "change-stream",
-		NewStateAuthenticator: s.newStateAuthenticator,
+		ClockName:                  "clock",
+		StateName:                  "state",
+		ControllerPortName:         "controller-port",
+		ChangeStreamName:           "change-stream",
+		NewStateAuthenticator:      s.newStateAuthenticator,
+		NewControllerConfigService: s.newControllerConfigService,
 	}
 	s.manifold = httpserverargs.Manifold(s.config)
 }
@@ -90,6 +93,11 @@ func (s *ManifoldSuite) newStateAuthenticator(
 		return nil, err
 	}
 	return &s.authenticator, nil
+}
+
+func (s *ManifoldSuite) newControllerConfigService(db changestream.WatchableDBGetter, logger httpserverargs.Logger) httpserverargs.ControllerConfigService {
+	s.stub.MethodCall(s, "NewControllerConfigService", db, logger)
+	return nil
 }
 
 var expectedInputs = []string{"state", "clock", "controller-port", "change-stream"}
@@ -151,8 +159,8 @@ func (s *ManifoldSuite) TestStopWorkerClosesState(c *gc.C) {
 
 func (s *ManifoldSuite) TestStoppingWorkerClosesAuthenticator(c *gc.C) {
 	w := s.startWorkerClean(c)
-	s.stub.CheckCallNames(c, "NewStateAuthenticator")
-	authArgs := s.stub.Calls()[0].Args
+	s.stub.CheckCallNames(c, "NewControllerConfigService", "NewStateAuthenticator")
+	authArgs := s.stub.Calls()[1].Args
 	c.Assert(authArgs, gc.HasLen, 5)
 	abort := authArgs[3].(<-chan struct{})
 
@@ -177,17 +185,17 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 		expect string
 	}
 	tests := []test{{
-		func(cfg *httpserverargs.ManifoldConfig) { cfg.StateName = "" },
-		"empty StateName not valid",
+		f:      func(cfg *httpserverargs.ManifoldConfig) { cfg.StateName = "" },
+		expect: "empty StateName not valid",
 	}, {
-		func(cfg *httpserverargs.ManifoldConfig) { cfg.ClockName = "" },
-		"empty ClockName not valid",
+		f:      func(cfg *httpserverargs.ManifoldConfig) { cfg.ClockName = "" },
+		expect: "empty ClockName not valid",
 	}, {
-		func(cfg *httpserverargs.ManifoldConfig) { cfg.ControllerPortName = "" },
-		"empty ControllerPortName not valid",
+		f:      func(cfg *httpserverargs.ManifoldConfig) { cfg.ControllerPortName = "" },
+		expect: "empty ControllerPortName not valid",
 	}, {
-		func(cfg *httpserverargs.ManifoldConfig) { cfg.NewStateAuthenticator = nil },
-		"nil NewStateAuthenticator not valid",
+		f:      func(cfg *httpserverargs.ManifoldConfig) { cfg.NewStateAuthenticator = nil },
+		expect: "nil NewStateAuthenticator not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)
