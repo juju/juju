@@ -4,6 +4,7 @@
 package dbaccessor
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -27,6 +28,63 @@ type workerSuite struct {
 }
 
 var _ = gc.Suite(&workerSuite{})
+
+func (s *workerSuite) TestStartupTimeoutSingleServerReconfigure(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectClock()
+	s.expectTrackedDBKill()
+
+	mgrExp := s.nodeManager.EXPECT()
+	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
+	mgrExp.IsExistingNode().Return(true, nil).Times(3)
+	mgrExp.IsBootstrappedNode(gomock.Any()).Return(false, nil).Times(4)
+	mgrExp.WithTLSOption().Return(nil, nil)
+	mgrExp.WithLogFuncOption().Return(nil)
+	mgrExp.WithTracingOption().Return(nil)
+	mgrExp.SetClusterToLocalNode(gomock.Any()).Return(nil)
+
+	// App gets started, we time out waiting, then we close it.
+	appExp := s.dbApp.EXPECT()
+	appExp.Ready(gomock.Any()).Return(context.DeadlineExceeded)
+	appExp.Close().Return(nil)
+
+	// We expect to request API details.
+	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+	s.hub.EXPECT().Publish(apiserver.DetailsRequestTopic, gomock.Any()).Return(func() {}, nil)
+
+	w := s.newWorker(c)
+	defer w.Kill()
+
+	// If there are multiple servers reported, we do nothing.
+	select {
+	case w.(*dbWorker).apiServerChanges <- apiserver.Details{
+		Servers: map[string]apiserver.APIServer{
+			"0": {ID: "0", InternalAddress: "10.6.6.6:1234"},
+			"1": {ID: "1", InternalAddress: "10.6.6.7:1234"},
+		},
+	}:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for cluster change to be processed")
+	}
+
+	workertest.CheckAlive(c, w)
+
+	// Now it's just us. We should reconfigure the node and shut down.
+	select {
+	case w.(*dbWorker).apiServerChanges <- apiserver.Details{
+		Servers: map[string]apiserver.APIServer{
+			"0": {ID: "0", InternalAddress: "10.6.6.6:1234"},
+		},
+	}:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for cluster change to be processed")
+	}
+
+	err := workertest.CheckKilled(c, w)
+	c.Assert(errors.Is(err, dependency.ErrBounce), jc.IsTrue)
+}
 
 func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 	defer s.setupMocks(c).Finish()

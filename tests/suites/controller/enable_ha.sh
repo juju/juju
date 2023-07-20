@@ -9,7 +9,7 @@ wait_for_controller_machines() {
 		sleep "${SHORT_TIMEOUT}"
 		attempt=$((attempt + 1))
 
-		# Wait for roughly 16 minutes for a enable-ha. In the field it's know
+		# Wait for roughly 16 minutes for a enable-ha. In the field it's known
 		# that enable-ha can take this long.
 		if [[ ${attempt} -gt 200 ]]; then
 			echo "enable-ha failed waiting for machines to start"
