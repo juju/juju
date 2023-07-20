@@ -117,7 +117,7 @@ type WorkerConfig struct {
 	Hub         Hub
 	Logger      Logger
 	NewApp      func(string, ...app.Option) (DBApp, error)
-	NewDBWorker func(DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
+	NewDBWorker func(context.Context, DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
 
 	// ControllerID uniquely identifies the controller that this
 	// worker is running on. It is equivalent to the machine ID.
@@ -488,7 +488,10 @@ func (w *dbWorker) openDatabase(namespace string) error {
 			}
 		}
 
-		return w.cfg.NewDBWorker(w.dbApp, namespace,
+		ctx, cancel := w.scopedContext()
+		defer cancel()
+
+		return w.cfg.NewDBWorker(ctx, w.dbApp, namespace,
 			WithClock(w.cfg.Clock),
 			WithLogger(w.cfg.Logger),
 			WithMetricsCollector(w.cfg.MetricsCollector),
