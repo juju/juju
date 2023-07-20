@@ -149,6 +149,8 @@ type controllerInfoState interface {
 	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 }
 
+// ControllerConfigGetter defines the methods needed to get the controller
+// config.
 type ControllerConfigGetter interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }

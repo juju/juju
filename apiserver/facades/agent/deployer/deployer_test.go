@@ -5,7 +5,6 @@ package deployer_test
 
 import (
 	"sort"
-	stdtesting "testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -19,28 +18,16 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 )
-
-func Test(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
-
-type mockLeadershipRevoker struct {
-	revoked set.Strings
-}
-
-func (s *mockLeadershipRevoker) RevokeLeadership(applicationId, unitId string) error {
-	s.revoked.Add(unitId)
-	return nil
-}
 
 type deployerSuite struct {
 	testing.JujuConnSuite
+	schematesting.ControllerSuite
 
 	authorizer apiservertesting.FakeAuthorizer
 
@@ -61,6 +48,7 @@ var _ = gc.Suite(&deployerSuite{})
 
 func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+	s.ControllerSuite.SetUpTest(c)
 
 	// The two known machines now contain the following units:
 	// machine 0 (not authorized): mysql/1 (principal1)
@@ -107,7 +95,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	// Create the resource registry separately to track invocations to
 	// Register.
 	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.JujuConnSuite.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	s.revoker = &mockLeadershipRevoker{revoked: set.NewStrings()}
 	// Create a deployer API for machine 1.
@@ -118,6 +106,9 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 			State_:             s.State,
 			StatePool_:         s.StatePool,
 			LeadershipRevoker_: s.revoker,
+			ControllerDB_: watchableDB{
+				TxnRunner: s.ControllerSuite.TxnRunner(),
+			},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -327,8 +318,6 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 }
 
 func (s *deployerSuite) TestConnectionInfo(c *gc.C) {
-	ctrl := mocks.NewContr
-
 	err := s.machine0.SetProviderAddresses(s.ControllerConfig, network.NewSpaceAddress("0.1.2.3", network.WithScope(network.ScopePublic)),
 		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)))
 	c.Assert(err, jc.ErrorIsNil)
