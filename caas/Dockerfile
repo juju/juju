@@ -4,8 +4,10 @@ ARG TARGETARCH
 ARG BUILDOS
 
 # Add the syslog user for audit logging.
-RUN useradd --system -M syslog
-RUN usermod -s /usr/sbin/nologin syslog
+RUN useradd --system --no-create-home --shell /usr/sbin/nologin syslog
+# Add the juju user for rootless agents
+RUN groupadd --gid 170 juju
+RUN useradd --uid 170 --gid 170 --no-create-home --shell /usr/bin/bash juju
 
 # Some Python dependencies.
 RUN apt-get update \

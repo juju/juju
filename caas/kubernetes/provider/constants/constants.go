@@ -63,6 +63,13 @@ const (
 
 	// CharmVolumeName is the name of the k8s volume where shared charm data is stored.
 	CharmVolumeName = "charm-data"
+
+	// JujuUserID is the juju user id for rootless juju agents.
+	JujuUserID = 170
+	// JujuGroupID is the juju group id for rootless juju agents.
+	JujuGroupID = 170
+	// JujuFSGroupID is the group id for all fs entries written to k8s volumes.
+	JujuFSGroupID = 170
 )
 
 // DefaultPropagationPolicy returns the default propagation policy.

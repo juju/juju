@@ -258,7 +258,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		}
 		var numPods *int32
 		if !exists {
-			numPods = pointer.Int32Ptr(int32(config.InitialScale))
+			numPods = pointer.Int32(int32(config.InitialScale))
 		}
 		statefulset := resources.StatefulSet{
 			StatefulSet: appsv1.StatefulSet{
@@ -320,7 +320,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		}
 		var numPods *int32
 		if !exists {
-			numPods = pointer.Int32Ptr(int32(config.InitialScale))
+			numPods = pointer.Int32(int32(config.InitialScale))
 		}
 		// Config storage to update the podspec with storage info.
 		if err = configureStorage(storageUniqueID, handlePVCForStatelessResource); err != nil {
@@ -423,7 +423,7 @@ func (a *app) applyServiceAccountAndSecrets(applier resources.Applier, config ca
 				Annotations: a.annotations(config),
 			},
 			// Will be automounted by the pod.
-			AutomountServiceAccountToken: pointer.BoolPtr(false),
+			AutomountServiceAccountToken: pointer.Bool(false),
 		},
 	}
 	applier.Apply(&serviceAccount)
@@ -1334,6 +1334,28 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			SubPath:   "containeragent/pebble",
 		},
 	}
+	if config.Rootless {
+		charmContainerExtraVolumeMounts = append(charmContainerExtraVolumeMounts, corev1.VolumeMount{
+			Name:      constants.CharmVolumeName,
+			MountPath: "/var/log/juju",
+			SubPath:   "containeragent/var/log/juju",
+		}, corev1.VolumeMount{
+			Name:      constants.CharmVolumeName,
+			MountPath: "/etc/profile.d/juju-introspection.sh",
+			SubPath:   "containeragent/etc/profile.d/juju-introspection.sh",
+			ReadOnly:  true,
+		}, corev1.VolumeMount{
+			Name:      constants.CharmVolumeName,
+			MountPath: paths.JujuIntrospect(paths.OSUnixLike),
+			SubPath:   "charm/bin/containeragent",
+			ReadOnly:  true,
+		}, corev1.VolumeMount{
+			Name:      constants.CharmVolumeName,
+			MountPath: paths.JujuExec(paths.OSUnixLike),
+			SubPath:   "charm/bin/containeragent",
+			ReadOnly:  true,
+		})
+	}
 
 	// (tlm) lp1997253. If the agent version is less than
 	// containerAgentPebbleVersion we need to keep still using the old args
@@ -1387,7 +1409,14 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		}
 	}
 
-	containerSpecs := []corev1.Container{{
+	imagePullSecrets := []corev1.LocalObjectReference(nil)
+	if config.IsPrivateImageRepo {
+		imagePullSecrets = append(imagePullSecrets,
+			corev1.LocalObjectReference{Name: constants.CAASImageRepoSecretName},
+		)
+	}
+
+	charmContainer := corev1.Container{
 		Name:            constants.ApplicationCharmContainer,
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Image:           config.CharmBaseImagePath,
@@ -1396,8 +1425,8 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		Args:            charmContainerArgs,
 		Env:             env,
 		SecurityContext: &corev1.SecurityContext{
-			RunAsUser:  pointer.Int64Ptr(0),
-			RunAsGroup: pointer.Int64Ptr(0),
+			RunAsUser:  pointer.Int64(0),
+			RunAsGroup: pointer.Int64(0),
 		},
 		LivenessProbe:  charmContainerLivenessProbe,
 		ReadinessProbe: charmContainerReadinessProbe,
@@ -1420,15 +1449,15 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				SubPath:   "charm/containers",
 			},
 		}, charmContainerExtraVolumeMounts...),
-	}}
-
-	imagePullSecrets := []corev1.LocalObjectReference(nil)
-	if config.IsPrivateImageRepo {
-		imagePullSecrets = append(imagePullSecrets,
-			corev1.LocalObjectReference{Name: constants.CAASImageRepoSecretName},
-		)
+	}
+	if config.Rootless {
+		charmContainer.SecurityContext = &corev1.SecurityContext{
+			RunAsUser:  pointer.Int64(constants.JujuUserID),
+			RunAsGroup: pointer.Int64(constants.JujuGroupID),
+		}
 	}
 
+	containerSpecs := []corev1.Container{charmContainer}
 	for i, v := range containers {
 		container := corev1.Container{
 			Name:            v.Name,
@@ -1467,8 +1496,8 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			},
 			// Run Pebble as root (because it's a service manager).
 			SecurityContext: &corev1.SecurityContext{
-				RunAsUser:  pointer.Int64Ptr(0),
-				RunAsGroup: pointer.Int64Ptr(0),
+				RunAsUser:  pointer.Int64(0),
+				RunAsGroup: pointer.Int64(0),
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
@@ -1483,6 +1512,12 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 					SubPath:   fmt.Sprintf("charm/containers/%s", v.Name),
 				},
 			},
+		}
+		if config.Rootless {
+			container.SecurityContext = &corev1.SecurityContext{
+				RunAsUser:  pointer.Int64(constants.JujuUserID),
+				RunAsGroup: pointer.Int64(constants.JujuGroupID),
+			}
 		}
 		if v.Image.Password != "" {
 			imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{Name: a.imagePullSecretName(v.Name)})
@@ -1515,71 +1550,89 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		}
 	}
 
-	automountToken := true
+	if config.Rootless {
+		containerAgentArgs = append(containerAgentArgs, "--profile-dir", "/containeragent/etc/profile.d")
+		charmInitAdditionalMounts = append(charmInitAdditionalMounts, corev1.VolumeMount{
+			Name:      constants.CharmVolumeName,
+			MountPath: "/containeragent/etc/profile.d",
+			SubPath:   "containeragent/etc/profile.d",
+		})
+	}
+
 	appSecret := a.secretName()
+	charmInitContainer := corev1.Container{
+		Name:            constants.ApplicationInitContainer,
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		Image:           config.AgentImagePath,
+		WorkingDir:      jujuDataDir,
+		Command:         []string{"/opt/containeragent"},
+		Args:            containerAgentArgs,
+		Env: []corev1.EnvVar{
+			{
+				Name:  constants.EnvJujuContainerNames,
+				Value: strings.Join(containerNames, ","),
+			},
+			{
+				Name: constants.EnvJujuK8sPodName,
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.name",
+					},
+				},
+			},
+			{
+				Name: constants.EnvJujuK8sPodUUID,
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.uid",
+					},
+				},
+			},
+		},
+		EnvFrom: []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: appSecret,
+					},
+				},
+			},
+		},
+		VolumeMounts: append([]corev1.VolumeMount{
+			{
+				Name:      constants.CharmVolumeName,
+				MountPath: jujuDataDir,
+				SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
+			},
+			{
+				Name:      constants.CharmVolumeName,
+				MountPath: "/charm/bin",
+				SubPath:   "charm/bin",
+			},
+			// DO we need this in init container????
+			{
+				Name:      constants.CharmVolumeName,
+				MountPath: "/charm/containers",
+				SubPath:   "charm/containers",
+			},
+		}, charmInitAdditionalMounts...),
+	}
+	if config.Rootless {
+		charmInitContainer.SecurityContext = &corev1.SecurityContext{
+			RunAsUser:              pointer.Int64(constants.JujuUserID),
+			RunAsGroup:             pointer.Int64(constants.JujuGroupID),
+			ReadOnlyRootFilesystem: pointer.Bool(true),
+		}
+	}
+
+	automountToken := true
 	spec := &corev1.PodSpec{
 		AutomountServiceAccountToken:  &automountToken,
 		ServiceAccountName:            a.serviceAccountName(),
 		ImagePullSecrets:              imagePullSecrets,
-		TerminationGracePeriodSeconds: pointer.Int64Ptr(300),
-		InitContainers: []corev1.Container{{
-			Name:            constants.ApplicationInitContainer,
-			ImagePullPolicy: corev1.PullIfNotPresent,
-			Image:           config.AgentImagePath,
-			WorkingDir:      jujuDataDir,
-			Command:         []string{"/opt/containeragent"},
-			Args:            containerAgentArgs,
-			Env: []corev1.EnvVar{
-				{
-					Name:  constants.EnvJujuContainerNames,
-					Value: strings.Join(containerNames, ","),
-				},
-				{
-					Name: constants.EnvJujuK8sPodName,
-					ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{
-							FieldPath: "metadata.name",
-						},
-					},
-				},
-				{
-					Name: constants.EnvJujuK8sPodUUID,
-					ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{
-							FieldPath: "metadata.uid",
-						},
-					},
-				},
-			},
-			EnvFrom: []corev1.EnvFromSource{
-				{
-					SecretRef: &corev1.SecretEnvSource{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: appSecret,
-						},
-					},
-				},
-			},
-			VolumeMounts: append([]corev1.VolumeMount{
-				{
-					Name:      constants.CharmVolumeName,
-					MountPath: jujuDataDir,
-					SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
-				},
-				{
-					Name:      constants.CharmVolumeName,
-					MountPath: "/charm/bin",
-					SubPath:   "charm/bin",
-				},
-				// DO we need this in init container????
-				{
-					Name:      constants.CharmVolumeName,
-					MountPath: "/charm/containers",
-					SubPath:   "charm/containers",
-				},
-			}, charmInitAdditionalMounts...),
-		}},
-		Containers: containerSpecs,
+		TerminationGracePeriodSeconds: pointer.Int64(30),
+		InitContainers:                []corev1.Container{charmInitContainer},
+		Containers:                    containerSpecs,
 		Volumes: []corev1.Volume{
 			{
 				Name: constants.CharmVolumeName,
@@ -1592,6 +1645,12 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 	err := ApplyConstraints(spec, a.name, config.Constraints, configureConstraint)
 	if err != nil {
 		return nil, errors.Annotate(err, "processing constraints")
+	}
+	if config.Rootless {
+		spec.SecurityContext = &corev1.PodSecurityContext{
+			FSGroup:            pointer.Int64(constants.JujuFSGroupID),
+			SupplementalGroups: []int64{constants.JujuFSGroupID},
+		}
 	}
 	return spec, nil
 }

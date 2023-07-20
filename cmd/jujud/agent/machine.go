@@ -1269,6 +1269,15 @@ func (a *MachineAgent) createSymlink(target, link string) error {
 		_ = os.Remove(runLink)
 	}
 
+	if stat, err := os.Lstat(fullLink); err == nil {
+		if stat.Mode()&os.ModeSymlink == 0 {
+			logger.Infof("skipping creating symlink %q as exsting path has a normal file", fullLink)
+			return nil
+		}
+	} else if err != nil && !os.IsNotExist(err) {
+		return errors.Annotatef(err, "cannot check if %q is a symlink", fullLink)
+	}
+
 	currentTarget, err := symlink.Read(fullLink)
 	if err != nil && !os.IsNotExist(err) {
 		return err

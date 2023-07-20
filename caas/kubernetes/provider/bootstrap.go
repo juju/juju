@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	k8sannotations "github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
@@ -52,8 +53,10 @@ import (
 )
 
 const (
-	proxyResourceName = "proxy"
-	storageName       = "storage"
+	proxyResourceName           = "proxy"
+	storageName                 = "storage"
+	mongoScratchStorageName     = "mongo-scratch"
+	apiServerScratchStorageName = "apiserver-scratch"
 )
 
 var (
@@ -1104,15 +1107,23 @@ func (c *controllerStack) buildStorageSpecForController(statefulset *apps.Statef
 		},
 	})
 
-	fileMode := int32(256)
-	var vols []core.Volume
-	// add volume server.pem secret.
-	vols = append(vols, core.Volume{
+	vols := []core.Volume{{
+		Name: mongoScratchStorageName,
+		VolumeSource: core.VolumeSource{
+			EmptyDir: &core.EmptyDirVolumeSource{},
+		},
+	}, {
+		Name: apiServerScratchStorageName,
+		VolumeSource: core.VolumeSource{
+			EmptyDir: &core.EmptyDirVolumeSource{},
+		},
+	}, {
+		// add volume server.pem secret.
 		Name: c.resourceNameVolSSLKey,
 		VolumeSource: core.VolumeSource{
 			Secret: &core.SecretVolumeSource{
 				SecretName:  c.resourceNameSecret,
-				DefaultMode: &fileMode,
+				DefaultMode: pointer.Int32(0400),
 				Items: []core.KeyToPath{
 					{
 						Key:  mongo.FileNameDBSSLKey,
@@ -1121,14 +1132,13 @@ func (c *controllerStack) buildStorageSpecForController(statefulset *apps.Statef
 				},
 			},
 		},
-	})
-	// add volume shared secret.
-	vols = append(vols, core.Volume{
+	}, {
+		// add volume shared secret.
 		Name: c.resourceNameVolSharedSecret,
 		VolumeSource: core.VolumeSource{
 			Secret: &core.SecretVolumeSource{
 				SecretName:  c.resourceNameSecret,
-				DefaultMode: &fileMode,
+				DefaultMode: pointer.Int32(0660),
 				Items: []core.KeyToPath{
 					{
 						Key:  mongo.SharedSecretFile,
@@ -1137,12 +1147,14 @@ func (c *controllerStack) buildStorageSpecForController(statefulset *apps.Statef
 				},
 			},
 		},
-	})
-	// add volume agent.conf configmap.
-	volAgentConf := core.Volume{
+	}, {
+		// add volume agent.conf configmap.
 		Name: c.resourceNameVolAgentConf,
 		VolumeSource: core.VolumeSource{
 			ConfigMap: &core.ConfigMapVolumeSource{
+				LocalObjectReference: core.LocalObjectReference{
+					Name: c.resourceNameConfigMap,
+				},
 				Items: []core.KeyToPath{
 					{
 						Key:  constants.ControllerAgentConfigFilename,
@@ -1154,14 +1166,14 @@ func (c *controllerStack) buildStorageSpecForController(statefulset *apps.Statef
 				},
 			},
 		},
-	}
-	volAgentConf.VolumeSource.ConfigMap.Name = c.resourceNameConfigMap
-	vols = append(vols, volAgentConf)
-	// add volume bootstrap-params configmap.
-	volBootstrapParams := core.Volume{
+	}, {
+		// add volume bootstrap-params configmap.
 		Name: c.resourceNameVolBootstrapParams,
 		VolumeSource: core.VolumeSource{
 			ConfigMap: &core.ConfigMapVolumeSource{
+				LocalObjectReference: core.LocalObjectReference{
+					Name: c.resourceNameConfigMap,
+				},
 				Items: []core.KeyToPath{
 					{
 						Key:  cloudconfig.FileNameBootstrapParams,
@@ -1170,9 +1182,7 @@ func (c *controllerStack) buildStorageSpecForController(statefulset *apps.Statef
 				},
 			},
 		},
-	}
-	volBootstrapParams.VolumeSource.ConfigMap.Name = c.resourceNameConfigMap
-	vols = append(vols, volBootstrapParams)
+	}}
 
 	statefulset.Spec.Template.Spec.Volumes = append(statefulset.Spec.Template.Spec.Volumes, vols...)
 	return nil
@@ -1223,8 +1233,10 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 		args = append(args, fmt.Sprintf("--wiredTigerCacheSizeGB=%v", wiredTigerCacheSize))
 	}
 	// Create the script used to start mongo.
-	const mongoSh = "/root/mongo.sh"
-	mongoStartup := fmt.Sprintf(caas.MongoStartupShTemplate, strings.Join(args, " "))
+	const mongoSh = "/tmp/mongo.sh"
+	mongoStartup := fmt.Sprintf(caas.MongoStartupShTemplate, strings.Join(args, " "),
+		c.pathJoin(c.pcfg.DataDir, mongo.SharedSecretFile+".temp"),
+		c.pathJoin(c.pcfg.DataDir, mongo.SharedSecretFile))
 	// Write it to a file so it can be executed.
 	mongoStartup = strings.ReplaceAll(mongoStartup, "\n", "\\n")
 	makeMongoCmd := fmt.Sprintf("printf '%s'>%s", mongoStartup, mongoSh)
@@ -1245,6 +1257,11 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 		Args: []string{
 			"-c",
 			mongoArgs,
+		},
+		SecurityContext: &core.SecurityContext{
+			RunAsUser:              pointer.Int64(constants.JujuUserID),
+			RunAsGroup:             pointer.Int64(constants.JujuGroupID),
+			ReadOnlyRootFilesystem: pointer.Bool(true),
 		},
 		Ports: []core.ContainerPort{
 			{
@@ -1285,6 +1302,16 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 		},
 		VolumeMounts: []core.VolumeMount{
 			{
+				Name:      mongoScratchStorageName,
+				MountPath: "/var/log",
+				SubPath:   "var/log",
+			},
+			{
+				Name:      mongoScratchStorageName,
+				MountPath: "/tmp",
+				SubPath:   "tmp",
+			},
+			{
 				Name:      storageName,
 				MountPath: c.pcfg.DataDir,
 			},
@@ -1301,7 +1328,7 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 			},
 			{
 				Name:      c.resourceNameVolSharedSecret,
-				MountPath: c.pathJoin(c.pcfg.DataDir, mongo.SharedSecretFile),
+				MountPath: c.pathJoin(c.pcfg.DataDir, mongo.SharedSecretFile+".temp"),
 				SubPath:   mongo.SharedSecretFile,
 				ReadOnly:  true,
 			},
@@ -1369,15 +1396,41 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 			SuccessThreshold:    apiServerLivenessProbeSuccess,
 			FailureThreshold:    apiServerLivenessProbeFailure,
 		},
-		// Run Pebble as root (because it's a service manager).
 		SecurityContext: &core.SecurityContext{
-			RunAsUser:  pointer.Int64Ptr(0),
-			RunAsGroup: pointer.Int64Ptr(0),
+			RunAsUser:              pointer.Int64(constants.JujuUserID),
+			RunAsGroup:             pointer.Int64(constants.JujuGroupID),
+			ReadOnlyRootFilesystem: pointer.Bool(true),
 		},
 		VolumeMounts: []core.VolumeMount{
 			{
+				Name:      apiServerScratchStorageName,
+				MountPath: "/tmp",
+				SubPath:   "tmp",
+			},
+			{
+				Name:      apiServerScratchStorageName,
+				MountPath: "/var/lib/pebble",
+				SubPath:   "var/lib/pebble",
+			},
+			{
+				Name:      apiServerScratchStorageName,
+				MountPath: "/var/log/juju",
+				SubPath:   "var/log/juju",
+			},
+			{
 				Name:      storageName,
 				MountPath: c.pcfg.DataDir,
+			},
+			{
+				Name: storageName,
+				MountPath: c.pathJoin(
+					c.pcfg.DataDir,
+					"agents",
+					"controller-"+c.pcfg.ControllerId,
+				),
+				SubPath: c.pathJoin("agents",
+					"controller-"+c.pcfg.ControllerId,
+				),
 			},
 			{
 				Name: c.resourceNameVolAgentConf,
@@ -1387,7 +1440,8 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 					"controller-"+c.pcfg.ControllerId,
 					constants.TemplateFileNameAgentConf,
 				),
-				SubPath: constants.ControllerAgentConfigFilename,
+				SubPath:  constants.ControllerAgentConfigFilename,
+				ReadOnly: true,
 			},
 			{
 				Name:      c.resourceNameVolSSLKey,
@@ -1411,6 +1465,30 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 				Name:      constants.CharmVolumeName,
 				MountPath: "/charm/container",
 				SubPath:   fmt.Sprintf("charm/containers/%s", apiServerContainerName),
+			},
+			{
+				Name:      constants.CharmVolumeName,
+				MountPath: "/etc/profile.d/juju-introspection.sh",
+				SubPath:   "containeragent/etc/profile.d/juju-introspection.sh",
+				ReadOnly:  true,
+			},
+			{
+				Name:      constants.CharmVolumeName,
+				MountPath: paths.JujuIntrospect(paths.OSUnixLike),
+				SubPath:   "charm/bin/containeragent",
+				ReadOnly:  true,
+			},
+			{
+				Name:      constants.CharmVolumeName,
+				MountPath: paths.JujuExec(paths.OSUnixLike),
+				SubPath:   "charm/bin/containeragent",
+				ReadOnly:  true,
+			},
+			{
+				Name:      constants.CharmVolumeName,
+				MountPath: paths.JujuDumpLogs(paths.OSUnixLike),
+				SubPath:   "charm/bin/containeragent",
+				ReadOnly:  true,
 			},
 		},
 	}
@@ -1555,6 +1633,7 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 		ExistingContainers: []string{apiServerContainerName},
 		// TODO(wallyworld) - use storage so the volumes don't need to be manually set up
 		//Filesystems: nil,
+		Rootless: true,
 	}
 	spec, err := controllerApp.ApplicationPodSpec(cfg)
 	if err != nil {
