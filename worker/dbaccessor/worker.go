@@ -56,6 +56,10 @@ type NodeManager interface {
 	// file in the Dqlite data directory.
 	SetNodeInfo(dqlite.NodeInfo) error
 
+	// SetClusterToLocalNode reconfigures the Dqlite cluster
+	// so that it has the local node as its only member.
+	SetClusterToLocalNode(ctx context.Context) error
+
 	// WithLogFuncOption returns a Dqlite application Option that will proxy Dqlite
 	// log output via this factory's logger where the level is recognised.
 	WithLogFuncOption() app.Option
@@ -251,10 +255,7 @@ func (w *dbWorker) loop() (err error) {
 			return errors.Trace(err)
 		}
 	} else {
-		if _, err := w.cfg.Hub.Publish(apiserver.DetailsRequestTopic, apiserver.DetailsRequest{
-			Requester: "db-accessor",
-			LocalOnly: true,
-		}); err != nil {
+		if err := w.requestAPIServerDetails(); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -292,7 +293,7 @@ func (w *dbWorker) Report() map[string]any {
 	defer w.mu.RUnlock()
 
 	// We need to guard against attempting to report when setting up or dying,
-	// so we don't end up panic'ing with missing information.
+	// so we don't end up panicking with missing information.
 	result := w.dbRunner.Report()
 
 	if w.dbApp == nil {
@@ -416,10 +417,22 @@ func (w *dbWorker) initialiseDqlite(options ...app.Option) error {
 		return errors.Trace(err)
 	}
 
-	ctx, cancel := w.scopedContext()
-	defer cancel()
+	ctx, pCancel := w.scopedContext()
+	defer pCancel()
+	ctx, cCancel := context.WithTimeout(ctx, time.Minute)
+	defer cCancel()
 
 	if err := w.dbApp.Ready(ctx); err != nil {
+		if err == context.DeadlineExceeded {
+			// We don't know whether we were cancelled by tomb or by timeout.
+			// Request API server details in case we need to invoke a backstop
+			// scenario. If we are shutting down, this won't matter.
+			if err := w.dbApp.Close(); err != nil {
+				return errors.Trace(err)
+			}
+			w.dbApp = nil
+			return errors.Annotatef(w.requestAPIServerDetails(), "requesting API server details")
+		}
 		return errors.Annotatef(err, "ensuring Dqlite is ready to process changes")
 	}
 
@@ -459,8 +472,9 @@ func (w *dbWorker) openDatabase(namespace string) error {
 	// multiple times for the same namespace.
 	err := w.dbRunner.StartWorker(namespace, func() (worker.Worker, error) {
 		w.mu.RLock()
-		defer w.mu.RUnlock()
-		if w.dbApp == nil {
+		running := w.dbApp != nil
+		w.mu.RUnlock()
+		if !running {
 			// If the dbApp is nil, then we're either shutting down or
 			// rebinding the address. In either case, we don't want to
 			// start a new worker. We'll return ErrTryAgain to indicate
@@ -503,11 +517,14 @@ func (w *dbWorker) handleAPIServerChangeMsg(_ string, apiDetails apiserver.Detai
 }
 
 // processAPIServerChange deals with cluster topology changes.
+// Note that this is always invoked from the worker loop and will never
+// race with Dqlite initialisation. If this is called then we either came
+// up successfully or we determined that we couldn't and are waiting.
 func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
-	w.cfg.Logger.Debugf("new API server details: %#v", apiDetails)
+	log := w.cfg.Logger
+	log.Debugf("new API server details: %#v", apiDetails)
 
 	mgr := w.cfg.NodeManager
-
 	extant, err := mgr.IsExistingNode()
 	if err != nil {
 		return errors.Trace(err)
@@ -516,43 +533,64 @@ func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	// If this is an existing node, check if we are bound to the loopback IP
-	// and entering HA, which requires a new local-cloud bind address.
 	if extant {
 		asBootstrapped, err := mgr.IsBootstrappedNode(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}
 
-		// If this is a node that is already clustered, there is nothing to do.
-		if !asBootstrapped {
-			w.cfg.Logger.Debugf("node already clustered; no work to do")
-			return nil
-		}
+		serverCount := len(apiDetails.Servers)
 
-		// If we are the as-bootstrapped node, and there is only one server,
-		// there is no need to change our bind address.
-		// Just keep the loopback binding.
-		if len(apiDetails.Servers) == 1 {
-			return nil
-		}
-
-		addr, err := w.bindAddrFromServerDetails(apiDetails)
-		if err != nil {
-			if errors.Is(err, errors.NotFound) {
-				w.cfg.Logger.Infof(err.Error())
+		// If we are as-bootstrapped, check if we are entering HA and need to
+		// change our binding from the loopback IP to a local-cloud address.
+		if asBootstrapped {
+			if serverCount == 1 {
+				// This bootstrapped node is still the only one around.
+				// We don't need to do anything.
 				return nil
 			}
-			return errors.Trace(err)
+
+			addr, err := w.bindAddrFromServerDetails(apiDetails)
+			if err != nil {
+				if errors.Is(err, errors.NotFound) {
+					w.cfg.Logger.Infof(err.Error())
+					return nil
+				}
+				return errors.Trace(err)
+			}
+
+			if err := w.rebindAddress(ctx, addr); err != nil {
+				return errors.Trace(err)
+			}
+
+			log.Infof("successfully reconfigured Dqlite; restarting worker")
+			return dependency.ErrBounce
 		}
 
-		if err := w.rebindAddress(ctx, addr); err != nil {
-			return errors.Trace(err)
+		// If we are an existing, previously clustered node, but the node is
+		// not running, check if we're the only API server.
+		// If we are, then we have gone from HA-n to HA-1 and have a broken
+		// cluster. Attempt to reconfigure the cluster with just ourselves
+		// as a member.
+		w.mu.RLock()
+		running := w.dbApp != nil
+		w.mu.RUnlock()
+
+		if serverCount > 1 || running {
+			return nil
 		}
 
-		// Just bounce wholesale after reconfiguring the node.
-		// We flush the opened DBs and ensure a clean slate for dependents.
-		w.cfg.Logger.Infof("successfully reconfigured Dqlite; restarting worker")
+		// Be super careful and check that the sole node is actually us.
+		if _, ok := apiDetails.Servers[w.cfg.ControllerID]; !ok {
+			return errors.Errorf("unable to reconcile current controller and Dqlite cluster status")
+		}
+
+		log.Warningf("reconfiguring Dqlite cluster with this node as the only member")
+		if err := w.cfg.NodeManager.SetClusterToLocalNode(ctx); err != nil {
+			return errors.Annotatef(err, "reconfiguring Dqlite cluster")
+		}
+
+		log.Infof("successfully reconfigured Dqlite; restarting worker")
 		return dependency.ErrBounce
 	}
 
@@ -694,6 +732,14 @@ func (w *dbWorker) shutdownDqlite(ctx context.Context, handover bool) {
 	}
 
 	w.dbApp = nil
+}
+
+func (w *dbWorker) requestAPIServerDetails() error {
+	_, err := w.cfg.Hub.Publish(apiserver.DetailsRequestTopic, apiserver.DetailsRequest{
+		Requester: "db-accessor",
+		LocalOnly: true,
+	})
+	return errors.Trace(err)
 }
 
 // scopedContext returns a context that is in the scope of the worker lifetime.
