@@ -16,16 +16,21 @@ import (
 type secretsChangeRecorder struct {
 	logger loggo.Logger
 
-	pendingCreates []uniter.SecretCreateArg
-	pendingUpdates []uniter.SecretUpdateArg
-	pendingDeletes []uniter.SecretDeleteArg
-	pendingGrants  []uniter.SecretGrantRevokeArgs
-	pendingRevokes []uniter.SecretGrantRevokeArgs
+	pendingCreates map[string]uniter.SecretCreateArg
+	pendingUpdates map[string]uniter.SecretUpdateArg
+	pendingDeletes map[string]uniter.SecretDeleteArg
+	pendingGrants  map[string]uniter.SecretGrantRevokeArgs
+	pendingRevokes map[string]uniter.SecretGrantRevokeArgs
 }
 
 func newSecretsChangeRecorder(logger loggo.Logger) *secretsChangeRecorder {
 	return &secretsChangeRecorder{
-		logger: logger,
+		logger:         logger,
+		pendingCreates: make(map[string]uniter.SecretCreateArg),
+		pendingUpdates: make(map[string]uniter.SecretUpdateArg),
+		pendingDeletes: make(map[string]uniter.SecretDeleteArg),
+		pendingGrants:  make(map[string]uniter.SecretGrantRevokeArgs),
+		pendingRevokes: make(map[string]uniter.SecretGrantRevokeArgs),
 	}
 }
 
@@ -35,32 +40,19 @@ func (s *secretsChangeRecorder) haveContentUpdates() bool {
 }
 
 func (s *secretsChangeRecorder) create(arg uniter.SecretCreateArg) error {
-	for i, d := range s.pendingDeletes {
-		if d.URI.ID == arg.URI.ID {
-			s.pendingDeletes = append(s.pendingDeletes[:i], s.pendingDeletes[i+1:]...)
-			break
-		}
-	}
+	delete(s.pendingDeletes, arg.URI.ID)
 	for _, c := range s.pendingCreates {
 		if c.Label != nil && arg.Label != nil && *c.Label == *arg.Label {
 			return errors.AlreadyExistsf("secret with label %q", *arg.Label)
 		}
 	}
-	s.pendingCreates = append(s.pendingCreates, arg)
+	s.pendingCreates[arg.URI.ID] = arg
 	return nil
 }
 
 func (s *secretsChangeRecorder) update(arg uniter.SecretUpdateArg) {
-	for i, d := range s.pendingDeletes {
-		if d.URI.ID == arg.URI.ID {
-			s.pendingDeletes = append(s.pendingDeletes[:i], s.pendingDeletes[i+1:]...)
-			break
-		}
-	}
-	for i, c := range s.pendingCreates {
-		if c.URI.ID != arg.URI.ID {
-			continue
-		}
+	delete(s.pendingDeletes, arg.URI.ID)
+	if c, ok := s.pendingCreates[arg.URI.ID]; ok {
 		if arg.Label != nil {
 			c.Label = arg.Label
 		}
@@ -76,38 +68,24 @@ func (s *secretsChangeRecorder) update(arg uniter.SecretUpdateArg) {
 		if arg.ExpireTime != nil {
 			c.ExpireTime = arg.ExpireTime
 		}
-		s.pendingCreates[i] = c
+		s.pendingCreates[arg.URI.ID] = c
 		return
 	}
-	s.pendingUpdates = append(s.pendingUpdates, arg)
+	s.pendingUpdates[arg.URI.ID] = arg
 }
 
 func (s *secretsChangeRecorder) remove(uri *secrets.URI, revision *int) {
-	s.pendingDeletes = append(s.pendingDeletes, uniter.SecretDeleteArg{URI: uri, Revision: revision})
-	for i, u := range s.pendingUpdates {
-		if u.URI.ID == uri.ID {
-			s.pendingUpdates = append(s.pendingUpdates[:i], s.pendingUpdates[i+1:]...)
-			break
-		}
-	}
-	for i, u := range s.pendingGrants {
-		if u.URI.ID == uri.ID {
-			s.pendingGrants = append(s.pendingGrants[:i], s.pendingGrants[i+1:]...)
-			break
-		}
-	}
-	for i, u := range s.pendingRevokes {
-		if u.URI.ID == uri.ID {
-			s.pendingRevokes = append(s.pendingRevokes[:i], s.pendingRevokes[i+1:]...)
-			break
-		}
-	}
+	delete(s.pendingCreates, uri.ID)
+	delete(s.pendingUpdates, uri.ID)
+	delete(s.pendingGrants, uri.ID)
+	delete(s.pendingRevokes, uri.ID)
+	s.pendingDeletes[uri.ID] = uniter.SecretDeleteArg{URI: uri, Revision: revision}
 }
 
 func (s *secretsChangeRecorder) grant(arg uniter.SecretGrantRevokeArgs) {
-	s.pendingGrants = append(s.pendingGrants, arg)
+	s.pendingGrants[arg.URI.ID] = arg
 }
 
 func (s *secretsChangeRecorder) revoke(arg uniter.SecretGrantRevokeArgs) {
-	s.pendingRevokes = append(s.pendingRevokes, arg)
+	s.pendingRevokes[arg.URI.ID] = arg
 }
