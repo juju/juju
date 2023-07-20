@@ -9,7 +9,8 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/changestream_mock.go github.com/juju/juju/core/changestream WatchableDBGetter
+//go:generate go run go.uber.org/mock/mockgen -package controllerport_test -destination changestream_mock_test.go github.com/juju/juju/core/changestream WatchableDBGetter
+//go:generate go run go.uber.org/mock/mockgen -package controllerport_test -destination controller_config_service_mock_test.go github.com/juju/juju/worker/controllerport ControllerConfigService
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

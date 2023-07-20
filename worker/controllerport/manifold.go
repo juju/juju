@@ -39,7 +39,6 @@ type ManifoldConfig struct {
 	Logger                  Logger
 	UpdateControllerAPIPort func(int) error
 
-	GetControllerConfig        func(changestream.WatchableDBGetter) (controller.Config, error)
 	NewWorker                  func(Config) (worker.Worker, error)
 	NewControllerConfigService func(changestream.WatchableDBGetter, Logger) ControllerConfigService
 }
@@ -63,9 +62,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.UpdateControllerAPIPort == nil {
 		return errors.NotValidf("nil UpdateControllerAPIPort")
-	}
-	if config.GetControllerConfig == nil {
-		return errors.NotValidf("nil GetControllerConfig")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")

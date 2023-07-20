@@ -23,23 +23,24 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/worker/controllerport"
-	"github.com/juju/juju/worker/controllerport/mocks"
 )
 
 type ManifoldSuite struct {
 	statetesting.StateSuite
 	testing.IsolationSuite
 
-	config            controllerport.ManifoldConfig
-	manifold          dependency.Manifold
-	context           dependency.Context
-	agent             *mockAgent
-	hub               *pubsub.StructuredHub
-	state             stubStateTracker
-	logger            loggo.Logger
-	controllerConfig  controller.Config
-	worker            worker.Worker
-	watchableDBGetter *mocks.MockWatchableDBGetter
+	config           controllerport.ManifoldConfig
+	manifold         dependency.Manifold
+	context          dependency.Context
+	agent            *mockAgent
+	hub              *pubsub.StructuredHub
+	state            stubStateTracker
+	logger           loggo.Logger
+	controllerConfig controller.Config
+	worker           worker.Worker
+
+	watchableDBGetter       *MockWatchableDBGetter
+	controllerConfigService *MockControllerConfigService
 
 	stub testing.Stub
 }
@@ -48,10 +49,6 @@ var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpSuite(c *gc.C) {
 	s.IsolationSuite.SetUpSuite(c)
-
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	s.watchableDBGetter = mocks.NewMockWatchableDBGetter(ctrl)
 
 	mgotesting.MgoServer.EnableReplicaSet = true
 	err := mgotesting.MgoServer.Start(nil)
@@ -79,20 +76,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.state = stubStateTracker{
 		pool: s.StatePool,
 	}
-
-	s.context = s.newContext(nil)
-	s.config = controllerport.ManifoldConfig{
-		AgentName:               "agent",
-		HubName:                 "hub",
-		StateName:               "state",
-		ChangeStreamName:        "change-stream",
-		Logger:                  s.logger,
-		UpdateControllerAPIPort: s.updatePort,
-		GetControllerConfig:     s.getControllerConfig,
-		NewWorker:               s.newWorker,
-	}
-
-	s.manifold = controllerport.Manifold(s.config)
 }
 
 func (s *ManifoldSuite) TearDownSuite(c *gc.C) {
@@ -103,6 +86,30 @@ func (s *ManifoldSuite) TearDownSuite(c *gc.C) {
 func (s *ManifoldSuite) TearDownTest(c *gc.C) {
 	s.StateSuite.TearDownTest(c)
 	s.IsolationSuite.TearDownTest(c)
+}
+
+func (s *ManifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.watchableDBGetter = NewMockWatchableDBGetter(ctrl)
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(s.controllerConfig, nil).AnyTimes()
+
+	s.context = s.newContext(nil)
+	s.config = controllerport.ManifoldConfig{
+		AgentName:                  "agent",
+		HubName:                    "hub",
+		StateName:                  "state",
+		ChangeStreamName:           "change-stream",
+		Logger:                     s.logger,
+		UpdateControllerAPIPort:    s.updatePort,
+		NewWorker:                  s.newWorker,
+		NewControllerConfigService: s.newControllerConfigService,
+	}
+
+	s.manifold = controllerport.Manifold(s.config)
+
+	return ctrl
 }
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
@@ -118,12 +125,9 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 	return dt.StubContext(nil, resources)
 }
 
-func (s *ManifoldSuite) getControllerConfig(dbGetter changestream.WatchableDBGetter) (controller.Config, error) {
-	s.stub.MethodCall(s, "GetControllerConfig", dbGetter)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, err
-	}
-	return s.controllerConfig, nil
+func (s *ManifoldSuite) newControllerConfigService(db changestream.WatchableDBGetter, logger controllerport.Logger) controllerport.ControllerConfigService {
+	s.stub.MethodCall(s, "NewControllerConfigService", db, logger)
+	return s.controllerConfigService
 }
 
 func (s *ManifoldSuite) updatePort(port int) error {
@@ -141,10 +145,14 @@ func (s *ManifoldSuite) newWorker(config controllerport.Config) (worker.Worker, 
 var expectedInputs = []string{"state", "agent", "hub", "change-stream"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
 }
 
 func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	for _, input := range expectedInputs {
 		context := s.newContext(map[string]interface{}{
 			input: dependency.ErrMissing,
@@ -155,6 +163,8 @@ func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestValidate(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	type test struct {
 		f      func(*controllerport.ManifoldConfig)
 		expect string
@@ -175,8 +185,8 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 		func(cfg *controllerport.ManifoldConfig) { cfg.UpdateControllerAPIPort = nil },
 		"nil UpdateControllerAPIPort not valid",
 	}, {
-		func(cfg *controllerport.ManifoldConfig) { cfg.GetControllerConfig = nil },
-		"nil GetControllerConfig not valid",
+		func(cfg *controllerport.ManifoldConfig) { cfg.NewControllerConfigService = nil },
+		"nil NewControllerConfigService not valid",
 	}, {
 		func(cfg *controllerport.ManifoldConfig) { cfg.NewWorker = nil },
 		"nil NewWorker not valid",
@@ -193,9 +203,11 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestStart(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.startWorkerClean(c)
 
-	s.stub.CheckCallNames(c, "GetControllerConfig", "NewWorker")
+	s.stub.CheckCallNames(c, "NewControllerConfigService", "NewWorker")
 	args := s.stub.Calls()[1].Args
 	c.Assert(args, gc.HasLen, 1)
 	c.Assert(args[0], gc.FitsTypeOf, controllerport.Config{})
