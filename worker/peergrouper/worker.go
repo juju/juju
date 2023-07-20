@@ -6,14 +6,15 @@ package peergrouper
 import (
 	"context"
 	"fmt"
-	"github.com/kr/pretty"
-	"github.com/prometheus/client_golang/prometheus"
 	"net"
 	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/kr/pretty"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -262,7 +263,7 @@ func (w *pgWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	configChanges, err := w.watchForConfigChanges()
+	controllerConfigChanges, err := w.watchForControllerConfigChanges()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -307,7 +308,7 @@ func (w *pgWorker) loop() error {
 		case <-w.controllerChanges:
 			// One of the controller nodes changed.
 			logger.Tracef("<-w.controllerChanges")
-		case <-configChanges:
+		case <-controllerConfigChanges:
 			// Controller config has changed.
 			logger.Tracef("<-w.configChanges")
 
@@ -440,12 +441,11 @@ func (w *pgWorker) watchForControllerChanges() (<-chan struct{}, error) {
 // does not occur, whereas we want to re-publish API addresses and check
 // for replica-set changes if either the management or HA space configs have
 // changed.
-func (w *pgWorker) watchForConfigChanges() (<-chan []string, error) {
+func (w *pgWorker) watchForControllerConfigChanges() (<-chan []string, error) {
 	controllerConfigWatcher, err := w.config.CtrlConfigService.Watch()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	if err := w.catacomb.Add(controllerConfigWatcher); err != nil {
 		return nil, errors.Trace(err)
 	}
