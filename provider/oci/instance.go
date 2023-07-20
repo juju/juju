@@ -13,11 +13,10 @@ import (
 	"github.com/juju/errors"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 
-	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/core/status"
-
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/status"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/common"

@@ -39,8 +39,7 @@ const (
 	BITOR   // |
 	CONDAND // &&
 	CONDOR  // ||
-	TRUE    // TRUE
-	FALSE   // FALSE
+	BOOL    // BOOL
 
 	LAMBDA     // =>
 	UNDERSCORE // _
@@ -101,10 +100,8 @@ func (t TokenType) String() string {
 		return "||"
 	case STRING:
 		return `""`
-	case TRUE:
-		return "true"
-	case FALSE:
-		return "false"
+	case BOOL:
+		return "BOOL"
 	default:
 		return "<UNKNOWN>"
 	}
@@ -124,9 +121,10 @@ func (p Position) String() string {
 // Token defines a token found with in a query, along with the position and what
 // type it is.
 type Token struct {
-	Pos     Position
-	Type    TokenType
-	Literal string
+	Pos        Position
+	Type       TokenType
+	Literal    string
+	Terminated bool
 }
 
 // MakeToken creates a new token value.

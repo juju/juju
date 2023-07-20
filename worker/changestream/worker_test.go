@@ -7,12 +7,13 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
+
+	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/testing"
 )
 
 type workerSuite struct {

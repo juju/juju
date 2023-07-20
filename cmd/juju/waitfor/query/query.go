@@ -42,8 +42,8 @@ type Scope interface {
 
 // FuncScope is used to call functions for a given identifier.
 type FuncScope interface {
-	Add(string, interface{})
-	Call(*Identifier, []Box) (interface{}, error)
+	Add(string, any)
+	Call(*Identifier, []Box) (any, error)
 }
 
 // BuiltinsRun runs the query with a set of builtin functions.
@@ -73,7 +73,7 @@ func (q Query) Run(fnScope FuncScope, scope Scope) (bool, error) {
 	return !ref.IsZero(), nil
 }
 
-func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, error) {
+func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (any, error) {
 	// Useful for debugging.
 	// fmt.Printf("%[1]T %[1]v\n", e)
 
@@ -185,7 +185,7 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 			}
 			num := int(idx.Value().(int64))
 			if num < 0 || num >= len(t.value) {
-				return nil, RuntimeErrorf("%s %v range error accessing slice", shadowType(t), node.Left.Pos(), num)
+				return nil, RuntimeErrorf("%s %v range %d accessing slice", shadowType(t), node.Left.Pos(), num)
 			}
 			return ConvertRawResult(t.value[num])
 
@@ -210,7 +210,7 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 			return nil, errors.Trace(err)
 		}
 
-		var right interface{}
+		var right any
 		switch node.Token.Type {
 		case CONDAND, CONDOR:
 			// Don't compute the right handside for a logical operator.
@@ -244,7 +244,7 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 		case bool:
 			leftOp = op
 		default:
-			return nil, RuntimeErrorf("%T %v logical AND only allowed on boolean values", left, node.Left.Pos())
+			return nil, ErrSyntaxError(node.Left.Pos(), node.Token.Type, node.Token.Type)
 		}
 
 		// Ensure we don't call the right hand expression unless we need to.
@@ -271,7 +271,7 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 		case bool:
 			rightOp = op
 		default:
-			return nil, RuntimeErrorf("%T %v logical AND only allowed on boolean values", right, node.Right.Pos())
+			return nil, ErrSyntaxError(node.Right.Pos(), node.Token.Type, node.Token.Type)
 		}
 
 		return rightOp, nil
@@ -318,7 +318,7 @@ func (q *Query) getName(node Expression, fnScope FuncScope, scope Scope) (string
 	return raw, nil
 }
 
-func equality(left, right interface{}) bool {
+func equality(left, right any) bool {
 	a, ok1 := left.(Box)
 	b, ok2 := right.(Box)
 
@@ -328,7 +328,7 @@ func equality(left, right interface{}) bool {
 	return a.Equal(b)
 }
 
-func lessThan(left, right interface{}) bool {
+func lessThan(left, right any) bool {
 	a, ok1 := left.(Box)
 	b, ok2 := right.(Box)
 
@@ -339,7 +339,7 @@ func lessThan(left, right interface{}) bool {
 	return a.Less(b)
 }
 
-func lessThanOrEqual(left, right interface{}) bool {
+func lessThanOrEqual(left, right any) bool {
 	a, ok1 := left.(Box)
 	b, ok2 := right.(Box)
 
@@ -350,9 +350,12 @@ func lessThanOrEqual(left, right interface{}) bool {
 	return a.Less(b) || a.Equal(b)
 }
 
-func ConvertRawResult(value interface{}) (Box, error) {
+func ConvertRawResult(value any) (Box, error) {
 	if box, ok := value.(Box); ok {
 		return box, nil
+	}
+	if scope, ok := value.(Scope); ok {
+		return NewScope(scope), nil
 	}
 
 	switch t := value.(type) {
@@ -366,9 +369,9 @@ func ConvertRawResult(value interface{}) (Box, error) {
 		return NewBool(t), nil
 	case float64:
 		return NewFloat(t), nil
-	case map[interface{}]interface{}:
+	case map[any]any:
 		return NewMapInterfaceInterface(t), nil
-	case map[string]interface{}:
+	case map[string]any:
 		return NewMapStringInterface(t), nil
 	case []string:
 		return NewSliceString(t), nil

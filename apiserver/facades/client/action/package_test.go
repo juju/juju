@@ -9,9 +9,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/leadership"
-
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/state"
 )
 

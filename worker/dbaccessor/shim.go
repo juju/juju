@@ -8,6 +8,7 @@ import (
 	"database/sql"
 
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/dqlite"
 )

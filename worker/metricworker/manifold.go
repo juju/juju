@@ -16,6 +16,9 @@ import (
 // Logger represents the methods used by the worker to log details.
 type Logger interface {
 	Warningf(string, ...interface{})
+	Debugf(string, ...interface{})
+	Errorf(string, ...interface{})
+	Infof(string, ...interface{})
 }
 
 // ManifoldConfig describes the resources used by metrics workers.

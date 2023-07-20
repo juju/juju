@@ -4,8 +4,9 @@
 package jujuctesting
 
 import (
-	"github.com/juju/juju/storage"
 	"github.com/juju/names/v4"
+
+	"github.com/juju/juju/storage"
 )
 
 // StorageAttachment holds the data for the test double.

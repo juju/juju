@@ -10,11 +10,11 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	jujuproxy "github.com/juju/juju/proxy"
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/network"
+	jujuproxy "github.com/juju/juju/proxy"
 	"github.com/juju/juju/rpc/jsoncodec"
 )
 

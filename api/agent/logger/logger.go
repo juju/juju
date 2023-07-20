@@ -6,11 +6,12 @@ package logger
 import (
 	"fmt"
 
+	"github.com/juju/names/v4"
+
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/names/v4"
 )
 
 // State provides access to an logger worker's view of the state.

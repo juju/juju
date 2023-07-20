@@ -28,6 +28,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
+	gc "gopkg.in/check.v1"
+	k8scmd "k8s.io/client-go/tools/clientcmd"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/cmdtest"
@@ -61,8 +63,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
-	gc "gopkg.in/check.v1"
-	k8scmd "k8s.io/client-go/tools/clientcmd"
 )
 
 type BootstrapSuite struct {

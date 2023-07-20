@@ -11,8 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/juju/cmd/output"
-
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
@@ -25,6 +23,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/rpc/params"
 )

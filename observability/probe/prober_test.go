@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/observability/probe"
 )
 

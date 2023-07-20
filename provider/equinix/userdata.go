@@ -5,10 +5,10 @@ package equinix
 
 import (
 	"github.com/juju/errors"
-	jujuos "github.com/juju/juju/core/os"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
+	jujuos "github.com/juju/juju/core/os"
 )
 
 type EquinixRenderer struct{}

@@ -179,6 +179,9 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollback(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	application := mocks.NewMockApplication(ctrl)
+	applications := []machinemanager.Application{application}
+
 	unit := mocks.NewMockUnit(ctrl)
 	unit.EXPECT().UnitTag().Return(names.NewUnitTag("app/0"))
 
@@ -189,14 +192,17 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollback(c *gc.C) {
 	machine.EXPECT().CreateUpgradeSeriesLock([]string{"app/0"}, state.Base{OS: "ubuntu", Channel: "20.04"})
 	machine.EXPECT().Base().Return(state.UbuntuBase("18.04")).AnyTimes()
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
-	machine.EXPECT().RemoveUpgradeSeriesLock()
+	machine.EXPECT().SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareStarted, `started upgrade from "ubuntu@18.04" to "ubuntu@20.04"`).Return(errors.New("bad"))
+	machine.EXPECT().RemoveUpgradeSeriesLock().Return(nil)
 
 	state := mocks.NewMockUpgradeSeriesState(ctrl)
 	state.EXPECT().MachineFromTag("machine-0").Return(machine, nil)
+	state.EXPECT().ApplicationsFromMachine(machine).Return(applications, nil)
 
 	validator := mocks.NewMockUpgradeBaseValidator(ctrl)
 	validator.EXPECT().ValidateBase(coreseries.MakeDefaultBase("ubuntu", "20.04"),
-		coreseries.MakeDefaultBase("ubuntu", "18.04"), "machine-0").Return(errors.New("bad"))
+		coreseries.MakeDefaultBase("ubuntu", "18.04"), "machine-0").Return(nil)
+	validator.EXPECT().ValidateApplications(applications, coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
 	validator.EXPECT().ValidateMachine(machine).Return(nil)
 
 	authorizer := mocks.NewMockAuthorizer(ctrl)
@@ -210,6 +216,9 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollbackError(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	application := mocks.NewMockApplication(ctrl)
+	applications := []machinemanager.Application{application}
+
 	unit := mocks.NewMockUnit(ctrl)
 	unit.EXPECT().UnitTag().Return(names.NewUnitTag("app/0"))
 
@@ -220,14 +229,17 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollbackError(c *gc.C) {
 	machine.EXPECT().CreateUpgradeSeriesLock([]string{"app/0"}, state.Base{OS: "ubuntu", Channel: "20.04"})
 	machine.EXPECT().Base().Return(state.UbuntuBase("18.04")).AnyTimes()
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
+	machine.EXPECT().SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareStarted, `started upgrade from "ubuntu@18.04" to "ubuntu@20.04"`).Return(errors.New("bad"))
 	machine.EXPECT().RemoveUpgradeSeriesLock().Return(errors.New("boom"))
 
 	state := mocks.NewMockUpgradeSeriesState(ctrl)
 	state.EXPECT().MachineFromTag("machine-0").Return(machine, nil)
+	state.EXPECT().ApplicationsFromMachine(machine).Return(applications, nil)
 
 	validator := mocks.NewMockUpgradeBaseValidator(ctrl)
 	validator.EXPECT().ValidateBase(coreseries.MakeDefaultBase("ubuntu", "20.04"),
-		coreseries.MakeDefaultBase("ubuntu", "18.04"), "machine-0").Return(errors.New("bad"))
+		coreseries.MakeDefaultBase("ubuntu", "18.04"), "machine-0").Return(nil)
+	validator.EXPECT().ValidateApplications(applications, coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
 	validator.EXPECT().ValidateMachine(machine).Return(nil)
 
 	authorizer := mocks.NewMockAuthorizer(ctrl)

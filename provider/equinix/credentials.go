@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 )

@@ -12,6 +12,7 @@ import (
 	"unicode"
 
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/core/arch"
 )
 
