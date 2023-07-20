@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	changestream "github.com/juju/juju/core/changestream"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockWatchableDBGetter is a mock of WatchableDBGetter interface.

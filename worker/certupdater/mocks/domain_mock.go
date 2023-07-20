@@ -8,8 +8,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	controller "github.com/juju/juju/controller"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockControllerConfigGetter is a mock of ControllerConfigGetter interface.
