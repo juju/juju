@@ -6,11 +6,11 @@ package eventqueue
 import (
 	"sync/atomic"
 
+	"github.com/juju/errors"
+	"github.com/juju/worker/v3/catacomb"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/worker/v3/catacomb"
 )
 
 // Logger represents the logging methods called.

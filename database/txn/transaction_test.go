@@ -7,11 +7,11 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/mattn/go-sqlite3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/database/testing"
 	"github.com/juju/juju/database/txn"
 )

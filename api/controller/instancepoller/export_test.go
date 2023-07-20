@@ -4,9 +4,10 @@
 package instancepoller
 
 import (
+	"github.com/juju/names/v4"
+
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/names/v4"
 )
 
 func NewMachine(caller base.APICaller, tag names.MachineTag, life life.Value) *Machine {

@@ -4,10 +4,10 @@
 package jujuclienttesting
 
 import (
-	"github.com/juju/juju/core/model"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 )
 

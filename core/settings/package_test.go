@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/testing"
-	gc "gopkg.in/check.v1"
 )
 
 func TestPackage(t *testing.T) {

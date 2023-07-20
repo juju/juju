@@ -13,8 +13,9 @@ import (
 	"github.com/juju/charm/v11"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/loggo"
+
+	"github.com/juju/juju/core/series"
 )
 
 // Logger defines the logging methods needed

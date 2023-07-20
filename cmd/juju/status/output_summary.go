@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/juju/ansiterm"
-
 	"github.com/juju/ansiterm/tabwriter"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"

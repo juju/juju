@@ -4,9 +4,8 @@
 package debinterfaces_test
 
 import (
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/testing"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network/debinterfaces"
 )

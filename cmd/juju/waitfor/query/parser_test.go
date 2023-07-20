@@ -92,15 +92,17 @@ func (p *parserSuite) TestParserString(c *gc.C) {
 			&ExpressionStatement{
 				Expression: &String{
 					Token: Token{
-						Pos:     Position{Line: 1, Column: 1, Offset: 0},
-						Type:    STRING,
-						Literal: "abc",
+						Pos:        Position{Line: 1, Column: 1, Offset: 0},
+						Type:       STRING,
+						Literal:    "abc",
+						Terminated: true,
 					},
 				},
 				Token: Token{
-					Pos:     Position{Line: 1, Column: 1, Offset: 0},
-					Type:    STRING,
-					Literal: "abc",
+					Pos:        Position{Line: 1, Column: 1, Offset: 0},
+					Type:       STRING,
+					Literal:    "abc",
+					Terminated: true,
 				},
 			},
 		},
@@ -176,14 +178,14 @@ func (p *parserSuite) TestParserBool(c *gc.C) {
 				Expression: &Bool{
 					Token: Token{
 						Pos:     Position{Line: 1, Column: 1, Offset: 0},
-						Type:    TRUE,
+						Type:    BOOL,
 						Literal: "true",
 					},
 					Value: true,
 				},
 				Token: Token{
 					Pos:     Position{Line: 1, Column: 1, Offset: 0},
-					Type:    TRUE,
+					Type:    BOOL,
 					Literal: "true",
 				},
 			},
@@ -191,14 +193,14 @@ func (p *parserSuite) TestParserBool(c *gc.C) {
 				Expression: &Bool{
 					Token: Token{
 						Pos:     Position{Line: 1, Column: 6, Offset: 5},
-						Type:    FALSE,
+						Type:    BOOL,
 						Literal: "false",
 					},
 					Value: false,
 				},
 				Token: Token{
 					Pos:     Position{Line: 1, Column: 6, Offset: 5},
-					Type:    FALSE,
+					Type:    BOOL,
 					Literal: "false",
 				},
 			},
@@ -247,7 +249,7 @@ func (p *parserSuite) TestParserInfixLogicalAND(c *gc.C) {
 					Left: &Bool{
 						Token: Token{
 							Pos:     Position{Line: 1, Column: 1, Offset: 0},
-							Type:    TRUE,
+							Type:    BOOL,
 							Literal: "true",
 						},
 						Value: true,
@@ -256,7 +258,7 @@ func (p *parserSuite) TestParserInfixLogicalAND(c *gc.C) {
 					Right: &Bool{
 						Token: Token{
 							Pos:     Position{Line: 1, Column: 9, Offset: 8},
-							Type:    TRUE,
+							Type:    BOOL,
 							Literal: "true",
 						},
 						Value: true,
@@ -269,7 +271,7 @@ func (p *parserSuite) TestParserInfixLogicalAND(c *gc.C) {
 				},
 				Token: Token{
 					Pos:     Position{Line: 1, Column: 1, Offset: 0},
-					Type:    TRUE,
+					Type:    BOOL,
 					Literal: "true",
 				},
 			},
@@ -291,7 +293,7 @@ func (p *parserSuite) TestParserInfixLogicalOR(c *gc.C) {
 					Left: &Bool{
 						Token: Token{
 							Pos:     Position{Line: 1, Column: 1, Offset: 0},
-							Type:    TRUE,
+							Type:    BOOL,
 							Literal: "true",
 						},
 						Value: true,
@@ -300,7 +302,7 @@ func (p *parserSuite) TestParserInfixLogicalOR(c *gc.C) {
 					Right: &Bool{
 						Token: Token{
 							Pos:     Position{Line: 1, Column: 9, Offset: 8},
-							Type:    TRUE,
+							Type:    BOOL,
 							Literal: "true",
 						},
 						Value: true,
@@ -313,7 +315,7 @@ func (p *parserSuite) TestParserInfixLogicalOR(c *gc.C) {
 				},
 				Token: Token{
 					Pos:     Position{Line: 1, Column: 1, Offset: 0},
-					Type:    TRUE,
+					Type:    BOOL,
 					Literal: "true",
 				},
 			},

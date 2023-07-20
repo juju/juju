@@ -5,6 +5,7 @@ package jujuc
 
 import (
 	"github.com/juju/cmd/v3"
+
 	jujucmd "github.com/juju/juju/cmd"
 )
 

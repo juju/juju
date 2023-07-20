@@ -8,11 +8,10 @@ import (
 	"io"
 	"time"
 
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
-
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
@@ -176,6 +175,7 @@ func (m *modelWorkerManager) loop() error {
 		IsFatal:       neverFatal,
 		MoreImportant: neverImportant,
 		RestartDelay:  m.config.ErrorDelay,
+		Logger:        m.config.Logger,
 	})
 	if err := m.catacomb.Add(m.runner); err != nil {
 		return errors.Trace(err)

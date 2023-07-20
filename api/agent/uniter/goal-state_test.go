@@ -6,7 +6,6 @@ package uniter_test
 import (
 	"time"
 
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -15,6 +14,7 @@ import (
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/rpc/params"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type goalStateSuite struct {

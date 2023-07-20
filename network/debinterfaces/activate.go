@@ -12,8 +12,9 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/utils/scriptrunner"
 	"github.com/juju/loggo"
+
+	"github.com/juju/juju/utils/scriptrunner"
 )
 
 var logger = loggo.GetLogger("juju.network.debinterfaces")
