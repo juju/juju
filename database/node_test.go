@@ -98,7 +98,7 @@ func (s *nodeManagerSuite) TestIsBootstrappedNode(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
 	m := NewNodeManager(cfg, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
-	ctx := context.TODO()
+	ctx := context.Background()
 
 	// Empty directory indicates we are not the bootstrapped node.
 	asBootstrapped, err := m.IsBootstrappedNode(ctx)
@@ -163,7 +163,7 @@ func (s *nodeManagerSuite) TestSetClusterServersSuccess(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
 	m := NewNodeManager(cfg, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
-	ctx := context.TODO()
+	ctx := context.Background()
 
 	dataDir, err := m.EnsureDataDir()
 	c.Assert(err, jc.ErrorIsNil)
@@ -239,6 +239,44 @@ Role: 0
 	result, err := m.NodeInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, server)
+}
+
+func (s *nodeManagerSuite) TestSetClusterToLocalNodeSuccess(c *gc.C) {
+	subDir := strconv.Itoa(rand.Intn(10))
+
+	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
+	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
+
+	m := NewNodeManager(cfg, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
+	ctx := context.Background()
+
+	_, err := m.EnsureDataDir()
+	c.Assert(err, jc.ErrorIsNil)
+
+	servers := []dqlite.NodeInfo{
+		{
+			ID:      3297041220608546238,
+			Address: "10.6.6.6:17666",
+			Role:    0,
+		}, {
+			ID:      123456789,
+			Address: "10.6.6.7:17666",
+			Role:    0,
+		},
+	}
+
+	err = m.SetClusterServers(ctx, servers)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = m.SetNodeInfo(servers[0])
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = m.SetClusterToLocalNode(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newServers, err := m.ClusterServers(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(newServers, gc.DeepEquals, []dqlite.NodeInfo{servers[0]})
 }
 
 func (s *nodeManagerSuite) TestWithAddressOptionSuccess(c *gc.C) {

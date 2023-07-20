@@ -119,6 +119,19 @@ func (m *NodeManager) EnsureDataDir() (string, error) {
 	return m.dataDir, nil
 }
 
+// SetClusterToLocalNode reconfigures the Dqlite cluster so that it has the
+// local node as its only member.
+// This is intended as a disaster recovery utility, and should only be called:
+// 1. At great need.
+// 2. With steadfast guarantees of data integrity.
+func (m *NodeManager) SetClusterToLocalNode(ctx context.Context) error {
+	node, err := m.NodeInfo()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(m.SetClusterServers(ctx, []dqlite.NodeInfo{node}))
+}
+
 // ClusterServers returns the node information for
 // Dqlite nodes configured to be in the cluster.
 func (m *NodeManager) ClusterServers(ctx context.Context) ([]dqlite.NodeInfo, error) {
