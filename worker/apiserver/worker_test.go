@@ -22,14 +22,15 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
-	databasetesting "github.com/juju/juju/database/testing"
+	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/apiserver"
 	"github.com/juju/juju/worker/syslogger"
 )
 
 type workerFixture struct {
-	databasetesting.ControllerSuite
+	schematesting.ControllerSuite
+
 	agentConfig          mockAgentConfig
 	authenticator        *mockAuthenticator
 	clock                *testclock.Clock
