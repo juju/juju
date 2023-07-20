@@ -214,6 +214,7 @@ func (s *nodeManagerSuite) TestSetGetNodeInfoSuccess(c *gc.C) {
 	infoFile := path.Join(dataDir, "info.yaml")
 
 	// Write an info.yaml file into the Dqlite data directory.
+	// We'll update it with a different address.
 	data := []byte(`
 Address: 127.0.0.1:17666
 ID: 3297041220608546238
@@ -230,9 +231,6 @@ Role: 0
 	}
 
 	err = m.SetNodeInfo(server)
-	c.Assert(err, jc.ErrorIsNil)
-
-	data, err = os.ReadFile(infoFile)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// info.yaml should reflect the new node info.
