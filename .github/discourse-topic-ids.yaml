@@ -4,6 +4,7 @@ add-credential: 10136
 add-k8s: 10049
 add-machine: 10071
 add-model: 10145
+add-secret: 11144
 add-secret-backend: 10062
 add-space: 10117
 add-ssh-key: 10238

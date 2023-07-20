@@ -9,6 +9,7 @@ import (
 )
 
 type SecretsState interface {
+	CreateSecret(*secrets.URI, state.CreateSecretParams) (*secrets.SecretMetadata, error)
 	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, *secrets.ValueRef, error)
 	GetSecretRevision(uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error)
 	ListSecrets(state.SecretsFilter) ([]*secrets.SecretMetadata, error)

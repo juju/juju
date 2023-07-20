@@ -69,7 +69,7 @@ func (c *CharmHubRepository) ResolveForDeploy(arg corecharm.CharmID) (corecharm.
 
 	essMeta, err := transformRefreshResult(resultURL, resp)
 	if err != nil {
-		return corecharm.ResolvedDataForDeploy{}, errors.Trace(resolveErr)
+		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
 	}
 	essMeta.ResolvedOrigin = resolvedOrigin
 
@@ -83,7 +83,7 @@ func (c *CharmHubRepository) ResolveForDeploy(arg corecharm.CharmID) (corecharm.
 	// then not. However, that does not mean that the charm has no resources.
 	resourceResults, err := transformResourceRevision(resp.Entity.Resources)
 	if err != nil {
-		return corecharm.ResolvedDataForDeploy{}, errors.Trace(resolveErr)
+		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
 	}
 
 	thing := corecharm.ResolvedDataForDeploy{
@@ -91,7 +91,7 @@ func (c *CharmHubRepository) ResolveForDeploy(arg corecharm.CharmID) (corecharm.
 		EssentialMetadata: essMeta,
 		Resources:         resourceResults,
 	}
-	return thing, errors.Trace(err)
+	return thing, nil
 }
 
 // There are a few things to note in the attempt to resolve the charm and it's

@@ -35537,13 +35537,25 @@
     {
         "Name": "Secrets",
         "Description": "SecretsAPI is the backend for the Secrets facade.",
-        "Version": 1,
+        "Version": 2,
         "AvailableTo": [
             "model-user"
         ],
         "Schema": {
             "type": "object",
             "properties": {
+                "CreateSecrets": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/CreateSecretArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringResults"
+                        }
+                    },
+                    "description": "CreateSecrets creates new secrets."
+                },
                 "ListSecrets": {
                     "type": "object",
                     "properties": {
@@ -35558,6 +35570,65 @@
                 }
             },
             "definitions": {
+                "CreateSecretArg": {
+                    "type": "object",
+                    "properties": {
+                        "UpsertSecretArg": {
+                            "$ref": "#/definitions/UpsertSecretArg"
+                        },
+                        "content": {
+                            "$ref": "#/definitions/SecretContentParams"
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "expire-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "label": {
+                            "type": "string"
+                        },
+                        "owner-tag": {
+                            "type": "string"
+                        },
+                        "params": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "rotate-policy": {
+                            "type": "string"
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "UpsertSecretArg",
+                        "owner-tag"
+                    ]
+                },
+                "CreateSecretArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CreateSecretArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
+                    ]
+                },
                 "Error": {
                     "type": "object",
                     "properties": {
@@ -35675,6 +35746,23 @@
                         "filter"
                     ]
                 },
+                "SecretContentParams": {
+                    "type": "object",
+                    "properties": {
+                        "data": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "value-ref": {
+                            "$ref": "#/definitions/SecretValueRef"
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "SecretRevision": {
                     "type": "object",
                     "properties": {
@@ -35748,6 +35836,67 @@
                             "type": "integer"
                         },
                         "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "StringResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "result"
+                    ]
+                },
+                "StringResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/StringResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "UpsertSecretArg": {
+                    "type": "object",
+                    "properties": {
+                        "content": {
+                            "$ref": "#/definitions/SecretContentParams"
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "expire-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "label": {
+                            "type": "string"
+                        },
+                        "params": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "rotate-policy": {
                             "type": "string"
                         }
                     },

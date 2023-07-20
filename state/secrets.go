@@ -1253,6 +1253,8 @@ func (st *State) uniqueSecretLabelBaseOps(tag names.Tag, label string) (ops []tx
 			"^%s:(%s|%s)#%s#%s$",
 			st.ModelUUID(), secretOwnerLabelKeyPrefix, secretConsumerLabelKeyPrefix, appTag.String(), label,
 		)
+	case names.ModelTag:
+		keyPattern = fmt.Sprintf("^%s:%s#%s#%s$", st.ModelUUID(), secretOwnerLabelKeyPrefix, tag.String(), label)
 	default:
 		return nil, errors.NotSupportedf("tag type %T", tag)
 	}
@@ -2277,6 +2279,17 @@ func (st *State) findSecretEntity(tag names.Tag) (entity Lifer, collName, docID 
 			entity, err = st.RemoteApplication(id)
 			collName = remoteApplicationsC
 		}
+	case names.ModelTag:
+		if st.ModelUUID() != tag.Id() {
+			// This should never happen, but just in case.
+			return nil, "", "", errors.NotFoundf("model %q", tag.Id())
+		}
+		entity, err = st.Model()
+		if err != nil {
+			return nil, "", "", errors.Trace(err)
+		}
+		collName = modelsC
+		docID = id
 	default:
 		err = errors.NotValidf("secret scope reference %q", tag.String())
 	}
