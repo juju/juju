@@ -477,8 +477,11 @@ func newState(name string, ops chan<- Operation, newStatePolicy state.NewPolicyF
 		ops:            ops,
 		newStatePolicy: newStatePolicy,
 		insts:          make(map[instance.Id]*dummyInstance),
-		modelRules:     firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("22"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR)},
-		creator:        string(buf),
+		modelRules: firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("22"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("17777"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+		},
+		creator: string(buf),
 	}
 	return s
 }

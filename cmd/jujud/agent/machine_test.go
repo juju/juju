@@ -628,7 +628,7 @@ func (s *MachineSuite) TestManageModelAuditsAPI(c *gc.C) {
 			st, err := api.Open(apiInfo, fastDialOpts)
 			c.Assert(err, jc.ErrorIsNil)
 			defer st.Close()
-			doRequest(apiclient.NewClient(st))
+			doRequest(apiclient.NewClient(st, coretesting.NoopLogger{}))
 		}
 		makeMachineAPIRequest := func(doRequest func(*machinemanager.Client)) {
 			apiInfo, ok := conf.APIInfo()
