@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/domain"
 	ccservice "github.com/juju/juju/domain/controllerconfig/service"
 	ccstate "github.com/juju/juju/domain/controllerconfig/state"
@@ -30,7 +31,7 @@ func newFacade(ctx facade.Context) (*InstancePollerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	ctrlConfigService := ccservice.NewService(
-		ccstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
+		ccstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),
 		domain.NewWatcherFactory(
 			ctx.ControllerDB,
 			ctx.Logger().Child("controllerconfig"),

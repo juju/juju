@@ -9,6 +9,7 @@ import (
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/domain"
 	ccservice "github.com/juju/juju/domain/controllerconfig/service"
 	ccstate "github.com/juju/juju/domain/controllerconfig/state"
@@ -24,7 +25,7 @@ func Register(registry facade.FacadeRegistry) {
 // newFacade wraps NewMetricsManagerAPI for API registration.
 func newFacade(ctx facade.Context) (*MetricsManagerAPI, error) {
 	ctrlConfigService := ccservice.NewService(
-		ccstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
+		ccstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),
 		domain.NewWatcherFactory(
 			ctx.ControllerDB,
 			ctx.Logger().Child("controllerconfig"),

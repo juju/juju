@@ -5,9 +5,6 @@ package provisioner
 
 import (
 	ctx "context"
-	"github.com/juju/juju/domain"
-	ccservice "github.com/juju/juju/domain/controllerconfig/service"
-	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 	"sync"
 
 	"github.com/juju/collections/set"
@@ -23,12 +20,16 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/constraints"
 	corecontainer "github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -144,7 +145,7 @@ func NewProvisionerFacade(ctx facade.Context) (*ProvisionerAPI, error) {
 	}
 
 	ctrlConfigService := ccservice.NewService(
-		ccstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
+		ccstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),
 		domain.NewWatcherFactory(
 			ctx.ControllerDB,
 			ctx.Logger().Child("controllerconfig"),

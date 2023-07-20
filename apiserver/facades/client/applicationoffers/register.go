@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/domain"
 	ccservice "github.com/juju/juju/domain/controllerconfig/service"
 	ccstate "github.com/juju/juju/domain/controllerconfig/state"
@@ -47,7 +48,7 @@ func newOffersAPI(ctx facade.Context) (*OffersAPI, error) {
 
 	st := ctx.State()
 	ctrlConfigService := ccservice.NewService(
-		ccstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
+		ccstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),
 		domain.NewWatcherFactory(
 			ctx.ControllerDB,
 			ctx.Logger().Child("controllerconfig"),

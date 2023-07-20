@@ -6,11 +6,12 @@ package machinemanager
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"time"
+
 	"github.com/juju/juju/domain"
 	ccservice "github.com/juju/juju/domain/controllerconfig/service"
 	ccstate "github.com/juju/juju/domain/controllerconfig/state"
-	"strconv"
-	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/permission"
 	coreseries "github.com/juju/juju/core/series"
@@ -138,7 +140,7 @@ func NewFacadeV10(ctx facade.Context) (*MachineManagerAPI, error) {
 	}
 
 	ctrlConfigService := ccservice.NewService(
-		ccstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
+		ccstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),
 		domain.NewWatcherFactory(
 			ctx.ControllerDB,
 			ctx.Logger().Child("controllerconfig"),

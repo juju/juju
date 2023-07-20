@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/leadership"
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
+	"github.com/juju/juju/core/changestream"
 	coreleadership "github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/domain"
 	ccservice "github.com/juju/juju/domain/controllerconfig/service"
@@ -71,7 +72,7 @@ func NewUniterFacade(context facade.Context) (*UniterAPI, error) {
 	}
 
 	ctrlConfigService := ccservice.NewService(
-		ccstate.NewState(domain.NewTxnRunnerFactory(context.ControllerDB)),
+		ccstate.NewState(changestream.NewTxnRunnerFactory(context.ControllerDB)),
 		domain.NewWatcherFactory(
 			context.ControllerDB,
 			context.Logger().Child("controllerconfig"),

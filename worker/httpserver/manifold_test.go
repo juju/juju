@@ -4,9 +4,11 @@
 package httpserver_test
 
 import (
+	"context"
 	"crypto/tls"
-	"go.uber.org/mock/gomock"
 	"time"
+
+	"go.uber.org/mock/gomock"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
@@ -79,21 +81,21 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.context = s.newContext(nil)
 	s.config = httpserver.ManifoldConfig{
-		AgentName:            "machine-42",
-		AuthorityName:        "authority",
-		HubName:              "hub",
-		StateName:            "state",
-		ChangeStreamName:     "change-stream",
-		MuxName:              "mux",
-		APIServerName:        "api-server",
-		Clock:                s.clock,
-		PrometheusRegisterer: &s.prometheusRegisterer,
-		MuxShutdownWait:      1 * time.Minute,
-		LogDir:               "log-dir",
-		GetControllerConfig:  s.getControllerConfig,
-		NewTLSConfig:         s.newTLSConfig,
-		NewWorker:            s.newWorker,
-		Logger:               loggo.GetLogger("test"),
+		AgentName:                  "machine-42",
+		AuthorityName:              "authority",
+		HubName:                    "hub",
+		StateName:                  "state",
+		ChangeStreamName:           "change-stream",
+		MuxName:                    "mux",
+		APIServerName:              "api-server",
+		Clock:                      s.clock,
+		PrometheusRegisterer:       &s.prometheusRegisterer,
+		MuxShutdownWait:            1 * time.Minute,
+		LogDir:                     "log-dir",
+		NewControllerConfigService: s.newControllerConfigService,
+		NewTLSConfig:               s.newTLSConfig,
+		NewWorker:                  s.newWorker,
+		Logger:                     loggo.GetLogger("test"),
 	}
 	s.manifold = httpserver.Manifold(s.config)
 	s.StateSuite.SetUpTest(c)
@@ -139,11 +141,18 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 	return dt.StubContext(nil, resources)
 }
 
-func (s *ManifoldSuite) getControllerConfig(dbGetter changestream.WatchableDBGetter) (controller.Config, error) {
-	s.stub.MethodCall(s, "GetControllerConfig", dbGetter)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, err
+func (s *ManifoldSuite) newControllerConfigService(dbGetter changestream.WatchableDBGetter, logger httpserver.Logger) httpserver.ControllerConfigService {
+	s.stub.MethodCall(s, "NewControllerConfigService", dbGetter)
+	return stubControllerConfigService{
+		controllerConfig: s.controllerConfig,
 	}
+}
+
+type stubControllerConfigService struct {
+	controllerConfig controller.Config
+}
+
+func (s stubControllerConfigService) ControllerConfig(ctx context.Context) (controller.Config, error) {
 	return s.controllerConfig, nil
 }
 
@@ -195,7 +204,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	w := s.startWorkerClean(c)
 	workertest.CleanKill(c, w)
 
-	s.stub.CheckCallNames(c, "GetControllerConfig", "NewTLSConfig", "NewWorker")
+	s.stub.CheckCallNames(c, "NewControllerConfigService", "NewTLSConfig", "NewWorker")
 	newWorkerArgs := s.stub.Calls()[2].Args
 	c.Assert(newWorkerArgs, gc.HasLen, 1)
 	c.Assert(newWorkerArgs[0], gc.FitsTypeOf, httpserver.Config{})
@@ -247,8 +256,8 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 		func(cfg *httpserver.ManifoldConfig) { cfg.PrometheusRegisterer = nil },
 		"nil PrometheusRegisterer not valid",
 	}, {
-		func(cfg *httpserver.ManifoldConfig) { cfg.GetControllerConfig = nil },
-		"nil GetControllerConfig not valid",
+		func(cfg *httpserver.ManifoldConfig) { cfg.NewControllerConfigService = nil },
+		"nil NewControllerConfigService not valid",
 	}, {
 		func(cfg *httpserver.ManifoldConfig) { cfg.NewTLSConfig = nil },
 		"nil NewTLSConfig not valid",

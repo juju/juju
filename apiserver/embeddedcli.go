@@ -6,13 +6,14 @@ package apiserver
 import (
 	"context"
 	"fmt"
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	gorillaws "github.com/gorilla/websocket"
-	"github.com/mitchellh/go-linereader"
 	"io"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	gorillaws "github.com/gorilla/websocket"
+	"github.com/mitchellh/go-linereader"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
@@ -246,7 +247,7 @@ func runCLICommands(m *state.Model, errCh chan<- error, commands params.CLIComma
 	}
 
 	ctrlConfigService := ccservice.NewService(
-		ccstate.NewState(domain.NewTxnRunnerFactoryForNamespace(
+		ccstate.NewState(database.NewTxnRunnerFactoryForNamespace(
 			db.GetWatchableDB,
 			database.ControllerNS,
 		)),

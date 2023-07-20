@@ -91,13 +91,12 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 	if err = context.Get(config.ChangeStreamName, &watchableDBGetter); err != nil {
 		return nil, errors.Trace(err)
 	}
-	dbFactory := domain.NewTxnRunnerFactoryForNamespace(
-		watchableDBGetter.GetWatchableDB,
-		coredatabase.ControllerNS,
-	)
 
 	ctrlConfigService := ccservice.NewService(
-		ccstate.NewState(dbFactory),
+		ccstate.NewState(coredatabase.NewTxnRunnerFactoryForNamespace(
+			watchableDBGetter.GetWatchableDB,
+			coredatabase.ControllerNS,
+		)),
 		domain.NewWatcherFactory(
 			func() (changestream.WatchableDB, error) {
 				return watchableDBGetter.GetWatchableDB(coredatabase.ControllerNS)

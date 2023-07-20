@@ -4,12 +4,14 @@
 package apiserver
 
 import (
+	stdcontext "context"
 	"net/http"
 	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
@@ -20,12 +22,16 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/domain"
+	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
+	controllerconfigstate "github.com/juju/juju/domain/controllerconfig/state"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/gate"
@@ -55,8 +61,9 @@ type ManifoldConfig struct {
 	Hub                               *pubsub.StructuredHub
 	Presence                          presence.Recorder
 
-	NewWorker           func(Config) (worker.Worker, error)
-	NewMetricsCollector func() *apiserver.Collector
+	NewWorker                  func(Config) (worker.Worker, error)
+	NewMetricsCollector        func() *apiserver.Collector
+	NewControllerConfigService func(changestream.WatchableDBGetter, Logger) ControllerConfigService
 }
 
 // Validate validates the manifold configuration.
@@ -117,6 +124,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewMetricsCollector == nil {
 		return errors.NotValidf("nil NewMetricsCollector")
+	}
+	if config.NewControllerConfigService == nil {
+		return errors.NotValidf("nil NewControllerConfigService")
 	}
 	return nil
 }
@@ -234,6 +244,13 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	ctrlConfigService := config.NewControllerConfigService(dbGetter, loggo.GetLogger("juju.apiserver"))
+
+	controllerConfig, err := ctrlConfigService.ControllerConfig(stdcontext.Background())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w, err := config.NewWorker(Config{
 		AgentConfig:                       agent.CurrentConfig(),
 		Clock:                             clock,
@@ -252,6 +269,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		EmbeddedCommand:                   execEmbeddedCommand,
 		SysLogger:                         sysLogger,
 		CharmhubHTTPClient:                charmhubHTTPClient,
+		ControllerConfig:                  controllerConfig,
 		DBGetter:                          dbGetter,
 		DBDeleter:                         dbDeleter,
 	})
@@ -272,4 +290,31 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		_ = stTracker.Done()
 		_ = config.PrometheusRegisterer.Unregister(metricsCollector)
 	}), nil
+}
+
+// ControllerConfigService is an interface that provides the controller
+// configuration.
+type ControllerConfigService interface {
+	ControllerConfig(context stdcontext.Context) (controller.Config, error)
+}
+
+// Logger defines the logging methods used by the worker.
+type Logger interface {
+	Debugf(string, ...interface{})
+}
+
+// NewControllerConfigService returns a new ControllerConfigService.
+func NewControllerConfigService(dbGetter changestream.WatchableDBGetter, logger Logger) ControllerConfigService {
+	return controllerconfigservice.NewService(
+		controllerconfigstate.NewState(coredatabase.NewTxnRunnerFactoryForNamespace(
+			dbGetter.GetWatchableDB,
+			coredatabase.ControllerNS,
+		)),
+		domain.NewWatcherFactory(
+			func() (changestream.WatchableDB, error) {
+				return dbGetter.GetWatchableDB(coredatabase.ControllerNS)
+			},
+			logger,
+		),
+	)
 }

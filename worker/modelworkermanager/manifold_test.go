@@ -111,6 +111,10 @@ func (s *ManifoldSuite) newModelWorker(config modelworkermanager.NewModelConfig)
 	return worker.NewRunner(worker.RunnerParams{}), nil
 }
 
+func (s *ManifoldSuite) newControllerConfigService(changestream.WatchableDBGetter, modelworkermanager.Logger) modelworkermanager.ControllerConfigService {
+	return s.ctrlConfigService
+}
+
 var expectedInputs = []string{"agent", "authority", "mux", "state", "syslog", "change-stream"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -220,8 +224,4 @@ func (f *fakeAgent) Tag() names.Tag {
 
 type stubLogger struct {
 	corelogger.LoggerCloser
-}
-
-func (s *ManifoldSuite) newControllerConfigService(changestream.WatchableDBGetter) modelworkermanager.ControllerConfigGetter {
-	return s.ctrlConfigService
 }

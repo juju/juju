@@ -4,6 +4,7 @@
 package httpserver
 
 import (
+	stdcontext "context"
 	"crypto/tls"
 	"time"
 
@@ -18,6 +19,10 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
+	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/domain"
+	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
+	controllerconfigstate "github.com/juju/juju/domain/controllerconfig/state"
 	"github.com/juju/juju/pki"
 	pkitls "github.com/juju/juju/pki/tls"
 	"github.com/juju/juju/state"
@@ -55,9 +60,9 @@ type ManifoldConfig struct {
 
 	Logger Logger
 
-	GetControllerConfig func(changestream.WatchableDBGetter) (controller.Config, error)
-	NewTLSConfig        func(*state.State, SNIGetterFunc, Logger, controller.Config) (*tls.Config, error)
-	NewWorker           func(Config) (worker.Worker, error)
+	NewTLSConfig               func(*state.State, SNIGetterFunc, Logger, controller.Config) (*tls.Config, error)
+	NewWorker                  func(Config) (worker.Worker, error)
+	NewControllerConfigService func(changestream.WatchableDBGetter, Logger) ControllerConfigService
 }
 
 // Validate validates the manifold configuration.
@@ -86,9 +91,6 @@ func (config ManifoldConfig) Validate() error {
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
 	}
-	if config.GetControllerConfig == nil {
-		return errors.NotValidf("nil GetControllerConfig")
-	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil logger")
 	}
@@ -106,6 +108,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.ChangeStreamName == "" {
 		return errors.NotValidf("empty ChangeStreamName")
+	}
+	if config.NewControllerConfigService == nil {
+		return errors.NotValidf("nil NewControllerConfigService")
 	}
 	return nil
 }
@@ -174,9 +179,11 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		return nil, errors.Trace(err)
 	}
 
-	controllerConfig, err := config.GetControllerConfig(dbGetter)
+	ctrlConfigService := config.NewControllerConfigService(dbGetter, loggo.GetLogger("juju.httpserver"))
+
+	controllerConfig, err := ctrlConfigService.ControllerConfig(stdcontext.Background())
 	if err != nil {
-		return nil, errors.Annotate(err, "unable to get controller config")
+		return nil, errors.Trace(err)
 	}
 
 	systemState, err := statePool.SystemState()
@@ -211,4 +218,26 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		return nil, errors.Trace(err)
 	}
 	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
+}
+
+// ControllerConfigService is an interface that provides the controller
+// configuration.
+type ControllerConfigService interface {
+	ControllerConfig(context stdcontext.Context) (controller.Config, error)
+}
+
+// NewControllerConfigService returns a new ControllerConfigService.
+func NewControllerConfigService(dbGetter changestream.WatchableDBGetter, logger Logger) ControllerConfigService {
+	return controllerconfigservice.NewService(
+		controllerconfigstate.NewState(coredatabase.NewTxnRunnerFactoryForNamespace(
+			dbGetter.GetWatchableDB,
+			coredatabase.ControllerNS,
+		)),
+		domain.NewWatcherFactory(
+			func() (changestream.WatchableDB, error) {
+				return dbGetter.GetWatchableDB(coredatabase.ControllerNS)
+			},
+			logger,
+		),
+	)
 }

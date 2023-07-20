@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/changestream"
 	corelogger "github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain"
@@ -78,7 +79,7 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		return secrets.DrainBackendConfigInfo(backendID, secrets.SecretsModel(model), context.Auth().GetAuthTag(), leadershipChecker)
 	}
 	ctrlConfigService := ccservice.NewService(
-		ccstate.NewState(domain.NewTxnRunnerFactory(context.ControllerDB)),
+		ccstate.NewState(changestream.NewTxnRunnerFactory(context.ControllerDB)),
 		domain.NewWatcherFactory(
 			context.ControllerDB,
 			context.Logger().Child("controllerconfig"),

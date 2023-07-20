@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/api/base"
 	coreagent "github.com/juju/juju/core/agent"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
 	ccservice "github.com/juju/juju/domain/controllerconfig/service"
@@ -90,7 +91,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			ctrlConfigService := ccservice.NewService(
-				ccstate.NewState(domain.NewTxnRunnerFactoryForNamespace(
+				ccstate.NewState(database.NewTxnRunnerFactoryForNamespace(
 					dbGetter.GetWatchableDB,
 					coredatabase.ControllerNS,
 				)),

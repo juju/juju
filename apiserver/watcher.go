@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	ctx "context"
+
 	"github.com/kr/pretty"
 
 	"github.com/juju/errors"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
@@ -996,7 +998,7 @@ func newMigrationStatusWatcher(context facade.Context) (facade.Facade, error) {
 	pool := context.StatePool()
 
 	ctrlConfigService := ccservice.NewService(
-		ccstate.NewState(domain.NewTxnRunnerFactory(context.ControllerDB)),
+		ccstate.NewState(changestream.NewTxnRunnerFactory(context.ControllerDB)),
 		domain.NewWatcherFactory(
 			context.ControllerDB,
 			context.Logger().Child("controllerconfig"),
@@ -1290,7 +1292,7 @@ func newSecretBackendsRotateWatcher(context facade.Context) (facade.Facade, erro
 	resources := context.Resources()
 
 	ctrlConfigService := ccservice.NewService(
-		ccstate.NewState(domain.NewTxnRunnerFactory(context.ControllerDB)),
+		ccstate.NewState(changestream.NewTxnRunnerFactory(context.ControllerDB)),
 		domain.NewWatcherFactory(
 			context.ControllerDB,
 			context.Logger().Child("controllerconfig"),

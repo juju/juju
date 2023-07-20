@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/domain"
 	ccservice "github.com/juju/juju/domain/controllerconfig/service"
 	ccstate "github.com/juju/juju/domain/controllerconfig/state"
@@ -30,7 +31,7 @@ func Register(registry facade.FacadeRegistry) {
 // newFacadeV1 is used for APIV1 registration.
 func newFacadeV1(ctx facade.Context) (*APIV1, error) {
 	ctrlConfigService := ccservice.NewService(
-		ccstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
+		ccstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),
 		domain.NewWatcherFactory(
 			ctx.ControllerDB,
 			ctx.Logger().Child("controllerconfig"),
@@ -50,7 +51,7 @@ func newFacadeV1(ctx facade.Context) (*APIV1, error) {
 // newFacade is used for API registration.
 func newFacade(ctx facade.Context) (*API, error) {
 	ctrlConfigService := ccservice.NewService(
-		ccstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
+		ccstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),
 		domain.NewWatcherFactory(
 			ctx.ControllerDB,
 			ctx.Logger().Child("controllerconfig"),

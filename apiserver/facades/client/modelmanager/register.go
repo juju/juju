@@ -70,7 +70,7 @@ func newFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)
 	backend := common.NewUserAwareModelManagerBackend(model, pool, apiUser)
 	ctrlConfigService := ccservice.NewService(
-		ccstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
+		ccstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),
 		domain.NewWatcherFactory(
 			ctx.ControllerDB,
 			ctx.Logger().Child("controllerconfig"),

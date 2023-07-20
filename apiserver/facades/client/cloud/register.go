@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/domain"
 	ccservice "github.com/juju/juju/domain/controllerconfig/service"
 	ccstate "github.com/juju/juju/domain/controllerconfig/state"
@@ -24,7 +25,7 @@ func Register(registry facade.FacadeRegistry) {
 func newFacadeV7(context facade.Context) (*CloudAPI, error) {
 	st := NewStateBackend(context.State())
 	ctrlConfigService := ccservice.NewService(
-		ccstate.NewState(domain.NewTxnRunnerFactory(context.ControllerDB)),
+		ccstate.NewState(changestream.NewTxnRunnerFactory(context.ControllerDB)),
 		domain.NewWatcherFactory(
 			context.ControllerDB,
 			context.Logger().Child("controllerconfig"),

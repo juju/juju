@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/multiwatcher"
 	coreos "github.com/juju/juju/core/os"
@@ -144,7 +145,7 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 	}
 
 	ctrlConfigService := ccservice.NewService(
-		ccstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
+		ccstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),
 		domain.NewWatcherFactory(
 			ctx.ControllerDB,
 			ctx.Logger().Child("controllerconfig"),

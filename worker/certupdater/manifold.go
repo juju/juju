@@ -143,7 +143,7 @@ func NewMachineAddressWatcher(st *state.State, machineId string) (AddressWatcher
 
 func NewControllerConfigService(dbGetter changestream.WatchableDBGetter) ControllerConfigGetter {
 	return ccservice.NewService(
-		ccstate.NewState(domain.NewTxnRunnerFactoryForNamespace(
+		ccstate.NewState(coredatabase.NewTxnRunnerFactoryForNamespace(
 			dbGetter.GetWatchableDB,
 			coredatabase.ControllerNS,
 		)),

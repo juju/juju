@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/domain"
 	ccservice "github.com/juju/juju/domain/controllerconfig/service"
 	ccstate "github.com/juju/juju/domain/controllerconfig/state"
@@ -29,7 +30,7 @@ func newStateFacade(ctx facade.Context) (*Facade, error) {
 	st := ctx.State()
 	model, err := st.Model()
 	ctrlConfigService := ccservice.NewService(
-		ccstate.NewState(domain.NewTxnRunnerFactory(ctx.ControllerDB)),
+		ccstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),
 		domain.NewWatcherFactory(
 			ctx.ControllerDB,
 			ctx.Logger().Child("controllerconfig"),

@@ -4,6 +4,7 @@
 package httpserverargs
 
 import (
+	stdcontext "context"
 	"reflect"
 
 	"github.com/juju/clock"
@@ -15,13 +16,18 @@ import (
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
-	ccservice "github.com/juju/juju/domain/controllerconfig/service"
-	ccstate "github.com/juju/juju/domain/controllerconfig/state"
+	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
+	controllerconfigstate "github.com/juju/juju/domain/controllerconfig/state"
 	workerstate "github.com/juju/juju/worker/state"
 )
+
+type Logger interface {
+	Debugf(string, ...interface{})
+}
 
 // ManifoldConfig holds the resources needed to run an httpserverargs
 // worker.
@@ -31,7 +37,8 @@ type ManifoldConfig struct {
 	StateName          string
 	ChangeStreamName   string
 
-	NewStateAuthenticator NewStateAuthenticatorFunc
+	NewStateAuthenticator      NewStateAuthenticatorFunc
+	NewControllerConfigService func(changestream.WatchableDBGetter, Logger) ControllerConfigService
 }
 
 // Validate checks that we have all of the things we need.
@@ -50,6 +57,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.ChangeStreamName == "" {
 		return errors.NotValidf("empty ChangeStreamName")
+	}
+	if config.NewControllerConfigService == nil {
+		return errors.NotValidf("nil NewControllerConfigService")
 	}
 	return nil
 }
@@ -83,18 +93,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	ctrlConfigService := ccservice.NewService(
-		ccstate.NewState(domain.NewTxnRunnerFactoryForNamespace(
-			dbGetter.GetWatchableDB,
-			coredatabase.ControllerNS,
-		)),
-		domain.NewWatcherFactory(
-			func() (changestream.WatchableDB, error) {
-				return dbGetter.GetWatchableDB(coredatabase.ControllerNS)
-			},
-			loggo.GetLogger("juju.worker.httpserverargs"),
-		),
-	)
+	ctrlConfigService := config.NewControllerConfigService(dbGetter, loggo.GetLogger("juju.httpserverargs"))
 
 	mux := apiserverhttp.NewMux()
 	abort := make(chan struct{})
@@ -182,4 +181,26 @@ func (w *argsWorker) Kill() {
 
 func (w *argsWorker) Wait() error {
 	return w.tomb.Wait()
+}
+
+// ControllerConfigService is an interface that provides the controller
+// configuration.
+type ControllerConfigService interface {
+	ControllerConfig(context stdcontext.Context) (controller.Config, error)
+}
+
+// NewControllerConfigService returns a new ControllerConfigService.
+func NewControllerConfigService(dbGetter changestream.WatchableDBGetter, logger Logger) ControllerConfigService {
+	return controllerconfigservice.NewService(
+		controllerconfigstate.NewState(coredatabase.NewTxnRunnerFactoryForNamespace(
+			dbGetter.GetWatchableDB,
+			coredatabase.ControllerNS,
+		)),
+		domain.NewWatcherFactory(
+			func() (changestream.WatchableDB, error) {
+				return dbGetter.GetWatchableDB(coredatabase.ControllerNS)
+			},
+			logger,
+		),
+	)
 }

@@ -4,14 +4,16 @@
 package modelworkermanager
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
@@ -43,7 +45,7 @@ type ManifoldConfig struct {
 	NewWorker                  func(Config) (worker.Worker, error)
 	NewModelWorker             NewModelWorkerFunc
 	ModelMetrics               ModelMetrics
-	NewControllerConfigService func(getter changestream.WatchableDBGetter) ControllerConfigGetter
+	NewControllerConfigService func(changestream.WatchableDBGetter, Logger) ControllerConfigService
 	Logger                     Logger
 }
 
@@ -158,7 +160,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Controller: StatePoolController{
 			StatePool: statePool,
 			SysLogger: sysLogger,
-			CcService: config.NewControllerConfigService(dbGetter),
+			CcService: config.NewControllerConfigService(dbGetter, config.Logger),
 		},
 		NewModelWorker: config.NewModelWorker,
 		ErrorDelay:     jworker.RestartDelay,
@@ -170,9 +172,16 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
 }
 
-func NewControllerConfigService(dbGetter changestream.WatchableDBGetter) ControllerConfigGetter {
+// ControllerConfigService is an interface that provides the controller
+// configuration.
+type ControllerConfigService interface {
+	ControllerConfig(context stdcontext.Context) (controller.Config, error)
+}
+
+// NewControllerConfigService returns a new ControllerConfigService.
+func NewControllerConfigService(dbGetter changestream.WatchableDBGetter, logger Logger) ControllerConfigService {
 	return ccservice.NewService(
-		ccstate.NewState(domain.NewTxnRunnerFactoryForNamespace(
+		ccstate.NewState(coredatabase.NewTxnRunnerFactoryForNamespace(
 			dbGetter.GetWatchableDB,
 			coredatabase.ControllerNS,
 		)),
@@ -180,7 +189,7 @@ func NewControllerConfigService(dbGetter changestream.WatchableDBGetter) Control
 			func() (changestream.WatchableDB, error) {
 				return dbGetter.GetWatchableDB(coredatabase.ControllerNS)
 			},
-			loggo.GetLogger("juju.worker.modelworkermanager"),
+			logger,
 		),
 	)
 }

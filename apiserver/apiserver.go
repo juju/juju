@@ -302,7 +302,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 	}
 
 	ctrlConfigService := ccservice.NewService(
-		ccstate.NewState(domain.NewTxnRunnerFactoryForNamespace(
+		ccstate.NewState(database.NewTxnRunnerFactoryForNamespace(
 			cfg.DBGetter.GetWatchableDB,
 			database.ControllerNS,
 		)),

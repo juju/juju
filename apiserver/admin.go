@@ -122,7 +122,7 @@ func (a *admin) login(ctx context.Context, req params.LoginRequest, loginVersion
 	}
 
 	ctrlConfigService := ccservice.NewService(
-		ccstate.NewState(domain.NewTxnRunnerFactoryForNamespace(
+		ccstate.NewState(database.NewTxnRunnerFactoryForNamespace(
 			a.root.shared.dbGetter.GetWatchableDB,
 			database.ControllerNS,
 		)),

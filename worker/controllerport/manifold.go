@@ -4,10 +4,9 @@
 package controllerport
 
 import (
-	ctx "context"
+	stdcontext "context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
@@ -17,8 +16,8 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
-	ccservice "github.com/juju/juju/domain/controllerconfig/service"
-	ccstate "github.com/juju/juju/domain/controllerconfig/state"
+	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
+	controllerconfigstate "github.com/juju/juju/domain/controllerconfig/state"
 	workerstate "github.com/juju/juju/worker/state"
 )
 
@@ -40,8 +39,9 @@ type ManifoldConfig struct {
 	Logger                  Logger
 	UpdateControllerAPIPort func(int) error
 
-	GetControllerConfig func(changestream.WatchableDBGetter) (controller.Config, error)
-	NewWorker           func(Config) (worker.Worker, error)
+	GetControllerConfig        func(changestream.WatchableDBGetter) (controller.Config, error)
+	NewWorker                  func(Config) (worker.Worker, error)
+	NewControllerConfigService func(changestream.WatchableDBGetter, Logger) ControllerConfigService
 }
 
 // Validate validates the manifold configuration.
@@ -69,6 +69,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
+	}
+	if config.NewControllerConfigService == nil {
+		return errors.NotValidf("nil NewControllerConfigService")
 	}
 	return nil
 }
@@ -116,20 +119,9 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	ctrlConfigService := ccservice.NewService(
-		ccstate.NewState(domain.NewTxnRunnerFactoryForNamespace(
-			dbGetter.GetWatchableDB,
-			coredatabase.ControllerNS,
-		)),
-		domain.NewWatcherFactory(
-			func() (changestream.WatchableDB, error) {
-				return dbGetter.GetWatchableDB(coredatabase.ControllerNS)
-			},
-			loggo.GetLogger("juju.worker.controllerport"),
-		),
-	)
+	ctrlConfigService := config.NewControllerConfigService(dbGetter, config.Logger)
 
-	controllerConfig, err := ctrlConfigService.ControllerConfig(ctx.TODO())
+	controllerConfig, err := ctrlConfigService.ControllerConfig(stdcontext.Background())
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get controller config")
 	}
@@ -148,11 +140,16 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	return w, nil
 }
 
-// GetControllerConfig gets the controller config from the given state
-// - it's a shim so we can test the manifold without a state suite.
-func GetControllerConfig(dbGetter changestream.WatchableDBGetter) (controller.Config, error) {
-	ctrlConfigService := ccservice.NewService(
-		ccstate.NewState(domain.NewTxnRunnerFactoryForNamespace(
+// ControllerConfigService is an interface that provides the controller
+// configuration.
+type ControllerConfigService interface {
+	ControllerConfig(context stdcontext.Context) (controller.Config, error)
+}
+
+// NewControllerConfigService returns a new ControllerConfigService.
+func NewControllerConfigService(dbGetter changestream.WatchableDBGetter, logger Logger) ControllerConfigService {
+	return controllerconfigservice.NewService(
+		controllerconfigstate.NewState(coredatabase.NewTxnRunnerFactoryForNamespace(
 			dbGetter.GetWatchableDB,
 			coredatabase.ControllerNS,
 		)),
@@ -160,8 +157,7 @@ func GetControllerConfig(dbGetter changestream.WatchableDBGetter) (controller.Co
 			func() (changestream.WatchableDB, error) {
 				return dbGetter.GetWatchableDB(coredatabase.ControllerNS)
 			},
-			loggo.GetLogger("juju.worker.controllerport"),
+			logger,
 		),
 	)
-	return ctrlConfigService.ControllerConfig(ctx.TODO())
 }
