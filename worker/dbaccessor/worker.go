@@ -570,31 +570,30 @@ func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
 			return dependency.ErrBounce
 		}
 
-		// If we are an existing, previously clustered node, but the node is
-		// not running, check if we're the only API server.
-		// If we are, then we have gone from HA-n to HA-1 and have a broken
-		// cluster. Attempt to reconfigure the cluster with just ourselves
-		// as a member.
+		// If we are an existing, previously clustered node,
+		// and the node is running, we have nothing to do.
 		w.mu.RLock()
 		running := w.dbApp != nil
 		w.mu.RUnlock()
-
-		if serverCount > 1 || running {
+		if running {
 			return nil
 		}
 
-		// Be super careful and check that the sole node is actually us.
-		if _, ok := apiDetails.Servers[w.cfg.ControllerID]; !ok {
-			return errors.Errorf("unable to reconcile current controller and Dqlite cluster status")
+		// Make absolutely sure. We only reconfigure the cluster if the details
+		// indicate exactly one controller machine, and that machine is us.
+		if _, ok := apiDetails.Servers[w.cfg.ControllerID]; ok && serverCount == 1 {
+			log.Warningf("reconfiguring Dqlite cluster with this node as the only member")
+			if err := w.cfg.NodeManager.SetClusterToLocalNode(ctx); err != nil {
+				return errors.Annotatef(err, "reconfiguring Dqlite cluster")
+			}
+
+			log.Infof("successfully reconfigured Dqlite; restarting worker")
+			return dependency.ErrBounce
 		}
 
-		log.Warningf("reconfiguring Dqlite cluster with this node as the only member")
-		if err := w.cfg.NodeManager.SetClusterToLocalNode(ctx); err != nil {
-			return errors.Annotatef(err, "reconfiguring Dqlite cluster")
-		}
-
-		log.Infof("successfully reconfigured Dqlite; restarting worker")
-		return dependency.ErrBounce
+		// Otherwise there is no deterministic course of action.
+		// Play it safe and throw out.
+		return errors.Errorf("unable to reconcile current controller and Dqlite cluster status")
 	}
 
 	// Otherwise this is a node added by enabling HA,
