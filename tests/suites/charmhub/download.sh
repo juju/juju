@@ -6,11 +6,11 @@ run_charmhub_download() {
 
 	ensure "${name}" "${file}"
 
-	output=$(juju download postgresql --base ubuntu@20.04 --filepath="${TEST_DIR}/postgresql.charm" 2>&1 || true)
-	check_contains "${output}" 'Fetching charm "postgresql"'
+	output=$(juju download juju-qa-test --filepath="${TEST_DIR}/juju-qa-test.charm" 2>&1 || true)
+	check_contains "${output}" 'Fetching charm "juju-qa-test"'
 
-	juju deploy "${TEST_DIR}/postgresql.charm" postgresql
-	juju wait-for application --timeout=15m postgresql
+	juju deploy "${TEST_DIR}/juju-qa-test.charm" juju-qa-test
+	juju wait-for application --timeout=15m juju-qa-test
 
 	destroy_model "${name}"
 }
