@@ -4,7 +4,10 @@
 package agentconfigupdater
 
 import (
+	ctx "context"
+
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
@@ -13,6 +16,12 @@ import (
 	apiagent "github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/api/base"
 	coreagent "github.com/juju/juju/core/agent"
+	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
+	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/domain"
+	ccservice "github.com/juju/juju/domain/controllerconfig/service"
+	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 	"github.com/juju/juju/mongo"
 	jworker "github.com/juju/juju/worker"
 )
@@ -29,10 +38,11 @@ type Logger interface {
 // ManifoldConfig provides the dependencies for the
 // agent config updater manifold.
 type ManifoldConfig struct {
-	AgentName      string
-	APICallerName  string
-	CentralHubName string
-	Logger         Logger
+	AgentName        string
+	APICallerName    string
+	CentralHubName   string
+	Logger           Logger
+	ChangeStreamName string
 }
 
 // Manifold defines a simple start function which
@@ -45,6 +55,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.APICallerName,
 			config.CentralHubName,
+			config.ChangeStreamName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
 			// Get the agent.
@@ -73,6 +84,30 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, dependency.ErrUninstall
 			}
 
+			// Get controller config.
+			var dbGetter changestream.WatchableDBGetter
+			if err := context.Get(config.ChangeStreamName, &dbGetter); err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			ctrlConfigService := ccservice.NewService(
+				ccstate.NewState(database.NewTxnRunnerFactoryForNamespace(
+					dbGetter.GetWatchableDB,
+					coredatabase.ControllerNS,
+				)),
+				domain.NewWatcherFactory(
+					func() (changestream.WatchableDB, error) {
+						return dbGetter.GetWatchableDB(coredatabase.ControllerNS)
+					},
+					loggo.GetLogger("juju.worker.agentconfigupdater"),
+				),
+			)
+
+			controllerConfig, err := ctrlConfigService.ControllerConfig(ctx.TODO())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			// Do the initial state serving info and mongo profile checks
 			// before attempting to get the central hub. The central hub is only
 			// running when the agent is a controller. If the agent isn't a controller
@@ -82,10 +117,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			apiState, err := apiagent.NewState(apiCaller)
 			if err != nil {
 				return nil, errors.Trace(err)
-			}
-			controllerConfig, err := apiState.ControllerConfig()
-			if err != nil {
-				return nil, errors.Annotate(err, "getting controller config")
 			}
 
 			logger := config.Logger

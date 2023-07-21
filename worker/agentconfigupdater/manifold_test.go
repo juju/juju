@@ -4,6 +4,7 @@
 package agentconfigupdater_test
 
 import (
+	"go.uber.org/mock/gomock"
 	"time"
 
 	"github.com/juju/loggo"
@@ -25,23 +26,30 @@ import (
 	"github.com/juju/juju/testing"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agentconfigupdater"
+	"github.com/juju/juju/worker/agentconfigupdater/mocks"
 )
 
 type AgentConfigUpdaterSuite struct {
 	testing.BaseSuite
-	manifold dependency.Manifold
-	hub      *pubsub.StructuredHub
+	manifold          dependency.Manifold
+	hub               *pubsub.StructuredHub
+	watchableDBGetter *mocks.MockWatchableDBGetter
 }
 
 var _ = gc.Suite(&AgentConfigUpdaterSuite{})
 
 func (s *AgentConfigUpdaterSuite) SetUpTest(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.watchableDBGetter = mocks.NewMockWatchableDBGetter(ctrl)
+
 	logger := loggo.GetLogger("test")
 	s.manifold = agentconfigupdater.Manifold(agentconfigupdater.ManifoldConfig{
-		AgentName:      "agent",
-		APICallerName:  "api-caller",
-		CentralHubName: "central-hub",
-		Logger:         logger,
+		AgentName:        "agent",
+		APICallerName:    "api-caller",
+		CentralHubName:   "central-hub",
+		ChangeStreamName: "change-stream",
+		Logger:           logger,
 	})
 	s.hub = pubsub.NewStructuredHub(&pubsub.StructuredHubConfig{
 		Logger: logger,
@@ -53,6 +61,7 @@ func (s *AgentConfigUpdaterSuite) TestInputs(c *gc.C) {
 		"agent",
 		"api-caller",
 		"central-hub",
+		"change-stream",
 	})
 }
 
@@ -109,9 +118,10 @@ func (s *AgentConfigUpdaterSuite) TestEntityLookupFailure(c *gc.C) {
 	// Call the manifold's start func with a fake resource getter that
 	// returns the fake Agent and APICaller
 	context := dt.StubContext(nil, map[string]interface{}{
-		"agent":       a,
-		"api-caller":  apiCaller,
-		"central-hub": s.hub,
+		"agent":         a,
+		"api-caller":    apiCaller,
+		"central-hub":   s.hub,
+		"change-stream": s.watchableDBGetter,
 	})
 	w, err := s.manifold.Start(context)
 	c.Assert(w, gc.IsNil)
@@ -153,9 +163,10 @@ func (s *AgentConfigUpdaterSuite) TestCentralHubMissing(c *gc.C) {
 		},
 	)
 	context := dt.StubContext(nil, map[string]interface{}{
-		"agent":       &mockAgent{},
-		"api-caller":  apiCaller,
-		"central-hub": dependency.ErrMissing,
+		"agent":         &mockAgent{},
+		"api-caller":    apiCaller,
+		"central-hub":   dependency.ErrMissing,
+		"change-stream": s.watchableDBGetter,
 	})
 	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
@@ -196,9 +207,10 @@ func (s *AgentConfigUpdaterSuite) TestCentralHubMissingFirstPass(c *gc.C) {
 		},
 	)
 	context := dt.StubContext(nil, map[string]interface{}{
-		"agent":       agent,
-		"api-caller":  apiCaller,
-		"central-hub": dependency.ErrMissing,
+		"agent":         agent,
+		"api-caller":    apiCaller,
+		"central-hub":   dependency.ErrMissing,
+		"change-stream": s.watchableDBGetter,
 	})
 	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
@@ -240,9 +252,10 @@ func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIP
 		},
 	)
 	context := dt.StubContext(nil, map[string]interface{}{
-		"agent":       a,
-		"api-caller":  apiCaller,
-		"central-hub": s.hub,
+		"agent":         a,
+		"api-caller":    apiCaller,
+		"central-hub":   s.hub,
+		"change-stream": s.watchableDBGetter,
 	})
 	return s.manifold.Start(context)
 }
@@ -325,9 +338,10 @@ func (s *AgentConfigUpdaterSuite) checkNotController(c *gc.C, job model.MachineJ
 		},
 	)
 	w, err := s.manifold.Start(dt.StubContext(nil, map[string]interface{}{
-		"agent":       a,
-		"api-caller":  apiCaller,
-		"central-hub": s.hub,
+		"agent":         a,
+		"api-caller":    apiCaller,
+		"central-hub":   s.hub,
+		"change-stream": s.watchableDBGetter,
 	}))
 	c.Assert(w, gc.IsNil)
 	c.Assert(err, gc.Equals, dependency.ErrUninstall)
