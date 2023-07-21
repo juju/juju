@@ -56,7 +56,8 @@ func (s *ImportSuite) TestBadBytes(c *gc.C) {
 	bytes := []byte("not a model")
 	controller := state.NewController(s.StatePool)
 	scope := modelmigration.NewScope(database.ConstFactory(s.TxnRunner()), nil)
-	model, st, err := migration.ImportModel(context.Background(), controller, scope, bytes)
+	importer := migration.NewModelImporter(controller, scope)
+	model, st, err := importer.ImportModel(context.Background(), bytes)
 	c.Check(st, gc.IsNil)
 	c.Check(model, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "yaml: unmarshal errors:\n.*")
@@ -80,7 +81,8 @@ func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string) *state.St
 
 	controller := state.NewController(s.StatePool)
 	scope := modelmigration.NewScope(database.ConstFactory(s.TxnRunner()), nil)
-	dbModel, dbState, err := migration.ImportModel(context.Background(), controller, scope, bytes)
+	importer := migration.NewModelImporter(controller, scope)
+	dbModel, dbState, err := importer.ImportModel(context.Background(), bytes)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { dbState.Close() })
 

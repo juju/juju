@@ -10,6 +10,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/migration"
 )
 
@@ -41,9 +43,15 @@ func newMigrationMasterFacade(ctx facade.Context) (*API, error) {
 		return nil, errors.Trace(err)
 	}
 
+	backend := newBacked(modelState)
+
 	return NewAPI(
 		controllerState,
-		newBacked(modelState),
+		backend,
+		migration.NewModelExporter(
+			backend,
+			modelmigration.NewScope(changestream.NewTxnRunnerFactory(ctx.ControllerDB), nil),
+		),
 		preCheckBackend,
 		migration.PoolShim(pool),
 		ctx.Resources(),

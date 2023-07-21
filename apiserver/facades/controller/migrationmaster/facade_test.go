@@ -4,6 +4,7 @@
 package migrationmaster_test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -40,7 +41,9 @@ type Suite struct {
 
 	controllerBackend *mocks.MockControllerState
 	backend           *mocks.MockBackend
-	precheckBackend   *mocks.MockPrecheckBackend
+	modelExporter     *mocks.MockModelExporter
+
+	precheckBackend *mocks.MockPrecheckBackend
 
 	controllerUUID string
 	modelUUID      string
@@ -70,6 +73,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 
 	s.authorizer = apiservertesting.FakeAuthorizer{Controller: true}
 	s.cloudSpec = environscloudspec.CloudSpec{Type: "lxd"}
+
 }
 
 func (s *Suite) TestNotController(c *gc.C) {
@@ -375,9 +379,9 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 	})
 	unitRev := unitRes.Revision()
 
-	s.backend.EXPECT().Export(map[string]string{}).Return(s.model, nil)
+	s.modelExporter.EXPECT().ExportModel(gomock.Any(), map[string]string{}).Return(s.model, nil)
 
-	serialized, err := s.mustMakeAPI(c).Export()
+	serialized, err := s.mustMakeAPI(c).Export(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We don't want to tie this test the serialisation output (that's
@@ -580,6 +584,7 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	s.controllerBackend = mocks.NewMockControllerState(ctrl)
 	s.backend = mocks.NewMockBackend(ctrl)
 	s.precheckBackend = mocks.NewMockPrecheckBackend(ctrl)
+	s.modelExporter = mocks.NewMockModelExporter(ctrl)
 	return ctrl
 }
 
@@ -593,6 +598,7 @@ func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 	return migrationmaster.NewAPI(
 		s.controllerBackend,
 		s.backend,
+		s.modelExporter,
 		s.precheckBackend,
 		nil, // pool
 		s.resources,

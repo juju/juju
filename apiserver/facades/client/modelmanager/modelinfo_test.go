@@ -50,8 +50,7 @@ type modelInfoSuite struct {
 	st           *mockState
 	ctlrSt       *mockState
 	modelmanager *modelmanager.ModelManagerAPI
-
-	callContext context.ProviderCallContext
+	callContext  context.ProviderCallContext
 }
 
 func pUint64(v uint64) *uint64 {
@@ -86,6 +85,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 					Value: "spam"}}},
 		},
 	}
+
 	controllerModel := &mockModel{
 		owner: names.NewUserTag("admin@local"),
 		life:  state.Alive,
@@ -180,7 +180,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		s.st, s.ctlrSt, &mockModelManagerService{}, nil, nil, common.NewBlockChecker(s.st),
+		s.st, nil, s.ctlrSt, &mockModelManagerService{}, nil, nil, common.NewBlockChecker(s.st),
 		&s.authorizer, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -198,7 +198,7 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	var err error
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		s.st, s.ctlrSt, &mockModelManagerService{}, nil, nil,
+		s.st, nil, s.ctlrSt, &mockModelManagerService{}, nil, nil,
 		common.NewBlockChecker(s.st), s.authorizer, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)

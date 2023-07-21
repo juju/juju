@@ -13,8 +13,8 @@ import (
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/database"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/permission"
@@ -27,12 +27,16 @@ import (
 	"github.com/juju/juju/state/stateenvirons"
 )
 
+type ModelImporter interface {
+	ImportModel(ctx context.Context, bytes []byte) (*state.Model, *state.State, error)
+}
+
 // API implements the API required for the model migration
 // master worker when communicating with the target controller.
 type API struct {
 	state         *state.State
+	modelImporter ModelImporter
 	pool          *state.StatePool
-	controllerDB  database.TxnRunner
 	authorizer    facade.Authorizer
 	presence      facade.Presence
 	getEnviron    stateenvirons.NewEnvironFunc
@@ -52,15 +56,16 @@ func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc, getCAAS
 	if err := checkAuth(auth, st); err != nil {
 		return nil, errors.Trace(err)
 	}
-	controllerDB, err := ctx.ControllerDB()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	pool := ctx.StatePool()
+
+	scope := modelmigration.NewScope(changestream.NewTxnRunnerFactory(ctx.ControllerDB), nil)
+	controller := state.NewController(pool)
+	modelImporter := migration.NewModelImporter(controller, scope)
 
 	return &API{
 		state:         st,
-		pool:          ctx.StatePool(),
-		controllerDB:  controllerDB,
+		modelImporter: modelImporter,
+		pool:          pool,
 		authorizer:    auth,
 		presence:      ctx.Presence(),
 		getEnviron:    getEnviron,
@@ -112,10 +117,7 @@ func (api *API) Prechecks(model params.MigrationModelInfo) error {
 // Import takes a serialized Juju model, deserializes it, and
 // recreates it in the receiving controller.
 func (api *API) Import(ctx context.Context, serialized params.SerializedModel) error {
-	scope := modelmigration.NewScope(database.ConstFactory(api.controllerDB), nil)
-
-	controller := state.NewController(api.pool)
-	_, st, err := migration.ImportModel(ctx, controller, scope, serialized.Bytes)
+	_, st, err := api.modelImporter.ImportModel(ctx, serialized.Bytes)
 	if err != nil {
 		return err
 	}

@@ -4,6 +4,7 @@
 package migrationmaster
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/juju/collections/set"
@@ -25,9 +26,14 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+type ModelExporter interface {
+	ExportModel(ctx context.Context, leaders map[string]string) (description.Model, error)
+}
+
 // API implements the API required for the model migration
 // master worker.
 type API struct {
+	modelExporter           ModelExporter
 	controllerState         ControllerState
 	backend                 Backend
 	precheckBackend         migration.PrecheckBackend
@@ -44,6 +50,7 @@ type API struct {
 func NewAPI(
 	controllerState ControllerState,
 	backend Backend,
+	modelExporter ModelExporter,
 	precheckBackend migration.PrecheckBackend,
 	pool migration.Pool,
 	resources facade.Resources,
@@ -55,9 +62,11 @@ func NewAPI(
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
+
 	return &API{
 		controllerState:         controllerState,
 		backend:                 backend,
+		modelExporter:           modelExporter,
 		precheckBackend:         precheckBackend,
 		pool:                    pool,
 		authorizer:              authorizer,
@@ -240,7 +249,7 @@ func (api *API) SetStatusMessage(args params.SetMigrationStatusMessageArgs) erro
 }
 
 // Export serializes the model associated with the API connection.
-func (api *API) Export() (params.SerializedModel, error) {
+func (api *API) Export(ctx context.Context) (params.SerializedModel, error) {
 	var serialized params.SerializedModel
 
 	leaders, err := api.leadership.Leaders()
@@ -248,7 +257,7 @@ func (api *API) Export() (params.SerializedModel, error) {
 		return serialized, err
 	}
 
-	model, err := api.backend.Export(leaders)
+	model, err := api.modelExporter.ExportModel(ctx, leaders)
 	if err != nil {
 		return serialized, err
 	}
