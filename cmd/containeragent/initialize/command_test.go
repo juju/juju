@@ -133,13 +133,13 @@ checks:
 	containerAgentWritten := bytes.NewBuffer(nil)
 	jujucWritten := bytes.NewBuffer(nil)
 
-	s.fileReaderWriter.EXPECT().MkdirAll("/charm/bin", os.FileMode(0755)).Times(1).Return(nil)
+	s.fileReaderWriter.EXPECT().MkdirAll("/charm/bin", os.FileMode(0775)).Times(1).Return(nil)
 	s.fileReaderWriter.EXPECT().Reader("/opt/pebble").Times(1).Return(io.NopCloser(bytes.NewReader(expectedPebble)), nil)
-	s.fileReaderWriter.EXPECT().Writer("/charm/bin/pebble", os.FileMode(0755)).Return(NopWriteCloser(pebbleWritten), nil)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/pebble", os.FileMode(0775)).Return(NopWriteCloser(pebbleWritten), nil)
 	s.fileReaderWriter.EXPECT().Reader("/opt/containeragent").Times(1).Return(io.NopCloser(bytes.NewReader(expectedContainerAgent)), nil)
-	s.fileReaderWriter.EXPECT().Writer("/charm/bin/containeragent", os.FileMode(0755)).Return(NopWriteCloser(containerAgentWritten), nil)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/containeragent", os.FileMode(0775)).Return(NopWriteCloser(containerAgentWritten), nil)
 	s.fileReaderWriter.EXPECT().Reader("/opt/jujuc").Times(1).Return(io.NopCloser(bytes.NewReader(expectedJujuc)), nil)
-	s.fileReaderWriter.EXPECT().Writer("/charm/bin/jujuc", os.FileMode(0755)).Return(NopWriteCloser(jujucWritten), nil)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/jujuc", os.FileMode(0775)).Return(NopWriteCloser(jujucWritten), nil)
 
 	s.applicationAPI.EXPECT().Close().Times(1).Return(nil)
 
@@ -152,10 +152,10 @@ checks:
 			AgentConf: data,
 		}, nil),
 
-		s.fileReaderWriter.EXPECT().MkdirAll("/var/lib/juju", os.FileMode(0755)).Return(nil),
-		s.fileReaderWriter.EXPECT().WriteFile("/var/lib/juju/template-agent.conf", data, os.FileMode(0644)).Return(nil),
-		s.fileReaderWriter.EXPECT().MkdirAll("/containeragent/pebble/layers", os.FileMode(0555)).Return(nil),
-		s.fileReaderWriter.EXPECT().WriteFile("/containeragent/pebble/layers/001-container-agent.yaml", gomock.Any(), os.FileMode(0444)).
+		s.fileReaderWriter.EXPECT().MkdirAll("/var/lib/juju", os.FileMode(0775)).Return(nil),
+		s.fileReaderWriter.EXPECT().WriteFile("/var/lib/juju/template-agent.conf", data, os.FileMode(0664)).Return(nil),
+		s.fileReaderWriter.EXPECT().MkdirAll("/containeragent/pebble/layers", os.FileMode(0775)).Return(nil),
+		s.fileReaderWriter.EXPECT().WriteFile("/containeragent/pebble/layers/001-container-agent.yaml", gomock.Any(), os.FileMode(0664)).
 			DoAndReturn(func(_ string, data []byte, _ os.FileMode) error {
 				c.Check(string(data), gc.Equals, expectedCAPebbleService)
 				return nil
@@ -222,17 +222,17 @@ checks:
 
 	fsInfo := struct{ os.FileInfo }{nil}
 	s.fileReaderWriter.EXPECT().Stat("/var/lib/juju/template-agent.conf").Return(&fsInfo, nil)
-	s.fileReaderWriter.EXPECT().MkdirAll("/charm/bin", os.FileMode(0755)).Return(nil)
+	s.fileReaderWriter.EXPECT().MkdirAll("/charm/bin", os.FileMode(0775)).Return(nil)
 	s.fileReaderWriter.EXPECT().Reader("/opt/pebble").Times(1).Return(io.NopCloser(bytes.NewReader(expectedPebble)), nil)
-	s.fileReaderWriter.EXPECT().Writer("/charm/bin/pebble", os.FileMode(0755)).Return(NopWriteCloser(pebbleWritten), nil)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/pebble", os.FileMode(0775)).Return(NopWriteCloser(pebbleWritten), nil)
 	s.fileReaderWriter.EXPECT().Reader("/opt/containeragent").Times(1).Return(io.NopCloser(bytes.NewReader(expectedContainerAgent)), nil)
-	s.fileReaderWriter.EXPECT().Writer("/charm/bin/containeragent", os.FileMode(0755)).Return(NopWriteCloser(containerAgentWritten), nil)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/containeragent", os.FileMode(0775)).Return(NopWriteCloser(containerAgentWritten), nil)
 	s.fileReaderWriter.EXPECT().Reader("/opt/jujuc").Times(1).Return(io.NopCloser(bytes.NewReader(expectedJujuc)), nil)
-	s.fileReaderWriter.EXPECT().Writer("/charm/bin/jujuc", os.FileMode(0755)).Return(NopWriteCloser(jujucWritten), nil)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/jujuc", os.FileMode(0775)).Return(NopWriteCloser(jujucWritten), nil)
 
 	gomock.InOrder(
-		s.fileReaderWriter.EXPECT().MkdirAll("/containeragent/pebble/layers", os.FileMode(0555)).Return(nil),
-		s.fileReaderWriter.EXPECT().WriteFile("/containeragent/pebble/layers/001-container-agent.yaml", gomock.Any(), os.FileMode(0444)).
+		s.fileReaderWriter.EXPECT().MkdirAll("/containeragent/pebble/layers", os.FileMode(0775)).Return(nil),
+		s.fileReaderWriter.EXPECT().WriteFile("/containeragent/pebble/layers/001-container-agent.yaml", gomock.Any(), os.FileMode(0664)).
 			DoAndReturn(func(_ string, data []byte, _ os.FileMode) error {
 				c.Check(string(data), gc.Equals, expectedCAPebbleService)
 				return nil
@@ -264,21 +264,60 @@ func (s *initCommandSuit) TestRunConfExists(c *gc.C) {
 	containerAgentWritten := bytes.NewBuffer(nil)
 	jujucWritten := bytes.NewBuffer(nil)
 
-	s.fileReaderWriter.EXPECT().MkdirAll("/charm/bin", os.FileMode(0755)).Times(1).Return(nil)
+	s.fileReaderWriter.EXPECT().MkdirAll("/charm/bin", os.FileMode(0775)).Times(1).Return(nil)
 	s.fileReaderWriter.EXPECT().Reader("/opt/pebble").Times(1).Return(io.NopCloser(bytes.NewReader(expectedPebble)), nil)
-	s.fileReaderWriter.EXPECT().Writer("/charm/bin/pebble", os.FileMode(0755)).Return(NopWriteCloser(pebbleWritten), nil)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/pebble", os.FileMode(0775)).Return(NopWriteCloser(pebbleWritten), nil)
 	s.fileReaderWriter.EXPECT().Reader("/opt/containeragent").Times(1).Return(io.NopCloser(bytes.NewReader(expectedContainerAgent)), nil)
-	s.fileReaderWriter.EXPECT().Writer("/charm/bin/containeragent", os.FileMode(0755)).Return(NopWriteCloser(containerAgentWritten), nil)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/containeragent", os.FileMode(0775)).Return(NopWriteCloser(containerAgentWritten), nil)
 	s.fileReaderWriter.EXPECT().Reader("/opt/jujuc").Times(1).Return(io.NopCloser(bytes.NewReader(expectedJujuc)), nil)
-	s.fileReaderWriter.EXPECT().Writer("/charm/bin/jujuc", os.FileMode(0755)).Return(NopWriteCloser(jujucWritten), nil)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/jujuc", os.FileMode(0775)).Return(NopWriteCloser(jujucWritten), nil)
 	s.fileReaderWriter.EXPECT().Stat("/var/lib/juju/template-agent.conf").Return(nil, nil)
-	s.fileReaderWriter.EXPECT().MkdirAll("/containeragent/pebble/layers", os.FileMode(0555)).Return(nil)
-	s.fileReaderWriter.EXPECT().WriteFile("/containeragent/pebble/layers/001-container-agent.yaml", gomock.Any(), os.FileMode(0444)).Return(nil)
+	s.fileReaderWriter.EXPECT().MkdirAll("/containeragent/pebble/layers", os.FileMode(0775)).Return(nil)
+	s.fileReaderWriter.EXPECT().WriteFile("/containeragent/pebble/layers/001-container-agent.yaml", gomock.Any(), os.FileMode(0664)).Return(nil)
 
 	_, err := cmdtesting.RunCommand(c, s.cmd,
 		"--containeragent-pebble-dir", "/containeragent/pebble",
 		"--data-dir", "/var/lib/juju",
 		"--bin-dir", "/charm/bin",
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(pebbleWritten.Bytes(), jc.SameContents, expectedPebble)
+	c.Assert(containerAgentWritten.Bytes(), jc.SameContents, expectedContainerAgent)
+	c.Assert(jujucWritten.Bytes(), jc.SameContents, expectedJujuc)
+}
+
+func (s *initCommandSuit) TestInstallProfileFunctions(c *gc.C) {
+	ctrl := s.setupCommand(c)
+	defer ctrl.Finish()
+
+	expectedPebble := []byte(`PEBBLE`)
+	expectedContainerAgent := []byte(`CONTAINERAGENT`)
+	expectedJujuc := []byte(`JUJUC`)
+
+	pebbleWritten := bytes.NewBuffer(nil)
+	containerAgentWritten := bytes.NewBuffer(nil)
+	jujucWritten := bytes.NewBuffer(nil)
+
+	s.fileReaderWriter.EXPECT().MkdirAll("/charm/bin", os.FileMode(0775)).Times(1).Return(nil)
+	s.fileReaderWriter.EXPECT().Reader("/opt/pebble").Times(1).Return(io.NopCloser(bytes.NewReader(expectedPebble)), nil)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/pebble", os.FileMode(0775)).Return(NopWriteCloser(pebbleWritten), nil)
+	s.fileReaderWriter.EXPECT().Reader("/opt/containeragent").Times(1).Return(io.NopCloser(bytes.NewReader(expectedContainerAgent)), nil)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/containeragent", os.FileMode(0775)).Return(NopWriteCloser(containerAgentWritten), nil)
+	s.fileReaderWriter.EXPECT().Reader("/opt/jujuc").Times(1).Return(io.NopCloser(bytes.NewReader(expectedJujuc)), nil)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/jujuc", os.FileMode(0775)).Return(NopWriteCloser(jujucWritten), nil)
+	s.fileReaderWriter.EXPECT().Stat("/var/lib/juju/template-agent.conf").Return(nil, nil)
+	s.fileReaderWriter.EXPECT().MkdirAll("/containeragent/pebble/layers", os.FileMode(0775)).Return(nil)
+	s.fileReaderWriter.EXPECT().WriteFile("/containeragent/pebble/layers/001-container-agent.yaml", gomock.Any(), os.FileMode(0664)).Return(nil)
+
+	s.fileReaderWriter.EXPECT().ReadFile("/etc/profile.d/juju-introspection.sh").Times(1).Return(nil, os.ErrNotExist)
+	s.fileReaderWriter.EXPECT().WriteFile("/etc/profile.d/juju-introspection.sh", gomock.Any(), os.FileMode(0644)).Times(1).Return(nil)
+
+	_, err := cmdtesting.RunCommand(c, s.cmd,
+		"--containeragent-pebble-dir", "/containeragent/pebble",
+		"--data-dir", "/var/lib/juju",
+		"--bin-dir", "/charm/bin",
+		"--profile-dir", "/etc/profile.d/",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -138,6 +138,9 @@ type ApplicationConfig struct {
 	// InitialScale is used to provide the initial desired scale of the application.
 	// After the application is created, InitialScale has no effect.
 	InitialScale int
+
+	// Rootless is true if the application should be run without root priviledges.
+	Rootless bool
 }
 
 // ContainerConfig describes a container that is deployed alonside the uniter/charm container.

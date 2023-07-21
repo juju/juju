@@ -165,7 +165,7 @@ func (op *CaasOperatorAgent) maybeCopyAgentConfig() error {
 }
 
 func copyFile(dest, source string) error {
-	df, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0600)
+	df, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0660)
 	if err != nil {
 		return errors.Trace(err)
 	}
