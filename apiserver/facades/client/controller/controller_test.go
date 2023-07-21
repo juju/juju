@@ -30,8 +30,11 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	corecontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	coremultiwatcher "github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
+	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -46,6 +49,7 @@ import (
 
 type controllerSuite struct {
 	statetesting.StateSuite
+	schematesting.ControllerSuite
 
 	controller *controller.ControllerAPI
 	resources  *common.Resources
@@ -63,6 +67,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	})
 
 	s.StateSuite.SetUpTest(c)
+	s.ControllerSuite.SetUpTest(c)
 
 	allWatcherBacking, err := state.NewAllWatcherBacking(s.StatePool)
 	c.Assert(err, jc.ErrorIsNil)
@@ -93,12 +98,24 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		Auth_:                s.authorizer,
 		Hub_:                 s.hub,
 		MultiwatcherFactory_: multiWatcherWorker,
+		ControllerDB_: shimWatchableDB{
+			TxnRunner: s.ControllerSuite.TxnRunner(),
+		},
 	}
 	controller, err := controller.LatestAPI(s.context)
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = controller
 
 	loggo.GetLogger("juju.apiserver.controller").SetLogLevel(loggo.TRACE)
+}
+
+type shimWatchableDB struct {
+	database.TxnRunner
+	changestream.EventSource
+}
+
+func (shimWatchableDB) Subscribe(opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
+	return nil, errors.New("not implemented")
 }
 
 func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
