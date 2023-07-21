@@ -9,6 +9,10 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/domain"
+	ecservice "github.com/juju/juju/domain/externalcontroller/service"
+	ecstate "github.com/juju/juju/domain/externalcontroller/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -25,7 +29,16 @@ func newStateFacade(ctx facade.Context) (*Facade, error) {
 	}
 
 	return &Facade{
-		auth:                authorizer,
-		ControllerConfigAPI: common.NewStateControllerConfig(ctx.State()),
+		auth: authorizer,
+		ControllerConfigAPI: common.NewControllerConfigAPI(
+			ctx.State(),
+			ecservice.NewService(
+				ecstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),
+				domain.NewWatcherFactory(
+					ctx.ControllerDB,
+					ctx.Logger().Child("caasadmission"),
+				),
+			),
+		),
 	}, nil
 }

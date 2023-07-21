@@ -4,6 +4,7 @@
 package secretsmanager
 
 import (
+	stdContext "context"
 	"reflect"
 
 	"github.com/juju/clock"
@@ -16,8 +17,12 @@ import (
 	"github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/changestream"
 	corelogger "github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/domain"
+	ecservice "github.com/juju/juju/domain/externalcontroller/service"
+	ecstate "github.com/juju/juju/domain/externalcontroller/state"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
@@ -74,9 +79,18 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		}
 		return secrets.DrainBackendConfigInfo(backendID, secrets.SecretsModel(model), context.Auth().GetAuthTag(), leadershipChecker)
 	}
-	controllerAPI := common.NewStateControllerConfig(context.State())
+	controllerAPI := common.NewControllerConfigAPI(
+		context.State(),
+		ecservice.NewService(
+			ecstate.NewState(changestream.NewTxnRunnerFactory(context.ControllerDB)),
+			domain.NewWatcherFactory(
+				context.ControllerDB,
+				context.Logger().Child("secretsmanager"),
+			),
+		),
+	)
 	remoteClientGetter := func(uri *coresecrets.URI) (CrossModelSecretsClient, error) {
-		info, err := controllerAPI.ControllerAPIInfoForModels(params.Entities{Entities: []params.Entity{{
+		info, err := controllerAPI.ControllerAPIInfoForModels(stdContext.TODO(), params.Entities{Entities: []params.Entity{{
 			Tag: names.NewModelTag(uri.SourceUUID).String(),
 		}}})
 		if err != nil {

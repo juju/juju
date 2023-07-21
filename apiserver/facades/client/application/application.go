@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"net"
@@ -29,6 +30,7 @@ import (
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/charmhub"
+	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
@@ -42,6 +44,9 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain"
+	ecservice "github.com/juju/juju/domain/externalcontroller/service"
+	ecstate "github.com/juju/juju/domain/externalcontroller/state"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
@@ -58,6 +63,12 @@ var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
 var logger = loggo.GetLogger("juju.apiserver.application")
 
+type ECService interface {
+	// UpdateExternalController persists the input controller
+	// record.
+	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
+}
+
 // APIv19 provides the Application API facade for version 19.
 type APIv19 struct {
 	*APIBase
@@ -69,6 +80,7 @@ type APIBase struct {
 	backend       Backend
 	storageAccess StorageInterface
 
+	ecService  ECService
 	authorizer facade.Authorizer
 	check      BlockChecker
 	updateBase UpdateBase
@@ -161,8 +173,16 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 	}
 	repoDeploy := NewDeployFromRepositoryAPI(state, makeDeployFromRepositoryValidator(validatorCfg))
 
+	ecService := ecservice.NewService(
+		ecstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),
+		domain.NewWatcherFactory(
+			ctx.ControllerDB,
+			ctx.Logger().Child("externalcontrollerupdater"),
+		),
+	)
 	return NewAPIBase(
 		state,
+		ecService,
 		storageAccess,
 		ctx.Auth(),
 		updateBase,
@@ -182,6 +202,7 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 // NewAPIBase returns a new application API facade.
 func NewAPIBase(
 	backend Backend,
+	ecService ECService,
 	storageAccess StorageInterface,
 	authorizer facade.Authorizer,
 	updateBase UpdateBase,
@@ -199,8 +220,10 @@ func NewAPIBase(
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
+
 	return &APIBase{
 		backend:               backend,
+		ecService:             ecService,
 		storageAccess:         storageAccess,
 		authorizer:            authorizer,
 		updateBase:            updateBase,
@@ -1909,7 +1932,7 @@ func (api *APIBase) SetRelationsSuspended(args params.RelationSuspendedArgs) (pa
 
 // Consume adds remote applications to the model without creating any
 // relations.
-func (api *APIBase) Consume(args params.ConsumeApplicationArgs) (params.ErrorResults, error) {
+func (api *APIBase) Consume(ctx context.Context, args params.ConsumeApplicationArgs) (params.ErrorResults, error) {
 	var consumeResults params.ErrorResults
 	if err := api.checkCanWrite(); err != nil {
 		return consumeResults, errors.Trace(err)
@@ -1920,14 +1943,14 @@ func (api *APIBase) Consume(args params.ConsumeApplicationArgs) (params.ErrorRes
 
 	results := make([]params.ErrorResult, len(args.Args))
 	for i, arg := range args.Args {
-		err := api.consumeOne(arg)
+		err := api.consumeOne(ctx, arg)
 		results[i].Error = apiservererrors.ServerError(err)
 	}
 	consumeResults.Results = results
 	return consumeResults, nil
 }
 
-func (api *APIBase) consumeOne(arg params.ConsumeApplicationArg) error {
+func (api *APIBase) consumeOne(ctx context.Context, arg params.ConsumeApplicationArg) error {
 	sourceModelTag, err := names.ParseModelTag(arg.SourceModelTag)
 	if err != nil {
 		return errors.Trace(err)
@@ -1944,12 +1967,13 @@ func (api *APIBase) consumeOne(arg params.ConsumeApplicationArg) error {
 		// a different controller.
 		if controllerTag.Id() != api.backend.ControllerTag().Id() {
 			externalControllerUUID = controllerTag.Id()
-			if _, err = api.backend.SaveController(crossmodel.ControllerInfo{
+			if err = api.ecService.UpdateExternalController(ctx, crossmodel.ControllerInfo{
 				ControllerTag: controllerTag,
 				Alias:         arg.ControllerInfo.Alias,
 				Addrs:         arg.ControllerInfo.Addrs,
 				CACert:        arg.ControllerInfo.CACert,
-			}, sourceModelTag.Id()); err != nil {
+				ModelUUIDs:    []string{sourceModelTag.Id()},
+			}); err != nil {
 				return errors.Trace(err)
 			}
 		}

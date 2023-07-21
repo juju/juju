@@ -31,11 +31,23 @@ type ModelImporter interface {
 	ImportModel(ctx context.Context, bytes []byte) (*state.Model, *state.State, error)
 }
 
+// ECService provides a subset of the external controller domain service methods.
+type ECService interface {
+	// ControllerForModel returns the controller record that's associated
+	// with the modelUUID.
+	ControllerForModel(ctx context.Context, modelUUID string) (*crossmodel.ControllerInfo, error)
+
+	// UpdateExternalController persists the input controller
+	// record.
+	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
+}
+
 // API implements the API required for the model migration
 // master worker when communicating with the target controller.
 type API struct {
 	state         *state.State
 	modelImporter ModelImporter
+	ecService     ECService
 	pool          *state.StatePool
 	authorizer    facade.Authorizer
 	presence      facade.Presence
@@ -50,12 +62,8 @@ type APIV1 struct {
 
 // NewAPI returns a new APIV1. Accepts a NewEnvironFunc and context.ProviderCallContext
 // for testing purposes.
-func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc, getCAASBroker stateenvirons.NewCAASBrokerFunc) (*API, error) {
-	auth := ctx.Auth()
+func NewAPI(ctx facade.Context, authorizer facade.Authorizer, ecService ECService, getEnviron stateenvirons.NewEnvironFunc, getCAASBroker stateenvirons.NewCAASBrokerFunc) (*API, error) {
 	st := ctx.State()
-	if err := checkAuth(auth, st); err != nil {
-		return nil, errors.Trace(err)
-	}
 	pool := ctx.StatePool()
 
 	scope := modelmigration.NewScope(changestream.NewTxnRunnerFactory(ctx.ControllerDB), nil)
@@ -66,7 +74,8 @@ func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc, getCAAS
 		state:         st,
 		modelImporter: modelImporter,
 		pool:          pool,
-		authorizer:    auth,
+		ecService:     ecService,
+		authorizer:    authorizer,
 		presence:      ctx.Presence(),
 		getEnviron:    getEnviron,
 		getCAASBroker: getCAASBroker,
@@ -192,7 +201,7 @@ func (api *APIV1) Activate(args params.ModelArgs) error {
 // has a migration mode other than importing. It also adds any required
 // external controller records for those controllers hosting offers used
 // by the model.
-func (api *API) Activate(args params.ActivateModelArgs) error {
+func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) error {
 	model, release, err := api.getImportingModel(args.ModelTag)
 	if err != nil {
 		return errors.Trace(err)
@@ -202,18 +211,18 @@ func (api *API) Activate(args params.ActivateModelArgs) error {
 	// Add any required external controller records if there are cross
 	// model relations to the source controller that were local but
 	// now need to be external after migration.
-	ec := api.state.NewExternalControllers()
 	if len(args.CrossModelUUIDs) > 0 {
 		cTag, err := names.ParseControllerTag(args.ControllerTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		_, err = ec.Save(crossmodel.ControllerInfo{
+		err = api.ecService.UpdateExternalController(ctx, crossmodel.ControllerInfo{
 			ControllerTag: cTag,
 			Alias:         args.ControllerAlias,
 			Addrs:         args.SourceAPIAddrs,
 			CACert:        args.SourceCACert,
-		}, args.CrossModelUUIDs...)
+			ModelUUIDs:    args.CrossModelUUIDs,
+		})
 		if err != nil {
 			return errors.Annotate(err, "saving source controller info")
 		}
@@ -227,12 +236,12 @@ func (api *API) Activate(args params.ActivateModelArgs) error {
 	}
 	for _, app := range remoteApps {
 		var sourceControllerUUID string
-		extInfo, err := ec.ControllerForModel(app.SourceModel().Id())
+		extInfo, err := api.ecService.ControllerForModel(ctx, app.SourceModel().Id())
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 		if err == nil {
-			sourceControllerUUID = extInfo.ControllerInfo().ControllerTag.Id()
+			sourceControllerUUID = extInfo.ControllerTag.Id()
 		}
 		if err := app.SetSourceController(sourceControllerUUID); err != nil {
 			return errors.Annotatef(err, "updating source controller uuid for %q", app.Name())

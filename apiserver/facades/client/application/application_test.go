@@ -4,6 +4,7 @@
 package application_test
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 
@@ -72,6 +73,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 	pm := poolmanager.New(state.NewStateSettings(s.State), registry)
 	api, err := application.NewAPIBase(
 		application.GetState(s.State),
+		nil,
 		storageAccess,
 		s.authorizer,
 		nil,
@@ -1152,7 +1154,7 @@ func (s *applicationSuite) TestAddAlreadyAddedRelation(c *gc.C) {
 }
 
 func (s *applicationSuite) setupRemoteApplication(c *gc.C) {
-	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
+	results, err := s.applicationAPI.Consume(context.Background(), params.ConsumeApplicationArgs{
 		Args: []params.ConsumeApplicationArg{
 			{ApplicationOfferDetails: params.ApplicationOfferDetails{
 				SourceModelTag:         testing.ModelTag.String(),
@@ -1220,7 +1222,7 @@ func (s *applicationSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
 }
 
 func (s *applicationSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
-	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
+	results, err := s.applicationAPI.Consume(context.Background(), params.ConsumeApplicationArgs{
 		Args: []params.ConsumeApplicationArg{
 			{ApplicationOfferDetails: params.ApplicationOfferDetails{
 				SourceModelTag: testing.ModelTag.String(),

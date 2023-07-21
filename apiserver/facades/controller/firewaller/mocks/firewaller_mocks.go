@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 	time "time"
 
@@ -314,18 +315,18 @@ func (m *MockControllerConfigAPI) EXPECT() *MockControllerConfigAPIMockRecorder 
 }
 
 // ControllerAPIInfoForModels mocks base method.
-func (m *MockControllerConfigAPI) ControllerAPIInfoForModels(arg0 params.Entities) (params.ControllerAPIInfoResults, error) {
+func (m *MockControllerConfigAPI) ControllerAPIInfoForModels(arg0 context.Context, arg1 params.Entities) (params.ControllerAPIInfoResults, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerAPIInfoForModels", arg0)
+	ret := m.ctrl.Call(m, "ControllerAPIInfoForModels", arg0, arg1)
 	ret0, _ := ret[0].(params.ControllerAPIInfoResults)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ControllerAPIInfoForModels indicates an expected call of ControllerAPIInfoForModels.
-func (mr *MockControllerConfigAPIMockRecorder) ControllerAPIInfoForModels(arg0 interface{}) *gomock.Call {
+func (mr *MockControllerConfigAPIMockRecorder) ControllerAPIInfoForModels(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerAPIInfoForModels", reflect.TypeOf((*MockControllerConfigAPI)(nil).ControllerAPIInfoForModels), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerAPIInfoForModels", reflect.TypeOf((*MockControllerConfigAPI)(nil).ControllerAPIInfoForModels), arg0, arg1)
 }
 
 // ControllerConfig mocks base method.

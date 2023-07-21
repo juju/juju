@@ -39,6 +39,7 @@ func newControllerAPIv11(ctx facade.Context) (*ControllerAPI, error) {
 
 	return NewControllerAPI(
 		st,
+		ctx.ControllerDB,
 		pool,
 		authorizer,
 		resources,

@@ -17,8 +17,8 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// EcService provides a subset of the external controller domain service methods.
-type EcService interface {
+// ECService provides a subset of the external controller domain service methods.
+type ECService interface {
 	Controller(ctx context.Context, controllerUUID string) (*crossmodel.ControllerInfo, error)
 	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
 	Watch() (watcher.StringsWatcher, error)
@@ -26,7 +26,7 @@ type EcService interface {
 
 // ExternalControllerUpdaterAPI provides access to the CrossModelRelations API facade.
 type ExternalControllerUpdaterAPI struct {
-	ecService EcService
+	ecService ECService
 	resources facade.Resources
 }
 
@@ -34,7 +34,7 @@ type ExternalControllerUpdaterAPI struct {
 // by the given interfaces.
 func NewAPI(
 	resources facade.Resources,
-	ecService EcService,
+	ecService ECService,
 ) (*ExternalControllerUpdaterAPI, error) {
 	return &ExternalControllerUpdaterAPI{
 		ecService: ecService,

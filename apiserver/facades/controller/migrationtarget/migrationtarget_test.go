@@ -15,10 +15,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
+	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -43,6 +43,7 @@ type Suite struct {
 	statetesting.StateSuite
 	authorizer *apiservertesting.FakeAuthorizer
 
+	ecService     *MockECService
 	facadeContext facadetest.Context
 	callContext   environscontext.ProviderCallContext
 	leaders       map[string]string
@@ -50,7 +51,15 @@ type Suite struct {
 
 var _ = gc.Suite(&Suite{})
 
+func (s *Suite) setUpMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.ecService = NewMockECService(ctrl)
+	return ctrl
+}
+
 func (s *Suite) SetUpTest(c *gc.C) {
+
 	// Set up InitialConfig with a dummy provider configuration. This
 	// is required to allow model import test to work.
 	s.InitialConfig = jujutesting.CustomModelConfig(c, dummy.SampleConfig())
@@ -83,18 +92,6 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.API))
-}
-
-func (s *Suite) TestNotUser(c *gc.C) {
-	s.authorizer.Tag = names.NewMachineTag("0")
-	_, err := s.newAPI(nil, nil)
-	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
-}
-
-func (s *Suite) TestNotControllerAdmin(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("jrandomuser")
-	_, err := s.newAPI(nil, nil)
-	c.Assert(errors.Is(err, apiservererrors.ErrPerm), jc.IsTrue)
 }
 
 func (s *Suite) importModel(c *gc.C, api *migrationtarget.API) names.ModelTag {
@@ -188,6 +185,9 @@ func (s *Suite) TestAbortNotImportingModel(c *gc.C) {
 }
 
 func (s *Suite) TestActivate(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	ctrl.Finish()
+
 	sourceModel := "deadbeef-0bad-400d-8000-4b1d0d06f666"
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "foo", SourceModel: names.NewModelTag(sourceModel),
@@ -196,7 +196,23 @@ func (s *Suite) TestActivate(c *gc.C) {
 	api := s.mustNewAPI(c)
 	tag := s.importModel(c, api)
 
-	err = api.Activate(params.ActivateModelArgs{
+	expectedCI := crossmodel.ControllerInfo{
+		ControllerTag: jujutesting.ControllerTag,
+		Alias:         "mycontroller",
+		Addrs:         []string{"10.6.6.6:17070"},
+		CACert:        jujutesting.CACert,
+		ModelUUIDs:    []string{sourceModel},
+	}
+	s.ecService.EXPECT().UpdateExternalController(
+		gomock.Any(),
+		expectedCI,
+	).Times(1)
+	s.ecService.EXPECT().ControllerForModel(
+		gomock.Any(),
+		sourceModel,
+	).Times(1).Return(&expectedCI, nil)
+
+	err = api.Activate(context.Background(), params.ActivateModelArgs{
 		ModelTag:        tag.String(),
 		ControllerTag:   jujutesting.ControllerTag.String(),
 		ControllerAlias: "mycontroller",
@@ -211,15 +227,6 @@ func (s *Suite) TestActivate(c *gc.C) {
 	defer ph.Release()
 	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeNone)
 
-	ec := state.NewExternalControllers(model.State())
-	info, err := ec.ControllerForModel(sourceModel)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.ControllerInfo(), jc.DeepEquals, crossmodel.ControllerInfo{
-		ControllerTag: jujutesting.ControllerTag,
-		Alias:         "mycontroller",
-		Addrs:         []string{"10.6.6.6:17070"},
-		CACert:        jujutesting.CACert,
-	})
 	app, err := model.State().RemoteApplication("foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(app.SourceController(), gc.Equals, jujutesting.ControllerTag.Id())
@@ -227,14 +234,14 @@ func (s *Suite) TestActivate(c *gc.C) {
 
 func (s *Suite) TestActivateNotATag(c *gc.C) {
 	api := s.mustNewAPI(c)
-	err := api.Activate(params.ActivateModelArgs{ModelTag: "not-a-tag"})
+	err := api.Activate(context.Background(), params.ActivateModelArgs{ModelTag: "not-a-tag"})
 	c.Assert(err, gc.ErrorMatches, `"not-a-tag" is not a valid tag`)
 }
 
 func (s *Suite) TestActivateMissingModel(c *gc.C) {
 	api := s.mustNewAPI(c)
 	newUUID := utils.MustNewUUID().String()
-	err := api.Activate(params.ActivateModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
+	err := api.Activate(context.Background(), params.ActivateModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
 	c.Assert(err, gc.ErrorMatches, `model "`+newUUID+`" not found`)
 }
 
@@ -245,7 +252,7 @@ func (s *Suite) TestActivateNotImportingModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	api := s.mustNewAPI(c)
-	err = api.Activate(params.ActivateModelArgs{ModelTag: model.ModelTag().String()})
+	err = api.Activate(context.Background(), params.ActivateModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, gc.ErrorMatches, `migration mode for the model is not importing`)
 }
 
@@ -461,7 +468,7 @@ func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
 }
 
 func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stateenvirons.NewCAASBrokerFunc) (*migrationtarget.API, error) {
-	api, err := migrationtarget.NewAPI(&s.facadeContext, environFunc, brokerFunc)
+	api, err := migrationtarget.NewAPI(&s.facadeContext, s.authorizer, s.ecService, environFunc, brokerFunc)
 	return api, err
 }
 

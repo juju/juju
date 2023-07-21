@@ -4,6 +4,8 @@
 package remoterelations
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
@@ -50,7 +52,7 @@ type ControllerConfigAPI interface {
 	ControllerConfig() (params.ControllerConfigResult, error)
 
 	// ControllerAPIInfoForModels returns the controller api connection details for the specified models.
-	ControllerAPIInfoForModels(args params.Entities) (params.ControllerAPIInfoResults, error)
+	ControllerAPIInfoForModels(ctx context.Context, args params.Entities) (params.ControllerAPIInfoResults, error)
 }
 
 // TODO - CAAS(ericclaudejones): This should contain state alone, model will be
