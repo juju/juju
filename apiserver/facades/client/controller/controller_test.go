@@ -113,6 +113,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		MultiwatcherFactory_: multiWatcherWorker,
 		ServicesRegistry_: services.NewRegistry(
 			databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
+			nil,
 			servicestesting.NewCheckLogger(c),
 		),
 	}

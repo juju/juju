@@ -61,6 +61,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		ControllerDB_: stubWatchableDB{},
 		ServicesRegistry_: services.NewRegistry(
 			databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
+			nil,
 			servicestesting.NewCheckLogger(c),
 		),
 	})
