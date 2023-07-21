@@ -178,7 +178,13 @@ func (c *applicationCommand) waitFor(input string, ctx ScopeContext, logger Logg
 
 		var currentStatus status.Status
 		if c.appInfo != nil {
+			// Store the current status so we can restore it after the query
+			// has been run.
 			currentStatus = c.appInfo.Status.Current
+
+			// This is required because we derive the status from the units
+			// and not the application itself, unless it has been explicitly
+			// set.
 			c.appInfo.Status.Current = deriveApplicationStatus(currentStatus, c.units)
 
 			if found, err := run(q); err != nil {
@@ -186,12 +192,15 @@ func (c *applicationCommand) waitFor(input string, ctx ScopeContext, logger Logg
 			} else if found {
 				return true, nil
 			}
+
+			// Restore the current status of the application.
+			c.appInfo.Status.Current = currentStatus
 		} else {
 			logger.Infof("application %q not found, waiting...", name)
 			return false, nil
 		}
 
-		logger.Infof("application %q found with %q, waiting...", name, currentStatus)
+		logger.Infof("application %q found with %q, waiting...", name, deriveApplicationStatus(currentStatus, c.units))
 		return false, nil
 	}
 }
@@ -276,10 +285,9 @@ func (m ApplicationScope) GetIdentValue(name string) (query.Box, error) {
 	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name, m), "%q on ApplicationInfo", name)
 }
 
-func deriveApplicationStatus(currentStatus status.Status, units map[string]*params.UnitInfo) status.Status {
-	// If the application is unset, then derive it from the units.
-	if currentStatus.String() != "unset" {
-		return currentStatus
+func deriveApplicationStatus(appStatus status.Status, units map[string]*params.UnitInfo) status.Status {
+	if appStatus != status.Unset {
+		return appStatus
 	}
 
 	statuses := make([]status.StatusInfo, 0)
@@ -316,9 +324,7 @@ func outputApplicationSummary(writer io.Writer,
 		// unset propagates through and we have to read it via the unit
 		// information.
 		if ident == "status" {
-			currentStatus := appInfo.Status.Current
-			currentStatus = deriveApplicationStatus(currentStatus, units)
-			result.Properties[ident] = currentStatus.String()
+			result.Properties[ident] = deriveApplicationStatus(appInfo.Status.Current, units).String()
 			continue
 		}
 
