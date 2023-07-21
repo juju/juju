@@ -15,11 +15,14 @@ import (
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/highavailability"
+	"github.com/juju/juju/apiserver/services"
+	servicestesting "github.com/juju/juju/apiserver/services/testing"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
+	databasetesting "github.com/juju/juju/database/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -56,6 +59,10 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		State_:        st,
 		Auth_:         s.authorizer,
 		ControllerDB_: stubWatchableDB{},
+		ServicesRegistry_: services.NewRegistry(
+			databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
+			servicestesting.NewCheckLogger(c),
+		),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

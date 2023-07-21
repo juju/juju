@@ -9,7 +9,6 @@ import (
 
 	facade "github.com/juju/juju/apiserver/facade"
 	changestream "github.com/juju/juju/core/changestream"
-	database "github.com/juju/juju/core/database"
 	leadership "github.com/juju/juju/core/leadership"
 	lease "github.com/juju/juju/core/lease"
 	multiwatcher "github.com/juju/juju/core/multiwatcher"
@@ -83,20 +82,6 @@ func (m *MockContext) ControllerDB() (changestream.WatchableDB, error) {
 func (mr *MockContextMockRecorder) ControllerDB() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerDB", reflect.TypeOf((*MockContext)(nil).ControllerDB))
-}
-
-// DBDeleter mocks base method.
-func (m *MockContext) DBDeleter() database.DBDeleter {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DBDeleter")
-	ret0, _ := ret[0].(database.DBDeleter)
-	return ret0
-}
-
-// DBDeleter indicates an expected call of DBDeleter.
-func (mr *MockContextMockRecorder) DBDeleter() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DBDeleter", reflect.TypeOf((*MockContext)(nil).DBDeleter))
 }
 
 // DataDir mocks base method.
@@ -338,6 +323,20 @@ func (m *MockContext) Resources() facade.Resources {
 func (mr *MockContextMockRecorder) Resources() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resources", reflect.TypeOf((*MockContext)(nil).Resources))
+}
+
+// Services mocks base method.
+func (m *MockContext) Services() facade.ServicesRegistry {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Services")
+	ret0, _ := ret[0].(facade.ServicesRegistry)
+	return ret0
+}
+
+// Services indicates an expected call of Services.
+func (mr *MockContextMockRecorder) Services() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Services", reflect.TypeOf((*MockContext)(nil).Services))
 }
 
 // SingularClaimer mocks base method.

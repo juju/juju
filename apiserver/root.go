@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/services"
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
@@ -740,9 +741,12 @@ func (ctx *facadeContext) ControllerDB() (changestream.WatchableDB, error) {
 	return db, errors.Trace(err)
 }
 
-// DBDeleter returns a database deleter.
-func (ctx *facadeContext) DBDeleter() coredatabase.DBDeleter {
-	return ctx.r.shared.dbDeleter
+// Services returns the services registry.
+func (ctx *facadeContext) Services() facade.ServicesRegistry {
+	factory := changestream.NewWatchableDBFactoryForNamespace(ctx.r.shared.dbGetter.GetWatchableDB, coredatabase.ControllerNS)
+	return services.NewRegistry(factory, serviceLogger{
+		Logger: ctx.Logger(),
+	})
 }
 
 // MachineTag returns the current machine tag.
@@ -774,4 +778,13 @@ func DescribeFacades(registry *facade.Registry) []params.FacadeVersions {
 		result[i].Versions = f.Versions
 	}
 	return result
+}
+
+// serviceLogger is a loggo.Logger for the service registry.
+type serviceLogger struct {
+	loggo.Logger
+}
+
+func (c serviceLogger) Child(name string) services.Logger {
+	return c
 }

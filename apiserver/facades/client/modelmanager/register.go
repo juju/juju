@@ -15,8 +15,6 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/modelmigration"
-	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
-	modelmanagerstate "github.com/juju/juju/domain/modelmanager/state"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state/stateenvirons"
@@ -76,9 +74,7 @@ func newFacadeV10(ctx facade.Context) (*ModelManagerAPI, error) {
 			modelmigration.NewScope(changestream.NewTxnRunnerFactory(ctx.ControllerDB), nil),
 		),
 		common.NewModelManagerBackend(ctrlModel, pool),
-		modelmanagerservice.NewService(
-			modelmanagerstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),
-			ctx.DBDeleter()),
+		ctx.Services().ModelManager(),
 		toolsFinder,
 		caas.New,
 		common.NewBlockChecker(backend),

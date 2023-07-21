@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
@@ -37,8 +36,8 @@ type Context struct {
 	LeadershipReader_   leadership.Reader
 	SingularClaimer_    lease.Claimer
 	CharmhubHTTPClient_ facade.HTTPClient
+	ServicesRegistry_   facade.ServicesRegistry
 	ControllerDB_       changestream.WatchableDB
-	DBDeleter_          database.DBDeleter
 	Logger_             loggo.Logger
 
 	MachineTag_ names.Tag
@@ -158,12 +157,12 @@ func (context Context) HTTPClient(purpose facade.HTTPClientPurpose) facade.HTTPC
 	}
 }
 
-func (context Context) ControllerDB() (changestream.WatchableDB, error) {
-	return context.ControllerDB_, nil
+func (context Context) Services() facade.ServicesRegistry {
+	return context.ServicesRegistry_
 }
 
-func (context Context) DBDeleter() database.DBDeleter {
-	return context.DBDeleter_
+func (context Context) ControllerDB() (changestream.WatchableDB, error) {
+	return context.ControllerDB_, nil
 }
 
 // MachineTag returns the current machine tag.

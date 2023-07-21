@@ -10,6 +10,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/txn"
 )
@@ -65,4 +66,19 @@ func SingularDBGetter(runner coredatabase.TxnRunner) coredatabase.DBGetter {
 	return singularDBGetter{
 		runner: runner,
 	}
+}
+
+// ConstFactory returns a changestream.WatchableDB factory function from just a
+// database.TxnRunner.
+func ConstFactory(runner coredatabase.TxnRunner) func() (changestream.WatchableDB, error) {
+	return func() (changestream.WatchableDB, error) {
+		return constWatchableDB{
+			TxnRunner: runner,
+		}, nil
+	}
+}
+
+type constWatchableDB struct {
+	coredatabase.TxnRunner
+	changestream.EventSource
 }

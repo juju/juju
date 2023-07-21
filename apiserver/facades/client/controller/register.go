@@ -7,10 +7,6 @@ import (
 	"reflect"
 
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/domain"
-	ccservice "github.com/juju/juju/domain/controllerconfig/service"
-	ccstate "github.com/juju/juju/domain/controllerconfig/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -29,13 +25,6 @@ func newControllerAPIv11(ctx facade.Context) (*ControllerAPI, error) {
 	presence := ctx.Presence()
 	hub := ctx.Hub()
 	factory := ctx.MultiwatcherFactory()
-	ctrlConfigService := ccservice.NewService(
-		ccstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),
-		domain.NewWatcherFactory(
-			ctx.ControllerDB,
-			ctx.Logger().Child("controllerconfig"),
-		),
-	)
 
 	return NewControllerAPI(
 		st,
@@ -47,6 +36,6 @@ func newControllerAPIv11(ctx facade.Context) (*ControllerAPI, error) {
 		hub,
 		factory,
 		ctx.Logger().Child("controller"),
-		ctrlConfigService,
+		ctx.Services().ControllerConfig(),
 	)
 }
