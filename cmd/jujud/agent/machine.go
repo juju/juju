@@ -1022,7 +1022,8 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		if err := os.MkdirAll(modelsDir, 0755); err != nil {
 			return nil, errors.Annotate(err, "unable to create models log directory")
 		}
-		if err := paths.SetSyslogOwner(modelsDir); err != nil {
+		if err := paths.SetSyslogOwner(modelsDir); err != nil && !errors.Is(err, os.ErrPermission) {
+			// If we don't have permission to chown this, it means we are running rootless.
 			return nil, errors.Annotate(err, "unable to set owner for log directory")
 		}
 		if !names.IsValidModel(cfg.ModelUUID) {
@@ -1030,7 +1031,8 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		}
 		filename := cfg.ModelName + "-" + names.NewModelTag(cfg.ModelUUID).ShortId() + ".log"
 		logFilename := filepath.Join(modelsDir, filename)
-		if err := paths.PrimeLogFile(logFilename); err != nil {
+		if err := paths.PrimeLogFile(logFilename); err != nil && !errors.Is(err, os.ErrPermission) {
+			// If we don't have permission to chown this, it means we are running rootless.
 			return nil, errors.Annotate(err, "unable to prime log file")
 		}
 		ljLogger := &lumberjack.Logger{
