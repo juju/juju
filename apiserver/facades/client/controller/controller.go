@@ -124,6 +124,7 @@ func NewControllerAPI(
 		hub:                 hub,
 		multiwatcherFactory: factory,
 		logger:              logger,
+		ctrlConfigService:   ctrlConfigService,
 	}, nil
 }
 
