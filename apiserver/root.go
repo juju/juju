@@ -542,9 +542,12 @@ func (r *apiRoot) dispose(key objectKey) {
 
 func (r *apiRoot) facadeContext(key objectKey) *facadeContext {
 	factory := changestream.NewWatchableDBFactoryForNamespace(r.shared.dbGetter.GetWatchableDB, coredatabase.ControllerNS)
-	services := services.NewRegistry(factory, serviceLogger{
-		Logger: r.shared.logger,
-	})
+	services := services.NewRegistry(factory,
+		r.shared.dbDeleter,
+		serviceLogger{
+			Logger: r.shared.logger,
+		},
+	)
 
 	return &facadeContext{
 		r:        r,

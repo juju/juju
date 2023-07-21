@@ -59,6 +59,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		Auth_:  s.authorizer,
 		ServicesRegistry_: services.NewRegistry(
 			databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
+			nil,
 			servicestesting.NewCheckLogger(c),
 		),
 	})

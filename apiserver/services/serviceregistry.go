@@ -32,9 +32,14 @@ type Registry struct {
 
 // NewRegistry returns a new registry which uses the provided controllerDB
 // function to obtain a controller database.
-func NewRegistry(controllerDB func() (changestream.WatchableDB, error), logger Logger) *Registry {
+func NewRegistry(
+	controllerDB func() (changestream.WatchableDB, error),
+	deleterDB database.DBDeleter,
+	logger Logger,
+) *Registry {
 	return &Registry{
 		controllerDB: controllerDB,
+		deleterDB:    deleterDB,
 		logger:       logger,
 	}
 }
