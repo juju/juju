@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
+	"github.com/juju/juju/controller"
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
@@ -48,6 +49,7 @@ type Config struct {
 	MetricsCollector                  *apiserver.Collector
 	EmbeddedCommand                   apiserver.ExecEmbeddedCommandFunc
 	CharmhubHTTPClient                HTTPClient
+	ControllerConfig                  controller.Config
 
 	// DBDeleter is used to delete databases.
 	DBDeleter coredatabase.DBDeleter
@@ -111,6 +113,9 @@ func (config Config) Validate() error {
 	if config.CharmhubHTTPClient == nil {
 		return errors.NotValidf("nil CharmhubHTTPClient")
 	}
+	if config.ControllerConfig == nil {
+		return errors.NotValidf("nil ControllerConfig")
+	}
 	if config.DBDeleter == nil {
 		return errors.NotValidf("nil DBDeleter")
 	}
@@ -131,18 +136,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Annotate(err, "getting log sink config")
 	}
 
-	systemState, err := config.StatePool.SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	controllerConfig, err := systemState.ControllerConfig()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot fetch the controller config")
-	}
-
 	observerFactory, err := newObserverFn(
 		config.AgentConfig,
-		controllerConfig,
+		config.ControllerConfig,
 		config.Clock,
 		config.Hub,
 		config.MetricsCollector,
@@ -151,7 +147,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Annotate(err, "cannot create RPC observer factory")
 	}
 
-	jwtAuthenticator, err := gatherJWTAuthenticator(controllerConfig)
+	jwtAuthenticator, err := gatherJWTAuthenticator(config.ControllerConfig)
 	if err != nil {
 		return nil, fmt.Errorf("gathering authenticators for apiserver: %w", err)
 	}
@@ -169,8 +165,8 @@ func NewWorker(config Config) (worker.Worker, error) {
 		LocalMacaroonAuthenticator:    config.LocalMacaroonAuthenticator,
 		JWTAuthenticator:              jwtAuthenticator,
 		UpgradeComplete:               config.UpgradeComplete,
-		PublicDNSName:                 controllerConfig.AutocertDNSName(),
-		AllowModelAccess:              controllerConfig.AllowModelAccess(),
+		PublicDNSName:                 config.ControllerConfig.AutocertDNSName(),
+		AllowModelAccess:              config.ControllerConfig.AllowModelAccess(),
 		NewObserver:                   observerFactory,
 		RegisterIntrospectionHandlers: config.RegisterIntrospectionHTTPHandlers,
 		MetricsCollector:              config.MetricsCollector,

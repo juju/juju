@@ -18,16 +18,18 @@ import (
 	coreapiserver "github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
+	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/apiserver"
 	"github.com/juju/juju/worker/syslogger"
 )
 
 type workerFixture struct {
-	testing.IsolationSuite
+	schematesting.ControllerSuite
 	agentConfig          mockAgentConfig
 	authenticator        *mockAuthenticator
 	clock                *testclock.Clock
@@ -41,12 +43,12 @@ type workerFixture struct {
 	multiwatcherFactory  multiwatcher.Factory
 	sysLogger            syslogger.SysLogger
 	charmhubHTTPClient   *http.Client
-	dbGetter             stubWatchableDBGetter
+	dbGetter             changestream.WatchableDBGetter
 	dbDeleter            stubDBDeleter
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+	s.ControllerSuite.SetUpTest(c)
 
 	s.agentConfig = mockAgentConfig{
 		dataDir: c.MkDir(),
@@ -65,6 +67,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.sysLogger = &mockSysLogger{}
 	s.charmhubHTTPClient = &http.Client{}
 	s.stub.ResetCalls()
+	s.dbGetter = stubWatchableDBGetter{db: stubWatchableDB{TxnRunner: s.TxnRunner()}}
 
 	s.config = apiserver.Config{
 		AgentConfig:                       &s.agentConfig,

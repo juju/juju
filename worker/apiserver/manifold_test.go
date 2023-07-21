@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
@@ -371,6 +372,15 @@ type fakeMultiwatcherFactory struct {
 	multiwatcher.Factory
 }
 
+type stubWatchableDB struct {
+	changestream.EventSource
+	database.TxnRunner
+}
+
+type stubWatchableDBGetter struct {
+	db stubWatchableDB
+}
+
 type stubDBDeleter struct{}
 
 func (s stubDBDeleter) DeleteDB(namespace string) error {
@@ -380,11 +390,9 @@ func (s stubDBDeleter) DeleteDB(namespace string) error {
 	return nil
 }
 
-type stubWatchableDBGetter struct{}
-
 func (s stubWatchableDBGetter) GetWatchableDB(namespace string) (changestream.WatchableDB, error) {
 	if namespace != "controller" {
 		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, namespace)
 	}
-	return nil, nil
+	return s.db, nil
 }
