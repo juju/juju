@@ -22,16 +22,16 @@ import (
 // non-Dead hosted models, then an error with the code
 // params.CodeHasHostedModels will be transmitted.
 func (c *ControllerAPI) DestroyController(args params.DestroyControllerArgs) error {
-	return destroyController(c.state, c.ctrlConfigService, c.statePool, c.authorizer, args, c.logger)
+	return destroyController(c.state, c.statePool, c.authorizer, args, c.logger, c.ctrlConfigService)
 }
 
 func destroyController(
 	st Backend,
-	ctrlConfigService ControllerConfiger,
 	pool *state.StatePool,
 	authorizer facade.Authorizer,
 	args params.DestroyControllerArgs,
 	logger loggo.Logger,
+	ctrlConfigService ControllerConfiger,
 ) error {
 	err := authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag())
 	if err != nil {

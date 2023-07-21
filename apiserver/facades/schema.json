@@ -14079,15 +14079,6 @@
                     },
                     "description": "DashboardConnectionInfo returns the connection information for a client to\nconnect to the Juju Dashboard including any proxying information."
                 },
-                "DestroyController": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/DestroyControllerArgs"
-                        }
-                    },
-                    "description": "DestroyController destroys the controller.\n\nIf the args specify the destruction of the models, this method will\nattempt to do so. Otherwise, if the controller has any non-empty,\nnon-Dead hosted models, then an error with the code\nparams.CodeHasHostedModels will be transmitted."
-                },
                 "GetCloudSpec": {
                     "type": "object",
                     "properties": {
@@ -14493,30 +14484,6 @@
                     "required": [
                         "host",
                         "port"
-                    ]
-                },
-                "DestroyControllerArgs": {
-                    "type": "object",
-                    "properties": {
-                        "destroy-models": {
-                            "type": "boolean"
-                        },
-                        "destroy-storage": {
-                            "type": "boolean"
-                        },
-                        "force": {
-                            "type": "boolean"
-                        },
-                        "max-wait": {
-                            "type": "integer"
-                        },
-                        "model-timeout": {
-                            "type": "integer"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "destroy-models"
                     ]
                 },
                 "Entities": {

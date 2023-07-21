@@ -6,6 +6,8 @@ package controller_test
 import (
 	stdcontext "context"
 	"encoding/json"
+	"go.uber.org/mock/gomock"
+	"golang.org/x/net/context"
 	"regexp"
 	"time"
 
@@ -27,6 +29,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
+	"github.com/juju/juju/apiserver/facades/client/controller/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	corecontroller "github.com/juju/juju/controller"
@@ -47,11 +50,12 @@ import (
 type controllerSuite struct {
 	statetesting.StateSuite
 
-	controller *controller.ControllerAPI
-	resources  *common.Resources
-	authorizer apiservertesting.FakeAuthorizer
-	hub        *pubsub.StructuredHub
-	context    facadetest.Context
+	controller        *controller.ControllerAPI
+	resources         *common.Resources
+	authorizer        apiservertesting.FakeAuthorizer
+	hub               *pubsub.StructuredHub
+	context           facadetest.Context
+	ctrlConfigService *mocks.MockControllerConfiger
 }
 
 var _ = gc.Suite(&controllerSuite{})
@@ -63,6 +67,11 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	})
 
 	s.StateSuite.SetUpTest(c)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ctrlConfigService = mocks.NewMockControllerConfiger(ctrl)
 
 	allWatcherBacking, err := state.NewAllWatcherBacking(s.StatePool)
 	c.Assert(err, jc.ErrorIsNil)
@@ -94,7 +103,17 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		Hub_:                 s.hub,
 		MultiwatcherFactory_: multiWatcherWorker,
 	}
-	controller, err := controller.LatestAPI(s.context)
+	controller, err := controller.NewControllerAPI(
+		s.context.State(),
+		s.context.StatePool(),
+		s.authorizer,
+		s.resources,
+		s.context.Presence(),
+		s.context.Hub(),
+		s.context.MultiwatcherFactory(),
+		s.context.Logger().Child("controller"),
+		s.ctrlConfigService,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = controller
 
@@ -105,12 +124,22 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: names.NewUnitTag("mysql/0"),
 	}
-	endPoint, err := controller.LatestAPI(
-		facadetest.Context{
-			State_:     s.State,
-			Resources_: s.resources,
-			Auth_:      anAuthoriser,
-		})
+	facadeContext := facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      anAuthoriser,
+	}
+	endPoint, err := controller.NewControllerAPI(
+		facadeContext.State(),
+		facadeContext.StatePool(),
+		facadeContext.Auth(),
+		s.resources,
+		facadeContext.Presence(),
+		facadeContext.Hub(),
+		facadeContext.MultiwatcherFactory(),
+		facadeContext.Logger().Child("controller"),
+		s.ctrlConfigService,
+	)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -316,16 +345,26 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 	defer st.Close()
 
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: s.Owner}
-	controller, err := controller.NewControllerAPIv11(
-		facadetest.Context{
-			State_:     st,
-			Resources_: common.NewResources(),
-			Auth_:      authorizer,
-		})
+	facadeContext := facadetest.Context{
+		State_:     st,
+		Resources_: common.NewResources(),
+		Auth_:      authorizer,
+	}
+	controller, err := controller.NewControllerAPI(
+		facadeContext.State(),
+		facadeContext.StatePool(),
+		facadeContext.Auth(),
+		s.resources,
+		facadeContext.Presence(),
+		facadeContext.Hub(),
+		facadeContext.MultiwatcherFactory(),
+		facadeContext.Logger().Child("controller"),
+		s.ctrlConfigService,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := controller.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	cfgFromDB, err := s.State.ControllerConfig()
+	cfgFromDB, err := s.ctrlConfigService.ControllerConfig(context.TODO())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Config["controller-uuid"], gc.Equals, cfgFromDB.ControllerUUID())
 	c.Assert(cfg.Config["state-port"], gc.Equals, cfgFromDB.StatePort())
@@ -1074,12 +1113,22 @@ func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: names.NewLocalUserTag("bob"),
 	}
-	endPoint, err := controller.LatestAPI(
-		facadetest.Context{
-			State_:     s.State,
-			Resources_: s.resources,
-			Auth_:      anAuthoriser,
-		})
+	facadeContext := facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      anAuthoriser,
+	}
+	endPoint, err := controller.NewControllerAPI(
+		facadeContext.State(),
+		facadeContext.StatePool(),
+		facadeContext.Auth(),
+		s.resources,
+		facadeContext.Presence(),
+		facadeContext.Hub(),
+		facadeContext.MultiwatcherFactory(),
+		facadeContext.Logger().Child("controller"),
+		s.ctrlConfigService,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = endPoint.WatchAllModelSummaries()

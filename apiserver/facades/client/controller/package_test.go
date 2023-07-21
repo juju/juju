@@ -10,9 +10,8 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/apiserver/facades/client/controller Backend,Application,Relation
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/domain_mock.go github.com/juju/juju/apiserver/common ControllerConfigGetter
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/domain_mock.go github.com/juju/juju/apiserver/facades/client/controller ControllerConfiger
 
 func TestAll(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }
-

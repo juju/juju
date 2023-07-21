@@ -39,7 +39,7 @@ type destroyControllerSuite struct {
 	authorizer        apiservertesting.FakeAuthorizer
 	resources         *common.Resources
 	controller        *controller.ControllerAPI
-	ctrlConfigService *mocks.MockControllerConfigGetter
+	ctrlConfigService *mocks.MockControllerConfiger
 
 	otherState      *state.State
 	otherModel      *state.Model
@@ -54,7 +54,7 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.ctrlConfigService = mocks.NewMockControllerConfigGetter(ctrl)
+	s.ctrlConfigService = mocks.NewMockControllerConfiger(ctrl)
 
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
@@ -98,7 +98,7 @@ func (s *destroyControllerSuite) TestDestroyControllerKillErrsOnHostedModelsWith
 
 	err := s.controller.DestroyController(params.DestroyControllerArgs{
 		DestroyModels: true,
-	})
+	}, s.ctrlConfigService)
 	c.Assert(err, gc.ErrorMatches, "found blocks in controller models")
 
 	model, err := s.State.Model()
@@ -114,7 +114,7 @@ func (s *destroyControllerSuite) TestDestroyControllerReturnsBlockedModelErr(c *
 
 	err := s.controller.DestroyController(params.DestroyControllerArgs{
 		DestroyModels: true,
-	})
+	}, s.ctrlConfigService)
 	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
 
 	numBlocks, err := s.State.AllBlocksForController()
@@ -128,7 +128,7 @@ func (s *destroyControllerSuite) TestDestroyControllerReturnsBlockedModelErr(c *
 func (s *destroyControllerSuite) TestDestroyControllerKillsHostedModels(c *gc.C) {
 	err := s.controller.DestroyController(params.DestroyControllerArgs{
 		DestroyModels: true,
-	})
+	}, s.ctrlConfigService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Model()
@@ -142,7 +142,7 @@ func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c
 	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	err := s.controller.DestroyController(params.DestroyControllerArgs{})
+	err := s.controller.DestroyController(params.DestroyControllerArgs{}, s.ctrlConfigService)
 	c.Assert(err, gc.ErrorMatches, "found blocks in controller models")
 
 	numBlocks, err := s.State.AllBlocksForController()
@@ -158,7 +158,7 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModels(c *gc.C) {
 	c.Assert(s.otherModel.State().RemoveDyingModel(), jc.ErrorIsNil)
 	c.Assert(s.otherModel.Refresh(), jc.Satisfies, errors.IsNotFound)
 
-	err = s.controller.DestroyController(params.DestroyControllerArgs{})
+	err = s.controller.DestroyController(params.DestroyControllerArgs{}, s.ctrlConfigService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Model()
@@ -173,7 +173,7 @@ func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedModelsWithBl
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 
-	err = s.controller.DestroyController(params.DestroyControllerArgs{})
+	err = s.controller.DestroyController(params.DestroyControllerArgs{}, s.ctrlConfigService)
 	c.Assert(err, gc.ErrorMatches, "found blocks in controller models")
 	models, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -187,7 +187,7 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModelsWithBlockFai
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 
-	err = s.controller.DestroyController(params.DestroyControllerArgs{})
+	err = s.controller.DestroyController(params.DestroyControllerArgs{}, s.ctrlConfigService)
 	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
 
 	numBlocks, err := s.State.AllBlocksForController()
@@ -210,7 +210,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified
 
 	err := s.controller.DestroyController(params.DestroyControllerArgs{
 		DestroyModels: true,
-	})
+	}, s.ctrlConfigService)
 	c.Assert(errors.Is(err, stateerrors.PersistentStorageError), jc.IsTrue)
 
 	model, err := s.State.Model()
@@ -235,7 +235,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecified(c 
 	err := s.controller.DestroyController(params.DestroyControllerArgs{
 		DestroyModels:  true,
 		DestroyStorage: &destroyStorage,
-	})
+	}, s.ctrlConfigService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Model()
@@ -250,7 +250,7 @@ func (s *destroyControllerSuite) TestDestroyControllerForce(c *gc.C) {
 		DestroyModels: true,
 		Force:         &force,
 		ModelTimeout:  &timeout,
-	})
+	}, s.ctrlConfigService)
 	c.Assert(err, jc.ErrorIsNil)
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
