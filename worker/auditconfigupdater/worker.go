@@ -4,6 +4,7 @@
 package auditconfigupdater
 
 import (
+	stdcontext "context"
 	"sync"
 
 	"github.com/juju/errors"
@@ -12,15 +13,15 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/core/watcher"
 )
 
 // ConfigSource lets us get notifications of changes to controller
 // configuration, and then get the changed config. (Primary
 // implementation is State.)
 type ConfigSource interface {
-	WatchControllerConfig() state.NotifyWatcher
-	ControllerConfig() (controller.Config, error)
+	Watch() (watcher.StringsWatcher, error)
+	ControllerConfig(stdcontext.Context) (controller.Config, error)
 }
 
 // AuditLogFactory is a function that will return an audit log given
@@ -63,7 +64,10 @@ func (u *updater) Wait() error {
 }
 
 func (u *updater) loop() error {
-	watcher := u.source.WatchControllerConfig()
+	watcher, err := u.source.Watch()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if err := u.catacomb.Add(watcher); err != nil {
 		return errors.Trace(err)
 	}
@@ -85,9 +89,9 @@ func (u *updater) loop() error {
 }
 
 func (u *updater) newConfig() (auditlog.Config, error) {
-	cfg, err := u.source.ControllerConfig()
+	cfg, err := u.source.ControllerConfig(stdcontext.Background())
 	if err != nil {
-		return auditlog.Config{}, errors.Trace(err)
+		return auditlog.Config{}, errors.Annotate(err, "failed to get controller config")
 	}
 	result := auditlog.Config{
 		Enabled:        cfg.AuditingEnabled(),

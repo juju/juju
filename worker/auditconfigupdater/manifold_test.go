@@ -12,6 +12,7 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
 	"github.com/juju/worker/v3/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -19,15 +20,17 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/worker/auditconfigupdater"
+	"github.com/juju/juju/worker/auditconfigupdater/mocks"
 )
 
 type manifoldSuite struct {
 	statetesting.StateSuite
 
-	manifold     dependency.Manifold
-	context      dependency.Context
-	agent        *mockAgent
-	stateTracker stubStateTracker
+	manifold          dependency.Manifold
+	context           dependency.Context
+	agent             *mockAgent
+	stateTracker      stubStateTracker
+	watchableDBGetter *mocks.MockWatchableDBGetter
 
 	stub testing.Stub
 }
@@ -35,6 +38,10 @@ type manifoldSuite struct {
 var _ = gc.Suite(&manifoldSuite{})
 
 func (s *manifoldSuite) SetUpTest(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.watchableDBGetter = mocks.NewMockWatchableDBGetter(ctrl)
+
 	s.ControllerConfig = make(map[string]interface{})
 	s.ControllerConfig["auditing-enabled"] = true
 	s.ControllerConfig["audit-log-capture-args"] = true
@@ -55,16 +62,18 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 	s.context = s.newContext(nil)
 
 	s.manifold = auditconfigupdater.Manifold(auditconfigupdater.ManifoldConfig{
-		AgentName: "agent",
-		StateName: "state",
-		NewWorker: s.newWorker,
+		AgentName:        "agent",
+		StateName:        "state",
+		ChangeStreamName: "change-stream",
+		NewWorker:        s.newWorker,
 	})
 }
 
 func (s *manifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
-		"agent": s.agent,
-		"state": &s.stateTracker,
+		"agent":         s.agent,
+		"state":         &s.stateTracker,
+		"change-stream": s.watchableDBGetter,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -87,7 +96,7 @@ func (s *manifoldSuite) newWorker(
 	return &w, nil
 }
 
-var expectedInputs = []string{"agent", "state"}
+var expectedInputs = []string{"agent", "state", "change-stream"}
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -111,7 +120,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	s.stub.CheckCallNames(c, "NewWorker")
 
 	args := s.stub.Calls()[0].Args
-	c.Assert(args, gc.HasLen, 3)
+	c.Assert(args, gc.HasLen, 4)
 	c.Assert(args[0], gc.Equals, s.State)
 
 	auditConfig := args[1].(auditlog.Config)
@@ -143,7 +152,7 @@ func (s *manifoldSuite) TestStartWithAuditingDisabled(c *gc.C) {
 	s.stub.CheckCallNames(c, "NewWorker")
 
 	args := s.stub.Calls()[0].Args
-	c.Assert(args, gc.HasLen, 3)
+	c.Assert(args, gc.HasLen, 4)
 	c.Assert(args[0], gc.Equals, s.State)
 
 	auditConfig := args[1].(auditlog.Config)

@@ -689,6 +689,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		auditConfigUpdaterName: ifController(auditconfigupdater.Manifold(auditconfigupdater.ManifoldConfig{
 			AgentName: agentName,
 			StateName: stateName,
+			Logger:    loggo.GetLogger("juju.worker.auditconfigupdater"),
 			NewWorker: auditconfigupdater.New,
 		})),
 

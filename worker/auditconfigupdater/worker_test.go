@@ -4,6 +4,7 @@
 package auditconfigupdater_test
 
 import (
+	"context"
 	"reflect"
 	"strings"
 	"sync"
@@ -18,8 +19,8 @@ import (
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher/watchertest"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/watchertest"
 	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/auditconfigupdater"
 )
@@ -30,15 +31,15 @@ type updaterSuite struct {
 
 var _ = gc.Suite(&updaterSuite{})
 
-var ding = struct{}{}
+var ding = []string{}
 
 func (s *updaterSuite) TestWorker(c *gc.C) {
-	configChanged := make(chan struct{}, 1)
+	configChanged := make(chan []string, 1)
 	initial := auditlog.Config{
 		Enabled: false,
 	}
 	source := configSource{
-		watcher: watchertest.NewNotifyWatcher(configChanged),
+		watcher: watchertest.NewMockStringsWatcher(configChanged),
 		cfg:     makeControllerConfig(false, false),
 	}
 
@@ -79,13 +80,13 @@ func waitForConfig(c *gc.C, w worker.Worker, predicate func(auditlog.Config) boo
 }
 
 func (s *updaterSuite) TestKeepsLogFileWhenAuditingDisabled(c *gc.C) {
-	configChanged := make(chan struct{}, 1)
+	configChanged := make(chan []string, 1)
 	initial := auditlog.Config{
 		Enabled: true,
 		Target:  &apitesting.FakeAuditLog{},
 	}
 	source := configSource{
-		watcher: watchertest.NewNotifyWatcher(configChanged),
+		watcher: watchertest.NewMockStringsWatcher(configChanged),
 		cfg:     makeControllerConfig(true, false),
 	}
 
@@ -107,13 +108,13 @@ func (s *updaterSuite) TestKeepsLogFileWhenAuditingDisabled(c *gc.C) {
 }
 
 func (s *updaterSuite) TestKeepsLogFileWhenEnabled(c *gc.C) {
-	configChanged := make(chan struct{}, 1)
+	configChanged := make(chan []string, 1)
 	initial := auditlog.Config{
 		Enabled: false,
 		Target:  &apitesting.FakeAuditLog{},
 	}
 	source := configSource{
-		watcher: watchertest.NewNotifyWatcher(configChanged),
+		watcher: watchertest.NewMockStringsWatcher(configChanged),
 		cfg:     makeControllerConfig(false, false),
 	}
 
@@ -135,14 +136,14 @@ func (s *updaterSuite) TestKeepsLogFileWhenEnabled(c *gc.C) {
 }
 
 func (s *updaterSuite) TestChangingExcludeMethod(c *gc.C) {
-	configChanged := make(chan struct{}, 1)
+	configChanged := make(chan []string, 1)
 	initial := auditlog.Config{
 		Enabled:        true,
 		ExcludeMethods: set.NewStrings("Pink.Floyd"),
 		Target:         &apitesting.FakeAuditLog{},
 	}
 	source := configSource{
-		watcher: watchertest.NewNotifyWatcher(configChanged),
+		watcher: watchertest.NewMockStringsWatcher(configChanged),
 		cfg:     makeControllerConfig(true, false, "Pink.Floyd"),
 	}
 
@@ -166,14 +167,14 @@ func (s *updaterSuite) TestChangingExcludeMethod(c *gc.C) {
 }
 
 func (s *updaterSuite) TestChangingCaptureArgs(c *gc.C) {
-	configChanged := make(chan struct{}, 1)
+	configChanged := make(chan []string, 1)
 	initial := auditlog.Config{
 		Enabled:        true,
 		CaptureAPIArgs: false,
 		Target:         &apitesting.FakeAuditLog{},
 	}
 	source := configSource{
-		watcher: watchertest.NewNotifyWatcher(configChanged),
+		watcher: watchertest.NewMockStringsWatcher(configChanged),
 		cfg:     makeControllerConfig(true, false, "Pink.Floyd"),
 	}
 
@@ -212,16 +213,16 @@ func getWorkerConfig(c *gc.C, w worker.Worker) auditlog.Config {
 type configSource struct {
 	mu      sync.Mutex
 	stub    testing.Stub
-	watcher *watchertest.NotifyWatcher
+	watcher *watchertest.MockStringsWatcher
 	cfg     controller.Config
 }
 
-func (s *configSource) WatchControllerConfig() state.NotifyWatcher {
+func (s *configSource) Watch() (watcher.StringsWatcher, error) {
 	s.stub.AddCall("WatchControllerConfig")
-	return s.watcher
+	return s.watcher, nil
 }
 
-func (s *configSource) ControllerConfig() (controller.Config, error) {
+func (s *configSource) ControllerConfig(ctx context.Context) (controller.Config, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.stub.AddCall("ControllerConfig")
