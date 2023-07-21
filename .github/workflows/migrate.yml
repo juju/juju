@@ -65,6 +65,8 @@ jobs:
           juju version
           juju bootstrap lxd test3x
           juju switch controller
+          # temporary workaround for https://bugs.launchpad.net/juju/+bug/2028328
+          sleep 20
           juju wait-for application controller
 
         # TODO: create backup and juju restore
@@ -87,7 +89,7 @@ jobs:
           # Wait a few secs for the machine status to update
           # so that migration prechecks pass.
           sleep 10
-          
+
           $JUJU version
           $JUJU migrate test-migrate test3x
 
@@ -115,4 +117,6 @@ jobs:
           juju wait-for application ubuntu
           
           juju deploy ubuntu yet-another-ubuntu
+          # temporary workaround for https://bugs.launchpad.net/juju/+bug/2028328
+          sleep 20
           juju wait-for application yet-another-ubuntu
