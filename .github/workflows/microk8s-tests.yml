@@ -14,7 +14,7 @@ permissions:
 jobs:
   build:
     name: Test Kubeflow
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, arm64, aws, large]
     if: github.event.pull_request.draft == false
     strategy:
       fail-fast: false
@@ -37,7 +37,7 @@ jobs:
         echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
         echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
-    - uses: balchua/microk8s-actions@v0.3.1
+    - uses: balchua/microk8s-actions@1e8e626239c2befe7cd5d258c96ae152a7259c74
       with:
         channel: '${{ matrix.microk8s }}'
         # enable now to give microk8s more time to settle down.
@@ -50,8 +50,8 @@ jobs:
             sudo snap install $snap --classic
         done
 
-        sudo apt update
-        sudo apt install -y libssl-dev python3-setuptools
+        sudo DEBIAN_FRONTEND=noninteractive apt update
+        sudo DEBIAN_FRONTEND=noninteractive apt install -y libssl-dev python3-setuptools
         sudo usermod -a -G microk8s $USER
 
     - name: Build juju and operator image

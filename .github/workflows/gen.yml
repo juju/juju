@@ -15,7 +15,7 @@ permissions:
 jobs:
   Generate:
     name: Generate
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, arm64, aws, xxlarge]
     if: github.event.pull_request.draft == false
 
     steps:

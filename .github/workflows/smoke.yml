@@ -20,7 +20,7 @@ jobs:
 
   smoke:
     name: Smoke
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, arm64, aws, xlarge]
     if: github.event.pull_request.draft == false
     strategy:
       fail-fast: false
@@ -33,7 +33,7 @@ jobs:
       run: |
         set -euxo pipefail
         echo "/snap/bin" >> $GITHUB_PATH
-        sudo apt install expect
+        sudo DEBIAN_FRONTEND=noninteractive apt install -y expect
 
     - name: Checkout
       uses: actions/checkout@v3
@@ -44,7 +44,7 @@ jobs:
 
     - name: Setup MicroK8s
       if: matrix.cloud == 'microk8s'
-      uses: balchua/microk8s-actions@v0.3.1
+      uses: balchua/microk8s-actions@1e8e626239c2befe7cd5d258c96ae152a7259c74
       with:
         channel: "1.25/stable"
         addons: '["dns", "hostpath-storage", "rbac"]'
@@ -77,6 +77,7 @@ jobs:
       shell: bash
       run: |
         cd tests
+        export MODEL_ARCH=$(go env GOARCH)
         ./main.sh -v -s 'test_build' smoke
 
     - name: Smoke test (MicroK8s)
@@ -84,4 +85,5 @@ jobs:
       shell: bash
       run: |
         cd tests
+        export MODEL_ARCH=$(go env GOARCH)
         sg microk8s './main.sh -c microk8s -s test_build -v smoke'
