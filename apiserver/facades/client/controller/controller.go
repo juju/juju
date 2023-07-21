@@ -249,7 +249,7 @@ func (c *ControllerAPI) dashboardConnectionInfoForIAAS(
 		return nil, errors.Trace(err)
 	}
 	modelName := model.Name()
-	ctrCfg, err := c.ctrlConfigService.ControllerConfig(context.TODO())
+	ctrCfg, err := c.ctrlConfigService.ControllerConfig(context.Background())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -741,13 +741,13 @@ func (c *ControllerAPI) ConfigSet(args params.ControllerConfigSet) error {
 		return errors.Trace(err)
 	}
 	// Write Controller Config to DQLite.
-	if err := c.ctrlConfigService.UpdateControllerConfig(context.TODO(), args.Config, nil); err != nil {
+	if err := c.ctrlConfigService.UpdateControllerConfig(context.Background(), args.Config, nil); err != nil {
 		return errors.Trace(err)
 	}
 	// TODO(thumper): add a version to controller config to allow for
 	// simultaneous updates and races in publishing, potentially across
 	// HA servers.
-	cfg, err := c.ctrlConfigService.ControllerConfig(context.TODO())
+	cfg, err := c.ctrlConfigService.ControllerConfig(context.Background())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -917,7 +917,7 @@ func makeModelInfo(st, ctlrSt *state.State, ctrlConfigService ControllerConfiger
 	}
 	controllerVersion, _ := controllerConfig.AgentVersion()
 
-	coreConf, err := ctrlConfigService.ControllerConfig(context.TODO())
+	coreConf, err := ctrlConfigService.ControllerConfig(context.Background())
 	if err != nil {
 		return empty, userList{}, errors.Trace(err)
 	}
