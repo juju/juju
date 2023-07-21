@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
@@ -21,7 +22,7 @@ type State interface {
 	AllProvisionedControllersReady(context.Context, string) (bool, error)
 	StartUpgrade(context.Context, string) error
 	SetControllerDone(context.Context, string, string) error
-	ActiveUpgrades(context.Context) ([]string, error)
+	ActiveUpgrade(context.Context) (string, error)
 }
 
 // Service provides the API for working with upgrade info
@@ -35,12 +36,15 @@ func NewService(st State) *Service {
 }
 
 // CreateUpgrade creates an upgrade to and from specified versions
-// If an upgrade is already running/pending, return an error
+// If an upgrade is already running/pending, return an AlreadyExists err
 func (s *Service) CreateUpgrade(ctx context.Context, previousVersion, targetVersion version.Number) (string, error) {
 	if previousVersion.Compare(targetVersion) >= 0 {
 		return "", errors.NotValidf("target version %q must be greater than current version %q", targetVersion, previousVersion)
 	}
 	upgradeUUID, err := s.st.CreateUpgrade(ctx, previousVersion, targetVersion)
+	if database.IsErrConstraintUnique(err) {
+		return "", errors.AlreadyExistsf("active upgrade")
+	}
 	return upgradeUUID, domain.CoerceError(err)
 }
 
@@ -56,8 +60,7 @@ func (s *Service) SetControllerReady(ctx context.Context, upgradeUUID, controlle
 }
 
 // AllProvisionedControllersReady returns true if and only if all controllers
-// that have been started by the provisioner have called EnsureUpgradeInfo with
-// matching versions.
+// that have been started by the provisioner have been set ready.
 func (s *Service) AllProvisionedControllersReady(ctx context.Context, upgradeUUID string) (bool, error) {
 	allProvisioned, err := s.st.AllProvisionedControllersReady(ctx, upgradeUUID)
 	return allProvisioned, domain.CoerceError(err)
@@ -79,8 +82,12 @@ func (s *Service) SetControllerDone(ctx context.Context, upgradeUUID, controller
 	return domain.CoerceError(s.st.SetControllerDone(ctx, upgradeUUID, controllerID))
 }
 
-// IsUpgrading returns true if an upgrade is currently in progress.
-func (s *Service) ActiveUpgrades(ctx context.Context) ([]string, error) {
-	activeUpgrades, err := s.st.ActiveUpgrades(ctx)
+// ActiveUpgrade returns the uuid of the current active upgrade.
+// If there are no active upgrades, return a NotFound error
+func (s *Service) ActiveUpgrade(ctx context.Context) (string, error) {
+	activeUpgrades, err := s.st.ActiveUpgrade(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", errors.NotFoundf("active upgrade")
+	}
 	return activeUpgrades, domain.CoerceError(err)
 }
