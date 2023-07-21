@@ -64,7 +64,7 @@ jobs:
           juju version
           juju bootstrap lxd test3x
           juju switch controller
-          juju wait-for application controller
+          juju wait-for model controller
 
         # TODO: create backup and juju restore
 
@@ -159,7 +159,7 @@ jobs:
           juju version
           juju bootstrap lxd test3x
           juju switch controller
-          juju wait-for application controller
+          juju wait-for model controller
 
         # TODO: create backup and juju restore
 
