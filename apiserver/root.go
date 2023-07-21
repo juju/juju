@@ -541,9 +541,15 @@ func (r *apiRoot) dispose(key objectKey) {
 }
 
 func (r *apiRoot) facadeContext(key objectKey) *facadeContext {
+	factory := changestream.NewWatchableDBFactoryForNamespace(r.shared.dbGetter.GetWatchableDB, coredatabase.ControllerNS)
+	services := services.NewRegistry(factory, serviceLogger{
+		Logger: r.shared.logger,
+	})
+
 	return &facadeContext{
-		r:   r,
-		key: key,
+		r:        r,
+		key:      key,
+		services: services,
 	}
 }
 
@@ -585,8 +591,9 @@ func (r *adminRoot) FindMethod(rootName string, version int, methodName string) 
 
 // facadeContext implements facade.Context
 type facadeContext struct {
-	r   *apiRoot
-	key objectKey
+	r        *apiRoot
+	key      objectKey
+	services facade.ServicesRegistry
 }
 
 // Cancel is part of the facade.Context interface.
@@ -743,10 +750,7 @@ func (ctx *facadeContext) ControllerDB() (changestream.WatchableDB, error) {
 
 // Services returns the services registry.
 func (ctx *facadeContext) Services() facade.ServicesRegistry {
-	factory := changestream.NewWatchableDBFactoryForNamespace(ctx.r.shared.dbGetter.GetWatchableDB, coredatabase.ControllerNS)
-	return services.NewRegistry(factory, serviceLogger{
-		Logger: ctx.Logger(),
-	})
+	return ctx.services
 }
 
 // MachineTag returns the current machine tag.
