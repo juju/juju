@@ -311,11 +311,8 @@ func (m ModelScope) GetIdentValue(name string) (query.Box, error) {
 				}
 			}
 
-			currentStatus := app.Status.Current
-			newStatus := deriveApplicationStatus(currentStatus, units)
-
 			appInfo := app
-			appInfo.Status.Current = newStatus
+			appInfo.Status.Current = deriveApplicationStatus(appInfo.Status.Current, units)
 
 			scopes[k] = MakeApplicationScope(m.ctx.Child(name, app.Name), appInfo, units, machines)
 		}

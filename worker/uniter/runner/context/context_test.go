@@ -1104,7 +1104,7 @@ func (s *mockHookContextSuite) TestSecretGetFromPendingCreateChanges(c *gc.C) {
 			arg.Label = ptr(label)
 			arg.Value = coresecrets.NewSecretValue(value)
 			hc.SetPendingSecretCreates(
-				[]uniter.SecretCreateArg{arg})
+				map[string]uniter.SecretCreateArg{uri.ID: arg})
 		},
 	)
 }
@@ -1117,7 +1117,7 @@ func (s *mockHookContextSuite) TestSecretGetFromPendingUpdateChanges(c *gc.C) {
 			arg.Label = ptr(label)
 			arg.Value = coresecrets.NewSecretValue(value)
 			hc.SetPendingSecretUpdates(
-				[]uniter.SecretUpdateArg{arg})
+				map[string]uniter.SecretUpdateArg{uri.ID: arg})
 		},
 	)
 }
@@ -1282,7 +1282,7 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingCreat
 			arg.Label = ptr(label)
 			arg.Value = coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 			ctx.SetPendingSecretCreates(
-				[]uniter.SecretCreateArg{arg})
+				map[string]uniter.SecretCreateArg{uri.ID: arg})
 		},
 	)
 }
@@ -1295,7 +1295,7 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingUpdat
 			arg.Label = ptr(label)
 			arg.Value = coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 			ctx.SetPendingSecretUpdates(
-				[]uniter.SecretUpdateArg{arg})
+				map[string]uniter.SecretUpdateArg{uri.ID: arg})
 		},
 	)
 }
@@ -1354,17 +1354,18 @@ func (s *mockHookContextSuite) assertSecretCreate(c *gc.C, owner names.Tag) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uri.String(), gc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
-	c.Assert(hookContext.PendingSecretCreates(), jc.DeepEquals, []uniter.SecretCreateArg{{
-		SecretUpsertArg: uniter.SecretUpsertArg{
-			URI:          uri,
-			Value:        value,
-			RotatePolicy: ptr(coresecrets.RotateDaily),
-			ExpireTime:   ptr(expiry),
-			Description:  ptr("my secret"),
-			Label:        ptr("foo"),
-		},
-		OwnerTag: owner,
-	}})
+	c.Assert(hookContext.PendingSecretCreates(), jc.DeepEquals, map[string]uniter.SecretCreateArg{
+		uri.ID: {
+			SecretUpsertArg: uniter.SecretUpsertArg{
+				URI:          uri,
+				Value:        value,
+				RotatePolicy: ptr(coresecrets.RotateDaily),
+				ExpireTime:   ptr(expiry),
+				Description:  ptr("my secret"),
+				Label:        ptr("foo"),
+			},
+			OwnerTag: owner,
+		}})
 }
 
 func (s *mockHookContextSuite) TestSecretCreateDupLabel(c *gc.C) {
@@ -1432,17 +1433,18 @@ func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {
 		Label:        ptr("foo"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hookContext.PendingSecretUpdates(), jc.DeepEquals, []uniter.SecretUpdateArg{{
-		CurrentRevision: 666,
-		SecretUpsertArg: uniter.SecretUpsertArg{
-			URI:          uri,
-			Value:        value,
-			RotatePolicy: ptr(coresecrets.RotateDaily),
-			ExpireTime:   ptr(expiry),
-			Description:  ptr("my secret"),
-			Label:        ptr("foo"),
-		},
-	}})
+	c.Assert(hookContext.PendingSecretUpdates(), jc.DeepEquals, map[string]uniter.SecretUpdateArg{
+		uri.ID: {
+			CurrentRevision: 666,
+			SecretUpsertArg: uniter.SecretUpsertArg{
+				URI:          uri,
+				Value:        value,
+				RotatePolicy: ptr(coresecrets.RotateDaily),
+				ExpireTime:   ptr(expiry),
+				Description:  ptr("my secret"),
+				Label:        ptr("foo"),
+			},
+		}})
 }
 
 func (s *mockHookContextSuite) TestSecretRemove(c *gc.C) {
@@ -1461,7 +1463,9 @@ func (s *mockHookContextSuite) TestSecretRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = hookContext.RemoveSecret(uri2, ptr(666))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hookContext.PendingSecretRemoves(), jc.DeepEquals, []uniter.SecretDeleteArg{{URI: uri}, {URI: uri2, Revision: ptr(666)}})
+	c.Assert(hookContext.PendingSecretRemoves(), jc.DeepEquals, map[string]uniter.SecretDeleteArg{
+		uri.ID:  {URI: uri},
+		uri2.ID: {URI: uri2, Revision: ptr(666)}})
 }
 
 func (s *mockHookContextSuite) TestSecretGrant(c *gc.C) {
@@ -1489,17 +1493,19 @@ func (s *mockHookContextSuite) TestSecretGrant(c *gc.C) {
 		RelationKey:     &relationKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, []uniter.SecretGrantRevokeArgs{{
-		URI:             uri,
-		ApplicationName: &app,
-		RelationKey:     &relationKey,
-		Role:            coresecrets.RoleView,
-	}, {
-		URI:             uri2,
-		ApplicationName: &app,
-		RelationKey:     &relationKey,
-		Role:            coresecrets.RoleView,
-	}})
+	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]uniter.SecretGrantRevokeArgs{
+		uri.ID: {
+			URI:             uri,
+			ApplicationName: &app,
+			RelationKey:     &relationKey,
+			Role:            coresecrets.RoleView,
+		},
+		uri2.ID: {
+			URI:             uri2,
+			ApplicationName: &app,
+			RelationKey:     &relationKey,
+			Role:            coresecrets.RoleView,
+		}})
 }
 
 func (s *mockHookContextSuite) TestSecretRevoke(c *gc.C) {
@@ -1525,15 +1531,17 @@ func (s *mockHookContextSuite) TestSecretRevoke(c *gc.C) {
 		RelationKey:     &relationKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hookContext.PendingSecretRevokes(), jc.DeepEquals, []uniter.SecretGrantRevokeArgs{{
-		URI:             uri,
-		ApplicationName: &app,
-		RelationKey:     &relationKey,
-	}, {
-		URI:             uri2,
-		ApplicationName: &app,
-		RelationKey:     &relationKey,
-	}})
+	c.Assert(hookContext.PendingSecretRevokes(), jc.DeepEquals, map[string]uniter.SecretGrantRevokeArgs{
+		uri.ID: {
+			URI:             uri,
+			ApplicationName: &app,
+			RelationKey:     &relationKey,
+		},
+		uri2.ID: {
+			URI:             uri2,
+			ApplicationName: &app,
+			RelationKey:     &relationKey,
+		}})
 }
 
 func (s *mockHookContextSuite) TestHookStorage(c *gc.C) {
