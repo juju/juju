@@ -4,14 +4,17 @@
 package changestream
 
 import (
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/database"
-	databasetesting "github.com/juju/juju/database/testing"
+	"github.com/juju/testing"
 )
 
 type changestreamSuite struct {
-	databasetesting.DqliteSuite
+	testing.IsolationSuite
+
+	txnRunner *MockTxnRunner
 }
 
 var _ = gc.Suite(&changestreamSuite{})
@@ -23,9 +26,11 @@ func (s *changestreamSuite) TestTxnRunnerFactory(c *gc.C) {
 }
 
 func (s *changestreamSuite) TestTxnRunnerFactoryForNamespace(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Test multiple function return signatures to verify the generic behaviour.
 	db, err := database.NewTxnRunnerFactoryForNamespace(func(string) (database.TxnRunner, error) {
-		return s.TxnRunner(), nil
+		return s.txnRunner, nil
 	}, "any-old-namespace")()
 	c.Assert(err, gc.IsNil)
 	c.Assert(db, gc.NotNil)
@@ -36,11 +41,19 @@ func (s *changestreamSuite) TestTxnRunnerFactoryForNamespace(c *gc.C) {
 }
 
 func (s *changestreamSuite) getWatchableDB() (WatchableDB, error) {
-	return &stubWatchableDB{TxnRunner: s.TxnRunner()}, nil
+	return &stubWatchableDB{TxnRunner: s.txnRunner}, nil
 }
 
 func (s *changestreamSuite) getWatchableDBForNameSpace(_ string) (WatchableDB, error) {
-	return &stubWatchableDB{TxnRunner: s.TxnRunner()}, nil
+	return &stubWatchableDB{TxnRunner: s.txnRunner}, nil
+}
+
+func (s *changestreamSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.txnRunner = NewMockTxnRunner(ctrl)
+
+	return ctrl
 }
 
 type stubWatchableDB struct {
