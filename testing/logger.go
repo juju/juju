@@ -36,6 +36,11 @@ type CheckLogger struct {
 	Log CheckLog
 }
 
+// NewCheckLogger returns a CheckLogger that logs to the given CheckLog.
+func NewCheckLogger(log CheckLog) CheckLogger {
+	return CheckLogger{Log: log}
+}
+
 func (c CheckLogger) Criticalf(msg string, args ...any) {
 	c.Log.Logf(fmt.Sprintf("CRITICAL: %s", msg), args...)
 }
@@ -57,6 +62,7 @@ func (c CheckLogger) Tracef(msg string, args ...any) {
 func (c CheckLogger) Logf(level loggo.Level, msg string, args ...any) {
 	c.Log.Logf(fmt.Sprintf("%s: %s", level.String(), msg), args...)
 }
+func (c CheckLogger) Child(name string) CheckLogger { return c }
 
 func (c CheckLogger) IsErrorEnabled() bool   { return false }
 func (c CheckLogger) IsWarningEnabled() bool { return false }

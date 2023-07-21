@@ -5,7 +5,6 @@ package highavailability_test
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -15,11 +14,14 @@ import (
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/highavailability"
+	"github.com/juju/juju/apiserver/services"
+	servicestesting "github.com/juju/juju/apiserver/services/testing"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
+	databasetesting "github.com/juju/juju/database/testing"
+	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -29,6 +31,7 @@ import (
 
 type clientSuite struct {
 	testing.JujuConnSuite
+	schematesting.ControllerSuite
 
 	authorizer apiservertesting.FakeAuthorizer
 	haServer   *highavailability.HighAvailabilityAPI
@@ -52,9 +55,12 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	}
 	var err error
 	s.haServer, err = highavailability.NewHighAvailabilityAPI(facadetest.Context{
-		State_:        s.State,
-		Auth_:         s.authorizer,
-		ControllerDB_: stubWatchableDB{},
+		State_: s.State,
+		Auth_:  s.authorizer,
+		ServicesRegistry_: services.NewRegistry(
+			databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
+			servicestesting.NewCheckLogger(c),
+		),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -73,7 +79,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	// We have to ensure the agents are alive, or EnableHA will
 	// create more to replace them.
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
-	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
+	s.JujuConnSuite.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 }
 
 func (s *clientSuite) setMachineAddresses(c *gc.C, machineId string) {
@@ -558,15 +564,4 @@ func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {
 		Auth_:  s.authorizer,
 	})
 	c.Assert(err, gc.ErrorMatches, "high availability on kubernetes controllers not supported")
-}
-
-// TODO (manadart 2023-06-13): This stub does no verification.
-// An alternative approach will be sought when HA enablement is modified to
-// omit Mongo concerns. This will be done with mocks rather than JujuConnSuite.
-type stubWatchableDB struct {
-	changestream.WatchableDB
-}
-
-func (db stubWatchableDB) StdTxn(context.Context, func(context.Context, *sql.Tx) error) error {
-	return nil
 }

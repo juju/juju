@@ -10,9 +10,6 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/domain/controllernode/service"
-	"github.com/juju/juju/domain/controllernode/state"
 	oldstate "github.com/juju/juju/state"
 )
 
@@ -42,7 +39,7 @@ func newHighAvailabilityAPI(ctx facade.Context) (*HighAvailabilityAPI, error) {
 
 	return &HighAvailabilityAPI{
 		st:          st,
-		nodeService: service.NewService(state.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB))),
+		nodeService: ctx.Services().ControllerNode(),
 		authorizer:  authorizer,
 		logger:      ctx.Logger().Child("highavailability"),
 	}, nil
