@@ -1274,12 +1274,12 @@ func (a *MachineAgent) createSymlink(target, link string) error {
 			logger.Infof("skipping creating symlink %q as exsting path has a normal file", fullLink)
 			return nil
 		}
-	} else if err != nil && !os.IsNotExist(err) {
+	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return errors.Annotatef(err, "cannot check if %q is a symlink", fullLink)
 	}
 
 	currentTarget, err := symlink.Read(fullLink)
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	} else if err == nil {
 		// Link already in place - check it.

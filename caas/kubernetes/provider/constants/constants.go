@@ -65,6 +65,7 @@ const (
 	CharmVolumeName = "charm-data"
 
 	// JujuUserID is the juju user id for rootless juju agents.
+	// NOTE: 170 uid/gid must be updated here and in caas/Dockerfile and caas/scripts.go
 	JujuUserID = 170
 	// JujuGroupID is the juju group id for rootless juju agents.
 	JujuGroupID = 170
