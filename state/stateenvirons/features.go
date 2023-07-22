@@ -5,6 +5,7 @@ package stateenvirons
 
 import (
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/environs"

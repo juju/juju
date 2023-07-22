@@ -4,6 +4,7 @@
 package introspection
 
 import (
+	"bytes"
 	"os"
 	"path"
 	"runtime"
@@ -17,16 +18,50 @@ var (
 	shellFuncsFilename = "juju-introspection.sh"
 )
 
+// FileReaderWriter for mocking file reads and writes.
+type FileReaderWriter interface {
+	ReadFile(filename string) ([]byte, error)
+	WriteFile(filename string, data []byte, perm os.FileMode) error
+}
+
+type osFileReaderWriter struct{}
+
+func (osFileReaderWriter) ReadFile(filename string) ([]byte, error) {
+	return os.ReadFile(filename)
+}
+
+func (osFileReaderWriter) WriteFile(filename string, data []byte, perm os.FileMode) error {
+	return os.WriteFile(filename, data, perm)
+}
+
 // WriteProfileFunctions writes the shellFuncs below to a file in the
 // /etc/profile.d directory so all bash terminals can easily access the
 // introspection worker.
+// Deprecated: use UpdateProfileFunction with a FileReaderWriter.
 func WriteProfileFunctions(profileDir string) error {
+	return UpdateProfileFunctions(osFileReaderWriter{}, profileDir)
+}
+
+// UpdateProfileFunctions updates the shellFuncs written to disk if they have changed to
+// the directory passed in. It allows all bash terminals to easily access the
+// introspection worker.
+func UpdateProfileFunctions(io FileReaderWriter, profileDir string) error {
 	if runtime.GOOS != "linux" {
 		logger.Debugf("skipping profile funcs install")
 		return nil
 	}
 	filename := profileFilename(profileDir)
-	if err := os.WriteFile(filename, []byte(shellFuncs), 0644); err != nil {
+	shellFuncsBytes := []byte(shellFuncs)
+	if currentBytes, err := io.ReadFile(filename); err == nil {
+		if bytes.Equal(currentBytes, shellFuncsBytes) {
+			// This is here to avoid trying to write this when the file is readonly and already
+			// the correct content.
+			return nil
+		}
+	} else if !os.IsNotExist(err) {
+		return errors.Annotate(err, "reading old introspection bash funcs")
+	}
+	if err := io.WriteFile(filename, shellFuncsBytes, 0644); err != nil {
 		return errors.Annotate(err, "writing introspection bash funcs")
 	}
 	return nil

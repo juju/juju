@@ -7,9 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/network"
-
 	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -26,7 +23,9 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/presence"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/rpc/params"

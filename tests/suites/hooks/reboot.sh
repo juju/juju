@@ -82,19 +82,17 @@ run_reboot_monitor_state_cleanup() {
 
 	ensure "${model_name}" "${file}"
 
-	# mysql charm does not have stable channel, so we use edge channel
-	juju deploy mysql --channel=edge --force --series jammy
-	# Deploy mysql/rsyslog-forwarder-ha. The latter is a subordinate
-	juju deploy rsyslog-forwarder-ha
-	juju integrate rsyslog-forwarder-ha mysql
-	wait_for "mysql" "$(idle_condition "mysql")"
-	wait_for "rsyslog-forwarder-ha" "$(idle_subordinate_condition "rsyslog-forwarder-ha" "mysql")"
+	juju deploy juju-qa-test --base ubuntu@22.04
+	juju deploy juju-qa-dummy-subordinate
+	juju integrate juju-qa-test dummy-subordinate
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 1)"
+	wait_for "dummy-subordinate" "$(idle_subordinate_condition "dummy-subordinate" "juju-qa-test")"
 
 	# Check that the reboot flag files have been created for both the charm and
 	# the subordinate. Note: juju ssh adds whitespace which we need to trim
 	# with a bit of awk magic to ensure that our comparisons work correctly
 	echo "[+] Verifying that reboot monitor state files are in place"
-	num_files=$(juju ssh mysql/0 'ls -1 /var/run/juju/reboot-monitor/ | wc -l' 2>/dev/null | tr -d "[:space:]")
+	num_files=$(juju ssh juju-qa-test/0 'ls -1 /var/run/juju/reboot-monitor/ | wc -l' 2>/dev/null | tr -d "[:space:]")
 	echo "   | number of monitor state files: ${num_files}"
 	if [ "$num_files" != "2" ]; then
 		# shellcheck disable=SC2046
@@ -104,11 +102,11 @@ run_reboot_monitor_state_cleanup() {
 
 	# Remove subordinate and ensure that the state file for its monitor got purged
 	echo "[+] Verifying that reboot monitor state files are removed once a subordinate gets removed"
-	juju remove-relation rsyslog-forwarder-ha mysql
-	wait_for "mysql" "$(idle_condition "mysql")"
+	juju remove-relation juju-qa-test dummy-subordinate
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 1)"
 
-	wait_for_subordinate_count "mysql"
-	num_files=$(juju ssh mysql/0 'ls -1 /var/run/juju/reboot-monitor/ | wc -l' 2>/dev/null | tr -d "[:space:]")
+	wait_for_subordinate_count "juju-qa-test"
+	num_files=$(juju ssh juju-qa-test/0 'ls -1 /var/run/juju/reboot-monitor/ | wc -l' 2>/dev/null | tr -d "[:space:]")
 	echo "   | number of monitor state files: ${num_files}"
 	if [ "$num_files" != "1" ]; then
 		# shellcheck disable=SC2046

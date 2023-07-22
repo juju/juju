@@ -6,13 +6,12 @@ package equinix
 import (
 	"context"
 
+	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"github.com/packethost/packngo"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
-
-	jtesting "github.com/juju/testing"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"

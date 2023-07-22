@@ -6,6 +6,8 @@
 package lxd
 
 import (
+	"os/exec"
+
 	lxd "github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/packaging/v2/commands"
@@ -82,9 +84,9 @@ func (s *initialiserTestSuite) containerInitialiser(svr lxd.InstanceServer, lxdI
 	return result
 }
 
-func (s *InitialiserSuite) TestSnapInstalledNoAptInstall(c *gc.C) {
+func (s *InitialiserSuite) TestSnapInstalled(c *gc.C) {
 	PatchLXDViaSnap(s, true)
-	PatchHostSeries(s, "cosmic")
+	PatchHostSeries(s, "jammy")
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -138,29 +140,10 @@ func (s *InitialiserSuite) TestSnapChannelPrefixMatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *InitialiserSuite) TestNoSeriesPackages(c *gc.C) {
-	PatchLXDViaSnap(s, false)
-
-	// Here we want to test for any other series whilst avoiding the
-	// possibility of hitting a cloud archive-requiring release.
-	// As such, we simply pass an empty series.
-	PatchHostSeries(s, "")
-
-	paccmder, err := commands.NewPackageCommander("xenial")
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.containerInitialiser(nil, true, "local").Initialise()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(s.calledCmds, gc.DeepEquals, []string{
-		paccmder.InstallCmd("lxd"),
-	})
-}
-
 func (s *InitialiserSuite) TestInstallViaSnap(c *gc.C) {
 	PatchLXDViaSnap(s, false)
 
-	PatchHostSeries(s, "disco")
+	PatchHostSeries(s, "focal")
 
 	paccmder := commands.NewSnapPackageCommander()
 
@@ -172,29 +155,9 @@ func (s *InitialiserSuite) TestInstallViaSnap(c *gc.C) {
 	})
 }
 
-func (s *InitialiserSuite) TestLXDInitBionicLocalNetworkingMethod(c *gc.C) {
-	s.patchDF100GB()
-	PatchHostSeries(s, "bionic")
-
-	err := s.containerInitialiser(nil, true, "local").Initialise()
-	c.Assert(err, jc.ErrorIsNil)
-
-	testing.AssertEchoArgs(c, "lxd", "init", "--auto")
-}
-
-func (s *InitialiserSuite) TestLXDInitBionicFanNetworkingMethod(c *gc.C) {
-	s.patchDF100GB()
-	PatchHostSeries(s, "bionic")
-
-	err := s.containerInitialiser(nil, true, "fan").Initialise()
-	c.Assert(err, jc.ErrorIsNil)
-
-	testing.AssertEchoArgs(c, "lxd", "init", "--preseed")
-}
-
 func (s *InitialiserSuite) TestLXDAlreadyInitialized(c *gc.C) {
 	s.patchDF100GB()
-	PatchHostSeries(s, "bionic")
+	PatchHostSeries(s, "focal")
 
 	ci := s.containerInitialiser(nil, true, "local")
 	ci.getExecCommand = s.PatchExecHelper.GetExecCommand(testing.PatchExecConfig{
@@ -218,6 +181,7 @@ func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
 	s.PatchEnvironment("https_proxy", "http://test.local/https/proxy")
 	s.PatchEnvironment("no_proxy", "test.local,localhost")
 
+	var calls []string
 	updateReq := api.ServerPut{Config: map[string]interface{}{
 		"core.proxy_http":         "http://test.local/http/proxy",
 		"core.proxy_https":        "http://test.local/https/proxy",
@@ -225,13 +189,26 @@ func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
 	}}
 	gomock.InOrder(
 		cSvr.EXPECT().GetServer().Return(&api.Server{}, lxdtesting.ETag, nil).Times(2),
-		cSvr.EXPECT().UpdateServer(updateReq, lxdtesting.ETag).Return(nil),
+		cSvr.EXPECT().UpdateServer(updateReq, lxdtesting.ETag).DoAndReturn(func(_ api.ServerPut, _ string) error {
+			calls = append(calls, "update server")
+			return nil
+		}),
 	)
 
 	ci := s.containerInitialiser(cSvr, true, "local")
 	ci.configureLxdProxies = internalConfigureLXDProxies
+	ci.getExecCommand = func(cmd string, args ...string) *exec.Cmd {
+		calls = append(calls, "exec command")
+		return exec.Command(cmd, args...)
+	}
 	err := ci.Initialise()
 	c.Assert(err, jc.ErrorIsNil)
+
+	// We want update server to ve called last, after the lxd init command is run.
+	c.Assert(calls, jc.DeepEquals, []string{
+		"exec command",
+		"update server",
+	})
 }
 
 func (s *InitialiserSuite) TestConfigureProxiesLXDNotRunning(c *gc.C) {

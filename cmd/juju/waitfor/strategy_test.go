@@ -4,6 +4,7 @@
 package waitfor
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/testing"
@@ -49,11 +50,11 @@ func (s *strategySuite) TestRun(c *gc.C) {
 		},
 		Timeout: time.Minute,
 	}
-	err := strategy.Run("generic", `life=="active"`, func(_ string, d []params.Delta, _ query.Query) (bool, error) {
+	err := strategy.Run(context.Background(), "generic", `life=="active"`, func(_ string, d []params.Delta, _ query.Query) (bool, error) {
 		executed = true
 		deltas = d
 		return true, nil
-	})
+	}, emptyNotify)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(executed, jc.IsTrue)
 	c.Assert(deltas, gc.DeepEquals, expected)
@@ -87,9 +88,9 @@ func (s *strategySuite) TestRunWithCallback(c *gc.C) {
 	strategy.Subscribe(func(event EventType) {
 		eventType = event
 	})
-	err := strategy.Run("generic", `life=="active"`, func(_ string, d []params.Delta, _ query.Query) (bool, error) {
+	err := strategy.Run(context.Background(), "generic", `life=="active"`, func(_ string, d []params.Delta, _ query.Query) (bool, error) {
 		return true, nil
-	})
+	}, emptyNotify)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(eventType, gc.Equals, WatchAllStarted)
 }
@@ -105,11 +106,17 @@ func (s *strategySuite) TestRunWithInvalidQuery(c *gc.C) {
 		},
 		Timeout: time.Minute,
 	}
-	err := strategy.Run("generic", `life=="ac`, func(_ string, d []params.Delta, _ query.Query) (bool, error) {
+	err := strategy.Run(context.Background(), "generic", `life=="ac`, func(_ string, d []params.Delta, _ query.Query) (bool, error) {
 		c.FailNow()
 		return false, nil
-	})
-	c.Assert(err, gc.ErrorMatches, `Syntax Error:<:1:7> invalid character '<UNKNOWN>' found`)
+	}, emptyNotify)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.Equals, `
+Cannot parse query: string is not correctly terminated.
+
+1 | life=="ac
+          ^
+Try adding a closing quote to the string.`[1:])
 }
 
 type MockEntityInfo struct {

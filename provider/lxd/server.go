@@ -15,6 +15,8 @@ import (
 	"syscall"
 	"time"
 
+	lxdclient "github.com/canonical/lxd/client"
+	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
@@ -28,9 +30,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/utils/proxy"
-
-	lxdclient "github.com/canonical/lxd/client"
-	lxdapi "github.com/canonical/lxd/shared/api"
 )
 
 // Server defines an interface of all localized methods that the environment
@@ -89,7 +88,7 @@ type Server interface {
 	GetInstanceState(name string) (*lxdapi.InstanceState, string, error)
 
 	// UseProject ensures that this server will use the input project.
-	// See: https://linuxcontainers.org/lxd/docs/master/projects.
+	// See: https://documentation.ubuntu.com/lxd/en/latest/projects.
 	UseProject(string)
 }
 

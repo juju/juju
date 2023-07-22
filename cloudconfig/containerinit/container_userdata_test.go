@@ -8,11 +8,10 @@ import (
 	"strings"
 	stdtesting "testing"
 
-	"github.com/juju/juju/cloudconfig/cloudinit"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/container"
 	containertesting "github.com/juju/juju/container/testing"

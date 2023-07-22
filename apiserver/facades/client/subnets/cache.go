@@ -8,12 +8,13 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/loggo"
 )
 
 // addSubnetsCache holds cached lists of spaces, zones, and subnets, used for

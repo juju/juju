@@ -4,6 +4,9 @@
 package facadetest
 
 import (
+	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
+
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
@@ -11,8 +14,6 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/state"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
 )
 
 // Context implements facade.Context in the simplest possible way.

@@ -26,14 +26,13 @@ import (
 	initcommand "github.com/juju/juju/cmd/containeragent/initialize"
 	unitcommand "github.com/juju/juju/cmd/containeragent/unit"
 	"github.com/juju/juju/cmd/internal/run"
+	"github.com/juju/juju/cmd/jujud/dumplogs"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
+	_ "github.com/juju/juju/secrets/provider/all" // Import the secret providers.
 	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/worker/logsender"
-
-	// Import the secret providers.
-	_ "github.com/juju/juju/secrets/provider/all"
 )
 
 var logger = loggo.GetLogger("juju.cmd.containeragent")
@@ -135,6 +134,8 @@ func mainWrapper(f commandFactory, args []string) (code int) {
 		code = f.jujuExec(ctx, args)
 	case names.JujuIntrospect:
 		code = f.jujuIntrospect(ctx, args)
+	case names.JujuDumpLogs:
+		code = f.jujuDumpLogs(ctx, args)
 	default:
 		// This should never happen unless jujuc was missing and hooktools were misconfigured.
 		err = errors.New("containeragent always expects to use jujuc for hook tools")
@@ -182,6 +183,9 @@ func main() {
 		jujuIntrospect: func(ctx *cmd.Context, args []string) int {
 			return cmd.Main(introspect.New(nil), ctx, args[1:])
 		},
+		jujuDumpLogs: func(ctx *cmd.Context, args []string) int {
+			return cmd.Main(dumplogs.NewCommand(), ctx, args[1:])
+		},
 	}
 	os.Exit(mainWrapper(f, os.Args))
 }
@@ -192,4 +196,5 @@ type commandFactory struct {
 	containerAgentCmd command
 	jujuExec          command
 	jujuIntrospect    command
+	jujuDumpLogs      command
 }

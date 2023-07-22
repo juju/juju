@@ -373,8 +373,8 @@ func DeriveStatus(statuses []StatusInfo) StatusInfo {
 var statusSeverities = map[Status]int{
 	Error:       100,
 	Blocked:     90,
-	Waiting:     80,
-	Maintenance: 70,
+	Maintenance: 80, // Maintenance (us busy) is higher than Waiting (someone else busy)
+	Waiting:     70,
 	Active:      60,
 	Terminated:  50,
 	Unknown:     40,

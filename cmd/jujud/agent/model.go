@@ -75,6 +75,7 @@ func (m *ModelCommand) Init(args []string) error {
 		IsFatal:       agenterrors.IsFatal,
 		MoreImportant: agenterrors.MoreImportant,
 		RestartDelay:  jworker.RestartDelay,
+		Logger:        logger,
 	})
 	return nil
 }

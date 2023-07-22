@@ -6,10 +6,10 @@ package network_test
 import (
 	"sort"
 
+	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
-	"github.com/juju/testing"
 )
 
 type NetworkSuite struct {

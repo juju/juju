@@ -8,11 +8,12 @@ import (
 	"errors"
 
 	"github.com/juju/description/v4"
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/crossmodel"
 )
 
 type importSuite struct {

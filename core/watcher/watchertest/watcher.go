@@ -5,10 +5,10 @@ package watchertest
 
 import (
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/worker/v3/workertest"
 )
 
 // CleanKill calls CheckKill with the supplied arguments, and Checks that the

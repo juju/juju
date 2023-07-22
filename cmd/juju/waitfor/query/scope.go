@@ -6,6 +6,8 @@ package query
 import (
 	"fmt"
 	"reflect"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
@@ -15,28 +17,36 @@ import (
 // on a set of arguments.
 type GlobalFuncScope struct {
 	scope Scope
-	funcs map[string]interface{}
+	funcs map[string]any
 }
 
 // NewGlobalFuncScope creates a new scope for executing functions.
 func NewGlobalFuncScope(scope Scope) *GlobalFuncScope {
 	return &GlobalFuncScope{
 		scope: scope,
-		funcs: map[string]interface{}{
-			"len": func(v interface{}) (int, error) {
+		funcs: map[string]any{
+			"len": func(v any) (int, error) {
 				val := reflect.ValueOf(v)
 				switch val.Kind() {
 				case reflect.Map, reflect.Slice, reflect.String:
 					return val.Len(), nil
 				default:
+					if box, ok := v.(Box); ok {
+						var num int
+						ForEach(box, func(value any) bool {
+							num++
+							return true
+						})
+						return num, nil
+					}
 					return -1, RuntimeErrorf("unexpected type %T passed to len", v)
 				}
 			},
-			"print": func(v interface{}) (interface{}, error) {
+			"print": func(v any) (any, error) {
 				fmt.Printf("%+v\n", v)
 				return v, nil
 			},
-			"forEach": func(values, expr interface{}) (interface{}, error) {
+			"forEach": func(values, expr any) (any, error) {
 				scopes, ok := values.(Box)
 				if !ok {
 					return nil, RuntimeErrorf("unexpected lambda values %T", values)
@@ -51,7 +61,7 @@ func NewGlobalFuncScope(scope Scope) *GlobalFuncScope {
 					called bool
 					result = true
 				)
-				ForEach(scopes, func(value interface{}) bool {
+				ForEach(scopes, func(value any) bool {
 					called = true
 
 					nestedScope, ok := value.(Scope)
@@ -83,29 +93,69 @@ func NewGlobalFuncScope(scope Scope) *GlobalFuncScope {
 				}
 				return result, nil
 			},
+			"startsWith": func(v, prefix any) (bool, error) {
+				if _, ok := prefix.(string); !ok {
+					return false, RuntimeErrorf("requires string to be passed to startsWith, got %T", prefix)
+				}
+
+				val := reflect.ValueOf(v)
+				switch val.Kind() {
+				case reflect.String:
+					return strings.HasPrefix(val.String(), prefix.(string)), nil
+				default:
+					return false, RuntimeErrorf("unexpected type %T passed to startsWith", v)
+				}
+			},
+			"endsWith": func(v, suffix any) (bool, error) {
+				if _, ok := suffix.(string); !ok {
+					return false, RuntimeErrorf("requires string to be passed to endsWith, got %T", suffix)
+				}
+
+				val := reflect.ValueOf(v)
+				switch val.Kind() {
+				case reflect.String:
+					return strings.HasSuffix(val.String(), suffix.(string)), nil
+				default:
+					return false, RuntimeErrorf("unexpected type %T passed to endsWith", v)
+				}
+			},
+			"int": func(v any) (int, error) {
+				val := reflect.ValueOf(v)
+				switch val.Kind() {
+				case reflect.String:
+					return strconv.Atoi(val.String())
+				default:
+					return -1, RuntimeErrorf("unexpected type %T passed to int", v)
+				}
+			},
 		},
 	}
 }
 
 // Add a function to the global scope.
-func (s *GlobalFuncScope) Add(name string, fn interface{}) {
+func (s *GlobalFuncScope) Add(name string, fn any) {
 	s.funcs[name] = fn
 }
 
 // Call a function with a set of arguments.
-func (s *GlobalFuncScope) Call(ident *Identifier, params []Box) (interface{}, error) {
+func (s *GlobalFuncScope) Call(ident *Identifier, params []Box) (any, error) {
 	name := ident.Token.Literal
 	fn, ok := s.funcs[name]
 	if !ok {
-		return nil, RuntimeErrorf("no function %q", name)
+		names := make([]string, 0, len(s.funcs))
+		for name := range s.funcs {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		return nil, ErrRuntimeSyntax(fmt.Sprintf("no function %q", name), name, names)
 	}
 
 	f := reflect.ValueOf(fn)
 	if len(params) != f.Type().NumIn() {
-		return nil, RuntimeErrorf("number of params not valid for function call, wanted: %d, received: %d", f.Type().NumIn(), len(params))
+		return nil, RuntimeErrorf("number of arguments for a function call to be %d, but got: %d", f.Type().NumIn(), len(params))
 	}
 	if f.Type().NumOut() != 2 {
-		return nil, RuntimeErrorf("number of results is not value for function call")
+		return nil, RuntimeErrorf("number of results for a given function call must be 2")
 	}
 
 	var args []reflect.Value
@@ -115,7 +165,7 @@ func (s *GlobalFuncScope) Call(ident *Identifier, params []Box) (interface{}, er
 
 	results := f.Call(args)
 	if len(results) != 2 {
-		return nil, RuntimeErrorf("number of results does not match expected function call results set")
+		return nil, RuntimeErrorf("number of results to match the number of results from the function call")
 	}
 	if err, ok := results[1].Interface().(error); ok && err != nil {
 		return nil, err
@@ -183,15 +233,15 @@ func (o *BoxNestedScope) IsZero() bool {
 }
 
 // Value defines the shadow type value of the Box.
-func (o *BoxNestedScope) Value() interface{} {
+func (o *BoxNestedScope) Value() any {
 	return o.value
 }
 
 // ForEach will call the function on every value within a Box.
 // If a Box isn't an iterable then we perform a no-op.
-func ForEach(box Box, fn func(value interface{}) bool) {
+func ForEach(box Box, fn func(value any) bool) {
 	type iterable interface {
-		ForEach(func(interface{}) bool)
+		ForEach(func(any) bool)
 	}
 	if e, ok := box.(iterable); ok {
 		e.ForEach(fn)

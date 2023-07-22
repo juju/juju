@@ -5,7 +5,6 @@ package openstack
 
 import (
 	"github.com/go-goose/goose/v5/nova"
-
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs/imagemetadata"

@@ -8,6 +8,7 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
+
 	"github.com/juju/juju/database/txn"
 )
 
