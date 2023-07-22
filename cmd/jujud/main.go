@@ -30,15 +30,16 @@ import (
 	"github.com/juju/juju/agent/introspect"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
+	"github.com/juju/juju/cmd/internal/dumplogs"
 	"github.com/juju/juju/cmd/internal/run"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
-	"github.com/juju/juju/cmd/jujud/dumplogs"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/machinelock"
 	coreos "github.com/juju/juju/core/os"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
+
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
 	// Import the secret providers.
