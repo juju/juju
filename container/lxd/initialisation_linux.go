@@ -66,7 +66,7 @@ func NewContainerInitialiser(lxdSnapChannel, containerNetworkingMethod string) c
 }
 
 // Initialise is specified on the container.Initialiser interface.
-func (ci *containerInitialiser) Initialise() error {
+func (ci *containerInitialiser) Initialise() (err error) {
 	localSeries, err := hostSeries()
 	if err != nil {
 		return errors.Trace(err)
@@ -75,11 +75,15 @@ func (ci *containerInitialiser) Initialise() error {
 	if err := ensureDependencies(ci.lxdSnapChannel, localSeries); err != nil {
 		return errors.Trace(err)
 	}
-	proxies := proxy.DetectProxies()
-	err = ci.configureLxdProxies(proxies, ci.isRunningLocally, ci.newLocalServer)
-	if err != nil {
-		return errors.Trace(err)
-	}
+
+	// We need to wait for LXD to be configured (via lxd init below)
+	// before potentially updating proxy config for a local server.
+	defer func() {
+		if err == nil {
+			proxies := proxy.DetectProxies()
+			err = ci.configureLxdProxies(proxies, ci.isRunningLocally, ci.newLocalServer)
+		}
+	}()
 
 	var output []byte
 	if ci.containerNetworkingMethod == "local" {
@@ -249,14 +253,11 @@ func installedServiceName() (string, error) {
 		return "", errors.Trace(err)
 	}
 
-	// Prefer the Snap service.
+	// Look for the Snap service.
 	svcName := ""
 	for _, name := range names {
 		if name == "snap.lxd.daemon" {
 			return name, nil
-		}
-		if name == "lxd" {
-			svcName = name
 		}
 	}
 	return svcName, nil
