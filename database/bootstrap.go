@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/database/app"
+	"github.com/juju/juju/database/pragma"
 	"github.com/juju/juju/database/schema"
 )
 
@@ -73,6 +74,10 @@ func BootstrapDqlite(ctx context.Context, opt bootstrapOptFactory, logger Logger
 			logger.Errorf("closing controller database: %v", err)
 		}
 	}()
+
+	if err := pragma.SetPragma(ctx, db, pragma.ForeignKeysPragma, true); err != nil {
+		return errors.Annotate(err, "setting foreign keys pragma")
+	}
 
 	if err := NewDBMigration(db, logger, schema.ControllerDDL()).Apply(); err != nil {
 		return errors.Annotate(err, "creating controller database schema")

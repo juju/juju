@@ -360,6 +360,20 @@ func (mr *MockNodeManagerMockRecorder) SetClusterServers(arg0, arg1 interface{})
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetClusterServers", reflect.TypeOf((*MockNodeManager)(nil).SetClusterServers), arg0, arg1)
 }
 
+// SetClusterToLocalNode mocks base method.
+func (m *MockNodeManager) SetClusterToLocalNode(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetClusterToLocalNode", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetClusterToLocalNode indicates an expected call of SetClusterToLocalNode.
+func (mr *MockNodeManagerMockRecorder) SetClusterToLocalNode(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetClusterToLocalNode", reflect.TypeOf((*MockNodeManager)(nil).SetClusterToLocalNode), arg0)
+}
+
 // SetNodeInfo mocks base method.
 func (m *MockNodeManager) SetNodeInfo(arg0 dqlite.NodeInfo) error {
 	m.ctrl.T.Helper()

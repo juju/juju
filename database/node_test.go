@@ -98,7 +98,7 @@ func (s *nodeManagerSuite) TestIsBootstrappedNode(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
 	m := NewNodeManager(cfg, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
-	ctx := context.TODO()
+	ctx := context.Background()
 
 	// Empty directory indicates we are not the bootstrapped node.
 	asBootstrapped, err := m.IsBootstrappedNode(ctx)
@@ -163,7 +163,7 @@ func (s *nodeManagerSuite) TestSetClusterServersSuccess(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
 	m := NewNodeManager(cfg, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
-	ctx := context.TODO()
+	ctx := context.Background()
 
 	dataDir, err := m.EnsureDataDir()
 	c.Assert(err, jc.ErrorIsNil)
@@ -201,7 +201,7 @@ func (s *nodeManagerSuite) TestSetClusterServersSuccess(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, servers)
 }
 
-func (s *nodeManagerSuite) TestSetNodeInfoSuccess(c *gc.C) {
+func (s *nodeManagerSuite) TestSetGetNodeInfoSuccess(c *gc.C) {
 	subDir := strconv.Itoa(rand.Intn(10))
 
 	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
@@ -213,7 +213,8 @@ func (s *nodeManagerSuite) TestSetNodeInfoSuccess(c *gc.C) {
 
 	infoFile := path.Join(dataDir, "info.yaml")
 
-	// Write a cluster.yaml file into the Dqlite data directory.
+	// Write an info.yaml file into the Dqlite data directory.
+	// We'll update it with a different address.
 	data := []byte(`
 Address: 127.0.0.1:17666
 ID: 3297041220608546238
@@ -232,14 +233,48 @@ Role: 0
 	err = m.SetNodeInfo(server)
 	c.Assert(err, jc.ErrorIsNil)
 
-	data, err = os.ReadFile(infoFile)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// info.yaml should reflect the new node info.
-	var result dqlite.NodeInfo
-	err = yaml.Unmarshal(data, &result)
+	result, err := m.NodeInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, server)
+}
+
+func (s *nodeManagerSuite) TestSetClusterToLocalNodeSuccess(c *gc.C) {
+	subDir := strconv.Itoa(rand.Intn(10))
+
+	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
+	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
+
+	m := NewNodeManager(cfg, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
+	ctx := context.Background()
+
+	_, err := m.EnsureDataDir()
+	c.Assert(err, jc.ErrorIsNil)
+
+	servers := []dqlite.NodeInfo{
+		{
+			ID:      3297041220608546238,
+			Address: "10.6.6.6:17666",
+			Role:    0,
+		}, {
+			ID:      123456789,
+			Address: "10.6.6.7:17666",
+			Role:    0,
+		},
+	}
+
+	err = m.SetClusterServers(ctx, servers)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = m.SetNodeInfo(servers[0])
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = m.SetClusterToLocalNode(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newServers, err := m.ClusterServers(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(newServers, gc.DeepEquals, []dqlite.NodeInfo{servers[0]})
 }
 
 func (s *nodeManagerSuite) TestWithAddressOptionSuccess(c *gc.C) {
