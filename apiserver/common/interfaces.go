@@ -137,7 +137,6 @@ type ControllerConfigState interface {
 	ControllerConfig() (controller.Config, error)
 
 	ModelExists(string) (bool, error)
-	NewExternalControllers() state.ExternalControllers
 	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
 	CompletedMigrationForModel(string) (state.ModelMigration, error)
 }

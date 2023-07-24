@@ -814,53 +814,6 @@ func (s *MigrationExportSuite) TestOfferConnections(c *gc.C) {
 	c.Assert(offer.UserName(), gc.Equals, stOffer.UserName())
 }
 
-func (s *MigrationExportSuite) TestExternalControllers(c *gc.C) {
-	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        "gravy-rainbow",
-		URL:         "me/model.rainbow",
-		SourceModel: s.Model.ModelTag(),
-		Token:       "charisma",
-		OfferUUID:   "offer-uuid",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	service := state.NewExternalControllers(s.State)
-	stCtrl, err := service.Save(crossmodel.ControllerInfo{
-		Addrs:         []string{"10.224.0.1:8080"},
-		Alias:         "magic",
-		CACert:        "magic-ca-cert",
-		ControllerTag: names.NewControllerTag("f47ac10b-58cc-4372-a567-0e02b2c3d479"),
-	}, s.Model.UUID(), "af5a9137-934c-4b0c-8317-643b69cf4971")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// We only care for the external controllers
-	model, err := s.State.ExportPartial(state.ExportConfig{
-		SkipActions:              true,
-		SkipAnnotations:          true,
-		SkipCloudImageMetadata:   true,
-		SkipCredentials:          true,
-		SkipIPAddresses:          true,
-		SkipSettings:             true,
-		SkipSSHHostKeys:          true,
-		SkipStatusHistory:        true,
-		SkipLinkLayerDevices:     true,
-		SkipUnitAgentBinaries:    true,
-		SkipMachineAgentBinaries: true,
-		SkipRelationData:         true,
-		SkipInstanceData:         true,
-		SkipApplicationOffers:    true,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	ctrls := model.ExternalControllers()
-	c.Assert(ctrls, gc.HasLen, 1)
-	ctrl := ctrls[0]
-	c.Assert(ctrl.Addrs(), gc.DeepEquals, stCtrl.ControllerInfo().Addrs)
-	c.Assert(ctrl.Alias(), gc.Equals, stCtrl.ControllerInfo().Alias)
-	c.Assert(ctrl.CACert(), gc.Equals, stCtrl.ControllerInfo().CACert)
-	c.Assert(ctrl.Models(), gc.DeepEquals, []string{s.Model.UUID(), "af5a9137-934c-4b0c-8317-643b69cf4971"})
-}
-
 func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	f := factory.NewFactory(s.State, s.StatePool)
 	unit := f.MakeUnit(c, &factory.UnitParams{
@@ -2413,15 +2366,6 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	eps, err := s.State.InferEndpoints("gravy-rainbow", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
-
-	service := state.NewExternalControllers(s.State)
-	_, err = service.Save(crossmodel.ControllerInfo{
-		Addrs:         []string{"10.224.0.1:8080"},
-		Alias:         "magic",
-		CACert:        "magic-ca-cert",
-		ControllerTag: s.Model.ControllerTag(),
-	}, s.Model.UUID(), "af5a9137-934c-4b0c-8317-643b69cf4971")
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export(map[string]string{})

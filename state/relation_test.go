@@ -472,9 +472,6 @@ func (s *RelationSuite) TestForceDestroyCrossModelRelationOfferSide(c *gc.C) {
 		IsConsumerProxy: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	rc, err := state.ControllerRefCount(s.State, "controller-uuid")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rc, gc.Equals, 1)
 	wordpressEP, err := rwordpress.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -506,8 +503,6 @@ func (s *RelationSuite) TestForceDestroyCrossModelRelationOfferSide(c *gc.C) {
 	err = rel.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	err = rwordpress.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = state.ControllerRefCount(s.State, "controller-uuid")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	s.assertInScope(c, wpru, false)

@@ -223,9 +223,6 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string) (descri
 	if err := export.storage(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := export.externalControllers(); err != nil {
-		return nil, errors.Trace(err)
-	}
 	if err := export.secrets(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1410,85 +1407,6 @@ func (e *exporter) offerConnections() error {
 	migration.Add(func() error {
 		m := migrations.ExportOfferConnections{}
 		return m.Execute(offerConnectionsShim{st: migration.src}, migration.dst)
-	})
-	return migration.Run()
-}
-
-// externalControllersShim is to handle the fact that go doesn't handle
-// covariance and the tight abstraction around the new migration export work
-// ensures that we handle our dependencies up front.
-type externalControllerShim struct {
-	st *State
-}
-
-// externalControllerInfoShim is used to align to an interface with in the
-// migrations package.
-type externalControllerInfoShim struct {
-	info externalControllerDoc
-}
-
-// ID holds the controller ID from the external controller
-func (e externalControllerInfoShim) ID() string {
-	return e.info.Id
-}
-
-// Alias holds an alias (human friendly) name for the controller.
-func (e externalControllerInfoShim) Alias() string {
-	return e.info.Alias
-}
-
-// Addrs holds the host:port values for the external
-// controller's API server.
-func (e externalControllerInfoShim) Addrs() []string {
-	return e.info.Addrs
-}
-
-// CACert holds the certificate to validate the external
-// controller's target API server's TLS certificate.
-func (e externalControllerInfoShim) CACert() string {
-	return e.info.CACert
-}
-
-// Models holds model UUIDs hosted on this controller.
-func (e externalControllerInfoShim) Models() []string {
-	return e.info.Models
-}
-
-func (s externalControllerShim) ControllerForModel(uuid string) (migrations.MigrationExternalController, error) {
-	entity, err := s.st.ExternalControllerForModel(uuid)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return externalControllerInfoShim{
-		info: entity.doc,
-	}, nil
-}
-
-// AllRemoteApplications returns all remote applications in the model.
-func (s externalControllerShim) AllRemoteApplications() ([]migrations.MigrationRemoteApplication, error) {
-	remoteApps, err := s.st.AllRemoteApplications()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	result := make([]migrations.MigrationRemoteApplication, len(remoteApps))
-	for k, v := range remoteApps {
-		result[k] = remoteApplicationShim{RemoteApplication: v}
-	}
-	return result, nil
-}
-
-func (e *exporter) externalControllers() error {
-	if e.cfg.SkipExternalControllers {
-		return nil
-	}
-	e.logger.Debugf("reading external controllers")
-	migration := &ExportStateMigration{
-		src: e.st,
-		dst: e.model,
-	}
-	migration.Add(func() error {
-		m := migrations.ExportExternalControllers{}
-		return m.Execute(externalControllerShim{st: migration.src}, migration.dst)
 	})
 	return migration.Run()
 }

@@ -521,22 +521,6 @@ func (a *RemoteApplication) removeOps(asserts bson.D) ([]txn.Op, error) {
 	}
 	ops = append(ops, secretConsumerPermissionsOps...)
 
-	// If this is the last consumed app off an external controller,
-	// also remove the external controller record.
-	if a.doc.SourceControllerUUID != "" {
-		decRefOp, isFinal, err := decExternalControllersRefOp(a.st, a.doc.SourceControllerUUID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops = append(ops, decRefOp)
-		if isFinal {
-			ops = append(ops, txn.Op{
-				C:      externalControllersC,
-				Id:     a.doc.SourceControllerUUID,
-				Remove: true,
-			})
-		}
-	}
 	return ops, nil
 }
 
@@ -1049,14 +1033,6 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		if args.Token != "" {
 			importRemoteEntityOps := st.RemoteEntities().importRemoteEntityOps(app.Tag(), args.Token)
 			ops = append(ops, importRemoteEntityOps...)
-		}
-
-		if args.ExternalControllerUUID != "" {
-			incRefOp, err := incExternalControllersRefOp(st, args.ExternalControllerUUID)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			ops = append(ops, incRefOp)
 		}
 		return ops, nil
 	}

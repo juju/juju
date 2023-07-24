@@ -98,20 +98,6 @@ func (mr *MockControllerConfigStateMockRecorder) ModelExists(arg0 interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelExists", reflect.TypeOf((*MockControllerConfigState)(nil).ModelExists), arg0)
 }
 
-// NewExternalControllers mocks base method.
-func (m *MockControllerConfigState) NewExternalControllers() state.ExternalControllers {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewExternalControllers")
-	ret0, _ := ret[0].(state.ExternalControllers)
-	return ret0
-}
-
-// NewExternalControllers indicates an expected call of NewExternalControllers.
-func (mr *MockControllerConfigStateMockRecorder) NewExternalControllers() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewExternalControllers", reflect.TypeOf((*MockControllerConfigState)(nil).NewExternalControllers))
-}
-
 // MockECService is a mock of ECService interface.
 type MockECService struct {
 	ctrl     *gomock.Controller

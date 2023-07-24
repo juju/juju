@@ -196,14 +196,6 @@ func ApplicationOffersRefCount(st *State, appName string) (int, error) {
 	return nsRefcounts.read(refcounts, key)
 }
 
-func ControllerRefCount(st *State, controllerUUID string) (int, error) {
-	refcounts, closer := st.db().GetCollection(globalRefcountsC)
-	defer closer()
-
-	key := externalControllerRefCountKey(controllerUUID)
-	return nsRefcounts.read(refcounts, key)
-}
-
 func IncSecretConsumerRefCount(st *State, uri *secrets.URI, inc int) error {
 	refCountCollection, ccloser := st.db().GetCollection(refcountsC)
 	defer ccloser()
