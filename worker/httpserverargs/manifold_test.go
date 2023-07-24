@@ -57,9 +57,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
-		"clock":           s.clock,
-		"state":           &s.state,
-		"controller-port": nil,
+		"clock": s.clock,
+		"state": &s.state,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -80,7 +79,7 @@ func (s *ManifoldSuite) newStateAuthenticator(
 	return &s.authenticator, nil
 }
 
-var expectedInputs = []string{"state", "clock", "controller-port"}
+var expectedInputs = []string{"state", "clock"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)

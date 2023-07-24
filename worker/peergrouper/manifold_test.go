@@ -69,10 +69,9 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
-		"agent":           s.agent,
-		"clock":           s.clock,
-		"controller-port": nil,
-		"state":           &s.stateTracker,
+		"agent": s.agent,
+		"clock": s.clock,
+		"state": &s.stateTracker,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -90,7 +89,7 @@ func (s *ManifoldSuite) newWorker(config peergrouper.Config) (worker.Worker, err
 	return w, nil
 }
 
-var expectedInputs = []string{"agent", "clock", "controller-port", "state"}
+var expectedInputs = []string{"agent", "clock", "state"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)

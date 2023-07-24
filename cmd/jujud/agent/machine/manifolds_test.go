@@ -73,7 +73,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"change-stream-pruner",
 			"charmhub-http-client",
 			"clock",
-			"controller-port",
 			"db-accessor",
 			"deployer",
 			"disk-manager",
@@ -148,7 +147,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"change-stream-pruner",
 			"charmhub-http-client",
 			"clock",
-			"controller-port",
 			"db-accessor",
 			"external-controller-updater",
 			"file-notify-watcher",
@@ -221,7 +219,6 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"change-stream-pruner",
 		"charmhub-http-client",
 		"clock",
-		"controller-port",
 		"db-accessor",
 		"deployer",
 		"file-notify-watcher",
@@ -444,7 +441,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	"api-server": {
 		"agent",
 		"audit-config-updater",
-		"central-hub",
 		"change-stream",
 		"charmhub-http-client",
 		"clock",
@@ -622,7 +618,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"http-server-args": {
 		"agent",
-		"central-hub",
 		"clock",
 		"state",
 		"state-config-watcher",
@@ -785,7 +780,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"model-worker-manager": {
 		"agent",
-		"central-hub",
 		"certificate-watcher",
 		"clock",
 		"http-server-args",
@@ -808,7 +802,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"peer-grouper": {
 		"agent",
-		"central-hub",
 		"clock",
 		"state",
 		"state-config-watcher",
@@ -1009,7 +1002,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"api-server": {
 		"agent",
 		"audit-config-updater",
-		"central-hub",
 		"change-stream",
 		"charmhub-http-client",
 		"clock",
@@ -1065,13 +1057,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"clock": {},
 
-	"controller-port": {
-		"agent",
-		"central-hub",
-		"state",
-		"state-config-watcher",
-	},
-
 	"db-accessor": {
 		"agent",
 		"is-controller-flag",
@@ -1124,7 +1109,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"http-server-args": {
 		"agent",
-		"central-hub",
 		"clock",
 		"state",
 		"state-config-watcher",
@@ -1211,7 +1195,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"model-worker-manager": {
 		"agent",
-		"central-hub",
 		"certificate-watcher",
 		"clock",
 		"http-server-args",
@@ -1234,7 +1217,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"peer-grouper": {
 		"agent",
-		"central-hub",
 		"clock",
 		"state",
 		"state-config-watcher",
