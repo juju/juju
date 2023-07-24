@@ -11,10 +11,24 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/core/changestream"
+	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/domain"
+	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
+	controllerconfigstate "github.com/juju/juju/domain/controllerconfig/state"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
 	workerstate "github.com/juju/juju/worker/state"
 )
+
+// Logger defines the logging methods used by the worker.
+type Logger interface {
+	Criticalf(string, ...interface{})
+	Warningf(string, ...interface{})
+	Infof(string, ...interface{})
+	Debugf(string, ...interface{})
+	Tracef(string, ...interface{})
+}
 
 // ManifoldConfig holds the information necessary to run a peergrouper
 // in a dependency.Engine.
@@ -23,10 +37,13 @@ type ManifoldConfig struct {
 	ClockName          string
 	ControllerPortName string
 	StateName          string
+	ChangeStreamName   string
 	Hub                Hub
+	Logger             Logger
 
-	PrometheusRegisterer prometheus.Registerer
-	NewWorker            func(Config) (worker.Worker, error)
+	PrometheusRegisterer       prometheus.Registerer
+	NewWorker                  func(Config) (worker.Worker, error)
+	NewControllerConfigService func(getter changestream.WatchableDBGetter, logger Logger) ControllerConfigService
 }
 
 // Validate validates the manifold configuration.
@@ -52,6 +69,12 @@ func (config ManifoldConfig) Validate() error {
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
+	if config.ChangeStreamName == "" {
+		return errors.NotValidf("empty ChangeStreamName")
+	}
+	if config.NewControllerConfigService == nil {
+		return errors.NotValidf("nil NewControllerConfigService")
+	}
 	return nil
 }
 
@@ -63,6 +86,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ClockName,
 			config.ControllerPortName,
 			config.StateName,
+			config.ChangeStreamName,
 		},
 		Start: config.start,
 	}
@@ -116,6 +140,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}
 	supportsHA := model.Type() != state.ModelTypeCAAS
 
+	var dbGetter changestream.WatchableDBGetter
+	if err := context.Get(config.ChangeStreamName, &dbGetter); err != nil {
+		return nil, errors.Annotate(err, "failed to get DB getter")
+	}
+
 	w, err := config.NewWorker(Config{
 		State:                StateShim{st},
 		MongoSession:         MongoSessionShim{mongoSession},
@@ -129,11 +158,28 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		PrometheusRegisterer: config.PrometheusRegisterer,
 		// On machine models, the controller id is the same as the machine/agent id.
 		// TODO(wallyworld) - revisit when we add HA to k8s.
-		ControllerId: agentConfig.Tag().Id,
+		ControllerId:      agentConfig.Tag().Id,
+		CtrlConfigService: config.NewControllerConfigService(dbGetter, config.Logger),
 	})
 	if err != nil {
 		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
 	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
+}
+
+// NewControllerConfigService returns a new ControllerConfigService.
+func NewControllerConfigService(dbGetter changestream.WatchableDBGetter, logger Logger) ControllerConfigService {
+	return controllerconfigservice.NewService(
+		controllerconfigstate.NewState(coredatabase.NewTxnRunnerFactoryForNamespace(
+			dbGetter.GetWatchableDB,
+			coredatabase.ControllerNS,
+		)),
+		domain.NewWatcherFactory(
+			func() (changestream.WatchableDB, error) {
+				return dbGetter.GetWatchableDB(coredatabase.ControllerNS)
+			},
+			logger,
+		),
+	)
 }

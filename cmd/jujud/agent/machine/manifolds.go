@@ -635,13 +635,16 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		peergrouperName: ifFullyUpgraded(peergrouper.Manifold(peergrouper.ManifoldConfig{
-			AgentName:            agentName,
-			ClockName:            clockName,
-			ControllerPortName:   controllerPortName,
-			StateName:            stateName,
-			Hub:                  config.CentralHub,
-			PrometheusRegisterer: config.PrometheusRegisterer,
-			NewWorker:            peergrouper.New,
+			AgentName:                  agentName,
+			ClockName:                  clockName,
+			ControllerPortName:         controllerPortName,
+			StateName:                  stateName,
+			Hub:                        config.CentralHub,
+			ChangeStreamName:           changeStreamName,
+			Logger:                     loggo.GetLogger("juju.worker.peergrouper"),
+			PrometheusRegisterer:       config.PrometheusRegisterer,
+			NewWorker:                  peergrouper.New,
+			NewControllerConfigService: peergrouper.NewControllerConfigService,
 		})),
 
 		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{

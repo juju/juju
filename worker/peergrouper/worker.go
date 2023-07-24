@@ -4,6 +4,7 @@
 package peergrouper
 
 import (
+	stdcontext "context"
 	"fmt"
 	"net"
 	"reflect"
@@ -25,21 +26,26 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.worker.peergrouper")
 
+// ControllerConfigService is an interface for getting the controller config.
+type ControllerConfigService interface {
+	ControllerConfig(stdcontext.Context) (controller.Config, error)
+	Watch() (watcher.StringsWatcher, error)
+}
+
 type State interface {
 	RemoveControllerReference(m ControllerNode) error
-	ControllerConfig() (controller.Config, error)
 	ControllerIds() ([]string, error)
 	ControllerNode(id string) (ControllerNode, error)
 	ControllerHost(id string) (ControllerHost, error)
 	WatchControllerInfo() state.StringsWatcher
 	WatchControllerStatusChanges() state.StringsWatcher
-	WatchControllerConfig() state.NotifyWatcher
 	Space(name string) (Space, error)
 }
 
@@ -150,6 +156,7 @@ type Config struct {
 	MongoPort          int
 	APIPort            int
 	ControllerAPIPort  int
+	CtrlConfigService  ControllerConfigService
 
 	// ControllerId is the id of the controller running this worker.
 	// It is used in checking if this working is running on the
@@ -196,6 +203,9 @@ func (config Config) Validate() error {
 	}
 	if config.APIPort <= 0 {
 		return errors.NotValidf("non-positive APIPort")
+	}
+	if config.CtrlConfigService == nil {
+		return errors.NotValidf("nil ControllerConfigService")
 	}
 	// TODO Juju 3.0: make ControllerAPIPort required.
 	return nil
@@ -253,7 +263,7 @@ func (w *pgWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	configChanges, err := w.watchForConfigChanges()
+	controllerConfigChanges, err := w.watchForControllerConfigChanges()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -298,9 +308,9 @@ func (w *pgWorker) loop() error {
 		case <-w.controllerChanges:
 			// One of the controller nodes changed.
 			logger.Tracef("<-w.controllerChanges")
-		case <-configChanges:
+		case <-controllerConfigChanges:
 			// Controller config has changed.
-			logger.Tracef("<-w.configChanges")
+			logger.Tracef("<-w.controllerConfigChanges")
 
 			// If a config change wakes up the loop before the topology has
 			// been represented in the worker's controller trackers, ignore it;
@@ -426,8 +436,11 @@ func (w *pgWorker) watchForControllerChanges() (<-chan struct{}, error) {
 // does not occur, whereas we want to re-publish API addresses and check
 // for replica-set changes if either the management or HA space configs have
 // changed.
-func (w *pgWorker) watchForConfigChanges() (<-chan struct{}, error) {
-	controllerConfigWatcher := w.config.State.WatchControllerConfig()
+func (w *pgWorker) watchForControllerConfigChanges() (<-chan []string, error) {
+	controllerConfigWatcher, err := w.config.CtrlConfigService.Watch()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := w.catacomb.Add(controllerConfigWatcher); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -780,9 +793,9 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 // getHASpaceFromConfig returns a space based on the controller's
 // configuration for the HA space.
 func (w *pgWorker) getHASpaceFromConfig() (network.SpaceInfo, error) {
-	config, err := w.config.State.ControllerConfig()
+	config, err := w.config.CtrlConfigService.ControllerConfig(stdcontext.Background())
 	if err != nil {
-		return network.SpaceInfo{}, errors.Trace(err)
+		return network.SpaceInfo{}, errors.Annotate(err, "failed to get controller config")
 	}
 
 	jujuHASpace := config.JujuHASpace()

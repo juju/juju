@@ -16,25 +16,30 @@ import (
 	dt "github.com/juju/worker/v3/dependency/testing"
 	"github.com/juju/worker/v3/workertest"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/worker/peergrouper"
+	"github.com/juju/juju/worker/peergrouper/mocks"
 )
 
 type ManifoldSuite struct {
 	statetesting.StateSuite
 
-	manifold     dependency.Manifold
-	context      dependency.Context
-	clock        *testclock.Clock
-	agent        *mockAgent
-	hub          *mockHub
-	registerer   *fakeRegisterer
-	stateTracker stubStateTracker
+	manifold          dependency.Manifold
+	context           dependency.Context
+	clock             *testclock.Clock
+	agent             *mockAgent
+	hub               *mockHub
+	registerer        *fakeRegisterer
+	stateTracker      stubStateTracker
+	watchableDBGetter *mocks.MockWatchableDBGetter
+	ctrlConfigService *mocks.MockControllerConfigService
 
 	stub testing.Stub
 }
@@ -43,6 +48,11 @@ var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.watchableDBGetter = mocks.NewMockWatchableDBGetter(ctrl)
+	s.ctrlConfigService = mocks.NewMockControllerConfigService(ctrl)
 
 	s.clock = testclock.NewClock(time.Time{})
 	s.agent = &mockAgent{conf: mockAgentConfig{
@@ -58,13 +68,15 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.context = s.newContext(nil)
 	s.manifold = peergrouper.Manifold(peergrouper.ManifoldConfig{
-		AgentName:            "agent",
-		ClockName:            "clock",
-		ControllerPortName:   "controller-port",
-		StateName:            "state",
-		Hub:                  s.hub,
-		NewWorker:            s.newWorker,
-		PrometheusRegisterer: s.registerer,
+		AgentName:                  "agent",
+		ClockName:                  "clock",
+		ControllerPortName:         "controller-port",
+		StateName:                  "state",
+		Hub:                        s.hub,
+		ChangeStreamName:           "change-stream",
+		NewWorker:                  s.newWorker,
+		NewControllerConfigService: s.newControllerConfigService,
+		PrometheusRegisterer:       s.registerer,
 	})
 }
 
@@ -74,6 +86,7 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"clock":           s.clock,
 		"controller-port": nil,
 		"state":           &s.stateTracker,
+		"change-stream":   s.watchableDBGetter,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -91,7 +104,11 @@ func (s *ManifoldSuite) newWorker(config peergrouper.Config) (worker.Worker, err
 	return w, nil
 }
 
-var expectedInputs = []string{"agent", "clock", "controller-port", "state"}
+func (s *ManifoldSuite) newControllerConfigService(changestream.WatchableDBGetter, peergrouper.Logger) peergrouper.ControllerConfigService {
+	return s.ctrlConfigService
+}
+
+var expectedInputs = []string{"agent", "clock", "controller-port", "state", "change-stream"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -131,6 +148,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		APIPort:              5678,
 		SupportsHA:           true,
 		PrometheusRegisterer: s.registerer,
+		CtrlConfigService:    s.ctrlConfigService,
 	})
 }
 

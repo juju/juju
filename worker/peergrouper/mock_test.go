@@ -18,7 +18,6 @@ import (
 	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -30,16 +29,15 @@ import (
 // that we don't want to directly depend on in unit tests.
 
 type fakeState struct {
-	mu               sync.Mutex
-	errors           errorPatterns
-	controllers      map[string]*fakeController
-	controllerInfo   voyeur.Value // of *state.ControllerInfo
-	statuses         voyeur.Value // of statuses collection
-	controllerConfig voyeur.Value // of controller.Config
-	session          *fakeMongoSession
-	checkMu          sync.Mutex
-	check            func(st *fakeState) error
-	spaces           map[string]*fakeSpace
+	mu             sync.Mutex
+	errors         errorPatterns
+	controllers    map[string]*fakeController
+	controllerInfo voyeur.Value // of *state.ControllerInfo
+	statuses       voyeur.Value // of statuses collection
+	session        *fakeMongoSession
+	checkMu        sync.Mutex
+	check          func(st *fakeState) error
+	spaces         map[string]*fakeSpace
 }
 
 var (
@@ -116,7 +114,6 @@ func NewFakeState() *fakeState {
 		controllers: make(map[string]*fakeController),
 	}
 	st.session = newFakeMongoSession(st, &st.errors)
-	st.controllerConfig.Set(controller.Config{})
 	return st
 }
 
@@ -143,6 +140,18 @@ func (st *fakeState) checkInvariants() {
 		// when called from within the worker.
 		go panic(err)
 		select {}
+	}
+}
+
+func (st *fakeState) setHASpace(spaceName string) {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	// Ensure the configured space always exists in state.
+	if spaceName != network.AlphaSpaceName {
+		if st.spaces == nil {
+			st.spaces = make(map[string]*fakeSpace)
+		}
+		st.spaces[spaceName] = &fakeSpace{network.SpaceInfo{ID: spaceName, Name: network.SpaceName(spaceName)}}
 	}
 }
 
@@ -262,24 +271,10 @@ func (st *fakeState) WatchControllerStatusChanges() state.StringsWatcher {
 	return WatchStrings(&st.statuses)
 }
 
-func (st *fakeState) WatchControllerConfig() state.NotifyWatcher {
-	return WatchValue(&st.controllerConfig)
-}
-
 func (st *fakeState) ModelConfig() (*config.Config, error) {
 	attrs := coretesting.FakeConfig()
 	cfg, err := config.New(config.NoDefaults, attrs)
 	return cfg, err
-}
-
-func (st *fakeState) ControllerConfig() (controller.Config, error) {
-	st.mu.Lock()
-	defer st.mu.Unlock()
-
-	if err := st.errors.errorFor("State.ControllerConfig"); err != nil {
-		return nil, err
-	}
-	return deepCopy(st.controllerConfig.Get()).(controller.Config), nil
 }
 
 func (st *fakeState) RemoveControllerReference(c ControllerNode) error {
@@ -297,23 +292,6 @@ func (st *fakeState) RemoveControllerReference(c ControllerNode) error {
 	}
 	st.setControllers(newControllerIds...)
 	return nil
-}
-
-func (st *fakeState) setHASpace(spaceName string) {
-	st.mu.Lock()
-	defer st.mu.Unlock()
-
-	// Ensure the configured space always exists in state.
-	if spaceName != network.AlphaSpaceName {
-		if st.spaces == nil {
-			st.spaces = make(map[string]*fakeSpace)
-		}
-		st.spaces[spaceName] = &fakeSpace{network.SpaceInfo{ID: spaceName, Name: network.SpaceName(spaceName)}}
-	}
-
-	cfg := st.controllerConfig.Get().(controller.Config)
-	cfg[controller.JujuHASpace] = spaceName
-	st.controllerConfig.Set(cfg)
 }
 
 func (st *fakeState) Space(name string) (Space, error) {
