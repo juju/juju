@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package controllerconfig
+package service
 
 import (
 	ctx "context"
@@ -12,7 +12,6 @@ import (
 
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/database/testing"
-	domainservice "github.com/juju/juju/domain/controllerconfig/service"
 	domainstate "github.com/juju/juju/domain/controllerconfig/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -25,7 +24,7 @@ var _ = gc.Suite(&controllerconfigSuite{})
 
 func (s *controllerconfigSuite) TestControllerConfigRoundTrips(c *gc.C) {
 	st := domainstate.NewState(testing.TxnRunnerFactory(s.TxnRunner()))
-	srv := domainservice.NewService(st, nil)
+	srv := NewService(st, nil)
 
 	cfgIn := jujucontroller.Config{
 		jujucontroller.AuditingEnabled:     true,
