@@ -561,13 +561,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// When we hit 3.0 we should make controller-port a required
 		// and immutable value.
 		controllerPortName: controllerport.Manifold(controllerport.ManifoldConfig{
-			AgentName:               agentName,
-			HubName:                 centralHubName,
-			StateName:               stateName,
-			Logger:                  loggo.GetLogger("juju.worker.controllerport"),
-			UpdateControllerAPIPort: config.UpdateControllerAPIPort,
-			GetControllerConfig:     controllerport.GetControllerConfig,
-			NewWorker:               controllerport.NewWorker,
+			AgentName:                  agentName,
+			HubName:                    centralHubName,
+			StateName:                  stateName,
+			Logger:                     loggo.GetLogger("juju.worker.controllerport"),
+			UpdateControllerAPIPort:    config.UpdateControllerAPIPort,
+			NewWorker:                  controllerport.NewWorker,
+			NewControllerConfigService: controllerport.NewControllerConfigService,
 		}),
 
 		httpServerName: httpserver.Manifold(httpserver.ManifoldConfig{
