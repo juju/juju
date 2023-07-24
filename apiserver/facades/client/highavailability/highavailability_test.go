@@ -516,6 +516,11 @@ func (s *clientSuite) TestEnableHAHostedModelErrors(c *gc.C) {
 	haServer, err := highavailability.NewHighAvailabilityAPI(facadetest.Context{
 		State_: st2,
 		Auth_:  s.authorizer,
+		ServicesRegistry_: services.NewRegistry(
+			databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
+			nil,
+			servicestesting.NewCheckLogger(c),
+		),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -577,6 +582,11 @@ func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {
 	_, err := highavailability.NewHighAvailabilityAPI(facadetest.Context{
 		State_: st,
 		Auth_:  s.authorizer,
+		ServicesRegistry_: services.NewRegistry(
+			databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
+			nil,
+			servicestesting.NewCheckLogger(c),
+		),
 	})
 	c.Assert(err, gc.ErrorMatches, "high availability on kubernetes controllers not supported")
 }

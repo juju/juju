@@ -6,13 +6,12 @@ package common_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade/facadetest"
-	"github.com/juju/juju/apiserver/facades/client/controller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
@@ -34,9 +33,9 @@ import (
 type modelStatusSuite struct {
 	statetesting.StateSuite
 
-	controller *controller.ControllerAPI
-	resources  *common.Resources
-	authorizer apiservertesting.FakeAuthorizer
+	modelStatusAPI *common.ModelStatusAPI
+	resources      *common.Resources
+	authorizer     apiservertesting.FakeAuthorizer
 }
 
 var _ = gc.Suite(&modelStatusSuite{})
@@ -59,15 +58,11 @@ func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 		AdminTag: s.Owner,
 	}
 
-	controller, err := controller.LatestAPI(
-		facadetest.Context{
-			State_:     s.State,
-			Resources_: s.resources,
-			Auth_:      s.authorizer,
-			StatePool_: s.StatePool,
-		})
-	c.Assert(err, jc.ErrorIsNil)
-	s.controller = controller
+	s.modelStatusAPI = common.NewModelStatusAPI(
+		common.NewModelManagerBackend(s.Model, s.StatePool),
+		s.authorizer,
+		s.authorizer.GetAuthTag().(names.UserTag),
+	)
 
 	loggo.GetLogger("juju.apiserver.controller").SetLogLevel(loggo.TRACE)
 }
@@ -78,19 +73,18 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: user.Tag(),
 	}
-	endpoint, err := controller.TestingAPI(
-		facadetest.Context{
-			State_:     s.State,
-			Resources_: s.resources,
-			Auth_:      anAuthoriser,
-		})
-	c.Assert(err, jc.ErrorIsNil)
+
+	api := common.NewModelStatusAPI(
+		common.NewModelManagerBackend(s.Model, s.StatePool),
+		anAuthoriser,
+		anAuthoriser.GetAuthTag().(names.UserTag),
+	)
 	controllerModelTag := s.Model.ModelTag().String()
 
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: controllerModelTag}},
 	}
-	result, err := endpoint.ModelStatus(req)
+	result, err := api.ModelStatus(req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
 }
@@ -103,21 +97,18 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 	}
 	st := s.Factory.MakeModel(c, &factory.ModelParams{Owner: owner.Tag()})
 	defer st.Close()
-	endpoint, err := controller.TestingAPI(
-		facadetest.Context{
-			State_:     s.State,
-			Resources_: s.resources,
-			Auth_:      anAuthoriser,
-			StatePool_: s.StatePool,
-		})
-	c.Assert(err, jc.ErrorIsNil)
+	api := common.NewModelStatusAPI(
+		common.NewModelManagerBackend(s.Model, s.StatePool),
+		anAuthoriser,
+		anAuthoriser.GetAuthTag().(names.UserTag),
+	)
 
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: model.ModelTag().String()}},
 	}
-	_, err = endpoint.ModelStatus(req)
+	_, err = api.ModelStatus(req)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -180,7 +171,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: controllerModelTag}, {Tag: hostedModelTag}},
 	}
-	results, err := s.controller.ModelStatus(req)
+	results, err := s.modelStatusAPI.ModelStatus(req)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -258,7 +249,7 @@ func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: controllerModelTag}, {Tag: hostedModelTag}},
 	}
-	results, err := s.controller.ModelStatus(req)
+	results, err := s.modelStatusAPI.ModelStatus(req)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results.Results, jc.DeepEquals, []params.ModelStatus{
@@ -305,7 +296,7 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 			},
 		},
 	}
-	result, err := s.controller.ModelStatus(req)
+	result, err := s.modelStatusAPI.ModelStatus(req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, expected)
 }

@@ -4,11 +4,11 @@
 package changestream
 
 import (
+	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/database"
-	"github.com/juju/testing"
 )
 
 type changestreamSuite struct {
