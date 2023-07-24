@@ -778,11 +778,13 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
-			AgentName:                agentName,
-			AuthorityName:            certificateWatcherName,
-			StateName:                stateName,
-			NewWorker:                certupdater.NewCertificateUpdater,
-			NewMachineAddressWatcher: certupdater.NewMachineAddressWatcher,
+			AgentName:                  agentName,
+			AuthorityName:              certificateWatcherName,
+			StateName:                  stateName,
+			ChangeStreamName:           changeStreamName,
+			NewWorker:                  certupdater.NewCertificateUpdater,
+			NewMachineAddressWatcher:   certupdater.NewMachineAddressWatcher,
+			NewControllerConfigService: certupdater.NewControllerConfigService,
 		})),
 
 		// The machiner Worker will wait for the identified machine to become

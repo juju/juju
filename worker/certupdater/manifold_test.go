@@ -12,26 +12,31 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
 	"github.com/juju/worker/v3/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/pki"
 	pkitest "github.com/juju/juju/pki/test"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/worker/certupdater"
+	"github.com/juju/juju/worker/certupdater/mocks"
 )
 
 type ManifoldSuite struct {
 	statetesting.StateSuite
 
-	authority      pki.Authority
-	manifold       dependency.Manifold
-	context        dependency.Context
-	agent          *mockAgent
-	stateTracker   stubStateTracker
-	addressWatcher fakeAddressWatcher
+	authority         pki.Authority
+	manifold          dependency.Manifold
+	context           dependency.Context
+	agent             *mockAgent
+	stateTracker      stubStateTracker
+	addressWatcher    fakeAddressWatcher
+	watchableDBGetter *mocks.MockWatchableDBGetter
+	ctrlConfigService *mocks.MockControllerConfigService
 
 	stub testing.Stub
 }
@@ -40,6 +45,10 @@ var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
+
+	ctrl := gomock.NewController(c)
+	s.watchableDBGetter = mocks.NewMockWatchableDBGetter(ctrl)
+	s.ctrlConfigService = mocks.NewMockControllerConfigService(ctrl)
 
 	s.agent = &mockAgent{}
 	s.stateTracker = stubStateTracker{
@@ -53,19 +62,22 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.context = s.newContext(nil)
 	s.manifold = certupdater.Manifold(certupdater.ManifoldConfig{
-		AgentName:                "agent",
-		AuthorityName:            "authority",
-		StateName:                "state",
-		NewWorker:                s.newWorker,
-		NewMachineAddressWatcher: s.newMachineAddressWatcher,
+		AgentName:                  "agent",
+		AuthorityName:              "authority",
+		StateName:                  "state",
+		ChangeStreamName:           "change-stream",
+		NewWorker:                  s.newWorker,
+		NewMachineAddressWatcher:   s.newMachineAddressWatcher,
+		NewControllerConfigService: s.newControllerConfigService,
 	})
 }
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
-		"agent":     s.agent,
-		"authority": s.authority,
-		"state":     &s.stateTracker,
+		"agent":         s.agent,
+		"authority":     s.authority,
+		"state":         &s.stateTracker,
+		"change-stream": s.watchableDBGetter,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -88,7 +100,11 @@ func (s *ManifoldSuite) newMachineAddressWatcher(st *state.State, machineId stri
 	return &s.addressWatcher, nil
 }
 
-var expectedInputs = []string{"agent", "authority", "state"}
+func (s *ManifoldSuite) newControllerConfigService(changestream.WatchableDBGetter) certupdater.ControllerConfigService {
+	return s.ctrlConfigService
+}
+
+var expectedInputs = []string{"agent", "authority", "state", "change-stream"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -121,6 +137,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		AddressWatcher:     &s.addressWatcher,
 		Authority:          s.authority,
 		APIHostPortsGetter: s.State,
+		CtrlConfigService:  s.ctrlConfigService,
 	})
 }
 

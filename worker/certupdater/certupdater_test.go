@@ -5,10 +5,10 @@ package certupdater_test
 
 import (
 	"net"
-	stdtesting "testing"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	jujucontroller "github.com/juju/juju/controller"
@@ -18,21 +18,25 @@ import (
 	pkitest "github.com/juju/juju/pki/test"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/certupdater"
+	"github.com/juju/juju/worker/certupdater/mocks"
 )
-
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type CertUpdaterSuite struct {
 	coretesting.BaseSuite
-	stateServingInfo jujucontroller.StateServingInfo
+	stateServingInfo  jujucontroller.StateServingInfo
+	watchableDBGetter *mocks.MockWatchableDBGetter
+	ctrlConfigService *mocks.MockControllerConfigService
 }
 
 var _ = gc.Suite(&CertUpdaterSuite{})
 
 func (s *CertUpdaterSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.watchableDBGetter = mocks.NewMockWatchableDBGetter(ctrl)
+	s.ctrlConfigService = mocks.NewMockControllerConfigService(ctrl)
 
 	s.stateServingInfo = jujucontroller.StateServingInfo{
 		Cert:         coretesting.ServerCert,
@@ -98,11 +102,14 @@ func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
 	authority, err := pkitest.NewTestAuthority()
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.ctrlConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(jujucontroller.Config{}, nil)
+
 	changes := make(chan struct{})
 	worker, err := certupdater.NewCertificateUpdater(certupdater.Config{
 		AddressWatcher:     &mockMachine{changes},
 		APIHostPortsGetter: &mockAPIHostGetter{},
 		Authority:          authority,
+		CtrlConfigService:  s.ctrlConfigService,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, worker)
@@ -117,11 +124,14 @@ func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
 	authority, err := pkitest.NewTestAuthority()
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.ctrlConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(jujucontroller.Config{}, nil)
+
 	changes := make(chan struct{})
 	worker, err := certupdater.NewCertificateUpdater(certupdater.Config{
 		AddressWatcher:     &mockMachine{changes},
 		APIHostPortsGetter: &mockAPIHostGetter{},
 		Authority:          authority,
+		CtrlConfigService:  s.ctrlConfigService,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

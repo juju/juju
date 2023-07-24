@@ -4,6 +4,7 @@
 package certupdater
 
 import (
+	stdcontext "context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -20,16 +21,22 @@ var (
 	logger = loggo.GetLogger("juju.worker.certupdater")
 )
 
+// ControllerConfigService is an interface that is provided to controller configuration from the DB
+type ControllerConfigService interface {
+	ControllerConfig(stdcontext.Context) (controller.Config, error)
+}
+
 // CertificateUpdater is responsible for generating controller certificates.
 //
 // In practice, CertificateUpdater is used by a controller's machine agent to watch
 // that server's machines addresses in state, and write a new certificate to the
 // agent's config file.
 type CertificateUpdater struct {
-	addressWatcher  AddressWatcher
-	authority       pki.Authority
-	hostPortsGetter APIHostPortsGetter
-	addresses       network.SpaceAddresses
+	addressWatcher    AddressWatcher
+	authority         pki.Authority
+	hostPortsGetter   APIHostPortsGetter
+	addresses         network.SpaceAddresses
+	ctrlConfigService ControllerConfigService
 }
 
 // AddressWatcher is an interface that is provided to NewCertificateUpdater
@@ -56,6 +63,7 @@ type Config struct {
 	AddressWatcher     AddressWatcher
 	Authority          pki.Authority
 	APIHostPortsGetter APIHostPortsGetter
+	CtrlConfigService  ControllerConfigService
 }
 
 // NewCertificateUpdater returns a worker.Worker that watches for changes to
@@ -64,9 +72,10 @@ type Config struct {
 func NewCertificateUpdater(config Config) (worker.Worker, error) {
 	return watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: &CertificateUpdater{
-			addressWatcher:  config.AddressWatcher,
-			authority:       config.Authority,
-			hostPortsGetter: config.APIHostPortsGetter,
+			addressWatcher:    config.AddressWatcher,
+			authority:         config.Authority,
+			hostPortsGetter:   config.APIHostPortsGetter,
+			ctrlConfigService: config.CtrlConfigService,
 		},
 	})
 }
