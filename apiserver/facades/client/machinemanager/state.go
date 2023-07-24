@@ -54,7 +54,7 @@ type BackendState interface {
 type ControllerBackend interface {
 	ControllerTag() names.ControllerTag
 	ControllerConfig() (controller.Config, error)
-	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
+	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 }
 
 type Pool interface {

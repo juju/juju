@@ -979,7 +979,7 @@ type migrationBackend interface {
 // migrationBackend defines controller State functionality required by the
 // migration watchers.
 type controllerBackend interface {
-	APIHostPortsForClients() ([]network.SpaceHostPorts, error)
+	APIHostPortsForClients(controller.Config) ([]network.SpaceHostPorts, error)
 	ControllerConfig() (controller.Config, error)
 }
 
@@ -1066,7 +1066,12 @@ func (w *srvMigrationStatusWatcher) Next() (params.MigrationStatus, error) {
 }
 
 func (w *srvMigrationStatusWatcher) getLocalHostPorts() ([]string, error) {
-	hostports, err := w.ctrlSt.APIHostPortsForClients()
+	controllerConfig, err := w.ctrlSt.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	hostports, err := w.ctrlSt.APIHostPortsForClients(controllerConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

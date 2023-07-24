@@ -82,7 +82,7 @@ func InstanceConfig(ctrlSt ControllerBackend, st InstanceConfigBackend, machineI
 	caCert, _ := controllerConfig.CACert()
 
 	// Get the API connection info; attempt all API addresses.
-	apiHostPorts, err := ctrlSt.APIHostPortsForAgents()
+	apiHostPorts, err := ctrlSt.APIHostPortsForAgents(controllerConfig)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting API addresses")
 	}

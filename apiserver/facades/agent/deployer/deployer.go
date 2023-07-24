@@ -126,3 +126,26 @@ func getAllUnits(st *state.State, tag names.Tag) ([]string, error) {
 	}
 	return nil, fmt.Errorf("cannot obtain units of machine %q: %v", tag, watch.Err())
 }
+
+// APIHostPorts returns the API server addresses.
+func (d *DeployerAPI) APIHostPorts() (params.APIHostPortsResult, error) {
+	controllerConfig, err := d.st.ControllerConfig()
+	if err != nil {
+		return params.APIHostPortsResult{}, err
+	}
+	return d.APIAddresser.APIHostPorts(controllerConfig)
+}
+
+// WatchAPIHostPorts watches the API server addresses.
+func (d *DeployerAPI) WatchAPIHostPorts() (params.NotifyWatchResult, error) {
+	return d.APIAddresser.WatchAPIHostPorts()
+}
+
+// APIAddresses returns the list of addresses used to connect to the API.
+func (d *DeployerAPI) APIAddresses() (params.StringsResult, error) {
+	controllerConfig, err := d.st.ControllerConfig()
+	if err != nil {
+		return params.StringsResult{}, err
+	}
+	return d.APIAddresser.APIAddresses(controllerConfig)
+}

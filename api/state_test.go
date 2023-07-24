@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/modelmanager"
 	"github.com/juju/juju/api/client/usermanager"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -75,7 +76,7 @@ func (s *stateSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
 	// We intentionally set this to invalid values
 	badServers := network.NewSpaceHostPorts(1234, "0.1.2.3")
 	badServers[0].Scope = network.ScopeMachineLocal
-	err := s.ControllerModel(c).State().SetAPIHostPorts([]network.SpaceHostPorts{badServers})
+	err := s.ControllerModel(c).State().SetAPIHostPorts([]network.SpaceHostPorts{badServers}, controller.Config{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	conn2 := s.openAPI(c)
@@ -276,7 +277,12 @@ func (s *stateSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
 			},
 		},
 	}
-	err := s.ControllerModel(c).State().SetAPIHostPorts(current)
+
+	st := s.ControllerModel(c).State()
+	controllerConfig, err := st.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.SetAPIHostPorts(current, controllerConfig)
 	c.Assert(err, jc.ErrorIsNil)
 
 	conn2 := s.OpenControllerAPI(c)

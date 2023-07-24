@@ -534,7 +534,12 @@ func initAPIHostPorts(st *state.State, pAddrs corenetwork.ProviderAddresses, api
 		return errors.Trace(err)
 	}
 	hostPorts := corenetwork.SpaceAddressesWithPort(addrs, apiPort)
-	return st.SetAPIHostPorts([]corenetwork.SpaceHostPorts{hostPorts})
+
+	controllerConfig, err := st.ControllerConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return st.SetAPIHostPorts([]corenetwork.SpaceHostPorts{hostPorts}, controllerConfig)
 }
 
 // machineJobFromParams returns the job corresponding to model.MachineJob.

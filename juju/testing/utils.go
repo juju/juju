@@ -28,7 +28,11 @@ func AddControllerMachine(c *gc.C, st *state.State) *state.Machine {
 	c.Assert(err, jc.ErrorIsNil)
 
 	hostPorts := []network.SpaceHostPorts{network.NewSpaceHostPorts(1234, "0.1.2.3")}
-	err = st.SetAPIHostPorts(hostPorts)
+
+	controllerConfig, err := st.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.SetAPIHostPorts(hostPorts, controllerConfig)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return machine

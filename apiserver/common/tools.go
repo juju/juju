@@ -42,7 +42,7 @@ type APIHostPortsForAgentsGetter interface {
 	// APIHostPortsForAgents returns the HostPorts for each API server that
 	// are suitable for agent-to-controller API communication based on the
 	// configured (if any) controller management space.
-	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
+	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 }
 
 // ToolsStorageGetter is an interface providing the ToolsStorage method.

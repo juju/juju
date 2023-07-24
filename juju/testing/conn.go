@@ -441,7 +441,10 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 		sHsPs[i] = sHPs
 	}
 
-	err = s.State.SetAPIHostPorts(sHsPs)
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.SetAPIHostPorts(sHsPs, controllerConfig)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure the controller store has the controller api endpoint address set

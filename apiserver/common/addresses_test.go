@@ -35,7 +35,7 @@ func (s *apiAddresserSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *apiAddresserSuite) TestAPIAddresses(c *gc.C) {
-	result, err := s.addresser.APIAddresses()
+	result, err := s.addresser.APIAddresses(controller.Config{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Result, gc.DeepEquals, []string{"apiaddresses:1", "apiaddresses:2"})
 }
@@ -59,7 +59,7 @@ func (s *apiAddresserSuite) TestAPIAddressesPrivateFirst(c *gc.C) {
 		}
 	}
 
-	result, err := s.addresser.APIAddresses()
+	result, err := s.addresser.APIAddresses(controller.Config{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result.Result, gc.DeepEquals, []string{
@@ -82,7 +82,7 @@ func (fakeAddresses) ControllerConfig() (controller.Config, error) {
 	return coretesting.FakeControllerConfig(), nil
 }
 
-func (f fakeAddresses) APIHostPortsForAgents() ([]network.SpaceHostPorts, error) {
+func (f fakeAddresses) APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error) {
 	return f.hostPorts, nil
 }
 
