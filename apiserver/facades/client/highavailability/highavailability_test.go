@@ -48,6 +48,7 @@ var (
 
 func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+	s.ControllerSuite.SetUpTest(c)
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:        s.AdminUserTag(c),
@@ -505,6 +506,11 @@ func (s *clientSuite) TestEnableHAHostedModelErrors(c *gc.C) {
 	haServer, err := highavailability.NewHighAvailabilityAPI(facadetest.Context{
 		State_: st2,
 		Auth_:  s.authorizer,
+		ServicesRegistry_: services.NewRegistry(
+			databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
+			nil,
+			servicestesting.NewCheckLogger(c),
+		),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -563,6 +569,11 @@ func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {
 	_, err := highavailability.NewHighAvailabilityAPI(facadetest.Context{
 		State_: st,
 		Auth_:  s.authorizer,
+		ServicesRegistry_: services.NewRegistry(
+			databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
+			nil,
+			servicestesting.NewCheckLogger(c),
+		),
 	})
 	c.Assert(err, gc.ErrorMatches, "high availability on kubernetes controllers not supported")
 }
