@@ -20,6 +20,7 @@ type NewStateAuthenticatorFunc func(
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
 	abort <-chan struct{},
+	ctrlConfigService ControllerConfigService,
 ) (macaroon.LocalMacaroonAuthenticator, error)
 
 // NewStateAuthenticator returns a new LocalMacaroonAuthenticator that
@@ -31,7 +32,10 @@ func NewStateAuthenticator(
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
 	abort <-chan struct{},
+	ctrlConfigService ControllerConfigService,
 ) (macaroon.LocalMacaroonAuthenticator, error) {
+	// TODO(anvial): ctrlConfigService will be needed in stateauthenticator.NewAuthenticator after controller config
+	// service will be injected in apiserver (auth.go)
 	stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, clock)
 	if err != nil {
 		return nil, errors.Trace(err)

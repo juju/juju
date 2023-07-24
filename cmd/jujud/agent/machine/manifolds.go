@@ -550,10 +550,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		))),
 
 		httpServerArgsName: httpserverargs.Manifold(httpserverargs.ManifoldConfig{
-			ClockName:             clockName,
-			ControllerPortName:    controllerPortName,
-			StateName:             stateName,
-			NewStateAuthenticator: httpserverargs.NewStateAuthenticator,
+			ClockName:                  clockName,
+			ControllerPortName:         controllerPortName,
+			StateName:                  stateName,
+			ChangeStreamName:           changeStreamName,
+			Logger:                     loggo.GetLogger("juju.worker.httpserverargs"),
+			NewStateAuthenticator:      httpserverargs.NewStateAuthenticator,
+			NewControllerConfigService: httpserverargs.NewControllerConfigService,
 		}),
 
 		// TODO Juju 3.0: the controller port worker is only needed while

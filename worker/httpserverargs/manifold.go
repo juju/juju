@@ -4,6 +4,7 @@
 package httpserverargs
 
 import (
+	stdcontext "context"
 	"reflect"
 
 	"github.com/juju/clock"
@@ -14,8 +15,25 @@ import (
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/changestream"
+	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/domain"
+	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
+	controllerconfigstate "github.com/juju/juju/domain/controllerconfig/state"
 	workerstate "github.com/juju/juju/worker/state"
 )
+
+// Logger is an interface that provides logging
+type Logger interface {
+	Debugf(string, ...interface{})
+}
+
+// ControllerConfigService is an interface that provides the controller
+// configuration.
+type ControllerConfigService interface {
+	ControllerConfig(context stdcontext.Context) (controller.Config, error)
+}
 
 // ManifoldConfig holds the resources needed to run an httpserverargs
 // worker.
@@ -23,8 +41,11 @@ type ManifoldConfig struct {
 	ClockName          string
 	ControllerPortName string
 	StateName          string
+	ChangeStreamName   string
+	Logger             Logger
 
-	NewStateAuthenticator NewStateAuthenticatorFunc
+	NewStateAuthenticator      NewStateAuthenticatorFunc
+	NewControllerConfigService func(changestream.WatchableDBGetter, Logger) ControllerConfigService
 }
 
 // Validate checks that we have all of the things we need.
@@ -38,8 +59,17 @@ func (config ManifoldConfig) Validate() error {
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
 	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
 	if config.NewStateAuthenticator == nil {
 		return errors.NotValidf("nil NewStateAuthenticator")
+	}
+	if config.ChangeStreamName == "" {
+		return errors.NotValidf("empty ChangeStreamName")
+	}
+	if config.NewControllerConfigService == nil {
+		return errors.NotValidf("nil NewControllerConfigService")
 	}
 	return nil
 }
@@ -68,9 +98,16 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var dbGetter changestream.WatchableDBGetter
+	if err := context.Get(config.ChangeStreamName, &dbGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ctrlConfigService := config.NewControllerConfigService(dbGetter, config.Logger)
+
 	mux := apiserverhttp.NewMux()
 	abort := make(chan struct{})
-	authenticator, err := config.NewStateAuthenticator(statePool, mux, clock, abort)
+	authenticator, err := config.NewStateAuthenticator(statePool, mux, clock, abort, ctrlConfigService)
 	if err != nil {
 		_ = stTracker.Done()
 		return nil, errors.Trace(err)
@@ -92,6 +129,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ClockName,
 			config.ControllerPortName,
 			config.StateName,
+			config.ChangeStreamName,
 		},
 		Start:  config.start,
 		Output: manifoldOutput,
@@ -152,4 +190,20 @@ func (w *argsWorker) Kill() {
 
 func (w *argsWorker) Wait() error {
 	return w.tomb.Wait()
+}
+
+// NewControllerConfigService returns a new ControllerConfigService.
+func NewControllerConfigService(dbGetter changestream.WatchableDBGetter, logger Logger) ControllerConfigService {
+	return controllerconfigservice.NewService(
+		controllerconfigstate.NewState(coredatabase.NewTxnRunnerFactoryForNamespace(
+			dbGetter.GetWatchableDB,
+			coredatabase.ControllerNS,
+		)),
+		domain.NewWatcherFactory(
+			func() (changestream.WatchableDB, error) {
+				return dbGetter.GetWatchableDB(coredatabase.ControllerNS)
+			},
+			logger,
+		),
+	)
 }
