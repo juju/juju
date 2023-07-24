@@ -4,10 +4,9 @@
 package agentconfigupdater
 
 import (
-	ctx "context"
+	stdcontext "context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
@@ -99,13 +98,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					func() (changestream.WatchableDB, error) {
 						return dbGetter.GetWatchableDB(coredatabase.ControllerNS)
 					},
-					loggo.GetLogger("juju.worker.agentconfigupdater"),
+					config.Logger,
 				),
 			)
 
-			controllerConfig, err := ctrlConfigService.ControllerConfig(ctx.TODO())
+			controllerConfig, err := ctrlConfigService.ControllerConfig(stdcontext.Background())
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Annotate(err, "failed to get controller config")
 			}
 
 			// Do the initial state serving info and mongo profile checks
