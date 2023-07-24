@@ -41,9 +41,8 @@ const (
 	// ControllerAPIPort is an optional port that may be set for controllers
 	// that have a very heavy load. If this port is set, this port is used by
 	// the controllers to talk to each other - used for the local API connection
-	// as well as the pubsub forwarders, and the raft workers. If this value is
-	// set, the api-port isn't opened until the controllers have started
-	// properly.
+	// as well as the pubsub forwarders. If this value is set, the api-port
+	// isn't opened until the controllers have started properly.
 	ControllerAPIPort = "controller-api-port"
 
 	// ControllerName is the canonical name for the controller.
@@ -483,9 +482,6 @@ var (
 		AuditLogExcludeMethods,
 		AuditLogMaxBackups,
 		AuditLogMaxSize,
-		// TODO Juju 3.0: ControllerAPIPort should be required and treated
-		// more like api-port.
-		ControllerAPIPort,
 		ControllerName,
 		MaxDebugLogDuration,
 		MaxPruneTxnBatchSize,
