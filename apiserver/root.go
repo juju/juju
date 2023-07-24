@@ -541,18 +541,29 @@ func (r *apiRoot) dispose(key objectKey) {
 }
 
 func (r *apiRoot) facadeContext(key objectKey) *facadeContext {
-	factory := changestream.NewWatchableDBFactoryForNamespace(r.shared.dbGetter.GetWatchableDB, coredatabase.ControllerNS)
-	services := services.NewRegistry(factory,
-		r.shared.dbDeleter,
-		serviceLogger{
-			Logger: r.shared.logger,
-		},
+	// The following late binds the services registry to the facadeContext
+	// to avoid the creation of the services registry until it is needed.
+	// By using sync.Once we ensure that the services registry is only
+	// created once for a given connection.
+	var (
+		once     sync.Once
+		registry facade.ServicesRegistry
 	)
-
 	return &facadeContext{
-		r:        r,
-		key:      key,
-		services: services,
+		r:   r,
+		key: key,
+		servicesFn: func() facade.ServicesRegistry {
+			once.Do(func() {
+				factory := changestream.NewWatchableDBFactoryForNamespace(r.shared.dbGetter.GetWatchableDB, coredatabase.ControllerNS)
+				registry = services.NewRegistry(factory,
+					r.shared.dbDeleter,
+					serviceLogger{
+						Logger: r.shared.logger,
+					},
+				)
+			})
+			return registry
+		},
 	}
 }
 
@@ -594,9 +605,9 @@ func (r *adminRoot) FindMethod(rootName string, version int, methodName string) 
 
 // facadeContext implements facade.Context
 type facadeContext struct {
-	r        *apiRoot
-	key      objectKey
-	services facade.ServicesRegistry
+	r          *apiRoot
+	key        objectKey
+	servicesFn func() facade.ServicesRegistry
 }
 
 // Cancel is part of the facade.Context interface.
@@ -753,7 +764,7 @@ func (ctx *facadeContext) ControllerDB() (changestream.WatchableDB, error) {
 
 // Services returns the services registry.
 func (ctx *facadeContext) Services() facade.ServicesRegistry {
-	return ctx.services
+	return ctx.servicesFn()
 }
 
 // MachineTag returns the current machine tag.
