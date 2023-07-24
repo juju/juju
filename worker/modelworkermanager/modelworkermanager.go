@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// ModelWatcher provides an interface for watching the additiona and
+// ModelWatcher provides an interface for watching the addition and
 // removal of models.
 type ModelWatcher interface {
 	WatchModels() state.StringsWatcher

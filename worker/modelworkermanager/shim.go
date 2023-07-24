@@ -4,6 +4,8 @@
 package modelworkermanager
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/controller"
@@ -14,7 +16,8 @@ import (
 // StatePoolController implements Controller in terms of a *state.StatePool.
 type StatePoolController struct {
 	*state.StatePool
-	SysLogger corelogger.Logger
+	SysLogger         corelogger.Logger
+	CtrlConfigService ControllerConfigService
 }
 
 // Model is part of the Controller interface.
@@ -48,14 +51,7 @@ func (g StatePoolController) RecordLogger(modelUUID string) (RecordLogger, error
 
 // Config is part of the Controller interface.
 func (g StatePoolController) Config() (controller.Config, error) {
-	sys, err := g.StatePool.SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if sys == nil {
-		return nil, errors.New("state pool closed")
-	}
-	return sys.ControllerConfig()
+	return g.CtrlConfigService.ControllerConfig(stdcontext.Background())
 }
 
 func (g StatePoolController) getLoggers(loggingOutputs []string, st state.ModelSessioner) corelogger.LoggerCloser {

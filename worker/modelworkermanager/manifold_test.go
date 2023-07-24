@@ -13,10 +13,12 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
 	"github.com/juju/worker/v3/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/core/changestream"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/pki"
 	pkitest "github.com/juju/juju/pki/test"
@@ -24,16 +26,19 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/modelworkermanager"
+	"github.com/juju/juju/worker/modelworkermanager/mocks"
 )
 
 type ManifoldSuite struct {
 	statetesting.StateSuite
 
-	authority    pki.Authority
-	manifold     dependency.Manifold
-	context      dependency.Context
-	stateTracker stubStateTracker
-	sysLogger    stubLogger
+	authority         pki.Authority
+	manifold          dependency.Manifold
+	context           dependency.Context
+	stateTracker      stubStateTracker
+	sysLogger         stubLogger
+	watchableDBGetter *mocks.MockWatchableDBGetter
+	ctrlConfigService *mocks.MockControllerConfigService
 
 	stub testing.Stub
 }
@@ -47,6 +52,10 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.StateSuite.SetUpTest(c)
 
+	ctrl := gomock.NewController(c)
+	s.watchableDBGetter = mocks.NewMockWatchableDBGetter(ctrl)
+	s.ctrlConfigService = mocks.NewMockControllerConfigService(ctrl)
+
 	s.stateTracker = stubStateTracker{pool: s.StatePool}
 	s.stub.ResetCalls()
 
@@ -54,15 +63,17 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.context = s.newContext(nil)
 	s.manifold = modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
-		AgentName:      "agent",
-		AuthorityName:  "authority",
-		StateName:      "state",
-		MuxName:        "mux",
-		SyslogName:     "syslog",
-		NewWorker:      s.newWorker,
-		NewModelWorker: s.newModelWorker,
-		ModelMetrics:   dummyModelMetrics{},
-		Logger:         loggo.GetLogger("test"),
+		AgentName:                  "agent",
+		AuthorityName:              "authority",
+		StateName:                  "state",
+		MuxName:                    "mux",
+		ChangeStreamName:           "change-stream",
+		SyslogName:                 "syslog",
+		NewWorker:                  s.newWorker,
+		NewModelWorker:             s.newModelWorker,
+		ModelMetrics:               dummyModelMetrics{},
+		NewControllerConfigService: s.newControllerConfigService,
+		Logger:                     loggo.GetLogger("test"),
 	})
 }
 
@@ -70,11 +81,12 @@ var mux = apiserverhttp.NewMux()
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
-		"agent":     &fakeAgent{},
-		"authority": s.authority,
-		"mux":       mux,
-		"state":     &s.stateTracker,
-		"syslog":    s.sysLogger,
+		"agent":         &fakeAgent{},
+		"authority":     s.authority,
+		"mux":           mux,
+		"state":         &s.stateTracker,
+		"change-stream": s.watchableDBGetter,
+		"syslog":        s.sysLogger,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -98,7 +110,11 @@ func (s *ManifoldSuite) newModelWorker(config modelworkermanager.NewModelConfig)
 	return worker.NewRunner(worker.RunnerParams{}), nil
 }
 
-var expectedInputs = []string{"agent", "authority", "mux", "state", "syslog"}
+func (s *ManifoldSuite) newControllerConfigService(changestream.WatchableDBGetter, modelworkermanager.Logger) modelworkermanager.ControllerConfigService {
+	return s.ctrlConfigService
+}
+
+var expectedInputs = []string{"agent", "authority", "mux", "state", "syslog", "change-stream"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -145,8 +161,9 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		ModelMetrics: dummyModelMetrics{},
 		Mux:          mux,
 		Controller: modelworkermanager.StatePoolController{
-			StatePool: s.StatePool,
-			SysLogger: s.sysLogger,
+			StatePool:         s.StatePool,
+			SysLogger:         s.sysLogger,
+			CtrlConfigService: s.ctrlConfigService,
 		},
 		ErrorDelay: jworker.RestartDelay,
 		Logger:     loggo.GetLogger("test"),
