@@ -4,143 +4,64 @@
 package context_test
 
 import (
-	"time"
-
-	"github.com/juju/names/v4"
+	"github.com/juju/charm/v11"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	uniterapi "github.com/juju/juju/worker/uniter/api"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 type ContextRelationSuite struct {
-	testing.JujuConnSuite
-	app *state.Application
-	rel *state.Relation
-	ru  *state.RelationUnit
-
-	conn    api.Connection
-	uniter  *apiuniter.Client
-	relUnit context.RelationUnit
+	jujutesting.IsolationSuite
+	rel     *uniterapi.MockRelation
+	relUnit *uniterapi.MockRelationUnit
 }
 
 var _ = gc.Suite(&ContextRelationSuite{})
 
-func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("foo", "", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
+func (s *ContextRelationSuite) setUp(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
 
-	ch := s.AddTestingCharm(c, "riak")
-	s.app = s.AddTestingApplication(c, "u", ch)
-	rels, err := s.app.Relations()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rels, gc.HasLen, 1)
-	s.rel = rels[0]
-	unit, err := s.app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.AssignToMachine(machine)
-	c.Assert(err, jc.ErrorIsNil)
-	s.ru, err = s.rel.Unit(unit)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.ru.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	s.rel = uniterapi.NewMockRelation(ctrl)
+	s.rel.EXPECT().Id().Return(666)
+	s.relUnit = uniterapi.NewMockRelationUnit(ctrl)
+	s.relUnit.EXPECT().Relation().Return(s.rel).AnyTimes()
+	s.relUnit.EXPECT().Endpoint().Return(apiuniter.Endpoint{Relation: charm.Relation{Name: "server"}})
+	return ctrl
+}
 
-	password, err = utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
-	s.conn = s.OpenAPIAs(c, unit.Tag(), password)
-	s.uniter, err = apiuniter.NewFromConnection(s.conn)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.uniter, gc.NotNil)
+func (s *ContextRelationSuite) assertSettingsCaching(c *gc.C, members ...string) {
+	defer s.setUp(c).Finish()
 
-	apiRel, err := s.uniter.Relation(s.rel.Tag().(names.RelationTag))
+	s.relUnit.EXPECT().ReadSettings("u/1").Return(params.Settings{"blib": "blob"}, nil)
+
+	cache := context.NewRelationCache(s.relUnit.ReadSettings, members)
+	ctx := context.NewContextRelation(s.relUnit, cache)
+
+	// Check that uncached settings are read once.
+	m, err := ctx.ReadSettings("u/1")
 	c.Assert(err, jc.ErrorIsNil)
-	apiUnit, err := s.uniter.Unit(unit.Tag().(names.UnitTag))
+	expectSettings := convertMap(map[string]interface{}{"blib": "blob"})
+	c.Assert(m, gc.DeepEquals, expectSettings)
+
+	// Check that another call does not hit the api.
+	m, err = ctx.ReadSettings("u/1")
 	c.Assert(err, jc.ErrorIsNil)
-	relUnit, err := apiRel.Unit(apiUnit.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	s.relUnit = uniterapi.RelationUnitShim{relUnit}
+	c.Assert(m, gc.DeepEquals, expectSettings)
 }
 
 func (s *ContextRelationSuite) TestMemberCaching(c *gc.C) {
-	unit, err := s.app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	ru, err := s.rel.Unit(unit)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(map[string]interface{}{"blib": "blob"})
-	c.Assert(err, jc.ErrorIsNil)
-	settings, err := ru.Settings()
-	c.Assert(err, jc.ErrorIsNil)
-	settings.Set("ping", "pong")
-	_, err = settings.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	cache := context.NewRelationCache(s.relUnit.ReadSettings, []string{"u/1"})
-	ctx := context.NewContextRelation(s.relUnit, cache)
-
-	// Check that uncached settings are read from state.
-	m, err := ctx.ReadSettings("u/1")
-	c.Assert(err, jc.ErrorIsNil)
-	expectMap := settings.Map()
-	expectSettings := convertMap(expectMap)
-	c.Assert(m, gc.DeepEquals, expectSettings)
-
-	// Check that changes to state do not affect the cached settings.
-	settings.Set("ping", "pow")
-	_, err = settings.Write()
-	c.Assert(err, jc.ErrorIsNil)
-	m, err = ctx.ReadSettings("u/1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m, gc.DeepEquals, expectSettings)
+	s.assertSettingsCaching(c, "u/1")
 }
 
 func (s *ContextRelationSuite) TestNonMemberCaching(c *gc.C) {
-	unit, err := s.app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	ru, err := s.rel.Unit(unit)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(map[string]interface{}{"blib": "blob"})
-	c.Assert(err, jc.ErrorIsNil)
-	settings, err := ru.Settings()
-	c.Assert(err, jc.ErrorIsNil)
-	settings.Set("ping", "pong")
-	_, err = settings.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	cache := context.NewRelationCache(s.relUnit.ReadSettings, nil)
-	ctx := context.NewContextRelation(s.relUnit, cache)
-
-	// Check that settings are read from state.
-	m, err := ctx.ReadSettings("u/1")
-	c.Assert(err, jc.ErrorIsNil)
-	expectMap := settings.Map()
-	expectSettings := convertMap(expectMap)
-	c.Assert(m, gc.DeepEquals, expectSettings)
-
-	// Check that changes to state do not affect the obtained settings.
-	settings.Set("ping", "pow")
-	_, err = settings.Write()
-	c.Assert(err, jc.ErrorIsNil)
-	m, err = ctx.ReadSettings("u/1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m, gc.DeepEquals, expectSettings)
+	s.assertSettingsCaching(c, []string(nil)...)
 }
 
 func convertMap(settingsMap map[string]interface{}) params.Settings {
@@ -152,34 +73,28 @@ func convertMap(settingsMap map[string]interface{}) params.Settings {
 }
 
 func (s *ContextRelationSuite) TestSuspended(c *gc.C) {
-	_, err := s.app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.rel.SetSuspended(true, "")
-	c.Assert(err, jc.ErrorIsNil)
+	defer s.setUp(c).Finish()
 
+	s.rel.EXPECT().Suspended().Return(true)
 	ctx := context.NewContextRelation(s.relUnit, nil)
-	err = s.relUnit.Relation().Refresh()
-	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Suspended(), jc.IsTrue)
 }
 
 func (s *ContextRelationSuite) TestSetStatus(c *gc.C) {
-	_, err := s.app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	claimer, err := s.LeaseManager.Claimer("application-leadership", s.State.ModelUUID())
-	c.Assert(err, jc.ErrorIsNil)
-	err = claimer.Claim("u", "u/0", time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
+	defer s.setUp(c).Finish()
+
+	s.rel.EXPECT().SetStatus(relation.Suspended).Return(nil)
 
 	ctx := context.NewContextRelation(s.relUnit, nil)
-	err = ctx.SetStatus(relation.Suspended)
+	err := ctx.SetStatus(relation.Suspended)
 	c.Assert(err, jc.ErrorIsNil)
-	relStatus, err := s.rel.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(relStatus.Status, gc.Equals, status.Suspended)
 }
 
 func (s *ContextRelationSuite) TestRemoteApplicationName(c *gc.C) {
+	defer s.setUp(c).Finish()
+
+	s.rel.EXPECT().OtherApplication().Return("u")
+
 	ctx := context.NewContextRelation(s.relUnit, nil)
 	c.Assert(ctx.RemoteApplicationName(), gc.Equals, "u")
 }

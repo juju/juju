@@ -136,7 +136,7 @@ func NewMockUnitHookContext(mockUnit *api.MockUnit, modelType model.ModelType, l
 	}
 }
 
-func NewMockUnitHookContextWithState(mockUnit *api.MockUnit, uniterClient api.UniterClient) *HookContext {
+func NewMockUnitHookContextWithUniter(mockUnit *api.MockUnit, uniterClient *api.MockUniterClient) *HookContext {
 	logger := loggo.GetLogger("test")
 	return &HookContext{
 		unitName:               mockUnit.Tag().Id(), //unitName used by the action finaliser method.

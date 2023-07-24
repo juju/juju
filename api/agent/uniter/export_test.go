@@ -10,10 +10,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var (
-	NewSettings = newSettings
-)
-
 // CreateUnit creates uniter.Unit for tests.
 func CreateUnit(client *Client, tag names.UnitTag) *Unit {
 	return &Unit{

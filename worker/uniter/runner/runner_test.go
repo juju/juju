@@ -17,6 +17,7 @@ import (
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/exec"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
@@ -34,6 +35,10 @@ type RunCommandSuite struct {
 var _ = gc.Suite(&RunCommandSuite{})
 
 func (s *RunCommandSuite) TestRunCommandsEnvStdOutAndErrAndRC(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.setupFactory(c, ctrl)
+
 	ctx, err := s.contextFactory.HookContext(hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
 	paths := runnertesting.NewRealPaths(c)
@@ -150,6 +155,9 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 	writer := &RestrictedWriter{Module: "unit.u/0.something-happened"}
 	c.Assert(loggo.RegisterWriter("test", writer), jc.ErrorIsNil)
 	for i, t := range runHookTests {
+		ctrl := gomock.NewController(c)
+		s.setupFactory(c, ctrl)
+
 		writer.Buffer.Reset()
 		c.Logf("\ntest %d of %d: %s; perm %v", i, len(runHookTests)+1, t.summary, t.spec.perm)
 		ctx, err := s.contextFactory.HookContext(hook.Info{Kind: hooks.ConfigChanged})
@@ -197,6 +205,7 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 			c.Check(writer.Buffer.String(), jc.Contains,
 				fmt.Sprintf("WARNING unit.u/0.something-happened %s\n", t.spec.stderr))
 		}
+		ctrl.Finish()
 	}
 }
 
