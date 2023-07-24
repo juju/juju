@@ -5,6 +5,7 @@ package certupdater_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -66,6 +67,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		AuthorityName:              "authority",
 		StateName:                  "state",
 		ChangeStreamName:           "change-stream",
+		Logger:                     loggo.GetLogger("test"),
 		NewWorker:                  s.newWorker,
 		NewMachineAddressWatcher:   s.newMachineAddressWatcher,
 		NewControllerConfigService: s.newControllerConfigService,
@@ -100,7 +102,7 @@ func (s *ManifoldSuite) newMachineAddressWatcher(st *state.State, machineId stri
 	return &s.addressWatcher, nil
 }
 
-func (s *ManifoldSuite) newControllerConfigService(changestream.WatchableDBGetter) certupdater.ControllerConfigService {
+func (s *ManifoldSuite) newControllerConfigService(changestream.WatchableDBGetter, certupdater.Logger) certupdater.ControllerConfigService {
 	return s.ctrlConfigService
 }
 

@@ -782,6 +782,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AuthorityName:              certificateWatcherName,
 			StateName:                  stateName,
 			ChangeStreamName:           changeStreamName,
+			Logger:                     loggo.GetLogger("juju.worker.certupdater"),
 			NewWorker:                  certupdater.NewCertificateUpdater,
 			NewMachineAddressWatcher:   certupdater.NewMachineAddressWatcher,
 			NewControllerConfigService: certupdater.NewControllerConfigService,

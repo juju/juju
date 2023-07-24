@@ -22,6 +22,15 @@ import (
 	workerstate "github.com/juju/juju/worker/state"
 )
 
+// Logger defines the logging methods used by the worker.
+type Logger interface {
+	Criticalf(string, ...interface{})
+	Warningf(string, ...interface{})
+	Infof(string, ...interface{})
+	Debugf(string, ...interface{})
+	Tracef(string, ...interface{})
+}
+
 // ManifoldConfig holds the information necessary to run a certupdater
 // in a dependency.Engine.
 type ManifoldConfig struct {
@@ -29,9 +38,10 @@ type ManifoldConfig struct {
 	AuthorityName              string
 	StateName                  string
 	ChangeStreamName           string
+	Logger                     Logger
 	NewWorker                  func(Config) (worker.Worker, error)
 	NewMachineAddressWatcher   func(st *state.State, machineId string) (AddressWatcher, error)
-	NewControllerConfigService func(getter changestream.WatchableDBGetter) ControllerConfigService
+	NewControllerConfigService func(getter changestream.WatchableDBGetter, logger Logger) ControllerConfigService
 }
 
 // Validate validates the manifold configuration.
@@ -47,6 +57,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.ChangeStreamName == "" {
 		return errors.NotValidf("empty ChangeStreamName")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -119,7 +132,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		AddressWatcher:     addressWatcher,
 		Authority:          authority,
 		APIHostPortsGetter: st,
-		CtrlConfigService:  config.NewControllerConfigService(dbGetter),
+		CtrlConfigService:  config.NewControllerConfigService(dbGetter, config.Logger),
 	})
 	if err != nil {
 		_ = stTracker.Done()
@@ -142,7 +155,7 @@ func NewMachineAddressWatcher(st *state.State, machineId string) (AddressWatcher
 
 // NewControllerConfigService is the function that non-test code should
 // pass into ManifoldConfig.NewControllerConfigService.
-func NewControllerConfigService(dbGetter changestream.WatchableDBGetter) ControllerConfigService {
+func NewControllerConfigService(dbGetter changestream.WatchableDBGetter, logger Logger) ControllerConfigService {
 	return controllerconfigservice.NewService(
 		controllerconfigstate.NewState(coredatabase.NewTxnRunnerFactoryForNamespace(
 			dbGetter.GetWatchableDB,
