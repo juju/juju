@@ -60,7 +60,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.manifold = peergrouper.Manifold(peergrouper.ManifoldConfig{
 		AgentName:            "agent",
 		ClockName:            "clock",
-		ControllerPortName:   "controller-port",
 		StateName:            "state",
 		Hub:                  s.hub,
 		NewWorker:            s.newWorker,

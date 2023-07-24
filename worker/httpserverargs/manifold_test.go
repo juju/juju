@@ -50,7 +50,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.config = httpserverargs.ManifoldConfig{
 		ClockName:             "clock",
 		StateName:             "state",
-		ControllerPortName:    "controller-port",
 		NewStateAuthenticator: s.newStateAuthenticator,
 	}
 	s.manifold = httpserverargs.Manifold(s.config)
@@ -166,17 +165,14 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 		expect string
 	}
 	tests := []test{{
-		func(cfg *httpserverargs.ManifoldConfig) { cfg.StateName = "" },
-		"empty StateName not valid",
+		f:      func(cfg *httpserverargs.ManifoldConfig) { cfg.StateName = "" },
+		expect: "empty StateName not valid",
 	}, {
-		func(cfg *httpserverargs.ManifoldConfig) { cfg.ClockName = "" },
-		"empty ClockName not valid",
+		f:      func(cfg *httpserverargs.ManifoldConfig) { cfg.ClockName = "" },
+		expect: "empty ClockName not valid",
 	}, {
-		func(cfg *httpserverargs.ManifoldConfig) { cfg.ControllerPortName = "" },
-		"empty ControllerPortName not valid",
-	}, {
-		func(cfg *httpserverargs.ManifoldConfig) { cfg.NewStateAuthenticator = nil },
-		"nil NewStateAuthenticator not valid",
+		f:      func(cfg *httpserverargs.ManifoldConfig) { cfg.NewStateAuthenticator = nil },
+		expect: "nil NewStateAuthenticator not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)
