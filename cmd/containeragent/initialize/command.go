@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/cmd/containeragent/utils"
 	"github.com/juju/juju/service/pebble/plan"
 	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/worker/introspection"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/application_mock.go github.com/juju/juju/cmd/containeragent/initialize ApplicationAPI
@@ -53,6 +54,7 @@ type initCommand struct {
 
 	dataDir      string
 	binDir       string
+	profileDir   string
 	isController bool
 }
 
@@ -79,6 +81,7 @@ func (c *initCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.charmModifiedVersion, "charm-modified-version", "", "charm modified version for update hook")
 	f.StringVar(&c.dataDir, "data-dir", "", "directory for juju data")
 	f.StringVar(&c.binDir, "bin-dir", "", "copy juju binaries to this directory")
+	f.StringVar(&c.profileDir, "profile-dir", "", "install introspection functions to this directory")
 	f.BoolVar(&c.isController, "controller", false, "set when the charm is colocated with the controller")
 }
 
@@ -124,6 +127,9 @@ func (c *initCommand) Run(ctx *cmd.Context) (err error) {
 		if err == nil {
 			err = c.copyBinaries()
 		}
+		if err == nil {
+			err = c.installIntrospectionFunctions()
+		}
 	}()
 
 	// If the agent conf already exists, no need to do the unit introduction.
@@ -166,11 +172,11 @@ func (c *initCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 
-	if err = c.fileReaderWriter.MkdirAll(c.dataDir, 0755); err != nil {
+	if err = c.fileReaderWriter.MkdirAll(c.dataDir, 0775); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err = c.fileReaderWriter.WriteFile(templateConfigPath, unitConfig.AgentConf, 0644); err != nil {
+	if err = c.fileReaderWriter.WriteFile(templateConfigPath, unitConfig.AgentConf, 0664); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -178,7 +184,7 @@ func (c *initCommand) Run(ctx *cmd.Context) (err error) {
 }
 
 func (c *initCommand) copyBinaries() error {
-	if err := c.fileReaderWriter.MkdirAll(c.binDir, 0755); err != nil {
+	if err := c.fileReaderWriter.MkdirAll(c.binDir, 0775); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -190,7 +196,7 @@ func (c *initCommand) copyBinaries() error {
 				return errors.Annotatef(err, "opening %q for reading", src)
 			}
 			defer srcStream.Close()
-			dstStream, err := c.fileReaderWriter.Writer(dst, 0755)
+			dstStream, err := c.fileReaderWriter.Writer(dst, 0775)
 			if err != nil {
 				return errors.Annotatef(err, "opening %q for writing", dst)
 			}
@@ -278,7 +284,7 @@ func (c *initCommand) writeContainerAgentPebbleConfig() error {
 	}
 
 	layerDir := path.Join(c.containerAgentPebbleDir, "layers")
-	if err := c.fileReaderWriter.MkdirAll(layerDir, 0555); err != nil {
+	if err := c.fileReaderWriter.MkdirAll(layerDir, 0775); err != nil {
 		return fmt.Errorf("making pebble container agent layer dir at %q: %w", layerDir, err)
 	}
 
@@ -289,10 +295,17 @@ func (c *initCommand) writeContainerAgentPebbleConfig() error {
 		return fmt.Errorf("making pebble container agent layer yaml: %w", err)
 	}
 
-	if err := c.fileReaderWriter.WriteFile(p, rawConfig, 0444); err != nil {
+	if err := c.fileReaderWriter.WriteFile(p, rawConfig, 0664); err != nil {
 		return fmt.Errorf("writing container agent pebble configuration to %q: %w", p, err)
 	}
 	return nil
+}
+
+func (c *initCommand) installIntrospectionFunctions() error {
+	if c.profileDir == "" {
+		return nil
+	}
+	return introspection.UpdateProfileFunctions(c.fileReaderWriter, c.profileDir)
 }
 
 func (c *initCommand) CurrentConfig() agent.Config {

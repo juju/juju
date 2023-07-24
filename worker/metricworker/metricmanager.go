@@ -23,6 +23,7 @@ func newMetricsManager(client metricsmanager.MetricsManagerClient, notify chan s
 	runner := worker.NewRunner(worker.RunnerParams{
 		IsFatal:      isFatal,
 		RestartDelay: jworker.RestartDelay,
+		Logger:       logger,
 	})
 	err := runner.StartWorker("sender", func() (worker.Worker, error) {
 		return newSender(client, notify, logger), nil

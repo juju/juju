@@ -16,7 +16,7 @@ run_user_register() {
 
 	rm -rf /tmp/bob || true
 	mkdir -p /tmp/bob
-	printf 'secret\nsecret\ntest\nsecret' | JUJU_DATA=/tmp/bob ${REG_CMD}
+	printf 'secret\nsecret\ntest\nsecret\n' | JUJU_DATA=/tmp/bob ${REG_CMD}
 	MODELS=$(JUJU_DATA=/tmp/bob juju models)
 	check_contains "${MODELS}" "admin/test-user"
 }

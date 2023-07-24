@@ -124,7 +124,7 @@ func (s *StatusSuite) TestDerivedStatusBringsAllDetails(c *gc.C) {
 func (s *StatusSuite) TestDerivedStatusPriority(c *gc.C) {
 	for _, t := range []struct{ status1, status2, expected status.Status }{
 		{status.Active, status.Waiting, status.Waiting},
-		{status.Maintenance, status.Waiting, status.Waiting},
+		{status.Maintenance, status.Waiting, status.Maintenance},
 		{status.Active, status.Blocked, status.Blocked},
 		{status.Waiting, status.Blocked, status.Blocked},
 		{status.Maintenance, status.Blocked, status.Blocked},

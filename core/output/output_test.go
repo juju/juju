@@ -5,9 +5,10 @@ package output_test
 
 import (
 	"github.com/juju/ansiterm"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/core/status"
-	gc "gopkg.in/check.v1"
 )
 
 type OutputSuite struct{}

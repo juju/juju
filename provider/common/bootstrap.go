@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/sshinit"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
@@ -313,7 +314,7 @@ func BootstrapInstance(
 	}
 	modelFw, ok := env.(models.ModelFirewaller)
 	if ok {
-		if err := openModelSSH(callCtx, modelFw, env.Config()); err != nil {
+		if err := openControllerModelPorts(callCtx, modelFw, args.ControllerConfig, env.Config()); err != nil {
 			return nil, nil, nil, errors.Annotate(err, "cannot open SSH")
 		}
 	}
@@ -382,13 +383,32 @@ func startInstanceZones(env environs.Environ, ctx envcontext.ProviderCallContext
 	return zones, nil
 }
 
-// openModelSSH opens port 22 on the controller to the configured allow list.
+// openControllerModelPorts opens port 22 and apiports on the controller to the configured allow list.
 // This is all that is required for the bootstrap to continue. Further configured
 // rules will be opened by the firewaller, Once it has started
-func openModelSSH(callCtx envcontext.ProviderCallContext, modelFw models.ModelFirewaller, cfg *config.Config) error {
-	return modelFw.OpenModelPorts(callCtx, firewall.IngressRules{
+func openControllerModelPorts(callCtx envcontext.ProviderCallContext,
+	modelFw models.ModelFirewaller, controllerConfig controller.Config, cfg *config.Config) error {
+	rules := firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("22"), cfg.SSHAllow()...),
-	})
+		firewall.NewIngressRule(network.PortRange{
+			Protocol: "tcp",
+			FromPort: controllerConfig.APIPort(),
+			ToPort:   controllerConfig.APIPort(),
+		}),
+	}
+
+	if controllerConfig.AutocertDNSName() != "" {
+		// Open port 80 as well as it handles Let's Encrypt HTTP challenge.
+		rules = append(rules,
+			firewall.NewIngressRule(network.PortRange{
+				Protocol: "tcp",
+				FromPort: 80,
+				ToPort:   80,
+			}),
+		)
+	}
+
+	return modelFw.OpenModelPorts(callCtx, rules)
 }
 
 func formatHardware(hw *instance.HardwareCharacteristics) string {

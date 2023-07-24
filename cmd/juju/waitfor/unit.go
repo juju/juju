@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd/v3"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
@@ -28,7 +29,7 @@ func newUnitCommand() cmd.Command {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return watchAllAPIShim{
+		return modelAllWatchShim{
 			Client: client,
 		}, nil
 	}
@@ -54,10 +55,10 @@ type unitCommand struct {
 	name    string
 	query   string
 	timeout time.Duration
-	found   bool
 	summary bool
 
-	unitInfo params.UnitInfo
+	unitInfo *params.UnitInfo
+	machines map[string]*params.MachineInfo
 }
 
 // Info implements Command.Info.
@@ -94,22 +95,22 @@ func (c *unitCommand) Init(args []string) (err error) {
 	return nil
 }
 
-func (c *unitCommand) Run(ctx *cmd.Context) error {
+func (c *unitCommand) Run(ctx *cmd.Context) (err error) {
 	scopedContext := MakeScopeContext()
 
 	defer func() {
-		if !c.summary {
+		if err != nil || !c.summary || c.unitInfo == nil {
 			return
 		}
 
 		switch c.unitInfo.Life {
 		case life.Dead:
-			ctx.Infof("Unit %q has been removed", c.name)
+			ctx.Infof("unit %q has been removed", c.name)
 		case life.Dying:
-			ctx.Infof("Unit %q is being removed", c.name)
+			ctx.Infof("unit %q is being removed", c.name)
 		default:
-			ctx.Infof("Unit %q is running", c.name)
-			outputUnitSummary(ctx.Stdout, scopedContext, &c.unitInfo)
+			ctx.Infof("unit %q is running", c.name)
+			outputUnitSummary(ctx.Stdout, scopedContext, c.unitInfo, c.machines)
 		}
 	}()
 
@@ -117,14 +118,33 @@ func (c *unitCommand) Run(ctx *cmd.Context) error {
 		ClientFn: c.newWatchAllAPIFunc,
 		Timeout:  c.timeout,
 	}
-	err := strategy.Run(c.name, c.query, c.waitFor(scopedContext))
+	strategy.Subscribe(func(event EventType) {
+		switch event {
+		case WatchAllStarted:
+			c.primeCache()
+		}
+	})
+	err = strategy.Run(ctx, c.name, c.query, c.waitFor(c.query, scopedContext, ctx), emptyNotify)
 	return errors.Trace(err)
 }
 
-func (c *unitCommand) waitFor(ctx ScopeContext) func(string, []params.Delta, query.Query) (bool, error) {
+func (c *unitCommand) primeCache() {
+	c.machines = make(map[string]*params.MachineInfo)
+}
+
+func (c *unitCommand) waitFor(input string, ctx ScopeContext, logger Logger) func(string, []params.Delta, query.Query) (bool, error) {
+	run := func(q query.Query) (bool, error) {
+		scope := MakeUnitScope(ctx, c.unitInfo, c.machines)
+		if done, err := runQuery(input, q, scope); err != nil {
+			return false, errors.Trace(err)
+		} else if done {
+			return true, nil
+		}
+		return c.unitInfo.Life == life.Dead, nil
+	}
 	return func(name string, deltas []params.Delta, q query.Query) (bool, error) {
 		for _, delta := range deltas {
-			logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
+			logger.Verbosef("delta %T: %v", delta.Entity, delta.Entity)
 
 			switch entityInfo := delta.Entity.(type) {
 			case *params.UnitInfo:
@@ -136,20 +156,24 @@ func (c *unitCommand) waitFor(ctx ScopeContext) func(string, []params.Delta, que
 					return false, errors.Errorf("unit %v removed", name)
 				}
 
-				c.unitInfo = *entityInfo
+				c.unitInfo = entityInfo
 
-				scope := MakeUnitScope(ctx, entityInfo)
-				if done, err := runQuery(q, scope); err != nil {
-					return false, errors.Trace(err)
-				} else if done {
-					return true, nil
+			case *params.MachineInfo:
+				if delta.Removed {
+					delete(c.machines, entityInfo.Id)
+					break
 				}
-
-				c.found = entityInfo.Life != life.Dead
+				c.machines[entityInfo.Id] = entityInfo
 			}
 		}
 
-		if !c.found {
+		if c.unitInfo != nil {
+			if found, err := run(q); err != nil {
+				return false, errors.Trace(err)
+			} else if found {
+				return true, nil
+			}
+		} else {
 			logger.Infof("unit %q not found, waiting...", name)
 			return false, nil
 		}
@@ -161,21 +185,24 @@ func (c *unitCommand) waitFor(ctx ScopeContext) func(string, []params.Delta, que
 
 // UnitScope allows the query to introspect a unit entity.
 type UnitScope struct {
-	ctx      ScopeContext
-	UnitInfo *params.UnitInfo
+	ctx          ScopeContext
+	UnitInfo     *params.UnitInfo
+	MachineInfos map[string]*params.MachineInfo
 }
 
 // MakeUnitScope creates an UnitScope from an UnitInfo
-func MakeUnitScope(ctx ScopeContext, info *params.UnitInfo) UnitScope {
+func MakeUnitScope(ctx ScopeContext, info *params.UnitInfo, machineInfos map[string]*params.MachineInfo) UnitScope {
 	return UnitScope{
-		ctx:      ctx,
-		UnitInfo: info,
+		ctx:          ctx,
+		UnitInfo:     info,
+		MachineInfos: machineInfos,
 	}
 }
 
 // GetIdents returns the identifiers with in a given scope.
 func (m UnitScope) GetIdents() []string {
-	return getIdents(m.UnitInfo)
+	idents := set.NewStrings(getIdents(m.UnitInfo)...)
+	return set.NewStrings("machines").Union(idents).SortedValues()
 }
 
 // GetIdentValue returns the value of the identifier in a given scope.
@@ -209,25 +236,57 @@ func (m UnitScope) GetIdentValue(name string) (query.Box, error) {
 		return query.NewString(m.UnitInfo.WorkloadStatus.Message), nil
 	case "agent-status":
 		return query.NewString(string(m.UnitInfo.AgentStatus.Current)), nil
+	case "machines":
+		scopes := make(map[string]query.Scope)
+		for k, machine := range m.MachineInfos {
+			if machine.Id == m.UnitInfo.MachineId {
+				scopes[k] = MakeMachineScope(m.ctx.Child(name, machine.Id), machine)
+			}
+		}
+		return NewScopedBox(scopes), nil
 	}
-	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "Runtime Error: identifier %q not found on UnitInfo", name)
+	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name, m), "%q on UnitInfo", name)
 }
 
-func outputUnitSummary(writer io.Writer, scopedContext ScopeContext, unitInfo *params.UnitInfo) {
+func outputUnitSummary(writer io.Writer, scopedContext ScopeContext, units *params.UnitInfo, machines map[string]*params.MachineInfo) {
 	result := struct {
-		Elements map[string]interface{} `yaml:"properties"`
+		Properties map[string]any            `yaml:"properties"`
+		Machines   map[string]map[string]any `yaml:"machines,omitempty"`
 	}{
-		Elements: make(map[string]interface{}),
+		Properties: make(map[string]any),
+		Machines:   make(map[string]map[string]any),
 	}
 
 	idents := scopedContext.RecordedIdents()
 	for _, ident := range idents {
-		scope := MakeUnitScope(scopedContext, unitInfo)
+		scope := MakeUnitScope(scopedContext, units, machines)
 		box, err := scope.GetIdentValue(ident)
 		if err != nil {
 			continue
 		}
-		result.Elements[ident] = box.Value()
+		result.Properties[ident] = box.Value()
+	}
+
+	for entity, scopes := range scopedContext.children {
+		for name, sctx := range scopes {
+			idents := sctx.RecordedIdents()
+
+			switch entity {
+			case "machines":
+				machineInfo := machines[name]
+				scope := MakeMachineScope(scopedContext, machineInfo)
+
+				result.Machines[name] = make(map[string]any)
+
+				for _, ident := range idents {
+					box, err := scope.GetIdentValue(ident)
+					if err != nil {
+						continue
+					}
+					result.Machines[name][ident] = box.Value()
+				}
+			}
+		}
 	}
 
 	_ = yaml.NewEncoder(writer).Encode(result)

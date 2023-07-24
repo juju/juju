@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
@@ -193,11 +194,21 @@ func (m jujuMain) Run(args []string) int {
 	// There's special processing to call the inbuilt version command if the
 	// --version flag is set. But we want to invoke the juju version command.
 	cmdArgs := make([]string, len(args)-1)
+	flagIdx := -1
+	cmdIdx := -1
 	for i, arg := range args[1:] {
 		if arg == "--version" {
-			arg = "version"
+			flagIdx = i
+		}
+		if cmdIdx == -1 && !strings.HasPrefix(arg, "--") && arg != "help" && arg != "version" {
+			cmdIdx = i
 		}
 		cmdArgs[i] = arg
+	}
+	// If there is a command before the --version flag, don't change the flag
+	// to the version command.
+	if flagIdx != -1 && (cmdIdx > flagIdx || cmdIdx == -1) {
+		cmdArgs[flagIdx] = "version"
 	}
 	jcmd := NewJujuCommand(ctx, jujuMsg)
 	return cmd.Main(jcmd, ctx, cmdArgs)

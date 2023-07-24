@@ -26,7 +26,45 @@ type Box interface {
 	IsZero() bool
 
 	// Value defines the shadow type value of the Box.
-	Value() interface{}
+	Value() any
+}
+
+// BoxScope defines an ordered integer.
+type BoxScope struct {
+	value Scope
+}
+
+// NewScope creates a new Box value
+func NewScope(value Scope) *BoxScope {
+	return &BoxScope{value: value}
+}
+
+// Less checks if a BoxScope is less than another BoxScope.
+func (o *BoxScope) Less(other Ord) bool {
+	return false
+}
+
+// Equal checks if an BoxScope is equal to another BoxScope.
+func (o *BoxScope) Equal(other Ord) bool {
+	if i, ok := other.(*BoxScope); ok {
+		return o.value == i.value
+	}
+	return false
+}
+
+// IsZero returns if the underlying value is zero.
+func (o *BoxScope) IsZero() bool {
+	return o.value == nil
+}
+
+// Value defines the shadow type value of the Box.
+func (o *BoxScope) Value() any {
+	return o.value
+}
+
+// ForEach iterates over each value in the box.
+func (o *BoxScope) ForEach(fn func(any) bool) {
+	fn(o.value)
 }
 
 // BoxInteger defines an ordered integer.
@@ -61,12 +99,12 @@ func (o *BoxInteger) IsZero() bool {
 }
 
 // Value defines the shadow type value of the Box.
-func (o *BoxInteger) Value() interface{} {
+func (o *BoxInteger) Value() any {
 	return o.value
 }
 
 // ForEach iterates over each value in the box.
-func (o *BoxInteger) ForEach(fn func(interface{}) bool) {
+func (o *BoxInteger) ForEach(fn func(any) bool) {
 	fn(o.value)
 }
 
@@ -102,12 +140,12 @@ func (o *BoxFloat) IsZero() bool {
 }
 
 // Value defines the shadow type value of the Box.
-func (o *BoxFloat) Value() interface{} {
+func (o *BoxFloat) Value() any {
 	return o.value
 }
 
 // ForEach iterates over each value in the box.
-func (o *BoxFloat) ForEach(fn func(interface{}) bool) {
+func (o *BoxFloat) ForEach(fn func(any) bool) {
 	fn(o.value)
 }
 
@@ -143,12 +181,12 @@ func (o *BoxString) IsZero() bool {
 }
 
 // Value defines the shadow type value of the Box.
-func (o *BoxString) Value() interface{} {
+func (o *BoxString) Value() any {
 	return o.value
 }
 
 // ForEach iterates over each value in the box.
-func (o *BoxString) ForEach(fn func(interface{}) bool) {
+func (o *BoxString) ForEach(fn func(any) bool) {
 	fn(o.value)
 }
 
@@ -177,26 +215,26 @@ func (o *BoxBool) Equal(other Ord) bool {
 
 // IsZero returns if the underlying value is zero.
 func (o *BoxBool) IsZero() bool {
-	return o.value == false
+	return !o.value
 }
 
 // Value defines the shadow type value of the Box.
-func (o *BoxBool) Value() interface{} {
+func (o *BoxBool) Value() any {
 	return o.value
 }
 
 // ForEach iterates over each value in the box.
-func (o *BoxBool) ForEach(fn func(interface{}) bool) {
+func (o *BoxBool) ForEach(fn func(any) bool) {
 	fn(o.value)
 }
 
-// BoxMapStringInterface defines an ordered map[string]interface{}.
+// BoxMapStringInterface defines an ordered map[string]any.
 type BoxMapStringInterface struct {
-	value map[string]interface{}
+	value map[string]any
 }
 
 // NewMapStringInterface creates a new Box value
-func NewMapStringInterface(value map[string]interface{}) *BoxMapStringInterface {
+func NewMapStringInterface(value map[string]any) *BoxMapStringInterface {
 	return &BoxMapStringInterface{value: value}
 }
 
@@ -219,12 +257,12 @@ func (o *BoxMapStringInterface) IsZero() bool {
 }
 
 // Value defines the shadow type value of the Box.
-func (o *BoxMapStringInterface) Value() interface{} {
+func (o *BoxMapStringInterface) Value() any {
 	return o.value
 }
 
 // ForEach iterates over each value in the box.
-func (o *BoxMapStringInterface) ForEach(fn func(interface{}) bool) {
+func (o *BoxMapStringInterface) ForEach(fn func(any) bool) {
 	names := set.NewStrings()
 	for k := range o.value {
 		names.Add(k)
@@ -236,13 +274,13 @@ func (o *BoxMapStringInterface) ForEach(fn func(interface{}) bool) {
 	}
 }
 
-// BoxMapInterfaceInterface defines an ordered map[interface{}]interface{}.
+// BoxMapInterfaceInterface defines an ordered map[any]any.
 type BoxMapInterfaceInterface struct {
-	value map[interface{}]interface{}
+	value map[any]any
 }
 
 // NewMapInterfaceInterface creates a new Box value
-func NewMapInterfaceInterface(value map[interface{}]interface{}) *BoxMapInterfaceInterface {
+func NewMapInterfaceInterface(value map[any]any) *BoxMapInterfaceInterface {
 	return &BoxMapInterfaceInterface{value: value}
 }
 
@@ -265,12 +303,12 @@ func (o *BoxMapInterfaceInterface) IsZero() bool {
 }
 
 // Value defines the shadow type value of the Box.
-func (o *BoxMapInterfaceInterface) Value() interface{} {
+func (o *BoxMapInterfaceInterface) Value() any {
 	return o.value
 }
 
 // ForEach iterates over each value in the box.
-func (o *BoxMapInterfaceInterface) ForEach(fn func(interface{}) bool) {
+func (o *BoxMapInterfaceInterface) ForEach(fn func(any) bool) {
 	for _, v := range o.value {
 		if !fn(v) {
 			return
@@ -307,12 +345,12 @@ func (o *BoxSliceString) IsZero() bool {
 }
 
 // Value defines the shadow type value of the Box.
-func (o *BoxSliceString) Value() interface{} {
+func (o *BoxSliceString) Value() any {
 	return o.value
 }
 
 // ForEach iterates over each value in the box.
-func (o *BoxSliceString) ForEach(fn func(interface{}) bool) {
+func (o *BoxSliceString) ForEach(fn func(any) bool) {
 	for _, v := range o.value {
 		if !fn(v) {
 			return
@@ -350,7 +388,7 @@ func (o *BoxLambda) IsZero() bool {
 }
 
 // Value defines the shadow type value of the Box.
-func (o *BoxLambda) Value() interface{} {
+func (o *BoxLambda) Value() any {
 	return o
 }
 
@@ -364,7 +402,7 @@ func (o *BoxLambda) Call(scope Scope) ([]Box, error) {
 	return o.fn(scope)
 }
 
-func expectStringIndex(i interface{}) (*BoxString, error) {
+func expectStringIndex(i any) (*BoxString, error) {
 	box, ok := i.(Box)
 	if !ok {
 		return nil, RuntimeErrorf("expected string, but got %T", i)
@@ -378,7 +416,7 @@ func expectStringIndex(i interface{}) (*BoxString, error) {
 	return idx, nil
 }
 
-func expectIntegerIndex(i interface{}) (*BoxInteger, error) {
+func expectIntegerIndex(i any) (*BoxInteger, error) {
 	box, ok := i.(Box)
 	if !ok {
 		return nil, RuntimeErrorf("expected int, but got %T", i)
@@ -392,7 +430,7 @@ func expectIntegerIndex(i interface{}) (*BoxInteger, error) {
 	return idx, nil
 }
 
-func expectBoxIndex(i interface{}) (Box, error) {
+func expectBoxIndex(i any) (Box, error) {
 	box, ok := i.(Box)
 	if !ok {
 		return nil, RuntimeErrorf("expected box, but got %T", i)
@@ -412,9 +450,9 @@ func shadowType(box Box) string {
 	case *BoxString:
 		return "string"
 	case *BoxMapInterfaceInterface:
-		return "map[interface{}]interface{}"
+		return "map[any]any"
 	case *BoxMapStringInterface:
-		return "map[string]interface{}"
+		return "map[string]any"
 	case *BoxSliceString:
 		return "[]string"
 	}

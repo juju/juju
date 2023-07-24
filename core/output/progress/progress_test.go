@@ -21,11 +21,9 @@ import (
 	"bytes"
 	"fmt"
 
-	"go.uber.org/mock/gomock"
-
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/clock"
+	"go.uber.org/mock/gomock"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/output/progress"
 	"github.com/juju/juju/core/output/progress/mocks"

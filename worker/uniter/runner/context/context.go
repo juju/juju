@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/charm/v11"
 	"github.com/juju/charm/v11/hooks"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -952,15 +951,6 @@ func (ctx *HookContext) RemoveSecret(uri *coresecrets.URI, revision *int) error 
 // SecretMetadata gets the secret ids and their labels and latest revisions created by the charm.
 // The result includes any pending updates.
 func (ctx *HookContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error) {
-	pendingUpdatesByID := make(map[string]uniter.SecretUpsertArg)
-	for _, u := range ctx.secretChanges.pendingUpdates {
-		pendingUpdatesByID[u.URI.ID] = u.SecretUpsertArg
-	}
-	pendingDeletes := set.NewStrings()
-	for _, r := range ctx.secretChanges.pendingDeletes {
-		pendingDeletes.Add(r.URI.ID)
-	}
-
 	result := make(map[string]jujuc.SecretMetadata)
 	for _, c := range ctx.secretChanges.pendingCreates {
 		md := jujuc.SecretMetadata{
@@ -982,10 +972,10 @@ func (ctx *HookContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error
 		result[c.URI.ID] = md
 	}
 	for id, v := range ctx.secretMetadata {
-		if pendingDeletes.Contains(id) {
+		if _, ok := ctx.secretChanges.pendingDeletes[id]; ok {
 			continue
 		}
-		if u, ok := pendingUpdatesByID[id]; ok {
+		if u, ok := ctx.secretChanges.pendingUpdates[id]; ok {
 			if u.Label != nil {
 				v.Label = *u.Label
 			}
@@ -1442,14 +1432,19 @@ func (ctx *HookContext) doFlush(process string) error {
 			return errors.Trace(err)
 		}
 	}
-	var cleanups []coresecrets.ValueRef
-	pendingCreates := make([]uniter.SecretCreateArg, len(ctx.secretChanges.pendingCreates))
-	pendingUpdates := make([]uniter.SecretUpsertArg, len(ctx.secretChanges.pendingUpdates))
-	pendingDeletes := make([]uniter.SecretDeleteArg, len(ctx.secretChanges.pendingDeletes))
-	for i, c := range ctx.secretChanges.pendingCreates {
+
+	var (
+		cleanups       []coresecrets.ValueRef
+		pendingCreates []uniter.SecretCreateArg
+		pendingUpdates []uniter.SecretUpsertArg
+		pendingDeletes []uniter.SecretDeleteArg
+		pendingGrants  []uniter.SecretGrantRevokeArgs
+		pendingRevokes []uniter.SecretGrantRevokeArgs
+	)
+	for _, c := range ctx.secretChanges.pendingCreates {
 		ref, err := secretsBackend.SaveContent(c.URI, 1, c.Value)
-		if errors.IsNotSupported(err) {
-			pendingCreates[i] = c
+		if errors.Is(err, errors.NotSupported) {
+			pendingCreates = append(pendingCreates, c)
 			continue
 		}
 		if err != nil {
@@ -1458,18 +1453,18 @@ func (ctx *HookContext) doFlush(process string) error {
 		cleanups = append(cleanups, ref)
 		c.ValueRef = &ref
 		c.Value = nil
-		pendingCreates[i] = c
+		pendingCreates = append(pendingCreates, c)
 	}
-	for i, u := range ctx.secretChanges.pendingUpdates {
+	for _, u := range ctx.secretChanges.pendingUpdates {
 		// Juju checks that the current revision is stable when updating metadata so it's
 		// safe to increment here knowing the same value will be saved in Juju.
 		if u.Value.IsEmpty() {
-			pendingUpdates[i] = u.SecretUpsertArg
+			pendingUpdates = append(pendingUpdates, u.SecretUpsertArg)
 			continue
 		}
 		ref, err := secretsBackend.SaveContent(u.URI, u.CurrentRevision+1, u.Value)
-		if errors.IsNotSupported(err) {
-			pendingUpdates[i] = u.SecretUpsertArg
+		if errors.Is(err, errors.NotSupported) {
+			pendingUpdates = append(pendingUpdates, u.SecretUpsertArg)
 			continue
 		}
 		if err != nil {
@@ -1478,11 +1473,11 @@ func (ctx *HookContext) doFlush(process string) error {
 		cleanups = append(cleanups, ref)
 		u.ValueRef = &ref
 		u.Value = nil
-		pendingUpdates[i] = u.SecretUpsertArg
+		pendingUpdates = append(pendingUpdates, u.SecretUpsertArg)
 	}
 
-	for i, d := range ctx.secretChanges.pendingDeletes {
-		pendingDeletes[i] = d
+	for _, d := range ctx.secretChanges.pendingDeletes {
+		pendingDeletes = append(pendingDeletes, d)
 		md, ok := ctx.secretMetadata[d.URI.ID]
 		if !ok {
 			continue
@@ -1496,7 +1491,7 @@ func (ctx *HookContext) doFlush(process string) error {
 		ctx.logger.Debugf("deleting secret %q provider ids: %v", d.URI.ID, toDelete)
 		for _, rev := range toDelete {
 			if err := secretsBackend.DeleteContent(d.URI, rev); err != nil {
-				if errors.IsNotFound(err) {
+				if errors.Is(err, errors.NotFound) {
 					continue
 				}
 				return errors.Annotatef(err, "cannot delete secret %q revision %d from backend: %v", d.URI.ID, rev, err)
@@ -1504,11 +1499,19 @@ func (ctx *HookContext) doFlush(process string) error {
 		}
 	}
 
+	for _, g := range ctx.secretChanges.pendingGrants {
+		pendingGrants = append(pendingGrants, g)
+	}
+
+	for _, r := range ctx.secretChanges.pendingRevokes {
+		pendingRevokes = append(pendingRevokes, r)
+	}
+
 	b.AddSecretCreates(pendingCreates)
 	b.AddSecretUpdates(pendingUpdates)
 	b.AddSecretDeletes(pendingDeletes)
-	b.AddSecretGrants(ctx.secretChanges.pendingGrants)
-	b.AddSecretRevokes(ctx.secretChanges.pendingRevokes)
+	b.AddSecretGrants(pendingGrants)
+	b.AddSecretRevokes(pendingRevokes)
 
 	// Generate change request but skip its execution if no changes are pending.
 	commitReq, numChanges := b.Build()
@@ -1518,7 +1521,7 @@ func (ctx *HookContext) doFlush(process string) error {
 		cleanupDone:
 			for _, secretId := range cleanups {
 				if err2 := secretsBackend.DeleteExternalContent(secretId); err2 != nil {
-					if errors.IsNotSupported(err) {
+					if errors.Is(err, errors.NotSupported) {
 						break cleanupDone
 					}
 					ctx.logger.Errorf("cannot cleanup secret %q: %v", secretId, err2)

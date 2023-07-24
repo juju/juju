@@ -6,8 +6,9 @@ package lxd
 import (
 	"encoding/pem"
 
-	lxdtesting "github.com/juju/juju/container/lxd/testing"
 	gc "gopkg.in/check.v1"
+
+	lxdtesting "github.com/juju/juju/container/lxd/testing"
 )
 
 type sharedSuite struct {

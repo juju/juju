@@ -320,30 +320,30 @@ func (ctx *HookContext) SLALevel() string {
 	return ctx.slaLevel
 }
 
-func (ctx *HookContext) PendingSecretRemoves() []uniter.SecretDeleteArg {
+func (ctx *HookContext) PendingSecretRemoves() map[string]uniter.SecretDeleteArg {
 	return ctx.secretChanges.pendingDeletes
 }
 
-func (ctx *HookContext) PendingSecretCreates() []uniter.SecretCreateArg {
+func (ctx *HookContext) PendingSecretCreates() map[string]uniter.SecretCreateArg {
 	return ctx.secretChanges.pendingCreates
 }
 
-func (ctx *HookContext) PendingSecretUpdates() []uniter.SecretUpdateArg {
+func (ctx *HookContext) PendingSecretUpdates() map[string]uniter.SecretUpdateArg {
 	return ctx.secretChanges.pendingUpdates
 }
 
-func (ctx *HookContext) SetPendingSecretCreates(in []uniter.SecretCreateArg) {
+func (ctx *HookContext) SetPendingSecretCreates(in map[string]uniter.SecretCreateArg) {
 	ctx.secretChanges.pendingCreates = in
 }
 
-func (ctx *HookContext) SetPendingSecretUpdates(in []uniter.SecretUpdateArg) {
+func (ctx *HookContext) SetPendingSecretUpdates(in map[string]uniter.SecretUpdateArg) {
 	ctx.secretChanges.pendingUpdates = in
 }
 
-func (ctx *HookContext) PendingSecretGrants() []uniter.SecretGrantRevokeArgs {
+func (ctx *HookContext) PendingSecretGrants() map[string]uniter.SecretGrantRevokeArgs {
 	return ctx.secretChanges.pendingGrants
 }
 
-func (ctx *HookContext) PendingSecretRevokes() []uniter.SecretGrantRevokeArgs {
+func (ctx *HookContext) PendingSecretRevokes() map[string]uniter.SecretGrantRevokeArgs {
 	return ctx.secretChanges.pendingRevokes
 }

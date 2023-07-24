@@ -193,4 +193,8 @@ upgrade-model: 10073
 users: 10175
 version: 10127
 wait-for: 10122
+wait-for_application: 11181
+wait-for_machine: 11183
+wait-for_model: 11182
+wait-for_unit: 11184
 whoami: 10148

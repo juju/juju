@@ -70,6 +70,62 @@ func (s *applicationScopeSuite) TestGetIdentValueError(c *gc.C) {
 		ApplicationInfo: &params.ApplicationInfo{},
 	}
 	result, err := scope.GetIdentValue("bad")
-	c.Assert(err, gc.ErrorMatches, `Runtime Error: identifier "bad" not found on ApplicationInfo: invalid identifier`)
+	c.Assert(err, gc.ErrorMatches, `.*"bad" on ApplicationInfo.*`)
 	c.Assert(result, gc.IsNil)
+}
+
+func (s *applicationScopeSuite) TestDeriveApplicationStatus(c *gc.C) {
+	tests := []struct {
+		status   status.Status
+		units    map[string]*params.UnitInfo
+		expected string
+	}{{
+		status:   status.Unset,
+		units:    nil,
+		expected: "unknown",
+	}, {
+		status: status.Unset,
+		units: map[string]*params.UnitInfo{
+			"foo": {WorkloadStatus: params.StatusInfo{Current: status.Active}},
+		},
+		expected: "active",
+	}, {
+		status: status.Unset,
+		units: map[string]*params.UnitInfo{
+			"foo1": {WorkloadStatus: params.StatusInfo{Current: status.Error}},
+			"foo2": {WorkloadStatus: params.StatusInfo{Current: status.Active}},
+			"foo3": {WorkloadStatus: params.StatusInfo{Current: status.Active}},
+		},
+		expected: "error",
+	}, {
+		status: status.Unset,
+		units: map[string]*params.UnitInfo{
+			"foo1": {WorkloadStatus: params.StatusInfo{Current: status.Terminated}},
+			"foo2": {WorkloadStatus: params.StatusInfo{Current: status.Active}},
+			"foo3": {WorkloadStatus: params.StatusInfo{Current: status.Active}},
+		},
+		expected: "active",
+	}, {
+		status:   status.Unknown,
+		units:    nil,
+		expected: "unknown",
+	}, {
+		status: status.Error,
+		units: map[string]*params.UnitInfo{
+			"foo": {WorkloadStatus: params.StatusInfo{Current: status.Active}},
+		},
+		expected: "error",
+	}, {
+		status: status.Active,
+		units: map[string]*params.UnitInfo{
+			"foo1": {WorkloadStatus: params.StatusInfo{Current: status.Error}},
+			"foo2": {WorkloadStatus: params.StatusInfo{Current: status.Active}},
+			"foo3": {WorkloadStatus: params.StatusInfo{Current: status.Active}},
+		},
+		expected: "active",
+	}}
+	for _, test := range tests {
+		status := deriveApplicationStatus(test.status, test.units)
+		c.Check(status.String(), gc.Equals, test.expected)
+	}
 }

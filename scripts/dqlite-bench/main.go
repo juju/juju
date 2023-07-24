@@ -79,6 +79,8 @@ CREATE INDEX idx_agent_events_event ON agent_events (event);
 )
 
 var (
+	_ = schema
+
 	modelCreationTime = promauto.NewHistogram(prometheus.HistogramOpts{
 		Name: "model_creation_time",
 		Buckets: []float64{
@@ -118,6 +120,7 @@ var (
 	// - SingleConnectionTransactionRunner for limiting the number of database
 	// connections to 1 in the dqlite driver.
 	transactionRunner = SlotAllDBBasedTransactionRunner(runtime.GOMAXPROCS(0))
+	_                 = transactionRunner
 
 	// Set the operations to be performed per model and the frequency.
 	perModelOperations = []ModelOperationDef{

@@ -30,26 +30,22 @@ import (
 	"github.com/juju/juju/agent/introspect"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
+	"github.com/juju/juju/cmd/internal/dumplogs"
 	"github.com/juju/juju/cmd/internal/run"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
-	"github.com/juju/juju/cmd/jujud/dumplogs"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/machinelock"
 	coreos "github.com/juju/juju/core/os"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
+	_ "github.com/juju/juju/provider/all"         // Import the providers.
+	_ "github.com/juju/juju/secrets/provider/all" // Import the secret providers.
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/utils/proxy"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
-
-	// Import the providers.
-	_ "github.com/juju/juju/provider/all"
-
-	// Import the secret providers.
-	_ "github.com/juju/juju/secrets/provider/all"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud")

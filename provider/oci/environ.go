@@ -14,6 +14,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
+	ociCommon "github.com/oracle/oci-go-sdk/v65/common"
+	ociCore "github.com/oracle/oci-go-sdk/v65/core"
+	ociIdentity "github.com/oracle/oci-go-sdk/v65/identity"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -32,10 +35,6 @@ import (
 	providerCommon "github.com/juju/juju/provider/oci/common"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
-
-	ociCommon "github.com/oracle/oci-go-sdk/v65/common"
-	ociCore "github.com/oracle/oci-go-sdk/v65/core"
-	ociIdentity "github.com/oracle/oci-go-sdk/v65/identity"
 )
 
 type Environ struct {

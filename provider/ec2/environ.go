@@ -75,8 +75,10 @@ var (
 	// Use shortRetryStrategy to poll for short-term events or for retrying API calls.
 	shortRetryStrategy = retry.CallArgs{
 		Clock:       clock.WallClock,
-		MaxDuration: 5 * time.Second,
+		MaxDuration: 60 * time.Second,
 		Delay:       200 * time.Millisecond,
+		MaxDelay:    5 * time.Second,
+		BackoffFunc: retry.DoubleDelay,
 	}
 
 	// aliveInstanceStates are the states which we filter by when listing

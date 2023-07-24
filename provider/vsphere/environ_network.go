@@ -5,6 +5,7 @@ package vsphere
 
 import (
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"

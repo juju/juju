@@ -481,7 +481,6 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	}
 
 	numberOfPods := int32(1)
-	fileMode := int32(256)
 	statefulSetSpec := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test",
@@ -529,11 +528,27 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				},
 				Spec: core.PodSpec{
 					ServiceAccountName:            "controller",
-					AutomountServiceAccountToken:  pointer.BoolPtr(true),
-					TerminationGracePeriodSeconds: int64Ptr(300),
+					AutomountServiceAccountToken:  pointer.Bool(true),
+					TerminationGracePeriodSeconds: int64Ptr(30),
+					SecurityContext: &core.PodSecurityContext{
+						SupplementalGroups: []int64{170},
+						FSGroup:            pointer.Int64(170),
+					},
 					Volumes: []core.Volume{
 						{
 							Name: "charm-data",
+							VolumeSource: core.VolumeSource{
+								EmptyDir: &core.EmptyDirVolumeSource{},
+							},
+						},
+						{
+							Name: "mongo-scratch",
+							VolumeSource: core.VolumeSource{
+								EmptyDir: &core.EmptyDirVolumeSource{},
+							},
+						},
+						{
+							Name: "apiserver-scratch",
 							VolumeSource: core.VolumeSource{
 								EmptyDir: &core.EmptyDirVolumeSource{},
 							},
@@ -543,7 +558,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 							VolumeSource: core.VolumeSource{
 								Secret: &core.SecretVolumeSource{
 									SecretName:  "juju-controller-test-secret",
-									DefaultMode: &fileMode,
+									DefaultMode: pointer.Int32(0400),
 									Items: []core.KeyToPath{
 										{
 											Key:  "server.pem",
@@ -558,7 +573,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 							VolumeSource: core.VolumeSource{
 								Secret: &core.SecretVolumeSource{
 									SecretName:  "juju-controller-test-secret",
-									DefaultMode: &fileMode,
+									DefaultMode: pointer.Int32(0660),
 									Items: []core.KeyToPath{
 										{
 											Key:  "shared-secret",
@@ -651,15 +666,15 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				},
 			},
 			SecurityContext: &core.SecurityContext{
-				RunAsUser:  int64Ptr(0),
-				RunAsGroup: int64Ptr(0),
+				RunAsUser:  int64Ptr(170),
+				RunAsGroup: int64Ptr(170),
 			},
 			VolumeMounts: []core.VolumeMount{
 				{
 					Name:      "charm-data",
+					ReadOnly:  true,
 					MountPath: "/charm/bin",
 					SubPath:   "charm/bin",
-					ReadOnly:  true,
 				},
 				{
 					Name:      "charm-data",
@@ -677,6 +692,29 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 					SubPath:   "containeragent/pebble",
 				},
 				{
+					Name:      "charm-data",
+					MountPath: "/var/log/juju",
+					SubPath:   "containeragent/var/log/juju",
+				},
+				{
+					Name:      "charm-data",
+					ReadOnly:  true,
+					MountPath: "/etc/profile.d/juju-introspection.sh",
+					SubPath:   "containeragent/etc/profile.d/juju-introspection.sh",
+				},
+				{
+					Name:      "charm-data",
+					ReadOnly:  true,
+					MountPath: "/usr/bin/juju-introspect",
+					SubPath:   "charm/bin/containeragent",
+				},
+				{
+					Name:      "charm-data",
+					ReadOnly:  true,
+					MountPath: "/usr/bin/juju-exec",
+					SubPath:   "charm/bin/containeragent",
+				},
+				{
 					Name:      "juju-controller-test-agent-conf",
 					MountPath: "/var/lib/juju/template-agent.conf",
 					SubPath:   "controller-unit-agent.conf",
@@ -692,7 +730,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			},
 			Args: []string{
 				"-c",
-				`printf 'args="--dbpath=/var/lib/juju/db --tlsCertificateKeyFile=/var/lib/juju/server.pem --tlsCertificateKeyFilePassword=ignored --tlsMode=requireTLS --port=1234 --journal --replSet=juju --quiet --oplogSize=1024 --auth --keyFile=/var/lib/juju/shared-secret --storageEngine=wiredTiger --bind_ip_all"\nipv6Disabled=$(sysctl net.ipv6.conf.all.disable_ipv6 -n)\nif [ $ipv6Disabled -eq 0 ]; then\n  args="${args} --ipv6"\nfi\nexec mongod ${args}\n'>/root/mongo.sh && chmod a+x /root/mongo.sh && exec /root/mongo.sh`,
+				`printf 'args="--dbpath=/var/lib/juju/db --tlsCertificateKeyFile=/var/lib/juju/server.pem --tlsCertificateKeyFilePassword=ignored --tlsMode=requireTLS --port=1234 --journal --replSet=juju --quiet --oplogSize=1024 --auth --keyFile=/var/lib/juju/shared-secret --storageEngine=wiredTiger --bind_ip_all"\nipv6Disabled=$(sysctl net.ipv6.conf.all.disable_ipv6 -n)\nif [ $ipv6Disabled -eq 0 ]; then\n  args="${args} --ipv6"\nfi\nSHARED_SECRET_SRC="/var/lib/juju/shared-secret.temp"\nSHARED_SECRET_DST="/var/lib/juju/shared-secret"\nrm "${SHARED_SECRET_DST}" || true\ncp "${SHARED_SECRET_SRC}" "${SHARED_SECRET_DST}"\nchown 170:170 "${SHARED_SECRET_DST}"\nchmod 600 "${SHARED_SECRET_DST}"\nls -lah "${SHARED_SECRET_DST}"\nexec mongod ${args}\n'>/tmp/mongo.sh && chmod a+x /tmp/mongo.sh && exec /tmp/mongo.sh`,
 			},
 			Ports: []core.ContainerPort{
 				{
@@ -733,26 +771,46 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			},
 			VolumeMounts: []core.VolumeMount{
 				{
-					Name:      "storage",
-					MountPath: "/var/lib/juju",
+					Name:      "mongo-scratch",
+					ReadOnly:  false,
+					MountPath: "/var/log",
+					SubPath:   "var/log",
+				},
+				{
+					Name:      "mongo-scratch",
+					ReadOnly:  false,
+					MountPath: "/tmp",
+					SubPath:   "tmp",
 				},
 				{
 					Name:      "storage",
+					ReadOnly:  false,
+					MountPath: "/var/lib/juju",
+					SubPath:   "",
+				},
+				{
+					Name:      "storage",
+					ReadOnly:  false,
 					MountPath: "/var/lib/juju/db",
 					SubPath:   "db",
 				},
 				{
 					Name:      "juju-controller-test-server-pem",
+					ReadOnly:  true,
 					MountPath: "/var/lib/juju/template-server.pem",
 					SubPath:   "template-server.pem",
-					ReadOnly:  true,
 				},
 				{
 					Name:      "juju-controller-test-shared-secret",
-					MountPath: "/var/lib/juju/shared-secret",
-					SubPath:   "shared-secret",
 					ReadOnly:  true,
+					MountPath: "/var/lib/juju/shared-secret.temp",
+					SubPath:   "shared-secret",
 				},
+			},
+			SecurityContext: &core.SecurityContext{
+				RunAsUser:              int64Ptr(170),
+				RunAsGroup:             int64Ptr(170),
+				ReadOnlyRootFilesystem: pointer.Bool(true),
 			},
 		},
 		{
@@ -804,36 +862,81 @@ exec /opt/pebble run --http :38811 --verbose
 			}},
 			VolumeMounts: []core.VolumeMount{
 				{
+					Name:      "apiserver-scratch",
+					MountPath: "/tmp",
+					SubPath:   "tmp",
+				},
+				{
+					Name:      "apiserver-scratch",
+					MountPath: "/var/lib/pebble",
+					SubPath:   "var/lib/pebble",
+				},
+				{
+					Name:      "apiserver-scratch",
+					MountPath: "/var/log/juju",
+					SubPath:   "var/log/juju",
+				},
+				{
 					Name:      "storage",
 					MountPath: "/var/lib/juju",
 				},
 				{
+					Name:      "storage",
+					MountPath: "/var/lib/juju/agents/controller-0",
+					SubPath:   "agents/controller-0",
+				},
+				{
 					Name:      "juju-controller-test-agent-conf",
+					ReadOnly:  true,
 					MountPath: "/var/lib/juju/agents/controller-0/template-agent.conf",
 					SubPath:   "controller-agent.conf",
 				},
 				{
 					Name:      "juju-controller-test-server-pem",
+					ReadOnly:  true,
 					MountPath: "/var/lib/juju/template-server.pem",
 					SubPath:   "template-server.pem",
-					ReadOnly:  true,
 				},
 				{
 					Name:      "juju-controller-test-shared-secret",
+					ReadOnly:  true,
 					MountPath: "/var/lib/juju/shared-secret",
 					SubPath:   "shared-secret",
-					ReadOnly:  true,
 				},
 				{
 					Name:      "juju-controller-test-bootstrap-params",
+					ReadOnly:  true,
 					MountPath: "/var/lib/juju/bootstrap-params",
 					SubPath:   "bootstrap-params",
-					ReadOnly:  true,
 				},
 				{
 					Name:      "charm-data",
 					MountPath: "/charm/container",
 					SubPath:   "charm/containers/api-server",
+				},
+				{
+					Name:      "charm-data",
+					ReadOnly:  true,
+					MountPath: "/etc/profile.d/juju-introspection.sh",
+					SubPath:   "containeragent/etc/profile.d/juju-introspection.sh",
+				},
+				{
+					Name:      "charm-data",
+					ReadOnly:  true,
+					MountPath: "/usr/bin/juju-introspect",
+					SubPath:   "charm/bin/containeragent",
+				},
+				{
+					Name:      "charm-data",
+					ReadOnly:  true,
+					MountPath: "/usr/bin/juju-exec",
+					SubPath:   "charm/bin/containeragent",
+				},
+				{
+					Name:      "charm-data",
+					ReadOnly:  true,
+					MountPath: "/usr/bin/juju-dumplogs",
+					SubPath:   "charm/bin/containeragent",
 				},
 			},
 			StartupProbe: &core.Probe{
@@ -876,8 +979,9 @@ exec /opt/pebble run --http :38811 --verbose
 				FailureThreshold:    2,
 			},
 			SecurityContext: &core.SecurityContext{
-				RunAsUser:  pointer.Int64Ptr(0),
-				RunAsGroup: pointer.Int64Ptr(0),
+				RunAsUser:              pointer.Int64(170),
+				RunAsGroup:             pointer.Int64(170),
+				ReadOnlyRootFilesystem: pointer.Bool(true),
 			},
 		},
 	}
@@ -887,7 +991,7 @@ exec /opt/pebble run --http :38811 --verbose
 		Image:           "test-account/jujud-operator:" + expectedVersion.String(),
 		WorkingDir:      "/var/lib/juju",
 		Command:         []string{"/opt/containeragent"},
-		Args:            []string{"init", "--containeragent-pebble-dir", "/containeragent/pebble", "--charm-modified-version", "0", "--data-dir", "/var/lib/juju", "--bin-dir", "/charm/bin", "--controller"},
+		Args:            []string{"init", "--containeragent-pebble-dir", "/containeragent/pebble", "--charm-modified-version", "0", "--data-dir", "/var/lib/juju", "--bin-dir", "/charm/bin", "--profile-dir", "/containeragent/etc/profile.d", "--controller"},
 		Env: []core.EnvVar{
 			{
 				Name:  "JUJU_CONTAINER_NAMES",
@@ -937,10 +1041,19 @@ exec /opt/pebble run --http :38811 --verbose
 				MountPath: "/containeragent/pebble",
 				SubPath:   "containeragent/pebble",
 			}, {
+				Name:      "charm-data",
+				MountPath: "/containeragent/etc/profile.d",
+				SubPath:   "containeragent/etc/profile.d",
+			}, {
 				Name:      "juju-controller-test-agent-conf",
 				MountPath: "/var/lib/juju/template-agent.conf",
 				SubPath:   "controller-unit-agent.conf",
 			},
+		},
+		SecurityContext: &core.SecurityContext{
+			RunAsUser:              int64Ptr(170),
+			RunAsGroup:             int64Ptr(170),
+			ReadOnlyRootFilesystem: pointer.Bool(true),
 		},
 	}}
 

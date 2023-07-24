@@ -6,8 +6,9 @@ package state
 import (
 	"database/sql"
 
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/names/v4"
+
+	"github.com/juju/juju/core/crossmodel"
 )
 
 // ExternalController represents a single row from the database when

@@ -143,7 +143,7 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
 	s.setUpScenario(c)
 	conn := s.OpenModelAPIAs(c, s.ControllerModelUUID(), jjtesting.AdminUser, defaultPassword(jjtesting.AdminUser), "")
-	status, err := apiclient.NewClient(conn).Status(nil)
+	status, err := apiclient.NewClient(conn, coretesting.NoopLogger{}).Status(nil)
 	clearSinceTimes(status)
 	clearContollerTimestamp(status)
 	c.Assert(err, jc.ErrorIsNil)
@@ -153,7 +153,7 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 func (s *clientSuite) TestClientStatusControllerTimestamp(c *gc.C) {
 	s.setUpScenario(c)
 	conn := s.OpenModelAPIAs(c, s.ControllerModelUUID(), jjtesting.AdminUser, defaultPassword(jjtesting.AdminUser), "")
-	status, err := apiclient.NewClient(conn).Status(nil)
+	status, err := apiclient.NewClient(conn, coretesting.NoopLogger{}).Status(nil)
 	clearSinceTimes(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.ControllerTimestamp, gc.NotNil)
@@ -186,7 +186,7 @@ func (s *clientWatchSuite) TestClientWatchAllReadPermission(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	conn := s.OpenModelAPIAs(c, s.ControllerModelUUID(), user.UserTag(), "ro-password", "")
-	roClient := apiclient.NewClient(conn)
+	roClient := apiclient.NewClient(conn, coretesting.NoopLogger{})
 	defer roClient.Close()
 
 	watcher, err := roClient.WatchAll()
@@ -287,7 +287,7 @@ func (s *clientWatchSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	conn := s.OpenControllerModelAPI(c)
-	watcher, err := apiclient.NewClient(conn).WatchAll()
+	watcher, err := apiclient.NewClient(conn, coretesting.NoopLogger{}).WatchAll()
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		err := watcher.Stop()

@@ -5,6 +5,7 @@ package controller
 
 import (
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/rpc/params"
 )
 
