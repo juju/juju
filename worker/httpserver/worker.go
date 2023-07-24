@@ -4,7 +4,7 @@
 package httpserver
 
 import (
-	"context"
+	stdcontext "context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -182,7 +182,7 @@ func (w *Worker) loop() error {
 		// starting in Go 1.16, the server will wait for all listeners to
 		// close before exiting.
 		w.holdable.release()
-		ctx, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
+		ctx, cancel := stdcontext.WithTimeout(stdcontext.Background(), ShutdownTimeout)
 		defer cancel()
 		err := server.Shutdown(ctx)
 		w.catacomb.Kill(err)

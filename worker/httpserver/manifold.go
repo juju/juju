@@ -186,11 +186,11 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		return nil, errors.Trace(err)
 	}
 
-	ctrlConfigService := config.NewControllerConfigService(dbGetter, loggo.GetLogger("juju.httpserver"))
+	ctrlConfigService := config.NewControllerConfigService(dbGetter, config.Logger)
 
 	controllerConfig, err := ctrlConfigService.ControllerConfig(stdcontext.Background())
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "failed to get controller config")
 	}
 
 	systemState, err := statePool.SystemState()
