@@ -65,7 +65,7 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 			StatePool_:      s.StatePool(),
 			Resources_:      s.resources,
 			Auth_:           s.authorizer,
-			ServiceFactory_: servicefactorytesting.NewTestingControllerFactory(),
+			ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = testController

@@ -45,7 +45,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
@@ -56,6 +55,7 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/servicefactory"
 	"github.com/juju/juju/worker/syslogger"
 )
 
@@ -213,8 +213,8 @@ type ServerConfig struct {
 	// CharmhubHTTPClient is the HTTP client used for Charmhub API requests.
 	CharmhubHTTPClient facade.HTTPClient
 
-	// DBDeleter deletes databases based on namespace.
-	DBDeleter database.DBDeleter
+	// ServiceFactoryGetter provides access to the services.
+	ServiceFactoryGetter servicefactory.ServiceFactoryGetter
 
 	// DBGetter returns WatchableDB implementations based on namespace.
 	DBGetter changestream.WatchableDBGetter
@@ -263,6 +263,9 @@ func (c ServerConfig) Validate() error {
 	if c.MetricsCollector == nil {
 		return errors.NotValidf("missing MetricsCollector")
 	}
+	if c.ServiceFactoryGetter == nil {
+		return errors.NotValidf("missing ServiceFactoryGetter")
+	}
 	return nil
 }
 
@@ -302,30 +305,28 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		return nil, errors.Annotate(err, "unable to get controller config")
 	}
 
-	shared, err := newSharedServerContext(sharedServerConfig{
-		statePool:           cfg.StatePool,
-		multiwatcherFactory: cfg.MultiwatcherFactory,
-		centralHub:          cfg.Hub,
-		presence:            cfg.Presence,
-		leaseManager:        cfg.LeaseManager,
-		controllerConfig:    controllerConfig,
-		logger:              loggo.GetLogger("juju.apiserver"),
-		charmhubHTTPClient:  cfg.CharmhubHTTPClient,
-		dbGetter:            cfg.DBGetter,
-		dbDeleter:           cfg.DBDeleter,
-		machineTag:          cfg.Tag,
-		dataDir:             cfg.DataDir,
-		logDir:              cfg.LogDir,
-	})
+	model, err := systemState.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	systemState, err = cfg.StatePool.SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	model, err := systemState.Model()
+	loggo.GetLogger("***").Criticalf("SERVER %v", model.UUID())
+
+	shared, err := newSharedServerContext(sharedServerConfig{
+		statePool:            cfg.StatePool,
+		multiwatcherFactory:  cfg.MultiwatcherFactory,
+		centralHub:           cfg.Hub,
+		presence:             cfg.Presence,
+		leaseManager:         cfg.LeaseManager,
+		controllerConfig:     controllerConfig,
+		logger:               loggo.GetLogger("juju.apiserver"),
+		charmhubHTTPClient:   cfg.CharmhubHTTPClient,
+		dbGetter:             cfg.DBGetter,
+		serviceFactoryGetter: cfg.ServiceFactoryGetter,
+		machineTag:           cfg.Tag,
+		dataDir:              cfg.DataDir,
+		logDir:               cfg.LogDir,
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

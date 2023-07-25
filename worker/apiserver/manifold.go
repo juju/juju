@@ -22,13 +22,13 @@ import (
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
-	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/servicefactory"
 	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/syslogger"
 )
@@ -47,8 +47,8 @@ type ManifoldConfig struct {
 	LeaseManagerName       string
 	SyslogName             string
 	CharmhubHTTPClientName string
-	DBAccessorName         string
 	ChangeStreamName       string
+	ServiceFactoryName     string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -100,11 +100,11 @@ func (config ManifoldConfig) Validate() error {
 	if config.CharmhubHTTPClientName == "" {
 		return errors.NotValidf("empty CharmhubHTTPClientName")
 	}
-	if config.DBAccessorName == "" {
-		return errors.NotValidf("empty DBAccessorName")
-	}
 	if config.ChangeStreamName == "" {
 		return errors.NotValidf("empty ChangeStreamName")
+	}
+	if config.ServiceFactoryName == "" {
+		return errors.NotValidf("empty ServiceFactoryName")
 	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
@@ -139,7 +139,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.SyslogName,
 			config.CharmhubHTTPClientName,
 			config.ChangeStreamName,
-			config.DBAccessorName,
+			config.ServiceFactoryName,
 		},
 		Start: config.start,
 	}
@@ -211,8 +211,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	var dbDeleter coredatabase.DBDeleter
-	if err := context.Get(config.DBAccessorName, &dbDeleter); err != nil {
+	var serviceFactoryGetter servicefactory.ServiceFactoryGetter
+	if err := context.Get(config.ServiceFactoryName, &serviceFactoryGetter); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -253,7 +253,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		SysLogger:                         sysLogger,
 		CharmhubHTTPClient:                charmhubHTTPClient,
 		DBGetter:                          dbGetter,
-		DBDeleter:                         dbDeleter,
+		ServiceFactoryGetter:              serviceFactoryGetter,
 	})
 	if err != nil {
 		// Ensure we clean up the resources we've registered with. This includes

@@ -47,6 +47,7 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/multiwatcher"
+	workerservicefactory "github.com/juju/juju/worker/servicefactory"
 )
 
 type controllerSuite struct {
@@ -56,7 +57,7 @@ type controllerSuite struct {
 	controller      *controller.ControllerAPI
 	resources       *common.Resources
 	watcherRegistry facade.WatcherRegistry
-	serviceFactory  facade.APIServerServiceFactory
+	serviceFactory  workerservicefactory.ServiceFactory
 	authorizer      apiservertesting.FakeAuthorizer
 	hub             *pubsub.StructuredHub
 	context         facadetest.Context
@@ -101,7 +102,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 
 	// This factory is purely for tests that don't actually require the
 	// real factory.
-	s.serviceFactory = servicefactorytesting.NewTestingControllerFactory()
+	s.serviceFactory = servicefactorytesting.NewTestingServiceFactory()
 
 	s.context = facadetest.Context{
 		State_:               s.State,
@@ -111,9 +112,9 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		Auth_:                s.authorizer,
 		Hub_:                 s.hub,
 		MultiwatcherFactory_: multiWatcherWorker,
-		ServiceFactory_: servicefactory.NewControllerFactory(
+		ServiceFactory_: servicefactory.NewServiceFactory(
 			databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
-			nil,
+			nil, nil,
 			servicefactorytesting.NewCheckLogger(c),
 		),
 	}

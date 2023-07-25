@@ -5,7 +5,6 @@ package servicefactory
 
 import (
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/database"
 )
 
 // ModelFactory provides access to the services required by the apiserver.
@@ -18,11 +17,14 @@ type ModelFactory struct {
 // function to obtain a model database.
 func NewModelFactory(
 	modelDB changestream.WatchableDBFactory,
-	deleterDB database.DBDeleter,
 	logger Logger,
 ) *ModelFactory {
 	return &ModelFactory{
 		modelDB: modelDB,
 		logger:  logger,
 	}
+}
+
+func (f *ModelFactory) Name() string {
+	return "ModelFactory"
 }

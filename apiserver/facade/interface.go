@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/servicefactory"
 )
 
 // Facade could be anything; it will be interpreted by the apiserver
@@ -162,8 +163,10 @@ type ControllerDBGetter interface {
 
 // ServiceFactory defines an interface for accessing all the services.
 type ServiceFactory interface {
-	// ServiceFactory returns the services factory.
-	ServiceFactory() APIServerServiceFactory
+	// ServiceFactory returns the services factory for the current model.
+	ServiceFactory() servicefactory.ServiceFactory
+	// ServiceFactoryForModel returns the services factory for the given model.
+	ServiceFactoryForModel(uuid string) servicefactory.ServiceFactory
 }
 
 // Logger defines an interface for getting the apiserver logger instance.

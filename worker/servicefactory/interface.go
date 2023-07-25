@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package facade
+package servicefactory
 
 import (
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
@@ -10,9 +10,9 @@ import (
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 )
 
-// APIServerServiceFactory provides access to the services required by the
+// ControllerServiceFactory provides access to the services required by the
 // apiserver.
-type APIServerServiceFactory interface {
+type ControllerServiceFactory interface {
 	// ControllerConfig returns the controller configuration service.
 	ControllerConfig() *controllerconfigservice.Service
 	// ControllerNode returns the controller node service.
@@ -21,4 +21,23 @@ type APIServerServiceFactory interface {
 	ModelManager() *modelmanagerservice.Service
 	// ExternalController returns the external controller service.
 	ExternalController() *externalcontrollerservice.Service
+}
+
+// ModelServiceFactory provides access to the services required by the
+// apiserver for a given model.
+type ModelServiceFactory interface {
+	Name() string
+}
+
+// ServiceFactory provides access to the services required by the apiserver.
+type ServiceFactory interface {
+	ControllerServiceFactory
+	ModelServiceFactory
+}
+
+// ServiceFactoryGetter represents a way to get a ServiceFactory for a given
+// model.
+type ServiceFactoryGetter interface {
+	// FactoryForModel returns a ServiceFactory for the given model.
+	FactoryForModel(modelUUID string) ServiceFactory
 }

@@ -13,6 +13,7 @@ import (
 	lease "github.com/juju/juju/core/lease"
 	multiwatcher "github.com/juju/juju/core/multiwatcher"
 	state "github.com/juju/juju/state"
+	servicefactory "github.com/juju/juju/worker/servicefactory"
 	loggo "github.com/juju/loggo"
 	names "github.com/juju/names/v4"
 	gomock "go.uber.org/mock/gomock"
@@ -326,10 +327,10 @@ func (mr *MockContextMockRecorder) Resources() *gomock.Call {
 }
 
 // ServiceFactory mocks base method.
-func (m *MockContext) ServiceFactory() facade.APIServerServiceFactory {
+func (m *MockContext) ServiceFactory() servicefactory.ServiceFactory {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ServiceFactory")
-	ret0, _ := ret[0].(facade.APIServerServiceFactory)
+	ret0, _ := ret[0].(servicefactory.ServiceFactory)
 	return ret0
 }
 
@@ -337,6 +338,20 @@ func (m *MockContext) ServiceFactory() facade.APIServerServiceFactory {
 func (mr *MockContextMockRecorder) ServiceFactory() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServiceFactory", reflect.TypeOf((*MockContext)(nil).ServiceFactory))
+}
+
+// ServiceFactoryForModel mocks base method.
+func (m *MockContext) ServiceFactoryForModel(arg0 string) servicefactory.ServiceFactory {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ServiceFactoryForModel", arg0)
+	ret0, _ := ret[0].(servicefactory.ServiceFactory)
+	return ret0
+}
+
+// ServiceFactoryForModel indicates an expected call of ServiceFactoryForModel.
+func (mr *MockContextMockRecorder) ServiceFactoryForModel(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServiceFactoryForModel", reflect.TypeOf((*MockContext)(nil).ServiceFactoryForModel), arg0)
 }
 
 // SingularClaimer mocks base method.

@@ -56,12 +56,11 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	var err error
 	s.haServer, err = highavailability.NewHighAvailabilityAPI(facadetest.Context{
-		State_:        st,
-		Auth_:         s.authorizer,
-		ControllerDB_: stubWatchableDB{},
-		ServiceFactory_: servicefactory.NewControllerFactory(
+		State_: st,
+		Auth_:  s.authorizer,
+		ServiceFactory_: servicefactory.NewServiceFactory(
 			databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
-			nil,
+			nil, nil,
 			servicefactorytesting.NewCheckLogger(c),
 		),
 	})
@@ -516,9 +515,9 @@ func (s *clientSuite) TestEnableHAHostedModelErrors(c *gc.C) {
 	haServer, err := highavailability.NewHighAvailabilityAPI(facadetest.Context{
 		State_: st2,
 		Auth_:  s.authorizer,
-		ServiceFactory_: servicefactory.NewControllerFactory(
+		ServiceFactory_: servicefactory.NewServiceFactory(
 			databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
-			nil,
+			nil, nil,
 			servicefactorytesting.NewCheckLogger(c),
 		),
 	})
@@ -582,9 +581,9 @@ func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {
 	_, err := highavailability.NewHighAvailabilityAPI(facadetest.Context{
 		State_: st,
 		Auth_:  s.authorizer,
-		ServiceFactory_: servicefactory.NewControllerFactory(
+		ServiceFactory_: servicefactory.NewServiceFactory(
 			databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
-			nil,
+			nil, nil,
 			servicefactorytesting.NewCheckLogger(c),
 		),
 	})

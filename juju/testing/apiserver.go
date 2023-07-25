@@ -55,6 +55,7 @@ import (
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/lease"
 	wmultiwatcher "github.com/juju/juju/worker/multiwatcher"
+	"github.com/juju/juju/worker/servicefactory"
 )
 
 const AdminSecret = "dummy-secret"
@@ -282,8 +283,8 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config) {
 	cfg := DefaultServerConfig(c, s.Clock)
 	cfg.Mux = s.mux
-	cfg.DBGetter = stubDBGetter{db: stubWatchableDB{s.TxnRunner()}}
-	cfg.DBDeleter = stubDBDeleter{}
+	cfg.DBGetter = stubDBGetter{db: stubWatchableDB{TxnRunner: s.TxnRunner()}}
+	cfg.ServiceFactoryGetter = stubServiceFactoryGetter{}
 	cfg.StatePool = s.controller.StatePool()
 	cfg.PublicDNSName = controllerCfg.AutocertDNSName()
 
@@ -531,7 +532,7 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		SysLogger:                  noopSysLogger{},
 		CharmhubHTTPClient:         &http.Client{},
 		DBGetter:                   stubDBGetter{},
-		DBDeleter:                  stubDBDeleter{},
+		ServiceFactoryGetter:       stubServiceFactoryGetter{},
 		StatePool:                  &state.StatePool{},
 		Mux:                        &apiserverhttp.Mux{},
 		LocalMacaroonAuthenticator: &mockAuthenticator{},
@@ -550,13 +551,8 @@ func (s stubDBGetter) GetWatchableDB(namespace string) (changestream.WatchableDB
 	return s.db, nil
 }
 
-type stubDBDeleter struct{}
-
-func (s stubDBDeleter) DeleteDB(namespace string) error {
-	if namespace == "controller" {
-		return errors.Forbiddenf(`cannot delete "controller" DB`)
-	}
-	return nil
+type stubServiceFactoryGetter struct {
+	servicefactory.ServiceFactoryGetter
 }
 
 type stubWatchableDB struct {
