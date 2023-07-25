@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/downloader"
 )
 
-// Download exposes the downloader.Download methods needed here.
+// Downloader exposes the downloader.Download methods needed here.
 type Downloader interface {
 	// Download starts a new charm archive download, waits for it to
 	// complete, and returns the local name of the file.

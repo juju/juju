@@ -18,7 +18,8 @@ type Settings struct {
 	dirty       bool
 }
 
-func newSettings(relationTag, unitTag string, settings params.Settings) *Settings {
+// NewSettings returns a settings from rpc params.
+func NewSettings(relationTag, unitTag string, settings params.Settings) *Settings {
 	if settings == nil {
 		settings = make(params.Settings)
 	}

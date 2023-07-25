@@ -13,31 +13,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/http"
-	"github.com/juju/juju/downloader"
 )
-
-// NewCharmDownloader returns a new charm downloader that wraps the
-// provided API caller.
-func NewCharmDownloader(apiCaller base.APICaller) *downloader.Downloader {
-	dlr := &downloader.Downloader{
-		OpenBlob: func(req downloader.Request) (io.ReadCloser, error) {
-			curl, err := charm.ParseURL(req.URL.String())
-			if err != nil {
-				return nil, errors.Annotate(err, "did not receive a valid charm URL")
-			}
-			streamer, err := NewCharmOpener(apiCaller)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			reader, err := streamer.OpenCharm(curl)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return reader, nil
-		},
-	}
-	return dlr
-}
 
 // CharmOpener provides the OpenCharm method.
 type CharmOpener interface {

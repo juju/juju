@@ -6,12 +6,11 @@ package context_test
 import (
 	stdtesting "testing"
 
-	_ "github.com/juju/juju/secrets/provider/all"
-	coretesting "github.com/juju/juju/testing"
+	gc "gopkg.in/check.v1"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/leadership_mock.go github.com/juju/juju/worker/uniter/runner/context LeadershipContext
 
 func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+	gc.TestingT(t)
 }

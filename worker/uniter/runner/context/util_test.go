@@ -4,30 +4,29 @@
 package context_test
 
 import (
-	"strings"
+	"reflect"
 	"time"
 
 	"github.com/juju/charm/v11"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
 	apiuniter "github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/api/client/block"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/juju/sockets"
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
+	coretesting "github.com/juju/juju/testing"
 	uniterapi "github.com/juju/juju/worker/uniter/api"
 	runnercontext "github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/worker/uniter/runner/context/mocks"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
 )
@@ -35,171 +34,160 @@ import (
 var noProxies = proxy.Settings{}
 var apiAddrs = []string{"a1:123", "a2:123"}
 
-// HookContextSuite contains shared setup for various other test suites. Test
+type hookCommitMatcher struct {
+	c        *gc.C
+	expected params.CommitHookChangesArgs
+}
+
+func (m hookCommitMatcher) Matches(x interface{}) bool {
+	obtained, ok := x.(params.CommitHookChangesArgs)
+	if !ok {
+		return false
+	}
+
+	if len(obtained.Args) != len(m.expected.Args) {
+		return false
+	}
+	match := func(got, wanted params.CommitHookChangesArg) bool {
+		if !m.c.Check(got.RelationUnitSettings, jc.SameContents, wanted.RelationUnitSettings) {
+			return false
+		}
+		if !m.c.Check(got.AddStorage, jc.SameContents, wanted.AddStorage) {
+			return false
+		}
+		if !m.c.Check(got.OpenPorts, jc.SameContents, wanted.OpenPorts) {
+			return false
+		}
+		if !m.c.Check(got.ClosePorts, jc.SameContents, wanted.ClosePorts) {
+			return false
+		}
+		if !m.c.Check(got.SecretCreates, jc.SameContents, wanted.SecretCreates) {
+			return false
+		}
+		if !m.c.Check(got.SecretUpdates, jc.SameContents, wanted.SecretUpdates) {
+			return false
+		}
+		if !m.c.Check(got.SecretDeletes, jc.SameContents, wanted.SecretDeletes) {
+			return false
+		}
+		if !m.c.Check(got.SecretGrants, jc.SameContents, wanted.SecretGrants) {
+			return false
+		}
+		if !m.c.Check(got.SecretRevokes, jc.SameContents, wanted.SecretRevokes) {
+			return false
+		}
+		if got.UpdateNetworkInfo != wanted.UpdateNetworkInfo {
+			return false
+		}
+		if !reflect.DeepEqual(got.SetUnitState, wanted.SetUnitState) {
+			return false
+		}
+		return true
+	}
+
+	for i, a := range obtained.Args {
+		if !match(a, m.expected.Args[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func (m hookCommitMatcher) String() string {
+	return "Match the contents of the hook flush CommitHookChangesArgs arg"
+}
+
+// BaseHookContextSuite contains shared setup for various other test suites. Test
 // methods should not be added to this type, because they'll get run repeatedly.
-type HookContextSuite struct {
-	testing.JujuConnSuite
-	application    *state.Application
-	unit           *state.Unit
-	machine        *state.Machine
-	relCh          *state.Charm
-	relUnits       map[int]*state.RelationUnit
+type BaseHookContextSuite struct {
+	jujutesting.IsolationSuite
 	secretMetadata map[string]jujuc.SecretMetadata
 	secrets        *runnertesting.SecretsContextAccessor
 	clock          *testclock.Clock
 
-	st             api.Connection
-	uniter         *apiuniter.Client
-	payloads       *apiuniter.PayloadFacadeClient
-	apiUnit        *apiuniter.Unit
-	meteredAPIUnit *apiuniter.Unit
-	meteredCharm   *state.Charm
-	apiRelunits    map[int]*apiuniter.RelationUnit
-	BlockHelper
+	uniter   *uniterapi.MockUniterClient
+	payloads *mocks.MockPayloadAPIClient
+	unit     *uniterapi.MockUnit
+	relunits map[int]*uniterapi.MockRelationUnit
+
+	// Initial hook context data.
+	machinePortRanges map[names.UnitTag]network.GroupedPortRanges
 }
 
-func (s *HookContextSuite) SetUpTest(c *gc.C) {
-	var err error
-	s.JujuConnSuite.SetUpTest(c)
-	s.BlockHelper = NewBlockHelper(s.APIState)
-	c.Assert(s.BlockHelper, gc.NotNil)
-	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
+func (s *BaseHookContextSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
 
-	// reset
-	s.machine = nil
-
-	sch := s.AddTestingCharm(c, "wordpress-nolimit")
-	s.application = s.AddTestingApplication(c, "u", sch)
-	s.unit = s.AddUnit(c, s.application)
-
-	s.meteredCharm = s.AddTestingCharm(c, "metered")
-	meteredApplication := s.AddTestingApplication(c, "m", s.meteredCharm)
-	meteredUnit := s.addUnit(c, meteredApplication)
-
-	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
-	s.st = s.OpenAPIAs(c, s.unit.Tag(), password)
-	s.uniter, err = apiuniter.NewFromConnection(s.st)
-	c.Assert(err, jc.ErrorIsNil)
-	s.payloads = apiuniter.NewPayloadFacadeClient(s.st)
-	c.Assert(s.uniter, gc.NotNil)
-	s.apiUnit, err = s.uniter.Unit(s.unit.Tag().(names.UnitTag))
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = meteredUnit.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
-	meteredState := s.OpenAPIAs(c, meteredUnit.Tag(), password)
-	meteredUniter, err := apiuniter.NewFromConnection(meteredState)
-	c.Assert(err, jc.ErrorIsNil)
-	s.meteredAPIUnit, err = meteredUniter.Unit(meteredUnit.Tag().(names.UnitTag))
-	c.Assert(err, jc.ErrorIsNil)
-
-	// The unit must always have a charm URL set.
-	// In theatre, this happens as part of the installation process,
-	// which happens before the initial install hook.
-	// We simulate that having happened by explicitly setting it here.
-	//
-	// The API is used instead of direct state access, because the API call
-	// handles synchronisation with the cache where the data must reside for
-	// config watching and retrieval to work.
-	err = s.apiUnit.SetCharmURL(sch.String())
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.meteredAPIUnit.SetCharmURL(s.meteredCharm.String())
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.relCh = s.AddTestingCharm(c, "mysql")
-	s.relUnits = map[int]*state.RelationUnit{}
-	s.apiRelunits = map[int]*apiuniter.RelationUnit{}
-	s.AddContextRelation(c, "db0")
-	s.AddContextRelation(c, "db1")
-
+	s.relunits = map[int]*uniterapi.MockRelationUnit{}
 	s.secrets = &runnertesting.SecretsContextAccessor{}
-
+	s.machinePortRanges = make(map[names.UnitTag]network.GroupedPortRanges)
 	s.clock = testclock.NewClock(time.Time{})
 }
 
-func (s *HookContextSuite) GetContext(c *gc.C, relId int, remoteName string, storageTag names.StorageTag) jujuc.Context {
+func (s *BaseHookContextSuite) GetContext(c *gc.C, ctrl *gomock.Controller, relId int, remoteName string, storageTag names.StorageTag) jujuc.Context {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	return s.getHookContext(c, uuid.String(), relId, remoteName, storageTag)
+	return s.getHookContext(c, ctrl, uuid.String(), relId, remoteName, storageTag)
 }
 
-func (s *HookContextSuite) addUnit(c *gc.C, app *state.Application) *state.Unit {
-	unit, err := app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	if s.machine != nil {
-		err = unit.AssignToMachine(s.machine)
-		c.Assert(err, jc.ErrorIsNil)
-		return unit
-	}
+func (s *BaseHookContextSuite) AddContextRelation(c *gc.C, ctrl *gomock.Controller, name string) {
+	num := len(s.relunits)
+	rel := uniterapi.NewMockRelation(ctrl)
+	rel.EXPECT().Id().Return(num).AnyTimes()
+	rel.EXPECT().Tag().Return(names.NewRelationTag("mysql:server wordpress:" + name)).AnyTimes()
 
-	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
-	c.Assert(err, jc.ErrorIsNil)
-	machineId, err := unit.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	s.machine, err = s.State.Machine(machineId)
-	c.Assert(err, jc.ErrorIsNil)
-	zone := "a-zone"
-	hwc := instance.HardwareCharacteristics{
-		AvailabilityZone: &zone,
-	}
-	err = s.machine.SetProvisioned("i-exist", "", "fake_nonce", &hwc)
-	c.Assert(err, jc.ErrorIsNil)
-	return unit
+	relUnit := uniterapi.NewMockRelationUnit(ctrl)
+	relUnit.EXPECT().Relation().Return(rel).AnyTimes()
+	relUnit.EXPECT().Endpoint().Return(apiuniter.Endpoint{Relation: charm.Relation{Name: "db"}}).AnyTimes()
+	relUnit.EXPECT().Settings().Return(
+		apiuniter.NewSettings(rel.Tag().String(), names.NewUnitTag("u/0").String(), params.Settings{}), nil,
+	).AnyTimes()
+
+	s.relunits[num] = relUnit
 }
 
-func (s *HookContextSuite) AddUnit(c *gc.C, app *state.Application) *state.Unit {
-	unit := s.addUnit(c, app)
-	name := strings.Replace(unit.Name(), "/", "-", 1)
-	privateAddr := network.NewSpaceAddress(name+".testing.invalid", network.WithScope(network.ScopeCloudLocal))
-	err := s.machine.SetProviderAddresses(privateAddr)
-	c.Assert(err, jc.ErrorIsNil)
-	return unit
+func (s *BaseHookContextSuite) setupUnit(ctrl *gomock.Controller) names.MachineTag {
+	unitTag := names.NewUnitTag("u/0")
+	s.unit = uniterapi.NewMockUnit(ctrl)
+	s.unit.EXPECT().Tag().Return(unitTag).AnyTimes()
+	s.unit.EXPECT().Name().Return(unitTag.Id()).AnyTimes()
+	s.unit.EXPECT().MeterStatus().Return("", "", nil).AnyTimes()
+	s.unit.EXPECT().PublicAddress().Return("u-0.testing.invalid", nil).AnyTimes()
+	s.unit.EXPECT().PrivateAddress().Return("u-0.testing.invalid", nil).AnyTimes()
+	s.unit.EXPECT().AvailabilityZone().Return("a-zone", nil).AnyTimes()
+
+	machineTag := names.NewMachineTag("0")
+	s.unit.EXPECT().AssignedMachine().Return(machineTag, nil).AnyTimes()
+	return machineTag
 }
 
-func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
-	s.AddTestingApplication(c, name, s.relCh)
-	eps, err := s.State.InferEndpoints("u", name)
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
-	ru, err := rel.Unit(s.unit)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(map[string]interface{}{"relation-name": name})
-	c.Assert(err, jc.ErrorIsNil)
-	s.relUnits[rel.Id()] = ru
-	apiRel, err := s.uniter.Relation(rel.Tag().(names.RelationTag))
-	c.Assert(err, jc.ErrorIsNil)
-	apiRelUnit, err := apiRel.Unit(s.apiUnit.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	s.apiRelunits[rel.Id()] = apiRelUnit
+func (s *BaseHookContextSuite) setupUniter(ctrl *gomock.Controller) names.MachineTag {
+	machineTag := s.setupUnit(ctrl)
+	s.uniter = uniterapi.NewMockUniterClient(ctrl)
+	s.uniter.EXPECT().OpenedMachinePortRangesByEndpoint(machineTag).DoAndReturn(func(_ names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error) {
+		return s.machinePortRanges, nil
+	}).AnyTimes()
+	s.uniter.EXPECT().OpenedPortRangesByEndpoint().Return(nil, nil).AnyTimes()
+	return machineTag
 }
 
-func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int, remote string, storageTag names.StorageTag) *runnercontext.HookContext {
+func (s *BaseHookContextSuite) getHookContext(c *gc.C, ctrl *gomock.Controller, uuid string, relid int, remote string, storageTag names.StorageTag) *runnercontext.HookContext {
 	if relid != -1 {
-		_, found := s.apiRelunits[relid]
+		_, found := s.relunits[relid]
 		c.Assert(found, jc.IsTrue)
 	}
-	client, err := apiuniter.NewFromConnection(s.st)
-	c.Assert(err, jc.ErrorIsNil)
+	machineTag := s.setupUniter(ctrl)
 
 	relctxs := map[int]*runnercontext.ContextRelation{}
-	for relId, relUnit := range s.apiRelunits {
+	for relId, relUnit := range s.relunits {
 		cache := runnercontext.NewRelationCache(relUnit.ReadSettings, nil)
-		relctxs[relId] = runnercontext.NewContextRelation(uniterapi.RelationUnitShim{relUnit}, cache)
+		relctxs[relId] = runnercontext.NewContextRelation(relUnit, cache)
 	}
-
-	env, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
 	context, err := runnercontext.NewHookContext(runnercontext.HookContextParams{
-		Unit:                uniterapi.UnitShim{s.apiUnit},
-		Uniter:              uniterapi.UniterClientShim{client},
+		Unit:                s.unit,
+		Uniter:              s.uniter,
 		ID:                  "TestCtx",
 		UUID:                uuid,
-		ModelName:           env.Name(),
+		ModelName:           "test-model",
 		RelationID:          relid,
 		RemoteUnitName:      remote,
 		Relations:           relctxs,
@@ -209,7 +197,7 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int, remot
 		CanAddMetrics:       false,
 		CharmMetrics:        nil,
 		ActionData:          nil,
-		AssignedMachineTag:  s.machine.Tag().(names.MachineTag),
+		AssignedMachineTag:  machineTag,
 		SecretMetadata:      s.secretMetadata,
 		SecretsClient:       s.secrets,
 		SecretsStore:        s.secrets,
@@ -222,27 +210,18 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int, remot
 	return context
 }
 
-func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int,
+func (s *BaseHookContextSuite) getMeteredHookContext(c *gc.C, ctrl *gomock.Controller, uuid string, relid int,
 	remote string, canAddMetrics bool, metrics *charm.Metrics, paths runnertesting.RealPaths) *runnercontext.HookContext {
-	if relid != -1 {
-		_, found := s.apiRelunits[relid]
-		c.Assert(found, jc.IsTrue)
-	}
-	client, err := apiuniter.NewFromConnection(s.st)
-	c.Assert(err, jc.ErrorIsNil)
-
 	relctxs := map[int]*runnercontext.ContextRelation{}
-	for relId, relUnit := range s.apiRelunits {
-		cache := runnercontext.NewRelationCache(relUnit.ReadSettings, nil)
-		relctxs[relId] = runnercontext.NewContextRelation(uniterapi.RelationUnitShim{relUnit}, cache)
-	}
+
+	s.setupUniter(ctrl)
 
 	context, err := runnercontext.NewHookContext(runnercontext.HookContextParams{
-		Unit:                uniterapi.UnitShim{s.meteredAPIUnit},
-		Uniter:              uniterapi.UniterClientShim{client},
+		Unit:                s.unit,
+		Uniter:              s.uniter,
 		ID:                  "TestCtx",
 		UUID:                uuid,
-		ModelName:           "test-model-name",
+		ModelName:           "test-model",
 		RelationID:          relid,
 		RemoteUnitName:      remote,
 		Relations:           relctxs,
@@ -252,7 +231,7 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 		CanAddMetrics:       canAddMetrics,
 		CharmMetrics:        metrics,
 		ActionData:          nil,
-		AssignedMachineTag:  s.machine.Tag().(names.MachineTag),
+		AssignedMachineTag:  names.NewMachineTag("0"),
 		Paths:               paths,
 		Clock:               s.clock,
 	})
@@ -260,29 +239,25 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 	return context
 }
 
-func (s *HookContextSuite) metricsDefinition(name string) *charm.Metrics {
+func (s *BaseHookContextSuite) metricsDefinition(name string) *charm.Metrics {
 	return &charm.Metrics{Metrics: map[string]charm.Metric{name: {Type: charm.MetricTypeGauge, Description: "generated metric"}}}
 }
 
-func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx *runnercontext.HookContext) {
+func (s *BaseHookContextSuite) AssertCoreContext(c *gc.C, ctx *runnercontext.HookContext) {
 	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
 	c.Assert(runnercontext.ContextMachineTag(ctx), jc.DeepEquals, names.NewMachineTag("0"))
 
-	expect, expectErr := s.unit.PrivateAddress()
-	actual, actualErr := ctx.PrivateAddress()
-	c.Assert(actual, gc.Equals, expect.Value)
-	c.Assert(actualErr, jc.DeepEquals, expectErr)
-
-	expect, expectErr = s.unit.PublicAddress()
-	actual, actualErr = ctx.PublicAddress()
-	c.Assert(actual, gc.Equals, expect.Value)
-	c.Assert(actualErr, jc.DeepEquals, expectErr)
-
-	env, err := s.State.Model()
+	actual, err := ctx.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actual, gc.Equals, "u-0.testing.invalid")
+
+	actual, err = ctx.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actual, gc.Equals, "u-0.testing.invalid")
+
 	name, uuid := runnercontext.ContextEnvInfo(ctx)
-	c.Assert(name, gc.Equals, env.Name())
-	c.Assert(uuid, gc.Equals, env.UUID())
+	c.Assert(name, gc.Equals, "test-model")
+	c.Assert(uuid, gc.Equals, coretesting.ModelTag.Id())
 
 	ids, err := ctx.RelationIds()
 	c.Assert(err, jc.ErrorIsNil)
@@ -315,25 +290,25 @@ func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx *runnercontext.HookCon
 	}
 }
 
-func (s *HookContextSuite) AssertNotActionContext(c *gc.C, ctx *runnercontext.HookContext) {
+func (s *BaseHookContextSuite) AssertNotActionContext(c *gc.C, ctx *runnercontext.HookContext) {
 	actionData, err := ctx.ActionData()
 	c.Assert(actionData, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "not running an action")
 }
 
-func (s *HookContextSuite) AssertActionContext(c *gc.C, ctx *runnercontext.HookContext) {
+func (s *BaseHookContextSuite) AssertActionContext(c *gc.C, ctx *runnercontext.HookContext) {
 	actionData, err := ctx.ActionData()
 	c.Assert(actionData, gc.NotNil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *HookContextSuite) AssertNotStorageContext(c *gc.C, ctx *runnercontext.HookContext) {
+func (s *BaseHookContextSuite) AssertNotStorageContext(c *gc.C, ctx *runnercontext.HookContext) {
 	storageAttachment, err := ctx.HookStorage()
 	c.Assert(storageAttachment, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, ".*")
 }
 
-func (s *HookContextSuite) AssertStorageContext(c *gc.C, ctx *runnercontext.HookContext, id string, attachment storage.StorageAttachmentInfo) {
+func (s *BaseHookContextSuite) AssertStorageContext(c *gc.C, ctx *runnercontext.HookContext, id string, attachment storage.StorageAttachmentInfo) {
 	fromCache, err := ctx.HookStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fromCache, gc.NotNil)
@@ -342,7 +317,7 @@ func (s *HookContextSuite) AssertStorageContext(c *gc.C, ctx *runnercontext.Hook
 	c.Assert(fromCache.Location(), gc.Equals, attachment.Location)
 }
 
-func (s *HookContextSuite) AssertRelationContext(c *gc.C, ctx *runnercontext.HookContext, relId int, remoteUnit string, remoteApp string) *runnercontext.ContextRelation {
+func (s *BaseHookContextSuite) AssertRelationContext(c *gc.C, ctx *runnercontext.HookContext, relId int, remoteUnit string, remoteApp string) *runnercontext.ContextRelation {
 	actualRemoteUnit, _ := ctx.RemoteUnitName()
 	c.Assert(actualRemoteUnit, gc.Equals, remoteUnit)
 	actualRemoteApp, _ := ctx.RemoteApplicationName()
@@ -353,74 +328,34 @@ func (s *HookContextSuite) AssertRelationContext(c *gc.C, ctx *runnercontext.Hoo
 	return rel.(*runnercontext.ContextRelation)
 }
 
-func (s *HookContextSuite) AssertNotRelationContext(c *gc.C, ctx *runnercontext.HookContext) {
+func (s *BaseHookContextSuite) AssertNotRelationContext(c *gc.C, ctx *runnercontext.HookContext) {
 	rel, err := ctx.HookRelation()
 	c.Assert(rel, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, ".*")
 }
 
-func (s *HookContextSuite) AssertWorkloadContext(c *gc.C, ctx *runnercontext.HookContext, workloadName string) {
+func (s *BaseHookContextSuite) AssertWorkloadContext(c *gc.C, ctx *runnercontext.HookContext, workloadName string) {
 	actualWorkloadName, _ := ctx.WorkloadName()
 	c.Assert(actualWorkloadName, gc.Equals, workloadName)
 }
 
-func (s *HookContextSuite) AssertNotWorkloadContext(c *gc.C, ctx *runnercontext.HookContext) {
+func (s *BaseHookContextSuite) AssertNotWorkloadContext(c *gc.C, ctx *runnercontext.HookContext) {
 	workloadName, err := ctx.WorkloadName()
 	c.Assert(err, gc.NotNil)
 	c.Assert(workloadName, gc.Equals, "")
 }
 
-func (s *HookContextSuite) AssertSecretContext(c *gc.C, ctx *runnercontext.HookContext, secretURI, label string, revision int) {
+func (s *BaseHookContextSuite) AssertSecretContext(c *gc.C, ctx *runnercontext.HookContext, secretURI, label string, revision int) {
 	uri, _ := ctx.SecretURI()
 	c.Assert(uri, gc.Equals, secretURI)
 	c.Assert(ctx.SecretLabel(), gc.Equals, label)
 	c.Assert(ctx.SecretRevision(), gc.Equals, revision)
 }
 
-func (s *HookContextSuite) AssertNotSecretContext(c *gc.C, ctx *runnercontext.HookContext) {
+func (s *BaseHookContextSuite) AssertNotSecretContext(c *gc.C, ctx *runnercontext.HookContext) {
 	workloadName, err := ctx.SecretURI()
 	c.Assert(err, gc.NotNil)
 	c.Assert(workloadName, gc.Equals, "")
-}
-
-type BlockHelper struct {
-	blockClient *block.Client
-}
-
-// NewBlockHelper creates a block switch used in testing
-// to manage desired juju blocks.
-func NewBlockHelper(st api.Connection) BlockHelper {
-	return BlockHelper{
-		blockClient: block.NewClient(st),
-	}
-}
-
-// on switches on desired block and
-// asserts that no errors were encountered.
-func (s *BlockHelper) on(c *gc.C, blockType model.BlockType, msg string) {
-	c.Assert(s.blockClient.SwitchBlockOn(string(blockType), msg), gc.IsNil)
-}
-
-// BlockAllChanges switches changes block on.
-// This prevents all changes to juju environment.
-func (s *BlockHelper) BlockAllChanges(c *gc.C, msg string) {
-	s.on(c, model.BlockChange, msg)
-}
-
-// BlockRemoveObject switches remove block on.
-// This prevents any object/entity removal on juju environment
-func (s *BlockHelper) BlockRemoveObject(c *gc.C, msg string) {
-	s.on(c, model.BlockRemove, msg)
-}
-
-// BlockDestroyModel switches destroy block on.
-// This prevents juju environment destruction.
-func (s *BlockHelper) BlockDestroyModel(c *gc.C, msg string) {
-	s.on(c, model.BlockDestroy, msg)
-}
-
-func (s *BlockHelper) Close() {
-	s.blockClient.Close()
 }
 
 // MockEnvPaths implements Paths for tests that don't need to actually touch
@@ -459,4 +394,22 @@ func (MockEnvPaths) GetJujucServerSocket(remote bool) sockets.Socket {
 
 func (MockEnvPaths) GetMetricsSpoolDir() string {
 	return "path-to-metrics-spool-dir"
+}
+
+type stubLeadershipSettingsAccessor struct {
+	results map[string]string
+}
+
+func (s *stubLeadershipSettingsAccessor) Read(_ string) (result map[string]string, _ error) {
+	return result, nil
+}
+
+func (s *stubLeadershipSettingsAccessor) Merge(_, _ string, settings map[string]string) error {
+	if s.results == nil {
+		s.results = make(map[string]string)
+	}
+	for k, v := range settings {
+		s.results[k] = v
+	}
+	return nil
 }

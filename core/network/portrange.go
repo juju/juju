@@ -137,7 +137,7 @@ type PortRange struct {
 	Protocol string
 }
 
-// IsValid determines if the port range is valid.
+// Validate determines if the port range is valid.
 func (p PortRange) Validate() error {
 	proto := strings.ToLower(p.Protocol)
 	if proto != "tcp" && proto != "udp" && proto != "icmp" {

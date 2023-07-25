@@ -112,7 +112,7 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 	if result.Error != nil {
 		return nil, errors.Trace(result.Error)
 	}
-	return newSettings(ru.relation.tag.String(), ru.unitTag.String(), result.Settings), nil
+	return NewSettings(ru.relation.tag.String(), ru.unitTag.String(), result.Settings), nil
 }
 
 // ApplicationSettings returns a Settings which allows access to this unit's
@@ -129,7 +129,7 @@ func (ru *RelationUnit) ApplicationSettings() (*Settings, error) {
 	} else if result.Error != nil {
 		return nil, errors.Trace(result.Error)
 	}
-	return newSettings(ru.relation.tag.String(), ru.appTag.String(), result.Settings), nil
+	return NewSettings(ru.relation.tag.String(), ru.appTag.String(), result.Settings), nil
 }
 
 // ReadSettings returns a map holding the settings of the unit with the

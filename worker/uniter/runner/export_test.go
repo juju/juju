@@ -7,11 +7,6 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
-var (
-	SearchHook = discoverHookScript
-	LookPath   = lookPath
-)
-
 func RunnerPaths(rnr Runner) context.Paths {
 	return rnr.(*runner).paths
 }
