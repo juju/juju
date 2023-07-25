@@ -4,6 +4,8 @@
 package remoterelations
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -19,10 +21,19 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+// ECService provides a subset of the external controller domain
+// service methods.
+type ECService interface {
+	// UpdateExternalController persists the input controller
+	// record and associates it with the input model UUIDs.
+	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
+}
+
 // API provides access to the remote relations API facade.
 type API struct {
 	ControllerConfigAPI
 	st         RemoteRelationsState
+	ecService  ECService
 	resources  facade.Resources
 	authorizer facade.Authorizer
 }
@@ -30,6 +41,7 @@ type API struct {
 // NewRemoteRelationsAPI returns a new server-side API facade.
 func NewRemoteRelationsAPI(
 	st RemoteRelationsState,
+	ecService ECService,
 	controllerCfgAPI ControllerConfigAPI,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -39,6 +51,7 @@ func NewRemoteRelationsAPI(
 	}
 	return &API{
 		st:                  st,
+		ecService:           ecService,
 		ControllerConfigAPI: controllerCfgAPI,
 		resources:           resources,
 		authorizer:          authorizer,
@@ -403,7 +416,7 @@ func (api *API) SetRemoteApplicationsStatus(args params.SetStatus) (params.Error
 // UpdateControllersForModels changes the external controller records for the
 // associated model entities. This is used when the remote relations worker gets
 // redirected following migration of an offering model.
-func (api *API) UpdateControllersForModels(args params.UpdateControllersForModelsParams) (params.ErrorResults, error) {
+func (api *API) UpdateControllersForModels(ctx context.Context, args params.UpdateControllersForModelsParams) (params.ErrorResults, error) {
 	var result params.ErrorResults
 	result.Results = make([]params.ErrorResult, len(args.Changes))
 
@@ -427,9 +440,10 @@ func (api *API) UpdateControllersForModels(args params.UpdateControllersForModel
 			Alias:         cInfo.Alias,
 			Addrs:         cInfo.Addrs,
 			CACert:        cInfo.CACert,
+			ModelUUIDs:    []string{modelTag.Id()},
 		}
 
-		if err := api.st.UpdateControllerForModel(controller, modelTag.Id()); err != nil {
+		if err := api.ecService.UpdateExternalController(ctx, controller); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}

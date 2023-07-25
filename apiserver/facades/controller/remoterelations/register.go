@@ -30,18 +30,17 @@ func newAPI(ctx facade.Context) (*API, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	ecService := ecservice.NewService(
+		ecstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),
+		domain.NewWatcherFactory(
+			ctx.ControllerDB,
+			ctx.Logger().Child("remoterelations"),
+		),
+	)
 	return NewRemoteRelationsAPI(
 		stateShim{st: ctx.State(), Backend: commoncrossmodel.GetBackend(ctx.State())},
-		common.NewControllerConfigAPI(
-			systemState,
-			ecservice.NewService(
-				ecstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),
-				domain.NewWatcherFactory(
-					ctx.ControllerDB,
-					ctx.Logger().Child("remoterelations"),
-				),
-			),
-		),
+		ecService,
+		common.NewControllerConfigAPI(systemState, ecService),
 		ctx.Resources(), ctx.Auth(),
 	)
 }
