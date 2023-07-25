@@ -1897,6 +1897,11 @@ func (api *APIBase) AddRelation(args params.AddRelation) (_ params.AddRelationRe
 		return params.AddRelationResults{}, errors.Trace(err)
 	}
 
+	inEps, err := api.backend.InferEndpoints(args.Endpoints...)
+	if err != nil {
+		return params.AddRelationResults{}, errors.Trace(err)
+	}
+
 	// Validate any CIDRs.
 	for _, cidr := range args.ViaCIDRs {
 		if _, _, err := net.ParseCIDR(cidr); err != nil {
@@ -1906,11 +1911,22 @@ func (api *APIBase) AddRelation(args params.AddRelation) (_ params.AddRelationRe
 			return params.AddRelationResults{}, errors.Errorf("CIDR %q not allowed", cidr)
 		}
 	}
-
-	inEps, err := api.backend.InferEndpoints(args.Endpoints...)
-	if err != nil {
-		return params.AddRelationResults{}, errors.Trace(err)
+	if len(args.ViaCIDRs) > 0 {
+		var isCrossModel bool
+		for _, ep := range inEps {
+			_, err = api.backend.RemoteApplication(ep.ApplicationName)
+			if err == nil {
+				isCrossModel = true
+				break
+			} else if !errors.IsNotFound(err) {
+				return params.AddRelationResults{}, errors.Trace(err)
+			}
+		}
+		if !isCrossModel {
+			return params.AddRelationResults{}, errors.NotSupportedf("integration via subnets for non cross model relations")
+		}
 	}
+
 	if rel, err = api.backend.AddRelation(inEps...); err != nil {
 		return params.AddRelationResults{}, errors.Trace(err)
 	}
