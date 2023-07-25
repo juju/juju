@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/services"
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher/registry"
+	"github.com/juju/juju/domain/servicefactory"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -547,17 +547,18 @@ func (r *apiRoot) facadeContext(key objectKey) *facadeContext {
 	// created once for a given connection.
 	var (
 		once     sync.Once
-		registry facade.ServicesRegistry
+		registry facade.APIServerServiceFactory
 	)
 	return &facadeContext{
 		r:   r,
 		key: key,
-		servicesFn: func() facade.ServicesRegistry {
+		serviceFactoryFn: func() facade.APIServerServiceFactory {
 			once.Do(func() {
 				factory := changestream.NewWatchableDBFactoryForNamespace(r.shared.dbGetter.GetWatchableDB, coredatabase.ControllerNS)
-				registry = services.NewRegistry(factory,
+				registry = servicefactory.NewControllerFactory(
+					factory,
 					r.shared.dbDeleter,
-					serviceLogger{
+					serviceFactoryLogger{
 						Logger: r.shared.logger,
 					},
 				)
@@ -605,9 +606,9 @@ func (r *adminRoot) FindMethod(rootName string, version int, methodName string) 
 
 // facadeContext implements facade.Context
 type facadeContext struct {
-	r          *apiRoot
-	key        objectKey
-	servicesFn func() facade.ServicesRegistry
+	r                *apiRoot
+	key              objectKey
+	serviceFactoryFn func() facade.APIServerServiceFactory
 }
 
 // Cancel is part of the facade.Context interface.
@@ -762,9 +763,9 @@ func (ctx *facadeContext) ControllerDB() (changestream.WatchableDB, error) {
 	return db, errors.Trace(err)
 }
 
-// Services returns the services registry.
-func (ctx *facadeContext) Services() facade.ServicesRegistry {
-	return ctx.servicesFn()
+// ServiceFactory returns the services factory.
+func (ctx *facadeContext) ServiceFactory() facade.APIServerServiceFactory {
+	return ctx.serviceFactoryFn()
 }
 
 // MachineTag returns the current machine tag.
@@ -798,11 +799,11 @@ func DescribeFacades(registry *facade.Registry) []params.FacadeVersions {
 	return result
 }
 
-// serviceLogger is a loggo.Logger for the service registry.
-type serviceLogger struct {
+// serviceFactoryLogger is a loggo.Logger for the service factory.
+type serviceFactoryLogger struct {
 	loggo.Logger
 }
 
-func (c serviceLogger) Child(name string) services.Logger {
+func (c serviceFactoryLogger) Child(name string) servicefactory.Logger {
 	return c
 }

@@ -15,8 +15,8 @@ import (
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
-	servicestesting "github.com/juju/juju/apiserver/services/testing"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -61,11 +61,11 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 	}
 	testController, err := controller.NewControllerAPIv11(
 		facadetest.Context{
-			State_:            s.State,
-			StatePool_:        s.StatePool,
-			Resources_:        s.resources,
-			Auth_:             s.authorizer,
-			ServicesRegistry_: servicestesting.NewTestRegistry(),
+			State_:          s.State,
+			StatePool_:      s.StatePool,
+			Resources_:      s.resources,
+			Auth_:           s.authorizer,
+			ServiceFactory_: servicefactorytesting.NewTestingControllerFactory(),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = testController

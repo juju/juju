@@ -74,7 +74,7 @@ func newFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
 			modelmigration.NewScope(changestream.NewTxnRunnerFactory(ctx.ControllerDB), nil),
 		),
 		common.NewModelManagerBackend(ctrlModel, pool),
-		ctx.Services().ModelManager(),
+		ctx.ServiceFactory().ModelManager(),
 		toolsFinder,
 		caas.New,
 		common.NewBlockChecker(backend),

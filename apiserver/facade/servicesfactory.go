@@ -10,8 +10,9 @@ import (
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 )
 
-// ServicesRegistry provides access to the services required by the apiserver.
-type ServicesRegistry interface {
+// APIServerServiceFactory provides access to the services required by the
+// apiserver.
+type APIServerServiceFactory interface {
 	// ControllerConfig returns the controller configuration service.
 	ControllerConfig() *controllerconfigservice.Service
 	// ControllerNode returns the controller node service.

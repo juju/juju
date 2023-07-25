@@ -4,7 +4,7 @@
 package testing
 
 import (
-	"github.com/juju/juju/apiserver/services"
+	services "github.com/juju/juju/domain/servicefactory"
 	"github.com/juju/juju/testing"
 )
 
