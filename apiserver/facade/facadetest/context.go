@@ -36,7 +36,7 @@ type Context struct {
 	LeadershipReader_   leadership.Reader
 	SingularClaimer_    lease.Claimer
 	CharmhubHTTPClient_ facade.HTTPClient
-	ServicesRegistry_   facade.ServicesRegistry
+	ServiceFactory_     facade.APIServerServiceFactory
 	ControllerDB_       changestream.WatchableDB
 	Logger_             loggo.Logger
 
@@ -157,8 +157,8 @@ func (context Context) HTTPClient(purpose facade.HTTPClientPurpose) facade.HTTPC
 	}
 }
 
-func (context Context) Services() facade.ServicesRegistry {
-	return context.ServicesRegistry_
+func (context Context) ServiceFactory() facade.APIServerServiceFactory {
+	return context.ServiceFactory_
 }
 
 func (context Context) ControllerDB() (changestream.WatchableDB, error) {

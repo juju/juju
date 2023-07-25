@@ -39,7 +39,7 @@ func newHighAvailabilityAPI(ctx facade.Context) (*HighAvailabilityAPI, error) {
 
 	return &HighAvailabilityAPI{
 		st:          st,
-		nodeService: ctx.Services().ControllerNode(),
+		nodeService: ctx.ServiceFactory().ControllerNode(),
 		authorizer:  authorizer,
 		logger:      ctx.Logger().Child("highavailability"),
 	}, nil

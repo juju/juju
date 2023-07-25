@@ -325,18 +325,18 @@ func (mr *MockContextMockRecorder) Resources() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resources", reflect.TypeOf((*MockContext)(nil).Resources))
 }
 
-// Services mocks base method.
-func (m *MockContext) Services() facade.ServicesRegistry {
+// ServiceFactory mocks base method.
+func (m *MockContext) ServiceFactory() facade.APIServerServiceFactory {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Services")
-	ret0, _ := ret[0].(facade.ServicesRegistry)
+	ret := m.ctrl.Call(m, "ServiceFactory")
+	ret0, _ := ret[0].(facade.APIServerServiceFactory)
 	return ret0
 }
 
-// Services indicates an expected call of Services.
-func (mr *MockContextMockRecorder) Services() *gomock.Call {
+// ServiceFactory indicates an expected call of ServiceFactory.
+func (mr *MockContextMockRecorder) ServiceFactory() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Services", reflect.TypeOf((*MockContext)(nil).Services))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServiceFactory", reflect.TypeOf((*MockContext)(nil).ServiceFactory))
 }
 
 // SingularClaimer mocks base method.

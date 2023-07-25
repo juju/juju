@@ -25,6 +25,6 @@ func newStateAPI(ctx facade.Context) (*ExternalControllerUpdaterAPI, error) {
 	}
 	return NewAPI(
 		ctx.Resources(),
-		ctx.Services().ExternalController(),
+		ctx.ServiceFactory().ExternalController(),
 	)
 }

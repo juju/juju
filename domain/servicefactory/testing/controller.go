@@ -10,31 +10,31 @@ import (
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 )
 
-// TestRegistry provides access to the services required by the apiserver.
-type TestRegistry struct{}
+// TestingControllerFactory provides access to the services required by the apiserver.
+type TestingControllerFactory struct{}
 
-// NewTestRegistry returns a new registry which uses the provided controllerDB
+// NewTestingControllerFactory returns a new registry which uses the provided controllerDB
 // function to obtain a controller database.
-func NewTestRegistry() *TestRegistry {
-	return &TestRegistry{}
+func NewTestingControllerFactory() *TestingControllerFactory {
+	return &TestingControllerFactory{}
 }
 
 // ControllerConfig returns the controller configuration service.
-func (s *TestRegistry) ControllerConfig() *controllerconfigservice.Service {
+func (s *TestingControllerFactory) ControllerConfig() *controllerconfigservice.Service {
 	return nil
 }
 
 // ControllerNode returns the controller node service.
-func (s *TestRegistry) ControllerNode() *controllernodeservice.Service {
+func (s *TestingControllerFactory) ControllerNode() *controllernodeservice.Service {
 	return nil
 }
 
 // ModelManager returns the model manager service.
-func (s *TestRegistry) ModelManager() *modelmanagerservice.Service {
+func (s *TestingControllerFactory) ModelManager() *modelmanagerservice.Service {
 	return nil
 }
 
 // ExternalController returns the external controller service.
-func (s *TestRegistry) ExternalController() *externalcontrollerservice.Service {
+func (s *TestingControllerFactory) ExternalController() *externalcontrollerservice.Service {
 	return nil
 }

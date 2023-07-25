@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package services
+package servicefactory
 
 import (
 	"github.com/juju/juju/core/changestream"
@@ -23,21 +23,21 @@ type Logger interface {
 	Child(string) Logger
 }
 
-// Registry provides access to the services required by the apiserver.
-type Registry struct {
+// ControllerFactory provides access to the services required by the apiserver.
+type ControllerFactory struct {
 	controllerDB changestream.WatchableDBFactory
 	deleterDB    database.DBDeleter
 	logger       Logger
 }
 
-// NewRegistry returns a new registry which uses the provided controllerDB
+// NewControllerFactory returns a new registry which uses the provided controllerDB
 // function to obtain a controller database.
-func NewRegistry(
+func NewControllerFactory(
 	controllerDB changestream.WatchableDBFactory,
 	deleterDB database.DBDeleter,
 	logger Logger,
-) *Registry {
-	return &Registry{
+) *ControllerFactory {
+	return &ControllerFactory{
 		controllerDB: controllerDB,
 		deleterDB:    deleterDB,
 		logger:       logger,
@@ -45,7 +45,7 @@ func NewRegistry(
 }
 
 // ControllerConfig returns the controller configuration service.
-func (s *Registry) ControllerConfig() *controllerconfigservice.Service {
+func (s *ControllerFactory) ControllerConfig() *controllerconfigservice.Service {
 	return controllerconfigservice.NewService(
 		controllerconfigstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		domain.NewWatcherFactory(
@@ -56,14 +56,14 @@ func (s *Registry) ControllerConfig() *controllerconfigservice.Service {
 }
 
 // ControllerNode returns the controller node service.
-func (s *Registry) ControllerNode() *controllernodeservice.Service {
+func (s *ControllerFactory) ControllerNode() *controllernodeservice.Service {
 	return controllernodeservice.NewService(
 		controllernodestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 	)
 }
 
 // ModelManager returns the model manager service.
-func (s *Registry) ModelManager() *modelmanagerservice.Service {
+func (s *ControllerFactory) ModelManager() *modelmanagerservice.Service {
 	return modelmanagerservice.NewService(
 		modelmanagerstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		s.deleterDB,
@@ -71,7 +71,7 @@ func (s *Registry) ModelManager() *modelmanagerservice.Service {
 }
 
 // ExternalController returns the external controller service.
-func (s *Registry) ExternalController() *externalcontrollerservice.Service {
+func (s *ControllerFactory) ExternalController() *externalcontrollerservice.Service {
 	return externalcontrollerservice.NewService(
 		externalcontrollerstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		domain.NewWatcherFactory(

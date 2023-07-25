@@ -15,14 +15,14 @@ import (
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/highavailability"
-	"github.com/juju/juju/apiserver/services"
-	servicestesting "github.com/juju/juju/apiserver/services/testing"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	databasetesting "github.com/juju/juju/database/testing"
+	"github.com/juju/juju/domain/servicefactory"
+	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -59,10 +59,10 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		State_:        st,
 		Auth_:         s.authorizer,
 		ControllerDB_: stubWatchableDB{},
-		ServicesRegistry_: services.NewRegistry(
+		ServiceFactory_: servicefactory.NewControllerFactory(
 			databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
 			nil,
-			servicestesting.NewCheckLogger(c),
+			servicefactorytesting.NewCheckLogger(c),
 		),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -516,10 +516,10 @@ func (s *clientSuite) TestEnableHAHostedModelErrors(c *gc.C) {
 	haServer, err := highavailability.NewHighAvailabilityAPI(facadetest.Context{
 		State_: st2,
 		Auth_:  s.authorizer,
-		ServicesRegistry_: services.NewRegistry(
+		ServiceFactory_: servicefactory.NewControllerFactory(
 			databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
 			nil,
-			servicestesting.NewCheckLogger(c),
+			servicefactorytesting.NewCheckLogger(c),
 		),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -582,10 +582,10 @@ func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {
 	_, err := highavailability.NewHighAvailabilityAPI(facadetest.Context{
 		State_: st,
 		Auth_:  s.authorizer,
-		ServicesRegistry_: services.NewRegistry(
+		ServiceFactory_: servicefactory.NewControllerFactory(
 			databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
 			nil,
-			servicestesting.NewCheckLogger(c),
+			servicefactorytesting.NewCheckLogger(c),
 		),
 	})
 	c.Assert(err, gc.ErrorMatches, "high availability on kubernetes controllers not supported")
