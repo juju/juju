@@ -25,7 +25,7 @@ type Logger interface {
 
 // Registry provides access to the services required by the apiserver.
 type Registry struct {
-	controllerDB func() (changestream.WatchableDB, error)
+	controllerDB changestream.WatchableDBFactory
 	deleterDB    database.DBDeleter
 	logger       Logger
 }
@@ -33,7 +33,7 @@ type Registry struct {
 // NewRegistry returns a new registry which uses the provided controllerDB
 // function to obtain a controller database.
 func NewRegistry(
-	controllerDB func() (changestream.WatchableDB, error),
+	controllerDB changestream.WatchableDBFactory,
 	deleterDB database.DBDeleter,
 	logger Logger,
 ) *Registry {
@@ -45,7 +45,7 @@ func NewRegistry(
 }
 
 // ControllerConfig returns the controller configuration service.
-func (s *Registry) ControllerConfig() ControllerConfig {
+func (s *Registry) ControllerConfig() *controllerconfigservice.Service {
 	return controllerconfigservice.NewService(
 		controllerconfigstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		domain.NewWatcherFactory(
@@ -56,14 +56,14 @@ func (s *Registry) ControllerConfig() ControllerConfig {
 }
 
 // ControllerNode returns the controller node service.
-func (s *Registry) ControllerNode() ControllerNode {
+func (s *Registry) ControllerNode() *controllernodeservice.Service {
 	return controllernodeservice.NewService(
 		controllernodestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 	)
 }
 
 // ModelManager returns the model manager service.
-func (s *Registry) ModelManager() ModelManager {
+func (s *Registry) ModelManager() *modelmanagerservice.Service {
 	return modelmanagerservice.NewService(
 		modelmanagerstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		s.deleterDB,
@@ -71,7 +71,7 @@ func (s *Registry) ModelManager() ModelManager {
 }
 
 // ExternalController returns the external controller service.
-func (s *Registry) ExternalController() ExternalController {
+func (s *Registry) ExternalController() *externalcontrollerservice.Service {
 	return externalcontrollerservice.NewService(
 		externalcontrollerstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		domain.NewWatcherFactory(

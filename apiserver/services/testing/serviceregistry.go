@@ -4,7 +4,10 @@
 package testing
 
 import (
-	"github.com/juju/juju/apiserver/services"
+	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
+	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
+	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
+	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 )
 
 // TestRegistry provides access to the services required by the apiserver.
@@ -17,21 +20,21 @@ func NewTestRegistry() *TestRegistry {
 }
 
 // ControllerConfig returns the controller configuration service.
-func (s *TestRegistry) ControllerConfig() services.ControllerConfig {
+func (s *TestRegistry) ControllerConfig() *controllerconfigservice.Service {
 	return nil
 }
 
 // ControllerNode returns the controller node service.
-func (s *TestRegistry) ControllerNode() services.ControllerNode {
+func (s *TestRegistry) ControllerNode() *controllernodeservice.Service {
 	return nil
 }
 
 // ModelManager returns the model manager service.
-func (s *TestRegistry) ModelManager() services.ModelManager {
+func (s *TestRegistry) ModelManager() *modelmanagerservice.Service {
 	return nil
 }
 
 // ExternalController returns the external controller service.
-func (s *TestRegistry) ExternalController() services.ExternalController {
+func (s *TestRegistry) ExternalController() *externalcontrollerservice.Service {
 	return nil
 }
