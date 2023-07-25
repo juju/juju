@@ -592,9 +592,8 @@ func (w *dbWorker) openDatabase(namespace string) error {
 	// multiple times for the same namespace.
 	err := w.dbRunner.StartWorker(namespace, func() (worker.Worker, error) {
 		w.mu.RLock()
-		running := w.dbApp != nil
-		w.mu.RUnlock()
-		if !running {
+		defer w.mu.RUnlock()
+		if w.dbApp == nil {
 			// If the dbApp is nil, then we're either shutting down or
 			// rebinding the address. In either case, we don't want to
 			// start a new worker. We'll return ErrTryAgain to indicate

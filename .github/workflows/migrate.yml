@@ -17,8 +17,8 @@ permissions:
   contents: read
 
 jobs:
-  migrate_via_29:
-    name: 2.9-to-3.x via 2.9 client
+  migrate:
+    name: 2.9-to-3.x via ${{ matrix.client }} client
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     strategy:
@@ -27,6 +27,7 @@ jobs:
         # TODO: add microk8s tests
         cloud: ["lxd"]
         channel: ["2.9/stable"]
+        client: ['2.9', '3.x']
 
     steps:
       - name: Checkout code
@@ -34,7 +35,7 @@ jobs:
 
       - name: Setup LXD
         if: matrix.cloud == 'lxd'
-        uses: canonical/setup-lxd@4e959f8e0d9c5feb27d44c5e4d9a330a782edee0
+        uses: canonical/setup-lxd@v0.1.1
 
       - name: Install Juju 2.9
         run: |
@@ -73,102 +74,13 @@ jobs:
 
       - name: Migrate default model to 3.x controller
         run: |
-          /snap/bin/juju switch test29
-
-          # Ensure application is fully deployed
-          /snap/bin/juju wait-for application ubuntu
+          # Determine which Juju client to use
+          JUJU='juju'
+          if [[ ${{ matrix.client }} == '2.9' ]]; then
+            JUJU='/snap/bin/juju'
+          fi
           
-          # Wait a few secs for the machine status to update
-          # so that migration prechecks pass.
-          sleep 10
-
-          /snap/bin/juju version
-          /snap/bin/juju migrate test-migrate test3x
-
-      - name: Check the migration was successful
-        run: |
-          set -x
-          juju switch test3x
-          
-          # Wait for 'test-migrate' model to come through
-          attempt=0
-          while true; do
-            RES=$(juju models | grep 'test-migrate' || true)
-            if [[ -n $RES ]]; then
-              break
-            fi
-            sleep 5
-            attempt=$((attempt+1))
-            if [ "$attempt" -eq 10 ]; then
-              echo "Migration timed out"
-              exit 1
-            fi
-          done
-          
-          juju switch test-migrate
-          juju wait-for application ubuntu
-          
-          juju deploy ubuntu yet-another-ubuntu
-          juju wait-for application yet-another-ubuntu
-
-
-  migrate_via_3x:
-    name: 2.9-to-3.x via 3.x client
-    runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false
-    strategy:
-      fail-fast: false
-      matrix:
-        # TODO: add microk8s tests
-        cloud: ["lxd"]
-        channel: ["2.9/stable"]
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Setup LXD
-        if: matrix.cloud == 'lxd'
-        uses: canonical/setup-lxd@ea57509243d3cf39f8ab926e021bb353947b01b5
-
-      - name: Install Juju 2.9
-        run: |
-          sudo snap install juju --classic --channel ${{ matrix.channel }}
-
-      - name: Bootstrap a 2.9 controller and model
-        run: |
-          /snap/bin/juju version
-          /snap/bin/juju bootstrap lxd test29
-          /snap/bin/juju add-model test-migrate
-          /snap/bin/juju deploy ubuntu
-
-          # TODO: use juju-restore
-          # TODO: add users/permissions/models and test that those migrate over
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
-
-      - name: Set up Go env
-        run: |
-          echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
-          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-
-      - name: Upgrade client to 3.x
-        run: |
-          make go-install &>/dev/null
-
-      - name: Bootstrap 3.x controller
-        run: |
-          juju version
-          juju bootstrap lxd test3x
-          juju switch controller
-          juju wait-for application controller
-
-        # TODO: create backup and juju restore
-
-      - name: Migrate default model to 3.x controller
-        run: |
-          juju switch test29
+          $JUJU switch test29
           
           # Ensure application is fully deployed
           # We have to use the old client to speak to the new controller, as
@@ -179,8 +91,8 @@ jobs:
           # so that migration prechecks pass.
           sleep 10
 
-          juju version
-          juju migrate test-migrate test3x
+          $JUJU version
+          $JUJU migrate test-migrate test3x
 
       - name: Check the migration was successful
         run: |
