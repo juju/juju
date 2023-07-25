@@ -91,4 +91,4 @@ jobs:
           curl https://github.com/mattermost/mmctl/releases/download/v7.8.5/linux_amd64.tar -Lo mmctl.tar
           tar -xvf mmctl.tar
           ./mmctl auth login 'https://chat.charmhub.io' --name Charmhub --access-token $MM_TOKEN
-          ./mmctl post create Charmhub:juju-watercooler --message "$MESSAGE"
+          ./mmctl post create Charmhub:juju-bot --message "$MESSAGE"
