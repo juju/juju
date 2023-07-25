@@ -10,7 +10,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/names/v4"
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -35,7 +35,7 @@ type ModelsSuite struct {
 var _ = gc.Suite(&ModelsSuite{})
 
 type fakeModelMgrAPIClient struct {
-	*gitjujutesting.Stub
+	*jujutesting.Stub
 
 	err   error
 	infos []params.ModelInfoResult
@@ -215,7 +215,7 @@ func (s *ModelsSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.api = &fakeModelMgrAPIClient{
-		Stub: &gitjujutesting.Stub{},
+		Stub: &jujutesting.Stub{},
 	}
 	s.api.infos = convert(models)
 
@@ -622,7 +622,7 @@ func (s *ModelsSuite) TestModelsWithOneModelInError(c *gc.C) {
 
 func (s *ModelsSuite) TestAllModels(c *gc.C) {
 	assertAPICallsArgs := func(all bool) {
-		s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		s.api.CheckCalls(c, []jujutesting.StubCall{{
 			"ListModelSummaries", []interface{}{"admin", all},
 		}, {
 			"Close", []interface{}{},

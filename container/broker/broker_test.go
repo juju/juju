@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	gitjujutesting "github.com/juju/testing"
+	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -91,7 +91,7 @@ func (f *fakeAddr) String() string {
 var _ net.Addr = (*fakeAddr)(nil)
 
 type fakeAPI struct {
-	*gitjujutesting.Stub
+	*jtesting.Stub
 
 	fakeContainerConfig params.ContainerConfig
 	fakeInterfaceInfo   corenetwork.InterfaceInfo
@@ -133,7 +133,7 @@ func fakeContainerConfig() params.ContainerConfig {
 
 func NewFakeAPI() *fakeAPI {
 	return &fakeAPI{
-		Stub:                &gitjujutesting.Stub{},
+		Stub:                &jtesting.Stub{},
 		fakeContainerConfig: fakeContainerConfig(),
 		fakeInterfaceInfo:   fakeInterfaceInfo,
 	}
@@ -210,7 +210,7 @@ func (f *fakeAPI) GetContainerProfileInfo(containerTag names.MachineTag) ([]*api
 }
 
 type fakeContainerManager struct {
-	gitjujutesting.Stub
+	jtesting.Stub
 }
 
 func (m *fakeContainerManager) CreateContainer(instanceConfig *instancecfg.InstanceConfig,

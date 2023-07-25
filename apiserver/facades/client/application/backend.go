@@ -223,7 +223,7 @@ type Model interface {
 	Config() (*config.Config, error)
 	CloudName() string
 	Cloud() (cloud.Cloud, error)
-	CloudCredential() (state.Credential, bool, error)
+	CloudCredential() (cloud.Credential, bool, error)
 	CloudRegion() string
 	ControllerUUID() string
 }

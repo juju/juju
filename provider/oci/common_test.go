@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	gitjujutesting "github.com/juju/testing"
+	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	ociIdentity "github.com/oracle/oci-go-sdk/v65/identity"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
@@ -245,7 +245,7 @@ func listShapesResponse() []ociCore.Shape {
 }
 
 type commonSuite struct {
-	gitjujutesting.IsolationSuite
+	jtesting.IsolationSuite
 
 	testInstanceID  string
 	testCompartment string

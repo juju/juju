@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -18,7 +18,7 @@ import (
 
 type DownloaderSuite struct {
 	testing.BaseSuite
-	gitjujutesting.HTTPSuite
+	jujutesting.HTTPSuite
 }
 
 func (s *DownloaderSuite) SetUpSuite(c *gc.C) {
@@ -52,7 +52,7 @@ func (s *DownloaderSuite) URL(c *gc.C, path string) *url.URL {
 
 func (s *DownloaderSuite) testStart(c *gc.C, hostnameVerification bool) {
 	tmp := c.MkDir()
-	gitjujutesting.Server.Response(200, nil, []byte("archive"))
+	jujutesting.Server.Response(200, nil, []byte("archive"))
 	dlr := downloader.New(downloader.NewArgs{
 		HostnameVerification: hostnameVerification,
 	})
@@ -77,7 +77,7 @@ func (s *DownloaderSuite) TestDownloadWithDisablingSSLHostnameVerification(c *gc
 
 func (s *DownloaderSuite) TestDownload(c *gc.C) {
 	tmp := c.MkDir()
-	gitjujutesting.Server.Response(200, nil, []byte("archive"))
+	jujutesting.Server.Response(200, nil, []byte("archive"))
 	dlr := downloader.New(downloader.NewArgs{})
 	filename, err := dlr.Download(downloader.Request{
 		URL:       s.URL(c, "/archive.tgz"),
@@ -91,7 +91,7 @@ func (s *DownloaderSuite) TestDownload(c *gc.C) {
 
 func (s *DownloaderSuite) TestDownloadHandles409Responses(c *gc.C) {
 	tmp := c.MkDir()
-	gitjujutesting.Server.Response(409, nil, []byte("archive"))
+	jujutesting.Server.Response(409, nil, []byte("archive"))
 	dlr := downloader.New(downloader.NewArgs{})
 	_, err := dlr.Download(downloader.Request{
 		URL:       s.URL(c, "/archive.tgz"),

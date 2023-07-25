@@ -192,10 +192,10 @@ func (mr *MockCredentialMockRecorder) Attributes() *gomock.Call {
 }
 
 // AuthType mocks base method.
-func (m *MockCredential) AuthType() string {
+func (m *MockCredential) AuthType() cloud.AuthType {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AuthType")
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(cloud.AuthType)
 	return ret0
 }
 

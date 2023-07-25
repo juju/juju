@@ -1165,7 +1165,7 @@ type mockModel struct {
 	controllerUUID      string
 	isController        bool
 	cloud               cloud.Cloud
-	cred                state.Credential
+	cred                cloud.Credential
 	setCloudCredentialF func(tag names.CloudCredentialTag) (bool, error)
 }
 
@@ -1219,7 +1219,7 @@ func (m *mockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 	return names.NewCloudCredentialTag("some-cloud/bob/some-credential"), true
 }
 
-func (m *mockModel) CloudCredential() (state.Credential, bool, error) {
+func (m *mockModel) CloudCredential() (cloud.Credential, bool, error) {
 	m.MethodCall(m, "CloudCredential")
 	return m.cred, true, nil
 }

@@ -7,23 +7,48 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	apitesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/environs/config"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/testing"
 )
 
 type environSuite struct {
-	testing.JujuConnSuite
 }
 
 var _ = gc.Suite(&environSuite{})
 
-func (s *environSuite) TestGetEnvironment(c *gc.C) {
-	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.Model)
-	c.Assert(err, jc.ErrorIsNil)
-	config, err := s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
+type mockModel struct {
+	stateenvirons.Model
+	cfg *config.Config
+}
 
-	c.Check(env.Config().UUID(), jc.DeepEquals, config.UUID())
-	c.Check(env, gc.Not(gc.Equals), s.Environ)
+func (m *mockModel) Config() (*config.Config, error) {
+	return m.cfg, nil
+}
+
+func (m *mockModel) Cloud() (cloud.Cloud, error) {
+	return jujutesting.DefaultCloud, nil
+}
+
+func (m *mockModel) CloudRegion() string {
+	return jujutesting.DefaultCloudRegion
+}
+
+func (m *mockModel) CloudCredential() (cloud.Credential, bool, error) {
+	return cloud.Credential{}, false, nil
+}
+
+func (s *environSuite) TestGetEnvironment(c *gc.C) {
+	unreg := environs.RegisterProvider(jujutesting.DefaultCloud.Type, apitesting.ProviderInstance)
+	defer unreg()
+
+	cfg := testing.CustomModelConfig(c, testing.Attrs{"name": "testmodel-foo"})
+	m := &mockModel{cfg: cfg}
+	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(m)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Config().UUID(), jc.DeepEquals, cfg.UUID())
 }

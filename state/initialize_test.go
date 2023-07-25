@@ -212,7 +212,13 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(credentialSet, jc.IsTrue)
 	stateCred, err := s.State.CloudCredential(credentialTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cred, jc.DeepEquals, stateCred)
+	stateCredential := cloud.NewNamedCredential(
+		stateCred.Name,
+		cloud.AuthType(stateCred.AuthType),
+		stateCred.Attributes,
+		stateCred.Revoked,
+	)
+	c.Assert(cred, jc.DeepEquals, stateCredential)
 	cloudCredentials, err := s.State.CloudCredentials(model.Owner(), "dummy")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudCredentials, jc.DeepEquals, map[string]state.Credential{

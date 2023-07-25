@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"google.golang.org/api/compute/v1"
@@ -111,7 +111,7 @@ func MakeTestCredential() cloud.Credential {
 }
 
 type BaseSuiteUnpatched struct {
-	gitjujutesting.IsolationSuite
+	jujutesting.IsolationSuite
 
 	ControllerUUID string
 	Config         *config.Config

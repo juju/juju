@@ -183,7 +183,7 @@ func (s *secretsSuite) assertAdminBackendConfigInfoDefault(
 			IsControllerCloud: true,
 		}
 		cred := mocks.NewMockCredential(ctrl)
-		cred.EXPECT().AuthType().Return("access-key")
+		cred.EXPECT().AuthType().Return(cloud.AccessKeyAuthType)
 		cred.EXPECT().Attributes().Return(map[string]string{"foo": "bar"})
 		model.EXPECT().Cloud().Return(cld, nil)
 		model.EXPECT().CloudCredential().Return(cred, nil)

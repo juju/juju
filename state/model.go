@@ -655,13 +655,17 @@ func (m *Model) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 
 // CloudCredential returns the cloud credential used for managing the
 // model's cloud resources, and a boolean indicating whether a credential is set.
-func (m *Model) CloudCredential() (Credential, bool, error) {
+func (m *Model) CloudCredential() (jujucloud.Credential, bool, error) {
 	tag, ok := m.CloudCredentialTag()
 	if !ok {
-		return Credential{}, false, nil
+		return jujucloud.Credential{}, false, nil
 	}
 	cred, err := m.st.CloudCredential(tag)
-	return cred, true, err
+	if err != nil {
+		return jujucloud.Credential{}, false, errors.Trace(err)
+	}
+	result := jujucloud.NewNamedCredential(cred.Name, jujucloud.AuthType(cred.AuthType), cred.Attributes, cred.Revoked)
+	return result, true, nil
 }
 
 // MigrationMode returns whether the model is active or being migrated.

@@ -11,7 +11,7 @@ import (
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -60,7 +60,7 @@ type baseDestroySuite struct {
 
 // fakeDestroyAPI mocks out the controller API
 type fakeDestroyAPI struct {
-	gitjujutesting.Stub
+	jujutesting.Stub
 	cloud        environscloudspec.CloudSpec
 	env          map[string]interface{}
 	blocks       []params.ModelBlockInfo
@@ -626,7 +626,7 @@ func (s *DestroySuite) TestDestroyWithInvalidCredentialCallbackFailingToCloseAPI
 }
 
 type mockCredentialAPI struct {
-	gitjujutesting.Stub
+	jujutesting.Stub
 }
 
 func (m *mockCredentialAPI) InvalidateModelCredential(reason string) error {

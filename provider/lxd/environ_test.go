@@ -10,7 +10,7 @@ import (
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -118,7 +118,7 @@ func (s *environSuite) TestBootstrapAPI(c *gc.C) {
 	_, err := s.Env.Bootstrap(ctx, s.callCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
+	s.Stub.CheckCalls(c, []jujutesting.StubCall{{
 		FuncName: "Bootstrap",
 		Args: []interface{}{
 			ctx,
@@ -150,7 +150,7 @@ func (s *environSuite) TestDestroy(c *gc.C) {
 	err := s.Env.Destroy(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+	s.Stub.CheckCalls(c, []jujutesting.StubCall{
 		{"Destroy", []interface{}{s.callCtx}},
 		{"StorageSupported", nil},
 		{"GetStoragePools", nil},
@@ -186,7 +186,7 @@ func (s *environSuite) TestDestroyInvalidCredentialsDestroyingFileSystems(c *gc.
 	err := s.Env.Destroy(s.callCtx)
 	c.Assert(err, gc.ErrorMatches, ".* not authorized")
 	c.Assert(s.invalidCredential, jc.IsTrue)
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+	s.Stub.CheckCalls(c, []jujutesting.StubCall{
 		{"Destroy", []interface{}{s.callCtx}},
 		{"StorageSupported", nil},
 		{"GetStoragePools", nil},
@@ -240,7 +240,7 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 	err := s.Env.DestroyController(s.callCtx, s.Config.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+	s.Stub.CheckCalls(c, []jujutesting.StubCall{
 		{"Destroy", []interface{}{s.callCtx}},
 		{"StorageSupported", nil},
 		{"GetStoragePools", nil},
@@ -287,7 +287,7 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsHostedModels(c *gc
 	err := s.Env.DestroyController(s.callCtx, s.Config.UUID())
 	c.Assert(err, gc.ErrorMatches, "not authorized")
 	c.Assert(s.invalidCredential, jc.IsTrue)
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+	s.Stub.CheckCalls(c, []jujutesting.StubCall{
 		{"Destroy", []interface{}{s.callCtx}},
 		{"StorageSupported", nil},
 		{"GetStoragePools", nil},
@@ -337,7 +337,7 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsDestroyFilesystem(
 	err := s.Env.DestroyController(s.callCtx, s.Config.UUID())
 	c.Assert(err, gc.ErrorMatches, ".*not authorized")
 	c.Assert(s.invalidCredential, jc.IsTrue)
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+	s.Stub.CheckCalls(c, []jujutesting.StubCall{
 		{"Destroy", []interface{}{s.callCtx}},
 		{"StorageSupported", nil},
 		{"GetStoragePools", nil},
@@ -359,7 +359,7 @@ func (s *environSuite) TestAvailabilityZonesInvalidCredentials(c *gc.C) {
 	_, err := s.Env.AvailabilityZones(s.callCtx)
 	c.Assert(err, gc.ErrorMatches, ".*not authorized")
 	c.Assert(s.invalidCredential, jc.IsTrue)
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+	s.Stub.CheckCalls(c, []jujutesting.StubCall{
 		{"IsClustered", nil},
 		{"GetClusterMembers", nil},
 	})
@@ -374,7 +374,7 @@ func (s *environSuite) TestInstanceAvailabilityZoneNamesInvalidCredentials(c *gc
 	_, err := s.Env.InstanceAvailabilityZoneNames(s.callCtx, []instance.Id{"not-valid"})
 	c.Assert(err, gc.ErrorMatches, ".*not authorized")
 	c.Assert(s.invalidCredential, jc.IsTrue)
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+	s.Stub.CheckCalls(c, []jujutesting.StubCall{
 		{"AliveContainers", []interface{}{s.Prefix()}},
 	})
 }

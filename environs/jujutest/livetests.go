@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
-	gitjujutesting "github.com/juju/testing"
+	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
@@ -65,7 +65,7 @@ const (
 // (e.g. Amazon EC2).  The Environ is opened once only for all the tests
 // in the suite, stored in Env, and Destroyed after the suite has completed.
 type LiveTests struct {
-	gitjujutesting.CleanupSuite
+	jtesting.CleanupSuite
 
 	envtesting.ToolsFixture
 	sstesting.TestDataSuite

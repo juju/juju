@@ -25,7 +25,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/mocks"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v4"
-	gitjujutesting "github.com/juju/testing"
+	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
@@ -563,7 +563,7 @@ func assertRequestBody(c *gc.C, req *http.Request, expect interface{}) {
 }
 
 type mockClock struct {
-	gitjujutesting.Stub
+	jtesting.Stub
 	*testclock.Clock
 }
 
@@ -826,9 +826,9 @@ func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *gc.C) {
 			`waiting for common resources to be created: `+
 			`max duration exceeded: deployment incomplete`)
 
-	var expectedCalls []gitjujutesting.StubCall
+	var expectedCalls []jtesting.StubCall
 	for i := 0; i < failures; i++ {
-		expectedCalls = append(expectedCalls, gitjujutesting.StubCall{
+		expectedCalls = append(expectedCalls, jtesting.StubCall{
 			"After", []interface{}{5 * time.Second},
 		})
 	}

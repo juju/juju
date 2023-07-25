@@ -6,7 +6,7 @@ package model_test
 import (
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/names/v4"
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -44,7 +44,7 @@ func (s *DumpDBCommandSuite) SetUpTest(c *gc.C) {
 func (s *DumpDBCommandSuite) TestDumpDB(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, model.NewDumpDBCommandForTest(&s.fake, s.store))
 	c.Assert(err, jc.ErrorIsNil)
-	s.fake.CheckCalls(c, []gitjujutesting.StubCall{
+	s.fake.CheckCalls(c, []jujutesting.StubCall{
 		{"DumpModelDB", []interface{}{testing.ModelTag}},
 		{"Close", nil},
 	})
@@ -58,7 +58,7 @@ models:
 }
 
 type fakeDumpDBClient struct {
-	gitjujutesting.Stub
+	jujutesting.Stub
 }
 
 func (f *fakeDumpDBClient) Close() error {

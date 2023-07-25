@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -107,7 +107,7 @@ func (s *kvmBrokerSuite) TestStartInstanceWithoutNetworkChanges(c *gc.C) {
 	machineId := "1/kvm/0"
 	result, err := s.startInstance(c, broker, machineId)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+	s.api.CheckCalls(c, []jujutesting.StubCall{{
 		FuncName: "ContainerConfig",
 	}, {
 		FuncName: "PrepareHost",
@@ -130,7 +130,7 @@ func (s *kvmBrokerSuite) TestMaintainInstanceAddress(c *gc.C) {
 
 	s.api.ResetCalls()
 
-	s.api.CheckCalls(c, []gitjujutesting.StubCall{})
+	s.api.CheckCalls(c, []jujutesting.StubCall{})
 	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
 	s.assertResults(c, broker, result)
 }

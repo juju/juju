@@ -5,7 +5,7 @@ package machiner_test
 
 import (
 	"github.com/juju/names/v4"
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
@@ -31,7 +31,7 @@ func (w *mockWatcher) Wait() error {
 
 type mockMachine struct {
 	machiner.Machine
-	gitjujutesting.Stub
+	jujutesting.Stub
 	watcher mockWatcher
 	life    life.Value
 }
@@ -75,7 +75,7 @@ func (m *mockMachine) Watch() (watcher.NotifyWatcher, error) {
 }
 
 type mockMachineAccessor struct {
-	gitjujutesting.Stub
+	jujutesting.Stub
 	machine mockMachine
 }
 

@@ -23,7 +23,7 @@ import (
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
 	osseries "github.com/juju/os/v2/series"
-	gitjujutesting "github.com/juju/testing"
+	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
@@ -95,7 +95,7 @@ var _ = gc.Suite(&BootstrapSuite{})
 
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	storageDir := c.MkDir()
-	restorer := gitjujutesting.PatchValue(&envtools.DefaultBaseURL, storageDir)
+	restorer := jtesting.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
 	s.toolsStorage = stor

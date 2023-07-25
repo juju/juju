@@ -12,7 +12,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/mgo/v3"
 	mgotesting "github.com/juju/mgo/v3/testing"
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
@@ -23,7 +23,7 @@ import (
 
 type StorageSuite struct {
 	testing.BaseSuite
-	gitjujutesting.Stub
+	jujutesting.Stub
 	collection      mockCollection
 	memStorage      bakery.RootKeyStore
 	closeCollection func()
@@ -99,7 +99,7 @@ func (s *StorageSuite) TestGet(c *gc.C) {
 	item, err := store.Get(ctx, id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(item, jc.DeepEquals, rootKey)
-	s.CheckCalls(c, []gitjujutesting.StubCall{
+	s.CheckCalls(c, []jujutesting.StubCall{
 		{"GetCollection", nil},
 		{"GetStorage", []interface{}{&s.collection, time.Duration(0)}},
 		{"Close", nil},
@@ -129,7 +129,7 @@ func (s *StorageSuite) TestGetLegacyFallback(c *gc.C) {
 	item, err := store.Get(context.Background(), []byte("oldkey"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(item, jc.DeepEquals, rk.RootKey)
-	s.CheckCalls(c, []gitjujutesting.StubCall{
+	s.CheckCalls(c, []jujutesting.StubCall{
 		{"GetCollection", nil},
 		{"GetStorage", []interface{}{&s.collection, time.Duration(0)}},
 		{"GetCollection", nil},
@@ -146,7 +146,7 @@ func (s *StorageSuite) TestGetLegacyFallback(c *gc.C) {
 
 type mockCollection struct {
 	mongo.WriteCollection
-	*gitjujutesting.Stub
+	*jujutesting.Stub
 
 	one func(q *mockQuery, result *interface{}) error
 }
@@ -165,7 +165,7 @@ func (c *mockCollection) Writeable() mongo.WriteCollection {
 
 type mockQuery struct {
 	mongo.Query
-	*gitjujutesting.Stub
+	*jujutesting.Stub
 	id  interface{}
 	one func(q *mockQuery, result *interface{}) error
 }
@@ -184,7 +184,7 @@ var _ = gc.Suite(&BakeryStorageSuite{})
 
 type BakeryStorageSuite struct {
 	mgotesting.MgoSuite
-	gitjujutesting.LoggingSuite
+	jujutesting.LoggingSuite
 
 	store  ExpirableStorage
 	bakery *bakery.Bakery
