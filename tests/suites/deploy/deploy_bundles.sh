@@ -33,13 +33,16 @@ run_deploy_bundle_overlay() {
 
 run_deploy_bundle_overlay_with_image_id() {
 	echo
+	echo "$ami_id"
 
 	file="${TEST_DIR}/test-bundles-deploy-overlay-image-id.log"
 
 	ensure "test-bundles-deploy-overlay-image-id" "${file}"
 
 	bundle=./tests/suites/deploy/bundles/overlay_bundle_image_id.yaml
-	juju deploy ${bundle}
+	sed "s/{{IMAGE_ID}}/${ami_id}/g" "${bundle}" >"${TEST_DIR}/overlay_bundle_image_id.yaml"
+
+	juju deploy "${TEST_DIR}/overlay_bundle_image_id.yaml"
 
 	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 0)"
 	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 1)"
@@ -55,8 +58,9 @@ run_deploy_bundle_overlay_with_image_id_on_base_bundle() {
 	ensure "test-bundles-deploy-overlay-image-id-on-base-bundle" "${file}"
 
 	bundle=./tests/suites/deploy/bundles/overlay_bundle_image_id_on_base_bundle.yaml
+	sed "s/{{IMAGE_ID}}/${ami_id}/g" "${bundle}" >"${TEST_DIR}/overlay_bundle_image_id_on_base_bundle.yaml"
 
-	got=$(juju deploy ${bundle} 2>&1 || true)
+	got=$(juju deploy "${TEST_DIR}/overlay_bundle_image_id_on_base_bundle.yaml" 2>&1 || true)
 	check_contains "${got}" "'image-id' constraint in a base bundle not supported"
 
 	destroy_model "test-bundles-deploy-overlay-image-id-on-base-bundle"
@@ -70,7 +74,9 @@ run_deploy_bundle_overlay_with_image_id_no_base() {
 	ensure "test-bundles-deploy-overlay-image-id-no-base" "${file}"
 
 	bundle=./tests/suites/deploy/bundles/overlay_bundle_image_id_no_base.yaml
-	got=$(juju deploy ${bundle} 2>&1 || true)
+	sed "s/{{IMAGE_ID}}/${ami_id}/g" "${bundle}" >"${TEST_DIR}/overlay_bundle_image_id_no_base.yaml"
+
+	got=$(juju deploy "${TEST_DIR}/overlay_bundle_image_id_no_base.yaml" 2>&1 || true)
 	check_contains "${got}" 'base must be explicitly provided for "ubuntu" when image-id constraint is used'
 
 	destroy_model "test-bundles-deploy-overlay-image-id_no_base"
@@ -366,9 +372,6 @@ test_deploy_bundles() {
 
 		run "run_deploy_bundle"
 		run "run_deploy_bundle_overlay"
-		run "run_deploy_bundle_overlay_with_image_id"
-		run "run_deploy_bundle_overlay_with_image_id_on_base_bundle"
-		run "run_deploy_bundle_overlay_with_image_id_no_base"
 		run "run_deploy_exported_charmhub_bundle_with_fixed_revisions"
 		run "run_deploy_exported_charmhub_bundle_with_float_revisions"
 		run "run_deploy_trusted_bundle"
@@ -380,9 +383,22 @@ test_deploy_bundles() {
 			run "run_deploy_lxd_profile_bundle_openstack"
 			run "run_deploy_lxd_profile_bundle"
 			;;
+		"ec2" | "aws")
+			check_dependencies aws
+			add_clean_func "run_cleanup_ami"
+			export ami_id
+			create_ami_and_wait_available "ami_id"
+
+			run "run_deploy_bundle_overlay_with_image_id"
+			run "run_deploy_bundle_overlay_with_image_id_on_base_bundle"
+			run "run_deploy_bundle_overlay_with_image_id_no_base"
+			;;
 		*)
 			echo "==> TEST SKIPPED: deploy_lxd_profile_bundle_openstack - tests for LXD only"
 			echo "==> TEST SKIPPED: deploy_lxd_profile_bundle - tests for LXD only"
+			echo "==> TEST SKIPPED: deploy_bundle_with_image_id - tests for AWS only"
+			echo "==> TEST SKIPPED: deploy_bundle_with_image_id_on_base_bundle - tests for AWS only"
+			echo "==> TEST SKIPPED: deploy_bundle_with_image_id_no_base - tests for AWS only"
 			;;
 		esac
 

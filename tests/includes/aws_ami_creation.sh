@@ -1,12 +1,10 @@
 launch_and_wait_ec2() {
-	local name instance_name instance_id_result
+	local instance_name instance_id_result
 
-	name=${1}
-	instance_name=${2}
-	instance_image_id=${3}
-	subnet_id=${4}
-	sg_id=${5}
-	instance_id_result=${6}
+	instance_name=${1}
+	instance_image_id=${2}
+	subnet_id=${3}
+	instance_id_result=${4}
 
 	tags="ResourceType=instance,Tags=[{Key=Name,Value=${instance_name}}]"
 	instance_id=$(aws ec2 run-instances --image-id "${instance_image_id}" \
@@ -14,9 +12,7 @@ launch_and_wait_ec2() {
 		--instance-type t2.medium \
 		--associate-public-ip-address \
 		--tag-specifications "${tags}" \
-		--key-name "${name}" \
 		--subnet-id "${subnet_id}" \
-		--security-group-ids "${sg_id}" \
 		--query 'Instances[0].InstanceId' \
 		--output text)
 
@@ -29,11 +25,30 @@ launch_and_wait_ec2() {
 }
 
 create_ami_and_wait_available() {
-	local instance_id_ami_builder ami_id_result
+	local ami_id_result
+	ami_id_result=${1}
 
-	instance_id_ami_builder=${1}
-	ami_id_result=${2}
+	# Retrieve the image_id corresponding to ubuntu jammy
+	OUT=$(aws ec2 describe-images \
+		--owners 099720109477 \
+		--filters "Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-jammy-?????-${MODEL_ARCH:-amd64}-server-????????" 'Name=state,Values=available' \
+		--query 'reverse(sort_by(Images, &CreationDate))[:1].ImageId' \
+		--output text)
+	if [[ -z ${OUT} ]]; then
+		echo "No image available: unknown state."
+		exit 1
+	fi
+	image_id="${OUT}"
 
+	# Retrieve the subnet id
+	sub1=$(aws ec2 describe-subnets | jq -r '.Subnets[] | select(.DefaultForAz==true and .CidrBlock=="172.31.0.0/20") | .SubnetId')
+
+	# Launch an ec2 instance using the retrieved jammy image id
+	local instance_id_ami_builder
+	launch_and_wait_ec2 "constraints_aws_ami_builder" "${image_id}" "${sub1}" "instance_id_ami_builder"
+	echo "Created instance for ami builder: ${instance_id_ami_builder}"
+
+	# Create the ami from the ec2 instance_id
 	ami_id=$(aws ec2 create-image --instance-id "${instance_id_ami_builder}" --name "test_ami_constraints" --description "Test ami used for constraints tests" --output text)
 
 	aws ec2 wait image-available --image-ids "${ami_id}"
@@ -44,7 +59,7 @@ create_ami_and_wait_available() {
 	eval $ami_id_result="'${ami_id}'"
 }
 
-run_cleanup_constraints_aws() {
+run_cleanup_ami() {
 	set +e
 
 	if [[ -f "${TEST_DIR}/ec2-instances" ]]; then
@@ -52,13 +67,6 @@ run_cleanup_constraints_aws() {
 		while read -r ec2_instance; do
 			aws ec2 terminate-instances --instance-ids="${ec2_instance}" >>"${TEST_DIR}/aws_cleanup"
 		done <"${TEST_DIR}/ec2-instances"
-	fi
-
-	if [[ -f "${TEST_DIR}/ec2-key-pairs" ]]; then
-		echo "====> Cleaning up EC2 key-pairs"
-		while read -r ec2_keypair; do
-			aws ec2 delete-key-pair --key-name="${ec2_keypair}" >>"${TEST_DIR}/aws_cleanup"
-		done <"${TEST_DIR}/ec2-key-pairs"
 	fi
 
 	if [[ -f "${TEST_DIR}/ec2-amis" ]]; then
