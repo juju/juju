@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/worker/v3"
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/apiserver/common"
@@ -27,26 +28,42 @@ import (
 )
 
 type watcherCommon struct {
-	id        string
-	resources facade.Resources
-	dispose   func()
+	id              string
+	resources       facade.Resources
+	watcherRegistry facade.WatcherRegistry
+	dispose         func()
 }
 
 func newWatcherCommon(context facade.Context) watcherCommon {
 	return watcherCommon{
-		id:        context.ID(),
-		resources: context.Resources(),
-		dispose:   context.Dispose,
+		id:              context.ID(),
+		resources:       context.Resources(),
+		watcherRegistry: context.WatcherRegistry(),
+		dispose:         context.Dispose,
 	}
 }
 
 // Stop stops the watcher.
 func (w *watcherCommon) Stop() error {
 	w.dispose()
-	return w.resources.Stop(w.id)
+	if _, err := w.watcherRegistry.Get(w.id); err == nil {
+		return errors.Trace(w.watcherRegistry.Stop(w.id))
+	}
+	return errors.Trace(w.resources.Stop(w.id))
 }
 
-// SrvAllWatcher defines the API methods on a Multiwatcher.
+// GetWatcherByID returns the watcher with the given ID.
+// Deprecated: This only exists to support the old watcher API, once resources
+// have been removed, this can be removed too.
+func GetWatcherByID(watcherRegistry facade.WatcherRegistry, resources facade.Resources, id string) (worker.Worker, error) {
+	watcher, err := watcherRegistry.Get(id)
+	if err == nil {
+		return watcher, nil
+	}
+	return resources.Get(id), nil
+}
+
+// SrvAllWatcher defines the API methods on a state.Multiwatcher.
 // which watches any changes to the state. Each client has its own
 // current set of watchers, stored in resources. It is used by both
 // the AllWatcher and AllModelWatcher facades.
@@ -58,10 +75,7 @@ type SrvAllWatcher struct {
 }
 
 func newAllWatcher(context facade.Context, deltaTranslater DeltaTranslater) (*SrvAllWatcher, error) {
-	id := context.ID()
 	auth := context.Auth()
-	resources := context.Resources()
-
 	if !auth.AuthClient() {
 		// Note that we don't need to check specific permissions
 		// here, as the AllWatcher can only do anything if the
@@ -76,7 +90,11 @@ func newAllWatcher(context facade.Context, deltaTranslater DeltaTranslater) (*Sr
 		// rights) API calls.
 		return nil, apiservererrors.ErrPerm
 	}
-	watcher, ok := resources.Get(id).(multiwatcher.Watcher)
+	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	watcher, ok := w.(multiwatcher.Watcher)
 	if !ok {
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
@@ -554,17 +572,17 @@ func isAgentOrUser(auth facade.Authorizer) bool {
 }
 
 func newNotifyWatcher(context facade.Context) (facade.Facade, error) {
-	id := context.ID()
 	auth := context.Auth()
-	resources := context.Resources()
-
 	// TODO(wallyworld) - enhance this watcher to support
 	// anonymous api calls with macaroons.
 	if auth.GetAuthTag() != nil && !isAgentOrUser(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
-
-	watcher, ok := resources.Get(id).(corewatcher.NotifyWatcher)
+	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	watcher, ok := w.(corewatcher.NotifyWatcher)
 	if !ok {
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
@@ -600,16 +618,17 @@ type srvStringsWatcher struct {
 }
 
 func newStringsWatcher(context facade.Context) (facade.Facade, error) {
-	id := context.ID()
 	auth := context.Auth()
-	resources := context.Resources()
-
 	// TODO(wallyworld) - enhance this watcher to support
 	// anonymous api calls with macaroons.
 	if auth.GetAuthTag() != nil && !isAgentOrUser(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
-	watcher, ok := resources.Get(id).(corewatcher.StringsWatcher)
+	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	watcher, ok := w.(corewatcher.StringsWatcher)
 	if !ok {
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
@@ -641,16 +660,17 @@ type srvRelationUnitsWatcher struct {
 }
 
 func newRelationUnitsWatcher(context facade.Context) (facade.Facade, error) {
-	id := context.ID()
 	auth := context.Auth()
-	resources := context.Resources()
-
 	// TODO(wallyworld) - enhance this watcher to support
 	// anonymous api calls with macaroons.
 	if auth.GetAuthTag() != nil && !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
-	watcher, ok := resources.Get(id).(common.RelationUnitsWatcher)
+	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	watcher, ok := w.(common.RelationUnitsWatcher)
 	if !ok {
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
@@ -684,16 +704,17 @@ type srvRemoteRelationWatcher struct {
 }
 
 func newRemoteRelationWatcher(context facade.Context) (facade.Facade, error) {
-	id := context.ID()
 	auth := context.Auth()
-	resources := context.Resources()
-
 	// TODO(wallyworld) - enhance this watcher to support
 	// anonymous api calls with macaroons.
 	if auth.GetAuthTag() != nil && !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
-	watcher, ok := resources.Get(id).(*crossmodel.WrappedUnitsWatcher)
+	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	watcher, ok := w.(*crossmodel.WrappedUnitsWatcher)
 	if !ok {
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
@@ -734,16 +755,17 @@ type srvRelationStatusWatcher struct {
 }
 
 func newRelationStatusWatcher(context facade.Context) (facade.Facade, error) {
-	id := context.ID()
 	auth := context.Auth()
-	resources := context.Resources()
-
 	// TODO(wallyworld) - enhance this watcher to support
 	// anonymous api calls with macaroons.
 	if auth.GetAuthTag() != nil && !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
-	watcher, ok := resources.Get(id).(corewatcher.StringsWatcher)
+	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	watcher, ok := w.(corewatcher.StringsWatcher)
 	if !ok {
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
@@ -777,7 +799,8 @@ func (w *srvRelationStatusWatcher) Next() (params.RelationLifeSuspendedStatusWat
 	}, nil
 }
 
-// srvOfferStatusWatcher defines the API wrapping a crossmodelrelations.OfferStatusWatcher.
+// srvOfferStatusWatcher defines the API wrapping a
+// crossmodelrelations.OfferStatusWatcher.
 type srvOfferStatusWatcher struct {
 	watcherCommon
 	st      *state.State
@@ -785,24 +808,26 @@ type srvOfferStatusWatcher struct {
 }
 
 func newOfferStatusWatcher(context facade.Context) (facade.Facade, error) {
-	id := context.ID()
 	auth := context.Auth()
-	resources := context.Resources()
-
-	st := context.State()
-
 	// TODO(wallyworld) - enhance this watcher to support
 	// anonymous api calls with macaroons.
 	if auth.GetAuthTag() != nil && !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
-	watcher, ok := resources.Get(id).(crossmodelrelations.OfferWatcher)
+	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	watcher, ok := w.(crossmodelrelations.OfferWatcher)
 	if !ok {
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
 	return &srvOfferStatusWatcher{
 		watcherCommon: newWatcherCommon(context),
-		st:            st,
+		st:            context.State(),
 		watcher:       watcher,
 	}, nil
 }
@@ -871,13 +896,18 @@ func newMachineStorageIdsWatcher(
 	context facade.Context,
 	parser func([]string) ([]params.MachineStorageId, error),
 ) (facade.Facade, error) {
-	id := context.ID()
 	auth := context.Auth()
-	resources := context.Resources()
 	if !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
-	watcher, ok := resources.Get(id).(corewatcher.StringsWatcher)
+	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	watcher, ok := w.(corewatcher.StringsWatcher)
 	if !ok {
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
@@ -928,14 +958,18 @@ type srvEntitiesWatcher struct {
 }
 
 func newEntitiesWatcher(context facade.Context) (facade.Facade, error) {
-	id := context.ID()
 	auth := context.Auth()
-	resources := context.Resources()
-
 	if !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
-	watcher, ok := resources.Get(id).(EntitiesWatcher)
+	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	watcher, ok := w.(EntitiesWatcher)
 	if !ok {
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
@@ -984,26 +1018,29 @@ type controllerBackend interface {
 }
 
 func newMigrationStatusWatcher(context facade.Context) (facade.Facade, error) {
-	id := context.ID()
 	auth := context.Auth()
-	resources := context.Resources()
-	st := context.State()
-	pool := context.StatePool()
-
 	if !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
-	w, ok := resources.Get(id).(corewatcher.NotifyWatcher)
+	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	watcher, ok := w.(corewatcher.NotifyWatcher)
 	if !ok {
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
+	var (
+		st   = context.State()
+		pool = context.StatePool()
+	)
 	controllerBackend, err := getControllerBackend(pool)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &srvMigrationStatusWatcher{
 		watcherCommon: newWatcherCommon(context),
-		watcher:       w,
+		watcher:       watcher,
 		st:            getMigrationBackend(st),
 		ctrlSt:        controllerBackend,
 	}, nil
@@ -1105,10 +1142,12 @@ func newModelSummaryWatcher(context facade.Context) (facade.Facade, error) {
 // a watcher created by the WatchModelSummaries and WatchAllModelSummaries API
 // calls.
 func NewModelSummaryWatcher(context facade.Context) (*SrvModelSummaryWatcher, error) {
-	id := context.ID()
-	auth := context.Auth()
-	resources := context.Resources()
-
+	var (
+		id              = context.ID()
+		auth            = context.Auth()
+		resources       = context.Resources()
+		watcherRegistry = context.WatcherRegistry()
+	)
 	if !auth.AuthClient() {
 		// Note that we don't need to check specific permissions
 		// here, as the AllWatcher can only do anything if the
@@ -1123,7 +1162,11 @@ func NewModelSummaryWatcher(context facade.Context) (*SrvModelSummaryWatcher, er
 		// rights) API calls.
 		return nil, apiservererrors.ErrPerm
 	}
-	watcher, ok := resources.Get(id).(corewatcher.ModelSummaryWatcher)
+	w, err := GetWatcherByID(watcherRegistry, resources, id)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	watcher, ok := w.(corewatcher.ModelSummaryWatcher)
 	if !ok {
 		return nil, errors.Annotatef(apiservererrors.ErrUnknownWatcher, "watcher id: %s", id)
 	}
@@ -1209,23 +1252,22 @@ type srvSecretTriggerWatcher struct {
 	watcher corewatcher.SecretTriggerWatcher
 }
 
-func newSecretTriggerWatcher(context facade.Context) (facade.Facade, error) {
-	id := context.ID()
+func newSecretsTriggerWatcher(context facade.Context) (facade.Facade, error) {
 	auth := context.Auth()
-	resources := context.Resources()
-
-	st := context.State()
-
 	if !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
-	watcher, ok := resources.Get(id).(corewatcher.SecretTriggerWatcher)
+	w, err := context.WatcherRegistry().Get(context.ID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	watcher, ok := w.(corewatcher.SecretTriggerWatcher)
 	if !ok {
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
 	return &srvSecretTriggerWatcher{
 		watcherCommon: newWatcherCommon(context),
-		st:            st,
+		st:            context.State(),
 		watcher:       watcher,
 	}, nil
 }
@@ -1265,14 +1307,15 @@ type srvSecretBackendsRotateWatcher struct {
 }
 
 func newSecretBackendsRotateWatcher(context facade.Context) (facade.Facade, error) {
-	id := context.ID()
 	auth := context.Auth()
-	resources := context.Resources()
-
 	if !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
-	watcher, ok := resources.Get(id).(corewatcher.SecretBackendRotateWatcher)
+	w, err := context.WatcherRegistry().Get(context.ID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	watcher, ok := w.(corewatcher.SecretBackendRotateWatcher)
 	if !ok {
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
@@ -1318,24 +1361,25 @@ type srvSecretsRevisionWatcher struct {
 }
 
 func newSecretsRevisionWatcher(context facade.Context) (facade.Facade, error) {
-	id := context.ID()
 	auth := context.Auth()
-	resources := context.Resources()
-
-	st := context.State()
 
 	// TODO(wallyworld) - enhance this watcher to support
 	// anonymous api calls with macaroons.
 	if auth.GetAuthTag() != nil && !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
-	watcher, ok := resources.Get(id).(corewatcher.StringsWatcher)
+	w, err := context.WatcherRegistry().Get(context.ID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	watcher, ok := w.(corewatcher.StringsWatcher)
 	if !ok {
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
+
 	return &srvSecretsRevisionWatcher{
 		watcherCommon: newWatcherCommon(context),
-		st:            st,
+		st:            context.State(),
 		watcher:       watcher,
 	}, nil
 }

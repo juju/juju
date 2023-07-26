@@ -25,7 +25,7 @@ func TestPackage(t *testing.T) {
 
 func NewTestAPI(
 	authorizer facade.Authorizer,
-	resources facade.Resources,
+	watcherRegistry facade.WatcherRegistry,
 	secretsState BackendState,
 	backendrotate BackendRotate,
 	clock clock.Clock,
@@ -35,9 +35,9 @@ func NewTestAPI(
 	}
 
 	return &SecretBackendsManagerAPI{
-		resources:     resources,
-		backendState:  secretsState,
-		backendRotate: backendrotate,
-		clock:         clock,
+		watcherRegistry: watcherRegistry,
+		backendState:    secretsState,
+		backendRotate:   backendrotate,
+		clock:           clock,
 	}, nil
 }

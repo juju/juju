@@ -37,7 +37,7 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsDrainAPI, error) {
 		authTag:           context.Auth().GetAuthTag(),
 		leadershipChecker: leadershipChecker,
 		secretsState:      state.NewSecrets(context.State()),
-		resources:         context.Resources(),
+		watcherRegistry:   context.WatcherRegistry(),
 		secretsConsumer:   context.State(),
 		model:             model,
 		logger:            context.Logger().Child("secretsdrain"),

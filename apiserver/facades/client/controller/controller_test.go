@@ -25,6 +25,7 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -34,6 +35,7 @@ import (
 	"github.com/juju/juju/core/database"
 	coremultiwatcher "github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/watcher/registry"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -51,11 +53,12 @@ type controllerSuite struct {
 	statetesting.StateSuite
 	schematesting.ControllerSuite
 
-	controller *controller.ControllerAPI
-	resources  *common.Resources
-	authorizer apiservertesting.FakeAuthorizer
-	hub        *pubsub.StructuredHub
-	context    facadetest.Context
+	controller      *controller.ControllerAPI
+	resources       *common.Resources
+	watcherRegistry facade.WatcherRegistry
+	authorizer      apiservertesting.FakeAuthorizer
+	hub             *pubsub.StructuredHub
+	context         facadetest.Context
 }
 
 var _ = gc.Suite(&controllerSuite{})
@@ -83,6 +86,10 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 
 	s.hub = pubsub.NewStructuredHub(nil)
 
+	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
+
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
@@ -95,6 +102,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		State_:               s.State,
 		StatePool_:           s.StatePool,
 		Resources_:           s.resources,
+		WatcherRegistry_:     s.watcherRegistry,
 		Auth_:                s.authorizer,
 		Hub_:                 s.hub,
 		MultiwatcherFactory_: multiWatcherWorker,
@@ -378,11 +386,12 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 
 	var disposed bool
 	watcherAPI_, err := apiserver.NewAllWatcher(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
-		ID_:        watcherId.AllWatcherId,
-		Dispose_:   func() { disposed = true },
+		State_:           s.State,
+		Resources_:       s.resources,
+		WatcherRegistry_: s.watcherRegistry,
+		Auth_:            s.authorizer,
+		ID_:              watcherId.AllWatcherId,
+		Dispose_:         func() { disposed = true },
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	watcherAPI := watcherAPI_.(*apiserver.SrvAllWatcher)

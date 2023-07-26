@@ -4,6 +4,7 @@
 package registry
 
 import (
+	"fmt"
 	"strconv"
 	"sync/atomic"
 
@@ -12,6 +13,11 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
+)
+
+const (
+	// DefaultNamespace is the default namespace for watchers.
+	DefaultNamespace = "w"
 )
 
 // Logger is the interface we need to log when a worker finishes.
@@ -67,8 +73,9 @@ func NewRegistry(clock clock.Clock, opts ...Option) (*Registry, error) {
 		runner: worker.NewRunner(worker.RunnerParams{
 			// Prevent the runner from restarting the worker, if one of the
 			// workers dies, we want to stop the whole thing.
-			IsFatal: func(err error) bool { return false },
-			Clock:   clock,
+			IsFatal:       func(err error) bool { return false },
+			ShouldRestart: func(err error) bool { return false },
+			Clock:         clock,
 		}),
 		watcherWrapper: watcherLogDecorator(o.logger),
 	}
@@ -103,7 +110,7 @@ func (r *Registry) Get(id string) (worker.Worker, error) {
 // watcher.
 func (r *Registry) Register(w worker.Worker) (string, error) {
 	nsCounter := atomic.AddInt64(&r.namespaceCounter, 1)
-	namespace := strconv.Itoa(int(nsCounter))
+	namespace := fmt.Sprintf("%s-%d", DefaultNamespace, nsCounter)
 
 	err := r.register(namespace, w)
 	if err != nil {

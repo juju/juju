@@ -27,8 +27,8 @@ import (
 type SecretsDrainSuite struct {
 	testing.IsolationSuite
 
-	authorizer *facademocks.MockAuthorizer
-	resources  *facademocks.MockResources
+	authorizer      *facademocks.MockAuthorizer
+	watcherRegistry *facademocks.MockWatcherRegistry
 
 	provider                  *mocks.MockSecretBackendProvider
 	leadership                *mocks.MockChecker
@@ -55,7 +55,7 @@ func (s *SecretsDrainSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
-	s.resources = facademocks.NewMockResources(ctrl)
+	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
 
 	s.provider = mocks.NewMockSecretBackendProvider(ctrl)
 	s.leadership = mocks.NewMockChecker(ctrl)
@@ -69,7 +69,7 @@ func (s *SecretsDrainSuite) setup(c *gc.C) *gomock.Controller {
 	s.PatchValue(&secretsdrain.GetProvider, func(string) (provider.SecretBackendProvider, error) { return s.provider, nil })
 
 	var err error
-	s.facade, err = secretsdrain.NewTestAPI(s.authorizer, s.resources, s.leadership, s.secretsState, s.model, s.secretsConsumer, s.authTag)
+	s.facade, err = secretsdrain.NewTestAPI(s.authorizer, s.watcherRegistry, s.leadership, s.secretsState, s.model, s.secretsConsumer, s.authTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
@@ -344,7 +344,7 @@ func (s *SecretsDrainSuite) TestWatchSecretBackendChanged(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.model.EXPECT().ModelConfig().Return(cfg, nil).Times(2)
 
-	s.resources.EXPECT().Register(gomock.Any()).Return("11")
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("11", nil)
 
 	result, err := s.facade.WatchSecretBackendChanged()
 	c.Assert(err, jc.ErrorIsNil)

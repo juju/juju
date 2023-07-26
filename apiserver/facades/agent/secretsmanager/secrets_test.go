@@ -34,8 +34,8 @@ import (
 type SecretsManagerSuite struct {
 	testing.IsolationSuite
 
-	authorizer *facademocks.MockAuthorizer
-	resources  *facademocks.MockResources
+	authorizer      *facademocks.MockAuthorizer
+	watcherRegistry *facademocks.MockWatcherRegistry
 
 	provider              *mocks.MockSecretBackendProvider
 	leadership            *mocks.MockChecker
@@ -65,7 +65,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
-	s.resources = facademocks.NewMockResources(ctrl)
+	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
 
 	s.provider = mocks.NewMockSecretBackendProvider(ctrl)
 	s.leadership = mocks.NewMockChecker(ctrl)
@@ -140,7 +140,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 
 	var err error
 	s.facade, err = secretsmanager.NewTestAPI(
-		s.authorizer, s.resources, s.leadership, s.secretsState, s.secretsConsumer,
+		s.authorizer, s.watcherRegistry, s.leadership, s.secretsState, s.secretsConsumer,
 		s.secretTriggers, backendConfigGetter, adminConfigGetter,
 		drainConfigGetter, remoteClientGetter,
 		s.crossModelState, s.authTag, s.clock,
@@ -1450,7 +1450,7 @@ func (s *SecretsManagerSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	s.secretsConsumer.EXPECT().WatchConsumedSecretsChanges(names.NewUnitTag("mariadb/0")).Return(
 		s.secretsWatcher, nil,
 	)
-	s.resources.EXPECT().Register(s.secretsWatcher).Return("1")
+	s.watcherRegistry.EXPECT().Register(s.secretsWatcher).Return("1", nil)
 
 	uri := coresecrets.NewURI()
 	watchChan := make(chan []string, 1)
@@ -1523,7 +1523,7 @@ func (s *SecretsManagerSuite) TestWatchObsolete(c *gc.C) {
 		[]names.Tag{names.NewUnitTag("mariadb/0"), names.NewApplicationTag("mariadb")}).Return(
 		s.secretsWatcher, nil,
 	)
-	s.resources.EXPECT().Register(s.secretsWatcher).Return("1")
+	s.watcherRegistry.EXPECT().Register(s.secretsWatcher).Return("1", nil)
 
 	uri := coresecrets.NewURI()
 	watchChan := make(chan []string, 1)
@@ -1553,7 +1553,7 @@ func (s *SecretsManagerSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 		[]names.Tag{names.NewUnitTag("mariadb/0"), names.NewApplicationTag("mariadb")}).Return(
 		s.secretsTriggerWatcher, nil,
 	)
-	s.resources.EXPECT().Register(s.secretsTriggerWatcher).Return("1")
+	s.watcherRegistry.EXPECT().Register(s.secretsTriggerWatcher).Return("1", nil)
 
 	next := time.Now().Add(time.Hour)
 	uri := coresecrets.NewURI()
@@ -1702,7 +1702,7 @@ func (s *SecretsManagerSuite) TestWatchSecretRevisionsExpiryChanges(c *gc.C) {
 		[]names.Tag{names.NewUnitTag("mariadb/0"), names.NewApplicationTag("mariadb")}).Return(
 		s.secretsTriggerWatcher, nil,
 	)
-	s.resources.EXPECT().Register(s.secretsTriggerWatcher).Return("1")
+	s.watcherRegistry.EXPECT().Register(s.secretsTriggerWatcher).Return("1", nil)
 
 	next := time.Now().Add(time.Hour)
 	uri := coresecrets.NewURI()

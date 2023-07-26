@@ -1680,7 +1680,7 @@
     },
     {
         "Name": "AllModelWatcher",
-        "Description": "SrvAllWatcher defines the API methods on a Multiwatcher.\nwhich watches any changes to the state. Each client has its own\ncurrent set of watchers, stored in resources. It is used by both\nthe AllWatcher and AllModelWatcher facades.",
+        "Description": "SrvAllWatcher defines the API methods on a state.Multiwatcher.\nwhich watches any changes to the state. Each client has its own\ncurrent set of watchers, stored in resources. It is used by both\nthe AllWatcher and AllModelWatcher facades.",
         "Version": 4,
         "AvailableTo": [
             "controller-user"
@@ -1740,7 +1740,7 @@
     },
     {
         "Name": "AllWatcher",
-        "Description": "SrvAllWatcher defines the API methods on a Multiwatcher.\nwhich watches any changes to the state. Each client has its own\ncurrent set of watchers, stored in resources. It is used by both\nthe AllWatcher and AllModelWatcher facades.",
+        "Description": "SrvAllWatcher defines the API methods on a state.Multiwatcher.\nwhich watches any changes to the state. Each client has its own\ncurrent set of watchers, stored in resources. It is used by both\nthe AllWatcher and AllModelWatcher facades.",
         "Version": 3,
         "AvailableTo": [
             "model-user"
@@ -29078,7 +29078,7 @@
     },
     {
         "Name": "OfferStatusWatcher",
-        "Description": "srvOfferStatusWatcher defines the API wrapping a crossmodelrelations.OfferStatusWatcher.",
+        "Description": "srvOfferStatusWatcher defines the API wrapping a\ncrossmodelrelations.OfferStatusWatcher.",
         "Version": 1,
         "AvailableTo": [
             "controller-machine-agent",

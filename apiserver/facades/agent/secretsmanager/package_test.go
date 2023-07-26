@@ -35,7 +35,7 @@ func TestPackage(t *testing.T) {
 
 func NewTestAPI(
 	authorizer facade.Authorizer,
-	resources facade.Resources,
+	watcherRegistry facade.WatcherRegistry,
 	leadership leadership.Checker,
 	secretsState SecretsState,
 	consumer SecretsConsumer,
@@ -54,7 +54,7 @@ func NewTestAPI(
 
 	return &SecretsManagerAPI{
 		authTag:             authTag,
-		resources:           resources,
+		watcherRegistry:     watcherRegistry,
 		leadershipChecker:   leadership,
 		secretsState:        secretsState,
 		secretsConsumer:     consumer,
