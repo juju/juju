@@ -32,7 +32,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/ssh"
@@ -241,7 +241,7 @@ func makeMockAdapter() *mockAdapter {
 	}
 }
 
-func overrideCinderProvider(s *gitjujutesting.CleanupSuite, adapter *mockAdapter) {
+func overrideCinderProvider(s *jujutesting.CleanupSuite, adapter *mockAdapter) {
 	s.PatchValue(openstack.NewOpenstackStorage, func(*openstack.Environ) (openstack.OpenstackStorage, error) {
 		return adapter, nil
 	})

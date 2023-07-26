@@ -7,7 +7,7 @@ import (
 	stdcontext "context"
 
 	"github.com/juju/errors"
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
@@ -191,7 +191,7 @@ func (*OpenSuite) TestDestroyNotFound(c *gc.C) {
 
 type destroyControllerEnv struct {
 	environs.Environ
-	gitjujutesting.Stub
+	jujutesting.Stub
 }
 
 func (e *destroyControllerEnv) DestroyController(ctx context.ProviderCallContext, uuid string) error {

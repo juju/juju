@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
@@ -495,7 +495,7 @@ func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, modelTag names.ModelTag,
 
 type fakeProvider struct {
 	environs.EnvironProvider
-	gitjujutesting.Stub
+	jujutesting.Stub
 	environ *fakeEnviron
 }
 
@@ -523,7 +523,7 @@ func (p *fakeProvider) Version() int {
 
 type fakeEnviron struct {
 	environs.Environ
-	*gitjujutesting.Stub
+	*jujutesting.Stub
 	provider *fakeProvider
 
 	callCtxUsed context.ProviderCallContext

@@ -132,7 +132,13 @@ func (s *ModelCredentialSuite) TestSetCloudCredentialNoUpdate(c *gc.C) {
 	c.Assert(credentialSet, jc.IsTrue)
 	stateCred, err := s.State.CloudCredential(credentialTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cred, jc.DeepEquals, stateCred)
+	stateCredential := cloud.NewNamedCredential(
+		stateCred.Name,
+		cloud.AuthType(stateCred.AuthType),
+		stateCred.Attributes,
+		stateCred.Revoked,
+	)
+	c.Assert(cred, jc.DeepEquals, stateCredential)
 }
 
 func (s *ModelCredentialSuite) TestSetCloudCredentialInvalidCredentialContent(c *gc.C) {
@@ -250,7 +256,13 @@ func (s *ModelCredentialSuite) assertSetCloudCredential(c *gc.C, tag names.Cloud
 	c.Assert(credentialSet, jc.IsTrue)
 	stateCred, err := s.State.CloudCredential(credentialTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cred, jc.DeepEquals, stateCred)
+	stateCredential := cloud.NewNamedCredential(
+		stateCred.Name,
+		cloud.AuthType(stateCred.AuthType),
+		stateCred.Attributes,
+		stateCred.Revoked,
+	)
+	c.Assert(cred, jc.DeepEquals, stateCredential)
 	return m
 }
 

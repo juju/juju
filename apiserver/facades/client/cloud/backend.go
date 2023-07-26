@@ -78,7 +78,7 @@ type Model interface {
 	UUID() string
 	CloudName() string
 	Cloud() (cloud.Cloud, error)
-	CloudCredential() (state.Credential, bool, error)
+	CloudCredential() (cloud.Credential, bool, error)
 	CloudRegion() string
 }
 

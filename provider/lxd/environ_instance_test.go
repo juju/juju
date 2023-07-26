@@ -5,7 +5,7 @@ package lxd_test
 
 import (
 	"github.com/juju/errors"
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -45,7 +45,7 @@ func (s *environInstSuite) TestInstancesAPI(c *gc.C) {
 	ids := []instance.Id{"spam", "eggs", "ham"}
 	s.Env.Instances(context.NewEmptyCloudCallContext(), ids)
 
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
+	s.Stub.CheckCalls(c, []jujutesting.StubCall{{
 		FuncName: "AliveContainers",
 		Args: []interface{}{
 			s.Prefix(),

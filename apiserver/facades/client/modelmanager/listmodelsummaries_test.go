@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -29,7 +29,7 @@ import (
 )
 
 type ListModelsWithInfoSuite struct {
-	gitjujutesting.IsolationSuite
+	jujutesting.IsolationSuite
 
 	st *mockState
 

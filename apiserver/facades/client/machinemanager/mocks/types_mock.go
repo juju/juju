@@ -389,10 +389,10 @@ func (mr *MockModelMockRecorder) Cloud() *gomock.Call {
 }
 
 // CloudCredential mocks base method.
-func (m *MockModel) CloudCredential() (state.Credential, bool, error) {
+func (m *MockModel) CloudCredential() (cloud.Credential, bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloudCredential")
-	ret0, _ := ret[0].(state.Credential)
+	ret0, _ := ret[0].(cloud.Credential)
 	ret1, _ := ret[1].(bool)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2

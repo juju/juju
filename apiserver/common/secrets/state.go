@@ -54,7 +54,7 @@ type SecretsMetaState interface {
 
 // Credential represents a cloud credential.
 type Credential interface {
-	AuthType() string
+	AuthType() cloud.AuthType
 	Attributes() map[string]string
 }
 
@@ -75,19 +75,7 @@ func (m *modelShim) CloudCredential() (Credential, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &credentialShim{cred}, nil
-}
-
-type credentialShim struct {
-	state.Credential
-}
-
-func (c *credentialShim) AuthType() string {
-	return c.Credential.AuthType
-}
-
-func (c *credentialShim) Attributes() map[string]string {
-	return c.Credential.Attributes
+	return cred, nil
 }
 
 type SecretsGetter interface {

@@ -108,7 +108,7 @@ type Model interface {
 	CloudName() string
 	Cloud() (cloud.Cloud, error)
 	CloudCredentialTag() (names.CloudCredentialTag, bool)
-	CloudCredential() (state.Credential, bool, error)
+	CloudCredential() (cloud.Credential, bool, error)
 	CloudRegion() string
 	Users() ([]permission.UserAccess, error)
 	Destroy(state.DestroyModelParams) error

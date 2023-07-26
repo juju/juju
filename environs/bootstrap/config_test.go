@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -69,7 +69,7 @@ func (*ConfigSuite) TestConfigValuesSpecified(c *gc.C) {
 	}
 }
 
-func (s *ConfigSuite) addFiles(c *gc.C, files ...gitjujutesting.TestFile) {
+func (s *ConfigSuite) addFiles(c *gc.C, files ...jujutesting.TestFile) {
 	for _, f := range files {
 		err := os.WriteFile(osenv.JujuXDGDataHomePath(f.Name), []byte(f.Data), 0666)
 		c.Assert(err, gc.IsNil)
@@ -77,7 +77,7 @@ func (s *ConfigSuite) addFiles(c *gc.C, files ...gitjujutesting.TestFile) {
 }
 
 func (s *ConfigSuite) TestDefaultConfigReadsDefaultCACertKeyFiles(c *gc.C) {
-	s.addFiles(c, []gitjujutesting.TestFile{
+	s.addFiles(c, []jujutesting.TestFile{
 		{"ca-cert.pem", testing.CACert},
 		{"ca-private-key.pem", testing.CAKey},
 	}...)
@@ -90,7 +90,7 @@ func (s *ConfigSuite) TestDefaultConfigReadsDefaultCACertKeyFiles(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestConfigReadsCACertKeyFilesFromPaths(c *gc.C) {
-	s.addFiles(c, []gitjujutesting.TestFile{
+	s.addFiles(c, []jujutesting.TestFile{
 		{"ca-cert-2.pem", testing.OtherCACert},
 		{"ca-private-key-2.pem", testing.OtherCAKey},
 	}...)

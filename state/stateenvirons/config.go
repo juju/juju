@@ -20,7 +20,7 @@ import (
 type baseModel interface {
 	Cloud() (cloud.Cloud, error)
 	CloudRegion() string
-	CloudCredential() (state.Credential, bool, error)
+	CloudCredential() (cloud.Credential, bool, error)
 }
 
 // Model exposes the methods needed for an EnvironConfigGetter.
@@ -79,7 +79,7 @@ func (g EnvironConfigGetter) CloudSpec() (environscloudspec.CloudSpec, error) {
 
 // CloudSpecForModel returns a CloudSpec for the specified model.
 func CloudSpecForModel(m baseModel) (environscloudspec.CloudSpec, error) {
-	cloud, err := m.Cloud()
+	cld, err := m.Cloud()
 	if err != nil {
 		return environscloudspec.CloudSpec{}, errors.Trace(err)
 	}
@@ -88,31 +88,11 @@ func CloudSpecForModel(m baseModel) (environscloudspec.CloudSpec, error) {
 	if err != nil {
 		return environscloudspec.CloudSpec{}, errors.Trace(err)
 	}
-	var credential *state.Credential
+	var credential *cloud.Credential
 	if ok {
 		credential = &credentialValue
 	}
-	return CloudSpec(cloud, regionName, credential)
-}
-
-// CloudSpec returns an environscloudspec.CloudSpec from a *state.State,
-// given the cloud, region and credential names.
-func CloudSpec(
-	modelCloud cloud.Cloud,
-	regionName string,
-	credential *state.Credential,
-) (environscloudspec.CloudSpec, error) {
-	var cloudCredential *cloud.Credential
-	if credential != nil {
-		cloudCredentialValue := cloud.NewNamedCredential(credential.Name,
-			cloud.AuthType(credential.AuthType),
-			credential.Attributes,
-			credential.Revoked,
-		)
-		cloudCredential = &cloudCredentialValue
-	}
-
-	return environscloudspec.MakeCloudSpec(modelCloud, regionName, cloudCredential)
+	return environscloudspec.MakeCloudSpec(cld, regionName, credential)
 }
 
 // NewEnvironFunc aliases a function that, given a Model,

@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	gitjujutesting "github.com/juju/testing"
+	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"go.uber.org/mock/gomock"
@@ -60,7 +60,7 @@ func createArgs(owner names.UserTag) params.ModelCreateArgs {
 }
 
 type modelManagerSuite struct {
-	gitjujutesting.IsolationSuite
+	jtesting.IsolationSuite
 	statetesting.StateSuite
 	st            *mockState
 	ctlrSt        *mockState
@@ -750,7 +750,7 @@ func (s *modelManagerSuite) TestDumpModelMissingModel(c *gc.C) {
 	tag := names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f000")
 	models := params.DumpModelRequest{Entities: []params.Entity{{Tag: tag.String()}}}
 	results := s.api.DumpModels(stdcontext.Background(), models)
-	s.st.CheckCalls(c, []gitjujutesting.StubCall{
+	s.st.CheckCalls(c, []jtesting.StubCall{
 		{FuncName: "ControllerTag", Args: nil},
 		{FuncName: "GetBackend", Args: []interface{}{tag.Id()}},
 	})
@@ -807,7 +807,7 @@ func (s *modelManagerSuite) TestDumpModelsDBMissingModel(c *gc.C) {
 	models := params.Entities{Entities: []params.Entity{{Tag: tag.String()}}}
 	results := s.api.DumpModelsDB(models)
 
-	s.st.CheckCalls(c, []gitjujutesting.StubCall{
+	s.st.CheckCalls(c, []jtesting.StubCall{
 		{FuncName: "ControllerTag", Args: nil},
 		{FuncName: "ModelTag", Args: nil},
 		{FuncName: "GetBackend", Args: []interface{}{tag.Id()}},

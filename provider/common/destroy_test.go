@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -169,7 +169,7 @@ func (s *DestroySuite) TestDestroyEnvScopedVolumes(c *gc.C) {
 
 	// common.Destroy will ignore machine-scoped storage providers.
 	storageProvider.CheckCallNames(c, "Dynamic", "Scope", "Supports", "VolumeSource")
-	volumeSource.CheckCalls(c, []gitjujutesting.StubCall{
+	volumeSource.CheckCalls(c, []jujutesting.StubCall{
 		{"ListVolumes", []interface{}{s.callCtx}},
 		{"DestroyVolumes", []interface{}{s.callCtx, []string{"vol-0", "vol-1", "vol-2"}}},
 	})

@@ -6,7 +6,7 @@ package model_test
 import (
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/names/v4"
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -25,7 +25,7 @@ type DumpCommandSuite struct {
 var _ = gc.Suite(&DumpCommandSuite{})
 
 type fakeDumpClient struct {
-	gitjujutesting.Stub
+	jujutesting.Stub
 }
 
 func (f *fakeDumpClient) Close() error {
@@ -65,7 +65,7 @@ func (s *DumpCommandSuite) SetUpTest(c *gc.C) {
 func (s *DumpCommandSuite) TestDump(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, model.NewDumpCommandForTest(&s.fake, s.store))
 	c.Assert(err, jc.ErrorIsNil)
-	s.fake.CheckCalls(c, []gitjujutesting.StubCall{
+	s.fake.CheckCalls(c, []jujutesting.StubCall{
 		{"DumpModel", []interface{}{testing.ModelTag}},
 		{"Close", nil},
 	})
@@ -77,7 +77,7 @@ func (s *DumpCommandSuite) TestDump(c *gc.C) {
 func (s *DumpCommandSuite) TestDumpSimple(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, model.NewDumpCommandForTest(&s.fake, s.store), "--simplified")
 	c.Assert(err, jc.ErrorIsNil)
-	s.fake.CheckCalls(c, []gitjujutesting.StubCall{
+	s.fake.CheckCalls(c, []jujutesting.StubCall{
 		{"DumpModel", []interface{}{testing.ModelTag}},
 		{"Close", nil},
 	})

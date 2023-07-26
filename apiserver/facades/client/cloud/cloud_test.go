@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -33,7 +33,7 @@ import (
 )
 
 type cloudSuite struct {
-	gitjujutesting.LoggingCleanupSuite
+	jujutesting.LoggingCleanupSuite
 	backend     *mocks.MockBackend
 	ctrlBackend *mocks.MockBackend
 	pool        *mocks.MockModelPoolBackend

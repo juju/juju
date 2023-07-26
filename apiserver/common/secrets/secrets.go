@@ -309,7 +309,7 @@ func cloudSpecForModel(m Model) (cloudspec.CloudSpec, error) {
 		return cloudspec.CloudSpec{}, errors.NotValidf("cloud credential for %s is empty", m.UUID())
 	}
 	cloudCredential := cloud.NewCredential(
-		cloud.AuthType(cred.AuthType()),
+		cred.AuthType(),
 		cred.Attributes(),
 	)
 	return cloudspec.MakeCloudSpec(c, "", &cloudCredential)

@@ -27,7 +27,7 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/retry"
 	"github.com/juju/schema"
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3"
@@ -125,7 +125,7 @@ func SampleConfig() testing.Attrs {
 // and the instance's state will eventually go to error, while the
 // received string will appear in the info field of the machine's status
 func PatchTransientErrorInjectionChannel(c chan error) func() {
-	return gitjujutesting.PatchValue(&transientErrorInjection, c)
+	return jujutesting.PatchValue(&transientErrorInjection, c)
 }
 
 // mongoInfo returns a mongo.MongoInfo which allows clients to connect to the
