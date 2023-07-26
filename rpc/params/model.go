@@ -145,8 +145,6 @@ type ModelInfo struct {
 	ControllerUUID     string `json:"controller-uuid"`
 	IsController       bool   `json:"is-controller"`
 	ProviderType       string `json:"provider-type,omitempty"`
-	DefaultSeries      string `json:"default-series,omitempty"` // default-series is deprecated, use default-base
-	DefaultBase        string `json:"default-base,omitempty"`
 	CloudTag           string `json:"cloud-tag"`
 	CloudRegion        string `json:"cloud-region,omitempty"`
 	CloudCredentialTag string `json:"cloud-credential-tag,omitempty"`
@@ -212,7 +210,6 @@ type ModelSummary struct {
 	ControllerUUID     string `json:"controller-uuid"`
 	IsController       bool   `json:"is-controller"`
 	ProviderType       string `json:"provider-type,omitempty"`
-	DefaultSeries      string `json:"default-series,omitempty"`
 	CloudTag           string `json:"cloud-tag"`
 	CloudRegion        string `json:"cloud-region,omitempty"`
 	CloudCredentialTag string `json:"cloud-credential-tag,omitempty"`

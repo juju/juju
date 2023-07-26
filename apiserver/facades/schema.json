@@ -27427,7 +27427,7 @@
     {
         "Name": "ModelManager",
         "Description": "ModelManagerAPI implements the model manager interface and is\nthe concrete implementation of the api end point.",
-        "Version": 9,
+        "Version": 10,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -28069,12 +28069,6 @@
                         "controller-uuid": {
                             "type": "string"
                         },
-                        "default-base": {
-                            "type": "string"
-                        },
-                        "default-series": {
-                            "type": "string"
-                        },
                         "is-controller": {
                             "type": "boolean"
                         },
@@ -28363,9 +28357,6 @@
                             "items": {
                                 "$ref": "#/definitions/ModelEntityCount"
                             }
-                        },
-                        "default-series": {
-                            "type": "string"
                         },
                         "is-controller": {
                             "type": "boolean"

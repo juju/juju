@@ -94,7 +94,6 @@ func (f *fakeModelMgrAPIClient) ListModelSummaries(user string, all bool) ([]bas
 			ControllerUUID:  info.Result.ControllerUUID,
 			IsController:    info.Result.IsController,
 			ProviderType:    info.Result.ProviderType,
-			DefaultSeries:   info.Result.DefaultSeries,
 			Cloud:           cloud.Id(),
 			CloudRegion:     info.Result.CloudRegion,
 			CloudCredential: cred.Id(),

@@ -68,7 +68,6 @@ func (s *modelmanagerSuite) TestCreateModel(c *gc.C) {
 	ress.UUID = "youyoueyedee"
 	ress.ControllerUUID = "youyoueyedeetoo"
 	ress.ProviderType = "C-123"
-	ress.DefaultSeries = "M*A*S*H"
 	ress.CloudTag = "cloud-nimbus"
 	ress.CloudRegion = "catbus"
 	ress.OwnerTag = "user-fnord"
@@ -94,7 +93,6 @@ func (s *modelmanagerSuite) TestCreateModel(c *gc.C) {
 		UUID:           "youyoueyedee",
 		ControllerUUID: "youyoueyedeetoo",
 		ProviderType:   "C-123",
-		DefaultSeries:  "M*A*S*H",
 		Cloud:          "nimbus",
 		CloudRegion:    "catbus",
 		Owner:          "fnord",
@@ -389,7 +387,6 @@ func createModelSummary() *params.ModelSummary {
 		Type:               "iaas",
 		ControllerUUID:     "controllerUUID",
 		ProviderType:       "aws",
-		DefaultSeries:      "xenial",
 		CloudTag:           "cloud-aws",
 		CloudRegion:        "us-east-1",
 		CloudCredentialTag: "cloudcred-foo_bob_one",
@@ -434,7 +431,6 @@ func (s *modelmanagerSuite) TestListModelSummaries(c *gc.C) {
 		Type:            model.IAAS,
 		ControllerUUID:  testModelInfo.ControllerUUID,
 		ProviderType:    testModelInfo.ProviderType,
-		DefaultSeries:   testModelInfo.DefaultSeries,
 		Cloud:           "aws",
 		CloudRegion:     "us-east-1",
 		CloudCredential: "foo/bob/one",

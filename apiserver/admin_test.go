@@ -53,7 +53,7 @@ const (
 	userManagerFacadeVersion      = 3
 	sshClientFacadeVersion        = 4
 	pingerFacadeVersion           = 1
-	modelManagerFacadeVersion     = 9
+	modelManagerFacadeVersion     = 10
 	highAvailabilityFacadeVersion = 2
 )
 

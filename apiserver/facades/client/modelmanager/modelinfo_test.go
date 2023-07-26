@@ -41,7 +41,6 @@ import (
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type modelInfoSuite struct {
@@ -218,8 +217,6 @@ func (s *modelInfoSuite) expectedModelInfo(c *gc.C, credentialValidity *bool) pa
 		CloudTag:           "cloud-some-cloud",
 		CloudRegion:        "some-region",
 		CloudCredentialTag: "cloudcred-some-cloud_bob_some-credential",
-		DefaultSeries:      jujuversion.DefaultSupportedLTS(),
-		DefaultBase:        jujuversion.DefaultSupportedLTSBase().String(),
 		Life:               life.Dying,
 		Status: params.EntityStatus{
 			Status: status.Destroying,
