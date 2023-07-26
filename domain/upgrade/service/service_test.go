@@ -45,6 +45,16 @@ func (s *serviceSuite) TestCreateUpgrade(c *gc.C) {
 	c.Assert(upgradeUUID, gc.Equals, testUUID1)
 }
 
+func (s *serviceSuite) TestCreateUpgradeAlreadyExists(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ucErr := sqlite3.Error{ExtendedCode: sqlite3.ErrConstraintUnique}
+	s.state.EXPECT().CreateUpgrade(gomock.Any(), version.MustParse("3.0.0"), version.MustParse("3.0.1")).Return("", ucErr)
+
+	_, err := NewService(s.state).CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
+}
+
 func (s *serviceSuite) TestCreateUpgradeInvalidVersions(c *gc.C) {
 	_, err := NewService(s.state).CreateUpgrade(context.Background(), version.MustParse("3.0.1"), version.MustParse("3.0.0"))
 	c.Assert(errors.IsNotValid(err), jc.IsTrue)
@@ -101,12 +111,21 @@ func (s *serviceSuite) TestStartUpgradeBeforeCreated(c *gc.C) {
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
-func (s *serviceSuite) TestActiveUpgrades(c *gc.C) {
+func (s *serviceSuite) TestActiveUpgrade(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().ActiveUpgrades(gomock.Any()).Return([]string{testUUID1, testUUID2}, nil)
+	s.state.EXPECT().ActiveUpgrade(gomock.Any()).Return(testUUID1, nil)
 
-	activeUpgrades, err := NewService(s.state).ActiveUpgrades(context.Background())
+	activeUpgrade, err := NewService(s.state).ActiveUpgrade(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activeUpgrades, gc.DeepEquals, []string{testUUID1, testUUID2})
+	c.Assert(activeUpgrade, gc.Equals, testUUID1)
+}
+
+func (s *serviceSuite) TestActiveUpgradeNoUpgrade(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().ActiveUpgrade(gomock.Any()).Return("", errors.Trace(sql.ErrNoRows))
+
+	_, err := NewService(s.state).ActiveUpgrade(context.Background())
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }

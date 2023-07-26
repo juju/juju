@@ -29,7 +29,8 @@ func NewState(factory database.TxnRunnerFactory) *State {
 }
 
 // CreateUpgrade creates an active upgrade to and from specified versions
-// and returns the upgrade's UUID
+// and returns the upgrade's UUID. If an active upgrade already exists,
+// return an AlreadyExists error
 func (st *State) CreateUpgrade(ctx context.Context, previousVersion, targetVersion version.Number) (string, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -276,29 +277,25 @@ AND (
 	return nil
 }
 
-// ActiveUpgrades returns a slice of the uuids of all active upgrades
-func (st *State) ActiveUpgrades(ctx context.Context) ([]string, error) {
+// ActiveUpgrade returns the uuids of the active upgrades, returning
+// a NotFound error if there are none
+func (st *State) ActiveUpgrade(ctx context.Context) (string, error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
-	var activeUpgrades []string
+	var activeUpgrade string
+	q := "SELECT (uuid) FROM upgrade_info WHERE completed_at IS NULL"
+
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		q := "SELECT (uuid) FROM upgrade_info WHERE completed_at IS NULL"
-		rows, err := tx.QueryContext(ctx, q)
-		if err != nil && err != sql.ErrNoRows {
+		row := tx.QueryRowContext(ctx, q)
+		if err := row.Err(); err != nil {
 			return errors.Trace(err)
 		}
-		defer func() { _ = rows.Close() }()
-
-		for rows.Next() {
-			var uuid string
-			if err := rows.Scan(&uuid); err != nil {
-				return errors.Trace(err)
-			}
-			activeUpgrades = append(activeUpgrades, uuid)
+		if err := row.Scan(&activeUpgrade); err != nil {
+			return errors.Trace(err)
 		}
-		return rows.Err()
+		return nil
 	})
-	return activeUpgrades, errors.Trace(err)
+	return activeUpgrade, errors.Trace(err)
 }

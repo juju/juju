@@ -376,6 +376,9 @@ CREATE TABLE upgrade_info (
     completed_at     TIMESTAMP
 );
 
+-- A unique constraint over a contant index ensures only 1 entry matching the condition can exist
+CREATE UNIQUE INDEX idx_singleton_active_upgrade ON upgrade_info ((1)) WHERE completed_at IS NULL;
+
 CREATE TABLE upgrade_info_controller_node (
     uuid                      TEXT PRIMARY KEY,
     controller_node_id        TEXT NOT NULL,

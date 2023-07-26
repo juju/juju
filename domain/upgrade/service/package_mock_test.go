@@ -35,19 +35,19 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
-// ActiveUpgrades mocks base method.
-func (m *MockState) ActiveUpgrades(arg0 context.Context) ([]string, error) {
+// ActiveUpgrade mocks base method.
+func (m *MockState) ActiveUpgrade(arg0 context.Context) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ActiveUpgrades", arg0)
-	ret0, _ := ret[0].([]string)
+	ret := m.ctrl.Call(m, "ActiveUpgrade", arg0)
+	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ActiveUpgrades indicates an expected call of ActiveUpgrades.
-func (mr *MockStateMockRecorder) ActiveUpgrades(arg0 interface{}) *gomock.Call {
+// ActiveUpgrade indicates an expected call of ActiveUpgrade.
+func (mr *MockStateMockRecorder) ActiveUpgrade(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActiveUpgrades", reflect.TypeOf((*MockState)(nil).ActiveUpgrades), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActiveUpgrade", reflect.TypeOf((*MockState)(nil).ActiveUpgrade), arg0)
 }
 
 // AllProvisionedControllersReady mocks base method.

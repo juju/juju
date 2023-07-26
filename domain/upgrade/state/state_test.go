@@ -8,6 +8,7 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
@@ -88,6 +89,14 @@ func (s *stateSuite) TestCreateUpgrade(c *gc.C) {
 		CreatedAt:       upgradeInfo.CreatedAt,
 	})
 	c.Check(nodeInfos, gc.HasLen, 0)
+}
+
+func (s *stateSuite) TestCreateUpgradeAlreadyExists(c *gc.C) {
+	_, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.st.CreateUpgrade(context.Background(), version.MustParse("4.0.0"), version.MustParse("4.0.1"))
+	c.Assert(database.IsErrConstraintUnique(err), jc.IsTrue)
 }
 
 func (s *stateSuite) TestSetControllerReady(c *gc.C) {
@@ -211,7 +220,7 @@ func (s *stateSuite) TestStartUpgradeIdempotent(c *gc.C) {
 func (s *stateSuite) TestStartUpgradeBeforeCreated(c *gc.C) {
 	uuid := utils.MustNewUUID().String()
 	err := s.st.StartUpgrade(context.Background(), uuid)
-	c.Assert(err, gc.ErrorMatches, sql.ErrNoRows.Error())
+	c.Assert(errors.Is(err, sql.ErrNoRows), jc.IsTrue)
 }
 
 func (s *stateSuite) TestSetControllerDone(c *gc.C) {
@@ -251,9 +260,8 @@ func (s *stateSuite) TestSetControllerDoneCompleteUpgrade(c *gc.C) {
 	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', 1)")
 	c.Assert(err, jc.ErrorIsNil)
 
-	activeUpgrades, err := s.st.ActiveUpgrades(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(activeUpgrades, gc.HasLen, 0)
+	_, err = s.st.ActiveUpgrade(context.Background())
+	c.Assert(errors.Is(err, sql.ErrNoRows), jc.IsTrue)
 
 	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -265,16 +273,15 @@ func (s *stateSuite) TestSetControllerDoneCompleteUpgrade(c *gc.C) {
 	err = s.st.SetControllerDone(context.Background(), uuid, "0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	activeUpgrades, err = s.st.ActiveUpgrades(context.Background())
+	activeUpgrade, err := s.st.ActiveUpgrade(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(activeUpgrades, gc.HasLen, 1)
+	c.Check(activeUpgrade, gc.Not(gc.Equals), "")
 
 	err = s.st.SetControllerDone(context.Background(), uuid, "1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	activeUpgrades, err = s.st.ActiveUpgrades(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(activeUpgrades, gc.HasLen, 0)
+	_, err = s.st.ActiveUpgrade(context.Background())
+	c.Assert(errors.Is(err, sql.ErrNoRows), jc.IsTrue)
 }
 
 func (s *stateSuite) TestSetControllerDoneCompleteUpgradeEmptyCompletedAt(c *gc.C) {
@@ -297,41 +304,27 @@ WHERE  upgrade_info_uuid = ?
        AND controller_node_id = 0`, uuid)
 	c.Assert(err, jc.ErrorIsNil)
 
-	activeUpgrades, err := s.st.ActiveUpgrades(context.Background())
+	activeUpgrade, err := s.st.ActiveUpgrade(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(activeUpgrades, gc.HasLen, 1)
+	c.Assert(activeUpgrade, gc.Not(gc.Equals), "")
 
 	err = s.st.SetControllerDone(context.Background(), uuid, "1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	activeUpgrades, err = s.st.ActiveUpgrades(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(activeUpgrades, gc.HasLen, 0)
+	_, err = s.st.ActiveUpgrade(context.Background())
+	c.Assert(errors.Is(err, sql.ErrNoRows), jc.IsTrue)
 }
 
 func (s *stateSuite) TestActiveUpgradesNoUpgrades(c *gc.C) {
-	activeUpgrades, err := s.st.ActiveUpgrades(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(activeUpgrades, gc.HasLen, 0)
+	_, err := s.st.ActiveUpgrade(context.Background())
+	c.Assert(errors.Is(err, sql.ErrNoRows), jc.IsTrue)
 }
 
 func (s *stateSuite) TestActiveUpgradesSingular(c *gc.C) {
 	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	activeUpgrades, err := s.st.ActiveUpgrades(context.Background())
+	activeUpgrade, err := s.st.ActiveUpgrade(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(activeUpgrades, gc.DeepEquals, []string{uuid})
-}
-
-func (s *stateSuite) TestActiveUpgradesMultiple(c *gc.C) {
-	_, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.1"), version.MustParse("3.0.2"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	activeUpgrades, err := s.st.ActiveUpgrades(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(activeUpgrades, gc.HasLen, 2)
+	c.Check(activeUpgrade, gc.Equals, uuid)
 }
